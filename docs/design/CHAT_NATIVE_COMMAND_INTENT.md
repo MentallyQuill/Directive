@@ -289,7 +289,7 @@ Acceptable fallback uses:
 
 - developer diagnostics;
 - accessibility or keyboard-only fallback when chat interception is unavailable;
-- host parity fallback during Lumiverse migration;
+- future-host fallback while a new adapter reaches chat-native parity;
 - automated smoke tests;
 - explicit "manual turn input" debug mode.
 
@@ -388,11 +388,11 @@ The host adapter should:
 - hold or annotate outgoing generation only when a warning, clarification, or confirmation must happen first;
 - let normal narration proceed when no Directive turn is needed.
 
-### Lumiverse
+### Future Hosts
 
-Lumiverse should use the same engine contract once its host adapter can supply equivalent player-message events and generation hooks.
+Future hosts, including possible Lumiverse support, should use the same engine contract once their adapters can supply equivalent player-message events and generation hooks.
 
-Until parity exists, Lumiverse may retain a manual preview action as a temporary host fallback. The design target remains chat-native.
+Until parity exists, a future host may retain a manual preview action as a temporary host fallback. The design target remains chat-native.
 
 ## Authoring Implications
 

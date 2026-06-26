@@ -8,7 +8,7 @@ Directive is pre-alpha. LCARS is the governing visual language for UI concept ar
 
 ## Purpose
 
-Directive should feel like a Starfleet command console embedded inside SillyTavern and Lumiverse, not a generic web dashboard with Star Trek labels. Every GPT Image 2 concept prompt for Directive UI work must revolve around an original LCARS-inspired interface system.
+Directive should feel like a Starfleet command console embedded inside SillyTavern, not a generic web dashboard with Star Trek labels. Every GPT Image 2 concept prompt for Directive UI work must revolve around an original LCARS-inspired interface system.
 
 The goal is to develop the recognizable LCARS language into a usable modern extension UI:
 
@@ -67,9 +67,9 @@ When Saga and LCARS conflict, preserve Saga's usability pattern and express it t
 
 ## Navigation Decision
 
-Directive's primary route navigation belongs in a persistent left command spine on desktop and tablet in both SillyTavern and Lumiverse. Selecting a route opens one drawer to the right; selecting the active route again collapses it. The drawer is resizable from its bottom-left corner and may enter a temporary full-screen workspace when a dense task requires it.
+Directive's primary route navigation belongs in a persistent left command spine on desktop and tablet in SillyTavern. Selecting a route opens one drawer to the right; selecting the active route again collapses it. The drawer is resizable from its bottom-left corner and may enter a temporary full-screen workspace when a dense task requires it.
 
-The drawer header is not a duplicate primary menu. It is reserved for route identity, state/status cues, collapse, and expand/restore actions. Page-local tabs, filters, and segmented controls may live inside drawer content when they make a dense workflow easier to scan. At phone width, the spine yields to the established bottom route bar. Lumiverse must use the same shell model; host permission differences affect only how the shelf is mounted.
+The drawer header is not a duplicate primary menu. It is reserved for route identity, state/status cues, collapse, and expand/restore actions. Page-local tabs, filters, and segmented controls may live inside drawer content when they make a dense workflow easier to scan. At phone width, the spine yields to the established bottom route bar. Future hosts should use the same shell model; host permission differences should affect only how the shelf is mounted.
 
 ## Core LCARS Principles
 
@@ -159,7 +159,7 @@ Acceptance checks:
 - Text remains readable at desktop and phone width.
 - Touch targets are stable and not crowded.
 - Decorative bars do not pretend to be unavailable controls.
-- The result still works inside SillyTavern and Lumiverse host constraints.
+- The result works inside SillyTavern host constraints and does not assume a future host-specific fork.
 - The surface remains Saga-informed in flow while visually LCARS-led.
 
 The principle is: Saga informs how Directive moves; LCARS defines what Directive looks like; UX decides whether the result is accepted.

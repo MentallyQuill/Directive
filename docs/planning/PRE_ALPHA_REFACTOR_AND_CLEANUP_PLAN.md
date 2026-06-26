@@ -574,6 +574,42 @@ node tools\scripts\verify-repo-structure.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
 
+Phase 1 completion note, 2026-06-26:
+
+- Removed active Lumiverse support, the root Lumiverse descriptor, Lumiverse host modules, Lumiverse tests, Lumiverse live smoke, Lumiverse user docs, and the Lumiverse render artifact.
+- Removed the retired compact shell source and compact-shell-only CSS/test/capture-script references while preserving command-spine mobile bottom navigation.
+- Replaced the dual-host scaffold gate with `tools/scripts/test-host-scaffold.mjs`, keeping SillyTavern plus fake-host contract coverage.
+- Updated active README, user, technical, testing, architecture, design, release, and source README docs to describe the pre-alpha as SillyTavern-only with possible future host support after alpha stabilization.
+- Fixed the Phase 1 verification fallout in `threadPlayerSummaries`, so malformed hidden latent thread seeds cannot abort player-safe prompt-context assembly while visible thread records remain strictly normalized.
+- Updated the live SillyTavern smoke harness to use shell route markers instead of fragile route-body text, accept Crew's `Personnel` panel heading, ignore absolute panel backdrop art in media-size diagnostics, and use an achievable wide resize-sweep height for a 1280x900 live viewport.
+
+Phase 1 verification completed:
+
+```powershell
+node tools\scripts\test-host-scaffold.mjs
+node tools\scripts\test-thread-ledger.mjs
+node tools\scripts\test-player-safe-prompt-context.mjs
+node tools\scripts\test-open-world-docs-contract.mjs
+node tools\scripts\verify-repo-structure.mjs
+node tools\scripts\run-alpha-gate.mjs
+```
+
+Live SillyTavern verification completed after syncing `F:\git\Directive` into `F:\SillyTavern\SillyTavern\data\default-user\extensions\Directive`:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+$env:DIRECTIVE_SILLYTAVERN_SCREENSHOTS='1'
+$env:DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_STORAGE='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
 ### Phase 2: Package Contract And Metadata Cleanup
 
 Work:

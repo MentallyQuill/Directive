@@ -2,11 +2,9 @@
 
 ## Status
 
-Phase 1 is implemented for the shared SillyTavern and Lumiverse runtime shell.
+Phase 1 is implemented for the SillyTavern runtime shell. Earlier Lumiverse parity notes in this document are historical and superseded by the pre-alpha SillyTavern-only cleanup.
 
 Directive now opens as a persistent left-side LCARS command spine with one route drawer at a time. The drawer is resizable from its bottom-left handle, its geometry is remembered locally, and dense workflows can enter a full-screen workspace without making full screen the normal operating mode.
-
-The Lumiverse frontend now mounts the same `runtime-shell.js` command-spine contract through a Spindle app overlay. The drawer tab is only a launcher/reopen affordance, not the primary UI surface.
 
 ## Shell Contract
 
@@ -57,7 +55,7 @@ The storage key is `directive.runtime.commandSpine.layout.v1`. Full-screen state
 
 - `src/ui/directive-command-spine-shell.js` builds the spine, drawer header, mobile fallback, and resize handles.
 - `src/ui/directive-shell-layout.mjs` owns default geometry, viewport constraints, and local persistence.
-- `src/runtime/runtime-shell.js` owns route selection, single-drawer behavior, resizing, full-screen escalation, keyboard handling, panel rendering, and the host-provided mount root used by Lumiverse.
+- `src/runtime/runtime-shell.js` owns route selection, single-drawer behavior, resizing, full-screen escalation, keyboard handling, panel rendering, and the host-provided mount root used by SillyTavern.
 - Route panels remain focused renderers and do not own primary navigation or shell geometry.
 - `styles/directive.css` contains the final command-spine cascade and compact drawer adaptations.
 
@@ -81,7 +79,7 @@ The shelf may show only player-safe status. Hidden relationship values, Director
 
 Phase 1 is complete when deterministic tests prove:
 
-- the SillyTavern and Lumiverse runtimes mount the command-spine shell,
+- the SillyTavern runtime mounts the command-spine shell,
 - the initial surface is the collapsed compact spine,
 - only one route drawer is active,
 - the default open footprint is approximately half the display,
@@ -96,5 +94,4 @@ Phase 1 is complete when deterministic tests prove:
 
 - Run a live SillyTavern visual smoke against the new desktop shell and capture route screenshots at compact, resized, and full-screen sizes.
 - Tune individual route panels from live screenshots, especially Mission, Crew, and Settings at minimum drawer width.
-- Run a live Lumiverse browser smoke against the app-overlay command-spine shell and capture parity screenshots once local credentials and browser control are available.
 - Run the updated command-spine geometry assertions against a real SillyTavern browser session and retain the phone-width checks as part of release validation.

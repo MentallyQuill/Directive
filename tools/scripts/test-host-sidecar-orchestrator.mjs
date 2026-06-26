@@ -11,7 +11,7 @@ function createHost({ id, batchConcurrent }) {
   const ui = createFakeUiAdapter();
   const host = normalizeDirectiveHost({
     id,
-    displayName: id === 'lumiverse' ? 'Lumiverse' : 'SillyTavern',
+    displayName: id === 'fake' ? 'Fake Batch Host' : 'SillyTavern',
     capabilities: createHostCapabilities({
       storage: {
         json: true
@@ -80,13 +80,13 @@ const jobs = [
   }
 ];
 
-const lumiverse = createHost({
-  id: 'lumiverse',
+const batchHost = createHost({
+  id: 'fake',
   batchConcurrent: true
 });
 const progress = [];
 const concurrent = await runHostSidecarJobs({
-  host: lumiverse.host,
+  host: batchHost.host,
   jobs,
   current: {
     campaignId: 'campaign-1',
@@ -97,12 +97,12 @@ const concurrent = await runHostSidecarJobs({
   onProgress: (event) => progress.push(event)
 });
 assert.equal(concurrent.strategy, 'concurrent');
-assert.equal(concurrent.hostId, 'lumiverse');
+assert.equal(concurrent.hostId, 'fake');
 assert.equal(concurrent.results.every((result) => result.status === 'complete'), true);
-assert.ok(lumiverse.maxActive() > 1, 'Lumiverse-capable host should run sidecars concurrently');
-assert.equal(progress[0].hostId, 'lumiverse');
-assert.equal(lumiverse.ui.messages()[0].type, 'progress');
-assert.equal(lumiverse.ui.messages()[0].payload.hostId, 'lumiverse');
+assert.ok(batchHost.maxActive() > 1, 'batch-capable fake host should run sidecars concurrently');
+assert.equal(progress[0].hostId, 'fake');
+assert.equal(batchHost.ui.messages()[0].type, 'progress');
+assert.equal(batchHost.ui.messages()[0].payload.hostId, 'fake');
 
 const sillytavern = createHost({
   id: 'sillytavern',

@@ -6,7 +6,7 @@ This document is the canonical interface direction for Directive.
 
 The concept images in `docs/design/reference-concepts/` supersede the older generated material under `docs/design/visual-targets/` wherever the two conflict. The older visual-target folders remain historical iteration records, not current acceptance targets.
 
-The design bible governs both SillyTavern and Lumiverse surfaces. Host constraints may change density and available controls, but they must not create a separate visual language.
+The design bible governs the active SillyTavern surface. Future host adapters may change mounting constraints, but they must not create a separate visual language.
 
 ## Product Character
 
@@ -202,9 +202,9 @@ Recovery actions should be contextual to a specific failure or state-repair work
 - diagnostics summary and repair controls;
 - Theme Pack and Icon Pack controls remain the intended customization path as those systems mature.
 
-## Lumiverse Parity
+## Future Host Parity
 
-Lumiverse uses the same shared command-spine shell as SillyTavern: one floating shelf, one resizable route drawer, the same route order, the same color grammar, and the same action hierarchy. The Lumiverse drawer tab is only a launcher/reopen affordance. The trusted Lumiverse frontend may receive the full runtime view required by the shared panels; tools, interceptors, and prompt blocks still receive only player-safe summaries.
+Future host adapters, including possible Lumiverse support, should use the same command-spine product model as SillyTavern: one floating shelf, one resizable route drawer, the same route order, the same color grammar, and the same action hierarchy. Host-specific launchers should be only launcher/reopen affordances. Trusted host frontends may receive the full runtime view required by shared panels; tools, interceptors, and prompt blocks must receive only player-safe summaries.
 
 Minimum parity requirements:
 
@@ -212,7 +212,7 @@ Minimum parity requirements:
 - route-specific Campaign, Mission, Crew, Ship, Log, and Settings panels through the shared runtime shell;
 - campaign initialize, quick start, load, save, preview, commit, sidecar, and Open Orders actions;
 - persistent floating command shelf and drawer controls;
-- no Lumiverse-only generic white dashboard styling;
+- no future-host-only generic white dashboard styling;
 - player-safe information boundaries identical to SillyTavern.
 
 ## Interaction And Accessibility
@@ -229,7 +229,7 @@ Minimum parity requirements:
 
 A surface is accepted when:
 
-- it reads as the same Directive product on mobile, desktop, SillyTavern, and Lumiverse;
+- it reads as the same Directive product on mobile, desktop, SillyTavern, and any future host;
 - the next useful action is clear in the first viewport;
 - no text overlaps, clips, or becomes illegible at 390-430 px;
 - desktop content uses available width to reduce unnecessary scrolling;

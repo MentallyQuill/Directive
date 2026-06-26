@@ -6,14 +6,7 @@ const TESTS = Object.freeze([
   'tools/scripts/test-host-import-boundaries.mjs',
   'tools/scripts/test-sillytavern-generation-client.mjs',
   'tools/scripts/test-sillytavern-host-factory.mjs',
-  'tools/scripts/test-lumiverse-storage-adapter.mjs',
-  'tools/scripts/test-lumiverse-generation-client.mjs',
-  'tools/scripts/test-lumiverse-events-adapter.mjs',
-  'tools/scripts/test-lumiverse-interceptor-adapter.mjs',
-  'tools/scripts/test-lumiverse-prompt-blocks.mjs',
-  'tools/scripts/test-lumiverse-tools-adapter.mjs',
-  'tools/scripts/test-lumiverse-host-factory.mjs',
-  'tools/scripts/test-lumiverse-entrypoints.mjs',
+  'tools/scripts/test-sillytavern-file-api.mjs',
   'tools/scripts/test-generation-router.mjs',
   'tools/scripts/test-prompt-injection-safety.mjs',
   'tools/scripts/test-sidecar-job-runner.mjs',
@@ -36,9 +29,9 @@ for (const testPath of TESTS) {
     process.stderr.write(result.stderr);
   }
   if (result.status !== 0) {
-    process.stderr.write(`Dual-host scaffold test failed: ${testPath}\n`);
+    process.stderr.write(`Host scaffold test failed: ${testPath}\n`);
     process.exit(result.status || 1);
   }
 }
 
-console.log('Dual-host scaffold tests passed.');
+console.log('Host scaffold tests passed.');

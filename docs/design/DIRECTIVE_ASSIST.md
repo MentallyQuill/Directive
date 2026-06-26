@@ -516,7 +516,7 @@ Tests should cover:
 - assist result does not mutate campaign state;
 - apply/cancel/input recovery behavior;
 - final sent chat is still routed to Mission Director interpretation;
-- Lumiverse fallback behavior if the chat-input button is unavailable.
+- fallback behavior if the SillyTavern chat-input button is unavailable.
 
 ## Non-Goals
 

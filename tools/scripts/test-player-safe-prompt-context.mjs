@@ -12,10 +12,33 @@ import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const canary = 'HIDDEN_CANARY_9bcae51f';
+
+function findBundledPackagePairs() {
+  const bundledRoot = path.resolve(root, 'packages/bundled');
+  return fs.readdirSync(bundledRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(bundledRoot, entry.name))
+    .map((dir) => {
+      const files = fs.readdirSync(dir);
+      return {
+        dir,
+        packagePath: files.find((file) => file.endsWith('.campaign-package.json')),
+        projectionPath: files.find((file) => file.endsWith('.campaign-projection.json')),
+        crewDatasetPath: files.find((file) => file.endsWith('.crew-dataset.json'))
+      };
+    })
+    .filter((entry) => entry.packagePath && entry.projectionPath && entry.crewDatasetPath)
+    .map((entry) => ({
+      packagePath: path.relative(root, path.join(entry.dir, entry.packagePath)),
+      projectionPath: path.relative(root, path.join(entry.dir, entry.projectionPath)),
+      crewDatasetPath: path.relative(root, path.join(entry.dir, entry.crewDatasetPath))
+    }));
+}
 
 let state = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
 state.campaign = {
@@ -97,7 +120,7 @@ const scene = {
   relevantFactIds: ['visible-fact', 'hidden-fact'],
   currentQuestion: 'How will the new XO establish command rhythm?',
   immediateStakes: 'The senior staff is assessing the new command relationship.',
-  presentCharacterIds: ['mara-whitaker', 'player-commander'],
+  presentCharacterIds: ['mara-whitaker', 'hadrik-bronn', 'player-commander'],
   availableDecisionPointIds: ['decision.arrival-tone'],
   directorNotes: canary
 };
@@ -130,6 +153,9 @@ assert.equal(packetJson.includes('A relief convoy is overdue.'), true);
 assert.equal(projectionJson.includes('Talk to department heads before arrival.'), true);
 assert.equal(packetJson.includes('Port sensor pallet is degraded.'), true);
 assert.equal(packetJson.includes('Professionally supportive, with reservations.'), true);
+assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn (Tellarite), Chief Tactical and Security Officer'), true);
+assert.equal(packetJson.includes('age: Late fifties by human comparison.'), true);
+assert.equal(packetJson.includes('a human male in his early forties'), false);
 assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), true);
 assert.equal(projectionJson.includes('Acting bridge watch officer'), true);
 assert.equal(playerProjection.scene.directorNotes, undefined);
@@ -178,5 +204,43 @@ state = recordPromptContextRevision(state, packet, {
 });
 const rebuilt = buildPlayerSafePromptContext({ campaignState: state, packageData, crewDataset, scene });
 assert.equal(rebuilt.revision > packet.revision, true);
+
+for (const pair of findBundledPackagePairs()) {
+  const bundledPackage = readJson(pair.packagePath);
+  const bundledProjection = readJson(pair.projectionPath);
+  const bundledCrewDataset = readJson(pair.crewDatasetPath);
+  const bundledState = initializeCampaignRuntimeTracking(cloneJson(bundledProjection.initialState));
+  bundledState.campaign = {
+    ...bundledState.campaign,
+    id: `campaign-sweep-${bundledPackage.manifest.id}`,
+    status: 'active'
+  };
+  const presentCrew = bundledPackage.crew.senior
+    .filter((crew) => crew.id !== 'player-commander')
+    .map((crew) => crew.id);
+  const bundledPacket = buildPlayerSafePromptContext({
+    campaignState: bundledState,
+    packageData: bundledPackage,
+    crewDataset: bundledCrewDataset,
+    scene: {
+      missionTitle: 'Bundled crew identity sweep',
+      phaseLabel: 'Identity Guard',
+      presentCharacterIds: presentCrew
+    },
+    createdAt: '2026-06-22T00:00:00.000Z'
+  });
+  const relevantCrewBlock = bundledPacket.blocks.find((block) => block.id === 'relevant-crew');
+  assert(relevantCrewBlock, `${pair.packagePath} should include relevant crew context`);
+  for (const crew of bundledPackage.crew.senior.filter((entry) => entry.id !== 'player-commander')) {
+    assert.match(relevantCrewBlock.content, new RegExp(`\\b${escapeRegex(crew.name)}\\b`), `${pair.packagePath} missing ${crew.name}`);
+    assert.match(relevantCrewBlock.content, new RegExp(`\\(${escapeRegex(crew.species)}\\)`), `${pair.packagePath} missing ${crew.name} species`);
+    assert.match(relevantCrewBlock.content, new RegExp(escapeRegex(crew.rank)), `${pair.packagePath} missing ${crew.name} rank`);
+    assert.equal(Boolean(crew.publicProfile), true, `${pair.packagePath} missing ${crew.name} public profile data`);
+    const defaultProfile = `${crew.rank} ${crew.name} is ${crew.species}, ${crew.billet}.`;
+    if (crew.publicProfile !== defaultProfile) {
+      assert.equal(relevantCrewBlock.content.includes(crew.publicProfile), true, `${pair.packagePath} missing ${crew.name} non-default public profile`);
+    }
+  }
+}
 
 console.log('Player-safe prompt context tests passed: explicit selectors, hidden canary exclusion, stable blocks, and monotonic revisions');

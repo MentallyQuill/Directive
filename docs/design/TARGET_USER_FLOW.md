@@ -179,7 +179,7 @@ The campaign save remains authoritative. The fresh chat transcript is the play s
 
 Immediately after campaign activation, Directive should install active campaign prompt context for the bound chat.
 
-In SillyTavern, this should use host prompt APIs such as `setExtensionPrompt` or the current equivalent prompt-manager surface. In Lumiverse, it should use the interceptor path.
+In SillyTavern, this should use host prompt APIs such as `setExtensionPrompt` or the current equivalent prompt-manager surface. Future hosts should implement equivalent prompt injection only after the SillyTavern alpha contract is stable.
 
 ## Active Campaign Prompt Context
 

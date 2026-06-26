@@ -127,6 +127,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "commanding-officer-in-quarantine",
+        "publicProfile": "Captain Maia Dorel is Human, Commanding Officer.",
         "publicRole": "commanding-officer-in-quarantine",
         "playerSafeSummary": "A calm, persuasive relief commander known for trusting local institutions and accepting operational ambiguity when lives are at stake. She remains legal captain but begins the campaign medically quarantined after K-17 exposure."
       },
@@ -139,6 +140,7 @@
         "species": "Trill",
         "status": "locked",
         "packageRole": "operations-and-second-officer",
+        "publicProfile": "Lieutenant Commander Rinn Sorell is Trill, Chief Operations Officer and Second Officer.",
         "publicRole": "operations-and-second-officer",
         "playerSafeSummary": "Efficient, candid, and strongly mission-focused. Sorell kept the Celandine operating through wartime relief rotations and expected to become Executive Officer before the player appointment."
       },
@@ -151,6 +153,7 @@
         "species": "Vulcan",
         "status": "locked",
         "packageRole": "science-chief",
+        "publicProfile": "Lieutenant Commander Sovek is Vulcan, Chief Science Officer and Xenobotanist.",
         "publicRole": "science-chief",
         "playerSafeSummary": "A precise xenobotanist who refuses to overstate data and helped evaluate K-17 emergency use during the war. He now leads the scientific transition effort."
       },
@@ -163,6 +166,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "engineering-chief",
+        "publicProfile": "Lieutenant Commander Anika Bost is Human, Chief Engineer.",
         "publicRole": "engineering-chief",
         "playerSafeSummary": "Inventive, sociable, and unusually attentive to civilian maintainers. Bost treats relief infrastructure as equipment that must be repaired by people who will still be present after Starfleet leaves."
       },
@@ -175,6 +179,7 @@
         "species": "Andorian",
         "status": "locked",
         "packageRole": "security-chief",
+        "publicProfile": "Lieutenant Commander Thena zh’Aris is Andorian, Chief Tactical and Security Officer.",
         "publicRole": "security-chief",
         "playerSafeSummary": "Restrained, skeptical, and experienced with relief theft, convoy ambush, and black-market biotechnology. She prefers defined access and accountable custody over broad reassurance."
       },
@@ -187,6 +192,7 @@
         "species": "Bajoran",
         "status": "locked",
         "packageRole": "medical-chief",
+        "publicProfile": "Lieutenant Commander Calen Varo is Bajoran, Chief Medical Officer.",
         "publicRole": "medical-chief",
         "playerSafeSummary": "Direct, compassionate, and protective of informed consent. Varo controls Dorel medical clearance and the cluster quarantine standard."
       },
@@ -199,6 +205,7 @@
         "species": "Betazoid",
         "status": "locked",
         "packageRole": "flight-chief",
+        "publicProfile": "Lieutenant Nomi Keth is Betazoid, Chief Flight Control Officer.",
         "publicRole": "flight-chief",
         "playerSafeSummary": "Alert, understated, and highly capable in atmospheric and low-altitude agricultural operations. Keth flies repeated field overpasses and aid drops."
       },
@@ -211,6 +218,7 @@
         "species": "Tellarite",
         "status": "locked",
         "packageRole": "relief-deck-chief",
+        "publicProfile": "Chief Petty Officer Emet Raal is Tellarite, Cargo and Relief Deck Chief.",
         "publicRole": "relief-deck-chief",
         "playerSafeSummary": "Blunt, meticulous, and respected by civilian dock crews. Raal knows that manifests and storage losses determine who eats long before policy becomes a speech."
       }

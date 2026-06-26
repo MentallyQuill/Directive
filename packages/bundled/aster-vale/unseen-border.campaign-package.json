@@ -133,6 +133,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "commanding-officer",
+        "publicProfile": "Captain Idris Kellan is Human, Commanding Officer.",
         "publicRole": "commanding-officer",
         "playerSafeSummary": "A patient frontier captain with years of practical border relationships. He remains legal commanding officer but begins the campaign ashore under inquiry and delegates the first Lacuna patrol to the new XO."
       },
@@ -145,6 +146,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Lyra Chen is Human, Chief Operations Officer and Second Officer.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "A concise, highly reliable operations officer who held the ship together during the XO vacancy and expected to be promoted into the billet."
       },
@@ -157,6 +159,7 @@
         "species": "Bajoran",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Sima Taren is Bajoran, Chief Science Officer and Cartographer.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "A skeptical cartographer who respects local pilot knowledge and believes data erasure can be a form of institutional violence."
       },
@@ -169,6 +172,7 @@
         "species": "Andorian",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Neral th'Zor is Andorian, Chief Tactical and Security Officer.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "A disciplined security officer who treats uncontrolled crossings, forged identities, and uncertain rules of engagement as strategic vulnerabilities."
       },
@@ -181,6 +185,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Omar Venn is Human, Chief Engineer.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "A calm, inventive engineer who dislikes bureaucratic theater and maintained the hardware Halden modified before she vanished."
       },
@@ -193,6 +198,7 @@
         "species": "Trill",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Tavra Nesh is Trill, Chief Medical Officer.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "A direct physician with strong legal instincts who treats patient confidentiality and asylum screening as command issues rather than administrative details."
       },
@@ -205,6 +211,7 @@
         "species": "Betazoid",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Ilan Korev is Betazoid, Chief Flight Control Officer.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "An observant, informal pilot skilled at low-signature navigation and local route reading. He flew undocumented patrols with Halden and kept parts of her standing orders private."
       },
@@ -217,6 +224,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Chief Petty Officer Mara Dey is Human, Chief of the Boat and Boarding-Team Coordinator.",
         "publicRole": "senior-staff",
         "playerSafeSummary": "A practical, respected senior enlisted leader who sees how route policy becomes searches, frightened passengers, brig capacity, and exhausted watchstanders."
       }

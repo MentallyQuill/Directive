@@ -12,7 +12,7 @@ Current implementation status:
 - The Character Creator now uses a guided stepper with locked future steps, compact route/save/navigation controls, **Campaign Library**, and **Discard Character**.
 - Review dossier fallback is implemented locally and does not require a provider.
 - Section-header wand generation is implemented through the Reasoning-lane `characterCreatorSectionDraft` role, with local fallback, field validation, hidden-term redaction, and preview/apply behavior for partial sections.
-- Player portrait import is implemented for hosts with passive media storage support. SillyTavern supports it through `/user/files`; Lumiverse currently reports portrait import as unsupported until a binary/passive media storage route exists.
+- Player portrait import is implemented through SillyTavern `/user/files` passive media storage. Future hosts should provide an equivalent passive media route before enabling portrait import.
 - Crew can change or remove only the player-character portrait. Bundled senior-staff portraits remain package-owned and read-only.
 
 ## Goals
@@ -472,7 +472,7 @@ Add a focused media asset layer that can:
 
 The SillyTavern path can build on [file-api.mjs](../../src/hosts/sillytavern/file-api.mjs), which already wraps `/api/files/upload`, `/api/files/verify`, and `/api/files/delete`. The repository-facing contract should still keep UI panels from calling host upload endpoints directly.
 
-The Lumiverse path should use the host storage/media capability available there. If Lumiverse only supports JSON storage in the first slice, the portrait action should be disabled or reported as unsupported in that host until binary/passive media storage is implemented.
+Future host paths should use their host storage/media capability. If a host only supports JSON storage in its first slice, the portrait action should remain disabled or report unsupported until binary/passive media storage is implemented.
 
 ### Image Processing
 

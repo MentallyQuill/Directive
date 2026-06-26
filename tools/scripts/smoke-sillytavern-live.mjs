@@ -94,6 +94,14 @@ const ROUTE_IDS = Object.freeze({
   Log: 'log',
   Settings: 'settings'
 });
+const ROUTE_PANEL_HEADINGS = Object.freeze({
+  Campaign: ['Campaign'],
+  Mission: ['Mission'],
+  Crew: ['Crew', 'Personnel'],
+  Ship: ['Ship'],
+  Log: ['Log'],
+  Settings: ['Settings']
+});
 
 const SAVE_INDEX_USER_FILES_PATH = toSillyTavernUserFilesPath(DIRECTIVE_LOGICAL_STORAGE_KEYS.saveIndex);
 let bootstrappedRequestAuth = null;
@@ -1837,7 +1845,9 @@ async function navigateDirectiveRoute(page, label) {
       selected
       && selected.getAttribute('aria-selected') === 'true'
       && body
-      && String(body.textContent || '').includes(routeLabel)
+      && panel?.dataset?.activeRoute === routeId
+      && body.dataset.directiveTour === `route-body.${routeId}`
+      && body.children.length > 0
     );
   }, {
     routeId: tabId,
@@ -1858,10 +1868,15 @@ async function verifyBrowserRoutes(page) {
   for (const label of REQUIRED_ROUTES) {
     const navigation = await navigateDirectiveRoute(page, label);
     const snapshot = await panelSnapshot(page);
+    const allowedHeadings = ROUTE_PANEL_HEADINGS[label] || [label];
     assertBrowser(snapshot.selectedRouteId === navigation.routeId, `Route "${label}" did not become selected.`, snapshot);
-    assertBrowser(snapshot.headings.includes(label), `Route "${label}" did not render its panel heading.`, snapshot);
     assertBrowser(snapshot.shellTitle === label, `Route "${label}" did not update the shell title label.`, snapshot);
     assertBrowser(snapshot.routeContext === label, `Route "${label}" did not update the shell context label.`, snapshot);
+    assertBrowser(
+      allowedHeadings.some((heading) => snapshot.headings.includes(heading)),
+      `Route "${label}" did not render an accepted panel heading.`,
+      { ...snapshot, acceptedHeadings: allowedHeadings }
+    );
     if (label === 'Settings') {
       assertBrowser(snapshot.stateSafetyControls.section, 'Settings did not render State Safety controls.', snapshot);
       assertBrowser(snapshot.stateSafetyControls.verify, 'Settings did not render Verify Active Save.', snapshot);
@@ -4906,7 +4921,7 @@ function drawerResizeSweepSizes() {
   return [
     { id: 'compact', width: 460, height: 560 },
     { id: 'standard', width: 720, height: 660 },
-    { id: 'wide', width: 980, height: 740 }
+    { id: 'wide', width: 980, height: 640 }
   ];
 }
 
@@ -5102,9 +5117,13 @@ async function routeVisualDiagnostics(page) {
     const mediaBounds = Array.from(body?.querySelectorAll(mediaSelector) || [])
       .filter(isVisible)
       .map((element) => {
-        const largeMedia = element.matches('.directive-crew-detail-portrait, .directive-ship-hero-media, .directive-campaign-package-visual')
+        const panelBackdrop = element.matches('.directive-starship-command-backdrop, .directive-starship-command-backdrop-image')
+          || Boolean(element.closest('.directive-starship-command-backdrop'));
+        const largeMedia = !panelBackdrop && (
+          element.matches('.directive-crew-detail-portrait, .directive-ship-hero-media, .directive-campaign-package-visual')
           || (element.matches('.directive-media-frame, .directive-media-image')
-            && !element.closest('.directive-crew-roster-row, .directive-ship-command-officer'));
+            && !element.closest('.directive-crew-roster-row, .directive-ship-command-officer'))
+        );
         return {
           selector: element.className || element.tagName,
           largeMedia,
@@ -5181,16 +5200,23 @@ async function runDrawerResizeSweepSmoke(page) {
   await openDirectivePanel(page);
   const captures = [];
   const diagnostics = [];
+  let currentContext = 'resize-sweep/start';
 
   try {
     for (const size of drawerResizeSweepSizes()) {
+      currentContext = `${size.id}/reset`;
       await resetDirectiveRuntimeLayout(page);
+      currentContext = `${size.id}/open`;
       await openDirectivePanel(page);
+      currentContext = `${size.id}/Mission/prepare`;
       await navigateDirectiveRoute(page, 'Mission');
+      currentContext = `${size.id}/resize`;
       const sizeLayout = await resizeDrawerTo(page, size);
       for (const label of REQUIRED_ROUTES) {
+        currentContext = `${size.id}/${label}/navigate`;
         const navigation = await navigateDirectiveRoute(page, label);
         for (const scrollPosition of drawerScrollPositions()) {
+          currentContext = `${size.id}/${label}/${scrollPosition.id}`;
           const scrollMetrics = await setDrawerScrollPosition(page, scrollPosition);
           const layout = await directiveLayoutSnapshot(page);
           assertDirectiveLayout(layout, {
@@ -5236,6 +5262,11 @@ async function runDrawerResizeSweepSmoke(page) {
       captures,
       diagnostics
     };
+  } catch (error) {
+    if (error && typeof error.message === 'string' && !error.message.includes('Resize sweep context:')) {
+      error.message = `Resize sweep context: ${currentContext}. ${error.message}`;
+    }
+    throw error;
   } finally {
     await resetDirectiveRuntimeLayout(page);
     await openDirectivePanel(page);

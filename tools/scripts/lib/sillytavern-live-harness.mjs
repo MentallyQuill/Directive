@@ -58,7 +58,6 @@ export function redactSecrets(value, extraSecrets = []) {
     process.env.SILLYTAVERN_COOKIE,
     process.env.SILLYTAVERN_REQUEST_TOKEN,
     process.env.SILLYTAVERN_AUTH_HEADER,
-    process.env.LUMIVERSE_PASSWORD,
     ...extraSecrets
   ].filter(Boolean);
   for (const secret of secrets) {

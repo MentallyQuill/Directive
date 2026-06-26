@@ -56,15 +56,15 @@ assert.deepEqual(deleted, {
 });
 assert.equal((await adapter.verifyJsonFiles(['saves/save-1.v1.json']))['saves/save-1.v1.json'], false);
 
-const lumiverseStorage = createFakeJsonStorage();
-const lumiverseAdapter = createLogicalStorageAdapter({
-  storage: lumiverseStorage,
-  hostId: 'lumiverse'
+const fakeStorage = createFakeJsonStorage();
+const fakeAdapter = createLogicalStorageAdapter({
+  storage: fakeStorage,
+  hostId: 'fake'
 });
-await lumiverseAdapter.writeJson('jobs/campaign-1/job-1.v1.json', {
+await fakeAdapter.writeJson('jobs/campaign-1/job-1.v1.json', {
   status: 'complete'
 });
-assert.deepEqual(lumiverseStorage.snapshot()['jobs/campaign-1/job-1.v1.json'], {
+assert.deepEqual(fakeStorage.snapshot()['jobs/campaign-1/job-1.v1.json'], {
   status: 'complete'
 });
 

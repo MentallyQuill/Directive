@@ -1,6 +1,6 @@
 # Directive Technical Manual
 
-This manual explains how Directive works behind the curtain. It is written in the "Haynes manual" style: each major system starts with a plain-language explanation, then moves into reusable implementation detail for future Directive work and other host-portable extensions.
+This manual explains how Directive works behind the curtain. It is written in the "Haynes manual" style: each major system starts with a plain-language explanation, then moves into reusable implementation detail for future Directive work and host-adapter work.
 
 This manual combines reusable technical diagrams with final SillyTavern-hosted runtime captures from `assets/documentation/renders/`. Remaining technical-diagram gaps are tracked in [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md).
 
@@ -9,7 +9,7 @@ This manual combines reusable technical diagrams with final SillyTavern-hosted r
 - [Player Turn Sequence](PLAYER_TURN_SEQUENCE.md): full post-to-response lifecycle.
 - [Model Calls And Provider Routing](MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, role routing, authority, and diagnostics.
 - [State Transactions And Recovery](STATE_TRANSACTIONS_AND_RECOVERY.md): campaign revision, snapshots, ledgers, sidecars, saves, edits, deletes, and branches.
-- [Host Integration Manual](HOST_INTEGRATION_MANUAL.md): SillyTavern, Lumiverse, fake host, storage, prompt, generation, and shell boundaries.
+- [Host Integration Manual](HOST_INTEGRATION_MANUAL.md): SillyTavern, fake host, storage, prompt, generation, and shell boundaries.
 - [Chat-Native Runtime Architecture](../architecture/CHAT_NATIVE_RUNTIME.md): architecture record for the implemented runtime spine.
 - [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time header, deterministic time ownership, model sanitization, and planned time-adjudication layer.
 - [Scene Handshake Protocol](../design/SCENE_HANDSHAKE_PROTOCOL.md): implemented settlement pass that turns accepted host prose into source-backed campaign state before normal turn classification.
@@ -45,7 +45,7 @@ The main working domains are:
 | Timekeeping | `src/time/campaign-time-header.mjs` | Deterministic reply-header formatting, stale-header stripping, and prompt-block creation for host-native generation. |
 | Guidance | `src/guidance/directive-guidance.js`, `src/guidance/directive-training-scenario.mjs` | Tips, tutorials, Show Me preparation, and inert populated training views. |
 | Sidecars | `src/jobs/campaign-sidecar-scheduler.mjs`, `src/jobs/sidecar-job-runner.mjs` | Proposal-only background state analysis and command-log summarization. |
-| Hosts | `src/hosts/sillytavern`, `src/hosts/lumiverse`, `src/hosts/fake` | Host lifecycle, storage, prompt, generation, events, shell mount, and test seams. |
+| Hosts | `src/hosts/sillytavern`, `src/hosts/fake` | Host lifecycle, storage, prompt, generation, events, shell mount, and test seams. |
 
 ```mermaid
 flowchart LR
@@ -263,7 +263,7 @@ Directive does not dump the entire save into the host prompt. It builds a set of
 
 ### Deep View
 
-Prompt context is built through `src/generation/player-safe-prompt-context-builder.mjs` and validated by `src/generation/prompt-injection-safety.mjs`. The SillyTavern adapter installs blocks through `setExtensionPrompt`; Lumiverse creates prompt blocks through its Spindle-facing adapter path.
+Prompt context is built through `src/generation/player-safe-prompt-context-builder.mjs` and validated by `src/generation/prompt-injection-safety.mjs`. The SillyTavern adapter installs blocks through `setExtensionPrompt`.
 
 Prompt packets use stable block ids, placement/depth metadata, hashes, and revisions. Prompt sync is chat-affine: it installs only into the bound campaign chat, suspends when the active chat does not match, and clears on completion, archive, or extension disable.
 
@@ -306,7 +306,7 @@ Runtime diagnostics example:
 
 ### Layman's View
 
-Directive's engine is host-neutral. SillyTavern and Lumiverse are different cars around the same engine block. Each host adapter handles lifecycle, storage, prompt injection, generation access, event observation, UI mounting, and host-specific diagnostics.
+Directive's engine is separated from SillyTavern-specific plumbing through host contracts. The SillyTavern adapter handles lifecycle, storage, prompt injection, generation access, event observation, UI mounting, and host-specific diagnostics. The fake host keeps deterministic tests fast without a live browser.
 
 ### Deep View
 
@@ -321,9 +321,9 @@ Host adapters must not fork core game logic. They should expose the same logical
 - host logger/notifications;
 - capabilities.
 
-SillyTavern currently owns the primary pre-alpha flow: extension launcher, command-spine shell, chat creation, message observation, generation interceptor, `setExtensionPrompt`, `/user/files` storage, provider routing through host/current/profile/direct endpoint modes, and message actions.
+SillyTavern owns the active pre-alpha flow: extension launcher, command-spine shell, chat creation, message observation, generation interceptor, `setExtensionPrompt`, `/user/files` storage, provider routing through host/current/profile/direct endpoint modes, and message actions.
 
-Lumiverse owns Spindle entrypoints, scoped storage, generation, tools, runtime bridge, app overlay, and prompt block creation. The fake host owns repeatable tests.
+Future host adapters can reuse these contracts after the SillyTavern alpha stabilizes. The fake host owns repeatable tests.
 
 See [Host Integration Manual](HOST_INTEGRATION_MANUAL.md).
 
@@ -368,7 +368,7 @@ Use [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE
 - prompt context inspection;
 - sidecar proposal diagnostics;
 - terminal checkpoint decision and terminal branch save flow;
-- host boundary or shell mount capture where SillyTavern and Lumiverse differ.
+- host boundary or shell mount capture for SillyTavern-specific integration surfaces.
 
 Runtime diagnostic coverage now available:
 

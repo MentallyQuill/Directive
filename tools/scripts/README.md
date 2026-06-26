@@ -53,20 +53,12 @@ node tools\scripts\test-runtime-stage22-command-brief.mjs
 node tools\scripts\test-host-contract-fake.mjs
 node tools\scripts\test-host-import-boundaries.mjs
 node tools\scripts\test-host-sidecar-orchestrator.mjs
-node tools\scripts\test-lumiverse-entrypoints.mjs
 node tools\scripts\test-logical-storage-adapter.mjs
-node tools\scripts\test-lumiverse-events-adapter.mjs
-node tools\scripts\test-lumiverse-host-factory.mjs
-node tools\scripts\test-lumiverse-prompt-blocks.mjs
 node tools\scripts\test-sidecar-job-runner.mjs
 node tools\scripts\test-logical-storage-paths.mjs
-node tools\scripts\test-lumiverse-generation-client.mjs
-node tools\scripts\test-lumiverse-interceptor-adapter.mjs
-node tools\scripts\test-lumiverse-storage-adapter.mjs
-node tools\scripts\test-lumiverse-tools-adapter.mjs
 node tools\scripts\test-prompt-injection-safety.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
-node tools\scripts\test-dual-host-scaffold.mjs
+node tools\scripts\test-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
@@ -107,11 +99,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-open-world-context-budget.mjs` proves context orchestration and player-safe prompt budget limits for open-world state.
 
-`test-lumiverse-entrypoints.mjs` proves Lumiverse backend/frontend source entrypoints, runtime bridge initialization, open-world quest runtime actions, narration routing, sidecar diagnostics, and frontend command-spine mounting.
-
-`test-logical-storage-adapter.mjs` and `test-logical-storage-paths.mjs` prove host-neutral storage behavior and path safety for SillyTavern and Lumiverse.
-
-The Lumiverse adapter tests prove events, host factory construction, generation client behavior, prompt blocks, interceptor registration, storage adapter behavior, tools adapter behavior, and open-world runtime bridge entrypoints.
+`test-logical-storage-adapter.mjs` and `test-logical-storage-paths.mjs` prove host-neutral storage behavior and path safety for SillyTavern plus the direct-key fake host mapper.
 
 `test-sidecar-job-runner.mjs`, `test-host-sidecar-orchestrator.mjs`, `test-command-log-summary-sidecar.mjs`, and `test-prompt-injection-safety.mjs` prove schema-v2 sidecar execution, host-aware routing, low-cost command-log summaries, and prompt-injection rejection.
 
@@ -119,11 +107,7 @@ The Lumiverse adapter tests prove events, host factory construction, generation 
 
 `test-mission-state-delta-contract.mjs` proves existing actor/front state deltas fail fast when hidden raw-value guards, source outcome ids, graph clock links, or explicit graph pressure links are malformed.
 
-`test-dual-host-scaffold.mjs` runs the dual-host scaffold suite: host contracts, SillyTavern and Lumiverse host factories, Lumiverse manifest/entrypoints, logical storage adapters, generation routing, prompt-injection safety, sidecar jobs, Command Log summary sidecars, Lumiverse batch-sidecar routing, and host-aware sidecar orchestration.
-
-`test-lumiverse-entrypoints.mjs` proves `spindle.json` points at real Lumiverse backend/frontend source entrypoints, the backend imports under a fake `spindle`, replies are targeted by `userId`, read-only tools and player-safe prompt-block interceptor register safely, the runtime bridge can initialize, quick-start, save/load, preview/commit a Director turn, run open-world quest opportunity/accept/delegate/time actions, generate narration through Lumiverse quiet generation, run diagnostic sidecars through Lumiverse batch generation with resolved connection metadata, the live smoke preserves local-dev extension installs by default, and the frontend mounts the shared command-spine shell through a Lumiverse app overlay while the drawer tab acts only as a launcher.
-
-`smoke-lumiverse-live.mjs` is the local live-host smoke for an active Lumiverse server. It reads `LUMIVERSE_USERNAME` and `LUMIVERSE_PASSWORD`, imports or restarts the local Directive extension, preserves an existing local-dev/dev-mode Directive install by default, grants `generation`/`interceptor`/`tools`/`app_manipulation`, verifies the frontend bundle includes command-spine app-overlay markers plus open-world runtime-action markers, verifies registered tools, runs WebSocket runtime actions, and attempts prompt dry-run injection without a model call. Set `DIRECTIVE_LUMIVERSE_IMPORT=0` to skip import-local completely, or `DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE=0` to force import-local even when the listed extension row looks local-dev. Set `DIRECTIVE_LIVE_GENERATION=1` to also run real narration and concurrent sidecar model calls; provider-auth failures print a structured external-blocker result.
+`test-host-scaffold.mjs` runs the active host scaffold suite: fake-host contract coverage, SillyTavern host/generation/storage checks, logical storage adapters, generation routing, prompt-injection safety, sidecar jobs, Command Log summary sidecars, and host-aware sidecar orchestration.
 
 `smoke-sillytavern-live.mjs` is the local live-host scaffold for an active SillyTavern server. With no host configured, or with `--dry-run`, it prints the intended checklist and exits successfully. Set `SILLYTAVERN_BASE_URL=http://127.0.0.1:8000` to verify served Directive manifest/source assets. Set `DIRECTIVE_SILLYTAVERN_BROWSER=1` to check the live browser shell with Playwright when available or an installed Edge/Chrome CDP fallback; add `DIRECTIVE_SILLYTAVERN_TOGGLE_ONLY=1` to stop after proving the Directive enabled switch off/on path. Set `DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1` with browser mode to capture desktop and phone-width PNGs for every Directive route and assert bottom-navigation geometry; `DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR` can override the output root. Set `DIRECTIVE_SILLYTAVERN_STORAGE=1` only when the host API is connected and the smoke may write, verify, read, and delete one smoke-owned `/user/files` JSON file; the script can bootstrap CSRF/session headers from `/csrf-token` when explicit env headers are absent. Browser-only no-generation UI smoke can run while SillyTavern reports API disconnected, but narration, provider routing, storage, preview/commit, and save/load require a connected API/provider surface.
 
@@ -147,7 +131,7 @@ The Lumiverse adapter tests prove events, host factory construction, generation 
 
 `test-runtime-host-injection.mjs` proves `createDirectiveRuntimeApp({ host })` can initialize through a `DirectiveHost`, expose host metadata in runtime views, run a Director turn, and generate narration through the host generation client without provider overrides.
 
-`test-command-log-summary-sidecar.mjs` proves the first LLM-assisted Command Log sidecar: low-cost fast utility-role request metadata, SillyTavern sequential generation, Lumiverse batch-capable generation, committed-entry-only updates, and fail-soft provider errors.
+`test-command-log-summary-sidecar.mjs` proves the first LLM-assisted Command Log sidecar: low-cost fast utility-role request metadata, SillyTavern sequential generation, fake-host batch-capable generation, committed-entry-only updates, and fail-soft provider errors.
 
 `test-campaign-package-importer.mjs` proves pre-alpha `.directive-campaign.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
 

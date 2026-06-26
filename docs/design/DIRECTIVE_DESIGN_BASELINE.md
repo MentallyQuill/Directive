@@ -31,7 +31,7 @@ The current baseline is refined by:
 
 ## Product Statement
 
-Directive is a persistent, freeform Star Trek command RPG for SillyTavern and Lumiverse. The player writes ordinary natural-language roleplay, while the extension enforces established facts, Starfleet authority, character competence, technological limits, and persistent consequences.
+Directive is a persistent, freeform Star Trek command RPG for SillyTavern. The player writes ordinary natural-language roleplay, while the extension enforces established facts, Starfleet authority, character competence, technological limits, and persistent consequences.
 
 The game should feel permissive in expression, strict in causality, episodic in structure, persistent in consequence, and recognizably grounded in Star Trek.
 
@@ -40,7 +40,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Extension title: `Directive`
 - Extension key and runtime namespace: `directive`
 - Initial version target: `0.1.0-pre-alpha.1`
-- Platform: shared extension engine with SillyTavern and Lumiverse host adapters
+- Platform: SillyTavern extension with host-neutral internal contracts and fake-host tests
 - Product model: package-first starship command RPG
 - Campaign package transport extension: `.directive-campaign.zip`
 - First bundled package: `U.S.S. Breckenridge: Ashes of Peace`
@@ -61,7 +61,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Structured state: authoritative over chat prose
 - Canon packs: deferred for now; use package guardrails for the first slice
 - Raw simulation values: hidden from the player except in debug or developer surfaces
-- Runtime UI shell: shared SillyTavern and Lumiverse floating command spine with one resizable route drawer, temporary full-screen workspaces for dense flows, and a phone-width bottom-navigation fallback
+- Runtime UI shell: SillyTavern floating command spine with one resizable route drawer, temporary full-screen workspaces for dense flows, and a phone-width bottom-navigation fallback
 - Runtime visual identity: UX-first LCARS-led Starfleet command-console UI adapted to Directive's host constraints
 
 ## Product Boundaries
@@ -360,7 +360,7 @@ Both modes must remain fair. Exploration does not erase causality, and Command d
 
 Directive remains chat-first. The extension UI supports orientation, state inspection, campaign/package management, save/load behavior, and debugging.
 
-Directive's SillyTavern and Lumiverse shells use a persistent left command spine on desktop/tablet and one resizable route drawer at a time. The drawer header owns collapse and full-screen actions; phone width uses the bottom route bar. Do not add panel-owned primary navigation, resize handles, or floating shell controls; content panels may still use route-local tabs and scroll-local action rows. Lumiverse mounts the same shell through the host app-overlay surface rather than accepting a sidebar-only UI.
+Directive's SillyTavern shell uses a persistent left command spine on desktop/tablet and one resizable route drawer at a time. The drawer header owns collapse and full-screen actions; phone width uses the bottom route bar. Do not add panel-owned primary navigation, resize handles, or floating shell controls; content panels may still use route-local tabs and scroll-local action rows.
 
 Initial tabs:
 

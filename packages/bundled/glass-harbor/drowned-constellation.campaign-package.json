@@ -258,6 +258,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "missing-commanding-officer",
+        "publicProfile": "Captain Amina Rhos is Human, Commanding Officer.",
         "playerSafeSummary": "Patient, exacting, and known for publishing complete survey records. Her disappearance creates the opening succession."
       },
       {
@@ -268,6 +269,7 @@
         "species": "Trill",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Ishan Tal is Trill, Chief Science Officer and Gravitic Cartographer.",
         "playerSafeSummary": "A precise, fast-speaking cartographer who believes incomplete charts kill people."
       },
       {
@@ -278,6 +280,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Mara Venn is Human, Chief Engineer.",
         "playerSafeSummary": "A blunt frontier engineer who knows the Glass Harbor can exceed regulations only by accumulating debt."
       },
       {
@@ -288,6 +291,7 @@
         "species": "Andorian",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Shara zh’Thenn is Andorian, Chief Tactical and Security Officer.",
         "playerSafeSummary": "A disciplined tactical officer who sees uncontrolled navigation data as a military threat."
       },
       {
@@ -298,6 +302,7 @@
         "species": "Bajoran",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Olan Rix is Bajoran, Chief Medical Officer.",
         "playerSafeSummary": "A calm and unsentimental physician who challenges plans that externalize danger onto displaced people."
       },
       {
@@ -308,6 +313,7 @@
         "species": "Betazoid",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Sorren Vale is Betazoid, Operations Officer.",
         "playerSafeSummary": "A socially observant operations officer attentive to informal systems, crew division, and local fear."
       },
       {
@@ -318,6 +324,7 @@
         "species": "Vulcan",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant T’Kessa is Vulcan, Chief Flight Control Officer.",
         "playerSafeSummary": "A trained gravitic pilot who believes she should have accompanied Rhos on the missing shuttle."
       },
       {
@@ -328,6 +335,7 @@
         "species": "Tellarite",
         "status": "locked",
         "packageRole": "senior-enlisted",
+        "publicProfile": "Chief Petty Officer Hark is Tellarite, Senior Enlisted Deck Chief.",
         "playerSafeSummary": "The deck chief overseeing probes, shuttles, recovery teams, and the practical limits of every elegant plan."
       }
     ]

@@ -322,6 +322,21 @@ const noLatentSummaries = threadPlayerSummaries(ledger, {
 });
 assert.deepEqual(noLatentSummaries, [], 'player summary projection must never expose latent or watchlisted records');
 
+const summariesWithMalformedHiddenSeed = threadPlayerSummaries({
+  records: [
+    { id: 'thread.hidden.seedless', status: 'latent', source: 'scene.hidden' },
+    { ...kieranCommandPreparation, status: 'engaged' }
+  ]
+}, {
+  statuses: ['latent', 'engaged'],
+  limit: 10
+});
+assert.deepEqual(
+  summariesWithMalformedHiddenSeed.map((summary) => summary.id),
+  ['thread.kieran.command-preparation'],
+  'player summary projection should ignore malformed hidden seeds before strict normalization'
+);
+
 const invalidated = invalidateThreadEvidenceByAnchorRange(resolvedLedger, 'range.kieran.sim-time');
 assert.deepEqual(invalidated.affectedThreadIds, ['thread.kieran.command-preparation']);
 const staleKieran = invalidated.ledger.records.find((record) => record.id === 'thread.kieran.command-preparation');

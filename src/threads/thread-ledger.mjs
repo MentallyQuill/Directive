@@ -127,7 +127,19 @@ export function applyThreadLedgerDelta(ledger={},delta={}, {now=null}={}) {
 
 export function threadPlayerSummaries(ledger,{statuses=['available','engaged','active','resolved','echo'],limit=8}={}) {
   const allowed=new Set(statuses);
-  return asArray(ledger?.records).map(normalizeThreadRecord).filter((record)=>allowed.has(record.status)&&!HIDDEN.has(record.status)&&record.metadata?.stale!==true)
+  return asArray(ledger?.records)
+    .filter((record)=>{
+      const status=text(record?.status || 'observed');
+      return allowed.has(status)&&!HIDDEN.has(status)&&record?.metadata?.stale!==true;
+    })
+    .map((record)=>{
+      try {
+        return normalizeThreadRecord(record);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
     .sort((a,b)=>b.salience-a.salience||b.playerInterest-a.playerInterest)
     .slice(0,limit).map((record)=>({id:record.id,title:record.title,status:record.status,shape:record.shape,type:record.type,summary:record.playerSummary||record.observableSeed,participantIds:cloneJson(record.participantIds),promotedQuestId:record.promotedQuestId||null}));
 }

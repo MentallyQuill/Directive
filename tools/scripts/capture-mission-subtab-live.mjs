@@ -223,7 +223,7 @@ async function prepareMissionSubtab(connection, viewport) {
     document.getElementById('directive-extensions-menu-button')?.click();
     return true;
   })()`);
-  await waitFor(connection, "document.querySelector('#directive-runtime-panel [data-directive-runtime-body=\"true\"], [data-directive-shell=\"bottom-navigation\"] [data-directive-runtime-body=\"true\"]')", 30000);
+  await waitFor(connection, "document.querySelector('#directive-runtime-panel [data-directive-runtime-body=\"true\"]')", 30000);
   await evaluate(connection, `(async () => {
     if (typeof globalThis.Directive?.bridge?.runAction === 'function') { await globalThis.Directive.bridge.runAction('runtime.setTab', { tabId: 'mission' }); return true; }
     if (typeof globalThis.Directive?.actions?.run === 'function') { await globalThis.Directive.actions.run('runtime.setTab', { tabId: 'mission' }); return true; }
@@ -234,7 +234,7 @@ async function prepareMissionSubtab(connection, viewport) {
   await evaluate(connection, `(() => {
     const subtab = Array.from(document.querySelectorAll('.directive-mission-subtab')).find((button) => String(button.textContent || '').trim() === '${target.subtabLabel}');
     subtab?.click();
-    const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"], [data-directive-shell="bottom-navigation"] [data-directive-runtime-body="true"]');
+    const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
     const section = document.getElementById('${target.sectionId}');
     section?.scrollIntoView({ block: 'start', inline: 'nearest' });
     if (body && section) body.scrollTop = Math.max(0, section.offsetTop - body.offsetTop - 6);
@@ -260,10 +260,10 @@ function metricsExpression() {
       const style = getComputedStyle(element);
       return box.width > 0 && box.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
     };
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel');
     const body = panel?.querySelector('[data-directive-runtime-body="true"]');
     const section = document.getElementById(target.sectionId);
-    const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar, .directive-bottom-route-bar, .directive-runtime-tabs');
+    const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar, .directive-bottom-route-bar');
     const routeButtons = Array.from(panel?.querySelectorAll('[data-mobile-route-id], [data-route-id]') || []).filter(visible);
     const labels = Array.from(panel?.querySelectorAll('button span, .directive-mobile-bottom-label, .directive-card-title, .directive-meta-label, .directive-field-label, .directive-lcars-status-label') || []).filter(visible);
     const clipped = labels.filter((element) => element.scrollWidth > element.clientWidth + 1 && getComputedStyle(element).overflow !== 'visible').map((element) => normalize(element.textContent));

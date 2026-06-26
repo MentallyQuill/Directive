@@ -48,10 +48,54 @@ function locationState(state, locationId) {
 }
 
 function crewById(packageData, crewDataset) {
-  return new Map([
-    ...asArray(packageData?.crew?.senior),
-    ...asArray(crewDataset?.officers)
-  ].filter((record) => record?.id).map((record) => [record.id, record]));
+  const records = new Map();
+  for (const record of asArray(crewDataset?.officers)) {
+    if (record?.id) records.set(record.id, { ...record });
+  }
+  for (const record of asArray(packageData?.crew?.senior)) {
+    if (!record?.id) continue;
+    records.set(record.id, {
+      ...(records.get(record.id) || {}),
+      ...record
+    });
+  }
+  return records;
+}
+
+function crewPublicFacts(officer) {
+  const facts = [];
+  const age = compact(officer?.ageDescription);
+  const appearance = compact(officer?.appearanceSummary);
+  const profile = compact(officer?.publicProfile);
+  const role = compact(officer?.packageRole);
+  const rank = compact(officer?.rank);
+  const name = compact(officer?.name || officer?.id);
+  const species = compact(officer?.species);
+  const billet = compact(officer?.billet || 'crew');
+  const defaultProfile = compact(`${rank ? `${rank} ` : ''}${name} is ${species}, ${billet}.`);
+  if (age) facts.push(`age: ${age}`);
+  if (appearance) facts.push(`appearance: ${appearance}`);
+  if (profile && profile !== defaultProfile) facts.push(profile);
+  if (role && !/^(senior-staff|senior-enlisted|commanding-officer)$/i.test(role)) {
+    facts.push(`role: ${role}`);
+  }
+  for (const fact of asArray(officer?.publicIdentityFacts).map(compact).filter(Boolean)) {
+    if (!facts.includes(fact)) facts.push(fact);
+  }
+  return facts;
+}
+
+function crewIdentityLine(officer = {}, relationship = null) {
+  const rank = compact(officer.rank);
+  const name = compact(officer.name || officer.id || 'Unknown crew');
+  const species = compact(officer.species);
+  const billet = compact(officer.billet || 'crew');
+  const identity = `${rank ? `${rank} ` : ''}${name}${species ? ` (${species})` : ''}, ${billet}`;
+  const details = [
+    ...crewPublicFacts(officer),
+    relationship?.visibleDescriptor ? compact(relationship.visibleDescriptor) : null
+  ].filter(Boolean);
+  return details.length ? `- ${identity}; ${details.join('; ')}` : `- ${identity}`;
 }
 
 function knownFacts(state, relevantFactIds = []) {
@@ -172,6 +216,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         'Treat committed Directive state as authoritative.',
         'Do not expose Director-only facts, concealed values, unrevealed motives, or internal scoring.',
         'Do not reroll or contradict a committed outcome.',
+        'For named crew, treat listed rank, billet, species, public profile, age, appearance, and role facts as fixed. Do not invent or infer identity facts that are not provided.',
         'Write normal in-character roleplay prose; do not narrate mechanics as mechanics.',
         'Routine professional competence is available; the player supplies judgment and command decisions.'
       ].join('\n')
@@ -253,7 +298,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
       content: relevantCrewIds.map((id) => {
         const officer = crewMap.get(id) || {};
         const relationship = asArray(state?.relationships?.seniorCrew).find((entry) => entry.crewId === id);
-        return `- ${officer.rank ? `${officer.rank} ` : ''}${officer.name || id}, ${officer.billet || 'crew'}${relationship?.visibleDescriptor ? `; ${relationship.visibleDescriptor}` : ''}`;
+        return crewIdentityLine(officer, relationship);
       }).join('\n')
     }),
     normalizeCandidate(state, {

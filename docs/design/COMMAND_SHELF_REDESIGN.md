@@ -29,7 +29,7 @@ The redesign applies to both shelf orientations:
 - desktop and tablet: the left vertical command spine;
 - phone width: the bottom route shelf.
 
-Lumiverse uses the same shelf treatment, state model, and route color language as SillyTavern. Its drawer tab may remain as a launcher, but the primary UI is the floating command shelf with a route drawer.
+SillyTavern is the active pre-alpha host for this redesign. Future hosts should reuse the same shelf treatment, state model, and route color language after the SillyTavern alpha contract is stable.
 
 ## Interaction Model
 

@@ -66,7 +66,7 @@ src/
 
 These directories match the boundaries in [Source Architecture](SOURCE_ARCHITECTURE.md). They are intentionally present before implementation so new code has an obvious home and does not drift into a monolith.
 
-The dual-host architecture adds host-adapter and sidecar-job directories to the verified shape. That direction is tracked in [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md); SillyTavern shell implementation now lives under `src/hosts/sillytavern/`, while `src/extension/` keeps the manifest-facing entrypoint shims and shared extension UI helpers.
+The host architecture keeps SillyTavern implementation under `src/hosts/sillytavern/` and deterministic host-contract tests under `src/hosts/fake/`, while `src/extension/` keeps the manifest-facing entrypoint shims and shared extension UI helpers. Future host expansion is deferred until after the SillyTavern alpha stabilizes.
 
 ## Content And Package Boundary
 

@@ -85,7 +85,6 @@ const expectedDirs = [
   'src/hosts',
   'src/hosts/fake',
   'src/hosts/sillytavern',
-  'src/hosts/lumiverse',
   'src/runtime',
   'src/ui',
   'src/jobs',

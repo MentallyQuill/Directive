@@ -115,6 +115,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "injured-commanding-officer",
+        "publicProfile": "Captain Anika Lorne is Human, Commanding Officer.",
         "playerSafeSummary": "An experienced convoy captain: direct, emotionally contained, and exact about rescue priorities. She is injured during the opening emergence."
       },
       {
@@ -125,6 +126,7 @@
         "species": "Vulcan",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander T'Meru is Vulcan, Chief Science Officer and Subspace Specialist.",
         "playerSafeSummary": "Methodical and unusually patient with incomplete data. She is building the first reliable model of the Wake."
       },
       {
@@ -135,6 +137,7 @@
         "species": "Bajoran",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Ral Enor is Bajoran, Chief Engineer.",
         "playerSafeSummary": "Inventive, unsentimental about dead machinery, and fiercely protective of living crews."
       },
       {
@@ -145,6 +148,7 @@
         "species": "Tellarite",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Hesh Marr is Tellarite, Chief Tactical and Security Officer.",
         "playerSafeSummary": "Confrontational, procedural, and skeptical of unregulated civilian salvage after years of convoy losses."
       },
       {
@@ -155,6 +159,7 @@
         "species": "Trill",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Commander Lio Sen is Trill, Chief Medical Officer.",
         "playerSafeSummary": "Precise, humane, and unusually literate in identity and death law."
       },
       {
@@ -165,6 +170,7 @@
         "species": "Andorian",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Nira zh'Ren is Andorian, Chief Flight Control Officer and Wake Pilot.",
         "playerSafeSummary": "Laconic in crisis, restless in port, and exceptionally skilled at reading the current through ship motion."
       },
       {
@@ -175,6 +181,7 @@
         "species": "Human",
         "status": "locked",
         "packageRole": "senior-staff",
+        "publicProfile": "Lieutenant Samir Holt is Human, Operations Officer and Recovery Coordinator.",
         "playerSafeSummary": "Organized, diplomatic, and uncomfortable with records that cannot be reconciled."
       },
       {
@@ -185,6 +192,7 @@
         "species": "Bolian",
         "status": "locked",
         "packageRole": "senior-enlisted",
+        "publicProfile": "Chief Petty Officer Vek is Bolian, Senior Recovery Deck Chief.",
         "playerSafeSummary": "Practical, warm, and blunt about the physical labor of handling wreckage and remains."
       }
     ],

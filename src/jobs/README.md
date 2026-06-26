@@ -8,4 +8,4 @@ Jobs consume immutable snapshots and return packets or diagnostics. They must no
 
 `command-log-summary-sidecar.mjs` is the first player-facing sidecar. After a committed Director turn, it asks the active host for a compact low-cost `commandLogSummarizer` result from committed Command Log inputs only, then stores the assisted summary on the matching Command Log entry. It is presentation-only and fail-soft; deterministic committed inputs remain the audit trail.
 
-The current implementation is still conservative, but it is wired into the dual-host test gate and can evolve now that the Stage 29/30 parallel work is closed.
+The current implementation is still conservative, but it is wired into the SillyTavern plus fake-host test gate and can evolve now that the Stage 29/30 parallel work is closed.

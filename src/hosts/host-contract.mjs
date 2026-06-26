@@ -1,7 +1,6 @@
 export const DIRECTIVE_HOST_IDS = Object.freeze([
   'fake',
-  'sillytavern',
-  'lumiverse'
+  'sillytavern'
 ]);
 
 const DEFAULT_CAPABILITIES = Object.freeze({

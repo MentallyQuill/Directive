@@ -74,7 +74,7 @@ export function toSillyTavernUserFilesPath(logicalKey) {
   return `/user/files/${toSillyTavernStorageFileName(logicalKey)}`;
 }
 
-export function toLumiverseStorageKey(logicalKey) {
+export function toDirectStorageKey(logicalKey) {
   return assertDirectiveLogicalStorageKey(logicalKey);
 }
 
@@ -87,11 +87,11 @@ export function createLogicalStorageMapper(hostId) {
       toFileName: toSillyTavernStorageFileName
     };
   }
-  if (host === 'lumiverse' || host === 'fake') {
+  if (host === 'fake') {
     return {
       hostId: host,
-      toPath: toLumiverseStorageKey,
-      toFileName: toLumiverseStorageKey
+      toPath: toDirectStorageKey,
+      toFileName: toDirectStorageKey
     };
   }
   throw new Error(`Unknown storage host "${hostId}"`);

@@ -1,10 +1,10 @@
 # Host Integration Manual
 
-This document explains how Directive integrates with SillyTavern, Lumiverse, and the fake test host.
+This document explains how Directive integrates with SillyTavern and the fake test host.
 
 ## Plain-Language Model
 
-Directive tries to keep its game engine portable. Host adapters are translators. They know how to open UI, read/write storage, observe chat, call generation, install prompt context, and post responses in a specific host. They should not contain campaign rules.
+Directive keeps its campaign engine behind host contracts. Host adapters are translators. They know how to open UI, read/write storage, observe chat, call generation, install prompt context, and post responses in a specific host. They should not contain campaign rules.
 
 ## Shared Host Contract
 
@@ -40,29 +40,15 @@ Current responsibilities:
 - message actions for reconciliation;
 - Assist button integration beside the SillyTavern input.
 
-## Lumiverse Adapter
-
-Primary source folder: `src/hosts/lumiverse`.
-
-Current responsibilities:
-
-- Spindle backend/frontend entrypoints;
-- scoped storage adapter;
-- generation client;
-- tool adapter;
-- event adapter;
-- interceptor adapter;
-- prompt block projection from runtime summaries;
-- runtime bridge for app actions;
-- frontend app-overlay mounting.
-
-Lumiverse currently shares engine services but still has different smoke coverage and host lifecycle constraints than SillyTavern.
-
 ## Fake Host
 
 Primary source folder: `src/hosts/fake`.
 
-The fake host is for repeatable tests. It should model the host contract without importing SillyTavern or Lumiverse globals.
+The fake host is for repeatable tests. It should model the host contract without importing SillyTavern globals.
+
+## Future Hosts
+
+Future host adapters, including possible Lumiverse support, should be added only after the SillyTavern alpha contract is stable. They should reuse the host contract, route-panel view models, logical storage boundary, and sidecar orchestration without forking campaign rules.
 
 ## Host Boundary Diagram
 
@@ -84,15 +70,7 @@ flowchart TB
     STShell["extension shell mount"]
   end
 
-  subgraph LV["Lumiverse adapter"]
-    LVBridge["runtime bridge"]
-    LVPrompt["prompt blocks"]
-    LVStorage["Spindle storage"]
-    LVApp["app overlay"]
-  end
-
   ST --> Shared
-  LV --> Shared
 ```
 
 ## Integration Rules
@@ -116,5 +94,5 @@ Runtime shell examples:
 </p>
 
 <p align="center">
-  <img src="../../assets/documentation/renders/docs-directive-host-specific-surfaces.png" alt="SillyTavern launcher, message actions with Directive reconciliation commands, Directive Assist beside the composer, and Lumiverse overlay if it differs materially from SillyTavern">
+  <img src="../../assets/documentation/renders/docs-directive-host-specific-surfaces.png" alt="SillyTavern launcher, message actions with Directive reconciliation commands, and Directive Assist beside the composer">
 </p>

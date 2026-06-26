@@ -98,8 +98,7 @@ function runtimeScrollContainers(panel) {
   const seen = new Set();
   const selectors = [
     '[data-directive-runtime-body="true"]',
-    '.directive-command-drawer-body',
-    '.directive-shell-body'
+    '.directive-command-drawer-body'
   ];
   const containers = [];
   for (const selector of selectors) {

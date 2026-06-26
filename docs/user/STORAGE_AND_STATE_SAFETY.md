@@ -4,7 +4,7 @@ Directive keeps reusable package templates separate from campaign saves. Structu
 
 ## Storage Model
 
-Directive is a host-portable extension engine. It should not turn host settings into a data warehouse.
+Directive is a SillyTavern extension with host-neutral storage internals where they improve testing. It should not turn host settings into a data warehouse.
 
 Settings should hold compact control-plane data:
 
@@ -14,7 +14,7 @@ Settings should hold compact control-plane data:
 - Lightweight diagnostics.
 - Provider route choices when those settings are implemented.
 
-Campaign-owned and draft-owned payloads live as Directive-managed logical JSON records through the Directive storage repository. SillyTavern maps those logical keys to flat `/user/files` JSON files; Lumiverse can map the same keys to scoped Spindle storage.
+Campaign-owned and draft-owned payloads live as Directive-managed logical JSON records through the Directive storage repository. SillyTavern maps those logical keys to flat `/user/files` JSON files. The fake host keeps direct logical-key mapping for deterministic tests.
 
 Current logical record families include:
 
@@ -140,13 +140,6 @@ In SillyTavern:
 - Saves should be listed through a save index.
 - Campaign payloads should preserve hidden state without exposing raw values in normal UI.
 - Package templates in the repository should not mutate when campaign state changes.
-
-In Lumiverse:
-
-- Directive save and draft payloads should remain scoped to the authenticated user's Spindle storage.
-- Logical keys such as `indexes/saves.v1.json` and `saves/{saveId}.v1.json` should stay host-neutral.
-- The default live smoke should be able to quick-start, manually save, load that save, preview, and commit without requiring direct filesystem assumptions.
-- Prompt-block dry-run output should include only player-safe Directive context, not hidden facts or raw relationship values.
 
 ## Troubleshooting
 

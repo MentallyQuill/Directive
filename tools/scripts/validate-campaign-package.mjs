@@ -141,6 +141,18 @@ const crew = idMap(pkg.crew?.senior, '$.crew.senior');
 if (isAshesReferencePackage) {
   for (const id of ashesRequiredCrewIds) if (!crew.has(id)) at('$.crew.senior', `missing required crew "${id}"`);
 }
+for (const [id, member] of crew) {
+  requireKeys(member, ['id', 'name', 'rank', 'billet', 'species', 'status'], `$.crew.senior.${id}`);
+  if (pkg.manifest?.bundled === true && id !== 'player-commander') {
+    text(member.publicProfile, `$.crew.senior.${id}.publicProfile`);
+  }
+  for (const field of ['publicProfile', 'ageDescription', 'appearanceSummary']) {
+    if (member[field] !== undefined) text(member[field], `$.crew.senior.${id}.${field}`);
+  }
+  for (const [index, fact] of array(member.publicIdentityFacts || [], `$.crew.senior.${id}.publicIdentityFacts`).entries()) {
+    text(fact, `$.crew.senior.${id}.publicIdentityFacts[${index}]`);
+  }
+}
 
 requireKeys(pkg.world, ['id', 'title', 'regionType', 'openingLocationId', 'locations', 'routes', 'factions', 'actors', 'fronts', 'clocks', 'stateTracks', 'everydayLife'], '$.world');
 const locations = idMap(pkg.world?.locations, '$.world.locations');

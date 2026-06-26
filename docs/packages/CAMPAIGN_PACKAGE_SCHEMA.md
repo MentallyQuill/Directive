@@ -75,7 +75,7 @@ It includes:
 
 - Manifest identity for `directive.campaignPackage`.
 - U.S.S. Breckenridge ship baseline.
-- Locked senior crew roster and transfer-cohort structure.
+- Locked senior crew roster, fixed public identity facts, and transfer-cohort structure.
 - Package-defined Character Creator context for the locked incoming XO role.
 - Ashes of Peace open-world story shell.
 - World state, story arc, quest, thread, reaction, and context policy content from the campaign source.
@@ -135,7 +135,7 @@ Current product-contract checks include:
 - Source document paths exist.
 - Ship is U.S.S. Breckenridge with opening stardate `53049.2`.
 - Bundled hero ship registries are concrete NCC identifiers and align with their initial campaign projections.
-- Locked senior crew entries are present.
+- Locked senior crew entries are present with rank, billet, species, status, and non-player public profile data.
 - Relationship dimensions include professional confidence, integrity trust, and personal rapport.
 - Character Creator is package-defined with the Ashes of Peace locked Commander/XO role, required creator fields, allowed species, career backgrounds, formative experiences, assignment reasons, trait choices, dossier boundaries, generation guardrails, and local fallback templates.
 - Ashes of Peace campaign id, theater, story arcs, quest templates, campaign assets, and source-derived starting values.

@@ -16,12 +16,11 @@ These are the public-facing docs that should be safe to hand to operators, campa
 ### Start Here
 
 - [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckenridge/Ashes of Peace campaign loop.
-- [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): detailed operator guide for runtime shell, Campaign Command/Library/Records, Character Creator, activation, Mission, Crew, Ship, Log, Assist, Settings, saves, recovery, SillyTavern controls, and Lumiverse differences.
+- [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): detailed operator guide for runtime shell, Campaign Command/Library/Records, Character Creator, activation, Mission, Crew, Ship, Log, Assist, Settings, saves, recovery, and SillyTavern controls.
 
 ### Host Setup And Operations
 
 - [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
-- [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
 
 ### Campaign Package Contracts
@@ -46,7 +45,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Player Turn Sequence](technical/PLAYER_TURN_SEQUENCE.md): post-to-response lifecycle from host ingress through classification, Director escalation, mechanics commit, narration, autosave, sidecars, and recovery.
 - [Model Calls And Provider Routing](technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, provider sources, role groups, model-call authority table, structured output, and sanitized diagnostics.
 - [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
-- [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): shared host contract, SillyTavern adapter, Lumiverse adapter, fake host, host boundary diagram, and integration rules.
+- [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): SillyTavern adapter, fake host, host boundary diagram, and future host-adapter rules.
 
 ## Campaign Authoring
 
@@ -144,7 +143,7 @@ Development records in this section are not automatically user-facing contracts.
 - [Documentation Render Capture Plan](planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md): live SillyTavern render harness contract, verified capture matrix, documentation-grade cleanup, and remaining fixture-state inventory.
 - [Campaign Flow Revision Plan](planning/CAMPAIGN_FLOW_REVISION_PLAN.md): revision plan for replacing the overloaded Campaign package-home state machine with Command, Library & Import, and Records surfaces.
 - [Active Chat Save Guard Plan](planning/ACTIVE_CHAT_SAVE_GUARD_PLAN.md): planned manual-save safety guard requiring Save Game and Save Game As to verify the active host chat matches the loaded campaign save, including Save As branch metadata ownership.
-- [Command Spine Migration](planning/COMMAND_SPINE_MIGRATION.md): implemented SillyTavern left command spine, single resizable drawer, full-screen workspace escalation, mobile fallback, source ownership, tests, and remaining Lumiverse migration work.
+- [Command Spine Migration](planning/COMMAND_SPINE_MIGRATION.md): implemented SillyTavern left command spine, single resizable drawer, full-screen workspace escalation, mobile fallback, source ownership, and tests.
 - [Parallel Agent Coordination Protocol](planning/PARALLEL_AGENT_COORDINATION_PROTOCOL.md): Agent-0 orchestration and worker-agent operating model for parallel MVP, UI, Narrative Thread, Mission Director, and QA development.
 - [Interface Redesign Integration Prep](planning/INTERFACE_REDESIGN_INTEGRATION_PREP.md): review of the 2026-06-20 frontier-model UI redesign bundle, with integration lanes, blockers, file ownership, and verification gates for selective adoption.
 - [Backend Redesign Integration Prep](planning/BACKEND_REDESIGN_INTEGRATION_PREP.md): backend/runtime integration rules for the 2026-06-20 redesign bundle, allowing broad non-Chapter 2 adoption while protecting False Colors through Quiet Channels.
@@ -153,7 +152,7 @@ Development records in this section are not automatically user-facing contracts.
 - [Pre-Production Roadmap](planning/PRE_PRODUCTION_ROADMAP.md): remaining pre-production stages from schema deepening through first runtime slice.
 - [Next Ten Development Stages](planning/NEXT_TEN_DEVELOPMENT_STAGES.md): Stage 11-20 implementation plan and current status after completing the Prelude, transaction/retrieval hardening, package import normalization, diagnostics, and alpha gate.
 - [Post-Stage 20 Implementation Plan](planning/POST_STAGE_20_IMPLEMENTATION_PLAN.md): detailed Stage 21-30 plan for Command Competence, Chapter 1's first playable frame, and the side-mission pressure framework.
-- [Dual Host Support Plan](planning/DUAL_HOST_SUPPORT_PLAN.md): staged architecture plan for supporting both SillyTavern and Lumiverse through host adapters, generation roles, logical storage, and sidecar jobs.
+- [Dual Host Support Plan](planning/DUAL_HOST_SUPPORT_PLAN.md): historical/superseded staged architecture plan for earlier SillyTavern and Lumiverse parity work; current pre-alpha cleanup is SillyTavern-only.
 - [Scene Reconciliation Plan](planning/SCENE_RECONCILIATION_PLAN.md): planned retcon and branch support for reconciling changed chat passages into safe auto-applied updates or reviewed Directive state proposals, with Saga-inspired scan batching and a separate replay path for `Recalculate From Here`.
 - [Model Call Robustness Pass Plan](planning/MODEL_CALL_ROBUSTNESS_PASS_PLAN.md): implementation plan for explicit provider lanes, robust turn-intent classification, sidecar JSON contracts, model-call authority boundaries, and player-safe diagnostics.
 - [Command Bearing Agent Execution Plan](planning/COMMAND_BEARING_AGENT_EXECUTION_PLAN.md): phased multi-agent build plan for Command Bearing backend, Assist controls, Readied spend runtime, Character/Crew tabs, integration freezes, and verification.

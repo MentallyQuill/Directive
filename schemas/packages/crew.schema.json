@@ -43,6 +43,13 @@
         "status": {
           "type": "string",
           "enum": ["locked", "draft", "placeholder"]
+        },
+        "publicProfile": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "ageDescription": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "appearanceSummary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "publicIdentityFacts": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
         }
       }
     },

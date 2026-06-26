@@ -8,7 +8,7 @@ For implementation detail, see [Directive Technical Manual](../technical/DIRECTI
 
 ## Before You Start
 
-Directive is pre-alpha. The current primary host is SillyTavern. Lumiverse uses the shared engine through a separate Spindle adapter and is documented where host behavior differs.
+Directive is pre-alpha. The active pre-alpha host is SillyTavern. Other host adapters, including possible future Lumiverse support, are deferred until after the SillyTavern alpha stabilizes.
 
 Before running a campaign:
 
@@ -1086,25 +1086,6 @@ SillyTavern-specific controls include:
   <img src="../../assets/documentation/renders/docs-directive-sillytavern-host-surfaces.png" alt="Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live /send row before message-action capture">
 </p>
 
-## Lumiverse Differences
-
-Lumiverse uses the shared engine through Spindle, but its host surface differs:
-
-- app-overlay shell mount;
-- drawer-tab launcher;
-- Spindle permissions;
-- user-scoped storage;
-- Lumiverse generation connection;
-- prompt blocks rather than SillyTavern `setExtensionPrompt`;
-- runtime bridge actions;
-- no SillyTavern extension menu or message-action UI.
-
-See [Lumiverse Installation And Smoke Testing](LUMIVERSE_INSTALLATION.md) and [Host Integration Manual](../technical/HOST_INTEGRATION_MANUAL.md).
-
-<p align="center">
-  <img src="../../assets/documentation/renders/docs-directive-lumiverse-host-surfaces.png" alt="app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences">
-</p>
-
 ## Troubleshooting
 
 | Problem | First Check |
@@ -1120,7 +1101,6 @@ See [Lumiverse Installation And Smoke Testing](LUMIVERSE_INSTALLATION.md) and [H
 | Message edit/delete caused recovery | Open Mission and review the pending reconciliation/recovery state. |
 | Package import fails | Check import diagnostics for unsafe path, active content, missing package JSON, or schema errors. |
 | Storage reports missing files | Settings > Safety, Verify Active Save, then use cleanup only for stale records. |
-| Lumiverse generation fails | Check Lumiverse generation connection outside Directive first. |
 
 ## Verification
 

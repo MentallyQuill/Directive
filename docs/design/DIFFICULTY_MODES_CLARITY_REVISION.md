@@ -318,8 +318,6 @@ Likely files:
 - `src/ui/campaign-panel.js`
 - `src/ui/mission-panel.js`
 - `src/runtime/runtime-shell.js`
-- `src/hosts/lumiverse/frontend.js`
-- `src/hosts/lumiverse/runtime-bridge.mjs`
 
 Tasks:
 
@@ -328,7 +326,6 @@ Tasks:
 - Use confirmation only when switching from `Exploration` to `Command`.
 - Show blocked copy when a pending outcome prevents changing.
 - Add `updateCampaignDifficulty` to runtime shell actions.
-- Add the same action to Lumiverse proxied/direct runtime action lists.
 - Keep Settings out of the primary flow.
 
 Acceptance:
@@ -336,7 +333,7 @@ Acceptance:
 - Player can change difficulty from Campaign Command.
 - Settings does not become the owner of campaign difficulty.
 - Mission may show current difficulty but does not duplicate the main control surface.
-- The same runtime action works in SillyTavern and Lumiverse.
+- The same runtime action works through the SillyTavern runtime shell and fake-host contract tests.
 
 ### Phase 5: Verification And Docs
 
@@ -395,7 +392,7 @@ Render updates:
 - No old `Ensign`, `Lieutenant`, or `Commander` difficulty labels.
 - No rewriting committed outcomes when difficulty changes.
 - No automatic rerun of pending or committed mechanics.
-- No separate SillyTavern-only or Lumiverse-only behavior.
+- No separate host-specific campaign difficulty rules.
 - No hidden difficulty change without visible player confirmation.
 
 ## Open Decisions

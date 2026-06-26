@@ -138,7 +138,7 @@ Implementation must use:
 - stable responsive dimensions,
 - touch-safe controls,
 - SillyTavern-first behavior,
-- Lumiverse-compatible patterns where feasible.
+- future-host-compatible patterns only after the SillyTavern alpha contract is stable.
 
 Do not move primary route navigation to the top of a runtime-shell concept during implementation. Use the top shell for title/status and global Back/Close actions; use the bottom command shelf for page routes; use route-local sub-tabs only for dense sections inside a page.
 

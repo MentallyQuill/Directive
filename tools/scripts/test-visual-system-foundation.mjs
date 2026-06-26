@@ -350,7 +350,6 @@ assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runti
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\s*\{[\s\S]*?\bz-index:\s*10020;/, 'phone-width shell should sit above other full-screen extension panels');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-header\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'phone-width shell should keep title and shell actions visible above bottom navigation');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-body\s*\{[\s\S]*?\bflex:\s*1\s+1\s+auto;/, 'phone-width shell should make content the primary scroll pane');
-assert.match(css, /\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bdisplay:\s*none;/, 'mobile shell action bar should be hidden outside phone layout');
 assert.match(css, /\/\* Status tiles[\s\S]*?\.directive-lcars-status-block\s*\{[\s\S]*?\bmin-height:\s*48px\s*!important;[\s\S]*?\bgrid-template-columns:\s*28px\s+minmax\(0,\s*1fr\)\s*!important;[\s\S]*?\bpadding:\s*6px\s+8px\s*!important;/, 'shared LCARS status tiles should use the compact density contract');
 assert.match(css, /\/\* Status tiles[\s\S]*?\.directive-lcars-status-icon\s*\{[\s\S]*?\bwidth:\s*28px\s*!important;[\s\S]*?\bheight:\s*28px\s*!important;/, 'shared LCARS status tile icon wells should stay compact');
 assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{[\s\S]*?--directive-shell-left:\s*16px;[\s\S]*?\bleft:\s*var\(--directive-shell-left\)\s*!important;/, 'SillyTavern command spine should keep a persisted horizontal shelf position');
@@ -439,7 +438,6 @@ const commandLogPanelSource = await readText('src/ui/command-log-panel.js');
 const characterCreatorPanelSource = await readText('src/ui/character-creator-panel.js');
 const runtimeUiKitSource = await readText('src/ui/runtime-ui-kit.js');
 const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
-const compactShellSource = await readText('src/ui/directive-compact-shell.js');
 const commandSpineSource = await readText('src/ui/directive-command-spine-shell.js');
 const commandSpineLayoutSource = await readText('src/ui/directive-shell-layout.mjs');
 const campaignPanelSource = await readText('src/ui/campaign-panel.js');
@@ -491,12 +489,7 @@ assert.match(commandSpineSource, /directive-command-mobile-nav/, 'command-spine 
 assert.match(commandSpineLayoutSource, /viewport\.width\s*\*\s*0\.47/, 'default drawer geometry should target approximately half the display width');
 assert.match(commandSpineLayoutSource, /shelfLeft|shelfTop/, 'layout persistence should include movable shelf position fields');
 assert.match(commandSpineLayoutSource, /localStorage|safeStorage/, 'drawer geometry should be persisted through host-safe local layout storage');
-assert.match(compactShellSource, /resolveDirectiveIconSlot/, 'compact shell should resolve route and action icons from Icon Pack slots');
-assert.match(compactShellSource, /bottom-navigation/, 'compact shell should declare the bottom-navigation shell contract');
-assert.match(compactShellSource, /directive-bottom-route-bar/, 'compact shell should render shared bottom route navigation');
 assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime shell should not replay primary tab click history');
-assert.doesNotMatch(compactShellSource, /directive-mobile-can-go-back|item\.id\s*===\s*['"]back['"]/, 'compact shell should not special-case Back as primary navigation');
-assert.match(compactShellSource, /mobileShellActions\.length\s*>\s*0/, 'compact shell should only mount mobile shell actions when explicitly requested');
 assert.match(campaignPanelSource, /directive-campaign-console/, 'Campaign should render an LCARS console wrapper');
 assert.match(campaignPanelSource, /campaignIndex/, 'Campaign Command should read the runtime campaign-session index');
 assert.match(campaignPanelSource, /directive-campaign-session-list/, 'Campaign Command should render a scalable campaign-session list');

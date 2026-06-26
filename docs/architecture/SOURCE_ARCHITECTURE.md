@@ -6,7 +6,7 @@ Directive should avoid Saga's remaining monolithic-file problem from the start. 
 
 The durable repo scaffold is documented in [Repository Structure](REPO_STRUCTURE.md). This file focuses on source-code ownership under `src/`.
 
-For SillyTavern and Lumiverse support, see [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md). That plan extends this source architecture with a host-adapter boundary now represented by `src/hosts` and sidecar job orchestration under `src/jobs`.
+For the current host scope, see [Host Integration Manual](../technical/HOST_INTEGRATION_MANUAL.md) and [Pre-Alpha Refactor And Cleanup Plan](../planning/PRE_ALPHA_REFACTOR_AND_CLEANUP_PLAN.md). Active pre-alpha support is SillyTavern-only, with `src/hosts/fake` retained for deterministic contract tests.
 
 ## Initial Source Layout
 
@@ -128,7 +128,6 @@ src/
     host-contract.mjs
     fake/
     sillytavern/
-    lumiverse/
 
   jobs/
     sidecar-job-contracts.mjs
@@ -156,13 +155,11 @@ src/
     css-classes.js
 ```
 
-Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It should stay thin and export the Lumiverse frontend setup from `src/hosts/lumiverse/frontend.js`; the shared shell and runtime behavior still live under `src/ui`, `src/runtime`, and `src/hosts/lumiverse`.
-
 ## Ownership Rules
 
 - `extension/` owns the manifest-facing entrypoint shims and shared extension UI helpers. Active SillyTavern lifecycle and event implementation lives under `hosts/sillytavern/`.
 - `runtime/` owns shell geometry, routing, prompt sync, and action dispatch.
-- `ui/` owns rendering, user interaction, host-neutral route metadata, the shared command-spine shell, local shell geometry helpers, and the legacy compact shell retained as historical scaffolding.
+- `ui/` owns rendering, user interaction, host-neutral route metadata, the command-spine shell, and local shell geometry helpers.
 - `campaign/` owns authoritative campaign state and transaction safety.
 - `retrieval/` owns scene snapshots, package dataset indexes, Director-card gates, recall lanes, packet assembly, retrieval journals, and diagnostics.
 - `directors/` owns coordinated Director modules that consume retrieval packets and propose structured outcome data without bypassing adjudication or persistence rules.
@@ -171,7 +168,7 @@ Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It 
 - `simulation/` owns crew, ship, command culture, values, directives, and relationships.
 - `packages/` owns reusable campaign package schemas and loading.
 - `creators/` is reserved for future Starship Creator and Mission Creator draft projects. It should use package and mission schemas rather than inventing separate final formats.
-- `hosts/` owns host contracts, capability negotiation, per-host adapters, UI mounting, and theme-token mapping for SillyTavern, Lumiverse, and tests.
+- `hosts/` owns host contracts, capability negotiation, per-host adapters, UI mounting, and theme-token mapping for SillyTavern and fake-host tests.
 - `jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `storage/` owns logical persistence mechanics and host-neutral repository semantics.
 - `providers/` owns provider routing and response normalization.
@@ -179,16 +176,14 @@ Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It 
 
 ## Host Adapter Boundary
 
-Dual-host support adds a host boundary without changing the Mission Director, campaign, adjudication, package, retrieval, or transaction ownership rules above.
+The host boundary exists without changing the Mission Director, campaign, adjudication, package, retrieval, or transaction ownership rules above.
 
 The split is:
 
 - `src/hosts/` owns host contracts, capability negotiation, and per-host adapters.
 - `src/hosts/sillytavern/` owns the current SillyTavern bootstrap, lifecycle, event, storage, provider, UI-mount, and theme integration.
-- `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
-- `src/frontend.ts` owns only the Lumiverse browser-bundle entry wrapper for `dist/frontend.js`.
 - `src/ui/` owns shell components and shared route metadata; host adapters should not fork route panels or campaign-facing panel structure.
-- SillyTavern and Lumiverse use the shared command spine, one resizable drawer, and a phone-width bottom-navigation fallback. Do not introduce panel-owned primary navigation, panel-owned resize geometry, extra floating shell controls, or divergent route order.
+- SillyTavern uses the command spine, one resizable drawer, and a phone-width bottom-navigation fallback. Do not introduce panel-owned primary navigation, panel-owned resize geometry, extra floating shell controls, or divergent route order.
 - `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
 
@@ -263,7 +258,6 @@ src/ui/runtime-ui-kit.js
 src/ui/directive-routes.mjs
 src/ui/directive-command-spine-shell.js
 src/ui/directive-shell-layout.mjs
-src/ui/directive-compact-shell.js
 src/ui/campaign-panel.js
 src/ui/character-creator-panel.js
 src/ui/mission-panel.js

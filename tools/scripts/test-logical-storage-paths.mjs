@@ -8,7 +8,7 @@ import {
   DIRECTIVE_LOGICAL_STORAGE_KEYS,
   sidecarJobLogicalKey,
   campaignPackageImportLogicalKey,
-  toLumiverseStorageKey,
+  toDirectStorageKey,
   toSillyTavernStorageFileName,
   toSillyTavernUserFilesPath
 } from '../../src/storage/logical-storage-paths.mjs';
@@ -41,7 +41,7 @@ assert.equal(
   '/user/files/directive-indexes-campaign-package-imports.v1.json'
 );
 assert.equal(
-  toLumiverseStorageKey('jobs/campaign-1/job-2.v1.json'),
+  toDirectStorageKey('jobs/campaign-1/job-2.v1.json'),
   'jobs/campaign-1/job-2.v1.json'
 );
 
@@ -49,8 +49,8 @@ const stMapper = createLogicalStorageMapper('sillytavern');
 assert.equal(stMapper.toPath('system/storage-index.v1.json'), '/user/files/directive-system-storage-index.v1.json');
 assert.equal(stMapper.toFileName('system/storage-index.v1.json'), 'directive-system-storage-index.v1.json');
 
-const lumiverseMapper = createLogicalStorageMapper('lumiverse');
-assert.equal(lumiverseMapper.toPath('system/storage-index.v1.json'), 'system/storage-index.v1.json');
+const fakeMapper = createLogicalStorageMapper('fake');
+assert.equal(fakeMapper.toPath('system/storage-index.v1.json'), 'system/storage-index.v1.json');
 
 assert.throws(() => assertDirectiveLogicalStorageKey('../bad.json'), /Unsafe logical storage key/);
 assert.throws(() => assertDirectiveLogicalStorageKey('/bad.json'), /Unsafe logical storage key/);

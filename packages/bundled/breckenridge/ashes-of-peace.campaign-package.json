@@ -111,7 +111,8 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": true,
-        "packageRole": "Strategic authority and final legal command"
+        "packageRole": "Strategic authority and final legal command",
+        "publicProfile": "Captain Mara Whitaker is Human, Commanding Officer."
       },
       {
         "id": "player-commander",
@@ -130,7 +131,8 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Gifted test pilot; ambition, mentorship, and controlled risk"
+        "packageRole": "Gifted test pilot; ambition, mentorship, and controlled risk",
+        "publicProfile": "Lieutenant Kieran Vale is Human, Flight Control Officer."
       },
       {
         "id": "priya-nayar",
@@ -140,7 +142,8 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Coordination, informal influence, and ethical boundaries"
+        "packageRole": "Coordination, informal influence, and ethical boundaries",
+        "publicProfile": "Lieutenant Priya Nayar is Human, Operations Officer."
       },
       {
         "id": "hadrik-bronn",
@@ -150,7 +153,14 @@
         "species": "Tellarite",
         "status": "locked",
         "returningBreckenridgeVeteran": true,
-        "packageRole": "Preparedness, discipline, acting-XO handoff, and operational scrutiny"
+        "packageRole": "Preparedness, discipline, acting-XO handoff, and operational scrutiny",
+        "publicProfile": "Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran Tellarite tactical and security chief, original senior officer, and temporary acting XO during the post-refit transit.",
+        "ageDescription": "Late fifties by human comparison.",
+        "appearanceSummary": "Broad, compact Tellarite officer with russet skin, a strong snout, heavy brows, cropped bristling hair, and a neatly squared beard.",
+        "publicIdentityFacts": [
+          "Tellarite tactical and security veteran.",
+          "Original Breckenridge senior officer and acting XO during the post-refit transit."
+        ]
       },
       {
         "id": "rowan-saye",
@@ -160,7 +170,8 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Evidentiary rigor, dissent, and institutional skepticism"
+        "packageRole": "Evidentiary rigor, dissent, and institutional skepticism",
+        "publicProfile": "Lieutenant Commander Rowan Saye is Human, Chief Science Officer."
       },
       {
         "id": "miriam-sato",
@@ -170,7 +181,8 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Medical reality, bioethics, casualty burden, and honest cost"
+        "packageRole": "Medical reality, bioethics, casualty burden, and honest cost",
+        "publicProfile": "Commander Miriam Sato is Human, Chief Medical Officer."
       },
       {
         "id": "imani-cross",
@@ -180,7 +192,8 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Technical integrity, autonomy, identity, and long-term consequence"
+        "packageRole": "Technical integrity, autonomy, identity, and long-term consequence",
+        "publicProfile": "Lieutenant Commander Imani Cross is Human, Chief Engineer."
       }
     ],
     "cohorts": [

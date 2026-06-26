@@ -4,9 +4,9 @@
 
 The crew dataset contract defines how prose character bibles become structured, retrievable package data for Directive.
 
-The campaign package `crew` field remains the compact roster and relationship-model declaration. A crew dataset is the richer Director-facing layer: officer profiles, reveal gates, voice guidance, relationship dynamics, development axes, B-plots, and coalition rules.
+The campaign package `crew` field remains the compact roster, fixed public identity source, and relationship-model declaration. It owns public rank, billet, species, role/profile, and any public age or appearance facts that narrator prompts may repeat. A crew dataset is the richer Director-facing layer: officer profiles, reveal gates, voice guidance, relationship dynamics, development axes, B-plots, and coalition rules.
 
-This keeps the package roster small while giving Directors precise data to retrieve without injecting the whole character bible into prompts.
+This keeps the package roster small while giving Directors precise data to retrieve without injecting the whole character bible into prompts. Dataset officer rows may augment package crew records, but they must not erase package-owned public identity fields.
 
 ## Artifacts
 

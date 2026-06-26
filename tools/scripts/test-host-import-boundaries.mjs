@@ -65,9 +65,9 @@ const checks = [
     )
   },
   {
-    label: 'Lumiverse spindle references must stay inside the future Lumiverse host adapter',
+    label: 'Retired host bridge references must not appear in active source',
     pattern: /\bspindle\b/g,
-    allowed: (repoPath) => isUnder(repoPath, 'src/hosts/lumiverse')
+    allowed: () => false
   },
   {
     label: 'SillyTavern files API routes must stay in the SillyTavern host adapter',

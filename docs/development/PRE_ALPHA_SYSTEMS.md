@@ -65,7 +65,7 @@ The gate should remain fast and deterministic. Live SillyTavern smoke testing sh
 
 ### 1. Runtime Shell
 
-The shell must keep opening, closing, route selection, drawer geometry, and panel rendering separate from storage writes, provider calls, and mission resolution. Directive's shell control schema uses the shared command spine with one route drawer across SillyTavern and Lumiverse, with a phone-width bottom-navigation fallback. Back, close, refresh, save, and overflow controls remain explicit shell or route-local actions rather than panel-owned floating controls.
+The shell must keep opening, closing, route selection, drawer geometry, and panel rendering separate from storage writes, provider calls, and mission resolution. Directive's shell control schema uses the command spine with one route drawer in SillyTavern and a phone-width bottom-navigation fallback. Back, close, refresh, save, and overflow controls remain explicit shell or route-local actions rather than panel-owned floating controls.
 
 Current entry points:
 
@@ -148,7 +148,7 @@ Current anchors:
 
 ### 9. Host Boundary
 
-The active playable runtime remains SillyTavern, but the dual-host contract is now in place. SillyTavern and Lumiverse support share the same engine through host adapters. The Lumiverse descriptor targets the 1.0.4 Spindle extension surface while keeping MVP permissions limited to `generation`, `interceptor`, and `tools`.
+The active playable runtime is SillyTavern-only for pre-alpha. The fake host remains as deterministic host-contract coverage. Future host adapters, including possible Lumiverse support, are deferred until after the SillyTavern alpha stabilizes.
 
 Current anchors:
 
@@ -173,7 +173,7 @@ Current anchors:
 - Full mobile operator manual.
 - Provider-assisted Command Log summarization.
 - Automatic chat edit/delete event interception.
-- Lumiverse adapter parity.
+- Future host adapter parity.
 
 ## Current Focus
 

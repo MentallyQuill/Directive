@@ -2,7 +2,7 @@
 
 ## Test Culture
 
-Directive should inherit Saga's preference for product-contract tests, visual smoke coverage, storage safety, and live host verification where behavior depends on SillyTavern or Lumiverse.
+Directive should inherit Saga's preference for product-contract tests, visual smoke coverage, storage safety, and live host verification where behavior depends on SillyTavern.
 
 Tests should prove behavior, not stale source shape. Source-layout tests are acceptable only for boundaries that are explicit architecture contracts, such as no `saga` runtime identifiers and no monolithic runtime owner.
 
@@ -101,7 +101,7 @@ Storage tests should cover:
 - Campaign saves written as payloads and listed through a lightweight save index.
 - Load Game marking the selected save active without requiring every save payload to be read.
 - Storage filenames stay flat, `directive-` prefixed, and limited to passive JSON for draft/save/import/index payloads.
-- Host storage is wrapped behind Directive adapters: SillyTavern owns `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and `/user/files` mapping, while Lumiverse owns scoped Spindle storage.
+- Host storage is wrapped behind Directive adapters: SillyTavern owns `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and `/user/files` mapping, while the fake host keeps direct logical-key mapping for deterministic tests.
 
 ## Alpha Gate Contract Suite
 
@@ -155,20 +155,12 @@ node tools\scripts\test-runtime-stage22-command-brief.mjs
 node tools\scripts\test-host-contract-fake.mjs
 node tools\scripts\test-host-import-boundaries.mjs
 node tools\scripts\test-host-sidecar-orchestrator.mjs
-node tools\scripts\test-lumiverse-entrypoints.mjs
 node tools\scripts\test-logical-storage-adapter.mjs
-node tools\scripts\test-lumiverse-events-adapter.mjs
-node tools\scripts\test-lumiverse-host-factory.mjs
-node tools\scripts\test-lumiverse-prompt-blocks.mjs
 node tools\scripts\test-sidecar-job-runner.mjs
 node tools\scripts\test-logical-storage-paths.mjs
-node tools\scripts\test-lumiverse-generation-client.mjs
-node tools\scripts\test-lumiverse-interceptor-adapter.mjs
-node tools\scripts\test-lumiverse-storage-adapter.mjs
-node tools\scripts\test-lumiverse-tools-adapter.mjs
 node tools\scripts\test-prompt-injection-safety.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
-node tools\scripts\test-dual-host-scaffold.mjs
+node tools\scripts\test-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
@@ -219,17 +211,13 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-open-world-context-budget.mjs` covers context orchestration and player-safe prompt budget limits for open-world state.
 
-`test-lumiverse-entrypoints.mjs` covers Lumiverse backend/frontend source entrypoints, runtime bridge initialization, open-world quest runtime actions, narration routing, sidecar diagnostics, and frontend command-spine mounting.
-
-`test-logical-storage-adapter.mjs` and `test-logical-storage-paths.mjs` cover host-neutral storage behavior and path safety used by both SillyTavern and Lumiverse.
-
-The Lumiverse adapter tests cover events, host factory construction, generation client behavior, prompt blocks, interceptor registration, storage adapter behavior, tools adapter behavior, and open-world runtime bridge entrypoints.
+`test-logical-storage-adapter.mjs` and `test-logical-storage-paths.mjs` cover host-neutral storage behavior and path safety used by SillyTavern plus the direct-key fake host mapper.
 
 `test-sidecar-job-runner.mjs`, `test-host-sidecar-orchestrator.mjs`, `test-command-log-summary-sidecar.mjs`, and `test-prompt-injection-safety.mjs` cover schema-v2 sidecar execution, host-aware routing, low-cost command-log summaries, and prompt-injection rejection.
 
 `test-stage30-runtime-hygiene.mjs` covers the runtime/package/schema identifier hygiene check required before expanding Chapter 1.
 
-`test-dual-host-scaffold.mjs` covers host contracts, SillyTavern and Lumiverse host factories, logical storage adapters, generation routing, prompt-injection safety, sidecar jobs, Command Log summary sidecars, Lumiverse batch-sidecar routing, and host-aware sidecar orchestration.
+`test-host-scaffold.mjs` covers host contracts, SillyTavern host/generation/storage checks, fake-host contracts, logical storage adapters, generation routing, prompt-injection safety, sidecar jobs, Command Log summary sidecars, fake-host batch routing, and host-aware sidecar orchestration.
 
 `test-mission-state-delta-contract.mjs` hardens the Director contract around existing actor/front state deltas, requiring hidden raw-value guards, source outcome IDs, graph clock links, and graph pressure links where those explicit links are present.
 
@@ -237,7 +225,7 @@ The Lumiverse adapter tests cover events, host factory construction, generation 
 
 `test-thread-ledger.mjs` covers the first Narrative Thread foundation: hidden ledger constants, record normalization, directed lifecycle transitions, evidence merging, closure review appends, immutability, and player-safe summaries that exclude latent/watchlisted records, raw scores, hidden facts, and Command Bearing potential.
 
-These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check bundled Ashes of Peace and Glass Harbor package records against the schema-v2 contract, gate Ashes-specific invariants to the Ashes reference package, prove storage and save behavior, validate current mission-graph fixtures, prove open-world quest/thread/context/reconciliation behavior, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check bundled Ashes of Peace and Glass Harbor package records against the schema-v2 contract, gate Ashes-specific invariants to the Ashes reference package, prove storage and save behavior, validate current mission-graph fixtures, prove open-world quest/thread/context/reconciliation behavior, prove hidden-source safety across player-facing packets, prove SillyTavern plus fake-host scaffolding, and ensure the anticipated repo scaffold remains intact.
 
 ## Live Host Smokes
 
@@ -253,10 +241,6 @@ Live host smokes are not a substitute for deterministic contract tests, but they
 - Manual SillyTavern browser smoke on the current local host has covered the previous bottom-navigation shell, Campaign, Character Creator default mode and draft persistence, Mission preview/commit with live provider-backed narration/autosave, Campaign Records Save Game, Save Game As branch creation through the naming dialog, branch load, post-Chapter-1 Follow-Up Opportunity scheduling, scheduled follow-up persistence through Save Game As branch load, Settings provider-assist diagnostics/action surfacing on an eligible follow-up save, persisted fail-soft provider timeout diagnostics, accepted proposal-only provider diagnostics, Command Log review-row safety, Crew/Ship/Log/Settings route inspection, desktop shell layout, and phone-width full-screen shell layout with persistent bottom route navigation, integrated Back segment, and explicit Close control behavior.
 - SillyTavern no-generation UI smoke may treat the host API/provider connection as an external optional condition when the goal is only to prove page load, menu registration, bridge registration, and shell rendering. Narration, provider routing, `/api/files` storage, preview/commit, save/load, and teardown confidence require a connected SillyTavern API surface and must not be reported as passed from a browser-only disconnected host.
 - SillyTavern live smoke now has repeatable opt-in automation for menu registration, command-spine shell rendering, route panels, desktop/phone screenshot capture, CSRF-bootstrapped file API storage, active-campaign preview/discard, gated live commit/narration with provider-proof reporting, gated Campaign Records Save Game / Save Game As branch reselect, and teardown cleanup when Playwright or the Edge/Chrome CDP fallback can control a local browser. The current local host has strict terminal proof for static source assets, `/api/files` upload/verify/read/delete, route coverage through `chromium-cdp`, desktop/phone screenshot geometry, Campaign Records Save Game / Save Game As branch reselect, and one provider-backed commit with `providerGeneration.proven === true`.
-- Lumiverse default live smoke is [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs). The default path avoids model spend while checking Spindle import/restart, 1.0.4 local-dev extension preservation, permission grant including `app_manipulation`, frontend bundle serving with command-spine app-overlay markers, registered tools, runtime initialize, quick campaign creation, manual save, load, deterministic preview, commit without narration, and prompt dry-run injection. Set `DIRECTIVE_LUMIVERSE_IMPORT=0` to skip import-local entirely; set `DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE=0` only when intentionally overwriting an existing local-dev install.
-- Lumiverse live generation smoke is opt-in with `DIRECTIVE_LIVE_GENERATION=1`; it should cover `spindle.generate.quiet` narration and concurrent `spindle.generate.batch` sidecars once the local provider connection is valid.
-- Lumiverse registered tools currently have live registration coverage and fake-Spindle invocation coverage. Local Lumiverse source exposes direct REST listing through `/api/v1/spindle/tools`; extension tool invocation itself is Council/generation-routed via `TOOL_INVOCATION`, so non-spending live invocation coverage requires a Lumiverse test hook or an intentional Council/generation smoke.
-
 Crew dataset tests should add:
 
 - Director-card schema reference validation.

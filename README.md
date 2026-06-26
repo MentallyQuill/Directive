@@ -4,13 +4,13 @@
 
 # Directive
 
-**Directive is a pre-alpha, host-portable extension engine for a persistent, freeform Star Trek command RPG.**
+**Directive is a pre-alpha SillyTavern extension for a persistent, freeform Star Trek command RPG.**
 
 The primary playable campaign package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the bundled package set also includes draft campaigns for U.S.S. Glass Harbor, U.S.S. Serein, U.S.S. Eudora Vale, U.S.S. Aster Vale, and U.S.S. Celandine. The product model revolves around loadable campaign packages that define the ship, crew, campaign frame, mission types, local worldbuilding, end conditions, and package-specific guardrails.
 
 Directive is chat-first. The player acts through ordinary roleplay prose, while the extension maintains authoritative structured state behind the scenes. Player prose declares intent and attempted action; it does not directly rewrite reality.
 
-Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described by `manifest.json` and requires SillyTavern `1.12.0` or newer. Lumiverse support is described by `spindle.json` and is under active local smoke testing.
+Current development state: `0.1.0-pre-alpha.1`. Active pre-alpha support is SillyTavern-only, described by `manifest.json`, and requires SillyTavern `1.12.0` or newer. Lumiverse support is deferred until after the SillyTavern alpha stabilizes.
 
 <p align="center">
   <img src="assets/documentation/readme/directive-campaign-command.png" alt="Directive Campaign command console with Ashes of Peace expanded">
@@ -47,10 +47,6 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 
 Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
 
-### Lumiverse
-
-Lumiverse retains the shared engine and Spindle host adapter. The chat-native transaction and state services are host-neutral, but this checkpoint's automatic chat creation, SillyTavern event observation, and `setExtensionPrompt` bridge are implemented and tested for the SillyTavern adapter. See [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md) for the current Lumiverse surface.
-
 ## Key Features
 
 | Surface | What it does |
@@ -68,7 +64,7 @@ Lumiverse retains the shared engine and Spindle host adapter. The chat-native tr
 | **Tips, Tutorials, And Training Preview** | Provides first-run and feature tutorials, Show Me targeting, startup tips, Settings controls, and an inert populated training scenario that teaches drawers without writing real saves or chats. |
 | **Persistent Saves And Recovery** | Supports drafts, first saves, autosaves, branches, load, edit/delete reconciliation, prompt rebuild, response retry, narration rewrite, outcome rerun, and rollback. |
 | **Campaign Conclusion** | Commits a recoverable closing record, posts the final scene, completes the save, clears injection, and exposes archival. |
-| **Host Boundary** | Keeps engine services host-neutral while SillyTavern and Lumiverse use separate storage, generation, prompt, chat, event, and shell adapters. |
+| **SillyTavern Host Boundary** | Keeps runtime services behind host contracts while SillyTavern owns storage, generation, prompt, chat, event, and shell integration. The fake host remains for deterministic contract tests. |
 
 <p align="center">
   <img src="assets/documentation/renders/docs-directive-mission-active.png" alt="Directive Mission active play support surface">
@@ -91,7 +87,6 @@ Operator start:
 Host setup and operations:
 
 - [SillyTavern Preset](docs/user/SILLYTAVERN_PRESET.md)
-- [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md)
 - [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md)
 
 Technical manuals:
@@ -135,7 +130,7 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 ## Roadmap
 
 - Run repeatable live SillyTavern smoke for automatic chat creation, interceptor ordering, Connection Profile calls, prompt placement, Scene Handshake settlement, message edit/delete payloads, and post/save failure recovery.
-- Extend the same chat-native host contract across Lumiverse once its chat and prompt lifecycle exposes equivalent control points.
+- Revisit future host adapters, including possible Lumiverse support, only after the SillyTavern alpha contract is stable.
 - Deepen provider-assisted relationship, crew, ship, and continuity proposals while keeping state mutation revision-checked and proposal-only.
 - Promote Outcome Integrity from design contract into a fully documented user-facing edit-review flow once the runtime behavior is complete.
 - Add the planned time-adjudication layer on top of the current deterministic reply-header foundation.
@@ -144,7 +139,7 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 
 ## Security
 
-Directive runs as a browser-side SillyTavern extension and as a Lumiverse Spindle extension. It does not require a SillyTavern server plugin for the current SillyTavern storage model.
+Directive runs as a browser-side SillyTavern extension. It does not require a SillyTavern server plugin for the current SillyTavern storage model.
 
 Campaign package imports are intended to be data-only. The current `.directive-campaign.zip` normalizer rejects unsafe paths and active file types such as scripts, HTML, executables, scriptable SVG, and WebAssembly. Imported packages can still affect prompt content after you load and use them, so treat packages from unknown sources as untrusted prompt material.
 
@@ -170,10 +165,9 @@ Important runtime modules:
 
 - `src/extension/index.js`: SillyTavern manifest-facing entrypoint shim.
 - `src/hosts/sillytavern/`: SillyTavern lifecycle, chat creation/binding, message observation, prompt injection, dual-provider routing, storage, generation, and shell integration.
-- `src/hosts/lumiverse/`: Lumiverse Spindle backend/frontend entrypoints, storage, generation, tools, prompt blocks, and runtime bridge.
+- `src/hosts/fake/`: deterministic host-contract utilities for tests.
 - `src/ui/directive-command-spine-shell.js`: SillyTavern left command spine, single drawer, mobile fallback, and resize handle.
 - `src/ui/directive-shell-layout.mjs`: persisted drawer geometry and viewport constraints.
-- `src/ui/directive-compact-shell.js`: legacy compact shell still mounted by Lumiverse during migration.
 - `src/runtime/runtime-shell.js`: Directive route state, drawer/full-screen behavior, resizing, and panel routing.
 - `src/runtime/runtime-app.mjs`: composition root for package loading, activation, chat orchestration, Director commit, prompt synchronization, recovery, conclusion, and UI projections.
 - `src/runtime/chat-turn-orchestrator.mjs`: serialized ingress, utility routing, pause handling, exact-one response arbitration, and response recovery.
@@ -189,7 +183,7 @@ Important runtime modules:
 
 ## Storage
 
-Settings should stay compact: preferences, pointers, active package/save references, and lightweight diagnostics. Drafts, campaign saves, turn ledgers, Command Log records, imported package payloads, and future creator projects should live as Directive-owned logical JSON records. SillyTavern maps those records to flat files under `/user/files`; Lumiverse maps them to scoped Spindle storage.
+Settings should stay compact: preferences, pointers, active package/save references, and lightweight diagnostics. Drafts, campaign saves, turn ledgers, Command Log records, imported package payloads, and future creator projects should live as Directive-owned logical JSON records. SillyTavern maps those records to flat files under `/user/files`; the fake host keeps direct logical-key mapping for deterministic tests.
 
 Directive separates reusable package data from campaign-owned state. A package defines the ship and campaign template; a save records what happened in one playthrough. Campaign state is authoritative over narration and Command Log prose.
 
@@ -228,16 +222,16 @@ Run the current alpha gate:
 node tools\scripts\run-alpha-gate.mjs
 ```
 
-The gate validates the extension shell, dual-provider routing, SillyTavern chat/prompt/event lifecycle, campaign activation, reply-header timekeeping, Scene Handshake settlement, utility classification, exact-one response behavior, mechanics-first recovery, player-safe prompt projection, state-delta authorization, sidecar scheduling, message reconciliation, tutorial/training targets, campaign conclusion, bundled package contracts, Mission Director behavior, storage, transaction safety, dual-host adapters, and repository structure.
+The gate validates the extension shell, dual-provider routing, SillyTavern chat/prompt/event lifecycle, campaign activation, reply-header timekeeping, Scene Handshake settlement, utility classification, exact-one response behavior, mechanics-first recovery, player-safe prompt projection, state-delta authorization, sidecar scheduling, message reconciliation, tutorial/training targets, campaign conclusion, bundled package contracts, Mission Director behavior, storage, transaction safety, SillyTavern plus fake-host contract coverage, and repository structure.
 
-For a local Lumiverse server, run the default no-generation smoke with host credentials supplied through environment variables:
+For a local SillyTavern server, sync the installed extension copy, then run:
 
 ```powershell
-$env:LUMIVERSE_BASE_URL='http://localhost:7860'
-$env:LUMIVERSE_USERNAME='<username>'
-$env:LUMIVERSE_PASSWORD='<password>'
-$env:DIRECTIVE_LIVE_GENERATION='0'
-node tools\scripts\smoke-lumiverse-live.mjs
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+$env:DIRECTIVE_SILLYTAVERN_SCREENSHOTS='1'
+$env:DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP='1'
+node tools\scripts\smoke-sillytavern-live.mjs
 ```
 
 ## Source Material
