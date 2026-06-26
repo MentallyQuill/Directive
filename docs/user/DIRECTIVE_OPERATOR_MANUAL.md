@@ -22,8 +22,25 @@ Before running a campaign:
 
 Directive creates and selects a Directive-owned host character card during first-start activation. You do not need to create or select a SillyTavern character/group to own the campaign chat.
 
-<!-- directive-render id="docs-directive-host-launcher" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-host-launcher.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: SillyTavern Extensions menu with Directive launcher.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-host-launcher.png" alt="SillyTavern Extensions menu with Directive launcher">
+</p>
+
+## Reply Header And Time
+
+Every Directive-bound campaign reply should begin with the current campaign display header:
+
+```text
+*Stardate #####.# | HHMM hours*
+```
+
+The header is a display wrapper. It is not evidence that time advanced, and older headers in chat history should not be treated as campaign facts. Directive-owned replies prefix the header deterministically from campaign state. Host-native SillyTavern generations receive a prompt block that tells the model to use the current header and ignore older headers as time evidence.
+
+If the clock looks wrong, treat it as a campaign-state or prompt-sync issue, not as something to fix by editing prior chat prose. The current timekeeping contract lives in [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md).
+
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-reply-header-live.png" alt="live SillyTavern campaign chat showing a Directive reply with the Stardate and ship-time header">
+</p>
 
 ## Runtime Shell
 
@@ -90,8 +107,9 @@ Runtime shell renders:
   <img src="../../assets/documentation/renders/docs-mobile-directive-settings.png" alt="Mobile Settings shell">
 </p>
 
-<!-- directive-render id="docs-directive-shell-reset-window" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-shell-reset-window.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: closed shelf, fullscreen/workspace escalation, and Reset Window host result.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-shell-reset-window.png" alt="closed shelf, fullscreen/workspace escalation, and Reset Window host result">
+</p>
 
 ## Campaign Route
 
@@ -167,8 +185,9 @@ Campaign Command renders:
   <img src="../../assets/documentation/renders/docs-directive-campaign-archived.png" alt="Archived campaign state">
 </p>
 
-<!-- directive-render id="docs-directive-campaign-rebind-live" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-campaign-rebind-live.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: host-specific Rebind Chat proof and real first-start chat proof outside the runtime fixture matrix.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-rebind-live.png" alt="host-specific Rebind Chat proof and real first-start chat proof outside the runtime fixture matrix">
+</p>
 
 ### Campaign Library & Import
 
@@ -283,8 +302,9 @@ Records renders:
   <img src="../../assets/documentation/renders/docs-directive-records-branch-ready.png" alt="Save branch ready state">
 </p>
 
-<!-- directive-render id="docs-directive-records-delete-review" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-records-delete-review.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: destructive delete confirmation and dependent-turn review modal.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-delete-review.png" alt="destructive delete confirmation and dependent-turn review modal">
+</p>
 
 ## Character Creator
 
@@ -411,8 +431,9 @@ Character Creator renders:
   <img src="../../assets/documentation/renders/docs-directive-character-creator-portrait-unsupported.png" alt="Character Creator portrait unsupported state">
 </p>
 
-<!-- directive-render id="docs-directive-creator-assist-microstates" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-creator-assist-microstates.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: section-wand preview/apply/regenerate/dismiss and discard confirmation.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-creator-assist-microstates.png" alt="section-wand preview/apply/regenerate/dismiss and discard confirmation">
+</p>
 
 ## Campaign Activation
 
@@ -451,8 +472,9 @@ Activation renders:
   <img src="../../assets/documentation/renders/docs-directive-campaign-activation-failed.png" alt="Campaign activation failed and retry state">
 </p>
 
-<!-- directive-render id="docs-directive-activation-live-proof" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-activation-live-proof.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: real host chat creation, first intro posted in SillyTavern, and prompt-context installed proof outside the runtime fixture matrix.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-activation-live-proof.png" alt="real host chat creation, first intro posted in SillyTavern, and prompt-context installed proof outside the runtime fixture matrix">
+</p>
 
 ## Mission Route
 
@@ -515,6 +537,38 @@ Mission can pause for:
 - recovery decision.
 
 Pending interactions should be player-safe and specific about the decision required.
+
+### Command Bearing Points
+
+Command Bearing has two player-facing tracks:
+
+- **Inspiration**: trust, courage, morale, and rallying leadership.
+- **Resolve**: lawful authority, preparation, discipline, boundaries, and accepted responsibility.
+
+Directive can show available points and an eligible Command Bearing choice after a provisional outcome is known. A point is not spent by opening Assist or asking whether a draft fits. It becomes readied only when the operator explicitly chooses an eligible Inspiration or Resolve intervention, and the spend applies to the exact sent player message and outcome context. If validation fails or the message changes out from under the readied point, Directive should cancel or return it rather than silently mutating the outcome.
+
+Command Bearing cannot make impossible actions possible, erase anchored consequences, reveal hidden facts, or rewrite committed mechanics. It can improve an eligible provisional outcome within the rules described by the Command Bearing system and logged runtime state.
+
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-command-bearing-points.png" alt="Inspiration and Resolve point display, readied-point state, cancel/returned-point state, and eligible Mission Command Bearing choice">
+</p>
+
+### Scene Handshake Settlement
+
+Scene Handshake is the background pass that notices when the player accepts useful host-generated scene prose. If the prior assistant response gave clear assignments, operational status, readiness notes, or other player-visible obligations, and the player's next post treats that response as true, Directive can settle those facts into structured campaign state before classifying the new post.
+
+Typical settled records include:
+
+- open assignments in Mission;
+- source-backed Command Log notes;
+- ship readiness or technical-debt notes;
+- player-visible thread signals.
+
+Scene Handshake should not commit rejected, corrected, edited, stale, wrong-chat, hidden, or ambiguous prose. It is a narrow Utility-lane settlement pass, not a way for the model to invent new outcomes or award Command Bearing.
+
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-scene-handshake-settlement.png" alt="Mission after Scene Handshake settles accepted host prose into open assignments, Command Log context, ship readiness, and thread signals">
+</p>
 
 ### Terminal Checkpoints
 
@@ -584,8 +638,9 @@ Recovery tools are grouped away from normal command play. Use them when a respon
 
 Mission renders:
 
-<!-- directive-render id="docs-directive-mission-terminal-checkpoint" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-mission-terminal-checkpoint.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Mission Directive Checkpoint card with Replay From Checkpoint, Push On, Keep This Ending, Save As Branch, and saved-branch-count states.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-terminal-checkpoint.png" alt="Mission Directive Checkpoint card with Replay From Checkpoint, Push On, Keep This Ending, Save As Branch, and saved-branch-count states">
+</p>
 
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-mission-active.png" alt="Mission active bound-chat surface">
@@ -700,8 +755,9 @@ Crew renders:
   <img src="../../assets/documentation/renders/docs-directive-crew-empty.png" alt="Crew empty state">
 </p>
 
-<!-- directive-render id="docs-directive-crew-portrait-microstates" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-crew-portrait-microstates.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: portrait import/change/remove microstates and long-bio disclosure variants.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-crew-portrait-microstates.png" alt="portrait import/change/remove microstates and long-bio disclosure variants">
+</p>
 
 ## Ship Route
 
@@ -791,8 +847,9 @@ Log renders:
   <img src="../../assets/documentation/renders/docs-directive-log-assisted-failure.png" alt="Command Log assisted-summary failure">
 </p>
 
-<!-- directive-render id="docs-directive-log-search-detail" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-log-search-detail.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: search/filter states and expanded detail variant.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-log-search-detail.png" alt="search/filter states and expanded detail variant">
+</p>
 
 ## Directive Assist
 
@@ -806,6 +863,8 @@ Directive Assist is the SillyTavern input-side helper. It is pre-send assistance
 | Brief Me | Produces a player-safe brief with knowns, uncertainties, routine context, pressures, and decision focus. |
 | Frame as Order | Rewrites rough text as a command/order. |
 | Frame as Report | Rewrites rough text as a report. |
+| Continue Scene | Drafts a local scene-continuation cue. The final sent message still goes through the normal scene-navigation guards. |
+| Cut Within Scene | Drafts a local transition cue for the current unresolved situation without skipping durable outcomes. |
 | Reconcile Marked Passage | Starts reconciliation for selected/marked chat passage. |
 | Open Pending Reconciliation | Opens Mission to the pending reconciliation card. |
 
@@ -823,8 +882,9 @@ Assist result modals can include:
 Provider fallback should warn the operator when output was recovered, replaced, or rejected.
 While an Assist generation is pending, SillyTavern shows a notification and the Assist launcher swaps its ship icon for a spinner.
 
-<!-- directive-render id="docs-directive-assist-composer" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-assist-composer.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, and disabled/no-active-campaign state beside the real SillyTavern composer.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-assist-composer.png" alt="assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, and disabled/no-active-campaign state beside the real SillyTavern composer">
+</p>
 
 ## Settings Route
 
@@ -865,6 +925,12 @@ Settings > Systems includes a **Tips & Tutorials** card with:
 - **Reset Tutorial Progress**.
 
 `Show Me` opens the relevant Directive route or host-adjacent menu first, then highlights the narrowest available target. For example, Assist tips highlight the exact Assist action button, message-action tips highlight the exact Directive message-action item, and provider tips highlight the relevant provider control instead of the whole Settings page.
+
+The tutorial can temporarily show a populated **Training Scenario** state. This is inert preview data: it does not create a SillyTavern chat, write saves, inject prompt context, or call providers. Use it to learn what Mission, Crew, Ship, Log, Assist, message actions, saves, recovery, and Command Bearing look like once a real campaign is active.
+
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-training-scenario.png" alt="tutorial Training Scenario banner with populated Mission, Crew, Ship, Log, and highlighted Show Me target">
+</p>
 
 ### Providers
 
@@ -972,8 +1038,9 @@ Settings renders:
   <img src="../../assets/documentation/renders/docs-directive-settings-safety-issue.png" alt="Settings Safety issue">
 </p>
 
-<!-- directive-render id="docs-directive-settings-safety-results" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-settings-safety-results.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: action-result variants for every Safety operation.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-safety-results.png" alt="action-result variants for every Safety operation">
+</p>
 
 ## Saves, Transactions, And Recovery
 
@@ -1013,8 +1080,9 @@ SillyTavern-specific controls include:
 - Directive preset install/status card;
 - `/user/files` storage-backed package/save records.
 
-<!-- directive-render id="docs-directive-sillytavern-host-surfaces" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-sillytavern-host-surfaces.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live `/send` row before message-action capture.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-sillytavern-host-surfaces.png" alt="Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live /send row before message-action capture">
+</p>
 
 ## Lumiverse Differences
 
@@ -1031,8 +1099,9 @@ Lumiverse uses the shared engine through Spindle, but its host surface differs:
 
 See [Lumiverse Installation And Smoke Testing](LUMIVERSE_INSTALLATION.md) and [Host Integration Manual](../technical/HOST_INTEGRATION_MANUAL.md).
 
-<!-- directive-render id="docs-directive-lumiverse-host-surfaces" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-lumiverse-host-surfaces.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-lumiverse-host-surfaces.png" alt="app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences">
+</p>
 
 ## Troubleshooting
 

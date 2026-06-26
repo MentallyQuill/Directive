@@ -653,6 +653,33 @@ function createCrewResetView() {
         seniorCrewIds: ['mara-whitaker', 'player-commander', 'jalen-orr'],
         relationshipModel: true
       },
+      mission: {
+        openAssignments: [
+          {
+            id: 'assignment.jalen.alpha-handoff',
+            title: 'Alpha Shift Handoff Check',
+            summary: 'Jalen needs a player-visible alpha-shift follow-up before the next watch rotation.',
+            status: 'active',
+            dueWindow: 'before beta shift',
+            linkedCrewIds: ['jalen-orr']
+          },
+          {
+            id: 'assignment.jalen.completed',
+            title: 'Completed Assignment Should Not Render',
+            summary: 'Completed linked work should not remain in Crew Open Work.',
+            status: 'completed',
+            linkedCrewIds: ['jalen-orr']
+          },
+          {
+            id: 'assignment.jalen.hidden',
+            title: 'Hidden Assignment Should Not Render',
+            summary: 'Hidden linked work should not appear in Crew Open Work.',
+            status: 'active',
+            visibility: 'hidden',
+            linkedCrewIds: ['jalen-orr']
+          }
+        ]
+      },
       pressureLedger: {
         records: [
           {
@@ -821,7 +848,9 @@ function createMissionThreadsView() {
             id: 'mission-thread-test',
             title: 'Thread Test Mission',
             type: 'main',
-            question: 'Keep the ship stable while crew concerns surface.'
+            question: {
+              text: 'Keep the ship stable while crew concerns surface.'
+            }
           }
         ]
       }
@@ -836,7 +865,10 @@ function createMissionThreadsView() {
         activeMissionId: 'mission-thread-test',
         phase: 'command-review',
         formalObjectives: [
-          'Keep command aware of visible ongoing concerns.'
+          {
+            id: 'mission-thread-test.objective.1',
+            text: 'Keep command aware of visible ongoing concerns.'
+          }
         ]
       },
       ship: {
@@ -1175,7 +1207,11 @@ assert.match(jalenText, /Command Posture\s+Crew Read\s+Concerned/);
 assert.match(jalenText, /Current Pressure\s+Medium \/ Active\s+Ops Handoff Pressure/);
 assert.match(jalenText, /Command Context\s+Advisory Note\s+Ops handoff advisory/);
 assert.match(jalenText, /Jalen is the involved officer for the operations handoff advisory/);
-assert.match(jalenText, /Open Work\s+Quest \/ Active\s+Ops Handoff Review/);
+assert.match(jalenText, /Open Work/);
+assert.match(jalenText, /Current Order \/ Active\s+Alpha Shift Handoff Check/);
+assert.match(jalenText, /Jalen needs a player-visible alpha-shift follow-up before the next watch rotation/);
+assert.match(jalenText, /Due: before beta shift/);
+assert.match(jalenText, /Quest \/ Active\s+Ops Handoff Review/);
 assert.match(jalenText, /Jalen has an active open-world operations handoff review/);
 assert.match(jalenText, /Recent Command Memory\s+Command Log\s+Watch Handoff Accepted/);
 assert.match(jalenText, /Open Threads\s+Open Thread \/ Active\s+Jalen Watch Rotation/);
@@ -1184,7 +1220,7 @@ assert.match(jalenText, /Jalen Mess Check-In/);
 assert.match(jalenText, /Jalen Cross-Watch Notes/);
 assert.doesNotMatch(jalenText, /full recommendation needs to remain available/, 'Long command memory should be collapsed by default');
 assert.doesNotMatch(jalenText, /expanded thread context remains available/, 'Long Open Thread summary should be collapsed by default');
-assert.doesNotMatch(jalenText, /42|17|12|professionalConfidence|hidden question|hidden memory event|hidden memory interpretation|Hidden Ops Pressure|Hidden Latent Thread/, 'Crew inspector should not leak hidden relationship, memory, pressure, or thread values');
+assert.doesNotMatch(jalenText, /42|17|12|professionalConfidence|hidden question|hidden memory event|hidden memory interpretation|Hidden Ops Pressure|Hidden Latent Thread|Completed Assignment Should Not Render|Hidden Assignment Should Not Render/, 'Crew inspector should not leak hidden relationship, memory, pressure, thread, or inactive assignment values');
 const memorySummaryToggle = crewBody.querySelector('.directive-crew-inspector-summary-toggle');
 assert(memorySummaryToggle, 'Long Crew inspector summaries should expose a More/Less toggle');
 assert.equal(memorySummaryToggle.getAttribute('aria-expanded'), 'false');
@@ -1244,6 +1280,9 @@ renderMissionPanel(missionBody, missionThreadsView, {
 });
 assert.match(textOf(missionBody), /Advisory Notes/);
 assert.match(textOf(missionBody), /The current handoff question has a player-safe advisory note for Mission review/);
+assert.match(textOf(missionBody), /Keep the ship stable while crew concerns surface/);
+assert.match(textOf(missionBody), /Keep command aware of visible ongoing concerns/);
+assert.doesNotMatch(textOf(missionBody), /\[object Object\]/, 'Mission should render structured mission questions and objectives as player-safe text.');
 const openThreadsTab = missionBody.querySelector('[data-mission-subtab-target="directive-mission-open-threads-section"]');
 assert(openThreadsTab, 'Mission should expose a global Open Threads tab');
 openThreadsTab.click();

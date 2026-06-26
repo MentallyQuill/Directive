@@ -12,6 +12,9 @@ This manual combines reusable technical diagrams with final SillyTavern-hosted r
 - [Host Integration Manual](HOST_INTEGRATION_MANUAL.md): SillyTavern, Lumiverse, fake host, storage, prompt, generation, and shell boundaries.
 - [Chat-Native Runtime Architecture](../architecture/CHAT_NATIVE_RUNTIME.md): architecture record for the implemented runtime spine.
 - [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time header, deterministic time ownership, model sanitization, and planned time-adjudication layer.
+- [Scene Handshake Protocol](../design/SCENE_HANDSHAKE_PROTOCOL.md): implemented settlement pass that turns accepted host prose into source-backed campaign state before normal turn classification.
+- [Directive Tutorial Revision](../design/DIRECTIVE_TUTORIAL_REVISION.md): implemented guidance, Show Me targeting, Settings tutorial library, and inert training scenario architecture.
+- [Outcome Integrity](../design/OUTCOME_INTEGRITY.md): edit-review trust contract for protecting committed outcome authority while allowing cosmetic narration repair.
 - [Mission Director As-Coded](../architecture/MISSION_DIRECTOR_AS_CODED.md): current Director loop behavior.
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md): package data contract.
 
@@ -35,9 +38,12 @@ The main working domains are:
 | Shell | `src/runtime/runtime-shell.js`, `src/ui/directive-command-spine-shell.js` | Route frame, drawer/fullscreen behavior, desktop command spine, phone fallback. |
 | Campaign start | `src/runtime/campaign-start-controller.mjs`, `src/campaign/campaign-start-service.mjs` | Package library view, creator drafts, first save, active save recovery, manual save actions. |
 | Chat turns | `src/runtime/chat-turn-orchestrator.mjs` | Host ingress, serialization, Utility classification, exact-one response arbitration, pause/recovery handling. |
+| Scene handshake | `src/runtime/scene-handshake-settler.mjs` | Utility-lane settlement of accepted host-generated prose into source-backed assignments, Command Log notes, ship readiness notes, and thread signals. |
 | Director turns | `src/runtime/director-turn-runtime.mjs`, `src/directors/open-world-turn-coordinator.mjs`, `src/mission/director.mjs` | Scene snapshots, mission/quest/world resolution, provisional and committed turn packets. |
 | Transactions | `src/campaign/transaction-state.mjs`, `src/runtime/state-delta-gateway.mjs`, `src/runtime/turn-commit-coordinator.mjs` | Mechanics-first commits, revisioned tracked state, recovery snapshots, journals, sidecar application. |
 | Generation | `src/generation/generation-roles.mjs`, `src/generation/generation-router.mjs` | Host-neutral model-call roles and routing through active host generation clients. |
+| Timekeeping | `src/time/campaign-time-header.mjs` | Deterministic reply-header formatting, stale-header stripping, and prompt-block creation for host-native generation. |
+| Guidance | `src/guidance/directive-guidance.js`, `src/guidance/directive-training-scenario.mjs` | Tips, tutorials, Show Me preparation, and inert populated training views. |
 | Sidecars | `src/jobs/campaign-sidecar-scheduler.mjs`, `src/jobs/sidecar-job-runner.mjs` | Proposal-only background state analysis and command-log summarization. |
 | Hosts | `src/hosts/sillytavern`, `src/hosts/lumiverse`, `src/hosts/fake` | Host lifecycle, storage, prompt, generation, events, shell mount, and test seams. |
 
@@ -86,7 +92,7 @@ guardrails
 assets
 ```
 
-The primary bundled reference package is `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`. The bundled draft Glass Harbor package is `packages/bundled/glass-harbor/drowned-constellation.campaign-package.json`. Runtime code must treat package data as immutable source material. When the player starts a campaign, Directive projects package data into campaign-owned state, then future changes belong to the save.
+The primary bundled reference package is `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`. Additional bundled draft packages live under `packages/bundled/glass-harbor/`, `packages/bundled/serein/`, `packages/bundled/eudora-vale/`, `packages/bundled/aster-vale/`, and `packages/bundled/celandine/`. Runtime code must treat package data as immutable source material. When the player starts a campaign, Directive projects package data into campaign-owned state, then future changes belong to the save.
 
 Reusable extension rule: keep templates and playthrough state in separate stores. Once a player has committed outcomes, do not patch those outcomes by editing the template.
 
@@ -111,6 +117,8 @@ sequenceDiagram
   participant Narrator
   Player->>Host: sends bound-chat post
   Host->>Orchestrator: message event and generation intercept
+  Orchestrator->>Utility: settle accepted previous assistant prose if needed
+  Utility->>State: validated Scene Handshake operations, if safe
   Orchestrator->>State: record ingress
   Orchestrator->>Utility: classify if deterministic path is not enough
   alt routine or inject-and-continue
@@ -126,6 +134,8 @@ sequenceDiagram
 
 The orchestrator serializes work per campaign and deduplicates ingress. The commit path records mechanics before narration. Response posting uses idempotency keys so retries do not duplicate introductions, outcomes, or conclusions.
 
+Before classification, Scene Handshake may settle accepted host-generated prose from the previous assistant response into source-backed state. It is intentionally narrow: assignments, player-visible Command Log notes, low-risk ship readiness notes, and thread signals. The model role proposes; deterministic validation and the state-delta gateway decide whether anything can be written.
+
 After a committed turn, the end-condition service evaluates package `endConditions` against the committed outcome and campaign state. A match records a terminal detection and a `terminalOutcomeDecision` pending interaction in `runtimeTracking.endConditionLedger`. The Mission route then exposes a **Directive Checkpoint** card rather than silently ending the campaign.
 
 Terminal checkpoint actions are state transactions:
@@ -134,6 +144,20 @@ Terminal checkpoint actions are state transactions:
 - Push On applies a package-authored continuation frame and rebuilds prompt context.
 - Keep This Ending records conclusion metadata and completes the branch.
 - Save As Branch writes a terminal timeline save and rewrites the cloned `campaignChatBinding.saveId` to the new branch save id.
+
+## Timekeeping Boundary
+
+Directive-owned campaign replies use `src/time/campaign-time-header.mjs` to prefix the current display header:
+
+```text
+*Stardate #####.# | HHMM hours*
+```
+
+The header is presentation, not evidence. Directive strips prior headers from model-side transcript/evidence paths that it controls and injects a current-header prompt block for host-native SillyTavern generation. Deterministic campaign state, explicit world-time operations, travel, and future time-adjudication commits own actual time movement.
+
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-timekeeping-boundary.png" alt="diagram or fixture showing campaign state producing the reply header while prior chat headers are stripped from model evidence">
+</p>
 
 ## Campaign Activation
 
@@ -243,8 +267,9 @@ Prompt context is built through `src/generation/player-safe-prompt-context-build
 
 Prompt packets use stable block ids, placement/depth metadata, hashes, and revisions. Prompt sync is chat-affine: it installs only into the bound campaign chat, suspends when the active chat does not match, and clears on completion, archive, or extension disable.
 
-<!-- directive-render id="docs-directive-prompt-inspection" status="needed" source="fixture-or-diagram" asset="assets/documentation/renders/docs-directive-prompt-inspection.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-prompt-inspection.png" alt="sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state">
+</p>
 
 ## Sidecars
 
@@ -273,8 +298,9 @@ Runtime diagnostics example:
   <img src="../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png" alt="Model-call diagnostics empty state">
 </p>
 
-<!-- directive-render id="docs-directive-sidecar-proposal-journal" status="needed" source="fixture-or-diagram" asset="assets/documentation/renders/docs-directive-sidecar-proposal-journal.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: sidecar-specific proposal journal.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-sidecar-proposal-journal.png" alt="sidecar-specific proposal journal">
+</p>
 
 ## Host Boundary
 

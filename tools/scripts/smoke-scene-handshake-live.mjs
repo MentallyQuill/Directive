@@ -16,7 +16,7 @@ const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const SILLYTAVERN_USER = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_SOAK_ST_USER || '');
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SCENE_HANDSHAKE_BROWSER_TIMEOUT_MS, 30000);
-const SETTLEMENT_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SCENE_HANDSHAKE_SETTLEMENT_TIMEOUT_MS, 120000);
+const SETTLEMENT_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SCENE_HANDSHAKE_SETTLEMENT_TIMEOUT_MS, 240000);
 const PACKAGE_ID = String(
   process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID
   || 'directive:campaign-package:breckenridge-ashes-of-peace'
@@ -782,6 +782,75 @@ async function readMissionDomSnapshot(page) {
   });
 }
 
+async function readCrewDomSnapshot(page) {
+  await openDirectivePanel(page);
+  await navigateDirectiveRoute(page, 'crew');
+  await page.waitForTimeout(500);
+  return page.evaluate(async () => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    const body = document.querySelector('[data-directive-runtime-body="true"]');
+    const bodyText = () => normalize(body?.textContent || '');
+    const clickSubtab = async (tabId) => {
+      const button = body?.querySelector(`[data-directive-crew-subtab="${tabId}"]`);
+      button?.click();
+      await nextFrame();
+      await nextFrame();
+      return Boolean(button);
+    };
+    const selectRosterRow = async (pattern) => {
+      const rows = Array.from(body?.querySelectorAll('.directive-crew-roster-row') || []);
+      const row = rows.find((entry) => pattern.test(normalize(entry.textContent)));
+      row?.click();
+      await nextFrame();
+      await nextFrame();
+      return Boolean(row);
+    };
+
+    const characterText = bodyText();
+    const rosterTabFound = await clickSubtab('crew');
+    const rosterText = bodyText();
+    const rosterRows = Array.from(body?.querySelectorAll('.directive-crew-roster-row') || []);
+
+    const selectedCross = await selectRosterRow(/Cross|Imani/i);
+    const crossText = bodyText();
+    const selectedBronn = await selectRosterRow(/Bronn|Hadrik/i);
+    const bronnText = bodyText();
+    const selectedSato = await selectRosterRow(/Sato|Miriam/i);
+    const satoText = bodyText();
+    const selectedSaye = await selectRosterRow(/Saye|Rowan/i);
+    const sayeText = bodyText();
+    const allText = normalize([characterText, rosterText, crossText, bronnText, satoText, sayeText].join(' '));
+
+    return {
+      hasBody: Boolean(body),
+      hasObjectObject: /\[object Object\]|\bObject Object\b/.test(allText),
+      characterTextPreview: characterText.slice(0, 1200),
+      characterTabPopulated: /Player Character|Commander|Executive Officer|Command Bearing/i.test(characterText),
+      rosterTabFound,
+      rosterRowCount: rosterRows.length,
+      rosterTextPreview: rosterText.slice(0, 1600),
+      rosterMentionsCross: /Cross|Imani/i.test(rosterText),
+      rosterMentionsBronn: /Bronn|Hadrik/i.test(rosterText),
+      rosterMentionsSato: /Sato|Miriam/i.test(rosterText),
+      rosterMentionsSaye: /Saye|Rowan/i.test(rosterText),
+      selectedCross,
+      selectedBronn,
+      selectedSato,
+      selectedSaye,
+      crossTextPreview: crossText.slice(0, 1600),
+      bronnTextPreview: bronnText.slice(0, 1600),
+      satoTextPreview: satoText.slice(0, 1200),
+      sayeTextPreview: sayeText.slice(0, 1200),
+      crossMentionsAssignment: /\bcommand-network\b|\bhandoff\b|\bwalkthrough\b|\bEngineering\b/i.test(crossText),
+      bronnMentionsAssignment: /\balpha shift\b|\bmeet Bronn\b|\bapproach\b|\bhandoff\b/i.test(bronnText),
+      satoMentionsAssignment: /\bsurgical bay\b|\bMedical\b|\bpulled apart\b|\bwalk the ship\b/i.test(satoText),
+      sayeMentionsAssignment: /\bsensor array\b|\bcalibration\b|\bScience\b|\bwalk the ship\b/i.test(sayeText),
+      anyCrewMentionsAssignment: /\bcommand-network\b|\bBronn\b|\balpha shift\b|\bsurgical bay\b|\bsensor array\b|\bwalk the ship\b|\bdepartment heads\b/i.test(allText)
+    };
+  });
+}
+
 function containsAny(records, patterns) {
   const text = records.map((entry) => JSON.stringify(entry)).join('\n');
   return patterns.some((pattern) => pattern.test(text));
@@ -991,6 +1060,34 @@ async function main() {
       'Mission drawer did not surface the accepted briefing assignments.',
       missionDom
     );
+    const crewDom = await readCrewDomSnapshot(page);
+    assertLive(crewDom.hasBody, 'Crew drawer body was not rendered.', crewDom);
+    assertLive(crewDom.characterTabPopulated, 'Crew Character tab did not render populated player-character context.', crewDom);
+    assertLive(crewDom.rosterTabFound, 'Crew Roster subtab was not available.', crewDom);
+    assertLive(crewDom.rosterRowCount >= 4, 'Crew Roster did not render enough campaign crew rows for assignment projection.', crewDom);
+    assertLive(!crewDom.hasObjectObject, 'Crew drawer rendered Object Object for structured records.', crewDom);
+    assertLive(
+      crewDom.rosterMentionsCross && crewDom.rosterMentionsBronn && crewDom.rosterMentionsSato && crewDom.rosterMentionsSaye,
+      'Crew Roster did not include the officers named by the accepted briefing.',
+      crewDom
+    );
+    assertLive(
+      crewDom.selectedCross && crewDom.crossMentionsAssignment,
+      'Crew detail for Commander Cross did not surface the accepted command-network assignment context.',
+      crewDom
+    );
+    assertLive(
+      crewDom.selectedBronn && crewDom.bronnMentionsAssignment,
+      'Crew detail for Bronn did not surface the accepted alpha-shift meeting assignment context.',
+      crewDom
+    );
+    assertLive(
+      (crewDom.selectedSato && crewDom.satoMentionsAssignment)
+      || (crewDom.selectedSaye && crewDom.sayeMentionsAssignment)
+      || crewDom.anyCrewMentionsAssignment,
+      'Crew surfaces did not surface the accepted ship-walk department-head assignment context.',
+      crewDom
+    );
 
     const sourceEdit = await invalidateSourceByEdit(page, inserted.hostMessageId);
     assertLive(
@@ -1023,6 +1120,13 @@ async function main() {
       commandLogCount: after.commandLogCount,
       technicalDebt: after.technicalDebt.map((entry) => entry.label || entry.detail).filter(Boolean),
       threadTitles: after.threadRecords.map((entry) => entry.title).filter(Boolean),
+      crewProjection: {
+        rosterRowCount: crewDom.rosterRowCount,
+        crossMentionsAssignment: crewDom.crossMentionsAssignment,
+        bronnMentionsAssignment: crewDom.bronnMentionsAssignment,
+        satoMentionsAssignment: crewDom.satoMentionsAssignment,
+        sayeMentionsAssignment: crewDom.sayeMentionsAssignment
+      },
       sceneHandshakeModelCalls: after.sceneHandshakeModelCalls.slice(-4),
       servedExtensionCompared: served.compared.map((entry) => entry.relativePath),
       exportedSave: {

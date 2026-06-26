@@ -18,6 +18,9 @@
     "turnSettlementPolicy",
     "readableTranscriptPolicy",
     "playerInputPolicy",
+    "sceneHandshakePolicy",
+    "timekeepingPolicy",
+    "objectiveAssignmentProjectionPolicy",
     "commandBearingSystemPolicy",
     "checks",
     "campaignMatrix",
@@ -315,6 +318,233 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "sceneHandshakePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "ownerLanes",
+        "modelRoles",
+        "intervalLogRecord",
+        "allowedRoots",
+        "certificationGates",
+        "minimumEvidence",
+        "stateInspection",
+        "failureSeverityPolicy",
+        "hiddenStatePolicy"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "const": true
+        },
+        "ownerLanes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "modelRoles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "intervalLogRecord": {
+          "type": "string",
+          "const": "scene-handshake-settlement"
+        },
+        "allowedRoots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "certificationGates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "minimumEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "stateInspection": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "failureSeverityPolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hiddenStatePolicy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "timekeepingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "artifactDirectory",
+        "intervalLogRecord",
+        "expectedHeaderPattern",
+        "requiredSurfaces",
+        "certificationGates",
+        "stateInspection",
+        "failureSeverityPolicy"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "const": true
+        },
+        "artifactDirectory": {
+          "type": "string",
+          "const": "timekeeping"
+        },
+        "intervalLogRecord": {
+          "type": "string",
+          "const": "timekeeping-header-check"
+        },
+        "expectedHeaderPattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredSurfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "certificationGates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "stateInspection": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "failureSeverityPolicy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "objectiveAssignmentProjectionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "artifactDirectory",
+        "liveLogRecord",
+        "triggerSources",
+        "requiredSurfaces",
+        "checkpointCadence",
+        "certificationGates",
+        "minimumEvidence",
+        "stateInspection",
+        "failureSeverityPolicy",
+        "hiddenStatePolicy"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "const": true
+        },
+        "artifactDirectory": {
+          "type": "string",
+          "const": "objective-assignments"
+        },
+        "liveLogRecord": {
+          "type": "string",
+          "const": "objective-assignment-projection-check"
+        },
+        "triggerSources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredSurfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "route", "expectation"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "route": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expectation": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "checkpointCadence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "certificationGates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "minimumEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "stateInspection": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "failureSeverityPolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hiddenStatePolicy": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

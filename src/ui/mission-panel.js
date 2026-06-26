@@ -243,21 +243,34 @@ function appendMissionListCard(container, title, items, className, tooltip = '')
   return true;
 }
 
+function missionRecordFieldText(value) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim();
+  if (Array.isArray(value)) return value.map(missionRecordFieldText).filter(Boolean).join(', ');
+  if (typeof value !== 'object') return '';
+  for (const key of ['text', 'playerSafeText', 'playerSafeSummary', 'summary', 'detail', 'description', 'label', 'name', 'title', 'value', 'id']) {
+    const text = missionRecordFieldText(value[key]);
+    if (text) return text;
+  }
+  return '';
+}
+
 function missionRecordText(item) {
   if (typeof item === 'string') return item.trim();
   if (!item || typeof item !== 'object') return '';
-  const title = String(item.title || item.label || item.name || '').trim();
-  const summary = String(item.playerSafeSummary || item.summary || item.detail || item.description || '').trim();
-  const fallback = String(item.id || '').trim();
+  const title = missionRecordFieldText(item.title || item.label || item.name);
+  const summary = missionRecordFieldText(item.playerSafeSummary || item.summary || item.text || item.detail || item.description);
+  const fallback = missionRecordFieldText(item.id);
   const base = title && summary && title !== summary
     ? `${title}: ${summary}`
     : (summary || title || fallback);
   if (!base) return '';
   const meta = [
-    item.status ? `Status: ${item.status}` : '',
-    item.priority ? `Priority: ${item.priority}` : '',
-    item.dueWindow || item.deadline || item.timeWindow ? `Due: ${item.dueWindow || item.deadline || item.timeWindow}` : '',
-    item.owner || item.assignedByActorId || item.assignedBy ? `Owner: ${item.owner || item.assignedByActorId || item.assignedBy}` : ''
+    missionRecordFieldText(item.status) ? `Status: ${missionRecordFieldText(item.status)}` : '',
+    missionRecordFieldText(item.priority) ? `Priority: ${missionRecordFieldText(item.priority)}` : '',
+    missionRecordFieldText(item.dueWindow || item.deadline || item.timeWindow) ? `Due: ${missionRecordFieldText(item.dueWindow || item.deadline || item.timeWindow)}` : '',
+    missionRecordFieldText(item.owner || item.assignedByActorId || item.assignedBy) ? `Owner: ${missionRecordFieldText(item.owner || item.assignedByActorId || item.assignedBy)}` : ''
   ].filter(Boolean);
   return meta.length ? `${base} (${meta.join('; ')})` : base;
 }
@@ -1619,7 +1632,7 @@ export function renderMissionPanel(body, view, actions) {
   identityTop.append(identityCopy, activeBadge);
 
   const objective = createElement('p', 'directive-mission-objective-line');
-  objective.textContent = chapter?.question || missionRecordText(state.mission?.formalObjectives?.[0]) || 'Continue the mission and protect the campaign state.';
+  objective.textContent = missionRecordText(chapter?.question) || missionRecordText(state.mission?.formalObjectives?.[0]) || 'Continue the mission and protect the campaign state.';
   identity.append(identityTop, objective);
 
   const commandFacts = createElement('div', 'directive-mission-command-facts');

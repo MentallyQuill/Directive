@@ -2879,12 +2879,36 @@ textarea.directive-field-control {
   text-align: left !important;
 }
 
-.directive-runtime-history-controls {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(112px, 148px)) auto;
-  align-items: end !important;
-  justify-content: start;
-  gap: 10px !important;
+.directive-settings-runtime-form {
+  min-width: 0;
+  width: min(100%, 720px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.directive-settings-runtime-group {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.directive-settings-runtime-group-title {
+  margin: 0;
+  color: var(--directive-muted, rgba(248, 239, 224, 0.7));
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.directive-settings-runtime-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
 }
 
 .directive-runtime-history-field {
@@ -2892,14 +2916,31 @@ textarea.directive-field-control {
   min-width: 0;
 }
 
-.directive-settings-action-row .directive-runtime-history-save {
+.directive-settings-runtime-actions {
+  width: min(100%, 720px);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.directive-settings-runtime-actions .directive-runtime-history-save {
   flex: 0 0 auto;
-  min-width: 104px;
+  min-width: 108px;
   width: auto;
   justify-content: center;
   border-radius: 6px;
   text-align: center;
   white-space: nowrap;
+}
+
+@container (max-width: 520px) {
+  .directive-settings-runtime-form {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-settings-runtime-actions {
+    width: 100%;
+  }
 }
 
 .directive-settings-tooltip-card {
@@ -3081,13 +3122,6 @@ textarea.directive-field-control {
   flex-wrap: wrap;
   gap: 7px;
   justify-content: flex-end;
-}
-
-.directive-settings-runtime-note {
-  margin: 0 0 10px;
-  color: var(--directive-muted, #b8c5d6);
-  font-size: 0.88rem;
-  line-height: 1.35;
 }
 
 .directive-outcome-integrity-editor-overlay {

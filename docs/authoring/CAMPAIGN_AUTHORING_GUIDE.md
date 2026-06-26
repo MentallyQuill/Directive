@@ -408,8 +408,9 @@ Assets may include:
 
 Use passive assets only. Package import rejects active content such as scripts, HTML, executables, scriptable SVG, and WASM.
 
-<!-- directive-render id="docs-directive-package-asset-fallback" status="needed" source="fixture-or-static-example" asset="assets/documentation/renders/docs-directive-package-asset-fallback.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: package asset manifest examples and missing-runtime-image fallback behavior.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-package-asset-fallback.png" alt="package asset manifest examples and missing-runtime-image fallback behavior">
+</p>
 
 ### 16. Validate And Import
 

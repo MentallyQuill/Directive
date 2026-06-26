@@ -5,18 +5,20 @@ This document explains the current player-post lifecycle from host ingress to st
 ## Plain-Language Flow
 
 1. The player writes in the bound campaign chat.
-2. Directive shows a delayed chat activity pill such as `Directive is reading your post...`.
-3. Directive records that post as an ingress event.
-4. Directive decides whether the post is scene color, scene navigation, routine, counsel, a pause, or a Director turn.
-5. The activity pill updates to the current blocking phase, such as checking intent, advancing the scene, logging the action, resolving the command, or writing the response.
-6. Routine turns synchronize prompt context and let the host continue.
-7. Consequential turns commit structured mechanics before prose.
-8. Narration is generated from the committed packet.
-9. The response is posted exactly once.
-10. Directive checks package end conditions and may pause on a terminal checkpoint.
-11. Directive autosaves and may schedule sidecars.
-12. After the visible response is settled, sidecar work demotes to quiet `Updating campaign context...` chips rather than holding the main spinner at full weight.
-13. If something fails, recovery resumes from the last durable step and the UI leaves a review state instead of disappearing immediately.
+2. Directive checks whether the previous assistant response and the new player reply create a Scene Handshake settlement.
+3. If the handshake is accepted and safe, Directive commits source-backed assignments, Command Log notes, ship readiness notes, or thread signals before normal turn classification.
+4. Directive shows a delayed chat activity pill such as `Directive is reading your post...`.
+5. Directive records the current post as an ingress event.
+6. Directive decides whether the post is scene color, scene navigation, routine, counsel, a pause, or a Director turn.
+7. The activity pill updates to the current blocking phase, such as checking intent, advancing the scene, logging the action, resolving the command, or writing the response.
+8. Routine turns synchronize prompt context and let the host continue.
+9. Consequential turns commit structured mechanics before prose.
+10. Narration is generated from the committed packet.
+11. The response is posted exactly once with the current campaign reply header.
+12. Directive checks package end conditions and may pause on a terminal checkpoint.
+13. Directive autosaves and may schedule sidecars.
+14. After the visible response is settled, sidecar work demotes to quiet `Updating campaign context...` chips rather than holding the main spinner at full weight.
+15. If something fails, recovery resumes from the last durable step and the UI leaves a review state instead of disappearing immediately.
 
 ## Infographic
 
@@ -25,7 +27,10 @@ flowchart TD
   A["Host player message"] --> B["Normalize message and active chat identity"]
   B --> C{"Bound campaign chat?"}
   C -->|no| D["Ignore or fail open to host"]
-  C -->|yes| E["Record ingress in runtimeTracking.ingressLedger"]
+  C -->|yes| E0["Run Scene Handshake settlement for previous assistant response"]
+  E0 -->|accepted safe settlement| E1["Commit source-backed assignments, Log, ship readiness, and thread signals"]
+  E0 -->|defer/reject/unsafe| E["Record ingress in runtimeTracking.ingressLedger"]
+  E1 --> E
   E --> F["Show blocking activity: checking intent"]
   F --> F2["Deterministic fast-path classification"]
   F2 --> G{"Clear routine path?"}
@@ -70,6 +75,21 @@ Operator-facing symptoms:
 - the Mission route can show the campaign chat as bound or unbound;
 - Campaign Records can block manual save when the active host chat does not match the loaded save;
 - Rebind Chat is recovery/admin behavior, not normal first-start flow.
+
+### Scene Handshake Settlement
+
+Before normal intent classification, Directive can run the `sceneHandshakeSettler` role over the previous assistant message, the current player reply, and a compact player-safe runtime snapshot. The purpose is to settle accepted host-generated prose into structured state when the player treats that prose as true.
+
+The settlement pass can propose only narrow, player-visible state:
+
+- Mission open assignments;
+- source-backed Command Log notes;
+- low-risk ship readiness or technical-debt notes;
+- thread signals.
+
+Deterministic code validates source hashes, chat/save binding, duplicate settlement keys, allowed roots, stale source status, player acceptance, and hidden-state boundaries before applying operations through the state-delta gateway. Rejected, corrected, stale, wrong-chat, edited, or ambiguous source prose records a defer/review result instead of mutating campaign state.
+
+Scene Handshake uses the Utility lane and cannot award Command Bearing, resolve quests, change hidden state, commit destructive outcomes, or produce chat prose.
 
 ### Classification
 
@@ -151,7 +171,9 @@ Narration uses the `narration` model role through the active generation route. T
 
 ### Response Posting
 
-Directive-owned turns abort normal host generation and post exactly one assistant response. Response records carry status and idempotency data so retry does not duplicate the same outcome.
+Directive-owned turns abort normal host generation and post exactly one assistant response. Response records carry status and idempotency data so retry does not duplicate the same outcome. Directive-owned responses are prefixed with the current campaign reply header, such as `*Stardate 53049.2 | 0000 hours*`, using deterministic campaign state rather than model inference.
+
+Host-native generations cannot be post-processed after the host model emits text, so Directive installs a high-priority reply-header prompt block that names the exact current header and tells the model not to infer elapsed time from prior headers.
 
 ### Autosave And Sidecars
 
@@ -174,6 +196,10 @@ For a new extension, reuse the pattern rather than the Star Trek specifics:
 Runtime turn-sequence examples:
 
 <p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-scene-handshake-turn-flow.png" alt="Scene Handshake turn-flow diagram or fixture showing settlement before classifier and normal Director escalation">
+</p>
+
+<p align="center">
   <img src="../../assets/documentation/renders/docs-directive-mission-active.png" alt="Mission Active bound-chat state">
 </p>
 
@@ -189,5 +215,6 @@ Runtime turn-sequence examples:
   <img src="../../assets/documentation/renders/docs-directive-mission-narration-recovery.png" alt="Mission narration recovery console">
 </p>
 
-<!-- directive-render id="docs-directive-player-turn-sequence-diagram" status="diagram-needed" source="diagram" asset="assets/documentation/renders/docs-directive-player-turn-sequence-diagram.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: designed turn-sequence infographic if the Mermaid diagram is replaced with a static diagram.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-player-turn-sequence-diagram.png" alt="designed turn-sequence infographic if the Mermaid diagram is replaced with a static diagram">
+</p>

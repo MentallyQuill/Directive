@@ -127,6 +127,9 @@ export function createArtifactPaths({
     playwright: path.join(root, 'playwright'),
     promptInspection: path.join(root, 'prompt-inspection'),
     storage: path.join(root, 'storage'),
+    objectiveAssignments: path.join(root, 'objective-assignments'),
+    sceneHandshake: path.join(root, 'scene-handshake'),
+    timekeeping: path.join(root, 'timekeeping'),
     endConditions: path.join(root, 'end-conditions'),
     parallelUsers: path.join(root, 'parallel-users'),
     discovery: path.join(root, 'discovery')
@@ -142,6 +145,9 @@ export function ensureArtifactTree(paths) {
     paths.playwright,
     paths.promptInspection,
     paths.storage,
+    paths.objectiveAssignments,
+    paths.sceneHandshake,
+    paths.timekeeping,
     paths.endConditions,
     paths.parallelUsers,
     paths.discovery

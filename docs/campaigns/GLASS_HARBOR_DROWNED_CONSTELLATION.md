@@ -87,17 +87,21 @@ Command succession is tracked separately: the player may be confirmed as captain
 
 ## Render Needs
 
-<!-- directive-render id="docs-directive-glass-harbor-library" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-library.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Campaign Library package detail for Drowned Constellation, including draft status and unresolved asset fallbacks.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-library.png" alt="Campaign Library package detail for Drowned Constellation, including draft status and unresolved asset fallbacks">
+</p>
 
-<!-- directive-render id="docs-directive-glass-harbor-character-creator" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-character-creator.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Glass Harbor Character Creator review state showing the newly promoted XO / Acting Captain role.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-character-creator.png" alt="Glass Harbor Character Creator review state showing the newly promoted XO / Acting Captain role">
+</p>
 
-<!-- directive-render id="docs-directive-glass-harbor-open-world" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-open-world.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Glass Harbor Mission Open World state showing Nerine Reef opportunities without exposing Director-only map data.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-open-world.png" alt="Glass Harbor Mission Open World state showing Nerine Reef opportunities without exposing Director-only map data">
+</p>
 
-<!-- directive-render id="docs-directive-glass-harbor-crew" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-crew.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Glass Harbor Crew roster showing the authored senior-staff portraits.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-crew.png" alt="Glass Harbor Crew roster showing the authored senior-staff portraits">
+</p>
 
 ## Related Docs
 

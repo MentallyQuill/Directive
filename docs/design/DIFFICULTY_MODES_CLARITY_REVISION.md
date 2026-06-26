@@ -377,14 +377,17 @@ Documentation updates:
 
 Render updates:
 
-<!-- directive-render id="docs-directive-campaign-difficulty-creator" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-campaign-difficulty-creator.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Character Creator review step after the `Campaign Difficulty` selector and selected-mode summary land.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-difficulty-creator.png" alt="Character Creator review step after the Campaign Difficulty selector and selected-mode summary land">
+</p>
 
-<!-- directive-render id="docs-directive-campaign-difficulty-command" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-campaign-difficulty-command.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Campaign Command in-play difficulty block and change sheet.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-difficulty-command.png" alt="Campaign Command in-play difficulty block and change sheet">
+</p>
 
-<!-- directive-render id="docs-directive-campaign-difficulty-confirm" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-campaign-difficulty-confirm.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Exploration-to-Command confirmation and pending-outcome blocked state.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-difficulty-confirm.png" alt="Exploration-to-Command confirmation and pending-outcome blocked state">
+</p>
 
 ## Non-Goals
 

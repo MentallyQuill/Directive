@@ -13,6 +13,9 @@ The normal alpha gate remains the dependency-free contract suite. The soak is re
 The soak proves that a real campaign can continue through roughly 50 player turns while Directive uses the systems that matter in live play:
 
 - chat-native campaign activation and prompt injection;
+- Scene Handshake settlement for accepted host-native assistant prose, including current orders, Command Log, ship readiness notes, thread signals, prompt rebuilds, and source provenance;
+- objective assignment projection from accepted assignments into Mission, Log, and linked Crew surfaces;
+- timekeeping reply headers, including deterministic Directive-owned headers, host-native `[Directive: Reply Header]` prompt compliance, stale-header stripping, and preset version refresh;
 - Utility classification for every accepted player post;
 - Mission Director escalation and response strategy selection;
 - Directive Assist drafting, briefing, order framing, and report framing;
@@ -97,7 +100,7 @@ node tools\scripts\soak-sillytavern-campaign-live.mjs
 
 The live campaign soak is an unlimited model-call test.
 
-Unlike smoke tests, this plan should not cap model calls by default, avoid workers to save cost, skip Assist actions because they spend tokens, or replace provider-backed systems with deterministic fallbacks when providers are healthy. Utility, Reasoning, Directive Assist, Mission Director, narrator, reconciliation extractor, sidecar, summary, relationship, crew, ship, quest, thread, and Command Bearing model calls are all allowed for the full run. Command Bearing coverage includes `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator`, and Mark Review calls when the live state creates a proven closure.
+Unlike smoke tests, this plan should not cap model calls by default, avoid workers to save cost, skip Assist actions because they spend tokens, or replace provider-backed systems with deterministic fallbacks when providers are healthy. Utility, Reasoning, Directive Assist, Mission Director, narrator, Scene Handshake, reconciliation extractor, sidecar, summary, relationship, crew, ship, quest, thread, and Command Bearing model calls are all allowed for the full run. Scene Handshake coverage includes the `sceneHandshakeSettler` Utility role and its sanitized snapshot-budget diagnostics. Command Bearing coverage includes `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator`, and Mark Review calls when the live state creates a proven closure.
 
 The runner should treat model calls as part of the behavior under test:
 
@@ -173,10 +176,13 @@ Required artifacts:
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
+- `objective-assignments/`: accepted assignment source pointers, Mission Current Orders/Open Assignments excerpts, Command Log excerpts, linked Crew Character/Roster excerpts, state snapshots, and screenshot paths.
+- `scene-handshake/`: settlement snapshots, model-call diagnostics, open-assignment/log/ship/thread deltas, source message hashes, idempotency records, rejected/deferred settlement records, and prompt-rebuild proof.
+- `timekeeping/`: visible reply-header samples, prompt-block hashes, preset version/status proof, stale-header stripping checks, time-boundary snapshots, and host-native compliance notes.
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
 - `command-bearing/`: coverage board, Readied point state, fit-check outputs, spend-validator results, spend/return records, evidence ledger excerpts, Mark Review records, relationship perception records, and controlled narration packet summaries.
 
-The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
+The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires Scene Handshake, objective-assignment projection, and timekeeping policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
 The report must redact:
 
@@ -258,6 +264,9 @@ Record these events as they happen:
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every turn-settlement evidence type, including whether the turn ended as Directive-posted, visible pause, delegated host generation, recovery, stale/reconciled, or true timeout;
+- every Scene Handshake settlement attempt, including previous assistant message id/hash, accepting player message id/hash, relation classification, model-call role/provider/model, snapshot budget and included slices, disposition, committed roots, operation count, idempotency key, prompt revision before/after, sidecar scheduling result, and whether the result was auto-commit, deterministic fallback, internal review, defer, or operator recovery;
+- every objective-assignment projection check, including source transcript pointer, assignment ids/titles, linked crew ids, Mission visible excerpt/hash, Log entry id/excerpt/hash, Crew Character/Roster excerpt/hash, screenshot paths, state root counts, save/chat binding, and redaction result;
+- every timekeeping reply-header check, including visible header text/hash, expected header from campaign state, reply surface, whether the message was Directive-owned or host-native, prompt-block revision/hash, stale-header stripping result, duplicate-header check, preset version/status, and whether the header advanced only after an authoritative time boundary;
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
 - every Command Bearing action, including point counts shown in Assist, `Check Inspiration` or `Check Resolve` result, `Ready`/`Cancel` action, readied id, bound save/chat, final sent-text hash, spend-validator result, spend/return/refund reason, base outcome band, final outcome band, evidence id, Mark Review id, relationship perception id, and narration packet hash;
 - every Command Bearing evidence, closure, review, spend, return, and abuse-check interval, including evidence ledger counts, open/closed thread/chapter/arc ids, review queue ids, mark/rank/point counts before and after, readied ingress id, spend ledger id, outcome-band movement, anchored-consequence hashes, and player-safe projection hash;
@@ -284,6 +293,16 @@ The soak fails if any of these occur:
 - a player edit or delete silently corrupts campaign state;
 - a swipe rerolls committed mechanics;
 - provider failure partially commits state;
+- Scene Handshake commits state from a rejected, corrected, unsafe, deleted, streaming, superseded, wrong-chat, wrong-save, or already Directive-owned previous assistant message;
+- Scene Handshake duplicates open assignments, Command Log entries, ship readiness notes, or thread signals on refresh, reobserve, save/load, Save Game As, or selected-swipe replay;
+- Scene Handshake mutates formal objectives, terminal ledgers, Command Bearing marks/points/spends/refunds, hidden crew memory, raw relationship state, or other roots outside the V1 allowlist;
+- Scene Handshake fails to rebuild prompt context before current-player classification after a committed settlement;
+- accepted assigned work exists in state but Mission Current Orders/Open Assignments, Log, or linked Crew surfaces stay blank, stale, wrong-campaign, wrong-chat, or show object-rendering artifacts such as `[object Object]`;
+- linked crew assignments appear in Mission/Log but not in player-safe Crew Character or Crew Roster context when the assignment names or affects a crew member;
+- a visible assistant reply in a bound campaign chat lacks the expected `*Stardate #####.# | HHMM hours*` header, accumulates duplicate stale headers, or shows a header that contradicts authoritative campaign state;
+- prior reply headers are treated as evidence of elapsed time, settlement facts, reconciliation facts, Outcome Integrity prose, or Command Bearing evidence;
+- model-generated or prompt-side header text advances campaign time without a deterministic time-boundary commit;
+- the bundled SillyTavern preset status is stale for the checked-out preset version when live host-native generation is used for certification;
 - the runner stops, skips, or downgrades model-backed systems because of an internal model-call budget;
 - Playwright is unavailable and the run is not explicitly marked as fallback-only;
 - hidden facts, raw values, or Director-only reasoning reach normal UI or chat;
@@ -333,10 +352,13 @@ Each checkpoint should include:
 
 - current chat id and campaign binding;
 - ingress count and turn ledger count;
+- sceneHandshake settled/deferred/internal-review counts, latest disposition, open-assignment count, latest source hashes, and prompt revision after settlement;
+- latest objective-assignment projection status: assignment ids, linked crew ids, Mission/Log/Crew visible hashes, screenshot paths, and whether the source remains valid;
 - command log count;
 - latest response strategy;
 - pending interaction count;
 - scene reconciliation last result;
+- expected and visible reply-header hash for the latest assistant message, campaign stardate, ship minute/time, and prompt-block reply-header hash;
 - recovery journal count and latest entry;
 - model-call roles since previous checkpoint;
 - sidecar journal entries since previous checkpoint;
@@ -354,14 +376,77 @@ Each checkpoint should include:
 
 Crew and Mission surfaces should be tested at intervals, not after every single turn. The main cadence is every 5-10 player turns, with extra captures only when a turn is specifically designed to touch crew relationships, crew pressure, mission objectives, reconciliation, branch loading, or terminal decisions. This gives sidecars and Mission Director state time to settle and avoids overfitting to one-turn noise.
 
+Accepted objective or assignment creation is an exception to the loose cadence. As soon as a host-native Scene Handshake, Mission Director outcome, Open Orders selection, or Scene Reconciliation repair creates assigned work, the runner must immediately capture Mission, Log, and the relevant Crew surfaces before continuing broad soak play. This is the specific guard for the missed bug where assigned objectives existed in chat/state but never populated the proper pages.
+
 Required checks:
 
 - Crew / Character tab: select or focus the crew member most relevant to the interval and verify the tab is populated with public character identity, role, current status, recent interaction context, and player-safe relationship perception when such perception exists.
 - Crew / Crew Roster tab: verify campaign crew members populate, the visible count matches the active campaign's expected crew set, and crew pressures/stressors appear as player-safe summaries rather than raw pressure values.
 - Behind-the-curtain relationships: compare bounded state snapshots before and after repeated meaningful player interactions and verify relationship sidecars or perception records move when appropriate. The log should record movement proof as hashes, counts, or qualitative buckets, not raw relationship values or private NPC thoughts.
 - Mission drawer: verify active objectives, mission pressure, pending interactions, warnings, recent consequences, and branch/terminal state update after Mission Director outcomes and recovery flows.
+- Objective assignment projection: verify every accepted assignment source has matching player-safe projections in Mission Current Orders/Open Assignments, a source-backed Log entry, and linked Crew Character or Crew Roster context for named crew such as Cross, Bronn, or department heads.
 
 These checks should use both desktop and phone-width screenshots where practical. `live-log.jsonl` should emit `crew-surface-check`, `relationship-delta-check`, and `mission-surface-check` records with interval number, turn range, relevant crew ids, expected visible changes, actual visible summaries, screenshot paths, state snapshot ids, and redaction status.
+
+## Scene Handshake Settlement Coverage
+
+Scene Handshake is now a first-class live soak surface. It settles accepted host-native assistant prose into structured campaign state on the next player reply. The soak must prove this boundary separately from ordinary Mission Director commits, sidecars, Scene Reconciliation, and Command Bearing.
+
+Primary certification belongs to Agent A during normal long-play host-native turns, with Agent B covering swipe/edit/delete/reconciliation pressure and Agent D covering cross-campaign portability. Agent C must verify that Scene Handshake does not award, refund, ready, spend, or review Command Bearing state. Agent E should inspect player-visible wording and agency boundaries when the previous assistant beat is accepted, rejected, or corrected.
+
+Required live scenarios:
+
+- Accepted explicit assignment: create or observe a host-native assistant response that gives several clear player-visible assignments, then send a third-person reply that acknowledges or acts on them. Verify `sceneHandshakeSettler` runs before the new player post is classified, commits only allowed roots, creates Mission Current Orders/Open Assignments, appends source-backed Command Log memory, projects linked crew context into Crew Character/Roster surfaces, creates or reinforces safe thread/ship-readiness signals when explicit, rebuilds prompt context, and does not change formal objectives.
+- Rejection and correction: reply by rejecting or correcting the previous assistant beat. Verify no automatic commit occurs and any affected prior state moves to internal review, operator recovery, or ordinary reconciliation instead of silent mutation.
+- Idempotency and refresh: reobserve, reload, or refresh the same accepted pair and verify no duplicate assignments, Log entries, ship notes, or thread records appear.
+- Selected swipe: swipe or select an alternate assistant variant, then accept it. Verify settlement uses only the selected visible assistant text and hashes, not stale swipes.
+- Edit/delete invalidation: edit or delete the previous assistant response or accepting player reply after settlement. Verify sourced records become stale, review-required, invalidated, or branch/reconciliation-scoped rather than silently trusted.
+- Wrong-chat and wrong-save guard: send a similar acceptance from an unbound chat or after branch mismatch. Verify no campaign mutation.
+- Provider timeout/malformed output: force or observe a `sceneHandshakeSettler` failure. Verify fail-soft no-op unless the narrow deterministic fallback safely commits explicit accepted orders with `providerFailureFallback` provenance.
+- Sidecar ordering: after a settlement commit, verify prompt sync and current-player classification happen in order, and later sidecars are revision-guarded against stale settlement roots.
+
+Expected state deltas are limited to V1 roots: `mission.openAssignments`, player-safe Command Log entries, explicit low-risk `ship.technicalDebt`/readiness notes, and Narrative Thread Engine records/signals. Scene Handshake must not directly mutate terminal outcome ledgers, formal objectives, Command Bearing evidence/marks/points/spends/refunds, hidden crew relationship state, private NPC thoughts, raw pressure values, or package data.
+
+Every Scene Handshake interval should write `scene-handshake/<interval-id>/` artifacts:
+
+- `snapshot-before.json` and `snapshot-after.json` with bounded `sceneHandshake`, Mission, Log, Ship, thread, prompt revision, and model-call summaries;
+- `settlement-delta.json` with expected/actual committed roots, operation count, disposition, idempotency key, source message ids, source hashes, and stale/deferred/internal-review records;
+- `model-calls.jsonl` with sanitized `sceneHandshakeSettler` provider/model, latency, timeout, retry, prompt budget, included slices, parse status, validation status, and redaction result;
+- `visible-surfaces.md` with Mission Current Orders/Open Assignments, Log, linked Crew Character/Roster, Ship, and relevant Thread surface excerpts plus screenshot paths;
+- `transcript-pointers.json` mapping previous assistant and accepting player messages to readable transcript anchors.
+
+Minimum certification evidence:
+
+- one accepted host-native assignment settlement that commits at least two open assignments, one Log entry, and at least one linked Crew projection when the source names a crew member;
+- one no-commit rejection/correction case;
+- one idempotency duplicate-guard check;
+- one selected-swipe or assistant-edit source-selection check;
+- one save/load or Save Game As persistence check after settlement;
+- one wrong-chat/wrong-save no-mutation check;
+- one sanitized `sceneHandshakeSettler` model-call diagnostic record;
+- one proof that Command Bearing, terminal outcome, hidden crew memory, and formal objectives did not mutate from settlement.
+
+## Timekeeping Reply Header Coverage
+
+The soak must verify the current timekeeping reply-header contract in live SillyTavern. Every assistant reply in a bound Directive campaign chat should begin with:
+
+```text
+*Stardate #####.# | HHMM hours*
+```
+
+This header is display-only. It must reflect authoritative campaign state, and it must not itself advance time or become evidence for settlement, classification, reconciliation, Outcome Integrity, or Command Bearing.
+
+Required live checks:
+
+- Directive-owned surfaces: campaign intro, committed outcome, pause/clarification, terminal checkpoint, campaign conclusion, Directive-owned swipe reroll, and accepted Outcome Integrity edit all receive exactly one current header line.
+- Host-native generation: delegated `injectAndContinue` replies receive the current header through the `[Directive: Reply Header]` prompt block and bundled preset contract. If the host model omits or alters the header, log a live host-native header compliance failure with prompt-block and preset-status evidence.
+- Stale-header replacement: swipes, edits, retries, and accepted protected edits replace a stale leading header instead of stacking duplicate header lines.
+- Header stripping: Utility classifier context, Scene Handshake settlement input, Scene Reconciliation previews/hashes, Outcome Integrity review, response-swipe prompts, and Command Bearing evidence paths strip prior visible headers before using text as evidence.
+- Time boundary behavior: ordinary chat turns do not advance stardate or ship time only because another message was sent. Travel, explicit wait/cut, or world-time operations may advance time only through deterministic state commits, after which the next header changes.
+- Branch and save/load behavior: Save Game As, branch load, Replay/Push On terminal choices, and cross-campaign switches show the header for the active campaign/save and do not carry a previous campaign's header forward.
+- Preset status: the installed SillyTavern Directive preset must match the checked-out bundled preset version and include Reply Header instructions before host-native header compliance is counted as certification evidence.
+
+Every 5-10 turn checkpoint should record expected header, visible latest-header sample, campaign stardate, ship minute/time source, reply surface, prompt-block hash, preset version/status, and whether the latest message was Directive-owned or host-native. Header failures are P1 when they contradict authoritative state or pollute model/evidence paths, and P2 when the only issue is host-native cosmetic omission with preserved state and explicit prompt/preset diagnostics.
 
 ## Multi-Campaign Coverage
 
@@ -375,6 +460,9 @@ Minimum cross-campaign tests:
 - Fresh Campaign Start / Chat Binding: start a fresh campaign for each package, verify a Directive-owned character/chat is created, and verify prompt context is installed only for that chat.
 - Cross-Campaign Isolation: start or load a second campaign and prove the first campaign save, chat binding, mission state, prompt blocks, command log, and End Conditions ledger do not mutate.
 - Short Live Canary: for every non-primary campaign, play 2-4 real model-backed turns through Playwright, save, load, and continue one turn.
+- Scene Handshake Canary: for at least two campaigns, accept one host-native assistant assignment/report and verify Mission Current Orders, Command Log, source provenance, prompt rebuild, and no cross-campaign mutation.
+- Objective Assignment Projection Canary: for every campaign canary that creates assigned work, verify Mission, Log, and linked Crew projections update from the same source hashes and survive save/load.
+- Timekeeping Header Canary: for every campaign, verify the first intro, host-native, and Directive-owned reply headers match that package's current stardate and do not carry over from another campaign.
 - Command Bearing Canary: for every campaign with available points or a fixture path to grant them, verify Assist displays player-safe point state and that at least one fit check or evidence-producing meaningful turn stays package-specific.
 - Full Live Soak Rotation: run the 52-turn mutation-heavy soak on one campaign at a time and rotate the primary campaign across release candidates.
 - Campaign-Specific Mechanics: assert the campaign's unique mission pressure, crew set, theater, named systems, and End Conditions appear without Breckenridge/Ashes hardcoding.
@@ -391,7 +479,7 @@ Current matrix:
 | Unseen Border | `directive:campaign-package:aster-vale-unseen-border` | short live canary | border/route mission pressure and campaign-specific End Conditions |
 | Enemy's Garden | `directive:campaign-package:celandine-enemys-garden` | short live canary | relief/biology mission pressure and campaign-specific End Conditions |
 
-For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
+For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
 
 ## Parallel Multi-User Coverage Lanes And Patch Barriers
 
@@ -408,10 +496,10 @@ Full five-lane assignment:
 
 | Worker | ST User | Primary Lane | Coverage Goal | Stop Rule |
 |---|---|---|---|---|
-| A | `directive-soak-a` | Canonical long campaign | Ashes of Peace, 50+ turns, preferred third-person play, transcript quality, ordinary continuity | Continue through non-blocking quality/consequence issues; stop only for P0/P1 blockers |
-| B | `directive-soak-b` | Mutation and reconciliation | Recent edits, far-back edits, deletes, swipes, message actions, reconcile/recalculate, continuity recovery | Continue after logging unless mutation corrupts storage or prevents campaign continuation |
+| A | `directive-soak-a` | Canonical long campaign | Ashes of Peace, 50+ turns, preferred third-person play, transcript quality, ordinary continuity, Scene Handshake assignment settlement, and timekeeping header cadence | Continue through non-blocking quality/consequence issues; stop only for P0/P1 blockers |
+| B | `directive-soak-b` | Mutation and reconciliation | Recent edits, far-back edits, deletes, swipes, message actions, reconcile/recalculate, continuity recovery, Scene Handshake source invalidation, and stale-header stripping | Continue after logging unless mutation corrupts storage or prevents campaign continuation |
 | C | `directive-soak-c` | End Conditions and Command Bearing | Subtle command-fitness failures, evidence accumulation, closure detection, Mark Review grading, point spend/return, terminal decisions, Push On, Replay, Keep Ending, Save Branch | Continue across proportionality issues; stop for broken terminal persistence, invalid point transactions, or branch corruption |
-| D | `directive-soak-d` | Multi-campaign matrix | Short canaries across bundled campaigns, creator/start/chat binding, save/load, prompt isolation, package-specific End Conditions | Continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage |
+| D | `directive-soak-d` | Multi-campaign matrix | Short canaries across bundled campaigns, creator/start/chat binding, save/load, prompt isolation, package-specific End Conditions, per-campaign reply headers, and cross-campaign Scene Handshake isolation | Continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage |
 | E | `directive-soak-e` | Assist, agency, and story quality | Directive Assist, tense/PoV, NPC agency, god-mode resistance, secret bad-guy play, story steering | Continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement is globally unusable |
 
 The coordinator does not consume `default-user` and should not run a competing campaign lane. The coordinator watches the logs, keeps workers from duplicating the same coverage, assigns reproduction only when useful, and schedules fix barriers.
@@ -452,7 +540,8 @@ The main soak target is 52 player turns on the current full-soak rotation primar
 | Phase | Turns | Main Purpose |
 |---|---:|---|
 | Activation baseline | 0 | fresh campaign, character, chat, intro, prompt context |
-| Clean play | 1-8 | scene color, routine command, counsel request, consequential command |
+| Clean play | 1-8 | scene color, routine command, counsel request, consequential command, first reply-header checkpoints |
+| Scene Handshake and timekeeping | inserted after a host-native scene beat | accept/reject assistant assignments, Mission Current Orders, Log, linked Crew projection, ship/thread signals, idempotency, prompt rebuild, and header compliance |
 | Directive Assist | 9-18 | Draft, Brief, Order, Report, Apply, Cancel, Try Again, Restore |
 | Authority attacks | 19-28 | NPC control, god-mode, unsupported action, bad-guy/deception play |
 | Recent retcons | 29-34 | edit/delete latest user and Directive replies |
@@ -509,6 +598,34 @@ Expected evidence:
 - response strategy is exactly one of inject-and-continue, Directive-posted response, or explicit pause;
 - prompt context revision advances after committed state changes;
 - sidecar activity is batched or recorded with valid roots and revisions.
+- every assistant reply has the expected current reply header, and ordinary per-message play does not advance time by itself.
+
+## Phase 1A: Scene Handshake And Timekeeping, Inserted After Host-Native Scene Beat
+
+Objective: prove accepted host-native assistant prose can become bounded campaign state, while rejected prose and display-only time headers remain non-authoritative.
+
+Run this phase after a delegated `injectAndContinue` or other host-native assistant response gives explicit player-visible work, report facts, ship-readiness notes, or staff assignments.
+
+Required steps:
+
+1. Capture the previous assistant response, selected swipe id if any, visible reply header, expected header from state, prompt revision, Mission Current Orders/Open Assignments, Command Log count, linked Crew surface hashes, ship-readiness notes, thread count, and `sceneHandshake` ledger counts.
+2. Send a third-person player reply that accepts or acts on the previous assistant beat without using meta test labels.
+3. Verify Scene Handshake runs before current-player classification and records a sanitized `sceneHandshakeSettler` model call unless a narrow deterministic fallback is explicitly used.
+4. Verify allowed state changes commit atomically, prompt context rebuilds, and the current player turn still settles under the normal turn-settlement gate.
+5. Capture Mission, Log, linked Crew Character/Roster, Ship, and relevant Thread surfaces plus bounded state roots.
+6. Run one rejection/correction branch and verify no automatic settlement commit occurs.
+7. Reobserve or reload the same accepted source pair and verify idempotency prevents duplicate assignments, Log entries, crew projections, ship notes, and thread records.
+8. Run one selected-swipe, edit/delete, save/load, or wrong-chat sub-check against the settlement source.
+
+Expected evidence:
+
+- `mission.openAssignments` or Mission Current Orders updates only for accepted explicit work;
+- Command Log records durable accepted memory, not a generic transcript summary;
+- linked Crew surfaces show player-safe assignment/thread context for named crew without leaking raw relationships or private thoughts;
+- formal objectives, terminal ledgers, hidden relationship state, and Command Bearing ledgers remain unchanged by settlement;
+- source message ids, text hashes, selected swipe state, save id, chat id, and prompt revisions are stored in artifacts;
+- stale display headers are stripped from settlement input and do not change source hashes;
+- the next visible assistant reply still starts with the current header derived from authoritative campaign state.
 
 ## Phase 2: Directive Assist, Turns 9-18
 
@@ -1398,6 +1515,9 @@ After the automated run, a human reviewer should inspect:
 - `transcript/readable-chat.md` as an end-to-end story readback for enjoyment, continuity, character voice, pacing, and dramatic payoff;
 - `transcript/index.json` and `transcript/source-chat.jsonl` to confirm the saved transcript maps to the correct ST user, campaign, chat, save branch, and run id;
 - the first 10 turns for normal campaign feel;
+- every Scene Handshake settlement for accepted/rejected source handling, current-order/log/ship/thread deltas, idempotency, prompt rebuild, source provenance, and no mutation outside the V1 allowlist;
+- every accepted objective assignment for matching Mission Current Orders/Open Assignments, source-backed Log entry, linked Crew Character/Roster projection, source hashes, save/load persistence, and no hidden-state leakage;
+- every reply-header sample for exact current stardate/ship-time formatting, duplicate/stale header handling, host-native prompt compliance, and display-only treatment in evidence paths;
 - every Assist output for tense, PoV, and agency;
 - every Command Bearing fit check, Ready/Cancel action, spend, return, evidence record, Mark Review, relationship perception, and controlled narration packet for player-safe wording and mechanical authority;
 - every authority attack for proper reframing or resistance;
@@ -1428,14 +1548,18 @@ After the automated run, a human reviewer should inspect:
 12. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
 13. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
 14. Next: add campaign-matrix live canaries for every bundled campaign.
-15. Next: add Assist UI automation.
-16. Next: finish live Command Bearing execution helpers for fit checks, Ready/Cancel, valid spend, returned point, controlled narration, evidence, Mark Review, relationship perception proof, state snapshots, and severity-tagged blockers.
-17. Next: add message action automation with geometry checks for host-shaped controls.
-18. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
-19. Next: add deep-retcon branch-only destructive recalculation mode.
-20. Next: add quality rubric scoring hooks.
-21. Next: add strict mode that fails on any soft warning.
-22. Next: add a short release-certification summary to the final report.
+15. `tools/scripts/smoke-scene-handshake-live.mjs` exists as the current live proof path for accepted host-native assignment settlement.
+16. Next: fold Scene Handshake accepted/rejected/idempotency/source-mutation coverage into the full soak runner and artifact schema.
+17. Next: add objective-assignment projection capture for Mission, Log, and linked Crew surfaces after accepted assignments.
+18. Next: add live timekeeping reply-header checks for Directive-owned replies, host-native replies, branch/load, stale-header stripping, and preset status.
+19. Next: add Assist UI automation.
+20. Next: finish live Command Bearing execution helpers for fit checks, Ready/Cancel, valid spend, returned point, controlled narration, evidence, Mark Review, relationship perception proof, state snapshots, and severity-tagged blockers.
+21. Next: add message action automation with geometry checks for host-shaped controls.
+22. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
+23. Next: add deep-retcon branch-only destructive recalculation mode.
+24. Next: add quality rubric scoring hooks.
+25. Next: add strict mode that fails on any soft warning.
+26. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 
@@ -1444,3 +1568,4 @@ After the automated run, a human reviewer should inspect:
 - What retention policy should we use for full player-visible transcripts once they are no longer needed for quality review?
 - Should the quality rubric be manual-only first, or should a player-safe evaluator sidecar score outputs after each phase?
 - Should the soak eventually run against Lumiverse with the same script, or should Lumiverse receive a separate host-parity soak after SillyTavern is stable?
+- Should host-native reply headers remain prompt-only, or should the SillyTavern adapter post-process them if a safe after-generation mutation boundary becomes available?

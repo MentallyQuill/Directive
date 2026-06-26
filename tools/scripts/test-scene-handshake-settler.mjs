@@ -229,8 +229,19 @@ partialHarness.state = {
 };
 const partialSettlement = {
   ...settlement,
-  shipReadinessProposals: [],
-  threadSignals: []
+  shipReadinessProposals: [
+    {
+      kind: 'damage',
+      label: 'Overbroad refit damage',
+      detail: 'This high-impact damage proposal should be rejected, but deterministic low-risk readiness should still fill the explicit source gap.'
+    }
+  ],
+  threadSignals: [
+    {
+      title: '',
+      summary: ''
+    }
+  ]
 };
 const partial = await runSceneHandshakeSettlement({
   campaignState: partialHarness.state,
@@ -265,6 +276,49 @@ assert.equal(reinforcedCommandNetwork.handshakeReinforced, true);
 assert.equal(reinforcedCommandNetwork.sourceSettlementIds.length, 1);
 assert.match(`${reinforcedCommandNetwork.label || ''} ${reinforcedCommandNetwork.playerSafeSummary || ''}`, /command-network/i);
 assert.equal(partialHarness.state.threadLedger.records.length, 3);
+
+const assignmentLinkHarness = createHarness('assignment-link-fallback');
+const assignmentLinkSettlement = {
+  ...settlement,
+  openAssignmentProposals: settlement.openAssignmentProposals.map((proposal) => {
+    const {
+      linkedCrewIds,
+      linkedShipSystemIds,
+      dueWindow,
+      ...rest
+    } = proposal;
+    return rest;
+  }),
+  shipReadinessProposals: [],
+  threadSignals: []
+};
+const assignmentLinkResult = await runSceneHandshakeSettlement({
+  campaignState: assignmentLinkHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: assignmentLinkHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-assignment-link-fallback',
+  generationRouter: {
+    async generate(roleId) {
+      assert.equal(roleId, __sceneHandshakeSettlerTestHooks.ROLE_ID);
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-scene-handshake-assignment-link-fallback',
+          text: JSON.stringify(assignmentLinkSettlement)
+        },
+        diagnostics: { providerId: 'fake-scene-handshake-assignment-link-fallback' }
+      };
+    }
+  },
+  stateDeltaGateway: assignmentLinkHarness.gateway,
+  now: assignmentLinkHarness.now
+});
+assignmentLinkHarness.state = assignmentLinkResult.campaignState;
+assert.equal(assignmentLinkResult.ok, true);
+assert.ok(assignmentLinkHarness.state.mission.openAssignments.some((entry) => /command-network/i.test(entry.title) && entry.linkedCrewIds.includes('imani-cross')));
+assert.ok(assignmentLinkHarness.state.mission.openAssignments.some((entry) => /Bronn/i.test(entry.title) && entry.linkedCrewIds.includes('hadrik-bronn')));
+assert.ok(assignmentLinkHarness.state.mission.openAssignments.some((entry) => /Walk the ship/i.test(entry.title) && entry.linkedCrewIds.includes('miriam-sato') && entry.linkedCrewIds.includes('rowan-saye')));
 
 const duplicateRevision = acceptedHarness.state.runtimeTracking.revision;
 const duplicate = await runSceneHandshakeSettlement({

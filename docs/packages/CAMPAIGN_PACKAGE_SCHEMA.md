@@ -87,13 +87,17 @@ It includes:
 
 Known pre-alpha placeholders are kept explicit, such as the Compact Unity opening value and remaining unresolved visual assets.
 
-The second bundled draft package is:
+The bundled draft package set includes:
 
 ```text
 packages/bundled/glass-harbor/drowned-constellation.campaign-package.json
+packages/bundled/serein/black-current.campaign-package.json
+packages/bundled/eudora-vale/broken-accord.campaign-package.json
+packages/bundled/aster-vale/unseen-border.campaign-package.json
+packages/bundled/celandine/enemys-garden.campaign-package.json
 ```
 
-It includes:
+The Glass Harbor package remains the most detailed second package example. It includes:
 
 - Manifest identity for `directive.campaignPackage`.
 - U.S.S. Glass Harbor ship baseline.
@@ -103,7 +107,7 @@ It includes:
 - Draft end-condition records, continuation frames, checkpoint policy, and final-band rules derived from the ending source notes.
 - Three baseline tactical mission graphs: Prelude Soundings, Chapter 1 Aster Basin, and Chapter 2 Caligo Sounding.
 
-Known draft placeholders are kept explicit, including crew portraits, richer crew reveal cards, and deeper mission/end-condition authoring before playtest promotion.
+Known draft placeholders are kept explicit in package-local READMEs and authoring references, including richer crew reveal cards, deeper tactical graph authoring, playtest tuning, and any visual asset gaps before playtest promotion.
 
 ## Validation
 
@@ -112,11 +116,15 @@ Run:
 ```powershell
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\serein\black-current.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\celandine\enemys-garden.campaign-package.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```
 
-The verifier is dependency-free and checks bundled packages against the schema contract. Ashes-specific invariant checks are gated to the Ashes reference package, while Glass Harbor is validated as a separate bundled draft package in the alpha gate. It is not a full JSON Schema implementation. When the repo has a package/runtime toolchain, we can add a full JSON Schema validator such as Ajv and keep this script as a fast product-contract smoke test.
+The verifier is dependency-free and checks bundled packages against the schema contract. Ashes-specific invariant checks are gated to the Ashes reference package, while Glass Harbor, Serein, Eudora Vale, Aster Vale, and Celandine validate as separate bundled draft packages in the alpha gate. It is not a full JSON Schema implementation. When the repo has a package/runtime toolchain, we can add a full JSON Schema validator such as Ajv and keep this script as a fast product-contract smoke test.
 
 Current product-contract checks include:
 
@@ -137,7 +145,7 @@ Current product-contract checks include:
 - Quest policy requires state inheritance and outcome persistence.
 - Simulation modes are exactly `Exploration` and `Command`.
 - Ashes of Peace has required end-condition records, continuation frames, ending axes, and convergence data.
-- Glass Harbor package/projection/dataset/mission-graph ids align and validate through the same package contract, with draft caveats tracked in its package README and authoring reference.
+- Draft package/projection/dataset/mission-graph ids align and validate through the same package contract, with package-specific caveats tracked in package READMEs and authoring references.
 
 ## Import And Update Diagnostics
 

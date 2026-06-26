@@ -505,6 +505,20 @@ function setControl(rootElement, inputPath, value) {
   findControl(rootElement, inputPath).value = value;
 }
 
+function emitControlEvent(control, type) {
+  const handler = control.eventListeners.get(type);
+  if (!handler) return;
+  handler({ type, target: control, currentTarget: control, preventDefault() {} });
+}
+
+function setRuntimeControl(rootElement, inputPath, value) {
+  const control = findControl(rootElement, inputPath);
+  control.value = value;
+  emitControlEvent(control, 'input');
+  emitControlEvent(control, 'change');
+  return control;
+}
+
 function assertNoUnwiredPlaceholders(rootElement) {
   assert.doesNotMatch(textOf(rootElement), /not wired yet/i);
 }
@@ -932,8 +946,11 @@ assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await findButton(panel, 'Settings').click();
 await findButton(panel, 'Systems').click();
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '20');
-setControl(panel, 'settings.autosaveEveryMessages', '1');
-await findButton(panel, 'Apply').click();
+let runtimeApplyButton = findButton(panel, 'Apply');
+assert.equal(runtimeApplyButton.disabled, true, 'Runtime Apply should be inactive until a setting changes');
+setRuntimeControl(panel, 'settings.autosaveEveryMessages', '1');
+assert.equal(runtimeApplyButton.disabled, false, 'Runtime Apply should activate after a setting changes');
+await runtimeApplyButton.click();
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 await findButton(panel, 'Mission').click();
 await app.previewDirectorTurn({
@@ -999,8 +1016,11 @@ assertActiveSettingsSubtab(panel, 'Systems');
 await findButton(panel, 'Systems').click();
 assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '20');
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
-setControl(panel, 'settings.maxTurnSaveHistory', '8');
-await findButton(panel, 'Apply').click();
+runtimeApplyButton = findButton(panel, 'Apply');
+assert.equal(runtimeApplyButton.disabled, true, 'Runtime Apply should reset to inactive after the settings panel rerenders');
+setRuntimeControl(panel, 'settings.maxTurnSaveHistory', '8');
+assert.equal(runtimeApplyButton.disabled, false, 'Runtime Apply should activate for runtime history changes');
+await runtimeApplyButton.click();
 assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '8');
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 updatedSaves = await listCampaignSaves(adapter);

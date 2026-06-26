@@ -21,10 +21,13 @@ import {
   SOAK_COMMAND_CONDUCT_SCENARIOS,
   SOAK_END_CONDITION_SCENARIOS,
   SOAK_LIVE_LOG_POLICY,
+  SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY,
   SOAK_PARALLEL_WORKER_POLICY,
   SOAK_PLAYER_INPUT_POLICY,
   SOAK_PHASES,
   SOAK_READABLE_TRANSCRIPT_POLICY,
+  SOAK_SCENE_HANDSHAKE_POLICY,
+  SOAK_TIMEKEEPING_POLICY,
   SOAK_TURN_SETTLEMENT_POLICY,
   SOAK_TURN_SCRIPT,
   SOAK_UI_STATE_SURFACE_POLICY,
@@ -47,6 +50,16 @@ assert.equal(schema.properties.liveLogPolicy.properties.artifact.const, 'live-lo
 assert.equal(schema.properties.turnSettlementPolicy.properties.required.const, true);
 assert.equal(schema.properties.readableTranscriptPolicy.properties.required.const, true);
 assert.equal(schema.properties.playerInputPolicy.properties.required.const, true);
+assert.equal(schema.properties.sceneHandshakePolicy.properties.required.const, true);
+assert.equal(schema.properties.sceneHandshakePolicy.properties.intervalLogRecord.const, 'scene-handshake-settlement');
+assert.equal(schema.properties.sceneHandshakePolicy.required.includes('allowedRoots'), true);
+assert.equal(schema.properties.timekeepingPolicy.properties.required.const, true);
+assert.equal(schema.properties.timekeepingPolicy.properties.artifactDirectory.const, 'timekeeping');
+assert.equal(schema.properties.timekeepingPolicy.properties.intervalLogRecord.const, 'timekeeping-header-check');
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.required.const, true);
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.artifactDirectory.const, 'objective-assignments');
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.liveLogRecord.const, 'objective-assignment-projection-check');
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.required.includes('requiredSurfaces'), true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.required.const, true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.intervalLogRecord.const, 'command-bearing-interval');
 assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('certificationGates'), true);
@@ -70,6 +83,9 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('triage-finding'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-deferred'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('objective-assignment-projection-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('scene-handshake-settlement'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('timekeeping-header-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-evidence'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-closure'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-review'), true);
@@ -100,6 +116,41 @@ assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /declared perspe
 assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /quoted character speech/);
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('third-person perspective compliance'));
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('dialogue quality'));
+assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.required, true);
+assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sceneHandshakeSettler']);
+assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.intervalLogRecord, 'scene-handshake-settlement');
+assert(SOAK_SCENE_HANDSHAKE_POLICY.ownerLanes.includes('canonical-long-campaign'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots.includes('mission.openAssignments'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots.includes('commandLog.entries'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('accepted-host-native-assignment-commits-allowlisted-state'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('rejected-or-corrected-assistant-beat-does-not-auto-commit'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('command-bearing-terminal-formal-objective-and-hidden-state-roots-are-not-mutated'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.minimumEvidence.includes('sanitized-sceneHandshakeSettler-model-call'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.stateInspection.includes('prompt-revision-before-after-settlement'));
+assert.match(SOAK_SCENE_HANDSHAKE_POLICY.failureSeverityPolicy, /outside allowlisted roots/);
+assert.match(SOAK_SCENE_HANDSHAKE_POLICY.hiddenStatePolicy, /Command Bearing evaluator reasoning/);
+assert.equal(SOAK_TIMEKEEPING_POLICY.required, true);
+assert.equal(SOAK_TIMEKEEPING_POLICY.artifactDirectory, 'timekeeping');
+assert.equal(SOAK_TIMEKEEPING_POLICY.intervalLogRecord, 'timekeeping-header-check');
+assert.equal(SOAK_TIMEKEEPING_POLICY.expectedHeaderPattern, '*Stardate #####.# | HHMM hours*');
+assert(SOAK_TIMEKEEPING_POLICY.requiredSurfaces.includes('host-native-injectAndContinue'));
+assert(SOAK_TIMEKEEPING_POLICY.certificationGates.includes('stale-leading-headers-are-replaced-not-stacked'));
+assert(SOAK_TIMEKEEPING_POLICY.certificationGates.includes('installed-preset-version-includes-reply-header-contract'));
+assert(SOAK_TIMEKEEPING_POLICY.stateInspection.includes('reply-header-prompt-block-hash-and-revision'));
+assert.match(SOAK_TIMEKEEPING_POLICY.failureSeverityPolicy, /visible headers contradict authoritative state/);
+assert.equal(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.required, true);
+assert.equal(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.artifactDirectory, 'objective-assignments');
+assert.equal(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.liveLogRecord, 'objective-assignment-projection-check');
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.triggerSources.includes('scene-handshake-accepted-assignment'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.requiredSurfaces.some((entry) => entry.id === 'mission-current-orders'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.requiredSurfaces.some((entry) => entry.id === 'command-log-entry'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.requiredSurfaces.some((entry) => entry.id === 'crew-character-link'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.requiredSurfaces.some((entry) => entry.id === 'crew-roster-link'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.certificationGates.includes('accepted-assignment-state-projects-to-mission-log-and-linked-crew'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.minimumEvidence.includes('linked-crew-character-or-roster-visible-excerpt-and-screenshot'));
+assert(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.stateInspection.includes('linkedCrewIds-threadIds-and-playerSafeCrewProjection-hashes'));
+assert.match(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.failureSeverityPolicy, /Mission, Log, or linked Crew/);
+assert.match(SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.hiddenStatePolicy, /hidden relationship values/);
 assert.equal(SOAK_UI_STATE_SURFACE_POLICY.required, true);
 assert.equal(SOAK_UI_STATE_SURFACE_POLICY.intervalTurns, '5-10');
 assert.match(SOAK_UI_STATE_SURFACE_POLICY.checkpointCadence, /5-10 player-turn intervals/);
@@ -196,6 +247,9 @@ assert.equal(SOAK_CAMPAIGN_MATRIX.length, 6);
 assert.equal(new Set(SOAK_CAMPAIGN_MATRIX.map((entry) => entry.packageId)).size, 6);
 assert.equal(SOAK_CAMPAIGN_MATRIX.filter((entry) => entry.liveCoverage === 'full-soak-rotation-primary').length, 1);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('cross-campaign-isolation')), true);
+assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('objective-assignment-projection-canary')), true);
+assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('scene-handshake-canary')), true);
+assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('timekeeping-header-canary')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.deterministicCoverage.includes('end-condition-contract')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace'), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:glass-harbor-drowned-constellation'), true);
@@ -204,7 +258,8 @@ assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:aster-vale-unseen-border'), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:celandine-enemys-garden'), true);
 
-assert.equal(SOAK_PHASES.length, 9);
+assert.equal(SOAK_PHASES.length, 10);
+assert.equal(SOAK_PHASES.some((entry) => entry.id === 'scene-handshake-timekeeping'), true);
 assert.equal(SOAK_TURN_SCRIPT.length, 52);
 assert.equal(SOAK_TURN_SCRIPT.at(0).turn, 1);
 assert.equal(SOAK_TURN_SCRIPT.at(-1).turn, 52);
@@ -280,6 +335,30 @@ assert.equal(report.playerInputPolicy.required, true);
 assert.equal(report.playerInputPolicy.defaultPerspective, 'third-person');
 assert.match(report.playerInputPolicy.narrationDetectionPolicy, /first-person narration warnings/);
 assert.equal(report.playerInputPolicy.qualityDimensions.includes('player-agency discipline'), true);
+assert.equal(report.sceneHandshakePolicy.required, true);
+assert.equal(report.sceneHandshakePolicy.intervalLogRecord, 'scene-handshake-settlement');
+assert(report.sceneHandshakePolicy.modelRoles.includes('sceneHandshakeSettler'));
+assert(report.sceneHandshakePolicy.allowedRoots.includes('mission.openAssignments'));
+assert(report.sceneHandshakePolicy.certificationGates.includes('prompt-rebuild-happens-before-current-player-classification'));
+assert(report.sceneHandshakePolicy.minimumEvidence.includes('wrong-chat-or-wrong-save-no-mutation-check'));
+assert(report.sceneHandshakePolicy.stateInspection.includes('sidecar-scheduling-after-settlement-revision'));
+assert.equal(report.timekeepingPolicy.required, true);
+assert.equal(report.timekeepingPolicy.artifactDirectory, 'timekeeping');
+assert.equal(report.timekeepingPolicy.intervalLogRecord, 'timekeeping-header-check');
+assert.equal(report.timekeepingPolicy.expectedHeaderPattern, '*Stardate #####.# | HHMM hours*');
+assert(report.timekeepingPolicy.requiredSurfaces.includes('host-native-injectAndContinue'));
+assert(report.timekeepingPolicy.certificationGates.includes('headers-are-stripped-from-model-and-evidence-paths'));
+assert(report.timekeepingPolicy.stateInspection.includes('stale-header-strip-result-and-duplicate-header-count'));
+assert.equal(report.objectiveAssignmentProjectionPolicy.required, true);
+assert.equal(report.objectiveAssignmentProjectionPolicy.artifactDirectory, 'objective-assignments');
+assert.equal(report.objectiveAssignmentProjectionPolicy.liveLogRecord, 'objective-assignment-projection-check');
+assert(report.objectiveAssignmentProjectionPolicy.triggerSources.includes('scene-handshake-accepted-assignment'));
+assert(report.objectiveAssignmentProjectionPolicy.requiredSurfaces.some((entry) => entry.id === 'mission-current-orders'));
+assert(report.objectiveAssignmentProjectionPolicy.requiredSurfaces.some((entry) => entry.id === 'command-log-entry'));
+assert(report.objectiveAssignmentProjectionPolicy.requiredSurfaces.some((entry) => entry.id === 'crew-character-link'));
+assert(report.objectiveAssignmentProjectionPolicy.certificationGates.includes('accepted-assignment-state-projects-to-mission-log-and-linked-crew'));
+assert(report.objectiveAssignmentProjectionPolicy.minimumEvidence.includes('mission-current-orders-visible-excerpt-and-screenshot'));
+assert(report.objectiveAssignmentProjectionPolicy.stateInspection.includes('visible-mission-log-crew-text-hashes-and-screenshot-paths'));
 assert.equal(report.commandBearingSystemPolicy.required, true);
 assert.equal(report.commandBearingSystemPolicy.intervalLogRecord, 'command-bearing-interval');
 assert(report.commandBearingSystemPolicy.certificationGates.includes('mark-review-grades-agency-commitment-causality-track-fit-and-distinctness'));
@@ -320,7 +399,20 @@ assert.equal(path.basename(paths.readableTranscript), 'readable-chat.md');
 assert.equal(path.basename(paths.sourceChatTranscript), 'source-chat.jsonl');
 assert.equal(fs.existsSync(paths.transcriptIndex), true);
 
-const expectedDirs = ['snapshots', 'transcript', 'screenshots', 'playwright', 'promptInspection', 'storage', 'endConditions', 'parallelUsers', 'discovery'];
+const expectedDirs = [
+  'snapshots',
+  'transcript',
+  'screenshots',
+  'playwright',
+  'promptInspection',
+  'storage',
+  'objectiveAssignments',
+  'sceneHandshake',
+  'timekeeping',
+  'endConditions',
+  'parallelUsers',
+  'discovery'
+];
 for (const key of expectedDirs) {
   assert.equal(fs.statSync(paths[key]).isDirectory(), true, `${key} artifact directory should exist`);
 }

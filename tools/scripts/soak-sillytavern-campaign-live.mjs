@@ -133,6 +133,9 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'turn-end',
     'assist-action',
     'model-call',
+    'objective-assignment-projection-check',
+    'scene-handshake-settlement',
+    'timekeeping-header-check',
     'command-bearing-interval',
     'command-bearing-evidence',
     'command-bearing-closure',
@@ -175,6 +178,84 @@ export const SOAK_TURN_SETTLEMENT_POLICY = Object.freeze({
   nextTurnGate: 'the runner must not send the next scripted player message while the latest ingress is classifying or classified',
   failurePolicy: 'classified/classifying without response, outcome, delegated hostGeneration continuation, pause, stale reconciliation, or recovery after the live wait window is a P1 turn-settlement failure',
   recoveryPolicy: 'pause the lane, append live-log evidence, and reobserve/reload only under coordinator control'
+});
+
+export const SOAK_SCENE_HANDSHAKE_POLICY = Object.freeze({
+  required: true,
+  ownerLanes: Object.freeze(['canonical-long-campaign', 'mutation-reconciliation', 'multi-campaign-matrix']),
+  modelRoles: Object.freeze(['sceneHandshakeSettler']),
+  intervalLogRecord: 'scene-handshake-settlement',
+  allowedRoots: Object.freeze([
+    'mission.openAssignments',
+    'commandLog.entries',
+    'ship.technicalDebt',
+    'threadLedger.records'
+  ]),
+  certificationGates: Object.freeze([
+    'accepted-host-native-assignment-commits-allowlisted-state',
+    'rejected-or-corrected-assistant-beat-does-not-auto-commit',
+    'idempotency-prevents-duplicate-settlement-on-reobserve',
+    'selected-swipe-edit-delete-and-stale-source-handling-preserve-authority',
+    'save-load-save-as-wrong-chat-and-wrong-save-isolate-settlement',
+    'prompt-rebuild-happens-before-current-player-classification',
+    'command-bearing-terminal-formal-objective-and-hidden-state-roots-are-not-mutated'
+  ]),
+  minimumEvidence: Object.freeze([
+    'accepted-assignment-settlement-with-open-assignments-and-log-entry',
+    'no-commit-rejection-or-correction',
+    'duplicate-guard-check',
+    'selected-swipe-or-edit-delete-source-check',
+    'save-load-or-save-as-persistence-check',
+    'wrong-chat-or-wrong-save-no-mutation-check',
+    'sanitized-sceneHandshakeSettler-model-call',
+    'no-command-bearing-terminal-hidden-root-mutation-proof'
+  ]),
+  stateInspection: Object.freeze([
+    'sceneHandshake-settled-deferred-internal-review-counts',
+    'source-message-ids-hashes-selected-swipe-and-idempotency-key',
+    'mission-openAssignments-commandLog-ship-technicalDebt-threadLedger-deltas',
+    'prompt-revision-before-after-settlement',
+    'current-player-classification-after-settlement',
+    'sidecar-scheduling-after-settlement-revision'
+  ]),
+  failureSeverityPolicy: 'P1 for settlement from rejected/corrected/stale/wrong-chat/wrong-save sources, duplicate commits, prompt rebuild ordering failure, or mutation outside allowlisted roots; P2 for non-blocking wording/projection/artifact gaps with correct state.',
+  hiddenStatePolicy: 'Scene Handshake prompts, logs, visible surfaces, and artifacts must not expose hidden crew memory, raw relationship values, private NPC thoughts, hidden clocks, terminal predicates, Command Bearing evaluator reasoning, or provider prompt bodies.'
+});
+
+export const SOAK_TIMEKEEPING_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'timekeeping',
+  intervalLogRecord: 'timekeeping-header-check',
+  expectedHeaderPattern: '*Stardate #####.# | HHMM hours*',
+  requiredSurfaces: Object.freeze([
+    'campaign-intro',
+    'directive-posted-committed-outcome',
+    'pause-or-clarification',
+    'terminal-checkpoint',
+    'campaign-conclusion',
+    'directive-owned-swipe',
+    'outcome-integrity-edit',
+    'host-native-injectAndContinue'
+  ]),
+  certificationGates: Object.freeze([
+    'directive-owned-replies-prefix-exact-current-header',
+    'host-native-replies-follow-reply-header-prompt-and-preset',
+    'stale-leading-headers-are-replaced-not-stacked',
+    'headers-are-stripped-from-model-and-evidence-paths',
+    'ordinary-chat-turns-do-not-advance-time-by-themselves',
+    'deterministic-time-boundaries-update-state-before-header-changes',
+    'save-load-branch-and-cross-campaign-switches-use-active-save-header',
+    'installed-preset-version-includes-reply-header-contract'
+  ]),
+  stateInspection: Object.freeze([
+    'expected-header-from-campaign-state',
+    'visible-latest-assistant-header',
+    'campaign-currentStardate-worldState-currentStardate-and-ship-minute-source',
+    'reply-header-prompt-block-hash-and-revision',
+    'preset-version-and-status',
+    'stale-header-strip-result-and-duplicate-header-count'
+  ]),
+  failureSeverityPolicy: 'P1 when visible headers contradict authoritative state, duplicate stale headers accumulate, prior headers pollute evidence/model paths, or time advances without a deterministic state commit; P2 for host-native cosmetic header omission with preserved state and prompt/preset diagnostics.'
 });
 
 export const SOAK_READABLE_TRANSCRIPT_POLICY = Object.freeze({
@@ -237,7 +318,7 @@ export const SOAK_UI_STATE_SURFACE_POLICY = Object.freeze({
     })
   ]),
   intervalTurns: '5-10',
-  checkpointCadence: 'capture after activation, then at 5-10 player-turn intervals, with extra captures after crew-focused interactions, Mission Director commitments, reconciliation/recalculation, save/load, and terminal decisions',
+  checkpointCadence: 'capture after activation, then at 5-10 player-turn intervals, with extra captures after objective or assignment creation, crew-focused interactions, Mission Director commitments, reconciliation/recalculation, save/load, and terminal decisions',
   evidence: Object.freeze([
     'desktop and phone screenshots',
     'visible text summaries with hashes',
@@ -247,6 +328,68 @@ export const SOAK_UI_STATE_SURFACE_POLICY = Object.freeze({
     'transcript pointers for the triggering player interaction'
   ]),
   hiddenStatePolicy: 'raw relationship values, raw pressure values, private NPC thoughts, hidden clocks, and Director-only reasoning must stay out of normal UI, chat, live-log previews, and readable transcripts'
+});
+
+export const SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'objective-assignments',
+  liveLogRecord: 'objective-assignment-projection-check',
+  triggerSources: Object.freeze([
+    'scene-handshake-accepted-assignment',
+    'mission-director-assigned-objective',
+    'side-work-open-order-selected',
+    'scene-reconciliation-assignment-repair'
+  ]),
+  requiredSurfaces: Object.freeze([
+    Object.freeze({
+      id: 'mission-current-orders',
+      route: 'Mission / Active or Mission / Side Work',
+      expectation: 'Mission shows newly accepted current orders or open assignments with useful titles, summaries, status, source context, and no object-rendering artifacts'
+    }),
+    Object.freeze({
+      id: 'command-log-entry',
+      route: 'Log / Command History',
+      expectation: 'Log gains a source-backed player-facing entry for the accepted assignment, not a generic transcript summary or hidden Director note'
+    }),
+    Object.freeze({
+      id: 'crew-character-link',
+      route: 'Crew / Character',
+      expectation: 'each linked crew member dossier or selected character surface reflects the public assignment/thread context when the assignment names or affects that crew member'
+    }),
+    Object.freeze({
+      id: 'crew-roster-link',
+      route: 'Crew / Crew Roster',
+      expectation: 'Crew roster pressure or status summaries remain populated and reflect relevant assignment pressure without raw hidden values'
+    })
+  ]),
+  checkpointCadence: 'capture immediately after any accepted objective/assignment source, then verify persistence at the next 5-10 turn interval and after save/load or branch switches',
+  certificationGates: Object.freeze([
+    'accepted-assignment-state-projects-to-mission-log-and-linked-crew',
+    'state-root-and-visible-surface-counts-match-with-source-hash',
+    'no-object-object-empty-card-or-stale-wrong-campaign-projection',
+    'linked-crew-projections-stay-player-safe-and-do-not-leak-hidden-state',
+    'save-load-save-as-and-cross-campaign-switch-preserve-or-isolate-visible-projections',
+    'edit-delete-swipe-and-reconciliation-invalidate-or-rebase-anchored-projections'
+  ]),
+  minimumEvidence: Object.freeze([
+    'objective-assignment-source-transcript-pointer',
+    'mission-current-orders-visible-excerpt-and-screenshot',
+    'command-log-visible-excerpt-and-entry-id',
+    'linked-crew-character-or-roster-visible-excerpt-and-screenshot',
+    'bounded-save-state-snapshot-for-mission-commandLog-crew-thread-roots',
+    'save-load-or-branch-persistence-check',
+    'wrong-chat-or-cross-campaign-no-projection-check'
+  ]),
+  stateInspection: Object.freeze([
+    'mission-openAssignments-or-currentOrders-counts-and-source-hashes',
+    'commandLog-entry-count-sourceIds-and-summary-hashes',
+    'linkedCrewIds-threadIds-and-playerSafeCrewProjection-hashes',
+    'promptContextRevision-and-active-chat-save-binding',
+    'visible-mission-log-crew-text-hashes-and-screenshot-paths',
+    'stale-invalidated-or-rebased-projection-records-after-edit-delete'
+  ]),
+  failureSeverityPolicy: 'P1 when accepted assigned work exists in state but Mission, Log, or linked Crew projections stay blank/stale/wrong-campaign, show [object Object], or lose source provenance; P2 when only wording quality is weak but state, source, and surface linkage are correct.',
+  hiddenStatePolicy: 'Objective assignment projection checks must log player-safe excerpts only and must not expose hidden relationship values, hidden pressure values, private crew thoughts, raw prompt text, or provider outputs.'
 });
 
 export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
@@ -416,13 +559,13 @@ export const SOAK_PARALLEL_WORKER_POLICY = Object.freeze({
     Object.freeze({
       id: 'canonical-long-campaign',
       userHandle: 'directive-soak-a',
-      focus: 'Ashes of Peace 50-plus-turn preferred-play campaign in third person, including Crew and Mission surface checkpoints during normal play',
+      focus: 'Ashes of Peace 50-plus-turn preferred-play campaign in third person, including Crew and Mission surface checkpoints, Scene Handshake assignment settlement, and timekeeping header cadence during normal play',
       stopPolicy: 'continue through non-blocking quality and consequence issues; stop only for P0/P1 blockers'
     }),
     Object.freeze({
       id: 'mutation-reconciliation',
       userHandle: 'directive-soak-b',
-      focus: 'recent edits, far-back edits, deletes, swipes, message actions, reconciliation, recalculation, and continuity recovery',
+      focus: 'recent edits, far-back edits, deletes, swipes, message actions, reconciliation, recalculation, continuity recovery, Scene Handshake source invalidation, and stale-header stripping',
       stopPolicy: 'continue after logging unless mutation corrupts storage or prevents campaign continuation'
     }),
     Object.freeze({
@@ -434,7 +577,7 @@ export const SOAK_PARALLEL_WORKER_POLICY = Object.freeze({
     Object.freeze({
       id: 'multi-campaign-matrix',
       userHandle: 'directive-soak-d',
-      focus: 'short canaries across bundled campaigns, campaign-specific creator/start/chat binding, save/load, prompt isolation, and package-specific End Conditions',
+      focus: 'short canaries across bundled campaigns, campaign-specific creator/start/chat binding, save/load, prompt isolation, package-specific End Conditions, per-campaign reply headers, and cross-campaign Scene Handshake isolation',
       stopPolicy: 'continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage'
     }),
     Object.freeze({
@@ -538,7 +681,7 @@ export const SOAK_CAMPAIGN_MATRIX = Object.freeze([
     theater: 'Asterion Reach',
     status: 'pre-alpha',
     liveCoverage: 'full-soak-rotation-primary',
-    focus: 'reference 52-turn soak, message mutation stress, terminal End Conditions live proof'
+    focus: 'reference 52-turn soak, Scene Handshake/objective-projection/timekeeping certification, message mutation stress, terminal End Conditions live proof'
   }),
   campaignMatrixEntry({
     packageId: 'directive:campaign-package:glass-harbor-drowned-constellation',
@@ -589,7 +732,8 @@ export const SOAK_CAMPAIGN_MATRIX = Object.freeze([
 
 export const SOAK_PHASES = Object.freeze([
   phase('activation-baseline', 'Activation Baseline', '0', 'fresh campaign, character, chat, intro, prompt context'),
-  phase('clean-play', 'Clean Play', '1-8', 'scene color, routine commands, counsel, consequential turns, sidecars'),
+  phase('clean-play', 'Clean Play', '1-8', 'scene color, routine commands, counsel, consequential turns, sidecars, first reply-header checkpoints'),
+  phase('scene-handshake-timekeeping', 'Scene Handshake And Timekeeping', 'inserted after host-native scene beat', 'accept/reject assistant assignments, Mission Current Orders, Log, linked Crew projection, ship/thread signals, idempotency, prompt rebuild, and header compliance'),
   phase('directive-assist', 'Directive Assist', '9-18', 'Draft, Brief, Order, Report, Apply, Cancel, Try Again, Restore'),
   phase('authority-attacks', 'Authority, Agency, And Conduct Attacks', '19-28', 'NPC control, god-mode, unsupported action, subtle command misconduct, bad-guy/deception play'),
   phase('recent-retcons', 'Recent Retcon Stress', '29-34', 'edit/delete latest user and Directive replies'),
@@ -815,6 +959,9 @@ function campaignMatrixEntry({
       'chat-binding-created',
       'prompt-context-installed',
       'first-model-turn-completes',
+      'objective-assignment-projection-canary',
+      'scene-handshake-canary',
+      'timekeeping-header-canary',
       'save-load-preserves-package',
       'cross-campaign-isolation'
     ]),
@@ -1059,6 +1206,29 @@ export async function buildDryRunReport() {
       ...SOAK_PLAYER_INPUT_POLICY,
       qualityDimensions: [...SOAK_PLAYER_INPUT_POLICY.qualityDimensions]
     },
+    sceneHandshakePolicy: {
+      ...SOAK_SCENE_HANDSHAKE_POLICY,
+      ownerLanes: [...SOAK_SCENE_HANDSHAKE_POLICY.ownerLanes],
+      modelRoles: [...SOAK_SCENE_HANDSHAKE_POLICY.modelRoles],
+      allowedRoots: [...SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots],
+      certificationGates: [...SOAK_SCENE_HANDSHAKE_POLICY.certificationGates],
+      minimumEvidence: [...SOAK_SCENE_HANDSHAKE_POLICY.minimumEvidence],
+      stateInspection: [...SOAK_SCENE_HANDSHAKE_POLICY.stateInspection]
+    },
+    timekeepingPolicy: {
+      ...SOAK_TIMEKEEPING_POLICY,
+      requiredSurfaces: [...SOAK_TIMEKEEPING_POLICY.requiredSurfaces],
+      certificationGates: [...SOAK_TIMEKEEPING_POLICY.certificationGates],
+      stateInspection: [...SOAK_TIMEKEEPING_POLICY.stateInspection]
+    },
+    objectiveAssignmentProjectionPolicy: {
+      ...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY,
+      triggerSources: [...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.triggerSources],
+      requiredSurfaces: SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.requiredSurfaces.map((entry) => ({ ...entry })),
+      certificationGates: [...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.certificationGates],
+      minimumEvidence: [...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.minimumEvidence],
+      stateInspection: [...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.stateInspection]
+    },
     commandBearingSystemPolicy: {
       ...SOAK_COMMAND_BEARING_SYSTEM_POLICY,
       modelRoles: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles],
@@ -1135,6 +1305,21 @@ function summaryMarkdown(report) {
   lines.push(`- First-person exception: ${report.playerInputPolicy.firstPersonExceptionPolicy}`);
   lines.push(`- Detection: ${report.playerInputPolicy.narrationDetectionPolicy}`);
   lines.push(`- Agency: ${report.playerInputPolicy.agencyBoundary}`);
+  lines.push('', '## Scene Handshake Policy', '');
+  lines.push(`- Interval log record: ${report.sceneHandshakePolicy.intervalLogRecord}`);
+  lines.push(`- Model roles: ${report.sceneHandshakePolicy.modelRoles.join(', ')}`);
+  lines.push(`- Allowed roots: ${report.sceneHandshakePolicy.allowedRoots.join(', ')}`);
+  lines.push(`- Certification gates: ${report.sceneHandshakePolicy.certificationGates.join(', ')}`);
+  lines.push('', '## Timekeeping Policy', '');
+  lines.push(`- Header pattern: ${report.timekeepingPolicy.expectedHeaderPattern}`);
+  lines.push(`- Interval log record: ${report.timekeepingPolicy.intervalLogRecord}`);
+  lines.push(`- Required surfaces: ${report.timekeepingPolicy.requiredSurfaces.join(', ')}`);
+  lines.push(`- Certification gates: ${report.timekeepingPolicy.certificationGates.join(', ')}`);
+  lines.push('', '## Objective Assignment Projection Policy', '');
+  lines.push(`- Live log record: ${report.objectiveAssignmentProjectionPolicy.liveLogRecord}`);
+  lines.push(`- Trigger sources: ${report.objectiveAssignmentProjectionPolicy.triggerSources.join(', ')}`);
+  lines.push(`- Required surfaces: ${report.objectiveAssignmentProjectionPolicy.requiredSurfaces.map((entry) => entry.id).join(', ')}`);
+  lines.push(`- Certification gates: ${report.objectiveAssignmentProjectionPolicy.certificationGates.join(', ')}`);
   lines.push('', '## Command Bearing Policy', '');
   lines.push(`- Owner lane: ${report.commandBearingSystemPolicy.ownerLane}`);
   lines.push(`- Interval cadence: ${report.commandBearingSystemPolicy.intervalTurns} settled player turns`);

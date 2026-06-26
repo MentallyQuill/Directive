@@ -763,6 +763,36 @@ function mergeProposals(primary = [], fallback = [], limit = MAX_LIST_ITEMS) {
   return merged;
 }
 
+function shipReadinessProposalLooksValid(raw = {}) {
+  const kind = compact(raw.kind || raw.type || 'technicalDebt', 80);
+  if (!LOW_RISK_SHIP_KINDS.has(kind)) return false;
+  const label = compact(raw.label || raw.title || raw.summary, 180);
+  const detail = compact(raw.detail || raw.summary || raw.description || label, 500);
+  return Boolean(label && detail);
+}
+
+function threadSignalLooksValid(raw = {}) {
+  const title = compact(raw.title || raw.label || raw.summary, 180);
+  const summary = compact(raw.summary || raw.observableSeed || raw.detail || title, 500);
+  return Boolean(title && summary);
+}
+
+function enrichAssignmentProposalWithFallback(proposal = {}, fallback = {}) {
+  if (!fallback || !Object.keys(fallback).length) return proposal;
+  return {
+    ...fallback,
+    ...proposal,
+    assignedByActorId: proposal.assignedByActorId || proposal.assignedBy || fallback.assignedByActorId || null,
+    linkedCrewIds: asArray(proposal.linkedCrewIds).length
+      ? proposal.linkedCrewIds
+      : asArray(fallback.linkedCrewIds),
+    linkedShipSystemIds: asArray(proposal.linkedShipSystemIds || proposal.linkedSystemIds).length
+      ? (proposal.linkedShipSystemIds || proposal.linkedSystemIds)
+      : asArray(fallback.linkedShipSystemIds),
+    dueWindow: proposal.dueWindow || proposal.deadline || proposal.timeWindow || fallback.dueWindow || null
+  };
+}
+
 function enrichSettlementWithDeterministicProposals(settlement, {
   snapshot,
   campaignState
@@ -771,21 +801,37 @@ function enrichSettlementWithDeterministicProposals(settlement, {
   if (!deterministic.explicitTaskCount) {
     return { settlement, explicitTaskCount: 0 };
   }
+  const validShipReadinessCount = settlement.shipReadinessProposals.filter(shipReadinessProposalLooksValid).length;
+  const validThreadSignalCount = settlement.threadSignals.filter(threadSignalLooksValid).length;
+  const openAssignmentProposals = settlement.openAssignmentProposals.length >= deterministic.explicitTaskCount
+    ? settlement.openAssignmentProposals
+      .slice(0, MAX_ASSIGNMENT_PROPOSALS)
+      .map((proposal, index) => enrichAssignmentProposalWithFallback(
+        proposal,
+        deterministic.openAssignmentProposals[index]
+      ))
+    : mergeProposals(settlement.openAssignmentProposals, deterministic.openAssignmentProposals, MAX_ASSIGNMENT_PROPOSALS);
   return {
     settlement: {
       ...settlement,
-      openAssignmentProposals: settlement.openAssignmentProposals.length >= deterministic.explicitTaskCount
-        ? settlement.openAssignmentProposals
-        : mergeProposals(settlement.openAssignmentProposals, deterministic.openAssignmentProposals, MAX_ASSIGNMENT_PROPOSALS),
+      openAssignmentProposals,
       commandLogProposals: settlement.commandLogProposals.length
         ? settlement.commandLogProposals
         : deterministic.commandLogProposals.slice(0, MAX_COMMAND_LOG_PROPOSALS),
-      shipReadinessProposals: settlement.shipReadinessProposals.length
+      shipReadinessProposals: validShipReadinessCount >= deterministic.shipReadinessProposals.length
         ? settlement.shipReadinessProposals
-        : deterministic.shipReadinessProposals.slice(0, MAX_SHIP_READINESS_PROPOSALS),
-      threadSignals: settlement.threadSignals.length
+        : mergeProposals(
+          settlement.shipReadinessProposals,
+          deterministic.shipReadinessProposals,
+          MAX_SHIP_READINESS_PROPOSALS
+        ),
+      threadSignals: validThreadSignalCount >= deterministic.threadSignals.length
         ? settlement.threadSignals
-        : deterministic.threadSignals.slice(0, MAX_THREAD_SIGNALS)
+        : mergeProposals(
+          settlement.threadSignals,
+          deterministic.threadSignals,
+          MAX_THREAD_SIGNALS
+        )
     },
     explicitTaskCount: deterministic.explicitTaskCount
   };

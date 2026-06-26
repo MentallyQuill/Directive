@@ -115,5 +115,6 @@ Runtime shell examples:
   <img src="../../assets/documentation/renders/docs-mobile-directive-campaign.png" alt="Mobile Directive shell">
 </p>
 
-<!-- directive-render id="docs-directive-host-specific-surfaces" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-host-specific-surfaces.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: SillyTavern launcher, message actions with Directive reconciliation commands, Directive Assist beside the composer, and Lumiverse overlay if it differs materially from SillyTavern.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-host-specific-surfaces.png" alt="SillyTavern launcher, message actions with Directive reconciliation commands, Directive Assist beside the composer, and Lumiverse overlay if it differs materially from SillyTavern">
+</p>

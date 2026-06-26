@@ -115,8 +115,9 @@ Recovery and save-guard renders:
   <img src="../../assets/documentation/renders/docs-directive-records-branch-ready.png" alt="Save branch ready state">
 </p>
 
-<!-- directive-render id="docs-directive-edit-delete-recovery" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-edit-delete-recovery.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: edit/delete recovery and dependent-turn review.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-edit-delete-recovery.png" alt="edit/delete recovery and dependent-turn review">
+</p>
 
 ## Manual Saves And Branches
 

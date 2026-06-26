@@ -21,7 +21,7 @@ The primary bundled package is the U.S.S. Breckenridge and its main campaign, As
 - Established senior crew as approved in the design baseline.
 - Initial state: the reconstituted crew has been underway for twenty-five days before the player arrives.
 
-The second bundled package is the draft U.S.S. Glass Harbor campaign, Drowned Constellation:
+The bundled draft package set now includes U.S.S. Glass Harbor and four additional campaign frames. Glass Harbor's Drowned Constellation package is the most detailed second example:
 
 - Steamrunner-class Starfleet survey and route-security vessel.
 - Registry `NCC-52247`.
@@ -31,9 +31,9 @@ The second bundled package is the draft U.S.S. Glass Harbor campaign, Drowned Co
 - Player role: newly promoted Commander/XO and, after the prelude, Acting Captain.
 - Captain Rhos remains a continuing succession and rescue pressure after the opening inversion.
 - Authored open-world scope: 20 quests, 12 locations, 19 routes, 6 factions, 5 fronts, 6 arcs, 14 thread templates, 27 reaction rules, and 109 Director cards.
-- Current status: bundled and runtime-registered, but still `draft` until end conditions, mission graphs, crew dataset, and visual assets receive a deeper playtest pass.
+- Current status: bundled and runtime-registered, but still `draft` until crew cards, tactical graphs, and playtest tuning receive a deeper pass.
 
-Additional bundled draft package examples now cover Serein/Black Current (`NCC-52814`), Eudora Vale/Broken Accord (`NCC-74593`), Aster Vale/Unseen Border (`NCC-65488`), and Celandine/Enemy's Garden (`NCC-64941`). These packages exercise the same schema-v2 package boundary across different ships, theaters, session lengths, campaign tracks, end-condition sets, crew datasets, and tactical graph fixtures.
+Additional bundled draft package examples cover Serein/Black Current (`NCC-52814`), Eudora Vale/Broken Accord (`NCC-74593`), Aster Vale/Unseen Border (`NCC-65488`), and Celandine/Enemy's Garden (`NCC-64941`). These packages exercise the same schema-v2 package boundary across different ships, theaters, session lengths, campaign tracks, end-condition sets, crew datasets, passive assets, and tactical graph fixtures.
 
 ## Package Responsibilities
 
@@ -91,9 +91,13 @@ The first concrete schema artifacts are:
 - [campaign-package.schema.json](../../schemas/campaign-package.schema.json)
 - [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
 - [drowned-constellation.campaign-package.json](../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json)
+- [black-current.campaign-package.json](../../packages/bundled/serein/black-current.campaign-package.json)
+- [broken-accord.campaign-package.json](../../packages/bundled/eudora-vale/broken-accord.campaign-package.json)
+- [unseen-border.campaign-package.json](../../packages/bundled/aster-vale/unseen-border.campaign-package.json)
+- [enemys-garden.campaign-package.json](../../packages/bundled/celandine/enemys-garden.campaign-package.json)
 - [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
 
-The bundled Ashes of Peace package is schema-valid pre-alpha open-world content. The bundled Glass Harbor package is schema-valid draft open-world content. Both establish stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, end-condition roots, and guardrails before deeper runtime systems continue evolving.
+The bundled Ashes of Peace package is schema-valid pre-alpha open-world content. The five additional bundled packages are schema-valid draft open-world content. Together they establish stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, end-condition roots, guardrails, passive assets, projections, crew datasets, and tactical graph fixtures before deeper runtime systems continue evolving.
 
 ## Creator Compatibility
 

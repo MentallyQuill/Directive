@@ -48,7 +48,7 @@ Settings groups roles by operator meaning:
 | --- | --- |
 | Story Output | `narration`, `campaignIntro`, `campaignConclusion`, `missionDirectorAdvisor` |
 | Turn Reading | `utilityTurnClassifier`, `questActionInterpreter` |
-| World Structure | `questArchitect`, `sceneDeltaExtractor`, `sceneReconciliationExtractor` |
+| World Structure | `questArchitect`, `sceneDeltaExtractor`, `sceneReconciliationExtractor`, `sceneHandshakeSettler` |
 | State Sidecars | `relationshipEvaluator`, `continuityTracker`, `crewDirector`, `shipDirector` |
 | Command Bearing | `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator` |
 | Outcome Integrity | `outcomeIntegrityReview` |
@@ -70,6 +70,7 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `questArchitect` | Reasoning | No | None | None directly; deterministic registration owns state. |
 | `sceneDeltaExtractor` | Utility | No | None | Evidence only until deterministic processors apply it. |
 | `sceneReconciliationExtractor` | Utility | No | None | Evidence only until reconciliation validates it. |
+| `sceneHandshakeSettler` | Utility | Yes | `mission`, `commandLog`, `ship`, `threads`, `runtimeTracking` | None directly; accepted host prose can become source-backed assignments, Log notes, readiness notes, and thread signals only after deterministic validation. |
 | `relationshipEvaluator` | Utility | Yes | `relationships`, `crew` | None directly. |
 | `commandBearingFitChecker` | Utility | No | None | Command Bearing fit report and tips; no replacement prose. |
 | `commandBearingSpendValidator` | Utility | No | None | None directly; invalid or failed validation returns the readied point. |

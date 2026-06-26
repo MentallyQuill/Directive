@@ -68,14 +68,17 @@ node tools\scripts\run-alpha-gate.mjs
 
 ## Render Slots
 
-<!-- directive-render id="docs-directive-glass-harbor-authoring-library" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-authoring-library.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Glass Harbor package detail in Campaign Library for authoring docs.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-authoring-library.png" alt="Glass Harbor package detail in Campaign Library for authoring docs">
+</p>
 
-<!-- directive-render id="docs-directive-glass-harbor-authoring-creator" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-authoring-creator.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Glass Harbor Character Creator review state with Acting Captain role copy.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-authoring-creator.png" alt="Glass Harbor Character Creator review state with Acting Captain role copy">
+</p>
 
-<!-- directive-render id="docs-directive-glass-harbor-authoring-map" status="needed" source="static-or-fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-authoring-map.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: player-safe Nerine Reef map or runtime map/fallback example that excludes Director-only hidden locations.
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-glass-harbor-authoring-map.png" alt="player-safe Nerine Reef map or runtime map/fallback example that excludes Director-only hidden locations">
+</p>
 
 ## Related Docs
 

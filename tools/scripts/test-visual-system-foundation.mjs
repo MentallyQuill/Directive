@@ -603,6 +603,9 @@ assert.doesNotMatch(settingsPanelSource, /appendCommandBearingSettings|directive
 assert.match(settingsPanelSource, /label:\s*['"]Command Bearing['"][\s\S]*commandBearingFitChecker[\s\S]*commandBearingSpendValidator[\s\S]*commandBearingEvaluator/, 'Settings provider routing should expose Command Bearing model-call roles as routing controls');
 assert.doesNotMatch(settingsPanelSource, /simulationModeSettingsRows|joinList|createMetaRow\('Active Package'|createMetaRow\('Package Version'|createMetaRow\('Simulation Mode'|createMetaRow\('Allowed Modes'|createMetaRow\('Turn Save History'|createMetaRow\('Consequence Policy'|createMetaRow\('Mode Summary'/, 'Settings Runtime should only render editable runtime settings');
 assert.match(settingsPanelSource, /createCardTitle\('Runtime'\)[\s\S]*label:\s*['"]Max Turn Save History['"][\s\S]*label:\s*['"]Autosave Every Messages['"][\s\S]*label:\s*['"]Apply['"]/, 'Settings Runtime should keep max-history, autosave cadence, and Apply controls');
+assert.match(settingsPanelSource, /directive-settings-runtime-form[\s\S]*Save Policy[\s\S]*directive-settings-runtime-group[\s\S]*Outcome Integrity/, 'Settings Runtime should group save policy and Outcome Integrity controls instead of rendering one loose action row');
+assert.match(settingsPanelSource, /settingsChanged[\s\S]*saveButton\.disabled/, 'Settings Runtime Apply should stay disabled until the grouped form changes');
+assert.doesNotMatch(settingsPanelSource, /directive-settings-runtime-note|Campaign-specific settings for the current active campaign/, 'Settings Runtime should not render redundant explanatory note text under the title');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.installDirectivePreset/, 'Settings preset installation should keep the Providers pane active before refresh');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.refreshDirectivePresetStatus/, 'Settings preset status refresh should keep the Providers pane active before refresh');
 assert.match(settingsPanelSource, /directive-lcars-toggle directive-settings-preset-autocheck-toggle/, 'Directive Preset settings should expose the auto-check control as the shared LCARS switch.');
@@ -641,8 +644,9 @@ assert.match(settingsPanelSource, /Settle Active State/, 'Settings should expose
 assert.match(settingsPanelSource, /Export Active Save/, 'Settings should expose passive save export');
 assert.match(settingsPanelSource, /Clean Missing Records/, 'Settings should expose missing-index cleanup');
 assert.match(settingsPanelSource, /lastStateSafetyResult/, 'Settings should render the last State Safety action result');
-assert.match(settingsPanelSource, /directive-runtime-history-controls/, 'Settings max history control should use a dedicated compact control row');
-assert.match(css, /\.directive-runtime-history-controls\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(112px,\s*148px\)\)\s+auto/, 'Settings runtime controls should keep compact fields and avoid stretching Apply across the drawer');
+assert.match(css, /\.directive-settings-runtime-form\s*\{[\s\S]*?width:\s*min\(100%,\s*720px\);[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Settings Runtime should use a capped two-column grouped form on wider drawers');
+assert.match(css, /\.directive-settings-runtime-actions\s*\{[\s\S]*?justify-content:\s*flex-end;/, 'Settings Runtime Apply should live in a separate right-aligned action row');
+assert.doesNotMatch(css, /\.directive-runtime-history-controls/, 'Settings Runtime should not keep the old loose history-control grid');
 assert.doesNotMatch(settingsPanelSource, /No provider assist diagnostics are available\./, 'Settings should not show a low-value Assist empty state when provider diagnostics are unavailable');
 assert.doesNotMatch(missionPanelSource, /Provider Assist Diagnostics|providerAssistDiagnostics|providerAssistProposals/, 'Mission should not render provider-assist diagnostics as player-facing sidecar internals');
 

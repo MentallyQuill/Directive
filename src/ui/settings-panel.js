@@ -971,15 +971,17 @@ function appendGuidanceSettings(body, actions = {}) {
 function appendRuntimeSettings(body, state, actions = {}) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
   card.dataset.directiveTour = 'settings.runtime';
-  addTooltip(card, 'Campaign-specific runtime controls for the active campaign state.');
   const maxTurnSaveHistory = historyLimitValue(state);
   const autosaveEveryMessages = autosaveEveryMessagesValue(state);
   const outcomeIntegrity = outcomeIntegritySettingsValue(state);
   card.appendChild(createCardTitle('Runtime'));
-  const note = createElement('p', 'directive-settings-runtime-note');
-  note.textContent = 'Campaign-specific settings for the current active campaign.';
-  card.appendChild(note);
-  const controls = createElement('div', 'directive-action-row directive-settings-action-row directive-runtime-history-controls');
+  const form = createElement('div', 'directive-settings-runtime-form');
+
+  const saveGroup = createElement('section', 'directive-settings-runtime-group directive-settings-runtime-save-group');
+  const saveGroupTitle = createElement('h4', 'directive-settings-runtime-group-title');
+  saveGroupTitle.textContent = 'Save Policy';
+  const saveGrid = createElement('div', 'directive-settings-runtime-grid');
+
   const historyField = createProviderField({
     label: 'Max Turn Save History',
     value: maxTurnSaveHistory,
@@ -1003,6 +1005,13 @@ function appendRuntimeSettings(body, state, actions = {}) {
   autosaveField.control.max = '200';
   autosaveField.control.step = '1';
   autosaveField.control.dataset.inputPath = 'settings.autosaveEveryMessages';
+  saveGrid.append(historyField.wrapper, autosaveField.wrapper);
+  saveGroup.append(saveGroupTitle, saveGrid);
+
+  const integrityGroup = createElement('section', 'directive-settings-runtime-group directive-settings-runtime-integrity-group');
+  const integrityGroupTitle = createElement('h4', 'directive-settings-runtime-group-title');
+  integrityGroupTitle.textContent = 'Outcome Integrity';
+  const integrityGrid = createElement('div', 'directive-settings-runtime-grid');
 
   const outcomeIntegrityField = createProviderField({
     label: 'Outcome Integrity',
@@ -1035,39 +1044,67 @@ function appendRuntimeSettings(body, state, actions = {}) {
   });
   outcomeIntegrityProviderField.wrapper.className = `${outcomeIntegrityProviderField.wrapper.className} directive-runtime-history-field`.trim();
   outcomeIntegrityProviderField.control.dataset.inputPath = 'settings.outcomeIntegrity.reviewProviderKind';
+  integrityGrid.append(outcomeIntegrityField.wrapper, outcomeIntegrityProviderField.wrapper);
+  integrityGroup.append(integrityGroupTitle, integrityGrid);
 
-  controls.append(
-    historyField.wrapper,
-    autosaveField.wrapper,
-    outcomeIntegrityField.wrapper,
-    outcomeIntegrityProviderField.wrapper,
-    createButton({
-      label: 'Apply',
-      icon: 'fa-solid fa-floppy-disk',
-      className: 'directive-button directive-primary-command directive-runtime-history-save',
-      title: 'Apply runtime history and autosave settings',
-      disabled: !state || (typeof actions.updateRuntimeSettings !== 'function' && typeof actions.updateRuntimeHistoryLimit !== 'function'),
-      onClick: async () => {
-        if (!state) return;
-        selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
-        if (typeof actions.updateRuntimeSettings === 'function') {
-          await actions.updateRuntimeSettings({
-            maxTurnSaveHistory: Number(historyField.control.value),
-            autosaveEveryMessages: Number(autosaveField.control.value),
-            outcomeIntegrityMode: outcomeIntegrityField.control.value,
-            outcomeIntegrityReviewProviderKind: outcomeIntegrityProviderField.control.value
-          });
-        } else {
-          await actions.updateRuntimeHistoryLimit?.({
-            maxTurnSaveHistory: Number(historyField.control.value)
-          });
-        }
-        selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
-        await actions.refresh?.();
+  form.append(saveGroup, integrityGroup);
+
+  const actionRow = createElement('div', 'directive-settings-runtime-actions');
+  const canUpdateRuntimeSettings = Boolean(state)
+    && (typeof actions.updateRuntimeSettings === 'function' || typeof actions.updateRuntimeHistoryLimit === 'function');
+  const currentSettingsValues = () => ({
+    maxTurnSaveHistory: Number(historyField.control.value),
+    autosaveEveryMessages: Number(autosaveField.control.value),
+    outcomeIntegrityMode: outcomeIntegrityField.control.value,
+    outcomeIntegrityReviewProviderKind: outcomeIntegrityProviderField.control.value
+  });
+  const settingsChanged = () => {
+    const values = currentSettingsValues();
+    return values.maxTurnSaveHistory !== Number(maxTurnSaveHistory)
+      || values.autosaveEveryMessages !== Number(autosaveEveryMessages)
+      || values.outcomeIntegrityMode !== outcomeIntegrity.mode
+      || values.outcomeIntegrityReviewProviderKind !== outcomeIntegrity.reviewProviderKind;
+  };
+
+  const saveButton = createButton({
+    label: 'Apply',
+    icon: 'fa-solid fa-floppy-disk',
+    className: 'directive-button directive-primary-command directive-runtime-history-save',
+    title: 'Apply runtime settings',
+    disabled: true,
+    onClick: async () => {
+      if (!state || !settingsChanged()) return;
+      selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
+      const values = currentSettingsValues();
+      if (typeof actions.updateRuntimeSettings === 'function') {
+        await actions.updateRuntimeSettings(values);
+      } else {
+        await actions.updateRuntimeHistoryLimit?.({
+          maxTurnSaveHistory: values.maxTurnSaveHistory
+        });
       }
-    })
-  );
-  card.appendChild(controls);
+      selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
+      await actions.refresh?.();
+    }
+  });
+  const syncApplyState = () => {
+    const enabled = canUpdateRuntimeSettings && settingsChanged();
+    saveButton.disabled = !enabled;
+    saveButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  };
+  for (const control of [
+    historyField.control,
+    autosaveField.control,
+    outcomeIntegrityField.control,
+    outcomeIntegrityProviderField.control
+  ]) {
+    control.addEventListener('input', syncApplyState);
+    control.addEventListener('change', syncApplyState);
+  }
+  syncApplyState();
+  actionRow.appendChild(saveButton);
+
+  card.append(form, actionRow);
   body.appendChild(card);
   return true;
 }

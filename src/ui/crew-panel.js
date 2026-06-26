@@ -143,13 +143,26 @@ function pressureIdsLinkedToCrew(sourceIds, pressureById, crewId) {
 }
 
 function openWorkForCrew(view, state, crewId) {
+  const assignments = asArray(state?.mission?.openAssignments)
+    .filter((assignment) => visibleRecord(assignment))
+    .filter((assignment) => !WORK_HIDDEN_STATUSES.has(String(assignment.status || '').toLowerCase()))
+    .filter((assignment) => includesCrewId(assignment, crewId))
+    .map((assignment) => ({
+      id: assignment.id,
+      title: compactText(assignment.title || assignment.summary || 'Current order', 92),
+      meta: ['Current Order', statusLabel(assignment.status || assignment.dueWindow)].filter(Boolean).join(' / '),
+      summary: cleanText([
+        assignment.summary || assignment.playerSummary || assignment.title,
+        assignment.dueWindow ? `Due: ${assignment.dueWindow}` : ''
+      ].filter(Boolean).join(' '))
+    }));
   const packageTemplates = [
     ...asArray(activePackageForView(view)?.questTemplates?.templates),
     ...asArray(activePackageForView(view)?.questTemplates)
   ];
   const dynamicTemplates = asArray(state?.dynamicQuestCatalog?.templates);
   const templates = new Map([...packageTemplates, ...dynamicTemplates].filter((template) => template?.id).map((template) => [template.id, template]));
-  return limitItems(asArray(state?.questLedger?.instances)
+  const questWork = asArray(state?.questLedger?.instances)
     .filter((quest) => visibleRecord(quest))
     .filter((quest) => !WORK_HIDDEN_STATUSES.has(String(quest.status || '').toLowerCase()))
     .filter((quest) => String(quest.status || '').toLowerCase() !== 'latent')
@@ -168,7 +181,8 @@ function openWorkForCrew(view, state, crewId) {
         meta: ['Quest', active ? 'Foreground' : statusLabel(quest.status)].filter(Boolean).join(' / '),
         summary: cleanText(template.playerSummary || template.summary || quest.title)
       };
-    }), 3);
+    });
+  return limitItems([...assignments, ...questWork], 4);
 }
 
 function parseJsonText(value) {
