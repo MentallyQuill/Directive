@@ -69,6 +69,13 @@ const FACT_REVIEW_REQUEST_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_FACT_R
 const FACT_REVIEW_OUTPUT_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_OUTPUT_PATH || '').trim()
   ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_OUTPUT_PATH)
   : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'fact-review-provider-result.json') : '');
+const STORY_QUALITY_REVIEW_ONLY = process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_ONLY === '1';
+const STORY_QUALITY_REVIEW_REQUEST_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH)
+  : '';
+const STORY_QUALITY_REVIEW_OUTPUT_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_OUTPUT_PATH || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_OUTPUT_PATH)
+  : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'story-quality-review-provider-result.json') : '');
 const COMPACT_STDOUT = process.env.DIRECTIVE_SILLYTAVERN_COMPACT_STDOUT === '1';
 const REQUIRE_BATCHED_SIDECARS = process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS === '1'
   || (process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS !== '0' && !CAMPAIGN_PACKAGE_ID);
@@ -290,6 +297,10 @@ Optional checks:
                                       run only the in-browser factualGroundingReviewer provider call
   DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH='fact-checks\\model-assisted-review\\request.json'
                                       model-assisted factual review request for fact-review-only mode
+  DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_ONLY=1
+                                      run only the in-browser storyQualityReviewer provider call
+  DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH='quality-review\\model-assisted-review\\request.json'
+                                      model-assisted story quality review request for story-quality-review-only mode
   DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID='save-...'
                                       resume that saved campaign instead of creating a fresh campaign
   DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID='Directive - ...'
@@ -923,19 +934,38 @@ function assertBrowser(condition, message, details = null) {
   }
 }
 
+async function evaluateBrowserJson(page, pageFunction, arg = null, timeoutMs = BROWSER_TIMEOUT_MS) {
+  const evaluationTimeoutMs = Math.max(1, Number(timeoutMs || BROWSER_TIMEOUT_MS));
+  let timeoutId = null;
+  return Promise.race([
+    page.evaluate(pageFunction, arg),
+    new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        const error = new Error(`Browser evaluation did not settle after ${evaluationTimeoutMs}ms.`);
+        error.code = 'BROWSER_EVALUATION_TIMEOUT';
+        reject(error);
+      }, evaluationTimeoutMs);
+    })
+  ]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 async function waitForJsonValue(page, pageFunction, arg = null, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeout || BROWSER_TIMEOUT_MS));
   const pollMs = Math.max(50, Number(options.polling || 250));
+  const evaluationTimeoutMs = Math.max(1, Number(options.evaluationTimeout || Math.min(timeoutMs, BROWSER_TIMEOUT_MS)));
   const started = Date.now();
   let lastValue = null;
   let lastError = null;
   while (Date.now() - started < timeoutMs) {
     try {
-      lastValue = await page.evaluate(pageFunction, arg);
+      lastValue = await evaluateBrowserJson(page, pageFunction, arg, evaluationTimeoutMs);
       lastError = null;
       if (lastValue) return lastValue;
     } catch (error) {
       lastError = error;
+      if (error?.code === 'BROWSER_EVALUATION_TIMEOUT') break;
     }
     await page.waitForTimeout(Math.min(pollMs, Math.max(0, timeoutMs - (Date.now() - started))));
   }
@@ -2273,6 +2303,57 @@ async function assertMissionBodyShowsCampaign(page, summary) {
   assertBrowser(visible.missing.length === 0, 'Mission body did not show the loaded branch campaign identity.', visible);
 }
 
+async function assertCampaignCommandGroupsLatestSave(page, branchRecord, latestSaveId) {
+  const expected = campaignIdentitySummary(branchRecord);
+  await selectCampaignSubtab(page, 'Command');
+  const command = await page.evaluate(async ({ modulePath, campaignId, latestSaveId: expectedLatestSaveId }) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const view = await bridge.runtimeApp?.getCurrentView?.({ tabId: 'campaign' });
+    const sessions = Array.isArray(view?.campaignIndex?.sessions) ? view.campaignIndex.sessions : [];
+    const visibleSessions = Array.isArray(view?.campaignIndex?.visibleSessions) ? view.campaignIndex.visibleSessions : [];
+    const matching = sessions.filter((session) => session.campaignId === campaignId);
+    const visibleMatching = visibleSessions.filter((session) => session.campaignId === campaignId);
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
+    const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
+    const rows = Array.from(body?.querySelectorAll('.directive-campaign-session-row') || []).map((row) => ({
+      key: row.dataset.campaignSessionKey || '',
+      text: normalize(row.textContent)
+    }));
+    const target = matching[0] || null;
+    return {
+      expectedLatestSaveId,
+      campaignId,
+      sessionCount: sessions.length,
+      matching,
+      visibleMatching,
+      target,
+      targetDomRows: target?.key ? rows.filter((row) => row.key === target.key) : [],
+      rowCount: rows.length,
+      bodyText: normalize(body?.textContent || '').slice(0, 1400)
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    campaignId: expected.campaignId,
+    latestSaveId
+  });
+
+  assertBrowser(command.matching.length === 1, 'Campaign Command should show one card for the campaign after Save Game As, not one card per save.', command);
+  assertBrowser(command.visibleMatching.length === 1, 'Campaign Command visible list should contain one campaign card after Save Game As.', command);
+  assertBrowser(command.target?.saveId === latestSaveId, 'Campaign Command card should target the latest Save Game As branch.', command);
+  assertBrowser(Number(command.target?.saveCount || 0) >= 2, 'Campaign Command card should preserve the grouped save count after Save Game As.', command);
+  assertBrowser(command.targetDomRows.length === 1, 'Campaign Command DOM should render one row for the grouped campaign card.', command);
+  assertBrowser(/Latest Save/i.test(command.bodyText), 'Campaign Command should label the representative save as Latest Save.', command);
+  assertBrowser(/Load Latest Save/i.test(command.bodyText), 'Campaign Command should expose Load Latest Save for the grouped campaign card.', command);
+  return {
+    campaignId: expected.campaignId,
+    latestSaveId,
+    saveCount: command.target.saveCount,
+    rowCount: command.rowCount
+  };
+}
+
 async function currentDirectiveChatBinding(page) {
   return page.evaluate(async (modulePath) => {
     const clone = (value) => (value === undefined ? null : JSON.parse(JSON.stringify(value)));
@@ -2345,6 +2426,7 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
       'Active chat metadata campaignId after Save Game As'
     );
     const beforeSummary = campaignIdentitySummary(branchRecordBeforeLoad);
+    const commandGrouping = await assertCampaignCommandGroupsLatestSave(page, branchRecordBeforeLoad, branchEntry.id);
 
     await clickCampaignSaveLoad(page, saveAsName);
     const missionSnapshot = await panelSnapshot(page);
@@ -2370,7 +2452,8 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
       payloadPath,
       loadedFrom: 'Campaign saves row',
       activeAfterLoad: true,
-      campaign: beforeSummary
+      campaign: beforeSummary,
+      commandGrouping
     };
   } catch (error) {
     if (error instanceof OptionalCheckSkipError) {
@@ -2534,11 +2617,15 @@ function sanitizePromptInspection(promptInspection = null) {
   const blocks = Array.isArray(promptInspection.blocks)
     ? promptInspection.blocks.map((block) => ({
       key: block?.key || null,
+      promptKey: block?.promptKey || block?.key || null,
       id: block?.id || null,
       title: block?.title || null,
       hash: block?.hash || null,
+      contentHash: block?.contentHash || null,
       priority: block?.priority ?? null,
       depth: block?.depth ?? null,
+      ttl: block?.ttl || null,
+      sourceHash: block?.sourceHash || null,
       sourceIds: Array.isArray(block?.sourceIds) ? [...block.sourceIds] : [],
       sourceRevision: block?.sourceRevision ?? null
     }))
@@ -2599,7 +2686,7 @@ function capturePromptInspectionSnapshot(snapshot, metadata = {}) {
 }
 
 async function chatNativeRuntimeSnapshot(page) {
-  return page.evaluate(async (modulePath) => {
+  return evaluateBrowserJson(page, async (modulePath) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const compactText = (value, max = 180) => {
       const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -2829,7 +2916,7 @@ async function chatNativeRuntimeSnapshot(page) {
         ? globalThis.__directiveSmokeErrors.slice(-8)
         : []
     };
-  }, bridgeModulePath());
+  }, bridgeModulePath(), BROWSER_TIMEOUT_MS);
 }
 
 async function waitForDirectiveRuntimeQuiescence(page, {
@@ -4306,9 +4393,26 @@ async function runChatNativeCampaignFlow(page) {
   }
 
   const sentRoundCount = rounds.filter((round) => !round.skippedSend).length;
+  appendLiveLog({
+    kind: 'checkpoint',
+    status: 'in_progress',
+    checkpoint: 'ingress-settle-after-script',
+    baseIngressCount: created.tracking?.ingressCount || 0,
+    expectedDelta: sentRoundCount,
+    expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount
+  });
   const ingressSettlement = await waitForChatNativeIngressCount(page, {
     baseIngressCount: created.tracking?.ingressCount || 0,
     expectedDelta: sentRoundCount
+  });
+  appendLiveLog({
+    kind: 'checkpoint',
+    status: ingressSettlement ? 'pass' : 'warning',
+    checkpoint: 'ingress-settle-after-script',
+    baseIngressCount: created.tracking?.ingressCount || 0,
+    expectedDelta: sentRoundCount,
+    expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount,
+    ingressSettlement
   });
   let finalSnapshot = await chatNativeRuntimeSnapshot(page);
   const matchedIngressRounds = rounds.filter((round) => round.after?.matchedIngress);
@@ -6041,6 +6145,69 @@ async function runFactualGroundingReviewOnly(page) {
   return output;
 }
 
+async function runStoryQualityReviewOnly(page) {
+  if (!STORY_QUALITY_REVIEW_ONLY) {
+    return {
+      skipped: true,
+      reason: 'DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_ONLY=1 not set'
+    };
+  }
+  if (!STORY_QUALITY_REVIEW_REQUEST_PATH) {
+    throw new Error('DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH is required for story-quality-review-only mode.');
+  }
+  const reviewRequest = JSON.parse(fs.readFileSync(STORY_QUALITY_REVIEW_REQUEST_PATH, 'utf8'));
+  appendLiveLog({
+    kind: 'model-assisted-story-quality-review',
+    status: 'in_progress',
+    requestPath: STORY_QUALITY_REVIEW_REQUEST_PATH,
+    outputPath: STORY_QUALITY_REVIEW_OUTPUT_PATH || null,
+    requestId: reviewRequest?.requestId || null,
+    inputHash: reviewRequest?.inputHash || null
+  });
+  const result = await page.evaluate(async ({ modulePath, request }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    if (!app?.runStoryQualityReview) {
+      return {
+        ok: false,
+        reason: 'Directive runtime app does not expose runStoryQualityReview.'
+      };
+    }
+    if (typeof app.initialize === 'function') {
+      await app.initialize();
+    }
+    const review = await app.runStoryQualityReview({ reviewRequest: request });
+    return clone(review);
+  }, {
+    modulePath: bridgeModulePath(),
+    request: reviewRequest
+  });
+  const output = {
+    kind: 'directive.sillytavern.storyQualityReviewProviderResult',
+    capturedAt: new Date().toISOString(),
+    requestPath: STORY_QUALITY_REVIEW_REQUEST_PATH,
+    requestId: reviewRequest?.requestId || null,
+    inputHash: reviewRequest?.inputHash || null,
+    result
+  };
+  if (STORY_QUALITY_REVIEW_OUTPUT_PATH) writeJsonArtifact(STORY_QUALITY_REVIEW_OUTPUT_PATH, output);
+  appendLiveLog({
+    kind: 'model-assisted-story-quality-review',
+    status: result?.ok === true ? 'pass' : 'fail',
+    requestPath: STORY_QUALITY_REVIEW_REQUEST_PATH,
+    outputPath: STORY_QUALITY_REVIEW_OUTPUT_PATH || null,
+    requestId: reviewRequest?.requestId || null,
+    inputHash: reviewRequest?.inputHash || null,
+    modelCall: result?.modelCall || null,
+    generation: result?.generation || null,
+    reason: result?.reason || null,
+    error: result?.error || null
+  });
+  return output;
+}
+
 async function runBrowserSmoke() {
   if (!RUN_BROWSER) {
     return {
@@ -6103,6 +6270,21 @@ async function runBrowserSmoke() {
         extensionControls,
         openedWith,
         factualGroundingReview
+      };
+    }
+    if (STORY_QUALITY_REVIEW_ONLY) {
+      const openedWith = await browserStep('open Directive panel', () => openDirectivePanel(page));
+      const storyQualityReview = await browserStep('story quality review', () => runStoryQualityReviewOnly(page));
+      return {
+        skipped: false,
+        storyQualityReviewOnly: true,
+        driver: browserDriver,
+        browserDriver,
+        browserUser,
+        authenticatedUser: authPage.authenticatedUser,
+        extensionControls,
+        openedWith,
+        storyQualityReview
       };
     }
     if (RUN_TOGGLE_ONLY) {

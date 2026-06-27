@@ -14,6 +14,11 @@ import {
   prefixCampaignReplyHeader,
   stripCampaignReplyHeader
 } from '../time/campaign-time-header.mjs';
+import { timeAdvanceBoundary } from '../directors/director-coordinator.mjs';
+import {
+  adjudicateTimeAdvance,
+  findTimeBoundaryForPlayerMessage
+} from '../time/time-advance-adjudicator.mjs';
 import {
   attachReadiedCommandBearingPoint,
   returnReadiedCommandBearingPoint
@@ -80,6 +85,20 @@ const NO_OUTCOME_RECOVERY_TYPES = new Set([
   'playerMessageDeleted',
   'playerMessageEdited',
   'chatTurnProcessingFailure'
+]);
+
+const TIME_BOUNDARY_DOMAINS = Object.freeze([
+  'campaign',
+  'worldState',
+  'timeLedger',
+  'eventLedger',
+  'storyArcLedger',
+  'questLedger',
+  'dynamicQuestCatalog',
+  'attentionState',
+  'mission',
+  'threadLedger',
+  'runtimeTracking'
 ]);
 
 function isRetryableIngressStatus(status) {
@@ -534,6 +553,7 @@ export function createChatTurnOrchestrator({
   setCampaignState,
   persistCampaignState,
   syncPromptContext,
+  getPackageData = null,
   previewDirectorTurn,
   commitProvisionalDirectorTurn,
   postTerminalOutcomeCheckpoint = null,
@@ -603,9 +623,28 @@ export function createChatTurnOrchestrator({
     return state;
   }
 
-  async function syncPrompt(state, summary = 'Prompt context synchronized.') {
+  function promptFrameForMessage(state, message = null, decision = null, extra = {}) {
+    const playerText = compact(message?.text || '');
+    const inferredCrewIds = inferCrewIdsFromText(state, playerText);
+    const recentChatMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    const { scene: extraScene = {}, ...rest } = extra || {};
+    return {
+      playerText,
+      recentChatMessages,
+      scene: {
+        activePhaseId: state?.mission?.activePhaseId || state?.mission?.phase || state?.attentionState?.scene?.activePhaseId || null,
+        presentActorIds: inferredCrewIds,
+        relevantCrewIds: inferredCrewIds,
+        currentQuestion: decision?.action || decision?.target || null,
+        ...extraScene
+      },
+      ...rest
+    };
+  }
+
+  async function syncPrompt(state, summary = 'Prompt context synchronized.', promptFrame = null) {
     if (typeof syncPromptContext !== 'function') return state;
-    const next = await syncPromptContext(state);
+    const next = await syncPromptContext(state, promptFrame);
     if (next && next !== state) {
       await persistState(next, summary);
       return next;
@@ -615,6 +654,12 @@ export function createChatTurnOrchestrator({
 
   async function settleSceneHandshake(state, message, chatId, ingressId, activityReporter = null) {
     const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    let packageData = null;
+    try {
+      packageData = typeof getPackageData === 'function' ? getPackageData() : null;
+    } catch {
+      packageData = null;
+    }
     reportActivity(activityReporter, {
       phase: 'settlingSceneHandshake',
       mode: 'blocking',
@@ -629,6 +674,7 @@ export function createChatTurnOrchestrator({
       ingressId,
       generationRouter,
       stateDeltaGateway,
+      packageData,
       now
     });
     let next = result?.campaignState || state;
@@ -651,7 +697,11 @@ export function createChatTurnOrchestrator({
           ingressId,
           source: 'sceneHandshake'
         });
-        next = await syncPrompt(next, 'Prompt context synchronized after Scene Handshake settlement.');
+        next = await syncPrompt(
+          next,
+          'Prompt context synchronized after Scene Handshake settlement.',
+          promptFrameForMessage(next, message, { classification: 'sceneHandshake' })
+        );
       } catch (error) {
         if (stateDeltaGateway?.restore && Number.isFinite(rollbackRevision)) {
           await stateDeltaGateway.restore(rollbackRevision, {
@@ -662,6 +712,114 @@ export function createChatTurnOrchestrator({
       }
     }
     return next;
+  }
+
+  function packageDataForTimeBoundary() {
+    try {
+      return typeof getPackageData === 'function' ? getPackageData() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function commitAdjudicatedTimeBoundary(state, {
+    ingressId = null,
+    turnId = null,
+    outcomeId = null,
+    playerMessage = null,
+    previousAssistantText = '',
+    outcomeText = '',
+    sourceKind = 'runtimeTurn',
+    reason = 'Runtime time boundary adjudicated.'
+  } = {}, activityReporter = null) {
+    const packageData = packageDataForTimeBoundary();
+    if (!state || !packageData?.world || !stateDeltaGateway?.commit) return state;
+    const currentPlayerHostMessageId = playerMessage?.hostMessageId || playerMessage?.id || null;
+    const existingBoundary = findTimeBoundaryForPlayerMessage(state, currentPlayerHostMessageId);
+    if (existingBoundary) {
+      reportActivity(activityReporter, {
+        phase: 'timeBoundaryAlreadyCommitted',
+        mode: 'blocking',
+        source: sourceKind,
+        ingressId,
+        turnId,
+        outcomeId,
+        currentPlayerHostMessageId,
+        existingSource: existingBoundary.sourceAnchorRange?.kind || null,
+        elapsedMinutes: existingBoundary.elapsedMinutes || 0
+      });
+      return state;
+    }
+    const sourceAnchorRange = {
+      kind: sourceKind,
+      ingressId,
+      turnId,
+      outcomeId,
+      currentPlayerHostMessageId,
+      rangeHash: fnv1a([
+        sourceKind,
+        ingressId,
+        turnId,
+        outcomeId,
+        currentPlayerHostMessageId || '',
+        playerMessage?.text || '',
+        previousAssistantText || '',
+        outcomeText || ''
+      ].join('\n'))
+    };
+    const proposal = await adjudicateTimeAdvance({
+      campaignState: state,
+      packageData,
+      generationRouter,
+      acceptedPreviousResponse: true,
+      previousAssistantText,
+      currentPlayerText: playerMessage?.text || '',
+      outcomeText,
+      currentPlayerHostMessageId: playerMessage?.hostMessageId || playerMessage?.id || null,
+      outcomeHostMessageId: outcomeId,
+      sourceAnchorRange
+    });
+    if (!proposal?.elapsedMinutes || proposal.elapsedMinutes <= 0) return state;
+    reportActivity(activityReporter, {
+      phase: 'committingTimeBoundary',
+      mode: 'blocking',
+      source: sourceKind,
+      ingressId,
+      turnId,
+      outcomeId,
+      elapsedMinutes: proposal.elapsedMinutes,
+      reason: proposal.reason
+    });
+    const boundary = timeAdvanceBoundary({
+      state,
+      packageData,
+      minutes: proposal.elapsedMinutes,
+      reason: proposal.reason || 'runtime-time-advance',
+      sourceAnchorRange,
+      adjudication: {
+        ...proposal,
+        runtimePath: sourceKind
+      },
+      now
+    });
+    const committed = await stateDeltaGateway.commit(boundary.state, {
+      id: `${sourceKind}:${ingressId || turnId || outcomeId || 'turn'}:time`,
+      source: 'timeAdvanceAdjudicator',
+      reason,
+      summary: `Advanced campaign time by ${proposal.elapsedMinutes} minutes.`,
+      domains: TIME_BOUNDARY_DOMAINS,
+      ingressId,
+      turnId,
+      outcomeId,
+      sourceAnchorRange,
+      stable: true,
+      metadata: {
+        timeAdvance: cloneJson(proposal),
+        boundaryEventId: boundary.event?.id || null
+      }
+    });
+    setCampaignState(committed);
+    return committed;
   }
 
   function reportActivity(activityReporter, event = {}) {
@@ -1220,6 +1378,7 @@ export function createChatTurnOrchestrator({
         outcomeId,
         responseKind,
         campaignId: state.campaign?.id,
+        packageData: typeof getPackageData === 'function' ? getPackageData() : null,
         metadata: {
           classification: decision.classification,
           workerPlan: cloneJson(decision.workerPlan || {})
@@ -1308,6 +1467,20 @@ export function createChatTurnOrchestrator({
     }
   }
 
+  function recoveryRequiredDispatchResult(dispatched, decision, extra = {}) {
+    if (!dispatched?.result?.recoveryRequired) return null;
+    return {
+      handled: true,
+      responseStrategy: 'injectAndContinue',
+      abortDefaultGeneration: false,
+      recoveryRequired: true,
+      recoveryId: dispatched.result.recoveryId || null,
+      decision,
+      campaignState: cloneJson(dispatched.state),
+      ...extra
+    };
+  }
+
   async function handleNoChange(state, ingressId, decision, message, activityReporter = null) {
     let next = state;
     reportActivity(activityReporter, {
@@ -1316,14 +1489,36 @@ export function createChatTurnOrchestrator({
       classification: decision.classification,
       ingressId
     });
-    if (decision.workerPlan?.promptUpdate) {
+    const staleBeforeTime = currentSourceStaleResult(ingressId, message, 'before-scene-time-boundary', next);
+    if (staleBeforeTime) return staleBeforeTime;
+    const beforeTimeFingerprint = JSON.stringify({
+      worldElapsedMinutes: next?.worldState?.elapsedMinutes ?? null,
+      worldElapsedHours: next?.worldState?.elapsedHours ?? null,
+      ledgerElapsedMinutes: next?.timeLedger?.elapsedMinutes ?? null,
+      ledgerEntryCount: Array.isArray(next?.timeLedger?.entries) ? next.timeLedger.entries.length : null
+    });
+    next = await commitAdjudicatedTimeBoundary(next, {
+      ingressId,
+      playerMessage: message,
+      sourceKind: 'sceneContinuation',
+      reason: 'Scene continuation time boundary adjudicated.'
+    }, activityReporter);
+    const afterTimeFingerprint = JSON.stringify({
+      worldElapsedMinutes: next?.worldState?.elapsedMinutes ?? null,
+      worldElapsedHours: next?.worldState?.elapsedHours ?? null,
+      ledgerElapsedMinutes: next?.timeLedger?.elapsedMinutes ?? null,
+      ledgerEntryCount: Array.isArray(next?.timeLedger?.entries) ? next.timeLedger.entries.length : null
+    });
+    const timeChanged = beforeTimeFingerprint !== afterTimeFingerprint;
+    if (decision.workerPlan?.promptUpdate || timeChanged) {
       reportActivity(activityReporter, {
         phase: 'syncingPrompt',
         mode: 'blocking',
         classification: decision.classification,
-        ingressId
+        ingressId,
+        timeChanged
       });
-      next = await syncPrompt(next);
+      next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision));
     }
     const stale = currentSourceStaleResult(ingressId, message, 'before-no-change-dispatch', next);
     if (stale) return stale;
@@ -1335,6 +1530,8 @@ export function createChatTurnOrchestrator({
       responseKind: 'hostGeneration',
       activityReporter
     });
+    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision);
+    if (recoveryResult) return recoveryResult;
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'complete',
       classification: cloneJson(decision),
@@ -1401,6 +1598,13 @@ export function createChatTurnOrchestrator({
       stable: true
     });
     let next = committed;
+    next = await commitAdjudicatedTimeBoundary(next, {
+      ingressId,
+      turnId: routineId,
+      playerMessage: message,
+      sourceKind: 'routineCommand',
+      reason: 'Routine command time boundary adjudicated.'
+    }, activityReporter);
     reportActivity(activityReporter, {
       phase: 'syncingPrompt',
       mode: 'blocking',
@@ -1408,7 +1612,7 @@ export function createChatTurnOrchestrator({
       ingressId,
       turnId: routineId
     });
-    next = await syncPrompt(next);
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision));
     const directiveOwned = decision.responseStrategy === 'directivePosted';
     const dispatched = await dispatchAndRecord({
       state: next,
@@ -1420,6 +1624,8 @@ export function createChatTurnOrchestrator({
       responseKind: directiveOwned ? 'routineCommand' : 'hostGeneration',
       activityReporter
     });
+    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision);
+    if (recoveryResult) return recoveryResult;
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'committed',
       classification: cloneJson(decision),
@@ -1544,7 +1750,7 @@ export function createChatTurnOrchestrator({
       turnId: details.turnId || null,
       outcomeId: details.outcomeId || null
     });
-    next = await syncPrompt(next);
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, details.message, decision));
     return {
       handled: true,
       responseStrategy: 'pause',
@@ -1598,7 +1804,7 @@ export function createChatTurnOrchestrator({
       classification: decision.classification,
       ingressId
     });
-    next = await syncPrompt(next);
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision));
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
@@ -1607,6 +1813,10 @@ export function createChatTurnOrchestrator({
       responseKind: 'hostGeneration',
       activityReporter
     });
+    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision, {
+      advisory: cloneJson(advisory)
+    });
+    if (recoveryResult) return recoveryResult;
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'complete',
       classification: cloneJson(decision),
@@ -1769,6 +1979,15 @@ export function createChatTurnOrchestrator({
     const outcomeId = committed?.turnPacket?.outcomePacket?.id || provisionalOutcomeId;
     const generatedText = narrationText(committed);
     const text = generatedText || localOutcomeNarration(committed);
+    next = await commitAdjudicatedTimeBoundary(next, {
+      ingressId,
+      turnId,
+      outcomeId,
+      playerMessage: message,
+      outcomeText: text,
+      sourceKind: 'committedOutcome',
+      reason: 'Committed outcome time boundary adjudicated.'
+    }, activityReporter);
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
@@ -1842,6 +2061,7 @@ export function createChatTurnOrchestrator({
           outcomePacket: cloneJson(committed?.turnPacket?.outcomePacket || null),
           commandLogPacket: cloneJson(committed?.turnPacket?.commandLogPacket || null),
           commandBearingReviewPlan: cloneJson(committed?.turnPacket?.commandBearingReviewPlan || null),
+          continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
           messages: [
             {
               id: message.hostMessageId || message.id || `${ingressId}:player`,
@@ -1883,7 +2103,11 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId
     });
-    next = await syncPrompt(next);
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision, {
+      scene: {
+        presentActorIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || []
+      }
+    }));
     scheduleTurnSidecars(decision, {
       ingressId,
       classification: decision.classification,
@@ -1891,6 +2115,8 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId,
       resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
+      continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
+      directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
       visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
     }, activityReporter);
     return {
@@ -2192,6 +2418,8 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId,
       resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
+      continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
+      directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
       visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
     }, activityReporter);
     return {

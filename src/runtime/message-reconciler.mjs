@@ -4,6 +4,7 @@ import {
   updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
+import { markMissionComponentsSourceStatus } from './mission-components.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -194,6 +195,34 @@ function invalidateSceneHandshakeSources(campaignState = {}, {
   };
 }
 
+function markMissionComponentSources(campaignState = {}, {
+  hostMessageId,
+  eventType,
+  eventTime
+} = {}) {
+  const id = compact(hostMessageId);
+  if (!id) return { campaignState, markedCount: 0 };
+  const sourceStatus = /deleted/i.test(String(eventType || '')) ? 'deleted' : 'stale';
+  const marked = markMissionComponentsSourceStatus(campaignState, id, {
+    sourceStatus,
+    now: eventTime
+  });
+  if (!marked.markedCount) return marked;
+  return {
+    campaignState: recordRecoveryEvent(marked.campaignState, {
+      type: sourceStatus === 'deleted' ? 'missionComponentSourceDeleted' : 'missionComponentSourceEdited',
+      status: 'reviewRequired',
+      hostMessageId: id,
+      recordedAt: eventTime,
+      details: {
+        sourceStatus,
+        markedCount: marked.markedCount
+      }
+    }),
+    markedCount: marked.markedCount
+  };
+}
+
 function preOutcomeRevision(campaignState, ingress) {
   const history = campaignState?.runtimeTracking?.history || [];
   const matching = [...history].reverse().find((entry) => (
@@ -235,8 +264,13 @@ export function createMessageReconciler({
         eventTime,
         replacementText
       });
-      if (invalidated.invalidatedCount > 0) {
-        let next = invalidated.campaignState;
+      const markedComponents = markMissionComponentSources(invalidated.campaignState, {
+        hostMessageId,
+        eventType,
+        eventTime
+      });
+      if (invalidated.invalidatedCount > 0 || markedComponents.markedCount > 0) {
+        let next = markedComponents.campaignState;
         setCampaignState(next);
         await save(`Message recovery: ${eventType}.`);
         if (typeof syncPrompt === 'function') {
@@ -251,11 +285,14 @@ export function createMessageReconciler({
         return {
           ok: true,
           matched: true,
-          action: 'sceneHandshakeInvalidated',
-          sceneHandshake: {
+          action: invalidated.invalidatedCount > 0 ? 'sceneHandshakeInvalidated' : 'missionComponentSourceInvalidated',
+          sceneHandshake: invalidated.invalidatedCount > 0 ? {
             invalidatedCount: invalidated.invalidatedCount,
             settlementIds: cloneJson(invalidated.settlementIds)
-          },
+          } : null,
+          missionComponents: markedComponents.markedCount > 0 ? {
+            markedCount: markedComponents.markedCount
+          } : null,
           campaignState: cloneJson(next)
         };
       }
@@ -303,7 +340,12 @@ export function createMessageReconciler({
         eventTime,
         replacementText
       });
-      next = invalidated.campaignState;
+      const markedComponents = markMissionComponentSources(invalidated.campaignState, {
+        hostMessageId,
+        eventType,
+        eventTime
+      });
+      next = markedComponents.campaignState;
       setCampaignState(next);
       await save(`Message recovery: ${eventType}.`);
       if (typeof syncPrompt === 'function') {
@@ -324,6 +366,9 @@ export function createMessageReconciler({
         sceneHandshake: invalidated.invalidatedCount > 0 ? {
           invalidatedCount: invalidated.invalidatedCount,
           settlementIds: cloneJson(invalidated.settlementIds)
+        } : null,
+        missionComponents: markedComponents.markedCount > 0 ? {
+          markedCount: markedComponents.markedCount
         } : null,
         campaignState: cloneJson(next)
       };
@@ -363,7 +408,12 @@ export function createMessageReconciler({
       eventTime,
       replacementText
     });
-    next = invalidated.campaignState;
+    const markedComponents = markMissionComponentSources(invalidated.campaignState, {
+      hostMessageId,
+      eventType,
+      eventTime
+    });
+    next = markedComponents.campaignState;
 
     let action = hasCommittedOutcome ? 'reviewRequired' : 'invalidated';
     if (autoRollback && revision !== null) {
@@ -393,6 +443,9 @@ export function createMessageReconciler({
       sceneHandshake: invalidated.invalidatedCount > 0 ? {
         invalidatedCount: invalidated.invalidatedCount,
         settlementIds: cloneJson(invalidated.settlementIds)
+      } : null,
+      missionComponents: markedComponents.markedCount > 0 ? {
+        markedCount: markedComponents.markedCount
       } : null,
       campaignState: cloneJson(next)
     };
@@ -424,5 +477,6 @@ export function createMessageReconciler({
 export const __messageReconcilerTestHooks = Object.freeze({
   findIngress,
   preOutcomeRevision,
-  invalidateSceneHandshakeSources
+  invalidateSceneHandshakeSources,
+  markMissionComponentSources
 });

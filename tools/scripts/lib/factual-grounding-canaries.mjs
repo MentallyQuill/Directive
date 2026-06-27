@@ -103,6 +103,8 @@ function makeCanary({
   expectedPromptCategories,
   assertions,
   positiveTerms = [],
+  expectedPromptKeys = [],
+  expectedSourceIds = [],
   contradictionWatchlist = [],
   notes = []
 }) {
@@ -113,6 +115,8 @@ function makeCanary({
     severity,
     checkTiming,
     expectedPromptCategories: asArray(expectedPromptCategories).map((entry) => compactText(entry)).filter(Boolean),
+    expectedPromptKeys: asArray(expectedPromptKeys).map((entry) => compactText(entry)).filter(Boolean),
+    expectedSourceIds: asArray(expectedSourceIds).map((entry) => compactText(entry)).filter(Boolean),
     sourcePointers,
     assertions: assertions.map((entry) => compactText(entry)).filter(Boolean),
     positiveTerms: positiveTerms.map((entry) => compactText(entry)).filter(Boolean),
@@ -156,6 +160,12 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
         ].join(' '),
         checkTiming: ['first-generated-reply-mention', 'first-appearance', 'campaign-switch'],
         expectedPromptCategories: ['crew-public-identity', 'service-record', 'present-character'],
+        expectedPromptKeys: ['directive.continuity.invariants', 'directive.continuity.domain', 'directive.scene.active'],
+        expectedSourceIds: [
+          `crew.${officer.id}.species`,
+          `crew.${officer.id}.billet`,
+          officer.ageDescription ? `crew.${officer.id}.age-description` : null
+        ].filter(Boolean),
         sourcePointers,
         assertions,
         positiveTerms: [
@@ -183,32 +193,59 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
   const underwayFact = asArray(missionGraph?.facts).find((entry) => entry?.id === 'ship.post-refit-shakedown-underway');
   const handoffFact = asArray(missionGraph?.facts).find((entry) => entry?.id === 'crew.acting-xo-handoff');
   const relationshipStart = packageData?.crew?.relationshipModel?.startingFrame;
+  const transitLocationIndex = asArray(packageData?.world?.locations).findIndex((entry) => entry?.id === 'breckenridge-in-transit');
+  const transitLocation = transitLocationIndex >= 0 ? packageData.world.locations[transitLocationIndex] : null;
+  const openingQuestIndex = asArray(packageData?.questTemplates?.templates).findIndex((entry) => (
+    /final ten days of transit/i.test(String(entry?.playerSummary || entry?.summary || ''))
+  ));
+  const openingQuest = openingQuestIndex >= 0 ? packageData.questTemplates.templates[openingQuestIndex] : null;
+  const finalTransitSummary = transitLocation?.playerSafeSummary
+    || transitLocation?.playerSummary
+    || transitLocation?.summary
+    || openingQuest?.playerSummary
+    || openingQuest?.summary
+    || null;
   return [
     makeCanary({
       id: `${campaignSlug}.opening.transit-premise`,
       category: 'opening-premise',
       summary: [
         relationshipStart,
+        finalTransitSummary,
         shuttlePhase?.summary,
         underwayFact?.summary,
         'The generation must not claim the Breckenridge has simply been sitting at impulse for days before the handoff.'
       ].filter(Boolean).join(' '),
       checkTiming: ['campaign-intro', 'first-three-generated-replies', 'prompt-rebuild'],
       expectedPromptCategories: ['mission-frame', 'opening-premise', 'ship-readiness', 'current-location-time'],
+      expectedPromptKeys: ['directive.continuity.invariants', 'directive.scene.active', 'directive.continuity.domain'],
+      expectedSourceIds: [
+        'ship.uss-breckenridge.travel.opening-transit-mode',
+        'ship.uss-breckenridge.travel.not-six-days-impulse',
+        'ship.uss-breckenridge.travel.crew-underway-duration',
+        'ship.uss-breckenridge.travel.current-route'
+      ],
       sourcePointers: [
         sourcePointer(packagePath, jsonPointer('crew', 'relationshipModel', 'startingFrame'), 'crew starting frame'),
+        transitLocationIndex >= 0 ? sourcePointer(packagePath, jsonPointer('world', 'locations', transitLocationIndex, 'playerSafeSummary'), 'current transit location player-safe summary') : null,
+        openingQuestIndex >= 0 ? sourcePointer(packagePath, jsonPointer('questTemplates', 'templates', openingQuestIndex, 'playerSummary'), 'opening quest player summary') : null,
         missionGraphPathValue ? sourcePointer(missionGraphPathValue, '#/phases', 'shuttle-rendezvous phase summary') : null,
         missionGraphPathValue ? sourcePointer(missionGraphPathValue, '#/facts', 'post-refit underway fact') : null
       ].filter(Boolean),
       assertions: [
         relationshipStart,
+        finalTransitSummary,
         shuttlePhase?.summary,
         underwayFact?.summary,
         handoffFact?.summary
       ].filter(Boolean),
       positiveTerms: [
         'twenty-five days underway',
+        'final ten days before the Asterion Reach',
+        'final ten days of transit',
+        'several weeks together',
         'drops to impulse at the transfer waypoint',
+        'deployed ship under conservative shakedown conditions',
         'acting XO during transit'
       ],
       contradictionWatchlist: [
@@ -216,6 +253,14 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
         'Breckenridge at impulse for 6 days',
         'at impulse for six days',
         'at impulse for 6 days',
+        'out of spacedock three days ago',
+        'out of spacedock 3 days ago',
+        'left spacedock three days ago',
+        'left spacedock 3 days ago',
+        'left the yard three days ago',
+        'left the yard 3 days ago',
+        'out of the yard three days ago',
+        'out of the yard 3 days ago',
         'first crew contact happened only moments ago',
         'Bronn did not serve as acting XO during transit'
       ]

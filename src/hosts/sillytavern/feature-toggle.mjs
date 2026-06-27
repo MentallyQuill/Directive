@@ -4,6 +4,7 @@ import { refreshRuntimeSafely } from '../../extension/runtime-mount.js';
 import { installExtensionsMenuDropdown } from '../../extension/settings-panel.js';
 import { installDirectiveAssistButton } from './directive-assist-button.js';
 import { installDirectiveMessageActions } from './message-actions.js';
+import { installMissionComponentsCapture } from './mission-components-capture.js';
 import { handleExtensionDisabled, wireEvents } from './shell-events.js';
 import {
   installDirectiveGenerationInterceptor,
@@ -53,6 +54,7 @@ export async function applySillyTavernDirectiveFeatureState({
     exposeGlobalBridge();
     installDirectiveAssistButton();
     installDirectiveMessageActions({ context: resolvedContext });
+    installMissionComponentsCapture();
   } else {
     await handleExtensionDisabled();
   }

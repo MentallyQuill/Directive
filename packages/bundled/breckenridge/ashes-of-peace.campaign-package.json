@@ -64,6 +64,14 @@
         "Captain Breckenridge namesake record"
       ]
     },
+    "travelContinuity": {
+      "marsDepartureOffsetDaysBeforeOpening": 25,
+      "openingTransitMode": "The Breckenridge has been underway from the Mars/Utopia Planitia refit context for twenty-five days before the player joins, using a conservative warp flight plan through Federation territory.",
+      "openingImpulseContext": "At the opening, the ship drops to impulse at a charted transfer waypoint only to receive the player's long-range Starfleet personnel shuttle.",
+      "baselineRemainingTravel": "The player joins with a baseline ten-day prelude remaining before the Asterion Reach.",
+      "baselineRemainingDistance": "The remaining prelude represents roughly 5.5 to 6 light-years of travel in stable Directive continuity.",
+      "speedPolicy": "Observe the standing Warp 5 restriction where practical, use lower speeds in sensitive or heavily traveled corridors, and reserve sustained high warp for operational need."
+    },
     "systems": {
       "postRefitWork": [
         "Structural repair and recalibration of nacelle articulation",

@@ -490,6 +490,7 @@ export function runDirectorTurnRuntime(options) {
   });
   return {
     kind: 'directive.runtimeDirectorTurn',
+    coordinatorDiagnostics: cloneJson(provisional.coordinatorDiagnostics || null),
     turnPacket: committed.turnPacket,
     campaignState: committed.campaignState,
     narratorPacket: cloneJson(committed.narratorPacket),

@@ -135,13 +135,45 @@ function stardateDelta(world, hours) {
   return (Number(hours) / 24) * perDay;
 }
 
-export function advanceWorldTime({ world, worldState, hours, reason = 'time-advance', now = null } = {}) {
-  const amount = Number(hours || 0);
-  if (!Number.isFinite(amount) || amount < 0) throw new Error('hours must be a non-negative number.');
+function elapsedMinutesOf(worldState = {}) {
+  const minutes = Number(worldState?.elapsedMinutes);
+  if (Number.isFinite(minutes)) return Math.max(0, Math.round(minutes));
+  const hours = Number(worldState?.elapsedHours);
+  if (Number.isFinite(hours)) return Math.max(0, Math.round(hours * 60));
+  return 0;
+}
+
+function durationMinutes({ hours = null, minutes = null } = {}) {
+  if (minutes !== null && minutes !== undefined && minutes !== '') {
+    const directMinutes = Number(minutes);
+    if (Number.isFinite(directMinutes)) return Math.max(0, Math.round(directMinutes));
+  }
+  const hourAmount = Number(hours || 0);
+  if (!Number.isFinite(hourAmount) || hourAmount < 0) throw new Error('hours must be a non-negative number.');
+  return Math.max(0, Math.round(hourAmount * 60));
+}
+
+function humanDuration(minutes) {
+  const amount = Math.max(0, Math.round(Number(minutes) || 0));
+  if (amount === 0) return '';
+  if (amount % 60 === 0) {
+    const hours = amount / 60;
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} passed.`;
+  }
+  if (amount < 60) return `${amount} ${amount === 1 ? 'minute' : 'minutes'} passed.`;
+  const hours = Math.floor(amount / 60);
+  const remainder = amount % 60;
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'} and ${remainder} ${remainder === 1 ? 'minute' : 'minutes'} passed.`;
+}
+
+export function advanceWorldTime({ world, worldState, hours, minutes = null, reason = 'time-advance', now = null } = {}) {
+  const amountMinutes = durationMinutes({ hours, minutes });
+  const amountHours = amountMinutes / 60;
   const next = cloneJson(worldState);
   const fromStardate = Number(next.currentStardate || 0);
-  next.elapsedHours = Number(next.elapsedHours || 0) + amount;
-  next.currentStardate = Number((fromStardate + stardateDelta(world, amount)).toFixed(3));
+  next.elapsedMinutes = elapsedMinutesOf(next) + amountMinutes;
+  next.elapsedHours = Number((next.elapsedMinutes / 60).toFixed(4));
+  next.currentStardate = Number((fromStardate + stardateDelta(world, amountHours)).toFixed(3));
   return {
     worldState: next,
     event: {
@@ -149,9 +181,9 @@ export function advanceWorldTime({ world, worldState, hours, reason = 'time-adva
       type: 'time.advanced',
       boundaryType: 'time-advance',
       stardate: next.currentStardate,
-      payload: { hours: amount, fromStardate, toStardate: next.currentStardate, reason },
+      payload: { hours: amountHours, minutes: amountMinutes, fromStardate, toStardate: next.currentStardate, reason },
       committedAt: typeof now === 'function' ? now() : now,
-      playerFacingSummary: amount > 0 ? `${amount} hours passed.` : ''
+      playerFacingSummary: humanDuration(amountMinutes)
     }
   };
 }
@@ -162,9 +194,11 @@ export function applyTravel({ world, worldState, destinationId, campaignState = 
   const next = cloneJson(worldState);
   const departedAt = Number(next.currentStardate || 0);
   const travelHours = Number(check.travelHours || 0);
+  const travelMinutes = Math.max(0, Math.round(travelHours * 60));
   const arrival = departedAt + stardateDelta(world, travelHours);
   const from = next.currentLocationId;
-  next.elapsedHours = Number(next.elapsedHours || 0) + travelHours;
+  next.elapsedMinutes = elapsedMinutesOf(next) + travelMinutes;
+  next.elapsedHours = Number((next.elapsedMinutes / 60).toFixed(4));
   next.currentStardate = Number(arrival.toFixed(3));
   next.currentLocationId = destinationId;
   next.visitedLocationIds = [...new Set([...asArray(next.visitedLocationIds), destinationId])];

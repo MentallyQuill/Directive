@@ -50,12 +50,15 @@ Campaign-owned data:
 - Turn ledger.
 - Command Log.
 - Relationship and crew-development continuity.
+- Continuity Projection Matrix state: accepted/candidate/rejected claims, projection hints, fact-use stats, disposable projection cache, projection run summaries, last projection, and sanitized audit log.
 - Command Bearing records.
 - Command Competence ledgers.
 - Pressure ledger records.
 - Saves and branches.
 
 Package updates can change future reference data during pre-alpha, but campaign-owned state remains the authority for what already happened.
+
+Continuity Matrix diagnostics in Settings are player-safe/operator-safe summaries. They expose counts, prompt keys, hashes, freshness, selected/blocked/rejected categories, and status flags. They must not expose raw hidden state, provider prompts, private NPC thoughts, hidden clocks, raw relationship values, or Director-only reasoning.
 
 ## Saves
 

@@ -2,6 +2,16 @@ import { assertHostPromptBlockSafeForInjection } from './prompt-injection-safety
 import { buildContextPlan } from '../context/context-orchestrator.mjs';
 import { migrateCommandBearingState, projectCommandBearingForPlayer } from '../command/command-bearing.mjs';
 import { playerSafeQuestSummaries } from '../quests/quest-ledger.mjs';
+import { buildContinuityProjectionMatrix } from '../continuity/projection-matrix.mjs';
+import { buildContinuityFactIndex } from '../continuity/fact-index.mjs';
+import { buildContinuitySourceFrame } from '../continuity/source-frame.mjs';
+import { recordContinuityProjectionRun } from '../continuity/state.mjs';
+import { writeContinuityProjectionCache } from '../continuity/projection-cache.mjs';
+import { createContinuityProjectionRun } from '../continuity/projection-audit.mjs';
+import { recordContinuityFactUseStats } from '../continuity/projection-hints.mjs';
+import { activeContinuityProjectionHints } from '../continuity/projection-hints.mjs';
+import { planContinuityProjection } from '../continuity/projection-planner-client.mjs';
+import { CONTINUITY_VISIBILITY } from '../continuity/fact-schema.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -346,17 +356,29 @@ export function createPlayerSafeCampaignProjection({
   };
 }
 
-export function buildPlayerSafePromptContext(input = {}, options = {}) {
-  const normalizedInput = input?.campaignState
+function normalizePromptContextInput(input = {}, options = {}) {
+  return input?.campaignState
     ? input
     : { campaignState: input, ...options };
+}
+
+export function buildPlayerSafePromptContext(input = {}, options = {}) {
+  const normalizedInput = normalizePromptContextInput(input, options);
   const {
     campaignState,
     packageData = null,
     crewDataset = null,
+    campaignProjection = null,
     scene = null,
     relevantCrewIds = [],
+    playerText = '',
     recentMessageSummary = null,
+    recentChatMessages = [],
+    projectionPlan = null,
+    projectionPlannerContext = null,
+    projectionPlannerResult = null,
+    projectionFallbackReason = null,
+    projectionHints = null,
     createdAt = null
   } = normalizedInput;
   if (!campaignState || typeof campaignState !== 'object') {
@@ -371,7 +393,136 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     createdAt,
     relevantCrewIds
   });
-  return { ...plan, kind: 'directive.playerSafePromptContext' };
+  const matrix = buildContinuityProjectionMatrix({
+    campaignState,
+    packageData,
+    crewDataset,
+    campaignProjection,
+    scene: scene || {},
+    playerText,
+    recentMessageSummary,
+    recentChatMessages,
+    projectionPlan,
+    projectionPlannerContext,
+    projectionPlannerResult,
+    projectionFallbackReason,
+    projectionHints,
+    createdAt
+  });
+  const dynamicBlocks = plan.blocks.filter((block) => block.id !== 'directive-contract');
+  const blocks = [...matrix.blocks, ...dynamicBlocks];
+  const text = blocks.map((block) => `[Directive: ${block.title}]\n${block.content}`).join('\n\n');
+  const hash = hashText(text);
+  return {
+    ...plan,
+    kind: 'directive.playerSafePromptContext',
+    blocks,
+    text,
+    hash,
+    contentHash: hash,
+    usage: {
+      ...(plan.usage || {}),
+      continuityProjectionTokens: matrix.blocks.reduce((sum, block) => sum + (Number(block.tokenEstimate) || 0), 0)
+    },
+    continuityProjection: {
+      kind: matrix.kind,
+      hash: matrix.hash,
+      sourceHash: matrix.sourceFrame?.sourceHash || null,
+      policyHash: matrix.policyHash || null,
+      staticPromptKeys: matrix.staticPromptKeys,
+      audit: matrix.audit,
+      factIndex: matrix.factIndex,
+      planner: matrix.planner,
+      plan: {
+        kind: matrix.plan?.kind || null,
+        hash: matrix.plan?.hash || null,
+        selectedFactIds: cloneJson(matrix.plan?.selectedFactIds || []),
+        guardFactIds: cloneJson(matrix.plan?.guardFactIds || []),
+        auditFactIds: cloneJson(matrix.plan?.auditFactIds || []),
+        guardFocus: cloneJson(matrix.plan?.guardFocus || []),
+        compressionGroups: cloneJson(matrix.plan?.compressionGroups || []),
+        laneFactIds: cloneJson(matrix.plan?.laneFactIds || {}),
+        omitted: cloneJson(matrix.plan?.omitted || []),
+        rejections: cloneJson(matrix.plan?.rejections || [])
+      }
+    }
+  };
+}
+
+export async function buildPlayerSafePromptContextWithContinuityPlanner(input = {}, options = {}) {
+  const normalizedInput = normalizePromptContextInput(input, options);
+  const generationRouter = options.generationRouter || normalizedInput.generationRouter || null;
+  if (typeof generationRouter?.generate !== 'function') {
+    return buildPlayerSafePromptContext(normalizedInput);
+  }
+  const {
+    campaignState,
+    packageData = null,
+    crewDataset = null,
+    campaignProjection = null,
+    scene = null,
+    playerText = '',
+    recentMessageSummary = null,
+    recentChatMessages = [],
+    projectionHints = null
+  } = normalizedInput;
+  if (!campaignState || typeof campaignState !== 'object') {
+    throw new Error('campaignState must be an object');
+  }
+  const sourceFrame = buildContinuitySourceFrame({
+    campaignState,
+    packageData,
+    crewDataset,
+    campaignProjection,
+    scene: scene || {},
+    playerText,
+    recentMessageSummary,
+    recentChatMessages
+  });
+  const factIndex = buildContinuityFactIndex({
+    campaignState,
+    packageData,
+    crewDataset,
+    campaignProjection,
+    audience: CONTINUITY_VISIBILITY.narratorSafe
+  });
+  const activeHints = projectionHints || activeContinuityProjectionHints(campaignState);
+  let plannerResult;
+  try {
+    plannerResult = await planContinuityProjection({
+      generationRouter,
+      factIndex,
+      sourceFrame,
+      projectionHints: activeHints,
+      policy: options.plannerPolicy || normalizedInput.plannerPolicy || {},
+      signal: options.signal || normalizedInput.signal || null
+    });
+  } catch (error) {
+    plannerResult = {
+      ok: false,
+      plan: null,
+      request: null,
+      fallbackReason: error?.code || 'planner-exception',
+      error: {
+        code: error?.code || null,
+        message: error?.message || String(error)
+      }
+    };
+  }
+  const request = plannerResult?.request || null;
+  const projectionPlannerContext = request ? {
+    requestHash: request.requestHash || null,
+    candidateFactIds: array(request.candidateFacts).map((fact) => compact(fact?.id)).filter(Boolean),
+    hardFloorFactIds: array(request.hardFloorFactIds).map(compact).filter(Boolean)
+  } : null;
+  return buildPlayerSafePromptContext({
+    ...normalizedInput,
+    projectionPlan: plannerResult?.ok === true ? plannerResult.plan : null,
+    projectionPlannerContext,
+    projectionPlannerResult: plannerResult,
+    projectionFallbackReason: plannerResult?.ok === true ? null : (plannerResult?.fallbackReason || 'utility-planner-fallback'),
+    projectionHints: activeHints
+  });
 }
 
 
@@ -385,7 +536,7 @@ export function recordPromptContextRevision(campaignState, packet, {
   if (!packet || !Array.isArray(packet.blocks)) {
     throw new Error('prompt packet must contain blocks');
   }
-  const next = cloneJson(campaignState);
+  let next = cloneJson(campaignState);
   if (!next.runtimeTracking || typeof next.runtimeTracking !== 'object') next.runtimeTracking = { revision: 0 };
   next.runtimeTracking.promptContext = {
     ...(next.runtimeTracking.promptContext || {}),
@@ -396,17 +547,54 @@ export function recordPromptContextRevision(campaignState, packet, {
     blocks: packet.blocks.map((block) => ({
       id: block.id,
       title: block.title,
+      promptKey: block.promptKey || null,
       priority: block.priority,
       placement: block.placement,
       depth: block.depth,
+      ttl: block.ttl || null,
       hash: block.hash || block.contentHash || null,
+      sourceHash: block.sourceHash || null,
       sourceRevision: block.source?.revision ?? null
     })),
+    continuityProjection: packet.continuityProjection ? cloneJson(packet.continuityProjection) : null,
     installedAt
   };
   if (next.campaignChatBinding) {
     next.campaignChatBinding.promptContextRevision = Number(packet.revision || 0);
     next.campaignChatBinding.promptContextHash = packet.hash || packet.contentHash || null;
+  }
+  if (packet.continuityProjection) {
+    const matrixForAudit = {
+      kind: packet.continuityProjection.kind,
+      hash: packet.continuityProjection.hash,
+      policyHash: packet.continuityProjection.policyHash || null,
+      sourceFrame: { sourceHash: packet.continuityProjection.sourceHash || null },
+      blocks: packet.blocks.filter((block) => block.promptKey && String(block.promptKey).startsWith('directive.')),
+      plan: packet.continuityProjection.plan,
+      factIndex: packet.continuityProjection.factIndex,
+      omitted: packet.continuityProjection.plan?.omitted || []
+    };
+    next = writeContinuityProjectionCache(next, matrixForAudit, {
+      policyHash: packet.continuityProjection.policyHash || null
+    });
+    next = recordContinuityProjectionRun(next, createContinuityProjectionRun(matrixForAudit, {
+      status,
+      installedAt
+    }));
+    const laneByFactId = {};
+    for (const [lane, ids] of Object.entries(packet.continuityProjection.plan?.laneFactIds || {})) {
+      for (const factId of ids || []) laneByFactId[factId] = lane;
+    }
+    next = recordContinuityFactUseStats(next, {
+      selectedFactIds: packet.continuityProjection.plan?.selectedFactIds || [],
+      guardedFactIds: [
+        ...(packet.continuityProjection.plan?.laneFactIds?.['directive.continuity.invariants'] || []),
+        ...(packet.continuityProjection.plan?.guardFactIds || []),
+        ...(packet.continuityProjection.plan?.guardFocus || [])
+      ],
+      laneByFactId,
+      now: installedAt
+    });
   }
   return next;
 }

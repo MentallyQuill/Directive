@@ -1,6 +1,7 @@
 import { playerSafeQuestSummaries, questTemplateById } from '../quests/quest-ledger.mjs';
 import { threadPlayerSummaries } from '../threads/thread-ledger.mjs';
 import { assertHostPromptBlockSafeForInjection } from '../generation/prompt-injection-safety.mjs';
+import { renderCompactCrewVoiceCueFromCard, voiceCardsByCrewId } from '../generation/crew-voice-capsules.mjs';
 import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-header.mjs';
 
 function cloneJson(value) {
@@ -180,11 +181,19 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
   const locTemplate = locationTemplate(packageData, locationId);
   const locState = locationState(state, locationId);
   const crewMap = crewById(packageData, crewDataset);
+  const voiceMap = voiceCardsByCrewId(crewDataset);
   const relevantCrewIds = [...new Set([
     ...asArray(scene.presentCharacterIds || scene.presentCharacters),
     ...asArray(template?.anchors?.actorIds),
     ...asArray(scene.relevantCrewIds)
   ])].filter((id) => crewMap.has(id) && id !== 'player-commander');
+  const activeVoiceCrewIds = [...new Set([
+    ...asArray(scene.presentCharacterIds || scene.presentCharacters),
+    ...asArray(scene.relevantCrewIds)
+  ])].filter((id) => crewMap.has(id) && id !== 'player-commander');
+  const orderedVoiceCueCrewIds = (activeVoiceCrewIds.length ? activeVoiceCrewIds : relevantCrewIds).slice(0, 3);
+  const voiceCueCrewIds = new Set(orderedVoiceCueCrewIds);
+  const lineShapeCrewId = orderedVoiceCueCrewIds[0] || null;
   const relevantFacts = [...new Set([
     ...asArray(scene.relevantFactIds),
     ...asArray(template?.revelationIds),
@@ -289,6 +298,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
     normalizeCandidate(state, {
       id: 'relevant-crew',
       title: 'Relevant Crew Context',
+      mustInclude: relevantCrewIds.length > 0,
       salienceScore: relevantCrewIds.length ? 78 : 0,
       placement: 'inChat',
       depth: 4,
@@ -298,7 +308,15 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
       content: relevantCrewIds.map((id) => {
         const officer = crewMap.get(id) || {};
         const relationship = asArray(state?.relationships?.seniorCrew).find((entry) => entry.crewId === id);
-        return crewIdentityLine(officer, relationship);
+        const voiceCue = voiceCueCrewIds.has(id)
+          ? renderCompactCrewVoiceCueFromCard(voiceMap.get(id), {
+            lineShapeLimit: id === lineShapeCrewId ? 1 : 0
+          })
+          : '';
+        return [
+          crewIdentityLine(officer, relationship),
+          voiceCue ? `  Voice cue: ${voiceCue}` : null
+        ].filter(Boolean).join('\n');
       }).join('\n')
     }),
     normalizeCandidate(state, {
@@ -326,6 +344,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
     normalizeCandidate(state, {
       id: 'ship-status',
       title: 'Relevant Ship Status',
+      mustInclude: shipStatusLines(state).length > 1,
       salienceScore: shipStatusLines(state).length > 1 ? 64 : 35,
       placement: 'inChat',
       depth: 5,

@@ -52,7 +52,7 @@ Settings groups roles by operator meaning:
 | State Sidecars | `relationshipEvaluator`, `continuityTracker`, `crewDirector`, `shipDirector` |
 | Command Bearing | `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator` |
 | Outcome Integrity | `outcomeIntegrityReview` |
-| Context & Summaries | `promptContextBuilder`, `commandLogSummarizer`, `recapSummarizer`, `utilityJson` |
+| Context & Summaries | `promptContextBuilder`, `continuityProjectionPlanner`, `continuityContradictionReviewer`, `continuityClaimExtractor`, `continuityProjectionCompressor`, `commandLogSummarizer`, `recapSummarizer`, `utilityJson` |
 | Authoring Helpers | `characterCreatorSectionDraft`, `directiveAssist` |
 
 ## Authority Table
@@ -77,6 +77,10 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `commandBearingEvaluator` | Utility | Yes | `commandBearing`, `commandCulture` | Generic sidecar writes are limited to validated evidence appends/upserts plus command-culture observations. Dedicated Mark Review calls may propose review records, but deterministic transaction code owns awards. |
 | `outcomeIntegrityReview` | Utility | No | None | Edit acceptance, rejection, or repair guidance for protected assistant prose. |
 | `promptContextBuilder` | Utility | No | None | Host prompt blocks only. |
+| `continuityProjectionPlanner` | Utility | No | None | Fact-id selection guidance only; deterministic validators own prompt injection. |
+| `continuityContradictionReviewer` | Utility | No | None | Continuity review JSON only; recovery/repair policy is deterministic. |
+| `continuityClaimExtractor` | Utility | No | None | Candidate generated-claim extraction only; acceptance requires deterministic state paths. |
+| `continuityProjectionCompressor` | Utility | No | None | Compression guidance for eligible facts only; hard floors and visibility gates remain deterministic. |
 | `continuityTracker` | Utility | Yes | `continuity`, `mission` | None directly. |
 | `crewDirector` | Utility | Yes | `crew` | None directly. |
 | `shipDirector` | Utility | Yes | `ship` | None directly. |

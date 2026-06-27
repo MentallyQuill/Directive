@@ -1,5 +1,5 @@
 import {
-  buildPlayerSafePromptContext,
+  buildPlayerSafePromptContextWithContinuityPlanner,
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
@@ -132,6 +132,75 @@ function introPerspectiveMode(narrationContext) {
 
 function playerLabel(player = {}) {
   return compact([player.rank || 'Commander', player.name || ''].filter(Boolean).join(' ')) || 'the incoming commander';
+}
+
+function packageCrewById(packageData) {
+  return new Map((packageData?.crew?.senior || [])
+    .filter((officer) => officer?.id)
+    .map((officer) => [officer.id, officer]));
+}
+
+function officerLabel(officer = null) {
+  if (!officer) return null;
+  return compact([officer.rank, officer.name].filter(Boolean).join(' ')) || compact(officer.name || officer.id);
+}
+
+function introSeniorCrewFacts(safe, packageData) {
+  const packageCrew = packageCrewById(packageData);
+  const safeCrew = Array.isArray(safe?.crew) && safe.crew.length > 0
+    ? safe.crew
+    : Array.from(packageCrew.values());
+  return safeCrew
+    .filter((officer) => officer?.id && officer.id !== 'player-commander')
+    .map((officer) => {
+      const source = packageCrew.get(officer.id) || {};
+      return {
+        id: officer.id,
+        name: officer.name || source.name || null,
+        rank: officer.rank || source.rank || null,
+        billet: officer.billet || source.billet || null,
+        species: officer.species || source.species || null,
+        ageDescription: officer.age || officer.ageDescription || source.ageDescription || null,
+        appearanceSummary: officer.appearance || officer.appearanceSummary || source.appearanceSummary || null,
+        publicProfile: officer.profile || officer.publicProfile || source.publicProfile || null,
+        publicIdentityFacts: Array.isArray(officer.publicIdentityFacts)
+          ? officer.publicIdentityFacts
+          : Array.isArray(source.publicIdentityFacts)
+            ? source.publicIdentityFacts
+            : [],
+        packageRole: officer.packageRole || source.packageRole || null
+      };
+    });
+}
+
+function introOpeningFacts({ campaignState, packageData, safe }) {
+  const packageCrew = packageCrewById(packageData);
+  const currentLocationId = safe?.campaign?.locationId
+    || campaignState?.worldState?.currentLocationId
+    || packageData?.world?.openingLocationId
+    || null;
+  const location = (packageData?.world?.locations || []).find((entry) => entry?.id === currentLocationId) || null;
+  const activeMissionId = safe?.mission?.activeMissionId || campaignState?.mission?.activeMissionId || null;
+  const activeQuest = (packageData?.questTemplates?.templates || []).find((entry) => (
+    entry?.id === activeMissionId || entry?.templateId === activeMissionId
+  )) || null;
+  const command = packageData?.ship?.commandStructure || {};
+  const captain = packageCrew.get(command.commandingOfficer || command.captainId);
+  const actingXo = packageCrew.get(command.actingXoBeforePlayer);
+  return {
+    crewStartingFrame: packageData?.crew?.relationshipModel?.startingFrame || null,
+    currentLocationId,
+    currentLocationSummary: location?.playerSafeSummary || location?.playerSummary || location?.summary || null,
+    activeMissionId,
+    activeMissionSummary: activeQuest?.playerSummary || activeQuest?.playerSafeSummary || activeQuest?.summary || null,
+    commandHandoff: {
+      playerRank: safe?.player?.rank || campaignState?.player?.rank || packageData?.characterCreation?.lockedRole?.rank || 'Commander',
+      playerBillet: safe?.player?.billet || campaignState?.player?.billet || packageData?.characterCreation?.lockedRole?.billet || 'Executive Officer',
+      commandingOfficer: officerLabel(captain),
+      actingXoBeforePlayer: officerLabel(actingXo),
+      actingXoPublicProfile: actingXo?.publicProfile || null
+    }
+  };
 }
 
 function campaignIntroTitle(campaignState, packageData) {
@@ -327,6 +396,8 @@ async function generateIntro({
     styleContract,
     '',
     'Use only the player-safe facts below. Establish the ship, assignment, player post, immediate scene, senior handoff, and one playable prompt.',
+    'When a named senior officer appears, preserve their listed rank, billet, species, public profile, age, appearance, and role facts. Do not omit or rewrite public identity facts for first appearances.',
+    'The player is the incoming command character. Do not replace the player arrival or handoff with the captain arriving, and do not move the opening out of the active mission phase.',
     'Stay inside the active mission and phase in the player-safe mission context. Do not invent a distress call, beacon, anomaly, attack, or new external mission hook unless that exact hook appears in the active mission context.',
     'Write normal roleplay prose. Do not include setup instructions, mechanics, hidden values, or JSON.',
     variantContract ? `\n${variantContract}` : '',
@@ -336,12 +407,8 @@ async function generateIntro({
       player: safe.player || null,
       ship: safe.ship || null,
       mission: safe.mission || null,
-      seniorCrew: (packageData?.crew?.senior || []).map((officer) => ({
-        name: officer.name,
-        rank: officer.rank,
-        billet: officer.billet,
-        packageRole: officer.packageRole
-      }))
+      openingFrame: introOpeningFacts({ campaignState, packageData, safe }),
+      seniorCrew: introSeniorCrewFacts(safe, packageData)
     }, null, 2)
   ].join('\n');
   let generated = null;
@@ -467,6 +534,7 @@ export function createCampaignActivationCoordinator({
     campaignState,
     packageData,
     crewDataset = null,
+    campaignProjection = null,
     saveId = null,
     existingChatId = null,
     createNewChat = true,
@@ -648,11 +716,14 @@ export function createCampaignActivationCoordinator({
       if (!completed(journal, 'promptInstalled')) {
         currentStep = 'promptInstalled';
         emitActivity({ phase: 'activationPromptInstalling', status: 'running', step: 'promptInstalled' });
-        const promptContext = buildPlayerSafePromptContext({
+        const promptContext = await buildPlayerSafePromptContextWithContinuityPlanner({
           campaignState: state,
           packageData,
           crewDataset,
+          campaignProjection,
           createdAt: timestamp(now)
+        }, {
+          generationRouter
         });
         const promptResult = await host.prompt.install({
           binding: state.campaignChatBinding,

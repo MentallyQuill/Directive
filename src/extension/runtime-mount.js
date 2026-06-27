@@ -7,6 +7,7 @@ import {
   beginDirectiveGuidanceTutorial,
   runDirectiveAssistFromRuntime,
   runFactualGroundingReviewFromRuntime,
+  runMissionComponentsFromRuntime,
   runOutcomeIntegrityEditFromRuntime,
   showDirectiveRuntimeGuidanceTip,
   runSceneReconciliationFromRuntime,
@@ -137,6 +138,36 @@ export function configureRuntimeActions() {
       category: 'campaign',
       label: 'Rewrite Campaign Intro',
       handler: async (payload = {}) => runCampaignIntroRewriteFromRuntime(payload)
+    },
+    {
+      id: 'missionComponents.captureSelection',
+      category: 'missionComponents',
+      label: 'Capture Mission Component Selection',
+      handler: async (payload = {}) => runMissionComponentsFromRuntime('captureSelection', payload)
+    },
+    {
+      id: 'missionComponents.save',
+      category: 'missionComponents',
+      label: 'Save Mission Component',
+      handler: async (payload = {}) => runMissionComponentsFromRuntime('save', payload)
+    },
+    {
+      id: 'missionComponents.update',
+      category: 'missionComponents',
+      label: 'Update Mission Component',
+      handler: async (payload = {}) => runMissionComponentsFromRuntime('update', payload)
+    },
+    {
+      id: 'missionComponents.archive',
+      category: 'missionComponents',
+      label: 'Archive Mission Component',
+      handler: async (payload = {}) => runMissionComponentsFromRuntime('archive', payload)
+    },
+    {
+      id: 'missionComponents.openSource',
+      category: 'missionComponents',
+      label: 'Open Mission Component Source',
+      handler: async (payload = {}) => runMissionComponentsFromRuntime('openSource', payload)
     },
     {
       id: OUTCOME_INTEGRITY_EDIT_ACTION_ID,

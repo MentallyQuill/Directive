@@ -24,7 +24,11 @@ Directive now has the first concrete schema process artifacts for bundled campai
   [assets](../../schemas/packages/assets.schema.json)
 - Bundled package records:
   [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json),
-  [drowned-constellation.campaign-package.json](../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json)
+  [drowned-constellation.campaign-package.json](../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json),
+  [black-current.campaign-package.json](../../packages/bundled/serein/black-current.campaign-package.json),
+  [broken-accord.campaign-package.json](../../packages/bundled/eudora-vale/broken-accord.campaign-package.json),
+  [unseen-border.campaign-package.json](../../packages/bundled/aster-vale/unseen-border.campaign-package.json),
+  [enemys-garden.campaign-package.json](../../packages/bundled/celandine/enemys-garden.campaign-package.json)
 - Bundled mission graphs:
   [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json),
   [prelude-soundings.mission-graph.json](../../packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json),
@@ -75,6 +79,7 @@ It includes:
 
 - Manifest identity for `directive.campaignPackage`.
 - U.S.S. Breckenridge ship baseline.
+- Structured Breckenridge travel continuity used by the Continuity Projection Matrix, including `travelContinuity.openingTransitMode`, local impulse-only rendezvous context, elapsed underway summary, remaining-route summary, and the negative guard that the whole post-Utopia transit must not be framed as six days at impulse.
 - Locked senior crew roster, fixed public identity facts, and transfer-cohort structure.
 - Package-defined Character Creator context for the locked incoming XO role.
 - Ashes of Peace open-world story shell.

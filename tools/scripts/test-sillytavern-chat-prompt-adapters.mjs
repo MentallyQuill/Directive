@@ -4,7 +4,10 @@ import {
   createSillyTavernChatAdapter,
   normalizeSillyTavernMessagePayload
 } from '../../src/hosts/sillytavern/chat-adapter.mjs';
-import { createSillyTavernPromptAdapter } from '../../src/hosts/sillytavern/prompt-adapter.mjs';
+import {
+  DIRECTIVE_STATIC_PROMPT_KEYS,
+  createSillyTavernPromptAdapter
+} from '../../src/hosts/sillytavern/prompt-adapter.mjs';
 
 let currentChatId = 'chat-before';
 let chat = [];
@@ -275,6 +278,35 @@ assert.equal(installed.blockCount, 2);
 assert.equal(promptAdapter.inspect().status, 'active');
 assert.deepEqual(promptAdapter.inspect().blocks.find((block) => block.id === 'campaign-frame')?.sourceIds, ['campaign.ashes']);
 assert.equal(promptCalls.filter((call) => call[1]).length, 2);
+for (const key of DIRECTIVE_STATIC_PROMPT_KEYS) {
+  assert.ok(promptCalls.some((call) => call[0] === key && call[1] === ''), `${key} should be cleared before install when absent`);
+}
+
+const staticPacket = {
+  ...packet,
+  revision: 4,
+  blocks: [
+    {
+      id: 'continuity-invariants',
+      promptKey: 'directive.continuity.invariants',
+      title: 'Continuity Invariants',
+      text: 'Bronn is Tellarite.',
+      placement: 'inPrompt',
+      depth: 2,
+      role: 'system',
+      priority: 1000
+    }
+  ]
+};
+await promptAdapter.install({ binding, packet: staticPacket });
+assert.ok(promptCalls.some((call) => call[0] === 'directive.continuity.invariants' && call[1] === 'Bronn is Tellarite.'));
+assert.equal(promptAdapter.inspect().blocks.find((block) => block.id === 'continuity-invariants')?.promptKey, 'directive.continuity.invariants');
+const staticClearCount = promptCalls.filter((call) => call[0] === 'directive.continuity.invariants' && call[1] === '').length;
+await promptAdapter.install({ binding, packet });
+assert.ok(
+  promptCalls.filter((call) => call[0] === 'directive.continuity.invariants' && call[1] === '').length > staticClearCount,
+  'missing static Matrix keys should be cleared on prompt rebuild'
+);
 
 currentChatId = 'unbound-chat';
 await assert.rejects(

@@ -8,6 +8,7 @@ import { runSidecarJobs } from './sidecar-job-runner.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
 import { runCommandBearingClosureReviews } from '../command/command-bearing-review.mjs';
 import { commitCommandBearingReviewRecords } from '../campaign/transaction-state.mjs';
+import { missionComponentsState } from '../runtime/mission-components.mjs';
 
 const WORKERS = Object.freeze({
   continuity: {
@@ -63,8 +64,259 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function compactText(value = '', maxLength = 240) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null) return [];
+  return [value];
+}
+
+function uniqueStrings(values = [], limit = 24, maxLength = 180) {
+  const seen = new Set();
+  const output = [];
+  for (const value of asArray(values)) {
+    const text = compactText(value, maxLength);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    output.push(text);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
+const WORKER_DIRECTOR_AUDIENCES = Object.freeze({
+  continuity: ['missionDirector'],
+  relationship: ['crewDirector'],
+  crew: ['crewDirector'],
+  ship: ['shipDirector'],
+  commandBearing: ['commandDirector']
+});
+
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
+}
+
+function missionComponentSidecarContext(campaignState = {}) {
+  const records = missionComponentsState(campaignState).records
+    .filter((record) => record?.id && record.status !== 'archived' && record.lifecycle?.reviewed !== false)
+    .slice(-24)
+    .map((record) => ({
+      id: record.id,
+      title: record.title || null,
+      type: record.type || null,
+      status: record.status || null,
+      summary: compactText(record.summary, 260),
+      sourceAuthority: record.sourceAuthority || null,
+      sourceStatus: record.source?.sourceStatus || 'active',
+      links: cloneJson(record.links || {}),
+      source: {
+        chatId: record.source?.chatId || null,
+        hostMessageId: record.source?.hostMessageId || null,
+        messageRole: record.source?.messageRole || null,
+        ingressId: record.source?.ingressId || null,
+        outcomeId: record.source?.outcomeId || null,
+        selectionStart: Number.isInteger(record.source?.selectionStart) ? record.source.selectionStart : null,
+        selectionEnd: Number.isInteger(record.source?.selectionEnd) ? record.source.selectionEnd : null
+      }
+    }));
+  return {
+    schemaVersion: 1,
+    records
+  };
+}
+
+function knownMissionComponentIds(campaignState = {}) {
+  return new Set(missionComponentsState(campaignState).records
+    .filter((record) => record?.id && record.status !== 'archived' && record.lifecycle?.reviewed !== false)
+    .map((record) => record.id));
+}
+
+function restrictMissionComponentIds(values = [], knownIds = new Set()) {
+  return uniqueStrings(values, 24, 180).filter((id) => knownIds.has(id));
+}
+
+function sourceHostMessageIds(turnContext = {}) {
+  return new Set([
+    turnContext.hostMessageId,
+    turnContext.sourceMessageId,
+    turnContext.responseMessageId,
+    turnContext.playerMessageId,
+    turnContext.currentPlayerHostMessageId,
+    turnContext.priorPlayerMessageId
+  ].map((value) => compactText(value)).filter(Boolean));
+}
+
+function missionComponentIdsForTurnSource(campaignState = {}, turnContext = {}) {
+  const ingressId = compactText(turnContext.ingressId);
+  const outcomeId = compactText(turnContext.outcomeId);
+  const hostMessageIds = sourceHostMessageIds(turnContext);
+  if (!ingressId && !outcomeId && !hostMessageIds.size) return [];
+  const ids = [];
+  for (const record of missionComponentsState(campaignState).records) {
+    if (!record?.id || record.status === 'archived' || record.lifecycle?.reviewed === false) continue;
+    if (record.source?.sourceStatus && record.source.sourceStatus !== 'active') continue;
+    const source = record.source || {};
+    if (ingressId && source.ingressId === ingressId) {
+      ids.push(record.id);
+      continue;
+    }
+    if (outcomeId && source.outcomeId === outcomeId) {
+      ids.push(record.id);
+      continue;
+    }
+    if (source.hostMessageId && hostMessageIds.has(String(source.hostMessageId))) {
+      ids.push(record.id);
+    }
+  }
+  return uniqueStrings(ids, 24, 180);
+}
+
+function componentIdsFromValue(value = {}) {
+  if (!isObject(value)) return [];
+  return uniqueStrings([
+    ...asArray(value.sourceComponentIds),
+    ...asArray(value.derivedFromComponentIds),
+    ...asArray(value.metadata?.sourceComponentIds),
+    ...asArray(value.metadata?.derivedFromComponentIds),
+    ...asArray(value.links?.componentIds)
+  ], 24, 180);
+}
+
+function componentIdsFromOperation(operation = {}) {
+  return uniqueStrings([
+    ...asArray(operation.sourceComponentIds),
+    ...asArray(operation.derivedFromComponentIds),
+    ...componentIdsFromValue(operation.value)
+  ], 24, 180);
+}
+
+function componentIdsFromProposal(proposal = {}) {
+  return uniqueStrings([
+    ...asArray(proposal.sourceComponentIds),
+    ...asArray(proposal.derivedFromComponentIds),
+    ...asArray(proposal.metadata?.sourceComponentIds),
+    ...asArray(proposal.metadata?.derivedFromComponentIds)
+  ], 24, 180);
+}
+
+function canAttachMissionComponentProvenance(operation = {}) {
+  const path = compactText(operation.path);
+  if (!path || path.startsWith('commandBearing.')) return false;
+  if (!isObject(operation.value) && !Array.isArray(operation.value)) return false;
+  const eligiblePrefixes = [
+    'continuity.notes',
+    'mission.knownFacts',
+    'mission.openAssignments',
+    'knowledgeLedger.facts',
+    'threadLedger.records',
+    'commandLog.entries',
+    'ship.damage',
+    'ship.technicalDebt',
+    'ship.restrictions',
+    'crew.casualties',
+    'crew.reassignments',
+    'crew.assignments',
+    'crew.pressures',
+    'relationships.seniorCrew',
+    'relationships.descriptiveLog',
+    'relationships.perceptionLedger',
+    'relationships.memoryLedger',
+    'pressureLedger.records'
+  ];
+  return eligiblePrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}.`));
+}
+
+function attachSourceComponentIds(value, ids = []) {
+  const sourceIds = uniqueStrings(ids, 24, 180);
+  if (!sourceIds.length) return { value, changed: false };
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const stamped = attachSourceComponentIds(item, sourceIds);
+      if (stamped.changed) changed = true;
+      return stamped.value;
+    });
+    return { value: next, changed };
+  }
+  if (!isObject(value)) return { value, changed: false };
+  const merged = uniqueStrings([
+    ...asArray(value.sourceComponentIds),
+    ...asArray(value.derivedFromComponentIds),
+    ...sourceIds
+  ], 24, 180);
+  if (!merged.length) return { value, changed: false };
+  if (JSON.stringify(uniqueStrings(value.sourceComponentIds, 24, 180)) === JSON.stringify(merged)) {
+    return { value, changed: false };
+  }
+  return {
+    value: {
+      ...cloneJson(value),
+      sourceComponentIds: merged
+    },
+    changed: true
+  };
+}
+
+function applyMissionComponentProvenance(proposal = {}, campaignState = {}, turnContext = {}) {
+  const knownIds = knownMissionComponentIds(campaignState);
+  const matchedSourceComponentIds = restrictMissionComponentIds(
+    missionComponentIdsForTurnSource(campaignState, turnContext),
+    knownIds
+  );
+  const proposalComponentIds = restrictMissionComponentIds(componentIdsFromProposal(proposal), knownIds);
+  const defaultComponentIds = uniqueStrings([
+    ...proposalComponentIds,
+    ...matchedSourceComponentIds
+  ], 24, 180);
+  const operationComponentIds = [];
+  let stampedOperationCount = 0;
+  const operations = (Array.isArray(proposal.operations) ? proposal.operations : []).map((operation) => {
+    const explicitOperationIds = restrictMissionComponentIds(componentIdsFromOperation(operation), knownIds);
+    const ids = explicitOperationIds.length ? explicitOperationIds : defaultComponentIds;
+    if (!ids.length) return operation;
+    operationComponentIds.push(...ids);
+    if (!canAttachMissionComponentProvenance(operation)) return operation;
+    const stamped = attachSourceComponentIds(operation.value, ids);
+    if (!stamped.changed) return operation;
+    stampedOperationCount += 1;
+    return {
+      ...operation,
+      value: stamped.value
+    };
+  });
+  const derivedFromComponentIds = uniqueStrings([
+    ...defaultComponentIds,
+    ...operationComponentIds
+  ], 24, 180);
+  const metadata = derivedFromComponentIds.length
+    ? {
+        ...(proposal.metadata || {}),
+        derivedFromComponentIds
+      }
+    : proposal.metadata;
+  return {
+    proposal: {
+      ...proposal,
+      operations,
+      ...(derivedFromComponentIds.length ? { derivedFromComponentIds } : {}),
+      ...(metadata ? { metadata } : {})
+    },
+    diagnostics: {
+      knownComponentCount: knownIds.size,
+      matchedSourceComponentIds,
+      proposalComponentIds,
+      derivedFromComponentIds,
+      stampedOperationCount
+    }
+  };
 }
 
 function parseProposal(value, options = {}) {
@@ -72,7 +324,59 @@ function parseProposal(value, options = {}) {
   return parsed.ok ? parsed.value : null;
 }
 
-function sidecarContext(campaignState, turnContext) {
+function compactTurnContext(turnContext = {}) {
+  const next = cloneJson(turnContext || {});
+  delete next.directorPackets;
+  if (turnContext.directorPackets) {
+    next.directorRetrieval = {
+      audiences: Object.fromEntries(Object.entries(turnContext.directorPackets)
+        .map(([audience, packet]) => [audience, {
+          runId: packet?.runId || null,
+          cardIds: uniqueStrings(packet?.cardIds || [], 12, 180),
+          hydratedCardCount: Array.isArray(packet?.hydratedCards) ? packet.hydratedCards.length : 0,
+          omittedHydrationCardIds: uniqueStrings(packet?.omittedHydrationCardIds || [], 12, 180)
+        }]))
+    };
+  }
+  return next;
+}
+
+function directorCardHydrationForWorker(workerKey, turnContext = {}) {
+  const audiences = WORKER_DIRECTOR_AUDIENCES[workerKey] || [];
+  const packets = turnContext.directorPackets || {};
+  const selected = [];
+  const cardIds = [];
+  const runIds = [];
+  for (const audience of audiences) {
+    const packet = packets[audience] || null;
+    if (!packet) continue;
+    runIds.push(packet.runId);
+    cardIds.push(...asArray(packet.cardIds));
+    for (const card of asArray(packet.hydratedCards)) {
+      if (!card?.id) continue;
+      selected.push({
+        audience,
+        ...cloneJson(card)
+      });
+    }
+  }
+  if (!selected.length && !cardIds.length) return null;
+  return {
+    kind: 'directive.sidecarDirectorCardHydration.v1',
+    workerKey,
+    sourceRunIds: uniqueStrings(runIds, 4, 180),
+    sourceCardIds: uniqueStrings(cardIds, 16, 180),
+    cards: selected.slice(0, 8),
+    usage: [
+      'Use these hydrated cards as internal state guidance only.',
+      'Do not expose director-only, locked, hidden, or reveal-gated details in player-facing summaries.',
+      'Example line shapes describe voice texture; do not copy them as catchphrases.'
+    ]
+  };
+}
+
+function sidecarContext(campaignState, turnContext, workerKey = null) {
+  const directorCardHydration = directorCardHydrationForWorker(workerKey, turnContext);
   return {
     campaignId: campaignState.campaign?.id,
     revision: campaignState.runtimeTracking?.revision || 0,
@@ -108,8 +412,11 @@ function sidecarContext(campaignState, turnContext) {
     relationships: cloneJson(campaignState.relationships || {}),
     ship: cloneJson(campaignState.ship || {}),
     pressureLedger: cloneJson(campaignState.pressureLedger || {}),
+    missionComponents: missionComponentSidecarContext(campaignState),
     narrativeRoots: commandBearingNarrativeRoots(campaignState),
-    turn: cloneJson(turnContext)
+    ...(directorCardHydration ? { directorCardHydration } : {}),
+    continuityProjection: cloneJson(turnContext.continuityProjection || null),
+    turn: compactTurnContext(turnContext)
   };
 }
 
@@ -423,13 +730,14 @@ function proposalPrompt(workerKey, worker, campaignState, turnContext) {
     `Authorized top-level roots: ${worker.allowedRoots.join(', ')}.`,
     ...workerOperationRules(workerKey),
     'String values must be strict JSON-safe. Do not copy raw dialogue with double quotes into evidence fields; paraphrase quoted speech or escape every quote.',
+    'Mission Components in Context are player-reviewed source records. If an operation is derived from one, include its id in sourceComponentIds on the promoted record value. Do not overwrite or paraphrase component verbatim source text.',
     'If an observation belongs to another root, do not write it for this worker; mention the boundary in summary and return an empty operations array if needed.',
     ...boundaryNotes.map((note) => `Boundary: ${note}`),
     'Use an empty operations array when no durable change is warranted.',
     '',
     workerRequiredShape(workerKey, worker, revision, turnContext),
     '',
-    `Context:\n${JSON.stringify(sidecarContext(campaignState, turnContext), null, 2)}`
+    `Context:\n${JSON.stringify(sidecarContext(campaignState, turnContext, workerKey), null, 2)}`
   ].join('\n');
 }
 
@@ -490,7 +798,8 @@ export function createCampaignSidecarScheduler({
       turnId: turnContext.turnId || null,
       outcomeId: turnContext.outcomeId || null,
       ingressId: turnContext.ingressId || null,
-      revision: baseRevision
+      revision: baseRevision,
+      continuityProjection: cloneJson(turnContext.continuityProjection || null)
     };
     return {
       id: `campaign-sidecar:${workerKey}:${baseRevision}:${index}`,
@@ -499,7 +808,8 @@ export function createCampaignSidecarScheduler({
       source,
       snapshot: {
         campaignState: cloneJson(state),
-        turnContext: cloneJson(turnContext)
+        turnContext: cloneJson(turnContext),
+        continuityProjection: cloneJson(turnContext.continuityProjection || null)
       },
       policy: {
         timeoutMs: 45000,
@@ -524,6 +834,7 @@ export function createCampaignSidecarScheduler({
 
   function batchDiagnostics(job, extra = {}) {
     return {
+      continuityProjection: cloneJson(job.source?.continuityProjection || null),
       sidecarGeneration: {
         concurrent: job.batchSize > 1,
         batchSize: job.batchSize,
@@ -691,7 +1002,14 @@ export function createCampaignSidecarScheduler({
       batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'rejected', error };
     }
-    const proposal = parsed.value;
+    let proposal = parsed.value;
+    let missionComponentProvenance = {
+      knownComponentCount: 0,
+      matchedSourceComponentIds: [],
+      proposalComponentIds: [],
+      derivedFromComponentIds: [],
+      stampedOperationCount: 0
+    };
 
     proposal.workerId = workerKey;
     proposal.source = `sidecar:${workerKey}`;
@@ -742,6 +1060,10 @@ export function createCampaignSidecarScheduler({
       return { workerKey, status: 'rejected', error: staleSource };
     }
 
+    const sourced = applyMissionComponentProvenance(proposal, freshestBatchState(), turnContext);
+    proposal = sourced.proposal;
+    missionComponentProvenance = sourced.diagnostics;
+
     if (proposal.operations.length === 0) {
       const droppedCount = Number(parsed.diagnostics?.schema?.droppedForbiddenOperationCount || 0);
       const summary = droppedCount > 0
@@ -760,7 +1082,8 @@ export function createCampaignSidecarScheduler({
           ...batchDiagnostics(job),
           feature: {
             ok: true,
-            status: 'noChange'
+            status: 'noChange',
+            missionComponents: cloneJson(missionComponentProvenance)
           },
           apply: {
             ok: true,
@@ -802,7 +1125,8 @@ export function createCampaignSidecarScheduler({
           }),
           feature: {
             ok: false,
-            status: 'rejected'
+            status: 'rejected',
+            missionComponents: cloneJson(missionComponentProvenance)
           },
           apply: {
             ok: false,
@@ -838,7 +1162,8 @@ export function createCampaignSidecarScheduler({
           }),
           feature: {
             ok: false,
-            status: 'rejected'
+            status: 'rejected',
+            missionComponents: cloneJson(missionComponentProvenance)
           },
           apply: {
             ok: false,
@@ -939,7 +1264,8 @@ export function createCampaignSidecarScheduler({
           feature: {
             ok: true,
             status: 'applied',
-            commandBearingReview: commandBearingReviewDiagnostics(commandBearingReview)
+            commandBearingReview: commandBearingReviewDiagnostics(commandBearingReview),
+            missionComponents: cloneJson(missionComponentProvenance)
           },
           apply: {
             ok: true,
@@ -978,7 +1304,8 @@ export function createCampaignSidecarScheduler({
           }),
           feature: {
             ok: false,
-            status: 'rejected'
+            status: 'rejected',
+            missionComponents: cloneJson(missionComponentProvenance)
           },
           apply: {
             ok: false,

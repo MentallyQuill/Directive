@@ -64,7 +64,7 @@
       "required": [
         "campaign", "activeCampaignPackage", "player", "crew", "ship", "mission",
         "worldState", "storyArcLedger", "questLedger", "dynamicQuestCatalog",
-        "knowledgeLedger", "threadLedger", "eventLedger", "attentionState", "runtimeTracking"
+        "knowledgeLedger", "threadLedger", "eventLedger", "attentionState", "continuity", "timeLedger", "runtimeTracking"
       ],
       "properties": {
         "campaign": {
@@ -112,6 +112,51 @@
           }
         },
         "attentionState": { "type": "object", "required": ["mode", "foregroundQuestId"] },
+        "continuity": {
+          "type": "object",
+          "required": ["schemaVersion", "acceptedFacts", "candidateClaims", "rejectedClaims", "projectionHints", "projectionRuns", "factUseStats", "automationLocks", "projectionCache", "lastProjection", "auditLog"],
+          "properties": {
+            "schemaVersion": { "const": 1 },
+            "acceptedFacts": { "type": "array" },
+            "candidateClaims": { "type": "array" },
+            "rejectedClaims": { "type": "array" },
+            "projectionHints": { "type": "array" },
+            "projectionRuns": { "type": "array" },
+            "factUseStats": { "type": "object" },
+            "automationLocks": { "type": "array" },
+            "projectionCache": {
+              "type": "object",
+              "required": ["sourceHash", "promptHash", "blocks", "omitted"],
+              "properties": {
+                "sourceHash": { "type": ["string", "null"] },
+                "promptHash": { "type": ["string", "null"] },
+                "blocks": { "type": "array" },
+                "omitted": { "type": "array" }
+              }
+            },
+            "lastProjection": { "type": ["object", "null"] },
+            "auditLog": { "type": "array" }
+          }
+        },
+        "timeLedger": {
+          "type": "object",
+          "required": ["schemaVersion", "openingMinuteOfDay", "elapsedMinutes", "stardate", "shipClock", "entries"],
+          "properties": {
+            "schemaVersion": { "const": 1 },
+            "openingMinuteOfDay": { "type": "integer", "minimum": 0, "maximum": 1439 },
+            "elapsedMinutes": { "type": "integer", "minimum": 0 },
+            "stardate": { "type": ["number", "null"] },
+            "shipClock": {
+              "type": "object",
+              "required": ["minuteOfDay", "display"],
+              "properties": {
+                "minuteOfDay": { "type": "integer", "minimum": 0, "maximum": 1439 },
+                "display": { "type": "string", "pattern": "^(?:[01][0-9]|2[0-3])[0-5][0-9] hours$" }
+              }
+            },
+            "entries": { "type": "array" }
+          }
+        },
         "runtimeTracking": {
           "type": "object",
           "required": ["schemaVersion", "revision", "mechanicsRevision", "stateDeltaJournal", "sceneReconciliation"],

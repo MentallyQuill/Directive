@@ -31,7 +31,43 @@ let state = initializeCampaignRuntimeTracking({
   eventLedger: { events: [] },
   threadLedger: { threads: [] },
   dynamicQuestCatalog: { templates: [] },
-  knowledgeLedger: { facts: [] },
+  knowledgeLedger: {
+    facts: [],
+    components: {
+      schemaVersion: 1,
+      records: [{
+        id: 'component.prompt.coolant',
+        title: 'Prompt Coolant Seal Component',
+        type: 'shipIssue',
+        status: 'unresolved',
+        summary: 'The coolant seal replacement part is fabricated but installation is pending.',
+        verbatim: 'Coolant seal replacement part fabricated. Installation pending.',
+        sourceAuthority: 'officialPacket',
+        tags: ['engineering'],
+        links: {
+          crewIds: [],
+          shipSystemIds: ['ship.coolant-system'],
+          missionIds: ['chapter-1'],
+          componentIds: []
+        },
+        source: {
+          host: 'sillytavern',
+          chatId: 'campaign-chat',
+          hostMessageId: 'assistant-prompt-component',
+          messageRole: 'assistant',
+          selectionHash: 'prompt-component-selection',
+          textHash: 'prompt-component-text',
+          sourceStatus: 'active'
+        },
+        lifecycle: {
+          createdAt: '2026-06-22T05:59:00.000Z',
+          updatedAt: '2026-06-22T05:59:00.000Z',
+          createdBy: 'player',
+          reviewed: true
+        }
+      }]
+    }
+  },
   commandLog: { entries: [] },
   continuity: { notes: [] }
 });
@@ -122,18 +158,91 @@ assert.equal(allowedUpsert.ok, true);
 assert.equal(allowedUpsert.value.operations[0].op, 'upsert');
 assert.equal(allowedUpsert.value.operations[0].identityKey, 'crewId');
 
+const componentProvenanceParse = parseStateDeltaProposalOutput(JSON.stringify({
+  derivedFromComponentIds: ['component.prompt.coolant'],
+  operations: [
+    {
+      op: 'append',
+      path: 'ship.technicalDebt',
+      sourceComponentIds: ['component.prompt.coolant'],
+      value: { id: 'coolant-seal-work', summary: 'Coolant seal installation is pending.' }
+    }
+  ],
+  summary: 'Promote a component-covered source into ship technical debt.'
+}), {
+  workerKey: 'ship',
+  allowedRoots: ['ship'],
+  baseRevision: 0
+});
+assert.equal(componentProvenanceParse.ok, true);
+assert.deepEqual(componentProvenanceParse.value.derivedFromComponentIds, ['component.prompt.coolant']);
+assert.deepEqual(componentProvenanceParse.value.operations[0].sourceComponentIds, ['component.prompt.coolant']);
+
 const continuityPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
   'continuity',
   __campaignSidecarSchedulerTestHooks.WORKERS.continuity,
   state,
   {
     turnId: 'turn.prompt.continuity',
-    outcomeId: 'outcome.prompt.continuity'
+    outcomeId: 'outcome.prompt.continuity',
+    continuityProjection: {
+      kind: 'directive.continuityDirectorPacketDigest.v1',
+      hash: 'matrix-digest-prompt',
+      sourceHash: 'source-digest-prompt',
+      selectedFactCount: 3
+    }
   }
 );
 assert.match(continuityPrompt, /Array\/list fields must use append or upsert, never merge/);
 assert.match(continuityPrompt, /mission\.knownFacts/);
 assert.match(continuityPrompt, /crew\.relationshipModel\.dimensions/);
+assert.match(continuityPrompt, /"continuityProjection"/);
+assert.match(continuityPrompt, /matrix-digest-prompt/);
+assert.match(continuityPrompt, /"missionComponents"/);
+assert.match(continuityPrompt, /component\.prompt\.coolant/);
+assert.match(continuityPrompt, /sourceComponentIds/);
+
+const crewHydrationPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
+  'crew',
+  __campaignSidecarSchedulerTestHooks.WORKERS.crew,
+  state,
+  {
+    turnId: 'turn.prompt.crew-hydration',
+    outcomeId: 'outcome.prompt.crew-hydration',
+    directorPackets: {
+      crewDirector: {
+        audience: 'crewDirector',
+        runId: 'retrieval.prompt.crew-hydration',
+        cardIds: ['crew.whitaker.voice.command-pressure'],
+        hydratedCards: [{
+          id: 'crew.whitaker.voice.command-pressure',
+          type: 'crew.voice',
+          visibility: 'playerKnown',
+          narratorSafe: true,
+          characters: ['mara-whitaker'],
+          guidance: {
+            summary: 'Whitaker is measured, attentive, and concise.',
+            voiceCapsule: {
+              coreEngine: 'Whitaker balances procedure, care, and institutional memory before she acts.',
+              pressureShift: ['Under pressure, she gets quieter and asks shorter questions.'],
+              warmthHumor: ['Her warmth arrives as precise support after someone has earned trust.'],
+              exampleLineShapes: [{
+                shape: 'I can work with an honest maybe; I cannot work with a decorative yes.',
+                bibleAxes: ['warmth', 'role-pressure']
+              }]
+            }
+          }
+        }]
+      }
+    }
+  }
+);
+assert.match(crewHydrationPrompt, /"directorCardHydration"/);
+assert.match(crewHydrationPrompt, /Whitaker balances procedure, care, and institutional memory/);
+assert.match(crewHydrationPrompt, /I can work with an honest maybe/);
+assert.match(crewHydrationPrompt, /Example line shapes describe voice texture/);
+assert.match(crewHydrationPrompt, /"directorRetrieval"/);
+assert.doesNotMatch(crewHydrationPrompt, /"directorPackets"/);
 
 const commandBearingPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
   'commandBearing',
@@ -193,8 +302,10 @@ function recordSourceIngress(ingressId, {
 }
 
 const responses = [];
+const generationRequests = [];
 const generationRouter = {
-  async generate(roleId) {
+  async generate(roleId, request) {
+    generationRequests.push({ roleId, request: cloneJson(request || {}) });
     const response = responses.shift();
     assert.ok(response, `Unexpected ${roleId} sidecar request.`);
     if (typeof response.beforeReturn === 'function') await response.beforeReturn();
@@ -226,6 +337,16 @@ const scheduler = createCampaignSidecarScheduler({
   now
 });
 
+const continuityProjectionDigest = {
+  kind: 'directive.continuityDirectorPacketDigest.v1',
+  audience: 'missionDirector',
+  hash: 'matrix-digest-1',
+  sourceHash: 'source-digest-1',
+  selectedFactCount: 4,
+  conflictCount: 0,
+  selectedFactIdHashes: ['fact-hash-1']
+};
+
 recordSourceIngress('ingress-1', { outcomeId: 'outcome-1' });
 responses.push({
   proposal: {
@@ -244,6 +365,7 @@ let results = await scheduler.schedule({
     ingressId: 'ingress-1',
     turnId: 'turn-1',
     outcomeId: 'outcome-1',
+    continuityProjection: continuityProjectionDigest,
     sourceAnchorRange: { startIndex: 4, endIndex: 5, rangeHash: 'range-ship-1' }
   },
   activityReporter: (event) => firstActivityEvents.push(cloneJson(event))
@@ -262,6 +384,8 @@ assert.equal(firstActivityEvents[2].status, 'running');
 assert.equal(firstActivityEvents[3].workerKey, 'ship');
 assert.equal(firstActivityEvents[3].status, 'applied');
 assert.equal(firstActivityEvents.at(-1).mode, 'background');
+assert.equal(generationRequests.at(-1).request.prompt.includes('"continuityProjection"'), true);
+assert.equal(generationRequests.at(-1).request.prompt.includes('matrix-digest-1'), true);
 assert.equal(state.ship.condition, 'Degraded but operational');
 assert.equal(state.ship.damage.length, 1);
 assert.equal(state.runtimeTracking.revision, 1);
@@ -273,6 +397,76 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).ingressId, 'ingress-1')
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).turnId, 'turn-1');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).outcomeId, 'outcome-1');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).anchorRangeHash, 'range-ship-1');
+assert.deepEqual(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.continuityProjection, continuityProjectionDigest);
+assert.deepEqual(__campaignSidecarSchedulerTestHooks.WORKERS.ship.allowedRoots, ['ship']);
+
+state.knowledgeLedger.components.records.push({
+  id: 'component.source.coolant',
+  title: 'Source Coolant Seal Component',
+  type: 'shipIssue',
+  status: 'unresolved',
+  summary: 'The coolant seal replacement part is fabricated but installation remains pending.',
+  verbatim: 'Replacement part fabricated. Installation pending.',
+  sourceAuthority: 'officialPacket',
+  tags: ['engineering'],
+  links: {
+    crewIds: [],
+    shipSystemIds: ['ship.coolant-system'],
+    missionIds: ['chapter-1'],
+    componentIds: []
+  },
+  source: {
+    host: 'sillytavern',
+    chatId: 'campaign-chat',
+    hostMessageId: 'assistant-component-source',
+    messageRole: 'assistant',
+    ingressId: 'ingress-component-source',
+    outcomeId: 'outcome-component-source',
+    selectionHash: 'component-source-selection',
+    textHash: 'component-source-text',
+    sourceStatus: 'active'
+  },
+  lifecycle: {
+    createdAt: '2026-06-22T06:00:10.000Z',
+    updatedAt: '2026-06-22T06:00:10.000Z',
+    createdBy: 'player',
+    reviewed: true
+  }
+});
+recordSourceIngress('ingress-component-source', {
+  hostMessageId: 'player-component-source',
+  outcomeId: 'outcome-component-source'
+});
+responses.push({
+  proposal: {
+    id: 'ship-proposal-component-source',
+    operations: [
+      {
+        op: 'append',
+        path: 'ship.technicalDebt',
+        value: {
+          id: 'tech-debt-coolant-seal-installation',
+          summary: 'Coolant seal installation remains pending.'
+        }
+      }
+    ],
+    summary: 'Promote component-covered coolant source into ship technical debt.'
+  }
+});
+results = await scheduler.schedule({
+  workerPlan: { ship: true },
+  turnContext: {
+    ingressId: 'ingress-component-source',
+    turnId: 'turn-component-source',
+    outcomeId: 'outcome-component-source',
+    responseMessageId: 'assistant-component-source'
+  }
+});
+assert.equal(results[0].status, 'applied');
+assert.deepEqual(state.ship.technicalDebt.at(-1).sourceComponentIds, ['component.source.coolant']);
+assert.deepEqual(results[0].proposal.derivedFromComponentIds, ['component.source.coolant']);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.feature.missionComponents.stampedOperationCount, 1);
+assert.deepEqual(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.feature.missionComponents.matchedSourceComponentIds, ['component.source.coolant']);
 
 recordSourceIngress('ingress-2');
 responses.push({
@@ -289,7 +483,7 @@ results = await scheduler.schedule({
   turnContext: { ingressId: 'ingress-2' }
 });
 assert.equal(results[0].status, 'noChange');
-assert.equal(state.runtimeTracking.revision, 1, 'Out-of-scope-only sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.revision, 2, 'Out-of-scope-only sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'noChange');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, true);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
@@ -309,7 +503,7 @@ results = await scheduler.schedule({
   turnContext: { ingressId: 'ingress-2b' }
 });
 assert.equal(results[0].status, 'noChange');
-assert.equal(state.runtimeTracking.revision, 1, 'No-op sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.revision, 2, 'No-op sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'noChange');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
@@ -324,7 +518,7 @@ results = await scheduler.schedule({
 });
 assert.equal(results[0].status, 'rejected');
 assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
-assert.equal(state.runtimeTracking.revision, 1, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.revision, 2, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, false);
 
 recordSourceIngress('ingress-3');
@@ -354,10 +548,10 @@ results = await scheduler.schedule({
 });
 assert.equal(results[0].status, 'rejected');
 assert.equal(results[0].error.code, 'DIRECTIVE_STATE_REVISION_CONFLICT');
-assert.equal(state.runtimeTracking.revision, 2);
+assert.equal(state.runtimeTracking.revision, 3);
 assert.equal(state.continuity.notes.length, 0);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
-assert.equal(promptSyncs.length, 1, 'Rejected or stale sidecars must not rebuild prompt context.');
+assert.equal(promptSyncs.length, 2, 'Rejected or stale sidecars must not rebuild prompt context.');
 assert.equal(persisted.length > 0, true);
 
 state = recordTurnIngress(state, {
@@ -403,7 +597,7 @@ assert.equal(state.runtimeTracking.revision, revisionBeforeStaleSource, 'Stale-s
 assert.equal(state.ship.damage.some((entry) => entry.id === 'stale-edit'), false);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
-assert.equal(promptSyncs.length, 1, 'Source-stale sidecars must not rebuild prompt context.');
+assert.equal(promptSyncs.length, 2, 'Source-stale sidecars must not rebuild prompt context.');
 
 recordSourceIngress('ingress-continuity-commandlog-drop', { outcomeId: 'outcome-continuity-commandlog-drop' });
 const revisionBeforeContinuityDrop = state.runtimeTracking.revision;
@@ -734,4 +928,4 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
   assert.equal(conflictState.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT');
 }
 
-console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, stale-revision/source rejection, accepted prompt synchronization, conflict handling, and durable journaling');
+console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, Mission Component provenance, stale-revision/source rejection, accepted prompt synchronization, conflict handling, and durable journaling');

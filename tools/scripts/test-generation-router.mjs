@@ -23,6 +23,25 @@ assert.equal(registry.get('narration').providerKind, 'reasoning');
 assert.equal(registry.get('continuityTracker').mayProposeState, true);
 assert.equal(registry.get('continuityTracker').providerKind, 'utility');
 assert.equal(registry.get('continuityTracker').timeoutMs, 45000);
+for (const roleId of [
+  'continuityContradictionReviewer',
+  'continuityClaimExtractor',
+  'continuityProjectionCompressor'
+]) {
+  assert.equal(registry.get(roleId).providerKind, 'utility');
+  assert.equal(registry.get(roleId).mayProposeState, false);
+  assert.equal(registry.get(roleId).mayInjectPrompt, false);
+  assert.equal(registry.get(roleId).timeoutMs, 30000);
+}
+assert.equal(registry.get('continuityProjectionPlanner').providerKind, 'utility');
+assert.equal(registry.get('continuityProjectionPlanner').mayProposeState, false);
+assert.equal(registry.get('continuityProjectionPlanner').mayInjectPrompt, false);
+assert.equal(registry.get('continuityProjectionPlanner').blocking, true);
+assert.equal(registry.get('continuityProjectionPlanner').mayRunDuringMainGeneration, false);
+assert.equal(registry.get('continuityProjectionPlanner').timeoutMs, 15000);
+assert.equal(registry.get('continuityProjectionPlanner').fallback, 'last-good-then-deterministic');
+assert.equal(registry.get('continuityContradictionReviewer').blocking, true);
+assert.equal(registry.get('continuityContradictionReviewer').fallback, 'fail-closed');
 assert.equal(registry.get('relationshipEvaluator').providerKind, 'utility');
 assert.equal(registry.get('relationshipEvaluator').timeoutMs, 45000);
 assert.equal(registry.get('commandBearingFitChecker').providerKind, 'utility');
@@ -47,6 +66,11 @@ assert.equal(registry.get('factualGroundingReviewer').timeoutMs, 60000);
 assert.equal(registry.get('factualGroundingReviewer').mayProposeState, false);
 assert.equal(registry.get('factualGroundingReviewer').mayInjectPrompt, false);
 assert.equal(registry.get('factualGroundingReviewer').fallback, 'skip');
+assert.equal(registry.get('storyQualityReviewer').providerKind, 'utility');
+assert.equal(registry.get('storyQualityReviewer').timeoutMs, 60000);
+assert.equal(registry.get('storyQualityReviewer').mayProposeState, false);
+assert.equal(registry.get('storyQualityReviewer').mayInjectPrompt, false);
+assert.equal(registry.get('storyQualityReviewer').fallback, 'skip');
 assert.equal(registry.get('utilityTurnClassifier').timeoutMs, 45000);
 assert.equal(registry.get('questActionInterpreter').timeoutMs, 45000);
 assert.equal(registry.get('questActionInterpreter').providerKind, 'utility');

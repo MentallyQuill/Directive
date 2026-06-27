@@ -64,6 +64,15 @@ const host = createFakeDirectiveHost({
           overallAssessment: 'The visible transcript remains grounded in the supplied canaries.',
           findings: []
         })
+      },
+      storyQualityReviewer: {
+        providerId: 'fake-host-story-quality-reviewer',
+        model: 'fake-low-cost-utility',
+        text: JSON.stringify({
+          status: 'pass',
+          overallAssessment: 'The visible transcript is coherent, third-person, and agency-safe.',
+          scores: []
+        })
       }
     }
   }
@@ -221,6 +230,50 @@ assert.equal(factualReview.modelCall.metadata.requestId, 'fact-model-review-host
 assert.equal(host.generation.calls().at(-1).role, 'factualGroundingReviewer');
 assert.equal(host.generation.calls().at(-1).request.role.id, 'factualGroundingReviewer');
 assert.doesNotMatch(JSON.stringify(host.generation.calls().at(-1).request), /rawPrompt|apiKey|csrfToken/);
+const storyQualityReviewRequest = {
+  kind: 'directive.liveCampaignSoak.storyQualityModelReviewRequest',
+  schemaVersion: 1,
+  requestId: 'story-quality-review-host-injection',
+  runId: 'host-injection-test',
+  transcriptPointer: 'transcript/readable-chat.md',
+  hiddenStatePolicy: 'Use only visible transcript excerpts.',
+  responseSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'overallAssessment', 'scores'],
+    properties: {
+      status: { type: 'string' },
+      overallAssessment: { type: 'string' },
+      scores: { type: 'array' }
+    }
+  },
+  scoreDefinitions: [{ score: 2, label: 'good', meaning: 'coherent' }],
+  dimensions: ['continuity'],
+  transcript: [{ index: 1, role: 'directive', text: 'The Breckenridge receives the new XO after weeks at warp.' }],
+  deterministicScores: [],
+  inputHash: 'story-quality-input-hash'
+};
+const storyQualityReview = await app.runStoryQualityReview({ reviewRequest: storyQualityReviewRequest });
+assert.equal(storyQualityReview.ok, true);
+assert.equal(storyQualityReview.generation.roleId, 'storyQualityReviewer');
+assert.equal(storyQualityReview.generation.providerKind, 'utility');
+assert.equal(storyQualityReview.generation.providerId, 'fake-host-story-quality-reviewer');
+assert.equal(storyQualityReview.modelCallDelta, 1);
+assert.equal(storyQualityReview.campaignStateMutated, false);
+assert.equal(storyQualityReview.modelCall.roleId, 'storyQualityReviewer');
+assert.equal(storyQualityReview.modelCall.metadata.requestId, 'story-quality-review-host-injection');
+assert.equal(host.generation.calls().at(-1).role, 'storyQualityReviewer');
+assert.equal(host.generation.calls().at(-1).request.role.id, 'storyQualityReviewer');
+assert.doesNotMatch(JSON.stringify(host.generation.calls().at(-1).request), /rawPrompt|apiKey|csrfToken/);
+await assert.rejects(
+  () => app.runStoryQualityReview({
+    reviewRequest: {
+      ...storyQualityReviewRequest,
+      rawPrompt: 'forbidden'
+    }
+  }),
+  /forbidden field/
+);
 await assert.rejects(
   () => app.runFactualGroundingReview({
     reviewRequest: {

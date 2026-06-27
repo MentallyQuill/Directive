@@ -18,6 +18,7 @@ This keeps the package roster small while giving Directors precise data to retri
 - Crew dataset validator: [validate-crew-dataset.mjs](../../tools/scripts/validate-crew-dataset.mjs)
 - Retrieval fixture test runner: [test-crew-retrieval-fixture.mjs](../../tools/scripts/test-crew-retrieval-fixture.mjs)
 - Source bible: [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
+- Rich character design target: [Crew Dataset Rich Character Design](CREW_DATASET_RICH_CHARACTER_DESIGN.md)
 - Retrieval architecture: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md)
 - Crew development model: [Crew Development And Experience Model](../design/CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md)
 

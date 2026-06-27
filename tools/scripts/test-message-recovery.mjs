@@ -328,4 +328,78 @@ assert.equal(playerHandshakeState.runtimeTracking.ingressLedger.find((entry) => 
 assert.equal(playerHandshakeState.runtimeTracking.sceneHandshake.settled[0].status, 'invalidated');
 assert.equal(playerHandshakeState.mission.openAssignments[0].status, 'source-stale');
 
-console.log('Message recovery tests passed: invalidation, review-required edits, tracked rollback, Scene Handshake source invalidation, ledger preservation, and prompt revision persistence');
+let componentState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-component-recovery', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  knowledgeLedger: {
+    schemaVersion: 2,
+    facts: [],
+    rumors: [],
+    contradictions: [],
+    components: {
+      schemaVersion: 1,
+      records: [{
+        id: 'component-coolant',
+        title: 'Coolant seal',
+        type: 'shipIssue',
+        status: 'unresolved',
+        summary: 'Coolant seal needs review.',
+        verbatim: 'Coolant seal, port nacelle, junction 7-C.',
+        sourceAuthority: 'officialPacket',
+        tags: ['engineering'],
+        links: {},
+        source: {
+          host: 'sillytavern',
+          chatId: 'campaign-chat',
+          hostMessageId: 'assistant-component-source',
+          messageRole: 'assistant',
+          textHash: 'h-source',
+          selectionHash: 'h-selection',
+          sourceStatus: 'active'
+        },
+        lifecycle: {
+          createdAt: '2026-06-22T02:00:00.000Z',
+          updatedAt: '2026-06-22T02:00:00.000Z',
+          createdBy: 'player',
+          reviewed: true
+        }
+      }]
+    }
+  }
+});
+const componentPersisted = [];
+const componentReconciler = createMessageReconciler({
+  getCampaignState: () => componentState,
+  setCampaignState: (next) => { componentState = cloneJson(next); },
+  persist: async (state, summary) => componentPersisted.push({ summary, state: cloneJson(state) }),
+  syncPrompt: async (state) => {
+    const next = cloneJson(state);
+    next.campaignChatBinding.promptContextRevision += 1;
+    return next;
+  },
+  now
+});
+
+const componentSourceEdit = await componentReconciler.reconcileEdited({
+  hostMessageId: 'assistant-component-source',
+  replacementText: 'Coolant seal source changed.'
+});
+assert.equal(componentSourceEdit.matched, true);
+assert.equal(componentSourceEdit.action, 'missionComponentSourceInvalidated');
+assert.equal(componentSourceEdit.missionComponents.markedCount, 1);
+assert.equal(componentState.knowledgeLedger.components.records[0].source.sourceStatus, 'stale');
+assert.equal(componentState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'missionComponentSourceEdited'), true);
+assert.equal(componentState.campaignChatBinding.promptContextRevision, 2);
+
+const componentSourceDelete = await componentReconciler.reconcileDeleted({
+  hostMessageId: 'assistant-component-source'
+});
+assert.equal(componentSourceDelete.matched, true);
+assert.equal(componentSourceDelete.action, 'missionComponentSourceInvalidated');
+assert.equal(componentSourceDelete.missionComponents.markedCount, 1);
+assert.equal(componentState.knowledgeLedger.components.records[0].source.sourceStatus, 'deleted');
+assert.equal(componentState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'missionComponentSourceDeleted'), true);
+assert.equal(componentState.campaignChatBinding.promptContextRevision, 3);
+assert.equal(componentPersisted.length, 4);
+
+console.log('Message recovery tests passed: invalidation, review-required edits, tracked rollback, Scene Handshake and Mission Component source invalidation, ledger preservation, and prompt revision persistence');

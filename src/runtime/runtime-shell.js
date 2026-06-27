@@ -559,6 +559,18 @@ function stopTrainingBeforeRealStateChange() {
   }
 }
 
+function dispatchMissionComponentOpenSource(result = {}) {
+  if (!result?.ok || !canUseDocument()) return;
+  const detail = {
+    component: result.component || null,
+    source: result.source || null
+  };
+  const event = typeof CustomEvent === 'function'
+    ? new CustomEvent('directive:mission-component-open-source', { detail })
+    : { type: 'directive:mission-component-open-source', detail };
+  document.dispatchEvent?.(event);
+}
+
 const TRAINING_INERT_ACTIONS = Object.freeze([
   'importCampaignPackageArchive',
   'startCreatorDraft',
@@ -793,6 +805,23 @@ function createRuntimeActions() {
     },
     advanceOpenWorldTime(options) {
       return runtimeApp.advanceOpenWorldTime(options);
+    },
+    captureMissionComponentSelection(options) {
+      return runtimeApp.captureMissionComponentSelection(options);
+    },
+    saveMissionComponent(options) {
+      return runtimeApp.saveMissionComponent(options);
+    },
+    updateMissionComponent(options) {
+      return runtimeApp.updateMissionComponent(options);
+    },
+    archiveMissionComponent(options) {
+      return runtimeApp.archiveMissionComponent(options);
+    },
+    async openMissionComponentSource(options) {
+      const result = await runtimeApp.openMissionComponentSource(options);
+      dispatchMissionComponentOpenSource(result);
+      return result;
     },
     retryNarrationForLastTurn(options) {
       return runtimeApp.retryNarrationForLastTurn(options);
@@ -1241,6 +1270,24 @@ export async function runSceneReconciliationFromRuntime(action, payload = {}) {
     throw new Error(`Scene reconciliation action "${actionName || 'unknown'}" is unavailable.`);
   }
   return runtimeApp[methodName](payload);
+}
+
+export async function runMissionComponentsFromRuntime(action, payload = {}) {
+  const actionName = String(action || '').trim();
+  const methodByAction = {
+    captureSelection: 'captureMissionComponentSelection',
+    save: 'saveMissionComponent',
+    update: 'updateMissionComponent',
+    archive: 'archiveMissionComponent',
+    openSource: 'openMissionComponentSource'
+  };
+  const methodName = methodByAction[actionName];
+  if (!methodName || typeof runtimeApp?.[methodName] !== 'function') {
+    throw new Error(`Mission Components action "${actionName || 'unknown'}" is unavailable.`);
+  }
+  const result = await runtimeApp[methodName](payload);
+  if (actionName === 'openSource') dispatchMissionComponentOpenSource(result);
+  return result;
 }
 
 function removeOutcomeIntegrityEditor() {

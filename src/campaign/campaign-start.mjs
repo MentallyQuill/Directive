@@ -2,6 +2,8 @@ import { createCharacterCreationContext } from '../packages/campaign-package-con
 import { activateQuest } from '../quests/quest-director.mjs';
 import { createSeededThreadLedger } from '../threads/thread-package-seeds.mjs';
 import { createThreadLedger } from '../threads/thread-ledger.mjs';
+import { normalizeCampaignTimeState } from '../time/campaign-time-state.mjs';
+import { normalizeContinuityState } from '../continuity/state.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -347,6 +349,7 @@ export function createInitialCampaignStateFromCreatorReview({
   state.ui.activeTab = 'Mission';
   state.settings.simulationMode = simulationMode;
   state.settings.allowedSimulationModes = cloneJson(allowedModes);
+  state.continuity = normalizeContinuityState(state.continuity);
 
   const foregroundQuestId = state.questLedger?.foregroundQuestId || state.attentionState?.foregroundQuestId || null;
   if (foregroundQuestId) {
@@ -356,6 +359,12 @@ export function createInitialCampaignStateFromCreatorReview({
       pushCurrent: false
     });
   }
+
+  state = normalizeCampaignTimeState(state, {
+    projection,
+    now: timestamp,
+    reason: 'campaign-start'
+  }).campaignState;
 
   state.commandLog.entries = [
     ...(state.commandLog.entries || []),

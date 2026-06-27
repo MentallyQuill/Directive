@@ -16,6 +16,7 @@ import {
   currentChatEmptyMessage
 } from './current-chat-scope-copy.js';
 import { playerSafeAdvisoryRecords } from './advisory-records.js';
+import { renderMissionComponentsPanel } from './mission-components-panel.js';
 
 const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
 const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
@@ -23,8 +24,21 @@ const MISSION_SUBTAB_TOOLTIPS = Object.freeze({
   'directive-mission-command-section': 'Current play surface: open chat, pending decisions, and fallback command input.',
   'directive-mission-context-section': 'Player-visible objectives, directives, pressure, and guidance.',
   'directive-mission-open-threads-section': 'Ongoing visible crew, ship, or story concerns. Hidden thread material stays private.',
-  'directive-mission-sidework-section': 'Optional side assignments and opportunities that can be accepted, delegated, or paused.'
+  'directive-mission-sidework-section': 'Optional side assignments and opportunities that can be accepted, delegated, or paused.',
+  'directive-mission-components-section': 'Player-curated source evidence, items, claims, notes, and ship issues captured from chat.'
 });
+
+let activeMissionSubtabId = 'directive-mission-command-section';
+let missionSubtabEventListenerInstalled = false;
+
+function ensureMissionSubtabEventListener() {
+  if (missionSubtabEventListenerInstalled || typeof document === 'undefined') return;
+  document.addEventListener?.('directive:mission-subtab', (event) => {
+    const targetId = cleanText(event?.detail?.targetId || event?.targetId);
+    if (targetId) activeMissionSubtabId = targetId;
+  });
+  missionSubtabEventListenerInstalled = true;
+}
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -159,6 +173,7 @@ function preserveMissionSubtabScroll(scrollContainer, anchor, beforeTop) {
 
 function activateMissionSection(scope, targetId, { scrollContainer = null, anchor = null } = {}) {
   if (!scope || !targetId) return;
+  activeMissionSubtabId = targetId;
   const beforeTop = Number(anchor?.getBoundingClientRect?.().top);
   for (const item of scope.querySelectorAll?.('.directive-mission-subtab') || []) {
     const itemSelected = item.dataset.missionSubtabTarget === targetId;
@@ -178,7 +193,8 @@ function createMissionSubtabs(sections, activeId = '') {
     'directive-mission-command-section': 'mission.subtab.active',
     'directive-mission-context-section': 'mission.subtab.context',
     'directive-mission-open-threads-section': 'mission.subtab.open-threads',
-    'directive-mission-sidework-section': 'mission.subtab.open-world'
+    'directive-mission-sidework-section': 'mission.subtab.open-world',
+    'directive-mission-components-section': 'mission.subtab.components'
   };
   for (const section of sections.filter((item) => item?.id && item?.label)) {
     const selected = section.id === activeId;
@@ -218,7 +234,8 @@ function createMissionSection({ id, label, className = '', active = false, showH
     'directive-mission-command-section': 'mission.command-surface',
     'directive-mission-context-section': 'mission.context',
     'directive-mission-open-threads-section': 'mission.open-threads',
-    'directive-mission-sidework-section': 'mission.open-world'
+    'directive-mission-sidework-section': 'mission.open-world',
+    'directive-mission-components-section': 'mission.components'
   };
   if (tourById[id]) section.dataset.directiveTour = tourById[id];
   if (active) {
@@ -1128,6 +1145,7 @@ function chatSetupRecoveryCommand(view) {
 function appendChatPlaySurface(body, view, actions) {
   const binding = view?.chatNative?.binding || null;
   const prompt = view?.chatNative?.prompt || view?.promptInspection || null;
+  const continuity = view?.continuityProjectionDiagnostics || null;
   const tracking = view?.chatNative?.tracking || null;
   const card = createCard('directive-chat-play-surface-card directive-mission-command-card directive-lcars-panel');
   card.dataset.directiveTour = 'mission.chat-play';
@@ -1146,10 +1164,18 @@ function appendChatPlaySurface(body, view, actions) {
   const status = createElement('span', 'directive-mission-command-state');
   status.textContent = binding?.chatId ? 'Chat Native' : 'Fallback';
   header.append(copy, status);
+  const continuityRow = createMetaRow(
+    'Continuity Matrix',
+    continuity
+      ? `${formatMissionLabel(continuity.status, 'Unknown')} / ${continuity.blockCount ?? 0} blocks / ${continuity.conflictCount ?? 0} conflicts`
+      : 'Not installed'
+  );
+  continuityRow.className = `${continuityRow.className || ''} directive-mission-continuity-state`.trim();
   card.append(
     header,
     createMetaRow('Bound Chat', binding?.chatName || binding?.name || binding?.chatId || 'Not bound'),
     createMetaRow('Prompt Context', prompt?.revision !== undefined ? `Revision ${prompt.revision}` : (binding?.promptContextRevision !== undefined ? `Revision ${binding.promptContextRevision}` : 'Not installed')),
+    continuityRow,
     createMetaRow('Tracked Turns', tracking?.ingressCount ?? 0),
     createMetaRow('Committed Revision', tracking?.lastStableRevision ?? tracking?.revision ?? 0)
   );
@@ -1608,6 +1634,7 @@ function appendNarrationRetry(body, view, actions) {
 }
 
 export function renderMissionPanel(body, view, actions) {
+  ensureMissionSubtabEventListener();
   appendSectionTitle(body, 'Mission');
   const state = view?.campaignState;
   if (!state) {
@@ -1677,14 +1704,18 @@ export function renderMissionPanel(body, view, actions) {
     { id: 'directive-mission-command-section', label: 'Active', icon: 'fa-solid fa-comments', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-command-section'] },
     { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-context-section'] },
     { id: 'directive-mission-open-threads-section', label: 'Open Threads', icon: 'fa-solid fa-diagram-project', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-open-threads-section'] },
-    { id: 'directive-mission-sidework-section', label: 'Open World', icon: 'fa-solid fa-compass', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-sidework-section'] }
+    { id: 'directive-mission-sidework-section', label: 'Open World', icon: 'fa-solid fa-compass', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-sidework-section'] },
+    { id: 'directive-mission-components-section', label: 'Components', icon: 'fa-solid fa-layer-group', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-components-section'] }
   ];
-  consoleSurface.appendChild(createMissionSubtabs(sections, 'directive-mission-command-section'));
+  if (!sections.some((section) => section.id === activeMissionSubtabId)) {
+    activeMissionSubtabId = 'directive-mission-command-section';
+  }
+  consoleSurface.appendChild(createMissionSubtabs(sections, activeMissionSubtabId));
 
   const commandSection = createMissionSection({
     id: 'directive-mission-command-section',
     label: 'Active Campaign',
-    active: true,
+    active: activeMissionSubtabId === 'directive-mission-command-section',
     showHeading: false
   });
   appendChatPlaySurface(commandSection, view, actions);
@@ -1706,7 +1737,8 @@ export function renderMissionPanel(body, view, actions) {
   const contextSection = createMissionSection({
     id: 'directive-mission-context-section',
     label: 'Mission Context',
-    className: 'directive-mission-context-section'
+    className: 'directive-mission-context-section',
+    active: activeMissionSubtabId === 'directive-mission-context-section'
   });
   appendMvpCheckpoint(contextSection, view, state);
   appendPressureLedger(contextSection, state);
@@ -1726,7 +1758,8 @@ export function renderMissionPanel(body, view, actions) {
   const openThreadsSection = createMissionSection({
     id: 'directive-mission-open-threads-section',
     label: 'Open Threads',
-    className: 'directive-mission-open-threads-section'
+    className: 'directive-mission-open-threads-section',
+    active: activeMissionSubtabId === 'directive-mission-open-threads-section'
   });
   appendOpenThreadsLedger(openThreadsSection, view, state);
   openThreadsSection.dataset.directiveTour = 'mission.open-threads';
@@ -1735,7 +1768,8 @@ export function renderMissionPanel(body, view, actions) {
   const sideWorkSection = createMissionSection({
     id: 'directive-mission-sidework-section',
     label: 'Open World',
-    className: 'directive-mission-sidework-section'
+    className: 'directive-mission-sidework-section',
+    active: activeMissionSubtabId === 'directive-mission-sidework-section'
   });
   const sideWorkConsole = createMissionSideWorkConsole(view);
   sideWorkConsole.shell.dataset.directiveTour = 'mission.open-world';
@@ -1745,6 +1779,16 @@ export function renderMissionPanel(body, view, actions) {
   }
   sideWorkSection.appendChild(sideWorkConsole.shell);
   consoleSurface.appendChild(sideWorkSection);
+
+  const componentsSection = createMissionSection({
+    id: 'directive-mission-components-section',
+    label: 'Components',
+    className: 'directive-mission-components-section',
+    active: activeMissionSubtabId === 'directive-mission-components-section',
+    showHeading: false
+  });
+  renderMissionComponentsPanel(componentsSection, view, state, actions);
+  consoleSurface.appendChild(componentsSection);
 
   body.appendChild(consoleSurface);
 }

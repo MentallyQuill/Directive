@@ -9,6 +9,8 @@ export const DIRECTIVE_EXTENSION_ENABLE_STATUS_ID = 'directive_extension_enabled
 
 const SETTINGS_CONTAINER_IDS = ['extensions_settings2', 'extensions_settings'];
 const RESET_LAYOUT_ACTION_ID = 'runtime.resetLayout';
+let pendingSettingsContainerObserver = null;
+let pendingSettingsContainerOptions = null;
 
 function getSettingsContainer() {
   for (const id of SETTINGS_CONTAINER_IDS) {
@@ -229,18 +231,53 @@ export function wireExtensionsMenuDropdown(container, options = {}) {
   return true;
 }
 
+function clearPendingSettingsContainerObserver() {
+  pendingSettingsContainerObserver?.disconnect?.();
+  pendingSettingsContainerObserver = null;
+  pendingSettingsContainerOptions = null;
+}
+
+function observeSettingsContainer(options = {}) {
+  pendingSettingsContainerOptions = options;
+  if (
+    pendingSettingsContainerObserver
+    || typeof MutationObserver !== 'function'
+    || !document.body
+  ) {
+    return false;
+  }
+
+  pendingSettingsContainerObserver = new MutationObserver(() => {
+    const container = getSettingsContainer();
+    if (!container) return;
+    const latestOptions = pendingSettingsContainerOptions || options;
+    clearPendingSettingsContainerObserver();
+    installExtensionsMenuDropdown(latestOptions);
+  });
+  pendingSettingsContainerObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  return true;
+}
+
 export function installExtensionsMenuDropdown(options = {}) {
   if (typeof document === 'undefined') return false;
 
   const existing = document.getElementById(DIRECTIVE_SETTINGS_PANEL_ID);
   if (existing) {
+    clearPendingSettingsContainerObserver();
     wireExtensionsMenuDropdown(existing, options);
     return true;
   }
 
   const settingsContainer = getSettingsContainer();
-  if (!settingsContainer) return false;
+  if (!settingsContainer) {
+    observeSettingsContainer(options);
+    return false;
+  }
 
+  clearPendingSettingsContainerObserver();
   const panel = buildSettingsPanel(options);
   settingsContainer.appendChild(panel);
   wireExtensionsMenuDropdown(panel, options);

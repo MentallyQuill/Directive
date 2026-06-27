@@ -15,12 +15,23 @@ import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createGenerationRouter } from '../generation/generation-router.mjs';
 import {
   buildPlayerSafePromptContext,
+  buildPlayerSafePromptContextWithContinuityPlanner,
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
 import { resolveDirectiveNarrationContext } from '../generation/narration-context.mjs';
 import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
+import { normalizeCampaignTimeState } from '../time/campaign-time-state.mjs';
 import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
+import {
+  addMissionComponent,
+  archiveMissionComponent as archiveMissionComponentRecord,
+  findMissionComponent,
+  matchMissionComponentSourceText,
+  missionComponentsState,
+  prepareMissionComponentSelection,
+  updateMissionComponent as updateMissionComponentRecord
+} from './mission-components.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
 import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
@@ -56,6 +67,10 @@ import { createCampaignConclusionService } from './campaign-conclusion-service.m
 import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
 import { createNarrativeThreadDirector } from '../directors/narrative-thread-director.mjs';
+import {
+  buildContinuityProjectionDiagnostics,
+  buildContinuityTelemetry
+} from '../continuity/diagnostics.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
 import {
@@ -160,6 +175,8 @@ const MIN_AUTOSAVE_EVERY_MESSAGES = 1;
 const MAX_AUTOSAVE_EVERY_MESSAGES = 200;
 const FACTUAL_GROUNDING_REVIEW_ROLE_ID = 'factualGroundingReviewer';
 const FACTUAL_GROUNDING_REVIEW_REQUEST_KIND = 'directive.liveCampaignSoak.factualModelReviewRequest';
+const STORY_QUALITY_REVIEW_ROLE_ID = 'storyQualityReviewer';
+const STORY_QUALITY_REVIEW_REQUEST_KIND = 'directive.liveCampaignSoak.storyQualityModelReviewRequest';
 const FACTUAL_GROUNDING_REVIEW_FORBIDDEN_KEYS = Object.freeze([
   'apiKey',
   'api_key',
@@ -283,6 +300,72 @@ function compactString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
+function missionComponentMessageTextCandidates(message = {}) {
+  if (!message || typeof message !== 'object') return [];
+  return [
+    message.text,
+    message.mes,
+    message.content,
+    message.raw?.mes,
+    message.raw?.content,
+    message.raw?.text
+  ].map((item) => String(item || '')).filter(Boolean);
+}
+
+function matchMissionComponentTextInMessage(text = '', message = {}) {
+  return matchMissionComponentSourceText(text, missionComponentMessageTextCandidates(message));
+}
+
+function sourceMessageId(value = {}) {
+  return compactString(value?.hostMessageId || value?.id || value?.messageId);
+}
+
+function findMissionComponentSourceMessageMatch({
+  selectedText = '',
+  fallbackMessage = null,
+  messages = [],
+  preferredMessageId = ''
+} = {}) {
+  const selected = compactString(selectedText);
+  if (!selected) return { ok: false, reason: 'missing-selection' };
+  const fallbackFullText = compactString(
+    fallbackMessage?.text
+    || fallbackMessage?.mes
+    || fallbackMessage?.content
+    || fallbackMessage?.messageText
+  );
+  const preferredId = compactString(preferredMessageId);
+  const scored = [];
+  for (const [index, message] of (Array.isArray(messages) ? messages : []).entries()) {
+    if (!message || typeof message !== 'object') continue;
+    const selectedMatch = matchMissionComponentTextInMessage(selected, message);
+    if (!selectedMatch.ok) continue;
+    const fullMatch = fallbackFullText
+      ? matchMissionComponentTextInMessage(fallbackFullText, message)
+      : { ok: false };
+    scored.push({
+      message,
+      sourceMatch: fullMatch.ok ? fullMatch : selectedMatch,
+      score: [
+        fullMatch.ok ? 100 : 0,
+        sourceMessageId(message) && sourceMessageId(message) === preferredId ? 20 : 0,
+        Number.isInteger(message.index) ? Math.max(0, 10 - Math.abs(Number(message.index) - Number(preferredId || message.index))) : 0,
+        -index
+      ].reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0),
+      matchedFullMessage: fullMatch.ok
+    });
+  }
+  scored.sort((left, right) => right.score - left.score);
+  const winner = scored[0];
+  if (!winner) return { ok: false, reason: 'source-message-not-found' };
+  return {
+    ok: true,
+    message: cloneJson(winner.message),
+    sourceMatch: winner.sourceMatch,
+    matchedFullMessage: winner.matchedFullMessage
+  };
+}
+
 function findForbiddenFactualReviewKey(value, path = '$', depth = 0) {
   if (depth > 10 || value == null || typeof value !== 'object') return null;
   if (Array.isArray(value)) {
@@ -315,6 +398,17 @@ function validateFactualGroundingReviewRequest(request = {}) {
   const unsafeCanary = canaries.find((canary) => canary?.hiddenStateSafe !== true);
   if (unsafeCanary) {
     throw new Error(`Factual grounding canary ${unsafeCanary.id || '(unknown)'} is not marked player-safe.`);
+  }
+}
+
+function validateStoryQualityReviewRequest(request = {}) {
+  requireObject(request, 'reviewRequest');
+  if (request.kind !== STORY_QUALITY_REVIEW_REQUEST_KIND) {
+    throw new Error(`reviewRequest.kind must be ${STORY_QUALITY_REVIEW_REQUEST_KIND}.`);
+  }
+  const forbiddenKeyPath = findForbiddenFactualReviewKey(request);
+  if (forbiddenKeyPath) {
+    throw new Error(`Story quality review request contains forbidden field ${forbiddenKeyPath}.`);
   }
 }
 
@@ -356,6 +450,47 @@ function factualGroundingReviewProviderRequest(reviewRequest = {}) {
       temperature: 0.1,
       top_p: 0.9,
       max_tokens: 1800
+    }
+  };
+}
+
+function storyQualityReviewSystemPrompt() {
+  return [
+    'You are Directive\'s story quality reviewer for a live campaign soak test.',
+    'Use only visible transcript excerpts, deterministic score summaries, score definitions, and player-safe artifact pointers.',
+    'Review prose quality, tense and point of view, player agency, NPC agency, continuity, mission pressure, crew reaction, and hidden-state safety.',
+    'Do not infer from hidden truth, raw prompt bodies, provider reasoning, raw relationship values, hidden pressure values, hidden clocks, cookies, CSRF tokens, or API keys.',
+    'Return strict JSON matching the supplied responseSchema. Do not include markdown or commentary.'
+  ].join('\n');
+}
+
+function storyQualityReviewProviderRequest(reviewRequest = {}) {
+  const safeRequest = cloneJson(reviewRequest);
+  const systemPrompt = storyQualityReviewSystemPrompt();
+  const prompt = [
+    'Review this visible transcript for story quality.',
+    'Return only strict JSON matching responseSchema.',
+    '',
+    JSON.stringify(safeRequest, null, 2)
+  ].join('\n');
+  return {
+    systemPrompt,
+    prompt,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt }
+    ],
+    structuredOutput: true,
+    jsonSchema: safeRequest.responseSchema || null,
+    metadata: {
+      requestId: safeRequest.requestId || null,
+      inputHash: safeRequest.inputHash || null,
+      source: 'live-campaign-soak'
+    },
+    parameters: {
+      temperature: 0.15,
+      top_p: 0.9,
+      max_tokens: 2200
     }
   };
 }
@@ -654,6 +789,7 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
 
 export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
+  findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
   shouldPreferInMemoryCampaignState
 });
@@ -838,6 +974,11 @@ export function createDirectiveRuntimeApp({
       ? applyRuntimeSettings(controller.activeCampaignState)
       : null;
     if (campaignState) {
+      campaignState = normalizeCampaignTimeForRuntime(campaignState, {
+        reason: 'active-save-runtime-start'
+      }).campaignState;
+    }
+    if (campaignState) {
       activeScreen = 'campaign';
     } else if (activeScreen !== 'creator') {
       activeScreen = 'campaign';
@@ -938,6 +1079,30 @@ export function createDirectiveRuntimeApp({
     return selectOptionalRuntimeAssetsForState({ state, controller, campaignView, runtimeAssetsByPackageId });
   }
 
+  function normalizeCampaignTimeForRuntime(state = null, {
+    reason = 'runtime-campaign-time-normalization'
+  } = {}) {
+    const assets = optionalRuntimeAssetsForState(state);
+    return normalizeCampaignTimeState(state, {
+      projection: assets?.projection || null,
+      now: timestampFromNow(now),
+      reason
+    });
+  }
+
+  function campaignTimeNeedsRuntimeNormalization(state = null) {
+    return Boolean(
+      state
+      && (
+        state.campaign?.openingMinuteOfDay === undefined
+        || state.campaign?.openingMinuteOfDay === null
+        || state.worldState?.openingMinuteOfDay === undefined
+        || state.worldState?.openingMinuteOfDay === null
+        || !state.timeLedger
+      )
+    );
+  }
+
   function packageContextForState(state = null) {
     return selectPackageContextForState({ state, controller, campaignView });
   }
@@ -989,7 +1154,7 @@ export function createDirectiveRuntimeApp({
   function stateWithLoadedSaveBinding(state = null, saveId = null) {
     const id = compactString(saveId);
     if (!state || !id || !state.campaignChatBinding) return state;
-    return {
+    const bound = {
       ...state,
       campaignChatBinding: {
         ...state.campaignChatBinding,
@@ -997,6 +1162,9 @@ export function createDirectiveRuntimeApp({
         saveId: id
       }
     };
+    return normalizeCampaignTimeForRuntime(bound, {
+      reason: 'loaded-save-binding'
+    }).campaignState;
   }
 
   function campaignSessionKeyFromParts({ hostId = null, campaignId = null, saveId = null, chatId = null } = {}) {
@@ -1017,6 +1185,19 @@ export function createDirectiveRuntimeApp({
       saveId: binding?.saveId || save?.id,
       chatId: binding?.chatId || metadata.chatId
     });
+  }
+
+  function campaignCommandKeyForSave(save = null) {
+    const binding = bindingFromSave(save);
+    const metadata = save?.metadata || {};
+    const campaignId = compactString(binding?.campaignId || metadata.campaignId);
+    if (campaignId) {
+      return [
+        compactString(binding?.hostId) || runtimeHost?.id || 'host',
+        campaignId
+      ].join(':');
+    }
+    return campaignSessionKeyForSave(save);
   }
 
   function campaignSessionKeyForState(state = null, fallbackSaveId = null) {
@@ -1168,17 +1349,56 @@ export function createDirectiveRuntimeApp({
     return save?.slotType === 'autosave' ? 'autosave' : 'stored';
   }
 
+  function saveUpdatedAtValue(save = null) {
+    const parsed = Date.parse(save?.updatedAt || save?.metadata?.lastUpdatedAt || '');
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function compareSavesByLatest(left = null, right = null) {
+    const time = saveUpdatedAtValue(right) - saveUpdatedAtValue(left);
+    if (time !== 0) return time;
+    const updated = String(right?.updatedAt || right?.metadata?.lastUpdatedAt || '')
+      .localeCompare(String(left?.updatedAt || left?.metadata?.lastUpdatedAt || ''));
+    if (updated !== 0) return updated;
+    return String(right?.id || '').localeCompare(String(left?.id || ''));
+  }
+
   function buildCampaignSessions() {
     const saves = Array.isArray(campaignView?.saves) ? campaignView.saves : [];
-    const nonAutosaves = saves.filter((save) => save?.slotType !== 'autosave' || save?.current === true);
-    const baseRows = nonAutosaves.length ? nonAutosaves : saves.slice(0, 12);
-    return baseRows.map((save) => {
+    const currentChat = currentChatScope?.currentChat || null;
+    const groups = new Map();
+    for (const save of saves) {
+      if (!save?.id) continue;
+      const key = campaignCommandKeyForSave(save);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          saves: []
+        });
+      }
+      groups.get(key).saves.push(save);
+    }
+    return [...groups.values()].map((group) => {
+      const sortedSaves = group.saves.slice().sort(compareSavesByLatest);
+      const save = sortedSaves[0];
       const binding = bindingFromSave(save);
-      const key = campaignSessionKeyForSave(save);
-      const currentChatMatch = Boolean(currentChatScope?.currentChat?.chatId && saveMatchesChat(save, currentChatScope.currentChat.chatId, currentChatScope.currentChat.metadata));
+      const currentSave = sortedSaves.find((entry) => entry?.current === true) || null;
+      const currentChatSave = currentChat?.chatId
+        ? sortedSaves.find((entry) => saveMatchesChat(entry, currentChat.chatId, currentChat.metadata))
+        : null;
+      const currentChatMatch = Boolean(currentChatSave);
+      const saveCount = sortedSaves.length;
+      const autosaveCount = sortedSaves.filter((entry) => entry?.slotType === 'autosave').length;
+      const branchCount = sortedSaves.filter((entry) => entry?.metadata?.branch).length;
       return {
-        key,
+        key: group.key,
         saveId: save.id,
+        latestSaveId: save.id,
+        latestSaveName: save.name || save.id,
+        currentSaveId: currentSave?.id || null,
+        currentSaveName: currentSave?.name || null,
+        currentChatSaveId: currentChatSave?.id || null,
+        currentChatSaveName: currentChatSave?.name || null,
         campaignId: save.metadata?.campaignId || binding?.campaignId || null,
         campaignTitle: save.metadata?.campaignTitle || 'Campaign',
         packageId: save.metadata?.packageId || null,
@@ -1196,14 +1416,19 @@ export function createDirectiveRuntimeApp({
         summary: save.metadata?.summary || null,
         binding: cloneJson(binding),
         status: campaignSessionStatus(save, binding),
-        hidden: uiPreferences.hasHiddenSessionKey(key),
+        hidden: uiPreferences.hasHiddenSessionKey(group.key),
         currentChat: currentChatMatch,
+        currentChatBinding: cloneJson(currentChatSave ? bindingFromSave(currentChatSave) : null),
+        saveCount,
+        autosaveCount,
+        userSaveCount: saveCount - autosaveCount,
+        branchCount,
         attention: !binding?.chatId ? 'missing-chat' : (currentChatMatch ? 'current-chat' : null)
       };
     }).sort((left, right) => {
-      if (Boolean(left.attention) !== Boolean(right.attention)) return left.attention ? -1 : 1;
-      if (left.currentChat !== right.currentChat) return left.currentChat ? -1 : 1;
       if (left.hidden !== right.hidden) return left.hidden ? 1 : -1;
+      const time = saveUpdatedAtValue({ updatedAt: right.updatedAt }) - saveUpdatedAtValue({ updatedAt: left.updatedAt });
+      if (time !== 0) return time;
       return String(right.updatedAt || '').localeCompare(String(left.updatedAt || ''));
     });
   }
@@ -1419,6 +1644,19 @@ export function createDirectiveRuntimeApp({
           commandBearingPlayerView: loadedCommandBearingPlayerView
         })
       : null;
+    const promptInspection = (() => {
+      try {
+        return runtimeHost?.prompt?.inspect?.() || null;
+      } catch (_) {
+        return null;
+      }
+    })();
+    const continuityProjectionDiagnostics = renderedCampaignState
+      ? buildContinuityProjectionDiagnostics({ campaignState: renderedCampaignState, promptInspection })
+      : null;
+    const continuityTelemetry = renderedCampaignState
+      ? buildContinuityTelemetry({ campaignState: renderedCampaignState, promptInspection })
+      : null;
     return {
       kind: 'directive.runtimeView',
       activeTab: tabId,
@@ -1433,6 +1671,9 @@ export function createDirectiveRuntimeApp({
       campaignState: cloneJson(renderedCampaignState),
       currentChatCampaignState: cloneJson(currentChatCampaignState),
       loadedCampaignState: cloneJson(campaignState),
+      continuityProjectionDiagnostics: cloneJson(continuityProjectionDiagnostics),
+      continuityTelemetry: cloneJson(continuityTelemetry),
+      promptInspection: cloneJson(promptInspection),
       loadedSave: {
         saveId: controller?.activeSaveId || campaignState?.campaignChatBinding?.saveId || null,
         campaignId: campaignState?.campaign?.id || null,
@@ -1573,6 +1814,200 @@ export function createDirectiveRuntimeApp({
     campaignState = tracked;
     await refreshCampaignView();
     return tracked;
+  }
+
+  async function commitMissionComponentsMutation(nextState, {
+    source = 'missionComponents',
+    reason = 'Mission Components updated.',
+    summary = reason,
+    stable = true
+  } = {}) {
+    requireObject(nextState, 'nextState');
+    const gateway = createStateDeltaGateway({
+      getState: () => campaignState,
+      setState: (state) => { campaignState = cloneJson(state); },
+      persist: (state, delta) => persistRuntimeCampaignState(state, delta?.summary || delta?.reason || summary),
+      now
+    });
+    const tracked = await gateway.commit(nextState, {
+      source,
+      reason,
+      summary,
+      domains: ['knowledgeLedger'],
+      stable
+    });
+    campaignState = tracked;
+    await refreshCampaignView();
+    await refreshCurrentChatCampaignScope();
+    return tracked;
+  }
+
+  async function ensureMissionComponentCaptureContext(selection = {}) {
+    await ensureInitialized();
+    await refreshCurrentChatCampaignScope();
+    const scopedState = liveCampaignStateForView();
+    if (!scopedState) {
+      return {
+        ok: false,
+        reason: 'no-active-campaign-chat',
+        summary: currentChatScope?.error?.message || 'Open an active Directive campaign chat before adding Mission Components.'
+      };
+    }
+    if (scopedState !== campaignState) {
+      const scopedSaveId = compactString(currentChatScope?.saveId || scopedState?.campaignChatBinding?.saveId);
+      if (scopedSaveId) {
+        await loadCampaignStateForSessionSave(scopedSaveId);
+      } else {
+        campaignState = cloneJson(scopedState);
+      }
+    }
+    const guard = currentChatScope?.guard || null;
+    if (guard && guard.ok !== true) {
+      return {
+        ok: false,
+        reason: guard.reason || 'active-chat-save-guard',
+        summary: guard.summary || 'Open the bound campaign chat before adding Mission Components.',
+        guard: cloneJson(guard)
+      };
+    }
+    const selectionChatId = compactString(selection?.chatId || selection?.currentChatId);
+    const activeChatId = compactString(currentChatScope?.currentChat?.chatId || campaignState?.campaignChatBinding?.chatId);
+    if (!activeChatId) {
+      return {
+        ok: false,
+        reason: 'active-chat-unknown',
+        summary: 'Directive could not verify the active campaign chat for this Mission Component.'
+      };
+    }
+    if (!selectionChatId) {
+      return {
+        ok: false,
+        reason: 'selection-chat-unknown',
+        summary: 'Directive could not verify which chat the selected text came from.'
+      };
+    }
+    if (selectionChatId !== activeChatId) {
+      return {
+        ok: false,
+        reason: 'wrong-chat',
+        summary: 'The selected text is not in the active campaign chat.'
+      };
+    }
+    return {
+      ok: true,
+      campaignState,
+      chatId: activeChatId || selectionChatId || null,
+      guard: cloneJson(guard || null)
+    };
+  }
+
+  async function sourceMessageForMissionComponent(selection = {}) {
+    const messageId = compactString(
+      selection?.message?.hostMessageId
+      || selection?.message?.id
+      || selection?.hostMessageId
+      || selection?.messageId
+    );
+    if (!messageId) {
+      return { ok: false, reason: 'missing-message-id', summary: 'Mission Component source message id is missing.' };
+    }
+    const fallbackMessage = selection?.message && typeof selection.message === 'object'
+      ? selection.message
+      : null;
+    const canReadHostMessage = typeof runtimeHost?.chat?.getMessage === 'function';
+    const message = canReadHostMessage
+      ? await runtimeHost.chat.getMessage(messageId)
+      : fallbackMessage;
+    if (!message) {
+      return { ok: false, reason: 'source-message-not-found', summary: 'Directive could not re-read the selected source message.' };
+    }
+    if (message.isSystem === true || message.is_system === true || message.role === 'system') {
+      return { ok: false, reason: 'system-message', summary: 'System messages cannot be saved as Mission Components.' };
+    }
+    const selectedText = compactString(selection?.selectedText || selection?.selectionText || selection?.text || selection?.verbatim);
+    const hostCandidates = missionComponentMessageTextCandidates(message);
+    const fallbackCandidates = canReadHostMessage
+      ? []
+      : [
+        fallbackMessage?.text,
+        fallbackMessage?.mes,
+        fallbackMessage?.content,
+        selection?.messageText,
+        selection?.fullText
+      ];
+    const sourceMatch = matchMissionComponentSourceText(selectedText, [
+      ...hostCandidates,
+      ...fallbackCandidates
+    ]);
+    if (!sourceMatch.ok && canReadHostMessage && typeof runtimeHost?.chat?.getRecentMessages === 'function') {
+      const recentMessages = await runtimeHost.chat.getRecentMessages({
+        limit: 500,
+        playerSafeOnly: false
+      });
+      const resolved = findMissionComponentSourceMessageMatch({
+        selectedText,
+        fallbackMessage,
+        messages: recentMessages,
+        preferredMessageId: messageId
+      });
+      if (resolved.ok) {
+        return {
+          ok: true,
+          message: {
+            ...cloneJson(resolved.message),
+            hostMessageId: compactString(resolved.message.hostMessageId || resolved.message.id || messageId),
+            text: resolved.sourceMatch?.text || String(resolved.message.text || '')
+          },
+          sourceResolvedByText: true,
+          sourceResolution: {
+            preferredMessageId: messageId,
+            resolvedMessageId: compactString(resolved.message.hostMessageId || resolved.message.id),
+            matchedFullMessage: resolved.matchedFullMessage === true,
+            match: resolved.sourceMatch?.match || null
+          }
+        };
+      }
+    }
+    if (!sourceMatch.ok) {
+      return {
+        ok: false,
+        reason: 'selection-stale',
+        summary: 'The selected text no longer matches the source message. Select the text again.'
+      };
+    }
+    return {
+      ok: true,
+      message: {
+        ...cloneJson(message),
+        hostMessageId: compactString(message.hostMessageId || message.id || messageId),
+        text: sourceMatch.text || String(message.text || '')
+      }
+    };
+  }
+
+  function componentInputFromCapture(payload = {}, prepared = null) {
+    const proposal = payload.proposal || payload.component || prepared?.proposal || {};
+    const source = payload.source || payload.component?.source || prepared?.source || {};
+    const selectedText = String(payload.verbatim || payload.selectedText || payload.component?.verbatim || prepared?.selectedText || '').trim();
+    const component = payload.component || {};
+    return {
+      title: proposal.title || component.title,
+      type: proposal.type || component.type,
+      status: proposal.status || component.status,
+      summary: proposal.summary || component.summary,
+      verbatim: selectedText,
+      sourceAuthority: proposal.sourceAuthority || component.sourceAuthority,
+      tags: proposal.tags || component.tags || [],
+      links: proposal.links || component.links || {},
+      source,
+      derived: {
+        ...(component.derived || {}),
+        ...(prepared?.diagnostics?.providerUsed
+          ? { utilityModelCallId: prepared?.diagnostics?.providerId || prepared?.diagnostics?.model || 'utilityJson' }
+          : {}),
+        warnings: proposal.warnings || component.derived?.warnings || []
+      }
+    };
   }
 
   async function generateNarrationForLastTurnNow({ provider = defaultNarrationProvider } = {}) {
@@ -1769,10 +2204,19 @@ export function createDirectiveRuntimeApp({
   async function synchronizeActivePrompt(state = campaignState, {
     persist = true,
     rebuild = false,
-    reason = 'Campaign prompt context synchronized.'
+    reason = 'Campaign prompt context synchronized.',
+    promptFrame = null,
+    useContinuityPlanner = null
   } = {}) {
     if (!runtimeHost?.prompt?.install || !state?.campaignChatBinding?.chatId || state.campaign?.status !== 'active') {
       return { ok: false, skipped: true, reason: 'inactive-or-unbound', campaignState: cloneJson(state) };
+    }
+    const normalizedTime = normalizeCampaignTimeForRuntime(state, {
+      reason: 'prompt-sync'
+    });
+    state = normalizedTime.campaignState || state;
+    if (normalizedTime.changed && campaignState?.campaign?.id === state?.campaign?.id) {
+      campaignState = state;
     }
     const currentChatId = runtimeHost.chat?.getCurrentChatId?.() || runtimeHost.chat?.getCurrentBinding?.()?.chatId || null;
     if (currentChatId && String(currentChatId) !== String(state.campaignChatBinding.chatId)) {
@@ -1780,12 +2224,25 @@ export function createDirectiveRuntimeApp({
       return { ok: true, active: false, suspended: true, campaignState: cloneJson(state) };
     }
     const assets = optionalActiveRuntimeAssets();
-    const packet = buildPlayerSafePromptContext({
+    const frame = promptFrame && typeof promptFrame === 'object' ? promptFrame : {};
+    const promptInput = {
       campaignState: state,
       packageData: assets?.packageData || null,
       crewDataset: assets?.crewDataset || null,
+      campaignProjection: assets?.projection || null,
+      scene: frame.scene || null,
+      playerText: frame.playerText || '',
+      recentMessageSummary: frame.recentMessageSummary || null,
+      recentChatMessages: Array.isArray(frame.recentChatMessages) ? frame.recentChatMessages : [],
       createdAt: timestampFromNow(now)
-    });
+    };
+    const shouldUseContinuityPlanner = useContinuityPlanner === true
+      || (useContinuityPlanner !== false && rebuild === true && !promptFrame);
+    const packet = shouldUseContinuityPlanner
+      ? await buildPlayerSafePromptContextWithContinuityPlanner(promptInput, {
+          generationRouter: defaultGenerationRouter
+        })
+      : buildPlayerSafePromptContext(promptInput);
     const method = rebuild && runtimeHost.prompt.rebuild ? 'rebuild' : 'install';
     const result = await runtimeHost.prompt[method]({
       binding: state.campaignChatBinding,
@@ -1904,6 +2361,7 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       syncPrompt: async (state) => (await synchronizeActivePrompt(state, {
         persist: false,
+        useContinuityPlanner: false,
         reason: 'Prompt context rebuilt after message recovery.'
       })).campaignState,
       now
@@ -1921,9 +2379,12 @@ export function createDirectiveRuntimeApp({
       getCampaignState,
       setCampaignState,
       persistCampaignState,
-      syncPromptContext: async (state) => {
+      getPackageData: () => activeRuntimeAssets().packageData,
+      syncPromptContext: async (state, promptFrame = null) => {
         const result = await synchronizeActivePrompt(state, {
           persist: false,
+          promptFrame,
+          useContinuityPlanner: false,
           reason: 'Prompt context synchronized after accepted sidecar state delta.'
         });
         return result.campaignState || state;
@@ -1968,6 +2429,7 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       syncPrompt: async (state, reason) => synchronizeActivePrompt(state, {
         persist: false,
+        useContinuityPlanner: false,
         reason: reason || 'Prompt context synchronized after terminal outcome decision.'
       }),
       saveTerminalBranch: (options) => controller.saveTerminalBranch(options),
@@ -2013,9 +2475,12 @@ export function createDirectiveRuntimeApp({
       getCampaignState,
       setCampaignState,
       persistCampaignState,
-      syncPromptContext: async (state) => {
+      getPackageData: () => activeRuntimeAssets().packageData,
+      syncPromptContext: async (state, promptFrame = null) => {
         const result = await synchronizeActivePrompt(state, {
           persist: false,
+          promptFrame,
+          useContinuityPlanner: false,
           reason: 'Chat-native prompt context synchronized.'
         });
         return result.campaignState || state;
@@ -2362,6 +2827,203 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async captureMissionComponentSelection(payload = {}) {
+      return run(async () => {
+        const selection = payload.selection || payload;
+        const context = await ensureMissionComponentCaptureContext(selection);
+        if (!context.ok) {
+          return {
+            ok: false,
+            reason: context.reason,
+            summary: context.summary,
+            guard: cloneJson(context.guard || null),
+            view: viewEnvelope('mission')
+          };
+        }
+        const sourceMessage = await sourceMessageForMissionComponent(selection);
+        if (!sourceMessage.ok) {
+          return {
+            ok: false,
+            reason: sourceMessage.reason,
+            summary: sourceMessage.summary,
+            view: viewEnvelope('mission')
+          };
+        }
+        const assets = optionalActiveRuntimeAssets();
+        const prepared = await prepareMissionComponentSelection({
+          selection: {
+            ...cloneJson(selection),
+            chatId: context.chatId || selection.chatId || null,
+            message: sourceMessage.message
+          },
+          campaignState,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          generationRouter: payload.useProvider === false ? null : defaultGenerationRouter,
+          useProvider: payload.useProvider !== false
+        });
+        return {
+          ...cloneJson(prepared),
+          ok: true,
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async saveMissionComponent(payload = {}) {
+      return run(async () => {
+        const componentPayload = payload.component || payload;
+        const source = componentPayload.source || payload.source || {};
+        const selection = payload.selection || {
+          selectedText: componentPayload.verbatim || payload.selectedText,
+          chatId: source.chatId,
+          hostMessageId: source.hostMessageId,
+          message: {
+            hostMessageId: source.hostMessageId,
+            role: source.messageRole,
+            name: source.messageName
+          }
+        };
+        const context = await ensureMissionComponentCaptureContext(selection);
+        if (!context.ok) {
+          return {
+            ok: false,
+            reason: context.reason,
+            summary: context.summary,
+            guard: cloneJson(context.guard || null),
+            view: viewEnvelope('mission')
+          };
+        }
+        const sourceMessage = await sourceMessageForMissionComponent(selection);
+        if (!sourceMessage.ok) {
+          return {
+            ok: false,
+            reason: sourceMessage.reason,
+            summary: sourceMessage.summary,
+            view: viewEnvelope('mission')
+          };
+        }
+        const componentInput = componentInputFromCapture({
+          ...payload,
+          component: {
+            ...componentPayload,
+            source: {
+              ...source,
+              host: source.host || runtimeHost?.id || 'sillytavern',
+              chatId: context.chatId || source.chatId || null,
+              hostMessageId: source.hostMessageId || sourceMessage.message.hostMessageId,
+              messageRole: source.messageRole || sourceMessage.message.role,
+              messageName: source.messageName || sourceMessage.message.name,
+              outcomeId: source.outcomeId || sourceMessage.message.outcomeId || sourceMessage.message.metadata?.outcomeId,
+              ingressId: source.ingressId || sourceMessage.message.ingressId || sourceMessage.message.metadata?.ingressId,
+              messageText: sourceMessage.message.text
+            }
+          }
+        });
+        const result = addMissionComponent(campaignState, componentInput, {
+          idFactory,
+          now
+        });
+        const tracked = await commitMissionComponentsMutation(result.campaignState, {
+          source: 'missionComponents.save',
+          reason: `Mission Component saved: ${result.component.title}`,
+          summary: `Mission Component saved: ${result.component.title}`
+        });
+        return {
+          kind: 'directive.missionComponents.save',
+          ok: true,
+          component: cloneJson(result.component),
+          components: cloneJson(missionComponentsState(tracked)),
+          campaignState: cloneJson(tracked),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async updateMissionComponent(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const id = requireNonEmptyString(payload.componentId || payload.id, 'componentId');
+        const patch = payload.patch || payload.component || {};
+        const result = updateMissionComponentRecord(campaignState, id, patch, { now });
+        const tracked = await commitMissionComponentsMutation(result.campaignState, {
+          source: 'missionComponents.update',
+          reason: `Mission Component updated: ${result.component.title}`,
+          summary: `Mission Component updated: ${result.component.title}`
+        });
+        return {
+          kind: 'directive.missionComponents.update',
+          ok: true,
+          component: cloneJson(result.component),
+          components: cloneJson(missionComponentsState(tracked)),
+          campaignState: cloneJson(tracked),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async archiveMissionComponent(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const id = requireNonEmptyString(payload.componentId || payload.id, 'componentId');
+        const result = archiveMissionComponentRecord(campaignState, id, { now });
+        const tracked = await commitMissionComponentsMutation(result.campaignState, {
+          source: 'missionComponents.archive',
+          reason: `Mission Component archived: ${result.component.title}`,
+          summary: `Mission Component archived: ${result.component.title}`
+        });
+        return {
+          kind: 'directive.missionComponents.archive',
+          ok: true,
+          component: cloneJson(result.component),
+          components: cloneJson(missionComponentsState(tracked)),
+          campaignState: cloneJson(tracked),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async openMissionComponentSource(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const id = requireNonEmptyString(payload.componentId || payload.id, 'componentId');
+        const component = findMissionComponent(liveCampaignStateForView() || campaignState, id);
+        if (!component) {
+          return {
+            ok: false,
+            reason: 'component-not-found',
+            summary: `Mission Component "${id}" was not found.`,
+            view: viewEnvelope('mission')
+          };
+        }
+        const sourceChatId = compactString(component.source?.chatId);
+        const currentChatId = compactString(
+          currentChatScope?.currentChat?.chatId
+          || (typeof runtimeHost?.chat?.getCurrentChatId === 'function' ? runtimeHost.chat.getCurrentChatId() : null)
+          || campaignState?.campaignChatBinding?.chatId
+        );
+        if (sourceChatId && currentChatId && sourceChatId !== currentChatId) {
+          return {
+            ok: false,
+            reason: 'source-chat-not-open',
+            summary: 'Open the source campaign chat before jumping to this Mission Component source.',
+            component: cloneJson(component),
+            source: cloneJson(component.source || null),
+            view: viewEnvelope('mission')
+          };
+        }
+        return {
+          kind: 'directive.missionComponents.openSource',
+          ok: true,
+          component: cloneJson(component),
+          source: cloneJson(component.source || null),
+          summary: `Source: Msg ${component.source?.hostMessageId || 'unknown'}`,
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
     async interceptHostGeneration(payload = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -2449,9 +3111,15 @@ export function createDirectiveRuntimeApp({
         if (requestedSaveId) {
           await loadCampaignStateForSessionSave(requestedSaveId);
         }
-        const targetBinding = normalizedBinding(binding)
+        let targetBinding = normalizedBinding(binding)
           || bindingFromState(campaignState)
           || null;
+        if (requestedSaveId && targetBinding) {
+          targetBinding = {
+            ...targetBinding,
+            saveId: requestedSaveId
+          };
+        }
         if (!targetBinding?.chatId) return { ok: false, reason: 'campaign-chat-unbound' };
         const openSync = await openAndRetargetCampaignChat(campaignState, {
           binding: targetBinding,
@@ -2726,6 +3394,7 @@ export function createDirectiveRuntimeApp({
           campaignState,
           packageData: assets.packageData,
           crewDataset: assets.crewDataset,
+          campaignProjection: assets.projection,
           saveId: controller.activeSaveId,
           existingChatId,
           createNewChat: !existingChatId
@@ -3029,6 +3698,56 @@ export function createDirectiveRuntimeApp({
           generation: {
             ok: generated?.ok === true,
             roleId: generated?.roleId || FACTUAL_GROUNDING_REVIEW_ROLE_ID,
+            providerKind: generated?.role?.providerKind || generated?.response?.providerKind || null,
+            providerId: generated?.diagnostics?.providerId || generated?.response?.providerId || null,
+            model: generated?.diagnostics?.model || generated?.response?.model || null,
+            latencyMs: generated?.diagnostics?.latencyMs ?? null,
+            requestHash: generated?.diagnostics?.requestHash || null,
+            error: cloneJson(generated?.error || null)
+          },
+          modelCall: cloneJson(latestModelCall || null),
+          modelCallDelta: Math.max(0, modelCalls.length - modelCallCountBefore),
+          campaignStateMutated: stateBefore !== stateAfter,
+          view: viewEnvelope(campaignState ? 'mission' : 'settings')
+        };
+      });
+    },
+
+    async runStoryQualityReview({
+      reviewRequest,
+      generationRouter = defaultGenerationRouter
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        if (!generationRouter?.generate) {
+          throw new Error('Story quality review requires a generation router.');
+        }
+        validateStoryQualityReviewRequest(reviewRequest);
+        const stateBefore = campaignState ? gameplayStateFingerprint(campaignState) : null;
+        const modelCallCountBefore = campaignState?.runtimeTracking?.modelCallJournal?.length || 0;
+        const generated = await generationRouter.generate(
+          STORY_QUALITY_REVIEW_ROLE_ID,
+          storyQualityReviewProviderRequest(reviewRequest)
+        );
+        const text = compactString(
+          generated?.response?.text
+          || generated?.response?.content
+          || generated?.text
+          || generated?.content
+          || ''
+        );
+        const stateAfter = campaignState ? gameplayStateFingerprint(campaignState) : null;
+        const modelCalls = campaignState?.runtimeTracking?.modelCallJournal || [];
+        const latestModelCall = modelCalls.at(-1) || null;
+        return {
+          kind: 'directive.storyQualityReviewProviderResult',
+          ok: generated?.ok === true && Boolean(text),
+          requestId: reviewRequest.requestId || null,
+          inputHash: reviewRequest.inputHash || null,
+          text,
+          generation: {
+            ok: generated?.ok === true,
+            roleId: generated?.roleId || STORY_QUALITY_REVIEW_ROLE_ID,
             providerKind: generated?.role?.providerKind || generated?.response?.providerKind || null,
             providerId: generated?.diagnostics?.providerId || generated?.response?.providerId || null,
             model: generated?.diagnostics?.model || generated?.response?.model || null,
@@ -3560,6 +4279,7 @@ export function createDirectiveRuntimeApp({
             campaignState,
             packageData: assets.packageData,
             crewDataset: assets.crewDataset,
+            campaignProjection: assets.projection,
             saveId: controller.activeSaveId,
             createNewChat: true
           });
@@ -3682,10 +4402,12 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         const requestedSaveId = requireNonEmptyString(saveId, 'saveId');
-        campaignState = stateWithLoadedSaveBinding(
-          applyRuntimeSettings(await controller.loadGame({ saveId: requestedSaveId })),
-          requestedSaveId
-        );
+        const loadedState = applyRuntimeSettings(await controller.loadGame({ saveId: requestedSaveId }));
+        const shouldPersistTimeRepair = campaignTimeNeedsRuntimeNormalization(loadedState);
+        campaignState = stateWithLoadedSaveBinding(loadedState, requestedSaveId);
+        if (shouldPersistTimeRepair) {
+          await persistRuntimeCampaignState(campaignState, 'Campaign time state normalized after loading save.');
+        }
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
@@ -3701,6 +4423,7 @@ export function createDirectiveRuntimeApp({
             campaignState,
             packageData: assets.packageData,
             crewDataset: assets.crewDataset,
+            campaignProjection: assets.projection,
             saveId: controller.activeSaveId,
             existingChatId: campaignState.campaignChatBinding?.chatId || null,
             createNewChat: !campaignState.campaignChatBinding?.chatId
@@ -3976,6 +4699,7 @@ export function createDirectiveRuntimeApp({
         });
         activeScreen = 'campaign';
         return {
+          coordinatorDiagnostics: cloneJson(result.coordinatorDiagnostics || null),
           turnPacket: cloneJson(result.turnPacket),
           narratorPacket: cloneJson(result.narratorPacket),
           commandLogPacket: cloneJson(result.commandLogPacket),
@@ -4014,6 +4738,7 @@ export function createDirectiveRuntimeApp({
         lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         return {
+          coordinatorDiagnostics: cloneJson(result.coordinatorDiagnostics || null),
           turnPacket: cloneJson(result.turnPacket),
           provisionalOutcome: cloneJson(result.provisionalOutcome),
           commandBearingPrompt: cloneJson(result.commandBearingPrompt),
@@ -4092,6 +4817,9 @@ export function createDirectiveRuntimeApp({
           ? await generateNarrationForLastTurnNow({ provider })
           : null;
         return {
+          coordinatorDiagnostics: {
+            continuityProjection: cloneJson(result.turnPacket?.provenance?.continuityProjection || null)
+          },
           turnPacket: cloneJson(result.turnPacket),
           commandBearingSpend: cloneJson(result.commandBearingSpend),
           narratorPacket: cloneJson(result.narratorPacket),

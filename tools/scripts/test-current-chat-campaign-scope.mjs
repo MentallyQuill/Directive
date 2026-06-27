@@ -7,6 +7,11 @@ import {
   __directiveRuntimeAppTestHooks,
   createDirectiveRuntimeApp
 } from '../../src/runtime/runtime-app.mjs';
+import {
+  loadCampaignSaveRecordFromStorage,
+  storeCampaignSave
+} from '../../src/storage/directive-storage-repository.mjs';
+import { createAutosaveCampaignSaveRecord } from '../../src/storage/save-records.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -222,26 +227,47 @@ async function startCampaign(name) {
   };
 }
 
+function campaignIndexRow(view, campaign) {
+  return view.campaignIndex.sessions.find((session) => session.campaignId === campaign.campaignId) || null;
+}
+
 await app.initialize();
 const campaignA = await startCampaign('Asha Ren');
 const campaignB = await startCampaign('Bren Tal');
+const campaignASourceRecord = await loadCampaignSaveRecordFromStorage(host.storage, campaignA.saveId);
+const campaignAAutosaveState = JSON.parse(JSON.stringify(campaignASourceRecord.payload.campaignState));
+campaignAAutosaveState.campaign.currentStardate = 53101.7;
+const campaignAAutosave = createAutosaveCampaignSaveRecord({
+  campaignState: campaignAAutosaveState,
+  packageData,
+  saveId: 'autosave-scope-latest-campaign-a',
+  savedAt: '2026-06-22T09:30:00.000Z',
+  summary: 'Latest autosave for campaign A.'
+});
+await storeCampaignSave(host.storage, campaignAAutosave);
 
 let view = await app.getCurrentView({ tabId: 'campaign' });
-assert.equal(view.campaignIndex.sessions.length >= 2, true, 'Command should index multiple campaign sessions.');
-assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId === campaignA.saveId), true);
-assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId === campaignB.saveId), true);
+assert.equal(view.campaignIndex.sessions.length >= 2, true, 'Command should index multiple campaigns.');
+assert.equal(view.campaignIndex.visibleSessions.some((session) => session.campaignId === campaignA.campaignId), true);
+assert.equal(view.campaignIndex.visibleSessions.some((session) => session.campaignId === campaignB.campaignId), true);
 
-const sessionA = view.campaignIndex.sessions.find((session) => session.saveId === campaignA.saveId);
-assert.ok(sessionA?.key, 'Campaign sessions should expose a stable hide/show key.');
-assert.equal(sessionA?.simulationMode, 'Command', 'Campaign sessions should expose saved Campaign Difficulty metadata.');
+const campaignARows = view.campaignIndex.sessions.filter((session) => session.campaignId === campaignA.campaignId);
+assert.equal(campaignARows.length, 1, 'Command should group every save for one playthrough into one campaign card.');
+const sessionA = campaignARows[0];
+assert.ok(sessionA?.key, 'Campaign cards should expose a stable hide/show key.');
+assert.equal(sessionA?.saveId, campaignAAutosave.id, 'Command should represent the newest save even when that save is an autosave.');
+assert.equal(sessionA?.slotType, 'autosave', 'Command latest-save selection should include autosaves.');
+assert.equal(sessionA?.saveCount, 2, 'Command campaign card should expose the grouped save count.');
+assert.equal(sessionA?.autosaveCount, 1, 'Command campaign card should count autosaves inside the campaign.');
+assert.equal(sessionA?.simulationMode, 'Command', 'Campaign cards should expose saved Campaign Difficulty metadata.');
 view = await app.hideCampaignSession({ key: sessionA.key });
-assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId === campaignA.saveId), false);
-assert.equal(view.campaignIndex.sessions.find((session) => session.saveId === campaignA.saveId)?.hidden, true);
+assert.equal(view.campaignIndex.visibleSessions.some((session) => session.campaignId === campaignA.campaignId), false);
+assert.equal(campaignIndexRow(view, campaignA)?.hidden, true);
 assert.equal(view.campaignIndex.counts.hidden >= 1, true);
 let preferences = await host.storage.readJson('system/ui-preferences.v1.json');
 assert.equal(preferences.hiddenCampaignSessionKeys.includes(sessionA.key), true);
 view = await app.showCampaignSession({ key: sessionA.key });
-assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId === campaignA.saveId), true);
+assert.equal(view.campaignIndex.visibleSessions.some((session) => session.campaignId === campaignA.campaignId), true);
 preferences = await host.storage.readJson('system/ui-preferences.v1.json');
 assert.equal(preferences.hiddenCampaignSessionKeys.includes(sessionA.key), false);
 
@@ -267,7 +293,7 @@ assert.equal(view.chatNative, null);
 assert.equal(view.currentChatCampaignGuard.reason, 'unbound-chat');
 assert.equal(view.loadedCampaignState.player.name, campaignB.name);
 assert.equal(view.loadedChatNative.manualSaveGuard.reason, 'unbound-chat');
-const ordinaryChatSessionB = view.campaignIndex.sessions.find((session) => session.saveId === campaignB.saveId);
+const ordinaryChatSessionB = campaignIndexRow(view, campaignB);
 assert.equal(ordinaryChatSessionB?.currentChat, false, 'A campaign row should not claim Current Chat while an unrelated host chat is selected.');
 assert.equal(ordinaryChatSessionB?.binding?.chatId, campaignB.binding.chatId, 'Campaign rows should retain the bound SillyTavern chat identity for display.');
 
@@ -277,13 +303,15 @@ assert.equal(view.currentChat.status, 'matching-campaign');
 assert.equal(view.campaignState.player.name, campaignA.name);
 assert.equal(view.chatNative.binding.saveId, campaignA.saveId);
 assert.equal(view.loadedSave.saveId, campaignA.saveId);
-assert.equal(view.campaignIndex.sessions.find((session) => session.saveId === campaignA.saveId)?.currentChat, true);
-assert.equal(view.campaignIndex.sessions.find((session) => session.saveId === campaignB.saveId)?.currentChat, false);
+assert.equal(campaignIndexRow(view, campaignA)?.saveId, campaignAAutosave.id, 'The campaign card should keep pointing at the latest save while an older branch chat is selected.');
+assert.equal(campaignIndexRow(view, campaignA)?.currentChat, true);
+assert.equal(campaignIndexRow(view, campaignA)?.currentChatSaveId, campaignA.saveId);
+assert.equal(campaignIndexRow(view, campaignB)?.currentChat, false);
 
 await app.hideCampaignSession({ key: sessionA.key });
 view = await app.getCurrentView({ tabId: 'log' });
 assert.equal(view.campaignState.player.name, campaignA.name, 'Hiding a Command row must not block live routes for the selected chat.');
-assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId === campaignA.saveId), false);
+assert.equal(view.campaignIndex.visibleSessions.some((session) => session.campaignId === campaignA.campaignId), false);
 preferences = await host.storage.readJson('system/ui-preferences.v1.json');
 assert.equal(preferences.hiddenCampaignSessionKeys.includes(sessionA.key), true);
 
@@ -294,4 +322,12 @@ assert.equal(view.campaignState.player.name, campaignB.name);
 assert.equal(view.chatNative.binding.saveId, campaignB.saveId);
 assert.equal(view.loadedSave.saveId, campaignB.saveId);
 
-console.log('Current chat campaign scope tests passed: Command index, hide/show, no-chat gating, non-Directive gating, and chat-selected hydration');
+const openedLatestAutosave = await app.openCampaignChat({
+  saveId: campaignAAutosave.id,
+  binding: campaignIndexRow(await app.getCurrentView({ tabId: 'campaign' }), campaignA)?.binding
+});
+assert.equal(openedLatestAutosave.ok, true);
+assert.equal(openedLatestAutosave.view.loadedSave.saveId, campaignAAutosave.id, 'Opening a campaign card should load its latest save.');
+assert.equal(openedLatestAutosave.view.chatNative.binding.saveId, campaignAAutosave.id, 'Explicit latest save id should override stale binding metadata when opening a campaign card.');
+
+console.log('Current chat campaign scope tests passed: Command campaign grouping, latest-save selection, hide/show, no-chat gating, non-Directive gating, and chat-selected hydration');

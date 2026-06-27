@@ -181,7 +181,9 @@ Narration uses the `narration` model role through the active generation route. T
 
 Directive-owned turns abort normal host generation and post exactly one assistant response. Response records carry status and idempotency data so retry does not duplicate the same outcome. Directive-owned responses are prefixed with the current campaign reply header, such as `*Stardate 53049.2 | 0830 hours*`, using deterministic campaign state rather than model inference.
 
-Host-native generations cannot be post-processed after the host model emits text, so Directive installs a high-priority reply-header prompt block that names the exact current header and tells the model not to infer elapsed time from prior headers.
+Host-native `injectAndContinue` generations are still host-authored prose, but Directive observes the resulting assistant message when the host path exposes it. The Continuity Projection Matrix guard reviews observed text for protected identity and travel contradictions, quarantines generated claims, records rejected claims, and marks the ingress/response `recoveryRequired` instead of treating retry-class continuity violations as accepted output. When the host cannot safely edit/delete/regenerate the bad message through a supported API, recovery is explicit rather than silent acceptance.
+
+Directive also installs a high-priority reply-header prompt block that names the exact current header and tells the model not to infer elapsed time from prior headers.
 
 ### Autosave And Sidecars
 

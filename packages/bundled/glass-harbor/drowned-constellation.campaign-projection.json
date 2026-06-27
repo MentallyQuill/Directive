@@ -43,6 +43,8 @@
     "threadLedger",
     "eventLedger",
     "attentionState",
+    "timeLedger",
+    "continuity",
     "runtimeTracking",
     "flags"
   ],
@@ -2301,9 +2303,35 @@
       "mechanicsRevision": 0,
       "stateDeltaJournal": []
     },
-    "commandBearing": {
-      "observations": [],
-      "history": []
+    "continuity": {
+      "schemaVersion": 1,
+      "acceptedFacts": [],
+      "candidateClaims": [],
+      "rejectedClaims": [],
+      "projectionHints": [],
+      "projectionRuns": [],
+      "factUseStats": {},
+      "automationLocks": [],
+      "projectionCache": {
+        "sourceHash": null,
+        "promptHash": null,
+        "blocks": [],
+        "omitted": []
+      },
+      "lastProjection": null,
+      "auditLog": []
+    },
+    "timeLedger": {
+      "schemaVersion": 1,
+      "openingMinuteOfDay": 855,
+      "elapsedMinutes": 0,
+      "stardate": 50192.6,
+      "shipClock": {
+        "minuteOfDay": 855,
+        "display": "1415 hours"
+      },
+      "entries": [],
+      "updatedAt": "generated-at-campaign-start"
     }
   }
 }

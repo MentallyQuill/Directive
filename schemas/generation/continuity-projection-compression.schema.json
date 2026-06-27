@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/generation/continuity-projection-compression.schema.json",
+  "title": "Directive Continuity Projection Compression",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "summaries"],
+  "properties": {
+    "kind": { "const": "directive.continuityProjectionCompression.v1" },
+    "summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceFactIds", "text", "lossNotes"],
+        "properties": {
+          "sourceFactIds": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "text": { "type": "string", "minLength": 1 },
+          "lossNotes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

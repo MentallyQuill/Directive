@@ -15,6 +15,13 @@ const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+const FULL_SCENE_HANDSHAKE_LOG_INPUT = [
+  'Whitaker gave Sam three concrete first-day priorities: Cross in Engineering, Bronn on alpha shift, and a department-head walkaround.',
+  'Cross needs the command-network handoff checked against yard certification; Bronn expects a professional introduction while he is on duty;',
+  'Sato and Saye need the post-refit walkaround to catch medical and science issues before arrival.',
+  'This full scene-handshake command-log tail must persist without being shortened before Log drawer rendering.'
+].join(' ');
 
 function createHarness(suffix = 'accepted') {
   let state = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
@@ -120,7 +127,7 @@ const settlement = {
   commandLogProposals: [
     {
       summaryInputs: [
-        'Whitaker gave Sam three concrete first-day priorities: Cross in Engineering, Bronn on alpha shift, and a department-head walkaround.'
+        FULL_SCENE_HANDSHAKE_LOG_INPUT
       ],
       visibleConsequences: [
         'Sam accepted the captain-issued working window before arrival at the Reach.'
@@ -219,6 +226,16 @@ assert.deepEqual(
   acceptedHarness.state.commandLog.entries[0].linkedAssignmentTitles,
   acceptedHarness.state.mission.openAssignments.map((entry) => entry.title)
 );
+assert.equal(
+  acceptedHarness.state.commandLog.entries[0].summaryInputs[0],
+  FULL_SCENE_HANDSHAKE_LOG_INPUT,
+  'Scene Handshake command-log inputs should preserve full text for the Log drawer.'
+);
+assert.doesNotMatch(
+  acceptedHarness.state.commandLog.entries[0].summaryInputs[0],
+  /\.\.\.$/,
+  'Scene Handshake command-log inputs should not be pre-truncated.'
+);
 assert.ok(acceptedHarness.state.ship.technicalDebt.length >= 1);
 assert.ok(acceptedHarness.state.ship.technicalDebt.some((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''}`)));
 assert.equal(acceptedHarness.state.threadLedger.records.length, 3);
@@ -230,6 +247,67 @@ assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.dis
 assert.ok(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount >= 8);
 assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
 assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sceneHandshake'));
+
+const movementHarness = createHarness('time-advance');
+const movementAssistant = {
+  hostMessageId: 'assistant-walks-to-ready-room',
+  index: 30,
+  role: 'assistant',
+  isUser: false,
+  text: 'Whitaker leads Sam out of the shuttlebay, through the corridor, and into the ready room.'
+};
+const movementPlayer = {
+  hostMessageId: 'player-accepts-ready-room',
+  index: 31,
+  role: 'user',
+  isUser: true,
+  text: 'Sam steps inside and waits for the captain to begin.'
+};
+const movement = await runSceneHandshakeSettlement({
+  campaignState: movementHarness.state,
+  currentPlayerMessage: movementPlayer,
+  recentMessages: [movementAssistant, movementPlayer],
+  chatId: movementHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-time-advance',
+  generationRouter: {
+    async generate(roleId) {
+      assert.equal(roleId, __sceneHandshakeSettlerTestHooks.ROLE_ID);
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-scene-handshake-time',
+          text: JSON.stringify({
+            kind: 'directive.sceneHandshakeSettlement.v1',
+            acceptedPreviousResponse: true,
+            playerReplyRelation: 'acts-on',
+            confidence: 0.84,
+            disposition: 'autoCommit',
+            needsInternalReview: false,
+            internalReviewReasons: [],
+            deferReason: null,
+            operatorRecoveryOnly: false,
+            openAssignmentProposals: [],
+            commandLogProposals: [],
+            shipReadinessProposals: [],
+            threadSignals: []
+          })
+        },
+        diagnostics: { providerId: 'fake-scene-handshake-time' }
+      };
+    }
+  },
+  stateDeltaGateway: movementHarness.gateway,
+  packageData,
+  now: movementHarness.now
+});
+movementHarness.state = movement.campaignState;
+assert.equal(movement.ok, true);
+assert.equal(movement.promptDirty, true);
+assert.equal(movement.timeAdvance.elapsedMinutes, 5);
+assert.equal(movementHarness.state.worldState.elapsedMinutes, 5);
+assert.equal(movementHarness.state.timeLedger.lastBoundary.reason, 'intra-ship-transition');
+assert.equal(movementHarness.state.timeLedger.lastBoundary.currentShipMinute, 515);
+assert.ok(movementHarness.persisted.some((proposal) => proposal.source === 'timeAdvanceAdjudicator'));
 
 const partialHarness = createHarness('partial-model-output');
 partialHarness.state = {

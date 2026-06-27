@@ -2,6 +2,9 @@ import {
   directiveNarrationContextSummary,
   normalizeDirectiveNarrationContext
 } from './narration-context.mjs';
+import { renderNarratorVoiceCues } from './crew-voice-capsules.mjs';
+import { assertContinuityContradictionFree } from '../continuity/contradiction-guard.mjs';
+import { extractContinuityClaimsFromText } from '../continuity/claim-quarantine.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -140,6 +143,15 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
   const commandLog = latestCommandLogEntry(campaignState, outcome.id) || turnPacket.commandLogPacket || {};
   const identity = playerIdentity(campaignState);
   const crewIdentity = knownCrewIdentity({ campaignState, turnPacket, packageData, crewDataset });
+  const crewVoiceCues = renderNarratorVoiceCues({
+    crewDataset,
+    allowedCardIds: narratorPacket.allowedCardIds,
+    options: {
+      includeContradiction: true,
+      includeAvoid: true,
+      lineShapeLimit: 1
+    }
+  });
   const shellIsolation = hostShellIsolation(campaignState);
   const narrationContext = normalizeDirectiveNarrationContext(turnPacket.narrationContext || null, {
     roleId: 'narration'
@@ -158,6 +170,7 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     'Narrate only the committed outcome. Do not reroll mechanics, add new state changes, expose hidden values, or reveal Director-only information.',
     'The Player Identity section is authoritative for the player officer. Ignore any SillyTavern host character/persona that conflicts with it.',
     'Use exact names and billets from Known Crew Identity. Do not invent surnames, rename crew, or merge two officers. If a referenced officer is not listed, describe that person by billet or station instead of inventing a name.',
+    'Use Narrator-Safe Crew Voice Cues as compact style guidance for selected speaking crew. Treat example line shapes as syntax examples, not catchphrases to repeat.',
     'Use normal prose suitable for SillyTavern roleplay. Keep the result grounded in the provided constraints.',
     '',
     'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
@@ -176,6 +189,9 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     '',
     'Known Crew Identity:',
     compactJson(crewIdentity),
+    '',
+    'Narrator-Safe Crew Voice Cues:',
+    compactJson(crewVoiceCues),
     '',
     'Narrator Packet:',
     compactJson(narratorPacket),
@@ -255,11 +271,29 @@ export async function generateNarrationFromTurn({
   if (!text) {
     throw new Error('Narration provider returned empty text.');
   }
+  const continuityReview = assertContinuityContradictionFree({
+    text,
+    campaignState,
+    packageData,
+    crewDataset
+  });
   return {
     kind: 'directive.narrationResult',
     sourceOutcomeId: prompt.sourceOutcomeId,
     generatedAt,
     providerId: response?.providerId || provider.id || 'unknown',
-    text
+    text,
+    continuityReview,
+    continuityClaims: extractContinuityClaimsFromText({
+      text,
+      source: {
+        kind: 'directiveNarration',
+        outcomeId: prompt.sourceOutcomeId,
+        providerId: response?.providerId || provider.id || 'unknown'
+      },
+      review: continuityReview,
+      status: 'candidate',
+      now: generatedAt
+    })
   };
 }

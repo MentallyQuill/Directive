@@ -2,6 +2,7 @@ import { indexDirectorDatasets } from './dataset-index.mjs';
 import { evaluateCardForAudience } from './gate-evaluator.mjs';
 import { collectRecallCandidates, narratorHintCardIds } from './recall-lanes.mjs';
 import { createRetrievalJournal, createRetrievalRunId } from './run-journal.mjs';
+import { hydrateDirectorCards } from './card-hydration.mjs';
 
 export const DIRECTOR_RETRIEVAL_AUDIENCES = Object.freeze([
   'missionDirector',
@@ -116,10 +117,17 @@ export function runDirectorRetrieval({
       implicatedCardIds: audience === 'narrator' ? narratorHints : [],
       maxCards: audience === 'narrator' ? 8 : 12
     });
+    const hydration = hydrateDirectorCards({
+      index,
+      cardIds: packet.cardIds,
+      audience
+    });
     packets[audience] = {
       audience,
       runId,
-      cardIds: packet.cardIds
+      cardIds: packet.cardIds,
+      hydratedCards: hydration.cards,
+      omittedHydrationCardIds: hydration.omittedCardIds
     };
     candidateIdsByAudience[audience] = unique(packet.candidateCardIds);
     selectedByAudience[audience] = cloneJson(packet.cardIds);

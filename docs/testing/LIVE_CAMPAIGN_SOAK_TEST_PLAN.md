@@ -8,9 +8,23 @@ Directive is pre-alpha. The soak may exercise the best current runtime behavior 
 
 The normal alpha gate remains the dependency-free contract suite. The soak is release-certification evidence for the full chat-native campaign loop.
 
+## Current Ashes-First Scope
+
+Current live testing is paused for a scope reset. When it resumes, the active live target is Ashes of Peace only.
+
+The goal is broader, faster signal inside one campaign instead of spending current effort starting every bundled campaign. Use Ashes as the reference campaign and collect repeated evidence around these pillars:
+
+- generated responses align to factual Ashes campaign content, including opening premise, current mission frame, senior crew identity, ship status, location, and timeline;
+- Mission Director behavior respects the actual Ashes package and current campaign state instead of generic Star Trek assumptions or test-player pressure;
+- Mission, Crew, Ship, and Log drawers populate with the expected objective, crew, pressure, relationship, ship, and Command Log projections after relevant turns;
+- sidecars, Scene Handshake, timekeeping, prompt freshness, and subsystem checks trigger at meaningful points and produce useful evidence instead of empty or purely mechanical logs;
+- Continuity Projection Matrix coverage is now a first-class Ashes interval check before returning to all-campaign rotation, with prompt-key/source-id proof and factual-grounding artifacts required in live evidence.
+
+Do not treat every bundled campaign as required current live coverage. Multi-campaign validation remains a later release-rotation check after Ashes produces reliable evidence for these pillars.
+
 ## Core Purpose
 
-The soak proves that a real campaign can continue through roughly 50 player turns while Directive uses the systems that matter in live play:
+The soak ultimately proves that a real campaign can continue through roughly 50 player turns while Directive uses the systems that matter in live play. During the current reset, run Ashes in 5-10 turn evidence intervals first, then return to the full 50+ turn stress only after the pillars above are producing useful logs and no P0/P1 blockers remain:
 
 - chat-native campaign activation and prompt injection;
 - campaign factual grounding, including package canon, active state, senior-crew identity, opening premise, current location/time, and cross-campaign isolation;
@@ -97,6 +111,19 @@ $env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
 node tools\scripts\soak-sillytavern-campaign-live.mjs
 ```
 
+For Continuity Projection Matrix certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator runs the campaign soak once per Ashes lane/user and aggregates sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, and deterministic factual-grounding checks were present for every lane:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b,directive-soak-c,directive-soak-d,directive-soak-e'
+$env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
+node tools\scripts\run-continuity-matrix-five-user-soak.mjs --live --write-artifacts
+```
+
+Add `--turn-limit N` only for bounded proof. A bounded run can prove the coordinator, prompt injection, and factual-grounding gates, but it is not full 52-turn lane certification.
+
+If a full certification run is interrupted, rerun the coordinator with the same `DIRECTIVE_CPM_FIVE_USER_SOAK_RUN_ID` and `--resume`. Resume mode reuses only lane artifacts whose turn depth matches the requested run and whose CPM prompt/source proof and deterministic factual-grounding artifacts already pass, then continues the remaining lanes.
+
 ## Model Call Policy
 
 The live campaign soak is an unlimited model-call test.
@@ -177,7 +204,8 @@ Required artifacts:
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `fact-checks/`: generated player-safe fact canary packs, `canary-index.json`, prompt-availability audits, per-generation factual-grounding verdicts, contradiction summaries, and source pointers.
-- `campaign-matrix/`: generated short live canary scripts for each bundled campaign, `canary-index.json`, required live checks, planned third-person canary turns, and package-specific coverage notes.
+- `campaign-matrix/`: generated active-campaign canary scripts. In the current reset this contains Ashes only, with required live checks, planned third-person canary turns, and package-specific coverage notes. Deferred all-campaign rotation artifacts should use the same shape when re-enabled.
+- `quality-review/`: story-quality score ledger, phase summary, manual review template, manual review import ledger, model-assisted review request/result, reviewer mode, score-zero triage pointers, transcript pointers, and player-safe rationale excerpts.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `objective-assignments/`: accepted assignment source pointers, Mission Current Orders/Open Assignments excerpts, Command Log excerpts, linked Crew Character/Roster excerpts, state snapshots, and screenshot paths.
 - `scene-handshake/`: settlement snapshots, model-call diagnostics, open-assignment/log/ship/thread deltas, source message hashes, idempotency records, rejected/deferred settlement records, and prompt-rebuild proof.
@@ -185,7 +213,7 @@ Required artifacts:
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
 - `command-bearing/`: coverage board, Readied point state, fit-check outputs, spend-validator results, spend/return records, evidence ledger excerpts, Mark Review records, relationship perception records, and controlled narration packet summaries.
 
-The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires Scene Handshake, objective-assignment projection, factual-grounding, timekeeping, and Command Bearing policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
+The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires Scene Handshake, objective-assignment projection, factual-grounding, timekeeping, and Command Bearing policies, requires the active campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
 The report must redact:
 
@@ -218,6 +246,8 @@ The transcript is not just a debug file. It is part of the release signal:
 - weak but technically safe prose should be scored as a quality warning;
 - a system pass with a dull, incoherent, or visibly synthetic campaign transcript is not release-quality evidence.
 
+Current automated coverage initializes `quality-review/scores.jsonl`, `quality-review/phase-summary.json`, `quality-review/manual-review-template.json`, `quality-review/manual-review-import.jsonl`, `quality-review/model-assisted-review/request.json`, and `quality-review/model-assisted-review/result.json` during dry-run artifact creation and live execution. After a delegated live smoke copies the SillyTavern-visible transcript, the soak runner now performs a deterministic transcript sanity review: player messages are scored for third-person perspective, actionability, agency discipline, and prose viability; assistant/Directive messages are scanned for raw-state leaks, player-agency overreach, known factual-break probes, thin replies, and basic continuity/mission-pressure signal. It also exports a manual review template with visible transcript pointers, text hashes/previews, deterministic sanity score hints, score definitions, and empty reviewer fields. Completed manual review templates can be imported into the same score ledger and phase summary through the soak helpers. In live execution, the runner also prepares a player-safe model review request and delegates it through the real SillyTavern runtime `storyQualityReviewer` Utility role; accepted model scores are imported as `player-safe-model-assisted-review` score records. This is not a replacement for deeper human judgment; it is a guardrail that makes obvious transcript quality failures visible in the running log and score artifacts before the run summary is written, while preserving a structured path for human readback scores.
+
 ## Factual Grounding And Campaign Fact-Check Contract
 
 Factual grounding is a release-quality surface, separate from prose quality. A generated reply can be polished and still fail if it contradicts player-safe campaign canon or active campaign state. The soak must check whether SillyTavern-visible generations preserve the facts Directive is responsible for injecting.
@@ -241,7 +271,7 @@ This two-phase split is mandatory. A contradiction when the fact was available p
 
 The fact checker may use deterministic assertions for known canaries and may use a model-assisted evaluator for broader transcript review. If a model-assisted evaluator is used, it must receive only player-safe canary facts and visible transcript excerpts, never hidden truth or raw prompts. The evaluator should return structured JSON with fact ids, verdicts, evidence spans, severity, root-cause guess, and confidence.
 
-Current automated coverage includes generated player-safe canary packs for every bundled campaign, per-turn prompt-inspection snapshots from the delegated live smoke, immutable per-turn source transcript snapshots, per-generation fact checks when a smoke round has both artifacts, a transcript-level fact audit as a broad review, and player-safe model-assisted review request/result artifacts. Per-generation checks write `fact-checks/<script-message-id>/fact-check.json`; the transcript review writes `fact-checks/transcript-level/fact-check.json`; model-review input and output write `fact-checks/model-assisted-review/request.json` and `fact-checks/model-assisted-review/result.json`; deterministic checks log `fact-check` records. In live execution, the soak runner delegates the model-assisted review back into the real SillyTavern browser runtime through the `factualGroundingReviewer` provider role and logs `model-assisted-factual-review` records. Prompt availability uses redacted prompt-inspection block ids, hashes, titles, and source ids rather than raw prompt text. A generation-dispatch prompt snapshot hook may still be needed if live evidence shows prompt context can rebuild after the smoke pre-generation snapshot.
+Current automated coverage includes generated player-safe Ashes canary packs, per-turn prompt-inspection snapshots from the delegated live smoke, immutable per-turn source transcript snapshots, per-generation fact checks when a smoke round has both artifacts, a transcript-level fact audit as a broad review, and player-safe model-assisted review request/result artifacts. Per-generation checks write `fact-checks/<script-message-id>/fact-check.json`; the transcript review writes `fact-checks/transcript-level/fact-check.json`; model-review input and output write `fact-checks/model-assisted-review/request.json` and `fact-checks/model-assisted-review/result.json`; deterministic checks log `fact-check` records. In live execution, the soak runner delegates the model-assisted review back into the real SillyTavern browser runtime through the `factualGroundingReviewer` provider role and logs `model-assisted-factual-review` records. Prompt availability uses redacted prompt-inspection block ids, hashes, titles, and source ids rather than raw prompt text. A generation-dispatch prompt snapshot hook may still be needed if live evidence shows prompt context can rebuild after the smoke pre-generation snapshot.
 
 Every SillyTavern-visible assistant generation in the soak receives at least a lightweight factual audit. The audit records whether the reply introduced named people, ranks, species, ages, locations, travel state, mission objectives, active orders, ship status, time, theater, or campaign-specific terms. When none appear, the audit may be `no-material-facts`, but it still records the message id, transcript pointer, prompt snapshot id, fact-pack hash, and reviewer mode. When material facts appear, the generation must be compared against the active campaign's player-safe fact canary pack and current save projection.
 
@@ -294,7 +324,7 @@ High-risk generation points always require `full-check`:
 - any assistant reply immediately after prompt rebuild, save/load, branch switch, edit/delete/reconciliation, swipe, campaign switch, or provider retry;
 - any reply where the human reviewer notices "good prose, wrong fact" behavior.
 
-Each campaign needs a small `expected-facts-before-generation` checklist for high-risk scenes. For Ashes, before Bronn or the transfer premise can be trusted, the prompt availability proof should show the active package/save made the following player-safe facts available: Bronn is Tellarite and late-fifties; Whitaker is captain; Bronn has been acting XO; the player is the incoming XO arriving by shuttle; the Breckenridge has been on sustained warp-cruise deployment, with the shuttle rendezvous shortly before arrival in the Asterion Reach; the ship is newly refit and certified but not yet fully proven under deployment load. Equivalent checklists must be generated or written for every bundled campaign before its live canary is counted.
+Ashes needs a small `expected-facts-before-generation` checklist for each high-risk scene. Before Bronn or the transfer premise can be trusted, the prompt availability proof should show the active package/save made the following player-safe facts available: Bronn is Tellarite and late-fifties; Whitaker is captain; Bronn has been acting XO; the player is the incoming XO arriving by shuttle; the Breckenridge has been on sustained warp-cruise deployment, with the shuttle rendezvous shortly before arrival in the Asterion Reach; the ship is newly refit and certified but not yet fully proven under deployment load. Equivalent checklists are deferred for other bundled campaigns until all-campaign rotation resumes.
 
 When a fact fails, the runner should not immediately label it "bad model output." The report must preserve the diagnostic chain:
 
@@ -305,6 +335,21 @@ When a fact fails, the runner should not immediately label it "bad model output.
 - `recovery-status`: not-needed, corrected-next-turn, corrected-by-reconciliation, corrected-by-edit, requires-fix, or unresolved.
 
 A P1 factual blocker pauses only the affected lane unless the same prompt/source failure appears across campaigns or users. Before pausing, append the `fact-check` record, refresh the readable/source transcript, capture the prompt-inspection snapshot metadata, write the current save/chat ids, and record whether the finding should be fixed immediately or deferred to the next fix barrier.
+
+### Live Fact-Check Procedure
+
+For live testing, "fact-check each generation" means the runner or human operator performs a bounded review before the next scripted player turn advances:
+
+1. Identify the active campaign package, save id, chat id, prompt revision, current scene, and player-safe fact canary pack.
+2. For high-risk scenes, fill the `expected-facts-before-generation` checklist before the generation is judged. If the required fact was not available to the model, log a prompt/source failure even if the visible reply happens to be plausible.
+3. Attach the generated assistant message id, message index, readable transcript anchor, source-chat pointer, and prompt-inspection snapshot id.
+4. Run the material-fact scan and choose `no-material-facts`, `light-check`, `full-check`, or `cross-campaign-check`.
+5. For every material fact, compare the visible reply against the active player-safe fact pack and current save projection. Do not rely on memory of the campaign docs when a source pointer exists.
+6. Record the diagnostic chain: source status, prompt status, generation status, continuity impact, recovery status, severity, confidence, and artifact path.
+7. If the reply is compelling prose but factually wrong, preserve it in the transcript, log the defect, and classify the root cause. Do not silently edit the transcript into correctness.
+8. If the issue is P1, pause the affected lane after writing the log, transcript, prompt snapshot metadata, and current save/chat ids. If it is P2/P3, keep the lane moving unless continuation would destroy useful evidence.
+
+Manual reviewers may add retroactive `fact-check` records while reading the transcript. A retroactive check must point to the original message and source facts rather than rewriting history. If later reconciliation or edited replies repair the issue, log the repair as recovery evidence and keep the original factual failure visible for diagnosis.
 
 Do not use hidden truth as a visible-output fact target. If a generation avoids mentioning a hidden campaign truth, that is normally correct. If it reveals, contradicts, or treats hidden truth as public knowledge, log that through the hidden-state leak rules as well as the factual-grounding record.
 
@@ -493,7 +538,7 @@ These checks should use both desktop and phone-width screenshots where practical
 
 Scene Handshake is now a first-class live soak surface. It settles accepted host-native assistant prose into structured campaign state on the next player reply. The soak must prove this boundary separately from ordinary Mission Director commits, sidecars, Scene Reconciliation, and Command Bearing.
 
-Primary certification belongs to Agent A during normal long-play host-native turns, with Agent B covering swipe/edit/delete/reconciliation pressure and Agent D covering cross-campaign portability. Agent C must verify that Scene Handshake does not award, refund, ready, spend, or review Command Bearing state. Agent E should inspect player-visible wording and agency boundaries when the previous assistant beat is accepted, rejected, or corrected.
+Primary certification belongs to the Ashes factual/director lane during normal host-native turns, with the drawer-projection lane verifying Mission/Crew/Ship/Log effects, the sidecar/timekeeping lane proving prompt and sidecar cadence, and the mutation lane covering swipe/edit/delete/reconciliation pressure. The Command Bearing/End Conditions lane must verify that Scene Handshake does not award, refund, ready, spend, or review Command Bearing state. Every lane should inspect player-visible wording and agency boundaries when the previous assistant beat is accepted, rejected, or corrected.
 
 Required live scenarios:
 
@@ -549,11 +594,23 @@ Required live checks:
 
 Every 5-10 turn checkpoint should record expected header, visible latest-header sample, campaign stardate, ship minute/time source, reply surface, prompt-block hash, preset version/status, and whether the latest message was Directive-owned or host-native. Header failures are P1 when they contradict authoritative state or pollute model/evidence paths, and P2 when the only issue is host-native cosmetic omission with preserved state and explicit prompt/preset diagnostics.
 
-## Multi-Campaign Coverage
+## Active Campaign Coverage
 
-The full 50+ turn soak should run against one primary campaign per certification run, but every bundled campaign must receive deterministic validation and a short live Playwright canary. This prevents Ashes-specific assumptions from hiding in campaign library, creator, chat binding, prompt injection, save/load, End Conditions, or cross-campaign isolation paths.
+The current live campaign matrix contains one row: Ashes of Peace. The purpose is to build reliable evidence depth around the systems we keep missing before expanding back to every bundled campaign.
 
-Minimum cross-campaign tests:
+Current matrix:
+
+| Campaign | Package | Required Live Coverage | Focus |
+|---|---|---|---|
+| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | active Ashes-only Playwright soak | factual grounding, Mission Director content behavior, Mission/Crew/Ship/Log projection, sidecars, timekeeping, mutation recovery, Command Bearing, and terminal End Conditions |
+
+For the active Ashes row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, factual-grounding canary result, prompt-availability audit result, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and any cross-campaign isolation probe that is deliberately scheduled.
+
+Do not spend current live-testing time starting Drowned Constellation, Black Current, Broken Accord, Unseen Border, or Enemy's Garden unless a specific Ashes bug requires a second package as a reproduction control.
+
+## Deferred All-Campaign Rotation
+
+After Ashes evidence is useful and current P0/P1 blockers are cleared, restore a release-rotation pass where every bundled campaign receives deterministic validation and a short live Playwright canary. That later pass should include:
 
 - Package Validity Matrix: run package, projection, crew dataset, mission graph, and End Conditions contract tests for every bundled campaign.
 - Campaign Library / Selection: verify every bundled campaign appears in the live SillyTavern Directive library with the correct title, metadata, status, and assets.
@@ -570,19 +627,6 @@ Minimum cross-campaign tests:
 - Campaign-Specific Mechanics: assert the campaign's unique mission pressure, crew set, theater, named systems, and End Conditions appear without Breckenridge/Ashes hardcoding.
 - Prompt Safety: inspect prompt block ids, hashes, package ids, and visible chat behavior to verify hidden state does not leak and package-specific context does not bleed across campaigns.
 
-Current matrix:
-
-| Campaign | Package | Required Live Coverage | Focus |
-|---|---|---|---|
-| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | 52-turn full-soak rotation primary | reference retcon/reconciliation stress, message actions, terminal End Conditions |
-| Drowned Constellation | `directive:campaign-package:glass-harbor-drowned-constellation` | short live canary | underwater/research mission pressure and campaign-specific End Conditions |
-| Black Current | `directive:campaign-package:serein-black-current` | short live canary | convoy/logistics mission pressure and campaign-specific End Conditions |
-| Broken Accord | `directive:campaign-package:eudora-vale-broken-accord` | short live canary | diplomacy/resource mission pressure and campaign-specific End Conditions |
-| Unseen Border | `directive:campaign-package:aster-vale-unseen-border` | short live canary | border/route mission pressure and campaign-specific End Conditions |
-| Enemy's Garden | `directive:campaign-package:celandine-enemys-garden` | short live canary | relief/biology mission pressure and campaign-specific End Conditions |
-
-For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, factual-grounding canary result, prompt-availability audit result, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
-
 ## Parallel Multi-User Coverage Lanes And Patch Barriers
 
 Parallel soak workers are useful only if their state, coverage lane, and fix policy are explicit. Treat each worker as a coverage lane first. A worker becomes a patch lane only when a P0/P1 blocker must be fixed immediately or when the coordinator schedules a fix barrier.
@@ -594,15 +638,15 @@ Parallel soak workers are useful only if their state, coverage lane, and fix pol
 - one branch or worktree when code changes are being made;
 - one installed/served extension copy if the SillyTavern host supports per-user extension installs, otherwise one separate SillyTavern host/dataRoot per patch lane.
 
-Full five-lane assignment:
+Current Ashes five-lane assignment:
 
 | Worker | ST User | Primary Lane | Coverage Goal | Stop Rule |
 |---|---|---|---|---|
-| A | `directive-soak-a` | Canonical long campaign | Ashes of Peace, 50+ turns, preferred third-person play, transcript quality, factual grounding across normal play, ordinary continuity, Scene Handshake assignment settlement, and timekeeping header cadence | Continue through non-blocking quality/consequence issues; stop only for P0/P1 blockers |
-| B | `directive-soak-b` | Mutation and reconciliation | Recent edits, far-back edits, deletes, swipes, message actions, reconcile/recalculate, continuity recovery, Scene Handshake source invalidation, and stale-header stripping | Continue after logging unless mutation corrupts storage or prevents campaign continuation |
-| C | `directive-soak-c` | End Conditions and Command Bearing | Subtle command-fitness failures, evidence accumulation, closure detection, Mark Review grading, point spend/return, terminal decisions, Push On, Replay, Keep Ending, Save Branch | Continue across proportionality issues; stop for broken terminal persistence, invalid point transactions, or branch corruption |
-| D | `directive-soak-d` | Multi-campaign matrix | Short canaries across bundled campaigns, creator/start/chat binding, save/load, prompt isolation, factual-grounding canaries, package-specific End Conditions, per-campaign reply headers, and cross-campaign Scene Handshake isolation | Continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage |
-| E | `directive-soak-e` | Assist, agency, and story quality | Directive Assist, tense/PoV, factual-grounding review, NPC agency, god-mode resistance, secret bad-guy play, story steering | Continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement is globally unusable |
+| A | `directive-soak-a` | Ashes factual/director | Opening premise, senior crew facts, current mission frame, Mission Director choices, story-quality readback, and third-person play | Continue through non-blocking quality/consequence issues; stop only for P0/P1 factual, prompt, or director blockers |
+| B | `directive-soak-b` | Ashes drawer projection | Mission, Crew, Ship, and Log drawer population after assignments, crew interaction, ship-state changes, Scene Handshake, and save/load | Continue after logging unless missing projections block campaign operation or prove state-to-UI corruption |
+| C | `directive-soak-c` | Ashes sidecars/timekeeping | Sidecar health, relationship/crew/ship/thread movement, timekeeping reply headers, prompt freshness, and meaningful check triggers every 5-10 turns | Continue through isolated weak signals; stop for repeated sidecar batch failure, stale prompt context, or authoritative time/header contradiction |
+| D | `directive-soak-d` | Ashes mutation/reconciliation | Recent edits, far-back edits, deletes, swipes, message actions, reconcile/recalculate, continuity recovery, Scene Handshake source invalidation, and stale-header stripping | Continue after logging unless mutation corrupts storage or prevents Ashes continuation |
+| E | `directive-soak-e` | Ashes Command Bearing/endings | Command Bearing evidence, closure detection, Mark Review grading, point spend/return, subtle End Condition failures, terminal decisions, Push On, Replay, Keep Ending, Save Branch, Assist wording, agency resistance, and story steering | Continue through weak prose or proportionality issues; stop for invalid point transactions, broken terminal persistence, hidden-state exposure, or branch corruption |
 
 The coordinator does not consume `default-user` and should not run a competing campaign lane. The coordinator watches the logs, keeps workers from duplicating the same coverage, assigns reproduction only when useful, and schedules fix barriers.
 
@@ -618,7 +662,7 @@ Default fix policy:
 Best workflow:
 
 1. Start from a clean coordination point: repo tests pass, extension copy is synced, `check-sillytavern-multi-user-soak-readiness.mjs --live` passes for all five users, and every worker writes its own `live-log.jsonl`.
-2. Assign the five workers to the five distinct lanes above. The default mode is breadth-first discovery, not five agents repeating the same long soak.
+2. Assign the five workers to the five distinct Ashes lanes above. The default mode is breadth-first discovery inside Ashes, not five agents repeating the same long soak or spending current effort on all-campaign startup.
 3. When a worker finds a P2/P3 issue, log it, mark the fix deferred, preserve artifacts, and continue the assigned lane unless continuation would destroy useful evidence.
 4. When a worker finds a P0/P1 blocker, pause the affected lane, preserve its log/artifacts, create a focused branch/worktree fix, and run the smallest deterministic test that proves the bug.
 5. Sync the fixed repo files only into that worker's served extension copy and rerun the failing live step in that user's ST account.
@@ -637,7 +681,7 @@ Do not run two workers against the same ST user, campaign chat, save id, or bran
 
 ## Turn Script Overview
 
-The main soak target is 52 player turns on the current full-soak rotation primary. The exact prose can vary by campaign package, but the script should preserve the intent categories and mutation timing. End Conditions coverage runs as fresh terminal sub-runs after the continuation proof so catastrophic failure testing does not poison the long-running continuity campaign. Non-primary campaigns receive the short live canary in the multi-campaign matrix.
+The long-form soak target remains 52 Ashes player turns, but the current reset should reach it through focused 5-10 turn intervals. Each interval should declare which pillar it is testing, update `live-log.jsonl` as it goes, and stop for review when the evidence is thin, noisy, or blocked. End Conditions coverage runs as fresh terminal sub-runs after baseline Ashes evidence is stable so catastrophic failure testing does not poison the long-running continuity campaign. Non-primary campaign canaries are deferred.
 
 | Phase | Turns | Main Purpose |
 |---|---:|---|
@@ -1045,17 +1089,17 @@ Command Bearing is tested in three layers:
 - live Playwright checks prove Assist, visible projection, point ready/cancel/spend, controlled narration, persistence, and recovery behavior in the real SillyTavern host;
 - 5-10 turn soak intervals prove evidence and closure accumulate through believable play instead of one-off test prompts.
 
-Agent C owns the primary Command Bearing lane. Agents A, B, D, and E still contribute signal through normal long-play accumulation, retcon abuse, multi-campaign canaries, and Assist/projection wording quality.
+The Ashes Command Bearing/endings lane owns primary Command Bearing certification. The factual/director, drawer-projection, sidecar/timekeeping, and mutation/reconciliation lanes still contribute signal through normal play accumulation, projection checks, sidecar cadence, retcon abuse, and Assist/projection wording quality.
 
 Cross-lane responsibilities:
 
 | Worker | Command Bearing Contribution |
 |---|---|
-| A | Organic long-play evidence: routine no-evidence baselines, naturally earned evidence, story-quality projection, and any late closure that arises during the 50+ turn run |
-| B | Retcon pressure: edit/delete/swipe/reconcile source turns after evidence, review, or spend exists, then prove ordinary recovery handles stale Command Bearing state |
-| C | Primary certification: evidence arcs, closure ladder, Mark Review grading, point lifecycle, fixture-backed branches when organic play stalls, and severity classification |
-| D | Campaign portability: package-specific point display, fit/evidence canaries, End Conditions interaction, and proof that Command Bearing state does not cross campaigns |
-| E | Assist and abuse wording: fit-check quality, Ready/Cancel UX, hidden-state lures, reward-farming attempts, god-mode wording, and player-safe projection copy |
+| A | Organic Ashes evidence: routine no-evidence baselines, naturally earned evidence, story-quality projection, and any late closure that arises during Ashes play |
+| B | Projection evidence: player-safe point state, linked Crew/Mission wording, and screenshots when Command Bearing effects touch visible surfaces |
+| C | Sidecar/timekeeping evidence: proof that prompt freshness, sidecar order, and reply-header handling do not fabricate, drop, or stale Command Bearing context |
+| D | Retcon pressure: edit/delete/swipe/reconcile source turns after evidence, review, or spend exists, then prove ordinary recovery handles stale Command Bearing state |
+| E | Primary certification: evidence arcs, closure ladder, Mark Review grading, point lifecycle, Assist fit-check wording, hidden-state lures, reward-farming attempts, god-mode wording, End Conditions interaction, fixture-backed branches when organic play stalls, and severity classification |
 | Coordinator | Coverage board, artifact completeness, sync barriers, deferred-fix ledger, and handoff records when a lane pauses |
 
 The certification question is not "did Command Bearing appear?" It is:
@@ -1082,11 +1126,11 @@ If a live interval repeatedly records a Resolve-shaped act as Inspiration, recor
 
 Command Bearing needs its own story-shaped run inside the broader soak. Do not try to prove it with a single "use a point" prompt. The lane should create multiple believable command arcs, let evidence accumulate, detect whether real closures occurred, grade the closure, and then spend points against later consequential actions.
 
-Agent C should run this schedule, with Agent A contributing long-play organic evidence and Agent B retconning one Command Bearing source turn after it exists:
+The Ashes Command Bearing/endings lane should run this schedule, with the factual/director lane contributing organic evidence and the mutation/reconciliation lane retconning one Command Bearing source turn after it exists:
 
 | Segment | Timing | Purpose | Required Proof |
 |---|---|---|---|
-| Baseline false positives | early clean play and one focused Agent C sub-run | establish what should not count | routine competence, politeness, command keywords, and Assist-only actions create no evidence, no Marks, and no points |
+| Baseline false positives | early clean play and one focused Command Bearing sub-run | establish what should not count | routine competence, politeness, command keywords, and Assist-only actions create no evidence, no Marks, and no points |
 | Inspiration evidence arc | 3-6 connected player turns | build a trust/cooperation/mentorship thread | committed outcomes create player-safe evidence only when the player's approach materially depends on trust, dignity, shared purpose, transparency, or voluntary cooperation |
 | Resolve evidence arc | 3-6 connected player turns | build an authority/boundary/discipline thread | committed outcomes create player-safe evidence only when the player's approach materially depends on lawful authority, preparation, deterrence, accountability, or command discipline |
 | Mixed and failed evidence | 2-4 consequential turns | prove nuance | failed or costly outcomes can create evidence when Agency, Commitment, and Causality exist; mixed approaches choose a defensible primary signal rather than rewarding every keyword |
@@ -1159,9 +1203,9 @@ Required gate ids:
 
 Each board entry must store owner, contributor lanes, current status, last update timestamp, save/chat ids, transcript pointers, state snapshot ids, model-call roles observed, screenshots, blocker severity, and next interval target. Do not mark a gate complete from memory or chat prose alone; the board needs artifact paths. The board must be updated after every Command Bearing interval before the lane continues, even when the result is `noQueue`, `no-evidence`, `blocked`, or fixture-limited. An interrupted soak should still show which Command Bearing gate was in progress, which proof artifacts exist, and what the next interval should attempt.
 
-### Agent C Interval Playbook
+### Ashes Command Bearing Interval Playbook
 
-Agent C should run Command Bearing as an interval test, not as isolated button checks. Each interval should be 5-10 settled player turns unless a P0/P1 stop condition fires.
+The Ashes Command Bearing/endings lane should run Command Bearing as an interval test, not as isolated button checks. Each interval should be 5-10 settled player turns unless a P0/P1 stop condition fires.
 
 | Interval | Story Target | Required State Proof | Branch Rule |
 |---|---|---|---|
@@ -1177,7 +1221,7 @@ At the end of each interval, the coordinator should append a `command-bearing-in
 
 ### Command Bearing Interval Checklist
 
-Run this checklist for every Agent C interval and for any Agent A/B/D/E interval that creates or mutates Command Bearing state:
+Run this checklist for every primary Command Bearing interval and for any other Ashes lane interval that creates or mutates Command Bearing state:
 
 1. Name the interval before play starts: `baseline`, `inspiration-arc`, `resolve-arc`, `closure-probe`, `mark-review`, `point-lifecycle`, or `recovery`.
 2. Capture the starting save/chat snapshot, point counts, evidence ledger count, review queue count, reviewed closure ids, spend ledger count, relationship perception count, and relevant open thread/quest/chapter/arc ids.
@@ -1257,7 +1301,7 @@ Every Mark Review should be checked against these gates before any award counts:
 
 ### Command Bearing Probe Library
 
-Agent C should pull from this probe library when building 5-10 turn intervals. These are intent families, not literal player text. The actual posts should remain third-person, in-character prose and should not name the mechanical result the tester wants.
+The Ashes Command Bearing/endings lane should pull from this probe library when building 5-10 turn intervals. These are intent families, not literal player text. The actual posts should remain third-person, in-character prose and should not name the mechanical result the tester wants.
 
 | Probe | Player-Facing Shape | Expected Mechanical Signal | Required Negative Check |
 |---|---|---|---|
@@ -1616,8 +1660,10 @@ After the automated run, a human reviewer should inspect:
 
 - `transcript/readable-chat.md` as an end-to-end story readback for enjoyment, continuity, character voice, pacing, and dramatic payoff;
 - `transcript/index.json` and `transcript/source-chat.jsonl` to confirm the saved transcript maps to the correct ST user, campaign, chat, save branch, and run id;
+- `quality-review/manual-review-template.json` while reading the transcript, then import completed reviewer scores so `quality-review/manual-review-import.jsonl`, `quality-review/scores.jsonl`, and `quality-review/phase-summary.json` preserve the human quality judgment;
 - the first 10 turns for normal campaign feel;
 - `fact-checks/` and `fact-check` live-log records for opening premise, senior crew identity, current location/time, player billet, ship/venue facts, prompt availability, and root-cause labels on every contradiction or unsupported detail;
+- a sample of `no-material-facts` and `light-check` assistant replies to ensure the material-fact scanner did not miss quiet premise, identity, location, order, or ship-state drift;
 - any generation that reads well but changes a campaign fact, using the source-check, prompt-availability, and generation-compliance trail to decide whether the defect belongs to package data, projection, prompt assembly, retrieval/compression, or model compliance;
 - every first appearance of a named senior crew member for species, age band, role, rank, relationship to the player, and whether the fact was available in prompt context before generation;
 - every Scene Handshake settlement for accepted/rejected source handling, current-order/log/ship/thread deltas, idempotency, prompt rebuild, source provenance, and no mutation outside the V1 allowlist;
@@ -1631,7 +1677,7 @@ After the automated run, a human reviewer should inspect:
 - every accepted pending proposal for player-safe wording and authorized roots;
 - every terminal checkpoint message for player-safe wording, clear options, and hidden-state exclusion;
 - every terminal decision resolution for the expected ledger status and persistence behavior;
-- every campaign matrix row for library visibility, fresh start, chat binding, short live canary, factual-grounding canary, save/load, End Conditions, and isolation evidence;
+- the active Ashes campaign row for library visibility, fresh start, chat binding, factual-grounding canary, save/load, End Conditions, and isolation evidence; deferred campaign matrix rows receive the same review only after all-campaign rotation resumes;
 - final Mission/Crew/Ship/Log summaries for internal consistency;
 - screenshots for message actions, Assist menu, pending reconciliation card, and route health;
 - `live-log.jsonl` for an append-only trail with no gaps around failures, operator stops, model calls, edits, deletes, and campaign switches;
@@ -1645,14 +1691,14 @@ After the automated run, a human reviewer should inspect:
 4. `schemas/testing/live-campaign-soak-report.schema.json` defines the report artifact contract.
 5. `tools/scripts/check-playwright-soak-readiness.mjs` proves local Playwright launch/control, desktop/phone viewport switching, screenshot capture, and trace writing before live host mutation begins.
 6. `tools/scripts/smoke-sillytavern-terminal-endings-live.mjs` exists as the current live End Conditions proof path for terminal detection, branch save, replay, Push On, and Keep Ending.
-7. `tools/scripts/soak-sillytavern-campaign-live.mjs` dry-run exposes the bundled campaign matrix and append-only live log policy.
+7. `tools/scripts/soak-sillytavern-campaign-live.mjs` dry-run exposes the active Ashes campaign matrix and append-only live log policy.
 8. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
 9. `tools/scripts/soak-sillytavern-campaign-live.mjs` promotes delegated smoke `turn-start`, `turn-end`, `transcript-capture`, and `prompt-inspection-capture` records into the top-level `live-log.jsonl` with bounded previews, counts, hashes, and artifact paths. Next: port native per-action logging into the full live execution helpers once fresh-campaign/send-turn logic is owned by the soak runner.
 10. `tools/scripts/soak-sillytavern-campaign-live.mjs` copies the latest delegated SillyTavern-visible transcript into top-level `transcript/readable-chat.md`, `transcript/source-chat.jsonl`, `transcript/index.json`, and `transcript/excerpts.md` before factual review. Next: capture top-level transcript updates directly after native edit/delete/message-action phases.
 11. Next: add roleplay-quality player prose templates or a live player-input generator that preserves the stable turn intents without visible test scaffolding.
 12. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
 13. `tools/scripts/soak-sillytavern-campaign-live.mjs` writes bounded checkpoint artifacts under `snapshots/` and appends `checkpoint` live-log records during dry-run artifact creation and live execution. Next: add Playwright trace/screenshot/error capture to the checkpoint cadence during full live execution.
-14. `tools/scripts/soak-sillytavern-campaign-live.mjs` writes `campaign-matrix/canary-index.json` plus one third-person short live canary script per bundled campaign. Next: execute those scripts through native Playwright campaign-start/send/save-load helpers for every matrix row.
+14. `tools/scripts/soak-sillytavern-campaign-live.mjs` writes `campaign-matrix/canary-index.json` plus one third-person short live canary script per active campaign-matrix row. Next: execute those scripts through native Playwright campaign-start/send/save-load helpers for every matrix row.
 15. `tools/scripts/smoke-scene-handshake-live.mjs` exists as the current live proof path for accepted host-native assignment settlement.
 16. Next: fold Scene Handshake accepted/rejected/idempotency/source-mutation coverage into the full soak runner and artifact schema.
 17. Next: add objective-assignment projection capture for Mission, Log, and linked Crew surfaces after accepted assignments.
@@ -1662,7 +1708,7 @@ After the automated run, a human reviewer should inspect:
 21. Next: add message action automation with geometry checks for host-shaped controls.
 22. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
 23. Next: add deep-retcon branch-only destructive recalculation mode.
-24. Next: add quality rubric scoring hooks.
+24. `tools/scripts/soak-sillytavern-campaign-live.mjs` exposes the story-quality scoring rubric in `report.json`, `summary.md`, checkpoints, and `quality-review/` artifact paths, writes `quality-review/scores.jsonl`, `quality-review/phase-summary.json`, `quality-review/manual-review-template.json`, `quality-review/manual-review-import.jsonl`, `quality-review/model-assisted-review/request.json`, and `quality-review/model-assisted-review/result.json`, attaches deterministic sanity scoring to delegated live-smoke transcript artifacts, imports completed manual review templates into the same score ledger, and delegates player-safe model-assisted story-quality review through the `storyQualityReviewer` Utility role during live execution. Next: broaden semantic rubric coverage after live transcript evidence shows which dimensions need stronger reviewer guidance.
 25. Next: add a generation-dispatch prompt snapshot hook if live evidence shows prompt context can rebuild after the smoke pre-generation snapshot.
 26. `tools/scripts/soak-sillytavern-campaign-live.mjs` emits a short release-certification summary in `report.json` and `summary.md`, including certification state, check counts, evidence counts, blockers, warnings, residual risk, and next action.
 

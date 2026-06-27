@@ -7,6 +7,7 @@
  */
 
 import { validateCommandBearingEvidenceProposal } from '../command/command-bearing.mjs';
+import { normalizeContinuityState } from '../continuity/state.mjs';
 
 export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'campaign',
@@ -15,6 +16,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'ship',
   'mission',
   'worldState',
+  'timeLedger',
   'storyArcLedger',
   'questLedger',
   'dynamicQuestCatalog',
@@ -228,6 +230,7 @@ export function initializeCampaignRuntimeTracking(campaignState, options = {}) {
   if (!isObject(campaignState)) throw new Error('campaignState must be an object');
   return {
     ...cloneJson(campaignState),
+    continuity: normalizeContinuityState(campaignState.continuity),
     runtimeTracking: normalizedTracking(campaignState.runtimeTracking, options)
   };
 }
@@ -686,6 +689,8 @@ export function recordDirectiveResponse(campaignState, response, {
         deletedAt: response.deletedAt || null,
         outcomeIntegrity: cloneJson(response.outcomeIntegrity || null),
         hostContinuation: cloneJson(response.hostContinuation || null),
+        hostObservation: cloneJson(response.hostObservation || null),
+        continuityReview: cloneJson(response.continuityReview || null),
         error: cloneJson(response.error || null)
       }
     ], limit)

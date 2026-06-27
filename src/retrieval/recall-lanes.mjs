@@ -54,6 +54,12 @@ function unique(values = []) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function laneAliases(lane) {
+  if (lane === 'present_character') return ['present_character', 'present_characters'];
+  if (lane === 'present_characters') return ['present_characters', 'present_character'];
+  return [lane];
+}
+
 function cardLaneIds(card = {}) {
   return new Set(card.retrieval?.lanes || []);
 }
@@ -89,11 +95,13 @@ export function narratorHintCardIds({ sceneSnapshot = {}, intentParse = {} } = {
 export function collectRecallCandidates({ index, sceneSnapshot = {}, intentParse = {}, audience }) {
   const hook = index.getHookForScene(sceneSnapshot);
   const phaseId = normalizePhaseId(sceneSnapshot);
-  const hookLanes = new Set(hook?.lanes || []);
+  const hookLanes = new Set((hook?.lanes || []).flatMap(laneAliases));
   const requiredCardIds = hook?.requiredCardIds || [];
-  const narratorHints = audience === 'narrator'
+  const voiceHintAudiences = new Set(['narrator', 'missionDirector', 'crewDirector']);
+  const narratorHints = voiceHintAudiences.has(audience)
     ? narratorHintCardIds({ sceneSnapshot, intentParse })
     : [];
+  const presentCharacters = new Set(sceneSnapshot.presentCharacters || []);
   const candidates = new Map();
 
   function add(cardId, lane, score = 0) {
@@ -117,7 +125,7 @@ export function collectRecallCandidates({ index, sceneSnapshot = {}, intentParse
   }
 
   for (const cardId of narratorHints) {
-    add(cardId, `phase:${phaseId}:narrator-hint`, 120);
+    add(cardId, `phase:${phaseId}:${audience === 'narrator' ? 'narrator' : 'director'}-voice-hint`, audience === 'narrator' ? 120 : 70);
   }
 
   for (const card of index.cards) {
@@ -129,6 +137,13 @@ export function collectRecallCandidates({ index, sceneSnapshot = {}, intentParse
       if (lanes.has(lane)) {
         add(card.id, `lane:${lane}`, 20);
       }
+    }
+    if (
+      voiceHintAudiences.has(audience)
+      && card.type === 'crew.voice'
+      && (card.scope?.characters || []).some((characterId) => presentCharacters.has(characterId))
+    ) {
+      add(card.id, 'present-character:voice-guidance', 35);
     }
   }
 

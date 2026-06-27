@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/generation/continuity-projection-plan.schema.json",
+  "title": "Directive Continuity Projection Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "operations", "omitted"],
+  "properties": {
+    "kind": { "const": "directive.continuityProjectionPlan.v1" },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["factId", "reason"],
+        "properties": {
+          "factId": { "type": "string", "minLength": 1 },
+          "action": {
+            "enum": ["select", "guardOnly", "auditOnly"]
+          },
+          "lane": {
+            "enum": [
+              "L1",
+              "L2",
+              "L3",
+              "L4",
+              "L5",
+              "L6",
+              "guardOnly",
+              "auditOnly",
+              "directive.continuity.invariants",
+              "directive.continuity.domain",
+              "directive.recap.committed",
+              "directive.context.revolving"
+            ]
+          },
+          "force": {
+            "enum": [
+              "must",
+              "guard",
+              "boost",
+              "support",
+              "background",
+              "hardInvariant",
+              "sceneCritical"
+            ]
+          },
+          "ttl": {
+            "enum": ["turn", "scene", "chapter", "session", "revolving", "campaign"]
+          },
+          "reason": { "type": "string" },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "compressionGroupId": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "omitted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["factId", "reason"],
+        "properties": {
+          "factId": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "guardFocus": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "compressionGroups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "factIds", "lane", "reason"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "factIds": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "lane": {
+            "enum": [
+              "L3",
+              "L4",
+              "L5",
+              "directive.continuity.domain",
+              "directive.recap.committed",
+              "directive.context.revolving"
+            ]
+          },
+          "reason": { "type": "string" },
+          "goal": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -6,6 +6,12 @@ import {
   validateCommandBearingReviewProposal
 } from '../command/command-bearing.mjs';
 import { createCompetenceLedgerRecords } from '../competence/competence-journal.mjs';
+import { quarantineGeneratedClaims } from '../continuity/claim-quarantine.mjs';
+import {
+  addContinuityProjectionHints,
+  continuityHintsFromContradictionReview,
+  recordContinuityFactUseStats
+} from '../continuity/projection-hints.mjs';
 import { applyPressureLedgerDelta } from '../pressures/pressure-ledger.mjs';
 import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
 
@@ -509,6 +515,7 @@ function applyTerminalStateDelta(state, terminalStateDelta = {}) {
 
 const OPEN_WORLD_REPLACEABLE_ROOTS = new Set([
   'worldState',
+  'timeLedger',
   'storyArcLedger',
   'questLedger',
   'dynamicQuestCatalog',
@@ -618,6 +625,7 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
     resultBand: turnPacket.outcomePacket.resultBand,
     stateDelta: cloneJson(turnPacket.stateDelta),
     competencePacket: cloneJson(turnPacket.competencePacket || null),
+    continuityProjection: cloneJson(turnPacket.provenance?.continuityProjection || null),
     narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
     commandLogSourceOutcomeId: turnPacket.commandLogPacket.sourceOutcomeId,
     snapshotBefore,
@@ -673,7 +681,7 @@ export function recordNarrationSwipe(campaignState, outcomeId, narratorPacket) {
 }
 
 export function recordNarrationSuccess(campaignState, outcomeId, narrationResult) {
-  const nextState = cloneJson(campaignState);
+  let nextState = cloneJson(campaignState);
   const entry = (nextState.turnLedger?.entries || []).find((item) => item.outcomeId === outcomeId);
   if (!entry) {
     throw new Error(`Cannot record narration for unknown outcome "${outcomeId}"`);
@@ -684,6 +692,35 @@ export function recordNarrationSuccess(campaignState, outcomeId, narrationResult
   nextState.turnLedger.lastNarratedOutcomeId = outcomeId;
   if (nextState.turnLedger.pendingNarrationRecovery?.outcomeId === outcomeId) {
     nextState.turnLedger.pendingNarrationRecovery = null;
+  }
+  if (narrationResult?.text) {
+    const continuityReview = narrationResult.continuityReview || null;
+    nextState = quarantineGeneratedClaims(nextState, {
+      text: narrationResult.text,
+      source: {
+        kind: 'directiveNarration',
+        outcomeId,
+        providerId: narrationResult.providerId || null
+      },
+      review: continuityReview,
+      status: continuityReview?.ok === false ? 'rejected' : 'candidate',
+      now: narrationResult.generatedAt || null
+    }).campaignState;
+    if (continuityReview?.ok === false) {
+      const violationFactIds = [...new Set((continuityReview.findings || [])
+        .map((finding) => String(finding?.factId || '').trim())
+        .filter(Boolean))];
+      nextState = addContinuityProjectionHints(nextState, continuityHintsFromContradictionReview(continuityReview, {
+        campaignState: nextState,
+        now: narrationResult.generatedAt || null
+      }), {
+        now: narrationResult.generatedAt || null
+      });
+      nextState = recordContinuityFactUseStats(nextState, {
+        violationFactIds,
+        now: narrationResult.generatedAt || null
+      });
+    }
   }
   return nextState;
 }

@@ -17,6 +17,14 @@ import {
   normalizeEventLedger
 } from '../world/reaction-engine.mjs';
 import { applyTravel, advanceWorldTime, createWorldState } from '../world/world-director.mjs';
+import {
+  appendCampaignTimeLedgerEntry,
+  normalizeCampaignTimeState
+} from '../time/campaign-time-state.mjs';
+import {
+  buildCampaignReplyHeader,
+  resolveCampaignMinuteOfDay
+} from '../time/campaign-time-header.mjs';
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
@@ -109,6 +117,14 @@ export function initializeOpenWorldCampaignState({ packageData, baseState = {}, 
 function synchronizeCampaignClock(state) {
   if (state.campaign && state.worldState) state.campaign.currentStardate = state.worldState.currentStardate;
   return state;
+}
+
+function synchronizeCampaignTimeState(state, packageData, now = null) {
+  return normalizeCampaignTimeState(state, {
+    projection: null,
+    now,
+    reason: 'open-world-boundary'
+  }).campaignState || state;
 }
 
 function commitAndReact(state, packageData, event, boundaryType, now) {
@@ -242,18 +258,57 @@ export function resolveQuestBoundary({ state, packageData, questId, outcomeId = 
 }
 
 export function travelBoundary({ state, packageData, destinationId, sourceAnchorRange = null, now = null } = {}) {
+  const previousStardate = Number(state.worldState?.currentStardate || state.campaign?.currentStardate || 0);
+  const previousShipMinute = resolveCampaignMinuteOfDay(state);
+  const previousHeader = buildCampaignReplyHeader(state);
   const travel = applyTravel({ world: packageData.world, worldState: state.worldState, destinationId, campaignState: state, now });
   const next = cloneJson(state);
   next.worldState = travel.worldState;
   next.attentionState = { ...(next.attentionState || {}), mode: next.questLedger?.foregroundQuestId ? 'quest' : 'open-operations' };
-  return processWorldBoundary({ state: next, packageData, event: { ...travel.event, sourceAnchorRange }, boundaryType: 'travel', now });
+  const result = processWorldBoundary({ state: next, packageData, event: { ...travel.event, sourceAnchorRange }, boundaryType: 'travel', now });
+  result.state = synchronizeCampaignTimeState(result.state, packageData, now);
+  result.state = appendCampaignTimeLedgerEntry(result.state, {
+    id: `${travel.event.id}:time`,
+    type: 'travel',
+    reason: 'travel',
+    elapsedMinutes: Math.round(Number(travel.event.payload?.travelHours || 0) * 60),
+    previousStardate,
+    previousShipMinute,
+    previousHeader,
+    currentHeader: buildCampaignReplyHeader(result.state),
+    source: 'worldDirector',
+    sourceAnchorRange,
+    sourceEventId: travel.event.id
+  }, { now });
+  return result;
 }
 
-export function timeAdvanceBoundary({ state, packageData, hours, reason = 'downtime', sourceAnchorRange = null, now = null } = {}) {
-  const advanced = advanceWorldTime({ world: packageData.world, worldState: state.worldState, hours, reason, now });
+export function timeAdvanceBoundary({ state, packageData, hours, minutes = null, reason = 'downtime', sourceAnchorRange = null, now = null, adjudication = null } = {}) {
+  const previousStardate = Number(state.worldState?.currentStardate || state.campaign?.currentStardate || 0);
+  const previousShipMinute = resolveCampaignMinuteOfDay(state);
+  const previousHeader = buildCampaignReplyHeader(state);
+  const advanced = advanceWorldTime({ world: packageData.world, worldState: state.worldState, hours, minutes, reason, now });
   const next = cloneJson(state);
   next.worldState = advanced.worldState;
-  return processWorldBoundary({ state: next, packageData, event: { ...advanced.event, sourceAnchorRange }, boundaryType: reason === 'rest' ? 'rest' : 'time-advance', now });
+  const result = processWorldBoundary({ state: next, packageData, event: { ...advanced.event, sourceAnchorRange }, boundaryType: reason === 'rest' ? 'rest' : 'time-advance', now });
+  result.state = synchronizeCampaignTimeState(result.state, packageData, now);
+  result.state = appendCampaignTimeLedgerEntry(result.state, {
+    id: `${advanced.event.id}:time`,
+    type: reason === 'rest' ? 'rest' : 'time-advance',
+    reason,
+    elapsedMinutes: advanced.event.payload?.minutes || 0,
+    previousStardate,
+    previousShipMinute,
+    previousHeader,
+    currentHeader: buildCampaignReplyHeader(result.state),
+    confidence: adjudication?.confidence ?? null,
+    source: adjudication?.source || 'worldDirector',
+    sourceAnchorRange,
+    evidenceMessageIds: adjudication?.evidenceMessageIds || [],
+    adjudication,
+    sourceEventId: advanced.event.id
+  }, { now });
+  return result;
 }
 
 export function chooseForegroundQuest({ state, packageData, questId, sourceAnchorRange = null, now = null } = {}) {

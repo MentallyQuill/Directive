@@ -41,6 +41,9 @@ import {
   writeModelAssistedFactualReviewRequestArtifact,
   writeModelAssistedFactualReviewResultArtifact
 } from './lib/factual-grounding-evaluator.mjs';
+import {
+  playerInputPerspectiveEvidence
+} from './lib/player-input-perspective.mjs';
 
 const args = new Set(process.argv.slice(2));
 const HELP = args.has('--help') || args.has('-h');
@@ -63,6 +66,46 @@ const EXTENSION_SYNC_ACK = process.env.DIRECTIVE_CONFIRM_EXTENSION_SYNCED === '1
 const SOAK_TURN_LIMIT = positiveInteger(process.env.DIRECTIVE_SOAK_TURN_LIMIT, 0);
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
+
+export const SOAK_SERVED_EXTENSION_PROOF_FILES = Object.freeze([
+  'src/continuity/fact-schema.mjs',
+  'src/continuity/state.mjs',
+  'src/continuity/source-frame.mjs',
+  'src/continuity/prompt-keys.mjs',
+  'src/continuity/fact-index.mjs',
+  'src/continuity/projection-matrix.mjs',
+  'src/continuity/contradiction-guard.mjs',
+  'src/continuity/claim-quarantine.mjs',
+  'src/continuity/projection-plan-validator.mjs',
+  'src/continuity/projection-planner-prompt.mjs',
+  'src/continuity/projection-planner-client.mjs',
+  'src/continuity/projection-planner-fallback.mjs',
+  'src/continuity/projection-hints.mjs',
+  'src/continuity/projection-cache.mjs',
+  'src/continuity/projection-audit.mjs',
+  'src/continuity/director-packets.mjs',
+  'src/continuity/diagnostics.mjs',
+  'src/continuity/materializers/index.mjs',
+  'src/continuity/materializers/crew-identity-facts.mjs',
+  'src/continuity/materializers/ship-travel-facts.mjs',
+  'src/continuity/materializers/mission-facts.mjs',
+  'src/continuity/materializers/command-log-facts.mjs',
+  'src/continuity/materializers/rejected-claim-facts.mjs',
+  'src/generation/player-safe-prompt-context-builder.mjs',
+  'src/hosts/sillytavern/prompt-adapter.mjs',
+  'src/runtime/response-dispatcher.mjs',
+  'src/runtime/chat-turn-orchestrator.mjs',
+  'src/directors/open-world-turn-coordinator.mjs',
+  'src/mission/director.mjs',
+  'src/jobs/campaign-sidecar-scheduler.mjs',
+  'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
+  'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
+  'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
+  'schemas/generation/continuity-projection-plan.schema.json',
+  'schemas/generation/continuity-contradiction-review.schema.json',
+  'schemas/generation/continuity-claim-extraction.schema.json',
+  'schemas/generation/continuity-projection-compression.schema.json'
+]);
 
 function positiveInteger(value, fallback = 0) {
   const parsed = Number.parseInt(String(value || '').trim(), 10);
@@ -186,6 +229,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'model-call',
     'fact-check',
     'model-assisted-factual-review',
+    'model-assisted-story-quality-review',
     'objective-assignment-projection-check',
     'scene-handshake-settlement',
     'timekeeping-header-check',
@@ -251,7 +295,12 @@ export const SOAK_TURN_SETTLEMENT_POLICY = Object.freeze({
 
 export const SOAK_SCENE_HANDSHAKE_POLICY = Object.freeze({
   required: true,
-  ownerLanes: Object.freeze(['canonical-long-campaign', 'mutation-reconciliation', 'multi-campaign-matrix']),
+  ownerLanes: Object.freeze([
+    'ashes-factual-director',
+    'ashes-drawer-projection',
+    'ashes-sidecars-timekeeping',
+    'ashes-mutation-reconciliation'
+  ]),
   modelRoles: Object.freeze(['sceneHandshakeSettler']),
   intervalLogRecord: 'scene-handshake-settlement',
   allowedRoots: Object.freeze([
@@ -362,6 +411,63 @@ export const SOAK_PLAYER_INPUT_POLICY = Object.freeze({
   ])
 });
 
+export const SOAK_STORY_QUALITY_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'quality-review',
+  scoreArtifact: 'quality-review/scores.jsonl',
+  phaseSummaryArtifact: 'quality-review/phase-summary.json',
+  manualReviewTemplateArtifact: 'quality-review/manual-review-template.json',
+  manualReviewImportArtifact: 'quality-review/manual-review-import.jsonl',
+  modelReviewRequestArtifact: 'quality-review/model-assisted-review/request.json',
+  modelReviewResultArtifact: 'quality-review/model-assisted-review/result.json',
+  liveLogRecord: 'quality-score',
+  scorerModes: Object.freeze([
+    'manual-review',
+    'deterministic-sanity-check',
+    'player-safe-model-assisted-review'
+  ]),
+  scoreDefinitions: Object.freeze([
+    Object.freeze({ score: 0, label: 'unsafe-or-wrong', meaning: 'hidden leak, agency violation, mechanics corruption, incoherent state, or campaign-breaking factual contradiction' }),
+    Object.freeze({ score: 1, label: 'usable-but-weak', meaning: 'awkward prose, weak continuity, vague reaction, missed nuance, or insufficient mission pressure' }),
+    Object.freeze({ score: 2, label: 'good', meaning: 'preserves player intent, coherent state, correct role, clear action, and appropriate tone' }),
+    Object.freeze({ score: 3, label: 'excellent', meaning: 'strong continuity, character-specific reaction, clear stakes, evocative prose, and no overreach' })
+  ]),
+  dimensions: Object.freeze([
+    'player-input-prose-quality',
+    'player-input-perspective',
+    'player-input-actionability',
+    'player-input-agency-discipline',
+    'tense-and-point-of-view',
+    'player-agency',
+    'npc-agency',
+    'authority-and-chain-of-command',
+    'hidden-truth-safety',
+    'continuity',
+    'mission-pressure',
+    'crew-reaction',
+    'ship-system-state',
+    'command-log-usefulness',
+    'sidecar-relevance',
+    'prompt-context-freshness'
+  ]),
+  minimumEvidence: Object.freeze([
+    'message-id-index-role-and-transcript-pointer',
+    'dimension-scores-with-short-player-safe-rationale',
+    'score-zero-items-include-failure-severity-and-triage-link',
+    'phase-average-and-run-average',
+    'reviewer-mode-and-model-call-metadata-when-model-assisted',
+    'bounded quote excerpts or hashes only'
+  ]),
+  passCriteria: Object.freeze({
+    noScoreZero: true,
+    releaseCandidateMinimumAverage: 2,
+    preferredPerspective: 'third-person',
+    firstPersonCompatibilityOnly: true
+  }),
+  hiddenStatePolicy: 'story-quality review uses only player-visible transcript excerpts, player-safe state summaries, and artifact pointers; it must not include hidden truth, raw relationship or pressure values, prompt bodies, provider reasoning, cookies, CSRF tokens, or API keys.',
+  failureSeverityPolicy: 'score 0 is P1 when caused by hidden-state leak, agency violation, mechanics corruption, or durable continuity/factual break; score 1 is a warning unless repeated low quality makes the transcript unsuitable as release evidence.'
+});
+
 export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
   required: true,
   artifactDirectory: 'fact-checks',
@@ -467,7 +573,7 @@ export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
     'high-risk-generations-run-full-check-before-next-turn',
     'expected-facts-before-generation-checklist-is-recorded-for-high-risk-scenes',
     'first-appearance-senior-crew-identity-is-fact-checked',
-    'multi-campaign-short-canaries-prove-package-specific-facts-and-isolation',
+    'ashes-active-campaign-canaries-prove-package-specific-facts-and-opening-premise',
     'contradictions-are-root-caused-to-prompt-availability-or-model-compliance'
   ]),
   minimumEvidence: Object.freeze([
@@ -594,7 +700,7 @@ export const SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY = Object.freeze({
 export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
   required: true,
   intervalTurns: '5-10',
-  ownerLane: 'end-conditions-command-bearing',
+  ownerLane: 'ashes-command-bearing-endings',
   modelRoles: Object.freeze([
     'commandBearingFitChecker',
     'commandBearingSpendValidator',
@@ -745,8 +851,8 @@ export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
 });
 
 export const SOAK_PARALLEL_WORKER_POLICY = Object.freeze({
-  strategy: 'breadth-first-five-lane-coverage',
-  coordinatorRole: 'keep lane assignments unique, watch logs, triage findings, and schedule fix barriers instead of letting all workers chase the same bug',
+  strategy: 'ashes-first-five-lane-coverage',
+  coordinatorRole: 'keep Ashes evidence lanes unique, watch logs, triage findings, and schedule fix barriers instead of spending current effort on broad multi-campaign coverage',
   defaultWorkerHandles: Object.freeze([
     'directive-soak-a',
     'directive-soak-b',
@@ -756,34 +862,34 @@ export const SOAK_PARALLEL_WORKER_POLICY = Object.freeze({
   ]),
   lanes: Object.freeze([
     Object.freeze({
-      id: 'canonical-long-campaign',
+      id: 'ashes-factual-director',
       userHandle: 'directive-soak-a',
-      focus: 'Ashes of Peace 50-plus-turn preferred-play campaign in third person, including Crew and Mission surface checkpoints, Scene Handshake assignment settlement, and timekeeping header cadence during normal play',
+      focus: 'Ashes of Peace factual campaign-content alignment, opening premise, senior-crew identity, current mission frame, and Mission Director behavior against actual campaign content',
       stopPolicy: 'continue through non-blocking quality and consequence issues; stop only for P0/P1 blockers'
     }),
     Object.freeze({
-      id: 'mutation-reconciliation',
+      id: 'ashes-drawer-projection',
       userHandle: 'directive-soak-b',
-      focus: 'recent edits, far-back edits, deletes, swipes, message actions, reconciliation, recalculation, continuity recovery, Scene Handshake source invalidation, and stale-header stripping',
-      stopPolicy: 'continue after logging unless mutation corrupts storage or prevents campaign continuation'
+      focus: 'Mission, Crew, Ship, and Log drawer population after objective assignment, crew interaction, ship-state movement, Scene Handshake settlement, and save/load',
+      stopPolicy: 'continue after logging unless missing projections block campaign operation or prove state-to-UI corruption'
     }),
     Object.freeze({
-      id: 'end-conditions-command-bearing',
+      id: 'ashes-sidecars-timekeeping',
       userHandle: 'directive-soak-c',
-      focus: 'subtle command-fitness End Conditions plus Command Bearing evidence accumulation, closure detection, Mark Review grading, point spend/return, terminal decisions, Push On, Replay, Keep Ending, and Save Branch',
-      stopPolicy: 'continue across proportionality issues; stop for broken terminal-state persistence or cross-branch corruption'
+      focus: 'sidecar health, relationship/crew/ship/thread sidecar movement, timekeeping reply headers, prompt freshness, and whether checks trigger at meaningful 5-10 turn intervals',
+      stopPolicy: 'continue through isolated weak signals; stop for repeated sidecar batch failure, stale prompt context, or authoritative time/header contradiction'
     }),
     Object.freeze({
-      id: 'multi-campaign-matrix',
+      id: 'ashes-mutation-reconciliation',
       userHandle: 'directive-soak-d',
-      focus: 'short canaries across bundled campaigns, campaign-specific creator/start/chat binding, save/load, prompt isolation, package-specific End Conditions, per-campaign reply headers, and cross-campaign Scene Handshake isolation',
-      stopPolicy: 'continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage'
+      focus: 'recent edits, far-back edits, deletes, swipes, message actions, reconciliation, recalculation, continuity recovery, Scene Handshake source invalidation, and stale-header stripping inside Ashes',
+      stopPolicy: 'continue after logging unless mutation corrupts storage or prevents Ashes continuation'
     }),
     Object.freeze({
-      id: 'assist-agency-story-quality',
+      id: 'ashes-command-bearing-endings',
       userHandle: 'directive-soak-e',
-      focus: 'Directive Assist actions, tense and point-of-view quality, Crew/Mission player-safe wording, NPC agency boundaries, god-mode resistance, secret bad-guy play, and story steering',
-      stopPolicy: 'continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement becomes globally unusable'
+      focus: 'Command Bearing evidence, closure detection, Mark Review grading, point lifecycle, subtle End Condition failures, terminal choices, Directive Assist wording, agency resistance, and story quality',
+      stopPolicy: 'continue through weak prose or proportionality issues; stop for invalid point transactions, broken terminal persistence, hidden-state exposure, or cross-branch corruption'
     })
   ]),
   immediateFixSeverities: Object.freeze(['P0', 'P1']),
@@ -880,52 +986,7 @@ export const SOAK_CAMPAIGN_MATRIX = Object.freeze([
     theater: 'Asterion Reach',
     status: 'pre-alpha',
     liveCoverage: 'full-soak-rotation-primary',
-    focus: 'reference 52-turn soak, Scene Handshake/objective-projection/timekeeping certification, message mutation stress, terminal End Conditions live proof'
-  }),
-  campaignMatrixEntry({
-    packageId: 'directive:campaign-package:glass-harbor-drowned-constellation',
-    title: 'U.S.S. Glass Harbor: Drowned Constellation - Open World',
-    packagePath: 'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
-    theater: 'The Nerine Reef',
-    status: 'draft',
-    liveCoverage: 'short-live-canary',
-    focus: 'campaign library selection, fresh start, underwater/research-specific mission pressure, campaign-specific End Conditions'
-  }),
-  campaignMatrixEntry({
-    packageId: 'directive:campaign-package:serein-black-current',
-    title: 'U.S.S. Serein: Black Current - Open World',
-    packagePath: 'packages/bundled/serein/black-current.campaign-package.json',
-    theater: 'The Vanta Wake',
-    status: 'draft',
-    liveCoverage: 'short-live-canary',
-    focus: 'campaign library selection, fresh start, convoy/logistics-specific mission pressure, campaign-specific End Conditions'
-  }),
-  campaignMatrixEntry({
-    packageId: 'directive:campaign-package:eudora-vale-broken-accord',
-    title: 'Broken Accord',
-    packagePath: 'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
-    theater: 'The Ilyra System',
-    status: 'draft',
-    liveCoverage: 'short-live-canary',
-    focus: 'campaign library selection, fresh start, diplomacy/resource-specific mission pressure, campaign-specific End Conditions'
-  }),
-  campaignMatrixEntry({
-    packageId: 'directive:campaign-package:aster-vale-unseen-border',
-    title: 'Unseen Border',
-    packagePath: 'packages/bundled/aster-vale/unseen-border.campaign-package.json',
-    theater: 'The Lacuna March',
-    status: 'draft',
-    liveCoverage: 'short-live-canary',
-    focus: 'campaign library selection, fresh start, border/route-specific mission pressure, campaign-specific End Conditions'
-  }),
-  campaignMatrixEntry({
-    packageId: 'directive:campaign-package:celandine-enemys-garden',
-    title: "U.S.S. Celandine: Enemy's Garden - Open World",
-    packagePath: 'packages/bundled/celandine/enemys-garden.campaign-package.json',
-    theater: 'The Cyradon Relief Cluster',
-    status: 'draft',
-    liveCoverage: 'short-live-canary',
-    focus: 'campaign library selection, fresh start, relief/biology-specific mission pressure, campaign-specific End Conditions'
+    focus: 'current Ashes-only live soak target: factual grounding, Mission Director campaign-content behavior, drawer population, sidecars, timekeeping, mutation stress, Command Bearing, and terminal End Conditions'
   })
 ]);
 
@@ -1240,6 +1301,1024 @@ export function writeCampaignMatrixCanaryArtifacts({
     ...index,
     artifactDirectory: root,
     indexArtifact: indexPath
+  };
+}
+
+function qualityReviewArtifactRoot(artifactPaths = {}) {
+  return artifactPaths?.qualityReview || path.join(artifactPaths?.root || '.', 'quality-review');
+}
+
+function qualityScoreArtifactPath(artifactPaths = {}) {
+  return path.join(qualityReviewArtifactRoot(artifactPaths), 'scores.jsonl');
+}
+
+function qualityPhaseSummaryArtifactPath(artifactPaths = {}) {
+  return path.join(qualityReviewArtifactRoot(artifactPaths), 'phase-summary.json');
+}
+
+function qualityManualReviewTemplateArtifactPath(artifactPaths = {}) {
+  return path.join(qualityReviewArtifactRoot(artifactPaths), 'manual-review-template.json');
+}
+
+function qualityManualReviewImportArtifactPath(artifactPaths = {}) {
+  return path.join(qualityReviewArtifactRoot(artifactPaths), 'manual-review-import.jsonl');
+}
+
+function qualityModelReviewArtifactRoot(artifactPaths = {}) {
+  return path.join(qualityReviewArtifactRoot(artifactPaths), 'model-assisted-review');
+}
+
+function qualityModelReviewRequestArtifactPath(artifactPaths = {}) {
+  return path.join(qualityModelReviewArtifactRoot(artifactPaths), 'request.json');
+}
+
+function qualityModelReviewResultArtifactPath(artifactPaths = {}) {
+  return path.join(qualityModelReviewArtifactRoot(artifactPaths), 'result.json');
+}
+
+function normalizeQualityScore(score) {
+  if (score === null || score === undefined || score === '') return null;
+  const value = Number(score);
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(3, Math.round(value)));
+}
+
+function dimensionScoreInputFor(dimensionScores, dimension) {
+  if (!dimensionScores) return null;
+  if (Array.isArray(dimensionScores)) {
+    return dimensionScores.find((entry) => entry?.dimension === dimension || entry?.id === dimension) || null;
+  }
+  return Object.hasOwn(dimensionScores, dimension) ? dimensionScores[dimension] : null;
+}
+
+function normalizeQualityDimensionScores(dimensionScores, policy = SOAK_STORY_QUALITY_POLICY) {
+  return policy.dimensions.map((dimension) => {
+    const raw = dimensionScoreInputFor(dimensionScores, dimension);
+    const value = typeof raw === 'object' && raw !== null ? raw.score : raw;
+    const score = normalizeQualityScore(value);
+    return {
+      dimension,
+      score,
+      rationale: typeof raw === 'object' && raw !== null && raw.rationale ? compact(String(raw.rationale), 240) : null,
+      evidence: typeof raw === 'object' && raw !== null && raw.evidence ? compact(String(raw.evidence), 240) : null
+    };
+  });
+}
+
+function qualityStatusForScores({ averageScore = null, scoreZeroCount = 0, scoreCount = 0, policy = SOAK_STORY_QUALITY_POLICY } = {}) {
+  if (scoreCount <= 0) return 'planned';
+  if (scoreZeroCount > 0 && policy.passCriteria.noScoreZero) return 'fail';
+  if (Number.isFinite(averageScore) && averageScore >= Number(policy.passCriteria.releaseCandidateMinimumAverage || 0)) return 'pass';
+  return 'warning';
+}
+
+export function buildStoryQualityScoreRecord({
+  runId = null,
+  phaseId = null,
+  turn = null,
+  messageId = null,
+  messageIndex = null,
+  role = null,
+  transcriptPointer = null,
+  reviewerMode = 'manual-review',
+  dimensionScores = {},
+  overallScore = null,
+  rationale = null,
+  severity = null,
+  artifactPointers = [],
+  policy = SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const dimensions = normalizeQualityDimensionScores(dimensionScores, policy);
+  const scored = dimensions.filter((entry) => Number.isFinite(entry.score));
+  const averageScore = scored.length > 0
+    ? Number((scored.reduce((sum, entry) => sum + entry.score, 0) / scored.length).toFixed(3))
+    : null;
+  const normalizedOverallScore = normalizeQualityScore(overallScore);
+  const scoreZeroCount = scored.filter((entry) => entry.score === 0).length;
+  const status = qualityStatusForScores({
+    averageScore: Number.isFinite(normalizedOverallScore) ? normalizedOverallScore : averageScore,
+    scoreZeroCount,
+    scoreCount: scored.length,
+    policy
+  });
+  const base = {
+    kind: 'directive.liveCampaignSoak.storyQualityScore',
+    schemaVersion: 1,
+    recordedAt: new Date().toISOString(),
+    runId,
+    phaseId,
+    turn,
+    message: {
+      id: messageId,
+      index: messageIndex,
+      role,
+      transcriptPointer
+    },
+    reviewerMode,
+    status,
+    overallScore: Number.isFinite(normalizedOverallScore) ? normalizedOverallScore : averageScore,
+    averageScore,
+    scoreZeroCount,
+    releaseCandidateEligible: status === 'pass',
+    dimensions,
+    rationale: rationale ? compact(String(rationale), 320) : null,
+    severity: severity || (status === 'fail' ? 'P1 story-quality blocker' : status === 'warning' ? 'P2 story-quality warning' : null),
+    artifactPointers: Array.isArray(artifactPointers) ? artifactPointers.map((entry) => compact(String(entry), 240)) : []
+  };
+  return {
+    ...base,
+    hash: sha256Text(JSON.stringify({
+      runId: base.runId,
+      phaseId: base.phaseId,
+      turn: base.turn,
+      message: base.message,
+      reviewerMode: base.reviewerMode,
+      overallScore: base.overallScore,
+      dimensions: base.dimensions
+    }))
+  };
+}
+
+export function buildStoryQualityPhaseSummary({
+  scores = [],
+  policy = SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const scoredRecords = scores.filter((entry) => Number.isFinite(entry?.overallScore));
+  const averageScore = scoredRecords.length > 0
+    ? Number((scoredRecords.reduce((sum, entry) => sum + entry.overallScore, 0) / scoredRecords.length).toFixed(3))
+    : null;
+  const scoreZeroCount = scores.reduce((sum, entry) => sum + Number(entry?.scoreZeroCount || 0), 0);
+  const phaseMap = new Map();
+  for (const score of scores) {
+    const phaseId = score.phaseId || 'unassigned';
+    const phase = phaseMap.get(phaseId) || { phaseId, recordCount: 0, scoreZeroCount: 0, averageScore: null, totalScore: 0, scoredCount: 0 };
+    phase.recordCount += 1;
+    phase.scoreZeroCount += Number(score.scoreZeroCount || 0);
+    if (Number.isFinite(score.overallScore)) {
+      phase.totalScore += score.overallScore;
+      phase.scoredCount += 1;
+      phase.averageScore = Number((phase.totalScore / phase.scoredCount).toFixed(3));
+    }
+    phaseMap.set(phaseId, phase);
+  }
+  return {
+    kind: 'directive.liveCampaignSoak.storyQualityPhaseSummary',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    status: qualityStatusForScores({
+      averageScore,
+      scoreZeroCount,
+      scoreCount: scoredRecords.length,
+      policy
+    }),
+    scoreArtifact: policy.scoreArtifact,
+    manualReviewTemplateArtifact: policy.manualReviewTemplateArtifact,
+    manualReviewImportArtifact: policy.manualReviewImportArtifact,
+    modelReviewRequestArtifact: policy.modelReviewRequestArtifact,
+    modelReviewResultArtifact: policy.modelReviewResultArtifact,
+    recordCount: scores.length,
+    scoredRecordCount: scoredRecords.length,
+    scoreZeroCount,
+    averageScore,
+    passCriteria: { ...policy.passCriteria },
+    dimensions: [...policy.dimensions],
+    phases: [...phaseMap.values()].map(({ totalScore, scoredCount, ...phase }) => phase)
+  };
+}
+
+export function writeStoryQualityScoreRecord({
+  artifactPaths,
+  record
+} = {}) {
+  const root = qualityReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const scorePath = qualityScoreArtifactPath(artifactPaths);
+  appendJsonLine(scorePath, record);
+  return scorePath;
+}
+
+export function writeStoryQualityPhaseSummaryArtifact({
+  artifactPaths,
+  scores = [],
+  policy = SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const root = qualityReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const summary = buildStoryQualityPhaseSummary({ scores, policy });
+  const summaryPath = qualityPhaseSummaryArtifactPath(artifactPaths);
+  writeJsonFile(summaryPath, summary);
+  return {
+    ...summary,
+    artifactDirectory: root,
+    scoreArtifact: qualityScoreArtifactPath(artifactPaths),
+    phaseSummaryArtifact: summaryPath,
+    manualReviewTemplateArtifact: qualityManualReviewTemplateArtifactPath(artifactPaths),
+    manualReviewImportArtifact: qualityManualReviewImportArtifactPath(artifactPaths),
+    modelReviewRequestArtifact: qualityModelReviewRequestArtifactPath(artifactPaths),
+    modelReviewResultArtifact: qualityModelReviewResultArtifactPath(artifactPaths)
+  };
+}
+
+function storyQualityModelReviewResponseSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'overallAssessment', 'scores'],
+    properties: {
+      status: { type: 'string', enum: ['pass', 'warning', 'fail'] },
+      overallAssessment: { type: 'string' },
+      scores: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['messageId', 'dimensions'],
+          properties: {
+            messageId: { type: ['string', 'null'] },
+            messageIndex: { type: ['integer', 'null'] },
+            role: { type: ['string', 'null'] },
+            overallScore: { type: ['number', 'null'] },
+            severity: { type: ['string', 'null'] },
+            rationale: { type: ['string', 'null'] },
+            confidence: { type: ['number', 'null'] },
+            dimensions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['dimension', 'score'],
+                properties: {
+                  dimension: { type: 'string' },
+                  score: { type: ['number', 'null'] },
+                  rationale: { type: ['string', 'null'] },
+                  evidence: { type: ['string', 'null'] }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+}
+
+function transcriptMessagesForStoryQualityModelReview(messages = []) {
+  return (messages || [])
+    .map((message, index) => {
+      const role = messageRoleForQuality(message);
+      if (role === 'system') return null;
+      const text = String(message?.text || '').trim();
+      if (!text) return null;
+      return {
+        index: message?.index ?? index,
+        messageId: message?.id || message?.messageId || message?.hostMessageId || `transcript-message-${message?.index ?? index + 1}`,
+        role,
+        transcriptPointer: `transcript/source-chat.jsonl:${index + 1}`,
+        textHash: sha256Text(text),
+        text: compact(text, 1200)
+      };
+    })
+    .filter(Boolean)
+    .slice(-80);
+}
+
+function deterministicScoresForStoryQualityModelReview(scores = []) {
+  return (scores || []).map((score) => ({
+    messageId: score?.message?.id || null,
+    messageIndex: score?.message?.index ?? null,
+    role: score?.message?.role || null,
+    status: score?.status || null,
+    overallScore: score?.overallScore ?? null,
+    scoreZeroCount: score?.scoreZeroCount || 0,
+    dimensions: (score?.dimensions || [])
+      .filter((entry) => Number.isFinite(entry.score))
+      .map((entry) => ({
+        dimension: entry.dimension,
+        score: entry.score,
+        rationale: entry.rationale || null
+      }))
+  }));
+}
+
+export function buildStoryQualityModelReviewRequest({
+  report = null,
+  transcriptMessages = [],
+  deterministicScores = [],
+  requestId = null,
+  policy = report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const transcript = transcriptMessagesForStoryQualityModelReview(transcriptMessages);
+  const deterministic = deterministicScoresForStoryQualityModelReview(deterministicScores);
+  const finalRequestId = requestId || `story-quality-model-review-${report?.runId || 'campaign'}`;
+  return {
+    kind: 'directive.liveCampaignSoak.storyQualityModelReviewRequest',
+    schemaVersion: 1,
+    requestId: finalRequestId,
+    runId: report?.runId || null,
+    transcriptPointer: policy.readableArtifact || 'transcript/readable-chat.md',
+    hiddenStatePolicy: policy.hiddenStatePolicy,
+    evaluatorInstructions: [
+      'Review only the visible transcript excerpts and deterministic score summaries.',
+      'Score prose quality, tense/PoV, player agency, NPC agency, continuity, mission pressure, crew reaction, and hidden-state safety.',
+      'Do not reward fluent prose that changes campaign facts, authorizes NPC/player actions incorrectly, or leaks hidden/internal state.',
+      'Return strict JSON matching responseSchema.'
+    ],
+    responseSchema: storyQualityModelReviewResponseSchema(),
+    scoreDefinitions: policy.scoreDefinitions.map((entry) => ({ ...entry })),
+    dimensions: [...policy.dimensions],
+    transcript,
+    deterministicScores: deterministic,
+    inputHash: sha256Text(JSON.stringify({ transcript, deterministic, dimensions: [...policy.dimensions] }))
+  };
+}
+
+function parseStoryQualityModelOutput(modelOutput = null) {
+  if (!modelOutput) return null;
+  if (typeof modelOutput === 'object') return modelOutput;
+  try {
+    return JSON.parse(String(modelOutput));
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStoryQualityModelScore(score = {}) {
+  const dimensions = Array.isArray(score.dimensions) ? score.dimensions : [];
+  return {
+    messageId: score.messageId || null,
+    messageIndex: Number.isInteger(score.messageIndex) ? score.messageIndex : null,
+    role: score.role || null,
+    overallScore: normalizeQualityScore(score.overallScore),
+    severity: score.severity ? compact(String(score.severity), 160) : null,
+    rationale: score.rationale ? compact(String(score.rationale), 500) : null,
+    confidence: Number.isFinite(Number(score.confidence)) ? Number(score.confidence) : null,
+    dimensions: dimensions.map((entry) => ({
+      dimension: String(entry?.dimension || '').trim(),
+      score: normalizeQualityScore(entry?.score),
+      rationale: entry?.rationale ? compact(String(entry.rationale), 240) : null,
+      evidence: entry?.evidence ? compact(String(entry.evidence), 240) : null
+    })).filter((entry) => entry.dimension)
+  };
+}
+
+function storyQualityModelReviewCounts(scores = []) {
+  const counts = {
+    scores: scores.length,
+    scoreZero: 0,
+    warningOrWeak: 0
+  };
+  for (const score of scores) {
+    const dimensions = score.dimensions || [];
+    if (dimensions.some((entry) => entry.score === 0) || score.overallScore === 0) counts.scoreZero += 1;
+    if (dimensions.some((entry) => entry.score === 1) || score.overallScore === 1) counts.warningOrWeak += 1;
+  }
+  return counts;
+}
+
+export function buildStoryQualityModelReviewResult({
+  request = null,
+  modelOutput = null,
+  modelCall = null,
+  status = null,
+  reason = null
+} = {}) {
+  const parsed = parseStoryQualityModelOutput(modelOutput);
+  const scores = Array.isArray(parsed?.scores) ? parsed.scores.map(normalizeStoryQualityModelScore) : [];
+  const counts = storyQualityModelReviewCounts(scores);
+  const finalStatus = status
+    || parsed?.status
+    || (parsed ? (counts.scoreZero > 0 ? 'fail' : counts.warningOrWeak > 0 ? 'warning' : 'pass') : 'not-run');
+  return {
+    kind: 'directive.liveCampaignSoak.storyQualityModelReviewResult',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    requestId: request?.requestId || null,
+    runId: request?.runId || null,
+    inputHash: request?.inputHash || null,
+    status: finalStatus,
+    reason: reason || (parsed ? null : 'model-assisted story quality reviewer was not invoked or did not return parseable JSON'),
+    overallAssessment: parsed?.overallAssessment ? compact(String(parsed.overallAssessment), 1200) : null,
+    counts,
+    scores,
+    modelCall: modelCall ? cloneJson(modelCall) : null,
+    outputHash: modelOutput ? sha256Text(typeof modelOutput === 'string' ? modelOutput : JSON.stringify(modelOutput)) : null
+  };
+}
+
+export function writeStoryQualityModelReviewRequestArtifact({
+  request,
+  artifactPaths
+} = {}) {
+  const root = qualityModelReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const requestPath = qualityModelReviewRequestArtifactPath(artifactPaths);
+  writeJsonFile(requestPath, request);
+  return requestPath;
+}
+
+export function writeStoryQualityModelReviewResultArtifact({
+  result,
+  artifactPaths
+} = {}) {
+  const root = qualityModelReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const resultPath = qualityModelReviewResultArtifactPath(artifactPaths);
+  writeJsonFile(resultPath, result);
+  return resultPath;
+}
+
+function storyQualityModelScoresToScoreRecords({
+  report,
+  result,
+  policy = report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  return (result?.scores || []).map((score) => buildStoryQualityScoreRecord({
+    runId: report?.runId || result?.runId || null,
+    phaseId: 'model-assisted-story-quality-review',
+    messageId: score.messageId || null,
+    messageIndex: score.messageIndex,
+    role: score.role || null,
+    transcriptPointer: Number.isInteger(score.messageIndex) ? `transcript/source-chat.jsonl:${score.messageIndex + 1}` : 'transcript/readable-chat.md',
+    reviewerMode: 'player-safe-model-assisted-review',
+    dimensionScores: score.dimensions,
+    overallScore: score.overallScore,
+    rationale: score.rationale || result?.overallAssessment || null,
+    severity: score.severity || null,
+    artifactPointers: [
+      policy.modelReviewRequestArtifact,
+      policy.modelReviewResultArtifact,
+      'transcript/readable-chat.md',
+      'transcript/source-chat.jsonl'
+    ],
+    policy
+  }));
+}
+
+export function buildStoryQualityManualReviewTemplate({
+  report = null,
+  transcriptMessages = [],
+  deterministicScores = [],
+  phaseId = 'manual-transcript-review',
+  policy = report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const deterministicByIndex = new Map();
+  const deterministicById = new Map();
+  for (const score of deterministicScores || []) {
+    if (score?.message?.index !== null && score?.message?.index !== undefined) deterministicByIndex.set(String(score.message.index), score);
+    if (score?.message?.id) deterministicById.set(String(score.message.id), score);
+  }
+  const entries = [];
+  for (const [index, message] of (transcriptMessages || []).entries()) {
+    const role = messageRoleForQuality(message);
+    if (role === 'system') continue;
+    const text = String(message?.text || '').trim();
+    if (!text) continue;
+    const messageId = message?.id || message?.messageId || message?.hostMessageId || `transcript-message-${message?.index ?? index + 1}`;
+    const transcriptPointer = `transcript/source-chat.jsonl:${index + 1}`;
+    const deterministic = deterministicById.get(String(messageId))
+      || deterministicByIndex.get(String(message?.index ?? ''))
+      || null;
+    entries.push({
+      message: {
+        id: messageId,
+        index: message?.index ?? index,
+        role,
+        transcriptPointer,
+        textHash: sha256Text(text),
+        textPreview: compact(text, 600)
+      },
+      deterministicSanityScore: deterministic
+        ? {
+            status: deterministic.status,
+            overallScore: deterministic.overallScore,
+            scoreZeroCount: deterministic.scoreZeroCount,
+            dimensions: deterministic.dimensions
+              .filter((entry) => Number.isFinite(entry.score))
+              .map((entry) => ({
+                dimension: entry.dimension,
+                score: entry.score,
+                rationale: entry.rationale || null
+              }))
+          }
+        : null,
+      manualReview: {
+        status: 'pending',
+        reviewer: null,
+        overallScore: null,
+        dimensions: policy.dimensions.map((dimension) => ({
+          dimension,
+          score: null,
+          rationale: null,
+          evidence: null
+        })),
+        rationale: null,
+        severity: null
+      }
+    });
+  }
+  return {
+    kind: 'directive.liveCampaignSoak.storyQualityManualReviewTemplate',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    runId: report?.runId || null,
+    phaseId,
+    status: entries.length > 0 ? 'pending' : 'planned',
+    instructions: [
+      'Fill only the manualReview fields; do not paste hidden state, raw prompts, provider reasoning, cookies, CSRF tokens, API keys, raw relationship values, or raw pressure values.',
+      'Use the source transcript pointer and readable transcript to review the visible story text.',
+      'Use null for dimensions you did not review. Use score 0 only for release-blocking hidden leaks, agency violations, mechanics corruption, or durable factual/continuity breaks.',
+      'After review, import this file through the soak runner helpers so entries become quality-review score records.'
+    ],
+    scoreDefinitions: policy.scoreDefinitions.map((entry) => ({ ...entry })),
+    dimensions: [...policy.dimensions],
+    hiddenStatePolicy: policy.hiddenStatePolicy,
+    transcriptPointers: {
+      readableTranscript: report?.readableTranscriptPolicy?.readableArtifact || 'transcript/readable-chat.md',
+      sourceChatTranscript: report?.readableTranscriptPolicy?.sourceArtifact || 'transcript/source-chat.jsonl'
+    },
+    entries
+  };
+}
+
+export function writeStoryQualityManualReviewTemplateArtifact({
+  report = null,
+  artifactPaths = report?.artifacts,
+  transcriptMessages = [],
+  deterministicScores = [],
+  phaseId = 'manual-transcript-review',
+  policy = report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const root = qualityReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const template = buildStoryQualityManualReviewTemplate({
+    report,
+    transcriptMessages,
+    deterministicScores,
+    phaseId,
+    policy
+  });
+  const artifactPath = qualityManualReviewTemplateArtifactPath(artifactPaths);
+  writeJsonFile(artifactPath, template);
+  return {
+    ...template,
+    artifactPath,
+    artifactPathRelative: report ? relativeArtifactPath(report, artifactPath) : policy.manualReviewTemplateArtifact
+  };
+}
+
+function manualReviewDimensionScores(manualReview = {}) {
+  if (Array.isArray(manualReview.dimensionScores)) return manualReview.dimensionScores;
+  if (Array.isArray(manualReview.dimensions)) return manualReview.dimensions;
+  return manualReview.dimensionScores || manualReview.dimensions || {};
+}
+
+function manualReviewHasScore(manualReview = {}) {
+  if (normalizeQualityScore(manualReview.overallScore) !== null) return true;
+  return normalizeQualityDimensionScores(manualReviewDimensionScores(manualReview))
+    .some((entry) => Number.isFinite(entry.score));
+}
+
+export function buildStoryQualityManualReviewScores({
+  report = null,
+  review = null,
+  reviewArtifact = null,
+  phaseId = 'manual-transcript-review',
+  policy = report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const template = review || readJsonFileIfExists(reviewArtifact) || {};
+  const entries = Array.isArray(template.entries) ? template.entries : [];
+  const scores = [];
+  for (const entry of entries) {
+    const manualReview = entry.manualReview || entry.review || {};
+    if (!manualReviewHasScore(manualReview)) continue;
+    const message = entry.message || {};
+    const score = buildStoryQualityScoreRecord({
+      runId: report?.runId || template.runId || null,
+      phaseId: manualReview.phaseId || template.phaseId || phaseId,
+      messageId: message.id || null,
+      messageIndex: message.index ?? null,
+      role: message.role || null,
+      transcriptPointer: message.transcriptPointer || null,
+      reviewerMode: 'manual-review',
+      dimensionScores: manualReviewDimensionScores(manualReview),
+      overallScore: manualReview.overallScore,
+      rationale: manualReview.rationale || null,
+      severity: manualReview.severity || null,
+      artifactPointers: [
+        reviewArtifact ? (report ? relativeArtifactPath(report, reviewArtifact) : reviewArtifact) : policy.manualReviewTemplateArtifact,
+        'transcript/readable-chat.md',
+        'transcript/source-chat.jsonl'
+      ].filter(Boolean),
+      policy
+    });
+    scores.push({
+      ...score,
+      manualReviewer: manualReview.reviewer || null,
+      sourceTemplateHash: template.hash || sha256Text(JSON.stringify({
+        runId: template.runId || null,
+        phaseId: template.phaseId || null,
+        message
+      }))
+    });
+  }
+  const summary = buildStoryQualityPhaseSummary({ scores, policy });
+  return {
+    status: scores.length > 0 ? summary.status : 'planned',
+    summary: scores.length > 0
+      ? `Manual story-quality review imported ${scores.length} scored message(s), with ${summary.scoreZeroCount} score-zero finding(s).`
+      : 'Manual story-quality review template has no scored entries to import.',
+    reviewerMode: 'manual-review',
+    scoreCount: scores.length,
+    scoreZeroCount: summary.scoreZeroCount,
+    averageScore: summary.averageScore,
+    scores,
+    phaseSummary: summary
+  };
+}
+
+export function writeStoryQualityManualReviewImportArtifact({
+  artifactPaths,
+  scores = []
+} = {}) {
+  const root = qualityReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const importPath = qualityManualReviewImportArtifactPath(artifactPaths);
+  writeTextFile(importPath, scores.length ? `${scores.map((score) => JSON.stringify(score)).join('\n')}\n` : '');
+  return importPath;
+}
+
+export function importStoryQualityManualReviewScores({
+  report,
+  review = null,
+  reviewArtifact = null,
+  appendToScoreLedger = true
+} = {}) {
+  const result = buildStoryQualityManualReviewScores({
+    report,
+    review,
+    reviewArtifact,
+    policy: report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+  });
+  const importPath = writeStoryQualityManualReviewImportArtifact({
+    artifactPaths: report.artifacts,
+    scores: result.scores
+  });
+  if (appendToScoreLedger) {
+    for (const score of result.scores) {
+      writeStoryQualityScoreRecord({ artifactPaths: report.artifacts, record: score });
+      appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({ report, score }));
+    }
+  }
+  const allScores = readJsonLinesIfExists(qualityScoreArtifactPath(report.artifacts));
+  const phaseSummary = writeStoryQualityPhaseSummaryArtifact({
+    artifactPaths: report.artifacts,
+    scores: allScores,
+    policy: report.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+  });
+  appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({ report, summary: phaseSummary }));
+  return {
+    ...result,
+    importArtifact: importPath,
+    importArtifactRelative: relativeArtifactPath(report, importPath),
+    phaseSummary,
+    phaseSummaryArtifactRelative: relativeArtifactPath(report, phaseSummary.phaseSummaryArtifact)
+  };
+}
+
+export function initializeStoryQualityReviewArtifacts({
+  report = null,
+  artifactPaths = report?.artifacts,
+  scores = [],
+  policy = SOAK_STORY_QUALITY_POLICY
+} = {}) {
+  const root = qualityReviewArtifactRoot(artifactPaths);
+  ensureDirectory(root);
+  const scorePath = qualityScoreArtifactPath(artifactPaths);
+  writeTextFile(scorePath, '');
+  for (const score of scores) appendJsonLine(scorePath, score);
+  writeTextFile(qualityManualReviewImportArtifactPath(artifactPaths), '');
+  writeJsonFile(
+    qualityManualReviewTemplateArtifactPath(artifactPaths),
+    buildStoryQualityManualReviewTemplate({ report, transcriptMessages: [], deterministicScores: [], policy })
+  );
+  const modelReviewRequest = buildStoryQualityModelReviewRequest({
+    report,
+    transcriptMessages: [],
+    deterministicScores: [],
+    policy
+  });
+  writeStoryQualityModelReviewRequestArtifact({ request: modelReviewRequest, artifactPaths });
+  writeStoryQualityModelReviewResultArtifact({
+    result: buildStoryQualityModelReviewResult({
+      request: modelReviewRequest,
+      status: 'not-run',
+      reason: 'model-assisted story quality review has no transcript yet'
+    }),
+    artifactPaths
+  });
+  return writeStoryQualityPhaseSummaryArtifact({ artifactPaths, scores, policy });
+}
+
+export function storyQualityLiveLogRecord({
+  report,
+  summary = null,
+  score = null
+} = {}) {
+  return {
+    kind: 'quality-score',
+    status: score?.status || summary?.status || 'planned',
+    runId: report?.runId || score?.runId || null,
+    phaseId: score?.phaseId || null,
+    turn: score?.turn || null,
+    messageId: score?.message?.id || null,
+    reviewerMode: score?.reviewerMode || null,
+    scoreArtifact: summary?.scoreArtifact ? relativeArtifactPath(report, summary.scoreArtifact) : report?.storyQualityPolicy?.scoreArtifact || null,
+    phaseSummaryArtifact: summary?.phaseSummaryArtifact ? relativeArtifactPath(report, summary.phaseSummaryArtifact) : report?.storyQualityPolicy?.phaseSummaryArtifact || null,
+    manualReviewTemplateArtifact: summary?.manualReviewTemplateArtifact ? relativeArtifactPath(report, summary.manualReviewTemplateArtifact) : report?.storyQualityPolicy?.manualReviewTemplateArtifact || null,
+    manualReviewImportArtifact: summary?.manualReviewImportArtifact ? relativeArtifactPath(report, summary.manualReviewImportArtifact) : report?.storyQualityPolicy?.manualReviewImportArtifact || null,
+    overallScore: score?.overallScore ?? null,
+    averageScore: score?.averageScore ?? summary?.averageScore ?? null,
+    scoreZeroCount: score?.scoreZeroCount ?? summary?.scoreZeroCount ?? 0,
+    dimensionCount: report?.storyQualityPolicy?.dimensions?.length || SOAK_STORY_QUALITY_POLICY.dimensions.length,
+    recordCount: summary?.recordCount ?? null,
+    hash: score?.hash || null
+  };
+}
+
+function messageRoleForQuality(message = {}) {
+  if (message?.isUser === true) return 'user';
+  if (message?.isSystem === true) return 'system';
+  if (message?.directiveOwned === true) return 'directive';
+  return 'assistant';
+}
+
+function scoreInputActionability(text = '') {
+  const value = String(text || '').trim();
+  if (!value) return { score: 0, rationale: 'Player input is empty.' };
+  const wordCount = value.split(/\s+/u).filter(Boolean).length;
+  const hasActionCue = /\b(asks?|orders?|steps?|moves?|turns?|takes?|checks?|reports?|requests?|tells?|signals?|opens?|raises?|lowers?|waits?|listens?|studies?|answers?|says?|replies?)\b/i.test(value);
+  if (wordCount >= 12 || hasActionCue || /[?!.]/u.test(value)) {
+    return { score: 2, rationale: 'Player input gives the scene an actionable visible beat.' };
+  }
+  return { score: 1, rationale: 'Player input is visible but thin for campaign progression.' };
+}
+
+function scoreInputAgencyDiscipline(text = '') {
+  const value = String(text || '');
+  if (/\bI\s+(?:make|force|declare|decide|control)\b[^.!?\n]{0,80}\b(?:Bronn|Whitaker|captain|officer|crew|they|them|he|she)\b/i.test(value)) {
+    return { score: 0, rationale: 'Player input appears to force another character or outcome as fact.' };
+  }
+  if (/\b(?:Bronn|Whitaker|captain|officer|crew)\b[^.!?\n]{0,60}\b(?:says|replies|answers|decides|admits)\b[^.!?\n]*"/i.test(value)) {
+    return { score: 1, rationale: 'Player input may be authoring another character instead of only the player character.' };
+  }
+  return { score: 2, rationale: 'Player input stays focused on the player character intent or visible action.' };
+}
+
+function knownBadCampaignFactSignal(text = '') {
+  return /\b40[- ]year[- ]old Human\b/i.test(text)
+    || /\bat impulse for 6 days\b/i.test(text)
+    || /\bimpulse\b[^.!?\n]{0,60}\b6 days\b/i.test(text);
+}
+
+function rawOrHiddenLeakSignal(text = '') {
+  return /\[object Object\]|"campaignState"|"runtimeTracking"|"relationship"|raw prompt|hidden state|director-only|csrf|api key|provider request|pressure value|relationship value/i.test(text);
+}
+
+function assistantForcesPlayerSignal(text = '') {
+  return /\byou\s+(?:say|decide|choose|realize|know|remember|confess|agree|order|attack)\b/i.test(text);
+}
+
+function buildUserStoryQualityDimensions(message = {}) {
+  const text = String(message?.text || '');
+  const perspective = playerInputPerspectiveEvidence(text, 'third-person');
+  const actionability = scoreInputActionability(text);
+  const agency = scoreInputAgencyDiscipline(text);
+  return {
+    'player-input-prose-quality': {
+      score: actionability.score === 0 ? 0 : perspective.preferredPlayEvidence ? 2 : 1,
+      rationale: perspective.preferredPlayEvidence
+        ? 'Player prose is compatible with the preferred third-person play style.'
+        : perspective.perspectiveWarning || 'Player prose is not preferred third-person narration.'
+    },
+    'player-input-perspective': {
+      score: perspective.preferredPlayEvidence ? 2 : 1,
+      rationale: perspective.preferredPlayEvidence
+        ? 'No first-person narration was detected outside quoted dialogue.'
+        : perspective.perspectiveWarning || 'First-person narration may be present outside dialogue.'
+    },
+    'player-input-actionability': actionability,
+    'player-input-agency-discipline': agency
+  };
+}
+
+function buildAssistantStoryQualityDimensions(message = {}) {
+  const text = String(message?.text || '').trim();
+  const rawLeak = rawOrHiddenLeakSignal(text);
+  const badFact = knownBadCampaignFactSignal(text);
+  const forcesPlayer = assistantForcesPlayerSignal(text);
+  const tooThin = text.split(/\s+/u).filter(Boolean).length < 8;
+  const campaignSpecific = /\b(Bronn|Whitaker|Breckenridge|bridge|captain|mission|orders?|ship|crew|XO|Asterion)\b/i.test(text);
+  const continuityScore = rawLeak || badFact ? 0 : tooThin ? 1 : 2;
+  const agencyScore = forcesPlayer ? 1 : 2;
+  return {
+    'tense-and-point-of-view': {
+      score: forcesPlayer ? 1 : 2,
+      rationale: forcesPlayer ? 'Assistant prose may be leaning into second-person/player-authored action.' : 'No obvious deterministic tense or PoV break was detected.'
+    },
+    'player-agency': {
+      score: agencyScore,
+      rationale: forcesPlayer ? 'Assistant appears to narrate player choice or knowledge directly.' : 'Assistant response leaves player choice intact in this deterministic scan.'
+    },
+    'npc-agency': {
+      score: rawLeak ? 0 : 2,
+      rationale: rawLeak ? 'Raw or hidden-state text makes NPC agency unsafe to trust.' : 'No deterministic NPC agency violation was detected.'
+    },
+    'authority-and-chain-of-command': {
+      score: rawLeak ? 0 : 2,
+      rationale: rawLeak ? 'Raw or hidden-state text corrupts authority presentation.' : 'No obvious chain-of-command contradiction was detected by the sanity scan.'
+    },
+    'hidden-truth-safety': {
+      score: rawLeak ? 0 : 2,
+      rationale: rawLeak ? 'Visible reply appears to leak raw or hidden/internal state.' : 'No raw hidden-state leak marker was detected.'
+    },
+    continuity: {
+      score: continuityScore,
+      rationale: badFact
+        ? 'Visible reply contains a known Ashes opening factual contradiction probe.'
+        : rawLeak
+          ? 'Visible reply contains raw/internal-state markers.'
+          : tooThin
+            ? 'Visible reply is too short for a strong continuity read.'
+            : 'No deterministic continuity break marker was detected.'
+    },
+    'mission-pressure': {
+      score: rawLeak ? 0 : campaignSpecific || !tooThin ? 2 : 1,
+      rationale: campaignSpecific ? 'Reply contains campaign/mission-specific surface context.' : tooThin ? 'Reply is too thin to show useful mission pressure.' : 'Reply is substantive enough for a deterministic sanity pass.'
+    },
+    'crew-reaction': {
+      score: rawLeak ? 0 : campaignSpecific ? 2 : 1,
+      rationale: campaignSpecific ? 'Reply includes campaign crew/ship context.' : 'Reply does not clearly project crew reaction in this deterministic scan.'
+    },
+    'ship-system-state': {
+      score: rawLeak || badFact ? 0 : campaignSpecific ? 2 : 1,
+      rationale: badFact ? 'Reply changes the ship transit premise in a known-bad way.' : campaignSpecific ? 'No obvious ship-state contradiction was detected.' : 'No ship-state signal was available to score strongly.'
+    },
+    'command-log-usefulness': {
+      score: rawLeak ? 0 : tooThin ? 1 : 2,
+      rationale: tooThin ? 'Reply is too thin to provide useful durable summary context.' : 'Reply is substantive enough to support later review.'
+    },
+    'sidecar-relevance': {
+      score: rawLeak ? 0 : tooThin ? 1 : 2,
+      rationale: tooThin ? 'Reply gives weak sidecar-review signal.' : 'Reply gives enough visible context for downstream sidecar relevance review.'
+    },
+    'prompt-context-freshness': {
+      score: rawLeak || badFact ? 0 : 2,
+      rationale: badFact ? 'Known-bad fact suggests stale, missing, or ignored prompt context.' : 'No deterministic stale-context marker was detected.'
+    }
+  };
+}
+
+function buildStoryQualityRecordForTranscriptMessage({ report, message, lineNumber, phaseId = 'delegated-smoke-transcript' } = {}) {
+  const role = messageRoleForQuality(message);
+  if (role === 'system') return null;
+  const text = String(message?.text || '').trim();
+  if (!text) return null;
+  const messageId = message?.id || message?.messageId || message?.hostMessageId || `transcript-message-${message?.index ?? lineNumber ?? 'unknown'}`;
+  const transcriptPointer = `transcript/source-chat.jsonl:${lineNumber || Number(message?.index || 0) + 1}`;
+  const dimensionScores = role === 'user'
+    ? buildUserStoryQualityDimensions(message)
+    : buildAssistantStoryQualityDimensions(message);
+  const scoredDimensions = Object.values(dimensionScores).filter((entry) => Number.isFinite(entry?.score));
+  const severity = scoredDimensions.some((entry) => entry.score === 0)
+    ? 'P1 story-quality blocker'
+    : scoredDimensions.some((entry) => entry.score === 1)
+      ? 'P2 story-quality warning'
+      : null;
+  const rationale = role === 'user'
+    ? 'Deterministic player-input sanity scoring from visible transcript text.'
+    : 'Deterministic assistant-output sanity scoring from visible transcript text; semantic quality still needs human or model-assisted review.';
+  return buildStoryQualityScoreRecord({
+    runId: report?.runId || null,
+    phaseId,
+    turn: null,
+    messageId,
+    messageIndex: message?.index ?? null,
+    role,
+    transcriptPointer,
+    reviewerMode: 'deterministic-sanity-check',
+    dimensionScores,
+    rationale,
+    severity,
+    artifactPointers: [
+      'transcript/source-chat.jsonl',
+      'transcript/readable-chat.md'
+    ],
+    policy: report?.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+  });
+}
+
+export function buildPostSmokeStoryQualityReview({
+  report,
+  transcriptMessages = null,
+  phaseId = 'delegated-smoke-transcript'
+} = {}) {
+  const messages = Array.isArray(transcriptMessages)
+    ? transcriptMessages
+    : readJsonLinesIfExists(report?.artifacts?.sourceChatTranscript);
+  const scores = [];
+  for (const [index, message] of messages.entries()) {
+    const score = buildStoryQualityRecordForTranscriptMessage({
+      report,
+      message,
+      lineNumber: index + 1,
+      phaseId
+    });
+    if (score) scores.push(score);
+  }
+  const summary = initializeStoryQualityReviewArtifacts({
+    report,
+    artifactPaths: report.artifacts,
+    scores,
+    policy: report.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+  });
+  const manualReviewTemplate = writeStoryQualityManualReviewTemplateArtifact({
+    report,
+    artifactPaths: report.artifacts,
+    transcriptMessages: messages,
+    deterministicScores: scores,
+    phaseId
+  });
+  const modelReviewRequest = buildStoryQualityModelReviewRequest({
+    report,
+    transcriptMessages: messages,
+    deterministicScores: scores
+  });
+  const modelReviewRequestPath = writeStoryQualityModelReviewRequestArtifact({
+    request: modelReviewRequest,
+    artifactPaths: report.artifacts
+  });
+  const modelReviewResult = buildStoryQualityModelReviewResult({
+    request: modelReviewRequest,
+    status: 'not-run',
+    reason: 'model-assisted story quality review request was prepared; live provider invocation is not complete yet'
+  });
+  const modelReviewResultPath = writeStoryQualityModelReviewResultArtifact({
+    result: modelReviewResult,
+    artifactPaths: report.artifacts
+  });
+  for (const score of scores) {
+    appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({ report, score, summary }));
+  }
+  appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({ report, summary }));
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'artifact',
+    status: manualReviewTemplate.entries.length > 0 ? 'written' : 'planned',
+    runId: report.runId,
+    artifact: 'story-quality-manual-review-template',
+    path: manualReviewTemplate.artifactPathRelative,
+    entryCount: manualReviewTemplate.entries.length
+  });
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'artifact',
+    status: 'written',
+    runId: report.runId,
+    artifact: 'story-quality-model-review-request',
+    path: relativeArtifactPath(report, modelReviewRequestPath),
+    resultPath: relativeArtifactPath(report, modelReviewResultPath),
+    inputHash: modelReviewRequest.inputHash || null,
+    transcriptMessageCount: modelReviewRequest.transcript.length,
+    deterministicScoreCount: modelReviewRequest.deterministicScores.length
+  });
+  const assistantScoreCount = scores.filter((entry) => entry?.message?.role === 'assistant' || entry?.message?.role === 'directive').length;
+  const userScoreCount = scores.filter((entry) => entry?.message?.role === 'user').length;
+  const status = scores.length > 0 ? summary.status : 'fail';
+  return {
+    status,
+    summary: scores.length > 0
+      ? `Story-quality deterministic transcript review scored ${scores.length} visible message(s): ${userScoreCount} player, ${assistantScoreCount} assistant/Directive, ${summary.scoreZeroCount} score-zero finding(s).`
+      : 'Story-quality deterministic transcript review could not run because the source chat transcript was empty or missing.',
+    reviewerMode: 'deterministic-sanity-check',
+    messageCount: messages.length,
+    scoreCount: scores.length,
+    userScoreCount,
+    assistantScoreCount,
+    scoreZeroCount: summary.scoreZeroCount,
+    averageScore: summary.averageScore,
+    summaryArtifact: summary.phaseSummaryArtifact,
+    summaryArtifactRelative: relativeArtifactPath(report, summary.phaseSummaryArtifact),
+    scoreArtifact: summary.scoreArtifact,
+    scoreArtifactRelative: relativeArtifactPath(report, summary.scoreArtifact),
+    manualReviewTemplateArtifact: manualReviewTemplate.artifactPath,
+    manualReviewTemplateArtifactRelative: manualReviewTemplate.artifactPathRelative,
+    manualReviewTemplateEntryCount: manualReviewTemplate.entries.length,
+    modelAssistedReviewRequest: modelReviewRequest,
+    modelAssistedReviewResult: modelReviewResult,
+    modelAssistedReviewRequestPath: modelReviewRequestPath,
+    modelAssistedReviewRequestPathRelative: relativeArtifactPath(report, modelReviewRequestPath),
+    modelAssistedReviewResultPath: modelReviewResultPath,
+    modelAssistedReviewResultPathRelative: relativeArtifactPath(report, modelReviewResultPath),
+    scores,
+    phaseSummary: summary
   };
 }
 
@@ -1558,6 +2637,7 @@ function relativeReportArtifacts(report = {}) {
     transcriptExcerpts: artifacts.transcriptExcerpts,
     factChecks: artifacts.factChecks,
     factCanaryIndex: artifacts.factCanaryIndex,
+    qualityReview: artifacts.qualityReview,
     screenshots: artifacts.screenshots,
     promptInspection: artifacts.promptInspection,
     storage: artifacts.storage,
@@ -1734,8 +2814,18 @@ export function buildReleaseCertificationSummary(report = {}) {
       }
     }),
     evidenceGate({
-      id: 'multi-campaign',
-      label: 'Bundled campaign matrix',
+      id: 'story-quality',
+      label: 'Story quality and readable transcript scoring',
+      planned: report.storyQualityPolicy?.required === true,
+      evidence: {
+        dimensions: report.storyQualityPolicy?.dimensions?.length || 0,
+        minimumAverage: report.storyQualityPolicy?.passCriteria?.releaseCandidateMinimumAverage ?? null,
+        scoreArtifact: report.storyQualityPolicy?.scoreArtifact || null
+      }
+    }),
+    evidenceGate({
+      id: 'active-campaign',
+      label: 'Ashes active campaign focus',
       planned: Array.isArray(report.campaignMatrixCanaries) && report.campaignMatrixCanaries.length > 0,
       evidence: {
         campaigns: report.campaignMatrix?.length || 0,
@@ -1779,6 +2869,7 @@ export function buildReleaseCertificationSummary(report = {}) {
       endConditionScenarios: report.endConditionScenarios?.length || 0,
       factualCanaryPacks: report.factualCanaryPacks?.length || 0,
       factualCanaryFacts: factCount,
+      storyQualityDimensions: report.storyQualityPolicy?.dimensions?.length || 0,
       liveLogRecordKinds: report.liveLogPolicy?.recordKinds?.length || 0
     },
     evidenceGates,
@@ -1934,6 +3025,7 @@ async function buildChecks({ artifacts = null } = {}) {
         baseUrl: BASE_URL,
         extensionPath: EXTENSION_PATH,
         localRoot: process.cwd(),
+        files: SOAK_SERVED_EXTENSION_PROOF_FILES,
         headers: extensionAuth?.ok ? extensionAuth.headers : undefined
       });
       servedExtensionFresh = servedExtension.ok === true;
@@ -2044,6 +3136,14 @@ export async function buildDryRunReport() {
     playerInputPolicy: {
       ...SOAK_PLAYER_INPUT_POLICY,
       qualityDimensions: [...SOAK_PLAYER_INPUT_POLICY.qualityDimensions]
+    },
+    storyQualityPolicy: {
+      ...SOAK_STORY_QUALITY_POLICY,
+      scorerModes: [...SOAK_STORY_QUALITY_POLICY.scorerModes],
+      scoreDefinitions: SOAK_STORY_QUALITY_POLICY.scoreDefinitions.map((entry) => ({ ...entry })),
+      dimensions: [...SOAK_STORY_QUALITY_POLICY.dimensions],
+      minimumEvidence: [...SOAK_STORY_QUALITY_POLICY.minimumEvidence],
+      passCriteria: { ...SOAK_STORY_QUALITY_POLICY.passCriteria }
     },
     sceneHandshakePolicy: {
       ...SOAK_SCENE_HANDSHAKE_POLICY,
@@ -2158,7 +3258,7 @@ function summaryMarkdown(report) {
   lines.push(`- State: ${certification.state}`);
   lines.push(`- Conclusion: ${certification.conclusion}`);
   lines.push(`- Checks: ${certification.checkCounts.pass} pass, ${certification.checkCounts.warning} warning, ${certification.checkCounts.fail} fail, ${certification.checkCounts.skipped} skipped`);
-  lines.push(`- Evidence: ${certification.evidenceCounts.campaigns} campaigns, ${certification.evidenceCounts.plannedTurns} planned turns, ${certification.evidenceCounts.campaignMatrixCanaries} campaign canary scripts, ${certification.evidenceCounts.factualCanaryFacts} factual canaries, ${certification.evidenceCounts.endConditionScenarios} End Condition scenarios`);
+  lines.push(`- Evidence: ${certification.evidenceCounts.campaigns} active campaign(s), ${certification.evidenceCounts.plannedTurns} planned turns, ${certification.evidenceCounts.campaignMatrixCanaries} campaign canary scripts, ${certification.evidenceCounts.factualCanaryFacts} factual canaries, ${certification.evidenceCounts.endConditionScenarios} End Condition scenarios`);
   lines.push(`- Residual risk: ${certification.residualRisk}`);
   lines.push(`- Next action: ${certification.nextAction}`);
   if (certification.blockers.length > 0) {
@@ -2177,11 +3277,11 @@ function summaryMarkdown(report) {
   for (const entry of report.checks) {
     lines.push(`- ${entry.status}: ${entry.id} - ${entry.summary}`);
   }
-  lines.push('', '## Campaign Matrix', '');
+  lines.push('', '## Active Campaign Matrix', '');
   for (const campaign of report.campaignMatrix || []) {
     lines.push(`- ${campaign.title}: ${campaign.liveCoverage}, ${campaign.requiredCanaryTurns} planned live turns`);
   }
-  lines.push('', '## Campaign Matrix Canary Scripts', '');
+  lines.push('', '## Active Campaign Canary Scripts', '');
   for (const script of report.campaignMatrixCanaries || []) {
     lines.push(`- ${script.title}: ${script.plannedCanaryTurns} third-person canary turns, ${script.requiredLiveChecks.length} required live checks`);
   }
@@ -2201,6 +3301,18 @@ function summaryMarkdown(report) {
   lines.push(`- First-person exception: ${report.playerInputPolicy.firstPersonExceptionPolicy}`);
   lines.push(`- Detection: ${report.playerInputPolicy.narrationDetectionPolicy}`);
   lines.push(`- Agency: ${report.playerInputPolicy.agencyBoundary}`);
+  lines.push('', '## Story Quality Policy', '');
+  lines.push(`- Live log record: ${report.storyQualityPolicy.liveLogRecord}`);
+  lines.push(`- Artifact directory: ${report.storyQualityPolicy.artifactDirectory}`);
+  lines.push(`- Score artifact: ${report.storyQualityPolicy.scoreArtifact}`);
+  lines.push(`- Manual review template: ${report.storyQualityPolicy.manualReviewTemplateArtifact}`);
+  lines.push(`- Manual review import ledger: ${report.storyQualityPolicy.manualReviewImportArtifact}`);
+  lines.push(`- Model review request: ${report.storyQualityPolicy.modelReviewRequestArtifact}`);
+  lines.push(`- Model review result: ${report.storyQualityPolicy.modelReviewResultArtifact}`);
+  lines.push(`- Score range: ${report.storyQualityPolicy.scoreDefinitions.map((entry) => `${entry.score}=${entry.label}`).join(', ')}`);
+  lines.push(`- Dimensions: ${report.storyQualityPolicy.dimensions.join(', ')}`);
+  lines.push(`- Release-candidate minimum average: ${report.storyQualityPolicy.passCriteria.releaseCandidateMinimumAverage}`);
+  lines.push(`- No score-zero required: ${report.storyQualityPolicy.passCriteria.noScoreZero}`);
   lines.push('', '## Scene Handshake Policy', '');
   lines.push(`- Interval log record: ${report.sceneHandshakePolicy.intervalLogRecord}`);
   lines.push(`- Model roles: ${report.sceneHandshakePolicy.modelRoles.join(', ')}`);
@@ -2917,10 +4029,18 @@ export function buildPostSmokeFactualGroundingAudit({
   const status = factualAuditStatus(checks, transcriptLevel?.promptBlockCount > 0 ? 'pass' : 'fail');
   const transcriptCheck = transcriptLevel?.check || null;
   const promptBlockCount = transcriptLevel?.promptBlockCount ?? 0;
+  const aggregateCounts = checks.reduce((counts, entry) => ({
+    contradicted: counts.contradicted + Number(entry?.counts?.contradicted || 0),
+    omitted: counts.omitted + Number(entry?.counts?.omitted || 0),
+    unsupportedDetail: counts.unsupportedDetail + Number(entry?.counts?.unsupportedDetail || 0),
+    promptMatches: counts.promptMatches
+      + Number(entry?.counts?.promptPartial || 0)
+      + Number(entry?.counts?.promptAvailable || 0)
+  }), { contradicted: 0, omitted: 0, unsupportedDetail: 0, promptMatches: 0 });
   const summary = perGenerationChecks.length > 0
-    ? `Factual-grounding audit completed ${perGenerationChecks.length} per-generation check(s) and one transcript-level review; ${checks.reduce((sum, entry) => sum + Number(entry?.counts?.contradicted || 0), 0)} contradiction(s) recorded.`
+    ? `Factual-grounding audit completed ${perGenerationChecks.length} per-generation check(s) and one transcript-level review; ${aggregateCounts.contradicted} contradiction(s), ${aggregateCounts.omitted} omission(s), and ${aggregateCounts.unsupportedDetail} unsupported detail(s) recorded.`
     : promptBlockCount > 0
-      ? `Factual-grounding transcript audit completed with ${transcriptCheck?.counts?.contradicted || 0} contradiction(s), ${transcriptCheck?.counts?.unsupportedDetail || 0} unsupported detail(s), and ${Number(transcriptCheck?.counts?.promptPartial || 0) + Number(transcriptCheck?.counts?.promptAvailable || 0)} prompt-availability match(es).`
+      ? `Factual-grounding transcript audit completed with ${transcriptCheck?.counts?.contradicted || 0} contradiction(s), ${transcriptCheck?.counts?.omitted || 0} omission(s), ${transcriptCheck?.counts?.unsupportedDetail || 0} unsupported detail(s), and ${Number(transcriptCheck?.counts?.promptPartial || 0) + Number(transcriptCheck?.counts?.promptAvailable || 0)} prompt-availability match(es).`
       : 'Factual-grounding transcript audit ran contradiction checks, but no per-generation prompt snapshots or final prompt blocks were available.';
   return {
     status,
@@ -2958,13 +4078,21 @@ function modelAssistedReviewProviderOutputPath(report) {
   return path.join(modelAssistedReviewProviderDir(report), 'provider-result.json');
 }
 
-function modelCallFromReviewProviderResult(providerResult = null) {
+function storyQualityReviewProviderDir(report) {
+  return path.join(report.artifacts.root, 'smoke-story-quality-review');
+}
+
+function storyQualityReviewProviderOutputPath(report) {
+  return path.join(storyQualityReviewProviderDir(report), 'provider-result.json');
+}
+
+function modelCallFromReviewProviderResult(providerResult = null, fallbackRoleId = 'factualGroundingReviewer') {
   const modelCall = providerResult?.modelCall || null;
   if (modelCall) return modelCall;
   const generation = providerResult?.generation || null;
   if (!generation) return null;
   return {
-    roleId: generation.roleId || 'factualGroundingReviewer',
+    roleId: generation.roleId || fallbackRoleId,
     providerKind: generation.providerKind || null,
     providerId: generation.providerId || null,
     model: generation.model || null,
@@ -3010,7 +4138,7 @@ async function invokeModelAssistedFactualReview({ report, audit, messageScriptPa
   const modelAssistedReviewResult = buildModelAssistedFactualReviewResult({
     request: audit.modelAssistedReviewRequest,
     modelOutput: providerResult?.text || null,
-    modelCall: modelCallFromReviewProviderResult(providerResult),
+    modelCall: modelCallFromReviewProviderResult(providerResult, 'factualGroundingReviewer'),
     status: providerResult?.ok === true ? null : (child.ok ? 'fail' : 'not-run'),
     reason: providerResult?.ok === true
       ? null
@@ -3056,6 +4184,103 @@ async function invokeModelAssistedFactualReview({ report, audit, messageScriptPa
   };
 }
 
+async function invokeModelAssistedStoryQualityReview({ report, review, messageScriptPath } = {}) {
+  if (!review?.modelAssistedReviewRequestPath || !review?.modelAssistedReviewRequest) return review;
+  const providerDir = storyQualityReviewProviderDir(report);
+  ensureDirectory(providerDir);
+  const providerOutputPath = storyQualityReviewProviderOutputPath(report);
+  const stdoutPath = path.join(providerDir, 'stdout.txt');
+  const stderrPath = path.join(providerDir, 'stderr.txt');
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'model-assisted-story-quality-review',
+    status: 'in_progress',
+    requestPath: review.modelAssistedReviewRequestPathRelative || review.modelAssistedReviewRequestPath,
+    providerOutputPath: relativeArtifactPath(report, providerOutputPath),
+    inputHash: review.modelAssistedReviewRequest.inputHash || null
+  });
+  const env = {
+    ...buildLiveSmokeEnvironment({ report, messageScriptPath }),
+    DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR: providerDir,
+    DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_ONLY: '1',
+    DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH: review.modelAssistedReviewRequestPath,
+    DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_OUTPUT_PATH: providerOutputPath,
+    DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN: '0',
+    DIRECTIVE_SILLYTAVERN_OPEN_WORLD_FLOW: '0',
+    DIRECTIVE_SILLYTAVERN_SAVE_FLOW: '0',
+    DIRECTIVE_SILLYTAVERN_SCREENSHOTS: '0',
+    DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP: '0',
+    DIRECTIVE_SILLYTAVERN_TEARDOWN: '0'
+  };
+  const child = await childProcessResult(process.execPath, ['tools/scripts/smoke-sillytavern-live.mjs'], { env });
+  writeTextFile(stdoutPath, child.stdout || '');
+  writeTextFile(stderrPath, child.stderr || '');
+  const providerOutput = readJsonFileIfExists(providerOutputPath);
+  const providerResult = providerOutput?.result || null;
+  const modelAssistedReviewResult = buildStoryQualityModelReviewResult({
+    request: review.modelAssistedReviewRequest,
+    modelOutput: providerResult?.text || null,
+    modelCall: modelCallFromReviewProviderResult(providerResult, 'storyQualityReviewer'),
+    status: providerResult?.ok === true ? null : (child.ok ? 'fail' : 'not-run'),
+    reason: providerResult?.ok === true
+      ? null
+      : (providerResult?.reason || providerResult?.generation?.error?.message || child.error?.message || 'model-assisted story quality reviewer did not return usable output')
+  });
+  const resultPath = writeStoryQualityModelReviewResultArtifact({
+    result: modelAssistedReviewResult,
+    artifactPaths: report.artifacts
+  });
+  const modelScoreRecords = providerResult?.ok === true
+    ? storyQualityModelScoresToScoreRecords({ report, result: modelAssistedReviewResult })
+    : [];
+  for (const score of modelScoreRecords) {
+    writeStoryQualityScoreRecord({ artifactPaths: report.artifacts, record: score });
+    appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({ report, score }));
+  }
+  const allScores = readJsonLinesIfExists(qualityScoreArtifactPath(report.artifacts));
+  const phaseSummary = writeStoryQualityPhaseSummaryArtifact({
+    artifactPaths: report.artifacts,
+    scores: allScores,
+    policy: report.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+  });
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'model-assisted-story-quality-review',
+    status: providerResult?.ok === true ? modelAssistedReviewResult.status : 'fail',
+    requestPath: review.modelAssistedReviewRequestPathRelative || review.modelAssistedReviewRequestPath,
+    resultPath: relativeArtifactPath(report, resultPath),
+    providerOutputPath: relativeArtifactPath(report, providerOutputPath),
+    inputHash: review.modelAssistedReviewRequest.inputHash || null,
+    counts: modelAssistedReviewResult.counts || null,
+    modelCall: modelAssistedReviewResult.modelCall || null,
+    importedScoreCount: modelScoreRecords.length,
+    reason: modelAssistedReviewResult.reason || null
+  });
+  appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({ report, summary: phaseSummary }));
+  return {
+    ...review,
+    modelAssistedReviewResult,
+    modelAssistedReviewResultPath: resultPath,
+    modelAssistedReviewResultPathRelative: relativeArtifactPath(report, resultPath),
+    modelAssistedReviewProvider: {
+      ok: providerResult?.ok === true,
+      exitCode: child.exitCode,
+      signal: child.signal,
+      providerDir,
+      providerDirRelative: relativeArtifactPath(report, providerDir),
+      providerOutputPath,
+      providerOutputPathRelative: relativeArtifactPath(report, providerOutputPath),
+      stdoutPath,
+      stdoutPathRelative: relativeArtifactPath(report, stdoutPath),
+      stderrPath,
+      stderrPathRelative: relativeArtifactPath(report, stderrPath),
+      error: child.error || null,
+      generation: providerResult?.generation || null,
+      modelCall: providerResult?.modelCall || null
+    },
+    modelAssistedScoreRecords: modelScoreRecords,
+    phaseSummary
+  };
+}
+
 async function runLiveExecution(report) {
   report.mode = 'live';
   ensureArtifactTree(report.artifacts);
@@ -3066,6 +4291,11 @@ async function runLiveExecution(report) {
   const campaignCanaryIndex = writeCampaignMatrixCanaryArtifacts({
     scripts: report.campaignMatrixCanaries || [],
     artifactPaths: report.artifacts
+  });
+  const qualitySummary = initializeStoryQualityReviewArtifacts({
+    report,
+    artifactPaths: report.artifacts,
+    policy: report.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
   });
   writeTextFile(report.artifacts.turns, '');
   writeTextFile(report.artifacts.sourceChatTranscript, '');
@@ -3129,6 +4359,10 @@ async function runLiveExecution(report) {
       hash: entry.hash
     }))
   });
+  appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({
+    report,
+    summary: qualitySummary
+  }));
   writeSoakCheckpoint({
     report,
     checkpointId: '0000-live-run-start',
@@ -3140,7 +4374,10 @@ async function runLiveExecution(report) {
       turnLimit: messageScript.executedTurnLimit,
       messageScriptPath: relativeArtifactPath(report, messageScriptPath),
       factCanaryIndex: relativeArtifactPath(report, report.artifacts.factCanaryIndex),
-      campaignCanaryIndex: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact)
+      campaignCanaryIndex: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact),
+      qualityReviewSummary: relativeArtifactPath(report, qualitySummary.phaseSummaryArtifact),
+      qualityManualReviewTemplate: relativeArtifactPath(report, qualitySummary.manualReviewTemplateArtifact),
+      qualityManualReviewImport: relativeArtifactPath(report, qualitySummary.manualReviewImportArtifact)
     }
   });
 
@@ -3208,6 +4445,14 @@ async function runLiveExecution(report) {
   const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
   const transcriptCopy = copyDelegatedSmokeTranscriptArtifacts({ report, smokeSummary, smokeReport });
   const promotedSmokeEvidence = promoteDelegatedSmokeEvidence({ report, smokeReport });
+  let storyQualityReview = buildPostSmokeStoryQualityReview({
+    report
+  });
+  storyQualityReview = await invokeModelAssistedStoryQualityReview({
+    report,
+    review: storyQualityReview,
+    messageScriptPath
+  });
   let factualGroundingAudit = buildPostSmokeFactualGroundingAudit({
     report,
     smokeSummary,
@@ -3247,8 +4492,55 @@ async function runLiveExecution(report) {
         reason: transcriptCopy.reason || null
       },
       promotedSmokeEvidence,
+      storyQualityReview: {
+        status: storyQualityReview.status,
+        reviewerMode: storyQualityReview.reviewerMode,
+        scoreCount: storyQualityReview.scoreCount,
+        userScoreCount: storyQualityReview.userScoreCount,
+        assistantScoreCount: storyQualityReview.assistantScoreCount,
+        scoreZeroCount: storyQualityReview.scoreZeroCount,
+        averageScore: storyQualityReview.averageScore,
+        scoreArtifact: storyQualityReview.scoreArtifactRelative,
+        summaryArtifact: storyQualityReview.summaryArtifactRelative,
+        manualReviewTemplateArtifact: storyQualityReview.manualReviewTemplateArtifactRelative,
+        manualReviewTemplateEntryCount: storyQualityReview.manualReviewTemplateEntryCount,
+        modelAssistedReview: {
+          status: storyQualityReview.modelAssistedReviewResult?.status || null,
+          requestPath: storyQualityReview.modelAssistedReviewRequestPathRelative || storyQualityReview.modelAssistedReviewRequestPath || null,
+          resultPath: storyQualityReview.modelAssistedReviewResultPathRelative || storyQualityReview.modelAssistedReviewResultPath || null,
+          providerOutputPath: storyQualityReview.modelAssistedReviewProvider?.providerOutputPathRelative || storyQualityReview.modelAssistedReviewProvider?.providerOutputPath || null,
+          inputHash: storyQualityReview.modelAssistedReviewRequest?.inputHash || null,
+          counts: storyQualityReview.modelAssistedReviewResult?.counts || null
+        }
+      },
       coverageLimitations: messageScript.coverageLimitations,
       error: result.error
+    }
+  ));
+  report.checks.push(check(
+    'live-story-quality-transcript-review',
+    storyQualityReview.status,
+    storyQualityReview.summary,
+    {
+      reviewerMode: storyQualityReview.reviewerMode,
+      messageCount: storyQualityReview.messageCount,
+      scoreCount: storyQualityReview.scoreCount,
+      userScoreCount: storyQualityReview.userScoreCount,
+      assistantScoreCount: storyQualityReview.assistantScoreCount,
+      scoreZeroCount: storyQualityReview.scoreZeroCount,
+      averageScore: storyQualityReview.averageScore,
+      scoreArtifact: storyQualityReview.scoreArtifactRelative,
+      summaryArtifact: storyQualityReview.summaryArtifactRelative,
+      manualReviewTemplateArtifact: storyQualityReview.manualReviewTemplateArtifactRelative,
+      manualReviewTemplateEntryCount: storyQualityReview.manualReviewTemplateEntryCount,
+      modelAssistedReview: {
+        status: storyQualityReview.modelAssistedReviewResult?.status || null,
+        requestPath: storyQualityReview.modelAssistedReviewRequestPathRelative || storyQualityReview.modelAssistedReviewRequestPath || null,
+        resultPath: storyQualityReview.modelAssistedReviewResultPathRelative || storyQualityReview.modelAssistedReviewResultPath || null,
+        providerOutputPath: storyQualityReview.modelAssistedReviewProvider?.providerOutputPathRelative || storyQualityReview.modelAssistedReviewProvider?.providerOutputPath || null,
+        inputHash: storyQualityReview.modelAssistedReviewRequest?.inputHash || null,
+        counts: storyQualityReview.modelAssistedReviewResult?.counts || null
+      }
     }
   ));
   report.checks.push(check(
@@ -3347,6 +4639,18 @@ async function runLiveExecution(report) {
         transcriptLevelCheckCount: factualGroundingAudit.transcriptLevelCheckCount || 0,
         modelAssistedReviewStatus: factualGroundingAudit.modelAssistedReviewResult?.status || null,
         artifactPaths: factualGroundingAudit.artifactPaths || []
+      },
+      storyQualityReview: {
+        status: storyQualityReview.status,
+        scoreCount: storyQualityReview.scoreCount,
+        scoreZeroCount: storyQualityReview.scoreZeroCount,
+        averageScore: storyQualityReview.averageScore,
+        scoreArtifact: storyQualityReview.scoreArtifactRelative,
+        summaryArtifact: storyQualityReview.summaryArtifactRelative,
+        manualReviewTemplateArtifact: storyQualityReview.manualReviewTemplateArtifactRelative,
+        manualReviewTemplateEntryCount: storyQualityReview.manualReviewTemplateEntryCount,
+        modelAssistedReviewStatus: storyQualityReview.modelAssistedReviewResult?.status || null,
+        modelAssistedReviewResultPath: storyQualityReview.modelAssistedReviewResultPathRelative || null
       }
     }
   });
@@ -3360,7 +4664,19 @@ async function runLiveExecution(report) {
     details: {
       smokeArtifactDir: relativeArtifactPath(report, smokeArtifactDir),
       failures: report.failures.map((entry) => compact(entry, 260)),
-      warnings: report.warnings.map((entry) => compact(entry, 260))
+      warnings: report.warnings.map((entry) => compact(entry, 260)),
+      storyQualityReview: {
+        status: storyQualityReview.status,
+        scoreCount: storyQualityReview.scoreCount,
+        scoreZeroCount: storyQualityReview.scoreZeroCount,
+        averageScore: storyQualityReview.averageScore,
+        scoreArtifact: storyQualityReview.scoreArtifactRelative,
+        summaryArtifact: storyQualityReview.summaryArtifactRelative,
+        manualReviewTemplateArtifact: storyQualityReview.manualReviewTemplateArtifactRelative,
+        manualReviewTemplateEntryCount: storyQualityReview.manualReviewTemplateEntryCount,
+        modelAssistedReviewStatus: storyQualityReview.modelAssistedReviewResult?.status || null,
+        modelAssistedReviewResultPath: storyQualityReview.modelAssistedReviewResultPathRelative || null
+      }
     }
   });
   appendJsonLine(report.artifacts.liveLog, {
@@ -3415,6 +4731,11 @@ async function main() {
       scripts: report.campaignMatrixCanaries || [],
       artifactPaths: report.artifacts
     });
+    const qualitySummary = initializeStoryQualityReviewArtifacts({
+      report,
+      artifactPaths: report.artifacts,
+      policy: report.storyQualityPolicy || SOAK_STORY_QUALITY_POLICY
+    });
     writeJsonFile(report.artifacts.report, report);
     writeTextFile(report.artifacts.summary, summaryMarkdown(report));
     appendJsonLine(report.artifacts.liveLog, {
@@ -3451,6 +4772,10 @@ async function main() {
         hash: entry.hash
       }))
     });
+    appendJsonLine(report.artifacts.liveLog, storyQualityLiveLogRecord({
+      report,
+      summary: qualitySummary
+    }));
     writeTextFile(report.artifacts.turns, '');
     writeTextFile(
       report.artifacts.readableTranscript,
@@ -3482,6 +4807,9 @@ async function main() {
         readableTranscript: relativeArtifactPath(report, report.artifacts.readableTranscript),
         sourceChatTranscript: relativeArtifactPath(report, report.artifacts.sourceChatTranscript),
         campaignCanaryIndex: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact),
+        qualityReviewSummary: relativeArtifactPath(report, qualitySummary.phaseSummaryArtifact),
+        qualityManualReviewTemplate: relativeArtifactPath(report, qualitySummary.manualReviewTemplateArtifact),
+        qualityManualReviewImport: relativeArtifactPath(report, qualitySummary.manualReviewImportArtifact),
         summary: relativeArtifactPath(report, report.artifacts.summary)
       }
     });

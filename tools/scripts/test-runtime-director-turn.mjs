@@ -135,10 +135,27 @@ assert.equal(turnResult.turnPacket.outcomePacket.resultBand, 'Partial Success');
 assert.equal(turnResult.turnPacket.sceneSnapshot.campaignId, 'ashes-of-peace');
 assert.equal(turnResult.turnPacket.sceneSnapshot.campaignInstanceId, 'campaign-runtime-director-2');
 assert.equal(turnResult.turnPacket.sceneSnapshot.activePhaseId, 'hesperus-diversion');
+assert.equal(turnResult.turnPacket.provenance.continuityProjection.kind, 'directive.continuityDirectorPacketDigest.v1');
+assert.equal(turnResult.turnPacket.provenance.continuityProjection.audience, 'missionDirector');
+assert.equal(turnResult.turnPacket.provenance.continuityProjection.hash, turnResult.coordinatorDiagnostics.continuityProjection.hash);
+assert.equal(typeof turnResult.turnPacket.provenance.continuityProjection.sourceHash, 'string');
+assert.equal(turnResult.turnPacket.provenance.continuityProjection.selectedFactCount > 0, true);
+assert.equal(
+  turnResult.turnPacket.directorPackets.crewDirector.hydratedCards.some((card) => (
+    card.type === 'crew.voice'
+    && card.guidance?.voiceCapsule?.coreEngine
+    && card.guidance.voiceCapsule.exampleLineShapes?.length === 1
+  )),
+  true
+);
 assert.equal(turnResult.campaignState.mission.activePhaseId, 'hesperus-aftermath');
 assert.equal(turnResult.campaignState.mission.phase, 'hesperus-aftermath');
 assert.equal(turnResult.campaignState.turnLedger.swipeRerollForbidden, true);
 assert.equal(turnResult.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.runtime.hesperus.001');
+assert.deepEqual(
+  turnResult.campaignState.turnLedger.entries.at(-1).continuityProjection,
+  turnResult.turnPacket.provenance.continuityProjection
+);
 assert.equal(turnResult.campaignState.commandBearing.resolve.awardedDecisionIds.includes('command.hesperus-fraud-accountability'), true);
 assert.equal(turnResult.campaignState.commandBearing.resolve.marks, 1);
 assert.equal(turnResult.campaignState.commandBearing.resolve.rankTitle, 'Practiced');
@@ -181,10 +198,16 @@ assert.equal(providerCalls.length, 1);
 assert.match(providerCalls[0].prompt, /Narrator Packet/);
 assert.match(providerCalls[0].prompt, /Player Identity/);
 assert.match(providerCalls[0].prompt, /Known Crew Identity/);
+assert.match(providerCalls[0].prompt, /Narrator-Safe Crew Voice Cues/);
+assert.match(providerCalls[0].prompt, /Priya turns intent into cooperation/);
+assert.match(providerCalls[0].prompt, /Bronn tests every plan against hostile behavior/);
+assert.match(providerCalls[0].prompt, /Bronn thinks any unofficial path is a tunnel with a trap at the end/);
 assert.match(providerCalls[0].prompt, /Priya Nayar/);
 assert.doesNotMatch(providerCalls[0].prompt, /Priya Anand/);
+assert.doesNotMatch(providerCalls[0].prompt, /Becky Chambers|Picard|Sisko|Janeway|write like|in the style of/i);
 assert.match(providerCalls[0].systemPrompt, /Player Identity section is authoritative/);
 assert.match(providerCalls[0].systemPrompt, /Do not invent surnames, rename crew, or merge two officers/);
+assert.match(providerCalls[0].systemPrompt, /Treat example line shapes as syntax examples, not catchphrases/);
 assert.match(providerCalls[0].prompt, /Do not reroll mechanics/);
 assert.match(providerCalls[0].systemPrompt, /Narration perspective contract/);
 assert.match(providerCalls[0].systemPrompt, /third person limited external/);

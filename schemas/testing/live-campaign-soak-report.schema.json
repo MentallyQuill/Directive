@@ -21,6 +21,7 @@
     "turnSettlementPolicy",
     "readableTranscriptPolicy",
     "playerInputPolicy",
+    "storyQualityPolicy",
     "sceneHandshakePolicy",
     "timekeepingPolicy",
     "objectiveAssignmentProjectionPolicy",
@@ -149,6 +150,7 @@
             "endConditionScenarios",
             "factualCanaryPacks",
             "factualCanaryFacts",
+            "storyQualityDimensions",
             "liveLogRecordKinds"
           ],
           "properties": {
@@ -185,6 +187,10 @@
               "minimum": 0
             },
             "factualCanaryFacts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "storyQualityDimensions": {
               "type": "integer",
               "minimum": 0
             },
@@ -332,6 +338,7 @@
         "sourceChatTranscript",
         "transcriptIndex",
         "campaignMatrix",
+        "qualityReview",
         "factChecks",
         "factCanaryIndex"
       ]
@@ -578,6 +585,142 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "storyQualityPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "artifactDirectory",
+        "scoreArtifact",
+        "phaseSummaryArtifact",
+        "manualReviewTemplateArtifact",
+        "manualReviewImportArtifact",
+        "modelReviewRequestArtifact",
+        "modelReviewResultArtifact",
+        "liveLogRecord",
+        "scorerModes",
+        "scoreDefinitions",
+        "dimensions",
+        "minimumEvidence",
+        "passCriteria",
+        "hiddenStatePolicy",
+        "failureSeverityPolicy"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "const": true
+        },
+        "artifactDirectory": {
+          "type": "string",
+          "const": "quality-review"
+        },
+        "scoreArtifact": {
+          "type": "string",
+          "const": "quality-review/scores.jsonl"
+        },
+        "phaseSummaryArtifact": {
+          "type": "string",
+          "const": "quality-review/phase-summary.json"
+        },
+        "manualReviewTemplateArtifact": {
+          "type": "string",
+          "const": "quality-review/manual-review-template.json"
+        },
+        "manualReviewImportArtifact": {
+          "type": "string",
+          "const": "quality-review/manual-review-import.jsonl"
+        },
+        "modelReviewRequestArtifact": {
+          "type": "string",
+          "const": "quality-review/model-assisted-review/request.json"
+        },
+        "modelReviewResultArtifact": {
+          "type": "string",
+          "const": "quality-review/model-assisted-review/result.json"
+        },
+        "liveLogRecord": {
+          "type": "string",
+          "const": "quality-score"
+        },
+        "scorerModes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "scoreDefinitions": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["score", "label", "meaning"],
+            "properties": {
+              "score": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "meaning": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "minimumEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "passCriteria": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["noScoreZero", "releaseCandidateMinimumAverage", "preferredPerspective", "firstPersonCompatibilityOnly"],
+          "properties": {
+            "noScoreZero": {
+              "type": "boolean",
+              "const": true
+            },
+            "releaseCandidateMinimumAverage": {
+              "type": "number",
+              "minimum": 0
+            },
+            "preferredPerspective": {
+              "type": "string",
+              "const": "third-person"
+            },
+            "firstPersonCompatibilityOnly": {
+              "type": "boolean",
+              "const": true
+            }
+          }
+        },
+        "hiddenStatePolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failureSeverityPolicy": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

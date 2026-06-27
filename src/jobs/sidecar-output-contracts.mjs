@@ -222,8 +222,12 @@ export function parseStateDeltaProposalOutput(value, {
     };
     if (operation.identityKey !== undefined) normalizedOperation.identityKey = compactText(operation.identityKey || 'id');
     if (operation.merge !== undefined) normalizedOperation.merge = operation.merge !== false;
+    if (operation.sourceComponentIds !== undefined) normalizedOperation.sourceComponentIds = uniqueStrings(operation.sourceComponentIds, 24, 180);
+    if (operation.derivedFromComponentIds !== undefined) normalizedOperation.derivedFromComponentIds = uniqueStrings(operation.derivedFromComponentIds, 24, 180);
     operations.push(normalizedOperation);
   }
+  const sourceComponentIds = uniqueStrings(input.sourceComponentIds, 24, 180);
+  const derivedFromComponentIds = uniqueStrings(input.derivedFromComponentIds, 24, 180);
   return {
     ok: true,
     schemaId,
@@ -232,7 +236,9 @@ export function parseStateDeltaProposalOutput(value, {
       workerId: compactText(input.workerId || workerKey),
       baseRevision: Number.isFinite(Number(input.baseRevision)) ? Number(input.baseRevision) : baseRevision,
       operations,
-      summary: compactText(input.summary || (operations.length ? `${operations.length} operation(s) proposed.` : 'No durable state change proposed.'))
+      summary: compactText(input.summary || (operations.length ? `${operations.length} operation(s) proposed.` : 'No durable state change proposed.')),
+      ...(sourceComponentIds.length ? { sourceComponentIds } : {}),
+      ...(derivedFromComponentIds.length ? { derivedFromComponentIds } : {})
     },
     diagnostics: {
       ...parsed.diagnostics,

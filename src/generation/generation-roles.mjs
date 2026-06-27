@@ -9,18 +9,24 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'sceneDeltaExtractor',
   'sceneReconciliationExtractor',
   'sceneHandshakeSettler',
+  'timeAdvanceAdjudicator',
   'relationshipEvaluator',
   'commandBearingFitChecker',
   'commandBearingSpendValidator',
   'commandBearingEvaluator',
   'outcomeIntegrityReview',
   'promptContextBuilder',
+  'continuityProjectionPlanner',
+  'continuityContradictionReviewer',
+  'continuityClaimExtractor',
+  'continuityProjectionCompressor',
   'continuityTracker',
   'crewDirector',
   'shipDirector',
   'commandLogSummarizer',
   'recapSummarizer',
   'factualGroundingReviewer',
+  'storyQualityReviewer',
   'directiveAssist',
   'characterCreatorSectionDraft',
   'utilityJson'
@@ -183,6 +189,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayRunDuringMainGeneration: true,
     fallback: 'defer'
   },
+  timeAdvanceAdjudicator: {
+    id: 'timeAdvanceAdjudicator',
+    label: 'Time Advance Adjudicator',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 15000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'deterministic'
+  },
   relationshipEvaluator: {
     id: 'relationshipEvaluator',
     label: 'Relationship Evaluator',
@@ -291,6 +315,78 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayRunDuringMainGeneration: true,
     fallback: 'deterministic'
   },
+  continuityProjectionPlanner: {
+    id: 'continuityProjectionPlanner',
+    label: 'Continuity Projection Planner',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 15000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'last-good-then-deterministic'
+  },
+  continuityContradictionReviewer: {
+    id: 'continuityContradictionReviewer',
+    label: 'Continuity Contradiction Reviewer',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
+  continuityClaimExtractor: {
+    id: 'continuityClaimExtractor',
+    label: 'Continuity Claim Extractor',
+    providerKind: 'utility',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'skip'
+  },
+  continuityProjectionCompressor: {
+    id: 'continuityProjectionCompressor',
+    label: 'Continuity Projection Compressor',
+    providerKind: 'utility',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'deterministic'
+  },
   missionDirectorAdvisor: {
     id: 'missionDirectorAdvisor',
     label: 'Mission Director Advisor',
@@ -387,6 +483,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   factualGroundingReviewer: {
     id: 'factualGroundingReviewer',
     label: 'Factual Grounding Reviewer',
+    providerKind: 'utility',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 60000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'medium',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'skip'
+  },
+  storyQualityReviewer: {
+    id: 'storyQualityReviewer',
+    label: 'Story Quality Reviewer',
     providerKind: 'utility',
     blocking: false,
     output: 'structured-json',

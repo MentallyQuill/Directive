@@ -42,6 +42,7 @@ The main working domains are:
 | Director turns | `src/runtime/director-turn-runtime.mjs`, `src/directors/open-world-turn-coordinator.mjs`, `src/mission/director.mjs` | Scene snapshots, mission/quest/world resolution, provisional and committed turn packets. |
 | Transactions | `src/campaign/transaction-state.mjs`, `src/runtime/state-delta-gateway.mjs`, `src/runtime/turn-commit-coordinator.mjs` | Mechanics-first commits, revisioned tracked state, recovery snapshots, journals, sidecar application. |
 | Generation | `src/generation/generation-roles.mjs`, `src/generation/generation-router.mjs` | Host-neutral model-call roles and routing through active host generation clients. |
+| Continuity Projection Matrix | `src/continuity`, `src/generation/player-safe-prompt-context-builder.mjs`, `src/runtime/response-dispatcher.mjs` | Source-backed continuity facts, static prompt lanes, sanitized audits, contradiction guard/quarantine, and recovery-required handling for host-native continuity violations. |
 | Timekeeping | `src/time/campaign-time-header.mjs` | Deterministic reply-header formatting, stale-header stripping, and prompt-block creation for host-native generation. |
 | Guidance | `src/guidance/directive-guidance.js`, `src/guidance/directive-training-scenario.mjs` | Tips, tutorials, Show Me preparation, and inert populated training views. |
 | Sidecars | `src/jobs/campaign-sidecar-scheduler.mjs`, `src/jobs/sidecar-job-runner.mjs` | Proposal-only background state analysis and command-log summarization. |
@@ -58,6 +59,10 @@ flowchart LR
   Turns --> Director["Director turn runtime"]
   Director --> Transaction["Transaction state"]
   Transaction --> Prompt["Player-safe prompt context"]
+  State --> Matrix["Continuity Projection Matrix"]
+  Packages --> Matrix
+  Matrix --> Prompt
+  Matrix --> Director
   Transaction --> Sidecars["Sidecar proposals"]
   Prompt --> Adapter
   Sidecars --> Transaction

@@ -341,8 +341,8 @@ const MODEL_CALL_ROUTING_GROUPS = Object.freeze([
     id: 'context-summaries',
     label: 'Context & Summaries',
     icon: 'fa-solid fa-list-check',
-    tooltip: 'Prompt context, command logs, recaps, factual checks, and structured utility JSON summaries.',
-    roles: Object.freeze(['promptContextBuilder', 'commandLogSummarizer', 'recapSummarizer', 'factualGroundingReviewer', 'utilityJson'])
+    tooltip: 'Prompt context, command logs, recaps, factual checks, story-quality checks, and structured utility JSON summaries.',
+    roles: Object.freeze(['promptContextBuilder', 'commandLogSummarizer', 'recapSummarizer', 'factualGroundingReviewer', 'storyQualityReviewer', 'utilityJson'])
   },
   {
     id: 'authoring-helpers',
@@ -1240,6 +1240,69 @@ function appendStateSafetySettings(body, view, actions = {}) {
   return true;
 }
 
+function continuityStatusTone(status) {
+  const label = String(status || '').toLowerCase();
+  if (label.includes('stale') || label.includes('missing') || label.includes('rebuild')) return 'warning';
+  if (label.includes('fresh') || label.includes('ok')) return 'success';
+  if (label.includes('error') || label.includes('failed')) return 'danger';
+  return 'neutral';
+}
+
+function appendContinuityProjectionDiagnostics(body, view, actions = {}) {
+  const diagnostics = view?.continuityProjectionDiagnostics || null;
+  if (!diagnostics) return false;
+  const card = createCard('directive-settings-continuity-card directive-settings-control-card directive-lcars-panel');
+  addTooltip(card, 'Continuity Projection Matrix status. This shows counts and hashes only, never hidden facts or claim text.');
+  const header = createElement('header', 'directive-settings-safety-header directive-continuity-inspector');
+  const copy = createElement('div');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Continuity Matrix';
+  const title = createCardTitle('Projection Diagnostics');
+  const summary = createElement('p', 'directive-settings-safety-summary');
+  summary.textContent = 'Sanitized prompt, claim, and guard telemetry for the active campaign.';
+  copy.append(kicker, title, summary);
+  const icon = createElement('span', 'directive-settings-safety-emblem');
+  icon.appendChild(createIcon('fa-solid fa-table-cells'));
+  header.append(copy, icon);
+  card.appendChild(header);
+
+  const grid = createElement('div', 'directive-continuity-status-grid directive-settings-diagnostics-grid');
+  grid.append(
+    createSettingsStatusBlock('Status', displayValue(diagnostics.status, 'Unknown'), continuityStatusTone(diagnostics.status), 'Continuity prompt freshness status.'),
+    createSettingsStatusBlock('Prompt Rev', diagnostics.promptRevision ?? 0, 'neutral', 'Prompt context revision recorded for the campaign.'),
+    createSettingsStatusBlock('Blocks', `${diagnostics.blockCount ?? 0}/${diagnostics.staticKeys?.expectedStaticKeyCount ?? 0}`, diagnostics.staticKeys?.missingStaticKeyCount ? 'warning' : 'success', 'Installed static Matrix prompt block count.'),
+    createSettingsStatusBlock('Facts', diagnostics.selectedFactCount ?? diagnostics.factCount ?? 0, 'neutral', 'Selected continuity fact count, not raw fact ids.'),
+    createSettingsStatusBlock('Conflicts', diagnostics.conflictCount ?? 0, diagnostics.conflictCount ? 'warning' : 'success', 'Continuity conflict count after deterministic resolution.'),
+    createSettingsStatusBlock('Rejected Claims', diagnostics.rejectedClaimCount ?? 0, diagnostics.rejectedClaimCount ? 'warning' : 'success', 'Generated claims rejected by continuity guard or quarantine.')
+  );
+  card.appendChild(grid);
+
+  const footer = createElement('div', 'directive-settings-safety-footer directive-continuity-inspector-footer');
+  footer.append(
+    createMetaRow('Prompt Hash', diagnostics.promptHash || 'None'),
+    createMetaRow('Source Hash', diagnostics.sourceHash || 'None'),
+    createMetaRow('Policy Hash', diagnostics.policyHash || 'None'),
+    createMetaRow('Latest Review', diagnostics.latestReview?.status || 'not-reviewed')
+  );
+  card.appendChild(footer);
+
+  const row = createElement('div', 'directive-action-row directive-settings-action-row');
+  row.appendChild(createButton({
+    label: 'Rebuild Prompt Context',
+    icon: 'fa-solid fa-rotate',
+    className: 'directive-button directive-secondary-command',
+    title: 'Rebuild and reinstall the active campaign prompt context.',
+    disabled: typeof actions.rebuildPromptContext !== 'function',
+    onClick: async () => {
+      await actions.rebuildPromptContext?.();
+      await actions.refresh?.();
+    }
+  }));
+  card.appendChild(row);
+  body.appendChild(card);
+  return true;
+}
+
 export function renderSettingsPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Settings');
   const state = view?.campaignState;
@@ -1283,6 +1346,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
     active: activeSectionId === SETTINGS_SAFETY_SECTION_ID
   });
   appendStateSafetySettings(safetySection, view, actions);
+  appendContinuityProjectionDiagnostics(safetySection, view, actions);
   consoleSurface.appendChild(safetySection);
 
   body.appendChild(consoleSurface);

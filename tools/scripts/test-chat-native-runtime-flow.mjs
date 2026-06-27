@@ -127,6 +127,14 @@ const host = createFakeDirectiveHost({
       commandLogSummarizer: {
         providerId: 'fake-utility',
         text: JSON.stringify({ summary: 'The bridge committed the commander\'s order.', visibleConsequences: ['Operational posture changed.'] })
+      },
+      continuityProjectionPlanner: {
+        providerId: 'fake-utility',
+        text: JSON.stringify({
+          kind: 'directive.continuityProjectionPlan.v1',
+          operations: [],
+          omitted: []
+        })
       }
     }
   }
@@ -147,6 +155,7 @@ const app = createDirectiveRuntimeApp({
     return value;
   }
 });
+const generationRoleCount = (roleId) => host.generation.calls().filter((entry) => entry.role === roleId).length;
 
 function assertRuntimeViewBoundToSave(runtimeView, saveId, label) {
   assert.equal(runtimeView.activeSaveId, saveId, `${label}: active save id`);
@@ -204,9 +213,10 @@ assert.equal(host.chat.calls().filter((entry) => entry.type === 'createOrBindCam
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
 assert.equal(host.prompt.inspect().status, 'installed');
 assert(host.prompt.inspect().blockCount > 0);
-assert(host.prompt.inspect().blockCount <= 12);
+assert(host.prompt.inspect().blockCount <= 13);
 assert.equal(view.promptInspection.blockCount, host.prompt.inspect().blockCount);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
+assert.equal(generationRoleCount('continuityProjectionPlanner'), 1, 'Activation prompt installation should use the continuity planner once.');
 
 const introBeforeNativeSwipe = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'campaignIntro');
 assert.equal(introBeforeNativeSwipe.swipes.length, 1);
@@ -342,6 +352,7 @@ assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
 assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
 assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
 view = loadedSource;
+const continuityPlannerCallsBeforePlayerTurns = generationRoleCount('continuityProjectionPlanner');
 
 const colorMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-color',
@@ -366,6 +377,24 @@ const sceneNavigationResult = await app.observeHostPlayerMessage({
 assert.equal(sceneNavigationResult.decision.classification, 'sceneNavigation');
 assert.equal(sceneNavigationResult.abortDefaultGeneration, false);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 0);
+
+view = await app.getCurrentView({ tabId: 'mission' });
+const elapsedMinutesBeforeTimedScene = view.campaignState.worldState?.elapsedMinutes ?? 0;
+const timeLedgerEntriesBeforeTimedScene = view.campaignState.timeLedger?.entries?.length || 0;
+const timedSceneMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-timed-scene',
+  text: '*Serrin spends 10 minutes quietly scanning the bridge status board.*'
+});
+const timedSceneResult = await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: timedSceneMessage
+});
+assert.equal(timedSceneResult.abortDefaultGeneration, false);
+view = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(view.campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeTimedScene + 10);
+assert.equal(view.campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeTimedScene + 10);
+assert.equal(view.campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeTimedScene + 1);
+assert.equal(view.campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneContinuation');
 
 const routineMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-routine',
@@ -400,8 +429,8 @@ if (consequentialResult.responseStrategy === 'pause') {
 }
 
 view = await app.getCurrentView({ tabId: 'mission' });
-assert.equal(view.chatNative.tracking.ingressCount, 4);
-assert.equal(view.chatNative.tracking.responseCount >= 4, true);
+assert.equal(view.chatNative.tracking.ingressCount, 5);
+assert.equal(view.chatNative.tracking.responseCount >= 5, true);
 assert.equal(view.chatNative.tracking.modelCallCount > 0, true);
 assert.equal(view.chatNative.modelCalls.some((entry) => entry.roleId === 'utilityTurnClassifier'), true);
 assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call journal must not store raw player text.');
@@ -412,6 +441,11 @@ assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind
 assert.equal(view.campaignState.commandLog.entries.some((entry) => entry.type === 'routineCommand'), true);
 assert.equal(view.campaignState.turnLedger.entries.length >= 1, true);
 assert.equal(view.chatNative.binding.promptContextRevision > 1, true);
+assert.equal(
+  generationRoleCount('continuityProjectionPlanner'),
+  continuityPlannerCallsBeforePlayerTurns,
+  'Player-turn prompt synchronization must not invoke the blocking continuity planner.'
+);
 
 const committedResponse = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'committedOutcome');
 const editContext = await app.prepareOutcomeIntegrityEdit({
@@ -462,6 +496,7 @@ const reloadedApp = createDirectiveRuntimeApp({
 });
 await reloadedApp.initialize();
 await reloadedApp.openCampaignChat({ saveId: view.activeSaveId });
+const continuityPlannerCallsBeforeReloadedTurn = generationRoleCount('continuityProjectionPlanner');
 const reloadedMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-after-reload',
   text: 'Serrin keeps the ship at measured readiness and orders the relay margin logged before the next step.'
@@ -482,6 +517,11 @@ assert.equal(
   reloadedModelCalls.every((entry) => modelCallSequence(entry) > maxModelCallSequenceBeforeReload),
   true,
   'Resumed runtime sessions must not reuse model-call journal IDs from the loaded save.'
+);
+assert.equal(
+  generationRoleCount('continuityProjectionPlanner'),
+  continuityPlannerCallsBeforeReloadedTurn,
+  'Reloaded player-turn prompt synchronization must not invoke the blocking continuity planner.'
 );
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 2);
 

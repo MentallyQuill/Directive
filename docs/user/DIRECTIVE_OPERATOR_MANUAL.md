@@ -54,7 +54,7 @@ Desktop and tablet use a left command spine with six routes:
 
 | Route | Shelf Label | Use It For |
 | --- | --- | --- |
-| Campaign | Library & Records | Package selection, active campaign sessions, saves, branches, import, recovery, conclusion. |
+| Campaign | Library & Records | Package selection, active campaigns, saves, branches, import, recovery, conclusion. |
 | Mission | Command & Context | Active mission support, pending reviews, committed outcomes, Open Threads, Open World work. |
 | Crew | Roster & Roles | Senior staff, public crew state, relationships, crew-linked threads. |
 | Ship | Status & Systems | Ship baseline, condition, damage, restrictions, technical debt, active advisories. |
@@ -113,7 +113,7 @@ Runtime shell renders:
 
 ## Campaign Route
 
-Campaign is the library, session index, package import, and save-record surface. Normal play continues in the bound campaign chat and Mission route; Campaign is for setup and campaign records.
+Campaign is the library, campaign index, package import, and save-record surface. Normal play continues in the bound campaign chat and Mission route; Campaign is for setup and campaign records.
 
 Campaign has three subtabs:
 
@@ -123,9 +123,11 @@ Campaign has three subtabs:
 
 ### Campaign Command
 
-Use **Command** as the active campaign/session overview.
+Use **Command** as the active campaign overview.
 
 When no campaign is loaded, Command tells you to choose a campaign package or load a save.
+
+Command shows one card per campaign/playthrough. If a campaign has multiple manual saves, autosaves, or Save Game As branches, the Command card represents the latest save by timestamp. Records remains the place to inspect every individual save and branch.
 
 When a campaign is loaded, Command can show:
 
@@ -138,7 +140,8 @@ When a campaign is loaded, Command can show:
 - bound chat identity;
 - prompt-context revision;
 - latest committed moment;
-- current save;
+- latest save;
+- save count;
 - Open Orders status;
 - recovery actions.
 
@@ -146,7 +149,8 @@ Common actions:
 
 | Action | Meaning |
 | --- | --- |
-| Open Campaign Chat | Opens the host chat bound to the loaded save. Use this to return to play. |
+| Open Campaign Chat | Opens the host chat bound to the latest save. Use this to return to play. |
+| Load Latest Save | Loads the latest save for the campaign and opens Mission. |
 | Change Campaign Difficulty | Changes this campaign between `Exploration` and `Command` for future outcomes. Prior Command Log entries and committed consequences are not rewritten. |
 | Rebind Chat | Recovery/admin action. Binds the loaded save to the currently open host chat and rebuilds prompt context. |
 | Finish Chat Setup | Continues an interrupted campaign activation from the last successful journaled step. |
@@ -166,7 +170,7 @@ Campaign Command renders:
 </p>
 
 <p align="center">
-  <img src="../../assets/documentation/renders/docs-directive-campaign-no-active.png" alt="Campaign with no active session">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-no-active.png" alt="Campaign with no active campaign">
 </p>
 
 <p align="center">

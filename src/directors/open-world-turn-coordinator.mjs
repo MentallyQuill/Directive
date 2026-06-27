@@ -11,6 +11,10 @@ import {
 import { applySystemicQuestProgress, resolveSystemicQuestAction } from '../quests/systemic-quest-resolver.mjs';
 import { processWorldBoundary, resolveQuestBoundary } from './director-coordinator.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
+import {
+  buildContinuityDirectorPacket,
+  compactContinuityDirectorPacket
+} from '../continuity/director-packets.mjs';
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
@@ -110,7 +114,8 @@ function runTacticalOrSystemic({
   turnId,
   playerInput,
   sceneSnapshot,
-  interpretation = null
+  interpretation = null,
+  continuityDirectorPacket = null
 }) {
   const quest = foreground(campaignState);
   const intentParse = parseIntent(sceneSnapshot);
@@ -126,7 +131,8 @@ function runTacticalOrSystemic({
           projection,
           crewDataset,
           sceneSnapshot,
-          campaignState
+          campaignState,
+          continuityDirectorPacket
         }),
         usedTacticalGraph: true,
         interpretation: null,
@@ -153,7 +159,8 @@ function runTacticalOrSystemic({
           projection,
           crewDataset,
           sceneSnapshot,
-          campaignState
+          campaignState,
+          continuityDirectorPacket
         }),
         usedTacticalGraph: true,
         interpretation: null,
@@ -181,8 +188,9 @@ function runTacticalOrSystemic({
   };
 }
 
-function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph, interpretation, fallbackReason }) {
+function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph, interpretation, fallbackReason, continuityDirectorPacket = null }) {
   const quest = foreground(campaignState);
+  const continuityProjection = compactContinuityDirectorPacket(continuityDirectorPacket);
   packet.contractVersion = 2;
   packet.sceneSnapshot = cloneJson(packet.sceneSnapshot || sceneSnapshot);
   packet.provenance = {
@@ -191,7 +199,8 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
     sourceMessageIds: cloneJson(sceneSnapshot.sourceMessageIds || []),
     reconciliationRunId: sceneSnapshot.reconciliationRunId,
     replay: sceneSnapshot.replay === true,
-    modelInterpretationUsed: interpretation?.interpretation?.provenance?.method === 'model-validated'
+    modelInterpretationUsed: interpretation?.interpretation?.provenance?.method === 'model-validated',
+    continuityProjection: cloneJson(continuityProjection)
   };
   packet.stateDelta = packet.stateDelta || { outcomeId: packet.outcomePacket.id, mission: {} };
   packet.stateDelta.openWorld = {
@@ -275,6 +284,7 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
       usedSystemicResolver: Boolean(packet.systemicResolution),
       actionInterpretationMethod: interpretation?.interpretation?.provenance?.method || null,
       fallbackReason,
+      continuityProjection: cloneJson(continuityProjection),
       sourceAnchorRangeHash: sceneSnapshot.sourceAnchorRange?.rangeHash || null,
       boundaryDiagnostics: cloneJson(boundary.diagnostics || null),
       reactionErrors: cloneJson(boundary.errors || [])
@@ -297,13 +307,26 @@ export function createDirectorCoordinatorTurn({
 } = {}) {
   if (!campaignState || !packageData || !turnId || !text(playerInput)) throw new Error('campaignState, packageData, turnId, and playerInput are required.');
   const sceneSnapshot = buildOpenWorldSceneSnapshot(campaignState, packageData, playerInput, sceneSnapshotOverrides);
+  const continuityDirectorPacket = buildContinuityDirectorPacket({
+    audience: 'missionDirector',
+    campaignState,
+    packageData,
+    crewDataset,
+    campaignProjection: projection,
+    scene: {
+      activePhaseId: sceneSnapshot.activePhaseId,
+      presentCharacterIds: sceneSnapshot.presentCharacters,
+      locationId: sceneSnapshot.locationId
+    },
+    playerText: playerInput
+  });
   const quest = foreground(campaignState);
   const generatedGraph = graph || (quest ? missionGraphForQuest(packageData, quest.templateId || quest.id, campaignState) : null);
   const validatedInterpretation = actionInterpretation
     ? validateQuestActionInterpretation(actionInterpretation, { state: campaignState, packageData, questId: quest?.id, playerInput, sourceAnchorRange: sceneSnapshot.sourceAnchorRange })
     : null;
-  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation });
-  return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason });
+  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket });
+  return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason, continuityDirectorPacket });
 }
 
 /** Async variant used by chat-native runtime. The model only interprets the

@@ -6,6 +6,7 @@ import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { disposeDirectiveAssistButton } from './directive-assist-button.js';
 import { disposeDirectiveMessageActions } from './message-actions.js';
+import { disposeMissionComponentsCapture } from './mission-components-capture.js';
 import {
   cancelActiveDirectiveTurnActivities,
   disposeDirectiveTurnActivity,
@@ -667,6 +668,7 @@ export async function handleExtensionDisabled() {
   removeGlobalBridge();
   disposeDirectiveAssistButton();
   disposeDirectiveMessageActions();
+  disposeMissionComponentsCapture();
   disposeDirectiveTurnActivity();
   disposeSillyTavernDirectiveEventLifecycle();
   closeAllDirectiveOverlays('extension-disabled');

@@ -13,6 +13,7 @@ import {
 } from '../../src/command/command-bearing.mjs';
 import { createChatTurnOrchestrator } from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.mjs';
+import { buildContinuityProjectionMatrix } from '../../src/continuity/index.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
@@ -24,6 +25,7 @@ import {
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
 const chat = createFakeChatAdapter({ chatId: 'campaign-chat' });
@@ -58,6 +60,7 @@ const previewCalls = [];
 const commitCalls = [];
 const responseSwipeGenerationCalls = [];
 const postCommitConversationCalls = [];
+const promptFrames = [];
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
 let nextPreviewOutcomeBand = null;
@@ -226,7 +229,9 @@ const orchestrator = createChatTurnOrchestrator({
   getCampaignState,
   setCampaignState,
   persistCampaignState,
-  syncPromptContext: async (state) => {
+  getPackageData: () => packageData,
+  syncPromptContext: async (state, promptFrame = null) => {
+    promptFrames.push(cloneJson(promptFrame || null));
     const next = cloneJson(state);
     next.campaignChatBinding.promptContextRevision += 1;
     await prompt.install({
@@ -383,9 +388,11 @@ chat.pushAssistantMessage({
   ].join('\n')
 });
 const formalObjectiveCountBeforeHandshake = campaignState.mission.formalObjectives.length;
+const elapsedMinutesBeforeHandshake = campaignState.worldState?.elapsedMinutes ?? 0;
+const timeLedgerEntriesBeforeHandshake = campaignState.timeLedger?.entries?.length || 0;
 const handshakeActivity = [];
 const handshake = await send(
-  '*Sam nods once, taking Whitaker\'s three priorities in before he leaves the ready room.*',
+  '*Sam spends 10 minutes reviewing Whitaker\'s three priorities, then nods once before he leaves the ready room.*',
   'player-scene-handshake',
   { activityReporter: (event) => handshakeActivity.push(cloneJson(event)) }
 );
@@ -404,6 +411,11 @@ assert.equal(Array.isArray(handshakeShipDebt.sourceSettlementIds), true);
 assert.equal(campaignState.threadLedger.records.some((entry) => entry.title === 'Cross handoff review'), true);
 assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, 1);
 assert.equal(campaignState.mission.formalObjectives.length, formalObjectiveCountBeforeHandshake);
+assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeHandshake + 10);
+assert.equal(campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeHandshake + 10);
+assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeHandshake + 1);
+assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneHandshakePair');
+assert.ok(handshakeActivity.some((event) => event.phase === 'timeBoundaryAlreadyCommitted' && event.existingSource === 'sceneHandshakePair'));
 
 const color = await send('*I nod once to the helmsman.*', 'player-color');
 assert.equal(color.decision.classification, 'sceneColor');
@@ -420,20 +432,32 @@ assert.equal(colorDuplicate.abortDefaultGeneration, false);
 assert.equal(campaignState.runtimeTracking.responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
 
 const commandLogBeforeSceneNavigation = campaignState.commandLog?.entries?.length || 0;
+const elapsedMinutesBeforeSceneNavigation = campaignState.worldState?.elapsedMinutes ?? 0;
+const timeLedgerEntriesBeforeSceneNavigation = campaignState.timeLedger?.entries?.length || 0;
 const sceneNavigationActivity = [];
-const sceneNavigation = await send('Continue the scene.', 'player-scene-navigation', {
+const sceneNavigation = await send('Cut ahead ten minutes while Sam reviews Bronn\'s notes at the desk.', 'player-scene-navigation', {
   activityReporter: (event) => sceneNavigationActivity.push(cloneJson(event))
 });
 assert.equal(sceneNavigation.decision.classification, 'sceneNavigation');
 assert.equal(sceneNavigation.abortDefaultGeneration, false);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, 0);
 assert.equal(campaignState.commandLog?.entries?.length || 0, commandLogBeforeSceneNavigation);
+assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeSceneNavigation + 10);
+assert.equal(campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeSceneNavigation + 10);
+assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeSceneNavigation + 1);
+assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneContinuation');
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'classifying'));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'classified' && event.classification === 'sceneNavigation'));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'scene' && event.classification === 'sceneNavigation'));
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'committingTimeBoundary' && event.elapsedMinutes === 10));
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'syncingPrompt' && event.timeChanged === true));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'delegatingHostGeneration'));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'sidecarsQueued' && event.mode === 'background'));
+const bronnPromptFrame = promptFrames.find((frame) => /Bronn/i.test(frame?.playerText || ''));
+assert(bronnPromptFrame, 'Prompt sync should receive the current player turn frame.');
+assert.equal(bronnPromptFrame.scene.relevantCrewIds.includes('hadrik-bronn'), true);
+assert.equal(bronnPromptFrame.recentChatMessages.some((entry) => entry.hostMessageId === 'player-scene-navigation' || entry.id === 'player-scene-navigation'), true);
 
 const droppedIngressDelegationDispatcher = {
   async dispatch({ campaignState: sourceState, ingressId, responseKind }) {
@@ -917,16 +941,66 @@ assert.match(responseSwipeGenerationCalls.at(-1).request.metadata.responseVarian
 const swipeGenerationOrdinal = responseSwipeGenerationCalls.length;
 const directiveRoutineResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'routineCommand');
 assert.equal(directiveRoutineResponse.swipes.length, 2);
-assert.equal(directiveRoutineResponse.swipes[0].startsWith('*Stardate 53049.2 | 0830 hours*\n\n'), true);
+assert.match(directiveRoutineResponse.swipes[0], /^\*Stardate 53049\.2 \| \d{4} hours\*\n\n/);
 assert.equal(
   directiveRoutineResponse.swipes[0].endsWith('The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.'),
   true
 );
-assert.equal(directiveRoutineResponse.swipes[1].startsWith('*Stardate 53049.2 | 0830 hours*\n\n'), true);
+assert.match(directiveRoutineResponse.swipes[1], /^\*Stardate 53049\.2 \| \d{4} hours\*\n\n/);
 assert.equal(directiveRoutineResponse.swipes[1].endsWith(`Alternate Directive response ${swipeGenerationOrdinal}.`), true);
 assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
 assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');
+
+const observedContinuationChat = createFakeChatAdapter({ chatId: 'observed-host-native-chat' });
+observedContinuationChat.continueHostGeneration = async () => ({
+  ok: true,
+  skipped: false,
+  reason: 'directive-inject-and-continue',
+  observedMessage: {
+    hostMessageId: 'host-native-bad-1',
+    index: 9,
+    text: 'Bronn, a human male in his early forties, grumbled that the ship had been at impulse for six days since leaving Utopia Planitia.'
+  }
+});
+let observedState = initializeCampaignRuntimeTracking(cloneJson(campaignState));
+const observedDispatcher = createResponseDispatcher({
+  host: { chat: observedContinuationChat },
+  getCampaignState: () => observedState,
+  setCampaignState: (next) => { observedState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { observedState = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const observedDispatch = await observedDispatcher.dispatch({
+  campaignState: observedState,
+  ingressId: 'ingress-host-native-observed',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  packageData
+});
+assert.equal(observedDispatch.ok, false);
+assert.equal(observedDispatch.recoveryRequired, true);
+assert.equal(observedState.runtimeTracking.responseLedger.at(-1).status, 'recoveryRequired');
+assert.match(observedState.runtimeTracking.responseLedger.at(-1).recoveryId, /^recovery:continuity:/);
+assert.equal(observedState.runtimeTracking.responseLedger.at(-1).continuityReview.ok, false);
+assert.equal(observedState.continuity.rejectedClaims.length > 0, true);
+assert.equal(observedState.continuity.projectionHints.length > 0, true);
+assert.equal(Object.values(observedState.continuity.factUseStats).some((stats) => stats.violationCount > 0), true);
+assert.equal(observedState.continuity.rejectedClaims.at(-1).findingFactIds.includes('crew.hadrik-bronn.species'), true);
+const observedMatrix = buildContinuityProjectionMatrix({
+  campaignState: observedState,
+  packageData,
+  campaignProjection: projection
+});
+assert.equal(observedMatrix.plan.laneFactIds['directive.continuity.invariants'].some((id) => id.startsWith('rejected-claim.')), true);
+assert.match(
+  observedMatrix.blocks.find((block) => block.promptKey === 'directive.continuity.invariants').content,
+  /rejected by continuity review/
+);
+assert.equal(
+  observedState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'hostNativeContinuityContradiction'),
+  true
+);
 
 const introChat = createFakeChatAdapter({ chatId: 'intro-chat' });
 let introCampaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
@@ -1358,7 +1432,7 @@ assert.equal(fallbackNarration.abortDefaultGeneration, true);
 assert.equal(fallbackNarration.responseStrategy, 'directivePosted');
 const fallbackResponse = chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').at(-1);
 assert.ok(fallbackResponse);
-assert.equal(fallbackResponse.text.startsWith('*Stardate 53049.2 | 0830 hours*\n\n'), true);
+assert.match(fallbackResponse.text, /^\*Stardate 53049\.2 \| \d{4} hours\*\n\n/);
 assert.match(fallbackResponse.text, /The attempt resolves as Partial Failure\./);
 assert.equal(
   fallbackResponse.text.includes('The order is carried out'),

@@ -15,12 +15,12 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         target: 'route.campaign',
         fallbackTarget: 'runtime.panel'
       }),
-      step('basic.campaign-command', 'Campaign Command', 'Campaign Command shows the active session, current save, chat setup, prompt context, and the next useful campaign action.', {
+      step('basic.campaign-command', 'Campaign Command', 'Campaign Command shows one card per campaign, targets the latest save, and keeps branch details in Records.', {
         route: 'campaign',
         target: 'campaign.command',
         fallbackTarget: 'route.campaign'
       }),
-      step('basic.start-or-continue', 'Start Or Continue', 'New Campaign starts Character Creator. Load Save or Open Campaign Chat continues an existing session without changing the campaign package.', {
+      step('basic.start-or-continue', 'Start Or Continue', 'New Campaign starts Character Creator. Load Latest Save or Open Campaign Chat continues an existing campaign without changing the campaign package.', {
         route: 'campaign',
         target: 'campaign.start',
         fallbackTarget: 'campaign.continue',
@@ -283,10 +283,10 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
   Object.freeze({
     id: 'tutorial.campaign-records',
     title: 'Campaign Records Walkthrough',
-    summary: 'Learn package selection, active sessions, saves, autosaves, and branches.',
+    summary: 'Learn package selection, active campaigns, saves, autosaves, and branches.',
     trainingScenario: true,
     steps: Object.freeze([
-      step('records.command', 'Active Sessions', 'Command lists active campaign sessions and shows the current save, chat setup, prompt context, and difficulty.', {
+      step('records.command', 'Active Campaigns', 'Command lists one card per campaign and uses the latest save, including autosaves.', {
         route: 'campaign',
         target: 'campaign.session',
         fallbackTarget: 'campaign.command',

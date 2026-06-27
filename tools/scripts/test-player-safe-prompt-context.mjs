@@ -4,9 +4,11 @@ import path from 'node:path';
 
 import {
   buildPlayerSafePromptContext,
+  buildPlayerSafePromptContextWithContinuityPlanner,
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../../src/generation/player-safe-prompt-context-builder.mjs';
+import { CONTINUITY_PLAN_KIND, DIRECTIVE_STATIC_PROMPT_KEYS } from '../../src/continuity/index.mjs';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
 
 const root = process.cwd();
@@ -142,8 +144,13 @@ const packetJson = JSON.stringify(packet);
 const projectionJson = JSON.stringify(playerProjection);
 
 assert(packet.blocks.length > 0);
-assert(packet.blocks.length <= packageData.contextPolicy.budgets.maxBlocks);
-assert.equal(packet.blocks.some((block) => block.id === 'directive-contract'), true);
+assert(packet.blocks.length <= packageData.contextPolicy.budgets.maxBlocks + DIRECTIVE_STATIC_PROMPT_KEYS.length);
+assert.equal(packet.blocks.some((block) => block.id === 'continuity-contract'), true);
+assert.deepEqual(
+  packet.blocks.filter((block) => DIRECTIVE_STATIC_PROMPT_KEYS.includes(block.promptKey)).map((block) => block.promptKey),
+  DIRECTIVE_STATIC_PROMPT_KEYS
+);
+assert.equal(packet.continuityProjection.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.equal(packet.blocks.some((block) => block.id === 'reply-header'), true);
 assert.equal(packet.blocks.some((block) => block.id === 'immediate-scene'), true);
 assert.equal(packetJson.includes('*Stardate 53049.2 | 0830 hours*'), true);
@@ -155,11 +162,80 @@ assert.equal(packetJson.includes('Port sensor pallet is degraded.'), true);
 assert.equal(packetJson.includes('Professionally supportive, with reservations.'), true);
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn (Tellarite), Chief Tactical and Security Officer'), true);
 assert.equal(packetJson.includes('age: Late fifties by human comparison.'), true);
+assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn is Tellarite'), true);
+assert.equal(packetJson.includes('Do not describe the opening Breckenridge transit as six days at impulse'), true);
 assert.equal(packetJson.includes('a human male in his early forties'), false);
 assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), true);
 assert.equal(projectionJson.includes('Acting bridge watch officer'), true);
 assert.equal(playerProjection.scene.directorNotes, undefined);
 assert.deepEqual(Object.keys(playerProjection.ship.damage[0]).sort(), ['id', 'label', 'severity', 'status']);
+
+const asyncFallbackPacket = await buildPlayerSafePromptContextWithContinuityPlanner({
+  campaignState: state,
+  packageData,
+  crewDataset,
+  scene,
+  createdAt: '2026-06-22T00:00:00.000Z'
+});
+assert.equal(asyncFallbackPacket.hash, packet.hash);
+assert.equal(asyncFallbackPacket.continuityProjection.planner, null);
+
+const plannerCalls = [];
+const plannerPacket = await buildPlayerSafePromptContextWithContinuityPlanner({
+  campaignState: state,
+  packageData,
+  crewDataset,
+  scene,
+  playerText: 'I ask Bronn for the tactical and travel handoff.',
+  createdAt: '2026-06-22T00:00:00.000Z'
+}, {
+  generationRouter: {
+    async generate(roleId, request) {
+      plannerCalls.push({ roleId, request });
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            kind: CONTINUITY_PLAN_KIND,
+            operations: [
+              { factId: 'crew.hadrik-bronn.species', lane: 'L1', reason: 'active identity guard' },
+              { factId: 'ship.uss-breckenridge.travel.not-six-days-impulse', lane: 'L3', reason: 'active travel guard', force: 'boost', ttl: 'scene' }
+            ],
+            omitted: [{ factId: 'crew.hadrik-bronn.age-description', reason: 'utility budget omission' }],
+            guardFocus: ['crew.hadrik-bronn.species'],
+            compressionGroups: []
+          })
+        }
+      };
+    }
+  }
+});
+assert.equal(plannerCalls.length, 1);
+assert.equal(plannerCalls[0].roleId, 'continuityProjectionPlanner');
+assert.equal(plannerCalls[0].request.parserSchema, CONTINUITY_PLAN_KIND);
+assert.equal(plannerPacket.continuityProjection.planner.ok, true);
+assert.equal(plannerPacket.continuityProjection.plan.laneFactIds['directive.continuity.invariants'].includes('crew.hadrik-bronn.species'), true);
+assert.equal(plannerPacket.continuityProjection.plan.selectedFactIds.includes('crew.hadrik-bronn.age-description'), true);
+assert.equal(plannerPacket.continuityProjection.plan.guardFocus.includes('crew.hadrik-bronn.species'), true);
+assert.equal(JSON.stringify(plannerPacket).includes(canary), false);
+
+const invalidPlannerPacket = await buildPlayerSafePromptContextWithContinuityPlanner({
+  campaignState: state,
+  packageData,
+  crewDataset,
+  scene,
+  createdAt: '2026-06-22T00:00:00.000Z'
+}, {
+  generationRouter: {
+    async generate() {
+      return { ok: true, response: { text: 'not-json' } };
+    }
+  }
+});
+assert.equal(invalidPlannerPacket.continuityProjection.planner.status, 'fallback');
+assert.equal(invalidPlannerPacket.continuityProjection.planner.fallbackReason, 'planner-json-parse-failed');
+assert.equal(invalidPlannerPacket.continuityProjection.plan.selectedFactIds.includes('crew.hadrik-bronn.species'), true);
+assert.equal(JSON.stringify(invalidPlannerPacket).includes(canary), false);
 
 const malformedCommandLogProjection = createPlayerSafeCampaignProjection({
   campaignState: {

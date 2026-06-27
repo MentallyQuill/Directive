@@ -31,6 +31,7 @@ state = travelBoundary({
   now: '2026-06-22T00:01:00.000Z'
 }).state;
 assert.equal(state.worldState.currentLocationId, destination);
+assert.ok(state.timeLedger.entries.some((entry) => entry.type === 'travel'));
 
 const beforeStardate = state.worldState.currentStardate;
 state = timeAdvanceBoundary({
@@ -41,6 +42,19 @@ state = timeAdvanceBoundary({
   now: '2026-06-22T00:02:00.000Z'
 }).state;
 assert.ok(state.worldState.currentStardate > beforeStardate);
+assert.equal(state.timeLedger.lastBoundary.elapsedMinutes, 120);
+
+const beforeMinuteAdvance = state.worldState.elapsedMinutes;
+state = timeAdvanceBoundary({
+  state,
+  packageData,
+  minutes: 5,
+  reason: 'intra-ship-transition',
+  now: '2026-06-22T00:03:00.000Z'
+}).state;
+assert.equal(state.worldState.elapsedMinutes, beforeMinuteAdvance + 5);
+assert.equal(state.timeLedger.lastBoundary.elapsedMinutes, 5);
+assert.equal(state.timeLedger.lastBoundary.reason, 'intra-ship-transition');
 
 const snapshot = coordinatorSnapshot(state, packageData);
 assert.equal(snapshot.locationId, destination);

@@ -1,8 +1,18 @@
 import {
   initializeCampaignRuntimeTracking,
-  recordDirectiveResponse
+  recordDirectiveResponse,
+  recordRecoveryEvent,
+  updateTurnIngress
 } from './state-delta-gateway.mjs';
 import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
+import { reviewContinuityContradictions } from '../continuity/contradiction-guard.mjs';
+import { quarantineGeneratedClaims } from '../continuity/claim-quarantine.mjs';
+import { hashContinuityText } from '../continuity/fact-schema.mjs';
+import {
+  addContinuityProjectionHints,
+  continuityHintsFromContradictionReview,
+  recordContinuityFactUseStats
+} from '../continuity/projection-hints.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -71,7 +81,10 @@ export function createResponseDispatcher({
     turnId = null,
     outcomeId = null,
     responseType = 'hostGeneration',
-    idempotencyKey = null
+    idempotencyKey = null,
+    packageData = null,
+    crewDataset = null,
+    campaignProjection = null
   } = {}) {
     const state = resolveState(campaignState);
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || turnId || 'turn'}:host`;
@@ -86,6 +99,16 @@ export function createResponseDispatcher({
         reason: 'directive-inject-and-continue'
       });
     }
+    const observedMessage = hostContinuation?.observedMessage || hostContinuation?.message || null;
+    const observedText = compact(observedMessage?.text || observedMessage?.content || observedMessage?.mes || '');
+    const continuityReview = observedText ? reviewContinuityContradictions({
+      text: observedText,
+      campaignState: state,
+      packageData,
+      crewDataset,
+      campaignProjection
+    }) : null;
+    const recoveryId = continuityReview?.ok === false ? `recovery:continuity:${key}` : null;
     const entry = {
       id: key,
       ingressId,
@@ -94,11 +117,92 @@ export function createResponseDispatcher({
       strategy: 'injectAndContinue',
       responseKind: responseType,
       postedAt: timestamp(now),
-      status: 'delegated',
-      hostContinuation: cloneJson(hostContinuation)
+      status: continuityReview?.ok === false ? 'recoveryRequired' : 'delegated',
+      recoveryId,
+      hostContinuation: cloneJson(hostContinuation),
+      hostObservation: observedMessage ? {
+        hostMessageId: observedMessage.hostMessageId || observedMessage.id || null,
+        index: observedMessage.index ?? null,
+        textHash: observedText ? hashContinuityText(observedText) : null
+      } : null,
+      continuityReview: cloneJson(continuityReview)
     };
-    const next = recordDirectiveResponse(state, entry);
+    let next = recordDirectiveResponse(state, entry);
+    if (observedText) {
+      next = quarantineGeneratedClaims(next, {
+        text: observedText,
+        source: {
+          kind: 'hostNativeGeneration',
+          responseId: key,
+          ingressId,
+          outcomeId,
+          hostMessageId: observedMessage?.hostMessageId || observedMessage?.id || null
+        },
+        review: continuityReview,
+        status: continuityReview?.ok === false ? 'rejected' : 'candidate',
+        now: entry.postedAt
+      }).campaignState;
+    }
+    if (continuityReview?.ok === false) {
+      const violationFactIds = [...new Set((continuityReview.findings || [])
+        .map((finding) => compact(finding?.factId))
+        .filter(Boolean))];
+      next = addContinuityProjectionHints(next, continuityHintsFromContradictionReview(continuityReview, {
+        campaignState: next,
+        now: entry.postedAt
+      }), {
+        now: entry.postedAt
+      });
+      next = recordContinuityFactUseStats(next, {
+        violationFactIds,
+        now: entry.postedAt
+      });
+      next = recordRecoveryEvent(next, {
+        id: recoveryId,
+        type: 'hostNativeContinuityContradiction',
+        status: 'open',
+        ingressId,
+        outcomeId,
+        recordedAt: timestamp(now),
+        details: {
+          responseId: key,
+          hostMessageId: observedMessage?.hostMessageId || observedMessage?.id || null,
+          findings: cloneJson(continuityReview.findings || []),
+          recoveryPolicy: {
+            action: 'recoveryRequired',
+            reason: 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
+            hostRepairAvailable: false
+          }
+        }
+      });
+      if (ingressId) {
+        next = updateTurnIngress(next, ingressId, {
+          status: 'recoveryRequired',
+          responseStrategy: 'injectAndContinue',
+          turnId,
+          outcomeId,
+          recoveryId,
+          error: {
+            code: 'DIRECTIVE_HOST_NATIVE_CONTINUITY_CONTRADICTION',
+            message: 'Host-native generation contradicted protected continuity facts and requires recovery.'
+          },
+          failedAt: entry.postedAt
+        });
+      }
+    }
     await acceptState(next, `Delegated response for ${ingressId || turnId || 'campaign turn'} to host generation.`);
+    if (continuityReview?.ok === false) {
+      return {
+        ok: false,
+        recoveryRequired: true,
+        duplicate: false,
+        entry: cloneJson(entry),
+        hostContinuation: cloneJson(hostContinuation),
+        continuityReview: cloneJson(continuityReview),
+        recoveryId,
+        campaignState: cloneJson(next)
+      };
+    }
     return {
       ok: true,
       duplicate: false,

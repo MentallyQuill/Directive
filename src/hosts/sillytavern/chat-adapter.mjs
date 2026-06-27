@@ -1231,6 +1231,9 @@ export function createSillyTavernChatAdapter({
     automaticTrigger = true
   } = {}) {
     try {
+      const beforeContext = context();
+      const beforeChat = getChatArray(beforeContext);
+      const beforeIds = new Set(beforeChat.map((message, index) => normalizeMessageId(message, index)));
       const script = await import('/script.js');
       const generating = typeof script.isGenerating === 'function'
         ? script.isGenerating() === true
@@ -1252,12 +1255,26 @@ export function createSillyTavernChatAdapter({
       const result = await script.Generate(type || 'normal', {
         automatic_trigger: automaticTrigger !== false
       });
+      const afterContext = context();
+      const afterChat = getChatArray(afterContext);
+      let observedMessage = null;
+      for (let index = afterChat.length - 1; index >= 0; index -= 1) {
+        const messageId = normalizeMessageId(afterChat[index], index);
+        if (beforeIds.has(messageId)) continue;
+        const normalized = normalizeSillyTavernMessagePayload(afterContext, { message: afterChat[index], index });
+        if (normalized && !normalized.isUser && !normalized.isDirectiveOwned) {
+          delete normalized.raw;
+          observedMessage = normalized;
+          break;
+        }
+      }
       return {
         ok: true,
         skipped: false,
         reason,
         type: type || 'normal',
-        result: cloneJson(result)
+        result: cloneJson(result),
+        observedMessage: cloneJson(observedMessage)
       };
     } catch (error) {
       return {

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/generation/continuity-contradiction-review.schema.json",
+  "title": "Directive Continuity Contradiction Review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "ok", "findings"],
+  "properties": {
+    "kind": { "const": "directive.continuityContradictionReview.v1" },
+    "ok": { "type": "boolean" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "factId", "severity", "summary"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "factId": { "type": ["string", "null"] },
+          "severity": { "enum": ["blocker", "warning"] },
+          "summary": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,8 +1,16 @@
 # Continuity Projection Matrix
 
-Status: pre-alpha design proposal  
+Status: pre-alpha foundation implemented; full staged design still in progress  
 Primary owner: Runtime / Context Orchestration  
 Related docs: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md), [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md), [Target User Flow](TARGET_USER_FLOW.md), [Scene Handshake Protocol](SCENE_HANDSHAKE_PROTOCOL.md), [Outcome Integrity](OUTCOME_INTEGRITY.md)
+
+## As-Coded Pre-Alpha Foundation
+
+The current implementation has landed the deterministic foundation of this design, not the complete final system. As coded, Directive installs six static Matrix prompt lanes: `directive.contract`, `directive.continuity.invariants`, `directive.scene.active`, `directive.continuity.domain`, `directive.recap.committed`, and `directive.context.revolving`. The runtime builds source-backed continuity facts from the active campaign state and bundled package data, validates a deterministic projection plan, records prompt revision audits with hashes/source ids, exposes sanitized diagnostics, and feeds advisory continuity packets to Directors and sidecars.
+
+The current live proof is bounded evidence unless the five-lane coordinator is run without `--turn-limit`. Bounded runs prove prompt-key/source-id injection and factual-grounding canaries, but they do not replace the full 52-turn five-lane certification.
+
+Still-in-progress design areas include full Utility-assisted relevance planning, broad recall across every continuity domain, complete generated-claim adjudication/acceptance paths, wider materializer coverage, partial live-run continuation from lane checkpoints, and full 52-turn live certification.
 
 ## Purpose
 

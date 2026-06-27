@@ -142,6 +142,16 @@ Coverage groups:
 
 `test-open-world-model-contracts.mjs` covers the schema-v2 model-call roles for quest action interpretation, quest architecture, scene-delta extraction, and scene reconciliation extraction.
 
+Continuity Projection Matrix coverage is split between deterministic contract tests and opt-in live soak evidence. The alpha gate includes CPM foundation, diagnostics, Director packet, factual-grounding prompt-proof, and five-user coordinator contract tests:
+
+- `test-continuity-projection-foundation.mjs`
+- `test-continuity-projection-diagnostics.mjs`
+- `test-continuity-director-packets.mjs`
+- `test-factual-grounding-matrix-prompt-proof.mjs`
+- `test-continuity-matrix-five-user-soak-coordinator.mjs`
+
+The live five-user CPM coordinator is certification evidence only when run against SillyTavern with non-human soak users. Bounded `--turn-limit` runs prove the coordinator and canaries, not the full 52-turn certification.
+
 `test-open-world-thread-engine.mjs` covers schema-v2 thread lifecycle, evidence merging, promotion readiness, player-safe summaries, and hidden-state exclusion.
 
 `test-open-world-dynamic-quest-e2e.mjs` covers thread-to-quest promotion, dynamic quest registration, deterministic quest state mutation, and player-safe quest visibility.

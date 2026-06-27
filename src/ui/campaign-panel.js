@@ -1328,11 +1328,12 @@ function commandSessionMatchesSearch(session, query) {
 }
 
 function commandSessionIsSelectedChat(session = {}, view = null) {
+  if (typeof session.currentChat === 'boolean') return session.currentChat;
   const boundChatId = String(session.binding?.chatId || '').trim();
   const selectedChatId = String(view?.currentChat?.chatId || '').trim();
   if (boundChatId && selectedChatId) return boundChatId === selectedChatId;
   if (view?.currentChat && !selectedChatId) return false;
-  return Boolean(session.currentChat);
+  return false;
 }
 
 function commandSessionStatusLabel(session = {}, view = null) {
@@ -1422,9 +1423,9 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   toggle.appendChild(createIcon(collapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down'));
-  addTooltip(toggle, collapsed ? 'Expand campaign session' : 'Collapse campaign session');
+  addTooltip(toggle, collapsed ? 'Expand campaign' : 'Collapse campaign');
   const titleBlock = createElement('div', 'directive-campaign-session-titleblock');
-  appendText(titleBlock, 'span', 'directive-lcars-kicker', session.packageTitle || session.slotType || 'Campaign Session');
+  appendText(titleBlock, 'span', 'directive-lcars-kicker', session.packageTitle || 'Campaign');
   appendText(titleBlock, 'strong', 'directive-campaign-session-title', session.campaignTitle || 'Campaign');
   appendText(titleBlock, 'span', 'directive-campaign-session-subtitle', `${session.playerName || 'Player Commander'} aboard ${session.shipName || 'assigned ship'}`);
   const meta = createElement('div', 'directive-campaign-session-meta');
@@ -1450,9 +1451,10 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   const startScreen = createElement('section', 'directive-campaign-session-start-screen');
   const facts = createElement('div', 'directive-campaign-session-facts');
   facts.append(
-    createCommandSessionMetaTile('Save', session.saveName || 'Stored save', 'neutral', 'The saved campaign branch represented by this Command row.'),
-    createCommandSessionMetaTile('Mission', formatMissionLabel(session.activeMissionId), 'neutral', 'Indexed active mission for this branch.'),
-    createCommandSessionMetaTile('Phase', formatMissionLabel(session.activePhaseId, 'Pending'), 'neutral', 'Indexed mission phase for this branch.'),
+    createCommandSessionMetaTile('Latest Save', session.saveName || 'Stored save', 'neutral', 'Newest save for this campaign, including autosaves.'),
+    createCommandSessionMetaTile('Saves', `${Number(session.saveCount || 0)} total`, 'neutral', 'Individual saves and branches remain available in Records.'),
+    createCommandSessionMetaTile('Mission', formatMissionLabel(session.activeMissionId), 'neutral', 'Indexed active mission from the latest save.'),
+    createCommandSessionMetaTile('Phase', formatMissionLabel(session.activePhaseId, 'Pending'), 'neutral', 'Indexed mission phase from the latest save.'),
     createCommandSessionMetaTile('Stardate', formatStardate(session.stardate), 'success', 'Last indexed in-fiction campaign time.'),
     createCommandSessionDifficultyTile(session, view, actions)
   );
@@ -1471,7 +1473,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       label: 'Open Campaign Chat',
       icon: 'fa-solid fa-comments',
       tourTarget: 'campaign.continue',
-      title: 'Open the host chat bound to this campaign session',
+      title: 'Open the host chat bound to this campaign\'s latest save',
       disabled: !session.binding?.chatId || typeof actions.openCampaignChat !== 'function',
       onClick: async () => {
         actions.setActiveTab('mission');
@@ -1480,10 +1482,10 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       }
     }, 'directive-primary-command'),
     createActionButton({
-      label: 'Load Save',
+      label: 'Load Latest Save',
       icon: 'fa-solid fa-folder-open',
       tourTarget: 'campaign.load',
-      title: 'Load this save and open its bound campaign chat when available',
+      title: 'Load this campaign\'s latest save and open its bound campaign chat when available',
       disabled: !session.saveId || typeof actions.loadGame !== 'function',
       onClick: async () => {
         await actions.loadGame({ saveId: session.saveId });
@@ -1495,7 +1497,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       label: 'Records',
       icon: 'fa-solid fa-box-archive',
       tourTarget: 'campaign.records.open',
-      title: 'Inspect this save in Campaign Records',
+      title: 'Inspect this campaign\'s saves and branches in Campaign Records',
       onClick: async () => {
         activeRecordSaveId = session.saveId || activeRecordSaveId;
         onOpenRecords?.();
@@ -1506,8 +1508,8 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       icon: session.hidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash',
       tourTarget: 'campaign.session.visibility',
       title: session.hidden
-        ? 'Restore this campaign session to the default Command list'
-        : 'Hide this campaign session from the default Command list without deleting anything',
+        ? 'Restore this campaign to the default Command list'
+        : 'Hide this campaign from the default Command list without deleting anything',
       disabled: !(session.hidden ? actions.showCampaignSession : actions.hideCampaignSession),
       onClick: async () => {
         if (session.hidden) {
@@ -1543,7 +1545,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     else expandedCommandSessionKeys.delete(key);
     toggle.replaceChildren(createIcon(nextExpanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right'));
     toggle.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
-    addTooltip(toggle, nextExpanded ? 'Collapse campaign session' : 'Expand campaign session');
+    addTooltip(toggle, nextExpanded ? 'Collapse campaign' : 'Expand campaign');
   });
 
   row.append(summary, details);
@@ -1556,7 +1558,7 @@ function createCommandSessionControls(view, rerender) {
   search.type = 'search';
   search.placeholder = 'Search campaigns';
   search.value = commandSessionSearchQuery;
-  search.setAttribute('aria-label', 'Search campaign sessions');
+  search.setAttribute('aria-label', 'Search campaigns');
   search.addEventListener('input', () => {
     commandSessionSearchQuery = search.value || '';
     rerender();
@@ -1605,7 +1607,7 @@ function createCommandSessionIndex(campaign, view, actions, onOpenLibrary, onOpe
 
 function createCommandSection(campaign, view, actions, onOpenLibrary, onOpenRecords) {
   const section = createCampaignSection({ id: 'directive-campaign-command-section', label: 'Command' });
-  section.appendChild(createSectionHeading('', 'Active Campaigns', 'Campaign lists every active session. Mission, Crew, Ship, and Log only render the campaign attached to the selected host chat.'));
+  section.appendChild(createSectionHeading('', 'Active Campaigns', 'Campaign lists one card per playthrough. Each card opens the latest save; Records contains individual saves and branches.'));
 
   section.appendChild(createCommandSessionIndex(campaign, view, actions, onOpenLibrary, onOpenRecords));
   return section;

@@ -1291,8 +1291,18 @@ export function runMissionDirectorTurn(input) {
     directorResponse,
     outcomePacket,
     stateDelta,
+    directorPackets: cloneJson(retrievalRun?.packets || {}),
     narratorPacket,
-    commandLogPacket
+    commandLogPacket,
+    provenance: input.continuityDirectorPacket ? {
+      continuityProjection: {
+        kind: 'directive.continuityDirectorPacketReceived.v1',
+        audience: input.continuityDirectorPacket.audience || null,
+        sourceHash: input.continuityDirectorPacket.sourceHash || null,
+        hash: input.continuityDirectorPacket.hash || null,
+        selectedFactCount: Array.isArray(input.continuityDirectorPacket.facts) ? input.continuityDirectorPacket.facts.length : 0
+      }
+    } : undefined
   };
 
   const validation = validateDirectorTurn({ graphIndex, turnPacket });

@@ -554,6 +554,7 @@ assert.match(missionPanelSource, /No quest opportunities are currently active or
 assert.doesNotMatch(missionPanelSource, /\{ id: 'directive-mission-recovery-section', label: 'Recovery'/, 'Mission should not render a Recovery subtab');
 assert.doesNotMatch(missionPanelSource, /Save As Name|appendMissionRecoverySaveControls/, 'Mission should not keep the old inline Save As form');
 assert.match(missionPanelSource, /directive-chat-play-surface-card/, 'Mission should identify the bound host chat as the primary play surface');
+assert.match(missionPanelSource, /Continuity Matrix[\s\S]*directive-mission-continuity-state/, 'Mission should surface a compact Continuity Matrix status row in the chat play surface');
 assert.match(missionPanelSource, /directive-pending-chat-interaction-card/, 'Mission should surface chat-native pause and confirmation decisions');
 assert.doesNotMatch(missionPanelSource, /supportsChatNative/, 'Mission should not retain the old host-fallback command input branch');
 assert.match(crewPanelSource, /directive-crew-console/, 'Crew should render an LCARS personnel console wrapper');
@@ -587,6 +588,10 @@ assert.match(characterCreatorPanelSource, /generateCreatorSectionDraft/, 'Charac
 assert.match(characterCreatorPanelSource, /createPlayerPortraitImage/, 'Character Creator should render a player portrait import tile');
 assert.match(characterCreatorPanelSource, /importCreatorPortrait/, 'Character Creator portrait tile should call the creator portrait import action');
 assert.match(settingsPanelSource, /directive-settings-console/, 'Settings should render an LCARS control-console wrapper');
+assert.match(settingsPanelSource, /function appendContinuityProjectionDiagnostics/, 'Settings should render a sanitized Continuity Projection Matrix diagnostics card');
+assert.match(settingsPanelSource, /view\?\.continuityProjectionDiagnostics/, 'Settings Continuity diagnostics should consume only the sanitized runtime view');
+assert.match(settingsPanelSource, /directive-settings-continuity-card/, 'Settings should style Continuity diagnostics as a compact Safety card');
+assert.match(settingsPanelSource, /Rebuild Prompt Context[\s\S]*actions\.rebuildPromptContext/, 'Settings Continuity diagnostics should expose prompt rebuild without owning raw continuity state');
 assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');
 assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Providers, and Safety');
 assert.match(settingsPanelSource, /label:\s*['"]Systems['"][\s\S]*label:\s*['"]Providers['"][\s\S]*label:\s*['"]Safety['"]/, 'Settings subtabs should be Systems, Providers, and Safety');
@@ -641,6 +646,11 @@ assert.match(settingsPanelSource, /Settle Active State/, 'Settings should expose
 assert.match(settingsPanelSource, /Export Active Save/, 'Settings should expose passive save export');
 assert.match(settingsPanelSource, /Clean Missing Records/, 'Settings should expose missing-index cleanup');
 assert.match(settingsPanelSource, /lastStateSafetyResult/, 'Settings should render the last State Safety action result');
+assert.doesNotMatch(commandLogPanelSource, /continuityProjection|candidateClaims|rejectedClaims|factIndex|sourceIds/, 'Command Log should not render Continuity Matrix inspector internals');
+assert.match(css, /\.directive-settings-continuity-card\s*\{/, 'Directive CSS should style the Continuity diagnostics card');
+assert.match(css, /\.directive-continuity-status-grid\s*\{/, 'Directive CSS should style the Continuity diagnostics status grid');
+assert.match(css, /\.directive-continuity-inspector\s*\{/, 'Directive CSS should style the Continuity diagnostics inspector header');
+assert.match(css, /\.directive-mission-continuity-state\s*\{/, 'Directive CSS should style the Mission Continuity Matrix row');
 assert.match(css, /\.directive-settings-runtime-form\s*\{[\s\S]*?width:\s*min\(100%,\s*720px\);[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Settings Runtime should use a capped two-column grouped form on wider drawers');
 assert.match(css, /\.directive-settings-runtime-actions\s*\{[\s\S]*?justify-content:\s*flex-end;/, 'Settings Runtime Apply should live in a separate right-aligned action row');
 assert.doesNotMatch(css, /\.directive-runtime-history-controls/, 'Settings Runtime should not keep the old loose history-control grid');

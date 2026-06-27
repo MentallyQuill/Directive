@@ -79,11 +79,16 @@ store.update('reasoning', {
 
 assert.equal(providerKindForRole('utilityTurnClassifier'), 'utility');
 assert.equal(providerKindForRole('continuityTracker'), 'utility');
+assert.equal(providerKindForRole('continuityProjectionPlanner'), 'utility');
+assert.equal(providerKindForRole('continuityContradictionReviewer'), 'utility');
+assert.equal(providerKindForRole('continuityClaimExtractor'), 'utility');
+assert.equal(providerKindForRole('continuityProjectionCompressor'), 'utility');
 assert.equal(providerKindForRole('questActionInterpreter'), 'utility');
 assert.equal(providerKindForRole('sceneDeltaExtractor'), 'utility');
 assert.equal(providerKindForRole('sceneReconciliationExtractor'), 'utility');
 assert.equal(providerKindForRole('commandLogSummarizer'), 'utility');
 assert.equal(providerKindForRole('factualGroundingReviewer'), 'utility');
+assert.equal(providerKindForRole('storyQualityReviewer'), 'utility');
 assert.equal(providerKindForRole('missionDirectorAdvisor'), 'reasoning');
 assert.equal(providerKindForRole('campaignIntro'), 'reasoning');
 assert.equal(providerKindForRole('directiveAssist'), 'reasoning');

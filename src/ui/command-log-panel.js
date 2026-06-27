@@ -2,6 +2,7 @@ import {
   addTooltip,
   appendEmpty,
   appendSectionTitle,
+  clearElement,
   createCard,
   createCardTitle,
   createElement,
@@ -10,12 +11,31 @@ import {
 import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
 import { playerSafeAdvisoryRecords } from './advisory-records.js';
 
+const LOG_SUMMARY_COLLAPSE_LENGTH = 360;
+
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
+
+function cleanText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
 function displayValue(value, fallback = 'None') {
-  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  const text = cleanText(value ?? '');
   return text || fallback;
+}
+
+function logItemText(value) {
+  if (typeof value === 'string') return cleanText(value);
+  if (!value || typeof value !== 'object') return cleanText(value);
+  return cleanText(value.summary || value.label || value.description || value.title || value.name || value.id || '');
+}
+
+function compactText(value, maxLength = LOG_SUMMARY_COLLAPSE_LENGTH) {
+  const text = cleanText(value);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
 }
 
 function parseJsonText(value) {
@@ -72,7 +92,7 @@ function createLogStatusBlock(label, value, tone = 'neutral', tooltip = '') {
 }
 
 function appendLogPillList(container, label, items, className = '') {
-  const safeItems = asArray(items);
+  const safeItems = asArray(items).map(logItemText).filter(Boolean);
   if (safeItems.length === 0) return false;
   const group = createElement('section', `directive-log-detail-group${className ? ` ${className}` : ''}`);
   addTooltip(group, `${label} for this committed player-facing command record.`);
@@ -87,6 +107,43 @@ function appendLogPillList(container, label, items, className = '') {
   group.append(heading, list);
   container.appendChild(group);
   return true;
+}
+
+function setLogSummaryToggleContent(button, expanded) {
+  clearElement(button);
+  const label = createElement('span');
+  label.textContent = expanded ? 'Less' : 'More...';
+  button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
+}
+
+function createLogSummaryDisclosure(summaryText) {
+  const fullText = displayValue(summaryText, 'Command record committed.');
+  const wrapper = createElement('div', 'directive-log-summary-disclosure');
+  const summary = createElement('p', 'directive-log-summary');
+  wrapper.appendChild(summary);
+  if (fullText.length <= LOG_SUMMARY_COLLAPSE_LENGTH) {
+    summary.textContent = fullText;
+    return wrapper;
+  }
+
+  summary.textContent = compactText(fullText);
+  const toggle = createElement('button', 'directive-log-summary-toggle directive-secondary-command');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Show full command log summary');
+  addTooltip(toggle, 'Show full command log summary.');
+  setLogSummaryToggleContent(toggle, false);
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+    summary.textContent = expanded ? fullText : compactText(fullText);
+    wrapper.classList.toggle('directive-log-summary-expanded', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', expanded ? 'Collapse command log summary' : 'Show full command log summary');
+    addTooltip(toggle, expanded ? 'Collapse command log summary.' : 'Show full command log summary.');
+    setLogSummaryToggleContent(toggle, expanded);
+  });
+  wrapper.appendChild(toggle);
+  return wrapper;
 }
 
 function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIndex + 1) {
@@ -135,10 +192,8 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   }
   content.appendChild(header);
 
-  const summary = assisted.summary || asArray(entry.summaryInputs)[0] || asArray(entry.visibleConsequences)[0] || 'Command record committed.';
-  const summaryBlock = createElement('p', 'directive-log-summary');
-  summaryBlock.textContent = summary;
-  content.appendChild(summaryBlock);
+  const summary = assisted.summary || asArray(entry.summaryInputs).map(logItemText).filter(Boolean)[0] || asArray(entry.visibleConsequences).map(logItemText).filter(Boolean)[0] || 'Command record committed.';
+  content.appendChild(createLogSummaryDisclosure(summary));
 
   const details = createElement('div', 'directive-log-entry-details');
   details.hidden = !isLatest;
@@ -195,9 +250,7 @@ function createAdvisoryLogSection(records = []) {
     itemKicker.textContent = record.meta || 'Advisory';
     const itemTitle = createElement('h4', 'directive-log-advisory-title');
     itemTitle.textContent = record.subject || 'Advisory note';
-    const itemSummary = createElement('p', 'directive-log-summary');
-    itemSummary.textContent = record.logSummary || record.missionBrief;
-    item.append(itemKicker, itemTitle, itemSummary);
+    item.append(itemKicker, itemTitle, createLogSummaryDisclosure(record.logSummary || record.missionBrief));
     if (record.options.length || record.considerations.length) {
       const details = createElement('div', 'directive-log-entry-details');
       appendLogPillList(details, 'Options', record.options, 'directive-log-inputs');

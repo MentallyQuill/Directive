@@ -56,6 +56,19 @@ assert.deepEqual(commandModeRun.packets.narrator.cardIds, [
   'crew.imani.voice.technical-debt',
   'crew.priya.voice.dependencies-access'
 ]);
+assert.equal(commandModeRun.packets.narrator.hydratedCards.some((card) => card.guidance?.stateRefs || card.guidance?.effects), false);
+assert.equal(
+  commandModeRun.packets.crewDirector.hydratedCards.some((card) => (
+    card.id === 'crew.imani.voice.technical-debt'
+    && card.guidance?.voiceCapsule?.coreEngine
+    && card.guidance.voiceCapsule.exampleLineShapes?.length === 1
+  )),
+  true
+);
+assert.equal(
+  commandModeRun.packets.crewDirector.hydratedCards.some((card) => card.id === 'crew.priya.voice.dependencies-access'),
+  true
+);
 assert.deepEqual(explorationModeRun.packets.narrator.cardIds, commandModeRun.packets.narrator.cardIds);
 assert.equal(commandModeRun.journal.outcomeId, 'outcome.retrieval.combined-load.command');
 assert.equal(commandModeRun.journal.providerStatus, 'not-used');
@@ -86,6 +99,16 @@ assert.equal(
   readyRoomReport.blockedByAudience.crewDirector.some((block) => block.id === 'crew.whitaker.reveal.process-is-not-courage' && block.reason === 'knowledgeGate'),
   true
 );
+const readyRoomRun = retrievalFor({
+  sceneSnapshot: readyRoomFixture.sceneSnapshot,
+  primaryIntent: 'complete-ready-room-handover',
+  turnId: 'turn.retrieval.ready-room',
+  outcomeId: 'outcome.retrieval.ready-room'
+});
+assert.equal(readyRoomRun.journal.phaseId, 'ready-room-handover');
+assert.equal(readyRoomRun.packets.crewDirector.cardIds.includes('crew.whitaker.voice.command-pressure'), true);
+assert.equal(readyRoomRun.packets.crewDirector.cardIds.includes('crew.whitaker.profile.commanding-officer'), true);
+assert.equal(readyRoomRun.packets.crewDirector.cardIds.includes('crew.whitaker.relationship.new-xo-evaluation'), true);
 
 const seniorBriefingReport = buildAudienceGateReport({
   cards: crewDataset.cards,

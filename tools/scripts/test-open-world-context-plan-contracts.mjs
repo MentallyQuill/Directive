@@ -33,7 +33,11 @@ assert.ok(plan.blocks.length <= 12);
 assert.equal(plan.blocks.some((block) => block.id === 'reply-header'), true);
 assert.match(plan.text, /\[Directive: Reply Header\]\nBegin every assistant reply/);
 assert.match(plan.text, /\*Stardate 53049\.2 \| 0830 hours\*/);
+assert.match(plan.text, /Priya Nayar/);
+assert.match(plan.text, /Voice cue: Priya turns intent into cooperation/);
+assert.match(plan.text, /Line shape: "Bronn thinks any unofficial path is a tunnel with a trap at the end/);
 assert.doesNotMatch(plan.text, /directorOnly|rawValues/i);
+assert.doesNotMatch(plan.text, /Becky Chambers|Picard|Sisko|Janeway|write like|in the style of/i);
 
 const recorded = recordContextPlan(state, plan, {
   installedAt: '2026-06-22T00:01:00.000Z'

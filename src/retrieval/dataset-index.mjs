@@ -6,8 +6,13 @@ function byId(items = []) {
   return new Map((items || []).filter((item) => item?.id).map((item) => [item.id, item]));
 }
 
+const PHASE_ALIASES = Object.freeze({
+  'ready-room-handoff': 'ready-room-handover'
+});
+
 export function normalizePhaseId(sceneSnapshot = {}) {
-  return sceneSnapshot.activePhaseId || sceneSnapshot.phaseId || sceneSnapshot.phase || null;
+  const phaseId = sceneSnapshot.activePhaseId || sceneSnapshot.phaseId || sceneSnapshot.phase || null;
+  return PHASE_ALIASES[phaseId] || phaseId;
 }
 
 export function normalizeMissionId(sceneSnapshot = {}) {

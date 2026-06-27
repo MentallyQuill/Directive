@@ -53,6 +53,10 @@ export const requiredSchemaFiles = [
   'schemas/directors/director-cards.schema.json',
   'schemas/generation/context-policy.schema.json',
   'schemas/generation/context-plan.schema.json',
+  'schemas/generation/continuity-projection-plan.schema.json',
+  'schemas/generation/continuity-contradiction-review.schema.json',
+  'schemas/generation/continuity-claim-extraction.schema.json',
+  'schemas/generation/continuity-projection-compression.schema.json',
   'schemas/mission/mission-graph.schema.json',
   'schemas/mission/mission-director-turn.schema.json',
   'schemas/packages/guardrails.schema.json',
@@ -128,7 +132,7 @@ export const campaignProjectionStateDomains = [
   'values', 'directives', 'canon', 'campaignTracks', 'campaignAssets',
   'turnLedger', 'commandLog', 'ui', 'settings', 'captainState', 'worldState',
   'storyArcLedger', 'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger',
-  'threadLedger', 'eventLedger', 'attentionState', 'runtimeTracking', 'flags'
+  'threadLedger', 'eventLedger', 'attentionState', 'continuity', 'timeLedger', 'runtimeTracking', 'flags'
 ];
 
 export const campaignProjectionHiddenDomains = [

@@ -25,7 +25,7 @@ If Directive renders a loaded campaign's Mission, Crew, Ship, and Log when no ho
 - the player may believe they are saving or reviewing the chat they are reading;
 - Directive appears to have one global active campaign even though campaigns are chat-affine.
 
-The UI needs to scale to dozens of active campaign sessions without making the live route panels ambiguous.
+The UI needs to scale to dozens of active campaigns without making the live route panels ambiguous.
 
 ## Decision
 
@@ -42,15 +42,17 @@ If no host chat is selected, those live routes should not hydrate from the most 
 
 ## Terms
 
-**Campaign session** means a playable Directive branch identified by campaign id, save id, and bound host chat id. A future campaign may have multiple branches, and each branch may have a different bound chat.
+**Campaign** means one long-running playthrough identity. It can have multiple manual saves, autosaves, terminal branches, and Save Game As branches.
 
-**Campaign inventory** means listable metadata for campaign packages, creator drafts, saves, autosaves, branches, imports, and hidden campaign-session rows. It does not require the host chat to be open.
+**Save branch** means a restorable Directive save identified by campaign id, save id, and bound host chat id. A campaign may have multiple branches, and each branch may have a different bound chat.
 
-**Current chat campaign** means the campaign session whose saved `campaignChatBinding` and host chat metadata match the currently selected host chat.
+**Campaign inventory** means listable metadata for campaign packages, creator drafts, saves, autosaves, branches, imports, and hidden Command campaign cards. It does not require the host chat to be open.
+
+**Current chat campaign** means the campaign/save branch whose saved `campaignChatBinding` and host chat metadata match the currently selected host chat.
 
 **Loaded save** means a save selected or restored through Records. It may be useful for inspection, load/open actions, or recovery, but it is not enough to populate live route data unless it also matches the selected host chat.
 
-**Hidden from Command** means a user preference that removes a campaign session from the default Campaign Command list without deleting saves, unbinding chats, clearing prompt context, or changing campaign state.
+**Hidden from Command** means a user preference that removes a campaign card from the default Campaign Command list without deleting saves, unbinding chats, clearing prompt context, or changing campaign state.
 
 ## Target User Model
 
@@ -59,21 +61,22 @@ The player should learn this model quickly:
 1. Open a campaign chat to play that campaign.
 2. Open Mission, Crew, Ship, or Log to inspect the campaign attached to that chat.
 3. Open Campaign to manage all campaigns, saves, branches, drafts, imports, and records.
-4. Hide inactive campaign sessions from the default Command list when the list gets noisy.
+4. Hide inactive campaigns from the default Command list when the list gets noisy.
 5. Use Records to restore, inspect, load, delete, or branch saves without pretending they are live in the current chat.
 
 There should be no generic **Continue Campaign** action. Continuing play means opening the bound campaign chat.
 
 ## Campaign Command List
 
-Campaign Command should become a scalable campaign-session index rather than a single campaign dashboard.
+Campaign Command should become a scalable campaign index rather than a save-slot list or a single campaign dashboard.
 
 Default list behavior:
 
-- show non-hidden active campaign sessions first;
-- collapse every session row by default when more than one session exists;
+- show one card per campaign/playthrough;
+- represent each campaign by its latest save by timestamp, including autosaves;
+- collapse every campaign row by default when more than one campaign exists;
 - keep the list internally scrollable;
-- sort by attention state, then currently selected chat, then most recently updated;
+- sort by latest save time;
 - support search by campaign title, player, ship, chat name, package title, and save name;
 - expose filters for **Current Chat**, **Needs Attention**, **Recent**, **Hidden**, and **Completed** once volume requires them.
 
@@ -82,10 +85,11 @@ Collapsed row content:
 - campaign title;
 - player name;
 - ship name;
-- bound chat name or chat id fallback;
-- active save or branch name;
+- bound chat name or chat id fallback from the latest save;
+- latest save name, whether manual or autosave;
+- save count;
 - last updated time;
-- current-chat marker when this row matches the selected host chat;
+- current-chat marker when any grouped save branch matches the selected host chat;
 - attention marker for missing chat, mismatched metadata, activation failure, pending review, or package problem.
 
 Expanded row content:
@@ -93,15 +97,15 @@ Expanded row content:
 - latest player-safe summary or last playable moment;
 - active mission or phase label when available from indexed metadata;
 - package title and version;
-- save branch metadata;
+- latest save/branch metadata;
 - prompt or activation status only when it changes the next safe action;
 - row actions.
 
 Row actions:
 
-- **Open Campaign Chat** when a bound chat exists and the host can open it;
-- **Load Save** when the save exists and is not already mounted for the current chat;
-- **Records** to inspect the save or branch;
+- **Open Campaign Chat** when the latest save has a bound chat and the host can open it;
+- **Load Latest Save** when the latest save exists and is not already mounted for the current chat;
+- **Records** to inspect all saves and branches for the campaign;
 - **Hide From Command** for visible rows;
 - **Show In Command** for hidden rows;
 - **Rebind Chat** only inside explicit recovery/admin affordances;
@@ -111,7 +115,7 @@ The expanded row should not become a second Mission dashboard. It is an index ca
 
 ## Hide From Command
 
-Hiding a campaign session is non-destructive.
+Hiding a campaign card is non-destructive.
 
 It must not:
 
@@ -124,15 +128,15 @@ It must not:
 - remove host chat metadata;
 - change package records.
 
-Hidden state should be stored as user interface preference keyed by campaign session, not as gameplay state. The preferred key is:
+Hidden state should be stored as user interface preference keyed by campaign, not as gameplay state. The preferred key is:
 
 ```text
-{hostId}:{campaignId}:{saveId}:{chatId}
+{hostId}:{campaignId}
 ```
 
-If a chat id is unavailable, the key may use campaign id plus save id, but the row should be marked as needing chat repair instead of merging silently with another branch.
+If a campaign id is unavailable, the key may fall back to save identity, but the row should be marked as needing repair instead of silently merging unrelated saves.
 
-Hidden rows should remain reachable through a **Hidden** filter or **Show Hidden** toggle. If the current host chat matches a hidden campaign session, live routes still render that session; hiding only affects the Campaign Command list default.
+Hidden rows should remain reachable through a **Hidden** filter or **Show Hidden** toggle. If the current host chat matches a hidden campaign, live routes still render that campaign; hiding only affects the Campaign Command list default.
 
 ## Live Route Gating
 
@@ -142,7 +146,7 @@ The route states are:
 
 | State | Condition | Live Route Behavior |
 |---|---|---|
-| Matching campaign chat | Selected host chat matches a known Directive campaign binding and save metadata | Render Mission, Crew, Ship, and Log from that campaign session |
+| Matching campaign chat | Selected host chat matches a known Directive campaign binding and save metadata | Render Mission, Crew, Ship, and Log from that campaign/save branch |
 | No active chat selected | Host supports current chat identity but reports none | Show neutral empty state and Campaign shortcut |
 | Non-Directive chat | Selected host chat has no Directive metadata and does not match a known binding | Show neutral empty state and Campaign shortcut |
 | Different Directive campaign | Selected host chat belongs to another Directive campaign than the loaded Records save | Render the selected chat's campaign if loadable; otherwise show load/repair guidance for that chat |
@@ -176,7 +180,7 @@ If a save is loaded but no matching chat is open:
 - manual save remains blocked by the active-chat guard;
 - prompt context is not installed into the wrong chat.
 
-`Save Game` and `Save Game As...` remain chat-affine. They require the active host chat to match the campaign session being written.
+`Save Game` and `Save Game As...` remain chat-affine. They require the active host chat to match the campaign/save branch being written.
 
 Autosaves remain tied to accepted chat-native turns. They inherit chat identity from the bound turn ingress and should not run from a generic drawer-loaded state.
 
@@ -232,7 +236,7 @@ On chat change:
 
 - clear or suspend prompt context for non-matching chats;
 - refresh `currentChat` identity and metadata;
-- resolve the matching campaign session from indexed save metadata;
+- resolve the matching campaign/save branch from indexed save metadata;
 - load the matching campaign state only when the save record exists;
 - refresh live routes from `currentChatCampaignState`;
 - leave Campaign and Records inventory available.
@@ -262,19 +266,19 @@ Do not offer **Bind Current Chat** as a casual row action. That would make accid
 - No hidden campaign deletion when the user only hides a Command row.
 - No automatic rebind when a different chat is selected.
 - No legacy compatibility layer for ambiguous pre-alpha loaded-state rendering.
-- No raw save ids, campaign ids, hidden state, or Director-only facts in normal campaign-session rows.
+- No raw save ids, campaign ids, hidden state, or Director-only facts in normal campaign rows.
 
 ## Implementation Requirements
 
-- Add a campaign-session index for Campaign Command that can list many sessions without reading every full payload.
-- Add reversible hidden-session preferences keyed by campaign session.
-- Make Campaign Command render collapsed, scrollable campaign-session rows by default.
+- Add a campaign index for Campaign Command that can group many saves without reading every full payload.
+- Add reversible hidden-campaign preferences keyed by campaign.
+- Make Campaign Command render collapsed, scrollable campaign rows by default.
 - Change Mission, Crew, Ship, and Log to use current-chat campaign state.
 - Resolve current chat identity and Directive metadata on route open, refresh, and host chat-change events.
 - If the selected chat maps to a known save, load that save for live routes.
 - If the selected chat does not map to a known save, do not fall back to the last loaded save.
 - Keep Records able to inspect, load, and delete saves without requiring their chat to already be selected.
-- Keep `Load Save` opening the bound campaign chat where supported.
+- Keep `Load Latest Save` opening the latest save's bound campaign chat where supported.
 - Keep manual save guarded by active chat identity.
 - Keep prompt injection refusing unbound or mismatched chats.
 - Keep hidden rows visible through a **Hidden** filter or equivalent.
@@ -289,16 +293,17 @@ Focused coverage should prove:
 - selecting campaign chat B renders campaign B after campaign A was loaded;
 - a different save branch in the same campaign does not render the wrong branch;
 - missing save metadata shows repair guidance instead of stale live state;
-- Campaign Command lists multiple active campaign sessions as collapsed rows;
-- hidden sessions disappear from the default Command list without deleting saves;
-- hidden sessions reappear through the Hidden filter and can be restored;
-- hiding the current chat's session does not prevent live routes from rendering that chat;
-- Load Save opens the bound chat and then hydrates live routes;
+- Campaign Command lists one row per campaign, not one row per save;
+- Command rows target the latest save by timestamp, including autosaves;
+- hidden campaigns disappear from the default Command list without deleting saves;
+- hidden campaigns reappear through the Hidden filter and can be restored;
+- hiding the current chat's campaign does not prevent live routes from rendering that chat;
+- Load Latest Save opens the bound chat and then hydrates live routes;
 - Save Game and Save Game As remain blocked when active chat identity mismatches;
 - prompt context is cleared or suspended on non-matching chat change;
-- no hidden campaign facts or raw relationship values appear in campaign-session rows.
+- no hidden campaign facts or raw relationship values appear in campaign rows.
 
-Add a focused current-chat campaign scope test for the new guard and hidden-session behavior. Existing adjacent scripts that should remain green:
+Add a focused current-chat campaign scope test for the new guard, latest-save targeting, and hidden-campaign behavior. Existing adjacent scripts that should remain green:
 
 ```text
 node tools/scripts/test-chat-native-runtime-flow.mjs
@@ -308,13 +313,13 @@ node tools/scripts/test-visual-system-foundation.mjs
 node tools/scripts/run-alpha-gate.mjs
 ```
 
-Add or update tests as needed if those scripts do not yet cover current-chat route gating and hidden campaign-session preferences.
+Add or update tests as needed if those scripts do not yet cover current-chat route gating, latest-save Command targeting, and hidden campaign preferences.
 
 ## Implementation Notes
 
 The implemented runtime splits campaign inventory from live route state:
 
-- `campaignIndex` lists Campaign Command sessions from save metadata and UI preferences.
+- `campaignIndex` lists Campaign Command cards grouped from save metadata and UI preferences.
 - `currentChatCampaignState` is the only source for Mission, Crew, Ship, and Log route hydration.
 - `loadedCampaignState` remains available for Campaign and Records inspection without making that save live.
 - hidden Command rows are stored in `system/ui-preferences.v1.json` and do not mutate campaign saves or chat bindings.
@@ -332,15 +337,15 @@ SILLYTAVERN_BASE_URL=http://127.0.0.1:8000 node tools/scripts/smoke-sillytavern-
 Live SillyTavern verification covered:
 
 - no selected campaign chat shows the scoped Mission empty state;
-- Campaign lists 14 active sessions in a scrollable Command session index;
-- hiding a session removes it from the visible list and `Hidden (1)` restores it without deletion;
+- Campaign lists active campaigns in a scrollable Command campaign index;
+- hiding a campaign removes it from the visible list and `Hidden (1)` restores it without deletion;
 - opening a bound `Directive - Ashes of Peace` chat hydrates Mission, Crew, Ship, and Log from that chat only.
 
 ## Documentation Updates
 
 When this revision is implemented, update release-facing docs to explain:
 
-- Campaign Command lists all active campaign sessions;
+- Campaign Command lists all active campaigns, grouped across saves;
 - Mission, Crew, Ship, and Log are scoped to the currently selected campaign chat;
 - hiding a campaign from Command is reversible and non-destructive;
 - loading a save opens or asks for the bound campaign chat before live route hydration;

@@ -12,7 +12,7 @@ function timestamp(now) {
 }
 
 const MECHANICS_DOMAINS = Object.freeze([
-  'campaign', 'crew', 'ship', 'mission', 'worldState', 'storyArcLedger',
+  'campaign', 'crew', 'ship', 'mission', 'worldState', 'timeLedger', 'storyArcLedger',
   'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger', 'threadLedger',
   'eventLedger', 'attentionState', 'pressureLedger',
   'relationships', 'commandCulture', 'commandBearing', 'commandCompetence', 'values',
@@ -40,6 +40,7 @@ export function createTurnCommitCoordinator({ persist, now = null } = {}) {
       turnId: turnPacket?.turnId || turnPacket?.id || null,
       outcomeId,
       resultBand: turnPacket?.outcomePacket?.resultBand || turnPacket?.finalOutcome?.resultBand || null,
+      continuityProjection: cloneJson(turnPacket?.provenance?.continuityProjection || null),
       narrationStatus: 'pending',
       responseStatus: 'pending',
       committedAt

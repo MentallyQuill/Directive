@@ -43,6 +43,7 @@ import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 import { renderMissionPanel } from '../../src/ui/mission-panel.js';
 import { renderCommandLogPanel } from '../../src/ui/command-log-panel.js';
+import { renderSettingsPanel } from '../../src/ui/settings-panel.js';
 import { DIRECTIVE_COMM_BADGE_ICON } from '../../src/ui/directive-media.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -55,6 +56,16 @@ const FULL_PLAYER_COMMAND_STYLE = [
   'Vickers approaches problems the way she approaches a failing power distribution grid: identify the load, isolate the fault, act.',
   'Her engineering background shows in how she listens to people too, reading stress, fatigue, and fear as system symptoms rather than abstractions.',
   'She takes them seriously without letting them stall the next decision.'
+].join(' ');
+const FULL_COMMAND_LOG_INPUT = [
+  'Second finger. Commander Saye reports repeated lateral-array variance after the refit validation cycle and asks for a joint review before arrival.',
+  'Third finger. Doctor Sato is finishing post-refit physicals and has flagged several crewmembers for follow-up before the ship reaches the Reach.',
+  'Fourth finger. Commander Cross wants the command-network handoff checked against yard certification because the bridge has seen inconsistent acknowledgements.',
+  'This full command-log input tail must remain available in Committed Inputs and only collapse in the card body preview.'
+].join(' ');
+const FULL_LINKED_ORDER_TITLE = [
+  'Coordinate Saye sensor validation, Sato post-refit physical follow-ups, and Cross command-network handoff review before arrival at the Reach',
+  'with the complete linked order title preserved in Log details'
 ].join(' ');
 
 class FakeClassList {
@@ -898,6 +909,46 @@ function createMissionThreadsView() {
       },
       directives: {
         active: []
+      },
+      knowledgeLedger: {
+        schemaVersion: 2,
+        facts: [],
+        rumors: [],
+        contradictions: [],
+        components: {
+          schemaVersion: 1,
+          records: [
+            {
+              id: 'component:port-nacelle-coolant-seal:test',
+              title: 'Port nacelle coolant seal',
+              type: 'shipIssue',
+              status: 'unresolved',
+              summary: 'Cross assesses the seal will fail within 200 hours of sustained warp six or above.',
+              verbatim: 'Coolant seal, port nacelle, junction 7-C. Yard report stated new seal installed. Status: Replacement part fabricated. Installation pending.',
+              sourceAuthority: 'officialPacket',
+              tags: ['post-refit', 'engineering'],
+              links: {
+                crewIds: ['imani-cross'],
+                shipSystemIds: ['ship.port-nacelle']
+              },
+              source: {
+                host: 'sillytavern',
+                chatId: 'Directive - Ashes of Peace (57)',
+                hostMessageId: '15',
+                messageRole: 'assistant',
+                messageName: 'Directive - Ashes of Peace (57)',
+                capturedAt: '2026-06-26T21:10:00.000Z',
+                sourceStatus: 'active'
+              },
+              lifecycle: {
+                createdAt: '2026-06-26T21:10:00.000Z',
+                updatedAt: '2026-06-26T21:10:00.000Z',
+                createdBy: 'player',
+                reviewed: true
+              }
+            }
+          ]
+        }
       }
     },
     host: {
@@ -1295,10 +1346,62 @@ crewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'mara-whitaker');
 
 const missionThreadsView = createMissionThreadsView();
+missionThreadsView.continuityProjectionDiagnostics = {
+  kind: 'directive.continuityProjectionDiagnostics.v1',
+  status: 'fresh',
+  promptRevision: 12,
+  promptHash: 'prompt-hash-safe',
+  sourceHash: 'source-hash-safe',
+  policyHash: 'policy-hash-safe',
+  blockCount: 6,
+  selectedFactCount: 9,
+  factCount: 14,
+  conflictCount: 0,
+  candidateClaimCount: 1,
+  rejectedClaimCount: 2,
+  staticKeys: {
+    installedStaticKeyCount: 6,
+    expectedStaticKeyCount: 6,
+    missingStaticKeyCount: 0,
+    missingStaticKeyHashes: []
+  },
+  latestReview: {
+    status: 'contradicted',
+    findingCount: 2,
+    observationTextHash: 'observed-text-hash-safe'
+  },
+  latestRejectedClaim: {
+    idHash: 'claim-id-hash-safe',
+    categories: ['species', 'travel'],
+    textHash: 'claim-text-hash-safe',
+    sourceKind: 'hostNativeGeneration',
+    sourceHash: 'source-id-hash-safe'
+  }
+};
+missionThreadsView.continuityTelemetry = {
+  kind: 'directive.continuityTelemetry.v1',
+  rejectedClaimCount: 2,
+  latestRejectedClaim: missionThreadsView.continuityProjectionDiagnostics.latestRejectedClaim
+};
+missionThreadsView.campaignState.continuity = {
+  schemaVersion: 1,
+  rejectedClaims: [{
+    id: 'claim.raw.bronn',
+    text: 'Bronn is a human male in his early forties.',
+    source: { id: 'raw-source-message-77' }
+  }],
+  candidateClaims: [],
+  projectionHints: [{
+    factId: 'crew.hadrik-bronn.species',
+    reason: 'Hidden fact text should not render'
+  }]
+};
 let missionBody = fakeDocument.createElement('div');
 renderMissionPanel(missionBody, missionThreadsView, {
   refresh() {}
 });
+assert.match(textOf(missionBody), /Continuity Matrix\s+Fresh \/ 6 blocks \/ 0 conflicts/);
+assert.doesNotMatch(textOf(missionBody), /Bronn is a human|crew\.hadrik-bronn\.species|raw-source-message-77|Hidden fact text should not render/);
 assert.match(textOf(missionBody), /Advisory Notes/);
 assert.match(textOf(missionBody), /The current handoff question has a player-safe advisory note for Mission review/);
 assert.match(textOf(missionBody), /Keep the ship stable while crew concerns surface/);
@@ -1326,6 +1429,24 @@ assert.equal(missionThreadToggle.getAttribute('aria-expanded'), 'false');
 missionThreadToggle.click();
 assert.equal(missionThreadToggle.getAttribute('aria-expanded'), 'true');
 assert.match(textOf(openThreadsSection), /expanded thread context remains available/);
+const componentsTab = missionBody.querySelector('[data-mission-subtab-target="directive-mission-components-section"]');
+assert(componentsTab, 'Mission should expose a Components subtab');
+componentsTab.click();
+assert.equal(componentsTab.getAttribute('aria-selected'), 'true');
+const componentsSection = missionBody.querySelector('#directive-mission-components-section');
+assert(componentsSection, 'Mission should render a Components section');
+assert.equal(componentsSection.hidden, false);
+assert.equal(componentsSection.querySelectorAll('.directive-mission-component-card').length, 1);
+const componentsText = textOf(componentsSection);
+assert.match(componentsText, /Components/);
+assert.match(componentsText, /Port nacelle coolant seal/);
+assert.match(componentsText, /Ship Issue/);
+assert.match(componentsText, /Unresolved/);
+assert.match(componentsText, /Official Packet \/ Directive - Ashes of Peace \(57\) \/ Msg 15/);
+assert.match(componentsText, /Coolant seal, port nacelle, junction 7-C/);
+assert.match(componentsText, /Open Source/);
+assert.match(componentsText, /Edit/);
+assert.match(componentsText, /Archive/);
 
 const advisoryLogBody = fakeDocument.createElement('div');
 renderCommandLogPanel(advisoryLogBody, createCrewResetView());
@@ -1335,6 +1456,23 @@ assert.match(advisoryLogText, /Jalen asked for decision-support context before t
 assert.match(advisoryLogText, /Linked Orders/);
 assert.match(advisoryLogText, /Alpha Shift Handoff Check/);
 assert.doesNotMatch(advisoryLogText, /Hidden advisory/);
+assert.doesNotMatch(advisoryLogText, /Continuity Matrix|Bronn is a human|crew\.hadrik-bronn\.species|raw-source-message-77|claim-text-hash-safe/);
+const settingsBody = fakeDocument.createElement('div');
+renderSettingsPanel(settingsBody, missionThreadsView, {
+  refresh() {},
+  rebuildPromptContext() {}
+});
+settingsBody.querySelector('[data-settings-subtab-target="directive-settings-safety-section"]').click();
+const settingsText = textOf(settingsBody);
+assert.match(settingsText, /Continuity Matrix/);
+assert.match(settingsText, /Projection Diagnostics/);
+assert.match(settingsText, /Status\s+fresh/i);
+assert.match(settingsText, /Prompt Rev\s+12/);
+assert.match(settingsText, /Blocks\s+6\/6/);
+assert.match(settingsText, /Rejected Claims\s+2/);
+assert.match(settingsText, /Prompt Hash\s+prompt-hash-safe/);
+assert.match(settingsText, /Latest Review\s+contradicted/);
+assert.doesNotMatch(settingsText, /Bronn is a human|crew\.hadrik-bronn\.species|raw-source-message-77|Hidden fact text should not render/);
 assert.match(directiveCss, /\.directive-mission-open-threads-list\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Mission Open Threads list should scroll when thread stacks exceed the cap');
 assert.match(directiveCss, /\.directive-mission-open-thread-summary-toggle/, 'Mission Open Threads should style summary More/Less controls');
 
@@ -1411,13 +1549,16 @@ const objectiveProjectionView = {
           sourceOutcomeId: 'settlement.objective-projection',
           type: 'sceneHandshake',
           summaryInputs: [
-            'Whitaker gave Sam accepted current orders: Review the command-network handoff; Meet Bronn on alpha shift; Walk the ship.'
+            FULL_COMMAND_LOG_INPUT
           ],
           visibleConsequences: [
             'Sam accepted the assignments in the next reply.'
           ],
           linkedAssignmentIds: acceptedAssignments.map((entry) => entry.id),
-          linkedAssignmentTitles: acceptedAssignments.map((entry) => entry.title)
+          linkedAssignmentTitles: [
+            ...acceptedAssignments.map((entry) => entry.title),
+            FULL_LINKED_ORDER_TITLE
+          ]
         }
       ]
     },
@@ -1485,6 +1626,24 @@ assert.match(projectionLogText, /Review the command-network handoff/);
 assert.match(projectionLogText, /Meet Bronn on alpha shift/);
 assert.match(projectionLogText, /Walk the ship/);
 assert.doesNotMatch(projectionLogText, /\[object Object\]/, 'Log should render accepted linked orders as player-safe text.');
+const projectionLogEntry = projectionLogBody.querySelector('.directive-log-entry-card');
+const projectionLogSummaryDisclosure = projectionLogEntry?.querySelector('.directive-log-summary-disclosure');
+const projectionLogSummary = projectionLogSummaryDisclosure?.querySelector('.directive-log-summary');
+const projectionLogSummaryToggle = projectionLogEntry?.querySelector('.directive-log-summary-toggle');
+const projectionLogInputs = projectionLogEntry?.querySelector('.directive-log-inputs');
+const projectionLogLinkedOrders = projectionLogEntry?.querySelector('.directive-log-linked-assignments');
+assert(projectionLogSummary, 'Log entries should render a body summary disclosure.');
+assert(projectionLogSummaryToggle, 'Long Log body summaries should expose a More/Less toggle.');
+assert.equal(projectionLogSummaryToggle.getAttribute('aria-expanded'), 'false');
+assert.doesNotMatch(projectionLogSummary.textContent, /full command-log input tail/, 'Collapsed Log body summary should stay compact.');
+projectionLogSummaryToggle.click();
+assert.equal(projectionLogSummaryToggle.getAttribute('aria-expanded'), 'true');
+assert.match(projectionLogSummary.textContent, /full command-log input tail/, 'Expanded Log body summary should show the full committed text.');
+assert.match(textOf(projectionLogInputs), /full command-log input tail/, 'Committed Inputs should show full text in details.');
+assert.match(textOf(projectionLogLinkedOrders), /complete linked order title preserved/, 'Linked Orders should show full text in details.');
+assert.match(directiveCss, /\.directive-log-summary-toggle/, 'Log body summaries should style More/Less controls');
+assert.match(directiveCss, /\.directive-log-summary\s*\{[\s\S]*?overflow:\s*visible\s*!important;[\s\S]*?text-overflow:\s*clip\s*!important;[\s\S]*?white-space:\s*normal\s*!important;/, 'Log body summaries should not be clipped by CSS');
+assert.match(directiveCss, /\.directive-log-pill\s*\{[\s\S]*?overflow:\s*visible\s*!important;[\s\S]*?text-overflow:\s*clip\s*!important;[\s\S]*?white-space:\s*normal\s*!important;/, 'Log detail pills should not be clipped by CSS');
 
 resetCrewPanelState();
 const projectionCrewBody = fakeDocument.createElement('div');
@@ -1617,6 +1776,47 @@ assert.equal(
   'Directive should not install duplicate settings dropdowns'
 );
 
+settingsPanel.remove();
+settingsContainer.remove();
+const originalMutationObserver = globalThis.MutationObserver;
+let observedSettingsContainer = null;
+globalThis.MutationObserver = class FakeMutationObserver {
+  constructor(callback) {
+    this.callback = callback;
+    this.disconnected = false;
+    observedSettingsContainer = this;
+  }
+
+  observe(target, options) {
+    this.target = target;
+    this.options = options;
+  }
+
+  disconnect() {
+    this.disconnected = true;
+  }
+};
+assert.equal(
+  installExtensionsMenuDropdown({ directiveEnabled: false }),
+  false,
+  'Directive should defer settings dropdown mounting until SillyTavern creates the settings container'
+);
+assert(observedSettingsContainer, 'Directive should observe the document for a late SillyTavern settings container');
+const delayedSettingsContainer = fakeDocument.createElement('div');
+delayedSettingsContainer.id = 'extensions_settings2';
+fakeDocument.body.appendChild(delayedSettingsContainer);
+observedSettingsContainer.callback();
+const delayedSettingsPanel = fakeDocument.getElementById(DIRECTIVE_SETTINGS_PANEL_ID);
+assert(delayedSettingsPanel, 'Directive should mount the settings dropdown after the settings container appears');
+assert.equal(delayedSettingsContainer.children.includes(delayedSettingsPanel), true);
+assert.equal(fakeDocument.getElementById(DIRECTIVE_EXTENSION_ENABLE_STATUS_ID).textContent, 'Off');
+assert.equal(observedSettingsContainer.disconnected, true);
+if (originalMutationObserver) {
+  globalThis.MutationObserver = originalMutationObserver;
+} else {
+  delete globalThis.MutationObserver;
+}
+
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 __directiveRuntimeShellTestHooks.reset();
 configureRuntimeActions();
@@ -1660,6 +1860,11 @@ assert.deepEqual(
     'commandBearing.ready',
     'commandBearing.cancel',
     'campaignIntro.rewrite',
+    'missionComponents.captureSelection',
+    'missionComponents.save',
+    'missionComponents.update',
+    'missionComponents.archive',
+    'missionComponents.openSource',
     'outcomeIntegrity.editProse',
     'reconciliation.reconcileMessage',
     'reconciliation.setStart',

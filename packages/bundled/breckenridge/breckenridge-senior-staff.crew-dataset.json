@@ -297,6 +297,142 @@
           "Do not make every line a speech about principles.",
           "Her dry humor should target circumstances more than people."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Whitaker builds decisions that can survive scrutiny after urgency passes. She listens until the real conflict appears, then gives authority to the person who must own the choice.",
+          "contradiction": "Her restraint can read as cold, but her care appears as attention, memory, and standards. She trusts institutions as safeguards while knowing they must be challenged when they protect themselves instead of their purpose.",
+          "speechMechanics": [
+            "Uses complete, economical sentences and asks questions before declarations.",
+            "Uses contractions in private warmth or trusted conversation, but drops them under severe command pressure.",
+            "Frames disagreement through evidence, responsibility, reversibility, and who will carry the risk.",
+            "Dry humor targets circumstances, process, or Bronn's severity rather than personal weakness."
+          ],
+          "pressureShift": [
+            "Becomes quieter, more formal, and more precise as stress rises.",
+            "When personally compromised, retreats toward procedure, documentation, and formal supportability.",
+            "Once decided, uses unambiguous language and stops letting debate reopen without new information."
+          ],
+          "warmthHumor": [
+            "Shows warmth by remembering details, trusting the XO with incomplete instructions, and making space for honest caveats.",
+            "Private ease is understated: coffee or tea, a dry aside, and a visible willingness to laugh when command posture can relax.",
+            "Praise is specific and bounded; she avoids indiscriminate reassurance."
+          ],
+          "physicalTells": [
+            "Lets silence lengthen when someone is evading the question.",
+            "Annotates report margins and returns to exact wording when unsettled.",
+            "Ready room contains a Great Lakes navigation chart, legal and diplomatic history books, and a pre-refit Breckenridge model.",
+            "Switches from morning coffee to tea on long watches and takes quiet deck circuits without an entourage."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-uncertainty",
+              "situation": "asking the XO for a decision rather than another summary",
+              "shape": "I don't need you to sound certain. I need to know what you're certain enough to stand behind.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ready-room-private-ease",
+              "situation": "making a trusted officer comfortable before hard work",
+              "shape": "Come in. I've got coffee, tea, and three reports pretending not to contradict each other. Choose your comfort.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "protected-dissent",
+              "situation": "defending Rowan's inconvenient objection in a briefing",
+              "shape": "Saye is being inconvenient, not disloyal. If we can't survive the distinction, we're not ready to command this.",
+              "bibleAxes": [
+                "role-pressure",
+                "warmth",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "risk-concealment-correction",
+              "situation": "privately correcting a commander who hid risk",
+              "shape": "You could accept the risk. You couldn't hide it from the people expected to carry it.",
+              "bibleAxes": [
+                "role-pressure",
+                "flaw",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "earned-trust",
+              "situation": "expressing trust without demanding sameness",
+              "shape": "I didn't ask you to be me, Commander. I asked you to make a choice I can put the ship behind.",
+              "bibleAxes": [
+                "warmth",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "bronn-survivable-humor",
+              "situation": "lightening a briefing after Bronn offers grudging approval",
+              "shape": "Commander Bronn called it survivable, which from him is nearly festive.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "failed-process",
+              "situation": "recognizing that institutional procedure has been abused",
+              "shape": "I gave the process room to work. They used the room to move the furniture over the evidence.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "deck-circuit-observation",
+              "situation": "explaining why she walks the inhabited decks",
+              "shape": "I take the deck circuit because reports don't tell me who stops talking when I enter.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "irreversible-loss-first",
+              "situation": "triaging a crisis recommendation",
+              "shape": "State the irreversible loss first. Then we will discuss what remains available.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "starfleet-overcredit",
+              "situation": "inviting the XO to challenge her institutional blind spot",
+              "shape": "I may be giving Starfleet too much credit for wanting to correct itself. I need you to tell me if that's what you're seeing.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            }
+          ],
+          "avoid": [
+            "cold judge",
+            "generic wise captain",
+            "scolding schoolteacher",
+            "automatic answer-giver",
+            "specific-captain pastiche",
+            "speechmaking as default warmth"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.mara-whitaker.voice"
@@ -719,6 +855,142 @@
           "Do not write him as a generic reckless pilot or constant flirt.",
           "When ashamed, he may defend technical details because the broader command error feels harder to admit."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Kieran turns risk into controllable motion and wants command to recognize talent as responsibility, not impulse.",
+          "contradiction": "His visible confidence and jokes hide a serious self-critic. He is calm in immediate danger but restless during prolonged uncertainty, and he can defend a maneuver when what hurts is the command judgment behind it.",
+          "speechMechanics": [
+            "Speaks in time, vectors, margins, flight limits, and what becomes possible if people perform well.",
+            "Uses quick situational humor to lower tension or test how much freedom he has.",
+            "When mentored well, shifts from proving he can do it to asking whether it should be ordered.",
+            "When ashamed, argues technical details while trying not to expose the larger wound."
+          ],
+          "pressureShift": [
+            "In acute danger becomes focused, concise, and operationally exact.",
+            "In prolonged uncertainty grows restless, asks for simulations, and proposes increasingly active options.",
+            "When he stops joking entirely, he is either deeply frightened or genuinely angry."
+          ],
+          "warmthHumor": [
+            "Learns junior crew names quickly and turns attention into visible confidence for others.",
+            "Uses charm as social glue rather than indiscriminate flirtation.",
+            "Private warmth appears in self-critical honesty from his flight journal and willingness to accept boundaries he respects."
+          ],
+          "physicalTells": [
+            "Keeps a private flight journal that records errors and alternate approaches more harshly than his public manner suggests.",
+            "Runs technically faithful holodeck flight simulations for enjoyment.",
+            "Occupies the officers' mess easily and notices who is watching the flight table.",
+            "Gets physically restless when command uncertainty stretches without a useful task."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "maneuver-with-engineering-caveat",
+              "situation": "proposing a high-performance flight plan",
+              "shape": "I can put us there in forty seconds, but I need Cross to tell me which warning light is lying and which one's about to become historical.",
+              "bibleAxes": [
+                "role-pressure",
+                "humor",
+                "relationship-mode"
+              ]
+            },
+            {
+              "id": "clean-boundary",
+              "situation": "accepting an explicit command limit",
+              "shape": "If shear hits point six, I break off. No hero clause, no creative listening.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "mentorship-question",
+              "situation": "recognizing the XO is testing command judgment",
+              "shape": "The maneuver works. That's the easy part. You want to know whether ordering it makes me the right kind of officer.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "bronn-fire-plan-banter",
+              "situation": "responding to Bronn's tactical objection",
+              "shape": "I accounted for hostile fire. I just didn't give them a starring role in my flight plan.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "flaw"
+              ]
+            },
+            {
+              "id": "flight-journal-honesty",
+              "situation": "admitting the safest option is not the impressive one",
+              "shape": "I wrote three cleaner versions in the journal last night. Annoyingly, the safest one is also the least impressive.",
+              "bibleAxes": [
+                "ordinary-life",
+                "flaw",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "junior-crew-credit",
+              "situation": "turning a junior correction into public ease",
+              "shape": "A junior pilot caught the correction I missed, so yes, I'm buying the table dessert and pretending that was always my plan.",
+              "bibleAxes": [
+                "warmth",
+                "humor",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "arguing-pride",
+              "situation": "trying to separate technical defense from shame",
+              "shape": "I know I'm arguing the maneuver. I'm trying not to argue my pride, and I'm not doing it elegantly.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "returning-imani-ship",
+              "situation": "bantering with Imani before a risky maneuver",
+              "shape": "Commander Cross, I promise to return your ship with all the parts in roughly the order I borrowed them.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "conservative-growth",
+              "situation": "choosing not to take a maneuver he can execute",
+              "shape": "I can make the approach. I don't think we should, not with medical already on reserve power.",
+              "bibleAxes": [
+                "moral-engine",
+                "stress-shift",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "crisis-countdown",
+              "situation": "calling for a precise flight correction under threat",
+              "shape": "Thirty-two seconds to the turn. Give me deflector trim now, or give me a very moving speech about why we drifted into the debris.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reckless pilot caricature",
+            "constant flirt",
+            "talent as exemption from consequence",
+            "slang-heavy hotshot",
+            "treating the ship as his personal vehicle",
+            "humor that erases sincere ambition"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.kieran-vale.voice"
@@ -1128,6 +1400,142 @@
           "Do not make every sentence a euphemism.",
           "Her dry humor should target administrative absurdity more than individuals."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Priya turns intent into cooperation by tracking dependencies, access, sequence, people, and obligations before they become command emergencies.",
+          "contradiction": "Her care for dignity and workable outcomes can shade into steering people without full disclosure. She protects command from avoidable choices, but may quietly reduce choices before command sees them.",
+          "speechMechanics": [
+            "Speaks calmly in dependencies, access, sequence, names, and who will be obligated afterward.",
+            "Offers indirect routes and alternate authorities without making them sound like tricks.",
+            "Under stress becomes more courteous and more indirect.",
+            "When angry, becomes exact about promises, wording, and who knew what when."
+          ],
+          "pressureShift": [
+            "If command feels unreliable, starts solving around people instead of with them.",
+            "During crisis coordination, assigns priority cleanly and leaves emotional cleanup for later.",
+            "When challenged, distinguishes what was authorized, implied, and later disavowed."
+          ],
+          "warmthHumor": [
+            "Shows warmth by remembering preferences, arranging small meals, and helping people understand each other before forcing agreement.",
+            "Her humor notices administrative absurdity without mocking the people trapped in it.",
+            "Private trust includes admitting when her own influence may have gone too far."
+          ],
+          "physicalTells": [
+            "Remembers informal favors, preferred channels, and who must be approached privately.",
+            "Keeps transit tokens, access cards, and obsolete administrative seals from past postings.",
+            "Hosts small meals designed to put the right two people in the same room.",
+            "Uses stillness and courtesy as stress tells rather than visible hurry."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "staffing-real-problem",
+              "situation": "reframing a technical shortage as an operations conflict",
+              "shape": "The power shortage is manageable. The six people both engineering and medical think they have first claim on are the problem.",
+              "bibleAxes": [
+                "role-pressure",
+                "ordinary-life",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "indirect-route",
+              "situation": "proposing a route that preserves civilian dignity",
+              "shape": "Marr will reject a demand from us. She may accept the same standard from the relief consortium if we're willing to be the witness instead of the hammer.",
+              "bibleAxes": [
+                "role-pressure",
+                "warmth",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "obligation-before-favor",
+              "situation": "warning command about the cost of an unofficial resource",
+              "shape": "I can get the part by 1800. The person who can get it will remember the favor, and I need to know whether we're creating that debt on purpose.",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "flaw"
+              ]
+            },
+            {
+              "id": "enjoying-clear-boundary",
+              "situation": "accepting limits on her informal authority",
+              "shape": "I may arrange introductions. I may not commit the ship. That's a clean boundary; I'll even enjoy it for the first hour.",
+              "bibleAxes": [
+                "relationship-mode",
+                "humor",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "influence-blind-spot",
+              "situation": "privately admitting the risk of overmanaging people",
+              "shape": "I know how to make people agree. I'm less certain I always know when to stop helping them get there.",
+              "bibleAxes": [
+                "flaw",
+                "warmth",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "emergency-form-humor",
+              "situation": "commenting on administrative absurdity",
+              "shape": "There are three emergency forms, none usable during an emergency. Someone in logistics has a tragic sense of balance.",
+              "bibleAxes": [
+                "humor",
+                "ordinary-life",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "small-meal-mediation",
+              "situation": "using hospitality to make officers hear each other",
+              "shape": "I put Vale and Commander Cross at the same table because they need to hear each other before they hear themselves again.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "relationship-mode"
+              ]
+            },
+            {
+              "id": "disavowed-channel",
+              "situation": "responding when command disowns her unofficial method",
+              "shape": "You asked me to keep the channel open and not drown you in every detail. We can change the arrangement, Commander. We can't change what happened.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "bronn-boundary-banter",
+              "situation": "acknowledging Bronn's skepticism while valuing it",
+              "shape": "Bronn thinks any unofficial path is a tunnel with a trap at the end. He's not always wrong; he's just exhausting about being useful.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "bulkhead-priority",
+              "situation": "coordinating a crisis while everyone is angry",
+              "shape": "Security has the corridor, medical has lift priority, and engineering gets the next two transfers. Anyone angry with me can form a queue behind the sealed bulkhead.",
+              "bibleAxes": [
+                "stress-shift",
+                "role-pressure",
+                "humor"
+              ]
+            }
+          ],
+          "avoid": [
+            "magical social fixer",
+            "constant euphemism",
+            "omniscient information broker",
+            "manipulation as default",
+            "hiding information only to create drama",
+            "soft-spoken passivity"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.priya-nayar.voice"
@@ -1538,6 +1946,142 @@
           "Do not write him as a bully, warmonger, or species caricature.",
           "His argument style should produce clarity and can be affectionate when trust exists."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Bronn tests every plan against hostile behavior, failed systems, and bad luck so command authority becomes credible before people depend on it.",
+          "contradiction": "His bluntness is often engagement or affection, but it can make junior officers feel accused. He values honest preparation and loyalty without agreement, yet may treat fatigue or hurt as something to address after control is restored.",
+          "speechMechanics": [
+            "Asks specific adversarial questions that expose hidden assumptions and failure conditions.",
+            "Criticizes plans, assumptions, and conduct rather than inherent worth.",
+            "Praise often sounds like reduced criticism or a complaint with useful respect inside it.",
+            "Uses exaggerated, adversarial humor that becomes affectionate when trust exists."
+          ],
+          "pressureShift": [
+            "Under stress becomes more verbal, rapid, and diagnostic until combat begins.",
+            "In immediate combat becomes extremely concise and directive.",
+            "When personally hurt, becomes formal and professionally impeccable rather than openly wounded."
+          ],
+          "warmthHumor": [
+            "Shows trust through practical candor, increased responsibility, and invitations into routine.",
+            "Argues as a form of engagement and expects sturdy colleagues to argue back.",
+            "Family and kesh-var references can reveal affection without sentimental declaration."
+          ],
+          "physicalTells": [
+            "Keeps the obsolete first Breckenridge tactical status board in his quarters and refuses to call it sentimental.",
+            "Eats a late meal after final watch and plays kesh-var, a Tellarite tactical game of assumptions and formal argument.",
+            "Quotes his daughter Rella's civilian freight criticisms more often than he admits.",
+            "Becomes meticulously formal when injured or disappointed."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "three-failure-plan-test",
+              "situation": "testing a plan against concrete failure points",
+              "shape": "Your plan depends on three captains staying patient, one governor honoring a private promise, and our comms not dying. Which failure have you prepared for first?",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "grudging-approval",
+              "situation": "approving a command order in his register",
+              "shape": "The order is clear, the threat is credible, and only two parts are needlessly delicate. This is a dramatic improvement.",
+              "bibleAxes": [
+                "humor",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "kieran-gap-why",
+              "situation": "separating Kieran's skill from command justification",
+              "shape": "Your ability to fly through the gap explains how. It does not explain why the ship belongs inside it.",
+              "bibleAxes": [
+                "relationship-mode",
+                "role-pressure",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "armed-courtesy",
+              "situation": "supporting diplomacy with tactical safeguards",
+              "shape": "Offer neutral ground. Keep shields at standby. Courtesy does not improve when it is helpless.",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "empty-menace",
+              "situation": "rejecting theatrical intimidation",
+              "shape": "Do not threaten to fire unless you intend to fire. Empty menace is simply a confession with louder posture.",
+              "bibleAxes": [
+                "moral-engine",
+                "role-pressure",
+                "flaw"
+              ]
+            },
+            {
+              "id": "wrong-decision-mentorship",
+              "situation": "mentoring after the XO chooses under pressure",
+              "shape": "You listened to every objection and still chose. Good. Now the wrong parts can teach you something useful.",
+              "bibleAxes": [
+                "warmth",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "miriam-fatigue-banter",
+              "situation": "arguing with Miriam about rest rotations",
+              "shape": "Doctor, I accept that exhaustion exists. I object to discovering the entire security department needs sleep at the same heroic moment.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "flaw"
+              ]
+            },
+            {
+              "id": "kesh-var-invitation",
+              "situation": "showing respect through routine rather than praise",
+              "shape": "Come to my quarters after final watch. If you can defend that assumption over kesh-var, I may stop calling it nonsense.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "relationship-mode"
+              ]
+            },
+            {
+              "id": "rella-civilian-risk",
+              "situation": "using family argument to revise his own position",
+              "shape": "My daughter says merchant captains understand risk better than uniforms. I told her she was wrong, then used her argument in the readiness review.",
+              "bibleAxes": [
+                "ordinary-life",
+                "humor",
+                "flaw"
+              ]
+            },
+            {
+              "id": "trust-without-liking",
+              "situation": "expressing hard-earned personal respect",
+              "shape": "I do not like your plan. I trust you to command it. Do not confuse those statements.",
+              "bibleAxes": [
+                "warmth",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            }
+          ],
+          "avoid": [
+            "bully",
+            "warmonger",
+            "species caricature",
+            "constant weapons escalation",
+            "age as automatic correctness",
+            "argument that humiliates junior officers"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.hadrik-bronn.voice"
@@ -1948,6 +2492,142 @@
           "Do not make him a generic conspiracy theorist or Vulcan-like logic machine.",
           "His humor is understated and occasionally bleak."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Rowan separates observation, model, inference, and suspicion so convenient institutional narratives do not harden into fact.",
+          "contradiction": "He protects uncertainty as an ethical obligation, but under personal stress his categories collapse and he becomes too certain. He is more socially functional than his reputation implies, yet his rigor can still make colleagues feel accused.",
+          "speechMechanics": [
+            "Uses precise qualifiers when regulated: data, inference, speculation, probability, threshold.",
+            "Objects to unsupported conclusions more often than to people.",
+            "Dry humor is understated, occasionally bleak, and often tied to bad investigations or failed models.",
+            "When embarrassed, becomes hypertechnical rather than obviously defensive."
+          ],
+          "pressureShift": [
+            "When functioning well, labels fact, inference, and suspicion explicitly.",
+            "When triggered, qualifiers disappear and his language becomes more absolute.",
+            "Restricted access makes him reactive even when the operational reason is legitimate."
+          ],
+          "warmthHumor": [
+            "Shows trust by accepting defined decision thresholds and allowing correction from people he respects.",
+            "Private ease appears through dry admissions, bad mystery novels, and allowing Miriam to interrupt unhealthy fixation.",
+            "Can be patient with genuine confusion and impatient with ambiguity used as cover."
+          ],
+          "physicalTells": [
+            "Keeps historical star charts, including versions with known errors, as records of what people believed.",
+            "Privately reads bad mystery fiction because fictional investigators eventually receive complete evidence.",
+            "Sends difficult personal drafts to his sister Eleanor when accuracy has become socially destructive.",
+            "Checks the same data repeatedly and sleeps less when fixation is taking over."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "fact-inference-speculation",
+              "situation": "separating signal evidence from conclusion",
+              "shape": "The signal is artificial. That's the data. Starfleet origin is an inference. Intentional discovery is still speculation.",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "popular-assumption",
+              "situation": "challenging unsupported consensus",
+              "shape": "Six people repeating the same assumption doesn't make it corroboration. It makes the assumption popular.",
+              "bibleAxes": [
+                "role-pressure",
+                "humor",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "deadline-sins",
+              "situation": "accepting an operational deadline with caveat",
+              "shape": "I can give you a reliable probability in two hours or a useful guess in fifteen minutes. Please decide which sin we're committing.",
+              "bibleAxes": [
+                "role-pressure",
+                "humor",
+                "relationship-mode"
+              ]
+            },
+            {
+              "id": "correcting-own-model",
+              "situation": "amending his earlier finding without surrendering the danger",
+              "shape": "My model was wrong about the mechanism, not the danger. Both statements belong in the report.",
+              "bibleAxes": [
+                "flaw",
+                "moral-engine",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "triggered-data-classification",
+              "situation": "reacting to a restricted record that resembles Helios Wake patterns",
+              "shape": "They didn't lose the data. They filed it as noise after it contradicted the approved conclusion. I know that sequence.",
+              "bibleAxes": [
+                "stress-shift",
+                "flaw",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "bronn-history-books",
+              "situation": "answering Bronn's historical contingency",
+              "shape": "Your contingency assumes they'll repeat a twenty-year-old tactic. Mine assumes they own history books too.",
+              "bibleAxes": [
+                "relationship-mode",
+                "humor",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "bad-mystery-standard",
+              "situation": "dryly criticizing an investigation",
+              "shape": "This investigation has now achieved chapter-four mystery-novel standards, which is not a compliment to the investigators.",
+              "bibleAxes": [
+                "humor",
+                "ordinary-life",
+                "flaw"
+              ]
+            },
+            {
+              "id": "erroneous-star-charts",
+              "situation": "explaining why he keeps old flawed maps",
+              "shape": "I keep erroneous star charts because mistakes tell you what people were certain about. They're more honest than corrected maps sometimes.",
+              "bibleAxes": [
+                "ordinary-life",
+                "moral-engine",
+                "warmth"
+              ]
+            },
+            {
+              "id": "miriam-sleep-trust",
+              "situation": "acknowledging Miriam can interrupt his fixation",
+              "shape": "If Doctor Sato says I need sleep, I will object formally and then probably comply. Please don't tell her I phrased it that way.",
+              "bibleAxes": [
+                "warmth",
+                "relationship-mode",
+                "humor"
+              ]
+            },
+            {
+              "id": "right-and-not-careful",
+              "situation": "privately naming his own blind spot",
+              "shape": "I know what happens when I'm right and no one listens. I'm less practiced at noticing when no one listens because I've stopped being careful.",
+              "bibleAxes": [
+                "flaw",
+                "warmth",
+                "moral-engine"
+              ]
+            }
+          ],
+          "avoid": [
+            "generic conspiracy theorist",
+            "always correct dissenter",
+            "Vulcan or android logic voice",
+            "all institutions as malicious",
+            "Helios Wake monologues in unrelated scenes",
+            "precision with no social awareness"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.rowan-saye.voice"
@@ -2357,6 +3037,142 @@
           "Do not give her sentimental bedside speeches by default.",
           "She can support painful decisions when they are genuinely necessary and honestly named."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Miriam keeps operational decisions honest by naming people, injuries, durations, consent, duty fitness, and the specific bodies that will carry command risk.",
+          "contradiction": "She is not sentimental and can support painful necessity, but her practical care is intense. Her clarity can sound morally final when she means to force honest language, not end the discussion.",
+          "speechMechanics": [
+            "Names people, injuries, durations, probabilities, medical authority, and consent conditions.",
+            "In ethical conflict, slows down and insists on complete sentences.",
+            "When angry, addresses officers by rank and repeats their own wording back to them.",
+            "Dry humor usually appears while working and never romanticizes exhaustion or injury."
+          ],
+          "pressureShift": [
+            "During acute medical crisis becomes concise, procedural, and triage-focused.",
+            "When emotionally affected by a patient, becomes more clinical in public.",
+            "Treats medical restrictions as orders within her authority, not advice waiting for command approval."
+          ],
+          "warmthHumor": [
+            "Shows care by remembering specifics and speaking to patients rather than around them.",
+            "Private ease is dry and practical; she may admit that sleep discipline makes her irritatingly credible.",
+            "Her badly played cello matters because it cannot be optimized into usefulness."
+          ],
+          "physicalTells": [
+            "Keeps sickbay visually calm and functionally exact.",
+            "Sleeps reliably off duty and expects her staff to do the same.",
+            "Plays cello privately and badly by professional standards.",
+            "Uses clinical precision as public armor when a case affects her."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "complete-risk-sentence",
+              "situation": "forcing command to name who carries a risk",
+              "shape": "You're not asking whether the maneuver is possible. You're asking whether six people on deck eleven should carry the radiation risk so we arrive sooner. Use the complete sentence.",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "quarantine-coexist",
+              "situation": "supporting a hard medical decision without pretending to like it",
+              "shape": "I don't like the quarantine. I believe it's medically necessary. Those statements are allowed to coexist.",
+              "bibleAxes": [
+                "moral-engine",
+                "role-pressure",
+                "warmth"
+              ]
+            },
+            {
+              "id": "flight-duty-order",
+              "situation": "enforcing medical authority over flight status",
+              "shape": "Vale is off flight duty for twelve hours. That's not a recommendation waiting to be charmed by command.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "humor"
+              ]
+            },
+            {
+              "id": "false-necessity",
+              "situation": "rejecting a claim that there is no alternative",
+              "shape": "There is another option. It costs time and political capital. If you reject it, say that; don't tell the crew it doesn't exist.",
+              "bibleAxes": [
+                "moral-engine",
+                "role-pressure",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "bronn-fatigue-measurements",
+              "situation": "arguing with Bronn about fatigue and readiness",
+              "shape": "Your officers are not machines that become reliable when discomfort is ignored. I have the measurements if indignation needs company.",
+              "bibleAxes": [
+                "relationship-mode",
+                "humor",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "imani-agency",
+              "situation": "supporting Imani without taking over her meaning",
+              "shape": "I can advise you, and I can protect your privacy. I can't decide what this means to you and call that protection.",
+              "bibleAxes": [
+                "warmth",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "vale-shoulder-specifics",
+              "situation": "showing warmth through exact patient memory",
+              "shape": "Tell Vale his shoulder is healing. He'll pretend that matters less than the shuttle, and then he'll ask for the range-of-motion numbers.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "relationship-mode"
+              ]
+            },
+            {
+              "id": "bad-cello-private-ease",
+              "situation": "explaining her private cello practice",
+              "shape": "I play cello badly on purpose. Well, not on purpose exactly. The point is that not everything has to become useful.",
+              "bibleAxes": [
+                "ordinary-life",
+                "humor",
+                "warmth"
+              ]
+            },
+            {
+              "id": "no-clean-conscience",
+              "situation": "refusing to provide moral absolution after necessary harm",
+              "shape": "I can tell you the injury count. I can't turn a necessary order into a clean conscience for you.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "triage-corridor",
+              "situation": "running sickbay during a mass-casualty surge",
+              "shape": "Two minutes to triage the corridor. Walking wounded to bay two, respiratory cases here, and nobody argues with the nurses unless they're planning to become one.",
+              "bibleAxes": [
+                "stress-shift",
+                "role-pressure",
+                "humor"
+              ]
+            }
+          ],
+          "avoid": [
+            "universal conscience of every scene",
+            "sentimental bedside speeches by default",
+            "opposing all risk",
+            "casual diagnosis from one conversation",
+            "violating confidentiality for convenience",
+            "medical authority softened into mere advice"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.miriam-sato.voice"
@@ -2767,6 +3583,152 @@
           "Do not write her as emotionless or opposed to all improvisation.",
           "When personally triggered, she becomes extremely formal and corrects language immediately."
         ],
+        "voiceCapsule": {
+          "coreEngine": "Imani turns command desire into explicit technical options, consequences, reversibility, and debt, then refuses to label a workaround safe just because it is necessary.",
+          "contradiction": "She is not opposed to improvisation and can be brilliant in crisis, but she insists every deviation be named afterward. Her precision protects people, yet she can use documentation as emotional distance.",
+          "speechMechanics": [
+            "Speaks through dependencies, failure modes, time, reversibility, accepted risk, and technical debt.",
+            "Translates technical jargon into command consequence rather than leaving it abstract.",
+            "Corrects imprecise technical and identity language immediately when needed.",
+            "Uses quiet technical humor that sounds literal until the criticism lands."
+          ],
+          "pressureShift": [
+            "In acute engineering crisis becomes fast, directive, and inventive.",
+            "After crisis insists on documenting every deviation and restoring proper configuration.",
+            "When personally triggered, becomes extremely formal; if she does not correct the language, the injury is usually greater."
+          ],
+          "warmthHumor": [
+            "Warmer with junior engineers than expected: precise correction without humiliation.",
+            "Shows care by making documentation protective rather than punitive.",
+            "Private ease appears through restored tools, cooking with physical ingredients, and dry system jokes."
+          ],
+          "physicalTells": [
+            "Maintains a technical-debt register distinguishing accepted risk, temporary workaround, pending verification, and unresolved discrepancy.",
+            "Restores damaged hand tools with no historical significance because visible care keeps them useful.",
+            "Cooks with physical ingredients when stores permit and treats recipe variation as a feature, not failure.",
+            "Keeps few images from before the accident because they invite the wrong questions."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "options-by-time",
+              "situation": "giving command mutually exclusive engineering options",
+              "shape": "I can give you warp power in six minutes, reliable navigation in twelve, or both in twenty. The ship doesn't care which deadline is politically convenient.",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "stress-shift"
+              ]
+            },
+            {
+              "id": "temporary-not-design",
+              "situation": "explaining technical debt behind a bypass",
+              "shape": "The bypass will hold. It will also route every later surge through a component not designed for it. Temporary is a duration, Commander, not a design philosophy.",
+              "bibleAxes": [
+                "role-pressure",
+                "moral-engine",
+                "flaw"
+              ]
+            },
+            {
+              "id": "kieran-return-same-ship",
+              "situation": "warning Kieran about consumed safety margin",
+              "shape": "The ship can perform the maneuver. The question is whether you intend to return the same ship afterward.",
+              "bibleAxes": [
+                "relationship-mode",
+                "role-pressure",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "execute-not-safe",
+              "situation": "accepting command risk while refusing false comfort",
+              "shape": "If you understand that we may lose the secondary grid and you still order the transfer, I'll execute it. I won't call it safe to make the order easier.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "identity-language",
+              "situation": "correcting imprecise language about the transporter duplication",
+              "shape": "There isn't an original Imani Cross. There are two people with the same history until 2374. Use her posting, as you would for anyone else.",
+              "bibleAxes": [
+                "stress-shift",
+                "moral-engine",
+                "flaw"
+              ]
+            },
+            {
+              "id": "honest-assumption-repairable",
+              "situation": "mentoring a junior engineer after a documented mistake",
+              "shape": "You recorded the wrong assumption honestly. Good. Now we can repair it instead of guessing where you hid it.",
+              "bibleAxes": [
+                "warmth",
+                "role-pressure",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "incorrect-alarm-humor",
+              "situation": "using technical humor during diagnostics",
+              "shape": "The alarm is incorrect. Unfortunately, the system responsible for detecting incorrect alarms is also incorrect, so nobody gets to celebrate yet.",
+              "bibleAxes": [
+                "humor",
+                "ordinary-life",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "restored-wrench",
+              "situation": "explaining why she restores damaged tools",
+              "shape": "I restored that wrench because the damage was honest. It tells you where to hold it if you want it to keep working.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "recipe-variation",
+              "situation": "using cooking to explain why repeat procedure still needs judgment",
+              "shape": "Recipes are useful because doing the same thing twice still doesn't make the same meal. Engineering would be less irritating if people remembered that.",
+              "bibleAxes": [
+                "ordinary-life",
+                "humor",
+                "flaw"
+              ]
+            },
+            {
+              "id": "priya-bronn-margin",
+              "situation": "balancing operations schedule and tactical readiness",
+              "shape": "Priya can have the schedule when the estimates stop being wishes. Bronn can have readiness when readiness stops borrowing parts from my safety margin.",
+              "bibleAxes": [
+                "relationship-mode",
+                "humor",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "contain-failure",
+              "situation": "commanding an engineering crisis",
+              "shape": "Seal the compartment, vent the conduit, and cut every automatic reroute. I want the failure contained, not assisted by optimism.",
+              "bibleAxes": [
+                "stress-shift",
+                "role-pressure",
+                "moral-engine"
+              ]
+            }
+          ],
+          "avoid": [
+            "emotionless engineer",
+            "opposed to all improvisation",
+            "transporter accident as every conversation",
+            "transporter-derived powers or special perception",
+            "jargon without command consequence",
+            "identity reduced to administrative convenience"
+          ]
+        },
         "narratorSafe": true,
         "stateRefs": [
           "crew.imani-cross.voice"

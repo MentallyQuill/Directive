@@ -46,8 +46,26 @@ assert.equal(authorityForRole('sceneHandshakeSettler').providerKind, 'utility');
 assert.equal(authorityForRole('sceneHandshakeSettler').blocking, true);
 assert.equal(authorityForRole('sceneHandshakeSettler').mayProposeState, false);
 assert.deepEqual(allowedRootsForModelRole('sceneHandshakeSettler'), []);
+assert.equal(authorityForRole('timeAdvanceAdjudicator').providerKind, 'utility');
+assert.equal(authorityForRole('timeAdvanceAdjudicator').mayProposeState, false);
+assert.equal(authorityForRole('timeAdvanceAdjudicator').mayInjectPrompt, false);
+assert.deepEqual(allowedRootsForModelRole('timeAdvanceAdjudicator'), []);
 assert.deepEqual(allowedRootsForModelRole('continuityTracker'), ['continuity', 'mission']);
 assert.equal(allowedRootsForModelRole('continuityTracker').includes('commandLog'), false);
+for (const roleId of [
+  'continuityProjectionPlanner',
+  'continuityContradictionReviewer',
+  'continuityClaimExtractor',
+  'continuityProjectionCompressor'
+]) {
+  assert.equal(authorityForRole(roleId).providerKind, 'utility');
+  assert.equal(authorityForRole(roleId).mayProposeState, false);
+  assert.equal(authorityForRole(roleId).mayInjectPrompt, false);
+  assert.deepEqual(allowedRootsForModelRole(roleId), []);
+}
+assert.equal(authorityForRole('continuityProjectionPlanner').blocking, true);
+assert.equal(authorityForRole('continuityProjectionPlanner').fallback, 'last-good-then-deterministic');
+assert.equal(authorityForRole('continuityProjectionPlanner').parserSchema, 'directive.continuityProjectionPlan.v1');
 assert.deepEqual(
   allowedRootsForModelRole('sceneReconciliationExtractor'),
   []
@@ -63,6 +81,10 @@ assert.equal(authorityForRole('factualGroundingReviewer').providerKind, 'utility
 assert.equal(authorityForRole('factualGroundingReviewer').mayProposeState, false);
 assert.equal(authorityForRole('factualGroundingReviewer').mayInjectPrompt, false);
 assert.deepEqual(allowedRootsForModelRole('factualGroundingReviewer'), []);
+assert.equal(authorityForRole('storyQualityReviewer').providerKind, 'utility');
+assert.equal(authorityForRole('storyQualityReviewer').mayProposeState, false);
+assert.equal(authorityForRole('storyQualityReviewer').mayInjectPrompt, false);
+assert.deepEqual(allowedRootsForModelRole('storyQualityReviewer'), []);
 
 const workers = __campaignSidecarSchedulerTestHooks.WORKERS;
 for (const worker of Object.values(workers)) {

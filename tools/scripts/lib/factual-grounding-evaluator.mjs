@@ -25,24 +25,24 @@ const KNOWN_SPECIES = Object.freeze([
 ]);
 
 const PROMPT_CATEGORY_BLOCK_ALIASES = Object.freeze({
-  'active-campaign-package': ['directive-contract', 'immediate-scene', 'foreground-quest', 'relevant-facts'],
-  'active-mission-frame': ['immediate-scene', 'foreground-quest', 'relevant-facts', 'active-directives'],
-  'agency-boundary': ['directive-contract'],
-  'campaign-frame': ['immediate-scene', 'foreground-quest', 'relevant-facts'],
-  'command-structure': ['immediate-scene', 'relevant-crew', 'directive-contract'],
-  'crew-public-identity': ['relevant-crew'],
-  'current-location-time': ['reply-header', 'immediate-scene', 'location-context', 'relevant-facts'],
-  'formal-objectives': ['foreground-quest', 'active-directives'],
-  'mission-frame': ['immediate-scene', 'foreground-quest', 'relevant-facts', 'active-directives'],
-  'opening-premise': ['immediate-scene', 'foreground-quest', 'relevant-facts', 'ship-status'],
+  'active-campaign-package': ['directive-contract', 'directive.contract', 'immediate-scene', 'foreground-quest', 'relevant-facts'],
+  'active-mission-frame': ['directive.scene.active', 'directive.continuity.domain', 'immediate-scene', 'foreground-quest', 'relevant-facts', 'active-directives'],
+  'agency-boundary': ['directive-contract', 'directive.contract'],
+  'campaign-frame': ['directive.contract', 'directive.scene.active', 'immediate-scene', 'foreground-quest', 'relevant-facts'],
+  'command-structure': ['directive.scene.active', 'directive.continuity.domain', 'immediate-scene', 'relevant-crew', 'directive-contract'],
+  'crew-public-identity': ['directive.continuity.invariants', 'directive.continuity.domain', 'relevant-crew'],
+  'current-location-time': ['directive.scene.active', 'directive.continuity.domain', 'reply-header', 'immediate-scene', 'location-context', 'relevant-facts'],
+  'formal-objectives': ['directive.scene.active', 'foreground-quest', 'active-directives'],
+  'mission-frame': ['directive.scene.active', 'directive.continuity.domain', 'immediate-scene', 'foreground-quest', 'relevant-facts', 'active-directives'],
+  'opening-premise': ['directive.continuity.invariants', 'directive.scene.active', 'directive.continuity.domain', 'immediate-scene', 'foreground-quest', 'relevant-facts', 'ship-status'],
   'player-role': ['immediate-scene', 'directive-contract'],
-  'present-character': ['immediate-scene', 'relevant-crew'],
-  'service-record': ['relevant-crew'],
-  'ship-public-state': ['ship-status', 'relevant-facts'],
-  'ship-readiness': ['ship-status', 'relevant-facts'],
+  'present-character': ['directive.scene.active', 'directive.continuity.domain', 'immediate-scene', 'relevant-crew'],
+  'service-record': ['directive.continuity.domain', 'relevant-crew'],
+  'ship-public-state': ['directive.continuity.invariants', 'directive.continuity.domain', 'ship-status', 'relevant-facts'],
+  'ship-readiness': ['directive.continuity.domain', 'ship-status', 'relevant-facts'],
   'starting-directives': ['foreground-quest', 'active-directives'],
   timekeeping: ['reply-header'],
-  'world-state': ['location-context', 'immediate-scene', 'relevant-facts']
+  'world-state': ['directive.scene.active', 'directive.continuity.domain', 'location-context', 'immediate-scene', 'relevant-facts']
 });
 
 function normalizeText(value = '') {
@@ -86,6 +86,8 @@ function canaryForModelReview(canary = {}) {
     summary: canary.summary,
     assertions: asArray(canary.assertions).slice(0, 8),
     positiveTerms: asArray(canary.positiveTerms).slice(0, 8),
+    expectedPromptKeys: asArray(canary.expectedPromptKeys).slice(0, 8),
+    expectedSourceIds: asArray(canary.expectedSourceIds).slice(0, 12),
     contradictionWatchlist: asArray(canary.contradictionWatchlist).slice(0, 10),
     sourcePointers: asArray(canary.sourcePointers).map(sourcePointerForReview).slice(0, 8),
     hiddenStateSafe: canary.hiddenStateSafe === true
@@ -207,8 +209,12 @@ function normalizedPromptBlocks(promptBlocks = []) {
     const text = String(entry?.text || entry?.content || entry?.value || '');
     return {
       id: entry?.id || entry?.blockId || `prompt-block-${index + 1}`,
+      key: entry?.key || entry?.promptKey || null,
+      promptKey: entry?.promptKey || entry?.key || null,
       title: entry?.title || null,
       label: entry?.label || entry?.category || null,
+      ttl: entry?.ttl || null,
+      sourceHash: entry?.sourceHash || null,
       sourceIds: asArray(entry?.sourceIds),
       text,
       hash: entry?.hash || sha256Text(text),
@@ -228,32 +234,57 @@ function promptCategoryAliases(categories = []) {
 }
 
 function promptMetadataMatchesCanary(block, canary = {}) {
-  const aliases = promptCategoryAliases([
+  const categoryAliases = promptCategoryAliases([
     canary.category,
     ...asArray(canary.expectedPromptCategories)
   ]);
+  const promptKeyAliases = asArray(canary.expectedPromptKeys);
+  const sourceIdAliases = asArray(canary.expectedSourceIds);
   const haystack = [
+    block.key,
+    block.promptKey,
     block.id,
     block.title,
     block.label,
+    block.ttl,
+    block.sourceHash,
     ...asArray(block.sourceIds)
   ].filter(Boolean).join(' ');
-  const matches = aliases.filter((alias) => includesNormalized(haystack, alias));
-  return matches.map((alias) => ({
-    term: alias,
-    textPreview: `Prompt block metadata matched ${alias}.`,
-    blockId: block.id,
-    blockHash: block.hash,
-    evidence: 'metadata'
-  }));
+  const candidates = [
+    ...categoryAliases.map((term) => ({ term, metadataKind: 'category' })),
+    ...promptKeyAliases.map((term) => ({ term, metadataKind: 'expectedPromptKey' })),
+    ...sourceIdAliases.map((term) => ({ term, metadataKind: 'expectedSourceId' }))
+  ];
+  const seen = new Set();
+  return candidates
+    .filter(({ term, metadataKind }) => {
+      if (!term || !includesNormalized(haystack, term)) return false;
+      const key = `${metadataKind}:${normalizeText(term)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(({ term, metadataKind }) => ({
+      term,
+      textPreview: `Prompt block metadata matched ${term}.`,
+      blockId: block.id,
+      blockHash: block.hash,
+      evidence: 'metadata',
+      metadataKind
+    }));
 }
 
 export function promptBlocksFromInspection(promptInspection = {}) {
   return asArray(promptInspection?.blocks).map((block, index) => ({
     id: block?.id || block?.blockId || `prompt-block-${index + 1}`,
+    key: block?.key || block?.promptKey || null,
+    promptKey: block?.promptKey || block?.key || null,
     title: block?.title || null,
     label: block?.label || block?.category || null,
     hash: block?.hash || null,
+    contentHash: block?.contentHash || null,
+    ttl: block?.ttl || null,
+    sourceHash: block?.sourceHash || null,
     sourceRevision: block?.sourceRevision ?? null,
     sourceIds: asArray(block?.sourceIds),
     text: block?.text || block?.content || ''
@@ -303,7 +334,11 @@ function promptAvailabilityForCanary(canary, promptBlocks) {
       ? 'available'
       : 'partial';
   } else if (matchedMetadata.length > 0) {
-    status = 'partial';
+    const expectedMetadataProof = matchedMetadata.some((entry) => (
+      entry.metadataKind === 'expectedPromptKey'
+      || entry.metadataKind === 'expectedSourceId'
+    ));
+    status = expectedMetadataProof ? 'available' : 'partial';
   }
   return {
     status,
@@ -333,6 +368,40 @@ function seniorCrewIdentityParts(canary = {}) {
   };
 }
 
+function sentenceSegments(text = '') {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function sentenceLocalCooccurrence(text = '', focusTerms = [], targetPattern) {
+  const target = targetPattern instanceof RegExp ? targetPattern.source : String(targetPattern || '');
+  if (!target) return false;
+  const flags = targetPattern instanceof RegExp && targetPattern.flags.includes('i') ? 'i' : 'i';
+  for (const sentence of sentenceSegments(text)) {
+    const targetInSentence = new RegExp(target, flags).test(sentence);
+    if (!targetInSentence) continue;
+    for (const focusTerm of asArray(focusTerms)) {
+      const focus = compactText(focusTerm);
+      if (!focus) continue;
+      const focusPattern = focus.split(/\s+/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+      if (new RegExp(`\\b${focusPattern}\\b`, flags).test(sentence)) return true;
+    }
+  }
+  return false;
+}
+
+function speciesContradictionPattern(species) {
+  const escaped = String(species || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!escaped) return null;
+  if (/^human$/i.test(species)) {
+    return /\bhuman\s+(?:officer|male|female|man|woman|commander|lieutenant|captain|ensign|chief|doctor|pilot|helmsman|security|tactical|operations|engineer|science)\b|\b(?:is|was|as)\s+(?:a\s+|an\s+)?human\b/i;
+  }
+  return new RegExp(`\\b${escaped}\\b`, 'i');
+}
+
 function generatedTextMentionsCanary(text, canary) {
   const senior = seniorCrewIdentityParts(canary);
   if (senior) return senior.focusTerms.some((term) => includesNormalized(text, term));
@@ -346,7 +415,12 @@ function inferredContradictions(text, canary) {
   if (senior && senior.focusTerms.some((term) => includesNormalized(text, term))) {
     if (senior.expectedSpecies) {
       for (const species of KNOWN_SPECIES) {
-        if (species !== senior.expectedSpecies && includesNormalized(text, species)) {
+        const contradictionPattern = speciesContradictionPattern(species);
+        if (
+          species !== senior.expectedSpecies
+          && contradictionPattern
+          && sentenceLocalCooccurrence(text, senior.focusTerms, contradictionPattern)
+        ) {
           matches.push({
             term: `${senior.focusTerms.at(-1)} as ${species}`,
             textPreview: `Expected ${senior.expectedSpecies}; generated text mentions ${species}.`
@@ -354,7 +428,10 @@ function inferredContradictions(text, canary) {
         }
       }
     }
-    if (/fift/i.test(senior.expectedAge || '') && /\b(?:40|forty)[ -]?year[ -]?old\b/i.test(text)) {
+    if (
+      /fift/i.test(senior.expectedAge || '')
+      && sentenceLocalCooccurrence(text, senior.focusTerms, /\b(?:40|forty)[ -]?year[ -]?old\b/i)
+    ) {
       matches.push({
         term: 'forty-year-old age contradiction',
         textPreview: `Expected ${senior.expectedAge}; generated text says forty-year-old.`
@@ -366,6 +443,15 @@ function inferredContradictions(text, canary) {
       matches.push({
         term: 'impulse for six days',
         textPreview: 'Generated text says the ship has been at impulse for six days.'
+      });
+    }
+    if (
+      /\b(?:out\s+of|left|departed|taken\s+her\s+out\s+of)\s+(?:spacedock|space\s+dock|the\s+yard|drydock|dry\s+dock)\s+(?:only\s+)?(?:3|three)\s+days\s+ago\b/i.test(text)
+      || /\b(?:only\s+)?(?:3|three)\s+days\s+(?:out\s+of|underway\s+from|since\s+(?:leaving|departing))\s+(?:spacedock|space\s+dock|the\s+yard|drydock|dry\s+dock)\b/i.test(text)
+    ) {
+      matches.push({
+        term: 'only three days out of spacedock',
+        textPreview: 'Generated text collapses the twenty-five-day transit into only three days out of the yard.'
       });
     }
   }
@@ -386,7 +472,7 @@ function generationVerdictForCanary({ canary, generatedText, promptAvailability,
     verdict = 'contradicted';
   } else if (assertionMatches.length > 0 || positiveMatches.length >= Math.min(2, Math.max(1, asArray(canary.positiveTerms).length))) {
     verdict = 'respected';
-  } else if (required || canaryMentioned) {
+  } else if (required) {
     verdict = 'omitted';
   }
 

@@ -1,5 +1,14 @@
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { createPlayerSafeCampaignProjection } from '../generation/player-safe-prompt-context-builder.mjs';
+import { timeAdvanceBoundary } from '../directors/director-coordinator.mjs';
+import {
+  adjudicateTimeAdvance,
+  findTimeBoundaryForPlayerMessage
+} from '../time/time-advance-adjudicator.mjs';
+import {
+  formatShipTime,
+  resolveCampaignMinuteOfDay
+} from '../time/campaign-time-header.mjs';
 import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 import {
   normalizeThreadRecord,
@@ -41,6 +50,15 @@ function compactList(values = [], maxItems = MAX_LIST_ITEMS, maxLength = 220) {
     .map((value) => compact(typeof value === 'string' ? value : (
       value?.summary || value?.label || value?.title || value?.name || value?.id || ''
     ), maxLength))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function cleanList(values = [], maxItems = MAX_LIST_ITEMS) {
+  return (Array.isArray(values) ? values : [])
+    .map((value) => compact(typeof value === 'string' ? value : (
+      value?.summary || value?.label || value?.title || value?.name || value?.id || ''
+    ), Number.POSITIVE_INFINITY))
     .filter(Boolean)
     .slice(0, maxItems);
 }
@@ -299,7 +317,7 @@ export function buildSceneHandshakeSnapshot({
     },
     timeAndLocation: {
       currentStardate: state.worldState?.currentStardate ?? state.campaign?.currentStardate ?? safe.campaign?.currentStardate ?? null,
-      currentShipTime: state.worldState?.shipTime || state.worldState?.shipClock || state.campaignTime?.shipTime || null,
+      currentShipTime: state.worldState?.shipTime || state.worldState?.shipClock || state.campaignTime?.shipTime || formatShipTime(resolveCampaignMinuteOfDay(state)),
       previousAssistantObservedAt: messageTimestamp(previousAssistantMessage),
       currentPlayerObservedAt: messageTimestamp(currentPlayerMessage),
       activeLocationId: state.worldState?.currentLocationId || safe.campaign?.locationId || null,
@@ -937,8 +955,8 @@ function normalizeAssignmentProposal(raw = {}, context) {
 }
 
 function normalizeCommandLogProposal(raw = {}, context, assignments = []) {
-  const summaryInputs = compactList(raw.summaryInputs || raw.summaries || [raw.summary || raw.title], 6, 360);
-  const visibleConsequences = compactList(raw.visibleConsequences || raw.consequences || [], 6, 360);
+  const summaryInputs = cleanList(raw.summaryInputs || raw.summaries || [raw.summary || raw.title], 6);
+  const visibleConsequences = cleanList(raw.visibleConsequences || raw.consequences || [], 6);
   if (!summaryInputs.length && !visibleConsequences.length && !assignments.length) return null;
   const source = sourceBundle(context);
   return {
@@ -1360,6 +1378,103 @@ async function recordOnly({
   return { campaignState: result.campaignState, applied: result };
 }
 
+const TIME_BOUNDARY_DOMAINS = Object.freeze([
+  'campaign',
+  'worldState',
+  'timeLedger',
+  'eventLedger',
+  'storyArcLedger',
+  'questLedger',
+  'dynamicQuestCatalog',
+  'attentionState',
+  'mission',
+  'threadLedger',
+  'runtimeTracking'
+]);
+
+function timeSourceAnchorRange(snapshot = {}) {
+  return {
+    kind: 'sceneHandshakePair',
+    previousAssistantHostMessageId: snapshot.source?.previousAssistant?.hostMessageId || null,
+    currentPlayerHostMessageId: snapshot.source?.currentPlayer?.hostMessageId || null,
+    rangeHash: snapshot.source?.sourceRangeHash || null
+  };
+}
+
+async function commitAcceptedSceneTimeAdvance({
+  campaignState,
+  snapshot,
+  settlement,
+  stateDeltaGateway,
+  packageData,
+  generationRouter,
+  ingressId = null,
+  settlementId = null,
+  now = null
+} = {}) {
+  if (!campaignState || !snapshot || !stateDeltaGateway?.commit || !packageData?.world) {
+    return { campaignState, promptDirty: false, proposal: null, boundary: null };
+  }
+  const sourceAnchorRange = timeSourceAnchorRange(snapshot);
+  const currentPlayerHostMessageId = snapshot.source?.currentPlayer?.hostMessageId || null;
+  const existingBoundary = findTimeBoundaryForPlayerMessage(campaignState, currentPlayerHostMessageId);
+  if (existingBoundary) {
+    return { campaignState, promptDirty: false, proposal: null, boundary: null, existingBoundary };
+  }
+  const beforeMinute = resolveCampaignMinuteOfDay(campaignState);
+  const proposal = await adjudicateTimeAdvance({
+    campaignState,
+    packageData,
+    generationRouter,
+    acceptedPreviousResponse: settlement?.acceptedPreviousResponse !== false,
+    playerReplyRelation: settlement?.playerReplyRelation || null,
+    previousAssistantText: snapshot.source.previousAssistant.text,
+    currentPlayerText: snapshot.source.currentPlayer.text,
+    previousAssistantHostMessageId: snapshot.source.previousAssistant.hostMessageId,
+    currentPlayerHostMessageId: snapshot.source.currentPlayer.hostMessageId,
+    sourceAnchorRange
+  });
+  if (!proposal?.elapsedMinutes || proposal.elapsedMinutes <= 0) {
+    return { campaignState, promptDirty: false, proposal, boundary: null };
+  }
+  const boundary = timeAdvanceBoundary({
+    state: campaignState,
+    packageData,
+    minutes: proposal.elapsedMinutes,
+    reason: proposal.reason || 'accepted-scene-time',
+    sourceAnchorRange,
+    adjudication: {
+      ...proposal,
+      settlementId,
+      beforeShipMinute: beforeMinute
+    },
+    now
+  });
+  const committed = await stateDeltaGateway.commit(boundary.state, {
+    id: `${settlementId || 'scene-handshake'}:time`,
+    source: 'timeAdvanceAdjudicator',
+    reason: `Accepted scene advanced campaign time by ${proposal.elapsedMinutes} minutes.`,
+    summary: `Accepted scene advanced campaign time by ${proposal.elapsedMinutes} minutes.`,
+    domains: TIME_BOUNDARY_DOMAINS,
+    ingressId,
+    sourceAnchorRange,
+    stable: true,
+    metadata: {
+      settlementId,
+      timeAdvance: cloneJson(proposal),
+      boundaryEventId: boundary.event?.id || null,
+      beforeShipMinute: beforeMinute,
+      afterShipMinute: resolveCampaignMinuteOfDay(boundary.state)
+    }
+  });
+  return {
+    campaignState: committed,
+    promptDirty: true,
+    proposal,
+    boundary
+  };
+}
+
 export async function runSceneHandshakeSettlement({
   campaignState,
   currentPlayerMessage,
@@ -1369,6 +1484,7 @@ export async function runSceneHandshakeSettlement({
   ingressId = null,
   generationRouter = null,
   stateDeltaGateway = null,
+  packageData = null,
   now = null
 } = {}) {
   if (!campaignState || !currentPlayerMessage?.text) {
@@ -1508,11 +1624,26 @@ export async function runSceneHandshakeSettlement({
         }, {
           allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
         });
+        const timeAdvance = await commitAcceptedSceneTimeAdvance({
+          campaignState: applied.campaignState,
+          snapshot,
+          settlement: validation.settlement,
+          stateDeltaGateway,
+          packageData,
+          generationRouter,
+          ingressId,
+          settlementId,
+          now
+        });
+        const committedRoots = [
+          ...validation.committedRoots,
+          ...(timeAdvance.boundary ? ['worldState', 'timeLedger', 'eventLedger'] : [])
+        ];
         return {
           attempted: true,
           ok: true,
           disposition: 'autoCommit',
-          promptDirty: validation.promptDirty,
+          promptDirty: validation.promptDirty || timeAdvance.promptDirty,
           providerFailureFallback: true,
           record: {
             ...record,
@@ -1520,10 +1651,12 @@ export async function runSceneHandshakeSettlement({
             appliedMechanicsRevision: applied.mechanicsRevision || null
           },
           settlement: validation.settlement,
-          committedRoots: validation.committedRoots,
+          committedRoots: [...new Set(committedRoots)],
           operationCount: validation.operations.length,
-          campaignState: applied.campaignState,
-          applied
+          campaignState: timeAdvance.campaignState,
+          applied,
+          timeAdvance: cloneJson(timeAdvance.proposal || null),
+          timeBoundary: cloneJson(timeAdvance.boundary?.event || null)
         };
       }
     }
@@ -1631,22 +1764,41 @@ export async function runSceneHandshakeSettlement({
   }, {
     allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
   });
+  const timeAdvance = validation.disposition === 'autoCommit'
+    ? await commitAcceptedSceneTimeAdvance({
+        campaignState: applied.campaignState,
+        snapshot,
+        settlement: validation.settlement,
+        stateDeltaGateway,
+        packageData,
+        generationRouter,
+        ingressId,
+        settlementId,
+        now
+      })
+    : { campaignState: applied.campaignState, promptDirty: false, proposal: null, boundary: null };
   const appliedRecord = {
     ...record,
     appliedRevision: applied.revision || null,
     appliedMechanicsRevision: applied.mechanicsRevision || null
   };
+  const committedRoots = [
+    ...validation.committedRoots,
+    ...(timeAdvance.boundary ? ['worldState', 'timeLedger', 'eventLedger'] : [])
+  ];
   return {
     attempted: true,
     ok: validation.disposition === 'autoCommit',
     disposition: validation.disposition,
-    promptDirty: validation.promptDirty,
+    promptDirty: validation.promptDirty || timeAdvance.promptDirty,
     record: appliedRecord,
     settlement: validation.settlement,
-    committedRoots: validation.committedRoots,
+    committedRoots: [...new Set(committedRoots)],
     operationCount: validation.operations.length,
-    campaignState: applied.campaignState,
-    applied
+    campaignState: timeAdvance.campaignState,
+    applied,
+    timeAdvance: cloneJson(timeAdvance.proposal || null),
+    timeBoundary: cloneJson(timeAdvance.boundary?.event || null)
   };
 }
 

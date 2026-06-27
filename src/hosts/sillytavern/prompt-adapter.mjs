@@ -1,4 +1,8 @@
+import { DIRECTIVE_STATIC_PROMPT_KEYS } from '../../continuity/prompt-keys.mjs';
+
 const PROMPT_KEY_PREFIX = 'directive.campaign';
+
+export { DIRECTIVE_STATIC_PROMPT_KEYS };
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -37,6 +41,11 @@ function promptKey(blockId) {
   return `${PROMPT_KEY_PREFIX}.${String(blockId || '').replace(/[^a-zA-Z0-9_.-]/g, '-')}`;
 }
 
+function blockPromptKey(block = {}) {
+  const explicit = String(block.promptKey || '').trim().replace(/[^a-zA-Z0-9_.-]/g, '-');
+  return explicit.startsWith('directive.') ? explicit : promptKey(block.id);
+}
+
 function contextChatId(context) {
   const value = context?.chatId
     ?? context?.chat_id
@@ -71,7 +80,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
 
   function setBlock(context, block) {
     const api = ensurePromptApi(context);
-    const key = promptKey(block.id);
+    const key = blockPromptKey(block);
     api.setExtensionPrompt(
       key,
       block.text || String(block.content || ''),
@@ -83,6 +92,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
     installed.set(key, {
       key,
       id: block.id,
+      promptKey: key,
       title: block.title,
       hash: block.hash || null,
       priority: block.priority,
@@ -115,7 +125,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       return { ok: true, reason, transport: 'no-context' };
     }
     try {
-      for (const key of [...installed.keys()]) clearKey(context, key);
+      for (const key of new Set([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) clearKey(context, key);
       if (!preservePacket) activeBinding = null;
       if (!preservePacket) activePacket = null;
       status = 'inactive';
@@ -150,8 +160,8 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       throw error;
     }
     try {
-      const desiredKeys = new Set(packet.blocks.map((block) => promptKey(block.id)));
-      for (const key of [...installed.keys()]) {
+      const desiredKeys = new Set(packet.blocks.map(blockPromptKey));
+      for (const key of new Set([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) {
         if (!desiredKeys.has(key)) clearKey(context, key);
       }
       for (const block of packet.blocks) setBlock(context, block);
@@ -238,6 +248,8 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
 
 export const __sillyTavernPromptAdapterTestHooks = Object.freeze({
   promptKey,
+  blockPromptKey,
+  DIRECTIVE_STATIC_PROMPT_KEYS,
   normalizePosition,
   normalizeRole,
   contextChatId

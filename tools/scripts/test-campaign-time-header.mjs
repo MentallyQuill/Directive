@@ -11,6 +11,7 @@ import {
   resolveCampaignMinuteOfDay,
   stripCampaignReplyHeader
 } from '../../src/time/campaign-time-header.mjs';
+import { normalizeCampaignTimeState } from '../../src/time/campaign-time-state.mjs';
 
 assert.equal(formatStardate(47238.4), '47238.4');
 assert.equal(formatStardate(4238.35), '04238.4');
@@ -96,6 +97,34 @@ for (const entry of bundledOpeningTimes) {
   assert.equal(resolveCampaignMinuteOfDay(state), entry.minute, `${entry.title} resolved opening minute`);
   assert.match(buildCampaignReplyHeader(state), new RegExp(`\\| ${entry.shipTime.replace(' ', '\\s+')}\\*$`), `${entry.title} opening header`);
 }
+
+const ashesProjection = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json'), 'utf8'));
+const oldAshesSaveState = {
+  campaign: {
+    id: 'campaign-old-ashes',
+    title: 'Ashes of Peace',
+    currentStardate: 53049.2
+  },
+  activeCampaignPackage: {
+    packageId: 'directive:campaign-package:breckenridge-ashes-of-peace'
+  },
+  worldState: {
+    currentStardate: 53049.2,
+    elapsedHours: 0
+  }
+};
+const normalizedOldAshes = normalizeCampaignTimeState(oldAshesSaveState, {
+  projection: ashesProjection,
+  now: '2026-06-26T12:00:00.000Z',
+  reason: 'test-old-save-backfill'
+});
+assert.equal(normalizedOldAshes.changed, true);
+assert.equal(normalizedOldAshes.campaignState.campaign.openingMinuteOfDay, 510);
+assert.equal(normalizedOldAshes.campaignState.worldState.openingMinuteOfDay, 510);
+assert.equal(normalizedOldAshes.campaignState.worldState.elapsedMinutes, 0);
+assert.equal(normalizedOldAshes.campaignState.timeLedger.openingMinuteOfDay, 510);
+assert.equal(normalizedOldAshes.campaignState.timeLedger.shipClock.display, '0830 hours');
+assert.equal(buildCampaignReplyHeader(normalizedOldAshes.campaignState), '*Stardate 53049.2 | 0830 hours*');
 
 const explicitClockState = {
   campaign: {

@@ -42,15 +42,30 @@ import {
   SOAK_PHASES,
   SOAK_READABLE_TRANSCRIPT_POLICY,
   SOAK_SCENE_HANDSHAKE_POLICY,
+  SOAK_SERVED_EXTENSION_PROOF_FILES,
+  SOAK_STORY_QUALITY_POLICY,
   SOAK_TIMEKEEPING_POLICY,
   SOAK_TURN_SETTLEMENT_POLICY,
   SOAK_TURN_SCRIPT,
   buildLiveSmokeEnvironment,
   buildPostSmokeFactualGroundingAudit,
+  buildPostSmokeStoryQualityReview,
   buildReleaseCertificationSummary,
   buildCampaignMatrixCanaryScripts,
+  buildStoryQualityManualReviewScores,
+  buildStoryQualityManualReviewTemplate,
+  buildStoryQualityModelReviewRequest,
+  buildStoryQualityModelReviewResult,
+  buildStoryQualityScoreRecord,
+  buildStoryQualityPhaseSummary,
   buildSoakChatMessageScript,
+  importStoryQualityManualReviewScores,
+  initializeStoryQualityReviewArtifacts,
+  storyQualityLiveLogRecord,
   writeCampaignMatrixCanaryArtifacts,
+  writeStoryQualityManualReviewTemplateArtifact,
+  writeStoryQualityScoreRecord,
+  writeStoryQualityPhaseSummaryArtifact,
   liveSmokeDelegationAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport,
@@ -84,6 +99,8 @@ assert.match(liveSmokeSource, /capturePromptInspectionSnapshot/);
 assert.match(liveSmokeSource, /snapshotSourceChatTranscript/);
 assert.match(liveSmokeSource, /runFactualGroundingReviewOnly/);
 assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH/);
+assert.match(liveSmokeSource, /runStoryQualityReviewOnly/);
+assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH/);
 
 const schema = readJsonFile('schemas/testing/live-campaign-soak-report.schema.json');
 assert.equal(schema.properties.modelCallPolicy.properties.budget.const, 'unlimited');
@@ -102,6 +119,15 @@ assert.equal(schema.properties.checkpointArtifactPolicy.properties.liveLogRecord
 assert.equal(schema.properties.turnSettlementPolicy.properties.required.const, true);
 assert.equal(schema.properties.readableTranscriptPolicy.properties.required.const, true);
 assert.equal(schema.properties.playerInputPolicy.properties.required.const, true);
+assert.equal(schema.properties.storyQualityPolicy.properties.required.const, true);
+assert.equal(schema.properties.storyQualityPolicy.properties.artifactDirectory.const, 'quality-review');
+assert.equal(schema.properties.storyQualityPolicy.properties.liveLogRecord.const, 'quality-score');
+assert.equal(schema.properties.storyQualityPolicy.required.includes('scoreDefinitions'), true);
+assert.equal(schema.properties.storyQualityPolicy.required.includes('passCriteria'), true);
+assert.equal(schema.properties.storyQualityPolicy.properties.manualReviewTemplateArtifact.const, 'quality-review/manual-review-template.json');
+assert.equal(schema.properties.storyQualityPolicy.properties.manualReviewImportArtifact.const, 'quality-review/manual-review-import.jsonl');
+assert.equal(schema.properties.storyQualityPolicy.properties.modelReviewRequestArtifact.const, 'quality-review/model-assisted-review/request.json');
+assert.equal(schema.properties.storyQualityPolicy.properties.modelReviewResultArtifact.const, 'quality-review/model-assisted-review/result.json');
 assert.equal(schema.properties.sceneHandshakePolicy.properties.required.const, true);
 assert.equal(schema.properties.sceneHandshakePolicy.properties.intervalLogRecord.const, 'scene-handshake-settlement');
 assert.equal(schema.properties.sceneHandshakePolicy.required.includes('allowedRoots'), true);
@@ -131,7 +157,9 @@ assert.equal(schema.properties.artifacts.required.includes('sourceChatTranscript
 assert.equal(schema.properties.artifacts.required.includes('factChecks'), true);
 assert.equal(schema.properties.artifacts.required.includes('factCanaryIndex'), true);
 assert.equal(schema.properties.artifacts.required.includes('campaignMatrix'), true);
+assert.equal(schema.properties.artifacts.required.includes('qualityReview'), true);
 assert.equal(schema.required.includes('campaignMatrixCanaries'), true);
+assert.equal(schema.required.includes('storyQualityPolicy'), true);
 assert.equal(schema.properties.campaignMatrix.items.$ref, '#/$defs/campaignMatrixEntry');
 assert.equal(schema.properties.campaignMatrixCanaries.items.$ref, '#/$defs/campaignMatrixCanaryScript');
 assert.equal(schema.properties.factualCanaryPacks.items.$ref, '#/$defs/factualCanaryPack');
@@ -139,6 +167,7 @@ assert.equal(schema.properties.commandConductScenarios.items.$ref, '#/$defs/comm
 assert.equal(schema.properties.endConditionScenarios.items.$ref, '#/$defs/endConditionScenario');
 assert.equal(schema.properties.releaseCertificationSummary.properties.evidenceCounts.required.includes('campaignMatrixCanaries'), true);
 assert.equal(schema.properties.releaseCertificationSummary.properties.evidenceCounts.required.includes('campaignMatrixCanaryTurns'), true);
+assert.equal(schema.properties.releaseCertificationSummary.properties.evidenceCounts.required.includes('storyQualityDimensions'), true);
 
 assert.equal(SOAK_LIVE_LOG_POLICY.appendOnly, true);
 assert.equal(SOAK_LIVE_LOG_POLICY.flushAfterEveryRecord, true);
@@ -156,6 +185,7 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('prompt-inspection-captur
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fact-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('campaign-matrix-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('model-assisted-factual-review'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('model-assisted-story-quality-review'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('objective-assignment-projection-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('scene-handshake-settlement'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('timekeeping-header-check'), true);
@@ -189,6 +219,109 @@ assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /declared perspe
 assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /quoted character speech/);
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('third-person perspective compliance'));
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('dialogue quality'));
+assert.equal(SOAK_STORY_QUALITY_POLICY.required, true);
+assert.equal(SOAK_STORY_QUALITY_POLICY.artifactDirectory, 'quality-review');
+assert.equal(SOAK_STORY_QUALITY_POLICY.scoreArtifact, 'quality-review/scores.jsonl');
+assert.equal(SOAK_STORY_QUALITY_POLICY.manualReviewTemplateArtifact, 'quality-review/manual-review-template.json');
+assert.equal(SOAK_STORY_QUALITY_POLICY.manualReviewImportArtifact, 'quality-review/manual-review-import.jsonl');
+assert.equal(SOAK_STORY_QUALITY_POLICY.modelReviewRequestArtifact, 'quality-review/model-assisted-review/request.json');
+assert.equal(SOAK_STORY_QUALITY_POLICY.modelReviewResultArtifact, 'quality-review/model-assisted-review/result.json');
+assert.equal(SOAK_STORY_QUALITY_POLICY.liveLogRecord, 'quality-score');
+assert.equal(SOAK_STORY_QUALITY_POLICY.scoreDefinitions.length, 4);
+assert(SOAK_STORY_QUALITY_POLICY.scoreDefinitions.some((entry) => entry.score === 0 && /unsafe-or-wrong/.test(entry.label)));
+assert(SOAK_STORY_QUALITY_POLICY.scoreDefinitions.some((entry) => entry.score === 3 && /excellent/.test(entry.label)));
+assert(SOAK_STORY_QUALITY_POLICY.dimensions.includes('player-input-prose-quality'));
+assert(SOAK_STORY_QUALITY_POLICY.dimensions.includes('npc-agency'));
+assert(SOAK_STORY_QUALITY_POLICY.dimensions.includes('prompt-context-freshness'));
+assert.equal(SOAK_STORY_QUALITY_POLICY.passCriteria.noScoreZero, true);
+assert.equal(SOAK_STORY_QUALITY_POLICY.passCriteria.releaseCandidateMinimumAverage, 2);
+assert.equal(SOAK_STORY_QUALITY_POLICY.passCriteria.preferredPerspective, 'third-person');
+assert.match(SOAK_STORY_QUALITY_POLICY.hiddenStatePolicy, /player-visible transcript/);
+const strongQualityScore = buildStoryQualityScoreRecord({
+  runId: 'prep-test',
+  phaseId: 'clean-play-opening',
+  turn: 1,
+  messageId: 'mes-001',
+  messageIndex: 1,
+  role: 'assistant',
+  transcriptPointer: 'transcript/readable-chat.md#mes-001',
+  reviewerMode: 'manual-review',
+  dimensionScores: {
+    continuity: { score: 3, rationale: 'keeps the transfer scene aligned' },
+    'npc-agency': { score: 2, rationale: 'Bronn answers without being puppeted' },
+    'mission-pressure': 2,
+    'hidden-truth-safety': 3
+  },
+  rationale: 'Strong opening response without overreach.'
+});
+assert.equal(strongQualityScore.kind, 'directive.liveCampaignSoak.storyQualityScore');
+assert.equal(strongQualityScore.status, 'pass');
+assert.equal(strongQualityScore.overallScore, 2.5);
+assert.equal(strongQualityScore.scoreZeroCount, 0);
+assert.equal(strongQualityScore.dimensions.length, SOAK_STORY_QUALITY_POLICY.dimensions.length);
+assert.equal(strongQualityScore.dimensions.find((entry) => entry.dimension === 'continuity').score, 3);
+assert.equal(typeof strongQualityScore.hash, 'string');
+const failingQualityScore = buildStoryQualityScoreRecord({
+  runId: 'prep-test',
+  phaseId: 'clean-play-opening',
+  messageId: 'mes-002',
+  reviewerMode: 'deterministic-sanity-check',
+  dimensionScores: {
+    'hidden-truth-safety': { score: 0, rationale: 'leaks hidden state' },
+    continuity: 2
+  }
+});
+assert.equal(failingQualityScore.status, 'fail');
+assert.equal(failingQualityScore.scoreZeroCount, 1);
+assert.match(failingQualityScore.severity, /P1/);
+const qualitySummaryFixture = buildStoryQualityPhaseSummary({ scores: [strongQualityScore, failingQualityScore] });
+assert.equal(qualitySummaryFixture.kind, 'directive.liveCampaignSoak.storyQualityPhaseSummary');
+assert.equal(qualitySummaryFixture.status, 'fail');
+assert.equal(qualitySummaryFixture.recordCount, 2);
+assert.equal(qualitySummaryFixture.scoreZeroCount, 1);
+assert.equal(qualitySummaryFixture.manualReviewTemplateArtifact, 'quality-review/manual-review-template.json');
+assert.equal(qualitySummaryFixture.manualReviewImportArtifact, 'quality-review/manual-review-import.jsonl');
+assert.equal(qualitySummaryFixture.modelReviewRequestArtifact, 'quality-review/model-assisted-review/request.json');
+assert.equal(qualitySummaryFixture.modelReviewResultArtifact, 'quality-review/model-assisted-review/result.json');
+const storyQualityModelRequest = buildStoryQualityModelReviewRequest({
+  report: { runId: 'prep-test', storyQualityPolicy: SOAK_STORY_QUALITY_POLICY },
+  transcriptMessages: [
+    { index: 0, isUser: true, text: 'Commander Arlen asks Bronn for the handoff in third person.' },
+    { index: 1, isUser: false, directiveOwned: true, text: 'Bronn answers with the correct chain of command.' }
+  ],
+  deterministicScores: [strongQualityScore, failingQualityScore]
+});
+assert.equal(storyQualityModelRequest.kind, 'directive.liveCampaignSoak.storyQualityModelReviewRequest');
+assert.equal(storyQualityModelRequest.transcript.length, 2);
+assert.equal(storyQualityModelRequest.deterministicScores.length, 2);
+assert.equal(typeof storyQualityModelRequest.inputHash, 'string');
+assert.doesNotMatch(JSON.stringify(storyQualityModelRequest), /rawPrompt|csrfToken|apiKey/);
+const storyQualityModelResult = buildStoryQualityModelReviewResult({
+  request: storyQualityModelRequest,
+  modelOutput: JSON.stringify({
+    status: 'warning',
+    overallAssessment: 'Readable transcript, but one reply needs continuity review.',
+    scores: [{
+      messageId: 'mes-002',
+      messageIndex: 1,
+      role: 'directive',
+      overallScore: 1,
+      severity: 'P2 story-quality warning',
+      rationale: 'Continuity is weak.',
+      confidence: 0.8,
+      dimensions: [
+        { dimension: 'continuity', score: 1, rationale: 'Weak continuity.', evidence: 'reply text' },
+        { dimension: 'hidden-truth-safety', score: 2, rationale: 'No leak.', evidence: 'reply text' }
+      ]
+    }]
+  }),
+  modelCall: { roleId: 'storyQualityReviewer', status: 'ok' }
+});
+assert.equal(storyQualityModelResult.kind, 'directive.liveCampaignSoak.storyQualityModelReviewResult');
+assert.equal(storyQualityModelResult.status, 'warning');
+assert.equal(storyQualityModelResult.counts.scores, 1);
+assert.equal(storyQualityModelResult.counts.warningOrWeak, 1);
+assert.equal(storyQualityModelResult.modelCall.roleId, 'storyQualityReviewer');
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.required, true);
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.artifactDirectory, 'fact-checks');
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.packIndexArtifact, 'fact-checks/canary-index.json');
@@ -232,6 +365,8 @@ assert.match(bronnCanary.summary, /Late fifties/i);
 assert(bronnCanary.contradictionWatchlist.some((entry) => /another species than Tellarite/i.test(entry)));
 const transitCanary = ashesCanaryPack.canaries.find((entry) => entry.id.endsWith('.opening.transit-premise'));
 assert(transitCanary);
+assert(transitCanary.positiveTerms.some((entry) => /final ten days before the Asterion Reach/i.test(entry)));
+assert(transitCanary.contradictionWatchlist.some((entry) => /out of spacedock three days ago/i.test(entry)));
 const badFactCheck = buildFactualGroundingCheck({
   pack: ashesCanaryPack,
   generatedMessageId: 'mes-001',
@@ -251,6 +386,21 @@ assert.equal(badFactCheck.promptAvailability.byFactId[bronnCanary.id].status, 'a
 assert.equal(badFactCheck.promptAvailability.byFactId[transitCanary.id].status, 'available');
 assert.equal(badFactCheck.results.find((entry) => entry.factId === bronnCanary.id).rootCauseLabel, 'model-ignored-available-fact');
 assert.equal(badFactCheck.results.find((entry) => entry.factId === transitCanary.id).rootCauseLabel, 'model-ignored-available-fact');
+const collapsedTransitFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'campaign-intro',
+  generatedMessageIndex: 0,
+  transcriptPointer: 'transcript/readable-chat.md#campaign-intro',
+  promptBlocks: [
+    { id: 'opening-premise', text: transitCanary.summary }
+  ],
+  requiredFactIds: [transitCanary.id],
+  generatedText: 'A skeleton-plus crew had taken the Breckenridge out of spacedock three days ago, with the new XO only now meeting everyone for the first time.'
+});
+assert.equal(collapsedTransitFactCheck.status, 'fail');
+assert.equal(collapsedTransitFactCheck.counts.contradicted, 1);
+assert.equal(collapsedTransitFactCheck.results[0].rootCauseLabel, 'model-ignored-available-fact');
+assert(collapsedTransitFactCheck.results[0].contradictionMatches.some((entry) => /three days out of spacedock/i.test(entry.term)));
 const missingPromptFactCheck = buildFactualGroundingCheck({
   pack: ashesCanaryPack,
   generatedMessageId: 'mes-002',
@@ -345,7 +495,7 @@ assert.equal(modelReviewResult.modelCall.roleId, 'factualGroundingReviewer');
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.required, true);
 assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sceneHandshakeSettler']);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.intervalLogRecord, 'scene-handshake-settlement');
-assert(SOAK_SCENE_HANDSHAKE_POLICY.ownerLanes.includes('canonical-long-campaign'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.ownerLanes.includes('ashes-factual-director'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots.includes('mission.openAssignments'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots.includes('commandLog.entries'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('accepted-host-native-assignment-commits-allowlisted-state'));
@@ -388,7 +538,7 @@ assert(SOAK_UI_STATE_SURFACE_POLICY.surfaces.some((entry) => entry.id === 'missi
 assert.match(SOAK_UI_STATE_SURFACE_POLICY.hiddenStatePolicy, /raw relationship values/);
 assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.required, true);
 assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalTurns, '5-10');
-assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.ownerLane, 'end-conditions-command-bearing');
+assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.ownerLane, 'ashes-command-bearing-endings');
 assert.deepEqual(SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles, [
   'commandBearingFitChecker',
   'commandBearingSpendValidator',
@@ -439,7 +589,7 @@ assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /P1/);
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /duplicate awards/);
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.liveEvidence.some((entry) => /evidence ledger/.test(entry)));
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.hiddenStatePolicy, /private NPC thoughts/);
-assert.equal(SOAK_PARALLEL_WORKER_POLICY.strategy, 'breadth-first-five-lane-coverage');
+assert.equal(SOAK_PARALLEL_WORKER_POLICY.strategy, 'ashes-first-five-lane-coverage');
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.defaultWorkerHandles.length, 5);
 assert.deepEqual(
   SOAK_PARALLEL_WORKER_POLICY.defaultWorkerHandles,
@@ -448,14 +598,24 @@ assert.deepEqual(
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.lanes.length, 5);
 assert.equal(new Set(SOAK_PARALLEL_WORKER_POLICY.lanes.map((entry) => entry.id)).size, 5);
 assert.equal(new Set(SOAK_PARALLEL_WORKER_POLICY.lanes.map((entry) => entry.userHandle)).size, 5);
-assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'canonical-long-campaign'));
-assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'mutation-reconciliation'));
-assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'end-conditions-command-bearing'));
-assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'multi-campaign-matrix'));
-assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'assist-agency-story-quality'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'ashes-factual-director'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'ashes-drawer-projection'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'ashes-sidecars-timekeeping'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'ashes-mutation-reconciliation'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'ashes-command-bearing-endings'));
 assert.deepEqual(SOAK_PARALLEL_WORKER_POLICY.immediateFixSeverities, ['P0', 'P1']);
 assert.deepEqual(SOAK_PARALLEL_WORKER_POLICY.deferredFixSeverities, ['P2', 'P3']);
 assert.match(SOAK_PARALLEL_WORKER_POLICY.deferredFixPolicy, /continue/);
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/projection-matrix.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/projection-planner-prompt.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/projection-planner-client.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/projection-planner-fallback.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/materializers/ship-travel-facts.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/materializers/command-log-facts.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/continuity/materializers/rejected-claim-facts.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/generation/player-safe-prompt-context-builder.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('src/runtime/response-dispatcher.mjs'));
+assert(SOAK_SERVED_EXTENSION_PROOF_FILES.includes('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'));
 const thirdPersonWithDialogue = playerInputPerspectiveEvidence('Serrin steps to the rail and says, "I need the sensor pass on screen."', 'third-person');
 assert.equal(thirdPersonWithDialogue.detectedPerspective, 'third-person');
 assert.equal(thirdPersonWithDialogue.preferredPlayEvidence, true);
@@ -469,8 +629,8 @@ assert.equal(declaredFirstPerson.detectedPerspective, 'first-person');
 assert.equal(declaredFirstPerson.preferredPlayEvidence, false);
 assert.equal(declaredFirstPerson.perspectiveWarning, 'declared-first-person-compatibility-only');
 
-assert.equal(SOAK_CAMPAIGN_MATRIX.length, 6);
-assert.equal(new Set(SOAK_CAMPAIGN_MATRIX.map((entry) => entry.packageId)).size, 6);
+assert.equal(SOAK_CAMPAIGN_MATRIX.length, 1);
+assert.equal(new Set(SOAK_CAMPAIGN_MATRIX.map((entry) => entry.packageId)).size, 1);
 assert.equal(SOAK_CAMPAIGN_MATRIX.filter((entry) => entry.liveCoverage === 'full-soak-rotation-primary').length, 1);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('cross-campaign-isolation')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('factual-grounding-canary')), true);
@@ -479,11 +639,7 @@ assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.incl
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('timekeeping-header-canary')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.deterministicCoverage.includes('end-condition-contract')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace'), true);
-assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:glass-harbor-drowned-constellation'), true);
-assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:serein-black-current'), true);
-assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:eudora-vale-broken-accord'), true);
-assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:aster-vale-unseen-border'), true);
-assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:celandine-enemys-garden'), true);
+assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace'), true);
 const campaignMatrixCanaries = buildCampaignMatrixCanaryScripts({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
 assert.equal(campaignMatrixCanaries.length, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(campaignMatrixCanaries.every((script) => script.kind === 'directive.liveCampaignSoak.campaignMatrixCanaryScript'), true);
@@ -677,6 +833,20 @@ assert.equal(report.playerInputPolicy.required, true);
 assert.equal(report.playerInputPolicy.defaultPerspective, 'third-person');
 assert.match(report.playerInputPolicy.narrationDetectionPolicy, /first-person narration warnings/);
 assert.equal(report.playerInputPolicy.qualityDimensions.includes('player-agency discipline'), true);
+assert.equal(report.storyQualityPolicy.required, true);
+assert.equal(report.storyQualityPolicy.artifactDirectory, 'quality-review');
+assert.equal(report.storyQualityPolicy.scoreArtifact, 'quality-review/scores.jsonl');
+assert.equal(report.storyQualityPolicy.manualReviewTemplateArtifact, 'quality-review/manual-review-template.json');
+assert.equal(report.storyQualityPolicy.manualReviewImportArtifact, 'quality-review/manual-review-import.jsonl');
+assert.equal(report.storyQualityPolicy.modelReviewRequestArtifact, 'quality-review/model-assisted-review/request.json');
+assert.equal(report.storyQualityPolicy.modelReviewResultArtifact, 'quality-review/model-assisted-review/result.json');
+assert.equal(report.storyQualityPolicy.scoreDefinitions.length, 4);
+assert(report.storyQualityPolicy.dimensions.includes('continuity'));
+assert(report.storyQualityPolicy.dimensions.includes('command-log-usefulness'));
+assert.equal(report.storyQualityPolicy.passCriteria.noScoreZero, true);
+assert.equal(report.storyQualityPolicy.passCriteria.releaseCandidateMinimumAverage, 2);
+assert.equal(report.releaseCertificationSummary.evidenceCounts.storyQualityDimensions, report.storyQualityPolicy.dimensions.length);
+assert(report.releaseCertificationSummary.evidenceGates.some((entry) => entry.id === 'story-quality'));
 assert.equal(report.sceneHandshakePolicy.required, true);
 assert.equal(report.sceneHandshakePolicy.intervalLogRecord, 'scene-handshake-settlement');
 assert(report.sceneHandshakePolicy.modelRoles.includes('sceneHandshakeSettler'));
@@ -783,6 +953,13 @@ const paths = createArtifactPaths({ rootDir: tempRoot, runId: 'prep-test' });
 ensureArtifactTree(paths);
 const factualCanaryIndex = writeFactualGroundingCanaryArtifacts({ packs: factualCanaryPacks, artifactPaths: paths });
 const campaignCanaryIndex = writeCampaignMatrixCanaryArtifacts({ scripts: report.campaignMatrixCanaries, artifactPaths: paths });
+const initializedQualitySummary = initializeStoryQualityReviewArtifacts({ artifactPaths: paths, policy: report.storyQualityPolicy });
+const qualityScorePath = writeStoryQualityScoreRecord({ artifactPaths: paths, record: strongQualityScore });
+const writtenQualitySummary = writeStoryQualityPhaseSummaryArtifact({
+  artifactPaths: paths,
+  scores: [strongQualityScore, failingQualityScore],
+  policy: report.storyQualityPolicy
+});
 const badFactCheckArtifactPath = writeFactualGroundingCheckArtifact({ check: badFactCheck, artifactPaths: paths });
 const tempReport = { ...report, artifacts: paths };
 const badTranscriptLines = [
@@ -987,6 +1164,117 @@ assert.equal(campaignCanaryIndex.campaignCount, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(campaignCanaryIndex.plannedCanaryTurnCount, report.campaignMatrixCanaries.reduce((sum, script) => sum + Number(script.plannedCanaryTurns || 0), 0));
 assert.equal(fs.existsSync(campaignCanaryIndex.indexArtifact), true);
 assert.equal(readJsonFile(campaignCanaryIndex.scripts[0].artifact).kind, 'directive.liveCampaignSoak.campaignMatrixCanaryScript');
+assert.equal(initializedQualitySummary.kind, 'directive.liveCampaignSoak.storyQualityPhaseSummary');
+assert.equal(initializedQualitySummary.status, 'planned');
+assert.equal(fs.existsSync(path.join(paths.qualityReview, 'model-assisted-review', 'request.json')), true);
+assert.equal(fs.existsSync(path.join(paths.qualityReview, 'model-assisted-review', 'result.json')), true);
+assert.equal(readJsonFile(path.join(paths.qualityReview, 'model-assisted-review', 'result.json')).status, 'not-run');
+assert.equal(fs.existsSync(qualityScorePath), true);
+const qualityScoreLines = fs.readFileSync(qualityScorePath, 'utf8').trim().split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line));
+assert.equal(qualityScoreLines.length, 1);
+assert.equal(qualityScoreLines[0].kind, 'directive.liveCampaignSoak.storyQualityScore');
+assert.equal(qualityScoreLines[0].hash, strongQualityScore.hash);
+assert.equal(writtenQualitySummary.status, 'fail');
+assert.equal(writtenQualitySummary.recordCount, 2);
+assert.equal(readJsonFile(writtenQualitySummary.phaseSummaryArtifact).scoreZeroCount, 1);
+const qualityLogRecord = storyQualityLiveLogRecord({
+  report: { ...report, runId: 'prep-test', artifacts: paths },
+  summary: writtenQualitySummary,
+  score: strongQualityScore
+});
+assert.equal(qualityLogRecord.kind, 'quality-score');
+assert.equal(qualityLogRecord.status, 'pass');
+assert.equal(qualityLogRecord.scoreArtifact, 'quality-review/scores.jsonl');
+assert.equal(qualityLogRecord.phaseSummaryArtifact, 'quality-review/phase-summary.json');
+assert.equal(qualityLogRecord.hash, strongQualityScore.hash);
+const storyQualityReview = buildPostSmokeStoryQualityReview({
+  report: tempReport,
+  transcriptMessages: badTranscriptLines.trim().split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line))
+});
+assert.equal(storyQualityReview.status, 'fail');
+assert.equal(storyQualityReview.reviewerMode, 'deterministic-sanity-check');
+assert.equal(storyQualityReview.scoreCount, 2);
+assert.equal(storyQualityReview.userScoreCount, 1);
+assert.equal(storyQualityReview.assistantScoreCount, 1);
+assert.equal(storyQualityReview.scoreZeroCount > 0, true);
+assert.equal(storyQualityReview.scoreArtifactRelative, 'quality-review/scores.jsonl');
+assert.equal(storyQualityReview.summaryArtifactRelative, 'quality-review/phase-summary.json');
+assert.equal(storyQualityReview.manualReviewTemplateArtifactRelative, 'quality-review/manual-review-template.json');
+assert.equal(storyQualityReview.manualReviewTemplateEntryCount, 2);
+assert.equal(storyQualityReview.modelAssistedReviewRequestPathRelative, 'quality-review/model-assisted-review/request.json');
+assert.equal(storyQualityReview.modelAssistedReviewResultPathRelative, 'quality-review/model-assisted-review/result.json');
+assert.equal(storyQualityReview.modelAssistedReviewResult.status, 'not-run');
+assert.equal(readJsonFile(storyQualityReview.modelAssistedReviewRequestPath).kind, 'directive.liveCampaignSoak.storyQualityModelReviewRequest');
+assert.equal(readJsonFile(storyQualityReview.modelAssistedReviewResultPath).kind, 'directive.liveCampaignSoak.storyQualityModelReviewResult');
+const transcriptQualityScoreLines = fs.readFileSync(qualityScorePath, 'utf8').trim().split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line));
+assert.equal(transcriptQualityScoreLines.length, 2);
+assert.equal(transcriptQualityScoreLines.some((entry) => entry.message.role === 'user' && entry.status === 'pass'), true);
+assert.equal(transcriptQualityScoreLines.some((entry) => entry.message.role === 'directive' && entry.status === 'fail'), true);
+assert.equal(transcriptQualityScoreLines.some((entry) => entry.dimensions.some((dimension) => dimension.dimension === 'continuity' && dimension.score === 0)), true);
+assert.equal(readJsonFile(storyQualityReview.summaryArtifact).recordCount, 2);
+assert.equal(readJsonFile(storyQualityReview.summaryArtifact).status, 'fail');
+const exportedManualTemplate = readJsonFile(storyQualityReview.manualReviewTemplateArtifact);
+assert.equal(exportedManualTemplate.kind, 'directive.liveCampaignSoak.storyQualityManualReviewTemplate');
+assert.equal(exportedManualTemplate.entries.length, 2);
+assert.equal(exportedManualTemplate.entries.some((entry) => entry.deterministicSanityScore?.status === 'fail'), true);
+assert.equal(exportedManualTemplate.entries[0].manualReview.status, 'pending');
+const emptyManualTemplate = buildStoryQualityManualReviewTemplate({
+  report: tempReport,
+  transcriptMessages: [],
+  deterministicScores: []
+});
+assert.equal(emptyManualTemplate.status, 'planned');
+assert.equal(emptyManualTemplate.runId, tempReport.runId);
+const directTemplateWrite = writeStoryQualityManualReviewTemplateArtifact({
+  report: tempReport,
+  transcriptMessages: badTranscriptLines.trim().split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line)),
+  deterministicScores: storyQualityReview.scores,
+  phaseId: 'manual-template-direct-write'
+});
+assert.equal(directTemplateWrite.artifactPathRelative, 'quality-review/manual-review-template.json');
+const completedManualTemplate = {
+  ...exportedManualTemplate,
+  entries: exportedManualTemplate.entries.map((entry) => entry.message.role === 'directive'
+    ? {
+        ...entry,
+        manualReview: {
+          status: 'scored',
+          reviewer: 'prep-fixture-reviewer',
+          overallScore: null,
+          dimensions: [
+            { dimension: 'continuity', score: 0, rationale: 'Bronn identity and transit premise are wrong.', evidence: 'assistant visible text' },
+            { dimension: 'hidden-truth-safety', score: 2, rationale: 'No hidden-state leak marker in visible text.' }
+          ],
+          rationale: 'Manual review confirms the deterministic factual-quality blocker.',
+          severity: 'P1 story-quality blocker'
+        }
+      }
+    : entry)
+};
+const manualReviewScores = buildStoryQualityManualReviewScores({
+  report: tempReport,
+  review: completedManualTemplate
+});
+assert.equal(manualReviewScores.status, 'fail');
+assert.equal(manualReviewScores.scoreCount, 1);
+assert.equal(manualReviewScores.scores[0].reviewerMode, 'manual-review');
+assert.equal(manualReviewScores.scores[0].manualReviewer, 'prep-fixture-reviewer');
+const manualImport = importStoryQualityManualReviewScores({
+  report: tempReport,
+  review: completedManualTemplate
+});
+assert.equal(manualImport.status, 'fail');
+assert.equal(manualImport.scoreCount, 1);
+assert.equal(manualImport.importArtifactRelative, 'quality-review/manual-review-import.jsonl');
+assert.equal(manualImport.phaseSummary.recordCount, 3);
+assert.equal(readJsonFile(manualImport.phaseSummary.phaseSummaryArtifact).recordCount, 3);
+const importedManualLines = fs.readFileSync(manualImport.importArtifact, 'utf8').trim().split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line));
+assert.equal(importedManualLines.length, 1);
+assert.equal(importedManualLines[0].reviewerMode, 'manual-review');
+const postQualityLogLines = fs.readFileSync(paths.liveLog, 'utf8').trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+assert.equal(postQualityLogLines.some((entry) => entry.kind === 'quality-score' && entry.status === 'fail' && entry.recordCount === 2), true);
+assert.equal(postQualityLogLines.some((entry) => entry.kind === 'artifact' && entry.artifact === 'story-quality-manual-review-template' && entry.entryCount === 2), true);
+assert.equal(postQualityLogLines.some((entry) => entry.kind === 'quality-score' && entry.status === 'fail' && entry.recordCount === 3), true);
 assert.equal(fs.existsSync(badFactCheckArtifactPath), true);
 assert.match(badFactCheckArtifactPath, /fact-checks[\\/]+mes-001[\\/]+fact-check\.json$/);
 assert.equal(readJsonFile(badFactCheckArtifactPath).counts.contradicted, 2);
@@ -1001,6 +1289,7 @@ const expectedDirs = [
   'objectiveAssignments',
   'factChecks',
   'campaignMatrix',
+  'qualityReview',
   'sceneHandshake',
   'timekeeping',
   'endConditions',

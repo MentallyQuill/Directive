@@ -49,6 +49,18 @@ const generationRouter = {
     if (roleId === 'campaignConclusion') {
       return { ok: true, response: { text: 'The final watch ends with the Breckenridge secure, her command record complete, and her crew ready for whatever follows.' } };
     }
+    if (roleId === 'continuityProjectionPlanner') {
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            kind: 'directive.continuityProjectionPlan.v1',
+            operations: [],
+            omitted: []
+          })
+        }
+      };
+    }
     throw new Error(`Unexpected role ${roleId}`);
   }
 };
@@ -182,6 +194,13 @@ assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision >
 const introRequest = generationRequests.find((entry) => entry.roleId === 'campaignIntro')?.request;
 assert.match(introRequest.messages[0].content, /second person external/);
 assert.match(introRequest.prompt, /This model call happens outside normal host preset assembly/);
+assert.match(introRequest.prompt, /Do not replace the player arrival or handoff with the captain arriving/);
+assert.match(introRequest.prompt, /The crew has spent twenty-five days underway together/);
+assert.match(introRequest.prompt, /final ten days before the Asterion Reach/);
+assert.match(introRequest.prompt, /Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran Tellarite tactical and security chief/);
+assert.match(introRequest.prompt, /Late fifties by human comparison/);
+assert.match(introRequest.prompt, /Broad, compact Tellarite officer/);
+assert.match(introRequest.prompt, /Original Breckenridge senior officer and acting XO during the post-refit transit/);
 assert.equal(introRequest.metadata.narrationContext.source, 'active-directive-preset');
 assert.equal(activated.introPacket.narrationContext.perspectivePromptId, 'directive-pov-second-external');
 assert.equal(activated.activationJournal.steps.introGenerated.details.narrationContext.perspectivePromptId, 'directive-pov-second-external');

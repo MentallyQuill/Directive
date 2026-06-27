@@ -156,7 +156,7 @@ The model may see the current header instruction when it is responsible for host
 
 ## Time Advancement Design
 
-The timekeeping system should grow in three layers.
+The timekeeping system is split into three layers.
 
 ### Layer 1: Display
 
@@ -166,7 +166,7 @@ The display layer reports current state using the reply header and never mutates
 
 ### Layer 2: Deterministic Boundaries
 
-Partially implemented through open-world time and travel.
+Implemented through open-world time, travel, and the campaign time ledger.
 
 Boundaries should be explicit operations with:
 
@@ -179,19 +179,20 @@ Boundaries should be explicit operations with:
 - prompt-context rebuild requirement;
 - save/revision record.
 
-Existing examples:
+Implemented examples:
 
-- `src/world/world-director.mjs` advances `worldState.elapsedHours` and `worldState.currentStardate`.
-- `src/directors/director-coordinator.mjs` synchronizes `campaign.currentStardate` from `worldState.currentStardate`.
+- `src/world/world-director.mjs` advances `worldState.elapsedMinutes`, `worldState.elapsedHours`, and `worldState.currentStardate`.
+- `src/directors/director-coordinator.mjs` synchronizes `campaign.currentStardate` from `worldState.currentStardate` and appends `timeLedger.entries`.
 - `src/runtime/runtime-app.mjs` exposes `advanceOpenWorldTime`.
+- `src/time/campaign-time-state.mjs` backfills authored opening ship time from package projection and maintains the normalized time ledger.
 
 ### Layer 3: Time Adjudication
 
-Planned.
+Implemented for deterministic cases with Utility-model backup for ambiguity.
 
 This layer decides how much time passes when the player asks for a cut, takes an ambiguous action, holds a long conversation, waits for work to finish, or tries to do too much in one day.
 
-The recommended shape is:
+The implemented shape is:
 
 1. Deterministic parser identifies obvious cases.
 2. Utility model proposes a bounded time delta only when deterministic rules are ambiguous.
@@ -205,18 +206,31 @@ The Utility proposal should never write time directly. It should return structur
 ```json
 {
   "kind": "directive.timeAdvanceProposal.v1",
-  "classification": "scene_cut",
-  "requestedTarget": "dinner time",
-  "minimumElapsedMinutes": 45,
-  "maximumElapsedMinutes": 180,
-  "recommendedElapsedMinutes": 90,
+  "elapsedMinutes": 570,
+  "reason": "scene-cut",
   "confidence": 0.82,
-  "reason": "The player explicitly asked to cut to the established dinner scene.",
-  "requiresConsequenceCheck": true
+  "rationale": "The player explicitly asked to cut to dinner time from the current morning watch."
 }
 ```
 
 Directive then performs deterministic validation and commits or rejects the boundary.
+
+The `timeAdvanceAdjudicator` model role has no state roots and cannot inject prompts. It receives visible source text and the current clock summary only. Runtime code validates, clamps, and commits the result through `timeAdvanceBoundary`.
+
+## Host-Native Scene Movement
+
+Host-native SillyTavern prose cannot be mutated after generation. Directive therefore advances time from host-native prose only after the next player reply accepts or acts on that prose.
+
+The flow is:
+
+1. Host-native assistant reply is visible in chat.
+2. Player replies.
+3. Scene Handshake evaluates the immediately previous assistant/player pair.
+4. If accepted, Scene Handshake commits player-safe facts and runs the time adjudicator over the same accepted pair.
+5. If elapsed minutes are approved, `timeAdvanceBoundary` commits `worldState`, `timeLedger`, world consequences, and prompt dirty state.
+6. The prompt is rebuilt before the current player reply is classified or the next host generation continues.
+
+This prevents arbitrary per-message clock drift while still allowing accepted movement such as shuttle bay to ready room, reviewing a briefing packet, explicit waits, rest, travel, and "cut to dinner" scene cuts to move time.
 
 ## Scene Cuts And Deadlines
 
@@ -266,13 +280,16 @@ This indicates a deterministic state or prompt-sync bug, not a prose bug. Inspec
 
 Confirm the time boundary updated campaign state and rebuilt prompt context. The display helper only reads state; it does not advance time.
 
+For old saves, also confirm `campaign.openingMinuteOfDay`, `worldState.openingMinuteOfDay`, and `timeLedger.openingMinuteOfDay` were backfilled from the active package projection. Ashes of Peace should backfill to `510`, displayed as `0830 hours`.
+
 ## Verification
 
 Focused tests:
 
 | Test | Coverage |
 | --- | --- |
-| `tools/scripts/test-campaign-time-header.mjs` | Formatting, source resolution, stale-header replacement, prompt block wording. |
+| `tools/scripts/test-campaign-time-header.mjs` | Formatting, source resolution, old-save opening-minute backfill, stale-header replacement, prompt block wording. |
+| `tools/scripts/test-time-advance-adjudicator.mjs` | Zero-time dialogue, explicit scene cuts, intra-ship transitions, review work, Utility fallback, and deterministic clamping. |
 | `tools/scripts/test-player-safe-prompt-context.mjs` | Player-safe prompt packets include the reply-header block. |
 | `tools/scripts/test-open-world-context-plan-contracts.mjs` | Context plans include `[Directive: Reply Header]`. |
 | `tools/scripts/test-chat-turn-orchestrator.mjs` | Directive-owned posts/swipes include headers and response-swipe prompts strip prior headers. |
@@ -280,6 +297,7 @@ Focused tests:
 | `tools/scripts/test-campaign-end-condition-service.mjs` | Terminal checkpoint posts include headers. |
 | `tools/scripts/test-outcome-integrity.mjs` | Outcome Integrity review requests strip prior headers. |
 | `tools/scripts/test-scene-reconciliation-open-world.mjs` | Reconciliation normalization strips prior headers before previews/hashes. |
+| `tools/scripts/test-open-world-director-coordinator-contracts.mjs` | Travel, hour advancement, minute advancement, and time-ledger boundary entries. |
 | `tools/scripts/test-sillytavern-preset-manager.mjs` | Bundled preset version and reply-header prompt contract. |
 
 Repo gate:
@@ -290,9 +308,6 @@ node tools/scripts/run-alpha-gate.mjs
 
 ## Open Work
 
-- Add `campaignTime` or `timeLedger` as an explicit normalized state root instead of relying on flexible helper lookup.
-- Add a `directive.timeAdvanceProposal.v1` Utility role and deterministic validator.
-- Record committed time-boundary events with source action, elapsed minutes, previous/new header, and consequence checks.
 - Add UI surfaces for current ship time, active deadlines, and next scheduled pressure.
 - Add live SillyTavern smoke coverage for host-native header compliance.
 - Decide whether host-native generated replies should be post-processed by a host adapter hook when SillyTavern exposes a safe after-generation mutation boundary.
