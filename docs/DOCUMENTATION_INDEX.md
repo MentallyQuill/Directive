@@ -31,6 +31,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 ### Runtime Architecture
 
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
+- [Continuity Projection Matrix Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): as-coded source-backed continuity projection, prompt lanes, planner fallback, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification flow.
 - [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and future time-adjudication design.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 
@@ -43,6 +44,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 - [Directive Technical Manual](technical/DIRECTIVE_TECHNICAL_MANUAL.md): Haynes-style technical overview covering runtime spine, package/state boundary, player turn lifecycle, model-call authority, state transactions, prompt context, sidecars, host adapters, and diagnostics.
 - [Player Turn Sequence](technical/PLAYER_TURN_SEQUENCE.md): post-to-response lifecycle from host ingress through classification, Director escalation, mechanics commit, narration, autosave, sidecars, and recovery.
+- [Continuity Projection Matrix](technical/CONTINUITY_PROJECTION_MATRIX.md): deep dive with source-frame, fact-index, prompt-lane, Director-packet, sidecar, contradiction, diagnostic, and certification infographics.
 - [Model Calls And Provider Routing](technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, provider sources, role groups, model-call authority table, structured output, and sanitized diagnostics.
 - [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
 - [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): SillyTavern adapter, fake host, host boundary diagram, and future host-adapter rules.

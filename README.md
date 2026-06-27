@@ -55,6 +55,7 @@ Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play
 | **Dual Provider Routing** | Separates low-cost Utility work from deeper Reasoning work, lets operators route individual model-call roles between lanes, and supports the current host model, SillyTavern Connection Profiles, and session-key OpenAI-compatible endpoints. |
 | **Scene Handshake And Utility Turn Gate** | Settles accepted host-generated scene prose into source-backed assignments, Log entries, ship readiness, and thread signals before classifying the next player post through deterministic fast paths or Utility fallback. |
 | **Mission Director** | Resolves consequential freeform intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |
+| **Continuity Projection Matrix** | Projects source-backed continuity facts into stable player-safe prompt lanes and Director-specific packets, with planner validation, source hashes, contradiction hints, and live factual-grounding proof. |
 | **Timekeeping Header** | Prefixes bound-campaign replies with the current `Stardate \| ship time` display header while keeping time advancement deterministic and separate from model inference. |
 | **Mechanics-First Durability** | Persists committed mechanics before narration or host posting, so retries reuse the same outcome rather than rerolling it. |
 | **Deep Campaign Tracking** | Maintains revisioned, bounded snapshots plus ingress, response, recovery, sidecar, and pending-interaction journals scoped to the campaign/chat binding. |
@@ -92,6 +93,7 @@ Host setup and operations:
 Technical manuals:
 
 - [Directive Technical Manual](docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md)
+- [Continuity Projection Matrix](docs/technical/CONTINUITY_PROJECTION_MATRIX.md)
 - [Model Calls And Provider Routing](docs/technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md)
 - [Player Turn Sequence](docs/technical/PLAYER_TURN_SEQUENCE.md)
 - [Timekeeping System](docs/architecture/TIMEKEEPING_SYSTEM.md)

@@ -117,9 +117,9 @@ After a committed turn, `campaign-end-condition-service.mjs` evaluates package `
 
 ## Prompt Safety
 
-`player-safe-prompt-context-builder.mjs` constructs nine blocks from allowlisted selectors. Hidden state is never serialized into an ordinary prompt and then redacted.
+`player-safe-prompt-context-builder.mjs` first builds the Continuity Projection Matrix's six static prompt lanes, then appends allowlisted dynamic prompt blocks. Hidden state is never serialized into an ordinary prompt and then redacted.
 
-Each block records stable ID, priority, depth/placement policy, source revision, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required.
+Each block records stable ID, priority, depth/placement policy, source revision, source ids where available, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required. See [Continuity Projection Matrix](../technical/CONTINUITY_PROJECTION_MATRIX.md).
 
 The timekeeping reply header is part of this prompt-safety boundary. `context-orchestrator.mjs` emits a current `[Directive: Reply Header]` block for host-native generation, while Directive-owned reply paths prepend the header deterministically. Prior visible headers are treated as display artifacts and stripped from Directive-controlled model/evidence paths. See [Timekeeping System](TIMEKEEPING_SYSTEM.md).
 

@@ -803,10 +803,65 @@ function hasTurnLedgerOutcome(state = null, outcomeId = null) {
   return (state?.turnLedger?.entries || []).some((entry) => entry?.outcomeId === id);
 }
 
+function commandLogEntryOutcomeId(entry = null) {
+  return compactString(entry?.sourceOutcomeId || entry?.outcomeId || entry?.id);
+}
+
+function restoreCommittedOutcomeState(state = null, checkpointState = null, outcomeId = null) {
+  const id = compactString(outcomeId);
+  if (!state || !checkpointState || !id) return state;
+  if (hasTurnLedgerOutcome(state, id) || !hasTurnLedgerOutcome(checkpointState, id)) return state;
+  const next = cloneJson(state);
+  next.turnLedger = cloneJson(checkpointState.turnLedger);
+
+  const checkpointEntries = Array.isArray(checkpointState.commandLog?.entries)
+    ? checkpointState.commandLog.entries.filter((entry) => commandLogEntryOutcomeId(entry) === id)
+    : [];
+  if (checkpointEntries.length) {
+    next.commandLog = {
+      ...(next.commandLog || {}),
+      entries: Array.isArray(next.commandLog?.entries) ? cloneJson(next.commandLog.entries) : []
+    };
+    const existing = new Set(next.commandLog.entries.map(commandLogEntryOutcomeId));
+    for (const entry of checkpointEntries) {
+      if (!existing.has(commandLogEntryOutcomeId(entry))) next.commandLog.entries.push(cloneJson(entry));
+    }
+    next.commandLog.summariesGeneratedFromCommittedStateOnly = checkpointState.commandLog?.summariesGeneratedFromCommittedStateOnly !== false;
+  }
+
+  const checkpointTracking = checkpointState.runtimeTracking || {};
+  if (checkpointTracking.lastCommittedTurn?.outcomeId === id) {
+    next.runtimeTracking = {
+      ...(next.runtimeTracking || {}),
+      lastCommittedTurn: cloneJson(checkpointTracking.lastCommittedTurn)
+    };
+  }
+  const currentHistory = Array.isArray(next.runtimeTracking?.history) ? cloneJson(next.runtimeTracking.history) : [];
+  const currentOutcomeSources = new Set(currentHistory
+    .filter((entry) => compactString(entry?.outcomeId) === id)
+    .map((entry) => compactString(entry?.source)));
+  const checkpointHistory = Array.isArray(checkpointTracking.history) ? checkpointTracking.history : [];
+  const missingHistory = checkpointHistory.filter((entry) => (
+    compactString(entry?.outcomeId) === id
+    && !currentOutcomeSources.has(compactString(entry?.source))
+  ));
+  if (missingHistory.length) {
+    next.runtimeTracking = {
+      ...(next.runtimeTracking || {}),
+      history: [
+        ...currentHistory,
+        ...missingHistory.map(cloneJson)
+      ]
+    };
+  }
+  return next;
+}
+
 export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
   findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
+  restoreCommittedOutcomeState,
   shouldPreferInMemoryCampaignState
 });
 
@@ -871,6 +926,7 @@ export function createDirectiveRuntimeApp({
   let lastPackageImportResult = null;
   let lastDirectorTurn = null;
   let lastNarrationResult = null;
+  let lastMechanicsCheckpointState = null;
   let pendingDirectorTurn = null;
   let pendingOutcomeReplacement = null;
   let lastCommandLogSummarySidecarResult = null;
@@ -889,6 +945,7 @@ export function createDirectiveRuntimeApp({
   let chatNativeServices = null;
   let durabilityCoordinator = null;
   let publicApi = null;
+  let runtimePersistQueue = Promise.resolve();
   const activeHostGenerationControllers = new Map();
   const uiPreferences = createRuntimeUiPreferences({
     storageAdapter,
@@ -2030,6 +2087,7 @@ export function createDirectiveRuntimeApp({
     requireObject(campaignState, 'campaignState');
     requireObject(lastDirectorTurn, 'lastDirectorTurn');
     const outcomeId = lastDirectorTurn.outcomePacket?.id;
+    campaignState = restoreCommittedOutcomeState(campaignState, lastMechanicsCheckpointState, outcomeId);
     try {
       const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
         roleId: 'narration'
@@ -2044,6 +2102,7 @@ export function createDirectiveRuntimeApp({
         crewDataset: assets?.crewDataset || null,
         now: () => timestampFromNow(now)
       });
+      campaignState = restoreCommittedOutcomeState(campaignState, lastMechanicsCheckpointState, outcomeId);
       campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);
       const narrationCheckpoint = await ensureTurnCommitCoordinator().markNarration({
         campaignState,
@@ -2130,7 +2189,7 @@ export function createDirectiveRuntimeApp({
         revision: campaignState.turnLedger?.entries?.length || 0,
         now: () => timestampFromNow(now)
       });
-      campaignState = result.campaignState;
+      campaignState = restoreCommittedOutcomeState(result.campaignState, campaignState, turnPacket?.outcomePacket?.id);
       lastCommandLogSummarySidecarResult = {
         ok: result.featureOk === true,
         ...cloneJson(result)
@@ -2203,7 +2262,7 @@ export function createDirectiveRuntimeApp({
     return true;
   }
 
-  async function persistRuntimeCampaignState(state, summary = 'Directive campaign state updated.') {
+  async function persistRuntimeCampaignStateNow(state, summary = 'Directive campaign state updated.') {
     const nextState = modelCallJournal.applyPending(cloneJson(state));
     if (shouldPreferInMemoryCampaignState(nextState, campaignState, {
       chatId: nextState?.campaignChatBinding?.chatId || campaignState?.campaignChatBinding?.chatId || null,
@@ -2237,6 +2296,15 @@ export function createDirectiveRuntimeApp({
     });
     await refreshCampaignView();
     return cloneJson(save);
+  }
+
+  function persistRuntimeCampaignState(state, summary = 'Directive campaign state updated.') {
+    const requestedState = cloneJson(state);
+    const requestedSummary = summary;
+    const persist = () => persistRuntimeCampaignStateNow(requestedState, requestedSummary);
+    const queued = runtimePersistQueue.then(persist, persist);
+    runtimePersistQueue = queued.catch(() => null);
+    return queued;
   }
 
   function ensureTurnCommitCoordinator() {
@@ -4847,11 +4915,17 @@ export function createDirectiveRuntimeApp({
           ingressId: campaignState.runtimeTracking?.activeIngressId || null
         });
         campaignState = mechanicsCheckpoint.campaignState;
+        lastMechanicsCheckpointState = cloneJson(mechanicsCheckpoint.campaignState);
         const terminalDecision = await ensureChatNativeServices()?.endConditionService?.evaluateCommittedTurn?.({
           turnPacket: result.turnPacket,
           ingressId: campaignState.runtimeTracking?.activeIngressId || null
         });
         if (terminalDecision?.campaignState) campaignState = terminalDecision.campaignState;
+        campaignState = restoreCommittedOutcomeState(
+          campaignState,
+          lastMechanicsCheckpointState,
+          result.turnPacket?.outcomePacket?.id
+        );
         lastDirectorTurn = result.turnPacket;
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;

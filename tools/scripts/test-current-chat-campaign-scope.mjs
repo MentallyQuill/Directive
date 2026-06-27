@@ -227,6 +227,50 @@ const missionGraphs = [
     false,
     'A same-chat mechanics checkpoint with a committed turn must beat a higher-revision prompt-only in-memory state.'
   );
+  const restoredCommittedOutcome = __directiveRuntimeAppTestHooks.restoreCommittedOutcomeState(
+    {
+      ...staleScopedState,
+      commandLog: { entries: [{ id: 'old-log' }] },
+      turnLedger: { entries: [] },
+      runtimeTracking: {
+        ...staleScopedState.runtimeTracking,
+        responseLedger: [{ outcomeId: 'fresh-outcome', hostMessageId: '2' }],
+        modelCallJournal: [{ id: 'model-call.narration' }],
+        history: [{ source: 'sidecar:continuity', outcomeId: 'fresh-outcome' }]
+      }
+    },
+    {
+      ...richerInMemoryState,
+      commandLog: {
+        entries: [
+          { id: 'old-log' },
+          { sourceOutcomeId: 'fresh-outcome', summaryInputs: ['Committed outcome.'] }
+        ]
+      },
+      turnLedger: {
+        entries: [{ turnId: 'fresh-turn', outcomeId: 'fresh-outcome' }]
+      },
+      runtimeTracking: {
+        ...richerInMemoryState.runtimeTracking,
+        lastCommittedTurn: {
+          turnId: 'fresh-turn',
+          outcomeId: 'fresh-outcome',
+          responseStatus: 'pending'
+        },
+        history: [{ source: 'missionDirector', outcomeId: 'fresh-outcome' }]
+      }
+    },
+    'fresh-outcome'
+  );
+  assert.equal(restoredCommittedOutcome.turnLedger.entries.length, 1);
+  assert.equal(restoredCommittedOutcome.runtimeTracking.lastCommittedTurn.outcomeId, 'fresh-outcome');
+  assert.equal(restoredCommittedOutcome.runtimeTracking.responseLedger.length, 1);
+  assert.equal(restoredCommittedOutcome.commandLog.entries.some((entry) => entry.sourceOutcomeId === 'fresh-outcome'), true);
+  assert.equal(
+    restoredCommittedOutcome.runtimeTracking.history.some((entry) => entry.source === 'missionDirector' && entry.outcomeId === 'fresh-outcome'),
+    true,
+    'Restoring a committed outcome must preserve the authoritative mechanics history entry.'
+  );
 }
 
 const host = createFakeDirectiveHost({

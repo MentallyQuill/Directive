@@ -142,7 +142,7 @@ Coverage groups:
 
 `test-open-world-model-contracts.mjs` covers the schema-v2 model-call roles for quest action interpretation, quest architecture, scene-delta extraction, and scene reconciliation extraction.
 
-Continuity Projection Matrix coverage is split between deterministic contract tests and opt-in live soak evidence. The alpha gate includes CPM foundation, diagnostics, Director packet, factual-grounding prompt-proof, and five-user coordinator contract tests:
+[Continuity Projection Matrix](../technical/CONTINUITY_PROJECTION_MATRIX.md) coverage is split between deterministic contract tests and opt-in live soak evidence. The alpha gate includes CPM foundation, diagnostics, Director packet, factual-grounding prompt-proof, and five-user coordinator contract tests:
 
 - `test-continuity-projection-foundation.mjs`
 - `test-continuity-projection-diagnostics.mjs`
