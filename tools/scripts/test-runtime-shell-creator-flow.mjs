@@ -32,6 +32,10 @@ function longCreatorSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FI
 
 const OVER_LIMIT_CREATOR_SERVICE_SUMMARY = longCreatorSelfFillText('Tactical service record, Dominion War fleet experience, and outsider transfer status frame the officer as disciplined but newly accountable to the Breckenridge crew while leaving room for the player to revise public details.');
 const OVER_LIMIT_CREATOR_COMMAND_STYLE = longCreatorSelfFillText('Command style is perceptive, candid, and decisive, with impatience as the pressure point that can turn urgency into friction while preserving the full editable service-record prose.', CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 60);
+const OVER_LIMIT_CREATOR_BRIEF_BIO = [
+  longCreatorSelfFillText('Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable.', 540),
+  'Her longer biography keeps the post-transfer command history available for the Character tab disclosure after the first paragraph is collapsed.'
+].join('\n\n');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -576,7 +580,8 @@ const projectedCharacter = __directiveRuntimeAppTestHooks.createPlayerCharacterV
       billet: 'Executive Officer',
       dossier: {
         serviceSummary: OVER_LIMIT_CREATOR_SERVICE_SUMMARY,
-        traits: OVER_LIMIT_CREATOR_COMMAND_STYLE
+        traits: OVER_LIMIT_CREATOR_COMMAND_STYLE,
+        briefBiography: OVER_LIMIT_CREATOR_BRIEF_BIO
       }
     },
     relationships: {
@@ -605,6 +610,7 @@ assert.equal(projectedCharacter.relationshipPerceptions[0].crewName, 'Jalen Orr'
 assert.equal(projectedCharacter.relationshipPerceptions[0].impact, 'Slight Improvement');
 assert.match(projectedCharacter.relationshipPerceptions[0].cue, /stops pressing/);
 assert.match(projectedCharacter.relationshipPerceptions[0].summary, /more confident/);
+assert.equal(projectedCharacter.dossier.briefBiography, OVER_LIMIT_CREATOR_BRIEF_BIO);
 assert.equal(projectedCharacter.serviceRecord.find((item) => item.title === 'Service Summary')?.summary, OVER_LIMIT_CREATOR_SERVICE_SUMMARY);
 assert.equal(projectedCharacter.serviceRecord.find((item) => item.title === 'Command Style')?.summary, OVER_LIMIT_CREATOR_COMMAND_STYLE);
 
@@ -619,6 +625,18 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Personnel/);
   assert.match(textOf(panel), /Character/);
   assert.match(textOf(panel), /Service Record/);
+  const characterBiography = panel.querySelector('.directive-character-biography-disclosure');
+  const characterBiographyToggle = characterBiography?.querySelector('.directive-character-biography-toggle');
+  const characterBiographyMore = characterBiography?.querySelector('.directive-character-biography-more');
+  assert(characterBiography, 'Character tab should render the player character biography disclosure');
+  assert(characterBiographyToggle, 'Long player character biographies should expose a More/Less toggle');
+  assert(characterBiographyMore, 'Long player character biographies should keep later paragraphs in a collapsible region');
+  assert.equal(characterBiographyToggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(characterBiographyMore.hidden, true);
+  await characterBiographyToggle.click();
+  assert.equal(characterBiographyToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(characterBiographyMore.hidden, false);
+  assert.match(textOf(characterBiographyMore), /post-transfer command history available/);
   const serviceRecordSection = panel.querySelector('.directive-character-service-record-section');
   const serviceRecordToggle = serviceRecordSection?.querySelector('.directive-character-section-toggle');
   const serviceRecordContent = serviceRecordSection?.querySelector('.directive-character-section-content');
@@ -952,7 +970,7 @@ assert.match(findControl(panel, 'dossier.traits').value, /Command style is perce
 await findButton(panel, 'Next: Review').click();
 assert.match(findControl(panel, 'dossier.briefBiography').value, /Talia Serrin/);
 assert.match(findControl(panel, 'dossier.publicReputation').value, /Talia Serrin/);
-setControl(panel, 'dossier.briefBiography', 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.');
+setControl(panel, 'dossier.briefBiography', OVER_LIMIT_CREATOR_BRIEF_BIO);
 setControl(panel, 'dossier.publicReputation', 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.');
 difficultyOptions = queryAll(panel, '.directive-creator-difficulty-option');
 const explorationDifficulty = difficultyOptions.find((button) => button.dataset.creatorDifficultyOption === 'Exploration');

@@ -518,6 +518,15 @@ function cleanLabel(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function cleanBlockLabel(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .split(/\n+/)
+    .map((paragraph) => cleanLabel(paragraph))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 function statusLabel(value) {
   const text = compactLabel(value, 80);
   if (!text) return '';
@@ -659,8 +668,8 @@ function createPlayerCharacterView({
     },
     portrait: cloneJson(player.portrait || null),
     dossier: {
-      briefBiography: compactLabel(dossier.briefBiography, 520),
-      publicReputation: compactLabel(dossier.publicReputation, 420),
+      briefBiography: cleanBlockLabel(dossier.briefBiography),
+      publicReputation: cleanBlockLabel(dossier.publicReputation),
       detailLevel: compactLabel(dossier.detailLevel, 80)
     },
     serviceRecord: playerServiceRecord(player, dossier),

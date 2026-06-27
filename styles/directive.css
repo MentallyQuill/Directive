@@ -10061,7 +10061,7 @@ textarea.directive-field-control {
 }
 
 .directive-character-role,
-.directive-character-biography,
+.directive-character-biography-line,
 .directive-character-bearing-reserve,
 .directive-character-record-summary {
   margin: 0 !important;
@@ -10071,8 +10071,29 @@ textarea.directive-field-control {
 }
 
 .directive-character-biography {
+  display: grid !important;
+  gap: 6px !important;
   margin-top: 8px !important;
   max-width: 72ch;
+}
+
+.directive-character-biography-more {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.directive-character-biography-more[hidden] {
+  display: none !important;
+}
+
+.directive-character-biography-toggle {
+  width: fit-content !important;
+  min-height: 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 9px !important;
+  font-size: 0.62rem !important;
 }
 
 .directive-character-section {

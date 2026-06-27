@@ -7,8 +7,10 @@ import {
   CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS,
   CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS,
   buildContinuityMatrixLanes,
+  coordinatorReadinessUsers,
   summarizeContinuityMatrixLane,
   summarizeFactualGroundingArtifacts,
+  summarizeLaneArtifactCompleteness,
   summarizePromptInspectionArtifact,
   summarizeReusableContinuityMatrixLane
 } from './run-continuity-matrix-five-user-soak.mjs';
@@ -130,6 +132,25 @@ const lanes = buildContinuityMatrixLanes({
     { handle: 'directive-soak-e', password: 'e' }
   ]
 });
+const configuredSoakUsers = [
+  { handle: 'directive-soak-a', password: 'a' },
+  { handle: 'directive-soak-b', password: 'b' },
+  { handle: 'directive-soak-c', password: 'c' },
+  { handle: 'directive-soak-d', password: 'd' },
+  { handle: 'directive-soak-e', password: 'e' }
+];
+const focusedLanes = buildContinuityMatrixLanes({
+  users: configuredSoakUsers,
+  laneFilter: ['ashes-command-bearing-endings']
+});
+assert.equal(focusedLanes.length, 1);
+assert.deepEqual(coordinatorReadinessUsers({ configured: configuredSoakUsers, lanes: focusedLanes }).map((user) => user.handle), [
+  'directive-soak-a',
+  'directive-soak-b',
+  'directive-soak-c',
+  'directive-soak-d',
+  'directive-soak-e'
+]);
 assert.equal(lanes.length, 5);
 assert.deepEqual(lanes.map((lane) => lane.userHandle), [
   'directive-soak-a',
@@ -214,6 +235,22 @@ assert.equal(summarizeReusableContinuityMatrixLane({
   turnLimit: null
 }), null);
 
+const partialFactDepthRoot = makeArtifactRoot();
+writePassingLaneArtifacts(partialFactDepthRoot, { turnLimit: 5 });
+const partialFactDepth = summarizeLaneArtifactCompleteness({
+  artifactRoot: partialFactDepthRoot,
+  turnLimit: '5'
+});
+assert.equal(partialFactDepth.status, 'warning');
+assert.equal(partialFactDepth.factCheckDepthMissing, true);
+const reusablePartialFactDepth = summarizeReusableContinuityMatrixLane({
+  lane: lanes[0],
+  artifactRoot: partialFactDepthRoot,
+  turnLimit: '5'
+});
+assert.equal(reusablePartialFactDepth.reused, true);
+assert.equal(reusablePartialFactDepth.status, 'warning');
+
 const missingRoot = makeArtifactRoot();
 writePassingLaneArtifacts(missingRoot);
 writeJson(path.join(missingRoot, 'prompt-inspection', 'run-end.json'), {
@@ -263,6 +300,7 @@ assert.equal(warningFactSummary.badCount, 1);
 fs.rmSync(root, { recursive: true, force: true });
 fs.rmSync(fullRoot, { recursive: true, force: true });
 fs.rmSync(boundedRoot, { recursive: true, force: true });
+fs.rmSync(partialFactDepthRoot, { recursive: true, force: true });
 fs.rmSync(missingRoot, { recursive: true, force: true });
 fs.rmSync(badFactRoot, { recursive: true, force: true });
 fs.rmSync(warningFactRoot, { recursive: true, force: true });

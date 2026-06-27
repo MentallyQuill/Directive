@@ -57,6 +57,10 @@ const FULL_PLAYER_COMMAND_STYLE = [
   'Her engineering background shows in how she listens to people too, reading stress, fatigue, and fear as system symptoms rather than abstractions.',
   'She takes them seriously without letting them stall the next decision.'
 ].join(' ');
+const FULL_PLAYER_BRIEF_BIO = [
+  'Player Commander is a public-facing Starfleet officer whose dossier foregrounds bridge command and accountable delegation.',
+  'Their longer biography keeps the formative command history available when the Character tab expands it, including the later service record context that should not be clipped.'
+].join('\n\n');
 const FULL_COMMAND_LOG_INPUT = [
   'Second finger. Commander Saye reports repeated lateral-array variance after the refit validation cycle and asks for a joint review before arrival.',
   'Third finger. Doctor Sato is finishing post-refit physicals and has flagged several crewmembers for follow-up before the ship reaches the Reach.',
@@ -572,7 +576,7 @@ function createCrewResetView() {
       },
       portrait: null,
       dossier: {
-        briefBiography: 'Player Commander is a public-facing Starfleet officer whose dossier foregrounds bridge command and accountable delegation.',
+        briefBiography: FULL_PLAYER_BRIEF_BIO,
         publicReputation: 'Player Commander is publicly known for careful command judgment.'
       },
       serviceRecord: [{
@@ -669,7 +673,7 @@ function createCrewResetView() {
           label: 'Human'
         },
         dossier: {
-          briefBiography: 'Player Commander is a public-facing Starfleet officer whose dossier foregrounds bridge command and accountable delegation.',
+          briefBiography: FULL_PLAYER_BRIEF_BIO,
           publicReputation: 'Player Commander is publicly known for careful command judgment.'
         }
       },
@@ -1201,6 +1205,21 @@ assert.match(textOf(crewBody), /Character/);
 assert.match(textOf(crewBody), /Crew/);
 assert.match(textOf(crewBody), /Player Commander/);
 assert.match(textOf(crewBody), /Service Record/);
+const characterBiography = crewBody.querySelector('.directive-character-biography-disclosure');
+const characterBiographyToggle = characterBiography?.querySelector('.directive-character-biography-toggle');
+const characterBiographyMore = characterBiography?.querySelector('.directive-character-biography-more');
+assert(characterBiography, 'Character tab should render the player character biography disclosure');
+assert(characterBiographyToggle, 'Long player character biographies should expose a More/Less toggle');
+assert(characterBiographyMore, 'Long player character biographies should keep later paragraphs in a collapsible region');
+assert.equal(characterBiographyToggle.getAttribute('aria-expanded'), 'false');
+assert.equal(characterBiographyMore.hidden, true);
+assert.match(textOf(characterBiography), /foregrounds bridge command and accountable delegation/);
+assert.doesNotMatch(textOf(characterBiography), /later service record context that should not be clipped/);
+characterBiographyToggle.click();
+assert.equal(characterBiographyToggle.getAttribute('aria-expanded'), 'true');
+assert.equal(characterBiographyMore.hidden, false);
+assert.equal(characterBiographyToggle.children[1].textContent, 'Less');
+assert.match(textOf(characterBiography), /later service record context that should not be clipped/);
 const serviceRecordSection = crewBody.querySelector('.directive-character-service-record-section');
 const serviceRecordToggle = serviceRecordSection?.querySelector('.directive-character-section-toggle');
 const serviceRecordContent = serviceRecordSection?.querySelector('.directive-character-section-content');

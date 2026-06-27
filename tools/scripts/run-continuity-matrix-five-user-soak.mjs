@@ -164,6 +164,16 @@ function configuredUsers(raw = process.env.DIRECTIVE_SOAK_ST_USERS || process.en
   }).filter((entry) => entry.handle);
 }
 
+export function coordinatorReadinessUsers({ configured = [], lanes = [] } = {}) {
+  const configuredUsersList = Array.isArray(configured)
+    ? configured.filter((entry) => entry?.handle)
+    : [];
+  if (configuredUsersList.length) return configuredUsersList;
+  return (Array.isArray(lanes) ? lanes : [])
+    .map((lane) => lane?.user)
+    .filter((entry) => entry?.handle);
+}
+
 function redactUser(user) {
   return {
     handle: user?.handle || null,
@@ -411,14 +421,17 @@ export function summarizeLaneArtifactCompleteness({ artifactRoot, turnLimit } = 
   const factCheckCount = factCheckFiles(artifactRoot).length;
   const expectedFactCheckCount = expectedFactCheckCountForTurnLimit(turnLimit);
   const missingPromptInspection = promptFileCount === 0;
+  const missingFactChecks = factCheckCount === 0;
   const factCheckDepthMissing = expectedFactCheckCount !== null && factCheckCount < expectedFactCheckCount;
+  const hardMissing = missingFiles.length || missingPromptInspection || missingFactChecks;
   return {
-    status: missingFiles.length || missingPromptInspection || factCheckDepthMissing ? 'fail' : 'pass',
+    status: hardMissing ? 'fail' : factCheckDepthMissing ? 'warning' : 'pass',
     requiredFiles,
     missingFiles,
     promptFileCount,
     factCheckCount,
-    expectedFactCheckCount
+    expectedFactCheckCount,
+    factCheckDepthMissing
   };
 }
 
@@ -613,9 +626,11 @@ export function summarizeReusableContinuityMatrixLane({
     artifactRoot,
     turnLimit
   });
+  const boundedTurnLimit = requestedTurnLimitValue(turnLimit) !== null;
   if (
     summary.report?.status === 'fail'
-    || summary.artifactCompleteness?.status !== 'pass'
+    || summary.artifactCompleteness?.status === 'fail'
+    || (summary.artifactCompleteness?.status === 'warning' && !boundedTurnLimit)
     || summary.promptInspection?.status !== 'pass'
     || summary.factualGrounding?.status === 'fail'
   ) {
@@ -756,20 +771,24 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
     }
   ));
   const artifactFailures = laneSummaries.filter((lane) => lane.artifactCompleteness?.status === 'fail');
+  const artifactWarnings = laneSummaries.filter((lane) => lane.artifactCompleteness?.status === 'warning');
   checks.push(reportCheck(
     'lane-artifact-completeness',
-    !options.live ? 'skipped' : artifactFailures.length ? 'fail' : 'pass',
+    !options.live ? 'skipped' : artifactFailures.length ? 'fail' : artifactWarnings.length ? 'warning' : 'pass',
     !options.live
       ? 'Lane artifact completeness skipped in dry-run mode.'
       : artifactFailures.length
         ? `${artifactFailures.length} lane(s) are missing required certification artifacts.`
-        : 'Every live lane wrote the required certification artifacts.',
+        : artifactWarnings.length
+          ? `${artifactWarnings.length} lane(s) wrote required artifacts with lower-than-planned fact-check depth.`
+          : 'Every live lane wrote the required certification artifacts.',
     {
       lanes: laneSummaries.map((lane) => ({
         id: lane.id,
         status: lane.artifactCompleteness?.status || 'missing',
         factCheckCount: lane.artifactCompleteness?.factCheckCount || 0,
         expectedFactCheckCount: lane.artifactCompleteness?.expectedFactCheckCount ?? null,
+        factCheckDepthMissing: lane.artifactCompleteness?.factCheckDepthMissing === true,
         promptFileCount: lane.artifactCompleteness?.promptFileCount || 0,
         missingFiles: lane.artifactCompleteness?.missingFiles || []
       }))
@@ -839,7 +858,7 @@ function finalStatus({ checks, options }) {
   return 'pass';
 }
 
-async function runLiveCoordinator({ options, lanes, paths, runId }) {
+async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers = [] }) {
   const laneSummaries = [];
   let readiness = null;
   coordinatorLog(paths, options, {
@@ -851,7 +870,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId }) {
     resume: options.resume === true
   });
   if (!options.skipReadiness) {
-    const users = lanes.map((lane) => lane.user);
+    const users = coordinatorReadinessUsers({ configured: readinessUsers, lanes });
     coordinatorLog(paths, options, {
       kind: 'readiness-start',
       status: 'started',
@@ -1034,7 +1053,7 @@ async function main() {
   }
 
   if (options.live) {
-    const result = await runLiveCoordinator({ options, lanes, paths, runId });
+    const result = await runLiveCoordinator({ options, lanes, paths, runId, readinessUsers: users });
     readiness = result.readiness;
     laneSummaries = result.laneSummaries;
   }

@@ -414,6 +414,8 @@ assert(bronnCanary);
 assert.match(bronnCanary.summary, /Tellarite/);
 assert.match(bronnCanary.summary, /Late fifties/i);
 assert(bronnCanary.contradictionWatchlist.some((entry) => /another species than Tellarite/i.test(entry)));
+const satoCanary = ashesCanaryPack.canaries.find((entry) => entry.id.endsWith('.senior-crew.miriam-sato.identity'));
+assert(satoCanary);
 const transitCanary = ashesCanaryPack.canaries.find((entry) => entry.id.endsWith('.opening.transit-premise'));
 assert(transitCanary);
 assert(transitCanary.positiveTerms.some((entry) => /final ten days before the Asterion Reach/i.test(entry)));
@@ -437,6 +439,58 @@ assert.equal(badFactCheck.promptAvailability.byFactId[bronnCanary.id].status, 'a
 assert.equal(badFactCheck.promptAvailability.byFactId[transitCanary.id].status, 'available');
 assert.equal(badFactCheck.results.find((entry) => entry.factId === bronnCanary.id).rootCauseLabel, 'model-ignored-available-fact');
 assert.equal(badFactCheck.results.find((entry) => entry.factId === transitCanary.id).rootCauseLabel, 'model-ignored-available-fact');
+const scopedSpeciesFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-sato-scope',
+  generatedMessageIndex: 1,
+  transcriptPointer: 'transcript/readable-chat.md#mes-sato-scope',
+  promptBlocks: [
+    { id: 'sato-public-identity', text: satoCanary.summary }
+  ],
+  requiredFactIds: [satoCanary.id],
+  generatedText: "Commander Miriam Sato, the Chief Medical Officer, asks for medical authority. Bronn's jaw worked once - the Tellarite equivalent of a raised eyebrow - at Sato's claim."
+});
+assert.equal(scopedSpeciesFactCheck.counts.contradicted, 0);
+assert.notEqual(scopedSpeciesFactCheck.results.find((entry) => entry.factId === satoCanary.id).verdict, 'contradicted');
+const directSatoSpeciesFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-sato-direct-species',
+  generatedMessageIndex: 1,
+  transcriptPointer: 'transcript/readable-chat.md#mes-sato-direct-species',
+  promptBlocks: [
+    { id: 'sato-public-identity', text: satoCanary.summary }
+  ],
+  requiredFactIds: [satoCanary.id],
+  generatedText: 'Commander Miriam Sato is introduced as a Tellarite chief medical officer.'
+});
+assert.equal(directSatoSpeciesFactCheck.status, 'fail');
+assert.equal(directSatoSpeciesFactCheck.counts.contradicted, 1);
+const scopedUniformFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-bronn-blue-light',
+  generatedMessageIndex: 1,
+  transcriptPointer: 'transcript/readable-chat.md#mes-bronn-blue-light',
+  promptBlocks: [
+    { id: 'bronn-public-identity', text: bronnCanary.summary }
+  ],
+  requiredFactIds: [bronnCanary.id],
+  generatedText: 'Bronn stood at tactical while faint blue light from the rail display crossed his hands, then repeated the dry-fire pattern back to Commander Arlen.'
+});
+assert.equal(scopedUniformFactCheck.counts.contradicted, 0);
+assert.notEqual(scopedUniformFactCheck.results.find((entry) => entry.factId === bronnCanary.id).verdict, 'contradicted');
+const directUniformFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-bronn-command-red',
+  generatedMessageIndex: 1,
+  transcriptPointer: 'transcript/readable-chat.md#mes-bronn-command-red',
+  promptBlocks: [
+    { id: 'bronn-public-identity', text: bronnCanary.summary }
+  ],
+  requiredFactIds: [bronnCanary.id],
+  generatedText: 'Lieutenant Commander Hadrik Bronn wore command red at tactical while presenting the dry-fire solution.'
+});
+assert.equal(directUniformFactCheck.status, 'fail');
+assert.equal(directUniformFactCheck.counts.contradicted, 1);
 const collapsedTransitFactCheck = buildFactualGroundingCheck({
   pack: ashesCanaryPack,
   generatedMessageId: 'campaign-intro',
@@ -782,7 +836,17 @@ assert.equal(liveMessageScript.messages.every((entry) => entry.perspective === '
 assert.equal(liveMessageScript.messages.every((entry) => /\bCommander Arlen\b/.test(entry.text)), true);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-02')?.text || '', /bridge sensor and command-network telemetry buffer/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-02')?.text || '', /transporter room two/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-04')?.text || '', /command-network certificate compatibility/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-04')?.text || '', /preserved handoff telemetry buffer/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-04')?.text || '', /shipboard inert diagnostic pattern/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-06')?.text || '', /target transporter room two standby readiness/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-06')?.text || '', /Method: muster-only preparation/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-07')?.text || '', /target a passive intercept geometry/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-07')?.text || '', /Method: warp-three trim/);
+assert.doesNotMatch(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-07')?.text || '', /attempts to push toward/i);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /warm-standby shields/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /target shield-generator standby validation/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /Method: mandatory four-hour rotations/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-15')?.assist?.sendText || '', /command-network certificate stack/);
 assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.action === 'briefMe'), true);
 assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.mode === 'tryAgain'), true);

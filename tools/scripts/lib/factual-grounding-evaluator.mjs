@@ -73,6 +73,10 @@ function compactText(value = '', maxLength = 260) {
   return text.length > maxLength ? `${text.slice(0, Math.max(0, maxLength - 3))}...` : text;
 }
 
+function escapeRegex(value = '') {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -429,6 +433,8 @@ const UNIFORM_COLOR_PATTERNS = Object.freeze({
   blue: /\b(?:medical\s+blue|blue)\b/i
 });
 
+const UNIFORM_ASSIGNMENT_PATTERN = /\b(?:uniform|division\s+colou?rs?|department\s+colou?rs?|collar|wears?|wearing|wore|dressed|tunic|jacket|undershirt|yoke|sleeves?|shoulder\s+panels?|piping)\b/i;
+
 function hasUniformColorContradiction(text, expectedColor, focusTerms = []) {
   const expected = normalizeText(expectedColor).replace(/\s+/g, '-');
   if (!UNIFORM_COLOR_PATTERNS[expected]) return false;
@@ -438,18 +444,63 @@ function hasUniformColorContradiction(text, expectedColor, focusTerms = []) {
   return sentenceSegments(text).some((sentence) => {
     if (asArray(focusTerms).length > 0 && !asArray(focusTerms).some((focusTerm) => includesNormalized(sentence, focusTerm))) return false;
     if (/\bnot\s+(?:command\s+)?red\b/i.test(sentence) || /\bnot\s+red-and-black\b/i.test(sentence)) return false;
-    if (!/\b(?:uniform|division|collar|tactical|security|operations?|ops|engineering|science|medical|command|acting[-\s]?XO)\b/i.test(sentence)) return false;
+    if (!UNIFORM_ASSIGNMENT_PATTERN.test(sentence)) return false;
     return wrongPatterns.some((pattern) => pattern.test(sentence));
   });
 }
 
-function speciesContradictionPattern(species) {
-  const escaped = String(species || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (!escaped) return null;
-  if (/^human$/i.test(species)) {
-    return /\bhuman\s+(?:officer|male|female|man|woman|commander|lieutenant|captain|ensign|chief|doctor|pilot|helmsman|security|tactical|operations|engineer|science)\b|\b(?:is|was|as)\s+(?:a\s+|an\s+)?human\b/i;
+function focusTermPatternSource(focusTerm) {
+  const focus = compactText(focusTerm);
+  if (!focus) return null;
+  return focus.split(/\s+/).map((part) => escapeRegex(part)).join('\\s+');
+}
+
+function seniorSpeciesIdentityContradiction(text = '', focusTerms = [], species = '') {
+  const speciesSource = escapeRegex(species);
+  if (!speciesSource) return null;
+  const descriptorWords = '(?:[a-z0-9][a-z0-9\'-]*\\s+){0,5}';
+  const appositiveSeparator = '(?:\\s*,\\s*|\\s*\\(\\s*|\\s*[\\u2013\\u2014-]\\s*)';
+  const identityLinker = [
+    'is',
+    'was',
+    'becomes',
+    'appears\\s+as',
+    'introduced\\s+as',
+    'is\\s+introduced\\s+as',
+    'was\\s+introduced\\s+as',
+    'described\\s+as',
+    'is\\s+described\\s+as',
+    'was\\s+described\\s+as',
+    'identified\\s+as',
+    'is\\s+identified\\s+as',
+    'was\\s+identified\\s+as',
+    'written\\s+as',
+    'portrayed\\s+as',
+    'framed\\s+as',
+    'called'
+  ].join('|');
+  const article = '(?:an?\\s+)?';
+  const identityNouns = '(?:officer|male|female|man|woman|commander|lieutenant|captain|ensign|chief|doctor|physician|pilot|helmsman|security|tactical|operations|engineer|engineering|science|medical)\\s+';
+  for (const sentence of sentenceSegments(text)) {
+    for (const focusTerm of asArray(focusTerms)) {
+      const focusSource = focusTermPatternSource(focusTerm);
+      if (!focusSource) continue;
+      const focus = `\\b${focusSource}\\b`;
+      const patterns = [
+        new RegExp(`${focus}${appositiveSeparator}${article}${descriptorWords}\\b${speciesSource}\\b`, 'i'),
+        new RegExp(`${focus}\\s+(?:${identityLinker})\\s+${article}${descriptorWords}\\b${speciesSource}\\b`, 'i'),
+        new RegExp(`${focus}(?:\\u2019s|'s)\\s+\\b${speciesSource}\\b`, 'i'),
+        new RegExp(`\\b${speciesSource}\\b\\s+(?:${identityNouns}){0,2}${focus}`, 'i')
+      ];
+      if (patterns.some((pattern) => pattern.test(sentence))) {
+        return {
+          focusTerm,
+          sentence: compactText(sentence, 180)
+        };
+      }
+    }
   }
-  return new RegExp(`\\b${escaped}\\b`, 'i');
+  return null;
 }
 
 function generatedTextMentionsCanary(text, canary) {
@@ -465,15 +516,14 @@ function inferredContradictions(text, canary) {
   if (senior && senior.focusTerms.some((term) => includesNormalized(text, term))) {
     if (senior.expectedSpecies) {
       for (const species of KNOWN_SPECIES) {
-        const contradictionPattern = speciesContradictionPattern(species);
+        const speciesMatch = seniorSpeciesIdentityContradiction(text, senior.focusTerms, species);
         if (
           species !== senior.expectedSpecies
-          && contradictionPattern
-          && sentenceLocalCooccurrence(text, senior.focusTerms, contradictionPattern)
+          && speciesMatch
         ) {
           matches.push({
-            term: `${senior.focusTerms.at(-1)} as ${species}`,
-            textPreview: `Expected ${senior.expectedSpecies}; generated text mentions ${species}.`
+            term: `${speciesMatch.focusTerm} as ${species}`,
+            textPreview: `Expected ${senior.expectedSpecies}; generated text identifies ${speciesMatch.focusTerm} as ${species}: ${speciesMatch.sentence}`
           });
         }
       }

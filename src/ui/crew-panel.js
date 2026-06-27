@@ -306,6 +306,14 @@ function publicBioLines(crew) {
     .filter(Boolean);
 }
 
+function biographyParagraphs(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .split(/\n+/)
+    .map((paragraph) => cleanText(paragraph))
+    .filter(Boolean);
+}
+
 function createCrewStatusBlock(label, value, tone = 'neutral', icon = '', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-crew-status-block directive-status-${tone}`);
   if (icon) {
@@ -470,6 +478,13 @@ function setBioToggleContent(button, expanded) {
   button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
 }
 
+function setCharacterBiographyToggleContent(button, expanded) {
+  clearElement(button);
+  const label = createElement('span');
+  label.textContent = expanded ? 'Less' : 'More...';
+  button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
+}
+
 function setInspectorSummaryToggleContent(button, expanded) {
   clearElement(button);
   const label = createElement('span');
@@ -543,6 +558,44 @@ function createCrewPublicBio(lines) {
 
   bio.append(more, toggle);
   return bio;
+}
+
+function createCharacterBiography(dossier = {}) {
+  const paragraphs = biographyParagraphs(dossier.briefBiography || dossier.publicReputation);
+  if (!paragraphs.length) return null;
+
+  const wrapper = createElement('section', 'directive-character-biography directive-character-biography-disclosure');
+  const opening = createElement('p', 'directive-character-biography-line');
+  opening.textContent = paragraphs[0];
+  wrapper.appendChild(opening);
+  if (paragraphs.length <= 1) return wrapper;
+
+  const more = createElement('div', 'directive-character-biography-more');
+  more.hidden = true;
+  for (const paragraph of paragraphs.slice(1)) {
+    const item = createElement('p', 'directive-character-biography-line');
+    item.textContent = paragraph;
+    more.appendChild(item);
+  }
+
+  const toggle = createElement('button', 'directive-character-biography-toggle directive-secondary-command');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Show full player character biography');
+  addTooltip(toggle, 'Show full player character biography.');
+  setCharacterBiographyToggleContent(toggle, false);
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+    more.hidden = !expanded;
+    wrapper.classList.toggle('directive-character-biography-expanded', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', expanded ? 'Collapse player character biography' : 'Show full player character biography');
+    addTooltip(toggle, expanded ? 'Collapse player character biography.' : 'Show full player character biography.');
+    setCharacterBiographyToggleContent(toggle, expanded);
+  });
+
+  wrapper.append(more, toggle);
+  return wrapper;
 }
 
 function createInspectorItem(item) {
@@ -782,11 +835,8 @@ function renderCharacterTab(body, view, actions = {}) {
     character.identity?.species
   ].filter(Boolean).join(' / ') || 'Player-defined command character';
   copy.append(kicker, name, role);
-  if (character.dossier?.briefBiography || character.dossier?.publicReputation) {
-    const bio = createElement('p', 'directive-character-biography');
-    bio.textContent = character.dossier.briefBiography || character.dossier.publicReputation;
-    copy.appendChild(bio);
-  }
+  const biography = createCharacterBiography(character.dossier);
+  if (biography) copy.appendChild(biography);
   hero.append(portraitStack, copy);
   shell.appendChild(hero);
 
