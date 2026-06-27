@@ -112,7 +112,7 @@ The Glass Harbor package remains the most detailed second package example. It in
 - Draft end-condition records, continuation frames, checkpoint policy, and final-band rules derived from the ending source notes.
 - Three baseline tactical mission graphs: Prelude Soundings, Chapter 1 Aster Basin, and Chapter 2 Caligo Sounding.
 
-Known draft placeholders are kept explicit in package-local READMEs and authoring references, including richer crew reveal cards, deeper tactical graph authoring, playtest tuning, and any visual asset gaps before playtest promotion.
+Known draft placeholders are kept explicit in package-local READMEs and authoring references, including deeper tactical graph authoring, playtest tuning, package-specific encounter polish, and any visual asset gaps before playtest promotion. Senior-staff crew datasets now use the rich six-card character structure with voice capsules across the bundled registry.
 
 ## Validation
 

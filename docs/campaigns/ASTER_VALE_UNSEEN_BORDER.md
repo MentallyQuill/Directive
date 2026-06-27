@@ -15,7 +15,7 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json`
   - `packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json`
 
-Aster Vale is bundled and validated by the alpha gate, but remains `draft`: later playtest tuning remains unresolved.
+Aster Vale is bundled and validated by the alpha gate, but remains `draft`: its senior-staff bible and crew dataset now include rich voice capsules and strengthened six-card character payloads, while later playtest and tactical graph tuning remain unresolved.
 
 ## Campaign Identity
 

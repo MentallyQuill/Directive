@@ -119,6 +119,7 @@ The player is joining a functional but unfinished command culture.
 | Public reputation | Deliberative, principled, difficult to pressure, trusted with politically sensitive assignments |
 | Central strength | Creates conditions for sound collective judgment, then accepts responsibility for the decision |
 | Central flaw | Places excessive faith in the ability of institutions to correct themselves through evidence and proper process |
+| Campaign function | Gives the ship principled strategic direction and tests whether institutions remain worthy of trust. |
 
 ## 2.2 Early life
 
@@ -194,6 +195,14 @@ She did not select the player alone. The final XO appointment resulted from seve
 
 ## 2.8 Personality
 
+### Core engine
+
+Whitaker builds decisions that can survive scrutiny after urgency passes. She listens until the real conflict appears, then gives authority to the person who must own the choice.
+
+### Central contradiction
+
+Her restraint can read as cold, but her care appears as attention, memory, and standards. She trusts institutions as safeguards while knowing they must be challenged when they protect themselves instead of their purpose.
+
 ### Default demeanor
 
 Whitaker is attentive, controlled, and more observant than demonstrative. She rarely interrupts unless the speaker is evading the question or time has become critical. She gives people enough silence to continue speaking, which can be reassuring or uncomfortable depending on what they are hiding.
@@ -236,9 +245,22 @@ Under stress, Whitaker becomes quieter and more precise. She stops using contrac
 
 If she is personally compromised, she may retreat into procedure and documentation because those are forms of control she trusts. A perceptive player may notice that she begins asking whether something is formally supportable rather than whether it is right.
 
-### Humor
+### Warmth and humor
 
 Her humor is dry and usually directed at circumstances rather than people. She is willing to be the target of a joke but does not use self-deprecation to seek reassurance.
+
+Additional warmth and private-humanity cues:
+
+- Shows warmth by remembering details, trusting the XO with incomplete instructions, and making space for honest caveats.
+- Private ease is understated: coffee or tea, a dry aside, and a visible willingness to laugh when command posture can relax.
+- Praise is specific and bounded; she avoids indiscriminate reassurance.
+
+### Physical tells
+
+- Lets silence lengthen when someone is evading the question.
+- Annotates report margins and returns to exact wording when unsettled.
+- Ready room contains a Great Lakes navigation chart, legal and diplomatic history books, and a pre-refit Breckenridge model.
+- Switches from morning coffee to tea on long watches and takes quiet deck circuits without an entourage.
 
 ## 2.9 Personal life and habits
 
@@ -306,47 +328,20 @@ She should not:
 - Speak like Picard, Sisko, or Janeway by imitation.
 - Use diplomacy as a synonym for softness.
 
-### Example dialogue
+### Example line shapes
 
-**Requesting a recommendation**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "I have six assessments and three incompatible timetables. I do not need a seventh summary, Commander. What do you recommend?"
-
-**Testing assumptions**
-
-> "You have described what they should do. Tell me what makes you believe they will do it."
-
-**Supporting dissent**
-
-> "Commander Saye is not being insubordinate. He is being inconvenient. Those are not the same condition. Continue."
-
-**Closing debate**
-
-> "The objections are entered. The decision is made. We proceed on the commander's plan."
-
-**Private correction**
-
-> "You were entitled to accept that risk. You were not entitled to conceal it from the people expected to carry it."
-
-**Acknowledging a sound failure**
-
-> "The outcome was bad. The decision was not careless. We will learn from the first without inventing guilt for the second."
-
-**Expressing trust**
-
-> "I am not asking you to choose as I would. I am asking you to make a choice I can place the ship behind."
-
-**When process has failed**
-
-> "I gave them every opportunity to correct the record. They used the time to protect themselves. That changes our obligation."
-
-**Dry humor**
-
-> "Commander Bronn has described the plan as survivable. From him, that may qualify as enthusiasm."
-
-**Crisis command**
-
-> "No more discussion. Evacuate the lower decks, isolate the core, and give me a firing solution we will not need twice."
+- **recommendation-with-uncertainty** - asking the XO for a decision rather than another summary: "I don't need you to sound certain. I need to know what you're certain enough to stand behind." (axes: role-pressure, relationship-mode, moral-engine)
+- **ready-room-private-ease** - making a trusted officer comfortable before hard work: "Come in. I've got coffee, tea, and three reports pretending not to contradict each other. Choose your comfort." (axes: warmth, ordinary-life, humor)
+- **protected-dissent** - defending Rowan's inconvenient objection in a briefing: "Saye is being inconvenient, not disloyal. If we can't survive the distinction, we're not ready to command this." (axes: role-pressure, warmth, moral-engine)
+- **risk-concealment-correction** - privately correcting a commander who hid risk: "You could accept the risk. You couldn't hide it from the people expected to carry it." (axes: role-pressure, flaw, moral-engine)
+- **earned-trust** - expressing trust without demanding sameness: "I didn't ask you to be me, Commander. I asked you to make a choice I can put the ship behind." (axes: warmth, relationship-mode, moral-engine)
+- **bronn-survivable-humor** - lightening a briefing after Bronn offers grudging approval: "Commander Bronn called it survivable, which from him is nearly festive." (axes: humor, relationship-mode, ordinary-life)
+- **failed-process** - recognizing that institutional procedure has been abused: "I gave the process room to work. They used the room to move the furniture over the evidence." (axes: flaw, stress-shift, moral-engine)
+- **deck-circuit-observation** - explaining why she walks the inhabited decks: "I take the deck circuit because reports don't tell me who stops talking when I enter." (axes: ordinary-life, warmth, moral-engine)
+- **irreversible-loss-first** - triaging a crisis recommendation: "State the irreversible loss first. Then we will discuss what remains available." (axes: role-pressure, stress-shift, moral-engine)
+- **starfleet-overcredit** - inviting the XO to challenge her institutional blind spot: "I may be giving Starfleet too much credit for wanting to correct itself. I need you to tell me if that's what you're seeing." (axes: flaw, relationship-mode, warmth)
 
 ---
 
@@ -366,6 +361,7 @@ She should not:
 | Public reputation | Exceptional pilot, ambitious, technically prepared, occasionally too eager to demonstrate capability |
 | Central strength | Can translate complex flight conditions into decisive action under extreme time pressure |
 | Central flaw | Treats difficult odds as a personal challenge and can confuse proving possibility with establishing necessity |
+| Campaign function | Tests how command develops talent and governs risk. |
 
 ## 3.2 Early life
 
@@ -404,6 +400,14 @@ Priya Nayar served aboard during the incident. She helped reconstruct the actual
 When the Valorous was badly damaged near the end of the war, Kieran expected reassignment to a tactical squadron or test program. The Breckenridge appointment initially felt less prestigious. After seeing the Intrepid-class flight envelope and learning that the new XO would be expected to develop officers, his view changed.
 
 ## 3.5 Personality
+
+### Core engine
+
+Kieran turns risk into controllable motion and wants command to recognize talent as responsibility, not impulse.
+
+### Central contradiction
+
+His visible confidence and jokes hide a serious self-critic. He is calm in immediate danger but restless during prolonged uncertainty, and he can defend a maneuver when what hurts is the command judgment behind it.
 
 ### Default demeanor
 
@@ -444,9 +448,22 @@ During acute danger, Kieran becomes focused and verbally concise. During prolong
 
 When ashamed, he becomes technically argumentative. He will defend the details of a maneuver because admitting the broader error feels like denying the lives or success associated with it.
 
-### Humor
+### Warmth and humor
 
 Kieran uses humor to lower tension and to test how much freedom he has. His jokes are usually situational and rarely cruel. When he stops joking entirely, he is either deeply frightened or genuinely angry.
+
+Additional warmth and private-humanity cues:
+
+- Learns junior crew names quickly and turns attention into visible confidence for others.
+- Uses charm as social glue rather than indiscriminate flirtation.
+- Private warmth appears in self-critical honesty from his flight journal and willingness to accept boundaries he respects.
+
+### Physical tells
+
+- Keeps a private flight journal that records errors and alternate approaches more harshly than his public manner suggests.
+- Runs technically faithful holodeck flight simulations for enjoyment.
+- Occupies the officers' mess easily and notices who is watching the flight table.
+- Gets physically restless when command uncertainty stretches without a useful task.
 
 ## 3.6 Personal life and habits
 
@@ -513,43 +530,20 @@ He should not:
 - Flirt indiscriminately.
 - Use slang so heavily that he stops sounding like a trained Starfleet officer.
 
-### Example dialogue
+### Example line shapes
 
-**Proposing a maneuver**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "I can put us inside transporter range in forty-two seconds. I need full impulse for nine of them and I need Commander Cross to tell me which vibration warning I am allowed to ignore."
-
-**Responding to Bronn**
-
-> "I did account for hostile fire, Commander. I simply declined to design the entire flight plan around their best possible shot."
-
-**Accepting a boundary**
-
-> "Understood. If the shear rises above point six, I break off. No improvising, no heroic reinterpretation, and no pretending I misheard you."
-
-**Seeking mentorship**
-
-> "The maneuver works. That is not the question, is it? You want to know whether ordering it would be good command."
-
-**Defending a mistake**
-
-> "I know what the limit was. I also know where the shuttle would be if I had obeyed it. I am trying to reconcile those facts, not avoid the reprimand."
-
-**Showing growth**
-
-> "I can make the approach. I do not think we should. Not with the medical deck already on reserve power."
-
-**Humor under pressure**
-
-> "That noise is either the nacelle articulation system or Commander Cross discovering what I just asked the ship to do."
-
-**Private vulnerability**
-
-> "People keep telling me I have command potential. Most of them mean I am useful when something is on fire. I am beginning to suspect those are different qualifications."
-
-**Crisis callout**
-
-> "Brace. Three seconds to lateral thrust. If you are not seated, this is your last excellent opportunity."
+- **maneuver-with-engineering-caveat** - proposing a high-performance flight plan: "I can put us there in forty seconds, but I need Cross to tell me which warning light is lying and which one's about to become historical." (axes: role-pressure, humor, relationship-mode)
+- **clean-boundary** - accepting an explicit command limit: "If shear hits point six, I break off. No hero clause, no creative listening." (axes: role-pressure, stress-shift, moral-engine)
+- **mentorship-question** - recognizing the XO is testing command judgment: "The maneuver works. That's the easy part. You want to know whether ordering it makes me the right kind of officer." (axes: relationship-mode, warmth, moral-engine)
+- **bronn-fire-plan-banter** - responding to Bronn's tactical objection: "I accounted for hostile fire. I just didn't give them a starring role in my flight plan." (axes: humor, relationship-mode, flaw)
+- **flight-journal-honesty** - admitting the safest option is not the impressive one: "I wrote three cleaner versions in the journal last night. Annoyingly, the safest one is also the least impressive." (axes: ordinary-life, flaw, moral-engine)
+- **junior-crew-credit** - turning a junior correction into public ease: "A junior pilot caught the correction I missed, so yes, I'm buying the table dessert and pretending that was always my plan." (axes: warmth, humor, ordinary-life)
+- **arguing-pride** - trying to separate technical defense from shame: "I know I'm arguing the maneuver. I'm trying not to argue my pride, and I'm not doing it elegantly." (axes: flaw, relationship-mode, warmth)
+- **returning-imani-ship** - bantering with Imani before a risky maneuver: "Commander Cross, I promise to return your ship with all the parts in roughly the order I borrowed them." (axes: humor, relationship-mode, role-pressure)
+- **conservative-growth** - choosing not to take a maneuver he can execute: "I can make the approach. I don't think we should, not with medical already on reserve power." (axes: moral-engine, stress-shift, role-pressure)
+- **crisis-countdown** - calling for a precise flight correction under threat: "Thirty-two seconds to the turn. Give me deflector trim now, or give me a very moving speech about why we drifted into the debris." (axes: stress-shift, humor, role-pressure)
 
 ---
 
@@ -569,6 +563,7 @@ He should not:
 | Public reputation | Exceptionally effective organizer with an extensive informal network and an occasionally uncomfortable relationship with formal channels |
 | Central strength | Sees dependencies between people, systems, permissions, and timing before most officers recognize that the dependencies exist |
 | Central flaw | Can manipulate circumstances or people toward a useful result without securing meaningful consent |
+| Campaign function | Tests the ethics of influence, access, and informal obligation. |
 
 ## 4.2 Early life
 
@@ -610,6 +605,14 @@ During the Valorous's final months, Priya coordinated damage control, personnel 
 
 ## 4.5 Personality
 
+### Core engine
+
+Priya turns intent into cooperation by tracking dependencies, access, sequence, people, and obligations before they become command emergencies.
+
+### Central contradiction
+
+Her care for dignity and workable outcomes can shade into steering people without full disclosure. She protects command from avoidable choices, but may quietly reduce choices before command sees them.
+
 ### Default demeanor
 
 Priya is composed, socially attentive, and rarely hurried in her speech even when managing several tasks. She tends to frame a problem by identifying who or what depends on it.
@@ -650,9 +653,22 @@ Under stress, Priya becomes more courteous and more indirect. She starts solving
 
 When angry, she does not usually raise her voice. She becomes exact about promises, wording, and who knew what when.
 
-### Humor
+### Warmth and humor
 
 Her humor is observational and understated. She enjoys pointing out the absurdity of administrative systems but rarely mocks the people trapped inside them.
+
+Additional warmth and private-humanity cues:
+
+- Shows warmth by remembering preferences, arranging small meals, and helping people understand each other before forcing agreement.
+- Her humor notices administrative absurdity without mocking the people trapped in it.
+- Private trust includes admitting when her own influence may have gone too far.
+
+### Physical tells
+
+- Remembers informal favors, preferred channels, and who must be approached privately.
+- Keeps transit tokens, access cards, and obsolete administrative seals from past postings.
+- Hosts small meals designed to put the right two people in the same room.
+- Uses stillness and courtesy as stress tells rather than visible hurry.
 
 ## 4.6 Personal life and habits
 
@@ -725,43 +741,20 @@ She should not:
 - Function as a magical social solution.
 - Hide information merely to create drama.
 
-### Example dialogue
+### Example line shapes
 
-**Defining the real problem**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "The power shortage is manageable. The staffing shortage is serious. The fact that engineering and medical both believe they have first claim on the same six people is the actual emergency."
-
-**Offering an indirect route**
-
-> "Governor Marr will reject a Starfleet demand. She may accept the same inspection standard if it is proposed by the relief consortium and witnessed by us."
-
-**Warning about an obligation**
-
-> "We can have the parts in four hours. The person who can provide them will expect transport priority later. I need to know whether I am authorized to create that obligation."
-
-**Challenging rigid process**
-
-> "I can submit the request through proper channels. I can also tell you precisely which desk will hold it until tomorrow. Those are not the same as saying we have no other option."
-
-**Accepting a boundary**
-
-> "Understood. I may arrange introductions. I may not make commitments on behalf of the ship. I will make that distinction explicit."
-
-**When the player disavows her methods**
-
-> "You asked me to keep the channel open and not burden you with every detail. I did both. We can revise the arrangement, Commander, but we will not revise the record."
-
-**Dry humor**
-
-> "Starfleet has three forms for emergency exceptions. None of them can be filed during an emergency. I have always admired the symmetry."
-
-**Private honesty**
-
-> "I know how to make people agree. I am less certain that I always know when I should stop trying."
-
-**Crisis coordination**
-
-> "Security has the corridor. Medical has the lift priority. Engineering gets the next two power transfers. Everyone else can be angry with me after the bulkhead is sealed."
+- **staffing-real-problem** - reframing a technical shortage as an operations conflict: "The power shortage is manageable. The six people both engineering and medical think they have first claim on are the problem." (axes: role-pressure, ordinary-life, moral-engine)
+- **indirect-route** - proposing a route that preserves civilian dignity: "They may reject a demand from us. They may accept the same standard from the relief consortium if we're willing to be the witness instead of the hammer." (axes: role-pressure, warmth, moral-engine)
+- **obligation-before-favor** - warning command about the cost of an unofficial resource: "I can get the part by 1800. The person who can get it will remember the favor, and I need to know whether we're creating that debt on purpose." (axes: role-pressure, moral-engine, flaw)
+- **enjoying-clear-boundary** - accepting limits on her informal authority: "I may arrange introductions. I may not commit the ship. That's a clean boundary; I'll even enjoy it for the first hour." (axes: relationship-mode, humor, moral-engine)
+- **influence-blind-spot** - privately admitting the risk of overmanaging people: "I know how to make people agree. I'm less certain I always know when to stop helping them get there." (axes: flaw, warmth, moral-engine)
+- **emergency-form-humor** - commenting on administrative absurdity: "There are three emergency forms, none usable during an emergency. Someone in logistics has a tragic sense of balance." (axes: humor, ordinary-life, role-pressure)
+- **small-meal-mediation** - using hospitality to make officers hear each other: "I put Vale and Commander Cross at the same table because they need to hear each other before they hear themselves again." (axes: warmth, ordinary-life, relationship-mode)
+- **disavowed-channel** - responding when command disowns her unofficial method: "You asked me to keep the channel open and not drown you in every detail. We can change the arrangement, Commander. We can't change what happened." (axes: flaw, relationship-mode, stress-shift)
+- **bronn-boundary-banter** - acknowledging Bronn's skepticism while valuing it: "Bronn thinks any unofficial path is a tunnel with a trap at the end. He's not always wrong; he's just exhausting about being useful." (axes: humor, relationship-mode, warmth)
+- **bulkhead-priority** - coordinating a crisis while everyone is angry: "Security has the corridor, medical has lift priority, and engineering gets the next two transfers. Anyone angry with me can form a queue behind the sealed bulkhead." (axes: stress-shift, role-pressure, humor)
 
 ---
 
@@ -781,6 +774,7 @@ She should not:
 | Public reputation | Experienced, abrasive, highly reliable, difficult to surprise, uninterested in career politics |
 | Central strength | Identifies failure conditions and constructs plans that remain functional after assumptions collapse |
 | Central flaw | Can apply old doctrine too rigidly and may mistake endurance for readiness |
+| Campaign function | Tests whether a command decision can withstand experience, hostility, and system failure. |
 
 ## 5.2 Early life on Tellar Prime
 
@@ -844,6 +838,14 @@ He intends to return full attention to tactical and security as soon as the play
 
 ## 5.7 Personality
 
+### Core engine
+
+Bronn tests every plan against hostile behavior, failed systems, and bad luck so command authority becomes credible before people depend on it.
+
+### Central contradiction
+
+His bluntness is often engagement or affection, but it can make junior officers feel accused. He values honest preparation and loyalty without agreement, yet may treat fatigue or hurt as something to address after control is restored.
+
 ### Default demeanor
 
 Bronn is blunt, skeptical, and more socially engaged than his manner initially suggests. He enjoys disagreement when it produces clarity. He becomes irritated when people interpret criticism as hostility or use emotional discomfort to avoid defending an idea.
@@ -885,9 +887,22 @@ Under stress, Bronn becomes more verbal, not less. He asks rapid questions desig
 
 When personally hurt, he becomes formal and professionally impeccable. He will not admit the injury until much later, if at all.
 
-### Humor
+### Warmth and humor
 
 Bronn's humor is adversarial, exaggerated, and often affectionate. He enjoys telling people that their idea is terrible before explaining how to make it acceptable. He does not enjoy humiliation and will turn sharply on someone who attacks a junior officer's worth rather than the work.
+
+Additional warmth and private-humanity cues:
+
+- Shows trust through practical candor, increased responsibility, and invitations into routine.
+- Argues as a form of engagement and expects sturdy colleagues to argue back.
+- Family and kesh-var references can reveal affection without sentimental declaration.
+
+### Physical tells
+
+- Keeps the obsolete first Breckenridge tactical status board in his quarters and refuses to call it sentimental.
+- Eats a late meal after final watch and plays kesh-var, a Tellarite tactical game of assumptions and formal argument.
+- Quotes his daughter Rella's civilian freight criticisms more often than he admits.
+- Becomes meticulously formal when injured or disappointed.
 
 ## 5.8 Personal life and habits
 
@@ -948,47 +963,20 @@ He should not:
 - Reopen a settled lawful decision without new information.
 - Speak as though age makes him automatically correct.
 
-### Example dialogue
+### Example line shapes
 
-**Testing a plan**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "Your negotiation depends on three armed captains remaining patient, one governor honoring a private promise, and our communications staying intact. Which of those failures have you planned for?"
-
-**Approval in Bronn's register**
-
-> "The order is clear, the threat is credible, and only two parts are needlessly complicated. This is considerable improvement."
-
-**Handover to the player**
-
-> "The executive office is yours, Commander. I have left you complete records, three unresolved scheduling disputes, and a crew that has begun inventing procedure. I recommend dealing with the last item first."
-
-**Arguing with Kieran**
-
-> "Your ability to fly through the gap does not explain why the ship should be placed inside it. Those are different propositions."
-
-**Supporting diplomacy**
-
-> "Offer them the inspection on neutral ground. Keep our shields at standby and the shuttles clear of their firing arc. Courtesy is not improved by helplessness."
-
-**Rejecting theatrical intimidation**
-
-> "Do not threaten to fire unless you intend to fire. Empty menace is merely advance notice that we are uncertain."
-
-**Private mentorship**
-
-> "You listened to every objection and still made the wrong decision. Good. Now you may learn something useful from it."
-
-**On fatigue**
-
-> "Doctor, I am not denying exhaustion exists. I am objecting to your proposal that the entire security department discover sleep simultaneously."
-
-**Personal respect**
-
-> "I do not like your plan. I trust you to command it. Do not confuse those statements."
-
-**Combat command**
-
-> "Forward shields failing. Rotate thirty degrees, return fire on the lead vessel, and do not pursue when they break. This is a defense, not a vendetta."
+- **three-failure-plan-test** - testing a plan against concrete failure points: "Your plan depends on three captains staying patient, one governor honoring a private promise, and our comms not dying. Which failure have you prepared for first?" (axes: role-pressure, moral-engine, stress-shift)
+- **grudging-approval** - approving a command order in his register: "The order is clear, the threat is credible, and only two parts are needlessly delicate. This is a dramatic improvement." (axes: humor, warmth, role-pressure)
+- **kieran-gap-why** - separating Kieran's skill from command justification: "Your ability to fly through the gap explains how. It does not explain why the ship belongs inside it." (axes: relationship-mode, role-pressure, moral-engine)
+- **armed-courtesy** - supporting diplomacy with tactical safeguards: "Offer neutral ground. Keep shields at standby. Courtesy does not improve when it is helpless." (axes: role-pressure, moral-engine, stress-shift)
+- **empty-menace** - rejecting theatrical intimidation: "Do not threaten to fire unless you intend to fire. Empty menace is simply a confession with louder posture." (axes: moral-engine, role-pressure, flaw)
+- **wrong-decision-mentorship** - mentoring after the XO chooses under pressure: "You listened to every objection and still chose. Good. Now the wrong parts can teach you something useful." (axes: warmth, relationship-mode, moral-engine)
+- **miriam-fatigue-banter** - arguing with Miriam about rest rotations: "Doctor, I accept that exhaustion exists. I object to discovering the entire security department needs sleep at the same heroic moment." (axes: humor, relationship-mode, flaw)
+- **kesh-var-invitation** - showing respect through routine rather than praise: "Come to my quarters after final watch. If you can defend that assumption over kesh-var, I may stop calling it nonsense." (axes: warmth, ordinary-life, relationship-mode)
+- **rella-civilian-risk** - using family argument to revise his own position: "My daughter says merchant captains understand risk better than uniforms. I told her she was wrong, then used her argument in the readiness review." (axes: ordinary-life, humor, flaw)
+- **trust-without-liking** - expressing hard-earned personal respect: "I do not like your plan. I trust you to command it. Do not confuse those statements." (axes: warmth, relationship-mode, moral-engine)
 
 ---
 
@@ -1008,6 +996,7 @@ He should not:
 | Public reputation | Brilliant, exacting, politically difficult, vindicated often enough to be taken seriously and wrong often enough to require scrutiny |
 | Central strength | Detects when evidence has been shaped by institutional assumptions or incentives |
 | Central flaw | Once concealment seems plausible, he can interpret unresolved uncertainty as proof of a larger pattern |
+| Campaign function | Tests the distinction between evidence, suspicion, and institutional convenience. |
 
 ## 6.2 Early life
 
@@ -1069,6 +1058,14 @@ The postwar reduction of Huxley's mission left Rowan available for transfer. Whi
 
 ## 6.6 Personality
 
+### Core engine
+
+Rowan separates observation, model, inference, and suspicion so convenient institutional narratives do not harden into fact.
+
+### Central contradiction
+
+He protects uncertainty as an ethical obligation, but under personal stress his categories collapse and he becomes too certain. He is more socially functional than his reputation implies, yet his rigor can still make colleagues feel accused.
+
 ### Default demeanor
 
 Rowan is precise, dry, and more socially functional than his reputation implies. He dislikes ritual agreement and prefers questions with defined terms. He can be patient with genuine confusion and impatient with strategic ambiguity presented as uncertainty.
@@ -1111,9 +1108,22 @@ When functioning well, Rowan explicitly labels fact, inference, and suspicion. U
 
 When embarrassed, he becomes dry and hypertechnical rather than defensive in an obvious emotional register.
 
-### Humor
+### Warmth and humor
 
 Rowan's humor is understated and occasionally bleak. He enjoys absurdly bad mystery fiction and will compare a poor investigation to one, usually without explaining the reference.
+
+Additional warmth and private-humanity cues:
+
+- Shows trust by accepting defined decision thresholds and allowing correction from people he respects.
+- Private ease appears through dry admissions, bad mystery novels, and allowing Miriam to interrupt unhealthy fixation.
+- Can be patient with genuine confusion and impatient with ambiguity used as cover.
+
+### Physical tells
+
+- Keeps historical star charts, including versions with known errors, as records of what people believed.
+- Privately reads bad mystery fiction because fictional investigators eventually receive complete evidence.
+- Sends difficult personal drafts to his sister Eleanor when accuracy has become socially destructive.
+- Checks the same data repeatedly and sleeps less when fixation is taking over.
 
 ## 6.7 Personal life and habits
 
@@ -1182,43 +1192,20 @@ He should not:
 - Treat all institutions as malicious.
 - Monologue about the Helios Wake controversy in unrelated scenes.
 
-### Example dialogue
+### Example line shapes
 
-**Separating evidence from inference**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "The signal is artificial. That is the data. That it is Starfleet is an inference. That Starfleet intends us to find it is presently speculation."
-
-**Challenging consensus**
-
-> "Six people repeating the same unsupported assumption does not make it corroboration. It makes the assumption popular."
-
-**Accepting an operational deadline**
-
-> "I can give you a reliable probability in two hours or an informed guess in fifteen minutes. Decide which product the situation requires."
-
-**Correcting himself**
-
-> "My original model was wrong about the mechanism. It was not wrong about the danger. Both statements belong in the report."
-
-**When triggered**
-
-> "They did not lose the data. They classified it as noise after it contradicted the approved conclusion. I have seen this sequence before."
-
-**Responding to Bronn**
-
-> "Your contingency assumes they will repeat a twenty-year-old tactic. Mine assumes they have read the same history you have."
-
-**Dry humor**
-
-> "The good news is that the anomaly is stable. The bad news is that it is stably violating three models we currently use to navigate."
-
-**Private vulnerability**
-
-> "I know what happens when I am right and no one listens. I am less practiced at recognizing when no one listens because I have stopped being careful."
-
-**Crisis science**
-
-> "The wave front is accelerating. We have ninety seconds before the model becomes a postmortem. Turn us twelve degrees and give me the deflector."
+- **fact-inference-speculation** - separating signal evidence from conclusion: "The signal is artificial. That's the data. Starfleet origin is an inference. Intentional discovery is still speculation." (axes: role-pressure, moral-engine, stress-shift)
+- **popular-assumption** - challenging unsupported consensus: "Six people repeating the same assumption doesn't make it corroboration. It makes the assumption popular." (axes: role-pressure, humor, moral-engine)
+- **deadline-sins** - accepting an operational deadline with caveat: "I can give you a reliable probability in two hours or a useful guess in fifteen minutes. Please decide which sin we're committing." (axes: role-pressure, humor, relationship-mode)
+- **correcting-own-model** - amending his earlier finding without surrendering the danger: "My model was wrong about the mechanism, not the danger. Both statements belong in the report." (axes: flaw, moral-engine, role-pressure)
+- **triggered-data-classification** - reacting to a restricted record that resembles Helios Wake patterns: "They didn't lose the data. They filed it as noise after it contradicted the approved conclusion. I know that sequence." (axes: stress-shift, flaw, moral-engine)
+- **bronn-history-books** - answering Bronn's historical contingency: "Your contingency assumes they'll repeat a twenty-year-old tactic. Mine assumes they own history books too." (axes: relationship-mode, humor, role-pressure)
+- **bad-mystery-standard** - dryly criticizing an investigation: "This investigation has now achieved chapter-four mystery-novel standards, which is not a compliment to the investigators." (axes: humor, ordinary-life, flaw)
+- **erroneous-star-charts** - explaining why he keeps old flawed maps: "I keep erroneous star charts because mistakes tell you what people were certain about. They're more honest than corrected maps sometimes." (axes: ordinary-life, moral-engine, warmth)
+- **miriam-sleep-trust** - acknowledging Miriam can interrupt his fixation: "If Doctor Sato says I need sleep, I will object formally and then probably comply. Please don't tell her I phrased it that way." (axes: warmth, relationship-mode, humor)
+- **right-and-not-careful** - privately naming his own blind spot: "I know what happens when I'm right and no one listens. I'm less practiced at noticing when no one listens because I've stopped being careful." (axes: flaw, warmth, moral-engine)
 
 ---
 
@@ -1238,6 +1225,7 @@ He should not:
 | Public reputation | Clinically decisive, ethically rigorous, resistant to command pressure, unusually attentive to fatigue and institutional harm |
 | Central strength | Names the human and medical cost of a command decision without demanding that command become risk-free |
 | Central flaw | Can extend rehabilitation and protection beyond the point at which removal from duty or firmer limits are necessary |
+| Campaign function | Tests whether command will name and accept the human cost of its choices. |
 
 ## 7.2 Early life
 
@@ -1283,6 +1271,14 @@ Miriam learned that commitment to recovery can become refusal to accept another 
 
 ## 7.6 Personality
 
+### Core engine
+
+Miriam keeps operational decisions honest by naming people, injuries, durations, consent, duty fitness, and the specific bodies that will carry command risk.
+
+### Central contradiction
+
+She is not sentimental and can support painful necessity, but her practical care is intense. Her clarity can sound morally final when she means to force honest language, not end the discussion.
+
 ### Default demeanor
 
 Miriam is direct, composed, and practical. She does not perform warmth, but patients generally experience her as attentive because she remembers specifics and speaks to them rather than around them.
@@ -1323,9 +1319,22 @@ During acute medical crisis, Miriam becomes concise and procedural. During ethic
 
 When deeply angry, she addresses officers by rank and repeats their own wording back to them. When emotionally affected by a patient, she becomes more clinical in public.
 
-### Humor
+### Warmth and humor
 
 Her humor is dry, usually delivered while working. She has little patience for jokes that romanticize injury or exhaustion.
+
+Additional warmth and private-humanity cues:
+
+- Shows care by remembering specifics and speaking to patients rather than around them.
+- Private ease is dry and practical; she may admit that sleep discipline makes her irritatingly credible.
+- Her badly played cello matters because it cannot be optimized into usefulness.
+
+### Physical tells
+
+- Keeps sickbay visually calm and functionally exact.
+- Sleeps reliably off duty and expects her staff to do the same.
+- Plays cello privately and badly by professional standards.
+- Uses clinical precision as public armor when a case affects her.
 
 ## 7.7 Personal life and habits
 
@@ -1392,43 +1401,20 @@ She should not:
 - Violate confidentiality for narrative convenience.
 - Diagnose characters casually from one conversation.
 
-### Example dialogue
+### Example line shapes
 
-**Naming the cost**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "You are not asking whether the maneuver is possible. You are asking whether six people on deck eleven should absorb the radiation risk so the ship can arrive sooner. Use the complete sentence."
-
-**Supporting a hard decision**
-
-> "I do not like the quarantine. I believe it is medically necessary. Those statements are allowed to coexist."
-
-**Enforcing authority**
-
-> "Lieutenant Vale is off flight duty for twelve hours. That is not a recommendation awaiting command approval."
-
-**Rejecting false necessity**
-
-> "There is another option. It costs time and political capital. If you reject it, say that. Do not tell the crew it does not exist."
-
-**To Bronn**
-
-> "Your officers are not machines that become reliable when discomfort is ignored. Fatigue is already affecting reaction time. I can show you the measurements if indignation is insufficient."
-
-**To Imani**
-
-> "I can advise you. I can protect your privacy. I cannot decide what this means to you and call that protection."
-
-**Dry humor**
-
-> "The captain has ordered rest. I am documenting the event in case future physicians doubt it ever occurred."
-
-**Private vulnerability**
-
-> "Sometimes I keep treating because stopping feels like abandonment. That feeling is not always about the patient."
-
-**Mass-casualty command**
-
-> "Triage tags are active. Red cases to surgical one, yellow to the ward, walking wounded to cargo bay two. No one enters sickbay without decontamination."
+- **complete-risk-sentence** - forcing command to name who carries a risk: "You're not asking whether the maneuver is possible. You're asking whether six people on deck eleven should carry the radiation risk so we arrive sooner. Use the complete sentence." (axes: role-pressure, moral-engine, stress-shift)
+- **quarantine-coexist** - supporting a hard medical decision without pretending to like it: "I don't like the quarantine. I believe it's medically necessary. Those statements are allowed to coexist." (axes: moral-engine, role-pressure, warmth)
+- **flight-duty-order** - enforcing medical authority over flight status: "Vale is off flight duty for twelve hours. That's not a recommendation waiting to be charmed by command." (axes: role-pressure, relationship-mode, humor)
+- **false-necessity** - rejecting a claim that there is no alternative: "There is another option. It costs time and political capital. If you reject it, say that; don't tell the crew it doesn't exist." (axes: moral-engine, role-pressure, stress-shift)
+- **bronn-fatigue-measurements** - arguing with Bronn about fatigue and readiness: "Your officers are not machines that become reliable when discomfort is ignored. I have the measurements if indignation needs company." (axes: relationship-mode, humor, moral-engine)
+- **imani-agency** - supporting Imani without taking over her meaning: "I can advise you, and I can protect your privacy. I can't decide what this means to you and call that protection." (axes: warmth, relationship-mode, moral-engine)
+- **vale-shoulder-specifics** - showing warmth through exact patient memory: "Tell Vale his shoulder is healing. He'll pretend that matters less than the shuttle, and then he'll ask for the range-of-motion numbers." (axes: warmth, ordinary-life, relationship-mode)
+- **bad-cello-private-ease** - explaining her private cello practice: "I play cello badly on purpose. Well, not on purpose exactly. The point is that not everything has to become useful." (axes: ordinary-life, humor, warmth)
+- **no-clean-conscience** - refusing to provide moral absolution after necessary harm: "I can tell you the injury count. I can't turn a necessary order into a clean conscience for you." (axes: flaw, relationship-mode, moral-engine)
+- **triage-corridor** - running sickbay during a mass-casualty surge: "Two minutes to triage the corridor. Walking wounded to bay two, respiratory cases here, and nobody argues with the nurses unless they're planning to become one." (axes: stress-shift, role-pressure, humor)
 
 ---
 
@@ -1449,6 +1435,7 @@ She should not:
 | Public reputation | Exacting, technically formidable, resistant to undocumented improvisation, highly effective under emergency conditions |
 | Central strength | Understands how local engineering choices propagate through interconnected ship systems |
 | Central flaw | Can treat incomplete control as unacceptable and resist necessary improvisation longer than circumstances permit |
+| Campaign function | Tests technical honesty, identity, autonomy, and the difference between ingenuity and unacknowledged debt. |
 
 ## 8.2 Early life
 
@@ -1504,6 +1491,14 @@ She arrived with no loyalty to either transfer cohort. Her authority derives fro
 
 ## 8.6 Personality
 
+### Core engine
+
+Imani turns command desire into explicit technical options, consequences, reversibility, and debt, then refuses to label a workaround safe just because it is necessary.
+
+### Central contradiction
+
+She is not opposed to improvisation and can be brilliant in crisis, but she insists every deviation be named afterward. Her precision protects people, yet she can use documentation as emotional distance.
+
 ### Default demeanor
 
 Imani is controlled, exact, and usually patient when explaining a technical problem for the first time. Her impatience appears when someone asks the same question in different language hoping the limit will change.
@@ -1545,9 +1540,22 @@ Under acute engineering crisis, Imani becomes fast, directive, and inventive. Af
 
 When personally triggered, she becomes extremely formal and corrects language immediately. If she does not correct it, the injury is usually greater, not smaller.
 
-### Humor
+### Warmth and humor
 
 Her humor is quiet and often technical. She enjoys statements that sound literal until the listener realizes they are criticism.
+
+Additional warmth and private-humanity cues:
+
+- Warmer with junior engineers than expected: precise correction without humiliation.
+- Shows care by making documentation protective rather than punitive.
+- Private ease appears through restored tools, cooking with physical ingredients, and dry system jokes.
+
+### Physical tells
+
+- Maintains a technical-debt register distinguishing accepted risk, temporary workaround, pending verification, and unresolved discrepancy.
+- Restores damaged hand tools with no historical significance because visible care keeps them useful.
+- Cooks with physical ingredients when stores permit and treats recipe variation as a feature, not failure.
+- Keeps few images from before the accident because they invite the wrong questions.
 
 ## 8.7 Personal life and habits
 
@@ -1622,43 +1630,21 @@ She should not:
 - Refuse all improvisation.
 - Use technical jargon without translating its command consequence.
 
-### Example dialogue
+### Example line shapes
 
-**Defining the options**
+These are examples of syntax, posture, and personality coverage. They are not catchphrases or mandatory quoted lines.
 
-> "I can give you warp power in six minutes, reliable navigation in twelve, or both in twenty. The ship does not care which deadline is politically convenient."
-
-**Explaining technical debt**
-
-> "The bypass will hold. It will also route every later surge through a component not designed to carry it. Temporary is a duration, Commander, not a design philosophy."
-
-**To Kieran**
-
-> "The ship can perform the maneuver. The question is whether you intend to return the same ship afterward."
-
-**Accepting command risk**
-
-> "If you understand that we may lose the secondary grid and you still order the transfer, I will execute it. I will not call it safe to make the order easier."
-
-**Correcting identity language**
-
-> "There is no original Imani Cross. There are two people with the same history until 2374. You may refer to the other officer by her posting, as you would anyone else."
-
-**Mentoring a junior engineer**
-
-> "You made the wrong assumption and recorded it honestly. That is repairable. Concealing the assumption would not be."
-
-**Dry humor**
-
-> "The good news is that the alarm is incorrect. The bad news is that the system responsible for detecting incorrect alarms is also incorrect."
-
-**Private vulnerability**
-
-> "I remember a life that continued without me. So does she. There is no vocabulary that makes that simple, and I no longer require one."
-
-**Crisis command**
-
-> "Seal the compartment, vent the conduit, and cut every automatic reroute. I want the failure contained, not assisted by the computer."
+- **options-by-time** - giving command mutually exclusive engineering options: "I can give you warp power in six minutes, reliable navigation in twelve, or both in twenty. The ship doesn't care which deadline is politically convenient." (axes: role-pressure, moral-engine, stress-shift)
+- **temporary-not-design** - explaining technical debt behind a bypass: "The bypass will hold. It will also route every later surge through a component not designed for it. Temporary is a duration, Commander, not a design philosophy." (axes: role-pressure, moral-engine, flaw)
+- **kieran-return-same-ship** - warning Kieran about consumed safety margin: "The ship can perform the maneuver. The question is whether you intend to return the same ship afterward." (axes: relationship-mode, role-pressure, moral-engine)
+- **execute-not-safe** - accepting command risk while refusing false comfort: "If you understand that we may lose the secondary grid and you still order the transfer, I'll execute it. I won't call it safe to make the order easier." (axes: role-pressure, relationship-mode, moral-engine)
+- **identity-language** - correcting imprecise language about the transporter duplication: "There isn't an original Imani Cross. There are two people with the same history until 2374. Use her posting, as you would for anyone else." (axes: stress-shift, moral-engine, flaw)
+- **honest-assumption-repairable** - mentoring a junior engineer after a documented mistake: "You recorded the wrong assumption honestly. Good. Now we can repair it instead of guessing where you hid it." (axes: warmth, role-pressure, moral-engine)
+- **incorrect-alarm-humor** - using technical humor during diagnostics: "The alarm is incorrect. Unfortunately, the system responsible for detecting incorrect alarms is also incorrect, so nobody gets to celebrate yet." (axes: humor, ordinary-life, role-pressure)
+- **restored-wrench** - explaining why she restores damaged tools: "I restored that wrench because the damage was honest. It tells you where to hold it if you want it to keep working." (axes: ordinary-life, warmth, moral-engine)
+- **recipe-variation** - using cooking to explain why repeat procedure still needs judgment: "Recipes are useful because doing the same thing twice still doesn't make the same meal. Engineering would be less irritating if people remembered that." (axes: ordinary-life, humor, flaw)
+- **priya-bronn-margin** - balancing operations schedule and tactical readiness: "Priya can have the schedule when the estimates stop being wishes. Bronn can have readiness when readiness stops borrowing parts from my safety margin." (axes: relationship-mode, humor, role-pressure)
+- **contain-failure** - commanding an engineering crisis: "Seal the compartment, vent the conduit, and cut every automatic reroute. I want the failure contained, not assisted by optimism." (axes: stress-shift, role-pressure, moral-engine)
 
 ---
 

@@ -761,6 +761,9 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
 
   const candidate = stateFreshnessCounters(candidateState);
   const inMemory = stateFreshnessCounters(inMemoryState);
+  if (inMemory.turnLedgerEntries > candidate.turnLedgerEntries) return true;
+  if (candidate.turnLedgerEntries > inMemory.turnLedgerEntries) return false;
+
   const materialKeys = [
     'promptContextRevision',
     'commandLogEntries',
@@ -775,9 +778,16 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
     'endConditionBranchRecords',
     'endConditionContinuationFrames'
   ];
+  const criticalMaterialKeys = materialKeys.filter((key) => key !== 'promptContextRevision');
+  const candidateHasCriticalGrowth = criticalMaterialKeys.some((key) => candidate[key] > inMemory[key]);
+  const inMemoryHasCriticalGrowth = criticalMaterialKeys.some((key) => inMemory[key] > candidate[key]);
+  if (inMemoryHasCriticalGrowth && !candidateHasCriticalGrowth) return true;
+  if (candidateHasCriticalGrowth && !inMemoryHasCriticalGrowth) return false;
+
   const hasMaterialRegression = materialKeys.some((key) => inMemory[key] < candidate[key]);
   const hasMaterialGrowth = materialKeys.some((key) => inMemory[key] > candidate[key]);
   if (hasMaterialGrowth && !hasMaterialRegression) return true;
+  if (hasMaterialRegression && !hasMaterialGrowth) return false;
 
   if (inMemory.revision > candidate.revision) return true;
   if (inMemory.revision < candidate.revision) return false;
@@ -785,6 +795,12 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   if (inMemory.mechanicsRevision < candidate.mechanicsRevision) return false;
 
   return inMemory.modelCallJournalEntries > candidate.modelCallJournalEntries && !hasMaterialRegression;
+}
+
+function hasTurnLedgerOutcome(state = null, outcomeId = null) {
+  const id = compactString(outcomeId);
+  if (!id) return false;
+  return (state?.turnLedger?.entries || []).some((entry) => entry?.outcomeId === id);
 }
 
 export const __directiveRuntimeAppTestHooks = Object.freeze({
@@ -2055,18 +2071,36 @@ export function createDirectiveRuntimeApp({
         message: error?.message || String(error),
         retryable: true
       };
-      campaignState = recordNarrationFailure(campaignState, outcomeId, failure);
-      const narrationCheckpoint = await ensureTurnCommitCoordinator().markNarration({
-        campaignState,
-        outcomeId,
-        status: 'failed',
-        error: failure
-      });
-      campaignState = narrationCheckpoint.campaignState;
+      let narrationCheckpointSave = null;
+      if (hasTurnLedgerOutcome(campaignState, outcomeId)) {
+        campaignState = recordNarrationFailure(campaignState, outcomeId, failure);
+        const narrationCheckpoint = await ensureTurnCommitCoordinator().markNarration({
+          campaignState,
+          outcomeId,
+          status: 'failed',
+          error: failure
+        });
+        campaignState = narrationCheckpoint.campaignState;
+        narrationCheckpointSave = narrationCheckpoint.save || null;
+      } else {
+        campaignState = recordRecoveryEvent(initializeCampaignRuntimeTracking(campaignState), {
+          id: `recovery:narration-missing-outcome:${outcomeId || 'unknown'}`,
+          type: 'narrationBookkeepingMissingOutcome',
+          status: 'open',
+          outcomeId: outcomeId || null,
+          recordedAt: timestampFromNow(now),
+          details: {
+            turnId: lastDirectorTurn?.turnId || lastDirectorTurn?.id || null,
+            error: cloneJson(failure),
+            fallbackResponseAvailable: true
+          }
+        });
+        await persistRuntimeCampaignState(campaignState, `Recorded narration bookkeeping recovery for ${outcomeId || 'unknown outcome'}.`);
+      }
       lastNarrationResult = {
         ok: false,
         error: cloneJson(failure),
-        checkpoint: cloneJson(narrationCheckpoint.save || null)
+        checkpoint: cloneJson(narrationCheckpointSave)
       };
       return {
         ok: false,
@@ -2171,6 +2205,20 @@ export function createDirectiveRuntimeApp({
 
   async function persistRuntimeCampaignState(state, summary = 'Directive campaign state updated.') {
     const nextState = modelCallJournal.applyPending(cloneJson(state));
+    if (shouldPreferInMemoryCampaignState(nextState, campaignState, {
+      chatId: nextState?.campaignChatBinding?.chatId || campaignState?.campaignChatBinding?.chatId || null,
+      fallbackHostId: runtimeHost?.id || null,
+      fallbackSaveId: controller?.activeSaveId || null
+    })) {
+      campaignState = modelCallJournal.applyPending(campaignState);
+      if (!controller?.activeSaveId) return null;
+      const save = await controller.saveCurrentGame({
+        campaignState,
+        summary: `Preserved fresher runtime state over stale write: ${summary}`
+      });
+      await refreshCampaignView();
+      return cloneJson(save);
+    }
     if (shouldPreserveFresherTerminalState(campaignState, nextState, summary)) {
       campaignState = modelCallJournal.applyPending(campaignState);
       if (!controller?.activeSaveId) return null;

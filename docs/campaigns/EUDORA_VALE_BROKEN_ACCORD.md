@@ -15,7 +15,7 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json`
   - `packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json`
 
-Eudora Vale is bundled and validated by the alpha gate, but remains `draft`: its generated crew cards and tactical graphs need deeper authored passes before playtest promotion.
+Eudora Vale is bundled and validated by the alpha gate, but remains `draft`: its senior-staff bible and crew dataset now include the rich six-card character structure, while later playtest passes should tune known-crew continuity, campaign pacing, and tactical graph data before promotion.
 
 ## Campaign Identity
 

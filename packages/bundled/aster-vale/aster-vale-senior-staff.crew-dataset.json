@@ -18,6 +18,11 @@
       "title": "Unseen Border Campaign",
       "path": "content/campaigns/aster-vale/campaign/THE_UNSEEN_BORDER_CAMPAIGN.md",
       "role": "campaign-source"
+    },
+    {
+      "title": "Crew Dataset Rich Character Design",
+      "path": "docs/packages/CREW_DATASET_RICH_CHARACTER_DESIGN.md",
+      "role": "dataset-design"
     }
   ],
   "officers": [
@@ -186,7 +191,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Idris Kellan"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -230,10 +238,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A patient frontier captain with years of practical border relationships. He remains legal commanding officer but begins the campaign ashore under inquiry and delegates the first Lacuna patrol to the new XO.",
+        "summary": "A patient frontier captain with years of practical border relationships. He remains legal commanding officer but begins the campaign ashore under inquiry and delegates the first Lacuna patrol to the new XO. In ensemble play, Idris Kellan sets command weather for the ship without turning every discussion into a loyalty test inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -249,7 +259,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Idris Kellan"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -293,15 +306,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Measured, courteous, and economical. Kellan asks what must be true for a plan to work, then tests whether the player has accounted for the people who will live with it.",
+        "summary": "Measured, courteous, and economical. Kellan asks what must be true for a plan to work, then tests whether the player has accounted for the people who will live with it. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.idris-kellan"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Idris Kellan tries to make lawful authority, succession, and public consequence serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that authority must be answerable after the emergency ends.",
+          "contradiction": "Idris Kellan's strength is also their blind spot: they can carry too much cost privately and confuse restraint with protection. The public presentation is controlled and attentive, but their care appears through specific trust, remembered details, and small private invitations back into the room.",
+          "speechMechanics": [
+            "Start from the existing voice note: Measured, courteous, and economical. Kellan asks what must be true for a plan to work, then tests whether the player has accounted for the people who will live with it.",
+            "Speaks through decision record, log, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry lawful authority, succession, and public consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Idris Kellan narrows to decision record, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the clean command answer before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through specific trust, remembered details, and small private invitations back into the room.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the second-best tea from the ready room, walk the quiet decks and make a private note about who looked less tired, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to decision record or log when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: walk the quiet decks and make a private note about who looked less tired."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean decision record, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the second-best tea from the ready room; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the clean command answer, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to walk the quiet decks and make a private note about who looked less tired, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my log doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "generic wise captain",
+            "icy procedural authority",
+            "monologue-first leadership",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -311,7 +460,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Idris Kellan"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -355,16 +507,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across delegation, candor, institutional-faith, trust-in-successor.",
+        "summary": "Relationship texture: Idris Kellan gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across delegation, candor, institutional-faith, trust-in-successor.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.idris-kellan"
+          "crew.idris-kellan",
+          "relationships.idris-kellan"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -374,7 +533,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Idris Kellan"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -420,13 +582,19 @@
         "summary": "Kellan approved and supported limited protective redactions during the Hadran war. He did not know the full informal network, Black Ledger penetration, or Halden's complete audit. His presence must challenge rather than erase player authority. Gates: His role in the limited wartime chart redactions surfaces through corroborated records, not an unsolicited confession.; His fear that defending Halden will look like self-protection surfaces only after the player has an independent command record.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.idris-kellan"
+          "crew.idris-kellan",
+          "crewDevelopment.idris-kellan.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.idris-kellan"
+        ]
       }
     },
     {
@@ -436,7 +604,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Idris Kellan"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -479,15 +650,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: delegation, candor, institutional-faith, trust-in-successor. Pressure hooks: Asks for protected reporting rather than public disclosure; Returns aboard while inquiry remains open; Disagrees over whether local custom can substitute for law",
+        "summary": "Development vector: Idris Kellan can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: delegation, candor, institutional-faith, trust-in-successor. Pressure hooks: Asks for protected reporting rather than public disclosure; Returns aboard while inquiry remains open; Disagrees over whether local custom can substitute for law.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.idris-kellan"
+          "crew.idris-kellan",
+          "crewDevelopment.idris-kellan.operationalExperience",
+          "crewDevelopment.idris-kellan.playerMentorship",
+          "crewDevelopment.idris-kellan.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -497,12 +677,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Idris Kellan"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -543,13 +727,20 @@
         "summary": "Use Idris Kellan to react specifically to the player's command style when the issue bears on delegation, candor, institutional-faith, trust-in-successor. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.idris-kellan"
+          "crew.idris-kellan",
+          "relationships.idris-kellan",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -559,7 +750,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Lyra Chen"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -603,10 +797,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A concise, highly reliable operations officer who held the ship together during the XO vacancy and expected to be promoted into the billet.",
+        "summary": "A concise, highly reliable operations officer who held the ship together during the XO vacancy and expected to be promoted into the billet. In ensemble play, Lyra Chen turns command intent into named owners, visible bottlenecks, and consequences that can be tracked inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -622,7 +818,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Lyra Chen"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -666,15 +865,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Precise, low-key, and procedural. Chen states dependencies, ownership, and reporting lines; resentment appears as extra formality rather than open hostility.",
+        "summary": "Precise, low-key, and procedural. Chen states dependencies, ownership, and reporting lines; resentment appears as extra formality rather than open hostility. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.lyra-chen"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Lyra Chen tries to make dependencies, schedule ownership, access, and implementation serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that a promise without capacity is only a future breach.",
+          "contradiction": "Lyra Chen's strength is also their blind spot: they can sound like they are protecting the schedule when they are protecting people from impossible orders. The public presentation is compressed and practical, but their care appears through quietly clearing a path for someone else to succeed and remembering who has been carrying extra load.",
+          "speechMechanics": [
+            "Start from the existing voice note: Precise, low-key, and procedural. Chen states dependencies, ownership, and reporting lines; resentment appears as extra formality rather than open hostility.",
+            "Speaks through allocation plan, dependency chart, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry dependencies, schedule ownership, access, and implementation without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Lyra Chen narrows to allocation plan, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the clean dependency chart before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through quietly clearing a path for someone else to succeed and remembering who has been carrying extra load.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a ration bar split with whoever missed dinner, rebuild the shift board with unnecessary precision, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to allocation plan or dependency chart when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: rebuild the shift board with unnecessary precision."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean allocation plan, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a ration bar split with whoever missed dinner; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the clean dependency chart, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to rebuild the shift board with unnecessary precision, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my dependency chart doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "bureaucrat caricature",
+            "schedule as personality",
+            "competence without emotional texture",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -684,7 +1019,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Lyra Chen"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -728,16 +1066,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across professional-confidence, succession, delegation, candor.",
+        "summary": "Relationship texture: Lyra Chen gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across professional-confidence, succession, delegation, candor.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.lyra-chen"
+          "crew.lyra-chen",
+          "relationships.lyra-chen"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -747,7 +1092,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Lyra Chen"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -793,13 +1141,19 @@
         "summary": "Chen is not plotting against the player. She is deciding whether the new appointment improves command or merely displaces someone who already did the work. Gates: Her expectation of the XO billet becomes explicit only after a command handoff, a public comparison, or an avoidable reporting failure.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.lyra-chen"
+          "crew.lyra-chen",
+          "crewDevelopment.lyra-chen.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.lyra-chen"
+        ]
       }
     },
     {
@@ -809,7 +1163,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Lyra Chen"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -852,15 +1209,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: professional-confidence, succession, delegation, candor. Pressure hooks: Challenges ambiguous delegation; Wants a single verified operating picture; May overcorrect toward procedure when trust is low",
+        "summary": "Development vector: Lyra Chen can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: professional-confidence, succession, delegation, candor. Pressure hooks: Challenges ambiguous delegation; Wants a single verified operating picture; May overcorrect toward procedure when trust is low.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.lyra-chen"
+          "crew.lyra-chen",
+          "crewDevelopment.lyra-chen.operationalExperience",
+          "crewDevelopment.lyra-chen.playerMentorship",
+          "crewDevelopment.lyra-chen.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -870,12 +1236,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Lyra Chen"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -916,13 +1286,20 @@
         "summary": "Use Lyra Chen to react specifically to the player's command style when the issue bears on professional-confidence, succession, delegation, candor. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.lyra-chen"
+          "crew.lyra-chen",
+          "relationships.lyra-chen",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -932,7 +1309,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sima Taren"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -976,10 +1356,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A skeptical cartographer who respects local pilot knowledge and believes data erasure can be a form of institutional violence.",
+        "summary": "A skeptical cartographer who respects local pilot knowledge and believes data erasure can be a form of institutional violence. In ensemble play, Sima Taren keeps the room honest about what is measured, what is inferred, and what is being wished into certainty inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -995,7 +1377,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sima Taren"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1039,15 +1424,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Curious, explicit about uncertainty, and unwilling to treat an official database as reality merely because it is official.",
+        "summary": "Curious, explicit about uncertainty, and unwilling to treat an official database as reality merely because it is official. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.sima-taren"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Sima Taren tries to make measurement, inference, uncertainty, and the ethics of public knowledge serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that truth has to remain useful without becoming reckless.",
+          "contradiction": "Sima Taren's strength is also their blind spot: they can make the clean model sound more patient than the people waiting on it. The public presentation is precise and intent, but their care appears through teaching the uncertainty instead of weaponizing it, and noticing when someone finally asks the better question.",
+          "speechMechanics": [
+            "Start from the existing voice note: Curious, explicit about uncertainty, and unwilling to treat an official database as reality merely because it is official.",
+            "Speaks through model, confidence band, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry measurement, inference, uncertainty, and the ethics of public knowledge without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Sima Taren narrows to model, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the elegant model before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through teaching the uncertainty instead of weaponizing it, and noticing when someone finally asks the better question.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the calibration notes and a mug that has seen better labs, re-label a messy data set until it stops irritating them, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to model or confidence band when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: re-label a messy data set until it stops irritating them."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean model, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the calibration notes and a mug that has seen better labs; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the elegant model, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to re-label a messy data set until it stops irritating them, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my confidence band doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "truth-machine scientist",
+            "condescending exposition engine",
+            "certainty as a personality",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1057,7 +1578,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sima Taren"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1101,16 +1625,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across cartographic-ethics, local-knowledge, evidence-discipline, restraint.",
+        "summary": "Relationship texture: Sima Taren gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across cartographic-ethics, local-knowledge, evidence-discipline, restraint.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.sima-taren"
+          "crew.sima-taren",
+          "relationships.sima-taren"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -1120,7 +1651,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sima Taren"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1166,13 +1700,19 @@
         "summary": "Taren begins inclined toward restoration and transparency. Play should complicate that position through concrete exposure costs, not reverse it through a hidden secret. Gates: Her family history with occupation-era registries surfaces when a census or chart becomes an instrument of coercion.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.sima-taren"
+          "crew.sima-taren",
+          "crewDevelopment.sima-taren.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.sima-taren"
+        ]
       }
     },
     {
@@ -1182,7 +1722,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sima Taren"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1225,15 +1768,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: cartographic-ethics, local-knowledge, evidence-discipline, restraint. Pressure hooks: Can make a route safe only by validating it; Distrusts unexplained deletions; Must distinguish preservation from secrecy",
+        "summary": "Development vector: Sima Taren can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: cartographic-ethics, local-knowledge, evidence-discipline, restraint. Pressure hooks: Can make a route safe only by validating it; Distrusts unexplained deletions; Must distinguish preservation from secrecy.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.sima-taren"
+          "crew.sima-taren",
+          "crewDevelopment.sima-taren.operationalExperience",
+          "crewDevelopment.sima-taren.playerMentorship",
+          "crewDevelopment.sima-taren.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -1243,12 +1795,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sima Taren"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -1289,13 +1845,20 @@
         "summary": "Use Sima Taren to react specifically to the player's command style when the issue bears on cartographic-ethics, local-knowledge, evidence-discipline, restraint. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.sima-taren"
+          "crew.sima-taren",
+          "relationships.sima-taren",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1305,7 +1868,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Neral th'Zor"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1349,10 +1915,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A disciplined security officer who treats uncontrolled crossings, forged identities, and uncertain rules of engagement as strategic vulnerabilities.",
+        "summary": "A disciplined security officer who treats uncontrolled crossings, forged identities, and uncertain rules of engagement as strategic vulnerabilities. In ensemble play, Neral th'Zor names what a hostile actor can do without pretending every civilian is already hostile inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1368,7 +1936,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Neral th'Zor"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1412,15 +1983,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Dry, direct, and operational. th'Zor frames objections as threat paths and prefers rules that can still be applied during a bad watch.",
+        "summary": "Dry, direct, and operational. th'Zor frames objections as threat paths and prefers rules that can still be applied during a bad watch. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.neral-thzor"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Neral th'Zor tries to make threat paths, custody, force boundaries, and civilian protection serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that protection must remain accountable while danger is still real.",
+          "contradiction": "Neral th'Zor's strength is also their blind spot: they can trust a hardened boundary more quickly than a fragile relationship. The public presentation is spare and operational, but their care appears through consistent protection, clean apologies after overreach, and private respect for people who hold a line well.",
+          "speechMechanics": [
+            "Start from the existing voice note: Dry, direct, and operational. th'Zor frames objections as threat paths and prefers rules that can still be applied during a bad watch.",
+            "Speaks through threat path, custody chain, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry threat paths, custody, force boundaries, and civilian protection without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Neral th'Zor narrows to threat path, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the hardened boundary before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through consistent protection, clean apologies after overreach, and private respect for people who hold a line well.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the watch board and coffee strong enough to make it legal, rewrite the watch bill so the tired people stop being invisible, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to threat path or custody chain when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: rewrite the watch bill so the tired people stop being invisible."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean threat path, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the watch board and coffee strong enough to make it legal; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the hardened boundary, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to rewrite the watch bill so the tired people stop being invisible, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my custody chain doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reflexive militarist",
+            "threat theater",
+            "suspicion without proportionality",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1430,7 +2137,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Neral th'Zor"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1474,16 +2184,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across proportionality, civilian-protection, threat-modeling, trust-in-local-partners.",
+        "summary": "Relationship texture: Neral th'Zor gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across proportionality, civilian-protection, threat-modeling, trust-in-local-partners.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.neral-thzor"
+          "crew.neral-thzor",
+          "relationships.neral-thzor"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -1493,7 +2210,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Neral th'Zor"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1539,13 +2259,19 @@
         "summary": "th'Zor is not anti-refugee. He believes ungoverned access allows the strongest covert actor to decide whose protection is real. Gates: His prior experience with a border infiltration failure surfaces after a trusted route or protected passenger is compromised.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.neral-thzor"
+          "crew.neral-thzor",
+          "crewDevelopment.neral-thzor.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.neral-thzor"
+        ]
       }
     },
     {
@@ -1555,7 +2281,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Neral th'Zor"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1598,15 +2327,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: proportionality, civilian-protection, threat-modeling, trust-in-local-partners. Pressure hooks: Recommends interdiction where others see lifelines; Wants identity systems hardened; May support protected routes if enforcement is credible",
+        "summary": "Development vector: Neral th'Zor can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: proportionality, civilian-protection, threat-modeling, trust-in-local-partners. Pressure hooks: Recommends interdiction where others see lifelines; Wants identity systems hardened; May support protected routes if enforcement is credible.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.neral-thzor"
+          "crew.neral-thzor",
+          "crewDevelopment.neral-thzor.operationalExperience",
+          "crewDevelopment.neral-thzor.playerMentorship",
+          "crewDevelopment.neral-thzor.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -1616,12 +2354,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Neral th'Zor"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -1662,13 +2404,20 @@
         "summary": "Use Neral th'Zor to react specifically to the player's command style when the issue bears on proportionality, civilian-protection, threat-modeling, trust-in-local-partners. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.neral-thzor"
+          "crew.neral-thzor",
+          "relationships.neral-thzor",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1678,7 +2427,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Omar Venn"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1722,10 +2474,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A calm, inventive engineer who dislikes bureaucratic theater and maintained the hardware Halden modified before she vanished.",
+        "summary": "A calm, inventive engineer who dislikes bureaucratic theater and maintained the hardware Halden modified before she vanished. In ensemble play, Omar Venn turns moral promises into the hours, parts, people, and failure margins they actually require inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1741,7 +2495,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Omar Venn"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1785,15 +2542,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Concrete and understated. Venn translates policy into maintenance hours, power load, spare parts, and the number of systems that will fail if the ship pretends scarcity is optional.",
+        "summary": "Concrete and understated. Venn translates policy into maintenance hours, power load, spare parts, and the number of systems that will fail if the ship pretends scarcity is optional. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.omar-venn"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Omar Venn tries to make repair debt, fabrication limits, heat, stress, and practical consequence serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that a repair that cannot be maintained is only a delayed failure.",
+          "contradiction": "Omar Venn's strength is also their blind spot: they can make sustainability sound like refusal when they are actually trying to keep future options alive. The public presentation is dry and concrete, but their care appears through showing someone how the system works and making room for a junior fix that changes the plan.",
+          "speechMechanics": [
+            "Start from the existing voice note: Concrete and understated. Venn translates policy into maintenance hours, power load, spare parts, and the number of systems that will fail if the ship pretends scarcity is optional.",
+            "Speaks through repair schedule, load path, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry repair debt, fabrication limits, heat, stress, and practical consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Omar Venn narrows to repair schedule, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the tidy load path before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through showing someone how the system works and making room for a junior fix that changes the plan.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a lukewarm cup balanced nowhere regulations would approve, put the tool locker back in an order only they find soothing, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to repair schedule or load path when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: put the tool locker back in an order only they find soothing."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean repair schedule, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a lukewarm cup balanced nowhere regulations would approve; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the tidy load path, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to put the tool locker back in an order only they find soothing, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my load path doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "miracle-worker engineer",
+            "complaint as the only trait",
+            "tech debt without human cost",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1803,7 +2696,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Omar Venn"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1847,16 +2743,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across technical-candor, loyalty, evidence-custody, resource-discipline.",
+        "summary": "Relationship texture: Omar Venn gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across technical-candor, loyalty, evidence-custody, resource-discipline.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.omar-venn"
+          "crew.omar-venn",
+          "relationships.omar-venn"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -1866,7 +2769,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Omar Venn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1912,13 +2818,19 @@
         "summary": "Venn helped Halden install an adaptive validation bypass because she presented it as a resilience test. He suspected more but did not know her audit plan. Gates: His knowledge of Halden's off-book hardware requests surfaces through technical custody or direct questioning, not passive exposition.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.omar-venn"
+          "crew.omar-venn",
+          "crewDevelopment.omar-venn.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.omar-venn"
+        ]
       }
     },
     {
@@ -1928,7 +2840,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Omar Venn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1971,15 +2886,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: technical-candor, loyalty, evidence-custody, resource-discipline. Pressure hooks: Resists treating maintenance logs as guilt; Knows the bypass code can save lives; Must choose between preserving evidence and restoring capability",
+        "summary": "Development vector: Omar Venn can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: technical-candor, loyalty, evidence-custody, resource-discipline. Pressure hooks: Resists treating maintenance logs as guilt; Knows the bypass code can save lives; Must choose between preserving evidence and restoring capability.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.omar-venn"
+          "crew.omar-venn",
+          "crewDevelopment.omar-venn.operationalExperience",
+          "crewDevelopment.omar-venn.playerMentorship",
+          "crewDevelopment.omar-venn.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -1989,12 +2913,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Omar Venn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -2035,13 +2963,20 @@
         "summary": "Use Omar Venn to react specifically to the player's command style when the issue bears on technical-candor, loyalty, evidence-custody, resource-discipline. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.omar-venn"
+          "crew.omar-venn",
+          "relationships.omar-venn",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -2051,7 +2986,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Tavra Nesh"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2095,10 +3033,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A direct physician with strong legal instincts who treats patient confidentiality and asylum screening as command issues rather than administrative details.",
+        "summary": "A direct physician with strong legal instincts who treats patient confidentiality and asylum screening as command issues rather than administrative details. In ensemble play, Tavra Nesh keeps the body count, patient autonomy, and long-term damage inside the command conversation inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -2114,7 +3054,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Tavra Nesh"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2158,15 +3101,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Firm, concise, and unwilling to soften the difference between medical necessity and intelligence convenience.",
+        "summary": "Firm, concise, and unwilling to soften the difference between medical necessity and intelligence convenience. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.tavra-nesh"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Tavra Nesh tries to make triage, consent, chronic harm, and medical independence serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that a saved life cannot be treated as an administrative inconvenience afterward.",
+          "contradiction": "Tavra Nesh's strength is also their blind spot: they can make necessary limits sound colder than the care behind them. The public presentation is quiet and difficult to deflect, but their care appears through remembering patient details, protecting consent, and making tired people sit down before they collapse.",
+          "speechMechanics": [
+            "Start from the existing voice note: Firm, concise, and unwilling to soften the difference between medical necessity and intelligence convenience.",
+            "Speaks through triage board, consent line, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry triage, consent, chronic harm, and medical independence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Tavra Nesh narrows to triage board, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the guarded diagnosis before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through remembering patient details, protecting consent, and making tired people sit down before they collapse.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include sickbay tea that tastes better than it looks, inventory the small comforts sickbay keeps unofficially, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to triage board or consent line when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: inventory the small comforts sickbay keeps unofficially."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean triage board, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought sickbay tea that tastes better than it looks; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the guarded diagnosis, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to inventory the small comforts sickbay keeps unofficially, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my consent line doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "saintly doctor",
+            "moral lecture as default",
+            "diagnosis replacing character",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -2176,7 +3255,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Tavra Nesh"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2220,16 +3302,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across confidentiality, command-trust, triage, legal-courage.",
+        "summary": "Relationship texture: Tavra Nesh gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across confidentiality, command-trust, triage, legal-courage.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.tavra-nesh"
+          "crew.tavra-nesh",
+          "relationships.tavra-nesh"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -2239,7 +3328,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Tavra Nesh"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -2285,13 +3377,19 @@
         "summary": "Nesh can disclose minimum necessary information in an immediate safety emergency, but she will not turn medical records into a general refugee index. Gates: Her past participation in a failed protected-witness transfer surfaces when command asks medicine to become an identification service.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.tavra-nesh"
+          "crew.tavra-nesh",
+          "crewDevelopment.tavra-nesh.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.tavra-nesh"
+        ]
       }
     },
     {
@@ -2301,7 +3399,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Tavra Nesh"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -2344,15 +3445,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: confidentiality, command-trust, triage, legal-courage. Pressure hooks: Refuses unjustified disclosure; Needs destinations for protected patients; Challenges coercive screening",
+        "summary": "Development vector: Tavra Nesh can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: confidentiality, command-trust, triage, legal-courage. Pressure hooks: Refuses unjustified disclosure; Needs destinations for protected patients; Challenges coercive screening.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.tavra-nesh"
+          "crew.tavra-nesh",
+          "crewDevelopment.tavra-nesh.operationalExperience",
+          "crewDevelopment.tavra-nesh.playerMentorship",
+          "crewDevelopment.tavra-nesh.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -2362,12 +3472,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Tavra Nesh"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -2408,13 +3522,20 @@
         "summary": "Use Tavra Nesh to react specifically to the player's command style when the issue bears on confidentiality, command-trust, triage, legal-courage. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.tavra-nesh"
+          "crew.tavra-nesh",
+          "relationships.tavra-nesh",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -2424,7 +3545,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ilan Korev"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2468,10 +3592,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "An observant, informal pilot skilled at low-signature navigation and local route reading. He flew undocumented patrols with Halden and kept parts of her standing orders private.",
+        "summary": "An observant, informal pilot skilled at low-signature navigation and local route reading. He flew undocumented patrols with Halden and kept parts of her standing orders private. In ensemble play, Ilan Korev makes distance, timing, and ship handling felt as choices rather than map labels inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -2487,7 +3613,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ilan Korev"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2531,15 +3660,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Relaxed until the route becomes dangerous, then exact. Korev describes navigation as practiced memory, not merely coordinates.",
+        "summary": "Relaxed until the route becomes dangerous, then exact. Korev describes navigation as practiced memory, not merely coordinates. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.ilan-korev"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Ilan Korev tries to make routes, margins, practiced memory, and embodied risk serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that skill should expand command options without becoming an exemption from judgment.",
+          "contradiction": "Ilan Korev's strength is also their blind spot: they can defend the maneuver when the real wound is whether command trusts their judgment. The public presentation is loose until danger sharpens them, but their care appears through sharing route lore, giving junior pilots credit, and making fear breathable with one quick aside.",
+          "speechMechanics": [
+            "Start from the existing voice note: Relaxed until the route becomes dangerous, then exact. Korev describes navigation as practiced memory, not merely coordinates.",
+            "Speaks through approach vector, flight margin, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry routes, margins, practiced memory, and embodied risk without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Ilan Korev narrows to approach vector, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the beautiful approach before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through sharing route lore, giving junior pilots credit, and making fear breathable with one quick aside.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a sim log with too many personal annotations, fly the route again in simulation and pretend it was recreation, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to approach vector or flight margin when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: fly the route again in simulation and pretend it was recreation."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean approach vector, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a sim log with too many personal annotations; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the beautiful approach, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to fly the route again in simulation and pretend it was recreation, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my flight margin doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reckless pilot caricature",
+            "constant swagger",
+            "skill without accountability",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -2549,7 +3814,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ilan Korev"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2593,16 +3861,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across candor, pilot-authority, risk-judgment, loyalty.",
+        "summary": "Relationship texture: Ilan Korev gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across candor, pilot-authority, risk-judgment, loyalty.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.ilan-korev"
+          "crew.ilan-korev",
+          "relationships.ilan-korev"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -2612,7 +3887,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ilan Korev"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -2658,13 +3936,19 @@
         "summary": "Korev knows three protected crossings and that Halden met Free Passage pilots. He does not know her present location or the full Lacuna Protocol. Gates: His undocumented flights with Halden surface through route evidence, a direct order, or an emergency that requires the same technique.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.ilan-korev"
+          "crew.ilan-korev",
+          "crewDevelopment.ilan-korev.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.ilan-korev"
+        ]
       }
     },
     {
@@ -2674,7 +3958,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ilan Korev"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -2717,15 +4004,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: candor, pilot-authority, risk-judgment, loyalty. Pressure hooks: Can enter the Veil without a full chart; Withholds route detail under prior orders; Distrusts automated validation",
+        "summary": "Development vector: Ilan Korev can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: candor, pilot-authority, risk-judgment, loyalty. Pressure hooks: Can enter the Veil without a full chart; Withholds route detail under prior orders; Distrusts automated validation.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.ilan-korev"
+          "crew.ilan-korev",
+          "crewDevelopment.ilan-korev.operationalExperience",
+          "crewDevelopment.ilan-korev.playerMentorship",
+          "crewDevelopment.ilan-korev.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -2735,12 +4031,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ilan Korev"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -2781,13 +4081,20 @@
         "summary": "Use Ilan Korev to react specifically to the player's command style when the issue bears on candor, pilot-authority, risk-judgment, loyalty. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.ilan-korev"
+          "crew.ilan-korev",
+          "relationships.ilan-korev",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -2797,7 +4104,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Dey"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2841,10 +4151,12 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A practical, respected senior enlisted leader who sees how route policy becomes searches, frightened passengers, brig capacity, and exhausted watchstanders.",
+        "summary": "A practical, respected senior enlisted leader who sees how route policy becomes searches, frightened passengers, brig capacity, and exhausted watchstanders. In ensemble play, Mara Dey shows command what an order looks like at the hatch, in the hold, and after the fourth bad hour inside a border-ship culture loyal to Kellan but forced to test the new XO against hidden maps and local obligations.",
         "constraints": [
           "Use as player-safe service-record context.",
-          "Do not write for the player."
+          "Do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -2860,7 +4172,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Dey"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2904,15 +4219,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Blunt, concrete, and dryly humane. Dey tells command what an order will look like at the hatch and who will have to enforce it.",
+        "summary": "Blunt, concrete, and dryly humane. Dey tells command what an order will look like at the hatch and who will have to enforce it. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep voice consistent without turning a trait into a repeated catchphrase."
+          "Keep voice consistent without turning a trait into a repeated catchphrase.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.mara-dey"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Mara Dey tries to make hatches, cargo, frightened passengers, watches, and physical implementation serve border relationships, lawful protection, redacted charts, and local custom under inquiry. Their judgment is driven by the belief that orders have to survive contact with tired hands and real corridors.",
+          "contradiction": "Mara Dey's strength is also their blind spot: they can turn practical skepticism into a wall before command has finished explaining. The public presentation is plainspoken and dryly humane, but their care appears through knowing names, finding blankets, and turning discipline into steadiness instead of fear.",
+          "speechMechanics": [
+            "Start from the existing voice note: Blunt, concrete, and dryly humane. Dey tells command what an order will look like at the hatch and who will have to enforce it.",
+            "Speaks through watch bill, hatch plan, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry hatches, cargo, frightened passengers, watches, and physical implementation without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Mara Dey narrows to watch bill, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the corridor-level answer before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through knowing names, finding blankets, and turning discipline into steadiness instead of fear.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the deck kettle and a mug that outranks several officers by seniority, walk the cargo lanes and fix three small problems nobody put on a list, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to watch bill or hatch plan when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: walk the cargo lanes and fix three small problems nobody put on a list."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the redacted routes is politically loaded",
+              "shape": "I can give you the clean watch bill, but it won't answer who carries the cost after the protected crossing fails.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the deck kettle and a mug that outranks several officers by seniority; if we're going to argue about the redacted routes, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the corridor-level answer, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to walk the cargo lanes and fix three small problems nobody put on a list, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my hatch plan doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether protection can survive without becoming erasure, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "gruff enlisted stereotype",
+            "comic relief only",
+            "practicality without moral intelligence",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -2922,7 +4373,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Dey"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -2966,16 +4420,23 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across boarding-culture, crew-welfare, procedural-fairness, initiative.",
+        "summary": "Relationship texture: Mara Dey gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across boarding-culture, crew-welfare, procedural-fairness, initiative.",
         "constraints": [
           "Do not expose numeric relationship values.",
-          "Do not predetermine romance or loyalty."
+          "Do not predetermine romance or loyalty.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": true,
         "stateRefs": [
-          "crew.mara-dey"
+          "crew.mara-dey",
+          "relationships.mara-dey"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
       }
     },
     {
@@ -2985,7 +4446,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Dey"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -3031,13 +4495,19 @@
         "summary": "Dey is the best sensor for whether command policy is becoming arbitrary at the deckplate level. She should not become a generic conscience voice in every scene. Gates: Her private record of harmful inspection practices surfaces when the player asks how policy is landing below the briefing room.",
         "constraints": [
           "Director-only until an authored gate is satisfied.",
-          "Never reveal by narrator convenience."
+          "Never reveal by narrator convenience.",
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.mara-dey"
+          "crew.mara-dey",
+          "crewDevelopment.mara-dey.personalArcProgress",
+          "revealedCards"
         ],
-        "effects": []
+        "effects": [
+          "may_unlock_private_scene.mara-dey"
+        ]
       }
     },
     {
@@ -3047,7 +4517,10 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Dey"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -3090,15 +4563,24 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Development dimensions: boarding-culture, crew-welfare, procedural-fairness, initiative. Pressure hooks: Warns when searches become collective punishment; Tracks brig and escort load; Can build trust with civilians through consistent practice",
+        "summary": "Development vector: Mara Dey can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: boarding-culture, crew-welfare, procedural-fairness, initiative. Pressure hooks: Warns when searches become collective punishment; Tracks brig and escort load; Can build trust with civilians through consistent practice.",
         "constraints": [
-          "Change development only through committed observable events."
+          "Change development only through committed observable events.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.mara-dey"
+          "crew.mara-dey",
+          "crewDevelopment.mara-dey.operationalExperience",
+          "crewDevelopment.mara-dey.playerMentorship",
+          "crewDevelopment.mara-dey.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
       }
     },
     {
@@ -3108,12 +4590,16 @@
       "datasetId": "aster-vale.senior-staff",
       "source": {
         "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Dey"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
         "crewDirector",
-        "missionDirector"
+        "missionDirector",
+        "commandDirector"
       ],
       "scope": {
         "characters": [
@@ -3154,13 +4640,20 @@
         "summary": "Use Mara Dey to react specifically to the player's command style when the issue bears on boarding-culture, crew-welfare, procedural-fairness, initiative. Do not make the officer a generic approval meter.",
         "constraints": [
           "Ground every reaction in a committed action or repeated pattern.",
-          "Keep disagreement professional."
+          "Keep disagreement professional.",
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.mara-dey"
+          "crew.mara-dey",
+          "relationships.mara-dey",
+          "mission.captainIntent"
         ],
-        "effects": []
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     }
   ],
@@ -3419,6 +4912,16 @@
         "crew.mara-dey.profile",
         "crew.mara-dey.voice",
         "crew.mara-dey.relationship"
+      ],
+      "commandDirector": [
+        "crew.idris-kellan.style-reaction",
+        "crew.lyra-chen.style-reaction",
+        "crew.sima-taren.style-reaction",
+        "crew.neral-thzor.style-reaction",
+        "crew.omar-venn.style-reaction",
+        "crew.tavra-nesh.style-reaction",
+        "crew.ilan-korev.style-reaction",
+        "crew.mara-dey.style-reaction"
       ]
     },
     "byRevealGate": {

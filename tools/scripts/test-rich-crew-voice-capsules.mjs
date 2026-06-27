@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
-const DEFAULT_DATASET = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
+import { bundledCrewDatasetPairs } from '../../src/packages/bundled-package-registry.mjs';
 
 const root = process.cwd();
-const datasetPath = path.resolve(root, process.argv[2] || DEFAULT_DATASET);
-const dataset = JSON.parse(fs.readFileSync(datasetPath, 'utf8'));
+const datasetPaths = process.argv.length > 2
+  ? process.argv.slice(2).map((datasetPath) => path.resolve(root, datasetPath))
+  : bundledCrewDatasetPairs().map(([, datasetPath]) => path.resolve(root, datasetPath));
 
 const requiredFields = [
   'coreEngine',
@@ -42,6 +42,15 @@ const forbiddenRuntimeStyleReferences = [
 const spokenDialogueMarkers = /\b(?:don't|doesn't|didn't|can't|couldn't|wouldn't|isn't|aren't|I'm|you're|we're|they're|I've|we've|I'll|we'll|that's|there's|it's|won't|shouldn't|because|but|and|if|when|now|well|please|so|then)\b/i;
 
 const errors = [];
+let totalVoiceCards = 0;
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function rel(filePath) {
+  return path.relative(root, filePath).replaceAll(path.sep, '/');
+}
 
 function fail(location, message) {
   errors.push(`${location}: ${message}`);
@@ -167,43 +176,51 @@ function checkLineShapes(lineShapes, location) {
   }
 }
 
-const voiceCards = (dataset.cards || []).filter((card) => card.type === 'crew.voice');
-if (voiceCards.length === 0) {
-  fail('$.cards', 'must contain crew.voice cards');
+function validateDataset(dataset, datasetPath) {
+  const datasetLocation = rel(datasetPath);
+  const voiceCards = (dataset.cards || []).filter((card) => card.type === 'crew.voice');
+  totalVoiceCards += voiceCards.length;
+  if (voiceCards.length === 0) {
+    fail(`${datasetLocation} $.cards`, 'must contain crew.voice cards');
+  }
+
+  for (const card of voiceCards) {
+    const location = `${datasetLocation} $.cards[id=${card.id}]`;
+    if (!card.payload || !isObject(card.payload)) {
+      fail(`${location}.payload`, 'must be an object');
+      continue;
+    }
+    requireString(card.payload.summary, `${location}.payload.summary`);
+    if (card.payload.narratorSafe !== true) {
+      fail(`${location}.payload.narratorSafe`, 'must be true for active voice capsule hydration');
+    }
+
+    const capsule = card.payload.voiceCapsule;
+    if (!isObject(capsule)) {
+      fail(`${location}.payload.voiceCapsule`, 'must be an object');
+      continue;
+    }
+
+    for (const field of requiredFields) {
+      if (!(field in capsule)) {
+        fail(`${location}.payload.voiceCapsule.${field}`, 'is required');
+      }
+    }
+
+    requireString(capsule.coreEngine, `${location}.payload.voiceCapsule.coreEngine`);
+    requireString(capsule.contradiction, `${location}.payload.voiceCapsule.contradiction`);
+    requireStringArray(capsule.speechMechanics, `${location}.payload.voiceCapsule.speechMechanics`, 2);
+    requireStringArray(capsule.pressureShift, `${location}.payload.voiceCapsule.pressureShift`, 2);
+    requireStringArray(capsule.warmthHumor, `${location}.payload.voiceCapsule.warmthHumor`, 2);
+    requireStringArray(capsule.physicalTells, `${location}.payload.voiceCapsule.physicalTells`, 2);
+    requireStringArray(capsule.avoid, `${location}.payload.voiceCapsule.avoid`, 3);
+    checkLineShapes(capsule.exampleLineShapes, `${location}.payload.voiceCapsule.exampleLineShapes`);
+    checkForbiddenRuntimeReferences(capsule, `${location}.payload.voiceCapsule`);
+  }
 }
 
-for (const card of voiceCards) {
-  const location = `$.cards[id=${card.id}]`;
-  if (!card.payload || !isObject(card.payload)) {
-    fail(`${location}.payload`, 'must be an object');
-    continue;
-  }
-  requireString(card.payload.summary, `${location}.payload.summary`);
-  if (card.payload.narratorSafe !== true) {
-    fail(`${location}.payload.narratorSafe`, 'must be true for active voice capsule hydration');
-  }
-
-  const capsule = card.payload.voiceCapsule;
-  if (!isObject(capsule)) {
-    fail(`${location}.payload.voiceCapsule`, 'must be an object');
-    continue;
-  }
-
-  for (const field of requiredFields) {
-    if (!(field in capsule)) {
-      fail(`${location}.payload.voiceCapsule.${field}`, 'is required');
-    }
-  }
-
-  requireString(capsule.coreEngine, `${location}.payload.voiceCapsule.coreEngine`);
-  requireString(capsule.contradiction, `${location}.payload.voiceCapsule.contradiction`);
-  requireStringArray(capsule.speechMechanics, `${location}.payload.voiceCapsule.speechMechanics`, 2);
-  requireStringArray(capsule.pressureShift, `${location}.payload.voiceCapsule.pressureShift`, 2);
-  requireStringArray(capsule.warmthHumor, `${location}.payload.voiceCapsule.warmthHumor`, 2);
-  requireStringArray(capsule.physicalTells, `${location}.payload.voiceCapsule.physicalTells`, 2);
-  requireStringArray(capsule.avoid, `${location}.payload.voiceCapsule.avoid`, 3);
-  checkLineShapes(capsule.exampleLineShapes, `${location}.payload.voiceCapsule.exampleLineShapes`);
-  checkForbiddenRuntimeReferences(capsule, `${location}.payload.voiceCapsule`);
+for (const datasetPath of datasetPaths) {
+  validateDataset(readJson(datasetPath), datasetPath);
 }
 
 if (errors.length > 0) {
@@ -212,4 +229,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`Rich crew voice capsule validation passed for ${voiceCards.length} voice cards.`);
+console.log(`Rich crew voice capsule validation passed for ${totalVoiceCards} voice cards across ${datasetPaths.length} dataset(s).`);

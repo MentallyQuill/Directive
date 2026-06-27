@@ -139,6 +139,94 @@ const missionGraphs = [
     false,
     'A newer loaded/scoped revision must not be replaced by an older in-memory state.'
   );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        campaignChatBinding: {
+          ...staleScopedState.campaignChatBinding,
+          promptContextRevision: 22
+        },
+        turnLedger: { entries: [] },
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          revision: 11,
+          mechanicsRevision: 6,
+          modelCallJournal: [
+            { id: 'model-call.old' },
+            { id: 'model-call.prompt-refresh' },
+            { id: 'model-call.narration' }
+          ]
+        }
+      },
+      {
+        ...richerInMemoryState,
+        turnLedger: {
+          entries: [
+            { turnId: 'old-turn', outcomeId: 'old-outcome' },
+            { turnId: 'fresh-turn', outcomeId: 'fresh-outcome' }
+          ]
+        },
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          revision: 13,
+          mechanicsRevision: 8,
+          lastCommittedTurn: {
+            turnId: 'fresh-turn',
+            outcomeId: 'fresh-outcome',
+            responseStatus: 'pending'
+          }
+        }
+      },
+      { chatId: 'scope-freshness-chat' }
+    ),
+    true,
+    'Prompt/model-call-only stale writes must not replace a same-chat state with a committed turn ledger entry.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        turnLedger: {
+          entries: [
+            { turnId: 'old-turn', outcomeId: 'old-outcome' },
+            { turnId: 'fresh-turn', outcomeId: 'fresh-outcome' }
+          ]
+        },
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          revision: 13,
+          mechanicsRevision: 8,
+          lastCommittedTurn: {
+            turnId: 'fresh-turn',
+            outcomeId: 'fresh-outcome',
+            responseStatus: 'pending'
+          }
+        }
+      },
+      {
+        ...richerInMemoryState,
+        campaignChatBinding: {
+          ...richerInMemoryState.campaignChatBinding,
+          promptContextRevision: 30
+        },
+        turnLedger: { entries: [] },
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          revision: 14,
+          mechanicsRevision: 7,
+          modelCallJournal: [
+            { id: 'model-call.old' },
+            { id: 'model-call.prompt-refresh' },
+            { id: 'model-call.narration' }
+          ]
+        }
+      },
+      { chatId: 'scope-freshness-chat' }
+    ),
+    false,
+    'A same-chat mechanics checkpoint with a committed turn must beat a higher-revision prompt-only in-memory state.'
+  );
 }
 
 const host = createFakeDirectiveHost({

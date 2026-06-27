@@ -11,11 +11,18 @@
   "sources": [
     {
       "title": "Eudora Vale Senior Staff Character Bible",
-      "path": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md"
+      "path": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+      "role": "crew-source"
     },
     {
       "title": "Crew Dataset Contract",
-      "path": "docs/packages/CREW_DATASET_CONTRACT.md"
+      "path": "docs/packages/CREW_DATASET_CONTRACT.md",
+      "role": "dataset-contract"
+    },
+    {
+      "title": "Crew Dataset Rich Character Design",
+      "path": "docs/packages/CREW_DATASET_RICH_CHARACTER_DESIGN.md",
+      "role": "dataset-design"
     }
   ],
   "officers": [
@@ -27,7 +34,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -38,7 +47,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -49,7 +60,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -60,7 +73,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -71,7 +86,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -82,7 +99,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -93,7 +112,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -104,60 +125,62 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     }
   ],
   "relationshipDimensions": [
     {
       "id": "professionalConfidence",
-      "title": "ProfessionalConfidence",
       "visibility": "hidden",
-      "summary": "Hidden relationship dimension tracked by the crew Director."
+      "summary": "Hidden relationship dimension tracked by the crew Director.",
+      "label": "ProfessionalConfidence"
     },
     {
       "id": "integrityTrust",
-      "title": "IntegrityTrust",
       "visibility": "hidden",
-      "summary": "Hidden relationship dimension tracked by the crew Director."
+      "summary": "Hidden relationship dimension tracked by the crew Director.",
+      "label": "IntegrityTrust"
     },
     {
       "id": "personalRapport",
-      "title": "PersonalRapport",
       "visibility": "hidden",
-      "summary": "Hidden relationship dimension tracked by the crew Director."
+      "summary": "Hidden relationship dimension tracked by the crew Director.",
+      "label": "PersonalRapport"
     }
   ],
   "developmentDimensions": [
     {
       "id": "operationalExperience",
-      "title": "Operational Experience",
       "visibility": "hidden",
-      "summary": "Operational Experience is tracked as Director-only crew development state."
+      "summary": "Operational Experience is tracked as Director-only crew development state.",
+      "label": "Operational Experience"
     },
     {
       "id": "playerMentorship",
-      "title": "Player Mentorship",
       "visibility": "hidden",
-      "summary": "Player Mentorship is tracked as Director-only crew development state."
+      "summary": "Player Mentorship is tracked as Director-only crew development state.",
+      "label": "Player Mentorship"
     },
     {
       "id": "personalArcProgress",
-      "title": "Personal Arc Progress",
       "visibility": "hidden",
-      "summary": "Personal Arc Progress is tracked as Director-only crew development state."
+      "summary": "Personal Arc Progress is tracked as Director-only crew development state.",
+      "label": "Personal Arc Progress"
     },
     {
       "id": "commandConfidence",
-      "title": "Command Confidence",
       "visibility": "hidden",
-      "summary": "Command Confidence is tracked as Director-only crew development state."
+      "summary": "Command Confidence is tracked as Director-only crew development state.",
+      "label": "Command Confidence"
     },
     {
       "id": "professionalStrain",
-      "title": "Professional Strain",
       "visibility": "hidden",
-      "summary": "Professional Strain is tracked as Director-only crew development state."
+      "summary": "Professional Strain is tracked as Director-only crew development state.",
+      "label": "Professional Strain"
     }
   ],
   "cards": [
@@ -168,7 +191,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Nasrin Rhee"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -209,9 +235,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A respected, cautious captain who treats negotiated access and technical patience as command tools. She leads the opening shuttle evacuation and is killed after its passengers transport clear.",
+        "summary": "A respected, cautious captain who treats negotiated access and technical patience as command tools. She leads the opening shuttle evacuation and is killed after its passengers transport clear. In ensemble play, Nasrin Rhee sets command weather for the ship without turning every discussion into a loyalty test inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -227,7 +255,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Nasrin Rhee"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -268,15 +299,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Measured, economical, and attentive to who must live with a decision after the ship leaves. Rhee asks what can be defended publicly and what cannot yet be known.",
+        "summary": "Measured, economical, and attentive to who must live with a decision after the ship leaves. Rhee asks what can be defended publicly and what cannot yet be known. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.nasrin-rhee"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Nasrin Rhee tries to make lawful authority, succession, and public consequence serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that authority must be answerable after the emergency ends.",
+          "contradiction": "Nasrin Rhee's strength is also their blind spot: they can carry too much cost privately and confuse restraint with protection. The public presentation is controlled and attentive, but their care appears through specific trust, remembered details, and small private invitations back into the room.",
+          "speechMechanics": [
+            "Start from the existing voice note: Measured, economical, and attentive to who must live with a decision after the ship leaves. Rhee asks what can be defended publicly and what cannot yet be known.",
+            "Speaks through decision record, log, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry lawful authority, succession, and public consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Nasrin Rhee narrows to decision record, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the clean command answer before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through specific trust, remembered details, and small private invitations back into the room.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the second-best tea from the ready room, walk the quiet decks and make a private note about who looked less tired, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to decision record or log when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: walk the quiet decks and make a private note about who looked less tired."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean decision record, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the second-best tea from the ready room; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the clean command answer, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to walk the quiet decks and make a private note about who looked less tired, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my log doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "generic wise captain",
+            "icy procedural authority",
+            "monologue-first leadership",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -286,7 +453,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Nasrin Rhee"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -326,15 +496,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Nasrin Rhee gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.nasrin-rhee"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.nasrin-rhee.reveal",
+      "type": "crew.reveal",
+      "title": "Nasrin Rhee reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Nasrin Rhee"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "nasrin-rhee"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "command"
+        ],
+        "keywords": [
+          "Nasrin Rhee",
+          "Commanding Officer",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Nasrin Rhee fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.nasrin-rhee",
+          "crewDevelopment.nasrin-rhee.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.nasrin-rhee"
+        ]
       }
     },
     {
@@ -344,7 +588,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Nasrin Rhee"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -387,15 +634,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "legacy, command-privacy, accountability, unfinished-policy | The crew invokes her precedent Her logs complicate disclosure Her death makes ordinary captaincy rituals politically charged",
+        "summary": "Development vector: Nasrin Rhee can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. legacy, command-privacy, accountability, unfinished-policy | The crew invokes her precedent Her logs complicate disclosure Her death makes ordinary captaincy rituals politically charged.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.nasrin-rhee.development"
+          "crew.nasrin-rhee.development",
+          "crewDevelopment.nasrin-rhee.operationalExperience",
+          "crewDevelopment.nasrin-rhee.playerMentorship",
+          "crewDevelopment.nasrin-rhee.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.nasrin-rhee.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Nasrin Rhee command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Nasrin Rhee"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "nasrin-rhee"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "command"
+        ],
+        "keywords": [
+          "Nasrin Rhee",
+          "Commanding Officer",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Nasrin Rhee responds to player command style through lawful authority, succession, and public consequence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.nasrin-rhee",
+          "relationships.nasrin-rhee",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -405,7 +732,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Asha Ren"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -446,9 +776,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Organized, direct, and politically perceptive. Ren understands how operational schedules become power and is the strongest default candidate to become Acting XO.",
+        "summary": "Organized, direct, and politically perceptive. Ren understands how operational schedules become power and is the strongest default candidate to become Acting XO. In ensemble play, Asha Ren turns command intent into named owners, visible bottlenecks, and consequences that can be tracked inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -464,7 +796,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Asha Ren"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -505,15 +840,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Clear, compressed, and unsentimental about institutional language. Ren identifies who owns a process, who is excluded, and what decision is being disguised as administration.",
+        "summary": "Clear, compressed, and unsentimental about institutional language. Ren identifies who owns a process, who is excluded, and what decision is being disguised as administration. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.asha-ren"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Asha Ren tries to make dependencies, schedule ownership, access, and implementation serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that a promise without capacity is only a future breach.",
+          "contradiction": "Asha Ren's strength is also their blind spot: they can sound like they are protecting the schedule when they are protecting people from impossible orders. The public presentation is compressed and practical, but their care appears through quietly clearing a path for someone else to succeed and remembering who has been carrying extra load.",
+          "speechMechanics": [
+            "Start from the existing voice note: Clear, compressed, and unsentimental about institutional language. Ren identifies who owns a process, who is excluded, and what decision is being disguised as administration.",
+            "Speaks through allocation plan, dependency chart, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry dependencies, schedule ownership, access, and implementation without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Asha Ren narrows to allocation plan, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the clean dependency chart before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through quietly clearing a path for someone else to succeed and remembering who has been carrying extra load.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a ration bar split with whoever missed dinner, rebuild the shift board with unnecessary precision, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to allocation plan or dependency chart when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: rebuild the shift board with unnecessary precision."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean allocation plan, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a ration bar split with whoever missed dinner; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the clean dependency chart, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to rebuild the shift board with unnecessary precision, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my dependency chart doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "bureaucrat caricature",
+            "schedule as personality",
+            "competence without emotional texture",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -523,7 +994,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Asha Ren"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -563,15 +1037,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Asha Ren gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.asha-ren"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.asha-ren.reveal",
+      "type": "crew.reveal",
+      "title": "Asha Ren reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Asha Ren"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "asha-ren"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "operations"
+        ],
+        "keywords": [
+          "Asha Ren",
+          "Operations Chief and Second Officer; prospective Acting Executive Officer",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Asha Ren fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.asha-ren",
+          "crewDevelopment.asha-ren.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.asha-ren"
+        ]
       }
     },
     {
@@ -581,7 +1129,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Asha Ren"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -624,15 +1175,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "executive-authority, delegation, political-reading, loyal-dissent | Must run the ship while the player governs the system Challenges informal commitments that lack implementation May decline or redefine the acting XO role",
+        "summary": "Development vector: Asha Ren can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. executive-authority, delegation, political-reading, loyal-dissent | Must run the ship while the player governs the system Challenges informal commitments that lack implementation May decline or redefine the acting XO role.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.asha-ren.development"
+          "crew.asha-ren.development",
+          "crewDevelopment.asha-ren.operationalExperience",
+          "crewDevelopment.asha-ren.playerMentorship",
+          "crewDevelopment.asha-ren.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.asha-ren.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Asha Ren command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Asha Ren"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "asha-ren"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "operations"
+        ],
+        "keywords": [
+          "Asha Ren",
+          "Operations Chief and Second Officer; prospective Acting Executive Officer",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Asha Ren responds to player command style through dependencies, schedule ownership, access, and implementation: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.asha-ren",
+          "relationships.asha-ren",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -642,7 +1273,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Haro ch'Veth"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -683,9 +1317,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Energetic, empirical, and impatient with ceremonial assurances. He can model the lattice at system scale but dislikes treating uncertainty as political permission to conceal data.",
+        "summary": "Energetic, empirical, and impatient with ceremonial assurances. He can model the lattice at system scale but dislikes treating uncertainty as political permission to conceal data. In ensemble play, Haro ch'Veth keeps the room honest about what is measured, what is inferred, and what is being wished into certainty inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -701,7 +1337,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Haro ch'Veth"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -742,15 +1381,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Fast, precise, and openly skeptical. ch'Veth separates measurements from policy and states confidence levels even when the room wants certainty.",
+        "summary": "Fast, precise, and openly skeptical. ch'Veth separates measurements from policy and states confidence levels even when the room wants certainty. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.haro-chveth"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Haro ch'Veth tries to make measurement, inference, uncertainty, and the ethics of public knowledge serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that truth has to remain useful without becoming reckless.",
+          "contradiction": "Haro ch'Veth's strength is also their blind spot: they can make the clean model sound more patient than the people waiting on it. The public presentation is precise and intent, but their care appears through teaching the uncertainty instead of weaponizing it, and noticing when someone finally asks the better question.",
+          "speechMechanics": [
+            "Start from the existing voice note: Fast, precise, and openly skeptical. ch'Veth separates measurements from policy and states confidence levels even when the room wants certainty.",
+            "Speaks through model, confidence band, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry measurement, inference, uncertainty, and the ethics of public knowledge without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Haro ch'Veth narrows to model, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the elegant model before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through teaching the uncertainty instead of weaponizing it, and noticing when someone finally asks the better question.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the calibration notes and a mug that has seen better labs, re-label a messy data set until it stops irritating them, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to model or confidence band when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: re-label a messy data set until it stops irritating them."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean model, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the calibration notes and a mug that has seen better labs; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the elegant model, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to re-label a messy data set until it stops irritating them, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my confidence band doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "truth-machine scientist",
+            "condescending exposition engine",
+            "certainty as a personality",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -760,7 +1535,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Haro ch'Veth"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -800,15 +1578,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Haro ch'Veth gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.haro-chveth"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.haro-chveth.reveal",
+      "type": "crew.reveal",
+      "title": "Haro ch'Veth reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Haro ch'Veth"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "haro-chveth"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "science"
+        ],
+        "keywords": [
+          "Haro ch'Veth",
+          "Chief Science Officer and Climatologist",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Haro ch'Veth fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.haro-chveth",
+          "crewDevelopment.haro-chveth.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.haro-chveth"
+        ]
       }
     },
     {
@@ -818,7 +1670,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Haro ch'Veth"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -861,15 +1716,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "scientific-candor, transition-risk, public-communication, ecological-systems | Advocates broad telemetry access Disputes secrecy with Fenn and Osei Can overvalue elegant models",
+        "summary": "Development vector: Haro ch'Veth can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. scientific-candor, transition-risk, public-communication, ecological-systems | Advocates broad telemetry access Disputes secrecy with Fenn and Osei Can overvalue elegant models.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.haro-chveth.development"
+          "crew.haro-chveth.development",
+          "crewDevelopment.haro-chveth.operationalExperience",
+          "crewDevelopment.haro-chveth.playerMentorship",
+          "crewDevelopment.haro-chveth.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.haro-chveth.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Haro ch'Veth command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Haro ch'Veth"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "haro-chveth"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "science"
+        ],
+        "keywords": [
+          "Haro ch'Veth",
+          "Chief Science Officer and Climatologist",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Haro ch'Veth responds to player command style through measurement, inference, uncertainty, and the ethics of public knowledge: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.haro-chveth",
+          "relationships.haro-chveth",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -879,7 +1814,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Milo Fenn"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -920,9 +1858,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "An imaginative systems architect with a dry manner. Fenn sees the lattice as one machine distributed across five societies and is cautious about destabilizing it faster than alternatives can be built.",
+        "summary": "An imaginative systems architect with a dry manner. Fenn sees the lattice as one machine distributed across five societies and is cautious about destabilizing it faster than alternatives can be built. In ensemble play, Milo Fenn turns moral promises into the hours, parts, people, and failure margins they actually require inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -938,7 +1878,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Milo Fenn"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -979,15 +1922,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Dry, concrete, and diagram-minded. Fenn turns policy into load paths, failure margins, fabrication hours, and the location where a promised compromise will physically break.",
+        "summary": "Dry, concrete, and diagram-minded. Fenn turns policy into load paths, failure margins, fabrication hours, and the location where a promised compromise will physically break. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.milo-fenn"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Milo Fenn tries to make repair debt, fabrication limits, heat, stress, and practical consequence serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that a repair that cannot be maintained is only a delayed failure.",
+          "contradiction": "Milo Fenn's strength is also their blind spot: they can make sustainability sound like refusal when they are actually trying to keep future options alive. The public presentation is dry and concrete, but their care appears through showing someone how the system works and making room for a junior fix that changes the plan.",
+          "speechMechanics": [
+            "Start from the existing voice note: Dry, concrete, and diagram-minded. Fenn turns policy into load paths, failure margins, fabrication hours, and the location where a promised compromise will physically break.",
+            "Speaks through repair schedule, load path, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry repair debt, fabrication limits, heat, stress, and practical consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Milo Fenn narrows to repair schedule, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the tidy load path before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through showing someone how the system works and making room for a junior fix that changes the plan.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a lukewarm cup balanced nowhere regulations would approve, put the tool locker back in an order only they find soothing, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to repair schedule or load path when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: put the tool locker back in an order only they find soothing."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean repair schedule, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a lukewarm cup balanced nowhere regulations would approve; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the tidy load path, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to put the tool locker back in an order only they find soothing, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my load path doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "miracle-worker engineer",
+            "complaint as the only trait",
+            "tech debt without human cost",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -997,7 +2076,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Milo Fenn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1037,15 +2119,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Milo Fenn gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.milo-fenn"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.milo-fenn.reveal",
+      "type": "crew.reveal",
+      "title": "Milo Fenn reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Milo Fenn"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "milo-fenn"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "engineering"
+        ],
+        "keywords": [
+          "Milo Fenn",
+          "Chief Engineer",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Milo Fenn fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.milo-fenn",
+          "crewDevelopment.milo-fenn.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.milo-fenn"
+        ]
       }
     },
     {
@@ -1055,7 +2211,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Milo Fenn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1098,15 +2257,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "engineering-candor, culpability, repair-before-disclosure, mentorship | Needs scarce feedstock Argues for staged change Must decide whether to disclose his prior certification before others find it",
+        "summary": "Development vector: Milo Fenn can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. engineering-candor, culpability, repair-before-disclosure, mentorship | Needs scarce feedstock Argues for staged change Must decide whether to disclose his prior certification before others find it.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.milo-fenn.development"
+          "crew.milo-fenn.development",
+          "crewDevelopment.milo-fenn.operationalExperience",
+          "crewDevelopment.milo-fenn.playerMentorship",
+          "crewDevelopment.milo-fenn.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.milo-fenn.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Milo Fenn command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Milo Fenn"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "milo-fenn"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "engineering"
+        ],
+        "keywords": [
+          "Milo Fenn",
+          "Chief Engineer",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Milo Fenn responds to player command style through repair debt, fabrication limits, heat, stress, and practical consequence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.milo-fenn",
+          "relationships.milo-fenn",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1116,7 +2355,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ila Tovan"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1157,9 +2399,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Measured and attentive to population effects. Tovan treats environmental allocation as triage and resists technical language that hides who becomes sick, displaced, or infertile.",
+        "summary": "Measured and attentive to population effects. Tovan treats environmental allocation as triage and resists technical language that hides who becomes sick, displaced, or infertile. In ensemble play, Ila Tovan keeps the body count, patient autonomy, and long-term damage inside the command conversation inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1175,7 +2419,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ila Tovan"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1216,15 +2463,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Quiet, exact, and difficult to deflect. Tovan distinguishes reversible discomfort, chronic harm, acute mortality, and political embarrassment.",
+        "summary": "Quiet, exact, and difficult to deflect. Tovan distinguishes reversible discomfort, chronic harm, acute mortality, and political embarrassment. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.ila-tovan"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Ila Tovan tries to make triage, consent, chronic harm, and medical independence serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that a saved life cannot be treated as an administrative inconvenience afterward.",
+          "contradiction": "Ila Tovan's strength is also their blind spot: they can make necessary limits sound colder than the care behind them. The public presentation is quiet and difficult to deflect, but their care appears through remembering patient details, protecting consent, and making tired people sit down before they collapse.",
+          "speechMechanics": [
+            "Start from the existing voice note: Quiet, exact, and difficult to deflect. Tovan distinguishes reversible discomfort, chronic harm, acute mortality, and political embarrassment.",
+            "Speaks through triage board, consent line, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry triage, consent, chronic harm, and medical independence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Ila Tovan narrows to triage board, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the guarded diagnosis before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through remembering patient details, protecting consent, and making tired people sit down before they collapse.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include sickbay tea that tastes better than it looks, inventory the small comforts sickbay keeps unofficially, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to triage board or consent line when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: inventory the small comforts sickbay keeps unofficially."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean triage board, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought sickbay tea that tastes better than it looks; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the guarded diagnosis, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to inventory the small comforts sickbay keeps unofficially, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my consent line doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "saintly doctor",
+            "moral lecture as default",
+            "diagnosis replacing character",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1234,7 +2617,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ila Tovan"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1274,15 +2660,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Ila Tovan gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.ila-tovan"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.ila-tovan.reveal",
+      "type": "crew.reveal",
+      "title": "Ila Tovan reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ila Tovan"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ila-tovan"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "medical"
+        ],
+        "keywords": [
+          "Ila Tovan",
+          "Chief Medical Officer and Public-Health Specialist",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Ila Tovan fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ila-tovan",
+          "crewDevelopment.ila-tovan.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.ila-tovan"
+        ]
       }
     },
     {
@@ -1292,7 +2752,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ila Tovan"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1335,15 +2798,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "population-triage, medical-independence, reparations, consent | Nacre registries are incomplete Medical supplies compete with processor parts Can refuse to certify a lethal allocation as safe",
+        "summary": "Development vector: Ila Tovan can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. population-triage, medical-independence, reparations, consent | Nacre registries are incomplete Medical supplies compete with processor parts Can refuse to certify a lethal allocation as safe.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.ila-tovan.development"
+          "crew.ila-tovan.development",
+          "crewDevelopment.ila-tovan.operationalExperience",
+          "crewDevelopment.ila-tovan.playerMentorship",
+          "crewDevelopment.ila-tovan.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.ila-tovan.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Ila Tovan command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ila Tovan"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ila-tovan"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "medical"
+        ],
+        "keywords": [
+          "Ila Tovan",
+          "Chief Medical Officer and Public-Health Specialist",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Ila Tovan responds to player command style through triage, consent, chronic harm, and medical independence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ila-tovan",
+          "relationships.ila-tovan",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1353,7 +2896,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Koris zh'Raal"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1394,9 +2940,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Disciplined, restrained, and experienced in civil disorder. zh'Raal expects sabotage and coercion to increase but does not want the Eudora Vale used as an occupying police force.",
+        "summary": "Disciplined, restrained, and experienced in civil disorder. zh'Raal expects sabotage and coercion to increase but does not want the Eudora Vale used as an occupying police force. In ensemble play, Koris zh'Raal names what a hostile actor can do without pretending every civilian is already hostile inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1412,7 +2960,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Koris zh'Raal"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1453,15 +3004,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Controlled, specific, and procedural. zh'Raal distinguishes a dangerous person, a dangerous crowd, and an authority trying to call dissent a security problem.",
+        "summary": "Controlled, specific, and procedural. zh'Raal distinguishes a dangerous person, a dangerous crowd, and an authority trying to call dissent a security problem. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.koris-zhraal"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Koris zh'Raal tries to make threat paths, custody, force boundaries, and civilian protection serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that protection must remain accountable while danger is still real.",
+          "contradiction": "Koris zh'Raal's strength is also their blind spot: they can trust a hardened boundary more quickly than a fragile relationship. The public presentation is spare and operational, but their care appears through consistent protection, clean apologies after overreach, and private respect for people who hold a line well.",
+          "speechMechanics": [
+            "Start from the existing voice note: Controlled, specific, and procedural. zh'Raal distinguishes a dangerous person, a dangerous crowd, and an authority trying to call dissent a security problem.",
+            "Speaks through threat path, custody chain, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry threat paths, custody, force boundaries, and civilian protection without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Koris zh'Raal narrows to threat path, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the hardened boundary before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through consistent protection, clean apologies after overreach, and private respect for people who hold a line well.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the watch board and coffee strong enough to make it legal, rewrite the watch bill so the tired people stop being invisible, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to threat path or custody chain when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: rewrite the watch bill so the tired people stop being invisible."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean threat path, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the watch board and coffee strong enough to make it legal; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the hardened boundary, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to rewrite the watch bill so the tired people stop being invisible, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my custody chain doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reflexive militarist",
+            "threat theater",
+            "suspicion without proportionality",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1471,7 +3158,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Koris zh'Raal"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1511,15 +3201,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Koris zh'Raal gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.koris-zhraal"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.koris-zhraal.reveal",
+      "type": "crew.reveal",
+      "title": "Koris zh'Raal reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Koris zh'Raal"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "koris-zhraal"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "security"
+        ],
+        "keywords": [
+          "Koris zh'Raal",
+          "Chief Tactical and Security Officer",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Koris zh'Raal fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.koris-zhraal",
+          "crewDevelopment.koris-zhraal.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.koris-zhraal"
+        ]
       }
     },
     {
@@ -1529,7 +3293,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Koris zh'Raal"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1572,15 +3339,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "proportional-force, civil-order, local-partners, evidence-security | Node seizures blur sabotage and labor action Local security requests tactical backing Evidence custody can conflict with rescue",
+        "summary": "Development vector: Koris zh'Raal can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. proportional-force, civil-order, local-partners, evidence-security | Node seizures blur sabotage and labor action Local security requests tactical backing Evidence custody can conflict with rescue.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.koris-zhraal.development"
+          "crew.koris-zhraal.development",
+          "crewDevelopment.koris-zhraal.operationalExperience",
+          "crewDevelopment.koris-zhraal.playerMentorship",
+          "crewDevelopment.koris-zhraal.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.koris-zhraal.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Koris zh'Raal command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Koris zh'Raal"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "koris-zhraal"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "security"
+        ],
+        "keywords": [
+          "Koris zh'Raal",
+          "Chief Tactical and Security Officer",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Koris zh'Raal responds to player command style through threat paths, custody, force boundaries, and civilian protection: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.koris-zhraal",
+          "relationships.koris-zhraal",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1590,7 +3437,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Jaya Kel"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1631,9 +3481,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Calm, practical, and highly familiar with orbital traffic. Kel planned the shuttle corridor used in the opening evacuation and responds to Rhee's death by trying to control every variable.",
+        "summary": "Calm, practical, and highly familiar with orbital traffic. Kel planned the shuttle corridor used in the opening evacuation and responds to Rhee's death by trying to control every variable. In ensemble play, Jaya Kel makes distance, timing, and ship handling felt as choices rather than map labels inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1649,7 +3501,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Jaya Kel"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1690,15 +3545,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Brief, spatial, and practical. Kel describes vectors, windows, traffic behavior, and the one assumption in a plan most likely to become false.",
+        "summary": "Brief, spatial, and practical. Kel describes vectors, windows, traffic behavior, and the one assumption in a plan most likely to become false. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.jaya-kel"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Jaya Kel tries to make routes, margins, practiced memory, and embodied risk serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that skill should expand command options without becoming an exemption from judgment.",
+          "contradiction": "Jaya Kel's strength is also their blind spot: they can defend the maneuver when the real wound is whether command trusts their judgment. The public presentation is loose until danger sharpens them, but their care appears through sharing route lore, giving junior pilots credit, and making fear breathable with one quick aside.",
+          "speechMechanics": [
+            "Start from the existing voice note: Brief, spatial, and practical. Kel describes vectors, windows, traffic behavior, and the one assumption in a plan most likely to become false.",
+            "Speaks through approach vector, flight margin, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry routes, margins, practiced memory, and embodied risk without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Jaya Kel narrows to approach vector, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the beautiful approach before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through sharing route lore, giving junior pilots credit, and making fear breathable with one quick aside.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a sim log with too many personal annotations, fly the route again in simulation and pretend it was recreation, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to approach vector or flight margin when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: fly the route again in simulation and pretend it was recreation."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean approach vector, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a sim log with too many personal annotations; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the beautiful approach, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to fly the route again in simulation and pretend it was recreation, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my flight margin doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reckless pilot caricature",
+            "constant swagger",
+            "skill without accountability",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1708,7 +3699,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Jaya Kel"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1748,15 +3742,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Jaya Kel gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.jaya-kel"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.jaya-kel.reveal",
+      "type": "crew.reveal",
+      "title": "Jaya Kel reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Jaya Kel"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "jaya-kel"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "flight"
+        ],
+        "keywords": [
+          "Jaya Kel",
+          "Chief Flight Control Officer",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Jaya Kel fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.jaya-kel",
+          "crewDevelopment.jaya-kel.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.jaya-kel"
+        ]
       }
     },
     {
@@ -1766,7 +3834,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Jaya Kel"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1809,15 +3880,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "flight-confidence, grief, delegation, traffic-command | Conditional routes become political chokepoints She may resist delegating shuttle work Orbital demonstrations complicate safe transit",
+        "summary": "Development vector: Jaya Kel can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. flight-confidence, grief, delegation, traffic-command | Conditional routes become political chokepoints She may resist delegating shuttle work Orbital demonstrations complicate safe transit.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.jaya-kel.development"
+          "crew.jaya-kel.development",
+          "crewDevelopment.jaya-kel.operationalExperience",
+          "crewDevelopment.jaya-kel.playerMentorship",
+          "crewDevelopment.jaya-kel.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.jaya-kel.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Jaya Kel command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Jaya Kel"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "jaya-kel"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "flight"
+        ],
+        "keywords": [
+          "Jaya Kel",
+          "Chief Flight Control Officer",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Jaya Kel responds to player command style through routes, margins, practiced memory, and embodied risk: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.jaya-kel",
+          "relationships.jaya-kel",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1827,7 +3978,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Venn Talar"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1868,9 +4022,11 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Candid, low-key, and skilled at group process. Talar warns that system consensus often means the most powerful worlds agree with one another.",
+        "summary": "Candid, low-key, and skilled at group process. Talar warns that system consensus often means the most powerful worlds agree with one another. In ensemble play, Venn Talar keeps the room aware of what fear, pride, grief, and public legitimacy are doing to the facts inside a familiar crew testing what the former XO becomes when captaincy is no longer theoretical.",
         "constraints": [
-          "Use as player-safe crew context; do not write for the player."
+          "Use as player-safe crew context; do not write for the player.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1886,7 +4042,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Venn Talar"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1927,15 +4086,151 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "Plain, patient, and lightly ironic. Talar names emotional facts without claiming telepathic certainty and asks who is absent from the room.",
+        "summary": "Plain, patient, and lightly ironic. Talar names emotional facts without claiming telepathic certainty and asks who is absent from the room. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Keep dialogue consistent with the officer bible and never make the player speak."
+          "Keep dialogue consistent with the officer bible and never make the player speak.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.venn-talar"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Venn Talar tries to make trust, testimony, consent, negotiation, and emotional consequence serve known-crew memory, water allocation, public disclosure, and the burden of succession. Their judgment is driven by the belief that truth lands differently depending on who is safe enough to hear it.",
+          "contradiction": "Venn Talar's strength is also their blind spot: they can overestimate what careful language can repair once harm is already public. The public presentation is patient and perceptive, but their care appears through offering choices, remembering boundaries, and letting silence do work without making it punitive.",
+          "speechMechanics": [
+            "Start from the existing voice note: Plain, patient, and lightly ironic. Talar names emotional facts without claiming telepathic certainty and asks who is absent from the room.",
+            "Speaks through trust map, consent boundary, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry trust, testimony, consent, negotiation, and emotional consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Venn Talar narrows to trust map, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the careful room before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through offering choices, remembering boundaries, and letting silence do work without making it punitive.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the quiet cup nobody has to explain, make a private note about who finally stopped performing strength, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to trust map or consent boundary when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: make a private note about who finally stopped performing strength."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around Nacre access is politically loaded",
+              "shape": "I can give you the clean trust map, but it won't answer who carries the cost after Rhee no longer stands beside them.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the quiet cup nobody has to explain; if we're going to argue about Nacre access, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the careful room, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to make a private note about who finally stopped performing strength, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my consent boundary doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether water access can be repaired without another quiet bargain, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "mind-reader counselor",
+            "softness without rigor",
+            "therapy-speak as a substitute for voice",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1945,7 +4240,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Venn Talar"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1985,15 +4283,89 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
+        "summary": "Relationship texture: Venn Talar gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role; the player's first independent captaincy has not yet been tested. IntegrityTrust: Begins with Starfleet professional trust and changes through candor, accountability, and treatment of hidden costs. PersonalRapport: Familiar from prior XO service, but transformed by the succession and Rhee's death.",
         "constraints": [
-          "Relationship values are hidden; show behavior, not numbers."
+          "Relationship values are hidden; show behavior, not numbers.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
           "relationships.venn-talar"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.venn-talar.reveal",
+      "type": "crew.reveal",
+      "title": "Venn Talar reveal ladder",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Venn Talar"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "venn-talar"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "medical"
+        ],
+        "keywords": [
+          "Venn Talar",
+          "Counselor and Diplomatic Support Officer",
+          "the lattice",
+          "Nacre access",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Venn Talar fears loyalty to Rhee will become a substitute for accountable command in the present, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.venn-talar",
+          "crewDevelopment.venn-talar.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.venn-talar"
+        ]
       }
     },
     {
@@ -2003,7 +4375,10 @@
       "datasetId": "eudora-vale.senior-staff",
       "source": {
         "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Venn Talar"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -2046,15 +4421,95 @@
         "priority": "normal"
       },
       "payload": {
-        "summary": "group-process, crew-grief, public-legitimacy, exclusion | Crew needs space for Rhee Summits can become theater Telepathic boundaries matter during high emotion",
+        "summary": "Development vector: Venn Talar can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. group-process, crew-grief, public-legitimacy, exclusion | Crew needs space for Rhee Summits can become theater Telepathic boundaries matter during high emotion.",
         "constraints": [
-          "Use as Director-only arc material until revealed in play."
+          "Use as Director-only arc material until revealed in play.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.venn-talar.development"
+          "crew.venn-talar.development",
+          "crewDevelopment.venn-talar.operationalExperience",
+          "crewDevelopment.venn-talar.playerMentorship",
+          "crewDevelopment.venn-talar.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.venn-talar.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Venn Talar command style reaction",
+      "datasetId": "eudora-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Venn Talar"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "venn-talar"
+        ],
+        "missions": [
+          "prelude-the-captains-chair"
+        ],
+        "campaigns": [
+          "broken-accord"
+        ],
+        "stardateFrom": 55291.4
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "medical"
+        ],
+        "keywords": [
+          "Venn Talar",
+          "Counselor and Diplomatic Support Officer",
+          "known-crew memory, water allocation, public disclosure, and the burden of succession",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Venn Talar responds to player command style through trust, testimony, consent, negotiation, and emotional consequence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn known-crew memory, water allocation, public disclosure, and the burden of succession into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.venn-talar",
+          "relationships.venn-talar",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     }
   ],
@@ -2064,49 +4519,65 @@
         "crew.nasrin-rhee.profile",
         "crew.nasrin-rhee.voice",
         "crew.nasrin-rhee.relationship",
-        "crew.nasrin-rhee.development"
+        "crew.nasrin-rhee.reveal",
+        "crew.nasrin-rhee.development",
+        "crew.nasrin-rhee.style-reaction"
       ],
       "asha-ren": [
         "crew.asha-ren.profile",
         "crew.asha-ren.voice",
         "crew.asha-ren.relationship",
-        "crew.asha-ren.development"
+        "crew.asha-ren.reveal",
+        "crew.asha-ren.development",
+        "crew.asha-ren.style-reaction"
       ],
       "haro-chveth": [
         "crew.haro-chveth.profile",
         "crew.haro-chveth.voice",
         "crew.haro-chveth.relationship",
-        "crew.haro-chveth.development"
+        "crew.haro-chveth.reveal",
+        "crew.haro-chveth.development",
+        "crew.haro-chveth.style-reaction"
       ],
       "milo-fenn": [
         "crew.milo-fenn.profile",
         "crew.milo-fenn.voice",
         "crew.milo-fenn.relationship",
-        "crew.milo-fenn.development"
+        "crew.milo-fenn.reveal",
+        "crew.milo-fenn.development",
+        "crew.milo-fenn.style-reaction"
       ],
       "ila-tovan": [
         "crew.ila-tovan.profile",
         "crew.ila-tovan.voice",
         "crew.ila-tovan.relationship",
-        "crew.ila-tovan.development"
+        "crew.ila-tovan.reveal",
+        "crew.ila-tovan.development",
+        "crew.ila-tovan.style-reaction"
       ],
       "koris-zhraal": [
         "crew.koris-zhraal.profile",
         "crew.koris-zhraal.voice",
         "crew.koris-zhraal.relationship",
-        "crew.koris-zhraal.development"
+        "crew.koris-zhraal.reveal",
+        "crew.koris-zhraal.development",
+        "crew.koris-zhraal.style-reaction"
       ],
       "jaya-kel": [
         "crew.jaya-kel.profile",
         "crew.jaya-kel.voice",
         "crew.jaya-kel.relationship",
-        "crew.jaya-kel.development"
+        "crew.jaya-kel.reveal",
+        "crew.jaya-kel.development",
+        "crew.jaya-kel.style-reaction"
       ],
       "venn-talar": [
         "crew.venn-talar.profile",
         "crew.venn-talar.voice",
         "crew.venn-talar.relationship",
-        "crew.venn-talar.development"
+        "crew.venn-talar.reveal",
+        "crew.venn-talar.development",
+        "crew.venn-talar.style-reaction"
       ]
     },
     "byType": {
@@ -2140,6 +4611,16 @@
         "crew.jaya-kel.relationship",
         "crew.venn-talar.relationship"
       ],
+      "crew.reveal": [
+        "crew.nasrin-rhee.reveal",
+        "crew.asha-ren.reveal",
+        "crew.haro-chveth.reveal",
+        "crew.milo-fenn.reveal",
+        "crew.ila-tovan.reveal",
+        "crew.koris-zhraal.reveal",
+        "crew.jaya-kel.reveal",
+        "crew.venn-talar.reveal"
+      ],
       "crew.development": [
         "crew.nasrin-rhee.development",
         "crew.asha-ren.development",
@@ -2149,6 +4630,16 @@
         "crew.koris-zhraal.development",
         "crew.jaya-kel.development",
         "crew.venn-talar.development"
+      ],
+      "command.styleReaction": [
+        "crew.nasrin-rhee.style-reaction",
+        "crew.asha-ren.style-reaction",
+        "crew.haro-chveth.style-reaction",
+        "crew.milo-fenn.style-reaction",
+        "crew.ila-tovan.style-reaction",
+        "crew.koris-zhraal.style-reaction",
+        "crew.jaya-kel.style-reaction",
+        "crew.venn-talar.style-reaction"
       ]
     },
     "byAudience": {
@@ -2156,69 +4647,101 @@
         "crew.nasrin-rhee.profile",
         "crew.nasrin-rhee.voice",
         "crew.nasrin-rhee.relationship",
+        "crew.nasrin-rhee.reveal",
         "crew.nasrin-rhee.development",
+        "crew.nasrin-rhee.style-reaction",
         "crew.asha-ren.profile",
         "crew.asha-ren.voice",
         "crew.asha-ren.relationship",
+        "crew.asha-ren.reveal",
         "crew.asha-ren.development",
+        "crew.asha-ren.style-reaction",
         "crew.haro-chveth.profile",
         "crew.haro-chveth.voice",
         "crew.haro-chveth.relationship",
+        "crew.haro-chveth.reveal",
         "crew.haro-chveth.development",
+        "crew.haro-chveth.style-reaction",
         "crew.milo-fenn.profile",
         "crew.milo-fenn.voice",
         "crew.milo-fenn.relationship",
+        "crew.milo-fenn.reveal",
         "crew.milo-fenn.development",
+        "crew.milo-fenn.style-reaction",
         "crew.ila-tovan.profile",
         "crew.ila-tovan.voice",
         "crew.ila-tovan.relationship",
+        "crew.ila-tovan.reveal",
         "crew.ila-tovan.development",
+        "crew.ila-tovan.style-reaction",
         "crew.koris-zhraal.profile",
         "crew.koris-zhraal.voice",
         "crew.koris-zhraal.relationship",
+        "crew.koris-zhraal.reveal",
         "crew.koris-zhraal.development",
+        "crew.koris-zhraal.style-reaction",
         "crew.jaya-kel.profile",
         "crew.jaya-kel.voice",
         "crew.jaya-kel.relationship",
+        "crew.jaya-kel.reveal",
         "crew.jaya-kel.development",
+        "crew.jaya-kel.style-reaction",
         "crew.venn-talar.profile",
         "crew.venn-talar.voice",
         "crew.venn-talar.relationship",
-        "crew.venn-talar.development"
+        "crew.venn-talar.reveal",
+        "crew.venn-talar.development",
+        "crew.venn-talar.style-reaction"
       ],
       "missionDirector": [
         "crew.nasrin-rhee.profile",
         "crew.nasrin-rhee.voice",
         "crew.nasrin-rhee.relationship",
+        "crew.nasrin-rhee.reveal",
         "crew.nasrin-rhee.development",
+        "crew.nasrin-rhee.style-reaction",
         "crew.asha-ren.profile",
         "crew.asha-ren.voice",
         "crew.asha-ren.relationship",
+        "crew.asha-ren.reveal",
         "crew.asha-ren.development",
+        "crew.asha-ren.style-reaction",
         "crew.haro-chveth.profile",
         "crew.haro-chveth.voice",
         "crew.haro-chveth.relationship",
+        "crew.haro-chveth.reveal",
         "crew.haro-chveth.development",
+        "crew.haro-chveth.style-reaction",
         "crew.milo-fenn.profile",
         "crew.milo-fenn.voice",
         "crew.milo-fenn.relationship",
+        "crew.milo-fenn.reveal",
         "crew.milo-fenn.development",
+        "crew.milo-fenn.style-reaction",
         "crew.ila-tovan.profile",
         "crew.ila-tovan.voice",
         "crew.ila-tovan.relationship",
+        "crew.ila-tovan.reveal",
         "crew.ila-tovan.development",
+        "crew.ila-tovan.style-reaction",
         "crew.koris-zhraal.profile",
         "crew.koris-zhraal.voice",
         "crew.koris-zhraal.relationship",
+        "crew.koris-zhraal.reveal",
         "crew.koris-zhraal.development",
+        "crew.koris-zhraal.style-reaction",
         "crew.jaya-kel.profile",
         "crew.jaya-kel.voice",
         "crew.jaya-kel.relationship",
+        "crew.jaya-kel.reveal",
         "crew.jaya-kel.development",
+        "crew.jaya-kel.style-reaction",
         "crew.venn-talar.profile",
         "crew.venn-talar.voice",
         "crew.venn-talar.relationship",
-        "crew.venn-talar.development"
+        "crew.venn-talar.reveal",
+        "crew.venn-talar.development",
+        "crew.venn-talar.style-reaction"
       ],
       "narrator": [
         "crew.nasrin-rhee.profile",
@@ -2237,6 +4760,16 @@
         "crew.jaya-kel.voice",
         "crew.venn-talar.profile",
         "crew.venn-talar.voice"
+      ],
+      "commandDirector": [
+        "crew.nasrin-rhee.style-reaction",
+        "crew.asha-ren.style-reaction",
+        "crew.haro-chveth.style-reaction",
+        "crew.milo-fenn.style-reaction",
+        "crew.ila-tovan.style-reaction",
+        "crew.koris-zhraal.style-reaction",
+        "crew.jaya-kel.style-reaction",
+        "crew.venn-talar.style-reaction"
       ]
     },
     "byRevealGate": {
@@ -2252,23 +4785,39 @@
       ],
       "professionalConversation": [
         "crew.nasrin-rhee.voice",
+        "crew.nasrin-rhee.style-reaction",
         "crew.asha-ren.voice",
+        "crew.asha-ren.style-reaction",
         "crew.haro-chveth.voice",
+        "crew.haro-chveth.style-reaction",
         "crew.milo-fenn.voice",
+        "crew.milo-fenn.style-reaction",
         "crew.ila-tovan.voice",
+        "crew.ila-tovan.style-reaction",
         "crew.koris-zhraal.voice",
+        "crew.koris-zhraal.style-reaction",
         "crew.jaya-kel.voice",
-        "crew.venn-talar.voice"
+        "crew.jaya-kel.style-reaction",
+        "crew.venn-talar.voice",
+        "crew.venn-talar.style-reaction"
       ],
       "highTrust": [
         "crew.nasrin-rhee.relationship",
+        "crew.nasrin-rhee.reveal",
         "crew.asha-ren.relationship",
+        "crew.asha-ren.reveal",
         "crew.haro-chveth.relationship",
+        "crew.haro-chveth.reveal",
         "crew.milo-fenn.relationship",
+        "crew.milo-fenn.reveal",
         "crew.ila-tovan.relationship",
+        "crew.ila-tovan.reveal",
         "crew.koris-zhraal.relationship",
+        "crew.koris-zhraal.reveal",
         "crew.jaya-kel.relationship",
-        "crew.venn-talar.relationship"
+        "crew.jaya-kel.reveal",
+        "crew.venn-talar.relationship",
+        "crew.venn-talar.reveal"
       ],
       "crisisDisclosure": [
         "crew.nasrin-rhee.development",

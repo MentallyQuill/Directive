@@ -99,7 +99,7 @@ Coverage groups:
 
 `test-crew-bplots.mjs` proves senior-staff B-plot hook derivation, coalition/objection rules, hidden relationship memory updates, and mission graph links for crew arcs.
 
-`test-rich-crew-voice-capsules.mjs` proves bundled senior-staff voice cards carry rich narrator-safe voice capsules with required personality axes, speakable line shapes, and no named-author or style-copying prompt references.
+`test-rich-crew-voice-capsules.mjs` proves bundled senior-staff voice cards across the registry carry rich narrator-safe voice capsules with required personality axes, speakable line shapes, and no named-author or style-copying prompt references. `test-rich-crew-runtime-hydration.mjs` proves those capsules hydrate for narrator and crew-director packets while reveal cards remain gate-blocked and command-style cards reach commandDirector.
 
 `test-thread-ledger.mjs` proves the first Narrative Thread Engine foundation: hidden ledger constants, record normalization, lifecycle deltas, evidence merge, closure reviews, immutability, and player-safe summary filtering.
 

@@ -15,10 +15,12 @@ assert(ashesPack, 'Ashes of Peace factual canary pack should exist.');
 const bronnCanary = ashesPack.canaries.find((entry) => entry.id.endsWith('.senior-crew.hadrik-bronn.identity'));
 const whitakerCanary = ashesPack.canaries.find((entry) => entry.id.endsWith('.senior-crew.mara-whitaker.identity'));
 const nayarCanary = ashesPack.canaries.find((entry) => entry.id.endsWith('.senior-crew.priya-nayar.identity'));
+const crossCanary = ashesPack.canaries.find((entry) => entry.id.endsWith('.senior-crew.imani-cross.identity'));
 const transitCanary = ashesPack.canaries.find((entry) => entry.id.endsWith('.opening.transit-premise'));
 assert(bronnCanary, 'Bronn identity canary should exist.');
 assert(whitakerCanary, 'Whitaker identity canary should exist.');
 assert(nayarCanary, 'Nayar identity canary should exist.');
+assert(crossCanary, 'Cross identity canary should exist.');
 assert(transitCanary, 'Ashes transit-premise canary should exist.');
 
 assert(bronnCanary.expectedPromptKeys.includes('directive.continuity.invariants'));
@@ -111,6 +113,18 @@ const transcriptShapeCheck = buildFactualGroundingCheck({
 assert.equal(transcriptShapeCheck.status, 'pass');
 assert.equal(transcriptShapeCheck.counts.contradicted, 0);
 assert.equal(transcriptShapeCheck.counts.omitted, 0);
+
+const quotedSentenceBoundaryCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-quoted-sentence-boundary',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#quoted-sentence-boundary',
+  promptBlocks: matrixPromptBlocks,
+  generatedText: 'Commander Cross flagged a few interactions in the upgraded systems that had not been stress-tested together yet." He paused, and the blunt Tellarite expression settled into professional regard.'
+});
+
+assert.equal(quotedSentenceBoundaryCheck.status, 'pass');
+assert.equal(quotedSentenceBoundaryCheck.counts.contradicted, 0);
 
 const sameSentenceSpeciesError = buildFactualGroundingCheck({
   pack: ashesPack,

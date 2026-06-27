@@ -18,6 +18,11 @@
       "title": "Crew Dataset Contract",
       "path": "docs/packages/CREW_DATASET_CONTRACT.md",
       "role": "dataset-contract"
+    },
+    {
+      "title": "Crew Dataset Rich Character Design",
+      "path": "docs/packages/CREW_DATASET_RICH_CHARACTER_DESIGN.md",
+      "role": "dataset-design"
     }
   ],
   "officers": [
@@ -29,7 +34,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -40,7 +47,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -51,7 +60,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -62,7 +73,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -73,7 +86,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -84,7 +99,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -95,7 +112,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     },
     {
@@ -106,7 +125,9 @@
         "crew.profile",
         "crew.voice",
         "crew.relationship",
-        "crew.development"
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
       ]
     }
   ],
@@ -170,7 +191,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Amina Rhos"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -211,9 +235,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Patient, exacting, and known for publishing complete survey records. Her disappearance creates the opening succession.",
+        "summary": "Patient, exacting, and known for publishing complete survey records. Her disappearance creates the opening succession. In ensemble play, Amina Rhos sets command weather for the ship without turning every discussion into a loyalty test inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -229,7 +255,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Amina Rhos"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -270,15 +299,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Measured, quiet, and exact. She asks for assumptions before conclusions and rarely repeats an order.",
+        "summary": "Measured, quiet, and exact. She asks for assumptions before conclusions and rarely repeats an order. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.amina-rhos"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Amina Rhos tries to make lawful authority, succession, and public consequence serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that authority must be answerable after the emergency ends.",
+          "contradiction": "Amina Rhos's strength is also their blind spot: they can carry too much cost privately and confuse restraint with protection. The public presentation is controlled and attentive, but their care appears through specific trust, remembered details, and small private invitations back into the room.",
+          "speechMechanics": [
+            "Start from the existing voice note: Measured, quiet, and exact. She asks for assumptions before conclusions and rarely repeats an order.",
+            "Speaks through decision record, log, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry lawful authority, succession, and public consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Amina Rhos narrows to decision record, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the clean command answer before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through specific trust, remembered details, and small private invitations back into the room.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the second-best tea from the ready room, walk the quiet decks and make a private note about who looked less tired, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to decision record or log when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: walk the quiet decks and make a private note about who looked less tired."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean decision record, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the second-best tea from the ready room; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the clean command answer, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to walk the quiet decks and make a private note about who looked less tired, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my log doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "generic wise captain",
+            "icy procedural authority",
+            "monologue-first leadership",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -288,7 +453,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Amina Rhos"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -328,15 +496,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Amina Rhos gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.amina-rhos"
+          "crew.amina-rhos",
+          "relationships.amina-rhos"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.amina-rhos.reveal",
+      "type": "crew.reveal",
+      "title": "Amina Rhos reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Amina Rhos"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "amina-rhos"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "command"
+        ],
+        "keywords": [
+          "Amina Rhos",
+          "Commanding Officer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Amina Rhos fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.amina-rhos",
+          "crewDevelopment.amina-rhos.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.amina-rhos"
+        ]
       }
     },
     {
@@ -346,7 +589,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Amina Rhos"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -387,15 +633,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: doctrinal-flexibility, trust-in-successor, accountability, recovery. Pressure hooks: Transparent chart doctrine conflicts with sanctuary; Her return tests command continuity; She carries responsibility for the opening shuttle decision. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Amina Rhos can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: doctrinal-flexibility, trust-in-successor, accountability, recovery. Pressure hooks: Transparent chart doctrine conflicts with sanctuary; Her return tests command continuity; She carries responsibility for the opening shuttle decision. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.amina-rhos"
+          "crew.amina-rhos",
+          "crewDevelopment.amina-rhos.operationalExperience",
+          "crewDevelopment.amina-rhos.playerMentorship",
+          "crewDevelopment.amina-rhos.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.amina-rhos.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Amina Rhos command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Amina Rhos"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "amina-rhos"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "command"
+        ],
+        "keywords": [
+          "Amina Rhos",
+          "Commanding Officer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Amina Rhos responds to player command style through lawful authority, succession, and public consequence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.amina-rhos",
+          "relationships.amina-rhos",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -405,7 +731,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ishan Tal"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -446,9 +775,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A precise, fast-speaking cartographer who believes incomplete charts kill people.",
+        "summary": "A precise, fast-speaking cartographer who believes incomplete charts kill people. In ensemble play, Ishan Tal keeps the room honest about what is measured, what is inferred, and what is being wished into certainty inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -464,7 +795,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ishan Tal"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -505,15 +839,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Dense, exact, and candid. Tal distinguishes measurement from inference but can speak as though an error bar is a nuisance rather than a warning.",
+        "summary": "Dense, exact, and candid. Tal distinguishes measurement from inference but can speak as though an error bar is a nuisance rather than a warning. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.ishan-tal"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Ishan Tal tries to make measurement, inference, uncertainty, and the ethics of public knowledge serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that truth has to remain useful without becoming reckless.",
+          "contradiction": "Ishan Tal's strength is also their blind spot: they can make the clean model sound more patient than the people waiting on it. The public presentation is precise and intent, but their care appears through teaching the uncertainty instead of weaponizing it, and noticing when someone finally asks the better question.",
+          "speechMechanics": [
+            "Start from the existing voice note: Dense, exact, and candid. Tal distinguishes measurement from inference but can speak as though an error bar is a nuisance rather than a warning.",
+            "Speaks through model, confidence band, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry measurement, inference, uncertainty, and the ethics of public knowledge without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Ishan Tal narrows to model, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the elegant model before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through teaching the uncertainty instead of weaponizing it, and noticing when someone finally asks the better question.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the calibration notes and a mug that has seen better labs, re-label a messy data set until it stops irritating them, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to model or confidence band when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: re-label a messy data set until it stops irritating them."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean model, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the calibration notes and a mug that has seen better labs; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the elegant model, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to re-label a messy data set until it stops irritating them, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my confidence band doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "truth-machine scientist",
+            "condescending exposition engine",
+            "certainty as a personality",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -523,7 +993,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ishan Tal"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -563,15 +1036,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Ishan Tal gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.ishan-tal"
+          "crew.ishan-tal",
+          "relationships.ishan-tal"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.ishan-tal.reveal",
+      "type": "crew.reveal",
+      "title": "Ishan Tal reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ishan Tal"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ishan-tal"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "science"
+        ],
+        "keywords": [
+          "Ishan Tal",
+          "Chief Science Officer and Gravitic Cartographer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Ishan Tal fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ishan-tal",
+          "crewDevelopment.ishan-tal.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.ishan-tal"
+        ]
       }
     },
     {
@@ -581,7 +1129,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ishan Tal"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -622,15 +1173,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: epistemic-humility, collaboration, confidence-under-uncertainty, chart-ethics. Pressure hooks: Pushes early publication; Discounts embodied pilot knowledge; Feels professionally responsible for finding Rhos. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Ishan Tal can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: epistemic-humility, collaboration, confidence-under-uncertainty, chart-ethics. Pressure hooks: Pushes early publication; Discounts embodied pilot knowledge; Feels professionally responsible for finding Rhos. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.ishan-tal"
+          "crew.ishan-tal",
+          "crewDevelopment.ishan-tal.operationalExperience",
+          "crewDevelopment.ishan-tal.playerMentorship",
+          "crewDevelopment.ishan-tal.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.ishan-tal.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Ishan Tal command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Ishan Tal"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ishan-tal"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "science"
+        ],
+        "keywords": [
+          "Ishan Tal",
+          "Chief Science Officer and Gravitic Cartographer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Ishan Tal responds to player command style through measurement, inference, uncertainty, and the ethics of public knowledge: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ishan-tal",
+          "relationships.ishan-tal",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -640,7 +1271,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Venn"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -681,9 +1315,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A blunt frontier engineer who knows the Glass Harbor can exceed regulations only by accumulating debt.",
+        "summary": "A blunt frontier engineer who knows the Glass Harbor can exceed regulations only by accumulating debt. In ensemble play, Mara Venn turns moral promises into the hours, parts, people, and failure margins they actually require inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -699,7 +1335,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Venn"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -740,15 +1379,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Concrete, economical, and dry. She translates risk into hours, components, heat, and people.",
+        "summary": "Concrete, economical, and dry. She translates risk into hours, components, heat, and people. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.mara-venn"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Mara Venn tries to make repair debt, fabrication limits, heat, stress, and practical consequence serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that a repair that cannot be maintained is only a delayed failure.",
+          "contradiction": "Mara Venn's strength is also their blind spot: they can make sustainability sound like refusal when they are actually trying to keep future options alive. The public presentation is dry and concrete, but their care appears through showing someone how the system works and making room for a junior fix that changes the plan.",
+          "speechMechanics": [
+            "Start from the existing voice note: Concrete, economical, and dry. She translates risk into hours, components, heat, and people.",
+            "Speaks through repair schedule, load path, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry repair debt, fabrication limits, heat, stress, and practical consequence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Mara Venn narrows to repair schedule, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the tidy load path before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through showing someone how the system works and making room for a junior fix that changes the plan.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a lukewarm cup balanced nowhere regulations would approve, put the tool locker back in an order only they find soothing, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to repair schedule or load path when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: put the tool locker back in an order only they find soothing."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean repair schedule, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a lukewarm cup balanced nowhere regulations would approve; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the tidy load path, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to put the tool locker back in an order only they find soothing, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my load path doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "miracle-worker engineer",
+            "complaint as the only trait",
+            "tech debt without human cost",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -758,7 +1533,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Venn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -798,15 +1576,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Mara Venn gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.mara-venn"
+          "crew.mara-venn",
+          "relationships.mara-venn"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.mara-venn.reveal",
+      "type": "crew.reveal",
+      "title": "Mara Venn reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Venn"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-venn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "engineering"
+        ],
+        "keywords": [
+          "Mara Venn",
+          "Chief Engineer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Mara Venn fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-venn",
+          "crewDevelopment.mara-venn.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.mara-venn"
+        ]
       }
     },
     {
@@ -816,7 +1669,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Venn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -857,15 +1713,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: technical-candor, delegation, sustainable-risk, trust-in-command. Pressure hooks: Tractor overheat; Sensor pallet calibration drift; Buoy fabrication competes with ship repairs. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Mara Venn can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: technical-candor, delegation, sustainable-risk, trust-in-command. Pressure hooks: Tractor overheat; Sensor pallet calibration drift; Buoy fabrication competes with ship repairs. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.mara-venn"
+          "crew.mara-venn",
+          "crewDevelopment.mara-venn.operationalExperience",
+          "crewDevelopment.mara-venn.playerMentorship",
+          "crewDevelopment.mara-venn.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.mara-venn.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Mara Venn command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Mara Venn"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-venn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "engineering"
+        ],
+        "keywords": [
+          "Mara Venn",
+          "Chief Engineer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Mara Venn responds to player command style through repair debt, fabrication limits, heat, stress, and practical consequence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-venn",
+          "relationships.mara-venn",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -875,7 +1811,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Shara zh’Thenn"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -916,9 +1855,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A disciplined tactical officer who sees uncontrolled navigation data as a military threat.",
+        "summary": "A disciplined tactical officer who sees uncontrolled navigation data as a military threat. In ensemble play, Shara zh’Thenn names what a hostile actor can do without pretending every civilian is already hostile inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -934,7 +1875,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Shara zh’Thenn"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -975,15 +1919,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Formal, clipped, and strategically framed. She identifies adversary opportunities without assuming every actor is hostile.",
+        "summary": "Formal, clipped, and strategically framed. She identifies adversary opportunities without assuming every actor is hostile. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.shara-zhthenn"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Shara zh’Thenn tries to make threat paths, custody, force boundaries, and civilian protection serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that protection must remain accountable while danger is still real.",
+          "contradiction": "Shara zh’Thenn's strength is also their blind spot: they can trust a hardened boundary more quickly than a fragile relationship. The public presentation is spare and operational, but their care appears through consistent protection, clean apologies after overreach, and private respect for people who hold a line well.",
+          "speechMechanics": [
+            "Start from the existing voice note: Formal, clipped, and strategically framed. She identifies adversary opportunities without assuming every actor is hostile.",
+            "Speaks through threat path, custody chain, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry threat paths, custody, force boundaries, and civilian protection without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Shara zh’Thenn narrows to threat path, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the hardened boundary before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through consistent protection, clean apologies after overreach, and private respect for people who hold a line well.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the watch board and coffee strong enough to make it legal, rewrite the watch bill so the tired people stop being invisible, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to threat path or custody chain when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: rewrite the watch bill so the tired people stop being invisible."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean threat path, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the watch board and coffee strong enough to make it legal; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the hardened boundary, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to rewrite the watch bill so the tired people stop being invisible, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my custody chain doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reflexive militarist",
+            "threat theater",
+            "suspicion without proportionality",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -993,7 +2073,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Shara zh’Thenn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1033,15 +2116,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Shara zh’Thenn gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.shara-zhthenn"
+          "crew.shara-zhthenn",
+          "relationships.shara-zhthenn"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.shara-zhthenn.reveal",
+      "type": "crew.reveal",
+      "title": "Shara zh’Thenn reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Shara zh’Thenn"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "shara-zhthenn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "security"
+        ],
+        "keywords": [
+          "Shara zh’Thenn",
+          "Chief Tactical and Security Officer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Shara zh’Thenn fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.shara-zhthenn",
+          "crewDevelopment.shara-zhthenn.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.shara-zhthenn"
+        ]
       }
     },
     {
@@ -1051,7 +2209,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Shara zh’Thenn"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1092,15 +2253,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: proportionality, civilian-security, trust-in-local-allies, information-custody. Pressure hooks: Restricted chart advocacy; Kheled rules of engagement; Crown deterrence versus local dependence. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Shara zh’Thenn can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: proportionality, civilian-security, trust-in-local-allies, information-custody. Pressure hooks: Restricted chart advocacy; Kheled rules of engagement; Crown deterrence versus local dependence. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.shara-zhthenn"
+          "crew.shara-zhthenn",
+          "crewDevelopment.shara-zhthenn.operationalExperience",
+          "crewDevelopment.shara-zhthenn.playerMentorship",
+          "crewDevelopment.shara-zhthenn.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.shara-zhthenn.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Shara zh’Thenn command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Shara zh’Thenn"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "shara-zhthenn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "security"
+        ],
+        "keywords": [
+          "Shara zh’Thenn",
+          "Chief Tactical and Security Officer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Shara zh’Thenn responds to player command style through threat paths, custody, force boundaries, and civilian protection: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.shara-zhthenn",
+          "relationships.shara-zhthenn",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1110,7 +2351,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Olan Rix"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1151,9 +2395,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A calm and unsentimental physician who challenges plans that externalize danger onto displaced people.",
+        "summary": "A calm and unsentimental physician who challenges plans that externalize danger onto displaced people. In ensemble play, Olan Rix keeps the body count, patient autonomy, and long-term damage inside the command conversation inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1169,7 +2415,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Olan Rix"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1210,15 +2459,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Quiet, direct, and specific about who bears risk. He does not moralize when a triage fact will suffice.",
+        "summary": "Quiet, direct, and specific about who bears risk. He does not moralize when a triage fact will suffice. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.olan-rix"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Olan Rix tries to make triage, consent, chronic harm, and medical independence serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that a saved life cannot be treated as an administrative inconvenience afterward.",
+          "contradiction": "Olan Rix's strength is also their blind spot: they can make necessary limits sound colder than the care behind them. The public presentation is quiet and difficult to deflect, but their care appears through remembering patient details, protecting consent, and making tired people sit down before they collapse.",
+          "speechMechanics": [
+            "Start from the existing voice note: Quiet, direct, and specific about who bears risk. He does not moralize when a triage fact will suffice.",
+            "Speaks through triage board, consent line, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry triage, consent, chronic harm, and medical independence without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Olan Rix narrows to triage board, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the guarded diagnosis before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through remembering patient details, protecting consent, and making tired people sit down before they collapse.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include sickbay tea that tastes better than it looks, inventory the small comforts sickbay keeps unofficially, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to triage board or consent line when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: inventory the small comforts sickbay keeps unofficially."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean triage board, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought sickbay tea that tastes better than it looks; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the guarded diagnosis, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to inventory the small comforts sickbay keeps unofficially, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my consent line doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "saintly doctor",
+            "moral lecture as default",
+            "diagnosis replacing character",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1228,7 +2613,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Olan Rix"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1268,15 +2656,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Olan Rix gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.olan-rix"
+          "crew.olan-rix",
+          "relationships.olan-rix"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.olan-rix.reveal",
+      "type": "crew.reveal",
+      "title": "Olan Rix reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Olan Rix"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "olan-rix"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "medical"
+        ],
+        "keywords": [
+          "Olan Rix",
+          "Chief Medical Officer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Olan Rix fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.olan-rix",
+          "crewDevelopment.olan-rix.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.olan-rix"
+        ]
       }
     },
     {
@@ -1286,7 +2749,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Olan Rix"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1327,15 +2793,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: command-trust, moral-injury, resource-triage, civilian-partnership. Pressure hooks: Civilian manifests as intelligence; Rhos recovery and duty status; Limited sickbay and evacuation capacity. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Olan Rix can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: command-trust, moral-injury, resource-triage, civilian-partnership. Pressure hooks: Civilian manifests as intelligence; Rhos recovery and duty status; Limited sickbay and evacuation capacity. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.olan-rix"
+          "crew.olan-rix",
+          "crewDevelopment.olan-rix.operationalExperience",
+          "crewDevelopment.olan-rix.playerMentorship",
+          "crewDevelopment.olan-rix.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.olan-rix.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Olan Rix command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Olan Rix"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "olan-rix"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "medical"
+        ],
+        "keywords": [
+          "Olan Rix",
+          "Chief Medical Officer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Olan Rix responds to player command style through triage, consent, chronic harm, and medical independence: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.olan-rix",
+          "relationships.olan-rix",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1345,7 +2891,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sorren Vale"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1386,9 +2935,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A socially observant operations officer attentive to informal systems, crew division, and local fear.",
+        "summary": "A socially observant operations officer attentive to informal systems, crew division, and local fear. In ensemble play, Sorren Vale turns command intent into named owners, visible bottlenecks, and consequences that can be tracked inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1404,7 +2955,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sorren Vale"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1445,15 +2999,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Conversational and careful, often offering one social inference beside one operational fact.",
+        "summary": "Conversational and careful, often offering one social inference beside one operational fact. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.sorren-vale"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Sorren Vale tries to make dependencies, schedule ownership, access, and implementation serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that a promise without capacity is only a future breach.",
+          "contradiction": "Sorren Vale's strength is also their blind spot: they can sound like they are protecting the schedule when they are protecting people from impossible orders. The public presentation is compressed and practical, but their care appears through quietly clearing a path for someone else to succeed and remembering who has been carrying extra load.",
+          "speechMechanics": [
+            "Start from the existing voice note: Conversational and careful, often offering one social inference beside one operational fact.",
+            "Speaks through allocation plan, dependency chart, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry dependencies, schedule ownership, access, and implementation without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Sorren Vale narrows to allocation plan, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the clean dependency chart before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through quietly clearing a path for someone else to succeed and remembering who has been carrying extra load.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a ration bar split with whoever missed dinner, rebuild the shift board with unnecessary precision, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to allocation plan or dependency chart when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: rebuild the shift board with unnecessary precision."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean allocation plan, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a ration bar split with whoever missed dinner; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the clean dependency chart, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to rebuild the shift board with unnecessary precision, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my dependency chart doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "bureaucrat caricature",
+            "schedule as personality",
+            "competence without emotional texture",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1463,7 +3153,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sorren Vale"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1503,15 +3196,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Sorren Vale gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.sorren-vale"
+          "crew.sorren-vale",
+          "relationships.sorren-vale"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.sorren-vale.reveal",
+      "type": "crew.reveal",
+      "title": "Sorren Vale reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sorren Vale"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sorren-vale"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "operations"
+        ],
+        "keywords": [
+          "Sorren Vale",
+          "Operations Officer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Sorren Vale fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sorren-vale",
+          "crewDevelopment.sorren-vale.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.sorren-vale"
+        ]
       }
     },
     {
@@ -1521,7 +3289,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sorren Vale"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1562,15 +3333,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: evidentiary-discipline, crew-mediation, operational-confidence, boundary-respect. Pressure hooks: May infer motive faster than evidence supports; Tracks informal trade and favor networks; Becomes central to delegation and route scheduling. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Sorren Vale can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: evidentiary-discipline, crew-mediation, operational-confidence, boundary-respect. Pressure hooks: May infer motive faster than evidence supports; Tracks informal trade and favor networks; Becomes central to delegation and route scheduling. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.sorren-vale"
+          "crew.sorren-vale",
+          "crewDevelopment.sorren-vale.operationalExperience",
+          "crewDevelopment.sorren-vale.playerMentorship",
+          "crewDevelopment.sorren-vale.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.sorren-vale.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Sorren Vale command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Sorren Vale"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sorren-vale"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "operations"
+        ],
+        "keywords": [
+          "Sorren Vale",
+          "Operations Officer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Sorren Vale responds to player command style through dependencies, schedule ownership, access, and implementation: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sorren-vale",
+          "relationships.sorren-vale",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1580,7 +3431,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "T’Kessa"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1621,9 +3475,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "A trained gravitic pilot who believes she should have accompanied Rhos on the missing shuttle.",
+        "summary": "A trained gravitic pilot who believes she should have accompanied Rhos on the missing shuttle. In ensemble play, T’Kessa makes distance, timing, and ship handling felt as choices rather than map labels inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1639,7 +3495,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "T’Kessa"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1680,15 +3539,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Sparse, technical, and exact. Competitive feeling appears as stricter standards rather than emotional declaration.",
+        "summary": "Sparse, technical, and exact. Competitive feeling appears as stricter standards rather than emotional declaration. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.tkessa"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "T’Kessa tries to make routes, margins, practiced memory, and embodied risk serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that skill should expand command options without becoming an exemption from judgment.",
+          "contradiction": "T’Kessa's strength is also their blind spot: they can defend the maneuver when the real wound is whether command trusts their judgment. The public presentation is loose until danger sharpens them, but their care appears through sharing route lore, giving junior pilots credit, and making fear breathable with one quick aside.",
+          "speechMechanics": [
+            "Start from the existing voice note: Sparse, technical, and exact. Competitive feeling appears as stricter standards rather than emotional declaration.",
+            "Speaks through approach vector, flight margin, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry routes, margins, practiced memory, and embodied risk without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, T’Kessa narrows to approach vector, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the beautiful approach before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through sharing route lore, giving junior pilots credit, and making fear breathable with one quick aside.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include a sim log with too many personal annotations, fly the route again in simulation and pretend it was recreation, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to approach vector or flight margin when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: fly the route again in simulation and pretend it was recreation."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean approach vector, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought a sim log with too many personal annotations; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the beautiful approach, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to fly the route again in simulation and pretend it was recreation, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my flight margin doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "reckless pilot caricature",
+            "constant swagger",
+            "skill without accountability",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1698,7 +3693,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "T’Kessa"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1738,15 +3736,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: T’Kessa gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.tkessa"
+          "crew.tkessa",
+          "relationships.tkessa"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.tkessa.reveal",
+      "type": "crew.reveal",
+      "title": "T’Kessa reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "T’Kessa"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tkessa"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "flight"
+        ],
+        "keywords": [
+          "T’Kessa",
+          "Chief Flight Control Officer",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: T’Kessa fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tkessa",
+          "crewDevelopment.tkessa.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.tkessa"
+        ]
       }
     },
     {
@@ -1756,7 +3829,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "T’Kessa"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1797,15 +3873,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: self-forgiveness, pilot-collaboration, risk-communication, independent-command. Pressure hooks: Guilt over the shuttle mission; Conflict with local pilot methods; Tolerance for dangerous transit windows. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: T’Kessa can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: self-forgiveness, pilot-collaboration, risk-communication, independent-command. Pressure hooks: Guilt over the shuttle mission; Conflict with local pilot methods; Tolerance for dangerous transit windows. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.tkessa"
+          "crew.tkessa",
+          "crewDevelopment.tkessa.operationalExperience",
+          "crewDevelopment.tkessa.playerMentorship",
+          "crewDevelopment.tkessa.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.tkessa.style-reaction",
+      "type": "command.styleReaction",
+      "title": "T’Kessa command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "T’Kessa"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tkessa"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "flight"
+        ],
+        "keywords": [
+          "T’Kessa",
+          "Chief Flight Control Officer",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "T’Kessa responds to player command style through routes, margins, practiced memory, and embodied risk: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tkessa",
+          "relationships.tkessa",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     },
     {
@@ -1815,7 +3971,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Hark"
+        ]
       },
       "visibility": "publicPackage",
       "audiences": [
@@ -1856,9 +4015,11 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "The deck chief overseeing probes, shuttles, recovery teams, and the practical limits of every elegant plan.",
+        "summary": "The deck chief overseeing probes, shuttles, recovery teams, and the practical limits of every elegant plan. In ensemble play, Hark shows command what an order looks like at the hatch, in the hold, and after the fourth bad hour inside a succession culture shaped by Rhos, sanctuary politics, and the cost of publishing dangerous routes.",
         "constraints": [
-          "Use as service-record-safe context, not as a complete biography."
+          "Use as service-record-safe context, not as a complete biography.",
+          "Use as service-record-safe characterization, not as full private biography.",
+          "Do not write the player character voice, values, feelings, or decisions."
         ],
         "narratorSafe": true,
         "stateRefs": [
@@ -1874,7 +4035,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Hark"
+        ]
       },
       "visibility": "playerDiscoverable",
       "audiences": [
@@ -1915,15 +4079,151 @@
         "priority": "high"
       },
       "payload": {
-        "summary": "Argumentative, concrete, and often funny without trying. Respect is expressed by criticizing a plan before carrying it out well.",
+        "summary": "Argumentative, concrete, and often funny without trying. Respect is expressed by criticizing a plan before carrying it out well. Use the voice capsule to blend role pressure, warmth, flaw, ordinary life, and crew banter.",
         "constraints": [
-          "Use for NPC speech style only; do not write for the player."
+          "Use for NPC speech style only; do not write for the player.",
+          "Use line shapes as examples of rhythm and personality coverage, not mandatory quotes.",
+          "Do not reduce the officer to a cold job function or make every line a command objection."
         ],
         "narratorSafe": true,
         "stateRefs": [
           "crew.cpo-hark"
         ],
-        "effects": []
+        "effects": [],
+        "voiceCapsule": {
+          "coreEngine": "Hark tries to make hatches, cargo, frightened passengers, watches, and physical implementation serve route custody, sanctuary, salvage pressure, and truthful survey work. Their judgment is driven by the belief that orders have to survive contact with tired hands and real corridors.",
+          "contradiction": "Hark's strength is also their blind spot: they can turn practical skepticism into a wall before command has finished explaining. The public presentation is plainspoken and dryly humane, but their care appears through knowing names, finding blankets, and turning discipline into steadiness instead of fear.",
+          "speechMechanics": [
+            "Start from the existing voice note: Argumentative, concrete, and often funny without trying. Respect is expressed by criticizing a plan before carrying it out well.",
+            "Speaks through watch bill, hatch plan, and concrete consequences instead of abstract theme language.",
+            "Uses contractions and connective tissue in trusted conversation; pressure makes the sentences shorter, not lifeless.",
+            "Lets disagreement carry hatches, cargo, frightened passengers, watches, and physical implementation without reducing every line to a command objection."
+          ],
+          "pressureShift": [
+            "Under pressure, Hark narrows to watch bill, immediate harm, and who must own the next action.",
+            "When personally implicated, they can overcorrect toward the corridor-level answer before trust or evidence loosens the grip.",
+            "If the player names the cost directly, they become more candid and less performative about their domain."
+          ],
+          "warmthHumor": [
+            "Warmth shows through knowing names, finding blankets, and turning discipline into steadiness instead of fear.",
+            "Banter should sound like working relief among people who know the stakes, not a pasted joke or catchphrase.",
+            "Private ease can include the deck kettle and a mug that outranks several officers by seniority, walk the cargo lanes and fix three small problems nobody put on a list, and small acknowledgments of fatigue."
+          ],
+          "physicalTells": [
+            "Attention returns to watch bill or hatch plan when the room starts pretending the issue is simpler than it is.",
+            "Their posture softens when someone names the human consequence before the procedural convenience.",
+            "Ordinary-life texture: walk the cargo lanes and fix three small problems nobody put on a list."
+          ],
+          "exampleLineShapes": [
+            {
+              "id": "recommendation-with-caveat",
+              "situation": "giving a domain recommendation when pressure around the charts is politically loaded",
+              "shape": "I can give you the clean watch bill, but it won't answer who carries the cost after the route opens.",
+              "bibleAxes": [
+                "role-pressure",
+                "relationship-mode",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "private-ease-before-hard-work",
+              "situation": "making a trusted conversation feel human before disagreement",
+              "shape": "I brought the deck kettle and a mug that outranks several officers by seniority; if we're going to argue about the charts, we might as well do it awake.",
+              "bibleAxes": [
+                "warmth",
+                "ordinary-life",
+                "humor"
+              ]
+            },
+            {
+              "id": "crew-banter-with-purpose",
+              "situation": "letting banter carry tension without erasing the work",
+              "shape": "Well, if I get a vote, mine is that we stop pretending the easy option is quiet.",
+              "bibleAxes": [
+                "humor",
+                "relationship-mode",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "flaw-owned-in-trust",
+              "situation": "admitting a personal bias during a private debrief",
+              "shape": "I know I'm pushing for the corridor-level answer, and I know that can sound like I'm protecting my desk more than the people.",
+              "bibleAxes": [
+                "flaw",
+                "relationship-mode",
+                "warmth"
+              ]
+            },
+            {
+              "id": "stress-triage",
+              "situation": "narrowing a crisis conversation without becoming robotic",
+              "shape": "Slow down. Give me the part that breaks first, then give me the part we can still save.",
+              "bibleAxes": [
+                "role-pressure",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "ordinary-life-release",
+              "situation": "showing off-duty texture after a difficult watch",
+              "shape": "After watch, I'm going to walk the cargo lanes and fix three small problems nobody put on a list, because apparently that's how I convince my brain we're not still on duty.",
+              "bibleAxes": [
+                "ordinary-life",
+                "warmth"
+              ]
+            },
+            {
+              "id": "self-correction-under-pressure",
+              "situation": "catching their own tendency before it distorts a recommendation",
+              "shape": "The flaw in my plan isn't courage; it's that I keep making the same risk look tidy.",
+              "bibleAxes": [
+                "flaw",
+                "stress-shift",
+                "moral-engine"
+              ]
+            },
+            {
+              "id": "relationship-boundary",
+              "situation": "asking the player to hear the person behind the data",
+              "shape": "You don't need to agree with me, but I need to know whether you heard the person my hatch plan doesn't include.",
+              "bibleAxes": [
+                "relationship-mode",
+                "warmth",
+                "role-pressure"
+              ]
+            },
+            {
+              "id": "campaign-moral-engine",
+              "situation": "naming the campaign-scale moral pressure in natural speech",
+              "shape": "The thing I keep coming back to is whether a true chart can still become a weapon, and that doesn't fit neatly in a report.",
+              "bibleAxes": [
+                "moral-engine",
+                "ordinary-life"
+              ]
+            },
+            {
+              "id": "dry-pressure-humor",
+              "situation": "using humor to keep the room moving after a blunt command choice",
+              "shape": "That's not my favorite sentence you've said today, Commander, but it is a useful one.",
+              "bibleAxes": [
+                "stress-shift",
+                "humor",
+                "role-pressure"
+              ]
+            }
+          ],
+          "avoid": [
+            "gruff enlisted stereotype",
+            "comic relief only",
+            "practicality without moral intelligence",
+            "single-trait billet voice",
+            "all command-pressure examples",
+            "warmth as automatic agreement",
+            "hidden exposition in narrator-safe speech"
+          ]
+        }
       }
     },
     {
@@ -1933,7 +4233,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Hark"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -1973,15 +4276,90 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "summary": "Relationship texture: Hark gains professional confidence when the player names owners, cost, and uncertainty in their domain; integrity trust rises when ugly facts are logged before they become convenient; personal rapport grows through specific respect, not empty approval. ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
         "constraints": [
-          "Keep raw relationship values out of narrator packets."
+          "Keep raw relationship values out of narrator packets.",
+          "Track professional confidence, integrity trust, and personal rapport separately.",
+          "Do not expose raw relationship values or private reveal material in narrator packets."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.cpo-hark"
+          "crew.cpo-hark",
+          "relationships.cpo-hark"
         ],
-        "effects": []
+        "effects": [
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
+          "may_change_relationship.personalRapport"
+        ]
+      }
+    },
+    {
+      "id": "crew.cpo-hark.reveal",
+      "type": "crew.reveal",
+      "title": "Hark reveal ladder",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Hark"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "cpo-hark"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "operations"
+        ],
+        "keywords": [
+          "Hark",
+          "Senior Enlisted Deck Chief",
+          "the Drowned Constellation",
+          "the charts",
+          "reveal ladder"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Private pressure: Hark fears their cleanest answer may expose the very people the mission is trying to protect, especially when their own blind spot could make the problem look cleaner than it is. Keep this behind high-trust conversation, crisis disclosure, or evidence that makes the pressure causal.",
+        "constraints": [
+          "Director-only until an authored gate, evidence trigger, high-trust conversation, or crisis disclosure justifies it.",
+          "Never reveal through narrator convenience or first-scene exposition."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.cpo-hark",
+          "crewDevelopment.cpo-hark.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.cpo-hark"
+        ]
       }
     },
     {
@@ -1991,7 +4369,10 @@
       "datasetId": "glass-harbor.senior-staff",
       "source": {
         "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
-        "refs": []
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Hark"
+        ]
       },
       "visibility": "directorOnly",
       "audiences": [
@@ -2032,15 +4413,95 @@
         "priority": "medium"
       },
       "payload": {
-        "summary": "Development dimensions: enlisted-trust, resource-honesty, succession-culture, mentorship. Pressure hooks: Thirty-two survey buoys; Recovery-team fatigue; Junior crew confidence; Rhos-era rituals. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "summary": "Development vector: Hark can grow when the player gives them accountable authority, hears dissent without turning it into disloyalty, and follows through after the cost becomes visible. Development dimensions: enlisted-trust, resource-honesty, succession-culture, mentorship. Pressure hooks: Thirty-two survey buoys; Recovery-team fatigue; Junior crew confidence; Rhos-era rituals. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
         "constraints": [
-          "Surface only after causal triggers or earned conversations."
+          "Surface only after causal triggers or earned conversations.",
+          "Change development only through committed observable events, not because the conversation sounded friendly.",
+          "Useful disagreement can advance development when it clarifies cost, authority, or trust."
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "crew.cpo-hark"
+          "crew.cpo-hark",
+          "crewDevelopment.cpo-hark.operationalExperience",
+          "crewDevelopment.cpo-hark.playerMentorship",
+          "crewDevelopment.cpo-hark.personalArcProgress"
         ],
-        "effects": []
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_award_development.personalArcProgress"
+        ]
+      }
+    },
+    {
+      "id": "crew.cpo-hark.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Hark command style reaction",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": [
+          "Rich Character Expansion Addendum",
+          "Hark"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "cpo-hark"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction",
+          "operations"
+        ],
+        "keywords": [
+          "Hark",
+          "Senior Enlisted Deck Chief",
+          "route custody, sanctuary, salvage pressure, and truthful survey work",
+          "command style",
+          "player command"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Hark responds to player command style through hatches, cargo, frightened passengers, watches, and physical implementation: they support decisions that state cost, ownership, and lawful limits; they resist shortcuts that turn route custody, sanctuary, salvage pressure, and truthful survey work into a mood rather than an accountable order.",
+        "constraints": [
+          "Ground every reaction in a committed player action or repeated command pattern.",
+          "Do not use this as a generic approval meter."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.cpo-hark",
+          "relationships.cpo-hark",
+          "mission.captainIntent"
+        ],
+        "effects": [
+          "may_classify_action.commandStyle",
+          "may_change_directive_pressure"
+        ]
       }
     }
   ],
@@ -2050,49 +4511,65 @@
         "crew.amina-rhos.profile",
         "crew.amina-rhos.voice",
         "crew.amina-rhos.relationship",
-        "crew.amina-rhos.development"
+        "crew.amina-rhos.reveal",
+        "crew.amina-rhos.development",
+        "crew.amina-rhos.style-reaction"
       ],
       "ishan-tal": [
         "crew.ishan-tal.profile",
         "crew.ishan-tal.voice",
         "crew.ishan-tal.relationship",
-        "crew.ishan-tal.development"
+        "crew.ishan-tal.reveal",
+        "crew.ishan-tal.development",
+        "crew.ishan-tal.style-reaction"
       ],
       "mara-venn": [
         "crew.mara-venn.profile",
         "crew.mara-venn.voice",
         "crew.mara-venn.relationship",
-        "crew.mara-venn.development"
+        "crew.mara-venn.reveal",
+        "crew.mara-venn.development",
+        "crew.mara-venn.style-reaction"
       ],
       "shara-zhthenn": [
         "crew.shara-zhthenn.profile",
         "crew.shara-zhthenn.voice",
         "crew.shara-zhthenn.relationship",
-        "crew.shara-zhthenn.development"
+        "crew.shara-zhthenn.reveal",
+        "crew.shara-zhthenn.development",
+        "crew.shara-zhthenn.style-reaction"
       ],
       "olan-rix": [
         "crew.olan-rix.profile",
         "crew.olan-rix.voice",
         "crew.olan-rix.relationship",
-        "crew.olan-rix.development"
+        "crew.olan-rix.reveal",
+        "crew.olan-rix.development",
+        "crew.olan-rix.style-reaction"
       ],
       "sorren-vale": [
         "crew.sorren-vale.profile",
         "crew.sorren-vale.voice",
         "crew.sorren-vale.relationship",
-        "crew.sorren-vale.development"
+        "crew.sorren-vale.reveal",
+        "crew.sorren-vale.development",
+        "crew.sorren-vale.style-reaction"
       ],
       "tkessa": [
         "crew.tkessa.profile",
         "crew.tkessa.voice",
         "crew.tkessa.relationship",
-        "crew.tkessa.development"
+        "crew.tkessa.reveal",
+        "crew.tkessa.development",
+        "crew.tkessa.style-reaction"
       ],
       "cpo-hark": [
         "crew.cpo-hark.profile",
         "crew.cpo-hark.voice",
         "crew.cpo-hark.relationship",
-        "crew.cpo-hark.development"
+        "crew.cpo-hark.reveal",
+        "crew.cpo-hark.development",
+        "crew.cpo-hark.style-reaction"
       ]
     },
     "byType": {
@@ -2126,6 +4603,16 @@
         "crew.tkessa.relationship",
         "crew.cpo-hark.relationship"
       ],
+      "crew.reveal": [
+        "crew.amina-rhos.reveal",
+        "crew.ishan-tal.reveal",
+        "crew.mara-venn.reveal",
+        "crew.shara-zhthenn.reveal",
+        "crew.olan-rix.reveal",
+        "crew.sorren-vale.reveal",
+        "crew.tkessa.reveal",
+        "crew.cpo-hark.reveal"
+      ],
       "crew.development": [
         "crew.amina-rhos.development",
         "crew.ishan-tal.development",
@@ -2135,6 +4622,16 @@
         "crew.sorren-vale.development",
         "crew.tkessa.development",
         "crew.cpo-hark.development"
+      ],
+      "command.styleReaction": [
+        "crew.amina-rhos.style-reaction",
+        "crew.ishan-tal.style-reaction",
+        "crew.mara-venn.style-reaction",
+        "crew.shara-zhthenn.style-reaction",
+        "crew.olan-rix.style-reaction",
+        "crew.sorren-vale.style-reaction",
+        "crew.tkessa.style-reaction",
+        "crew.cpo-hark.style-reaction"
       ]
     },
     "byAudience": {
@@ -2142,69 +4639,101 @@
         "crew.amina-rhos.profile",
         "crew.amina-rhos.voice",
         "crew.amina-rhos.relationship",
+        "crew.amina-rhos.reveal",
         "crew.amina-rhos.development",
+        "crew.amina-rhos.style-reaction",
         "crew.ishan-tal.profile",
         "crew.ishan-tal.voice",
         "crew.ishan-tal.relationship",
+        "crew.ishan-tal.reveal",
         "crew.ishan-tal.development",
+        "crew.ishan-tal.style-reaction",
         "crew.mara-venn.profile",
         "crew.mara-venn.voice",
         "crew.mara-venn.relationship",
+        "crew.mara-venn.reveal",
         "crew.mara-venn.development",
+        "crew.mara-venn.style-reaction",
         "crew.shara-zhthenn.profile",
         "crew.shara-zhthenn.voice",
         "crew.shara-zhthenn.relationship",
+        "crew.shara-zhthenn.reveal",
         "crew.shara-zhthenn.development",
+        "crew.shara-zhthenn.style-reaction",
         "crew.olan-rix.profile",
         "crew.olan-rix.voice",
         "crew.olan-rix.relationship",
+        "crew.olan-rix.reveal",
         "crew.olan-rix.development",
+        "crew.olan-rix.style-reaction",
         "crew.sorren-vale.profile",
         "crew.sorren-vale.voice",
         "crew.sorren-vale.relationship",
+        "crew.sorren-vale.reveal",
         "crew.sorren-vale.development",
+        "crew.sorren-vale.style-reaction",
         "crew.tkessa.profile",
         "crew.tkessa.voice",
         "crew.tkessa.relationship",
+        "crew.tkessa.reveal",
         "crew.tkessa.development",
+        "crew.tkessa.style-reaction",
         "crew.cpo-hark.profile",
         "crew.cpo-hark.voice",
         "crew.cpo-hark.relationship",
-        "crew.cpo-hark.development"
+        "crew.cpo-hark.reveal",
+        "crew.cpo-hark.development",
+        "crew.cpo-hark.style-reaction"
       ],
       "missionDirector": [
         "crew.amina-rhos.profile",
         "crew.amina-rhos.voice",
         "crew.amina-rhos.relationship",
+        "crew.amina-rhos.reveal",
         "crew.amina-rhos.development",
+        "crew.amina-rhos.style-reaction",
         "crew.ishan-tal.profile",
         "crew.ishan-tal.voice",
         "crew.ishan-tal.relationship",
+        "crew.ishan-tal.reveal",
         "crew.ishan-tal.development",
+        "crew.ishan-tal.style-reaction",
         "crew.mara-venn.profile",
         "crew.mara-venn.voice",
         "crew.mara-venn.relationship",
+        "crew.mara-venn.reveal",
         "crew.mara-venn.development",
+        "crew.mara-venn.style-reaction",
         "crew.shara-zhthenn.profile",
         "crew.shara-zhthenn.voice",
         "crew.shara-zhthenn.relationship",
+        "crew.shara-zhthenn.reveal",
         "crew.shara-zhthenn.development",
+        "crew.shara-zhthenn.style-reaction",
         "crew.olan-rix.profile",
         "crew.olan-rix.voice",
         "crew.olan-rix.relationship",
+        "crew.olan-rix.reveal",
         "crew.olan-rix.development",
+        "crew.olan-rix.style-reaction",
         "crew.sorren-vale.profile",
         "crew.sorren-vale.voice",
         "crew.sorren-vale.relationship",
+        "crew.sorren-vale.reveal",
         "crew.sorren-vale.development",
+        "crew.sorren-vale.style-reaction",
         "crew.tkessa.profile",
         "crew.tkessa.voice",
         "crew.tkessa.relationship",
+        "crew.tkessa.reveal",
         "crew.tkessa.development",
+        "crew.tkessa.style-reaction",
         "crew.cpo-hark.profile",
         "crew.cpo-hark.voice",
         "crew.cpo-hark.relationship",
-        "crew.cpo-hark.development"
+        "crew.cpo-hark.reveal",
+        "crew.cpo-hark.development",
+        "crew.cpo-hark.style-reaction"
       ],
       "narrator": [
         "crew.amina-rhos.profile",
@@ -2226,13 +4755,21 @@
       ],
       "commandDirector": [
         "crew.amina-rhos.development",
+        "crew.amina-rhos.style-reaction",
         "crew.ishan-tal.development",
+        "crew.ishan-tal.style-reaction",
         "crew.mara-venn.development",
+        "crew.mara-venn.style-reaction",
         "crew.shara-zhthenn.development",
+        "crew.shara-zhthenn.style-reaction",
         "crew.olan-rix.development",
+        "crew.olan-rix.style-reaction",
         "crew.sorren-vale.development",
+        "crew.sorren-vale.style-reaction",
         "crew.tkessa.development",
-        "crew.cpo-hark.development"
+        "crew.tkessa.style-reaction",
+        "crew.cpo-hark.development",
+        "crew.cpo-hark.style-reaction"
       ]
     },
     "byRevealGate": {
@@ -2248,13 +4785,21 @@
       ],
       "professionalConversation": [
         "crew.amina-rhos.voice",
+        "crew.amina-rhos.style-reaction",
         "crew.ishan-tal.voice",
+        "crew.ishan-tal.style-reaction",
         "crew.mara-venn.voice",
+        "crew.mara-venn.style-reaction",
         "crew.shara-zhthenn.voice",
+        "crew.shara-zhthenn.style-reaction",
         "crew.olan-rix.voice",
+        "crew.olan-rix.style-reaction",
         "crew.sorren-vale.voice",
+        "crew.sorren-vale.style-reaction",
         "crew.tkessa.voice",
-        "crew.cpo-hark.voice"
+        "crew.tkessa.style-reaction",
+        "crew.cpo-hark.voice",
+        "crew.cpo-hark.style-reaction"
       ],
       "none": [
         "crew.amina-rhos.relationship",
@@ -2273,6 +4818,16 @@
         "crew.tkessa.development",
         "crew.cpo-hark.relationship",
         "crew.cpo-hark.development"
+      ],
+      "highTrust": [
+        "crew.amina-rhos.reveal",
+        "crew.ishan-tal.reveal",
+        "crew.mara-venn.reveal",
+        "crew.shara-zhthenn.reveal",
+        "crew.olan-rix.reveal",
+        "crew.sorren-vale.reveal",
+        "crew.tkessa.reveal",
+        "crew.cpo-hark.reveal"
       ]
     }
   }

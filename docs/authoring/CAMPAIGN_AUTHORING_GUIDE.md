@@ -49,7 +49,7 @@ The second bundled draft package is Drowned Constellation:
   - `content/campaigns/glass-harbor/side-missions`
   - `content/campaigns/glass-harbor/world`
 
-Glass Harbor is bundled and runtime-registered, but it remains `draft`: its crew dataset and mission graphs need a deeper authored pass before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Glass Harbor is bundled and runtime-registered, but it remains `draft`: its senior-staff bible and crew dataset now use the rich six-card character structure, while mission graphs and playtest tuning still need promotion work. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The third bundled draft package is Black Current:
 
@@ -69,7 +69,7 @@ The third bundled draft package is Black Current:
   - `content/campaigns/serein/side-missions`
   - `content/campaigns/serein/world`
 
-Serein is bundled and runtime-registered, but it remains `draft`: its generated crew cards and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Serein is bundled and runtime-registered, but it remains `draft`: its senior-staff bible and crew dataset now use the rich six-card character structure, while tactical graphs and playtest tuning still need promotion work. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The fourth bundled draft package is Broken Accord:
 
@@ -89,7 +89,7 @@ The fourth bundled draft package is Broken Accord:
   - `content/campaigns/eudora-vale/side-missions`
   - `content/campaigns/eudora-vale/world`
 
-Eudora Vale is bundled and runtime-registered, but it remains `draft`: its generated crew cards and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Eudora Vale is bundled and runtime-registered, but it remains `draft`: its senior-staff bible and crew dataset now use the rich six-card character structure, while known-crew continuity playtesting, tactical graphs, and pacing still need promotion work. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The fifth bundled draft package is Unseen Border:
 
@@ -109,7 +109,7 @@ The fifth bundled draft package is Unseen Border:
   - `content/campaigns/aster-vale/side-missions`
   - `content/campaigns/aster-vale/world`
 
-Aster Vale is bundled and runtime-registered, but it remains `draft`: playtest tuning remains open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Aster Vale is bundled and runtime-registered, but it remains `draft`: its senior-staff bible and crew dataset now include rich voice capsules and strengthened six-card character payloads, while playtest and tactical graph tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The sixth bundled draft package is Enemy's Garden:
 
@@ -129,7 +129,7 @@ The sixth bundled draft package is Enemy's Garden:
   - `content/campaigns/celandine/side-missions`
   - `content/campaigns/celandine/world`
 
-Celandine is bundled and runtime-registered, but it remains `draft`: playtest tuning remains open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Celandine is bundled and runtime-registered, but it remains `draft`: its senior-staff bible and crew dataset now include rich voice capsules, a player authority boundary, and strengthened six-card character payloads, while playtest and tactical graph tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 Authoring example:
 

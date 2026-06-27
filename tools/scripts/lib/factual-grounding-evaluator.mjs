@@ -371,7 +371,8 @@ function seniorCrewIdentityParts(canary = {}) {
 function sentenceSegments(text = '') {
   return String(text || '')
     .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+/u)
+    .replace(/([.!?])(["'\u2019\u201d)]*)\s+/gu, '$1$2\n')
+    .split(/\n+/u)
     .map((part) => part.trim())
     .filter(Boolean);
 }

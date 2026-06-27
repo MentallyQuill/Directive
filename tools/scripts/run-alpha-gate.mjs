@@ -124,6 +124,7 @@ const checks = [
   ...campaignProjectionChecks,
   ...crewDatasetChecks,
   'test-rich-crew-voice-capsules.mjs',
+  'test-rich-crew-runtime-hydration.mjs',
   'test-crew-retrieval-fixture.mjs',
   'test-director-retrieval-orchestration.mjs',
   'test-generation-router.mjs',
