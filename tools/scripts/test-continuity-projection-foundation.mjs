@@ -56,6 +56,8 @@ assert.equal(byId.get('crew.hadrik-bronn.species')?.value, 'Tellarite');
 assert.match(byId.get('crew.hadrik-bronn.species')?.render.narrator || '', /not a default human/i);
 assert.equal(byId.get('crew.hadrik-bronn.billet')?.value, 'Chief Tactical and Security Officer');
 assert.match(byId.get('crew.hadrik-bronn.age-description')?.summary || '', /Late fifties/i);
+assert.match(byId.get('crew.hadrik-bronn.uniform-division-color')?.summary || '', /mustard-yellow/i);
+assert.match(byId.get('crew.kieran-vale.uniform-division-color')?.summary || '', /burgundy-red/i);
 
 const travelText = facts
   .filter((fact) => fact.kind.startsWith('ship.travel'))
@@ -94,6 +96,32 @@ assert.equal(frameA.referencedActorIds.includes('hadrik-bronn'), true);
 assert.equal(frameA.relevantActorIds.includes('hadrik-bronn'), true);
 assert.equal(frameB.referencedActorIds.includes('mara-whitaker'), true);
 
+const acceptedVariantFrame = buildContinuitySourceFrame({
+  campaignState,
+  packageData,
+  crewDataset,
+  campaignProjection,
+  playerText: 'I accept that handoff and continue.',
+  acceptedAssistantVariant: {
+    hostMessageId: 'assistant-selected-swipe',
+    selectedVariantId: '2',
+    selectedSwipeIndex: 2,
+    swipeCount: 3,
+    selectedTextHash: 'selected-bronn-handoff-hash',
+    visibleTextHash: 'selected-bronn-handoff-hash',
+    sourceIntegrity: 'clean',
+    text: 'Bronn gives the selected tactical handoff at the shuttle rendezvous.',
+    responseKind: 'hostGeneration'
+  }
+});
+assert.equal(acceptedVariantFrame.acceptedAssistantVariant.hostMessageId, 'assistant-selected-swipe');
+assert.equal(acceptedVariantFrame.acceptedAssistantVariant.selectedSwipeIndex, 2);
+assert.equal(acceptedVariantFrame.acceptedAssistantVariant.swipeCount, 3);
+assert.equal(acceptedVariantFrame.acceptedAssistantVariant.selectedTextHash, 'selected-bronn-handoff-hash');
+assert.equal(acceptedVariantFrame.referencedActorIds.includes('hadrik-bronn'), true);
+assert.notEqual(acceptedVariantFrame.sourceHash, frameB.sourceHash);
+assert.doesNotMatch(JSON.stringify(acceptedVariantFrame), /Discarded draft/i);
+
 const directorOnly = createContinuityFact({
   id: 'hidden.test',
   summary: 'Hidden fact.',
@@ -113,6 +141,7 @@ const matrix = buildContinuityProjectionMatrix({
 assert.deepEqual(matrix.blocks.map((block) => block.promptKey), DIRECTIVE_STATIC_PROMPT_KEYS);
 assert.equal(matrix.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.match(matrix.text, /Bronn is Tellarite/i);
+assert.match(matrix.text, /mustard-yellow/i);
 assert.match(matrix.text, /six days at impulse/i);
 assert.doesNotMatch(matrix.text, /directorOnly|rawValues/i);
 
@@ -139,7 +168,7 @@ assert.equal(bronnProfileOperation.reason, 'validator-added-turn-relevance');
 assert.equal(turnRelevantMatrix.sourceFrame.referencedActorIds.includes('hadrik-bronn'), true);
 
 const badReview = reviewContinuityContradictions({
-  text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia.',
+  text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia. He wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar.',
   campaignState,
   packageData,
   crewDataset,
@@ -148,6 +177,7 @@ const badReview = reviewContinuityContradictions({
 assert.equal(badReview.ok, false);
 assert.equal(badReview.findings.some((finding) => finding.kind === 'species-contradiction'), true);
 assert.equal(badReview.findings.some((finding) => finding.kind === 'age-contradiction'), true);
+assert.equal(badReview.findings.some((finding) => finding.kind === 'uniform-division-color-contradiction'), true);
 assert.equal(badReview.findings.some((finding) => finding.kind === 'travel-contradiction'), true);
 
 const goodReview = reviewContinuityContradictions({

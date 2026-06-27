@@ -92,6 +92,10 @@ function sourceText(message = {}) {
   return stripCampaignReplyHeader(message?.text || message?.mes || message?.content || '').trim();
 }
 
+function sourceTextFromValue(value = '') {
+  return stripCampaignReplyHeader(String(value || '')).trim();
+}
+
 function messageId(message = {}) {
   return compact(message?.hostMessageId || message?.id || String(message?.index ?? ''), 180) || null;
 }
@@ -140,8 +144,90 @@ function unsafeAssistantMessageReason(message = {}) {
 }
 
 function selectedAssistantVariantId(message = {}) {
-  const swipeId = message?.raw?.swipe_id ?? message?.raw?.swipeId ?? message?.metadata?.swipeId;
+  const swipeId = message?.raw?.swipe_id
+    ?? message?.raw?.swipeId
+    ?? message?.raw?.swipeIndex
+    ?? message?.metadata?.selectedSwipeIndex
+    ?? message?.metadata?.swipeId;
   return swipeId === undefined || swipeId === null ? null : String(swipeId);
+}
+
+function directiveMetadataForMessage(message = {}) {
+  if (isObject(message.metadata)) return message.metadata;
+  if (isObject(message.raw?.extra?.directive)) return message.raw.extra.directive;
+  if (isObject(message.raw?.metadata?.directive)) return message.raw.metadata.directive;
+  if (isObject(message.raw?.metadata)) return message.raw.metadata;
+  return {};
+}
+
+function selectedSwipeIndexForMessage(message = {}) {
+  const metadata = directiveMetadataForMessage(message);
+  const rawValue = message?.raw?.swipe_id
+    ?? message?.raw?.swipeId
+    ?? message?.raw?.swipeIndex
+    ?? metadata.selectedSwipeIndex
+    ?? metadata.swipeId;
+  const value = Number(rawValue);
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function assistantSwipes(message = {}) {
+  const rawSwipes = Array.isArray(message?.raw?.swipes)
+    ? message.raw.swipes
+    : (Array.isArray(message?.swipes) ? message.swipes : []);
+  return rawSwipes.map((entry) => String(entry || '')).filter(Boolean);
+}
+
+function selectedAssistantVariant(message = {}) {
+  const metadata = directiveMetadataForMessage(message);
+  const hostMessageId = messageId(message);
+  const swipes = assistantSwipes(message);
+  const selectedSwipeIndex = selectedSwipeIndexForMessage(message);
+  const hasSelectedSwipe = Number.isInteger(selectedSwipeIndex)
+    && selectedSwipeIndex >= 0
+    && selectedSwipeIndex < swipes.length;
+  const visibleText = sourceText(message);
+  const selectedText = sourceTextFromValue(hasSelectedSwipe ? swipes[selectedSwipeIndex] : visibleText).slice(0, MAX_PREVIOUS_TEXT);
+  const selectedTextHash = sceneHandshakeHash(selectedText);
+  const visibleTextHash = sceneHandshakeHash(visibleText);
+  let sourceIntegrity = 'clean';
+  if (swipes.length && !hasSelectedSwipe) sourceIntegrity = 'stale';
+  if (hasSelectedSwipe && visibleText && selectedTextHash !== visibleTextHash) sourceIntegrity = 'mismatch';
+  return {
+    kind: 'directive.selectedAssistantVariant.v1',
+    hostMessageId,
+    selectedVariantId: hasSelectedSwipe ? String(selectedSwipeIndex) : selectedAssistantVariantId(message),
+    selectedSwipeIndex: hasSelectedSwipe ? selectedSwipeIndex : null,
+    swipeCount: swipes.length,
+    selectedTextHash,
+    visibleTextHash,
+    sourceIntegrity,
+    directiveOwned: isDirectiveOwned(message),
+    responseId: compact(metadata.responseId || metadata.sourceResponseId || metadata.idempotencyKey || '', 180) || null,
+    outcomeId: compact(metadata.outcomeId || '', 180) || null,
+    responseKind: compact(metadata.responseKind || '', 80) || null,
+    observedAt: messageTimestamp(message),
+    text: selectedText
+  };
+}
+
+function selectedAssistantVariantLedgerRecord(variant = null) {
+  if (!variant) return null;
+  return {
+    kind: variant.kind || 'directive.selectedAssistantVariant.v1',
+    hostMessageId: variant.hostMessageId || null,
+    selectedVariantId: variant.selectedVariantId || null,
+    selectedSwipeIndex: Number.isInteger(variant.selectedSwipeIndex) ? variant.selectedSwipeIndex : null,
+    swipeCount: Number.isInteger(variant.swipeCount) ? variant.swipeCount : 0,
+    selectedTextHash: variant.selectedTextHash || null,
+    visibleTextHash: variant.visibleTextHash || null,
+    sourceIntegrity: variant.sourceIntegrity || 'clean',
+    directiveOwned: variant.directiveOwned === true,
+    responseId: variant.responseId || null,
+    outcomeId: variant.outcomeId || null,
+    responseKind: variant.responseKind || null,
+    observedAt: variant.observedAt || null
+  };
 }
 
 function findCurrentPlayerIndex(messages = [], currentPlayerMessage = {}) {
@@ -170,7 +256,7 @@ export function resolvePreviousAssistantMessage({
     if (isUser(candidate)) {
       return { message: null, index, skippedReason: 'previous-message-not-assistant' };
     }
-    const text = sourceText(candidate);
+    const text = selectedAssistantVariant(candidate).text || sourceText(candidate);
     if (!text) continue;
     const unsafeReason = unsafeAssistantMessageReason(candidate);
     if (unsafeReason) return { message: null, index, skippedReason: unsafeReason };
@@ -281,7 +367,8 @@ export function buildSceneHandshakeSnapshot({
 } = {}) {
   const state = campaignState || {};
   const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
-  const previousText = sourceText(previousAssistantMessage).slice(0, MAX_PREVIOUS_TEXT);
+  const previousVariant = selectedAssistantVariant(previousAssistantMessage);
+  const previousText = previousVariant.text.slice(0, MAX_PREVIOUS_TEXT);
   const playerText = sourceText(currentPlayerMessage).slice(0, MAX_PLAYER_TEXT);
   const combinedText = `${previousText}\n${playerText}`;
   const previousId = messageId(previousAssistantMessage);
@@ -329,9 +416,13 @@ export function buildSceneHandshakeSnapshot({
       previousAssistant: {
         hostMessageId: previousId,
         ordinal: previousAssistantMessage?.index ?? null,
-        selectedVariantId: selectedAssistantVariantId(previousAssistantMessage),
+        selectedVariantId: previousVariant.selectedVariantId,
+        selectedSwipeIndex: previousVariant.selectedSwipeIndex,
+        swipeCount: previousVariant.swipeCount,
+        sourceIntegrity: previousVariant.sourceIntegrity,
         textHash: previousTextHash,
-        text: previousText
+        text: previousText,
+        selectedVariant: previousVariant
       },
       currentPlayer: {
         hostMessageId: playerId,
@@ -404,10 +495,12 @@ function createPrompt(snapshot) {
       chatId: snapshot.envelope.chatId,
       previousAssistantHostMessageId: snapshot.source.previousAssistant.hostMessageId,
       currentPlayerHostMessageId: snapshot.source.currentPlayer.hostMessageId,
+      selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
       promptBudget: cloneJson(snapshot.budget),
       optionalSlicesIncluded: cloneJson(snapshot.budget?.optionalSlicesIncluded || []),
       sourceTextHashes: cloneJson({
         previousAssistant: snapshot.source.previousAssistant.textHash,
+        selectedAssistantVariant: snapshot.source.previousAssistant.selectedVariant?.selectedTextHash || snapshot.source.previousAssistant.textHash,
         currentPlayer: snapshot.source.currentPlayer.textHash,
         range: snapshot.source.sourceRangeHash
       })
@@ -1287,9 +1380,11 @@ function sceneHandshakeLedgerRecord({
     currentPlayerHostMessageId: snapshot.source.currentPlayer.hostMessageId,
     sourceTextHashes: cloneJson({
       previousAssistant: snapshot.source.previousAssistant.textHash,
+      selectedAssistantVariant: snapshot.source.previousAssistant.selectedVariant?.selectedTextHash || snapshot.source.previousAssistant.textHash,
       currentPlayer: snapshot.source.currentPlayer.textHash,
       range: snapshot.source.sourceRangeHash
     }),
+    selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
     promptContextRevisionBefore: snapshot.envelope.promptContextRevision || 0,
     runtimeRevisionBefore: snapshot.envelope.runtimeRevision || 0,
     modelRoleId: ROLE_ID,
@@ -1372,6 +1467,7 @@ async function recordOnly({
       settlementId: record.id,
       idempotencyKey: record.idempotencyKey,
       sourceAnchorRange: snapshot.source.sourceRangeHash,
+      selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
       recordedAt: timestamp(now)
     }
   }, { allowedRoots: ['runtimeTracking'] });
@@ -1615,6 +1711,7 @@ export async function runSceneHandshakeSettlement({
             idempotencyKey,
             providerFailureFallback: true,
             sourceAnchorRange: snapshot.source.sourceRangeHash,
+            selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
             evidenceMessageIds: [
               snapshot.source.previousAssistant.hostMessageId,
               snapshot.source.currentPlayer.hostMessageId
@@ -1755,6 +1852,7 @@ export async function runSceneHandshakeSettlement({
       settlementId,
       idempotencyKey,
       sourceAnchorRange: snapshot.source.sourceRangeHash,
+      selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
       evidenceMessageIds: [
         snapshot.source.previousAssistant.hostMessageId,
         snapshot.source.currentPlayer.hostMessageId

@@ -374,6 +374,7 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     playerText = '',
     recentMessageSummary = null,
     recentChatMessages = [],
+    acceptedAssistantVariant = null,
     projectionPlan = null,
     projectionPlannerContext = null,
     projectionPlannerResult = null,
@@ -402,6 +403,7 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     playerText,
     recentMessageSummary,
     recentChatMessages,
+    acceptedAssistantVariant,
     projectionPlan,
     projectionPlannerContext,
     projectionPlannerResult,
@@ -464,6 +466,7 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
     playerText = '',
     recentMessageSummary = null,
     recentChatMessages = [],
+    acceptedAssistantVariant = null,
     projectionHints = null
   } = normalizedInput;
   if (!campaignState || typeof campaignState !== 'object') {
@@ -477,7 +480,8 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
     scene: scene || {},
     playerText,
     recentMessageSummary,
-    recentChatMessages
+    recentChatMessages,
+    acceptedAssistantVariant
   });
   const factIndex = buildContinuityFactIndex({
     campaignState,

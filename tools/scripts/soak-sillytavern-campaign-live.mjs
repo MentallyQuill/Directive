@@ -228,6 +228,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'assist-action',
     'model-call',
     'fact-check',
+    'continuity-projection-check',
     'model-assisted-factual-review',
     'model-assisted-story-quality-review',
     'objective-assignment-projection-check',
@@ -596,6 +597,67 @@ export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
   hiddenStatePolicy: 'fact checks must use only player-safe canary facts and visible transcript excerpts; never include hidden campaign truth, raw relationship values, hidden pressure values, hidden clocks, Director-only notes, raw prompt bodies, provider reasoning, API keys, cookies, or CSRF tokens.',
   lanePausePolicy: 'A P1 factual blocker pauses only the affected lane unless the same prompt/source failure appears across campaigns or users; before pausing, append the fact-check record, refresh transcript artifacts, capture prompt-inspection metadata, and record current save/chat ids plus immediate-or-deferred fix disposition.',
   failureSeverityPolicy: 'P1 when visible generations contradict available major player-safe canaries or required canaries are absent from prompt availability proof; P2 for minor unsupported details that do not change identity, timeline, authority, mission state, or later player decisions; P3 for logged quality notes.'
+});
+
+export const SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'continuity-projection-matrix',
+  coordinatorScript: 'tools/scripts/run-continuity-matrix-five-user-soak.mjs',
+  liveLogRecord: 'continuity-projection-check',
+  intervalTurns: '5-10',
+  requiredPromptKeys: Object.freeze([
+    'directive.contract',
+    'directive.continuity.invariants',
+    'directive.scene.active',
+    'directive.continuity.domain',
+    'directive.recap.committed',
+    'directive.context.revolving'
+  ]),
+  requiredSourceIds: Object.freeze([
+    'crew.hadrik-bronn.species',
+    'crew.hadrik-bronn.age-description',
+    'ship.uss-breckenridge.travel.not-six-days-impulse'
+  ]),
+  modelRoles: Object.freeze([
+    'continuityProjectionPlanner',
+    'continuityContradictionReviewer',
+    'continuityClaimExtractor',
+    'continuityProjectionCompressor'
+  ]),
+  certificationGates: Object.freeze([
+    'static-cpm-prompt-keys-present-in-every-ashes-lane',
+    'required-bronn-and-transit-source-ids-present-before-high-risk-generation',
+    'prompt-availability-artifacts-map-required-facts-to-cpm-source-ids',
+    'mission-director-packets-carry-continuity-projection-digest',
+    'sidecar-jobs-carry-continuity-projection-provenance',
+    'contradictory-host-native-output-is-quarantined-or-recovery-required',
+    'candidate-and-rejected-claims-are-sanitized-and-do-not-become-authority',
+    'diagnostics-show-fresh-prompt-hash-source-hash-policy-hash-and-projection-run',
+    'five-user-cpm-coordinator-aggregates-passing-ashes-lane-evidence'
+  ]),
+  minimumEvidence: Object.freeze([
+    'prompt-key-list-and-hashes-for-each-lane',
+    'required-source-id-presence-for-bronn-species-bronn-age-and-breckenridge-transit-guard',
+    'continuity-projection-diagnostics-card-or-state-snapshot',
+    'projection-run-summary-with-selected-fact-count-conflict-count-omitted-count-and-validator-rejection-count',
+    'director-packet-digest-hash-sourceHash-selectedFactCount-and-audience',
+    'sidecar-source-continuityProjection-digest-proof',
+    'contradiction-guard-or-claim-quarantine-result-for-known-bad-host-output',
+    'factual-grounding-checks-linked-to-cpm prompt availability',
+    'five-user-coordinator-report-or-explicit bounded-run warning'
+  ]),
+  stateInspection: Object.freeze([
+    'runtimeTracking.promptContext.continuityProjection',
+    'campaignState.continuity.lastProjection',
+    'campaignState.continuity.projectionRuns',
+    'campaignState.continuity.factUseStats',
+    'campaignState.continuity.candidateClaims-and-rejectedClaims-counts',
+    'turnLedger.entries[].continuityProjection',
+    'runtimeTracking.sidecarJournal[].diagnostics.continuityProjection',
+    'Mission drawer sanitized continuity diagnostics card'
+  ]),
+  failureSeverityPolicy: 'P1 when required static prompt keys or Ashes source ids are missing before a high-risk generation, Director packets lack CPM provenance, sidecars lose CPM provenance, contradictory host-native output becomes accepted authority, or hidden facts leak through diagnostics; P2 for stale diagnostics or bounded coordinator evidence gaps with correct prompt/source proof.',
+  hiddenStatePolicy: 'CPM soak artifacts may record prompt keys, source ids, hashes, counts, statuses, diagnostics, and player-safe excerpts only; never raw hidden facts, raw prompt bodies, raw relationship or pressure values, private NPC thoughts, provider reasoning, cookies, CSRF tokens, or API keys.'
 });
 
 export const SOAK_UI_STATE_SURFACE_POLICY = Object.freeze({
@@ -986,20 +1048,20 @@ export const SOAK_CAMPAIGN_MATRIX = Object.freeze([
     theater: 'Asterion Reach',
     status: 'pre-alpha',
     liveCoverage: 'full-soak-rotation-primary',
-    focus: 'current Ashes-only live soak target: factual grounding, Mission Director campaign-content behavior, drawer population, sidecars, timekeeping, mutation stress, Command Bearing, and terminal End Conditions'
+    focus: 'current Ashes-only live soak target: factual grounding, Continuity Projection Matrix prompt/source proof, Mission Director campaign-content behavior, drawer population, sidecars, timekeeping, mutation stress, Command Bearing, and terminal End Conditions'
   })
 ]);
 
 export const SOAK_PHASES = Object.freeze([
-  phase('activation-baseline', 'Activation Baseline', '0', 'fresh campaign, character, chat, intro, prompt context'),
-  phase('clean-play', 'Clean Play', '1-8', 'scene color, routine commands, counsel, consequential turns, sidecars, first reply-header checkpoints'),
+  phase('activation-baseline', 'Activation Baseline', '0', 'fresh campaign, character, chat, intro, prompt context, CPM prompt keys, and required Ashes source ids'),
+  phase('clean-play', 'Clean Play', '1-8', 'scene color, routine commands, counsel, consequential turns, sidecars, CPM diagnostics, and first reply-header checkpoints'),
   phase('scene-handshake-timekeeping', 'Scene Handshake And Timekeeping', 'inserted after host-native scene beat', 'accept/reject assistant assignments, Mission Current Orders, Log, linked Crew projection, ship/thread signals, idempotency, prompt rebuild, and header compliance'),
   phase('directive-assist', 'Directive Assist', '9-18', 'Draft, Brief, Order, Report, Apply, Cancel, Try Again, Restore'),
   phase('authority-attacks', 'Authority, Agency, And Conduct Attacks', '19-28', 'NPC control, god-mode, unsupported action, subtle command misconduct, bad-guy/deception play'),
   phase('recent-retcons', 'Recent Retcon Stress', '29-34', 'edit/delete latest user and Directive replies'),
   phase('deep-retcons', 'Deep Retcon Stress', '35-44', 'edit/delete far-back user and Directive replies'),
   phase('branch-recovery', 'Save, Branch, Wrong Chat, And Recovery', '45-50', 'save, save-as, branch load, wrong-chat isolation, prompt rebuild'),
-  phase('continuation-proof', 'Continuation Proof', '51-52', 'continue playable campaign after stress'),
+  phase('continuation-proof', 'Continuation Proof', '51-52', 'continue playable campaign after stress while preserving CPM source/projection continuity'),
   phase('end-condition-branches', 'End Condition Branches', 'terminal sub-runs', 'force terminal failures and resolve checkpoint replay, Push On, Keep Ending, and Save Branch')
 ]);
 
@@ -1162,6 +1224,7 @@ export function buildSoakChatMessageScript({ turnScript = SOAK_TURN_SCRIPT, turn
   });
   const coverageLimitations = [
     'This delegated live path sends 52 strict chat turns through SillyTavern and verifies ingress/model/response behavior.',
+    'Continuity Projection Matrix evidence requires prompt-key/source-id proof and the five-user CPM coordinator for full certification.',
     'Host-native edit/delete/message-action mutation phases still require specialized live mutation runners.',
     'Terminal End Condition branches still require the terminal endings live smoke or dedicated branch fixtures.'
   ];
@@ -2814,6 +2877,18 @@ export function buildReleaseCertificationSummary(report = {}) {
       }
     }),
     evidenceGate({
+      id: 'continuity-projection-matrix',
+      label: 'Continuity Projection Matrix',
+      planned: report.continuityProjectionMatrixPolicy?.required === true,
+      evidence: {
+        artifactDirectory: report.continuityProjectionMatrixPolicy?.artifactDirectory || null,
+        coordinatorScript: report.continuityProjectionMatrixPolicy?.coordinatorScript || null,
+        requiredPromptKeys: report.continuityProjectionMatrixPolicy?.requiredPromptKeys?.length || 0,
+        requiredSourceIds: report.continuityProjectionMatrixPolicy?.requiredSourceIds?.length || 0,
+        modelRoles: report.continuityProjectionMatrixPolicy?.modelRoles?.length || 0
+      }
+    }),
+    evidenceGate({
       id: 'story-quality',
       label: 'Story quality and readable transcript scoring',
       planned: report.storyQualityPolicy?.required === true,
@@ -3188,6 +3263,15 @@ export async function buildDryRunReport() {
       minimumEvidence: [...SOAK_FACTUAL_GROUNDING_POLICY.minimumEvidence],
       stateInspection: [...SOAK_FACTUAL_GROUNDING_POLICY.stateInspection]
     },
+    continuityProjectionMatrixPolicy: {
+      ...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY,
+      requiredPromptKeys: [...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredPromptKeys],
+      requiredSourceIds: [...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds],
+      modelRoles: [...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.modelRoles],
+      certificationGates: [...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.certificationGates],
+      minimumEvidence: [...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.minimumEvidence],
+      stateInspection: [...SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.stateInspection]
+    },
     commandBearingSystemPolicy: {
       ...SOAK_COMMAND_BEARING_SYSTEM_POLICY,
       modelRoles: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles],
@@ -3342,6 +3426,16 @@ function summaryMarkdown(report) {
   lines.push(`- Expected-facts checklists: ${report.factualGroundingPolicy.expectedFactsBeforeGeneration.length}`);
   lines.push(`- Certification gates: ${report.factualGroundingPolicy.certificationGates.join(', ')}`);
   lines.push(`- Severity policy: ${report.factualGroundingPolicy.failureSeverityPolicy}`);
+  lines.push('', '## Continuity Projection Matrix Policy', '');
+  lines.push(`- Live log record: ${report.continuityProjectionMatrixPolicy.liveLogRecord}`);
+  lines.push(`- Artifact directory: ${report.continuityProjectionMatrixPolicy.artifactDirectory}`);
+  lines.push(`- Coordinator: ${report.continuityProjectionMatrixPolicy.coordinatorScript}`);
+  lines.push(`- Required prompt keys: ${report.continuityProjectionMatrixPolicy.requiredPromptKeys.join(', ')}`);
+  lines.push(`- Required source ids: ${report.continuityProjectionMatrixPolicy.requiredSourceIds.join(', ')}`);
+  lines.push(`- Model roles: ${report.continuityProjectionMatrixPolicy.modelRoles.join(', ')}`);
+  lines.push(`- Certification gates: ${report.continuityProjectionMatrixPolicy.certificationGates.join(', ')}`);
+  lines.push(`- State inspection: ${report.continuityProjectionMatrixPolicy.stateInspection.join(', ')}`);
+  lines.push(`- Severity policy: ${report.continuityProjectionMatrixPolicy.failureSeverityPolicy}`);
   lines.push('', '## Command Bearing Policy', '');
   lines.push(`- Owner lane: ${report.commandBearingSystemPolicy.ownerLane}`);
   lines.push(`- Interval cadence: ${report.commandBearingSystemPolicy.intervalTurns} settled player turns`);

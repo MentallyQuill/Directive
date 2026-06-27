@@ -352,11 +352,17 @@ function seniorCrewIdentityParts(canary = {}) {
   const match = String(canary.id || '').match(/senior-crew\.([^.]+)\.identity/u);
   if (!match) return null;
   const idParts = match[1].split('-').filter(Boolean);
+  const factText = [
+    canary.summary,
+    ...asArray(canary.assertions),
+    ...asArray(canary.positiveTerms)
+  ].join(' ');
   const exactSpecies = KNOWN_SPECIES.find((species) => (
     asArray(canary.positiveTerms).some((term) => normalizeText(term) === normalizeText(species))
   )) || null;
   const expectedSpecies = exactSpecies || KNOWN_SPECIES.find((species) => includesNormalized(canary.summary, species)) || null;
   const expectedAge = asArray(canary.positiveTerms).find((term) => /fift|fort|thirt|sixt|sevent|eight|ninet|year/i.test(String(term))) || null;
+  const expectedUniformColor = ['burgundy-red', 'mustard-yellow', 'teal', 'blue'].find((color) => includesNormalized(factText, color)) || null;
   return {
     idParts,
     focusTerms: [
@@ -364,7 +370,8 @@ function seniorCrewIdentityParts(canary = {}) {
       idParts.at(-1)
     ].filter(Boolean),
     expectedSpecies,
-    expectedAge
+    expectedAge,
+    expectedUniformColor
   };
 }
 
@@ -392,6 +399,26 @@ function sentenceLocalCooccurrence(text = '', focusTerms = [], targetPattern) {
     }
   }
   return false;
+}
+
+const UNIFORM_COLOR_PATTERNS = Object.freeze({
+  'burgundy-red': /\b(?:burgundy[-\s]?red|command\s+red|red-and-black)\b/i,
+  'mustard-yellow': /\b(?:mustard[-\s]?yellow|operations?\s+yellow|ops\s+yellow|engineering\s+yellow|tactical\s+yellow|security\s+yellow|gold|yellow)\b/i,
+  teal: /\b(?:science\s+teal|teal)\b/i,
+  blue: /\b(?:medical\s+blue|blue)\b/i
+});
+
+function hasUniformColorContradiction(text, expectedColor) {
+  const expected = normalizeText(expectedColor).replace(/\s+/g, '-');
+  if (!UNIFORM_COLOR_PATTERNS[expected]) return false;
+  const wrongPatterns = Object.entries(UNIFORM_COLOR_PATTERNS)
+    .filter(([color]) => color !== expected)
+    .map(([, pattern]) => pattern);
+  return sentenceSegments(text).some((sentence) => {
+    if (/\bnot\s+(?:command\s+)?red\b/i.test(sentence) || /\bnot\s+red-and-black\b/i.test(sentence)) return false;
+    if (!/\b(?:uniform|division|collar|tactical|security|operations?|ops|engineering|science|medical|command|acting[-\s]?XO)\b/i.test(sentence)) return false;
+    return wrongPatterns.some((pattern) => pattern.test(sentence));
+  });
 }
 
 function speciesContradictionPattern(species) {
@@ -436,6 +463,12 @@ function inferredContradictions(text, canary) {
       matches.push({
         term: 'forty-year-old age contradiction',
         textPreview: `Expected ${senior.expectedAge}; generated text says forty-year-old.`
+      });
+    }
+    if (senior.expectedUniformColor && hasUniformColorContradiction(text, senior.expectedUniformColor)) {
+      matches.push({
+        term: 'tactical uniform color contradiction',
+        textPreview: `Expected ${senior.expectedUniformColor} uniform color; generated text assigns a conflicting division color.`
       });
     }
   }

@@ -51,6 +51,7 @@ export function buildContinuityDirectorPacket({
   playerText = '',
   recentMessageSummary = '',
   recentChatMessages = [],
+  acceptedAssistantVariant = null,
   limit = 40
 } = {}) {
   if (!campaignState || typeof campaignState !== 'object') throw new Error('campaignState must be an object.');
@@ -63,7 +64,8 @@ export function buildContinuityDirectorPacket({
     scene,
     playerText,
     recentMessageSummary,
-    recentChatMessages
+    recentChatMessages,
+    acceptedAssistantVariant
   });
   const factIndex = buildContinuityFactIndex({
     campaignState,

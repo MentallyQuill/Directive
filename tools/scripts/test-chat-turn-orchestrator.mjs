@@ -385,7 +385,18 @@ chat.pushAssistantMessage({
     'First, review Commander Cross and the command-network handoff memo in Engineering.',
     'Second, meet Bronn on alpha shift.',
     'Third, walk the ship and talk to department heads before arrival.'
-  ].join('\n')
+  ].join('\n'),
+  swipes: [
+    'Discarded draft: Whitaker tells Sam to ignore Commander Cross and cancel the handoff memo.',
+    'Discarded draft: Bronn, a human male in his early forties, gives Sam a contradictory handoff.',
+    [
+      'Whitaker gave Sam three clear priorities.',
+      'First, review Commander Cross and the command-network handoff memo in Engineering.',
+      'Second, meet Bronn on alpha shift.',
+      'Third, walk the ship and talk to department heads before arrival.'
+    ].join('\n')
+  ],
+  swipeId: 2
 });
 const formalObjectiveCountBeforeHandshake = campaignState.mission.formalObjectives.length;
 const elapsedMinutesBeforeHandshake = campaignState.worldState?.elapsedMinutes ?? 0;
@@ -416,6 +427,33 @@ assert.equal(campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeHandsh
 assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeHandshake + 1);
 assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneHandshakePair');
 assert.ok(handshakeActivity.some((event) => event.phase === 'timeBoundaryAlreadyCommitted' && event.existingSource === 'sceneHandshakePair'));
+const handshakeRequest = responseSwipeGenerationCalls.find((entry) => (
+  entry.roleId === 'sceneHandshakeSettler'
+  && entry.request.metadata.previousAssistantHostMessageId === 'assistant-host-handshake'
+));
+assert(handshakeRequest, 'Scene Handshake request should be captured for the selected-swipe acceptance test.');
+assert.equal(handshakeRequest.request.metadata.selectedAssistantVariant.selectedSwipeIndex, 2);
+assert.equal(handshakeRequest.request.metadata.selectedAssistantVariant.swipeCount, 3);
+assert.equal(
+  handshakeRequest.request.metadata.selectedAssistantVariant.selectedTextHash,
+  handshakeRequest.request.metadata.sourceTextHashes.previousAssistant
+);
+assert.match(handshakeRequest.request.prompt, /Whitaker gave Sam three clear priorities/);
+assert.doesNotMatch(handshakeRequest.request.prompt, /ignore Commander Cross/i);
+assert.doesNotMatch(handshakeRequest.request.prompt, /human male in his early forties/i);
+const settledHandshake = campaignState.runtimeTracking.sceneHandshake.settled.at(-1);
+assert.equal(settledHandshake.selectedAssistantVariant.selectedSwipeIndex, 2);
+assert.equal(settledHandshake.selectedAssistantVariant.swipeCount, 3);
+assert.equal(settledHandshake.selectedAssistantVariant.sourceIntegrity, 'clean');
+assert.equal(
+  settledHandshake.selectedAssistantVariant.selectedTextHash,
+  settledHandshake.sourceTextHashes.previousAssistant
+);
+const handshakePromptFrame = promptFrames.find((frame) => frame?.acceptedAssistantVariant?.hostMessageId === 'assistant-host-handshake');
+assert(handshakePromptFrame, 'Prompt sync after Scene Handshake should carry the accepted selected assistant variant.');
+assert.equal(handshakePromptFrame.acceptedAssistantVariant.selectedSwipeIndex, 2);
+assert.equal(handshakePromptFrame.acceptedAssistantVariant.swipeCount, 3);
+assert.equal(handshakePromptFrame.acceptedAssistantVariant.selectedTextHash, settledHandshake.selectedAssistantVariant.selectedTextHash);
 
 const color = await send('*I nod once to the helmsman.*', 'player-color');
 assert.equal(color.decision.classification, 'sceneColor');

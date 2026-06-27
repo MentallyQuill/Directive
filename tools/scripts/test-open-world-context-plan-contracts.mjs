@@ -36,6 +36,9 @@ assert.match(plan.text, /\*Stardate 53049\.2 \| 0830 hours\*/);
 assert.match(plan.text, /Priya Nayar/);
 assert.match(plan.text, /Voice cue: Priya turns intent into cooperation/);
 assert.match(plan.text, /Line shape: "Bronn thinks any unofficial path is a tunnel with a trap at the end/);
+assert.match(plan.text, /do not force the full Asterion Reach strategy conversation yet/);
+assert.match(plan.text, /Active objectives:\n- Complete the command handover with Captain Whitaker/);
+assert.doesNotMatch(plan.text, /undefined: The Breckenridge/);
 assert.doesNotMatch(plan.text, /directorOnly|rawValues/i);
 assert.doesNotMatch(plan.text, /Becky Chambers|Picard|Sisko|Janeway|write like|in the style of/i);
 

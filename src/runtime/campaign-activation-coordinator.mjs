@@ -3,6 +3,7 @@ import {
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
+import { scenePacingGuidance } from '../context/scene-pacing-guidance.mjs';
 import {
   directiveNarrationContextSummary,
   directiveNarrationPerspectiveMode,
@@ -10,6 +11,10 @@ import {
   resolveDirectiveNarrationContext
 } from '../generation/narration-context.mjs';
 import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
+import {
+  STARFLEET_VOYAGER_UNIFORM_RULE,
+  starfleetUniformFactForCrew
+} from '../starfleet/uniforms.mjs';
 import {
   commitTrackedCampaignState,
   initializeCampaignRuntimeTracking
@@ -154,6 +159,11 @@ function introSeniorCrewFacts(safe, packageData) {
     .filter((officer) => officer?.id && officer.id !== 'player-commander')
     .map((officer) => {
       const source = packageCrew.get(officer.id) || {};
+      const mergedOfficer = {
+        ...source,
+        ...officer
+      };
+      const uniform = starfleetUniformFactForCrew(mergedOfficer);
       return {
         id: officer.id,
         name: officer.name || source.name || null,
@@ -168,6 +178,13 @@ function introSeniorCrewFacts(safe, packageData) {
           : Array.isArray(source.publicIdentityFacts)
             ? source.publicIdentityFacts
             : [],
+        uniformDivision: uniform
+          ? {
+            division: uniform.division,
+            color: uniform.color,
+            summary: uniform.summary
+          }
+          : null,
         packageRole: officer.packageRole || source.packageRole || null
       };
     });
@@ -187,6 +204,7 @@ function introOpeningFacts({ campaignState, packageData, safe }) {
   const command = packageData?.ship?.commandStructure || {};
   const captain = packageCrew.get(command.commandingOfficer || command.captainId);
   const actingXo = packageCrew.get(command.actingXoBeforePlayer);
+  const pacing = scenePacingGuidance({ campaignState, packageData });
   return {
     crewStartingFrame: packageData?.crew?.relationshipModel?.startingFrame || null,
     currentLocationId,
@@ -199,7 +217,12 @@ function introOpeningFacts({ campaignState, packageData, safe }) {
       commandingOfficer: officerLabel(captain),
       actingXoBeforePlayer: officerLabel(actingXo),
       actingXoPublicProfile: actingXo?.publicProfile || null
-    }
+    },
+    openingPacing: pacing ? {
+      id: pacing.id,
+      title: pacing.title,
+      lines: cloneJson(pacing.lines)
+    } : null
   };
 }
 
@@ -376,6 +399,7 @@ async function generateIntro({
   if (!generationRouter?.generate) return fallback;
   const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
   const introVariantSeed = compact(variantSeed);
+  const pacing = scenePacingGuidance({ campaignState, packageData });
   const styleContract = [
     'Narration perspective contract:',
     resolvedNarrationContext.instructions,
@@ -396,8 +420,11 @@ async function generateIntro({
     styleContract,
     '',
     'Use only the player-safe facts below. Establish the ship, assignment, player post, immediate scene, senior handoff, and one playable prompt.',
-    'When a named senior officer appears, preserve their listed rank, billet, species, public profile, age, appearance, and role facts. Do not omit or rewrite public identity facts for first appearances.',
+    STARFLEET_VOYAGER_UNIFORM_RULE,
+    'When a named senior officer appears, preserve their listed rank, billet, species, public profile, age, appearance, uniform/division color, and role facts. Do not omit or rewrite public identity facts for first appearances.',
+    'Do not infer command-red uniforms from temporary command duties. Temporary acting-XO duty does not change an officer\'s division color.',
     'The player is the incoming command character. Do not replace the player arrival or handoff with the captain arriving, and do not move the opening out of the active mission phase.',
+    pacing?.lines?.length ? `Opening pacing guidance:\n${pacing.lines.map((line) => `- ${line}`).join('\n')}` : '',
     'Stay inside the active mission and phase in the player-safe mission context. Do not invent a distress call, beacon, anomaly, attack, or new external mission hook unless that exact hook appears in the active mission context.',
     'Write normal roleplay prose. Do not include setup instructions, mechanics, hidden values, or JSON.',
     variantContract ? `\n${variantContract}` : '',

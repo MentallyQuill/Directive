@@ -28,6 +28,7 @@ assert(bronnCanary.expectedPromptKeys.includes('directive.continuity.domain'));
 assert(bronnCanary.expectedPromptKeys.includes('directive.scene.active'));
 assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.species'));
 assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.age-description'));
+assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.uniform-division-color'));
 
 assert(transitCanary.expectedPromptKeys.includes('directive.continuity.invariants'));
 assert(transitCanary.expectedPromptKeys.includes('directive.continuity.domain'));
@@ -45,6 +46,7 @@ const matrixPromptBlocks = promptBlocksFromInspection({
       sourceIds: [
         'crew.hadrik-bronn.species',
         'crew.hadrik-bronn.age-description',
+        'crew.hadrik-bronn.uniform-division-color',
         'crew.mara-whitaker.species',
         'crew.mara-whitaker.billet',
         'crew.priya-nayar.species',
@@ -113,6 +115,20 @@ const transcriptShapeCheck = buildFactualGroundingCheck({
 assert.equal(transcriptShapeCheck.status, 'pass');
 assert.equal(transcriptShapeCheck.counts.contradicted, 0);
 assert.equal(transcriptShapeCheck.counts.omitted, 0);
+
+const uniformColorCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-uniform-color',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#uniform-color',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [bronnCanary.id],
+  generatedText: 'Lieutenant Commander Hadrik Bronn waits at the foot of the ramp. He wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar.'
+});
+
+assert.equal(uniformColorCheck.status, 'fail');
+assert.equal(uniformColorCheck.counts.contradicted, 1);
+assert(uniformColorCheck.results.find((entry) => entry.factId === bronnCanary.id).contradictionMatches.some((entry) => /red-and-black|uniform color/i.test(entry.term)));
 
 const quotedSentenceBoundaryCheck = buildFactualGroundingCheck({
   pack: ashesPack,

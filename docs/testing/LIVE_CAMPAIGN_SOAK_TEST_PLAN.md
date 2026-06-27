@@ -204,6 +204,7 @@ Required artifacts:
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `fact-checks/`: generated player-safe fact canary packs, `canary-index.json`, prompt-availability audits, per-generation factual-grounding verdicts, contradiction summaries, and source pointers.
+- `continuity-projection-matrix/`: CPM prompt-key/source-id proof, diagnostics summaries, projection-run summaries, Director packet digests, sidecar provenance checks, contradiction/quarantine checks, and five-user coordinator aggregation.
 - `campaign-matrix/`: generated active-campaign canary scripts. In the current reset this contains Ashes only, with required live checks, planned third-person canary turns, and package-specific coverage notes. Deferred all-campaign rotation artifacts should use the same shape when re-enabled.
 - `quality-review/`: story-quality score ledger, phase summary, manual review template, manual review import ledger, model-assisted review request/result, reviewer mode, score-zero triage pointers, transcript pointers, and player-safe rationale excerpts.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
@@ -352,6 +353,37 @@ For live testing, "fact-check each generation" means the runner or human operato
 Manual reviewers may add retroactive `fact-check` records while reading the transcript. A retroactive check must point to the original message and source facts rather than rewriting history. If later reconciliation or edited replies repair the issue, log the repair as recovery evidence and keep the original factual failure visible for diagnosis.
 
 Do not use hidden truth as a visible-output fact target. If a generation avoids mentioning a hidden campaign truth, that is normally correct. If it reveals, contradicts, or treats hidden truth as public knowledge, log that through the hidden-state leak rules as well as the factual-grounding record.
+
+## Continuity Projection Matrix Coverage
+
+The Continuity Projection Matrix is now an active Ashes soak surface. It is not only a deterministic alpha-gate feature; live testing must prove that CPM facts actually reach prompt context, Director packets, sidecars, diagnostics, and factual-grounding checks during real SillyTavern play.
+
+Required Ashes prompt/source proof:
+
+- static prompt keys present before high-risk generation: `directive.contract`, `directive.continuity.invariants`, `directive.scene.active`, `directive.continuity.domain`, `directive.recap.committed`, and `directive.context.revolving`;
+- source ids present before Bronn/opening-transit checks: `crew.hadrik-bronn.species`, `crew.hadrik-bronn.age-description`, and `ship.uss-breckenridge.travel.not-six-days-impulse`;
+- prompt-availability records connect factual-grounding checks to CPM source ids rather than loose transcript memory;
+- sanitized diagnostics show prompt revision, prompt hash, source hash, policy hash, selected fact count, conflict count, omitted count, validator rejection count, candidate/rejected claim counts, active hint count, projection run count, and latest sanitized review metadata when available.
+
+Required live intervals:
+
+1. Activation and first Bronn contact: prove the CPM prompt keys and required Ashes source ids exist before the intro or first post-intro generation is judged.
+2. Mission Director turn: capture the Director packet digest with audience, hash, source hash, selected fact count, and no raw hidden facts.
+3. Sidecar-settled interval: prove relationship, crew, ship, thread, prompt-update, or Command Log sidecars carry the compact `continuityProjection` provenance digest without gaining prompt-injection authority.
+4. Contradiction guard interval: attempt or observe a known-bad host-native drift such as Bronn as Human, Bronn as 40, or the Breckenridge being only six days at impulse/out of spacedock. Verify the output is quarantined, rejected, or marked `recoveryRequired` rather than accepted as authoritative campaign state.
+5. Claim lifecycle interval: verify generated claims remain candidate/rejected until an authorized state path accepts them, and that rejected claims can feed short-lived guard hints without exposing hidden truth.
+6. Save/load or Save Game As interval: verify prompt revision, projection cache, projection run ledger, fact-use stats, and diagnostics remain tied to the active Ashes save/chat after reload or branch work.
+7. Five-user coordinator pass: run `run-continuity-matrix-five-user-soak.mjs` across the five Ashes lanes. Bounded `--turn-limit` runs are acceptable coordinator proof, but full certification requires each lane to run at the requested 52-turn depth or explicitly log the bounded-run warning.
+
+Every CPM interval should append a `continuity-projection-check` record to `live-log.jsonl` with lane id, turn range, save/chat ids, prompt revision, required prompt-key status, required source-id status, diagnostics status, related factual-grounding artifact paths, and whether the evidence came from the full soak runner or the five-user CPM coordinator.
+
+Failure severity:
+
+- P1: required static prompt keys or Ashes source ids are missing before high-risk generation; Director packets lack CPM provenance; sidecars lose CPM provenance; contradictory host-native output becomes accepted authority; diagnostics leak hidden facts or raw prompts.
+- P2: diagnostics are stale, a bounded coordinator run is being used where full certification is required, or projection-run/count artifacts are incomplete while prompt/source proof remains correct.
+- P3: artifact naming, summary wording, or screenshot coverage is incomplete but state, prompt proof, and factual grounding remain correct.
+
+CPM artifacts must never include raw hidden facts, raw prompt bodies, raw relationship or pressure values, private NPC thoughts, provider reasoning, cookies, CSRF tokens, or API keys. Use prompt keys, source ids, hashes, counts, statuses, player-safe excerpts, and relative artifact paths.
 
 ## Automated Player Writing Standard
 
@@ -602,7 +634,7 @@ Current matrix:
 
 | Campaign | Package | Required Live Coverage | Focus |
 |---|---|---|---|
-| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | active Ashes-only Playwright soak | factual grounding, Mission Director content behavior, Mission/Crew/Ship/Log projection, sidecars, timekeeping, mutation recovery, Command Bearing, and terminal End Conditions |
+| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | active Ashes-only Playwright soak | factual grounding, Continuity Projection Matrix prompt/source proof, Mission Director content behavior, Mission/Crew/Ship/Log projection, sidecars, timekeeping, mutation recovery, Command Bearing, and terminal End Conditions |
 
 For the active Ashes row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, factual-grounding canary result, prompt-availability audit result, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and any cross-campaign isolation probe that is deliberately scheduled.
 
@@ -685,15 +717,15 @@ The long-form soak target remains 52 Ashes player turns, but the current reset s
 
 | Phase | Turns | Main Purpose |
 |---|---:|---|
-| Activation baseline | 0 | fresh campaign, character, chat, intro, prompt context, opening factual-grounding canaries |
-| Clean play | 1-8 | scene color, routine command, counsel request, consequential command, first reply-header checkpoints |
+| Activation baseline | 0 | fresh campaign, character, chat, intro, prompt context, CPM prompt keys/source ids, and opening factual-grounding canaries |
+| Clean play | 1-8 | scene color, routine command, counsel request, consequential command, CPM diagnostics, and first reply-header checkpoints |
 | Scene Handshake and timekeeping | inserted after a host-native scene beat | accept/reject assistant assignments, Mission Current Orders, Log, linked Crew projection, ship/thread signals, idempotency, prompt rebuild, and header compliance |
 | Directive Assist | 9-18 | Draft, Brief, Order, Report, Apply, Cancel, Try Again, Restore |
 | Authority attacks | 19-28 | NPC control, god-mode, unsupported action, bad-guy/deception play |
 | Recent retcons | 29-34 | edit/delete latest user and Directive replies |
 | Deep retcons | 35-44 | edit/delete far-back user and Directive replies |
 | Branch and recovery | 45-50 | save, save-as, branch load, wrong-chat isolation, prompt rebuild |
-| Continuation proof | 51-52 | keep playing after the stress and verify continuity holds |
+| Continuation proof | 51-52 | keep playing after the stress and verify CPM source/projection continuity holds |
 | End Condition branches | terminal sub-runs | force catastrophic and command-fitness terminal failures, then resolve Save Branch, Replay, Push On, and Keep Ending |
 
 ## Phase 0: Activation Baseline
@@ -1663,6 +1695,7 @@ After the automated run, a human reviewer should inspect:
 - `quality-review/manual-review-template.json` while reading the transcript, then import completed reviewer scores so `quality-review/manual-review-import.jsonl`, `quality-review/scores.jsonl`, and `quality-review/phase-summary.json` preserve the human quality judgment;
 - the first 10 turns for normal campaign feel;
 - `fact-checks/` and `fact-check` live-log records for opening premise, senior crew identity, current location/time, player billet, ship/venue facts, prompt availability, and root-cause labels on every contradiction or unsupported detail;
+- `continuity-projection-matrix/` and `continuity-projection-check` live-log records for required CPM prompt keys, Bronn/transit source ids, diagnostics freshness, Director packet digests, sidecar provenance, and contradiction quarantine/recovery evidence;
 - a sample of `no-material-facts` and `light-check` assistant replies to ensure the material-fact scanner did not miss quiet premise, identity, location, order, or ship-state drift;
 - any generation that reads well but changes a campaign fact, using the source-check, prompt-availability, and generation-compliance trail to decide whether the defect belongs to package data, projection, prompt assembly, retrieval/compression, or model compliance;
 - every first appearance of a named senior crew member for species, age band, role, rank, relationship to the player, and whether the fact was available in prompt context before generation;

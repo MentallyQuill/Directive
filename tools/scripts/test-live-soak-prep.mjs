@@ -33,6 +33,7 @@ import {
   SOAK_CHECKPOINT_ARTIFACT_POLICY,
   SOAK_COMMAND_BEARING_SYSTEM_POLICY,
   SOAK_COMMAND_CONDUCT_SCENARIOS,
+  SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY,
   SOAK_END_CONDITION_SCENARIOS,
   SOAK_FACTUAL_GROUNDING_POLICY,
   SOAK_LIVE_LOG_POLICY,
@@ -147,8 +148,17 @@ assert.equal(schema.properties.factualGroundingPolicy.required.includes('rootCau
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('generationAuditLevels'), true);
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('diagnosticFields'), true);
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('lanePausePolicy'), true);
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.properties.required.const, true);
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.properties.artifactDirectory.const, 'continuity-projection-matrix');
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.properties.coordinatorScript.const, 'tools/scripts/run-continuity-matrix-five-user-soak.mjs');
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.properties.liveLogRecord.const, 'continuity-projection-check');
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.properties.intervalTurns.const, '5-10');
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.required.includes('requiredPromptKeys'), true);
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.required.includes('requiredSourceIds'), true);
+assert.equal(schema.properties.continuityProjectionMatrixPolicy.required.includes('modelRoles'), true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.required.const, true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.intervalLogRecord.const, 'command-bearing-interval');
+assert.equal(schema.properties.commandBearingSystemPolicy.properties.ownerLane.const, 'ashes-command-bearing-endings');
 assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('certificationGates'), true);
 assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('boundaryDetectionLadder'), true);
 assert.equal(schema.properties.artifacts.required.includes('liveLog'), true);
@@ -157,9 +167,11 @@ assert.equal(schema.properties.artifacts.required.includes('sourceChatTranscript
 assert.equal(schema.properties.artifacts.required.includes('factChecks'), true);
 assert.equal(schema.properties.artifacts.required.includes('factCanaryIndex'), true);
 assert.equal(schema.properties.artifacts.required.includes('campaignMatrix'), true);
+assert.equal(schema.properties.artifacts.required.includes('continuityProjectionMatrix'), true);
 assert.equal(schema.properties.artifacts.required.includes('qualityReview'), true);
 assert.equal(schema.required.includes('campaignMatrixCanaries'), true);
 assert.equal(schema.required.includes('storyQualityPolicy'), true);
+assert.equal(schema.required.includes('continuityProjectionMatrixPolicy'), true);
 assert.equal(schema.properties.campaignMatrix.items.$ref, '#/$defs/campaignMatrixEntry');
 assert.equal(schema.properties.campaignMatrixCanaries.items.$ref, '#/$defs/campaignMatrixCanaryScript');
 assert.equal(schema.properties.factualCanaryPacks.items.$ref, '#/$defs/factualCanaryPack');
@@ -183,6 +195,7 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('prompt-inspection-capture'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fact-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('continuity-projection-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('campaign-matrix-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('model-assisted-factual-review'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('model-assisted-story-quality-review'), true);
@@ -589,6 +602,21 @@ assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /P1/);
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /duplicate awards/);
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.liveEvidence.some((entry) => /evidence ledger/.test(entry)));
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.hiddenStatePolicy, /private NPC thoughts/);
+assert.equal(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.required, true);
+assert.equal(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.artifactDirectory, 'continuity-projection-matrix');
+assert.equal(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.coordinatorScript, 'tools/scripts/run-continuity-matrix-five-user-soak.mjs');
+assert.equal(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.liveLogRecord, 'continuity-projection-check');
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredPromptKeys.includes('directive.continuity.invariants'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredPromptKeys.includes('directive.context.revolving'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('crew.hadrik-bronn.species'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('crew.hadrik-bronn.age-description'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('ship.uss-breckenridge.travel.not-six-days-impulse'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.modelRoles.includes('continuityProjectionPlanner'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.modelRoles.includes('continuityContradictionReviewer'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.certificationGates.includes('five-user-cpm-coordinator-aggregates-passing-ashes-lane-evidence'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.minimumEvidence.includes('director-packet-digest-hash-sourceHash-selectedFactCount-and-audience'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.stateInspection.includes('Mission drawer sanitized continuity diagnostics card'));
+assert.match(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.failureSeverityPolicy, /required static prompt keys/);
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.strategy, 'ashes-first-five-lane-coverage');
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.defaultWorkerHandles.length, 5);
 assert.deepEqual(
@@ -889,6 +917,15 @@ assert(report.factualGroundingPolicy.diagnosticFields.recoveryStatus.includes('r
 assert.match(report.factualGroundingPolicy.lanePausePolicy, /refresh transcript artifacts/);
 assert(report.factualGroundingPolicy.minimumEvidence.includes('prompt-block-id-or-availability-status-for-each-required-fact'));
 assert.match(report.factualGroundingPolicy.failureSeverityPolicy, /P1/);
+assert.equal(report.continuityProjectionMatrixPolicy.required, true);
+assert.equal(report.continuityProjectionMatrixPolicy.artifactDirectory, 'continuity-projection-matrix');
+assert.equal(report.continuityProjectionMatrixPolicy.coordinatorScript, 'tools/scripts/run-continuity-matrix-five-user-soak.mjs');
+assert(report.continuityProjectionMatrixPolicy.requiredPromptKeys.includes('directive.scene.active'));
+assert(report.continuityProjectionMatrixPolicy.requiredSourceIds.includes('ship.uss-breckenridge.travel.not-six-days-impulse'));
+assert(report.continuityProjectionMatrixPolicy.modelRoles.includes('continuityProjectionPlanner'));
+assert(report.continuityProjectionMatrixPolicy.certificationGates.includes('mission-director-packets-carry-continuity-projection-digest'));
+assert(report.continuityProjectionMatrixPolicy.minimumEvidence.includes('five-user-coordinator-report-or-explicit bounded-run warning'));
+assert(report.releaseCertificationSummary.evidenceGates.some((entry) => entry.id === 'continuity-projection-matrix'));
 assert.equal(report.factualCanaryPacks.length, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(report.factualCanaryPackSummary.length, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(report.factualCanaryPacks.every((pack) => pack.canaryCount >= 10), true);
@@ -1289,6 +1326,7 @@ const expectedDirs = [
   'objectiveAssignments',
   'factChecks',
   'campaignMatrix',
+  'continuityProjectionMatrix',
   'qualityReview',
   'sceneHandshake',
   'timekeeping',

@@ -28,6 +28,39 @@ function containsNear(text, left, right, window = 100) {
   return false;
 }
 
+function sentenceSegments(text = '') {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .replace(/([.!?])(["'\u2019\u201d)]*)\s+/gu, '$1$2\n')
+    .split(/\n+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+const UNIFORM_COLOR_PATTERNS = Object.freeze({
+  'burgundy-red': /\b(?:burgundy[-\s]?red|command\s+red|red-and-black)\b/i,
+  'mustard-yellow': /\b(?:mustard[-\s]?yellow|operations?\s+yellow|ops\s+yellow|engineering\s+yellow|tactical\s+yellow|security\s+yellow|gold|yellow)\b/i,
+  teal: /\b(?:science\s+teal|teal)\b/i,
+  blue: /\b(?:medical\s+blue|blue)\b/i
+});
+
+function uniformFactColor(fact) {
+  return compact(fact?.value?.color || fact?.value || fact?.summary);
+}
+
+function hasUniformColorContradiction(text, expectedColor) {
+  const expected = compact(expectedColor).toLowerCase();
+  if (!UNIFORM_COLOR_PATTERNS[expected]) return false;
+  const wrongPatterns = Object.entries(UNIFORM_COLOR_PATTERNS)
+    .filter(([color]) => color !== expected)
+    .map(([, pattern]) => pattern);
+  return sentenceSegments(text).some((sentence) => {
+    if (/\bnot\s+(?:command\s+)?red\b/i.test(sentence) || /\bnot\s+red-and-black\b/i.test(sentence)) return false;
+    if (!/\b(?:uniform|division|collar|tactical|security|operations?|ops|engineering|science|medical|command|acting[-\s]?XO)\b/i.test(sentence)) return false;
+    return wrongPatterns.some((pattern) => pattern.test(sentence));
+  });
+}
+
 function speciesFindings(text, facts, packageData) {
   const findings = [];
   for (const fact of facts.filter((entry) => entry.predicate === 'species')) {
@@ -60,6 +93,25 @@ function ageFindings(text, facts, packageData) {
         factId: fact.id,
         severity: 'blocker',
         summary: `${name} has age frame "${age}", but generated text gives a forties age band.`
+      });
+    }
+  }
+  return findings;
+}
+
+function uniformDivisionFindings(text, facts, packageData) {
+  const findings = [];
+  for (const fact of facts.filter((entry) => entry.predicate === 'uniformDivisionColor')) {
+    const expectedColor = uniformFactColor(fact);
+    if (!hasUniformColorContradiction(text, expectedColor)) continue;
+    const names = subjectNamesForFact(fact, packageData);
+    const name = names.find((candidate) => containsNear(text, candidate, /\b(red-and-black|command\s+red|mustard[-\s]?yellow|operations?\s+yellow|ops\s+yellow|engineering\s+yellow|tactical\s+yellow|security\s+yellow|gold|yellow|science\s+teal|teal|medical\s+blue|blue)\b/i, 1200));
+    if (name) {
+      findings.push({
+        kind: 'uniform-division-color-contradiction',
+        factId: fact.id,
+        severity: 'blocker',
+        summary: `${name} has uniform fact "${fact.summary}", but generated text assigns a conflicting division color.`
       });
     }
   }
@@ -100,6 +152,7 @@ export function reviewContinuityContradictions({
   const findings = [
     ...speciesFindings(text, factIndex.facts, packageData),
     ...ageFindings(text, factIndex.facts, packageData),
+    ...uniformDivisionFindings(text, factIndex.facts, packageData),
     ...travelFindings(text, factIndex.facts)
   ];
   return {

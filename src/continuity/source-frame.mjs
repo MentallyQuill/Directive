@@ -29,6 +29,38 @@ function recentMessages(messages, limit = 8) {
   }));
 }
 
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function normalizeAcceptedAssistantVariant(value = null) {
+  if (!isObject(value)) return null;
+  const text = compact(value.text || value.selectedText || value.previousAssistantText || '').slice(0, 1400);
+  const selectedTextHash = compact(value.selectedTextHash || value.textHash || (text ? hashContinuityText(text) : '')) || null;
+  return {
+    kind: compact(value.kind || 'directive.acceptedAssistantVariant.v1'),
+    hostMessageId: compact(value.hostMessageId || value.messageId || value.id) || null,
+    selectedVariantId: compact(value.selectedVariantId || value.variantId || '') || null,
+    selectedSwipeIndex: numberOrNull(value.selectedSwipeIndex ?? value.swipeIndex),
+    swipeCount: numberOrNull(value.swipeCount) ?? 0,
+    selectedTextHash,
+    visibleTextHash: compact(value.visibleTextHash || '') || null,
+    sourceIntegrity: compact(value.sourceIntegrity || 'clean') || 'clean',
+    directiveOwned: value.directiveOwned === true,
+    responseId: compact(value.responseId || '') || null,
+    outcomeId: compact(value.outcomeId || '') || null,
+    responseKind: compact(value.responseKind || '') || null,
+    observedAt: compact(value.observedAt || '') || null,
+    acceptedAt: compact(value.acceptedAt || value.recordedAt || '') || null,
+    text
+  };
+}
+
 function unique(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map(compact).filter(Boolean))];
 }
@@ -69,9 +101,17 @@ function textReferencesTerm(text = '', term = '') {
     .test(String(text || '').toLowerCase());
 }
 
-function referencedActorIds({ packageData = null, crewDataset = null, playerText = '', recentMessageSummary = '', recentChatMessages = [] } = {}) {
+function referencedActorIds({
+  packageData = null,
+  crewDataset = null,
+  playerText = '',
+  recentMessageSummary = '',
+  recentChatMessages = [],
+  acceptedAssistantVariant = null
+} = {}) {
   const recentText = recentMessages(recentChatMessages, 8).map((message) => message.text).join('\n');
-  const haystack = [playerText, recentMessageSummary, recentText].map(compact).filter(Boolean).join('\n');
+  const acceptedText = compact(acceptedAssistantVariant?.text || '');
+  const haystack = [playerText, recentMessageSummary, recentText, acceptedText].map(compact).filter(Boolean).join('\n');
   if (!haystack) return [];
   const ids = [];
   for (const record of crewRecords(packageData, crewDataset)) {
@@ -99,17 +139,20 @@ export function buildContinuitySourceFrame({
   playerText = '',
   recentMessageSummary = '',
   recentChatMessages = [],
+  acceptedAssistantVariant = null,
   sourceDocuments = []
 } = {}) {
   if (!campaignState || typeof campaignState !== 'object') throw new Error('campaignState must be an object.');
   const continuity = normalizeContinuityState(campaignState.continuity);
+  const acceptedVariant = normalizeAcceptedAssistantVariant(acceptedAssistantVariant);
   const presentActorIds = sceneActorIds(scene);
   const referencedActors = referencedActorIds({
     packageData,
     crewDataset,
     playerText,
     recentMessageSummary,
-    recentChatMessages
+    recentChatMessages,
+    acceptedAssistantVariant: acceptedVariant
   });
   const relevantActorIds = unique([...presentActorIds, ...referencedActors]);
   const frame = {
@@ -127,6 +170,7 @@ export function buildContinuitySourceFrame({
     playerText: compact(playerText),
     recentMessageSummary: compact(recentMessageSummary),
     recentMessages: recentMessages(recentChatMessages),
+    acceptedAssistantVariant: acceptedVariant,
     presentActorIds,
     referencedActorIds: referencedActors,
     relevantActorIds,

@@ -197,10 +197,14 @@ assert.match(introRequest.prompt, /This model call happens outside normal host p
 assert.match(introRequest.prompt, /Do not replace the player arrival or handoff with the captain arriving/);
 assert.match(introRequest.prompt, /The crew has spent twenty-five days underway together/);
 assert.match(introRequest.prompt, /final ten days before the Asterion Reach/);
+assert.match(introRequest.prompt, /do not force the full Asterion Reach strategy conversation yet/);
+assert.match(introRequest.prompt, /"openingPacing"/);
 assert.match(introRequest.prompt, /Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran Tellarite tactical and security chief/);
 assert.match(introRequest.prompt, /Late fifties by human comparison/);
 assert.match(introRequest.prompt, /Broad, compact Tellarite officer/);
 assert.match(introRequest.prompt, /Original Breckenridge senior officer and acting XO during the post-refit transit/);
+assert.match(introRequest.prompt, /Tactical, Operations, and Engineering wear mustard-yellow/);
+assert.match(introRequest.prompt, /Temporary acting-XO duty does not change an officer's division color/);
 assert.equal(introRequest.metadata.narrationContext.source, 'active-directive-preset');
 assert.equal(activated.introPacket.narrationContext.perspectivePromptId, 'directive-pov-second-external');
 assert.equal(activated.activationJournal.steps.introGenerated.details.narrationContext.perspectivePromptId, 'directive-pov-second-external');

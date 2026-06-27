@@ -2350,6 +2350,7 @@ export function createDirectiveRuntimeApp({
       playerText: frame.playerText || '',
       recentMessageSummary: frame.recentMessageSummary || null,
       recentChatMessages: Array.isArray(frame.recentChatMessages) ? frame.recentChatMessages : [],
+      acceptedAssistantVariant: frame.acceptedAssistantVariant || null,
       createdAt: timestampFromNow(now)
     };
     const shouldUseContinuityPlanner = useContinuityPlanner === true

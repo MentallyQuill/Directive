@@ -6,6 +6,7 @@ import {
   sha256Text,
   writeJsonFile
 } from './sillytavern-live-harness.mjs';
+import { starfleetUniformFactForCrew } from '../../../src/starfleet/uniforms.mjs';
 
 export const FACT_CANARY_PACK_KIND = 'directive.liveCampaignSoak.factualCanaryPack';
 export const FACT_CANARY_INDEX_KIND = 'directive.liveCampaignSoak.factualCanaryIndex';
@@ -132,10 +133,13 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
   return records
     .filter((officer) => officer?.id && officer.id !== 'player-commander')
     .map((officer, index) => {
+      const publicIdentityFacts = asArray(officer.publicIdentityFacts);
+      const uniformDivisionFact = starfleetUniformFactForCrew(officer);
       const assertions = [
         officer.publicProfile,
         officer.ageDescription ? `${officer.name} age band: ${officer.ageDescription}` : null,
-        officer.publicIdentityFacts ? asArray(officer.publicIdentityFacts).join(' ') : null,
+        uniformDivisionFact?.summary,
+        publicIdentityFacts.length ? publicIdentityFacts.join(' ') : null,
         officer.playerSafeSummary,
         ...asArray(profileSummaries.get(officer.id)).map((entry) => entry.summary)
       ].filter(Boolean);
@@ -143,6 +147,7 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
         officer.publicProfile ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'publicProfile'), 'package public profile') : null,
         officer.ageDescription ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'ageDescription'), 'package public age band') : null,
         officer.publicIdentityFacts ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'publicIdentityFacts'), 'package public identity facts') : null,
+        uniformDivisionFact ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'billet'), 'derived Starfleet uniform division from crew billet') : null,
         officer.playerSafeSummary ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'playerSafeSummary'), 'package player-safe summary') : null
       ].filter(Boolean);
       if (crewDatasetPathValue && profileSummaries.has(officer.id)) {
@@ -164,7 +169,8 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
         expectedSourceIds: [
           `crew.${officer.id}.species`,
           `crew.${officer.id}.billet`,
-          officer.ageDescription ? `crew.${officer.id}.age-description` : null
+          officer.ageDescription ? `crew.${officer.id}.age-description` : null,
+          uniformDivisionFact ? `crew.${officer.id}.uniform-division-color` : null
         ].filter(Boolean),
         sourcePointers,
         assertions,
@@ -172,7 +178,9 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
           officer.name,
           officer.species,
           officer.billet,
-          officer.ageDescription
+          officer.ageDescription,
+          uniformDivisionFact?.division,
+          uniformDivisionFact?.color
         ].filter(Boolean),
         contradictionWatchlist: [
           officer.species ? `${officer.name} is not another species than ${officer.species}.` : null,
@@ -181,7 +189,12 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
           officer.billet ? `${officer.name} must not be assigned a different senior role than ${officer.billet}.` : null,
           officer.ageDescription ? `${officer.name} must not be given a contradictory age band.` : null,
           /fift/i.test(officer.ageDescription || '') ? `${officer.name}, a 40-year-old` : null,
-          /fift/i.test(officer.ageDescription || '') ? `${officer.name}, a forty-year-old` : null
+          /fift/i.test(officer.ageDescription || '') ? `${officer.name}, a forty-year-old` : null,
+          uniformDivisionFact?.color !== 'burgundy-red' ? 'red-and-black of tactical' : null,
+          uniformDivisionFact?.color !== 'burgundy-red' ? `${officer.name} wears command red` : null,
+          uniformDivisionFact?.color !== 'mustard-yellow' ? `${officer.name} wears mustard-yellow` : null,
+          uniformDivisionFact?.color !== 'teal' ? `${officer.name} wears teal` : null,
+          uniformDivisionFact?.color !== 'blue' ? `${officer.name} wears blue` : null
         ].filter(Boolean)
       });
     });

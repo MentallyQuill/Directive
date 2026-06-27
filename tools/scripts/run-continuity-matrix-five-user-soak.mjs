@@ -1019,6 +1019,7 @@ async function main() {
       campaignMatrix: path.join(paths.root, 'campaign-matrix'),
       objectiveAssignments: path.join(paths.root, 'objective-assignments'),
       factChecks: path.join(paths.root, 'fact-checks'),
+      continuityProjectionMatrix: path.join(paths.root, 'continuity-projection-matrix'),
       qualityReview: path.join(paths.root, 'quality-review'),
       sceneHandshake: path.join(paths.root, 'scene-handshake'),
       timekeeping: path.join(paths.root, 'timekeeping'),

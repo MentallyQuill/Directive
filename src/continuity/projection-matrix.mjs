@@ -143,6 +143,7 @@ export function buildContinuityProjectionMatrix({
   playerText = '',
   recentMessageSummary = '',
   recentChatMessages = [],
+  acceptedAssistantVariant = null,
   projectionPlan = null,
   projectionPlannerContext = null,
   projectionPlannerResult = null,
@@ -159,7 +160,8 @@ export function buildContinuityProjectionMatrix({
     scene,
     playerText,
     recentMessageSummary,
-    recentChatMessages
+    recentChatMessages,
+    acceptedAssistantVariant
   });
   const factIndex = buildContinuityFactIndex({
     campaignState,

@@ -392,19 +392,27 @@ export function createFakeChatAdapter({
       chatMessages.push(message);
       return cloneJson(message);
     },
-    pushAssistantMessage({ text, hostMessageId = null, directiveOwned = false, metadata = null, isSystem = false } = {}) {
+    pushAssistantMessage({ text, hostMessageId = null, directiveOwned = false, metadata = null, isSystem = false, swipes = null, swipeId = null } = {}) {
       const resolvedId = hostMessageId || `fake-message-${chatMessages.length + 1}`;
+      const normalizedSwipes = Array.isArray(swipes) ? swipes.map((entry) => String(entry || '')).filter(Boolean) : null;
+      const selectedSwipeIndex = Number.isInteger(swipeId) && normalizedSwipes && swipeId >= 0 && swipeId < normalizedSwipes.length
+        ? swipeId
+        : null;
       const message = {
         id: resolvedId,
         hostMessageId: resolvedId,
         chatId: currentChatId,
-        text: String(text || ''),
+        text: selectedSwipeIndex !== null ? normalizedSwipes[selectedSwipeIndex] : String(text || ''),
         isUser: false,
         isSystem: isSystem === true,
         role: isSystem === true ? 'system' : 'assistant',
         isDirectiveOwned: directiveOwned === true,
         metadata: cloneJson(metadata || null)
       };
+      if (normalizedSwipes) {
+        message.swipes = normalizedSwipes;
+        message.swipe_id = selectedSwipeIndex ?? 0;
+      }
       chatMessages.push(message);
       return cloneJson(message);
     },

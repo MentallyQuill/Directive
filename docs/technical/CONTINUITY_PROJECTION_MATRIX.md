@@ -70,11 +70,23 @@ flowchart TB
 
 - campaign, package, save, branch, chat, revision, and mechanics revision;
 - current location, active quest, active phase, and scene metadata;
-- player text, recent message hashes, present actors, and referenced actors;
+- player text, recent message hashes, accepted selected-assistant variant hashes, present actors, and referenced actors;
 - package, crew dataset, and projection revisions;
 - projection hints, rejected claims, fact-use stats, and optional source document hashes.
 
 The frame receives a `sourceHash`. Prompt blocks, Director packets, caches, and diagnostics use that hash to prove which state slice they came from.
+
+### Selected Swipe Acceptance Boundary
+
+Generated assistant prose is provisional when it appears in chat. If a host message has multiple swipes, CPM does not ingest every swipe and does not treat unselected variants as lore. The acceptance boundary is the next player send:
+
+- Scene Handshake observes the immediately previous assistant message at player-send time.
+- Only the selected assistant variant is eligible evidence: host message id, selected swipe index, swipe count, selected text hash, visible text hash, source-integrity status, response/outcome metadata when available, and the selected visible text excerpt.
+- Discarded swipe text is not copied into the Scene Handshake snapshot, settlement ledger, CPM source frame, sidecar context, or prompt truth.
+- If the player accepts, acts on, or asks a follow-up to the selected variant, constrained settlement operations may update campaign state and then rebuild CPM from that updated state.
+- If the player rejects, corrects, rerolls, or ignores the selected variant, the assistant prose remains non-authoritative.
+
+This keeps swipe count irrelevant: one accepted selected variant can become candidate continuity; unselected variants remain drafts.
 
 ### Fact Index
 

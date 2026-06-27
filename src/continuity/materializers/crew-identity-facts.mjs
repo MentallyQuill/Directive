@@ -4,6 +4,7 @@ import {
   compact,
   createContinuityFact
 } from '../fact-schema.mjs';
+import { starfleetUniformFactForCrew } from '../../starfleet/uniforms.mjs';
 
 function crewById(packageData, crewDataset) {
   const records = new Map();
@@ -114,6 +115,49 @@ export function materializeCrewIdentityFacts({
         visibility: CONTINUITY_VISIBILITY.narratorSafe,
         criticality: 'medium',
         tags: ['crew', 'profile', officer.id]
+      }));
+    }
+    const uniform = starfleetUniformFactForCrew(officer);
+    if (uniform) {
+      facts.push(createContinuityFact({
+        id: `${subject}.uniform-division-color`,
+        kind: 'crew.uniform',
+        subject,
+        predicate: 'uniformDivisionColor',
+        value: {
+          rule: uniform.rule,
+          division: uniform.division,
+          color: uniform.color
+        },
+        summary: uniform.summary,
+        render: {
+          narrator: uniform.summary,
+          director: uniform.summary
+        },
+        source,
+        authority: 'package',
+        visibility: CONTINUITY_VISIBILITY.narratorSafe,
+        criticality: 'hard',
+        tags: ['crew', 'identity', 'uniform', 'contradiction-guard', officer.id]
+      }));
+    }
+    for (const [index, factText] of asArray(officer.publicIdentityFacts).map(compact).filter(Boolean).entries()) {
+      facts.push(createContinuityFact({
+        id: `${subject}.public-identity-fact.${index + 1}`,
+        kind: 'crew.identity',
+        subject,
+        predicate: 'publicIdentityFact',
+        value: factText,
+        summary: factText,
+        render: {
+          narrator: factText,
+          director: factText
+        },
+        source,
+        authority: 'package',
+        visibility: CONTINUITY_VISIBILITY.narratorSafe,
+        criticality: 'high',
+        tags: ['crew', 'identity', officer.id]
       }));
     }
   }

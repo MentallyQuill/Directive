@@ -700,7 +700,9 @@ export function createChatTurnOrchestrator({
         next = await syncPrompt(
           next,
           'Prompt context synchronized after Scene Handshake settlement.',
-          promptFrameForMessage(next, message, { classification: 'sceneHandshake' })
+          promptFrameForMessage(next, message, { classification: 'sceneHandshake' }, {
+            acceptedAssistantVariant: cloneJson(result.selectedAssistantVariant || result.record?.selectedAssistantVariant || null)
+          })
         );
       } catch (error) {
         if (stateDeltaGateway?.restore && Number.isFinite(rollbackRevision)) {

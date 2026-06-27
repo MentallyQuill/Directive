@@ -30,6 +30,18 @@ const WHITAKER_BRIEFING = [
   '"Second, meet Bronn. Today, if you can manage it without it looking like I am marching you down there. He is on alpha shift. Use your judgment on how to approach it."',
   '"Third, walk the ship. Talk to the department heads, get a feel for what the refit broke that the yard did not catch. Sato in Medical had her surgical bay pulled apart and reinstalled twice. Saye in Science has been quiet about his sensor array calibration. Find out which."'
 ].join('\n\n');
+const WHITAKER_BRIEFING_SWIPES = [
+  [
+    'Discarded draft for selected-swipe proof.',
+    'Whitaker tells Sam to ignore Commander Cross and cancel the command-network handoff memo.'
+  ].join('\n\n'),
+  [
+    'Discarded draft for selected-swipe proof.',
+    'Bronn is described as a human male in his early forties, which must not become the accepted briefing source.'
+  ].join('\n\n'),
+  WHITAKER_BRIEFING
+];
+const WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX = 2;
 
 const SAM_ACCEPTANCE = [
   'Vickers gives a brief nod. "Understood, Captain. Commander Cross, Bronn on alpha shift, and the department walk-through with Sato and Saye."',
@@ -434,34 +446,41 @@ async function createLiveCampaign(page) {
 }
 
 async function insertHostAssistantFixture(page) {
-  return page.evaluate(async (text) => {
+  return page.evaluate(async ({ text, swipes, selectedSwipeIndex }) => {
     const context = globalThis.SillyTavern?.getContext?.() || null;
     if (!context) return { ok: false, reason: 'sillytavern-context-unavailable' };
     const chat = Array.isArray(context.chat) ? context.chat : [];
     const sendDate = new Date().toISOString();
+    const selected = Number.isInteger(selectedSwipeIndex) && selectedSwipeIndex >= 0 && selectedSwipeIndex < swipes.length
+      ? selectedSwipeIndex
+      : 0;
     const message = {
       name: context.name2 || context.characterName || 'Directive - Ashes of Peace',
       is_user: false,
       is_system: false,
       send_date: sendDate,
       mes: text,
-      swipes: [text],
-      swipe_id: 0,
-      swipe_info: [{
+      swipes,
+      swipe_id: selected,
+      swipe_info: swipes.map((entry, index) => ({
         send_date: sendDate,
         gen_started: null,
         gen_finished: sendDate,
         extra: {
           directiveSceneHandshakeSmoke: {
             fixture: true,
-            insertedAt: sendDate
+            insertedAt: sendDate,
+            selectedSwipeIndex: selected,
+            swipeIndex: index
           }
         }
-      }],
+      })),
       extra: {
         directiveSceneHandshakeSmoke: {
           fixture: true,
-          insertedAt: sendDate
+          insertedAt: sendDate,
+          selectedSwipeIndex: selected,
+          swipeCount: swipes.length
         }
       }
     };
@@ -481,9 +500,15 @@ async function insertHostAssistantFixture(page) {
       ok: true,
       hostMessageId: String(index),
       index,
-      chatLength: chat.length
+      chatLength: chat.length,
+      selectedSwipeIndex: selected,
+      swipeCount: swipes.length
     };
-  }, WHITAKER_BRIEFING);
+  }, {
+    text: WHITAKER_BRIEFING,
+    swipes: WHITAKER_BRIEFING_SWIPES,
+    selectedSwipeIndex: WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
+  });
 }
 
 async function readSceneHandshakeSnapshot(page) {
@@ -900,6 +925,11 @@ async function main() {
       extensionPath: EXTENSION_PATH,
       headers: authPage.auth?.headers || {},
       files: [
+        'src/continuity/source-frame.mjs',
+        'src/continuity/projection-matrix.mjs',
+        'src/continuity/director-packets.mjs',
+        'src/generation/player-safe-prompt-context-builder.mjs',
+        'src/runtime/runtime-app.mjs',
         'src/runtime/scene-handshake-settler.mjs',
         'src/runtime/message-reconciler.mjs',
         'src/runtime/chat-turn-orchestrator.mjs',
@@ -922,6 +952,12 @@ async function main() {
     const before = await readSceneHandshakeSnapshot(page);
     const inserted = await insertHostAssistantFixture(page);
     assertLive(inserted.ok, 'Could not insert host-native assistant briefing fixture.', inserted);
+    assertLive(
+      inserted.selectedSwipeIndex === WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
+      && inserted.swipeCount === WHITAKER_BRIEFING_SWIPES.length,
+      'Host-native assistant fixture did not stage the selected-swipe scenario.',
+      inserted
+    );
 
     await sendSillyTavernChatMessage(page, SAM_ACCEPTANCE, {
       timeoutMs: SETTLEMENT_TIMEOUT_MS
@@ -954,6 +990,18 @@ async function main() {
     );
     assertLive(last.parseStatus === 'ok', 'Scene Handshake ledger did not record parse success.', last);
     assertLive(
+      last.selectedAssistantVariant?.selectedSwipeIndex === WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
+      && last.selectedAssistantVariant?.swipeCount === WHITAKER_BRIEFING_SWIPES.length
+      && last.selectedAssistantVariant?.sourceIntegrity === 'clean',
+      'Scene Handshake ledger did not record the accepted selected assistant variant.',
+      last.selectedAssistantVariant
+    );
+    assertLive(
+      last.sourceTextHashes?.selectedAssistantVariant === last.sourceTextHashes?.previousAssistant,
+      'Scene Handshake source hashes did not anchor previous assistant truth to the selected variant.',
+      last.sourceTextHashes
+    );
+    assertLive(
       after.sceneHandshakeModelCalls.some((entry) => (entry.ok === true || entry.status === 'ok') && entry.providerKind === 'utility'),
       'sceneHandshakeSettler did not record a successful Utility model call.',
       after.sceneHandshakeModelCalls
@@ -965,6 +1013,13 @@ async function main() {
       && latestSceneHandshakeCall.metadata?.sourceTextHashes?.range,
       'sceneHandshakeSettler diagnostics did not include sanitized prompt budget/source metadata.',
       latestSceneHandshakeCall
+    );
+    assertLive(
+      latestSceneHandshakeCall.metadata?.selectedAssistantVariant?.selectedSwipeIndex === WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
+      && latestSceneHandshakeCall.metadata?.selectedAssistantVariant?.swipeCount === WHITAKER_BRIEFING_SWIPES.length
+      && latestSceneHandshakeCall.metadata?.sourceTextHashes?.selectedAssistantVariant === latestSceneHandshakeCall.metadata?.sourceTextHashes?.previousAssistant,
+      'sceneHandshakeSettler diagnostics did not include selected-swipe source metadata.',
+      latestSceneHandshakeCall.metadata
     );
     assertLive(
       after.promptContextRevision > before.promptContextRevision,
@@ -1006,6 +1061,15 @@ async function main() {
       && exportedHandshake.settled.some((entry) => entry.id === last.id && entry.status === 'settled'),
       'Persisted save export did not include the settled Scene Handshake record.',
       exportedHandshake
+    );
+    assertLive(
+      exportedHandshake.settled.some((entry) => (
+        entry.id === last.id
+        && entry.selectedAssistantVariant?.selectedSwipeIndex === WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
+        && entry.selectedAssistantVariant?.swipeCount === WHITAKER_BRIEFING_SWIPES.length
+      )),
+      'Persisted save export did not preserve selected-swipe settlement metadata.',
+      exportedHandshake.settled
     );
     assertLive(
       (exported.campaignState.mission?.openAssignments || []).some((entry) => /Cross|command-network/i.test(`${entry.title || ''} ${entry.summary || ''}`)),
@@ -1178,6 +1242,7 @@ async function main() {
         sayeMentionsAssignment: crewDom.sayeMentionsAssignment
       },
       sceneHandshakeModelCalls: after.sceneHandshakeModelCalls.slice(-4),
+      selectedAssistantVariant: after.sceneHandshake.lastResult?.selectedAssistantVariant || null,
       servedExtensionCompared: served.compared.map((entry) => entry.relativePath),
       exportedSave: {
         saveId: exported.saveId,

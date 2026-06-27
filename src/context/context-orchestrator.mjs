@@ -3,6 +3,11 @@ import { threadPlayerSummaries } from '../threads/thread-ledger.mjs';
 import { assertHostPromptBlockSafeForInjection } from '../generation/prompt-injection-safety.mjs';
 import { renderCompactCrewVoiceCueFromCard, voiceCardsByCrewId } from '../generation/crew-voice-capsules.mjs';
 import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-header.mjs';
+import { scenePacingGuidance } from './scene-pacing-guidance.mjs';
+import {
+  STARFLEET_VOYAGER_UNIFORM_RULE,
+  starfleetUniformFactForCrew
+} from '../starfleet/uniforms.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -69,6 +74,7 @@ function crewPublicFacts(officer) {
   const appearance = compact(officer?.appearanceSummary);
   const profile = compact(officer?.publicProfile);
   const role = compact(officer?.packageRole);
+  const uniform = starfleetUniformFactForCrew(officer);
   const rank = compact(officer?.rank);
   const name = compact(officer?.name || officer?.id);
   const species = compact(officer?.species);
@@ -76,6 +82,7 @@ function crewPublicFacts(officer) {
   const defaultProfile = compact(`${rank ? `${rank} ` : ''}${name} is ${species}, ${billet}.`);
   if (age) facts.push(`age: ${age}`);
   if (appearance) facts.push(`appearance: ${appearance}`);
+  if (uniform?.summary) facts.push(`uniform: ${uniform.summary}`);
   if (profile && profile !== defaultProfile) facts.push(profile);
   if (role && !/^(senior-staff|senior-enlisted|commanding-officer)$/i.test(role)) {
     facts.push(`role: ${role}`);
@@ -209,6 +216,13 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
   const availableQuests = questSummaries.filter((entry) => ['available', 'offered', 'accepted'].includes(entry.status) && entry.id !== questId).slice(0, 3);
   const threads = threadPlayerSummaries(state?.threadLedger, { statuses: ['engaged', 'active'], limit: 3 });
   const replyHeaderBlock = createCampaignReplyHeaderPromptBlock(state);
+  const pacing = scenePacingGuidance({ campaignState: state, packageData, scene });
+  const objectiveLabels = foregroundSummary?.currentObjectiveIds?.length
+    ? foregroundSummary.currentObjectiveIds.map((objectiveId) => {
+      const objective = asArray(template?.objectives).find((entry) => entry?.id === objectiveId);
+      return compact(objective?.playerText || objective?.label || objective?.summary || objectiveId);
+    }).filter(Boolean)
+    : [];
 
   return [
     normalizeCandidate(state, {
@@ -225,7 +239,8 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         'Treat committed Directive state as authoritative.',
         'Do not expose Director-only facts, concealed values, unrevealed motives, or internal scoring.',
         'Do not reroll or contradict a committed outcome.',
-        'For named crew, treat listed rank, billet, species, public profile, age, appearance, and role facts as fixed. Do not invent or infer identity facts that are not provided.',
+        STARFLEET_VOYAGER_UNIFORM_RULE,
+        'For named crew, treat listed rank, billet, species, public profile, age, appearance, uniform/division color, and role facts as fixed. Do not invent or infer identity facts that are not provided.',
         'Write normal in-character roleplay prose; do not narrate mechanics as mechanics.',
         'Routine professional competence is available; the player supplies judgment and command decisions.'
       ].join('\n')
@@ -247,6 +262,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         scene.phaseLabel || attention.scene?.phaseLabel ? `Scene beat: ${scene.phaseLabel || attention.scene?.phaseLabel}` : null,
         scene.currentQuestion || template?.dramaticQuestion ? `Current question: ${scene.currentQuestion || template?.dramaticQuestion}` : null,
         scene.immediateStakes ? `Immediate stakes: ${compact(scene.immediateStakes)}` : null,
+        pacing?.lines?.length ? `Pacing guidance:\n${list(pacing.lines)}` : null,
         relevantCrewIds.length ? `Present or directly relevant: ${relevantCrewIds.map((id) => crewMap.get(id)?.name || id).join(', ')}` : null,
         recentMessageSummary ? `Recent continuity: ${compact(recentMessageSummary)}` : null
       ].filter(Boolean).join('\n')
@@ -264,7 +280,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
       content: [
         `${foregroundSummary.title} (${foregroundSummary.kind})`,
         foregroundSummary.playerSummary,
-        foregroundSummary.currentObjectiveIds.length ? `Active objectives: ${foregroundSummary.currentObjectiveIds.join(', ')}` : null,
+        objectiveLabels.length ? `Active objectives:\n${list(objectiveLabels)}` : null,
         template?.playerConstraints?.length ? `Boundaries:\n${list(template.playerConstraints)}` : null
       ].filter(Boolean).join('\n')
     } : null),
@@ -278,7 +294,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
       reason: 'The current location should shape available actors, services, and atmosphere.',
       sourceIds: [locationId].filter(Boolean),
       content: locTemplate ? [
-        `${locTemplate.name}: ${locTemplate.playerSummary || locTemplate.summary || ''}`,
+        `${locTemplate.name || locTemplate.title || locationId}: ${locTemplate.playerSummary || locTemplate.summary || ''}`,
         locState?.status ? `Current condition: ${locState.status}` : null,
         asArray(locState?.conditions).length ? `Observable conditions:\n${list(locState.conditions)}` : null,
         asArray(locTemplate.services).length ? `Available services: ${locTemplate.services.join(', ')}` : null

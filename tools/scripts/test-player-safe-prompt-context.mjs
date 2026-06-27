@@ -163,12 +163,35 @@ assert.equal(packetJson.includes('Professionally supportive, with reservations.'
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn (Tellarite), Chief Tactical and Security Officer'), true);
 assert.equal(packetJson.includes('age: Late fifties by human comparison.'), true);
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn is Tellarite'), true);
+assert.equal(packetJson.includes('mustard-yellow'), true);
 assert.equal(packetJson.includes('Do not describe the opening Breckenridge transit as six days at impulse'), true);
+assert.equal(packetJson.includes('do not force the full Asterion Reach strategy conversation yet'), true);
 assert.equal(packetJson.includes('a human male in his early forties'), false);
+assert.equal(packetJson.includes('red-and-black of tactical'), false);
 assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), true);
 assert.equal(projectionJson.includes('Acting bridge watch officer'), true);
 assert.equal(playerProjection.scene.directorNotes, undefined);
 assert.deepEqual(Object.keys(playerProjection.ship.damage[0]).sort(), ['id', 'label', 'severity', 'status']);
+
+const readyRoomState = cloneJson(state);
+readyRoomState.mission = {
+  ...readyRoomState.mission,
+  activePhaseId: 'ready-room-handover',
+  phase: 'ready-room-handover',
+  availableDecisionPointIds: ['decision.handover-value']
+};
+const readyRoomPacket = buildPlayerSafePromptContext({
+  campaignState: readyRoomState,
+  packageData,
+  crewDataset,
+  scene: {
+    ...scene,
+    phaseLabel: 'Ready-room handover',
+    availableDecisionPointIds: ['decision.handover-value']
+  },
+  createdAt: '2026-06-22T00:00:00.000Z'
+});
+assert.equal(readyRoomPacket.text.includes('Do not turn the first captain meeting into a broad Asterion Reach thesis interview'), true);
 
 const asyncFallbackPacket = await buildPlayerSafePromptContextWithContinuityPlanner({
   campaignState: state,
@@ -215,6 +238,7 @@ assert.equal(plannerCalls[0].roleId, 'continuityProjectionPlanner');
 assert.equal(plannerCalls[0].request.parserSchema, CONTINUITY_PLAN_KIND);
 assert.equal(plannerPacket.continuityProjection.planner.ok, true);
 assert.equal(plannerPacket.continuityProjection.plan.laneFactIds['directive.continuity.invariants'].includes('crew.hadrik-bronn.species'), true);
+assert.equal(plannerPacket.continuityProjection.plan.laneFactIds['directive.continuity.invariants'].includes('crew.hadrik-bronn.uniform-division-color'), true);
 assert.equal(plannerPacket.continuityProjection.plan.selectedFactIds.includes('crew.hadrik-bronn.age-description'), true);
 assert.equal(plannerPacket.continuityProjection.plan.guardFocus.includes('crew.hadrik-bronn.species'), true);
 assert.equal(JSON.stringify(plannerPacket).includes(canary), false);
