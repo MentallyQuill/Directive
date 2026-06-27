@@ -111,6 +111,36 @@ const CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS = Object.freeze([
   })
 ]);
 
+const CHARACTER_CREATOR_SECTION_DRAFT_JSON_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  required: ['kind', 'sectionId', 'mode', 'fields'],
+  properties: {
+    kind: { const: 'directive.characterCreatorSectionDraftResult' },
+    sectionId: { enum: CHARACTER_CREATOR_SECTION_IDS },
+    mode: { enum: ['create', 'refine'] },
+    fields: {
+      type: 'object',
+      additionalProperties: {
+        anyOf: [
+          { type: 'string' },
+          { type: 'number' },
+          { type: 'boolean' },
+          { type: 'object' }
+        ]
+      }
+    },
+    notes: {
+      type: 'array',
+      items: { type: 'string' }
+    },
+    warnings: {
+      type: 'array',
+      items: { type: 'string' }
+    }
+  }
+});
+
 const RISKY_BACKSTORY_PATTERN = /\b(section\s*31|secret ancestry|hidden powers?|chosen one|war criminal|criminal history|court-?martial|universally admired|impossibly competent|severe trauma|traumatic secret)\b/i;
 
 function cloneJson(value) {
@@ -593,22 +623,23 @@ function generationFailureResultFromThrown(error, attempt) {
 function attemptProgressMessage(attempt, previousResult = null) {
   if (attempt.id === 'reasoning-primary') return 'Generating with Reasoning...';
   const previousTimedOut = isGenerationTimeoutResult(previousResult);
+  const previousRejected = previousResult?.diagnostics?.providerOutputRejected === true;
   if (attempt.id === 'reasoning-retry') {
-    return previousTimedOut
-      ? 'Reasoning timed out. Retrying Reasoning...'
-      : 'Reasoning failed. Retrying Reasoning...';
+    if (previousTimedOut) return 'Reasoning timed out. Retrying Reasoning...';
+    if (previousRejected) return 'Reasoning returned an unusable draft. Retrying Reasoning...';
+    return 'Reasoning failed. Retrying Reasoning...';
   }
-  return previousTimedOut
-    ? 'Reasoning timed out again. Trying Utility...'
-    : 'Reasoning failed again. Trying Utility...';
+  if (previousTimedOut) return 'Reasoning timed out again. Trying Utility...';
+  if (previousRejected) return 'Reasoning returned another unusable draft. Trying Utility...';
+  return 'Reasoning failed again. Trying Utility...';
 }
 
 function localFallbackProgressMessage(previousResult = null) {
   const provider = previousResult?.role?.providerKind || previousResult?.diagnostics?.finalProviderKind || 'provider';
   const label = provider === 'utility' ? 'Utility' : 'Provider';
-  return isGenerationTimeoutResult(previousResult)
-    ? `${label} timed out. Using local fallback...`
-    : `${label} failed. Using local fallback...`;
+  if (isGenerationTimeoutResult(previousResult)) return `${label} timed out. Using local fallback...`;
+  if (previousResult?.diagnostics?.providerOutputRejected === true) return `${label} returned an unusable draft. Using local fallback...`;
+  return `${label} failed. Using local fallback...`;
 }
 
 function emitCreatorAssistProgress(onProgress, payload = {}) {
@@ -647,15 +678,46 @@ function providerDiagnosticsFromGenerationResult(generationResult = {}) {
     usage: cloneJson(generationResult?.diagnostics?.usage || null),
     providerKind: generationResult?.diagnostics?.providerKind || generationResult?.role?.providerKind || null,
     finalProviderKind: generationResult?.diagnostics?.finalProviderKind || generationResult?.diagnostics?.providerKind || generationResult?.role?.providerKind || null,
+    hiddenLeakBlocked: generationResult?.diagnostics?.hiddenLeakBlocked === true,
+    hiddenLeakTerm: generationResult?.diagnostics?.hiddenLeakTerm || null,
+    validationErrorCode: generationResult?.diagnostics?.validationErrorCode || null,
     utilityFallbackAttempted: generationResult?.diagnostics?.utilityFallbackAttempted === true,
     providerAttempts: cloneJson(generationResult?.diagnostics?.providerAttempts || []),
     timeoutRetryCount: Number(generationResult?.diagnostics?.timeoutRetryCount || 0)
   };
 }
 
+function validationFailureResultFromError(generationResult, attempt, error, {
+  timeoutRetryCount = 0,
+  attemptRecords = []
+} = {}) {
+  return {
+    ...generationResult,
+    ok: false,
+    error: {
+      code: error?.code || 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_PROVIDER_REJECTED',
+      message: error?.message || 'Character Creator provider response was not usable.',
+      retryable: true
+    },
+    diagnostics: {
+      ...(generationResult?.diagnostics || {}),
+      providerKind: generationResult?.role?.providerKind || generationResult?.diagnostics?.providerKind || attempt.providerKind,
+      finalProviderKind: generationResult?.role?.providerKind || generationResult?.diagnostics?.providerKind || attempt.providerKind,
+      providerOutputRejected: true,
+      hiddenLeakBlocked: error?.code === 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_UNSAFE_OUTPUT',
+      hiddenLeakTerm: error?.hiddenLeakTerm || null,
+      validationErrorCode: error?.code || null,
+      timeoutRetryCount,
+      utilityFallbackAttempted: attemptRecords.some((record) => record.providerKind === 'utility'),
+      providerAttempts: cloneJson(attemptRecords)
+    }
+  };
+}
+
 async function generateSectionDraftWithProviderFallback(generationRouter, request, {
   signal = null,
-  onProgress = null
+  onProgress = null,
+  acceptGenerationResult = null
 } = {}) {
   let timeoutRetryCount = 0;
   let previousResult = null;
@@ -701,8 +763,28 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
         providerAttempts: cloneJson(attemptRecords)
       }
     };
-    if (result.ok || isGenerationCanceledResult(result) || signal?.aborted) {
+    if (isGenerationCanceledResult(result) || signal?.aborted) {
       return result;
+    }
+    if (result.ok) {
+      if (typeof acceptGenerationResult !== 'function') return result;
+      try {
+        return {
+          generationResult: result,
+          assistResult: acceptGenerationResult(result)
+        };
+      } catch (error) {
+        record.ok = false;
+        record.errorCode = error?.code || 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_PROVIDER_REJECTED';
+        record.retryable = true;
+        record.providerOutputRejected = true;
+        const rejected = validationFailureResultFromError(result, attempt, error, {
+          timeoutRetryCount,
+          attemptRecords
+        });
+        previousResult = rejected;
+        continue;
+      }
     }
     previousResult = result;
     if (attempt.id === 'reasoning-primary' && isGenerationTimeoutResult(result)) timeoutRetryCount += 1;
@@ -794,7 +876,9 @@ export function buildCharacterCreatorSectionDraftRequest({
         }
       ],
       parameters: cloneJson(CREATOR_ASSIST_PARAMETERS),
-      modelPreferences: cloneJson(CREATOR_ASSIST_MODEL_PREFERENCES)
+      modelPreferences: cloneJson(CREATOR_ASSIST_MODEL_PREFERENCES),
+      structuredOutput: true,
+      jsonSchema: cloneJson(CHARACTER_CREATOR_SECTION_DRAFT_JSON_SCHEMA)
     }
   };
 }
@@ -833,10 +917,34 @@ export async function runCharacterCreatorSectionDraft({
     };
   }
 
-  const generationResult = await generateSectionDraftWithProviderFallback(generationRouter, request, {
+  const providerAttempt = await generateSectionDraftWithProviderFallback(generationRouter, request, {
     signal,
-    onProgress
+    onProgress,
+    acceptGenerationResult: (candidateResult) => {
+      const payload = parseProviderResponse(candidateResult.response || {});
+      const leak = unsafeGeneratedTerm(payload, input);
+      if (leak) {
+        const error = new Error(`Provider output included unsafe Character Creator content: ${leak}.`);
+        error.code = 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_UNSAFE_OUTPUT';
+        error.hiddenLeakTerm = leak;
+        throw error;
+      }
+      return normalizeProviderPayload({
+        payload,
+        sectionId: id,
+        context,
+        input,
+        generationResult: candidateResult
+      });
+    }
   });
+  const generationResult = providerAttempt?.generationResult || providerAttempt;
+  if (providerAttempt?.assistResult) {
+    return {
+      ...providerAttempt.assistResult,
+      requestSnapshot: cloneJson(snapshot)
+    };
+  }
   if (isGenerationCanceledResult(generationResult)) {
     return {
       ...createCanceledResult({
@@ -860,58 +968,6 @@ export async function runCharacterCreatorSectionDraft({
         diagnostics: {
           providerUsed: true,
           providerOutputRejected: true,
-          ...providerDiagnosticsFromGenerationResult(generationResult)
-        }
-      }),
-      requestSnapshot: cloneJson(snapshot)
-    };
-  }
-
-  try {
-    const payload = parseProviderResponse(generationResult.response || {});
-    const leak = unsafeGeneratedTerm(payload, input);
-    if (leak) {
-      return {
-        ...createFallbackResult({
-          context,
-          sectionId: id,
-          mode,
-          input,
-          warnings: ['Provider output was replaced because it included unsafe or hidden content.'],
-          diagnostics: {
-            providerUsed: true,
-            providerOutputRejected: true,
-            hiddenLeakBlocked: true,
-            hiddenLeakTerm: leak,
-            ...providerDiagnosticsFromGenerationResult(generationResult)
-          }
-        }),
-        requestSnapshot: cloneJson(snapshot)
-      };
-    }
-    return {
-      ...normalizeProviderPayload({
-        payload,
-        sectionId: id,
-        context,
-        input,
-        generationResult
-      }),
-      requestSnapshot: cloneJson(snapshot)
-    };
-  } catch (error) {
-    return {
-      ...createFallbackResult({
-        context,
-        sectionId: id,
-        mode,
-        input,
-        warnings: [error?.message || 'Character Creator provider response was not usable.'],
-        diagnostics: {
-          providerUsed: true,
-          providerOutputRejected: true,
-          hiddenLeakBlocked: error?.code === 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_UNSAFE_OUTPUT',
-          hiddenLeakTerm: error?.hiddenLeakTerm || null,
           ...providerDiagnosticsFromGenerationResult(generationResult)
         }
       }),

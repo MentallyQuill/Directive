@@ -121,6 +121,8 @@ assert.match(providerIdentity.fields['identity.appearance'], /observant posture/
 assert.equal(validRouter.calls()[0].roleId, CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID);
 assert.equal(validRouter.calls()[0].request.kind, 'directive.characterCreatorSectionDraftRequest');
 assert.equal(validRouter.calls()[0].request.modelPreferences.capability, 'reasoning-writing');
+assert.equal(validRouter.calls()[0].request.structuredOutput, true);
+assert.equal(validRouter.calls()[0].request.jsonSchema?.properties?.kind?.const, 'directive.characterCreatorSectionDraftResult');
 assert.equal(validRouter.calls()[0].options.providerKind, 'reasoning');
 assert.equal(validRouter.calls()[0].options.timeoutMs, CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS);
 
@@ -250,6 +252,69 @@ assert.deepEqual(utilityFallbackProgress.map((entry) => entry.message), [
   'Reasoning timed out again. Trying Utility...'
 ]);
 
+const parseRejectedFallbackCalls = [];
+const parseRejectedFallbackProgress = [];
+const parseRejectedFallbackRouter = {
+  async generate(roleId, request, options = {}) {
+    parseRejectedFallbackCalls.push({ roleId, request, options });
+    if (parseRejectedFallbackCalls.length <= 2) {
+      return {
+        ok: true,
+        response: {
+          text: 'I can help with that, but here is prose instead of JSON.'
+        },
+        diagnostics: {
+          providerId: 'fake-character-creator',
+          model: 'fake-reasoner'
+        }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'refine',
+          fields: {
+            'identity.name': 'Talia Renn',
+            'identity.speciesId': 'trill',
+            'identity.appearance': 'A composed Starfleet officer with a patient command presence.'
+          },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: {
+        providerId: 'fake-character-creator',
+        model: 'fake-utility'
+      }
+    };
+  }
+};
+const parseRejectedFallbackIdentity = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {
+    identity: {
+      name: 'Talia'
+    }
+  },
+  generationRouter: parseRejectedFallbackRouter,
+  onProgress: (progress) => parseRejectedFallbackProgress.push(progress)
+});
+assert.equal(parseRejectedFallbackIdentity.source, 'provider');
+assert.equal(parseRejectedFallbackIdentity.diagnostics.finalProviderKind, 'utility');
+assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts.length, 3);
+assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts[0].providerOutputRejected, true);
+assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts[1].providerOutputRejected, true);
+assert.deepEqual(parseRejectedFallbackCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning', 'utility']);
+assert.deepEqual(parseRejectedFallbackProgress.map((entry) => entry.message), [
+  'Generating with Reasoning...',
+  'Reasoning returned an unusable draft. Retrying Reasoning...',
+  'Reasoning returned another unusable draft. Trying Utility...'
+]);
+
 const localFallbackAfterUtilityCalls = [];
 const localFallbackAfterUtilityProgress = [];
 const localFallbackAfterUtilityRouter = {
@@ -280,6 +345,36 @@ assert.equal(localFallbackAfterUtility.diagnostics.finalProviderKind, 'utility')
 assert.equal(localFallbackAfterUtility.diagnostics.providerAttempts.length, 3);
 assert.equal(localFallbackAfterUtilityCalls.length, 3);
 assert.equal(localFallbackAfterUtilityProgress.at(-1).message, 'Utility timed out. Using local fallback...');
+
+const localFallbackAfterRejectedOutputCalls = [];
+const localFallbackAfterRejectedOutputProgress = [];
+const localFallbackAfterRejectedOutputRouter = {
+  async generate(roleId, request, options = {}) {
+    localFallbackAfterRejectedOutputCalls.push({ roleId, request, options });
+    return {
+      ok: true,
+      response: { text: 'not json' },
+      diagnostics: {
+        providerId: 'fake-character-creator',
+        model: options.providerKind === 'utility' ? 'fake-utility' : 'fake-reasoner'
+      }
+    };
+  }
+};
+const localFallbackAfterRejectedOutput = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: localFallbackAfterRejectedOutputRouter,
+  onProgress: (progress) => localFallbackAfterRejectedOutputProgress.push(progress)
+});
+assert.equal(localFallbackAfterRejectedOutput.source, 'deterministic-fallback');
+assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerOutputRejected, true);
+assert.equal(localFallbackAfterRejectedOutput.diagnostics.finalProviderKind, 'utility');
+assert.equal(localFallbackAfterRejectedOutput.diagnostics.validationErrorCode, 'json_invalid');
+assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerAttempts.length, 3);
+assert.equal(localFallbackAfterRejectedOutputCalls.length, 3);
+assert.equal(localFallbackAfterRejectedOutputProgress.at(-1).message, 'Utility returned an unusable draft. Using local fallback...');
 
 const canceledController = new AbortController();
 const canceledRouterCalls = [];

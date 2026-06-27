@@ -87,7 +87,7 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `commandLogSummarizer` | Utility | No | None | Assisted Command Log summary. |
 | `recapSummarizer` | Utility | No | None | Player-facing recap text or structure. |
 | `directiveAssist` | Reasoning | No | None | Editable assist text and warnings. |
-| `characterCreatorSectionDraft` | Reasoning, then Utility fallback | No | None | Creator draft text. The Character Creator wand tries Reasoning for 45 seconds, retries Reasoning for 45 seconds, tries Utility for 30 seconds, then uses local fallback. |
+| `characterCreatorSectionDraft` | Reasoning, then Utility fallback | No | None | Creator draft text. The Character Creator wand tries Reasoning for 45 seconds, retries Reasoning for 45 seconds, tries Utility for 30 seconds, then uses local fallback. Provider text must parse into a usable section draft before an attempt counts as successful. |
 | `utilityJson` | Utility | No | None | Caller-owned structured output. |
 
 ## Structured Output

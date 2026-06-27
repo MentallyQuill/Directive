@@ -389,7 +389,7 @@ Player portrait assets are user-owned campaign setup data, not package-owned cre
 
 Creator assistance can draft or revise sections. It uses the `characterCreatorSectionDraft` role and should produce editable text, not hidden campaign outcomes.
 
-The wand shows live provider progress while drafting. It tries Reasoning, retries Reasoning once on failure or timeout, then tries Utility before using the local fallback. The same section prompt is used for both provider lanes.
+The wand shows live provider progress while drafting. It tries Reasoning, retries Reasoning once on failure, timeout, or unusable draft output, then tries Utility before using the local fallback. The same section prompt is used for both provider lanes.
 
 For Service and Personality, assistance uses the selected dropdown values as structured inputs and writes editable dossier text into Service Summary or Command Style. Provider fallback should be visible as fallback, not silently applied as if it were provider output.
 
