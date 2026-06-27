@@ -33,6 +33,7 @@ assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.uniform-divisio
 assert(transitCanary.expectedPromptKeys.includes('directive.continuity.invariants'));
 assert(transitCanary.expectedPromptKeys.includes('directive.continuity.domain'));
 assert(transitCanary.expectedPromptKeys.includes('directive.scene.active'));
+assert.match(transitCanary.summary, /shuttlebay two.*aft section between the swept nacelle pylons/i);
 assert(transitCanary.expectedSourceIds.includes('ship.uss-breckenridge.travel.not-six-days-impulse'));
 assert(transitCanary.expectedSourceIds.includes('ship.uss-breckenridge.travel.current-route'));
 

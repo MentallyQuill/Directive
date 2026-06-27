@@ -56,7 +56,7 @@ Highest priority:
 - Only player messages from the bound chat enter the campaign orchestrator.
 - Scene Handshake settlement turns accepted host-native assistant prose into bounded campaign state only on the next player reply, never from rejected/corrected/stale/wrong-chat sources, and never outside the V1 allowlist of current orders/open assignments, source-backed Log entries, explicit low-risk ship readiness notes, and thread signals.
 - Accepted objective or assignment state must project immediately into Mission Current Orders/Open Assignments, source-backed Command Log, and linked player-safe Crew Character/Roster context when crew members are named or affected; transcript-only evidence is not sufficient.
-- Timekeeping reply headers are display-only wrappers derived from authoritative campaign state. They appear on every bound assistant reply, are stripped from Directive-controlled evidence/model paths, and cannot advance campaign time without a deterministic time-boundary commit.
+- Timekeeping reply headers are display-only wrappers derived from authoritative campaign state. They appear on every bound assistant reply, are stripped from Directive-controlled evidence/model paths, and cannot advance campaign time without a validated time-boundary commit.
 - Every accepted player post receives one deduplicated ingress record and one utility classification or deterministic equivalent.
 - Every turn has exactly one response strategy: host inject-and-continue, Directive-posted response, or explicit pause.
 - Consequential mechanics are durably checkpointed before provider narration or host posting.
@@ -134,6 +134,10 @@ Coverage groups:
 
 `test-command-bearing.mjs` covers the Command Bearing MVP helpers: typed Marks, rank/cap progression, unique Recovery, shared reserve limits, spend eligibility, two-tier outcome improvement, duplicate-spend protection, and intervention prompt actions.
 
+`test-time-advance-adjudicator.mjs` covers deterministic and Utility-backed time-advance proposals: quiet conversations stay at zero, shipboard transitions remain small, explicit waits and scene cuts resolve to bounded elapsed minutes, oversized routine proposals clamp, and model proposals remain proposal-only until runtime validation commits a time boundary.
+
+`test-mission-components.mjs` and `test-mission-components-capture.mjs` cover highlighted-text Mission Component creation, source preservation, Utility/local proposal normalization, source-authority/type/status validation, stale/wrong-chat guards, component update/archive behavior, and the SillyTavern capture affordance.
+
 `test-command-competence-planner.mjs` covers the Stage 21 competence planner: routine professional action eligibility and rejection, Command Brief inputs, professional knowledge filtering, default Domain Report selection, Authority Notes, hidden-truth exclusion, and non-mutation of source policy, scene snapshot, and campaign state.
 
 `test-command-competence-no-gotcha.mjs` covers no-gotcha fairness for serious procedural consequences: omitted routine procedure should be autocompleted, communicated warnings can justify accepted risk, and genuinely concealed danger can remain fair without leaking hidden truth.
@@ -142,7 +146,7 @@ Coverage groups:
 
 `test-open-world-model-contracts.mjs` covers the schema-v2 model-call roles for quest action interpretation, quest architecture, scene-delta extraction, and scene reconciliation extraction.
 
-[Continuity Projection Matrix](../technical/CONTINUITY_PROJECTION_MATRIX.md) coverage is split between deterministic contract tests and opt-in live soak evidence. The alpha gate includes CPM foundation, diagnostics, Director packet, factual-grounding prompt-proof, and five-user coordinator contract tests:
+[Continuity Projection Matrix (CPM)](../technical/CONTINUITY_PROJECTION_MATRIX.md) coverage is split between deterministic contract tests and opt-in live soak evidence. The alpha gate includes CPM foundation, diagnostics, Director packet, factual-grounding prompt-proof, and five-user coordinator contract tests:
 
 - `test-continuity-projection-foundation.mjs`
 - `test-continuity-projection-diagnostics.mjs`
@@ -175,6 +179,24 @@ The live five-user CPM coordinator is certification evidence only when run again
 `test-thread-ledger.mjs` covers the first Narrative Thread foundation: hidden ledger constants, record normalization, directed lifecycle transitions, evidence merging, closure review appends, immutability, and player-safe summaries that exclude latent/watchlisted records, raw scores, hidden facts, and Command Bearing potential.
 
 These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check bundled Ashes of Peace and Glass Harbor package records against the schema-v2 contract, gate Ashes-specific invariants to the Ashes reference package, prove storage and save behavior, validate current mission-graph fixtures, prove open-world quest/thread/context/reconciliation behavior, prove hidden-source safety across player-facing packets, prove SillyTavern plus fake-host scaffolding, and ensure the anticipated repo scaffold remains intact.
+
+## Release Verification Map
+
+Read the verification stack in three layers:
+
+| Layer | What It Proves | Main Evidence |
+| --- | --- | --- |
+| Dependency-free contract suite | Runtime, package, schema, routing, state, prompt, Mission Components, time adjudication, CPM, and UI contracts work without a live host. | `node tools\scripts\run-alpha-gate.mjs` and targeted `tools/scripts/test-*.mjs` files. |
+| Focused live smokes | SillyTavern integration points work against a real host: served extension freshness, shell rendering, storage, generation intercepts, activation, Scene Handshake, terminal endings, screenshots, and provider proof. | `smoke-sillytavern-live.mjs`, `smoke-scene-handshake-live.mjs`, terminal endings smoke, and their artifacts. |
+| Opt-in live certification | A real Ashes campaign can survive long-form play with unlimited model calls, sidecar-settled pacing, factual grounding, CPM prompt/source proof, Command Bearing, message mutation, timekeeping, recovery, and release artifacts. | `soak-sillytavern-campaign-live.mjs` and `run-continuity-matrix-five-user-soak.mjs --live --write-artifacts`. |
+
+The live soak has two model-assisted review roles: `factualGroundingReviewer` and `storyQualityReviewer`. They create test artifacts only. They do not mutate campaign state, inject prompts, expose hidden state, or produce player-visible campaign prose.
+
+<!-- directive-render: id=docs-directive-cpm-live-certification; target=assets/documentation/renders/docs-directive-cpm-live-certification.png; source=diagram; -->
+Render needed: CPM live certification infographic showing prompt-availability audit, source-id proof, generated-output fact check, contradiction guard/quarantine, and five-user coordinator aggregation.
+
+<!-- directive-render: id=docs-directive-live-soak-artifact-pipeline; target=assets/documentation/renders/docs-directive-live-soak-artifact-pipeline.png; source=diagram; -->
+Render needed: live soak artifact pipeline showing non-human SillyTavern users, sidecar-settled pacing, live logs, screenshots, transcript captures, fact checks, prompt inspection, state snapshots, and report schema.
 
 ## Live Host Smokes
 

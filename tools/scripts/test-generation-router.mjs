@@ -255,6 +255,27 @@ assert.equal(failure.ok, false);
 assert.equal(failure.error.code, 'PROVIDER_OFFLINE');
 assert.equal(failure.error.retryable, false);
 
+const transportFailureRouter = createGenerationRouter({
+  generationClient: {
+    async generate() {
+      const error = new Error('Provider reasoning connection failed (ECONNRESET).');
+      error.code = 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR';
+      error.providerKind = 'reasoning';
+      error.retryable = true;
+      error.details = { transportCode: 'ECONNRESET', providerKind: 'reasoning' };
+      throw error;
+    }
+  },
+  now: () => '2026-06-19T12:03:00.000Z'
+});
+const transportFailure = await transportFailureRouter.generate('characterCreatorSectionDraft', {});
+assert.equal(transportFailure.ok, false);
+assert.equal(transportFailure.role.providerKind, 'reasoning');
+assert.equal(transportFailure.error.code, 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR');
+assert.equal(transportFailure.error.retryable, true);
+assert.equal(transportFailure.error.details.transportCode, 'ECONNRESET');
+assert.equal(transportFailure.diagnostics.transportCode, 'ECONNRESET');
+
 let timeoutProviderSignalAborted = false;
 const timeoutRouter = createGenerationRouter({
   generationClient: {

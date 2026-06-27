@@ -68,6 +68,7 @@ assert.match(travelText, /Utopia Planitia/i);
 assert.match(travelText, /ten-day/i);
 assert.match(travelText, /5\.5 to 6 light-years/i);
 assert.match(travelText, /drops to impulse.*transfer waypoint/i);
+assert.match(travelText, /shuttlebay two.*aft section between the swept nacelle pylons/i);
 assert.match(travelText, /Do not describe.*six days at impulse/i);
 assert.doesNotMatch(travelText, /six days since leaving Utopia Planitia/i);
 
@@ -168,7 +169,7 @@ assert.equal(bronnProfileOperation.reason, 'validator-added-turn-relevance');
 assert.equal(turnRelevantMatrix.sourceFrame.referencedActorIds.includes('hadrik-bronn'), true);
 
 const badReview = reviewContinuityContradictions({
-  text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia. Bronn wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar.',
+  text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia. Bronn wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar. The shuttlebay doors cycled open as a lit mouth in the underside of the saucer.',
   campaignState,
   packageData,
   crewDataset,
@@ -179,9 +180,10 @@ assert.equal(badReview.findings.some((finding) => finding.kind === 'species-cont
 assert.equal(badReview.findings.some((finding) => finding.kind === 'age-contradiction'), true);
 assert.equal(badReview.findings.some((finding) => finding.kind === 'uniform-division-color-contradiction'), true);
 assert.equal(badReview.findings.some((finding) => finding.kind === 'travel-contradiction'), true);
+assert.equal(badReview.findings.some((finding) => finding.kind === 'ship-layout-contradiction'), true);
 
 const goodReview = reviewContinuityContradictions({
-  text: 'Bronn, the Tellarite tactical chief, watched the shuttle rendezvous at the transfer waypoint as the Breckenridge continued its final approach toward the Asterion Reach.',
+  text: 'Bronn, the Tellarite tactical chief, watched the shuttle rendezvous at the transfer waypoint as the craft aligned from astern with shuttlebay two for the final approach.',
   campaignState,
   packageData,
   crewDataset,

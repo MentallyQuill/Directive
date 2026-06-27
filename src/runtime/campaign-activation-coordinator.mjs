@@ -211,6 +211,7 @@ function introOpeningFacts({ campaignState, packageData, safe }) {
     currentLocationSummary: location?.playerSafeSummary || location?.playerSummary || location?.summary || null,
     activeMissionId,
     activeMissionSummary: activeQuest?.playerSummary || activeQuest?.playerSafeSummary || activeQuest?.summary || null,
+    shuttleApproach: safe?.ship?.travelContinuity?.openingShuttleApproach || packageData?.ship?.travelContinuity?.openingShuttleApproach || null,
     commandHandoff: {
       playerRank: safe?.player?.rank || campaignState?.player?.rank || packageData?.characterCreation?.lockedRole?.rank || 'Commander',
       playerBillet: safe?.player?.billet || campaignState?.player?.billet || packageData?.characterCreation?.lockedRole?.billet || 'Executive Officer',

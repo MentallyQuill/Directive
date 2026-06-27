@@ -1,10 +1,10 @@
 # Documentation Feature Audit 2026-06-27
 
-Status: planning audit  
+Status: active documentation update baseline; Stage 1-4 documentation wiring started
 Primary baseline: `67ef1704` (`Document continuity projection and fact-checking updates`) through `2b818c46` (`Add provider fallback progress to character creator assist`)  
 Broader cross-check: repository changes since the June 23 documentation expansion pass
 
-This audit records implementation and tooling changes that should be promoted into the README, Operator Manual, Technical Manual, Campaign Authoring Guide, render tracking, and release-verification docs.
+This audit records implementation and tooling changes that should be promoted into the README, Operator Manual, Technical Manual, Campaign Authoring Guide, render tracking, and release-verification docs. Rows in the update matrix describe the drift found at the start of the pass; the progress section records follow-up edits made from that audit.
 
 ## Summary
 
@@ -15,7 +15,22 @@ The docs are broadly wired, but several features are now more implemented than t
 - Character Creator section assist now has provider progress, retry, Utility fallback, local fallback, previews, and apply/regenerate/dismiss microstates that should be documented as a concrete workflow.
 - Crew and player-character surfaces now expose richer biography disclosure, Service Record, Command Bearing, Mark Reviews, relationship perceptions, and portrait controls; the operator guide should show the current player-character tab shape.
 - Rich crew datasets and voice capsules now exist across bundled packages and need stronger authoring guidance, technical hydration explanation, and a visual data-flow diagram.
-- Continuity Projection Matrix live certification has grown into prompt/source proof, factual-grounding audit, five-user readiness, and sidecar-settled pacing; testing docs are detailed, but release-facing summaries need a clearer path.
+- Continuity Projection Matrix (CPM) live certification has grown into prompt/source proof, factual-grounding audit, five-user readiness, and sidecar-settled pacing; testing docs are detailed, but release-facing summaries need a clearer path.
+
+## 2026-06-27 Documentation Pass Progress
+
+Initial updates applied from this audit:
+
+- README now names Mission Components, implemented timekeeping/adjudication, rich crew runtime data, and live soak verification.
+- Operator Manual now documents Mission Components, the Components subtab, Character Creator section-assist create/refine/fallback behavior, current Player Character tab density, and time-boundary behavior.
+- Technical Manual now includes Mission Components, rich crew hydration, and current time adjudication.
+- Model Calls now lists `timeAdvanceAdjudicator`, `factualGroundingReviewer`, `storyQualityReviewer`, and Mission Components' `utilityJson` proposal flow.
+- Player Turn Sequence now includes time adjudication before classification and selected assistant-variant source truth.
+- State Transactions now covers Mission Components, the time ledger, and swipe/edit/delete source-truth recovery.
+- Campaign Authoring Guide now explains the character bible -> six-card dataset -> voice capsule -> hydration workflow and rich-crew validation commands.
+- Testing Strategy now includes a release verification map and the new Mission Components/time-adjudication test coverage.
+- Documentation Render Tracking now registers the new render-needed placeholders.
+- Current release notes now mention Mission Components, Character Creator assist fallback, CPM/factual grounding, time adjudication, rich crew runtime data, and the verification split.
 
 ## Documentation Update Matrix
 
@@ -26,7 +41,7 @@ The docs are broadly wired, but several features are now more implemented than t
 | Character Creator section assist | `src/creators/character-creator-assist.mjs`, `src/ui/character-creator-panel.js`, `src/runtime/creator-runtime-service.mjs`, `tools/scripts/test-character-creator-assist.mjs` | Operator Manual and Model Calls have initial wording. Need verify against current progress/fallback behavior and renders. | Tighten Operator Manual around create/refine modes, preview/apply/regenerate/dismiss, Reasoning retry, Utility fallback, local fallback, and provider-progress copy. Add Technical Manual note for creator draft authority. | Medium-high. A fallback ladder infographic is more useful than another static creator screenshot. |
 | Player Character / Crew surface | `src/ui/crew-panel.js`, `src/runtime/runtime-app.mjs`, `tools/scripts/test-runtime-shell-creator-flow.mjs` | Operator Manual mentions biography, service record, portrait controls, and Command Bearing, but the new tab density is not fully represented. | Refresh Operator Manual Crew section with Player Character tab fields, collapsed Service Record, Command Bearing cards, evidence/reviews/history, relationship perceptions, and biography disclosure. Consider README mention only if not too detailed. | Medium. A render of the player-character tab with Command Bearing and Service Record would help operators. |
 | Rich crew datasets and voice capsules | `src/generation/crew-voice-capsules.mjs`, `src/retrieval/card-hydration.mjs`, `packages/bundled/*/*.crew-dataset.json`, `tools/scripts/test-rich-crew-*.mjs` | Package design docs exist; Campaign Authoring Guide only lightly integrates the new workflow. | Add a worked authoring path from bible to six-card dataset to voice capsule to prompt hydration. Link Character Bible Shaping Guide and Crew Dataset Rich Character Design from main authoring stages. Add Technical Manual section for hydration audiences and prompt-budget limits. | High. Bible -> dataset -> hydration -> Director/narrator packet is a prime infographic. |
-| Continuity Projection Matrix live certification | `src/continuity/*`, `tools/scripts/run-continuity-matrix-five-user-soak.mjs`, `tools/scripts/lib/factual-grounding-*.mjs`, soak schema updates | CPM technical doc and soak plan are detailed. README/release-facing verification could better explain what proof exists and what remains opt-in. | Add concise release-facing summary of deterministic tests versus opt-in five-user live certification. Keep deep evidence in Testing Strategy/Soak docs. | Medium-high. The certification pipeline can be a compact release-verification infographic. |
+| CPM live certification | `src/continuity/*`, `tools/scripts/run-continuity-matrix-five-user-soak.mjs`, `tools/scripts/lib/factual-grounding-*.mjs`, soak schema updates | CPM technical doc and soak plan are detailed. README/release-facing verification could better explain what proof exists and what remains opt-in. | Add concise release-facing summary of deterministic tests versus opt-in five-user live certification. Keep deep evidence in Testing Strategy/Soak docs. | Medium-high. The certification pipeline can be a compact release-verification infographic. |
 | Runtime persistence, committed outcome recovery, and selected host state | `src/runtime/runtime-app.mjs`, `src/runtime/message-reconciler.mjs`, `src/runtime/chat-turn-orchestrator.mjs`, `docs/architecture/CHAT_NATIVE_RUNTIME.md` | Technical docs cover many pieces but are fragmented. | Refresh State Transactions and Player Turn Sequence with committed outcome restore, response variants/swipes, edit/delete recovery, current selected text as continuity source, and branch-safe save behavior. | Medium. A recovery decision tree would reduce operator confusion. |
 | Sidecar-settled live soak pacing and readiness | `tools/scripts/soak-sillytavern-campaign-live.mjs`, `tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs`, `docs/testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md` | Soak plan is comprehensive but dense. | Add a short release-verification "how to read this" section in Testing Strategy and possibly README. Keep operational detail in the soak plan. | Medium. Five-lane artifact pipeline infographic would help release review. |
 | Factual grounding and contradiction focus checks | `tools/scripts/lib/factual-grounding-evaluator.mjs`, `src/continuity/contradiction-guard.mjs`, `tools/scripts/test-factual-grounding-matrix-prompt-proof.mjs` | CPM technical/testing docs cover this, but naming is not obvious to a release reader. | Add glossary-style explanation: prompt-availability proof, generated-output fact check, contradiction guard, quarantine, and stop/fail criteria. | Medium. Could fold into CPM certification infographic. |
@@ -37,7 +52,7 @@ The docs are broadly wired, but several features are now more implemented than t
 ### P0
 
 1. **Mission Components Capture Lifecycle**  
-   Show selected chat text -> ship capture button -> Utility proposal -> player review/edit -> saved component -> Mission Components tab -> future Continuity Projection Matrix source evidence.
+   Show selected chat text -> ship capture button -> Utility proposal -> player review/edit -> saved component -> Mission Components tab -> future CPM source evidence.
 
 2. **Time Adjudication And Reply Header Boundary**  
    Show player/accepted scene movement -> deterministic parser -> Utility fallback proposal -> deterministic validator -> `timeAdvanceBoundary` commit -> time ledger/prompt rebuild -> next reply header.
@@ -74,16 +89,18 @@ The docs are broadly wired, but several features are now more implemented than t
 
 Use centered native-resolution images only; do not scale documentation images above their native dimensions.
 
-- Render needed: `assets/documentation/renders/docs-directive-mission-components-capture.png`
-- Render needed: `assets/documentation/renders/docs-directive-mission-components-review.png`
-- Render needed: `assets/documentation/renders/docs-directive-mission-components-tab.png`
-- Render needed: `assets/documentation/renders/docs-directive-time-adjudication-flow.png`
-- Render needed: `assets/documentation/renders/docs-directive-rich-crew-hydration.png`
-- Render needed: `assets/documentation/renders/docs-directive-creator-assist-fallback-ladder.png`
-- Render needed: `assets/documentation/renders/docs-directive-character-command-bearing.png`
-- Render needed: `assets/documentation/renders/docs-directive-message-recovery-swipes.png`
-- Render needed: `assets/documentation/renders/docs-directive-cpm-live-certification.png`
-- Render needed: `assets/documentation/renders/docs-directive-live-soak-artifact-pipeline.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-mission-components-capture.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-mission-components-review.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-mission-components-tab.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-mission-components-lifecycle.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-time-adjudication-flow.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-rich-crew-hydration.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-rich-crew-authoring-pipeline.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-creator-assist-fallback-ladder.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-character-command-bearing.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-message-recovery-swipes.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-cpm-live-certification.png`
+- Tracked render stand-in: `assets/documentation/renders/docs-directive-live-soak-artifact-pipeline.png`
 
 ## Recommended Documentation Stages
 
@@ -92,7 +109,7 @@ Use centered native-resolution images only; do not scale documentation images ab
 - Update README key features and roadmap for implemented time adjudication and Mission Components.
 - Add concise Mission Components and Player Character/Crew updates to the Operator Manual.
 - Update Model Calls for `timeAdvanceAdjudicator`, `factualGroundingReviewer`, `storyQualityReviewer`, and Mission Components' `utilityJson` proposal flow.
-- Replace "future/planned time-adjudication" phrasing where implementation now exists.
+- Replace outdated time-adjudication phrasing where implementation now exists.
 
 ### Stage 2: Expand Deep Manuals
 

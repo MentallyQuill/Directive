@@ -346,6 +346,54 @@ assert.equal(localFallbackAfterUtility.diagnostics.providerAttempts.length, 3);
 assert.equal(localFallbackAfterUtilityCalls.length, 3);
 assert.equal(localFallbackAfterUtilityProgress.at(-1).message, 'Utility timed out. Using local fallback...');
 
+const localFallbackAfterTransportCalls = [];
+const localFallbackAfterTransportProgress = [];
+const localFallbackAfterTransportRouter = {
+  async generate(roleId, request, options = {}) {
+    localFallbackAfterTransportCalls.push({ roleId, request, options });
+    return {
+      ok: false,
+      role: { id: roleId, providerKind: options.providerKind },
+      error: {
+        code: 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR',
+        message: `${options.providerKind} connection failed (ECONNRESET).`,
+        retryable: true,
+        details: {
+          transportCode: 'ECONNRESET',
+          providerKind: options.providerKind
+        }
+      },
+      diagnostics: {
+        transportCode: 'ECONNRESET'
+      }
+    };
+  }
+};
+const localFallbackAfterTransport = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: localFallbackAfterTransportRouter,
+  onProgress: (progress) => localFallbackAfterTransportProgress.push(progress)
+});
+assert.equal(localFallbackAfterTransport.source, 'deterministic-fallback');
+assert.equal(localFallbackAfterTransport.diagnostics.providerUsed, true);
+assert.equal(localFallbackAfterTransport.diagnostics.finalProviderKind, 'utility');
+assert.equal(localFallbackAfterTransport.diagnostics.transportCode, 'ECONNRESET');
+assert.equal(localFallbackAfterTransport.diagnostics.providerAttempts.length, 3);
+assert.deepEqual(localFallbackAfterTransport.diagnostics.providerAttempts.map((entry) => entry.transportCode), [
+  'ECONNRESET',
+  'ECONNRESET',
+  'ECONNRESET'
+]);
+assert.deepEqual(localFallbackAfterTransportProgress.map((entry) => entry.message), [
+  'Generating with Reasoning...',
+  'Reasoning connection failed. Retrying Reasoning...',
+  'Reasoning connection failed again. Trying Utility...',
+  'Utility connection failed. Using local fallback...'
+]);
+assert.equal(localFallbackAfterTransportCalls.length, 3);
+
 const localFallbackAfterRejectedOutputCalls = [];
 const localFallbackAfterRejectedOutputProgress = [];
 const localFallbackAfterRejectedOutputRouter = {

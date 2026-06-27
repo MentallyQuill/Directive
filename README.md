@@ -55,12 +55,14 @@ Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play
 | **Dual Provider Routing** | Separates low-cost Utility work from deeper Reasoning work, lets operators route individual model-call roles between lanes, and supports the current host model, SillyTavern Connection Profiles, and session-key OpenAI-compatible endpoints. |
 | **Scene Handshake And Utility Turn Gate** | Settles accepted host-generated scene prose into source-backed assignments, Log entries, ship readiness, and thread signals before classifying the next player post through deterministic fast paths or Utility fallback. |
 | **Mission Director** | Resolves consequential freeform intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |
-| **Continuity Projection Matrix** | Projects source-backed continuity facts into stable player-safe prompt lanes and Director-specific packets, with planner validation, source hashes, contradiction hints, and live factual-grounding proof. |
-| **Timekeeping Header** | Prefixes bound-campaign replies with the current `Stardate \| ship time` display header while keeping time advancement deterministic and separate from model inference. |
+| **Mission Components** | Lets players highlight useful campaign chat text, review a Utility-proposed component, and save source-backed notes, claims, items, leads, questions, and ship issues into Mission. |
+| **Continuity Projection Matrix (CPM)** | Projects source-backed continuity facts into stable player-safe prompt lanes and Director-specific packets, with planner validation, source hashes, contradiction hints, and live factual-grounding proof. |
+| **Timekeeping And Adjudication** | Prefixes bound-campaign replies with the current `Stardate \| ship time` display header, strips stale headers from model evidence, and advances campaign time only through deterministic boundaries or validated Utility proposals. |
 | **Mechanics-First Durability** | Persists committed mechanics before narration or host posting, so retries reuse the same outcome rather than rerolling it. |
 | **Deep Campaign Tracking** | Maintains revisioned, bounded snapshots plus ingress, response, recovery, sidecar, and pending-interaction journals scoped to the campaign/chat binding. |
 | **Validated Sidecars** | Runs continuity, relationship, crew, ship, Command Bearing, and side-work workers as proposal-only jobs whose operations require authorized roots and a current base revision. |
 | **Player-Safe Prompt Context** | Builds explicit campaign, player, scene, fact, crew, ship, log, pressure, and narrator blocks; supports install, update, clear, rebuild, inspection, and chat-switch suspension. |
+| **Rich Crew Runtime Data** | Hydrates compact voice capsules, line-shape examples, reveal gates, relationship dynamics, and development hooks from package crew datasets without dumping full character bibles into prompts. |
 | **Command Competence And Bearing** | Supplies routine Starfleet procedure while preserving player judgment, and offers transaction-safe Inspiration/Resolve interventions at eligible pauses. |
 | **Tips, Tutorials, And Training Preview** | Provides first-run and feature tutorials, Show Me targeting, startup tips, Settings controls, and an inert populated training scenario that teaches drawers without writing real saves or chats. |
 | **Persistent Saves And Recovery** | Supports drafts, first saves, autosaves, branches, load, edit/delete reconciliation, prompt rebuild, response retry, narration rewrite, outcome rerun, and rollback. |
@@ -93,7 +95,7 @@ Host setup and operations:
 Technical manuals:
 
 - [Directive Technical Manual](docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md)
-- [Continuity Projection Matrix](docs/technical/CONTINUITY_PROJECTION_MATRIX.md)
+- [Continuity Projection Matrix (CPM)](docs/technical/CONTINUITY_PROJECTION_MATRIX.md)
 - [Model Calls And Provider Routing](docs/technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md)
 - [Player Turn Sequence](docs/technical/PLAYER_TURN_SEQUENCE.md)
 - [Timekeeping System](docs/architecture/TIMEKEEPING_SYSTEM.md)
@@ -118,6 +120,7 @@ Bundled campaign references:
 
 Feature and design checkpoints:
 
+- [Mission Components](docs/design/MISSION_COMPONENTS.md)
 - [Scene Handshake Protocol](docs/design/SCENE_HANDSHAKE_PROTOCOL.md)
 - [Directive Tutorial Revision](docs/design/DIRECTIVE_TUTORIAL_REVISION.md)
 - [Outcome Integrity](docs/design/OUTCOME_INTEGRITY.md)
@@ -126,6 +129,7 @@ Feature and design checkpoints:
 Release verification:
 
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
+- [Live Campaign Soak Test Plan](docs/testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md)
 
 Development notes live in [docs/development](docs/development/) and [docs/planning](docs/planning/) until promoted, rewritten, or archived as release-facing docs.
 
@@ -133,9 +137,9 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 
 - Run repeatable live SillyTavern smoke for automatic chat creation, interceptor ordering, Connection Profile calls, prompt placement, Scene Handshake settlement, message edit/delete payloads, and post/save failure recovery.
 - Revisit future host adapters, including possible Lumiverse support, only after the SillyTavern alpha contract is stable.
-- Deepen provider-assisted relationship, crew, ship, and continuity proposals while keeping state mutation revision-checked and proposal-only.
+- Deepen provider-assisted relationship, crew, ship, Mission Component, and continuity proposals while keeping state mutation revision-checked and proposal-only.
 - Promote Outcome Integrity from design contract into a fully documented user-facing edit-review flow once the runtime behavior is complete.
-- Add the planned time-adjudication layer on top of the current deterministic reply-header foundation.
+- Broaden time-adjudication coverage beyond the current deterministic and Utility-backed cases, especially long work blocks, watches, recovery intervals, and package-authored deadline pressure.
 - Expand package management with export, delete, update comparison, and richer trust review.
 - Add richer branch comparison and campaign archive/export UX without weakening the authoritative save model.
 

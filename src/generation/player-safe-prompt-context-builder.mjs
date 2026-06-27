@@ -267,6 +267,19 @@ function activeSceneLines(campaignState, scene = {}) {
   return lines.filter(Boolean);
 }
 
+function playerSafeTravelContinuity(value) {
+  if (!value || typeof value !== 'object') return null;
+  const projected = {
+    openingTransitMode: compact(value.openingTransitMode) || null,
+    openingImpulseContext: compact(value.openingImpulseContext) || null,
+    openingShuttleApproach: compact(value.openingShuttleApproach) || null,
+    baselineRemainingTravel: compact(value.baselineRemainingTravel) || null,
+    baselineRemainingDistance: compact(value.baselineRemainingDistance) || null,
+    speedPolicy: compact(value.speedPolicy) || null
+  };
+  return Object.values(projected).some(Boolean) ? projected : null;
+}
+
 export function createPlayerSafeCampaignProjection({
   campaignState,
   packageData = null,
@@ -329,6 +342,10 @@ export function createPlayerSafeCampaignProjection({
       name: campaignState.ship?.name || null,
       class: campaignState.ship?.class || null,
       condition: campaignState.ship?.condition || null,
+      travelContinuity: playerSafeTravelContinuity({
+        ...(packageData?.ship?.travelContinuity || {}),
+        ...(campaignState.ship?.travelContinuity || {})
+      }),
       damage: visibleStateRecords(campaignState.ship?.damage || []),
       technicalDebt: visibleStateRecords(campaignState.ship?.technicalDebt || [], {
         includeSeverity: false

@@ -57,9 +57,11 @@ Activation also emits non-authoritative `directive.activationActivity` progress 
 
 ## Active Chat Save Guard
 
-Manual save is guarded by the active host chat. `saveCurrentGame` and `saveCurrentGameAs` compare the currently selected host chat against `campaignChatBinding` before writing the loaded campaign state. The guard checks chat id, campaign id, save id, and current host chat metadata when the host exposes it.
+Manual save is guarded by the active host chat and by first-start completion. `saveCurrentGame` and `saveCurrentGameAs` compare the currently selected host chat against `campaignChatBinding` before writing the loaded campaign state. The guard checks chat id, campaign id, save id, current host chat metadata when the host exposes it, and whether the required campaign opening scene has been posted.
 
-Blocked cases return structured results instead of generic save errors. The UI can distinguish no active chat selected, a different save branch from the same campaign, a different Directive campaign, unbound chat, missing host identity capability, and conflicting metadata. Records keeps **Load Save** and **Delete Save** available, but disables **Save Game** and **Save Game As...** with a direct prompt to open or choose the campaign chat linked to the loaded save.
+Blocked cases return structured results instead of generic save errors. The UI can distinguish no active chat selected, a different save branch from the same campaign, a different Directive campaign, unbound chat, missing host identity capability, conflicting metadata, and missing opening scene. Records keeps **Load Save** and **Delete Save** available, but disables **Save Game** and **Save Game As...** with a direct prompt to open or choose the campaign chat linked to the loaded save, or to build the opening scene when the intro is the missing setup step.
+
+The campaign intro is mandatory. Loading a save whose activation is still `activating` or `activationFailed` does not silently generate the intro; it surfaces **Opening Scene Required** and waits for the user to run **Build Opening Scene**. Until the intro exists, player chat observation returns a blocked/pause result and does not classify or commit turns.
 
 `Save Game As...` is a branch transfer for the active chat: after the new save record is created, Directive updates `campaignChatBinding.saveId`, writes the new binding into host chat metadata, rebuilds prompt context when available, and persists the branch with matching save/chat identity.
 
@@ -117,9 +119,9 @@ After a committed turn, `campaign-end-condition-service.mjs` evaluates package `
 
 ## Prompt Safety
 
-`player-safe-prompt-context-builder.mjs` first builds the Continuity Projection Matrix's six static prompt lanes, then appends allowlisted dynamic prompt blocks. Hidden state is never serialized into an ordinary prompt and then redacted.
+`player-safe-prompt-context-builder.mjs` first builds the six static prompt lanes for the Continuity Projection Matrix (CPM), then appends allowlisted dynamic prompt blocks. Hidden state is never serialized into an ordinary prompt and then redacted.
 
-Each block records stable ID, priority, depth/placement policy, source revision, source ids where available, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required. See [Continuity Projection Matrix](../technical/CONTINUITY_PROJECTION_MATRIX.md).
+Each block records stable ID, priority, depth/placement policy, source revision, source ids where available, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required. See the [CPM technical manual](../technical/CONTINUITY_PROJECTION_MATRIX.md).
 
 The timekeeping reply header is part of this prompt-safety boundary. `context-orchestrator.mjs` emits a current `[Directive: Reply Header]` block for host-native generation, while Directive-owned reply paths prepend the header deterministically. Prior visible headers are treated as display artifacts and stripped from Directive-controlled model/evidence paths. See [Timekeeping System](TIMEKEEPING_SYSTEM.md).
 

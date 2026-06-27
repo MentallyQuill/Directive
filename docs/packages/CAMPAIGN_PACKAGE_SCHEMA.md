@@ -79,7 +79,7 @@ It includes:
 
 - Manifest identity for `directive.campaignPackage`.
 - U.S.S. Breckenridge ship baseline.
-- Structured Breckenridge travel continuity used by the Continuity Projection Matrix, including `travelContinuity.openingTransitMode`, local impulse-only rendezvous context, elapsed underway summary, remaining-route summary, and the negative guard that the whole post-Utopia transit must not be framed as six days at impulse.
+- Structured Breckenridge travel continuity used by the Continuity Projection Matrix (CPM), including `travelContinuity.openingTransitMode`, local impulse-only rendezvous context, elapsed underway summary, remaining-route summary, and the negative guard that the whole post-Utopia transit must not be framed as six days at impulse.
 - Locked senior crew roster, fixed public identity facts, and transfer-cohort structure.
 - Package-defined Character Creator context for the locked incoming XO role.
 - Ashes of Peace open-world story shell.

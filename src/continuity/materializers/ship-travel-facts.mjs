@@ -127,6 +127,7 @@ export function materializeShipTravelFacts({
       value: {
         mode: travelContinuity.openingTransitMode || null,
         impulseContext: travelContinuity.openingImpulseContext || null,
+        shuttleApproach: travelContinuity.openingShuttleApproach || null,
         baselineRemainingTravel: travelContinuity.baselineRemainingTravel || null,
         baselineRemainingDistance: travelContinuity.baselineRemainingDistance || null,
         speedPolicy: travelContinuity.speedPolicy || null
@@ -136,6 +137,7 @@ export function materializeShipTravelFacts({
         narrator: [
           travelContinuity.openingTransitMode,
           travelContinuity.openingImpulseContext,
+          travelContinuity.openingShuttleApproach,
           travelContinuity.baselineRemainingTravel,
           travelContinuity.baselineRemainingDistance,
           travelContinuity.speedPolicy
@@ -143,6 +145,7 @@ export function materializeShipTravelFacts({
         director: [
           travelContinuity.openingTransitMode,
           travelContinuity.openingImpulseContext,
+          travelContinuity.openingShuttleApproach,
           travelContinuity.baselineRemainingTravel,
           travelContinuity.baselineRemainingDistance,
           travelContinuity.speedPolicy

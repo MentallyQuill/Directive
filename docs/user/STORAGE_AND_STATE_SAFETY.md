@@ -47,10 +47,12 @@ Campaign-owned data:
 - Current ship state.
 - Mission progress.
 - Known and hidden facts.
+- Mission Components: reviewed player-curated source records captured from chat text, including preserved source excerpts, tags, links, type, status, and source authority.
+- Campaign time state and `timeLedger` entries.
 - Turn ledger.
 - Command Log.
 - Relationship and crew-development continuity.
-- Continuity Projection Matrix state: accepted/candidate/rejected claims, projection hints, fact-use stats, disposable projection cache, projection run summaries, last projection, and sanitized audit log.
+- Continuity Projection Matrix (CPM) state: accepted/candidate/rejected claims, projection hints, fact-use stats, disposable projection cache, projection run summaries, last projection, and sanitized audit log.
 - Command Bearing records.
 - Command Competence ledgers.
 - Pressure ledger records.
@@ -58,7 +60,7 @@ Campaign-owned data:
 
 Package updates can change future reference data during pre-alpha, but campaign-owned state remains the authority for what already happened.
 
-Continuity Matrix diagnostics in Settings are player-safe/operator-safe summaries. They expose counts, prompt keys, hashes, freshness, selected/blocked/rejected categories, and status flags. They must not expose raw hidden state, provider prompts, private NPC thoughts, hidden clocks, raw relationship values, or Director-only reasoning.
+CPM diagnostics in Settings are player-safe/operator-safe summaries. They expose counts, prompt keys, hashes, freshness, selected/blocked/rejected categories, and status flags. They must not expose raw hidden state, provider prompts, private NPC thoughts, hidden clocks, raw relationship values, or Director-only reasoning.
 
 ## Saves
 
@@ -73,7 +75,7 @@ Current save actions:
 - Stable-turn autosave: created after a committed outcome is successfully narrated.
 - Terminal timeline branch: created from a Mission Directive Checkpoint when the operator wants to preserve a terminal outcome without forcing it to remain the active path.
 
-Manual save is chat-affine. If the active host chat is missing, belongs to another save branch, belongs to another Directive campaign, or has conflicting Directive metadata, **Save Game** and **Save Game As...** are disabled. Records tells the user to choose or open the campaign chat linked to the loaded save and offers **Open Campaign Chat** when possible. **Load Save** and **Delete Save** remain Records/library actions and do not require the selected save's chat to already be active.
+Manual save is chat-affine. If the active host chat is missing, belongs to another save branch, belongs to another Directive campaign, has conflicting Directive metadata, or the required campaign opening scene has not been posted yet, **Save Game** and **Save Game As...** are disabled. Records tells the user to choose or open the campaign chat linked to the loaded save, offers **Open Campaign Chat** when possible, and offers **Build Opening Scene** when the intro is the missing setup step. **Load Save** and **Delete Save** remain Records/library actions and do not require the selected save's chat to already be active.
 
 Save metadata should be listable without reading every full campaign payload.
 

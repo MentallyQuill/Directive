@@ -145,20 +145,39 @@ function uniformDivisionFindings(text, facts, packageData) {
 
 function travelFindings(text, facts) {
   const hasTravelGuard = facts.some((fact) => fact.id.endsWith('.not-six-days-impulse'));
-  if (!hasTravelGuard) return [];
+  const shuttleApproachFact = facts.find((fact) => (
+    fact.id.endsWith('.opening-transit-mode')
+    && /shuttlebay two|saucer-underside|nacelle pylons/i.test(`${fact.summary || ''} ${fact.render?.narrator || ''}`)
+  ));
+  if (!hasTravelGuard && !shuttleApproachFact) return [];
   const normalized = String(text || '').replace(/\s+/g, ' ');
-  const badImpulse = /\bat\s+impulse\s+for\s+(six|6)\s+days\b/i.test(normalized)
+  const findings = [];
+  const badImpulse = hasTravelGuard && /\bat\s+impulse\s+for\s+(six|6)\s+days\b/i.test(normalized)
     && /(Utopia|Planitia|leaving|left|departed|since)/i.test(normalized);
-  const badSinceUtopia = /since\s+(leaving|departing)\s+Utopia\s+Planitia/i.test(normalized)
+  const badSinceUtopia = hasTravelGuard && /since\s+(leaving|departing)\s+Utopia\s+Planitia/i.test(normalized)
     && /\bimpulse\b/i.test(normalized)
     && /\b(six|6)\s+days\b/i.test(normalized);
-  if (!badImpulse && !badSinceUtopia) return [];
-  return [{
-    kind: 'travel-contradiction',
-    factId: facts.find((fact) => fact.id.endsWith('.not-six-days-impulse'))?.id || null,
-    severity: 'blocker',
-    summary: 'Generated text describes the Breckenridge opening transit as six days at impulse from Utopia Planitia.'
-  }];
+  if (badImpulse || badSinceUtopia) {
+    findings.push({
+      kind: 'travel-contradiction',
+      factId: facts.find((fact) => fact.id.endsWith('.not-six-days-impulse'))?.id || null,
+      severity: 'blocker',
+      summary: 'Generated text describes the Breckenridge opening transit as six days at impulse from Utopia Planitia.'
+    });
+  }
+  const badSaucerShuttlebay = shuttleApproachFact && (
+    /\b(?:shuttle\s*bay|shuttlebay|bay doors?)\b.{0,160}\b(?:underside|under side|ventral|belly)\b.{0,80}\b(?:saucer|primary hull)\b/i.test(normalized)
+    || /\b(?:underside|under side|ventral|belly)\b.{0,80}\b(?:saucer|primary hull)\b.{0,160}\b(?:shuttle\s*bay|shuttlebay|bay doors?)\b/i.test(normalized)
+  );
+  if (badSaucerShuttlebay) {
+    findings.push({
+      kind: 'ship-layout-contradiction',
+      factId: shuttleApproachFact.id,
+      severity: 'blocker',
+      summary: 'Generated text depicts the Intrepid-class Breckenridge shuttle arrival through a saucer-underside shuttlebay instead of aft shuttlebay two.'
+    });
+  }
+  return findings;
 }
 
 export function reviewContinuityContradictions({

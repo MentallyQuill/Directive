@@ -47,12 +47,13 @@ Settings groups roles by operator meaning:
 | Group | Roles |
 | --- | --- |
 | Story Output | `narration`, `campaignIntro`, `campaignConclusion`, `missionDirectorAdvisor` |
-| Turn Reading | `utilityTurnClassifier`, `questActionInterpreter` |
+| Turn Reading | `utilityTurnClassifier`, `questActionInterpreter`, `timeAdvanceAdjudicator` |
 | World Structure | `questArchitect`, `sceneDeltaExtractor`, `sceneReconciliationExtractor`, `sceneHandshakeSettler` |
 | State Sidecars | `relationshipEvaluator`, `continuityTracker`, `crewDirector`, `shipDirector` |
 | Command Bearing | `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator` |
 | Outcome Integrity | `outcomeIntegrityReview` |
 | Context & Summaries | `promptContextBuilder`, `continuityProjectionPlanner`, `continuityContradictionReviewer`, `continuityClaimExtractor`, `continuityProjectionCompressor`, `commandLogSummarizer`, `recapSummarizer`, `utilityJson` |
+| Live Review | `factualGroundingReviewer`, `storyQualityReviewer` |
 | Authoring Helpers | `characterCreatorSectionDraft`, `directiveAssist` |
 
 ## Authority Table
@@ -71,6 +72,7 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `sceneDeltaExtractor` | Utility | No | None | Evidence only until deterministic processors apply it. |
 | `sceneReconciliationExtractor` | Utility | No | None | Evidence only until reconciliation validates it. |
 | `sceneHandshakeSettler` | Utility | Yes | `mission`, `commandLog`, `ship`, `threads`, `runtimeTracking` | None directly; accepted host prose can become source-backed assignments, Log notes, readiness notes, and thread signals only after deterministic validation. |
+| `timeAdvanceAdjudicator` | Utility | No | None | None directly; deterministic runtime validates, clamps, and commits any approved time boundary. |
 | `relationshipEvaluator` | Utility | Yes | `relationships`, `crew` | None directly. |
 | `commandBearingFitChecker` | Utility | No | None | Command Bearing fit report and tips; no replacement prose. |
 | `commandBearingSpendValidator` | Utility | No | None | None directly; invalid or failed validation returns the readied point. |
@@ -86,9 +88,13 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `shipDirector` | Utility | Yes | `ship` | None directly. |
 | `commandLogSummarizer` | Utility | No | None | Assisted Command Log summary. |
 | `recapSummarizer` | Utility | No | None | Player-facing recap text or structure. |
+| `factualGroundingReviewer` | Utility | No | None | Test artifacts only; live soak model-assisted factual review over player-safe canaries and visible transcript excerpts. |
+| `storyQualityReviewer` | Utility | No | None | Test artifacts only; live soak model-assisted story-quality review over visible transcript excerpts and score definitions. |
 | `directiveAssist` | Reasoning | No | None | Editable assist text and warnings. |
 | `characterCreatorSectionDraft` | Reasoning, then Utility fallback | No | None | Creator draft text. The Character Creator wand tries Reasoning for 45 seconds, retries Reasoning for 45 seconds, tries Utility for 30 seconds, then uses local fallback. Provider text must parse into a usable section draft before an attempt counts as successful. |
-| `utilityJson` | Utility | No | None | Caller-owned structured output. |
+| `utilityJson` | Utility | No | None | Caller-owned structured output. Mission Components currently use this role for reviewed component proposals; caller validation preserves source text and owns all state writes. |
+
+`timeAdvanceAdjudicator`, `factualGroundingReviewer`, and `storyQualityReviewer` are deliberately no-authority roles. Routing them to a stronger model can improve judgment, but it cannot grant state roots, prompt injection, hidden-state access, or player-visible prose authority.
 
 ## Structured Output
 

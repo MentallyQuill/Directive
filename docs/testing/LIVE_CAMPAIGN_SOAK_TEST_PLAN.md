@@ -18,7 +18,7 @@ The goal is broader, faster signal inside one campaign instead of spending curre
 - Mission Director behavior respects the actual Ashes package and current campaign state instead of generic Star Trek assumptions or test-player pressure;
 - Mission, Crew, Ship, and Log drawers populate with the expected objective, crew, pressure, relationship, ship, and Command Log projections after relevant turns;
 - sidecars, Scene Handshake, timekeeping, prompt freshness, and subsystem checks trigger at meaningful points and produce useful evidence instead of empty or purely mechanical logs;
-- Continuity Projection Matrix coverage is now a first-class Ashes interval check before returning to all-campaign rotation, with prompt-key/source-id proof and factual-grounding artifacts required in live evidence.
+- Continuity Projection Matrix (CPM) coverage is now a first-class Ashes interval check before returning to all-campaign rotation, with prompt-key/source-id proof and factual-grounding artifacts required in live evidence.
 
 Do not treat every bundled campaign as required current live coverage. Multi-campaign validation remains a later release-rotation check after Ashes produces reliable evidence for these pillars.
 
@@ -111,7 +111,7 @@ $env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
 node tools\scripts\soak-sillytavern-campaign-live.mjs
 ```
 
-For Continuity Projection Matrix certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator must run one live campaign soak worker concurrently per Ashes lane/user and aggregate sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, and deterministic factual-grounding checks were present for every lane:
+For CPM certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator must run one live campaign soak worker concurrently per Ashes lane/user and aggregate sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, and deterministic factual-grounding checks were present for every lane:
 
 ```powershell
 $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
@@ -355,9 +355,9 @@ Manual reviewers may add retroactive `fact-check` records while reading the tran
 
 Do not use hidden truth as a visible-output fact target. If a generation avoids mentioning a hidden campaign truth, that is normally correct. If it reveals, contradicts, or treats hidden truth as public knowledge, log that through the hidden-state leak rules as well as the factual-grounding record.
 
-## Continuity Projection Matrix Coverage
+## Continuity Projection Matrix (CPM) Coverage
 
-The Continuity Projection Matrix is now an active Ashes soak surface. It is not only a deterministic alpha-gate feature; live testing must prove that CPM facts actually reach prompt context, Director packets, sidecars, diagnostics, and factual-grounding checks during real SillyTavern play.
+CPM is now an active Ashes soak surface. It is not only a deterministic alpha-gate feature; live testing must prove that CPM facts actually reach prompt context, Director packets, sidecars, diagnostics, and factual-grounding checks during real SillyTavern play.
 
 Required Ashes prompt/source proof:
 
@@ -635,7 +635,7 @@ Current matrix:
 
 | Campaign | Package | Required Live Coverage | Focus |
 |---|---|---|---|
-| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | active Ashes-only Playwright soak | factual grounding, Continuity Projection Matrix prompt/source proof, Mission Director content behavior, Mission/Crew/Ship/Log projection, sidecars, timekeeping, mutation recovery, Command Bearing, and terminal End Conditions |
+| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | active Ashes-only Playwright soak | factual grounding, CPM prompt/source proof, Mission Director content behavior, Mission/Crew/Ship/Log projection, sidecars, timekeeping, mutation recovery, Command Bearing, and terminal End Conditions |
 
 For the active Ashes row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, factual-grounding canary result, prompt-availability audit result, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and any cross-campaign isolation probe that is deliberately scheduled.
 

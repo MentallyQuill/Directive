@@ -8,13 +8,24 @@ import {
 
 function campaignState(overrides = {}) {
   return {
-    campaign: { id: 'campaign-a' },
+    campaign: { id: 'campaign-a', status: 'active' },
     campaignChatBinding: {
       hostId: 'sillytavern',
       chatId: 'chat-a',
       campaignId: 'campaign-a',
       saveId: 'save-a',
+      introMessageId: '0',
       ...overrides.binding
+    },
+    activationJournal: {
+      kind: 'directive.campaignActivationJournal',
+      status: 'complete',
+      steps: {
+        introGenerated: { status: 'complete', completedAt: '2026-06-22T00:00:00.000Z', details: null },
+        introPosted: { status: 'complete', completedAt: '2026-06-22T00:00:01.000Z', details: { hostMessageId: '0' } },
+        activated: { status: 'complete', completedAt: '2026-06-22T00:00:02.000Z', details: null }
+      },
+      ...overrides.activationJournal
     },
     ...overrides.state
   };
@@ -38,6 +49,7 @@ function guardFor({ activeChatId = 'chat-a', binding = null, metadata = null, me
 assert.equal(activeSaveGuardSummary('ok'), 'Ready to save: the active chat matches this save.');
 assert.deepEqual(activeSaveGuardRecoveryActions('different-directive-save', { chatId: 'chat-a' }), ['loadActiveChatSave', 'openCampaignChat']);
 assert.deepEqual(activeSaveGuardRecoveryActions('missing-host-identity-capability', { chatId: 'chat-a' }), ['hostCapabilityDiagnostic']);
+assert.deepEqual(activeSaveGuardRecoveryActions('campaign-opening-scene-required', { chatId: 'chat-a' }), ['buildOpeningScene']);
 
 let result = await createActiveSaveGuard({ runtimeHost: {} }).evaluate(campaignState());
 assert.equal(result.reason, 'missing-host-identity-capability');
@@ -91,3 +103,23 @@ assert.deepEqual(result.recoveryActions, ['rebindChat']);
 
 result = await guardFor().evaluate({ campaign: { id: 'campaign-a' } });
 assert.equal(result.reason, 'campaign-chat-unbound');
+
+result = await guardFor({
+  activeChatId: 'chat-a',
+  metadata: { campaignId: 'campaign-a', saveId: 'save-a' }
+}).evaluate(campaignState({
+  binding: { introMessageId: null },
+  activationJournal: {
+    status: 'pending',
+    steps: {
+      introGenerated: { status: 'pending', completedAt: null, details: null },
+      introPosted: { status: 'pending', completedAt: null, details: null },
+      activated: { status: 'pending', completedAt: null, details: null }
+    }
+  },
+  state: { campaign: { id: 'campaign-a', status: 'activating' } }
+}));
+assert.equal(result.reason, 'campaign-opening-scene-required');
+assert.equal(result.ok, false);
+assert.equal(result.openingScene.ready, false);
+assert.deepEqual(result.recoveryActions, ['buildOpeningScene']);

@@ -52,15 +52,35 @@ The following 34 slots were promoted from visible placeholders to image embeds o
 | `docs-directive-training-scenario` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:932` | fixture | `assets/documentation/renders/docs-directive-training-scenario.png` | Tutorial Training Scenario banner with populated Mission, Crew, Ship, Log, and highlighted Show Me target. |
 | `docs-directive-settings-safety-results` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:1042` | fixture | `assets/documentation/renders/docs-directive-settings-safety-results.png` | Action-result variants for every Safety operation. |
 | `docs-directive-sillytavern-host-surfaces` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:1084` | live host | `assets/documentation/renders/docs-directive-sillytavern-host-surfaces.png` | Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live `/send` row before message-action capture. |
+
+## Current Open Render Slots
+
+These slots were introduced during the 2026-06-27 documentation feature update and still have visible `Render needed:` markers in the target docs.
+Continuity Projection Matrix (CPM) render rows use the acronym after this first mention.
+
+| Render ID | Source Doc Line | Source | Target Asset | Needed Visual |
+| --- | --- | --- | --- | --- |
+| `docs-directive-creator-assist-fallback-ladder` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:449` | diagram or fixture | `assets/documentation/renders/docs-directive-creator-assist-fallback-ladder.png` | Character Creator section-assist ladder showing create/refine mode, Reasoning attempt, Reasoning retry, Utility fallback, local fallback, preview, apply, regenerate, and dismiss. |
+| `docs-directive-mission-components-capture` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:678` | live host | `assets/documentation/renders/docs-directive-mission-components-capture.png` | Chat-side Mission Components capture affordance on highlighted text in the bound campaign chat. |
+| `docs-directive-mission-components-review` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:681` | live host | `assets/documentation/renders/docs-directive-mission-components-review.png` | Mission Components review/edit popover with Utility proposal, preserved source text, warning state, and save action. |
+| `docs-directive-mission-components-tab` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:684` | fixture or live host | `assets/documentation/renders/docs-directive-mission-components-tab.png` | Mission Components tab showing saved components, filters, source preview, and open-source action. |
+| `docs-directive-character-command-bearing` | `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:831` | fixture or live host | `assets/documentation/renders/docs-directive-character-command-bearing.png` | Player Character tab with collapsed Service Record, Command Bearing tracks, evidence, Mark Reviews, recent history, relationship perceptions, and portrait controls. |
+| `docs-directive-cpm-live-certification` | `docs/testing/TESTING_STRATEGY.md:196` | diagram | `assets/documentation/renders/docs-directive-cpm-live-certification.png` | CPM live certification infographic showing prompt-availability audit, source-id proof, generated-output fact check, contradiction guard/quarantine, and five-user coordinator aggregation. |
+| `docs-directive-live-soak-artifact-pipeline` | `docs/testing/TESTING_STRATEGY.md:199` | diagram | `assets/documentation/renders/docs-directive-live-soak-artifact-pipeline.png` | Live soak artifact pipeline showing non-human SillyTavern users, sidecar-settled pacing, live logs, screenshots, transcript captures, fact checks, prompt inspection, state snapshots, and report schema. |
+| `docs-directive-message-recovery-swipes` | `docs/technical/STATE_TRANSACTIONS_AND_RECOVERY.md:130` | diagram or fixture | `assets/documentation/renders/docs-directive-message-recovery-swipes.png` | Recovery/source-truth diagram showing edits, deletes, swipes, selected assistant variants, ingress/response ledgers, snapshot restore, review-required state, and prompt rebuild. |
+| `docs-directive-rich-crew-authoring-pipeline` | `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:225` | diagram | `assets/documentation/renders/docs-directive-rich-crew-authoring-pipeline.png` | Authoring diagram showing character bible, six-card crew dataset, voice capsule, hydration audience, and prompt packet. |
+| `docs-directive-time-adjudication-flow` | `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md:174` | diagram | `assets/documentation/renders/docs-directive-time-adjudication-flow.png` | Time adjudication flow showing deterministic parser, Utility proposal, validator, time-ledger commit, prompt rebuild, and next reply header. |
+| `docs-directive-mission-components-lifecycle` | `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md:193` | diagram | `assets/documentation/renders/docs-directive-mission-components-lifecycle.png` | Mission Components lifecycle infographic showing highlighted source text, Utility proposal, player review, saved component state, Mission tab projection, and CPM evidence handoff. |
+| `docs-directive-rich-crew-hydration` | `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md:324` | diagram | `assets/documentation/renders/docs-directive-rich-crew-hydration.png` | Rich crew data flow from character bible to six-card dataset, voice capsule, hydration audience, and narrator/Director prompt packet. |
 ## Latest Marker Scan
 
-Scan date: 2026-06-25.
+Scan date: 2026-06-27.
 
-- 0 visible `Render needed:` lines remain outside this tracking file.
-- 0 structured `directive-render` markers remain outside planning/tracking prose.
+- 12 visible `Render needed:` lines remain outside this tracking file, all registered in Current Open Render Slots.
+- 12 structured `directive-render` markers remain outside planning/tracking prose, all paired with a visible marker line.
 - 34 promoted target PNGs exist under `assets/documentation/renders/`.
 - 93 total documentation PNGs are present under `assets/documentation/renders/`.
-- Live host/runtime recapture was blocked by the local SillyTavern login screen with no auth environment configured. A baseline live row failed while waiting for `globalThis.Directive`; static fallback assets were generated for the newly promoted slots.
+- The 2026-06-27 open slots require new infographic/static diagram work or live/fixture capture before promotion.
 
 Do not treat the newly promoted host-proof composites as final live evidence. Re-run the fixture/live rows after authenticating the renderer, then replace any composite whose tracking source is `fixture`, `fixture-or-live-host`, or `live-host`.
 
@@ -84,7 +104,7 @@ rg -n "Render needed:" README.md docs --glob "*.md" --glob "!docs/testing/DOCUME
 rg -n "directive-render" README.md docs --glob "*.md" --glob "!docs/testing/DOCUMENTATION_RENDER_TRACKING.md" --glob "!docs/planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md"
 ```
 
-Both commands should be empty after all promoted slots are embedded. If a future doc needs a new visual, add one visible marker plus one nearby structured comment, then register the row here before promotion.
+Both commands should match the Current Open Render Slots until those placeholders are promoted. After promotion, the commands should be empty again. If a future doc needs a new visual, add one visible marker plus one nearby structured comment, then register the row here before promotion.
 
 Use this image-reference check after embedding newly captured renders:
 

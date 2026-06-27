@@ -139,6 +139,31 @@ assert.equal(utilityBody.temperature, 0.05);
 assert.equal(utilityBody.top_p, 0.8);
 assert.equal(utilityBody.max_tokens, 384);
 
+const transportFailureClient = createDirectiveProviderClient({
+  contextFactory: () => context,
+  settingsStore: store,
+  fetchImpl: async () => {
+    throw Object.assign(new Error('request to https://nano-gpt.com/api/v1/chat/completions failed, reason: socket hang up'), {
+      type: 'system',
+      errno: 'ECONNRESET',
+      code: 'ECONNRESET'
+    });
+  }
+});
+await assert.rejects(
+  () => transportFailureClient.generate('utilityTurnClassifier', {
+    messages: [{ role: 'user', content: 'Classify this.' }]
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR');
+    assert.equal(error.providerKind, 'utility');
+    assert.equal(error.retryable, true);
+    assert.equal(error.details.transportCode, 'ECONNRESET');
+    assert.match(error.message, /connection failed/);
+    return true;
+  }
+);
+
 const reasoning = await client.generate('campaignIntro', {
   messages: [{ role: 'user', content: 'Write an intro.' }],
   parameters: { temperature: 0.55, top_p: 0.9 }
@@ -256,6 +281,39 @@ await client.generate('continuityTracker', {
 });
 assert.equal(rawCalls.length, 2);
 assert.equal(rawCalls[1].signal, rawSignalController.signal);
+
+const quietTransportCalls = [];
+const quietTransportContext = {
+  extensionSettings: {},
+  saveSettingsDebounced() {},
+  async generateQuietPrompt(payload) {
+    quietTransportCalls.push(payload);
+    throw Object.assign(new Error('socket hang up'), {
+      code: 'ECONNRESET',
+      type: 'system'
+    });
+  }
+};
+const quietTransportStore = createSillyTavernProviderSettingsStore({
+  context: quietTransportContext,
+  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
+});
+const quietTransportClient = createDirectiveProviderClient({
+  contextFactory: () => quietTransportContext,
+  settingsStore: quietTransportStore,
+  fetchImpl
+});
+await assert.rejects(
+  () => quietTransportClient.generate('continuityTracker', {
+    messages: [{ role: 'user', content: 'Track continuity through quiet prompt.' }]
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR');
+    assert.equal(error.details.transportCode, 'ECONNRESET');
+    return true;
+  }
+);
+assert.equal(quietTransportCalls.length, 1, 'transport failures should not be retried as legacy quietPrompt calls');
 
 const profiles = client.listProfiles();
 assert.equal(profiles.some((entry) => entry.id === 'reasoning-profile' && entry.model === 'Reasoner-70B'), true);

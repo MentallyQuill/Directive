@@ -9631,12 +9631,13 @@ textarea.directive-field-control {
 .directive-record-save-as-dialog-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2147483200;
+  z-index: 2147483647;
   display: grid;
   place-items: center;
   padding: 18px;
   background: rgba(2, 4, 8, 0.72);
   backdrop-filter: blur(6px);
+  pointer-events: auto;
 }
 
 .directive-record-save-as-dialog {

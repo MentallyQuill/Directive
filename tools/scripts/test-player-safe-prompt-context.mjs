@@ -166,6 +166,8 @@ assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn is Tellarite
 assert.equal(packetJson.includes('mustard-yellow'), true);
 assert.equal(packetJson.includes('Do not describe the opening Breckenridge transit as six days at impulse'), true);
 assert.equal(packetJson.includes('do not force the full Asterion Reach strategy conversation yet'), true);
+assert.equal(packetJson.includes('shuttlebay two in the aft section between the swept nacelle pylons'), true);
+assert.equal(projectionJson.includes('saucer-underside shuttlebay'), true);
 assert.equal(packetJson.includes('a human male in his early forties'), false);
 assert.equal(packetJson.includes('red-and-black of tactical'), false);
 assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), true);

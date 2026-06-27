@@ -23,6 +23,7 @@ let campaignIntroGenerationCount = 0;
 let holdNextCampaignIntro = false;
 let heldCampaignIntroAbortObserved = false;
 let heldCampaignIntroStarted = null;
+let heldCampaignIntroResolve = null;
 async function loadChatNativeAssets() {
   return {
     packages: [packageData],
@@ -48,9 +49,18 @@ const host = createFakeDirectiveHost({
           return new Promise((resolve, reject) => {
             const signal = rawRequest?.signal;
             let fallbackTimer = null;
+            heldCampaignIntroResolve = () => {
+              if (fallbackTimer) globalThis.clearTimeout?.(fallbackTimer);
+              heldCampaignIntroResolve = null;
+              resolve({
+                providerId: 'fake-reasoning',
+                text: 'The held campaign intro now posts after the player asks Directive to build the opening scene.'
+              });
+            };
             const abortHeldIntro = () => {
               heldCampaignIntroAbortObserved = true;
               if (fallbackTimer) globalThis.clearTimeout?.(fallbackTimer);
+              heldCampaignIntroResolve = null;
               const error = new Error('Held campaign intro canceled by test.');
               error.code = 'DIRECTIVE_GENERATION_ABORTED';
               reject(error);
@@ -60,12 +70,7 @@ const host = createFakeDirectiveHost({
               return;
             }
             signal?.addEventListener?.('abort', abortHeldIntro, { once: true });
-            fallbackTimer = globalThis.setTimeout?.(() => {
-              resolve({
-                providerId: 'fake-reasoning',
-                text: 'This held intro should not be posted after host Stop.'
-              });
-            }, 5000);
+            fallbackTimer = globalThis.setTimeout?.(() => heldCampaignIntroResolve?.(), 5000);
           });
         }
         return {
@@ -204,9 +209,41 @@ view = await app.saveCreatorDraft({
 });
 assert.equal(view.creator.canBeginCampaign, true);
 
-view = await app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+holdNextCampaignIntro = true;
+heldCampaignIntroAbortObserved = false;
+const initialCampaignIntroStartedPromise = new Promise((resolve) => { heldCampaignIntroStarted = resolve; });
+const initialActivationPromise = app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+await initialCampaignIntroStartedPromise;
+heldCampaignIntroStarted = null;
+let activatingView = await app.getCurrentView({ tabId: 'campaign' });
+assert.equal(activatingView.campaignState.campaign.status, 'activating');
+assert.equal(activatingView.chatNative.openingScene.ready, false);
+assert.equal(activatingView.chatNative.openingScene.blocked, true);
+assert.equal(activatingView.chatNative.manualSaveGuard.ok, false);
+assert.equal(activatingView.chatNative.manualSaveGuard.reason, 'campaign-opening-scene-required');
+const blockedEarlyBranch = await app.saveCurrentGameAs({ name: 'Too Early Branch' });
+assert.equal(blockedEarlyBranch.ok, false);
+assert.equal(blockedEarlyBranch.blocked, true);
+assert.equal(blockedEarlyBranch.saveGuard.reason, 'campaign-opening-scene-required');
+const blockedEarlyPlayerMessage = await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: {
+    hostMessageId: 'pre-intro-player-message',
+    text: 'Status report.',
+    isUser: true
+  }
+});
+assert.equal(blockedEarlyPlayerMessage.blocked, true);
+assert.equal(blockedEarlyPlayerMessage.responseStrategy, 'pause');
+assert.equal(blockedEarlyPlayerMessage.abortDefaultGeneration, true);
+assert.equal(blockedEarlyPlayerMessage.openingScene.ready, false);
+assert.equal(typeof heldCampaignIntroResolve, 'function');
+heldCampaignIntroResolve();
+view = await initialActivationPromise;
 assert.equal(view.campaignState.campaign.status, 'active');
 assert.equal(view.chatNative.activation.status, 'complete');
+assert.equal(view.chatNative.openingScene.ready, true);
+assert.equal(view.chatNative.openingScene.blocked, false);
 assert.ok(view.chatNative.binding.chatId);
 assert.equal(host.chat.getCurrentChatId(), view.chatNative.binding.chatId);
 assert.equal(host.chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);

@@ -1,10 +1,10 @@
-# Continuity Projection Matrix Implementation Plan
+# Continuity Projection Matrix (CPM) Implementation Plan
 
 ## Status
 
 Planned pre-alpha implementation.
 
-This plan turns [Continuity Projection Matrix](../design/CONTINUITY_PROJECTION_MATRIX.md) into a complete staged build. It assumes Directive can replace current prompt-context behavior in place because the project is still pre-alpha.
+This plan turns the [Continuity Projection Matrix (CPM)](../design/CONTINUITY_PROJECTION_MATRIX.md) into a complete staged build. It assumes Directive can replace current prompt-context behavior in place because the project is still pre-alpha.
 
 This is not a vertical-slice-only plan. The first slices prove Bronn identity and Breckenridge travel continuity, but the target is the full campaign-state continuity service:
 
@@ -26,7 +26,7 @@ This is not a vertical-slice-only plan. The first slices prove Bronn identity an
 
 Required reading before implementation:
 
-- [Continuity Projection Matrix](../design/CONTINUITY_PROJECTION_MATRIX.md)
+- [CPM Design Baseline](../design/CONTINUITY_PROJECTION_MATRIX.md)
 - [Parallel Agent Coordination Protocol](PARALLEL_AGENT_COORDINATION_PROTOCOL.md)
 - [Model Call Robustness Pass Plan](MODEL_CALL_ROBUSTNESS_PASS_PLAN.md)
 - [Scene Handshake Protocol](../design/SCENE_HANDSHAKE_PROTOCOL.md)
@@ -48,7 +48,7 @@ The prototype should not be adopted wholesale. It is useful for static prompt-ke
 
 ## Goal
 
-Build the Continuity Projection Matrix as the authoritative projection service between committed campaign reality and model-facing context.
+Build CPM as the authoritative projection service between committed campaign reality and model-facing context.
 
 The system must answer, every turn and for every consumer:
 
@@ -135,7 +135,7 @@ Begin with Stage 0.
 Agent-0 should maintain this board in the primary chat whenever a stage starts, a worker is launched, a worker hands off, or a stage closes:
 
 ```text
-Continuity Projection Matrix Build Board
+CPM Build Board
 Stage:
 Stage gate:
 Active workers:
@@ -908,7 +908,7 @@ Primary agents: Agent-0, QA worker, Docs support if available.
 
 Tasks:
 
-- Update [Continuity Projection Matrix](../design/CONTINUITY_PROJECTION_MATRIX.md) with as-coded deltas.
+- Update [CPM Design Baseline](../design/CONTINUITY_PROJECTION_MATRIX.md) with as-coded deltas.
 - Update [Technical Manual](../technical/DIRECTIVE_TECHNICAL_MANUAL.md).
 - Update [Player Turn Sequence](../technical/PLAYER_TURN_SEQUENCE.md).
 - Update [Model Calls And Provider Routing](../technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md).
@@ -926,7 +926,7 @@ Exit gate:
 
 ## Full Acceptance Criteria
 
-The Continuity Projection Matrix is complete when:
+CPM is complete when:
 
 - Every active campaign prompt sync builds or reuses a validated Matrix projection.
 - Every Matrix projection has an audit tied to prompt revision and source hash.
@@ -1003,4 +1003,3 @@ Before each stage closes, Agent-0 should verify:
 - save shape changes have initialization and migration coverage;
 - docs or follow-up notes record any as-coded contract deltas;
 - the next stage has a clear handoff prompt.
-

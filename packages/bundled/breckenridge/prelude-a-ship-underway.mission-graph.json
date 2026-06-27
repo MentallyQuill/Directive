@@ -59,7 +59,7 @@
       "title": "Shuttle Rendezvous",
       "type": "arrival",
       "dayRange": "day 0",
-      "summary": "The Breckenridge drops to impulse at the transfer waypoint and receives the player's shuttle as a working ship, not a ceremonial reception.",
+      "summary": "The Breckenridge drops to impulse at the transfer waypoint and receives the player's shuttle through aft shuttlebay two as a working ship, not a ceremonial reception.",
       "directorPurpose": "Establish ship condition, working routines, Priya's coordination role, Bronn's acting-XO status, and the player's first command tone.",
       "playerFacingObjectives": [
         "Come aboard",

@@ -2,7 +2,7 @@
 
 Status: pre-alpha design and first implementation contract  
 Primary owner: Runtime / Mission UI / Continuity  
-Related docs: [Scene Handshake Protocol](SCENE_HANDSHAKE_PROTOCOL.md), [Continuity Projection Matrix](CONTINUITY_PROJECTION_MATRIX.md), [Narrative Thread Engine](NARRATIVE_THREAD_ENGINE.md), [Outcome Integrity](OUTCOME_INTEGRITY.md), [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md)
+Related docs: [Scene Handshake Protocol](SCENE_HANDSHAKE_PROTOCOL.md), [Continuity Projection Matrix (CPM)](CONTINUITY_PROJECTION_MATRIX.md), [Narrative Thread Engine](NARRATIVE_THREAD_ENGINE.md), [Outcome Integrity](OUTCOME_INTEGRITY.md), [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md)
 
 ## Purpose
 
@@ -62,7 +62,7 @@ Mission Components should:
 - Use the Utility model to categorize and format, not to decide final truth.
 - Support in-universe notes, items, item stats, memories, claims, quotes, leads, questions, procedures, and ship issues.
 - Make captured details searchable and sortable inside Mission.
-- Feed future Continuity Matrix work through source-backed evidence.
+- Feed CPM work through source-backed evidence.
 - Avoid sidecars creating a conflicting parallel version of the same reality.
 
 Mission Components should not:
@@ -97,7 +97,7 @@ Mission Components should be a three-surface feature:
 2. Review/edit popover.
 3. Mission drawer Components tab.
 
-The chat-side affordance makes capture fast at the moment the player notices useful text. The review popover prevents unreviewed model categorization from becoming campaign state. The Mission drawer tab makes the saved material searchable, sortable, editable, and ready for future Continuity Matrix use.
+The chat-side affordance makes capture fast at the moment the player notices useful text. The review popover prevents unreviewed model categorization from becoming campaign state. The Mission drawer tab makes the saved material searchable, sortable, editable, and ready for CPM use.
 
 This should not become a separate notebook app. All visible component management belongs in Mission because components are active mission evidence, leads, objects, claims, and source fragments.
 
@@ -498,11 +498,11 @@ Examples:
 
 This should be opt-in or validator-controlled. Capturing a component should not automatically activate a thread.
 
-## Relationship To Continuity Projection Matrix
+## Relationship To CPM
 
-Mission Components should be built as the first user-facing evidence spine for the future Continuity Projection Matrix.
+Mission Components should be built as the first user-facing evidence spine for CPM.
 
-The Matrix can eventually decide:
+CPM can eventually decide:
 
 - which components are relevant to the current turn;
 - which components are hard constraints, soft support, unresolved questions, or archived history;
@@ -655,7 +655,7 @@ Later behavior:
 
 - temporarily highlight the captured text range inside the message;
 - open a source inspector with verbatim text, source hash, current message text, and mismatch status;
-- show sidecar or Continuity Matrix derivations that reference the component.
+- show sidecar or CPM derivations that reference the component.
 
 Source inspection is a trust feature. The UI should always make it easy to answer: "Where did this come from?"
 
@@ -718,7 +718,7 @@ The Components tab has low value without frictionless capture. The capture path 
 
 Mission Components are not automatically prompt injections.
 
-Before the Continuity Matrix exists, components may be used conservatively in player-safe prompt context only when:
+Before full CPM consumption exists, components may be used conservatively in player-safe prompt context only when:
 
 - the source is not stale;
 - the component is active, unresolved, confirmed, or disputed;
@@ -835,9 +835,9 @@ Later promotion could create or update a ship technical debt record, but the pro
 - Keep promoted records source-linked.
 - Expose reviewed component context to sidecars and stamp promoted object records with `sourceComponentIds`.
 
-### Slice 7: Continuity Matrix Integration
+### Slice 7: CPM Integration
 
-- Let the Matrix consume reviewed components.
+- Let CPM consume reviewed components.
 - Add relevance scoring and prompt-lane projection rules.
 - Add contradiction checks between generated prose and active components.
 - Add diagnostics explaining why a component was injected, skipped, stale, or blocked.
@@ -869,7 +869,7 @@ This pass should not add:
 - a SillyTavern lorebook integration;
 - automatic whole-chat memory scraping;
 - automatic item stat mutation without review;
-- full Continuity Matrix implementation;
+- full CPM implementation;
 - visual inventory art, item equipment slots, or RPG loot mechanics;
 - hidden truth reveal UI;
 - Command Bearing awards from captures;

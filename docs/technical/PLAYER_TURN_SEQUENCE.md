@@ -7,18 +7,19 @@ This document explains the current player-post lifecycle from host ingress to st
 1. The player writes in the bound campaign chat.
 2. Directive checks whether the previous assistant response and the new player reply create a Scene Handshake settlement.
 3. If the handshake is accepted and safe, Directive commits source-backed assignments, Command Log notes, ship readiness notes, or thread signals before normal turn classification.
-4. Directive shows a delayed chat activity pill such as `Directive is reading your post...`.
-5. Directive records the current post as an ingress event.
-6. Directive decides whether the post is scene color, scene navigation, routine, counsel, a pause, or a Director turn.
-7. The activity pill updates to the current blocking phase, such as checking intent, advancing the scene, logging the action, resolving the command, or writing the response.
-8. Routine turns synchronize prompt context and let the host continue; the activity pill remains through handoff until SillyTavern confirms native generation is starting.
-9. Consequential turns commit structured mechanics before prose.
-10. Narration is generated from the committed packet.
-11. The response is posted exactly once with the current campaign reply header.
-12. Directive checks package end conditions and may pause on a terminal checkpoint.
-13. Directive autosaves and may schedule sidecars.
-14. After the visible response is settled, sidecar work demotes to quiet `Updating campaign context...` chips rather than holding the main spinner at full weight.
-15. If something fails, recovery resumes from the last durable step and the UI leaves a review state instead of disappearing immediately.
+4. If the accepted scene pair implies elapsed time, Directive resolves a deterministic or Utility-proposed time boundary and commits it before classification.
+5. Directive shows a delayed chat activity pill such as `Directive is reading your post...`.
+6. Directive records the current post as an ingress event.
+7. Directive decides whether the post is scene color, scene navigation, routine, counsel, a pause, or a Director turn.
+8. The activity pill updates to the current blocking phase, such as checking intent, advancing the scene, logging the action, resolving the command, or writing the response.
+9. Routine turns synchronize prompt context and let the host continue; the activity pill remains through handoff until SillyTavern confirms native generation is starting.
+10. Consequential turns commit structured mechanics before prose.
+11. Narration is generated from the committed packet.
+12. The response is posted exactly once with the current campaign reply header.
+13. Directive checks package end conditions and may pause on a terminal checkpoint.
+14. Directive autosaves and may schedule sidecars.
+15. After the visible response is settled, sidecar work demotes to quiet `Updating campaign context...` chips rather than holding the main spinner at full weight.
+16. If something fails, recovery resumes from the last durable step and the UI leaves a review state instead of disappearing immediately.
 
 ## Infographic
 
@@ -29,8 +30,9 @@ flowchart TD
   C -->|no| D["Ignore or fail open to host"]
   C -->|yes| E0["Run Scene Handshake settlement for previous assistant response"]
   E0 -->|accepted safe settlement| E1["Commit source-backed assignments, Log, ship readiness, and thread signals"]
-  E0 -->|defer/reject/unsafe| E["Record ingress in runtimeTracking.ingressLedger"]
-  E1 --> E
+  E1 --> E2["Resolve deterministic or Utility-proposed time boundary when accepted scene text moved time"]
+  E0 -->|defer/reject/unsafe| E2
+  E2 --> E["Record ingress in runtimeTracking.ingressLedger"]
   E --> F["Show blocking activity: checking intent"]
   F --> F2["Deterministic fast-path classification"]
   F2 --> G{"Clear routine path?"}
@@ -90,6 +92,12 @@ The settlement pass can propose only narrow, player-visible state:
 Deterministic code validates source hashes, chat/save binding, duplicate settlement keys, allowed roots, stale source status, player acceptance, and hidden-state boundaries before applying operations through the state-delta gateway. Rejected, corrected, stale, wrong-chat, edited, or ambiguous source prose records a defer/review result instead of mutating campaign state.
 
 Scene Handshake uses the Utility lane and cannot award Command Bearing, resolve quests, change hidden state, commit destructive outcomes, or produce chat prose.
+
+### Time Adjudication
+
+After accepted prior-scene settlement and before the current player post is classified, Directive can resolve elapsed time for the accepted assistant/player pair. Deterministic rules handle clear cases such as no-op conversation, short intra-ship movement, explicit waits, briefing review, travel/open-world boundaries, and direct scene cuts. If deterministic rules cannot confidently choose a delta, the `timeAdvanceAdjudicator` Utility role proposes a bounded elapsed-minute record.
+
+The Utility proposal is not authority. Runtime validation clamps or rejects the proposed delta against current clock state, schedules, scene state, package constraints, and safe maximums, then commits an approved boundary through the campaign time ledger. Prompt context is marked dirty before classification continues, so the next reply header reflects committed campaign time rather than model inference.
 
 ### Classification
 
@@ -181,9 +189,11 @@ Narration uses the `narration` model role through the active generation route. T
 
 Directive-owned turns abort normal host generation and post exactly one assistant response. Response records carry status and idempotency data so retry does not duplicate the same outcome. Directive-owned responses are prefixed with the current campaign reply header, such as `*Stardate 53049.2 | 0830 hours*`, using deterministic campaign state rather than model inference.
 
-Host-native `injectAndContinue` generations are still host-authored prose, but Directive observes the resulting assistant message when the host path exposes it. The Continuity Projection Matrix guard reviews observed text for protected identity and travel contradictions, quarantines generated claims, records rejected claims, and marks the ingress/response `recoveryRequired` instead of treating retry-class continuity violations as accepted output. When the host cannot safely edit/delete/regenerate the bad message through a supported API, recovery is explicit rather than silent acceptance.
+Host-native `injectAndContinue` generations are still host-authored prose, but Directive observes the resulting assistant message when the host path exposes it. The Continuity Projection Matrix (CPM) guard reviews observed text for protected identity and travel contradictions, quarantines generated claims, records rejected claims, and marks the ingress/response `recoveryRequired` instead of treating retry-class continuity violations as accepted output. When the host cannot safely edit/delete/regenerate the bad message through a supported API, recovery is explicit rather than silent acceptance.
 
 Directive also installs a high-priority reply-header prompt block that names the exact current header and tells the model not to infer elapsed time from prior headers.
+
+For host-native swipes, Directive treats the currently selected assistant variant as the continuity source on the next accepted player reply. Raw JSONL rows, visible message indices, and selected swipe text are separate layers; recovery and source-capture code should use the live selected text that the player accepted, not an unselected alternate.
 
 ### Autosave And Sidecars
 

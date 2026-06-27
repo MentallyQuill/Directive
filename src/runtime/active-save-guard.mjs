@@ -1,3 +1,5 @@
+import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
+
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -14,6 +16,10 @@ export function activeSaveGuardSummary(reason) {
       return 'Load a campaign save before saving.';
     case 'campaign-chat-unbound':
       return 'This save is not linked to a campaign chat yet. Use Rebind Chat, then save from that chat.';
+    case 'campaign-opening-scene-required':
+      return 'Build the campaign opening scene before saving or creating a branch.';
+    case 'campaign-activation-incomplete':
+      return 'Finish campaign setup before saving or creating a branch.';
     case 'no-active-chat-selected':
       return 'Choose the campaign chat for this save before saving. Save Game is disabled until that chat is active.';
     case 'missing-host-identity-capability':
@@ -41,6 +47,9 @@ export function activeSaveGuardRecoveryActions(reason, binding = null) {
       return [];
     case 'different-directive-save':
       return ['loadActiveChatSave', 'openCampaignChat'];
+    case 'campaign-opening-scene-required':
+    case 'campaign-activation-incomplete':
+      return ['buildOpeningScene'];
     case 'campaign-chat-unbound':
     case 'corrupt-metadata':
     case 'binding-save-mismatch':
@@ -62,7 +71,8 @@ export function activeSaveGuardResult(reason, {
   expectedSaveId = null,
   activeChatId = '',
   activeMetadata = null,
-  metadataError = null
+  metadataError = null,
+  openingScene = null
 } = {}) {
   const boundCampaignId = compactString(binding?.campaignId) || compactString(state?.campaign?.id);
   const boundSaveId = compactString(binding?.saveId) || compactString(expectedSaveId);
@@ -81,6 +91,7 @@ export function activeSaveGuardResult(reason, {
     boundSaveId: boundSaveId || null,
     activeCampaignId: activeCampaignId || null,
     activeSaveId: activeSaveId || null,
+    openingScene: cloneJson(openingScene || null),
     recoveryActions: activeSaveGuardRecoveryActions(reason, binding)
   };
 }
@@ -138,6 +149,24 @@ export function createActiveSaveGuard({ runtimeHost = null } = {}) {
     const loadedSaveId = compactString(expectedSaveId);
     if (loadedSaveId && boundSaveId && loadedSaveId !== boundSaveId) {
       return activeSaveGuardResult('binding-save-mismatch', { state, binding, expectedSaveId });
+    }
+
+    const openingScene = campaignOpeningSceneStatus(state);
+    if (!openingScene.ready) {
+      return activeSaveGuardResult('campaign-opening-scene-required', {
+        state,
+        binding,
+        expectedSaveId,
+        openingScene
+      });
+    }
+    if (openingScene.blocked) {
+      return activeSaveGuardResult('campaign-activation-incomplete', {
+        state,
+        binding,
+        expectedSaveId,
+        openingScene
+      });
     }
 
     const current = await currentHostChat();

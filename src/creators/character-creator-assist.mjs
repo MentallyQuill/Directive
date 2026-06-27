@@ -142,6 +142,21 @@ const CHARACTER_CREATOR_SECTION_DRAFT_JSON_SCHEMA = Object.freeze({
 });
 
 const RISKY_BACKSTORY_PATTERN = /\b(section\s*31|secret ancestry|hidden powers?|chosen one|war criminal|criminal history|court-?martial|universally admired|impossibly competent|severe trauma|traumatic secret)\b/i;
+const PROVIDER_TRANSPORT_ERROR_CODES = Object.freeze(new Set([
+  'DIRECTIVE_PROVIDER_TRANSPORT_ERROR',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EPIPE',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_ABORTED'
+]));
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -163,6 +178,10 @@ function compactText(value = '', maxLength = 700) {
   const text = normalizeText(value);
   if (!text) return '';
   return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
+function compactDiagnosticText(value = '', maxLength = 180) {
+  return compactText(value, maxLength);
 }
 
 function escapeRegExp(value) {
@@ -603,19 +622,53 @@ function isAbortLikeError(error) {
     || error?.code === 'ABORT_ERR';
 }
 
+function providerFailureDetails(resultOrError = {}) {
+  return isObject(resultOrError?.error?.details)
+    ? resultOrError.error.details
+    : (isObject(resultOrError?.details) ? resultOrError.details : {});
+}
+
+function providerTransportCode(resultOrError = {}) {
+  const details = providerFailureDetails(resultOrError);
+  const code = String(
+    details.transportCode
+    || resultOrError?.diagnostics?.transportCode
+    || resultOrError?.error?.code
+    || resultOrError?.code
+    || ''
+  ).trim().toUpperCase();
+  if (PROVIDER_TRANSPORT_ERROR_CODES.has(code)) return code;
+  if (code === 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR') return code;
+  return '';
+}
+
+function isProviderTransportFailureResult(result = {}) {
+  if (providerTransportCode(result)) return true;
+  const message = [
+    result?.error?.message,
+    result?.message,
+    result?.error?.details?.originalType
+  ].map((value) => String(value || '').toLowerCase()).join(' ');
+  return /\b(socket hang up|connection failed|connection reset|connection refused|network error|fetch failed|timed out|econnreset|etimedout|enotfound|eai_again)\b/.test(message);
+}
+
 function generationFailureResultFromThrown(error, attempt) {
+  const details = providerFailureDetails(error);
+  const transportCode = providerTransportCode(error);
   return {
     ok: false,
     error: {
       code: isAbortLikeError(error) ? 'DIRECTIVE_GENERATION_ABORTED' : (error?.code || 'DIRECTIVE_GENERATION_FAILED'),
       message: error?.message || String(error || 'Character Creator provider request failed.'),
-      retryable: !isAbortLikeError(error)
+      retryable: !isAbortLikeError(error),
+      ...(isObject(details) && Object.keys(details).length ? { details: cloneJson(details) } : {})
     },
     diagnostics: {
       providerId: null,
       model: null,
       usage: null,
-      providerKind: attempt.providerKind
+      providerKind: attempt.providerKind,
+      transportCode: transportCode || null
     }
   };
 }
@@ -624,12 +677,15 @@ function attemptProgressMessage(attempt, previousResult = null) {
   if (attempt.id === 'reasoning-primary') return 'Generating with Reasoning...';
   const previousTimedOut = isGenerationTimeoutResult(previousResult);
   const previousRejected = previousResult?.diagnostics?.providerOutputRejected === true;
+  const previousTransportFailed = isProviderTransportFailureResult(previousResult);
   if (attempt.id === 'reasoning-retry') {
     if (previousTimedOut) return 'Reasoning timed out. Retrying Reasoning...';
+    if (previousTransportFailed) return 'Reasoning connection failed. Retrying Reasoning...';
     if (previousRejected) return 'Reasoning returned an unusable draft. Retrying Reasoning...';
     return 'Reasoning failed. Retrying Reasoning...';
   }
   if (previousTimedOut) return 'Reasoning timed out again. Trying Utility...';
+  if (previousTransportFailed) return 'Reasoning connection failed again. Trying Utility...';
   if (previousRejected) return 'Reasoning returned another unusable draft. Trying Utility...';
   return 'Reasoning failed again. Trying Utility...';
 }
@@ -638,6 +694,7 @@ function localFallbackProgressMessage(previousResult = null) {
   const provider = previousResult?.role?.providerKind || previousResult?.diagnostics?.finalProviderKind || 'provider';
   const label = provider === 'utility' ? 'Utility' : 'Provider';
   if (isGenerationTimeoutResult(previousResult)) return `${label} timed out. Using local fallback...`;
+  if (isProviderTransportFailureResult(previousResult)) return `${label} connection failed. Using local fallback...`;
   if (previousResult?.diagnostics?.providerOutputRejected === true) return `${label} returned an unusable draft. Using local fallback...`;
   return `${label} failed. Using local fallback...`;
 }
@@ -681,6 +738,7 @@ function providerDiagnosticsFromGenerationResult(generationResult = {}) {
     hiddenLeakBlocked: generationResult?.diagnostics?.hiddenLeakBlocked === true,
     hiddenLeakTerm: generationResult?.diagnostics?.hiddenLeakTerm || null,
     validationErrorCode: generationResult?.diagnostics?.validationErrorCode || null,
+    transportCode: generationResult?.diagnostics?.transportCode || providerTransportCode(generationResult) || null,
     utilityFallbackAttempted: generationResult?.diagnostics?.utilityFallbackAttempted === true,
     providerAttempts: cloneJson(generationResult?.diagnostics?.providerAttempts || []),
     timeoutRetryCount: Number(generationResult?.diagnostics?.timeoutRetryCount || 0)
@@ -749,7 +807,9 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
       timeoutMs: attempt.timeoutMs,
       ok: generationResult?.ok === true,
       errorCode: generationResult?.error?.code || null,
-      retryable: generationResult?.error?.retryable === true
+      retryable: generationResult?.error?.retryable === true,
+      transportCode: providerTransportCode(generationResult) || null,
+      errorMessage: compactDiagnosticText(generationResult?.error?.message || '')
     };
     attemptRecords.push(record);
     const result = {

@@ -112,6 +112,73 @@ function providerError(code, message, details = {}) {
   return error;
 }
 
+const PROVIDER_TRANSPORT_ERROR_CODES = Object.freeze(new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EPIPE',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_ABORTED'
+]));
+
+function transportErrorCode(error) {
+  return String(
+    error?.code
+    || error?.errno
+    || error?.cause?.code
+    || error?.details?.transportCode
+    || ''
+  ).trim().toUpperCase();
+}
+
+function isProviderTransportError(error) {
+  if (!error || typeof error !== 'object') return false;
+  const code = transportErrorCode(error);
+  if (PROVIDER_TRANSPORT_ERROR_CODES.has(code)) return true;
+  const text = [
+    error.message,
+    error.type,
+    error.cause?.message
+  ].map((value) => String(value || '').toLowerCase()).join(' ');
+  return /\b(socket hang up|network error|fetch failed|connection reset|connection refused|timed out|dns|econnreset|etimedout|enotfound|eai_again)\b/.test(text);
+}
+
+function normalizeProviderThrownError(error, providerKind) {
+  if (isAbortLikeError(error)) {
+    if (error && typeof error === 'object') error.providerKind = providerKind;
+    return error;
+  }
+  if (isProviderTransportError(error)) {
+    const code = transportErrorCode(error) || 'TRANSPORT';
+    const wrapped = providerError(
+      'DIRECTIVE_PROVIDER_TRANSPORT_ERROR',
+      `Provider ${providerKind} connection failed (${code}).`,
+      {
+        providerKind,
+        transportCode: code,
+        originalCode: String(error?.code || error?.errno || '').trim() || null,
+        originalType: String(error?.type || '').trim() || null
+      }
+    );
+    wrapped.providerKind = providerKind;
+    wrapped.retryable = true;
+    return wrapped;
+  }
+  if (error && typeof error === 'object') {
+    error.providerKind = providerKind;
+    return error;
+  }
+  const wrapped = providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', String(error || 'Provider request failed.'));
+  wrapped.providerKind = providerKind;
+  return wrapped;
+}
+
 function requestMaxTokens(request = {}, config = {}) {
   return request.parameters?.max_tokens || request.maxTokens || config.maxTokens;
 }
@@ -195,6 +262,7 @@ async function sendViaCurrentSillyTavern(context, config, request, { retriedForV
       });
     } catch (error) {
       if (isAbortLikeError(error)) throw error;
+      if (isProviderTransportError(error)) throw error;
       response = await context.generateQuietPrompt(quietPrompt);
     }
   } else if (typeof context?.generate === 'function') {
@@ -326,13 +394,7 @@ export function createDirectiveProviderClient({
         result = await sendOnce(visibleOutputRetryRequest(request), { retriedForVisibleOutput: true });
       }
     } catch (error) {
-      if (error && typeof error === 'object') {
-        error.providerKind = kind;
-        throw error;
-      }
-      const wrapped = providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', String(error || 'Provider request failed.'));
-      wrapped.providerKind = kind;
-      throw wrapped;
+      throw normalizeProviderThrownError(error, kind);
     }
     return {
       ...result,

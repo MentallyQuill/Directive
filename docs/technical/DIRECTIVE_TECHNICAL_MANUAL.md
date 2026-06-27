@@ -7,12 +7,13 @@ This manual combines reusable technical diagrams with final SillyTavern-hosted r
 ## Reading Map
 
 - [Player Turn Sequence](PLAYER_TURN_SEQUENCE.md): full post-to-response lifecycle.
-- [Continuity Projection Matrix](CONTINUITY_PROJECTION_MATRIX.md): source-backed continuity projection, prompt lanes, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification diagrams.
+- [Continuity Projection Matrix (CPM)](CONTINUITY_PROJECTION_MATRIX.md): source-backed continuity projection, prompt lanes, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification diagrams.
 - [Model Calls And Provider Routing](MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, role routing, authority, and diagnostics.
 - [State Transactions And Recovery](STATE_TRANSACTIONS_AND_RECOVERY.md): campaign revision, snapshots, ledgers, sidecars, saves, edits, deletes, and branches.
 - [Host Integration Manual](HOST_INTEGRATION_MANUAL.md): SillyTavern, fake host, storage, prompt, generation, and shell boundaries.
 - [Chat-Native Runtime Architecture](../architecture/CHAT_NATIVE_RUNTIME.md): architecture record for the implemented runtime spine.
-- [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time header, deterministic time ownership, model sanitization, and planned time-adjudication layer.
+- [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time header, deterministic time ownership, model sanitization, and implemented deterministic/Utility-backed time adjudication.
+- [Mission Components](../design/MISSION_COMPONENTS.md): highlighted-text capture, source anchoring, review-first component state, and CPM evidence spine.
 - [Scene Handshake Protocol](../design/SCENE_HANDSHAKE_PROTOCOL.md): implemented settlement pass that turns accepted host prose into source-backed campaign state before normal turn classification.
 - [Directive Tutorial Revision](../design/DIRECTIVE_TUTORIAL_REVISION.md): implemented guidance, Show Me targeting, Settings tutorial library, and inert training scenario architecture.
 - [Outcome Integrity](../design/OUTCOME_INTEGRITY.md): edit-review trust contract for protecting committed outcome authority while allowing cosmetic narration repair.
@@ -41,10 +42,12 @@ The main working domains are:
 | Chat turns | `src/runtime/chat-turn-orchestrator.mjs` | Host ingress, serialization, Utility classification, exact-one response arbitration, pause/recovery handling. |
 | Scene handshake | `src/runtime/scene-handshake-settler.mjs` | Utility-lane settlement of accepted host-generated prose into source-backed assignments, Command Log notes, ship readiness notes, and thread signals. |
 | Director turns | `src/runtime/director-turn-runtime.mjs`, `src/directors/open-world-turn-coordinator.mjs`, `src/mission/director.mjs` | Scene snapshots, mission/quest/world resolution, provisional and committed turn packets. |
+| Mission Components | `src/runtime/mission-components.mjs`, `src/hosts/sillytavern/mission-components-capture.js`, `src/ui/mission-components-panel.js` | Highlighted chat-text capture, Utility proposal, player review, source anchoring, component CRUD, Mission drawer projection. |
 | Transactions | `src/campaign/transaction-state.mjs`, `src/runtime/state-delta-gateway.mjs`, `src/runtime/turn-commit-coordinator.mjs` | Mechanics-first commits, revisioned tracked state, recovery snapshots, journals, sidecar application. |
 | Generation | `src/generation/generation-roles.mjs`, `src/generation/generation-router.mjs` | Host-neutral model-call roles and routing through active host generation clients. |
-| Continuity Projection Matrix | `src/continuity`, `src/generation/player-safe-prompt-context-builder.mjs`, `src/jobs/campaign-sidecar-scheduler.mjs` | Source-backed continuity facts, static prompt lanes, planner validation, Director packets, sidecar provenance, sanitized audits, contradiction guard/quarantine, and factual-grounding certification. |
-| Timekeeping | `src/time/campaign-time-header.mjs` | Deterministic reply-header formatting, stale-header stripping, and prompt-block creation for host-native generation. |
+| CPM | `src/continuity`, `src/generation/player-safe-prompt-context-builder.mjs`, `src/jobs/campaign-sidecar-scheduler.mjs` | Source-backed continuity facts, static prompt lanes, planner validation, Director packets, sidecar provenance, sanitized audits, contradiction guard/quarantine, and factual-grounding certification. |
+| Timekeeping | `src/time/campaign-time-header.mjs`, `src/time/campaign-time-state.mjs`, `src/time/time-advance-adjudicator.mjs` | Deterministic reply-header formatting, stale-header stripping, campaign time-ledger normalization, deterministic time boundaries, and Utility-backed elapsed-time proposals. |
+| Rich crew hydration | `src/retrieval/card-hydration.mjs`, `src/generation/crew-voice-capsules.mjs`, package crew datasets | Audience-specific hydration of voice capsules, line-shape examples, relationship dynamics, reveal gates, and narrator-safe crew guidance. |
 | Guidance | `src/guidance/directive-guidance.js`, `src/guidance/directive-training-scenario.mjs` | Tips, tutorials, Show Me preparation, and inert populated training views. |
 | Sidecars | `src/jobs/campaign-sidecar-scheduler.mjs`, `src/jobs/sidecar-job-runner.mjs` | Proposal-only background state analysis and command-log summarization. |
 | Hosts | `src/hosts/sillytavern`, `src/hosts/fake` | Host lifecycle, storage, prompt, generation, events, shell mount, and test seams. |
@@ -60,7 +63,7 @@ flowchart LR
   Turns --> Director["Director turn runtime"]
   Director --> Transaction["Transaction state"]
   Transaction --> Prompt["Player-safe prompt context"]
-  State --> Matrix["Continuity Projection Matrix"]
+  State --> Matrix["Continuity Projection Matrix (CPM)"]
   Packages --> Matrix
   Matrix --> Prompt
   Matrix --> Director
@@ -142,6 +145,8 @@ The orchestrator serializes work per campaign and deduplicates ingress. The comm
 
 Before classification, Scene Handshake may settle accepted host-generated prose from the previous assistant response into source-backed state. It is intentionally narrow: assignments, player-visible Command Log notes, low-risk ship readiness notes, and thread signals. The model role proposes; deterministic validation and the state-delta gateway decide whether anything can be written.
 
+The same accepted prior-scene pair can also feed time adjudication. Deterministic parsing handles explicit cuts, waits, shipboard transitions, and obvious quiet-conversation no-ops. If the elapsed-time boundary is ambiguous, the `timeAdvanceAdjudicator` Utility role proposes a bounded delta. Runtime validation owns the commit through the time ledger and prompt rebuild.
+
 After a committed turn, the end-condition service evaluates package `endConditions` against the committed outcome and campaign state. A match records a terminal detection and a `terminalOutcomeDecision` pending interaction in `runtimeTracking.endConditionLedger`. The Mission route then exposes a **Directive Checkpoint** card rather than silently ending the campaign.
 
 Terminal checkpoint actions are state transactions:
@@ -159,11 +164,33 @@ Directive-owned campaign replies use `src/time/campaign-time-header.mjs` to pref
 *Stardate #####.# | HHMM hours*
 ```
 
-The header is presentation, not evidence. Directive strips prior headers from model-side transcript/evidence paths that it controls and injects a current-header prompt block for host-native SillyTavern generation. Deterministic campaign state, explicit world-time operations, travel, and future time-adjudication commits own actual time movement.
+The header is presentation, not evidence. Directive strips prior headers from model-side transcript/evidence paths that it controls and injects a current-header prompt block for host-native SillyTavern generation. Deterministic campaign state, explicit world-time operations, travel, and adjudicated time-boundary commits own actual time movement.
 
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-timekeeping-boundary.png" alt="diagram or fixture showing campaign state producing the reply header while prior chat headers are stripped from model evidence">
 </p>
+
+<!-- directive-render: id=docs-directive-time-adjudication-flow; target=assets/documentation/renders/docs-directive-time-adjudication-flow.png; source=diagram; -->
+Render needed: time adjudication flow showing deterministic parser, Utility proposal, validator, time-ledger commit, prompt rebuild, and next reply header.
+
+## Mission Components
+
+### Layman's View
+
+Mission Components are source-backed campaign notes created from text the player highlights in the active campaign chat. They are not automatic truth. The selected chat text is preserved as evidence, the Utility lane proposes structure, and the player reviews or edits the component before it becomes campaign state.
+
+### Deep View
+
+`src/hosts/sillytavern/mission-components-capture.js` owns the host-side selection affordance. It appears only for valid selections inside the active bound campaign chat, rejects cross-message and unsupported source selections, and sends selected text plus source metadata into runtime actions.
+
+`src/runtime/mission-components.mjs` normalizes the selected source, builds a local fallback proposal, optionally asks the `utilityJson` role for title/type/status/summary/tags/links/source authority, rejects overreaching summaries, and preserves the verbatim source text. Saving, updating, and archiving components are tracked state transactions against the campaign save.
+
+`src/ui/mission-components-panel.js` renders the Mission drawer Components tab with search, type/status/source/scope/tag/crew/ship-system filters, sorting, count chips, source preview, and source-open actions when the bound chat can be verified.
+
+Reusable extension rule: source capture should preserve the original selected text separately from model summaries. The model can classify and compress; it cannot overwrite evidence or promote a highlighted sentence into hidden truth.
+
+<!-- directive-render: id=docs-directive-mission-components-lifecycle; target=assets/documentation/renders/docs-directive-mission-components-lifecycle.png; source=diagram; -->
+Render needed: Mission Components lifecycle infographic showing highlighted source text, Utility proposal, player review, saved component state, Mission tab projection, and CPM evidence handoff.
 
 ## Campaign Activation
 
@@ -225,6 +252,8 @@ Important reusable principle: model calls should be typed jobs with explicit aut
 
 See [Model Calls And Provider Routing](MODEL_CALLS_AND_PROVIDER_ROUTING.md) for the role table and routing diagram.
 
+Character Creator section assist is a good example of this boundary. The `characterCreatorSectionDraft` role can draft editable Identity, Service, Personality, or Review fields, but the preview must be applied by the operator and still belongs to creator draft data until Start Campaign creates real campaign state. Mission Components use a different pattern: `utilityJson` proposes component structure, but the saved component transaction preserves the selected source text and validates the final record.
+
 Provider-routing diagnostic examples:
 
 <p align="center">
@@ -276,6 +305,23 @@ Prompt packets use stable block ids, placement/depth metadata, hashes, and revis
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-prompt-inspection.png" alt="sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state">
 </p>
+
+## Rich Crew Hydration
+
+### Layman's View
+
+Directive does not paste full character bibles into the model. Package authors write rich bibles, but runtime uses compact crew dataset cards and voice capsules. The active turn receives only the small, relevant, player-safe slice needed for characters who are present, speaking, or causally important.
+
+### Deep View
+
+Package crew datasets contain the six-card senior-staff structure described by the Crew Dataset Contract: `crew.profile`, `crew.voice`, `crew.relationship`, `crew.reveal`, `crew.development`, and `command.styleReaction`. The `crew.voice` card can include a `voiceCapsule` with core engine, contradiction, speech mechanics, pressure shift, warmth/humor, physical tells, example line shapes, and avoid rules.
+
+`src/retrieval/card-hydration.mjs` turns those cards into audience-specific guidance. It limits line-shape examples, preserves `bibleAxes`, respects narrator safety, and avoids equal-time biography dumping. `src/generation/crew-voice-capsules.mjs` selects line shapes by axis so prompt context can carry syntax and posture without encouraging catchphrase repetition.
+
+Reusable extension rule: deep authoring sources should compile into small runtime packets. A whole bible is for authors and validators; a hydrated card is for one prompt audience at one moment.
+
+<!-- directive-render: id=docs-directive-rich-crew-hydration; target=assets/documentation/renders/docs-directive-rich-crew-hydration.png; source=diagram; -->
+Render needed: rich crew data flow from character bible to six-card dataset, voice capsule, hydration audience, and narrator/Director prompt packet.
 
 ## Sidecars
 

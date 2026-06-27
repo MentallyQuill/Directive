@@ -31,20 +31,20 @@ These are the public-facing docs that should be safe to hand to operators, campa
 ### Runtime Architecture
 
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
-- [Continuity Projection Matrix Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): as-coded source-backed continuity projection, prompt lanes, planner fallback, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification flow.
-- [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and future time-adjudication design.
+- [Continuity Projection Matrix (CPM) Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): as-coded source-backed continuity projection, prompt lanes, planner fallback, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification flow.
+- [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and deterministic/Utility-backed time adjudication.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 
 ### Release Verification
 
-- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, Continuity Projection Matrix deterministic coverage, Command Bearing deterministic/live coverage, and package import safety.
-- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, Continuity Projection Matrix prompt/source proof, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, CPM deterministic coverage, Command Bearing deterministic/live coverage, and package import safety.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, CPM prompt/source proof, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
 
 ## Technical Manual
 
 - [Directive Technical Manual](technical/DIRECTIVE_TECHNICAL_MANUAL.md): Haynes-style technical overview covering runtime spine, package/state boundary, player turn lifecycle, model-call authority, state transactions, prompt context, sidecars, host adapters, and diagnostics.
 - [Player Turn Sequence](technical/PLAYER_TURN_SEQUENCE.md): post-to-response lifecycle from host ingress through classification, Director escalation, mechanics commit, narration, autosave, sidecars, and recovery.
-- [Continuity Projection Matrix](technical/CONTINUITY_PROJECTION_MATRIX.md): deep dive with source-frame, fact-index, prompt-lane, Director-packet, sidecar, contradiction, diagnostic, and certification infographics.
+- [CPM Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): deep dive with source-frame, fact-index, prompt-lane, Director-packet, sidecar, contradiction, diagnostic, and certification infographics.
 - [Model Calls And Provider Routing](technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, provider sources, role groups, model-call authority table, structured output, and sanitized diagnostics.
 - [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
 - [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): SillyTavern adapter, fake host, host boundary diagram, and future host-adapter rules.
@@ -82,10 +82,10 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Directive Tips And Tutorials](design/DIRECTIVE_TIPS_AND_TUTORIALS.md): first-run tutorial offer, reusable guidance popover, Settings Systems controls, tutorial modules, and extensive tip backlog for Assist, message actions, mechanics, pressure, crew memory, Command Bearing, recovery, and providers.
 - [Directive Tutorial Revision](design/DIRECTIVE_TUTORIAL_REVISION.md): Saga-style tutorial expansion plan, Basic/Advanced/feature walkthrough structure, tutorial-only training scenario, exact Show Me targets, Settings tutorial library, and implementation slices.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
-- [Mission Components](design/MISSION_COMPONENTS.md): highlighted-text capture design for player-curated mission evidence, items, claims, source notes, ship issues, leads, and future Continuity Matrix-compatible component records.
+- [Mission Components](design/MISSION_COMPONENTS.md): highlighted-text capture design for player-curated mission evidence, items, claims, source notes, ship issues, leads, and CPM-compatible component records.
 - [Scene Handshake Protocol](design/SCENE_HANDSHAKE_PROTOCOL.md): commit-on-next-player-reply design for settling accepted host-generated prose into source-backed assignments, Log entries, ship readiness, threads, and validated player-visible records through the Utility lane.
 - [Outcome Integrity](design/OUTCOME_INTEGRITY.md): planned campaign-state trust contract for reviewing player edits to Directive-owned assistant prose without letting transcript edits rewrite committed outcomes, costs, relationships, or Command Bearing.
-- [Continuity Projection Matrix](design/CONTINUITY_PROJECTION_MATRIX.md): as-coded pre-alpha foundation and full Saga-informed design for source-backed, relevance-aware, depth-layered continuity prompt projection, generated-prose quarantine, audits, and contradiction guards.
+- [CPM Design Baseline](design/CONTINUITY_PROJECTION_MATRIX.md): as-coded pre-alpha foundation and full Saga-informed design for source-backed, relevance-aware, depth-layered continuity prompt projection, generated-prose quarantine, audits, and contradiction guards.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.
 - [Character Creator Model](design/CHARACTER_CREATOR_MODEL.md): campaign-agnostic three-step player-character creation, package-provided options, editable generated dossier, and adjudication use.
@@ -123,7 +123,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Mission Director Contracts](architecture/MISSION_DIRECTOR_CONTRACTS.md): turn packet spine from scene snapshot through state delta, narrator packet, and Command Log packet.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop and runtime behavior.
 - [Open-World Campaign Architecture](architecture/OPEN_WORLD_CAMPAIGN_ARCHITECTURE.md): schema-v2 package/save boundary, director ownership, open-world event transaction, and bundled tactical graph coverage.
-- [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): deterministic stardate/ship-time display, prompt and model boundaries, current implementation map, and planned time-adjudication layer.
+- [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): deterministic stardate/ship-time display, prompt and model boundaries, current implementation map, and validated time-adjudication layer.
 - [Persistence And Continuity](architecture/PERSISTENCE_AND_CONTINUITY.md): authoritative state, storage domains, hidden simulation state, save model, and continuity boundaries.
 - [Turn Transactions](architecture/TURN_TRANSACTIONS.md): transactional turn model for swipes, edits, deletions, branches, and provider failures.
 
@@ -162,7 +162,7 @@ Development records in this section are not automatically user-facing contracts.
 - [Dual Host Support Plan](planning/DUAL_HOST_SUPPORT_PLAN.md): historical/superseded staged architecture plan for earlier SillyTavern and Lumiverse parity work; current pre-alpha cleanup is SillyTavern-only.
 - [Scene Reconciliation Plan](planning/SCENE_RECONCILIATION_PLAN.md): planned retcon and branch support for reconciling changed chat passages into safe auto-applied updates or reviewed Directive state proposals, with Saga-inspired scan batching and a separate replay path for `Recalculate From Here`.
 - [Model Call Robustness Pass Plan](planning/MODEL_CALL_ROBUSTNESS_PASS_PLAN.md): implementation plan for explicit provider lanes, robust turn-intent classification, sidecar JSON contracts, model-call authority boundaries, and player-safe diagnostics.
-- [Continuity Projection Matrix Implementation Plan](planning/CONTINUITY_PROJECTION_MATRIX_IMPLEMENTATION_PLAN.md): staged multi-agent implementation plan for the full continuity projection service, including source frames, materializers, Utility planning, prompt lanes, guards, generated-claim quarantine, Director packets, adaptive hints, diagnostics, and live verification.
+- [CPM Implementation Plan](planning/CONTINUITY_PROJECTION_MATRIX_IMPLEMENTATION_PLAN.md): staged multi-agent implementation plan for the full continuity projection service, including source frames, materializers, Utility planning, prompt lanes, guards, generated-claim quarantine, Director packets, adaptive hints, diagnostics, and live verification.
 - [Campaign Character Richness Expansion Plan](planning/CAMPAIGN_CHARACTER_RICHNESS_EXPANSION_PLAN.md): staged plan for raising every non-Ashes senior-staff bible to the Ashes richness standard, then migrating those richer bibles into richer crew datasets with voice capsules, reveal gates, and director hydration.
 - [Command Bearing Agent Execution Plan](planning/COMMAND_BEARING_AGENT_EXECUTION_PLAN.md): phased multi-agent build plan for Command Bearing backend, Assist controls, Readied spend runtime, Character/Crew tabs, integration freezes, and verification.
 - [Command Bearing User-Facing System Plan](planning/COMMAND_BEARING_USER_FACING_SYSTEM_PLAN.md): implementation plan for Assist-adjacent point counts, Readied Inspiration/Resolve spends, pre-send fit checks, eligibility validation, refund boundaries, and provider-failure recovery.
@@ -186,5 +186,6 @@ The current baseline comes from source briefs copied into this repository:
 - [Star Trek Command RPG Extension Project Brief](source/Star_Trek_Command_RPG_Extension_Project_Brief.md)
 - [Directive Ashes of Peace Campaign v0.2](source/Directive_Ashes_of_Peace_Campaign_v0.2.md)
 - [Directive Breckenridge Senior Staff Character Bible](source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
+- [Directive Intrepid-Class Starship Bible](source/Directive_Intrepid_Class_Starship_Bible.md)
 
 When a decision here conflicts with those briefs, update the relevant design doc and keep the question log current.

@@ -79,7 +79,7 @@ Logit bias is a blunt sampling tool. The prompt contract remains the authority: 
 - Committed outcomes and mechanics-first recovery.
 - Prompt rebuild, clear, inspection, and chat-switch suspension.
 
-The full design and implementation contract for the reply header and future time-adjudication layer lives in [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md).
+The full design and implementation contract for the reply header and validated time-adjudication layer lives in [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md).
 
 ## Reference Review
 

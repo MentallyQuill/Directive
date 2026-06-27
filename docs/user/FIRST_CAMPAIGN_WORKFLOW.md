@@ -61,6 +61,8 @@ While activation runs, SillyTavern shows a compact Directive activity pill in th
 
 Activation steps are journaled. If setup is interrupted, **Finish Chat Setup** continues the remaining work. If setup fails, **Retry Chat Setup** reruns the journal without duplicating the chat or introduction.
 
+The opening scene is mandatory. If it is missing because setup is still running, was interrupted, or the provider call failed, Campaign and Mission show **Opening Scene Required** with **Build Opening Scene**. You can leave it for later, but play, Save Game, and Save Game As remain blocked until the intro is posted.
+
 Campaign Difficulty is stored with the campaign save. During play, change it from **Campaign > Command**; it applies to future outcomes only and does not rewrite committed Command Log entries or prior consequences.
 
 ## 5. Play In Chat

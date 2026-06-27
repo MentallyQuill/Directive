@@ -25,6 +25,8 @@ The user-facing version of this contract is [Storage And State Safety](../user/S
 | Save records | Full campaign state snapshots. |
 | Host settings | Preferences, provider config without secrets, pointers, lightweight diagnostics. |
 
+Mission Components live inside campaign save state under the reviewed knowledge/component ledger, not in host lorebook storage. They are playthrough records tied to selected source text and source metadata.
+
 ## Campaign Runtime Tracking
 
 `runtimeTracking` contains the operational ledger around the campaign state:
@@ -86,6 +88,27 @@ The turn ledger records committed outcomes and bounded snapshots. It supports:
 
 Terminal detection happens after mechanics commit, so the terminal consequence is a committed timeline fact until the operator resolves the checkpoint. Replay restores the retained checkpoint snapshot. If the direct turn-ledger snapshot is unavailable, the runtime falls back to runtime history snapshots tied to the outcome id, then pre-last-stable and latest retained snapshots. `Push On`, `Keep This Ending`, and terminal branch saves are ordinary tracked state transactions.
 
+## Time Ledger
+
+Campaign time is campaign state. The reply header reads from that state; it does not create elapsed time by appearing in chat.
+
+`src/time/campaign-time-state.mjs` normalizes package-authored opening ship time, derived elapsed minutes, and `timeLedger` entries. Deterministic world-time and travel operations can append time boundaries directly. The `timeAdvanceAdjudicator` Utility role can propose elapsed minutes for ambiguous accepted-scene movement, but it has no state roots. Runtime validation owns the commit and records the boundary before prompt context is rebuilt.
+
+Time boundary records should preserve:
+
+- source action or accepted-scene id;
+- prior and new stardate/minute;
+- elapsed minutes;
+- reason;
+- validation path;
+- prompt-rebuild requirement.
+
+## Mission Components
+
+Mission Components are reviewed player-curated records created from highlighted chat text. The saved record preserves the selected source text separately from editable title, type, status, source authority, tags, links, and summary.
+
+Saving, updating, and archiving a component are tracked state transactions. The Utility model can propose structure through `utilityJson`, but the final record is committed only after runtime validation and operator review. Components do not directly settle hidden truth, mutate package data, award Command Bearing, or rewrite the Mission Director outcome ledger.
+
 ## Narration Recovery
 
 Narration happens after mechanics commit. If narration fails:
@@ -100,6 +123,11 @@ This prevents provider failure from becoming a hidden mechanics reroll.
 ## Message Edit And Delete
 
 Message edits and deletes flow through the message reconciler. A safe, dependent-free change can roll back to a retained snapshot. A change with dependent committed turns becomes review-required instead of silently corrupting continuity.
+
+Native assistant swipes add another source-truth layer. The raw chat file can contain multiple assistant variants for the same visible message, while the player sees and accepts only the selected variant. Directive-owned response records, Scene Handshake, Continuity Projection Matrix (CPM) checks, Mission Components source matching, and recovery should treat the selected visible text as the accepted continuity source. If a later edit, delete, or swipe change invalidates a dependent committed turn, recovery should create a review-required state instead of silently adopting an unselected alternate.
+
+<!-- directive-render: id=docs-directive-message-recovery-swipes; target=assets/documentation/renders/docs-directive-message-recovery-swipes.png; source=diagram-or-fixture; -->
+Render needed: recovery/source-truth diagram showing edits, deletes, swipes, selected assistant variants, ingress/response ledgers, snapshot restore, review-required state, and prompt rebuild.
 
 Recovery and save-guard renders:
 

@@ -43,6 +43,7 @@ export function scenePacingGuidance({
   const missionId = activeMissionId(campaignState, scene);
   const phaseId = activePhaseId(campaignState, scene);
   const decisions = decisionIds(campaignState, scene);
+  const shuttleApproach = compact(packageData?.ship?.travelContinuity?.openingShuttleApproach);
 
   if (isAshesOfPeace(packageData) && missionId === 'prelude-a-ship-underway') {
     if (phaseId === 'shuttle-rendezvous' || decisions.has('decision.arrival-tone')) {
@@ -51,9 +52,10 @@ export function scenePacingGuidance({
         title: 'Ashes Opening Arrival Pacing',
         lines: [
           'Keep the first playable prompt local to the shuttle rendezvous and working arrival tone.',
+          shuttleApproach ? `Use the authored shuttle approach: ${shuttleApproach}` : null,
           'The player is choosing how to board, report, inspect, defer, or let the transfer process complete; do not force the full Asterion Reach strategy conversation yet.',
           'Captain Whitaker may be foreshadowed or briefly encountered, but broad questions about what the player knows or thinks about the Asterion Reach belong in a later private handover or briefing after the player chooses that beat.'
-        ]
+        ].filter(Boolean)
       };
     }
     if (phaseId === 'ready-room-handover' || decisions.has('decision.handover-value')) {

@@ -1106,6 +1106,8 @@ await findButton(panel, 'Records').click();
 await findButton(panel, 'Save Game As...').click();
 let saveAsDialog = globalThis.document.body.querySelector('.directive-record-save-as-dialog');
 assert(saveAsDialog, 'Save Game As should open a naming dialog');
+let saveAsOverlay = saveAsDialog.closest('.directive-record-save-as-dialog-overlay');
+assert.equal(saveAsOverlay?.parentNode, globalThis.document.body, 'Save Game As overlay should mount at document body level above the Directive window');
 assert(findButton(saveAsDialog, 'Save'), 'Save Game As dialog should include Save');
 assert(findButton(saveAsDialog, 'Cancel'), 'Save Game As dialog should include Cancel');
 await findButton(saveAsDialog, 'Cancel').click();
@@ -1114,6 +1116,8 @@ assert.equal(globalThis.document.body.querySelector('.directive-record-save-as-d
 await findButton(panel, 'Save Game As...').click();
 saveAsDialog = globalThis.document.body.querySelector('.directive-record-save-as-dialog');
 assert(saveAsDialog, 'Save Game As should reopen the naming dialog');
+saveAsOverlay = saveAsDialog.closest('.directive-record-save-as-dialog-overlay');
+assert.equal(saveAsOverlay?.parentNode, globalThis.document.body, 'Reopened Save Game As overlay should remain body-level');
 const saveAsNameInput = saveAsDialog.querySelector('.directive-record-save-as-name-input');
 assert(saveAsNameInput, 'Save Game As dialog should include a save-name input');
 saveAsNameInput.value = 'Talia Serrin - Branch Save';

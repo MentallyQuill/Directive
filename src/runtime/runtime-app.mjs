@@ -73,6 +73,7 @@ import {
 } from '../continuity/diagnostics.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
+import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
@@ -1363,6 +1364,7 @@ export function createDirectiveRuntimeApp({
     return {
       binding: cloneJson(state.campaignChatBinding || null),
       activation: cloneJson(state.activationJournal || null),
+      openingScene: campaignOpeningSceneStatus(state),
       tracking: state.runtimeTracking ? {
         revision: state.runtimeTracking.revision || 0,
         lastStableRevision: state.runtimeTracking.lastStableRevision || 0,
@@ -2906,6 +2908,20 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         await refreshCurrentChatCampaignScope();
+        const openingScene = campaignState ? campaignOpeningSceneStatus(campaignState) : null;
+        if (openingScene?.blocked) {
+          await refreshCampaignView();
+          return {
+            handled: true,
+            blocked: true,
+            reason: openingScene.reason,
+            summary: openingScene.summary,
+            openingScene: cloneJson(openingScene),
+            responseStrategy: 'pause',
+            abortDefaultGeneration: true,
+            view: viewEnvelope('campaign')
+          };
+        }
         const services = ensureChatNativeServices();
         if (!services) return { handled: false, reason: 'chat-native-host-unavailable' };
         return services.orchestrator.observePlayerMessage(payload);
@@ -3529,6 +3545,10 @@ export function createDirectiveRuntimeApp({
         await refreshCampaignView();
         return { ...cloneJson(lastActivationResult), view: viewEnvelope('campaign') };
       });
+    },
+
+    async buildCampaignOpeningScene() {
+      return publicApi.retryCampaignActivation();
     },
 
     async rewriteCampaignIntro(payload = {}) {
@@ -4546,17 +4566,14 @@ export function createDirectiveRuntimeApp({
         activeScreen = 'campaign';
         const services = ensureChatNativeServices();
         if (services && ['activating', 'activationFailed'].includes(campaignState.campaign?.status)) {
-          const assets = activeRuntimeAssets();
-          lastActivationResult = await services.activationCoordinator.activate({
-            campaignState,
-            packageData: assets.packageData,
-            crewDataset: assets.crewDataset,
-            campaignProjection: assets.projection,
-            saveId: controller.activeSaveId,
-            existingChatId: campaignState.campaignChatBinding?.chatId || null,
-            createNewChat: !campaignState.campaignChatBinding?.chatId
-          });
-          campaignState = applyRuntimeSettings(lastActivationResult.campaignState);
+          lastActivationResult = {
+            ok: false,
+            deferred: true,
+            reason: 'opening-scene-required',
+            summary: 'Campaign setup is loaded and waiting for the player to build the opening scene.',
+            campaignState: cloneJson(campaignState),
+            activationJournal: cloneJson(campaignState.activationJournal || null)
+          };
         } else if (services && campaignState.campaign?.status === 'active') {
           await openAndRetargetCampaignChat(campaignState, {
             persistPrompt: true,

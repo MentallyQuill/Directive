@@ -1,4 +1,4 @@
-# Continuity Projection Matrix
+# Continuity Projection Matrix (CPM)
 
 Status: pre-alpha foundation implemented; full staged design still in progress  
 Primary owner: Runtime / Context Orchestration  
@@ -20,7 +20,7 @@ The current context builder already creates prompt candidates with placement, de
 
 The larger design goal is that the matrix becomes the campaign's continuity state machine over evolving campaign reality. It starts from authored package truth, but it must also absorb validated player-driven changes to the world, ship, crew, factions, pressures, missions, locations, and campaign arcs. The player should be able to affect the greater campaign. Those effects should stack, supersede older facts, create new facts, retire stale facts, and later return as active continuity when the scene makes them relevant.
 
-The Continuity Projection Matrix is the backend system that decides:
+The Continuity Projection Matrix (CPM) is the backend system that decides:
 
 - Which continuity facts are eligible for the current turn.
 - Which facts are hard invariants versus soft support.
@@ -89,7 +89,7 @@ The system failure is therefore not just "the prompt needs more lore." The failu
 - Which prompt depth should each fact occupy?
 - Which omissions are safe, and which are continuity bugs?
 
-The Continuity Projection Matrix exists to answer those questions before Director reasoning, before host generation, before Directive-owned narration, and after generation for contradiction checks.
+CPM exists to answer those questions before Director reasoning, before host generation, before Directive-owned narration, and after generation for contradiction checks.
 
 The desired result is not a larger static prompt. It is model-adjudicated continuity projection under deterministic authority rails: the Utility provider decides what matters now, while the backend decides what is true, visible, legal, and installable. The model should write freely inside the boundaries of current campaign reality; it should not invent those boundaries.
 
@@ -174,7 +174,7 @@ The useful Saga patterns:
 
 The important caution:
 
-Directive must not reduce the matrix to "Saga lorecards with a new name." Lore Automation manages entries. The Continuity Projection Matrix manages state-derived truth. That requires stronger authority ranking, conflict keys, lifecycle states, branch identity, generated-claim quarantine, Director cooperation, and contradiction guards than Saga needed.
+Directive must not reduce the matrix to "Saga lorecards with a new name." Lore Automation manages entries. CPM manages state-derived truth. That requires stronger authority ranking, conflict keys, lifecycle states, branch identity, generated-claim quarantine, Director cooperation, and contradiction guards than Saga needed.
 
 The design rule is:
 
@@ -1081,7 +1081,7 @@ Current Directive architecture already has several Director-shaped components:
 
 Those systems decide, evaluate, or propose changes. The matrix decides what campaign reality is visible to a specific consumer at a specific time and prompt depth.
 
-| Concern | Directors | Continuity Projection Matrix |
+| Concern | Directors | CPM |
 | --- | --- | --- |
 | Primary job | Adjudicate, evaluate, or propose changes. | Materialize, reconcile, select, and project continuity. |
 | Time horizon | Usually current turn or post-turn sidecar. | Whole save branch: baseline, current state, history, dormant facts, superseded facts, rejected claims. |
@@ -1105,7 +1105,7 @@ So the matrix should sit between state mutation and prompt generation:
 Directors and sidecars
 -> validated state deltas / events / ledgers
 -> materialized campaign reality
--> Continuity Projection Matrix
+-> CPM
 -> Director packets, narrator prompt lanes, contradiction guard, audit
 ```
 
@@ -1134,7 +1134,7 @@ The matrix must be a shared continuity service, not a new authority layer over t
 | Continuity Tracker | Continuity and known-fact cleanup proposals. | Direct prompt injection, outcome decisions, or hidden reveal decisions. |
 | Narrative Thread Director | Thread signals, B-plot continuity, player-engaged thread summaries. | Hard campaign invariants or current mission feasibility. |
 | Command Director / Command Bearing | Command evidence, review proposals, awards, spends, command-culture observations. | World-state truth generally. |
-| Continuity Projection Matrix | Fact lifecycle, conflict keys, materialization, prompt packets, contradiction guard, projection audit. | Outcome decisions, state-domain adjudication, direct mutation of Director-owned roots. |
+| CPM | Fact lifecycle, conflict keys, materialization, prompt packets, contradiction guard, projection audit. | Outcome decisions, state-domain adjudication, direct mutation of Director-owned roots. |
 
 ### Read And Write Rules
 

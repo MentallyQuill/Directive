@@ -36,6 +36,8 @@ Every Directive-bound campaign reply should begin with the current campaign disp
 
 The header is a display wrapper. It is not evidence that time advanced, and older headers in chat history should not be treated as campaign facts. Directive-owned replies prefix the header deterministically from campaign state. Host-native SillyTavern generations receive a prompt block that tells the model to use the current header and ignore older headers as time evidence.
 
+Time advances only when Directive commits a time boundary. Obvious cases can be deterministic, such as explicit waits, short shipboard movement, or a clear scene cut. Ambiguous elapsed time can ask the Utility lane for a bounded proposal, but the runtime still validates, clamps, and commits the time ledger before the next header changes.
+
 If the clock looks wrong, treat it as a campaign-state or prompt-sync issue, not as something to fix by editing prior chat prose. The current timekeeping contract lives in [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md).
 
 <p align="center">
@@ -153,6 +155,7 @@ Common actions:
 | Load Latest Save | Loads the latest save for the campaign and opens Mission. |
 | Change Campaign Difficulty | Changes this campaign between `Exploration` and `Command` for future outcomes. Prior Command Log entries and committed consequences are not rewritten. |
 | Rebind Chat | Recovery/admin action. Binds the loaded save to the currently open host chat and rebuilds prompt context. |
+| Build Opening Scene | Generates or posts the required campaign intro when first-start setup is incomplete. |
 | Finish Chat Setup | Continues an interrupted campaign activation from the last successful journaled step. |
 | Retry Chat Setup | Retries a failed activation step. |
 | Conclude Campaign | Begins recoverable campaign conclusion. |
@@ -393,6 +396,8 @@ The wand shows live provider progress while drafting. It tries Reasoning, retrie
 
 For Service and Personality, assistance uses the selected dropdown values as structured inputs and writes editable dossier text into Service Summary or Command Style. Provider fallback should be visible as fallback, not silently applied as if it were provider output.
 
+If the section already has meaningful input, the wand runs in refine mode and should preserve the operator's intent while improving the editable section. If the section is empty, it runs in create mode. Either way, the draft appears as a preview until the operator applies it.
+
 Expected sub-elements:
 
 - section assist command;
@@ -441,6 +446,9 @@ Character Creator renders:
   <img src="../../assets/documentation/renders/docs-directive-creator-assist-microstates.png" alt="section-wand preview/apply/regenerate/dismiss and discard confirmation">
 </p>
 
+<!-- directive-render: id=docs-directive-creator-assist-fallback-ladder; target=assets/documentation/renders/docs-directive-creator-assist-fallback-ladder.png; source=diagram-or-fixture; -->
+Render needed: Character Creator section-assist ladder showing create/refine mode, Reasoning attempt, Reasoning retry, Utility fallback, local fallback, preview, apply, regenerate, and dismiss.
+
 ## Campaign Activation
 
 ### Purpose
@@ -468,7 +476,7 @@ During activation, SillyTavern displays the shared Directive activity pill in th
 
 ### Activation Recovery
 
-If activation is interrupted, use **Finish Chat Setup**. If a step fails, use **Retry Chat Setup**. Recovery resumes journaled steps instead of repeating already-completed actions.
+If the opening scene is missing, use **Build Opening Scene**. You can leave the campaign in that state and return later, but Directive will not continue play, Save Game, or Save Game As until the intro exists. If activation is interrupted after the intro, use **Finish Chat Setup**. If a later setup step fails, use **Retry Chat Setup**. Recovery resumes journaled steps instead of repeating already-completed actions.
 
 Activation renders:
 
@@ -488,12 +496,13 @@ Activation renders:
 
 Mission is the campaign support surface. It is not the default text entry surface; ordinary play continues in the bound campaign chat.
 
-Mission has four subtabs:
+Mission has five subtabs:
 
 1. **Active**
 2. **Context**
 3. **Open Threads**
 4. **Open World**
+5. **Components**
 
 ### Mission Active
 
@@ -640,6 +649,41 @@ Possible sub-elements:
 - progress and scene beats;
 - empty state when no visible open-world work is active.
 
+### Components
+
+Components is the player-curated evidence tab. It shows Mission Components saved from highlighted chat text in the active bound campaign chat.
+
+Use Components for:
+
+- source-backed notes;
+- items and item stats;
+- ship issues;
+- claims that may be true, partial, biased, or disputed;
+- open questions;
+- leads and procedures;
+- quotes or source documents worth preserving.
+
+The normal capture flow starts in the SillyTavern chat:
+
+1. Highlight useful text in the active campaign chat.
+2. Use the small Directive ship button labeled **Add Component to Mission**.
+3. Review the Utility proposal or local fallback.
+4. Edit title, type, status, source authority, summary, tags, and links as needed.
+5. Save the component.
+
+The selected text remains the evidence. The summary is editable presentation and may be corrected before save. Mission Components do not automatically settle world truth, award Command Bearing, alter hidden state, or replace Scene Handshake/Reconciliation.
+
+Components can be searched, filtered, sorted, opened back to their source where the host can verify the bound chat, updated, or archived.
+
+<!-- directive-render: id=docs-directive-mission-components-capture; target=assets/documentation/renders/docs-directive-mission-components-capture.png; source=live-host; -->
+Render needed: chat-side Mission Components capture affordance on highlighted text in the bound campaign chat.
+
+<!-- directive-render: id=docs-directive-mission-components-review; target=assets/documentation/renders/docs-directive-mission-components-review.png; source=live-host; -->
+Render needed: Mission Components review/edit popover with Utility proposal, preserved source text, warning state, and save action.
+
+<!-- directive-render: id=docs-directive-mission-components-tab; target=assets/documentation/renders/docs-directive-mission-components-tab.png; source=fixture-or-live-host; -->
+Render needed: Mission Components tab showing saved components, filters, source preview, and open-source action.
+
 ### Recovery Console
 
 Recovery tools are grouped away from normal command play. Use them when a response, narration, reconciliation, or outcome state needs repair.
@@ -721,6 +765,23 @@ The roster lists known officers and roles. It can include:
 - portrait or fallback;
 - selection state.
 
+### Player Character Tab
+
+The player character surface is distinct from the senior-staff roster. It can show:
+
+- player identity, rank, billet, species, and portrait;
+- biography with More/Less disclosure;
+- collapsed Service Record containing the accepted creator dossier text;
+- Command Bearing ranks, marks, and banked reserve points;
+- Command Bearing evidence;
+- Mark Reviews;
+- recent point spend/recovery history;
+- visible standing with senior staff;
+- crew interaction memory;
+- perceived relationship shifts.
+
+The Service Record starts collapsed because it can contain long editable creator prose. Command Bearing and relationship-perception sections are player-safe projections, not raw hidden metrics.
+
 ### Officer Dossier
 
 The selected officer can show:
@@ -766,6 +827,9 @@ Crew renders:
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-crew-portrait-microstates.png" alt="portrait import/change/remove microstates and long-bio disclosure variants">
 </p>
+
+<!-- directive-render: id=docs-directive-character-command-bearing; target=assets/documentation/renders/docs-directive-character-command-bearing.png; source=fixture-or-live-host; -->
+Render needed: Player Character tab with collapsed Service Record, Command Bearing tracks, evidence, Mark Reviews, recent history, relationship perceptions, and portrait controls.
 
 ## Ship Route
 

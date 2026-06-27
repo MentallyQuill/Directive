@@ -198,6 +198,8 @@ assert.match(introRequest.prompt, /Do not replace the player arrival or handoff 
 assert.match(introRequest.prompt, /The crew has spent twenty-five days underway together/);
 assert.match(introRequest.prompt, /final ten days before the Asterion Reach/);
 assert.match(introRequest.prompt, /do not force the full Asterion Reach strategy conversation yet/);
+assert.match(introRequest.prompt, /shuttlebay two in the aft section between the swept nacelle pylons/);
+assert.match(introRequest.prompt, /saucer-underside shuttlebay/);
 assert.match(introRequest.prompt, /"openingPacing"/);
 assert.match(introRequest.prompt, /Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran Tellarite tactical and security chief/);
 assert.match(introRequest.prompt, /Late fifties by human comparison/);

@@ -1,8 +1,8 @@
-# Continuity Projection Matrix
+# Continuity Projection Matrix (CPM)
 
-The Continuity Projection Matrix is Directive's source-backed continuity router. It turns package data, campaign state, recent chat context, and committed continuity records into the small set of facts each model-facing surface is allowed to see.
+The Continuity Projection Matrix (CPM) is Directive's source-backed continuity router. It turns package data, campaign state, recent chat context, and committed continuity records into the small set of facts each model-facing surface is allowed to see.
 
-The matrix is not a memory dump. It is a filtered projection with source hashes, visibility gates, lane budgets, planner validation, contradiction feedback, and sanitized diagnostics.
+CPM is not a memory dump. It is a filtered projection with source hashes, visibility gates, lane budgets, planner validation, contradiction feedback, and sanitized diagnostics.
 
 ## Status
 
@@ -27,7 +27,7 @@ Primary implementation files:
 
 Directive keeps many different continuity records: ship facts, crew identity, mission state, command log memory, rejected claims, and campaign-owned accepted facts. A normal prompt cannot carry all of that forever, and it must not expose hidden or Director-only truth.
 
-The Continuity Projection Matrix answers one question before a prompt or Director packet is built:
+CPM answers one question before a prompt or Director packet is built:
 
 > Which continuity facts are relevant, safe, high-priority, and fresh enough for this specific turn surface?
 
@@ -56,7 +56,7 @@ flowchart TB
   DeterministicFloor --> Validator
   FactIndex --> Validator
 
-  Validator --> Matrix["Continuity Projection Matrix\nsix prompt lanes, source ids, hashes, audit"]
+  Validator --> Matrix["Continuity Projection Matrix (CPM)\nsix prompt lanes, source ids, hashes, audit"]
   Matrix --> Prompt["Player-safe prompt packet\ninstalled in host prompt context"]
   Matrix --> Cache["Projection cache and run ledger\nlastProjection, projectionRuns, fact-use stats"]
   Matrix --> Diagnostics["Sanitized diagnostics\nfresh, stale, missing keys, counts, hashes"]
@@ -122,7 +122,7 @@ If the Utility planner is missing, fails, returns invalid JSON, or proposes an i
 
 ## Prompt Lanes
 
-The player-safe matrix emits six static prompt keys. These are stable because downstream host prompt inspection, diagnostics, and live soak evidence key off them.
+CPM emits six static player-safe prompt keys. These are stable because downstream host prompt inspection, diagnostics, and live soak evidence key off them.
 
 | Prompt Key | Purpose | Placement | TTL |
 | --- | --- | --- | --- |
@@ -185,7 +185,7 @@ The important point is that the injected text is not a loose character note. Eac
 ```mermaid
 flowchart LR
   subgraph PromptSync["Prompt synchronization"]
-    CampaignState["Campaign state"] --> CPM["Continuity Projection Matrix"]
+    CampaignState["Campaign state"] --> CPM["Continuity Projection Matrix (CPM)"]
     PackageData["Package and projection data"] --> CPM
     CPM --> PlayerPrompt["Player-safe prompt blocks\nnarratorSafe only"]
     PlayerPrompt --> HostPrompt["Host prompt context\nstatic CPM keys and hash"]

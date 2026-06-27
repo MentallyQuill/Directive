@@ -1131,6 +1131,14 @@ function pendingChatInteraction(view) {
 }
 
 function chatSetupRecoveryCommand(view) {
+  const openingScene = view?.chatNative?.openingScene || null;
+  if (openingScene?.blocked) {
+    return {
+      label: openingScene.actionLabel || 'Build Opening Scene',
+      icon: openingScene.reason === 'activation-incomplete' ? 'fa-solid fa-play' : 'fa-solid fa-wand-magic-sparkles',
+      title: openingScene.summary || 'Build the campaign opening scene before play can continue.'
+    };
+  }
   const failed = view?.chatNative?.activation?.status === 'failed'
     || view?.campaignState?.campaign?.status === 'activationFailed';
   return {
@@ -1142,8 +1150,15 @@ function chatSetupRecoveryCommand(view) {
   };
 }
 
+async function buildOpeningScene(actions) {
+  const action = actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation;
+  if (typeof action !== 'function') return null;
+  return action();
+}
+
 function appendChatPlaySurface(body, view, actions) {
   const binding = view?.chatNative?.binding || null;
+  const openingScene = view?.chatNative?.openingScene || null;
   const prompt = view?.chatNative?.prompt || view?.promptInspection || null;
   const continuity = view?.continuityProjectionDiagnostics || null;
   const tracking = view?.chatNative?.tracking || null;
@@ -1155,14 +1170,18 @@ function appendChatPlaySurface(body, view, actions) {
   const kicker = createElement('span', 'directive-lcars-kicker');
   kicker.textContent = 'Play Surface';
   const title = createElement('h3', 'directive-mission-command-title');
-  title.textContent = binding?.chatId ? 'Campaign Chat Bound' : 'Campaign Chat Unbound';
+  title.textContent = openingScene?.blocked
+    ? 'Opening Scene Required'
+    : (binding?.chatId ? 'Campaign Chat Bound' : 'Campaign Chat Unbound');
   const guidance = createElement('p', 'directive-mission-command-guidance');
-  guidance.textContent = binding?.chatId
+  guidance.textContent = openingScene?.blocked
+    ? (openingScene.summary || 'The campaign needs its opening scene before play can continue.')
+    : (binding?.chatId
     ? 'Write normal in-character posts in the host chat. Directive interprets, records, injects context, and pauses only when a decision requires review.'
-    : 'Chat-native play is unavailable until this campaign is bound to a host chat.';
+    : 'Chat-native play is unavailable until this campaign is bound to a host chat.');
   copy.append(kicker, title, guidance);
   const status = createElement('span', 'directive-mission-command-state');
-  status.textContent = binding?.chatId ? 'Chat Native' : 'Fallback';
+  status.textContent = openingScene?.blocked ? 'Setup Required' : (binding?.chatId ? 'Chat Native' : 'Fallback');
   header.append(copy, status);
   const continuityRow = createMetaRow(
     'Continuity Matrix',
@@ -1192,7 +1211,7 @@ function appendChatPlaySurface(body, view, actions) {
       await actions.refresh();
     }
   }));
-  if (!binding?.chatId && typeof actions.retryCampaignActivation === 'function') {
+  if ((openingScene?.blocked || !binding?.chatId) && typeof (actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation) === 'function') {
     const recoveryCommand = chatSetupRecoveryCommand(view);
     row.appendChild(createButton({
       label: recoveryCommand.label,
@@ -1200,7 +1219,7 @@ function appendChatPlaySurface(body, view, actions) {
       className: 'directive-button directive-secondary-command',
       title: recoveryCommand.title,
       onClick: async () => {
-        await actions.retryCampaignActivation();
+        await buildOpeningScene(actions);
         await actions.refresh();
       }
     }));

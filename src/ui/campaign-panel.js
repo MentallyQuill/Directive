@@ -60,7 +60,7 @@ function readFileBytes(file) {
 function statusTone(value) {
   const label = String(value || '').toLowerCase();
   if (/error|rejected|missing|failed|invalid/.test(label)) return 'danger';
-  if (/warning|issue|pending|draft/.test(label)) return 'warning';
+  if (/warning|issue|pending|draft|required|needed|incomplete|blocked/.test(label)) return 'warning';
   if (/ready|healthy|ok|stored|success|current|active|passed/.test(label)) return 'success';
   return 'neutral';
 }
@@ -691,7 +691,7 @@ function openRecordSaveAsDialog({ defaultName = '', onSave } = {}) {
 
   dialog.append(header, field, actions);
   overlay.appendChild(dialog);
-  appendDirectiveOverlay(overlay, { fallbackParent: document.body });
+  (document.body || document.documentElement)?.appendChild?.(overlay);
   input.focus?.();
   input.select?.();
 }
@@ -918,7 +918,50 @@ function campaignChatLabel(view) {
   return binding.chatName || binding.name || binding.chatId || 'Not bound';
 }
 
+function openingSceneStatus(view) {
+  return view?.chatNative?.openingScene || null;
+}
+
+function openingSceneLabel(view) {
+  const status = openingSceneStatus(view);
+  if (!status) return 'Unknown';
+  if (status.ready) return 'Posted';
+  if (status.reason === 'activation-incomplete') return 'Setup incomplete';
+  if (/failed/i.test(status.reason || '')) return 'Build failed';
+  return 'Required';
+}
+
+async function buildOpeningScene(actions) {
+  const action = actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation;
+  if (typeof action !== 'function') return null;
+  return action();
+}
+
+function createOpeningSceneNotice(view, actions = {}) {
+  const status = openingSceneStatus(view);
+  if (!status?.blocked) return null;
+  const notice = createElement('article', `directive-starship-save-summary directive-starship-save-guard directive-status-${statusTone(openingSceneLabel(view))}`);
+  appendText(notice, 'span', 'directive-lcars-kicker', 'Opening Scene Required');
+  appendText(notice, 'p', '', status.summary || 'The campaign needs its opening scene before play can continue.');
+  const actionRow = createElement('div', 'directive-starship-save-guard-actions');
+  actionRow.appendChild(createButton({
+    label: status.actionLabel || 'Build Opening Scene',
+    icon: status.reason === 'activation-incomplete' ? 'fa-solid fa-play' : 'fa-solid fa-wand-magic-sparkles',
+    className: 'directive-button directive-primary-command directive-starship-record-action',
+    title: status.summary || 'Build the campaign opening scene',
+    disabled: typeof (actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation) !== 'function',
+    onClick: async () => {
+      await buildOpeningScene(actions);
+      await actions?.refresh?.();
+    }
+  }));
+  notice.appendChild(actionRow);
+  return notice;
+}
+
 function activationLabel(view, state) {
+  const openingScene = openingSceneStatus(view);
+  if (openingScene?.blocked) return openingSceneLabel(view);
   const activation = view?.chatNative?.activation || {};
   if (state?.campaign?.status === 'active') return 'Active';
   if (state?.campaign?.status === 'concluding') return 'Finalizing';
@@ -930,6 +973,14 @@ function activationLabel(view, state) {
 }
 
 function activationRecoveryCommand(view, state) {
+  const openingScene = openingSceneStatus(view);
+  if (openingScene?.blocked) {
+    return {
+      label: openingScene.actionLabel || 'Build Opening Scene',
+      icon: openingScene.reason === 'activation-incomplete' ? 'fa-solid fa-play' : 'fa-solid fa-wand-magic-sparkles',
+      title: openingScene.summary || 'Build the campaign opening scene before play can continue.'
+    };
+  }
   const failed = view?.chatNative?.activation?.status === 'failed'
     || state?.campaign?.status === 'activationFailed';
   return {
@@ -1164,6 +1215,8 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   chatBlock.dataset.directiveTour = 'campaign.chat-binding';
   const activationBlock = createStatusBlock('Activation', activationLabel(view, state), statusTone(activationLabel(view, state)), 'fa-solid fa-power-off', 'Whether the campaign has completed first-start setup and mounted its save, chat binding, and prompt context.');
   activationBlock.dataset.directiveTour = 'campaign.activation';
+  const openingBlock = createStatusBlock('Opening Scene', openingSceneLabel(view), statusTone(openingSceneLabel(view)), 'fa-solid fa-scroll', 'Campaign play requires a posted opening scene in the bound host chat.');
+  openingBlock.dataset.directiveTour = 'campaign.opening-scene';
   const promptBlock = createStatusBlock('Prompt Context', promptContextLabel(view), statusTone(promptContextLabel(view)), 'fa-solid fa-layer-group', 'Player-safe campaign context currently installed into the bound host chat prompt.');
   promptBlock.dataset.directiveTour = 'campaign.prompt-context';
   statusGrid.append(
@@ -1173,6 +1226,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     difficultyBlock,
     chatBlock,
     activationBlock,
+    openingBlock,
     promptBlock
   );
   const openWorld = openWorldSummary(view, state);
@@ -1182,6 +1236,9 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     statusGrid.appendChild(openWorldBlock);
   }
   shell.appendChild(statusGrid);
+
+  const openingNotice = createOpeningSceneNotice(view, actions);
+  if (openingNotice) shell.appendChild(openingNotice);
 
   const briefing = createElement('div', 'directive-starship-command-briefing');
   const last = createElement('article', 'directive-starship-command-brief-card');
@@ -1242,16 +1299,16 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     }, 'directive-secondary-command')
   );
 
-  if (['activating', 'activationFailed'].includes(state.campaign?.status) || view?.chatNative?.activation?.status === 'failed') {
+  if (openingSceneStatus(view)?.blocked || ['activating', 'activationFailed'].includes(state.campaign?.status) || view?.chatNative?.activation?.status === 'failed') {
     const recoveryCommand = activationRecoveryCommand(view, state);
     footer.appendChild(createActionButton({
       label: recoveryCommand.label,
       icon: recoveryCommand.icon,
       tourTarget: 'campaign.activation-retry',
       title: recoveryCommand.title,
-      disabled: typeof actions.retryCampaignActivation !== 'function',
+      disabled: typeof (actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation) !== 'function',
       onClick: async () => {
-        await actions.retryCampaignActivation();
+        await buildOpeningScene(actions);
         await actions.refresh();
       }
     }, 'directive-primary-command'));
@@ -1522,16 +1579,16 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       }
     }, 'directive-secondary-command')
   );
-  if (['activating', 'activationFailed'].includes(session.status) || ['failed', 'interrupted'].includes(view?.chatNative?.activation?.status)) {
+  if (openingSceneStatus(view)?.blocked || ['activating', 'activationFailed'].includes(session.status) || ['failed', 'interrupted'].includes(view?.chatNative?.activation?.status)) {
     const recoveryCommand = activationRecoveryCommand(view, view?.campaignState || {});
     actionsRow.appendChild(createActionButton({
       label: recoveryCommand.label,
       icon: recoveryCommand.icon,
       tourTarget: 'campaign.activation-retry',
       title: recoveryCommand.title,
-      disabled: typeof actions.retryCampaignActivation !== 'function',
+      disabled: typeof (actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation) !== 'function',
       onClick: async () => {
-        await actions.retryCampaignActivation({ saveId: session.saveId, binding: session.binding });
+        await buildOpeningScene(actions);
         await actions.refresh();
       }
     }, 'directive-primary-command'));
@@ -2048,7 +2105,22 @@ function createManualSaveGuardNotice(guard, actions = {}) {
   const notice = createElement('article', `directive-starship-save-summary directive-starship-save-guard directive-status-${manualSaveGuardTone(guard)}`);
   appendText(notice, 'span', 'directive-lcars-kicker', 'Save Check');
   appendText(notice, 'p', '', guard.summary || (guard.ok ? 'Ready to save: the active chat matches this save.' : 'Save Game is disabled until Directive can confirm the active chat belongs to this save.'));
-  if (!guard.ok && guard.recoveryActions?.includes('openCampaignChat') && typeof actions.openCampaignChat === 'function') {
+  if (!guard.ok && guard.recoveryActions?.includes('buildOpeningScene')) {
+    const actionRow = createElement('div', 'directive-starship-save-guard-actions');
+    const openingScene = guard.openingScene || {};
+    actionRow.appendChild(createButton({
+      label: openingScene.actionLabel || 'Build Opening Scene',
+      icon: openingScene.reason === 'activation-incomplete' ? 'fa-solid fa-play' : 'fa-solid fa-wand-magic-sparkles',
+      className: 'directive-button directive-primary-command directive-starship-record-action',
+      title: openingScene.summary || guard.summary || 'Build the campaign opening scene',
+      disabled: typeof (actions?.buildCampaignOpeningScene || actions?.retryCampaignActivation) !== 'function',
+      onClick: async () => {
+        await buildOpeningScene(actions);
+        await actions?.refresh?.();
+      }
+    }));
+    notice.appendChild(actionRow);
+  } else if (!guard.ok && guard.recoveryActions?.includes('openCampaignChat') && typeof actions.openCampaignChat === 'function') {
     const actionRow = createElement('div', 'directive-starship-save-guard-actions');
     actionRow.appendChild(createButton({
       label: 'Open Campaign Chat',

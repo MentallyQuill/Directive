@@ -132,13 +132,18 @@ function recentCommandLog(state, limit = 4) {
     .filter(Boolean);
 }
 
-function shipStatusLines(state) {
+function shipStatusLines(state, packageData = null) {
   const ship = state?.ship || {};
+  const travelContinuity = {
+    ...(packageData?.ship?.travelContinuity || {}),
+    ...(ship.travelContinuity || {})
+  };
   const damage = asArray(ship.damage).filter((item) => item?.visibility !== 'hidden').map((item) => item.playerSafeSummary || item.summary || item.label || item.id);
   const debt = asArray(ship.technicalDebt).filter((item) => item?.visibility !== 'hidden').map((item) => item.playerSafeSummary || item.summary || item.label || item.id);
   const restrictions = asArray(ship.activeRestrictions).filter((item) => item?.visibility !== 'hidden').map((item) => item.playerSafeSummary || item.summary || item.label || item.id);
   return [
     `Condition: ${compact(ship.condition || 'Operational')}`,
+    travelContinuity.openingShuttleApproach ? `Shuttle approach: ${compact(travelContinuity.openingShuttleApproach)}` : null,
     damage.length ? `Damage:\n${list(damage)}` : null,
     restrictions.length ? `Restrictions:\n${list(restrictions)}` : null,
     debt.length ? `Technical debt:\n${list(debt)}` : null
@@ -360,13 +365,13 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
     normalizeCandidate(state, {
       id: 'ship-status',
       title: 'Relevant Ship Status',
-      mustInclude: shipStatusLines(state).length > 1,
-      salienceScore: shipStatusLines(state).length > 1 ? 64 : 35,
+      mustInclude: shipStatusLines(state, packageData).length > 1,
+      salienceScore: shipStatusLines(state, packageData).length > 1 ? 64 : 35,
       placement: 'inChat',
       depth: 5,
       ttl: 'scene',
       reason: 'Ship condition is injected only when it has operative content.',
-      content: shipStatusLines(state).join('\n')
+      content: shipStatusLines(state, packageData).join('\n')
     }),
     normalizeCandidate(state, {
       id: 'command-log-continuity',

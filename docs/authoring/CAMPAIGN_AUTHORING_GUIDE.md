@@ -196,11 +196,33 @@ Crew records should support play, not just biography. Author:
 
 Do not expose raw relationship numbers or hidden backstory in player-facing fields.
 
+Rich senior-staff authoring has three layers:
+
+1. Write or update the character bible as the deep source.
+2. Distill the bible into the crew dataset's six foundational cards: `crew.profile`, `crew.voice`, `crew.relationship`, `crew.reveal`, `crew.development`, and `command.styleReaction`.
+3. Let runtime hydration select the smallest useful, player-safe slice for the current narrator, crew, Director, or prompt audience.
+
+The `crew.voice` card should carry a `voiceCapsule` when the officer is major enough to speak regularly. A voice capsule should encode:
+
+- core engine;
+- contradiction;
+- speech mechanics;
+- pressure shift;
+- warmth/humor;
+- physical tells;
+- 8 to 12 example line shapes;
+- avoid rules.
+
+Line shapes are not catchphrases. They teach syntax, posture, warmth, pressure behavior, and relationship stance. A good set covers duty pressure, ordinary life, humor or private ease, flaw leakage, relationship-specific friction, stress shift, and moral engine. See [Character Bible Shaping Guide](CHARACTER_BIBLE_SHAPING_GUIDE.md), [Crew Dataset Contract](../packages/CREW_DATASET_CONTRACT.md), and [Crew Dataset Rich Character Design](../packages/CREW_DATASET_RICH_CHARACTER_DESIGN.md) before authoring new senior-staff datasets.
+
 Authoring example:
 
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-crew-roster.png" alt="Crew roster and selected officer dossier from package data">
 </p>
+
+<!-- directive-render: id=docs-directive-rich-crew-authoring-pipeline; target=assets/documentation/renders/docs-directive-rich-crew-authoring-pipeline.png; source=diagram; -->
+Render needed: authoring diagram showing character bible, six-card crew dataset, voice capsule, hydration audience, and prompt packet.
 
 ### 5. Define Character Creator Context
 
@@ -438,6 +460,8 @@ node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.sche
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json packages\bundled\eudora-vale\eudora-vale-senior-staff.crew-dataset.json packages\bundled\eudora-vale\mission-graphs\prelude-the-captains-chair.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json packages\bundled\aster-vale\aster-vale-senior-staff.crew-dataset.json packages\bundled\aster-vale\mission-graphs\prelude-the-blank-route.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\celandine\enemys-garden.campaign-package.json packages\bundled\celandine\celandine-senior-staff.crew-dataset.json packages\bundled\celandine\mission-graphs\prelude-the-first-harvest.mission-graph.json
+node tools\scripts\test-rich-crew-voice-capsules.mjs
+node tools\scripts\test-rich-crew-runtime-hydration.mjs
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```
@@ -451,6 +475,7 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 - Player role is explicit and agency-safe.
 - Ship/station baseline is complete enough for status and prompt context.
 - Crew records include player-safe public material and hidden material only where intended.
+- Major senior-staff records have six-card crew datasets, voice capsules, line shapes, reveal gates, and narrator-safe hydration.
 - Character Creator choices are package-owned.
 - World has locations, routes, factions, actors, fronts, clocks, and state tracks.
 - Story arcs are orienting structure, not rigid rails.
@@ -468,6 +493,7 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 
 - [Campaign Package Structure](CAMPAIGN_PACKAGE_STRUCTURE.md)
 - [Campaign Schema Reference](CAMPAIGN_SCHEMA_REFERENCE.md)
+- [Character Bible Shaping Guide](CHARACTER_BIBLE_SHAPING_GUIDE.md)
 - [LLM Campaign Authoring Guide](LLM_CAMPAIGN_AUTHORING_GUIDE.md)
 - [Ashes Of Peace Authoring Reference](ASHES_OF_PEACE_AUTHORING_REFERENCE.md)
 - [Glass Harbor Authoring Reference](GLASS_HARBOR_AUTHORING_REFERENCE.md)
@@ -477,3 +503,5 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)
 - [Campaign Package Model](../packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md)
+- [Crew Dataset Contract](../packages/CREW_DATASET_CONTRACT.md)
+- [Crew Dataset Rich Character Design](../packages/CREW_DATASET_RICH_CHARACTER_DESIGN.md)

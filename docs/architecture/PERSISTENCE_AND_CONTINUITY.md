@@ -22,6 +22,8 @@ storyArcLedger
 questLedger
 dynamicQuestCatalog
 knowledgeLedger
+campaignTime
+timeLedger
 threadLedger
 eventLedger
 attentionState
@@ -62,7 +64,9 @@ The player may see:
 - Stardate and location.
 - Known directives and rules of engagement.
 - Public deadlines.
+- Current campaign time and committed time-boundary summaries.
 - Major ship conditions.
+- Reviewed Mission Components sourced from visible chat text.
 - Relevant personnel restrictions.
 - Inspiration and Resolve progression in approved player-facing form.
 - Command Competence summaries such as assumed routine actions, meaningful counsel requests, authority notes, procedural warnings, and accepted risks.

@@ -114,6 +114,21 @@ function safeUsage(value) {
   return isObject(value?.usage) ? cloneJson(value.usage) : null;
 }
 
+function safeErrorDetails(value) {
+  if (!isObject(value?.details)) return null;
+  try {
+    return cloneJson(value.details);
+  } catch {
+    return null;
+  }
+}
+
+function generationErrorRetryable(role, error) {
+  if (isAbortLikeError(error)) return false;
+  if (error?.retryable === false) return false;
+  return role?.fallback !== 'skip';
+}
+
 function fnv1a(text) {
   let hash = 0x811c9dc5;
   for (const char of String(text || '')) {
@@ -148,6 +163,7 @@ function normalizeGeneratedResponse({
     providerKind: response?.providerKind || response?.configuration?.providerKind || role.providerKind
   };
   if (response == null || response?.success === false || response?.error) {
+    const errorDetails = safeErrorDetails(response?.error || response);
     return {
       kind: 'directive.generationResult',
       ok: false,
@@ -156,7 +172,8 @@ function normalizeGeneratedResponse({
       error: {
         code: response?.error?.code || response?.code || 'DIRECTIVE_GENERATION_FAILED',
         message: response?.error?.message || response?.message || 'Generation failed',
-        retryable: effectiveRole.fallback !== 'skip'
+        retryable: response?.error?.retryable === false ? false : effectiveRole.fallback !== 'skip',
+        ...(errorDetails ? { details: errorDetails } : {})
       },
       diagnostics: {
         startedAt,
@@ -164,7 +181,9 @@ function normalizeGeneratedResponse({
         latencyMs: Math.max(0, Date.now() - started),
         providerId: response?.providerId || response?.provider_id || null,
         model: response?.model || null,
-        usage: safeUsage(response)
+        usage: safeUsage(response),
+        providerKind: effectiveRole.providerKind || null,
+        transportCode: errorDetails?.transportCode || null
       }
     };
   }
@@ -283,7 +302,8 @@ export function createGenerationRouter({
         error: {
           code: isAbortLikeError(error) ? 'DIRECTIVE_GENERATION_ABORTED' : (error?.code || 'DIRECTIVE_GENERATION_FAILED'),
           message: error?.message || String(error),
-          retryable: !isAbortLikeError(error) && effectiveRole.fallback !== 'skip'
+          retryable: generationErrorRetryable(effectiveRole, error),
+          ...(safeErrorDetails(error) ? { details: safeErrorDetails(error) } : {})
         },
         diagnostics: {
           startedAt,
@@ -291,7 +311,9 @@ export function createGenerationRouter({
           latencyMs: Math.max(0, Date.now() - started),
           providerId: null,
           model: null,
-          usage: null
+          usage: null,
+          providerKind: effectiveRole.providerKind || null,
+          transportCode: safeErrorDetails(error)?.transportCode || null
         }
       }, request);
     } finally {

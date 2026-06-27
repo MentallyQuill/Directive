@@ -2,11 +2,11 @@
 
 ## Status
 
-Implemented pre-alpha reply-header layer plus design contract for deterministic campaign time advancement.
+Implemented pre-alpha reply-header layer plus deterministic campaign time advancement and bounded time adjudication.
 
 The current code guarantees a deterministic display header for Directive-owned replies and injects a current-header contract for host-native SillyTavern generations. It also strips prior display headers from model-side transcript/evidence paths that Directive controls, so prior headers do not become evidence that time advanced.
 
-Broader time adjudication, such as deciding how many minutes pass during an arbitrary conversation or cut, remains a planned layer on top of the current world-time and prompt-header foundation.
+Time advancement is implemented for explicit world-time operations, travel/open-world boundaries, campaign time-ledger normalization, deterministic scene-cut and movement cases, and Utility-backed adjudication when deterministic rules are ambiguous. The Utility role proposes only a bounded elapsed-time record; deterministic runtime code validates, clamps, and commits any actual time boundary.
 
 ## Product Contract
 
@@ -70,7 +70,7 @@ Time advances only at deterministic boundaries:
 - explicit runtime calls such as `advanceOpenWorldTime`;
 - travel transitions through the World Director;
 - authored quest, front, clock, and reaction predicates that depend on elapsed time or stardate;
-- future time-adjudication commits that write a structured state delta.
+- time-adjudication commits that write a structured state delta after deterministic validation.
 
 Time does not advance because:
 

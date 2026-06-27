@@ -630,6 +630,7 @@ const TRAINING_INERT_ACTIONS = Object.freeze([
   'applyPendingReconciliation',
   'rejectPendingReconciliation',
   'retryCampaignActivation',
+  'buildCampaignOpeningScene',
   'rebindCampaignChat',
   'rebuildPromptContext',
   'clearPromptContext',
@@ -889,6 +890,9 @@ function createRuntimeActions() {
     },
     retryCampaignActivation() {
       return runtimeApp.retryCampaignActivation();
+    },
+    buildCampaignOpeningScene() {
+      return runtimeApp.buildCampaignOpeningScene();
     },
     rebindCampaignChat(options) {
       return runtimeApp.rebindCampaignChat(options);

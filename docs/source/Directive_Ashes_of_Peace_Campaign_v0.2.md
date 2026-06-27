@@ -4342,6 +4342,8 @@ The campaign may begin with the following framing, adapted to the player charact
 >
 > "Personnel Shuttle Four, this is Lieutenant Nayar aboard the Breckenridge. We have your transfer manifest and are bringing you into shuttlebay two. Welcome aboard, Commander."
 >
+> The helm brought the shuttle around astern, aligning with the aft bay set between the Intrepid-class ship's swept nacelle pylons.
+>
 > A brief pause followed, filled by the faint movement of docking telemetry across the display.
 >
 > "Captain Whitaker has scheduled your handover with Commander Bronn as soon as you report. Before that, Chief Cross wants a decision on whether your shuttle's diagnostic package can remain connected to our refit network, Doctor Sato has removed one of the receiving crew from duty, and Lieutenant Vale would like me to mention that ten days is sufficient time to approve a flight test the captain has deferred twice."
