@@ -6,6 +6,9 @@ import path from 'node:path';
 export const DEFAULT_SILLYTAVERN_BASE_URL = 'http://127.0.0.1:8000';
 export const DEFAULT_DIRECTIVE_EXTENSION_PATH = '/scripts/extensions/third-party/Directive';
 export const DEFAULT_SOAK_ARTIFACT_ROOT = 'artifacts/live-soak/sillytavern-campaign';
+export const DEFAULT_SILLYTAVERN_DATA_ROOT = process.platform === 'win32'
+  ? 'F:\\SillyTavern\\SillyTavern\\data'
+  : '';
 
 export const PLAYWRIGHT_VIEWPORTS = Object.freeze({
   desktop: Object.freeze({ width: 1440, height: 1000 }),
@@ -82,6 +85,11 @@ export function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function readJsonFileIfExists(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
 export function ensureDirectory(directoryPath) {
   fs.mkdirSync(directoryPath, { recursive: true });
   return directoryPath;
@@ -103,6 +111,147 @@ export function writeTextFile(filePath, value) {
   ensureDirectory(path.dirname(filePath));
   fs.writeFileSync(filePath, String(value), 'utf8');
   return filePath;
+}
+
+function normalizeSoakHandle(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[._-]+|[._-]+$/g, '');
+}
+
+function walkFiles(directoryPath, predicate = () => true, files = []) {
+  if (!directoryPath || !fs.existsSync(directoryPath)) return files;
+  for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+    const filePath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) walkFiles(filePath, predicate, files);
+    else if (predicate(filePath, entry)) files.push(filePath);
+  }
+  return files;
+}
+
+function firstJsonLine(filePath) {
+  const handle = fs.openSync(filePath, 'r');
+  try {
+    const chunks = [];
+    const buffer = Buffer.alloc(4096);
+    let bytesRead = 0;
+    while ((bytesRead = fs.readSync(handle, buffer, 0, buffer.length, null)) > 0) {
+      const text = buffer.slice(0, bytesRead).toString('utf8');
+      const newline = text.search(/\r?\n/);
+      if (newline >= 0) {
+        chunks.push(text.slice(0, newline));
+        break;
+      }
+      chunks.push(text);
+      if (chunks.join('').length > 1024 * 1024) break;
+    }
+    return chunks.join('');
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
+function resolveSillyTavernDataRoot(dataRoot = '') {
+  const candidates = [
+    dataRoot,
+    process.env.DIRECTIVE_SILLYTAVERN_DATA_ROOT,
+    process.env.SILLYTAVERN_DATA_ROOT,
+    process.env.ST_DATA_ROOT,
+    DEFAULT_SILLYTAVERN_DATA_ROOT
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    const resolved = path.resolve(candidate);
+    if (fs.existsSync(resolved)) return resolved;
+  }
+  return null;
+}
+
+export function inspectSillyTavernAuthorNoteCleanliness({
+  users = [],
+  dataRoot = '',
+  required = false,
+  scanChats = true,
+  sampleLimit = 5
+} = {}) {
+  const resolvedDataRoot = resolveSillyTavernDataRoot(dataRoot);
+  const handles = (users || [])
+    .map((entry) => normalizeSoakHandle(typeof entry === 'string' ? entry : entry?.handle || entry?.displayHandle || entry?.user || entry?.username || ''))
+    .filter(Boolean);
+  if (!resolvedDataRoot) {
+    return {
+      status: required ? 'fail' : 'warning',
+      summary: required
+        ? 'SillyTavern data root is required for Author\'s Note cleanliness preflight but could not be resolved.'
+        : 'SillyTavern data root could not be resolved; Author\'s Note cleanliness was not verified.',
+      dataRoot: null,
+      checkedUserCount: 0,
+      contaminatedUserCount: 0,
+      missingUserCount: handles.length,
+      users: handles.map((handle) => ({ handle, status: required ? 'fail' : 'warning', reason: 'data-root-unresolved' }))
+    };
+  }
+
+  const reports = handles.map((handle) => {
+    const userRoot = path.join(resolvedDataRoot, handle);
+    const settingsPath = path.join(userRoot, 'settings.json');
+    const settings = readJsonFileIfExists(settingsPath);
+    const noteDefault = String(settings?.extension_settings?.note?.default || '');
+    const chatRoot = path.join(userRoot, 'chats');
+    const chatFiles = scanChats
+      ? walkFiles(chatRoot, (filePath) => filePath.endsWith('.jsonl'))
+      : [];
+    const contaminatedChats = [];
+    for (const filePath of chatFiles) {
+      let prompt = '';
+      try {
+        const first = JSON.parse(firstJsonLine(filePath) || '{}');
+        prompt = String(first?.chat_metadata?.note_prompt || '');
+      } catch {
+        prompt = '';
+      }
+      if (prompt.trim()) {
+        contaminatedChats.push({
+          path: filePath,
+          relativePath: path.relative(userRoot, filePath).replace(/\\/g, '/'),
+          notePromptLength: prompt.length,
+          notePromptHash: sha256Text(prompt)
+        });
+      }
+    }
+    const contaminated = Boolean(noteDefault.trim()) || contaminatedChats.length > 0;
+    return {
+      handle,
+      status: !fs.existsSync(userRoot) ? (required ? 'fail' : 'warning') : contaminated ? 'fail' : 'pass',
+      userRoot,
+      settingsPath,
+      settingsFound: Boolean(settings),
+      noteDefaultLength: noteDefault.length,
+      noteDefaultHash: noteDefault ? sha256Text(noteDefault) : null,
+      chatCount: chatFiles.length,
+      contaminatedChatCount: contaminatedChats.length,
+      samples: contaminatedChats.slice(0, sampleLimit)
+    };
+  });
+
+  const contaminated = reports.filter((entry) => entry.noteDefaultLength > 0 || entry.contaminatedChatCount > 0);
+  const missing = reports.filter((entry) => !fs.existsSync(entry.userRoot));
+  const status = contaminated.length || (required && missing.length) ? 'fail' : missing.length ? 'warning' : 'pass';
+  return {
+    status,
+    summary: status === 'pass'
+      ? 'Configured SillyTavern soak users have no default Author\'s Note and no active chat note_prompt metadata.'
+      : contaminated.length
+        ? 'One or more configured SillyTavern soak users still has Author\'s Note contamination in settings or active chats.'
+        : 'One or more configured SillyTavern soak users could not be inspected for Author\'s Note cleanliness.',
+    dataRoot: resolvedDataRoot,
+    checkedUserCount: reports.length,
+    contaminatedUserCount: contaminated.length,
+    missingUserCount: missing.length,
+    users: reports
+  };
 }
 
 export function createArtifactPaths({

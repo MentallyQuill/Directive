@@ -130,6 +130,22 @@ assert.equal(uniformColorCheck.status, 'fail');
 assert.equal(uniformColorCheck.counts.contradicted, 1);
 assert(uniformColorCheck.results.find((entry) => entry.factId === bronnCanary.id).contradictionMatches.some((entry) => /red-and-black|uniform color/i.test(entry.term)));
 
+const unrelatedUniformMentionCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-unrelated-uniform-color',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#unrelated-uniform-color',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [whitakerCanary.id],
+  generatedText: [
+    'Lieutenant Commander Hadrik Bronn waits at the foot of the ramp in a mustard-yellow tactical tunic.',
+    'Captain Mara Whitaker, a Human commanding officer in burgundy-red command uniform, expects the new executive officer on the bridge.'
+  ].join(' ')
+});
+
+assert.equal(unrelatedUniformMentionCheck.status, 'pass');
+assert.equal(unrelatedUniformMentionCheck.counts.contradicted, 0);
+
 const quotedSentenceBoundaryCheck = buildFactualGroundingCheck({
   pack: ashesPack,
   generatedMessageId: 'matrix-quoted-sentence-boundary',
@@ -141,6 +157,21 @@ const quotedSentenceBoundaryCheck = buildFactualGroundingCheck({
 
 assert.equal(quotedSentenceBoundaryCheck.status, 'pass');
 assert.equal(quotedSentenceBoundaryCheck.counts.contradicted, 0);
+
+const crossVerbTellariteCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-cross-verb-tellarite',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#cross-verb-tellarite',
+  promptBlocks: matrixPromptBlocks,
+  generatedText: [
+    'Lieutenant Commander Hadrik Bronn watched the shuttle cross the forcefield threshold with the planted patience of a Tellarite officer.',
+    'Commander Cross had the refit discrepancy list in engineering.'
+  ].join(' ')
+});
+
+assert.equal(crossVerbTellariteCheck.status, 'pass');
+assert.equal(crossVerbTellariteCheck.counts.contradicted, 0);
 
 const sameSentenceSpeciesError = buildFactualGroundingCheck({
   pack: ashesPack,

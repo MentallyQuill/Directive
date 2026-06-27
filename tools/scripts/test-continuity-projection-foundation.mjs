@@ -168,7 +168,7 @@ assert.equal(bronnProfileOperation.reason, 'validator-added-turn-relevance');
 assert.equal(turnRelevantMatrix.sourceFrame.referencedActorIds.includes('hadrik-bronn'), true);
 
 const badReview = reviewContinuityContradictions({
-  text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia. He wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar.',
+  text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia. Bronn wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar.',
   campaignState,
   packageData,
   crewDataset,
@@ -188,6 +188,15 @@ const goodReview = reviewContinuityContradictions({
   campaignProjection
 });
 assert.equal(goodReview.ok, true);
+
+const unrelatedUniformReview = reviewContinuityContradictions({
+  text: 'Lieutenant Commander Hadrik Bronn waited in a mustard-yellow tactical tunic. Captain Mara Whitaker, a Human commanding officer in a burgundy-red command uniform, expected the new XO on the bridge.',
+  campaignState,
+  packageData,
+  crewDataset,
+  campaignProjection
+});
+assert.equal(unrelatedUniformReview.ok, true);
 
 const candidateQuarantine = quarantineGeneratedClaims(campaignState, {
   text: 'Bronn, the Tellarite tactical chief, watched the shuttle rendezvous at the transfer waypoint.',

@@ -8,6 +8,7 @@ import {
   createRunId,
   ensureArtifactTree,
   errorSummary,
+  inspectSillyTavernAuthorNoteCleanliness,
   loadPlaywright,
   normalizeBaseUrl,
   sha256Text,
@@ -204,6 +205,7 @@ function summaryMarkdown(report) {
 async function buildDryRunReport({ artifacts }) {
   const playwright = await loadPlaywright();
   const reserved = reservedUsers(USERS);
+  const authorNoteCleanliness = inspectSillyTavernAuthorNoteCleanliness({ users: USERS, required: LIVE });
   const checks = [
     check(
       'user-count',
@@ -227,6 +229,12 @@ async function buildDryRunReport({ artifacts }) {
         ? 'No human-only SillyTavern account is assigned to automated soak work.'
         : 'Remove human-only SillyTavern accounts from automated soak user configuration.',
       reserved.length === 0 ? null : { reservedHandles: reserved.map((entry) => entry.handle) }
+    ),
+    check(
+      'author-note-cleanliness',
+      authorNoteCleanliness.status,
+      authorNoteCleanliness.summary,
+      authorNoteCleanliness
     ),
     check(
       'base-url',

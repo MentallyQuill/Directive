@@ -40,8 +40,8 @@ const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 const DEFAULT_TURN_LIMIT = '';
 let signalHandlersInstalled = false;
 let signalLogPath = null;
-let activeChildProcess = null;
-let activeMaterialAction = null;
+const activeChildProcesses = new Set();
+const activeMaterialActions = new Map();
 
 function usage() {
   return `Directive Continuity Projection Matrix five-user soak coordinator
@@ -57,7 +57,7 @@ Bounded live proof:
 
 Full certification:
   Omit --turn-limit and DIRECTIVE_SOAK_TURN_LIMIT. The coordinator then runs the
-  full 52-turn live campaign soak once per lane/user.
+  full 52-turn live campaign soak concurrently once per lane/user.
 
 Options:
   --live              Run live SillyTavern readiness and lane soaks.
@@ -243,13 +243,17 @@ function installSignalHandlers(paths, options) {
         status: 'interrupted',
         recordedAt: new Date().toISOString(),
         signal,
-        activeAction: activeMaterialAction,
-        activeChildPid: activeChildProcess?.pid || null
+        activeChildren: [...activeChildProcesses].map((child) => ({
+          pid: child?.pid || null,
+          action: activeMaterialActions.get(child) || null
+        }))
       });
-      try {
-        activeChildProcess?.kill?.(signal);
-      } catch {
-        // Best effort only; the parent evidence log is the critical artifact.
+      for (const child of activeChildProcesses) {
+        try {
+          child?.kill?.(signal);
+        } catch {
+          // Best effort only; the parent evidence log is the critical artifact.
+        }
       }
       process.exit(signal === 'SIGINT' ? 130 : 143);
     });
@@ -499,22 +503,21 @@ function buildDryRunLane(lane) {
 
 function spawnChild(command, args, options = {}) {
   return new Promise((resolve) => {
+    const action = options.action || null;
     const child = spawn(command, args, {
       cwd: process.cwd(),
       env: options.env || process.env,
       windowsHide: true
     });
-    activeChildProcess = child;
-    activeMaterialAction = options.action || null;
+    activeChildProcesses.add(child);
+    activeMaterialActions.set(child, action);
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
     child.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
     child.on('error', (error) => {
-      if (activeChildProcess === child) {
-        activeChildProcess = null;
-        activeMaterialAction = null;
-      }
+      activeChildProcesses.delete(child);
+      activeMaterialActions.delete(child);
       resolve({
         exitCode: null,
         signal: null,
@@ -525,10 +528,8 @@ function spawnChild(command, args, options = {}) {
       });
     });
     child.on('close', (exitCode, signal) => {
-      if (activeChildProcess === child) {
-        activeChildProcess = null;
-        activeMaterialAction = null;
-      }
+      activeChildProcesses.delete(child);
+      activeMaterialActions.delete(child);
       resolve({
         exitCode,
         signal,
@@ -873,7 +874,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId }) {
     });
   }
 
-  for (const lane of lanes) {
+  async function runLane(lane) {
     const reusableArtifactRoot = laneArtifactRootForRun(paths, runId, lane.id);
     coordinatorLog(paths, options, {
       kind: 'lane-assigned',
@@ -890,7 +891,6 @@ async function runLiveCoordinator({ options, lanes, paths, runId }) {
         turnLimit: options.turnLimit
       });
       if (reusable) {
-        laneSummaries.push(reusable);
         coordinatorLog(paths, options, {
           kind: 'lane-reused',
           status: reusable.status,
@@ -899,7 +899,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId }) {
           userHandle: lane.userHandle,
           artifactRoot: reusable.artifactRoot
         });
-        continue;
+        return reusable;
       }
     }
     const env = childEnvForLane({ lane, paths, runId, turnLimit: options.turnLimit });
@@ -918,7 +918,6 @@ async function runLiveCoordinator({ options, lanes, paths, runId }) {
     );
     const artifactRoot = child.json?.artifactRoot || laneArtifactRootForRun(paths, runId, lane.id);
     const laneSummary = summarizeContinuityMatrixLane({ lane, child, artifactRoot, turnLimit: options.turnLimit || null });
-    laneSummaries.push(laneSummary);
     coordinatorLog(paths, options, {
       kind: 'lane-end',
       status: laneSummary.status,
@@ -932,7 +931,9 @@ async function runLiveCoordinator({ options, lanes, paths, runId }) {
       factualStatus: laneSummary.factualGrounding.status,
       artifactStatus: laneSummary.artifactCompleteness.status
     });
+    return laneSummary;
   }
+  laneSummaries.push(...await Promise.all(lanes.map((lane) => runLane(lane))));
   return { readiness, laneSummaries };
 }
 

@@ -5,6 +5,16 @@ function escapeRegex(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const GENERIC_SUBJECT_FOCUS_TERMS = new Set([
+  'captain',
+  'commander',
+  'lieutenant',
+  'ensign',
+  'doctor',
+  'chief',
+  'officer'
+]);
+
 function subjectNamesForFact(fact, packageData) {
   const subject = compact(fact?.subject);
   const crewId = subject.startsWith('crew.') ? subject.slice('crew.'.length) : null;
@@ -12,7 +22,8 @@ function subjectNamesForFact(fact, packageData) {
   const officer = asArray(packageData?.crew?.senior).find((entry) => entry?.id === crewId);
   const name = compact(officer?.name || crewId.replace(/-/g, ' '));
   const parts = name.split(/\s+/).filter(Boolean);
-  return [...new Set([name, parts.length > 1 ? parts.at(-1) : null, compact(officer?.shortName)])].filter(Boolean);
+  return [...new Set([name, parts.length > 1 ? parts.at(-1) : null, compact(officer?.shortName)])]
+    .filter((term) => term && !GENERIC_SUBJECT_FOCUS_TERMS.has(term.toLowerCase()));
 }
 
 function containsNear(text, left, right, window = 100) {
@@ -37,6 +48,19 @@ function sentenceSegments(text = '') {
     .filter(Boolean);
 }
 
+function sentenceContainsFocus(sentence, focusTerms = []) {
+  return asArray(focusTerms).some((term) => {
+    const clean = compact(term);
+    if (!clean) return false;
+    const pattern = clean.split(/\s+/).map(escapeRegex).join('\\s+');
+    return new RegExp(`\\b${pattern}\\b`, 'i').test(sentence);
+  });
+}
+
+function sentenceContainsPatternForFocus(text, focusTerms = [], pattern) {
+  return sentenceSegments(text).some((sentence) => sentenceContainsFocus(sentence, focusTerms) && pattern.test(sentence));
+}
+
 const UNIFORM_COLOR_PATTERNS = Object.freeze({
   'burgundy-red': /\b(?:burgundy[-\s]?red|command\s+red|red-and-black)\b/i,
   'mustard-yellow': /\b(?:mustard[-\s]?yellow|operations?\s+yellow|ops\s+yellow|engineering\s+yellow|tactical\s+yellow|security\s+yellow|gold|yellow)\b/i,
@@ -48,13 +72,15 @@ function uniformFactColor(fact) {
   return compact(fact?.value?.color || fact?.value || fact?.summary);
 }
 
-function hasUniformColorContradiction(text, expectedColor) {
+function hasUniformColorContradiction(text, expectedColor, focusTerms = []) {
   const expected = compact(expectedColor).toLowerCase();
   if (!UNIFORM_COLOR_PATTERNS[expected]) return false;
+  const hasFocusTerms = asArray(focusTerms).some((term) => compact(term));
   const wrongPatterns = Object.entries(UNIFORM_COLOR_PATTERNS)
     .filter(([color]) => color !== expected)
     .map(([, pattern]) => pattern);
   return sentenceSegments(text).some((sentence) => {
+    if (hasFocusTerms && !sentenceContainsFocus(sentence, focusTerms)) return false;
     if (/\bnot\s+(?:command\s+)?red\b/i.test(sentence) || /\bnot\s+red-and-black\b/i.test(sentence)) return false;
     if (!/\b(?:uniform|division|collar|tactical|security|operations?|ops|engineering|science|medical|command|acting[-\s]?XO)\b/i.test(sentence)) return false;
     return wrongPatterns.some((pattern) => pattern.test(sentence));
@@ -65,9 +91,9 @@ function speciesFindings(text, facts, packageData) {
   const findings = [];
   for (const fact of facts.filter((entry) => entry.predicate === 'species')) {
     const species = compact(fact.value);
-    if (!species || species.toLowerCase() === 'human') continue;
+    if (!species || /^(human|player-defined|user-defined|unspecified|unknown)$/i.test(species)) continue;
     const names = subjectNamesForFact(fact, packageData);
-    const name = names.find((candidate) => containsNear(text, candidate, /\bhuman\b/i, 140));
+    const name = names.find((candidate) => sentenceContainsPatternForFocus(text, [candidate], /\bhuman\b/i));
     if (name) {
       findings.push({
         kind: 'species-contradiction',
@@ -86,7 +112,7 @@ function ageFindings(text, facts, packageData) {
     const age = compact(fact.value || fact.summary);
     if (!/fift/i.test(age)) continue;
     const names = subjectNamesForFact(fact, packageData);
-    const name = names.find((candidate) => containsNear(text, candidate, /\b(early\s+forties|forty[-\s]?year[-\s]?old|40[-\s]?year[-\s]?old|in\s+his\s+forties|in\s+her\s+forties|in\s+their\s+forties)\b/i, 180));
+    const name = names.find((candidate) => sentenceContainsPatternForFocus(text, [candidate], /\b(early\s+forties|forty[-\s]?year[-\s]?old|40[-\s]?year[-\s]?old|in\s+his\s+forties|in\s+her\s+forties|in\s+their\s+forties)\b/i));
     if (name) {
       findings.push({
         kind: 'age-contradiction',
@@ -103,9 +129,8 @@ function uniformDivisionFindings(text, facts, packageData) {
   const findings = [];
   for (const fact of facts.filter((entry) => entry.predicate === 'uniformDivisionColor')) {
     const expectedColor = uniformFactColor(fact);
-    if (!hasUniformColorContradiction(text, expectedColor)) continue;
     const names = subjectNamesForFact(fact, packageData);
-    const name = names.find((candidate) => containsNear(text, candidate, /\b(red-and-black|command\s+red|mustard[-\s]?yellow|operations?\s+yellow|ops\s+yellow|engineering\s+yellow|tactical\s+yellow|security\s+yellow|gold|yellow|science\s+teal|teal|medical\s+blue|blue)\b/i, 1200));
+    const name = names.find((candidate) => hasUniformColorContradiction(text, expectedColor, [candidate]));
     if (name) {
       findings.push({
         kind: 'uniform-division-color-contradiction',

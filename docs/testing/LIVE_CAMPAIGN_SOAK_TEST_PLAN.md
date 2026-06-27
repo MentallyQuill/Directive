@@ -111,7 +111,7 @@ $env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
 node tools\scripts\soak-sillytavern-campaign-live.mjs
 ```
 
-For Continuity Projection Matrix certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator runs the campaign soak once per Ashes lane/user and aggregates sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, and deterministic factual-grounding checks were present for every lane:
+For Continuity Projection Matrix certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator must run one live campaign soak worker concurrently per Ashes lane/user and aggregate sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, and deterministic factual-grounding checks were present for every lane:
 
 ```powershell
 $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
@@ -169,6 +169,7 @@ Before running the soak:
 - For parallel soak workers, SillyTavern multi-user mode is enabled and every worker has a dedicated ST user, Playwright browser context, run id, artifact folder, campaign chat, save branch, and provider/session budget.
 - The full breadth-first parallel soak uses five non-human SillyTavern users: `directive-soak-a`, `directive-soak-b`, `directive-soak-c`, `directive-soak-d`, and `directive-soak-e`. Fewer workers may be used for a focused probe, but that is not full five-lane coverage evidence.
 - `default-user` is reserved for human testing only and must not be assigned to automated soak workers, storage probes, patch lanes, or campaign runners.
+- Every automated soak user has no inherited SillyTavern Author's Note contamination before campaign creation. The preflight must prove `extension_settings.note.default` is empty for the configured soak profiles and active chat `chat_metadata.note_prompt` values are empty. A run that creates chats with unrelated Author's Note content, such as old fantasy/Harry Potter profile instructions, is invalid evidence and must be marked invalidated before restarting.
 - Before parallel soak workers start, `check-sillytavern-multi-user-soak-readiness.mjs --live` proves each configured ST user can see its own Directive `/user/files` probe and cannot see another worker's probe.
 - In SillyTavern account mode, the served-extension freshness preflight authenticates with a configured non-human soak user before reading protected `/scripts/extensions/third-party/Directive` files.
 - Utility and Reasoning providers are configured and pass `app.testProvider({ kind })`.
@@ -373,7 +374,7 @@ Required live intervals:
 4. Contradiction guard interval: attempt or observe a known-bad host-native drift such as Bronn as Human, Bronn as 40, or the Breckenridge being only six days at impulse/out of spacedock. Verify the output is quarantined, rejected, or marked `recoveryRequired` rather than accepted as authoritative campaign state.
 5. Claim lifecycle interval: verify generated claims remain candidate/rejected until an authorized state path accepts them, and that rejected claims can feed short-lived guard hints without exposing hidden truth.
 6. Save/load or Save Game As interval: verify prompt revision, projection cache, projection run ledger, fact-use stats, and diagnostics remain tied to the active Ashes save/chat after reload or branch work.
-7. Five-user coordinator pass: run `run-continuity-matrix-five-user-soak.mjs` across the five Ashes lanes. Bounded `--turn-limit` runs are acceptable coordinator proof, but full certification requires each lane to run at the requested 52-turn depth or explicitly log the bounded-run warning.
+7. Five-user coordinator pass: run `run-continuity-matrix-five-user-soak.mjs` across the five Ashes lanes with one concurrent worker per non-human SillyTavern user. Bounded `--turn-limit` runs are acceptable coordinator proof, but full certification requires each lane to run at the requested 52-turn depth or explicitly log the bounded-run warning.
 
 Every CPM interval should append a `continuity-projection-check` record to `live-log.jsonl` with lane id, turn range, save/chat ids, prompt revision, required prompt-key status, required source-id status, diagnostics status, related factual-grounding artifact paths, and whether the evidence came from the full soak runner or the five-user CPM coordinator.
 

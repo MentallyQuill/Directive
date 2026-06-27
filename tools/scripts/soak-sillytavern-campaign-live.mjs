@@ -18,6 +18,7 @@ import {
   ensureDirectory,
   ensureArtifactTree,
   errorSummary,
+  inspectSillyTavernAuthorNoteCleanliness,
   loadPlaywright,
   normalizeBaseUrl,
   normalizeExtensionPath,
@@ -3072,6 +3073,22 @@ async function buildChecks({ artifacts = null } = {}) {
       source: executionUser?.source || 'DIRECTIVE_SOAK_ST_USERS',
       reservedHumanOnly: [...RESERVED_HUMAN_ONLY_USERS]
     }
+  ));
+  const authorNoteUsers = configuredSoakUsers();
+  if (executionUser && !authorNoteUsers.some((entry) => entry.handle === executionUser.handle)) {
+    authorNoteUsers.push(executionUser);
+  }
+  const authorNoteCleanliness = inspectSillyTavernAuthorNoteCleanliness({
+    users: authorNoteUsers,
+    required: LIVE_EXECUTION
+  });
+  checks.push(check(
+    'author-note-cleanliness',
+    !LIVE_EXECUTION && authorNoteUsers.length === 0 ? 'skipped' : authorNoteCleanliness.status,
+    !LIVE_EXECUTION && authorNoteUsers.length === 0
+      ? 'Author\'s Note cleanliness check skipped because no soak users are configured outside live mode.'
+      : authorNoteCleanliness.summary,
+    authorNoteCleanliness
   ));
   checks.push(check(
     'live-execution-turn-limit',

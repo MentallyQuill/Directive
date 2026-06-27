@@ -45,6 +45,20 @@ const PROMPT_CATEGORY_BLOCK_ALIASES = Object.freeze({
   'world-state': ['directive.scene.active', 'directive.continuity.domain', 'location-context', 'immediate-scene', 'relevant-facts']
 });
 
+const AMBIGUOUS_STANDALONE_FOCUS_TERMS = new Set([
+  'cross'
+]);
+
+const SENIOR_CREW_RANK_FOCUS_PREFIXES = Object.freeze([
+  'captain',
+  'commander',
+  'lieutenant commander',
+  'lieutenant',
+  'doctor',
+  'chief',
+  'ensign'
+]);
+
 function normalizeText(value = '') {
   return String(value || '')
     .toLowerCase()
@@ -352,6 +366,8 @@ function seniorCrewIdentityParts(canary = {}) {
   const match = String(canary.id || '').match(/senior-crew\.([^.]+)\.identity/u);
   if (!match) return null;
   const idParts = match[1].split('-').filter(Boolean);
+  const fullName = idParts.join(' ');
+  const lastName = idParts.at(-1) || '';
   const factText = [
     canary.summary,
     ...asArray(canary.assertions),
@@ -363,11 +379,16 @@ function seniorCrewIdentityParts(canary = {}) {
   const expectedSpecies = exactSpecies || KNOWN_SPECIES.find((species) => includesNormalized(canary.summary, species)) || null;
   const expectedAge = asArray(canary.positiveTerms).find((term) => /fift|fort|thirt|sixt|sevent|eight|ninet|year/i.test(String(term))) || null;
   const expectedUniformColor = ['burgundy-red', 'mustard-yellow', 'teal', 'blue'].find((color) => includesNormalized(factText, color)) || null;
+  const rankFocusTerms = SENIOR_CREW_RANK_FOCUS_PREFIXES
+    .filter((rank) => includesNormalized(factText, `${rank} ${fullName}`) || includesNormalized(factText, `${rank} ${lastName}`))
+    .map((rank) => `${rank} ${lastName}`);
+  const standaloneLastName = AMBIGUOUS_STANDALONE_FOCUS_TERMS.has(normalizeText(lastName)) ? null : lastName;
   return {
     idParts,
     focusTerms: [
-      idParts.join(' '),
-      idParts.at(-1)
+      fullName,
+      ...rankFocusTerms,
+      standaloneLastName
     ].filter(Boolean),
     expectedSpecies,
     expectedAge,
@@ -408,13 +429,14 @@ const UNIFORM_COLOR_PATTERNS = Object.freeze({
   blue: /\b(?:medical\s+blue|blue)\b/i
 });
 
-function hasUniformColorContradiction(text, expectedColor) {
+function hasUniformColorContradiction(text, expectedColor, focusTerms = []) {
   const expected = normalizeText(expectedColor).replace(/\s+/g, '-');
   if (!UNIFORM_COLOR_PATTERNS[expected]) return false;
   const wrongPatterns = Object.entries(UNIFORM_COLOR_PATTERNS)
     .filter(([color]) => color !== expected)
     .map(([, pattern]) => pattern);
   return sentenceSegments(text).some((sentence) => {
+    if (asArray(focusTerms).length > 0 && !asArray(focusTerms).some((focusTerm) => includesNormalized(sentence, focusTerm))) return false;
     if (/\bnot\s+(?:command\s+)?red\b/i.test(sentence) || /\bnot\s+red-and-black\b/i.test(sentence)) return false;
     if (!/\b(?:uniform|division|collar|tactical|security|operations?|ops|engineering|science|medical|command|acting[-\s]?XO)\b/i.test(sentence)) return false;
     return wrongPatterns.some((pattern) => pattern.test(sentence));
@@ -465,7 +487,7 @@ function inferredContradictions(text, canary) {
         textPreview: `Expected ${senior.expectedAge}; generated text says forty-year-old.`
       });
     }
-    if (senior.expectedUniformColor && hasUniformColorContradiction(text, senior.expectedUniformColor)) {
+    if (senior.expectedUniformColor && hasUniformColorContradiction(text, senior.expectedUniformColor, senior.focusTerms)) {
       matches.push({
         term: 'tactical uniform color contradiction',
         textPreview: `Expected ${senior.expectedUniformColor} uniform color; generated text assigns a conflicting division color.`

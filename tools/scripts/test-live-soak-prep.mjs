@@ -8,6 +8,7 @@ import {
   createArtifactPaths,
   createRunId,
   ensureArtifactTree,
+  inspectSillyTavernAuthorNoteCleanliness,
   normalizeBaseUrl,
   normalizeExtensionPath,
   readJsonFile,
@@ -84,6 +85,43 @@ assert.equal(normalizeBaseUrl('http://127.0.0.1:8000///'), 'http://127.0.0.1:800
 assert.equal(normalizeExtensionPath('scripts/extensions/third-party/Directive/'), '/scripts/extensions/third-party/Directive');
 assert.match(createRunId(new Date('2026-06-23T12:34:56.789Z')), /^2026-06-23T12-34-56-789Z$/);
 assert.equal(PLAYWRIGHT_SELECTOR_GUIDANCE.prefer.some((entry) => /role/.test(entry)), true);
+
+const authorNoteFixtureRoot = tempArtifactRoot('directive-author-note-fixture-');
+const dirtyUserRoot = path.join(authorNoteFixtureRoot, 'directive-soak-a');
+const dirtyChatRoot = path.join(dirtyUserRoot, 'chats', 'Directive - Ashes');
+writeJsonFile(path.join(dirtyUserRoot, 'settings.json'), {
+  extension_settings: {
+    note: {
+      default: 'Harry Potter default note that must not enter Directive soak tests.'
+    }
+  }
+});
+writeTextFile(
+  path.join(dirtyChatRoot, 'Directive - Ashes - dirty.jsonl'),
+  `${JSON.stringify({ chat_metadata: { note_prompt: 'Hermione can only hear words in quotes.' } })}\n`
+);
+const dirtyAuthorNoteCheck = inspectSillyTavernAuthorNoteCleanliness({
+  users: ['directive-soak-a'],
+  dataRoot: authorNoteFixtureRoot,
+  required: true
+});
+assert.equal(dirtyAuthorNoteCheck.status, 'fail');
+assert.equal(dirtyAuthorNoteCheck.contaminatedUserCount, 1);
+assert.equal(dirtyAuthorNoteCheck.users[0].noteDefaultLength > 0, true);
+assert.equal(dirtyAuthorNoteCheck.users[0].contaminatedChatCount, 1);
+writeJsonFile(path.join(dirtyUserRoot, 'settings.json'), { extension_settings: { note: { default: '' } } });
+writeTextFile(
+  path.join(dirtyChatRoot, 'Directive - Ashes - dirty.jsonl'),
+  `${JSON.stringify({ chat_metadata: { note_prompt: '' } })}\n`
+);
+const cleanAuthorNoteCheck = inspectSillyTavernAuthorNoteCleanliness({
+  users: [{ handle: 'directive-soak-a' }],
+  dataRoot: authorNoteFixtureRoot,
+  required: true
+});
+assert.equal(cleanAuthorNoteCheck.status, 'pass');
+assert.equal(cleanAuthorNoteCheck.users[0].noteDefaultLength, 0);
+assert.equal(cleanAuthorNoteCheck.users[0].contaminatedChatCount, 0);
 
 const soakRunnerSource = fs.readFileSync(path.resolve('tools/scripts/soak-sillytavern-campaign-live.mjs'), 'utf8');
 assert.match(soakRunnerSource, /ensureDirectory,/);
@@ -957,6 +995,7 @@ assert(report.checks.some((entry) => entry.id === 'terminal-endings-live-smoke-s
 assert(report.checks.some((entry) => entry.id === 'served-extension-freshness'));
 assert(report.checks.some((entry) => entry.id === 'extension-sync-before-testing'));
 assert(report.checks.some((entry) => entry.id === 'reserved-human-user'));
+assert(report.checks.some((entry) => entry.id === 'author-note-cleanliness'));
 assert(report.checks.some((entry) => entry.id === 'live-execution-soak-user'));
 assert(report.checks.some((entry) => entry.id === 'live-execution-turn-limit'));
 const liveSmokeEnv = buildLiveSmokeEnvironment({ report, messageScriptPath: 'artifacts/live-script.json' });
