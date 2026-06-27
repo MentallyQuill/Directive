@@ -181,6 +181,23 @@ function normalizeCreatorSectionDraftResponse(response = {}) {
     || response;
 }
 
+function providerSourceLabel(result = {}) {
+  if (result?.source !== 'provider') return 'Local fallback';
+  const providerKind = String(result?.diagnostics?.finalProviderKind || result?.diagnostics?.providerKind || '').toLowerCase();
+  if (providerKind === 'utility') return 'Utility provider';
+  if (providerKind === 'reasoning') return 'Reasoning provider';
+  return 'Provider';
+}
+
+function creatorAssistProgressMessage(progress = {}) {
+  const message = String(progress?.message || '').trim();
+  if (message) return message;
+  const providerKind = String(progress?.providerKind || '').toLowerCase();
+  if (progress?.status === 'local-fallback') return 'Using local fallback...';
+  if (providerKind === 'utility') return 'Trying Utility...';
+  return 'Generating with Reasoning...';
+}
+
 function clearCreatorAssistPreview(section) {
   for (const preview of section.querySelectorAll('.directive-creator-assist-preview')) {
     preview.remove();
@@ -191,6 +208,7 @@ function showCreatorAssistMessage(section, message, tone = 'neutral') {
   clearCreatorAssistPreview(section);
   const preview = createElement('div', `directive-creator-assist-preview directive-creator-assist-preview-${tone}`);
   preview.setAttribute('role', 'status');
+  preview.setAttribute('aria-live', 'polite');
   const copy = createElement('p', 'directive-creator-assist-preview-copy');
   copy.textContent = message;
   preview.appendChild(copy);
@@ -252,7 +270,7 @@ function appendCreatorAssistPreview(section, {
   const title = createElement('strong');
   title.textContent = result?.mode === 'refine' ? 'Suggested Refinement' : 'Suggested Draft';
   const source = createElement('span');
-  source.textContent = result?.source === 'provider' ? 'Provider' : 'Local fallback';
+  source.textContent = providerSourceLabel(result);
   header.append(title, source);
 
   const list = createElement('dl', 'directive-creator-assist-field-list');
@@ -319,12 +337,17 @@ async function runCreatorSectionAssist({
   if (typeof actions.generateCreatorSectionDraft !== 'function') return;
   const input = collectCreatorInput(form);
   const empty = !sectionHasMeaningfulInput(input, stepId);
-  showCreatorAssistMessage(section, empty ? 'Drafting section...' : 'Drafting from current details...', 'loading');
+  showCreatorAssistMessage(section, empty ? 'Generating with Reasoning...' : 'Generating with Reasoning from current details...', 'loading');
+  const onProgress = (progress = {}) => {
+    if (signal?.aborted) return;
+    showCreatorAssistMessage(section, creatorAssistProgressMessage(progress), 'loading');
+  };
   try {
     const response = await actions.generateCreatorSectionDraft({
       sectionId: stepId,
       input,
-      signal
+      signal,
+      onProgress
     });
     const result = normalizeCreatorSectionDraftResponse(response);
     if (isCanceledCreatorAssistResult(result)) {

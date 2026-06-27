@@ -908,6 +908,7 @@ setControl(panel, 'identity.name', 'Cancel Pending');
 const cancelingIdentityDraft = identityWand.click();
 assert.equal(identityWand.dataset.creatorAssistBusy, 'true', 'Busy creator wand should remain active for cancellation');
 assert(identityWand.querySelector('.fa-xmark'), 'Busy creator wand should swap the wand icon for a cancel X');
+assert.match(textOf(panel), /Generating with Reasoning/, 'Pending creator assist should name the active provider lane');
 const identityAssistControl = identityWand.closest('.directive-creator-section-assist-control');
 assert(identityAssistControl, 'Creator wand should be wrapped with an assist control');
 assert.equal(identityAssistControl.dataset.creatorAssistBusy, 'true');

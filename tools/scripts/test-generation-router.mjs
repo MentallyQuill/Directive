@@ -88,7 +88,7 @@ assert.equal(registry.get('directiveAssist').modelPreferences.capability, 'autho
 assert.equal(registry.get('directiveAssist').mayProposeState, false);
 assert.equal(registry.get('directiveAssist').providerKind, 'reasoning');
 assert.equal(registry.get('directiveAssist').timeoutMs, 90000);
-assert.equal(registry.get('characterCreatorSectionDraft').timeoutMs, 90000);
+assert.equal(registry.get('characterCreatorSectionDraft').timeoutMs, 45000);
 assert.equal(registry.get('narration').timeoutMs, 5000);
 assert.throws(() => registry.get('missing'), /Unknown generation role/);
 assert.throws(

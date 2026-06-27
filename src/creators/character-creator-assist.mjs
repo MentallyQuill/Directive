@@ -45,6 +45,8 @@ export const CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET = Object.freeze({
   max: 800
 });
 export const CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT = 1;
+export const CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS = 45000;
+export const CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS = 30000;
 export const CHARACTER_CREATOR_SELF_FILL_FIELDS = Object.freeze([
   'identity.appearance',
   'dossier.serviceSummary',
@@ -90,6 +92,24 @@ const CREATOR_ASSIST_MODEL_PREFERENCES = Object.freeze({
   latency: 'medium',
   capability: 'reasoning-writing'
 });
+
+const CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS = Object.freeze([
+  Object.freeze({
+    id: 'reasoning-primary',
+    providerKind: 'reasoning',
+    timeoutMs: CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS
+  }),
+  Object.freeze({
+    id: 'reasoning-retry',
+    providerKind: 'reasoning',
+    timeoutMs: CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS
+  }),
+  Object.freeze({
+    id: 'utility-fallback',
+    providerKind: 'utility',
+    timeoutMs: CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS
+  })
+]);
 
 const RISKY_BACKSTORY_PATTERN = /\b(section\s*31|secret ancestry|hidden powers?|chosen one|war criminal|criminal history|court-?martial|universally admired|impossibly competent|severe trauma|traumatic secret)\b/i;
 
@@ -383,10 +403,7 @@ function normalizeProviderPayload({ payload, sectionId, context, input, generati
       providerUsed: true,
       providerOutputRejected: false,
       hiddenLeakBlocked: false,
-      providerId: generationResult?.diagnostics?.providerId || null,
-      model: generationResult?.diagnostics?.model || null,
-      usage: cloneJson(generationResult?.diagnostics?.usage || null),
-      timeoutRetryCount: Number(generationResult?.diagnostics?.timeoutRetryCount || 0)
+      ...providerDiagnosticsFromGenerationResult(generationResult)
     }
   };
 }
@@ -532,6 +549,11 @@ function createCanceledResult({ sectionId, mode, diagnostics = {} }) {
       canceled: true,
       providerId: diagnostics.providerId || null,
       model: diagnostics.model || null,
+      usage: cloneJson(diagnostics.usage || null),
+      providerKind: diagnostics.providerKind || null,
+      finalProviderKind: diagnostics.finalProviderKind || diagnostics.providerKind || null,
+      utilityFallbackAttempted: diagnostics.utilityFallbackAttempted === true,
+      providerAttempts: cloneJson(diagnostics.providerAttempts || []),
       timeoutRetryCount: Number(diagnostics.timeoutRetryCount || 0)
     }
   };
@@ -545,27 +567,159 @@ function isGenerationCanceledResult(result = {}) {
   return result?.ok === false && result?.error?.code === 'DIRECTIVE_GENERATION_ABORTED';
 }
 
-async function generateSectionDraftWithTimeoutRetry(generationRouter, request, { signal = null } = {}) {
-  let timeoutRetryCount = 0;
-  for (let attempt = 0; attempt <= CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT; attempt += 1) {
-    const generationResult = await generationRouter.generate(CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID, request, {
-      signal
+function isAbortLikeError(error) {
+  return error?.code === 'DIRECTIVE_GENERATION_ABORTED'
+    || error?.name === 'AbortError'
+    || error?.code === 'ABORT_ERR';
+}
+
+function generationFailureResultFromThrown(error, attempt) {
+  return {
+    ok: false,
+    error: {
+      code: isAbortLikeError(error) ? 'DIRECTIVE_GENERATION_ABORTED' : (error?.code || 'DIRECTIVE_GENERATION_FAILED'),
+      message: error?.message || String(error || 'Character Creator provider request failed.'),
+      retryable: !isAbortLikeError(error)
+    },
+    diagnostics: {
+      providerId: null,
+      model: null,
+      usage: null,
+      providerKind: attempt.providerKind
+    }
+  };
+}
+
+function attemptProgressMessage(attempt, previousResult = null) {
+  if (attempt.id === 'reasoning-primary') return 'Generating with Reasoning...';
+  const previousTimedOut = isGenerationTimeoutResult(previousResult);
+  if (attempt.id === 'reasoning-retry') {
+    return previousTimedOut
+      ? 'Reasoning timed out. Retrying Reasoning...'
+      : 'Reasoning failed. Retrying Reasoning...';
+  }
+  return previousTimedOut
+    ? 'Reasoning timed out again. Trying Utility...'
+    : 'Reasoning failed again. Trying Utility...';
+}
+
+function localFallbackProgressMessage(previousResult = null) {
+  const provider = previousResult?.role?.providerKind || previousResult?.diagnostics?.finalProviderKind || 'provider';
+  const label = provider === 'utility' ? 'Utility' : 'Provider';
+  return isGenerationTimeoutResult(previousResult)
+    ? `${label} timed out. Using local fallback...`
+    : `${label} failed. Using local fallback...`;
+}
+
+function emitCreatorAssistProgress(onProgress, payload = {}) {
+  if (typeof onProgress !== 'function') return;
+  try {
+    onProgress({
+      kind: 'directive.creatorAssistProgress',
+      ...payload
     });
+  } catch {
+    // Progress is UI-only and must never affect provider fallback behavior.
+  }
+}
+
+function annotateGenerationAttemptResult(generationResult, attempt, {
+  timeoutRetryCount = 0,
+  attemptRecords = []
+} = {}) {
+  return {
+    ...generationResult,
+    diagnostics: {
+      ...(generationResult?.diagnostics || {}),
+      providerKind: generationResult?.role?.providerKind || generationResult?.diagnostics?.providerKind || attempt.providerKind,
+      finalProviderKind: generationResult?.role?.providerKind || generationResult?.diagnostics?.providerKind || attempt.providerKind,
+      timeoutRetryCount,
+      utilityFallbackAttempted: attemptRecords.some((record) => record.providerKind === 'utility'),
+      providerAttempts: cloneJson(attemptRecords)
+    }
+  };
+}
+
+function providerDiagnosticsFromGenerationResult(generationResult = {}) {
+  return {
+    providerId: generationResult?.diagnostics?.providerId || null,
+    model: generationResult?.diagnostics?.model || null,
+    usage: cloneJson(generationResult?.diagnostics?.usage || null),
+    providerKind: generationResult?.diagnostics?.providerKind || generationResult?.role?.providerKind || null,
+    finalProviderKind: generationResult?.diagnostics?.finalProviderKind || generationResult?.diagnostics?.providerKind || generationResult?.role?.providerKind || null,
+    utilityFallbackAttempted: generationResult?.diagnostics?.utilityFallbackAttempted === true,
+    providerAttempts: cloneJson(generationResult?.diagnostics?.providerAttempts || []),
+    timeoutRetryCount: Number(generationResult?.diagnostics?.timeoutRetryCount || 0)
+  };
+}
+
+async function generateSectionDraftWithProviderFallback(generationRouter, request, {
+  signal = null,
+  onProgress = null
+} = {}) {
+  let timeoutRetryCount = 0;
+  let previousResult = null;
+  const attemptRecords = [];
+
+  for (const [index, attempt] of CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS.entries()) {
+    emitCreatorAssistProgress(onProgress, {
+      status: attempt.id,
+      providerKind: attempt.providerKind,
+      timeoutMs: attempt.timeoutMs,
+      attempt: index + 1,
+      message: attemptProgressMessage(attempt, previousResult)
+    });
+
+    let generationResult;
+    try {
+      generationResult = await generationRouter.generate(CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID, request, {
+        signal,
+        providerKind: attempt.providerKind,
+        timeoutMs: attempt.timeoutMs
+      });
+    } catch (error) {
+      generationResult = generationFailureResultFromThrown(error, attempt);
+    }
+
+    const record = {
+      id: attempt.id,
+      providerKind: attempt.providerKind,
+      timeoutMs: attempt.timeoutMs,
+      ok: generationResult?.ok === true,
+      errorCode: generationResult?.error?.code || null,
+      retryable: generationResult?.error?.retryable === true
+    };
+    attemptRecords.push(record);
     const result = {
       ...generationResult,
       diagnostics: {
         ...(generationResult?.diagnostics || {}),
-        timeoutRetryCount
+        timeoutRetryCount,
+        providerKind: generationResult?.role?.providerKind || generationResult?.diagnostics?.providerKind || attempt.providerKind,
+        finalProviderKind: generationResult?.role?.providerKind || generationResult?.diagnostics?.providerKind || attempt.providerKind,
+        utilityFallbackAttempted: attemptRecords.some((entry) => entry.providerKind === 'utility'),
+        providerAttempts: cloneJson(attemptRecords)
       }
     };
-    if (!isGenerationTimeoutResult(result)
-      || signal?.aborted
-      || attempt >= CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT) {
+    if (result.ok || isGenerationCanceledResult(result) || signal?.aborted) {
       return result;
     }
-    timeoutRetryCount += 1;
+    previousResult = result;
+    if (attempt.id === 'reasoning-primary' && isGenerationTimeoutResult(result)) timeoutRetryCount += 1;
   }
-  return null;
+
+  emitCreatorAssistProgress(onProgress, {
+    status: 'local-fallback',
+    providerKind: previousResult?.diagnostics?.finalProviderKind || null,
+    timeoutMs: 0,
+    attempt: CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS.length + 1,
+    message: localFallbackProgressMessage(previousResult)
+  });
+
+  return annotateGenerationAttemptResult(previousResult, CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS.at(-1), {
+    timeoutRetryCount,
+    attemptRecords
+  });
 }
 
 function createPrompt(snapshot) {
@@ -652,7 +806,8 @@ export async function runCharacterCreatorSectionDraft({
   input = {},
   generationRouter = null,
   useProvider = true,
-  signal = null
+  signal = null,
+  onProgress = null
 } = {}) {
   const id = requireSectionId(sectionId);
   const { context, snapshot, request } = buildCharacterCreatorSectionDraftRequest({
@@ -678,16 +833,17 @@ export async function runCharacterCreatorSectionDraft({
     };
   }
 
-  const generationResult = await generateSectionDraftWithTimeoutRetry(generationRouter, request, { signal });
+  const generationResult = await generateSectionDraftWithProviderFallback(generationRouter, request, {
+    signal,
+    onProgress
+  });
   if (isGenerationCanceledResult(generationResult)) {
     return {
       ...createCanceledResult({
         sectionId: id,
         mode,
         diagnostics: {
-          providerId: generationResult?.diagnostics?.providerId || null,
-          model: generationResult?.diagnostics?.model || null,
-          timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
+          ...providerDiagnosticsFromGenerationResult(generationResult)
         }
       }),
       requestSnapshot: cloneJson(snapshot)
@@ -704,9 +860,7 @@ export async function runCharacterCreatorSectionDraft({
         diagnostics: {
           providerUsed: true,
           providerOutputRejected: true,
-          providerId: generationResult?.diagnostics?.providerId || null,
-          model: generationResult?.diagnostics?.model || null,
-          timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
+          ...providerDiagnosticsFromGenerationResult(generationResult)
         }
       }),
       requestSnapshot: cloneJson(snapshot)
@@ -729,9 +883,7 @@ export async function runCharacterCreatorSectionDraft({
             providerOutputRejected: true,
             hiddenLeakBlocked: true,
             hiddenLeakTerm: leak,
-            providerId: generationResult?.diagnostics?.providerId || null,
-            model: generationResult?.diagnostics?.model || null,
-            timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
+            ...providerDiagnosticsFromGenerationResult(generationResult)
           }
         }),
         requestSnapshot: cloneJson(snapshot)
@@ -760,9 +912,7 @@ export async function runCharacterCreatorSectionDraft({
           providerOutputRejected: true,
           hiddenLeakBlocked: error?.code === 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_UNSAFE_OUTPUT',
           hiddenLeakTerm: error?.hiddenLeakTerm || null,
-          providerId: generationResult?.diagnostics?.providerId || null,
-          model: generationResult?.diagnostics?.model || null,
-          timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
+          ...providerDiagnosticsFromGenerationResult(generationResult)
         }
       }),
       requestSnapshot: cloneJson(snapshot)

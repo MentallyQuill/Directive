@@ -4196,7 +4196,8 @@ export function createDirectiveRuntimeApp({
       input = {},
       generationRouter = defaultGenerationRouter,
       useProvider = true,
-      signal = null
+      signal = null,
+      onProgress = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -4206,7 +4207,8 @@ export function createDirectiveRuntimeApp({
           input,
           generationRouter,
           useProvider,
-          signal
+          signal,
+          onProgress
         });
         activeScreen = 'creator';
         return {

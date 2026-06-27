@@ -131,7 +131,8 @@ export function createCreatorRuntimeService({
     input = {},
     generationRouter = null,
     useProvider = true,
-    signal = null
+    signal = null,
+    onProgress = null
   } = {}) {
     const creatorView = getCreatorView();
     const assets = activeCreatorRuntimeAssets();
@@ -143,7 +144,8 @@ export function createCreatorRuntimeService({
       input: mergedInput,
       generationRouter,
       useProvider,
-      signal
+      signal,
+      onProgress
     });
     setLastSectionDraftResult(cloneJson(assistResult));
     return assistResult;
