@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET,
   CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT,
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS,
   CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS,
   CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT,
   CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS,
@@ -12,6 +13,9 @@ import {
   buildCharacterCreatorSectionDraftRequest,
   runCharacterCreatorSectionDraft
 } from '../../src/creators/character-creator-assist.mjs';
+import {
+  PROVIDER_RESPONSE_ERROR_CODES
+} from '../../src/providers/provider-response-normalizer.mjs';
 
 const root = process.cwd();
 
@@ -123,6 +127,7 @@ assert.equal(validRouter.calls()[0].request.kind, 'directive.characterCreatorSec
 assert.equal(validRouter.calls()[0].request.modelPreferences.capability, 'reasoning-writing');
 assert.equal(validRouter.calls()[0].request.structuredOutput, true);
 assert.equal(validRouter.calls()[0].request.jsonSchema?.properties?.kind?.const, 'directive.characterCreatorSectionDraftResult');
+assert.equal(validRouter.calls()[0].request.parameters.max_tokens, CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS);
 assert.equal(validRouter.calls()[0].options.providerKind, 'reasoning');
 assert.equal(validRouter.calls()[0].options.timeoutMs, CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS);
 
@@ -241,6 +246,11 @@ assert.equal(utilityFallbackIdentity.diagnostics.finalProviderKind, 'utility');
 assert.equal(utilityFallbackIdentity.diagnostics.utilityFallbackAttempted, true);
 assert.equal(utilityFallbackIdentity.diagnostics.providerAttempts.length, 3);
 assert.deepEqual(utilityFallbackRouterCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning', 'utility']);
+assert.deepEqual(utilityFallbackRouterCalls.map((call) => call.request.parameters.max_tokens), [
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS,
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS,
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS
+]);
 assert.deepEqual(utilityFallbackRouterCalls.map((call) => call.options.timeoutMs), [
   CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS,
   CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS,
@@ -345,6 +355,50 @@ assert.equal(localFallbackAfterUtility.diagnostics.finalProviderKind, 'utility')
 assert.equal(localFallbackAfterUtility.diagnostics.providerAttempts.length, 3);
 assert.equal(localFallbackAfterUtilityCalls.length, 3);
 assert.equal(localFallbackAfterUtilityProgress.at(-1).message, 'Utility timed out. Using local fallback...');
+
+const localFallbackAfterTokenLimitCalls = [];
+const localFallbackAfterTokenLimitProgress = [];
+const localFallbackAfterTokenLimitRouter = {
+  async generate(roleId, request, options = {}) {
+    localFallbackAfterTokenLimitCalls.push({ roleId, request, options });
+    return {
+      ok: false,
+      role: { id: roleId, providerKind: options.providerKind },
+      error: {
+        code: PROVIDER_RESPONSE_ERROR_CODES.TOKEN_LIMIT,
+        message: `${options.providerKind} provider stopped because it hit the response token limit (length; max ${request.parameters.max_tokens}).`,
+        retryable: true,
+        details: {
+          code: PROVIDER_RESPONSE_ERROR_CODES.TOKEN_LIMIT,
+          finishReason: 'length',
+          maxTokens: request.parameters.max_tokens
+        }
+      },
+      diagnostics: {}
+    };
+  }
+};
+const localFallbackAfterTokenLimit = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'service',
+  input: {},
+  generationRouter: localFallbackAfterTokenLimitRouter,
+  onProgress: (progress) => localFallbackAfterTokenLimitProgress.push(progress)
+});
+assert.equal(localFallbackAfterTokenLimit.source, 'deterministic-fallback');
+assert.equal(localFallbackAfterTokenLimit.diagnostics.finalProviderKind, 'utility');
+assert.equal(localFallbackAfterTokenLimit.diagnostics.providerAttempts.length, 3);
+assert.deepEqual(localFallbackAfterTokenLimitCalls.map((call) => call.request.parameters.max_tokens), [
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS,
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS,
+  CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS
+]);
+assert.deepEqual(localFallbackAfterTokenLimitProgress.map((entry) => entry.message), [
+  'Generating with Reasoning...',
+  'Reasoning hit the output limit. Retrying Reasoning...',
+  'Reasoning hit the output limit again. Trying Utility...',
+  'Utility hit the output limit. Using local fallback...'
+]);
 
 const localFallbackAfterTransportCalls = [];
 const localFallbackAfterTransportProgress = [];

@@ -17164,16 +17164,23 @@
       }
     ],
     "datasets": [
-      {
-        "kind": "crew",
-        "id": "glass-harbor.senior-staff",
-        "path": "packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json",
-        "schema": "schemas/packages/crew-dataset.schema.json",
-        "status": "draft"
-      },
-      {
-        "kind": "missionGraph",
-        "id": "glass-harbor.drowned-constellation.prelude-soundings",
+    {
+      "kind": "crew",
+      "id": "glass-harbor.senior-staff",
+      "path": "packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json",
+      "schema": "schemas/packages/crew-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "ship",
+      "id": "glass-harbor.steamrunner-class",
+      "path": "packages/bundled/glass-harbor/glass-harbor-steamrunner-class.ship-dataset.json",
+      "schema": "schemas/packages/ship-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "missionGraph",
+      "id": "glass-harbor.drowned-constellation.prelude-soundings",
         "path": "packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "draft"

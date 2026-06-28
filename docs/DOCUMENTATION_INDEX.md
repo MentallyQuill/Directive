@@ -32,6 +32,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Continuity Projection Matrix (CPM) Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): as-coded source-backed continuity projection, prompt lanes, planner fallback, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification flow.
+- [Directive Datasets](technical/DIRECTIVE_DATASETS.md): package, projection, crew, ship, mission graph, Mission Component, save-state, journal, and configuration data map, including how datasets feed CPM, Directors, sidecars, prompts, and UI.
 - [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and deterministic/Utility-backed time adjudication.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 
@@ -45,6 +46,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Directive Technical Manual](technical/DIRECTIVE_TECHNICAL_MANUAL.md): Haynes-style technical overview covering runtime spine, package/state boundary, player turn lifecycle, model-call authority, state transactions, prompt context, sidecars, host adapters, and diagnostics.
 - [Player Turn Sequence](technical/PLAYER_TURN_SEQUENCE.md): post-to-response lifecycle from host ingress through classification, Director escalation, mechanics commit, narration, autosave, sidecars, and recovery.
 - [CPM Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): deep dive with source-frame, fact-index, prompt-lane, Director-packet, sidecar, contradiction, diagnostic, and certification infographics.
+- [Directive Datasets](technical/DIRECTIVE_DATASETS.md): technical map of source bibles, packages, projections, crew/ship datasets, mission graphs, Mission Components, save-state data, runtime journals, and dynamic-system consumers.
 - [Model Calls And Provider Routing](technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, provider sources, role groups, model-call authority table, structured output, and sanitized diagnostics.
 - [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
 - [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): SillyTavern adapter, fake host, host boundary diagram, and future host-adapter rules.
@@ -188,5 +190,8 @@ The current baseline comes from source briefs copied into this repository:
 - [Directive Ashes of Peace Campaign v0.2](source/Directive_Ashes_of_Peace_Campaign_v0.2.md)
 - [Directive Breckenridge Senior Staff Character Bible](source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
 - [Directive Intrepid-Class Starship Bible](source/Directive_Intrepid_Class_Starship_Bible.md)
+- [Directive Steamrunner-Class Starship Bible](source/Directive_Steamrunner_Class_Starship_Bible.md)
+- [Directive New Orleans-Class Starship Bible](source/Directive_New_Orleans_Class_Starship_Bible.md)
+- [Directive Norway-Class Starship Bible](source/Directive_Norway_Class_Starship_Bible.md)
 
 When a decision here conflicts with those briefs, update the relevant design doc and keep the question log current.

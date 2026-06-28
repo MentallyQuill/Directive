@@ -128,8 +128,36 @@ export function createFakeChatAdapter({
   let currentChatId = chatId;
   let binding = null;
   const metadataByChatId = new Map();
-  const chatMessages = messages.map(cloneJson);
+  const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
   const calls = [];
+  function messagesForChat(id = currentChatId) {
+    const key = String(id || '');
+    if (!chatsById.has(key)) chatsById.set(key, []);
+    return chatsById.get(key);
+  }
+  function retargetChatIds(value, sourceChatId, targetChatId) {
+    if (!sourceChatId || !targetChatId || value === null || value === undefined) return cloneJson(value);
+    if (Array.isArray(value)) return value.map((entry) => retargetChatIds(entry, sourceChatId, targetChatId));
+    if (typeof value !== 'object') return cloneJson(value);
+    const next = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if ((key === 'chatId' || key === 'currentChatId') && String(entry || '') === String(sourceChatId)) {
+        next[key] = targetChatId;
+      } else {
+        next[key] = retargetChatIds(entry, sourceChatId, targetChatId);
+      }
+    }
+    return next;
+  }
+  function uniqueBranchChatId({ saveId = null, name = null } = {}) {
+    const rawBase = String(saveId || name || `branch-${chatsById.size + 1}`).trim() || `branch-${chatsById.size + 1}`;
+    const base = rawBase.startsWith('fake-chat-') ? rawBase : `fake-chat-${rawBase}`;
+    let candidate = base;
+    for (let index = 2; chatsById.has(candidate); index += 1) {
+      candidate = `${base}-${index}`;
+    }
+    return candidate;
+  }
   function storeBinding(nextBinding) {
     binding = cloneJson(nextBinding);
     const targetChatId = binding?.chatId || currentChatId;
@@ -165,7 +193,9 @@ export function createFakeChatAdapter({
       currentChatId = requestedChatId
         || (createsFreshChat ? `fake-chat-${options.campaignId || 'campaign'}` : currentChatId);
       if (createsFreshChat) {
-        chatMessages.splice(0, chatMessages.length);
+        chatsById.set(String(currentChatId), []);
+      } else {
+        messagesForChat(currentChatId);
       }
       const nextBinding = {
         hostId: 'fake',
@@ -202,6 +232,7 @@ export function createFakeChatAdapter({
       return value === currentChatId;
     },
     getRecentMessages(options = 12) {
+      const chatMessages = messagesForChat();
       const limit = typeof options === 'number' ? options : Number(options?.limit || 12);
       const slice = chatMessages.slice(-Math.max(1, limit));
       const offset = chatMessages.length - slice.length;
@@ -219,6 +250,7 @@ export function createFakeChatAdapter({
       })));
     },
     getLatestUserMessage() {
+      const chatMessages = messagesForChat();
       const index = [...chatMessages].map((message, i) => ({ message, i })).reverse().find((entry) => entry.message.isUser && !entry.message.isDirectiveOwned);
       if (!index) return null;
       return cloneJson({
@@ -234,9 +266,11 @@ export function createFakeChatAdapter({
       return this.getLatestUserMessage();
     },
     getMessage(hostMessageId) {
+      const chatMessages = messagesForChat();
       return cloneJson(chatMessages.find((message) => String(message.hostMessageId || message.id) === String(hostMessageId)) || null);
     },
     normalizeMessagePayload(payload) {
+      const chatMessages = messagesForChat();
       const raw = payload?.message || payload || null;
       if (!raw || typeof raw !== 'object') return null;
       const index = Number.isInteger(payload?.index) ? payload.index : (Number.isInteger(payload?.messageIndex) ? payload.messageIndex : chatMessages.indexOf(raw));
@@ -253,6 +287,7 @@ export function createFakeChatAdapter({
       });
     },
     async postAssistantMessage(options = {}) {
+      const chatMessages = messagesForChat();
       const existing = chatMessages.find((message) => message.metadata?.idempotencyKey === options.idempotencyKey);
       if (existing) {
         return {
@@ -306,6 +341,7 @@ export function createFakeChatAdapter({
       };
     },
     async appendAssistantMessageSwipe(options = {}) {
+      const chatMessages = messagesForChat();
       const id = String(options.hostMessageId || '').trim();
       const index = chatMessages.findIndex((message, cursor) => (
         String(message.hostMessageId || message.id || cursor) === id
@@ -354,6 +390,49 @@ export function createFakeChatAdapter({
         message: cloneJson(message)
       };
     },
+    async cloneCurrentChatForSaveBranch(options = {}) {
+      const sourceChatId = currentChatId;
+      const branchChatId = uniqueBranchChatId({
+        saveId: options.saveId,
+        name: options.name
+      });
+      const sourceMessages = messagesForChat(sourceChatId);
+      const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatId));
+      chatsById.set(String(branchChatId), branchMessages);
+      currentChatId = branchChatId;
+      const sourceBinding = options.sourceBinding && typeof options.sourceBinding === 'object'
+        ? options.sourceBinding
+        : (metadataByChatId.get(String(sourceChatId)) || binding || {});
+      const nextBinding = {
+        ...cloneJson(sourceBinding),
+        hostId: 'fake',
+        chatId: branchChatId,
+        campaignId: options.campaignId || sourceBinding.campaignId || null,
+        saveId: options.saveId || sourceBinding.saveId || null,
+        entityType: sourceBinding.entityType || 'character',
+        entityId: sourceBinding.entityId || entityId,
+        entityName: sourceBinding.entityName || entityName,
+        chatName: options.name || sourceBinding.chatName || null,
+        status: sourceBinding.status || 'bound',
+        createdByDirective: true,
+        creationMethod: 'clone-current-chat',
+        clonedFromChatId: sourceChatId,
+        clonedAt: '2026-06-22T00:00:00.000Z'
+      };
+      storeBinding(nextBinding);
+      calls.push({
+        type: 'cloneCurrentChatForSaveBranch',
+        options: cloneJson(options),
+        sourceChatId,
+        branchChatId,
+        messageCount: branchMessages.length
+      });
+      return {
+        ...cloneJson(binding),
+        sourceChatId,
+        messageCount: branchMessages.length
+      };
+    },
     async updateBindingMetadata(nextBinding) {
       storeBinding({
         ...cloneJson(nextBinding),
@@ -366,10 +445,12 @@ export function createFakeChatAdapter({
     },
     async open(nextBinding) {
       if (nextBinding?.chatId) currentChatId = nextBinding.chatId;
+      messagesForChat(currentChatId);
       return true;
     },
     setCurrentChatId(nextChatId, metadata = undefined) {
       currentChatId = nextChatId || '';
+      messagesForChat(currentChatId);
       if (metadata !== undefined && currentChatId) {
         metadataByChatId.set(String(currentChatId), cloneJson(metadata));
       }
@@ -380,6 +461,7 @@ export function createFakeChatAdapter({
       return { ok: true, chatId: currentChatId };
     },
     pushPlayerMessage({ text, hostMessageId = null } = {}) {
+      const chatMessages = messagesForChat();
       const resolvedId = hostMessageId || `fake-message-${chatMessages.length + 1}`;
       const message = {
         id: resolvedId,
@@ -393,6 +475,7 @@ export function createFakeChatAdapter({
       return cloneJson(message);
     },
     pushAssistantMessage({ text, hostMessageId = null, directiveOwned = false, metadata = null, isSystem = false, swipes = null, swipeId = null } = {}) {
+      const chatMessages = messagesForChat();
       const resolvedId = hostMessageId || `fake-message-${chatMessages.length + 1}`;
       const normalizedSwipes = Array.isArray(swipes) ? swipes.map((entry) => String(entry || '')).filter(Boolean) : null;
       const selectedSwipeIndex = Number.isInteger(swipeId) && normalizedSwipes && swipeId >= 0 && swipeId < normalizedSwipes.length
@@ -417,7 +500,18 @@ export function createFakeChatAdapter({
       return cloneJson(message);
     },
     messages() {
-      return cloneJson(chatMessages);
+      return cloneJson(messagesForChat());
+    },
+    messagesForChat(chatId) {
+      return cloneJson(messagesForChat(chatId));
+    },
+    setMessagesForChat(chatId, nextMessages = []) {
+      const id = String(chatId || '');
+      chatsById.set(id, cloneJson(Array.isArray(nextMessages) ? nextMessages : []));
+      return cloneJson(chatsById.get(id));
+    },
+    chats() {
+      return Object.fromEntries([...chatsById.entries()].map(([id, value]) => [id, cloneJson(value)]));
     },
     calls() {
       return cloneJson(calls);
@@ -643,6 +737,7 @@ export function createFakeDirectiveHost(options = {}) {
         create: chatNative,
         bind: chatNative,
         open: chatNative,
+        clone: chatNative,
         postAssistant: chatNative,
         postAssistantMessage: chatNative,
         observeMessages: chatNative,

@@ -325,13 +325,29 @@ const scheduler = createCampaignSidecarScheduler({
   getCampaignState: getState,
   setCampaignState: setState,
   persistCampaignState: persist,
-  syncPromptContext: async (next, details) => {
+  syncPromptContext: async (next, details, options = {}) => {
     promptSyncs.push({ revision: next.runtimeTracking.revision, workerKey: details.workerKey });
+    options.activityReporter?.({
+      phase: 'continuityProjectionBuilding',
+      mode: options.activityMode || 'background',
+      source: options.activitySource || 'sidecarPromptSync',
+      workerKey: details.workerKey,
+      ...(options.activityContext || {})
+    });
     const synchronized = cloneJson(next);
     synchronized.campaignChatBinding = {
       ...(synchronized.campaignChatBinding || {}),
       promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1
     };
+    options.activityReporter?.({
+      phase: 'continuityProjectionInstalled',
+      mode: options.activityMode || 'background',
+      source: options.activitySource || 'sidecarPromptSync',
+      workerKey: details.workerKey,
+      status: 'complete',
+      revision: synchronized.campaignChatBinding.promptContextRevision,
+      ...(options.activityContext || {})
+    });
     return synchronized;
   },
   now
@@ -375,14 +391,21 @@ assert.deepEqual(firstActivityEvents.map((event) => event.phase), [
   'sidecarsQueued',
   'sidecarsRunning',
   'sidecarWorker',
+  'continuityProjectionBuilding',
+  'continuityProjectionInstalled',
   'sidecarWorker',
   'sidecarsSettled'
 ]);
 assert.deepEqual(firstActivityEvents[0].requested, ['ship']);
 assert.equal(firstActivityEvents[2].workerKey, 'ship');
 assert.equal(firstActivityEvents[2].status, 'running');
+assert.equal(firstActivityEvents[3].source, 'campaignSidecarScheduler');
+assert.equal(firstActivityEvents[3].mode, 'background');
 assert.equal(firstActivityEvents[3].workerKey, 'ship');
-assert.equal(firstActivityEvents[3].status, 'applied');
+assert.equal(firstActivityEvents[4].source, 'campaignSidecarScheduler');
+assert.equal(firstActivityEvents[4].status, 'complete');
+assert.equal(firstActivityEvents[5].workerKey, 'ship');
+assert.equal(firstActivityEvents[5].status, 'applied');
 assert.equal(firstActivityEvents.at(-1).mode, 'background');
 assert.equal(generationRequests.at(-1).request.prompt.includes('"continuityProjection"'), true);
 assert.equal(generationRequests.at(-1).request.prompt.includes('matrix-digest-1'), true);

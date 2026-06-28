@@ -16,6 +16,7 @@ let chatSaves = 0;
 let addedMessages = 0;
 let selectedCharacterId = 0;
 let forceSystemName2 = false;
+const savedChats = new Map();
 const createdCharacterNames = [];
 const createdCharacterPayloads = [];
 const selectedCharacterCalls = [];
@@ -50,6 +51,15 @@ const context = {
   async openCharacterChat(...args) {
     openedCharacterArgs.push(args);
     currentChatId = args[0];
+    if (savedChats.has(currentChatId)) {
+      const saved = savedChats.get(currentChatId);
+      chat = JSON.parse(JSON.stringify(saved.chatData || []));
+      this.chatMetadata = JSON.parse(JSON.stringify(saved.withMetadata || {}));
+    }
+  },
+  async saveChatSnapshot(options) {
+    savedChats.set(options.chatName, JSON.parse(JSON.stringify(options)));
+    chatSaves += 1;
   },
   async saveMetadata() { metadataSaves += 1; },
   async saveChat() { chatSaves += 1; },
@@ -164,6 +174,23 @@ assert.equal(
   null,
   'Missing host message ids should remain transient so the event observer can retry.'
 );
+const cloneSourceChatId = currentChatId;
+const cloneSourceMessageCount = chat.length;
+const branchBinding = await adapter.cloneCurrentChatForSaveBranch({
+  name: 'Directive - Ashes Branch',
+  campaignId: 'campaign-st-adapter',
+  saveId: 'save-st-branch',
+  sourceBinding: context.chatMetadata.directiveCampaignBinding
+});
+assert.equal(branchBinding.sourceChatId, cloneSourceChatId);
+assert.equal(branchBinding.chatId, 'Directive - Ashes Branch');
+assert.equal(branchBinding.saveId, 'save-st-branch');
+assert.equal(currentChatId, branchBinding.chatId);
+assert.equal(chat.length, cloneSourceMessageCount);
+assert.equal(savedChats.get('Directive - Ashes Branch').chatData.length, cloneSourceMessageCount);
+assert.equal(savedChats.get('Directive - Ashes Branch').withMetadata.directiveCampaignBinding.saveId, 'save-st-branch');
+assert.equal(context.chatMetadata.directiveCampaignBinding.chatId, 'Directive - Ashes Branch');
+assert.equal(context.chatMetadata.directiveCampaignBinding.saveId, 'save-st-branch');
 const continuationUnavailable = await adapter.continueHostGeneration({ reason: 'node-adapter-contract' });
 assert.equal(continuationUnavailable.ok, false);
 assert.equal(continuationUnavailable.skipped, false);

@@ -1126,7 +1126,7 @@ Directive commits mechanics before narration. Narration retry uses the same outc
 
 ### Branch Behavior
 
-Use Save Game As to create a named branch. The branch becomes the active save branch and updates chat binding metadata so future manual saves target the branch.
+Use Save Game As to create a named branch. The branch becomes the active save branch, opens a cloned campaign chat under the same character card, and updates cloned-chat binding metadata so future manual saves target the branch without altering the source save's chat.
 
 ### Edit/Delete Recovery
 

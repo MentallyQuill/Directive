@@ -699,9 +699,19 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function syncPrompt(state, summary = 'Prompt context synchronized.', promptFrame = null) {
+  async function syncPrompt(state, summary = 'Prompt context synchronized.', promptFrame = null, activityReporter = null, activityContext = {}) {
     if (typeof syncPromptContext !== 'function') return state;
-    const next = await syncPromptContext(state, promptFrame);
+    const next = await syncPromptContext(state, promptFrame, {
+      activityReporter,
+      activitySource: activityContext.activitySource || activityContext.source || 'chatTurnPromptSync',
+      activityContext: {
+        classification: activityContext.classification || null,
+        ingressId: activityContext.ingressId || null,
+        turnId: activityContext.turnId || null,
+        outcomeId: activityContext.outcomeId || null,
+        source: activityContext.source || null
+      }
+    });
     if (next && next !== state) {
       await persistState(next, summary);
       return next;
@@ -759,7 +769,13 @@ export function createChatTurnOrchestrator({
           'Prompt context synchronized after Scene Handshake settlement.',
           promptFrameForMessage(next, message, { classification: 'sceneHandshake' }, {
             acceptedAssistantVariant: cloneJson(result.selectedAssistantVariant || result.record?.selectedAssistantVariant || null)
-          })
+          }),
+          activityReporter,
+          {
+            source: 'sceneHandshake',
+            classification: 'sceneHandshake',
+            ingressId
+          }
         );
       } catch (error) {
         if (stateDeltaGateway?.restore && Number.isFinite(rollbackRevision)) {
@@ -1681,7 +1697,11 @@ export function createChatTurnOrchestrator({
         ingressId,
         timeChanged
       });
-      next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision));
+      next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision), activityReporter, {
+        source: 'chatTurn',
+        classification: decision.classification,
+        ingressId
+      });
     }
     const stale = currentSourceStaleResult(ingressId, message, 'before-no-change-dispatch', next);
     if (stale) return stale;
@@ -1741,7 +1761,11 @@ export function createChatTurnOrchestrator({
         ingressId,
         timeChanged: true
       });
-      next = await syncPrompt(next, 'Prompt context synchronized for location transition pacing.', promptFrameForMessage(next, message, decision));
+      next = await syncPrompt(next, 'Prompt context synchronized for location transition pacing.', promptFrameForMessage(next, message, decision), activityReporter, {
+        source: 'locationTransition',
+        classification: decision.classification,
+        ingressId
+      });
     }
     const stale = currentSourceStaleResult(ingressId, message, 'before-location-transition-dispatch', next);
     if (stale) return stale;
@@ -1841,7 +1865,12 @@ export function createChatTurnOrchestrator({
       ingressId,
       turnId: routineId
     });
-    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision));
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision), activityReporter, {
+      source: 'routineCommand',
+      classification: decision.classification,
+      ingressId,
+      turnId: routineId
+    });
     const directiveOwned = decision.responseStrategy === 'directivePosted';
     const dispatched = await dispatchAndRecord({
       state: next,
@@ -1982,7 +2011,13 @@ export function createChatTurnOrchestrator({
       turnId: details.turnId || null,
       outcomeId: details.outcomeId || null
     });
-    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, details.message, decision));
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, details.message, decision), activityReporter, {
+      source: details.kind || decision.classification,
+      classification: details.kind || decision.classification,
+      ingressId,
+      turnId: details.turnId || null,
+      outcomeId: details.outcomeId || null
+    });
     return {
       handled: true,
       responseStrategy: 'pause',
@@ -2036,7 +2071,11 @@ export function createChatTurnOrchestrator({
       classification: decision.classification,
       ingressId
     });
-    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision));
+    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision), activityReporter, {
+      source: 'counselRequest',
+      classification: decision.classification,
+      ingressId
+    });
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
@@ -2339,7 +2378,13 @@ export function createChatTurnOrchestrator({
       scene: {
         presentActorIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || []
       }
-    }));
+    }), activityReporter, {
+      source: 'committedOutcome',
+      classification: decision.classification,
+      ingressId,
+      turnId,
+      outcomeId
+    });
     scheduleTurnSidecars(decision, {
       ingressId,
       classification: decision.classification,
@@ -2550,7 +2595,11 @@ export function createChatTurnOrchestrator({
         classification: interaction.kind,
         ingressId: interaction.ingressId
       });
-      state = await syncPrompt(state);
+      state = await syncPrompt(state, 'Prompt context synchronized.', null, activityReporter, {
+        source: `pendingInteraction:${normalizedAction}`,
+        classification: interaction.kind,
+        ingressId: interaction.ingressId
+      });
       return { ok: true, action: normalizedAction, campaignState: cloneJson(state) };
     }
 
@@ -2640,7 +2689,13 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId
     });
-    state = await syncPrompt(state);
+    state = await syncPrompt(state, 'Prompt context synchronized.', null, activityReporter, {
+      source: 'pendingInteractionResolution',
+      classification: interaction.kind,
+      ingressId: interaction.ingressId,
+      turnId,
+      outcomeId
+    });
     scheduleTurnSidecars({
       classification: interaction.kind,
       workerPlan: { missionDirector: true, relationship: true, crew: true, ship: true, commandBearing: true, continuity: true, promptUpdate: true }

@@ -221,10 +221,14 @@ function introShipLayoutContract(shipDataset = null) {
     shuttlebay.exteriorPlacement ? `Exterior placement: ${shuttlebay.exteriorPlacement}.` : null,
     ...array(shuttlebay.constraints)
   ].map(compact).filter(Boolean);
+  const hasIntrepidSaucerGuard = facts.some((fact) => /underside.*saucer|saucer-under(?:side|belly)|ventral primary hull/i.test(fact));
+  const shuttleInstruction = hasIntrepidSaucerGuard
+    ? '- If a shuttle arrival, launch, docking, hangar, or shuttlebay appears in the intro, use the ship layout facts above. Do not place the bay in the underside of the saucer or ventral primary hull.'
+    : '- If a shuttle arrival, launch, docking, hangar, or shuttlebay appears in the intro, use the ship layout facts above. Do not invent a different bay placement, exterior approach, or hull geometry.';
   return [
     'Ship layout contract:',
     ...facts.map((fact) => `- ${fact}`),
-    '- If a shuttle arrival, launch, docking, hangar, or shuttlebay appears in the intro, use the Deck 10 aft shuttlebay complex and an astern approach. Do not place the bay in the underside of the saucer or ventral primary hull.'
+    shuttleInstruction
   ].join('\n');
 }
 
@@ -557,6 +561,21 @@ function reportActivationActivity(host, payload = {}) {
   }
 }
 
+function promptContextProjectionSummary(packet = null) {
+  const projection = packet?.continuityProjection || {};
+  const plan = projection.plan || {};
+  return {
+    revision: Number(packet?.revision || 0) || null,
+    blockCount: Array.isArray(packet?.blocks) ? packet.blocks.length : 0,
+    contentHash: packet?.contentHash || packet?.hash || null,
+    projectionHash: projection.hash || null,
+    sourceHash: projection.sourceHash || null,
+    selectedFactCount: Array.isArray(plan.selectedFactIds) ? plan.selectedFactIds.length : 0,
+    guardedFactCount: Array.isArray(plan.guardFactIds) ? plan.guardFactIds.length : 0,
+    auditFactCount: Array.isArray(plan.auditFactIds) ? plan.auditFactIds.length : 0
+  };
+}
+
 function isPlayerMessage(message = null) {
   const user = message?.isUser === true || message?.is_user === true || message?.role === 'user';
   const directiveOwned = message?.isDirectiveOwned === true || message?.directiveOwned === true;
@@ -791,23 +810,67 @@ export function createCampaignActivationCoordinator({
       if (!completed(journal, 'promptInstalled')) {
         currentStep = 'promptInstalled';
         emitActivity({ phase: 'activationPromptInstalling', status: 'running', step: 'promptInstalled' });
-        const promptContext = await buildPlayerSafePromptContextWithContinuityPlanner({
-          campaignState: state,
-          packageData,
-          crewDataset,
-          shipDataset,
-          campaignProjection,
-          createdAt: timestamp(now)
-        }, {
-          generationRouter
-        });
-        const promptResult = await host.prompt.install({
-          binding: state.campaignChatBinding,
-          packet: promptContext
-        });
-        if (!promptResult?.ok) {
-          const error = new Error(promptResult?.error?.message || 'Campaign prompt installation failed.');
-          error.code = promptResult?.error?.code || 'DIRECTIVE_PROMPT_INSTALL_FAILED';
+        const projectionActivity = {
+          source: 'activation',
+          mode: 'blocking',
+          planner: true,
+          step: 'promptInstalled',
+          campaignId: state.campaign?.id || null,
+          chatId: state.campaignChatBinding?.chatId || null
+        };
+        emitActivity({ ...projectionActivity, phase: 'continuityProjectionPlanning', status: 'running' });
+        emitActivity({ ...projectionActivity, phase: 'continuityProjectionBuilding', status: 'running' });
+        let promptContext;
+        try {
+          promptContext = await buildPlayerSafePromptContextWithContinuityPlanner({
+            campaignState: state,
+            packageData,
+            crewDataset,
+            shipDataset,
+            campaignProjection,
+            createdAt: timestamp(now)
+          }, {
+            generationRouter
+          });
+          const projectionSummary = promptContextProjectionSummary(promptContext);
+          emitActivity({
+            ...projectionActivity,
+            ...projectionSummary,
+            phase: 'continuityProjectionValidating',
+            status: 'running'
+          });
+          emitActivity({
+            ...projectionActivity,
+            ...projectionSummary,
+            phase: 'continuityProjectionInstalling',
+            status: 'running'
+          });
+          const promptResult = await host.prompt.install({
+            binding: state.campaignChatBinding,
+            packet: promptContext
+          });
+          if (!promptResult?.ok) {
+            const error = new Error(promptResult?.error?.message || 'Campaign prompt installation failed.');
+            error.code = promptResult?.error?.code || 'DIRECTIVE_PROMPT_INSTALL_FAILED';
+            throw error;
+          }
+          emitActivity({
+            ...projectionActivity,
+            ...projectionSummary,
+            phase: 'continuityProjectionInstalled',
+            status: 'complete'
+          });
+        } catch (error) {
+          emitActivity({
+            ...projectionActivity,
+            phase: 'continuityProjectionFailed',
+            mode: 'review',
+            status: 'failed',
+            error: {
+              code: error?.code || null,
+              message: error?.message || String(error)
+            }
+          });
           throw error;
         }
         promptInstalledThisAttempt = true;

@@ -126,7 +126,7 @@ Character Creator drafts are separate records from campaign saves. A player can 
 Required pre-alpha behavior:
 
 - `Save Game` overwrites the current save slot with the current campaign state.
-- `Save Game As` creates a new save slot from the current campaign state and records parent/divergence branch metadata.
+- `Save Game As` creates a new save slot from the current campaign state, clones the active campaign chat under the same Directive character card, binds the new save to that cloned chat, and records parent/divergence branch metadata.
 - `Load Game` restores a selected save slot and makes it the active campaign state.
 - Saves preserve the active campaign package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
 - Mission state preserves active mission id, active mission graph id/path, active phase, and available decision points so a Prelude save can resume directly inside the Chapter 1 opening graph after handoff.
@@ -166,7 +166,7 @@ Current replacement and branch behavior:
 - `Rerun Outcome` previews a replacement from that pre-outcome snapshot while preserving the current committed state until acceptance.
 - Accepted replacements commit from the snapshot, which rolls back dependent state, Command Bearing spends, Command Decision awards, Command Competence ledgers, and pressure records from the replaced outcome.
 - `Delete Outcome` restores the pre-outcome snapshot.
-- `Save Game As` writes the active campaign payload and stores branch metadata with parent save id, parent save name, divergence outcome id, and branch timestamp.
+- `Save Game As` writes the active campaign payload retargeted to the cloned chat id and stores branch metadata with parent save id, parent save name, divergence outcome id, and branch timestamp.
 
 Remaining persistence work:
 

@@ -2397,7 +2397,7 @@ async function clickCampaignSaveLoad(page, saveName) {
   });
 }
 
-async function verifySaveAsBranchReselect(page, saveAsName) {
+async function verifySaveAsBranchReselect(page, saveAsName, sourceBindingBeforeSaveAs = null) {
   try {
     const saveIndexAfterSaveAs = await readBrowserStorageJson(
       page,
@@ -2418,8 +2418,18 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
       branchEntry.id,
       'Save Game As branch campaignChatBinding saveId'
     );
+    const branchChatId = branchRecordBeforeLoad?.payload?.campaignState?.campaignChatBinding?.chatId || null;
+    assertBrowser(branchChatId, 'Save Game As branch payload must include a cloned campaign chat id.', branchRecordBeforeLoad);
+    if (sourceBindingBeforeSaveAs?.chatId) {
+      assert.notEqual(
+        branchChatId,
+        sourceBindingBeforeSaveAs.chatId,
+        'Save Game As branch must point at a cloned chat, not the source chat.'
+      );
+    }
     const chatBindingAfterSaveAs = await currentDirectiveChatBinding(page);
     assert.equal(chatBindingAfterSaveAs?.saveId, branchEntry.id, 'Active chat metadata saveId after Save Game As');
+    assert.equal(chatBindingAfterSaveAs?.chatId, branchChatId, 'Active chat metadata chatId after Save Game As');
     assert.equal(
       chatBindingAfterSaveAs?.campaignId,
       branchRecordBeforeLoad?.payload?.campaignState?.campaign?.id,
@@ -2450,6 +2460,8 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
       saveId: branchEntry.id,
       saveNamePrefix: 'Directive Live Smoke',
       payloadPath,
+      sourceChatId: sourceBindingBeforeSaveAs?.chatId || null,
+      branchChatId,
       loadedFrom: 'Campaign saves row',
       activeAfterLoad: true,
       campaign: beforeSummary,
@@ -4830,6 +4842,7 @@ async function runMissionBrowserFlow(page) {
     await waitForBodyButtonEnabled(page, 'Save Game');
 
     const saveAsName = `Directive Live Smoke ${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    const sourceBindingBeforeSaveAs = await currentDirectiveChatBinding(page);
     await clickBodyButton(page, 'Save Game As...');
     await page.locator('.directive-record-save-as-name-input').first().fill(saveAsName);
     await page.locator('.directive-record-save-as-dialog').getByRole('button', {
@@ -4840,7 +4853,7 @@ async function runMissionBrowserFlow(page) {
       timeout: BROWSER_TIMEOUT_MS
     });
     const saved = await panelSnapshot(page);
-    const branchLoad = await verifySaveAsBranchReselect(page, saveAsName);
+    const branchLoad = await verifySaveAsBranchReselect(page, saveAsName, sourceBindingBeforeSaveAs);
     saveFlow = {
       skipped: false,
       openedCampaignChatForGuard,

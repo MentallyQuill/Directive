@@ -454,6 +454,10 @@ export function createCampaignStartController({
       return cloneJson(storageDiagnostics);
     },
 
+    createSaveId(prefix = 'save') {
+      return nextId(prefix);
+    },
+
     getPackageContext({ packageId = activePackageId } = {}) {
       return createRuntimePackageContext(registry.getPackage(packageId));
     },

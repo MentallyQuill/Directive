@@ -1,0 +1,2712 @@
+{
+  "manifest": {
+    "kind": "directive.shipDataset",
+    "schemaVersion": 1,
+    "id": "aster-vale.new-orleans-class",
+    "packageId": "directive:campaign-package:aster-vale-unseen-border",
+    "shipId": "uss-aster-vale",
+    "classId": "new-orleans-class",
+    "title": "U.S.S. Aster Vale New Orleans-Class Ship Dataset",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Directive New Orleans-Class Starship Bible",
+      "path": "docs/source/Directive_New_Orleans_Class_Starship_Bible.md",
+      "version": "0.1",
+      "role": "ship-bible"
+    },
+    {
+      "title": "Aster Vale / Unseen Border",
+      "path": "docs/campaigns/ASTER_VALE_UNSEEN_BORDER.md",
+      "role": "campaign-reference"
+    },
+    {
+      "title": "Unseen Border campaign package",
+      "path": "packages/bundled/aster-vale/unseen-border.campaign-package.json",
+      "version": "0.1.0-pre-alpha.1",
+      "role": "campaign-package"
+    }
+  ],
+  "areas": [
+    {
+      "id": "new-orleans.bridge",
+      "name": "Bridge",
+      "decks": [
+        1
+      ],
+      "zone": "Deck 1 Galaxy-family bridge module scaled to frigate size",
+      "exteriorPlacement": "Dorsal saucer command module",
+      "functions": [
+        "command",
+        "pod tasking",
+        "patrol decisions",
+        "tactical coordination"
+      ],
+      "sceneUses": [
+        "acting command",
+        "border calls",
+        "evidence authorization",
+        "route clearance"
+      ],
+      "hardFacts": [
+        "The bridge uses familiar Starfleet formality at smaller frigate scale."
+      ],
+      "textures": [
+        "central command chairs",
+        "pod-status displays",
+        "route evidence overlay",
+        "forward conn",
+        "compact tactical station"
+      ],
+      "constraints": [
+        "Bridge scenes should turn what the ship sees into what Starfleet will do about it."
+      ],
+      "keywords": [
+        "bridge",
+        "conn",
+        "ops",
+        "tactical",
+        "pod tasking",
+        "viewscreen"
+      ],
+      "systems": []
+    },
+    {
+      "id": "new-orleans.ready-observation",
+      "name": "Ready room and observation room",
+      "decks": [
+        2
+      ],
+      "zone": "Deck 2 command support",
+      "exteriorPlacement": "Dorsal saucer near bridge access",
+      "functions": [
+        "private command judgment",
+        "formal senior-staff synthesis",
+        "inquiry",
+        "records authorization"
+      ],
+      "sceneUses": [
+        "witness protection",
+        "border policy",
+        "command transition",
+        "sealed evidence debate"
+      ],
+      "hardFacts": [
+        "The observation room is formal enough for senior-staff synthesis but smaller than Galaxy-class ceremony."
+      ],
+      "textures": [
+        "long table",
+        "wall display",
+        "secure evidence cabinet",
+        "ready-room terminal"
+      ],
+      "constraints": [
+        "Discovered facts here should become accountable records, not detached exposition."
+      ],
+      "keywords": [
+        "ready room",
+        "observation room",
+        "briefing room",
+        "senior staff",
+        "inquiry"
+      ],
+      "systems": []
+    },
+    {
+      "id": "new-orleans.wardroom-diplomatic",
+      "name": "Wardroom, mess, and diplomatic cabin",
+      "decks": [
+        3,
+        4,
+        5
+      ],
+      "zone": "Forward and mid-saucer social and diplomatic spaces",
+      "exteriorPlacement": "Saucer crew and guest volume",
+      "functions": [
+        "meals",
+        "morale",
+        "informal diplomacy",
+        "protected civilian meetings"
+      ],
+      "sceneUses": [
+        "trust",
+        "asylum",
+        "crew fatigue",
+        "witness conversation"
+      ],
+      "hardFacts": [
+        "The wardroom carries compact Starfleet dignity without flagship scale."
+      ],
+      "textures": [
+        "compact tables",
+        "replicator alcove",
+        "mission plaque",
+        "protected waiting room",
+        "older display panel"
+      ],
+      "constraints": [
+        "Social space should show how visibility and records affect people, not only policy."
+      ],
+      "keywords": [
+        "wardroom",
+        "mess",
+        "diplomatic cabin",
+        "meal",
+        "witness",
+        "morale"
+      ],
+      "systems": []
+    },
+    {
+      "id": "new-orleans.sickbay",
+      "name": "Sickbay",
+      "decks": [
+        4,
+        5
+      ],
+      "zone": "Protected mid-saucer medical suite",
+      "exteriorPlacement": "",
+      "functions": [
+        "treatment",
+        "forensic medicine",
+        "asylum medical exams",
+        "casualty care"
+      ],
+      "sceneUses": [
+        "body evidence",
+        "trauma",
+        "privacy",
+        "command cost"
+      ],
+      "hardFacts": [
+        "Medical truth can protect or endanger a person when records are politically contested."
+      ],
+      "textures": [
+        "biobeds",
+        "surgical alcove",
+        "CMO office",
+        "forensic evidence storage",
+        "privacy screens"
+      ],
+      "constraints": [
+        "Medical logs may require sealing, redaction, or command-level protection."
+      ],
+      "keywords": [
+        "sickbay",
+        "doctor",
+        "medical",
+        "forensic",
+        "biobed",
+        "privacy"
+      ],
+      "systems": [
+        "new-orleans.records-chart-custody"
+      ]
+    },
+    {
+      "id": "new-orleans.transporter-security",
+      "name": "Transporter rooms, security, and brig",
+      "decks": [
+        6
+      ],
+      "zone": "Deck 6 movement and custody spaces",
+      "exteriorPlacement": "",
+      "functions": [
+        "personnel transfer",
+        "custody",
+        "evidence transfer",
+        "detainment",
+        "asylum movement"
+      ],
+      "sceneUses": [
+        "asylum",
+        "boarding",
+        "witness protection",
+        "arrest",
+        "chain of custody"
+      ],
+      "hardFacts": [
+        "Transporter movement can become asylum, kidnapping, rescue, extradition refusal, or evidence contamination."
+      ],
+      "textures": [
+        "multi-pad transporter",
+        "operator booth",
+        "secure interview room",
+        "compact brig",
+        "evidence intake"
+      ],
+      "constraints": [
+        "Movement must remain legally and ethically legible."
+      ],
+      "keywords": [
+        "transporter",
+        "beam",
+        "security",
+        "brig",
+        "evidence",
+        "custody",
+        "asylum"
+      ],
+      "systems": [
+        "new-orleans.records-chart-custody"
+      ]
+    },
+    {
+      "id": "new-orleans.mission-ops-pod-control",
+      "name": "Mission ops and pod-control room",
+      "decks": [
+        9
+      ],
+      "zone": "Central mission space linked to dorsal and ventral pod access trunks",
+      "exteriorPlacement": "Internal pod-control space tied to two dorsal saucer pods and one ventral secondary-hull pod",
+      "functions": [
+        "pod tasking",
+        "chart validation",
+        "border-marker verification",
+        "evidence control"
+      ],
+      "sceneUses": [
+        "hidden route discovery",
+        "sanctuary exposure",
+        "sensor dispute",
+        "sealed data review"
+      ],
+      "hardFacts": [
+        "New Orleans-class ships carry two dorsal saucer mission/sensor pods and one ventral secondary-hull pod in Directive baseline.",
+        "Mission pods are specialized perception systems, not routine shuttlebays or infinite cargo modules by default."
+      ],
+      "textures": [
+        "pod-status columns",
+        "raw telemetry archive",
+        "sealed and public map displays",
+        "calibration logs"
+      ],
+      "constraints": [
+        "Pod data has arc, power, calibration, maintenance, and custody limits."
+      ],
+      "keywords": [
+        "mission ops",
+        "pod control",
+        "mission pod",
+        "sensor pod",
+        "chart",
+        "route",
+        "border",
+        "evidence"
+      ],
+      "systems": [
+        "new-orleans.mission-pods",
+        "new-orleans.records-chart-custody"
+      ]
+    },
+    {
+      "id": "new-orleans.science-pod-access",
+      "name": "Science labs and pod access",
+      "decks": [
+        7,
+        8
+      ],
+      "zone": "Saucer labs with access trunks to dorsal pods",
+      "exteriorPlacement": "Internal access toward dorsal saucer mission/sensor pods",
+      "functions": [
+        "analysis",
+        "calibration",
+        "sample work",
+        "probe telemetry",
+        "specialist review"
+      ],
+      "sceneUses": [
+        "verification",
+        "sabotage",
+        "false positives",
+        "specialist conflict"
+      ],
+      "hardFacts": [
+        "Dorsal pod access is specialized and constrained, not a normal hallway network."
+      ],
+      "textures": [
+        "lab benches",
+        "sensor calibration chamber",
+        "pod-access ladder",
+        "probe cradle",
+        "sealed sample locker"
+      ],
+      "constraints": [
+        "Pod calibration can delay action even when command wants immediate certainty."
+      ],
+      "keywords": [
+        "science lab",
+        "pod access",
+        "calibration",
+        "probe",
+        "sensor",
+        "sample"
+      ],
+      "systems": [
+        "new-orleans.mission-pods"
+      ]
+    },
+    {
+      "id": "new-orleans.main-engineering",
+      "name": "Main engineering and deflector control",
+      "decks": [
+        10,
+        11
+      ],
+      "zone": "Compact secondary hull and lower mission support",
+      "exteriorPlacement": "Secondary hull power and deflector support",
+      "functions": [
+        "warp power",
+        "deflector control",
+        "pod power distribution",
+        "repair authority"
+      ],
+      "sceneUses": [
+        "power tradeoffs",
+        "pod damage",
+        "warp stress",
+        "repair ethics"
+      ],
+      "hardFacts": [
+        "Pod operation competes with shields, transporters, warp, and other ship systems through a finite power grid."
+      ],
+      "textures": [
+        "compact warp core",
+        "power-transfer consoles",
+        "pod power taps",
+        "deflector controls",
+        "older conduit labels"
+      ],
+      "constraints": [
+        "Age is not incompetence; the ship is proven, repairable, and still bounded by power tradeoffs."
+      ],
+      "keywords": [
+        "engineering",
+        "warp core",
+        "deflector",
+        "power grid",
+        "pod power",
+        "repair"
+      ],
+      "systems": [
+        "new-orleans.power-grid",
+        "new-orleans.mission-pods"
+      ]
+    },
+    {
+      "id": "new-orleans.cargo-field-stores",
+      "name": "Cargo and field stores",
+      "decks": [
+        12
+      ],
+      "zone": "Lower saucer or upper secondary service volume",
+      "exteriorPlacement": "",
+      "functions": [
+        "relief cargo",
+        "field kits",
+        "probe pallets",
+        "witness property",
+        "mission supplies"
+      ],
+      "sceneUses": [
+        "scarcity",
+        "evidence custody",
+        "asylum logistics",
+        "expedition prep"
+      ],
+      "hardFacts": [
+        "Cargo turns records, charts, and evidence into physical objects with custody."
+      ],
+      "textures": [
+        "modular containers",
+        "probe racks",
+        "locked evidence cages",
+        "relief pallets",
+        "cargo lifts"
+      ],
+      "constraints": [
+        "Which object is sealed, returned, or moved should matter."
+      ],
+      "keywords": [
+        "cargo",
+        "field stores",
+        "probe",
+        "evidence cage",
+        "relief",
+        "supply"
+      ],
+      "systems": [
+        "new-orleans.records-chart-custody"
+      ]
+    },
+    {
+      "id": "new-orleans.aft-saucer-shuttlebay",
+      "name": "Aft saucer/neck shuttlebay",
+      "decks": [
+        13
+      ],
+      "zone": "Deck 13 aft saucer/neck service zone",
+      "exteriorPlacement": "Aft saucer/neck service bay approached from astern and slightly above the engineering hull",
+      "functions": [
+        "shuttle launch",
+        "shuttle recovery",
+        "maintenance",
+        "protected passenger transfer"
+      ],
+      "sceneUses": [
+        "away-team movement",
+        "asylum arrivals",
+        "casualty return",
+        "pod interference"
+      ],
+      "hardFacts": [
+        "Directive New Orleans baseline places the primary small-craft bay in the aft saucer/neck service zone.",
+        "Shuttles approach from astern and slightly above the engineering hull.",
+        "Mission pods are not routine shuttlebays by default."
+      ],
+      "textures": [
+        "modest bay",
+        "force-field threshold",
+        "deck-control booth",
+        "maintenance alcove",
+        "passenger screening point"
+      ],
+      "constraints": [
+        "Do not depict shuttles routinely entering a mission pod.",
+        "Do not scale the bay into a massive Galaxy-class dorsal flight deck."
+      ],
+      "keywords": [
+        "shuttlebay",
+        "shuttle bay",
+        "shuttle",
+        "hangar",
+        "launch",
+        "recovery",
+        "aft bay"
+      ],
+      "systems": [
+        "new-orleans.small-craft-custody",
+        "new-orleans.mission-pods"
+      ]
+    },
+    {
+      "id": "new-orleans.lower-support-ventral-pod",
+      "name": "Lower support and ventral pod access",
+      "decks": [
+        14
+      ],
+      "zone": "Lower hull, environmental, maintenance, and ventral pod access",
+      "exteriorPlacement": "Lower secondary-hull support near the ventral mission/sensor pod",
+      "functions": [
+        "repair access",
+        "environmental control",
+        "lower pod calibration",
+        "emergency routing"
+      ],
+      "sceneUses": [
+        "physical risk",
+        "hidden damage",
+        "sabotage",
+        "private work scenes"
+      ],
+      "hardFacts": [
+        "The ventral pod's reliability depends on lower support access, seals, relays, and calibration."
+      ],
+      "textures": [
+        "ladders",
+        "ventral pod hatch",
+        "environmental junctions",
+        "older conduit labels",
+        "emergency bulkheads"
+      ],
+      "constraints": [
+        "Remote diagnostics may not replace physical pod access under sabotage or damage."
+      ],
+      "keywords": [
+        "lower support",
+        "ventral pod",
+        "Jefferies",
+        "pod hatch",
+        "environmental",
+        "maintenance"
+      ],
+      "systems": [
+        "new-orleans.mission-pods",
+        "new-orleans.power-grid"
+      ]
+    }
+  ],
+  "systems": [
+    {
+      "id": "new-orleans.mission-pods",
+      "name": "Mission/sensor pod suite",
+      "scope": "Two dorsal saucer pods and one ventral secondary-hull pod",
+      "capability": "Specialized sensor, survey, tactical-support, or mission-package functions that make hidden space visible.",
+      "dependencies": [
+        "power allocation",
+        "calibration",
+        "pod arc",
+        "maintenance access",
+        "data custody"
+      ],
+      "failureModes": [
+        "blind spot",
+        "false certainty",
+        "power conflict",
+        "sealed-data exposure",
+        "pod damage"
+      ],
+      "sceneUses": [
+        "chart validation",
+        "hidden-route detection",
+        "border marker verification",
+        "evidence dispute"
+      ],
+      "keywords": [
+        "mission pod",
+        "sensor pod",
+        "pod",
+        "calibration",
+        "chart",
+        "border"
+      ]
+    },
+    {
+      "id": "new-orleans.records-chart-custody",
+      "name": "Records, charts, and evidence custody",
+      "scope": "Ship logs, chart authority, medical/security records, and evidence handling",
+      "capability": "Controls what the ship knows, what it logs, who can read it, and when it becomes public.",
+      "dependencies": [
+        "access controls",
+        "raw data archives",
+        "command authorization",
+        "medical privacy",
+        "security chain of custody"
+      ],
+      "failureModes": [
+        "exposure of protected location",
+        "evidence contamination",
+        "sealed-data leak",
+        "public-trust collapse"
+      ],
+      "sceneUses": [
+        "asylum",
+        "chart publication",
+        "witness protection",
+        "border proof"
+      ],
+      "keywords": [
+        "record",
+        "chart",
+        "evidence",
+        "custody",
+        "log",
+        "sealed data"
+      ]
+    },
+    {
+      "id": "new-orleans.tactical-defensive",
+      "name": "Frigate tactical systems",
+      "scope": "Phaser arrays, photon torpedoes, shields, and patrol authority",
+      "capability": "Credible patrol and escort capability without task-group dominance.",
+      "dependencies": [
+        "weapon arcs",
+        "shield sectors",
+        "rules of engagement",
+        "pod power demand",
+        "civilian proximity"
+      ],
+      "failureModes": [
+        "arc limitation",
+        "escalation",
+        "inventory pressure",
+        "shield compromise"
+      ],
+      "sceneUses": [
+        "border warning",
+        "convoy cover",
+        "self-defense",
+        "limited enforcement"
+      ],
+      "keywords": [
+        "phaser",
+        "torpedo",
+        "shields",
+        "tactical",
+        "frigate",
+        "escort"
+      ]
+    },
+    {
+      "id": "new-orleans.power-grid",
+      "name": "Older-but-proven power grid",
+      "scope": "Mature Galaxy-era power distribution adapted for frigate pods and frontier refits",
+      "capability": "Understood and repairable systems that support pod loads, shields, transporters, and warp with real tradeoffs.",
+      "dependencies": [
+        "EPS distribution",
+        "pod loadout",
+        "warp demand",
+        "shield status",
+        "refit history"
+      ],
+      "failureModes": [
+        "pod power conflict",
+        "old conduit stress",
+        "calibration drift",
+        "temporary blind spot"
+      ],
+      "sceneUses": [
+        "pod operation under fire",
+        "repair history",
+        "route scan tradeoff",
+        "field refit"
+      ],
+      "keywords": [
+        "power grid",
+        "EPS",
+        "engineering",
+        "pod power",
+        "refit",
+        "warp"
+      ]
+    },
+    {
+      "id": "new-orleans.small-craft-custody",
+      "name": "Small-craft movement and custody",
+      "scope": "Aft shuttlebay, passenger screening, pod-safe approach windows, and movement logs",
+      "capability": "Moves teams, witnesses, casualties, and supplies while preserving legal and operational records.",
+      "dependencies": [
+        "bay clearance",
+        "pod sweep timing",
+        "screening logs",
+        "security routing",
+        "medical/cargo readiness"
+      ],
+      "failureModes": [
+        "unlogged arrival",
+        "pod interference",
+        "screening failure",
+        "custody ambiguity"
+      ],
+      "sceneUses": [
+        "asylum arrival",
+        "away-team launch",
+        "protected transfer",
+        "casualty return"
+      ],
+      "keywords": [
+        "shuttlebay",
+        "shuttle",
+        "custody",
+        "screening",
+        "arrival",
+        "launch"
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "ship.new-orleans-class.class.identity",
+      "type": "ship.profile",
+      "title": "New Orleans-class storytelling identity",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "2. Class Personality",
+          "9. Portrayal Principles"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.mission-pods",
+          "new-orleans.records-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_identity",
+          "ship_area",
+          "ship_system"
+        ],
+        "keywords": [
+          "ship",
+          "New Orleans-class",
+          "U.S.S. Aster Vale",
+          "Unseen Border",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "U.S.S. Aster Vale is a New Orleans-class vessel. A New Orleans-class ship is a mature Starfleet frigate: smaller than Galaxy-class grandeur, formal enough for diplomacy, and defined by mission/sensor pods that make visibility, evidence, and chart custody consequential. Campaign use: U.S.S. Aster Vale: Lacuna March frontier patrol, chart validation, protected visibility, evidence custody, asylum, and modular mission-pod work.",
+        "constraints": [
+          "Do not treat the ship as a full Galaxy-class city.",
+          "Do not ignore the pods or use them as routine shuttlebays by default."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Galaxy-family silhouette at frigate scale.",
+          "Two dorsal saucer mission/sensor pods and one ventral secondary-hull pod in Directive baseline.",
+          "Primary small-craft bay is in the aft saucer/neck service zone, approached from astern."
+        ],
+        "textures": [
+          "warm Galaxy-era light",
+          "pod status columns",
+          "route records",
+          "observation-room formality",
+          "evidence lockers"
+        ],
+        "avoid": [
+          "Galaxy-class reskin",
+          "pod-as-magic-module",
+          "Intrepid-style compact modernity"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.exterior.silhouette",
+      "type": "ship.exterior",
+      "title": "New Orleans-class exterior silhouette",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "3.1 Silhouette and first read",
+          "3.2 Exterior zones"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.mission-pods",
+          "new-orleans.records-chart-custody",
+          "new-orleans.tactical-defensive"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_exterior",
+          "ship_area"
+        ],
+        "keywords": [
+          "exterior",
+          "hull",
+          "silhouette",
+          "New Orleans-class",
+          "U.S.S. Aster Vale",
+          "Unseen Border",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The exterior reads as a compact Galaxy-era frigate with a familiar saucer, compact engineering hull, nacelles, and three prominent mission/sensor pods.",
+        "constraints": [
+          "Exterior prose should keep pod placement, saucer scale, engineering hull, and aft bay geometry consistent."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The three pods are class-defining exterior features.",
+          "The class is significantly smaller than a Galaxy-class ship.",
+          "Pod arcs and calibration can affect what the ship can prove."
+        ],
+        "textures": [
+          "dorsal pod shadows",
+          "ventral pod access",
+          "familiar saucer curve",
+          "compact secondary hull",
+          "pod calibration lights"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.exterior.shuttlebay-approach",
+      "type": "ship.exterior",
+      "title": "New Orleans-class shuttlebay approach",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "5.10 Aft saucer/neck shuttlebay, Deck 13"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.aft-saucer-shuttlebay"
+        ],
+        "systems": [
+          "new-orleans.small-craft-custody",
+          "new-orleans.mission-pods"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_exterior",
+          "ship_area",
+          "shuttlebay",
+          "opening_shuttle_rendezvous"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle bay",
+          "shuttle",
+          "hangar",
+          "docking",
+          "approach",
+          "launch",
+          "recovery",
+          "aft bay",
+          "New Orleans-class",
+          "U.S.S. Aster Vale",
+          "Unseen Border",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "critical"
+      },
+      "payload": {
+        "summary": "The aft saucer/neck shuttlebay turns passage into physical movement and official record. Directive New Orleans baseline places the primary small-craft bay in the aft saucer/neck service zone. Shuttles approach from astern and slightly above the engineering hull. Mission pods are not routine shuttlebays by default.",
+        "constraints": [
+          "Do not depict shuttles routinely entering a mission pod.",
+          "Do not scale the bay into a massive Galaxy-class dorsal flight deck."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Directive New Orleans baseline places the primary small-craft bay in the aft saucer/neck service zone.",
+          "Shuttles approach from astern and slightly above the engineering hull.",
+          "Mission pods are not routine shuttlebays by default."
+        ],
+        "textures": [
+          "modest bay",
+          "force-field threshold",
+          "deck-control booth",
+          "maintenance alcove",
+          "passenger screening point"
+        ],
+        "avoid": [
+          "Do not depict shuttles routinely entering a mission pod.",
+          "Do not scale the bay into a massive Galaxy-class dorsal flight deck."
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.bridge",
+      "type": "ship.location",
+      "title": "Bridge",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.1 Bridge, Deck 1"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.bridge"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "bridge"
+        ],
+        "keywords": [
+          "bridge",
+          "conn",
+          "ops",
+          "tactical",
+          "pod tasking",
+          "viewscreen",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The New Orleans bridge turns pod returns, border contacts, and patrol reports into accountable command action.",
+        "constraints": [
+          "Bridge scenes should turn what the ship sees into what Starfleet will do about it."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The bridge uses familiar Starfleet formality at smaller frigate scale."
+        ],
+        "textures": [
+          "central command chairs",
+          "pod-status displays",
+          "route evidence overlay",
+          "forward conn",
+          "compact tactical station"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.ready-observation",
+      "type": "ship.location",
+      "title": "Ready room and observation room",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.2 Ready room and observation room, Deck 2"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.ready-observation"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "ready-observation"
+        ],
+        "keywords": [
+          "ready room",
+          "observation room",
+          "briefing room",
+          "senior staff",
+          "inquiry",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Command support rooms turn discovered facts into records the ship and commander must own.",
+        "constraints": [
+          "Discovered facts here should become accountable records, not detached exposition."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The observation room is formal enough for senior-staff synthesis but smaller than Galaxy-class ceremony."
+        ],
+        "textures": [
+          "long table",
+          "wall display",
+          "secure evidence cabinet",
+          "ready-room terminal"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.wardroom-diplomatic",
+      "type": "ship.location",
+      "title": "Wardroom, mess, and diplomatic cabin",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.3 Wardroom, mess, and diplomatic cabin, Decks 3-5"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.wardroom-diplomatic"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "wardroom-diplomatic"
+        ],
+        "keywords": [
+          "wardroom",
+          "mess",
+          "diplomatic cabin",
+          "meal",
+          "witness",
+          "morale",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The wardroom turns formal Starfleet procedure into personal trust, asylum pressure, and crew fatigue.",
+        "constraints": [
+          "Social space should show how visibility and records affect people, not only policy."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The wardroom carries compact Starfleet dignity without flagship scale."
+        ],
+        "textures": [
+          "compact tables",
+          "replicator alcove",
+          "mission plaque",
+          "protected waiting room",
+          "older display panel"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.sickbay",
+      "type": "ship.location",
+      "title": "Sickbay",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.4 Sickbay, Decks 4-5"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.sickbay"
+        ],
+        "systems": [
+          "new-orleans.records-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "sickbay"
+        ],
+        "keywords": [
+          "sickbay",
+          "doctor",
+          "medical",
+          "forensic",
+          "biobed",
+          "privacy",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Sickbay turns disputed facts into bodies, medical records, and privacy risk.",
+        "constraints": [
+          "Medical logs may require sealing, redaction, or command-level protection."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Medical truth can protect or endanger a person when records are politically contested."
+        ],
+        "textures": [
+          "biobeds",
+          "surgical alcove",
+          "CMO office",
+          "forensic evidence storage",
+          "privacy screens"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.transporter-security",
+      "type": "ship.location",
+      "title": "Transporter rooms, security, and brig",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.5 Transporter rooms, security, and brig, Deck 6"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.transporter-security"
+        ],
+        "systems": [
+          "new-orleans.records-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "transporter-security"
+        ],
+        "keywords": [
+          "transporter",
+          "beam",
+          "security",
+          "brig",
+          "evidence",
+          "custody",
+          "asylum",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Transporter and security spaces turn movement into custody, protection, and legal risk.",
+        "constraints": [
+          "Movement must remain legally and ethically legible."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Transporter movement can become asylum, kidnapping, rescue, extradition refusal, or evidence contamination."
+        ],
+        "textures": [
+          "multi-pad transporter",
+          "operator booth",
+          "secure interview room",
+          "compact brig",
+          "evidence intake"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.mission-ops-pod-control",
+      "type": "ship.location",
+      "title": "Mission ops and pod-control room",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.6 Mission ops and pod-control room, Deck 9"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.mission-ops-pod-control"
+        ],
+        "systems": [
+          "new-orleans.mission-pods",
+          "new-orleans.records-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "mission-ops-pod-control"
+        ],
+        "keywords": [
+          "mission ops",
+          "pod control",
+          "mission pod",
+          "sensor pod",
+          "chart",
+          "route",
+          "border",
+          "evidence",
+          "Lacuna March",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Mission ops is where the New Orleans turns perception into institutional risk.",
+        "constraints": [
+          "Pod data has arc, power, calibration, maintenance, and custody limits."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "New Orleans-class ships carry two dorsal saucer mission/sensor pods and one ventral secondary-hull pod in Directive baseline.",
+          "Mission pods are specialized perception systems, not routine shuttlebays or infinite cargo modules by default."
+        ],
+        "textures": [
+          "pod-status columns",
+          "raw telemetry archive",
+          "sealed and public map displays",
+          "calibration logs"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.science-pod-access",
+      "type": "ship.location",
+      "title": "Science labs and pod access",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.7 Science labs and pod access, Decks 7-8"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.science-pod-access"
+        ],
+        "systems": [
+          "new-orleans.mission-pods"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "science-pod-access"
+        ],
+        "keywords": [
+          "science lab",
+          "pod access",
+          "calibration",
+          "probe",
+          "sensor",
+          "sample",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Science labs test whether seeing is knowing and whether pod data can be trusted.",
+        "constraints": [
+          "Pod calibration can delay action even when command wants immediate certainty."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Dorsal pod access is specialized and constrained, not a normal hallway network."
+        ],
+        "textures": [
+          "lab benches",
+          "sensor calibration chamber",
+          "pod-access ladder",
+          "probe cradle",
+          "sealed sample locker"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.main-engineering",
+      "type": "ship.location",
+      "title": "Main engineering and deflector control",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.8 Main engineering and deflector control, Decks 10-11"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.main-engineering"
+        ],
+        "systems": [
+          "new-orleans.power-grid",
+          "new-orleans.mission-pods"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "main-engineering"
+        ],
+        "keywords": [
+          "engineering",
+          "warp core",
+          "deflector",
+          "power grid",
+          "pod power",
+          "repair",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Engineering turns pod loadouts and institutional intent into power, maintenance, and repair cost.",
+        "constraints": [
+          "Age is not incompetence; the ship is proven, repairable, and still bounded by power tradeoffs."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Pod operation competes with shields, transporters, warp, and other ship systems through a finite power grid."
+        ],
+        "textures": [
+          "compact warp core",
+          "power-transfer consoles",
+          "pod power taps",
+          "deflector controls",
+          "older conduit labels"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.cargo-field-stores",
+      "type": "ship.location",
+      "title": "Cargo and field stores",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.9 Cargo and field stores, Deck 12"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.cargo-field-stores"
+        ],
+        "systems": [
+          "new-orleans.records-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "cargo-field-stores"
+        ],
+        "keywords": [
+          "cargo",
+          "field stores",
+          "probe",
+          "evidence cage",
+          "relief",
+          "supply",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Cargo makes the ship act on what it records: probes, relief, evidence, and field gear.",
+        "constraints": [
+          "Which object is sealed, returned, or moved should matter."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Cargo turns records, charts, and evidence into physical objects with custody."
+        ],
+        "textures": [
+          "modular containers",
+          "probe racks",
+          "locked evidence cages",
+          "relief pallets",
+          "cargo lifts"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+      "type": "ship.location",
+      "title": "Aft saucer/neck shuttlebay",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "5.10 Aft saucer/neck shuttlebay, Deck 13"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator",
+        "commandDirector"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.aft-saucer-shuttlebay"
+        ],
+        "systems": [
+          "new-orleans.small-craft-custody",
+          "new-orleans.mission-pods"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "aft-saucer-shuttlebay",
+          "shuttlebay"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle bay",
+          "shuttle",
+          "hangar",
+          "launch",
+          "recovery",
+          "aft bay",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The aft saucer/neck shuttlebay turns passage into physical movement and official record.",
+        "constraints": [
+          "Do not depict shuttles routinely entering a mission pod.",
+          "Do not scale the bay into a massive Galaxy-class dorsal flight deck."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Directive New Orleans baseline places the primary small-craft bay in the aft saucer/neck service zone.",
+          "Shuttles approach from astern and slightly above the engineering hull.",
+          "Mission pods are not routine shuttlebays by default."
+        ],
+        "textures": [
+          "modest bay",
+          "force-field threshold",
+          "deck-control booth",
+          "maintenance alcove",
+          "passenger screening point"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.location.lower-support-ventral-pod",
+      "type": "ship.location",
+      "title": "Lower support and ventral pod access",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "5.11 Lower support and ventral pod access, Deck 14"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "locations": [
+          "new-orleans.lower-support-ventral-pod"
+        ],
+        "systems": [
+          "new-orleans.mission-pods",
+          "new-orleans.power-grid"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "lower-support-ventral-pod"
+        ],
+        "keywords": [
+          "lower support",
+          "ventral pod",
+          "Jefferies",
+          "pod hatch",
+          "environmental",
+          "maintenance",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Lower support makes the class signature pods physically maintainable and vulnerable.",
+        "constraints": [
+          "Remote diagnostics may not replace physical pod access under sabotage or damage."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The ventral pod's reliability depends on lower support access, seals, relays, and calibration."
+        ],
+        "textures": [
+          "ladders",
+          "ventral pod hatch",
+          "environmental junctions",
+          "older conduit labels",
+          "emergency bulkheads"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.system.mission-pods",
+      "type": "ship.system",
+      "title": "Mission/sensor pod suite",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "6.1 Mission/sensor pods"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.mission-pods"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "mission-pods"
+        ],
+        "keywords": [
+          "mission pod",
+          "sensor pod",
+          "pod",
+          "calibration",
+          "chart",
+          "border",
+          "Lacuna March",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Mission pods extend perception and make visibility consequential.",
+        "constraints": [
+          "Capability: Specialized sensor, survey, tactical-support, or mission-package functions that make hidden space visible.",
+          "Dependencies: power allocation; calibration; pod arc; maintenance access; data custody.",
+          "Failure modes: blind spot; false certainty; power conflict; sealed-data exposure; pod damage."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Two dorsal saucer pods and one ventral secondary-hull pod",
+          "Specialized sensor, survey, tactical-support, or mission-package functions that make hidden space visible."
+        ],
+        "textures": [
+          "chart validation",
+          "hidden-route detection",
+          "border marker verification",
+          "evidence dispute"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.system.records-chart-custody",
+      "type": "ship.system",
+      "title": "Records, charts, and evidence custody",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "6.2 Records, charts, and evidence custody"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.records-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "records-chart-custody"
+        ],
+        "keywords": [
+          "record",
+          "chart",
+          "evidence",
+          "custody",
+          "log",
+          "sealed data",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Records are story objects: they protect, expose, authorize, and haunt.",
+        "constraints": [
+          "Capability: Controls what the ship knows, what it logs, who can read it, and when it becomes public.",
+          "Dependencies: access controls; raw data archives; command authorization; medical privacy; security chain of custody.",
+          "Failure modes: exposure of protected location; evidence contamination; sealed-data leak; public-trust collapse."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Ship logs, chart authority, medical/security records, and evidence handling",
+          "Controls what the ship knows, what it logs, who can read it, and when it becomes public."
+        ],
+        "textures": [
+          "asylum",
+          "chart publication",
+          "witness protection",
+          "border proof"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.system.tactical-defensive",
+      "type": "ship.system",
+      "title": "Frigate tactical systems",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "6.3 Tactical systems"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.tactical-defensive"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "tactical-defensive"
+        ],
+        "keywords": [
+          "phaser",
+          "torpedo",
+          "shields",
+          "tactical",
+          "frigate",
+          "escort",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Tactical authority is bounded by patrol scale, legitimacy, and what the ship can prove.",
+        "constraints": [
+          "Capability: Credible patrol and escort capability without task-group dominance.",
+          "Dependencies: weapon arcs; shield sectors; rules of engagement; pod power demand; civilian proximity.",
+          "Failure modes: arc limitation; escalation; inventory pressure; shield compromise."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Phaser arrays, photon torpedoes, shields, and patrol authority",
+          "Credible patrol and escort capability without task-group dominance."
+        ],
+        "textures": [
+          "border warning",
+          "convoy cover",
+          "self-defense",
+          "limited enforcement"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.system.power-grid",
+      "type": "ship.system",
+      "title": "Older-but-proven power grid",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "6.4 Older-but-proven power grid"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.power-grid"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "power-grid"
+        ],
+        "keywords": [
+          "power grid",
+          "EPS",
+          "engineering",
+          "pod power",
+          "refit",
+          "warp",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The ship is proven, not shabby: age means repairable knowledge and inherited constraints.",
+        "constraints": [
+          "Capability: Understood and repairable systems that support pod loads, shields, transporters, and warp with real tradeoffs.",
+          "Dependencies: EPS distribution; pod loadout; warp demand; shield status; refit history.",
+          "Failure modes: pod power conflict; old conduit stress; calibration drift; temporary blind spot."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Mature Galaxy-era power distribution adapted for frigate pods and frontier refits",
+          "Understood and repairable systems that support pod loads, shields, transporters, and warp with real tradeoffs."
+        ],
+        "textures": [
+          "pod operation under fire",
+          "repair history",
+          "route scan tradeoff",
+          "field refit"
+        ]
+      }
+    },
+    {
+      "id": "ship.new-orleans-class.system.small-craft-custody",
+      "type": "ship.system",
+      "title": "Small-craft movement and custody",
+      "datasetId": "aster-vale.new-orleans-class",
+      "source": {
+        "document": "Directive_New_Orleans_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "6.2 Records, charts, and evidence custody"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "unseen-border"
+        ],
+        "systems": [
+          "new-orleans.small-craft-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "small-craft-custody"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle",
+          "custody",
+          "screening",
+          "arrival",
+          "launch",
+          "Lacuna March",
+          "mission pod",
+          "chart validation",
+          "protected visibility",
+          "asylum"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Small-craft movement aboard a New Orleans is physical passage and official record at the same time.",
+        "constraints": [
+          "Capability: Moves teams, witnesses, casualties, and supplies while preserving legal and operational records.",
+          "Dependencies: bay clearance; pod sweep timing; screening logs; security routing; medical/cargo readiness.",
+          "Failure modes: unlogged arrival; pod interference; screening failure; custody ambiguity."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Aft shuttlebay, passenger screening, pod-safe approach windows, and movement logs",
+          "Moves teams, witnesses, casualties, and supplies while preserving legal and operational records."
+        ],
+        "textures": [
+          "asylum arrival",
+          "away-team launch",
+          "protected transfer",
+          "casualty return"
+        ]
+      }
+    }
+  ],
+  "indexes": {
+    "byArea": {
+      "new-orleans.bridge": [
+        "ship.new-orleans-class.location.bridge"
+      ],
+      "new-orleans.ready-observation": [
+        "ship.new-orleans-class.location.ready-observation"
+      ],
+      "new-orleans.wardroom-diplomatic": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "new-orleans.sickbay": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "new-orleans.transporter-security": [
+        "ship.new-orleans-class.location.transporter-security"
+      ],
+      "new-orleans.mission-ops-pod-control": [
+        "ship.new-orleans-class.location.mission-ops-pod-control"
+      ],
+      "new-orleans.science-pod-access": [
+        "ship.new-orleans-class.location.science-pod-access"
+      ],
+      "new-orleans.main-engineering": [
+        "ship.new-orleans-class.location.main-engineering"
+      ],
+      "new-orleans.cargo-field-stores": [
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "new-orleans.aft-saucer-shuttlebay": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay"
+      ],
+      "new-orleans.lower-support-ventral-pod": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ]
+    },
+    "bySystem": {
+      "new-orleans.mission-pods": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods"
+      ],
+      "new-orleans.records-chart-custody": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.system.records-chart-custody"
+      ],
+      "new-orleans.tactical-defensive": [
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "new-orleans.power-grid": [
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "new-orleans.small-craft-custody": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ]
+    },
+    "byType": {
+      "ship.profile": [
+        "ship.new-orleans-class.class.identity"
+      ],
+      "ship.exterior": [
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach"
+      ],
+      "ship.location": [
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "ship.system": [
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ]
+    },
+    "byAudience": {
+      "missionDirector": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "shipDirector": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "commandDirector": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "narrator": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ]
+    },
+    "byKeyword": {
+      "ship": [
+        "ship.new-orleans-class.class.identity"
+      ],
+      "new orleans-class": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach"
+      ],
+      "u.s.s. aster vale": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach"
+      ],
+      "unseen border": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach"
+      ],
+      "lacuna march": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "mission pod": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "chart validation": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "protected visibility": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "asylum": [
+        "ship.new-orleans-class.class.identity",
+        "ship.new-orleans-class.exterior.silhouette",
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.location.ready-observation",
+        "ship.new-orleans-class.location.wardroom-diplomatic",
+        "ship.new-orleans-class.location.sickbay",
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.location.cargo-field-stores",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.location.lower-support-ventral-pod",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.tactical-defensive",
+        "ship.new-orleans-class.system.power-grid",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "exterior": [
+        "ship.new-orleans-class.exterior.silhouette"
+      ],
+      "hull": [
+        "ship.new-orleans-class.exterior.silhouette"
+      ],
+      "silhouette": [
+        "ship.new-orleans-class.exterior.silhouette"
+      ],
+      "shuttlebay": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "shuttle bay": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay"
+      ],
+      "shuttle": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "hangar": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay"
+      ],
+      "docking": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach"
+      ],
+      "approach": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach"
+      ],
+      "launch": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "recovery": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay"
+      ],
+      "aft bay": [
+        "ship.new-orleans-class.exterior.shuttlebay-approach",
+        "ship.new-orleans-class.location.aft-saucer-shuttlebay"
+      ],
+      "bridge": [
+        "ship.new-orleans-class.location.bridge"
+      ],
+      "conn": [
+        "ship.new-orleans-class.location.bridge"
+      ],
+      "ops": [
+        "ship.new-orleans-class.location.bridge"
+      ],
+      "tactical": [
+        "ship.new-orleans-class.location.bridge",
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "pod tasking": [
+        "ship.new-orleans-class.location.bridge"
+      ],
+      "viewscreen": [
+        "ship.new-orleans-class.location.bridge"
+      ],
+      "ready room": [
+        "ship.new-orleans-class.location.ready-observation"
+      ],
+      "observation room": [
+        "ship.new-orleans-class.location.ready-observation"
+      ],
+      "briefing room": [
+        "ship.new-orleans-class.location.ready-observation"
+      ],
+      "senior staff": [
+        "ship.new-orleans-class.location.ready-observation"
+      ],
+      "inquiry": [
+        "ship.new-orleans-class.location.ready-observation"
+      ],
+      "wardroom": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "mess": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "diplomatic cabin": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "meal": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "witness": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "morale": [
+        "ship.new-orleans-class.location.wardroom-diplomatic"
+      ],
+      "sickbay": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "doctor": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "medical": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "forensic": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "biobed": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "privacy": [
+        "ship.new-orleans-class.location.sickbay"
+      ],
+      "transporter": [
+        "ship.new-orleans-class.location.transporter-security"
+      ],
+      "beam": [
+        "ship.new-orleans-class.location.transporter-security"
+      ],
+      "security": [
+        "ship.new-orleans-class.location.transporter-security"
+      ],
+      "brig": [
+        "ship.new-orleans-class.location.transporter-security"
+      ],
+      "evidence": [
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.system.records-chart-custody"
+      ],
+      "custody": [
+        "ship.new-orleans-class.location.transporter-security",
+        "ship.new-orleans-class.system.records-chart-custody",
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "mission ops": [
+        "ship.new-orleans-class.location.mission-ops-pod-control"
+      ],
+      "pod control": [
+        "ship.new-orleans-class.location.mission-ops-pod-control"
+      ],
+      "sensor pod": [
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.system.mission-pods"
+      ],
+      "chart": [
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.system.mission-pods",
+        "ship.new-orleans-class.system.records-chart-custody"
+      ],
+      "route": [
+        "ship.new-orleans-class.location.mission-ops-pod-control"
+      ],
+      "border": [
+        "ship.new-orleans-class.location.mission-ops-pod-control",
+        "ship.new-orleans-class.system.mission-pods"
+      ],
+      "science lab": [
+        "ship.new-orleans-class.location.science-pod-access"
+      ],
+      "pod access": [
+        "ship.new-orleans-class.location.science-pod-access"
+      ],
+      "calibration": [
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.system.mission-pods"
+      ],
+      "probe": [
+        "ship.new-orleans-class.location.science-pod-access",
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "sensor": [
+        "ship.new-orleans-class.location.science-pod-access"
+      ],
+      "sample": [
+        "ship.new-orleans-class.location.science-pod-access"
+      ],
+      "engineering": [
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "warp core": [
+        "ship.new-orleans-class.location.main-engineering"
+      ],
+      "deflector": [
+        "ship.new-orleans-class.location.main-engineering"
+      ],
+      "power grid": [
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "pod power": [
+        "ship.new-orleans-class.location.main-engineering",
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "repair": [
+        "ship.new-orleans-class.location.main-engineering"
+      ],
+      "cargo": [
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "field stores": [
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "evidence cage": [
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "relief": [
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "supply": [
+        "ship.new-orleans-class.location.cargo-field-stores"
+      ],
+      "lower support": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "ventral pod": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "jefferies": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "pod hatch": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "environmental": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "maintenance": [
+        "ship.new-orleans-class.location.lower-support-ventral-pod"
+      ],
+      "pod": [
+        "ship.new-orleans-class.system.mission-pods"
+      ],
+      "record": [
+        "ship.new-orleans-class.system.records-chart-custody"
+      ],
+      "log": [
+        "ship.new-orleans-class.system.records-chart-custody"
+      ],
+      "sealed data": [
+        "ship.new-orleans-class.system.records-chart-custody"
+      ],
+      "phaser": [
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "torpedo": [
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "shields": [
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "frigate": [
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "escort": [
+        "ship.new-orleans-class.system.tactical-defensive"
+      ],
+      "eps": [
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "refit": [
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "warp": [
+        "ship.new-orleans-class.system.power-grid"
+      ],
+      "screening": [
+        "ship.new-orleans-class.system.small-craft-custody"
+      ],
+      "arrival": [
+        "ship.new-orleans-class.system.small-craft-custody"
+      ]
+    }
+  }
+}

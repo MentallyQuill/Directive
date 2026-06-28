@@ -22261,16 +22261,23 @@
       }
     ],
     "datasets": [
-      {
-        "kind": "crew",
-        "id": "aster-vale.senior-staff",
-        "path": "packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json",
-        "schema": "schemas/packages/crew-dataset.schema.json",
-        "status": "draft"
-      },
-      {
-        "kind": "missionGraph",
-        "id": "aster-vale.unseen-border.prelude-the-blank-route",
+    {
+      "kind": "crew",
+      "id": "aster-vale.senior-staff",
+      "path": "packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json",
+      "schema": "schemas/packages/crew-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "ship",
+      "id": "aster-vale.new-orleans-class",
+      "path": "packages/bundled/aster-vale/aster-vale-new-orleans-class.ship-dataset.json",
+      "schema": "schemas/packages/ship-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "missionGraph",
+      "id": "aster-vale.unseen-border.prelude-the-blank-route",
         "path": "packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "draft"

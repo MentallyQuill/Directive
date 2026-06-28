@@ -230,8 +230,15 @@ const orchestrator = createChatTurnOrchestrator({
   setCampaignState,
   persistCampaignState,
   getPackageData: () => packageData,
-  syncPromptContext: async (state, promptFrame = null) => {
+  syncPromptContext: async (state, promptFrame = null, options = {}) => {
     promptFrames.push(cloneJson(promptFrame || null));
+    options.activityReporter?.({
+      phase: 'continuityProjectionBuilding',
+      source: options.activitySource || 'testPromptSync',
+      mode: 'blocking',
+      planner: false,
+      ...(options.activityContext || {})
+    });
     const next = cloneJson(state);
     next.campaignChatBinding.promptContextRevision += 1;
     await prompt.install({
@@ -240,6 +247,16 @@ const orchestrator = createChatTurnOrchestrator({
         revision: next.campaignChatBinding.promptContextRevision,
         blocks: [{ id: 'active-scene', text: 'Player-safe scene context.', depth: 4, role: 'system' }]
       }
+    });
+    options.activityReporter?.({
+      phase: 'continuityProjectionInstalled',
+      source: options.activitySource || 'testPromptSync',
+      mode: 'blocking',
+      planner: false,
+      status: 'complete',
+      revision: next.campaignChatBinding.promptContextRevision,
+      blockCount: 1,
+      ...(options.activityContext || {})
     });
     return next;
   },
@@ -414,6 +431,16 @@ assert.equal(handshakeSettledActivity.source, 'sceneHandshake');
 assert.equal(handshakeSettledActivity.disposition, 'autoCommit');
 assert(handshakeSettledActivity.committedRoots.includes('mission'));
 assert(handshakeSettledActivity.operationCount > 0);
+assert.ok(handshakeActivity.some((event) => (
+  event.phase === 'continuityProjectionBuilding'
+  && event.source === 'sceneHandshake'
+  && String(event.ingressId || '').includes('player-scene-handshake')
+)));
+assert.ok(handshakeActivity.some((event) => (
+  event.phase === 'continuityProjectionInstalled'
+  && event.source === 'sceneHandshake'
+  && event.status === 'complete'
+)));
 assert.equal(campaignState.mission.openAssignments.some((entry) => entry.title === 'Review Cross handoff memo'), true);
 assert.equal(campaignState.commandLog.entries.some((entry) => entry.type === 'sceneHandshake'), true);
 const handshakeShipDebt = campaignState.ship.technicalDebt.find((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''} ${entry.playerSafeSummary || ''}`));

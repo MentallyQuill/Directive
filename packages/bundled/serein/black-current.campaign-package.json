@@ -21319,16 +21319,23 @@
       }
     ],
     "datasets": [
-      {
-        "kind": "crew",
-        "id": "serein.senior-staff",
-        "path": "packages/bundled/serein/serein-senior-staff.crew-dataset.json",
-        "schema": "schemas/packages/crew-dataset.schema.json",
-        "status": "draft"
-      },
-      {
-        "kind": "missionGraph",
-        "id": "serein.black-current.prelude-wreckfall",
+    {
+      "kind": "crew",
+      "id": "serein.senior-staff",
+      "path": "packages/bundled/serein/serein-senior-staff.crew-dataset.json",
+      "schema": "schemas/packages/crew-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "ship",
+      "id": "serein.steamrunner-class",
+      "path": "packages/bundled/serein/serein-steamrunner-class.ship-dataset.json",
+      "schema": "schemas/packages/ship-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "missionGraph",
+      "id": "serein.black-current.prelude-wreckfall",
         "path": "packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "draft"

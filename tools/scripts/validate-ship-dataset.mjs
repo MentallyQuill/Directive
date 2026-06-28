@@ -204,8 +204,10 @@ function checkCard(card, location, { datasetId, areaIds, systemIds }) {
   }
   if (cardId.includes('shuttlebay')) {
     const serialized = JSON.stringify(card);
-    if (!/Deck 10|aft|astern/i.test(serialized) || !/underside|saucer/i.test(serialized)) {
-      at(location, 'shuttlebay card must carry Deck 10/aft/astern facts and saucer-underside prohibition');
+    const hasPlacement = /\b(?:deck\s+\d+|aft|astern|approach|pylon|saucer\/neck|flight deck|service volume|centerline|exterior placement)\b/i.test(serialized);
+    const hasProhibition = /\b(?:do not|avoid|incorrect|not\s+(?:depict|place|inside|scale)|saucer|underside|underbelly|belly|ventral|dorsal|forward|bow|mission pod)\b/i.test(serialized);
+    if (!hasPlacement || !hasProhibition) {
+      at(location, 'shuttlebay card must carry class-specific placement/approach facts and an invalid-placement prohibition');
     }
   }
 }

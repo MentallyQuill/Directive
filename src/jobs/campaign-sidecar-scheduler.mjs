@@ -786,7 +786,7 @@ export function createCampaignSidecarScheduler({
     return next;
   }
 
-  function createWorkerJob(workerKey, state, turnContext, index, batchSize) {
+  function createWorkerJob(workerKey, state, turnContext, index, batchSize, activityReporter = null) {
     const worker = WORKERS[workerKey];
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
     const baseRevision = state.runtimeTracking.revision;
@@ -819,6 +819,7 @@ export function createCampaignSidecarScheduler({
       },
       workerKey,
       worker,
+      activityReporter,
       baseRevision,
       baseEventContext,
       sourceIngress: sourceIngressSnapshot(state, baseEventContext.ingressId),
@@ -1206,6 +1207,18 @@ export function createCampaignSidecarScheduler({
         const synchronized = await syncPromptContext(applied.campaignState, {
           workerKey,
           proposal: cloneJson(applyProposal)
+        }, {
+          activityReporter: job.activityReporter || null,
+          activitySource: 'sidecarPromptSync',
+          activityMode: 'background',
+          activityContext: {
+            workerKey,
+            classification: turnContext.classification || null,
+            ingressId: turnContext.ingressId || null,
+            turnId: turnContext.turnId || null,
+            outcomeId: turnContext.outcomeId || null,
+            source: 'campaignSidecarScheduler'
+          }
         });
         if (synchronized) {
           applied.campaignState = synchronized;
@@ -1234,6 +1247,19 @@ export function createCampaignSidecarScheduler({
               workerKey,
               proposal: cloneJson(applyProposal),
               commandBearingReview: true
+            }, {
+              activityReporter: job.activityReporter || null,
+              activitySource: 'sidecarPromptSync',
+              activityMode: 'background',
+              activityContext: {
+                workerKey,
+                classification: turnContext.classification || null,
+                ingressId: turnContext.ingressId || null,
+                turnId: turnContext.turnId || null,
+                outcomeId: turnContext.outcomeId || null,
+                commandBearingReview: true,
+                source: 'campaignSidecarScheduler'
+              }
             });
             if (synchronizedReview) {
               applied.campaignState = synchronizedReview;
@@ -1354,7 +1380,14 @@ export function createCampaignSidecarScheduler({
       }
       const state = initializeCampaignRuntimeTracking(getCampaignState());
       const baseRevision = state.runtimeTracking.revision;
-      const jobs = requested.map((workerKey, index) => createWorkerJob(workerKey, state, turnContext, index, requested.length));
+      const jobs = requested.map((workerKey, index) => createWorkerJob(
+        workerKey,
+        state,
+        turnContext,
+        index,
+        requested.length,
+        activityReporter
+      ));
       let responses;
       try {
         responses = await generateWorkers(jobs);

@@ -8,6 +8,7 @@ This manual combines reusable technical diagrams with final SillyTavern-hosted r
 
 - [Player Turn Sequence](PLAYER_TURN_SEQUENCE.md): full post-to-response lifecycle.
 - [Continuity Projection Matrix (CPM)](CONTINUITY_PROJECTION_MATRIX.md): source-backed continuity projection, prompt lanes, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification diagrams.
+- [Directive Datasets](DIRECTIVE_DATASETS.md): package, projection, crew, ship, mission graph, Mission Component, save-state, journal, and configuration data map, including how datasets feed CPM, Directors, sidecars, prompts, and UI.
 - [Model Calls And Provider Routing](MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, role routing, authority, and diagnostics.
 - [State Transactions And Recovery](STATE_TRANSACTIONS_AND_RECOVERY.md): campaign revision, snapshots, ledgers, sidecars, saves, edits, deletes, and branches.
 - [Host Integration Manual](HOST_INTEGRATION_MANUAL.md): SillyTavern, fake host, storage, prompt, generation, and shell boundaries.
@@ -45,6 +46,7 @@ The main working domains are:
 | Mission Components | `src/runtime/mission-components.mjs`, `src/hosts/sillytavern/mission-components-capture.js`, `src/ui/mission-components-panel.js` | Highlighted chat-text capture, Utility proposal, player review, source anchoring, component CRUD, Mission drawer projection. |
 | Transactions | `src/campaign/transaction-state.mjs`, `src/runtime/state-delta-gateway.mjs`, `src/runtime/turn-commit-coordinator.mjs` | Mechanics-first commits, revisioned tracked state, recovery snapshots, journals, sidecar application. |
 | Generation | `src/generation/generation-roles.mjs`, `src/generation/generation-router.mjs` | Host-neutral model-call roles and routing through active host generation clients. |
+| Datasets | `src/packages/bundled-package-registry.mjs`, `src/runtime/package-library.mjs`, `src/retrieval/dataset-index.mjs`, `src/retrieval/card-hydration.mjs` | Package-adjacent campaign, projection, crew, ship, mission graph, and passive asset data loaded into runtime assets and projected into campaign state. |
 | CPM | `src/continuity`, `src/generation/player-safe-prompt-context-builder.mjs`, `src/jobs/campaign-sidecar-scheduler.mjs` | Source-backed continuity facts, static prompt lanes, planner validation, Director packets, sidecar provenance, sanitized audits, contradiction guard/quarantine, and factual-grounding certification. |
 | Timekeeping | `src/time/campaign-time-header.mjs`, `src/time/campaign-time-state.mjs`, `src/time/time-advance-adjudicator.mjs` | Deterministic reply-header formatting, stale-header stripping, campaign time-ledger normalization, deterministic time boundaries, and Utility-backed elapsed-time proposals. |
 | Rich crew hydration | `src/retrieval/card-hydration.mjs`, `src/generation/crew-voice-capsules.mjs`, package crew datasets | Audience-specific hydration of voice capsules, line-shape examples, relationship dynamics, reveal gates, and narrator-safe crew guidance. |
@@ -82,7 +84,7 @@ A campaign package is the box of parts: ship, crew, region, story arcs, quests, 
 
 ### Deep View
 
-The required package roots are defined by `schemas/campaign-package.schema.json`:
+The detailed dataset map lives in [Directive Datasets](DIRECTIVE_DATASETS.md). The required package roots are defined by `schemas/campaign-package.schema.json`:
 
 ```text
 manifest

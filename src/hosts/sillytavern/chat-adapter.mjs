@@ -311,6 +311,94 @@ async function saveMetadata(context) {
   await saveChat(context);
 }
 
+function retargetChatIds(value, sourceChatId, targetChatId) {
+  if (!sourceChatId || !targetChatId || value === null || value === undefined) return cloneJson(value);
+  if (Array.isArray(value)) return value.map((entry) => retargetChatIds(entry, sourceChatId, targetChatId));
+  if (typeof value !== 'object') return cloneJson(value);
+  const next = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if ((key === 'chatId' || key === 'currentChatId' || key === 'chat_id') && String(entry || '') === String(sourceChatId)) {
+      next[key] = targetChatId;
+    } else {
+      next[key] = retargetChatIds(entry, sourceChatId, targetChatId);
+    }
+  }
+  return next;
+}
+
+function sanitizeChatFileName(value) {
+  const name = nonEmptyString(value) || 'Directive Save Branch';
+  return name
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\.jsonl$/i, '')
+    .trim()
+    .slice(0, 180)
+    || 'Directive Save Branch';
+}
+
+function uniqueChatFileName(baseName, existingNames = []) {
+  const base = sanitizeChatFileName(baseName);
+  const used = new Set((Array.isArray(existingNames) ? existingNames : []).map((entry) => String(entry || '').toLowerCase()));
+  if (!used.has(base.toLowerCase())) return base;
+  for (let index = 2; index < 10000; index += 1) {
+    const candidate = sanitizeChatFileName(`${base} ${index}`);
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return sanitizeChatFileName(`${base} ${Date.now()}`);
+}
+
+function characterForEntity(context, entity) {
+  const characters = getCharactersArray(context);
+  const id = nonEmptyString(entity?.entityId ?? currentEntity(context)?.entityId);
+  const index = id === null ? null : Number(id);
+  if (!Number.isInteger(index) || index < 0) return null;
+  const character = characters[index];
+  if (!character) return null;
+  return { index, character };
+}
+
+async function existingCharacterChatNames(context, entity) {
+  const target = characterForEntity(context, entity);
+  const fetchFn = context?.fetch || globalThis.fetch;
+  if (!target?.character || typeof fetchFn !== 'function') return [];
+  const getHeaders = context?.getRequestHeaders || globalThis.SillyTavern?.getContext?.()?.getRequestHeaders;
+  const headers = typeof getHeaders === 'function' ? getHeaders.call(context) : {};
+  const response = await fetchFn('/api/characters/chats', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ avatar_url: target.character.avatar, simple: true })
+  }).catch(() => null);
+  if (!response?.ok) return [];
+  const data = await response.json().catch(() => null);
+  if (!data || typeof data !== 'object') return [];
+  return Object.values(data)
+    .map((entry) => nonEmptyString(entry?.file_name || entry))
+    .filter(Boolean)
+    .map((entry) => entry.replace(/\.jsonl$/i, ''));
+}
+
+async function saveChatSnapshot(context, { chatName, withMetadata, chatData } = {}) {
+  if (typeof context?.saveChatSnapshot === 'function') {
+    return context.saveChatSnapshot.call(context, { chatName, withMetadata, chatData });
+  }
+  if (typeof context?.saveChatAs === 'function') {
+    return context.saveChatAs.call(context, { chatName, withMetadata, chatData });
+  }
+  let script = null;
+  try {
+    script = await import('/script.js');
+  } catch {
+    script = null;
+  }
+  if (typeof script?.saveChat === 'function') {
+    return script.saveChat({ chatName, withMetadata, chatData });
+  }
+  const error = new Error('SillyTavern chat snapshot saving is unavailable; Save Game As cannot clone the active chat.');
+  error.code = 'DIRECTIVE_CHAT_CLONE_UNAVAILABLE';
+  throw error;
+}
+
 async function tryCreateChat(context, name) {
   const attempts = [
     ['createNewChat', [{ name }]],
@@ -1016,6 +1104,92 @@ export function createSillyTavernChatAdapter({
     return binding;
   }
 
+  async function cloneCurrentChatForSaveBranch({
+    name = null,
+    campaignId = null,
+    saveId = null,
+    sourceBinding = null
+  } = {}) {
+    let ctx = context();
+    if (!ctx) throw new Error('SillyTavern context is unavailable for Save Game As chat cloning.');
+    const sourceChatId = contextChatId(ctx);
+    if (!sourceChatId) {
+      const error = new Error('Directive cannot clone a save branch because no active SillyTavern chat is selected.');
+      error.code = 'DIRECTIVE_CHAT_CLONE_NO_ACTIVE_CHAT';
+      throw error;
+    }
+    const source = sourceBinding && typeof sourceBinding === 'object'
+      ? sourceBinding
+      : (currentDirectiveBinding(ctx) || getCurrentBinding() || {});
+    const entity = bestEntityForBinding(ctx, sourceChatId, source);
+    if (entity?.entityType !== 'character' || !entity.entityId) {
+      const error = new Error('Directive Save Game As requires a character-bound SillyTavern chat so the branch can be cloned under the campaign character card.');
+      error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_UNSUPPORTED';
+      error.details = { entity };
+      throw error;
+    }
+
+    const selected = currentEntity(ctx);
+    if (String(selected?.entityId || '') !== String(entity.entityId || '')) {
+      const selectCharacter = ctx.selectCharacterById || globalThis.selectCharacterById;
+      if (typeof selectCharacter === 'function') {
+        await selectCharacter.call(ctx, Number(entity.entityId), { switchMenu: false });
+        ctx = context();
+      }
+    }
+
+    const sourceMessages = getChatArray(ctx);
+    const existingNames = await existingCharacterChatNames(ctx, entity);
+    const requestedName = nonEmptyString(name)
+      || nonEmptyString(source.chatName)
+      || nonEmptyString(sourceChatId)
+      || 'Directive Save Branch';
+    const branchChatName = uniqueChatFileName(requestedName, existingNames);
+    const branchBinding = {
+      ...cloneJson(source || {}),
+      hostId: 'sillytavern',
+      chatId: branchChatName,
+      chatName: branchChatName,
+      campaignId: nonEmptyString(campaignId) || nonEmptyString(source.campaignId) || null,
+      saveId: nonEmptyString(saveId) || nonEmptyString(source.saveId) || null,
+      entityType: entity.entityType,
+      entityId: entity.entityId,
+      entityName: entity.entityName,
+      status: source.status || 'bound',
+      createdByDirective: true,
+      creationMethod: 'clone-current-chat',
+      clonedFromChatId: sourceChatId,
+      clonedAt: now()
+    };
+    const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatName));
+    await saveChatSnapshot(ctx, {
+      chatName: branchChatName,
+      withMetadata: {
+        [DIRECTIVE_CHAT_METADATA_KEY]: cloneJson(branchBinding)
+      },
+      chatData: branchMessages
+    });
+    const opened = await open({
+      chatId: branchChatName,
+      entityType: entity.entityType,
+      entityId: entity.entityId,
+      entityName: entity.entityName
+    });
+    ctx = context();
+    if (!opened || contextChatId(ctx) !== branchChatName) {
+      const error = new Error(`Directive created Save Game As chat ${branchChatName}, but SillyTavern did not make it active.`);
+      error.code = 'DIRECTIVE_CHAT_CLONE_OPEN_FAILED';
+      error.details = { sourceChatId, branchChatId: branchChatName };
+      throw error;
+    }
+    await updateBindingMetadata(branchBinding);
+    return {
+      ...cloneJson(branchBinding),
+      sourceChatId,
+      messageCount: branchMessages.length
+    };
+  }
+
   function isCurrentChat(chatId) {
     const expected = nonEmptyString(chatId);
     return Boolean(expected && expected === contextChatId(context()));
@@ -1367,6 +1541,7 @@ export function createSillyTavernChatAdapter({
     getCurrentChatId: () => contextChatId(context()),
     getCurrentBinding,
     createOrBindCampaignChat,
+    cloneCurrentChatForSaveBranch,
     isCurrentChat,
     getRecentMessages,
     getLatestPlayerMessage,

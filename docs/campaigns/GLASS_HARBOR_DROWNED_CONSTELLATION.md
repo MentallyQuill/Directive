@@ -105,6 +105,7 @@ Command succession is tracked separately: the player may be confirmed as captain
 
 ## Related Docs
 
+- [Directive Steamrunner-Class Starship Bible](../source/Directive_Steamrunner_Class_Starship_Bible.md)
 - [Glass Harbor Authoring Reference](../authoring/GLASS_HARBOR_AUTHORING_REFERENCE.md)
 - [Campaign Authoring Guide](../authoring/CAMPAIGN_AUTHORING_GUIDE.md)
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md)

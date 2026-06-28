@@ -1,5 +1,8 @@
 import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
-import { assertProviderResponseText } from '../providers/provider-response-normalizer.mjs';
+import {
+  PROVIDER_RESPONSE_ERROR_CODES,
+  assertProviderResponseText
+} from '../providers/provider-response-normalizer.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { HIDDEN_TRUTH_TERMS, hiddenTruthTerm } from '../generation/hidden-truth-safety.mjs';
 
@@ -47,6 +50,7 @@ export const CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET = Object.freeze({
 export const CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT = 1;
 export const CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS = 45000;
 export const CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS = 30000;
+export const CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS = 4096;
 export const CHARACTER_CREATOR_SELF_FILL_FIELDS = Object.freeze([
   'identity.appearance',
   'dossier.serviceSummary',
@@ -84,7 +88,7 @@ const TRAIT_FIELD_CATEGORY = Object.freeze({
 
 const CREATOR_ASSIST_PARAMETERS = Object.freeze({
   temperature: 0.45,
-  max_tokens: 900
+  max_tokens: CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS
 });
 
 const CREATOR_ASSIST_MODEL_PREFERENCES = Object.freeze({
@@ -652,6 +656,15 @@ function isProviderTransportFailureResult(result = {}) {
   return /\b(socket hang up|connection failed|connection reset|connection refused|network error|fetch failed|timed out|econnreset|etimedout|enotfound|eai_again)\b/.test(message);
 }
 
+function isProviderTokenLimitResult(result = {}) {
+  const details = providerFailureDetails(result);
+  return [
+    result?.error?.code,
+    result?.diagnostics?.validationErrorCode,
+    details.code
+  ].some((code) => String(code || '') === PROVIDER_RESPONSE_ERROR_CODES.TOKEN_LIMIT);
+}
+
 function generationFailureResultFromThrown(error, attempt) {
   const details = providerFailureDetails(error);
   const transportCode = providerTransportCode(error);
@@ -678,13 +691,16 @@ function attemptProgressMessage(attempt, previousResult = null) {
   const previousTimedOut = isGenerationTimeoutResult(previousResult);
   const previousRejected = previousResult?.diagnostics?.providerOutputRejected === true;
   const previousTransportFailed = isProviderTransportFailureResult(previousResult);
+  const previousTokenLimited = isProviderTokenLimitResult(previousResult);
   if (attempt.id === 'reasoning-retry') {
     if (previousTimedOut) return 'Reasoning timed out. Retrying Reasoning...';
+    if (previousTokenLimited) return 'Reasoning hit the output limit. Retrying Reasoning...';
     if (previousTransportFailed) return 'Reasoning connection failed. Retrying Reasoning...';
     if (previousRejected) return 'Reasoning returned an unusable draft. Retrying Reasoning...';
     return 'Reasoning failed. Retrying Reasoning...';
   }
   if (previousTimedOut) return 'Reasoning timed out again. Trying Utility...';
+  if (previousTokenLimited) return 'Reasoning hit the output limit again. Trying Utility...';
   if (previousTransportFailed) return 'Reasoning connection failed again. Trying Utility...';
   if (previousRejected) return 'Reasoning returned another unusable draft. Trying Utility...';
   return 'Reasoning failed again. Trying Utility...';
@@ -694,6 +710,7 @@ function localFallbackProgressMessage(previousResult = null) {
   const provider = previousResult?.role?.providerKind || previousResult?.diagnostics?.finalProviderKind || 'provider';
   const label = provider === 'utility' ? 'Utility' : 'Provider';
   if (isGenerationTimeoutResult(previousResult)) return `${label} timed out. Using local fallback...`;
+  if (isProviderTokenLimitResult(previousResult)) return `${label} hit the output limit. Using local fallback...`;
   if (isProviderTransportFailureResult(previousResult)) return `${label} connection failed. Using local fallback...`;
   if (previousResult?.diagnostics?.providerOutputRejected === true) return `${label} returned an unusable draft. Using local fallback...`;
   return `${label} failed. Using local fallback...`;

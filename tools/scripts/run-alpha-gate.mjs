@@ -133,6 +133,7 @@ const checks = [
   ...campaignProjectionChecks,
   ...crewDatasetChecks,
   ...shipDatasetChecks,
+  'test-ship-class-datasets.mjs',
   'test-rich-crew-voice-capsules.mjs',
   'test-rich-crew-runtime-hydration.mjs',
   'test-crew-retrieval-fixture.mjs',

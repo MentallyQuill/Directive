@@ -7,6 +7,7 @@ const DEFAULT_LABEL = 'Directive is reading your post...';
 const BACKGROUND_LABEL = 'Updating campaign context...';
 const REVIEW_LABEL = 'Campaign context needs review.';
 const SCENE_HANDSHAKE_REVIEW_LABEL = 'Scene details need review.';
+const CONTINUITY_PROJECTION_REVIEW_LABEL = 'Continuity context needs review.';
 const ACTIVATION_REVIEW_LABEL = 'Campaign setup needs review.';
 const INTRO_REWRITE_REVIEW_LABEL = 'Opening scene rewrite needs review.';
 const SETTLED_CLEAR_DELAY_MS = 900;
@@ -18,6 +19,8 @@ const RECENT_HOST_GENERATION_START_MS = 5000;
 const SIDECAR_SETTLED_STATUSES = new Set(['applied', 'noChange', 'complete', 'settled', 'skipped']);
 const SIDECAR_REVIEW_STATUSES = new Set(['failed', 'rejected', 'error']);
 const SCENE_HANDSHAKE_REVIEW_DISPOSITIONS = new Set(['internalReview', 'operatorRecovery']);
+const CONTINUITY_PROJECTION_FAILURE_PHASES = new Set(['continuityProjectionFailed', 'continuityProjectionReview']);
+const CONTINUITY_PROJECTION_COMPLETE_PHASES = new Set(['continuityProjectionInstalled', 'continuityProjectionSkipped']);
 const ACTIVATION_FAILURE_PHASES = new Set(['activationFailed', 'introRewriteFailed']);
 const ACTIVATION_COMPLETE_PHASES = new Set(['activationComplete', 'activationCanceled', 'introRewriteComplete', 'introRewriteCanceled']);
 
@@ -38,6 +41,14 @@ const SCENE_HANDSHAKE_ROOT_LABELS = Object.freeze({
   threadLedger: 'Threads',
   threads: 'Threads'
 });
+
+const CONTINUITY_PROJECTION_STEP_LABELS = Object.freeze({
+  planner: 'Planner',
+  matrix: 'Matrix',
+  prompt: 'Context'
+});
+
+const CONTINUITY_PROJECTION_STEP_ORDER = Object.freeze(['planner', 'matrix', 'prompt']);
 
 const ACTIVATION_STEP_LABELS = Object.freeze({
   save: 'Save',
@@ -192,6 +203,20 @@ function isActivationProgressEvent(event = {}) {
   return phase.startsWith('activation') || phase.startsWith('introRewrite');
 }
 
+function isContinuityProjectionProgressEvent(event = {}) {
+  return String(event.phase || '').startsWith('continuityProjection');
+}
+
+function isJobProgressEvent(event = {}) {
+  return isActivationProgressEvent(event) || isContinuityProjectionProgressEvent(event);
+}
+
+function continuityProjectionNeedsReview(event = {}) {
+  return isContinuityProjectionProgressEvent(event)
+    && (CONTINUITY_PROJECTION_FAILURE_PHASES.has(String(event.phase || ''))
+      || SIDECAR_REVIEW_STATUSES.has(String(event.status || '')));
+}
+
 function activationNeedsReview(event = {}) {
   return isActivationProgressEvent(event)
     && (ACTIVATION_FAILURE_PHASES.has(String(event.phase || ''))
@@ -226,6 +251,7 @@ function labelForClassification(classification) {
 function labelForPhase(event = {}, activity = {}) {
   if (event.label) return String(event.label);
   if (sceneHandshakeNeedsReview(event) || activity.reviewLabel) return activity.reviewLabel || SCENE_HANDSHAKE_REVIEW_LABEL;
+  if (continuityProjectionNeedsReview(event)) return CONTINUITY_PROJECTION_REVIEW_LABEL;
   if (activationNeedsReview(event)) {
     return event.phase === 'introRewriteFailed' ? INTRO_REWRITE_REVIEW_LABEL : ACTIVATION_REVIEW_LABEL;
   }
@@ -303,6 +329,21 @@ function labelForPhase(event = {}, activity = {}) {
       return 'Directive is writing the response...';
     case 'delegatingHostGeneration':
       return 'Directive is handing the scene back to chat...';
+    case 'continuityProjectionPlanning':
+      return 'Directive is planning the continuity matrix...';
+    case 'continuityProjectionBuilding':
+      return 'Directive is building the continuity matrix...';
+    case 'continuityProjectionValidating':
+      return 'Directive is checking the continuity matrix...';
+    case 'continuityProjectionInstalling':
+      return 'Directive is installing continuity context...';
+    case 'continuityProjectionInstalled':
+      return 'Continuity context ready.';
+    case 'continuityProjectionSkipped':
+      return 'Continuity context already current.';
+    case 'continuityProjectionFailed':
+    case 'continuityProjectionReview':
+      return CONTINUITY_PROJECTION_REVIEW_LABEL;
     case 'syncingPrompt':
       if (event.source === 'sceneHandshake' || (activity.sceneDetails?.size || 0) > 0) {
         return 'Directive is syncing scene details...';
@@ -331,6 +372,16 @@ function activeSceneDetailEntries(activity = {}) {
   return [...(source.sceneDetails || new Map()).entries()];
 }
 
+function activeContinuityProjectionEntries(activity = {}) {
+  const source = activity || {};
+  const entries = [...(source.continuityProjectionSteps || new Map()).entries()];
+  return entries.sort(([left], [right]) => {
+    const leftIndex = CONTINUITY_PROJECTION_STEP_ORDER.indexOf(left);
+    const rightIndex = CONTINUITY_PROJECTION_STEP_ORDER.indexOf(right);
+    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+  });
+}
+
 function activeActivationEntries(activity = {}) {
   const source = activity || {};
   const entries = [...(source.activationSteps || new Map()).entries()];
@@ -345,12 +396,22 @@ function hasReviewSidecar(activity = {}) {
   return activeSidecarEntries(activity).some(([, sidecar]) => SIDECAR_REVIEW_STATUSES.has(sidecar.status));
 }
 
+function hasReviewContinuityProjection(activity = {}) {
+  return activeContinuityProjectionEntries(activity).some(([, step]) => step.status === 'review');
+}
+
 function hasReviewActivationStep(activity = {}) {
   return activeActivationEntries(activity).some(([, step]) => step.status === 'review');
 }
 
 function hasPendingSidecar(activity = {}) {
   return activeSidecarEntries(activity).some(([, sidecar]) => !SIDECAR_REVIEW_STATUSES.has(sidecar.status));
+}
+
+function hasPendingContinuityProjection(activity = {}) {
+  return activeContinuityProjectionEntries(activity).some(([, step]) => (
+    step.status !== 'settled' && step.status !== 'skipped' && step.status !== 'review'
+  ));
 }
 
 function renderChips(chips, activity = {}) {
@@ -364,11 +425,15 @@ function renderChips(chips, activity = {}) {
     `activation:${key}`,
     { status: step.status || 'running', label: step.label || ACTIVATION_STEP_LABELS[key] || key }
   ]);
+  const projectionEntries = activeContinuityProjectionEntries(activity).map(([key, step]) => [
+    `continuityProjection:${key}`,
+    { status: step.status || 'running', label: step.label || CONTINUITY_PROJECTION_STEP_LABELS[key] || key }
+  ]);
   const sidecarEntries = activeSidecarEntries(activity).map(([key, sidecar]) => [
     `sidecar:${key}`,
     { status: sidecar.status || 'queued', label: workerLabel(key) }
   ]);
-  const entries = [...activationEntries, ...sceneEntries, ...sidecarEntries];
+  const entries = [...activationEntries, ...sceneEntries, ...projectionEntries, ...sidecarEntries];
   chips.hidden = entries.length === 0;
   for (const [, chipState] of entries) {
     const chip = document.createElement('span');
@@ -383,7 +448,10 @@ function renderChips(chips, activity = {}) {
 function renderActions(actions, activity = {}) {
   if (!actions) return;
   const source = activity || {};
-  const needsReview = source.mode === 'review' || hasReviewSidecar(source) || hasReviewActivationStep(source);
+  const needsReview = source.mode === 'review'
+    || hasReviewSidecar(source)
+    || hasReviewContinuityProjection(source)
+    || hasReviewActivationStep(source);
   actions.hidden = !needsReview;
 }
 
@@ -440,6 +508,7 @@ export function markDirectiveTurnActivity({
     blockingComplete: false,
     sidecars: new Map(),
     sceneDetails: new Map(),
+    continuityProjectionSteps: new Map(),
     activationSteps: new Map(),
     reviewLabel: null,
     awaitingHostGeneration: false,
@@ -534,6 +603,78 @@ function updateSceneHandshake(activity, event = {}) {
     if (activity.sceneDetails.size === 0) {
       activity.sceneDetails.set('scene', { status: 'review', label: 'Scene' });
     }
+  }
+}
+
+function setContinuityProjectionStep(activity, key, status) {
+  if (!key) return;
+  if (!activity.continuityProjectionSteps) activity.continuityProjectionSteps = new Map();
+  activity.continuityProjectionSteps.set(key, {
+    status,
+    label: CONTINUITY_PROJECTION_STEP_LABELS[key] || key
+  });
+}
+
+function completeContinuityProjectionSteps(activity, keys = []) {
+  for (const key of keys) setContinuityProjectionStep(activity, key, 'settled');
+}
+
+function continuityProjectionStepForPhase(phase) {
+  switch (phase) {
+    case 'continuityProjectionPlanning':
+      return 'planner';
+    case 'continuityProjectionBuilding':
+    case 'continuityProjectionValidating':
+      return 'matrix';
+    case 'continuityProjectionInstalling':
+    case 'continuityProjectionInstalled':
+    case 'continuityProjectionSkipped':
+      return 'prompt';
+    default:
+      return null;
+  }
+}
+
+function updateContinuityProjection(activity, event = {}) {
+  if (!isContinuityProjectionProgressEvent(event)) return;
+  if (!activity.continuityProjectionSteps) activity.continuityProjectionSteps = new Map();
+  const phase = String(event.phase || '');
+  const plannerEnabled = event.planner === true || event.usesPlanner === true;
+  if (phase === 'continuityProjectionPlanning') {
+    activity.continuityProjectionSteps.clear();
+    if (plannerEnabled) setContinuityProjectionStep(activity, 'planner', 'running');
+    setContinuityProjectionStep(activity, 'matrix', 'queued');
+    return;
+  }
+  if (phase === 'continuityProjectionBuilding') {
+    if (plannerEnabled || activity.continuityProjectionSteps.has('planner')) {
+      setContinuityProjectionStep(activity, 'planner', plannerEnabled ? 'running' : 'settled');
+    }
+    setContinuityProjectionStep(activity, 'matrix', 'running');
+    return;
+  }
+  if (phase === 'continuityProjectionValidating') {
+    if (activity.continuityProjectionSteps.has('planner')) setContinuityProjectionStep(activity, 'planner', 'settled');
+    setContinuityProjectionStep(activity, 'matrix', 'running');
+    return;
+  }
+  if (phase === 'continuityProjectionInstalling') {
+    completeContinuityProjectionSteps(activity, ['planner', 'matrix'].filter((key) => (
+      key !== 'planner' || activity.continuityProjectionSteps.has('planner')
+    )));
+    setContinuityProjectionStep(activity, 'prompt', 'running');
+    return;
+  }
+  if (phase === 'continuityProjectionInstalled' || phase === 'continuityProjectionSkipped') {
+    completeContinuityProjectionSteps(activity, ['planner', 'matrix', 'prompt'].filter((key) => (
+      key !== 'planner' || activity.continuityProjectionSteps.has('planner')
+    )));
+    return;
+  }
+  if (continuityProjectionNeedsReview(event)) {
+    const step = event.step || continuityProjectionStepForPhase(event.failedPhase) || continuityProjectionStepForPhase(phase) || 'matrix';
+    setContinuityProjectionStep(activity, step, 'review');
+    activity.reviewLabel = CONTINUITY_PROJECTION_REVIEW_LABEL;
   }
 }
 
@@ -674,11 +815,11 @@ function completeHostGenerationHandoff(activity, { clearDelayMs = HOST_GENERATIO
     confirmedAt: Date.now()
   };
   clearHostGenerationWaitTimer(activity.token);
-  if (activity.mode === 'review' || hasReviewSidecar(activity) || hasReviewActivationStep(activity)) {
+  if (activity.mode === 'review' || hasReviewSidecar(activity) || hasReviewContinuityProjection(activity) || hasReviewActivationStep(activity)) {
     updateIndicator(0);
     return { ok: true, retained: 'review', token: activity.token };
   }
-  if (hasPendingSidecar(activity)) {
+  if (hasPendingSidecar(activity) || hasPendingContinuityProjection(activity)) {
     activity.mode = 'background';
     activity.label = BACKGROUND_LABEL;
     updateIndicator(0);
@@ -705,9 +846,11 @@ export function updateDirectiveTurnActivity(token, event = {}) {
   activity.mode = activity.reviewLabel ? 'review' : nextMode;
   updateSidecars(activity, event);
   updateSceneHandshake(activity, event);
+  updateContinuityProjection(activity, event);
   updateActivation(activity, event);
   updateHostGenerationHandoff(activity, event);
   if (sceneHandshakeNeedsReview(event)) activity.mode = 'review';
+  if (continuityProjectionNeedsReview(event) || hasReviewContinuityProjection(activity)) activity.mode = 'review';
   if (activationNeedsReview(event) || hasReviewActivationStep(activity)) activity.mode = 'review';
   if (event.status && SIDECAR_REVIEW_STATUSES.has(String(event.status))) activity.mode = 'review';
   if (hasReviewSidecar(activity)) activity.mode = 'review';
@@ -717,10 +860,20 @@ export function updateDirectiveTurnActivity(token, event = {}) {
     activity.mode = 'blocking';
     activity.label = labelForPhase({ phase: 'delegatingHostGeneration' }, activity);
   }
-  if (activity.mode === 'background' && activity.blockingComplete && !activity.awaitingHostGeneration && !hasPendingSidecar(activity) && !hasReviewSidecar(activity)) {
+  if (activity.mode === 'background'
+    && activity.blockingComplete
+    && !activity.awaitingHostGeneration
+    && !hasPendingSidecar(activity)
+    && !hasPendingContinuityProjection(activity)
+    && !hasReviewSidecar(activity)
+    && !hasReviewContinuityProjection(activity)) {
     scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
   }
-  if (activity.mode === 'review' && activity.blockingComplete && !activity.awaitingHostGeneration && !hasPendingSidecar(activity)) {
+  if (activity.mode === 'review'
+    && activity.blockingComplete
+    && !activity.awaitingHostGeneration
+    && !hasPendingSidecar(activity)
+    && !hasPendingContinuityProjection(activity)) {
     scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
   }
   updateIndicator(0);
@@ -735,10 +888,10 @@ export function finishDirectiveTurnActivity(token, event = {}) {
   if (event.phase || event.label || event.classification || event.mode) {
     updateDirectiveTurnActivity(token, event);
   }
-  if (activity.mode === 'review' || hasReviewSidecar(activity)) {
+  if (activity.mode === 'review' || hasReviewSidecar(activity) || hasReviewContinuityProjection(activity)) {
     activity.mode = 'review';
     activity.label = activity.label || REVIEW_LABEL;
-    if (!hasPendingSidecar(activity)) scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
+    if (!hasPendingSidecar(activity) && !hasPendingContinuityProjection(activity)) scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
     updateIndicator(0);
     return;
   }
@@ -756,6 +909,11 @@ export function finishDirectiveTurnActivity(token, event = {}) {
   if (hasPendingSidecar(activity)) {
     activity.mode = 'background';
     activity.label = BACKGROUND_LABEL;
+    updateIndicator(0);
+    return;
+  }
+  if (hasPendingContinuityProjection(activity)) {
+    activity.mode = activity.mode || 'blocking';
     updateIndicator(0);
     return;
   }
@@ -810,21 +968,21 @@ function activationJobKey(payload = {}) {
 }
 
 export function reportDirectiveJobProgress(payload = {}) {
-  if (!isActivationProgressEvent(payload)) return false;
+  if (!isJobProgressEvent(payload)) return false;
   const jobKey = activationJobKey(payload);
   let token = jobActivities.get(jobKey);
   if (!token || !activeActivities.has(token)) {
     token = markDirectiveTurnActivity({
       phase: payload.phase || 'activationStarting',
       label: labelForPhase(payload),
-      mode: activationNeedsReview(payload) ? 'review' : (payload.mode || 'blocking'),
+      mode: (activationNeedsReview(payload) || continuityProjectionNeedsReview(payload)) ? 'review' : (payload.mode || 'blocking'),
       delayMs: payload.delayMs ?? 0
     });
     jobActivities.set(jobKey, token);
   }
   const event = {
     ...payload,
-    mode: activationNeedsReview(payload) ? 'review' : (payload.mode || 'blocking')
+    mode: (activationNeedsReview(payload) || continuityProjectionNeedsReview(payload)) ? 'review' : (payload.mode || 'blocking')
   };
   updateDirectiveTurnActivity(token, event);
   const activity = activeActivities.get(token);
@@ -835,6 +993,21 @@ export function reportDirectiveJobProgress(payload = {}) {
     jobActivities.delete(jobKey);
     updateIndicator(0);
   } else if (activationNeedsReview(payload)) {
+    activity.blockingComplete = true;
+    scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
+    jobActivities.delete(jobKey);
+    updateIndicator(0);
+  } else if (
+    isContinuityProjectionProgressEvent(payload)
+    && payload.source !== 'activation'
+    && !String(payload.jobId || '').startsWith('campaignActivation:')
+    && CONTINUITY_PROJECTION_COMPLETE_PHASES.has(String(payload.phase || ''))
+  ) {
+    activity.blockingComplete = true;
+    scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
+    jobActivities.delete(jobKey);
+    updateIndicator(0);
+  } else if (continuityProjectionNeedsReview(payload)) {
     activity.blockingComplete = true;
     scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
     jobActivities.delete(jobKey);
@@ -865,6 +1038,7 @@ export const __directiveTurnActivityTestHooks = Object.freeze({
       ...activity,
       sidecars: Object.fromEntries(activity.sidecars || new Map()),
       sceneDetails: Object.fromEntries(activity.sceneDetails || new Map()),
+      continuityProjectionSteps: Object.fromEntries(activity.continuityProjectionSteps || new Map()),
       activationSteps: Object.fromEntries(activity.activationSteps || new Map()),
       awaitingHostGeneration: activity.awaitingHostGeneration === true,
       hostGenerationHandoff: activity.hostGenerationHandoff ? { ...activity.hostGenerationHandoff } : null

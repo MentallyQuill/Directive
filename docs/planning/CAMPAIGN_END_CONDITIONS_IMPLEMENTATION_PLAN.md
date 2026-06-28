@@ -263,14 +263,14 @@ Replay should not silently create a named save branch. The terminal timeline rem
 
 ### Save As Branch
 
-The current `saveCurrentGameAs` action transfers the active chat binding to the new branch. Terminal preservation needs a lower-level branch snapshot operation:
+The current `saveCurrentGameAs` action creates a new save branch with a cloned campaign chat binding. Terminal preservation needs a lower-level branch snapshot operation:
 
 - add a controller method that writes a branch save for a supplied campaign state without changing the active chat binding;
 - use it for `saveTerminalBranch`;
 - record branch id, parent save id, divergence outcome id, terminal outcome id, and branch reason;
 - keep the terminal decision pending after the branch is saved.
 
-The normal Records `Save Game As...` behavior should remain a branch transfer because that is the right user model outside terminal preservation.
+The normal Records `Save Game As...` behavior should remain a save-plus-chat clone because that is the right user model outside terminal preservation.
 
 ### Keep This Ending
 

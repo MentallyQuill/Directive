@@ -26345,16 +26345,23 @@
       }
     ],
     "datasets": [
-      {
-        "kind": "crew",
-        "id": "celandine.senior-staff",
-        "path": "packages/bundled/celandine/celandine-senior-staff.crew-dataset.json",
-        "schema": "schemas/packages/crew-dataset.schema.json",
-        "status": "draft"
-      },
-      {
-        "kind": "missionGraph",
-        "id": "celandine.enemys-garden.prelude-the-first-harvest",
+    {
+      "kind": "crew",
+      "id": "celandine.senior-staff",
+      "path": "packages/bundled/celandine/celandine-senior-staff.crew-dataset.json",
+      "schema": "schemas/packages/crew-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "ship",
+      "id": "celandine.norway-class",
+      "path": "packages/bundled/celandine/celandine-norway-class.ship-dataset.json",
+      "schema": "schemas/packages/ship-dataset.schema.json",
+      "status": "draft"
+    },
+    {
+      "kind": "missionGraph",
+      "id": "celandine.enemys-garden.prelude-the-first-harvest",
         "path": "packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "draft"

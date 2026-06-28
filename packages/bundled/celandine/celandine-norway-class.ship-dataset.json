@@ -1,0 +1,2592 @@
+{
+  "manifest": {
+    "kind": "directive.shipDataset",
+    "schemaVersion": 1,
+    "id": "celandine.norway-class",
+    "packageId": "directive:campaign-package:celandine-enemys-garden",
+    "shipId": "uss-celandine",
+    "classId": "norway-class",
+    "title": "U.S.S. Celandine Norway-Class Ship Dataset",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Directive Norway-Class Starship Bible",
+      "path": "docs/source/Directive_Norway_Class_Starship_Bible.md",
+      "version": "0.1",
+      "role": "ship-bible"
+    },
+    {
+      "title": "Celandine / Enemy's Garden",
+      "path": "docs/campaigns/CELANDINE_ENEMYS_GARDEN.md",
+      "role": "campaign-reference"
+    },
+    {
+      "title": "Enemy's Garden campaign package",
+      "path": "packages/bundled/celandine/enemys-garden.campaign-package.json",
+      "version": "0.1.0-pre-alpha.1",
+      "role": "campaign-package"
+    }
+  ],
+  "areas": [
+    {
+      "id": "norway.bridge",
+      "name": "Bridge",
+      "decks": [
+        1
+      ],
+      "zone": "Deck 1 forward/dorsal command module",
+      "exteriorPlacement": "Forward/dorsal command placement on the broad main hull",
+      "functions": [
+        "command",
+        "convoy coordination",
+        "tactical deterrence",
+        "relief prioritization"
+      ],
+      "sceneUses": [
+        "acting command",
+        "crisis triage",
+        "convoy defense",
+        "public accountability"
+      ],
+      "hardFacts": [
+        "The bridge tracks convoy position, quarantine state, crop stores, medical load, and threat arcs together."
+      ],
+      "textures": [
+        "central command chair",
+        "convoy display",
+        "bow-emitter status",
+        "quarantine feed",
+        "relief clock"
+      ],
+      "constraints": [
+        "Bridge scenes should turn care and deterrence into accountable orders."
+      ],
+      "keywords": [
+        "bridge",
+        "conn",
+        "ops",
+        "tactical",
+        "convoy",
+        "bow emitter",
+        "relief"
+      ],
+      "systems": []
+    },
+    {
+      "id": "norway.ready-briefing",
+      "name": "Ready room and briefing room",
+      "decks": [
+        2
+      ],
+      "zone": "Deck 2 command support",
+      "exteriorPlacement": "",
+      "functions": [
+        "private command ownership",
+        "cross-discipline planning",
+        "relief policy",
+        "quarantine ethics"
+      ],
+      "sceneUses": [
+        "relief policy",
+        "quarantine ethics",
+        "public accounting",
+        "command transition"
+      ],
+      "hardFacts": [
+        "The briefing room can become a contested aid office where true priorities cannot all win."
+      ],
+      "textures": [
+        "secure terminal",
+        "convoy map",
+        "supply-band display",
+        "medical science feed",
+        "compact table"
+      ],
+      "constraints": [
+        "Humanitarian planning should remain physically tied to ship stores, quarantine, and escort limits."
+      ],
+      "keywords": [
+        "ready room",
+        "briefing room",
+        "relief policy",
+        "quarantine",
+        "senior staff"
+      ],
+      "systems": []
+    },
+    {
+      "id": "norway.mission-ops-accounting",
+      "name": "Mission ops and public-accounting room",
+      "decks": [
+        4
+      ],
+      "zone": "Deck 4 central mission spine",
+      "exteriorPlacement": "",
+      "functions": [
+        "relief tracking",
+        "convoy coordination",
+        "supply transparency",
+        "regional status"
+      ],
+      "sceneUses": [
+        "food accounting",
+        "route priority",
+        "public trust",
+        "pressure clocks"
+      ],
+      "hardFacts": [
+        "Mission ops makes relief math visible and challengeable."
+      ],
+      "textures": [
+        "supply boards",
+        "convoy overlays",
+        "crop-transition models",
+        "decontamination queues",
+        "public-facing terminal"
+      ],
+      "constraints": [
+        "Visible fairness can create panic when there is not enough."
+      ],
+      "keywords": [
+        "mission ops",
+        "accounting",
+        "supply board",
+        "convoy",
+        "relief",
+        "public trust"
+      ],
+      "systems": [
+        "norway.public-accounting"
+      ]
+    },
+    {
+      "id": "norway.sickbay-quarantine",
+      "name": "Sickbay and quarantine ward",
+      "decks": [
+        5
+      ],
+      "zone": "Deck 5 protected mid-spine medical suite",
+      "exteriorPlacement": "",
+      "functions": [
+        "treatment",
+        "isolation",
+        "exposure response",
+        "medical ethics",
+        "triage"
+      ],
+      "sceneUses": [
+        "control-spore exposure",
+        "famine injuries",
+        "triage",
+        "command cost"
+      ],
+      "hardFacts": [
+        "Sickbay and quarantine are shipboard borders: help may require sealed doors, refused contact, or transport denial."
+      ],
+      "textures": [
+        "biobeds",
+        "quarantine fields",
+        "decon vestibule",
+        "sample pass-through",
+        "overflow screens"
+      ],
+      "constraints": [
+        "Quarantine should have physical flow, logs, pass-throughs, and emotional cost."
+      ],
+      "keywords": [
+        "sickbay",
+        "quarantine",
+        "doctor",
+        "medical",
+        "biobed",
+        "decon",
+        "isolation"
+      ],
+      "systems": [
+        "norway.quarantine-decon"
+      ]
+    },
+    {
+      "id": "norway.bio-agriculture-labs",
+      "name": "Biological and agricultural labs",
+      "decks": [
+        6
+      ],
+      "zone": "Deck 6 controlled biological workspaces",
+      "exteriorPlacement": "",
+      "functions": [
+        "crop analysis",
+        "pathogen work",
+        "seed testing",
+        "ecological modeling",
+        "sample custody"
+      ],
+      "sceneUses": [
+        "food transition",
+        "contamination",
+        "scientific dissent",
+        "moral delay"
+      ],
+      "hardFacts": [
+        "Lab delay can be care: certification, seed testing, and contamination review decide whether relief is safe."
+      ],
+      "textures": [
+        "sealed benches",
+        "growth cabinets",
+        "sample lockers",
+        "decon pass-throughs",
+        "humid grow-light spill"
+      ],
+      "constraints": [
+        "Science can look like delay when cargo holds are full of urgent need."
+      ],
+      "keywords": [
+        "lab",
+        "biology",
+        "agriculture",
+        "seed",
+        "crop",
+        "sample",
+        "xenobotany"
+      ],
+      "systems": [
+        "norway.relief-cargo-seed-custody",
+        "norway.quarantine-decon"
+      ]
+    },
+    {
+      "id": "norway.relief-cargo-seed-vaults",
+      "name": "Relief cargo, seed vaults, and field stores",
+      "decks": [
+        7,
+        8
+      ],
+      "zone": "Decks 7-8 central/lower mission spine",
+      "exteriorPlacement": "",
+      "functions": [
+        "food storage",
+        "seed custody",
+        "relief pallets",
+        "field equipment",
+        "temporary intake"
+      ],
+      "sceneUses": [
+        "scarcity",
+        "ownership",
+        "dependency",
+        "public trust"
+      ],
+      "hardFacts": [
+        "Clean seed, medicine, and cargo are finite and carry temperature, viability, destination, custody, and public-accounting constraints."
+      ],
+      "textures": [
+        "seed vault lockers",
+        "environmental racks",
+        "ration pallets",
+        "cargo nets",
+        "inventory boards"
+      ],
+      "constraints": [
+        "Replicators cannot erase agricultural scale, seed viability, local autonomy, or public trust problems."
+      ],
+      "keywords": [
+        "cargo",
+        "seed vault",
+        "relief supplies",
+        "food",
+        "ration",
+        "field stores",
+        "inventory"
+      ],
+      "systems": [
+        "norway.relief-cargo-seed-custody",
+        "norway.public-accounting"
+      ]
+    },
+    {
+      "id": "norway.aft-centerline-shuttlebay",
+      "name": "Aft centerline shuttlebay and intake screening",
+      "decks": [
+        9
+      ],
+      "zone": "Deck 9 aft centerline bay",
+      "exteriorPlacement": "Aft centerline bay opening into the gap between wing-shaped warp pylons; approach from astern through the pylon gap",
+      "functions": [
+        "shuttle launch",
+        "shuttle recovery",
+        "relief intake",
+        "small-craft maintenance",
+        "decontamination routing"
+      ],
+      "sceneUses": [
+        "away-team launch",
+        "quarantine transfer",
+        "convoy rescue",
+        "cargo intake"
+      ],
+      "hardFacts": [
+        "Norway small-craft recovery uses the aft pylon-gap shuttlebay in Directive baseline.",
+        "Small craft approach from astern through the gap between wing-shaped warp pylons.",
+        "The bay links directly to intake screening, decon, cargo, and medical routes."
+      ],
+      "textures": [
+        "pylon-gap approach lights",
+        "bay force field",
+        "sanitation arches",
+        "intake screening",
+        "cargo lanes"
+      ],
+      "constraints": [
+        "Do not depict a saucer-underbelly, forward bow, or Galaxy-style dorsal shuttlebay.",
+        "Pylon field stress, shields, decon readiness, and cargo/medical traffic can affect recovery timing."
+      ],
+      "keywords": [
+        "shuttlebay",
+        "shuttle bay",
+        "shuttle",
+        "pylon gap",
+        "launch",
+        "recovery",
+        "decon",
+        "intake"
+      ],
+      "systems": [
+        "norway.pylon-field-power",
+        "norway.quarantine-decon"
+      ]
+    },
+    {
+      "id": "norway.main-engineering-pylon-support",
+      "name": "Main engineering and pylon field support",
+      "decks": [
+        10,
+        11
+      ],
+      "zone": "Decks 10-11 aft/lower engineering spaces near pylon roots",
+      "exteriorPlacement": "Aft/lower support spaces tied to wing-pylon field geometry and keel access",
+      "functions": [
+        "warp power",
+        "shield grid",
+        "cargo power",
+        "pylon field stability",
+        "repair authority"
+      ],
+      "sceneUses": [
+        "power triage",
+        "convoy protection",
+        "relief system load",
+        "pylon damage"
+      ],
+      "hardFacts": [
+        "Humanitarian systems compete for power: shields, quarantine fields, cargo refrigeration, transporters, grow cabinets, decon pumps, and warp speed."
+      ],
+      "textures": [
+        "compact warp core",
+        "pylon-field status displays",
+        "cargo environmental feeds",
+        "engineering office",
+        "lower keel access"
+      ],
+      "constraints": [
+        "Engineering should turn relief promises into power distribution and accepted risk."
+      ],
+      "keywords": [
+        "engineering",
+        "warp core",
+        "pylon",
+        "power",
+        "shields",
+        "cargo refrigeration",
+        "decon pumps"
+      ],
+      "systems": [
+        "norway.pylon-field-power"
+      ]
+    },
+    {
+      "id": "norway.transporter-security",
+      "name": "Transporter, security, and controlled-access spaces",
+      "decks": [
+        12
+      ],
+      "zone": "Deck 12 lower mission/security deck",
+      "exteriorPlacement": "",
+      "functions": [
+        "personnel transfer",
+        "controlled access",
+        "evidence custody",
+        "detention",
+        "aid protection"
+      ],
+      "sceneUses": [
+        "quarantine exceptions",
+        "prisoner safety",
+        "supply theft",
+        "public order"
+      ],
+      "hardFacts": [
+        "Security protects aid, quarantine, patients, and public order; it is not punitive by default."
+      ],
+      "textures": [
+        "transporter pads",
+        "decon tie-in",
+        "controlled checkpoint",
+        "compact brig",
+        "evidence lockers"
+      ],
+      "constraints": [
+        "The ship must be open enough to help and closed enough to prevent collapse."
+      ],
+      "keywords": [
+        "transporter",
+        "security",
+        "brig",
+        "controlled access",
+        "checkpoint",
+        "decon"
+      ],
+      "systems": [
+        "norway.quarantine-decon",
+        "norway.public-accounting"
+      ]
+    },
+    {
+      "id": "norway.lower-support-keel",
+      "name": "Lower support and keel maintenance",
+      "decks": [
+        13,
+        14
+      ],
+      "zone": "Lower keel, environmental, sanitation, waste, and pylon/structural access",
+      "exteriorPlacement": "Lower keel and pylon-root support structures",
+      "functions": [
+        "repair access",
+        "environmental processing",
+        "sanitation",
+        "structural support",
+        "waste processing"
+      ],
+      "sceneUses": [
+        "unglamorous relief work",
+        "hidden damage",
+        "contamination cleanup",
+        "private pressure"
+      ],
+      "hardFacts": [
+        "Relief can fail because of filters, pumps, waste processors, decon lines, or environmental systems."
+      ],
+      "textures": [
+        "crawlways",
+        "waste processors",
+        "water reclamation",
+        "sanitation pumps",
+        "keel braces",
+        "filter stacks"
+      ],
+      "constraints": [
+        "Unglamorous support work should matter as much as public speeches when relief systems strain."
+      ],
+      "keywords": [
+        "lower support",
+        "keel",
+        "decon pump",
+        "filters",
+        "waste processing",
+        "environmental",
+        "maintenance"
+      ],
+      "systems": [
+        "norway.quarantine-decon",
+        "norway.pylon-field-power"
+      ]
+    }
+  ],
+  "systems": [
+    {
+      "id": "norway.bow-phaser-deterrence",
+      "name": "Bow phaser emitter and defensive posture",
+      "scope": "Dorsal bow tactical emitter and defensive command posture",
+      "capability": "Visible deterrence that protects relief operations and complicates how help is perceived.",
+      "dependencies": [
+        "rules of engagement",
+        "shield state",
+        "convoy proximity",
+        "public trust",
+        "power reserve"
+      ],
+      "failureModes": [
+        "escalation",
+        "trust loss",
+        "heat stress",
+        "defensive blind spot"
+      ],
+      "sceneUses": [
+        "convoy defense",
+        "site protection",
+        "pirate deterrence",
+        "political discomfort"
+      ],
+      "keywords": [
+        "bow phaser",
+        "emitter",
+        "deterrence",
+        "phaser",
+        "convoy",
+        "tactical"
+      ]
+    },
+    {
+      "id": "norway.quarantine-decon",
+      "name": "Quarantine and decontamination systems",
+      "scope": "Medical, lab, shuttlebay, and controlled-access decon flow",
+      "capability": "Uses fields, doors, pass-throughs, logs, and sanitation systems to prevent exposure from becoming spread.",
+      "dependencies": [
+        "medical authority",
+        "decon pumps",
+        "traffic flow",
+        "sensor screening",
+        "security checkpoints"
+      ],
+      "failureModes": [
+        "breach",
+        "false negative",
+        "public panic",
+        "isolation strain",
+        "pump failure"
+      ],
+      "sceneUses": [
+        "exposure response",
+        "quarantine exception",
+        "contaminated cargo",
+        "patient isolation"
+      ],
+      "keywords": [
+        "quarantine",
+        "decon",
+        "medical",
+        "isolation",
+        "exposure",
+        "biofilter"
+      ]
+    },
+    {
+      "id": "norway.relief-cargo-seed-custody",
+      "name": "Relief cargo, seed custody, and cold chain",
+      "scope": "Central mission-spine cargo and biological support spaces",
+      "capability": "Transports, protects, verifies, and distributes finite relief supplies and biological materials.",
+      "dependencies": [
+        "environmental control",
+        "public accounting",
+        "decon flow",
+        "cargo security",
+        "lab verification"
+      ],
+      "failureModes": [
+        "viability loss",
+        "theft",
+        "contamination",
+        "public legitimacy collapse",
+        "allocation conflict"
+      ],
+      "sceneUses": [
+        "famine response",
+        "seed transition",
+        "relief convoy",
+        "custody dispute"
+      ],
+      "keywords": [
+        "cargo",
+        "seed",
+        "relief",
+        "food",
+        "cold chain",
+        "public accounting"
+      ]
+    },
+    {
+      "id": "norway.pylon-field-power",
+      "name": "Pylon field support and compact power grid",
+      "scope": "Wing-pylon warp field, aft bay geometry, and shipwide power distribution",
+      "capability": "Coordinates warp field stability, shields, shuttlebay approach, and relief system power under compact-grid limits.",
+      "dependencies": [
+        "pylon integrity",
+        "warp field control",
+        "shuttle approach window",
+        "cargo environmental load",
+        "shield demand"
+      ],
+      "failureModes": [
+        "pylon stress",
+        "bay approach delay",
+        "power brownout",
+        "shield compromise",
+        "warp limit"
+      ],
+      "sceneUses": [
+        "pylon damage",
+        "shuttle recovery",
+        "convoy timing",
+        "relief power triage"
+      ],
+      "keywords": [
+        "pylon",
+        "warp field",
+        "power grid",
+        "shuttlebay",
+        "pylon gap",
+        "engineering"
+      ]
+    },
+    {
+      "id": "norway.public-accounting",
+      "name": "Public accounting and relief legitimacy",
+      "scope": "Mission ops ledgers, supply boards, public-facing records, and command authorization",
+      "capability": "Makes scarce relief choices visible, inspectable, and challengeable enough to sustain trust.",
+      "dependencies": [
+        "accurate inventory",
+        "local data",
+        "command authorization",
+        "communications",
+        "crew transparency discipline"
+      ],
+      "failureModes": [
+        "rumor",
+        "favoritism allegation",
+        "panic",
+        "hidden stock accusation",
+        "legitimacy collapse"
+      ],
+      "sceneUses": [
+        "supply dispute",
+        "public briefing",
+        "faction challenge",
+        "relief allocation"
+      ],
+      "keywords": [
+        "accounting",
+        "ledger",
+        "supply board",
+        "public trust",
+        "relief",
+        "legitimacy"
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "ship.norway-class.class.identity",
+      "type": "ship.profile",
+      "title": "Norway-class storytelling identity",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "2. Class Personality",
+          "9. Portrayal Principles"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.bow-phaser-deterrence",
+          "norway.quarantine-decon"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_identity",
+          "ship_area",
+          "ship_system"
+        ],
+        "keywords": [
+          "ship",
+          "Norway-class",
+          "U.S.S. Celandine",
+          "Enemy's Garden",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "U.S.S. Celandine is a Norway-class vessel. A Norway-class ship is a compact 2370s Starfleet response vessel whose visible combat authority protects relief, biological science, convoy work, and public-accounting missions without replacing local institutions. Campaign use: U.S.S. Celandine: Cyradon relief, agricultural science, seed custody, quarantine, crop transition, and convoy protection.",
+        "constraints": [
+          "Do not treat the class as a hospital ship with no tactical edge or as a Defiant-style gunboat.",
+          "Replicators do not erase agricultural, seed, medicine, or regional logistics scarcity."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Broad flat-iron hull with Defiant-like keel influence.",
+          "Wing-shaped warp pylons create an aft centerline gap.",
+          "Directive baseline places the shuttlebay at the aft centerline, approached from astern through the pylon gap.",
+          "Dorsal bow phaser emitter is a class tell."
+        ],
+        "textures": [
+          "clean relief spine",
+          "bow emitter status",
+          "pylon-gap approach lights",
+          "decon glare",
+          "cargo ledgers"
+        ],
+        "avoid": [
+          "Intrepid clone",
+          "Galaxy-style dorsal shuttlebay",
+          "pure battleship posture"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.exterior.silhouette",
+      "type": "ship.exterior",
+      "title": "Norway-class exterior silhouette",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "3.1 Silhouette and first read",
+          "3.2 Exterior zones"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.bow-phaser-deterrence",
+          "norway.quarantine-decon",
+          "norway.relief-cargo-seed-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_exterior",
+          "ship_area"
+        ],
+        "keywords": [
+          "exterior",
+          "hull",
+          "silhouette",
+          "Norway-class",
+          "U.S.S. Celandine",
+          "Enemy's Garden",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The Norway exterior reads broad, flat, and purposeful: flat-iron hull, Defiant-like keel, wing-shaped pylons with aft gap, dorsal bow phaser emitter, and service/cargo locks for relief work.",
+        "constraints": [
+          "Exterior prose should keep the pylon gap, bow emitter, and flat hull visible when relevant."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Wing-shaped pylons and aft gap shape small-craft approach.",
+          "The dorsal bow phaser emitter should appear as deterrence and perception pressure.",
+          "Relief posture should be visible through cargo locks, sanitation fields, and convoy shielding."
+        ],
+        "textures": [
+          "pylon shadows",
+          "bow-emitter heat",
+          "sanitation lights",
+          "cargo lock beacons",
+          "broad hull plating"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.exterior.shuttlebay-approach",
+      "type": "ship.exterior",
+      "title": "Norway-class shuttlebay approach",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "5.7 Aft centerline shuttlebay and intake screening, Deck 9"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.aft-centerline-shuttlebay"
+        ],
+        "systems": [
+          "norway.pylon-field-power",
+          "norway.quarantine-decon"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_exterior",
+          "ship_area",
+          "shuttlebay",
+          "opening_shuttle_rendezvous"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle bay",
+          "shuttle",
+          "hangar",
+          "docking",
+          "approach",
+          "pylon gap",
+          "launch",
+          "recovery",
+          "decon",
+          "intake",
+          "Norway-class",
+          "U.S.S. Celandine",
+          "Enemy's Garden",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "critical"
+      },
+      "payload": {
+        "summary": "The aft centerline shuttlebay is both welcome door and contamination boundary, reached from astern through the pylon gap. Norway small-craft recovery uses the aft pylon-gap shuttlebay in Directive baseline. Small craft approach from astern through the gap between wing-shaped warp pylons. The bay links directly to intake screening, decon, cargo, and medical routes.",
+        "constraints": [
+          "Do not depict a saucer-underbelly, forward bow, or Galaxy-style dorsal shuttlebay.",
+          "Pylon field stress, shields, decon readiness, and cargo/medical traffic can affect recovery timing."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Norway small-craft recovery uses the aft pylon-gap shuttlebay in Directive baseline.",
+          "Small craft approach from astern through the gap between wing-shaped warp pylons.",
+          "The bay links directly to intake screening, decon, cargo, and medical routes."
+        ],
+        "textures": [
+          "pylon-gap approach lights",
+          "bay force field",
+          "sanitation arches",
+          "intake screening",
+          "cargo lanes"
+        ],
+        "avoid": [
+          "Do not depict a saucer-underbelly, forward bow, or Galaxy-style dorsal shuttlebay."
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.bridge",
+      "type": "ship.location",
+      "title": "Bridge",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.1 Bridge, Deck 1"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.bridge"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "bridge"
+        ],
+        "keywords": [
+          "bridge",
+          "conn",
+          "ops",
+          "tactical",
+          "convoy",
+          "bow emitter",
+          "relief",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The Norway bridge is a triage board where relief, quarantine, convoy, and tactical pressures compete.",
+        "constraints": [
+          "Bridge scenes should turn care and deterrence into accountable orders."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The bridge tracks convoy position, quarantine state, crop stores, medical load, and threat arcs together."
+        ],
+        "textures": [
+          "central command chair",
+          "convoy display",
+          "bow-emitter status",
+          "quarantine feed",
+          "relief clock"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.ready-briefing",
+      "type": "ship.location",
+      "title": "Ready room and briefing room",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.2 Ready room and briefing room, Deck 2"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.ready-briefing"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "ready-briefing"
+        ],
+        "keywords": [
+          "ready room",
+          "briefing room",
+          "relief policy",
+          "quarantine",
+          "senior staff",
+          "Cyradon",
+          "seed custody",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Command support rooms turn urgent care into rules the ship can follow.",
+        "constraints": [
+          "Humanitarian planning should remain physically tied to ship stores, quarantine, and escort limits."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The briefing room can become a contested aid office where true priorities cannot all win."
+        ],
+        "textures": [
+          "secure terminal",
+          "convoy map",
+          "supply-band display",
+          "medical science feed",
+          "compact table"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.mission-ops-accounting",
+      "type": "ship.location",
+      "title": "Mission ops and public-accounting room",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.3 Mission ops and public-accounting room, Deck 4"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.mission-ops-accounting"
+        ],
+        "systems": [
+          "norway.public-accounting"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "mission-ops-accounting"
+        ],
+        "keywords": [
+          "mission ops",
+          "accounting",
+          "supply board",
+          "convoy",
+          "relief",
+          "public trust",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Mission ops turns compassion into numbers the crew, locals, and command can inspect.",
+        "constraints": [
+          "Visible fairness can create panic when there is not enough."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Mission ops makes relief math visible and challengeable."
+        ],
+        "textures": [
+          "supply boards",
+          "convoy overlays",
+          "crop-transition models",
+          "decontamination queues",
+          "public-facing terminal"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.sickbay-quarantine",
+      "type": "ship.location",
+      "title": "Sickbay and quarantine ward",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.4 Sickbay and quarantine ward, Deck 5"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.sickbay-quarantine"
+        ],
+        "systems": [
+          "norway.quarantine-decon"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "sickbay-quarantine"
+        ],
+        "keywords": [
+          "sickbay",
+          "quarantine",
+          "doctor",
+          "medical",
+          "biobed",
+          "decon",
+          "isolation",
+          "Cyradon",
+          "seed custody",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Sickbay turns relief policy into bodies, isolation, exposure risk, and medical authority.",
+        "constraints": [
+          "Quarantine should have physical flow, logs, pass-throughs, and emotional cost."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Sickbay and quarantine are shipboard borders: help may require sealed doors, refused contact, or transport denial."
+        ],
+        "textures": [
+          "biobeds",
+          "quarantine fields",
+          "decon vestibule",
+          "sample pass-through",
+          "overflow screens"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.bio-agriculture-labs",
+      "type": "ship.location",
+      "title": "Biological and agricultural labs",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.5 Biological and agricultural labs, Deck 6"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.bio-agriculture-labs"
+        ],
+        "systems": [
+          "norway.relief-cargo-seed-custody",
+          "norway.quarantine-decon"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "bio-agriculture-labs"
+        ],
+        "keywords": [
+          "lab",
+          "biology",
+          "agriculture",
+          "seed",
+          "crop",
+          "sample",
+          "xenobotany",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Agricultural labs turn survival into evidence before it becomes distribution.",
+        "constraints": [
+          "Science can look like delay when cargo holds are full of urgent need."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Lab delay can be care: certification, seed testing, and contamination review decide whether relief is safe."
+        ],
+        "textures": [
+          "sealed benches",
+          "growth cabinets",
+          "sample lockers",
+          "decon pass-throughs",
+          "humid grow-light spill"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.relief-cargo-seed-vaults",
+      "type": "ship.location",
+      "title": "Relief cargo, seed vaults, and field stores",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.6 Relief cargo, seed vaults, and field stores, Decks 7-8"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.relief-cargo-seed-vaults"
+        ],
+        "systems": [
+          "norway.relief-cargo-seed-custody",
+          "norway.public-accounting"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "relief-cargo-seed-vaults"
+        ],
+        "keywords": [
+          "cargo",
+          "seed vault",
+          "relief supplies",
+          "food",
+          "ration",
+          "field stores",
+          "inventory",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Cargo and seed vaults make care finite and politically visible.",
+        "constraints": [
+          "Replicators cannot erase agricultural scale, seed viability, local autonomy, or public trust problems."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Clean seed, medicine, and cargo are finite and carry temperature, viability, destination, custody, and public-accounting constraints."
+        ],
+        "textures": [
+          "seed vault lockers",
+          "environmental racks",
+          "ration pallets",
+          "cargo nets",
+          "inventory boards"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.aft-centerline-shuttlebay",
+      "type": "ship.location",
+      "title": "Aft centerline shuttlebay and intake screening",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "5.7 Aft centerline shuttlebay and intake screening, Deck 9"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator",
+        "commandDirector"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.aft-centerline-shuttlebay"
+        ],
+        "systems": [
+          "norway.pylon-field-power",
+          "norway.quarantine-decon"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "aft-centerline-shuttlebay",
+          "shuttlebay"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle bay",
+          "shuttle",
+          "pylon gap",
+          "launch",
+          "recovery",
+          "decon",
+          "intake",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The aft centerline shuttlebay is both welcome door and contamination boundary, reached from astern through the pylon gap.",
+        "constraints": [
+          "Do not depict a saucer-underbelly, forward bow, or Galaxy-style dorsal shuttlebay.",
+          "Pylon field stress, shields, decon readiness, and cargo/medical traffic can affect recovery timing."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Norway small-craft recovery uses the aft pylon-gap shuttlebay in Directive baseline.",
+          "Small craft approach from astern through the gap between wing-shaped warp pylons.",
+          "The bay links directly to intake screening, decon, cargo, and medical routes."
+        ],
+        "textures": [
+          "pylon-gap approach lights",
+          "bay force field",
+          "sanitation arches",
+          "intake screening",
+          "cargo lanes"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.main-engineering-pylon-support",
+      "type": "ship.location",
+      "title": "Main engineering and pylon field support",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.8 Main engineering and pylon field support, Decks 10-11"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.main-engineering-pylon-support"
+        ],
+        "systems": [
+          "norway.pylon-field-power"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "main-engineering-pylon-support"
+        ],
+        "keywords": [
+          "engineering",
+          "warp core",
+          "pylon",
+          "power",
+          "shields",
+          "cargo refrigeration",
+          "decon pumps",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Engineering decides what care costs in power, protection, quarantine, and movement.",
+        "constraints": [
+          "Engineering should turn relief promises into power distribution and accepted risk."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Humanitarian systems compete for power: shields, quarantine fields, cargo refrigeration, transporters, grow cabinets, decon pumps, and warp speed."
+        ],
+        "textures": [
+          "compact warp core",
+          "pylon-field status displays",
+          "cargo environmental feeds",
+          "engineering office",
+          "lower keel access"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.transporter-security",
+      "type": "ship.location",
+      "title": "Transporter, security, and controlled-access spaces",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.9 Transporter, security, and controlled-access spaces, Deck 12"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.transporter-security"
+        ],
+        "systems": [
+          "norway.quarantine-decon",
+          "norway.public-accounting"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "transporter-security"
+        ],
+        "keywords": [
+          "transporter",
+          "security",
+          "brig",
+          "controlled access",
+          "checkpoint",
+          "decon",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Transporter and security spaces turn relief into a controlled boundary.",
+        "constraints": [
+          "The ship must be open enough to help and closed enough to prevent collapse."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Security protects aid, quarantine, patients, and public order; it is not punitive by default."
+        ],
+        "textures": [
+          "transporter pads",
+          "decon tie-in",
+          "controlled checkpoint",
+          "compact brig",
+          "evidence lockers"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.location.lower-support-keel",
+      "type": "ship.location",
+      "title": "Lower support and keel maintenance",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "5.10 Lower support and keel maintenance, Decks 13-14"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "locations": [
+          "norway.lower-support-keel"
+        ],
+        "systems": [
+          "norway.quarantine-decon",
+          "norway.pylon-field-power"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "lower-support-keel"
+        ],
+        "keywords": [
+          "lower support",
+          "keel",
+          "decon pump",
+          "filters",
+          "waste processing",
+          "environmental",
+          "maintenance",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Lower support turns noble relief into pipes, filters, waste, heat, and labor.",
+        "constraints": [
+          "Unglamorous support work should matter as much as public speeches when relief systems strain."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Relief can fail because of filters, pumps, waste processors, decon lines, or environmental systems."
+        ],
+        "textures": [
+          "crawlways",
+          "waste processors",
+          "water reclamation",
+          "sanitation pumps",
+          "keel braces",
+          "filter stacks"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.system.bow-phaser-deterrence",
+      "type": "ship.system",
+      "title": "Bow phaser emitter and defensive posture",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "6.1 Bow phaser emitter and defensive posture"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.bow-phaser-deterrence"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "bow-phaser-deterrence"
+        ],
+        "keywords": [
+          "bow phaser",
+          "emitter",
+          "deterrence",
+          "phaser",
+          "convoy",
+          "tactical",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The bow emitter protects relief but can make help feel coercive.",
+        "constraints": [
+          "Capability: Visible deterrence that protects relief operations and complicates how help is perceived.",
+          "Dependencies: rules of engagement; shield state; convoy proximity; public trust; power reserve.",
+          "Failure modes: escalation; trust loss; heat stress; defensive blind spot."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Dorsal bow tactical emitter and defensive command posture",
+          "Visible deterrence that protects relief operations and complicates how help is perceived."
+        ],
+        "textures": [
+          "convoy defense",
+          "site protection",
+          "pirate deterrence",
+          "political discomfort"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.system.quarantine-decon",
+      "type": "ship.system",
+      "title": "Quarantine and decontamination systems",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "6.2 Quarantine and decontamination systems"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.quarantine-decon"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "quarantine-decon"
+        ],
+        "keywords": [
+          "quarantine",
+          "decon",
+          "medical",
+          "isolation",
+          "exposure",
+          "biofilter",
+          "Cyradon",
+          "seed custody",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Quarantine is a physical, ethical, and logistical system rather than a generic locked door.",
+        "constraints": [
+          "Capability: Uses fields, doors, pass-throughs, logs, and sanitation systems to prevent exposure from becoming spread.",
+          "Dependencies: medical authority; decon pumps; traffic flow; sensor screening; security checkpoints.",
+          "Failure modes: breach; false negative; public panic; isolation strain; pump failure."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Medical, lab, shuttlebay, and controlled-access decon flow",
+          "Uses fields, doors, pass-throughs, logs, and sanitation systems to prevent exposure from becoming spread."
+        ],
+        "textures": [
+          "exposure response",
+          "quarantine exception",
+          "contaminated cargo",
+          "patient isolation"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.system.relief-cargo-seed-custody",
+      "type": "ship.system",
+      "title": "Relief cargo, seed custody, and cold chain",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "6.3 Relief cargo, seed custody, and cold chain"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.relief-cargo-seed-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "relief-cargo-seed-custody"
+        ],
+        "keywords": [
+          "cargo",
+          "seed",
+          "relief",
+          "food",
+          "cold chain",
+          "public accounting",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Cargo is a regional life-support system with temperature, custody, destination, viability, and legitimacy.",
+        "constraints": [
+          "Capability: Transports, protects, verifies, and distributes finite relief supplies and biological materials.",
+          "Dependencies: environmental control; public accounting; decon flow; cargo security; lab verification.",
+          "Failure modes: viability loss; theft; contamination; public legitimacy collapse; allocation conflict."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Central mission-spine cargo and biological support spaces",
+          "Transports, protects, verifies, and distributes finite relief supplies and biological materials."
+        ],
+        "textures": [
+          "famine response",
+          "seed transition",
+          "relief convoy",
+          "custody dispute"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.system.pylon-field-power",
+      "type": "ship.system",
+      "title": "Pylon field support and compact power grid",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "6.4 Pylon field support and compact power grid"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.pylon-field-power"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "pylon-field-power"
+        ],
+        "keywords": [
+          "pylon",
+          "warp field",
+          "power grid",
+          "shuttlebay",
+          "pylon gap",
+          "engineering",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The pylon gap and power grid are operational constraints, not decoration.",
+        "constraints": [
+          "Capability: Coordinates warp field stability, shields, shuttlebay approach, and relief system power under compact-grid limits.",
+          "Dependencies: pylon integrity; warp field control; shuttle approach window; cargo environmental load; shield demand.",
+          "Failure modes: pylon stress; bay approach delay; power brownout; shield compromise; warp limit."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Wing-pylon warp field, aft bay geometry, and shipwide power distribution",
+          "Coordinates warp field stability, shields, shuttlebay approach, and relief system power under compact-grid limits."
+        ],
+        "textures": [
+          "pylon damage",
+          "shuttle recovery",
+          "convoy timing",
+          "relief power triage"
+        ]
+      }
+    },
+    {
+      "id": "ship.norway-class.system.public-accounting",
+      "type": "ship.system",
+      "title": "Public accounting and relief legitimacy",
+      "datasetId": "celandine.norway-class",
+      "source": {
+        "document": "Directive_Norway_Class_Starship_Bible.md",
+        "refs": [
+          "6.5 Public accounting"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "systems": [
+          "norway.public-accounting"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "public-accounting"
+        ],
+        "keywords": [
+          "accounting",
+          "ledger",
+          "supply board",
+          "public trust",
+          "relief",
+          "legitimacy",
+          "Cyradon",
+          "seed custody",
+          "quarantine",
+          "agricultural lab",
+          "public accounting"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Public accounting lets relief choices become playable pressure instead of hidden math.",
+        "constraints": [
+          "Capability: Makes scarce relief choices visible, inspectable, and challengeable enough to sustain trust.",
+          "Dependencies: accurate inventory; local data; command authorization; communications; crew transparency discipline.",
+          "Failure modes: rumor; favoritism allegation; panic; hidden stock accusation; legitimacy collapse."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Mission ops ledgers, supply boards, public-facing records, and command authorization",
+          "Makes scarce relief choices visible, inspectable, and challengeable enough to sustain trust."
+        ],
+        "textures": [
+          "supply dispute",
+          "public briefing",
+          "faction challenge",
+          "relief allocation"
+        ]
+      }
+    }
+  ],
+  "indexes": {
+    "byArea": {
+      "norway.bridge": [
+        "ship.norway-class.location.bridge"
+      ],
+      "norway.ready-briefing": [
+        "ship.norway-class.location.ready-briefing"
+      ],
+      "norway.mission-ops-accounting": [
+        "ship.norway-class.location.mission-ops-accounting"
+      ],
+      "norway.sickbay-quarantine": [
+        "ship.norway-class.location.sickbay-quarantine"
+      ],
+      "norway.bio-agriculture-labs": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "norway.relief-cargo-seed-vaults": [
+        "ship.norway-class.location.relief-cargo-seed-vaults"
+      ],
+      "norway.aft-centerline-shuttlebay": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay"
+      ],
+      "norway.main-engineering-pylon-support": [
+        "ship.norway-class.location.main-engineering-pylon-support"
+      ],
+      "norway.transporter-security": [
+        "ship.norway-class.location.transporter-security"
+      ],
+      "norway.lower-support-keel": [
+        "ship.norway-class.location.lower-support-keel"
+      ]
+    },
+    "bySystem": {
+      "norway.bow-phaser-deterrence": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "norway.quarantine-decon": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.quarantine-decon"
+      ],
+      "norway.relief-cargo-seed-custody": [
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.system.relief-cargo-seed-custody"
+      ],
+      "norway.pylon-field-power": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "norway.public-accounting": [
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.system.public-accounting"
+      ]
+    },
+    "byType": {
+      "ship.profile": [
+        "ship.norway-class.class.identity"
+      ],
+      "ship.exterior": [
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "ship.location": [
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "ship.system": [
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ]
+    },
+    "byAudience": {
+      "missionDirector": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "shipDirector": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "commandDirector": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "narrator": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ]
+    },
+    "byKeyword": {
+      "ship": [
+        "ship.norway-class.class.identity"
+      ],
+      "norway-class": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "u.s.s. celandine": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "enemy's garden": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "cyradon": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "seed custody": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "quarantine": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "agricultural lab": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "public accounting": [
+        "ship.norway-class.class.identity",
+        "ship.norway-class.exterior.silhouette",
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.ready-briefing",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.location.lower-support-keel",
+        "ship.norway-class.system.bow-phaser-deterrence",
+        "ship.norway-class.system.quarantine-decon",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.pylon-field-power",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "exterior": [
+        "ship.norway-class.exterior.silhouette"
+      ],
+      "hull": [
+        "ship.norway-class.exterior.silhouette"
+      ],
+      "silhouette": [
+        "ship.norway-class.exterior.silhouette"
+      ],
+      "shuttlebay": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "shuttle bay": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay"
+      ],
+      "shuttle": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay"
+      ],
+      "hangar": [
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "docking": [
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "approach": [
+        "ship.norway-class.exterior.shuttlebay-approach"
+      ],
+      "pylon gap": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "launch": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay"
+      ],
+      "recovery": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay"
+      ],
+      "decon": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.location.aft-centerline-shuttlebay",
+        "ship.norway-class.location.transporter-security",
+        "ship.norway-class.system.quarantine-decon"
+      ],
+      "intake": [
+        "ship.norway-class.exterior.shuttlebay-approach",
+        "ship.norway-class.location.aft-centerline-shuttlebay"
+      ],
+      "bridge": [
+        "ship.norway-class.location.bridge"
+      ],
+      "conn": [
+        "ship.norway-class.location.bridge"
+      ],
+      "ops": [
+        "ship.norway-class.location.bridge"
+      ],
+      "tactical": [
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "convoy": [
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "bow emitter": [
+        "ship.norway-class.location.bridge"
+      ],
+      "relief": [
+        "ship.norway-class.location.bridge",
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.system.relief-cargo-seed-custody",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "ready room": [
+        "ship.norway-class.location.ready-briefing"
+      ],
+      "briefing room": [
+        "ship.norway-class.location.ready-briefing"
+      ],
+      "relief policy": [
+        "ship.norway-class.location.ready-briefing"
+      ],
+      "senior staff": [
+        "ship.norway-class.location.ready-briefing"
+      ],
+      "mission ops": [
+        "ship.norway-class.location.mission-ops-accounting"
+      ],
+      "accounting": [
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "supply board": [
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "public trust": [
+        "ship.norway-class.location.mission-ops-accounting",
+        "ship.norway-class.system.public-accounting"
+      ],
+      "sickbay": [
+        "ship.norway-class.location.sickbay-quarantine"
+      ],
+      "doctor": [
+        "ship.norway-class.location.sickbay-quarantine"
+      ],
+      "medical": [
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.system.quarantine-decon"
+      ],
+      "biobed": [
+        "ship.norway-class.location.sickbay-quarantine"
+      ],
+      "isolation": [
+        "ship.norway-class.location.sickbay-quarantine",
+        "ship.norway-class.system.quarantine-decon"
+      ],
+      "lab": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "biology": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "agriculture": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "seed": [
+        "ship.norway-class.location.bio-agriculture-labs",
+        "ship.norway-class.system.relief-cargo-seed-custody"
+      ],
+      "crop": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "sample": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "xenobotany": [
+        "ship.norway-class.location.bio-agriculture-labs"
+      ],
+      "cargo": [
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.system.relief-cargo-seed-custody"
+      ],
+      "seed vault": [
+        "ship.norway-class.location.relief-cargo-seed-vaults"
+      ],
+      "relief supplies": [
+        "ship.norway-class.location.relief-cargo-seed-vaults"
+      ],
+      "food": [
+        "ship.norway-class.location.relief-cargo-seed-vaults",
+        "ship.norway-class.system.relief-cargo-seed-custody"
+      ],
+      "ration": [
+        "ship.norway-class.location.relief-cargo-seed-vaults"
+      ],
+      "field stores": [
+        "ship.norway-class.location.relief-cargo-seed-vaults"
+      ],
+      "inventory": [
+        "ship.norway-class.location.relief-cargo-seed-vaults"
+      ],
+      "engineering": [
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "warp core": [
+        "ship.norway-class.location.main-engineering-pylon-support"
+      ],
+      "pylon": [
+        "ship.norway-class.location.main-engineering-pylon-support",
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "power": [
+        "ship.norway-class.location.main-engineering-pylon-support"
+      ],
+      "shields": [
+        "ship.norway-class.location.main-engineering-pylon-support"
+      ],
+      "cargo refrigeration": [
+        "ship.norway-class.location.main-engineering-pylon-support"
+      ],
+      "decon pumps": [
+        "ship.norway-class.location.main-engineering-pylon-support"
+      ],
+      "transporter": [
+        "ship.norway-class.location.transporter-security"
+      ],
+      "security": [
+        "ship.norway-class.location.transporter-security"
+      ],
+      "brig": [
+        "ship.norway-class.location.transporter-security"
+      ],
+      "controlled access": [
+        "ship.norway-class.location.transporter-security"
+      ],
+      "checkpoint": [
+        "ship.norway-class.location.transporter-security"
+      ],
+      "lower support": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "keel": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "decon pump": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "filters": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "waste processing": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "environmental": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "maintenance": [
+        "ship.norway-class.location.lower-support-keel"
+      ],
+      "bow phaser": [
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "emitter": [
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "deterrence": [
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "phaser": [
+        "ship.norway-class.system.bow-phaser-deterrence"
+      ],
+      "exposure": [
+        "ship.norway-class.system.quarantine-decon"
+      ],
+      "biofilter": [
+        "ship.norway-class.system.quarantine-decon"
+      ],
+      "cold chain": [
+        "ship.norway-class.system.relief-cargo-seed-custody"
+      ],
+      "warp field": [
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "power grid": [
+        "ship.norway-class.system.pylon-field-power"
+      ],
+      "ledger": [
+        "ship.norway-class.system.public-accounting"
+      ],
+      "legitimacy": [
+        "ship.norway-class.system.public-accounting"
+      ]
+    }
+  }
+}

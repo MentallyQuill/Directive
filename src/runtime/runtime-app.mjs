@@ -893,6 +893,33 @@ function timestampFromNow(now) {
   return new Date().toISOString();
 }
 
+function promptContextProjectionSummary(packet = null) {
+  const projection = packet?.continuityProjection || {};
+  const plan = projection.plan || {};
+  return {
+    revision: Number(packet?.revision || 0) || null,
+    blockCount: Array.isArray(packet?.blocks) ? packet.blocks.length : 0,
+    contentHash: packet?.contentHash || packet?.hash || null,
+    projectionHash: projection.hash || null,
+    sourceHash: projection.sourceHash || null,
+    selectedFactCount: Array.isArray(plan.selectedFactIds) ? plan.selectedFactIds.length : 0,
+    guardedFactCount: Array.isArray(plan.guardFactIds) ? plan.guardFactIds.length : 0,
+    auditFactCount: Array.isArray(plan.auditFactIds) ? plan.auditFactIds.length : 0
+  };
+}
+
+function reportContinuityProjectionActivity(activityReporter, event = {}) {
+  if (typeof activityReporter !== 'function') return;
+  try {
+    activityReporter({
+      kind: 'directive.turnActivity',
+      ...event
+    });
+  } catch (error) {
+    console.warn('[Directive] Failed to report continuity projection activity:', error);
+  }
+}
+
 export function createDirectiveRuntimeApp({
   host = null,
   adapter = null,
@@ -952,6 +979,7 @@ export function createDirectiveRuntimeApp({
   let lastDirectivePresetInstallResult = null;
   let lastManualSaveGuard = null;
   let currentChatScope = null;
+  let programmaticChatOpenSuppression = null;
   let lastError = null;
   let chatNativeServices = null;
   let durabilityCoordinator = null;
@@ -1249,6 +1277,43 @@ export function createDirectiveRuntimeApp({
     };
     return normalizeCampaignTimeForRuntime(bound, {
       reason: 'loaded-save-binding'
+    }).campaignState;
+  }
+
+  function retargetChatScopedIds(value, sourceChatId = null, targetChatId = null) {
+    const source = compactString(sourceChatId);
+    const target = compactString(targetChatId);
+    if (!source || !target || source === target) return cloneJson(value);
+    if (Array.isArray(value)) return value.map((entry) => retargetChatScopedIds(entry, source, target));
+    if (!value || typeof value !== 'object') return cloneJson(value);
+    const next = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if ((key === 'chatId' || key === 'currentChatId' || key === 'chat_id') && compactString(entry) === source) {
+        next[key] = target;
+      } else {
+        next[key] = retargetChatScopedIds(entry, source, target);
+      }
+    }
+    return next;
+  }
+
+  function stateWithSaveBranchChatBinding(state = null, branchBinding = null, sourceBinding = null) {
+    if (!state || !branchBinding?.chatId || !branchBinding?.saveId) return state;
+    const sourceChatId = sourceBinding?.chatId || state.campaignChatBinding?.chatId || null;
+    let next = retargetChatScopedIds(state, sourceChatId, branchBinding.chatId);
+    next = {
+      ...next,
+      campaignChatBinding: {
+        ...(next.campaignChatBinding || {}),
+        ...cloneJson(branchBinding),
+        campaignId: compactString(branchBinding.campaignId) || compactString(next.campaign?.id) || null,
+        saveId: compactString(branchBinding.saveId),
+        chatId: compactString(branchBinding.chatId),
+        status: compactString(branchBinding.status) || 'bound'
+      }
+    };
+    return normalizeCampaignTimeForRuntime(next, {
+      reason: 'save-as-branch-chat-binding'
     }).campaignState;
   }
 
@@ -1550,6 +1615,28 @@ export function createDirectiveRuntimeApp({
       guard: null,
       error: null
     };
+    const suppressedOpen = activeProgrammaticChatOpenSuppression();
+    if (suppressedOpen) {
+      const binding = bindingFromState(campaignState);
+      const guard = await refreshBlockedManualSaveGuard();
+      const status = current.activeChatId && binding?.chatId && current.activeChatId === binding.chatId
+        ? 'matching-campaign'
+        : 'programmatic-open-pending';
+      currentChatScope = {
+        ...base,
+        currentChat: {
+          ...base.currentChat,
+          chatId: current.activeChatId || null,
+          identity: cloneJson(current.activeIdentity || null),
+          status
+        },
+        campaignState: cloneJson(campaignState || null),
+        saveId: binding?.saveId || controller?.activeSaveId || null,
+        campaignId: binding?.campaignId || campaignState?.campaign?.id || null,
+        guard: cloneJson(guard || null)
+      };
+      return currentChatScope;
+    }
     if (!current.capability) {
       const guard = await refreshBlockedManualSaveGuard();
       currentChatScope = {
@@ -2335,7 +2422,11 @@ export function createDirectiveRuntimeApp({
     rebuild = false,
     reason = 'Campaign prompt context synchronized.',
     promptFrame = null,
-    useContinuityPlanner = null
+    useContinuityPlanner = null,
+    activityReporter = null,
+    activitySource = 'promptSync',
+    activityMode = 'blocking',
+    activityContext = null
   } = {}) {
     if (!runtimeHost?.prompt?.install || !state?.campaignChatBinding?.chatId || state.campaign?.status !== 'active') {
       return { ok: false, skipped: true, reason: 'inactive-or-unbound', campaignState: cloneJson(state) };
@@ -2369,19 +2460,71 @@ export function createDirectiveRuntimeApp({
     };
     const shouldUseContinuityPlanner = useContinuityPlanner === true
       || (useContinuityPlanner !== false && rebuild === true && !promptFrame);
-    const packet = shouldUseContinuityPlanner
-      ? await buildPlayerSafePromptContextWithContinuityPlanner(promptInput, {
-          generationRouter: defaultGenerationRouter
-        })
-      : buildPlayerSafePromptContext(promptInput);
     const method = rebuild && runtimeHost.prompt.rebuild ? 'rebuild' : 'install';
-    const result = await runtimeHost.prompt[method]({
-      binding: state.campaignChatBinding,
-      packet
+    const baseActivity = {
+      mode: activityMode,
+      source: activitySource,
+      promptSyncReason: reason,
+      method,
+      planner: shouldUseContinuityPlanner,
+      chatId: state.campaignChatBinding?.chatId || null,
+      campaignId: state.campaign?.id || null,
+      ...(activityContext && typeof activityContext === 'object' ? cloneJson(activityContext) : {})
+    };
+    reportContinuityProjectionActivity(activityReporter, {
+      ...baseActivity,
+      phase: shouldUseContinuityPlanner ? 'continuityProjectionPlanning' : 'continuityProjectionBuilding'
     });
-    if (result?.ok === false) {
-      const error = new Error(result?.error?.message || 'Directive prompt synchronization failed.');
-      error.code = result?.error?.code || 'DIRECTIVE_PROMPT_SYNC_FAILED';
+    if (shouldUseContinuityPlanner) {
+      reportContinuityProjectionActivity(activityReporter, {
+        ...baseActivity,
+        phase: 'continuityProjectionBuilding'
+      });
+    }
+    let packet;
+    try {
+      packet = shouldUseContinuityPlanner
+        ? await buildPlayerSafePromptContextWithContinuityPlanner(promptInput, {
+            generationRouter: defaultGenerationRouter
+          })
+        : buildPlayerSafePromptContext(promptInput);
+      const projectionSummary = promptContextProjectionSummary(packet);
+      reportContinuityProjectionActivity(activityReporter, {
+        ...baseActivity,
+        ...projectionSummary,
+        phase: 'continuityProjectionValidating'
+      });
+      reportContinuityProjectionActivity(activityReporter, {
+        ...baseActivity,
+        ...projectionSummary,
+        phase: 'continuityProjectionInstalling'
+      });
+      const result = await runtimeHost.prompt[method]({
+        binding: state.campaignChatBinding,
+        packet
+      });
+      if (result?.ok === false) {
+        const error = new Error(result?.error?.message || 'Directive prompt synchronization failed.');
+        error.code = result?.error?.code || 'DIRECTIVE_PROMPT_SYNC_FAILED';
+        throw error;
+      }
+      reportContinuityProjectionActivity(activityReporter, {
+        ...baseActivity,
+        ...projectionSummary,
+        phase: 'continuityProjectionInstalled',
+        status: 'complete'
+      });
+    } catch (error) {
+      reportContinuityProjectionActivity(activityReporter, {
+        ...baseActivity,
+        phase: 'continuityProjectionFailed',
+        mode: 'review',
+        status: 'failed',
+        error: {
+          code: error?.code || null,
+          message: error?.message || String(error)
+        }
+      });
       throw error;
     }
     const next = recordPromptContextRevision(state, packet, {
@@ -2392,6 +2535,62 @@ export function createDirectiveRuntimeApp({
     await runtimeHost.chat?.updateBindingMetadata?.(next.campaignChatBinding);
     if (persist) await persistRuntimeCampaignState(next, reason);
     return { ok: true, active: true, packet: cloneJson(packet), campaignState: cloneJson(next) };
+  }
+
+  function beginProgrammaticChatOpenSuppression(binding = null, reason = '') {
+    const targetBinding = normalizedBinding(binding);
+    if (!targetBinding?.chatId) return null;
+    const startedAtMs = Date.now();
+    const token = {
+      chatId: targetBinding.chatId,
+      saveId: targetBinding.saveId || null,
+      campaignId: targetBinding.campaignId || null,
+      reason: compactString(reason) || 'programmatic-campaign-chat-open',
+      startedAtMs,
+      suppressUntilMs: startedAtMs + 5000
+    };
+    programmaticChatOpenSuppression = token;
+    return token;
+  }
+
+  function finishProgrammaticChatOpenSuppression(token = null, { opened = null } = {}) {
+    if (!token || programmaticChatOpenSuppression !== token) return;
+    const completedAtMs = Date.now();
+    programmaticChatOpenSuppression = {
+      ...token,
+      opened: opened === true,
+      completedAtMs,
+      suppressUntilMs: completedAtMs + 1500
+    };
+  }
+
+  function activeProgrammaticChatOpenSuppression() {
+    if (!programmaticChatOpenSuppression) return null;
+    if (Date.now() > Number(programmaticChatOpenSuppression.suppressUntilMs || 0)) {
+      programmaticChatOpenSuppression = null;
+      return null;
+    }
+    return programmaticChatOpenSuppression;
+  }
+
+  async function programmaticChatChangeSuppressionResult(payload = {}) {
+    const suppression = activeProgrammaticChatOpenSuppression();
+    if (!suppression) return null;
+    const currentChatId = compactString(
+      typeof runtimeHost?.chat?.getCurrentChatId === 'function'
+        ? await runtimeHost.chat.getCurrentChatId()
+        : null
+    );
+    return {
+      active: false,
+      suspended: true,
+      suppressed: true,
+      reason: 'programmatic-campaign-chat-open',
+      eventReason: compactString(payload?.reason) || null,
+      expectedChatId: suppression.chatId || null,
+      expectedSaveId: suppression.saveId || null,
+      currentChatId: currentChatId || null
+    };
   }
 
   async function openAndRetargetCampaignChat(state = campaignState, {
@@ -2410,7 +2609,13 @@ export function createDirectiveRuntimeApp({
       };
     }
 
-    const opened = await runtimeHost?.chat?.open?.(targetBinding);
+    const suppressionToken = beginProgrammaticChatOpenSuppression(targetBinding, reason);
+    let opened = false;
+    try {
+      opened = await runtimeHost?.chat?.open?.(targetBinding);
+    } finally {
+      finishProgrammaticChatOpenSuppression(suppressionToken, { opened: opened !== false });
+    }
     if (opened === false) {
       return {
         opened: false,
@@ -2511,12 +2716,19 @@ export function createDirectiveRuntimeApp({
       setCampaignState,
       persistCampaignState,
       getPackageData: () => activeRuntimeAssets().packageData,
-      syncPromptContext: async (state, promptFrame = null) => {
+      syncPromptContext: async (state, promptFrame = null, options = {}) => {
         const result = await synchronizeActivePrompt(state, {
           persist: false,
           promptFrame,
           useContinuityPlanner: false,
-          reason: 'Prompt context synchronized after accepted sidecar state delta.'
+          reason: 'Prompt context synchronized after accepted sidecar state delta.',
+          activityReporter: options.activityReporter || null,
+          activitySource: options.activitySource || 'sidecarPromptSync',
+          activityMode: options.activityMode || 'background',
+          activityContext: options.activityContext || {
+            workerKey: promptFrame?.workerKey || null,
+            commandBearingReview: promptFrame?.commandBearingReview === true
+          }
         });
         return result.campaignState || state;
       },
@@ -2610,12 +2822,16 @@ export function createDirectiveRuntimeApp({
       getPackageData: () => activeRuntimeAssets().packageData,
       getCrewDataset: () => activeRuntimeAssets().crewDataset,
       getShipDataset: () => activeRuntimeAssets().shipDataset,
-      syncPromptContext: async (state, promptFrame = null) => {
+      syncPromptContext: async (state, promptFrame = null, options = {}) => {
         const result = await synchronizeActivePrompt(state, {
           persist: false,
           promptFrame,
           useContinuityPlanner: false,
-          reason: 'Chat-native prompt context synchronized.'
+          reason: 'Chat-native prompt context synchronized.',
+          activityReporter: options.activityReporter || null,
+          activitySource: options.activitySource || 'chatTurnPromptSync',
+          activityMode: options.activityMode || 'blocking',
+          activityContext: options.activityContext || null
         });
         return result.campaignState || state;
       },
@@ -3302,6 +3518,8 @@ export function createDirectiveRuntimeApp({
     async handleHostChatChanged(payload = {}) {
       return run(async () => {
         await ensureInitialized();
+        const suppressed = await programmaticChatChangeSuppressionResult(payload);
+        if (suppressed) return suppressed;
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
         const services = ensureChatNativeServices();
@@ -3342,10 +3560,10 @@ export function createDirectiveRuntimeApp({
         });
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
-        const services = ensureChatNativeServices();
-        const chatChange = services
-          ? await services.orchestrator.handleChatChanged({ reason: 'open-campaign-chat' })
-          : null;
+        const chatChange = {
+          skipped: true,
+          reason: 'programmatic-open-syncs-prompt'
+        };
         return {
           ok: openSync.opened !== false,
           binding: cloneJson(targetBinding),
@@ -4733,25 +4951,60 @@ export function createDirectiveRuntimeApp({
             view: viewEnvelope('campaign')
           };
         }
+        if (typeof runtimeHost?.chat?.cloneCurrentChatForSaveBranch !== 'function') {
+          await refreshCampaignView();
+          return {
+            ok: false,
+            blocked: true,
+            reason: 'chat-clone-unavailable',
+            summary: 'Save Game As requires host support for cloning the active campaign chat.',
+            saveGuard: cloneJson(guard),
+            view: viewEnvelope('campaign')
+          };
+        }
+        const newSaveId = controller.createSaveId('save');
+        const sourceBinding = cloneJson(campaignState.campaignChatBinding || null);
+        const branchPoint = branchFrom || {
+          divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId || null
+        };
+        const clonedBinding = await runtimeHost.chat.cloneCurrentChatForSaveBranch({
+          name,
+          campaignId: campaignState?.campaign?.id || sourceBinding?.campaignId || null,
+          saveId: newSaveId,
+          sourceBinding,
+          branchFrom: branchPoint
+        });
+        if (!clonedBinding?.chatId) {
+          const error = new Error('Host chat clone did not return a branch chat id.');
+          error.code = 'DIRECTIVE_SAVE_AS_CHAT_CLONE_INVALID';
+          error.details = { saveId: newSaveId, clonedBinding };
+          throw error;
+        }
+        const branchBinding = {
+          ...(sourceBinding || {}),
+          ...cloneJson(clonedBinding || {}),
+          campaignId: campaignState?.campaign?.id || clonedBinding?.campaignId || sourceBinding?.campaignId || null,
+          saveId: newSaveId,
+          chatId: clonedBinding?.chatId || null,
+          chatName: clonedBinding?.chatName || name || sourceBinding?.chatName || null,
+          status: clonedBinding?.status || sourceBinding?.status || 'bound'
+        };
+        campaignState = applyRuntimeSettings(stateWithSaveBranchChatBinding(
+          campaignState,
+          branchBinding,
+          sourceBinding
+        ));
         const branchSave = await controller.saveCurrentGameAs({
+          newSaveId,
           name,
           campaignState,
-          branchFrom: branchFrom || {
-            divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId || null
-          }
+          branchFrom: branchPoint
         });
-        campaignState = {
-          ...campaignState,
-          campaignChatBinding: {
-            ...(campaignState.campaignChatBinding || {}),
-            saveId: branchSave.id
-          }
-        };
-        await runtimeHost?.chat?.updateBindingMetadata?.(campaignState.campaignChatBinding);
+        await runtimeHost.chat.updateBindingMetadata?.(campaignState.campaignChatBinding);
         const promptResult = await synchronizeActivePrompt(campaignState, {
           persist: false,
           rebuild: true,
-          reason: 'Prompt context rebuilt after Save Game As branch creation.'
+          reason: 'Prompt context rebuilt after Save Game As cloned-chat branch creation.'
         });
         campaignState = promptResult?.campaignState
           ? applyRuntimeSettings(promptResult.campaignState)
@@ -4759,7 +5012,7 @@ export function createDirectiveRuntimeApp({
         const save = await controller.saveCurrentGame({
           saveId: branchSave.id,
           campaignState,
-          summary: 'Save branch created. This chat now points to the new branch.'
+          summary: 'Save branch created with a cloned campaign chat.'
         });
         await refreshManualSaveGuard(campaignState, { expectedSaveId: save.id });
         await refreshCampaignView();
@@ -4769,6 +5022,13 @@ export function createDirectiveRuntimeApp({
           saveGuard: cloneJson(lastManualSaveGuard),
           save: cloneJson(save),
           branchSave: cloneJson(branchSave),
+          branchChat: {
+            sourceChatId: clonedBinding?.sourceChatId || sourceBinding?.chatId || null,
+            chatId: campaignState.campaignChatBinding?.chatId || null,
+            messageCount: Number.isFinite(Number(clonedBinding?.messageCount))
+              ? Number(clonedBinding.messageCount)
+              : null
+          },
           view: viewEnvelope('mission')
         };
       });

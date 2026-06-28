@@ -102,16 +102,18 @@ If the host cannot report a current chat id, Directive should fail closed for ma
 
 `Save Game As...` starts from the same active-chat guard as `Save Game`.
 
-After the guard passes, `Save Game As...` creates a new branch and makes that branch the active save for the current chat. That means:
+After the guard passes, `Save Game As...` creates a new save branch and a cloned host chat branch under the same Directive campaign character card. That means:
 
-1. create the new save record;
-2. promote the new save as current;
-3. update `campaignState.campaignChatBinding.saveId` to the new save id;
-4. update current host chat metadata with the new binding;
-5. rebuild or resynchronize prompt context if the prompt packet includes save identity;
-6. refresh the Records view without changing the active host chat.
+1. reserve the new save id;
+2. clone the active host chat transcript into a new chat file for the same campaign character;
+3. retarget `campaignState.campaignChatBinding` to the new save id and cloned chat id;
+4. retarget explicit chat-id fields in cloned runtime state to the cloned chat id;
+5. write host chat metadata into the cloned chat only;
+6. rebuild or resynchronize prompt context for the cloned chat;
+7. persist the branch save with the cloned save/chat binding;
+8. refresh the Records view with the cloned chat active.
 
-This resolves the ambiguity documented in [Scene Reconciliation Plan](SCENE_RECONCILIATION_PLAN.md): the branch save and chat transcript should not become separate records unless a future explicit feature supports detached branches.
+The source save keeps its source chat binding. Save Game As must not rewrite the source chat metadata to the branch save id.
 
 ### Autosaves
 
@@ -252,7 +254,7 @@ Host adapters should expose:
 
 - current chat id;
 - current chat Directive metadata;
-- ability to update current chat Directive metadata after `Save Game As...`;
+- ability to clone the current chat and write Directive metadata into the cloned chat after `Save Game As...`;
 - ability to open a binding's chat.
 
 SillyTavern already has most of this shape through `getCurrentChatId`, `getBindingMetadata`, `updateBindingMetadata`, and `open`. Future hosts should provide the same semantic contract before they are considered active save-guard targets.
@@ -272,7 +274,7 @@ SillyTavern already has most of this shape through `getCurrentChatId`, `getBindi
 - prompt-context revision fields;
 - rebind journal details.
 
-After `Save Game As...`, the binding saved into the new branch and the metadata written into the active host chat must use the new save id.
+After `Save Game As...`, the binding saved into the new branch and the metadata written into the active host chat must use both the new save id and the cloned chat id.
 
 ## Implementation Stages
 
@@ -315,7 +317,7 @@ Focused tests:
 - active chat for same campaign but different save blocks `Save Game`;
 - active chat for different campaign blocks `Save Game`;
 - missing host chat identity blocks manual save;
-- `Save Game As...` updates the active chat metadata to the new save id;
+- `Save Game As...` clones the active chat and writes active metadata to the cloned chat;
 - `Load Save` still opens the selected save's bound chat;
 - `Delete Save` remains available from Records without active-chat matching;
 - autosave from a committed bound-chat turn still writes at the configured cadence.
@@ -347,7 +349,7 @@ node tools\scripts\run-alpha-gate.mjs
 The feature is complete when:
 
 - manual save cannot write a loaded save from the wrong active host chat;
-- `Save Game As...` creates a branch and moves the active chat binding to that branch;
+- `Save Game As...` creates a branch with a cloned chat binding, leaving the source save/chat intact;
 - Records clearly explains blocked manual save actions and keeps safe library actions available;
 - host metadata, campaign save metadata, prompt context, and active save identity agree after Save As;
 - SillyTavern and fake-host contracts expose the active save-guard semantics, with future hosts required to match them before activation;

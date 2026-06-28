@@ -1,0 +1,2588 @@
+{
+  "manifest": {
+    "kind": "directive.shipDataset",
+    "schemaVersion": 1,
+    "id": "glass-harbor.steamrunner-class",
+    "packageId": "directive:campaign-package:glass-harbor-drowned-constellation",
+    "shipId": "uss-glass-harbor",
+    "classId": "steamrunner-class",
+    "title": "U.S.S. Glass Harbor Steamrunner-Class Ship Dataset",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Directive Steamrunner-Class Starship Bible",
+      "path": "docs/source/Directive_Steamrunner_Class_Starship_Bible.md",
+      "version": "0.1",
+      "role": "ship-bible"
+    },
+    {
+      "title": "Glass Harbor / Drowned Constellation",
+      "path": "docs/campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md",
+      "role": "campaign-reference"
+    },
+    {
+      "title": "Drowned Constellation campaign package",
+      "path": "packages/bundled/glass-harbor/drowned-constellation.campaign-package.json",
+      "version": "0.1.0-pre-alpha.1",
+      "role": "campaign-package"
+    }
+  ],
+  "areas": [
+    {
+      "id": "steamrunner.bridge",
+      "name": "Bridge",
+      "decks": [
+        1
+      ],
+      "zone": "Deck 1 inset forward command module",
+      "exteriorPlacement": "Inset forward between cowling structures rather than raised on a saucer crown",
+      "functions": [
+        "command",
+        "route decisions",
+        "convoy coordination",
+        "tactical control",
+        "recovery prioritization"
+      ],
+      "sceneUses": [
+        "acting-command pressure",
+        "convoy clearance",
+        "recovery prioritization",
+        "battle arc assignment"
+      ],
+      "hardFacts": [
+        "The bridge is inset into the forward hull geometry, not perched on a broad Galaxy-style saucer crown."
+      ],
+      "textures": [
+        "central command chairs",
+        "route overlays",
+        "aft tractor load display",
+        "forward conn",
+        "tactical arc status"
+      ],
+      "constraints": [
+        "Bridge scenes should turn contested movement into accountable command decisions."
+      ],
+      "keywords": [
+        "bridge",
+        "conn",
+        "ops",
+        "tactical",
+        "viewscreen",
+        "convoy",
+        "route"
+      ],
+      "systems": []
+    },
+    {
+      "id": "steamrunner.command-support",
+      "name": "Ready room and briefing room",
+      "decks": [
+        1,
+        2
+      ],
+      "zone": "Compact command support adjacent to or below the bridge",
+      "exteriorPlacement": "Forward command structure near bridge access",
+      "functions": [
+        "private command work",
+        "senior-staff synthesis",
+        "witness interviews",
+        "route policy"
+      ],
+      "sceneUses": [
+        "private command judgment",
+        "formal briefing",
+        "route custody argument",
+        "inquiry preparation"
+      ],
+      "hardFacts": [
+        "Command support rooms are compact and remain operationally close to the bridge."
+      ],
+      "textures": [
+        "working desk",
+        "secure wall display",
+        "briefing table",
+        "route-status terminal"
+      ],
+      "constraints": [
+        "Private command scenes should stay connected to ship traffic, recovery calls, and route pressure."
+      ],
+      "keywords": [
+        "ready room",
+        "briefing room",
+        "conference",
+        "senior staff",
+        "private command"
+      ],
+      "systems": []
+    },
+    {
+      "id": "steamrunner.wardroom",
+      "name": "Wardroom, mess, and crew commons",
+      "decks": [
+        3,
+        4
+      ],
+      "zone": "Mid-forward primary-hull social spaces",
+      "exteriorPlacement": "Primary hull crew volume",
+      "functions": [
+        "meals",
+        "crew morale",
+        "informal diplomacy",
+        "survivor holding",
+        "after-action decompression"
+      ],
+      "sceneUses": [
+        "civilian reassurance",
+        "crew fatigue",
+        "command rapport",
+        "post-mission aftermath"
+      ],
+      "hardFacts": [
+        "The wardroom is a working commons, not a luxury lounge or Ten Forward duplicate."
+      ],
+      "textures": [
+        "compact tables",
+        "replicator alcoves",
+        "route-status chatter",
+        "tired recovery crews",
+        "survivor blankets"
+      ],
+      "constraints": [
+        "Crowding should change the room before abstract morale does."
+      ],
+      "keywords": [
+        "wardroom",
+        "mess",
+        "crew commons",
+        "meal",
+        "morale",
+        "survivor"
+      ],
+      "systems": []
+    },
+    {
+      "id": "steamrunner.sickbay",
+      "name": "Sickbay and medical isolation",
+      "decks": [
+        5
+      ],
+      "zone": "Deck 5 protected medical suite",
+      "exteriorPlacement": "",
+      "functions": [
+        "medical care",
+        "quarantine",
+        "casualty sorting",
+        "survivor stabilization",
+        "forensic support"
+      ],
+      "sceneUses": [
+        "recovery cost",
+        "contamination",
+        "triage ethics",
+        "command consequence"
+      ],
+      "hardFacts": [
+        "Sickbay is protected from direct flight-deck exposure while remaining connected to transporter and cargo casualty routes."
+      ],
+      "textures": [
+        "biobeds",
+        "surgical bay",
+        "isolation rooms",
+        "decon room",
+        "overflow screens"
+      ],
+      "constraints": [
+        "Medical capacity should expose limits; the ship cannot house every survivor or treat mass emergence alone."
+      ],
+      "keywords": [
+        "sickbay",
+        "medical",
+        "doctor",
+        "biobed",
+        "quarantine",
+        "triage",
+        "decon"
+      ],
+      "systems": [
+        "steamrunner.small-craft-cargo-integration"
+      ]
+    },
+    {
+      "id": "steamrunner.transporter-security",
+      "name": "Transporter rooms, security, and armory",
+      "decks": [
+        6
+      ],
+      "zone": "Deck 6 movement and custody spine",
+      "exteriorPlacement": "",
+      "functions": [
+        "personnel transport",
+        "evidence transfer",
+        "security response",
+        "detention",
+        "arms accountability"
+      ],
+      "sceneUses": [
+        "boarding risk",
+        "salvage law",
+        "refugee movement",
+        "armed response"
+      ],
+      "hardFacts": [
+        "Transport, custody, and security spaces are close enough for movement to become accountable immediately."
+      ],
+      "textures": [
+        "six-pad platform",
+        "operator booth",
+        "biofilter logs",
+        "secured arms issue",
+        "compact brig"
+      ],
+      "constraints": [
+        "Transporters require locks, biofilters, shield status, power, and custody decisions."
+      ],
+      "keywords": [
+        "transporter",
+        "beam",
+        "security",
+        "brig",
+        "armory",
+        "biofilter",
+        "custody"
+      ],
+      "systems": []
+    },
+    {
+      "id": "steamrunner.mission-ops-science",
+      "name": "Mission ops, route analysis, and science labs",
+      "decks": [
+        7,
+        8
+      ],
+      "zone": "Decks 7-8 broad primary-hull analysis spaces",
+      "exteriorPlacement": "",
+      "functions": [
+        "route validation",
+        "hazard analysis",
+        "survey science",
+        "evidence reconstruction",
+        "chart custody"
+      ],
+      "sceneUses": [
+        "charts",
+        "wreck emergence",
+        "anomalies",
+        "sanctuary detection",
+        "false certainty"
+      ],
+      "hardFacts": [
+        "Mission ops is the class-native place where a Steamrunner earns the right to say a route is safe enough."
+      ],
+      "textures": [
+        "wall-scale route displays",
+        "probe telemetry",
+        "sensor-fusion table",
+        "sealed evidence readers",
+        "confidence overlays"
+      ],
+      "constraints": [
+        "Good sensors still produce uncertainty, blind spots, false confidence, and political exposure."
+      ],
+      "keywords": [
+        "mission ops",
+        "science lab",
+        "route",
+        "chart",
+        "sensor",
+        "survey",
+        "evidence"
+      ],
+      "systems": [
+        "steamrunner.sensors-chart-custody"
+      ]
+    },
+    {
+      "id": "steamrunner.cargo-recovery-holds",
+      "name": "Cargo, salvage, and recovery holds",
+      "decks": [
+        9,
+        10
+      ],
+      "zone": "Decks 9-10 aft-central service hull",
+      "exteriorPlacement": "",
+      "functions": [
+        "cargo",
+        "relief pallets",
+        "salvage sorting",
+        "survivor property",
+        "field equipment"
+      ],
+      "sceneUses": [
+        "physical evidence",
+        "scarcity",
+        "repair parts",
+        "disaster logistics"
+      ],
+      "hardFacts": [
+        "Cargo and recovery holds make rescue, salvage, relief, and evidence physical."
+      ],
+      "textures": [
+        "pallet rails",
+        "modular containers",
+        "environmental cages",
+        "salvage tables",
+        "temporary bunks"
+      ],
+      "constraints": [
+        "Cargo volume runs out before compassion does."
+      ],
+      "keywords": [
+        "cargo",
+        "salvage",
+        "recovery hold",
+        "relief",
+        "supplies",
+        "inventory",
+        "pallet"
+      ],
+      "systems": [
+        "steamrunner.small-craft-cargo-integration"
+      ]
+    },
+    {
+      "id": "steamrunner.main-engineering-aft-deflector",
+      "name": "Main engineering and aft deflector control",
+      "decks": [
+        11,
+        12
+      ],
+      "zone": "Decks 11-12 aft service concentration",
+      "exteriorPlacement": "Internal support for the aft detached deflector housing and cowled nacelle roots",
+      "functions": [
+        "warp power",
+        "impulse support",
+        "tractor load control",
+        "aft deflector coordination",
+        "damage control"
+      ],
+      "sceneUses": [
+        "power tradeoffs",
+        "damage control",
+        "towing",
+        "field pulses",
+        "repair triage"
+      ],
+      "hardFacts": [
+        "Engineering and aft deflector control are physically and operationally tied to stern field geometry."
+      ],
+      "textures": [
+        "compact core bay",
+        "power-transfer consoles",
+        "aft deflector control alcove",
+        "tractor-load display",
+        "cowling access trunk"
+      ],
+      "constraints": [
+        "Deflector activity, tractor load, shields, and shuttle recovery can conflict under pressure."
+      ],
+      "keywords": [
+        "engineering",
+        "main engineering",
+        "warp core",
+        "deflector",
+        "aft deflector",
+        "tractor",
+        "power"
+      ],
+      "systems": [
+        "steamrunner.aft-deflector",
+        "steamrunner.tractor-convoy-control"
+      ]
+    },
+    {
+      "id": "steamrunner.aft-lower-flight-deck",
+      "name": "Aft-lower flight deck",
+      "decks": [
+        13
+      ],
+      "zone": "Deck 13 aft-lower service volume",
+      "exteriorPlacement": "Aft-lower service volume in the broad rear hull above and around the detached deflector housing; approach from astern and below",
+      "functions": [
+        "shuttle launch",
+        "shuttle recovery",
+        "field-team staging",
+        "survivor intake",
+        "small-craft repair"
+      ],
+      "sceneUses": [
+        "away-team launch",
+        "emergency recovery",
+        "evacuation",
+        "shuttle repair",
+        "mission staging"
+      ],
+      "hardFacts": [
+        "Steamrunner small-craft recovery uses an aft-lower stern service volume in Directive baseline.",
+        "Small craft approach from astern and below.",
+        "The aft deflector housing and shuttle recovery share stern geometry."
+      ],
+      "textures": [
+        "approach strobes",
+        "bay force field",
+        "deck-control booth",
+        "maintenance cradles",
+        "cargo tie-downs"
+      ],
+      "constraints": [
+        "Do not depict a wide forward, saucer-underbelly, or generic belly shuttlebay.",
+        "Deflector activity, tractor load, shields, and bay force fields can affect recovery timing."
+      ],
+      "keywords": [
+        "shuttlebay",
+        "shuttle bay",
+        "flight deck",
+        "hangar",
+        "shuttle",
+        "launch",
+        "recovery",
+        "aft bay"
+      ],
+      "systems": [
+        "steamrunner.aft-deflector",
+        "steamrunner.small-craft-cargo-integration"
+      ]
+    },
+    {
+      "id": "steamrunner.jefferies-lower-support",
+      "name": "Jefferies tubes and lower support",
+      "decks": [
+        14,
+        15,
+        16
+      ],
+      "zone": "Lower maintenance network and cowling support",
+      "exteriorPlacement": "",
+      "functions": [
+        "repair access",
+        "environmental support",
+        "shield-grid service",
+        "emergency routing"
+      ],
+      "sceneUses": [
+        "physical risk",
+        "hidden damage",
+        "private confession",
+        "systems mystery"
+      ],
+      "hardFacts": [
+        "Lower support and maintenance access expose the ship as a body of heat, conduits, vibration, and narrow routes."
+      ],
+      "textures": [
+        "ladder tubes",
+        "cowling crawlways",
+        "warm conduits",
+        "shield-grid panels",
+        "environmental valves"
+      ],
+      "constraints": [
+        "Maintenance scenes should use cramped physical risk rather than generic corridor action."
+      ],
+      "keywords": [
+        "Jefferies",
+        "crawlway",
+        "lower support",
+        "conduit",
+        "relay",
+        "cowling",
+        "maintenance"
+      ],
+      "systems": []
+    }
+  ],
+  "systems": [
+    {
+      "id": "steamrunner.aft-deflector",
+      "name": "Aft deflector and field geometry",
+      "scope": "Aft detached secondary-hull housing",
+      "capability": "Navigation and field projection from stern geometry, creating class-specific towing, hazard, and recovery constraints.",
+      "dependencies": [
+        "power transfer",
+        "tractor loads",
+        "shuttle recovery timing",
+        "stern shield arcs"
+      ],
+      "failureModes": [
+        "field instability",
+        "recovery window delay",
+        "tow interference",
+        "sensor distortion"
+      ],
+      "sceneUses": [
+        "route scan",
+        "wreck tow",
+        "shuttle recovery conflict",
+        "hazard pulse"
+      ],
+      "keywords": [
+        "deflector",
+        "aft deflector",
+        "field",
+        "tractor",
+        "tow",
+        "stern"
+      ]
+    },
+    {
+      "id": "steamrunner.tractor-convoy-control",
+      "name": "Tractor, towing, and convoy control",
+      "scope": "Tractor emitters, shield arcs, and convoy movement control",
+      "capability": "Secures wrecks, guides convoys, holds recovery lines, and protects traffic one crisis at a time.",
+      "dependencies": [
+        "tractor emitter availability",
+        "structural integrity",
+        "shield geometry",
+        "power reserve",
+        "legal custody"
+      ],
+      "failureModes": [
+        "emitter overheating",
+        "tow drift",
+        "shield exposure",
+        "custody dispute"
+      ],
+      "sceneUses": [
+        "hazardous recovery",
+        "convoy escort",
+        "salvage custody",
+        "route denial"
+      ],
+      "keywords": [
+        "tractor",
+        "tow",
+        "convoy",
+        "recovery",
+        "escort",
+        "route"
+      ]
+    },
+    {
+      "id": "steamrunner.tactical-defensive",
+      "name": "Phasers, torpedoes, shields, and deterrence",
+      "scope": "Tactical and defensive suite",
+      "capability": "Credible 2370s escort firepower and shielding for convoy cover, route denial, and self-defense.",
+      "dependencies": [
+        "weapon arcs",
+        "shield sectors",
+        "rules of engagement",
+        "torpedo inventory",
+        "civilian proximity"
+      ],
+      "failureModes": [
+        "arc limitation",
+        "shield gap",
+        "political escalation",
+        "inventory pressure"
+      ],
+      "sceneUses": [
+        "convoy defense",
+        "warning posture",
+        "shuttle cover",
+        "battle-line support"
+      ],
+      "keywords": [
+        "phaser",
+        "torpedo",
+        "shields",
+        "tactical",
+        "weapons",
+        "deterrence"
+      ]
+    },
+    {
+      "id": "steamrunner.sensors-chart-custody",
+      "name": "Sensors, route maps, and chart custody",
+      "scope": "Mission ops sensor fusion and route-record control",
+      "capability": "Turns contested space into maps, models, custody records, and command recommendations.",
+      "dependencies": [
+        "sensor calibration",
+        "probe telemetry",
+        "local interference",
+        "data custody",
+        "command authorization"
+      ],
+      "failureModes": [
+        "false certainty",
+        "blind spot",
+        "chart exposure",
+        "model drift"
+      ],
+      "sceneUses": [
+        "route validation",
+        "sanctuary exposure",
+        "wreck emergence prediction",
+        "evidence dispute"
+      ],
+      "keywords": [
+        "sensor",
+        "chart",
+        "route",
+        "mission ops",
+        "map",
+        "custody",
+        "survey"
+      ]
+    },
+    {
+      "id": "steamrunner.small-craft-cargo-integration",
+      "name": "Small-craft, cargo, medical, and security integration",
+      "scope": "Flight deck, cargo holds, transporter, medical, and security traffic chain",
+      "capability": "Moves field teams, survivors, cargo, evidence, and casualties through a constrained rescue chain.",
+      "dependencies": [
+        "bay clearance",
+        "cargo volume",
+        "medical capacity",
+        "security routing",
+        "decontamination"
+      ],
+      "failureModes": [
+        "bay choke point",
+        "medical overflow",
+        "cargo conflict",
+        "security breach"
+      ],
+      "sceneUses": [
+        "survivor intake",
+        "field-team launch",
+        "repair logistics",
+        "evacuation flow"
+      ],
+      "keywords": [
+        "flight deck",
+        "cargo",
+        "sickbay",
+        "security",
+        "decon",
+        "evacuation"
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "ship.steamrunner-class.class.identity",
+      "type": "ship.profile",
+      "title": "Steamrunner-class storytelling identity",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "2. Class Personality",
+          "9. Portrayal Principles"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.aft-deflector",
+          "steamrunner.tractor-convoy-control"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_identity",
+          "ship_area",
+          "ship_system"
+        ],
+        "keywords": [
+          "ship",
+          "Steamrunner-class",
+          "U.S.S. Glass Harbor",
+          "Drowned Constellation",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "U.S.S. Glass Harbor is a Steamrunner-class vessel. A Steamrunner-class ship is a compact 2370s Starfleet escort, route-security, recovery, and tactical survey vessel whose tactical profile is most useful when it keeps movement lawful, mapped, supplied, and alive. Campaign use: U.S.S. Glass Harbor: Nerine Reef route-security, gravitic survey, civilian rescue support, towing, and chart custody.",
+        "constraints": [
+          "Do not give the class a generic forward deflector or Galaxy-style saucer layout.",
+          "Do not make tactical credibility erase route, rescue, custody, and convoy tradeoffs."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Flattened irregular saucer and cowled nacelles.",
+          "Main deflector is aft on a detached secondary-hull housing.",
+          "Directive baseline places small-craft operations in an aft-lower service volume approached from astern and below."
+        ],
+        "textures": [
+          "flattened hull",
+          "cowled nacelles",
+          "aft deflector glow",
+          "route displays",
+          "busy recovery traffic"
+        ],
+        "avoid": [
+          "Galaxy-class grandeur",
+          "Intrepid deck map by default",
+          "Defiant-style pure warship tone"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.exterior.silhouette",
+      "type": "ship.exterior",
+      "title": "Steamrunner-class exterior silhouette",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "3.1 Silhouette and first read",
+          "3.2 Exterior zones"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.aft-deflector",
+          "steamrunner.tractor-convoy-control",
+          "steamrunner.tactical-defensive"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_exterior",
+          "ship_area"
+        ],
+        "keywords": [
+          "exterior",
+          "hull",
+          "silhouette",
+          "Steamrunner-class",
+          "U.S.S. Glass Harbor",
+          "Drowned Constellation",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The Steamrunner exterior reads broad, flat, tactical, and workmanlike: embedded nacelles, inset bridge, aft deflector housing, service locks, and recovery-facing stern geometry.",
+        "constraints": [
+          "Exterior prose should respect the aft deflector and cowled nacelle geometry."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The bridge is inset forward between cowling structures.",
+          "The aft deflector housing is a class-defining exterior feature.",
+          "Stern geometry matters for towing, field work, and shuttle recovery."
+        ],
+        "textures": [
+          "cowling shadows",
+          "aft service lights",
+          "shield arcs over a flattened hull",
+          "cargo locks",
+          "tractor-emitter status"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.exterior.shuttlebay-approach",
+      "type": "ship.exterior",
+      "title": "Steamrunner-class shuttlebay approach",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "5.9 Aft-lower flight deck, Deck 13"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.aft-lower-flight-deck"
+        ],
+        "systems": [
+          "steamrunner.aft-deflector",
+          "steamrunner.small-craft-cargo-integration"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_exterior",
+          "ship_area",
+          "shuttlebay",
+          "opening_shuttle_rendezvous"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle bay",
+          "shuttle",
+          "hangar",
+          "docking",
+          "approach",
+          "flight deck",
+          "launch",
+          "recovery",
+          "aft bay",
+          "Steamrunner-class",
+          "U.S.S. Glass Harbor",
+          "Drowned Constellation",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "critical"
+      },
+      "payload": {
+        "summary": "The aft-lower flight deck is the Steamrunner mission threshold, with shuttle approach from astern and below through stern service geometry. Steamrunner small-craft recovery uses an aft-lower stern service volume in Directive baseline. Small craft approach from astern and below. The aft deflector housing and shuttle recovery share stern geometry.",
+        "constraints": [
+          "Do not depict a wide forward, saucer-underbelly, or generic belly shuttlebay.",
+          "Deflector activity, tractor load, shields, and bay force fields can affect recovery timing."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Steamrunner small-craft recovery uses an aft-lower stern service volume in Directive baseline.",
+          "Small craft approach from astern and below.",
+          "The aft deflector housing and shuttle recovery share stern geometry."
+        ],
+        "textures": [
+          "approach strobes",
+          "bay force field",
+          "deck-control booth",
+          "maintenance cradles",
+          "cargo tie-downs"
+        ],
+        "avoid": [
+          "Do not depict a wide forward, saucer-underbelly, or generic belly shuttlebay."
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.bridge",
+      "type": "ship.location",
+      "title": "Bridge",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.1 Bridge, Deck 1"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.bridge"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "bridge"
+        ],
+        "keywords": [
+          "bridge",
+          "conn",
+          "ops",
+          "tactical",
+          "viewscreen",
+          "convoy",
+          "route",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The Deck 1 bridge is the Steamrunner decision room where routes, shuttles, tractor loads, civilian traffic, and tactical arcs become one order.",
+        "constraints": [
+          "Bridge scenes should turn contested movement into accountable command decisions."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The bridge is inset into the forward hull geometry, not perched on a broad Galaxy-style saucer crown."
+        ],
+        "textures": [
+          "central command chairs",
+          "route overlays",
+          "aft tractor load display",
+          "forward conn",
+          "tactical arc status"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.command-support",
+      "type": "ship.location",
+      "title": "Ready room and briefing room",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.2 Ready room and briefing room, Decks 1-2"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.command-support"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "command-support"
+        ],
+        "keywords": [
+          "ready room",
+          "briefing room",
+          "conference",
+          "senior staff",
+          "private command",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Command support spaces convert operational noise into private judgment and senior-staff synthesis.",
+        "constraints": [
+          "Private command scenes should stay connected to ship traffic, recovery calls, and route pressure."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Command support rooms are compact and remain operationally close to the bridge."
+        ],
+        "textures": [
+          "working desk",
+          "secure wall display",
+          "briefing table",
+          "route-status terminal"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.wardroom",
+      "type": "ship.location",
+      "title": "Wardroom, mess, and crew commons",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.3 Wardroom, mess, and crew commons, Decks 3-4"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.wardroom"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "wardroom"
+        ],
+        "keywords": [
+          "wardroom",
+          "mess",
+          "crew commons",
+          "meal",
+          "morale",
+          "survivor",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The wardroom turns route policy, rescue outcomes, and crew fatigue into ordinary shipboard life.",
+        "constraints": [
+          "Crowding should change the room before abstract morale does."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "The wardroom is a working commons, not a luxury lounge or Ten Forward duplicate."
+        ],
+        "textures": [
+          "compact tables",
+          "replicator alcoves",
+          "route-status chatter",
+          "tired recovery crews",
+          "survivor blankets"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.sickbay",
+      "type": "ship.location",
+      "title": "Sickbay and medical isolation",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.4 Sickbay and medical isolation, Deck 5"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.sickbay"
+        ],
+        "systems": [
+          "steamrunner.small-craft-cargo-integration"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "sickbay"
+        ],
+        "keywords": [
+          "sickbay",
+          "medical",
+          "doctor",
+          "biobed",
+          "quarantine",
+          "triage",
+          "decon",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Steamrunner sickbay turns route-security and recovery missions into bodies, quarantine risk, and triage math.",
+        "constraints": [
+          "Medical capacity should expose limits; the ship cannot house every survivor or treat mass emergence alone."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Sickbay is protected from direct flight-deck exposure while remaining connected to transporter and cargo casualty routes."
+        ],
+        "textures": [
+          "biobeds",
+          "surgical bay",
+          "isolation rooms",
+          "decon room",
+          "overflow screens"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.transporter-security",
+      "type": "ship.location",
+      "title": "Transporter rooms, security, and armory",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.5 Transporter rooms, security, and armory, Deck 6"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.transporter-security"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "transporter-security"
+        ],
+        "keywords": [
+          "transporter",
+          "beam",
+          "security",
+          "brig",
+          "armory",
+          "biofilter",
+          "custody",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Transporter and security spaces turn intent into irreversible movement and accountable custody.",
+        "constraints": [
+          "Transporters require locks, biofilters, shield status, power, and custody decisions."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Transport, custody, and security spaces are close enough for movement to become accountable immediately."
+        ],
+        "textures": [
+          "six-pad platform",
+          "operator booth",
+          "biofilter logs",
+          "secured arms issue",
+          "compact brig"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.mission-ops-science",
+      "type": "ship.location",
+      "title": "Mission ops, route analysis, and science labs",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.6 Mission ops, route analysis, and science labs, Decks 7-8"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.mission-ops-science"
+        ],
+        "systems": [
+          "steamrunner.sensors-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "mission-ops-science"
+        ],
+        "keywords": [
+          "mission ops",
+          "science lab",
+          "route",
+          "chart",
+          "sensor",
+          "survey",
+          "evidence",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Mission ops makes contested routes legible enough for command action without making the map automatically true.",
+        "constraints": [
+          "Good sensors still produce uncertainty, blind spots, false confidence, and political exposure."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Mission ops is the class-native place where a Steamrunner earns the right to say a route is safe enough."
+        ],
+        "textures": [
+          "wall-scale route displays",
+          "probe telemetry",
+          "sensor-fusion table",
+          "sealed evidence readers",
+          "confidence overlays"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.cargo-recovery-holds",
+      "type": "ship.location",
+      "title": "Cargo, salvage, and recovery holds",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.7 Cargo, salvage, and recovery holds, Decks 9-10"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.cargo-recovery-holds"
+        ],
+        "systems": [
+          "steamrunner.small-craft-cargo-integration"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "cargo-recovery-holds"
+        ],
+        "keywords": [
+          "cargo",
+          "salvage",
+          "recovery hold",
+          "relief",
+          "supplies",
+          "inventory",
+          "pallet",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Cargo and recovery holds turn abstract rescue into mass, labels, custody, locks, and finite volume.",
+        "constraints": [
+          "Cargo volume runs out before compassion does."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Cargo and recovery holds make rescue, salvage, relief, and evidence physical."
+        ],
+        "textures": [
+          "pallet rails",
+          "modular containers",
+          "environmental cages",
+          "salvage tables",
+          "temporary bunks"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.main-engineering-aft-deflector",
+      "type": "ship.location",
+      "title": "Main engineering and aft deflector control",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.8 Main engineering and aft deflector control, Decks 11-12"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.main-engineering-aft-deflector"
+        ],
+        "systems": [
+          "steamrunner.aft-deflector",
+          "steamrunner.tractor-convoy-control"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "main-engineering-aft-deflector"
+        ],
+        "keywords": [
+          "engineering",
+          "main engineering",
+          "warp core",
+          "deflector",
+          "aft deflector",
+          "tractor",
+          "power",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Engineering turns route promises into physics: power, tractor load, deflector timing, cowling heat, and repairable risk.",
+        "constraints": [
+          "Deflector activity, tractor load, shields, and shuttle recovery can conflict under pressure."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Engineering and aft deflector control are physically and operationally tied to stern field geometry."
+        ],
+        "textures": [
+          "compact core bay",
+          "power-transfer consoles",
+          "aft deflector control alcove",
+          "tractor-load display",
+          "cowling access trunk"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.aft-lower-flight-deck",
+      "type": "ship.location",
+      "title": "Aft-lower flight deck",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "3.3 Shuttle approach truth",
+          "5.9 Aft-lower flight deck, Deck 13"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator",
+        "commandDirector"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.aft-lower-flight-deck"
+        ],
+        "systems": [
+          "steamrunner.aft-deflector",
+          "steamrunner.small-craft-cargo-integration"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "aft-lower-flight-deck",
+          "shuttlebay"
+        ],
+        "keywords": [
+          "shuttlebay",
+          "shuttle bay",
+          "flight deck",
+          "hangar",
+          "shuttle",
+          "launch",
+          "recovery",
+          "aft bay",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The aft-lower flight deck is the Steamrunner mission threshold, with shuttle approach from astern and below through stern service geometry.",
+        "constraints": [
+          "Do not depict a wide forward, saucer-underbelly, or generic belly shuttlebay.",
+          "Deflector activity, tractor load, shields, and bay force fields can affect recovery timing."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Steamrunner small-craft recovery uses an aft-lower stern service volume in Directive baseline.",
+          "Small craft approach from astern and below.",
+          "The aft deflector housing and shuttle recovery share stern geometry."
+        ],
+        "textures": [
+          "approach strobes",
+          "bay force field",
+          "deck-control booth",
+          "maintenance cradles",
+          "cargo tie-downs"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.location.jefferies-lower-support",
+      "type": "ship.location",
+      "title": "Jefferies tubes and lower support",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "5.10 Jefferies tubes and lower support, Decks 14-16"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "locations": [
+          "steamrunner.jefferies-lower-support"
+        ],
+        "systems": []
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_area",
+          "jefferies-lower-support"
+        ],
+        "keywords": [
+          "Jefferies",
+          "crawlway",
+          "lower support",
+          "conduit",
+          "relay",
+          "cowling",
+          "maintenance",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Jefferies tubes and lower support make the Steamrunner hull physically accountable.",
+        "constraints": [
+          "Maintenance scenes should use cramped physical risk rather than generic corridor action."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Lower support and maintenance access expose the ship as a body of heat, conduits, vibration, and narrow routes."
+        ],
+        "textures": [
+          "ladder tubes",
+          "cowling crawlways",
+          "warm conduits",
+          "shield-grid panels",
+          "environmental valves"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.system.aft-deflector",
+      "type": "ship.system",
+      "title": "Aft deflector and field geometry",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "6.1 Aft deflector and field geometry"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.aft-deflector"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "aft-deflector"
+        ],
+        "keywords": [
+          "deflector",
+          "aft deflector",
+          "field",
+          "tractor",
+          "tow",
+          "stern",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The aft deflector is the recurring Steamrunner system that makes field work, towing, and shuttle recovery physically specific.",
+        "constraints": [
+          "Capability: Navigation and field projection from stern geometry, creating class-specific towing, hazard, and recovery constraints.",
+          "Dependencies: power transfer; tractor loads; shuttle recovery timing; stern shield arcs.",
+          "Failure modes: field instability; recovery window delay; tow interference; sensor distortion."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Aft detached secondary-hull housing",
+          "Navigation and field projection from stern geometry, creating class-specific towing, hazard, and recovery constraints."
+        ],
+        "textures": [
+          "route scan",
+          "wreck tow",
+          "shuttle recovery conflict",
+          "hazard pulse"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.system.tractor-convoy-control",
+      "type": "ship.system",
+      "title": "Tractor, towing, and convoy control",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "6.2 Tractor, towing, and convoy control"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.tractor-convoy-control"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "tractor-convoy-control"
+        ],
+        "keywords": [
+          "tractor",
+          "tow",
+          "convoy",
+          "recovery",
+          "escort",
+          "route",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Tractor and convoy systems are strong but bounded by load, arcs, power, and what becomes exposed while the ship holds one line.",
+        "constraints": [
+          "Capability: Secures wrecks, guides convoys, holds recovery lines, and protects traffic one crisis at a time.",
+          "Dependencies: tractor emitter availability; structural integrity; shield geometry; power reserve; legal custody.",
+          "Failure modes: emitter overheating; tow drift; shield exposure; custody dispute."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Tractor emitters, shield arcs, and convoy movement control",
+          "Secures wrecks, guides convoys, holds recovery lines, and protects traffic one crisis at a time."
+        ],
+        "textures": [
+          "hazardous recovery",
+          "convoy escort",
+          "salvage custody",
+          "route denial"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.system.tactical-defensive",
+      "type": "ship.system",
+      "title": "Phasers, torpedoes, shields, and deterrence",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "6.3 Tactical systems"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.tactical-defensive"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "tactical-defensive"
+        ],
+        "keywords": [
+          "phaser",
+          "torpedo",
+          "shields",
+          "tactical",
+          "weapons",
+          "deterrence",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Steamrunner tactical systems create credible threat presence but should support escort and rescue rather than erase politics.",
+        "constraints": [
+          "Capability: Credible 2370s escort firepower and shielding for convoy cover, route denial, and self-defense.",
+          "Dependencies: weapon arcs; shield sectors; rules of engagement; torpedo inventory; civilian proximity.",
+          "Failure modes: arc limitation; shield gap; political escalation; inventory pressure."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Tactical and defensive suite",
+          "Credible 2370s escort firepower and shielding for convoy cover, route denial, and self-defense."
+        ],
+        "textures": [
+          "convoy defense",
+          "warning posture",
+          "shuttle cover",
+          "battle-line support"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.system.sensors-chart-custody",
+      "type": "ship.system",
+      "title": "Sensors, route maps, and chart custody",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "6.4 Sensors, route maps, and chart custody"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.sensors-chart-custody"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "sensors-chart-custody"
+        ],
+        "keywords": [
+          "sensor",
+          "chart",
+          "route",
+          "mission ops",
+          "map",
+          "custody",
+          "survey",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The Steamrunner sensor suite makes movement legible while creating political exposure and false-certainty risk.",
+        "constraints": [
+          "Capability: Turns contested space into maps, models, custody records, and command recommendations.",
+          "Dependencies: sensor calibration; probe telemetry; local interference; data custody; command authorization.",
+          "Failure modes: false certainty; blind spot; chart exposure; model drift."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Mission ops sensor fusion and route-record control",
+          "Turns contested space into maps, models, custody records, and command recommendations."
+        ],
+        "textures": [
+          "route validation",
+          "sanctuary exposure",
+          "wreck emergence prediction",
+          "evidence dispute"
+        ]
+      }
+    },
+    {
+      "id": "ship.steamrunner-class.system.small-craft-cargo-integration",
+      "type": "ship.system",
+      "title": "Small-craft, cargo, medical, and security integration",
+      "datasetId": "glass-harbor.steamrunner-class",
+      "source": {
+        "document": "Directive_Steamrunner_Class_Starship_Bible.md",
+        "refs": [
+          "6.5 Small-craft and cargo integration"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "missionDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "scope": {
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "systems": [
+          "steamrunner.small-craft-cargo-integration"
+        ]
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "ship_system",
+          "small-craft-cargo-integration"
+        ],
+        "keywords": [
+          "flight deck",
+          "cargo",
+          "sickbay",
+          "security",
+          "decon",
+          "evacuation",
+          "Nerine Reef",
+          "gravitic route",
+          "survey buoy",
+          "sanctuary",
+          "chart custody"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Flight deck, cargo, medical, and security are one chain; rescue scenes should feel connected rather than room-isolated.",
+        "constraints": [
+          "Capability: Moves field teams, survivors, cargo, evidence, and casualties through a constrained rescue chain.",
+          "Dependencies: bay clearance; cargo volume; medical capacity; security routing; decontamination.",
+          "Failure modes: bay choke point; medical overflow; cargo conflict; security breach."
+        ],
+        "narratorSafe": true,
+        "hardAnchors": [
+          "Flight deck, cargo holds, transporter, medical, and security traffic chain",
+          "Moves field teams, survivors, cargo, evidence, and casualties through a constrained rescue chain."
+        ],
+        "textures": [
+          "survivor intake",
+          "field-team launch",
+          "repair logistics",
+          "evacuation flow"
+        ]
+      }
+    }
+  ],
+  "indexes": {
+    "byArea": {
+      "steamrunner.bridge": [
+        "ship.steamrunner-class.location.bridge"
+      ],
+      "steamrunner.command-support": [
+        "ship.steamrunner-class.location.command-support"
+      ],
+      "steamrunner.wardroom": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "steamrunner.sickbay": [
+        "ship.steamrunner-class.location.sickbay"
+      ],
+      "steamrunner.transporter-security": [
+        "ship.steamrunner-class.location.transporter-security"
+      ],
+      "steamrunner.mission-ops-science": [
+        "ship.steamrunner-class.location.mission-ops-science"
+      ],
+      "steamrunner.cargo-recovery-holds": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "steamrunner.main-engineering-aft-deflector": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector"
+      ],
+      "steamrunner.aft-lower-flight-deck": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "steamrunner.jefferies-lower-support": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ]
+    },
+    "bySystem": {
+      "steamrunner.aft-deflector": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.system.aft-deflector"
+      ],
+      "steamrunner.tractor-convoy-control": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control"
+      ],
+      "steamrunner.tactical-defensive": [
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "steamrunner.sensors-chart-custody": [
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "steamrunner.small-craft-cargo-integration": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ]
+    },
+    "byType": {
+      "ship.profile": [
+        "ship.steamrunner-class.class.identity"
+      ],
+      "ship.exterior": [
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach"
+      ],
+      "ship.location": [
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "ship.system": [
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ]
+    },
+    "byAudience": {
+      "missionDirector": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "shipDirector": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "commandDirector": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "narrator": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ]
+    },
+    "byKeyword": {
+      "ship": [
+        "ship.steamrunner-class.class.identity"
+      ],
+      "steamrunner-class": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach"
+      ],
+      "u.s.s. glass harbor": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach"
+      ],
+      "drowned constellation": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach"
+      ],
+      "nerine reef": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "gravitic route": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "survey buoy": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "sanctuary": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "chart custody": [
+        "ship.steamrunner-class.class.identity",
+        "ship.steamrunner-class.exterior.silhouette",
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.command-support",
+        "ship.steamrunner-class.location.wardroom",
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.location.jefferies-lower-support",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.tactical-defensive",
+        "ship.steamrunner-class.system.sensors-chart-custody",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "exterior": [
+        "ship.steamrunner-class.exterior.silhouette"
+      ],
+      "hull": [
+        "ship.steamrunner-class.exterior.silhouette"
+      ],
+      "silhouette": [
+        "ship.steamrunner-class.exterior.silhouette"
+      ],
+      "shuttlebay": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "shuttle bay": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "shuttle": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "hangar": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "docking": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach"
+      ],
+      "approach": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach"
+      ],
+      "flight deck": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "launch": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "recovery": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck",
+        "ship.steamrunner-class.system.tractor-convoy-control"
+      ],
+      "aft bay": [
+        "ship.steamrunner-class.exterior.shuttlebay-approach",
+        "ship.steamrunner-class.location.aft-lower-flight-deck"
+      ],
+      "bridge": [
+        "ship.steamrunner-class.location.bridge"
+      ],
+      "conn": [
+        "ship.steamrunner-class.location.bridge"
+      ],
+      "ops": [
+        "ship.steamrunner-class.location.bridge"
+      ],
+      "tactical": [
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "viewscreen": [
+        "ship.steamrunner-class.location.bridge"
+      ],
+      "convoy": [
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.system.tractor-convoy-control"
+      ],
+      "route": [
+        "ship.steamrunner-class.location.bridge",
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.system.tractor-convoy-control",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "ready room": [
+        "ship.steamrunner-class.location.command-support"
+      ],
+      "briefing room": [
+        "ship.steamrunner-class.location.command-support"
+      ],
+      "conference": [
+        "ship.steamrunner-class.location.command-support"
+      ],
+      "senior staff": [
+        "ship.steamrunner-class.location.command-support"
+      ],
+      "private command": [
+        "ship.steamrunner-class.location.command-support"
+      ],
+      "wardroom": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "mess": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "crew commons": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "meal": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "morale": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "survivor": [
+        "ship.steamrunner-class.location.wardroom"
+      ],
+      "sickbay": [
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "medical": [
+        "ship.steamrunner-class.location.sickbay"
+      ],
+      "doctor": [
+        "ship.steamrunner-class.location.sickbay"
+      ],
+      "biobed": [
+        "ship.steamrunner-class.location.sickbay"
+      ],
+      "quarantine": [
+        "ship.steamrunner-class.location.sickbay"
+      ],
+      "triage": [
+        "ship.steamrunner-class.location.sickbay"
+      ],
+      "decon": [
+        "ship.steamrunner-class.location.sickbay",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "transporter": [
+        "ship.steamrunner-class.location.transporter-security"
+      ],
+      "beam": [
+        "ship.steamrunner-class.location.transporter-security"
+      ],
+      "security": [
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "brig": [
+        "ship.steamrunner-class.location.transporter-security"
+      ],
+      "armory": [
+        "ship.steamrunner-class.location.transporter-security"
+      ],
+      "biofilter": [
+        "ship.steamrunner-class.location.transporter-security"
+      ],
+      "custody": [
+        "ship.steamrunner-class.location.transporter-security",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "mission ops": [
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "science lab": [
+        "ship.steamrunner-class.location.mission-ops-science"
+      ],
+      "chart": [
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "sensor": [
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "survey": [
+        "ship.steamrunner-class.location.mission-ops-science",
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "evidence": [
+        "ship.steamrunner-class.location.mission-ops-science"
+      ],
+      "cargo": [
+        "ship.steamrunner-class.location.cargo-recovery-holds",
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ],
+      "salvage": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "recovery hold": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "relief": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "supplies": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "inventory": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "pallet": [
+        "ship.steamrunner-class.location.cargo-recovery-holds"
+      ],
+      "engineering": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector"
+      ],
+      "main engineering": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector"
+      ],
+      "warp core": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector"
+      ],
+      "deflector": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.system.aft-deflector"
+      ],
+      "aft deflector": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.system.aft-deflector"
+      ],
+      "tractor": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector",
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control"
+      ],
+      "power": [
+        "ship.steamrunner-class.location.main-engineering-aft-deflector"
+      ],
+      "jefferies": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "crawlway": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "lower support": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "conduit": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "relay": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "cowling": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "maintenance": [
+        "ship.steamrunner-class.location.jefferies-lower-support"
+      ],
+      "field": [
+        "ship.steamrunner-class.system.aft-deflector"
+      ],
+      "tow": [
+        "ship.steamrunner-class.system.aft-deflector",
+        "ship.steamrunner-class.system.tractor-convoy-control"
+      ],
+      "stern": [
+        "ship.steamrunner-class.system.aft-deflector"
+      ],
+      "escort": [
+        "ship.steamrunner-class.system.tractor-convoy-control"
+      ],
+      "phaser": [
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "torpedo": [
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "shields": [
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "weapons": [
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "deterrence": [
+        "ship.steamrunner-class.system.tactical-defensive"
+      ],
+      "map": [
+        "ship.steamrunner-class.system.sensors-chart-custody"
+      ],
+      "evacuation": [
+        "ship.steamrunner-class.system.small-craft-cargo-integration"
+      ]
+    }
+  }
+}

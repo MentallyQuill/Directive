@@ -308,6 +308,7 @@ const introAfterCanceledSwipe = host.chat.messages().find((entry) => entry.metad
 assert.equal(introAfterCanceledSwipe.swipes.length, introSwipeCountBeforeCanceledSwipe);
 assert.equal(campaignIntroGenerationCount, 3);
 
+host.chat.setMessagesForChat('duplicated-campaign-chat', host.chat.messages());
 await host.chat.open({ chatId: 'duplicated-campaign-chat' });
 const rebound = await app.rebindCampaignChat();
 view = rebound.view;
@@ -364,24 +365,58 @@ assert.match(blockedSave.saveGuard.summary, /Choose the campaign chat/);
 
 await host.chat.open(view.chatNative.binding);
 const sourceSaveId = view.chatNative.binding.saveId;
+const sourceChatId = view.chatNative.binding.chatId;
+const sourceMessageCountBeforeBranch = host.chat.messagesForChat(sourceChatId).length;
 const branch = await app.saveCurrentGameAs({ name: 'Guarded Branch' });
 assert.equal(branch.ok, true);
 assert.notEqual(branch.save.id, view.chatNative.binding.saveId);
 assert.equal(branch.view.chatNative.binding.saveId, branch.save.id);
+assert.notEqual(branch.view.chatNative.binding.chatId, sourceChatId);
+assert.equal(branch.branchChat.sourceChatId, sourceChatId);
+assert.equal(branch.branchChat.chatId, branch.view.chatNative.binding.chatId);
+assert.equal(branch.save.payload.campaignState.campaignChatBinding.chatId, branch.view.chatNative.binding.chatId);
 assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
 assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
+assert.equal(host.chat.messagesForChat(sourceChatId).length, sourceMessageCountBeforeBranch);
+assert.equal(host.chat.messagesForChat(branch.view.chatNative.binding.chatId).length, sourceMessageCountBeforeBranch);
 
 const openedSource = await app.openCampaignChat({ saveId: sourceSaveId });
 assert.equal(openedSource.ok, true);
 assertRuntimeViewBoundToSave(openedSource.view, sourceSaveId, 'open source save after Save Game As');
 assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
 assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
+assert.equal(host.chat.getCurrentChatId(), sourceChatId);
 
 const loadedBranch = await app.loadGame({ saveId: branch.save.id });
 assertRuntimeViewBoundToSave(loadedBranch, branch.save.id, 'load branch save after reopening source');
 assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
+
+host.chat.setCurrentChatId(sourceChatId, {
+  hostId: 'fake',
+  chatId: sourceChatId,
+  campaignId: branch.view.chatNative.binding.campaignId,
+  saveId: sourceSaveId,
+  entityType: 'character',
+  entityId: 'fake-character',
+  entityName: 'Directive - Ashes of Peace',
+  status: 'bound'
+});
+const staleSourceChatChange = await app.handleHostChatChanged({ reason: 'stale-source-open-during-branch-load' });
+assert.equal(staleSourceChatChange.suppressed, true, 'stale source chat change should be ignored during programmatic branch open');
+assert.equal(staleSourceChatChange.expectedSaveId, branch.save.id);
+const exportedBranchAfterStaleChange = await app.exportActiveSave();
+const exportedBranchState = exportedBranchAfterStaleChange.campaignState
+  || exportedBranchAfterStaleChange.saveRecord?.payload?.campaignState
+  || null;
+assert.equal(exportedBranchState.campaignChatBinding.saveId, branch.save.id);
+assert.equal(exportedBranchState.campaignChatBinding.chatId, branch.view.chatNative.binding.chatId);
+
+const reopenedBranch = await app.openCampaignChat({ saveId: branch.save.id });
+assert.equal(reopenedBranch.ok, true);
+assertRuntimeViewBoundToSave(reopenedBranch.view, branch.save.id, 'reopen branch after stale source chat change');
+assert.equal(host.chat.getCurrentChatId(), branch.view.chatNative.binding.chatId);
 
 const loadedSource = await app.loadGame({ saveId: sourceSaveId });
 assertRuntimeViewBoundToSave(loadedSource, sourceSaveId, 'load source save after branch');

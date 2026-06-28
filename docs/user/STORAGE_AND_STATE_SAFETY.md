@@ -69,7 +69,7 @@ A campaign is the long-running playthrough identity. A save is a named restorabl
 Current save actions:
 
 - **Save Game:** overwrite the active save slot only after Directive verifies that the currently selected host chat matches the loaded save's campaign chat binding.
-- **Save Game As...:** open a naming prompt with **Save** and **Cancel**, then create a separate save branch with parent/divergence metadata only after Save is confirmed. The current host chat is moved to the new branch by updating the save id in `campaignChatBinding` and host chat metadata.
+- **Save Game As...:** open a naming prompt with **Save** and **Cancel**, then create a separate save branch with parent/divergence metadata only after Save is confirmed. Directive also clones the active campaign chat under the same campaign character card, binds the new save to that cloned chat, and leaves the source save/chat pair intact.
 - **Load Save:** restore a saved campaign state and open the save's bound campaign chat when the host supports it.
 - **Delete Save:** remove a selected Records save and its payload. Deleting the active save clears the loaded campaign until another save is loaded or a new campaign is started.
 - Stable-turn autosave: created after a committed outcome is successfully narrated.

@@ -280,20 +280,23 @@ function playerSafeTravelContinuity(value) {
   return Object.values(projected).some(Boolean) ? projected : null;
 }
 
-const PLAYER_SAFE_SHIP_LAYOUT_ANCHORS = new Set([
-  'intrepid.bridge',
-  'intrepid.ready-room',
-  'intrepid.mess-hall',
-  'intrepid.transporter-rooms',
-  'intrepid.sickbay',
-  'intrepid.main-engineering',
-  'intrepid.shuttlebay-complex'
-]);
+function isPlayerSafeShipLayoutAnchor(area = {}) {
+  const searchable = [
+    area.id,
+    area.name,
+    area.zone,
+    area.exteriorPlacement,
+    ...array(area.functions),
+    ...array(area.keywords)
+  ].map(compact).filter(Boolean).join(' ');
+  return /\b(?:bridge|ready\s+room|briefing\s+room|observation\s+room|mess|wardroom|transporter|security|sickbay|medical|engineering|mission\s+ops|science\s+lab|cargo|shuttle\s*bay|shuttlebay|flight\s+deck)\b/i.test(searchable);
+}
 
 function playerSafeShipLayoutAnchors(shipDataset = null) {
   if (!shipDataset || typeof shipDataset !== 'object') return [];
   return array(shipDataset.areas)
-    .filter((area) => PLAYER_SAFE_SHIP_LAYOUT_ANCHORS.has(area?.id))
+    .filter((area) => isPlayerSafeShipLayoutAnchor(area))
+    .slice(0, 12)
     .map((area) => ({
       id: area.id,
       name: compact(area.name || area.id),

@@ -76,6 +76,7 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
     packagePath: 'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
     projectionPath: 'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
     crewDatasetPath: 'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
+    shipDatasetPath: 'packages/bundled/glass-harbor/glass-harbor-steamrunner-class.ship-dataset.json',
     missionGraphPaths: [
       'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json',
       'packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json',
@@ -95,6 +96,7 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
     packagePath: 'packages/bundled/serein/black-current.campaign-package.json',
     projectionPath: 'packages/bundled/serein/black-current.campaign-projection.json',
     crewDatasetPath: 'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
+    shipDatasetPath: 'packages/bundled/serein/serein-steamrunner-class.ship-dataset.json',
     missionGraphPaths: [
       'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json',
       'packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json',
@@ -127,6 +129,7 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
     packagePath: 'packages/bundled/aster-vale/unseen-border.campaign-package.json',
     projectionPath: 'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
     crewDatasetPath: 'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
+    shipDatasetPath: 'packages/bundled/aster-vale/aster-vale-new-orleans-class.ship-dataset.json',
     missionGraphPaths: [
       'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json',
       'packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json',
@@ -146,6 +149,7 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
     packagePath: 'packages/bundled/celandine/enemys-garden.campaign-package.json',
     projectionPath: 'packages/bundled/celandine/enemys-garden.campaign-projection.json',
     crewDatasetPath: 'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
+    shipDatasetPath: 'packages/bundled/celandine/celandine-norway-class.ship-dataset.json',
     missionGraphPaths: [
       'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json',
       'packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json',

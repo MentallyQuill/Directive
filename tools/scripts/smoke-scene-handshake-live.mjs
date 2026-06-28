@@ -700,9 +700,11 @@ async function saveActiveGameAsBranch(page) {
       ok: result?.ok === true,
       blocked: result?.blocked === true,
       previousSaveId: beforeView?.campaignState?.campaignChatBinding?.saveId || null,
+      previousChatId: beforeView?.campaignState?.campaignChatBinding?.chatId || null,
       saveId: result?.save?.id || state.campaignChatBinding?.saveId || null,
       branchSaveId: result?.branchSave?.id || null,
       binding: clone(state.campaignChatBinding || null),
+      branchChat: clone(result?.branchChat || null),
       settledCount: Array.isArray(sceneHandshake.settled) ? sceneHandshake.settled.length : 0,
       assignmentCount: Array.isArray(state.mission?.openAssignments) ? state.mission.openAssignments.length : 0,
       promptContextRevision: state.campaignChatBinding?.promptContextRevision || null,
@@ -1109,7 +1111,12 @@ async function main() {
     assertLive(branched.ok, 'Save Game As branch creation failed after Scene Handshake settlement.', branched);
     assertLive(
       branched.saveId && branched.previousSaveId && branched.saveId !== branched.previousSaveId,
-      'Save Game As did not move the active campaign chat to a distinct save branch.',
+      'Save Game As did not move the active campaign state to a distinct save branch.',
+      branched
+    );
+    assertLive(
+      branched.binding?.chatId && branched.previousChatId && branched.binding.chatId !== branched.previousChatId,
+      'Save Game As did not clone the active campaign chat to a distinct chat branch.',
       branched
     );
     assertLive(

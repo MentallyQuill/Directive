@@ -55,5 +55,6 @@ The package includes a current `endConditions` root. It covers:
 
 ## Related Docs
 
+- [Directive Steamrunner-Class Starship Bible](../source/Directive_Steamrunner_Class_Starship_Bible.md)
 - [Serein Authoring Reference](../authoring/SEREIN_AUTHORING_REFERENCE.md)
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)

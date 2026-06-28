@@ -55,5 +55,6 @@ The package includes a current `endConditions` root. It covers:
 
 ## Related Docs
 
+- [Directive Norway-Class Starship Bible](../source/Directive_Norway_Class_Starship_Bible.md)
 - [Celandine Authoring Reference](../authoring/CELANDINE_AUTHORING_REFERENCE.md)
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)

@@ -57,8 +57,10 @@ function sourceFor(shipDataset = null, path = '') {
 }
 
 function areaCriticality(area = {}) {
-  if (area.id === 'intrepid.shuttlebay-complex') return 'hard';
+  if (asArray(area?.keywords).some((keyword) => /shuttle\s*bay|shuttlebay|flight\s+deck/i.test(keyword))) return 'hard';
   if (HIGH_PRIORITY_AREAS.has(area.id)) return 'high';
+  const searchable = `${area.id || ''} ${area.name || ''} ${area.zone || ''} ${asArray(area.keywords).join(' ')}`;
+  if (/\b(?:bridge|sickbay|medical|engineering|transporter|mission\s+ops)\b/i.test(searchable)) return 'high';
   return 'medium';
 }
 
@@ -211,20 +213,36 @@ function materializeSystemFact({ system, shipId, shipDataset }) {
 function materializeShuttlebayGuardFact({ area, shipId, shipDataset }) {
   if (!area) return null;
   const subject = `ship.${safeId(shipId)}.area.${safeId(area.id)}`;
-  const summary = 'Do not describe routine Intrepid-class shuttle docking as entering a saucer-underside, ventral primary-hull, or belly shuttlebay; use the Deck 10 aft dorsal secondary-hull shuttlebay complex with an astern approach.';
+  const classLabel = compact(shipDataset?.manifest?.classId || 'ship')
+    .replace(/-/g, ' ')
+    .replace(/\bclass\b/i, 'class');
+  const prohibitions = asArray(area.constraints)
+    .map(compact)
+    .filter((constraint) => /\b(?:do not|avoid|incorrect|not\s+depict|not\s+place|not\s+inside|never)\b/i.test(constraint));
+  const required = areaSummary(area);
+  const normalizedProhibitions = [...prohibitions];
+  if (prohibitions.some((constraint) => /underside.*saucer|saucer.*underside|saucer-underbelly|saucer-underside/i.test(constraint))
+    && !prohibitions.some((constraint) => /saucer-underside/i.test(constraint))) {
+    normalizedProhibitions.unshift('Do not describe shuttle operations as using a saucer-underside shuttlebay.');
+  }
+  const summary = [
+    `Do not describe routine ${classLabel} shuttle launch, recovery, docking, hangar, or shuttlebay action using a bay placement that contradicts the ship dataset.`,
+    required,
+    ...normalizedProhibitions.slice(0, 2)
+  ].filter(Boolean).join(' ');
   return createContinuityFact({
     id: `${subject}.not-saucer-underside`,
     kind: 'ship.location.constraint',
     subject,
     predicate: 'invalidShuttlebayPlacement',
     value: {
-      invalid: ['saucer-underside shuttlebay', 'ventral primary-hull bay', 'belly hangar'],
-      required: 'Deck 10 aft dorsal secondary-hull shuttlebay complex; approach from astern'
+      invalid: normalizedProhibitions.length ? normalizedProhibitions : ['generic or contradictory shuttlebay placement'],
+      required
     },
     summary,
     render: {
       narrator: summary,
-      director: `Contradiction guard: reject shuttle docking prose that puts the Intrepid-class shuttlebay in the underside of the saucer or ventral primary hull. Required anchor: ${areaSummary(area)}`
+      director: `Contradiction guard: reject shuttle launch, recovery, docking, hangar, or shuttlebay prose that contradicts the source-backed area anchor. Required anchor: ${required}`
     },
     source: sourceFor(shipDataset, `areas.${area.id}.constraints`),
     authority: 'package',
@@ -240,8 +258,8 @@ function materializeShuttlebayGuardFact({ area, shipId, shipDataset }) {
       'underside',
       'ventral',
       'primary hull',
-      'aft',
-      'Deck 10',
+      ...asArray(area.decks).map((deck) => `Deck ${deck}`),
+      ...areaKeywords(area),
       'contradiction-guard',
       'invariant'
     ],

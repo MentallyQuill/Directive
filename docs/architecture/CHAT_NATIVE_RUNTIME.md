@@ -63,7 +63,7 @@ Blocked cases return structured results instead of generic save errors. The UI c
 
 The campaign intro is mandatory. Loading a save whose activation is still `activating` or `activationFailed` does not silently generate the intro; it surfaces **Opening Scene Required** and waits for the user to run **Build Opening Scene**. Until the intro exists, player chat observation returns a blocked/pause result and does not classify or commit turns.
 
-`Save Game As...` is a branch transfer for the active chat: after the new save record is created, Directive updates `campaignChatBinding.saveId`, writes the new binding into host chat metadata, rebuilds prompt context when available, and persists the branch with matching save/chat identity.
+`Save Game As...` is a save-plus-chat branch: Directive reserves the new save id, clones the active host chat under the same campaign character card, retargets `campaignChatBinding` to the new save id and cloned chat id, writes binding metadata into the cloned chat, rebuilds prompt context there, and persists the branch save with matching save/chat identity. The source save keeps its source chat binding.
 
 Terminal timeline branches use the same binding rule. When a Mission Directive Checkpoint saves the terminal timeline as a branch, the cloned campaign state rewrites `campaignChatBinding.saveId` to the branch save id before persistence.
 

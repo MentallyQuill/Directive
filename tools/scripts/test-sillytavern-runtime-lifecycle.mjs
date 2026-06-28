@@ -293,6 +293,62 @@ assert.deepEqual(
   indicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
   ['Orders', 'Log', 'Ship', 'Threads']
 );
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'continuityProjectionPlanning',
+  mode: 'blocking',
+  source: 'sceneHandshake',
+  planner: true
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Directive is planning the continuity matrix...');
+assert.equal(activity.continuityProjectionSteps.planner.status, 'running');
+assert.equal(activity.continuityProjectionSteps.matrix.status, 'queued');
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'continuityProjectionBuilding',
+  mode: 'blocking',
+  source: 'sceneHandshake',
+  planner: true
+});
+assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is building the continuity matrix...');
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'continuityProjectionValidating',
+  mode: 'blocking',
+  source: 'sceneHandshake',
+  planner: true,
+  blockCount: 8,
+  selectedFactCount: 14
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Directive is checking the continuity matrix...');
+assert.equal(activity.continuityProjectionSteps.planner.status, 'settled');
+assert.equal(activity.continuityProjectionSteps.matrix.status, 'running');
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'continuityProjectionInstalling',
+  mode: 'blocking',
+  source: 'sceneHandshake',
+  planner: true
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Directive is installing continuity context...');
+assert.equal(activity.continuityProjectionSteps.matrix.status, 'settled');
+assert.equal(activity.continuityProjectionSteps.prompt.status, 'running');
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'continuityProjectionInstalled',
+  mode: 'blocking',
+  source: 'sceneHandshake',
+  planner: true,
+  status: 'complete'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Continuity context ready.');
+assert.deepEqual(
+  Object.fromEntries(Object.entries(activity.continuityProjectionSteps).map(([key, value]) => [key, value.status])),
+  { planner: 'settled', matrix: 'settled', prompt: 'settled' }
+);
+assert.deepEqual(
+  indicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Orders', 'Log', 'Ship', 'Threads', 'Planner', 'Matrix', 'Context']
+);
 updateDirectiveTurnActivity(activityToken, { phase: 'classifying' });
 assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is checking intent...');
 updateDirectiveTurnActivity(activityToken, {
@@ -360,6 +416,41 @@ assert.deepEqual(
 );
 reportDirectiveJobProgress({
   jobId: 'activation-visual-test',
+  phase: 'continuityProjectionPlanning',
+  source: 'activation',
+  planner: true,
+  status: 'running'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Directive is planning the continuity matrix...');
+assert.equal(activity.continuityProjectionSteps.planner.status, 'running');
+assert.equal(activity.continuityProjectionSteps.matrix.status, 'queued');
+reportDirectiveJobProgress({
+  jobId: 'activation-visual-test',
+  phase: 'continuityProjectionInstalling',
+  source: 'activation',
+  planner: true,
+  status: 'running'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Directive is installing continuity context...');
+assert.equal(activity.continuityProjectionSteps.prompt.status, 'running');
+assert.deepEqual(
+  activationIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Save', 'Chat', 'Opening Scene', 'Planner', 'Matrix', 'Context']
+);
+reportDirectiveJobProgress({
+  jobId: 'activation-visual-test',
+  phase: 'continuityProjectionInstalled',
+  source: 'activation',
+  planner: true,
+  status: 'complete'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Continuity context ready.');
+assert.equal(activity.continuityProjectionSteps.prompt.status, 'settled');
+reportDirectiveJobProgress({
+  jobId: 'activation-visual-test',
   phase: 'activationComplete',
   status: 'complete'
 });
@@ -367,7 +458,7 @@ activity = __directiveTurnActivityTestHooks.latestActivity();
 assert.equal(activity.label, 'Campaign ready.');
 assert.deepEqual(
   activationIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
-  ['Save', 'Chat', 'Opening Scene', 'Prompt', 'Ready']
+  ['Save', 'Chat', 'Opening Scene', 'Prompt', 'Ready', 'Planner', 'Matrix', 'Context']
 );
 clearDirectiveTurnActivity(activity.token);
 
