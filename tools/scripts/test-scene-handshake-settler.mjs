@@ -319,6 +319,87 @@ assert.equal(menuHarness.state.commandLog.entries.length, 0);
 assert.equal(menuHarness.state.threadLedger.records.length, 0);
 assert.equal(menuHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount, 0);
 
+const delegatedOrdersHarness = createHarness('player-issued-orders');
+const delegatedOrdersAssistant = {
+  hostMessageId: 'assistant-crew-acknowledges-player-orders',
+  index: 26,
+  role: 'assistant',
+  isUser: false,
+  text: [
+    'The bridge came alive after Vickers issued the readiness orders.',
+    '"Aye, sir." Vale pulled up navigational logs and promised a report on feelings and hunches.',
+    'Nayar nodded. "Full sensor diagnostic and power distribution audit. Draft by 0700, sir."',
+    'Bronn answered from tactical. "Torpedo magazine sampling inspection starts within the hour, Commander."'
+  ].join(' ')
+};
+const delegatedOrdersPlayer = {
+  hostMessageId: 'player-follows-up-after-delegation',
+  index: 27,
+  role: 'user',
+  isUser: true,
+  text: 'I will be in Engineering with Commander Cross while those reports come together.'
+};
+const delegatedOrdersSettlement = {
+  kind: 'directive.sceneHandshakeSettlement.v1',
+  acceptedPreviousResponse: true,
+  playerReplyRelation: 'acknowledges',
+  confidence: 0.91,
+  disposition: 'autoCommit',
+  needsInternalReview: false,
+  internalReviewReasons: [],
+  deferReason: null,
+  operatorRecoveryOnly: false,
+  openAssignmentProposals: [
+    {
+      id: 'open-assignment:vale-nav-logs',
+      title: 'Pull navigational logs for pilot observations',
+      summary: 'Vale to pull navigational logs and report feelings and hunches.',
+      assignedActorIds: ['kieran-vale'],
+      dueWindow: 'Immediate'
+    },
+    {
+      id: 'open-assignment:nayar-sensor-power-audit',
+      title: 'Full sensor diagnostic and power distribution audit',
+      summary: 'Nayar to conduct a full sensor diagnostic and power distribution audit.',
+      assignedActorIds: ['priya-nayar'],
+      dueWindow: 'Draft by 0700 ship time'
+    }
+  ],
+  commandLogProposals: [{
+    summaryInputs: ['Vickers issued readiness work to Vale, Nayar, and Bronn after taking the bridge.'],
+    visibleConsequences: ['The crew acknowledged the delegated reports without creating new Current Orders for Vickers.']
+  }],
+  shipReadinessProposals: [],
+  threadSignals: []
+};
+const delegatedOrdersResult = await runSceneHandshakeSettlement({
+  campaignState: delegatedOrdersHarness.state,
+  currentPlayerMessage: delegatedOrdersPlayer,
+  recentMessages: [delegatedOrdersAssistant, delegatedOrdersPlayer],
+  chatId: delegatedOrdersHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-player-issued-orders',
+  generationRouter: {
+    async generate(roleId) {
+      assert.equal(roleId, __sceneHandshakeSettlerTestHooks.ROLE_ID);
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-scene-handshake-player-issued-orders',
+          text: JSON.stringify(delegatedOrdersSettlement)
+        },
+        diagnostics: { providerId: 'fake-scene-handshake-player-issued-orders' }
+      };
+    }
+  },
+  stateDeltaGateway: delegatedOrdersHarness.gateway,
+  now: delegatedOrdersHarness.now
+});
+delegatedOrdersHarness.state = delegatedOrdersResult.campaignState;
+assert.equal(delegatedOrdersResult.ok, true);
+assert.equal(delegatedOrdersHarness.state.mission.openAssignments.length, 0);
+assert.equal(delegatedOrdersHarness.state.commandLog.entries.length, 1);
+assert.deepEqual(delegatedOrdersHarness.state.commandLog.entries[0].linkedAssignmentTitles, []);
+
 const movementHarness = createHarness('time-advance');
 const movementAssistant = {
   hostMessageId: 'assistant-walks-to-ready-room',
@@ -480,6 +561,74 @@ assert.equal(assignmentLinkResult.ok, true);
 assert.ok(assignmentLinkHarness.state.mission.openAssignments.some((entry) => /command-network/i.test(entry.title) && entry.linkedCrewIds.includes('imani-cross')));
 assert.ok(assignmentLinkHarness.state.mission.openAssignments.some((entry) => /Bronn/i.test(entry.title) && entry.linkedCrewIds.includes('hadrik-bronn')));
 assert.ok(assignmentLinkHarness.state.mission.openAssignments.some((entry) => /Walk the ship/i.test(entry.title) && entry.linkedCrewIds.includes('miriam-sato') && entry.linkedCrewIds.includes('rowan-saye')));
+
+const bronnThreadBefore = acceptedHarness.state.threadLedger.records.find((entry) => entry.title === 'Bronn first conversation');
+assert.ok(bronnThreadBefore, 'accepted settlement should create the initial Bronn thread');
+const duplicateThreadAssistant = {
+  hostMessageId: 'assistant-bronn-thread-reinforcement',
+  index: 22,
+  role: 'assistant',
+  isUser: false,
+  text: 'Bronn watches the new XO settle into the bridge rhythm, still measuring whether the first conversation is professional or merely ceremonial.'
+};
+const duplicateThreadPlayer = {
+  hostMessageId: 'player-bronn-thread-reinforcement',
+  index: 23,
+  role: 'user',
+  isUser: true,
+  text: 'Sam acknowledges Bronn and keeps the exchange professional.'
+};
+const duplicateThreadResult = await runSceneHandshakeSettlement({
+  campaignState: acceptedHarness.state,
+  currentPlayerMessage: duplicateThreadPlayer,
+  recentMessages: [duplicateThreadAssistant, duplicateThreadPlayer],
+  chatId: acceptedHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-duplicate-thread',
+  generationRouter: {
+    async generate(roleId, request) {
+      assert.equal(roleId, __sceneHandshakeSettlerTestHooks.ROLE_ID);
+      assert.equal(request.prompt.includes('visibleThreads'), true);
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-scene-handshake-duplicate-thread',
+          text: JSON.stringify({
+            kind: 'directive.sceneHandshakeSettlement.v1',
+            acceptedPreviousResponse: true,
+            playerReplyRelation: 'acknowledges',
+            confidence: 0.9,
+            disposition: 'autoCommit',
+            needsInternalReview: false,
+            internalReviewReasons: [],
+            deferReason: null,
+            operatorRecoveryOnly: false,
+            openAssignmentProposals: [],
+            commandLogProposals: [],
+            shipReadinessProposals: [],
+            threadSignals: [{
+              title: 'Bronn first conversation',
+              summary: 'A later bridge exchange keeps the Bronn first-conversation concern alive with new evidence.',
+              type: 'professional_dilemma',
+              linkedCrewIds: ['bronn'],
+              directCommitment: true
+            }]
+          })
+        },
+        diagnostics: { providerId: 'fake-scene-handshake-duplicate-thread' }
+      };
+    }
+  },
+  stateDeltaGateway: acceptedHarness.gateway,
+  now: acceptedHarness.now
+});
+acceptedHarness.state = duplicateThreadResult.campaignState;
+assert.equal(duplicateThreadResult.ok, true);
+const bronnThreadsAfter = acceptedHarness.state.threadLedger.records.filter((entry) => entry.title === 'Bronn first conversation');
+assert.equal(bronnThreadsAfter.length, 1, 'same-title same-participant thread signal should reinforce the existing thread');
+assert.equal(bronnThreadsAfter[0].id, bronnThreadBefore.id);
+assert.equal(bronnThreadsAfter[0].supportingEvidence.length, bronnThreadBefore.supportingEvidence.length + 1);
+assert.equal(bronnThreadsAfter[0].metadata.handshakeReinforced, true);
+assert.equal(bronnThreadsAfter[0].metadata.sourceSettlementIds.length, 2);
 
 const duplicateRevision = acceptedHarness.state.runtimeTracking.revision;
 const duplicate = await runSceneHandshakeSettlement({

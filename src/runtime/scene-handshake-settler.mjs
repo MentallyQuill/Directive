@@ -29,7 +29,11 @@ const MAX_ASSIGNMENT_PROPOSALS = 5;
 const MAX_COMMAND_LOG_PROPOSALS = 3;
 const MAX_SHIP_READINESS_PROPOSALS = 5;
 const MAX_THREAD_SIGNALS = 6;
+const MAX_ASSIGNMENT_SUMMARY_LENGTH = 220;
+const PLAYER_CURRENT_ORDER_SCOPE = 'playerCurrentOrder';
 const LOW_RISK_SHIP_KINDS = new Set(['technicalDebt', 'readinessNote', 'systemNote']);
+const OPEN_THREAD_STATUSES = new Set(['available', 'engaged', 'active']);
+const CLOSED_THREAD_STATUSES = new Set(['resolved', 'transformed', 'dormant', 'expired', 'echo']);
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -327,6 +331,26 @@ function commandLogFingerprints(campaignState = {}) {
   }));
 }
 
+function threadFingerprints(campaignState = {}) {
+  return asArray(campaignState.threadLedger?.records)
+    .filter((record) => OPEN_THREAD_STATUSES.has(compact(record?.status, 80).toLowerCase()))
+    .filter((record) => record?.metadata?.stale !== true)
+    .slice(-12)
+    .map((record) => ({
+      id: record.id || null,
+      title: compact(record.title || record.playerSummary || record.observableSeed || '', 180),
+      status: record.status || null,
+      participantIds: asArray(record.participantIds || record.participants || record.linkedCrewIds).slice(0, 8),
+      fingerprint: record.semanticFingerprint || sceneHandshakeHash([
+        record.type || '',
+        record.title || '',
+        record.playerSummary || record.summary || record.observableSeed || '',
+        ...asArray(record.participantIds || record.participants || record.linkedCrewIds)
+      ].join('\n'))
+    }))
+    .filter((record) => record.title);
+}
+
 function mentionedResolverRecords(campaignState = {}, text = '') {
   const haystack = String(text || '').toLowerCase();
   const crew = asArray(campaignState?.crew?.senior || campaignState?.crew?.records || campaignState?.crew?.officers)
@@ -437,6 +461,7 @@ export function buildSceneHandshakeSnapshot({
       openAssignments: asArray(state.mission?.openAssignments).map(fingerprintRecord).slice(0, 12),
       activeDirectives: asArray(state.directives?.active).map(fingerprintRecord).slice(0, 8),
       recentCommandLog: commandLogFingerprints(state),
+      visibleThreads: threadFingerprints(state),
       visiblePressures: asArray(safe.pressures || state.pressureLedger?.records).map(fingerprintRecord).slice(0, 8),
       visibleKnownFacts: visibleFactFingerprints(state, safe)
     },
@@ -468,9 +493,11 @@ function createPrompt(snapshot) {
   const system = [
     'You are Directive Scene Handshake, a Utility-lane state settlement checker.',
     'Decide whether the current player reply accepts the immediately previous assistant response as current fiction.',
-    'Extract only explicit player-visible assignments, current orders, command-log-worthy facts, low-risk ship technical-debt/readiness notes, and thread evidence from that previous assistant response.',
-    'If the previous assistant response gives numbered, ordinal, or clearly stated assignments and the player accepts or acts on them, openAssignmentProposals must contain one proposal per accepted assignment.',
-    'Do not return acceptedPreviousResponse true with empty proposal arrays when explicit current orders, objectives, or readiness issues were accepted.',
+    'Extract only explicit player-visible command-log-worthy facts, low-risk ship technical-debt/readiness notes, thread evidence, and current orders placed on the player command character from that previous assistant response.',
+    'openAssignmentProposals is only for obligations assigned to the player character. Do not put orders the player gave to crew, crew acknowledgements, delegated department tasks, or subordinate work items in openAssignmentProposals.',
+    'For each openAssignmentProposals item, include a brief headline title, one concise detail sentence, assignedByActorId when known, and assignedActorIds containing the player id when the order is on the player.',
+    'If the previous assistant response gives numbered, ordinal, or clearly stated assignments to the player and the player accepts or acts on them, openAssignmentProposals must contain one proposal per accepted player assignment.',
+    'Do not return acceptedPreviousResponse true with empty proposal arrays when explicit current orders on the player, objectives, or readiness issues were accepted.',
     'Do not infer hidden motives, private relationship values, terminal outcomes, formal objective progress, Command Bearing awards, damage, casualties, or mission phase changes.',
     'Return one strict JSON object only. Do not narrate and do not include markdown.',
     'If the player rejects, corrects, rerolls, or challenges the previous assistant response, return acceptedPreviousResponse false and disposition "defer".',
@@ -587,11 +614,62 @@ function taskCueText(snapshot = {}) {
   return normalizedText(snapshot.source?.previousAssistant?.text || '');
 }
 
+function playerActorIds(snapshot = {}) {
+  const player = snapshot.referenceResolver?.player || {};
+  return new Set([
+    player.id,
+    player.name,
+    'player-commander'
+  ].map((value) => compact(value, 180).toLowerCase()).filter(Boolean));
+}
+
+function actorValueMatchesPlayer(value = '', snapshot = {}) {
+  const actor = compact(value, 180).toLowerCase();
+  return Boolean(actor && playerActorIds(snapshot).has(actor));
+}
+
+function sourceLooksLikePlayerIssuedOrders(snapshot = {}) {
+  const text = taskCueText(snapshot);
+  if (!text) return false;
+  if (/\b(whitaker|captain|starfleet command|admiral)\b/i.test(text)) return false;
+  if (/\b(?:aye|understood|yes|copy),?\s+(?:sir|commander)\b/i.test(text)) return true;
+  if (/\b(?:draft by|completed within|i'll|i will|we'll|report exceptions|diagnostic|audit|inspection)\b/i.test(text)
+    && /\b(?:sir|commander)\b/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+function sourceHasPlayerAssignmentAuthority(snapshot = {}) {
+  const text = taskCueText(snapshot);
+  if (!text || sourceLooksLikePlayerIssuedOrders(snapshot)) return false;
+  return /\b(whitaker|captain|starfleet command|admiral)\b/i.test(text)
+    && /\b(i want|i need|you need|your assignment|your orders|your assessment|use it|walk the ship|meet your|if they ask|get down to|report back|provide|prepare)\b/i.test(text);
+}
+
 function cleanTaskSegment(value = '') {
   return normalizedText(value)
     .replace(/^[\s"'`]+|[\s"'`.]+$/g, '')
     .replace(/^[,:;.\-\u2013\u2014]+/, '')
     .trim();
+}
+
+function splitTaskSentences(value = '') {
+  return cleanTaskSegment(value)
+    .split(/(?:[.!?]\s+|;\s+)/)
+    .map(cleanTaskSegment)
+    .filter(Boolean);
+}
+
+function directSpeechSegments(text = '') {
+  const quoted = [...String(text || '').matchAll(/"([^"]{2,1400})"/g)]
+    .map((match) => cleanTaskSegment(match[1]))
+    .filter(Boolean);
+  if (quoted.length) return quoted;
+  return String(text || '')
+    .split(/\n{2,}|\r?\n/)
+    .map(cleanTaskSegment)
+    .filter(Boolean);
 }
 
 function splitOrdinalSegments(paragraph = '') {
@@ -604,19 +682,31 @@ function splitOrdinalSegments(paragraph = '') {
   )).filter(Boolean);
 }
 
+function playerOrderCue(segment = '') {
+  const text = cleanTaskSegment(segment);
+  if (!text) return false;
+  if (text.length < 12 && !/\b(walk|meet|report)\b/i.test(text)) return false;
+  return /\b(i want|i need|you need|your assignment|your orders|your priority|your assessment|get down to|walk the ship|meet your|meet bronn|talk to|find out|check with|follow up|look into|take point|give me|bring me|prepare|provide|report back|if they ask|tell them)\b/i.test(text);
+}
+
 function explicitTaskSegments(snapshot = {}) {
   const text = taskCueText(snapshot);
   if (!text) return [];
-  const paragraphs = text.split(/\n{2,}|\r?\n/).map(cleanTaskSegment).filter(Boolean);
+  if (sourceLooksLikePlayerIssuedOrders(snapshot)) return [];
+  const paragraphs = directSpeechSegments(text);
   const ordinalSegments = [];
   for (const paragraph of paragraphs) {
     ordinalSegments.push(...splitOrdinalSegments(paragraph));
   }
-  if (ordinalSegments.length) return ordinalSegments.slice(0, MAX_ASSIGNMENT_PROPOSALS);
+  if (ordinalSegments.length) {
+    return ordinalSegments
+      .filter(playerOrderCue)
+      .slice(0, MAX_ASSIGNMENT_PROPOSALS);
+  }
 
-  const cue = /\b(get down to|meet|walk the ship|talk to|find out|check with|follow up|look into|take point|I want your read|your window|priority|priorities|objective|objectives|assignment|assignments)\b/i;
   return paragraphs
-    .filter((paragraph) => cue.test(paragraph))
+    .flatMap(splitTaskSentences)
+    .filter(playerOrderCue)
     .slice(0, MAX_ASSIGNMENT_PROPOSALS);
 }
 
@@ -651,6 +741,8 @@ function assignedByActorId(snapshot = {}) {
 function dueWindowForSegment(segment = '', snapshot = {}) {
   const source = `${taskCueText(snapshot)} ${segment}`;
   if (/\btoday\b/i.test(segment) && /\balpha shift\b/i.test(segment)) return 'Today during alpha shift.';
+  if (/\bsenior[-\s]?staff\b/i.test(source) || /\bbriefing\b/i.test(segment)) return 'Before the senior-staff briefing.';
+  if (/\bneed-to-know\b/i.test(segment)) return 'Until Captain Whitaker briefs the senior staff.';
   if (/\btwelve hours?\b/i.test(source)) return 'Within the current twelve-hour command window.';
   if (/\bbefore\b.+\bReach\b/i.test(source) || /\bten days out\b/i.test(source)) return 'Before arrival at the Reach.';
   if (/\balpha shift\b/i.test(segment)) return 'During alpha shift.';
@@ -658,6 +750,10 @@ function dueWindowForSegment(segment = '', snapshot = {}) {
 }
 
 function assignmentTitleForSegment(segment = '') {
+  if (/\bassessment\b/i.test(segment) && /\b(senior staff|desk|tools|readiness)\b/i.test(segment)) {
+    return 'Prepare XO readiness assessment';
+  }
+  if (/\bneed-to-know\b/i.test(segment)) return 'Keep mission details need-to-know';
   if (/\bcommand-network\b/i.test(segment) || (/\bcross\b/i.test(segment) && /\bhandoff\b/i.test(segment))) {
     return 'Review the command-network handoff';
   }
@@ -670,6 +766,25 @@ function assignmentTitleForSegment(segment = '') {
   if (/\bscience\b/i.test(segment)) return 'Follow up with Science';
   const firstSentence = cleanTaskSegment(segment.split(/[.!?]/)[0] || segment);
   return compact(firstSentence, 90) || 'Follow up on accepted order';
+}
+
+function assignmentSummaryForSegment(segment = '', title = '') {
+  if (/Prepare XO readiness assessment/i.test(title)) {
+    return 'Assess actual post-refit ship readiness before the senior-staff briefing.';
+  }
+  if (/Keep mission details need-to-know/i.test(title)) {
+    return 'Tell crew the Reach mission remains need-to-know until Captain Whitaker briefs them.';
+  }
+  if (/Review the command-network handoff/i.test(title)) {
+    return 'Meet Commander Cross in Engineering and review the command-network handoff risk.';
+  }
+  if (/Meet Bronn/i.test(title)) {
+    return 'Introduce yourself to Bronn professionally while he is on duty.';
+  }
+  if (/Walk the ship/i.test(title)) {
+    return 'Meet department heads and identify post-refit issues before arrival.';
+  }
+  return compact(cleanTaskSegment(segment), MAX_ASSIGNMENT_SUMMARY_LENGTH);
 }
 
 function linkedShipSystemIdsForSegment(segment = '', campaignState = {}) {
@@ -769,12 +884,15 @@ function deterministicAcceptedProposals({ settlement, snapshot, campaignState } 
   }
 
   const assigner = assignedByActorId(snapshot);
+  const playerId = snapshot.referenceResolver?.player?.id || 'player-commander';
   const openAssignmentProposals = sourceSegments.length ? segments.map((segment) => {
     const title = assignmentTitleForSegment(segment);
     return {
       title,
-      summary: segment,
+      summary: assignmentSummaryForSegment(segment, title),
+      assignmentScope: PLAYER_CURRENT_ORDER_SCOPE,
       assignedByActorId: assigner,
+      assignedActorIds: [playerId],
       linkedCrewIds: fallbackCrewIdsForSegment(segment, snapshot),
       linkedShipSystemIds: linkedShipSystemIdsForSegment(segment, campaignState),
       dueWindow: dueWindowForSegment(segment, snapshot)
@@ -786,8 +904,12 @@ function deterministicAcceptedProposals({ settlement, snapshot, campaignState } 
       const segment = segments[index] || `${proposal?.title || ''}. ${proposal?.summary || ''}`;
       return {
         title: proposal?.title || assignmentTitleForSegment(segment),
-        summary: proposal?.summary || segment,
+        summary: proposal?.summary || assignmentSummaryForSegment(segment, proposal?.title || assignmentTitleForSegment(segment)),
+        assignmentScope: proposal?.assignmentScope || PLAYER_CURRENT_ORDER_SCOPE,
         assignedByActorId: proposal?.assignedByActorId || assigner,
+        assignedActorIds: asArray(proposal?.assignedActorIds || proposal?.assignees).length
+          ? asArray(proposal.assignedActorIds || proposal.assignees)
+          : [playerId],
         linkedCrewIds: asArray(proposal?.linkedCrewIds).length
           ? asArray(proposal.linkedCrewIds)
           : fallbackCrewIdsForSegment(segment, snapshot),
@@ -942,7 +1064,11 @@ function enrichAssignmentProposalWithFallback(proposal = {}, fallback = {}, snap
   return {
     ...fallback,
     ...proposal,
+    assignmentScope: proposal.assignmentScope || fallback.assignmentScope || PLAYER_CURRENT_ORDER_SCOPE,
     assignedByActorId: proposal.assignedByActorId || proposal.assignedBy || fallback.assignedByActorId || null,
+    assignedActorIds: asArray(proposal.assignedActorIds || proposal.assignees).length
+      ? asArray(proposal.assignedActorIds || proposal.assignees)
+      : asArray(fallback.assignedActorIds),
     linkedCrewIds: canonicalLinkedCrewIds(proposalCrewIds, fallbackCrewIds, snapshot),
     linkedShipSystemIds: asArray(proposal.linkedShipSystemIds || proposal.linkedSystemIds).length
       ? (proposal.linkedShipSystemIds || proposal.linkedSystemIds)
@@ -1031,11 +1157,49 @@ function assignmentFingerprint(input = {}) {
   ].join('\n'));
 }
 
+function proposalTargetIds(raw = {}) {
+  const values = [];
+  for (const key of ['assignedActorIds', 'assignedToActorIds', 'assignedToIds', 'assignees', 'assignedTo']) {
+    const value = raw[key];
+    if (Array.isArray(value)) values.push(...value);
+    else if (value !== undefined && value !== null) values.push(value);
+  }
+  return uniqueStrings([
+    ...values
+  ]);
+}
+
+function assignmentProposalTargetsPlayer(raw = {}, context = {}) {
+  const snapshot = context.snapshot || {};
+  if (sourceLooksLikePlayerIssuedOrders(snapshot)) return false;
+  const scope = compact(raw.assignmentScope || raw.scope || '', 120);
+  if (actorValueMatchesPlayer(raw.assignedByActorId || raw.assignedBy || '', snapshot)) return false;
+  if (/\b(delegated|crew|subordinate|department)\b/i.test(scope)) return false;
+  if (scope === PLAYER_CURRENT_ORDER_SCOPE) return true;
+  const targets = proposalTargetIds(raw);
+  if (targets.length) {
+    return targets.some((target) => actorValueMatchesPlayer(target, snapshot));
+  }
+  return sourceHasPlayerAssignmentAuthority(snapshot);
+}
+
+function conciseAssignmentSummary(raw = {}, title = '') {
+  const source = cleanTaskSegment(raw.playerSafeSummary || raw.summary || raw.detail || raw.description || title);
+  if (!source) return title;
+  if (source.length <= MAX_ASSIGNMENT_SUMMARY_LENGTH) return source;
+  const cueSentence = splitTaskSentences(source).find(playerOrderCue);
+  return compact(cueSentence || splitTaskSentences(source)[0] || source, MAX_ASSIGNMENT_SUMMARY_LENGTH);
+}
+
 function normalizeAssignmentProposal(raw = {}, context) {
   const title = compact(raw.title || raw.label || raw.summary, 180);
-  const summary = compact(raw.summary || raw.detail || raw.description || title, 500);
+  const summary = conciseAssignmentSummary(raw, title);
   if (!title || !summary) return null;
   if (proposalLooksLikeMenuOfframp(title, summary)) return null;
+  if (!assignmentProposalTargetsPlayer(raw, context)) return null;
+  const assignedActorIds = proposalTargetIds(raw).length
+    ? proposalTargetIds(raw)
+    : [context.snapshot?.referenceResolver?.player?.id || 'player-commander'];
   const fingerprint = assignmentFingerprint({
     title,
     summary,
@@ -1048,10 +1212,11 @@ function normalizeAssignmentProposal(raw = {}, context) {
     id: raw.id || `open-assignment:${slug(title)}:${fingerprint.slice(0, 8)}`,
     title,
     summary,
+    assignmentScope: PLAYER_CURRENT_ORDER_SCOPE,
     status: compact(raw.status || 'open', 80) || 'open',
     priority: compact(raw.priority || 'current', 80) || 'current',
     assignedByActorId: compact(raw.assignedByActorId || raw.assignedBy || '', 160) || null,
-    assignedActorIds: asArray(raw.assignedActorIds || raw.assignees).map((item) => compact(item, 160)).filter(Boolean).slice(0, 8),
+    assignedActorIds: assignedActorIds.map((item) => compact(item, 160)).filter(Boolean).slice(0, 8),
     dueWindow: compact(raw.dueWindow || raw.deadline || raw.timeWindow || '', 160) || null,
     linkedCrewIds: asArray(raw.linkedCrewIds).map((item) => compact(item, 160)).filter(Boolean).slice(0, 8),
     linkedShipSystemIds: asArray(raw.linkedShipSystemIds || raw.linkedSystemIds).map((item) => compact(item, 160)).filter(Boolean).slice(0, 8),
@@ -1253,6 +1418,112 @@ function reinforceExistingShipReadinessRecord(record = null, campaignState = {})
   };
 }
 
+function threadTitleKey(record = {}) {
+  return slug(record.title || record.playerSummary || record.observableSeed || record.summary || '', 'thread');
+}
+
+function threadParticipantIds(record = {}) {
+  return uniqueStrings([
+    ...(record.participantIds || []),
+    ...(record.participants || []),
+    ...(record.linkedCrewIds || [])
+  ]).sort();
+}
+
+function setsOverlap(left = [], right = []) {
+  if (!left.length && !right.length) return true;
+  const rightSet = new Set(right);
+  return left.some((item) => rightSet.has(item));
+}
+
+function matchingThreadRecord(record = {}, campaignState = {}) {
+  const records = asArray(campaignState?.threadLedger?.records);
+  const id = compact(record.id || '', 180);
+  if (id) {
+    const byId = records.find((entry) => compact(entry?.id || '', 180) === id);
+    if (byId) return byId;
+  }
+
+  const titleKey = threadTitleKey(record);
+  const participants = threadParticipantIds(record);
+  const semanticKey = compact(record.metadata?.semanticKey || record.metadata?.topicKey || '', 180);
+  const fingerprint = compact(record.semanticFingerprint || '', 500);
+  return records.find((entry) => {
+    const status = compact(entry?.status || '', 80).toLowerCase();
+    if (entry?.metadata?.stale === true || CLOSED_THREAD_STATUSES.has(status)) return false;
+    const entrySemanticKey = compact(entry?.metadata?.semanticKey || entry?.metadata?.topicKey || '', 180);
+    if (semanticKey && entrySemanticKey && semanticKey === entrySemanticKey) return true;
+    if (fingerprint && entry?.semanticFingerprint === fingerprint) return true;
+    if (threadTitleKey(entry) !== titleKey) return false;
+    return setsOverlap(participants, threadParticipantIds(entry));
+  }) || null;
+}
+
+function reinforceExistingThreadRecord(record = null, campaignState = {}) {
+  if (!record) return null;
+  const existing = matchingThreadRecord(record, campaignState);
+  if (!existing) return record;
+
+  const existingEvidence = asArray(existing.supportingEvidence || existing.evidence);
+  const incomingEvidence = asArray(record.supportingEvidence || record.evidence);
+  const evidenceById = new Map(existingEvidence.map((item) => [item.id, item]));
+  for (const item of incomingEvidence) {
+    if (item?.id) evidenceById.set(item.id, item);
+  }
+  const newEvidenceCount = [...evidenceById.keys()]
+    .filter((id) => !existingEvidence.some((item) => item.id === id))
+    .length;
+  const participantIds = uniqueStrings([
+    ...threadParticipantIds(existing),
+    ...threadParticipantIds(record)
+  ]);
+  const sourceSettlementIds = uniqueStrings([
+    existing.metadata?.sourceSettlementId,
+    ...(existing.metadata?.sourceSettlementIds || []),
+    record.metadata?.sourceSettlementId,
+    ...(record.metadata?.sourceSettlementIds || [])
+  ]);
+  const lastReinforcedAt = record.lastReinforcedAt || timestamp();
+  return normalizeThreadRecord({
+    ...existing,
+    id: existing.id || record.id,
+    status: OPEN_THREAD_STATUSES.has(compact(existing.status || '', 80).toLowerCase())
+      ? existing.status
+      : (record.status || existing.status),
+    participantIds,
+    participants: participantIds,
+    linkedCrewIds: participantIds,
+    supportingEvidence: [...evidenceById.values()],
+    evidence: [...evidenceById.values()],
+    reinforcementCount: Math.max(
+      Number(existing.reinforcementCount || 0) + newEvidenceCount,
+      [...evidenceById.values()].length,
+      Number(record.reinforcementCount || 0)
+    ),
+    playerInterest: Math.max(Number(existing.playerInterest || 0), Number(record.playerInterest || 0)),
+    salience: Math.max(Number(existing.salience || 0), Number(record.salience || 0)),
+    firstObservedAt: existing.firstObservedAt || record.firstObservedAt || null,
+    lastReinforcedAt,
+    metadata: {
+      ...(existing.metadata || {}),
+      sourceSettlementIds,
+      latestSourceSettlementId: record.metadata?.sourceSettlementId || null,
+      lastReinforcedBy: 'sceneHandshake',
+      handshakeReinforced: true,
+      stale: false
+    },
+    history: [
+      ...asArray(existing.history),
+      {
+        at: lastReinforcedAt,
+        type: 'scene-handshake-reinforcement',
+        sourceSettlementId: record.metadata?.sourceSettlementId || null,
+        sourceThreadId: record.id || null
+      }
+    ]
+  });
+}
+
 export function validateSceneHandshakeSettlement(rawSettlement, {
   campaignState,
   snapshot,
@@ -1307,6 +1578,7 @@ export function validateSceneHandshakeSettlement(rawSettlement, {
     .filter(Boolean);
   const threads = settlement.threadSignals
     .map((proposal) => normalizeThreadSignal(proposal, context))
+    .map((record) => reinforceExistingThreadRecord(record, campaignState))
     .filter(Boolean);
 
   if (reasons.length) {

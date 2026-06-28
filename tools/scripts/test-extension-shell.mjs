@@ -1502,6 +1502,8 @@ const acceptedAssignments = [
     summary: 'Meet Commander Cross in Engineering and inspect the command-network handoff risk.',
     status: 'open',
     dueWindow: 'Within the current twelve-hour command window.',
+    assignmentScope: 'playerCurrentOrder',
+    assignedActorIds: ['player-commander'],
     linkedCrewIds: ['imani-cross'],
     linkedShipSystemIds: ['ship.command-network-certificate-compatibility']
   },
@@ -1511,6 +1513,8 @@ const acceptedAssignments = [
     summary: 'Introduce yourself to Bronn professionally while he is on duty.',
     status: 'open',
     dueWindow: 'Today during alpha shift.',
+    assignmentScope: 'playerCurrentOrder',
+    assignedActorIds: ['player-commander'],
     linkedCrewIds: ['hadrik-bronn']
   },
   {
@@ -1519,9 +1523,21 @@ const acceptedAssignments = [
     summary: 'Talk to department heads and look for refit issues the yard missed, including Medical and Science.',
     status: 'open',
     dueWindow: 'Before arrival at the Reach.',
+    assignmentScope: 'playerCurrentOrder',
+    assignedActorIds: ['player-commander'],
     linkedCrewIds: ['miriam-sato', 'rowan-saye']
   }
 ];
+const delegatedCrewAssignment = {
+  id: 'open-assignment:nayar-sensor-power-audit',
+  title: 'Full sensor diagnostic and power distribution audit',
+  summary: 'Nayar to conduct a full sensor diagnostic and power distribution audit.',
+  status: 'open',
+  priority: 'current',
+  assignmentScope: 'delegatedCrewOrder',
+  assignedActorIds: ['priya-nayar'],
+  dueWindow: 'Draft by 0700 ship time'
+};
 const objectiveProjectionView = {
   activePackage: breckenridgePackage,
   campaignState: {
@@ -1560,7 +1576,10 @@ const objectiveProjectionView = {
           text: 'Establish Breckenridge readiness before arrival at the Reach.'
         }
       ],
-      openAssignments: acceptedAssignments
+      openAssignments: [
+        ...acceptedAssignments,
+        delegatedCrewAssignment
+      ]
     },
     commandLog: {
       entries: [
@@ -1634,6 +1653,10 @@ assert.match(projectionMissionText, /Current Orders/);
 assert.match(projectionMissionText, /Review the command-network handoff/);
 assert.match(projectionMissionText, /Meet Bronn on alpha shift/);
 assert.match(projectionMissionText, /Walk the ship/);
+assert.doesNotMatch(projectionMissionText, /Full sensor diagnostic and power distribution audit/, 'Mission Current Orders should not show player-issued delegated crew work.');
+assert.doesNotMatch(projectionMissionText, /Status: open/, 'Mission Current Orders should suppress default open status bookkeeping.');
+assert.doesNotMatch(projectionMissionText, /Priority: current/, 'Mission Current Orders should suppress default current-priority bookkeeping.');
+assert.doesNotMatch(projectionMissionText, /Owner:/, 'Mission Current Orders should not label assignedByActorId as an owner.');
 assert.doesNotMatch(projectionMissionText, /\[object Object\]/, 'Mission should render accepted assignment records as player-safe text.');
 
 const projectionLogBody = fakeDocument.createElement('div');

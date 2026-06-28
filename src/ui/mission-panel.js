@@ -277,19 +277,61 @@ function missionRecordText(item) {
   if (typeof item === 'string') return item.trim();
   if (!item || typeof item !== 'object') return '';
   const title = missionRecordFieldText(item.title || item.label || item.name);
-  const summary = missionRecordFieldText(item.playerSafeSummary || item.summary || item.text || item.detail || item.description);
+  const summary = compactText(missionRecordFieldText(item.playerSafeSummary || item.summary || item.text || item.detail || item.description), 180);
   const fallback = missionRecordFieldText(item.id);
   const base = title && summary && title !== summary
     ? `${title}: ${summary}`
     : (summary || title || fallback);
   if (!base) return '';
+  const status = missionRecordFieldText(item.status);
+  const priority = missionRecordFieldText(item.priority);
   const meta = [
-    missionRecordFieldText(item.status) ? `Status: ${missionRecordFieldText(item.status)}` : '',
-    missionRecordFieldText(item.priority) ? `Priority: ${missionRecordFieldText(item.priority)}` : '',
+    status && !['open', 'current', 'accepted'].includes(status.toLowerCase()) ? `Status: ${status}` : '',
+    priority && priority.toLowerCase() !== 'current' ? `Priority: ${priority}` : '',
     missionRecordFieldText(item.dueWindow || item.deadline || item.timeWindow) ? `Due: ${missionRecordFieldText(item.dueWindow || item.deadline || item.timeWindow)}` : '',
-    missionRecordFieldText(item.owner || item.assignedByActorId || item.assignedBy) ? `Owner: ${missionRecordFieldText(item.owner || item.assignedByActorId || item.assignedBy)}` : ''
+    missionRecordFieldText(item.owner) ? `Owner: ${missionRecordFieldText(item.owner)}` : ''
   ].filter(Boolean);
   return meta.length ? `${base} (${meta.join('; ')})` : base;
+}
+
+function playerActorIdsForState(state = {}) {
+  return new Set([
+    state.player?.id,
+    state.player?.name,
+    'player-commander'
+  ].map((value) => cleanText(value).toLowerCase()).filter(Boolean));
+}
+
+function recordActorIds(record = {}) {
+  return [
+    ...asArray(record.assignedActorIds),
+    ...asArray(record.assignedToActorIds),
+    ...asArray(record.assignees)
+  ].map((value) => cleanText(value).toLowerCase()).filter(Boolean);
+}
+
+function recordActorMatchesPlayer(value = '', playerIds = new Set()) {
+  const text = cleanText(value).toLowerCase();
+  return Boolean(text && playerIds.has(text));
+}
+
+function looksLikeDelegatedCrewOrder(record = {}) {
+  const text = `${record.title || ''} ${record.summary || ''} ${record.detail || ''}`;
+  return /\b(?:nayar|bronn|vale|cross|sato|saye|lieutenant|commander|ensign)\s+to\b/i.test(text)
+    || /\b(?:draft by|complete within|pull ensigns|run a level|conduct a full|inspect every)\b/i.test(text);
+}
+
+function currentOrderAppliesToPlayer(record = {}, state = {}) {
+  if (!record || typeof record !== 'object') return true;
+  const playerIds = playerActorIdsForState(state);
+  const assignedBy = record.assignedByActorId || record.assignedBy;
+  if (record.assignmentScope === 'playerCurrentOrder') return true;
+  if (record.assignmentScope && record.assignmentScope !== 'playerCurrentOrder') return false;
+  const targets = recordActorIds(record);
+  if (targets.length) return targets.some((target) => playerIds.has(target));
+  if (recordActorMatchesPlayer(assignedBy, playerIds)) return false;
+  if (looksLikeDelegatedCrewOrder(record)) return false;
+  return true;
 }
 
 function currentSaveEntry(view, state) {
@@ -1762,7 +1804,8 @@ export function renderMissionPanel(body, view, actions) {
   appendMvpCheckpoint(contextSection, view, state);
   appendPressureLedger(contextSection, state);
 
-  const openAssignments = state.mission?.openAssignments || [];
+  const openAssignments = (state.mission?.openAssignments || [])
+    .filter((record) => currentOrderAppliesToPlayer(record, state));
   appendMissionListCard(contextSection, 'Current Orders', openAssignments.slice(0, 8), 'directive-mission-open-assignments-card', 'Player-visible orders accepted from the current scene.');
 
   const objectives = state.mission?.formalObjectives || [];
