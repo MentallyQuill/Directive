@@ -142,6 +142,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Visual Target Loop](development/VISUAL_TARGET_LOOP.md): GPT Image 2 concept-art workflow for page, window, feature, control-group, and state-variant UI iteration against live SillyTavern screenshots.
 - [Reset Window Contract](development/RESET_WINDOW_CONTRACT.md): implementation contract for the SillyTavern Reset Window action, including shell geometry, route-local UI state, non-destructive boundaries, and test expectations.
 - [SillyTavern Open-World Live Campaign Report](development/SILLYTAVERN_OPEN_WORLD_LIVE_CAMPAIGN_REPORT.md): live SillyTavern verification evidence for open-world campaign creation, chat-native turns, Director responses, sidecars, host-shell leak fixes, and remaining provider risks.
+- [Turn Latency Audit 2026-06-28](development/TURN_LATENCY_AUDIT_2026_06_28.md): live Sam Vickers/Ashes latency evidence for turn orchestration, save bloat, sidecar batching, stale-source rejection, and near-term performance targets.
 
 Development records in this section are not automatically user-facing contracts. Promote them into `user/`, `packages/`, `architecture/`, or `testing/` when the runtime behavior exists and the doc becomes part of the product contract.
 
@@ -157,6 +158,7 @@ Development records in this section are not automatically user-facing contracts.
 - [Parallel Agent Coordination Protocol](planning/PARALLEL_AGENT_COORDINATION_PROTOCOL.md): Agent-0 orchestration and worker-agent operating model for parallel MVP, UI, Narrative Thread, Mission Director, and QA development.
 - [Interface Redesign Integration Prep](planning/INTERFACE_REDESIGN_INTEGRATION_PREP.md): review of the 2026-06-20 frontier-model UI redesign bundle, with integration lanes, blockers, file ownership, and verification gates for selective adoption.
 - [Backend Redesign Integration Prep](planning/BACKEND_REDESIGN_INTEGRATION_PREP.md): backend/runtime integration rules for the 2026-06-20 redesign bundle, allowing broad non-Chapter 2 adoption while protecting False Colors through Quiet Channels.
+- [Architecture Redesign Proposal](planning/ARCHITECTURE_REDESIGN_PROPOSAL.md): forward-only transaction, storage, Director, CPM, Handshake, sidecar, recovery, and 5000-message/under-60-second latency redesign proposal.
 - [Visual Asset And Mobile UI Integration Plan](planning/VISUAL_ASSET_AND_MOBILE_UI_INTEGRATION_PLAN.md): package-owned Breckenridge crew portrait and ship-art integration plan, with Saga-informed UI, Theme Pack, Icon Pack, style, and flow direction; its original shared bottom-navigation assumption is superseded for SillyTavern by the Command Spine Migration.
 - [MVP Playable Alpha Plan](planning/MVP_PLAYABLE_ALPHA_PLAN.md): development path to a SillyTavern-first MVP alpha with complete Prelude, complete Chapter 1, probable side missions, complete UI, and side-mission generator architecture.
 - [Pre-Production Roadmap](planning/PRE_PRODUCTION_ROADMAP.md): remaining pre-production stages from schema deepening through first runtime slice.

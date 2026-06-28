@@ -349,6 +349,59 @@ requireEqual(auditSnapshot.runtimeTracking.pendingInteractions.length, 0, 'snaps
 requireEqual(auditSnapshot.runtimeTracking.activeIngressId, null, 'snapshot clears active ingress');
 requireEqual(auditSnapshot.runtimeTracking.sceneReconciliation.runs.length, 0, 'snapshot strips reconciliation runs');
 
+const heavyOpenWorldTurn = cloneJson(hesperusTurn);
+heavyOpenWorldTurn.turnId = 'turn.open-world.runtime-tracking.compaction';
+heavyOpenWorldTurn.outcomePacket.id = 'outcome.open-world.runtime-tracking.compaction';
+heavyOpenWorldTurn.stateDelta.outcomeId = heavyOpenWorldTurn.outcomePacket.id;
+heavyOpenWorldTurn.narratorPacket.sourceOutcomeId = heavyOpenWorldTurn.outcomePacket.id;
+heavyOpenWorldTurn.commandLogPacket.sourceOutcomeId = heavyOpenWorldTurn.outcomePacket.id;
+heavyOpenWorldTurn.stateDelta.openWorld = {
+  ...(heavyOpenWorldTurn.stateDelta.openWorld || {}),
+  rootsSet: {
+    ...(heavyOpenWorldTurn.stateDelta.openWorld?.rootsSet || {}),
+    runtimeTracking: cloneJson(auditHeavyState.runtimeTracking)
+  }
+};
+const heavyOpenWorldCommit = commitDirectorTurn(initialState, heavyOpenWorldTurn);
+const appliedOpenWorldRuntimeTracking = heavyOpenWorldCommit.runtimeTracking;
+const retainedOpenWorldRuntimeTracking =
+  heavyOpenWorldCommit.turnLedger.entries.at(-1).stateDelta.openWorld.rootsSet.runtimeTracking;
+requireEqual(appliedOpenWorldRuntimeTracking.history.length, 1, 'open-world runtime root still applies before ledger compaction');
+requireEqual(retainedOpenWorldRuntimeTracking.history.length, 0, 'ledger stateDelta strips open-world runtime history');
+requireEqual(retainedOpenWorldRuntimeTracking.ingressLedger.length, 0, 'ledger stateDelta strips open-world ingress ledger');
+requireEqual(retainedOpenWorldRuntimeTracking.responseLedger.length, 0, 'ledger stateDelta strips open-world response ledger');
+requireEqual(retainedOpenWorldRuntimeTracking.sidecarJournal.length, 0, 'ledger stateDelta strips open-world sidecar journal');
+requireEqual(retainedOpenWorldRuntimeTracking.modelCallJournal.length, 0, 'ledger stateDelta strips open-world model-call journal');
+requireEqual(retainedOpenWorldRuntimeTracking.pendingInteractions.length, 0, 'ledger stateDelta strips open-world pending interactions');
+requireEqual(retainedOpenWorldRuntimeTracking.activeIngressId, null, 'ledger stateDelta clears open-world active ingress');
+requireEqual(
+  retainedOpenWorldRuntimeTracking.sceneReconciliation.runs.length,
+  0,
+  'ledger stateDelta strips open-world reconciliation runs'
+);
+if (Buffer.byteLength(stable(retainedOpenWorldRuntimeTracking)) >= Buffer.byteLength(stable(auditHeavyState.runtimeTracking))) {
+  at('ledger stateDelta runtime compaction size', 'retained runtimeTracking root must be smaller than source runtimeTracking root');
+}
+
+const retainedPacketMigrationState = cloneJson(heavyOpenWorldCommit);
+retainedPacketMigrationState.turnLedger.entries[0].stateDelta.openWorld.rootsSet.runtimeTracking =
+  cloneJson(auditHeavyState.runtimeTracking);
+const retainedPacketMigrationTurn = cloneJson(refusalTurn);
+retainedPacketMigrationTurn.turnId = 'turn.open-world.runtime-tracking.retained-migration';
+retainedPacketMigrationTurn.outcomePacket.id = 'outcome.open-world.runtime-tracking.retained-migration';
+retainedPacketMigrationTurn.stateDelta.outcomeId = retainedPacketMigrationTurn.outcomePacket.id;
+retainedPacketMigrationTurn.narratorPacket.sourceOutcomeId = retainedPacketMigrationTurn.outcomePacket.id;
+retainedPacketMigrationTurn.commandLogPacket.sourceOutcomeId = retainedPacketMigrationTurn.outcomePacket.id;
+const retainedPacketMigrationCommit = commitDirectorTurn(retainedPacketMigrationState, retainedPacketMigrationTurn);
+const migratedRetainedRuntimeTracking =
+  retainedPacketMigrationCommit.turnLedger.entries[0].stateDelta.openWorld.rootsSet.runtimeTracking;
+requireEqual(migratedRetainedRuntimeTracking.history.length, 0, 'prune sanitizes existing retained open-world runtime history');
+requireEqual(
+  migratedRetainedRuntimeTracking.modelCallJournal.length,
+  0,
+  'prune sanitizes existing retained open-world model-call journal'
+);
+
 let cappedHistoryState = cloneJson(initialState);
 cappedHistoryState.settings = {
   ...(cappedHistoryState.settings || {}),

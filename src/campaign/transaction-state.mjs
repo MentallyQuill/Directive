@@ -99,6 +99,16 @@ function compactTurnLedgerEntryPacket(entry) {
   };
 }
 
+function compactTurnLedgerStateDelta(stateDelta) {
+  if (stateDelta === undefined) return undefined;
+  const compactDelta = cloneJson(stateDelta);
+  const rootsSet = compactDelta?.openWorld?.rootsSet;
+  if (rootsSet?.runtimeTracking) {
+    rootsSet.runtimeTracking = compactRuntimeTrackingSnapshot(rootsSet.runtimeTracking);
+  }
+  return compactDelta;
+}
+
 function cloneRollbackSnapshot(value) {
   const snapshot = cloneJson(value);
   if (snapshot?.runtimeTracking) {
@@ -114,6 +124,14 @@ function pruneTurnLedgerSnapshots(state, value = null) {
   const entries = state?.turnLedger?.entries;
   if (!Array.isArray(entries)) return state;
   const limit = normalizeTurnSaveHistoryLimit(value ?? state.settings?.maxTurnSaveHistory);
+  for (let index = 0; index < entries.length; index += 1) {
+    if (entries[index]?.stateDelta !== undefined) {
+      entries[index] = {
+        ...entries[index],
+        stateDelta: compactTurnLedgerStateDelta(entries[index].stateDelta)
+      };
+    }
+  }
   const firstRetainedIndex = Math.max(0, entries.length - limit);
   for (let index = 0; index < firstRetainedIndex; index += 1) {
     entries[index] = {
@@ -623,7 +641,7 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
     turnId: turnPacket.turnId,
     outcomeId: turnPacket.outcomePacket.id,
     resultBand: turnPacket.outcomePacket.resultBand,
-    stateDelta: cloneJson(turnPacket.stateDelta),
+    stateDelta: compactTurnLedgerStateDelta(turnPacket.stateDelta),
     competencePacket: cloneJson(turnPacket.competencePacket || null),
     continuityProjection: cloneJson(turnPacket.provenance?.continuityProjection || null),
     narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
