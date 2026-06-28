@@ -1228,6 +1228,7 @@ export function runMissionDirectorTurn(input) {
   const graph = cloneJson(input.graph);
   const projection = cloneJson(input.projection);
   const crewDataset = cloneJson(input.crewDataset || {});
+  const shipDataset = cloneJson(input.shipDataset || {});
   const sceneSnapshot = cloneJson(input.sceneSnapshot);
   const campaignState = cloneJson(input.campaignState || projection.initialState || {});
   const graphIndex = indexMissionGraph(graph);
@@ -1262,6 +1263,7 @@ export function runMissionDirectorTurn(input) {
   });
   const retrievalRun = runDirectorRetrieval({
     crewDataset,
+    shipDataset,
     missionGraph: graph,
     sceneSnapshot,
     campaignState,

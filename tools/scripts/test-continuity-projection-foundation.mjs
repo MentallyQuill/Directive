@@ -25,6 +25,7 @@ function readJson(relativePath) {
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const campaignProjection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const campaignState = {
   ...campaignProjection.initialState,
@@ -47,6 +48,7 @@ assert.equal(initializeCampaignRuntimeTracking({ runtimeTracking: {} }).continui
 const facts = materializeContinuityFacts({
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   campaignState
 });
@@ -71,11 +73,15 @@ assert.match(travelText, /drops to impulse.*transfer waypoint/i);
 assert.match(travelText, /shuttlebay two.*aft section between the swept nacelle pylons/i);
 assert.match(travelText, /Do not describe.*six days at impulse/i);
 assert.doesNotMatch(travelText, /six days since leaving Utopia Planitia/i);
+assert.match(byId.get('ship.uss-breckenridge.area.intrepid.shuttlebay-complex.layout')?.render.narrator || '', /Deck 10.*aft dorsal secondary hull/i);
+assert.match(byId.get('ship.uss-breckenridge.area.intrepid.shuttlebay-complex.not-saucer-underside')?.render.narrator || '', /Do not describe.*saucer-underside/i);
+assert.equal(byId.get('ship.uss-breckenridge.area.intrepid.shuttlebay-complex.not-saucer-underside')?.tags.includes('contradiction-guard'), true);
 
 const frameA = buildContinuitySourceFrame({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] },
   playerText: 'I ask Bronn for the real tactical handoff.',
@@ -85,12 +91,16 @@ const frameB = buildContinuitySourceFrame({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] },
   playerText: 'I ask Whitaker for the transfer orders.',
   recentChatMessages: [{ id: '1', role: 'user', text: 'Permission to come aboard.' }]
 });
 assert.equal(frameA.locationId, 'breckenridge-in-transit');
+assert.equal(frameA.shipDatasetRevision, shipDataset.manifest.version);
+assert.equal(frameA.shipDatasetId, shipDataset.manifest.id);
+assert.equal(frameA.shipDatasetAreaIds.includes('intrepid.shuttlebay-complex'), true);
 assert.notEqual(frameA.sourceHash, frameB.sourceHash);
 assert.deepEqual(frameA.presentActorIds, ['hadrik-bronn']);
 assert.equal(frameA.referencedActorIds.includes('hadrik-bronn'), true);
@@ -101,6 +111,7 @@ const acceptedVariantFrame = buildContinuitySourceFrame({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   playerText: 'I accept that handoff and continue.',
   acceptedAssistantVariant: {
@@ -135,6 +146,7 @@ const matrix = buildContinuityProjectionMatrix({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] },
   createdAt: '2026-06-26T00:00:00.000Z'
@@ -144,12 +156,15 @@ assert.equal(matrix.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.match(matrix.text, /Bronn is Tellarite/i);
 assert.match(matrix.text, /mustard-yellow/i);
 assert.match(matrix.text, /six days at impulse/i);
+assert.match(matrix.text, /Deck 10.*aft dorsal secondary hull/i);
+assert.match(matrix.text, /saucer-underside/i);
 assert.doesNotMatch(matrix.text, /directorOnly|rawValues/i);
 
 const turnRelevantMatrix = buildContinuityProjectionMatrix({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   playerText: 'I ask Bronn to walk me through the tactical handoff before we reach the Asterion waypoint.',
   projectionPlan: {
@@ -168,11 +183,39 @@ assert.equal(bronnProfileOperation.force, 'boost');
 assert.equal(bronnProfileOperation.reason, 'validator-added-turn-relevance');
 assert.equal(turnRelevantMatrix.sourceFrame.referencedActorIds.includes('hadrik-bronn'), true);
 
+const shipRelevantMatrix = buildContinuityProjectionMatrix({
+  campaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  playerText: 'I head to the mess hall to read the room before going down to the shuttlebay.',
+  projectionPlan: {
+    kind: CONTINUITY_PLAN_KIND,
+    operations: [],
+    omitted: []
+  },
+  createdAt: '2026-06-26T00:00:00.000Z'
+});
+const messHallOperation = shipRelevantMatrix.plan.operations.find((operation) => (
+  operation.factId === 'ship.uss-breckenridge.area.intrepid.mess-hall.layout'
+));
+assert(messHallOperation, 'Turn-relevant mess hall ship layout should survive Utility omission.');
+assert.equal(messHallOperation.lane, 'directive.continuity.domain');
+assert.equal(messHallOperation.force, 'boost');
+assert.equal(messHallOperation.reason, 'validator-added-turn-relevance');
+assert.equal(
+  shipRelevantMatrix.plan.selectedFactIds.includes('ship.uss-breckenridge.area.intrepid.shuttlebay-complex.not-saucer-underside'),
+  true
+);
+assert.match(shipRelevantMatrix.text, /Deck 10.*aft dorsal secondary hull/i);
+
 const badReview = reviewContinuityContradictions({
   text: 'Bronn, a human male in his early forties, grunted that the ship had been at impulse for six days since leaving Utopia Planitia. Bronn wears the red-and-black of tactical, not command, though the acting-XO pip is visible on his collar. The shuttlebay doors cycled open as a lit mouth in the underside of the saucer.',
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection
 });
 assert.equal(badReview.ok, false);
@@ -187,6 +230,7 @@ const goodReview = reviewContinuityContradictions({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection
 });
 assert.equal(goodReview.ok, true);
@@ -196,6 +240,7 @@ const unrelatedUniformReview = reviewContinuityContradictions({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection
 });
 assert.equal(unrelatedUniformReview.ok, true);

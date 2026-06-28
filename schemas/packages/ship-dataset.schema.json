@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/ship-dataset.schema.json",
+  "title": "Directive Ship Dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "sources",
+    "areas",
+    "systems",
+    "cards",
+    "indexes"
+  ],
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "id", "packageId", "shipId", "classId", "title", "version", "status"],
+      "properties": {
+        "kind": { "const": "directive.shipDataset" },
+        "schemaVersion": { "const": 1 },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "packageId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "shipId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "classId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "pre-alpha", "playtest", "stable"]
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "../common/common.schema.json#/$defs/sourceDocument" }
+    },
+    "areas": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/area" }
+    },
+    "systems": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/system" }
+    },
+    "cards": {
+      "type": "array",
+      "items": { "$ref": "director-card.schema.json" }
+    },
+    "indexes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["byArea", "bySystem", "byType", "byAudience", "byRevealGate"],
+      "properties": {
+        "byArea": { "$ref": "#/$defs/indexMap" },
+        "bySystem": { "$ref": "#/$defs/indexMap" },
+        "byType": { "$ref": "#/$defs/indexMap" },
+        "byAudience": { "$ref": "#/$defs/indexMap" },
+        "byRevealGate": { "$ref": "#/$defs/indexMap" },
+        "byKeyword": { "$ref": "#/$defs/indexMap" }
+      }
+    }
+  },
+  "$defs": {
+    "indexMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+      }
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "decks", "zone", "functions", "hardFacts", "textures", "constraints", "keywords"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "decks": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "zone": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "exteriorPlacement": { "type": "string" },
+        "functions": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "sceneUses": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "hardFacts": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "textures": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "systems": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        }
+      }
+    },
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "scope", "capability", "dependencies", "failureModes", "sceneUses", "keywords"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "scope": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "capability": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "failureModes": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "sceneUses": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  }
+}

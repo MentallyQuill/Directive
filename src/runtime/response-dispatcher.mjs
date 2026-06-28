@@ -84,6 +84,7 @@ export function createResponseDispatcher({
     idempotencyKey = null,
     packageData = null,
     crewDataset = null,
+    shipDataset = null,
     campaignProjection = null
   } = {}) {
     const state = resolveState(campaignState);
@@ -106,6 +107,7 @@ export function createResponseDispatcher({
       campaignState: state,
       packageData,
       crewDataset,
+      shipDataset,
       campaignProjection
     }) : null;
     const recoveryId = continuityReview?.ok === false ? `recovery:continuity:${key}` : null;

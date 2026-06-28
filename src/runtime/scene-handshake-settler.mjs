@@ -885,7 +885,25 @@ function shipReadinessProposalLooksValid(raw = {}) {
 function threadSignalLooksValid(raw = {}) {
   const title = compact(raw.title || raw.label || raw.summary, 180);
   const summary = compact(raw.summary || raw.observableSeed || raw.detail || title, 500);
-  return Boolean(title && summary);
+  return Boolean(title && summary && !proposalLooksLikeMenuOfframp(title, summary));
+}
+
+function menuOfframpText(value = '') {
+  const text = compact(value, 500);
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  if (/^or\b/.test(lower)) return true;
+  if (/\bor something else entirely\b/.test(lower)) return true;
+  if (/\bor straight to\b/.test(lower)) return true;
+  if (/\bstraight to\b[\s\S]{0,80}\bor\b/.test(lower)) return true;
+  if (/\b(?:could|can|may)\s+(?:go|head|continue|proceed|choose|take|start)\b[\s\S]{0,120}\bor\b/.test(lower)) return true;
+  if (/\b(?:either|whether)\b[\s\S]{0,120}\bor\b/.test(lower)) return true;
+  if (/\b(?:if you prefer|alternatively|otherwise)\b[\s\S]{0,120}\b(?:go|head|continue|proceed|choose|take|start)\b/.test(lower)) return true;
+  return false;
+}
+
+function proposalLooksLikeMenuOfframp(...values) {
+  return values.map((value) => compact(value, 500)).filter(Boolean).some(menuOfframpText);
 }
 
 function knownCrewIdsForSnapshot(snapshot = {}, fallbackIds = []) {
@@ -1017,6 +1035,7 @@ function normalizeAssignmentProposal(raw = {}, context) {
   const title = compact(raw.title || raw.label || raw.summary, 180);
   const summary = compact(raw.summary || raw.detail || raw.description || title, 500);
   if (!title || !summary) return null;
+  if (proposalLooksLikeMenuOfframp(title, summary)) return null;
   const fingerprint = assignmentFingerprint({
     title,
     summary,
@@ -1050,6 +1069,7 @@ function normalizeAssignmentProposal(raw = {}, context) {
 function normalizeCommandLogProposal(raw = {}, context, assignments = []) {
   const summaryInputs = cleanList(raw.summaryInputs || raw.summaries || [raw.summary || raw.title], 6);
   const visibleConsequences = cleanList(raw.visibleConsequences || raw.consequences || [], 6);
+  if (!assignments.length && [...summaryInputs, ...visibleConsequences].some(menuOfframpText)) return null;
   if (!summaryInputs.length && !visibleConsequences.length && !assignments.length) return null;
   const source = sourceBundle(context);
   return {
@@ -1106,6 +1126,7 @@ function normalizeThreadSignal(raw = {}, context) {
   const title = compact(raw.title || raw.label || raw.summary, 180);
   const summary = compact(raw.summary || raw.observableSeed || raw.detail || title, 500);
   if (!title || !summary) return null;
+  if (proposalLooksLikeMenuOfframp(title, summary)) return null;
   const source = sourceBundle(context);
   const participantIds = asArray(raw.participantIds || raw.participants || raw.linkedCrewIds)
     .map((item) => compact(item, 160))

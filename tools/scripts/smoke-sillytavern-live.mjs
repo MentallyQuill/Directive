@@ -4497,6 +4497,7 @@ async function runChatNativeCampaignFlow(page) {
     'routineCommand',
     'sceneColor',
     'sceneNavigation',
+    'locationTransition',
     'counselRequest'
   ].includes(String(round.after?.matchedIngress?.classification || '')));
   assertBrowser(

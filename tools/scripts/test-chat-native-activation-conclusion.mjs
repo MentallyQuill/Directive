@@ -16,6 +16,7 @@ const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 
 const chat = createFakeChatAdapter({
   chatId: 'setup-chat',
@@ -168,6 +169,7 @@ const activated = await activation.activate({
   campaignState: initial,
   packageData,
   crewDataset,
+  shipDataset,
   saveId: 'save-activation-test',
   createNewChat: true
 });
@@ -200,6 +202,9 @@ assert.match(introRequest.prompt, /final ten days before the Asterion Reach/);
 assert.match(introRequest.prompt, /do not force the full Asterion Reach strategy conversation yet/);
 assert.match(introRequest.prompt, /shuttlebay two in the aft section between the swept nacelle pylons/);
 assert.match(introRequest.prompt, /saucer-underside shuttlebay/);
+assert.match(introRequest.prompt, /Ship layout contract:/);
+assert.match(introRequest.prompt, /Deck 10 aft/);
+assert.match(introRequest.prompt, /Do not place the bay in the underside of the saucer or ventral primary hull/);
 assert.match(introRequest.prompt, /"openingPacing"/);
 assert.match(introRequest.prompt, /Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran Tellarite tactical and security chief/);
 assert.match(introRequest.prompt, /Late fifties by human comparison/);
@@ -227,6 +232,7 @@ const retriedActivation = await activation.activate({
   campaignState: activated.campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   saveId: 'save-activation-test',
   existingChatId: activated.binding.chatId,
   createNewChat: false
@@ -241,6 +247,7 @@ const activityCountBeforeRewrite = activationActivity.length;
 const rewrittenIntro = await activation.rewriteIntro({
   campaignState: retriedActivation.campaignState,
   packageData,
+  shipDataset,
   saveId: 'save-activation-test',
   hostMessageId: retriedActivation.campaignState.campaignChatBinding.introMessageId,
   reason: 'test-intro-reroll'
@@ -267,6 +274,7 @@ chat.pushPlayerMessage({ text: 'Take us in, helm.', hostMessageId: 'player-after
 const blockedIntroRewrite = await activation.rewriteIntro({
   campaignState: rewrittenIntro.campaignState,
   packageData,
+  shipDataset,
   hostMessageId: rewrittenIntro.campaignState.campaignChatBinding.introMessageId
 });
 assert.equal(blockedIntroRewrite.ok, false);
@@ -308,6 +316,7 @@ const failedActivation = await flakyActivation.activate({
   campaignState: failureInitial,
   packageData,
   crewDataset,
+  shipDataset,
   saveId: 'save-activation-recovery-test',
   createNewChat: true
 });
@@ -327,6 +336,7 @@ const recoveredActivation = await flakyActivation.activate({
   campaignState: failedActivation.campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   saveId: 'save-activation-recovery-test',
   existingChatId: failedActivation.campaignState.campaignChatBinding.chatId,
   createNewChat: false

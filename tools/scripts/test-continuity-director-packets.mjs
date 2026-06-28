@@ -16,6 +16,7 @@ function readJson(relativePath) {
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const campaignProjection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const directorOnlyFact = createContinuityFact({
   id: 'director.secret.medical-review',
@@ -44,6 +45,7 @@ const narratorPacket = buildContinuityDirectorPacket({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   scene: { activePhaseId: 'shuttle-rendezvous', presentCharacterIds: ['hadrik-bronn'] },
   playerText: 'I ask Bronn for the real tactical handoff.'
@@ -59,6 +61,7 @@ const missionPacket = buildContinuityDirectorPacket({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
   scene: { activePhaseId: 'shuttle-rendezvous', presentCharacterIds: ['hadrik-bronn'] },
   playerText: 'I ask Bronn for the real tactical handoff.'
@@ -69,6 +72,23 @@ assert.ok(missionPacket.facts.some((fact) => fact.id === 'crew.hadrik-bronn.spec
 assert.equal(Object.hasOwn(missionPacket, 'stateDelta'), false);
 assert.equal(Object.hasOwn(missionPacket, 'outcomePacket'), false);
 assert.equal(Object.hasOwn(missionPacket, 'allowedRoots'), false);
+
+const shipPacket = buildContinuityDirectorPacket({
+  audience: 'shipDirector',
+  campaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: { activePhaseId: 'shuttle-rendezvous', locationId: 'breckenridge-in-transit' },
+  playerText: 'I ask shuttle control for final shuttlebay clearance.'
+});
+assert.ok(shipPacket.facts.some((fact) => fact.id === 'ship.uss-breckenridge.area.intrepid.shuttlebay-complex.layout'));
+assert.ok(shipPacket.facts.some((fact) => fact.id === 'ship.uss-breckenridge.area.intrepid.shuttlebay-complex.not-saucer-underside'));
+assert.match(
+  shipPacket.facts.find((fact) => fact.id === 'ship.uss-breckenridge.area.intrepid.shuttlebay-complex.layout')?.summary || '',
+  /Deck 10.*aft dorsal secondary hull/i
+);
 
 const digest = compactContinuityDirectorPacket(missionPacket);
 assert.equal(digest.kind, 'directive.continuityDirectorPacketDigest.v1');

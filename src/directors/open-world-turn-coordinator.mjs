@@ -109,6 +109,7 @@ function runTacticalOrSystemic({
   graph,
   projection,
   crewDataset,
+  shipDataset = null,
   graphPath,
   projectionPath,
   turnId,
@@ -130,6 +131,7 @@ function runTacticalOrSystemic({
           graph,
           projection,
           crewDataset,
+          shipDataset,
           sceneSnapshot,
           campaignState,
           continuityDirectorPacket
@@ -158,6 +160,7 @@ function runTacticalOrSystemic({
           graph,
           projection,
           crewDataset,
+          shipDataset,
           sceneSnapshot,
           campaignState,
           continuityDirectorPacket
@@ -298,6 +301,7 @@ export function createDirectorCoordinatorTurn({
   graph = null,
   projection,
   crewDataset,
+  shipDataset,
   graphPath = null,
   projectionPath = null,
   turnId,
@@ -312,6 +316,7 @@ export function createDirectorCoordinatorTurn({
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection: projection,
     scene: {
       activePhaseId: sceneSnapshot.activePhaseId,
@@ -325,7 +330,7 @@ export function createDirectorCoordinatorTurn({
   const validatedInterpretation = actionInterpretation
     ? validateQuestActionInterpretation(actionInterpretation, { state: campaignState, packageData, questId: quest?.id, playerInput, sourceAnchorRange: sceneSnapshot.sourceAnchorRange })
     : null;
-  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket });
+  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, shipDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket });
   return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason, continuityDirectorPacket });
 }
 

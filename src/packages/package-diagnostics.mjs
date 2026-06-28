@@ -114,6 +114,7 @@ export function diagnoseCampaignPackageRecord({
   packageData,
   projection = null,
   crewDataset = null,
+  shipDataset = null,
   missionGraphs = [],
   campaignState = null,
   archiveRecord = null
@@ -208,6 +209,22 @@ export function diagnoseCampaignPackageRecord({
     issues.push(issue('error', 'crew-dataset-package-mismatch', 'Crew dataset package id must match the package manifest id.', {
       packageId: id,
       datasetPackageId
+    }));
+  }
+
+  const shipDatasetPackageId = shipDataset?.manifest?.packageId || null;
+  if (shipDataset && id && shipDatasetPackageId !== id) {
+    issues.push(issue('error', 'ship-dataset-package-mismatch', 'Ship dataset package id must match the package manifest id.', {
+      packageId: id,
+      shipDatasetPackageId
+    }));
+  }
+  const packageShipId = packageData?.ship?.id || null;
+  const datasetShipId = shipDataset?.manifest?.shipId || null;
+  if (shipDataset && packageShipId && datasetShipId && packageShipId !== datasetShipId) {
+    issues.push(issue('error', 'ship-dataset-ship-mismatch', 'Ship dataset ship id must match the campaign package ship id.', {
+      packageShipId,
+      datasetShipId
     }));
   }
 

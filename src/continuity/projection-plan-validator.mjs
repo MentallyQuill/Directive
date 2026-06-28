@@ -260,12 +260,123 @@ function factMatchesActor(fact, actorId) {
   return asArray(fact?.tags).some((tag) => compact(tag).toLowerCase() === id);
 }
 
+const GENERIC_TURN_RELEVANCE_TERMS = new Set([
+  'area',
+  'class',
+  'deck',
+  'director',
+  'fact',
+  'hard',
+  'high',
+  'intrepid',
+  'layout',
+  'location',
+  'medium',
+  'narrator',
+  'ship',
+  'system',
+  'the',
+  'uss',
+  'voyager'
+]);
+
+function escapeRegex(value = '') {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function textReferencesTerm(text = '', term = '') {
+  const value = compact(term);
+  if (!value || value.length < 3) return false;
+  const normalized = String(text || '').toLowerCase();
+  const pattern = value
+    .toLowerCase()
+    .split(/\s+/)
+    .map(escapeRegex)
+    .join('[\\s-]+');
+  return new RegExp(`(^|[^a-z0-9])${pattern}([^a-z0-9]|$)`, 'i').test(normalized);
+}
+
+function sourceFrameText(sourceFrame = null) {
+  const recentMessages = asArray(sourceFrame?.recentMessages)
+    .map((message) => compact(message?.text))
+    .filter(Boolean);
+  return [
+    sourceFrame?.playerText,
+    sourceFrame?.recentMessageSummary,
+    ...recentMessages,
+    sourceFrame?.acceptedAssistantVariant?.text,
+    sourceFrame?.locationId,
+    sourceFrame?.activePhaseId,
+    sourceFrame?.scene?.location,
+    sourceFrame?.scene?.locationId,
+    sourceFrame?.scene?.currentQuestion,
+    sourceFrame?.scene?.immediateStakes,
+    ...asArray(sourceFrame?.scene?.relevantLocationIds),
+    ...asArray(sourceFrame?.scene?.relevantSystemIds)
+  ].map(compact).filter(Boolean).join('\n');
+}
+
+function usableRelevanceTerm(value = '') {
+  const term = compact(value);
+  if (term.length < 3) return '';
+  const normalized = term.toLowerCase();
+  if (GENERIC_TURN_RELEVANCE_TERMS.has(normalized)) return '';
+  if (/^ship[.:_-]?/i.test(term) && term.length < 10) return '';
+  return term;
+}
+
+function factRelevanceTerms(fact = {}) {
+  const semanticKeywords = asArray(fact?.semantics?.keywords);
+  const decks = asArray(fact?.semantics?.decks).map((deck) => `Deck ${deck}`);
+  const valueTerms = [
+    fact?.value?.areaId,
+    fact?.value?.systemId,
+    fact?.value?.name,
+    fact?.value?.zone,
+    fact?.value?.exteriorPlacement,
+    ...asArray(fact?.value?.functions),
+    ...asArray(fact?.value?.sceneUses),
+    ...asArray(fact?.value?.hardFacts),
+    ...asArray(fact?.value?.keywords)
+  ];
+  return [...new Set([
+    fact?.id,
+    fact?.subject,
+    fact?.predicate,
+    fact?.kind,
+    fact?.semantics?.areaId,
+    fact?.semantics?.systemId,
+    ...decks,
+    ...asArray(fact?.tags),
+    ...semanticKeywords,
+    ...valueTerms
+  ].map(usableRelevanceTerm).filter(Boolean))];
+}
+
+function factMatchesTurnText(fact, sourceFrame = null) {
+  const haystack = sourceFrameText(sourceFrame);
+  if (!haystack) return false;
+  return factRelevanceTerms(fact).some((term) => textReferencesTerm(haystack, term));
+}
+
+function factMatchesLocation(fact, sourceFrame = null) {
+  const locationIds = new Set([
+    sourceFrame?.locationId,
+    sourceFrame?.scene?.locationId,
+    ...asArray(sourceFrame?.scene?.relevantLocationIds)
+  ].map((value) => compact(value).toLowerCase()).filter(Boolean));
+  if (!locationIds.size) return false;
+  const factTerms = factRelevanceTerms(fact).map((term) => compact(term).toLowerCase());
+  return factTerms.some((term) => locationIds.has(term));
+}
+
 function turnRelevanceScore(fact, sourceFrame = null) {
   const actors = relevantActorSet(sourceFrame);
-  if (!actors.size) return 0;
   for (const actorId of actors) {
     if (factMatchesActor(fact, actorId)) return 100;
   }
+  if (factMatchesLocation(fact, sourceFrame)) return 90;
+  if (factMatchesTurnText(fact, sourceFrame)) return 80;
   return 0;
 }
 
@@ -579,7 +690,7 @@ export function validateContinuityProjectionPlan(plan, {
     }
   }
 
-  for (const fact of facts) {
+  for (const fact of sortFactsForDeterministicProjection(facts, sourceFrame)) {
     const hint = hints.get(fact.id);
     const turnRelevant = isTurnRelevantFact(fact, sourceFrame);
     const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors });

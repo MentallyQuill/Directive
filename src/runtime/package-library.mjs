@@ -31,6 +31,14 @@ function unwrapCrewDatasetRecord(record) {
   };
 }
 
+function unwrapShipDatasetRecord(record) {
+  if (!record) return null;
+  return {
+    path: record.path || '',
+    dataset: record.dataset || record
+  };
+}
+
 function unwrapMissionGraphRecords(record) {
   if (!record) return [];
   const records = Array.isArray(record) ? record : [record];
@@ -52,6 +60,7 @@ export function indexRuntimeAssets({
   packages = [],
   projections = [],
   crewDatasets = [],
+  shipDatasets = [],
   missionGraphs = []
 } = {}) {
   const byPackageId = new Map();
@@ -60,6 +69,7 @@ export function indexRuntimeAssets({
     if (!packageId) return;
     const projectionRecord = recordForPackage(projections, packageId, index);
     const crewDatasetRecord = unwrapCrewDatasetRecord(recordForPackage(crewDatasets, packageId, index));
+    const shipDatasetRecord = unwrapShipDatasetRecord(recordForPackage(shipDatasets, packageId, index));
     const graphRecords = unwrapMissionGraphRecords(recordForPackage(missionGraphs, packageId, index));
     const missionGraphsById = new Map();
     for (const graphRecord of graphRecords) {
@@ -74,6 +84,8 @@ export function indexRuntimeAssets({
       projectionPath: projectionPathOf(projectionRecord),
       crewDataset: crewDatasetRecord?.dataset || null,
       crewDatasetPath: crewDatasetRecord?.path || '',
+      shipDataset: shipDatasetRecord?.dataset || null,
+      shipDatasetPath: shipDatasetRecord?.path || '',
       missionGraphs: graphRecords,
       missionGraphsById
     });
@@ -100,11 +112,13 @@ export async function loadBundledCampaignPackageRecords({
   const packages = [];
   const projections = [];
   const crewDatasets = [];
+  const shipDatasets = [];
   const missionGraphs = [];
   for (const ref of refs) {
     const packageData = await fetchJsonAsset(ref.packageUrl, { fetchImpl });
     const projection = await fetchJsonAsset(ref.projectionUrl, { fetchImpl });
     const crewDataset = ref.crewDatasetUrl ? await fetchJsonAsset(ref.crewDatasetUrl, { fetchImpl }) : null;
+    const shipDataset = ref.shipDatasetUrl ? await fetchJsonAsset(ref.shipDatasetUrl, { fetchImpl }) : null;
     const graphRefs = Array.isArray(ref.missionGraphUrls) && ref.missionGraphUrls.length > 0
       ? ref.missionGraphUrls
       : ref.missionGraphUrl
@@ -127,9 +141,13 @@ export async function loadBundledCampaignPackageRecords({
       path: ref.crewDatasetPath || '',
       dataset: crewDataset
     } : null);
+    shipDatasets.push(shipDataset ? {
+      path: ref.shipDatasetPath || '',
+      dataset: shipDataset
+    } : null);
     missionGraphs.push(graphRecords);
   }
-  return { packages, projections, crewDatasets, missionGraphs };
+  return { packages, projections, crewDatasets, shipDatasets, missionGraphs };
 }
 
 function payloadPackageId(payload) {
@@ -156,6 +174,13 @@ function importedCrewDatasetRecord(importRecord) {
   return match ? { path: match.path, dataset: match.value } : null;
 }
 
+function importedShipDatasetRecord(importRecord) {
+  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
+  const match = importedJsonPayloadEntries(importRecord)
+    .find(({ value }) => value?.manifest?.kind === 'directive.shipDataset' && payloadPackageId(value) === packageId);
+  return match ? { path: match.path, dataset: match.value } : null;
+}
+
 function importedMissionGraphRecords(importRecord) {
   const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
   return importedJsonPayloadEntries(importRecord)
@@ -167,8 +192,9 @@ function normalizeLoadedPackageRecords(loaded = {}) {
   const packages = Array.isArray(loaded.packages) ? loaded.packages : Object.values(loaded.packages || {});
   const projections = Array.isArray(loaded.projections) ? loaded.projections : Object.values(loaded.projections || {});
   const crewDatasets = Array.isArray(loaded.crewDatasets) ? loaded.crewDatasets : Object.values(loaded.crewDatasets || {});
+  const shipDatasets = Array.isArray(loaded.shipDatasets) ? loaded.shipDatasets : Object.values(loaded.shipDatasets || {});
   const missionGraphs = Array.isArray(loaded.missionGraphs) ? loaded.missionGraphs : Object.values(loaded.missionGraphs || {});
-  return { packages, projections, crewDatasets, missionGraphs };
+  return { packages, projections, crewDatasets, shipDatasets, missionGraphs };
 }
 
 export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
@@ -181,6 +207,7 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
       packageData,
       projection: records.projections[index] || null,
       crewDataset: records.crewDatasets[index] || null,
+      shipDataset: records.shipDatasets[index] || null,
       missionGraphs: records.missionGraphs[index] || [],
       source: packageData?.manifest?.bundled === true ? 'bundled' : 'loaded'
     });
@@ -193,11 +220,13 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
     const existing = byPackageId.get(packageId) || {};
     const projection = importedProjectionRecord(importRecord);
     const crewDataset = importedCrewDatasetRecord(importRecord);
+    const shipDataset = importedShipDatasetRecord(importRecord);
     const missionGraphs = importedMissionGraphRecords(importRecord);
     byPackageId.set(packageId, {
       packageData: importRecord.packageData,
       projection: projection || existing.projection || null,
       crewDataset: crewDataset || existing.crewDataset || null,
+      shipDataset: shipDataset || existing.shipDataset || null,
       missionGraphs: missionGraphs.length > 0 ? missionGraphs : existing.missionGraphs || [],
       source: 'imported'
     });
@@ -207,6 +236,7 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
     packages: [],
     projections: [],
     crewDatasets: [],
+    shipDatasets: [],
     missionGraphs: [],
     sources: {}
   };
@@ -214,6 +244,7 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
     merged.packages.push(record.packageData);
     merged.projections.push(record.projection);
     merged.crewDatasets.push(record.crewDataset);
+    merged.shipDatasets.push(record.shipDataset);
     merged.missionGraphs.push(record.missionGraphs);
     merged.sources[packageId] = record.source;
   }
@@ -227,6 +258,7 @@ export function summarizeRuntimeAssets(runtimeAssetsByPackageId, sources = {}) {
       source: sources[packageId] || 'loaded',
       hasProjection: isObject(assets.projection),
       hasCrewDataset: isObject(assets.crewDataset),
+      hasShipDataset: isObject(assets.shipDataset),
       hasGuardrails: isObject(assets.packageData?.guardrails),
       hasCharacterCreationContext: isObject(assets.packageData?.characterCreation),
       hasPromptMetadata: isObject(assets.packageData?.contextPolicy)

@@ -120,6 +120,17 @@ function referencedActorIds({
   return unique(ids);
 }
 
+function shipDatasetSummary(shipDataset = null) {
+  if (!shipDataset || typeof shipDataset !== 'object') return null;
+  return {
+    datasetId: compact(shipDataset?.manifest?.id) || null,
+    shipId: compact(shipDataset?.manifest?.shipId) || null,
+    classId: compact(shipDataset?.manifest?.classId) || null,
+    areaIds: unique((Array.isArray(shipDataset?.areas) ? shipDataset.areas : []).map((area) => area?.id)),
+    systemIds: unique((Array.isArray(shipDataset?.systems) ? shipDataset.systems : []).map((system) => system?.id))
+  };
+}
+
 function sceneActorIds(scene = {}) {
   return unique([
     ...(Array.isArray(scene?.presentActorIds) ? scene.presentActorIds : []),
@@ -134,6 +145,7 @@ export function buildContinuitySourceFrame({
   campaignState,
   packageData = null,
   crewDataset = null,
+  shipDataset = null,
   campaignProjection = null,
   scene = {},
   playerText = '',
@@ -145,6 +157,7 @@ export function buildContinuitySourceFrame({
   if (!campaignState || typeof campaignState !== 'object') throw new Error('campaignState must be an object.');
   const continuity = normalizeContinuityState(campaignState.continuity);
   const acceptedVariant = normalizeAcceptedAssistantVariant(acceptedAssistantVariant);
+  const shipSummary = shipDatasetSummary(shipDataset);
   const presentActorIds = sceneActorIds(scene);
   const referencedActors = referencedActorIds({
     packageData,
@@ -177,6 +190,12 @@ export function buildContinuitySourceFrame({
     scene: cloneJson(scene || {}),
     packageRevision: packageData?.manifest?.version || null,
     crewDatasetRevision: crewDataset?.manifest?.version || null,
+    shipDatasetRevision: shipDataset?.manifest?.version || null,
+    shipDatasetId: shipSummary?.datasetId || null,
+    shipId: shipSummary?.shipId || packageData?.ship?.id || campaignState?.ship?.id || null,
+    shipClassId: shipSummary?.classId || packageData?.ship?.classId || null,
+    shipDatasetAreaIds: cloneJson(shipSummary?.areaIds || []),
+    shipDatasetSystemIds: cloneJson(shipSummary?.systemIds || []),
     projectionRevision: campaignProjection?.metadata?.revision || campaignProjection?.manifest?.version || null,
     projectionHints: cloneJson(continuity.projectionHints),
     rejectedClaims: cloneJson(continuity.rejectedClaims),

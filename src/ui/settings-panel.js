@@ -341,8 +341,8 @@ const MODEL_CALL_ROUTING_GROUPS = Object.freeze([
     id: 'context-summaries',
     label: 'Context & Summaries',
     icon: 'fa-solid fa-list-check',
-    tooltip: 'Prompt context, command logs, recaps, factual checks, story-quality checks, and structured utility JSON summaries.',
-    roles: Object.freeze(['promptContextBuilder', 'commandLogSummarizer', 'recapSummarizer', 'factualGroundingReviewer', 'storyQualityReviewer', 'utilityJson'])
+    tooltip: 'Prompt context, command logs, recaps, Define Selection, factual checks, story-quality checks, and structured utility JSON summaries.',
+    roles: Object.freeze(['promptContextBuilder', 'commandLogSummarizer', 'recapSummarizer', 'defineSelection', 'factualGroundingReviewer', 'storyQualityReviewer', 'utilityJson'])
   },
   {
     id: 'authoring-helpers',

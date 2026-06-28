@@ -149,7 +149,16 @@ function travelFindings(text, facts) {
     fact.id.endsWith('.opening-transit-mode')
     && /shuttlebay two|saucer-underside|nacelle pylons/i.test(`${fact.summary || ''} ${fact.render?.narrator || ''}`)
   ));
-  if (!hasTravelGuard && !shuttleApproachFact) return [];
+  const shuttlebayLayoutGuardFact = facts.find((fact) => (
+    fact.id.endsWith('.not-saucer-underside')
+    || (
+      asArray(fact.tags).map((tag) => compact(tag).toLowerCase()).includes('contradiction-guard')
+      && /shuttle\s*bay|shuttlebay/i.test(`${fact.summary || ''} ${fact.render?.narrator || ''} ${fact.render?.director || ''}`)
+      && /saucer|underside|ventral|primary hull|aft dorsal|deck 10/i.test(`${fact.summary || ''} ${fact.render?.narrator || ''} ${fact.render?.director || ''}`)
+    )
+  ));
+  const shuttleLayoutFact = shuttlebayLayoutGuardFact || shuttleApproachFact;
+  if (!hasTravelGuard && !shuttleLayoutFact) return [];
   const normalized = String(text || '').replace(/\s+/g, ' ');
   const findings = [];
   const badImpulse = hasTravelGuard && /\bat\s+impulse\s+for\s+(six|6)\s+days\b/i.test(normalized)
@@ -165,16 +174,16 @@ function travelFindings(text, facts) {
       summary: 'Generated text describes the Breckenridge opening transit as six days at impulse from Utopia Planitia.'
     });
   }
-  const badSaucerShuttlebay = shuttleApproachFact && (
+  const badSaucerShuttlebay = shuttleLayoutFact && (
     /\b(?:shuttle\s*bay|shuttlebay|bay doors?)\b.{0,160}\b(?:underside|under side|ventral|belly)\b.{0,80}\b(?:saucer|primary hull)\b/i.test(normalized)
     || /\b(?:underside|under side|ventral|belly)\b.{0,80}\b(?:saucer|primary hull)\b.{0,160}\b(?:shuttle\s*bay|shuttlebay|bay doors?)\b/i.test(normalized)
   );
   if (badSaucerShuttlebay) {
     findings.push({
       kind: 'ship-layout-contradiction',
-      factId: shuttleApproachFact.id,
+      factId: shuttleLayoutFact.id,
       severity: 'blocker',
-      summary: 'Generated text depicts the Intrepid-class Breckenridge shuttle arrival through a saucer-underside shuttlebay instead of aft shuttlebay two.'
+      summary: 'Generated text depicts the Intrepid-class Breckenridge shuttle arrival through a saucer-underside shuttlebay instead of the Deck 10 aft shuttlebay complex.'
     });
   }
   return findings;
@@ -185,12 +194,14 @@ export function reviewContinuityContradictions({
   campaignState,
   packageData = null,
   crewDataset = null,
+  shipDataset = null,
   campaignProjection = null
 } = {}) {
   const factIndex = buildContinuityFactIndex({
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection
   });
   const findings = [

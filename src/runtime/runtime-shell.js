@@ -810,6 +810,9 @@ function createRuntimeActions() {
     captureMissionComponentSelection(options) {
       return runtimeApp.captureMissionComponentSelection(options);
     },
+    defineSelectionLookup(options) {
+      return runtimeApp.defineSelectionLookup(options);
+    },
     saveMissionComponent(options) {
       return runtimeApp.saveMissionComponent(options);
     },
@@ -1292,6 +1295,13 @@ export async function runMissionComponentsFromRuntime(action, payload = {}) {
   const result = await runtimeApp[methodName](payload);
   if (actionName === 'openSource') dispatchMissionComponentOpenSource(result);
   return result;
+}
+
+export async function runDefineSelectionFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.defineSelectionLookup !== 'function') {
+    throw new Error('Define Selection is unavailable until the Directive runtime app is initialized.');
+  }
+  return runtimeApp.defineSelectionLookup(payload);
 }
 
 function removeOutcomeIntegrityEditor() {

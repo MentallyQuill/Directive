@@ -58,6 +58,17 @@ function compactStateRefs(card = {}) {
   return compactArray(card.payload?.stateRefs, 4, 140);
 }
 
+function shipGuidanceFields(card = {}) {
+  if (!card.type?.startsWith('ship.')) return {};
+  const payload = card.payload || {};
+  return {
+    hardAnchors: compactArray(payload.hardAnchors, 4, 180),
+    textures: compactArray(payload.textures, 5, 140),
+    sceneUses: compactArray(payload.sceneUses, 4, 140),
+    avoid: compactArray(payload.avoid, 4, 160)
+  };
+}
+
 function hydrateVoiceCapsule(card = {}, audience = 'crewDirector') {
   const capsule = card.payload?.voiceCapsule || null;
   if (!capsule || typeof capsule !== 'object') return null;
@@ -87,6 +98,7 @@ function hydratedGuidance(card = {}, audience = 'crewDirector') {
   const guidance = {
     summary: compactText(payload.summary, 280),
     constraints: compactArray(payload.constraints, 3, 180),
+    ...shipGuidanceFields(card),
     ...(includeInternalRefs ? {
       effects: compactEffects(card),
       stateRefs: compactStateRefs(card)

@@ -13394,6 +13394,13 @@
         "status": "pre-alpha"
       },
       {
+        "kind": "ship",
+        "id": "breckenridge.intrepid-class",
+        "path": "packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json",
+        "schema": "schemas/packages/ship-dataset.schema.json",
+        "status": "pre-alpha"
+      },
+      {
         "kind": "missionGraph",
         "id": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
         "path": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",

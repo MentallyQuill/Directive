@@ -82,10 +82,10 @@ function buildLaneContent({
       ? 'domain'
       : (lane.promptKey === 'directive.recap.committed' ? 'recap' : 'revolving'));
   const factById = new Map(factIndex.facts.map((fact) => [fact.id, fact]));
-  const plannedFactIds = new Set(asArray(plan?.laneFactIds?.[lane.promptKey]));
-  const lines = factIndex.facts
-    .filter((fact) => plannedFactIds.has(fact.id))
-    .map((fact) => factById.get(fact.id) || fact)
+  const plannedFactIds = asArray(plan?.laneFactIds?.[lane.promptKey]);
+  const lines = plannedFactIds
+    .map((factId) => factById.get(factId))
+    .filter(Boolean)
     .slice(0, target === 'invariants' ? 24 : 18)
     .map(lineForFact)
     .filter(Boolean);
@@ -138,6 +138,7 @@ export function buildContinuityProjectionMatrix({
   campaignState,
   packageData = null,
   crewDataset = null,
+  shipDataset = null,
   campaignProjection = null,
   scene = {},
   playerText = '',
@@ -156,6 +157,7 @@ export function buildContinuityProjectionMatrix({
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     scene,
     playerText,
@@ -167,6 +169,7 @@ export function buildContinuityProjectionMatrix({
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     audience: CONTINUITY_VISIBILITY.narratorSafe
   });

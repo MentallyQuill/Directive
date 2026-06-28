@@ -35,6 +35,17 @@ function isAshesOfPeace(packageData) {
   return packageData?.manifest?.id === 'directive:campaign-package:breckenridge-ashes-of-peace';
 }
 
+const GLOBAL_SCENE_PACING_LINES = Object.freeze([
+  'A named location change is a playable scene boundary, not permission to montage through the location.',
+  'If narration moves characters to a named room, deck, bridge, shuttlebay, corridor junction, ready room, Engineering, Sickbay, or similar place, stop on departure, route, threshold, arrival, or the first interaction there.',
+  'Do not enter a named location, resolve its purpose, and leave it in the same reply unless the player explicitly asks to cut, summarize, fast-forward, or move to a future event.',
+  'Walking, turbolifts, docking ramps, corridors, handoffs, and first looks take scene time; give the player a chance to observe, speak, or act before the scene moves on.'
+]);
+
+export function globalScenePacingLines() {
+  return [...GLOBAL_SCENE_PACING_LINES];
+}
+
 export function scenePacingGuidance({
   campaignState,
   packageData = null,
@@ -75,5 +86,8 @@ export function scenePacingGuidance({
 }
 
 export function scenePacingLines(input = {}) {
-  return scenePacingGuidance(input)?.lines || [];
+  return [
+    ...globalScenePacingLines(),
+    ...(scenePacingGuidance(input)?.lines || [])
+  ];
 }

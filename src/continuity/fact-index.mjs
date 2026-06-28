@@ -59,6 +59,7 @@ export function buildContinuityFactIndex({
   campaignState,
   packageData = null,
   crewDataset = null,
+  shipDataset = null,
   campaignProjection = null,
   additionalFacts = [],
   audience = CONTINUITY_VISIBILITY.narratorSafe
@@ -66,7 +67,7 @@ export function buildContinuityFactIndex({
   if (!campaignState || typeof campaignState !== 'object') throw new Error('campaignState must be an object.');
   const continuity = normalizeContinuityState(campaignState.continuity);
   const sourceFacts = [
-    ...materializeContinuityFacts({ campaignState, packageData, crewDataset, campaignProjection }),
+    ...materializeContinuityFacts({ campaignState, packageData, crewDataset, shipDataset, campaignProjection }),
     ...continuity.acceptedFacts.map((fact) => normalizeFact(fact, 'campaignState')),
     ...asArray(additionalFacts).map((fact) => normalizeFact(fact, 'campaignState'))
   ].filter(Boolean);

@@ -21,12 +21,14 @@ function cloneJson(value) {
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 const okDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection,
   crewDataset,
+  shipDataset,
   missionGraphs: [{ path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json', graph: missionGraph }],
   campaignState: projection.initialState
 });
@@ -39,6 +41,7 @@ const versionDriftDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection,
   crewDataset,
+  shipDataset,
   missionGraphs: [missionGraph],
   campaignState: versionDriftState
 });
@@ -138,6 +141,17 @@ const badProjectionDiagnostics = diagnoseCampaignPackageRecord({
 });
 assert.equal(badProjectionDiagnostics.status, 'error');
 assert.equal(badProjectionDiagnostics.issues.some((item) => item.code === 'projection-package-mismatch'), true);
+
+const badShipDataset = cloneJson(shipDataset);
+badShipDataset.manifest.shipId = 'uss-other';
+const badShipDatasetDiagnostics = diagnoseCampaignPackageRecord({
+  packageData,
+  projection,
+  crewDataset,
+  shipDataset: badShipDataset
+});
+assert.equal(badShipDatasetDiagnostics.status, 'error');
+assert.equal(badShipDatasetDiagnostics.issues.some((item) => item.code === 'ship-dataset-ship-mismatch'), true);
 
 const campaignView = createCampaignViewModel({
   packages: [packageData],

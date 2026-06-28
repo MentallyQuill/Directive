@@ -3,7 +3,10 @@ import { threadPlayerSummaries } from '../threads/thread-ledger.mjs';
 import { assertHostPromptBlockSafeForInjection } from '../generation/prompt-injection-safety.mjs';
 import { renderCompactCrewVoiceCueFromCard, voiceCardsByCrewId } from '../generation/crew-voice-capsules.mjs';
 import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-header.mjs';
-import { scenePacingGuidance } from './scene-pacing-guidance.mjs';
+import {
+  globalScenePacingLines,
+  scenePacingGuidance
+} from './scene-pacing-guidance.mjs';
 import {
   STARFLEET_VOYAGER_UNIFORM_RULE,
   starfleetUniformFactForCrew
@@ -222,6 +225,10 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
   const threads = threadPlayerSummaries(state?.threadLedger, { statuses: ['engaged', 'active'], limit: 3 });
   const replyHeaderBlock = createCampaignReplyHeaderPromptBlock(state);
   const pacing = scenePacingGuidance({ campaignState: state, packageData, scene });
+  const pacingLines = [
+    ...globalScenePacingLines(),
+    ...(pacing?.lines || [])
+  ];
   const objectiveLabels = foregroundSummary?.currentObjectiveIds?.length
     ? foregroundSummary.currentObjectiveIds.map((objectiveId) => {
       const objective = asArray(template?.objectives).find((entry) => entry?.id === objectiveId);
@@ -267,7 +274,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         scene.phaseLabel || attention.scene?.phaseLabel ? `Scene beat: ${scene.phaseLabel || attention.scene?.phaseLabel}` : null,
         scene.currentQuestion || template?.dramaticQuestion ? `Current question: ${scene.currentQuestion || template?.dramaticQuestion}` : null,
         scene.immediateStakes ? `Immediate stakes: ${compact(scene.immediateStakes)}` : null,
-        pacing?.lines?.length ? `Pacing guidance:\n${list(pacing.lines)}` : null,
+        pacingLines.length ? `Pacing guidance:\n${list(pacingLines)}` : null,
         relevantCrewIds.length ? `Present or directly relevant: ${relevantCrewIds.map((id) => crewMap.get(id)?.name || id).join(', ')}` : null,
         recentMessageSummary ? `Recent continuity: ${compact(recentMessageSummary)}` : null
       ].filter(Boolean).join('\n')

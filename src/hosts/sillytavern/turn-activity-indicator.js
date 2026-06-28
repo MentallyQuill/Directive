@@ -202,6 +202,8 @@ function labelForClassification(classification) {
   switch (classification) {
     case 'sceneNavigation':
       return 'Directive is advancing the scene...';
+    case 'locationTransition':
+      return 'Directive is pacing the move...';
     case 'sceneColor':
     case 'noDirectiveAction':
       return 'Directive is reading the scene...';
@@ -285,6 +287,8 @@ function labelForPhase(event = {}, activity = {}) {
       return event.classification === 'sceneNavigation'
         ? 'Directive is advancing the scene...'
         : 'Directive is reading the scene...';
+    case 'locationTransition':
+      return 'Directive is pacing the move...';
     case 'routine':
       return 'Directive is logging the action...';
     case 'counsel':

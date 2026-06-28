@@ -46,6 +46,7 @@ export function buildContinuityDirectorPacket({
   campaignState,
   packageData = null,
   crewDataset = null,
+  shipDataset = null,
   campaignProjection = null,
   scene = {},
   playerText = '',
@@ -60,6 +61,7 @@ export function buildContinuityDirectorPacket({
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     scene,
     playerText,
@@ -71,6 +73,7 @@ export function buildContinuityDirectorPacket({
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     audience: visibilityAudience
   });

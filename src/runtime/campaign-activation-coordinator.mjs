@@ -3,7 +3,10 @@ import {
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
-import { scenePacingGuidance } from '../context/scene-pacing-guidance.mjs';
+import {
+  globalScenePacingLines,
+  scenePacingGuidance
+} from '../context/scene-pacing-guidance.mjs';
 import {
   directiveNarrationContextSummary,
   directiveNarrationPerspectiveMode,
@@ -38,6 +41,10 @@ function cloneJson(value) {
 
 function compact(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function array(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function escapeRegExp(value) {
@@ -190,7 +197,38 @@ function introSeniorCrewFacts(safe, packageData) {
     });
 }
 
-function introOpeningFacts({ campaignState, packageData, safe }) {
+function introShuttlebayAnchor(shipDataset = null) {
+  const area = array(shipDataset?.areas).find((entry) => entry?.id === 'intrepid.shuttlebay-complex'
+    || array(entry?.keywords).some((keyword) => /shuttle\s*bay|shuttlebay/i.test(keyword)));
+  if (!area) return null;
+  return {
+    id: area.id,
+    name: area.name || null,
+    decks: cloneJson(array(area.decks)),
+    zone: compact(area.zone) || null,
+    exteriorPlacement: compact(area.exteriorPlacement) || null,
+    hardFacts: array(area.hardFacts).map(compact).filter(Boolean).slice(0, 4),
+    textures: array(area.textures).map(compact).filter(Boolean).slice(0, 5),
+    constraints: array(area.constraints).map(compact).filter(Boolean).slice(0, 4)
+  };
+}
+
+function introShipLayoutContract(shipDataset = null) {
+  const shuttlebay = introShuttlebayAnchor(shipDataset);
+  if (!shuttlebay) return '';
+  const facts = [
+    ...array(shuttlebay.hardFacts),
+    shuttlebay.exteriorPlacement ? `Exterior placement: ${shuttlebay.exteriorPlacement}.` : null,
+    ...array(shuttlebay.constraints)
+  ].map(compact).filter(Boolean);
+  return [
+    'Ship layout contract:',
+    ...facts.map((fact) => `- ${fact}`),
+    '- If a shuttle arrival, launch, docking, hangar, or shuttlebay appears in the intro, use the Deck 10 aft shuttlebay complex and an astern approach. Do not place the bay in the underside of the saucer or ventral primary hull.'
+  ].join('\n');
+}
+
+function introOpeningFacts({ campaignState, packageData, safe, shipDataset = null }) {
   const packageCrew = packageCrewById(packageData);
   const currentLocationId = safe?.campaign?.locationId
     || campaignState?.worldState?.currentLocationId
@@ -212,6 +250,7 @@ function introOpeningFacts({ campaignState, packageData, safe }) {
     activeMissionId,
     activeMissionSummary: activeQuest?.playerSummary || activeQuest?.playerSafeSummary || activeQuest?.summary || null,
     shuttleApproach: safe?.ship?.travelContinuity?.openingShuttleApproach || packageData?.ship?.travelContinuity?.openingShuttleApproach || null,
+    shuttlebayLayout: introShuttlebayAnchor(shipDataset),
     commandHandoff: {
       playerRank: safe?.player?.rank || campaignState?.player?.rank || packageData?.characterCreation?.lockedRole?.rank || 'Commander',
       playerBillet: safe?.player?.billet || campaignState?.player?.billet || packageData?.characterCreation?.lockedRole?.billet || 'Executive Officer',
@@ -322,9 +361,9 @@ function canceledIntroPacket({
   };
 }
 
-function localIntroPacket({ campaignState, packageData, narrationContext = null }) {
+function localIntroPacket({ campaignState, packageData, shipDataset = null, narrationContext = null }) {
   const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
-  const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
+  const safe = createPlayerSafeCampaignProjection({ campaignState, packageData, shipDataset }) || {};
   const player = safe.player || {};
   const ship = { ...(packageData?.ship || {}), ...(safe.ship || {}) };
   const captain = (packageData?.crew?.senior || []).find((officer) => officer.id === packageData?.ship?.commandStructure?.commandingOfficer)
@@ -389,6 +428,7 @@ function localIntroPacket({ campaignState, packageData, narrationContext = null 
 async function generateIntro({
   campaignState,
   packageData,
+  shipDataset = null,
   generationRouter,
   narrationContext = null,
   variantSeed = null,
@@ -396,11 +436,15 @@ async function generateIntro({
   signal = null
 }) {
   const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
-  const fallback = localIntroPacket({ campaignState, packageData, narrationContext: resolvedNarrationContext });
+  const fallback = localIntroPacket({ campaignState, packageData, shipDataset, narrationContext: resolvedNarrationContext });
   if (!generationRouter?.generate) return fallback;
-  const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
+  const safe = createPlayerSafeCampaignProjection({ campaignState, packageData, shipDataset }) || {};
   const introVariantSeed = compact(variantSeed);
   const pacing = scenePacingGuidance({ campaignState, packageData });
+  const pacingLines = [
+    ...globalScenePacingLines(),
+    ...(pacing?.lines || [])
+  ];
   const styleContract = [
     'Narration perspective contract:',
     resolvedNarrationContext.instructions,
@@ -425,7 +469,8 @@ async function generateIntro({
     'When a named senior officer appears, preserve their listed rank, billet, species, public profile, age, appearance, uniform/division color, and role facts. Do not omit or rewrite public identity facts for first appearances.',
     'Do not infer command-red uniforms from temporary command duties. Temporary acting-XO duty does not change an officer\'s division color.',
     'The player is the incoming command character. Do not replace the player arrival or handoff with the captain arriving, and do not move the opening out of the active mission phase.',
-    pacing?.lines?.length ? `Opening pacing guidance:\n${pacing.lines.map((line) => `- ${line}`).join('\n')}` : '',
+    introShipLayoutContract(shipDataset),
+    pacingLines.length ? `Opening pacing guidance:\n${pacingLines.map((line) => `- ${line}`).join('\n')}` : '',
     'Stay inside the active mission and phase in the player-safe mission context. Do not invent a distress call, beacon, anomaly, attack, or new external mission hook unless that exact hook appears in the active mission context.',
     'Write normal roleplay prose. Do not include setup instructions, mechanics, hidden values, or JSON.',
     variantContract ? `\n${variantContract}` : '',
@@ -435,7 +480,7 @@ async function generateIntro({
       player: safe.player || null,
       ship: safe.ship || null,
       mission: safe.mission || null,
-      openingFrame: introOpeningFacts({ campaignState, packageData, safe }),
+      openingFrame: introOpeningFacts({ campaignState, packageData, safe, shipDataset }),
       seniorCrew: introSeniorCrewFacts(safe, packageData)
     }, null, 2)
   ].join('\n');
@@ -562,6 +607,7 @@ export function createCampaignActivationCoordinator({
     campaignState,
     packageData,
     crewDataset = null,
+    shipDataset = null,
     campaignProjection = null,
     saveId = null,
     existingChatId = null,
@@ -673,6 +719,7 @@ export function createCampaignActivationCoordinator({
         const introPacket = await generateIntro({
           campaignState: state,
           packageData,
+          shipDataset,
           generationRouter,
           narrationContext,
           signal
@@ -715,7 +762,7 @@ export function createCampaignActivationCoordinator({
       if (!completed(journal, 'introPosted')) {
         currentStep = 'introPosted';
         emitActivity({ phase: 'activationIntroPosting', status: 'running', step: 'introPosted' });
-        const introPacket = journal.introPacket || localIntroPacket({ campaignState: state, packageData });
+        const introPacket = journal.introPacket || localIntroPacket({ campaignState: state, packageData, shipDataset });
         const posted = await host.chat.postAssistantMessage({
           text: prefixCampaignReplyHeader(introPacket.text, state),
           campaignId: state.campaign?.id,
@@ -748,6 +795,7 @@ export function createCampaignActivationCoordinator({
           campaignState: state,
           packageData,
           crewDataset,
+          shipDataset,
           campaignProjection,
           createdAt: timestamp(now)
         }, {
@@ -956,6 +1004,7 @@ export function createCampaignActivationCoordinator({
   async function rewriteIntro({
     campaignState,
     packageData,
+    shipDataset = null,
     saveId = null,
     hostMessageId = null,
     reason = 'player-intro-reroll',
@@ -1030,6 +1079,7 @@ export function createCampaignActivationCoordinator({
       const introPacket = await generateIntro({
         campaignState: state,
         packageData,
+        shipDataset,
         generationRouter,
         narrationContext,
         variantSeed: introVariantSeed,

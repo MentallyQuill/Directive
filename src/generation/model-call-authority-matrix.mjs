@@ -424,6 +424,21 @@ const MATRIX = Object.freeze({
     hiddenStatePolicy: 'Receives only visible transcript excerpts, deterministic score summaries, score definitions, and player-safe artifact pointers. It cannot see raw prompts, provider reasoning, hidden state, raw relationship values, hidden pressures, hidden clocks, CSRF tokens, cookies, or API keys.',
     tests: ['test-generation-router.mjs', 'test-runtime-host-injection.mjs', 'test-live-soak-prep.mjs']
   },
+  defineSelection: {
+    roleId: 'defineSelection',
+    providerKind: 'utility',
+    trigger: 'Player highlights visible chat text and asks Define Selection for in-universe context.',
+    blocking: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    allowedRoots: EMPTY,
+    owningModule: 'src/runtime/define-selection.mjs',
+    parserSchema: 'directive.defineSelection.result.v1',
+    fallback: 'deterministic',
+    playerVisibleOutput: 'Read-only pop-up context explanation for highlighted text.',
+    hiddenStatePolicy: 'Receives selected visible text, source/current scene windows, and player-safe indexes only. It cannot mutate campaign state, save Mission Components, reveal hidden state, use discarded swipes, or expose raw diagnostics.',
+    tests: ['test-define-selection.mjs', 'test-mission-components-capture.mjs', 'test-model-call-authority-matrix.mjs']
+  },
   directiveAssist: {
     roleId: 'directiveAssist',
     providerKind: 'reasoning',

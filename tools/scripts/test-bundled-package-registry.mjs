@@ -7,6 +7,7 @@ import {
   bundledCampaignPackagePaths,
   bundledCampaignProjectionPairs,
   bundledCrewDatasetPairs,
+  bundledShipDatasetPairs,
   bundledMissionGraphTriples,
   getBundledCampaignPackageRef
 } from '../../src/packages/bundled-package-registry.mjs';
@@ -44,6 +45,7 @@ assertUnique(BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => ref.slug), 'package slug
 assertUnique(BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => ref.packagePath), 'package paths');
 assertUnique(BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => ref.projectionPath), 'projection paths');
 assertUnique(BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => ref.crewDatasetPath), 'crew dataset paths');
+assertUnique(BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => ref.shipDatasetPath).filter(Boolean), 'ship dataset paths');
 
 assert.deepEqual(
   bundledCampaignPackagePaths(),
@@ -59,6 +61,13 @@ assert.deepEqual(
   bundledCrewDatasetPairs(),
   BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => [ref.packagePath, ref.crewDatasetPath]),
   'crew helper follows registry order'
+);
+assert.deepEqual(
+  bundledShipDatasetPairs(),
+  BUNDLED_CAMPAIGN_PACKAGE_REFS
+    .filter((ref) => ref.shipDatasetPath)
+    .map((ref) => [ref.packagePath, ref.shipDatasetPath]),
+  'ship helper follows registry order'
 );
 assert.deepEqual(
   bundledMissionGraphTriples(),
@@ -79,15 +88,18 @@ for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
   assertPathExists(ref.packagePath, `${ref.id} package`);
   assertPathExists(ref.projectionPath, `${ref.id} projection`);
   assertPathExists(ref.crewDatasetPath, `${ref.id} crew dataset`);
+  if (ref.shipDatasetPath) assertPathExists(ref.shipDatasetPath, `${ref.id} ship dataset`);
   assert.equal(fileUrlRelative(ref.packageUrl), ref.packagePath, `${ref.id} package URL`);
   assert.equal(fileUrlRelative(ref.projectionUrl), ref.projectionPath, `${ref.id} projection URL`);
   assert.equal(fileUrlRelative(ref.crewDatasetUrl), ref.crewDatasetPath, `${ref.id} crew URL`);
+  if (ref.shipDatasetUrl) assert.equal(fileUrlRelative(ref.shipDatasetUrl), ref.shipDatasetPath, `${ref.id} ship URL`);
   assert.equal(ref.missionGraphPath, ref.missionGraphPaths[0], `${ref.id} first mission graph path`);
   assert.equal(fileUrlRelative(ref.missionGraphUrl), ref.missionGraphPath, `${ref.id} first mission graph URL`);
 
   const packageData = readJson(ref.packagePath);
   const projection = readJson(ref.projectionPath);
   const crewDataset = readJson(ref.crewDatasetPath);
+  const shipDataset = ref.shipDatasetPath ? readJson(ref.shipDatasetPath) : null;
   assert.equal(packageData.manifest?.id, ref.id, `${ref.id} manifest id`);
   assert.equal(packageData.manifest?.slug, ref.slug, `${ref.id} manifest slug`);
   assert.equal(packageData.manifest?.title, ref.manifestTitle, `${ref.id} manifest title`);
@@ -97,6 +109,11 @@ for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
   assert.equal(projection.sourcePackage?.packagePath, ref.packagePath, `${ref.id} projection package path`);
   assert.equal(projection.sourcePackage?.packageVersion, packageData.manifest?.version, `${ref.id} projection package version`);
   assert.equal(crewDataset.manifest?.packageId, ref.id, `${ref.id} crew dataset package id`);
+  if (shipDataset) {
+    assert.equal(shipDataset.manifest?.packageId, ref.id, `${ref.id} ship dataset package id`);
+    assert.equal(shipDataset.manifest?.shipId, packageData.ship?.id, `${ref.id} ship dataset ship id`);
+    assert.equal(shipDataset.manifest?.version, packageData.manifest?.version, `${ref.id} ship dataset version`);
+  }
 
   if (ref.status !== 'draft') {
     assert.deepEqual(packageData.assets?.unresolved || [], [], `${ref.id} non-draft packages must not carry unresolved asset placeholders`);

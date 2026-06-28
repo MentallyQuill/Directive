@@ -1,6 +1,7 @@
 export const TURN_INTENT_CLASSIFICATIONS = Object.freeze([
   'sceneColor',
   'sceneNavigation',
+  'locationTransition',
   'routineCommand',
   'consequentialCommand',
   'counselRequest',
@@ -128,6 +129,7 @@ export function normalizeTurnWorkerPlan(value = {}) {
 }
 
 export function responseStrategyForClassification(classification) {
+  if (classification === 'locationTransition') return 'directivePosted';
   if (['sceneColor', 'sceneNavigation', 'routineCommand', 'counselRequest', 'noDirectiveAction'].includes(classification)) return 'injectAndContinue';
   if (['clarificationNeeded', 'riskConfirmationNeeded'].includes(classification)) return 'pause';
   return 'directivePosted';
@@ -169,6 +171,28 @@ function normalizeClosureSignals(value = {}) {
   };
 }
 
+function normalizeSceneBoundary(value = null, fallback = null) {
+  const source = isObject(value) ? value : (isObject(fallback) ? fallback : null);
+  if (!source) return null;
+  const kind = compactText(source.kind || source.type || source.boundaryKind);
+  const destinationLabel = compactText(source.destinationLabel || source.destination || source.location || source.target);
+  const destinationId = compactText(source.destinationId || source.locationId);
+  const guideActorId = compactText(source.guideActorId || source.guideId || source.actorId);
+  const stopPolicy = compactText(source.stopPolicy || 'stopOnArrival') || 'stopOnArrival';
+  const maxNamedLocations = Number.isFinite(Number(source.maxNamedLocations))
+    ? Math.max(1, Math.min(3, Math.trunc(Number(source.maxNamedLocations))))
+    : 1;
+  if (!kind && !destinationLabel && !destinationId && !guideActorId) return null;
+  return {
+    kind: kind || 'locationTransition',
+    destinationLabel: destinationLabel || null,
+    destinationId: destinationId || null,
+    guideActorId: guideActorId || null,
+    stopPolicy,
+    maxNamedLocations
+  };
+}
+
 export function normalizeTurnIntentClassification(value = {}, fallback = {}) {
   const input = isObject(value) ? value : {};
   const fallbackInput = isObject(fallback) ? fallback : {};
@@ -187,6 +211,10 @@ export function normalizeTurnIntentClassification(value = {}, fallback = {}) {
   );
   const action = compactText(input.action || inputSlots.action || fallbackInput.action || fallbackSlots.action);
   const target = compactText(input.target || inputSlots.target || fallbackInput.target || fallbackSlots.target);
+  const sceneBoundary = normalizeSceneBoundary(
+    input.sceneBoundary || inputSlots.sceneBoundary,
+    fallbackInput.sceneBoundary || fallbackSlots.sceneBoundary
+  );
   const domains = uniqueStrings(
     input.domainSignals
       || input.domains
@@ -214,6 +242,7 @@ export function normalizeTurnIntentClassification(value = {}, fallback = {}) {
     missingInformation: uniqueStrings(input.missingInformation || inputSlots.missingInformation || fallbackInput.missingInformation || fallbackSlots.missingInformation),
     pendingInteractionResolution: normalizePendingInteractionResolution(input.pendingInteractionResolution || fallbackInput.pendingInteractionResolution),
     closureSignals: normalizeClosureSignals(input.closureSignals || fallbackInput.closureSignals),
+    sceneBoundary,
     mixedIntent: input.mixedIntent === true || fallbackInput.mixedIntent === true,
     reasons: uniqueStrings(input.reasons || input.reason || fallbackInput.reasons || fallbackInput.reason),
     workerPlan: normalizeTurnWorkerPlan(input.workerPlan || fallbackInput.workerPlan),
@@ -223,6 +252,7 @@ export function normalizeTurnIntentClassification(value = {}, fallback = {}) {
       speechAct: compactText(input.speechAct || inputSlots.speechAct || fallbackInput.speechAct || fallbackSlots.speechAct),
       action,
       target,
+      sceneBoundary: cloneJson(sceneBoundary),
       domains
     }
   };
@@ -280,7 +310,7 @@ function shouldClarify(decision) {
 function riskUpgradeClassification(decision) {
   if (decision.riskSignals.length === 0) return null;
   if (decision.classification === 'routineCommand') return 'consequentialCommand';
-  if (['sceneColor', 'sceneNavigation', 'noDirectiveAction'].includes(decision.classification)) return 'consequentialCommand';
+  if (['sceneColor', 'sceneNavigation', 'locationTransition', 'noDirectiveAction'].includes(decision.classification)) return 'consequentialCommand';
   return null;
 }
 
@@ -299,9 +329,13 @@ function validateWorkerPlan(decision) {
     plan.continuity = true;
     plan.promptUpdate = true;
   }
-  if (classification === 'sceneNavigation') {
+  if (['sceneNavigation', 'locationTransition'].includes(classification)) {
     plan.continuity = true;
     plan.promptUpdate = true;
+  }
+  if (classification === 'locationTransition') {
+    plan.narrator = true;
+    plan.relationship = true;
   }
   if (classification === 'counselRequest') {
     plan.missionDirector = true;
@@ -337,7 +371,7 @@ function validateWorkerPlan(decision) {
   if (hasDomain(decision, [/\bcrew\b/, /\bmedical\b/, /\bsecurity\b/, /\bcasualt/, /\binjur/, /\baway team\b/, /\bboarding team\b/])) {
     plan.crew = true;
   }
-  if (hasDomain(decision, [/\bship\b/, /\bhelm\b/, /\bengineering\b/, /\bsystem\b/, /\bwarp\b/, /\bimpulse\b/, /\bshield\b/, /\bphaser\b/, /\btorped/, /\bsensor\b/, /\blife support\b/])) {
+  if (classification !== 'locationTransition' && hasDomain(decision, [/\bship\b/, /\bhelm\b/, /\bengineering\b/, /\bsystem\b/, /\bwarp\b/, /\bimpulse\b/, /\bshield\b/, /\bphaser\b/, /\btorped/, /\bsensor\b/, /\blife support\b/])) {
     plan.ship = true;
   }
   if (hasDomain(decision, [/\bcommand\b/, /\bauthority\b/, /\border\b/, /\bcountermand\b/, /\boverride\b/, /\bdiscipline\b/, /\brelieve\b/])) {
@@ -369,7 +403,7 @@ function protectAgainstDeterministicRisk(decision, fallback) {
   if (
     fallback.classification === 'consequentialCommand'
     && fallback.confidence >= 0.88
-    && ['sceneColor', 'sceneNavigation', 'routineCommand', 'noDirectiveAction'].includes(decision.classification)
+    && ['sceneColor', 'sceneNavigation', 'locationTransition', 'routineCommand', 'noDirectiveAction'].includes(decision.classification)
   ) {
     return normalizeTurnIntentClassification({
       ...fallback,

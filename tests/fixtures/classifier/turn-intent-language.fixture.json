@@ -360,6 +360,50 @@
       }
     },
     {
+      "idPrefix": "location-transition-guided",
+      "texts": [
+        "Well then Commander, I'm all yours. Lead the way.",
+        "I follow Bronn out of the shuttlebay.",
+        "Sam walks with Commander Bronn toward Engineering.",
+        "Show me the way, Commander.",
+        "I go with Bronn."
+      ],
+      "expect": {
+        "classificationAnyOf": ["locationTransition"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate", "narrator"],
+        "forbiddenWorkers": ["missionDirector", "commandBearing", "sideMission"],
+        "requiredDomains": ["location"],
+        "sceneBoundaryKind": "locationTransition",
+        "sceneBoundaryStopPolicy": "stopOnArrival",
+        "maxNamedLocations": 1
+      }
+    },
+    {
+      "idPrefix": "location-transition-destination",
+      "texts": [
+        "I head to Engineering.",
+        "We proceed to the bridge.",
+        "I take the turbolift to the ready room.",
+        "Sam makes his way toward Sickbay.",
+        "I walk to the shuttlebay doors."
+      ],
+      "expect": {
+        "classificationAnyOf": ["locationTransition"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate", "narrator"],
+        "forbiddenWorkers": ["missionDirector", "commandBearing", "sideMission"],
+        "requiredDomains": ["location"],
+        "sceneBoundaryKind": "locationTransition",
+        "sceneBoundaryStopPolicy": "stopOnArrival",
+        "maxNamedLocations": 1
+      }
+    },
+    {
       "idPrefix": "routine-procedure",
       "texts": [
         "Log the distress call, preserve the telemetry, and keep the Captain informed.",

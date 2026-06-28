@@ -17,6 +17,7 @@ const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const campaignProjection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
 let campaignState = initializeCampaignRuntimeTracking(cloneJson(campaignProjection.initialState));
@@ -66,6 +67,7 @@ const badReview = reviewContinuityContradictions({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection
 });
 assert.equal(badReview.ok, false);
@@ -95,7 +97,9 @@ const matrix = buildContinuityProjectionMatrix({
   campaignState,
   packageData,
   crewDataset,
+  shipDataset,
   campaignProjection,
+  playerText: 'Review the rejected claim and keep shuttlebay docking anchored to the Intrepid-class aft bay.',
   createdAt: '2026-06-27T00:00:02.000Z'
 });
 const recapBlock = matrix.blocks.find((block) => block.promptKey === 'directive.recap.committed');
@@ -106,8 +110,10 @@ assert.doesNotMatch(recapBlock.content, /Hidden Farwatch|player-hidden/);
 const invariantBlock = matrix.blocks.find((block) => block.promptKey === 'directive.continuity.invariants');
 assert(invariantBlock);
 assert.match(invariantBlock.content, /rejected by continuity review/);
+assert.match(invariantBlock.content, /saucer-underside|Deck 10 aft dorsal/i);
 assert.doesNotMatch(invariantBlock.content, /human male in his early forties|six days since leaving Utopia Planitia/);
 assert.equal(matrix.plan.laneFactIds['directive.recap.committed'].some((id) => id.startsWith('command-log.')), true);
 assert.equal(matrix.plan.laneFactIds['directive.continuity.invariants'].some((id) => id.startsWith('rejected-claim.')), true);
+assert.equal(matrix.plan.laneFactIds['directive.continuity.invariants'].includes('ship.uss-breckenridge.area.intrepid.shuttlebay-complex.not-saucer-underside'), true);
 
 console.log('Continuity ledger materializer tests passed: committed Command Log facts and rejected-claim guard facts');

@@ -3,6 +3,8 @@ import { appendDirectiveOverlay } from '../../ui/directive-overlay-root.js';
 import { getSillyTavernDirectiveRuntimeBridge } from './runtime-bridge.mjs';
 
 export const DIRECTIVE_MISSION_COMPONENT_CAPTURE_BUTTON_CLASS = 'directive-mission-component-capture-button';
+export const DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS = 'directive-define-selection-button';
+export const DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS = 'directive-define-selection-popover';
 export const DIRECTIVE_MISSION_COMPONENT_POPOVER_CLASS = 'directive-mission-component-popover';
 export const DIRECTIVE_MISSION_COMPONENT_SOURCE_HIGHLIGHT_CLASS = 'directive-mission-component-source-highlight';
 
@@ -10,10 +12,13 @@ const MESSAGE_SELECTOR = '#chat .mes[mesid]';
 const MESSAGE_TEXT_SELECTOR = '.mes_text';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
 const BUTTON_LABEL = 'Add Component to Mission';
+const DEFINE_BUTTON_LABEL = 'Define Selection';
 
 let installed = false;
 let captureButton = null;
+let defineButton = null;
 let reviewPopover = null;
+let definePopover = null;
 let activeSelection = null;
 let hideTimer = null;
 let documentListeners = [];
@@ -241,6 +246,29 @@ function ensureCaptureButton() {
   return captureButton;
 }
 
+function ensureDefineButton() {
+  if (defineButton && (defineButton.isConnected === true || defineButton.parentNode)) return defineButton;
+  defineButton?.remove?.();
+  defineButton = document.createElement('button');
+  defineButton.type = 'button';
+  defineButton.className = DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS;
+  defineButton.title = DEFINE_BUTTON_LABEL;
+  defineButton.setAttribute('aria-label', DEFINE_BUTTON_LABEL);
+  defineButton.dataset.directiveTour = 'define-selection.lookup';
+  const icon = document.createElement('span');
+  icon.className = 'directive-define-selection-icon';
+  icon.textContent = '?';
+  icon.setAttribute('aria-hidden', 'true');
+  defineButton.appendChild(icon);
+  defineButton.addEventListener?.('mousedown', (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+  });
+  defineButton.addEventListener?.('click', handleDefineClick);
+  appendDirectiveOverlay(defineButton, { fallbackParent: document.body });
+  return defineButton;
+}
+
 function viewportSize() {
   return {
     width: Number(globalThis.innerWidth || document.documentElement?.clientWidth || 1024),
@@ -248,25 +276,35 @@ function viewportSize() {
   };
 }
 
-function positionButton(button, rect) {
+function positionButtons(buttons = [], rect) {
   const viewport = viewportSize();
-  const buttonRect = button.getBoundingClientRect?.() || { width: 38, height: 38 };
+  const visibleButtons = buttons.filter(Boolean);
+  if (!visibleButtons.length) return;
+  const buttonRects = visibleButtons.map((button) => button.getBoundingClientRect?.() || { width: 38, height: 38 });
   const gutter = 8;
+  const gap = 6;
+  const totalWidth = buttonRects.reduce((sum, buttonRect) => sum + (buttonRect.width || 38), 0) + gap * Math.max(0, visibleButtons.length - 1);
+  const maxHeight = buttonRects.reduce((height, buttonRect) => Math.max(height, buttonRect.height || 38), 38);
   const left = Math.max(gutter, Math.min(
     rect.right + 6,
-    viewport.width - (buttonRect.width || 38) - gutter
+    viewport.width - totalWidth - gutter
   ));
   const top = Math.max(gutter, Math.min(
     rect.bottom + 6,
-    viewport.height - (buttonRect.height || 38) - gutter
+    viewport.height - maxHeight - gutter
   ));
-  button.style.left = `${Math.round(left)}px`;
-  button.style.top = `${Math.round(top)}px`;
+  let cursor = left;
+  for (const [index, button] of visibleButtons.entries()) {
+    button.style.left = `${Math.round(cursor)}px`;
+    button.style.top = `${Math.round(top)}px`;
+    cursor += (buttonRects[index].width || 38) + gap;
+  }
 }
 
 function hideCaptureButton() {
   activeSelection = null;
   if (captureButton) captureButton.hidden = true;
+  if (defineButton) defineButton.hidden = true;
 }
 
 function scheduleSelectionUpdate() {
@@ -283,8 +321,10 @@ function updateSelectionAffordance() {
   }
   activeSelection = state;
   const button = ensureCaptureButton();
+  const define = ensureDefineButton();
   button.hidden = false;
-  positionButton(button, state.rect);
+  define.hidden = false;
+  positionButtons([button, define], state.rect);
 }
 
 function ensurePopover() {
@@ -299,6 +339,20 @@ function ensurePopover() {
   });
   appendDirectiveOverlay(reviewPopover, { fallbackParent: document.body });
   return reviewPopover;
+}
+
+function ensureDefinePopover() {
+  if (definePopover && (definePopover.isConnected === true || definePopover.parentNode)) return definePopover;
+  definePopover?.remove?.();
+  definePopover = document.createElement('aside');
+  definePopover.className = DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS;
+  definePopover.setAttribute('role', 'dialog');
+  definePopover.setAttribute('aria-label', DEFINE_BUTTON_LABEL);
+  definePopover.addEventListener?.('mousedown', (event) => {
+    event.stopPropagation?.();
+  });
+  appendDirectiveOverlay(definePopover, { fallbackParent: document.body });
+  return definePopover;
 }
 
 function positionPopover(popover, rect) {
@@ -535,9 +589,213 @@ function renderPopoverError(popover, error) {
   popover.append(title, summary, close);
 }
 
+function defineText(value = '', fallback = '') {
+  return compact(value) || fallback;
+}
+
+function defineList(values = []) {
+  return (Array.isArray(values) ? values : [values]).map((item) => {
+    if (typeof item === 'string') return compact(item);
+    return compact(item?.text || item?.summary || item?.label || item?.title);
+  }).filter(Boolean);
+}
+
+function appendDefineSection(popover, titleText, values = []) {
+  const items = defineList(values);
+  if (!items.length) return;
+  const section = document.createElement('section');
+  section.className = 'directive-define-selection-section';
+  const title = document.createElement('h4');
+  title.textContent = titleText;
+  section.appendChild(title);
+  if (items.length === 1) {
+    const p = document.createElement('p');
+    p.textContent = items[0];
+    section.appendChild(p);
+  } else {
+    const list = document.createElement('ul');
+    for (const item of items) {
+      const li = document.createElement('li');
+      li.textContent = item;
+      list.appendChild(li);
+    }
+    section.appendChild(list);
+  }
+  popover.appendChild(section);
+}
+
+function renderDefinePending(popover, selection) {
+  clearElement(popover);
+  const header = document.createElement('div');
+  header.className = 'directive-define-selection-header';
+  const title = document.createElement('h3');
+  title.textContent = 'Define';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'directive-define-selection-close';
+  close.textContent = 'x';
+  close.setAttribute('aria-label', 'Close Define Selection');
+  close.addEventListener?.('click', closeDefinePopover);
+  header.append(title, close);
+  const status = document.createElement('p');
+  status.className = 'directive-define-selection-status';
+  status.textContent = 'Defining selection...';
+  const source = document.createElement('blockquote');
+  source.textContent = selection.selectedText;
+  popover.append(header, status, source);
+}
+
+function renderDefineResult(popover, selection, prepared = {}) {
+  clearElement(popover);
+  const definition = prepared.definition || prepared;
+  const header = document.createElement('div');
+  header.className = 'directive-define-selection-header';
+  const titleBlock = document.createElement('div');
+  titleBlock.className = 'directive-define-selection-titleblock';
+  const title = document.createElement('h3');
+  title.textContent = 'Define';
+  const subject = document.createElement('strong');
+  subject.className = 'directive-define-selection-subject';
+  subject.textContent = defineText(definition.subject, selection.selectedText);
+  titleBlock.append(title, subject);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'directive-define-selection-close';
+  close.textContent = 'x';
+  close.setAttribute('aria-label', 'Close Define Selection');
+  close.addEventListener?.('click', closeDefinePopover);
+  header.append(titleBlock, close);
+  const meta = document.createElement('div');
+  meta.className = 'directive-define-selection-meta';
+  const type = document.createElement('span');
+  type.className = 'directive-define-selection-type';
+  type.textContent = defineText(definition.primaryTypeLabel, 'Ambiguous Selection');
+  meta.appendChild(type);
+  if (definition.confidence) {
+    const confidence = document.createElement('span');
+    confidence.className = 'directive-define-selection-confidence';
+    confidence.textContent = `${defineText(definition.confidence)} confidence`;
+    meta.appendChild(confidence);
+  }
+  const answer = document.createElement('section');
+  answer.className = 'directive-define-selection-section directive-define-selection-at-glance';
+  const answerTitle = document.createElement('h4');
+  answerTitle.textContent = definition.primaryType === 'ambiguousSelection' ? 'Possible Meanings' : 'At A Glance';
+  const answerText = document.createElement('p');
+  answerText.textContent = defineText(definition.shortAnswer, 'No definition was returned for this selection.');
+  answer.append(answerTitle, answerText);
+  popover.append(header, meta, answer);
+
+  for (const section of Array.isArray(definition.sections) ? definition.sections : []) {
+    appendDefineSection(popover, section.title || section.id || 'Context', section.items || section.text || section.summary);
+  }
+
+  const knownBox = document.createElement('section');
+  knownBox.className = 'directive-define-selection-section directive-define-selection-known-box';
+  const knownTitle = document.createElement('h4');
+  knownTitle.textContent = 'Known / Inferred / Unknown';
+  knownBox.appendChild(knownTitle);
+  const knownRows = [
+    ['Known', definition.known],
+    ['Inferred', definition.inferred],
+    ['Unknown', definition.unknown]
+  ];
+  for (const [label, values] of knownRows) {
+    const items = defineList(values);
+    if (!items.length) continue;
+    const row = document.createElement('div');
+    row.className = 'directive-define-selection-known-row';
+    const rowLabel = document.createElement('strong');
+    rowLabel.textContent = label;
+    const rowText = document.createElement('p');
+    rowText.textContent = items.join(' ');
+    row.append(rowLabel, rowText);
+    knownBox.appendChild(row);
+  }
+  if (knownBox.children.length > 1) popover.appendChild(knownBox);
+
+  const related = definition.related || {};
+  const relatedItems = [
+    ...(related.crewIds || []),
+    ...(related.shipSystemIds || []),
+    ...(related.missionIds || []),
+    ...(related.componentIds || []),
+    ...(related.commandLogIds || [])
+  ].map(compact).filter(Boolean);
+  if (relatedItems.length) {
+    const relatedSection = document.createElement('section');
+    relatedSection.className = 'directive-define-selection-section';
+    const relatedTitle = document.createElement('h4');
+    relatedTitle.textContent = 'Related';
+    const chips = document.createElement('div');
+    chips.className = 'directive-define-selection-related';
+    for (const item of relatedItems.slice(0, 12)) {
+      const chip = document.createElement('span');
+      chip.textContent = item;
+      chips.appendChild(chip);
+    }
+    relatedSection.append(relatedTitle, chips);
+    popover.appendChild(relatedSection);
+  }
+
+  if (Array.isArray(definition.warnings) && definition.warnings.length) {
+    appendDefineSection(popover, 'Limits', definition.warnings);
+  }
+
+  const source = document.createElement('details');
+  source.className = 'directive-define-selection-source';
+  const sourceSummary = document.createElement('summary');
+  sourceSummary.textContent = 'Source';
+  const sourceText = document.createElement('p');
+  sourceText.textContent = selection.selectedText;
+  const sourceMeta = document.createElement('small');
+  sourceMeta.textContent = `Msg ${definition.sourceInfo?.hostMessageId || selection.hostMessageId || 'unknown'} / ${definition.sourceInfo?.messageRole || selection.message?.role || 'message'}`;
+  source.append(sourceSummary, sourceText, sourceMeta);
+  popover.appendChild(source);
+
+  const actions = document.createElement('div');
+  actions.className = 'directive-define-selection-actions';
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'directive-button directive-secondary-command';
+  closeButton.textContent = 'Close';
+  closeButton.addEventListener?.('click', closeDefinePopover);
+  actions.appendChild(closeButton);
+  popover.appendChild(actions);
+}
+
+function renderDefineError(popover, error) {
+  clearElement(popover);
+  const header = document.createElement('div');
+  header.className = 'directive-define-selection-header';
+  const title = document.createElement('h3');
+  title.textContent = 'Define Unavailable';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'directive-define-selection-close';
+  close.textContent = 'x';
+  close.setAttribute('aria-label', 'Close Define Selection');
+  close.addEventListener?.('click', closeDefinePopover);
+  header.append(title, close);
+  const summary = document.createElement('p');
+  summary.className = 'directive-define-selection-warning';
+  summary.textContent = error?.message || String(error || 'Define Selection could not read this source.');
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'directive-button directive-secondary-command';
+  closeButton.textContent = 'Close';
+  closeButton.addEventListener?.('click', closeDefinePopover);
+  popover.append(header, summary, closeButton);
+}
+
 function closePopover() {
   reviewPopover?.remove?.();
   reviewPopover = null;
+}
+
+function closeDefinePopover() {
+  definePopover?.remove?.();
+  definePopover = null;
 }
 
 function runtimeSelectionPayload(selection = {}) {
@@ -563,6 +821,7 @@ async function handleCaptureClick(event) {
   const selection = activeSelection || getFloatingSelectionState();
   if (!selection || selection.rejected) return;
   hideCaptureButton();
+  closeDefinePopover();
   const popover = ensurePopover();
   popover.hidden = false;
   renderPopoverPending(popover, selection);
@@ -582,8 +841,39 @@ async function handleCaptureClick(event) {
   }
 }
 
+async function handleDefineClick(event) {
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  const selection = activeSelection || getFloatingSelectionState();
+  if (!selection || selection.rejected) return;
+  hideCaptureButton();
+  closePopover();
+  const popover = ensureDefinePopover();
+  popover.hidden = false;
+  renderDefinePending(popover, selection);
+  positionPopover(popover, selection.rect);
+  try {
+    const prepared = await runRuntimeAction('defineSelection.lookup', {
+      selection: runtimeSelectionPayload(selection)
+    });
+    if (prepared?.ok === false) {
+      renderDefineError(popover, new Error(prepared.summary || 'Define Selection could not read this source.'));
+      return;
+    }
+    renderDefineResult(popover, selection, prepared);
+    positionPopover(popover, selection.rect);
+  } catch (error) {
+    renderDefineError(popover, error);
+  }
+}
+
 function onDocumentMouseDown(event) {
-  if (event.target === captureButton || event.target?.closest?.(`.${DIRECTIVE_MISSION_COMPONENT_POPOVER_CLASS}`)) return;
+  if (
+    event.target === captureButton
+    || event.target === defineButton
+    || event.target?.closest?.(`.${DIRECTIVE_MISSION_COMPONENT_POPOVER_CLASS}`)
+    || event.target?.closest?.(`.${DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS}`)
+  ) return;
   hideCaptureButton();
 }
 
@@ -652,9 +942,13 @@ export function disposeMissionComponentsCapture() {
     sourceOpenListener = null;
   }
   captureButton?.remove?.();
+  defineButton?.remove?.();
   reviewPopover?.remove?.();
+  definePopover?.remove?.();
   captureButton = null;
+  defineButton = null;
   reviewPopover = null;
+  definePopover = null;
   activeSelection = null;
   installed = false;
 }
@@ -662,6 +956,7 @@ export function disposeMissionComponentsCapture() {
 export const __missionComponentsCaptureTestHooks = Object.freeze({
   getFloatingSelectionState,
   updateSelectionAffordance,
+  handleDefineClick,
   handleOpenSourceEvent,
   reset() {
     disposeMissionComponentsCapture();

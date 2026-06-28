@@ -5,6 +5,7 @@ import {
   runCampaignIntroRewriteFromRuntime,
   runCommandBearingFromRuntime,
   beginDirectiveGuidanceTutorial,
+  runDefineSelectionFromRuntime,
   runDirectiveAssistFromRuntime,
   runFactualGroundingReviewFromRuntime,
   runMissionComponentsFromRuntime,
@@ -168,6 +169,12 @@ export function configureRuntimeActions() {
       category: 'missionComponents',
       label: 'Open Mission Component Source',
       handler: async (payload = {}) => runMissionComponentsFromRuntime('openSource', payload)
+    },
+    {
+      id: 'defineSelection.lookup',
+      category: 'defineSelection',
+      label: 'Define Selection',
+      handler: async (payload = {}) => runDefineSelectionFromRuntime(payload)
     },
     {
       id: OUTCOME_INTEGRITY_EDIT_ACTION_ID,

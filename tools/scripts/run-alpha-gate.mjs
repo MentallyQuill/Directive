@@ -3,6 +3,7 @@ import {
   bundledCampaignPackagePaths,
   bundledCampaignProjectionPairs,
   bundledCrewDatasetPairs,
+  bundledShipDatasetPairs,
   bundledMissionGraphTriples
 } from '../../src/packages/bundled-package-registry.mjs';
 
@@ -25,6 +26,13 @@ const crewDatasetChecks = bundledCrewDatasetPairs().map(([packagePath, crewDatas
   crewDatasetPath
 ]);
 
+const shipDatasetChecks = bundledShipDatasetPairs().map(([packagePath, shipDatasetPath]) => [
+  'validate-ship-dataset.mjs',
+  'schemas/packages/ship-dataset.schema.json',
+  packagePath,
+  shipDatasetPath
+]);
+
 const missionGraphChecks = bundledMissionGraphTriples().map(([packagePath, crewDatasetPath, missionGraphPath]) => [
   'validate-mission-graph.mjs',
   'schemas/mission/mission-graph.schema.json',
@@ -38,6 +46,7 @@ const checks = [
   'test-provider-response-parser.mjs',
   'test-directive-provider-routing.mjs',
   'test-model-call-authority-matrix.mjs',
+  'test-define-selection.mjs',
   'test-sillytavern-chat-prompt-adapters.mjs',
   'test-sillytavern-preset-manager.mjs',
   'test-sillytavern-event-wiring.mjs',
@@ -123,6 +132,7 @@ const checks = [
   'test-end-condition-ui-contracts.mjs',
   ...campaignProjectionChecks,
   ...crewDatasetChecks,
+  ...shipDatasetChecks,
   'test-rich-crew-voice-capsules.mjs',
   'test-rich-crew-runtime-hydration.mjs',
   'test-crew-retrieval-fixture.mjs',

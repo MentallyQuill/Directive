@@ -1,0 +1,721 @@
+{
+  "manifest": {
+    "kind": "directive.shipDataset",
+    "schemaVersion": 1,
+    "id": "breckenridge.intrepid-class",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "shipId": "uss-breckenridge",
+    "classId": "intrepid-class",
+    "title": "U.S.S. Breckenridge Intrepid-Class Ship Dataset",
+    "version": "0.3.0-pre-alpha.1",
+    "status": "pre-alpha"
+  },
+  "sources": [
+    {
+      "title": "Directive Intrepid-Class Starship Bible",
+      "path": "docs/source/Directive_Intrepid_Class_Starship_Bible.md",
+      "version": "0.1",
+      "role": "ship-bible"
+    },
+    {
+      "title": "Directive Ashes of Peace Campaign v0.2",
+      "path": "docs/source/Directive_Ashes_of_Peace_Campaign_v0.2.md",
+      "version": "0.2",
+      "role": "campaign-source"
+    }
+  ],
+  "areas": [
+    {
+      "id": "intrepid.bridge",
+      "name": "Bridge",
+      "decks": [1],
+      "zone": "Deck 1 dorsal command center",
+      "exteriorPlacement": "Dorsal crown of the primary hull",
+      "functions": ["command", "flight control", "tactical", "operations", "science coordination"],
+      "sceneUses": ["public command pressure", "shipwide prioritization", "alert posture", "handoff from private command spaces"],
+      "hardFacts": ["The bridge, captain's ready room, and briefing room are on Deck 1.", "The bridge is an ovoid, multi-level command space rather than a flat cockpit."],
+      "textures": ["central command chairs", "forward conn", "aft systems display", "turbolift doors", "viewscreen light"],
+      "constraints": ["Bridge prose should turn distributed ship activity into accountable command decisions."],
+      "keywords": ["bridge", "conn", "helm", "ops", "tactical", "viewscreen", "captain's chair"]
+    },
+    {
+      "id": "intrepid.ready-room",
+      "name": "Captain's ready room and briefing room",
+      "decks": [1],
+      "zone": "Deck 1 adjacent command spaces",
+      "exteriorPlacement": "Dorsal primary hull near the bridge",
+      "functions": ["private command work", "senior-staff synthesis", "classified calls"],
+      "sceneUses": ["private disagreement", "formal briefing", "command correction", "transition back to public bridge authority"],
+      "hardFacts": ["The ready room and briefing room sit adjacent to the Deck 1 bridge."],
+      "textures": ["working desk", "briefing table", "wall display", "one-door awareness of the bridge"],
+      "constraints": ["Private command scenes should retain the pressure that the bridge is only a few steps away."],
+      "keywords": ["ready room", "briefing room", "conference room", "senior staff", "private command"]
+    },
+    {
+      "id": "intrepid.mess-hall",
+      "name": "Mess hall and galley",
+      "decks": [2],
+      "zone": "Deck 2 forward social center",
+      "exteriorPlacement": "Forward primary hull with forward-facing windows",
+      "functions": ["meals", "crew morale", "informal diplomacy", "receptions", "overflow care"],
+      "sceneUses": ["ordinary life", "crew morale read", "memorial", "diplomatic meal", "triage overflow"],
+      "hardFacts": ["The mess hall is on Deck 2 and functions as a forward-facing social commons."],
+      "textures": ["forward windows", "replicators", "tables with social geography", "serving area", "shift-change noise"],
+      "constraints": ["The mess hall is a community workspace, not a restaurant or grand lounge."],
+      "keywords": ["mess hall", "galley", "meal", "dining", "crew morale", "reception"]
+    },
+    {
+      "id": "intrepid.captains-quarters",
+      "name": "Captain's quarters",
+      "decks": [3],
+      "zone": "Deck 3 forward private command space",
+      "exteriorPlacement": "Forward primary hull",
+      "functions": ["privacy", "off-duty command", "secure calls", "personal continuity"],
+      "sceneUses": ["late-night command cost", "private dinner", "off-duty identity"],
+      "hardFacts": ["The captain's quarters are Deck 3 baseline, larger than standard quarters but still compact."],
+      "textures": ["forward windows", "desk", "living area", "personal objects", "unfinished meal or PADD stack"],
+      "constraints": ["If quarters become a second ready room, that should signal command strain."],
+      "keywords": ["captain's quarters", "private quarters", "cabin", "forward windows"]
+    },
+    {
+      "id": "intrepid.transporter-rooms",
+      "name": "Transporter rooms",
+      "decks": [4],
+      "zone": "Deck 4 transporter facilities",
+      "functions": ["away-team deployment", "emergency extraction", "cargo transport", "biofilter review"],
+      "sceneUses": ["threshold to away mission", "medical emergency movement", "quarantine decision", "pattern-integrity risk"],
+      "hardFacts": ["Deck 4 contains transporter-room references; standard rooms use pads and an operator station."],
+      "textures": ["six-pad platform", "operator console", "confinement beam shimmer", "biofilter alert", "away team staging"],
+      "constraints": ["Transporters should not erase interference, shields, range, quarantine, or biofilter risk."],
+      "keywords": ["transporter", "beam", "beam-out", "pattern", "biofilter", "transport room"]
+    },
+    {
+      "id": "intrepid.sickbay",
+      "name": "Sickbay",
+      "decks": [5],
+      "zone": "Deck 5 medical suite",
+      "functions": ["medical care", "surgery", "quarantine", "EMH support", "medical authority"],
+      "sceneUses": ["harm becomes decision", "triage", "medical command objection", "quarantine", "return-to-duty limit"],
+      "hardFacts": ["Sickbay is on Deck 5 with the main ward, CMO office, medical lab, surgical capability, and EMH support."],
+      "textures": ["bright medical light", "biobeds", "surgical bed", "CMO office door", "ceiling sensor cluster", "isolation fields"],
+      "constraints": ["Sickbay should expose consequences without turning medical care into exposition."],
+      "keywords": ["sickbay", "doctor", "CMO", "biobed", "surgery", "EMH", "quarantine", "medical"]
+    },
+    {
+      "id": "intrepid.holodecks",
+      "name": "Holodecks",
+      "decks": [6],
+      "zone": "Deck 6 recreation and simulation spaces",
+      "functions": ["recreation", "training", "therapy", "mission simulation"],
+      "sceneUses": ["pressure valve", "training drill", "simulation of damaged spaces", "private longing or rehearsal"],
+      "hardFacts": ["The Intrepid-class baseline includes two holodecks on Deck 6."],
+      "textures": ["holodeck arch", "grid reveal", "safety status", "program transition", "scheduling conflict"],
+      "constraints": ["Holodecks are not limitless rooms, power sources, or plot escapes."],
+      "keywords": ["holodeck", "simulation", "program", "safeties", "training", "recreation"]
+    },
+    {
+      "id": "intrepid.security-suite",
+      "name": "Armory and security suite",
+      "decks": [6],
+      "zone": "Deck 6 armory baseline and ship-specific security spaces",
+      "functions": ["weapons storage", "evidence handling", "detention", "shipboard security response"],
+      "sceneUses": ["accountable force", "prisoner control", "chain of custody", "corridor lockdown"],
+      "hardFacts": ["The Deck 6 baseline includes armory references; brig and security office placement should be package-authored when exactness matters."],
+      "textures": ["secured lockers", "access logs", "force fields", "evidence containers", "tactical-kit sign-out"],
+      "constraints": ["Security spaces should keep Starfleet accountability visible when force enters a scene."],
+      "keywords": ["armory", "brig", "security", "phaser", "evidence", "lockdown"]
+    },
+    {
+      "id": "intrepid.astrometrics",
+      "name": "Astrometrics and science labs",
+      "decks": [8],
+      "zone": "Deck 8 analytical spaces",
+      "functions": ["stellar cartography", "sensor fusion", "anomaly modeling", "scientific analysis"],
+      "sceneUses": ["space becomes terrain", "model confidence", "route risk", "scientific disagreement"],
+      "hardFacts": ["Astrometrics and science-lab references sit on Deck 8 baseline."],
+      "textures": ["wide stellar displays", "volumetric maps", "dim analytical light", "confidence overlays", "quiet specialists"],
+      "constraints": ["Astrometrics should make models useful without making them automatically complete truth."],
+      "keywords": ["astrometrics", "stellar cartography", "science lab", "sensor", "anomaly", "map"]
+    },
+    {
+      "id": "intrepid.crew-quarters",
+      "name": "Crew quarters",
+      "decks": [2, 4, 8, 9, 13],
+      "zone": "Multiple inhabited decks",
+      "functions": ["privacy", "off-duty life", "fatigue", "personal memory", "VIP accommodation"],
+      "sceneUses": ["quiet strain", "private conversation", "quarantine", "ordinary life", "service-record texture"],
+      "hardFacts": ["Crew quarters are distributed across multiple inhabited decks; captain's quarters use the Deck 3 baseline."],
+      "textures": ["modest cabins", "replicator terminal", "small work surface", "personal objects", "alert tones through the wall"],
+      "constraints": ["Quarters are private spaces inside a non-private machine."],
+      "keywords": ["quarters", "cabin", "bunk", "VIP quarters", "private space"]
+    },
+    {
+      "id": "intrepid.main-engineering",
+      "name": "Main engineering",
+      "decks": [11],
+      "zone": "Deck 11 warp core and systems integration space",
+      "functions": ["warp-core control", "power distribution", "repair authority", "systems integration"],
+      "sceneUses": ["command desire becomes cost", "technical debt", "repair triage", "systems tradeoff"],
+      "hardFacts": ["Main engineering is on Deck 11 and centers on a two-level room around the warp core."],
+      "textures": ["warp core rhythm", "upper catwalk", "chief engineer's office", "open work area", "tool noise", "power-grid displays"],
+      "constraints": ["Engineering should name accepted risk, temporary workaround, pending verification, and unresolved fault as different things."],
+      "keywords": ["engineering", "main engineering", "warp core", "catwalk", "power", "plasma", "repair"]
+    },
+    {
+      "id": "intrepid.deflector-control",
+      "name": "Deflector control and forward engineering support",
+      "decks": [11],
+      "zone": "Deck 11 and forward secondary-hull support",
+      "exteriorPlacement": "Internal support for the forward main deflector",
+      "functions": ["navigational deflector control", "field projection", "hazard interaction", "sensor support"],
+      "sceneUses": ["deflector pulse", "hazard corridor", "science-engineering tradeoff", "charged hardware repair"],
+      "hardFacts": ["Deflector work should connect the external dish to internal control rooms, power cost, and hazard risk."],
+      "textures": ["charged panels", "field monitors", "hull vibration", "overheated insulation", "forward support junctions"],
+      "constraints": ["A deflector trick must cost power, emitters, field stability, or repair margin."],
+      "keywords": ["deflector", "navigational deflector", "graviton", "field pulse", "subspace field"]
+    },
+    {
+      "id": "intrepid.cargo-bays",
+      "name": "Cargo bays",
+      "decks": [4, 8],
+      "zone": "Adaptable cargo volume",
+      "functions": ["stores", "mission equipment", "relief supplies", "isolation", "improvised facilities"],
+      "sceneUses": ["inventory pressure", "relief arithmetic", "temporary housing", "quarantine", "mission staging"],
+      "hardFacts": ["Cargo Bay 2 has Deck 4 and Deck 8 references; package-specific placement should be used carefully."],
+      "textures": ["stacked containers", "environmental cradles", "floor markings", "cargo transport handling", "isolation fields"],
+      "constraints": ["Cargo bays feel empty until needed, then become too small for the crisis."],
+      "keywords": ["cargo bay", "Cargo Bay 2", "stores", "supplies", "relief crates", "inventory"]
+    },
+    {
+      "id": "intrepid.shuttlebay-complex",
+      "name": "Shuttlebay 1 and shuttlebay 2",
+      "decks": [10],
+      "zone": "Deck 10 aft dorsal secondary hull",
+      "exteriorPlacement": "Aft dorsal secondary hull between the swept nacelle-pylon frame",
+      "functions": ["shuttle launch", "shuttle recovery", "auxiliary-craft repair", "mission staging", "EVA preparation"],
+      "sceneUses": ["arrival", "away-team launch", "emergency recovery", "small-craft repair", "physical mission logistics"],
+      "hardFacts": ["The main shuttlebay complex is aft on Deck 10.", "Small craft approach from astern toward the aft bay.", "Shuttlebay 1 is the primary flight deck; the larger maintenance hangar/shuttlebay 2 sits behind it."],
+      "textures": ["aft doors", "approach lights", "arresting field", "bay force field", "deck markings", "maintenance cradles", "shuttle control station"],
+      "constraints": ["Do not depict routine Intrepid-class shuttle docking through a wide mouth in the underside of the saucer.", "Launch and recovery involve shields, force fields, tractor/arresting support, and flight-deck clearance."],
+      "keywords": ["shuttlebay", "shuttle bay", "shuttle", "hangar", "flight deck", "launch", "recovery", "docking", "aft bay"]
+    },
+    {
+      "id": "intrepid.jefferies-tubes",
+      "name": "Jefferies tubes and maintenance access",
+      "decks": [7, 11, 15],
+      "zone": "Multi-deck maintenance body",
+      "functions": ["repair access", "covert movement", "emergency routing", "isolation"],
+      "sceneUses": ["physical repair risk", "confined conversation", "shortcut becomes commitment", "ship as body"],
+      "hardFacts": ["Jefferies tubes and maintenance access exist across multiple decks and expose the ship's physical infrastructure."],
+      "textures": ["narrow crawlways", "hatch labels", "hot panels", "ladder rungs", "tool tethers", "conduit hum"],
+      "constraints": ["Tube scenes should use physical constraint rather than generic corridor action."],
+      "keywords": ["Jefferies tube", "crawlway", "access panel", "conduit", "relay", "maintenance"]
+    },
+    {
+      "id": "intrepid.lower-decks",
+      "name": "Lower-deck support spaces",
+      "decks": [12, 13, 14, 15],
+      "zone": "Low-glamour support and maintenance spaces",
+      "functions": ["environmental control", "secondary processors", "plasma relays", "damage isolation"],
+      "sceneUses": ["unseen dependency", "hard-to-reach failure", "junior-crew expertise", "life-support priority"],
+      "hardFacts": ["Lower decks contain support spaces that can decide whether command authority, life support, or power routing survives."],
+      "textures": ["secondary command processors", "environmental-control status", "plasma relay rooms", "quiet low-traffic corridors"],
+      "constraints": ["Low-glamour support spaces should matter when bridge abstractions become physical failures."],
+      "keywords": ["lower decks", "environmental control", "secondary processors", "plasma relay", "Deck 15", "life support"]
+    }
+  ],
+  "systems": [
+    {
+      "id": "intrepid.bio-neural-gel-packs",
+      "name": "Bio-neural gel-pack network",
+      "scope": "Shipwide processing",
+      "capability": "Fast integrated processing across critical and support systems.",
+      "dependencies": ["grid integrity", "biological component health", "environmental stability", "non-replicable spares"],
+      "failureModes": ["contamination", "grid cascade", "false readings", "local system outages"],
+      "sceneUses": ["diagnostic mystery", "cross-department repair", "medical-engineering overlap"],
+      "keywords": ["bio-neural", "gel pack", "gel-pack", "processor", "grid", "cascade"]
+    },
+    {
+      "id": "intrepid.variable-geometry-nacelles",
+      "name": "Variable-geometry nacelles",
+      "scope": "Warp propulsion and exterior posture",
+      "capability": "Nacelles angle for warp and give the class a visible mechanical transition.",
+      "dependencies": ["pylon integrity", "warp-field control", "flight-control readiness"],
+      "failureModes": ["pylon damage", "nacelle articulation fault", "subspace field instability"],
+      "sceneUses": ["warp readiness", "external damage tell", "shuttle approach geometry"],
+      "keywords": ["nacelles", "variable-geometry", "pylons", "warp posture", "warp field"]
+    },
+    {
+      "id": "intrepid.emh",
+      "name": "Emergency Medical Hologram infrastructure",
+      "scope": "Sickbay-centered medical support",
+      "capability": "Mark I EMH support extends medical readiness when staff are absent, overwhelmed, or incapacitated.",
+      "dependencies": ["sickbay emitters", "computer integrity", "medical database", "power"],
+      "failureModes": ["emitter outage", "medical database fault", "computer instability", "coverage limits"],
+      "sceneUses": ["casualty surge", "procedural medical second voice", "holographic limits"],
+      "keywords": ["EMH", "emergency medical hologram", "doctor", "hologram", "medical automation"]
+    },
+    {
+      "id": "intrepid.transporters",
+      "name": "Transporter systems",
+      "scope": "Personnel and cargo transport",
+      "capability": "Transporters compress away-team movement into seconds when locks, shields, biofilters, and power permit.",
+      "dependencies": ["sensor lock", "pattern buffers", "biofilters", "shield status", "operator judgment"],
+      "failureModes": ["interference", "pattern degradation", "biofilter ambiguity", "power priority conflict"],
+      "sceneUses": ["emergency extraction", "quarantine dilemma", "away-team commitment"],
+      "keywords": ["transporter", "pattern buffer", "biofilter", "beam", "site-to-site"]
+    },
+    {
+      "id": "intrepid.holodeck-power",
+      "name": "Holodeck power and simulation",
+      "scope": "Recreation, training, and simulation infrastructure",
+      "capability": "Holodecks can simulate missing spaces, training hazards, therapy settings, and morale pressure valves.",
+      "dependencies": ["safeties", "program integrity", "scheduling", "isolated power assumptions"],
+      "failureModes": ["safety fault", "program bleed", "resource argument", "emotional overuse"],
+      "sceneUses": ["training", "repair modeling", "private-ease scene", "scarcity debate"],
+      "keywords": ["holodeck", "simulation", "safeties", "program", "holographic"]
+    },
+    {
+      "id": "intrepid.tactical-defensive",
+      "name": "Shields, phasers, torpedoes, and tractor beams",
+      "scope": "Tactical and defensive systems",
+      "capability": "A capable multi-mission Starfleet tactical suite, not a pure warship default.",
+      "dependencies": ["shield grid sectors", "weapon arcs", "torpedo inventory", "tractor emitter availability", "rules of engagement"],
+      "failureModes": ["sector shield failure", "arc limitation", "inventory pressure", "tractor dropout"],
+      "sceneUses": ["small-craft recovery under threat", "boarding defense", "escort posture", "nonlethal restraint"],
+      "keywords": ["shields", "phasers", "torpedoes", "tractor beam", "tactical", "weapons"]
+    },
+    {
+      "id": "intrepid.logistics",
+      "name": "Replicators, stores, and compact logistics",
+      "scope": "Shipboard supplies, mission stores, and replicator policy",
+      "capability": "Replicators and cargo stores make the ship generous but still finite under relief, repair, medical, or mission pressure.",
+      "dependencies": ["available power", "authorized patterns", "rare components", "cargo inventory", "medical and engineering priorities"],
+      "failureModes": ["power rationing", "rare-part shortage", "relief-supply depletion", "inventory mismatch"],
+      "sceneUses": ["relief arithmetic", "parts tradeoff", "cargo evidence", "mess hall scarcity"],
+      "keywords": ["replicators", "stores", "supplies", "cargo", "relief", "inventory", "logistics"]
+    },
+    {
+      "id": "intrepid.blue-alert-landing",
+      "name": "Blue alert and planetary landing systems",
+      "scope": "Atmospheric entry, landing, and grounded ship posture",
+      "capability": "The class can land on a planetary surface, but the ship becomes a load-bearing object in gravity.",
+      "dependencies": ["landing struts", "thruster balance", "structural integrity", "inertial damping", "crew landing stations"],
+      "failureModes": ["structural stress", "deck-plate vibration", "landing support damage", "atmospheric handling fault"],
+      "sceneUses": ["planetfall spectacle", "shipwide procedure", "landing risk", "grounded starship tension"],
+      "keywords": ["blue alert", "landing", "planetfall", "atmosphere", "landing struts"]
+    }
+  ],
+  "cards": [
+    {
+      "id": "ship.intrepid.class.identity",
+      "type": "ship.profile",
+      "title": "Intrepid-class storytelling identity",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["2. Class Personality", "9. Portrayal Principles"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "commandDirector", "narrator"],
+      "scope": { "campaigns": ["ashes-of-peace"], "systems": ["intrepid.bio-neural-gel-packs", "intrepid.variable-geometry-nacelles"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_identity", "ship_area", "ship_system"], "keywords": ["Intrepid", "starship", "deck"], "priority": "high" },
+      "payload": {
+        "summary": "The Breckenridge is an Intrepid-class Starfleet vessel: compact, advanced, fast, and built for autonomous long-range operations without Galaxy-class scale.",
+        "constraints": ["Use compact capability and recurring ship spaces rather than generic starship sprawl.", "Voyager is the class model, not imported campaign history."],
+        "narratorSafe": true,
+        "hardAnchors": ["15-deck Intrepid-class baseline.", "Small crew scale around a close shipboard community."],
+        "textures": ["arrowhead primary hull", "compact secondary hull", "warm working interiors", "recurring corridors and lifts"],
+        "avoid": ["Galaxy-class hotel scale", "Defiant-style pure warship tone", "generic saucer-city layout"]
+      }
+    },
+    {
+      "id": "ship.intrepid.exterior.silhouette",
+      "type": "ship.exterior",
+      "title": "Exterior silhouette and operational read",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["3.1 Silhouette and first read", "3.2 Exterior zones"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator"],
+      "scope": { "campaigns": ["ashes-of-peace"], "systems": ["intrepid.variable-geometry-nacelles"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_exterior", "ship_area"], "keywords": ["exterior", "hull", "saucer", "nacelles", "pylons", "approach"], "priority": "normal" },
+      "payload": {
+        "summary": "The exterior reads fast and compact: arrowhead primary hull, tucked secondary hull, forward deflector, swept pylons, and variable-geometry nacelles.",
+        "constraints": ["Exterior descriptions should respect hull placement, windows, nacelles, deflector, and bay geometry."],
+        "narratorSafe": true,
+        "hardAnchors": ["Variable-geometry nacelles are a visible warp-readiness tell.", "The primary hull is an arrowhead saucer, not a broad circular city."],
+        "textures": ["raised nacelles", "pylon shadows", "dorsal command crown", "forward deflector glow", "hull windows"],
+        "avoid": ["Exterior views that ignore where rooms and shuttle doors are on the hull."]
+      }
+    },
+    {
+      "id": "ship.intrepid.exterior.shuttle-approach",
+      "type": "ship.exterior",
+      "title": "Aft shuttle approach",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["3.3 Shuttle approach truth", "5.14 Shuttlebay 1 and shuttlebay 2"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.shuttlebay-complex"], "systems": ["intrepid.variable-geometry-nacelles", "intrepid.tactical-defensive"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_exterior", "ship_area", "opening_shuttle_rendezvous", "shuttlebay"], "keywords": ["shuttle", "shuttlebay", "shuttle bay", "hangar", "docking", "aft bay", "approach", "Rangiroa"], "priority": "critical" },
+      "payload": {
+        "summary": "Normal shuttle approach to an Intrepid-class ship is aft, toward the Deck 10 shuttlebay complex in the dorsal secondary hull, visually framed by the nacelle-pylon geometry.",
+        "constraints": ["Do not depict routine shuttle docking through the underside, belly, ventral saucer, or primary-hull mouth.", "Use aft approach lights, bay force field, arresting support, and deck crew for shuttle recovery texture."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 10 aft shuttlebay complex.", "Small craft approach from astern.", "Shuttlebay 1 is the primary flight deck; shuttlebay 2 is the larger maintenance hangar behind it."],
+        "textures": ["aft doors", "approach beacon", "pylon frame", "bay threshold", "arresting field", "deck markings"],
+        "avoid": ["wide lit mouth in the underside of the saucer", "saucer-underside shuttlebay", "ventral primary-hull hangar"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.bridge",
+      "type": "ship.location",
+      "title": "Deck 1 bridge",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.1 Bridge, Deck 1"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.bridge"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "command_space", "bridge"], "keywords": ["bridge", "conn", "helm", "ops", "tactical", "viewscreen"], "priority": "high" },
+      "payload": {
+        "summary": "The Deck 1 bridge is an ovoid, multi-level command room where conn, ops, tactical, science, and command turn shipwide activity into decisions.",
+        "constraints": ["Do not write the bridge as an empty cockpit; use stations, watch rhythm, and public command posture."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 1 bridge with ready room and briefing room adjacent."],
+        "textures": ["central command chairs", "forward conn", "aft systems display", "turbolift arrival", "viewscreen light"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.ready-room",
+      "type": "ship.location",
+      "title": "Deck 1 ready room and briefing room",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.2 Captain's ready room and briefing room, Deck 1"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.ready-room"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "command_space", "ready_room"], "keywords": ["ready room", "briefing room", "conference", "senior staff"], "priority": "normal" },
+      "payload": {
+        "summary": "The ready room and briefing room sit beside the Deck 1 bridge, letting command move quickly between public orders and private judgment.",
+        "constraints": ["Private scenes here should retain the awareness that the bridge is one door away."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 1 adjacent command spaces."],
+        "textures": ["working desk", "briefing table", "wall display", "door to bridge"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.mess-hall",
+      "type": "ship.location",
+      "title": "Deck 2 mess hall",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.3 Mess hall and galley, Deck 2"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "crewDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.mess-hall"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "social_space", "mess_hall"], "keywords": ["mess hall", "galley", "meal", "dining", "morale"], "priority": "normal" },
+      "payload": {
+        "summary": "The Deck 2 forward mess hall is the ship's social commons, where meals, morale, informal diplomacy, memorials, and overflow care can all happen.",
+        "constraints": ["Write it as a lived-in crew commons, not a restaurant or luxury lounge."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 2 forward social center."],
+        "textures": ["forward windows", "replicators", "tables claimed by shifts", "serving area", "half-finished meals"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.transporter-rooms",
+      "type": "ship.location",
+      "title": "Deck 4 transporter rooms",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.5 Transporter rooms, Deck 4"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.transporter-rooms"], "systems": ["intrepid.transporters"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "transporters"], "keywords": ["transporter", "beam", "pattern", "biofilter", "transport room"], "priority": "normal" },
+      "payload": {
+        "summary": "Deck 4 transporter rooms are mission thresholds: six-pad platform, operator focus, biofilter judgment, and the risk that routine transport becomes identity or quarantine crisis.",
+        "constraints": ["Transporters need sensor locks, pattern integrity, shield status, biofilters, and operator judgment."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 4 transporter facilities."],
+        "textures": ["six-pad platform", "operator console", "confinement shimmer", "biofilter alert", "away team staging"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.sickbay",
+      "type": "ship.location",
+      "title": "Deck 5 sickbay",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.6 Sickbay, Deck 5"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "crewDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.sickbay"], "systems": ["intrepid.emh"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "medical", "sickbay"], "keywords": ["sickbay", "doctor", "CMO", "biobed", "surgery", "EMH", "medical"], "priority": "high" },
+      "payload": {
+        "summary": "Deck 5 sickbay contains the main ward, biobeds, surgical capability, CMO office, medical lab, isolation capacity, and EMH support.",
+        "constraints": ["Use medical authority and visible consequences; do not let command prose erase injury, triage, quarantine, or return-to-duty limits."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 5 sickbay.", "CMO office and EMH support are part of the medical suite."],
+        "textures": ["bright medical light", "biobeds", "surgical bed", "CMO office door", "isolation field"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.holodecks-security",
+      "type": "ship.location",
+      "title": "Deck 6 holodecks, armory, and security pressure",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.7 Holodecks, Deck 6", "5.8 Armory and security suite, Deck 6 baseline"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "crewDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.holodecks", "intrepid.security-suite"], "systems": ["intrepid.holodeck-power", "intrepid.tactical-defensive"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "holodeck", "security"], "keywords": ["holodeck", "simulation", "armory", "brig", "security", "phaser"], "priority": "normal" },
+      "payload": {
+        "summary": "Deck 6 baseline includes holodecks and armory references: simulation can reveal morale or train repairs, while security spaces keep force accountable.",
+        "constraints": ["Holodecks are not unlimited plot escapes; armory and brig scenes should keep procedure and chain of custody visible."],
+        "narratorSafe": true,
+        "hardAnchors": ["Two holodecks on Deck 6 baseline.", "Armory references are Deck 6 baseline."],
+        "textures": ["holodeck arch", "grid reveal", "safety status", "secured lockers", "force field"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.astrometrics",
+      "type": "ship.location",
+      "title": "Deck 8 astrometrics and science labs",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.9 Astrometrics and science labs, Deck 8"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.astrometrics"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "science", "astrometrics"], "keywords": ["astrometrics", "stellar cartography", "science lab", "sensor", "anomaly", "map"], "priority": "normal" },
+      "payload": {
+        "summary": "Deck 8 astrometrics and science labs turn space into navigable models, sensor confidence, route risk, and scientific disagreement.",
+        "constraints": ["A beautiful model is not complete truth; include confidence, raw reading, corrected reading, and operational consequence when relevant."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 8 astrometrics baseline."],
+        "textures": ["volumetric maps", "dim analytical light", "sensor overlays", "confidence bands", "quiet specialist work"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.main-engineering",
+      "type": "ship.location",
+      "title": "Deck 11 main engineering",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.11 Main engineering, Deck 11", "5.12 Deflector control and forward engineering support, Deck 11 baseline"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.main-engineering", "intrepid.deflector-control"], "systems": ["intrepid.bio-neural-gel-packs"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "engineering", "systems"], "keywords": ["engineering", "main engineering", "warp core", "catwalk", "power", "deflector", "plasma"], "priority": "high" },
+      "payload": {
+        "summary": "Deck 11 main engineering is a two-level room around the warp core, with catwalk, chief engineer's office, open work area, power distribution, and nearby deflector-control pressure.",
+        "constraints": ["Engineering turns command desire into cost; name power tradeoffs, accepted risk, temporary workaround, pending verification, or unresolved fault."],
+        "narratorSafe": true,
+        "hardAnchors": ["Main engineering is on Deck 11.", "Deflector support/control belongs to the Deck 11 forward engineering support baseline."],
+        "textures": ["warp core rhythm", "upper catwalk", "tool noise", "chief engineer's office", "charged deflector panels"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.cargo-bays",
+      "type": "ship.location",
+      "title": "Cargo bays and stores",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.13 Cargo bays, Deck 4 and Deck 8 references"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.cargo-bays"], "systems": ["intrepid.logistics"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "logistics", "cargo"], "keywords": ["cargo bay", "Cargo Bay 2", "supplies", "stores", "relief", "inventory"], "priority": "normal" },
+      "payload": {
+        "summary": "Cargo bays are adaptable volume for stores, mission equipment, relief supplies, quarantine, temporary shelter, and improvised facilities.",
+        "constraints": ["Inventory should matter; replicators do not erase rare parts, medical limits, relief arithmetic, or cargo evidence."],
+        "narratorSafe": true,
+        "hardAnchors": ["Cargo Bay 2 has Deck 4 and Deck 8 references; use exact placement carefully."],
+        "textures": ["stacked containers", "environmental cradles", "floor markings", "cargo handling", "isolation fields"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.shuttlebay",
+      "type": "ship.location",
+      "title": "Deck 10 aft shuttlebay complex",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.14 Shuttlebay 1 and shuttlebay 2, Deck 10 aft"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.shuttlebay-complex"], "systems": ["intrepid.variable-geometry-nacelles", "intrepid.tactical-defensive"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "shuttlebay", "opening_shuttle_rendezvous"], "keywords": ["shuttlebay", "shuttle bay", "shuttle", "hangar", "flight deck", "launch", "recovery", "aft bay"], "priority": "critical" },
+      "payload": {
+        "summary": "The Deck 10 aft shuttlebay complex is the ship's mission threshold: shuttlebay 1 flight deck, larger maintenance hangar/shuttlebay 2 behind it, deck crew, EVA lockers, and shuttle-control work.",
+        "constraints": ["Do not place normal Intrepid-class shuttlebay doors in the underside of the saucer.", "Use shields, force fields, approach lights, arresting support, flight-deck clearance, and medical/security standby when recovery is risky."],
+        "narratorSafe": true,
+        "hardAnchors": ["Deck 10 aft dorsal secondary hull.", "Approach from astern.", "Shuttlebay 1 primary flight deck; shuttlebay 2 larger maintenance hangar."],
+        "textures": ["aft doors", "bay force field", "deck markings", "maintenance cradles", "shuttle control", "EVA lockers"],
+        "avoid": ["saucer-underside hangar", "belly shuttlebay", "primary-hull mouth"]
+      }
+    },
+    {
+      "id": "ship.intrepid.location.jefferies-lower-decks",
+      "type": "ship.location",
+      "title": "Jefferies tubes and lower-deck support",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["5.15 Jefferies tubes and maintenance access", "5.16 Lower-deck support spaces, Decks 12-15"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator"],
+      "scope": { "campaigns": ["ashes-of-peace"], "locations": ["intrepid.jefferies-tubes", "intrepid.lower-decks"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_area", "maintenance", "lower_decks"], "keywords": ["Jefferies", "crawlway", "access panel", "conduit", "relay", "lower decks", "environmental control"], "priority": "normal" },
+      "payload": {
+        "summary": "Jefferies tubes and lower-deck support spaces turn the sleek ship into a physical body of hot panels, ladder rungs, relays, environmental control, and hard-to-reach failures.",
+        "constraints": ["Use cramped physical risk and unglamorous dependencies rather than generic corridor action."],
+        "narratorSafe": true,
+        "hardAnchors": ["Maintenance access crosses multiple decks; lower decks hold support spaces that can become mission-critical."],
+        "textures": ["hatch labels", "hot access plates", "conduit hum", "plasma relay room", "environmental-control console"]
+      }
+    },
+    {
+      "id": "ship.intrepid.system.bio-neural",
+      "type": "ship.system",
+      "title": "Bio-neural gel-pack network",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["6.1 Bio-neural gel packs"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "systems": ["intrepid.bio-neural-gel-packs"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_system", "engineering", "bio_neural"], "keywords": ["bio-neural", "gel pack", "gel-pack", "processor", "grid", "cascade"], "priority": "high" },
+      "payload": {
+        "summary": "Bio-neural gel packs make the Intrepid class fast and integrated, but failures can behave like contamination or cascade instead of a simple broken circuit.",
+        "constraints": ["Gel packs are advanced components with maintenance and supply constraints, not proof the ship is sentimentally alive."],
+        "narratorSafe": true,
+        "hardAnchors": ["Shipwide bio-neural processing can link local symptoms across departments."],
+        "textures": ["diagnostic grid", "biological component health", "false readings", "medical-engineering overlap"]
+      }
+    },
+    {
+      "id": "ship.intrepid.system.variable-nacelles",
+      "type": "ship.system",
+      "title": "Variable-geometry nacelles",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["6.2 Variable-geometry nacelles"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator"],
+      "scope": { "campaigns": ["ashes-of-peace"], "systems": ["intrepid.variable-geometry-nacelles"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_system", "ship_exterior", "warp"], "keywords": ["nacelles", "variable-geometry", "pylons", "warp posture", "warp field"], "priority": "normal" },
+      "payload": {
+        "summary": "Variable-geometry nacelles angle into warp posture, giving the class a visible readiness tell and a pylon-based vulnerability.",
+        "constraints": ["Use nacelle motion for warp transition, damage, inspection, landing posture, and external approach scenes rather than as a constant gimmick."],
+        "narratorSafe": true,
+        "hardAnchors": ["Nacelle/pylon posture is part of Intrepid-class exterior truth."],
+        "textures": ["pylon articulation", "raised nacelles", "warp-field readiness", "pylon shadow around aft approach"]
+      }
+    },
+    {
+      "id": "ship.intrepid.system.blue-alert-landing",
+      "type": "ship.system",
+      "title": "Blue alert and planetary landing",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["3.4 Planetary landing and blue alert", "6.7 Replicators, stores, and compact logistics"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "narrator", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "systems": ["intrepid.blue-alert-landing"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_system", "landing", "blue_alert"], "keywords": ["blue alert", "landing", "planetfall", "atmosphere", "landing struts"], "priority": "high" },
+      "payload": {
+        "summary": "An Intrepid-class ship can land, but blue alert is a major shipwide posture: landing stations, structural-integrity watch, thruster balance, secured small craft, and deck-plate stress.",
+        "constraints": ["Do not treat landing like casual parking; use shuttles, transporters, orbit, or docking when simpler."],
+        "narratorSafe": true,
+        "hardAnchors": ["Planetary landing is a major operational event."],
+        "textures": ["blue-alert lighting", "landing struts", "atmospheric buffeting", "deck vibration under gravity"]
+      }
+    },
+    {
+      "id": "ship.intrepid.system.support-suite",
+      "type": "ship.system",
+      "title": "Transporters, EMH, holodecks, tactical systems, and logistics",
+      "datasetId": "breckenridge.intrepid-class",
+      "source": { "document": "Directive_Intrepid_Class_Starship_Bible.md", "refs": ["6.3 EMH and medical automation", "6.4 Transporters", "6.5 Holodeck power and simulation", "6.6 Shields, phasers, torpedoes, and tractor beams", "6.7 Replicators, stores, and compact logistics"] },
+      "visibility": "publicPackage",
+      "audiences": ["missionDirector", "shipDirector", "commandDirector"],
+      "scope": { "campaigns": ["ashes-of-peace"], "systems": ["intrepid.emh", "intrepid.transporters", "intrepid.holodeck-power", "intrepid.tactical-defensive"] },
+      "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
+      "retrieval": { "lanes": ["ship_system", "mission_support"], "keywords": ["EMH", "transporters", "holodeck", "shields", "phasers", "torpedoes", "tractor", "replicators", "stores"], "priority": "normal" },
+      "payload": {
+        "summary": "The ship's support systems are strong but bounded: EMH coverage depends on emitters and computer integrity; transporters need locks and biofilters; tactical systems have arcs and inventories; stores and replicators still create logistics.",
+        "constraints": ["Do not use advanced systems to erase every logistical, ethical, power, or quarantine problem."],
+        "narratorSafe": true,
+        "hardAnchors": ["Advanced systems create dependencies and command obligations."],
+        "textures": ["EMH emitter coverage", "transporter biofilter", "holodeck arch", "shield sector", "cargo inventory"]
+      }
+    }
+  ],
+  "indexes": {
+    "byArea": {
+      "intrepid.bridge": ["ship.intrepid.location.bridge"],
+      "intrepid.ready-room": ["ship.intrepid.location.ready-room"],
+      "intrepid.mess-hall": ["ship.intrepid.location.mess-hall"],
+      "intrepid.captains-quarters": [],
+      "intrepid.transporter-rooms": ["ship.intrepid.location.transporter-rooms"],
+      "intrepid.sickbay": ["ship.intrepid.location.sickbay"],
+      "intrepid.holodecks": ["ship.intrepid.location.holodecks-security"],
+      "intrepid.security-suite": ["ship.intrepid.location.holodecks-security"],
+      "intrepid.astrometrics": ["ship.intrepid.location.astrometrics"],
+      "intrepid.crew-quarters": [],
+      "intrepid.main-engineering": ["ship.intrepid.location.main-engineering"],
+      "intrepid.deflector-control": ["ship.intrepid.location.main-engineering"],
+      "intrepid.cargo-bays": ["ship.intrepid.location.cargo-bays"],
+      "intrepid.shuttlebay-complex": ["ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.shuttlebay"],
+      "intrepid.jefferies-tubes": ["ship.intrepid.location.jefferies-lower-decks"],
+      "intrepid.lower-decks": ["ship.intrepid.location.jefferies-lower-decks"]
+    },
+    "bySystem": {
+      "intrepid.bio-neural-gel-packs": ["ship.intrepid.class.identity", "ship.intrepid.location.main-engineering", "ship.intrepid.system.bio-neural"],
+      "intrepid.variable-geometry-nacelles": ["ship.intrepid.class.identity", "ship.intrepid.exterior.silhouette", "ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.shuttlebay", "ship.intrepid.system.variable-nacelles"],
+      "intrepid.emh": ["ship.intrepid.location.sickbay", "ship.intrepid.system.support-suite"],
+      "intrepid.transporters": ["ship.intrepid.location.transporter-rooms", "ship.intrepid.system.support-suite"],
+      "intrepid.holodeck-power": ["ship.intrepid.location.holodecks-security", "ship.intrepid.system.support-suite"],
+      "intrepid.tactical-defensive": ["ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.holodecks-security", "ship.intrepid.location.shuttlebay", "ship.intrepid.system.support-suite"],
+      "intrepid.logistics": ["ship.intrepid.location.cargo-bays"],
+      "intrepid.blue-alert-landing": ["ship.intrepid.system.blue-alert-landing"]
+    },
+    "byType": {
+      "ship.profile": ["ship.intrepid.class.identity"],
+      "ship.exterior": ["ship.intrepid.exterior.silhouette", "ship.intrepid.exterior.shuttle-approach"],
+      "ship.location": ["ship.intrepid.location.bridge", "ship.intrepid.location.ready-room", "ship.intrepid.location.mess-hall", "ship.intrepid.location.transporter-rooms", "ship.intrepid.location.sickbay", "ship.intrepid.location.holodecks-security", "ship.intrepid.location.astrometrics", "ship.intrepid.location.main-engineering", "ship.intrepid.location.cargo-bays", "ship.intrepid.location.shuttlebay", "ship.intrepid.location.jefferies-lower-decks"],
+      "ship.system": ["ship.intrepid.system.bio-neural", "ship.intrepid.system.variable-nacelles", "ship.intrepid.system.blue-alert-landing", "ship.intrepid.system.support-suite"]
+    },
+    "byAudience": {
+      "missionDirector": ["ship.intrepid.class.identity", "ship.intrepid.exterior.silhouette", "ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.bridge", "ship.intrepid.location.ready-room", "ship.intrepid.location.mess-hall", "ship.intrepid.location.transporter-rooms", "ship.intrepid.location.sickbay", "ship.intrepid.location.holodecks-security", "ship.intrepid.location.astrometrics", "ship.intrepid.location.main-engineering", "ship.intrepid.location.cargo-bays", "ship.intrepid.location.shuttlebay", "ship.intrepid.location.jefferies-lower-decks", "ship.intrepid.system.bio-neural", "ship.intrepid.system.variable-nacelles", "ship.intrepid.system.blue-alert-landing", "ship.intrepid.system.support-suite"],
+      "shipDirector": ["ship.intrepid.class.identity", "ship.intrepid.exterior.silhouette", "ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.bridge", "ship.intrepid.location.ready-room", "ship.intrepid.location.mess-hall", "ship.intrepid.location.transporter-rooms", "ship.intrepid.location.sickbay", "ship.intrepid.location.holodecks-security", "ship.intrepid.location.astrometrics", "ship.intrepid.location.main-engineering", "ship.intrepid.location.cargo-bays", "ship.intrepid.location.shuttlebay", "ship.intrepid.location.jefferies-lower-decks", "ship.intrepid.system.bio-neural", "ship.intrepid.system.variable-nacelles", "ship.intrepid.system.blue-alert-landing", "ship.intrepid.system.support-suite"],
+      "commandDirector": ["ship.intrepid.class.identity", "ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.ready-room", "ship.intrepid.location.transporter-rooms", "ship.intrepid.location.sickbay", "ship.intrepid.location.main-engineering", "ship.intrepid.location.cargo-bays", "ship.intrepid.location.shuttlebay", "ship.intrepid.system.bio-neural", "ship.intrepid.system.blue-alert-landing", "ship.intrepid.system.support-suite"],
+      "narrator": ["ship.intrepid.class.identity", "ship.intrepid.exterior.silhouette", "ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.bridge", "ship.intrepid.location.ready-room", "ship.intrepid.location.mess-hall", "ship.intrepid.location.transporter-rooms", "ship.intrepid.location.sickbay", "ship.intrepid.location.holodecks-security", "ship.intrepid.location.astrometrics", "ship.intrepid.location.main-engineering", "ship.intrepid.location.cargo-bays", "ship.intrepid.location.shuttlebay", "ship.intrepid.location.jefferies-lower-decks", "ship.intrepid.system.bio-neural", "ship.intrepid.system.variable-nacelles", "ship.intrepid.system.blue-alert-landing"],
+      "crewDirector": ["ship.intrepid.location.mess-hall", "ship.intrepid.location.sickbay", "ship.intrepid.location.holodecks-security"]
+    },
+    "byRevealGate": {
+      "serviceRecord": ["ship.intrepid.class.identity", "ship.intrepid.exterior.silhouette", "ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.bridge", "ship.intrepid.location.ready-room", "ship.intrepid.location.mess-hall", "ship.intrepid.location.transporter-rooms", "ship.intrepid.location.sickbay", "ship.intrepid.location.holodecks-security", "ship.intrepid.location.astrometrics", "ship.intrepid.location.main-engineering", "ship.intrepid.location.cargo-bays", "ship.intrepid.location.shuttlebay", "ship.intrepid.location.jefferies-lower-decks", "ship.intrepid.system.bio-neural", "ship.intrepid.system.variable-nacelles", "ship.intrepid.system.blue-alert-landing", "ship.intrepid.system.support-suite"]
+    },
+    "byKeyword": {
+      "shuttlebay": ["ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.shuttlebay"],
+      "shuttle": ["ship.intrepid.exterior.shuttle-approach", "ship.intrepid.location.shuttlebay"],
+      "bridge": ["ship.intrepid.location.bridge"],
+      "ready room": ["ship.intrepid.location.ready-room"],
+      "mess hall": ["ship.intrepid.location.mess-hall"],
+      "transporter": ["ship.intrepid.location.transporter-rooms", "ship.intrepid.system.support-suite"],
+      "sickbay": ["ship.intrepid.location.sickbay"],
+      "holodeck": ["ship.intrepid.location.holodecks-security", "ship.intrepid.system.support-suite"],
+      "astrometrics": ["ship.intrepid.location.astrometrics"],
+      "engineering": ["ship.intrepid.location.main-engineering"],
+      "cargo bay": ["ship.intrepid.location.cargo-bays"],
+      "Jefferies": ["ship.intrepid.location.jefferies-lower-decks"],
+      "bio-neural": ["ship.intrepid.system.bio-neural"],
+      "nacelles": ["ship.intrepid.exterior.silhouette", "ship.intrepid.system.variable-nacelles"],
+      "blue alert": ["ship.intrepid.system.blue-alert-landing"],
+      "landing": ["ship.intrepid.system.blue-alert-landing"]
+    }
+  }
+}

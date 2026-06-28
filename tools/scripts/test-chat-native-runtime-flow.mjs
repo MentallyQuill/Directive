@@ -416,6 +416,26 @@ assert.equal(sceneNavigationResult.abortDefaultGeneration, false);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 0);
 
 view = await app.getCurrentView({ tabId: 'mission' });
+const elapsedMinutesBeforeLocationTransition = view.campaignState.worldState?.elapsedMinutes ?? 0;
+const locationTransitionMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-location-transition',
+  text: 'I head to Engineering.'
+});
+const locationTransitionResult = await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: locationTransitionMessage
+});
+assert.equal(locationTransitionResult.decision.classification, 'locationTransition');
+assert.equal(locationTransitionResult.responseStrategy, 'directivePosted');
+assert.equal(locationTransitionResult.abortDefaultGeneration, true);
+assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'locationTransition').length, 1);
+const locationTransitionResponse = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'locationTransition');
+assert.match(locationTransitionResponse.text, /Engineering/i);
+assert.match(locationTransitionResponse.text, /threshold/i);
+view = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(view.campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeLocationTransition + 2);
+
+view = await app.getCurrentView({ tabId: 'mission' });
 const elapsedMinutesBeforeTimedScene = view.campaignState.worldState?.elapsedMinutes ?? 0;
 const timeLedgerEntriesBeforeTimedScene = view.campaignState.timeLedger?.entries?.length || 0;
 const timedSceneMessage = host.chat.pushPlayerMessage({
@@ -466,8 +486,8 @@ if (consequentialResult.responseStrategy === 'pause') {
 }
 
 view = await app.getCurrentView({ tabId: 'mission' });
-assert.equal(view.chatNative.tracking.ingressCount, 5);
-assert.equal(view.chatNative.tracking.responseCount >= 5, true);
+assert.equal(view.chatNative.tracking.ingressCount, 6);
+assert.equal(view.chatNative.tracking.responseCount >= 6, true);
 assert.equal(view.chatNative.tracking.modelCallCount > 0, true);
 assert.equal(view.chatNative.modelCalls.some((entry) => entry.roleId === 'utilityTurnClassifier'), true);
 assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call journal must not store raw player text.');

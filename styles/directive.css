@@ -635,7 +635,8 @@
   flex: 0 0 1.1em;
 }
 
-.directive-mission-component-capture-button {
+.directive-mission-component-capture-button,
+.directive-define-selection-button {
   position: fixed;
   z-index: 100180;
   display: inline-grid;
@@ -653,7 +654,17 @@
   cursor: pointer;
 }
 
-.directive-mission-component-capture-button[hidden] {
+.directive-define-selection-button {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--directive-science, #91a7ff) 38%, transparent), color-mix(in srgb, var(--directive-operations, #ffc766) 18%, transparent)),
+    rgba(5, 7, 11, 0.94);
+  border-color: color-mix(in srgb, var(--directive-science, #91a7ff) 72%, transparent);
+  border-radius: 7px 17px 17px 7px;
+  font-weight: 950;
+}
+
+.directive-mission-component-capture-button[hidden],
+.directive-define-selection-button[hidden] {
   display: none;
 }
 
@@ -662,7 +673,13 @@
   height: 20px;
 }
 
-.directive-mission-component-popover {
+.directive-define-selection-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.directive-mission-component-popover,
+.directive-define-selection-popover {
   position: fixed;
   z-index: 100190;
   width: min(390px, calc(100vw - 24px));
@@ -681,13 +698,27 @@
   box-shadow: 0 18px 52px rgba(0, 0, 0, 0.54);
 }
 
+.directive-define-selection-popover {
+  width: min(420px, calc(100vw - 24px));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-science, #91a7ff) 18%, transparent), transparent 78%),
+    rgba(8, 10, 15, 0.97);
+  border-left-color: color-mix(in srgb, var(--directive-science, #91a7ff) 74%, transparent);
+}
+
 .directive-mission-component-popover h3,
 .directive-mission-component-popover p,
-.directive-mission-component-popover blockquote {
+.directive-mission-component-popover blockquote,
+.directive-define-selection-popover h3,
+.directive-define-selection-popover h4,
+.directive-define-selection-popover p,
+.directive-define-selection-popover blockquote,
+.directive-define-selection-popover ul {
   margin: 0;
 }
 
-.directive-mission-component-popover h3 {
+.directive-mission-component-popover h3,
+.directive-define-selection-popover h3 {
   color: var(--directive-accent, #ff9f4a);
   font-size: 0.9rem;
   font-weight: 900;
@@ -695,8 +726,118 @@
   text-transform: uppercase;
 }
 
+.directive-define-selection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.directive-define-selection-titleblock {
+  display: grid;
+  gap: 3px;
+}
+
+.directive-define-selection-subject {
+  color: var(--directive-text, #f8efe0);
+  font-size: 0.94rem;
+  line-height: 1.15;
+}
+
+.directive-define-selection-close {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--directive-text, #f8efe0);
+  background: rgba(2, 4, 8, 0.58);
+  border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 62%, transparent);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.directive-define-selection-meta,
+.directive-define-selection-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.directive-define-selection-type,
+.directive-define-selection-confidence,
+.directive-define-selection-related span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  color: var(--directive-text, #f8efe0);
+  background: rgba(2, 4, 8, 0.48);
+  border: 1px solid color-mix(in srgb, var(--directive-science, #91a7ff) 50%, transparent);
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.directive-define-selection-section {
+  display: grid;
+  gap: 5px;
+}
+
+.directive-define-selection-section h4 {
+  color: var(--directive-science, #91a7ff);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.directive-define-selection-section p,
+.directive-define-selection-section li,
+.directive-define-selection-source p,
+.directive-define-selection-source small,
+.directive-define-selection-status,
+.directive-define-selection-warning {
+  color: var(--directive-muted, rgba(248, 239, 224, 0.78));
+  font-size: 0.77rem;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.directive-define-selection-section ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 17px;
+}
+
+.directive-define-selection-known-box {
+  padding: 8px;
+  background: rgba(2, 4, 8, 0.38);
+  border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 55%, transparent);
+  border-radius: 6px;
+}
+
+.directive-define-selection-known-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.directive-define-selection-known-row strong {
+  color: var(--directive-text, #f8efe0);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.directive-define-selection-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .directive-mission-component-popover blockquote,
-.directive-mission-component-popover-source p {
+.directive-mission-component-popover-source p,
+.directive-define-selection-popover blockquote,
+.directive-define-selection-source p {
   max-height: 140px;
   overflow: auto;
   margin: 0;

@@ -25,6 +25,18 @@ function cardIdsFromCandidates(candidates = []) {
   return candidates.map((candidate) => candidate.cardId).filter(Boolean);
 }
 
+function narratorCandidateAllowed(candidate = {}, allowedHintIds = new Set()) {
+  if (allowedHintIds.has(candidate.cardId)) return true;
+  const card = candidate.card || {};
+  if (!card.type?.startsWith('ship.')) return false;
+  if (card.payload?.narratorSafe !== true) return false;
+  return (candidate.lanes || []).some((lane) => (
+    String(lane).startsWith('keyword:')
+    || String(lane).startsWith('scope:location:')
+    || String(lane).includes(':required')
+  ));
+}
+
 function buildPacket({ audience, candidates, sceneSnapshot, campaignState, implicatedCardIds = [], maxCards = 12 }) {
   const selected = [];
   const blocked = [];
@@ -84,6 +96,7 @@ export function buildAudienceGateReport({ cards = [], sceneSnapshot = {}, campai
 
 export function runDirectorRetrieval({
   crewDataset = {},
+  shipDataset = {},
   missionGraph = {},
   sceneSnapshot = {},
   campaignState = {},
@@ -92,7 +105,7 @@ export function runDirectorRetrieval({
   outcomeId = null,
   audiences = DIRECTOR_RETRIEVAL_AUDIENCES
 } = {}) {
-  const index = indexDirectorDatasets({ crewDataset, missionGraph });
+  const index = indexDirectorDatasets({ crewDataset, shipDataset, missionGraph });
   const runId = createRetrievalRunId({ turnId, outcomeId, sceneSnapshot, intentParse });
   const narratorHints = narratorHintCardIds({ sceneSnapshot, intentParse });
   const packets = {};
@@ -106,8 +119,14 @@ export function runDirectorRetrieval({
       const allowedHintIds = new Set(narratorHints);
       const hintOrder = new Map(narratorHints.map((cardId, index) => [cardId, index]));
       candidates = candidates
-        .filter((candidate) => allowedHintIds.has(candidate.cardId))
-        .sort((left, right) => hintOrder.get(left.cardId) - hintOrder.get(right.cardId));
+        .filter((candidate) => narratorCandidateAllowed(candidate, allowedHintIds))
+        .sort((left, right) => {
+          const leftHint = hintOrder.has(left.cardId) ? hintOrder.get(left.cardId) : 1000;
+          const rightHint = hintOrder.has(right.cardId) ? hintOrder.get(right.cardId) : 1000;
+          if (leftHint !== rightHint) return leftHint - rightHint;
+          if (right.score !== left.score) return right.score - left.score;
+          return left.cardId.localeCompare(right.cardId);
+        });
     }
     const packet = buildPacket({
       audience,

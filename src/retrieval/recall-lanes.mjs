@@ -2,6 +2,8 @@ import { normalizePhaseId } from './dataset-index.mjs';
 
 const NARRATOR_HINTS_BY_PHASE_AND_INTENT = Object.freeze({
   'shuttle-rendezvous::establish-arrival-tone': [
+    'ship.intrepid.exterior.shuttle-approach',
+    'ship.intrepid.location.shuttlebay',
     'crew.whitaker.profile.commanding-officer',
     'crew.priya.profile.operations-coordinator',
     'crew.bronn.profile.tactical-security'
@@ -74,6 +76,12 @@ function priorityScore(card = {}) {
 }
 
 function typeScore(card = {}, audience) {
+  if (audience === 'shipDirector' && card.type?.startsWith('ship.')) {
+    return 14;
+  }
+  if (audience === 'narrator' && card.type?.startsWith('ship.')) {
+    return 7;
+  }
   if (audience === 'narrator') {
     if (card.type === 'crew.voice') return 10;
     if (card.type === 'crew.profile') return 8;
@@ -85,6 +93,47 @@ function typeScore(card = {}, audience) {
     return 8;
   }
   return 0;
+}
+
+function compact(value = '') {
+  return String(value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function escapeRegex(value = '') {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function textReferencesTerm(text = '', term = '') {
+  const value = compact(term);
+  if (!value || value.length < 3) return false;
+  return new RegExp(`(^|[^a-z0-9])${escapeRegex(value.toLowerCase())}([^a-z0-9]|$)`, 'i')
+    .test(String(text || '').toLowerCase());
+}
+
+function recallHaystack(sceneSnapshot = {}, intentParse = {}) {
+  const values = [
+    sceneSnapshot.playerInput,
+    sceneSnapshot.activePhaseId,
+    sceneSnapshot.locationId,
+    sceneSnapshot.missionId,
+    intentParse.summary,
+    intentParse.primaryIntent,
+    intentParse.declaredMethod,
+    ...(Array.isArray(intentParse.targetIds) ? intentParse.targetIds : []),
+    ...(Array.isArray(sceneSnapshot.relevantLocationIds) ? sceneSnapshot.relevantLocationIds : []),
+    ...(Array.isArray(sceneSnapshot.relevantSystemIds) ? sceneSnapshot.relevantSystemIds : [])
+  ];
+  return values.map(compact).filter(Boolean).join('\n');
+}
+
+function matchingKeywords(card = {}, haystack = '') {
+  const matches = [];
+  for (const keyword of card.retrieval?.keywords || []) {
+    if (textReferencesTerm(haystack, keyword)) {
+      matches.push(keyword);
+    }
+  }
+  return matches;
 }
 
 export function narratorHintCardIds({ sceneSnapshot = {}, intentParse = {} } = {}) {
@@ -102,6 +151,8 @@ export function collectRecallCandidates({ index, sceneSnapshot = {}, intentParse
     ? narratorHintCardIds({ sceneSnapshot, intentParse })
     : [];
   const presentCharacters = new Set(sceneSnapshot.presentCharacters || []);
+  const haystack = recallHaystack(sceneSnapshot, intentParse);
+  const locationId = sceneSnapshot.locationId || null;
   const candidates = new Map();
 
   function add(cardId, lane, score = 0) {
@@ -137,6 +188,14 @@ export function collectRecallCandidates({ index, sceneSnapshot = {}, intentParse
       if (lanes.has(lane)) {
         add(card.id, `lane:${lane}`, 20);
       }
+    }
+    const keywords = matchingKeywords(card, haystack);
+    for (const keyword of keywords) {
+      const score = card.type?.startsWith('ship.') ? 85 : 35;
+      add(card.id, `keyword:${keyword}`, score);
+    }
+    if (locationId && (card.scope?.locations || []).includes(locationId)) {
+      add(card.id, `scope:location:${locationId}`, card.type?.startsWith('ship.') ? 45 : 25);
     }
     if (
       voiceHintAudiences.has(audience)

@@ -41,6 +41,7 @@ export const requiredSchemaFiles = [
   'schemas/packages/character-creation.schema.json',
   'schemas/packages/director-card.schema.json',
   'schemas/packages/crew-dataset.schema.json',
+  'schemas/packages/ship-dataset.schema.json',
   'schemas/world/world.schema.json',
   'schemas/story/story-arcs.schema.json',
   'schemas/endings/end-conditions.schema.json',

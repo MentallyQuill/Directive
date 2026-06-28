@@ -5,6 +5,8 @@ import {
   registerRuntimeAction
 } from '../../src/runtime/runtime-actions.js';
 import {
+  DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS,
+  DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS,
   DIRECTIVE_MISSION_COMPONENT_CAPTURE_BUTTON_CLASS,
   __missionComponentsCaptureTestHooks,
   installMissionComponentsCapture
@@ -248,6 +250,14 @@ function findByClass(element, className) {
   return null;
 }
 
+function collectText(element) {
+  if (!element) return '';
+  return [
+    element.textContent,
+    ...(element.children || []).map((child) => collectText(child))
+  ].filter(Boolean).join(' ');
+}
+
 function createMessage(document, { mesid, text } = {}) {
   const message = document.createElement('div');
   message.className = 'mes';
@@ -310,6 +320,7 @@ function setSelection({ anchorNode, focusNode, text }) {
 }
 
 const calls = [];
+const defineCalls = [];
 registerRuntimeAction('missionComponents.captureSelection', async (payload) => {
   calls.push(payload);
   return {
@@ -333,6 +344,39 @@ registerRuntimeAction('missionComponents.captureSelection', async (payload) => {
     }
   };
 });
+registerRuntimeAction('defineSelection.lookup', async (payload) => {
+  defineCalls.push(payload);
+  return {
+    ok: true,
+    selectedText: payload.selection.selectedText,
+    definition: {
+      subject: 'Coolant seal, port nacelle',
+      primaryType: 'shipSystemTechnicalTerm',
+      primaryTypeLabel: 'Ship System / Technical Term',
+      confidence: 'high',
+      shortAnswer: 'The selected seal is a ship system detail tied to the port nacelle repair.',
+      sections: [
+        {
+          id: 'operationalMeaning',
+          title: 'Operational Meaning',
+          items: ['It affects whether junction 7-C can be certified before departure.']
+        }
+      ],
+      known: ['The selection appears in message 15.'],
+      inferred: ['Engineering likely needs to finish or certify the repair.'],
+      unknown: ['Define cannot infer hidden sabotage or private intent.'],
+      related: {
+        shipSystemIds: ['ship.coolant'],
+        componentIds: ['component.coolant-seal']
+      },
+      warnings: ['Hidden state is excluded.'],
+      sourceInfo: {
+        hostMessageId: payload.selection.hostMessageId,
+        messageRole: payload.selection.message?.role || 'assistant'
+      }
+    }
+  };
+});
 
 assert.equal(installMissionComponentsCapture(), true);
 setSelection({
@@ -348,6 +392,34 @@ assert.equal(button.hidden, false);
 assert.equal(button.title, 'Add Component to Mission');
 assert.equal(button.parentNode?.id, DIRECTIVE_OVERLAY_ROOT_ID);
 assert.equal(button.children[0].dataset.glyph, 'route-ship');
+
+const defineButton = findByClass(fakeDocument.body, DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS);
+assert(defineButton, 'Selecting text inside one campaign message should show the Define Selection button');
+assert.equal(defineButton.hidden, false);
+assert.equal(defineButton.title, 'Define Selection');
+assert.equal(defineButton.parentNode?.id, DIRECTIVE_OVERLAY_ROOT_ID);
+assert.equal(defineButton.children[0].textContent, '?');
+
+await defineButton.click();
+assert.equal(defineCalls.length, 1);
+assert.equal(defineCalls[0].selection.selectedText, 'Coolant seal, port nacelle, junction 7-C.');
+assert.equal(defineCalls[0].selection.hostMessageId, '15');
+assert.equal(defineCalls[0].selection.message.text, 'Coolant seal, port nacelle, junction 7-C. Installation pending.');
+const definePopover = findByClass(fakeDocument.body, DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS);
+assert(definePopover, 'Define Selection should render a dedicated pop-up panel');
+const definePopoverText = collectText(definePopover);
+assert.match(definePopoverText, /Define/);
+assert.match(definePopoverText, /Coolant seal, port nacelle/);
+assert.match(definePopoverText, /Ship System \/ Technical Term/);
+assert.match(definePopoverText, /At A Glance/);
+assert.match(definePopoverText, /Known \/ Inferred \/ Unknown/);
+assert.match(definePopoverText, /Close/);
+assert.equal(definePopoverText.includes('Save Component'), false, 'Define must remain read-only');
+assert.equal(definePopoverText.includes('Add Component to Mission'), false, 'Define panel must not mix in the Add Component workflow');
+
+__missionComponentsCaptureTestHooks.updateSelectionAffordance();
+assert.equal(button.hidden, false);
+assert.equal(defineButton.hidden, false);
 
 await button.click();
 assert.equal(calls.length, 1);
@@ -371,6 +443,7 @@ setSelection({
 });
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, false, 'Player-authored campaign selections should expose a capture button');
+assert.equal(defineButton.hidden, false, 'Player-authored campaign selections should expose a Define button');
 await button.click();
 assert.equal(calls.length, 2);
 assert.equal(calls[1].selection.hostMessageId, '17');
@@ -384,6 +457,7 @@ setSelection({
 });
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, true, 'Cross-message selections should not expose a capture button');
+assert.equal(defineButton.hidden, true, 'Cross-message selections should not expose a Define button');
 
 first.message.dataset.directiveReconciliationMarker = 'single';
 setSelection({
@@ -393,6 +467,7 @@ setSelection({
 });
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, true, 'Reconciliation-marked messages should not expose a capture button');
+assert.equal(defineButton.hidden, true, 'Reconciliation-marked messages should not expose a Define button');
 delete first.message.dataset.directiveReconciliationMarker;
 
 globalThis.SillyTavern = {
@@ -405,6 +480,7 @@ setSelection({
 });
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, true, 'Ambiguous current chat state should not expose a capture button');
+assert.equal(defineButton.hidden, true, 'Ambiguous current chat state should not expose a Define button');
 
 __missionComponentsCaptureTestHooks.reset();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

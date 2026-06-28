@@ -280,10 +280,38 @@ function playerSafeTravelContinuity(value) {
   return Object.values(projected).some(Boolean) ? projected : null;
 }
 
+const PLAYER_SAFE_SHIP_LAYOUT_ANCHORS = new Set([
+  'intrepid.bridge',
+  'intrepid.ready-room',
+  'intrepid.mess-hall',
+  'intrepid.transporter-rooms',
+  'intrepid.sickbay',
+  'intrepid.main-engineering',
+  'intrepid.shuttlebay-complex'
+]);
+
+function playerSafeShipLayoutAnchors(shipDataset = null) {
+  if (!shipDataset || typeof shipDataset !== 'object') return [];
+  return array(shipDataset.areas)
+    .filter((area) => PLAYER_SAFE_SHIP_LAYOUT_ANCHORS.has(area?.id))
+    .map((area) => ({
+      id: area.id,
+      name: compact(area.name || area.id),
+      decks: cloneJson(array(area.decks)),
+      zone: compact(area.zone) || null,
+      exteriorPlacement: compact(area.exteriorPlacement) || null,
+      hardFacts: array(area.hardFacts).map(compact).filter(Boolean).slice(0, 3),
+      textures: array(area.textures).map(compact).filter(Boolean).slice(0, 4),
+      constraints: array(area.constraints).map(compact).filter(Boolean).slice(0, 3),
+      keywords: array(area.keywords).map(compact).filter(Boolean).slice(0, 10)
+    }));
+}
+
 export function createPlayerSafeCampaignProjection({
   campaignState,
   packageData = null,
   crewDataset = null,
+  shipDataset = null,
   scene = null
 } = {}) {
   if (!campaignState || typeof campaignState !== 'object') return null;
@@ -346,6 +374,7 @@ export function createPlayerSafeCampaignProjection({
         ...(packageData?.ship?.travelContinuity || {}),
         ...(campaignState.ship?.travelContinuity || {})
       }),
+      layoutAnchors: playerSafeShipLayoutAnchors(shipDataset),
       damage: visibleStateRecords(campaignState.ship?.damage || []),
       technicalDebt: visibleStateRecords(campaignState.ship?.technicalDebt || [], {
         includeSeverity: false
@@ -385,6 +414,7 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     campaignState,
     packageData = null,
     crewDataset = null,
+    shipDataset = null,
     campaignProjection = null,
     scene = null,
     relevantCrewIds = [],
@@ -406,6 +436,7 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     scene: scene || {},
     recentMessageSummary,
     createdAt,
@@ -415,6 +446,7 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     scene: scene || {},
     playerText,
@@ -478,6 +510,7 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
     campaignState,
     packageData = null,
     crewDataset = null,
+    shipDataset = null,
     campaignProjection = null,
     scene = null,
     playerText = '',
@@ -493,6 +526,7 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     scene: scene || {},
     playerText,
@@ -504,6 +538,7 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
     campaignState,
     packageData,
     crewDataset,
+    shipDataset,
     campaignProjection,
     audience: CONTINUITY_VISIBILITY.narratorSafe
   });

@@ -14,6 +14,7 @@ function readJson(filePath) {
 
 const graph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const simulationFixture = readJson('tests/fixtures/simulation/combined-load-hazard-modes.fixture.json');
 const finalReviewTurn = readJson('tests/fixtures/mission/prelude-final-review-turn.turn.fixture.json');
 const seniorBriefingFixture = readJson('tests/fixtures/retrieval/prelude-senior-staff-briefing.fixture.json');
@@ -22,6 +23,7 @@ const readyRoomFixture = readJson('tests/fixtures/retrieval/prelude-whitaker-rea
 function retrievalFor({ sceneSnapshot, primaryIntent, turnId, outcomeId, campaignState = {} }) {
   return runDirectorRetrieval({
     crewDataset,
+    shipDataset,
     missionGraph: graph,
     sceneSnapshot,
     campaignState,
@@ -54,7 +56,8 @@ const explorationModeRun = retrievalFor({
 
 assert.deepEqual(commandModeRun.packets.narrator.cardIds, [
   'crew.imani.voice.technical-debt',
-  'crew.priya.voice.dependencies-access'
+  'crew.priya.voice.dependencies-access',
+  'ship.intrepid.location.bridge'
 ]);
 assert.equal(commandModeRun.packets.narrator.hydratedCards.some((card) => card.guidance?.stateRefs || card.guidance?.effects), false);
 assert.equal(
@@ -72,7 +75,7 @@ assert.equal(
 assert.deepEqual(explorationModeRun.packets.narrator.cardIds, commandModeRun.packets.narrator.cardIds);
 assert.equal(commandModeRun.journal.outcomeId, 'outcome.retrieval.combined-load.command');
 assert.equal(commandModeRun.journal.providerStatus, 'not-used');
-assert.equal(commandModeRun.journal.selectedCountsByAudience.narrator, 2);
+assert.equal(commandModeRun.journal.selectedCountsByAudience.narrator, 3);
 assert.equal(commandModeRun.journal.phaseId, 'combined-load-test');
 
 const finalReviewRun = retrievalFor({
@@ -83,7 +86,8 @@ const finalReviewRun = retrievalFor({
 });
 assert.deepEqual(finalReviewRun.packets.narrator.cardIds, [
   'crew.whitaker.voice.command-pressure',
-  'crew.priya.voice.dependencies-access'
+  'crew.priya.voice.dependencies-access',
+  'ship.intrepid.location.main-engineering'
 ]);
 assert.equal(finalReviewTurn.sceneSnapshot.presentCharacters.includes('priya-nayar'), false);
 
@@ -109,6 +113,30 @@ assert.equal(readyRoomRun.journal.phaseId, 'ready-room-handover');
 assert.equal(readyRoomRun.packets.crewDirector.cardIds.includes('crew.whitaker.voice.command-pressure'), true);
 assert.equal(readyRoomRun.packets.crewDirector.cardIds.includes('crew.whitaker.profile.commanding-officer'), true);
 assert.equal(readyRoomRun.packets.crewDirector.cardIds.includes('crew.whitaker.relationship.new-xo-evaluation'), true);
+
+const shuttleRun = retrievalFor({
+  sceneSnapshot: {
+    ...finalReviewTurn.sceneSnapshot,
+    activePhaseId: 'shuttle-rendezvous',
+    phaseId: 'shuttle-rendezvous',
+    locationId: 'intrepid.shuttlebay-complex',
+    playerInput: 'The shuttle lines up for shuttlebay docking from astern.',
+    audiences: ['missionDirector', 'shipDirector', 'narrator']
+  },
+  primaryIntent: 'establish-arrival-tone',
+  turnId: 'turn.retrieval.shuttle-rendezvous',
+  outcomeId: 'outcome.retrieval.shuttle-rendezvous'
+});
+assert.deepEqual(shuttleRun.packets.narrator.cardIds.slice(0, 2), [
+  'ship.intrepid.exterior.shuttle-approach',
+  'ship.intrepid.location.shuttlebay'
+]);
+assert.equal(shuttleRun.packets.shipDirector.cardIds.includes('ship.intrepid.exterior.shuttle-approach'), true);
+assert.equal(shuttleRun.packets.shipDirector.cardIds.includes('ship.intrepid.location.shuttlebay'), true);
+const hydratedShuttlebay = shuttleRun.packets.narrator.hydratedCards.find((card) => card.id === 'ship.intrepid.location.shuttlebay');
+assert(hydratedShuttlebay, 'Narrator packet should hydrate the shuttlebay card.');
+assert.match(JSON.stringify(hydratedShuttlebay.guidance), /Deck 10 aft dorsal secondary hull/i);
+assert.match(JSON.stringify(hydratedShuttlebay.guidance), /saucer-underside|belly shuttlebay|primary-hull mouth/i);
 
 const seniorBriefingReport = buildAudienceGateReport({
   cards: crewDataset.cards,

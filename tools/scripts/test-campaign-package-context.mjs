@@ -286,7 +286,8 @@ requireEqual(ids(summary.seniorCrewPreview), [
 requireIncludes(ids(summary.seniorCrewPreview), 'mara-whitaker', 'summary seniorCrewPreview captain');
 requireEqual(summary.seniorCrewPreview.find((crew) => crew.id === 'mara-whitaker')?.billet, 'Commanding Officer', 'summary seniorCrewPreview captain billet');
 requireEqual(summary.seniorCrewPreview.find((crew) => crew.id === 'miriam-sato')?.rank, 'Commander', 'summary seniorCrewPreview Miriam rank');
-requireEqual(summary.datasetCount, 4, 'summary datasetCount');
+requireEqual(summary.datasetCount, 5, 'summary datasetCount');
+requireIncludes(ids(packageData.assets.datasets), 'breckenridge.intrepid-class', 'package datasets Intrepid-class ship dataset');
 requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy', 'package datasets Chapter 1 graph');
 requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');
 

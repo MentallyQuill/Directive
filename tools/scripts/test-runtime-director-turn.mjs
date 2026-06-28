@@ -45,6 +45,7 @@ function createSequence(values) {
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
@@ -60,6 +61,10 @@ const app = createDirectiveRuntimeApp({
     crewDatasets: [{
       path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
+    }],
+    shipDatasets: [{
+      path: 'packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json',
+      dataset: shipDataset
     }],
     missionGraphs: [{
       path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',

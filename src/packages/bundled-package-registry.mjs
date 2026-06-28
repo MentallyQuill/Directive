@@ -12,6 +12,7 @@ function createBundledCampaignPackageRef({
   packagePath,
   projectionPath,
   crewDatasetPath,
+  shipDatasetPath = null,
   missionGraphPaths
 }) {
   const graphPaths = Object.freeze([...missionGraphPaths]);
@@ -35,6 +36,8 @@ function createBundledCampaignPackageRef({
     projectionUrl: packageAssetUrl(projectionPath),
     crewDatasetPath,
     crewDatasetUrl: packageAssetUrl(crewDatasetPath),
+    shipDatasetPath,
+    shipDatasetUrl: shipDatasetPath ? packageAssetUrl(shipDatasetPath) : null,
     missionGraphPath: graphPaths[0] || '',
     missionGraphUrl: graphPaths[0] ? packageAssetUrl(graphPaths[0]) : null,
     missionGraphPaths: graphPaths,
@@ -53,6 +56,7 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
     packagePath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
     projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     crewDatasetPath: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
+    shipDatasetPath: 'packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json',
     missionGraphPaths: [
       'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
@@ -165,6 +169,12 @@ export function bundledCampaignProjectionPairs() {
 
 export function bundledCrewDatasetPairs() {
   return BUNDLED_CAMPAIGN_PACKAGE_REFS.map((ref) => [ref.packagePath, ref.crewDatasetPath]);
+}
+
+export function bundledShipDatasetPairs() {
+  return BUNDLED_CAMPAIGN_PACKAGE_REFS
+    .filter((ref) => ref.shipDatasetPath)
+    .map((ref) => [ref.packagePath, ref.shipDatasetPath]);
 }
 
 export function bundledMissionGraphTriples() {

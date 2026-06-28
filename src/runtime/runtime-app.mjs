@@ -32,6 +32,7 @@ import {
   prepareMissionComponentSelection,
   updateMissionComponent as updateMissionComponentRecord
 } from './mission-components.mjs';
+import { prepareDefineSelection } from './define-selection.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
 import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
@@ -1042,6 +1043,7 @@ export function createDirectiveRuntimeApp({
       packages: merged.packages,
       projections: projectionRecords,
       crewDatasets: merged.crewDatasets,
+      shipDatasets: merged.shipDatasets,
       missionGraphs: merged.missionGraphs
     });
     controller = createCampaignStartController({
@@ -2356,6 +2358,7 @@ export function createDirectiveRuntimeApp({
       campaignState: state,
       packageData: assets?.packageData || null,
       crewDataset: assets?.crewDataset || null,
+      shipDataset: assets?.shipDataset || null,
       campaignProjection: assets?.projection || null,
       scene: frame.scene || null,
       playerText: frame.playerText || '',
@@ -2577,6 +2580,7 @@ export function createDirectiveRuntimeApp({
       const result = await activationCoordinator.rewriteIntro({
         campaignState: sourceCampaignState || campaignState,
         packageData: assets.packageData,
+        shipDataset: assets.shipDataset,
         saveId: controller.activeSaveId,
         hostMessageId,
         reason,
@@ -2604,6 +2608,8 @@ export function createDirectiveRuntimeApp({
       setCampaignState,
       persistCampaignState,
       getPackageData: () => activeRuntimeAssets().packageData,
+      getCrewDataset: () => activeRuntimeAssets().crewDataset,
+      getShipDataset: () => activeRuntimeAssets().shipDataset,
       syncPromptContext: async (state, promptFrame = null) => {
         const result = await synchronizeActivePrompt(state, {
           persist: false,
@@ -3008,6 +3014,68 @@ export function createDirectiveRuntimeApp({
           ...cloneJson(prepared),
           ok: true,
           campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async defineSelectionLookup(payload = {}) {
+      return run(async () => {
+        const selection = payload.selection || payload;
+        const context = await ensureMissionComponentCaptureContext(selection);
+        if (!context.ok) {
+          return {
+            ok: false,
+            reason: context.reason,
+            summary: context.summary,
+            guard: cloneJson(context.guard || null),
+            view: viewEnvelope('mission')
+          };
+        }
+        const sourceMessage = await sourceMessageForMissionComponent(selection);
+        if (!sourceMessage.ok) {
+          return {
+            ok: false,
+            reason: sourceMessage.reason,
+            summary: sourceMessage.summary,
+            view: viewEnvelope('mission')
+          };
+        }
+        const assets = optionalActiveRuntimeAssets();
+        const recentMessages = typeof runtimeHost?.chat?.getRecentMessages === 'function'
+          ? await runtimeHost.chat.getRecentMessages({ limit: 80, playerSafeOnly: true })
+          : [];
+        const sourceMessageId = compactString(sourceMessage.message?.hostMessageId || sourceMessage.message?.id);
+        const hasSourceMessage = recentMessages.some((message) => compactString(message?.hostMessageId || message?.id) === sourceMessageId);
+        const contextMessages = hasSourceMessage
+          ? recentMessages
+          : [...recentMessages, sourceMessage.message].filter(Boolean);
+        const playerSafeProjection = createPlayerSafeCampaignProjection({
+          campaignState,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          scene: campaignState?.attentionState?.scene || null
+        });
+        const prepared = await prepareDefineSelection({
+          selection: {
+            ...cloneJson(selection),
+            chatId: context.chatId || selection.chatId || null,
+            message: sourceMessage.message
+          },
+          campaignState,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          shipDataset: assets?.shipDataset || null,
+          playerSafeProjection,
+          recentMessages: contextMessages,
+          currentSceneMessages: recentMessages.slice(-12),
+          scene: campaignState?.attentionState?.scene || null,
+          generationRouter: payload.useProvider === false ? null : defaultGenerationRouter,
+          useProvider: payload.useProvider !== false
+        });
+        return {
+          ...cloneJson(prepared),
+          ok: true,
           view: viewEnvelope('mission')
         };
       });
@@ -3536,6 +3604,7 @@ export function createDirectiveRuntimeApp({
           campaignState,
           packageData: assets.packageData,
           crewDataset: assets.crewDataset,
+          shipDataset: assets.shipDataset,
           campaignProjection: assets.projection,
           saveId: controller.activeSaveId,
           existingChatId,
@@ -3569,6 +3638,7 @@ export function createDirectiveRuntimeApp({
         const result = await services.activationCoordinator.rewriteIntro({
           campaignState,
           packageData: assets.packageData,
+          shipDataset: assets.shipDataset,
           saveId: controller.activeSaveId,
           hostMessageId,
           reason: compactString(payload.reason) || 'player-intro-reroll'
@@ -4427,6 +4497,7 @@ export function createDirectiveRuntimeApp({
             campaignState,
             packageData: assets.packageData,
             crewDataset: assets.crewDataset,
+            shipDataset: assets.shipDataset,
             campaignProjection: assets.projection,
             saveId: controller.activeSaveId,
             createNewChat: true
@@ -4827,6 +4898,7 @@ export function createDirectiveRuntimeApp({
           graph: graphRecord.graph,
           projection: assets.projection,
           crewDataset: assets.crewDataset,
+          shipDataset: assets.shipDataset,
           graphPath: graphRecord.path || campaignState.mission?.activeMissionGraphPath,
           projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn'),
@@ -4871,6 +4943,7 @@ export function createDirectiveRuntimeApp({
           graph: graphRecord.graph,
           projection: assets.projection,
           crewDataset: assets.crewDataset,
+          shipDataset: assets.shipDataset,
           graphPath: graphRecord.path || campaignState.mission?.activeMissionGraphPath,
           projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn'),
@@ -5021,6 +5094,7 @@ export function createDirectiveRuntimeApp({
           graph: graphRecord.graph,
           projection: assets.projection,
           crewDataset: assets.crewDataset,
+          shipDataset: assets.shipDataset,
           graphPath: graphRecord.path || snapshotBefore.mission?.activeMissionGraphPath,
           projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn-rerun'),

@@ -81,6 +81,8 @@ const RETRYABLE_INGRESS_STATUSES = new Set([
   'classified'
 ]);
 
+const INGRESS_ALIAS_DEDUPE_WINDOW_MS = 2 * 60 * 1000;
+
 const NO_OUTCOME_RECOVERY_TYPES = new Set([
   'playerMessageDeleted',
   'playerMessageEdited',
@@ -249,6 +251,59 @@ function localOutcomeNarration(result) {
 
 function localRoutineNarration() {
   return 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.';
+}
+
+const LOCATION_TRANSITION_DEFAULT_MINUTES = 2;
+
+const GUIDE_ACTOR_LABELS = Object.freeze({
+  'hadrik-bronn': 'Bronn',
+  'mara-whitaker': 'Whitaker',
+  'imani-cross': 'Cross',
+  'miriam-sato': 'Sato',
+  'rowan-saye': 'Saye',
+  'priya-nayar': 'Nayar',
+  'kieran-vale': 'Vale'
+});
+
+function readableLocationLabel(value = '') {
+  const compacted = compact(value);
+  if (!compacted) return '';
+  return compacted
+    .replace(/^intrepid[.-]/i, '')
+    .replace(/^breckenridge[.-]/i, '')
+    .replace(/[-_.]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function readableOriginLocationLabel(value = '') {
+  const label = readableLocationLabel(value);
+  if (/^In Transit$/i.test(label)) return 'The previous stretch of corridor';
+  return label;
+}
+
+function localLocationTransitionNarration(campaignState = {}, decision = {}) {
+  const boundary = decision.sceneBoundary || {};
+  const destination = compact(boundary.destinationLabel || readableLocationLabel(boundary.destinationId));
+  const guide = compact(GUIDE_ACTOR_LABELS[boundary.guideActorId] || '');
+  const target = destination || 'the next part of the ship';
+  const origin = compact(
+    campaignState.worldState?.currentLocationLabel
+    || campaignState.worldState?.currentLocationName
+    || readableOriginLocationLabel(campaignState.worldState?.currentLocationId)
+  );
+  const lead = guide
+    ? `${guide} gives a short nod and starts toward ${target}.`
+    : `The move toward ${target} begins without skipping the walk itself.`;
+  const departure = origin
+    ? `${origin} falls behind by ordinary increments: deck noise, corridor turns, and the pause of shipboard movement.`
+    : 'The previous room falls behind by ordinary increments: deck noise, corridor turns, and the pause of shipboard movement.';
+  const arrival = destination
+    ? `When ${destination} comes into view, the moment holds at the threshold rather than rushing through the visit.`
+    : 'Before the next room can become a finished visit, the moment holds in the passage.';
+  const handoff = guide
+    ? `${guide} glances back, leaving you the first read of the place and the first word.`
+    : 'The nearest officer waits, leaving you the first read of the place and the first word.';
+  return `${lead} ${departure} ${arrival} ${handoff}`;
 }
 
 const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
@@ -554,6 +609,8 @@ export function createChatTurnOrchestrator({
   persistCampaignState,
   syncPromptContext,
   getPackageData = null,
+  getCrewDataset = null,
+  getShipDataset = null,
   previewDirectorTurn,
   commitProvisionalDirectorTurn,
   postTerminalOutcomeCheckpoint = null,
@@ -824,6 +881,84 @@ export function createChatTurnOrchestrator({
     return committed;
   }
 
+  async function commitDefaultLocationTransitionBoundary(state, {
+    ingressId = null,
+    playerMessage = null,
+    outcomeText = ''
+  } = {}, activityReporter = null) {
+    const packageData = packageDataForTimeBoundary();
+    if (!state || !packageData?.world || !stateDeltaGateway?.commit) return state;
+    const currentPlayerHostMessageId = playerMessage?.hostMessageId || playerMessage?.id || null;
+    const existingBoundary = findTimeBoundaryForPlayerMessage(state, currentPlayerHostMessageId);
+    if (existingBoundary) {
+      reportActivity(activityReporter, {
+        phase: 'timeBoundaryAlreadyCommitted',
+        mode: 'blocking',
+        source: 'locationTransition',
+        ingressId,
+        currentPlayerHostMessageId,
+        existingSource: existingBoundary.sourceAnchorRange?.kind || null,
+        elapsedMinutes: existingBoundary.elapsedMinutes || 0
+      });
+      return state;
+    }
+    const sourceAnchorRange = {
+      kind: 'locationTransition',
+      ingressId,
+      currentPlayerHostMessageId,
+      rangeHash: fnv1a([
+        'locationTransition',
+        ingressId,
+        currentPlayerHostMessageId || '',
+        playerMessage?.text || '',
+        outcomeText || ''
+      ].join('\n'))
+    };
+    reportActivity(activityReporter, {
+      phase: 'committingTimeBoundary',
+      mode: 'blocking',
+      source: 'locationTransition',
+      ingressId,
+      elapsedMinutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
+      reason: 'Physical location transition consumes scene time.'
+    });
+    const boundary = timeAdvanceBoundary({
+      state,
+      packageData,
+      minutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
+      reason: 'physical-location-transition',
+      sourceAnchorRange,
+      adjudication: {
+        elapsedMinutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
+        reason: 'Physical location transition consumes scene time.',
+        runtimePath: 'locationTransition',
+        defaulted: true
+      },
+      now
+    });
+    const committed = await stateDeltaGateway.commit(boundary.state, {
+      id: `locationTransition:${ingressId || currentPlayerHostMessageId || 'turn'}:time`,
+      source: 'locationTransitionPacing',
+      reason: 'Recorded default scene time for a physical location transition.',
+      summary: `Advanced campaign time by ${LOCATION_TRANSITION_DEFAULT_MINUTES} minutes for location transition pacing.`,
+      domains: TIME_BOUNDARY_DOMAINS,
+      ingressId,
+      sourceAnchorRange,
+      stable: true,
+      metadata: {
+        timeAdvance: {
+          elapsedMinutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
+          reason: 'Physical location transition consumes scene time.',
+          runtimePath: 'locationTransition',
+          defaulted: true
+        },
+        boundaryEventId: boundary.event?.id || null
+      }
+    });
+    setCampaignState(committed);
+    return committed;
+  }
+
   function reportActivity(activityReporter, event = {}) {
     const reporter = typeof activityReporter === 'function' ? activityReporter : reportTurnActivity;
     if (typeof reporter !== 'function') return;
@@ -855,12 +990,36 @@ export function createChatTurnOrchestrator({
     return `ingress:${state.campaign?.id}:${chatId}:${messageId}:${fnv1a(message.text)}`;
   }
 
+  function ingressTextKeyFor(state, message, chatId) {
+    return `ingress-text:${state.campaign?.id}:${chatId}:${fnv1a(message?.text || '')}`;
+  }
+
   function findIngress(state, ingressId) {
     return (state.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
   }
 
   function messageHostMessageId(message = {}) {
     return compact(message.hostMessageId || message.id || String(message.index ?? ''));
+  }
+
+  function ingressAliasRecentlyObserved(entry = {}, nowIso = '') {
+    const receivedAt = Date.parse(entry.receivedAt || '');
+    const current = Date.parse(nowIso || '');
+    if (!Number.isFinite(receivedAt) || !Number.isFinite(current)) return true;
+    return Math.abs(current - receivedAt) <= INGRESS_ALIAS_DEDUPE_WINDOW_MS;
+  }
+
+  function findIngressAlias(state, message = {}, chatId = '', nowIso = '') {
+    const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
+    const expectedHostMessageId = messageHostMessageId(message);
+    const expectedTextHash = fnv1a(message?.text || '');
+    if (!expectedTextHash) return null;
+    return [...(tracking.ingressLedger || [])].reverse().find((entry) => {
+      if (!entry || entry.chatId !== chatId || entry.textHash !== expectedTextHash) return false;
+      if (entry.hostMessageId && expectedHostMessageId && entry.hostMessageId === expectedHostMessageId) return true;
+      if (!ingressAliasRecentlyObserved(entry, nowIso)) return false;
+      return !entry.hostMessageId || !expectedHostMessageId;
+    }) || null;
   }
 
   function staleIngressResult(state, ingressId, message, stage) {
@@ -1381,6 +1540,8 @@ export function createChatTurnOrchestrator({
         responseKind,
         campaignId: state.campaign?.id,
         packageData: typeof getPackageData === 'function' ? getPackageData() : null,
+        crewDataset: typeof getCrewDataset === 'function' ? getCrewDataset() : null,
+        shipDataset: typeof getShipDataset === 'function' ? getShipDataset() : null,
         metadata: {
           classification: decision.classification,
           workerPlan: cloneJson(decision.workerPlan || {})
@@ -1556,6 +1717,72 @@ export function createChatTurnOrchestrator({
     };
   }
 
+  async function handleLocationTransition(state, ingressId, decision, message, activityReporter = null) {
+    let next = state;
+    const text = localLocationTransitionNarration(next, decision);
+    reportActivity(activityReporter, {
+      phase: 'locationTransition',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
+    const staleBeforeTime = currentSourceStaleResult(ingressId, message, 'before-location-transition-time-boundary', next);
+    if (staleBeforeTime) return staleBeforeTime;
+    next = await commitDefaultLocationTransitionBoundary(next, {
+      ingressId,
+      playerMessage: message,
+      outcomeText: text
+    }, activityReporter);
+    if (decision.workerPlan?.promptUpdate) {
+      reportActivity(activityReporter, {
+        phase: 'syncingPrompt',
+        mode: 'blocking',
+        classification: decision.classification,
+        ingressId,
+        timeChanged: true
+      });
+      next = await syncPrompt(next, 'Prompt context synchronized for location transition pacing.', promptFrameForMessage(next, message, decision));
+    }
+    const stale = currentSourceStaleResult(ingressId, message, 'before-location-transition-dispatch', next);
+    if (stale) return stale;
+    const dispatched = await dispatchAndRecord({
+      state: next,
+      ingressId,
+      decision,
+      strategy: 'directivePosted',
+      text,
+      responseKind: 'locationTransition',
+      activityReporter
+    });
+    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision, {
+      responseStrategy: 'directivePosted',
+      abortDefaultGeneration: true
+    });
+    if (recoveryResult) return recoveryResult;
+    next = await updateIngressState(dispatched.state, ingressId, {
+      status: 'committed',
+      classification: cloneJson(decision),
+      workerPlan: cloneJson(decision.workerPlan),
+      responseStrategy: 'directivePosted',
+      responseMessageId: dispatched.result.response?.hostMessageId || dispatched.result.posted?.hostMessageId || null,
+      completedAt: timestamp(now)
+    }, `Location transition ${ingressId} paced and posted.`);
+    scheduleTurnSidecars(decision, {
+      ingressId,
+      classification: decision.classification,
+      playerText: message.text,
+      responseText: text,
+      sceneBoundary: cloneJson(decision.sceneBoundary || null)
+    }, activityReporter);
+    return {
+      handled: true,
+      responseStrategy: 'directivePosted',
+      abortDefaultGeneration: true,
+      decision,
+      campaignState: cloneJson(next)
+    };
+  }
+
   async function handleRoutine(state, ingressId, decision, message, activityReporter = null) {
     reportActivity(activityReporter, {
       phase: 'routine',
@@ -1671,6 +1898,9 @@ export function createChatTurnOrchestrator({
     }
     if (['sceneColor', 'sceneNavigation', 'noDirectiveAction'].includes(decision.classification)) {
       return handleNoChange(state, ingressId, decision, message, activityReporter);
+    }
+    if (decision.classification === 'locationTransition') {
+      return handleLocationTransition(state, ingressId, decision, message, activityReporter);
     }
     if (decision.classification === 'routineCommand') {
       return handleRoutine(state, ingressId, decision, message, activityReporter);
@@ -2499,8 +2729,24 @@ export function createChatTurnOrchestrator({
         reason: 'inactive-unbound-or-owned'
       };
     }
-    const ingressId = ingressIdFor(state, message, chatId);
-    const existing = findIngress(state, ingressId);
+    let ingressId = ingressIdFor(state, message, chatId);
+    let existing = findIngress(state, ingressId);
+    if (!existing) {
+      const alias = findIngressAlias(state, message, chatId, timestamp(now));
+      if (alias) {
+        ingressId = alias.id;
+        existing = alias;
+      }
+    }
+    const hostMessageId = messageHostMessageId(message);
+    if (existing && hostMessageId && !existing.hostMessageId) {
+      state = await updateIngressState(state, existing.id, {
+        hostMessageId,
+        canonicalizedAt: timestamp(now),
+        canonicalizationReason: 'matched-host-message-id-after-idless-observation'
+      }, `Canonicalized campaign-chat player message ${hostMessageId}.`);
+      existing = findIngress(state, existing.id);
+    }
     if (existing && !isRetryableIngressStatus(existing.status)) {
       return {
         handled: true,
@@ -2612,11 +2858,37 @@ export function createChatTurnOrchestrator({
       });
     }
     const key = ingressIdFor(state, message, chatId);
+    const textKey = ingressTextKeyFor(state, message, chatId);
     const activityReporter = typeof payload.turnActivityReporter === 'function' ? payload.turnActivityReporter : null;
     if (inFlight.has(key)) return inFlight.get(key);
+    if (inFlight.has(textKey)) {
+      const existingPromise = inFlight.get(textKey);
+      const hostMessageId = messageHostMessageId(message);
+      if (!hostMessageId) return existingPromise;
+      return existingPromise.then(async (result) => {
+        const latest = activeBoundState(chatId) || getCampaignState();
+        const alias = latest ? findIngressAlias(latest, message, chatId, timestamp(now)) : null;
+        if (!alias || alias.hostMessageId) return result;
+        const next = await updateIngressState(latest, alias.id, {
+          hostMessageId,
+          canonicalizedAt: timestamp(now),
+          canonicalizationReason: 'joined-in-flight-idless-observation'
+        }, `Canonicalized campaign-chat player message ${hostMessageId}.`);
+        const record = findIngress(next, alias.id);
+        return {
+          ...result,
+          record: cloneJson(record || result.record || null),
+          campaignState: cloneJson(next)
+        };
+      });
+    }
     const promise = enqueue(state.campaign?.id || 'campaign', () => processMessage(message, chatId, activityReporter))
-      .finally(() => inFlight.delete(key));
+      .finally(() => {
+        inFlight.delete(key);
+        inFlight.delete(textKey);
+      });
     inFlight.set(key, promise);
+    inFlight.set(textKey, promise);
     return promise;
   }
 

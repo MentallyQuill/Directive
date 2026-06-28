@@ -248,6 +248,77 @@ assert.ok(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.operat
 assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
 assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sceneHandshake'));
 
+const menuHarness = createHarness('menu-offramp');
+const menuAssistant = {
+  hostMessageId: 'assistant-menu-offramp',
+  index: 24,
+  role: 'assistant',
+  isUser: false,
+  text: 'Bronn can take Sam down to Engineering, or straight to the bridge, or something else entirely.'
+};
+const menuPlayer = {
+  hostMessageId: 'player-follows-bronn',
+  index: 25,
+  role: 'user',
+  isUser: true,
+  text: 'Well then Commander, I am all yours. Lead the way.'
+};
+const badMenuSettlement = {
+  kind: 'directive.sceneHandshakeSettlement.v1',
+  acceptedPreviousResponse: true,
+  playerReplyRelation: 'acts-on',
+  confidence: 0.88,
+  disposition: 'autoCommit',
+  needsInternalReview: false,
+  internalReviewReasons: [],
+  deferReason: null,
+  operatorRecoveryOnly: false,
+  openAssignmentProposals: [{
+    title: 'or straight to the bridge, or something else entirely',
+    summary: 'or straight to the bridge, or something else entirely',
+    assignedByActorId: 'mara-whitaker',
+    dueWindow: 'Before arrival at the Reach.'
+  }],
+  commandLogProposals: [{
+    summaryInputs: ['or straight to the bridge, or something else entirely'],
+    visibleConsequences: ['or straight to the bridge, or something else entirely']
+  }],
+  shipReadinessProposals: [],
+  threadSignals: [{
+    title: 'or straight to the bridge, or something else entirely',
+    summary: 'or straight to the bridge, or something else entirely',
+    participantIds: ['hadrik-bronn']
+  }]
+};
+const menuResult = await runSceneHandshakeSettlement({
+  campaignState: menuHarness.state,
+  currentPlayerMessage: menuPlayer,
+  recentMessages: [menuAssistant, menuPlayer],
+  chatId: menuHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-menu-offramp',
+  generationRouter: {
+    async generate(roleId) {
+      assert.equal(roleId, __sceneHandshakeSettlerTestHooks.ROLE_ID);
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-scene-handshake-menu-offramp',
+          text: JSON.stringify(badMenuSettlement)
+        },
+        diagnostics: { providerId: 'fake-scene-handshake-menu-offramp' }
+      };
+    }
+  },
+  stateDeltaGateway: menuHarness.gateway,
+  now: menuHarness.now
+});
+menuHarness.state = menuResult.campaignState;
+assert.equal(menuResult.ok, true);
+assert.equal(menuHarness.state.mission.openAssignments.length, 0);
+assert.equal(menuHarness.state.commandLog.entries.length, 0);
+assert.equal(menuHarness.state.threadLedger.records.length, 0);
+assert.equal(menuHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount, 0);
+
 const movementHarness = createHarness('time-advance');
 const movementAssistant = {
   hostMessageId: 'assistant-walks-to-ready-room',

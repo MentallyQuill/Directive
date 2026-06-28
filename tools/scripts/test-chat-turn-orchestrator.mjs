@@ -497,6 +497,93 @@ assert(bronnPromptFrame, 'Prompt sync should receive the current player turn fra
 assert.equal(bronnPromptFrame.scene.relevantCrewIds.includes('hadrik-bronn'), true);
 assert.equal(bronnPromptFrame.recentChatMessages.some((entry) => entry.hostMessageId === 'player-scene-navigation' || entry.id === 'player-scene-navigation'), true);
 
+const hostGenerationContinuationsBeforeLocationTransition = hostGenerationContinuations.length;
+const elapsedMinutesBeforeLocationTransition = campaignState.worldState?.elapsedMinutes ?? 0;
+const timeLedgerEntriesBeforeLocationTransition = campaignState.timeLedger?.entries?.length || 0;
+const locationTransitionActivity = [];
+const locationTransition = await send('I head to Engineering.', 'player-location-transition', {
+  activityReporter: (event) => locationTransitionActivity.push(cloneJson(event))
+});
+assert.equal(locationTransition.decision.classification, 'locationTransition');
+assert.equal(locationTransition.responseStrategy, 'directivePosted');
+assert.equal(locationTransition.abortDefaultGeneration, true);
+assert.equal(hostGenerationContinuations.length, hostGenerationContinuationsBeforeLocationTransition);
+assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeLocationTransition + 2);
+assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeLocationTransition + 1);
+assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'locationTransition');
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'directivePosted');
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'locationTransition');
+const locationTransitionResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'locationTransition');
+assert(locationTransitionResponse, 'Location transition should post a Directive-owned pacing response.');
+assert.match(locationTransitionResponse.text, /Engineering/i);
+assert.match(locationTransitionResponse.text, /threshold/i);
+assert.doesNotMatch(locationTransitionResponse.text, /bridge/i);
+assert.doesNotMatch(locationTransitionResponse.text, /breckenridge-in-transit|intrepid\./i);
+assert.match(locationTransitionResponse.text, /previous stretch of corridor/i);
+assert.ok(locationTransitionActivity.some((event) => event.phase === 'classified' && event.classification === 'locationTransition'));
+assert.ok(locationTransitionActivity.some((event) => event.phase === 'locationTransition'));
+assert.ok(locationTransitionActivity.some((event) => event.phase === 'writingResponse' && event.responseStrategy === 'directivePosted'));
+assert.equal(shouldPreemptHostGenerationForTurn('I head to Engineering.'), true);
+assert.equal(shouldPreemptHostGenerationForTurn('Continue the scene.'), false);
+
+const aliasLocationText = 'I take the turbolift to Engineering.';
+const elapsedMinutesBeforeAliasLocation = campaignState.worldState?.elapsedMinutes ?? 0;
+const locationTransitionResponsesBeforeAlias = chat.messages().filter((entry) => entry.metadata?.responseKind === 'locationTransition').length;
+const aliasFirst = await orchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: {
+    text: aliasLocationText,
+    isUser: true
+  }
+});
+const aliasSecond = await orchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: {
+    text: aliasLocationText,
+    hostMessageId: 'player-location-transition-alias',
+    isUser: true
+  }
+});
+const aliasIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.textPreview === aliasLocationText);
+assert.equal(aliasFirst.decision.classification, 'locationTransition');
+assert.equal(aliasSecond.deduplicated, true);
+assert.equal(aliasSecond.record.hostMessageId, 'player-location-transition-alias');
+assert.equal(aliasIngress.hostMessageId, 'player-location-transition-alias');
+assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeAliasLocation + 2);
+assert.equal(
+  chat.messages().filter((entry) => entry.metadata?.responseKind === 'locationTransition').length,
+  locationTransitionResponsesBeforeAlias + 1
+);
+
+const concurrentAliasLocationText = 'I follow Bronn toward Engineering.';
+const elapsedMinutesBeforeConcurrentAlias = campaignState.worldState?.elapsedMinutes ?? 0;
+const locationTransitionResponsesBeforeConcurrentAlias = chat.messages().filter((entry) => entry.metadata?.responseKind === 'locationTransition').length;
+const concurrentAliasFirst = orchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: {
+    text: concurrentAliasLocationText,
+    isUser: true
+  }
+});
+const concurrentAliasSecond = orchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: {
+    text: concurrentAliasLocationText,
+    hostMessageId: 'player-location-transition-concurrent-alias',
+    isUser: true
+  }
+});
+const [concurrentAliasFirstResult, concurrentAliasSecondResult] = await Promise.all([concurrentAliasFirst, concurrentAliasSecond]);
+const concurrentAliasIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.textPreview === concurrentAliasLocationText);
+assert.equal(concurrentAliasFirstResult.decision.classification, 'locationTransition');
+assert.equal(concurrentAliasSecondResult.record.hostMessageId, 'player-location-transition-concurrent-alias');
+assert.equal(concurrentAliasIngress.hostMessageId, 'player-location-transition-concurrent-alias');
+assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeConcurrentAlias + 2);
+assert.equal(
+  chat.messages().filter((entry) => entry.metadata?.responseKind === 'locationTransition').length,
+  locationTransitionResponsesBeforeConcurrentAlias + 1
+);
+
 const droppedIngressDelegationDispatcher = {
   async dispatch({ campaignState: sourceState, ingressId, responseKind }) {
     const state = initializeCampaignRuntimeTracking(sourceState);
@@ -979,12 +1066,12 @@ assert.match(responseSwipeGenerationCalls.at(-1).request.metadata.responseVarian
 const swipeGenerationOrdinal = responseSwipeGenerationCalls.length;
 const directiveRoutineResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'routineCommand');
 assert.equal(directiveRoutineResponse.swipes.length, 2);
-assert.match(directiveRoutineResponse.swipes[0], /^\*Stardate 53049\.2 \| \d{4} hours\*\n\n/);
+assert.match(directiveRoutineResponse.swipes[0], /^\*Stardate \d+(?:\.\d+)? \| \d{4} hours\*\n\n/);
 assert.equal(
   directiveRoutineResponse.swipes[0].endsWith('The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.'),
   true
 );
-assert.match(directiveRoutineResponse.swipes[1], /^\*Stardate 53049\.2 \| \d{4} hours\*\n\n/);
+assert.match(directiveRoutineResponse.swipes[1], /^\*Stardate \d+(?:\.\d+)? \| \d{4} hours\*\n\n/);
 assert.equal(directiveRoutineResponse.swipes[1].endsWith(`Alternate Directive response ${swipeGenerationOrdinal}.`), true);
 assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
@@ -1470,7 +1557,7 @@ assert.equal(fallbackNarration.abortDefaultGeneration, true);
 assert.equal(fallbackNarration.responseStrategy, 'directivePosted');
 const fallbackResponse = chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').at(-1);
 assert.ok(fallbackResponse);
-assert.match(fallbackResponse.text, /^\*Stardate 53049\.2 \| \d{4} hours\*\n\n/);
+assert.match(fallbackResponse.text, /^\*Stardate \d+(?:\.\d+)? \| \d{4} hours\*\n\n/);
 assert.match(fallbackResponse.text, /The attempt resolves as Partial Failure\./);
 assert.equal(
   fallbackResponse.text.includes('The order is carried out'),

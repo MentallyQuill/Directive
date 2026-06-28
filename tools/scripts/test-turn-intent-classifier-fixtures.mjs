@@ -204,6 +204,31 @@ function assertSlots(decision, fixture) {
   }
 }
 
+function assertSceneBoundary(decision, fixture) {
+  const expect = fixture.expect || {};
+  if (expect.sceneBoundaryKind !== undefined) {
+    assert.equal(
+      decision.sceneBoundary?.kind || null,
+      expect.sceneBoundaryKind,
+      `${fixture.id}: sceneBoundary.kind mismatch; text="${fixture.text}"`
+    );
+  }
+  if (expect.sceneBoundaryStopPolicy !== undefined) {
+    assert.equal(
+      decision.sceneBoundary?.stopPolicy || null,
+      expect.sceneBoundaryStopPolicy,
+      `${fixture.id}: sceneBoundary.stopPolicy mismatch; text="${fixture.text}"`
+    );
+  }
+  if (expect.maxNamedLocations !== undefined) {
+    assert.equal(
+      decision.sceneBoundary?.maxNamedLocations || null,
+      expect.maxNamedLocations,
+      `${fixture.id}: sceneBoundary.maxNamedLocations mismatch; text="${fixture.text}"`
+    );
+  }
+}
+
 async function runFixture(fixture) {
   const calls = [];
   const generationRouter = createRouter(fixture, calls);
@@ -219,6 +244,7 @@ async function runFixture(fixture) {
   assertWorkers(decision, fixture);
   assertDomains(decision, fixture);
   assertSlots(decision, fixture);
+  assertSceneBoundary(decision, fixture);
   if (fixture.expect.minConfidence !== undefined) {
     assert.ok(decision.confidence >= fixture.expect.minConfidence, `${fixture.id}: confidence below minimum`);
   }

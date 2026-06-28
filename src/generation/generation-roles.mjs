@@ -27,6 +27,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'recapSummarizer',
   'factualGroundingReviewer',
   'storyQualityReviewer',
+  'defineSelection',
   'directiveAssist',
   'characterCreatorSectionDraft',
   'utilityJson'
@@ -515,6 +516,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'skip'
+  },
+  defineSelection: {
+    id: 'defineSelection',
+    label: 'Define Selection',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'deterministic'
   },
   directiveAssist: {
     id: 'directiveAssist',

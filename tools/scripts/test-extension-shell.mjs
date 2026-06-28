@@ -1884,6 +1884,7 @@ assert.deepEqual(
     'missionComponents.update',
     'missionComponents.archive',
     'missionComponents.openSource',
+    'defineSelection.lookup',
     'outcomeIntegrity.editProse',
     'reconciliation.reconcileMessage',
     'reconciliation.setStart',

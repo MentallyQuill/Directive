@@ -99,6 +99,39 @@ const SCENE_NAVIGATION_PROTECTED_PATTERNS = Object.freeze([
   /\bafter\s+(?:they|he|she|we|the\s+[a-z][a-z'-]+)\s+(?:agree|agrees|accept|accepts|approve|approves|surrender|resolve|resolves|win|wins|finish|finishes|complete|completes)\b/i
 ]);
 
+const EXPLICIT_SCENE_CUT_PATTERNS = Object.freeze([
+  /\b(?:cut|jump|skip|fast[-\s]?forward)\s+(?:ahead\s+)?(?:to|ahead|forward|back)\b/i,
+  /\b(?:move|advance)\s+ahead\s+(?:to|through|until|forward|back)\b/i,
+  /\b(?:next|following)\s+(?:scene|beat|moment)\b/i,
+  /\b(?:\d+\s+minutes?|a few minutes?|several minutes?|moments?|hours?)\s+later\b/i,
+  /\btime\s+passes\b/i,
+  /\bafter\s+(?:i|he|she|they|we|sam|serrin|vickers|[a-z][a-z'-]+)\s+(?:get|gets|got|is|are)?\s*(?:settled|ready|seated|aboard|oriented)\b/i
+]);
+
+const LOCATION_DESTINATION_PATTERNS = Object.freeze([
+  { label: 'Engineering', id: 'intrepid.main-engineering', pattern: /\b(?:main\s+)?engineering\b/i },
+  { label: 'Bridge', id: 'intrepid.bridge', pattern: /\bbridge\b/i },
+  { label: 'Ready Room', id: 'intrepid.ready-room', pattern: /\bready\s+room\b/i },
+  { label: 'Shuttlebay', id: 'intrepid.shuttlebay-complex', pattern: /\b(?:shuttle\s*bay|shuttlebay|hangar|flight\s+deck)\b/i },
+  { label: 'Sickbay', id: 'intrepid.sickbay', pattern: /\b(?:sickbay|medical|medbay)\b/i },
+  { label: 'Science', id: null, pattern: /\bscience\b/i },
+  { label: 'Ops', id: null, pattern: /\b(?:ops|operations)\b/i },
+  { label: 'Turbolift', id: null, pattern: /\bturbolift\b/i },
+  { label: 'Corridor', id: null, pattern: /\bcorridor\b/i },
+  { label: 'Mess Hall', id: 'intrepid.mess-hall', pattern: /\bmess\s+hall\b/i },
+  { label: 'Transporter Room', id: 'intrepid.transporter-rooms', pattern: /\btransporter\s+room\b/i }
+]);
+
+const GUIDE_ACTOR_PATTERNS = Object.freeze([
+  { id: 'hadrik-bronn', label: 'Bronn', pattern: /\bbronn\b/i },
+  { id: 'mara-whitaker', label: 'Whitaker', pattern: /\b(?:whitaker|captain)\b/i },
+  { id: 'imani-cross', label: 'Cross', pattern: /\bcross\b/i },
+  { id: 'miriam-sato', label: 'Sato', pattern: /\bsato\b/i },
+  { id: 'rowan-saye', label: 'Saye', pattern: /\bsaye\b/i },
+  { id: 'priya-nayar', label: 'Nayar', pattern: /\bnayar\b/i },
+  { id: 'kieran-vale', label: 'Vale', pattern: /\bvale\b/i }
+]);
+
 function hasSceneNavigationSignal(text = '') {
   const normalized = compact(text);
   return SCENE_NAVIGATION_SAFE_PATTERNS.some((pattern) => pattern.test(normalized));
@@ -109,11 +142,117 @@ function hasProtectedSceneNavigationSignal(text = '') {
   return SCENE_NAVIGATION_PROTECTED_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
+function hasExplicitSceneCutSignal(text = '') {
+  const normalized = compact(text);
+  return EXPLICIT_SCENE_CUT_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function destinationFromText(text = '') {
+  const normalized = compact(text);
+  return LOCATION_DESTINATION_PATTERNS.find((entry) => entry.pattern.test(normalized)) || null;
+}
+
+function guideActorFromText(text = '') {
+  const normalized = compact(text);
+  return GUIDE_ACTOR_PATTERNS.find((entry) => entry.pattern.test(normalized)) || null;
+}
+
+function hasPhysicalTransitionSignal(text = '') {
+  const normalized = compact(text);
+  if (!normalized || hasExplicitSceneCutSignal(normalized)) return false;
+  if (/\b(?:lead the way|show me the way|i'?m all yours)\b/i.test(normalized)) return true;
+  if (/\b(?:i|we|sam|serrin|vickers|the commander)\s+(?:follow(?:s)?|go(?:es)? with|walk(?:s)? with|accompan(?:y|ies))\b/i.test(normalized)) return true;
+  if (/\b(?:follow(?:s)?|go(?:es)? with|walk(?:s)? with|accompan(?:y|ies))\s+(?:commander\s+|lieutenant\s+|captain\s+)?[a-z][a-z'-]+\b/i.test(normalized)) return true;
+  if (/\b(?:take|escort|bring|show)\s+(?:me|us|him|her|them|sam|serrin|vickers|the commander)\s+(?:to|toward|into)\b/i.test(normalized) && destinationFromText(normalized)) return true;
+  if (/\b(?:head|go|walk|proceed|move|start|set out|leave|make(?:s)? (?:my|our|his|her|their) way)\s+(?:over\s+)?(?:to|toward|for|into|onto)\b/i.test(normalized) && destinationFromText(normalized)) return true;
+  if (/\b(?:take|ride)\s+(?:the\s+)?turbolift\s+(?:to|toward)\b/i.test(normalized)) return true;
+  return false;
+}
+
 function hasPendingDirectiveInteraction(context = {}) {
   const pending = context?.pendingInteraction;
   if (!pending || typeof pending !== 'object') return false;
   const status = compact(pending.status).toLowerCase();
   return !['resolved', 'cancelled', 'canceled', 'complete', 'completed'].includes(status);
+}
+
+function locationTransitionDecision(text = '', context = {}) {
+  const normalized = compact(text);
+  if (!hasPhysicalTransitionSignal(normalized)) return null;
+
+  if (hasPendingDirectiveInteraction(context)) {
+    return {
+      classification: 'clarificationNeeded',
+      confidence: 0.94,
+      ambiguity: 'medium',
+      speechAct: 'scene-navigation',
+      action: 'resolve pending interaction before location transition',
+      target: context.pendingInteraction?.kind || 'pending Directive interaction',
+      targetConfidence: 0.9,
+      domainSignals: ['scene', 'continuity'],
+      missingInformation: ['Resolve the pending Directive interaction before moving the scene to another location.'],
+      reasons: ['A physical scene transition cannot bypass a pending Directive clarification, warning, outcome, or terminal decision.'],
+      workerPlan: {
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'pause'
+    };
+  }
+
+  if (hasProtectedSceneNavigationSignal(normalized)) {
+    return {
+      classification: 'directorResponseNeeded',
+      confidence: 0.91,
+      ambiguity: 'low',
+      speechAct: 'scene-navigation',
+      action: 'review protected location transition',
+      target: 'durable campaign, mission, decision, or unresolved sequence boundary',
+      targetConfidence: 0.9,
+      domainSignals: ['scene', 'mission', 'continuity'],
+      riskSignals: ['protected-scene-boundary'],
+      reasons: ['The requested location transition appears to skip a durable campaign, mission, decision, or unresolved sequence boundary.'],
+      workerPlan: {
+        missionDirector: true,
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted'
+    };
+  }
+
+  const destination = destinationFromText(normalized);
+  const guide = guideActorFromText(normalized);
+  const target = destination?.label || guide?.label || 'the next playable location';
+  return {
+    classification: 'locationTransition',
+    confidence: 0.93,
+    ambiguity: 'low',
+    speechAct: 'scene-navigation',
+    action: destination ? `move to ${destination.label}` : 'follow guide to the next location',
+    target,
+    targetConfidence: destination ? 0.9 : 0.78,
+    domainSignals: ['scene', 'continuity', 'scenepacing', 'location'],
+    reasons: ['The player requests physical movement between playable locations, which must stop at an arrival or threshold beat instead of delegating an open-ended host montage.'],
+    workerPlan: {
+      relationship: Boolean(guide),
+      crew: Boolean(guide),
+      continuity: true,
+      promptUpdate: true,
+      narrator: true
+    },
+    responseStrategy: 'directivePosted',
+    sceneBoundary: {
+      kind: 'locationTransition',
+      destinationLabel: destination?.label || null,
+      destinationId: destination?.id || null,
+      guideActorId: guide?.id || null,
+      stopPolicy: 'stopOnArrival',
+      maxNamedLocations: 1
+    }
+  };
 }
 
 function sceneNavigationDecision(text = '', context = {}) {
@@ -418,6 +557,7 @@ function inferIntentSlots(text = '', classification = 'noDirectiveAction') {
   let speechAct = '';
   if (classification === 'counselRequest') speechAct = 'counsel-request';
   else if (classification === 'sceneNavigation') speechAct = 'scene-navigation';
+  else if (classification === 'locationTransition') speechAct = 'scene-navigation';
   else if (classification === 'sceneColor') speechAct = 'scene-color';
   else if (classification === 'clarificationNeeded') speechAct = 'ambiguous-confirmation';
   else if (['routineCommand', 'consequentialCommand', 'riskConfirmationNeeded', 'directorResponseNeeded'].includes(classification)) speechAct = 'order';
@@ -442,6 +582,10 @@ function inferIntentSlots(text = '', classification = 'noDirectiveAction') {
   }
   if (!action && classification === 'sceneNavigation') {
     action = 'navigate within current scene';
+    target = normalized;
+  }
+  if (!action && classification === 'locationTransition') {
+    action = 'move to playable location';
     target = normalized;
   }
   if (!action && classification === 'consequentialCommand') {
@@ -485,6 +629,7 @@ function result({
   riskSignals,
   missingInformation,
   pendingInteractionResolution,
+  sceneBoundary,
   mixedIntent,
   source = 'deterministic',
   diagnostics = null
@@ -503,6 +648,7 @@ function result({
     riskSignals: riskSignals || inferred.riskSignals,
     missingInformation,
     pendingInteractionResolution,
+    sceneBoundary,
     mixedIntent,
     reasons: Array.isArray(reasons) ? reasons.map(compact).filter(Boolean) : [compact(reasons)].filter(Boolean),
     workerPlan: defaultWorkerPlan(workerPlan),
@@ -563,6 +709,14 @@ function deterministicClassification(text, context = {}) {
         narrator: true
       },
       responseStrategy: postsDirective ? 'directivePosted' : 'pause'
+    });
+  }
+
+  const transitionDecision = locationTransitionDecision(normalized, context);
+  if (transitionDecision) {
+    return result({
+      text: normalized,
+      ...transitionDecision
     });
   }
 
@@ -978,13 +1132,15 @@ function providerPrompt({ text, context }) {
     'Interpret language, speech act, ambiguity, action/target slots, risk signals, and worker routing.',
     'Do not decide success, reveal hidden truth, invent campaign facts, mutate state, or write narration.',
     'Use sceneNavigation for local scene pacing such as "continue the scene", "cut to the next beat", or short time movement that stays inside the current unresolved situation.',
+    'Use locationTransition when the player physically follows, escorts, walks, heads, proceeds, or asks to be led to another playable location without explicitly asking to cut, jump, skip, fast-forward, or summarize.',
+    'locationTransition must stop at the departure, route, threshold, or first arrival interaction; do not treat it as permission to enter, resolve, and leave a location in one generation.',
     'Do not use sceneNavigation for attempts to skip a pending interaction, resolved outcome, important sequence, mission/chapter/campaign ending, or other durable boundary; route those to clarificationNeeded or directorResponseNeeded.',
     `classification must be one of: ${UTILITY_TURN_CLASSIFICATIONS.join(', ')}.`,
     `responseStrategy must be one of: ${UTILITY_RESPONSE_STRATEGIES.join(', ')}.`,
     `workerPlan keys: ${WORKER_KEYS.join(', ')}.`,
     'When resolving a pending interaction, use pendingInteractionResolution as {"action":"accept|confirm|revise|cancel","interactionId":"..."}. For terminalOutcomeDecision only, action must be one of replayFromCheckpoint|pushOn|keepEnding|saveTerminalBranch. Do not return a bare string.',
     'Optional closureSignals may flag possible narrative closure, but this is advisory only and cannot prove closure or award Command Bearing Marks.',
-    'Return this JSON shape: {"kind":"directive.turnIntentClassification","classification":"...","responseStrategy":"...","confidence":0.0,"ambiguity":"low|medium|high","speechAct":"order|question|counsel-request|scene-color|ambiguous-confirmation","action":"short verb phrase or empty","target":"stable player-facing target or empty","targetConfidence":0.0,"domainSignals":[],"riskSignals":[],"missingInformation":[],"pendingInteractionResolution":null,"closureSignals":{"possibleClosure":false,"confidence":"low|medium|high","closureTypes":[],"playerFacingReason":""},"mixedIntent":false,"workerPlan":{},"reasons":[]}.',
+    'Return this JSON shape: {"kind":"directive.turnIntentClassification","classification":"...","responseStrategy":"...","confidence":0.0,"ambiguity":"low|medium|high","speechAct":"order|question|counsel-request|scene-color|ambiguous-confirmation","action":"short verb phrase or empty","target":"stable player-facing target or empty","targetConfidence":0.0,"domainSignals":[],"riskSignals":[],"missingInformation":[],"pendingInteractionResolution":null,"closureSignals":{"possibleClosure":false,"confidence":"low|medium|high","closureTypes":[],"playerFacingReason":""},"sceneBoundary":{"kind":"locationTransition","destinationLabel":"","destinationId":"","guideActorId":"","stopPolicy":"stopOnArrival","maxNamedLocations":1},"mixedIntent":false,"workerPlan":{},"reasons":[]}.',
     'Return one compact JSON object only.'
   ].join('\n');
   const user = JSON.stringify({
@@ -1089,6 +1245,7 @@ function deterministicFastPathClassification(text, context = {}, deterministic, 
     && deterministic.speechAct === 'scene-navigation'
     && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'sceneNavigation' && deterministic.confidence >= fastPathConfidence) return deterministic;
+  if (deterministic.classification === 'locationTransition' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'directorResponseNeeded'
     && deterministic.speechAct === 'scene-navigation'
     && deterministic.confidence >= fastPathConfidence) return deterministic;

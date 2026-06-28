@@ -298,6 +298,7 @@ export function createProvisionalDirectorTurnRuntime({
   graph = null,
   projection,
   crewDataset,
+  shipDataset = null,
   graphPath,
   projectionPath,
   turnId,
@@ -315,6 +316,7 @@ export function createProvisionalDirectorTurnRuntime({
     graph,
     projection,
     crewDataset,
+    shipDataset,
     graphPath,
     projectionPath,
     turnId: id,
@@ -343,6 +345,7 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
   graph = null,
   projection,
   crewDataset,
+  shipDataset = null,
   graphPath,
   projectionPath,
   turnId,
@@ -356,7 +359,7 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
   requireObject(crewDataset, 'crewDataset');
   const id = requireNonEmptyString(turnId, 'turnId');
   const coordinated = await createDirectorCoordinatorTurnAsync({
-    campaignState, packageData, graph, projection, crewDataset, graphPath, projectionPath,
+    campaignState, packageData, graph, projection, crewDataset, shipDataset, graphPath, projectionPath,
     turnId: id, playerInput, sceneSnapshotOverrides, generationRouter
   });
   const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, coordinated.turnPacket);

@@ -6,6 +6,13 @@ function byId(items = []) {
   return new Map((items || []).filter((item) => item?.id).map((item) => [item.id, item]));
 }
 
+function datasetCards(dataset = {}, datasetKind = 'dataset') {
+  return cloneJson(dataset.cards || []).map((card) => ({
+    ...card,
+    datasetKind
+  }));
+}
+
 const PHASE_ALIASES = Object.freeze({
   'ready-room-handoff': 'ready-room-handover'
 });
@@ -19,12 +26,16 @@ export function normalizeMissionId(sceneSnapshot = {}) {
   return sceneSnapshot.missionId || sceneSnapshot.activeMissionId || null;
 }
 
-export function indexDirectorDatasets({ crewDataset = {}, missionGraph = {} } = {}) {
-  const cards = cloneJson(crewDataset.cards || []);
+export function indexDirectorDatasets({ crewDataset = {}, shipDataset = {}, missionGraph = {} } = {}) {
+  const cards = [
+    ...datasetCards(crewDataset, 'crew'),
+    ...datasetCards(shipDataset, 'ship')
+  ];
   const cardsById = byId(cards);
   const hooks = cloneJson(missionGraph.retrievalHooks || []);
   return {
     crewDataset: cloneJson(crewDataset),
+    shipDataset: cloneJson(shipDataset),
     missionGraph: cloneJson(missionGraph),
     cards,
     cardsById,

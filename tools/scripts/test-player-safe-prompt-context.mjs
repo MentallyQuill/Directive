@@ -18,6 +18,7 @@ const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const canary = 'HIDDEN_CANARY_9bcae51f';
 
 function findBundledPackagePairs() {
@@ -31,14 +32,16 @@ function findBundledPackagePairs() {
         dir,
         packagePath: files.find((file) => file.endsWith('.campaign-package.json')),
         projectionPath: files.find((file) => file.endsWith('.campaign-projection.json')),
-        crewDatasetPath: files.find((file) => file.endsWith('.crew-dataset.json'))
+        crewDatasetPath: files.find((file) => file.endsWith('.crew-dataset.json')),
+        shipDatasetPath: files.find((file) => file.endsWith('.ship-dataset.json'))
       };
     })
     .filter((entry) => entry.packagePath && entry.projectionPath && entry.crewDatasetPath)
     .map((entry) => ({
       packagePath: path.relative(root, path.join(entry.dir, entry.packagePath)),
       projectionPath: path.relative(root, path.join(entry.dir, entry.projectionPath)),
-      crewDatasetPath: path.relative(root, path.join(entry.dir, entry.crewDatasetPath))
+      crewDatasetPath: path.relative(root, path.join(entry.dir, entry.crewDatasetPath)),
+      shipDatasetPath: entry.shipDatasetPath ? path.relative(root, path.join(entry.dir, entry.shipDatasetPath)) : null
     }));
 }
 
@@ -131,6 +134,7 @@ const packet = buildPlayerSafePromptContext({
   campaignState: state,
   packageData,
   crewDataset,
+  shipDataset,
   scene,
   createdAt: '2026-06-22T00:00:00.000Z'
 });
@@ -138,6 +142,7 @@ const playerProjection = createPlayerSafeCampaignProjection({
   campaignState: state,
   packageData,
   crewDataset,
+  shipDataset,
   scene
 });
 const packetJson = JSON.stringify(packet);
@@ -165,8 +170,11 @@ assert.equal(packetJson.includes('age: Late fifties by human comparison.'), true
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn is Tellarite'), true);
 assert.equal(packetJson.includes('mustard-yellow'), true);
 assert.equal(packetJson.includes('Do not describe the opening Breckenridge transit as six days at impulse'), true);
+assert.equal(packetJson.includes('A named location change is a playable scene boundary'), true);
+assert.equal(packetJson.includes('Do not enter a named location, resolve its purpose, and leave it in the same reply'), true);
 assert.equal(packetJson.includes('do not force the full Asterion Reach strategy conversation yet'), true);
 assert.equal(packetJson.includes('shuttlebay two in the aft section between the swept nacelle pylons'), true);
+assert.equal(projectionJson.includes('Deck 10 aft dorsal secondary hull'), true);
 assert.equal(projectionJson.includes('saucer-underside shuttlebay'), true);
 assert.equal(packetJson.includes('a human male in his early forties'), false);
 assert.equal(packetJson.includes('red-and-black of tactical'), false);
@@ -174,6 +182,23 @@ assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), t
 assert.equal(projectionJson.includes('Acting bridge watch officer'), true);
 assert.equal(playerProjection.scene.directorNotes, undefined);
 assert.deepEqual(Object.keys(playerProjection.ship.damage[0]).sort(), ['id', 'label', 'severity', 'status']);
+
+const shuttlebayPacket = buildPlayerSafePromptContext({
+  campaignState: state,
+  packageData,
+  crewDataset,
+  shipDataset,
+  scene: {
+    ...scene,
+    location: 'Shuttlebay',
+    locationId: 'intrepid.shuttlebay-complex'
+  },
+  playerText: 'I head to the shuttlebay and ask shuttle control for docking clearance.',
+  createdAt: '2026-06-22T00:00:00.000Z'
+});
+const shuttlebayPacketJson = JSON.stringify(shuttlebayPacket);
+assert.equal(shuttlebayPacketJson.includes('Deck 10 aft dorsal secondary hull'), true);
+assert.equal(shuttlebayPacketJson.includes('saucer-underside'), true);
 
 const readyRoomState = cloneJson(state);
 readyRoomState.mission = {
@@ -186,6 +211,7 @@ const readyRoomPacket = buildPlayerSafePromptContext({
   campaignState: readyRoomState,
   packageData,
   crewDataset,
+  shipDataset,
   scene: {
     ...scene,
     phaseLabel: 'Ready-room handover',
@@ -199,6 +225,7 @@ const asyncFallbackPacket = await buildPlayerSafePromptContextWithContinuityPlan
   campaignState: state,
   packageData,
   crewDataset,
+  shipDataset,
   scene,
   createdAt: '2026-06-22T00:00:00.000Z'
 });
@@ -210,6 +237,7 @@ const plannerPacket = await buildPlayerSafePromptContextWithContinuityPlanner({
   campaignState: state,
   packageData,
   crewDataset,
+  shipDataset,
   scene,
   playerText: 'I ask Bronn for the tactical and travel handoff.',
   createdAt: '2026-06-22T00:00:00.000Z'
@@ -249,6 +277,7 @@ const invalidPlannerPacket = await buildPlayerSafePromptContextWithContinuityPla
   campaignState: state,
   packageData,
   crewDataset,
+  shipDataset,
   scene,
   createdAt: '2026-06-22T00:00:00.000Z'
 }, {
@@ -277,6 +306,7 @@ const malformedCommandLogProjection = createPlayerSafeCampaignProjection({
   },
   packageData,
   crewDataset,
+  shipDataset,
   scene
 });
 assert.deepEqual(malformedCommandLogProjection.commandLog, []);
@@ -295,6 +325,7 @@ const malformedKnownFactsProjection = createPlayerSafeCampaignProjection({
   },
   packageData,
   crewDataset,
+  shipDataset,
   scene
 });
 assert.equal(JSON.stringify(malformedKnownFactsProjection).includes(canary), false);
@@ -304,13 +335,14 @@ assert.equal(malformedKnownFactsProjection.mission.knownFacts[0], 'A numeric-key
 state = recordPromptContextRevision(state, packet, {
   installedAt: '2026-06-22T00:00:01.000Z'
 });
-const rebuilt = buildPlayerSafePromptContext({ campaignState: state, packageData, crewDataset, scene });
+const rebuilt = buildPlayerSafePromptContext({ campaignState: state, packageData, crewDataset, shipDataset, scene });
 assert.equal(rebuilt.revision > packet.revision, true);
 
 for (const pair of findBundledPackagePairs()) {
   const bundledPackage = readJson(pair.packagePath);
   const bundledProjection = readJson(pair.projectionPath);
   const bundledCrewDataset = readJson(pair.crewDatasetPath);
+  const bundledShipDataset = pair.shipDatasetPath ? readJson(pair.shipDatasetPath) : null;
   const bundledState = initializeCampaignRuntimeTracking(cloneJson(bundledProjection.initialState));
   bundledState.campaign = {
     ...bundledState.campaign,
@@ -324,6 +356,7 @@ for (const pair of findBundledPackagePairs()) {
     campaignState: bundledState,
     packageData: bundledPackage,
     crewDataset: bundledCrewDataset,
+    shipDataset: bundledShipDataset,
     scene: {
       missionTitle: 'Bundled crew identity sweep',
       phaseLabel: 'Identity Guard',
