@@ -197,6 +197,15 @@ function targetMinuteFromText(text = '') {
   return null;
 }
 
+function hasExplicitSceneCut(text = '') {
+  return /\b(?:cut|skip|jump|fast[-\s]*forward|advance|move)\s+(?:ahead\s+)?(?:to|until)\b/i.test(text)
+    || /\b(?:hours?|minutes?)\s+later\b/i.test(text);
+}
+
+function hasDeadlineCue(text = '') {
+  return /\b(?:by|before|due|deadline|deadlines|expect|expects|expected|draft|drafts|completed|complete|as soon as reasonably possible|no later than)\b/i.test(text);
+}
+
 function minutesUntilTarget(currentMinute, target) {
   if (!target) return null;
   const targetMinute = normalizeMinute(target.minute);
@@ -227,9 +236,9 @@ function deterministicProposal(input = {}) {
     });
   }
 
-  const sceneCut = /\b(?:cut to|skip to|jump to|fast[- ]forward to|later that|later in the|hours later|next morning|tomorrow|dinner|breakfast|lunch)\b/i.test(combined);
   const target = targetMinuteFromText(combined);
-  if (sceneCut && target) {
+  const explicitSceneCut = hasExplicitSceneCut(combined);
+  if (explicitSceneCut && target) {
     return proposal(input, {
       elapsedMinutes: minutesUntilTarget(currentMinute, target),
       reason: 'scene-cut',
@@ -237,6 +246,18 @@ function deterministicProposal(input = {}) {
       source: 'deterministic',
       evidence: 'explicit-target-time'
     });
+  }
+  if (target) {
+    return {
+      ...proposal(input, {
+        elapsedMinutes: 0,
+        reason: hasDeadlineCue(combined) ? 'deadline-reference' : 'target-time-reference',
+        confidence: hasDeadlineCue(combined) ? 0.86 : 0.52,
+        source: 'deterministic',
+        evidence: hasDeadlineCue(combined) ? 'future-deadline-not-elapsed-time' : 'target-time-reference'
+      }),
+      needsModel: !hasDeadlineCue(combined)
+    };
   }
 
   const readingWork = hasAny(combined, [
@@ -426,6 +447,7 @@ function modelRequest(input = {}, deterministic = {}) {
     'Use only the provided visible text and current clock summary.',
     'Return a bounded time delta in minutes. Do not write state and do not recalculate the header.',
     'Good conversations may consume zero minutes; only advance time when the source text implies waiting, travel, work, rest, or a scene cut.',
+    'Future due dates, deadlines, appointments, promises, or orders such as "by tomorrow morning" do not advance the current scene clock unless the source also says the scene waits, sleeps, travels, or cuts to that later time.',
     'Return strict JSON: {"kind":"directive.timeAdvanceProposal.v1","elapsedMinutes":0,"reason":"no-time-advance","confidence":0.0,"rationale":"..."}'
   ].join('\n');
   const prompt = [

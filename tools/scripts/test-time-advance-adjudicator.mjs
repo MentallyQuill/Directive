@@ -28,6 +28,53 @@ const dinnerCut = await adjudicateTimeAdvance({
 assert.equal(dinnerCut.elapsedMinutes, 570);
 assert.equal(dinnerCut.reason, 'scene-cut');
 
+const tomorrowCut = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  currentPlayerText: 'Cut to tomorrow morning on the bridge.'
+});
+assert.equal(tomorrowCut.elapsedMinutes, 1410);
+assert.equal(tomorrowCut.reason, 'scene-cut');
+
+const deadlineReference = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: '*Stardate 53049.3 | 0900 hours*\n\nThe officers wait for Sam\'s orders.',
+  currentPlayerText: 'Sam says, "I expect draft reports by tomorrow morning, and completed reports as soon as reasonably possible. Understood?"'
+});
+assert.equal(deadlineReference.elapsedMinutes, 0);
+assert.equal(deadlineReference.reason, 'deadline-reference');
+
+let targetReferenceModelCalls = 0;
+const targetReference = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: 'Whitaker says, "See you at dinner time."',
+  currentPlayerText: 'Sam nods. "Understood."',
+  generationRouter: {
+    async generate(roleId, request) {
+      targetReferenceModelCalls += 1;
+      assert.equal(roleId, TIME_ADVANCE_ADJUDICATOR_ROLE_ID);
+      assert.match(request.systemPrompt, /deadlines/);
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            kind: 'directive.timeAdvanceProposal.v1',
+            elapsedMinutes: 0,
+            reason: 'appointment-reference',
+            confidence: 0.8,
+            rationale: 'The text schedules a future meeting but does not cut to it.'
+          })
+        }
+      };
+    }
+  }
+});
+assert.equal(targetReferenceModelCalls, 1);
+assert.equal(targetReference.elapsedMinutes, 0);
+assert.equal(targetReference.source, 'utility-model');
+
 const movement = await adjudicateTimeAdvance({
   campaignState,
   acceptedPreviousResponse: true,

@@ -188,14 +188,14 @@ Implemented examples:
 
 ### Layer 3: Time Adjudication
 
-Implemented for deterministic cases with Utility-model backup for ambiguity.
+Implemented for narrow deterministic cases with Utility-model backup for ambiguity.
 
 This layer decides how much time passes when the player asks for a cut, takes an ambiguous action, holds a long conversation, waits for work to finish, or tries to do too much in one day.
 
 The implemented shape is:
 
-1. Deterministic parser identifies obvious cases.
-2. Utility model proposes a bounded time delta only when deterministic rules are ambiguous.
+1. Deterministic parser identifies only cases safe to auto-commit: explicit elapsed durations, explicit scene-cut verbs with a target time, routine shipboard movement, and small review/work spans.
+2. Utility model proposes a bounded time delta when target-time language is ambiguous.
 3. Deterministic validator clamps the proposal against schedules, travel tables, scene state, crew availability, and package-authored constraints.
 4. State-delta gateway commits the approved time boundary.
 5. Prompt context rebuilds.
@@ -216,6 +216,8 @@ The Utility proposal should never write time directly. It should return structur
 Directive then performs deterministic validation and commits or rejects the boundary.
 
 The `timeAdvanceAdjudicator` model role has no state roots and cannot inject prompts. It receives visible source text and the current clock summary only. Runtime code validates, clamps, and commits the result through `timeAdvanceBoundary`.
+
+Future-time references are not automatically elapsed time. A phrase such as "draft reports by tomorrow morning" is a deadline or pressure signal for mission/objective systems; it must not move the current scene clock unless the source also says the scene waits, sleeps, travels, works through that time, or explicitly cuts to that later time.
 
 ## Host-Native Scene Movement
 
@@ -244,6 +246,8 @@ Examples:
 | "We spend the afternoon repairing the relay." | Validate crew/tools/access, estimate elapsed work block, commit time and partial/complete progress, then narrate. |
 | "I keep asking questions." | Usually no large advance. Conversation may remain minutes unless a deterministic pressure or explicit wait applies. |
 | "Wake me at 0600." | Commit rest/watch boundary, run overnight clocks, then resume at `0600 hours`. |
+| "I expect draft reports by tomorrow morning." | Do not advance the scene clock. Record a deadline/pressure item through mission state, then continue from the current time. |
+| "See you at dinner time." | Treat as an appointment reference; use Utility if needed, but do not advance until the player or narration cuts/waits/travels to dinner. |
 
 Deadline systems should read committed campaign time only. They should not read prior chat headers or model-generated wording.
 

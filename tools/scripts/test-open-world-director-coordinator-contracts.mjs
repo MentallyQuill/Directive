@@ -42,6 +42,7 @@ state = timeAdvanceBoundary({
   now: '2026-06-22T00:02:00.000Z'
 }).state;
 assert.ok(state.worldState.currentStardate > beforeStardate);
+assert.equal(state.worldState.currentStardate, Number((beforeStardate + (2 / 24)).toFixed(3)));
 assert.equal(state.timeLedger.lastBoundary.elapsedMinutes, 120);
 
 const beforeMinuteAdvance = state.worldState.elapsedMinutes;

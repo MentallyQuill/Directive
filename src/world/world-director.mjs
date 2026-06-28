@@ -130,8 +130,10 @@ export function canTravel({ world, worldState, destinationId, campaignState = {}
   return planTravel({ world, worldState, destinationId, campaignState });
 }
 
+const DEFAULT_STARDATE_PER_DAY = 1;
+
 function stardateDelta(world, hours) {
-  const perDay = Number(world?.layout?.stardatePerDay ?? 2.74);
+  const perDay = Number(world?.layout?.stardatePerDay ?? DEFAULT_STARDATE_PER_DAY);
   return (Number(hours) / 24) * perDay;
 }
 
