@@ -339,14 +339,30 @@ function touchIndex(index, updatedAt) {
   };
 }
 
+function withoutUpdatedAt(value = {}) {
+  const clone = cloneJson(value || {});
+  delete clone.updatedAt;
+  return clone;
+}
+
+function storageFileEntryMatches(existing = null, next = null) {
+  if (!existing || !next) return false;
+  return JSON.stringify(withoutUpdatedAt(existing)) === JSON.stringify(withoutUpdatedAt(next));
+}
+
 async function upsertStorageFileEntry(adapter, filePath, entry, options = {}) {
   const updatedAt = timestamp(options);
-  const index = touchIndex(await readStorageIndex(adapter, options), updatedAt);
-  index.files[filePath] = {
+  const existingIndex = await readStorageIndex(adapter, options);
+  const nextEntry = {
     path: filePath,
     ...cloneJson(entry),
     updatedAt
   };
+  if (storageFileEntryMatches(existingIndex.files?.[filePath], nextEntry)) {
+    return cloneJson(existingIndex);
+  }
+  const index = touchIndex(existingIndex, updatedAt);
+  index.files[filePath] = nextEntry;
   await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, index);
   return index;
 }

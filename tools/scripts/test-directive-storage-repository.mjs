@@ -328,11 +328,16 @@ firstSave = overwriteCampaignSaveRecord(firstSave, {
   savedAt: '2026-06-18T19:30:00.000Z',
   summary: 'Overwritten test save.'
 });
+adapter.resetLog();
 await storeCampaignSave(adapter, firstSave);
 snapshot = adapter.snapshot();
 requireEqual(snapshot[firstSavePath].revision, 2, 'overwritten save payload revision');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].metadata.stardate, 53050.4, 'overwritten save index stardate');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].metadata.summary, 'Overwritten test save.', 'overwritten save index summary');
+requireEqual(adapter.writeLog, [
+  firstSavePath,
+  DIRECTIVE_STORAGE_PATHS.saveIndex
+], 'overwriting an indexed save avoids redundant storage index upload');
 
 const autosaves = [];
 for (let index = 0; index < 4; index += 1) {

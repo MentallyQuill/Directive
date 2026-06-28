@@ -530,10 +530,11 @@ reportDirectiveStorageProgress({
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
 assert.equal(activity.activityKind, 'storage');
-assert.equal(activity.label, 'Saving files 1 of 1...');
+assert.equal(activity.label, 'Saving campaign state...');
 assert.equal(activity.storageProgress.total, 1);
-assert.equal(activity.storageFiles.campaignSave.status, 'running');
-assert.equal(activity.storageFiles.campaignSave.label, 'Campaign Save');
+assert.equal(activity.storageProgress.stageCount, 1);
+assert.equal(activity.storageFiles.saving.status, 'running');
+assert.equal(activity.storageFiles.saving.label, 'Saving');
 assert.equal(__directiveTurnActivityTestHooks.cancelActiveDirectiveTurnActivities().canceledCount, 0, 'Generation-stop cleanup should not cancel active storage progress.');
 reportDirectiveStorageProgress({
   operationId: 'storage-write-index',
@@ -544,14 +545,15 @@ reportDirectiveStorageProgress({
   path: '/user/files/directive-indexes-saves.v1.json'
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
-assert.equal(activity.label, 'Saving files 2 of 2...');
+assert.equal(activity.label, 'Updating records...');
 assert.equal(activity.storageProgress.total, 2);
+assert.equal(activity.storageProgress.stageCount, 2);
 await new Promise((resolve) => setTimeout(resolve, 0));
 const storageIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
-assert.equal(storageIndicator.querySelector('.directive-turn-activity-label').textContent, 'Saving files 2 of 2...');
+assert.equal(storageIndicator.querySelector('.directive-turn-activity-label').textContent, 'Updating records...');
 assert.deepEqual(
   storageIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
-  ['Campaign Save', 'Save Index']
+  ['Saving', 'Records']
 );
 reportDirectiveStorageProgress({
   operationId: 'storage-write-save',
@@ -570,9 +572,9 @@ reportDirectiveStorageProgress({
   path: '/user/files/directive-indexes-saves.v1.json'
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
-assert.equal(activity.label, 'Files saved.');
-assert.equal(activity.storageFiles.campaignSave.status, 'settled');
-assert.equal(activity.storageFiles.saveIndex.status, 'settled');
+assert.equal(activity.label, 'Save complete.');
+assert.equal(activity.storageFiles.saving.status, 'settled');
+assert.equal(activity.storageFiles.records.status, 'settled');
 clearDirectiveTurnActivity(activity.token);
 
 reportDirectiveStorageProgress({
@@ -597,8 +599,8 @@ reportDirectiveStorageProgress({
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
 assert.equal(activity.mode, 'review');
-assert.equal(activity.label, 'File save needs review.');
-assert.equal(activity.storageFiles.storageIndex.status, 'review');
+assert.equal(activity.label, 'Storage update needs review.');
+assert.equal(activity.storageFiles.indexing.status, 'review');
 const storageReviewIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
 assert.equal(storageReviewIndicator.querySelector('.directive-turn-activity-actions').hidden, false);
 assert.equal(

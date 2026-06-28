@@ -81,22 +81,16 @@ const STORAGE_CATEGORY_LABELS = Object.freeze({
   storage: 'Storage'
 });
 
-const STORAGE_CATEGORY_ORDER = Object.freeze([
-  'campaignSave',
-  'saveIndex',
-  'storageIndex',
-  'saveCleanup',
-  'creatorDraft',
-  'draftIndex',
-  'draftCleanup',
-  'packageImport',
-  'packageIndex',
-  'packageCleanup',
-  'preferences',
-  'sidecarJob',
-  'fileCleanup',
-  'storage'
-]);
+const STORAGE_STAGE_LABELS = Object.freeze({
+  saving: 'Saving',
+  records: 'Records',
+  indexing: 'Indexing',
+  cleanup: 'Cleanup',
+  preferences: 'Preferences',
+  background: 'Background'
+});
+
+const STORAGE_STAGE_ORDER = Object.freeze(['saving', 'records', 'indexing', 'cleanup', 'preferences', 'background']);
 
 let nextActivityId = 0;
 const activeActivities = new Map();
@@ -280,6 +274,64 @@ function storageCategoryFor(event = {}) {
   };
 }
 
+function storageStageForCategory(categoryKey = '', event = {}) {
+  const key = normalizeStorageKey(categoryKey);
+  if (key.endsWith('Cleanup') || key === 'fileCleanup' || normalizeStorageKey(event.operation) === 'deleteJsonFile') {
+    return {
+      key: 'cleanup',
+      label: STORAGE_STAGE_LABELS.cleanup,
+      headline: 'Cleaning up old saves...'
+    };
+  }
+  if (key === 'saveIndex' || key === 'draftIndex' || key === 'packageIndex') {
+    return {
+      key: 'records',
+      label: STORAGE_STAGE_LABELS.records,
+      headline: 'Updating records...'
+    };
+  }
+  if (key === 'storageIndex') {
+    return {
+      key: 'indexing',
+      label: STORAGE_STAGE_LABELS.indexing,
+      headline: 'Indexing saved files...'
+    };
+  }
+  if (key === 'preferences') {
+    return {
+      key: 'preferences',
+      label: STORAGE_STAGE_LABELS.preferences,
+      headline: 'Saving preferences...'
+    };
+  }
+  if (key === 'sidecarJob') {
+    return {
+      key: 'background',
+      label: STORAGE_STAGE_LABELS.background,
+      headline: 'Saving background work...'
+    };
+  }
+  if (key === 'creatorDraft') {
+    return {
+      key: 'saving',
+      label: STORAGE_STAGE_LABELS.saving,
+      headline: 'Saving character draft...'
+    };
+  }
+  if (key === 'packageImport') {
+    return {
+      key: 'saving',
+      label: STORAGE_STAGE_LABELS.saving,
+      headline: 'Saving campaign package...'
+    };
+  }
+  return {
+    key: 'saving',
+    label: STORAGE_STAGE_LABELS.saving,
+    headline: 'Saving campaign state...'
+  };
+}
+
 function normalizeSceneHandshakeRoot(value) {
   return String(value || '').trim().split('.')[0];
 }
@@ -454,11 +506,11 @@ function labelForPhase(event = {}, activity = {}) {
     case 'sidecarsSettled':
       return 'Campaign context updated.';
     case 'storageSaving':
-      return activity.label || 'Saving files...';
+      return activity.label || 'Saving campaign state...';
     case 'storageComplete':
-      return 'Files saved.';
+      return 'Save complete.';
     case 'storageFailed':
-      return 'File save needs review.';
+      return 'Storage update needs review.';
     default:
       return activity.label || DEFAULT_LABEL;
   }
@@ -498,8 +550,8 @@ function activeStorageEntries(activity = {}) {
   const source = activity || {};
   const entries = [...(source.storageFiles || new Map()).entries()];
   return entries.sort(([leftKey, left], [rightKey, right]) => {
-    const leftIndex = STORAGE_CATEGORY_ORDER.indexOf(leftKey);
-    const rightIndex = STORAGE_CATEGORY_ORDER.indexOf(rightKey);
+    const leftIndex = STORAGE_STAGE_ORDER.indexOf(leftKey);
+    const rightIndex = STORAGE_STAGE_ORDER.indexOf(rightKey);
     const ordered = (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
     if (ordered !== 0) return ordered;
     return Number(left.firstSeen || 0) - Number(right.firstSeen || 0);
@@ -557,7 +609,7 @@ function renderChips(chips, activity = {}) {
   ]);
   const storageEntries = activeStorageEntries(activity).map(([key, step]) => [
     `storage:${key}`,
-    { status: step.status || 'running', label: step.label || STORAGE_CATEGORY_LABELS[key] || key }
+    { status: step.status || 'running', label: step.label || STORAGE_STAGE_LABELS[key] || key }
   ]);
   const sidecarEntries = activeSidecarEntries(activity).map(([key, sidecar]) => [
     `sidecar:${key}`,
@@ -1126,16 +1178,22 @@ function createStorageProgressState() {
     completed: 0,
     failed: 0,
     inFlight: 0,
-    current: 0,
+    stageCount: 0,
+    currentStage: null,
     lastPath: null,
     lastLogicalKey: null
   };
 }
 
-function storageSavingLabel(progress = {}) {
-  const total = Math.max(1, Number(progress.total || 0));
-  const current = Math.max(1, Math.min(total, Number(progress.completed || 0) + Math.max(1, Number(progress.inFlight || 0))));
-  return `Saving files ${current} of ${total}...`;
+function storageHeadline(activity = {}, fallback = 'Saving campaign state...') {
+  const running = activeStorageEntries(activity).find(([, step]) => step.status === 'running');
+  if (running?.[1]?.headline) return running[1].headline;
+  const currentStage = activity?.storageProgress?.currentStage;
+  if (currentStage) {
+    const entry = activity.storageFiles?.get?.(currentStage);
+    if (entry?.headline) return entry.headline;
+  }
+  return fallback;
 }
 
 function ensureStorageActivity(payload = {}) {
@@ -1144,7 +1202,7 @@ function ensureStorageActivity(payload = {}) {
   if (!token || !activeActivities.has(token)) {
     token = markDirectiveTurnActivity({
       phase: 'storageSaving',
-      label: 'Saving files...',
+      label: 'Saving campaign state...',
       mode: 'blocking',
       delayMs: payload.delayMs ?? DEFAULT_REVEAL_DELAY_MS,
       activityKind: 'storage',
@@ -1171,33 +1229,42 @@ function setStorageCategory(activity, category, patch = {}) {
     runningCount: 0,
     firstSeen: Date.now()
   };
+  const hadStage = activity.storageFiles.has(category.key);
   activity.storageFiles.set(category.key, {
     ...current,
     label: category.label || current.label,
     ...patch
   });
+  if (!hadStage && activity.storageProgress) {
+    activity.storageProgress.stageCount = activity.storageFiles.size;
+  }
 }
 
 function startStorageOperation(activity, payload = {}) {
   const progress = activity.storageProgress || createStorageProgressState();
   activity.storageProgress = progress;
   const category = storageCategoryFor(payload);
+  const stage = storageStageForCategory(category.key, payload);
   const operationId = normalizeStorageKey(payload.operationId)
     || `${normalizeStorageKey(payload.operation) || 'storage'}:${progress.total + 1}:${Date.now()}`;
   progress.total += 1;
   progress.inFlight += 1;
-  progress.current = progress.completed + progress.inFlight;
+  progress.currentStage = stage.key;
   progress.lastPath = payload.path || payload.filePath || progress.lastPath || null;
   progress.lastLogicalKey = payload.logicalKey || payload.storageKey || progress.lastLogicalKey || null;
-  const existing = activity.storageFiles.get(category.key) || {};
-  setStorageCategory(activity, category, {
+  const existing = activity.storageFiles.get(stage.key) || {};
+  setStorageCategory(activity, stage, {
     status: 'running',
     runningCount: Number(existing.runningCount || 0) + 1,
+    headline: stage.headline,
+    categoryLabels: [...new Set([...(existing.categoryLabels || []), category.label])],
+    lastCategoryKey: category.key,
     lastOperationId: operationId
   });
   activity.storageOperations.set(operationId, {
     operationId,
     categoryKey: category.key,
+    stageKey: stage.key,
     status: 'running',
     index: progress.total
   });
@@ -1205,7 +1272,7 @@ function startStorageOperation(activity, payload = {}) {
   activity.mode = 'blocking';
   activity.blockingComplete = false;
   activity.reviewLabel = null;
-  activity.label = storageSavingLabel(progress);
+  activity.label = stage.headline;
 }
 
 function settleStorageOperation(activity, payload = {}, status = 'settled') {
@@ -1216,8 +1283,15 @@ function settleStorageOperation(activity, payload = {}, status = 'settled') {
   const category = operation?.categoryKey
     ? { key: operation.categoryKey, label: STORAGE_CATEGORY_LABELS[operation.categoryKey] || STORAGE_CATEGORY_LABELS.storage }
     : storageCategoryFor(payload);
-  const current = activity.storageFiles.get(category.key) || {
-    label: category.label,
+  const stage = operation?.stageKey
+    ? {
+        key: operation.stageKey,
+        label: STORAGE_STAGE_LABELS[operation.stageKey] || operation.stageKey,
+        headline: activity.storageFiles.get(operation.stageKey)?.headline || storageStageForCategory(category.key, payload).headline
+      }
+    : storageStageForCategory(category.key, payload);
+  const current = activity.storageFiles.get(stage.key) || {
+    label: stage.label,
     status: 'running',
     runningCount: 1,
     firstSeen: Date.now()
@@ -1229,12 +1303,15 @@ function settleStorageOperation(activity, payload = {}, status = 'settled') {
     progress.completed += 1;
   }
   progress.inFlight = Math.max(0, Number(progress.inFlight || 0) - 1);
-  progress.current = Math.max(progress.completed, Math.min(progress.total, progress.completed + progress.inFlight));
+  progress.currentStage = progress.inFlight > 0 ? progress.currentStage : null;
   progress.lastPath = payload.path || payload.filePath || progress.lastPath || null;
   progress.lastLogicalKey = payload.logicalKey || payload.storageKey || progress.lastLogicalKey || null;
-  setStorageCategory(activity, category, {
+  setStorageCategory(activity, stage, {
     status: status === 'review' ? 'review' : (runningCount > 0 ? 'running' : 'settled'),
     runningCount,
+    headline: stage.headline,
+    categoryLabels: [...new Set([...(current.categoryLabels || []), category.label])],
+    lastCategoryKey: category.key,
     lastOperationId: operationId || current.lastOperationId || null
   });
   if (operationId) {
@@ -1247,18 +1324,18 @@ function settleStorageOperation(activity, payload = {}, status = 'settled') {
     activity.phase = 'storageFailed';
     activity.mode = 'review';
     activity.blockingComplete = true;
-    activity.reviewLabel = 'File save needs review.';
-    activity.label = 'File save needs review.';
+    activity.reviewLabel = 'Storage update needs review.';
+    activity.label = 'Storage update needs review.';
     activity.reviewAction = {
       label: 'Open Settings',
       tabId: 'settings'
     };
   } else if (progress.inFlight > 0) {
     activity.phase = 'storageSaving';
-    activity.label = storageSavingLabel(progress);
+    activity.label = storageHeadline(activity);
   } else {
     activity.phase = 'storageComplete';
-    activity.label = 'Files saved.';
+    activity.label = 'Save complete.';
   }
 }
 
@@ -1272,7 +1349,7 @@ function scheduleStorageComplete(token, jobKey) {
     activity.phase = 'storageComplete';
     activity.mode = 'blocking';
     activity.blockingComplete = true;
-    activity.label = 'Files saved.';
+    activity.label = 'Save complete.';
     storageActivities.delete(jobKey);
     updateIndicator(0);
     scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
