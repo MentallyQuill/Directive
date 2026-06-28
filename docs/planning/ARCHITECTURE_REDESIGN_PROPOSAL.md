@@ -616,6 +616,119 @@ For host-native generation, Directive must pick one honest product rule:
 
 This proposal chooses the second rule for ordinary `hostContinue` turns because the under-60-second generation-start requirement is explicit.
 
+## External Context Extension Compatibility
+
+Directive must be compatible with users who run SillyTavern context-extension tools alongside Directive campaigns. Compatibility does not mean Directive owns, rewrites, imports, or directly coordinates those tools by default. It means Directive can coexist with their prompt contributions, visibility changes, summaries, and retrieval layers without confusing them for Directive-owned continuity.
+
+The architectural rule is:
+
+```text
+External context may influence generation.
+Only Directive-owned records may influence Directive authority.
+```
+
+Directive should therefore expose an External Context Compatibility Boundary with three support levels:
+
+| Level | Product promise | Architecture promise |
+| --- | --- | --- |
+| Coexistence baseline | Directive does not break when known context-extension tools are installed or enabled. | Host adapters clear only Directive-owned prompt keys, tolerate external prompt keys, and normalize host messages with extension visibility metadata. |
+| Awareness and diagnostics | Operators can see when external context may have affected a generation. | LENS records external prompt environment snapshots with settings hashes, active flags, counts, prompt keys, and redacted diagnostics. |
+| Optional reviewed interop | Future flows may let users import or export reviewed material. | CORE accepts external memory only through explicit review/approval records, never as automatic campaign truth. |
+
+This is intentionally not a request to replace ST Lorebooks, Memory Books, Summaryception, or VectFox. Users want those tools for context extension. Directive should make their presence legible and safe, not absorb their architectures.
+
+### Shared Compatibility Contract
+
+Frame, LENS, CORE, REPAIR, SRE, and FORGE each need a narrow responsibility:
+
+| Owner | Compatibility responsibility |
+| --- | --- |
+| Frame | Carries an `externalPromptEnvironmentRef` or compact snapshot hash for the turn. It stores observations and hashes, not external prompt bodies by default. |
+| LENS | Owns external prompt-environment observation, prompt-key hygiene, prompt-order diagnostics, and honest prompt revision wording. |
+| CORE | Stores external context diagnostics separately from mechanics. External summaries, lore entries, or vector hits do not advance campaign authority without review. |
+| REPAIR | Treats hidden/ghosted rows as visibility mutations, not edit/delete truth. It routes source recovery by accepted host ids, text hashes, and selected variants. |
+| SRE | May cite external context as explanatory evidence, but never as committed source truth. Directive state wins over conflicting external context. |
+| FORGE | Remains Directive's native background worker system. External summarizers/vectorizers can coexist but do not replace Directive source-token, stale-check, and batch-apply contracts. |
+
+The prompt metadata wording should distinguish Directive context from the final host prompt. `promptContextRevision` or its v2 replacement should mean "Directive-owned context revision used or scheduled," not "complete prompt sent to the model," because SillyTavern may add native World Info, Summaryception, VectFox, or other extension prompt material after Directive installs its own blocks.
+
+The compatibility boundary also needs a redaction rule. External diagnostics may include active flags, model/provider names, prompt keys, prompt positions, counts, hashes, and latency. They must not persist API keys, Qdrant secrets, raw vector payloads, raw external prompt bodies, or hidden/Director-only material.
+
+### ST Lorebooks / World Info
+
+Native SillyTavern World Info is the baseline compatibility target. It is not passive storage: active lorebooks can inject before/after prompt text, Author's Note material, example messages, at-depth chat prompts, and outlet prompts. Directive therefore cannot assume the final SillyTavern prompt equals only the Directive preset, Directive prompt blocks, and visible chat.
+
+Planning implications:
+
+- LENS should snapshot active World Info names, chat-bound lorebook name, global/persona/character WI activation flags when visible through host APIs, relevant WI settings hash, depth/budget/recursive settings hash, and prompt-position categories.
+- Directive should not rewrite or disable user lorebooks by default.
+- Prompt audits should separate `directiveOwnedContext` from `hostProvidedContext`.
+- SRE treats lorebook facts as external evidence only. They can explain why the model responded a certain way, but they do not become committed campaign state.
+- The UI or diagnostics panel should show when native Lorebooks are active in a Directive-bound chat.
+- Tests need fixtures for before/after/depth injection, recursive WI, disabled WI, conflicting lorebook facts, and prompt-key coexistence.
+
+Planning stance: fully coexist, observe enough for diagnostics, never treat native lorebook content as authority.
+
+### Memory Books
+
+Memory Books is best treated as a specialized Lorebook producer. It stores generated memories as ST World Info entries, can bind them through `chat_metadata.world_info`, and can create entries that appear at ST World Info positions/depths/roles. It also has side prompts and generation flows that can produce long-lived external summaries.
+
+Planning implications:
+
+- LENS should detect Memory Books/STMB markers, active chat-bound Memory Book, count/hash of `stmemorybooks: true` entries, and settings for manual mode, auto-summary, auto-create, auto-hide/unhide, side prompts, and context settings when available.
+- CORE should not import STMB memories automatically. A future import flow must be review-based: world name, entry UID/title, content hash, scene/message range if known, visibility, proposed fact, and approval state.
+- REPAIR must assume STMB entries may become stale after edit, delete, swipe change, rerun, branch, Save Game As, or recovery.
+- Prompt-order documentation needs a matrix of Directive lanes versus ST World Info positions, depths, and roles. At-depth user/assistant role entries are high-risk for Directive campaigns because they can masquerade as user/assistant context.
+- Compatibility warnings should call out risky modes: auto-summary, side prompts, auto-hide/unhide, and at-depth user/assistant entries.
+- Tests need STMB lorebook-entry fixtures, chat-bound WI fixtures, stale scene-range fixtures, generated memory conflicting with Directive state, and live coexistence with active Memory Books settings.
+
+Planning stance: coexist and warn. Optional future interop is review/import only, not automatic trust. Because Memory Books is AGPL-licensed, Directive interop should use SillyTavern public APIs and observed data contracts instead of copying implementation.
+
+### Summaryception
+
+Summaryception creates a rolling external summary, stores per-chat summary layers in chat metadata, injects a `summaryception` prompt block, and can ghost old rows by using SillyTavern hide/unhide behavior plus extension metadata. This is primarily a source-recovery and prompt-audit risk, not a reason to block the extension.
+
+Planning implications:
+
+- Host message normalization must explicitly model `is_hidden`, `extra.sc_ghosted`, Summaryception `ghostedIndices`, and summarized ranges separately from edit/delete/removal.
+- REPAIR must distinguish visibility mutations from source mutations. A ghosted player row still exists for source identity and recovery decisions.
+- LENS should snapshot Summaryception enabled state, prompt key presence, `summarizedUpTo`, layer counts, ghosted count, injection hash, and whether model calls are external to Directive's generation router.
+- Directive must not clear the `summaryception` prompt key.
+- SRE treats Summaryception summaries as external model-written narrative memory, not source truth.
+- FORGE remains Directive's native summarization path. Summaryception can coexist, but it cannot replace Command Log/FORGE because it lacks Directive source tokens, selected-swipe hashes, commit boundaries, and one-batch apply semantics.
+- Tests need ghosted player rows, ghosted assistant rows, branch/import/clear behavior, stale summaries after swipe/edit, prompt-key coexistence, and REPAIR recovery with hidden-but-existing messages.
+
+Planning stance: coexist with strong diagnostics. Summaryception can be useful to users, but Directive must not let ghosting or recursive summaries corrupt source accounting.
+
+### VectFox
+
+VectFox is a vector/EventBase context extender. When enabled, it can register a generation interceptor, query vector/Qdrant storage, inject `3_vectfox*` prompt blocks, run EventBase extraction, optionally inject recent structured summaries, and optionally wipe older vectorized messages from the outgoing prompt. This is mainly a latency, privacy, and authority-boundary concern.
+
+Planning implications:
+
+- LENS should detect whether VectFox is enabled, which prompt keys are active, prompt position/depth, backend type, semantic WI state, summarizer injection state, ghosting state, and coarse vector/index settings. Secrets and raw payloads must be redacted.
+- Directive should not block VectFox merely because it is external. It should report that external vector context may have influenced generation.
+- Turn latency audits must attribute possible pre-generation delay to external SillyTavern generation interceptors, vector retrieval, Qdrant network latency, EventBase extraction, or agentic retrieval when VectFox is active.
+- CORE and REPAIR must not assume VectFox indexed state tracks Directive save ids, branch lineage, outcome ids, accepted swipes, hidden/player-safe boundaries, or CPM source hashes.
+- Privacy docs should warn that vector tools may embed or store chat/lorebook text outside Directive's storage and visibility model.
+- Optional future interop should prefer approved-artifact export: public Command Log summaries, mission components, reviewed CPM evidence, or other player-safe artifacts, tagged with campaign/save/chat/source metadata.
+- Tests need VectFox-disabled, VectFox-enabled prompt injection, generation-interceptor delay, Qdrant unavailable, selected-swipe/reroll invalidation, long-chat prompt-size impact, and redacted diagnostics fixtures.
+
+Planning stance: coexist, measure, and disclose latency/privacy boundaries. Direct vector interop can come later, but only through reviewed, player-safe artifacts and explicit metadata.
+
+### Compatibility Test Matrix
+
+The redesign should add deterministic and live tests for:
+
+- clearing only `directive.*` prompt keys;
+- external prompt keys surviving Directive prompt rebuild/clear;
+- final prompt diagnostics that distinguish Directive context revision from external host prompt material;
+- hidden/ghosted messages remaining valid source rows;
+- native WI and Memory Books entries conflicting with Directive state without becoming authority;
+- Summaryception summaries becoming stale after edit/swipe/branch without creating normal-turn reobserve loops;
+- VectFox interceptor or retrieval latency being measured as external pre-generation work;
+- secret redaction in external extension diagnostics.
+
 ## SRE Redesign
 
 Scene Handshake and Scene Reconciliation should collapse into SRE (Source Reconciliation Engine).
@@ -1021,6 +1134,7 @@ Cycle-prevention rules:
 | model-call and sidecar journals in save | diagnostics segments |
 | autosave full save clone | save manifest pointer |
 | scattered prompt sync callers | LENS |
+| implicit external prompt context | External prompt environment diagnostics owned by LENS |
 | direct ledger writes | CORE Store typed events and read projections |
 
 ## Combination Audit Findings
@@ -1035,6 +1149,7 @@ The audit conclusion is to combine ownership of shared lifecycle mechanics, not 
 | Command Log summary + Narrative Thread extraction + quest/advisory enrichment + sidecars | Combine under FORGE. | Workers can run as typed provider sub-batches, but validation, conflict detection, apply, journal/diagnostics write, prompt dirtying, and persistence happen once per batch. | Worker prompts, structured schemas, allowed-root policies, and deterministic reducers. |
 | CPM source frame + sidecar context + Handshake snapshot + reconciliation snapshots | Combine as Frame and range Frame. | Store ids, hashes, revisions, selected-variant metadata, bounded previews, and integrity state. Do not store full transcript text, prompt blocks, provider prompts/results, sidecar full-state snapshots, or rollback snapshots. | CPM materializers/projection logic, settlement mode prompts, reconciliation range UX, and sidecar worker context builders. |
 | Prompt sync + dirty-domain updates + prompt-cache writes | Combine as LENS. | Transaction commits emit prompt dirty domains and background effects. LENS coalesces rebuilds, owns cache keys, installs prompt packets, and records when a visible generation used a prior prompt revision. | CPM remains the projection builder. CORE Store remains mutation/revision authority. Host adapters only install packets. |
+| ST Lorebooks + Memory Books + Summaryception + VectFox observations | Do not combine them into Directive. Treat them as external context-extension tools behind a compatibility boundary. | LENS records redacted external prompt environment snapshots; REPAIR handles visibility metadata; CORE keeps diagnostics separate from authority; host adapters clear only Directive-owned keys. | Each external extension remains independently owned by SillyTavern/user tooling. Directive does not import, rewrite, disable, or trust its content by default. |
 
 This is the line to hold during implementation: one owner for transaction phase, source integrity, persistence, recovery, background batching, prompt scheduling, and cancellation; separate domain engines for mission, open-world, CPM, source extraction, narration, command bearing, time, end conditions, and presentation summaries.
 
@@ -1047,12 +1162,14 @@ Deliverables:
 - Frame schema.
 - CORE transaction schema.
 - v2 storage manifest/head/event/checkpoint schema.
+- external prompt environment diagnostic schema.
 - performance instrumentation fields.
 - synthetic 5000-message test fixture plan.
 
 Exit criteria:
 
 - docs and schema tests define the 5000-message and under-60-second gates.
+- schema tests define redacted external context diagnostics for ST Lorebooks, Memory Books, Summaryception, and VectFox.
 - no runtime behavior changes required yet.
 
 ### Phase 2: CORE Store
@@ -1081,6 +1198,7 @@ Exit criteria:
 Deliverables:
 
 - host event creates Frame;
+- Frame includes external prompt environment reference or unknown-state marker;
 - fast gate returns `hostContinue`, `directiveCommit`, `directivePause`, or `recoveryReview`;
 - host continuation releases without Scene Handshake/advisory/prompt-sync waits.
 
@@ -1088,6 +1206,7 @@ Exit criteria:
 
 - hostContinue generation release is under 10 seconds in deterministic tests.
 - player-submit-to-generation-begins is measured directly.
+- hostContinue does not block on deep external context-extension inspection.
 
 ### Phase 4: Split Mechanics From Narration
 
@@ -1138,6 +1257,7 @@ Deliverables:
 - stale source is checked before provider calls and before apply;
 - accepted worker outputs apply as one operation bundle;
 - one prompt rebuild after batch.
+- external summarizers/vectorizers are observed as external context, not FORGE workers, unless a future reviewed-import flow explicitly converts their output into Directive proposals.
 
 Exit criteria:
 
@@ -1152,11 +1272,13 @@ Deliverables:
 - dependent outcome recovery choices;
 - branch/replay/replace flow;
 - source invalidation and prompt dirtying.
+- hidden/ghosted row normalization for Summaryception, Memory Books hide/unhide, and vector prompt ghosting.
 
 Exit criteria:
 
 - Sam Vickers edited-message loop cannot reproduce.
 - recovery state has one owner and one visible product path.
+- hidden/ghosted rows do not create false deletes or normal-turn reobserve loops.
 
 ### Phase 9: Scale And Live Gates
 
@@ -1165,14 +1287,16 @@ Deliverables:
 - synthetic 5000-message campaign scale test;
 - 5000-message prompt rebuild test;
 - event-log load/replay test;
-- live SillyTavern smoke for under-60-second generation-start instrumentation.
+- live SillyTavern smoke for under-60-second generation-start instrumentation;
+- live SillyTavern coexistence smoke with installed ST Lorebooks, Memory Books, Summaryception, and VectFox present.
 
 Exit criteria:
 
 - materialized head <= 8 MB minified at 5000-message synthetic scale;
 - no hot-path full-save rewrite;
 - submit-to-generation-begins under 60 seconds for hostContinue and directiveCommit paths under controlled provider latency;
-- sidecar/background work never blocks generation start.
+- sidecar/background work never blocks generation start;
+- external context-extension diagnostics are redacted and do not commit external content as Directive state.
 
 ## Verification Plan
 
@@ -1186,6 +1310,8 @@ Exit criteria:
 - `test-background-projection-batch.mjs`: concurrent generation, stale preflight, batch apply, conflict rejection.
 - `test-open-world-event-reducers.mjs`: no `rootsSet`, equivalent quest/world outcomes.
 - `test-prompt-dirty-domains.mjs`: prompt rebuild once per dirty bundle.
+- `test-external-prompt-environment.mjs`: ST Lorebooks, Memory Books, Summaryception, and VectFox are observed/redacted without becoming authority.
+- `test-host-prompt-key-coexistence.mjs`: Directive clears only Directive-owned prompt keys.
 
 ### Performance Tests
 
@@ -1194,6 +1320,7 @@ Exit criteria:
 - controlled huge campaign head;
 - controlled diagnostics burst;
 - controlled sidecar batch stale cancellation.
+- controlled external generation-interceptor or vector-retrieval delay.
 
 Required assertions:
 
@@ -1205,6 +1332,9 @@ Required assertions:
 - head size;
 - diagnostics segment rollover;
 - prompt rebuild count.
+- external prompt key preservation;
+- hidden/ghosted row source preservation;
+- external diagnostic redaction.
 
 ### Live Smoke
 
@@ -1217,7 +1347,8 @@ Required live evidence:
 - `hostGenerationReleasedAt` or `directiveGenerationStartedAt`;
 - active head size;
 - event segment size;
-- prompt revision/hash;
+- Directive context revision/hash;
+- external prompt environment snapshot;
 - canceled background jobs after edit/delete;
 - no old full-save rewrite in the hot path.
 
@@ -1233,6 +1364,7 @@ The redesign is successful when these are true:
 6. Edits/deletes with dependent assistant rows enter explicit recovery and cannot reobserve as ordinary turns.
 7. Open-world turns commit bounded events/operations, not broad root replacements.
 8. Prompt rebuilds are dirty-domain driven and occur at most once for the visible lane and once for the background bundle.
+9. Known external context-extension tools coexist: Directive does not clear their prompt keys, import their memory automatically, or treat their content as committed campaign truth.
 
 ## Non-Goals
 
@@ -1242,6 +1374,8 @@ The redesign is successful when these are true:
 - Let diagnostics remain in the canonical campaign head.
 - Make all background sidecars successful before visible generation.
 - Guarantee provider completion under 60 seconds. The architecture gate is generation start, not provider finish.
+- Directly integrate with or replace ST Lorebooks, Memory Books, Summaryception, or VectFox.
+- Store external API keys, raw vector payloads, or raw external prompt bodies in Directive diagnostics.
 
 ## Open Decisions
 
@@ -1251,6 +1385,8 @@ The redesign is successful when these are true:
 4. Should hostContinue ever block for prompt rebuild, or should prompt rebuild always apply to the next generation unless the route is directive-owned?
 5. What minimal transcript source cache is needed to survive host chat file corruption without duplicating all chat text?
 6. Which current runtime panels should read diagnostics segments directly, and which should consume compact view models?
+7. How much external prompt-order detail should be shown to users versus kept in diagnostics-only surfaces?
+8. Should Directive offer an optional approved-artifact export flow for vector tools before or after the v2 storage cutover?
 
 ## Recommended First Slice
 
