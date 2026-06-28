@@ -141,7 +141,7 @@ Current product-contract checks include:
 - Source document paths exist.
 - Ship is U.S.S. Breckenridge with opening stardate `53049.2`.
 - Bundled hero ship registries are concrete NCC identifiers and align with their initial campaign projections.
-- Locked senior crew entries are present with rank, billet, species, status, and non-player public profile data.
+- Locked senior crew entries are present with rank, billet, species, status, and non-player public profile and age-description data.
 - Relationship dimensions include professional confidence, integrity trust, and personal rapport.
 - Character Creator is package-defined with the Ashes of Peace locked Commander/XO role, required creator fields, allowed species, career backgrounds, formative experiences, assignment reasons, trait choices, dossier boundaries, generation guardrails, and local fallback templates.
 - Ashes of Peace campaign id, theater, story arcs, quest templates, campaign assets, and source-derived starting values.

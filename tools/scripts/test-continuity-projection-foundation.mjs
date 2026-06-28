@@ -58,6 +58,8 @@ assert.equal(byId.get('crew.hadrik-bronn.species')?.value, 'Tellarite');
 assert.match(byId.get('crew.hadrik-bronn.species')?.render.narrator || '', /not a default human/i);
 assert.equal(byId.get('crew.hadrik-bronn.billet')?.value, 'Chief Tactical and Security Officer');
 assert.match(byId.get('crew.hadrik-bronn.age-description')?.summary || '', /Late fifties/i);
+assert.match(byId.get('crew.mara-whitaker.age-description')?.summary || '', /47 at campaign start/i);
+assert.match(byId.get('crew.mara-whitaker.age-description')?.render.narrator || '', /late forties, not early fifties/i);
 assert.match(byId.get('crew.hadrik-bronn.uniform-division-color')?.summary || '', /mustard-yellow/i);
 assert.match(byId.get('crew.kieran-vale.uniform-division-color')?.summary || '', /burgundy-red/i);
 

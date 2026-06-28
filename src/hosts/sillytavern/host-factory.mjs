@@ -11,7 +11,10 @@ import { createSillyTavernPromptAdapter } from './prompt-adapter.mjs';
 import { createSillyTavernProviderSettingsStore } from '../../providers/directive-provider-settings.mjs';
 import { createDirectiveProviderClient } from './provider-client.mjs';
 import { createSillyTavernDirectivePresetManager } from './preset-manager.mjs';
-import { reportDirectiveJobProgress } from './turn-activity-indicator.js';
+import {
+  reportDirectiveJobProgress,
+  reportDirectiveStorageProgress
+} from './turn-activity-indicator.js';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -49,6 +52,7 @@ function createSillyTavernUiAdapter({ mount = null, send = null } = {}) {
     reportProgress(payload) {
       try {
         reportDirectiveJobProgress(payload);
+        reportDirectiveStorageProgress(payload);
       } catch (error) {
         console.warn('[Directive] Failed to render job progress:', error);
       }
@@ -100,6 +104,8 @@ export function createSillyTavernDirectiveHost({
     || typeof globalThis.setExtensionPrompt === 'function'
     || typeof globalThis.SillyTavern?.setExtensionPrompt === 'function';
   const hasPresetManager = hasChatCompletionPresetManager(resolvedContext);
+  const uiAdapter = createSillyTavernUiAdapter(ui);
+  const reportStorageProgress = (payload) => uiAdapter.reportProgress(payload);
 
   return normalizeDirectiveHost({
     id: 'sillytavern',
@@ -173,7 +179,8 @@ export function createSillyTavernDirectiveHost({
       ? createSillyTavernStorageAdapter({
           getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
             ? () => resolvedContext.getRequestHeaders()
-            : undefined
+            : undefined,
+          onProgress: reportStorageProgress
         })
       : createSillyTavernFileStorageAdapter({
           getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
@@ -209,7 +216,7 @@ export function createSillyTavernDirectiveHost({
     chat,
     prompt,
     presets,
-    ui: createSillyTavernUiAdapter(ui),
+    ui: uiAdapter,
     jobs: {
       disposeAll() {
         eventAdapter.disposeAll();

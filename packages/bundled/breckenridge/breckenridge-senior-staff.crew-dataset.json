@@ -26,6 +26,7 @@
       "id": "mara-whitaker",
       "name": "Mara Whitaker",
       "billet": "Commanding Officer",
+      "ageDescription": "47 at campaign start; describe her as late forties, not early fifties.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -39,6 +40,7 @@
       "id": "kieran-vale",
       "name": "Kieran Vale",
       "billet": "Flight Control Officer",
+      "ageDescription": "29 at campaign start; describe him as late twenties.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -52,6 +54,7 @@
       "id": "priya-nayar",
       "name": "Priya Nayar",
       "billet": "Operations Officer",
+      "ageDescription": "36 at campaign start; describe her as mid-thirties.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -65,6 +68,7 @@
       "id": "hadrik-bronn",
       "name": "Hadrik Bronn",
       "billet": "Chief Tactical and Security Officer",
+      "ageDescription": "Late fifties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -78,6 +82,7 @@
       "id": "rowan-saye",
       "name": "Rowan Saye",
       "billet": "Chief Science Officer",
+      "ageDescription": "41 at campaign start; describe them as early forties.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -91,6 +96,7 @@
       "id": "miriam-sato",
       "name": "Miriam Sato",
       "billet": "Chief Medical Officer",
+      "ageDescription": "43 at campaign start; describe her as early forties.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -104,6 +110,7 @@
       "id": "imani-cross",
       "name": "Imani Cross",
       "billet": "Chief Engineer",
+      "ageDescription": "39 at campaign start; describe her as late thirties.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",

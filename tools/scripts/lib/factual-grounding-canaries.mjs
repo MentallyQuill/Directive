@@ -44,6 +44,30 @@ function sourcePointer(sourcePath, pointer, note = null) {
   return { path: sourcePath, pointer, note };
 }
 
+function ageContradictionWatchlist(name, ageDescription) {
+  const age = compactText(ageDescription).toLowerCase();
+  if (!name || !age) return [];
+  const contradictions = [`${name} must not be given a contradictory age band.`];
+  if (/\b47\b|late forties/.test(age)) {
+    contradictions.push(
+      `${name} is in her early fifties`,
+      `${name} is in his early fifties`,
+      `${name} is in their early fifties`,
+      `${name}, early fifties`,
+      `${name}, a fifty-year-old`,
+      'early fifties',
+      'early-50s'
+    );
+  }
+  if (/fift/i.test(age)) {
+    contradictions.push(`${name}, a 40-year-old`, `${name}, a forty-year-old`);
+  }
+  if (/thirt/i.test(age)) {
+    contradictions.push(`${name}, a fifty-year-old`, `${name}, early fifties`);
+  }
+  return [...new Set(contradictions)];
+}
+
 function packageSeniorCrew(packageData) {
   if (Array.isArray(packageData?.crew?.senior)) {
     return { key: 'senior', records: packageData.crew.senior };
@@ -137,7 +161,7 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
       const uniformDivisionFact = starfleetUniformFactForCrew(officer);
       const assertions = [
         officer.publicProfile,
-        officer.ageDescription ? `${officer.name} age band: ${officer.ageDescription}` : null,
+        officer.ageDescription ? `${officer.name} age description: ${officer.ageDescription}` : null,
         uniformDivisionFact?.summary,
         publicIdentityFacts.length ? publicIdentityFacts.join(' ') : null,
         officer.playerSafeSummary,
@@ -145,7 +169,7 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
       ].filter(Boolean);
       const sourcePointers = [
         officer.publicProfile ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'publicProfile'), 'package public profile') : null,
-        officer.ageDescription ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'ageDescription'), 'package public age band') : null,
+        officer.ageDescription ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'ageDescription'), 'package public age description') : null,
         officer.publicIdentityFacts ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'publicIdentityFacts'), 'package public identity facts') : null,
         uniformDivisionFact ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'billet'), 'derived Starfleet uniform division from crew billet') : null,
         officer.playerSafeSummary ? sourcePointer(packagePath, jsonPointer('crew', key, index, 'playerSafeSummary'), 'package player-safe summary') : null
@@ -160,7 +184,7 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
         category: 'senior-crew-identity',
         summary: [
           officer.publicProfile || `${officer.rank || ''} ${officer.name} is ${officer.species || 'species unspecified'}, ${officer.billet || 'billet unspecified'}.`,
-          officer.ageDescription ? `Age band: ${officer.ageDescription}` : '',
+          officer.ageDescription ? `Age description: ${officer.ageDescription}` : '',
           officer.playerSafeSummary || ''
         ].join(' '),
         checkTiming: ['first-generated-reply-mention', 'first-appearance', 'campaign-switch'],
@@ -187,9 +211,7 @@ function seniorCrewCanaries({ campaignSlug, packagePath, packageData, crewDatase
           officer.species && officer.species !== 'Human' ? `${officer.name} is Human.` : null,
           officer.species && officer.species !== 'Human' ? `${officer.name}, a Human` : null,
           officer.billet ? `${officer.name} must not be assigned a different senior role than ${officer.billet}.` : null,
-          officer.ageDescription ? `${officer.name} must not be given a contradictory age band.` : null,
-          /fift/i.test(officer.ageDescription || '') ? `${officer.name}, a 40-year-old` : null,
-          /fift/i.test(officer.ageDescription || '') ? `${officer.name}, a forty-year-old` : null,
+          ...ageContradictionWatchlist(officer.name, officer.ageDescription),
           uniformDivisionFact?.color !== 'burgundy-red' ? 'red-and-black of tactical' : null,
           uniformDivisionFact?.color !== 'burgundy-red' ? `${officer.name} wears command red` : null,
           uniformDivisionFact?.color !== 'mustard-yellow' ? `${officer.name} wears mustard-yellow` : null,

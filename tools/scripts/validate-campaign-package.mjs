@@ -150,6 +150,7 @@ for (const [id, member] of crew) {
   requireKeys(member, ['id', 'name', 'rank', 'billet', 'species', 'status'], `$.crew.senior.${id}`);
   if (pkg.manifest?.bundled === true && id !== 'player-commander') {
     text(member.publicProfile, `$.crew.senior.${id}.publicProfile`);
+    text(member.ageDescription, `$.crew.senior.${id}.ageDescription`);
   }
   for (const field of ['publicProfile', 'ageDescription', 'appearanceSummary']) {
     if (member[field] !== undefined) text(member[field], `$.crew.senior.${id}.${field}`);

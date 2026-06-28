@@ -68,6 +68,12 @@ for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
     continue;
   }
 
+  for (const entry of dataset.officers || []) {
+    if (!entry.ageDescription || typeof entry.ageDescription !== 'string') {
+      fail(`${ref.crewDatasetPath} ${entry.id || 'unknown-officer'}`, 'must include ageDescription');
+    }
+  }
+
   const cards = cardsForOfficer(dataset, officer.id);
   const profileCard = cardOfType(cards, 'crew.profile');
   const voiceCard = cardOfType(cards, 'crew.voice');

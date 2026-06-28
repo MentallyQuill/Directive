@@ -22,12 +22,14 @@ The package `crew.senior` roster owns stable public identity:
 - rank;
 - billet;
 - species;
+- age description;
 - public role;
 - public profile;
-- public age or appearance facts when authored.
+- public appearance facts when authored.
 
 The crew dataset owns richer characterization:
 
+- required per-officer `ageDescription` mirrored from the package roster;
 - profile summary;
 - voice and portrayal rules;
 - relationship dynamics;

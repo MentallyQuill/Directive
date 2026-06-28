@@ -256,6 +256,7 @@
         "rank": "Captain",
         "billet": "Commanding Officer",
         "species": "Human",
+        "ageDescription": "Late forties by human comparison.",
         "status": "locked",
         "packageRole": "missing-commanding-officer",
         "publicProfile": "Captain Amina Rhos is Human, Commanding Officer.",
@@ -267,6 +268,7 @@
         "rank": "Lieutenant Commander",
         "billet": "Chief Science Officer and Gravitic Cartographer",
         "species": "Trill",
+        "ageDescription": "Early forties by Trill host comparison.",
         "status": "locked",
         "packageRole": "senior-staff",
         "publicProfile": "Lieutenant Commander Ishan Tal is Trill, Chief Science Officer and Gravitic Cartographer.",
@@ -278,6 +280,7 @@
         "rank": "Lieutenant Commander",
         "billet": "Chief Engineer",
         "species": "Human",
+        "ageDescription": "Late thirties by human comparison.",
         "status": "locked",
         "packageRole": "senior-staff",
         "publicProfile": "Lieutenant Commander Mara Venn is Human, Chief Engineer.",
@@ -289,6 +292,7 @@
         "rank": "Lieutenant Commander",
         "billet": "Chief Tactical and Security Officer",
         "species": "Andorian",
+        "ageDescription": "Mid-forties by human comparison.",
         "status": "locked",
         "packageRole": "senior-staff",
         "publicProfile": "Lieutenant Commander Shara zh’Thenn is Andorian, Chief Tactical and Security Officer.",
@@ -300,6 +304,7 @@
         "rank": "Lieutenant Commander",
         "billet": "Chief Medical Officer",
         "species": "Bajoran",
+        "ageDescription": "Early forties by human comparison.",
         "status": "locked",
         "packageRole": "senior-staff",
         "publicProfile": "Lieutenant Commander Olan Rix is Bajoran, Chief Medical Officer.",
@@ -311,6 +316,7 @@
         "rank": "Lieutenant",
         "billet": "Operations Officer",
         "species": "Betazoid",
+        "ageDescription": "Early thirties by human comparison.",
         "status": "locked",
         "packageRole": "senior-staff",
         "publicProfile": "Lieutenant Sorren Vale is Betazoid, Operations Officer.",
@@ -322,6 +328,7 @@
         "rank": "Lieutenant",
         "billet": "Chief Flight Control Officer",
         "species": "Vulcan",
+        "ageDescription": "Young adult by Vulcan standards, presenting as mid-thirties by human comparison.",
         "status": "locked",
         "packageRole": "senior-staff",
         "publicProfile": "Lieutenant T’Kessa is Vulcan, Chief Flight Control Officer.",
@@ -333,6 +340,7 @@
         "rank": "Chief Petty Officer",
         "billet": "Senior Enlisted Deck Chief",
         "species": "Tellarite",
+        "ageDescription": "Late fifties by human comparison.",
         "status": "locked",
         "packageRole": "senior-enlisted",
         "publicProfile": "Chief Petty Officer Hark is Tellarite, Senior Enlisted Deck Chief.",
@@ -17164,23 +17172,23 @@
       }
     ],
     "datasets": [
-    {
-      "kind": "crew",
-      "id": "glass-harbor.senior-staff",
-      "path": "packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json",
-      "schema": "schemas/packages/crew-dataset.schema.json",
-      "status": "draft"
-    },
-    {
-      "kind": "ship",
-      "id": "glass-harbor.steamrunner-class",
-      "path": "packages/bundled/glass-harbor/glass-harbor-steamrunner-class.ship-dataset.json",
-      "schema": "schemas/packages/ship-dataset.schema.json",
-      "status": "draft"
-    },
-    {
-      "kind": "missionGraph",
-      "id": "glass-harbor.drowned-constellation.prelude-soundings",
+      {
+        "kind": "crew",
+        "id": "glass-harbor.senior-staff",
+        "path": "packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json",
+        "schema": "schemas/packages/crew-dataset.schema.json",
+        "status": "draft"
+      },
+      {
+        "kind": "ship",
+        "id": "glass-harbor.steamrunner-class",
+        "path": "packages/bundled/glass-harbor/glass-harbor-steamrunner-class.ship-dataset.json",
+        "schema": "schemas/packages/ship-dataset.schema.json",
+        "status": "draft"
+      },
+      {
+        "kind": "missionGraph",
+        "id": "glass-harbor.drowned-constellation.prelude-soundings",
         "path": "packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "draft"

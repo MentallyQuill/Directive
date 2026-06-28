@@ -30,6 +30,7 @@
       "id": "anika-lorne",
       "name": "Anika Lorne",
       "billet": "Commanding Officer",
+      "ageDescription": "Early fifties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -43,6 +44,7 @@
       "id": "tmeru",
       "name": "T'Meru",
       "billet": "Chief Science Officer and Subspace Specialist",
+      "ageDescription": "Mature adult by Vulcan standards, presenting as mid-forties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -56,6 +58,7 @@
       "id": "ral-enor",
       "name": "Ral Enor",
       "billet": "Chief Engineer",
+      "ageDescription": "Late thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -69,6 +72,7 @@
       "id": "hesh-marr",
       "name": "Hesh Marr",
       "billet": "Chief Tactical and Security Officer",
+      "ageDescription": "Early fifties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -82,6 +86,7 @@
       "id": "lio-sen",
       "name": "Lio Sen",
       "billet": "Chief Medical Officer",
+      "ageDescription": "Early forties by Trill host comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -95,6 +100,7 @@
       "id": "nira-zhren",
       "name": "Nira zh'Ren",
       "billet": "Chief Flight Control Officer and Wake Pilot",
+      "ageDescription": "Early thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -108,6 +114,7 @@
       "id": "samir-holt",
       "name": "Samir Holt",
       "billet": "Operations Officer and Recovery Coordinator",
+      "ageDescription": "Mid-thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -121,6 +128,7 @@
       "id": "cpo-vek",
       "name": "Vek",
       "billet": "Senior Recovery Deck Chief",
+      "ageDescription": "Late forties by Bolian comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",

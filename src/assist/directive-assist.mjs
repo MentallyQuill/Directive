@@ -332,7 +332,8 @@ function resolveVisibleStaff({ packageData = null, crewDataset = null } = {}) {
       id: compactText(crew.id, 120),
       name: compactText(crew.name, 120),
       rank: compactText(crew.rank, 80),
-      billet: compactText(crew.billet || crew.packageRole, 160)
+      billet: compactText(crew.billet || crew.packageRole, 160),
+      ageDescription: compactText(crew.ageDescription, 180)
     }));
   const byId = new Map(fromPackage.map((crew) => [crew.id, crew]));
   for (const officer of asArray(crewDataset?.officers)) {
@@ -341,7 +342,8 @@ function resolveVisibleStaff({ packageData = null, crewDataset = null } = {}) {
       id: compactText(officer.id, 120),
       name: compactText(officer.name, 120),
       rank: '',
-      billet: compactText(officer.billet, 160)
+      billet: compactText(officer.billet, 160),
+      ageDescription: compactText(officer.ageDescription, 180)
     });
   }
   return [...byId.values()].filter((crew) => crew.id && crew.name).slice(0, 10);

@@ -546,6 +546,7 @@ function buildIndexes({
       billet: record.billet || record.role || null,
       species: record.species || null,
       aliases: unique([record.shortName, record.familyName, ...(asArray(record.aliases))]),
+      ageDescription: cleanText(record.ageDescription || '', 220),
       publicProfile: cleanText(record.publicProfile || record.profile || record.packageRole || '', 420),
       visibleDescriptor: cleanText(record.visibleDescriptor || '', 220)
     })),

@@ -93,4 +93,63 @@ assert.throws(
   /Unsafe logical storage key/
 );
 
+const progressStorage = createFakeJsonStorage();
+const progressEvents = [];
+const progressAdapter = createLogicalStorageAdapter({
+  storage: progressStorage,
+  hostId: 'sillytavern',
+  onProgress(event) {
+    progressEvents.push(event);
+  }
+});
+
+await progressAdapter.writeJson('saves/save-progress.v1.json', {
+  ok: true
+});
+assert.deepEqual(progressEvents.map((event) => event.phase), [
+  'storageWriteStarted',
+  'storageWriteComplete'
+]);
+assert.equal(progressEvents[0].kind, 'directive.storageProgress');
+assert.equal(progressEvents[0].logicalKey, 'saves/save-progress.v1.json');
+assert.equal(progressEvents[0].path, '/user/files/directive-saves-save-progress.v1.json');
+assert.equal(progressEvents[0].operation, 'writeJson');
+assert.equal(progressEvents[1].operationId, progressEvents[0].operationId);
+
+progressEvents.length = 0;
+await progressAdapter.deleteJsonFile('saves/save-progress.v1.json');
+assert.deepEqual(progressEvents.map((event) => event.phase), [
+  'storageDeleteStarted',
+  'storageDeleteComplete'
+]);
+assert.equal(progressEvents[0].operation, 'deleteJsonFile');
+assert.equal(progressEvents[1].operationId, progressEvents[0].operationId);
+
+const failedProgressEvents = [];
+const failingAdapter = createLogicalStorageAdapter({
+  storage: {
+    async readJson() {
+      return {};
+    },
+    async writeJson() {
+      const error = new Error('write failed');
+      error.code = 'EWRITE';
+      throw error;
+    }
+  },
+  hostId: 'fake',
+  onProgress(event) {
+    failedProgressEvents.push(event);
+  }
+});
+await assert.rejects(
+  () => failingAdapter.writeJson('saves/save-fail.v1.json', { ok: false }),
+  /write failed/
+);
+assert.deepEqual(failedProgressEvents.map((event) => event.phase), [
+  'storageWriteStarted',
+  'storageWriteFailed'
+]);
+assert.equal(failedProgressEvents[1].error.code, 'EWRITE');
+
 console.log('Logical storage adapter tests passed.');

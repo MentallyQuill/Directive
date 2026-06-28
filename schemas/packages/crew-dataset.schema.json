@@ -95,11 +95,12 @@
     "officerContract": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "billet", "requiredCardTypes"],
+      "required": ["id", "name", "billet", "ageDescription", "requiredCardTypes"],
       "properties": {
         "id": { "$ref": "../common/common.schema.json#/$defs/id" },
         "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "billet": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "ageDescription": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "requiredCardTypes": {
           "type": "array",
           "minItems": 1,

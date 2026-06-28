@@ -17,6 +17,7 @@ import {
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity,
   reportDirectiveJobProgress,
+  reportDirectiveStorageProgress,
   updateDirectiveTurnActivity
 } from '../../src/hosts/sillytavern/turn-activity-indicator.js';
 import {
@@ -77,6 +78,12 @@ class FakeElement {
   matches(selector) {
     if (selector.startsWith('#')) return this.id === selector.slice(1);
     if (selector.startsWith('.')) return this.className.split(/\s+/).includes(selector.slice(1));
+    const dataAttribute = selector.match(/^\[data-([^=\]]+)(?:="([^"]*)")?\]$/);
+    if (dataAttribute) {
+      const key = dataAttribute[1].replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      const actual = this.dataset?.[key];
+      return dataAttribute[2] === undefined ? actual !== undefined : String(actual) === dataAttribute[2];
+    }
     return false;
   }
 
@@ -148,6 +155,7 @@ assert.deepEqual([...registered.keys()].sort(), [
 assert.equal(registered.has(eventTypes.MESSAGE_UPDATED), false, 'MESSAGE_UPDATED should not duplicate edit recovery.');
 
 const calls = [];
+let nativeEditDecision = { protected: true, nativeEdit: 'intercept', mode: 'strict' };
 const app = {
   async observeHostPlayerMessage(payload) {
     calls.push(['sent', payload]);
@@ -171,7 +179,7 @@ const app = {
   },
   getOutcomeIntegrityNativeEditDecision(payload) {
     calls.push(['integrity-decision', payload.hostMessageId]);
-    return { protected: true, nativeEdit: 'intercept', mode: 'strict' };
+    return { ...nativeEditDecision };
   }
 };
 let promptClearCount = 0;
@@ -237,6 +245,35 @@ await new Promise((resolve) => setTimeout(resolve, 120));
 assert.deepEqual(calls.slice(-2), [
   ['integrity-decision', '22'],
   ['integrity-open', { message: { hostMessageId: '22', id: '22' } }]
+]);
+
+nativeEditDecision = { protected: false, nativeEdit: 'allow', reason: 'player-message' };
+let allowedPreventedNativeEdit = false;
+const allowCallsBefore = calls.length;
+const nativeEditAllowed = __directiveEventTestHooks.captureNativeProtectedEditIntent({
+  target: {
+    closest(selector) {
+      if (selector === '.mes_edit') return {
+        closest(rowSelector) {
+          return rowSelector === '.mes[mesid]' ? {
+            getAttribute(name) {
+              return name === 'mesid' ? '23' : null;
+            }
+          } : null;
+        }
+      };
+      if (selector === '.mes_edit_delete') return null;
+      return null;
+    }
+  },
+  preventDefault() { allowedPreventedNativeEdit = true; },
+  stopPropagation() {},
+  stopImmediatePropagation() {}
+});
+assert.equal(nativeEditAllowed, false);
+assert.equal(allowedPreventedNativeEdit, false);
+assert.deepEqual(calls.slice(allowCallsBefore), [
+  ['integrity-decision', '23']
 ]);
 
 const sentResult = await registered.get('message-sent')({ id: 4 });
@@ -480,6 +517,94 @@ assert.equal(activity.mode, 'review');
 assert.equal(activity.label, 'Opening scene rewrite needs review.');
 assert.equal(activity.activationSteps.intro.status, 'review');
 assert.equal(activationIndicator.querySelector('.directive-turn-activity-actions').hidden, false);
+clearDirectiveTurnActivity(activity.token);
+
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-save',
+  phase: 'storageWriteStarted',
+  status: 'running',
+  operation: 'writeJson',
+  logicalKey: 'saves/save-storage-visual.v1.json',
+  path: '/user/files/directive-saves-save-storage-visual.v1.json',
+  delayMs: 0
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.activityKind, 'storage');
+assert.equal(activity.label, 'Saving files 1 of 1...');
+assert.equal(activity.storageProgress.total, 1);
+assert.equal(activity.storageFiles.campaignSave.status, 'running');
+assert.equal(activity.storageFiles.campaignSave.label, 'Campaign Save');
+assert.equal(__directiveTurnActivityTestHooks.cancelActiveDirectiveTurnActivities().canceledCount, 0, 'Generation-stop cleanup should not cancel active storage progress.');
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-index',
+  phase: 'storageWriteStarted',
+  status: 'running',
+  operation: 'writeJson',
+  logicalKey: 'indexes/saves.v1.json',
+  path: '/user/files/directive-indexes-saves.v1.json'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Saving files 2 of 2...');
+assert.equal(activity.storageProgress.total, 2);
+await new Promise((resolve) => setTimeout(resolve, 0));
+const storageIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
+assert.equal(storageIndicator.querySelector('.directive-turn-activity-label').textContent, 'Saving files 2 of 2...');
+assert.deepEqual(
+  storageIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Campaign Save', 'Save Index']
+);
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-save',
+  phase: 'storageWriteComplete',
+  status: 'complete',
+  operation: 'writeJson',
+  logicalKey: 'saves/save-storage-visual.v1.json',
+  path: '/user/files/directive-saves-save-storage-visual.v1.json'
+});
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-index',
+  phase: 'storageWriteComplete',
+  status: 'complete',
+  operation: 'writeJson',
+  logicalKey: 'indexes/saves.v1.json',
+  path: '/user/files/directive-indexes-saves.v1.json'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Files saved.');
+assert.equal(activity.storageFiles.campaignSave.status, 'settled');
+assert.equal(activity.storageFiles.saveIndex.status, 'settled');
+clearDirectiveTurnActivity(activity.token);
+
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-fail',
+  phase: 'storageWriteStarted',
+  status: 'running',
+  operation: 'writeJson',
+  logicalKey: 'system/storage-index.v1.json',
+  path: '/user/files/directive-system-storage-index.v1.json',
+  delayMs: 0
+});
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-fail',
+  phase: 'storageWriteFailed',
+  status: 'failed',
+  operation: 'writeJson',
+  logicalKey: 'system/storage-index.v1.json',
+  path: '/user/files/directive-system-storage-index.v1.json',
+  error: {
+    message: 'upload failed'
+  }
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.mode, 'review');
+assert.equal(activity.label, 'File save needs review.');
+assert.equal(activity.storageFiles.storageIndex.status, 'review');
+const storageReviewIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
+assert.equal(storageReviewIndicator.querySelector('.directive-turn-activity-actions').hidden, false);
+assert.equal(
+  storageReviewIndicator.querySelectorAll('.directive-turn-activity-action')[0].textContent,
+  'Open Settings'
+);
 clearDirectiveTurnActivity(activity.token);
 
 const recoveryToken = markDirectiveTurnActivity({ delayMs: 0 });

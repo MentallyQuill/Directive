@@ -315,20 +315,16 @@ Outcome Integrity should feel like normal transcript cleanup with a visible trus
 The player should see three things:
 
 - ordinary editing remains available for their own messages;
-- Directive narration can be cleaned up through an explicit `Edit Prose` path;
+- Directive narration can be cleaned up through the same native edit button, with Outcome Integrity appearing only when the selected assistant message is protected;
 - committed outcomes remain stable unless the player chooses a recovery tool that reruns or removes mechanics.
 
 ## UI Surfaces
 
 ### Message Row
 
-Directive-owned assistant responses should expose Outcome Integrity through the existing SillyTavern message-action pattern. The control should stay inside the host-shaped `.mes_buttons` / `.extraMesButtons` affordance rather than adding a separate wrapper or floating toolbar.
+Directive-owned assistant responses should use the host's native edit affordance as the public edit entry point. Directive should not add a second visible edit command to its message-action menu, because that asks the player to learn which edit button is safe for which row.
 
-Primary control for a Directive-owned assistant response:
-
-| Control | Location | Behavior |
-|---|---|---|
-| `Edit Prose` | Directive message actions | Opens the Outcome Integrity editor for player-authored wording changes. |
+Directive message actions remain for non-edit tools such as intro rewrite and Scene Reconciliation. The internal Outcome Integrity runtime action still exists, but it is opened by native edit interception rather than advertised as a parallel row command.
 
 The row should not show a standing warning badge for ordinary accepted messages. A transient toast or compact inline result is enough after an edit attempt.
 
@@ -343,7 +339,7 @@ The interception rule:
 3. Use `mesid` to read the real chat message from the SillyTavern chat adapter.
 4. Allow native edit for player messages.
 5. Allow native edit for untracked non-Directive assistant messages in v1.
-6. If the message is a Directive-owned assistant response and Outcome Integrity is `strict`, prevent the native edit and open `Edit Prose`.
+6. If the message is a Directive-owned assistant response and Outcome Integrity is `strict`, prevent the native edit and open the protected message editor.
 7. If the mode is `relaxed`, allow native edit, then review or mark the result after the `MESSAGE_EDITED` event.
 8. If the mode is `off`, allow native edit and do not protect the assistant prose.
 
@@ -363,9 +359,9 @@ openOutcomeIntegrityEditor({ hostMessageId });
 
 This keeps the player's own SillyTavern edit behavior intact and avoids taking over unrelated assistant messages that Directive does not own.
 
-### Edit Prose Editor
+### Protected Message Editor
 
-`Edit Prose` should open a Directive-owned modal or modal-like focused panel over the current chat. It should not send the player to Settings or Mission unless the edit produces a recovery state. A row popover is too cramped for prose editing, and the Mission drawer is too heavy for a quick transcript cleanup.
+The protected message editor should open as a Directive-owned modal or modal-like focused panel over the current chat after the player clicks the native SillyTavern edit button on a protected assistant response. It should not send the player to Settings or Mission unless the edit produces a recovery state. A row popover is too cramped for prose editing, and the Mission drawer is too heavy for a quick transcript cleanup.
 
 The editor must support verbose model replies in the 500-800 word range. The default panel can be compact enough for short cleanup, but it needs an `Expand Editor` control that opens a fullscreen or near-fullscreen editing workspace. On phone-width layouts, the editor should default to fullscreen.
 
@@ -374,7 +370,7 @@ The editor must teach the boundary at the point of action. The player should not
 Persistent editor guidance:
 
 ```text
-Prose edit only. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.
+This response has a committed outcome. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.
 ```
 
 The editor should also show a compact public outcome anchor:
@@ -387,9 +383,9 @@ This summary gives the player a fair target: they can reshape presentation, but 
 
 Suggested layout:
 
-- Title: `Edit Prose`
+- Title: `Edit Message`
 - Small status line: `Outcome Integrity Strict`
-- Persistent guidance line: `Prose edit only. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.`
+- Persistent guidance line: `This response has a committed outcome. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.`
 - Textarea seeded with the current selected assistant text.
 - Compact public reference line: `Locked outcome: [short committed outcome summary]`
 - Word count or approximate length indicator.
@@ -400,7 +396,7 @@ Suggested layout:
 Large-edit mode requirements:
 
 - full-height textarea with stable line wrapping;
-- sticky header showing `Edit Prose`, Outcome Integrity mode, and collapse/close controls;
+- sticky header showing `Edit Message`, Outcome Integrity mode, and collapse/close controls;
 - sticky footer with `Review And Apply`, `Cancel`, and `Restore Original`;
 - optional collapsible `Original` section for comparing against the generated text;
 - draft text preserved when expanding, collapsing, retrying review, or handling provider failure;
@@ -411,7 +407,7 @@ The editor should not display hidden state, raw outcome ids, model-call details,
 
 ### First-Use Guidance
 
-The first time the player opens `Edit Prose` in a campaign, show a dismissible note:
+The first time the player opens the protected message editor in a campaign, show a dismissible note:
 
 ```text
 You can shorten, reword, or adjust dialogue here. If you want the result itself to change, use outcome recovery instead.
@@ -539,8 +535,8 @@ The review provider control changes provider lane only. It must not change the O
 
 Preferred edit path:
 
-1. The player clicks the native SillyTavern edit button or opens Directive message actions on a Directive-owned assistant response.
-2. Outcome Integrity intercepts protected native edits and opens `Edit Prose`.
+1. The player clicks the native SillyTavern edit button.
+2. Outcome Integrity intercepts protected Directive assistant edits and opens the protected message editor.
 3. The player edits the prose.
 4. The player clicks `Review And Apply`.
 5. Directive runs the configured review provider, defaulting to Utility.
@@ -568,14 +564,14 @@ Outcome Integrity does not replace recovery.
 
 | Player intent | Correct tool |
 |---|---|
-| Fix wording, length, typo, or repetition | `Edit Prose` |
+| Fix wording, length, typo, or repetition | Native edit button; Outcome Integrity review opens automatically for protected Directive assistant responses |
 | Get alternate prose for the same committed outcome | `Rewrite Narration` |
 | Change the mechanical result | `Rerun Outcome` |
 | Remove a committed outcome | `Delete Outcome` |
 | Explore a different branch | `Save Game As` or future branch tools |
 | Reconcile several changed messages | Future scene reconciliation |
 
-`Rewrite Narration` remains provider-generated prose from the same committed mechanics, but it does not need to be part of the normal Outcome Integrity message-row controls. `Edit Prose` is player-authored prose that must pass integrity review.
+`Rewrite Narration` remains provider-generated prose from the same committed mechanics, but it does not need to be part of the normal edit control. A protected native edit is player-authored prose that must pass integrity review.
 
 ## Command Bearing Boundary
 
@@ -662,19 +658,19 @@ host.chat.restoreAssistantTextRevision(hostMessageId, revisionId)
 
 1. Add the campaign-specific `Outcome Integrity` runtime setting with `strict`, `relaxed`, and `off` modes.
 2. Add SillyTavern protected-edit capture for `.mes_edit` on Directive-owned assistant responses only.
-3. Add a Directive-owned `Edit Prose` runtime action and message-action entry.
+3. Add a Directive-owned protected message edit runtime action invoked by native edit interception, not a duplicate message-action entry.
 4. Add the edit UI with `Review And Apply`, `Cancel`, `Restore Original`, `Expand Editor`, persistent prose/outcome guidance, and a public locked-outcome summary.
 5. Add fullscreen or near-fullscreen large-edit mode for 500-800 word replies.
 6. Add deterministic scope gate, input gate, base revision guard, stale-result handling, and mutation boundary.
 7. Add the Outcome Integrity structured review role, prompt, schema, parser validation, and provider-failure fallback.
 8. Apply accepted edits as selected cosmetic assistant swipes/revisions and record the review result.
 9. Record held, rejected, failed, and stale edit attempts in the response/recovery ledger.
-10. Add first-use campaign guidance for `Edit Prose`.
+10. Add first-use campaign guidance for the protected message editor.
 11. Add the campaign-specific review provider setting with Utility as default and Reasoning as the alternate lane.
 12. Reconcile native SillyTavern assistant edits for `relaxed` mode and best-effort fallback.
 13. Add retry and restore affordances inside the editor for failed or held edits.
 14. Add tests for native edit capture scope, deterministic input guards, 10,000 character cap handling, stale base revisions, accepted trims, accepted dialogue cleanup, selected-swipe preservation, rejected outcome upgrades, rejected cost removal, rejected dialogue commitment changes, rejected Command Bearing claims, malformed review output, provider failure fallback, review provider default/switching, mutation-boundary enforcement, large-edit UI mode, and relaxed/off settings.
-15. Verify in live SillyTavern that player-message edit remains native, protected assistant edit opens `Edit Prose`, expanded edit mode is usable for a long response, and the message-action control remains visible through the host overflow menu.
+15. Verify in live SillyTavern that player-message edit remains native, protected assistant edit opens the protected message editor, expanded edit mode is usable for a long response, and the Directive message-action menu no longer advertises a duplicate edit command.
 
 ## Acceptance Criteria
 
@@ -688,7 +684,7 @@ host.chat.restoreAssistantTextRevision(hostMessageId, revisionId)
 - Dialogue edits can improve wording while preserving commitments, knowledge, attitude shift, relationship implications, and outcome constraints.
 - Dialogue edits that change agreement/refusal, promises, obligations, warnings, costs, knowledge, relationship movement, or Command Bearing recognition are held or rejected with a concrete reason.
 - Clicking native edit on a player message preserves normal SillyTavern editing.
-- Clicking native edit on a protected Directive assistant response opens `Edit Prose` while Outcome Integrity is `strict`.
+- Clicking native edit on a protected Directive assistant response opens the protected message editor while Outcome Integrity is `strict`.
 - Non-Directive assistant messages are not intercepted in v1.
 - Accepted edits become selected cosmetic swipes/revisions while the original generated text remains available.
 - Rejected edits provide a concise player-safe reason.

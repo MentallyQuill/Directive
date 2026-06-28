@@ -30,6 +30,7 @@
       "id": "amina-rhos",
       "name": "Amina Rhos",
       "billet": "Commanding Officer",
+      "ageDescription": "Late forties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -43,6 +44,7 @@
       "id": "ishan-tal",
       "name": "Ishan Tal",
       "billet": "Chief Science Officer and Gravitic Cartographer",
+      "ageDescription": "Early forties by Trill host comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -56,6 +58,7 @@
       "id": "mara-venn",
       "name": "Mara Venn",
       "billet": "Chief Engineer",
+      "ageDescription": "Late thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -69,6 +72,7 @@
       "id": "shara-zhthenn",
       "name": "Shara zh’Thenn",
       "billet": "Chief Tactical and Security Officer",
+      "ageDescription": "Mid-forties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -82,6 +86,7 @@
       "id": "olan-rix",
       "name": "Olan Rix",
       "billet": "Chief Medical Officer",
+      "ageDescription": "Early forties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -95,6 +100,7 @@
       "id": "sorren-vale",
       "name": "Sorren Vale",
       "billet": "Operations Officer",
+      "ageDescription": "Early thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -108,6 +114,7 @@
       "id": "tkessa",
       "name": "T’Kessa",
       "billet": "Chief Flight Control Officer",
+      "ageDescription": "Young adult by Vulcan standards, presenting as mid-thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -121,6 +128,7 @@
       "id": "cpo-hark",
       "name": "Hark",
       "billet": "Senior Enlisted Deck Chief",
+      "ageDescription": "Late fifties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",

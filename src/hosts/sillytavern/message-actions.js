@@ -1,5 +1,4 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
-import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../runtime/outcome-integrity.mjs';
 import {
   SCENE_RECONCILIATION_ACTION_IDS,
   SCENE_RECONCILIATION_MESSAGE_ACTIONS
@@ -46,14 +45,6 @@ export const CAMPAIGN_INTRO_MESSAGE_ACTION = Object.freeze({
   label: 'Rewrite Intro',
   tooltip: 'Regenerate the campaign intro as a selected SillyTavern swipe before play begins.',
   icon: 'fa-solid fa-rotate-right'
-});
-
-export const OUTCOME_INTEGRITY_MESSAGE_ACTION = Object.freeze({
-  id: 'editProse',
-  runtimeActionId: OUTCOME_INTEGRITY_EDIT_ACTION_ID,
-  label: 'Edit Prose',
-  tooltip: 'Edit wording and dialogue while preserving committed outcomes, costs, relationships, and Command Bearing.',
-  icon: 'fa-solid fa-pen-to-square'
 });
 
 const MESSAGE_SELECTOR = '#chat .mes[mesid]';
@@ -288,7 +279,7 @@ function createMenu({ messageElement, runAction }) {
   menu.addEventListener?.('click', (event) => {
     event?.stopPropagation?.();
   });
-  for (const action of [OUTCOME_INTEGRITY_MESSAGE_ACTION, CAMPAIGN_INTRO_MESSAGE_ACTION, ...SCENE_RECONCILIATION_MESSAGE_ACTIONS]) {
+  for (const action of [CAMPAIGN_INTRO_MESSAGE_ACTION, ...SCENE_RECONCILIATION_MESSAGE_ACTIONS]) {
     menu.appendChild(createMenuItem({ action, messageElement, runAction }));
   }
   return menu;

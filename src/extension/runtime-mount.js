@@ -179,7 +179,7 @@ export function configureRuntimeActions() {
     {
       id: OUTCOME_INTEGRITY_EDIT_ACTION_ID,
       category: 'outcomeIntegrity',
-      label: 'Edit Prose',
+      label: 'Protected Message Edit',
       handler: async (payload = {}) => runOutcomeIntegrityEditFromRuntime(payload)
     },
     {

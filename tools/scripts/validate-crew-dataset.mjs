@@ -172,6 +172,9 @@ if (schema.title !== 'Directive Crew Dataset') {
 }
 
 const packageCrewIds = idSet(pkg.crew?.senior);
+const packageCrewById = new Map((pkg.crew?.senior || [])
+  .filter((member) => member?.id)
+  .map((member) => [member.id, member]));
 const packageRelationshipDimensions = new Set(pkg.crew?.relationshipModel?.dimensions || []);
 const packageMissionIds = new Set((pkg.questTemplates?.templates || []).map((template) => template.id).filter(Boolean));
 const packageCampaignIds = new Set([pkg.storyArcs?.campaign?.id].filter(Boolean));
@@ -203,8 +206,18 @@ if (requireArray(dataset.officers, '$.officers')) {
       continue;
     }
     requireNonEmptyString(officer.id, `$.officers[${index}].id`);
+    requireNonEmptyString(officer.name, `$.officers[${index}].name`);
+    requireNonEmptyString(officer.billet, `$.officers[${index}].billet`);
+    requireNonEmptyString(officer.ageDescription, `$.officers[${index}].ageDescription`);
     if (officer.id && !packageCrewIds.has(officer.id)) {
       at(`$.officers[${index}].id`, `unknown package crew id "${officer.id}"`);
+    }
+    const packageCrew = packageCrewById.get(officer.id);
+    if (packageCrew && officer.id !== 'player-commander') {
+      requireNonEmptyString(packageCrew.ageDescription, `$.crew.senior.${officer.id}.ageDescription`);
+      if (officer.ageDescription && packageCrew.ageDescription && officer.ageDescription !== packageCrew.ageDescription) {
+        at(`$.officers[${index}].ageDescription`, `must match package crew ageDescription for "${officer.id}"`);
+      }
     }
     if (requireArray(officer.requiredCardTypes, `$.officers[${index}].requiredCardTypes`)) {
       for (const type of officer.requiredCardTypes) {

@@ -15,6 +15,7 @@ const REVIEW_CLEAR_DELAY_MS = 8000;
 const HOST_GENERATION_STARTED_CLEAR_DELAY_MS = 150;
 const HOST_GENERATION_HANDOFF_TIMEOUT_MS = 120000;
 const RECENT_HOST_GENERATION_START_MS = 5000;
+const STORAGE_IDLE_SETTLE_DELAY_MS = 650;
 
 const SIDECAR_SETTLED_STATUSES = new Set(['applied', 'noChange', 'complete', 'settled', 'skipped']);
 const SIDECAR_REVIEW_STATUSES = new Set(['failed', 'rejected', 'error']);
@@ -23,6 +24,9 @@ const CONTINUITY_PROJECTION_FAILURE_PHASES = new Set(['continuityProjectionFaile
 const CONTINUITY_PROJECTION_COMPLETE_PHASES = new Set(['continuityProjectionInstalled', 'continuityProjectionSkipped']);
 const ACTIVATION_FAILURE_PHASES = new Set(['activationFailed', 'introRewriteFailed']);
 const ACTIVATION_COMPLETE_PHASES = new Set(['activationComplete', 'activationCanceled', 'introRewriteComplete', 'introRewriteCanceled']);
+const STORAGE_STARTED_PHASES = new Set(['storageWriteStarted', 'storageDeleteStarted']);
+const STORAGE_COMPLETE_PHASES = new Set(['storageWriteComplete', 'storageDeleteComplete']);
+const STORAGE_FAILURE_PHASES = new Set(['storageWriteFailed', 'storageDeleteFailed']);
 
 const WORKER_LABELS = Object.freeze({
   continuity: 'Continuity',
@@ -60,12 +64,48 @@ const ACTIVATION_STEP_LABELS = Object.freeze({
 
 const ACTIVATION_STEP_ORDER = Object.freeze(['save', 'chat', 'intro', 'prompt', 'ready']);
 
+const STORAGE_CATEGORY_LABELS = Object.freeze({
+  campaignSave: 'Campaign Save',
+  saveIndex: 'Save Index',
+  storageIndex: 'Storage Index',
+  saveCleanup: 'Save Cleanup',
+  creatorDraft: 'Creator Draft',
+  draftIndex: 'Draft Index',
+  draftCleanup: 'Draft Cleanup',
+  packageImport: 'Package Import',
+  packageIndex: 'Package Index',
+  packageCleanup: 'Package Cleanup',
+  preferences: 'Preferences',
+  sidecarJob: 'Sidecar Job',
+  fileCleanup: 'File Cleanup',
+  storage: 'Storage'
+});
+
+const STORAGE_CATEGORY_ORDER = Object.freeze([
+  'campaignSave',
+  'saveIndex',
+  'storageIndex',
+  'saveCleanup',
+  'creatorDraft',
+  'draftIndex',
+  'draftCleanup',
+  'packageImport',
+  'packageIndex',
+  'packageCleanup',
+  'preferences',
+  'sidecarJob',
+  'fileCleanup',
+  'storage'
+]);
+
 let nextActivityId = 0;
 const activeActivities = new Map();
 const jobActivities = new Map();
+const storageActivities = new Map();
 let revealTimer = null;
 const clearTimers = new Map();
 const hostGenerationWaitTimers = new Map();
+const storageCompleteTimers = new Map();
 let lastHostGenerationStart = null;
 
 function canUseDocument() {
@@ -101,18 +141,20 @@ function createIndicator() {
   const actions = document.createElement('span');
   actions.className = 'directive-turn-activity-actions';
 
-  const openMission = document.createElement('button');
-  openMission.type = 'button';
-  openMission.className = 'directive-turn-activity-action';
-  openMission.textContent = 'Open Mission';
-  openMission.addEventListener('click', async (event) => {
+  const primaryAction = document.createElement('button');
+  primaryAction.type = 'button';
+  primaryAction.className = 'directive-turn-activity-action';
+  primaryAction.dataset.directiveTurnActivityPrimaryAction = 'true';
+  primaryAction.textContent = 'Open Mission';
+  primaryAction.addEventListener('click', async (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const action = reviewActionForActivity(latestActivity());
     try {
-      await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
+      await runRuntimeAction('runtime.setTab', { tabId: action.tabId || 'mission' });
       await runRuntimeAction('runtime.open');
     } catch (error) {
-      console.warn('[Directive] Failed to open Mission for activity review:', error);
+      console.warn('[Directive] Failed to open Directive activity review target:', error);
     }
   });
 
@@ -130,7 +172,7 @@ function createIndicator() {
     }
   });
 
-  actions.append(openMission, dismiss);
+  actions.append(primaryAction, dismiss);
   body.append(label, chips, actions);
   indicator.append(createSpinner(), body);
   appendDirectiveOverlay(indicator, { fallbackParent: document.body });
@@ -144,6 +186,13 @@ function indicatorElement() {
 
 function latestActivity() {
   return [...activeActivities.values()].at(-1) || null;
+}
+
+function reviewActionForActivity(activity = {}) {
+  return {
+    label: activity?.reviewAction?.label || 'Open Mission',
+    tabId: activity?.reviewAction?.tabId || 'mission'
+  };
 }
 
 function clearRevealTimer() {
@@ -169,10 +218,22 @@ function clearHostGenerationWaitTimer(token) {
   }
 }
 
+function clearStorageCompleteTimer(token) {
+  const timer = storageCompleteTimers.get(token);
+  if (timer !== undefined) {
+    globalThis.clearTimeout?.(timer);
+    storageCompleteTimers.delete(token);
+  }
+}
+
 function clearActivity(token) {
   clearActivityTimer(token);
   clearHostGenerationWaitTimer(token);
+  clearStorageCompleteTimer(token);
   activeActivities.delete(token);
+  for (const [jobKey, activityToken] of [...storageActivities.entries()]) {
+    if (activityToken === token) storageActivities.delete(jobKey);
+  }
 }
 
 function normalizeWorkerKey(value) {
@@ -182,6 +243,41 @@ function normalizeWorkerKey(value) {
 function workerLabel(workerKey) {
   const key = normalizeWorkerKey(workerKey);
   return WORKER_LABELS[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (match) => match.toUpperCase());
+}
+
+function normalizeStorageKey(value) {
+  return String(value || '').trim();
+}
+
+function storageCategoryKeyFor(event = {}) {
+  const logicalKey = normalizeStorageKey(event.logicalKey || event.storageKey);
+  const physicalPath = normalizeStorageKey(event.path || event.filePath);
+  const operation = normalizeStorageKey(event.operation);
+  const combined = `${logicalKey} ${physicalPath}`;
+  if (operation === 'deleteJsonFile') {
+    if (logicalKey.startsWith('saves/') || /directive-saves-/i.test(physicalPath)) return 'saveCleanup';
+    if (logicalKey.startsWith('drafts/character-creator/') || /directive-drafts-character-creator-/i.test(physicalPath)) return 'draftCleanup';
+    if (logicalKey.startsWith('packages/imports/') || /directive-packages-imports-/i.test(physicalPath)) return 'packageCleanup';
+    return 'fileCleanup';
+  }
+  if (logicalKey.startsWith('saves/') || /directive-saves-/i.test(physicalPath)) return 'campaignSave';
+  if (logicalKey === 'indexes/saves.v1.json' || /directive-indexes-saves\.v1\.json/i.test(combined)) return 'saveIndex';
+  if (logicalKey === 'system/storage-index.v1.json' || /directive-system-storage-index\.v1\.json/i.test(combined)) return 'storageIndex';
+  if (logicalKey.startsWith('drafts/character-creator/') || /directive-drafts-character-creator-/i.test(physicalPath)) return 'creatorDraft';
+  if (logicalKey === 'indexes/character-creator-drafts.v1.json' || /directive-indexes-character-creator-drafts\.v1\.json/i.test(combined)) return 'draftIndex';
+  if (logicalKey.startsWith('packages/imports/') || /directive-packages-imports-/i.test(physicalPath)) return 'packageImport';
+  if (logicalKey === 'indexes/campaign-package-imports.v1.json' || /directive-indexes-campaign-package-imports\.v1\.json/i.test(combined)) return 'packageIndex';
+  if (logicalKey === 'system/ui-preferences.v1.json' || /directive-system-ui-preferences\.v1\.json/i.test(combined)) return 'preferences';
+  if (logicalKey.startsWith('jobs/') || /directive-jobs-/i.test(physicalPath)) return 'sidecarJob';
+  return 'storage';
+}
+
+function storageCategoryFor(event = {}) {
+  const key = storageCategoryKeyFor(event);
+  return {
+    key,
+    label: STORAGE_CATEGORY_LABELS[key] || STORAGE_CATEGORY_LABELS.storage
+  };
 }
 
 function normalizeSceneHandshakeRoot(value) {
@@ -357,6 +453,12 @@ function labelForPhase(event = {}, activity = {}) {
       return BACKGROUND_LABEL;
     case 'sidecarsSettled':
       return 'Campaign context updated.';
+    case 'storageSaving':
+      return activity.label || 'Saving files...';
+    case 'storageComplete':
+      return 'Files saved.';
+    case 'storageFailed':
+      return 'File save needs review.';
     default:
       return activity.label || DEFAULT_LABEL;
   }
@@ -392,6 +494,18 @@ function activeActivationEntries(activity = {}) {
   });
 }
 
+function activeStorageEntries(activity = {}) {
+  const source = activity || {};
+  const entries = [...(source.storageFiles || new Map()).entries()];
+  return entries.sort(([leftKey, left], [rightKey, right]) => {
+    const leftIndex = STORAGE_CATEGORY_ORDER.indexOf(leftKey);
+    const rightIndex = STORAGE_CATEGORY_ORDER.indexOf(rightKey);
+    const ordered = (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+    if (ordered !== 0) return ordered;
+    return Number(left.firstSeen || 0) - Number(right.firstSeen || 0);
+  });
+}
+
 function hasReviewSidecar(activity = {}) {
   return activeSidecarEntries(activity).some(([, sidecar]) => SIDECAR_REVIEW_STATUSES.has(sidecar.status));
 }
@@ -404,6 +518,10 @@ function hasReviewActivationStep(activity = {}) {
   return activeActivationEntries(activity).some(([, step]) => step.status === 'review');
 }
 
+function hasReviewStorage(activity = {}) {
+  return activeStorageEntries(activity).some(([, step]) => step.status === 'review');
+}
+
 function hasPendingSidecar(activity = {}) {
   return activeSidecarEntries(activity).some(([, sidecar]) => !SIDECAR_REVIEW_STATUSES.has(sidecar.status));
 }
@@ -411,6 +529,14 @@ function hasPendingSidecar(activity = {}) {
 function hasPendingContinuityProjection(activity = {}) {
   return activeContinuityProjectionEntries(activity).some(([, step]) => (
     step.status !== 'settled' && step.status !== 'skipped' && step.status !== 'review'
+  ));
+}
+
+function hasPendingStorage(activity = {}) {
+  const progress = activity?.storageProgress || null;
+  if (!progress) return false;
+  return Number(progress.inFlight || 0) > 0 || activeStorageEntries(activity).some(([, step]) => (
+    step.status !== 'settled' && step.status !== 'review'
   ));
 }
 
@@ -429,11 +555,15 @@ function renderChips(chips, activity = {}) {
     `continuityProjection:${key}`,
     { status: step.status || 'running', label: step.label || CONTINUITY_PROJECTION_STEP_LABELS[key] || key }
   ]);
+  const storageEntries = activeStorageEntries(activity).map(([key, step]) => [
+    `storage:${key}`,
+    { status: step.status || 'running', label: step.label || STORAGE_CATEGORY_LABELS[key] || key }
+  ]);
   const sidecarEntries = activeSidecarEntries(activity).map(([key, sidecar]) => [
     `sidecar:${key}`,
     { status: sidecar.status || 'queued', label: workerLabel(key) }
   ]);
-  const entries = [...activationEntries, ...sceneEntries, ...projectionEntries, ...sidecarEntries];
+  const entries = [...activationEntries, ...sceneEntries, ...projectionEntries, ...storageEntries, ...sidecarEntries];
   chips.hidden = entries.length === 0;
   for (const [, chipState] of entries) {
     const chip = document.createElement('span');
@@ -451,7 +581,11 @@ function renderActions(actions, activity = {}) {
   const needsReview = source.mode === 'review'
     || hasReviewSidecar(source)
     || hasReviewContinuityProjection(source)
-    || hasReviewActivationStep(source);
+    || hasReviewActivationStep(source)
+    || hasReviewStorage(source);
+  const primaryAction = actions.querySelector?.('[data-directive-turn-activity-primary-action="true"]')
+    || actions.querySelector?.('.directive-turn-activity-action');
+  if (primaryAction) primaryAction.textContent = reviewActionForActivity(source).label;
   actions.hidden = !needsReview;
 }
 
@@ -496,11 +630,14 @@ export function markDirectiveTurnActivity({
   label = DEFAULT_LABEL,
   phase = 'reading',
   mode = 'blocking',
-  delayMs = DEFAULT_REVEAL_DELAY_MS
+  delayMs = DEFAULT_REVEAL_DELAY_MS,
+  activityKind = 'turn',
+  reviewAction = null
 } = {}) {
   const token = `directive-turn-activity-${++nextActivityId}`;
   activeActivities.set(token, {
     token,
+    activityKind,
     label,
     phase,
     mode,
@@ -510,7 +647,11 @@ export function markDirectiveTurnActivity({
     sceneDetails: new Map(),
     continuityProjectionSteps: new Map(),
     activationSteps: new Map(),
+    storageFiles: new Map(),
+    storageOperations: new Map(),
+    storageProgress: null,
     reviewLabel: null,
+    reviewAction: reviewAction ? { ...reviewAction } : null,
     awaitingHostGeneration: false,
     hostGenerationHandoff: null,
     startedAt: Date.now()
@@ -854,6 +995,7 @@ export function updateDirectiveTurnActivity(token, event = {}) {
   if (activationNeedsReview(event) || hasReviewActivationStep(activity)) activity.mode = 'review';
   if (event.status && SIDECAR_REVIEW_STATUSES.has(String(event.status))) activity.mode = 'review';
   if (hasReviewSidecar(activity)) activity.mode = 'review';
+  if (hasReviewStorage(activity)) activity.mode = 'review';
   if (activity.mode === 'review' && !activity.reviewLabel) activity.reviewLabel = REVIEW_LABEL;
   activity.label = labelForPhase(event, activity);
   if (activity.awaitingHostGeneration && activity.mode !== 'review') {
@@ -865,15 +1007,18 @@ export function updateDirectiveTurnActivity(token, event = {}) {
     && !activity.awaitingHostGeneration
     && !hasPendingSidecar(activity)
     && !hasPendingContinuityProjection(activity)
+    && !hasPendingStorage(activity)
     && !hasReviewSidecar(activity)
-    && !hasReviewContinuityProjection(activity)) {
+    && !hasReviewContinuityProjection(activity)
+    && !hasReviewStorage(activity)) {
     scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
   }
   if (activity.mode === 'review'
     && activity.blockingComplete
     && !activity.awaitingHostGeneration
     && !hasPendingSidecar(activity)
-    && !hasPendingContinuityProjection(activity)) {
+    && !hasPendingContinuityProjection(activity)
+    && !hasPendingStorage(activity)) {
     scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
   }
   updateIndicator(0);
@@ -888,10 +1033,10 @@ export function finishDirectiveTurnActivity(token, event = {}) {
   if (event.phase || event.label || event.classification || event.mode) {
     updateDirectiveTurnActivity(token, event);
   }
-  if (activity.mode === 'review' || hasReviewSidecar(activity) || hasReviewContinuityProjection(activity)) {
+  if (activity.mode === 'review' || hasReviewSidecar(activity) || hasReviewContinuityProjection(activity) || hasReviewStorage(activity)) {
     activity.mode = 'review';
     activity.label = activity.label || REVIEW_LABEL;
-    if (!hasPendingSidecar(activity) && !hasPendingContinuityProjection(activity)) scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
+    if (!hasPendingSidecar(activity) && !hasPendingContinuityProjection(activity) && !hasPendingStorage(activity)) scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
     updateIndicator(0);
     return;
   }
@@ -917,6 +1062,11 @@ export function finishDirectiveTurnActivity(token, event = {}) {
     updateIndicator(0);
     return;
   }
+  if (hasPendingStorage(activity)) {
+    activity.mode = activity.mode || 'blocking';
+    updateIndicator(0);
+    return;
+  }
   clearActivity(token);
   updateIndicator(0);
 }
@@ -929,6 +1079,7 @@ export function clearDirectiveTurnActivity(token) {
 export function cancelActiveDirectiveTurnActivities() {
   let canceledCount = 0;
   for (const [token, activity] of [...activeActivities.entries()]) {
+    if (activity?.activityKind === 'storage') continue;
     if (activity?.mode === 'review' || hasReviewSidecar(activity) || hasReviewActivationStep(activity)) continue;
     clearActivity(token);
     canceledCount += 1;
@@ -955,6 +1106,211 @@ export function resolveDirectiveHostGenerationHandoff(payload = {}) {
     return { ok: false, reason: 'no-active-host-generation-handoff' };
   }
   return completeHostGenerationHandoff(activity);
+}
+
+function isStorageProgressEvent(payload = {}) {
+  const phase = String(payload.phase || '');
+  return payload.kind === 'directive.storageProgress'
+    || STORAGE_STARTED_PHASES.has(phase)
+    || STORAGE_COMPLETE_PHASES.has(phase)
+    || STORAGE_FAILURE_PHASES.has(phase);
+}
+
+function storageActivityKey(payload = {}) {
+  return String(payload.sessionId || payload.activityId || `directive-storage:${payload.hostId || 'host'}`);
+}
+
+function createStorageProgressState() {
+  return {
+    total: 0,
+    completed: 0,
+    failed: 0,
+    inFlight: 0,
+    current: 0,
+    lastPath: null,
+    lastLogicalKey: null
+  };
+}
+
+function storageSavingLabel(progress = {}) {
+  const total = Math.max(1, Number(progress.total || 0));
+  const current = Math.max(1, Math.min(total, Number(progress.completed || 0) + Math.max(1, Number(progress.inFlight || 0))));
+  return `Saving files ${current} of ${total}...`;
+}
+
+function ensureStorageActivity(payload = {}) {
+  const jobKey = storageActivityKey(payload);
+  let token = storageActivities.get(jobKey);
+  if (!token || !activeActivities.has(token)) {
+    token = markDirectiveTurnActivity({
+      phase: 'storageSaving',
+      label: 'Saving files...',
+      mode: 'blocking',
+      delayMs: payload.delayMs ?? DEFAULT_REVEAL_DELAY_MS,
+      activityKind: 'storage',
+      reviewAction: {
+        label: 'Open Settings',
+        tabId: 'settings'
+      }
+    });
+    storageActivities.set(jobKey, token);
+  }
+  clearStorageCompleteTimer(token);
+  clearActivityTimer(token);
+  const activity = activeActivities.get(token);
+  if (!activity.storageProgress) activity.storageProgress = createStorageProgressState();
+  if (!activity.storageFiles) activity.storageFiles = new Map();
+  if (!activity.storageOperations) activity.storageOperations = new Map();
+  return { jobKey, token, activity };
+}
+
+function setStorageCategory(activity, category, patch = {}) {
+  const current = activity.storageFiles.get(category.key) || {
+    label: category.label,
+    status: 'queued',
+    runningCount: 0,
+    firstSeen: Date.now()
+  };
+  activity.storageFiles.set(category.key, {
+    ...current,
+    label: category.label || current.label,
+    ...patch
+  });
+}
+
+function startStorageOperation(activity, payload = {}) {
+  const progress = activity.storageProgress || createStorageProgressState();
+  activity.storageProgress = progress;
+  const category = storageCategoryFor(payload);
+  const operationId = normalizeStorageKey(payload.operationId)
+    || `${normalizeStorageKey(payload.operation) || 'storage'}:${progress.total + 1}:${Date.now()}`;
+  progress.total += 1;
+  progress.inFlight += 1;
+  progress.current = progress.completed + progress.inFlight;
+  progress.lastPath = payload.path || payload.filePath || progress.lastPath || null;
+  progress.lastLogicalKey = payload.logicalKey || payload.storageKey || progress.lastLogicalKey || null;
+  const existing = activity.storageFiles.get(category.key) || {};
+  setStorageCategory(activity, category, {
+    status: 'running',
+    runningCount: Number(existing.runningCount || 0) + 1,
+    lastOperationId: operationId
+  });
+  activity.storageOperations.set(operationId, {
+    operationId,
+    categoryKey: category.key,
+    status: 'running',
+    index: progress.total
+  });
+  activity.phase = 'storageSaving';
+  activity.mode = 'blocking';
+  activity.blockingComplete = false;
+  activity.reviewLabel = null;
+  activity.label = storageSavingLabel(progress);
+}
+
+function settleStorageOperation(activity, payload = {}, status = 'settled') {
+  const progress = activity.storageProgress || createStorageProgressState();
+  activity.storageProgress = progress;
+  const operationId = normalizeStorageKey(payload.operationId);
+  const operation = operationId ? activity.storageOperations.get(operationId) : null;
+  const category = operation?.categoryKey
+    ? { key: operation.categoryKey, label: STORAGE_CATEGORY_LABELS[operation.categoryKey] || STORAGE_CATEGORY_LABELS.storage }
+    : storageCategoryFor(payload);
+  const current = activity.storageFiles.get(category.key) || {
+    label: category.label,
+    status: 'running',
+    runningCount: 1,
+    firstSeen: Date.now()
+  };
+  const runningCount = Math.max(0, Number(current.runningCount || 0) - 1);
+  if (status === 'review') {
+    progress.failed += 1;
+  } else {
+    progress.completed += 1;
+  }
+  progress.inFlight = Math.max(0, Number(progress.inFlight || 0) - 1);
+  progress.current = Math.max(progress.completed, Math.min(progress.total, progress.completed + progress.inFlight));
+  progress.lastPath = payload.path || payload.filePath || progress.lastPath || null;
+  progress.lastLogicalKey = payload.logicalKey || payload.storageKey || progress.lastLogicalKey || null;
+  setStorageCategory(activity, category, {
+    status: status === 'review' ? 'review' : (runningCount > 0 ? 'running' : 'settled'),
+    runningCount,
+    lastOperationId: operationId || current.lastOperationId || null
+  });
+  if (operationId) {
+    activity.storageOperations.set(operationId, {
+      ...(operation || { operationId, categoryKey: category.key }),
+      status
+    });
+  }
+  if (status === 'review') {
+    activity.phase = 'storageFailed';
+    activity.mode = 'review';
+    activity.blockingComplete = true;
+    activity.reviewLabel = 'File save needs review.';
+    activity.label = 'File save needs review.';
+    activity.reviewAction = {
+      label: 'Open Settings',
+      tabId: 'settings'
+    };
+  } else if (progress.inFlight > 0) {
+    activity.phase = 'storageSaving';
+    activity.label = storageSavingLabel(progress);
+  } else {
+    activity.phase = 'storageComplete';
+    activity.label = 'Files saved.';
+  }
+}
+
+function scheduleStorageComplete(token, jobKey) {
+  clearStorageCompleteTimer(token);
+  const timer = globalThis.setTimeout?.(() => {
+    storageCompleteTimers.delete(token);
+    const activity = activeActivities.get(token);
+    if (!activity?.storageProgress) return;
+    if (Number(activity.storageProgress.inFlight || 0) > 0 || Number(activity.storageProgress.failed || 0) > 0) return;
+    activity.phase = 'storageComplete';
+    activity.mode = 'blocking';
+    activity.blockingComplete = true;
+    activity.label = 'Files saved.';
+    storageActivities.delete(jobKey);
+    updateIndicator(0);
+    scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
+  }, STORAGE_IDLE_SETTLE_DELAY_MS);
+  if (timer !== undefined) storageCompleteTimers.set(token, timer);
+}
+
+export function reportDirectiveStorageProgress(payload = {}) {
+  if (!isStorageProgressEvent(payload)) return false;
+  const phase = String(payload.phase || '');
+  if (STORAGE_STARTED_PHASES.has(phase)) {
+    const { activity } = ensureStorageActivity(payload);
+    startStorageOperation(activity, payload);
+    updateIndicator(0);
+    return true;
+  }
+  const jobKey = storageActivityKey(payload);
+  const token = storageActivities.get(jobKey);
+  if (!token || !activeActivities.has(token)) return true;
+  const activity = activeActivities.get(token);
+  clearStorageCompleteTimer(token);
+  clearActivityTimer(token);
+  if (STORAGE_FAILURE_PHASES.has(phase) || SIDECAR_REVIEW_STATUSES.has(String(payload.status || ''))) {
+    settleStorageOperation(activity, payload, 'review');
+    storageActivities.delete(jobKey);
+    scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
+    updateIndicator(0);
+    return true;
+  }
+  if (STORAGE_COMPLETE_PHASES.has(phase)) {
+    settleStorageOperation(activity, payload, 'settled');
+    updateIndicator(0);
+    if (Number(activity.storageProgress?.inFlight || 0) <= 0) {
+      scheduleStorageComplete(token, jobKey);
+    }
+    return true;
+  }
+  return true;
 }
 
 function activationJobKey(payload = {}) {
@@ -1019,9 +1375,12 @@ export function reportDirectiveJobProgress(payload = {}) {
 export function disposeDirectiveTurnActivity() {
   for (const token of activeActivities.keys()) clearActivityTimer(token);
   for (const token of activeActivities.keys()) clearHostGenerationWaitTimer(token);
+  for (const token of activeActivities.keys()) clearStorageCompleteTimer(token);
   activeActivities.clear();
   jobActivities.clear();
+  storageActivities.clear();
   hostGenerationWaitTimers.clear();
+  storageCompleteTimers.clear();
   lastHostGenerationStart = null;
   clearRevealTimer();
   const indicator = canUseDocument() ? document.getElementById(DIRECTIVE_TURN_ACTIVITY_ID) : null;
@@ -1040,11 +1399,15 @@ export const __directiveTurnActivityTestHooks = Object.freeze({
       sceneDetails: Object.fromEntries(activity.sceneDetails || new Map()),
       continuityProjectionSteps: Object.fromEntries(activity.continuityProjectionSteps || new Map()),
       activationSteps: Object.fromEntries(activity.activationSteps || new Map()),
+      storageFiles: Object.fromEntries(activity.storageFiles || new Map()),
+      storageOperations: Object.fromEntries(activity.storageOperations || new Map()),
+      storageProgress: activity.storageProgress ? { ...activity.storageProgress } : null,
       awaitingHostGeneration: activity.awaitingHostGeneration === true,
       hostGenerationHandoff: activity.hostGenerationHandoff ? { ...activity.hostGenerationHandoff } : null
     };
   },
   cancelActiveDirectiveTurnActivities,
   resolveDirectiveHostGenerationHandoff,
+  reportDirectiveStorageProgress,
   updateIndicator
 });

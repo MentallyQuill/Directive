@@ -387,7 +387,7 @@ assert.equal(firstMenu.hidden, false);
 assert.equal(firstButton.getAttribute('aria-expanded'), 'true');
 assert(!firstButton.children.includes(firstMenu), 'Directive message action menu should not be clipped inside the button');
 
-for (const actionId of ['editProse', 'rewriteCampaignIntro', 'reconcileMessage', 'setStart', 'setEnd', 'reconcileFromHere', 'recalculateFromHere']) {
+for (const actionId of ['rewriteCampaignIntro', 'reconcileMessage', 'setStart', 'setEnd', 'reconcileFromHere', 'recalculateFromHere']) {
   const item = findByDataset(firstMenu, 'directiveMessageAction', actionId);
   assert(item, `Menu should include ${actionId}`);
   assert.equal(item.dataset.directiveTour, `message.action.${actionId}`);
@@ -396,11 +396,10 @@ const reconcileFromHere = findByDataset(firstMenu, 'directiveMessageAction', 're
 const recalculateFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'recalculateFromHere');
 const rewriteIntro = findByDataset(firstMenu, 'directiveMessageAction', 'rewriteCampaignIntro');
 const editProse = findByDataset(firstMenu, 'directiveMessageAction', 'editProse');
-assert(editProse, 'Menu should include Edit Prose');
+assert.equal(editProse, null, 'Native SillyTavern edit should be the only visible edit entry point');
 assert(rewriteIntro, 'Menu should include Rewrite Intro');
 assert(reconcileFromHere, 'Menu should include Reconcile From Here');
 assert(recalculateFromHere, 'Menu should include Recalculate From Here');
-assert.equal(editProse.dataset.directiveRuntimeAction, 'outcomeIntegrity.editProse');
 assert.equal(rewriteIntro.dataset.directiveRuntimeAction, CAMPAIGN_INTRO_REWRITE_ACTION_ID);
 assert.match(rewriteIntro.title, /selected SillyTavern swipe/);
 assert.equal(reconcileFromHere.title, SCENE_RECONCILIATION_TOOLTIPS.reconcileFromHere);

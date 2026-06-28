@@ -30,6 +30,7 @@
       "id": "nasrin-rhee",
       "name": "Nasrin Rhee",
       "billet": "Commanding Officer",
+      "ageDescription": "Early fifties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -43,6 +44,7 @@
       "id": "asha-ren",
       "name": "Asha Ren",
       "billet": "Operations Chief and Second Officer; prospective Acting Executive Officer",
+      "ageDescription": "Mid-forties by Bajoran comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -56,6 +58,7 @@
       "id": "haro-chveth",
       "name": "Haro ch'Veth",
       "billet": "Chief Science Officer and Climatologist",
+      "ageDescription": "Late thirties by Andorian comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -69,6 +72,7 @@
       "id": "milo-fenn",
       "name": "Milo Fenn",
       "billet": "Chief Engineer",
+      "ageDescription": "Late thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -82,6 +86,7 @@
       "id": "ila-tovan",
       "name": "Ila Tovan",
       "billet": "Chief Medical Officer and Public-Health Specialist",
+      "ageDescription": "Early forties by Trill host comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -95,6 +100,7 @@
       "id": "koris-zhraal",
       "name": "Koris zh'Raal",
       "billet": "Chief Tactical and Security Officer",
+      "ageDescription": "Mid-forties by Andorian comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -108,6 +114,7 @@
       "id": "jaya-kel",
       "name": "Jaya Kel",
       "billet": "Chief Flight Control Officer",
+      "ageDescription": "Early thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -121,6 +128,7 @@
       "id": "venn-talar",
       "name": "Venn Talar",
       "billet": "Counselor and Diplomatic Support Officer",
+      "ageDescription": "Mid-thirties by Betazoid comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",

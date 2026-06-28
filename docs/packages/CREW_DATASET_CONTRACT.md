@@ -6,7 +6,7 @@ The crew dataset contract defines how prose character bibles become structured, 
 
 The campaign package `crew` field remains the compact roster, fixed public identity source, and relationship-model declaration. It owns public rank, billet, species, role/profile, and any public age or appearance facts that narrator prompts may repeat. A crew dataset is the richer Director-facing layer: officer profiles, reveal gates, voice guidance, relationship dynamics, development axes, B-plots, and coalition rules.
 
-This keeps the package roster small while giving Directors precise data to retrieve without injecting the whole character bible into prompts. Dataset officer rows may augment package crew records, but they must not erase package-owned public identity fields.
+This keeps the package roster small while giving Directors precise data to retrieve without injecting the whole character bible into prompts. Dataset officer rows may augment package crew records, but they must not erase package-owned public identity fields. Age is a required public identity field for every non-player senior crew member and must be mirrored between the package roster and the crew dataset.
 
 ## Artifacts
 
@@ -104,6 +104,16 @@ Director cards should cite source sections through their own `source.refs` field
 ## Officers
 
 The `officers` list declares which senior staff members the dataset covers and which card types each officer must eventually provide.
+
+Required officer fields:
+
+- `id`
+- `name`
+- `billet`
+- `ageDescription`
+- `requiredCardTypes`
+
+`ageDescription` is the prompt-ready age frame for the officer. Use exact authored values when the bible defines them, such as `47 at campaign start; describe her as late forties, not early fifties.` Use species-aware age frames when exact numeric age is not authored, such as `Mature adult by Vulcan standards, presenting as mid-forties by human comparison.` The same string must appear on the matching campaign package `crew.senior` entry so continuity facts, relevant crew context, and factual canaries all project the same age anchor.
 
 Crew card types:
 

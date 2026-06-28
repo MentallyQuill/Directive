@@ -61,7 +61,8 @@ function crewRecordIdentity(record) {
     name: name || id,
     rank: compactText(record?.rank || '', 80) || null,
     billet: compactText(record?.billet || record?.role || '', 120) || null,
-    packageRole: compactText(record?.packageRole || '', 180) || null
+    packageRole: compactText(record?.packageRole || '', 180) || null,
+    ageDescription: compactText(record?.ageDescription || '', 180) || null
   };
 }
 

@@ -234,7 +234,7 @@ export function buildOutcomeIntegrityEditContext({ campaignState = null, message
     charCount: text.length,
     editCharLimit: OUTCOME_INTEGRITY_EDIT_CHAR_LIMIT,
     lockedContext,
-    guidance: 'Prose edit only. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.'
+    guidance: 'This response has a committed outcome. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.'
   };
 }
 
@@ -255,7 +255,7 @@ export function validateOutcomeIntegrityProposedEdit({ context = null, proposedT
     return {
       ok: false,
       reason: 'stale-base',
-      message: 'The selected message changed while the editor was open. Reopen Edit Prose and try again.'
+      message: 'The selected message changed while the editor was open. Reopen the message edit and try again.'
     };
   }
   if (outcomeIntegrityTextHash(proposed) === outcomeIntegrityTextHash(current)) {

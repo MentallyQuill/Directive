@@ -19,6 +19,8 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+let nextStorageAdapterId = 0;
+
 function createMissingMethodError(methodName) {
   const error = new Error(`Logical storage adapter backing store does not support ${methodName}`);
   error.code = 'DIRECTIVE_LOGICAL_STORAGE_UNSUPPORTED';
@@ -26,10 +28,19 @@ function createMissingMethodError(methodName) {
   return error;
 }
 
+function compactError(error) {
+  return {
+    message: error?.message || String(error || 'Unknown storage error'),
+    code: error?.code || null,
+    status: Number.isFinite(Number(error?.status)) ? Number(error.status) : null
+  };
+}
+
 export function createLogicalStorageAdapter({
   storage,
   hostId = null,
-  mapper = null
+  mapper = null,
+  onProgress = null
 } = {}) {
   requireObject(storage, 'storage');
   requireFunction(storage.readJson, 'storage.readJson');
@@ -38,19 +49,79 @@ export function createLogicalStorageAdapter({
   const resolvedMapper = mapper || createLogicalStorageMapper(hostId);
   requireObject(resolvedMapper, 'logical storage mapper');
   requireFunction(resolvedMapper.toPath, 'logical storage mapper.toPath');
+  const resolvedHostId = resolvedMapper.hostId || hostId || 'unknown';
+  const adapterInstanceId = `logical-storage-${++nextStorageAdapterId}`;
+  let nextOperationId = 0;
 
   function toPath(logicalKey) {
     return resolvedMapper.toPath(assertDirectiveLogicalStorageKey(logicalKey));
   }
 
+  function reportProgress(payload = {}) {
+    if (typeof onProgress !== 'function') return;
+    try {
+      onProgress({
+        kind: 'directive.storageProgress',
+        source: 'logical-storage-adapter',
+        hostId: resolvedHostId,
+        ...payload
+      });
+    } catch (error) {
+      console.warn?.('[Directive] Storage progress reporter failed:', error);
+    }
+  }
+
+  function createOperation(logicalKey, operation) {
+    const key = assertDirectiveLogicalStorageKey(logicalKey);
+    return {
+      operationId: `${adapterInstanceId}:${++nextOperationId}`,
+      operation,
+      logicalKey: key,
+      path: toPath(key)
+    };
+  }
+
+  async function runStorageOperation({ logicalKey, operation, startedPhase, completePhase, failedPhase, run }) {
+    const details = createOperation(logicalKey, operation);
+    reportProgress({
+      ...details,
+      phase: startedPhase,
+      status: 'running'
+    });
+    try {
+      const result = await run(details);
+      reportProgress({
+        ...details,
+        phase: completePhase,
+        status: 'complete'
+      });
+      return result;
+    } catch (error) {
+      reportProgress({
+        ...details,
+        phase: failedPhase,
+        status: 'failed',
+        error: compactError(error)
+      });
+      throw error;
+    }
+  }
+
   const adapter = {
-    hostId: resolvedMapper.hostId || hostId || 'unknown',
+    hostId: resolvedHostId,
     toPath,
     async readJson(logicalKey) {
       return cloneJson(await storage.readJson(toPath(logicalKey)));
     },
     async writeJson(logicalKey, value) {
-      return storage.writeJson(toPath(logicalKey), cloneJson(value));
+      return runStorageOperation({
+        logicalKey,
+        operation: 'writeJson',
+        startedPhase: 'storageWriteStarted',
+        completePhase: 'storageWriteComplete',
+        failedPhase: 'storageWriteFailed',
+        run: ({ path }) => storage.writeJson(path, cloneJson(value))
+      });
     },
     async verifyJsonFiles(logicalKeys = []) {
       if (typeof storage.verifyJsonFiles !== 'function') {
@@ -70,7 +141,14 @@ export function createLogicalStorageAdapter({
       if (typeof storage.deleteJsonFile !== 'function') {
         throw createMissingMethodError('deleteJsonFile');
       }
-      return storage.deleteJsonFile(toPath(logicalKey));
+      return runStorageOperation({
+        logicalKey,
+        operation: 'deleteJsonFile',
+        startedPhase: 'storageDeleteStarted',
+        completePhase: 'storageDeleteComplete',
+        failedPhase: 'storageDeleteFailed',
+        run: ({ path }) => storage.deleteJsonFile(path)
+      });
     }
   };
 

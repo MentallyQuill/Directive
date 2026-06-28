@@ -30,6 +30,7 @@
       "id": "idris-kellan",
       "name": "Idris Kellan",
       "billet": "Commanding Officer",
+      "ageDescription": "Late forties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -43,6 +44,7 @@
       "id": "lyra-chen",
       "name": "Lyra Chen",
       "billet": "Chief Operations Officer and Second Officer",
+      "ageDescription": "Early forties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -56,6 +58,7 @@
       "id": "sima-taren",
       "name": "Sima Taren",
       "billet": "Chief Science Officer and Cartographer",
+      "ageDescription": "Late thirties by Bajoran comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -69,6 +72,7 @@
       "id": "neral-thzor",
       "name": "Neral th'Zor",
       "billet": "Chief Tactical and Security Officer",
+      "ageDescription": "Mid-forties by Andorian comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -82,6 +86,7 @@
       "id": "omar-venn",
       "name": "Omar Venn",
       "billet": "Chief Engineer",
+      "ageDescription": "Late thirties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -95,6 +100,7 @@
       "id": "tavra-nesh",
       "name": "Tavra Nesh",
       "billet": "Chief Medical Officer",
+      "ageDescription": "Early forties by Trill host comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -108,6 +114,7 @@
       "id": "ilan-korev",
       "name": "Ilan Korev",
       "billet": "Chief Flight Control Officer",
+      "ageDescription": "Early thirties by Betazoid comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",
@@ -121,6 +128,7 @@
       "id": "mara-dey",
       "name": "Mara Dey",
       "billet": "Chief of the Boat and Boarding-Team Coordinator",
+      "ageDescription": "Mid-fifties by human comparison.",
       "requiredCardTypes": [
         "crew.profile",
         "crew.voice",

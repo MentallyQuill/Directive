@@ -29,6 +29,8 @@ assert(bronnCanary.expectedPromptKeys.includes('directive.scene.active'));
 assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.species'));
 assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.age-description'));
 assert(bronnCanary.expectedSourceIds.includes('crew.hadrik-bronn.uniform-division-color'));
+assert(whitakerCanary.expectedSourceIds.includes('crew.mara-whitaker.age-description'));
+assert.match(whitakerCanary.summary, /47 at campaign start/i);
 
 assert(transitCanary.expectedPromptKeys.includes('directive.continuity.invariants'));
 assert(transitCanary.expectedPromptKeys.includes('directive.continuity.domain'));
@@ -50,6 +52,7 @@ const matrixPromptBlocks = promptBlocksFromInspection({
         'crew.hadrik-bronn.uniform-division-color',
         'crew.mara-whitaker.species',
         'crew.mara-whitaker.billet',
+        'crew.mara-whitaker.age-description',
         'crew.priya-nayar.species',
         'crew.priya-nayar.billet',
         'ship.uss-breckenridge.travel.not-six-days-impulse'
@@ -146,6 +149,20 @@ const unrelatedUniformMentionCheck = buildFactualGroundingCheck({
 
 assert.equal(unrelatedUniformMentionCheck.status, 'pass');
 assert.equal(unrelatedUniformMentionCheck.counts.contradicted, 0);
+
+const whitakerAgeCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-whitaker-age',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#whitaker-age',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [whitakerCanary.id],
+  generatedText: 'Captain Mara Whitaker sat behind the ready-room desk, younger than her service record suggested, early fifties and sharp-featured.'
+});
+
+assert.equal(whitakerAgeCheck.status, 'fail');
+assert.equal(whitakerAgeCheck.counts.contradicted, 1);
+assert(whitakerAgeCheck.results.find((entry) => entry.factId === whitakerCanary.id).contradictionMatches.some((entry) => /early fifties/i.test(entry.term)));
 
 const quotedSentenceBoundaryCheck = buildFactualGroundingCheck({
   pack: ashesPack,

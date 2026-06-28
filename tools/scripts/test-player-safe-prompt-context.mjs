@@ -166,6 +166,7 @@ assert.equal(projectionJson.includes('Talk to department heads before arrival.')
 assert.equal(packetJson.includes('Port sensor pallet is degraded.'), true);
 assert.equal(packetJson.includes('Professionally supportive, with reservations.'), true);
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn (Tellarite), Chief Tactical and Security Officer'), true);
+assert.equal(packetJson.includes('age: 47 at campaign start; describe her as late forties, not early fifties.'), true);
 assert.equal(packetJson.includes('age: Late fifties by human comparison.'), true);
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn is Tellarite'), true);
 assert.equal(packetJson.includes('mustard-yellow'), true);
@@ -367,10 +368,14 @@ for (const pair of findBundledPackagePairs()) {
   const relevantCrewBlock = bundledPacket.blocks.find((block) => block.id === 'relevant-crew');
   assert(relevantCrewBlock, `${pair.packagePath} should include relevant crew context`);
   for (const crew of bundledPackage.crew.senior.filter((entry) => entry.id !== 'player-commander')) {
+    const datasetOfficer = bundledCrewDataset.officers.find((entry) => entry.id === crew.id);
     assert.match(relevantCrewBlock.content, new RegExp(`\\b${escapeRegex(crew.name)}\\b`), `${pair.packagePath} missing ${crew.name}`);
     assert.match(relevantCrewBlock.content, new RegExp(`\\(${escapeRegex(crew.species)}\\)`), `${pair.packagePath} missing ${crew.name} species`);
     assert.match(relevantCrewBlock.content, new RegExp(escapeRegex(crew.rank)), `${pair.packagePath} missing ${crew.name} rank`);
     assert.equal(Boolean(crew.publicProfile), true, `${pair.packagePath} missing ${crew.name} public profile data`);
+    assert.equal(Boolean(crew.ageDescription), true, `${pair.packagePath} missing ${crew.name} public age data`);
+    assert.equal(datasetOfficer?.ageDescription, crew.ageDescription, `${pair.crewDatasetPath} age data should match package roster for ${crew.name}`);
+    assert.equal(relevantCrewBlock.content.includes(`age: ${crew.ageDescription}`), true, `${pair.packagePath} missing ${crew.name} age in relevant crew context`);
     const defaultProfile = `${crew.rank} ${crew.name} is ${crew.species}, ${crew.billet}.`;
     if (crew.publicProfile !== defaultProfile) {
       assert.equal(relevantCrewBlock.content.includes(crew.publicProfile), true, `${pair.packagePath} missing ${crew.name} non-default public profile`);
