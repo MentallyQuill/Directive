@@ -193,23 +193,104 @@ const saved = await controller.saveCurrentGame({
   campaignState: activeState,
   summary: 'Runtime controller manual save.'
 });
+assert.equal(saved.kind, 'directive.campaignSave');
+assert.equal(saved.schemaVersion, 1);
 assert.equal(saved.id, startedCampaign.firstSave.id);
 assert.equal(saved.revision, 2);
 assert.equal(saved.metadata.stardate, 53052.4);
 
+let indexes = await getDirectiveStorageIndexes(adapter);
+const savedPayloadPath = indexes.saveIndex.saves[saved.id].path;
+const runtimeState = cloneJson(controller.activeCampaignState);
+runtimeState.campaign.currentStardate = 53052.8;
+runtimeState.runtimeTracking = {
+  ingressLedger: [{
+    id: 'runtime-controller-ingress',
+    hostMessageId: '12',
+    textHash: 'hash-12',
+    status: 'classified'
+  }],
+  responseLedger: [],
+  recoveryJournal: [],
+  history: [{
+    snapshot: { rawRuntimeSnapshot: true }
+  }]
+};
+const runtimePersist = await controller.persistRuntimeCampaignState({
+  campaignState: runtimeState,
+  summary: 'Runtime controller v2 persist.',
+  reason: 'controller-test'
+});
+assert.equal(runtimePersist.storageFormat, 'v2');
+assert.equal(runtimePersist.wroteV1Payload, false);
+let snapshot = adapter.snapshot();
+assert.equal(snapshot[savedPayloadPath].revision, 2, 'runtime persist does not rewrite v1 checkpoint payload');
+assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.4, 'v1 checkpoint remains the explicit manual save');
+indexes = await getDirectiveStorageIndexes(adapter);
+assert.equal(indexes.saveIndex.saves[saved.id].path, savedPayloadPath, 'runtime v2 persist preserves v1 save index path');
+assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'runtime v2 persist marks runtime storage format');
+assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2ManifestRef?.logicalKey), true, 'runtime v2 persist attaches manifest ref');
+
+const autosaveAfterRuntimePersist = await controller.autosaveCurrentGame({
+  saveId: 'save-runtime-autosave-proof',
+  campaignState: controller.activeCampaignState,
+  summary: 'Runtime controller autosave after v2 persist.',
+  keep: 3
+});
+assert.equal(autosaveAfterRuntimePersist.save.kind, 'directive.campaignSave');
+assert.equal(autosaveAfterRuntimePersist.save.schemaVersion, 1);
+assert.equal(autosaveAfterRuntimePersist.save.slotType, 'autosave');
+indexes = await getDirectiveStorageIndexes(adapter);
+const autosaveEntry = indexes.saveIndex.saves[autosaveAfterRuntimePersist.save.id];
+assert.equal(autosaveEntry.slotType, 'autosave', 'autosave index entry remains on the autosave lane');
+assert.equal(autosaveEntry.current, false, 'runtime autosave does not become the active save');
+assert.equal(autosaveEntry.runtimeStorageFormat, undefined, 'autosave index entry does not get a runtime v2 marker');
+assert.equal(autosaveEntry.v2ManifestRef, undefined, 'autosave index entry does not get a runtime v2 manifest ref');
+assert.equal(indexes.saveIndex.activeSaveId, saved.id, 'runtime autosave does not move the active save pointer');
+assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'runtime autosave does not clear the active manual save v2 marker');
+snapshot = adapter.snapshot();
+assert.equal(snapshot[autosaveEntry.path].kind, 'directive.campaignSave', 'autosave payload remains a v1 campaign save record');
+assert.equal(snapshot[autosaveEntry.path].slotType, 'autosave', 'autosave payload keeps autosave slot type');
+
+const runtimeLoadedController = createCampaignStartController({
+  adapter,
+  packages: [packageData],
+  projections: [projection],
+  idFactory(prefix) {
+    return `${prefix}-runtime-loaded`;
+  },
+  now: () => '2026-06-28T09:10:00.000Z'
+});
+await runtimeLoadedController.initialize();
+const runtimeLoaded = await runtimeLoadedController.loadGame({ saveId: saved.id });
+assert.equal(runtimeLoaded.campaign.currentStardate, 53052.4, 'default load keeps v1 checkpoint as the runtime resume source during the v2 bridge');
+assert.equal(Boolean(runtimeLoaded.runtimeTracking), true, 'v1 checkpoint remains the source of hot runtime journals until v2 projections exist');
+
+const savedAfterRuntimePersist = await controller.saveCurrentGame({
+  campaignState: controller.activeCampaignState,
+  summary: 'Runtime controller manual checkpoint after v2 persist.'
+});
+assert.equal(savedAfterRuntimePersist.revision, 3, 'manual save still writes a v1 checkpoint after v2 runtime persist');
+snapshot = adapter.snapshot();
+assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.8, 'manual checkpoint captures loaded v2 runtime state');
+indexes = await getDirectiveStorageIndexes(adapter);
+assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, undefined, 'manual save resets runtime v2 marker until next runtime persist');
+
 const branch = await controller.saveCurrentGameAs({
   name: 'Talia Serrin - alternate first watch'
 });
+assert.equal(branch.kind, 'directive.campaignSave');
+assert.equal(branch.schemaVersion, 1);
 assert.equal(branch.id, 'save-runtime-4');
 assert.equal(branch.name, 'Talia Serrin - alternate first watch');
 
 const loaded = await controller.loadGame({ saveId: saved.id });
 assert.equal(loaded.player.name, 'Talia Serrin');
-assert.equal(loaded.campaign.currentStardate, 53052.4);
+assert.equal(loaded.campaign.currentStardate, 53052.8);
 loaded.player.name = 'Changed';
 assert.equal(controller.activeCampaignState.player.name, 'Talia Serrin');
 
-let indexes = await getDirectiveStorageIndexes(adapter);
+indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.activeSaveId, saved.id);
 assert.equal(indexes.creatorDraftIndex.drafts[startedDraft.draft.id].status, 'accepted');
 
@@ -235,12 +316,17 @@ const recoveredController = createCampaignStartController({
 const recoveredCampaign = await recoveredController.initialize();
 assert.equal(recoveredController.activeSaveId, saved.id);
 assert.equal(recoveredController.activeCampaignState.player.name, 'Talia Serrin');
-assert.equal(recoveredController.activeCampaignState.campaign.currentStardate, 53052.4);
+assert.equal(recoveredController.activeCampaignState.campaign.currentStardate, 53052.8);
 assert.equal(recoveredController.storageDiagnostics.status, 'ok');
-assert.equal(recoveredController.storageDiagnostics.counts.saves, 2);
+assert.equal(recoveredController.storageDiagnostics.counts.saves, 3);
+assert.equal(
+  recoveredCampaign.saves.filter((entry) => entry.slotType === 'autosave').length,
+  1,
+  'recovered campaign view should include the explicit v1 autosave without treating it as active'
+);
 assert.equal(recoveredCampaign.activeSaveId, saved.id);
 
-const snapshot = adapter.snapshot();
+snapshot = adapter.snapshot();
 assert.equal(
   snapshot[indexes.saveIndex.saves[saved.id].path].payload.campaignState.player.name,
   'Talia Serrin'

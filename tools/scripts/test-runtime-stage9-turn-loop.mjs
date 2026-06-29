@@ -217,6 +217,12 @@ assert.equal(spentLedgerEntry.provisionalResultBand, 'Partial Success');
 assert.equal(spentLedgerEntry.finalResultBand, 'Great Success');
 assert.equal(spentLedgerEntry.commandBearingSpend.track, 'resolve');
 assert.equal(spentLedgerEntry.narrationStatus, 'complete');
+assert.equal(committed.narrationResult.directiveGenerationStartedAt, committed.narrationResult.narration.directiveGenerationStartedAt);
+assert.equal(committed.narrationResult.narration.directiveGenerationStartedAt, committed.narrationResult.narration.generatedAt);
+assert.equal(
+  committed.campaignState.runtimeTracking.lastCommittedTurn.directiveGenerationStartedAt,
+  committed.narrationResult.directiveGenerationStartedAt
+);
 
 const retryApp = createApp('stage9-retry');
 await startCampaign(retryApp);
@@ -234,8 +240,21 @@ const failedCommit = await retryApp.commitProvisionalDirectorTurn({
   }
 });
 assert.equal(failedCommit.narrationResult.ok, false);
+assert.equal(failedCommit.narrationResult.directiveGenerationStartedAt, failedCommit.narrationResult.error.directiveGenerationStartedAt);
 assert.equal(failedCommit.campaignState.turnLedger.pendingNarrationRecovery.outcomeId, 'outcome.stage9.hesperus.retry');
+assert.equal(
+  failedCommit.campaignState.turnLedger.pendingNarrationRecovery.directiveGenerationStartedAt,
+  failedCommit.narrationResult.directiveGenerationStartedAt
+);
 assert.equal(failedCommit.campaignState.turnLedger.entries.at(-1).narrationStatus, 'failed');
+assert.equal(
+  failedCommit.campaignState.turnLedger.entries.at(-1).narrationFailures.at(-1).directiveGenerationStartedAt,
+  failedCommit.narrationResult.directiveGenerationStartedAt
+);
+assert.equal(
+  failedCommit.campaignState.runtimeTracking.lastCommittedTurn.directiveGenerationStartedAt,
+  failedCommit.narrationResult.directiveGenerationStartedAt
+);
 const mechanicalBeforeRetry = JSON.stringify({
   mission: failedCommit.campaignState.mission,
   clocks: failedCommit.campaignState.clocks,
@@ -245,6 +264,7 @@ const mechanicalBeforeRetry = JSON.stringify({
 });
 const retry = await retryApp.retryNarrationForLastTurn({ provider: narrationProvider });
 assert.equal(retry.ok, true);
+assert.equal(retry.directiveGenerationStartedAt, retry.narration.directiveGenerationStartedAt);
 assert.equal(retry.campaignState.turnLedger.entries.length, failedCommit.campaignState.turnLedger.entries.length);
 assert.equal(retry.campaignState.turnLedger.entries.at(-1).outcomeId, 'outcome.stage9.hesperus.retry');
 assert.equal(retry.campaignState.turnLedger.pendingNarrationRecovery, null);

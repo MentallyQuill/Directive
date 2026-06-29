@@ -1,3 +1,5 @@
+import { normalizeHostMessageVisibility } from '../../runtime/architecture-redesign-contracts.mjs';
+
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
 const DIRECTIVE_CHARACTER_CREATOR = 'Directive';
@@ -835,18 +837,25 @@ async function refreshMessageDisplay(context, index, message) {
 }
 
 
-export function normalizeSillyTavernMessage(message, index = null) {
+export function normalizeSillyTavernMessage(message, index = null, options = {}) {
   if (!message || typeof message !== 'object') return null;
   const metadata = directiveMetadata(message);
+  const hostMessageId = normalizeMessageId(message, Number.isInteger(index) ? index : null);
   return {
-    id: normalizeMessageId(message, Number.isInteger(index) ? index : null),
-    hostMessageId: normalizeMessageId(message, Number.isInteger(index) ? index : null),
+    id: hostMessageId,
+    hostMessageId,
     index: Number.isInteger(index) ? index : null,
     text: messageText(message),
     isUser: message.is_user === true || message.role === 'user',
     isSystem: message.is_system === true || message.role === 'system',
     directiveOwned: Boolean(metadata),
     isDirectiveOwned: Boolean(metadata),
+    visibility: normalizeHostMessageVisibility(message, {
+      index: Number.isInteger(index) ? index : null,
+      hostMessageId,
+      chatMetadata: options.chatMetadata || options.chat_metadata || null,
+      visibilityMap: options.visibilityMap || null
+    }),
     metadata: cloneJson(metadata),
     raw: cloneJson(message)
   };
@@ -863,6 +872,7 @@ export function findLatestSillyTavernUserMessage(chat = []) {
 
 export function normalizeSillyTavernMessagePayload(context, payload = null) {
   const chat = getChatArray(context);
+  const chatMetadata = readChatMetadataObject(context);
   const reference = payloadMessageReference(payload);
   let index = null;
   if (Number.isInteger(payload)) index = payload;
@@ -913,6 +923,12 @@ export function normalizeSillyTavernMessagePayload(context, payload = null) {
     isUser: message.is_user === true || message.role === 'user',
     isSystem: message.is_system === true || message.role === 'system',
     isDirectiveOwned: Boolean(directiveMetadata(message)),
+    visibility: normalizeHostMessageVisibility(message, {
+      index: index >= 0 ? index : null,
+      hostMessageId: normalizeMessageId(message, index >= 0 ? index : null),
+      chatMetadata,
+      visibilityMap: payload?.visibilityMap || payload?.visibility_map || null
+    }),
     metadata: cloneJson(directiveMetadata(message)),
     raw: cloneJson(message)
   };
@@ -920,7 +936,9 @@ export function normalizeSillyTavernMessagePayload(context, payload = null) {
 
 export function createSillyTavernChatAdapter({
   contextFactory = () => globalThis.SillyTavern?.getContext?.() || null,
-  now = () => new Date().toISOString()
+  now = () => new Date().toISOString(),
+  scriptModule = null,
+  importScript = null
 } = {}) {
   function context() {
     return contextFactory?.() || null;
@@ -1402,21 +1420,31 @@ export function createSillyTavernChatAdapter({
   async function continueHostGeneration({
     reason = 'directive-inject-and-continue',
     type = 'normal',
-    automaticTrigger = true
+    automaticTrigger = true,
+    waitForCompletion = true
   } = {}) {
     try {
       const beforeContext = context();
       const beforeChat = getChatArray(beforeContext);
       const beforeIds = new Set(beforeChat.map((message, index) => normalizeMessageId(message, index)));
-      const script = await import('/script.js');
+      const script = scriptModule || (typeof importScript === 'function'
+        ? await importScript()
+        : await import('/script.js'));
       const generating = typeof script.isGenerating === 'function'
         ? script.isGenerating() === true
         : script.is_send_press === true;
       if (generating) {
+        const generationStartedAt = now();
         return {
           ok: true,
           skipped: true,
-          reason: 'host-already-generating'
+          released: true,
+          waitForCompletion: false,
+          reason: 'host-already-generating',
+          type: type || 'normal',
+          generationStartedAt,
+          hostGenerationReleasedAt: generationStartedAt,
+          observedMessage: null
         };
       }
       if (typeof script.Generate !== 'function') {
@@ -1426,9 +1454,25 @@ export function createSillyTavernChatAdapter({
           reason: 'generate-api-unavailable'
         };
       }
-      const result = await script.Generate(type || 'normal', {
+      const generationStartedAt = now();
+      const generationPromise = script.Generate(type || 'normal', {
         automatic_trigger: automaticTrigger !== false
       });
+      if (waitForCompletion === false) {
+        Promise.resolve(generationPromise).catch(() => {});
+        return {
+          ok: true,
+          skipped: false,
+          released: true,
+          waitForCompletion: false,
+          reason,
+          type: type || 'normal',
+          generationStartedAt,
+          hostGenerationReleasedAt: generationStartedAt,
+          observedMessage: null
+        };
+      }
+      const result = await generationPromise;
       const afterContext = context();
       const afterChat = getChatArray(afterContext);
       let observedMessage = null;
@@ -1445,8 +1489,13 @@ export function createSillyTavernChatAdapter({
       return {
         ok: true,
         skipped: false,
+        released: true,
+        waitForCompletion: true,
         reason,
         type: type || 'normal',
+        generationStartedAt,
+        hostGenerationReleasedAt: generationStartedAt,
+        completedAt: now(),
         result: cloneJson(result),
         observedMessage: cloneJson(observedMessage)
       };

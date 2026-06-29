@@ -1,4 +1,11 @@
 import { DIRECTIVE_STATIC_PROMPT_KEYS } from '../../continuity/prompt-keys.mjs';
+import {
+  createExternalPromptEnvironmentRef,
+  isDirectivePromptKey
+} from '../../runtime/architecture-redesign-contracts.mjs';
+import {
+  observeSillyTavernExternalPromptEnvironment
+} from './external-context-observer.mjs';
 
 const PROMPT_KEY_PREFIX = 'directive.campaign';
 
@@ -46,6 +53,91 @@ function blockPromptKey(block = {}) {
   return explicit.startsWith('directive.') ? explicit : promptKey(block.id);
 }
 
+function directivePromptKeySet(keys = []) {
+  return new Set([...keys].filter(isDirectivePromptKey));
+}
+
+function externalEnvironmentMayInfluencePrompt(environment = {}) {
+  return Boolean(
+    environment.worldInfo?.active
+    || environment.memoryBooks?.enabled
+    || environment.summaryception?.enabled
+    || environment.summaryception?.promptKeyActive
+    || environment.vectFox?.enabled
+    || environment.vectFox?.generationInterceptorActive
+    || (environment.knownExternalPromptKeys || []).length > 0
+  );
+}
+
+function externalEnvironmentTargetSummary(environment = {}) {
+  return {
+    stLorebooks: {
+      installed: environment.worldInfo?.installed === true,
+      enabled: environment.worldInfo?.enabled === true,
+      active: environment.worldInfo?.active === true,
+      activeNameCount: Array.isArray(environment.worldInfo?.activeNames) ? environment.worldInfo.activeNames.length : 0,
+      chatBound: Boolean(environment.worldInfo?.chatBoundName),
+      promptPositions: Array.isArray(environment.worldInfo?.promptPositions) ? [...environment.worldInfo.promptPositions] : []
+    },
+    memoryBooks: {
+      installed: environment.memoryBooks?.installed === true,
+      enabled: environment.memoryBooks?.enabled === true,
+      active: Boolean(environment.memoryBooks?.activeBookName) || Number(environment.memoryBooks?.stMemoryBookEntryCount || 0) > 0,
+      entryCount: Number(environment.memoryBooks?.stMemoryBookEntryCount || 0),
+      riskyModes: { ...(environment.memoryBooks?.riskyModes || {}) }
+    },
+    summaryception: {
+      installed: environment.summaryception?.installed === true,
+      enabled: environment.summaryception?.enabled === true,
+      promptKeyActive: environment.summaryception?.promptKeyActive === true,
+      layerCount: Number(environment.summaryception?.layerCount || 0),
+      ghostedCount: Number(environment.summaryception?.ghostedCount || 0),
+      externalModelCalls: environment.summaryception?.externalModelCalls === true
+    },
+    vectFox: {
+      installed: environment.vectFox?.installed === true,
+      enabled: environment.vectFox?.enabled === true,
+      disabledPresent: environment.vectFox?.disabledPresent === true,
+      promptKeys: Array.isArray(environment.vectFox?.promptKeys) ? [...environment.vectFox.promptKeys] : [],
+      backendType: environment.vectFox?.backendType || null,
+      semanticWorldInfoEnabled: environment.vectFox?.semanticWorldInfoEnabled === true,
+      summarizerInjectionEnabled: environment.vectFox?.summarizerInjectionEnabled === true,
+      ghostingEnabled: environment.vectFox?.ghostingEnabled === true,
+      generationInterceptorActive: environment.vectFox?.generationInterceptorActive === true
+    }
+  };
+}
+
+function externalPromptInspectionMetadata(context, binding = {}) {
+  try {
+    const environment = observeSillyTavernExternalPromptEnvironment(context, {
+      userHandle: binding?.userHandle,
+      chatId: binding?.chatId || contextChatId(context),
+      campaignId: binding?.campaignId,
+      saveId: binding?.saveId
+    });
+    const ref = createExternalPromptEnvironmentRef(environment);
+    return {
+      externalPromptEnvironmentRef: ref,
+      knownExternalPromptKeys: ref.knownExternalPromptKeys || [],
+      finalHostPromptMayIncludeExternal: externalEnvironmentMayInfluencePrompt(environment),
+      externalPromptEnvironmentTargets: externalEnvironmentTargetSummary(environment),
+      unavailableSignals: Array.isArray(environment.unknownSignals) ? [...environment.unknownSignals] : [],
+      redactions: Array.isArray(environment.redactions) ? [...environment.redactions] : []
+    };
+  } catch (error) {
+    return {
+      externalPromptEnvironmentRef: null,
+      knownExternalPromptKeys: [],
+      finalHostPromptMayIncludeExternal: null,
+      externalPromptEnvironmentTargets: null,
+      unavailableSignals: ['external-prompt-environment-observation-failed'],
+      redactions: [],
+      externalPromptEnvironmentError: { message: error?.message || String(error) }
+    };
+  }
+}
+
 function contextChatId(context) {
   const value = context?.chatId
     ?? context?.chat_id
@@ -81,6 +173,12 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
   function setBlock(context, block) {
     const api = ensurePromptApi(context);
     const key = blockPromptKey(block);
+    if (!isDirectivePromptKey(key)) {
+      const error = new Error(`Refusing to install non-Directive prompt key ${key}.`);
+      error.code = 'DIRECTIVE_PROMPT_KEY_SCOPE';
+      error.details = { key };
+      throw error;
+    }
     api.setExtensionPrompt(
       key,
       block.text || String(block.content || ''),
@@ -103,6 +201,10 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
   }
 
   function clearKey(context, key) {
+    if (!isDirectivePromptKey(key)) {
+      installed.delete(key);
+      return { skipped: true, reason: 'non-directive-prompt-key', key };
+    }
     const api = ensurePromptApi(context);
     api.setExtensionPrompt(
       key,
@@ -125,7 +227,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       return { ok: true, reason, transport: 'no-context' };
     }
     try {
-      for (const key of new Set([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) clearKey(context, key);
+      for (const key of directivePromptKeySet([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) clearKey(context, key);
       if (!preservePacket) activeBinding = null;
       if (!preservePacket) activePacket = null;
       status = 'inactive';
@@ -160,13 +262,17 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       throw error;
     }
     try {
-      const desiredKeys = new Set(packet.blocks.map(blockPromptKey));
-      for (const key of new Set([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) {
+      const desiredKeys = directivePromptKeySet(packet.blocks.map(blockPromptKey));
+      for (const key of directivePromptKeySet([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) {
         if (!desiredKeys.has(key)) clearKey(context, key);
       }
       for (const block of packet.blocks) setBlock(context, block);
+      const externalMetadata = externalPromptInspectionMetadata(context, binding);
       activeBinding = cloneJson(binding);
-      activePacket = cloneJson(packet);
+      activePacket = {
+        ...cloneJson(packet),
+        ...cloneJson(externalMetadata)
+      };
       status = 'active';
       updatedAt = new Date().toISOString();
       lastError = null;
@@ -176,7 +282,9 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
         chatId: binding.chatId,
         revision: packet.revision,
         hash: packet.hash,
-        blockCount: packet.blocks.length
+        blockCount: packet.blocks.length,
+        externalPromptEnvironmentRef: cloneJson(externalMetadata.externalPromptEnvironmentRef),
+        knownExternalPromptKeys: cloneJson(externalMetadata.knownExternalPromptKeys)
       };
     } catch (error) {
       await clear({ reason: 'install-failed', preservePacket: true });
@@ -216,6 +324,17 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
   }
 
   function inspect({ includeText = false } = {}) {
+    const context = getContext();
+    const externalMetadata = context
+      ? externalPromptInspectionMetadata(context, activeBinding || {})
+      : {
+          externalPromptEnvironmentRef: activePacket?.externalPromptEnvironmentRef || null,
+          knownExternalPromptKeys: activePacket?.knownExternalPromptKeys || [],
+          finalHostPromptMayIncludeExternal: activePacket?.finalHostPromptMayIncludeExternal ?? null,
+          externalPromptEnvironmentTargets: activePacket?.externalPromptEnvironmentTargets || null,
+          unavailableSignals: activePacket?.unavailableSignals || [],
+          redactions: activePacket?.redactions || []
+        };
     return {
       kind: 'directive.promptInspection',
       status,
@@ -224,6 +343,14 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       hash: activePacket?.hash || null,
       blockCount: installed.size,
       blocks: [...installed.values()].map(cloneJson),
+      externalPromptEnvironmentRef: cloneJson(externalMetadata.externalPromptEnvironmentRef),
+      knownExternalPromptKeys: cloneJson(externalMetadata.knownExternalPromptKeys || []),
+      directiveOwnedPromptKeys: [...installed.keys()].filter(isDirectivePromptKey).sort(),
+      finalHostPromptMayIncludeExternal: externalMetadata.finalHostPromptMayIncludeExternal ?? null,
+      externalPromptEnvironmentTargets: cloneJson(externalMetadata.externalPromptEnvironmentTargets || null),
+      unavailableSignals: cloneJson(externalMetadata.unavailableSignals || []),
+      redactions: cloneJson(externalMetadata.redactions || []),
+      ...(externalMetadata.externalPromptEnvironmentError ? { externalPromptEnvironmentError: cloneJson(externalMetadata.externalPromptEnvironmentError) } : {}),
       updatedAt,
       lastError: lastError ? { message: lastError.message || String(lastError) } : null,
       ...(includeText ? { text: activePacket?.text || '' } : {})

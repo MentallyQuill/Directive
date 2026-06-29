@@ -12,6 +12,7 @@ import {
   continuityHintsFromContradictionReview,
   recordContinuityFactUseStats
 } from '../continuity/projection-hints.mjs';
+import { applyOpenWorldReducerBundle } from '../directors/open-world-event-reducers.mjs';
 import { applyPressureLedgerDelta } from '../pressures/pressure-ledger.mjs';
 import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
 
@@ -531,29 +532,15 @@ function applyTerminalStateDelta(state, terminalStateDelta = {}) {
   }
 }
 
-const OPEN_WORLD_REPLACEABLE_ROOTS = new Set([
-  'worldState',
-  'timeLedger',
-  'storyArcLedger',
-  'questLedger',
-  'dynamicQuestCatalog',
-  'knowledgeLedger',
-  'threadLedger',
-  'eventLedger',
-  'attentionState',
-  'runtimeTracking',
-  'campaignTracks',
-  'campaignAssets',
-  'mission'
-]);
-
 function applyOpenWorldDelta(state, openWorldDelta = {}) {
-  const roots = openWorldDelta.rootsSet || {};
-  for (const [key, value] of Object.entries(roots)) {
-    if (!OPEN_WORLD_REPLACEABLE_ROOTS.has(key)) {
-      throw new Error(`Open-world turn cannot replace unauthorized root "${key}".`);
+  if (Object.prototype.hasOwnProperty.call(openWorldDelta, 'rootsSet')) {
+    throw new Error('Open-world rootsSet replacement is no longer supported; use directive.openWorldReducerBundle.v1.');
+  }
+  if (openWorldDelta.reducerBundle) {
+    const reduced = applyOpenWorldReducerBundle(state, openWorldDelta.reducerBundle);
+    for (const key of Object.keys(reduced)) {
+      state[key] = cloneJson(reduced[key]);
     }
-    state[key] = cloneJson(value);
   }
 }
 
@@ -752,6 +739,8 @@ export function recordNarrationFailure(campaignState, outcomeId, failure) {
   const failureRecord = {
     outcomeId,
     failedAt: failure?.failedAt || new Date().toISOString(),
+    directiveGenerationStartedAt: failure?.directiveGenerationStartedAt || failure?.generationStartedAt || null,
+    generationStartedAt: failure?.generationStartedAt || failure?.directiveGenerationStartedAt || null,
     providerId: failure?.providerId || null,
     message: failure?.message || String(failure || 'Narration failed.'),
     retryable: failure?.retryable !== false

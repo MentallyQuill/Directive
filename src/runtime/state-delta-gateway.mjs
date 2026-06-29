@@ -628,8 +628,12 @@ export function recordTurnIngress(campaignState, ingress, {
       campaignId: compact(ingress.campaignId) || null,
       textHash: compact(ingress.textHash) || null,
       textPreview: compact(ingress.textPreview).slice(0, 500),
+      playerSubmittedAt: ingress.playerSubmittedAt || null,
       receivedAt: ingress.receivedAt || new Date().toISOString(),
       stateRevision: Number(ingress.stateRevision) || tracking.revision,
+      sourceFrameId: compact(ingress.sourceFrameId) || ingress.sourceFrame?.id || null,
+      sourceFrame: cloneJson(ingress.sourceFrame || null),
+      coreTransactionId: compact(ingress.coreTransactionId) || null,
       status: ingress.status || 'received',
       classification: cloneJson(ingress.classification || null),
       workerPlan: cloneJson(ingress.workerPlan || null),
@@ -643,8 +647,27 @@ export function recordTurnIngress(campaignState, ingress, {
       error: cloneJson(ingress.error || null)
     };
     const ledger = cloneJson(tracking.ingressLedger);
-    if (existingIndex >= 0) ledger[existingIndex] = { ...ledger[existingIndex], ...record };
-    else ledger.push(record);
+    if (existingIndex >= 0) {
+      const existing = ledger[existingIndex] || {};
+      const merged = { ...existing, ...record };
+      for (const key of [
+        'hostMessageId',
+        'chatId',
+        'campaignId',
+        'textHash',
+        'textPreview',
+        'playerSubmittedAt',
+        'receivedAt',
+        'sourceFrameId',
+        'sourceFrame',
+        'coreTransactionId'
+      ]) {
+        if ((record[key] === null || record[key] === undefined || record[key] === '') && existing[key] !== undefined) {
+          merged[key] = existing[key];
+        }
+      }
+      ledger[existingIndex] = merged;
+    } else ledger.push(record);
     return {
       ...tracking,
       ingressLedger: bounded(ledger, limit),
@@ -682,6 +705,15 @@ export function recordDirectiveResponse(campaignState, response, {
         postedAt: response.postedAt || new Date().toISOString(),
         status: response.status || 'posted',
         recoveryId: response.recoveryId || null,
+        sourceFrameId: compact(response.sourceFrameId) || null,
+        hostGenerationReleasedAt: response.hostGenerationReleasedAt || null,
+        directiveGenerationStartedAt: response.directiveGenerationStartedAt || null,
+        generationStartedAt: response.generationStartedAt || null,
+        hostGenerationReleaseMode: response.hostGenerationReleaseMode || null,
+        turnLatency: cloneJson(response.turnLatency || null),
+        coreTransactionId: compact(response.coreTransactionId) || null,
+        coreRelease: cloneJson(response.coreRelease || null),
+        coreReleaseError: cloneJson(response.coreReleaseError || null),
         invalidatedAt: response.invalidatedAt || null,
         invalidationType: response.invalidationType || null,
         replacementText: response.replacementText || null,

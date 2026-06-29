@@ -163,21 +163,28 @@ const turn = await app.runDirectorTurn({
 });
 assert.equal(turn.view.host.id, 'fake');
 assert.equal(turn.turnPacket.outcomePacket.resultBand, 'Partial Success');
-assert.equal(turn.commandLogSummaryResult.ok, true);
-assert.equal(
-  turn.campaignState.commandLog.entries.at(-1).assistedSummary.summary,
-  'The Breckenridge protected the Hesperus passengers while preserving the falsified record for formal inquiry.'
-);
+assert.equal(turn.commandLogSummaryResult.status, 'deferred');
+assert.equal(turn.campaignState.commandLog.entries.at(-1).assistedSummary, undefined);
+assert.equal(host.generation.calls().length, 0);
 
 const narration = await app.generateNarrationForLastTurn();
 assert.equal(narration.ok, true);
 assert.equal(narration.narration.providerId, 'fake-host-narrator');
-assert.equal(host.generation.calls()[0].role, 'commandLogSummarizer');
-assert.equal(host.generation.calls()[0].request.role.id, 'commandLogSummarizer');
-assert.equal(host.generation.calls()[0].request.modelPreferences.cost, 'low');
-assert.equal(host.generation.calls()[1].role, 'narration');
-assert.equal(host.generation.calls()[1].request.role.id, 'narration');
+assert.equal(host.generation.calls()[0].role, 'narration');
+assert.equal(host.generation.calls()[0].request.role.id, 'narration');
 assert.equal(narration.view.host.id, 'fake');
+const flushedCommandLogSummary = await app.flushChatSidecars();
+assert.equal(flushedCommandLogSummary.commandLogSummaryResult.ok, true);
+assert.equal(host.generation.calls()[1].role, 'commandLogSummarizer');
+assert.equal(host.generation.calls()[1].request.role.id, 'commandLogSummarizer');
+assert.equal(host.generation.calls()[1].request.modelPreferences.cost, 'low');
+const flushedState = flushedCommandLogSummary.view.campaignState || flushedCommandLogSummary.view.loadedCampaignState;
+assert.equal(
+  flushedState.commandLog.entries.at(-1).assistedSummary.summary,
+  'The Breckenridge protected the Hesperus passengers while preserving the falsified record for formal inquiry.'
+);
+const directDiagnosticFlush = await app.flushRuntimeDiagnostics();
+assert.equal(directDiagnosticFlush.ok, true);
 
 const factualReviewRequest = {
   kind: 'directive.liveCampaignSoak.factualModelReviewRequest',
@@ -375,5 +382,8 @@ const noSummaryNarration = await noSummaryApp.generateNarrationForLastTurn();
 assert.equal(noSummaryNarration.ok, true);
 assert.equal(noSummaryHost.generation.calls().length, 1);
 assert.equal(noSummaryHost.generation.calls()[0].role, 'narration');
+const noSummaryFlush = await noSummaryApp.flushChatSidecars();
+assert.equal(noSummaryFlush.commandLogSummaryResult, null);
+assert.equal(noSummaryHost.generation.calls().filter((entry) => entry.role === 'commandLogSummarizer').length, 0);
 
 console.log('Runtime host injection tests passed: host metadata, Command Log summary sidecar, factual review, no-generation summary suppression, and narration');

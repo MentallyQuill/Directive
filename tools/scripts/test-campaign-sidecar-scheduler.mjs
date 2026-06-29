@@ -287,8 +287,37 @@ function recordSourceIngress(ingressId, {
   hostMessageId = ingressId,
   textHash = `${ingressId}-hash`,
   status = 'committed',
-  outcomeId = null
+  outcomeId = null,
+  sourceFrameId = null,
+  sourceFrame = null,
+  coreTransactionId = null
 } = {}) {
+  const frame = sourceFrame || (sourceFrameId ? {
+    kind: 'directive.turnSourceFrame.v1',
+    schemaVersion: 1,
+    id: sourceFrameId,
+    campaignId: 'campaign-sidecar-test',
+    saveId: 'save-sidecar-test',
+    chatId: 'campaign-chat',
+    hostMessageId,
+    textHash,
+    selectedAssistantVariantHash: `${sourceFrameId}-selected-assistant-hash`,
+    externalPromptEnvironmentRef: {
+      kind: 'directive.externalPromptEnvironmentRef.v1',
+      schemaVersion: 1,
+      hash: 'b'.repeat(64),
+      byteLength: 256,
+      status: 'observed',
+      observedAt: '2026-06-22T06:00:00.000Z',
+      knownExternalPromptKeys: ['summaryception', '3_vectfox']
+    },
+    visibility: {
+      visibilityMutationOnly: false,
+      sourceMutation: false
+    },
+    rawPlayerText: `RAW_FRAME_TEXT_${ingressId}_MUST_NOT_PERSIST`,
+    textPreview: `RAW_FRAME_PREVIEW_${ingressId}_MUST_NOT_PERSIST`
+  } : null);
   state = recordTurnIngress(state, {
     id: ingressId,
     hostMessageId,
@@ -297,12 +326,16 @@ function recordSourceIngress(ingressId, {
     textHash,
     textPreview: `Source message for ${ingressId}.`,
     status,
-    outcomeId
+    outcomeId,
+    sourceFrameId,
+    sourceFrame: frame,
+    coreTransactionId
   });
 }
 
 const responses = [];
 const generationRequests = [];
+const coreDiagnostics = [];
 const generationRouter = {
   async generate(roleId, request) {
     generationRequests.push({ roleId, request: cloneJson(request || {}) });
@@ -350,6 +383,10 @@ const scheduler = createCampaignSidecarScheduler({
     });
     return synchronized;
   },
+  appendCoreDiagnostic: async (event) => {
+    coreDiagnostics.push(cloneJson(event));
+    return { ok: true };
+  },
   now
 });
 
@@ -363,7 +400,11 @@ const continuityProjectionDigest = {
   selectedFactIdHashes: ['fact-hash-1']
 };
 
-recordSourceIngress('ingress-1', { outcomeId: 'outcome-1' });
+recordSourceIngress('ingress-1', {
+  outcomeId: 'outcome-1',
+  sourceFrameId: 'frame-ingress-1',
+  coreTransactionId: 'txn-ingress-1'
+});
 responses.push({
   proposal: {
     id: 'ship-proposal-valid',
@@ -422,6 +463,20 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).outcomeId, 'outcome-1')
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).anchorRangeHash, 'range-ship-1');
 assert.deepEqual(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.continuityProjection, continuityProjectionDigest);
 assert.deepEqual(__campaignSidecarSchedulerTestHooks.WORKERS.ship.allowedRoots, ['ship']);
+await scheduler.pending();
+const firstShipDiagnostics = coreDiagnostics.filter((entry) => entry.worker === 'ship' && entry.ingressId === 'ingress-1');
+assert.deepEqual(firstShipDiagnostics.map((entry) => entry.status), ['queued', 'running', 'applied']);
+assert.equal(firstShipDiagnostics.every((entry) => entry.roleId === 'shipDirector'), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.sourceFrameId === 'frame-ingress-1'), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.sourceFrameRef?.kind === 'directive.turnSourceFrameRef.v1'), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.sourceFrameRef?.id === 'frame-ingress-1'), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.sourceFrameRef?.textHash === 'ingress-1-hash'), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.sourceFrameRef?.externalPromptEnvironmentRef?.knownExternalPromptKeys.includes('summaryception')), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.sourceToken === 'turnSourceFrame:frame-ingress-1'), true);
+assert.equal(firstShipDiagnostics.every((entry) => entry.coreTransactionId === 'txn-ingress-1'), true);
+assert.equal(JSON.stringify(firstShipDiagnostics).includes('Return one strict JSON state-delta proposal'), false, 'CORE sidecar diagnostics must not include raw sidecar prompts.');
+assert.equal(JSON.stringify(firstShipDiagnostics).includes('RAW_FRAME_TEXT_ingress-1_MUST_NOT_PERSIST'), false, 'CORE sidecar diagnostics must not include raw Frame text.');
+assert.equal(JSON.stringify(firstShipDiagnostics).includes('RAW_FRAME_PREVIEW_ingress-1_MUST_NOT_PERSIST'), false, 'CORE sidecar diagnostics must not include raw Frame previews.');
 
 state.knowledgeLedger.components.records.push({
   id: 'component.source.coolant',
@@ -512,6 +567,28 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, t
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperationCount, 1);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
+assert.equal(coreDiagnostics.some((entry) => entry.ingressId === 'ingress-2'), false, 'Sidecars without a CORE transaction must not emit CORE diagnostics.');
+
+recordSourceIngress('ingress-provider-failed', {
+  outcomeId: 'outcome-provider-failed',
+  sourceFrameId: 'frame-provider-failed',
+  coreTransactionId: 'txn-provider-failed'
+});
+responses.push({ ok: false });
+results = await scheduler.schedule({
+  workerPlan: { crew: true },
+  turnContext: {
+    ingressId: 'ingress-provider-failed',
+    turnId: 'turn-provider-failed',
+    outcomeId: 'outcome-provider-failed'
+  }
+});
+assert.equal(results[0].status, 'failed');
+assert.equal(results[0].error.code, 'SIMULATED_FAILURE');
+await scheduler.pending();
+const failedDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-provider-failed');
+assert.deepEqual(failedDiagnostics.map((entry) => entry.status), ['queued', 'running', 'failed']);
+assert.equal(failedDiagnostics.at(-1).errorCode, 'SIMULATED_FAILURE');
 
 recordSourceIngress('ingress-2b');
 responses.push({
@@ -531,18 +608,30 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'noChange');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
 
-recordSourceIngress('ingress-2c');
+recordSourceIngress('ingress-2c', {
+  outcomeId: 'outcome-2c',
+  sourceFrameId: 'frame-ingress-2c',
+  coreTransactionId: 'txn-ingress-2c'
+});
 responses.push({
   rawText: 'not json'
 });
 results = await scheduler.schedule({
   workerPlan: { crew: true },
-  turnContext: { ingressId: 'ingress-2c' }
+  turnContext: {
+    ingressId: 'ingress-2c',
+    turnId: 'turn-2c',
+    outcomeId: 'outcome-2c'
+  }
 });
 assert.equal(results[0].status, 'rejected');
 assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
 assert.equal(state.runtimeTracking.revision, 2, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, false);
+await scheduler.pending();
+const rejectedDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-2c');
+assert.deepEqual(rejectedDiagnostics.map((entry) => entry.status), ['queued', 'running', 'rejected']);
+assert.equal(rejectedDiagnostics.at(-1).errorCode, 'DIRECTIVE_SIDECAR_JSON_INVALID');
 
 recordSourceIngress('ingress-3');
 responses.push({
@@ -585,7 +674,9 @@ state = recordTurnIngress(state, {
   textHash: 'hash-before-edit',
   textPreview: 'Original order with typo.',
   status: 'committed',
-  outcomeId: 'outcome-stale-edit'
+  outcomeId: 'outcome-stale-edit',
+  sourceFrameId: 'frame-stale-edit',
+  coreTransactionId: 'txn-stale-edit'
 });
 const revisionBeforeStaleSource = state.runtimeTracking.revision;
 responses.push({
@@ -621,6 +712,15 @@ assert.equal(state.ship.damage.some((entry) => entry.id === 'stale-edit'), false
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
 assert.equal(promptSyncs.length, 2, 'Source-stale sidecars must not rebuild prompt context.');
+await scheduler.pending();
+const staleDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-stale-edit');
+assert.deepEqual(staleDiagnostics.map((entry) => entry.status), ['queued', 'running', 'stale']);
+assert.equal(staleDiagnostics.at(-1).resultStatus, 'rejected');
+assert.equal(staleDiagnostics.at(-1).errorCode, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
+assert.deepEqual(staleDiagnostics.at(-1).staleReasons, ['status:invalidated', 'invalidated', 'text-hash-changed']);
+assert.equal(staleDiagnostics.at(-1).sourceFrameRef.id, 'frame-stale-edit');
+assert.equal(staleDiagnostics.at(-1).sourceToken, 'turnSourceFrame:frame-stale-edit');
+assert.equal(JSON.stringify(staleDiagnostics).includes('RAW_FRAME_TEXT_ingress-stale-edit_MUST_NOT_PERSIST'), false);
 
 recordSourceIngress('ingress-continuity-commandlog-drop', { outcomeId: 'outcome-continuity-commandlog-drop' });
 const revisionBeforeContinuityDrop = state.runtimeTracking.revision;
@@ -804,15 +904,46 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
     textHash: 'batch-source-hash',
     textPreview: 'Source message for batch sidecars.',
     status: 'committed',
-    outcomeId: 'outcome-batch-1'
+    outcomeId: 'outcome-batch-1',
+    sourceFrameId: 'frame-batch-1',
+    sourceFrame: {
+      kind: 'directive.turnSourceFrame.v1',
+      schemaVersion: 1,
+      id: 'frame-batch-1',
+      campaignId: 'campaign-sidecar-batch-test',
+      saveId: 'save-sidecar-batch-test',
+      chatId: 'campaign-chat',
+      hostMessageId: 'player-batch-1',
+      textHash: 'batch-source-hash',
+      selectedAssistantVariantHash: 'batch-selected-assistant-hash',
+      externalPromptEnvironmentRef: {
+        kind: 'directive.externalPromptEnvironmentRef.v1',
+        schemaVersion: 1,
+        hash: 'c'.repeat(64),
+        byteLength: 384,
+        status: 'observed',
+        observedAt: '2026-06-22T06:01:00.000Z',
+        knownExternalPromptKeys: ['worldInfoBefore', 'summaryception']
+      },
+      rawPlayerText: 'RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'
+    },
+    coreTransactionId: 'txn-batch-1'
   });
   const batchCalls = [];
+  const batchApplyCalls = [];
+  const batchPromptSyncs = [];
+  const batchCoreBackgroundBatches = [];
   const batchGateway = createStateDeltaGateway({
     getState: () => batchState,
     setState: (next) => { batchState = cloneJson(next); },
     persist: async (next) => { batchState = cloneJson(next); },
     now
   });
+  const originalBatchApplyOperations = batchGateway.applyOperations;
+  batchGateway.applyOperations = async (proposal, policy) => {
+    batchApplyCalls.push({ proposal: cloneJson(proposal), policy: cloneJson(policy || {}) });
+    return originalBatchApplyOperations(proposal, policy);
+  };
   const proposalsByRole = {
     relationshipEvaluator: {
       id: 'relationship-batch-proposal',
@@ -859,6 +990,19 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
     getCampaignState: () => batchState,
     setCampaignState: (next) => { batchState = cloneJson(next); },
     persistCampaignState: async (next) => { batchState = cloneJson(next); },
+    syncPromptContext: async (next, details) => {
+      batchPromptSyncs.push({ revision: next.runtimeTracking.revision, details: cloneJson(details) });
+      const synchronized = cloneJson(next);
+      synchronized.campaignChatBinding = {
+        ...(synchronized.campaignChatBinding || {}),
+        promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1
+      };
+      return synchronized;
+    },
+    commitCoreBackgroundBatch: async (transactionId, bundle) => {
+      batchCoreBackgroundBatches.push({ transactionId, bundle: cloneJson(bundle) });
+      return { transactionId, ok: true };
+    },
     now
   });
   const batchResults = await batchScheduler.schedule({
@@ -877,13 +1021,36 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
   assert.equal(batchCalls[0].requests.every((request) => /strict JSON-safe/.test(request.request.prompt)), true);
   assert.equal(batchCalls[0].options.concurrent, true);
   assert.deepEqual(batchResults.map((result) => result.status), ['applied', 'applied', 'applied']);
-  assert.equal(batchState.runtimeTracking.revision, 3);
+  assert.equal(batchApplyCalls.length, 1);
+  assert.deepEqual(batchApplyCalls[0].proposal.workerId, 'campaignSidecarBatch');
+  assert.equal(batchApplyCalls[0].proposal.operations.length, 3);
+  assert.deepEqual(batchApplyCalls[0].policy.allowedRoots.sort(), ['crew', 'relationships', 'ship']);
+  assert.equal(batchPromptSyncs.length, 1);
+  assert.equal(batchPromptSyncs[0].details.workerKey, 'campaignSidecarBatch');
+  assert.deepEqual(batchPromptSyncs[0].details.workerKeys, ['relationship', 'crew', 'ship']);
+  assert.equal(batchCoreBackgroundBatches.length, 1);
+  assert.equal(batchCoreBackgroundBatches[0].transactionId, 'txn-batch-1');
+  assert.equal(batchCoreBackgroundBatches[0].bundle.sourceToken, 'turnSourceFrame:frame-batch-1');
+  assert.equal(batchCoreBackgroundBatches[0].bundle.sourceFrameRef.id, 'frame-batch-1');
+  assert.equal(batchCoreBackgroundBatches[0].bundle.sourceFrameRef.textHash, 'batch-source-hash');
+  assert.equal(batchCoreBackgroundBatches[0].bundle.sourceFrameRef.selectedAssistantVariantHash, 'batch-selected-assistant-hash');
+  assert.equal(batchCoreBackgroundBatches[0].bundle.sourceFrameRef.externalPromptEnvironmentRef.knownExternalPromptKeys.includes('summaryception'), true);
+  assert.equal(batchCoreBackgroundBatches[0].bundle.operations.length, 3);
+  assert.deepEqual(batchCoreBackgroundBatches[0].bundle.workers.map((entry) => entry.workerId), ['relationship', 'crew', 'ship']);
+  assert.equal(JSON.stringify(batchCoreBackgroundBatches).includes('RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'), false);
+  assert.equal(batchState.runtimeTracking.revision, 1);
+  assert.equal(batchState.campaignChatBinding.promptContextRevision, 1);
   assert.equal(batchState.relationships.seniorCrew.length, 1);
   assert.equal(batchState.crew.casualties.length, 1);
   assert.equal(batchState.ship.condition, 'Damaged but mobile');
   const batchJournal = batchState.runtimeTracking.sidecarJournal.slice(-3);
   assert.deepEqual(batchJournal.map((entry) => entry.status), ['applied', 'applied', 'applied']);
-  assert.deepEqual(batchJournal.map((entry) => entry.diagnostics.sidecarGeneration.rebased), [false, true, true]);
+  assert.deepEqual(batchJournal.map((entry) => entry.diagnostics.sidecarGeneration.rebased), [false, false, false]);
+  assert.equal(batchJournal.every((entry) => entry.diagnostics.sidecarGeneration.aggregateBatch === true), true);
+  assert.equal(batchJournal.every((entry) => entry.diagnostics.sidecarGeneration.aggregateWorkerCount === 3), true);
+  assert.equal(batchJournal.every((entry) => entry.diagnostics.source.sourceFrameRef.id === 'frame-batch-1'), true);
+  assert.equal(batchJournal.every((entry) => entry.diagnostics.source.sourceToken === 'turnSourceFrame:frame-batch-1'), true);
+  assert.equal(JSON.stringify(batchJournal).includes('RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'), false);
 }
 
 {
@@ -914,6 +1081,14 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
     persist: async (next) => { conflictState = cloneJson(next); },
     now
   });
+  const conflictApplyCalls = [];
+  const conflictPromptSyncs = [];
+  const conflictCoreBackgroundBatches = [];
+  const originalConflictApplyOperations = conflictGateway.applyOperations;
+  conflictGateway.applyOperations = async (proposal, policy) => {
+    conflictApplyCalls.push({ proposal: cloneJson(proposal), policy: cloneJson(policy || {}) });
+    return originalConflictApplyOperations(proposal, policy);
+  };
   const conflictScheduler = createCampaignSidecarScheduler({
     generationRouter: {
       async generate() {
@@ -938,17 +1113,30 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
     getCampaignState: () => conflictState,
     setCampaignState: (next) => { conflictState = cloneJson(next); },
     persistCampaignState: async (next) => { conflictState = cloneJson(next); },
+    syncPromptContext: async (next, details) => {
+      conflictPromptSyncs.push({ revision: next.runtimeTracking.revision, details: cloneJson(details) });
+      return next;
+    },
+    commitCoreBackgroundBatch: async (transactionId, bundle) => {
+      conflictCoreBackgroundBatches.push({ transactionId, bundle: cloneJson(bundle) });
+      return { ok: true };
+    },
     now
   });
   const conflictResults = await conflictScheduler.schedule({
     workerPlan: { relationship: true, crew: true },
     turnContext: { ingressId: 'ingress-conflict-1' }
   });
-  assert.deepEqual(conflictResults.map((result) => result.status), ['applied', 'rejected']);
-  assert.equal(conflictResults[1].error.code, 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT');
-  assert.equal(conflictState.runtimeTracking.revision, 1);
-  assert.equal(conflictState.crew.casualties.length, 1);
-  assert.equal(conflictState.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT');
+  assert.deepEqual(conflictResults.map((result) => result.status), ['rejected', 'rejected']);
+  assert.equal(conflictResults.every((result) => result.error.code === 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT'), true);
+  assert.equal(conflictApplyCalls.length, 0);
+  assert.equal(conflictPromptSyncs.length, 0);
+  assert.equal(conflictCoreBackgroundBatches.length, 0);
+  assert.equal(conflictState.runtimeTracking.revision, 0);
+  assert.equal(conflictState.crew.casualties.length, 0);
+  const conflictJournal = conflictState.runtimeTracking.sidecarJournal.slice(-2);
+  assert.deepEqual(conflictJournal.map((entry) => entry.status), ['rejected', 'rejected']);
+  assert.equal(conflictJournal.every((entry) => entry.error.code === 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT'), true);
 }
 
 console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, Mission Component provenance, stale-revision/source rejection, accepted prompt synchronization, conflict handling, and durable journaling');

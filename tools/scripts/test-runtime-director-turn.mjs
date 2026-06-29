@@ -200,6 +200,8 @@ const narrationResult = await app.generateNarrationForLastTurn({
 });
 assert.equal(narrationResult.ok, true);
 assert.equal(providerCalls.length, 1);
+assert.equal(narrationResult.directiveGenerationStartedAt, narrationResult.narration.directiveGenerationStartedAt);
+assert.equal(narrationResult.narration.directiveGenerationStartedAt, narrationResult.narration.generatedAt);
 assert.match(providerCalls[0].prompt, /Narrator Packet/);
 assert.match(providerCalls[0].prompt, /Player Identity/);
 assert.match(providerCalls[0].prompt, /Known Crew Identity/);
@@ -220,6 +222,10 @@ assert.equal(providerCalls[0].narrationContext.roleId, 'narration');
 assert.equal(providerCalls[0].narrationContext.source, 'preset-adapter-unavailable');
 assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narrationStatus, 'complete');
 assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narration.providerId, 'fake-narrator');
+assert.equal(
+  narrationResult.campaignState.turnLedger.entries.at(-1).narration.directiveGenerationStartedAt,
+  narrationResult.directiveGenerationStartedAt
+);
 assert.equal(JSON.stringify({
   mission: narrationResult.campaignState.mission,
   clocks: narrationResult.campaignState.clocks,
@@ -251,9 +257,18 @@ const failureResult = await app.generateNarrationForLastTurn({
   }
 });
 assert.equal(failureResult.ok, false);
+assert.equal(failureResult.directiveGenerationStartedAt, failureResult.error.directiveGenerationStartedAt);
 assert.equal(failureResult.campaignState.turnLedger.pendingNarrationRecovery.outcomeId, 'outcome.runtime.hesperus.001');
+assert.equal(
+  failureResult.campaignState.turnLedger.pendingNarrationRecovery.directiveGenerationStartedAt,
+  failureResult.directiveGenerationStartedAt
+);
 assert.equal(failureResult.campaignState.turnLedger.entries.at(-1).narrationStatus, 'complete');
 assert.equal(failureResult.campaignState.turnLedger.entries.at(-1).narrationFailures.length, 1);
+assert.equal(
+  failureResult.campaignState.turnLedger.entries.at(-1).narrationFailures.at(-1).directiveGenerationStartedAt,
+  failureResult.directiveGenerationStartedAt
+);
 assert.equal(JSON.stringify({
   mission: failureResult.campaignState.mission,
   clocks: failureResult.campaignState.clocks,

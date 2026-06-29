@@ -5,9 +5,13 @@ import path from 'node:path';
 import {
   PLAYWRIGHT_SELECTOR_GUIDANCE,
   appendJsonLine,
+  buildExternalContextBrowserProbe,
   createArtifactPaths,
   createRunId,
+  ensureDirectory,
   ensureArtifactTree,
+  externalContextFixtureDepthCheckStatus,
+  inspectSillyTavernExternalContextCompatibility,
   inspectSillyTavernAuthorNoteCleanliness,
   normalizeBaseUrl,
   normalizeExtensionPath,
@@ -69,6 +73,7 @@ import {
   writeStoryQualityScoreRecord,
   writeStoryQualityPhaseSummaryArtifact,
   liveSmokeDelegationAssessment,
+  liveGenerationTimingAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport,
   copyDelegatedSmokeTranscriptArtifacts,
@@ -123,23 +128,383 @@ assert.equal(cleanAuthorNoteCheck.status, 'pass');
 assert.equal(cleanAuthorNoteCheck.users[0].noteDefaultLength, 0);
 assert.equal(cleanAuthorNoteCheck.users[0].contaminatedChatCount, 0);
 
+const externalContextFixtureRoot = tempArtifactRoot('directive-external-context-fixture-');
+const externalUserRoot = path.join(externalContextFixtureRoot, 'directive-soak-a');
+const externalChatRoot = path.join(externalUserRoot, 'chats', 'Directive - Ashes');
+ensureDirectory(path.join(externalUserRoot, 'extensions', 'SillyTavern-MemoryBooks'));
+ensureDirectory(path.join(externalUserRoot, 'extensions', 'Extension-Summaryception'));
+ensureDirectory(path.join(externalUserRoot, 'extensions', 'VectFox'));
+writeJsonFile(path.join(externalUserRoot, 'settings.json'), {
+  extensions: {
+    disabledExtensions: ['third-party/VectFox']
+  },
+  world_info_settings: {
+    world_info: {
+      globalSelect: ['Story_Ashes']
+    },
+    world_info_depth: 3,
+    world_info_budget: 100,
+    world_info_recursive: true
+  },
+  extension_settings: {
+    STMemoryBooks: {
+      moduleSettings: {
+        autoSummaryEnabled: true,
+        sidePromptsEnabled: true,
+        summaryEntrySettings: {
+          position: 4
+        }
+      }
+    },
+    summaryception: {
+      enabled: true,
+      injectionTemplate: '[Narrative Memory]\\n{{summary}}',
+      promptText: 'raw Summaryception text must not persist'
+    },
+    vectfox: {
+      enabled: true,
+      vector_backend: 'qdrant',
+      qdrant_api_key: 'SECRET-QDRANT',
+      summarizer_injection_enabled: true,
+      eventbase_ghost_enabled: true,
+      collections: {
+        secretCollection: {
+          text: 'raw vector payload must not persist'
+        }
+      }
+    }
+  }
+});
+writeJsonFile(path.join(externalUserRoot, 'worlds', 'Ashes Memory.json'), {
+  entries: {
+    1: {
+      uid: 1,
+      comment: 'Memory One',
+      content: 'raw memory text must not persist',
+      stmemorybooks: true
+    }
+  }
+});
+writeTextFile(
+  path.join(externalChatRoot, 'Directive - Ashes - external.jsonl'),
+  `${JSON.stringify({
+    chat_metadata: {
+      world_info: 'Ashes Memory',
+      summaryception: {
+        summarizedUpTo: 12,
+        layers: [[{ text: 'raw layer text must not persist' }]],
+        ghostedIndices: [1, 2, 3]
+      }
+    }
+  })}\n`
+);
+const externalContextCheck = inspectSillyTavernExternalContextCompatibility({
+  users: ['directive-soak-a'],
+  dataRoot: externalContextFixtureRoot,
+  required: true
+});
+assert.equal(externalContextCheck.status, 'pass');
+const externalEnvironment = externalContextCheck.users[0].externalPromptEnvironment;
+assert.equal(externalEnvironment.worldInfo.active, true);
+assert.deepEqual(externalEnvironment.worldInfo.activeNames, ['Story_Ashes']);
+assert.equal(externalEnvironment.memoryBooks.stMemoryBookEntryCount, 1);
+assert.equal(externalEnvironment.memoryBooks.riskyModes.autoSummary, true);
+assert.equal(externalEnvironment.memoryBooks.riskyModes.sidePrompts, true);
+assert.equal(externalEnvironment.summaryception.enabled, true);
+assert.equal(externalEnvironment.summaryception.ghostedCount, 3);
+assert.equal(externalEnvironment.vectFox.disabledPresent, true);
+assert.equal(externalEnvironment.vectFox.backendType, 'qdrant');
+assert.equal(externalEnvironment.knownExternalPromptKeys.includes('summaryception'), true);
+assert.equal(externalEnvironment.knownExternalPromptKeys.includes('3_vectfox_summarizer'), true);
+const externalSerialized = JSON.stringify(externalContextCheck);
+assert.equal(externalSerialized.includes('SECRET-QDRANT'), false);
+assert.equal(externalSerialized.includes('raw memory text'), false);
+assert.equal(externalSerialized.includes('raw vector payload'), false);
+assert.equal(externalSerialized.includes('raw Summaryception text'), false);
+assert.equal(externalEnvironment.redactions.some((entry) => entry.reason === 'secret'), true);
+assert.equal(externalEnvironment.redactions.some((entry) => entry.reason === 'raw-payload'), true);
+
+const allVisibleExternalProbe = buildExternalContextBrowserProbe({
+  runId: 'probe-all-visible',
+  capturedAt: '2026-06-28T12:00:00.000Z',
+  baseUrl: 'http://127.0.0.1:8000/?token=SECRET#hash',
+  users: ['Directive Soak A', 'directive-soak-a'],
+  diskCompatibility: externalContextCheck,
+  browserSnapshots: [{
+    handle: 'directive-soak-a',
+    resolvedBrowserUserHandle: 'directive-soak-a',
+    href: 'http://127.0.0.1:8000/?api_key=SECRET#chat',
+    contextReady: true,
+    currentChatId: 'Directive - Ashes',
+    chatLength: 12,
+    hostPromptRegistry: {
+      available: true,
+      promptKeys: ['summaryception', '3_vectfox', '3_vectfox_eventbase', 'worldInfoBefore', 'st_memory_books', 'bad=SECRET']
+    },
+    worldInfo: {
+      settingsSeen: true,
+      globalSignatureSeen: true,
+      enabled: true,
+      activeNames: ['Ashes Memory'],
+      settingsHash: 'browser-wi-settings'
+    },
+    memoryBooks: {
+      settingsSeen: true,
+      globalSignatureSeen: true,
+      installed: true,
+      enabled: true,
+      activeBookName: 'Ashes Memory',
+      entryCount: 1,
+      entryHash: 'browser-stmb-entry-hash'
+    },
+    summaryception: {
+      settingsSeen: true,
+      globalSignatureSeen: true,
+      installed: true,
+      enabled: true,
+      injectionHash: 'browser-summary-hash'
+    },
+    vectFox: {
+      settingsSeen: true,
+      globalSignatureSeen: true,
+      installed: true,
+      enabled: true,
+      backendType: 'qdrant',
+      promptKeys: ['3_vectfox_summarizer']
+    },
+    chatMetadata: {
+      worldInfo: 'Ashes Memory',
+      summaryception: {
+        summarizedUpTo: 8,
+        layerCount: 2,
+        ghostedCount: 3
+      }
+    },
+    messageMarkerCounts: {
+      summaryceptionGhosted: 3,
+      memoryBooksHidden: 1,
+      vectFoxGhosted: 2
+    }
+  }]
+});
+assert.equal(allVisibleExternalProbe.status, 'pass');
+assert.equal(allVisibleExternalProbe.baseUrl, 'http://127.0.0.1:8000');
+assert.equal(allVisibleExternalProbe.users.length, 1);
+assert.equal(allVisibleExternalProbe.users[0].href, 'http://127.0.0.1:8000');
+assert.equal(allVisibleExternalProbe.users[0].targets.stLorebooks.status, 'browser-confirmed');
+assert.equal(allVisibleExternalProbe.users[0].targets.memoryBooks.status, 'browser-confirmed');
+assert.equal(allVisibleExternalProbe.users[0].targets.summaryception.status, 'browser-confirmed');
+assert.equal(allVisibleExternalProbe.users[0].targets.vectFox.status, 'browser-confirmed');
+assert.equal(allVisibleExternalProbe.fixtureDepth.status, 'pass');
+assert.deepEqual(allVisibleExternalProbe.fixtureDepth.missingTargets, []);
+assert.deepEqual(allVisibleExternalProbe.fixtureDepth.fullFixtureUserHandles, ['directive-soak-a']);
+assert.equal(allVisibleExternalProbe.fixtureDepth.users[0].targets.stLorebooks.level, 'rich-active');
+assert.equal(allVisibleExternalProbe.fixtureDepth.users[0].targets.memoryBooks.level, 'rich-active');
+assert.equal(allVisibleExternalProbe.fixtureDepth.users[0].targets.summaryception.level, 'rich-active');
+assert.equal(allVisibleExternalProbe.fixtureDepth.users[0].targets.vectFox.level, 'rich-active');
+assert.equal(externalContextFixtureDepthCheckStatus({
+  live: true,
+  fixtureDepth: allVisibleExternalProbe.fixtureDepth,
+  fullCertificationRequired: true
+}), 'pass');
+assert.equal(allVisibleExternalProbe.users[0].hostPromptRegistry.promptKeys.includes('bad=SECRET'), false);
+assert.notEqual(allVisibleExternalProbe.users[0].browserEnvironmentHash, allVisibleExternalProbe.users[0].diskEnvironmentHash);
+assert.notEqual(allVisibleExternalProbe.users[0].combinedEnvironmentHash, allVisibleExternalProbe.users[0].browserEnvironmentHash);
+
+const unavailableExternalProbe = buildExternalContextBrowserProbe({
+  runId: 'probe-unavailable',
+  users: ['directive-soak-b'],
+  diskCompatibility: { users: [] },
+  browserSnapshots: [{
+    handle: 'directive-soak-b',
+    contextReady: false,
+    hostPromptRegistry: { available: false, promptKeys: [] },
+    unavailableSignals: ['Extension settings unavailable!!']
+  }]
+});
+assert.equal(unavailableExternalProbe.status, 'warning');
+for (const target of Object.values(unavailableExternalProbe.users[0].targets)) {
+  assert.equal(target.status, 'unavailable');
+}
+assert.deepEqual(unavailableExternalProbe.users[0].unavailableSignals, [
+  'extension-settings-unavailable',
+  'browser-context-unavailable',
+  'prompt-registry-unavailable'
+]);
+
+const diskBrowserMismatchProbe = buildExternalContextBrowserProbe({
+  runId: 'probe-mismatch',
+  users: ['directive-soak-a'],
+  diskCompatibility: externalContextCheck,
+  browserSnapshots: [{
+    handle: 'directive-soak-a',
+    contextReady: true,
+    hostPromptRegistry: { available: true, promptKeys: [] },
+    chatMetadata: {},
+    messageMarkerCounts: {}
+  }]
+});
+assert.equal(diskBrowserMismatchProbe.status, 'warning');
+assert.equal(diskBrowserMismatchProbe.users[0].targets.summaryception.status, 'disk-confirmed');
+assert.notEqual(diskBrowserMismatchProbe.users[0].browserEnvironmentHash, diskBrowserMismatchProbe.users[0].combinedEnvironmentHash);
+const strictMismatchProbe = buildExternalContextBrowserProbe({
+  runId: 'probe-mismatch-required',
+  required: true,
+  users: ['directive-soak-a'],
+  diskCompatibility: externalContextCheck,
+  browserSnapshots: [{
+    handle: 'directive-soak-a',
+    contextReady: true,
+    hostPromptRegistry: { available: true, promptKeys: [] }
+  }]
+});
+assert.equal(strictMismatchProbe.status, 'fail');
+
+const disabledVectFoxProbe = buildExternalContextBrowserProbe({
+  runId: 'probe-disabled-vectfox',
+  users: ['directive-soak-a'],
+  diskCompatibility: externalContextCheck,
+  browserSnapshots: [{
+    handle: 'directive-soak-a',
+    contextReady: true,
+    hostPromptRegistry: { available: true, promptKeys: ['summaryception', 'worldInfoBefore', 'st_memory_books'] },
+    worldInfo: { settingsSeen: true, enabled: true },
+    memoryBooks: { settingsSeen: true, installed: true, enabled: true },
+    summaryception: { settingsSeen: true, installed: true, enabled: true },
+    vectFox: { disabledPresent: true },
+    chatMetadata: {
+      worldInfo: 'Ashes Memory',
+      summaryception: {
+        layerCount: 2,
+        ghostedCount: 3
+      }
+    },
+    messageMarkerCounts: {
+      memoryBooksHidden: 1,
+      summaryceptionGhosted: 3
+    }
+  }]
+});
+assert.equal(disabledVectFoxProbe.users[0].targets.vectFox.status, 'disabled');
+assert.equal(disabledVectFoxProbe.fixtureDepth.status, 'warning');
+assert.deepEqual(disabledVectFoxProbe.fixtureDepth.missingTargets, ['vectFox']);
+assert.equal(disabledVectFoxProbe.fixtureDepth.users[0].targets.vectFox.level, 'inactive');
+assert.equal(externalContextFixtureDepthCheckStatus({
+  live: true,
+  turnLimit: '2',
+  fixtureDepth: disabledVectFoxProbe.fixtureDepth
+}), 'warning');
+assert.equal(externalContextFixtureDepthCheckStatus({
+  live: true,
+  fixtureDepth: disabledVectFoxProbe.fixtureDepth,
+  fullCertificationRequired: true
+}), 'fail');
+
+const redactionCanaryProbe = buildExternalContextBrowserProbe({
+  runId: 'probe-redaction-canary',
+  baseUrl: 'http://127.0.0.1:8000/?qdrant_api_key=SECRET-QDRANT#secret',
+  users: ['directive-soak-c'],
+  diskCompatibility: { users: [] },
+  browserSnapshots: [{
+    handle: 'directive-soak-c',
+    href: 'http://127.0.0.1:8000/?token=SECRET-TOKEN#frag',
+    contextReady: true,
+    hostPromptRegistry: {
+      available: true,
+      promptKeys: ['summaryception', '3_vectfox', 'raw prompt body should disappear']
+    },
+    summaryception: {
+      installed: true,
+      enabled: true,
+      settingsSeen: true,
+      promptText: 'raw Summaryception text must not persist'
+    },
+    vectFox: {
+      installed: true,
+      enabled: true,
+      settingsSeen: true,
+      qdrant_api_key: 'SECRET-QDRANT',
+      vectorPayload: { text: 'raw vector payload must not persist' }
+    }
+  }]
+});
+const redactionProbeSerialized = JSON.stringify(redactionCanaryProbe);
+assert.equal(redactionProbeSerialized.includes('SECRET-QDRANT'), false);
+assert.equal(redactionProbeSerialized.includes('SECRET-TOKEN'), false);
+assert.equal(redactionProbeSerialized.includes('raw vector payload'), false);
+assert.equal(redactionProbeSerialized.includes('raw Summaryception text'), false);
+assert.equal(redactionProbeSerialized.includes('raw prompt body'), false);
+assert.equal(redactionCanaryProbe.users[0].redactions.some((entry) => entry.reason === 'secret'), true);
+assert.equal(redactionCanaryProbe.users[0].redactions.some((entry) => entry.reason === 'raw-payload'), true);
+
 const soakRunnerSource = fs.readFileSync(path.resolve('tools/scripts/soak-sillytavern-campaign-live.mjs'), 'utf8');
 assert.match(soakRunnerSource, /ensureDirectory,/);
 assert.match(soakRunnerSource, /ensureDirectory\(smokeArtifactDir\)/);
 assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR/);
+assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS/);
+assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS/);
 assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY/);
 assert.match(soakRunnerSource, /invokeModelAssistedFactualReview/);
 const liveSmokeSource = fs.readFileSync(path.resolve('tools/scripts/smoke-sillytavern-live.mjs'), 'utf8');
+const generationTimingPolicySource = fs.readFileSync(path.resolve('tools/scripts/lib/generation-timing-proof-policy.mjs'), 'utf8');
+assert.match(liveSmokeSource, /UI_BOOT_TIMEOUT_MS/);
+assert.match(liveSmokeSource, /directiveExtensionControlSnapshot/);
+assert.match(liveSmokeSource, /uiBootTimeoutMs/);
+assert.match(liveSmokeSource, /discoveryProbe/);
+assert.match(liveSmokeSource, /manifestProbe/);
+assert.match(liveSmokeSource, /scriptProbe/);
+assert.match(liveSmokeSource, /pageConsoleMessages/);
 assert.match(liveSmokeSource, /visibleDirectiveProgress/);
 assert.match(liveSmokeSource, /visible-directive-chat-response/);
 assert.match(liveSmokeSource, /sidecar-not-expected-before-committed-or-complete-turn/);
 assert.match(liveSmokeSource, /PROMPT_INSPECTION_DIR/);
 assert.match(liveSmokeSource, /capturePromptInspectionSnapshot/);
+assert.match(liveSmokeSource, /externalPromptEnvironmentRef/);
+assert.match(liveSmokeSource, /knownExternalPromptKeys/);
+assert.match(liveSmokeSource, /directiveOwnedPromptKeys/);
+assert.match(liveSmokeSource, /finalHostPromptMayIncludeExternal/);
 assert.match(liveSmokeSource, /snapshotSourceChatTranscript/);
 assert.match(liveSmokeSource, /runFactualGroundingReviewOnly/);
 assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH/);
 assert.match(liveSmokeSource, /runStoryQualityReviewOnly/);
 assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH/);
+assert.match(liveSmokeSource, /capturePersistedGenerationTimingProof/);
+assert.match(liveSmokeSource, /generationTimingProof/);
+assert.match(liveSmokeSource, /readCoreStoreProjectionsV2/);
+assert.match(liveSmokeSource, /generationTimingProofFromCoreProjections/);
+assert.match(liveSmokeSource, /createBrowserLogicalStorageAdapter/);
+assert.match(liveSmokeSource, /timingSource: 'coreProjection'/);
+assert.match(liveSmokeSource, /runtimeSnapshotAvailable/);
+assert.match(liveSmokeSource, /generationTimingProofSource/);
+assert.match(liveSmokeSource, /generationTimingProofTimingSource/);
+assert.match(liveSmokeSource, /generationTimingSkippedTurns/);
+assert.match(liveSmokeSource, /timingProofEntryRequiresGenerationStart/);
+assert.match(liveSmokeSource, /timingProofEntryIsNonGenerated/);
+assert.match(liveSmokeSource, /skippedEntries/);
+assert.match(liveSmokeSource, /skippedTurnCount/);
+assert.match(liveSmokeSource, /skipped-non-generation/);
+assert.match(generationTimingPolicySource, /DIRECTIVE_GENERATED_TIMING_RESPONSE_KINDS/);
+assert.match(generationTimingPolicySource, /DIRECTIVE_NON_GENERATED_TIMING_RESPONSE_KINDS/);
+assert.match(generationTimingPolicySource, /committedOutcome/);
+assert.match(generationTimingPolicySource, /clarificationNeeded/);
+assert.match(generationTimingPolicySource, /generationTimingProofStatus/);
+assert.doesNotMatch(liveSmokeSource, /Directive save payload for generation timing proof/);
+assert.doesNotMatch(liveSmokeSource, /runtimeTracking\.responseLedger\s*\|\|\s*\[\]/);
+assert.doesNotMatch(liveSmokeSource, /runtimeTracking\.ingressLedger\s*\|\|\s*\[\]/);
+assert.match(soakRunnerSource, /live-generation-start-timing/);
+assert.match(soakRunnerSource, /liveGenerationTimingAssessment/);
+const multiUserReadinessSource = fs.readFileSync(path.resolve('tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs'), 'utf8');
+assert.match(multiUserReadinessSource, /DIRECTIVE_ALLOW_PLACEHOLDER_SOAK_USERS/);
+assert.match(multiUserReadinessSource, /Live execution requires explicit DIRECTIVE_SOAK_ST_USERS/);
+assert.match(multiUserReadinessSource, /buildExternalContextBrowserProbe/);
+assert.match(multiUserReadinessSource, /captureExternalContextBrowserSnapshot/);
+assert.match(multiUserReadinessSource, /waitForExternalContextBrowserSnapshot/);
+assert.match(multiUserReadinessSource, /readinessProbeStatus/);
+assert.match(multiUserReadinessSource, /host-extension-browser-context/);
+assert.match(multiUserReadinessSource, /external-context-probe\.json/);
+assert.match(multiUserReadinessSource, /live-host-extension-browser-context/);
+assert.match(multiUserReadinessSource, /host-extension-fixture-depth/);
+assert.match(multiUserReadinessSource, /DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH/);
 
 const schema = readJsonFile('schemas/testing/live-campaign-soak-report.schema.json');
 assert.equal(schema.properties.modelCallPolicy.properties.budget.const, 'unlimited');
@@ -1069,6 +1434,8 @@ assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_GENERATION, '1');
 assert.equal(liveSmokeEnv.DIRECTIVE_LIVE_GENERATION, '1');
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_STRICT, '1');
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_WAIT_SIDECARS_EACH_TURN, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, '45000');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS, '60000');
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS, '300000');
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, '240000');
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS, '180000');
@@ -1119,6 +1486,20 @@ writeJsonFile(promptSnapshotPath, {
   kind: 'directive.sillytavern.promptInspectionSnapshot',
   promptInspection: {
     status: 'active',
+    externalPromptEnvironmentRef: {
+      kind: 'directive.externalPromptEnvironmentRef.v1',
+      schemaVersion: 1,
+      hash: 'b'.repeat(64),
+      byteLength: 640,
+      status: 'observed',
+      observedAt: '2026-06-28T23:20:00.000Z',
+      knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore']
+    },
+    knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore'],
+    directiveOwnedPromptKeys: ['directive.contract', 'directive.scene.active'],
+    finalHostPromptMayIncludeExternal: true,
+    unavailableSignals: [],
+    redactions: [{ key: 'qdrant_api_key', reason: 'secret' }],
     blocks: [
       { id: 'relevant-crew', title: 'Relevant Crew Context', hash: 'crew-hash' },
       { id: 'immediate-scene', title: 'Immediate Scene', hash: 'scene-hash' },
@@ -1225,10 +1606,55 @@ const smokeReportForPromotion = {
           turnLedgerCount: 1,
           commandLogCount: 1,
           recentMessages: [{ role: 'assistant', text: 'Bronn answers.' }],
+          generationTiming: {
+            persisted: {
+              status: 'pass',
+              source: 'coreStoreTurnTiming',
+              timingSource: 'coreProjection',
+              checkedResponseCount: 1,
+              maxGenerationStartLatencyMs: 4200,
+              entries: [
+                {
+                  route: 'directivePosted',
+                  strategy: 'directivePosted',
+                  responseKind: 'committedOutcome',
+                  timingStatus: 'pass',
+                  turnLatency: {
+                    generationStartLatencyMs: 4200,
+                    architectureWithin60s: true
+                  }
+                }
+              ]
+            },
+            runtime: {
+              status: 'pass',
+              source: 'runtimeSnapshot',
+              checkedResponseCount: 1,
+              maxGenerationStartLatencyMs: 4200,
+              entries: []
+            }
+          },
           promptInspection: { artifactPath: promptSnapshotPath },
           transcript: { snapshotSourceChatTranscript: smokeSnapshotSourceTranscript, snapshotReadableTranscript: smokeSnapshotReadableTranscript }
         }
       ],
+      generationTimingProof: {
+        status: 'pass',
+        source: 'coreStoreTurnTiming',
+        timingSource: 'coreProjection',
+        proofCount: 1,
+        checkedTurnCount: 1,
+        skippedTurnCount: 1,
+        maxGenerationStartLatencyMs: 4200,
+        routes: ['directivePosted'],
+        skippedEntries: [
+          {
+            route: 'directivePosted',
+            responseKind: 'clarificationNeeded',
+            timingStatus: 'skipped-non-generation'
+          }
+        ]
+      },
       transcriptCaptures: [
         {
           reason: 'turn-end',
@@ -1268,8 +1694,18 @@ assert.deepEqual(liveLogLines[0], { kind: 'run-start', status: 'planned' });
 assert.equal(liveLogLines.some((entry) => entry.kind === 'checkpoint' && entry.checkpointId === 'prep-checkpoint-01'), true);
 assert.equal(liveLogLines.some((entry) => entry.kind === 'turn-start' && entry.scriptMessageId === 'soak-turn-01'), true);
 assert.equal(liveLogLines.some((entry) => entry.kind === 'turn-end' && entry.scriptMessageId === 'soak-turn-01'), true);
+const promotedTurnEnd = liveLogLines.find((entry) => entry.kind === 'turn-end' && entry.scriptMessageId === 'soak-turn-01');
+assert.equal(promotedTurnEnd.generationTiming.persisted.status, 'pass');
+assert.equal(promotedTurnEnd.generationTiming.persisted.entries[0].turnLatency.architectureWithin60s, true);
 assert.equal(liveLogLines.some((entry) => entry.kind === 'transcript-capture' && entry.captureMode === 'delegated-smoke-copy'), true);
-assert.equal(liveLogLines.some((entry) => entry.kind === 'prompt-inspection-capture' && entry.scriptMessageId === 'soak-turn-01'), true);
+const promotedPromptCapture = liveLogLines.find((entry) => entry.kind === 'prompt-inspection-capture' && entry.scriptMessageId === 'soak-turn-01');
+assert(promotedPromptCapture);
+assert.equal(promotedPromptCapture.externalPromptEnvironmentRef.hash, 'b'.repeat(64));
+assert.equal(promotedPromptCapture.knownExternalPromptKeys.includes('summaryception'), true);
+assert.equal(promotedPromptCapture.knownExternalPromptKeys.includes('3_vectfox'), true);
+assert.equal(promotedPromptCapture.directiveOwnedPromptKeys.includes('directive.contract'), true);
+assert.equal(promotedPromptCapture.finalHostPromptMayIncludeExternal, true);
+assert.equal(promotedPromptCapture.redactionReasons.includes('secret'), true);
 assert.equal(transcriptCopyResult.status, 'pass');
 assert.equal(transcriptCopyResult.copied.readableTranscript, true);
 assert.equal(transcriptCopyResult.copied.sourceChatTranscript, true);
@@ -1277,6 +1713,90 @@ assert.equal(promotionResult.turnStartRecords, 1);
 assert.equal(promotionResult.turnEndRecords, 1);
 assert.equal(promotionResult.transcriptRecords, 1);
 assert.equal(promotionResult.promptInspectionRecords, 1);
+const timingAssessment = liveGenerationTimingAssessment({ smokeReport: smokeReportForPromotion });
+assert.equal(timingAssessment.status, 'pass');
+assert.match(timingAssessment.summary, /generation-start timing/);
+assert.match(timingAssessment.summary, /deterministic non-generation turn/);
+const missingTimingAssessment = liveGenerationTimingAssessment({ smokeReport: { browser: { chatCampaignFlow: {} } } });
+assert.equal(missingTimingAssessment.status, 'warning');
+const summaryOnlyTimingAssessment = liveGenerationTimingAssessment({
+  smokeSummary: {
+    chatCampaign: {
+      generationTimingStatus: 'pass',
+      generationTimingProofSource: 'coreStoreTurnTiming',
+      generationTimingProofTimingSource: 'coreProjection',
+      generationTimingCheckedTurns: 1,
+      generationTimingMaxLatencyMs: 4200
+    }
+  }
+});
+assert.equal(summaryOnlyTimingAssessment.status, 'warning');
+assert.match(summaryOnlyTimingAssessment.summary, /compact generation-start timing summary/);
+const runtimeOnlyTimingAssessment = liveGenerationTimingAssessment({
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        generationTimingProof: {
+          status: 'pass',
+          source: 'runtimeSnapshot',
+          timingSource: 'runtimeSnapshot',
+          checkedTurnCount: 1,
+          maxGenerationStartLatencyMs: 4200
+        }
+      }
+    }
+  }
+});
+assert.equal(runtimeOnlyTimingAssessment.status, 'warning');
+assert.match(runtimeOnlyTimingAssessment.summary, /not persisted CORE projection/);
+const missingTimingSourceAssessment = liveGenerationTimingAssessment({
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        generationTimingProof: {
+          status: 'pass',
+          source: 'coreStoreTurnTiming',
+          checkedTurnCount: 1,
+          maxGenerationStartLatencyMs: 4200
+        }
+      }
+    }
+  }
+});
+assert.equal(missingTimingSourceAssessment.status, 'warning');
+assert.match(missingTimingSourceAssessment.summary, /timingSource=unknown/);
+const skippedOnlyTimingAssessment = liveGenerationTimingAssessment({
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        generationTimingProof: {
+          status: 'skipped',
+          source: 'coreStoreTurnTiming',
+          timingSource: 'coreProjection',
+          checkedTurnCount: 0,
+          skippedTurnCount: 1,
+          skippedEntries: [{ responseKind: 'clarificationNeeded' }]
+        }
+      }
+    }
+  }
+});
+assert.equal(skippedOnlyTimingAssessment.status, 'warning');
+assert.match(skippedOnlyTimingAssessment.summary, /deterministic non-generation turn/);
+const failedTimingAssessment = liveGenerationTimingAssessment({
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        generationTimingProof: {
+          status: 'fail',
+          checkedTurnCount: 1,
+          maxGenerationStartLatencyMs: 61000
+        }
+      }
+    }
+  }
+});
+assert.equal(failedTimingAssessment.status, 'fail');
 assert.match(fs.readFileSync(paths.readableTranscript, 'utf8'), /Smoke transcript/);
 assert.match(fs.readFileSync(paths.sourceChatTranscript, 'utf8'), /Commander Arlen waits/);
 assert.equal(readJsonFile(paths.transcriptIndex).sourceCapture.sourceChatTranscript, 'smoke-chat-soak/transcript/source-chat.jsonl');

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.runtime.externalPromptEnvironment.v1",
+  "title": "Directive External Prompt Environment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "host",
+    "worldInfo",
+    "memoryBooks",
+    "summaryception",
+    "vectFox",
+    "knownExternalPromptKeys",
+    "redactions",
+    "hash",
+    "byteLength"
+  ],
+  "properties": {
+    "kind": { "const": "directive.externalPromptEnvironment.v1" },
+    "schemaVersion": { "const": 1 },
+    "host": { "type": "string", "minLength": 1 },
+    "userHandle": { "type": ["string", "null"] },
+    "chatId": { "type": ["string", "null"] },
+    "saveId": { "type": ["string", "null"] },
+    "campaignId": { "type": ["string", "null"] },
+    "observedAt": { "type": ["string", "null"] },
+    "status": { "enum": ["observed", "unknown", "unavailable", "error"] },
+    "worldInfo": { "$ref": "#/$defs/worldInfo" },
+    "memoryBooks": { "$ref": "#/$defs/memoryBooks" },
+    "summaryception": { "$ref": "#/$defs/summaryception" },
+    "vectFox": { "$ref": "#/$defs/vectFox" },
+    "knownExternalPromptKeys": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "unknownSignals": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "redactions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/redaction" }
+    },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "byteLength": { "type": "integer", "minimum": 0 }
+  },
+  "$defs": {
+    "worldInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "installed": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "activeNames": { "type": "array", "items": { "type": "string" } },
+        "chatBoundName": { "type": ["string", "null"] },
+        "settingsHash": { "type": ["string", "null"] },
+        "depth": { "type": ["number", "null"] },
+        "budgetPercent": { "type": ["number", "null"] },
+        "recursive": { "type": "boolean" },
+        "promptPositions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "memoryBooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "installed": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "activeBookName": { "type": ["string", "null"] },
+        "stMemoryBookEntryCount": { "type": "integer", "minimum": 0 },
+        "stMemoryBookEntryHash": { "type": ["string", "null"] },
+        "riskyModes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "autoSummary": { "type": "boolean" },
+            "autoCreate": { "type": "boolean" },
+            "autoHideUnhide": { "type": "boolean" },
+            "sidePrompts": { "type": "boolean" },
+            "atDepthUserOrAssistant": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "summaryception": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "installed": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "promptKey": { "type": "string" },
+        "promptKeyActive": { "type": "boolean" },
+        "summarizedUpTo": { "type": "number" },
+        "layerCount": { "type": "integer", "minimum": 0 },
+        "ghostedCount": { "type": "integer", "minimum": 0 },
+        "injectionHash": { "type": ["string", "null"] },
+        "externalModelCalls": { "type": "boolean" }
+      }
+    },
+    "vectFox": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "installed": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "disabledPresent": { "type": "boolean" },
+        "promptKeys": { "type": "array", "items": { "type": "string" } },
+        "position": { "type": ["number", "null"] },
+        "depth": { "type": ["number", "null"] },
+        "backendType": { "type": ["string", "null"] },
+        "semanticWorldInfoEnabled": { "type": "boolean" },
+        "summarizerInjectionEnabled": { "type": "boolean" },
+        "ghostingEnabled": { "type": "boolean" },
+        "generationInterceptorActive": { "type": "boolean" },
+        "settingsHash": { "type": ["string", "null"] }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "reason"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "reason": { "enum": ["secret", "raw-payload"] }
+      }
+    }
+  }
+}

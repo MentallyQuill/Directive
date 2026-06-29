@@ -1028,6 +1028,8 @@ assert.equal(runtimeApplyButton.disabled, false, 'Runtime Apply should activate 
 await runtimeApplyButton.click();
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 await findButton(panel, 'Mission').click();
+await findButton(panel, 'Build Opening Scene').click();
+assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await app.previewDirectorTurn({
   playerInput: 'I report to Captain Whitaker, acknowledge the active Hesperus situation, and coordinate a cautious response from the bridge.'
 });
@@ -1054,7 +1056,7 @@ assert.deepEqual(
 assert.match(textOf(logCards[0]), /working transfer/, 'Latest accepted outcome should appear first');
 assert.match(textOf(logCards[1]), /Campaign Start/, 'Campaign start should remain the first chronological record');
 await findButton(panel, 'Campaign').click();
-assert.match(textOf(panel), /Narration completed for the latest committed turn\./);
+assert.match(textOf(panel), /(?:Narration completed|Command Log assisted summary settled) for the latest committed turn\./);
 assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Campaign snapshot should not expose raw command-log sidecar JSON');
 await findButton(panel, 'Mission').click();
 

@@ -174,6 +174,122 @@ assert.equal(
   null,
   'Missing host message ids should remain transient so the event observer can retry.'
 );
+chat.push({
+  id: 'player-ghosted',
+  is_user: true,
+  mes: 'Summaryception hid this from prompt, but it remains a source row.',
+  extra: { sc_ghosted: true }
+});
+const ghostedPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-ghosted' });
+assert.equal(ghostedPayload.visibility.sourceRowExists, true);
+assert.equal(ghostedPayload.visibility.visibilityMutationOnly, true);
+assert.equal(ghostedPayload.visibility.sourceMutation, false);
+assert.equal(ghostedPayload.visibility.ghostedBySummaryception, true);
+chat.push({
+  id: 'player-deleted',
+  is_user: true,
+  mes: 'This row was deleted after being hidden.',
+  deleted: true,
+  extra: { sc_ghosted: true }
+});
+const deletedPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-deleted' });
+assert.equal(deletedPayload.visibility.visibilityMutationOnly, false);
+assert.equal(deletedPayload.visibility.sourceMutation, true);
+const metadataGhostIndex = chat.length;
+context.chatMetadata.summaryception = {
+  ghostedIndices: [metadataGhostIndex],
+  summarizedUpTo: metadataGhostIndex + 1
+};
+chat.push({
+  id: 'player-metadata-ghosted',
+  is_user: true,
+  mes: 'Summaryception ghosted this by chat metadata instead of row metadata.'
+});
+const metadataGhostedPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-metadata-ghosted' });
+assert.equal(metadataGhostedPayload.visibility.ghostedBySummaryception, true);
+assert.equal(metadataGhostedPayload.visibility.ghostedBySummaryceptionMetadata, true);
+assert.equal(metadataGhostedPayload.visibility.summarizedBySummaryception, true);
+assert.equal(metadataGhostedPayload.visibility.visibilityMutationOnly, true);
+assert.equal(metadataGhostedPayload.visibility.hiddenReasons.includes('summaryception-ghosted'), true);
+chat.push({
+  id: 'player-summarized-only',
+  is_user: true,
+  mes: 'Summaryception summarized this earlier row, but did not ghost it.'
+});
+const summarizedOnlyPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-summarized-only' });
+assert.equal(summarizedOnlyPayload.visibility.summarizedBySummaryception, true);
+assert.equal(summarizedOnlyPayload.visibility.hiddenByExternal, false);
+assert.equal(summarizedOnlyPayload.visibility.visibilityMutationOnly, false);
+const summarizedRangeIndex = chat.length;
+context.chatMetadata.summaryception.summarizedRanges = [[summarizedRangeIndex, summarizedRangeIndex]];
+chat.push({
+  id: 'player-summarized-range',
+  is_user: true,
+  mes: 'Summaryception summarized this range without hiding the source row.'
+});
+const summarizedRangePayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-summarized-range' });
+assert.equal(summarizedRangePayload.visibility.summarizedBySummaryception, true);
+assert.equal(summarizedRangePayload.visibility.hiddenByExternal, false);
+assert.equal(summarizedRangePayload.visibility.visibilityMutationOnly, false);
+const memoryBooksIndex = chat.length;
+const memoryUnhiddenIndex = chat.length + 1;
+const vectFoxIndex = chat.length + 2;
+const nativeHiddenIndex = chat.length + 3;
+const metadataDeletedIndex = chat.length + 4;
+const deletedUnhiddenIndex = chat.length + 5;
+context.chatMetadata.directiveVisibility = {
+  memoryBooksHiddenIndices: [memoryBooksIndex],
+  memoryBooksUnhiddenIndices: [memoryUnhiddenIndex, deletedUnhiddenIndex],
+  vectFoxPromptExcludedIndices: [vectFoxIndex],
+  nativeHiddenIndices: [nativeHiddenIndex],
+  deletedIndices: [metadataDeletedIndex, deletedUnhiddenIndex]
+};
+chat.push(
+  { id: 'player-memory-hidden', is_user: true, mes: 'Memory Books hid this row from prompt context.' },
+  { id: 'player-memory-unhidden', is_user: true, mes: 'Memory Books restored this row to prompt context.' },
+  { id: 'player-vectfox-ghosted', is_user: true, mes: 'VectFox removed this row from prompt context.' },
+  { id: 'player-native-hidden', is_user: true, mes: 'SillyTavern native hide changed visibility only.' },
+  { id: 'player-metadata-deleted', is_user: true, mes: 'This row has a metadata-level source delete.' },
+  { id: 'player-deleted-unhidden', is_user: true, mes: 'This row was unhidden after being source-deleted.' }
+);
+const memoryHiddenPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-memory-hidden' });
+assert.equal(memoryHiddenPayload.visibility.hiddenByMemoryBooks, true);
+assert.equal(memoryHiddenPayload.visibility.visibilityMutationOnly, true);
+assert.equal(memoryHiddenPayload.visibility.hiddenReasons.includes('memory-books-hidden'), true);
+const memoryUnhiddenPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-memory-unhidden' });
+assert.equal(memoryUnhiddenPayload.visibility.hiddenByMemoryBooks, false);
+assert.equal(memoryUnhiddenPayload.visibility.unhiddenByMemoryBooks, true);
+assert.equal(memoryUnhiddenPayload.visibility.memoryBooksVisibilityMutation, true);
+assert.equal(memoryUnhiddenPayload.visibility.visibilityMutationOnly, true);
+assert.equal(memoryUnhiddenPayload.visibility.visibilityMutationReasons.includes('memory-books-unhidden'), true);
+const vectFoxGhostedPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-vectfox-ghosted' });
+assert.equal(vectFoxGhostedPayload.visibility.ghostedByVectFox, true);
+assert.equal(vectFoxGhostedPayload.visibility.promptExcludedByVectFox, true);
+assert.equal(vectFoxGhostedPayload.visibility.visibilityMutationOnly, true);
+assert.equal(vectFoxGhostedPayload.visibility.hiddenReasons.includes('vectfox-prompt-ghosted'), true);
+const nativeHiddenPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-native-hidden' });
+assert.equal(nativeHiddenPayload.visibility.hiddenByHost, true);
+assert.equal(nativeHiddenPayload.visibility.visibilityMutationOnly, true);
+assert.equal(nativeHiddenPayload.visibility.hiddenReasons.includes('host-hidden'), true);
+const metadataDeletedPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-metadata-deleted' });
+assert.equal(metadataDeletedPayload.visibility.visibilityMutationOnly, false);
+assert.equal(metadataDeletedPayload.visibility.sourceMutation, true);
+assert.equal(metadataDeletedPayload.visibility.sourceMutationReasons.includes('metadata-delete'), true);
+const deletedUnhiddenPayload = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-deleted-unhidden' });
+assert.equal(deletedUnhiddenPayload.visibility.unhiddenByMemoryBooks, true);
+assert.equal(deletedUnhiddenPayload.visibility.sourceMutation, true);
+assert.equal(deletedUnhiddenPayload.visibility.visibilityMutationOnly, false);
+chat.push({
+  id: 'player-latest-ghosted',
+  is_user: true,
+  mes: 'Summaryception hid the latest row, but it is still the player source.',
+  extra: { sc_ghosted: true }
+});
+const latestGhosted = adapter.getLatestPlayerMessage();
+assert.equal(latestGhosted.hostMessageId, 'player-latest-ghosted');
+assert.equal(latestGhosted.visibility.sourceRowExists, true);
+assert.equal(latestGhosted.visibility.visibilityMutationOnly, true);
+assert.equal(latestGhosted.visibility.sourceMutation, false);
 const cloneSourceChatId = currentChatId;
 const cloneSourceMessageCount = chat.length;
 const branchBinding = await adapter.cloneCurrentChatForSaveBranch({
@@ -195,6 +311,62 @@ const continuationUnavailable = await adapter.continueHostGeneration({ reason: '
 assert.equal(continuationUnavailable.ok, false);
 assert.equal(continuationUnavailable.skipped, false);
 assert.equal(Boolean(continuationUnavailable.error?.message), true);
+
+let nonblockingGenerateCalled = false;
+const nonblockingAdapter = createSillyTavernChatAdapter({
+  contextFactory: () => context,
+  now: () => '2026-06-22T12:34:56.000Z',
+  scriptModule: {
+    isGenerating: () => false,
+    Generate(type, options) {
+      nonblockingGenerateCalled = true;
+      assert.equal(type, 'normal');
+      assert.equal(options.automatic_trigger, true);
+      return new Promise(() => {});
+    }
+  }
+});
+const nonblockingRelease = await Promise.race([
+  nonblockingAdapter.continueHostGeneration({
+    reason: 'nonblocking-release-test',
+    waitForCompletion: false
+  }),
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 25))
+]);
+assert.equal(nonblockingGenerateCalled, true);
+assert.equal(nonblockingRelease.timedOut, undefined);
+assert.equal(nonblockingRelease.ok, true);
+assert.equal(nonblockingRelease.released, true);
+assert.equal(nonblockingRelease.waitForCompletion, false);
+assert.equal(nonblockingRelease.generationStartedAt, '2026-06-22T12:34:56.000Z');
+assert.equal(nonblockingRelease.hostGenerationReleasedAt, '2026-06-22T12:34:56.000Z');
+assert.equal(nonblockingRelease.observedMessage, null);
+
+let alreadyGeneratingGenerateCalled = false;
+const alreadyGeneratingAdapter = createSillyTavernChatAdapter({
+  contextFactory: () => context,
+  now: () => '2026-06-22T12:35:56.000Z',
+  scriptModule: {
+    isGenerating: () => true,
+    Generate() {
+      alreadyGeneratingGenerateCalled = true;
+      throw new Error('Generate should not be called when SillyTavern is already generating.');
+    }
+  }
+});
+const alreadyGeneratingRelease = await alreadyGeneratingAdapter.continueHostGeneration({
+  reason: 'already-generating-release-test',
+  waitForCompletion: false
+});
+assert.equal(alreadyGeneratingGenerateCalled, false);
+assert.equal(alreadyGeneratingRelease.ok, true);
+assert.equal(alreadyGeneratingRelease.skipped, true);
+assert.equal(alreadyGeneratingRelease.released, true);
+assert.equal(alreadyGeneratingRelease.waitForCompletion, false);
+assert.equal(alreadyGeneratingRelease.reason, 'host-already-generating');
+assert.equal(alreadyGeneratingRelease.generationStartedAt, '2026-06-22T12:35:56.000Z');
+assert.equal(alreadyGeneratingRelease.hostGenerationReleasedAt, '2026-06-22T12:35:56.000Z');
+assert.equal(alreadyGeneratingRelease.observedMessage, null);
 
 currentChatId = 'other-chat';
 const opened = await adapter.open({
@@ -285,6 +457,41 @@ const promptCalls = [];
 const promptContext = {
   get chatId() { return currentChatId; },
   setExtensionPrompt(...args) { promptCalls.push(args); },
+  extensionPrompts: {
+    summaryception: { value: 'Raw Summaryception text must not persist.' },
+    '3_vectfox': { value: 'Raw VectFox text must not persist.' },
+    worldInfoBefore: { value: 'Raw World Info text must not persist.' }
+  },
+  worldInfoSettings: {
+    world_info: {
+      globalSelect: ['Ashes Native Lorebook']
+    },
+    world_info_depth: 3,
+    rawPromptBody: 'Raw World Info settings body must not persist.'
+  },
+  extensionSettings: {
+    summaryception: {
+      enabled: true,
+      promptText: 'Raw Summaryception settings text must not persist.'
+    },
+    vectfox: {
+      enabled: true,
+      vector_backend: 'qdrant',
+      qdrant_api_key: 'SECRET-QDRANT',
+      vectorPayload: ['Raw vector payload must not persist.']
+    }
+  },
+  chatMetadata: {
+    world_info: 'Ashes Memory Book',
+    summaryception: {
+      summarizedUpTo: 2,
+      ghostedIndices: [1]
+    }
+  },
+  chat: [
+    { is_user: true, mes: 'Visible row.' },
+    { is_user: true, mes: 'Ghosted row.', extra: { sc_ghosted: true } }
+  ],
   extension_prompt_types: { BEFORE_PROMPT: 0, IN_CHAT: 1, IN_PROMPT: 2 },
   extension_prompt_roles: { SYSTEM: 0, USER: 1, ASSISTANT: 2 }
 };
@@ -302,8 +509,21 @@ currentChatId = 'chat-directive';
 const installed = await promptAdapter.install({ binding, packet });
 assert.equal(installed.ok, true);
 assert.equal(installed.blockCount, 2);
-assert.equal(promptAdapter.inspect().status, 'active');
-assert.deepEqual(promptAdapter.inspect().blocks.find((block) => block.id === 'campaign-frame')?.sourceIds, ['campaign.ashes']);
+const promptInspectionAfterInstall = promptAdapter.inspect();
+assert.equal(promptInspectionAfterInstall.status, 'active');
+assert.deepEqual(promptInspectionAfterInstall.blocks.find((block) => block.id === 'campaign-frame')?.sourceIds, ['campaign.ashes']);
+assert.match(promptInspectionAfterInstall.externalPromptEnvironmentRef.hash, /^[a-f0-9]{64}$/);
+assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('summaryception'), true);
+assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('3_vectfox'), true);
+assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('worldInfoBefore'), true);
+assert.equal(promptInspectionAfterInstall.directiveOwnedPromptKeys.every((key) => key.startsWith('directive.')), true);
+assert.equal(promptInspectionAfterInstall.finalHostPromptMayIncludeExternal, true);
+assert.equal(promptInspectionAfterInstall.redactions.some((entry) => entry.reason === 'secret'), true);
+assert.equal(promptInspectionAfterInstall.redactions.some((entry) => entry.reason === 'raw-payload'), true);
+const promptInspectionSerialized = JSON.stringify(promptInspectionAfterInstall);
+assert.equal(promptInspectionSerialized.includes('SECRET-QDRANT'), false);
+assert.equal(promptInspectionSerialized.includes('Raw vector payload'), false);
+assert.equal(promptInspectionSerialized.includes('Raw Summaryception'), false);
 assert.equal(promptCalls.filter((call) => call[1]).length, 2);
 for (const key of DIRECTIVE_STATIC_PROMPT_KEYS) {
   assert.ok(promptCalls.some((call) => call[0] === key && call[1] === ''), `${key} should be cleared before install when absent`);

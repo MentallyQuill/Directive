@@ -3536,6 +3536,12 @@ export function buildLiveSmokeEnvironment({ report, messageScriptPath } = {}) {
     DIRECTIVE_LIVE_GENERATION: '1',
     DIRECTIVE_SILLYTAVERN_STRICT: '1',
     DIRECTIVE_SILLYTAVERN_WAIT_SIDECARS_EACH_TURN: '1',
+    DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS
+      || process.env.DIRECTIVE_PLAYWRIGHT_TIMEOUT_MS
+      || '45000',
+    DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS
+      || process.env.DIRECTIVE_PLAYWRIGHT_TIMEOUT_MS
+      || '60000',
     DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS || '300000',
     DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS || '240000',
     DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS || '180000',
@@ -3678,6 +3684,69 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
     stoppedOnTerminalDecision,
     stoppedOnPendingInteraction,
     qualityStatus
+  };
+}
+
+export function liveGenerationTimingAssessment({ smokeReport = null, smokeSummary = null } = {}) {
+  const proof = smokeReport?.browser?.chatCampaignFlow?.generationTimingProof || null;
+  const summaryProof = smokeSummary?.chatCampaign
+    ? {
+        status: smokeSummary.chatCampaign.generationTimingStatus || null,
+        source: smokeSummary.chatCampaign.generationTimingProofSource || 'compactSmokeSummary',
+        timingSource: smokeSummary.chatCampaign.generationTimingProofTimingSource || null,
+        checkedTurnCount: smokeSummary.chatCampaign.generationTimingCheckedTurns ?? null,
+        skippedTurnCount: smokeSummary.chatCampaign.generationTimingSkippedTurns ?? null,
+        maxGenerationStartLatencyMs: smokeSummary.chatCampaign.generationTimingMaxLatencyMs ?? null
+      }
+    : null;
+  if (!proof && !summaryProof) {
+    return {
+      status: 'warning',
+      summary: 'Delegated smoke did not report generation-start timing proof.',
+      proof: null
+    };
+  }
+  if (!proof) {
+    return {
+      status: 'warning',
+      summary: 'Delegated smoke only reported compact generation-start timing summary; full certification requires report.json CORE projection proof.',
+      proof: summaryProof
+    };
+  }
+  const evidence = proof;
+  if (evidence.status === 'fail') {
+    return {
+      status: 'fail',
+      summary: 'Delegated smoke reported over-budget or missing required generation-start timing.',
+      proof: evidence
+    };
+  }
+  const hasCoreProjectionProof = evidence.source === 'coreStoreTurnTiming'
+    && evidence.timingSource === 'coreProjection';
+  if (!hasCoreProjectionProof) {
+    return {
+      status: 'warning',
+      summary: `Delegated smoke timing proof was not persisted CORE projection evidence; source=${evidence.source || 'unknown'}, timingSource=${evidence.timingSource || 'unknown'}.`,
+      proof: evidence
+    };
+  }
+  if (evidence.status !== 'pass' || Number(evidence.checkedTurnCount || 0) <= 0) {
+    const skippedSuffix = Number(evidence.skippedTurnCount || 0) > 0
+      ? ` ${evidence.skippedTurnCount} deterministic non-generation turn(s) were skipped.`
+      : '';
+    return {
+      status: 'warning',
+      summary: `Delegated smoke reported incomplete generation-start timing proof.${skippedSuffix}`,
+      proof: evidence
+    };
+  }
+  const skippedSuffix = Number(evidence.skippedTurnCount || 0) > 0
+    ? ` ${evidence.skippedTurnCount} deterministic non-generation turn(s) were skipped.`
+    : '';
+  return {
+    status: 'pass',
+    summary: `Delegated smoke proved generation-start timing for ${evidence.checkedTurnCount} turn(s); max latency ${evidence.maxGenerationStartLatencyMs ?? 'unknown'} ms.${skippedSuffix}`,
+    proof: evidence
   };
 }
 
@@ -3850,6 +3919,68 @@ function boundedSmokeModelCalls(modelCalls = []) {
   }));
 }
 
+function promptInspectionExternalSummary(promptInspection = null) {
+  if (!promptInspection || typeof promptInspection !== 'object') {
+    return {
+      externalPromptEnvironmentRef: null,
+      knownExternalPromptKeys: [],
+      directiveOwnedPromptKeys: [],
+      finalHostPromptMayIncludeExternal: null,
+      unavailableSignals: [],
+      redactions: [],
+      redactionReasons: []
+    };
+  }
+  const redactions = Array.isArray(promptInspection.redactions)
+    ? promptInspection.redactions.map((entry) => ({
+        key: entry?.key || null,
+        reason: entry?.reason || null
+      })).filter((entry) => entry.reason)
+    : [];
+  return {
+    externalPromptEnvironmentRef: promptInspection.externalPromptEnvironmentRef || null,
+    knownExternalPromptKeys: Array.isArray(promptInspection.knownExternalPromptKeys)
+      ? promptInspection.knownExternalPromptKeys.filter(Boolean).map(String)
+      : [],
+    directiveOwnedPromptKeys: Array.isArray(promptInspection.directiveOwnedPromptKeys)
+      ? promptInspection.directiveOwnedPromptKeys.filter(Boolean).map(String)
+      : [],
+    finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal ?? null,
+    unavailableSignals: Array.isArray(promptInspection.unavailableSignals)
+      ? promptInspection.unavailableSignals.filter(Boolean).map(String)
+      : [],
+    redactions,
+    redactionReasons: [...new Set(redactions.map((entry) => entry.reason).filter(Boolean))]
+  };
+}
+
+function hasExternalPromptSummary(summary = {}) {
+  return Boolean(
+    summary.externalPromptEnvironmentRef
+    || (Array.isArray(summary.knownExternalPromptKeys) && summary.knownExternalPromptKeys.length > 0)
+    || (Array.isArray(summary.unavailableSignals) && summary.unavailableSignals.length > 0)
+    || (Array.isArray(summary.redactions) && summary.redactions.length > 0)
+  );
+}
+
+function promptInspectionCaptureExternalSummary(report, capture = {}) {
+  if (!capture || typeof capture !== 'object') return promptInspectionExternalSummary(null);
+  if (
+    capture.externalPromptEnvironmentRef
+    || Array.isArray(capture.knownExternalPromptKeys)
+    || Array.isArray(capture.directiveOwnedPromptKeys)
+    || Array.isArray(capture.redactions)
+  ) {
+    return promptInspectionExternalSummary(capture);
+  }
+  const direct = capture.promptInspection ? promptInspectionExternalSummary(capture.promptInspection) : null;
+  if (hasExternalPromptSummary(direct)) return direct;
+  const artifactPath = resolveAuditArtifactPath(report, capture.artifactPath);
+  const artifact = readJsonFileIfExists(artifactPath);
+  const fromArtifact = promptInspectionExternalSummary(artifact?.promptInspection || artifact || null);
+  return hasExternalPromptSummary(fromArtifact) ? fromArtifact : (direct || fromArtifact);
+}
+
 export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {}) {
   const flow = smokeReport?.browser?.chatCampaignFlow || {};
   const rounds = Array.isArray(flow.rounds) ? flow.rounds : [];
@@ -3896,6 +4027,7 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
       commandLogCount: round.commandLogCount ?? null,
       recentMessageCount: Array.isArray(round.recentMessages) ? round.recentMessages.length : null,
       modelCalls: boundedSmokeModelCalls(round.modelCalls || []),
+      generationTiming: round.generationTiming || null,
       promptInspection: smokeArtifactReference(report, round.promptInspection),
       transcript: smokeArtifactReference(report, round.transcript)
     });
@@ -3915,6 +4047,7 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
     transcriptRecords += 1;
   }
   for (const capture of promptInspectionCaptures) {
+    const externalSummary = promptInspectionCaptureExternalSummary(report, capture);
     appendJsonLine(report.artifacts.liveLog, {
       kind: 'prompt-inspection-capture',
       status: capture?.status || 'pass',
@@ -3923,7 +4056,8 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
       scriptMessageId: capture?.scriptMessageId || null,
       scriptCategory: capture?.scriptCategory || null,
       artifactPath: relativeArtifactPath(report, capture?.artifactPath),
-      promptBlockCount: capture?.promptInspection?.blocks?.length ?? capture?.blockCount ?? null
+      promptBlockCount: capture?.promptInspection?.blocks?.length ?? capture?.blockCount ?? null,
+      ...externalSummary
     });
     promptInspectionRecords += 1;
   }
@@ -4563,6 +4697,7 @@ async function runLiveExecution(report) {
     }
   }
   const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
+  const generationTimingAssessment = liveGenerationTimingAssessment({ smokeReport, smokeSummary });
   const transcriptCopy = copyDelegatedSmokeTranscriptArtifacts({ report, smokeSummary, smokeReport });
   const promotedSmokeEvidence = promoteDelegatedSmokeEvidence({ report, smokeReport });
   let storyQualityReview = buildPostSmokeStoryQualityReview({
@@ -4661,6 +4796,17 @@ async function runLiveExecution(report) {
         inputHash: storyQualityReview.modelAssistedReviewRequest?.inputHash || null,
         counts: storyQualityReview.modelAssistedReviewResult?.counts || null
       }
+    }
+  ));
+  report.checks.push(check(
+    'live-generation-start-timing',
+    generationTimingAssessment.status,
+    generationTimingAssessment.summary,
+    {
+      smokeArtifactDir,
+      smokeReportPath,
+      smokeSummaryPath,
+      proof: generationTimingAssessment.proof
     }
   ));
   report.checks.push(check(

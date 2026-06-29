@@ -3,11 +3,14 @@ import { pathToFileURL } from 'node:url';
 import {
   DEFAULT_SOAK_ARTIFACT_ROOT,
   appendJsonLine,
+  buildExternalContextBrowserProbe,
   compact,
   createArtifactPaths,
   createRunId,
   ensureArtifactTree,
   errorSummary,
+  externalContextFixtureDepthCheckStatus,
+  inspectSillyTavernExternalContextCompatibility,
   inspectSillyTavernAuthorNoteCleanliness,
   loadPlaywright,
   normalizeBaseUrl,
@@ -15,6 +18,12 @@ import {
   writeJsonFile,
   writeTextFile
 } from './lib/sillytavern-live-harness.mjs';
+import {
+  EXTERNAL_CONTEXT_FIXTURE_CHAT_FILE,
+  EXTERNAL_CONTEXT_FIXTURE_CHAT_FOLDER,
+  EXTERNAL_CONTEXT_FIXTURE_WORLD,
+  buildExternalContextFixtureBrowserSnapshot
+} from './prepare-sillytavern-external-context-fixture.mjs';
 
 const args = new Set(process.argv.slice(2));
 const HELP = args.has('--help') || args.has('-h');
@@ -27,6 +36,15 @@ const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.en
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const TIMEOUT_MS = positiveTimeout(process.env.DIRECTIVE_PLAYWRIGHT_TIMEOUT_MS, 45000);
+const EXTERNAL_CONTEXT_FIXTURE_PREVIEW = args.has('--external-context-fixture')
+  || process.env.DIRECTIVE_SOAK_EXTERNAL_CONTEXT_FIXTURE_PREVIEW === '1'
+  || process.env.DIRECTIVE_SOAK_EXTERNAL_CONTEXT_FIXTURE_BROWSER_SNAPSHOT === '1';
+const ACTIVATE_EXTERNAL_CONTEXT_FIXTURE = args.has('--activate-external-context-fixture')
+  || process.env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE === '1';
+const EXTERNAL_CONTEXT_COMPAT = LIVE || EXTERNAL_CONTEXT_FIXTURE_PREVIEW || process.env.DIRECTIVE_SOAK_EXTERNAL_CONTEXT_COMPAT === '1';
+const REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH = process.env.DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH === '1'
+  || process.env.DIRECTIVE_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH === '1';
+const ALLOW_PLACEHOLDER_SOAK_USERS = process.env.DIRECTIVE_ALLOW_PLACEHOLDER_SOAK_USERS === '1';
 const DEFAULT_SOAK_USER_HANDLES = Object.freeze([
   'directive-soak-a',
   'directive-soak-b',
@@ -53,6 +71,7 @@ Credential options:
   DIRECTIVE_SOAK_ST_USERS='[{"handle":"directive-soak-a","password":"secret"},{"handle":"directive-soak-b","password":"secret"},{"handle":"directive-soak-c","password":"secret"},{"handle":"directive-soak-d","password":"secret"},{"handle":"directive-soak-e","password":"secret"}]'
   DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b,directive-soak-c,directive-soak-d,directive-soak-e' with DIRECTIVE_SOAK_ST_PASSWORD shared by all users
   DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_A through DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_E for per-user passwords
+  DIRECTIVE_ALLOW_PLACEHOLDER_SOAK_USERS=1 permits placeholder handles in live mode only for explicit operator-confirmed local profiles
 
 The live probe opens one Playwright browser context per ST user, logs in when a
 login screen is present, writes a unique Directive /user/files probe for each
@@ -60,6 +79,12 @@ user, verifies each user can see only its own probe, deletes the probes, and
 writes report artifacts. It does not create campaigns or make model calls.
 The SillyTavern default-user account is reserved for human testing and must not
 be included in automated soak user configuration.
+
+Offline rich external-context fixture preflight:
+  node tools\\scripts\\check-sillytavern-multi-user-soak-readiness.mjs --external-context-fixture --write-artifacts
+
+Live rich external-context fixture certification:
+  node tools\\scripts\\check-sillytavern-multi-user-soak-readiness.mjs --live --activate-external-context-fixture --write-artifacts
 `;
 }
 
@@ -147,6 +172,48 @@ function statusFromChecks(checks) {
   return 'not-run';
 }
 
+function externalContextFixtureDepthCheck(externalContextProbe, { preBrowser = false } = {}) {
+  const fixtureDepth = externalContextProbe?.fixtureDepth || null;
+  const fullCertificationRequired = REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH && !preBrowser;
+  const status = externalContextFixtureDepthCheckStatus({
+    live: LIVE,
+    fixtureDepth,
+    probeRequired: EXTERNAL_CONTEXT_COMPAT,
+    fullCertificationRequired
+  });
+  return check(
+    'host-extension-fixture-depth',
+    status,
+    status === 'pass'
+      ? 'At least one non-human soak user has rich active fixture evidence for every external-context target.'
+      : status === 'skipped'
+        ? 'External context fixture-depth proof is skipped when external compatibility is not required.'
+        : fullCertificationRequired
+          ? 'Required rich active external-context fixture evidence is missing or incomplete.'
+          : 'External context observability exists, but rich active fixture evidence is incomplete or shallow.',
+    fixtureDepth
+      ? {
+          status: fixtureDepth.status,
+          requiredTargets: fixtureDepth.requiredTargets,
+          fullFixtureUserHandles: fixtureDepth.fullFixtureUserHandles,
+          missingTargets: fixtureDepth.missingTargets,
+          targetCoverage: fixtureDepth.targetCoverage,
+          fullCertificationRequired,
+          preBrowser
+        }
+      : {
+          fullCertificationRequired,
+          preBrowser
+        }
+  );
+}
+
+function upsertCheck(checks, entry) {
+  const index = checks.findIndex((item) => item.id === entry.id);
+  if (index >= 0) checks[index] = entry;
+  else checks.push(entry);
+}
+
 function reservedUsers(users) {
   return users.filter((entry) => RESERVED_HUMAN_ONLY_USERS.has(entry.handle));
 }
@@ -171,6 +238,20 @@ function probePayload({ runId, user, fileName }) {
     value: payload,
     text: JSON.stringify(payload)
   };
+}
+
+function externalContextFixturePreviewSnapshots(users = []) {
+  if (!EXTERNAL_CONTEXT_FIXTURE_PREVIEW) return [];
+  const snapshots = [];
+  for (const user of users) {
+    try {
+      snapshots.push(buildExternalContextFixtureBrowserSnapshot({ userHandle: user.handle }));
+    } catch {
+      // The reserved-user and user-count checks report invalid handles. The
+      // preview path should not hide those failures by throwing first.
+    }
+  }
+  return snapshots;
 }
 
 function summaryMarkdown(report) {
@@ -205,7 +286,25 @@ function summaryMarkdown(report) {
 async function buildDryRunReport({ artifacts }) {
   const playwright = await loadPlaywright();
   const reserved = reservedUsers(USERS);
+  const hasPlaceholderUsers = USERS.some((entry) => entry.placeholder);
+  const placeholderUserStatus = hasPlaceholderUsers
+    ? LIVE && !ALLOW_PLACEHOLDER_SOAK_USERS ? 'fail' : 'warning'
+    : 'pass';
   const authorNoteCleanliness = inspectSillyTavernAuthorNoteCleanliness({ users: USERS, required: LIVE });
+  const hostExtensionCompatibility = inspectSillyTavernExternalContextCompatibility({
+    users: USERS,
+    required: EXTERNAL_CONTEXT_COMPAT
+  });
+  const generatedAt = new Date().toISOString();
+  const externalContextProbe = buildExternalContextBrowserProbe({
+    runId: RUN_ID,
+    capturedAt: generatedAt,
+    baseUrl: BASE_URL || null,
+    required: false,
+    users: USERS,
+    diskCompatibility: hostExtensionCompatibility,
+    browserSnapshots: externalContextFixturePreviewSnapshots(USERS)
+  });
   const checks = [
     check(
       'user-count',
@@ -217,10 +316,13 @@ async function buildDryRunReport({ artifacts }) {
     ),
     check(
       'placeholder-users',
-      USERS.some((entry) => entry.placeholder) ? 'warning' : 'pass',
-      USERS.some((entry) => entry.placeholder)
-        ? 'Using placeholder soak user handles; set DIRECTIVE_SOAK_ST_USERS before live execution.'
-        : 'Explicit soak user handles are configured.'
+      placeholderUserStatus,
+      hasPlaceholderUsers
+        ? LIVE && !ALLOW_PLACEHOLDER_SOAK_USERS
+          ? 'Live execution requires explicit DIRECTIVE_SOAK_ST_USERS or DIRECTIVE_ALLOW_PLACEHOLDER_SOAK_USERS=1.'
+          : 'Using placeholder soak user handles; set DIRECTIVE_SOAK_ST_USERS before live execution.'
+        : 'Explicit soak user handles are configured.',
+      hasPlaceholderUsers ? { allowPlaceholderSoakUsers: ALLOW_PLACEHOLDER_SOAK_USERS } : null
     ),
     check(
       'reserved-human-user',
@@ -236,6 +338,13 @@ async function buildDryRunReport({ artifacts }) {
       authorNoteCleanliness.summary,
       authorNoteCleanliness
     ),
+    check(
+      'host-extension-compatibility',
+      hostExtensionCompatibility.status,
+      hostExtensionCompatibility.summary,
+      hostExtensionCompatibility
+    ),
+    externalContextFixtureDepthCheck(externalContextProbe, { preBrowser: LIVE }),
     check(
       'base-url',
       BASE_URL ? 'pass' : LIVE ? 'fail' : 'skipped',
@@ -261,12 +370,14 @@ async function buildDryRunReport({ artifacts }) {
     schemaVersion: 1,
     kind: 'directive.parallelSoakUsers.report',
     runId: RUN_ID,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     mode: LIVE ? 'live' : 'dry-run',
     status: statusFromChecks(checks),
     baseUrl: BASE_URL || null,
     users: USERS.map(redactUser),
     artifacts,
+    hostExtensionCompatibility,
+    externalContextProbe,
     checks,
     liveResults: []
   };
@@ -390,6 +501,395 @@ async function loginSillyTavernUser(page, user) {
     loginAttempted: true,
     ready,
     apiLogin
+  };
+}
+
+async function captureExternalContextBrowserSnapshot(page, user) {
+  return page.evaluate(({ handle }) => {
+    const countKeys = (value) => value && typeof value === 'object' ? Object.keys(value).length : 0;
+    const promptKeysFrom = (value) => {
+      if (!value || typeof value !== 'object') return [];
+      if (Array.isArray(value)) {
+        return value
+          .map((entry) => typeof entry === 'string' ? entry : entry?.identifier || entry?.id || entry?.name)
+          .filter(Boolean);
+      }
+      return Object.keys(value);
+    };
+    const markerCounts = (chat) => {
+      const counts = {
+        summaryceptionGhosted: 0,
+        memoryBooksHidden: 0,
+        vectFoxGhosted: 0,
+        nativeHidden: 0
+      };
+      for (const message of Array.isArray(chat) ? chat : []) {
+        const extra = message?.extra || {};
+        if (extra.sc_ghosted || extra.summaryception?.ghosted) counts.summaryceptionGhosted += 1;
+        if (extra.stmb_hidden || extra.memoryBooks?.hidden) counts.memoryBooksHidden += 1;
+        if (extra.vectfox_prompt_ghosted || extra.vectfoxGhosted || extra.vectfox?.promptGhosted || extra.eventbase_ghosted) counts.vectFoxGhosted += 1;
+        if (message?.is_hidden || message?.hidden) counts.nativeHidden += 1;
+      }
+      return counts;
+    };
+
+    let context = null;
+    let contextError = null;
+    try {
+      context = globalThis.SillyTavern?.getContext?.() || null;
+    } catch (error) {
+      contextError = String(error?.message || error);
+    }
+    const extensionSettings = context?.extensionSettings
+      || context?.extension_settings
+      || globalThis.extension_settings
+      || {};
+    const chatMetadata = context?.chatMetadata || context?.chat_metadata || {};
+    const chat = Array.isArray(context?.chat) ? context.chat : [];
+    const promptRegistry = context?.extensionPrompts
+      || context?.extension_prompts
+      || globalThis.extensionPrompts
+      || globalThis.extension_prompts
+      || null;
+    const promptKeys = promptKeysFrom(promptRegistry);
+    const worldInfoSettings = context?.worldInfoSettings
+      || context?.world_info_settings
+      || globalThis.world_info_settings
+      || {};
+    const worldInfoActiveNames = [
+      ...(Array.isArray(worldInfoSettings?.world_info?.globalSelect) ? worldInfoSettings.world_info.globalSelect : []),
+      ...(Array.isArray(worldInfoSettings?.globalSelect) ? worldInfoSettings.globalSelect : [])
+    ];
+    const memoryBooksSettings = extensionSettings.STMemoryBooks
+      || extensionSettings.stMemoryBooks
+      || extensionSettings.memoryBooks
+      || {};
+    const summaryceptionSettings = extensionSettings.summaryception || {};
+    const vectFoxSettings = extensionSettings.vectfox || extensionSettings.VectFox || {};
+    const summaryceptionMetadata = chatMetadata.summaryception || {};
+    const summaryceptionLayerCount = Array.isArray(summaryceptionMetadata.layers)
+      ? summaryceptionMetadata.layers.length
+      : Number(summaryceptionMetadata.layerCount || 0);
+    const summaryceptionGhostedCount = Array.isArray(summaryceptionMetadata.ghostedIndices)
+      ? summaryceptionMetadata.ghostedIndices.length
+      : Number(summaryceptionMetadata.ghostedCount || 0);
+
+    return {
+      handle,
+      resolvedBrowserUserHandle: handle,
+      href: location.href,
+      contextReady: Boolean(context),
+      contextError,
+      currentChatId: context?.chatId || context?.chat_id || context?.chat?.id || null,
+      chatLength: chat.length,
+      hostPromptRegistry: {
+        available: Boolean(promptRegistry),
+        promptKeys,
+        sourceKeyCount: countKeys(promptRegistry)
+      },
+      worldInfo: {
+        settingsSeen: countKeys(worldInfoSettings) > 0,
+        globalSignatureSeen: Boolean(globalThis.world_names || globalThis.world_info),
+        enabled: worldInfoActiveNames.length > 0 || Boolean(chatMetadata.world_info),
+        activeNames: worldInfoActiveNames.slice(0, 20)
+      },
+      memoryBooks: {
+        settingsSeen: countKeys(memoryBooksSettings) > 0,
+        globalSignatureSeen: Boolean(globalThis.STMemoryBooks || globalThis.SillyTavernMemoryBooks),
+        installed: countKeys(memoryBooksSettings) > 0,
+        enabled: memoryBooksSettings.enabled === true || memoryBooksSettings.moduleSettings?.enabled === true,
+        activeBookName: chatMetadata.world_info || null,
+        entryCount: Number(memoryBooksSettings.entryCount || 0),
+        riskyModes: {
+          autoSummary: memoryBooksSettings.moduleSettings?.autoSummaryEnabled === true || memoryBooksSettings.autoSummaryEnabled === true,
+          autoCreate: memoryBooksSettings.moduleSettings?.autoCreateEnabled === true || memoryBooksSettings.autoCreateEnabled === true,
+          autoHideUnhide: memoryBooksSettings.moduleSettings?.unhideBeforeMemory === true || Boolean(memoryBooksSettings.moduleSettings?.autoHideMode),
+          sidePrompts: memoryBooksSettings.moduleSettings?.sidePromptsEnabled === true || memoryBooksSettings.sidePromptsEnabled === true,
+          atDepthUserOrAssistant: memoryBooksSettings.moduleSettings?.summaryEntrySettings?.position === 4
+        }
+      },
+      summaryception: {
+        settingsSeen: countKeys(summaryceptionSettings) > 0,
+        globalSignatureSeen: Boolean(globalThis.Summaryception || globalThis.summaryception),
+        installed: countKeys(summaryceptionSettings) > 0,
+        enabled: summaryceptionSettings.enabled === true
+      },
+      vectFox: {
+        settingsSeen: countKeys(vectFoxSettings) > 0,
+        globalSignatureSeen: Boolean(globalThis.VectFox || globalThis.vectFox || globalThis.vectfox),
+        installed: countKeys(vectFoxSettings) > 0,
+        enabled: vectFoxSettings.enabled === true,
+        disabledPresent: vectFoxSettings.enabled === false,
+        promptKeys: promptKeys.filter((key) => /^3_vectfox/i.test(String(key || ''))),
+        backendType: vectFoxSettings.vector_backend || null,
+        semanticWorldInfoEnabled: vectFoxSettings.enabled_world_info === true,
+        summarizerInjectionEnabled: vectFoxSettings.summarizer_injection_enabled === true,
+        ghostingEnabled: vectFoxSettings.eventbase_ghost_enabled === true,
+        generationInterceptorActive: countKeys(vectFoxSettings) > 0
+      },
+      chatMetadata: {
+        worldInfo: chatMetadata.world_info || null,
+        summaryception: {
+          summarizedUpTo: summaryceptionMetadata.summarizedUpTo,
+          layerCount: summaryceptionLayerCount,
+          ghostedCount: summaryceptionGhostedCount
+        }
+      },
+      messageMarkerCounts: markerCounts(chat),
+      unavailableSignals: [
+        ...(context ? [] : ['sillytavern-context-unavailable']),
+        ...(promptRegistry ? [] : ['prompt-registry-unavailable'])
+      ]
+    };
+  }, { handle: user.handle });
+}
+
+function userDiskCompatibility(hostExtensionCompatibility, user) {
+  const handle = normalizeId(user?.handle || user?.displayHandle || '');
+  return (hostExtensionCompatibility?.users || [])
+    .find((entry) => normalizeId(entry?.handle || '') === handle) || null;
+}
+
+function externalContextProbeForSnapshot({ user, diskCompatibility, snapshot }) {
+  return buildExternalContextBrowserProbe({
+    runId: RUN_ID,
+    capturedAt: new Date().toISOString(),
+    baseUrl: BASE_URL || null,
+    required: EXTERNAL_CONTEXT_COMPAT,
+    users: [user],
+    diskCompatibility: { users: diskCompatibility ? [diskCompatibility] : [] },
+    browserSnapshots: [snapshot]
+  })?.users?.[0] || null;
+}
+
+function fixtureChatId() {
+  return EXTERNAL_CONTEXT_FIXTURE_CHAT_FILE.replace(/\.jsonl$/i, '');
+}
+
+function diskHasExternalContextFixture(diskCompatibility = null) {
+  const environment = diskCompatibility?.externalPromptEnvironment || {};
+  return environment.worldInfo?.chatBoundName === EXTERNAL_CONTEXT_FIXTURE_WORLD
+    || (environment.worldInfo?.activeNames || []).includes(EXTERNAL_CONTEXT_FIXTURE_WORLD)
+    || Number(environment.memoryBooks?.entryCount || environment.memoryBooks?.stMemoryBookEntryCount || 0) > 0
+    || Number(environment.summaryception?.ghostedCount || 0) > 0
+    || Boolean(environment.vectFox?.enabled);
+}
+
+async function activateExternalContextFixtureChat(page, user, diskCompatibility) {
+  if (!ACTIVATE_EXTERNAL_CONTEXT_FIXTURE) {
+    return { ok: false, skipped: true, reason: 'activation-not-requested' };
+  }
+  if (!diskHasExternalContextFixture(diskCompatibility)) {
+    return { ok: false, skipped: true, reason: 'fixture-not-prepared-for-user' };
+  }
+  return page.evaluate(async ({
+    handle,
+    characterFolder,
+    chatFile,
+    chatId,
+    worldName
+  }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const normalize = (value) => String(value || '')
+      .replace(/\.png$/i, '')
+      .replace(/\.jsonl$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const markerCounts = (chat) => {
+      const counts = { summaryceptionGhosted: 0, memoryBooksHidden: 0, vectFoxGhosted: 0 };
+      for (const message of Array.isArray(chat) ? chat : []) {
+        const extra = message?.extra || {};
+        if (extra.sc_ghosted || extra.summaryception?.ghosted) counts.summaryceptionGhosted += 1;
+        if (extra.stmb_hidden || extra.memoryBooks?.hidden) counts.memoryBooksHidden += 1;
+        if (extra.vectfox_prompt_ghosted || extra.vectfoxGhosted || extra.vectfox?.promptGhosted || extra.eventbase_ghosted) counts.vectFoxGhosted += 1;
+      }
+      return counts;
+    };
+    const snapshot = () => {
+      const context = globalThis.SillyTavern?.getContext?.() || {};
+      const characters = Array.isArray(context.characters)
+        ? context.characters
+        : (Array.isArray(globalThis.characters) ? globalThis.characters : []);
+      const selectedCharacterId = context.characterId
+        ?? context.character_id
+        ?? context.this_chid
+        ?? context.selectedCharacterId
+        ?? globalThis.this_chid
+        ?? null;
+      const selectedCharacter = selectedCharacterId !== null && selectedCharacterId !== undefined
+        ? characters[Number(selectedCharacterId)]
+        : null;
+      const chatMetadata = context.chatMetadata || context.chat_metadata || globalThis.chat_metadata || {};
+      const chat = Array.isArray(context.chat) ? context.chat : (Array.isArray(globalThis.chat) ? globalThis.chat : []);
+      return {
+        handle,
+        selectedCharacterId: selectedCharacterId === null || selectedCharacterId === undefined ? null : String(selectedCharacterId),
+        selectedCharacterName: selectedCharacter?.name || selectedCharacter?.data?.name || null,
+        selectedCharacterAvatar: selectedCharacter?.avatar || selectedCharacter?.filename || selectedCharacter?.avatar_url || null,
+        currentChatId: context.chatId
+          || context.chat_id
+          || context.currentChatId
+          || context.current_chat_id
+          || selectedCharacter?.chat
+          || null,
+        chatLength: chat.length,
+        chatMetadata: {
+          worldInfo: chatMetadata.world_info || null,
+          hasSTMemoryBooks: Boolean(chatMetadata.STMemoryBooks),
+          hasSummaryception: Boolean(chatMetadata.summaryception),
+          hasVectFox: Boolean(chatMetadata.vectFox || chatMetadata.vectfox)
+        },
+        messageMarkerCounts: markerCounts(chat)
+      };
+    };
+
+    try {
+      const script = await import('/script.js').catch(() => null);
+      const context = globalThis.SillyTavern?.getContext?.() || {};
+      const characters = Array.isArray(context.characters)
+        ? context.characters
+        : (Array.isArray(globalThis.characters) ? globalThis.characters : []);
+      const targetCharacterIndex = characters.findIndex((entry) => [
+        entry?.avatar,
+        entry?.filename,
+        entry?.avatar_url,
+        entry?.name,
+        entry?.data?.name
+      ].some((value) => normalize(value) === normalize(characterFolder)));
+      if (targetCharacterIndex < 0) {
+        return {
+          ok: false,
+          reason: 'fixture-character-not-found',
+          characterFolder,
+          availableMatches: characters
+            .map((entry, index) => ({
+              index,
+              name: entry?.name || entry?.data?.name || '',
+              avatar: entry?.avatar || entry?.filename || entry?.avatar_url || ''
+            }))
+            .filter((entry) => /Directive|Ashes/i.test(`${entry.name} ${entry.avatar}`))
+            .slice(0, 20),
+          before: snapshot()
+        };
+      }
+
+      const currentSelectedId = context.characterId
+        ?? context.character_id
+        ?? context.this_chid
+        ?? context.selectedCharacterId
+        ?? globalThis.this_chid
+        ?? null;
+      if (String(currentSelectedId ?? '') !== String(targetCharacterIndex)) {
+        const selectCharacter = context.selectCharacterById
+          || globalThis.selectCharacterById
+          || script?.selectCharacterById;
+        if (typeof selectCharacter !== 'function') {
+          return {
+            ok: false,
+            reason: 'selectCharacterById-unavailable',
+            targetCharacterIndex,
+            before: snapshot()
+          };
+        }
+        await selectCharacter.call(context, targetCharacterIndex, { switchMenu: false });
+      }
+
+      const refreshedContext = globalThis.SillyTavern?.getContext?.() || context;
+      const openCharacterChat = refreshedContext.openCharacterChat
+        || globalThis.openCharacterChat
+        || script?.openCharacterChat;
+      if (typeof openCharacterChat !== 'function') {
+        return {
+          ok: false,
+          reason: 'openCharacterChat-unavailable',
+          targetCharacterIndex,
+          before: snapshot()
+        };
+      }
+
+      await openCharacterChat.call(refreshedContext, chatId);
+      let after = snapshot();
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const markerTotal = Number(after.messageMarkerCounts.summaryceptionGhosted || 0)
+          + Number(after.messageMarkerCounts.memoryBooksHidden || 0)
+          + Number(after.messageMarkerCounts.vectFoxGhosted || 0);
+        const metadataLoaded = after.chatMetadata.worldInfo === worldName
+          && after.chatMetadata.hasSummaryception === true
+          && markerTotal > 0;
+        const chatMatches = normalize(after.currentChatId) === normalize(chatId)
+          || normalize(after.currentChatId) === normalize(chatFile);
+        if (metadataLoaded && chatMatches && Number(after.chatLength || 0) >= 4) {
+          return {
+            ok: true,
+            skipped: false,
+            method: 'script.openCharacterChat',
+            targetCharacterIndex,
+            chatId,
+            after
+          };
+        }
+        await sleep(250);
+        after = snapshot();
+      }
+      return {
+        ok: false,
+        skipped: false,
+        reason: 'fixture-chat-load-timeout',
+        targetCharacterIndex,
+        chatId,
+        after
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        skipped: false,
+        reason: 'fixture-activation-error',
+        error: { name: error?.name || 'Error', message: error?.message || String(error) },
+        after: snapshot()
+      };
+    }
+  }, {
+    handle: user.handle,
+    characterFolder: EXTERNAL_CONTEXT_FIXTURE_CHAT_FOLDER,
+    chatFile: EXTERNAL_CONTEXT_FIXTURE_CHAT_FILE,
+    chatId: fixtureChatId(),
+    worldName: EXTERNAL_CONTEXT_FIXTURE_WORLD
+  });
+}
+
+async function waitForExternalContextBrowserSnapshot(page, user, diskCompatibility) {
+  const deadline = Date.now() + TIMEOUT_MS;
+  let lastSnapshot = null;
+  let lastProbe = null;
+
+  do {
+    lastSnapshot = await captureExternalContextBrowserSnapshot(page, user);
+    lastProbe = externalContextProbeForSnapshot({ user, diskCompatibility, snapshot: lastSnapshot });
+    if (!EXTERNAL_CONTEXT_COMPAT || lastProbe?.status === 'pass') {
+      return {
+        ...lastSnapshot,
+        readinessProbeStatus: lastProbe?.status || null,
+        readinessTargetStatuses: lastProbe?.targets
+          ? Object.fromEntries(Object.entries(lastProbe.targets).map(([key, value]) => [key, value.status]))
+          : null
+      };
+    }
+    await page.waitForTimeout(750);
+  } while (Date.now() < deadline);
+
+  return {
+    ...(lastSnapshot || {
+      handle: user.handle,
+      contextReady: false,
+      hostPromptRegistry: { available: false, promptKeys: [] },
+      unavailableSignals: ['browser-external-context-capture-timeout']
+    }),
+    readinessProbeStatus: lastProbe?.status || null,
+    readinessTargetStatuses: lastProbe?.targets
+      ? Object.fromEntries(Object.entries(lastProbe.targets).map(([key, value]) => [key, value.status]))
+      : null
   };
 }
 
@@ -532,6 +1032,74 @@ async function runLiveProbe(report) {
     }
 
     for (const session of sessions) {
+      const diskCompatibility = userDiskCompatibility(report.hostExtensionCompatibility, session.user);
+      session.externalContextFixtureActivation = await activateExternalContextFixtureChat(
+        session.page,
+        session.user,
+        diskCompatibility
+      ).catch((error) => ({
+        ok: false,
+        skipped: false,
+        reason: 'fixture-activation-threw',
+        error: errorSummary(error)
+      }));
+      runRecord({
+        kind: 'external-context-fixture-activation',
+        timestamp: new Date().toISOString(),
+        runId: RUN_ID,
+        userHandle: session.user.handle,
+        status: session.externalContextFixtureActivation?.ok
+          ? 'pass'
+          : session.externalContextFixtureActivation?.skipped
+            ? 'skipped'
+            : 'warning',
+        reason: session.externalContextFixtureActivation?.reason || null,
+        currentChatId: session.externalContextFixtureActivation?.after?.currentChatId || null,
+        chatLength: session.externalContextFixtureActivation?.after?.chatLength || null,
+        chatMetadata: session.externalContextFixtureActivation?.after?.chatMetadata || null,
+        messageMarkerCounts: session.externalContextFixtureActivation?.after?.messageMarkerCounts || null
+      });
+      session.externalContextBrowser = await waitForExternalContextBrowserSnapshot(
+        session.page,
+        session.user,
+        diskCompatibility
+      ).catch((error) => ({
+        handle: session.user.handle,
+        contextReady: false,
+        hostPromptRegistry: { available: false, promptKeys: [] },
+        unavailableSignals: ['browser-external-context-capture-failed'],
+        error: errorSummary(error)
+      }));
+      runRecord({
+        kind: 'host-extension-browser-context',
+        timestamp: new Date().toISOString(),
+        runId: RUN_ID,
+        userHandle: session.user.handle,
+        status: session.externalContextBrowser.contextReady ? 'observed' : 'unavailable',
+        readinessProbeStatus: session.externalContextBrowser.readinessProbeStatus || null,
+        readinessTargetStatuses: session.externalContextBrowser.readinessTargetStatuses || null,
+        promptKeyCount: session.externalContextBrowser.hostPromptRegistry?.promptKeys?.length || 0,
+        unavailableSignals: session.externalContextBrowser.unavailableSignals || []
+      });
+    }
+
+    report.externalContextProbe = buildExternalContextBrowserProbe({
+      runId: RUN_ID,
+      capturedAt: new Date().toISOString(),
+      baseUrl: BASE_URL || null,
+      required: EXTERNAL_CONTEXT_COMPAT,
+      users: USERS,
+      diskCompatibility: report.hostExtensionCompatibility,
+      browserSnapshots: sessions.map((session) => session.externalContextBrowser)
+    });
+    if (WRITE_ARTIFACTS) {
+      writeJsonFile(`${report.artifacts.hostExtensions}/external-context-probe.json`, report.externalContextProbe);
+      for (const userProbe of report.externalContextProbe.users || []) {
+        writeJsonFile(`${report.artifacts.hostExtensions}/external-context-probe.${userProbe.handle}.json`, userProbe);
+      }
+    }
+
+    for (const session of sessions) {
       runRecord({
         kind: 'parallel-user-storage-write-start',
         timestamp: new Date().toISOString(),
@@ -629,7 +1197,16 @@ function resultFromSession(session, override = {}) {
     browser: {
       consoleMessageCount: session.consoleMessages?.length || 0,
       pageErrorCount: session.pageErrors?.length || 0
-    }
+    },
+    externalContextFixtureActivation: session.externalContextFixtureActivation
+      ? {
+          ok: session.externalContextFixtureActivation.ok === true,
+          skipped: session.externalContextFixtureActivation.skipped === true,
+          reason: session.externalContextFixtureActivation.reason || null,
+          currentChatId: session.externalContextFixtureActivation.after?.currentChatId || null,
+          chatLength: session.externalContextFixtureActivation.after?.chatLength || null
+        }
+      : null
   };
 }
 
@@ -643,6 +1220,8 @@ async function main() {
   const report = await buildDryRunReport({ artifacts });
   if (WRITE_ARTIFACTS) {
     ensureArtifactTree(artifacts);
+    writeJsonFile(`${artifacts.hostExtensions}/compatibility.json`, report.hostExtensionCompatibility);
+    writeJsonFile(`${artifacts.hostExtensions}/external-context-probe.json`, report.externalContextProbe);
     appendJsonLine(artifacts.liveLog, {
       kind: 'parallel-user-preflight-start',
       timestamp: report.generatedAt,
@@ -650,6 +1229,13 @@ async function main() {
       mode: report.mode,
       userCount: USERS.length,
       baseUrl: BASE_URL || null
+    });
+    appendJsonLine(artifacts.liveLog, {
+      kind: 'host-extension-compatibility',
+      timestamp: report.generatedAt,
+      runId: report.runId,
+      status: report.hostExtensionCompatibility.status,
+      checkedUserCount: report.hostExtensionCompatibility.checkedUserCount
     });
   }
 
@@ -665,6 +1251,24 @@ async function main() {
           : 'At least one SillyTavern user saw missing own storage or another user storage probe.',
         { resultCount: report.liveResults.length, failureHandles: failures.map((entry) => entry.handle) }
       ));
+      report.checks.push(check(
+        'live-host-extension-browser-context',
+        report.externalContextProbe?.status || 'fail',
+        report.externalContextProbe?.status === 'pass'
+          ? 'Live browser/runtime external context probe observed, disabled, or ruled out known context-extension targets for each soak user.'
+          : 'Live browser/runtime external context probe found unresolved external context-extension visibility.',
+        report.externalContextProbe
+          ? {
+              userCount: report.externalContextProbe.users.length,
+              userStatuses: report.externalContextProbe.users.map((entry) => ({
+                handle: entry.handle,
+                status: entry.status,
+                targets: Object.fromEntries(Object.entries(entry.targets || {}).map(([key, target]) => [key, target.status]))
+              }))
+            }
+          : null
+      ));
+      upsertCheck(report.checks, externalContextFixtureDepthCheck(report.externalContextProbe));
     } catch (error) {
       report.checks.push(check(
         'live-user-storage-isolation',
@@ -677,6 +1281,7 @@ async function main() {
   }
 
   if (WRITE_ARTIFACTS) {
+    writeJsonFile(`${artifacts.hostExtensions}/external-context-probe.json`, report.externalContextProbe);
     writeJsonFile(artifacts.report, report);
     writeTextFile(artifacts.summary, summaryMarkdown(report));
     appendJsonLine(artifacts.liveLog, {
@@ -705,7 +1310,8 @@ async function main() {
       status: entry.status,
       ownVisible: entry.ownVisible,
       otherVisibleCount: entry.otherVisibleCount,
-      payloadRoundTrip: entry.payloadRoundTrip
+      payloadRoundTrip: entry.payloadRoundTrip,
+      fixtureActivated: entry.externalContextFixtureActivation?.ok === true
     }))
   }, null, 2));
 

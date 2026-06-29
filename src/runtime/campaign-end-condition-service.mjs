@@ -208,6 +208,7 @@ export function createCampaignEndConditionService({
   getPackageContext,
   persist = null,
   syncPrompt = null,
+  recordTerminalCheckpointSettlement = null,
   saveTerminalBranch = null,
   concludeCampaign = null,
   now = null
@@ -226,6 +227,15 @@ export function createCampaignEndConditionService({
     if (typeof syncPrompt !== 'function') return state;
     const result = await syncPrompt(state, reason);
     return result?.campaignState || result || state;
+  }
+
+  async function recordSettlement(event = {}) {
+    if (typeof recordTerminalCheckpointSettlement !== 'function') return null;
+    try {
+      return cloneJson(await recordTerminalCheckpointSettlement(cloneJson(event)));
+    } catch {
+      return null;
+    }
   }
 
   async function evaluateCommittedTurn({ turnPacket = null, ingressId = null } = {}) {
@@ -294,7 +304,22 @@ export function createCampaignEndConditionService({
     });
     state = withLedger(state, ledger);
     await persistState(state, `Posted terminal outcome checkpoint ${interaction.id}.`);
-    return { ok: true, posted: cloneJson(posted || null), interaction: cloneJson(interaction), campaignState: cloneJson(state) };
+    const terminalCheckpointSettlement = await recordSettlement({
+      kind: 'terminalOutcomeCheckpointPosted',
+      ingressId: interaction.ingressId || null,
+      turnId: interaction.turnId || null,
+      outcomeId: interaction.outcomeId || decision?.outcomeId || null,
+      interactionId: interaction.id,
+      checkpointHostMessageId: posted?.hostMessageId || posted?.id || null,
+      status: 'posted'
+    });
+    return {
+      ok: true,
+      posted: cloneJson(posted || null),
+      interaction: cloneJson(interaction),
+      terminalCheckpointSettlement,
+      campaignState: cloneJson(state)
+    };
   }
 
   async function replayFromCheckpoint({ interaction, decision }) {
@@ -450,29 +475,60 @@ export function createCampaignEndConditionService({
     return { ok: true, action: 'saveTerminalBranch', branch: cloneJson(branch), campaignState: cloneJson(next) };
   }
 
-  async function resolveDecision({ interactionId = null, action = 'replayFromCheckpoint', frameId = null, playerArgument = null } = {}) {
+  async function resolveDecision({
+    interactionId = null,
+    action = 'replayFromCheckpoint',
+    frameId = null,
+    playerArgument = null,
+    resolutionIngressId = null,
+    resolutionHostMessageId = null
+  } = {}) {
     const state = initializeCampaignRuntimeTracking(getCampaignState());
     const interaction = activeTerminalInteraction(state, interactionId);
     if (!interaction) return { ok: false, reason: 'terminal-decision-not-pending' };
     const decision = decisionForInteraction(state, interaction);
     if (!decision) return { ok: false, reason: 'terminal-decision-record-not-found' };
     const normalizedAction = compact(action || 'replayFromCheckpoint');
+    let result = null;
     switch (normalizedAction) {
       case 'replay':
       case 'replayFromCheckpoint':
-        return replayFromCheckpoint({ interaction, decision });
+        result = await replayFromCheckpoint({ interaction, decision });
+        break;
       case 'pushOn':
       case 'push-on':
-        return pushOn({ interaction, decision, frameId, playerArgument });
+        result = await pushOn({ interaction, decision, frameId, playerArgument });
+        break;
       case 'keepEnding':
       case 'keep':
-        return keepEnding({ interaction, decision });
+        result = await keepEnding({ interaction, decision });
+        break;
       case 'saveTerminalBranch':
       case 'saveBranch':
-        return saveBranch({ interaction, decision });
+        result = await saveBranch({ interaction, decision });
+        break;
       default:
         return { ok: false, reason: 'terminal-decision-action-unsupported', action: normalizedAction };
     }
+    const settlementKind = ['saveTerminalBranch', 'saveBranch'].includes(normalizedAction)
+      ? 'terminalOutcomeCheckpointBranchSaved'
+      : 'terminalOutcomeCheckpointResolved';
+    const terminalCheckpointSettlement = await recordSettlement({
+      kind: settlementKind,
+      ingressId: resolutionIngressId || interaction.ingressId || null,
+      resolutionIngressId: resolutionIngressId || null,
+      resolutionHostMessageId: resolutionHostMessageId || null,
+      turnId: interaction.turnId || decision.turnId || null,
+      outcomeId: interaction.outcomeId || decision.outcomeId || null,
+      interactionId: interaction.id,
+      action: result?.action || normalizedAction,
+      status: result?.ok === false ? 'failed' : (settlementKind === 'terminalOutcomeCheckpointBranchSaved' ? 'branchSaved' : 'resolved'),
+      reason: result?.reason || null
+    });
+    return {
+      ...cloneJson(result || {}),
+      terminalCheckpointSettlement
+    };
   }
 
   return {

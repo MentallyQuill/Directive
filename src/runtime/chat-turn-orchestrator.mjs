@@ -25,6 +25,7 @@ import {
 } from '../command/command-bearing.mjs';
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
 import { runSceneHandshakeSettlement } from './scene-handshake-settler.mjs';
+import { createTurnSourceFrameContract } from './architecture-redesign-contracts.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -163,6 +164,8 @@ function normalizeMessage(host, payload = null, chat = null) {
       isUser: payload.isUser !== false,
       isDirectiveOwned: payload.isDirectiveOwned === true || payload.directiveOwned === true,
       directiveOwned: payload.isDirectiveOwned === true || payload.directiveOwned === true,
+      playerSubmittedAt: payload.playerSubmittedAt || payload.submittedAt || payload.createdAt || null,
+      visibility: cloneJson(payload.visibility || null),
       metadata: cloneJson(payload.metadata || null),
       raw: cloneJson(payload.raw || null)
     };
@@ -233,6 +236,17 @@ function narrationText(result) {
     || result?.narrationResult?.narration
     || ''
   );
+}
+
+function narrationGenerationStartedAt(result) {
+  return compact(
+    result?.narrationResult?.directiveGenerationStartedAt
+    || result?.narrationResult?.narration?.directiveGenerationStartedAt
+    || result?.narrationResult?.narration?.generatedAt
+    || result?.narrationResult?.error?.directiveGenerationStartedAt
+    || result?.narrationResult?.error?.generationStartedAt
+    || ''
+  ) || null;
 }
 
 function localOutcomeNarration(result) {
@@ -603,6 +617,7 @@ export function createChatTurnOrchestrator({
   turnCommitCoordinator = null,
   sidecarScheduler = null,
   messageReconciler = null,
+  coreTurnStore = null,
   stateDeltaGateway,
   getCampaignState,
   setCampaignState,
@@ -615,7 +630,11 @@ export function createChatTurnOrchestrator({
   commitProvisionalDirectorTurn,
   postTerminalOutcomeCheckpoint = null,
   resolveTerminalOutcomeDecision = null,
+  recordTerminalCheckpointSettlement = null,
   discardProvisionalDirectorTurn = null,
+  scheduleCommandLogSummaryForCommittedTurn = null,
+  schedulePostCommitConversationProcessor = null,
+  scheduleAdvisoryEnrichmentProcessor = null,
   postCommitConversationProcessor = null,
   rewriteCampaignIntro = null,
   reportTurnActivity = null,
@@ -1001,6 +1020,41 @@ export function createChatTurnOrchestrator({
     });
   }
 
+  async function recordTerminalCheckpointSettlementEvent(event = {}) {
+    if (typeof recordTerminalCheckpointSettlement !== 'function') return null;
+    try {
+      return cloneJson(await recordTerminalCheckpointSettlement(cloneJson(event)));
+    } catch {
+      return null;
+    }
+  }
+
+  async function commitAdvisoryRecord({
+    state,
+    advisory,
+    ingressId,
+    source = 'chatCounsel',
+    reason = 'Player-safe advisory note recorded for Mission, Log, and Crew surfaces.',
+    summary = null,
+    stable = true
+  } = {}) {
+    const nextCandidate = cloneJson(state);
+    nextCandidate.commandCompetence = nextCandidate.commandCompetence || {};
+    nextCandidate.commandCompetence.counselRequestLedger = nextCandidate.commandCompetence.counselRequestLedger || [];
+    const ledger = nextCandidate.commandCompetence.counselRequestLedger;
+    const index = ledger.findIndex((entry) => entry.id === advisory.id);
+    if (index >= 0) ledger[index] = { ...ledger[index], ...cloneJson(advisory) };
+    else ledger.push(cloneJson(advisory));
+    return stateDeltaGateway.commit(nextCandidate, {
+      source,
+      reason,
+      summary: summary || advisory.logSummary || advisory.subject,
+      domains: ['commandCompetence'],
+      ingressId,
+      stable
+    });
+  }
+
   function ingressIdFor(state, message, chatId) {
     const messageId = message.hostMessageId || message.id || message.index || 'message';
     return `ingress:${state.campaign?.id}:${chatId}:${messageId}:${fnv1a(message.text)}`;
@@ -1010,12 +1064,154 @@ export function createChatTurnOrchestrator({
     return `ingress-text:${state.campaign?.id}:${chatId}:${fnv1a(message?.text || '')}`;
   }
 
+  function unknownExternalPromptEnvironment(observedAt) {
+    return {
+      kind: 'directive.externalPromptEnvironment.v1',
+      schemaVersion: 1,
+      host: 'sillytavern',
+      status: 'unknown',
+      observedAt,
+      worldInfo: {},
+      memoryBooks: {},
+      summaryception: {},
+      vectFox: {},
+      knownExternalPromptKeys: [],
+      unknownSignals: ['external-context-not-inspected-fast-gate'],
+      redactions: []
+    };
+  }
+
+  function selectedAssistantVariantHash(message = {}) {
+    const raw = message.raw || {};
+    return message.selectedAssistantVariantHash
+      || message.acceptedAssistantVariantHash
+      || message.metadata?.selectedAssistantVariantHash
+      || message.metadata?.acceptedAssistantVariantHash
+      || raw.extra?.directive?.selectedAssistantVariantHash
+      || raw.extra?.directive?.acceptedAssistantVariantHash
+      || null;
+  }
+
+  function buildTurnSourceFrame(state, message, chatId, ingressId, observedAt) {
+    return createTurnSourceFrameContract({
+      id: `frame:${ingressId}`,
+      campaignId: state.campaign?.id || null,
+      saveId: state.campaignChatBinding?.saveId || null,
+      chatId,
+      hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
+      textHash: fnv1a(message.text),
+      selectedAssistantVariantHash: selectedAssistantVariantHash(message),
+      sourceRevision: state.runtimeTracking?.revision || 0,
+      externalPromptEnvironment: unknownExternalPromptEnvironment(observedAt),
+      visibility: message.visibility || null,
+      createdAt: observedAt
+    });
+  }
+
+  async function beginCoreTurnForIngress(sourceFrame, { ingressId, chatId } = {}) {
+    if (typeof coreTurnStore?.beginTurn !== 'function') return null;
+    return coreTurnStore.beginTurn(sourceFrame, {
+      transactionId: `txn:${sourceFrame.id}`,
+      ingressId,
+      chatId,
+      idempotencyKey: `begin:${ingressId}`
+    });
+  }
+
   function findIngress(state, ingressId) {
     return (state.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
   }
 
+  async function markCoreResponseRetryRequired(state, {
+    ingressId = null,
+    outcomeId = null,
+    turnId = null,
+    recoveryId = null,
+    reason = 'host-response-post-failure',
+    error = null
+  } = {}) {
+    if (typeof coreTurnStore?.markRecoveryRequired !== 'function') return null;
+    const ingress = findIngress(initializeCampaignRuntimeTracking(state), ingressId);
+    if (!ingress?.coreTransactionId) return null;
+    return coreTurnStore.markRecoveryRequired(ingress.coreTransactionId, {
+      id: recoveryId || `recovery:response:${ingressId || outcomeId || turnId || 'turn'}`,
+      reason,
+      responseRetry: true,
+      status: 'required',
+      ingressId,
+      outcomeId,
+      turnId,
+      sourceFrameId: ingress.sourceFrameId || null,
+      errorCode: error?.code || null,
+      errorHash: error ? fnv1a(`${error.code || ''}:${error.message || ''}`) : null,
+      allowedActions: ['retryResponse'],
+      idempotencyKey: `core-response-retry:${ingress.coreTransactionId}:${recoveryId || ingressId || outcomeId || turnId || 'turn'}`
+    });
+  }
+
   function messageHostMessageId(message = {}) {
     return compact(message.hostMessageId || message.id || String(message.index ?? ''));
+  }
+
+  function hostMessageText(hostMessageId = null, fallbackText = '') {
+    const id = compact(hostMessageId);
+    if (id && typeof host.chat.getMessage === 'function') {
+      const fetched = host.chat.getMessage(id);
+      return compact(fetched?.text || fetched?.mes || fetched?.content || fallbackText);
+    }
+    return compact(fallbackText);
+  }
+
+  function postCommitConversationPayloadForCommittedTurn({
+    ingressId = null,
+    turnId = null,
+    outcomeId = null,
+    committed = null,
+    playerMessage = null,
+    assistantMessageId = null,
+    assistantText = '',
+    sourceIngress = null,
+    resolutionMessage = null,
+    resolutionIngressId = null,
+    pendingInteractionId = null
+  } = {}) {
+    const sourceMessageId = playerMessage?.hostMessageId
+      || playerMessage?.id
+      || sourceIngress?.hostMessageId
+      || `${ingressId}:player`;
+    const sourceText = playerMessage?.text
+      || hostMessageText(sourceIngress?.hostMessageId || sourceMessageId, sourceIngress?.textPreview || '');
+    return {
+      ingressId,
+      resolutionIngressId: resolutionIngressId || null,
+      resolutionMessageId: resolutionMessage ? messageHostMessageId(resolutionMessage) : null,
+      resolutionTextHash: resolutionMessage?.text ? fnv1a(resolutionMessage.text) : null,
+      pendingInteractionId: pendingInteractionId || null,
+      turnId,
+      outcomeId,
+      resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
+      committed: true,
+      boundaryType: 'scene',
+      presentCharacterIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || [],
+      sourceAnchorRange: committed?.turnPacket?.provenance?.sourceAnchorRange || committed?.turnPacket?.sceneSnapshot?.sourceAnchorRange || null,
+      reconciliationRunId: committed?.turnPacket?.provenance?.reconciliationRunId || null,
+      outcomePacket: cloneJson(committed?.turnPacket?.outcomePacket || null),
+      commandLogPacket: cloneJson(committed?.turnPacket?.commandLogPacket || null),
+      commandBearingReviewPlan: cloneJson(committed?.turnPacket?.commandBearingReviewPlan || null),
+      continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
+      messages: [
+        {
+          id: sourceMessageId,
+          role: 'user',
+          text: sourceText || ''
+        },
+        {
+          id: assistantMessageId || `${ingressId}:directive-response`,
+          role: 'assistant',
+          text: assistantText || ''
+        }
+      ]
+    };
   }
 
   function ingressAliasRecentlyObserved(entry = {}, nowIso = '') {
@@ -1038,11 +1234,33 @@ export function createChatTurnOrchestrator({
     }) || null;
   }
 
+  function findIngressByHostMessageId(state, hostMessageId, chatId = '') {
+    const expectedHostMessageId = compact(hostMessageId || '');
+    if (!expectedHostMessageId) return null;
+    const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
+    return [...(tracking.ingressLedger || [])].reverse().find((entry) => (
+      entry
+      && compact(entry.hostMessageId || '') === expectedHostMessageId
+      && (!chatId || !entry.chatId || entry.chatId === chatId)
+    )) || null;
+  }
+
+  function ingressHasDependentResponse(state, ingress = null) {
+    if (!ingress) return false;
+    if (ingress.outcomeId || ingress.responseMessageId) return true;
+    const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
+    return (tracking.responseLedger || []).some((entry) => (
+      entry?.ingressId === ingress.id
+      || (ingress.outcomeId && entry?.outcomeId === ingress.outcomeId)
+      || (ingress.hostMessageId && entry?.ingressHostMessageId === ingress.hostMessageId)
+    ));
+  }
+
   function staleIngressResult(state, ingressId, message, stage) {
     const current = state ? findIngress(initializeCampaignRuntimeTracking(state), ingressId) : null;
     const expectedHostMessageId = messageHostMessageId(message);
     const expectedTextHash = fnv1a(message?.text || '');
-    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired']);
+    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired', 'canceled', 'awaitingRevision']);
     const reasons = [];
     if (!current) reasons.push('missing-ingress');
     if (current && staleStatuses.has(current.status)) reasons.push(`status:${current.status}`);
@@ -1063,6 +1281,50 @@ export function createChatTurnOrchestrator({
     };
   }
 
+  function pendingSourceStaleResult(state, pending = null, stage = 'before-pending-interaction-resolution') {
+    if (!pending?.ingressId) {
+      return {
+        handled: true,
+        stale: true,
+        responseStrategy: 'staleSource',
+        abortDefaultGeneration: true,
+        reason: 'source-ingress-stale',
+        stage,
+        staleReasons: ['missing-pending-ingress'],
+        record: null,
+        campaignState: cloneJson(state || getCampaignState() || null)
+      };
+    }
+    const sourceIngress = findIngress(state, pending.ingressId);
+    const sourceMessage = {
+      hostMessageId: sourceIngress?.hostMessageId || null,
+      id: sourceIngress?.hostMessageId || pending.ingressId,
+      text: hostMessageText(sourceIngress?.hostMessageId, sourceIngress?.textPreview || '')
+    };
+    return staleIngressResult(state, pending.ingressId, sourceMessage, stage);
+  }
+
+  function dependentSourceRecoveryResult(state, ingress, message, stage) {
+    const expectedHostMessageId = messageHostMessageId(message);
+    const expectedTextHash = fnv1a(message?.text || '');
+    const reasons = ['dependent-response'];
+    if (ingress?.status) reasons.push(`status:${ingress.status}`);
+    if (ingress?.invalidatedAt || ingress?.invalidationType) reasons.push('invalidated');
+    if (ingress && expectedHostMessageId && ingress.hostMessageId !== expectedHostMessageId) reasons.push('host-message-changed');
+    if (ingress && expectedTextHash && ingress.textHash !== expectedTextHash) reasons.push('text-hash-changed');
+    return {
+      handled: true,
+      stale: true,
+      responseStrategy: 'staleSource',
+      abortDefaultGeneration: true,
+      reason: 'source-ingress-stale',
+      stage,
+      staleReasons: [...new Set(reasons)],
+      record: cloneJson(ingress || null),
+      campaignState: cloneJson(state || getCampaignState() || null)
+    };
+  }
+
   function stateForIngressCheck(ingressId, fallbackState = null) {
     const current = getCampaignState();
     if (current && findIngress(initializeCampaignRuntimeTracking(current), ingressId)) return current;
@@ -1072,11 +1334,42 @@ export function createChatTurnOrchestrator({
 
   function stateWithIngressFromFallback(candidateState, fallbackState, ingressId) {
     let next = initializeCampaignRuntimeTracking(candidateState || fallbackState || getCampaignState());
-    if (!ingressId || findIngress(next, ingressId)) return next;
+    if (!ingressId) return next;
+    const existing = findIngress(next, ingressId);
     const fallback = fallbackState ? initializeCampaignRuntimeTracking(fallbackState) : null;
-    const fallbackIngress = (fallback ? findIngress(fallback, ingressId) : null)
-      || observedIngressRecords.get(ingressId)
-      || null;
+    const fallbackStateIngress = fallback ? findIngress(fallback, ingressId) : null;
+    const observedIngress = observedIngressRecords.get(ingressId) || null;
+    const fallbackIngress = fallbackStateIngress || observedIngress
+      ? {
+          ...(observedIngress ? cloneJson(observedIngress) : {}),
+          ...(fallbackStateIngress ? cloneJson(fallbackStateIngress) : {}),
+          playerSubmittedAt: fallbackStateIngress?.playerSubmittedAt || observedIngress?.playerSubmittedAt || null,
+          receivedAt: fallbackStateIngress?.receivedAt || observedIngress?.receivedAt || null,
+          sourceFrameId: fallbackStateIngress?.sourceFrameId || observedIngress?.sourceFrameId || null,
+          sourceFrame: fallbackStateIngress?.sourceFrame || observedIngress?.sourceFrame || null,
+          coreTransactionId: fallbackStateIngress?.coreTransactionId || observedIngress?.coreTransactionId || null
+        }
+      : null;
+    if (existing) {
+      if (!fallbackIngress) return next;
+      const patch = {};
+      for (const key of [
+        'playerSubmittedAt',
+        'receivedAt',
+        'hostMessageId',
+        'chatId',
+        'campaignId',
+        'textHash',
+        'sourceFrameId',
+        'sourceFrame',
+        'coreTransactionId'
+      ]) {
+        if ((existing[key] === null || existing[key] === undefined || existing[key] === '') && fallbackIngress[key] !== undefined) {
+          patch[key] = cloneJson(fallbackIngress[key]);
+        }
+      }
+      return Object.keys(patch).length ? updateTurnIngress(next, ingressId, patch) : next;
+    }
     if (!fallbackIngress) return next;
     return recordTurnIngress(next, fallbackIngress);
   }
@@ -1392,15 +1685,22 @@ export function createChatTurnOrchestrator({
 
   async function createIngress(state, message, chatId, ingressId) {
     const priorIngress = findIngress(state, ingressId);
+    const receivedAt = timestamp(now);
+    const sourceFrame = buildTurnSourceFrame(state, message, chatId, ingressId, receivedAt);
+    const coreTransaction = await beginCoreTurnForIngress(sourceFrame, { ingressId, chatId });
     const ingressRecord = {
       id: ingressId,
       hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
       chatId,
       campaignId: state.campaign?.id,
       textHash: fnv1a(message.text),
+      playerSubmittedAt: message.playerSubmittedAt || receivedAt,
       textPreview: message.text,
-      receivedAt: timestamp(now),
+      receivedAt,
       stateRevision: state.runtimeTracking?.revision || 0,
+      sourceFrameId: sourceFrame.id,
+      sourceFrame,
+      coreTransactionId: coreTransaction?.id || null,
       status: 'classifying'
     };
     observedIngressRecords.set(ingressId, cloneJson(ingressRecord));
@@ -1533,9 +1833,12 @@ export function createChatTurnOrchestrator({
     turnId = null,
     outcomeId = null,
     responseKind,
+    idempotencyKey = null,
+    timing = null,
     activityReporter = null
   }) {
-    setCampaignState(state);
+    const dispatchState = stateWithIngressFromFallback(state, state, ingressId);
+    setCampaignState(dispatchState);
     try {
       reportActivity(activityReporter, {
         phase: strategy === 'injectAndContinue' ? 'delegatingHostGeneration' : 'writingResponse',
@@ -1547,23 +1850,27 @@ export function createChatTurnOrchestrator({
         outcomeId
       });
       const result = await responseDispatcher.dispatch({
-        campaignState: state,
+        campaignState: dispatchState,
         ingressId,
         strategy,
         text,
         turnId,
         outcomeId,
         responseKind,
-        campaignId: state.campaign?.id,
+        idempotencyKey,
+        campaignId: dispatchState.campaign?.id,
         packageData: typeof getPackageData === 'function' ? getPackageData() : null,
         crewDataset: typeof getCrewDataset === 'function' ? getCrewDataset() : null,
         shipDataset: typeof getShipDataset === 'function' ? getShipDataset() : null,
         metadata: {
           classification: decision.classification,
-          workerPlan: cloneJson(decision.workerPlan || {})
+          workerPlan: cloneJson(decision.workerPlan || {}),
+          ...(timing?.directiveGenerationStartedAt ? {
+            directiveGenerationStartedAt: timing.directiveGenerationStartedAt
+          } : {})
         }
       });
-      let next = stateWithIngressFromFallback(result?.campaignState || state, state, ingressId);
+      let next = stateWithIngressFromFallback(result?.campaignState || dispatchState, dispatchState, ingressId);
       const hostMessageId = result?.response?.hostMessageId
         || result?.posted?.hostMessageId
         || result?.entry?.hostMessageId
@@ -1612,6 +1919,18 @@ export function createChatTurnOrchestrator({
         failed = marked.campaignState;
       }
       const recoveryId = `recovery:response:${ingressId || outcomeId || turnId || 'turn'}`;
+      try {
+        await markCoreResponseRetryRequired(failed, {
+          ingressId,
+          outcomeId,
+          turnId,
+          recoveryId,
+          reason: 'host-response-post-failure',
+          error: failure
+        });
+      } catch {
+        // CORE retry recovery is best-effort during the bridge; old recovery remains authoritative.
+      }
       failed = recordRecoveryEvent(failed, {
         id: recoveryId,
         type: 'hostResponsePostFailure',
@@ -1624,6 +1943,7 @@ export function createChatTurnOrchestrator({
           text,
           turnId,
           responseKind,
+          responseIdempotencyKey: `directive-response-retry:${recoveryId}`,
           classification: decision.classification,
           workerPlan: cloneJson(decision.workerPlan || {}),
           error: failure
@@ -2030,39 +2350,43 @@ export function createChatTurnOrchestrator({
 
   async function handleCounsel(state, ingressId, decision, message, activityReporter = null) {
     const recordedAt = timestamp(now);
-    let advisory = fallbackAdvisoryRecord({ state, ingressId, message, nowValue: recordedAt });
+    const advisory = fallbackAdvisoryRecord({ state, ingressId, message, nowValue: recordedAt });
     reportActivity(activityReporter, {
       phase: 'counsel',
       mode: 'blocking',
       classification: decision.classification,
       ingressId
     });
-    if (generationRouter?.generate) {
-      const generated = await generationRouter.generate('missionDirectorAdvisor', {
-        systemPrompt: 'Create a player-safe Directive UI advisory record as compact JSON. Do not write chat prose, narration, dialogue, Markdown, or hidden facts.',
-        prompt: advisoryPrompt(state, message.text, decision),
-        maxTokens: 650
-      });
-      const candidate = generated?.ok
-        ? normalizeGeneratedBlock(generated.response?.text || generated.response?.content || '')
-        : '';
-      const parsed = parseJsonObjectText(candidate);
-      if (parsed) advisory = normalizeAdvisoryRecord(parsed, { state, ingressId, message, nowValue: recordedAt });
-    }
-    const stale = currentSourceStaleResult(ingressId, message, 'before-counsel-record', state);
+    const stale = currentSourceStaleResult(ingressId, message, 'before-counsel-release', state);
     if (stale) return stale;
-    const nextCandidate = cloneJson(state);
-    nextCandidate.commandCompetence = nextCandidate.commandCompetence || {};
-    nextCandidate.commandCompetence.counselRequestLedger = nextCandidate.commandCompetence.counselRequestLedger || [];
-    if (!nextCandidate.commandCompetence.counselRequestLedger.some((entry) => entry.id === advisory.id)) {
-      nextCandidate.commandCompetence.counselRequestLedger.push(advisory);
-    }
-    let next = await stateDeltaGateway.commit(nextCandidate, {
-      source: 'chatCounsel',
-      reason: 'Player-safe advisory note recorded for Mission, Log, and Crew surfaces.',
-      summary: advisory.logSummary || advisory.subject,
-      domains: ['commandCompetence'],
+    const dispatched = await dispatchAndRecord({
+      state,
       ingressId,
+      decision,
+      strategy: 'injectAndContinue',
+      responseKind: 'hostGeneration',
+      activityReporter
+    });
+    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision, {
+      advisory: cloneJson(advisory)
+    });
+    if (recoveryResult) return recoveryResult;
+    let next = await updateIngressState(dispatched.state, ingressId, {
+      status: 'complete',
+      classification: cloneJson(decision),
+      workerPlan: cloneJson(decision.workerPlan),
+      responseStrategy: 'injectAndContinue',
+      responseMessageId: null,
+      advisoryId: advisory.id,
+      completedAt: timestamp(now)
+    }, 'Counsel host generation released; fallback advisory ready for background enrichment.');
+    next = await commitAdvisoryRecord({
+      state: next,
+      advisory,
+      ingressId,
+      source: 'chatCounsel',
+      reason: 'Deterministic player-safe advisory note recorded after host generation release.',
+      summary: advisory.logSummary || advisory.subject,
       stable: true
     });
     reportActivity(activityReporter, {
@@ -2076,33 +2400,129 @@ export function createChatTurnOrchestrator({
       classification: decision.classification,
       ingressId
     });
-    const dispatched = await dispatchAndRecord({
-      state: next,
-      ingressId,
-      decision,
-      strategy: 'injectAndContinue',
-      responseKind: 'hostGeneration',
-      activityReporter
-    });
-    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision, {
-      advisory: cloneJson(advisory)
-    });
-    if (recoveryResult) return recoveryResult;
-    next = await updateIngressState(dispatched.state, ingressId, {
-      status: 'complete',
-      classification: cloneJson(decision),
-      workerPlan: cloneJson(decision.workerPlan),
-      responseStrategy: 'injectAndContinue',
-      responseMessageId: null,
-      advisoryId: advisory.id,
-      completedAt: timestamp(now)
-    }, 'Counsel advisory recorded and delegated to host generation.');
     scheduleTurnSidecars(decision, {
       ingressId,
       classification: decision.classification,
       playerText: message.text,
       advisoryId: advisory.id
     }, activityReporter);
+    const advisoryEnrichment = typeof scheduleAdvisoryEnrichmentProcessor === 'function'
+      ? scheduleAdvisoryEnrichmentProcessor({
+          ingressId,
+          advisoryId: advisory.id,
+          sourceMessageId: messageHostMessageId(message),
+          playerTextHash: fnv1a(message.text || ''),
+          fallbackAdvisoryHash: fnv1a(JSON.stringify(advisory)),
+          run: async ({ isSourceCurrent = null } = {}) => {
+            const sourceCurrent = () => (typeof isSourceCurrent === 'function' ? isSourceCurrent() !== false : true);
+            if (!sourceCurrent()) {
+              return {
+                kind: 'directive.advisoryEnrichmentResult',
+                ok: false,
+                scheduled: true,
+                status: 'stale',
+                applied: false,
+                reason: 'source-stale-before-provider',
+                advisoryId: advisory.id,
+                ingressId
+              };
+            }
+            const generated = generationRouter?.generate
+              ? await generationRouter.generate('missionDirectorAdvisor', {
+                  systemPrompt: 'Create a player-safe Directive UI advisory record as compact JSON. Do not write chat prose, narration, dialogue, Markdown, or hidden facts.',
+                  prompt: advisoryPrompt(state, message.text, decision),
+                  maxTokens: 650,
+                  metadata: {
+                    coreDiagnosticTarget: 'advisoryEnrichment',
+                    ingressId,
+                    advisoryId: advisory.id,
+                    sourceMessageId: messageHostMessageId(message),
+                    playerTextHash: fnv1a(message.text || ''),
+                    fallbackAdvisoryHash: fnv1a(JSON.stringify(advisory))
+                  }
+                })
+              : null;
+            if (!sourceCurrent()) {
+              return {
+                kind: 'directive.advisoryEnrichmentResult',
+                ok: false,
+                scheduled: true,
+                status: 'stale',
+                applied: false,
+                reason: 'source-stale-after-provider',
+                advisoryId: advisory.id,
+                ingressId
+              };
+            }
+            const candidate = generated?.ok
+              ? normalizeGeneratedBlock(generated.response?.text || generated.response?.content || '')
+              : '';
+            const parsed = parseJsonObjectText(candidate);
+            if (!parsed) {
+              return {
+                kind: 'directive.advisoryEnrichmentResult',
+                ok: generated?.ok !== false,
+                scheduled: true,
+                status: generated?.ok === false ? 'failed' : 'noChange',
+                applied: false,
+                reason: generated?.ok === false ? 'provider-failed' : 'no-valid-advisory-json',
+                advisoryId: advisory.id,
+                ingressId,
+                error: generated?.ok === false ? cloneJson(generated.error || null) : null
+              };
+            }
+            const enriched = {
+              ...normalizeAdvisoryRecord(parsed, { state: getCampaignState() || state, ingressId, message, nowValue: recordedAt }),
+              id: advisory.id,
+              source: 'chatCounsel.enriched',
+              sourceIngressId: ingressId,
+              sourceMessageId: advisory.sourceMessageId,
+              enrichedAt: timestamp(now),
+              fallbackHash: fnv1a(JSON.stringify(advisory))
+            };
+            const current = initializeCampaignRuntimeTracking(getCampaignState() || next);
+            const staleBeforeApply = currentSourceStaleResult(ingressId, message, 'before-counsel-enrichment-apply', current);
+            if (staleBeforeApply || !sourceCurrent()) {
+              return {
+                kind: 'directive.advisoryEnrichmentResult',
+                ok: false,
+                scheduled: true,
+                status: 'stale',
+                applied: false,
+                reason: 'source-stale-before-apply',
+                advisoryId: advisory.id,
+                ingressId
+              };
+            }
+            let committed = await commitAdvisoryRecord({
+              state: current,
+              advisory: enriched,
+              ingressId,
+              source: 'chatCounsel.enrichment',
+              reason: 'Player-safe advisory note enriched in background after host generation release.',
+              summary: enriched.logSummary || enriched.subject,
+              stable: true
+            });
+            committed = await syncPrompt(committed, 'Prompt context synchronized after advisory enrichment.', promptFrameForMessage(committed, message, decision), activityReporter, {
+              source: 'counselRequestEnrichment',
+              classification: decision.classification,
+              ingressId,
+              activityMode: 'background'
+            });
+            return {
+              kind: 'directive.advisoryEnrichmentResult',
+              ok: true,
+              scheduled: true,
+              status: 'applied',
+              applied: true,
+              advisoryId: advisory.id,
+              ingressId,
+              advisoryHash: fnv1a(JSON.stringify(enriched)),
+              campaignState: cloneJson(committed)
+            };
+          }
+        })
+      : null;
     return {
       handled: true,
       responseStrategy: 'injectAndContinue',
@@ -2110,6 +2530,7 @@ export function createChatTurnOrchestrator({
       decision,
       campaignState: cloneJson(next),
       advisory: cloneJson(advisory),
+      advisoryEnrichment: cloneJson(advisoryEnrichment || null),
       response: cloneJson(dispatched.result.response)
     };
   }
@@ -2232,7 +2653,8 @@ export function createChatTurnOrchestrator({
       committed = await commitProvisionalDirectorTurn({
         readiedCommandBearing,
         generateNarration: true,
-        generateCommandLogSummary: true
+        generateCommandLogSummary: true,
+        deferCommandLogSummary: true
       });
     } catch (error) {
       if (readiedCommandBearing?.readiedId || readiedCommandBearing?.id) {
@@ -2249,6 +2671,7 @@ export function createChatTurnOrchestrator({
     setCampaignState(next);
     const outcomeId = committed?.turnPacket?.outcomePacket?.id || provisionalOutcomeId;
     const generatedText = narrationText(committed);
+    const directiveGenerationStartedAt = narrationGenerationStartedAt(committed);
     const text = generatedText || localOutcomeNarration(committed);
     next = await commitAdjudicatedTimeBoundary(next, {
       ingressId,
@@ -2268,10 +2691,12 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId,
       responseKind: 'committedOutcome',
+      timing: { directiveGenerationStartedAt },
       activityReporter
     });
     next = dispatched.state;
     let terminalCheckpoint = null;
+    let terminalCheckpointSettlement = null;
     const terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
       || committed?.terminalDecision?.detection?.decisionId
       || activeTerminalInteractionId(next)
@@ -2280,8 +2705,30 @@ export function createChatTurnOrchestrator({
       terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
       next = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || next);
       setCampaignState(next);
+      terminalCheckpointSettlement = terminalCheckpoint?.terminalCheckpointSettlement || await recordTerminalCheckpointSettlementEvent({
+        kind: 'terminalOutcomeCheckpointPosted',
+        ingressId,
+        turnId,
+        outcomeId,
+        interactionId: terminalInteractionId,
+        checkpointHostMessageId: terminalCheckpoint?.posted?.hostMessageId || terminalCheckpoint?.posted?.id || null,
+        status: terminalCheckpoint?.ok === false ? 'failed' : (terminalCheckpoint?.duplicate ? 'duplicate' : 'posted'),
+        reason: terminalCheckpoint?.reason || null
+      });
     }
     if (!committed?.narrationResult?.ok) {
+      try {
+        await markCoreResponseRetryRequired(next, {
+          ingressId,
+          outcomeId,
+          turnId,
+          recoveryId: `recovery:narration:${outcomeId}`,
+          reason: 'provider-failure-after-mechanics-commit',
+          error: committed?.narrationResult?.error || null
+        });
+      } catch {
+        // CORE retry recovery is best-effort during the bridge; old recovery remains authoritative.
+      }
       next = recordRecoveryEvent(next, {
         id: `recovery:narration:${outcomeId}`,
         type: 'providerFailureAfterMechanicsCommit',
@@ -2309,7 +2756,16 @@ export function createChatTurnOrchestrator({
       completedAt: timestamp(now)
     }, `Completed consequential chat turn ${turnId}.`);
     let postCommitConversation = null;
-    if (typeof postCommitConversationProcessor === 'function') {
+    const postCommitConversationPayload = postCommitConversationPayloadForCommittedTurn({
+      ingressId,
+      turnId,
+      outcomeId,
+      committed,
+      playerMessage: message,
+      assistantMessageId: dispatched.result.response?.hostMessageId || null,
+      assistantText: text
+    });
+    if (typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
       try {
         reportActivity(activityReporter, {
           phase: 'postCommitConversation',
@@ -2319,33 +2775,7 @@ export function createChatTurnOrchestrator({
           turnId,
           outcomeId
         });
-        postCommitConversation = await postCommitConversationProcessor({
-          ingressId,
-          turnId,
-          outcomeId,
-          resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
-          committed: true,
-          boundaryType: 'scene',
-          presentCharacterIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || [],
-          sourceAnchorRange: committed?.turnPacket?.provenance?.sourceAnchorRange || committed?.turnPacket?.sceneSnapshot?.sourceAnchorRange || null,
-          reconciliationRunId: committed?.turnPacket?.provenance?.reconciliationRunId || null,
-          outcomePacket: cloneJson(committed?.turnPacket?.outcomePacket || null),
-          commandLogPacket: cloneJson(committed?.turnPacket?.commandLogPacket || null),
-          commandBearingReviewPlan: cloneJson(committed?.turnPacket?.commandBearingReviewPlan || null),
-          continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
-          messages: [
-            {
-              id: message.hostMessageId || message.id || `${ingressId}:player`,
-              role: 'user',
-              text: message.text || ''
-            },
-            {
-              id: dispatched.result.response?.hostMessageId || `${ingressId}:directive-response`,
-              role: 'assistant',
-              text
-            }
-          ]
-        });
+        postCommitConversation = await postCommitConversationProcessor(postCommitConversationPayload);
         if (postCommitConversation?.campaignState) {
           next = initializeCampaignRuntimeTracking(postCommitConversation.campaignState);
           setCampaignState(next);
@@ -2396,6 +2826,27 @@ export function createChatTurnOrchestrator({
       directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
       visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
     }, activityReporter);
+    const commandLogSummaryResult = typeof scheduleCommandLogSummaryForCommittedTurn === 'function'
+      ? scheduleCommandLogSummaryForCommittedTurn({
+          turnPacket: committed?.turnPacket || null,
+          ingressId,
+          turnId,
+          outcomeId,
+          reason: 'postVisibleResponse'
+        })
+      : null;
+    if (typeof schedulePostCommitConversationProcessor === 'function') {
+      reportActivity(activityReporter, {
+        phase: 'postCommitConversation',
+        mode: 'background',
+        status: 'queued',
+        classification: decision.classification,
+        ingressId,
+        turnId,
+        outcomeId
+      });
+      postCommitConversation = schedulePostCommitConversationProcessor(postCommitConversationPayload);
+    }
     return {
       handled: true,
       responseStrategy: 'directivePosted',
@@ -2403,7 +2854,9 @@ export function createChatTurnOrchestrator({
       decision,
       campaignState: cloneJson(next),
       response: cloneJson(dispatched.result.response),
+      commandLogSummaryResult: cloneJson(commandLogSummaryResult),
       terminalCheckpoint: cloneJson(terminalCheckpoint || null),
+      terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
       postCommitConversation: cloneJson(postCommitConversation || null),
       committed: true
     };
@@ -2474,7 +2927,18 @@ export function createChatTurnOrchestrator({
       const resolvedTerminal = await resolveTerminalOutcomeDecision({
         interactionId: pending.id,
         action: resolution.action || 'replayFromCheckpoint',
+        resolutionIngressId: ingressId,
+        resolutionHostMessageId: messageHostMessageId(message),
         playerArgument: message.text || null
+      });
+      const terminalCheckpointSettlement = resolvedTerminal?.terminalCheckpointSettlement || await recordTerminalCheckpointSettlementEvent({
+        kind: 'terminalOutcomeCheckpointResolved',
+        ingressId,
+        interactionId: pending.id,
+        action: resolution.action || 'replayFromCheckpoint',
+        resolutionHostMessageId: messageHostMessageId(message),
+        status: resolvedTerminal?.ok === false ? 'failed' : 'resolved',
+        reason: resolvedTerminal?.reason || null
       });
       let next = initializeCampaignRuntimeTracking(resolvedTerminal?.campaignState || getCampaignState() || state);
       const ingressPatch = {
@@ -2509,12 +2973,16 @@ export function createChatTurnOrchestrator({
         resolvedPendingInteraction: resolvedTerminal.ok === true,
         pendingInteractionId: pending.id,
         terminalOutcomeDecision: cloneJson(resolvedTerminal),
+        terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
         campaignState: cloneJson(next)
       };
     }
+    const stalePendingSource = pendingSourceStaleResult(state, pending, 'before-pending-interaction-source-resolution');
+    if (stalePendingSource) return stalePendingSource;
     const resolved = await resolveInteraction({
       interactionId: pending.id,
       action: resolution.action || 'accept',
+      resolutionMessage: message,
       activityReporter
     });
     let next = initializeCampaignRuntimeTracking(getCampaignState() || state);
@@ -2559,6 +3027,10 @@ export function createChatTurnOrchestrator({
       resolvedPendingInteraction: true,
       pendingInteractionId: pending.id,
       campaignState: cloneJson(next),
+      commandLogSummaryResult: cloneJson(resolved.commandLogSummaryResult || null),
+      postCommitConversation: cloneJson(resolved.postCommitConversation || null),
+      terminalCheckpoint: cloneJson(resolved.terminalCheckpoint || null),
+      terminalCheckpointSettlement: cloneJson(resolved.terminalCheckpointSettlement || null),
       response: cloneJson(resolved.response || null)
     };
   }
@@ -2566,6 +3038,7 @@ export function createChatTurnOrchestrator({
   async function resolveInteraction({
     interactionId = null,
     action = 'accept',
+    resolutionMessage = null,
     activityReporter = null
   } = {}) {
     let state = initializeCampaignRuntimeTracking(getCampaignState());
@@ -2575,6 +3048,18 @@ export function createChatTurnOrchestrator({
     if (!interaction) return { ok: false, reason: 'pending-interaction-not-found' };
 
     const normalizedAction = compact(action || 'accept').toLowerCase();
+    const stalePendingSource = ['revise', 'cancel', 'dismiss'].includes(normalizedAction)
+      ? null
+      : pendingSourceStaleResult(state, interaction, 'before-pending-interaction-direct-resolution');
+    if (stalePendingSource) {
+      return {
+        ok: false,
+        stale: true,
+        reason: 'source-ingress-stale',
+        staleResult: cloneJson(stalePendingSource),
+        campaignState: cloneJson(state)
+      };
+    }
     if (['revise', 'cancel', 'dismiss'].includes(normalizedAction)) {
       await discardProvisionalDirectorTurn?.();
       state = initializeCampaignRuntimeTracking(getCampaignState() || state);
@@ -2615,13 +3100,15 @@ export function createChatTurnOrchestrator({
       confirmWarnings: interaction.kind === 'riskConfirmationNeeded' || normalizedAction === 'confirm',
       confirmedWarningIds: [],
       generateNarration: true,
-      generateCommandLogSummary: true
+      generateCommandLogSummary: true,
+      deferCommandLogSummary: true
     });
     state = initializeCampaignRuntimeTracking(committed?.campaignState || getCampaignState() || state);
     setCampaignState(state);
     const outcomeId = committed?.turnPacket?.outcomePacket?.id || interaction.outcomeId || null;
     const turnId = committed?.turnPacket?.turnId || committed?.turnPacket?.id || interaction.turnId || null;
     const generatedText = narrationText(committed);
+    const directiveGenerationStartedAt = narrationGenerationStartedAt(committed);
     const text = generatedText || localOutcomeNarration(committed);
     const resolutionIngressId = `${interaction.ingressId}:resolution:${interaction.id}`;
     const dispatched = await dispatchAndRecord({
@@ -2636,10 +3123,12 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId,
       responseKind: 'committedOutcome',
+      timing: { directiveGenerationStartedAt },
       activityReporter
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
     let terminalCheckpoint = null;
+    let terminalCheckpointSettlement = null;
     const terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
       || committed?.terminalDecision?.detection?.decisionId
       || activeTerminalInteractionId(state)
@@ -2648,6 +3137,18 @@ export function createChatTurnOrchestrator({
       terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
       state = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || state);
       setCampaignState(state);
+      terminalCheckpointSettlement = terminalCheckpoint?.terminalCheckpointSettlement || await recordTerminalCheckpointSettlementEvent({
+        kind: 'terminalOutcomeCheckpointPosted',
+        ingressId: interaction.ingressId,
+        resolutionIngressId,
+        pendingInteractionId: interaction.id,
+        turnId,
+        outcomeId,
+        interactionId: terminalInteractionId,
+        checkpointHostMessageId: terminalCheckpoint?.posted?.hostMessageId || terminalCheckpoint?.posted?.id || null,
+        status: terminalCheckpoint?.ok === false ? 'failed' : (terminalCheckpoint?.duplicate ? 'duplicate' : 'posted'),
+        reason: terminalCheckpoint?.reason || null
+      });
     }
     state = resolvePendingInteraction(state, interaction.id, {
       status: 'resolved',
@@ -2666,6 +3167,18 @@ export function createChatTurnOrchestrator({
       completedAt: timestamp(now)
     });
     if (!committed?.narrationResult?.ok) {
+      try {
+        await markCoreResponseRetryRequired(state, {
+          ingressId: interaction.ingressId,
+          outcomeId,
+          turnId,
+          recoveryId: `recovery:narration:${outcomeId}`,
+          reason: 'provider-failure-after-mechanics-commit',
+          error: committed?.narrationResult?.error || null
+        });
+      } catch {
+        // CORE retry recovery is best-effort during the bridge; old recovery remains authoritative.
+      }
       state = recordRecoveryEvent(state, {
         id: `recovery:narration:${outcomeId}`,
         type: 'providerFailureAfterMechanicsCommit',
@@ -2709,11 +3222,86 @@ export function createChatTurnOrchestrator({
       directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
       visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
     }, activityReporter);
+    const commandLogSummaryResult = typeof scheduleCommandLogSummaryForCommittedTurn === 'function'
+      ? scheduleCommandLogSummaryForCommittedTurn({
+          turnPacket: committed?.turnPacket || null,
+          ingressId: interaction.ingressId,
+          turnId,
+          outcomeId,
+          reason: 'postVisibleResponse'
+        })
+      : null;
+    let postCommitConversation = null;
+    const postCommitConversationPayload = postCommitConversationPayloadForCommittedTurn({
+      ingressId: interaction.ingressId,
+      resolutionIngressId,
+      pendingInteractionId: interaction.id,
+      turnId,
+      outcomeId,
+      committed,
+      resolutionMessage,
+      playerMessage: null,
+      assistantMessageId: dispatched.result.response?.hostMessageId || dispatched.result.entry?.hostMessageId || null,
+      assistantText: text,
+      sourceIngress: findIngress(state, interaction.ingressId)
+    });
+    if (typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
+      try {
+        reportActivity(activityReporter, {
+          phase: 'postCommitConversation',
+          mode: 'blocking',
+          classification: interaction.kind,
+          ingressId: interaction.ingressId,
+          turnId,
+          outcomeId,
+          pendingInteractionId: interaction.id,
+          resolutionIngressId
+        });
+        postCommitConversation = await postCommitConversationProcessor(postCommitConversationPayload);
+        if (postCommitConversation?.campaignState) {
+          state = initializeCampaignRuntimeTracking(postCommitConversation.campaignState);
+          setCampaignState(state);
+        }
+      } catch (error) {
+        state = recordRecoveryEvent(initializeCampaignRuntimeTracking(getCampaignState() || state), {
+          id: `recovery:post-commit-conversation:${outcomeId}`,
+          type: 'postCommitConversationFailed',
+          status: 'open',
+          ingressId: interaction.ingressId,
+          outcomeId,
+          recordedAt: timestamp(now),
+          details: {
+            turnId,
+            pendingInteractionId: interaction.id,
+            resolutionIngressId,
+            error: { message: error?.message || String(error) }
+          }
+        });
+        await persistState(state, `Recorded post-commit conversation recovery issue for ${outcomeId}.`);
+      }
+    }
+    if (typeof schedulePostCommitConversationProcessor === 'function') {
+      reportActivity(activityReporter, {
+        phase: 'postCommitConversation',
+        mode: 'background',
+        status: 'queued',
+        classification: interaction.kind,
+        ingressId: interaction.ingressId,
+        turnId,
+        outcomeId,
+        pendingInteractionId: interaction.id,
+        resolutionIngressId
+      });
+      postCommitConversation = schedulePostCommitConversationProcessor(postCommitConversationPayload);
+    }
     return {
       ok: true,
       action: normalizedAction,
       outcomeId,
+      commandLogSummaryResult: cloneJson(commandLogSummaryResult),
+      postCommitConversation: cloneJson(postCommitConversation || null),
       terminalCheckpoint: cloneJson(terminalCheckpoint || null),
+      terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
       response: cloneJson(dispatched.result.response || dispatched.result.entry || null),
       campaignState: cloneJson(state)
     };
@@ -2741,7 +3329,8 @@ export function createChatTurnOrchestrator({
       text: details.text,
       turnId: details.turnId || null,
       outcomeId: recovery.outcomeId || null,
-      responseKind: details.responseKind || 'committedOutcome'
+      responseKind: details.responseKind || 'committedOutcome',
+      idempotencyKey: details.responseIdempotencyKey || `directive-response-retry:${recovery.id}`
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
     state = resolveRecoveryEvent(state, recovery.id, {
@@ -2811,6 +3400,14 @@ export function createChatTurnOrchestrator({
         decision: cloneJson(existing.classification),
         record: cloneJson(existing)
       };
+    }
+    const existingByHostMessage = findIngressByHostMessageId(state, hostMessageId, chatId);
+    if (
+      existingByHostMessage
+      && existingByHostMessage.id !== existing?.id
+      && ingressHasDependentResponse(state, existingByHostMessage)
+    ) {
+      return dependentSourceRecoveryResult(state, existingByHostMessage, message, 'before-reobserve-dependent-source');
     }
 
     state = await createIngress(state, message, chatId, ingressId);

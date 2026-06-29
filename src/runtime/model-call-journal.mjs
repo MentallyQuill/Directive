@@ -14,13 +14,14 @@ function timestampFromNow(now) {
 }
 
 export function maxModelCallEventSequence(state = null) {
+  const resumeSequence = Number(state?.runtimeResume?.modelCallEventSequence || 0);
   const journal = state?.runtimeTracking?.modelCallJournal;
-  if (!Array.isArray(journal)) return 0;
+  if (!Array.isArray(journal)) return Number.isFinite(resumeSequence) ? resumeSequence : 0;
   return journal.reduce((max, entry) => {
     const match = /^model-call:(\d+):/.exec(String(entry?.id || ''));
     const sequence = match ? Number(match[1]) : 0;
     return Number.isFinite(sequence) && sequence > max ? sequence : max;
-  }, 0);
+  }, Number.isFinite(resumeSequence) ? resumeSequence : 0);
 }
 
 export function gameplayStateFingerprint(state) {
@@ -34,10 +35,48 @@ export function gameplayStateFingerprint(state) {
 export function createRuntimeModelCallJournal({
   now = null,
   getCampaignState = () => null,
-  setCampaignState = () => {}
+  setCampaignState = () => {},
+  resolveCoreDiagnosticTarget = null,
+  appendCoreDiagnostic = null
 } = {}) {
   let modelCallEventSequence = 0;
   const pendingModelCallEvents = [];
+  let coreDiagnosticQueue = Promise.resolve();
+
+  function enqueueCoreDiagnostic(modelCallEvent = {}) {
+    if (typeof appendCoreDiagnostic !== 'function' || typeof resolveCoreDiagnosticTarget !== 'function') return;
+    let target = null;
+    try {
+      target = resolveCoreDiagnosticTarget(modelCallEvent);
+    } catch {
+      target = null;
+    }
+    if (!target?.transactionId) return;
+    const diagnosticEvent = {
+      type: 'modelCall',
+      id: `core-diagnostic:${modelCallEvent.id}`,
+      modelCallId: modelCallEvent.id,
+      roleId: modelCallEvent.roleId || null,
+      providerKind: modelCallEvent.providerKind || null,
+      status: modelCallEvent.status || null,
+      providerId: modelCallEvent.providerId || null,
+      model: modelCallEvent.model || null,
+      requestHash: modelCallEvent.requestHash || null,
+      parseStatus: modelCallEvent.parseStatus || null,
+      validationStatus: modelCallEvent.validationStatus || null,
+      appliedStatus: modelCallEvent.appliedStatus || null,
+      latencyMs: modelCallEvent.latencyMs ?? null,
+      retryable: modelCallEvent.retryable === true,
+      errorCode: modelCallEvent.errorCode || null,
+      recordedAt: modelCallEvent.recordedAt || timestampFromNow(now),
+      ingressId: target.ingressId || null,
+      sourceFrameId: target.sourceFrameId || null,
+      hostMessageId: target.hostMessageId || null
+    };
+    coreDiagnosticQueue = coreDiagnosticQueue
+      .then(() => appendCoreDiagnostic(target.transactionId, diagnosticEvent))
+      .catch(() => null);
+  }
 
   function synchronize(state = getCampaignState()) {
     modelCallEventSequence = Math.max(modelCallEventSequence, maxModelCallEventSequence(state));
@@ -70,11 +109,17 @@ export function createRuntimeModelCallJournal({
     if (campaignState) {
       setCampaignState(applyPending(campaignState));
     }
+    enqueueCoreDiagnostic(modelCallEvent);
     return cloneJson(modelCallEvent);
+  }
+
+  async function flushCoreDiagnostics() {
+    await coreDiagnosticQueue;
   }
 
   return Object.freeze({
     applyPending,
+    flushCoreDiagnostics,
     record,
     synchronize
   });

@@ -35,7 +35,11 @@ chat.continueHostGeneration = async (payload = {}) => {
   return {
     ok: true,
     skipped: false,
-    reason: payload.reason || null
+    released: true,
+    waitForCompletion: payload.waitForCompletion,
+    reason: payload.reason || null,
+    generationStartedAt: now(),
+    hostGenerationReleasedAt: now()
   };
 };
 const prompt = createFakePromptAdapter();
@@ -60,7 +64,10 @@ const previewCalls = [];
 const commitCalls = [];
 const responseSwipeGenerationCalls = [];
 const postCommitConversationCalls = [];
+const advisoryEnrichmentCalls = [];
 const promptFrames = [];
+const coreBeginCalls = [];
+const coreAdvanceCalls = [];
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
 let nextPreviewOutcomeBand = null;
@@ -81,8 +88,27 @@ const stateDeltaGateway = createStateDeltaGateway({
   persist: persistCampaignState,
   now
 });
+const coreTurnStore = {
+  async beginTurn(sourceFrame, options = {}) {
+    coreBeginCalls.push({ sourceFrame: cloneJson(sourceFrame), options: cloneJson(options) });
+    return {
+      id: options.transactionId || `txn:${sourceFrame.id}`,
+      phase: 'observed',
+      sourceFrameId: sourceFrame.id
+    };
+  },
+  async advanceTurn(transactionId, phasePatch = {}) {
+    coreAdvanceCalls.push({ transactionId, phasePatch: cloneJson(phasePatch) });
+    return {
+      id: transactionId,
+      phase: phasePatch.phase || 'observed',
+      route: phasePatch.route || null
+    };
+  }
+};
 const responseDispatcher = createResponseDispatcher({
   host: { chat },
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persist: persistCampaignState,
@@ -226,6 +252,7 @@ const orchestrator = createChatTurnOrchestrator({
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -327,9 +354,15 @@ const orchestrator = createChatTurnOrchestrator({
       outcomeId: turnPacket.outcomePacket.id,
       readiedCommandBearing: cloneJson(readiedCommandBearing)
     });
+    const directiveGenerationStartedAt = `2026-06-22T01:30:${String(commitCalls.length).padStart(2, '0')}.000Z`;
     const narrationResult = nextNarrationResult || {
       ok: true,
-      narration: { text: `Committed narration for ${turnPacket.outcomePacket.id}.` }
+      directiveGenerationStartedAt,
+      narration: {
+        text: `Committed narration for ${turnPacket.outcomePacket.id}.`,
+        generatedAt: directiveGenerationStartedAt,
+        directiveGenerationStartedAt
+      }
     };
     nextNarrationResult = null;
     return {
@@ -365,9 +398,35 @@ const orchestrator = createChatTurnOrchestrator({
       return Promise.resolve({ ok: true });
     }
   },
-  postCommitConversationProcessor: async (conversation) => {
+  schedulePostCommitConversationProcessor: (conversation) => {
     postCommitConversationCalls.push(cloneJson(conversation));
-    return { ok: true, campaignState: cloneJson(campaignState) };
+    return {
+      kind: 'directive.postCommitConversationScheduled',
+      scheduled: true,
+      status: 'queued',
+      outcomeId: conversation.outcomeId || null
+    };
+  },
+  scheduleAdvisoryEnrichmentProcessor: (payload) => {
+    advisoryEnrichmentCalls.push({
+      payload: {
+        ingressId: payload.ingressId || null,
+        advisoryId: payload.advisoryId || null,
+        sourceMessageId: payload.sourceMessageId || null,
+        playerTextHash: payload.playerTextHash || null,
+        fallbackAdvisoryHash: payload.fallbackAdvisoryHash || null
+      },
+      hasRun: typeof payload.run === 'function',
+      hostGenerationContinuationCount: hostGenerationContinuations.length,
+      missionDirectorAdvisorCallCount: responseSwipeGenerationCalls.filter((call) => call.roleId === 'missionDirectorAdvisor').length
+    });
+    return {
+      kind: 'directive.advisoryEnrichmentScheduled',
+      scheduled: true,
+      status: 'queued',
+      ingressId: payload.ingressId || null,
+      advisoryId: payload.advisoryId || null
+    };
   },
   now
 });
@@ -486,15 +545,90 @@ const color = await send('*I nod once to the helmsman.*', 'player-color');
 assert.equal(color.decision.classification, 'sceneColor');
 assert.equal(color.abortDefaultGeneration, false);
 assert.equal(chat.messages().filter((entry) => entry.isDirectiveOwned).length, 0);
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
+const colorIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-color');
+const colorResponse = campaignState.runtimeTracking.responseLedger.at(-1);
+const colorCoreBegin = coreBeginCalls.find((entry) => entry.options.ingressId === colorIngress.id);
+assert(colorCoreBegin, 'CORE ingress bridge should begin a transaction before old ingress projection.');
+const colorCoreAdvances = coreAdvanceCalls.filter((entry) => entry.transactionId === colorIngress.coreTransactionId);
+assert.equal(colorResponse.strategy, 'injectAndContinue');
+assert.equal(hostGenerationContinuations.at(-1).waitForCompletion, false);
+assert.equal(colorResponse.status, 'released');
+assert.equal(colorResponse.hostGenerationReleaseMode, 'nonblocking');
+assert.equal(colorResponse.sourceFrameId, colorIngress.sourceFrameId);
+assert.equal(colorIngress.coreTransactionId, colorCoreBegin.options.transactionId);
+assert.equal(colorCoreBegin.sourceFrame.id, colorIngress.sourceFrameId);
+assert.deepEqual(
+  colorCoreAdvances.map((entry) => entry.phasePatch.phase),
+  ['routePending', 'hostContinueReleased'],
+  'CORE bridge should advance observed ingress through routePending to hostContinueReleased.'
+);
+assert.equal(colorCoreAdvances[1].phasePatch.route, 'hostContinue');
+assert.equal(colorCoreAdvances[1].phasePatch.timing.hostGenerationReleasedAt, colorResponse.hostGenerationReleasedAt);
+assert.equal(colorCoreAdvances[1].phasePatch.timing.architectureWithin60s, true);
+assert.match(colorIngress.sourceFrameId, /^frame:ingress:/);
+assert.equal(colorIngress.sourceFrame.kind, 'directive.turnSourceFrame.v1');
+assert.equal(colorIngress.sourceFrame.externalPromptEnvironmentRef.status, 'unknown');
+assert.equal(colorResponse.turnLatency.architectureWithin60s, true);
 
+const coreBeginCountBeforeColorDuplicate = coreBeginCalls.length;
+const coreAdvanceCountBeforeColorDuplicate = coreAdvanceCalls.length;
 const colorDuplicate = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
   message: chat.getMessage('player-color')
 });
 assert.equal(colorDuplicate.deduplicated, true);
 assert.equal(colorDuplicate.abortDefaultGeneration, false);
+assert.equal(coreBeginCalls.length, coreBeginCountBeforeColorDuplicate, 'Duplicate observation must not begin another CORE transaction.');
+assert.equal(coreAdvanceCalls.length, coreAdvanceCountBeforeColorDuplicate, 'Duplicate observation must not advance CORE release again.');
 assert.equal(campaignState.runtimeTracking.responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
+
+const ingressCountBeforeCoreFailure = campaignState.runtimeTracking.ingressLedger.length;
+const persistedCountBeforeCoreFailure = persisted.length;
+const failingCoreOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('CORE ingress failure fixture must not classify after CORE begin fails.');
+  },
+  responseDispatcher,
+  stateDeltaGateway,
+  coreTurnStore: {
+    async beginTurn() {
+      const error = new Error('Synthetic CORE begin failure.');
+      error.code = 'DIRECTIVE_CORE_BEGIN_FAILED';
+      throw error;
+    }
+  },
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('CORE ingress failure fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('CORE ingress failure fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const coreFailureMessage = chat.pushPlayerMessage({
+  text: '*Sam glances once toward ops and waits for the board to settle.*',
+  hostMessageId: 'player-core-ingress-failure'
+});
+await assert.rejects(
+  () => failingCoreOrchestrator.observePlayerMessage({
+    chatId: 'campaign-chat',
+    message: coreFailureMessage
+  }),
+  /Synthetic CORE begin failure/
+);
+assert.equal(campaignState.runtimeTracking.ingressLedger.length, ingressCountBeforeCoreFailure);
+assert.equal(
+  campaignState.runtimeTracking.ingressLedger.some((entry) => entry.hostMessageId === 'player-core-ingress-failure'),
+  false,
+  'A CORE begin failure must not leave an old-ledger-only ingress projection.'
+);
+assert.equal(persisted.length, persistedCountBeforeCoreFailure, 'A CORE begin failure must not persist campaign state.');
 
 const commandLogBeforeSceneNavigation = campaignState.commandLog?.entries?.length || 0;
 const elapsedMinutesBeforeSceneNavigation = campaignState.worldState?.elapsedMinutes ?? 0;
@@ -611,9 +745,13 @@ assert.equal(
   locationTransitionResponsesBeforeConcurrentAlias + 1
 );
 
+let droppedIngressDelegationSourceIngress = null;
 const droppedIngressDelegationDispatcher = {
   async dispatch({ campaignState: sourceState, ingressId, responseKind }) {
     const state = initializeCampaignRuntimeTracking(sourceState);
+    droppedIngressDelegationSourceIngress = cloneJson(
+      (state.runtimeTracking.ingressLedger || []).find((entry) => entry.id === ingressId) || null
+    );
     const entry = {
       id: `delegate-dropped-ingress:${ingressId}`,
       ingressId,
@@ -693,6 +831,8 @@ const droppedIngressDelegation = await droppedIngressDelegationOrchestrator.obse
 const preservedDelegatedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-delegation');
 assert.equal(droppedIngressDelegation.handled, true);
 assert.equal(droppedIngressDelegation.responseStrategy, 'injectAndContinue');
+assert.equal(droppedIngressDelegationSourceIngress?.id, preservedDelegatedIngress.id);
+assert.equal(Boolean(droppedIngressDelegationSourceIngress?.playerSubmittedAt), true);
 assert.equal(preservedDelegatedIngress.status, 'complete');
 assert.equal(preservedDelegatedIngress.responseStrategy, 'injectAndContinue');
 assert.equal(
@@ -858,6 +998,103 @@ assert.equal(staleClassifier.abortDefaultGeneration, true);
 assert.equal(previewCalls.length, previewCallsBeforeStaleClassifier);
 assert.equal(campaignState.runtimeTracking.responseLedger.length, responseLedgerBeforeStaleClassifier);
 assert.equal(sidecarCalls.length, sidecarCallsBeforeStaleClassifier);
+
+const dependentEditPreviewCallsBefore = previewCalls.length;
+const dependentEditCommitCallsBefore = commitCalls.length;
+const dependentEditSidecarCallsBefore = sidecarCalls.length;
+const dependentEditPersistedBefore = persisted.length;
+campaignState = initializeCampaignRuntimeTracking(campaignState);
+const dependentEditIngress = {
+  id: 'ingress:dependent-edit-original',
+  hostMessageId: 'player-dependent-edit',
+  chatId: 'campaign-chat',
+  campaignId: campaignState.campaign.id,
+  textHash: 'pre-edit-text-hash',
+  textPreview: 'Sam considered the silence.',
+  status: 'recoveryRequired',
+  responseStrategy: 'directivePosted',
+  outcomeId: 'outcome-dependent-edit',
+  invalidatedAt: '2026-06-22T01:00:10.000Z',
+  invalidationType: 'playerMessageEdited',
+  replacementText: 'Sam considered the silence. Sam waited for her reply.',
+  editedAt: '2026-06-22T01:00:10.000Z'
+};
+campaignState.runtimeTracking.ingressLedger.push(dependentEditIngress);
+campaignState.runtimeTracking.responseLedger.push({
+  id: 'response-dependent-edit',
+  ingressId: dependentEditIngress.id,
+  hostMessageId: 'assistant-dependent-edit',
+  outcomeId: dependentEditIngress.outcomeId,
+  responseKind: 'committedOutcome',
+  status: 'posted'
+});
+setCampaignState(campaignState);
+const dependentEditGuardOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('Dependent edited source must not re-enter classification.');
+  },
+  responseDispatcher,
+  generationRouter: {
+    async generate() {
+      throw new Error('Dependent edited source must not enter generation.');
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async () => {
+    throw new Error('Dependent edited source must not sync prompt.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Dependent edited source must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Dependent edited source must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule() {
+      throw new Error('Dependent edited source must not schedule sidecars.');
+    }
+  },
+  now
+});
+const dependentEditMessage = chat.pushPlayerMessage({
+  text: 'Sam considered the silence. Sam waited for her reply.',
+  hostMessageId: 'player-dependent-edit'
+});
+const dependentEdit = await dependentEditGuardOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: dependentEditMessage
+});
+const dependentEditCurrent = initializeCampaignRuntimeTracking(campaignState);
+const dependentEditCurrentIngress = dependentEditCurrent.runtimeTracking.ingressLedger.find((entry) => entry.id === dependentEditIngress.id);
+assert.equal(dependentEdit.handled, true);
+assert.equal(dependentEdit.stale, true);
+assert.equal(dependentEdit.responseStrategy, 'staleSource');
+assert.equal(dependentEdit.abortDefaultGeneration, true);
+assert.equal(dependentEdit.reason, 'source-ingress-stale');
+assert.ok(dependentEdit.staleReasons.includes('dependent-response'));
+assert.ok(dependentEdit.staleReasons.includes('status:recoveryRequired'));
+assert.ok(dependentEdit.staleReasons.includes('text-hash-changed'));
+assert.equal(dependentEditCurrentIngress.status, 'recoveryRequired');
+assert.equal(dependentEditCurrentIngress.outcomeId, 'outcome-dependent-edit');
+assert.equal(
+  dependentEditCurrent.runtimeTracking.ingressLedger.filter((entry) => entry.hostMessageId === 'player-dependent-edit').length,
+  1,
+  'Dependent edit reobserve must not create a replacement ingress.'
+);
+assert.equal(
+  dependentEditCurrent.runtimeTracking.responseLedger.filter((entry) => entry.ingressId === dependentEditIngress.id).length,
+  1,
+  'Dependent edit reobserve must preserve the existing response ledger.'
+);
+assert.equal(previewCalls.length, dependentEditPreviewCallsBefore);
+assert.equal(commitCalls.length, dependentEditCommitCallsBefore);
+assert.equal(sidecarCalls.length, dependentEditSidecarCallsBefore);
+assert.equal(persisted.length, dependentEditPersistedBefore);
 
 const failingClassifierOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
@@ -1278,20 +1515,29 @@ assert.equal(introResponse.metadata.introRevisionReason, 'native-swipe-reroll');
 assert.equal(introSwipe.rewrite.introRevision.reason, 'native-swipe-reroll');
 
 const continuationsBeforeCounsel = hostGenerationContinuations.length;
+const advisorCallsBeforeCounsel = responseSwipeGenerationCalls.filter((call) => call.roleId === 'missionDirectorAdvisor').length;
 const counsel = await send('What are our options here?', 'player-counsel-format');
 assert.equal(counsel.decision.classification, 'counselRequest');
 assert.equal(counsel.responseStrategy, 'injectAndContinue');
 assert.equal(counsel.abortDefaultGeneration, false);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'counsel').length, 0);
-assert.equal(counsel.advisory.subject, 'Bridge arrival options');
-assert.equal(counsel.advisory.involvedCrewIds.includes('mara-whitaker'), true);
+assert.equal(counsel.advisory.subject, 'Decision support advisory');
+assert.equal(counsel.advisory.involvedCrewIds.length, 0);
 assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).id, counsel.advisory.id);
-assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).options.length, 2);
+assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).options.length, 0);
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'hostGeneration');
 assert.equal(hostGenerationContinuations.length, continuationsBeforeCounsel + 1);
 assert.equal(hostGenerationContinuations.at(-1).reason, 'directive-inject-and-continue');
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).hostContinuation?.ok, true);
+assert.equal(responseSwipeGenerationCalls.filter((call) => call.roleId === 'missionDirectorAdvisor').length, advisorCallsBeforeCounsel);
+assert.equal(counsel.advisoryEnrichment.status, 'queued');
+assert.equal(counsel.advisoryEnrichment.advisoryId, counsel.advisory.id);
+assert.equal(advisoryEnrichmentCalls.length, 1);
+assert.equal(advisoryEnrichmentCalls[0].hasRun, true);
+assert.equal(advisoryEnrichmentCalls[0].payload.advisoryId, counsel.advisory.id);
+assert.equal(advisoryEnrichmentCalls[0].hostGenerationContinuationCount, continuationsBeforeCounsel + 1);
+assert.equal(advisoryEnrichmentCalls[0].missionDirectorAdvisorCallCount, advisorCallsBeforeCounsel);
 
 const consequential = await send('I order helm to change course and pursue the freighter.', 'player-consequential');
 assert.equal(consequential.decision.classification, 'consequentialCommand');
@@ -1300,10 +1546,19 @@ assert.equal(previewCalls.length, 1);
 assert.equal(commitCalls.length, 1);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
 assert.equal(campaignState.runtimeTracking.lastCommittedTurn.responseStatus, 'complete');
+const consequentialResponse = campaignState.runtimeTracking.responseLedger.at(-1);
+assert.equal(consequentialResponse.strategy, 'directivePosted');
+assert.equal(consequentialResponse.responseKind, 'committedOutcome');
+assert.ok(consequentialResponse.directiveGenerationStartedAt);
+assert.equal(consequentialResponse.directiveGenerationStartedAt, consequentialResponse.generationStartedAt);
+assert.equal(consequentialResponse.turnLatency.directiveGenerationStartedAt, Date.parse(consequentialResponse.directiveGenerationStartedAt));
 assert.equal(campaignState.runtimeTracking.activeIngressId.includes('player-consequential'), true);
 assert.equal(postCommitConversationCalls.length, 1);
 assert.equal(postCommitConversationCalls[0].outcomeId, 'outcome-1');
 assert.equal(postCommitConversationCalls[0].messages.map((entry) => entry.role).join(','), 'user,assistant');
+assert.equal(consequential.postCommitConversation.scheduled, true);
+assert.equal(consequential.postCommitConversation.status, 'queued');
+assert.equal(consequential.postCommitConversation.outcomeId, 'outcome-1');
 
 const consequenceDuplicate = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
@@ -1376,6 +1631,7 @@ assert.ok(riskInteraction.turnId);
 assert.ok(riskInteraction.outcomeId);
 assert.deepEqual(riskInteraction.options.map((entry) => entry.id), ['confirm', 'revise']);
 
+const postCommitConversationCallsBeforeRiskResolution = postCommitConversationCalls.length;
 const riskResolution = await send('Confirm the order.', 'player-risk-confirm');
 assert.equal(riskResolution.resolvedPendingInteraction, true);
 assert.equal(riskResolution.abortDefaultGeneration, true);
@@ -1384,6 +1640,18 @@ assert.equal(commitCalls.at(-1).confirmWarnings, true);
 assert.equal(previewCalls.length, 3, 'Chat confirmation must resolve the pending turn, not preview a new one.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === riskInteraction.id).status, 'resolved');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 3);
+assert.equal(postCommitConversationCalls.length, postCommitConversationCallsBeforeRiskResolution + 1);
+assert.equal(riskResolution.postCommitConversation.scheduled, true);
+assert.equal(riskResolution.postCommitConversation.status, 'queued');
+const riskResolutionPostCommit = postCommitConversationCalls.at(-1);
+assert.equal(riskResolutionPostCommit.ingressId, riskInteraction.ingressId);
+assert.equal(riskResolutionPostCommit.pendingInteractionId, riskInteraction.id);
+assert.equal(riskResolutionPostCommit.resolutionIngressId, `${riskInteraction.ingressId}:resolution:${riskInteraction.id}`);
+assert.equal(riskResolutionPostCommit.resolutionMessageId, 'player-risk-confirm');
+assert.equal(riskResolutionPostCommit.messages.map((entry) => entry.role).join(','), 'user,assistant');
+assert.equal(riskResolutionPostCommit.messages[0].id, 'player-risk');
+assert.equal(riskResolutionPostCommit.messages[0].text, 'Fire phasers and disable their life support.');
+assert.equal(riskResolutionPostCommit.messages[1].id, riskResolution.response.hostMessageId);
 
 const clarification = await send('Proceed.', 'player-clarification');
 assert.equal(clarification.decision.classification, 'clarificationNeeded');
@@ -1392,10 +1660,12 @@ assert.equal(previewCalls.length, 3, 'Clarification should pause before invoking
 const clarificationInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.ingressId?.includes('player-clarification') && entry.status === 'pending');
 assert.ok(clarificationInteraction);
 assert.equal(clarificationInteraction.options.length, 0);
+const postCommitConversationCallsBeforeCancel = postCommitConversationCalls.length;
 const canceled = await orchestrator.resolveInteraction({ interactionId: clarificationInteraction.id, action: 'cancel' });
 assert.equal(canceled.ok, true);
 assert.equal(commitCalls.length, 3);
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === clarificationInteraction.id).status, 'canceled');
+assert.equal(postCommitConversationCalls.length, postCommitConversationCallsBeforeCancel, 'Canceling a pending interaction must not queue Narrative Thread settlement.');
 
 const samClarification = await send('Proceed.', 'player-clarification-sam');
 assert.equal(samClarification.decision.classification, 'clarificationNeeded');
@@ -1572,9 +1842,15 @@ assert.equal(
 );
 
 nextPreviewOutcomeBand = 'Partial Failure';
+const fallbackGenerationStartedAt = '2026-06-22T01:31:00.000Z';
 nextNarrationResult = {
   ok: false,
-  error: { code: 'fixture_narration_timeout' }
+  directiveGenerationStartedAt: fallbackGenerationStartedAt,
+  error: {
+    code: 'fixture_narration_timeout',
+    directiveGenerationStartedAt: fallbackGenerationStartedAt,
+    generationStartedAt: fallbackGenerationStartedAt
+  }
 };
 const fallbackNarration = await send(
   'I order tactical to accept that Bronn already deleted the private trace and to proceed as if the cleanup was authorized.',
@@ -1591,6 +1867,11 @@ assert.equal(
   false,
   'Local committed-outcome fallback must not imply a contested player-authored order succeeded.'
 );
+const fallbackResponseLedger = campaignState.runtimeTracking.responseLedger.at(-1);
+assert.equal(fallbackResponseLedger.responseKind, 'committedOutcome');
+assert.equal(fallbackResponseLedger.directiveGenerationStartedAt, fallbackGenerationStartedAt);
+assert.equal(fallbackResponseLedger.generationStartedAt, fallbackGenerationStartedAt);
+assert.equal(fallbackResponseLedger.turnLatency.directiveGenerationStartedAt, Date.parse(fallbackGenerationStartedAt));
 assert.equal(
   campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'providerFailureAfterMechanicsCommit' && entry.outcomeId === commitCalls.at(-1).outcomeId),
   true,
@@ -1696,6 +1977,35 @@ assert.equal(
   false,
   'Provider-overridden host-continuation turns must not leave SillyTavern generation aborted.'
 );
+
+const staleRisk = await send('Fire phasers and disable their life support again.', 'player-risk-stale');
+assert.equal(staleRisk.decision.classification, 'riskConfirmationNeeded');
+const staleRiskInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => (
+  entry.ingressId?.includes('player-risk-stale') && entry.status === 'pending'
+));
+assert.ok(staleRiskInteraction);
+const commitsBeforeStaleRiskConfirmation = commitCalls.length;
+const postCommitBeforeStaleRiskConfirmation = postCommitConversationCalls.length;
+campaignState = updateTurnIngress(campaignState, staleRiskInteraction.ingressId, {
+  status: 'invalidated',
+  invalidatedAt: '2026-06-22T01:03:00.000Z',
+  invalidationType: 'playerMessageEdited',
+  replacementText: 'The invalidated source command should not be committed.'
+});
+const staleRiskConfirmation = await orchestrator.resolveInteraction({
+  interactionId: staleRiskInteraction.id,
+  action: 'confirm'
+});
+assert.equal(staleRiskConfirmation.ok, false);
+assert.equal(staleRiskConfirmation.stale, true);
+assert.equal(staleRiskConfirmation.reason, 'source-ingress-stale');
+assert.equal(
+  staleRiskConfirmation.staleResult.staleReasons.includes('status:invalidated')
+    || staleRiskConfirmation.staleResult.staleReasons.includes('invalidated'),
+  true
+);
+assert.equal(commitCalls.length, commitsBeforeStaleRiskConfirmation, 'Invalidated pending source must not commit mechanics on confirmation.');
+assert.equal(postCommitConversationCalls.length, postCommitBeforeStaleRiskConfirmation, 'Invalidated pending source must not queue Narrative Thread settlement.');
 
 assert.equal(sidecarCalls.length >= 4, true);
 assert.equal(persisted.length > 0, true);

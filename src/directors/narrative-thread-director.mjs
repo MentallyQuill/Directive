@@ -8,6 +8,13 @@ import { runCommandBearingClosureReviews } from '../command/command-bearing-revi
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
 function nowValue(now) { return typeof now === 'function' ? now() : (now || new Date().toISOString()); }
+function sourceStaleError(result = {}, phase = 'source-check') {
+  const error = new Error(result.reason || `Narrative thread source became stale during ${phase}.`);
+  error.code = 'DIRECTIVE_NARRATIVE_THREAD_SOURCE_STALE';
+  error.phase = phase;
+  error.details = cloneJson(result);
+  return error;
+}
 function uniqueReviewQueue(...queues) {
   const byClosureId = new Map();
   for (const item of queues.flatMap((queue) => asArray(queue))) {
@@ -34,7 +41,8 @@ export function createNarrativeThreadDirector({
   if (typeof getPackageData !== 'function') throw new Error('getPackageData is required');
   if (!stateDeltaGateway?.commit) throw new Error('stateDeltaGateway.commit is required');
 
-  async function commitState(next, domains, reason, metadata = {}) {
+  async function commitState(next, domains, reason, metadata = {}, assertSourceCurrent = null) {
+    if (typeof assertSourceCurrent === 'function') await assertSourceCurrent(`before-commit:${reason}`);
     return stateDeltaGateway.commit(next, {
       source: 'narrativeThreadDirector', reason, summary: reason, domains,
       sourceAnchorRange: metadata.sourceAnchorRange || null,
@@ -44,9 +52,16 @@ export function createNarrativeThreadDirector({
     });
   }
 
-  async function processConversation(conversation = {}) {
+  async function processConversation(conversation = {}, options = {}) {
+    async function assertSourceCurrent(phase = 'source-check') {
+      if (typeof options.isSourceCurrent !== 'function') return;
+      const result = await options.isSourceCurrent({ phase, conversation: cloneJson(conversation) });
+      if (result === false || result?.ok === false) throw sourceStaleError(result || { ok: false }, phase);
+    }
+
     const packageData = getPackageData();
     let state = getCampaignState();
+    await assertSourceCurrent('before-extraction');
     const extracted = await extractSceneDeltaWithModel({
       generationRouter,
       scene: { ...cloneJson(conversation), committed: true },
@@ -59,6 +74,7 @@ export function createNarrativeThreadDirector({
         .filter((thread) => ['watchlisted', 'available', 'engaged', 'active', 'dormant'].includes(thread?.status))
         .slice(0, 24)
     });
+    await assertSourceCurrent('after-extraction');
     const processed = processCommittedConversation({
       state,
       packageData,
@@ -71,8 +87,9 @@ export function createNarrativeThreadDirector({
       outcomeId: conversation.outcomePacket?.id || conversation.outcomeId || null,
       reconciliationRunId: conversation.reconciliationRunId || null,
       sceneDeltaSourceId: extracted.sceneDelta?.source?.id || null
-    });
+    }, assertSourceCurrent);
 
+    await assertSourceCurrent('before-command-bearing-review');
     const commandBearingReview = await runCommandBearingClosureReviews({
       generationRouter,
       campaignState: state,
@@ -89,7 +106,7 @@ export function createNarrativeThreadDirector({
         outcomeId: conversation.outcomePacket?.id || conversation.outcomeId || null,
         reconciliationRunId: conversation.reconciliationRunId || null,
         reviewClosureIds: commandBearingReview.records.map((record) => record.closureId)
-      });
+      }, assertSourceCurrent);
     }
 
     const eligible = eligibleThreadsForPromotion(state.threadLedger, packageData)
@@ -98,7 +115,9 @@ export function createNarrativeThreadDirector({
     let promotion = null;
     if (eligible.length) {
       const thread = eligible[0];
+      await assertSourceCurrent('before-quest-architecture');
       const architecture = await architectQuestFromThread({ thread, state, packageData, generationRouter, now });
+      await assertSourceCurrent('after-quest-architecture');
       if (architecture.ok) {
         const registered = registerArchitectedQuest({ state, threadId: thread.id, architecture, now });
         state = await commitState(registered.state, ['dynamicQuestCatalog', 'questLedger', 'threadLedger'], 'Grounded narrative thread promoted to an optional quest.', {
@@ -107,7 +126,7 @@ export function createNarrativeThreadDirector({
           reconciliationRunId: conversation.reconciliationRunId || null,
           threadId: thread.id,
           questId: registered.instance.id
-        });
+        }, assertSourceCurrent);
         const boundary = processWorldBoundary({
           state,
           packageData,
@@ -130,7 +149,7 @@ export function createNarrativeThreadDirector({
           sourceAnchorRange: architecture.template?.provenance?.anchorRange || extracted.sceneDelta?.anchorRange || null,
           questId: registered.instance.id,
           threadId: thread.id
-        });
+        }, assertSourceCurrent);
         promotion = {
           threadId: thread.id,
           questId: registered.instance.id,

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.runtime.turnTransaction.v1",
+  "title": "Directive Turn Transaction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "id",
+    "phase",
+    "sourceFrameId",
+    "campaignId",
+    "saveId",
+    "chatId",
+    "createdAt",
+    "revisions"
+  ],
+  "properties": {
+    "kind": { "const": "directive.turnTransaction.v1" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "phase": {
+      "enum": [
+        "observed",
+        "routePending",
+        "hostContinueReleased",
+        "mechanicsPending",
+        "narrationStarted",
+        "visibleResponsePosted",
+        "backgroundSettling",
+        "responseRetryRequired",
+        "recoveryRequired",
+        "settled",
+        "canceled"
+      ]
+    },
+    "sourceFrameId": { "type": "string", "minLength": 1 },
+    "campaignId": { "type": "string", "minLength": 1 },
+    "saveId": { "type": "string", "minLength": 1 },
+    "chatId": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "minLength": 1 },
+    "updatedAt": { "type": ["string", "null"] },
+    "route": { "enum": ["hostContinue", "directiveCommit", "directivePause", "recoveryReview", null] },
+    "visibleResponseRef": { "type": ["object", "null"] },
+    "recoveryCaseId": { "type": ["string", "null"] },
+    "revisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mechanics", "runtime", "diagnostic", "prompt"],
+      "properties": {
+        "mechanics": { "type": "integer", "minimum": 0 },
+        "runtime": { "type": "integer", "minimum": 0 },
+        "diagnostic": { "type": "integer", "minimum": 0 },
+        "prompt": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import {
   createCampaignStateSnapshot,
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
+  recordDirectiveResponse,
   recordModelCallEvent,
   recordTurnIngress,
   updateTurnIngress
@@ -178,6 +179,28 @@ assert.equal(restored.mission.knownFacts.length, 0);
 assert.equal(restored.runtimeTracking.ingressLedger[0].id, 'ingress:one');
 assert.equal(restored.runtimeTracking.modelCallJournal[0].id, 'model-call.fixture.utility');
 assert.equal(restored.runtimeTracking.recoveryJournal.at(-1).type, 'restoreRevision');
+
+const responseTimingState = recordDirectiveResponse(initializeCampaignRuntimeTracking({
+  campaign: { id: 'response-timing' }
+}), {
+  id: 'response:directive-timing',
+  ingressId: 'ingress:directive-timing',
+  outcomeId: 'outcome:directive-timing',
+  directiveGenerationStartedAt: '2026-06-28T17:03:10.000Z',
+  generationStartedAt: '2026-06-28T17:03:10.000Z',
+  turnLatency: {
+    kind: 'directive.turnLatencyMetrics.v1',
+    directiveGenerationStartedAt: 1782666190000,
+    generationStartedAt: 1782666190000,
+    generationStartLatencyMs: 10000,
+    providerCompletionLatencyMs: 4000,
+    architectureWithin60s: true
+  }
+});
+const responseTimingEntry = responseTimingState.runtimeTracking.responseLedger.at(-1);
+assert.equal(responseTimingEntry.directiveGenerationStartedAt, '2026-06-28T17:03:10.000Z');
+assert.equal(responseTimingEntry.generationStartedAt, '2026-06-28T17:03:10.000Z');
+assert.equal(responseTimingEntry.turnLatency.providerCompletionLatencyMs, 4000);
 
 const compactSnapshot = createCampaignStateSnapshot({
   campaign: { id: 'snapshot-compact' },

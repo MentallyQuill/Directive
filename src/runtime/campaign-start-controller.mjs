@@ -28,6 +28,9 @@ import {
   listCharacterCreatorDrafts,
   recoverActiveCampaignSave
 } from '../storage/directive-storage-repository.mjs';
+import {
+  persistActiveCampaignStateV2
+} from '../storage/active-save-facade-v2.mjs';
 
 const DEFAULT_CREATOR_STEPS = ['identity', 'service', 'personality', 'review'];
 
@@ -686,6 +689,38 @@ export function createCampaignStartController({
       activePackageId = save.metadata?.packageId || activePackageId;
       activeCampaignState = cloneJson(campaignState);
       return cloneJson(save);
+    },
+
+    async persistRuntimeCampaignState({
+      saveId = activeSaveId,
+      campaignState = activeCampaignState,
+      packageId = null,
+      summary = null,
+      reason = 'runtimePersist',
+      markActive = true
+    } = {}) {
+      const id = requireNonEmptyString(saveId, 'saveId');
+      requireObject(campaignState, 'campaignState');
+      const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+      if (saveRecord.kind !== 'directive.campaignSave') {
+        throw new Error('Runtime persistence requires a v1 manual checkpoint save record');
+      }
+      const packageData = packageForState(campaignState, packageId);
+      const result = await persistActiveCampaignStateV2(adapter, {
+        saveRecord,
+        campaignState,
+        packageData,
+        summary,
+        reason,
+        current: markActive !== false ? saveRecord.current === true : false,
+        now: currentTime()
+      });
+      if (markActive !== false) {
+        activeSaveId = result.saveId;
+        activePackageId = result.saveIndexEntry?.metadata?.packageId || activePackageId;
+        activeCampaignState = cloneJson(campaignState);
+      }
+      return cloneJson(result);
     },
 
     async saveCurrentGameAs({

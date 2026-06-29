@@ -1,0 +1,549 @@
+import assert from 'node:assert/strict';
+
+import {
+  createSillyTavernPromptAdapter
+} from '../../src/hosts/sillytavern/prompt-adapter.mjs';
+import {
+  createSyntheticFastGateRuntime
+} from '../../src/runtime/fast-gate-runtime-synthetic.mjs';
+import {
+  createSyntheticLensPromptScheduler
+} from '../../src/runtime/lens-prompt-scheduler-synthetic.mjs';
+import {
+  hashStableJson
+} from '../../src/runtime/architecture-redesign-contracts.mjs';
+import {
+  createCoreStoreV2
+} from '../../src/storage/core-store-v2.mjs';
+import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
+
+function cloneJson(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function createLoggingStorage() {
+  const files = new Map();
+  const writeLog = [];
+  return {
+    writeLog,
+    async readJson(filePath) {
+      if (!files.has(filePath)) {
+        const error = new Error(`not found: ${filePath}`);
+        error.code = 'ENOENT';
+        throw error;
+      }
+      return cloneJson(files.get(filePath));
+    },
+    async writeJson(filePath, value) {
+      const serialized = JSON.stringify(value);
+      writeLog.push({
+        path: filePath,
+        bytes: Buffer.byteLength(serialized, 'utf8')
+      });
+      files.set(filePath, cloneJson(value));
+      return { ok: true, path: filePath };
+    },
+    async verifyJsonFiles(paths) {
+      return Object.fromEntries(paths.map((filePath) => [filePath, files.has(filePath)]));
+    }
+  };
+}
+
+function createHarness({ nowPrefix = '2026-06-28T20:00', nowValues = [] } = {}) {
+  let tick = 0;
+  const storage = createLoggingStorage();
+  const adapter = createLogicalStorageAdapter({ storage, hostId: 'fake' });
+  const coreStore = createCoreStoreV2({
+    adapter,
+    campaignId: 'campaign-lens-synthetic',
+    saveId: 'save-lens-synthetic',
+    now: () => `${nowPrefix}:${String(tick++).padStart(2, '0')}.000Z`
+  });
+  let clockIndex = 0;
+  const clock = () => nowValues[clockIndex++] || `${nowPrefix}:${String(clockIndex + 30).padStart(2, '0')}.000Z`;
+  return { storage, adapter, coreStore, clock };
+}
+
+async function beginTransaction(harness, {
+  transactionId = 'txn-lens-1',
+  route = 'directiveCommit',
+  hostMessageId = '70'
+} = {}) {
+  const fastGate = createSyntheticFastGateRuntime({
+    coreStore: harness.coreStore,
+    clock: harness.clock,
+    deterministicRoute: () => ({ route, reason: `${route}-for-lens` }),
+    releaseHostGeneration: async () => ({ ok: true }),
+    storageWrites: harness.storage.writeLog
+  });
+  return fastGate.handleHostEvent({
+    frameId: `frame:${transactionId}`,
+    transactionId,
+    campaignId: 'campaign-lens-synthetic',
+    saveId: 'save-lens-synthetic',
+    chatId: 'ashes-chat',
+    hostMessageId,
+    playerSubmittedAt: '2026-06-28T20:00:00.000Z',
+    textHash: hashStableJson({ text: `Player source ${hostMessageId}` })
+  });
+}
+
+const promptCalls = [];
+const promptMap = new Map([
+  ['summaryception', 'external-summaryception-block'],
+  ['3_vectfox', 'external-vectfox-block'],
+  ['3_vectfox_eventbase', 'external-vectfox-eventbase-block'],
+  ['worldInfoBefore', 'external-world-info-before']
+]);
+const externalPromptKeys = new Set(['summaryception', '3_vectfox', '3_vectfox_eventbase', 'worldInfoBefore']);
+const context = {
+  chatId: 'ashes-chat',
+  setExtensionPrompt(key, text, ...args) {
+    promptMap.set(key, text);
+    promptCalls.push([key, text, ...args]);
+  },
+  extension_prompt_types: {
+    BEFORE_PROMPT: 0,
+    IN_CHAT: 1,
+    IN_PROMPT: 2
+  },
+  extension_prompt_roles: {
+    SYSTEM: 0,
+    USER: 1,
+    ASSISTANT: 2
+  }
+};
+const promptAdapter = createSillyTavernPromptAdapter({
+  contextFactory: () => context
+});
+const externalSnapshot = Object.fromEntries([...promptMap.entries()].filter(([key]) => externalPromptKeys.has(key)));
+
+const harness = createHarness({
+  nowValues: [
+    '2026-06-28T20:01:01.000Z',
+    '2026-06-28T20:01:02.000Z',
+    '2026-06-28T20:01:10.000Z',
+    '2026-06-28T20:01:20.000Z',
+    '2026-06-28T20:01:30.000Z',
+    '2026-06-28T20:01:40.000Z'
+  ]
+});
+await beginTransaction(harness, { transactionId: 'txn-lens-visible', route: 'directiveCommit', hostMessageId: '70' });
+const mechanics = await harness.coreStore.commitMechanics('txn-lens-visible', {
+  baseMechanicsRevision: 0,
+  idempotencyKey: 'mechanics-lens-visible',
+  turnId: 'turn-lens-visible',
+  outcomeId: 'outcome-lens-visible',
+  summary: 'Mechanics dirtied mission and command prompt domains.',
+  committedRoots: ['mission', 'commandLog'],
+  promptDirtyDomains: ['missionQuestThread', 'command'],
+  operations: [{ domain: 'mission', op: 'appendLog', summary: 'Prompt-relevant change.' }]
+});
+assert.deepEqual(mechanics.promptDirtyDomains, ['missionQuestThread', 'command']);
+
+const buildCalls = [];
+const lens = createSyntheticLensPromptScheduler({
+  coreStore: harness.coreStore,
+  clock: harness.clock,
+  buildDirectivePromptPacket: async (payload) => {
+    buildCalls.push(payload);
+    return {
+      kind: 'directive.playerSafePromptContext',
+      hash: hashStableJson({
+        revision: payload.revision,
+        dirtyDomains: payload.dirtyDomains,
+        cacheKey: payload.cacheKey
+      }),
+      rawPromptBody: 'RAW_LENS_PROMPT_BODY',
+      rawResponse: 'RAW_LENS_BUILDER_RESPONSE',
+      blocks: [
+        {
+          id: 'lens-visible',
+          promptKey: 'directive.lens.visible',
+          title: 'Visible LENS Context',
+          text: 'Visible-lane Directive context.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
+          id: 'summaryception',
+          promptKey: 'summaryception',
+          title: 'Malformed External Key',
+          text: 'This must be scoped to Directive before install.',
+          placement: 'inPrompt',
+          depth: 1,
+          role: 'system'
+        }
+      ]
+    };
+  },
+  installPromptPacket: async ({ method, binding, packet }) => {
+    if (method === 'rebuild') return promptAdapter.rebuild({ binding, packet });
+    return promptAdapter.install({ binding, packet });
+  },
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    userHandle: 'directive-soak-a',
+    chatId: 'ashes-chat',
+    campaignId: 'campaign-lens-synthetic',
+    promptKeys: ['directive.lens.visible', 'summaryception', '3_vectfox'],
+    worldInfo: {
+      enabled: true,
+      activeNames: ['Ashes Native Lorebook'],
+      promptPositions: ['before', 'atDepth'],
+      rawPromptBody: 'RAW_WORLD_INFO_PROMPT'
+    },
+    summaryception: {
+      installed: true,
+      enabled: true,
+      promptKeyActive: true,
+      promptText: 'RAW_SUMMARYCEPTION_PROMPT'
+    },
+    vectFox: {
+      installed: true,
+      enabled: true,
+      promptKeys: ['3_vectfox'],
+      qdrant_api_key: 'SECRET-QDRANT',
+      vectorPayload: ['RAW_VECTOR_HIT']
+    }
+  })
+});
+
+const externalOnly = await lens.observeExternalEnvironment({
+  transactionId: 'txn-lens-visible',
+  environment: {
+    host: 'sillytavern',
+    userHandle: 'directive-soak-a',
+    promptKeys: ['summaryception', '3_vectfox'],
+    rawPromptBody: 'RAW_EXTERNAL_OBSERVATION_PROMPT',
+    vectFox: {
+      promptKeys: ['3_vectfox'],
+      vectorPayload: ['RAW_EXTERNAL_OBSERVATION_VECTOR']
+    }
+  }
+});
+assert.equal(externalOnly.ref.knownExternalPromptKeys.includes('summaryception'), true);
+assert.deepEqual(lens.inspect().pendingDirtyDomains, {}, 'external environment observation alone must not dirty prompt');
+assert.equal(JSON.stringify(harness.coreStore.state).includes('RAW_EXTERNAL_OBSERVATION_PROMPT'), false);
+assert.equal(JSON.stringify(harness.coreStore.state).includes('RAW_EXTERNAL_OBSERVATION_VECTOR'), false);
+
+const beforeDiagnosticOnlyDirty = lens.inspect().pendingDirtyDomains;
+assert.deepEqual(beforeDiagnosticOnlyDirty, {});
+const diagnosticOnly = await lens.recordDiagnosticOnly({
+  transactionId: 'txn-lens-visible',
+  payload: {
+    modelCallId: 'model-call-1',
+    rawPrompt: 'RAW_DIAGNOSTIC_PROMPT'
+  }
+});
+assert.equal(diagnosticOnly.dirtyPrompt, false);
+assert.deepEqual(lens.inspect().pendingDirtyDomains, {}, 'diagnostics-only writes must not dirty prompt');
+assert.equal(harness.coreStore.state.revisions.prompt, 0, 'CORE Store prompt revision remains owned by LENS in synthetic stage');
+
+lens.enqueueDirty({
+  lane: 'visible',
+  source: 'core-mechanics',
+  dirtyDomains: mechanics.promptDirtyDomains,
+  idempotencyKey: 'dirty-visible-1'
+});
+lens.enqueueDirty({
+  lane: 'visible',
+  source: 'sre',
+  dirtyDomains: ['sourceBinding', 'command', 'not-a-prompt-domain'],
+  idempotencyKey: 'dirty-visible-2'
+});
+assert.deepEqual(lens.inspect().pendingDirtyDomains.visible, ['missionQuestThread', 'command', 'sourceBinding']);
+
+const binding = {
+  campaignId: 'campaign-lens-synthetic',
+  saveId: 'save-lens-synthetic',
+  chatId: 'ashes-chat',
+  branchId: 'main'
+};
+const campaignContext = {
+  campaignId: 'campaign-lens-synthetic',
+  saveId: 'save-lens-synthetic',
+  chatId: 'ashes-chat',
+  branchId: 'main',
+  mechanicsRevision: harness.coreStore.state.revisions.mechanics,
+  cpmSourceHash: 'cpm-source-hash-1',
+  policyHash: 'policy-hash-1',
+  staticPromptKeyVersion: 'directive-static-v1',
+  packageVersion: 'ashes-package-v1',
+  crewDatasetHash: 'crew-hash-1',
+  shipDatasetHash: 'ship-hash-1',
+  projectionHash: 'projection-hash-1'
+};
+const visibleFlush = await lens.flush({
+  transactionId: 'txn-lens-visible',
+  lane: 'visible',
+  binding,
+  campaignContext,
+  promptFrame: {
+    turnSourceHash: 'turn-source-hash-1'
+  },
+  reason: 'visible-before-directive-generation'
+});
+assert.equal(visibleFlush.status, 'installed');
+assert.equal(visibleFlush.directiveOwnedRevision, 1);
+assert.equal(visibleFlush.dirtyDomains.includes('missionQuestThread'), true);
+assert.equal(visibleFlush.dirtyDomains.includes('sourceBinding'), true);
+assert.equal(visibleFlush.appliesTo, 'currentOrNextDirectiveGeneration');
+assert.equal(buildCalls.length, 1);
+assert.equal(promptCalls.some(([key]) => externalPromptKeys.has(key)), false, 'LENS install must not write external prompt keys');
+assert.equal(promptCalls.some(([key]) => key === 'directive.campaign.summaryception'), true, 'Malformed external packet key should be scoped to Directive');
+assert.deepEqual(
+  Object.fromEntries([...promptMap.entries()].filter(([key]) => externalPromptKeys.has(key))),
+  externalSnapshot,
+  'LENS prompt install must preserve host-owned prompt values'
+);
+assert.deepEqual(lens.inspect().pendingDirtyDomains, {});
+const visiblePromptDiagnostic = harness.coreStore.state.diagnostics.find((entry) => entry.redactedPayload?.status === 'installed');
+assert(visiblePromptDiagnostic, 'LENS install should append compact prompt diagnostic');
+assert.equal(visiblePromptDiagnostic.redactedPayload.cacheRecord.directiveOwnedRevision, 1);
+assert.equal(visiblePromptDiagnostic.redactedPayload.cacheRecord.finalHostPromptMayIncludeExternal, true);
+assert.equal(visiblePromptDiagnostic.redactedPayload.rawPromptBody, '[redacted-raw-payload]');
+assert.equal(visiblePromptDiagnostic.redactedPayload.rawResponse, '[redacted-raw-payload]');
+const serializedLensState = JSON.stringify(harness.coreStore.state);
+assert.equal(serializedLensState.includes('RAW_LENS_PROMPT_BODY'), false);
+assert.equal(serializedLensState.includes('RAW_WORLD_INFO_PROMPT'), false);
+assert.equal(serializedLensState.includes('RAW_SUMMARYCEPTION_PROMPT'), false);
+assert.equal(serializedLensState.includes('RAW_VECTOR_HIT'), false);
+assert.equal(serializedLensState.includes('SECRET-QDRANT'), false);
+
+const noDirtyFlush = await lens.flush({
+  transactionId: 'txn-lens-visible',
+  lane: 'visible',
+  binding,
+  campaignContext,
+  promptFrame: { turnSourceHash: 'turn-source-hash-1' },
+  reason: 'no-dirty-visible'
+});
+assert.equal(noDirtyFlush.status, 'reused');
+assert.equal(noDirtyFlush.rebuilt, false);
+assert.equal(buildCalls.length, 1, 'clean visible lane must not rebuild');
+
+const hostHarness = createHarness({
+  nowPrefix: '2026-06-28T20:10',
+  nowValues: [
+    '2026-06-28T20:10:01.000Z',
+    '2026-06-28T20:10:02.000Z',
+    '2026-06-28T20:10:04.000Z',
+    '2026-06-28T20:10:10.000Z',
+    '2026-06-28T20:10:20.000Z'
+  ]
+});
+const hostGate = await beginTransaction(hostHarness, { transactionId: 'txn-lens-host', route: 'hostContinue', hostMessageId: '80' });
+const hostLens = createSyntheticLensPromptScheduler({
+  coreStore: hostHarness.coreStore,
+  clock: hostHarness.clock,
+  buildDirectivePromptPacket: async (payload) => ({
+    hash: hashStableJson({ revision: payload.revision, dirtyDomains: payload.dirtyDomains }),
+    blocks: [{
+      id: 'host-next',
+      promptKey: 'directive.lens.host-next',
+      title: 'Host Next Prompt',
+      text: 'Applies to the next host generation.',
+      placement: 'inPrompt',
+      depth: 0,
+      role: 'system'
+    }]
+  }),
+  installPromptPacket: async ({ packet }) => {
+    assert.equal(packet.revision, 1);
+    return { ok: true };
+  },
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    status: 'observed',
+    promptKeys: ['summaryception']
+  })
+});
+hostLens.enqueueDirty({
+  lane: 'visible',
+  dirtyDomains: ['continuity'],
+  source: 'hostContinue-background',
+  idempotencyKey: 'host-dirty-1'
+});
+const hostFlush = await hostLens.flush({
+  transactionId: 'txn-lens-host',
+  lane: 'visible',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: hostHarness.coreStore.state.revisions.mechanics
+  },
+  promptFrame: { turnSourceHash: 'host-turn-source-hash' },
+  hostGenerationReleasedAt: hostGate.releasedAt,
+  reason: 'host-continue-next-generation'
+});
+assert.equal(hostGate.released, true);
+assert.equal(hostFlush.status, 'installed');
+assert.equal(hostFlush.appliesTo, 'nextGeneration', 'hostContinue prompt rebuild should be recorded as next-generation if host generation was already released');
+
+const backgroundHarness = createHarness({
+  nowPrefix: '2026-06-28T20:20',
+  nowValues: [
+    '2026-06-28T20:20:01.000Z',
+    '2026-06-28T20:20:02.000Z',
+    '2026-06-28T20:20:10.000Z',
+    '2026-06-28T20:20:20.000Z'
+  ]
+});
+await beginTransaction(backgroundHarness, { transactionId: 'txn-lens-background', route: 'directiveCommit', hostMessageId: '90' });
+await backgroundHarness.coreStore.commitBackgroundBatch('txn-lens-background', {
+  baseMechanicsRevision: 0,
+  idempotencyKey: 'background-lens-1',
+  batchId: 'forge-lens-1',
+  phaseAfter: 'backgroundSettling',
+  promptDirtyDomains: ['continuity', 'crewShipRelationship'],
+  operations: [{ domain: 'continuity', op: 'upsertFactHash', factHash: 'fact-lens-1' }]
+});
+const backgroundBuildCalls = [];
+const backgroundLens = createSyntheticLensPromptScheduler({
+  coreStore: backgroundHarness.coreStore,
+  clock: backgroundHarness.clock,
+  buildDirectivePromptPacket: async (payload) => {
+    backgroundBuildCalls.push(payload);
+    return {
+      hash: hashStableJson({ revision: payload.revision, dirtyDomains: payload.dirtyDomains }),
+      blocks: [{
+        id: 'background',
+        promptKey: 'directive.lens.background',
+        title: 'Background Prompt',
+        text: 'Background-batch Directive context.',
+        placement: 'inPrompt',
+        depth: 0,
+        role: 'system'
+      }]
+    };
+  },
+  installPromptPacket: async () => ({ ok: true }),
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    status: 'observed',
+    vectFox: {
+      installed: true,
+      enabled: false,
+      disabledPresent: true
+    }
+  })
+});
+backgroundLens.enqueueDirty({
+  lane: 'background',
+  source: 'forge-batch',
+  dirtyDomains: ['continuity']
+});
+backgroundLens.enqueueDirty({
+  lane: 'background',
+  source: 'forge-batch',
+  dirtyDomains: ['crewShipRelationship', 'continuity']
+});
+const backgroundFlush = await backgroundLens.flush({
+  transactionId: 'txn-lens-background',
+  lane: 'background',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: backgroundHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'cpm-source-hash-background'
+  },
+  reason: 'background-batch-coalesced'
+});
+assert.equal(backgroundFlush.status, 'installed');
+assert.deepEqual(backgroundFlush.dirtyDomains, ['continuity', 'crewShipRelationship']);
+assert.equal(backgroundBuildCalls.length, 1, 'background batch should produce one prompt rebuild');
+
+const failureHarness = createHarness({
+  nowPrefix: '2026-06-28T20:30',
+  nowValues: [
+    '2026-06-28T20:30:01.000Z',
+    '2026-06-28T20:30:02.000Z',
+    '2026-06-28T20:30:10.000Z',
+    '2026-06-28T20:30:20.000Z',
+    '2026-06-28T20:30:30.000Z'
+  ]
+});
+await beginTransaction(failureHarness, { transactionId: 'txn-lens-failure', route: 'directiveCommit', hostMessageId: '95' });
+let failureInstallCalls = 0;
+const failureLens = createSyntheticLensPromptScheduler({
+  coreStore: failureHarness.coreStore,
+  clock: failureHarness.clock,
+  buildDirectivePromptPacket: async (payload) => ({
+    hash: hashStableJson({ revision: payload.revision, dirtyDomains: payload.dirtyDomains, failure: true }),
+    blocks: [{
+      id: 'failure-retry',
+      promptKey: 'directive.lens.failure-retry',
+      title: 'Failure Retry Prompt',
+      text: 'Retryable prompt install.',
+      placement: 'inPrompt',
+      depth: 0,
+      role: 'system'
+    }]
+  }),
+  installPromptPacket: async () => {
+    failureInstallCalls += 1;
+    if (failureInstallCalls === 1) {
+      return { ok: false, error: { message: 'Synthetic install failure' } };
+    }
+    return { ok: true };
+  },
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    status: 'observed'
+  })
+});
+failureLens.enqueueDirty({
+  lane: 'visible',
+  source: 'core-mechanics',
+  dirtyDomains: ['terminalRecovery'],
+  idempotencyKey: 'failure-dirty-1'
+});
+await assert.rejects(
+  () => failureLens.flush({
+    transactionId: 'txn-lens-failure',
+    lane: 'visible',
+    binding,
+    campaignContext: {
+      ...campaignContext,
+      mechanicsRevision: failureHarness.coreStore.state.revisions.mechanics,
+      cpmSourceHash: 'failure-cpm-source'
+    },
+    idempotencyKey: 'failure-flush-1',
+    reason: 'install-failure-keeps-dirty'
+  }),
+  /Synthetic install failure/
+);
+assert.deepEqual(failureLens.inspect().pendingDirtyDomains.visible, ['terminalRecovery'], 'failed install must leave dirty domains pending');
+const retryFailureFlush = await failureLens.flush({
+  transactionId: 'txn-lens-failure',
+  lane: 'visible',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: failureHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'failure-cpm-source'
+  },
+  idempotencyKey: 'failure-flush-1',
+  reason: 'install-failure-retry'
+});
+assert.equal(retryFailureFlush.status, 'installed');
+assert.equal(failureInstallCalls, 2);
+assert.deepEqual(failureLens.inspect().pendingDirtyDomains, {});
+const replayFailureFlush = await failureLens.flush({
+  transactionId: 'txn-lens-failure',
+  lane: 'visible',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: failureHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'failure-cpm-source'
+  },
+  idempotencyKey: 'failure-flush-1',
+  reason: 'install-failure-replay'
+});
+assert.equal(replayFailureFlush.replayed, true);
+assert.equal(failureInstallCalls, 2, 'successful retry with same idempotency key must not install twice');
+
+console.log('LENS prompt scheduler synthetic tests passed.');

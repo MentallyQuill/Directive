@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import {
+  normalizeExternalPromptEnvironment,
+  stableJsonStringify
+} from '../../../src/runtime/architecture-redesign-contracts.mjs';
+
 export const DEFAULT_SILLYTAVERN_BASE_URL = 'http://127.0.0.1:8000';
 export const DEFAULT_DIRECTIVE_EXTENSION_PATH = '/scripts/extensions/third-party/Directive';
 export const DEFAULT_SOAK_ARTIFACT_ROOT = 'artifacts/live-soak/sillytavern-campaign';
@@ -154,6 +159,248 @@ function firstJsonLine(filePath) {
   }
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function unique(values = []) {
+  return [...new Set(asArray(values).map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function objectHash(value) {
+  return sha256Text(stableJsonStringify(value || {}));
+}
+
+function truthy(value) {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+function targetStatus({ diskInstalled = false, diskEnabled = false, diskDisabled = false, browserConfirmed = false, browserUnavailable = false } = {}) {
+  if (browserConfirmed) return 'browser-confirmed';
+  if (diskDisabled) return 'disabled';
+  if (diskInstalled && !diskEnabled) return 'disabled';
+  if (diskInstalled || diskEnabled) return 'disk-confirmed';
+  return browserUnavailable ? 'unavailable' : 'not-installed';
+}
+
+function targetPassStatus(status) {
+  return ['browser-confirmed', 'disabled', 'not-installed'].includes(status);
+}
+
+const EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS = Object.freeze([
+  'stLorebooks',
+  'memoryBooks',
+  'summaryception',
+  'vectFox'
+]);
+
+function countValue(value) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+}
+
+function targetPromptKeys(target = {}) {
+  return Array.isArray(target.promptKeys) ? target.promptKeys : [];
+}
+
+function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
+  if ((target.status || 'unknown') !== 'browser-confirmed') return [];
+  const evidence = [];
+  const promptKeys = targetPromptKeys(target);
+  const chatCounts = target.chatMetadataCounts || {};
+  const markerCounts = target.messageMarkerCounts || {};
+  const browserSignals = target.browserSignals || {};
+  const worldInfo = environment.worldInfo || {};
+  const memoryBooks = environment.memoryBooks || {};
+  const summaryception = environment.summaryception || {};
+  const vectFox = environment.vectFox || {};
+  if (targetId === 'stLorebooks') {
+    const active = worldInfo.active === true
+      || countValue(chatCounts.chatBoundWorld) > 0
+      || Boolean(worldInfo.chatBoundName)
+      || Boolean(worldInfo.activeNames?.length);
+    const sourceSeen = browserSignals.chatMetadataSeen === true
+      || browserSignals.promptKeySeen === true
+      || promptKeys.some((key) => /^worldinfo/i.test(key));
+    if (!active || !sourceSeen) return [];
+    if (countValue(chatCounts.chatBoundWorld) > 0 || Boolean(worldInfo.chatBoundName)) evidence.push('chat-bound-world');
+    if (Boolean(worldInfo.activeNames?.length) || worldInfo.active === true) evidence.push('active-world-info');
+    if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /^worldinfo/i.test(key))) evidence.push('world-info-prompt-key');
+  } else if (targetId === 'memoryBooks') {
+    const active = memoryBooks.enabled === true
+      || target.diskSignals?.enabled === true
+      || countValue(memoryBooks.stMemoryBookEntryCount) > 0;
+    const entrySeen = countValue(memoryBooks.stMemoryBookEntryCount) > 0
+      || countValue(chatCounts.chatBoundWorld) > 0;
+    const markerOrPrompt = countValue(markerCounts.memoryBooksHidden) > 0
+      || browserSignals.messageMarkerSeen === true
+      || browserSignals.promptKeySeen === true
+      || promptKeys.some((key) => /memory/i.test(key));
+    if (!active || !entrySeen || !markerOrPrompt) return [];
+    if (countValue(memoryBooks.stMemoryBookEntryCount) > 0) evidence.push('memory-book-entry');
+    if (countValue(chatCounts.chatBoundWorld) > 0) evidence.push('memory-book-chat-bound-world');
+    if (countValue(markerCounts.memoryBooksHidden) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('memory-book-visibility-marker');
+    if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /memory/i.test(key))) evidence.push('memory-book-prompt-key');
+  } else if (targetId === 'summaryception') {
+    const active = summaryception.enabled === true || target.diskSignals?.enabled === true;
+    const promptSeen = browserSignals.promptKeySeen === true || promptKeys.includes('summaryception') || summaryception.promptKeyActive === true;
+    const summaryState = countValue(summaryception.layerCount) > 0
+      || countValue(summaryception.ghostedCount) > 0
+      || countValue(chatCounts.layerCount) > 0
+      || countValue(chatCounts.ghostedCount) > 0
+      || countValue(markerCounts.summaryceptionGhosted) > 0
+      || browserSignals.messageMarkerSeen === true;
+    if (!active || !promptSeen || !summaryState) return [];
+    if (countValue(summaryception.layerCount) > 0 || countValue(chatCounts.layerCount) > 0) evidence.push('summaryception-layer');
+    if (countValue(summaryception.ghostedCount) > 0 || countValue(chatCounts.ghostedCount) > 0 || countValue(markerCounts.summaryceptionGhosted) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('summaryception-ghosted-row');
+    if (promptSeen) evidence.push('summaryception-prompt-key');
+  } else if (targetId === 'vectFox') {
+    const active = vectFox.enabled === true || target.diskSignals?.enabled === true;
+    const promptOrMarker = browserSignals.promptKeySeen === true
+      || promptKeys.some((key) => /^3_vectfox/i.test(key))
+      || countValue(markerCounts.vectFoxGhosted) > 0
+      || browserSignals.messageMarkerSeen === true;
+    const settingsOrHook = Boolean(vectFox.backendType)
+      || vectFox.generationInterceptorActive === true
+      || vectFox.summarizerInjectionEnabled === true
+      || vectFox.semanticWorldInfoEnabled === true
+      || Boolean(vectFox.settingsHash)
+      || Boolean(target.diskSignals?.settingsHash)
+      || browserSignals.settingsSeen === true
+      || browserSignals.globalSignatureSeen === true;
+    if (!active || !promptOrMarker || !settingsOrHook) return [];
+    if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /^3_vectfox/i.test(key))) evidence.push('vectfox-prompt-key');
+    if (countValue(markerCounts.vectFoxGhosted) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('vectfox-ghosted-row');
+    if (settingsOrHook) evidence.push('vectfox-settings-or-hook');
+  }
+  return [...new Set(evidence)];
+}
+
+function fixtureTargetLevel(target = {}, evidence = []) {
+  const status = target.status || 'unknown';
+  if (evidence.length > 0) return 'rich-active';
+  if (status === 'browser-confirmed') return 'browser-observed';
+  if (status === 'disk-confirmed' || status === 'settings-only') return 'disk-only';
+  if (status === 'disabled' || status === 'not-installed') return 'inactive';
+  if (status === 'unavailable') return 'unavailable';
+  return 'unknown';
+}
+
+export function summarizeExternalContextFixtureDepth(probeOrSummary = {}) {
+  const users = Array.isArray(probeOrSummary)
+    ? probeOrSummary
+    : Array.isArray(probeOrSummary?.users)
+      ? probeOrSummary.users
+      : [];
+  const userSummaries = users.map((user) => {
+    const targets = Object.fromEntries(EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS.map((targetId) => {
+      const target = user.targets?.[targetId] || {};
+      const evidence = fixtureTargetEvidence(targetId, target, user.externalPromptEnvironment || {});
+      const level = fixtureTargetLevel(target, evidence);
+      return [targetId, {
+        status: target.status || 'unknown',
+        level,
+        rich: evidence.length > 0,
+        evidence
+      }];
+    }));
+    const richTargets = Object.entries(targets)
+      .filter(([, target]) => target.rich)
+      .map(([targetId]) => targetId);
+    return {
+      handle: user.handle || null,
+      status: user.status || 'unknown',
+      richTargets,
+      missingTargets: EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS.filter((targetId) => !targets[targetId].rich),
+      fullFixtureDepth: richTargets.length === EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS.length,
+      targets
+    };
+  });
+  const targetCoverage = Object.fromEntries(EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS.map((targetId) => {
+    const handles = userSummaries
+      .filter((user) => user.targets[targetId]?.rich)
+      .map((user) => user.handle)
+      .filter(Boolean);
+    return [targetId, {
+      richUserCount: handles.length,
+      handles: handles.slice(0, 20)
+    }];
+  }));
+  const fullFixtureUserHandles = userSummaries
+    .filter((user) => user.fullFixtureDepth)
+    .map((user) => user.handle)
+    .filter(Boolean);
+  const missingTargets = EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS
+    .filter((targetId) => !targetCoverage[targetId]?.richUserCount);
+  const anyEvidence = Object.values(targetCoverage).some((entry) => entry.richUserCount > 0);
+  const status = fullFixtureUserHandles.length > 0
+    ? 'pass'
+    : anyEvidence
+      ? 'warning'
+      : 'missing';
+  return {
+    kind: 'directive.sillytavern.externalContextFixtureDepth.v1',
+    schemaVersion: 1,
+    status,
+    requiredTargets: [...EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS],
+    fullFixtureUserHandles,
+    missingTargets,
+    targetCoverage,
+    users: userSummaries
+  };
+}
+
+export function externalContextFixtureDepthCheckStatus({
+  live = false,
+  skipReadiness = false,
+  turnLimit = '',
+  fixtureDepth = null,
+  probeRequired = false,
+  fullCertificationRequired = false
+} = {}) {
+  if (!live && !probeRequired && !fullCertificationRequired) return 'skipped';
+  if (skipReadiness) return 'warning';
+  if (!fixtureDepth) return live || fullCertificationRequired ? 'fail' : 'warning';
+  if (fixtureDepth.status === 'pass') return 'pass';
+  if (fullCertificationRequired) return 'fail';
+  return 'warning';
+}
+
+function promptKeySeen(promptKeys = [], candidates = []) {
+  const keys = new Set(unique(promptKeys).map((key) => key.toLowerCase()));
+  return candidates.some((candidate) => keys.has(String(candidate).toLowerCase()));
+}
+
+function countMessageMarkers(markers = {}, keys = []) {
+  return keys.reduce((sum, key) => sum + Math.max(0, Number(markers?.[key] || 0)), 0);
+}
+
+function sanitizeUrl(value = null) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  try {
+    const url = new URL(text);
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return text.split(/[?#]/)[0].slice(0, 200) || null;
+  }
+}
+
+function sanitizePromptKeys(value = []) {
+  return unique(value)
+    .filter((key) => /^[a-z0-9_.:-]{1,80}$/i.test(key))
+    .slice(0, 100);
+}
+
+function sanitizeSignalList(value = []) {
+  return unique(value)
+    .map((signal) => signal.toLowerCase().replace(/[^a-z0-9._:-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80))
+    .filter(Boolean)
+    .slice(0, 50);
+}
+
 function resolveSillyTavernDataRoot(dataRoot = '') {
   const candidates = [
     dataRoot,
@@ -254,6 +501,502 @@ export function inspectSillyTavernAuthorNoteCleanliness({
   };
 }
 
+function extensionInstalled(userRoot, extensionName) {
+  return fs.existsSync(path.join(userRoot, 'extensions', extensionName));
+}
+
+function disabledExtensions(settings = {}) {
+  return new Set([
+    ...asArray(settings.extensions?.disabledExtensions),
+    ...asArray(settings.disabledExtensions),
+    ...asArray(settings.extension_settings?.disabledExtensions)
+  ].map((value) => String(value || '').toLowerCase()));
+}
+
+function scanUserWorldInfo(userRoot) {
+  const worldsRoot = path.join(userRoot, 'worlds');
+  const worldFiles = walkFiles(worldsRoot, (filePath) => filePath.endsWith('.json'));
+  let stMemoryBookEntryCount = 0;
+  const stMemoryBookEntryRefs = [];
+  for (const filePath of worldFiles) {
+    const data = readJsonFileIfExists(filePath);
+    const entries = data?.entries && typeof data.entries === 'object' ? data.entries : {};
+    for (const [uid, entry] of Object.entries(entries)) {
+      if (entry?.stmemorybooks === true || entry?.extensions?.stmemorybooks === true) {
+        stMemoryBookEntryCount += 1;
+        stMemoryBookEntryRefs.push({
+          world: path.basename(filePath, '.json'),
+          uid: String(uid),
+          titleHash: sha256Text(entry.comment || entry.title || entry.key?.[0] || uid)
+        });
+      }
+    }
+  }
+  return {
+    worldFileCount: worldFiles.length,
+    stMemoryBookEntryCount,
+    stMemoryBookEntryHash: stMemoryBookEntryRefs.length ? objectHash(stMemoryBookEntryRefs) : null
+  };
+}
+
+function scanUserChatMetadata(userRoot) {
+  const chatFiles = walkFiles(path.join(userRoot, 'chats'), (filePath) => filePath.endsWith('.jsonl'));
+  const chatBoundWorlds = [];
+  let summaryceptionGhostedCount = 0;
+  let summaryceptionLayerCount = 0;
+  let summaryceptionSummarizedUpTo = -1;
+  for (const filePath of chatFiles) {
+    let first = null;
+    try {
+      first = JSON.parse(firstJsonLine(filePath) || '{}');
+    } catch {
+      first = null;
+    }
+    const metadata = first?.chat_metadata || first?.metadata || {};
+    if (metadata.world_info) chatBoundWorlds.push(metadata.world_info);
+    const summaryception = metadata.summaryception;
+    if (summaryception && typeof summaryception === 'object') {
+      summaryceptionGhostedCount += asArray(summaryception.ghostedIndices).length;
+      summaryceptionLayerCount = Math.max(summaryceptionLayerCount, asArray(summaryception.layers).length);
+      summaryceptionSummarizedUpTo = Math.max(summaryceptionSummarizedUpTo, Number(summaryception.summarizedUpTo ?? -1) || -1);
+    }
+  }
+  return {
+    chatFileCount: chatFiles.length,
+    chatBoundWorlds: unique(chatBoundWorlds),
+    summaryceptionGhostedCount,
+    summaryceptionLayerCount,
+    summaryceptionSummarizedUpTo
+  };
+}
+
+export function inspectSillyTavernExternalContextCompatibility({
+  users = [],
+  dataRoot = '',
+  required = false
+} = {}) {
+  const resolvedDataRoot = resolveSillyTavernDataRoot(dataRoot);
+  const handles = (users || [])
+    .map((entry) => normalizeSoakHandle(typeof entry === 'string' ? entry : entry?.handle || entry?.displayHandle || entry?.user || entry?.username || ''))
+    .filter(Boolean);
+  if (!resolvedDataRoot) {
+    return {
+      status: required ? 'fail' : 'warning',
+      summary: required
+        ? 'SillyTavern data root is required for external context compatibility preflight but could not be resolved.'
+        : 'SillyTavern data root could not be resolved; external context compatibility was not verified.',
+      dataRoot: null,
+      checkedUserCount: 0,
+      users: handles.map((handle) => ({ handle, status: required ? 'fail' : 'warning', reason: 'data-root-unresolved' }))
+    };
+  }
+
+  const reports = handles.map((handle) => {
+    const userRoot = path.join(resolvedDataRoot, handle);
+    const settingsPath = path.join(userRoot, 'settings.json');
+    const settings = readJsonFileIfExists(settingsPath) || {};
+    const extensionSettings = settings.extension_settings || {};
+    const disabled = disabledExtensions(settings);
+    const worlds = fs.existsSync(userRoot) ? scanUserWorldInfo(userRoot) : { worldFileCount: 0, stMemoryBookEntryCount: 0, stMemoryBookEntryHash: null };
+    const chats = fs.existsSync(userRoot) ? scanUserChatMetadata(userRoot) : { chatFileCount: 0, chatBoundWorlds: [], summaryceptionGhostedCount: 0, summaryceptionLayerCount: 0, summaryceptionSummarizedUpTo: -1 };
+    const worldInfoSettings = settings.world_info_settings || {};
+    const worldInfoSelect = worldInfoSettings.world_info?.globalSelect || worldInfoSettings.world_info?.global_select || [];
+    const stmbSettings = extensionSettings.STMemoryBooks?.moduleSettings || {};
+    const summaryception = extensionSettings.summaryception || {};
+    const vectfox = extensionSettings.vectfox || {};
+    const vectFoxDisabled = disabled.has('third-party/vectfox') || disabled.has('vectfox');
+    const environment = normalizeExternalPromptEnvironment({
+      host: 'sillytavern',
+      userHandle: handle,
+      status: fs.existsSync(userRoot) ? 'observed' : 'unavailable',
+      observedAt: new Date().toISOString(),
+      promptKeys: [
+        summaryception.enabled ? 'summaryception' : null,
+        vectfox.enabled ? '3_vectfox' : null,
+        vectfox.summarizer_injection_enabled ? '3_vectfox_summarizer' : null
+      ].filter(Boolean),
+      worldInfo: {
+        installed: true,
+        enabled: worlds.worldFileCount > 0 || unique(worldInfoSelect).length > 0 || chats.chatBoundWorlds.length > 0,
+        active: unique(worldInfoSelect).length > 0 || chats.chatBoundWorlds.length > 0,
+        activeNames: unique(worldInfoSelect),
+        chatBoundName: chats.chatBoundWorlds[0] || null,
+        settingsHash: objectHash(worldInfoSettings),
+        depth: worldInfoSettings.world_info_depth,
+        budgetPercent: worldInfoSettings.world_info_budget,
+        recursive: worldInfoSettings.world_info_recursive,
+        promptPositions: ['before', 'after', 'atDepth']
+      },
+      memoryBooks: {
+        installed: extensionInstalled(userRoot, 'SillyTavern-MemoryBooks') || Boolean(extensionSettings.STMemoryBooks),
+        enabled: Boolean(extensionSettings.STMemoryBooks),
+        activeBookName: chats.chatBoundWorlds[0] || null,
+        entryCount: worlds.stMemoryBookEntryCount,
+        entryHash: worlds.stMemoryBookEntryHash,
+        riskyModes: {
+          autoSummary: stmbSettings.autoSummaryEnabled === true || stmbSettings.autoSummary?.enabled === true,
+          autoCreate: stmbSettings.autoCreateEnabled === true,
+          autoHideUnhide: stmbSettings.unhideBeforeMemory === true || stmbSettings.autoHideMode,
+          sidePrompts: stmbSettings.sidePromptsEnabled === true || stmbSettings.sidePrompts?.enabled === true,
+          atDepthUserOrAssistant: stmbSettings.summaryEntrySettings?.position === 4
+        }
+      },
+      summaryception: {
+        installed: extensionInstalled(userRoot, 'Extension-Summaryception') || Boolean(extensionSettings.summaryception),
+        enabled: summaryception.enabled === true,
+        promptKeyActive: summaryception.enabled === true,
+        summarizedUpTo: chats.summaryceptionSummarizedUpTo,
+        layerCount: chats.summaryceptionLayerCount,
+        ghostedCount: chats.summaryceptionGhostedCount,
+        injectionHash: summaryception.injectionTemplate ? sha256Text(summaryception.injectionTemplate) : null,
+        externalModelCalls: Boolean(summaryception.connectionSource && summaryception.connectionSource !== 'profile')
+      },
+      vectFox: {
+        installed: extensionInstalled(userRoot, 'VectFox') || Boolean(extensionSettings.vectfox),
+        enabled: Boolean(vectfox.enabled) && !vectFoxDisabled,
+        disabledPresent: Boolean(extensionSettings.vectfox) && vectFoxDisabled,
+        promptKeys: ['3_vectfox', '3_vectfox_eventbase', '3_vectfox_summarizer'].filter((key) => key === '3_vectfox' || vectfox.summarizer_injection_enabled),
+        position: vectfox.position,
+        depth: vectfox.depth,
+        backendType: vectfox.vector_backend,
+        semanticWorldInfoEnabled: vectfox.enabled_world_info === true,
+        summarizerInjectionEnabled: vectfox.summarizer_injection_enabled === true,
+        ghostingEnabled: vectfox.eventbase_ghost_enabled === true,
+        generationInterceptorActive: Boolean(extensionSettings.vectfox),
+        settingsHash: objectHash(vectfox),
+        qdrant_api_key: vectfox.qdrant_api_key,
+        vectorPayload: vectfox.collections
+      },
+      unknownSignals: fs.existsSync(userRoot) ? [] : ['user-root-missing']
+    });
+    return {
+      handle,
+      status: fs.existsSync(userRoot) ? 'pass' : required ? 'fail' : 'warning',
+      userRoot,
+      settingsFound: Boolean(readJsonFileIfExists(settingsPath)),
+      worldFileCount: worlds.worldFileCount,
+      chatFileCount: chats.chatFileCount,
+      externalPromptEnvironment: environment
+    };
+  });
+  const status = reports.some((entry) => entry.status === 'fail') ? 'fail' : reports.some((entry) => entry.status === 'warning') ? 'warning' : 'pass';
+  return {
+    status,
+    summary: status === 'pass'
+      ? 'Configured SillyTavern soak users have redacted external context-extension compatibility snapshots.'
+      : 'One or more configured SillyTavern soak users could not be inspected for external context compatibility.',
+    dataRoot: resolvedDataRoot,
+    checkedUserCount: reports.length,
+    users: reports
+  };
+}
+
+export function buildExternalContextBrowserProbe({
+  runId = createRunId(),
+  capturedAt = new Date().toISOString(),
+  baseUrl = null,
+  required = false,
+  users = [],
+  diskCompatibility = null,
+  browserSnapshots = []
+} = {}) {
+  const diskByHandle = new Map((diskCompatibility?.users || [])
+    .map((entry) => [normalizeSoakHandle(entry.handle), entry])
+    .filter(([handle]) => Boolean(handle)));
+  const snapshotByHandle = new Map((browserSnapshots || [])
+    .map((entry) => [normalizeSoakHandle(entry.handle), entry])
+    .filter(([handle]) => Boolean(handle)));
+  const handles = unique([
+    ...(users || []).map((entry) => typeof entry === 'string' ? entry : entry?.handle || entry?.displayHandle),
+    ...(diskCompatibility?.users || []).map((entry) => entry.handle),
+    ...(browserSnapshots || []).map((entry) => entry.handle)
+  ].map(normalizeSoakHandle).filter(Boolean));
+
+  const userReports = handles.map((handle) => {
+    const disk = diskByHandle.get(handle) || null;
+    const browser = snapshotByHandle.get(handle) || {};
+    const browserPromptKeys = sanitizePromptKeys(browser.hostPromptRegistry?.promptKeys || browser.promptKeys || []);
+    const chatMetadata = browser.chatMetadata || {};
+    const messageMarkers = browser.messageMarkerCounts || {};
+    const diskEnvironment = disk?.externalPromptEnvironment || null;
+    const unavailableSignals = sanitizeSignalList([
+      ...(browser.unavailableSignals || []),
+      ...(browser.contextReady === false ? ['browser-context-unavailable'] : []),
+      ...(browser.hostPromptRegistry?.available === false ? ['prompt-registry-unavailable'] : [])
+    ]);
+    const browserEnvironment = normalizeExternalPromptEnvironment({
+      host: 'sillytavern',
+      userHandle: handle,
+      status: browser.contextReady ? 'observed' : 'unavailable',
+      observedAt: capturedAt,
+      promptKeys: browserPromptKeys,
+      worldInfo: {
+        installed: truthy(browser.worldInfo?.installed) || truthy(browser.worldInfo?.settingsSeen) || truthy(browser.worldInfo?.globalSignatureSeen),
+        enabled: truthy(browser.worldInfo?.enabled) || Boolean(browser.worldInfo?.activeNames?.length),
+        active: truthy(browser.worldInfo?.active) || Boolean(chatMetadata.worldInfo),
+        activeNames: browser.worldInfo?.activeNames || [],
+        chatBoundName: chatMetadata.worldInfo || null,
+        settingsHash: browser.worldInfo?.settingsHash || null,
+        depth: browser.worldInfo?.depth,
+        budgetPercent: browser.worldInfo?.budgetPercent,
+        recursive: browser.worldInfo?.recursive,
+        promptPositions: browser.worldInfo?.promptPositions || []
+      },
+      memoryBooks: {
+        installed: truthy(browser.memoryBooks?.installed) || truthy(browser.memoryBooks?.settingsSeen) || truthy(browser.memoryBooks?.globalSignatureSeen),
+        enabled: truthy(browser.memoryBooks?.enabled),
+        activeBookName: browser.memoryBooks?.activeBookName || null,
+        entryCount: browser.memoryBooks?.entryCount,
+        entryHash: browser.memoryBooks?.entryHash || null,
+        riskyModes: {
+          autoSummary: truthy(browser.memoryBooks?.riskyModes?.autoSummary),
+          autoCreate: truthy(browser.memoryBooks?.riskyModes?.autoCreate),
+          autoHideUnhide: truthy(browser.memoryBooks?.riskyModes?.autoHideUnhide),
+          sidePrompts: truthy(browser.memoryBooks?.riskyModes?.sidePrompts),
+          atDepthUserOrAssistant: truthy(browser.memoryBooks?.riskyModes?.atDepthUserOrAssistant)
+        }
+      },
+      summaryception: {
+        installed: truthy(browser.summaryception?.installed) || truthy(browser.summaryception?.settingsSeen) || truthy(browser.summaryception?.globalSignatureSeen),
+        enabled: truthy(browser.summaryception?.enabled),
+        promptKeyActive: promptKeySeen(browserPromptKeys, ['summaryception']),
+        summarizedUpTo: chatMetadata.summaryception?.summarizedUpTo,
+        layerCount: chatMetadata.summaryception?.layerCount,
+        ghostedCount: Math.max(Number(chatMetadata.summaryception?.ghostedCount || 0), Number(messageMarkers.summaryceptionGhosted || 0)),
+        injectionHash: browser.summaryception?.injectionHash || null,
+        externalModelCalls: truthy(browser.summaryception?.externalModelCalls)
+      },
+      vectFox: {
+        installed: truthy(browser.vectFox?.installed) || truthy(browser.vectFox?.settingsSeen) || truthy(browser.vectFox?.globalSignatureSeen),
+        enabled: truthy(browser.vectFox?.enabled),
+        disabledPresent: truthy(browser.vectFox?.disabledPresent),
+        promptKeys: sanitizePromptKeys([...(browser.vectFox?.promptKeys || []), ...browserPromptKeys.filter((key) => /^3_vectfox/i.test(key))]),
+        position: browser.vectFox?.position,
+        depth: browser.vectFox?.depth,
+        backendType: browser.vectFox?.backendType || null,
+        semanticWorldInfoEnabled: truthy(browser.vectFox?.semanticWorldInfoEnabled),
+        summarizerInjectionEnabled: truthy(browser.vectFox?.summarizerInjectionEnabled),
+        ghostingEnabled: truthy(browser.vectFox?.ghostingEnabled),
+        generationInterceptorActive: truthy(browser.vectFox?.generationInterceptorActive),
+        settingsHash: browser.vectFox?.settingsHash || null,
+        qdrant_api_key: browser.vectFox?.qdrant_api_key,
+        vectorPayload: browser.vectFox?.vectorPayload
+      },
+      unknownSignals: unavailableSignals
+    });
+    const externalPromptEnvironment = normalizeExternalPromptEnvironment({
+      host: 'sillytavern',
+      userHandle: handle,
+      status: browser.contextReady || diskEnvironment ? 'observed' : 'unavailable',
+      observedAt: capturedAt,
+      promptKeys: browserPromptKeys,
+      worldInfo: {
+        installed: diskEnvironment?.worldInfo?.installed !== false,
+        enabled: truthy(browser.worldInfo?.enabled) || Boolean(browser.worldInfo?.activeNames?.length) || Boolean(diskEnvironment?.worldInfo?.enabled),
+        active: truthy(browser.worldInfo?.active) || Boolean(chatMetadata.worldInfo) || Boolean(diskEnvironment?.worldInfo?.active),
+        activeNames: browser.worldInfo?.activeNames || diskEnvironment?.worldInfo?.activeNames || [],
+        chatBoundName: chatMetadata.worldInfo || diskEnvironment?.worldInfo?.chatBoundName || null,
+        settingsHash: browser.worldInfo?.settingsHash || diskEnvironment?.worldInfo?.settingsHash || null,
+        depth: browser.worldInfo?.depth ?? diskEnvironment?.worldInfo?.depth,
+        budgetPercent: browser.worldInfo?.budgetPercent ?? diskEnvironment?.worldInfo?.budgetPercent,
+        recursive: browser.worldInfo?.recursive ?? diskEnvironment?.worldInfo?.recursive,
+        promptPositions: browser.worldInfo?.promptPositions || diskEnvironment?.worldInfo?.promptPositions || []
+      },
+      memoryBooks: {
+        installed: truthy(browser.memoryBooks?.installed) || Boolean(diskEnvironment?.memoryBooks?.installed),
+        enabled: truthy(browser.memoryBooks?.enabled) || Boolean(diskEnvironment?.memoryBooks?.enabled),
+        activeBookName: browser.memoryBooks?.activeBookName || diskEnvironment?.memoryBooks?.activeBookName || null,
+        entryCount: browser.memoryBooks?.entryCount ?? diskEnvironment?.memoryBooks?.stMemoryBookEntryCount,
+        entryHash: browser.memoryBooks?.entryHash || diskEnvironment?.memoryBooks?.stMemoryBookEntryHash || null,
+        riskyModes: {
+          autoSummary: truthy(browser.memoryBooks?.riskyModes?.autoSummary) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.autoSummary),
+          autoCreate: truthy(browser.memoryBooks?.riskyModes?.autoCreate) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.autoCreate),
+          autoHideUnhide: truthy(browser.memoryBooks?.riskyModes?.autoHideUnhide) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.autoHideUnhide),
+          sidePrompts: truthy(browser.memoryBooks?.riskyModes?.sidePrompts) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.sidePrompts),
+          atDepthUserOrAssistant: truthy(browser.memoryBooks?.riskyModes?.atDepthUserOrAssistant) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.atDepthUserOrAssistant)
+        }
+      },
+      summaryception: {
+        installed: truthy(browser.summaryception?.installed) || Boolean(diskEnvironment?.summaryception?.installed),
+        enabled: truthy(browser.summaryception?.enabled) || Boolean(diskEnvironment?.summaryception?.enabled),
+        promptKeyActive: promptKeySeen(browserPromptKeys, ['summaryception']) || Boolean(diskEnvironment?.summaryception?.promptKeyActive),
+        summarizedUpTo: chatMetadata.summaryception?.summarizedUpTo ?? diskEnvironment?.summaryception?.summarizedUpTo,
+        layerCount: chatMetadata.summaryception?.layerCount ?? diskEnvironment?.summaryception?.layerCount,
+        ghostedCount: Math.max(Number(chatMetadata.summaryception?.ghostedCount || 0), Number(messageMarkers.summaryceptionGhosted || 0), Number(diskEnvironment?.summaryception?.ghostedCount || 0)),
+        injectionHash: browser.summaryception?.injectionHash || diskEnvironment?.summaryception?.injectionHash || null,
+        externalModelCalls: truthy(browser.summaryception?.externalModelCalls) || Boolean(diskEnvironment?.summaryception?.externalModelCalls)
+      },
+      vectFox: {
+        installed: truthy(browser.vectFox?.installed) || Boolean(diskEnvironment?.vectFox?.installed),
+        enabled: truthy(browser.vectFox?.enabled) || Boolean(diskEnvironment?.vectFox?.enabled),
+        disabledPresent: truthy(browser.vectFox?.disabledPresent) || Boolean(diskEnvironment?.vectFox?.disabledPresent),
+        promptKeys: sanitizePromptKeys([...(browser.vectFox?.promptKeys || []), ...(diskEnvironment?.vectFox?.promptKeys || []), ...browserPromptKeys.filter((key) => /^3_vectfox/i.test(key))]),
+        position: browser.vectFox?.position ?? diskEnvironment?.vectFox?.position,
+        depth: browser.vectFox?.depth ?? diskEnvironment?.vectFox?.depth,
+        backendType: browser.vectFox?.backendType || diskEnvironment?.vectFox?.backendType || null,
+        semanticWorldInfoEnabled: truthy(browser.vectFox?.semanticWorldInfoEnabled) || Boolean(diskEnvironment?.vectFox?.semanticWorldInfoEnabled),
+        summarizerInjectionEnabled: truthy(browser.vectFox?.summarizerInjectionEnabled) || Boolean(diskEnvironment?.vectFox?.summarizerInjectionEnabled),
+        ghostingEnabled: truthy(browser.vectFox?.ghostingEnabled) || Boolean(diskEnvironment?.vectFox?.ghostingEnabled),
+        generationInterceptorActive: truthy(browser.vectFox?.generationInterceptorActive) || Boolean(diskEnvironment?.vectFox?.generationInterceptorActive),
+        settingsHash: browser.vectFox?.settingsHash || diskEnvironment?.vectFox?.settingsHash || null,
+        qdrant_api_key: browser.vectFox?.qdrant_api_key,
+        vectorPayload: browser.vectFox?.vectorPayload
+      },
+      unknownSignals: unavailableSignals
+    });
+
+    const targets = {
+      stLorebooks: {
+        status: targetStatus({
+          diskInstalled: Boolean(diskEnvironment?.worldInfo?.installed),
+          diskEnabled: Boolean(diskEnvironment?.worldInfo?.enabled || diskEnvironment?.worldInfo?.active),
+          browserConfirmed: Boolean(browser.worldInfo?.settingsSeen || browser.worldInfo?.globalSignatureSeen || chatMetadata.worldInfo || browser.worldInfo?.activeNames?.length),
+          browserUnavailable: unavailableSignals.length > 0
+        }),
+        diskSignals: {
+          installed: Boolean(diskEnvironment?.worldInfo?.installed),
+          enabled: Boolean(diskEnvironment?.worldInfo?.enabled || diskEnvironment?.worldInfo?.active),
+          settingsHash: diskEnvironment?.worldInfo?.settingsHash || null
+        },
+        browserSignals: {
+          settingsSeen: Boolean(browser.worldInfo?.settingsSeen),
+          globalSignatureSeen: Boolean(browser.worldInfo?.globalSignatureSeen),
+          promptKeySeen: promptKeySeen(browserPromptKeys, ['worldInfoBefore', 'worldInfoAfter']),
+          chatMetadataSeen: Boolean(chatMetadata.worldInfo),
+          messageMarkerSeen: false
+        },
+        promptKeys: browserPromptKeys.filter((key) => /^worldinfo/i.test(key)),
+        chatMetadataCounts: { chatBoundWorld: chatMetadata.worldInfo ? 1 : 0 },
+        messageMarkerCounts: {},
+        unavailableReasons: unavailableSignals
+      },
+      memoryBooks: {
+        status: targetStatus({
+          diskInstalled: Boolean(diskEnvironment?.memoryBooks?.installed),
+          diskEnabled: Boolean(diskEnvironment?.memoryBooks?.enabled),
+          browserConfirmed: Boolean(browser.memoryBooks?.settingsSeen || browser.memoryBooks?.globalSignatureSeen || messageMarkers.memoryBooksHidden > 0),
+          browserUnavailable: unavailableSignals.length > 0
+        }),
+        diskSignals: {
+          installed: Boolean(diskEnvironment?.memoryBooks?.installed),
+          enabled: Boolean(diskEnvironment?.memoryBooks?.enabled),
+          settingsHash: diskEnvironment?.memoryBooks?.stMemoryBookEntryHash || null
+        },
+        browserSignals: {
+          settingsSeen: Boolean(browser.memoryBooks?.settingsSeen),
+          globalSignatureSeen: Boolean(browser.memoryBooks?.globalSignatureSeen),
+          promptKeySeen: promptKeySeen(browserPromptKeys, ['st_memory_books', 'memorybooks']),
+          chatMetadataSeen: Boolean(chatMetadata.worldInfo),
+          messageMarkerSeen: Number(messageMarkers.memoryBooksHidden || 0) > 0
+        },
+        promptKeys: browserPromptKeys.filter((key) => /memory/i.test(key)),
+        chatMetadataCounts: { chatBoundWorld: chatMetadata.worldInfo ? 1 : 0 },
+        messageMarkerCounts: { memoryBooksHidden: Number(messageMarkers.memoryBooksHidden || 0) },
+        unavailableReasons: unavailableSignals
+      },
+      summaryception: {
+        status: targetStatus({
+          diskInstalled: Boolean(diskEnvironment?.summaryception?.installed),
+          diskEnabled: Boolean(diskEnvironment?.summaryception?.enabled),
+          browserConfirmed: Boolean(browser.summaryception?.settingsSeen || browser.summaryception?.globalSignatureSeen || promptKeySeen(browserPromptKeys, ['summaryception']) || chatMetadata.summaryception || messageMarkers.summaryceptionGhosted > 0),
+          browserUnavailable: unavailableSignals.length > 0
+        }),
+        diskSignals: {
+          installed: Boolean(diskEnvironment?.summaryception?.installed),
+          enabled: Boolean(diskEnvironment?.summaryception?.enabled),
+          settingsHash: diskEnvironment?.summaryception?.injectionHash || null
+        },
+        browserSignals: {
+          settingsSeen: Boolean(browser.summaryception?.settingsSeen),
+          globalSignatureSeen: Boolean(browser.summaryception?.globalSignatureSeen),
+          promptKeySeen: promptKeySeen(browserPromptKeys, ['summaryception']),
+          chatMetadataSeen: Boolean(chatMetadata.summaryception),
+          messageMarkerSeen: Number(messageMarkers.summaryceptionGhosted || 0) > 0
+        },
+        promptKeys: browserPromptKeys.filter((key) => key === 'summaryception'),
+        chatMetadataCounts: {
+          ghostedCount: Number(chatMetadata.summaryception?.ghostedCount || 0),
+          layerCount: Number(chatMetadata.summaryception?.layerCount || 0)
+        },
+        messageMarkerCounts: { summaryceptionGhosted: Number(messageMarkers.summaryceptionGhosted || 0) },
+        unavailableReasons: unavailableSignals
+      },
+      vectFox: {
+        status: targetStatus({
+          diskInstalled: Boolean(diskEnvironment?.vectFox?.installed),
+          diskEnabled: Boolean(diskEnvironment?.vectFox?.enabled),
+          diskDisabled: Boolean(diskEnvironment?.vectFox?.disabledPresent || browser.vectFox?.disabledPresent),
+          browserConfirmed: Boolean(browser.vectFox?.settingsSeen || browser.vectFox?.globalSignatureSeen || promptKeySeen(browserPromptKeys, ['3_vectfox', '3_vectfox_eventbase', '3_vectfox_summarizer']) || messageMarkers.vectFoxGhosted > 0),
+          browserUnavailable: unavailableSignals.length > 0
+        }),
+        diskSignals: {
+          installed: Boolean(diskEnvironment?.vectFox?.installed),
+          enabled: Boolean(diskEnvironment?.vectFox?.enabled),
+          disabledPresent: Boolean(diskEnvironment?.vectFox?.disabledPresent),
+          settingsHash: diskEnvironment?.vectFox?.settingsHash || null
+        },
+        browserSignals: {
+          settingsSeen: Boolean(browser.vectFox?.settingsSeen),
+          globalSignatureSeen: Boolean(browser.vectFox?.globalSignatureSeen),
+          promptKeySeen: promptKeySeen(browserPromptKeys, ['3_vectfox', '3_vectfox_eventbase', '3_vectfox_summarizer']),
+          chatMetadataSeen: Boolean(chatMetadata.vectFox),
+          messageMarkerSeen: Number(messageMarkers.vectFoxGhosted || 0) > 0
+        },
+        promptKeys: browserPromptKeys.filter((key) => /^3_vectfox/i.test(key)),
+        chatMetadataCounts: {},
+        messageMarkerCounts: { vectFoxGhosted: Number(messageMarkers.vectFoxGhosted || 0) },
+        unavailableReasons: unavailableSignals
+      }
+    };
+    const targetStatuses = Object.values(targets).map((target) => target.status);
+    const unresolved = targetStatuses.some((entry) => ['disk-confirmed', 'unavailable', 'indeterminate'].includes(entry));
+    const status = targetStatuses.every(targetPassStatus)
+      ? 'pass'
+      : unresolved
+        ? (required ? 'fail' : 'warning')
+        : 'fail';
+    return {
+      handle,
+      resolvedBrowserUserHandle: browser.resolvedBrowserUserHandle || browser.browserUserHandle || null,
+      href: sanitizeUrl(browser.href),
+      contextReady: browser.contextReady === true,
+      currentChatId: browser.currentChatId || null,
+      chatLength: Number(browser.chatLength || 0),
+      diskEnvironmentHash: diskEnvironment?.hash || null,
+      browserEnvironmentHash: browserEnvironment.hash,
+      combinedEnvironmentHash: externalPromptEnvironment.hash,
+      externalPromptEnvironment,
+      hostPromptRegistry: {
+        available: browser.hostPromptRegistry?.available === true,
+        promptKeys: browserPromptKeys,
+        keyCount: browserPromptKeys.length
+      },
+      targets,
+      unavailableSignals,
+      redactions: externalPromptEnvironment.redactions || [],
+      status
+    };
+  });
+  const status = userReports.some((entry) => entry.status === 'fail')
+    ? 'fail'
+    : userReports.some((entry) => entry.status === 'warning')
+      ? 'warning'
+      : 'pass';
+  const fixtureDepth = summarizeExternalContextFixtureDepth({ users: userReports });
+  return {
+    kind: 'directive.sillytavern.externalContextProbe.v1',
+    schemaVersion: 1,
+    runId,
+    capturedAt,
+    mode: 'live-browser-preflight',
+    baseUrl: sanitizeUrl(baseUrl),
+    required,
+    status,
+    fixtureDepth,
+    users: userReports
+  };
+}
+
 export function createArtifactPaths({
   rootDir = DEFAULT_SOAK_ARTIFACT_ROOT,
   runId = createRunId()
@@ -274,6 +1017,7 @@ export function createArtifactPaths({
     screenshots: path.join(root, 'screenshots'),
     playwright: path.join(root, 'playwright'),
     promptInspection: path.join(root, 'prompt-inspection'),
+    hostExtensions: path.join(root, 'host-extensions'),
     storage: path.join(root, 'storage'),
     campaignMatrix: path.join(root, 'campaign-matrix'),
     objectiveAssignments: path.join(root, 'objective-assignments'),
@@ -297,6 +1041,7 @@ export function ensureArtifactTree(paths) {
     paths.screenshots,
     paths.playwright,
     paths.promptInspection,
+    paths.hostExtensions,
     paths.storage,
     paths.campaignMatrix,
     paths.objectiveAssignments,

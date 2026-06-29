@@ -5,6 +5,7 @@ import {
   updateTurnIngress
 } from './state-delta-gateway.mjs';
 import { markMissionComponentsSourceStatus } from './mission-components.mjs';
+import { hashStableJson } from './architecture-redesign-contracts.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -21,6 +22,11 @@ function timestamp(now) {
 function findIngress(campaignState, hostMessageId) {
   const id = compact(hostMessageId);
   return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.hostMessageId === id) || null;
+}
+
+function findIngressById(campaignState, ingressId) {
+  const id = compact(ingressId);
+  return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === id) || null;
 }
 
 function findResponse(campaignState, hostMessageId) {
@@ -232,9 +238,29 @@ function preOutcomeRevision(campaignState, ingress) {
   return matching ? Number(matching.revision) : null;
 }
 
+function replacementTextHash(replacementText = null) {
+  const text = compact(replacementText);
+  return text ? hashStableJson({ text }) : null;
+}
+
+function allowedCoreRecoveryActions({ recoveryStatus, sourceKind, autoRollback = false } = {}) {
+  if (autoRollback || recoveryStatus === 'rollbackPending') {
+    return ['rollbackToPreOutcomeRevision', 'reviewSourceMutation'];
+  }
+  if (sourceKind === 'directiveResponse') {
+    return recoveryStatus === 'invalidated'
+      ? ['discardStaleResponse']
+      : ['reviewResponseMutation', 'retryResponse'];
+  }
+  return recoveryStatus === 'invalidated'
+    ? ['discardStaleIngress', 'reobserveSource']
+    : ['reviewSourceMutation', 'rerunFromSource', 'branchFromPriorRevision'];
+}
+
 export function createMessageReconciler({
   getCampaignState,
   setCampaignState,
+  coreTurnStore = null,
   persist = null,
   syncPrompt = null,
   now = null
@@ -244,6 +270,68 @@ export function createMessageReconciler({
 
   async function save(summary) {
     if (typeof persist === 'function') await persist(getCampaignState(), summary);
+  }
+
+  async function markCoreSourceMutationRecovery({
+    state,
+    eventType,
+    eventTime,
+    hostMessageId,
+    replacementText = null,
+    ingress = null,
+    response = null,
+    recoveryStatus = null,
+    preOutcomeRevision: revision = null,
+    autoRollback = false
+  } = {}) {
+    if (typeof coreTurnStore?.markRecoveryRequired !== 'function') return null;
+    const sourceIngress = ingress || findIngressById(state, response?.ingressId);
+    const transactionId = compact(sourceIngress?.coreTransactionId || response?.coreTransactionId);
+    if (!transactionId) return null;
+    const sourceKind = response ? 'directiveResponse' : 'playerIngress';
+    const recoveryId = `recovery:source-mutation:${transactionId}:${eventType}`;
+    try {
+      const recoveryCase = await coreTurnStore.markRecoveryRequired(transactionId, {
+        id: recoveryId,
+        reason: eventType,
+        status: 'required',
+        sourceMutation: {
+          kind: 'directive.sourceMutation.v1',
+          sourceKind,
+          eventType,
+          hostMessageId: compact(hostMessageId) || null,
+          ingressId: sourceIngress?.id || response?.ingressId || null,
+          responseId: response?.id || null,
+          outcomeId: sourceIngress?.outcomeId || response?.outcomeId || null,
+          sourceFrameId: sourceIngress?.sourceFrameId || response?.sourceFrameId || null,
+          replacementTextHash: replacementTextHash(replacementText),
+          replacementTextPresent: Boolean(compact(replacementText)),
+          preOutcomeRevision: Number.isFinite(Number(revision)) ? Number(revision) : null,
+          autoRollback: autoRollback === true,
+          observedAt: eventTime
+        },
+        dependentOutcomeId: sourceIngress?.outcomeId || response?.outcomeId || null,
+        dependentResponseId: response?.id || null,
+        allowedActions: allowedCoreRecoveryActions({ recoveryStatus, sourceKind, autoRollback }),
+        idempotencyKey: `core-source-mutation:${transactionId}:${eventType}`
+      });
+      return {
+        status: 'recorded',
+        transactionId,
+        recoveryCaseId: recoveryCase?.id || recoveryId,
+        phase: recoveryCase?.phase || 'recoveryRequired',
+        reason: recoveryCase?.reason || eventType
+      };
+    } catch (error) {
+      if (error?.code === 'DIRECTIVE_CORE_RECOVERY_ALREADY_REQUIRED') {
+        return {
+          status: 'alreadyRequired',
+          transactionId,
+          code: error.code
+        };
+      }
+      throw error;
+    }
   }
 
   async function reconcile({
@@ -311,6 +399,17 @@ export function createMessageReconciler({
       });
       const hasCommittedOutcome = Boolean(response.outcomeId);
       const recoveryStatus = hasCommittedOutcome ? 'reviewRequired' : 'invalidated';
+      const coreRecovery = await markCoreSourceMutationRecovery({
+        state,
+        eventType,
+        eventTime,
+        hostMessageId,
+        replacementText,
+        response,
+        recoveryStatus,
+        preOutcomeRevision: revision,
+        autoRollback
+      });
       let next = updateDirectiveResponse(state, response.id, {
         status: hasCommittedOutcome ? 'recoveryRequired' : 'invalidated',
         invalidatedAt: eventTime,
@@ -331,7 +430,8 @@ export function createMessageReconciler({
           preOutcomeRevision: revision,
           responseId: response.id,
           responseKind: response.responseKind || null,
-          turnId: response.turnId || null
+          turnId: response.turnId || null,
+          coreRecovery
         }
       });
       const invalidated = invalidateSceneHandshakeSources(next, {
@@ -382,6 +482,17 @@ export function createMessageReconciler({
       : hasCommittedOutcome
         ? 'reviewRequired'
         : 'invalidated';
+    const coreRecovery = await markCoreSourceMutationRecovery({
+      state,
+      eventType,
+      eventTime,
+      hostMessageId,
+      replacementText,
+      ingress,
+      recoveryStatus,
+      preOutcomeRevision: revision,
+      autoRollback
+    });
     let next = updateTurnIngress(state, ingress.id, {
       status: hasCommittedOutcome ? 'recoveryRequired' : 'invalidated',
       invalidatedAt: eventTime,
@@ -399,7 +510,8 @@ export function createMessageReconciler({
       recordedAt: eventTime,
       details: {
         replacementText: compact(replacementText) || null,
-        preOutcomeRevision: revision
+        preOutcomeRevision: revision,
+        coreRecovery
       }
     });
     const invalidated = invalidateSceneHandshakeSources(next, {

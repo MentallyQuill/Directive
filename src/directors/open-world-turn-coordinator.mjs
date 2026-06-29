@@ -11,6 +11,7 @@ import {
 import { applySystemicQuestProgress, resolveSystemicQuestAction } from '../quests/systemic-quest-resolver.mjs';
 import { processWorldBoundary, resolveQuestBoundary } from './director-coordinator.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
+import { createOpenWorldReducerBundle } from './open-world-event-reducers.mjs';
 import {
   buildContinuityDirectorPacket,
   compactContinuityDirectorPacket
@@ -88,15 +89,6 @@ function completedByPacket(packet, overrides) {
   if (packet?.systemicResolution?.completed === true) return true;
   const delta = packet?.stateDelta?.mission || {};
   return Boolean(delta.completedMissionIdSet || ['complete', 'completed', 'resolved'].includes(String(delta.endStateSet || '').toLowerCase()));
-}
-
-function rootSet(state) {
-  const keys = [
-    'mission', 'worldState', 'storyArcLedger', 'questLedger', 'dynamicQuestCatalog',
-    'knowledgeLedger', 'threadLedger', 'eventLedger', 'attentionState',
-    'campaignTracks', 'campaignAssets', 'runtimeTracking'
-  ];
-  return Object.fromEntries(keys.filter((key) => state[key] !== undefined).map((key) => [key, cloneJson(state[key])]));
 }
 
 function hasTacticalGraph(graph) {
@@ -253,6 +245,15 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
   });
 
   const previousStateDelta = packet.stateDelta || {};
+  const { rootsSet: _legacyRootsSet, reducerBundle: _previousReducerBundle, ...previousOpenWorldDelta } = previousStateDelta.openWorld || {};
+  const reducerBundle = createOpenWorldReducerBundle({
+    beforeState: campaignState,
+    afterState: projected,
+    boundaryResult: boundary,
+    sourceOutcomeId: packet.outcomePacket.id,
+    sourceAnchorRange: sceneSnapshot.sourceAnchorRange,
+    now: sceneSnapshotOverrides.now || null
+  });
   packet.stateDelta = {
     outcomeId: packet.outcomePacket.id,
     terminalState: cloneJson(previousStateDelta.terminalState || {}),
@@ -262,8 +263,8 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
     relationships: cloneJson(previousStateDelta.relationships || {}),
     pressureLedger: cloneJson(previousStateDelta.pressureLedger || {}),
     openWorld: {
-      ...(previousStateDelta.openWorld || {}),
-      rootsSet: rootSet(projected),
+      ...previousOpenWorldDelta,
+      reducerBundle,
       eventsCommitted: cloneJson((boundary.events || [boundary.event]).map((item) => item?.id).filter(Boolean)),
       questAvailabilityChanges: cloneJson(boundary.questAvailabilityChanges || []),
       milestoneChanges: cloneJson(boundary.milestoneChanges || {}),
@@ -351,4 +352,4 @@ export async function createDirectorCoordinatorTurnAsync({ generationRouter = nu
   return createDirectorCoordinatorTurn({ ...options, actionInterpretation: interpretation.interpretation });
 }
 
-export const __openWorldTurnCoordinatorTestHooks = Object.freeze({ foreground, completedByPacket, rootSet, hasTacticalGraph, openOperationsPacket });
+export const __openWorldTurnCoordinatorTestHooks = Object.freeze({ foreground, completedByPacket, hasTacticalGraph, openOperationsPacket });

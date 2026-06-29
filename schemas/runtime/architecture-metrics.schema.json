@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.runtime.architectureMetrics.v1",
+  "title": "Directive Architecture Metrics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["latency", "storageWrites"],
+  "properties": {
+    "latency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "generationStartLatencyMs", "providerCompletionLatencyMs", "architectureWithin60s"],
+      "properties": {
+        "kind": { "const": "directive.turnLatencyMetrics.v1" },
+        "playerSubmittedAt": { "type": ["number", "null"] },
+        "turnObservedAt": { "type": ["number", "null"] },
+        "routeDecidedAt": { "type": ["number", "null"] },
+        "hostGenerationReleasedAt": { "type": ["number", "null"] },
+        "directiveGenerationStartedAt": { "type": ["number", "null"] },
+        "visibleResponsePostedAt": { "type": ["number", "null"] },
+        "backgroundSettledAt": { "type": ["number", "null"] },
+        "generationStartedAt": { "type": ["number", "null"] },
+        "generationStartLatencyMs": { "type": ["number", "null"] },
+        "providerCompletionLatencyMs": { "type": ["number", "null"] },
+        "architectureWithin60s": { "type": ["boolean", "null"] }
+      }
+    },
+    "storageWrites": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "fullSaveRewriteCount",
+        "segmentWriteCount",
+        "headWriteCount",
+        "manifestWriteCount",
+        "diagnosticsWriteCount",
+        "bytesWritten",
+        "writesBeforeGenerationStart"
+      ],
+      "properties": {
+        "kind": { "const": "directive.storageWriteCounters.v1" },
+        "fullSaveRewriteCount": { "type": "integer", "minimum": 0 },
+        "segmentWriteCount": { "type": "integer", "minimum": 0 },
+        "headWriteCount": { "type": "integer", "minimum": 0 },
+        "manifestWriteCount": { "type": "integer", "minimum": 0 },
+        "diagnosticsWriteCount": { "type": "integer", "minimum": 0 },
+        "bytesWritten": { "type": "integer", "minimum": 0 },
+        "writesBeforeGenerationStart": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

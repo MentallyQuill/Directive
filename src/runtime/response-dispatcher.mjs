@@ -13,6 +13,7 @@ import {
   continuityHintsFromContradictionReview,
   recordContinuityFactUseStats
 } from '../continuity/projection-hints.mjs';
+import { createTurnLatencyMetrics } from './architecture-redesign-contracts.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -24,6 +25,13 @@ function compact(value) {
 
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
+}
+
+function compactError(error, fallbackCode = 'DIRECTIVE_CORE_HOST_CONTINUE_RELEASE_FAILED') {
+  return {
+    code: error?.code || fallbackCode,
+    message: error?.message || String(error)
+  };
 }
 
 export function composePauseResponse(type, context = {}) {
@@ -47,6 +55,7 @@ export function composePauseResponse(type, context = {}) {
 
 export function createResponseDispatcher({
   host,
+  coreTurnStore = null,
   getCampaignState = null,
   setCampaignState = null,
   persist = null,
@@ -69,10 +78,92 @@ export function createResponseDispatcher({
     )) || null;
   }
 
+  function findIngress(campaignState, ingressId) {
+    if (!ingressId) return null;
+    const state = initializeCampaignRuntimeTracking(campaignState);
+    return (state.runtimeTracking.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
+  }
+
   async function acceptState(next, summary) {
     setCampaignState?.(next);
     if (typeof persist === 'function') await persist(next, summary);
     return next;
+  }
+
+  async function recordCoreHostContinueRelease({
+    ingress = null,
+    responseId = null,
+    hostContinuation = null,
+    turnLatency = null,
+    directivePromptRevisionUsed = null
+  } = {}) {
+    if (typeof coreTurnStore?.advanceTurn !== 'function') return null;
+    if (!ingress?.coreTransactionId || hostContinuation?.released !== true) return null;
+    const transactionId = ingress.coreTransactionId;
+    const routePendingIdempotencyKey = `route-pending:${transactionId}`;
+    await coreTurnStore.advanceTurn(transactionId, {
+      phase: 'routePending',
+      route: null,
+      reason: 'host-continue-release-bridge',
+      idempotencyKey: routePendingIdempotencyKey,
+      directivePromptRevisionUsed,
+      timing: {
+        playerSubmittedAt: ingress.playerSubmittedAt || ingress.receivedAt || null,
+        turnObservedAt: ingress.receivedAt || null
+      }
+    });
+    return coreTurnStore.advanceTurn(transactionId, {
+      phase: 'hostContinueReleased',
+      route: 'hostContinue',
+      reason: 'directive-inject-and-continue',
+      idempotencyKey: `host-continue-release:${responseId || transactionId}`,
+      directivePromptRevisionUsed,
+      timing: {
+        playerSubmittedAt: ingress.playerSubmittedAt || ingress.receivedAt || null,
+        turnObservedAt: ingress.receivedAt || null,
+        routeDecidedAt: hostContinuation.hostGenerationReleasedAt || hostContinuation.generationStartedAt || null,
+        hostGenerationReleasedAt: hostContinuation.hostGenerationReleasedAt || hostContinuation.generationStartedAt || null,
+        generationStartLatencyMs: turnLatency?.generationStartLatencyMs ?? null,
+        architectureWithin60s: turnLatency?.architectureWithin60s ?? null,
+        externalPromptMayIncludeHostMaterial: true
+      }
+    });
+  }
+
+  async function recordCoreVisibleResponse({
+    ingress = null,
+    entry = null,
+    responseText = '',
+    directivePromptRevisionUsed = null
+  } = {}) {
+    if (typeof coreTurnStore?.advanceTurn !== 'function' || typeof coreTurnStore?.recordVisibleResponse !== 'function') return null;
+    if (!ingress?.coreTransactionId || !entry?.hostMessageId) return null;
+    const transactionId = ingress.coreTransactionId;
+    try {
+      await coreTurnStore.advanceTurn(transactionId, {
+        phase: 'routePending',
+        route: 'directivePosted',
+        reason: 'directive-visible-response-bridge',
+        idempotencyKey: `route-pending:${transactionId}`,
+        directivePromptRevisionUsed
+      });
+    } catch (error) {
+      const isAlreadyPastRoutePending = error?.code === 'DIRECTIVE_CORE_INVALID_PHASE_TRANSITION'
+        && /-> routePending/.test(error?.message || '');
+      if (!isAlreadyPastRoutePending) throw error;
+    }
+    return coreTurnStore.recordVisibleResponse(transactionId, {
+      kind: entry.responseKind || 'narration',
+      responseId: entry.id || null,
+      hostMessageId: entry.hostMessageId || null,
+      outcomeId: entry.outcomeId || null,
+      postedAt: entry.postedAt || null,
+      directiveGenerationStartedAt: entry.directiveGenerationStartedAt || null,
+      generationStartedAt: entry.directiveGenerationStartedAt || entry.generationStartedAt || null,
+      turnLatency: entry.turnLatency || null,
+      textHash: responseText ? hashContinuityText(responseText) : null,
+      idempotencyKey: `visible-response:${entry.id || transactionId}`
+    });
   }
 
   async function delegate({
@@ -97,8 +188,32 @@ export function createResponseDispatcher({
         ingressId,
         turnId,
         outcomeId,
-        reason: 'directive-inject-and-continue'
+        reason: 'directive-inject-and-continue',
+        waitForCompletion: false
       });
+    }
+    const ingress = findIngress(state, ingressId);
+    const hostGenerationReleasedAt = hostContinuation?.hostGenerationReleasedAt
+      || hostContinuation?.generationStartedAt
+      || null;
+    const turnLatency = createTurnLatencyMetrics({
+      playerSubmittedAt: ingress?.playerSubmittedAt || ingress?.receivedAt || null,
+      turnObservedAt: ingress?.receivedAt || null,
+      routeDecidedAt: hostGenerationReleasedAt,
+      hostGenerationReleasedAt
+    });
+    let coreRelease = null;
+    let coreReleaseError = null;
+    try {
+      coreRelease = await recordCoreHostContinueRelease({
+        ingress,
+        responseId: key,
+        hostContinuation,
+        turnLatency,
+        directivePromptRevisionUsed: state.campaignChatBinding?.promptContextRevision ?? null
+      });
+    } catch (error) {
+      coreReleaseError = compactError(error);
     }
     const observedMessage = hostContinuation?.observedMessage || hostContinuation?.message || null;
     const observedText = compact(observedMessage?.text || observedMessage?.content || observedMessage?.mes || '');
@@ -110,7 +225,9 @@ export function createResponseDispatcher({
       shipDataset,
       campaignProjection
     }) : null;
-    const recoveryId = continuityReview?.ok === false ? `recovery:continuity:${key}` : null;
+    const recoveryId = continuityReview?.ok === false
+      ? `recovery:continuity:${key}`
+      : (coreReleaseError ? `recovery:core-host-continue:${key}` : null);
     const entry = {
       id: key,
       ingressId,
@@ -119,7 +236,21 @@ export function createResponseDispatcher({
       strategy: 'injectAndContinue',
       responseKind: responseType,
       postedAt: timestamp(now),
-      status: continuityReview?.ok === false ? 'recoveryRequired' : 'delegated',
+      status: (continuityReview?.ok === false || coreReleaseError)
+        ? 'recoveryRequired'
+        : (hostContinuation?.released === true ? 'released' : 'delegated'),
+      sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
+      hostGenerationReleasedAt,
+      generationStartedAt: hostGenerationReleasedAt,
+      hostGenerationReleaseMode: hostContinuation?.waitForCompletion === false ? 'nonblocking' : 'blocking-or-unknown',
+      turnLatency,
+      coreTransactionId: ingress?.coreTransactionId || null,
+      coreRelease: coreRelease ? {
+        transactionId: coreRelease.id || ingress?.coreTransactionId || null,
+        phase: coreRelease.phase || null,
+        route: coreRelease.route || null
+      } : null,
+      coreReleaseError,
       recoveryId,
       hostContinuation: cloneJson(hostContinuation),
       hostObservation: observedMessage ? {
@@ -192,8 +323,43 @@ export function createResponseDispatcher({
         });
       }
     }
+    if (coreReleaseError) {
+      next = recordRecoveryEvent(next, {
+        id: recoveryId,
+        type: 'coreHostContinueReleaseFailure',
+        status: 'open',
+        ingressId,
+        outcomeId,
+        recordedAt: timestamp(now),
+        details: {
+          responseId: key,
+          coreTransactionId: ingress?.coreTransactionId || null,
+          sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
+          hostGenerationReleasedAt,
+          hostContinuation: cloneJson(hostContinuation),
+          turnLatency: cloneJson(turnLatency),
+          error: coreReleaseError,
+          recoveryPolicy: {
+            action: 'recoveryRequired',
+            reason: 'Host generation was released but CORE could not record the hostContinueReleased phase.',
+            hostRepairAvailable: false
+          }
+        }
+      });
+      if (ingressId) {
+        next = updateTurnIngress(next, ingressId, {
+          status: 'recoveryRequired',
+          responseStrategy: 'injectAndContinue',
+          turnId,
+          outcomeId,
+          recoveryId,
+          error: coreReleaseError,
+          failedAt: entry.postedAt
+        });
+      }
+    }
     await acceptState(next, `Delegated response for ${ingressId || turnId || 'campaign turn'} to host generation.`);
-    if (continuityReview?.ok === false) {
+    if (continuityReview?.ok === false || coreReleaseError) {
       return {
         ok: false,
         recoveryRequired: true,
@@ -201,6 +367,7 @@ export function createResponseDispatcher({
         entry: cloneJson(entry),
         hostContinuation: cloneJson(hostContinuation),
         continuityReview: cloneJson(continuityReview),
+        coreReleaseError: cloneJson(coreReleaseError),
         recoveryId,
         campaignState: cloneJson(next)
       };
@@ -237,6 +404,10 @@ export function createResponseDispatcher({
     if (existing) {
       return { ok: true, duplicate: true, entry: cloneJson(existing), campaignState: state };
     }
+    const ingress = findIngress(state, ingressId);
+    const directiveGenerationStartedAt = metadata?.directiveGenerationStartedAt
+      || metadata?.turnTiming?.directiveGenerationStartedAt
+      || null;
     const posted = await host.chat.postAssistantMessage({
       text: responseText,
       campaignId: state.campaign?.id || null,
@@ -246,6 +417,14 @@ export function createResponseDispatcher({
       idempotencyKey: key,
       extra: { runtimeMetadata: cloneJson(metadata) }
     });
+    const postedAt = timestamp(now);
+    const turnLatency = directiveGenerationStartedAt ? createTurnLatencyMetrics({
+      playerSubmittedAt: ingress?.playerSubmittedAt || ingress?.receivedAt || null,
+      turnObservedAt: ingress?.receivedAt || null,
+      routeDecidedAt: directiveGenerationStartedAt,
+      directiveGenerationStartedAt,
+      visibleResponsePostedAt: postedAt
+    }) : null;
     const entry = {
       id: key,
       ingressId,
@@ -254,17 +433,81 @@ export function createResponseDispatcher({
       hostMessageId: posted?.hostMessageId || posted?.message?.id || null,
       strategy: strategy === 'pause' ? 'pause' : 'directivePosted',
       responseKind: responseType,
-      postedAt: timestamp(now),
-      status: posted?.duplicate ? 'alreadyPosted' : 'posted'
+      postedAt,
+      status: posted?.duplicate ? 'alreadyPosted' : 'posted',
+      directiveGenerationStartedAt,
+      generationStartedAt: directiveGenerationStartedAt,
+      turnLatency,
+      coreTransactionId: ingress?.coreTransactionId || null
     };
-    const next = recordDirectiveResponse(state, entry);
+    let coreRelease = null;
+    let coreReleaseError = null;
+    try {
+      coreRelease = await recordCoreVisibleResponse({
+        ingress,
+        entry,
+        responseText,
+        directivePromptRevisionUsed: state.campaignChatBinding?.promptContextRevision ?? null
+      });
+    } catch (error) {
+      coreReleaseError = compactError(error, 'DIRECTIVE_CORE_VISIBLE_RESPONSE_RECORD_FAILED');
+    }
+    entry.coreRelease = coreRelease ? {
+      transactionId: coreRelease.id || ingress?.coreTransactionId || null,
+      phase: coreRelease.phase || null,
+      route: coreRelease.route || null
+    } : null;
+    entry.coreReleaseError = coreReleaseError;
+    if (coreReleaseError) {
+      entry.status = 'recoveryRequired';
+      entry.recoveryId = `recovery:core-visible-response:${key}`;
+    }
+    let next = recordDirectiveResponse(state, entry);
+    if (coreReleaseError) {
+      next = recordRecoveryEvent(next, {
+        id: entry.recoveryId,
+        type: 'coreVisibleResponseRecordFailure',
+        status: 'open',
+        ingressId,
+        outcomeId,
+        recordedAt: postedAt,
+        details: {
+          responseId: key,
+          hostMessageId: entry.hostMessageId || null,
+          coreTransactionId: ingress?.coreTransactionId || null,
+          sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
+          visibleResponsePostedAt: postedAt,
+          turnLatency: cloneJson(turnLatency),
+          error: coreReleaseError,
+          recoveryPolicy: {
+            action: 'repairCoreVisibleResponseRecord',
+            reason: 'Directive posted the visible response, but CORE could not record visibleResponsePosted.',
+            repostVisibleResponse: false
+          }
+        }
+      });
+      if (ingressId) {
+        next = updateTurnIngress(next, ingressId, {
+          status: 'recoveryRequired',
+          responseStrategy: entry.strategy,
+          turnId,
+          outcomeId,
+          recoveryId: entry.recoveryId,
+          error: coreReleaseError,
+          failedAt: postedAt
+        });
+      }
+    }
     await acceptState(next, `Posted Directive ${responseType} response for ${ingressId || outcomeId || turnId || 'campaign turn'}.`);
     return {
-      ok: true,
+      ok: coreReleaseError ? false : true,
+      recoveryRequired: coreReleaseError ? true : undefined,
       duplicate: posted?.duplicate === true,
       posted: cloneJson(posted),
       response: cloneJson(posted),
       entry: cloneJson(entry),
+      coreReleaseError: cloneJson(coreReleaseError),
+      recoveryId: entry.recoveryId || null,
       campaignState: cloneJson(next)
     };
   }

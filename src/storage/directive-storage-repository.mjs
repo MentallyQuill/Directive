@@ -1,10 +1,18 @@
-import { createSaveListEntry } from './save-records.mjs';
+import {
+  createCampaignSaveMetadata,
+  createSaveListEntry,
+  deriveDefaultCampaignSaveName
+} from './save-records.mjs';
 import {
   campaignSaveLogicalKey,
   characterCreatorDraftLogicalKey,
   campaignPackageImportLogicalKey,
-  DIRECTIVE_LOGICAL_STORAGE_KEYS
+  DIRECTIVE_LOGICAL_STORAGE_KEYS,
+  saveManifestV2LogicalKey
 } from './logical-storage-paths.mjs';
+import {
+  readV2ArtifactRef
+} from './transaction-store-v2.mjs';
 import {
   assertDirectiveUserFilesPath,
   DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
@@ -427,6 +435,53 @@ function uniqueEntriesById(entries) {
   return result;
 }
 
+function payloadKindForSaveEntry(entry = {}) {
+  return entry.payloadKind || entry.kind || 'directive.campaignSave';
+}
+
+function isV2SaveIndexEntry(entry = {}) {
+  return entry.storageFormat === 'v2'
+    || entry.payloadKind === 'directive.saveManifest.v2'
+    || entry.kind === 'directive.saveManifest.v2';
+}
+
+function v2ManifestRefForSaveEntry(entry = {}, record = null, { includeRuntimeBridge = false } = {}) {
+  if (includeRuntimeBridge && entry.v2ManifestRef?.logicalKey) return cloneJson(entry.v2ManifestRef);
+  if (entry.manifestRef?.logicalKey && (entry.payloadKind === 'directive.saveManifest.v2' || entry.kind === 'directive.saveManifest.v2')) {
+    return cloneJson(entry.manifestRef);
+  }
+  if (record?.kind === 'directive.saveManifest.v2') {
+    return {
+      logicalKey: entry.path,
+      hash: record.hash || null,
+      byteLength: record.byteLength || null,
+      kind: record.kind
+    };
+  }
+  return null;
+}
+
+async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
+  requireObject(manifest, 'v2 save manifest');
+  if (manifest.kind !== 'directive.saveManifest.v2') {
+    throw new Error('v2 save manifest must have kind directive.saveManifest.v2');
+  }
+  if (manifest.layout && manifest.layout !== 'active') {
+    const error = new Error(`v2 active campaign load cannot use ${manifest.layout} manifest layout`);
+    error.code = 'DIRECTIVE_V2_ACTIVE_SAVE_LAYOUT_MISMATCH';
+    error.details = { layout: manifest.layout, campaignId: manifest.campaignId || null, saveId: manifest.saveId || null };
+    throw error;
+  }
+  const head = await readV2ArtifactRef(adapter, manifest.head);
+  if (!isObject(head.state)) {
+    const error = new Error('v2 active campaign head is missing materialized state');
+    error.code = 'DIRECTIVE_V2_ACTIVE_HEAD_STATE_MISSING';
+    error.details = { layout: head.layout || manifest.layout || null, campaignId: manifest.campaignId || null, saveId: manifest.saveId || null };
+    throw error;
+  }
+  return cloneJson(head.state);
+}
+
 async function markCampaignSaveActiveInIndex(adapter, saveIndex, saveId, options = {}) {
   const updatedAt = timestamp(options);
   const nextIndex = touchIndex(saveIndex, updatedAt);
@@ -760,6 +815,143 @@ export async function storeCampaignSave(adapter, saveRecord, options = {}) {
   return cloneJson(saveRecord);
 }
 
+export async function markCampaignSaveRuntimeV2State(adapter, {
+  saveId,
+  saveManifest,
+  saveManifestRef,
+  metadata = null,
+  current = true,
+  now = null
+} = {}) {
+  requireObject(saveManifest, 'saveManifest');
+  if (saveManifest.kind !== 'directive.saveManifest.v2') {
+    throw new Error('saveManifest must be a directive.saveManifest.v2 record');
+  }
+  const id = requireNonEmptyString(saveId || saveManifest.saveId, 'saveId');
+  const updatedAt = timestamp({ now: now || saveManifest.updatedAt || null });
+  const manifestRef = saveManifestRef ? cloneJson(saveManifestRef) : {
+    logicalKey: saveManifestV2LogicalKey({ campaignId: saveManifest.campaignId, saveId: id }),
+    hash: saveManifest.hash || null,
+    byteLength: saveManifest.byteLength || null,
+    kind: saveManifest.kind
+  };
+  const index = touchIndex(await readSaveIndex(adapter, { now: updatedAt }), updatedAt);
+  const existing = index.saves?.[id];
+  if (!existing) {
+    throw new Error(`Campaign save "${id}" is not indexed`);
+  }
+  if (current === true) {
+    for (const save of Object.values(index.saves || {})) {
+      save.current = false;
+    }
+    index.activeSaveId = id;
+  }
+  const nextMetadata = metadata ? cloneJson(metadata) : cloneJson(existing.metadata || {});
+  nextMetadata.lastUpdatedAt = nextMetadata.lastUpdatedAt || updatedAt;
+  index.saves[id] = {
+    ...cloneJson(existing),
+    current: current === true ? true : existing.current === true,
+    updatedAt,
+    metadata: nextMetadata,
+    runtimeStorageFormat: 'v2',
+    v2RuntimePersistedAt: updatedAt,
+    v2ManifestRef: manifestRef
+  };
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, index);
+  await upsertStorageFileEntry(adapter, manifestRef.logicalKey, {
+    kind: saveManifest.kind,
+    ownerId: id,
+    campaignId: saveManifest.campaignId,
+    indexPath: DIRECTIVE_STORAGE_PATHS.saveIndex,
+    storageFormat: 'v2'
+  }, { now: updatedAt });
+  return cloneJson(index.saves[id]);
+}
+
+export async function storeCampaignV2SaveManifestIndexEntry(adapter, {
+  saveManifest,
+  saveManifestRef = null,
+  campaignState = null,
+  packageData = null,
+  name = null,
+  slotType = 'manual',
+  summary = null,
+  now = null
+} = {}) {
+  requireObject(saveManifest, 'saveManifest');
+  if (saveManifest.kind !== 'directive.saveManifest.v2') {
+    throw new Error('saveManifest must be a directive.saveManifest.v2 record');
+  }
+  const updatedAt = timestamp({ now: now || saveManifest.updatedAt || null });
+  const saveId = requireNonEmptyString(saveManifest.saveId, 'saveManifest.saveId');
+  const campaignId = requireNonEmptyString(saveManifest.campaignId, 'saveManifest.campaignId');
+  const manifestPath = saveManifestRef?.logicalKey || saveManifestV2LogicalKey({ campaignId, saveId });
+  const metadata = isObject(saveManifest.metadata)
+    ? cloneJson(saveManifest.metadata)
+    : campaignState && packageData
+      ? createCampaignSaveMetadata({
+          campaignState,
+          packageData,
+          savedAt: updatedAt,
+          summary
+        })
+      : {
+          campaignId,
+          campaignTitle: null,
+          packageId: null,
+          packageTitle: null,
+          packageVersion: null,
+          lastUpdatedAt: updatedAt,
+          summary: summary || null
+        };
+  metadata.lastUpdatedAt = metadata.lastUpdatedAt || updatedAt;
+  if (summary && !metadata.summary) metadata.summary = summary;
+
+  const entry = {
+    id: saveId,
+    name: name?.trim()
+      || (campaignState ? deriveDefaultCampaignSaveName(campaignState) : null)
+      || metadata.summary
+      || saveId,
+    slotType,
+    revision: Number(saveManifest.revision || metadata.revision || 1),
+    updatedAt,
+    metadata,
+    path: manifestPath,
+    current: saveManifest.current === true,
+    storageFormat: 'v2',
+    payloadKind: 'directive.saveManifest.v2',
+    campaignId,
+    branchId: saveManifest.branchId || 'main',
+    manifestRef: saveManifestRef ? cloneJson(saveManifestRef) : {
+      logicalKey: manifestPath,
+      hash: saveManifest.hash || null,
+      byteLength: saveManifest.byteLength || null,
+      kind: saveManifest.kind
+    }
+  };
+
+  const index = touchIndex(await readSaveIndex(adapter, { now: updatedAt }), updatedAt);
+  if (entry.current) {
+    for (const save of Object.values(index.saves || {})) {
+      save.current = false;
+    }
+    index.activeSaveId = saveId;
+  }
+  index.saves[saveId] = cloneJson(entry);
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, index);
+
+  await upsertStorageFileEntry(adapter, manifestPath, {
+    kind: saveManifest.kind,
+    ownerId: saveId,
+    campaignId,
+    indexPath: DIRECTIVE_STORAGE_PATHS.saveIndex,
+    storageFormat: 'v2'
+  }, { now: updatedAt });
+
+  return cloneJson(entry);
+}
+
 export async function pruneCampaignAutosaves(adapter, {
   campaignId,
   keep = 3,
@@ -828,6 +1020,15 @@ export async function loadCampaignSaveFromStorage(adapter, saveId, options = {})
     await markCampaignSaveActiveInIndex(adapter, index, id, options);
   }
 
+  const v2ManifestRef = v2ManifestRefForSaveEntry(entry, record);
+  if (v2ManifestRef) {
+    try {
+      const manifest = await readV2ArtifactRef(adapter, v2ManifestRef);
+      return loadV2CampaignStateFromSaveManifest(adapter, manifest);
+    } catch (error) {
+      if (record.kind !== 'directive.campaignSave') throw error;
+    }
+  }
   return cloneJson(record.payload?.campaignState);
 }
 
@@ -855,7 +1056,7 @@ function payloadEntriesFromIndexes({ creatorDraftIndex, campaignPackageImportInd
   return [
     ...draftEntries.map((entry) => ({ ...entry, kind: 'directive.characterCreatorDraft', indexKind: 'creatorDraftIndex' })),
     ...importEntries.map((entry) => ({ ...entry, kind: 'directive.importedCampaignPackageRecord', indexKind: 'campaignPackageImportIndex' })),
-    ...saveEntries.map((entry) => ({ ...entry, kind: 'directive.campaignSave', indexKind: 'saveIndex' }))
+    ...saveEntries.map((entry) => ({ ...entry, kind: payloadKindForSaveEntry(entry), indexKind: 'saveIndex' }))
   ];
 }
 
@@ -1145,6 +1346,40 @@ export async function recoverActiveCampaignSave(adapter, options = {}) {
 
   for (const entry of candidates) {
     const result = await readJsonDiagnostic(adapter, entry.path);
+    const v2ManifestRef = v2ManifestRefForSaveEntry(entry, result.value);
+    if (v2ManifestRef) {
+      try {
+        const manifest = await readV2ArtifactRef(adapter, v2ManifestRef);
+        const campaignState = await loadV2CampaignStateFromSaveManifest(adapter, manifest);
+        const needsIndexRepair = index.activeSaveId !== entry.id || entry.current !== true || currentEntries.length > 1;
+        if (needsIndexRepair) {
+          await markCampaignSaveActiveInIndex(adapter, index, entry.id, options);
+        }
+        return {
+          kind: 'directive.activeSaveRecovery',
+          checkedAt,
+          recovered: needsIndexRepair || issues.length > 0,
+          activeSaveId: entry.id,
+          saveRecord: result.status === 'ok' ? cloneJson(result.value) : cloneJson(manifest),
+          campaignState,
+          storageFormat: 'v2',
+          diagnostics: {
+            status: diagnosticStatus(issues),
+            ok: issues.every((issue) => issue.severity !== 'error'),
+            issues
+          }
+        };
+      } catch (error) {
+        issues.push(createStorageIssue({
+          severity: 'error',
+          code: error?.code || 'active-save-v2-head-unreadable',
+          message: `Campaign v2 save "${entry.id}" could not recover its materialized head: ${error?.message || error}`,
+          path: v2ManifestRef.logicalKey || entry.path,
+          ownerId: entry.id,
+          kind: 'directive.saveManifest.v2'
+        }));
+      }
+    }
     if (result.status === 'ok' && result.value?.kind === 'directive.campaignSave' && isObject(result.value?.payload?.campaignState)) {
       const needsIndexRepair = index.activeSaveId !== entry.id || entry.current !== true || currentEntries.length > 1;
       if (needsIndexRepair) {

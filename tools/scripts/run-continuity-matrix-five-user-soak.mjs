@@ -11,6 +11,8 @@ import {
   ensureDirectory,
   errorSummary,
   sha256Text,
+  externalContextFixtureDepthCheckStatus,
+  summarizeExternalContextFixtureDepth,
   writeJsonFile,
   writeTextFile
 } from './lib/sillytavern-live-harness.mjs';
@@ -34,6 +36,13 @@ export const CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS = Object.freeze([
   'directive.continuity.domain',
   'directive.recap.committed',
   'directive.context.revolving'
+]);
+
+const EXTERNAL_CONTEXT_TARGET_IDS = Object.freeze([
+  'stLorebooks',
+  'memoryBooks',
+  'summaryception',
+  'vectFox'
 ]);
 
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
@@ -63,6 +72,8 @@ Options:
   --live              Run live SillyTavern readiness and lane soaks.
   --write-artifacts   Write report.json, summary.md, and live-log.jsonl.
   --skip-readiness    Skip the five-user isolation preflight.
+  --activate-external-context-fixture
+                      Ask live readiness to activate the prepared rich fixture chat.
   --resume            Reuse matching completed lane artifacts for this run id.
   --turn-limit N      Bound each lane to N turns; produces a warning.
   --lanes a,b         Run lane ids or user handles matching the policy.
@@ -75,6 +86,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     live: false,
     writeArtifacts: false,
     skipReadiness: false,
+    activateExternalContextFixture: false,
     resume: false,
     turnLimit: DEFAULT_TURN_LIMIT,
     laneFilter: []
@@ -85,6 +97,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--live') options.live = true;
     else if (arg === '--write-artifacts') options.writeArtifacts = true;
     else if (arg === '--skip-readiness') options.skipReadiness = true;
+    else if (arg === '--activate-external-context-fixture') options.activateExternalContextFixture = true;
     else if (arg === '--resume') options.resume = true;
     else if (arg === '--turn-limit') {
       options.turnLimit = String(argv[index + 1] || '').trim();
@@ -100,6 +113,7 @@ function parseArgs(argv = process.argv.slice(2)) {
   }
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_LIVE === '1') options.live = true;
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_WRITE === '1') options.writeArtifacts = true;
+  if (process.env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE === '1') options.activateExternalContextFixture = true;
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_RESUME === '1') options.resume = true;
   if (!options.turnLimit && process.env.DIRECTIVE_SOAK_TURN_LIMIT) {
     options.turnLimit = String(process.env.DIRECTIVE_SOAK_TURN_LIMIT || '').trim();
@@ -214,7 +228,8 @@ function artifactPaths({ rootDir, runId }) {
     summary: path.join(root, 'summary.md'),
     liveLog: path.join(root, 'live-log.jsonl'),
     lanes: path.join(root, 'lanes'),
-    readiness: path.join(root, 'readiness')
+    readiness: path.join(root, 'readiness'),
+    hostExtensions: path.join(root, 'host-extensions')
   };
 }
 
@@ -357,6 +372,205 @@ export function summarizePromptInspectionArtifact({
   };
 }
 
+function externalRefFromPromptInspection(artifact = {}, promptInspection = {}) {
+  return promptInspection.externalPromptEnvironmentRef
+    || promptInspection.externalEnvironmentRef
+    || promptInspection.cacheRecord?.externalPromptEnvironmentRef
+    || artifact.externalPromptEnvironmentRef
+    || artifact.externalContext?.externalPromptEnvironmentRef
+    || null;
+}
+
+function externalPromptKeysFromPromptInspection(artifact = {}, promptInspection = {}) {
+  const ref = externalRefFromPromptInspection(artifact, promptInspection);
+  const values = [
+    ...(Array.isArray(ref?.knownExternalPromptKeys) ? ref.knownExternalPromptKeys : []),
+    ...(Array.isArray(promptInspection.knownExternalPromptKeys) ? promptInspection.knownExternalPromptKeys : []),
+    ...(Array.isArray(promptInspection.externalPromptKeys) ? promptInspection.externalPromptKeys : []),
+    ...(Array.isArray(promptInspection.externalPromptKeysObserved) ? promptInspection.externalPromptKeysObserved : []),
+    ...(Array.isArray(artifact.knownExternalPromptKeys) ? artifact.knownExternalPromptKeys : []),
+    ...(Array.isArray(artifact.externalPromptKeys) ? artifact.externalPromptKeys : [])
+  ];
+  return [...new Set(values.filter((value) => value && !String(value).startsWith('directive.')).map(String))].sort();
+}
+
+function targetEvidenceFromPromptInspection(promptInspection = {}, knownExternalPromptKeys = []) {
+  const targets = promptInspection.externalPromptEnvironmentTargets || promptInspection.externalTargets || {};
+  const keys = knownExternalPromptKeys.map((key) => String(key || ''));
+  const worldInfoKey = keys.some((key) => (
+    key === 'worldInfoBefore'
+    || key === 'worldInfoAfter'
+    || /^customDepthWI_/i.test(key)
+    || /^customWIOutlet_/i.test(key)
+    || key === '2_floating_prompt'
+  ));
+  const summaryceptionKey = keys.includes('summaryception');
+  const vectFoxKey = keys.some((key) => /^3_vectfox/i.test(key));
+  const memoryBooksActive = targets.memoryBooks?.active === true
+    || targets.memoryBooks?.enabled === true
+    || Number(targets.memoryBooks?.entryCount || 0) > 0;
+  return {
+    stLorebooks: Boolean(worldInfoKey || targets.stLorebooks?.active || targets.stLorebooks?.enabled || targets.stLorebooks?.chatBound),
+    memoryBooks: Boolean(memoryBooksActive),
+    summaryception: Boolean(summaryceptionKey || targets.summaryception?.enabled || targets.summaryception?.promptKeyActive),
+    vectFox: Boolean(vectFoxKey || targets.vectFox?.enabled || targets.vectFox?.generationInterceptorActive || targets.vectFox?.summarizerInjectionEnabled),
+    finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal === true,
+    redactionReasons: [...new Set((promptInspection.redactions || []).map((entry) => entry?.reason).filter(Boolean))].sort()
+  };
+}
+
+function richFixturePressureFromCaptures(captures = []) {
+  const targetCoverage = Object.fromEntries(EXTERNAL_CONTEXT_TARGET_IDS.map((targetId) => [
+    targetId,
+    captures.some((capture) => capture.targetEvidence?.[targetId] === true)
+  ]));
+  const missingTargets = EXTERNAL_CONTEXT_TARGET_IDS.filter((targetId) => !targetCoverage[targetId]);
+  const finalHostPromptMayIncludeExternal = captures.some((capture) => capture.targetEvidence?.finalHostPromptMayIncludeExternal === true);
+  const status = captures.length && missingTargets.length === 0 && finalHostPromptMayIncludeExternal ? 'pass' : 'fail';
+  return {
+    status,
+    requiredTargets: [...EXTERNAL_CONTEXT_TARGET_IDS],
+    targetCoverage,
+    missingTargets,
+    finalHostPromptMayIncludeExternal,
+    redactionReasons: [...new Set(captures.flatMap((capture) => capture.targetEvidence?.redactionReasons || []))].sort()
+  };
+}
+
+export function summarizeExternalContextPromptArtifact({ artifactRoot } = {}) {
+  const promptDirectory = artifactRoot ? path.join(artifactRoot, 'prompt-inspection') : '';
+  const filePath = latestJsonFile(promptDirectory);
+  if (!filePath) {
+    return {
+      status: 'fail',
+      file: null,
+      externalPromptEnvironmentRef: null,
+      knownExternalPromptKeys: [],
+      directiveOwnedPromptKeys: [],
+      finalHostPromptMayIncludeExternal: null,
+      unavailableSignals: ['prompt-inspection-missing'],
+      redactionReasons: []
+    };
+  }
+
+  const artifact = readJsonIfExists(filePath) || {};
+  const promptInspection = artifact.promptInspection || artifact;
+  const blocks = Array.isArray(promptInspection.blocks) ? promptInspection.blocks : [];
+  const directiveOwnedPromptKeys = [...new Set(blocks
+    .map((block) => block.promptKey || block.key)
+    .filter((key) => key && String(key).startsWith('directive.'))
+    .map(String))].sort();
+  const externalPromptEnvironmentRef = externalRefFromPromptInspection(artifact, promptInspection);
+  const knownExternalPromptKeys = externalPromptKeysFromPromptInspection(artifact, promptInspection);
+  const unavailableSignals = [
+    ...(Array.isArray(promptInspection.unavailableSignals) ? promptInspection.unavailableSignals : []),
+    ...(Array.isArray(artifact.unavailableSignals) ? artifact.unavailableSignals : []),
+    ...(!externalPromptEnvironmentRef ? ['external-prompt-environment-ref-missing'] : []),
+    ...(knownExternalPromptKeys.length ? [] : ['known-external-prompt-keys-missing'])
+  ];
+  const redactionReasons = [...new Set([
+    ...(Array.isArray(promptInspection.redactions) ? promptInspection.redactions : []),
+    ...(Array.isArray(artifact.redactions) ? artifact.redactions : [])
+  ].map((entry) => entry?.reason).filter(Boolean))];
+  const finalHostPromptMayIncludeExternal = promptInspection.finalHostPromptMayIncludeExternal
+    ?? promptInspection.cacheRecord?.finalHostPromptMayIncludeExternal
+    ?? artifact.finalHostPromptMayIncludeExternal
+    ?? null;
+  return {
+    status: externalPromptEnvironmentRef && knownExternalPromptKeys.length ? 'pass' : 'fail',
+    file: relativePathFrom(artifactRoot, filePath),
+    externalPromptEnvironmentRef: externalPromptEnvironmentRef
+      ? {
+        kind: externalPromptEnvironmentRef.kind || null,
+        hash: externalPromptEnvironmentRef.hash || null,
+        byteLength: externalPromptEnvironmentRef.byteLength ?? null,
+        status: externalPromptEnvironmentRef.status || null,
+        observedAt: externalPromptEnvironmentRef.observedAt || null,
+        knownExternalPromptKeys
+      }
+      : null,
+    knownExternalPromptKeys,
+    directiveOwnedPromptKeys,
+    finalHostPromptMayIncludeExternal,
+    unavailableSignals,
+    redactionReasons
+  };
+}
+
+function promptInspectionArtifacts(artifactRoot) {
+  const promptDirectory = artifactRoot ? path.join(artifactRoot, 'prompt-inspection') : '';
+  return listJsonFiles(promptDirectory)
+    .map((filePath) => {
+      const artifact = readJsonIfExists(filePath) || {};
+      const promptInspection = artifact.promptInspection || artifact;
+      return {
+        filePath,
+        artifact,
+        promptInspection
+      };
+    });
+}
+
+function expectedGenerationPromptSnapshotCount(turnLimit) {
+  if (turnLimit === undefined) return null;
+  return requestedTurnLimitValue(turnLimit) || SOAK_TURN_SCRIPT.length;
+}
+
+export function summarizeExternalContextGenerationArtifacts({ artifactRoot, turnLimit } = {}) {
+  const artifacts = promptInspectionArtifacts(artifactRoot);
+  const generationArtifacts = artifacts.filter(({ artifact }) => artifact.reason === 'pre-generation');
+  const expectedCaptureCount = expectedGenerationPromptSnapshotCount(turnLimit);
+  const captures = generationArtifacts.map(({ filePath, artifact, promptInspection }) => {
+    const externalPromptEnvironmentRef = externalRefFromPromptInspection(artifact, promptInspection);
+    const knownExternalPromptKeys = externalPromptKeysFromPromptInspection(artifact, promptInspection);
+    const targetEvidence = targetEvidenceFromPromptInspection(promptInspection, knownExternalPromptKeys);
+    const unavailableSignals = [
+      ...(Array.isArray(promptInspection.unavailableSignals) ? promptInspection.unavailableSignals : []),
+      ...(Array.isArray(artifact.unavailableSignals) ? artifact.unavailableSignals : []),
+      ...(!externalPromptEnvironmentRef ? ['external-prompt-environment-ref-missing'] : []),
+      ...(knownExternalPromptKeys.length ? [] : ['known-external-prompt-keys-missing'])
+    ];
+    return {
+      file: relativePathFrom(artifactRoot, filePath),
+      scriptMessageId: artifact.scriptMessageId || null,
+      scriptCategory: artifact.scriptCategory || null,
+      chatLength: artifact.chatLength ?? null,
+      status: externalPromptEnvironmentRef && knownExternalPromptKeys.length ? 'pass' : 'fail',
+      refHash: externalPromptEnvironmentRef?.hash || null,
+      refStatus: externalPromptEnvironmentRef?.status || null,
+      knownExternalPromptKeys,
+      targetEvidence,
+      finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal
+        ?? promptInspection.cacheRecord?.finalHostPromptMayIncludeExternal
+        ?? artifact.finalHostPromptMayIncludeExternal
+        ?? null,
+      unavailableSignals
+    };
+  });
+  const failedCaptures = captures.filter((capture) => capture.status !== 'pass');
+  const captureDepthMissing = expectedCaptureCount !== null && captures.length < expectedCaptureCount;
+  const status = captures.length === 0 || failedCaptures.length || captureDepthMissing ? 'fail' : 'pass';
+  return {
+    status,
+    captureCount: captures.length,
+    expectedCaptureCount,
+    captureDepthMissing,
+    failedCaptureCount: failedCaptures.length,
+    knownExternalPromptKeys: [...new Set(captures.flatMap((capture) => capture.knownExternalPromptKeys || []))].sort(),
+    refHashes: [...new Set(captures.map((capture) => capture.refHash).filter(Boolean))].sort(),
+    richFixturePressure: richFixturePressureFromCaptures(captures),
+    captures,
+    unavailableSignals: [...new Set(captures.flatMap((capture) => capture.unavailableSignals || []))].sort(),
+    summary: captures.length === 0
+      ? 'No generation-time prompt-inspection snapshots were recorded.'
+      : captureDepthMissing
+        ? `Only ${captures.length} generation-time prompt-inspection snapshot(s) were recorded; expected ${expectedCaptureCount}.`
+        : failedCaptures.length
+          ? `${failedCaptures.length} generation-time prompt-inspection snapshot(s) are missing external-context refs or keys.`
+          : `Recorded ${captures.length} generation-time external-context prompt snapshot(s).`
+  };
+}
+
 function factCheckFiles(artifactRoot) {
   const root = artifactRoot ? path.join(artifactRoot, 'fact-checks') : '';
   if (!root || !fs.existsSync(root)) return [];
@@ -459,6 +673,74 @@ function summarizeChildReport({ artifactRoot } = {}) {
   };
 }
 
+export function summarizeGenerationTimingCoreProof({ artifactRoot } = {}) {
+  const report = readJsonIfExists(artifactRoot ? path.join(artifactRoot, 'report.json') : '');
+  if (!report) {
+    return {
+      status: 'fail',
+      summary: 'Lane report.json is missing; CORE generation timing proof cannot be verified.',
+      proof: null,
+      checkStatus: null
+    };
+  }
+  const timingCheck = (report.checks || []).find((entry) => entry?.id === 'live-generation-start-timing') || null;
+  if (!timingCheck) {
+    return {
+      status: 'fail',
+      summary: 'Lane report is missing live-generation-start-timing check.',
+      proof: null,
+      checkStatus: null
+    };
+  }
+  const proof = timingCheck.details?.proof || null;
+  if (timingCheck.status === 'fail') {
+    return {
+      status: 'fail',
+      summary: timingCheck.summary || 'Lane generation-start timing check failed.',
+      proof,
+      checkStatus: timingCheck.status
+    };
+  }
+  if (!proof) {
+    return {
+      status: 'fail',
+      summary: 'Lane generation-start timing check did not include proof details.',
+      proof: null,
+      checkStatus: timingCheck.status || null
+    };
+  }
+  const hasCoreProjectionProof = proof.source === 'coreStoreTurnTiming'
+    && proof.timingSource === 'coreProjection';
+  if (!hasCoreProjectionProof) {
+    return {
+      status: 'fail',
+      summary: `Lane timing proof is not persisted CORE projection evidence; source=${proof.source || 'unknown'}, timingSource=${proof.timingSource || 'unknown'}.`,
+      proof,
+      checkStatus: timingCheck.status || null
+    };
+  }
+  if (proof.status !== 'pass' || Number(proof.checkedTurnCount || 0) <= 0 || timingCheck.status !== 'pass') {
+    const skippedSuffix = Number(proof.skippedTurnCount || 0) > 0
+      ? ` ${proof.skippedTurnCount} deterministic non-generation turn(s) were skipped.`
+      : '';
+    return {
+      status: proof.status === 'fail' || timingCheck.status === 'fail' ? 'fail' : 'warning',
+      summary: `Lane timing proof is incomplete for certification.${skippedSuffix}`,
+      proof,
+      checkStatus: timingCheck.status || null
+    };
+  }
+  const skippedSuffix = Number(proof.skippedTurnCount || 0) > 0
+    ? ` ${proof.skippedTurnCount} deterministic non-generation turn(s) were skipped.`
+    : '';
+  return {
+    status: 'pass',
+    summary: `Lane proved persisted CORE generation-start timing for ${proof.checkedTurnCount} turn(s); max latency ${proof.maxGenerationStartLatencyMs ?? 'unknown'} ms.${skippedSuffix}`,
+    proof,
+    checkStatus: timingCheck.status || null
+  };
+}
+
 export function summarizeContinuityMatrixLane({
   lane,
   child,
@@ -469,15 +751,21 @@ export function summarizeContinuityMatrixLane({
   const resolvedArtifactRoot = artifactRoot || childJson?.artifactRoot || null;
   const childReport = summarizeChildReport({ artifactRoot: resolvedArtifactRoot });
   const promptInspection = summarizePromptInspectionArtifact({ artifactRoot: resolvedArtifactRoot });
+  const externalContextProof = summarizeExternalContextPromptArtifact({ artifactRoot: resolvedArtifactRoot });
+  const externalContextGenerationProof = summarizeExternalContextGenerationArtifacts({ artifactRoot: resolvedArtifactRoot, turnLimit });
   const factualGrounding = summarizeFactualGroundingArtifacts({ artifactRoot: resolvedArtifactRoot });
   const artifactCompleteness = summarizeLaneArtifactCompleteness({ artifactRoot: resolvedArtifactRoot, turnLimit });
+  const generationTimingProof = summarizeGenerationTimingCoreProof({ artifactRoot: resolvedArtifactRoot });
   const processStatus = child?.exitCode === 0 ? 'pass' : 'fail';
   const laneStatus = worstStatus([
     processStatus,
     childReport.status === 'fail' ? 'fail' : childReport.status === 'warning' ? 'warning' : 'pass',
     promptInspection.status,
+    externalContextProof.status,
+    externalContextGenerationProof.status,
     factualGrounding.status,
-    artifactCompleteness.status
+    artifactCompleteness.status,
+    generationTimingProof.status
   ]);
   return {
     id: lane.id,
@@ -496,7 +784,10 @@ export function summarizeContinuityMatrixLane({
     report: childReport,
     artifactCompleteness,
     promptInspection,
-    factualGrounding
+    externalContextProof,
+    externalContextGenerationProof,
+    factualGrounding,
+    generationTimingProof
   };
 }
 
@@ -632,6 +923,8 @@ export function summarizeReusableContinuityMatrixLane({
     || summary.artifactCompleteness?.status === 'fail'
     || (summary.artifactCompleteness?.status === 'warning' && !boundedTurnLimit)
     || summary.promptInspection?.status !== 'pass'
+    || summary.externalContextProof?.status !== 'pass'
+    || summary.generationTimingProof?.status !== 'pass'
     || summary.factualGrounding?.status === 'fail'
   ) {
     return null;
@@ -658,10 +951,102 @@ function readinessEnv({ paths, runId, users }) {
   };
 }
 
-function summarizeReadiness(child, paths, runId) {
+function countByStatus(items = []) {
+  const counts = {};
+  for (const item of items) {
+    const status = item?.status || 'unknown';
+    counts[status] = (counts[status] || 0) + 1;
+  }
+  return counts;
+}
+
+function summarizeExternalContextTarget(target = {}) {
+  return {
+    status: target.status || 'unknown',
+    diskSignals: {
+      installed: target.diskSignals?.installed === true,
+      enabled: target.diskSignals?.enabled === true,
+      disabledPresent: target.diskSignals?.disabledPresent === true,
+      settingsHash: target.diskSignals?.settingsHash || null
+    },
+    browserSignals: {
+      settingsSeen: target.browserSignals?.settingsSeen === true,
+      globalSignatureSeen: target.browserSignals?.globalSignatureSeen === true,
+      promptKeySeen: target.browserSignals?.promptKeySeen === true,
+      chatMetadataSeen: target.browserSignals?.chatMetadataSeen === true,
+      messageMarkerSeen: target.browserSignals?.messageMarkerSeen === true
+    },
+    promptKeys: Array.isArray(target.promptKeys) ? target.promptKeys.slice(0, 40) : [],
+    chatMetadataCounts: target.chatMetadataCounts && typeof target.chatMetadataCounts === 'object'
+      ? { ...target.chatMetadataCounts }
+      : {},
+    messageMarkerCounts: target.messageMarkerCounts && typeof target.messageMarkerCounts === 'object'
+      ? { ...target.messageMarkerCounts }
+      : {},
+    unavailableReasons: Array.isArray(target.unavailableReasons) ? target.unavailableReasons.slice(0, 20) : []
+  };
+}
+
+export function summarizeExternalContextProbe(probe = null) {
+  if (!probe || typeof probe !== 'object') return null;
+  const users = (probe.users || []).map((user) => {
+    const targets = Object.fromEntries(EXTERNAL_CONTEXT_TARGET_IDS.map((targetId) => [
+      targetId,
+      summarizeExternalContextTarget(user.targets?.[targetId] || {})
+    ]));
+    const targetStatuses = Object.values(targets).map((target) => target.status || 'unknown');
+    const externalPromptKeys = Array.isArray(user.externalPromptEnvironment?.knownExternalPromptKeys)
+      ? user.externalPromptEnvironment.knownExternalPromptKeys.slice(0, 100)
+      : [];
+    return {
+      handle: user.handle || null,
+      status: user.status || 'unknown',
+      contextReady: user.contextReady === true,
+      currentChatId: user.currentChatId || null,
+      chatLength: Number(user.chatLength || 0),
+      diskEnvironmentHash: user.diskEnvironmentHash || null,
+      browserEnvironmentHash: user.browserEnvironmentHash || null,
+      combinedEnvironmentHash: user.combinedEnvironmentHash || null,
+      hostPromptRegistry: {
+        available: user.hostPromptRegistry?.available === true,
+        keyCount: Number(user.hostPromptRegistry?.keyCount || user.hostPromptRegistry?.promptKeys?.length || 0),
+        promptKeys: Array.isArray(user.hostPromptRegistry?.promptKeys) ? user.hostPromptRegistry.promptKeys.slice(0, 100) : []
+      },
+      externalPromptKeys,
+      externalPromptKeyCount: externalPromptKeys.length,
+      targetStatusCounts: countByStatus(targetStatuses.map((status) => ({ status }))),
+      targets,
+      unavailableSignals: Array.isArray(user.unavailableSignals) ? user.unavailableSignals.slice(0, 50) : [],
+      redactionCount: Array.isArray(user.redactions) ? user.redactions.length : 0,
+      redactionReasons: [...new Set((user.redactions || []).map((entry) => entry?.reason).filter(Boolean))]
+    };
+  });
+  const fixtureDepth = summarizeExternalContextFixtureDepth(probe);
+  return {
+    kind: probe.kind || 'directive.sillytavern.externalContextProbe.v1',
+    schemaVersion: probe.schemaVersion || 1,
+    runId: probe.runId || null,
+    capturedAt: probe.capturedAt || null,
+    mode: probe.mode || null,
+    status: probe.status || 'unknown',
+    required: probe.required === true,
+    baseUrl: probe.baseUrl || null,
+    userCount: users.length,
+    userStatusCounts: countByStatus(users),
+    targetStatusCounts: countByStatus(users.flatMap((user) => Object.values(user.targets))),
+    fixtureDepth,
+    users
+  };
+}
+
+export function summarizeReadiness(child, paths, runId) {
   const json = child?.json || null;
   const artifactRoot = json?.artifactRoot || path.join(paths.readiness, `${runId}-readiness`);
   const report = readJsonIfExists(path.join(artifactRoot, 'report.json'));
+  const externalContextProbe = summarizeExternalContextProbe(
+    report?.externalContextProbe
+    || readJsonIfExists(path.join(artifactRoot, 'host-extensions', 'external-context-probe.json'))
+  );
   const reportedStatus = report?.status || json?.status || null;
   const status = child?.exitCode !== 0 || reportedStatus === 'fail'
     ? 'fail'
@@ -690,7 +1075,8 @@ function summarizeReadiness(child, paths, runId) {
         failures: report.failures || [],
         warnings: report.warnings || []
       }
-      : null
+      : null,
+    externalContextProbe
   };
 }
 
@@ -729,8 +1115,76 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
           ? 'Five-user SillyTavern isolation readiness passed.'
           : readiness?.status === 'warning'
             ? 'Five-user SillyTavern isolation readiness completed with warnings.'
-            : 'Five-user SillyTavern isolation readiness failed.',
+      : 'Five-user SillyTavern isolation readiness failed.',
     readiness ? { artifactRoot: readiness.artifactRoot } : null
+  ));
+  const externalProbe = readiness?.externalContextProbe || null;
+  checks.push(reportCheck(
+    'external-context-readiness-proof',
+    !options.live
+      ? 'skipped'
+      : options.skipReadiness
+        ? 'warning'
+        : !externalProbe
+          ? 'fail'
+          : externalProbe.status === 'pass'
+            ? 'pass'
+            : externalProbe.status === 'warning'
+              ? 'warning'
+              : 'fail',
+    !options.live
+      ? 'External context readiness proof skipped in dry-run mode.'
+      : options.skipReadiness
+        ? 'External context readiness proof was skipped with live readiness.'
+        : !externalProbe
+          ? 'Live readiness did not produce an external-context probe artifact.'
+          : externalProbe.status === 'pass'
+            ? 'External context probe captured per-user browser/disk compatibility evidence.'
+            : externalProbe.status === 'warning'
+              ? 'External context probe captured compatibility evidence with unresolved browser/disk warnings.'
+              : 'External context probe failed or did not prove required compatibility evidence.',
+    externalProbe
+      ? {
+        artifactRoot: readiness.artifactRoot,
+        userCount: externalProbe.userCount,
+        userStatusCounts: externalProbe.userStatusCounts,
+        targetStatusCounts: externalProbe.targetStatusCounts,
+        required: externalProbe.required
+      }
+      : readiness ? { artifactRoot: readiness.artifactRoot } : null
+  ));
+  const fixtureDepth = externalProbe?.fixtureDepth || null;
+  const fixtureDepthStatus = externalContextFixtureDepthCheckStatus({
+    live: options.live,
+    skipReadiness: options.skipReadiness,
+    turnLimit: options.turnLimit,
+    fixtureDepth,
+    fullCertificationRequired: Boolean(options.live && !options.turnLimit && !options.skipReadiness)
+  });
+  checks.push(reportCheck(
+    'external-context-fixture-depth',
+    fixtureDepthStatus,
+    !options.live
+      ? 'External context fixture-depth proof skipped in dry-run mode.'
+      : options.skipReadiness
+        ? 'External context fixture-depth proof was skipped with live readiness.'
+        : !fixtureDepth
+          ? 'Live readiness did not produce fixture-depth evidence.'
+          : fixtureDepth.status === 'pass'
+            ? 'At least one non-human soak user has rich active fixture evidence for every external-context target.'
+            : options.turnLimit
+              ? 'External context observability exists, but rich active fixture evidence is incomplete or shallow.'
+              : 'Full external-context certification requires rich active fixture evidence for every target in at least one non-human soak user.',
+    fixtureDepth
+      ? {
+        status: fixtureDepth.status,
+        fullCertificationRequired: Boolean(options.live && !options.turnLimit && !options.skipReadiness),
+        requiredTargets: fixtureDepth.requiredTargets,
+        fullFixtureUserHandles: fixtureDepth.fullFixtureUserHandles,
+        missingTargets: fixtureDepth.missingTargets,
+        targetCoverage: fixtureDepth.targetCoverage
+      }
+      : readiness ? { artifactRoot: readiness.artifactRoot } : null
   ));
   checks.push(reportCheck(
     'turn-depth',
@@ -752,6 +1206,67 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
         ? `${promptMissing.length} lane(s) are missing required CPM prompt keys or source ids.`
         : 'Every live lane exposed the required Continuity Matrix prompt keys and source ids.',
     { requiredPromptKeys: [...CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS], requiredSourceIds: [...CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS] }
+  ));
+  const richFixtureUserHandles = new Set(fixtureDepth?.fullFixtureUserHandles || []);
+  const externalPromptMissing = laneSummaries.filter((lane) => lane.externalContextGenerationProof?.status !== 'pass');
+  const richFixtureGenerationMissing = laneSummaries.filter((lane) => (
+    richFixtureUserHandles.has(lane.userHandle)
+    && lane.externalContextGenerationProof?.richFixturePressure?.status !== 'pass'
+  ));
+  checks.push(reportCheck(
+    'external-context-generation-proof',
+    !options.live ? 'skipped' : externalPromptMissing.length || richFixtureGenerationMissing.length ? 'fail' : 'pass',
+    !options.live
+      ? 'External context generation proof skipped in dry-run mode.'
+      : externalPromptMissing.length
+        ? `${externalPromptMissing.length} lane(s) are missing generation-time prompt-snapshot external context refs, known external prompt keys, or expected capture depth.`
+        : richFixtureGenerationMissing.length
+          ? `${richFixtureGenerationMissing.length} rich fixture lane(s) did not prove fixture-specific external context pressure during generation.`
+        : 'Every live lane recorded generation-time external prompt environment refs and known external prompt keys before sends.',
+    {
+      richFixtureUserHandles: [...richFixtureUserHandles],
+      lanes: laneSummaries.map((lane) => ({
+        id: lane.id,
+        userHandle: lane.userHandle,
+        status: lane.externalContextGenerationProof?.status || 'missing',
+        captureCount: lane.externalContextGenerationProof?.captureCount ?? 0,
+        expectedCaptureCount: lane.externalContextGenerationProof?.expectedCaptureCount ?? null,
+        captureDepthMissing: lane.externalContextGenerationProof?.captureDepthMissing === true,
+        knownExternalPromptKeys: lane.externalContextGenerationProof?.knownExternalPromptKeys || [],
+        refHashes: lane.externalContextGenerationProof?.refHashes || [],
+        richFixturePressure: lane.externalContextGenerationProof?.richFixturePressure || null,
+        unavailableSignals: lane.externalContextGenerationProof?.unavailableSignals || [],
+        latestPromptSnapshot: {
+          status: lane.externalContextProof?.status || 'missing',
+          refHash: lane.externalContextProof?.externalPromptEnvironmentRef?.hash || null,
+          finalHostPromptMayIncludeExternal: lane.externalContextProof?.finalHostPromptMayIncludeExternal ?? null
+        }
+      }))
+    }
+  ));
+  const timingProofMissing = laneSummaries.filter((lane) => lane.generationTimingProof?.status !== 'pass');
+  checks.push(reportCheck(
+    'generation-start-timing-core-proof',
+    !options.live ? 'skipped' : timingProofMissing.length ? 'fail' : 'pass',
+    !options.live
+      ? 'Generation-start timing CORE proof skipped in dry-run mode.'
+      : timingProofMissing.length
+        ? `${timingProofMissing.length} lane(s) are missing persisted CORE projection generation-start timing proof.`
+        : 'Every live lane proved generation-start timing from persisted CORE Store projections.',
+    {
+      lanes: laneSummaries.map((lane) => ({
+        id: lane.id,
+        userHandle: lane.userHandle,
+        status: lane.generationTimingProof?.status || 'missing',
+        checkStatus: lane.generationTimingProof?.checkStatus || null,
+        source: lane.generationTimingProof?.proof?.source || null,
+        timingSource: lane.generationTimingProof?.proof?.timingSource || null,
+        checkedTurnCount: lane.generationTimingProof?.proof?.checkedTurnCount ?? null,
+        skippedTurnCount: lane.generationTimingProof?.proof?.skippedTurnCount ?? null,
+        maxGenerationStartLatencyMs: lane.generationTimingProof?.proof?.maxGenerationStartLatencyMs ?? null,
+        summary: lane.generationTimingProof?.summary || null
+      }))
+    }
   ));
   const factualHardFailures = laneSummaries.filter((lane) => lane.factualGrounding?.status === 'fail');
   const factualWarnings = laneSummaries.filter((lane) => lane.factualGrounding?.status === 'warning');
@@ -826,6 +1341,18 @@ function buildSummaryMarkdown(report) {
   for (const check of report.checks) {
     lines.push(`- ${check.status}: ${check.id} - ${check.summary}`);
   }
+  if (report.readiness?.externalContextProbe) {
+    const probe = report.readiness.externalContextProbe;
+    lines.push('', '## External Context Readiness', '');
+    lines.push(`Status: ${probe.status}`);
+    lines.push(`Users: ${probe.userCount}`);
+    lines.push(`Targets: ${Object.entries(probe.targetStatusCounts || {}).map(([status, count]) => `${status}=${count}`).join(', ') || 'none'}`);
+    if (probe.fixtureDepth) {
+      lines.push(`FixtureDepth: ${probe.fixtureDepth.status}`);
+      lines.push(`Full fixture users: ${probe.fixtureDepth.fullFixtureUserHandles?.join(', ') || 'none'}`);
+      lines.push(`Missing fixture targets: ${probe.fixtureDepth.missingTargets?.join(', ') || 'none'}`);
+    }
+  }
   lines.push('', '## Lanes', '');
   for (const lane of report.lanes) {
     const reuseLabel = lane.reused === true ? ' reused' : '';
@@ -833,6 +1360,9 @@ function buildSummaryMarkdown(report) {
     if (lane.artifactRoot) lines.push(`  - artifactRoot: ${lane.artifactRoot}`);
     if (lane.promptInspection?.presentSourceIds) {
       lines.push(`  - sourceIds: ${lane.promptInspection.presentSourceIds.join(', ') || 'none'}`);
+    }
+    if (lane.externalContextProof) {
+      lines.push(`  - externalContext: ${lane.externalContextProof.status}, keys=${lane.externalContextProof.knownExternalPromptKeys?.join(', ') || 'none'}`);
     }
     if (lane.factualGrounding?.counts) {
       const counts = lane.factualGrounding.counts;
@@ -858,6 +1388,15 @@ function finalStatus({ checks, options }) {
   return 'pass';
 }
 
+export function readinessCommandArgs(options = {}) {
+  return [
+    'tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs',
+    '--live',
+    ...(options.activateExternalContextFixture ? ['--activate-external-context-fixture'] : []),
+    '--write-artifacts'
+  ];
+}
+
 async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers = [] }) {
   const laneSummaries = [];
   let readiness = null;
@@ -879,7 +1418,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
     });
     const child = await spawnChild(
       process.execPath,
-      ['tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs', '--live', '--write-artifacts'],
+      readinessCommandArgs(options),
       { env: readinessEnv({ paths, runId, users }), action: { kind: 'readiness', runId } }
     );
     readiness = summarizeReadiness(child, paths, runId);
@@ -956,7 +1495,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
   return { readiness, laneSummaries };
 }
 
-function buildReport({
+export function buildReport({
   runId,
   mode,
   options,
@@ -1035,6 +1574,7 @@ async function main() {
       screenshots: path.join(paths.root, 'screenshots'),
       playwright: path.join(paths.root, 'playwright'),
       promptInspection: path.join(paths.root, 'prompt-inspection'),
+      hostExtensions: paths.hostExtensions,
       storage: path.join(paths.root, 'storage'),
       campaignMatrix: path.join(paths.root, 'campaign-matrix'),
       objectiveAssignments: path.join(paths.root, 'objective-assignments'),

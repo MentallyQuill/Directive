@@ -240,7 +240,8 @@ export async function generateNarrationFromTurn({
   narrationContext = null,
   packageData = null,
   crewDataset = null,
-  now = null
+  now = null,
+  onGenerationStart = null
 }) {
   requireObject(provider, 'provider');
   if (typeof provider.generateNarration !== 'function') {
@@ -259,6 +260,14 @@ export async function generateNarrationFromTurn({
     throw new Error('Narrator packet is not safe for provider narration.');
   }
   const generatedAt = typeof now === 'function' ? now() : (now || new Date().toISOString());
+  if (typeof onGenerationStart === 'function') {
+    onGenerationStart({
+      generatedAt,
+      directiveGenerationStartedAt: generatedAt,
+      sourceOutcomeId: prompt.sourceOutcomeId,
+      providerId: provider.id || 'unknown'
+    });
+  }
   const response = await provider.generateNarration({
     prompt: prompt.prompt,
     systemPrompt: prompt.systemPrompt,
@@ -282,6 +291,7 @@ export async function generateNarrationFromTurn({
     kind: 'directive.narrationResult',
     sourceOutcomeId: prompt.sourceOutcomeId,
     generatedAt,
+    directiveGenerationStartedAt: generatedAt,
     providerId: response?.providerId || provider.id || 'unknown',
     text,
     continuityReview,

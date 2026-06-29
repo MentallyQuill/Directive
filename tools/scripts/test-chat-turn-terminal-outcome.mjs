@@ -42,6 +42,10 @@ const previewCalls = [];
 const commitCalls = [];
 const checkpointCalls = [];
 const terminalResolutionCalls = [];
+const terminalSettlementCalls = [];
+const sidecarScheduleCalls = [];
+const commandLogScheduleCalls = [];
+const postCommitScheduleCalls = [];
 let pendingTurn = null;
 let classifyMode = 'consequential';
 let previewRequiresWarning = false;
@@ -224,6 +228,45 @@ const orchestrator = createChatTurnOrchestrator({
     await persistCampaignState(next, 'Fixture terminal decision resolved.');
     return { ok: true, action, campaignState: cloneJson(next) };
   },
+  recordTerminalCheckpointSettlement: (event) => {
+    terminalSettlementCalls.push(cloneJson(event));
+    return {
+      kind: 'directive.terminalCheckpointSettlementScheduled',
+      scheduled: true,
+      status: event.status,
+      settlementKind: event.kind,
+      interactionId: event.interactionId || null,
+      ingressId: event.ingressId || null,
+      resolutionIngressId: event.resolutionIngressId || null,
+      outcomeId: event.outcomeId || null
+    };
+  },
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarScheduleCalls.push(cloneJson(payload));
+      return {
+        ok: true,
+        scheduled: true,
+        outcomeId: payload.turnContext?.outcomeId || null
+      };
+    }
+  },
+  scheduleCommandLogSummaryForCommittedTurn: (payload) => {
+    commandLogScheduleCalls.push(cloneJson(payload));
+    return {
+      ok: null,
+      scheduled: true,
+      outcomeId: payload.outcomeId || null
+    };
+  },
+  schedulePostCommitConversationProcessor: (conversation) => {
+    postCommitScheduleCalls.push(cloneJson(conversation));
+    return {
+      ok: null,
+      scheduled: true,
+      outcomeId: conversation.outcomeId || null
+    };
+  },
   turnCommitCoordinator: {
     async markResponse({ campaignState: state, outcomeId, status, hostMessageId }) {
       const next = initializeCampaignRuntimeTracking(state);
@@ -255,6 +298,12 @@ assert.equal(previewCalls.length, 1);
 assert.equal(commitCalls.length, 1);
 assert.equal(checkpointCalls.length, 1);
 assert.deepEqual(checkpointCalls[0].responseKindsBefore.filter(Boolean), ['committedOutcome']);
+assert.equal(terminalSettlementCalls.length, 1);
+assert.equal(terminalSettlementCalls[0].kind, 'terminalOutcomeCheckpointPosted');
+assert.equal(terminal.terminalCheckpointSettlement.status, 'posted');
+assert.equal(sidecarScheduleCalls.length, 1, 'Terminal committed outcome still schedules normal post-visible sidecars for the committed outcome.');
+assert.equal(commandLogScheduleCalls.length, 1, 'Terminal committed outcome still schedules Command Log summary for the committed outcome.');
+assert.equal(postCommitScheduleCalls.length, 1, 'Terminal committed outcome still schedules Narrative Thread settlement for the committed outcome.');
 assert.deepEqual(
   chat.messages().filter((entry) => entry.isDirectiveOwned).map((entry) => entry.metadata?.responseKind),
   ['committedOutcome', 'terminalOutcomeCheckpoint']
@@ -275,8 +324,15 @@ assert.equal(resolved.resolvedPendingInteraction, true);
 assert.equal(terminalResolutionCalls.length, 1);
 assert.equal(terminalResolutionCalls[0].action, 'pushOn');
 assert.equal(terminalResolutionCalls[0].playerArgument, 'Push on. We still have survivors and the evidence.');
+assert.equal(terminalSettlementCalls.length, 2);
+assert.equal(terminalSettlementCalls.at(-1).kind, 'terminalOutcomeCheckpointResolved');
+assert.equal(terminalSettlementCalls.at(-1).ingressId, resolved.terminalCheckpointSettlement.ingressId);
+assert.equal(resolved.terminalCheckpointSettlement.status, 'resolved');
 assert.equal(previewCalls.length, 1, 'Terminal pending replies must resolve the checkpoint instead of starting a new Director turn.');
 assert.equal(commitCalls.length, 1);
+assert.equal(sidecarScheduleCalls.length, 1, 'Terminal checkpoint replies must not schedule normal sidecars.');
+assert.equal(commandLogScheduleCalls.length, 1, 'Terminal checkpoint replies must not schedule Command Log summary.');
+assert.equal(postCommitScheduleCalls.length, 1, 'Terminal checkpoint replies must not schedule Narrative Thread extraction.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === 'terminal-decision-orchestrator').status, 'resolved');
 assert.equal(campaignState.runtimeTracking.endConditionLedger.decisions[0].status, 'pushedOn');
 
@@ -330,6 +386,9 @@ assert.equal(ledgerOnlyResolved.resolvedPendingInteraction, true);
 assert.equal(terminalResolutionCalls.length, ledgerOnlyResolutionCount + 1);
 assert.equal(terminalResolutionCalls.at(-1).interactionId, 'terminal-decision-ledger-only');
 assert.equal(terminalResolutionCalls.at(-1).action, 'replayFromCheckpoint');
+assert.equal(sidecarScheduleCalls.length, 1, 'Ledger-only terminal checkpoint replies must not schedule normal sidecars.');
+assert.equal(commandLogScheduleCalls.length, 1, 'Ledger-only terminal checkpoint replies must not schedule Command Log summary.');
+assert.equal(postCommitScheduleCalls.length, 1, 'Ledger-only terminal checkpoint replies must not schedule Narrative Thread extraction.');
 
 campaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
 campaignState.campaign = {
@@ -375,6 +434,11 @@ const riskConfirmed = await orchestrator.observePlayerMessage({
 assert.equal(riskConfirmed.abortDefaultGeneration, true);
 assert.equal(riskConfirmed.resolvedPendingInteraction, true);
 assert.equal(checkpointCalls.length, checkpointCountBeforeRisk + 1, 'Risk-confirmed terminal commits must post the terminal checkpoint.');
+assert.equal(terminalSettlementCalls.at(-1).kind, 'terminalOutcomeCheckpointPosted');
+assert.equal(riskConfirmed.terminalCheckpointSettlement.status, 'posted');
+assert.equal(sidecarScheduleCalls.length, 2, 'Risk-confirmed terminal commits schedule normal sidecars only after committed outcome posting.');
+assert.equal(commandLogScheduleCalls.length, 2, 'Risk-confirmed terminal commits schedule Command Log summary only after committed outcome posting.');
+assert.equal(postCommitScheduleCalls.length, 2, 'Risk-confirmed terminal commits schedule Narrative Thread extraction only after committed outcome posting.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === riskInteraction.id).status, 'resolved');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.kind === 'terminalOutcomeDecision' && entry.status === 'pending')?.id, 'terminal-decision-risk-orchestrator');
 assert.deepEqual(

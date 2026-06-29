@@ -7,8 +7,12 @@ import path from 'node:path';
 
 import {
   DIRECTIVE_LOGICAL_STORAGE_KEYS,
+  coreSaveManifestV2LogicalKey,
   toSillyTavernUserFilesPath
 } from '../../src/storage/logical-storage-paths.mjs';
+import {
+  readCoreStoreProjectionsV2
+} from '../../src/storage/core-store-v2.mjs';
 import {
   authenticateSillyTavernUser
 } from './lib/sillytavern-live-harness.mjs';
@@ -16,6 +20,12 @@ import {
   perspectiveLogFields,
   playerInputPerspectiveEvidence
 } from './lib/player-input-perspective.mjs';
+import {
+  generationTimingEntryStatus,
+  generationTimingProofStatus,
+  timingProofEntryIsNonGenerated,
+  timingProofEntryRequiresGenerationStart
+} from './lib/generation-timing-proof-policy.mjs';
 
 const args = new Set(process.argv.slice(2));
 const BASE_URL = (process.env.SILLYTAVERN_BASE_URL || process.env.ST_BASE_URL || '').replace(/\/+$/, '');
@@ -82,6 +92,10 @@ const REQUIRE_BATCHED_SIDECARS = process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCH
 const FAIL_ON_NARRATION_RECOVERY = process.env.DIRECTIVE_SILLYTAVERN_FAIL_ON_NARRATION_RECOVERY === '1';
 const WAIT_FOR_SIDECARS_EACH_TURN = process.env.DIRECTIVE_SILLYTAVERN_WAIT_SIDECARS_EACH_TURN === '1';
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, 15000);
+const UI_BOOT_TIMEOUT_MS = positiveInteger(
+  process.env.DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS,
+  Math.max(BROWSER_TIMEOUT_MS, 45000)
+);
 const GENERATION_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, 90000);
 const CHAT_CAMPAIGN_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS, Math.max(120000, GENERATION_TIMEOUT_MS));
 const SIDECAR_SETTLE_TIMEOUT_MS = positiveInteger(
@@ -197,6 +211,7 @@ function compactReportSummary(report) {
   const chatCampaignFlow = browser?.chatCampaignFlow || {};
   const created = chatCampaignFlow?.created || {};
   const final = chatCampaignFlow?.final || {};
+  const generationTimingProof = chatCampaignFlow?.generationTimingProof || {};
   const retainedModelCalls = Array.isArray(final?.modelCalls) ? final.modelCalls : [];
   const staticExtension = report?.staticExtension || {};
   const storage = report?.storage || {};
@@ -242,6 +257,12 @@ function compactReportSummary(report) {
       sidecarRejectedCount: chatCampaignFlow?.sidecarRejectedCount ?? null,
       sidecarRejectedDelta: chatCampaignFlow?.sidecarRejectedDelta ?? null,
       pendingInteractionCount: chatCampaignFlow?.pendingInteractionCount ?? null,
+      generationTimingStatus: generationTimingProof?.status || null,
+      generationTimingProofSource: generationTimingProof?.source || null,
+      generationTimingProofTimingSource: generationTimingProof?.timingSource || null,
+      generationTimingCheckedTurns: generationTimingProof?.checkedTurnCount ?? null,
+      generationTimingSkippedTurns: generationTimingProof?.skippedTurnCount ?? null,
+      generationTimingMaxLatencyMs: generationTimingProof?.maxGenerationStartLatencyMs ?? null,
       stoppedOnTerminalDecision: chatCampaignFlow?.stoppedOnTerminalDecision === true,
       stoppedOnPendingInteraction: chatCampaignFlow?.stoppedOnPendingInteraction || null,
       perspectiveQualityStatus: chatCampaignFlow?.perspectiveQualityStatus || null,
@@ -1526,16 +1547,145 @@ async function openDirectivePanel(page) {
   return openedWith;
 }
 
-async function verifyExtensionControls(page) {
-  await page.waitForFunction(() => {
-    return Boolean(
-      document.getElementById('directive_settings')
-      && document.getElementById('directive_open_runtime')
-      && document.getElementById('directive_extension_enabled')
-    );
-  }, null, {
-    timeout: BROWSER_TIMEOUT_MS
+async function directiveExtensionControlSnapshot(page, diagnostics = {}) {
+  const browserSnapshot = await page.evaluate(async () => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const readText = async (url, { keepRaw = false } = {}) => {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        return {
+          ok: response.ok,
+          status: response.status,
+          contentType: response.headers.get('content-type') || '',
+          byteLength: text.length,
+          textPreview: text.slice(0, 180),
+          rawText: keepRaw ? text : undefined
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          status: null,
+          contentType: '',
+          byteLength: 0,
+          error: error?.message || String(error)
+        };
+      }
+    };
+    const readJson = async (url) => {
+      const response = await readText(url, { keepRaw: true });
+      let json = null;
+      try {
+        json = response.rawText ? JSON.parse(response.rawText) : null;
+      } catch {
+        json = null;
+      }
+      delete response.rawText;
+      return {
+        ...response,
+        json
+      };
+    };
+    const settingsRoot = document.getElementById('directive_settings');
+    const extensionContainers = [
+      document.getElementById('extensions_settings2'),
+      document.getElementById('extensions_settings')
+    ].filter(Boolean);
+    const context = (() => {
+      try {
+        return globalThis.SillyTavern?.getContext?.() || null;
+      } catch {
+        return null;
+      }
+    })();
+    const extensionSettings = context?.extensionSettings || context?.extension_settings || globalThis.extension_settings || {};
+    const disabledExtensions = Array.isArray(extensionSettings.disabledExtensions)
+      ? extensionSettings.disabledExtensions
+      : [];
+    const discover = await readJson('/api/extensions/discover');
+    const manifest = await readJson('/scripts/extensions/third-party/Directive/manifest.json');
+    const scriptProbe = await readText('/scripts/extensions/third-party/Directive/src/extension/index.js');
+    return {
+      readyState: document.readyState,
+      bodyPreview: normalize(document.body?.innerText || '').slice(0, 500),
+      directiveSettings: Boolean(settingsRoot),
+      directiveSettingsParentId: settingsRoot?.parentElement?.id || '',
+      openRuntime: Boolean(document.getElementById('directive_open_runtime')),
+      extensionEnabled: Boolean(document.getElementById('directive_extension_enabled')),
+      extensionContainerIds: extensionContainers.map((element) => element.id),
+      extensionContainerTextPreview: extensionContainers.map((element) => normalize(element.innerText).slice(0, 300)),
+      directiveScriptTags: Array.from(document.scripts || [])
+        .map((script) => script.src || script.id || '')
+        .filter((value) => /Directive|third-party\/Directive|directive/i.test(value))
+        .slice(0, 12),
+      directiveStyleTags: Array.from(document.querySelectorAll('link[rel="stylesheet"]') || [])
+        .map((link) => link.href || link.id || '')
+        .filter((value) => /Directive|third-party\/Directive|directive/i.test(value))
+        .slice(0, 12),
+      sillyTavernContext: {
+        available: Boolean(context),
+        disabledExtensionCount: disabledExtensions.length,
+        directiveDisabledEntries: disabledExtensions.filter((entry) => /directive/i.test(String(entry))).slice(0, 12),
+        extensionSettingsKeys: Object.keys(extensionSettings).filter((key) => /directive|disabled|extension/i.test(key)).slice(0, 24)
+      },
+      discoveryProbe: {
+        ok: discover.ok,
+        status: discover.status,
+        directiveEntries: Array.isArray(discover.json)
+          ? discover.json.filter((entry) => /directive/i.test(`${entry?.type || ''} ${entry?.name || ''}`)).slice(0, 12)
+          : [],
+        entryCount: Array.isArray(discover.json) ? discover.json.length : null
+      },
+      manifestProbe: {
+        ok: manifest.ok,
+        status: manifest.status,
+        key: manifest.json?.key || null,
+        displayName: manifest.json?.display_name || null,
+        js: manifest.json?.js || null,
+        contentType: manifest.contentType
+      },
+      scriptProbe: {
+        ok: scriptProbe.ok,
+        status: scriptProbe.status,
+        contentType: scriptProbe.contentType,
+        byteLength: scriptProbe.byteLength
+      },
+      directiveBridge: {
+        hasDirective: Boolean(globalThis.Directive),
+        showRuntime: typeof globalThis.Directive?.bridge?.showRuntime === 'function',
+        runAction: typeof globalThis.Directive?.bridge?.runAction === 'function',
+        actionsRun: typeof globalThis.Directive?.actions?.run === 'function'
+      }
+    };
   });
+  return {
+    ...browserSnapshot,
+    pageConsoleMessages: Array.isArray(diagnostics.consoleMessages) ? diagnostics.consoleMessages.slice(-12) : [],
+    pageErrors: Array.isArray(diagnostics.pageErrors) ? diagnostics.pageErrors.slice(-12) : []
+  };
+}
+
+async function verifyExtensionControls(page, diagnostics = {}) {
+  try {
+    await page.waitForFunction(() => {
+      return Boolean(
+        document.getElementById('directive_settings')
+        && document.getElementById('directive_open_runtime')
+        && document.getElementById('directive_extension_enabled')
+      );
+    }, null, {
+      timeout: UI_BOOT_TIMEOUT_MS
+    });
+  } catch (error) {
+    error.details = {
+      ...(error.details || {}),
+      uiBootTimeoutMs: UI_BOOT_TIMEOUT_MS,
+      extensionControlSnapshot: await directiveExtensionControlSnapshot(page, diagnostics).catch((snapshotError) => ({
+        error: errorSummary(snapshotError)
+      }))
+    };
+    throw error;
+  }
 
   const snapshot = await page.evaluate(() => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -2288,6 +2438,298 @@ function campaignIdentitySummary(saveRecord) {
   };
 }
 
+function sanitizeTimingMetric(value) {
+  if (!value || typeof value !== 'object') return null;
+  return {
+    kind: value.kind || null,
+    playerSubmittedAt: Number.isFinite(Number(value.playerSubmittedAt)) ? Number(value.playerSubmittedAt) : null,
+    turnObservedAt: Number.isFinite(Number(value.turnObservedAt)) ? Number(value.turnObservedAt) : null,
+    routeDecidedAt: Number.isFinite(Number(value.routeDecidedAt)) ? Number(value.routeDecidedAt) : null,
+    hostGenerationReleasedAt: Number.isFinite(Number(value.hostGenerationReleasedAt)) ? Number(value.hostGenerationReleasedAt) : null,
+    directiveGenerationStartedAt: Number.isFinite(Number(value.directiveGenerationStartedAt)) ? Number(value.directiveGenerationStartedAt) : null,
+    visibleResponsePostedAt: Number.isFinite(Number(value.visibleResponsePostedAt)) ? Number(value.visibleResponsePostedAt) : null,
+    generationStartedAt: Number.isFinite(Number(value.generationStartedAt)) ? Number(value.generationStartedAt) : null,
+    generationStartLatencyMs: Number.isFinite(Number(value.generationStartLatencyMs)) ? Number(value.generationStartLatencyMs) : null,
+    providerCompletionLatencyMs: Number.isFinite(Number(value.providerCompletionLatencyMs)) ? Number(value.providerCompletionLatencyMs) : null,
+    architectureWithin60s: typeof value.architectureWithin60s === 'boolean' ? value.architectureWithin60s : null
+  };
+}
+
+function sanitizeTimingResponse(response = {}, ingressById = new Map()) {
+  const ingress = ingressById.get(response.ingressId) || null;
+  const turnLatency = sanitizeTimingMetric(response.turnLatency);
+  const route = response.strategy === 'injectAndContinue'
+    ? 'hostContinue'
+    : (response.strategy === 'directivePosted' ? 'directiveCommit' : response.strategy || null);
+  const hostGenerationReleasedAt = response.hostGenerationReleasedAt
+    || response.hostContinuation?.hostGenerationReleasedAt
+    || response.hostContinuation?.generationStartedAt
+    || null;
+  const directiveGenerationStartedAt = response.directiveGenerationStartedAt || null;
+  return {
+    responseId: response.id || null,
+    ingressId: response.ingressId || null,
+    coreTransactionId: response.coreTransactionId || ingress?.coreTransactionId || null,
+    sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
+    route,
+    strategy: response.strategy || null,
+    responseKind: response.responseKind || null,
+    status: response.status || null,
+    hostMessageId: response.hostMessageId || null,
+    playerHostMessageId: ingress?.hostMessageId || null,
+    hostGenerationReleaseMode: response.hostGenerationReleaseMode || null,
+    hostGenerationReleasedAt,
+    directiveGenerationStartedAt,
+    generationStartedAt: response.generationStartedAt || directiveGenerationStartedAt || hostGenerationReleasedAt || null,
+    turnLatency
+  };
+}
+
+function sanitizeCoreTimingProjection(projection = {}) {
+  const turnLatency = sanitizeTimingMetric(projection.turnTiming);
+  return {
+    transactionId: projection.transactionId || null,
+    coreTransactionId: projection.transactionId || null,
+    sourceFrameId: projection.sourceFrameId || null,
+    route: projection.route || null,
+    responseKind: projection.responseKind || null,
+    status: projection.status || null,
+    hostMessageId: projection.responseHostMessageId || null,
+    playerHostMessageId: projection.hostMessageId || null,
+    hostGenerationReleasedAt: turnLatency?.hostGenerationReleasedAt ?? null,
+    directiveGenerationStartedAt: turnLatency?.directiveGenerationStartedAt ?? null,
+    generationStartedAt: turnLatency?.generationStartedAt
+      ?? turnLatency?.directiveGenerationStartedAt
+      ?? turnLatency?.hostGenerationReleasedAt
+      ?? null,
+    timingSource: 'coreProjection',
+    eventIds: Array.isArray(projection.eventIds) ? projection.eventIds.filter(Boolean) : [],
+    turnLatency
+  };
+}
+
+function generationTimingProofFromLedgers({
+  source,
+  ingressLedger = [],
+  responseLedger = [],
+  beforeResponseIds = [],
+  saveId = null,
+  payloadPath = null
+} = {}) {
+  const priorIds = new Set((beforeResponseIds || []).filter(Boolean));
+  const ingressById = new Map((ingressLedger || []).map((entry) => [entry.id, entry]));
+  const candidates = (responseLedger || []).filter((entry) => entry?.id && !priorIds.has(entry.id));
+  const selected = candidates.length > 0 ? candidates : (responseLedger || []).slice(-1);
+  const entries = selected.map((entry) => sanitizeTimingResponse(entry, ingressById));
+  const checked = entries.filter((entry) => timingProofEntryRequiresGenerationStart(entry));
+  const statuses = checked.map((entry) => generationTimingEntryStatus(entry));
+  const skippedEntries = entries.filter((entry) => timingProofEntryIsNonGenerated(entry));
+  const maxGenerationStartLatencyMs = checked.reduce((max, entry) => {
+    const value = Number(entry.turnLatency?.generationStartLatencyMs);
+    return Number.isFinite(value) ? Math.max(max, value) : max;
+  }, 0);
+  const status = generationTimingProofStatus({ checked, statuses, entries });
+  return {
+    status,
+    source,
+    saveId,
+    payloadPath,
+    checkedResponseCount: checked.length,
+    candidateResponseCount: candidates.length,
+    skippedResponseCount: skippedEntries.length,
+    skippedTurnCount: skippedEntries.length,
+    maxGenerationStartLatencyMs: checked.length > 0 ? maxGenerationStartLatencyMs : null,
+    entries: checked.map((entry, index) => ({
+      ...entry,
+      timingStatus: statuses[index] || 'unknown'
+    })),
+    skippedEntries: skippedEntries.map((entry) => ({
+      ...entry,
+      timingStatus: 'skipped-non-generation'
+    }))
+  };
+}
+
+function generationTimingProofFromCoreProjections({
+  source = 'coreStoreTurnTiming',
+  projections = {},
+  beforeSnapshot = null,
+  afterSnapshot = null,
+  saveId = null,
+  campaignId = null,
+  payloadPath = null,
+  coreManifestPath = null
+} = {}) {
+  const beforeTransactionIds = new Set([
+    ...((beforeSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
+    ...((beforeSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
+  ]);
+  const afterTransactionIds = new Set([
+    ...((afterSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
+    ...((afterSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
+  ]);
+  const targetTransactionIds = new Set(
+    [...afterTransactionIds].filter((id) => !beforeTransactionIds.has(id))
+  );
+  const timingEntries = Array.isArray(projections.turnTiming) ? projections.turnTiming : [];
+  const candidates = targetTransactionIds.size > 0
+    ? timingEntries.filter((entry) => entry?.transactionId && targetTransactionIds.has(entry.transactionId))
+    : (afterSnapshot ? [] : timingEntries.slice(-1));
+  const selected = candidates;
+  const entries = selected.map((entry) => sanitizeCoreTimingProjection(entry));
+  const checked = entries.filter((entry) => timingProofEntryRequiresGenerationStart(entry));
+  const statuses = checked.map((entry) => generationTimingEntryStatus(entry));
+  const skippedEntries = entries.filter((entry) => timingProofEntryIsNonGenerated(entry));
+  const maxGenerationStartLatencyMs = checked.reduce((max, entry) => {
+    const value = Number(entry.turnLatency?.generationStartLatencyMs);
+    return Number.isFinite(value) ? Math.max(max, value) : max;
+  }, 0);
+  const status = generationTimingProofStatus({ checked, statuses, entries });
+  return {
+    status,
+    source,
+    timingSource: 'coreProjection',
+    storageFormat: 'v2-core',
+    saveId,
+    campaignId,
+    payloadPath,
+    coreManifestPath,
+    checkedResponseCount: checked.length,
+    candidateResponseCount: candidates.length,
+    skippedResponseCount: skippedEntries.length,
+    skippedTurnCount: skippedEntries.length,
+    checkedTurnCount: checked.length,
+    candidateTurnCount: candidates.length,
+    targetTransactionCount: targetTransactionIds.size,
+    maxGenerationStartLatencyMs: checked.length > 0 ? maxGenerationStartLatencyMs : null,
+    entries: checked.map((entry, index) => ({
+      ...entry,
+      timingStatus: statuses[index] || 'unknown'
+    })),
+    skippedEntries: skippedEntries.map((entry) => ({
+      ...entry,
+      timingStatus: 'skipped-non-generation'
+    }))
+  };
+}
+
+function campaignIdFromV2ManifestRef(ref = {}) {
+  const logicalKey = String(ref?.logicalKey || '');
+  const match = logicalKey.match(/^campaigns\/([^/]+)\/saves\/([^/]+)\//u);
+  return match?.[1] || null;
+}
+
+function campaignIdForSaveIndexEntry(entry = {}) {
+  return entry?.campaignId
+    || entry?.metadata?.campaignId
+    || entry?.metadata?.campaignChatBinding?.campaignId
+    || campaignIdFromV2ManifestRef(entry?.v2ManifestRef)
+    || null;
+}
+
+function createBrowserLogicalStorageAdapter(page) {
+  return {
+    async readJson(logicalKey) {
+      return readBrowserStorageJson(
+        page,
+        toSillyTavernUserFilesPath(logicalKey),
+        `Directive logical storage ${logicalKey}`,
+        { unavailableIsSkip: true }
+      );
+    }
+  };
+}
+
+async function capturePersistedGenerationTimingProof(page, {
+  saveId = null,
+  campaignId = null,
+  beforeSnapshot = null,
+  afterSnapshot = null
+} = {}) {
+  try {
+    const saveIndex = await readBrowserStorageJson(page, SAVE_INDEX_USER_FILES_PATH, 'Directive save index for generation timing proof', {
+      unavailableIsSkip: true
+    });
+    const entry = saveId && saveIndex?.saves?.[saveId]
+      ? saveIndex.saves[saveId]
+      : saveIndex?.saves?.[saveIndex?.activeSaveId || ''];
+    if (!entry) {
+      return {
+        status: 'warning',
+        source: 'coreStoreTurnTiming',
+        timingSource: 'coreProjection',
+        reason: 'active-save-index-entry-missing',
+        saveId: saveId || saveIndex?.activeSaveId || null
+      };
+    }
+    const resolvedSaveId = entry.id || saveId || null;
+    const resolvedCampaignId = campaignId || campaignIdForSaveIndexEntry(entry);
+    if (!resolvedCampaignId) {
+      return {
+        status: 'warning',
+        source: 'coreStoreTurnTiming',
+        timingSource: 'coreProjection',
+        reason: 'campaign-id-for-core-projection-missing',
+        saveId: resolvedSaveId
+      };
+    }
+    const adapter = createBrowserLogicalStorageAdapter(page);
+    const projections = await readCoreStoreProjectionsV2(adapter, {
+      campaignId: resolvedCampaignId,
+      saveId: resolvedSaveId
+    });
+    return generationTimingProofFromCoreProjections({
+      source: 'coreStoreTurnTiming',
+      saveId: resolvedSaveId,
+      campaignId: resolvedCampaignId,
+      payloadPath: userFilesPathForIndexedEntry(entry),
+      coreManifestPath: toSillyTavernUserFilesPath(coreSaveManifestV2LogicalKey({
+        campaignId: resolvedCampaignId,
+        saveId: resolvedSaveId
+      })),
+      projections,
+      beforeSnapshot,
+      afterSnapshot
+    });
+  } catch (error) {
+    return {
+      status: 'warning',
+      source: 'coreStoreTurnTiming',
+      timingSource: 'coreProjection',
+      reason: error?.message || String(error),
+      saveId: saveId || null
+    };
+  }
+}
+
+function aggregateGenerationTimingProof(rounds = []) {
+  const persisted = rounds.map((round) => round.generationTiming?.persisted).filter(Boolean);
+  const runtime = rounds.map((round) => round.generationTiming?.runtime).filter(Boolean);
+  const persistedWithEntries = persisted.filter((proof) => (proof.entries || []).length > 0);
+  const runtimeWithEntries = runtime.filter((proof) => (proof.entries || []).length > 0);
+  const proofs = persisted;
+  const checked = proofs.flatMap((proof) => proof.entries || []);
+  const skipped = proofs.flatMap((proof) => proof.skippedEntries || []);
+  const failed = proofs.filter((proof) => proof.status === 'fail');
+  const warnings = proofs.filter((proof) => proof.status === 'warning');
+  return {
+    status: failed.length > 0 ? 'fail' : (warnings.length > 0 ? 'warning' : (checked.length > 0 ? 'pass' : 'warning')),
+    source: 'coreStoreTurnTiming',
+    timingSource: persistedWithEntries.length ? 'coreProjection' : null,
+    runtimeSnapshotAvailable: runtimeWithEntries.length > 0,
+    proofCount: proofs.length,
+    checkedTurnCount: checked.length,
+    skippedTurnCount: skipped.length,
+    maxGenerationStartLatencyMs: checked.reduce((max, entry) => {
+      const value = Number(entry.turnLatency?.generationStartLatencyMs);
+      return Number.isFinite(value) ? Math.max(max, value) : max;
+    }, 0) || null,
+    warningCount: warnings.length,
+    failureCount: failed.length,
+    routes: [...new Set(checked.map((entry) => entry.route).filter(Boolean))]
+  };
+}
+
 async function assertMissionBodyShowsCampaign(page, summary) {
   const visible = await page.evaluate((expected) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -2650,14 +3092,70 @@ function sanitizePromptInspection(promptInspection = null) {
     hash: promptInspection.hash || null,
     blockCount: promptInspection.blockCount ?? blocks.length,
     blocks,
+    externalPromptEnvironmentRef: jsonClone(promptInspection.externalPromptEnvironmentRef || null),
+    knownExternalPromptKeys: Array.isArray(promptInspection.knownExternalPromptKeys)
+      ? promptInspection.knownExternalPromptKeys.filter(Boolean).map(String)
+      : [],
+    directiveOwnedPromptKeys: Array.isArray(promptInspection.directiveOwnedPromptKeys)
+      ? promptInspection.directiveOwnedPromptKeys.filter(Boolean).map(String)
+      : blocks.map((block) => block.promptKey).filter((key) => /^directive\./.test(String(key || ''))),
+    finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal ?? null,
+    externalPromptEnvironmentTargets: jsonClone(promptInspection.externalPromptEnvironmentTargets || null),
+    unavailableSignals: Array.isArray(promptInspection.unavailableSignals)
+      ? promptInspection.unavailableSignals.filter(Boolean).map(String)
+      : [],
+    redactions: Array.isArray(promptInspection.redactions)
+      ? promptInspection.redactions.map((entry) => ({
+          key: entry?.key || null,
+          reason: entry?.reason || null
+        })).filter((entry) => entry.reason)
+      : [],
     updatedAt: promptInspection.updatedAt || null,
     lastError: promptInspection.lastError ? { message: compact(promptInspection.lastError.message || promptInspection.lastError, 240) } : null
+  };
+}
+
+function promptInspectionExternalSummary(promptInspection = null) {
+  if (!promptInspection || typeof promptInspection !== 'object') {
+    return {
+      externalPromptEnvironmentRef: null,
+      knownExternalPromptKeys: [],
+      directiveOwnedPromptKeys: [],
+      finalHostPromptMayIncludeExternal: null,
+      externalPromptEnvironmentTargets: null,
+      unavailableSignals: [],
+      redactions: [],
+      redactionReasons: []
+    };
+  }
+  const redactions = Array.isArray(promptInspection.redactions)
+    ? promptInspection.redactions.map((entry) => ({
+        key: entry?.key || null,
+        reason: entry?.reason || null
+      })).filter((entry) => entry.reason)
+    : [];
+  return {
+    externalPromptEnvironmentRef: jsonClone(promptInspection.externalPromptEnvironmentRef || null),
+    knownExternalPromptKeys: Array.isArray(promptInspection.knownExternalPromptKeys)
+      ? promptInspection.knownExternalPromptKeys.filter(Boolean).map(String)
+      : [],
+    directiveOwnedPromptKeys: Array.isArray(promptInspection.directiveOwnedPromptKeys)
+      ? promptInspection.directiveOwnedPromptKeys.filter(Boolean).map(String)
+      : [],
+    finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal ?? null,
+    externalPromptEnvironmentTargets: jsonClone(promptInspection.externalPromptEnvironmentTargets || null),
+    unavailableSignals: Array.isArray(promptInspection.unavailableSignals)
+      ? promptInspection.unavailableSignals.filter(Boolean).map(String)
+      : [],
+    redactions,
+    redactionReasons: [...new Set(redactions.map((entry) => entry.reason).filter(Boolean))]
   };
 }
 
 function capturePromptInspectionSnapshot(snapshot, metadata = {}) {
   if (!PROMPT_INSPECTION_DIR) return null;
   const promptInspection = sanitizePromptInspection(snapshot?.promptInspection || null);
+  const externalSummary = promptInspectionExternalSummary(promptInspection);
   const capturedAt = new Date().toISOString();
   const snapshotId = [
     slugPart(metadata.reason || 'prompt'),
@@ -2687,6 +3185,7 @@ function capturePromptInspectionSnapshot(snapshot, metadata = {}) {
     promptRevision: promptInspection?.revision ?? null,
     promptHash: promptInspection?.hash || null,
     promptBlockCount: promptInspection?.blockCount ?? null,
+    ...externalSummary,
     artifactPath
   };
   appendLiveLog({
@@ -2838,6 +3337,60 @@ async function chatNativeRuntimeSnapshot(page) {
       counts[status] = Number(counts[status] || 0) + 1;
       return counts;
     }, {});
+    const runtimeTracking = view?.campaignState?.runtimeTracking || {};
+    const ingressLedger = Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : [];
+    const responseLedger = Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : [];
+    const safeTurnLatency = (value) => value && typeof value === 'object'
+      ? {
+          kind: value.kind || null,
+          playerSubmittedAt: Number.isFinite(Number(value.playerSubmittedAt)) ? Number(value.playerSubmittedAt) : null,
+          turnObservedAt: Number.isFinite(Number(value.turnObservedAt)) ? Number(value.turnObservedAt) : null,
+          routeDecidedAt: Number.isFinite(Number(value.routeDecidedAt)) ? Number(value.routeDecidedAt) : null,
+          hostGenerationReleasedAt: Number.isFinite(Number(value.hostGenerationReleasedAt)) ? Number(value.hostGenerationReleasedAt) : null,
+          directiveGenerationStartedAt: Number.isFinite(Number(value.directiveGenerationStartedAt)) ? Number(value.directiveGenerationStartedAt) : null,
+          visibleResponsePostedAt: Number.isFinite(Number(value.visibleResponsePostedAt)) ? Number(value.visibleResponsePostedAt) : null,
+          generationStartedAt: Number.isFinite(Number(value.generationStartedAt)) ? Number(value.generationStartedAt) : null,
+          generationStartLatencyMs: Number.isFinite(Number(value.generationStartLatencyMs)) ? Number(value.generationStartLatencyMs) : null,
+          providerCompletionLatencyMs: Number.isFinite(Number(value.providerCompletionLatencyMs)) ? Number(value.providerCompletionLatencyMs) : null,
+          architectureWithin60s: typeof value.architectureWithin60s === 'boolean' ? value.architectureWithin60s : null
+        }
+      : null;
+    const safeIngress = (entry) => ({
+      id: entry?.id || null,
+      hostMessageId: entry?.hostMessageId || null,
+      status: entry?.status || null,
+      classification: entry?.classification || null,
+      responseStrategy: entry?.responseStrategy || null,
+      coreTransactionId: entry?.coreTransactionId || null,
+      sourceFrameId: entry?.sourceFrameId || entry?.sourceFrame?.id || null,
+      textHash: entry?.textHash || entry?.sourceFrame?.textHash || null,
+      receivedAt: entry?.receivedAt || null,
+      playerSubmittedAt: entry?.playerSubmittedAt || entry?.receivedAt || null,
+      turnId: entry?.turnId || null,
+      outcomeId: entry?.outcomeId || null
+    });
+    const safeResponse = (entry) => ({
+      id: entry?.id || null,
+      ingressId: entry?.ingressId || null,
+      hostMessageId: entry?.hostMessageId || null,
+      strategy: entry?.strategy || null,
+      responseKind: entry?.responseKind || null,
+      status: entry?.status || null,
+      turnId: entry?.turnId || null,
+      outcomeId: entry?.outcomeId || null,
+      coreTransactionId: entry?.coreTransactionId || null,
+      coreRelease: entry?.coreRelease ? {
+        transactionId: entry.coreRelease.transactionId || null,
+        phase: entry.coreRelease.phase || null,
+        route: entry.coreRelease.route || null
+      } : null,
+      hostGenerationReleaseMode: entry?.hostGenerationReleaseMode || null,
+      hostGenerationReleasedAt: entry?.hostGenerationReleasedAt || entry?.hostContinuation?.hostGenerationReleasedAt || entry?.hostContinuation?.generationStartedAt || null,
+      directiveGenerationStartedAt: entry?.directiveGenerationStartedAt || null,
+      generationStartedAt: entry?.generationStartedAt || null,
+      postedAt: entry?.postedAt || null,
+      turnLatency: safeTurnLatency(entry?.turnLatency)
+    });
     const pendingInteractions = (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved');
     const commandLogRoot = view?.campaignState?.commandLog;
     const commandLogEntries = Array.isArray(commandLogRoot?.entries)
@@ -2871,6 +3424,8 @@ async function chatNativeRuntimeSnapshot(page) {
       binding: clone(view?.chatNative?.binding || null),
       activation: clone(view?.chatNative?.activation || null),
       tracking: clone(tracking),
+      recentIngressLedger: ingressLedger.slice(-24).map(safeIngress),
+      recentResponseLedger: responseLedger.slice(-24).map(safeResponse),
       pendingInteractionCount: pendingInteractions.length,
       pendingInteractions: clone(pendingInteractions),
       modelCallCount: modelCalls.length,
@@ -4263,9 +4818,24 @@ async function runChatNativeCampaignFlow(page) {
       scriptCategory: message.category
     });
     if (capture) transcriptCaptures.push(capture);
+    const generationTiming = {
+      runtime: generationTimingProofFromLedgers({
+        source: 'runtimeSnapshot',
+        ingressLedger: snapshot.recentIngressLedger || [],
+        responseLedger: snapshot.recentResponseLedger || [],
+        beforeResponseIds: (beforeTurnSnapshot?.recentResponseLedger || []).map((response) => response.id).filter(Boolean)
+      }),
+      persisted: await capturePersistedGenerationTimingProof(page, {
+        campaignId: created.campaign?.id || null,
+        saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+        beforeSnapshot: beforeTurnSnapshot,
+        afterSnapshot: snapshot
+      })
+    };
     const recordedRound = rounds.at(-1);
     if (recordedRound && recordedRound.scriptMessageId === message.id) {
       recordedRound.transcript = capture;
+      recordedRound.generationTiming = generationTiming;
     }
     const newSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeTurnSnapshot?.sidecarRejectedCount || 0));
     const turnStatus = snapshot.openNarrationRecoveryCount > 0
@@ -4294,6 +4864,7 @@ async function runChatNativeCampaignFlow(page) {
       newSidecarRejectedCount,
       sidecarStatusCounts: snapshot.sidecarStatusCounts,
       recentRecoveryJournal: snapshot.recentRecoveryJournal,
+      generationTiming,
       transcript: capture
     });
     if ((snapshot.pendingInteractions || []).some((entry) => entry?.kind === 'terminalOutcomeDecision')) {
@@ -4362,9 +4933,24 @@ async function runChatNativeCampaignFlow(page) {
         scriptCategory: 'pending-resolution'
       });
       if (resolutionCapture) transcriptCaptures.push(resolutionCapture);
+      const resolutionGenerationTiming = {
+        runtime: generationTimingProofFromLedgers({
+          source: 'runtimeSnapshot',
+          ingressLedger: snapshot.recentIngressLedger || [],
+          responseLedger: snapshot.recentResponseLedger || [],
+          beforeResponseIds: (beforeResolutionSnapshot?.recentResponseLedger || []).map((response) => response.id).filter(Boolean)
+        }),
+        persisted: await capturePersistedGenerationTimingProof(page, {
+          campaignId: created.campaign?.id || null,
+          saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+          beforeSnapshot: beforeResolutionSnapshot,
+          afterSnapshot: snapshot
+        })
+      };
       const recordedResolutionRound = rounds.at(-1);
       if (recordedResolutionRound?.scriptMessageId === `${message.id}:proceed`) {
         recordedResolutionRound.transcript = resolutionCapture;
+        recordedResolutionRound.generationTiming = resolutionGenerationTiming;
       }
       const resolutionNewSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeResolutionSnapshot?.sidecarRejectedCount || 0));
       const resolutionStatus = snapshot.openNarrationRecoveryCount > 0
@@ -4395,6 +4981,7 @@ async function runChatNativeCampaignFlow(page) {
         newSidecarRejectedCount: resolutionNewSidecarRejectedCount,
         sidecarStatusCounts: snapshot.sidecarStatusCounts,
         recentRecoveryJournal: snapshot.recentRecoveryJournal,
+        generationTiming: resolutionGenerationTiming,
         transcript: resolutionCapture
       });
       if ((snapshot.pendingInteractions || []).some((entry) => entry?.kind === 'terminalOutcomeDecision')) {
@@ -4556,6 +5143,10 @@ async function runChatNativeCampaignFlow(page) {
   const sidecarHealthStatus = sidecarRejectedDelta > 0 ? 'warning' : 'pass';
   const pendingInteractionStatus = Number(finalSnapshot.pendingInteractionCount || 0) > 0 ? 'warning' : 'pass';
   const sentRounds = rounds.filter((round) => !round.skippedSend);
+  const generationTimingProof = aggregateGenerationTimingProof(sentRounds);
+  const generationTimingStatus = generationTimingProof.status === 'fail'
+    ? 'warning'
+    : generationTimingProof.status;
   const preferredPlayEvidenceCount = sentRounds.filter((round) => round.preferredPlayEvidence !== false).length;
   const nonPreferredPlayEvidenceCount = sentRounds.length - preferredPlayEvidenceCount;
   const perspectiveQualityStatus = nonPreferredPlayEvidenceCount > 0 ? 'warning' : 'pass';
@@ -4573,6 +5164,7 @@ async function runChatNativeCampaignFlow(page) {
   const runQualityStatus = narrationQualityStatus === 'warning'
     || sidecarHealthStatus === 'warning'
     || pendingInteractionStatus === 'warning'
+    || generationTimingStatus === 'warning'
     || perspectiveQualityStatus === 'warning'
     ? 'warning'
     : 'pass';
@@ -4626,6 +5218,7 @@ async function runChatNativeCampaignFlow(page) {
     initialSidecarRejectedCount,
     sidecarRejectedDelta,
     sidecarStatusCounts: finalSnapshot.sidecarStatusCounts,
+    generationTimingProof,
     narrationFailureCount: finalSnapshot.narrationFailureCount,
     openNarrationRecoveryCount: finalSnapshot.openNarrationRecoveryCount,
     perspectiveQualityStatus,
@@ -4664,6 +5257,8 @@ async function runChatNativeCampaignFlow(page) {
     narrationQualityStatus,
     sidecarHealthStatus,
     pendingInteractionStatus,
+    generationTimingStatus,
+    generationTimingProof,
     perspectiveQualityStatus,
     preferredPlayEvidenceCount,
     nonPreferredPlayEvidenceCount,
@@ -4691,6 +5286,7 @@ async function runChatNativeCampaignFlow(page) {
       assist: round.assist || null,
       promptInspection: round.promptInspection || null,
       transcript: round.transcript || null,
+      generationTiming: round.generationTiming || null,
       responseCount: round.after?.tracking?.responseCount ?? null,
       ingressCount: round.after?.tracking?.ingressCount ?? null,
       modelCalls: round.after?.modelCalls || [],
@@ -6265,12 +6861,31 @@ async function runBrowserSmoke() {
     const authPage = await createAuthenticatedPage(browser, browserDriver);
     const page = authPage.page;
     context = authPage.context;
+    const pageDiagnostics = {
+      consoleMessages: [],
+      pageErrors: []
+    };
+    page.on?.('console', (message) => {
+      pageDiagnostics.consoleMessages.push({
+        type: message.type?.() || '',
+        text: compact(redactSecrets(message.text?.() || ''), 500)
+      });
+      if (pageDiagnostics.consoleMessages.length > 40) {
+        pageDiagnostics.consoleMessages.splice(0, pageDiagnostics.consoleMessages.length - 40);
+      }
+    });
+    page.on?.('pageerror', (error) => {
+      pageDiagnostics.pageErrors.push(errorSummary(error));
+      if (pageDiagnostics.pageErrors.length > 20) {
+        pageDiagnostics.pageErrors.splice(0, pageDiagnostics.pageErrors.length - 20);
+      }
+    });
     await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await installBrowserErrorCapture(page);
     const browserUser = await verifyBrowserUserSession(page);
 
-    const extensionControls = await browserStep('extension settings dropdown', () => verifyExtensionControls(page));
+    const extensionControls = await browserStep('extension settings dropdown', () => verifyExtensionControls(page, pageDiagnostics));
     if (FACT_REVIEW_ONLY) {
       const openedWith = await browserStep('open Directive panel', () => openDirectivePanel(page));
       const factualGroundingReview = await browserStep('factual grounding review', () => runFactualGroundingReviewOnly(page));

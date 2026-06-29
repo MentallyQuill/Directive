@@ -82,3 +82,81 @@ assert.notEqual(
   gameplayStateFingerprint(withGameplayChange),
   'gameplay fingerprint still detects actual state changes'
 );
+
+const coreDiagnostics = [];
+const coreService = createRuntimeModelCallJournal({
+  now: () => '2026-06-26T00:01:00.000Z',
+  getCampaignState: () => trackedState('campaign-core-diagnostics'),
+  setCampaignState() {},
+  resolveCoreDiagnosticTarget: () => ({
+    transactionId: 'txn:frame:ingress-core',
+    ingressId: 'ingress-core',
+    sourceFrameId: 'frame:ingress-core',
+    hostMessageId: 'host-message-core'
+  }),
+  appendCoreDiagnostic: async (transactionId, event) => {
+    coreDiagnostics.push({ transactionId, event });
+  }
+});
+
+const coreEvent = coreService.record({
+  roleId: 'utilityTurnClassifier',
+  providerKind: 'utility',
+  requestHash: 'core123',
+  latencyMs: 42
+});
+await coreService.flushCoreDiagnostics();
+assert.equal(coreDiagnostics.length, 1);
+assert.equal(coreDiagnostics[0].transactionId, 'txn:frame:ingress-core');
+assert.equal(coreDiagnostics[0].event.type, 'modelCall');
+assert.equal(coreDiagnostics[0].event.modelCallId, coreEvent.id);
+assert.equal(coreDiagnostics[0].event.requestHash, 'core123');
+assert.equal(coreDiagnostics[0].event.hostMessageId, 'host-message-core');
+
+const skippedDiagnostics = [];
+const skipService = createRuntimeModelCallJournal({
+  now: () => '2026-06-26T00:02:00.000Z',
+  getCampaignState: () => trackedState('campaign-core-diagnostics-skip'),
+  setCampaignState() {},
+  resolveCoreDiagnosticTarget: () => null,
+  appendCoreDiagnostic: async (transactionId, event) => {
+    skippedDiagnostics.push({ transactionId, event });
+  }
+});
+skipService.record({
+  roleId: 'utilityTurnClassifier',
+  providerKind: 'utility',
+  requestHash: 'skip123'
+});
+await skipService.flushCoreDiagnostics();
+assert.equal(skippedDiagnostics.length, 0, 'missing CORE transaction should skip diagnostic mirror');
+
+let failureState = trackedState('campaign-core-diagnostics-failure');
+const failingCoreService = createRuntimeModelCallJournal({
+  now: () => '2026-06-26T00:03:00.000Z',
+  getCampaignState: () => failureState,
+  setCampaignState(next) {
+    failureState = next;
+  },
+  resolveCoreDiagnosticTarget: () => ({
+    transactionId: 'txn:frame:ingress-failure',
+    ingressId: 'ingress-failure',
+    sourceFrameId: 'frame:ingress-failure',
+    hostMessageId: 'host-message-failure'
+  }),
+  appendCoreDiagnostic: async () => {
+    throw new Error('simulated CORE diagnostics failure');
+  }
+});
+const failingEvent = failingCoreService.record({
+  roleId: 'utilityTurnClassifier',
+  providerKind: 'utility',
+  requestHash: 'failure123'
+});
+await failingCoreService.flushCoreDiagnostics();
+assert.equal(failureState.runtimeTracking.modelCallJournal.at(-1).id, failingEvent.id);
+assert.equal(
+  failureState.runtimeTracking.modelCallJournal.at(-1).requestHash,
+  'failure123',
+  'CORE diagnostic failures must not suppress the legacy model-call journal'
+);

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.runtime.turnSourceFrame.v1",
+  "title": "Directive Turn Source Frame",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "id",
+    "campaignId",
+    "saveId",
+    "chatId",
+    "hostMessageId",
+    "textHash",
+    "externalPromptEnvironmentRef"
+  ],
+  "properties": {
+    "kind": { "const": "directive.turnSourceFrame.v1" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "campaignId": { "type": "string", "minLength": 1 },
+    "saveId": { "type": "string", "minLength": 1 },
+    "chatId": { "type": "string", "minLength": 1 },
+    "hostMessageId": { "type": "string", "minLength": 1 },
+    "textHash": { "type": "string", "minLength": 1 },
+    "selectedAssistantVariantHash": { "type": ["string", "null"] },
+    "sourceRevision": { "type": ["number", "null"] },
+    "createdAt": { "type": ["string", "null"] },
+    "externalPromptEnvironmentRef": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "hash", "byteLength", "knownExternalPromptKeys"],
+      "properties": {
+        "kind": { "const": "directive.externalPromptEnvironmentRef.v1" },
+        "schemaVersion": { "const": 1 },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "byteLength": { "type": "integer", "minimum": 0 },
+        "status": { "type": ["string", "null"] },
+        "observedAt": { "type": ["string", "null"] },
+        "knownExternalPromptKeys": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

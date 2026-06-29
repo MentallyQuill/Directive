@@ -63,6 +63,7 @@ function createHarness(initial = terminalState(), overrides = {}) {
   const postedMessages = [];
   const savedBranches = [];
   const conclusions = [];
+  const terminalSettlements = [];
   let nowIndex = 0;
   const now = () => `2026-06-23T10:00:${String(nowIndex++).padStart(2, '0')}.000Z`;
   const host = overrides.host === undefined
@@ -137,6 +138,19 @@ function createHarness(initial = terminalState(), overrides = {}) {
       state = cloneJson(synced);
       return synced;
     },
+    recordTerminalCheckpointSettlement: async (event) => {
+      terminalSettlements.push(cloneJson(event));
+      return {
+        kind: 'directive.terminalCheckpointSettlementScheduled',
+        scheduled: true,
+        settlementKind: event.kind,
+        interactionId: event.interactionId || null,
+        ingressId: event.ingressId || null,
+        resolutionIngressId: event.resolutionIngressId || null,
+        outcomeId: event.outcomeId || null,
+        status: event.status || null
+      };
+    },
     saveTerminalBranch,
     concludeCampaign,
     now
@@ -149,7 +163,8 @@ function createHarness(initial = terminalState(), overrides = {}) {
     promptSyncs,
     postedMessages,
     savedBranches,
-    conclusions
+    conclusions,
+    terminalSettlements
   };
 }
 
@@ -182,9 +197,17 @@ assert.equal(postHarness.postedMessages[0].text.startsWith('*Stardate 53049.2 | 
 assert.match(postHarness.postedMessages[0].text, /Directive Checkpoint/);
 assert.match(postHarness.postedMessages[0].text, /Replay from checkpoint/);
 assert.equal(postHarness.state.runtimeTracking.endConditionLedger.decisions[0].postedAt !== null, true);
+assert.equal(postHarness.terminalSettlements.length, 1);
+assert.equal(postHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpointPosted');
+assert.equal(postHarness.terminalSettlements[0].interactionId, postInteractionId);
+assert.equal(postHarness.terminalSettlements[0].outcomeId, 'outcome-terminal');
+assert.equal(postHarness.terminalSettlements[0].checkpointHostMessageId, 'terminal-message-1');
+assert.equal(JSON.stringify(postHarness.terminalSettlements).includes('Directive Checkpoint'), false);
+assert.equal(posted.terminalCheckpointSettlement.status, 'posted');
 const duplicatePost = await postHarness.service.postCheckpointDecision({ interactionId: postInteractionId });
 assert.equal(duplicatePost.duplicate, true);
 assert.equal(postHarness.postedMessages.length, 1);
+assert.equal(postHarness.terminalSettlements.length, 1, 'Duplicate terminal checkpoint posts must not duplicate settlement records.');
 
 const noHostHarness = createHarness(terminalState(), { host: {} });
 const noHostInteractionId = await detect(noHostHarness);
@@ -214,6 +237,10 @@ assert.equal(branchHarness.savedBranches[0].options.terminalOutcomeId, 'terminal
 assert.equal(branchHarness.state.runtimeTracking.pendingInteractions[0].status, 'pending');
 assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords.length, 1);
 assert.deepEqual(branchHarness.state.runtimeTracking.endConditionLedger.decisions[0].savedBranchIds, ['terminal-branch-1']);
+assert.equal(branchHarness.terminalSettlements.length, 1);
+assert.equal(branchHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpointBranchSaved');
+assert.equal(branchHarness.terminalSettlements[0].status, 'branchSaved');
+assert.equal(branchHarness.terminalSettlements[0].interactionId, branchInteractionId);
 
 const noBranchHarness = createHarness(terminalState(), { saveTerminalBranch: null });
 const noBranchInteractionId = await detect(noBranchHarness);
@@ -240,6 +267,10 @@ assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.activeDecision
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pushedOn');
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.continuationFrames[0].frameId, 'survivors-after-breck-loss');
 assert.equal(pushHarness.promptSyncs.length, 1);
+assert.equal(pushHarness.terminalSettlements.length, 1);
+assert.equal(pushHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpointResolved');
+assert.equal(pushHarness.terminalSettlements[0].status, 'resolved');
+assert.equal(pushHarness.terminalSettlements[0].action, 'pushOn');
 
 const replayHarness = createHarness();
 const replayInteractionId = await detect(replayHarness);

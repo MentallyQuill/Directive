@@ -369,6 +369,7 @@ const campaignB = await startCampaign('Bren Tal');
 const campaignASourceRecord = await loadCampaignSaveRecordFromStorage(host.storage, campaignA.saveId);
 const campaignAAutosaveState = JSON.parse(JSON.stringify(campaignASourceRecord.payload.campaignState));
 campaignAAutosaveState.campaign.currentStardate = 53101.7;
+campaignAAutosaveState.campaignChatBinding = JSON.parse(JSON.stringify(campaignA.binding));
 const campaignAAutosave = createAutosaveCampaignSaveRecord({
   campaignState: campaignAAutosaveState,
   packageData,

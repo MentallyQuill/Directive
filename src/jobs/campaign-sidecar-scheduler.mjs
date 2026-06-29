@@ -9,6 +9,7 @@ import { planCommandBearingStateClosureReviews } from '../command/command-bearin
 import { runCommandBearingClosureReviews } from '../command/command-bearing-review.mjs';
 import { commitCommandBearingReviewRecords } from '../campaign/transaction-state.mjs';
 import { missionComponentsState } from '../runtime/mission-components.mjs';
+import { createTurnSourceFrameRef } from '../runtime/architecture-redesign-contracts.mjs';
 
 const WORKERS = Object.freeze({
   continuity: {
@@ -660,12 +661,29 @@ function ingressById(campaignState, ingressId) {
 function sourceIngressSnapshot(campaignState, ingressId) {
   const ingress = ingressById(campaignState, ingressId);
   if (!ingress) return null;
+  const sourceFrameRef = createTurnSourceFrameRef(ingress.sourceFrame || {
+    id: ingress.sourceFrameId,
+    campaignId: ingress.campaignId,
+    saveId: campaignState?.campaignChatBinding?.saveId,
+    chatId: ingress.chatId,
+    hostMessageId: ingress.hostMessageId,
+    textHash: ingress.textHash
+  });
+  const sourceToken = sourceFrameRef?.id
+    ? `turnSourceFrame:${sourceFrameRef.id}`
+    : ingress.id
+      ? `ingress:${ingress.id}`
+      : null;
   return {
     id: ingress.id,
     hostMessageId: ingress.hostMessageId || null,
     textHash: ingress.textHash || null,
     status: ingress.status || null,
-    outcomeId: ingress.outcomeId || null
+    outcomeId: ingress.outcomeId || null,
+    sourceFrameId: sourceFrameRef?.id || ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+    sourceFrameRef,
+    sourceToken,
+    coreTransactionId: ingress.coreTransactionId || null
   };
 }
 
@@ -748,6 +766,8 @@ export function createCampaignSidecarScheduler({
   setCampaignState,
   persistCampaignState,
   syncPromptContext = null,
+  appendCoreDiagnostic = null,
+  commitCoreBackgroundBatch = null,
   now = null,
   dropForbiddenSidecarOperations = true,
   reportActivity = null
@@ -760,6 +780,7 @@ export function createCampaignSidecarScheduler({
   if (typeof persistCampaignState !== 'function') throw new Error('CampaignSidecarScheduler requires persistCampaignState.');
 
   let queue = Promise.resolve();
+  let diagnosticQueue = Promise.resolve();
 
   function emitActivity(activityReporter, event = {}) {
     const reporter = typeof activityReporter === 'function' ? activityReporter : reportActivity;
@@ -786,11 +807,87 @@ export function createCampaignSidecarScheduler({
     return next;
   }
 
+  async function journalBatch(events = [], summary = 'Recorded sidecar batch events.') {
+    if (!events.length) return initializeCampaignRuntimeTracking(getCampaignState());
+    let next = initializeCampaignRuntimeTracking(getCampaignState());
+    for (const event of events) {
+      next = recordSidecarEvent(next, {
+        recordedAt: timestamp(now),
+        ...event
+      });
+    }
+    setCampaignState(next);
+    await persistCampaignState(next, summary);
+    return next;
+  }
+
+  function diagnosticStatusForWorkerResult(status = null, error = null) {
+    const code = error?.code || error?.details?.code || null;
+    if (code === 'DIRECTIVE_SIDECAR_SOURCE_STALE') return 'stale';
+    return status || 'settled';
+  }
+
+  function sidecarCoreDiagnosticEvent(job, status, details = {}) {
+    if (!job) return null;
+    const error = details.error || null;
+    const result = details.result || null;
+    return {
+      type: 'sidecar',
+      worker: job.workerKey,
+      sidecarType: job.workerKey,
+      roleId: job.roleId || job.worker?.roleId || null,
+      status,
+      resultStatus: result?.status || details.resultStatus || null,
+      source: 'campaignSidecarScheduler',
+      severity: ['failed', 'rejected', 'stale'].includes(status) ? 'warning' : 'info',
+      classification: job.snapshot?.turnContext?.classification || null,
+      campaignId: job.source?.campaignId || null,
+      saveId: job.source?.saveId || null,
+      chatId: job.source?.chatId || null,
+      ingressId: job.baseEventContext?.ingressId || job.source?.ingressId || job.sourceIngress?.id || null,
+      turnId: job.baseEventContext?.turnId || job.source?.turnId || null,
+      outcomeId: job.baseEventContext?.outcomeId || job.source?.outcomeId || job.sourceIngress?.outcomeId || null,
+      hostMessageId: job.sourceIngress?.hostMessageId || null,
+      sourceFrameId: job.sourceIngress?.sourceFrameId || null,
+      sourceFrameRef: cloneJson(job.sourceIngress?.sourceFrameRef || null),
+      sourceToken: job.sourceIngress?.sourceToken || null,
+      coreTransactionId: job.sourceIngress?.coreTransactionId || null,
+      sourceStatus: job.sourceIngress?.status || null,
+      baseRevision: job.baseRevision,
+      appliedRevision: result?.revision || null,
+      operationCount: Array.isArray(result?.proposal?.operations) ? result.proposal.operations.length : null,
+      domains: Array.isArray(result?.domains) ? cloneJson(result.domains) : undefined,
+      anchorRangeHash: job.baseEventContext?.anchorRangeHash || null,
+      reconciliationRunId: job.baseEventContext?.reconciliationRunId || null,
+      staleReasons: error?.details?.reasons ? cloneJson(error.details.reasons) : undefined,
+      batch: {
+        concurrent: job.batchSize > 1,
+        batchSize: job.batchSize,
+        index: job.index
+      },
+      errorCode: error?.code || null,
+      observedAt: timestamp(now)
+    };
+  }
+
+  function queueCoreDiagnostic(job, status, details = {}) {
+    if (typeof appendCoreDiagnostic !== 'function') return null;
+    const event = sidecarCoreDiagnosticEvent(job, status, details);
+    if (!event) return null;
+    if (!event.coreTransactionId) return null;
+    diagnosticQueue = diagnosticQueue
+      .catch(() => null)
+      .then(() => appendCoreDiagnostic(cloneJson(event)))
+      .catch(() => null);
+    return cloneJson(event);
+  }
+
   function createWorkerJob(workerKey, state, turnContext, index, batchSize, activityReporter = null) {
     const worker = WORKERS[workerKey];
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
     const baseRevision = state.runtimeTracking.revision;
     const baseEventContext = sidecarEventContext(turnContext);
+    const sourceIngress = sourceIngressSnapshot(state, baseEventContext.ingressId);
     const source = {
       campaignId: state.campaign?.id || null,
       saveId: state.campaignChatBinding?.saveId || null,
@@ -798,6 +895,8 @@ export function createCampaignSidecarScheduler({
       turnId: turnContext.turnId || null,
       outcomeId: turnContext.outcomeId || null,
       ingressId: turnContext.ingressId || null,
+      sourceFrameRef: cloneJson(sourceIngress?.sourceFrameRef || null),
+      sourceToken: sourceIngress?.sourceToken || null,
       revision: baseRevision,
       continuityProjection: cloneJson(turnContext.continuityProjection || null)
     };
@@ -822,7 +921,7 @@ export function createCampaignSidecarScheduler({
       activityReporter,
       baseRevision,
       baseEventContext,
-      sourceIngress: sourceIngressSnapshot(state, baseEventContext.ingressId),
+      sourceIngress,
       index,
       batchSize,
       request: {
@@ -836,6 +935,13 @@ export function createCampaignSidecarScheduler({
   function batchDiagnostics(job, extra = {}) {
     return {
       continuityProjection: cloneJson(job.source?.continuityProjection || null),
+      source: {
+        ingressId: job.baseEventContext?.ingressId || job.source?.ingressId || job.sourceIngress?.id || null,
+        sourceFrameId: job.sourceIngress?.sourceFrameId || job.source?.sourceFrameRef?.id || null,
+        sourceFrameRef: cloneJson(job.sourceIngress?.sourceFrameRef || job.source?.sourceFrameRef || null),
+        sourceToken: job.sourceIngress?.sourceToken || job.source?.sourceToken || null,
+        coreTransactionId: job.sourceIngress?.coreTransactionId || null
+      },
       sidecarGeneration: {
         concurrent: job.batchSize > 1,
         batchSize: job.batchSize,
@@ -971,7 +1077,9 @@ export function createCampaignSidecarScheduler({
         }
       }, `${workerKey} sidecar failed without mutating campaign state.`);
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'failed', error };
+      const result = { workerKey, status: 'failed', error };
+      queueCoreDiagnostic(job, 'failed', { result, error });
+      return result;
     }
     const parsed = parseStateDeltaProposalOutput(
       response.response?.text ?? response.response?.content ?? response.response,
@@ -1001,7 +1109,9 @@ export function createCampaignSidecarScheduler({
         }
       }, `${workerKey} sidecar proposal was rejected.`);
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'rejected', error };
+      const result = { workerKey, status: 'rejected', error };
+      queueCoreDiagnostic(job, diagnosticStatusForWorkerResult(result.status, error), { result, error });
+      return result;
     }
     let proposal = parsed.value;
     let missionComponentProvenance = {
@@ -1058,7 +1168,9 @@ export function createCampaignSidecarScheduler({
         }
       }, `${workerKey} sidecar proposal was rejected because its source player message changed.`);
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'rejected', error: staleSource };
+      const result = { workerKey, status: 'rejected', error: staleSource };
+      queueCoreDiagnostic(job, 'stale', { result, error: staleSource });
+      return result;
     }
 
     const sourced = applyMissionComponentProvenance(proposal, freshestBatchState(), turnContext);
@@ -1093,7 +1205,9 @@ export function createCampaignSidecarScheduler({
         }
       }, `${workerKey} sidecar completed with no durable change.`);
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'noChange', proposal: cloneJson(proposal) };
+      const result = { workerKey, status: 'noChange', proposal: cloneJson(proposal) };
+      queueCoreDiagnostic(job, 'noChange', { result });
+      return result;
     }
 
     const currentState = freshestBatchState();
@@ -1136,87 +1250,192 @@ export function createCampaignSidecarScheduler({
         }
       }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'rejected', error: failure };
+      const result = { workerKey, status: 'rejected', error: failure };
+      queueCoreDiagnostic(job, 'rejected', { result, error: failure });
+      return result;
     }
 
-    const pathConflict = firstOperationPathConflict(proposal.operations, batchState.appliedPaths);
-    if (pathConflict) {
+    const applyProposal = {
+      ...proposal,
+      baseRevision: currentRevision,
+      metadata: {
+        ...(proposal.metadata || {}),
+        sidecarGeneration: {
+          concurrent: job.batchSize > 1,
+          batchSize: job.batchSize,
+          index: job.index,
+          baseRevision,
+          applyBaseRevision: currentRevision,
+          rebased: currentRevision !== baseRevision,
+          aggregateBatch: true
+        }
+      }
+    };
+    batchState.appliedPaths.push(...proposal.operations.map((operation) => ({
+      workerKey,
+      path: operation.path
+    })));
+    return {
+      workerKey,
+      status: 'pendingApply',
+      proposal: cloneJson(proposal),
+      applyProposal: cloneJson(applyProposal),
+      allowedRoots: cloneJson(worker.allowedRoots),
+      roleId: worker.roleId,
+      baseRevision,
+      currentRevision,
+      proposalEventContext: cloneJson(proposalEventContext),
+      parsedDiagnostics: cloneJson(parsed.diagnostics || {}),
+      missionComponentProvenance: cloneJson(missionComponentProvenance),
+      job
+    };
+  }
+
+  async function applyAcceptedWorkerBatch(pendingResults = [], turnContext = {}, batchState = {}) {
+    const accepted = pendingResults.filter((result) => result.status === 'pendingApply');
+    if (!accepted.length) return pendingResults;
+    const operations = accepted.flatMap((result) => result.applyProposal?.operations || []);
+    const allowedRoots = [...new Set(accepted.flatMap((result) => result.allowedRoots || []))];
+    const workerKeys = accepted.map((result) => result.workerKey);
+    const promptWorkerKey = workerKeys.length === 1 ? workerKeys[0] : 'campaignSidecarBatch';
+    const baseRevision = batchState.expectedRevision ?? batchState.baseRevision;
+    const conflictPaths = [];
+    const seenPaths = [];
+    for (const result of accepted) {
+      const conflict = firstOperationPathConflict(result.proposal?.operations || [], seenPaths);
+      if (conflict) conflictPaths.push({ workerKey: result.workerKey, ...conflict });
+      for (const operation of result.proposal?.operations || []) {
+        seenPaths.push({ workerKey: result.workerKey, path: operation.path });
+      }
+    }
+    if (conflictPaths.length) {
       const failure = {
         code: 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT',
-        message: `Sidecar batch path conflict at "${pathConflict.path}".`,
-        details: pathConflict
+        message: 'Sidecar batch path conflict detected before state mutation.',
+        details: { conflicts: cloneJson(conflictPaths) }
       };
-      const journaled = await journal({
-        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:conflict`,
-        workerId: workerKey,
-        roleId: worker.roleId,
+      const journalEvents = accepted.map((result) => ({
+        id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:conflict`,
+        workerId: result.workerKey,
+        roleId: result.roleId,
         status: 'rejected',
-        baseRevision,
-        summary: proposal.summary || null,
-        ...proposalEventContext,
+        baseRevision: result.baseRevision,
+        summary: result.proposal?.summary || null,
+        ...result.proposalEventContext,
         error: failure,
         diagnostics: {
-          ...cloneJson(parsed.diagnostics || {}),
-          ...batchDiagnostics(job, {
-            applyBaseRevision: currentRevision,
-            conflict: cloneJson(pathConflict)
+          ...cloneJson(result.parsedDiagnostics || {}),
+          ...batchDiagnostics(result.job, {
+            applyBaseRevision: baseRevision,
+            aggregateBatch: true,
+            conflict: cloneJson(conflictPaths)
           }),
           feature: {
             ok: false,
             status: 'rejected',
-            missionComponents: cloneJson(missionComponentProvenance)
+            missionComponents: cloneJson(result.missionComponentProvenance)
           },
           apply: {
             ok: false,
             error: failure
           }
         }
-      }, `${workerKey} sidecar proposal conflicted with an earlier sidecar in the same batch.`);
+      }));
+      const journaled = await journalBatch(journalEvents, 'Rejected conflicting campaign sidecar batch results.');
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'rejected', error: failure };
-    }
-
-    try {
-      setCampaignState(currentState);
-      const applyProposal = {
-        ...proposal,
-        baseRevision: currentRevision,
-        metadata: {
-          ...(proposal.metadata || {}),
-          sidecarGeneration: {
-            concurrent: job.batchSize > 1,
-            batchSize: job.batchSize,
-            index: job.index,
-            baseRevision,
-            applyBaseRevision: currentRevision,
-            rebased: currentRevision !== baseRevision
-          }
-        }
-      };
-      const applied = await stateDeltaGateway.applyOperations(applyProposal, {
-        allowedRoots: worker.allowedRoots
+      return pendingResults.map((result) => {
+        if (result.status !== 'pendingApply') return result;
+        const final = { workerKey: result.workerKey, status: 'rejected', error: failure };
+        queueCoreDiagnostic(result.job, 'rejected', { result: final, error: failure });
+        return final;
       });
+    }
+    const combinedProposal = {
+      id: `campaign-sidecar-batch:${baseRevision}:${Date.now()}`,
+      workerId: 'campaignSidecarBatch',
+      source: 'campaignSidecarScheduler',
+      baseRevision,
+      ingressId: turnContext.ingressId || null,
+      turnId: turnContext.turnId || null,
+      outcomeId: turnContext.outcomeId || null,
+      sourceAnchorRange: cloneJson(turnContext.sourceAnchorRange || turnContext.anchorRange || null),
+      anchorRangeHash: turnContext.sourceAnchorRange?.rangeHash || turnContext.anchorRange?.rangeHash || null,
+      reconciliationRunId: turnContext.reconciliationRunId || null,
+      operations,
+      allowedRoots,
+      metadata: {
+        sidecarGeneration: {
+          aggregateBatch: true,
+          batchSize: accepted.length,
+          workerKeys,
+          baseRevision,
+          applyBaseRevision: baseRevision
+        },
+        workerProposalIds: accepted.map((result) => result.applyProposal?.id || result.proposal?.id || null).filter(Boolean),
+        sourceAnchorRange: cloneJson(turnContext.sourceAnchorRange || turnContext.anchorRange || null),
+        reconciliationRunId: turnContext.reconciliationRunId || null
+      },
+      summary: `Applied ${accepted.length} campaign sidecar proposal(s) as one batch.`
+    };
+    let applied;
+    let synchronized = null;
+    let commandBearingReviews = new Map();
+    const beforeApplyState = cloneJson(batchState.currentState || getCampaignState());
+    try {
+      setCampaignState(beforeApplyState);
+      applied = await stateDeltaGateway.applyOperations(combinedProposal, { allowedRoots });
       batchState.expectedRevision = applied.revision;
-      batchState.appliedPaths.push(...proposal.operations.map((operation) => ({
-        workerKey,
-        path: operation.path
-      })));
       setCampaignState(applied.campaignState);
       batchState.currentState = cloneJson(applied.campaignState);
+      if (typeof commitCoreBackgroundBatch === 'function') {
+        const transactionIds = [...new Set(accepted.map((result) => result.job?.sourceIngress?.coreTransactionId).filter(Boolean))];
+        if (transactionIds.length === 1) {
+          const sourceFrameRefs = [...new Map(accepted
+            .map((result) => result.job?.sourceIngress?.sourceFrameRef || result.job?.source?.sourceFrameRef || null)
+            .filter(Boolean)
+            .map((ref) => [ref.id || JSON.stringify(ref), ref])).values()];
+          const sourceTokens = [...new Set(accepted
+            .map((result) => result.job?.sourceIngress?.sourceToken || result.job?.source?.sourceToken)
+            .filter(Boolean))];
+          try {
+            await commitCoreBackgroundBatch(transactionIds[0], {
+              idempotencyKey: `campaign-sidecar:${transactionIds[0]}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`,
+              batchId: `campaign-sidecar:${transactionIds[0]}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`,
+              phaseAfter: 'backgroundSettling',
+              outcomeId: turnContext.outcomeId || null,
+              sourceFrameRef: sourceFrameRefs.length === 1 ? cloneJson(sourceFrameRefs[0]) : undefined,
+              sourceToken: sourceTokens.length === 1 ? sourceTokens[0] : undefined,
+              operations,
+              promptDirtyDomains: allowedRoots,
+              workers: accepted.map((result) => ({
+                workerId: result.workerKey,
+                status: 'applied',
+                operationCount: result.proposal?.operations?.length || 0
+              }))
+            });
+          } catch {
+            // CORE background ownership is best-effort during the v1/v2 bridge.
+          }
+        }
+      }
       if (typeof syncPromptContext === 'function') {
-        const synchronized = await syncPromptContext(applied.campaignState, {
-          workerKey,
-          proposal: cloneJson(applyProposal)
+        synchronized = await syncPromptContext(applied.campaignState, {
+          workerKey: promptWorkerKey,
+          workerKeys,
+          aggregateBatch: true,
+          proposals: accepted.map((result) => cloneJson(result.applyProposal))
         }, {
-          activityReporter: job.activityReporter || null,
+          activityReporter: accepted[0]?.job?.activityReporter || null,
           activitySource: 'sidecarPromptSync',
           activityMode: 'background',
           activityContext: {
-            workerKey,
+            workerKey: promptWorkerKey,
+            workerKeys,
             classification: turnContext.classification || null,
             ingressId: turnContext.ingressId || null,
             turnId: turnContext.turnId || null,
             outcomeId: turnContext.outcomeId || null,
+            aggregateBatch: true,
             source: 'campaignSidecarScheduler'
           }
         });
@@ -1224,17 +1443,17 @@ export function createCampaignSidecarScheduler({
           applied.campaignState = synchronized;
           setCampaignState(synchronized);
           batchState.currentState = cloneJson(synchronized);
-          await persistCampaignState(synchronized, `${workerKey} sidecar prompt context synchronized.`);
+          await persistCampaignState(synchronized, 'Campaign sidecar batch prompt context synchronized.');
         }
       }
-      let commandBearingReview = { attempted: false, reason: 'not-command-bearing-worker' };
-      if (workerKey === 'commandBearing') {
-        commandBearingReview = await runCommandBearingEvidenceClosureReview({
-          beforeState: currentState,
+      const commandBearingResult = accepted.find((result) => result.workerKey === 'commandBearing');
+      if (commandBearingResult) {
+        let commandBearingReview = await runCommandBearingEvidenceClosureReview({
+          beforeState: beforeApplyState,
           currentState: batchState.currentState,
-          proposal,
-          proposalEventContext,
-          parsedDiagnostics: parsed.diagnostics
+          proposal: commandBearingResult.proposal,
+          proposalEventContext: commandBearingResult.proposalEventContext,
+          parsedDiagnostics: commandBearingResult.parsedDiagnostics
         });
         if (commandBearingReview.campaignState) {
           applied.campaignState = commandBearingReview.campaignState;
@@ -1244,15 +1463,15 @@ export function createCampaignSidecarScheduler({
           batchState.expectedRevision = applied.revision;
           if (typeof syncPromptContext === 'function') {
             const synchronizedReview = await syncPromptContext(commandBearingReview.campaignState, {
-              workerKey,
-              proposal: cloneJson(applyProposal),
+              workerKey: 'commandBearing',
+              proposal: cloneJson(commandBearingResult.applyProposal),
               commandBearingReview: true
             }, {
-              activityReporter: job.activityReporter || null,
+              activityReporter: commandBearingResult.job?.activityReporter || null,
               activitySource: 'sidecarPromptSync',
               activityMode: 'background',
               activityContext: {
-                workerKey,
+                workerKey: 'commandBearing',
                 classification: turnContext.classification || null,
                 ingressId: turnContext.ingressId || null,
                 turnId: turnContext.turnId || null,
@@ -1267,80 +1486,100 @@ export function createCampaignSidecarScheduler({
               setCampaignState(synchronizedReview);
               batchState.currentState = cloneJson(synchronizedReview);
               batchState.expectedRevision = applied.revision;
-              await persistCampaignState(synchronizedReview, `${workerKey} sidecar closure review prompt context synchronized.`);
+              await persistCampaignState(synchronizedReview, 'Command Bearing sidecar closure review prompt context synchronized.');
             }
           }
         }
+        commandBearingReviews = new Map([[commandBearingResult.workerKey, commandBearingReview]]);
       }
-      const journaled = await journal({
-        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:${applied.revision}`,
-        workerId: workerKey,
-        roleId: worker.roleId,
-        status: 'applied',
-        baseRevision,
-        appliedRevision: applied.revision,
-        summary: proposal.summary || `${proposal.operations.length} operation(s) applied.`,
-        ...proposalEventContext,
-        diagnostics: {
-          ...cloneJson(parsed.diagnostics || {}),
-          ...batchDiagnostics(job, {
-            applyBaseRevision: currentRevision,
-            rebased: currentRevision !== baseRevision
-          }),
-          feature: {
-            ok: true,
-            status: 'applied',
-            commandBearingReview: commandBearingReviewDiagnostics(commandBearingReview),
-            missionComponents: cloneJson(missionComponentProvenance)
-          },
-          apply: {
-            ok: true,
-            revision: applied.revision,
-            domains: cloneJson(applied.domains || [])
+      const journalEvents = accepted.map((result) => {
+        const commandBearingReview = commandBearingReviews.get(result.workerKey) || { attempted: false, reason: 'not-command-bearing-worker' };
+        return {
+          id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:${applied.revision}`,
+          workerId: result.workerKey,
+          roleId: result.roleId,
+          status: 'applied',
+          baseRevision: result.baseRevision,
+          appliedRevision: applied.revision,
+          summary: result.proposal?.summary || `${result.proposal?.operations?.length || 0} operation(s) applied.`,
+          ...result.proposalEventContext,
+          diagnostics: {
+            ...cloneJson(result.parsedDiagnostics || {}),
+            ...batchDiagnostics(result.job, {
+              applyBaseRevision: baseRevision,
+              aggregateBatch: true,
+              aggregateWorkerCount: accepted.length,
+              aggregateOperationCount: operations.length,
+              rebased: false
+            }),
+            feature: {
+              ok: true,
+              status: 'applied',
+              commandBearingReview: commandBearingReviewDiagnostics(commandBearingReview),
+              missionComponents: cloneJson(result.missionComponentProvenance)
+            },
+            apply: {
+              ok: true,
+              revision: applied.revision,
+              domains: cloneJson(applied.domains || [])
+            }
           }
-        }
-      }, `Applied ${workerKey} sidecar update.`);
+        };
+      });
+      const journaled = await journalBatch(journalEvents, 'Recorded accepted campaign sidecar batch results.');
       batchState.currentState = cloneJson(journaled);
-      return {
-        workerKey,
-        status: 'applied',
-        proposal: cloneJson(proposal),
-        revision: applied.revision,
-        domains: applied.domains
-      };
+      return pendingResults.map((result) => {
+        if (result.status !== 'pendingApply') return result;
+        const final = {
+          workerKey: result.workerKey,
+          status: 'applied',
+          proposal: cloneJson(result.proposal),
+          revision: applied.revision,
+          domains: applied.domains
+        };
+        queueCoreDiagnostic(result.job, 'applied', { result: final });
+        return final;
+      });
     } catch (error) {
       const failure = {
-        code: error?.code || 'DIRECTIVE_SIDECAR_REJECTED',
+        code: error?.code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED',
         message: error?.message || String(error),
         details: cloneJson(error?.details || null)
       };
-      const journaled = await journal({
-        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:rejected`,
-        workerId: workerKey,
-        roleId: worker.roleId,
+      const journalEvents = accepted.map((result) => ({
+        id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:rejected`,
+        workerId: result.workerKey,
+        roleId: result.roleId,
         status: 'rejected',
-        baseRevision,
-        summary: proposal.summary || null,
-        ...proposalEventContext,
+        baseRevision: result.baseRevision,
+        summary: result.proposal?.summary || null,
+        ...result.proposalEventContext,
         error: failure,
         diagnostics: {
-          ...cloneJson(parsed.diagnostics || {}),
-          ...batchDiagnostics(job, {
-            applyBaseRevision: currentRevision
+          ...cloneJson(result.parsedDiagnostics || {}),
+          ...batchDiagnostics(result.job, {
+            applyBaseRevision: baseRevision,
+            aggregateBatch: true
           }),
           feature: {
             ok: false,
             status: 'rejected',
-            missionComponents: cloneJson(missionComponentProvenance)
+            missionComponents: cloneJson(result.missionComponentProvenance)
           },
           apply: {
             ok: false,
             error: failure
           }
         }
-      }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
+      }));
+      const journaled = await journalBatch(journalEvents, 'Rejected campaign sidecar batch results.');
       batchState.currentState = cloneJson(journaled);
-      return { workerKey, status: 'rejected', error: failure };
+      return pendingResults.map((result) => {
+        if (result.status !== 'pendingApply') return result;
+        const final = { workerKey: result.workerKey, status: 'rejected', error: failure };
+        queueCoreDiagnostic(result.job, 'rejected', { result: final, error: failure });
+        return final;
+      });
     }
   }
 
@@ -1388,6 +1627,10 @@ export function createCampaignSidecarScheduler({
         requested.length,
         activityReporter
       ));
+      for (const workerJob of jobs) {
+        queueCoreDiagnostic(workerJob, 'queued');
+        queueCoreDiagnostic(workerJob, 'running');
+      }
       let responses;
       try {
         responses = await generateWorkers(jobs);
@@ -1410,6 +1653,16 @@ export function createCampaignSidecarScheduler({
             message: error?.message || String(error)
           }
         });
+        for (const workerJob of jobs) {
+          const failure = {
+            code: error?.code || 'DIRECTIVE_SIDECAR_BATCH_FAILED',
+            message: error?.message || String(error)
+          };
+          queueCoreDiagnostic(workerJob, 'failed', {
+            result: { workerKey: workerJob.workerKey, status: 'failed', error: failure },
+            error: failure
+          });
+        }
         throw error;
       }
       const batchState = {
@@ -1428,6 +1681,10 @@ export function createCampaignSidecarScheduler({
           }
         }, turnContext, batchState);
         results.push(result);
+      }
+      const finalResults = await applyAcceptedWorkerBatch(results, turnContext, batchState);
+      for (const [index, result] of finalResults.entries()) {
+        const workerJob = jobs[index] || {};
         emitActivity(activityReporter, {
           phase: 'sidecarWorker',
           mode: ['failed', 'rejected'].includes(result.status) ? 'review' : 'background',
@@ -1439,16 +1696,16 @@ export function createCampaignSidecarScheduler({
       if (requested.length > 0) {
         emitActivity(activityReporter, {
           phase: 'sidecarsSettled',
-          mode: results.some((result) => ['failed', 'rejected'].includes(result.status)) ? 'review' : 'background',
+          mode: finalResults.some((result) => ['failed', 'rejected'].includes(result.status)) ? 'review' : 'background',
           requested,
-          results: cloneJson(results),
+          results: cloneJson(finalResults),
           classification: turnContext.classification || null,
           ingressId: turnContext.ingressId || null,
           turnId: turnContext.turnId || null,
           outcomeId: turnContext.outcomeId || null
         });
       }
-      return results;
+      return finalResults;
     };
     queue = queue.then(job, job);
     return queue;
@@ -1456,7 +1713,11 @@ export function createCampaignSidecarScheduler({
 
   return {
     schedule,
-    pending: () => queue
+    pending: async () => {
+      const result = await queue;
+      await diagnosticQueue;
+      return result;
+    }
   };
 }
 

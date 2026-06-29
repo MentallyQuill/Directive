@@ -31,10 +31,14 @@ import {
   pruneCampaignAutosaves,
   recoverActiveCampaignSave,
   storeCampaignSave,
+  storeCampaignV2SaveManifestIndexEntry,
   storeCharacterCreatorDraft,
   storeImportedCampaignPackageRecord,
   campaignPackageImportPath
 } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  commitV2SaveLayout
+} from '../../src/storage/transaction-store-v2.mjs';
 
 const root = process.cwd();
 const errors = [];
@@ -339,6 +343,104 @@ requireEqual(adapter.writeLog, [
   DIRECTIVE_STORAGE_PATHS.saveIndex
 ], 'overwriting an indexed save avoids redundant storage index upload');
 
+const v2CampaignState = {
+  ...campaignState,
+  campaign: {
+    ...campaignState.campaign,
+    currentStardate: 53050.8
+  },
+  runtimeTracking: {
+    history: [{ snapshot: { shouldNotBeInHead: true } }]
+  }
+};
+const v2SaveId = 'save-storage-v2-active';
+const v2Commit = await commitV2SaveLayout(adapter, {
+  campaignId: v2CampaignState.campaign.id,
+  saveId: v2SaveId,
+  branchId: 'main',
+  now: '2026-06-18T19:30:30.000Z',
+  current: true,
+  metadata: {
+    campaignId: v2CampaignState.campaign.id,
+    campaignTitle: v2CampaignState.campaign.title,
+    packageId: packageData.manifest.id,
+    packageTitle: packageData.manifest.title,
+    packageVersion: packageData.manifest.version,
+    playerName: v2CampaignState.player.name,
+    stardate: v2CampaignState.campaign.currentStardate,
+    lastUpdatedAt: '2026-06-18T19:30:30.000Z',
+    summary: 'V2 active-save bridge test.'
+  },
+  head: {
+    state: {
+      campaign: v2CampaignState.campaign,
+      player: v2CampaignState.player,
+      activeCampaignPackage: v2CampaignState.activeCampaignPackage,
+      campaignChatBinding: v2CampaignState.campaignChatBinding || null
+    },
+    excludesRuntimeJournals: true
+  },
+  hostMap: {
+    excludesRawChatText: true,
+    rows: [{ hostMessageId: '33', role: 'player', textHash: 'hash-33' }]
+  },
+  promptCache: {
+    directiveOwnedRevision: 1,
+    blocks: []
+  },
+  eventSegments: [[{
+    id: 'v2-event-1',
+    type: 'activeSaveBridge',
+    summary: 'v2 manifest indexed without v1 save payload'
+  }]],
+  diagnosticsSegments: [[{
+    id: 'v2-diagnostic-1',
+    type: 'storageBridge',
+    status: 'ok'
+  }]]
+});
+const v2IndexEntry = await storeCampaignV2SaveManifestIndexEntry(adapter, {
+  saveManifest: v2Commit.saveManifest,
+  saveManifestRef: v2Commit.saveManifestRef,
+  campaignState: v2CampaignState,
+  packageData,
+  name: 'Talia Renn - V2 Active',
+  slotType: 'manual',
+  summary: 'V2 active-save bridge test.',
+  now: '2026-06-18T19:30:31.000Z'
+});
+snapshot = adapter.snapshot();
+requireEqual(v2IndexEntry.storageFormat, 'v2', 'v2 save index storage format');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, v2SaveId, 'v2 save index active save');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].current, false, 'v1 first save no longer current after v2 active entry');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[v2SaveId].payloadKind, 'directive.saveManifest.v2', 'v2 save index payload kind');
+requireEqual(Boolean(snapshot[campaignSavePath(v2SaveId)]), false, 'v2 save bridge does not create v1 save payload');
+requireEqual(snapshot[v2IndexEntry.path].kind, 'directive.saveManifest.v2', 'v2 save index points to save manifest');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[v2IndexEntry.path].kind, 'directive.saveManifest.v2', 'storage index tracks v2 save manifest');
+
+const v2Diagnostics = await diagnoseDirectiveStorage(adapter, {
+  now: '2026-06-18T19:30:32.000Z',
+  deepPayloadCheck: true
+});
+requireEqual(v2Diagnostics.status, 'ok', 'deep diagnostics accepts v2 indexed save manifest');
+const loadedV2State = await loadCampaignSaveFromStorage(adapter, v2SaveId, {
+  now: '2026-06-18T19:30:33.000Z'
+});
+requireEqual(loadedV2State.player.name, 'Talia Renn', 'load v2 save materialized head state');
+requireEqual(loadedV2State.campaign.currentStardate, 53050.8, 'load v2 save materialized head stardate');
+const recoveredV2 = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:30:34.000Z'
+});
+requireEqual(recoveredV2.activeSaveId, v2SaveId, 'recover active v2 save id');
+requireEqual(recoveredV2.storageFormat, 'v2', 'recover active v2 storage format');
+requireEqual(recoveredV2.campaignState.player.name, 'Talia Renn', 'recover active v2 materialized state');
+await loadCampaignSaveFromStorage(adapter, firstSave.id, {
+  now: '2026-06-18T19:30:35.000Z'
+});
+snapshot = adapter.snapshot();
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, firstSave.id, 'restore v1 first save active after v2 bridge test');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[v2SaveId].current, false, 'v2 save no longer current after restoring first save');
+
 const autosaves = [];
 for (let index = 0; index < 4; index += 1) {
   const autosaveState = {
@@ -403,7 +505,7 @@ let diagnostics = await diagnoseDirectiveStorage(adapter, {
   now: '2026-06-18T19:36:00.000Z'
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-missing', 'diagnostics reports missing indexed payload');
-requireEqual(diagnostics.counts.saves, 4, 'diagnostics save count');
+requireEqual(diagnostics.counts.saves, 5, 'diagnostics save count includes v2 indexed save');
 requireEqual(diagnostics.counts.campaignPackageImports, 1, 'diagnostics package import count');
 requireEqual(diagnostics.counts.payloadsChecked, 0, 'diagnostics avoids deep payload reads by default');
 requireEqual(diagnostics.counts.payloadPathsVerified > 0, true, 'diagnostics verifies payload paths by default');
@@ -438,7 +540,7 @@ adapter.clearCorrupt(draftPath);
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');
 requireEqual(Object.keys(indexes.campaignPackageImportIndex.imports).length, 1, 'final package import index count');
-requireEqual(Object.keys(indexes.saveIndex.saves).length, 3, 'final save index count');
+requireEqual(Object.keys(indexes.saveIndex.saves).length, 4, 'final save index count includes v2 indexed save');
 
 if (errors.length > 0) {
   console.error('Directive storage repository test failed:');

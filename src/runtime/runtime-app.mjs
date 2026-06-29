@@ -94,6 +94,11 @@ import {
 } from './model-call-journal.mjs';
 import { createActiveSaveGuard } from './active-save-guard.mjs';
 import {
+  createCoreStoreV2,
+  loadCoreStoreStateV2
+} from '../storage/core-store-v2.mjs';
+import { hashStableJson } from './architecture-redesign-contracts.mjs';
+import {
   runtimePackageIdForState,
   selectActiveCreatorRuntimeAssets,
   selectActiveMissionGraphRecord,
@@ -931,12 +936,35 @@ export function createDirectiveRuntimeApp({
   const runtimeHost = host ? assertDirectiveHost(host) : null;
   const storageAdapter = adapter || runtimeHost?.storage;
   let campaignState = null;
+  function coreDiagnosticTargetForModelCall(event = {}) {
+    if (!campaignState) return null;
+    const tracked = initializeCampaignRuntimeTracking(campaignState);
+    const activeIngressId = compactString(tracked.runtimeTracking?.activeIngressId);
+    const metadata = event?.metadata || {};
+    const requestedIngressId = compactString(metadata.ingressId || metadata.sourceIngressId);
+    const targetIngressId = requestedIngressId || activeIngressId;
+    if (!targetIngressId) return null;
+    const ingress = (tracked.runtimeTracking?.ingressLedger || [])
+      .find((entry) => entry?.id === targetIngressId) || null;
+    if (!ingress?.coreTransactionId) return null;
+    const explicitBackgroundTarget = metadata.coreDiagnosticTarget === 'advisoryEnrichment'
+      || (event?.roleId === 'missionDirectorAdvisor' && requestedIngressId);
+    if (!explicitBackgroundTarget && !['classifying', 'classified'].includes(compactString(ingress.status))) return null;
+    return {
+      transactionId: ingress.coreTransactionId,
+      ingressId: ingress.id || null,
+      sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+      hostMessageId: ingress.hostMessageId || null
+    };
+  }
   const modelCallJournal = createRuntimeModelCallJournal({
     now,
     getCampaignState: () => campaignState,
     setCampaignState: (state) => {
       campaignState = state;
-    }
+    },
+    resolveCoreDiagnosticTarget: coreDiagnosticTargetForModelCall,
+    appendCoreDiagnostic: (transactionId, event) => runtimeCoreTurnStore.appendDiagnostics(transactionId, event)
   });
   const activeSaveGuard = createActiveSaveGuard({ runtimeHost });
 
@@ -985,6 +1013,23 @@ export function createDirectiveRuntimeApp({
   let durabilityCoordinator = null;
   let publicApi = null;
   let runtimePersistQueue = Promise.resolve();
+  let commandLogSummaryQueue = Promise.resolve();
+  let commandLogSummaryDiagnosticQueue = Promise.resolve();
+  let commandLogSummaryPendingCount = 0;
+  let deferredCommandLogSummaryRequest = null;
+  let postCommitConversationQueue = Promise.resolve();
+  let postCommitConversationDiagnosticQueue = Promise.resolve();
+  let postCommitConversationPendingCount = 0;
+  let lastPostCommitConversationResult = null;
+  let advisoryEnrichmentQueue = Promise.resolve();
+  let advisoryEnrichmentDiagnosticQueue = Promise.resolve();
+  let advisoryEnrichmentPendingCount = 0;
+  let lastAdvisoryEnrichmentResult = null;
+  let terminalCheckpointSettlementQueue = Promise.resolve();
+  let terminalCheckpointDiagnosticQueue = Promise.resolve();
+  let lastTerminalCheckpointSettlementResult = null;
+  let activeCoreTurnStoreRecord = null;
+  let activeCoreTurnStorePending = null;
   const activeHostGenerationControllers = new Map();
   const uiPreferences = createRuntimeUiPreferences({
     storageAdapter,
@@ -1264,15 +1309,18 @@ export function createDirectiveRuntimeApp({
     };
   }
 
-  function stateWithLoadedSaveBinding(state = null, saveId = null) {
+  function stateWithLoadedSaveBinding(state = null, saveId = null, binding = null) {
     const id = compactString(saveId);
-    if (!state || !id || !state.campaignChatBinding) return state;
+    const sourceBinding = normalizedBinding(binding) || normalizedBinding(state?.campaignChatBinding || null);
+    if (!state || !id || !sourceBinding) return state;
     const bound = {
       ...state,
       campaignChatBinding: {
-        ...state.campaignChatBinding,
-        campaignId: compactString(state.campaignChatBinding.campaignId) || compactString(state.campaign?.id) || null,
-        saveId: id
+        ...(state.campaignChatBinding || {}),
+        ...cloneJson(sourceBinding),
+        campaignId: compactString(sourceBinding.campaignId) || compactString(state.campaign?.id) || null,
+        saveId: id,
+        status: compactString(sourceBinding.status) || compactString(state.campaignChatBinding?.status) || 'bound'
       }
     };
     return normalizeCampaignTimeForRuntime(bound, {
@@ -1360,9 +1408,120 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  async function loadCampaignStateForSessionSave(saveId = null) {
+  function coreStoreDescriptorForState(state = campaignState) {
+    if (!state || state.campaign?.status !== 'active') return null;
+    const binding = bindingFromState(state);
+    const campaignId = compactString(binding?.campaignId || state?.campaign?.id);
+    const saveId = compactString(binding?.saveId || controller?.activeSaveId);
+    if (!campaignId || !saveId) return null;
+    return {
+      key: [
+        compactString(binding?.hostId) || runtimeHost?.id || 'host',
+        campaignId,
+        saveId
+      ].join(':'),
+      campaignId,
+      saveId,
+      branchId: compactString(state?.metadata?.branch?.branchId || state?.branchId) || 'main'
+    };
+  }
+
+  function resetActiveCoreTurnStore(reason = 'runtime-core-store-reset') {
+    activeCoreTurnStoreRecord = null;
+    activeCoreTurnStorePending = null;
+    return reason;
+  }
+
+  async function ensureActiveCoreTurnStore() {
+    const descriptor = coreStoreDescriptorForState(campaignState);
+    if (!descriptor) return null;
+    if (activeCoreTurnStoreRecord?.key === descriptor.key) return activeCoreTurnStoreRecord.store;
+    if (activeCoreTurnStorePending?.key === descriptor.key) return activeCoreTurnStorePending.promise;
+    const promise = (async () => {
+      const initialState = await loadCoreStoreStateV2(storageAdapter, {
+        campaignId: descriptor.campaignId,
+        saveId: descriptor.saveId,
+        branchId: descriptor.branchId,
+        now,
+        missingOk: true
+      });
+      const store = createCoreStoreV2({
+        adapter: storageAdapter,
+        campaignId: descriptor.campaignId,
+        saveId: descriptor.saveId,
+        branchId: descriptor.branchId,
+        now,
+        initialState
+      });
+      activeCoreTurnStoreRecord = {
+        ...descriptor,
+        store
+      };
+      return store;
+    })();
+    activeCoreTurnStorePending = { key: descriptor.key, promise };
+    try {
+      return await promise;
+    } finally {
+      if (activeCoreTurnStorePending?.key === descriptor.key) activeCoreTurnStorePending = null;
+    }
+  }
+
+  const runtimeCoreTurnStore = {
+    async beginTurn(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.beginTurn !== 'function') return null;
+      return store.beginTurn(...args);
+    },
+    async advanceTurn(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.advanceTurn !== 'function') return null;
+      return store.advanceTurn(...args);
+    },
+    async recordVisibleResponse(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.recordVisibleResponse !== 'function') return null;
+      return store.recordVisibleResponse(...args);
+    },
+    async getTransaction(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.getTransaction !== 'function') return null;
+      return store.getTransaction(...args);
+    },
+    async getRevisions(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.getRevisions !== 'function') return null;
+      return store.getRevisions(...args);
+    },
+    async commitMechanics(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.commitMechanics !== 'function') return null;
+      return store.commitMechanics(...args);
+    },
+    async commitBackgroundBatch(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.commitBackgroundBatch !== 'function') return null;
+      return store.commitBackgroundBatch(...args);
+    },
+    async appendDiagnostics(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.appendDiagnostics !== 'function') return null;
+      return store.appendDiagnostics(...args);
+    },
+    async readProjections() {
+      const store = await ensureActiveCoreTurnStore();
+      return typeof store?.readProjections === 'function' ? store.readProjections() : null;
+    },
+    async loadHead() {
+      const store = await ensureActiveCoreTurnStore();
+      return typeof store?.loadHead === 'function' ? store.loadHead() : null;
+    }
+  };
+
+  async function loadCampaignStateForSessionSave(saveId = null, binding = null) {
     const id = compactString(saveId);
     if (!id) return null;
+    await settleRuntimePersistenceQueue();
     const loadedBinding = bindingFromState(campaignState);
     const activeSaveId = compactString(controller?.activeSaveId);
     if (campaignState && loadedBinding?.saveId === id && (!activeSaveId || activeSaveId === id)) {
@@ -1370,8 +1529,10 @@ export function createDirectiveRuntimeApp({
     }
     campaignState = stateWithLoadedSaveBinding(
       applyRuntimeSettings(await controller.loadGame({ saveId: id })),
-      id
+      id,
+      binding
     );
+    resetActiveCoreTurnStore('session-save-loaded');
     pendingDirectorTurn = null;
     pendingOutcomeReplacement = null;
     await refreshCampaignView();
@@ -1675,7 +1836,7 @@ export function createDirectiveRuntimeApp({
     let guard = null;
     if (save) {
       try {
-        resolvedState = await loadCampaignStateForSessionSave(save.id);
+        resolvedState = await loadCampaignStateForSessionSave(save.id, bindingFromSave(save) || normalizedBinding(metadata || null));
         resolvedState = preferFresherInMemoryChatState(resolvedState, inMemoryStateBeforeRefresh, current.activeChatId);
         const binding = bindingFromState(resolvedState);
         if (binding?.chatId && binding.chatId !== current.activeChatId) {
@@ -1872,7 +2033,6 @@ export function createDirectiveRuntimeApp({
       currentChatCampaignGuard: cloneJson(currentChatScope?.guard || null),
       providerConfiguration: providerViewData(),
       directivePreset: directivePresetViewData(),
-      promptInspection: cloneJson(runtimeHost?.prompt?.inspect?.() || null),
       host: runtimeHost ? {
         id: runtimeHost.id,
         displayName: runtimeHost.displayName,
@@ -1919,7 +2079,8 @@ export function createDirectiveRuntimeApp({
     try {
       const result = await controller.autosaveCurrentGame({
         campaignState,
-        summary: `Autosave after ${messageCount} committed message${messageCount === 1 ? '' : 's'}.`
+        summary: `Autosave after ${messageCount} committed message${messageCount === 1 ? '' : 's'}.`,
+        keep: 3
       });
       await refreshCampaignView();
       return {
@@ -2183,11 +2344,15 @@ export function createDirectiveRuntimeApp({
     };
   }
 
-  async function generateNarrationForLastTurnNow({ provider = defaultNarrationProvider } = {}) {
+  async function generateNarrationForLastTurnNow({
+    provider = defaultNarrationProvider,
+    scheduleDeferredCommandLogSummary = true
+  } = {}) {
     requireObject(campaignState, 'campaignState');
     requireObject(lastDirectorTurn, 'lastDirectorTurn');
     const outcomeId = lastDirectorTurn.outcomePacket?.id;
     campaignState = restoreCommittedOutcomeState(campaignState, lastMechanicsCheckpointState, outcomeId);
+    let directiveGenerationStartedAt = null;
     try {
       const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
         roleId: 'narration'
@@ -2200,25 +2365,40 @@ export function createDirectiveRuntimeApp({
         narrationContext,
         packageData: assets?.packageData || null,
         crewDataset: assets?.crewDataset || null,
-        now: () => timestampFromNow(now)
+        now: () => timestampFromNow(now),
+        onGenerationStart: (event) => {
+          directiveGenerationStartedAt = event?.directiveGenerationStartedAt || event?.generatedAt || null;
+        }
       });
+      directiveGenerationStartedAt = narration.directiveGenerationStartedAt
+        || directiveGenerationStartedAt
+        || narration.generatedAt
+        || null;
       campaignState = restoreCommittedOutcomeState(campaignState, lastMechanicsCheckpointState, outcomeId);
       campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);
       const narrationCheckpoint = await ensureTurnCommitCoordinator().markNarration({
         campaignState,
         outcomeId,
-        status: 'complete'
+        status: 'complete',
+        directiveGenerationStartedAt
       });
       campaignState = narrationCheckpoint.campaignState;
       const autosave = await autosaveStableTurn(outcomeId);
+      const commandLogSummaryResult = scheduleDeferredCommandLogSummary
+        ? scheduleDeferredCommandLogSummaryQueue('afterDirectiveNarration')
+        : cloneJson(lastCommandLogSummarySidecarResult);
       lastNarrationResult = {
         ok: true,
         narration,
+        directiveGenerationStartedAt,
+        commandLogSummaryResult,
         autosave
       };
       return {
         ok: true,
         narration: cloneJson(narration),
+        directiveGenerationStartedAt,
+        commandLogSummaryResult: cloneJson(commandLogSummaryResult),
         autosave: cloneJson(autosave),
         campaignState: cloneJson(campaignState),
         view: viewEnvelope('mission')
@@ -2227,6 +2407,8 @@ export function createDirectiveRuntimeApp({
       const failure = {
         failedAt: timestampFromNow(now),
         providerId: provider?.id || null,
+        directiveGenerationStartedAt,
+        generationStartedAt: directiveGenerationStartedAt,
         message: error?.message || String(error),
         retryable: true
       };
@@ -2237,7 +2419,8 @@ export function createDirectiveRuntimeApp({
           campaignState,
           outcomeId,
           status: 'failed',
-          error: failure
+          error: failure,
+          directiveGenerationStartedAt
         });
         campaignState = narrationCheckpoint.campaignState;
         narrationCheckpointSave = narrationCheckpoint.save || null;
@@ -2254,16 +2437,23 @@ export function createDirectiveRuntimeApp({
             fallbackResponseAvailable: true
           }
         });
-        await persistRuntimeCampaignState(campaignState, `Recorded narration bookkeeping recovery for ${outcomeId || 'unknown outcome'}.`);
+          await persistRuntimeCampaignState(campaignState, `Recorded narration bookkeeping recovery for ${outcomeId || 'unknown outcome'}.`);
       }
+      const commandLogSummaryResult = scheduleDeferredCommandLogSummary
+        ? scheduleDeferredCommandLogSummaryQueue('afterDirectiveNarrationFailure')
+        : cloneJson(lastCommandLogSummarySidecarResult);
       lastNarrationResult = {
         ok: false,
         error: cloneJson(failure),
+        directiveGenerationStartedAt,
+        commandLogSummaryResult,
         checkpoint: cloneJson(narrationCheckpointSave)
       };
       return {
         ok: false,
         error: cloneJson(failure),
+        directiveGenerationStartedAt,
+        commandLogSummaryResult: cloneJson(commandLogSummaryResult),
         campaignState: cloneJson(campaignState),
         view: viewEnvelope('mission')
       };
@@ -2272,7 +2462,8 @@ export function createDirectiveRuntimeApp({
 
   async function updateCommandLogSummaryForTurnNow({
     turnPacket,
-    enabled = true
+    enabled = true,
+    sourceGuard = null
   } = {}) {
     if (!enabled || !runtimeHost) {
       lastCommandLogSummarySidecarResult = null;
@@ -2280,6 +2471,10 @@ export function createDirectiveRuntimeApp({
     }
     requireObject(campaignState, 'campaignState');
     requireObject(turnPacket, 'turnPacket');
+    if (!commandLogSummaryGuardCurrent(sourceGuard)) {
+      lastCommandLogSummarySidecarResult = staleCommandLogSummaryResult(sourceGuard, 'source-stale-before-provider');
+      return cloneJson(lastCommandLogSummarySidecarResult);
+    }
     try {
       const result = await runCommandLogSummarySidecar({
         host: runtimeHost,
@@ -2289,7 +2484,28 @@ export function createDirectiveRuntimeApp({
         revision: campaignState.turnLedger?.entries?.length || 0,
         now: () => timestampFromNow(now)
       });
-      campaignState = restoreCommittedOutcomeState(result.campaignState, campaignState, turnPacket?.outcomePacket?.id);
+      if (!commandLogSummaryGuardCurrent(sourceGuard)) {
+        lastCommandLogSummarySidecarResult = staleCommandLogSummaryResult(sourceGuard, 'source-stale-after-provider');
+        return cloneJson(lastCommandLogSummarySidecarResult);
+      }
+      if (result.applied && result.assistedSummary) {
+        const outcomeId = compactString(result.assistedSummary.sourceOutcomeId || turnPacket?.outcomePacket?.id);
+        const next = cloneJson(campaignState);
+        const entries = Array.isArray(next.commandLog?.entries) ? next.commandLog.entries : [];
+        const index = entries.findIndex((entry) => commandLogEntryOutcomeId(entry) === outcomeId);
+        if (index >= 0) {
+          entries[index] = {
+            ...entries[index],
+            assistedSummary: cloneJson(result.assistedSummary)
+          };
+          next.commandLog = {
+            ...(next.commandLog || {}),
+            entries,
+            summariesGeneratedFromCommittedStateOnly: true
+          };
+          campaignState = next;
+        }
+      }
       lastCommandLogSummarySidecarResult = {
         ok: result.featureOk === true,
         ...cloneJson(result)
@@ -2305,6 +2521,1372 @@ export function createDirectiveRuntimeApp({
       };
       return cloneJson(lastCommandLogSummarySidecarResult);
     }
+  }
+
+  function commandLogSummaryOutcomeId(turnPacket = null) {
+    return compactString(turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || turnPacket?.turnId || turnPacket?.id);
+  }
+
+  function commandLogEntryForOutcome(state = null, outcomeId = null) {
+    const id = compactString(outcomeId);
+    if (!id) return null;
+    return (Array.isArray(state?.commandLog?.entries) ? state.commandLog.entries : [])
+      .find((entry) => commandLogEntryOutcomeId(entry) === id) || null;
+  }
+
+  function commandLogSummaryInputSignatureBundle(state = null, outcomeId = null) {
+    const entry = commandLogEntryForOutcome(state, outcomeId);
+    if (!entry) return null;
+    return {
+      sourceOutcomeId: commandLogEntryOutcomeId(entry),
+      summaryInputs: cloneJson(entry.summaryInputs || []),
+      visibleConsequences: cloneJson(entry.visibleConsequences || [])
+    };
+  }
+
+  function commandLogSummaryInputSignature(state = null, outcomeId = null) {
+    const bundle = commandLogSummaryInputSignatureBundle(state, outcomeId);
+    return bundle ? JSON.stringify(bundle) : null;
+  }
+
+  function commandLogSummaryInputSignatureHash(state = null, outcomeId = null) {
+    const bundle = commandLogSummaryInputSignatureBundle(state, outcomeId);
+    return bundle ? hashStableJson(bundle) : null;
+  }
+
+  function runtimeIngressForContext(context = {}) {
+    const ledger = Array.isArray(campaignState?.runtimeTracking?.ingressLedger)
+      ? campaignState.runtimeTracking.ingressLedger
+      : [];
+    const ingressId = compactString(context.ingressId);
+    if (ingressId) {
+      const byId = ledger.find((entry) => entry?.id === ingressId);
+      if (byId) return byId;
+    }
+    const outcomeId = compactString(context.outcomeId);
+    if (outcomeId) {
+      const byOutcome = [...ledger].reverse().find((entry) => compactString(entry?.outcomeId) === outcomeId);
+      if (byOutcome) return byOutcome;
+    }
+    const turnId = compactString(context.turnId);
+    if (turnId) {
+      return [...ledger].reverse().find((entry) => compactString(entry?.turnId) === turnId) || null;
+    }
+    return null;
+  }
+
+  function runtimeResponseForContext(context = {}) {
+    const ledger = Array.isArray(campaignState?.runtimeTracking?.responseLedger)
+      ? campaignState.runtimeTracking.responseLedger
+      : [];
+    const responseId = compactString(context.responseId);
+    if (responseId) {
+      const byId = ledger.find((entry) => compactString(entry?.id) === responseId);
+      if (byId) return byId;
+    }
+    const hostMessageId = compactString(context.hostMessageId);
+    if (hostMessageId) {
+      const byHost = [...ledger].reverse().find((entry) => compactString(entry?.hostMessageId) === hostMessageId);
+      if (byHost) return byHost;
+    }
+    const outcomeId = compactString(context.outcomeId);
+    if (outcomeId) {
+      const byOutcome = [...ledger].reverse().find((entry) => compactString(entry?.outcomeId) === outcomeId);
+      if (byOutcome) return byOutcome;
+    }
+    const turnId = compactString(context.turnId);
+    if (turnId) {
+      const byTurn = [...ledger].reverse().find((entry) => compactString(entry?.turnId) === turnId);
+      if (byTurn) return byTurn;
+    }
+    const ingressId = compactString(context.ingressId);
+    if (ingressId) {
+      return [...ledger].reverse().find((entry) => compactString(entry?.ingressId) === ingressId) || null;
+    }
+    return null;
+  }
+
+  function commandLogSummaryIngressForContext(context = {}) {
+    return runtimeIngressForContext(context);
+  }
+
+  function commandLogSummarySourceGuardForTurn(turnPacket = null, context = {}) {
+    const outcomeId = compactString(context.outcomeId) || commandLogSummaryOutcomeId(turnPacket);
+    const turnId = compactString(context.turnId || turnPacket?.turnId || turnPacket?.id);
+    const binding = bindingFromState(campaignState);
+    const ingress = commandLogSummaryIngressForContext({
+      ingressId: context.ingressId,
+      outcomeId,
+      turnId
+    });
+    return {
+      campaignId: compactString(campaignState?.campaign?.id),
+      saveId: compactString(binding?.saveId),
+      chatId: compactString(binding?.chatId),
+      ingressId: compactString(context.ingressId || ingress?.id),
+      turnId,
+      outcomeId,
+      hostMessageId: compactString(ingress?.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
+      coreTransactionId: compactString(ingress?.coreTransactionId),
+      inputSignature: commandLogSummaryInputSignature(campaignState, outcomeId),
+      inputSignatureHash: commandLogSummaryInputSignatureHash(campaignState, outcomeId)
+    };
+  }
+
+  function commandLogSummaryGuardCurrent(guard = null) {
+    if (!guard) return true;
+    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return false;
+    const binding = bindingFromState(campaignState);
+    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return false;
+    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return false;
+    if (guard.outcomeId && !commandLogEntryForOutcome(campaignState, guard.outcomeId)) return false;
+    if (guard.inputSignature && commandLogSummaryInputSignature(campaignState, guard.outcomeId) !== guard.inputSignature) return false;
+    return true;
+  }
+
+  function commandLogSummaryCoreTargetForGuard(guard = null) {
+    if (!guard) return null;
+    const binding = bindingFromState(campaignState);
+    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return null;
+    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return null;
+    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return null;
+    const ingress = commandLogSummaryIngressForContext({
+      ingressId: guard.ingressId,
+      outcomeId: guard.outcomeId,
+      turnId: guard.turnId
+    });
+    const transactionId = compactString(guard.coreTransactionId || ingress?.coreTransactionId);
+    if (!transactionId) return null;
+    return {
+      transactionId,
+      ingressId: compactString(ingress?.id || guard.ingressId),
+      turnId: compactString(ingress?.turnId || guard.turnId),
+      outcomeId: compactString(ingress?.outcomeId || guard.outcomeId),
+      hostMessageId: compactString(ingress?.hostMessageId || guard.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || guard.sourceFrameId)
+    };
+  }
+
+  function commandLogSummaryDiagnosticStatusForResult(result = null) {
+    if (result?.status === 'stale') return 'stale';
+    if (result?.applied === true) return 'applied';
+    if (result?.ok === false || result?.status === 'failed' || result?.error) return 'failed';
+    return result?.status || 'settled';
+  }
+
+  function commandLogSummaryDiagnosticEvent(guard = null, status = 'queued', details = {}) {
+    const target = commandLogSummaryCoreTargetForGuard(guard);
+    if (!target) return null;
+    const result = details.result || null;
+    const error = details.error || result?.error || null;
+    return {
+      type: 'sidecar',
+      worker: 'commandLogSummary',
+      sidecarType: 'commandLogSummary',
+      roleId: 'commandLogSummarizer',
+      status,
+      severity: status === 'failed' ? 'warning' : 'info',
+      reason: compactString(details.reason || result?.reason),
+      resultStatus: compactString(result?.status),
+      applied: result?.applied === true,
+      scheduled: result?.scheduled === true || status === 'queued',
+      outcomeId: target.outcomeId || guard?.outcomeId || null,
+      turnId: target.turnId || guard?.turnId || null,
+      ingressId: target.ingressId || guard?.ingressId || null,
+      hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+      sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+      inputSignatureHash: guard?.inputSignatureHash || null,
+      hasAssistedSummary: Boolean(result?.assistedSummary),
+      assistedSummaryHash: result?.assistedSummary ? hashStableJson(result.assistedSummary) : null,
+      errorCode: compactString(error?.code),
+      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
+      observedAt: timestampFromNow(now)
+    };
+  }
+
+  function queueCommandLogSummaryCoreDiagnostic(guard = null, status = 'queued', details = {}) {
+    const event = commandLogSummaryDiagnosticEvent(guard, status, details);
+    if (!event) return null;
+    const target = commandLogSummaryCoreTargetForGuard(guard);
+    if (!target) return null;
+    const append = commandLogSummaryDiagnosticQueue
+      .catch(() => null)
+      .then(() => runtimeCoreTurnStore.appendDiagnostics(target.transactionId, event))
+      .catch(() => null);
+    commandLogSummaryDiagnosticQueue = append.then(() => null, () => null);
+    return cloneJson(event);
+  }
+
+  function commandLogSummaryCoreBackgroundBundle(guard = null, result = null) {
+    const target = commandLogSummaryCoreTargetForGuard(guard);
+    const assistedSummary = result?.assistedSummary || null;
+    if (!target || result?.applied !== true || assistedSummary?.status !== 'complete') return null;
+    const outcomeId = compactString(assistedSummary.sourceOutcomeId || target.outcomeId || guard?.outcomeId);
+    const assistedSummaryHash = hashStableJson(assistedSummary);
+    const batchSourceId = outcomeId || target.ingressId || target.transactionId;
+    const batchId = `command-log-summary:${target.transactionId}:${batchSourceId}`;
+    return {
+      transactionId: target.transactionId,
+      bundle: {
+        idempotencyKey: batchId,
+        batchId,
+        phaseAfter: 'backgroundSettling',
+        outcomeId: outcomeId || null,
+        promptDirtyDomains: [],
+        backgroundEffectRefs: [
+          {
+            effect: 'commandLogAssistedSummary',
+            status: 'applied',
+            outcomeId: outcomeId || null,
+            ingressId: target.ingressId || guard?.ingressId || null,
+            turnId: target.turnId || guard?.turnId || null,
+            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+            inputSignatureHash: guard?.inputSignatureHash || null,
+            assistedSummaryHash
+          }
+        ],
+        workers: [
+          {
+            worker: 'commandLogSummary',
+            workerId: 'commandLogSummary',
+            sidecarType: 'commandLogSummary',
+            roleId: 'commandLogSummarizer',
+            status: 'applied',
+            outcomeId: outcomeId || null,
+            ingressId: target.ingressId || guard?.ingressId || null,
+            turnId: target.turnId || guard?.turnId || null,
+            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+            inputSignatureHash: guard?.inputSignatureHash || null,
+            assistedSummaryHash
+          }
+        ]
+      }
+    };
+  }
+
+  async function commitCommandLogSummaryCoreBackgroundBatch(guard = null, result = null) {
+    const prepared = commandLogSummaryCoreBackgroundBundle(guard, result);
+    if (!prepared) return null;
+    try {
+      return await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+    } catch (error) {
+      queueCommandLogSummaryCoreDiagnostic(guard, 'backgroundBridgeFailed', {
+        reason: 'core-background-bridge-failed',
+        result,
+        error
+      });
+      return null;
+    }
+  }
+
+  function postCommitConversationInputSignatureBundle(conversation = {}) {
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    return {
+      pendingInteractionId: compactString(conversation.pendingInteractionId),
+      resolutionIngressId: compactString(conversation.resolutionIngressId),
+      resolutionMessageId: compactString(conversation.resolutionMessageId),
+      resolutionTextHash: compactString(conversation.resolutionTextHash),
+      turnId: compactString(conversation.turnId),
+      outcomeId: compactString(conversation.outcomeId || conversation.outcomePacket?.id),
+      resultBand: compactString(conversation.resultBand || conversation.outcomePacket?.resultBand),
+      sourceAnchorRangeHash: conversation.sourceAnchorRange ? hashStableJson(conversation.sourceAnchorRange) : null,
+      commandLogPacketHash: conversation.commandLogPacket ? hashStableJson(conversation.commandLogPacket) : null,
+      continuityProjectionHash: conversation.continuityProjection ? hashStableJson(conversation.continuityProjection) : null,
+      messageRefs: messages.map((message, index) => ({
+        id: compactString(message?.id || message?.hostMessageId || message?.messageId || index),
+        role: compactString(message?.role || message?.authorRole),
+        textHash: message?.textHash || hashStableJson({ text: String(message?.text || message?.content || message?.mes || '') })
+      }))
+    };
+  }
+
+  function postCommitConversationResultSummary(result = {}) {
+    return {
+      ok: result?.ok === true,
+      status: compactString(result?.status) || (result?.ok === false ? 'failed' : 'applied'),
+      extractionFallback: result?.extractionFallback === true,
+      createdThreadCount: Array.isArray(result?.createdThreadIds) ? result.createdThreadIds.length : 0,
+      createdThreadIds: Array.isArray(result?.createdThreadIds) ? result.createdThreadIds.slice(0, 12) : [],
+      mergedThreadCount: Array.isArray(result?.mergedThreads) ? result.mergedThreads.length : 0,
+      surfacedThreadCount: Array.isArray(result?.surfacedThreadIds) ? result.surfacedThreadIds.length : 0,
+      surfacedThreadIds: Array.isArray(result?.surfacedThreadIds) ? result.surfacedThreadIds.slice(0, 12) : [],
+      decayChangeCount: Array.isArray(result?.decayChanges) ? result.decayChanges.length : 0,
+      commandBearingReviewStatus: compactString(result?.commandBearingReview?.status),
+      commandBearingReviewCount: Array.isArray(result?.commandBearingReview?.records) ? result.commandBearingReview.records.length : 0,
+      promotionThreadId: compactString(result?.promotion?.threadId),
+      promotionQuestId: compactString(result?.promotion?.questId),
+      eligibleThreadCount: Array.isArray(result?.eligibleThreadIds) ? result.eligibleThreadIds.length : 0
+    };
+  }
+
+  function postCommitConversationGuardForContext(conversation = {}) {
+    const outcomeId = compactString(conversation.outcomeId || conversation.outcomePacket?.id);
+    const turnId = compactString(conversation.turnId);
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    const assistantMessage = messages.find((entry) => compactString(entry?.role || entry?.authorRole) === 'assistant') || null;
+    const responseHostMessageId = compactString(assistantMessage?.id || assistantMessage?.hostMessageId || assistantMessage?.messageId);
+    const binding = bindingFromState(campaignState);
+    const ingress = runtimeIngressForContext({
+      ingressId: conversation.ingressId,
+      outcomeId,
+      turnId
+    });
+    const response = runtimeResponseForContext({
+      ingressId: conversation.resolutionIngressId || conversation.ingressId,
+      outcomeId,
+      turnId,
+      hostMessageId: responseHostMessageId
+    });
+    const signatureBundle = postCommitConversationInputSignatureBundle(conversation);
+    return {
+      campaignId: compactString(campaignState?.campaign?.id),
+      saveId: compactString(binding?.saveId),
+      chatId: compactString(binding?.chatId),
+      ingressId: compactString(conversation.ingressId || ingress?.id),
+      pendingInteractionId: compactString(conversation.pendingInteractionId),
+      resolutionIngressId: compactString(conversation.resolutionIngressId),
+      resolutionMessageId: compactString(conversation.resolutionMessageId),
+      resolutionTextHash: compactString(conversation.resolutionTextHash),
+      turnId,
+      outcomeId,
+      hostMessageId: compactString(ingress?.hostMessageId),
+      responseId: compactString(response?.id),
+      responseHostMessageId: compactString(response?.hostMessageId || responseHostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
+      coreTransactionId: compactString(ingress?.coreTransactionId),
+      inputSignatureHash: hashStableJson(signatureBundle)
+    };
+  }
+
+  function postCommitConversationGuardCurrent(guard = null) {
+    if (!guard) return true;
+    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return false;
+    const binding = bindingFromState(campaignState);
+    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return false;
+    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return false;
+    const ingress = runtimeIngressForContext({
+      ingressId: guard.ingressId,
+      outcomeId: guard.outcomeId,
+      turnId: guard.turnId
+    });
+    if (guard.ingressId && !ingress) return false;
+    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired', 'canceled', 'awaitingRevision']);
+    if (ingress && staleStatuses.has(compactString(ingress.status))) return false;
+    if (ingress?.invalidatedAt || ingress?.deletedAt || ingress?.invalidationType) return false;
+    if (guard.hostMessageId && compactString(ingress?.hostMessageId) !== guard.hostMessageId) return false;
+    if (guard.sourceFrameId && compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id) !== guard.sourceFrameId) return false;
+    if (guard.outcomeId && compactString(ingress?.outcomeId) && compactString(ingress.outcomeId) !== guard.outcomeId) return false;
+    const response = runtimeResponseForContext({
+      responseId: guard.responseId,
+      hostMessageId: guard.responseHostMessageId,
+      outcomeId: guard.outcomeId,
+      turnId: guard.turnId,
+      ingressId: guard.resolutionIngressId || guard.ingressId
+    });
+    if (guard.responseHostMessageId && !response) return false;
+    if (response && staleStatuses.has(compactString(response.status))) return false;
+    if (response?.invalidatedAt || response?.deletedAt || response?.editedAt || response?.invalidationType) return false;
+    if (guard.responseId && compactString(response?.id) !== guard.responseId) return false;
+    if (guard.responseHostMessageId && compactString(response?.hostMessageId) !== guard.responseHostMessageId) return false;
+    if (guard.outcomeId && !hasTurnLedgerOutcome(campaignState, guard.outcomeId) && !commandLogEntryForOutcome(campaignState, guard.outcomeId)) return false;
+    return true;
+  }
+
+  function postCommitConversationCoreTargetForGuard(guard = null) {
+    if (!guard) return null;
+    const binding = bindingFromState(campaignState);
+    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return null;
+    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return null;
+    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return null;
+    const ingress = runtimeIngressForContext({
+      ingressId: guard.ingressId,
+      outcomeId: guard.outcomeId,
+      turnId: guard.turnId
+    });
+    const transactionId = compactString(guard.coreTransactionId || ingress?.coreTransactionId);
+    if (!transactionId) return null;
+    return {
+      transactionId,
+      ingressId: compactString(ingress?.id || guard.ingressId),
+      turnId: compactString(ingress?.turnId || guard.turnId),
+      outcomeId: compactString(ingress?.outcomeId || guard.outcomeId),
+      hostMessageId: compactString(ingress?.hostMessageId || guard.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || guard.sourceFrameId)
+    };
+  }
+
+  function postCommitConversationDiagnosticEvent(guard = null, status = 'queued', details = {}) {
+    const target = postCommitConversationCoreTargetForGuard(guard);
+    if (!target) return null;
+    const result = details.result || null;
+    const summary = result ? postCommitConversationResultSummary(result) : null;
+    const error = details.error || result?.error || null;
+    return {
+      type: 'sidecar',
+      worker: 'narrativeThreadDirector',
+      sidecarType: 'narrativeThreadExtraction',
+      roleId: 'narrativeThreadDirector',
+      status,
+      severity: ['failed', 'backgroundBridgeFailed'].includes(status) ? 'warning' : 'info',
+      reason: compactString(details.reason || result?.reason),
+      resultStatus: compactString(result?.status),
+      outcomeId: target.outcomeId || guard?.outcomeId || null,
+      turnId: target.turnId || guard?.turnId || null,
+      ingressId: target.ingressId || guard?.ingressId || null,
+      hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+      sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+      inputSignatureHash: guard?.inputSignatureHash || null,
+      resultHash: summary ? hashStableJson(summary) : null,
+      createdThreadCount: summary?.createdThreadCount ?? null,
+      surfacedThreadCount: summary?.surfacedThreadCount ?? null,
+      promotedQuest: Boolean(summary?.promotionQuestId),
+      errorCode: compactString(error?.code),
+      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
+      observedAt: timestampFromNow(now)
+    };
+  }
+
+  function queuePostCommitConversationCoreDiagnostic(guard = null, status = 'queued', details = {}) {
+    const event = postCommitConversationDiagnosticEvent(guard, status, details);
+    if (!event) return null;
+    const target = postCommitConversationCoreTargetForGuard(guard);
+    if (!target) return null;
+    const append = postCommitConversationDiagnosticQueue
+      .catch(() => null)
+      .then(() => runtimeCoreTurnStore.appendDiagnostics(target.transactionId, event))
+      .catch(() => null);
+    postCommitConversationDiagnosticQueue = append.then(() => null, () => null);
+    return cloneJson(event);
+  }
+
+  function postCommitConversationCoreBackgroundBundle(guard = null, result = null) {
+    const target = postCommitConversationCoreTargetForGuard(guard);
+    if (!target || result?.ok !== true) return null;
+    const summary = postCommitConversationResultSummary(result);
+    const batchSourceId = target.outcomeId || target.ingressId || target.transactionId;
+    const batchId = `narrative-thread:${target.transactionId}:${batchSourceId}`;
+    return {
+      transactionId: target.transactionId,
+      bundle: {
+        idempotencyKey: batchId,
+        batchId,
+        phaseAfter: 'backgroundSettling',
+        outcomeId: target.outcomeId || guard?.outcomeId || null,
+        promptDirtyDomains: ['threadLedger', 'questLedger', 'commandBearing'].filter((domain, index, values) => values.indexOf(domain) === index),
+        backgroundEffectRefs: [
+          {
+            effect: 'narrativeThreadExtraction',
+            status: 'applied',
+            outcomeId: target.outcomeId || guard?.outcomeId || null,
+            ingressId: target.ingressId || guard?.ingressId || null,
+            turnId: target.turnId || guard?.turnId || null,
+            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+            inputSignatureHash: guard?.inputSignatureHash || null,
+            resultHash: hashStableJson(summary),
+            createdThreadCount: summary.createdThreadCount,
+            surfacedThreadCount: summary.surfacedThreadCount,
+            commandBearingReviewCount: summary.commandBearingReviewCount,
+            promotionQuestId: summary.promotionQuestId || null
+          }
+        ],
+        workers: [
+          {
+            worker: 'narrativeThreadDirector',
+            workerId: 'narrativeThreadDirector',
+            sidecarType: 'narrativeThreadExtraction',
+            roleId: 'narrativeThreadDirector',
+            status: 'applied',
+            outcomeId: target.outcomeId || guard?.outcomeId || null,
+            ingressId: target.ingressId || guard?.ingressId || null,
+            turnId: target.turnId || guard?.turnId || null,
+            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+            inputSignatureHash: guard?.inputSignatureHash || null,
+            resultHash: hashStableJson(summary),
+            createdThreadCount: summary.createdThreadCount,
+            surfacedThreadCount: summary.surfacedThreadCount,
+            commandBearingReviewCount: summary.commandBearingReviewCount,
+            promotionQuestId: summary.promotionQuestId || null
+          }
+        ]
+      }
+    };
+  }
+
+  async function commitPostCommitConversationCoreBackgroundBatch(guard = null, result = null) {
+    const prepared = postCommitConversationCoreBackgroundBundle(guard, result);
+    if (!prepared) return null;
+    try {
+      return await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+    } catch (error) {
+      queuePostCommitConversationCoreDiagnostic(guard, 'backgroundBridgeFailed', {
+        reason: 'core-background-bridge-failed',
+        result,
+        error
+      });
+      return null;
+    }
+  }
+
+  function stalePostCommitConversationResult(guard = null, reason = 'source-stale') {
+    return {
+      kind: 'directive.postCommitConversationResult',
+      ok: false,
+      scheduled: true,
+      status: 'stale',
+      applied: false,
+      reason,
+      outcomeId: guard?.outcomeId || null,
+      error: {
+        code: 'DIRECTIVE_POST_COMMIT_CONVERSATION_SOURCE_STALE',
+        message: 'Post-commit conversation processing skipped because the scheduled source is no longer current.'
+      }
+    };
+  }
+
+  function schedulePostCommitConversationForCommittedTurn({
+    conversation,
+    processor,
+    reason = 'postVisibleResponse'
+  } = {}) {
+    if (typeof processor !== 'function') {
+      lastPostCommitConversationResult = null;
+      return null;
+    }
+    const queuedConversation = cloneJson(conversation || {});
+    const sourceGuard = postCommitConversationGuardForContext(queuedConversation);
+    const scheduled = {
+      kind: 'directive.postCommitConversationScheduled',
+      ok: null,
+      scheduled: true,
+      status: 'queued',
+      reason,
+      outcomeId: sourceGuard.outcomeId || null,
+      turnId: sourceGuard.turnId || null,
+      scheduledAt: timestampFromNow(now)
+    };
+    lastPostCommitConversationResult = cloneJson(scheduled);
+    queuePostCommitConversationCoreDiagnostic(sourceGuard, 'queued', { reason, result: scheduled });
+    const runTask = async () => {
+      postCommitConversationPendingCount += 1;
+      try {
+        await settleCommandLogSummaryQueue();
+        if (!postCommitConversationGuardCurrent(sourceGuard)) {
+          lastPostCommitConversationResult = stalePostCommitConversationResult(sourceGuard, 'source-stale-before-provider');
+          queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
+            reason: 'source-stale-before-provider',
+            result: lastPostCommitConversationResult
+          });
+          return cloneJson(lastPostCommitConversationResult);
+        }
+        const result = await processor(queuedConversation, {
+          isSourceCurrent: () => (postCommitConversationGuardCurrent(sourceGuard)
+            ? { ok: true }
+            : { ok: false, reason: 'source-stale' })
+        });
+        if (!postCommitConversationGuardCurrent(sourceGuard)) {
+          lastPostCommitConversationResult = stalePostCommitConversationResult(sourceGuard, 'source-stale-after-provider');
+          queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
+            reason: 'source-stale-after-provider',
+            result: lastPostCommitConversationResult
+          });
+          return cloneJson(lastPostCommitConversationResult);
+        }
+        if (result?.campaignState) {
+          campaignState = applyRuntimeSettings(result.campaignState);
+          const synchronized = await synchronizeActivePrompt(campaignState, {
+            persist: false,
+            useContinuityPlanner: false,
+            reason: 'Prompt context synchronized after narrative thread background settlement.',
+            activitySource: 'narrativeThreadBackgroundPromptSync',
+            activityMode: 'background',
+            activityContext: {
+              source: 'narrativeThreadDirector',
+              ingressId: sourceGuard.ingressId || null,
+              turnId: sourceGuard.turnId || null,
+              outcomeId: sourceGuard.outcomeId || null
+            }
+          });
+          campaignState = applyRuntimeSettings(synchronized.campaignState || campaignState);
+          await persistRuntimeCampaignState(
+            campaignState,
+            'Narrative thread background settlement synchronized prompt context.'
+          );
+        }
+        const summary = postCommitConversationResultSummary(result || {});
+        const final = {
+          kind: 'directive.postCommitConversationResult',
+          ok: result?.ok !== false,
+          scheduled: true,
+          status: result?.status || 'applied',
+          applied: result?.ok !== false,
+          reason,
+          outcomeId: sourceGuard.outcomeId || null,
+          extractionFallback: summary.extractionFallback,
+          createdThreadCount: summary.createdThreadCount,
+          createdThreadIds: cloneJson(summary.createdThreadIds),
+          mergedThreadCount: summary.mergedThreadCount,
+          surfacedThreadCount: summary.surfacedThreadCount,
+          surfacedThreadIds: cloneJson(summary.surfacedThreadIds),
+          decayChangeCount: summary.decayChangeCount,
+          commandBearingReviewStatus: summary.commandBearingReviewStatus || null,
+          commandBearingReviewCount: summary.commandBearingReviewCount,
+          promotionThreadId: summary.promotionThreadId || null,
+          promotionQuestId: summary.promotionQuestId || null,
+          eligibleThreadCount: summary.eligibleThreadCount
+        };
+        lastPostCommitConversationResult = cloneJson(final);
+        let backgroundBatchCommitted = null;
+        if (final.ok === true) {
+          await postCommitConversationDiagnosticQueue;
+          backgroundBatchCommitted = await commitPostCommitConversationCoreBackgroundBatch(sourceGuard, final);
+        }
+        if (!backgroundBatchCommitted) {
+          queuePostCommitConversationCoreDiagnostic(sourceGuard, final.ok === false ? 'failed' : 'applied', {
+            reason,
+            result: final
+          });
+        }
+        return cloneJson(lastPostCommitConversationResult);
+      } catch (error) {
+        const stale = error?.code === 'DIRECTIVE_NARRATIVE_THREAD_SOURCE_STALE';
+        lastPostCommitConversationResult = stale
+          ? stalePostCommitConversationResult(sourceGuard, error.phase || 'source-stale')
+          : {
+              kind: 'directive.postCommitConversationResult',
+              ok: false,
+              scheduled: true,
+              status: 'failed',
+              reason,
+              outcomeId: sourceGuard.outcomeId || null,
+              error: {
+                code: error?.code || 'DIRECTIVE_POST_COMMIT_CONVERSATION_BACKGROUND_FAILED',
+                message: error?.message || String(error)
+              }
+            };
+        if (!stale) {
+          campaignState = recordRecoveryEvent(initializeCampaignRuntimeTracking(campaignState), {
+            id: `recovery:post-commit-conversation:${sourceGuard.outcomeId || sourceGuard.turnId || sourceGuard.ingressId || 'unknown'}`,
+            type: 'postCommitConversationFailed',
+            status: 'open',
+            ingressId: sourceGuard.ingressId || null,
+            outcomeId: sourceGuard.outcomeId || null,
+            recordedAt: timestampFromNow(now),
+            details: {
+              turnId: sourceGuard.turnId || null,
+              error: { message: error?.message || String(error), code: error?.code || null }
+            }
+          });
+          await persistRuntimeCampaignState(campaignState, `Recorded post-commit conversation recovery issue for ${sourceGuard.outcomeId || 'unknown outcome'}.`);
+        }
+        queuePostCommitConversationCoreDiagnostic(sourceGuard, stale ? 'stale' : 'failed', {
+          reason,
+          result: lastPostCommitConversationResult,
+          error
+        });
+        return cloneJson(lastPostCommitConversationResult);
+      } finally {
+        postCommitConversationPendingCount = Math.max(0, postCommitConversationPendingCount - 1);
+      }
+    };
+    const task = postCommitConversationQueue.then(runTask, runTask);
+    postCommitConversationQueue = task.catch(() => null);
+    return cloneJson(scheduled);
+  }
+
+  function advisoryEnrichmentGuardForContext(payload = {}) {
+    const binding = bindingFromState(campaignState);
+    const ingress = runtimeIngressForContext({
+      ingressId: payload.ingressId
+    });
+    return {
+      campaignId: compactString(campaignState?.campaign?.id),
+      saveId: compactString(binding?.saveId),
+      chatId: compactString(binding?.chatId),
+      ingressId: compactString(payload.ingressId || ingress?.id),
+      advisoryId: compactString(payload.advisoryId),
+      sourceMessageId: compactString(payload.sourceMessageId || ingress?.hostMessageId),
+      hostMessageId: compactString(ingress?.hostMessageId || payload.sourceMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
+      coreTransactionId: compactString(ingress?.coreTransactionId),
+      playerTextHash: compactString(payload.playerTextHash),
+      ingressTextHash: compactString(ingress?.textHash),
+      fallbackAdvisoryHash: compactString(payload.fallbackAdvisoryHash),
+      scheduledAt: timestampFromNow(now)
+    };
+  }
+
+  function advisoryEnrichmentGuardCurrent(guard = null) {
+    if (!guard) return true;
+    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return false;
+    const binding = bindingFromState(campaignState);
+    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return false;
+    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return false;
+    const ingress = runtimeIngressForContext({ ingressId: guard.ingressId });
+    if (guard.ingressId && !ingress) return false;
+    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired', 'canceled', 'awaitingRevision']);
+    if (ingress && staleStatuses.has(compactString(ingress.status))) return false;
+    if (ingress?.invalidatedAt || ingress?.deletedAt || ingress?.invalidationType) return false;
+    if (guard.hostMessageId && compactString(ingress?.hostMessageId) !== guard.hostMessageId) return false;
+    if (guard.sourceFrameId && compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id) !== guard.sourceFrameId) return false;
+    if (guard.playerTextHash && compactString(ingress?.textHash) !== guard.playerTextHash) return false;
+    return true;
+  }
+
+  function advisoryEnrichmentCoreTargetForGuard(guard = null) {
+    if (!guard) return null;
+    const binding = bindingFromState(campaignState);
+    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return null;
+    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return null;
+    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return null;
+    const ingress = runtimeIngressForContext({ ingressId: guard.ingressId });
+    const transactionId = compactString(guard.coreTransactionId || ingress?.coreTransactionId);
+    if (!transactionId) return null;
+    return {
+      transactionId,
+      ingressId: compactString(ingress?.id || guard.ingressId),
+      hostMessageId: compactString(ingress?.hostMessageId || guard.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || guard.sourceFrameId)
+    };
+  }
+
+  function advisoryEnrichmentDiagnosticEvent(guard = null, status = 'queued', details = {}) {
+    const target = advisoryEnrichmentCoreTargetForGuard(guard);
+    if (!target) return null;
+    const result = details.result || null;
+    const error = details.error || result?.error || null;
+    return {
+      type: 'sidecar',
+      worker: 'missionDirectorAdvisor',
+      sidecarType: 'advisoryEnrichment',
+      roleId: 'missionDirectorAdvisor',
+      status,
+      severity: ['failed', 'backgroundBridgeFailed'].includes(status) ? 'warning' : 'info',
+      reason: compactString(details.reason || result?.reason),
+      resultStatus: compactString(result?.status),
+      applied: result?.applied === true,
+      scheduled: result?.scheduled === true || status === 'queued',
+      advisoryId: guard?.advisoryId || null,
+      ingressId: target.ingressId || guard?.ingressId || null,
+      hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+      sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+      playerTextHash: guard?.playerTextHash || null,
+      fallbackAdvisoryHash: guard?.fallbackAdvisoryHash || null,
+      advisoryHash: result?.advisoryHash || null,
+      errorCode: compactString(error?.code),
+      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
+      observedAt: timestampFromNow(now)
+    };
+  }
+
+  function queueAdvisoryEnrichmentCoreDiagnostic(guard = null, status = 'queued', details = {}) {
+    const event = advisoryEnrichmentDiagnosticEvent(guard, status, details);
+    if (!event) return null;
+    const target = advisoryEnrichmentCoreTargetForGuard(guard);
+    if (!target) return null;
+    const append = advisoryEnrichmentDiagnosticQueue
+      .catch(() => null)
+      .then(() => runtimeCoreTurnStore.appendDiagnostics(target.transactionId, event))
+      .catch(() => null);
+    advisoryEnrichmentDiagnosticQueue = append.then(() => null, () => null);
+    return cloneJson(event);
+  }
+
+  function advisoryEnrichmentCoreBackgroundBundle(guard = null, result = null) {
+    const target = advisoryEnrichmentCoreTargetForGuard(guard);
+    if (!target || result?.applied !== true) return null;
+    const batchSourceId = guard?.advisoryId || target.ingressId || target.transactionId;
+    const batchId = `advisory-enrichment:${target.transactionId}:${batchSourceId}`;
+    return {
+      transactionId: target.transactionId,
+      bundle: {
+        idempotencyKey: batchId,
+        batchId,
+        phaseAfter: 'backgroundSettling',
+        promptDirtyDomains: ['commandCompetence'],
+        backgroundEffectRefs: [
+          {
+            effect: 'advisoryEnrichment',
+            status: 'applied',
+            advisoryId: guard?.advisoryId || null,
+            ingressId: target.ingressId || guard?.ingressId || null,
+            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+            playerTextHash: guard?.playerTextHash || null,
+            fallbackAdvisoryHash: guard?.fallbackAdvisoryHash || null,
+            advisoryHash: result?.advisoryHash || null
+          }
+        ],
+        workers: [
+          {
+            worker: 'missionDirectorAdvisor',
+            workerId: 'missionDirectorAdvisor',
+            sidecarType: 'advisoryEnrichment',
+            roleId: 'missionDirectorAdvisor',
+            status: 'applied',
+            advisoryId: guard?.advisoryId || null,
+            ingressId: target.ingressId || guard?.ingressId || null,
+            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
+            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
+            playerTextHash: guard?.playerTextHash || null,
+            fallbackAdvisoryHash: guard?.fallbackAdvisoryHash || null,
+            advisoryHash: result?.advisoryHash || null
+          }
+        ]
+      }
+    };
+  }
+
+  async function commitAdvisoryEnrichmentCoreBackgroundBatch(guard = null, result = null) {
+    const prepared = advisoryEnrichmentCoreBackgroundBundle(guard, result);
+    if (!prepared) return null;
+    try {
+      return await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+    } catch (error) {
+      queueAdvisoryEnrichmentCoreDiagnostic(guard, 'backgroundBridgeFailed', {
+        reason: 'core-background-bridge-failed',
+        result,
+        error
+      });
+      return null;
+    }
+  }
+
+  function staleAdvisoryEnrichmentResult(guard = null, reason = 'source-stale') {
+    return {
+      kind: 'directive.advisoryEnrichmentResult',
+      ok: false,
+      scheduled: true,
+      status: 'stale',
+      applied: false,
+      reason,
+      advisoryId: guard?.advisoryId || null,
+      ingressId: guard?.ingressId || null,
+      error: {
+        code: 'DIRECTIVE_ADVISORY_ENRICHMENT_SOURCE_STALE',
+        message: 'Advisory enrichment skipped because the scheduled source is no longer current.'
+      }
+    };
+  }
+
+  function advisoryEnrichmentDiagnosticStatusForResult(result = null) {
+    if (result?.status === 'stale') return 'stale';
+    if (result?.applied === true) return 'applied';
+    if (result?.ok === false || result?.status === 'failed' || result?.error) return 'failed';
+    return result?.status || 'settled';
+  }
+
+  function scheduleAdvisoryEnrichmentForHostContinue(payload = {}) {
+    if (typeof payload.run !== 'function') {
+      lastAdvisoryEnrichmentResult = null;
+      return null;
+    }
+    const run = payload.run;
+    const sourceGuard = advisoryEnrichmentGuardForContext(payload);
+    const scheduled = {
+      kind: 'directive.advisoryEnrichmentScheduled',
+      ok: null,
+      scheduled: true,
+      status: 'queued',
+      advisoryId: sourceGuard.advisoryId || null,
+      ingressId: sourceGuard.ingressId || null,
+      scheduledAt: sourceGuard.scheduledAt || timestampFromNow(now)
+    };
+    lastAdvisoryEnrichmentResult = cloneJson(scheduled);
+    queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'queued', { reason: 'postHostContinueRelease', result: scheduled });
+    const runTask = async () => {
+      advisoryEnrichmentPendingCount += 1;
+      try {
+        if (!advisoryEnrichmentGuardCurrent(sourceGuard)) {
+          lastAdvisoryEnrichmentResult = staleAdvisoryEnrichmentResult(sourceGuard, 'source-stale-before-provider');
+          queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'stale', {
+            reason: 'source-stale-before-provider',
+            result: lastAdvisoryEnrichmentResult
+          });
+          return cloneJson(lastAdvisoryEnrichmentResult);
+        }
+        const result = await run({
+          isSourceCurrent: () => advisoryEnrichmentGuardCurrent(sourceGuard)
+        });
+        if (!advisoryEnrichmentGuardCurrent(sourceGuard)) {
+          lastAdvisoryEnrichmentResult = staleAdvisoryEnrichmentResult(sourceGuard, 'source-stale-after-provider');
+          queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'stale', {
+            reason: 'source-stale-after-provider',
+            result: lastAdvisoryEnrichmentResult
+          });
+          return cloneJson(lastAdvisoryEnrichmentResult);
+        }
+        if (result?.campaignState) {
+          campaignState = applyRuntimeSettings(result.campaignState);
+          await settleRuntimePersistenceQueue();
+        }
+        lastAdvisoryEnrichmentResult = {
+          kind: 'directive.advisoryEnrichmentResult',
+          ok: result?.ok !== false,
+          scheduled: true,
+          status: result?.status || (result?.applied === true ? 'applied' : 'settled'),
+          applied: result?.applied === true,
+          reason: result?.reason || 'postHostContinueRelease',
+          advisoryId: sourceGuard.advisoryId || result?.advisoryId || null,
+          ingressId: sourceGuard.ingressId || result?.ingressId || null,
+          advisoryHash: result?.advisoryHash || null
+        };
+        let backgroundBatchCommitted = null;
+        if (lastAdvisoryEnrichmentResult.applied === true) {
+          await advisoryEnrichmentDiagnosticQueue;
+          backgroundBatchCommitted = await commitAdvisoryEnrichmentCoreBackgroundBatch(sourceGuard, lastAdvisoryEnrichmentResult);
+        }
+        if (!backgroundBatchCommitted) {
+          queueAdvisoryEnrichmentCoreDiagnostic(
+            sourceGuard,
+            advisoryEnrichmentDiagnosticStatusForResult(lastAdvisoryEnrichmentResult),
+            { reason: 'postHostContinueRelease', result: lastAdvisoryEnrichmentResult }
+          );
+        }
+        return cloneJson(lastAdvisoryEnrichmentResult);
+      } catch (error) {
+        lastAdvisoryEnrichmentResult = {
+          kind: 'directive.advisoryEnrichmentResult',
+          ok: false,
+          scheduled: true,
+          status: 'failed',
+          applied: false,
+          reason: 'postHostContinueRelease',
+          advisoryId: sourceGuard.advisoryId || null,
+          ingressId: sourceGuard.ingressId || null,
+          error: {
+            code: error?.code || 'DIRECTIVE_ADVISORY_ENRICHMENT_BACKGROUND_FAILED',
+            message: error?.message || String(error)
+          }
+        };
+        queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'failed', {
+          reason: 'postHostContinueRelease',
+          result: lastAdvisoryEnrichmentResult,
+          error
+        });
+        return cloneJson(lastAdvisoryEnrichmentResult);
+      } finally {
+        advisoryEnrichmentPendingCount = Math.max(0, advisoryEnrichmentPendingCount - 1);
+      }
+    };
+    const task = advisoryEnrichmentQueue.then(runTask, runTask);
+    advisoryEnrichmentQueue = task.catch(() => null);
+    return cloneJson(scheduled);
+  }
+
+  function terminalCheckpointCoreTargetForEvent(event = {}) {
+    const binding = bindingFromState(campaignState);
+    const interactionId = compactString(event.interactionId || event.pendingInteractionId);
+    const ledger = campaignState?.runtimeTracking?.endConditionLedger || {};
+    const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : [])
+      .find((entry) => compactString(entry?.id) === interactionId) || null;
+    const interaction = (Array.isArray(campaignState?.runtimeTracking?.pendingInteractions)
+      ? campaignState.runtimeTracking.pendingInteractions
+      : []
+    ).find((entry) => compactString(entry?.id) === interactionId) || null;
+    const ingress = runtimeIngressForContext({
+      ingressId: event.ingressId || interaction?.ingressId,
+      outcomeId: event.outcomeId || interaction?.outcomeId || decision?.outcomeId,
+      turnId: event.turnId || interaction?.turnId || decision?.turnId
+    });
+    const transactionId = compactString(event.coreTransactionId || ingress?.coreTransactionId);
+    if (!transactionId) return null;
+    return {
+      transactionId,
+      campaignId: compactString(campaignState?.campaign?.id),
+      saveId: compactString(binding?.saveId),
+      chatId: compactString(binding?.chatId),
+      ingressId: compactString(ingress?.id || event.ingressId || interaction?.ingressId),
+      resolutionIngressId: compactString(event.resolutionIngressId),
+      interactionId,
+      pendingInteractionId: compactString(event.pendingInteractionId),
+      turnId: compactString(event.turnId || ingress?.turnId || interaction?.turnId || decision?.turnId),
+      outcomeId: compactString(event.outcomeId || ingress?.outcomeId || interaction?.outcomeId || decision?.outcomeId),
+      hostMessageId: compactString(ingress?.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
+      checkpointHostMessageId: compactString(event.checkpointHostMessageId || decision?.checkpointMessageId),
+      resolutionHostMessageId: compactString(event.resolutionHostMessageId),
+      action: compactString(event.action || decision?.resolution?.action),
+      status: compactString(event.status) || 'settled',
+      reason: compactString(event.reason)
+    };
+  }
+
+  function terminalCheckpointDiagnosticEvent(target = null, event = {}, status = null, details = {}) {
+    if (!target) return null;
+    const resolvedStatus = compactString(status || event.status) || 'settled';
+    const error = details.error || null;
+    return {
+      type: 'terminalCheckpoint',
+      worker: 'terminalOutcomeCheckpoint',
+      sidecarType: 'terminalOutcomeCheckpoint',
+      status: resolvedStatus,
+      severity: ['failed', 'backgroundBridgeFailed'].includes(resolvedStatus) ? 'warning' : 'info',
+      settlementKind: compactString(event.kind),
+      reason: compactString(details.reason || event.reason),
+      interactionId: target.interactionId || null,
+      pendingInteractionId: target.pendingInteractionId || null,
+      action: target.action || null,
+      outcomeId: target.outcomeId || null,
+      turnId: target.turnId || null,
+      ingressId: target.ingressId || null,
+      resolutionIngressId: target.resolutionIngressId || null,
+      hostMessageId: target.hostMessageId || null,
+      checkpointHostMessageId: target.checkpointHostMessageId || null,
+      resolutionHostMessageId: target.resolutionHostMessageId || null,
+      sourceFrameId: target.sourceFrameId || null,
+      errorCode: compactString(error?.code),
+      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
+      observedAt: timestampFromNow(now)
+    };
+  }
+
+  function terminalCheckpointCoreBackgroundBundle(target = null, event = {}) {
+    if (!target || event.status === 'failed') return null;
+    const settlementKind = compactString(event.kind) || 'terminalOutcomeCheckpoint';
+    const batchSourceId = target.interactionId || target.outcomeId || target.ingressId || target.transactionId;
+    const batchId = `terminal-checkpoint:${target.transactionId}:${settlementKind}:${batchSourceId}`;
+    return {
+      transactionId: target.transactionId,
+      bundle: {
+        idempotencyKey: batchId,
+        batchId,
+        phaseAfter: event.kind === 'terminalOutcomeCheckpointPosted' ? 'backgroundSettling' : 'settled',
+        outcomeId: target.outcomeId || null,
+        promptDirtyDomains: [],
+        backgroundEffectRefs: [
+          {
+            effect: settlementKind,
+            status: target.status || 'posted',
+            interactionId: target.interactionId || null,
+            pendingInteractionId: target.pendingInteractionId || null,
+            action: target.action || null,
+            outcomeId: target.outcomeId || null,
+            turnId: target.turnId || null,
+            ingressId: target.ingressId || null,
+            resolutionIngressId: target.resolutionIngressId || null,
+            hostMessageId: target.hostMessageId || null,
+            checkpointHostMessageId: target.checkpointHostMessageId || null,
+            resolutionHostMessageId: target.resolutionHostMessageId || null,
+            sourceFrameId: target.sourceFrameId || null
+          }
+        ],
+        workers: [
+          {
+            worker: 'terminalOutcomeCheckpoint',
+            workerId: 'terminalOutcomeCheckpoint',
+            sidecarType: 'terminalOutcomeCheckpoint',
+            status: target.status || 'posted',
+            interactionId: target.interactionId || null,
+            pendingInteractionId: target.pendingInteractionId || null,
+            action: target.action || null,
+            outcomeId: target.outcomeId || null,
+            turnId: target.turnId || null,
+            ingressId: target.ingressId || null,
+            resolutionIngressId: target.resolutionIngressId || null,
+            hostMessageId: target.hostMessageId || null,
+            checkpointHostMessageId: target.checkpointHostMessageId || null,
+            resolutionHostMessageId: target.resolutionHostMessageId || null,
+            sourceFrameId: target.sourceFrameId || null
+          }
+        ]
+      }
+    };
+  }
+
+  function queueTerminalCheckpointSettlement(event = {}) {
+    const target = terminalCheckpointCoreTargetForEvent(event);
+    const scheduled = {
+      kind: 'directive.terminalCheckpointSettlementScheduled',
+      ok: null,
+      scheduled: Boolean(target),
+      status: target ? 'queued' : 'skipped',
+      reason: target ? compactString(event.reason) || 'terminal-checkpoint-settlement' : 'core-target-unavailable',
+      settlementKind: compactString(event.kind),
+      interactionId: compactString(event.interactionId || event.pendingInteractionId),
+      ingressId: compactString(event.ingressId),
+      resolutionIngressId: compactString(event.resolutionIngressId),
+      outcomeId: compactString(event.outcomeId),
+      turnId: compactString(event.turnId),
+      scheduledAt: timestampFromNow(now)
+    };
+    lastTerminalCheckpointSettlementResult = cloneJson(scheduled);
+    if (!target) return cloneJson(scheduled);
+    const runTask = async () => {
+      try {
+        let backgroundBatchCommitted = null;
+        const prepared = terminalCheckpointCoreBackgroundBundle(target, event);
+        if (prepared) {
+          try {
+            if (event.kind !== 'terminalOutcomeCheckpointPosted' && target.resolutionIngressId && target.ingressId === target.resolutionIngressId) {
+              await runtimeCoreTurnStore.advanceTurn(target.transactionId, {
+                phase: 'routePending',
+                route: 'terminalCheckpointResolution',
+                reason: 'terminal-checkpoint-resolution',
+                idempotencyKey: `terminal-checkpoint-resolution-route:${target.transactionId}:${target.interactionId || target.ingressId || 'decision'}`
+              });
+            }
+            backgroundBatchCommitted = await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+          } catch (error) {
+            const diagnostic = terminalCheckpointDiagnosticEvent(target, event, 'backgroundBridgeFailed', {
+              reason: 'core-background-bridge-failed',
+              error
+            });
+            if (diagnostic) {
+              const append = terminalCheckpointDiagnosticQueue
+                .catch(() => null)
+                .then(() => runtimeCoreTurnStore.appendDiagnostics(target.transactionId, diagnostic))
+                .catch(() => null);
+              terminalCheckpointDiagnosticQueue = append.then(() => null, () => null);
+            }
+          }
+        }
+        if (!backgroundBatchCommitted || event.kind === 'terminalOutcomeCheckpointResolved') {
+          const diagnostic = terminalCheckpointDiagnosticEvent(target, event, event.status || 'settled', {});
+          if (diagnostic) {
+            const append = terminalCheckpointDiagnosticQueue
+              .catch(() => null)
+              .then(() => runtimeCoreTurnStore.appendDiagnostics(target.transactionId, diagnostic))
+              .catch(() => null);
+            terminalCheckpointDiagnosticQueue = append.then(() => null, () => null);
+          }
+        }
+        lastTerminalCheckpointSettlementResult = {
+          kind: 'directive.terminalCheckpointSettlementResult',
+          ok: true,
+          scheduled: true,
+          status: event.status || 'settled',
+          settlementKind: compactString(event.kind),
+          interactionId: target.interactionId || null,
+          ingressId: target.ingressId || null,
+          resolutionIngressId: target.resolutionIngressId || null,
+          outcomeId: target.outcomeId || null,
+          backgroundBatchCommitted: Boolean(backgroundBatchCommitted)
+        };
+        return cloneJson(lastTerminalCheckpointSettlementResult);
+      } catch (error) {
+        lastTerminalCheckpointSettlementResult = {
+          kind: 'directive.terminalCheckpointSettlementResult',
+          ok: false,
+          scheduled: true,
+          status: 'failed',
+          settlementKind: compactString(event.kind),
+          interactionId: target.interactionId || null,
+          error: {
+            code: error?.code || 'DIRECTIVE_TERMINAL_CHECKPOINT_SETTLEMENT_FAILED',
+            message: error?.message || String(error)
+          }
+        };
+        return cloneJson(lastTerminalCheckpointSettlementResult);
+      }
+    };
+    const task = terminalCheckpointSettlementQueue.then(runTask, runTask);
+    terminalCheckpointSettlementQueue = task.catch(() => null);
+    return cloneJson(scheduled);
+  }
+
+  function sidecarCoreDiagnosticTargetForEvent(event = {}) {
+    const ingress = runtimeIngressForContext({
+      ingressId: event.ingressId,
+      outcomeId: event.outcomeId,
+      turnId: event.turnId
+    });
+    const transactionId = compactString(event.coreTransactionId || ingress?.coreTransactionId);
+    if (!transactionId) return null;
+    const binding = bindingFromState(campaignState);
+    const campaignId = compactString(event.campaignId);
+    const saveId = compactString(event.saveId);
+    const chatId = compactString(event.chatId);
+    if (campaignId && compactString(campaignState?.campaign?.id) !== campaignId) return null;
+    if (saveId && compactString(binding?.saveId) !== saveId) return null;
+    if (chatId && compactString(binding?.chatId) !== chatId) return null;
+    return {
+      transactionId,
+      campaignId: campaignId || compactString(campaignState?.campaign?.id),
+      saveId: saveId || compactString(binding?.saveId),
+      chatId: chatId || compactString(binding?.chatId),
+      ingressId: compactString(ingress?.id || event.ingressId),
+      turnId: compactString(ingress?.turnId || event.turnId),
+      outcomeId: compactString(ingress?.outcomeId || event.outcomeId),
+      hostMessageId: compactString(ingress?.hostMessageId || event.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || event.sourceFrameId)
+    };
+  }
+
+  async function appendSidecarCoreDiagnostic(event = {}) {
+    const target = sidecarCoreDiagnosticTargetForEvent(event);
+    if (!target) return null;
+    return runtimeCoreTurnStore.appendDiagnostics(target.transactionId, {
+      ...cloneJson(event),
+      type: 'sidecar',
+      source: event.source || 'campaignSidecarScheduler',
+      campaignId: target.campaignId || null,
+      saveId: target.saveId || null,
+      chatId: target.chatId || null,
+      ingressId: target.ingressId || null,
+      turnId: target.turnId || null,
+      outcomeId: target.outcomeId || null,
+      hostMessageId: target.hostMessageId || null,
+      sourceFrameId: target.sourceFrameId || null,
+      coreTransactionId: target.transactionId
+    });
+  }
+
+  function staleCommandLogSummaryResult(guard = null, reason = 'source-stale') {
+    return {
+      kind: 'directive.commandLogSummarySidecarResult',
+      ok: false,
+      scheduled: true,
+      status: 'stale',
+      applied: false,
+      reason,
+      outcomeId: guard?.outcomeId || null,
+      error: {
+        code: 'DIRECTIVE_COMMAND_LOG_SUMMARY_SOURCE_STALE',
+        message: 'Command Log summary skipped because the scheduled source is no longer current.'
+      }
+    };
+  }
+
+  function deferredCommandLogSummaryResult(turnPacket = null, reason = 'afterDirectiveNarration') {
+    const outcomeId = commandLogSummaryOutcomeId(turnPacket);
+    return {
+      kind: 'directive.commandLogSummarySidecarScheduled',
+      ok: null,
+      scheduled: false,
+      status: 'deferred',
+      deferredUntil: reason,
+      outcomeId: outcomeId || null,
+      turnId: turnPacket?.turnId || turnPacket?.id || null,
+      recordedAt: timestampFromNow(now)
+    };
+  }
+
+  function deferCommandLogSummaryForTurn({
+    turnPacket,
+    enabled = true,
+    reason = 'afterDirectiveNarration'
+  } = {}) {
+    if (!enabled || !runtimeHost) {
+      deferredCommandLogSummaryRequest = null;
+      lastCommandLogSummarySidecarResult = null;
+      return null;
+    }
+    requireObject(turnPacket, 'turnPacket');
+    deferredCommandLogSummaryRequest = {
+      turnPacket: cloneJson(turnPacket),
+      reason
+    };
+    lastCommandLogSummarySidecarResult = deferredCommandLogSummaryResult(turnPacket, reason);
+    return cloneJson(lastCommandLogSummarySidecarResult);
+  }
+
+  function scheduleCommandLogSummaryForTurnNow({
+    turnPacket,
+    enabled = true,
+    reason = 'postVisibleResponse',
+    ingressId = null,
+    turnId = null,
+    outcomeId = null
+  } = {}) {
+    if (!enabled || !runtimeHost) {
+      lastCommandLogSummarySidecarResult = null;
+      return null;
+    }
+    requireObject(turnPacket, 'turnPacket');
+    const queuedTurnPacket = cloneJson(turnPacket);
+    const resolvedOutcomeId = compactString(outcomeId) || commandLogSummaryOutcomeId(queuedTurnPacket);
+    const sourceGuard = commandLogSummarySourceGuardForTurn(queuedTurnPacket, {
+      ingressId,
+      turnId,
+      outcomeId: resolvedOutcomeId
+    });
+    const scheduled = {
+      kind: 'directive.commandLogSummarySidecarScheduled',
+      ok: null,
+      scheduled: true,
+      status: 'queued',
+      reason,
+      outcomeId: resolvedOutcomeId || null,
+      turnId: sourceGuard.turnId || queuedTurnPacket?.turnId || queuedTurnPacket?.id || null,
+      scheduledAt: timestampFromNow(now)
+    };
+    lastCommandLogSummarySidecarResult = cloneJson(scheduled);
+    queueCommandLogSummaryCoreDiagnostic(sourceGuard, 'queued', { reason, result: scheduled });
+    const runTask = async () => {
+      commandLogSummaryPendingCount += 1;
+      try {
+        if (!commandLogSummaryGuardCurrent(sourceGuard)) {
+          lastCommandLogSummarySidecarResult = staleCommandLogSummaryResult(sourceGuard, 'source-stale-before-provider');
+          queueCommandLogSummaryCoreDiagnostic(sourceGuard, 'stale', {
+            reason: 'source-stale-before-provider',
+            result: lastCommandLogSummarySidecarResult
+          });
+          return cloneJson(lastCommandLogSummarySidecarResult);
+        }
+        const result = await updateCommandLogSummaryForTurnNow({
+          turnPacket: queuedTurnPacket,
+          enabled: true,
+          sourceGuard
+        });
+        let backgroundBatchCommitted = null;
+        if (result?.applied === true && result?.assistedSummary?.status === 'complete') {
+          await commandLogSummaryDiagnosticQueue;
+          backgroundBatchCommitted = await commitCommandLogSummaryCoreBackgroundBatch(sourceGuard, result);
+        }
+        if (!backgroundBatchCommitted) {
+          queueCommandLogSummaryCoreDiagnostic(sourceGuard, commandLogSummaryDiagnosticStatusForResult(result), {
+            reason,
+            result
+          });
+        }
+        if (result?.applied) {
+          await persistRuntimeCampaignState(
+            campaignState,
+            'Command Log assisted summary settled for the latest committed turn.'
+          );
+        }
+        return result;
+      } catch (error) {
+        lastCommandLogSummarySidecarResult = {
+          ok: false,
+          scheduled: true,
+          status: 'failed',
+          reason,
+          outcomeId: resolvedOutcomeId || null,
+          error: {
+            code: error?.code || 'DIRECTIVE_COMMAND_LOG_SUMMARY_BACKGROUND_FAILED',
+            message: error?.message || String(error)
+          }
+        };
+        queueCommandLogSummaryCoreDiagnostic(sourceGuard, 'failed', {
+          reason,
+          result: lastCommandLogSummarySidecarResult,
+          error
+        });
+        return cloneJson(lastCommandLogSummarySidecarResult);
+      } finally {
+        commandLogSummaryPendingCount = Math.max(0, commandLogSummaryPendingCount - 1);
+      }
+    };
+    const task = commandLogSummaryQueue.then(runTask, runTask);
+    commandLogSummaryQueue = task.catch(() => null);
+    return cloneJson(scheduled);
+  }
+
+  function scheduleDeferredCommandLogSummaryQueue(reason = 'afterDirectiveNarration') {
+    if (!deferredCommandLogSummaryRequest) return null;
+    const request = deferredCommandLogSummaryRequest;
+    deferredCommandLogSummaryRequest = null;
+    return scheduleCommandLogSummaryForTurnNow({
+      turnPacket: request.turnPacket,
+      enabled: true,
+      reason: request.reason || reason
+    });
   }
 
   function sameBoundCampaignState(left = null, right = null) {
@@ -2364,35 +3946,56 @@ export function createDirectiveRuntimeApp({
 
   async function persistRuntimeCampaignStateNow(state, summary = 'Directive campaign state updated.') {
     const nextState = modelCallJournal.applyPending(cloneJson(state));
+    const targetSaveId = compactString(nextState?.campaignChatBinding?.saveId || controller?.activeSaveId);
+    const activeSaveId = compactString(controller?.activeSaveId);
+    if (!targetSaveId) return null;
+    const isActiveSaveWrite = !activeSaveId || activeSaveId === targetSaveId;
+    if (!isActiveSaveWrite) {
+      const save = await controller.persistRuntimeCampaignState({
+        saveId: targetSaveId,
+        campaignState: nextState,
+        summary,
+        reason: 'runtimePersist:background-save',
+        markActive: false
+      });
+      await refreshCampaignView();
+      return cloneJson(save);
+    }
     if (shouldPreferInMemoryCampaignState(nextState, campaignState, {
       chatId: nextState?.campaignChatBinding?.chatId || campaignState?.campaignChatBinding?.chatId || null,
       fallbackHostId: runtimeHost?.id || null,
-      fallbackSaveId: controller?.activeSaveId || null
+      fallbackSaveId: targetSaveId
     })) {
       campaignState = modelCallJournal.applyPending(campaignState);
-      if (!controller?.activeSaveId) return null;
-      const save = await controller.saveCurrentGame({
+      const save = await controller.persistRuntimeCampaignState({
+        saveId: targetSaveId,
         campaignState,
-        summary: `Preserved fresher runtime state over stale write: ${summary}`
+        summary: `Preserved fresher runtime state over stale write: ${summary}`,
+        reason: 'runtimePersist:fresher-state',
+        markActive: false
       });
       await refreshCampaignView();
       return cloneJson(save);
     }
     if (shouldPreserveFresherTerminalState(campaignState, nextState, summary)) {
       campaignState = modelCallJournal.applyPending(campaignState);
-      if (!controller?.activeSaveId) return null;
-      const save = await controller.saveCurrentGame({
+      const save = await controller.persistRuntimeCampaignState({
+        saveId: targetSaveId,
         campaignState,
-        summary: 'Preserved pending terminal outcome state over stale runtime write.'
+        summary: 'Preserved pending terminal outcome state over stale runtime write.',
+        reason: 'runtimePersist:preserve-terminal',
+        markActive: false
       });
       await refreshCampaignView();
       return cloneJson(save);
     }
     campaignState = nextState;
-    if (!controller?.activeSaveId) return null;
-    const save = await controller.saveCurrentGame({
+    const save = await controller.persistRuntimeCampaignState({
+      saveId: targetSaveId,
       campaignState,
-      summary
+      summary,
+      reason: 'runtimePersist',
+      markActive: false
     });
     await refreshCampaignView();
     return cloneJson(save);
@@ -2407,10 +4010,43 @@ export function createDirectiveRuntimeApp({
     return queued;
   }
 
+  async function settleRuntimePersistenceQueue() {
+    await runtimePersistQueue;
+  }
+
+  async function settleCommandLogSummaryQueue() {
+    await commandLogSummaryQueue;
+    await settleRuntimePersistenceQueue();
+    await commandLogSummaryDiagnosticQueue;
+    return cloneJson(lastCommandLogSummarySidecarResult);
+  }
+
+  async function settlePostCommitConversationQueue() {
+    await postCommitConversationQueue;
+    await settleRuntimePersistenceQueue();
+    await postCommitConversationDiagnosticQueue;
+    return cloneJson(lastPostCommitConversationResult);
+  }
+
+  async function settleAdvisoryEnrichmentQueue() {
+    await advisoryEnrichmentQueue;
+    await settleRuntimePersistenceQueue();
+    await advisoryEnrichmentDiagnosticQueue;
+    return cloneJson(lastAdvisoryEnrichmentResult);
+  }
+
+  async function settleTerminalCheckpointSettlementQueue() {
+    await terminalCheckpointSettlementQueue;
+    await settleRuntimePersistenceQueue();
+    await terminalCheckpointDiagnosticQueue;
+    return cloneJson(lastTerminalCheckpointSettlementResult);
+  }
+
   function ensureTurnCommitCoordinator() {
     if (!durabilityCoordinator) {
       durabilityCoordinator = createTurnCommitCoordinator({
         persist: persistRuntimeCampaignState,
+        coreTurnStore: runtimeCoreTurnStore,
         now
       });
     }
@@ -2686,6 +4322,7 @@ export function createDirectiveRuntimeApp({
     });
     const responseDispatcher = createResponseDispatcher({
       host: runtimeHost,
+      coreTurnStore: runtimeCoreTurnStore,
       getCampaignState,
       setCampaignState,
       persist: persistCampaignState,
@@ -2694,6 +4331,7 @@ export function createDirectiveRuntimeApp({
     const messageReconciler = createMessageReconciler({
       getCampaignState,
       setCampaignState,
+      coreTurnStore: runtimeCoreTurnStore,
       persist: persistCampaignState,
       syncPrompt: async (state) => (await synchronizeActivePrompt(state, {
         persist: false,
@@ -2732,6 +4370,8 @@ export function createDirectiveRuntimeApp({
         });
         return result.campaignState || state;
       },
+      appendCoreDiagnostic: appendSidecarCoreDiagnostic,
+      commitCoreBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.commitBackgroundBatch(transactionId, bundle),
       now
     });
     const narrativeThreadDirector = createNarrativeThreadDirector({
@@ -2775,6 +4415,7 @@ export function createDirectiveRuntimeApp({
         useContinuityPlanner: false,
         reason: reason || 'Prompt context synchronized after terminal outcome decision.'
       }),
+      recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
       saveTerminalBranch: (options) => controller.saveTerminalBranch(options),
       concludeCampaign: (options) => conclusionService.conclude(options),
       now
@@ -2815,6 +4456,7 @@ export function createDirectiveRuntimeApp({
       turnCommitCoordinator,
       sidecarScheduler,
       messageReconciler,
+      coreTurnStore: runtimeCoreTurnStore,
       stateDeltaGateway,
       getCampaignState,
       setCampaignState,
@@ -2837,10 +4479,24 @@ export function createDirectiveRuntimeApp({
       },
       previewDirectorTurn: (options) => publicApi.previewDirectorTurn(options),
       commitProvisionalDirectorTurn: (options) => publicApi.commitProvisionalDirectorTurn(options),
+      scheduleCommandLogSummaryForCommittedTurn: ({ turnPacket, reason, ingressId, turnId, outcomeId } = {}) => scheduleCommandLogSummaryForTurnNow({
+        turnPacket,
+        enabled: true,
+        reason: reason || 'postVisibleResponse',
+        ingressId,
+        turnId,
+        outcomeId
+      }),
+      schedulePostCommitConversationProcessor: (conversation) => schedulePostCommitConversationForCommittedTurn({
+        conversation,
+        reason: 'postVisibleResponse',
+        processor: (queuedConversation, options = {}) => narrativeThreadDirector.processConversation(queuedConversation, options)
+      }),
+      scheduleAdvisoryEnrichmentProcessor: (payload) => scheduleAdvisoryEnrichmentForHostContinue(payload),
+      recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
       postTerminalOutcomeCheckpoint: (options) => publicApi.postTerminalOutcomeCheckpoint(options),
       resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
       discardProvisionalDirectorTurn: () => publicApi.discardProvisionalDirectorTurn(),
-      postCommitConversationProcessor: (conversation) => narrativeThreadDirector.processConversation(conversation),
       rewriteCampaignIntro: rewriteCampaignIntroFromNativeSwipe,
       now
     });
@@ -2853,6 +4509,7 @@ export function createDirectiveRuntimeApp({
       responseDispatcher,
       messageReconciler,
       sceneReconciliation,
+      coreTurnStore: runtimeCoreTurnStore,
       sidecarScheduler,
       narrativeThreadDirector,
       classify,
@@ -3166,12 +4823,27 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         const services = ensureChatNativeServices();
+        const commandLogSummaryResult = await settleCommandLogSummaryQueue();
+        const postCommitConversationResult = await settlePostCommitConversationQueue();
+        const advisoryEnrichmentResult = await settleAdvisoryEnrichmentQueue();
+        const terminalCheckpointSettlementResult = await settleTerminalCheckpointSettlementQueue();
         if (!services?.sidecarScheduler?.pending) {
           await refreshCampaignView();
           await refreshCurrentChatCampaignScope();
           return {
-            ok: false,
+            ok: commandLogSummaryResult?.scheduled === true
+              || commandLogSummaryResult?.ok === true
+              || postCommitConversationResult?.scheduled === true
+              || postCommitConversationResult?.ok === true
+              || advisoryEnrichmentResult?.scheduled === true
+              || advisoryEnrichmentResult?.ok === true
+              || terminalCheckpointSettlementResult?.scheduled === true
+              || terminalCheckpointSettlementResult?.ok === true,
             reason: 'sidecar-scheduler-unavailable',
+            commandLogSummaryResult: cloneJson(commandLogSummaryResult),
+            postCommitConversationResult: cloneJson(postCommitConversationResult),
+            advisoryEnrichmentResult: cloneJson(advisoryEnrichmentResult),
+            terminalCheckpointSettlementResult: cloneJson(terminalCheckpointSettlementResult),
             view: viewEnvelope('mission')
           };
         }
@@ -3186,6 +4858,28 @@ export function createDirectiveRuntimeApp({
           sidecarCountAfter: after,
           sidecarDelta: Math.max(0, after - before),
           results: cloneJson(results || []),
+          commandLogSummaryResult: cloneJson(commandLogSummaryResult),
+          postCommitConversationResult: cloneJson(postCommitConversationResult),
+          advisoryEnrichmentResult: cloneJson(advisoryEnrichmentResult),
+          terminalCheckpointSettlementResult: cloneJson(terminalCheckpointSettlementResult),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async flushRuntimeDiagnostics() {
+      return run(async () => {
+        await ensureInitialized();
+        await commandLogSummaryDiagnosticQueue;
+        await postCommitConversationDiagnosticQueue;
+        await advisoryEnrichmentDiagnosticQueue;
+        await terminalCheckpointSettlementQueue;
+        await terminalCheckpointDiagnosticQueue;
+        await modelCallJournal.flushCoreDiagnostics();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return {
+          ok: true,
           view: viewEnvelope('mission')
         };
       });
@@ -3537,7 +5231,7 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         const requestedSaveId = compactString(saveId);
         if (requestedSaveId) {
-          await loadCampaignStateForSessionSave(requestedSaveId);
+          await loadCampaignStateForSessionSave(requestedSaveId, binding);
         }
         let targetBinding = normalizedBinding(binding)
           || bindingFromState(campaignState)
@@ -4696,6 +6390,7 @@ export function createDirectiveRuntimeApp({
           simulationMode
         });
         campaignState = applyRuntimeSettings(result.campaignState);
+        resetActiveCoreTurnStore('campaign-started');
         activeCreatorDraftId = null;
         creatorView = null;
         pendingDirectorTurn = null;
@@ -4839,9 +6534,11 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         const requestedSaveId = requireNonEmptyString(saveId, 'saveId');
+        await settleRuntimePersistenceQueue();
         const loadedState = applyRuntimeSettings(await controller.loadGame({ saveId: requestedSaveId }));
         const shouldPersistTimeRepair = campaignTimeNeedsRuntimeNormalization(loadedState);
         campaignState = stateWithLoadedSaveBinding(loadedState, requestedSaveId);
+        resetActiveCoreTurnStore('game-loaded');
         if (shouldPersistTimeRepair) {
           await persistRuntimeCampaignState(campaignState, 'Campaign time state normalized after loading save.');
         }
@@ -4887,6 +6584,7 @@ export function createDirectiveRuntimeApp({
         });
         if (result.deletedActive === true) {
           campaignState = null;
+          resetActiveCoreTurnStore('active-save-deleted');
           pendingDirectorTurn = null;
           pendingOutcomeReplacement = null;
           lastDirectorTurn = null;
@@ -4994,6 +6692,7 @@ export function createDirectiveRuntimeApp({
           branchBinding,
           sourceBinding
         ));
+        resetActiveCoreTurnStore('save-as-branch-created');
         const branchSave = await controller.saveCurrentGameAs({
           newSaveId,
           name,
@@ -5170,9 +6869,10 @@ export function createDirectiveRuntimeApp({
         lastNarrationResult = null;
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
-        const commandLogSummaryResult = await updateCommandLogSummaryForTurnNow({
+        const commandLogSummaryResult = deferCommandLogSummaryForTurn({
           turnPacket: result.turnPacket,
-          enabled: generateCommandLogSummary
+          enabled: generateCommandLogSummary,
+          reason: 'afterDirectiveNarration'
         });
         activeScreen = 'campaign';
         return {
@@ -5235,6 +6935,7 @@ export function createDirectiveRuntimeApp({
       confirmedWarningIds = [],
       generateNarration = true,
       generateCommandLogSummary = true,
+      deferCommandLogSummary = false,
       provider = defaultNarrationProvider
     } = {}) {
       return run(async () => {
@@ -5255,11 +6956,11 @@ export function createDirectiveRuntimeApp({
           confirmWarnings,
           confirmedWarningIds
         });
-        campaignState = result.campaignState;
+        let committedCandidateState = result.campaignState;
         if (replacement) {
-          campaignState.turnLedger = campaignState.turnLedger || { entries: [], swipeRerollForbidden: true };
-          campaignState.turnLedger.replacementHistory = [
-            ...(campaignState.turnLedger.replacementHistory || []),
+          committedCandidateState.turnLedger = committedCandidateState.turnLedger || { entries: [], swipeRerollForbidden: true };
+          committedCandidateState.turnLedger.replacementHistory = [
+            ...(committedCandidateState.turnLedger.replacementHistory || []),
             {
               type: replacement.type || 'rerunOutcome',
               replacedOutcomeId: replacement.outcomeId,
@@ -5268,13 +6969,13 @@ export function createDirectiveRuntimeApp({
               acceptedAt: timestampFromNow(now)
             }
           ];
-          campaignState.turnLedger.lastReplacedOutcomeId = replacement.outcomeId;
+          committedCandidateState.turnLedger.lastReplacedOutcomeId = replacement.outcomeId;
         }
         const mechanicsCheckpoint = await ensureTurnCommitCoordinator().checkpointMechanics({
           beforeCampaignState,
-          campaignState,
+          campaignState: committedCandidateState,
           turnPacket: result.turnPacket,
-          ingressId: campaignState.runtimeTracking?.activeIngressId || null
+          ingressId: committedCandidateState.runtimeTracking?.activeIngressId || null
         });
         campaignState = mechanicsCheckpoint.campaignState;
         lastMechanicsCheckpointState = cloneJson(mechanicsCheckpoint.campaignState);
@@ -5292,13 +6993,17 @@ export function createDirectiveRuntimeApp({
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         lastNarrationResult = null;
-        const commandLogSummaryResult = await updateCommandLogSummaryForTurnNow({
+        const commandLogSummaryResult = deferCommandLogSummaryForTurn({
           turnPacket: result.turnPacket,
-          enabled: generateCommandLogSummary
+          enabled: generateCommandLogSummary,
+          reason: deferCommandLogSummary ? 'postVisibleResponse' : 'afterDirectiveNarration'
         });
         activeScreen = 'campaign';
         const narrationResult = generateNarration
-          ? await generateNarrationForLastTurnNow({ provider })
+          ? await generateNarrationForLastTurnNow({
+              provider,
+              scheduleDeferredCommandLogSummary: !deferCommandLogSummary
+            })
           : null;
         return {
           coordinatorDiagnostics: {

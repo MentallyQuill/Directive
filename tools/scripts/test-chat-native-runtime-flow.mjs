@@ -4,7 +4,12 @@ import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
-import { listCampaignSaves } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  DIRECTIVE_STORAGE_PATHS,
+  listCampaignSaves
+} from '../../src/storage/directive-storage-repository.mjs';
+import { readCoreStoreProjectionsV2 } from '../../src/storage/core-store-v2.mjs';
+import { loadV2MaterializedHead } from '../../src/storage/transaction-store-v2.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -17,6 +22,7 @@ const graphPaths = [
   'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
 ];
 const missionGraphs = graphPaths.map((filePath) => ({ path: filePath, graph: readJson(filePath) }));
+const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 
 const noChangeProposal = { text: JSON.stringify({ id: 'no-change', operations: [], summary: 'No durable sidecar change.' }) };
 let campaignIntroGenerationCount = 0;
@@ -24,6 +30,8 @@ let holdNextCampaignIntro = false;
 let heldCampaignIntroAbortObserved = false;
 let heldCampaignIntroStarted = null;
 let heldCampaignIntroResolve = null;
+let heldAdvisoryStarted = null;
+let heldAdvisoryResolve = null;
 async function loadChatNativeAssets() {
   return {
     packages: [packageData],
@@ -129,10 +137,45 @@ const host = createFakeDirectiveHost({
           safeSummary: 'Prose-only trim.'
         })
       },
-      commandLogSummarizer: {
-        providerId: 'fake-utility',
-        text: JSON.stringify({ summary: 'The bridge committed the commander\'s order.', visibleConsequences: ['Operational posture changed.'] })
+      commandLogSummarizer: ({ request }) => {
+        const sourceOutcomeId = String(request?.prompt || '').match(/"outcome":\s*\{[\s\S]*?"id":\s*"([^"]+)"/)?.[1] || 'unknown-outcome';
+        return {
+          providerId: 'fake-utility',
+          text: JSON.stringify({
+            sourceOutcomeId,
+            title: 'Command logged',
+            summary: 'The bridge committed the commander\'s order.',
+            visibleConsequences: ['Operational posture changed.']
+          })
+        };
       },
+      missionDirectorAdvisor: ({ request }) => new Promise((resolve) => {
+        heldAdvisoryStarted?.(cloneJson(request?.metadata || null));
+        heldAdvisoryResolve = () => {
+          heldAdvisoryResolve = null;
+          resolve({
+            providerId: 'fake-utility',
+            text: JSON.stringify({
+              kind: 'directive.playerSafeAdvisory',
+              subject: 'Bridge arrival options',
+              missionBrief: 'Serrin asked for decision support before committing the next bridge action.',
+              logSummary: 'Serrin requested options before choosing the next command action.',
+              involvedCrewIds: ['mara-whitaker'],
+              crewNotes: [
+                {
+                  crewId: 'mara-whitaker',
+                  summary: 'The request may shape the first command handoff with Captain Whitaker.'
+                }
+              ],
+              considerations: ['The Captain remains a relevant authority boundary.'],
+              options: [
+                'Ask the duty officer for the latest operations picture.',
+                'Proceed to the bridge and request a concise readiness report.'
+              ]
+            })
+          });
+        };
+      }),
       continuityProjectionPlanner: {
         providerId: 'fake-utility',
         text: JSON.stringify({
@@ -144,6 +187,21 @@ const host = createFakeDirectiveHost({
     }
   }
 });
+const hostGenerationContinuations = [];
+host.chat.continueHostGeneration = async (payload = {}) => {
+  hostGenerationContinuations.push(cloneJson(payload));
+  const releasedAt = new Date(clock).toISOString();
+  clock += 1000;
+  return {
+    ok: true,
+    skipped: false,
+    released: true,
+    waitForCompletion: payload.waitForCompletion,
+    reason: payload.reason || null,
+    generationStartedAt: releasedAt,
+    hostGenerationReleasedAt: releasedAt
+  };
+};
 
 let idSequence = 0;
 let clock = Date.parse('2026-06-22T04:00:00.000Z');
@@ -169,6 +227,90 @@ function assertRuntimeViewBoundToSave(runtimeView, saveId, label) {
   assert.equal(runtimeView.chatNative.binding.saveId, saveId, `${label}: rendered chat binding save id`);
   assert.equal(runtimeView.currentChat.status, 'matching-campaign', `${label}: current chat status`);
   assert.equal(runtimeView.currentChatCampaignGuard.ok, true, `${label}: current chat save guard`);
+}
+
+function assertCoreHostContinueBridge({ projections, state, hostMessageId, chatId, label }) {
+  const ingress = state.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === hostMessageId);
+  assert.ok(ingress, `${label}: old ingress exists`);
+  assert.ok(ingress.sourceFrameId, `${label}: old ingress carries sourceFrameId`);
+  assert.ok(ingress.coreTransactionId, `${label}: old ingress carries coreTransactionId`);
+  const coreIngress = projections.ingressLedger.find((entry) => entry.hostMessageId === hostMessageId);
+  assert.ok(coreIngress, `${label}: CORE ingress projection exists`);
+  assert.equal(coreIngress.transactionId, ingress.coreTransactionId, `${label}: CORE transaction id matches old ingress`);
+  assert.equal(coreIngress.sourceFrameId, ingress.sourceFrameId, `${label}: CORE source frame id matches old ingress`);
+  assert.equal(coreIngress.chatId, chatId, `${label}: CORE projection uses active chat id`);
+  assert.equal(coreIngress.status, 'hostContinueReleased', `${label}: CORE projection reached hostContinueReleased`);
+  assert.equal(coreIngress.route, 'hostContinue', `${label}: CORE projection route`);
+  const response = state.runtimeTracking.responseLedger.find((entry) => entry.ingressId === ingress.id);
+  assert.ok(response, `${label}: old response ledger exists`);
+  assert.equal(response.coreTransactionId, ingress.coreTransactionId, `${label}: response ledger carries matching CORE transaction id`);
+  assert.equal(response.coreRelease?.phase, 'hostContinueReleased', `${label}: response ledger records CORE release phase`);
+  assert.equal(response.coreRelease?.route, 'hostContinue', `${label}: response ledger records CORE release route`);
+  assert.equal(response.hostGenerationReleaseMode, 'nonblocking', `${label}: response ledger records nonblocking release mode`);
+  assert.equal(response.turnLatency?.architectureWithin60s, true, `${label}: response ledger records under-60s architecture timing`);
+  const coreTiming = projections.turnTiming.find((entry) => entry.transactionId === ingress.coreTransactionId);
+  assert.ok(coreTiming, `${label}: CORE timing projection exists`);
+  assert.equal(coreTiming.route, 'hostContinue', `${label}: CORE timing projection records hostContinue route`);
+  assert.equal(coreTiming.turnTiming.hostGenerationReleasedAt, response.turnLatency.hostGenerationReleasedAt, `${label}: CORE timing projection records host release timestamp`);
+  assert.equal(coreTiming.turnTiming.directiveGenerationStartedAt, null, `${label}: CORE timing projection keeps Directive narration empty for hostContinue`);
+  assert.equal(coreTiming.turnTiming.architectureWithin60s, true, `${label}: CORE timing projection records under-60s host release`);
+}
+
+function assertCoreDirectivePostedBridge({ projections, state, hostMessageId, chatId, label }) {
+  const ingress = state.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === hostMessageId);
+  assert.ok(ingress, `${label}: old ingress exists`);
+  assert.ok(ingress.sourceFrameId, `${label}: old ingress carries sourceFrameId`);
+  assert.ok(ingress.coreTransactionId, `${label}: old ingress carries coreTransactionId`);
+  const coreIngress = projections.ingressLedger.find((entry) => entry.hostMessageId === hostMessageId);
+  assert.ok(coreIngress, `${label}: CORE ingress projection exists`);
+  assert.equal(coreIngress.transactionId, ingress.coreTransactionId, `${label}: CORE transaction id matches old ingress`);
+  assert.equal(coreIngress.sourceFrameId, ingress.sourceFrameId, `${label}: CORE source frame id matches old ingress`);
+  assert.equal(coreIngress.chatId, chatId, `${label}: CORE projection uses active chat id`);
+  assert.equal(coreIngress.status, 'complete', `${label}: CORE projection reached visibleResponsePosted`);
+  assert.equal(coreIngress.route, 'directivePosted', `${label}: CORE projection route`);
+  const response = state.runtimeTracking.responseLedger.find((entry) => entry.ingressId === ingress.id);
+  assert.ok(response, `${label}: old response ledger exists`);
+  assert.equal(response.coreTransactionId, ingress.coreTransactionId, `${label}: response ledger carries matching CORE transaction id`);
+  assert.equal(response.coreRelease?.phase, 'visibleResponsePosted', `${label}: response ledger records CORE visible-response phase`);
+  assert.equal(response.coreRelease?.route, 'directivePosted', `${label}: response ledger records CORE route`);
+  assert.ok(response.directiveGenerationStartedAt, `${label}: response ledger records Directive narration start`);
+  assert.equal(response.generationStartedAt, response.directiveGenerationStartedAt, `${label}: generic generation start mirrors Directive narration start`);
+  assert.equal(response.turnLatency?.directiveGenerationStartedAt, Date.parse(response.directiveGenerationStartedAt), `${label}: latency records Directive narration start`);
+  assert.equal(response.turnLatency?.architectureWithin60s, true, `${label}: latency records under-60s Directive start`);
+  const coreResponse = projections.responseLedger.find((entry) => entry.transactionId === ingress.coreTransactionId);
+  assert.ok(coreResponse, `${label}: CORE response projection exists`);
+  assert.equal(coreResponse.generationStartedAt, response.directiveGenerationStartedAt, `${label}: CORE response projection records generation start`);
+  assert.equal(coreResponse.turnTiming?.architectureWithin60s, true, `${label}: CORE response projection carries response timing`);
+  const coreTiming = projections.turnTiming.find((entry) => entry.transactionId === ingress.coreTransactionId);
+  assert.ok(coreTiming, `${label}: CORE timing projection exists`);
+  assert.equal(coreTiming.route, 'directivePosted', `${label}: CORE timing projection records Directive-posted route`);
+  assert.equal(coreTiming.turnTiming.directiveGenerationStartedAt, response.turnLatency.directiveGenerationStartedAt, `${label}: CORE timing projection records Directive narration start`);
+  assert.equal(coreTiming.turnTiming.generationStartLatencyMs, response.turnLatency.generationStartLatencyMs, `${label}: CORE timing projection records submit-to-generation-start latency`);
+  assert.equal(coreTiming.turnTiming.architectureWithin60s, true, `${label}: CORE timing projection records under-60s Directive start`);
+}
+
+function assertCoreMechanicsProjection({ projections, state, hostMessageId, label }) {
+  const ingress = state.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === hostMessageId);
+  assert.ok(ingress?.coreTransactionId, `${label}: old ingress carries CORE transaction id`);
+  const turn = projections.turnLedger.entries.find((entry) => entry.transactionId === ingress.coreTransactionId);
+  assert.ok(turn, `${label}: CORE turn projection exists`);
+  assert.equal(turn.status, 'committed', `${label}: CORE turn projection is committed`);
+  assert.ok(turn.outcomeId, `${label}: CORE turn projection carries outcome id`);
+  assert.ok(turn.operationHash, `${label}: CORE turn projection carries operation hash`);
+  assert.equal(Array.isArray(turn.committedRoots), true, `${label}: CORE turn projection carries committed root names`);
+  assert.equal(turn.committedRoots.length > 0, true, `${label}: CORE turn projection records at least one changed mechanics root`);
+  const projectionText = JSON.stringify(turn);
+  for (const forbidden of [
+    'change course and pursue the freighter',
+    'Serrin keeps the ship at measured readiness',
+    'The bridge answers in practiced sequence',
+    'Return one strict JSON state-delta proposal',
+    '"snapshotBefore"',
+    '"runtimeTracking"',
+    '"rootsSet"'
+  ]) {
+    assert.equal(projectionText.includes(forbidden), false, `${label}: CORE mechanics projection must not include ${forbidden}.`);
+  }
 }
 
 let view = await app.initialize();
@@ -417,6 +559,27 @@ const reopenedBranch = await app.openCampaignChat({ saveId: branch.save.id });
 assert.equal(reopenedBranch.ok, true);
 assertRuntimeViewBoundToSave(reopenedBranch.view, branch.save.id, 'reopen branch after stale source chat change');
 assert.equal(host.chat.getCurrentChatId(), branch.view.chatNative.binding.chatId);
+const branchColorMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-branch-color',
+  text: '*Serrin watches the branch crew settle into the cloned watch rotation.*'
+});
+const branchColorResult = await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: branchColorMessage
+});
+assert.equal(branchColorResult.decision.classification, 'sceneColor');
+assert.equal(branchColorResult.abortDefaultGeneration, false);
+const branchCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: branch.view.chatNative.binding.campaignId,
+  saveId: branch.save.id
+});
+assertCoreHostContinueBridge({
+  projections: branchCoreProjections,
+  state: branchColorResult.campaignState,
+  hostMessageId: 'runtime-player-branch-color',
+  chatId: branch.view.chatNative.binding.chatId,
+  label: 'branch scene-color turn'
+});
 
 const loadedSource = await app.loadGame({ saveId: sourceSaveId });
 assertRuntimeViewBoundToSave(loadedSource, sourceSaveId, 'load source save after branch');
@@ -424,6 +587,10 @@ assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
 assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
 assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
 view = loadedSource;
+const sourceStorageBeforeRuntimeTurns = host.storage.snapshot();
+const sourceSaveIndexBeforeRuntimeTurns = sourceStorageBeforeRuntimeTurns[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
+const sourceV1PayloadPath = sourceSaveIndexBeforeRuntimeTurns.path;
+const sourceV1PayloadBeforeRuntimeTurns = cloneJson(sourceStorageBeforeRuntimeTurns[sourceV1PayloadPath]);
 const continuityPlannerCallsBeforePlayerTurns = generationRoleCount('continuityProjectionPlanner');
 
 const colorMessage = host.chat.pushPlayerMessage({
@@ -538,6 +705,75 @@ assert.equal(
   continuityPlannerCallsBeforePlayerTurns,
   'Player-turn prompt synchronization must not invoke the blocking continuity planner.'
 );
+view = (await app.flushRuntimeDiagnostics()).view;
+const sourceStorageAfterRuntimeTurns = host.storage.snapshot();
+const sourceSaveIndexAfterRuntimeTurns = sourceStorageAfterRuntimeTurns[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
+assert.equal(sourceSaveIndexAfterRuntimeTurns.path, sourceV1PayloadPath, 'Queued runtime persistence must preserve the v1 checkpoint payload path.');
+assert.equal(sourceSaveIndexAfterRuntimeTurns.runtimeStorageFormat, 'v2', 'Queued runtime persistence must mark runtime-current state as v2.');
+assert.equal(Boolean(sourceSaveIndexAfterRuntimeTurns.v2ManifestRef?.logicalKey), true, 'Queued runtime persistence must attach a v2 runtime manifest ref.');
+assert.deepEqual(
+  sourceStorageAfterRuntimeTurns[sourceV1PayloadPath],
+  sourceV1PayloadBeforeRuntimeTurns,
+  'Queued runtime persistence must not rewrite the v1 manual checkpoint payload.'
+);
+const activeRuntimeHeadBeforeReload = await loadV2MaterializedHead(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: sourceSaveId
+});
+assert.equal(activeRuntimeHeadBeforeReload.source, 'active-save-facade-v2', 'Queued runtime persistence must write the active-save v2 head.');
+assert.equal(activeRuntimeHeadBeforeReload.state.runtimeTracking, undefined, 'Active-save v2 head must omit heavyweight runtimeTracking journals.');
+assert.equal(activeRuntimeHeadBeforeReload.state.turnLedger, undefined, 'Active-save v2 head must omit heavyweight turn ledger entries.');
+assert.equal(activeRuntimeHeadBeforeReload.runtimeSummary.ingressCount, view.chatNative.tracking.ingressCount, 'Active-save v2 head must keep compact runtime ingress counts.');
+assert.equal(activeRuntimeHeadBeforeReload.runtimeSummary.responseCount, view.chatNative.tracking.responseCount, 'Active-save v2 head must keep compact runtime response counts.');
+assert.equal(activeRuntimeHeadBeforeReload.state.campaign.currentStardate, view.campaignState.campaign.currentStardate, 'Active-save v2 head must reflect runtime-current campaign state.');
+const coreProjectionsBeforeReload = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+assert.equal(coreProjectionsBeforeReload.ingressLedger.length, view.chatNative.tracking.ingressCount, 'Production chat turns should persist CORE ingress projections for the active save.');
+assert.equal(coreProjectionsBeforeReload.ingressLedger.some((entry) => entry.hostMessageId === 'runtime-player-consequential'), true);
+assert.equal(coreProjectionsBeforeReload.ingressLedger.some((entry) => entry.hostMessageId === 'runtime-player-branch-color'), false, 'Source save CORE projections must not include branch-save turns.');
+assert.ok(
+  coreProjectionsBeforeReload.modelCallDiagnostics.some((entry) => (
+    entry.roleId === 'utilityTurnClassifier'
+    && entry.hostMessageId === 'runtime-player-consequential'
+    && entry.requestHash
+  )),
+  'Production chat turns should mirror redacted model-call diagnostics into CORE diagnostics.'
+);
+assertCoreHostContinueBridge({
+  projections: coreProjectionsBeforeReload,
+  state: view.campaignState,
+  hostMessageId: 'runtime-player-color',
+  chatId: sourceChatId,
+  label: 'source scene-color turn'
+});
+assertCoreHostContinueBridge({
+  projections: coreProjectionsBeforeReload,
+  state: view.campaignState,
+  hostMessageId: 'runtime-player-scene-navigation',
+  chatId: sourceChatId,
+  label: 'source scene-navigation turn'
+});
+assertCoreDirectivePostedBridge({
+  projections: coreProjectionsBeforeReload,
+  state: view.campaignState,
+  hostMessageId: 'runtime-player-consequential',
+  chatId: sourceChatId,
+  label: 'source consequential turn'
+});
+assertCoreMechanicsProjection({
+  projections: coreProjectionsBeforeReload,
+  state: view.campaignState,
+  hostMessageId: 'runtime-player-consequential',
+  label: 'source consequential turn'
+});
+const coreHeadBeforeReload = await loadV2MaterializedHead(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId,
+  layout: 'core'
+});
+assert.equal(coreHeadBeforeReload.coreStore.counters.transactions >= view.chatNative.tracking.ingressCount, true);
 
 const committedResponse = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'committedOutcome');
 const editContext = await app.prepareOutcomeIntegrityEdit({
@@ -570,9 +806,6 @@ const duplicate = await app.observeHostPlayerMessage({
 assert.equal(duplicate.deduplicated, true);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
 
-const modelCallSequence = (entry) => Number(/^model-call:(\d+):/.exec(String(entry?.id || ''))?.[1] || 0);
-const modelCallCountBeforeReload = view.chatNative.modelCalls.length;
-const maxModelCallSequenceBeforeReload = Math.max(0, ...view.chatNative.modelCalls.map(modelCallSequence));
 const reloadedApp = createDirectiveRuntimeApp({
   host,
   packageLoader: loadChatNativeAssets,
@@ -589,6 +822,7 @@ const reloadedApp = createDirectiveRuntimeApp({
 await reloadedApp.initialize();
 await reloadedApp.openCampaignChat({ saveId: view.activeSaveId });
 const continuityPlannerCallsBeforeReloadedTurn = generationRoleCount('continuityProjectionPlanner');
+const generationCallCountBeforeReloadedTurn = host.generation.calls().length;
 const reloadedMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-after-reload',
   text: 'Serrin keeps the ship at measured readiness and orders the relay margin logged before the next step.'
@@ -598,24 +832,229 @@ const reloadedResult = await reloadedApp.observeHostPlayerMessage({
   message: reloadedMessage
 });
 assert.equal(reloadedResult.abortDefaultGeneration, true);
+const reloadedRolesBeforeFlush = host.generation.calls()
+  .slice(generationCallCountBeforeReloadedTurn)
+  .map((entry) => entry.role);
+const narrationIndexBeforeFlush = reloadedRolesBeforeFlush.indexOf('narration');
+const commandLogIndexBeforeFlush = reloadedRolesBeforeFlush.indexOf('commandLogSummarizer');
+assert.equal(narrationIndexBeforeFlush >= 0, true, 'Directive committed turn must start narration before returning from observeHostPlayerMessage.');
+if (commandLogIndexBeforeFlush >= 0) {
+  assert.equal(narrationIndexBeforeFlush < commandLogIndexBeforeFlush, true, 'Command Log summary must not start before narration.');
+}
+const reloadedCounselStartedPromise = new Promise((resolve) => {
+  heldAdvisoryStarted = (metadata) => resolve(cloneJson(metadata || null));
+});
+const reloadedCounselContinuationsBefore = hostGenerationContinuations.length;
+const reloadedCounselAdvisorCallsBefore = generationRoleCount('missionDirectorAdvisor');
+const reloadedCounselMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-advisory-after-reload',
+  text: 'What are our options here?'
+});
+const reloadedCounselResult = await reloadedApp.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: reloadedCounselMessage
+});
+assert.equal(reloadedCounselResult.decision.classification, 'counselRequest');
+assert.equal(reloadedCounselResult.responseStrategy, 'injectAndContinue');
+assert.equal(reloadedCounselResult.abortDefaultGeneration, false);
+assert.equal(hostGenerationContinuations.length, reloadedCounselContinuationsBefore + 1, 'Counsel should release host generation before advisory enrichment completes.');
+assert.equal(reloadedCounselResult.advisory.subject, 'Decision support advisory');
+assert.equal(reloadedCounselResult.advisory.options.length, 0);
+assert.equal(reloadedCounselResult.advisoryEnrichment.status, 'queued');
+assert.equal(reloadedCounselResult.advisoryEnrichment.advisoryId, reloadedCounselResult.advisory.id);
+const reloadedCounselMetadata = await reloadedCounselStartedPromise;
+heldAdvisoryStarted = null;
+assert.equal(generationRoleCount('missionDirectorAdvisor'), reloadedCounselAdvisorCallsBefore + 1);
+assert.equal(reloadedCounselMetadata.coreDiagnosticTarget, 'advisoryEnrichment');
+assert.equal(reloadedCounselMetadata.ingressId, reloadedCounselResult.advisory.sourceIngressId);
+assert.equal(reloadedCounselMetadata.advisoryId, reloadedCounselResult.advisory.id);
+assert.equal(Boolean(reloadedCounselMetadata.playerTextHash), true);
+assert.equal(Boolean(reloadedCounselMetadata.fallbackAdvisoryHash), true);
+assert.equal(JSON.stringify(reloadedCounselMetadata).includes('What are our options here'), false, 'Advisory model-call metadata must not store raw player text.');
+assert.equal(typeof heldAdvisoryResolve, 'function', 'Advisory provider should remain unresolved until the test releases it.');
+heldAdvisoryResolve();
 const flushedSidecars = await reloadedApp.flushChatSidecars();
 assert.equal(flushedSidecars.ok, true);
+assert.equal(flushedSidecars.commandLogSummaryResult.ok, true);
+assert.equal(flushedSidecars.postCommitConversationResult.ok, true);
+assert.equal(flushedSidecars.postCommitConversationResult.scheduled, true);
+assert.equal(flushedSidecars.postCommitConversationResult.status, 'applied');
+assert.equal(flushedSidecars.advisoryEnrichmentResult.ok, true);
+assert.equal(flushedSidecars.advisoryEnrichmentResult.applied, true);
+assert.equal(flushedSidecars.advisoryEnrichmentResult.advisoryId, reloadedCounselResult.advisory.id);
 assert.equal(Number.isFinite(flushedSidecars.sidecarCountAfter), true);
+await reloadedApp.flushRuntimeDiagnostics();
 view = await reloadedApp.getCurrentView({ tabId: 'mission' });
-assert.equal(view.chatNative.tracking.modelCallCount > modelCallCountBeforeReload, true);
-const reloadedModelCalls = view.chatNative.modelCalls.slice(modelCallCountBeforeReload);
-assert.equal(reloadedModelCalls.length > 0, true);
+const reloadedRolesAfterFlush = host.generation.calls()
+  .slice(generationCallCountBeforeReloadedTurn)
+  .map((entry) => entry.role);
+const narrationIndexAfterFlush = reloadedRolesAfterFlush.indexOf('narration');
+const commandLogIndexAfterFlush = reloadedRolesAfterFlush.indexOf('commandLogSummarizer');
+assert.equal(commandLogIndexAfterFlush >= 0, true, 'Flushing sidecars must settle the queued Command Log summary.');
+assert.equal(narrationIndexAfterFlush < commandLogIndexAfterFlush, true, 'Queued Command Log summary must run after narration starts.');
 assert.equal(
-  reloadedModelCalls.every((entry) => modelCallSequence(entry) > maxModelCallSequenceBeforeReload),
+  view.campaignState.commandLog.entries.some((entry) => entry.assistedSummary?.status === 'complete'),
   true,
-  'Resumed runtime sessions must not reuse model-call journal IDs from the loaded save.'
+  'Queued Command Log summary should apply to the current Command Log entry after flush.'
 );
+const enrichedAdvisory = view.campaignState.commandCompetence.counselRequestLedger.find((entry) => entry.id === reloadedCounselResult.advisory.id);
+assert.ok(enrichedAdvisory, 'Advisory enrichment should keep the deterministic advisory id.');
+assert.equal(enrichedAdvisory.subject, 'Bridge arrival options');
+assert.equal(enrichedAdvisory.options.length, 2);
 assert.equal(
   generationRoleCount('continuityProjectionPlanner'),
   continuityPlannerCallsBeforeReloadedTurn,
   'Reloaded player-turn prompt synchronization must not invoke the blocking continuity planner.'
 );
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 2);
+const coreProjectionsAfterReload = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+assert.equal(coreProjectionsAfterReload.ingressLedger.length > coreProjectionsBeforeReload.ingressLedger.length, true, 'Reloaded runtime must hydrate CORE Store instead of overwriting prior CORE projections.');
+assert.equal(coreProjectionsAfterReload.ingressLedger.some((entry) => entry.hostMessageId === 'runtime-player-after-reload'), true);
+assert.equal(coreProjectionsAfterReload.ingressLedger.some((entry) => entry.hostMessageId === 'runtime-player-consequential'), true);
+const reloadedIngressAfterFlush = view.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-after-reload');
+assert.ok(reloadedIngressAfterFlush?.coreTransactionId, 'Reloaded committed turn must retain CORE transaction id for sidecar diagnostics.');
+const reloadedCounselIngressAfterFlush = view.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-advisory-after-reload');
+assert.ok(reloadedCounselIngressAfterFlush?.coreTransactionId, 'Reloaded counsel turn must retain CORE transaction id for advisory diagnostics.');
+const reloadedCounselCoreIngress = coreProjectionsAfterReload.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-advisory-after-reload');
+assert.ok(reloadedCounselCoreIngress, 'Reloaded counsel advisory turn: CORE ingress projection exists.');
+assert.equal(reloadedCounselCoreIngress.transactionId, reloadedCounselIngressAfterFlush.coreTransactionId, 'Reloaded counsel advisory turn: CORE transaction id matches old ingress.');
+assert.equal(reloadedCounselCoreIngress.sourceFrameId, reloadedCounselIngressAfterFlush.sourceFrameId, 'Reloaded counsel advisory turn: CORE source frame id matches old ingress.');
+assert.equal(reloadedCounselCoreIngress.chatId, sourceChatId, 'Reloaded counsel advisory turn: CORE projection uses active chat id.');
+assert.equal(reloadedCounselCoreIngress.route, 'hostContinue', 'Reloaded counsel advisory turn: CORE projection route stays hostContinue.');
+assert.equal(reloadedCounselCoreIngress.status, 'complete', 'Reloaded counsel advisory turn: background advisory settlement completes the CORE projection after host release.');
+const reloadedCounselResponse = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.ingressId === reloadedCounselIngressAfterFlush.id);
+assert.ok(reloadedCounselResponse, 'Reloaded counsel advisory turn: old response ledger exists.');
+assert.equal(reloadedCounselResponse.responseKind, 'hostGeneration', 'Reloaded counsel advisory turn: response kind is host generation.');
+assert.equal(reloadedCounselResponse.hostGenerationReleaseMode, 'nonblocking', 'Reloaded counsel advisory turn: response ledger records nonblocking release mode.');
+assert.equal(reloadedCounselResponse.coreRelease?.phase, 'hostContinueReleased', 'Reloaded counsel advisory turn: response ledger preserves hostContinue release evidence.');
+const advisoryModelCallDiagnostics = coreProjectionsAfterReload.modelCallDiagnostics.filter((entry) => (
+  entry.roleId === 'missionDirectorAdvisor'
+  && entry.ingressId === reloadedCounselIngressAfterFlush.id
+));
+assert.equal(advisoryModelCallDiagnostics.length >= 1, true, 'Delayed advisory model-call diagnostics must attach to the original CORE transaction.');
+assert.equal(advisoryModelCallDiagnostics.every((entry) => entry.hostMessageId === 'runtime-player-advisory-after-reload'), true, 'Advisory model-call diagnostics must stay attached to the counsel source row.');
+assert.equal(advisoryModelCallDiagnostics.every((entry) => entry.sourceFrameId === reloadedCounselIngressAfterFlush.sourceFrameId), true, 'Advisory model-call diagnostics must retain source frame id.');
+assert.equal(advisoryModelCallDiagnostics.every((entry) => entry.requestHash), true, 'Advisory model-call diagnostics must store request hash only.');
+assert.equal(JSON.stringify(advisoryModelCallDiagnostics).includes('What are our options here'), false, 'Advisory model-call diagnostics must not store raw player text.');
+assert.equal(JSON.stringify(advisoryModelCallDiagnostics).includes('Bridge arrival options'), false, 'Advisory model-call diagnostics must not store raw provider output.');
+const advisoryCoreDiagnostics = coreProjectionsAfterReload.sidecarDiagnostics.filter((entry) => (
+  entry.worker === 'missionDirectorAdvisor'
+  && entry.ingressId === reloadedCounselIngressAfterFlush.id
+));
+assert.equal(advisoryCoreDiagnostics.length >= 2, true, 'CORE diagnostics must include queued/applied advisory enrichment entries.');
+assert.equal(advisoryCoreDiagnostics.every((entry) => entry.sidecarType === 'advisoryEnrichment'), true, 'Advisory diagnostics must use the advisoryEnrichment sidecar type.');
+assert.equal(advisoryCoreDiagnostics.every((entry) => entry.hostMessageId === 'runtime-player-advisory-after-reload'), true, 'Advisory diagnostics must stay attached to the counsel host row.');
+assert.equal(advisoryCoreDiagnostics.some((entry) => entry.status === 'queued'), true, 'CORE diagnostics must record queued advisory enrichment work.');
+assert.equal(advisoryCoreDiagnostics.some((entry) => entry.status === 'applied'), true, 'CORE diagnostics must record applied advisory enrichment work.');
+assert.equal(advisoryCoreDiagnostics.every((entry) => entry.playerTextHash), true, 'Advisory diagnostics must store player text hashes, not text.');
+assert.equal(advisoryCoreDiagnostics.every((entry) => entry.fallbackAdvisoryHash), true, 'Advisory diagnostics must store fallback advisory hashes.');
+assert.equal(JSON.stringify(advisoryCoreDiagnostics).includes('What are our options here'), false, 'Advisory CORE diagnostics must not store raw player text.');
+assert.equal(JSON.stringify(advisoryCoreDiagnostics).includes('Bridge arrival options'), false, 'Advisory CORE diagnostics must not store raw enriched advisory text.');
+const advisoryBackgroundBatches = coreProjectionsAfterReload.backgroundBatches.filter((entry) => (
+  entry.transactionId === reloadedCounselIngressAfterFlush.coreTransactionId
+  && String(entry.batchId || '').startsWith('advisory-enrichment:')
+));
+assert.equal(advisoryBackgroundBatches.length, 1, 'Advisory enrichment must settle through a CORE background batch.');
+assert.equal(advisoryBackgroundBatches[0].operationCount, 0, 'Advisory enrichment records effect refs, not mechanics operations.');
+assert.equal(advisoryBackgroundBatches[0].workerCount, 1, 'Advisory enrichment background settlement must identify one worker.');
+const commandLogSummaryCoreDiagnostics = coreProjectionsAfterReload.sidecarDiagnostics.filter((entry) => (
+  entry.worker === 'commandLogSummary'
+  && entry.ingressId === reloadedIngressAfterFlush.id
+));
+assert.equal(commandLogSummaryCoreDiagnostics.length >= 2, true, 'CORE diagnostics must include queued and final Command Log summary entries.');
+assert.equal(commandLogSummaryCoreDiagnostics.every((entry) => entry.sidecarType === 'commandLogSummary'), true, 'Command Log summary diagnostics must use the commandLogSummary sidecar type.');
+assert.equal(commandLogSummaryCoreDiagnostics.every((entry) => entry.hostMessageId === 'runtime-player-after-reload'), true, 'Command Log summary diagnostics must stay attached to the committed host row.');
+assert.equal(commandLogSummaryCoreDiagnostics.some((entry) => entry.status === 'queued'), true, 'CORE diagnostics must record queued Command Log summary work.');
+assert.equal(commandLogSummaryCoreDiagnostics.some((entry) => entry.status === 'applied'), true, 'CORE diagnostics must record applied Command Log summary work.');
+assert.equal(commandLogSummaryCoreDiagnostics.every((entry) => entry.inputSignatureHash), true, 'Command Log summary CORE diagnostics must store only the input signature hash.');
+const appliedCommandLogSummaryDiagnostic = commandLogSummaryCoreDiagnostics.find((entry) => entry.status === 'applied');
+assert.ok(appliedCommandLogSummaryDiagnostic?.assistedSummaryHash, 'Applied Command Log summary diagnostics must store a summary hash.');
+assert.equal('assistedSummary' in appliedCommandLogSummaryDiagnostic, false, 'Applied Command Log summary diagnostics must not store the raw assisted summary.');
+const appliedCommandLogSummaryText = view.campaignState.commandLog.entries.find((entry) => entry.assistedSummary?.status === 'complete')?.assistedSummary?.summary || '';
+assert.equal(
+  appliedCommandLogSummaryText && JSON.stringify(commandLogSummaryCoreDiagnostics).includes(appliedCommandLogSummaryText),
+  false,
+  'Command Log summary CORE diagnostics must not store raw assisted summary text.'
+);
+const commandLogSummaryBackgroundBatches = coreProjectionsAfterReload.backgroundBatches.filter((entry) => (
+  entry.transactionId === reloadedIngressAfterFlush.coreTransactionId
+  && String(entry.batchId || '').startsWith('command-log-summary:')
+));
+assert.equal(commandLogSummaryBackgroundBatches.length, 1, 'Command Log summary must settle through a CORE background batch.');
+assert.equal(commandLogSummaryBackgroundBatches[0].operationCount, 0, 'Command Log summary background settlement is a presentation effect, not a mechanics operation.');
+assert.equal(commandLogSummaryBackgroundBatches[0].workerCount, 1, 'Command Log summary background settlement must identify one worker.');
+const narrativeThreadCoreDiagnostics = coreProjectionsAfterReload.sidecarDiagnostics.filter((entry) => (
+  entry.worker === 'narrativeThreadDirector'
+  && entry.ingressId === reloadedIngressAfterFlush.id
+));
+assert.equal(narrativeThreadCoreDiagnostics.length >= 2, true, 'CORE diagnostics must include queued/applied Narrative Thread settlement entries.');
+assert.equal(narrativeThreadCoreDiagnostics.every((entry) => entry.sidecarType === 'narrativeThreadExtraction'), true, 'Narrative Thread diagnostics must use the narrativeThreadExtraction sidecar type.');
+assert.equal(narrativeThreadCoreDiagnostics.every((entry) => entry.hostMessageId === 'runtime-player-after-reload'), true, 'Narrative Thread diagnostics must stay attached to the committed host row.');
+assert.equal(narrativeThreadCoreDiagnostics.some((entry) => entry.status === 'queued'), true, 'CORE diagnostics must record queued Narrative Thread settlement work.');
+assert.equal(narrativeThreadCoreDiagnostics.some((entry) => entry.status === 'applied'), true, 'CORE diagnostics must record applied Narrative Thread settlement work.');
+assert.equal(narrativeThreadCoreDiagnostics.every((entry) => entry.inputSignatureHash), true, 'Narrative Thread CORE diagnostics must store only the input signature hash.');
+const narrativeThreadBackgroundBatches = coreProjectionsAfterReload.backgroundBatches.filter((entry) => (
+  entry.transactionId === reloadedIngressAfterFlush.coreTransactionId
+  && String(entry.batchId || '').startsWith('narrative-thread:')
+));
+assert.equal(narrativeThreadBackgroundBatches.length, 1, 'Narrative Thread settlement must settle through a CORE background batch.');
+assert.equal(narrativeThreadBackgroundBatches[0].operationCount, 0, 'Narrative Thread background settlement records effect refs, not raw operation payloads.');
+assert.equal(narrativeThreadBackgroundBatches[0].workerCount, 1, 'Narrative Thread background settlement must identify one worker.');
+const narrativeThreadDiagnosticsText = JSON.stringify(narrativeThreadCoreDiagnostics);
+assert.equal(narrativeThreadDiagnosticsText.includes('Serrin keeps the ship at measured readiness'), false, 'Narrative Thread diagnostics must not store raw player text.');
+assert.equal(narrativeThreadDiagnosticsText.includes('Committed narration for'), false, 'Narrative Thread diagnostics must not store raw assistant text.');
+const continuitySidecarCoreDiagnostics = coreProjectionsAfterReload.sidecarDiagnostics.filter((entry) => (
+  entry.worker === 'continuity'
+  && entry.ingressId === reloadedIngressAfterFlush.id
+));
+assert.equal(continuitySidecarCoreDiagnostics.length >= 3, true, 'CORE diagnostics must include regular sidecar lifecycle entries.');
+assert.equal(continuitySidecarCoreDiagnostics.every((entry) => entry.sidecarType === 'continuity'), true, 'Regular sidecar diagnostics must preserve worker type.');
+assert.equal(continuitySidecarCoreDiagnostics.every((entry) => entry.roleId === 'continuityTracker'), true, 'Regular sidecar diagnostics must preserve model role.');
+assert.equal(continuitySidecarCoreDiagnostics.every((entry) => entry.sourceFrameId === reloadedIngressAfterFlush.sourceFrameId), true, 'Regular sidecar diagnostics must attach to the committed source frame.');
+assert.equal(continuitySidecarCoreDiagnostics.some((entry) => entry.status === 'queued'), true, 'CORE diagnostics must record queued regular sidecar work.');
+assert.equal(continuitySidecarCoreDiagnostics.some((entry) => entry.status === 'running'), true, 'CORE diagnostics must record running regular sidecar work.');
+assert.equal(continuitySidecarCoreDiagnostics.some((entry) => entry.status === 'noChange'), true, 'CORE diagnostics must record no-change regular sidecar work.');
+assert.equal(JSON.stringify(continuitySidecarCoreDiagnostics).includes('Return one strict JSON state-delta proposal'), false, 'Regular sidecar CORE diagnostics must not store raw sidecar prompts.');
+for (const result of flushedSidecars.results || []) {
+  const workerDiagnostics = coreProjectionsAfterReload.sidecarDiagnostics.filter((entry) => (
+    entry.worker === result.workerKey
+    && entry.ingressId === reloadedIngressAfterFlush.id
+  ));
+  assert.equal(workerDiagnostics.some((entry) => entry.status === 'queued'), true, `${result.workerKey} CORE diagnostics must include queued status after flush.`);
+  assert.equal(workerDiagnostics.some((entry) => entry.status === 'running'), true, `${result.workerKey} CORE diagnostics must include running status after flush.`);
+  assert.equal(workerDiagnostics.some((entry) => entry.status === result.status), true, `${result.workerKey} CORE diagnostics must include final status after flush.`);
+}
+const regularSidecarDiagnosticsText = JSON.stringify(coreProjectionsAfterReload.sidecarDiagnostics.filter((entry) => (
+  entry.source === 'campaignSidecarScheduler'
+  && entry.ingressId === reloadedIngressAfterFlush.id
+)));
+for (const forbiddenMarker of [
+  'No durable sidecar change.',
+  'Serrin keeps the ship at measured readiness',
+  'Return one strict JSON state-delta proposal',
+  '"prompt"',
+  '"request"',
+  '"response"',
+  '"proposal"'
+]) {
+  assert.equal(regularSidecarDiagnosticsText.includes(forbiddenMarker), false, `Regular sidecar CORE diagnostics must not include ${forbiddenMarker}.`);
+}
+assertCoreDirectivePostedBridge({
+  projections: coreProjectionsAfterReload,
+  state: view.campaignState,
+  hostMessageId: 'runtime-player-after-reload',
+  chatId: sourceChatId,
+  label: 'reloaded source turn'
+});
+assertCoreMechanicsProjection({
+  projections: coreProjectionsAfterReload,
+  state: view.campaignState,
+  hostMessageId: 'runtime-player-after-reload',
+  label: 'reloaded source turn'
+});
 
 const saves = await listCampaignSaves(host.storage);
 const activeSave = saves.find((entry) => entry.id === view.activeSaveId);
