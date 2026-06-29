@@ -6,7 +6,7 @@ import {
 
 export const DIRECTIVE_PRESET_API_ID = 'openai';
 export const DIRECTIVE_PRESET_NAME = 'Directive';
-export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.9';
+export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.10';
 export const DIRECTIVE_PRESET_ASSET_URL = new URL('../../../presets/sillytavern/directive.json', import.meta.url);
 export const DIRECTIVE_LEGACY_PRESET_NAMES = Object.freeze([
   'Directive Star Trek Command',

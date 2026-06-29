@@ -25,10 +25,12 @@ import {
 
 const REPORT_KIND = 'directive.continuityProjectionMatrix.fullCertificationPreflight.v1';
 const DEFAULT_COVERAGE_STANDARD = 'single-rich-lane';
+const EXTERNAL_CONTEXT_COVERAGE_STANDARDS = new Set(['single-rich-lane', 'all-lanes']);
+const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 
 function usage() {
   return `Usage:
-  node tools/scripts/preflight-continuity-matrix-full-certification.mjs --artifact-root <path> [--strict] [--write-artifacts]
+  node tools/scripts/preflight-continuity-matrix-full-certification.mjs --artifact-root <path> [--strict] --coverage-standard <single-rich-lane|all-lanes> [--write-artifacts]
 
 Options:
   --artifact-root PATH       Existing five-user coordinator artifact root.
@@ -36,7 +38,7 @@ Options:
   --write-artifacts          Write full-certification-preflight.json under the artifact root.
   --output PATH              Write the report to a specific path.
   --expected-lanes N         Expected lane count. Default ${SOAK_PARALLEL_WORKER_POLICY.lanes.length}.
-  --coverage-standard NAME   single-rich-lane or all-lanes. Default ${DEFAULT_COVERAGE_STANDARD}.
+  --coverage-standard NAME   single-rich-lane or all-lanes. Required for strict release preflight.
 `;
 }
 
@@ -48,6 +50,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     output: '',
     expectedLanes: SOAK_PARALLEL_WORKER_POLICY.lanes.length,
     coverageStandard: DEFAULT_COVERAGE_STANDARD,
+    coverageStandardExplicit: false,
     help: false
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -61,8 +64,13 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg.startsWith('--output=')) options.output = path.resolve(arg.slice('--output='.length));
     else if (arg === '--expected-lanes') options.expectedLanes = positiveInteger(argv[++index], options.expectedLanes);
     else if (arg.startsWith('--expected-lanes=')) options.expectedLanes = positiveInteger(arg.slice('--expected-lanes='.length), options.expectedLanes);
-    else if (arg === '--coverage-standard') options.coverageStandard = String(argv[++index] || '').trim() || DEFAULT_COVERAGE_STANDARD;
-    else if (arg.startsWith('--coverage-standard=')) options.coverageStandard = String(arg.slice('--coverage-standard='.length) || '').trim() || DEFAULT_COVERAGE_STANDARD;
+    else if (arg === '--coverage-standard') {
+      options.coverageStandard = String(argv[++index] || '').trim();
+      options.coverageStandardExplicit = true;
+    } else if (arg.startsWith('--coverage-standard=')) {
+      options.coverageStandard = String(arg.slice('--coverage-standard='.length) || '').trim();
+      options.coverageStandardExplicit = true;
+    }
     else if (arg && !arg.startsWith('-')) options.artifactRoot = path.resolve(arg);
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -266,9 +274,11 @@ function summarizeLaneForPreflight(lane = {}, aggregateRoot = '') {
     externalContextGeneration,
     factualGrounding: {
       status: factualGrounding.status,
+      deterministicStatus: factualGrounding.deterministicStatus || null,
       checkCount: factualGrounding.checkCount,
       badCount: factualGrounding.badCount,
-      counts: factualGrounding.counts
+      counts: factualGrounding.counts,
+      modelAssistedReview: factualGrounding.modelAssistedReview || null
     },
     storyQualityReview,
     generationTiming,
@@ -282,36 +292,70 @@ function fixtureDepthFromReport(report = {}) {
     || null;
 }
 
+function normalizeUserHandle(value) {
+  return String(value || '').trim();
+}
+
 function externalCoverageStatus({ report = {}, laneSummaries = [], coverageStandard = DEFAULT_COVERAGE_STANDARD } = {}) {
+  if (!EXTERNAL_CONTEXT_COVERAGE_STANDARDS.has(coverageStandard)) {
+    return {
+      status: 'fail',
+      summary: `Unknown external-context coverage standard "${coverageStandard}". Use single-rich-lane or all-lanes.`,
+      fixtureDepth: fixtureDepthFromReport(report),
+      missingUserHandles: [],
+      matchedUserHandles: [],
+      nonLaneFixtureUserHandles: []
+    };
+  }
   const fixtureDepth = fixtureDepthFromReport(report);
   if (!fixtureDepth) {
     return {
       status: 'fail',
       summary: 'Aggregate report is missing external-context fixture-depth evidence.',
-      fixtureDepth: null
+      fixtureDepth: null,
+      missingUserHandles: [],
+      matchedUserHandles: [],
+      nonLaneFixtureUserHandles: []
     };
   }
-  const fullFixtureUsers = new Set(fixtureDepth.fullFixtureUserHandles || []);
+  const laneItems = Array.isArray(laneSummaries) ? laneSummaries : [];
+  const fixtureUserItems = Array.isArray(fixtureDepth.fullFixtureUserHandles) ? fixtureDepth.fullFixtureUserHandles : [];
+  const laneUserHandles = new Set(laneItems.map((lane) => normalizeUserHandle(lane.userHandle)).filter(Boolean));
+  const fullFixtureUsers = new Set(fixtureUserItems.map(normalizeUserHandle).filter(Boolean));
+  const matchedUserHandles = [...fullFixtureUsers].filter((handle) => laneUserHandles.has(handle));
+  const nonLaneFixtureUserHandles = [...fullFixtureUsers].filter((handle) => !laneUserHandles.has(handle));
   if (coverageStandard === 'all-lanes') {
-    const missing = laneSummaries
-      .map((lane) => lane.userHandle)
-      .filter((handle) => handle && !fullFixtureUsers.has(handle));
+    const missing = [...laneUserHandles].filter((handle) => !fullFixtureUsers.has(handle));
+    const failures = [
+      ...(fixtureDepth.status === 'pass' ? [] : [`fixture-depth status is ${fixtureDepth.status || 'unknown'}`]),
+      ...(missing.length ? [`${missing.length} lane(s) lack rich fixture coverage`] : []),
+      ...(nonLaneFixtureUserHandles.length ? [`${nonLaneFixtureUserHandles.length} fixture handle(s) are not configured non-human lanes`] : [])
+    ];
     return {
-      status: fixtureDepth.status === 'pass' && missing.length === 0 ? 'pass' : 'fail',
-      summary: missing.length
-        ? `${missing.length} lane(s) do not have rich external-context fixture coverage under all-lanes standard.`
+      status: failures.length ? 'fail' : 'pass',
+      summary: failures.length
+        ? `All-lanes external-context coverage failed: ${failures.join('; ')}.`
         : 'Every lane has rich external-context fixture coverage under all-lanes standard.',
       fixtureDepth,
-      missingUserHandles: missing
+      missingUserHandles: missing,
+      matchedUserHandles,
+      nonLaneFixtureUserHandles
     };
   }
+  const singleRichFailures = [
+    ...(fixtureDepth.status === 'pass' ? [] : [`fixture-depth status is ${fixtureDepth.status || 'unknown'}`]),
+    ...(matchedUserHandles.length ? [] : ['no configured non-human lane has full fixture evidence']),
+    ...(nonLaneFixtureUserHandles.length ? [`${nonLaneFixtureUserHandles.length} fixture handle(s) are not configured non-human lanes`] : [])
+  ];
   return {
-    status: fixtureDepth.status === 'pass' && fullFixtureUsers.size > 0 ? 'pass' : 'fail',
-    summary: fixtureDepth.status === 'pass' && fullFixtureUsers.size > 0
-      ? 'At least one non-human soak user has rich active external-context fixture evidence.'
-      : 'Single-rich-lane external-context standard requires at least one full fixture user with pass status.',
+    status: singleRichFailures.length ? 'fail' : 'pass',
+    summary: singleRichFailures.length
+      ? `Single-rich-lane external-context coverage failed: ${singleRichFailures.join('; ')}.`
+      : 'At least one non-human soak user has rich active external-context fixture evidence.',
     fixtureDepth,
-    missingUserHandles: []
+    missingUserHandles: [],
+    matchedUserHandles,
+    nonLaneFixtureUserHandles
   };
 }
 
@@ -319,7 +363,8 @@ export function buildFullCertificationPreflight({
   artifactRoot,
   strict = false,
   expectedLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.length,
-  coverageStandard = DEFAULT_COVERAGE_STANDARD
+  coverageStandard = DEFAULT_COVERAGE_STANDARD,
+  coverageStandardExplicit = true
 } = {}) {
   const resolvedRoot = path.resolve(artifactRoot || '');
   const reportPath = path.join(resolvedRoot, 'report.json');
@@ -338,6 +383,35 @@ export function buildFullCertificationPreflight({
     return totals;
   }, { promptSnapshots: 0, factChecks: 0, badFindings: 0 });
   const missingRequiredLaneIds = expected.requiredLaneIds.filter((id) => !lanes.some((lane) => lane.id === id));
+  const expectedLaneUserById = new Map(SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => [lane.id, lane.userHandle]));
+  const requiredUserHandles = expected.requiredUserHandles.map(normalizeUserHandle).filter(Boolean);
+  const requiredUserHandleSet = new Set(requiredUserHandles);
+  const presentUserHandles = laneSummaries.map((lane) => normalizeUserHandle(lane.userHandle)).filter(Boolean);
+  const presentUserHandleSet = new Set(presentUserHandles);
+  const missingRequiredUserHandles = requiredUserHandles.filter((handle) => !presentUserHandleSet.has(handle));
+  const unexpectedUserHandles = [...presentUserHandleSet].filter((handle) => !requiredUserHandleSet.has(handle));
+  const humanOnlyUserHandles = [...presentUserHandleSet].filter((handle) => RESERVED_HUMAN_ONLY_USERS.has(handle));
+  const duplicateUserHandles = [...presentUserHandleSet]
+    .filter((handle) => presentUserHandles.filter((candidate) => candidate === handle).length > 1);
+  const missingUserHandleLaneIds = laneSummaries
+    .filter((lane) => !normalizeUserHandle(lane.userHandle))
+    .map((lane) => lane.id)
+    .filter(Boolean);
+  const wrongLaneUserMappings = laneSummaries
+    .map((lane) => ({
+      id: lane.id,
+      expectedUserHandle: expectedLaneUserById.get(lane.id) || null,
+      actualUserHandle: normalizeUserHandle(lane.userHandle) || null
+    }))
+    .filter((entry) => entry.expectedUserHandle && entry.actualUserHandle && entry.actualUserHandle !== entry.expectedUserHandle);
+  const laneUserIdentityFailures = [
+    ...missingRequiredUserHandles.map((handle) => ({ type: 'missing-required-user', userHandle: handle })),
+    ...unexpectedUserHandles.map((handle) => ({ type: 'unexpected-user', userHandle: handle })),
+    ...humanOnlyUserHandles.map((handle) => ({ type: 'human-only-user', userHandle: handle })),
+    ...duplicateUserHandles.map((handle) => ({ type: 'duplicate-user', userHandle: handle })),
+    ...missingUserHandleLaneIds.map((id) => ({ type: 'missing-lane-user', id })),
+    ...wrongLaneUserMappings.map((entry) => ({ type: 'wrong-lane-user', ...entry }))
+  ];
   const artifactBudgetFailures = laneSummaries.filter((lane) => lane.artifactCompleteness?.status !== 'pass'
     || lane.artifactCompleteness?.promptInspectionDepthMissing
     || lane.artifactCompleteness?.factCheckDepthMissing);
@@ -409,6 +483,31 @@ export function buildFullCertificationPreflight({
       }
     ),
     check(
+      'non-human-lane-user-coverage',
+      laneUserIdentityFailures.length ? 'fail' : 'pass',
+      laneUserIdentityFailures.length
+        ? `${laneUserIdentityFailures.length} lane user identity issue(s) block release certification.`
+        : 'Every required lane is bound to its configured non-human SillyTavern soak user.',
+      {
+        requiredUserHandles,
+        presentUserHandles,
+        missingRequiredUserHandles,
+        unexpectedUserHandles,
+        humanOnlyUserHandles,
+        duplicateUserHandles,
+        missingUserHandleLaneIds,
+        wrongLaneUserMappings
+      }
+    ),
+    check(
+      'coverage-standard-explicit',
+      strict && coverageStandardExplicit !== true ? 'fail' : 'pass',
+      strict && coverageStandardExplicit !== true
+        ? 'Strict release preflight requires an explicit --coverage-standard value.'
+        : 'External-context coverage standard was explicitly supplied or strict mode is not active.',
+      { strict, coverageStandard, coverageStandardExplicit: coverageStandardExplicit === true }
+    ),
+    check(
       'full-depth-run',
       !turnLimit ? 'pass' : 'fail',
       !turnLimit
@@ -461,13 +560,30 @@ export function buildFullCertificationPreflight({
       externalGenerationFailures.length
         ? `${externalGenerationFailures.length} lane(s) lack full-depth external-context generation evidence.`
         : 'Every lane has full-depth external-context generation evidence.',
-      { failingLanes: externalGenerationFailures.map((lane) => ({ id: lane.id, status: lane.externalContextGeneration?.status, captureCount: lane.externalContextGeneration?.captureCount, expectedCaptureCount: lane.externalContextGeneration?.expectedCaptureCount })) }
+      {
+        failingLanes: externalGenerationFailures.map((lane) => ({
+          id: lane.id,
+          status: lane.externalContextGeneration?.status,
+          captureCount: lane.externalContextGeneration?.captureCount,
+          expectedCaptureCount: lane.externalContextGeneration?.expectedCaptureCount,
+          missingScriptMessageIds: lane.externalContextGeneration?.missingScriptMessageIds || [],
+          unexpectedScriptMessageIds: lane.externalContextGeneration?.unexpectedScriptMessageIds || [],
+          duplicateScriptMessageIds: lane.externalContextGeneration?.duplicateScriptMessageIds || [],
+          missingScriptMessageIdCount: lane.externalContextGeneration?.missingScriptMessageIdCount || 0
+        }))
+      }
     ),
     check(
       'external-context-coverage-standard',
       externalCoverage.status,
       externalCoverage.summary,
-      { coverageStandard, fixtureDepth: externalCoverage.fixtureDepth, missingUserHandles: externalCoverage.missingUserHandles || [] }
+      {
+        coverageStandard,
+        fixtureDepth: externalCoverage.fixtureDepth,
+        missingUserHandles: externalCoverage.missingUserHandles || [],
+        matchedUserHandles: externalCoverage.matchedUserHandles || [],
+        nonLaneFixtureUserHandles: externalCoverage.nonLaneFixtureUserHandles || []
+      }
     ),
     check(
       'factual-grounding-release-proof',
@@ -475,7 +591,15 @@ export function buildFullCertificationPreflight({
       factualFailures.length || artifactTotals.badFindings > 0
         ? `${factualFailures.length} lane(s) have non-passing factual-grounding evidence; bad findings=${artifactTotals.badFindings}.`
         : 'Every lane has passing factual-grounding evidence with zero bad findings.',
-      { failingLanes: factualFailures.map((lane) => ({ id: lane.id, status: lane.factualGrounding?.status, badCount: lane.factualGrounding?.badCount })) }
+      {
+        failingLanes: factualFailures.map((lane) => ({
+          id: lane.id,
+          status: lane.factualGrounding?.status,
+          deterministicStatus: lane.factualGrounding?.deterministicStatus || null,
+          badCount: lane.factualGrounding?.badCount,
+          modelAssistedReview: lane.factualGrounding?.modelAssistedReview || null
+        }))
+      }
     ),
     check(
       'generation-start-timing-release-proof',
@@ -537,6 +661,7 @@ export function buildFullCertificationPreflight({
     artifactRoot: resolvedRoot,
     strict,
     coverageStandard,
+    coverageStandardExplicit: coverageStandardExplicit === true,
     expected,
     aggregate: aggregateReport
       ? {
@@ -585,6 +710,10 @@ export function buildFullCertificationPreflight({
         captureCount: lane.externalContextGeneration?.captureCount || 0,
         expectedCaptureCount: lane.externalContextGeneration?.expectedCaptureCount,
         captureDepthMissing: lane.externalContextGeneration?.captureDepthMissing === true,
+        missingScriptMessageIds: lane.externalContextGeneration?.missingScriptMessageIds || [],
+        unexpectedScriptMessageIds: lane.externalContextGeneration?.unexpectedScriptMessageIds || [],
+        duplicateScriptMessageIds: lane.externalContextGeneration?.duplicateScriptMessageIds || [],
+        missingScriptMessageIdCount: lane.externalContextGeneration?.missingScriptMessageIdCount || 0,
         richFixturePressureStatus: lane.externalContextGeneration?.richFixturePressure?.status || null
       },
       factualGrounding: lane.factualGrounding,
@@ -631,7 +760,7 @@ async function main() {
       summary: entry.summary
     }))
   }, null, 2));
-  if (report.status === 'fail') process.exitCode = 1;
+  if (report.status !== 'pass') process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

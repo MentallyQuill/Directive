@@ -29,7 +29,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.9",
+  "presetVersion": "Directive-0.1.0-pre-alpha.10",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -92,7 +92,7 @@ Useful patterns adopted:
 - Character agency and social friction without making every NPC hostile.
 - Anti-omniscient knowledge boundaries.
 - Speech/perception boundaries that keep typed private thoughts, planning notes, and OOC text out of NPC hearing unless the user marks them as dialogue, transmission, or mental projection.
-- Concrete prose, turn-taking conversation pacing, and post-history reinforcement.
+- Concrete prose, SillyTavern scene-shape variation macros, turn-taking conversation pacing, and post-history reinforcement.
 - Wandlight-style POV controls with third-person limited enabled by default.
 - Hybrid named-anchor prose lenses that translate author recognition into Directive-specific scene function rather than direct imitation.
 - Anti-echo rules that prevent paraphrasing the player's last input.
@@ -117,5 +117,7 @@ See [SillyTavern Preset Reference Review](../design/SILLYTAVERN_PRESET_REFERENCE
 The preset keeps SillyTavern's normal placeholder sections enabled: World Info, persona, character description, personality, scenario, dialogue examples, and chat history. Directive's extension prompt blocks are installed separately through `setExtensionPrompt`, so they do not appear as ordinary preset entries.
 
 Those host placeholders remain active on purpose. If you use World Info/Lorebooks, Memory Books, Summaryception, VectFox, persona text, or other SillyTavern context-extension tools, they may still affect the final prompt that SillyTavern sends to the model. Directive records redacted provenance and compatibility diagnostics when it can, but it does not validate, import, repair, or take ownership of that external content by default.
+
+The `Directive Scene Shape Variation` entry keeps Directive's short continuation beats varied through SillyTavern `{{random::...}}` macros while preserving third-person limited external perspective. Its limited-POV impression option is explicitly non-player only, so it should not enter the player command character's private interior.
 
 The final `Directive Post-History Reinforcement` entry is placed after chat history to restate the rules most likely to drift during play: continue with new content, preserve committed outcomes, do not write for the player, do not expose hidden state, keep requested conversations turn-taking instead of monologue-complete, and leave a command-relevant opening.

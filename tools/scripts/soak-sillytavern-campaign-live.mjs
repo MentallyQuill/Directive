@@ -486,6 +486,8 @@ export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
   required: true,
   artifactDirectory: 'fact-checks',
   packIndexArtifact: 'fact-checks/canary-index.json',
+  modelReviewRequestArtifact: 'fact-checks/model-assisted-review/request.json',
+  modelReviewResultArtifact: 'fact-checks/model-assisted-review/result.json',
   liveLogRecord: 'fact-check',
   intervalTurns: '5-10',
   evaluationPhases: Object.freeze([
@@ -2952,7 +2954,9 @@ export function buildReleaseCertificationSummary(report = {}) {
       evidence: {
         canaryPacks: report.factualCanaryPacks?.length || 0,
         canaryFacts: factCount,
-        artifactDirectory: report.factualGroundingPolicy?.artifactDirectory || null
+        artifactDirectory: report.factualGroundingPolicy?.artifactDirectory || null,
+        modelReviewRequestArtifact: report.factualGroundingPolicy?.modelReviewRequestArtifact || null,
+        modelReviewResultArtifact: report.factualGroundingPolicy?.modelReviewResultArtifact || null
       }
     }),
     evidenceGate({
@@ -3526,6 +3530,8 @@ function summaryMarkdown(report) {
   lines.push(`- Live log record: ${report.factualGroundingPolicy.liveLogRecord}`);
   lines.push(`- Artifact directory: ${report.factualGroundingPolicy.artifactDirectory}`);
   lines.push(`- Canary pack index: ${report.factualGroundingPolicy.packIndexArtifact}`);
+  lines.push(`- Model review request: ${report.factualGroundingPolicy.modelReviewRequestArtifact}`);
+  lines.push(`- Model review result: ${report.factualGroundingPolicy.modelReviewResultArtifact}`);
   lines.push(`- Canary packs: ${(report.factualCanaryPacks || []).length}, facts: ${(report.factualCanaryPacks || []).reduce((sum, pack) => sum + Number(pack.canaryCount || 0), 0)}`);
   lines.push(`- Evaluation phases: ${report.factualGroundingPolicy.evaluationPhases.join(', ')}`);
   lines.push(`- Canary categories: ${report.factualGroundingPolicy.canaryCategories.join(', ')}`);

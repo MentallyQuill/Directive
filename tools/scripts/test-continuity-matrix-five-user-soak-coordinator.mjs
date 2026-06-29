@@ -77,6 +77,63 @@ function writeExternalContextSummary(root) {
   });
 }
 
+function writeFactualModelReviewArtifacts(root, {
+  requestId = 'fact-model-review-fixture',
+  inputHash = 'fact-model-input-hash',
+  status = 'pass',
+  reason = null,
+  roleId = 'factualGroundingReviewer',
+  modelCallStatus = 'ok',
+  modelCallOk = true,
+  errorCode = null,
+  counts = {
+    respected: 1,
+    omitted: 0,
+    unsupportedDetail: 0,
+    contradicted: 0,
+    notApplicable: 0,
+    p1: 0,
+    p2: 0,
+    p3: 0
+  }
+} = {}) {
+  const requestPath = path.join(root, 'fact-checks', 'model-assisted-review', 'request.json');
+  const resultPath = path.join(root, 'fact-checks', 'model-assisted-review', 'result.json');
+  writeJson(requestPath, {
+    kind: 'directive.liveCampaignSoak.factualModelReviewRequest',
+    schemaVersion: 1,
+    requestId,
+    runId: 'lane-run',
+    packageId: 'directive:starship-package:breckinridge-ashes-of-peace',
+    packId: 'ashes-factual-grounding',
+    inputHash,
+    transcript: [{ messageIndex: 0, role: 'assistant', textHash: 'a'.repeat(64) }],
+    deterministicChecks: [{ checkId: 'fact-check-soak-turn-01', status: 'pass' }]
+  });
+  writeJson(resultPath, {
+    kind: 'directive.liveCampaignSoak.factualModelReviewResult',
+    schemaVersion: 1,
+    requestId,
+    status,
+    reason,
+    packageId: 'directive:starship-package:breckinridge-ashes-of-peace',
+    packId: 'ashes-factual-grounding',
+    inputHash,
+    modelCall: {
+      roleId,
+      providerKind: 'utility',
+      providerId: 'test-provider',
+      model: 'test-model',
+      status: modelCallStatus,
+      ok: modelCallOk,
+      latencyMs: 900,
+      errorCode
+    },
+    counts,
+    findings: []
+  });
+}
+
 function makeArtifactRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'directive-cpm-five-user-'));
 }
@@ -402,6 +459,7 @@ function writePassingLaneArtifacts(root, {
   writeText(path.join(root, 'live-log.jsonl'), `${JSON.stringify({ kind: 'run-end', status: 'pass' })}\n`);
   writeText(path.join(root, 'transcript', 'readable-chat.md'), '# Transcript\n\nBronn is Tellarite.\n');
   writeExternalContextSummary(root);
+  writeFactualModelReviewArtifacts(root);
   writeJson(path.join(root, 'fact-checks', 'canary-index.json'), {
     kind: 'directive.liveCampaignSoak.factualCanaryIndex',
     canaryCount: 2
@@ -417,7 +475,29 @@ function writePassingLaneArtifacts(root, {
       failurePolicyEvidence: modelCallFailurePolicy
     },
     checks: [
-      { id: 'live-factual-grounding-transcript-audit', status: 'pass', summary: 'ok' },
+      {
+        id: 'live-factual-grounding-transcript-audit',
+        status: 'pass',
+        summary: 'ok',
+        details: {
+          modelAssistedReview: {
+            status: 'pass',
+            requestPath: 'fact-checks/model-assisted-review/request.json',
+            resultPath: 'fact-checks/model-assisted-review/result.json',
+            inputHash: 'fact-model-input-hash',
+            counts: {
+              respected: 1,
+              omitted: 0,
+              unsupportedDetail: 0,
+              contradicted: 0,
+              notApplicable: 0,
+              p1: 0,
+              p2: 0,
+              p3: 0
+            }
+          }
+        }
+      },
       { id: 'served-extension-freshness', status: 'pass', summary: 'ok' },
       ...(includeTiming ? [timingCheck({ proof: timingProof })] : []),
       ...(includeHostNativeCompletion ? [hostNativeCompletionCheck({ proof: hostNativeCompletionProof })] : []),
@@ -523,6 +603,34 @@ function writePassingLaneArtifacts(root, {
     },
     results: []
   });
+}
+
+function removeVectFoxRichFixturePressure(root) {
+  const promptDir = path.join(root, 'prompt-inspection');
+  for (const name of fs.readdirSync(promptDir)) {
+    if (!name.endsWith('.json')) continue;
+    const filePath = path.join(promptDir, name);
+    const artifact = readJson(filePath);
+    if (artifact.reason !== 'pre-generation') continue;
+    const targets = artifact.promptInspection?.externalPromptEnvironmentTargets;
+    if (!targets || typeof targets !== 'object') continue;
+    targets.vectFox = {
+      enabled: true,
+      generationInterceptorActive: true,
+      promptKeys: ['3_vectfox'],
+      backendDiagnostics: {
+        status: 'missing'
+      }
+    };
+    writeJson(filePath, artifact);
+  }
+}
+
+function mutatePreGenerationScriptId(root, fileName, scriptMessageId) {
+  const filePath = path.join(root, 'prompt-inspection', fileName);
+  const artifact = readJson(filePath);
+  artifact.scriptMessageId = scriptMessageId;
+  writeJson(filePath, artifact);
 }
 
 assert.equal(CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS.includes('directive.continuity.invariants'), true);
@@ -887,6 +995,92 @@ const aggregateRichPassReport = buildReport({
 const aggregateRichPassCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'external-context-generation-proof');
 assert.equal(aggregateRichPassCheck.status, 'pass');
 assert.equal(aggregateRichPassCheck.details.richFixtureUserHandles.includes('directive-soak-a'), true);
+const fiveLaneRichRoot = makeArtifactRoot();
+const fiveLaneRichSummaries = lanes.map((lane, index) => {
+  const artifactRoot = path.join(fiveLaneRichRoot, lane.id);
+  writePassingLaneArtifacts(artifactRoot);
+  return summarizeContinuityMatrixLane({
+    lane,
+    child: {
+      exitCode: 0,
+      signal: null,
+      stdout: JSON.stringify({ status: 'pass', artifactRoot }),
+      stderr: '',
+      json: { status: 'pass', artifactRoot }
+    },
+    artifactRoot
+  });
+});
+const fiveLaneRichPassReport = buildReport({
+  runId: 'aggregate-five-lane-rich-pass',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '3',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: fiveLaneRichRoot },
+  lanes,
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: fiveLaneRichSummaries
+});
+const fiveLaneRichPassCheck = fiveLaneRichPassReport.checks.find((entry) => entry.id === 'external-context-generation-proof');
+assert.equal(fiveLaneRichPassCheck.status, 'pass');
+assert.equal(fiveLaneRichPassCheck.details.richFixtureUserHandles.length, 5);
+
+const fiveLaneRichMissingRoot = makeArtifactRoot();
+const fiveLaneRichMissingSummaries = lanes.map((lane, index) => {
+  const artifactRoot = path.join(fiveLaneRichMissingRoot, lane.id);
+  writePassingLaneArtifacts(artifactRoot);
+  if (index === 2) removeVectFoxRichFixturePressure(artifactRoot);
+  return summarizeContinuityMatrixLane({
+    lane,
+    child: {
+      exitCode: 0,
+      signal: null,
+      stdout: JSON.stringify({ status: 'pass', artifactRoot }),
+      stderr: '',
+      json: { status: 'pass', artifactRoot }
+    },
+    artifactRoot
+  });
+});
+assert.equal(fiveLaneRichMissingSummaries[2].externalContextGenerationProof.status, 'pass');
+assert.equal(fiveLaneRichMissingSummaries[2].externalContextGenerationProof.richFixturePressure.status, 'fail');
+assert.deepEqual(fiveLaneRichMissingSummaries[2].externalContextGenerationProof.richFixturePressure.missingTargets, ['vectFox']);
+const fiveLaneRichMissingReport = buildReport({
+  runId: 'aggregate-five-lane-rich-missing',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '3',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: fiveLaneRichMissingRoot },
+  lanes,
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: fiveLaneRichMissingSummaries
+});
+const fiveLaneRichMissingCheck = fiveLaneRichMissingReport.checks.find((entry) => entry.id === 'external-context-generation-proof');
+assert.equal(fiveLaneRichMissingCheck.status, 'fail');
+assert.match(fiveLaneRichMissingCheck.summary, /rich fixture lane/);
+assert.equal(fiveLaneRichMissingCheck.details.lanes[2].richFixturePressure.status, 'fail');
 const aggregateHostNativeCompletionCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'host-native-completion-core-proof');
 assert.equal(aggregateHostNativeCompletionCheck.status, 'pass');
 assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].completedHostContinueCount, 1);
@@ -1381,6 +1575,29 @@ assert.equal(summarizeContinuityMatrixLane({
   turnLimit: '1'
 }).status, 'fail');
 
+const missingExternalSummaryFileRoot = makeArtifactRoot();
+writePassingLaneArtifacts(missingExternalSummaryFileRoot, { turnLimit: 1 });
+fs.rmSync(path.join(missingExternalSummaryFileRoot, 'host-extensions', 'external-context-summary.json'), { force: true });
+const missingExternalSummaryFileCompleteness = summarizeLaneArtifactCompleteness({
+  artifactRoot: missingExternalSummaryFileRoot,
+  turnLimit: '1'
+});
+assert.equal(missingExternalSummaryFileCompleteness.status, 'fail');
+assert.equal(missingExternalSummaryFileCompleteness.externalContextSummaryPresent, false);
+assert.equal(missingExternalSummaryFileCompleteness.missingFiles.includes('host-extensions/external-context-summary.json'), true);
+assert.equal(summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: missingExternalSummaryFileRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: missingExternalSummaryFileRoot }
+  },
+  artifactRoot: missingExternalSummaryFileRoot,
+  turnLimit: '1'
+}).status, 'fail');
+
 const malformedExternalSummaryRoot = makeArtifactRoot();
 writePassingLaneArtifacts(malformedExternalSummaryRoot, { turnLimit: 1 });
 writeJson(path.join(malformedExternalSummaryRoot, 'host-extensions', 'external-context-summary.json'), {
@@ -1565,6 +1782,78 @@ assert.equal(shallowGenerationPromptSummary.status, 'fail');
 assert.equal(shallowGenerationPromptSummary.captureDepthMissing, true);
 assert.equal(shallowGenerationPromptSummary.expectedCaptureCount, 3);
 
+const wrongScriptGenerationPromptRoot = makeArtifactRoot();
+writePassingLaneArtifacts(wrongScriptGenerationPromptRoot, { turnLimit: 3, promptCaptureCount: 3 });
+mutatePreGenerationScriptId(wrongScriptGenerationPromptRoot, 'pre-generation-soak-turn-02-0003.json', 'soak-turn-99');
+const wrongScriptGenerationPromptSummary = summarizeExternalContextGenerationArtifacts({
+  artifactRoot: wrongScriptGenerationPromptRoot,
+  turnLimit: '3'
+});
+assert.equal(wrongScriptGenerationPromptSummary.status, 'fail');
+assert.deepEqual(wrongScriptGenerationPromptSummary.expectedScriptMessageIds, ['soak-turn-01', 'soak-turn-02', 'soak-turn-03']);
+assert.deepEqual(wrongScriptGenerationPromptSummary.missingScriptMessageIds, ['soak-turn-02']);
+assert.deepEqual(wrongScriptGenerationPromptSummary.unexpectedScriptMessageIds, ['soak-turn-99']);
+assert.match(wrongScriptGenerationPromptSummary.summary, /missing expected script id/);
+const wrongScriptLaneSummary = summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: wrongScriptGenerationPromptRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: wrongScriptGenerationPromptRoot }
+  },
+  artifactRoot: wrongScriptGenerationPromptRoot,
+  turnLimit: '3'
+});
+const wrongScriptAggregate = buildReport({
+  runId: 'aggregate-wrong-script-external-context',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '3',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: wrongScriptGenerationPromptRoot },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [wrongScriptLaneSummary]
+});
+const wrongScriptAggregateCheck = wrongScriptAggregate.checks.find((entry) => entry.id === 'external-context-generation-proof');
+assert.equal(wrongScriptAggregateCheck.status, 'fail');
+assert.deepEqual(wrongScriptAggregateCheck.details.lanes[0].missingScriptMessageIds, ['soak-turn-02']);
+assert.deepEqual(wrongScriptAggregateCheck.details.lanes[0].unexpectedScriptMessageIds, ['soak-turn-99']);
+
+const duplicateScriptGenerationPromptRoot = makeArtifactRoot();
+writePassingLaneArtifacts(duplicateScriptGenerationPromptRoot, { turnLimit: 3, promptCaptureCount: 3 });
+mutatePreGenerationScriptId(duplicateScriptGenerationPromptRoot, 'pre-generation-soak-turn-03-0004.json', 'soak-turn-02');
+const duplicateScriptGenerationPromptSummary = summarizeExternalContextGenerationArtifacts({
+  artifactRoot: duplicateScriptGenerationPromptRoot,
+  turnLimit: '3'
+});
+assert.equal(duplicateScriptGenerationPromptSummary.status, 'fail');
+assert.deepEqual(duplicateScriptGenerationPromptSummary.missingScriptMessageIds, ['soak-turn-03']);
+assert.deepEqual(duplicateScriptGenerationPromptSummary.duplicateScriptMessageIds, ['soak-turn-02']);
+
+const missingScriptGenerationPromptRoot = makeArtifactRoot();
+writePassingLaneArtifacts(missingScriptGenerationPromptRoot, { turnLimit: 3, promptCaptureCount: 3 });
+mutatePreGenerationScriptId(missingScriptGenerationPromptRoot, 'pre-generation-soak-turn-03-0004.json', null);
+const missingScriptGenerationPromptSummary = summarizeExternalContextGenerationArtifacts({
+  artifactRoot: missingScriptGenerationPromptRoot,
+  turnLimit: '3'
+});
+assert.equal(missingScriptGenerationPromptSummary.status, 'fail');
+assert.deepEqual(missingScriptGenerationPromptSummary.missingScriptMessageIds, ['soak-turn-03']);
+assert.equal(missingScriptGenerationPromptSummary.missingScriptMessageIdCount, 1);
+
 const badGenerationPromptRoot = makeArtifactRoot();
 writePassingLaneArtifacts(badGenerationPromptRoot);
 const badGenerationPrompt = readJson(path.join(badGenerationPromptRoot, 'prompt-inspection', 'pre-generation-soak-turn-01-0002.json'));
@@ -1695,6 +1984,140 @@ const warningFactSummary = summarizeFactualGroundingArtifacts({ artifactRoot: wa
 assert.equal(warningFactSummary.status, 'warning');
 assert.equal(warningFactSummary.badCount, 1);
 
+const missingFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(missingFactualModelReviewRoot);
+fs.rmSync(path.join(missingFactualModelReviewRoot, 'fact-checks', 'model-assisted-review', 'result.json'), { force: true });
+const missingFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: missingFactualModelReviewRoot });
+assert.equal(missingFactualModelReviewSummary.status, 'warning');
+assert.equal(missingFactualModelReviewSummary.modelAssistedReview.missing, true);
+assert.equal(missingFactualModelReviewSummary.modelAssistedReview.validationIssues.includes('missing-result'), true);
+const missingFactualModelReviewLane = summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: missingFactualModelReviewRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: missingFactualModelReviewRoot }
+  },
+  artifactRoot: missingFactualModelReviewRoot
+});
+const missingFactualModelReviewAggregate = buildReport({
+  runId: 'aggregate-missing-factual-model-review',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: missingFactualModelReviewRoot },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [missingFactualModelReviewLane]
+});
+const missingFactualModelReviewCheck = missingFactualModelReviewAggregate.checks.find((entry) => entry.id === 'factual-grounding');
+assert.equal(missingFactualModelReviewCheck.status, 'fail');
+assert.equal(missingFactualModelReviewCheck.details.lanes[0].modelAssistedReview.missing, true);
+
+const notRunFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(notRunFactualModelReviewRoot);
+writeFactualModelReviewArtifacts(notRunFactualModelReviewRoot, {
+  status: 'not-run',
+  reason: 'model-assisted factual review request was prepared; provider was not invoked'
+});
+const notRunFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: notRunFactualModelReviewRoot });
+assert.equal(notRunFactualModelReviewSummary.status, 'warning');
+assert.equal(notRunFactualModelReviewSummary.modelAssistedReview.missing, true);
+
+const staleFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(staleFactualModelReviewRoot);
+writeFactualModelReviewArtifacts(staleFactualModelReviewRoot, { inputHash: 'stale-input-hash' });
+const staleFactualResultPath = path.join(staleFactualModelReviewRoot, 'fact-checks', 'model-assisted-review', 'result.json');
+const staleFactualResult = readJson(staleFactualResultPath);
+staleFactualResult.inputHash = 'different-input-hash';
+writeJson(staleFactualResultPath, staleFactualResult);
+const staleFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: staleFactualModelReviewRoot });
+assert.equal(staleFactualModelReviewSummary.status, 'fail');
+assert.equal(staleFactualModelReviewSummary.modelAssistedReview.validationIssues.includes('input-hash-mismatch'), true);
+
+const wrongRoleFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(wrongRoleFactualModelReviewRoot);
+writeFactualModelReviewArtifacts(wrongRoleFactualModelReviewRoot, { roleId: 'storyQualityReviewer' });
+const wrongRoleFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: wrongRoleFactualModelReviewRoot });
+assert.equal(wrongRoleFactualModelReviewSummary.status, 'fail');
+assert.equal(wrongRoleFactualModelReviewSummary.modelAssistedReview.wrongRole, true);
+
+const timeoutFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(timeoutFactualModelReviewRoot);
+writeFactualModelReviewArtifacts(timeoutFactualModelReviewRoot, {
+  status: 'fail',
+  reason: 'factualGroundingReviewer timed out',
+  modelCallStatus: 'failed',
+  modelCallOk: false,
+  errorCode: 'DIRECTIVE_GENERATION_TIMEOUT'
+});
+const timeoutFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: timeoutFactualModelReviewRoot });
+assert.equal(timeoutFactualModelReviewSummary.status, 'fail');
+assert.equal(timeoutFactualModelReviewSummary.modelAssistedReview.timedOut, true);
+
+const unparseableFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(unparseableFactualModelReviewRoot);
+writeFactualModelReviewArtifacts(unparseableFactualModelReviewRoot, {
+  status: 'fail',
+  reason: 'Model-assisted factual reviewer did not return parseable JSON'
+});
+const unparseableFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: unparseableFactualModelReviewRoot });
+assert.equal(unparseableFactualModelReviewSummary.status, 'fail');
+assert.equal(unparseableFactualModelReviewSummary.modelAssistedReview.unparseable, true);
+
+const stalePassUnparseableProviderFactualRoot = makeArtifactRoot();
+writePassingLaneArtifacts(stalePassUnparseableProviderFactualRoot);
+writeFactualModelReviewArtifacts(stalePassUnparseableProviderFactualRoot);
+writeText(
+  path.join(stalePassUnparseableProviderFactualRoot, 'smoke-factual-review', 'provider-result.json'),
+  JSON.stringify({ result: { ok: true, text: 'not strict json' } })
+);
+const stalePassUnparseableProviderReportPath = path.join(stalePassUnparseableProviderFactualRoot, 'report.json');
+const stalePassUnparseableProviderReport = readJson(stalePassUnparseableProviderReportPath);
+stalePassUnparseableProviderReport.checks.find((entry) => entry.id === 'live-factual-grounding-transcript-audit')
+  .details.modelAssistedReview.providerOutputPath = 'smoke-factual-review/provider-result.json';
+writeJson(stalePassUnparseableProviderReportPath, stalePassUnparseableProviderReport);
+const stalePassUnparseableProviderFactualSummary = summarizeFactualGroundingArtifacts({
+  artifactRoot: stalePassUnparseableProviderFactualRoot
+});
+assert.equal(stalePassUnparseableProviderFactualSummary.status, 'fail');
+assert.equal(stalePassUnparseableProviderFactualSummary.modelAssistedReview.unparseable, true);
+assert.equal(
+  stalePassUnparseableProviderFactualSummary.modelAssistedReview.validationIssues.includes('unparseable-provider-output'),
+  true
+);
+
+const badFindingFactualModelReviewRoot = makeArtifactRoot();
+writePassingLaneArtifacts(badFindingFactualModelReviewRoot);
+writeFactualModelReviewArtifacts(badFindingFactualModelReviewRoot, {
+  counts: {
+    respected: 0,
+    omitted: 0,
+    unsupportedDetail: 0,
+    contradicted: 1,
+    notApplicable: 0,
+    p1: 1,
+    p2: 0,
+    p3: 0
+  }
+});
+const badFindingFactualModelReviewSummary = summarizeFactualGroundingArtifacts({ artifactRoot: badFindingFactualModelReviewRoot });
+assert.equal(badFindingFactualModelReviewSummary.status, 'fail');
+assert.equal(badFindingFactualModelReviewSummary.modelAssistedReview.validationIssues.includes('model-review-bad-findings'), true);
+
 const coordinatorSource = fs.readFileSync('tools/scripts/run-continuity-matrix-five-user-soak.mjs', 'utf8');
 assert.match(coordinatorSource, /external-context-readiness-proof/);
 assert.match(coordinatorSource, /external-context-fixture-depth/);
@@ -1722,6 +2145,7 @@ fs.rmSync(runtimeTimingRoot, { recursive: true, force: true });
 fs.rmSync(skippedTimingRoot, { recursive: true, force: true });
 fs.rmSync(fullRoot, { recursive: true, force: true });
 fs.rmSync(missingExternalSummaryRoot, { recursive: true, force: true });
+fs.rmSync(missingExternalSummaryFileRoot, { recursive: true, force: true });
 fs.rmSync(malformedExternalSummaryRoot, { recursive: true, force: true });
 fs.rmSync(boundedRoot, { recursive: true, force: true });
 fs.rmSync(partialFactDepthRoot, { recursive: true, force: true });
@@ -1733,5 +2157,13 @@ fs.rmSync(missingRoot, { recursive: true, force: true });
 fs.rmSync(missingExternalRoot, { recursive: true, force: true });
 fs.rmSync(badFactRoot, { recursive: true, force: true });
 fs.rmSync(warningFactRoot, { recursive: true, force: true });
+fs.rmSync(missingFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(notRunFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(staleFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(wrongRoleFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(timeoutFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(unparseableFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(stalePassUnparseableProviderFactualRoot, { recursive: true, force: true });
+fs.rmSync(badFindingFactualModelReviewRoot, { recursive: true, force: true });
 
 console.log('test-continuity-matrix-five-user-soak-coordinator: ok');

@@ -948,7 +948,6 @@
       "required": [
         "required",
         "artifactDirectory",
-        "packIndexArtifact",
         "liveLogRecord",
         "triggerSources",
         "requiredSurfaces",
@@ -1044,6 +1043,8 @@
         "required",
         "artifactDirectory",
         "packIndexArtifact",
+        "modelReviewRequestArtifact",
+        "modelReviewResultArtifact",
         "liveLogRecord",
         "intervalTurns",
         "evaluationPhases",
@@ -1074,6 +1075,14 @@
         "packIndexArtifact": {
           "type": "string",
           "const": "fact-checks/canary-index.json"
+        },
+        "modelReviewRequestArtifact": {
+          "type": "string",
+          "const": "fact-checks/model-assisted-review/request.json"
+        },
+        "modelReviewResultArtifact": {
+          "type": "string",
+          "const": "fact-checks/model-assisted-review/result.json"
         },
         "liveLogRecord": {
           "type": "string",

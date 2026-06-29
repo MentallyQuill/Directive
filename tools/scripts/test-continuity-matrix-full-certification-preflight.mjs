@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,6 +24,21 @@ function writeJson(filePath, value) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function runPreflightCli(args = []) {
+  return spawnSync(
+    process.execPath,
+    [path.join(process.cwd(), 'tools', 'scripts', 'preflight-continuity-matrix-full-certification.mjs'), ...args],
+    { cwd: process.cwd(), encoding: 'utf8' }
+  );
+}
+
+function mutatePreGenerationScriptId(root, fileName, scriptMessageId) {
+  const filePath = path.join(root, 'prompt-inspection', fileName);
+  const artifact = readJson(filePath);
+  artifact.scriptMessageId = scriptMessageId;
+  writeJson(filePath, artifact);
 }
 
 function writeText(filePath, value) {
@@ -58,6 +74,61 @@ function writeExternalContextSummary(root) {
         vectFox: { enabled: true, backendDiagnostics: { status: 'external-backend-configured' } }
       }
     }))
+  });
+}
+
+function writeFactualModelReviewArtifacts(root, {
+  requestId = 'fact-model-review-fixture',
+  inputHash = 'fact-model-input-hash',
+  status = 'pass',
+  reason = null,
+  roleId = 'factualGroundingReviewer',
+  modelCallStatus = 'ok',
+  modelCallOk = true,
+  errorCode = null,
+  counts = {
+    respected: 1,
+    omitted: 0,
+    unsupportedDetail: 0,
+    contradicted: 0,
+    notApplicable: 0,
+    p1: 0,
+    p2: 0,
+    p3: 0
+  }
+} = {}) {
+  writeJson(path.join(root, 'fact-checks', 'model-assisted-review', 'request.json'), {
+    kind: 'directive.liveCampaignSoak.factualModelReviewRequest',
+    schemaVersion: 1,
+    requestId,
+    runId: 'lane-run',
+    packageId: 'directive:starship-package:breckinridge-ashes-of-peace',
+    packId: 'ashes-factual-grounding',
+    inputHash,
+    transcript: [{ messageIndex: 0, role: 'assistant', textHash: 'a'.repeat(64) }],
+    deterministicChecks: [{ checkId: 'fact-check-soak-turn-01', status: 'pass' }]
+  });
+  writeJson(path.join(root, 'fact-checks', 'model-assisted-review', 'result.json'), {
+    kind: 'directive.liveCampaignSoak.factualModelReviewResult',
+    schemaVersion: 1,
+    requestId,
+    status,
+    reason,
+    packageId: 'directive:starship-package:breckinridge-ashes-of-peace',
+    packId: 'ashes-factual-grounding',
+    inputHash,
+    modelCall: {
+      roleId,
+      providerKind: 'utility',
+      providerId: 'test-provider',
+      model: 'test-model',
+      status: modelCallStatus,
+      ok: modelCallOk,
+      latencyMs: 900,
+      errorCode
+    },
+    counts,
+    findings: []
   });
 }
 
@@ -249,6 +320,7 @@ function writeLaneArtifacts(root, {
   writeText(path.join(root, 'live-log.jsonl'), `${JSON.stringify({ kind: 'run-end', status: 'pass' })}\n`);
   writeText(path.join(root, 'transcript', 'readable-chat.md'), '# Transcript\n');
   writeExternalContextSummary(root);
+  writeFactualModelReviewArtifacts(root);
   writeJson(path.join(root, 'fact-checks', 'canary-index.json'), { kind: 'directive.liveCampaignSoak.factualCanaryIndex' });
   writeJson(path.join(root, 'report.json'), {
     status: reportStatusOverride || (modelCallFailurePolicy.status === 'fail' ? 'fail' : turnLimit ? 'warning' : 'pass'),
@@ -264,6 +336,29 @@ function writeLaneArtifacts(root, {
       timingCheck(),
       hostNativeCompletionCheck(),
       storyQualityCheck(),
+      {
+        id: 'live-factual-grounding-transcript-audit',
+        status: 'pass',
+        summary: 'Factual-grounding review fixture passed.',
+        details: {
+          modelAssistedReview: {
+            status: 'pass',
+            requestPath: 'fact-checks/model-assisted-review/request.json',
+            resultPath: 'fact-checks/model-assisted-review/result.json',
+            inputHash: 'fact-model-input-hash',
+            counts: {
+              respected: 1,
+              omitted: 0,
+              unsupportedDetail: 0,
+              contradicted: 0,
+              notApplicable: 0,
+              p1: 0,
+              p2: 0,
+              p3: 0
+            }
+          }
+        }
+      },
       {
         id: 'live-smoke-52-turn-delegation',
         status: liveSmokeDelegationStatus,
@@ -412,6 +507,13 @@ function aggregateReport(root, lanes, { turnLimit = null, status = 'pass' } = {}
   });
 }
 
+function setFullFixtureUsers(root, handles = []) {
+  const reportPath = path.join(root, 'report.json');
+  const report = readJson(reportPath);
+  report.readiness.externalContextProbe.fixtureDepth.fullFixtureUserHandles = handles;
+  writeJson(reportPath, report);
+}
+
 const budget = expectedFullCertificationBudget();
 assert.equal(budget.fullTurnCount, 52);
 assert.equal(budget.factChecksPerLane, 53);
@@ -430,8 +532,217 @@ assert.equal(fullPreflight.checks.find((entry) => entry.id === 'aggregate-live-e
 assert.equal(fullPreflight.checks.find((entry) => entry.id === 'lane-live-execution-pass').status, 'pass');
 assert.equal(fullPreflight.checks.find((entry) => entry.id === 'unbounded-artifact-budget').status, 'pass');
 assert.equal(fullPreflight.checks.find((entry) => entry.id === 'five-lane-coverage').status, 'pass');
+assert.equal(fullPreflight.checks.find((entry) => entry.id === 'non-human-lane-user-coverage').status, 'pass');
 assert.equal(fullPreflight.checks.find((entry) => entry.id === 'external-context-coverage-standard').status, 'pass');
 assert.equal(fullPreflight.checks.find((entry) => entry.id === 'model-call-failure-policy').status, 'pass');
+
+const omittedCoverageCli = runPreflightCli(['--artifact-root', fullRoot, '--strict']);
+assert.equal(omittedCoverageCli.status, 1);
+assert.match(omittedCoverageCli.stdout, /coverage-standard-explicit/);
+assert.match(omittedCoverageCli.stdout, /requires an explicit --coverage-standard/);
+
+const explicitCoverageCli = runPreflightCli(['--artifact-root', fullRoot, '--strict', '--coverage-standard', 'single-rich-lane']);
+assert.equal(explicitCoverageCli.status, 0);
+assert.match(explicitCoverageCli.stdout, /"status": "pass"/);
+
+const defaultUserLaneRoot = makeRoot();
+const defaultUserLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index) => {
+  const artifactRoot = path.join(defaultUserLaneRoot, 'lanes', lane.id, `${path.basename(defaultUserLaneRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  return { id: lane.id, userHandle: index === 0 ? 'default-user' : lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(defaultUserLaneRoot, defaultUserLanes);
+setFullFixtureUsers(defaultUserLaneRoot, ['default-user']);
+const defaultUserLanePreflight = buildFullCertificationPreflight({ artifactRoot: defaultUserLaneRoot, strict: true });
+assert.equal(defaultUserLanePreflight.status, 'fail');
+const defaultUserLaneCheck = defaultUserLanePreflight.checks.find((entry) => entry.id === 'non-human-lane-user-coverage');
+assert.equal(defaultUserLaneCheck.status, 'fail');
+assert.deepEqual(defaultUserLaneCheck.details.humanOnlyUserHandles, ['default-user']);
+assert.deepEqual(defaultUserLaneCheck.details.missingRequiredUserHandles, ['directive-soak-a']);
+assert.deepEqual(defaultUserLaneCheck.details.unexpectedUserHandles, ['default-user']);
+
+const swappedUserLaneRoot = makeRoot();
+const swappedUserLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index, allLanes) => {
+  const artifactRoot = path.join(swappedUserLaneRoot, 'lanes', lane.id, `${path.basename(swappedUserLaneRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  const userHandle = index === 0
+    ? allLanes[1].userHandle
+    : index === 1
+      ? allLanes[0].userHandle
+      : lane.userHandle;
+  return { id: lane.id, userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(swappedUserLaneRoot, swappedUserLanes);
+const swappedUserLanePreflight = buildFullCertificationPreflight({ artifactRoot: swappedUserLaneRoot, strict: true });
+assert.equal(swappedUserLanePreflight.status, 'fail');
+const swappedUserLaneCheck = swappedUserLanePreflight.checks.find((entry) => entry.id === 'non-human-lane-user-coverage');
+assert.equal(swappedUserLaneCheck.status, 'fail');
+assert.deepEqual(swappedUserLaneCheck.details.missingRequiredUserHandles, []);
+assert.deepEqual(swappedUserLaneCheck.details.unexpectedUserHandles, []);
+assert.equal(swappedUserLaneCheck.details.wrongLaneUserMappings.length, 2);
+assert.deepEqual(
+  swappedUserLaneCheck.details.wrongLaneUserMappings.map((entry) => entry.id),
+  SOAK_PARALLEL_WORKER_POLICY.lanes.slice(0, 2).map((lane) => lane.id)
+);
+
+const allLanesCoverageFail = buildFullCertificationPreflight({
+  artifactRoot: fullRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+assert.equal(allLanesCoverageFail.status, 'fail');
+const allLanesCoverageFailCheck = allLanesCoverageFail.checks.find((entry) => entry.id === 'external-context-coverage-standard');
+assert.equal(allLanesCoverageFailCheck.status, 'fail');
+assert.deepEqual(
+  allLanesCoverageFailCheck.details.missingUserHandles,
+  SOAK_PARALLEL_WORKER_POLICY.lanes.slice(1).map((lane) => lane.userHandle)
+);
+
+const unknownCoveragePreflight = buildFullCertificationPreflight({
+  artifactRoot: fullRoot,
+  strict: true,
+  coverageStandard: 'unknown-standard'
+});
+assert.equal(unknownCoveragePreflight.status, 'fail');
+const unknownCoverageCheck = unknownCoveragePreflight.checks.find((entry) => entry.id === 'external-context-coverage-standard');
+assert.equal(unknownCoverageCheck.status, 'fail');
+assert.match(unknownCoverageCheck.summary, /Unknown external-context coverage standard/);
+
+const nonLaneFixtureRoot = makeRoot();
+const nonLaneFixtureLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => {
+  const artifactRoot = path.join(nonLaneFixtureRoot, 'lanes', lane.id, `${path.basename(nonLaneFixtureRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(nonLaneFixtureRoot, nonLaneFixtureLanes);
+setFullFixtureUsers(nonLaneFixtureRoot, ['default-user']);
+const nonLaneFixturePreflight = buildFullCertificationPreflight({
+  artifactRoot: nonLaneFixtureRoot,
+  strict: true
+});
+assert.equal(nonLaneFixturePreflight.status, 'fail');
+const nonLaneFixtureCheck = nonLaneFixturePreflight.checks.find((entry) => entry.id === 'external-context-coverage-standard');
+assert.equal(nonLaneFixtureCheck.status, 'fail');
+assert.deepEqual(nonLaneFixtureCheck.details.matchedUserHandles, []);
+assert.deepEqual(nonLaneFixtureCheck.details.nonLaneFixtureUserHandles, ['default-user']);
+assert.match(nonLaneFixtureCheck.summary, /not configured non-human lanes/);
+
+const malformedFixtureRoot = makeRoot();
+const malformedFixtureLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => {
+  const artifactRoot = path.join(malformedFixtureRoot, 'lanes', lane.id, `${path.basename(malformedFixtureRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(malformedFixtureRoot, malformedFixtureLanes);
+{
+  const reportPath = path.join(malformedFixtureRoot, 'report.json');
+  const report = readJson(reportPath);
+  report.readiness.externalContextProbe.fixtureDepth.fullFixtureUserHandles = 'directive-soak-a';
+  writeJson(reportPath, report);
+}
+const malformedFixturePreflight = buildFullCertificationPreflight({
+  artifactRoot: malformedFixtureRoot,
+  strict: true
+});
+assert.equal(malformedFixturePreflight.status, 'fail');
+const malformedFixtureCheck = malformedFixturePreflight.checks.find((entry) => entry.id === 'external-context-coverage-standard');
+assert.equal(malformedFixtureCheck.status, 'fail');
+assert.deepEqual(malformedFixtureCheck.details.matchedUserHandles, []);
+assert.match(malformedFixtureCheck.summary, /no configured non-human lane/);
+
+const allLanesCoveragePassRoot = makeRoot();
+const allLanesCoveragePassLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => {
+  const artifactRoot = path.join(allLanesCoveragePassRoot, 'lanes', lane.id, `${path.basename(allLanesCoveragePassRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(allLanesCoveragePassRoot, allLanesCoveragePassLanes);
+setFullFixtureUsers(allLanesCoveragePassRoot, SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => lane.userHandle));
+const allLanesCoveragePass = buildFullCertificationPreflight({
+  artifactRoot: allLanesCoveragePassRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+assert.equal(allLanesCoveragePass.status, 'pass');
+assert.equal(
+  allLanesCoveragePass.checks.find((entry) => entry.id === 'external-context-coverage-standard').status,
+  'pass'
+);
+
+const wrongScriptGenerationRoot = makeRoot();
+const wrongScriptGenerationLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index) => {
+  const artifactRoot = path.join(wrongScriptGenerationRoot, 'lanes', lane.id, `${path.basename(wrongScriptGenerationRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  if (index === 0) mutatePreGenerationScriptId(artifactRoot, 'pre-generation-soak-turn-07.json', 'soak-turn-99');
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(wrongScriptGenerationRoot, wrongScriptGenerationLanes);
+setFullFixtureUsers(wrongScriptGenerationRoot, SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => lane.userHandle));
+const wrongScriptGenerationPreflight = buildFullCertificationPreflight({
+  artifactRoot: wrongScriptGenerationRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+assert.equal(wrongScriptGenerationPreflight.status, 'fail');
+const wrongScriptGenerationCheck = wrongScriptGenerationPreflight.checks.find((entry) => entry.id === 'external-context-generation-depth');
+assert.equal(wrongScriptGenerationCheck.status, 'fail');
+assert.deepEqual(wrongScriptGenerationCheck.details.failingLanes[0].missingScriptMessageIds, ['soak-turn-07']);
+assert.deepEqual(wrongScriptGenerationCheck.details.failingLanes[0].unexpectedScriptMessageIds, ['soak-turn-99']);
+
+const missingFactualModelReviewRoot = makeRoot();
+const missingFactualModelReviewLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index) => {
+  const artifactRoot = path.join(missingFactualModelReviewRoot, 'lanes', lane.id, `${path.basename(missingFactualModelReviewRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  if (index === 0) fs.rmSync(path.join(artifactRoot, 'fact-checks', 'model-assisted-review', 'result.json'), { force: true });
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(missingFactualModelReviewRoot, missingFactualModelReviewLanes);
+setFullFixtureUsers(missingFactualModelReviewRoot, SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => lane.userHandle));
+const missingFactualModelReviewPreflight = buildFullCertificationPreflight({
+  artifactRoot: missingFactualModelReviewRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+assert.equal(missingFactualModelReviewPreflight.status, 'fail');
+const missingFactualModelReviewCheck = missingFactualModelReviewPreflight.checks.find((entry) => entry.id === 'factual-grounding-release-proof');
+assert.equal(missingFactualModelReviewCheck.status, 'fail');
+assert.equal(missingFactualModelReviewCheck.details.failingLanes[0].modelAssistedReview.missing, true);
+assert.equal(
+  missingFactualModelReviewCheck.details.failingLanes[0].modelAssistedReview.validationIssues.includes('missing-result'),
+  true
+);
+
+const stalePassUnparseableProviderFactualRoot = makeRoot();
+const stalePassUnparseableProviderFactualLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index) => {
+  const artifactRoot = path.join(stalePassUnparseableProviderFactualRoot, 'lanes', lane.id, `${path.basename(stalePassUnparseableProviderFactualRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  if (index === 0) {
+    writeText(
+      path.join(artifactRoot, 'smoke-factual-review', 'provider-result.json'),
+      JSON.stringify({ result: { ok: true, text: 'not strict json' } })
+    );
+    const reportPath = path.join(artifactRoot, 'report.json');
+    const laneReport = readJson(reportPath);
+    laneReport.checks.find((entry) => entry.id === 'live-factual-grounding-transcript-audit')
+      .details.modelAssistedReview.providerOutputPath = 'smoke-factual-review/provider-result.json';
+    writeJson(reportPath, laneReport);
+  }
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(stalePassUnparseableProviderFactualRoot, stalePassUnparseableProviderFactualLanes);
+setFullFixtureUsers(stalePassUnparseableProviderFactualRoot, SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => lane.userHandle));
+const stalePassUnparseableProviderFactualPreflight = buildFullCertificationPreflight({
+  artifactRoot: stalePassUnparseableProviderFactualRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+assert.equal(stalePassUnparseableProviderFactualPreflight.status, 'fail');
+const stalePassUnparseableProviderFactualCheck = stalePassUnparseableProviderFactualPreflight.checks.find((entry) => entry.id === 'factual-grounding-release-proof');
+assert.equal(stalePassUnparseableProviderFactualCheck.status, 'fail');
+assert.equal(
+  stalePassUnparseableProviderFactualCheck.details.failingLanes[0].modelAssistedReview.validationIssues.includes('unparseable-provider-output'),
+  true
+);
 
 const countOnlyHostNativeRoot = makeRoot();
 const countOnlyHostNativeLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => {
@@ -509,6 +820,23 @@ const missingExternalSummaryBudget = missingExternalSummaryPreflight.checks.find
 assert.equal(missingExternalSummaryBudget.status, 'fail');
 assert.equal(missingExternalSummaryBudget.details.failingLanes[0].externalContextSummaryPresent, false);
 assert.equal(missingExternalSummaryBudget.details.failingLanes[0].missingFiles.includes('host-extensions/external-context-summary.json'), true);
+
+const missingExternalSummaryFileRoot = makeRoot();
+const missingExternalSummaryFileLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index) => {
+  const artifactRoot = path.join(missingExternalSummaryFileRoot, 'lanes', lane.id, `${path.basename(missingExternalSummaryFileRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  if (index === 0) {
+    fs.rmSync(path.join(artifactRoot, 'host-extensions', 'external-context-summary.json'), { force: true });
+  }
+  return { id: lane.id, userHandle: lane.userHandle, status: index === 0 ? 'fail' : 'pass', artifactRoot };
+});
+aggregateReport(missingExternalSummaryFileRoot, missingExternalSummaryFileLanes, { status: 'fail' });
+const missingExternalSummaryFilePreflight = buildFullCertificationPreflight({ artifactRoot: missingExternalSummaryFileRoot, strict: true });
+assert.equal(missingExternalSummaryFilePreflight.status, 'fail');
+const missingExternalSummaryFileBudget = missingExternalSummaryFilePreflight.checks.find((entry) => entry.id === 'unbounded-artifact-budget');
+assert.equal(missingExternalSummaryFileBudget.status, 'fail');
+assert.equal(missingExternalSummaryFileBudget.details.failingLanes[0].externalContextSummaryPresent, false);
+assert.equal(missingExternalSummaryFileBudget.details.failingLanes[0].missingFiles.includes('host-extensions/external-context-summary.json'), true);
 
 const malformedExternalSummaryRoot = makeRoot();
 const malformedExternalSummaryLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane, index) => {
@@ -701,11 +1029,15 @@ fs.rmSync(aggregateFailRoot, { recursive: true, force: true });
 fs.rmSync(laneReportFailRoot, { recursive: true, force: true });
 fs.rmSync(laneDelegationFailRoot, { recursive: true, force: true });
 fs.rmSync(missingExternalSummaryRoot, { recursive: true, force: true });
+fs.rmSync(missingExternalSummaryFileRoot, { recursive: true, force: true });
 fs.rmSync(malformedExternalSummaryRoot, { recursive: true, force: true });
 fs.rmSync(missingPolicyRoot, { recursive: true, force: true });
 fs.rmSync(handledRoot, { recursive: true, force: true });
 fs.rmSync(blockingRoot, { recursive: true, force: true });
 fs.rmSync(authorityBlockRoot, { recursive: true, force: true });
+fs.rmSync(wrongScriptGenerationRoot, { recursive: true, force: true });
+fs.rmSync(missingFactualModelReviewRoot, { recursive: true, force: true });
+fs.rmSync(stalePassUnparseableProviderFactualRoot, { recursive: true, force: true });
 fs.rmSync(boundedRoot, { recursive: true, force: true });
 
 console.log('Continuity Matrix full-certification preflight tests passed.');

@@ -850,16 +850,35 @@ export function buildModelAssistedFactualReviewResult({
 } = {}) {
   const parsed = parseModelReviewOutput(modelOutput);
   const findings = asArray(parsed?.findings).map(normalizeModelReviewFinding).filter((finding) => finding.factId);
-  const inferredStatus = parsed?.status
-    || (findings.some((finding) => /^P1\b/i.test(finding.severity || '') || finding.verdict === 'contradicted') ? 'fail'
-      : findings.length ? 'warning'
-        : modelOutput ? 'pass' : 'not-run');
+  const attemptedReview = Boolean(modelCall) || modelOutput !== null && modelOutput !== undefined;
+  const timedOut = Boolean(
+    modelCall?.errorCode
+    && /timeout|timed/i.test(String(modelCall.errorCode))
+  ) || Boolean(
+    reason
+    && /timeout|timed out/i.test(String(reason))
+  );
+  const unparseableAttempt = attemptedReview && !parsed;
+  const inferredStatus = timedOut || unparseableAttempt
+    ? 'fail'
+    : parsed?.status
+      || (findings.some((finding) => /^P1\b/i.test(finding.severity || '') || finding.verdict === 'contradicted') ? 'fail'
+        : findings.length ? 'warning' : 'not-run');
+  const finalStatus = status === 'not-run' && (attemptedReview || timedOut)
+    ? 'fail'
+    : status || inferredStatus;
   return {
     kind: FACT_MODEL_REVIEW_RESULT_KIND,
     schemaVersion: 1,
     requestId: request?.requestId || null,
-    status: status || inferredStatus,
-    reason: reason || (modelOutput ? null : 'model-assisted reviewer was not invoked in this run'),
+    status: finalStatus,
+    reason: reason || (parsed
+      ? null
+      : timedOut
+        ? 'model-assisted factual reviewer timed out'
+        : attemptedReview
+          ? 'model-assisted factual reviewer did not return parseable JSON'
+          : 'model-assisted reviewer was not invoked in this run'),
     packageId: request?.packageId || null,
     packId: request?.packId || null,
     packHash: request?.packHash || null,

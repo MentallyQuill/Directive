@@ -708,11 +708,18 @@ assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.re
 assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.artifactDirectory.const, 'objective-assignments');
 assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.liveLogRecord.const, 'objective-assignment-projection-check');
 assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.required.includes('requiredSurfaces'), true);
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.required.includes('packIndexArtifact'), false);
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.required.includes('modelReviewRequestArtifact'), false);
+assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.required.includes('modelReviewResultArtifact'), false);
 assert.equal(schema.properties.factualGroundingPolicy.properties.required.const, true);
 assert.equal(schema.properties.factualGroundingPolicy.properties.artifactDirectory.const, 'fact-checks');
 assert.equal(schema.properties.factualGroundingPolicy.properties.packIndexArtifact.const, 'fact-checks/canary-index.json');
+assert.equal(schema.properties.factualGroundingPolicy.properties.modelReviewRequestArtifact.const, 'fact-checks/model-assisted-review/request.json');
+assert.equal(schema.properties.factualGroundingPolicy.properties.modelReviewResultArtifact.const, 'fact-checks/model-assisted-review/result.json');
 assert.equal(schema.properties.factualGroundingPolicy.properties.liveLogRecord.const, 'fact-check');
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('packIndexArtifact'), true);
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('modelReviewRequestArtifact'), true);
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('modelReviewResultArtifact'), true);
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('rootCauseLabels'), true);
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('generationAuditLevels'), true);
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('diagnosticFields'), true);
@@ -934,6 +941,8 @@ assert.match(storyQualityTimeoutAttempt.reason, /DIRECTIVE_GENERATION_TIMEOUT/);
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.required, true);
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.artifactDirectory, 'fact-checks');
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.packIndexArtifact, 'fact-checks/canary-index.json');
+assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.modelReviewRequestArtifact, 'fact-checks/model-assisted-review/request.json');
+assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.modelReviewResultArtifact, 'fact-checks/model-assisted-review/result.json');
 assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.liveLogRecord, 'fact-check');
 assert.deepEqual(SOAK_FACTUAL_GROUNDING_POLICY.evaluationPhases, ['prompt-availability-audit', 'generation-verdict']);
 assert(SOAK_FACTUAL_GROUNDING_POLICY.canaryCategories.includes('senior-crew-identity'));
@@ -1155,6 +1164,26 @@ assert.equal(modelReviewResult.status, 'fail');
 assert.equal(modelReviewResult.counts.contradicted, 1);
 assert.equal(modelReviewResult.counts.p1, 1);
 assert.equal(modelReviewResult.modelCall.roleId, 'factualGroundingReviewer');
+const factualUnparseableAttempt = buildModelAssistedFactualReviewResult({
+  request: modelReviewRequest,
+  modelOutput: 'not strict json',
+  modelCall: { roleId: 'factualGroundingReviewer', status: 'ok', ok: true }
+});
+assert.equal(factualUnparseableAttempt.status, 'fail');
+assert.match(factualUnparseableAttempt.reason, /parseable JSON/);
+const factualTimeoutAttempt = buildModelAssistedFactualReviewResult({
+  request: modelReviewRequest,
+  status: 'not-run',
+  reason: 'DIRECTIVE_GENERATION_TIMEOUT after 60000 ms',
+  modelCall: {
+    roleId: 'factualGroundingReviewer',
+    status: 'failed',
+    ok: false,
+    errorCode: 'DIRECTIVE_GENERATION_TIMEOUT'
+  }
+});
+assert.equal(factualTimeoutAttempt.status, 'fail');
+assert.match(factualTimeoutAttempt.reason, /DIRECTIVE_GENERATION_TIMEOUT/);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.required, true);
 assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sceneHandshakeSettler']);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.intervalLogRecord, 'scene-handshake-settlement');
@@ -1529,7 +1558,10 @@ assert.equal(report.releaseCertificationSummary.mode, report.mode);
 assert.equal(report.releaseCertificationSummary.checkCounts.total, report.checks.length);
 assert.equal(report.releaseCertificationSummary.evidenceCounts.campaigns, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(report.releaseCertificationSummary.evidenceCounts.plannedTurns, SOAK_TURN_SCRIPT.length);
-assert(report.releaseCertificationSummary.evidenceGates.some((entry) => entry.id === 'factual-grounding'));
+const factualGroundingGate = report.releaseCertificationSummary.evidenceGates.find((entry) => entry.id === 'factual-grounding');
+assert(factualGroundingGate);
+assert.equal(factualGroundingGate.evidence.modelReviewRequestArtifact, 'fact-checks/model-assisted-review/request.json');
+assert.equal(factualGroundingGate.evidence.modelReviewResultArtifact, 'fact-checks/model-assisted-review/result.json');
 assert(report.releaseCertificationSummary.evidenceGates.some((entry) => entry.id === 'live-model-call-failure-policy'));
 assert.match(report.releaseCertificationSummary.nextAction, /warning|live|strict|Fix|Run/i);
 assert.equal(report.strictModePolicy.enabled, false);
@@ -1590,6 +1622,8 @@ assert(report.objectiveAssignmentProjectionPolicy.stateInspection.includes('visi
 assert.equal(report.factualGroundingPolicy.required, true);
 assert.equal(report.factualGroundingPolicy.artifactDirectory, 'fact-checks');
 assert.equal(report.factualGroundingPolicy.packIndexArtifact, 'fact-checks/canary-index.json');
+assert.equal(report.factualGroundingPolicy.modelReviewRequestArtifact, 'fact-checks/model-assisted-review/request.json');
+assert.equal(report.factualGroundingPolicy.modelReviewResultArtifact, 'fact-checks/model-assisted-review/result.json');
 assert.equal(report.factualGroundingPolicy.liveLogRecord, 'fact-check');
 assert(report.factualGroundingPolicy.evaluationPhases.includes('prompt-availability-audit'));
 assert(report.factualGroundingPolicy.evaluationPhases.includes('generation-verdict'));

@@ -29,6 +29,9 @@ import {
 
 export const CONTINUITY_MATRIX_FIVE_USER_ARTIFACT_ROOT = 'artifacts/live-soak/continuity-projection-matrix-five-user';
 
+const FACT_MODEL_REVIEW_REQUEST_KIND = 'directive.liveCampaignSoak.factualModelReviewRequest';
+const FACT_MODEL_REVIEW_RESULT_KIND = 'directive.liveCampaignSoak.factualModelReviewResult';
+
 export const CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS = Object.freeze([
   'crew.hadrik-bronn.species',
   'crew.hadrik-bronn.age-description',
@@ -313,6 +316,11 @@ function readJsonIfExists(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function readTextIfExists(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return fs.readFileSync(filePath, 'utf8');
+}
+
 function listJsonFiles(directory) {
   if (!directory || !fs.existsSync(directory)) return [];
   return fs.readdirSync(directory)
@@ -550,10 +558,25 @@ function expectedGenerationPromptSnapshotCount(turnLimit) {
   return requestedTurnLimitValue(turnLimit) || SOAK_TURN_SCRIPT.length;
 }
 
+function scriptMessageIdForTurn(entry, index) {
+  if (entry?.id) return String(entry.id);
+  return `soak-turn-${String(index + 1).padStart(2, '0')}`;
+}
+
+function expectedGenerationPromptScriptMessageIds(turnLimit) {
+  if (turnLimit === undefined) return null;
+  const expectedCount = expectedGenerationPromptSnapshotCount(turnLimit);
+  return SOAK_TURN_SCRIPT
+    .slice(0, expectedCount)
+    .map(scriptMessageIdForTurn)
+    .filter(Boolean);
+}
+
 export function summarizeExternalContextGenerationArtifacts({ artifactRoot, turnLimit } = {}) {
   const artifacts = promptInspectionArtifacts(artifactRoot);
   const generationArtifacts = artifacts.filter(({ artifact }) => artifact.reason === 'pre-generation');
   const expectedCaptureCount = expectedGenerationPromptSnapshotCount(turnLimit);
+  const expectedScriptMessageIds = expectedGenerationPromptScriptMessageIds(turnLimit);
   const captures = generationArtifacts.map(({ filePath, artifact, promptInspection }) => {
     const externalPromptEnvironmentRef = externalRefFromPromptInspection(artifact, promptInspection);
     const knownExternalPromptKeys = externalPromptKeysFromPromptInspection(artifact, promptInspection);
@@ -583,12 +606,35 @@ export function summarizeExternalContextGenerationArtifacts({ artifactRoot, turn
   });
   const failedCaptures = captures.filter((capture) => capture.status !== 'pass');
   const captureDepthMissing = expectedCaptureCount !== null && captures.length < expectedCaptureCount;
-  const status = captures.length === 0 || failedCaptures.length || captureDepthMissing ? 'fail' : 'pass';
+  const captureScriptMessageIds = captures.map((capture) => capture.scriptMessageId).filter(Boolean);
+  const captureScriptMessageIdCounts = captureScriptMessageIds.reduce((counts, id) => {
+    counts.set(id, (counts.get(id) || 0) + 1);
+    return counts;
+  }, new Map());
+  const duplicateScriptMessageIds = [...captureScriptMessageIdCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([id]) => id);
+  const missingScriptMessageIds = Array.isArray(expectedScriptMessageIds)
+    ? expectedScriptMessageIds.filter((id) => !captureScriptMessageIdCounts.has(id))
+    : [];
+  const unexpectedScriptMessageIds = Array.isArray(expectedScriptMessageIds)
+    ? captureScriptMessageIds.filter((id) => !expectedScriptMessageIds.includes(id))
+    : [];
+  const missingScriptMessageIdCount = captures.filter((capture) => !capture.scriptMessageId).length;
+  const scriptIdentityInvalid = Array.isArray(expectedScriptMessageIds)
+    && (missingScriptMessageIds.length || unexpectedScriptMessageIds.length || duplicateScriptMessageIds.length || missingScriptMessageIdCount);
+  const status = captures.length === 0 || failedCaptures.length || captureDepthMissing || scriptIdentityInvalid ? 'fail' : 'pass';
   return {
     status,
     captureCount: captures.length,
     expectedCaptureCount,
     captureDepthMissing,
+    expectedScriptMessageIds,
+    captureScriptMessageIds,
+    missingScriptMessageIds,
+    unexpectedScriptMessageIds,
+    duplicateScriptMessageIds,
+    missingScriptMessageIdCount,
     failedCaptureCount: failedCaptures.length,
     knownExternalPromptKeys: [...new Set(captures.flatMap((capture) => capture.knownExternalPromptKeys || []))].sort(),
     refHashes: [...new Set(captures.map((capture) => capture.refHash).filter(Boolean))].sort(),
@@ -599,9 +645,17 @@ export function summarizeExternalContextGenerationArtifacts({ artifactRoot, turn
       ? 'No generation-time prompt-inspection snapshots were recorded.'
       : captureDepthMissing
         ? `Only ${captures.length} generation-time prompt-inspection snapshot(s) were recorded; expected ${expectedCaptureCount}.`
-        : failedCaptures.length
-          ? `${failedCaptures.length} generation-time prompt-inspection snapshot(s) are missing external-context refs or keys.`
-          : `Recorded ${captures.length} generation-time external-context prompt snapshot(s).`
+        : missingScriptMessageIds.length
+          ? `Generation-time prompt snapshots are missing expected script id(s): ${missingScriptMessageIds.join(', ')}.`
+          : unexpectedScriptMessageIds.length
+            ? `Generation-time prompt snapshots include unexpected script id(s): ${unexpectedScriptMessageIds.join(', ')}.`
+            : duplicateScriptMessageIds.length
+              ? `Generation-time prompt snapshots include duplicate script id(s): ${duplicateScriptMessageIds.join(', ')}.`
+              : missingScriptMessageIdCount
+                ? `${missingScriptMessageIdCount} generation-time prompt-inspection snapshot(s) are missing script ids.`
+                : failedCaptures.length
+                  ? `${failedCaptures.length} generation-time prompt-inspection snapshot(s) are missing external-context refs or keys.`
+                  : `Recorded ${captures.length} generation-time external-context prompt snapshot(s).`
   };
 }
 
@@ -624,7 +678,143 @@ function addCounts(target, source = {}) {
   }
 }
 
+function factualModelReviewPath(artifactRoot, review = {}, key, fallback) {
+  const value = review?.[key] || null;
+  return value ? path.join(artifactRoot || '', value) : path.join(artifactRoot || '', fallback);
+}
+
+function factualModelReviewTimedOut(result = {}, modelCall = null) {
+  return Boolean(
+    modelCall?.errorCode
+    && /timeout|timed|DIRECTIVE_GENERATION_TIMEOUT/i.test(String(modelCall.errorCode))
+  ) || Boolean(
+    result?.reason
+    && /timeout|timed out|DIRECTIVE_GENERATION_TIMEOUT/i.test(String(result.reason))
+  );
+}
+
+function factualModelReviewUnparseable(result = {}) {
+  return Boolean(
+    result?.reason
+    && /not return parseable JSON|did not return parseable JSON|unparseable/i.test(String(result.reason))
+  );
+}
+
+function assessFactualProviderOutput({ artifactRoot, providerOutputPath } = {}) {
+  if (!providerOutputPath) return { present: false, missing: false, unparseable: false, reason: null };
+  const absolutePath = path.isAbsolute(providerOutputPath)
+    ? providerOutputPath
+    : path.join(artifactRoot || '', providerOutputPath);
+  const raw = readTextIfExists(absolutePath);
+  if (raw === null) return { present: false, missing: true, unparseable: false, reason: 'missing-provider-output' };
+  let providerEnvelope = null;
+  try {
+    providerEnvelope = JSON.parse(raw);
+  } catch {
+    return { present: true, missing: false, unparseable: true, reason: 'provider-output-file-not-json' };
+  }
+  const candidate = typeof providerEnvelope === 'string'
+    ? providerEnvelope
+    : providerEnvelope?.result?.text ?? providerEnvelope?.text ?? null;
+  if (typeof candidate !== 'string' || !candidate.trim()) {
+    return { present: true, missing: false, unparseable: false, reason: null };
+  }
+  try {
+    JSON.parse(candidate);
+  } catch {
+    return { present: true, missing: false, unparseable: true, reason: 'provider-output-text-not-json' };
+  }
+  return { present: true, missing: false, unparseable: false, reason: null };
+}
+
+function summarizeFactualModelReview({ artifactRoot, modelReview = {} } = {}) {
+  const requestPath = factualModelReviewPath(
+    artifactRoot,
+    modelReview,
+    'requestPath',
+    path.join('fact-checks', 'model-assisted-review', 'request.json')
+  );
+  const resultPath = factualModelReviewPath(
+    artifactRoot,
+    modelReview,
+    'resultPath',
+    path.join('fact-checks', 'model-assisted-review', 'result.json')
+  );
+  const request = readJsonIfExists(requestPath);
+  const result = readJsonIfExists(resultPath);
+  const modelCall = result?.modelCall || modelReview?.modelCall || null;
+  const counts = result?.counts || modelReview?.counts || null;
+  const providerOutputPath = modelReview?.providerOutputPath || null;
+  const providerOutputAssessment = assessFactualProviderOutput({ artifactRoot, providerOutputPath });
+  const badCount = Number(counts?.contradicted || 0)
+    + Number(counts?.omitted || 0)
+    + Number(counts?.unsupportedDetail || 0);
+  const validationIssues = [];
+  if (!request) validationIssues.push('missing-request');
+  else if (request.__readError) validationIssues.push('request-read-error');
+  else if (request.kind !== FACT_MODEL_REVIEW_REQUEST_KIND) validationIssues.push('request-kind');
+  if (!result) validationIssues.push('missing-result');
+  else if (result.__readError) validationIssues.push('result-read-error');
+  else if (result.kind !== FACT_MODEL_REVIEW_RESULT_KIND) validationIssues.push('result-kind');
+  if (request && result && !request.__readError && !result.__readError) {
+    if (!request.requestId || result.requestId !== request.requestId) validationIssues.push('request-id-mismatch');
+    if (!request.inputHash || result.inputHash !== request.inputHash) validationIssues.push('input-hash-mismatch');
+    if (request.packageId && result.packageId && request.packageId !== result.packageId) validationIssues.push('package-id-mismatch');
+    if (request.packId && result.packId && request.packId !== result.packId) validationIssues.push('pack-id-mismatch');
+  }
+  if (!modelCall) validationIssues.push('missing-model-call');
+  else {
+    if (modelCall.roleId !== 'factualGroundingReviewer') validationIssues.push('wrong-reviewer-role');
+    if (modelCall.ok !== true || modelCall.status !== 'ok') validationIssues.push('model-call-not-ok');
+  }
+  if (factualModelReviewUnparseable(result || {})) validationIssues.push('unparseable-provider-output');
+  if (providerOutputAssessment.missing) validationIssues.push('missing-provider-output');
+  if (providerOutputAssessment.unparseable) validationIssues.push('unparseable-provider-output');
+  if (factualModelReviewTimedOut(result || {}, modelCall)) validationIssues.push('timeout');
+  if (badCount > 0) validationIssues.push('model-review-bad-findings');
+  const resultStatus = result?.status || modelReview?.status || null;
+  const status = validationIssues.some((issue) => !['missing-result', 'missing-model-call'].includes(issue))
+    || resultStatus === 'fail'
+    ? 'fail'
+    : !resultStatus || resultStatus === 'not-run' || validationIssues.length
+      ? 'warning'
+      : resultStatus === 'warning'
+        ? 'warning'
+        : resultStatus === 'pass'
+          ? 'pass'
+          : 'fail';
+  return {
+    status,
+    resultStatus,
+    requestPath: relativePathFrom(artifactRoot, requestPath),
+    resultPath: relativePathFrom(artifactRoot, resultPath),
+    providerOutputPath,
+    providerOutputStatus: providerOutputAssessment.reason || (providerOutputAssessment.present ? 'present' : null),
+    inputHash: result?.inputHash || modelReview?.inputHash || null,
+    requestId: result?.requestId || request?.requestId || null,
+    counts,
+    badCount,
+    modelCall,
+    validationIssues,
+    missing: !result || resultStatus === 'not-run',
+    unparseable: validationIssues.includes('unparseable-provider-output'),
+    timedOut: validationIssues.includes('timeout'),
+    wrongRole: validationIssues.includes('wrong-reviewer-role'),
+    summary: status === 'pass'
+      ? 'Model-assisted factual-grounding review passed with identity-matched reviewer evidence.'
+      : validationIssues.length
+        ? `Model-assisted factual-grounding review evidence is not certifying: ${validationIssues.join(', ')}.`
+        : `Model-assisted factual-grounding review status is ${resultStatus || 'missing'}.`
+  };
+}
+
 export function summarizeFactualGroundingArtifacts({ artifactRoot } = {}) {
+  const report = readJsonIfExists(artifactRoot ? path.join(artifactRoot, 'report.json') : '');
+  const check = (report?.checks || []).find((entry) => entry?.id === 'live-factual-grounding-transcript-audit') || null;
+  const modelAssistedReview = summarizeFactualModelReview({
+    artifactRoot,
+    modelReview: check?.details?.modelAssistedReview || {}
+  });
   const files = factCheckFiles(artifactRoot);
   const counts = {};
   const checks = [];
@@ -642,11 +832,24 @@ export function summarizeFactualGroundingArtifacts({ artifactRoot } = {}) {
   const badCount = (counts.contradicted || 0) + (counts.omitted || 0) + (counts.unsupportedDetail || 0);
   const failedChecks = checks.filter((entry) => entry.status === 'fail');
   const warningChecks = checks.filter((entry) => entry.status === 'warning' || entry.badFindingCount > 0);
+  const deterministicStatus = files.length === 0
+    ? 'fail'
+    : failedChecks.length
+      ? 'fail'
+      : warningChecks.length || badCount > 0
+        ? 'warning'
+        : 'pass';
   return {
-    status: files.length === 0 ? 'fail' : failedChecks.length ? 'fail' : warningChecks.length || badCount > 0 ? 'warning' : 'pass',
+    status: deterministicStatus === 'fail' || modelAssistedReview.status === 'fail'
+      ? 'fail'
+      : deterministicStatus === 'warning' || modelAssistedReview.status === 'warning'
+        ? 'warning'
+        : 'pass',
+    deterministicStatus,
     checkCount: checks.length,
     counts,
     badCount,
+    modelAssistedReview,
     checks
   };
 }
@@ -1717,6 +1920,11 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
         captureCount: lane.externalContextGenerationProof?.captureCount ?? 0,
         expectedCaptureCount: lane.externalContextGenerationProof?.expectedCaptureCount ?? null,
         captureDepthMissing: lane.externalContextGenerationProof?.captureDepthMissing === true,
+        expectedScriptMessageIds: lane.externalContextGenerationProof?.expectedScriptMessageIds || null,
+        missingScriptMessageIds: lane.externalContextGenerationProof?.missingScriptMessageIds || [],
+        unexpectedScriptMessageIds: lane.externalContextGenerationProof?.unexpectedScriptMessageIds || [],
+        duplicateScriptMessageIds: lane.externalContextGenerationProof?.duplicateScriptMessageIds || [],
+        missingScriptMessageIdCount: lane.externalContextGenerationProof?.missingScriptMessageIdCount || 0,
         knownExternalPromptKeys: lane.externalContextGenerationProof?.knownExternalPromptKeys || [],
         refHashes: lane.externalContextGenerationProof?.refHashes || [],
         richFixturePressure: lane.externalContextGenerationProof?.richFixturePressure || null,
@@ -1810,19 +2018,44 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
   ));
   const factualHardFailures = laneSummaries.filter((lane) => lane.factualGrounding?.status === 'fail');
   const factualWarnings = laneSummaries.filter((lane) => lane.factualGrounding?.status === 'warning');
+  const factualStatus = !options.live
+    ? 'skipped'
+    : factualHardFailures.length
+      ? 'fail'
+      : factualWarnings.length
+        ? (requestedTurnLimitValue(options.turnLimit) !== null ? 'warning' : 'fail')
+        : 'pass';
   checks.push(reportCheck(
     'factual-grounding',
-    !options.live ? 'skipped' : factualHardFailures.length ? 'fail' : factualWarnings.length ? 'warning' : 'pass',
+    factualStatus,
     !options.live
       ? 'Factual grounding skipped in dry-run mode.'
       : factualHardFailures.length
         ? `${factualHardFailures.length} lane(s) failed factual-grounding checks.`
         : factualWarnings.length
-          ? `${factualWarnings.length} lane(s) completed factual-grounding checks with warnings.`
-        : 'Every live lane passed deterministic factual-grounding checks.',
+          ? `${factualWarnings.length} lane(s) completed factual-grounding checks or model-assisted review with warnings; unbounded certification requires pass.`
+        : 'Every live lane passed deterministic and model-assisted factual-grounding checks.',
     {
       totalFactChecks: laneSummaries.reduce((sum, lane) => sum + (lane.factualGrounding?.checkCount || 0), 0),
-      totalBadFindings: laneSummaries.reduce((sum, lane) => sum + (lane.factualGrounding?.badCount || 0), 0)
+      totalBadFindings: laneSummaries.reduce((sum, lane) => sum + (lane.factualGrounding?.badCount || 0), 0),
+      lanes: laneSummaries.map((lane) => ({
+        id: lane.id,
+        userHandle: lane.userHandle,
+        status: lane.factualGrounding?.status || 'missing',
+        deterministicStatus: lane.factualGrounding?.deterministicStatus || null,
+        checkCount: lane.factualGrounding?.checkCount || 0,
+        badCount: lane.factualGrounding?.badCount || 0,
+        modelAssistedReview: {
+          status: lane.factualGrounding?.modelAssistedReview?.status || null,
+          resultStatus: lane.factualGrounding?.modelAssistedReview?.resultStatus || null,
+          requestPath: lane.factualGrounding?.modelAssistedReview?.requestPath || null,
+          resultPath: lane.factualGrounding?.modelAssistedReview?.resultPath || null,
+          validationIssues: lane.factualGrounding?.modelAssistedReview?.validationIssues || [],
+          missing: lane.factualGrounding?.modelAssistedReview?.missing === true,
+          timedOut: lane.factualGrounding?.modelAssistedReview?.timedOut === true,
+          unparseable: lane.factualGrounding?.modelAssistedReview?.unparseable === true
+        }
+      }))
     }
   ));
   const boundedTurnLimit = requestedTurnLimitValue(options.turnLimit) !== null;

@@ -485,6 +485,18 @@
       "forbid_overrides": true
     },
     {
+      "name": "Directive Scene Shape Variation",
+      "system_prompt": true,
+      "role": "system",
+      "content": "# Scene Shape Variation\nFor normal in-character continuation prose after any required Directive Reply Header, apply this SillyTavern variation instruction:\n\n[Instruction: write {{random::1 paragraph::2 paragraphs::3 paragraphs}} of {{random::very short::short}} length, starting response with {{random::a limited-PoV non-player impression::lines of dialogue::an action}}, and continuing {{random::without::with}} focus on dialogue.]\n\nA limited-PoV non-player impression must belong to a non-player character and stay within what that character can plausibly perceive, infer, or feel. It must not reveal hidden Directive state or enter the player's command character's private interior.",
+      "identifier": "directive-scene-shape-variation",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 61,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
       "identifier": "worldInfoBefore",
       "name": "World Info Before",
       "system_prompt": true,
@@ -570,6 +582,7 @@
         { "identifier": "directive-off-screen-pressure", "enabled": true },
         { "identifier": "directive-prose-lenses", "enabled": true },
         { "identifier": "directive-grounded-prose", "enabled": true },
+        { "identifier": "directive-scene-shape-variation", "enabled": true },
         { "identifier": "worldInfoBefore", "enabled": true },
         { "identifier": "personaDescription", "enabled": true },
         { "identifier": "charDescription", "enabled": true },
@@ -604,7 +617,7 @@
   "extensions": {
     "directive": {
       "presetName": "Directive",
-      "presetVersion": "Directive-0.1.0-pre-alpha.9",
+      "presetVersion": "Directive-0.1.0-pre-alpha.10",
       "version": "0.1.0",
       "metadataSchema": 1,
       "bundledPreset": true,
@@ -810,5 +823,5 @@
       }
     ]
   },
-  "notes": "Directive 0.1.0-pre-alpha.9 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, Pura/Celia-style preset regex cleanup, Pura-style top-level bias_presets, hybrid named-anchor prose lenses, grounded prose reinforcement, anti-omniscience, professional character agency, speech/perception boundaries, telepathy limits including forced intrusion, off-screen pressure, anti-echo behavior, reply-header compliance, turn-taking conversation pacing, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
+  "notes": "Directive 0.1.0-pre-alpha.10 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, Pura/Celia-style preset regex cleanup, Pura-style top-level bias_presets, hybrid named-anchor prose lenses, grounded prose reinforcement, SillyTavern scene-shape variation macros, anti-omniscience, professional character agency, speech/perception boundaries, telepathy limits including forced intrusion, off-screen pressure, anti-echo behavior, reply-header compliance, turn-taking conversation pacing, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
 }
