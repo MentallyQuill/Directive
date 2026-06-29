@@ -255,7 +255,7 @@
     "modelCallPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["budget", "liveProvidersRequired", "fallbackWarningRequired"],
+      "required": ["budget", "liveProvidersRequired", "fallbackWarningRequired", "failurePolicyEvidence"],
       "properties": {
         "budget": {
           "type": "string",
@@ -268,6 +268,86 @@
         "fallbackWarningRequired": {
           "type": "boolean",
           "const": true
+        },
+        "failurePolicyEvidence": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "summary",
+                "failedModelCallCount",
+                "retainedModelCallCount",
+                "modelCallCount",
+                "calls",
+                "releaseBlockingCalls",
+                "unresolvedCalls",
+                "fallbackHandledCalls"
+              ],
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": ["pass", "warning", "fail"]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidenceSource": {
+                  "type": "string"
+                },
+                "authoritySource": {
+                  "type": "string"
+                },
+                "severityPolicy": {
+                  "type": "string"
+                },
+                "failedModelCallCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "retainedModelCallCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "modelCallCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "calls": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "releaseBlockingCalls": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "unresolvedCalls": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "fallbackHandledCalls": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -338,6 +418,9 @@
         "readableTranscript",
         "sourceChatTranscript",
         "transcriptIndex",
+        "promptInspection",
+        "hostExtensions",
+        "externalContextSummary",
         "campaignMatrix",
         "continuityProjectionMatrix",
         "qualityReview",

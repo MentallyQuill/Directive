@@ -711,6 +711,7 @@ const sourceSaveIndexAfterRuntimeTurns = sourceStorageAfterRuntimeTurns[DIRECTIV
 assert.equal(sourceSaveIndexAfterRuntimeTurns.path, sourceV1PayloadPath, 'Queued runtime persistence must preserve the v1 checkpoint payload path.');
 assert.equal(sourceSaveIndexAfterRuntimeTurns.runtimeStorageFormat, 'v2', 'Queued runtime persistence must mark runtime-current state as v2.');
 assert.equal(Boolean(sourceSaveIndexAfterRuntimeTurns.v2ManifestRef?.logicalKey), true, 'Queued runtime persistence must attach a v2 runtime manifest ref.');
+assert.equal(Boolean(sourceSaveIndexAfterRuntimeTurns.v2RuntimePersistedAt), true, 'Queued runtime persistence must attach a v2 runtime persistence timestamp.');
 assert.deepEqual(
   sourceStorageAfterRuntimeTurns[sourceV1PayloadPath],
   sourceV1PayloadBeforeRuntimeTurns,
@@ -726,6 +727,64 @@ assert.equal(activeRuntimeHeadBeforeReload.state.turnLedger, undefined, 'Active-
 assert.equal(activeRuntimeHeadBeforeReload.runtimeSummary.ingressCount, view.chatNative.tracking.ingressCount, 'Active-save v2 head must keep compact runtime ingress counts.');
 assert.equal(activeRuntimeHeadBeforeReload.runtimeSummary.responseCount, view.chatNative.tracking.responseCount, 'Active-save v2 head must keep compact runtime response counts.');
 assert.equal(activeRuntimeHeadBeforeReload.state.campaign.currentStardate, view.campaignState.campaign.currentStardate, 'Active-save v2 head must reflect runtime-current campaign state.');
+
+const runtimeHistoryLimitUpdate = await app.updateRuntimeHistoryLimit({ historyLimit: 3 });
+assert.equal(runtimeHistoryLimitUpdate.kind, 'directive.runtimeHistoryLimitUpdated');
+assert.equal(runtimeHistoryLimitUpdate.historyLimit, 3);
+assert.equal(runtimeHistoryLimitUpdate.save.kind, 'directive.activeCampaignStatePersist.v2', 'Runtime history setting updates must use v2 runtime persistence.');
+assert.equal(runtimeHistoryLimitUpdate.save.storageFormat, 'v2');
+assert.equal(runtimeHistoryLimitUpdate.save.wroteV1Payload, false, 'Runtime history setting updates must not rewrite the v1 checkpoint payload.');
+let sourceStorageAfterRuntimeSettings = host.storage.snapshot();
+let sourceSaveIndexAfterRuntimeSettings = sourceStorageAfterRuntimeSettings[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
+assert.equal(sourceSaveIndexAfterRuntimeSettings.path, sourceV1PayloadPath, 'Runtime history setting update must preserve the v1 checkpoint payload path.');
+assert.equal(sourceSaveIndexAfterRuntimeSettings.runtimeStorageFormat, 'v2', 'Runtime history setting update must keep the runtime-current v2 marker.');
+assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2ManifestRef?.logicalKey), true, 'Runtime history setting update must attach a v2 runtime manifest ref.');
+assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2RuntimePersistedAt), true, 'Runtime history setting update must keep the v2 runtime persistence timestamp.');
+assert.deepEqual(
+  sourceStorageAfterRuntimeSettings[sourceV1PayloadPath],
+  sourceV1PayloadBeforeRuntimeTurns,
+  'Runtime history setting update must not rewrite the v1 manual checkpoint payload.'
+);
+view = await app.getCurrentView({ tabId: 'settings' });
+assert.equal(view.campaignState.settings.maxTurnSaveHistory, 3);
+
+const runtimeSettingsUpdate = await app.updateRuntimeSettings({
+  historyLimit: 4,
+  autosaveEveryMessages: 7,
+  outcomeIntegrity: {
+    mode: 'strict',
+    reviewProviderKind: 'utility'
+  }
+});
+assert.equal(runtimeSettingsUpdate.kind, 'directive.runtimeSettingsUpdated');
+assert.equal(runtimeSettingsUpdate.historyLimit, 4);
+assert.equal(runtimeSettingsUpdate.autosaveEveryMessages, 7);
+assert.equal(runtimeSettingsUpdate.outcomeIntegrity.mode, 'strict');
+assert.equal(runtimeSettingsUpdate.save.kind, 'directive.activeCampaignStatePersist.v2', 'Runtime settings update must use v2 runtime persistence.');
+assert.equal(runtimeSettingsUpdate.save.storageFormat, 'v2');
+assert.equal(runtimeSettingsUpdate.save.wroteV1Payload, false, 'Runtime settings update must not rewrite the v1 checkpoint payload.');
+sourceStorageAfterRuntimeSettings = host.storage.snapshot();
+sourceSaveIndexAfterRuntimeSettings = sourceStorageAfterRuntimeSettings[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
+assert.equal(sourceSaveIndexAfterRuntimeSettings.path, sourceV1PayloadPath, 'Runtime settings update must preserve the v1 checkpoint payload path.');
+assert.equal(sourceSaveIndexAfterRuntimeSettings.runtimeStorageFormat, 'v2', 'Runtime settings update must keep the runtime-current v2 marker.');
+assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2ManifestRef?.logicalKey), true, 'Runtime settings update must attach a v2 runtime manifest ref.');
+assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2RuntimePersistedAt), true, 'Runtime settings update must keep the v2 runtime persistence timestamp.');
+assert.deepEqual(
+  sourceStorageAfterRuntimeSettings[sourceV1PayloadPath],
+  sourceV1PayloadBeforeRuntimeTurns,
+  'Runtime settings update must not rewrite the v1 manual checkpoint payload.'
+);
+view = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(view.campaignState.settings.maxTurnSaveHistory, 4);
+assert.equal(view.campaignState.settings.autosaveEveryMessages, 7);
+assert.equal(view.campaignState.settings.outcomeIntegrity.mode, 'strict');
+const activeRuntimeHeadAfterSettings = await loadV2MaterializedHead(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: sourceSaveId
+});
+assert.equal(activeRuntimeHeadAfterSettings.state.settings.maxTurnSaveHistory, 4, 'Active-save v2 head must reflect runtime-current settings.');
+assert.equal(activeRuntimeHeadAfterSettings.state.settings.autosaveEveryMessages, 7, 'Active-save v2 head must reflect runtime-current autosave settings.');
+assert.equal(activeRuntimeHeadAfterSettings.state.settings.outcomeIntegrity.mode, 'strict', 'Active-save v2 head must reflect runtime-current Outcome Integrity settings.');
 const coreProjectionsBeforeReload = await readCoreStoreProjectionsV2(host.storage, {
   campaignId: view.campaignState.campaign.id,
   saveId: view.activeSaveId
@@ -1056,6 +1115,144 @@ assertCoreMechanicsProjection({
   label: 'reloaded source turn'
 });
 
+const editResponseSourceMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-response-edit',
+  text: 'Serrin asks Helm to keep the pursuit vector warm while Operations watches for any civilian transponder change.'
+});
+const editResponseTurn = await reloadedApp.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: editResponseSourceMessage
+});
+assert.equal(editResponseTurn.handled, true, 'Runtime fixture should commit a turn for response-edit recovery coverage.');
+await reloadedApp.flushChatSidecars();
+await reloadedApp.flushRuntimeDiagnostics();
+view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+const editResponseIngress = view.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-response-edit');
+assert.ok(editResponseIngress?.coreTransactionId, 'Response-edit fixture turn should carry a CORE transaction.');
+const editFixtureResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.ingressId === editResponseIngress.id);
+assert.ok(editFixtureResponseEntry?.hostMessageId, 'Response-edit fixture turn should have a Directive assistant response.');
+const runtimeResponseEditText = 'The bridge answers in a revised cadence while Helm holds the pursuit vector and Operations keeps the command logged.';
+const runtimeResponseEdit = await reloadedApp.handleHostMessageEdited({
+  hostMessageId: editFixtureResponseEntry.hostMessageId,
+  text: runtimeResponseEditText
+});
+assert.equal(runtimeResponseEdit.handled, true, `Runtime assistant edit should be handled by chat-native recovery: ${JSON.stringify(runtimeResponseEdit)}`);
+assert.equal(runtimeResponseEdit.action, 'reviewRequired', 'Committed Directive response edit should enter recovery review.');
+view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+const runtimeEditedResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.id === editFixtureResponseEntry.id);
+assert.equal(runtimeEditedResponseEntry.status, 'recoveryRequired', 'Old response projection should mirror CORE recovery-required state.');
+const runtimeEditedResponseRecovery = view.campaignState.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.type === 'directiveResponseEdited'
+  && entry.details?.responseId === runtimeEditedResponseEntry.id
+));
+assert.equal(runtimeEditedResponseRecovery.details.coreRecovery.status, 'recorded', 'Old response recovery journal should reference the CORE recovery write.');
+const coreProjectionsAfterResponseEdit = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+const responseEditRecoveryProjection = coreProjectionsAfterResponseEdit.recoveryJournal.find((entry) => (
+  entry.transactionId === runtimeEditedResponseEntry.coreTransactionId
+  && entry.reason === 'directiveResponseEdited'
+));
+assert.ok(responseEditRecoveryProjection, 'Runtime assistant edit should persist a CORE recovery projection.');
+assert.equal(responseEditRecoveryProjection.sourceMutation.sourceKind, 'directiveResponse');
+assert.equal(responseEditRecoveryProjection.sourceMutation.hostMessageId, editFixtureResponseEntry.hostMessageId);
+assert.equal(responseEditRecoveryProjection.sourceMutation.responseId, runtimeEditedResponseEntry.id);
+assert.equal(responseEditRecoveryProjection.sourceMutation.sourceFrameId, runtimeEditedResponseEntry.sourceFrameId);
+assert.equal(responseEditRecoveryProjection.sourceMutation.replacementTextHash.length, 64);
+assert.equal(responseEditRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(responseEditRecoveryProjection.repairDecision.sourceKind, 'directiveResponse');
+assert.equal(responseEditRecoveryProjection.repairDecision.normalTurnAllowed, false);
+assert.deepEqual(responseEditRecoveryProjection.allowedActions, ['reviewResponseMutation', 'retryResponse']);
+assert.equal(JSON.stringify(responseEditRecoveryProjection).includes(runtimeResponseEditText), false, 'CORE response-edit projection must not store raw replacement text.');
+
+const deleteResponseSourceMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-response-delete',
+  text: 'Serrin asks Tactical to hold the contact on passive sensors while the bridge keeps the civilian channel clear.'
+});
+const deleteResponseTurn = await reloadedApp.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: deleteResponseSourceMessage
+});
+assert.equal(deleteResponseTurn.handled, true, 'Runtime fixture should commit a turn for response-delete recovery coverage.');
+await reloadedApp.flushChatSidecars();
+await reloadedApp.flushRuntimeDiagnostics();
+view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+const deleteResponseIngress = view.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-response-delete');
+assert.ok(deleteResponseIngress?.coreTransactionId, 'Response-delete fixture turn should carry a CORE transaction.');
+const runtimeDeleteResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.ingressId === deleteResponseIngress.id);
+assert.ok(runtimeDeleteResponseEntry?.hostMessageId, 'Response-delete fixture turn should have a Directive assistant response.');
+const runtimeResponseDelete = await reloadedApp.handleHostMessageDeleted({
+  hostMessageId: runtimeDeleteResponseEntry.hostMessageId
+});
+assert.equal(runtimeResponseDelete.handled, true, 'Runtime assistant delete should be handled by chat-native recovery.');
+assert.equal(runtimeResponseDelete.action, 'reviewRequired', 'Committed Directive response delete should enter recovery review.');
+view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+const deletedRuntimeResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.id === runtimeDeleteResponseEntry.id);
+assert.equal(deletedRuntimeResponseEntry.status, 'recoveryRequired', 'Old deleted-response projection should mirror CORE recovery-required state.');
+assert.equal(deletedRuntimeResponseEntry.invalidationType, 'directiveResponseDeleted');
+const runtimeDeletedResponseRecovery = view.campaignState.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.type === 'directiveResponseDeleted'
+  && entry.details?.responseId === deletedRuntimeResponseEntry.id
+));
+assert.equal(runtimeDeletedResponseRecovery.details.coreRecovery.status, 'recorded', 'Old deleted-response recovery journal should reference the CORE recovery write.');
+const coreProjectionsAfterResponseDelete = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+const responseDeleteRecoveryProjection = coreProjectionsAfterResponseDelete.recoveryJournal.find((entry) => (
+  entry.transactionId === deletedRuntimeResponseEntry.coreTransactionId
+  && entry.reason === 'directiveResponseDeleted'
+));
+assert.ok(responseDeleteRecoveryProjection, 'Runtime assistant delete should persist a CORE recovery projection.');
+assert.equal(responseDeleteRecoveryProjection.sourceMutation.sourceKind, 'directiveResponse');
+assert.equal(responseDeleteRecoveryProjection.sourceMutation.hostMessageId, deletedRuntimeResponseEntry.hostMessageId);
+assert.equal(responseDeleteRecoveryProjection.sourceMutation.responseId, deletedRuntimeResponseEntry.id);
+assert.equal(responseDeleteRecoveryProjection.sourceMutation.replacementTextHash, null);
+assert.equal(responseDeleteRecoveryProjection.sourceMutation.replacementTextPresent, false);
+assert.equal(responseDeleteRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(responseDeleteRecoveryProjection.repairDecision.sourceKind, 'directiveResponse');
+assert.deepEqual(responseDeleteRecoveryProjection.allowedActions, ['reviewResponseMutation', 'retryResponse']);
+
+const reloadedSourceRecovery = await reloadedApp.handleHostMessageEdited({
+  hostMessageId: 'runtime-player-after-reload',
+  text: 'Serrin revises the readiness order after the committed response, keeping the relay margin logged.'
+});
+assert.equal(reloadedSourceRecovery.handled, true, 'Runtime host edit should be handled by chat-native recovery.');
+assert.equal(reloadedSourceRecovery.action, 'reviewRequired', 'Committed source edit should enter recovery review.');
+view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+const editedReloadedIngress = view.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-after-reload');
+assert.equal(editedReloadedIngress.status, 'recoveryRequired', 'Old ingress projection should mirror CORE recovery-required state.');
+const editedReloadedRecovery = view.campaignState.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.type === 'playerMessageEdited'
+  && entry.ingressId === editedReloadedIngress.id
+));
+assert.equal(editedReloadedRecovery.details.coreRecovery.status, 'recorded', 'Old recovery journal should reference the CORE recovery write.');
+const coreProjectionsAfterSourceEdit = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+const sourceMutationRecoveryProjection = coreProjectionsAfterSourceEdit.recoveryJournal.find((entry) => (
+  entry.transactionId === editedReloadedIngress.coreTransactionId
+  && entry.reason === 'playerMessageEdited'
+));
+assert.ok(sourceMutationRecoveryProjection, 'Runtime source edit should persist a CORE recovery projection.');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceKind, 'playerIngress');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.hostMessageId, 'runtime-player-after-reload');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.ingressId, editedReloadedIngress.id);
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceFrameId, editedReloadedIngress.sourceFrameId);
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextHash.length, 64);
+assert.equal(sourceMutationRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(sourceMutationRecoveryProjection.repairDecision.action, 'reviewRequired');
+assert.equal(sourceMutationRecoveryProjection.repairDecision.normalTurnAllowed, false);
+assert.equal(sourceMutationRecoveryProjection.repairDecision.legacyProjection.sourceProjectionStatus, 'recoveryRequired');
+assert.deepEqual(sourceMutationRecoveryProjection.allowedActions, [
+  'reviewSourceMutation',
+  'rerunFromSource',
+  'branchFromPriorRevision'
+]);
+assert.equal(JSON.stringify(sourceMutationRecoveryProjection).includes('Serrin revises the readiness order'), false, 'CORE recovery projection must not store raw replacement text.');
+
 const saves = await listCampaignSaves(host.storage);
 const activeSave = saves.find((entry) => entry.id === view.activeSaveId);
 assert.ok(activeSave);
@@ -1072,4 +1269,4 @@ assert.equal(archived.campaignState.campaign.status, 'archived');
 assert.ok(archived.campaignState.campaign.archivedAt);
 assert.equal(host.prompt.inspect().blockCount, 0);
 
-console.log('Chat-native runtime flow tests passed: no pre-activation injection, creator activation, automatic chat/intro, utility loop, committed outcome, autosave, conclusion, and archive');
+console.log('Chat-native runtime flow tests passed: no pre-activation injection, creator activation, automatic chat/intro, utility loop, committed outcome, REPAIR source/response recovery, autosave, conclusion, and archive');

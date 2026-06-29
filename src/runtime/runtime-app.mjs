@@ -74,6 +74,7 @@ import {
 } from '../continuity/diagnostics.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
+import { createRepairRuntime } from './repair-runtime.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
@@ -1478,10 +1479,20 @@ export function createDirectiveRuntimeApp({
       if (typeof store?.advanceTurn !== 'function') return null;
       return store.advanceTurn(...args);
     },
+    async supersedeLatestSourceTransaction(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.supersedeLatestSourceTransaction !== 'function') return null;
+      return store.supersedeLatestSourceTransaction(...args);
+    },
     async recordVisibleResponse(...args) {
       const store = await ensureActiveCoreTurnStore();
       if (typeof store?.recordVisibleResponse !== 'function') return null;
       return store.recordVisibleResponse(...args);
+    },
+    async markRecoveryRequired(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.markRecoveryRequired !== 'function') return null;
+      return store.markRecoveryRequired(...args);
     },
     async getTransaction(...args) {
       const store = await ensureActiveCoreTurnStore();
@@ -4320,9 +4331,14 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       now
     });
+    const repairRuntime = createRepairRuntime({
+      coreTurnStore: runtimeCoreTurnStore,
+      now
+    });
     const responseDispatcher = createResponseDispatcher({
       host: runtimeHost,
       coreTurnStore: runtimeCoreTurnStore,
+      repairRuntime,
       getCampaignState,
       setCampaignState,
       persist: persistCampaignState,
@@ -4332,6 +4348,7 @@ export function createDirectiveRuntimeApp({
       getCampaignState,
       setCampaignState,
       coreTurnStore: runtimeCoreTurnStore,
+      repairRuntime,
       persist: persistCampaignState,
       syncPrompt: async (state) => (await synchronizeActivePrompt(state, {
         persist: false,
@@ -4456,6 +4473,7 @@ export function createDirectiveRuntimeApp({
       turnCommitCoordinator,
       sidecarScheduler,
       messageReconciler,
+      repairRuntime,
       coreTurnStore: runtimeCoreTurnStore,
       stateDeltaGateway,
       getCampaignState,
@@ -4885,6 +4903,31 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async reobserveHostGenerationCompletions() {
+      return run(async () => {
+        await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
+        const services = ensureChatNativeServices();
+        if (!services?.responseDispatcher?.reobserveHostGenerationCompletions) {
+          return { ok: false, skipped: true, reason: 'response-dispatcher-reobserve-unavailable' };
+        }
+        const assets = activeRuntimeAssets();
+        const result = await services.responseDispatcher.reobserveHostGenerationCompletions({
+          campaignState: liveCampaignStateForView() || campaignState,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          shipDataset: assets?.shipDataset || null,
+          campaignProjection: assets?.projection || null
+        });
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return {
+          ...cloneJson(result),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
     async captureMissionComponentSelection(payload = {}) {
       return run(async () => {
         const selection = payload.selection || payload;
@@ -5202,9 +5245,21 @@ export function createDirectiveRuntimeApp({
     async handleHostMessageDeleted(payload = {}) {
       return run(async () => {
         await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
         const services = ensureChatNativeServices();
         return services
           ? services.orchestrator.handleMessageDeleted(payload)
+          : { handled: false, reason: 'chat-native-host-unavailable' };
+      });
+    },
+
+    async handleHostMessageVisibilityChanged(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
+        const services = ensureChatNativeServices();
+        return services?.orchestrator?.handleMessageVisibilityChanged
+          ? services.orchestrator.handleMessageVisibilityChanged(payload)
           : { handled: false, reason: 'chat-native-host-unavailable' };
       });
     },
@@ -5677,10 +5732,10 @@ export function createDirectiveRuntimeApp({
         requireObject(campaignState, 'campaignState');
         const limit = normalizeTurnSaveHistoryLimit(maxTurnSaveHistory ?? historyLimit);
         campaignState = applyRuntimeSettings(campaignState, { maxTurnSaveHistory: limit });
-        const save = await controller.saveCurrentGame({
+        const save = await persistRuntimeCampaignState(
           campaignState,
-          summary: `Runtime turn save history limited to ${limit} turn(s).`
-        });
+          `Runtime turn save history limited to ${limit} turn(s).`
+        );
         await refreshCampaignView();
         return {
           kind: 'directive.runtimeHistoryLimitUpdated',
@@ -5727,10 +5782,10 @@ export function createDirectiveRuntimeApp({
           autosaveEveryMessages: autosaveInterval,
           outcomeIntegrity: nextOutcomeIntegrity
         });
-        const save = await controller.saveCurrentGame({
+        const save = await persistRuntimeCampaignState(
           campaignState,
-          summary: `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s), Outcome Integrity ${nextOutcomeIntegrity.mode}.`
-        });
+          `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s), Outcome Integrity ${nextOutcomeIntegrity.mode}.`
+        );
         await refreshCampaignView();
         return {
           kind: 'directive.runtimeSettingsUpdated',
@@ -6777,6 +6832,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
+        await settleRuntimePersistenceQueue();
         const save = await controller.saveCurrentGame({
           campaignState,
           summary: 'State Safety settled the active campaign state.'

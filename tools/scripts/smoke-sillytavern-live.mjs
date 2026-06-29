@@ -26,6 +26,10 @@ import {
   timingProofEntryIsNonGenerated,
   timingProofEntryRequiresGenerationStart
 } from './lib/generation-timing-proof-policy.mjs';
+import {
+  EXTERNAL_CONTEXT_FIXTURE_WORLD,
+  buildExternalContextFixtureChatMetadata
+} from './prepare-sillytavern-external-context-fixture.mjs';
 
 const args = new Set(process.argv.slice(2));
 const BASE_URL = (process.env.SILLYTAVERN_BASE_URL || process.env.ST_BASE_URL || '').replace(/\/+$/, '');
@@ -91,6 +95,8 @@ const REQUIRE_BATCHED_SIDECARS = process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCH
   || (process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS !== '0' && !CAMPAIGN_PACKAGE_ID);
 const FAIL_ON_NARRATION_RECOVERY = process.env.DIRECTIVE_SILLYTAVERN_FAIL_ON_NARRATION_RECOVERY === '1';
 const WAIT_FOR_SIDECARS_EACH_TURN = process.env.DIRECTIVE_SILLYTAVERN_WAIT_SIDECARS_EACH_TURN === '1';
+const ACTIVATE_EXTERNAL_CONTEXT_FIXTURE = process.env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE === '1'
+  || process.env.DIRECTIVE_SILLYTAVERN_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE === '1';
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, 15000);
 const UI_BOOT_TIMEOUT_MS = positiveInteger(
   process.env.DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS,
@@ -98,9 +104,17 @@ const UI_BOOT_TIMEOUT_MS = positiveInteger(
 );
 const GENERATION_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, 90000);
 const CHAT_CAMPAIGN_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS, Math.max(120000, GENERATION_TIMEOUT_MS));
+const HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS = positiveInteger(
+  process.env.DIRECTIVE_SILLYTAVERN_HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS,
+  Math.min(Math.max(CHAT_CAMPAIGN_TIMEOUT_MS, 240000), 240000)
+);
 const SIDECAR_SETTLE_TIMEOUT_MS = positiveInteger(
   process.env.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS,
   Math.min(CHAT_CAMPAIGN_TIMEOUT_MS, 120000)
+);
+const FINAL_SIDECAR_ACTIVITY_TIMEOUT_MS = positiveInteger(
+  process.env.DIRECTIVE_SILLYTAVERN_FINAL_SIDECAR_ACTIVITY_TIMEOUT_MS,
+  Math.min(CHAT_CAMPAIGN_TIMEOUT_MS, 30000)
 );
 const SCREENSHOT_BASE_DIR = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR
   || path.join(os.tmpdir(), 'directive-sillytavern-smoke-screenshots');
@@ -212,6 +226,7 @@ function compactReportSummary(report) {
   const created = chatCampaignFlow?.created || {};
   const final = chatCampaignFlow?.final || {};
   const generationTimingProof = chatCampaignFlow?.generationTimingProof || {};
+  const hostNativeCompletionProof = chatCampaignFlow?.hostNativeCompletionProof || {};
   const retainedModelCalls = Array.isArray(final?.modelCalls) ? final.modelCalls : [];
   const staticExtension = report?.staticExtension || {};
   const storage = report?.storage || {};
@@ -263,6 +278,15 @@ function compactReportSummary(report) {
       generationTimingCheckedTurns: generationTimingProof?.checkedTurnCount ?? null,
       generationTimingSkippedTurns: generationTimingProof?.skippedTurnCount ?? null,
       generationTimingMaxLatencyMs: generationTimingProof?.maxGenerationStartLatencyMs ?? null,
+      hostNativeCompletionStatus: hostNativeCompletionProof?.status || null,
+      hostNativeCompletionProofSource: hostNativeCompletionProof?.source || null,
+      hostNativeCompletionProofCompletionSource: hostNativeCompletionProof?.completionSource || null,
+      hostNativeCompletionCount: hostNativeCompletionProof?.completedHostContinueCount ?? null,
+      hostNativeCompletionFailureCount: hostNativeCompletionProof?.failedHostContinueCount ?? null,
+      hostNativeCompletionRequiredCount: hostNativeCompletionProof?.requiredCompletionCount ?? null,
+      hostNativeCompletionRequiredPassCount: hostNativeCompletionProof?.requiredCompletionPassCount ?? null,
+      hostNativeCompletionRequiredFailureCount: hostNativeCompletionProof?.requiredCompletionFailureCount ?? null,
+      hostNativeCompletionMaxLatencyMs: hostNativeCompletionProof?.maxCompletionLatencyMs ?? null,
       stoppedOnTerminalDecision: chatCampaignFlow?.stoppedOnTerminalDecision === true,
       stoppedOnPendingInteraction: chatCampaignFlow?.stoppedOnPendingInteraction || null,
       perspectiveQualityStatus: chatCampaignFlow?.perspectiveQualityStatus || null,
@@ -594,6 +618,9 @@ function normalizeChatScriptEntry(entry, index) {
       firstPersonNarrationSuspected: perspectiveEvidence.firstPersonNarrationSuspected,
       preferredPlayEvidence: perspectiveEvidence.preferredPlayEvidence,
       perspectiveWarning: perspectiveEvidence.perspectiveWarning,
+      expectedRoute: entry.expectedRoute ? String(entry.expectedRoute) : null,
+      expectedResponseStrategy: entry.expectedResponseStrategy ? String(entry.expectedResponseStrategy) : null,
+      hostNativeCompletionRequired: entry.hostNativeCompletionRequired === true,
       pendingResolutionText: String(entry.pendingResolutionText || entry.pendingReply || '').trim(),
       clarificationText: String(entry.clarificationText || '').trim(),
       riskConfirmationText: String(entry.riskConfirmationText || '').trim(),
@@ -617,7 +644,16 @@ function parseChatMessageScriptPayload(payload, source) {
   if (messages.length === 0) {
     throw new Error(`${source} did not contain any usable chat messages.`);
   }
-  return { source, messages };
+  const hostNativeCompletionRequiredMessages = messages
+    .filter((message) => message.hostNativeCompletionRequired === true)
+    .map((message) => ({
+      id: message.id,
+      label: message.label,
+      category: message.category,
+      expectedRoute: message.expectedRoute || null,
+      expectedResponseStrategy: message.expectedResponseStrategy || null
+    }));
+  return { source, messages, hostNativeCompletionRequiredMessages };
 }
 
 function csrfTokenFromPayload(payload) {
@@ -2508,6 +2544,45 @@ function sanitizeCoreTimingProjection(projection = {}) {
   };
 }
 
+function hostNativeCompletionStatus(entry = {}) {
+  if (entry.route !== 'hostContinue') return 'not-hostContinue';
+  if (!entry.hostGenerationReleasedAt) return 'missing-host-generation-release';
+  if (!entry.visibleResponsePostedAt) return 'missing-visible-response-posted';
+  if (!entry.hostMessageId) return 'missing-assistant-host-message';
+  return 'pass';
+}
+
+function sanitizeHostNativeCompletionProjection(response = {}, timingByTransaction = new Map()) {
+  const timing = timingByTransaction.get(response.transactionId) || {};
+  const turnTiming = sanitizeTimingMetric(timing.turnTiming);
+  const hostGenerationReleasedAt = turnTiming?.hostGenerationReleasedAt ?? null;
+  const visibleResponsePostedAt = turnTiming?.visibleResponsePostedAt ?? null;
+  const entry = {
+    responseId: response.id || null,
+    transactionId: response.transactionId || null,
+    coreTransactionId: response.transactionId || null,
+    route: timing.route || null,
+    responseKind: response.responseKind || null,
+    status: response.status || null,
+    hostMessageId: response.hostMessageId || null,
+    textHash: response.textHash || null,
+    textHashStatus: response.textHash ? 'present' : 'missing',
+    outcomeId: response.outcomeId || null,
+    sourceFrameId: timing.sourceFrameId || null,
+    playerHostMessageId: timing.hostMessageId || null,
+    hostGenerationReleasedAt,
+    visibleResponsePostedAt,
+    completionLatencyMs: Number.isFinite(hostGenerationReleasedAt) && Number.isFinite(visibleResponsePostedAt)
+      ? Math.max(0, visibleResponsePostedAt - hostGenerationReleasedAt)
+      : null,
+    eventIds: Array.isArray(timing.eventIds) ? timing.eventIds.filter(Boolean) : []
+  };
+  return {
+    ...entry,
+    completionStatus: hostNativeCompletionStatus(entry)
+  };
+}
+
 function generationTimingProofFromLedgers({
   source,
   ingressLedger = [],
@@ -2547,6 +2622,91 @@ function generationTimingProofFromLedgers({
       ...entry,
       timingStatus: 'skipped-non-generation'
     }))
+  };
+}
+
+function hostNativeCompletionProofFromCoreProjections({
+  source = 'coreStoreResponseLedger',
+  projections = {},
+  beforeSnapshot = null,
+  afterSnapshot = null,
+  saveId = null,
+  campaignId = null,
+  payloadPath = null,
+  coreManifestPath = null
+} = {}) {
+  const beforeTransactionIds = new Set([
+    ...((beforeSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
+    ...((beforeSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
+  ]);
+  const afterTransactionIds = new Set([
+    ...((afterSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
+    ...((afterSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
+  ]);
+  const targetTransactionIds = new Set(
+    [...afterTransactionIds].filter((id) => !beforeTransactionIds.has(id))
+  );
+  const timingByTransaction = new Map((projections.turnTiming || [])
+    .filter((entry) => entry?.transactionId)
+    .map((entry) => [entry.transactionId, entry]));
+  const responseRows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
+  const candidates = responseRows.filter((entry) => (
+    entry?.transactionId
+    && entry.responseKind === 'hostContinue'
+    && (targetTransactionIds.size === 0 || targetTransactionIds.has(entry.transactionId))
+  ));
+  const entries = candidates.map((entry) => sanitizeHostNativeCompletionProjection(entry, timingByTransaction));
+  const completed = entries.filter((entry) => entry.completionStatus === 'pass');
+  const failed = entries.filter((entry) => entry.completionStatus !== 'pass');
+  const maxCompletionLatencyMs = completed.reduce((max, entry) => {
+    const value = Number(entry.completionLatencyMs);
+    return Number.isFinite(value) ? Math.max(max, value) : max;
+  }, 0);
+  return {
+    status: failed.length > 0 ? 'fail' : (completed.length > 0 ? 'pass' : 'warning'),
+    source,
+    completionSource: 'coreProjection',
+    storageFormat: 'v2-core',
+    saveId,
+    campaignId,
+    payloadPath,
+    coreManifestPath,
+    targetTransactionCount: targetTransactionIds.size,
+    candidateResponseCount: candidates.length,
+    completedHostContinueCount: completed.length,
+    failedHostContinueCount: failed.length,
+    maxCompletionLatencyMs: completed.length > 0 ? maxCompletionLatencyMs : null,
+    entries,
+    unavailableReason: candidates.length === 0 ? 'no-hostContinue-completion-candidates' : null
+  };
+}
+
+function hostNativeCompletionRequirementProof(message = {}, proof = {}) {
+  if (message.hostNativeCompletionRequired !== true) return null;
+  const source = proof?.source || null;
+  const completionSource = proof?.completionSource || null;
+  const completedHostContinueCount = Number(proof?.completedHostContinueCount || 0);
+  const failedHostContinueCount = Number(proof?.failedHostContinueCount || 0);
+  const pass = proof?.status === 'pass'
+    && source === 'coreStoreResponseLedger'
+    && completionSource === 'coreProjection'
+    && completedHostContinueCount > 0
+    && failedHostContinueCount === 0;
+  return {
+    required: true,
+    status: pass ? 'pass' : 'fail',
+    scriptMessageId: message.id || null,
+    turn: Number.isFinite(Number(message.turn)) ? Number(message.turn) : null,
+    scriptLabel: message.label || null,
+    scriptCategory: message.category || null,
+    expectedRoute: message.expectedRoute || 'hostContinue',
+    expectedResponseStrategy: message.expectedResponseStrategy || 'injectAndContinue',
+    proofStatus: proof?.status || null,
+    source,
+    completionSource,
+    completedHostContinueCount,
+    failedHostContinueCount,
+    unavailableReason: proof?.unavailableReason || null
   };
 }
 
@@ -2613,6 +2773,53 @@ function generationTimingProofFromCoreProjections({
   };
 }
 
+async function captureCoreStoreProjections(page, {
+  saveId = null,
+  campaignId = null,
+  label = 'Directive save index for CORE proof'
+} = {}) {
+  const saveIndex = await readBrowserStorageJson(page, SAVE_INDEX_USER_FILES_PATH, label, {
+    unavailableIsSkip: true
+  });
+  const entry = saveId && saveIndex?.saves?.[saveId]
+    ? saveIndex.saves[saveId]
+    : saveIndex?.saves?.[saveIndex?.activeSaveId || ''];
+  if (!entry) {
+    return {
+      status: 'warning',
+      reason: 'active-save-index-entry-missing',
+      saveId: saveId || saveIndex?.activeSaveId || null
+    };
+  }
+  const resolvedSaveId = entry.id || saveId || null;
+  const resolvedCampaignId = campaignId || campaignIdForSaveIndexEntry(entry);
+  if (!resolvedCampaignId) {
+    return {
+      status: 'warning',
+      reason: 'campaign-id-for-core-projection-missing',
+      saveId: resolvedSaveId
+    };
+  }
+  const adapter = createBrowserLogicalStorageAdapter(page);
+  const projections = await readCoreStoreProjectionsV2(adapter, {
+    campaignId: resolvedCampaignId,
+    saveId: resolvedSaveId
+  });
+  const coreManifestPath = toSillyTavernUserFilesPath(coreSaveManifestV2LogicalKey({
+    campaignId: resolvedCampaignId,
+    saveId: resolvedSaveId
+  }));
+  return {
+    status: 'pass',
+    entry,
+    projections,
+    saveId: resolvedSaveId,
+    campaignId: resolvedCampaignId,
+    payloadPath: userFilesPathForIndexedEntry(entry),
+    coreManifestPath
+  };
+}
+
 function campaignIdFromV2ManifestRef(ref = {}) {
   const logicalKey = String(ref?.logicalKey || '');
   const match = logicalKey.match(/^campaigns\/([^/]+)\/saves\/([^/]+)\//u);
@@ -2647,47 +2854,27 @@ async function capturePersistedGenerationTimingProof(page, {
   afterSnapshot = null
 } = {}) {
   try {
-    const saveIndex = await readBrowserStorageJson(page, SAVE_INDEX_USER_FILES_PATH, 'Directive save index for generation timing proof', {
-      unavailableIsSkip: true
+    const core = await captureCoreStoreProjections(page, {
+      saveId,
+      campaignId,
+      label: 'Directive save index for generation timing proof'
     });
-    const entry = saveId && saveIndex?.saves?.[saveId]
-      ? saveIndex.saves[saveId]
-      : saveIndex?.saves?.[saveIndex?.activeSaveId || ''];
-    if (!entry) {
+    if (core.status !== 'pass') {
       return {
         status: 'warning',
         source: 'coreStoreTurnTiming',
         timingSource: 'coreProjection',
-        reason: 'active-save-index-entry-missing',
-        saveId: saveId || saveIndex?.activeSaveId || null
+        reason: core.reason,
+        saveId: core.saveId || saveId || null
       };
     }
-    const resolvedSaveId = entry.id || saveId || null;
-    const resolvedCampaignId = campaignId || campaignIdForSaveIndexEntry(entry);
-    if (!resolvedCampaignId) {
-      return {
-        status: 'warning',
-        source: 'coreStoreTurnTiming',
-        timingSource: 'coreProjection',
-        reason: 'campaign-id-for-core-projection-missing',
-        saveId: resolvedSaveId
-      };
-    }
-    const adapter = createBrowserLogicalStorageAdapter(page);
-    const projections = await readCoreStoreProjectionsV2(adapter, {
-      campaignId: resolvedCampaignId,
-      saveId: resolvedSaveId
-    });
     return generationTimingProofFromCoreProjections({
       source: 'coreStoreTurnTiming',
-      saveId: resolvedSaveId,
-      campaignId: resolvedCampaignId,
-      payloadPath: userFilesPathForIndexedEntry(entry),
-      coreManifestPath: toSillyTavernUserFilesPath(coreSaveManifestV2LogicalKey({
-        campaignId: resolvedCampaignId,
-        saveId: resolvedSaveId
-      })),
-      projections,
+      saveId: core.saveId,
+      campaignId: core.campaignId,
+      payloadPath: core.payloadPath,
+      coreManifestPath: core.coreManifestPath,
+      projections: core.projections,
       beforeSnapshot,
       afterSnapshot
     });
@@ -2700,6 +2887,184 @@ async function capturePersistedGenerationTimingProof(page, {
       saveId: saveId || null
     };
   }
+}
+
+async function capturePersistedHostNativeCompletionProof(page, {
+  saveId = null,
+  campaignId = null,
+  beforeSnapshot = null,
+  afterSnapshot = null
+} = {}) {
+  try {
+    const core = await captureCoreStoreProjections(page, {
+      saveId,
+      campaignId,
+      label: 'Directive save index for host-native completion proof'
+    });
+    if (core.status !== 'pass') {
+      return {
+        status: 'warning',
+        source: 'coreStoreResponseLedger',
+        completionSource: 'coreProjection',
+        reason: core.reason,
+        saveId: core.saveId || saveId || null
+      };
+    }
+    return hostNativeCompletionProofFromCoreProjections({
+      source: 'coreStoreResponseLedger',
+      saveId: core.saveId,
+      campaignId: core.campaignId,
+      payloadPath: core.payloadPath,
+      coreManifestPath: core.coreManifestPath,
+      projections: core.projections,
+      beforeSnapshot,
+      afterSnapshot
+    });
+  } catch (error) {
+    return {
+      status: 'warning',
+      source: 'coreStoreResponseLedger',
+      completionSource: 'coreProjection',
+      reason: error?.message || String(error),
+      saveId: saveId || null
+    };
+  }
+}
+
+async function reobserveHostGenerationCompletions(page) {
+  try {
+    return await page.evaluate(async (modulePath) => {
+      const mod = await import(modulePath);
+      const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+      const app = bridge.runtimeApp || null;
+      if (typeof app?.reobserveHostGenerationCompletions !== 'function') {
+        return { ok: false, skipped: true, reason: 'reobserveHostGenerationCompletions-unavailable' };
+      }
+      return app.reobserveHostGenerationCompletions();
+    }, bridgeModulePath());
+  } catch (error) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: error?.message || String(error)
+    };
+  }
+}
+
+async function waitForPersistedHostNativeCompletionProof(page, {
+  saveId = null,
+  campaignId = null,
+  beforeSnapshot = null,
+  afterSnapshot = null,
+  timeoutMs = HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS,
+  pollingMs = 1000
+} = {}) {
+  const startedAt = Date.now();
+  const timeout = Math.max(1, Number(timeoutMs || HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS));
+  const polling = Math.max(100, Number(pollingMs || 1000));
+  let latest = null;
+  let attempts = 0;
+  while (true) {
+    attempts += 1;
+    const reobserve = await reobserveHostGenerationCompletions(page);
+    latest = await capturePersistedHostNativeCompletionProof(page, {
+      saveId,
+      campaignId,
+      beforeSnapshot,
+      afterSnapshot
+    });
+    latest = {
+      ...latest,
+      reobserveHostGeneration: reobserve ? {
+        ok: reobserve.ok === true,
+        skipped: reobserve.skipped === true,
+        reason: reobserve.reason || null,
+        checkedResponseCount: reobserve.checkedResponseCount ?? null,
+        checkedCoreProjectionCount: reobserve.checkedCoreProjectionCount ?? null,
+        completedCount: reobserve.completedCount ?? null,
+        refreshResult: reobserve.refreshResult ? {
+          ok: reobserve.refreshResult.ok === true,
+          refreshed: reobserve.refreshResult.refreshed === true,
+          reason: reobserve.refreshResult.reason || null,
+          error: reobserve.refreshResult.error ? {
+            code: reobserve.refreshResult.error.code || null,
+            message: reobserve.refreshResult.error.message || null
+          } : null
+        } : null,
+        results: Array.isArray(reobserve.results)
+          ? reobserve.results.map((entry) => ({
+            responseId: entry.responseId || null,
+            status: entry.status || null,
+            ok: entry.ok === true,
+            hostMessageId: entry.hostMessageId || null,
+            index: entry.index ?? null,
+            textHash: entry.textHash || null,
+            reason: entry.reason || null,
+            playerHostMessageId: entry.playerHostMessageId || null,
+            playerIndex: entry.playerIndex ?? null,
+            recentMessageCount: entry.recentMessageCount ?? null,
+            recentWindowAfterPlayer: Array.isArray(entry.recentWindowAfterPlayer)
+              ? entry.recentWindowAfterPlayer.slice(0, 8)
+              : [],
+            recentTail: Array.isArray(entry.recentTail)
+              ? entry.recentTail.slice(0, 8)
+              : []
+          })).slice(-8)
+          : [],
+        coreProjectionResults: Array.isArray(reobserve.coreProjectionResults)
+          ? reobserve.coreProjectionResults.map((entry) => ({
+            transactionId: entry.transactionId || null,
+            status: entry.status || null,
+            ok: entry.ok === true,
+            source: entry.source || null,
+            hostMessageId: entry.hostMessageId || null,
+            index: entry.index ?? null,
+            textHash: entry.textHash || null,
+            reason: entry.reason || null,
+            playerHostMessageId: entry.playerHostMessageId || null,
+            playerIndex: entry.playerIndex ?? null,
+            recentMessageCount: entry.recentMessageCount ?? null,
+            recentWindowAfterPlayer: Array.isArray(entry.recentWindowAfterPlayer)
+              ? entry.recentWindowAfterPlayer.slice(0, 8)
+              : [],
+            recentTail: Array.isArray(entry.recentTail)
+              ? entry.recentTail.slice(0, 8)
+              : [],
+            error: entry.error ? {
+              code: entry.error.code || null,
+              message: entry.error.message || null
+            } : null
+          })).slice(-8)
+          : []
+      } : null
+    };
+    const completed = Number(latest?.completedHostContinueCount || 0);
+    const failed = Number(latest?.failedHostContinueCount || 0);
+    if (latest?.status === 'pass' || completed > 0 || failed > 0) {
+      return {
+        ...latest,
+        waitedForCompletionProof: attempts > 1,
+        proofWaitAttempts: attempts,
+        proofWaitMs: Date.now() - startedAt,
+        proofWaitTimedOut: false
+      };
+    }
+    if (Date.now() - startedAt >= timeout) break;
+    await sleep(Math.min(polling, Math.max(0, timeout - (Date.now() - startedAt))));
+  }
+  return {
+    ...(latest || {
+      status: 'warning',
+      source: 'coreStoreResponseLedger',
+      completionSource: 'coreProjection',
+      saveId: saveId || null,
+      campaignId: campaignId || null
+    }),
+    waitedForCompletionProof: attempts > 0,
+    proofWaitAttempts: attempts,
+    proofWaitMs: Date.now() - startedAt,
+    proofWaitTimedOut: true
+  };
 }
 
 function aggregateGenerationTimingProof(rounds = []) {
@@ -2727,6 +3092,45 @@ function aggregateGenerationTimingProof(rounds = []) {
     warningCount: warnings.length,
     failureCount: failed.length,
     routes: [...new Set(checked.map((entry) => entry.route).filter(Boolean))]
+  };
+}
+
+function aggregateHostNativeCompletionProof(rounds = []) {
+  const proofs = rounds.map((round) => round.hostNativeCompletion?.persisted).filter(Boolean);
+  const entries = proofs.flatMap((proof) => proof.entries || []);
+  const completed = entries.filter((entry) => entry.completionStatus === 'pass');
+  const failed = entries.filter((entry) => entry.completionStatus && entry.completionStatus !== 'pass');
+  const requiredCompletions = rounds
+    .map((round) => round.hostNativeCompletionRequirement)
+    .filter((entry) => entry?.required === true);
+  const requiredCompletionFailures = requiredCompletions.filter((entry) => entry.status !== 'pass');
+  const requiredCompletionPasses = requiredCompletions.filter((entry) => entry.status === 'pass');
+  const warningProofs = proofs.filter((proof) => proof.status === 'warning');
+  const failedProofs = proofs.filter((proof) => proof.status === 'fail');
+  return {
+    status: failedProofs.length > 0 || failed.length > 0 || requiredCompletionFailures.length > 0
+      ? 'fail'
+      : (completed.length > 0 ? 'pass' : 'warning'),
+    source: 'coreStoreResponseLedger',
+    completionSource: completed.length ? 'coreProjection' : null,
+    proofCount: proofs.length,
+    completedHostContinueCount: completed.length,
+    failedHostContinueCount: failed.length,
+    requiredCompletionCount: requiredCompletions.length,
+    requiredCompletionPassCount: requiredCompletionPasses.length,
+    requiredCompletionFailureCount: requiredCompletionFailures.length,
+    warningProofCount: warningProofs.length,
+    failureProofCount: failedProofs.length,
+    maxCompletionLatencyMs: completed.reduce((max, entry) => {
+      const value = Number(entry.completionLatencyMs);
+      return Number.isFinite(value) ? Math.max(max, value) : max;
+    }, 0) || null,
+    transactionIds: [...new Set(completed.map((entry) => entry.transactionId).filter(Boolean))],
+    entries: completed,
+    failures: failed,
+    requiredCompletions,
+    requiredHostNativeCompletions: requiredCompletions,
+    unavailableReasons: [...new Set(proofs.map((proof) => proof.unavailableReason || proof.reason).filter(Boolean))]
   };
 }
 
@@ -2986,37 +3390,50 @@ function transcriptMarkdown(transcript, metadata = {}) {
 
 async function captureChatTranscript(page, metadata = {}) {
   if (!TRANSCRIPT_DIR) return null;
-  const transcript = await page.evaluate(() => {
-    const messageText = (message) => {
-      const value = message?.mes ?? message?.content ?? message?.text ?? '';
-      if (typeof value === 'string') return value;
-      if (Array.isArray(value)) return value.map((part) => part?.text || '').filter(Boolean).join('\n');
-      return String(value || '');
-    };
-    const directiveMetadata = (message) => (
-      message?.extra?.directive
-      || message?.metadata?.directive
-      || null
-    );
-    const context = globalThis.SillyTavern?.getContext?.() || {};
-    const chat = Array.isArray(context?.chat) ? context.chat : [];
-    return {
-      capturedAt: new Date().toISOString(),
-      currentChatId: context?.chatId || context?.chat_id || null,
-      messages: chat.map((message, index) => {
-        const metadataValue = directiveMetadata(message);
-        return {
-          index,
-          name: message?.name || message?.sender || '',
-          isUser: message?.is_user === true || message?.role === 'user',
-          isSystem: message?.is_system === true || message?.role === 'system',
-          directiveOwned: Boolean(metadataValue),
-          responseKind: metadataValue?.responseKind || null,
-          text: messageText(message)
-        };
-      })
-    };
-  });
+  let transcript;
+  try {
+    transcript = await evaluateBrowserJson(page, () => {
+      const messageText = (message) => {
+        const value = message?.mes ?? message?.content ?? message?.text ?? '';
+        if (typeof value === 'string') return value;
+        if (Array.isArray(value)) return value.map((part) => part?.text || '').filter(Boolean).join('\n');
+        return String(value || '');
+      };
+      const directiveMetadata = (message) => (
+        message?.extra?.directive
+        || message?.metadata?.directive
+        || null
+      );
+      const context = globalThis.SillyTavern?.getContext?.() || {};
+      const chat = Array.isArray(context?.chat) ? context.chat : [];
+      return {
+        capturedAt: new Date().toISOString(),
+        currentChatId: context?.chatId || context?.chat_id || null,
+        messages: chat.map((message, index) => {
+          const metadataValue = directiveMetadata(message);
+          return {
+            index,
+            name: message?.name || message?.sender || '',
+            isUser: message?.is_user === true || message?.role === 'user',
+            isSystem: message?.is_system === true || message?.role === 'system',
+            directiveOwned: Boolean(metadataValue),
+            responseKind: metadataValue?.responseKind || null,
+            text: messageText(message)
+          };
+        })
+      };
+    }, null, BROWSER_TIMEOUT_MS);
+  } catch (error) {
+    appendLiveLog({
+      kind: 'transcript-capture',
+      status: 'warning',
+      reason: metadata.reason || 'snapshot',
+      scriptMessageId: metadata.scriptMessageId || null,
+      scriptCategory: metadata.scriptCategory || null,
+      error: errorSummary(error)
+    });
+    return null;
+  }
   ensureDirectory(TRANSCRIPT_DIR);
   const readableTranscript = path.join(TRANSCRIPT_DIR, 'readable-chat.md');
   const sourceChatTranscript = path.join(TRANSCRIPT_DIR, 'source-chat.jsonl');
@@ -3307,7 +3724,29 @@ async function chatNativeRuntimeSnapshot(page) {
         textPreview: compactText(messageText(message))
       };
     });
-    const modelCalls = (view?.chatNative?.modelCalls || []).map((entry) => ({
+    const safeModelCallMetadata = (metadata) => {
+      if (!metadata || typeof metadata !== 'object') return null;
+      const result = {};
+      for (const key of [
+        'coreDiagnosticTarget',
+        'fallbackAdvisoryHash',
+        'fallbackHash',
+        'fallbackUsed',
+        'deterministicFallbackHash',
+        'lastGoodProjectionHash',
+        'sourceHash',
+        'requestHash',
+        'candidateFactCount'
+      ]) {
+        if (metadata[key] === undefined || metadata[key] === null) continue;
+        const value = metadata[key];
+        result[key] = typeof value === 'string' && value.length > 96
+          ? `${value.slice(0, 96)}...`
+          : value;
+      }
+      return Object.keys(result).length ? result : null;
+    };
+    const safeModelCall = (entry) => ({
       id: entry.id || null,
       roleId: entry.roleId || null,
       status: entry.status || null,
@@ -3317,10 +3756,20 @@ async function chatNativeRuntimeSnapshot(page) {
       model: entry.model || null,
       latencyMs: entry.latencyMs ?? null,
       errorCode: entry.errorCode || null,
+      requestHash: entry.requestHash || entry.metadata?.requestHash || null,
+      fallback: entry.fallback || entry.fallbackPolicy || null,
+      fallbackOutcome: entry.fallbackOutcome || entry.fallbackStatus || null,
+      retryable: entry.retryable ?? null,
       structuredOutput: entry.structuredOutput === true,
       mayProposeState: entry.mayProposeState === true,
+      mayInjectPrompt: entry.mayInjectPrompt === true,
+      parseStatus: entry.parseStatus || entry.parserStatus || null,
+      validationStatus: entry.validationStatus || null,
+      applyStatus: entry.applyStatus || null,
+      metadata: safeModelCallMetadata(entry.metadata || null),
       recordedAt: entry.recordedAt || null
-    }));
+    });
+    const modelCalls = (view?.chatNative?.modelCalls || []).map(safeModelCall);
     const sidecars = (view?.campaignState?.runtimeTracking?.sidecarJournal || []).map((entry) => ({
       id: entry.id || null,
       workerId: entry.workerId || null,
@@ -3798,6 +4247,115 @@ async function createChatNativeLiveCampaign(page) {
     playerAppearance: CHAT_CAMPAIGN_PLAYER_APPEARANCE || null,
     playerBio: CHAT_CAMPAIGN_PLAYER_BIO || null,
     playerReputation: CHAT_CAMPAIGN_PLAYER_REPUTATION || null
+  });
+}
+
+async function activateExternalContextFixtureForCampaignChat(page, {
+  expectedChatId = null,
+  userHandle = SILLYTAVERN_USER
+} = {}) {
+  if (!ACTIVATE_EXTERNAL_CONTEXT_FIXTURE) {
+    return { ok: false, skipped: true, reason: 'activation-not-requested' };
+  }
+  if (normalizeUserHandle(userHandle) === 'default-user') {
+    return { ok: false, skipped: false, reason: 'default-user-reserved-for-human-testing' };
+  }
+  const fixtureMetadata = buildExternalContextFixtureChatMetadata();
+  return page.evaluate(async ({ worldName, expectedChatId, fixtureMetadata }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const asObject = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const mergeDefined = (base = {}, override = {}) => {
+      const next = { ...asObject(base) };
+      for (const [key, value] of Object.entries(asObject(override))) {
+        if (value !== undefined && value !== null) next[key] = value;
+      }
+      return next;
+    };
+    const hasMemoryBookRange = (value = {}) => {
+      const record = asObject(value);
+      if (record.sceneStart !== undefined && record.sceneEnd !== undefined) return true;
+      if (Array.isArray(record.ranges) && record.ranges.length) return true;
+      if (Array.isArray(record.entryRanges) && record.entryRanges.length) return true;
+      return false;
+    };
+    const hasSummaryceptionDiagnostics = (value = {}) => {
+      const record = asObject(value);
+      if (record.summarizedUpTo !== undefined) return true;
+      if (Array.isArray(record.layers) && record.layers.length) return true;
+      if (Array.isArray(record.ghostedIndices) && record.ghostedIndices.length) return true;
+      if (record.staleness && typeof record.staleness === 'object') return true;
+      return false;
+    };
+    const context = globalThis.SillyTavern?.getContext?.() || {};
+    const currentChatId = context.chatId
+      || context.chat_id
+      || context.currentChatId
+      || context.current_chat_id
+      || context.chatMetadata?.chat_id
+      || context.chat_metadata?.chat_id
+      || globalThis.chat_metadata?.chat_id
+      || null;
+    const metadata = context.chatMetadata
+      || context.chat_metadata
+      || globalThis.chat_metadata
+      || {};
+    metadata.world_info = worldName;
+    if (!hasMemoryBookRange(metadata.STMemoryBooks)) {
+      metadata.STMemoryBooks = mergeDefined(fixtureMetadata.STMemoryBooks, metadata.STMemoryBooks);
+    }
+    if (!hasSummaryceptionDiagnostics(metadata.summaryception)) {
+      metadata.summaryception = mergeDefined(fixtureMetadata.summaryception, metadata.summaryception);
+    }
+    if (!metadata.vectFox || typeof metadata.vectFox !== 'object') {
+      metadata.vectFox = clone(fixtureMetadata.vectFox || {});
+    }
+    context.chatMetadata = metadata;
+    context.chat_metadata = metadata;
+    globalThis.chat_metadata = metadata;
+
+    const settings = context.worldInfoSettings
+      || context.world_info_settings
+      || globalThis.world_info_settings
+      || {};
+    const worldInfo = settings.world_info || {};
+    const existingGlobalSelect = Array.isArray(worldInfo.globalSelect) ? worldInfo.globalSelect : [];
+    settings.world_info = {
+      ...worldInfo,
+      globalSelect: [...new Set([...existingGlobalSelect, worldName])]
+    };
+    if (settings.world_info_depth === undefined) settings.world_info_depth = 4;
+    if (settings.world_info_budget === undefined) settings.world_info_budget = 100;
+    if (settings.world_info_recursive === undefined) settings.world_info_recursive = true;
+    context.worldInfoSettings = settings;
+    context.world_info_settings = settings;
+    globalThis.world_info_settings = settings;
+
+    const saveMetadata = globalThis.saveMetadata || context.saveMetadata;
+    if (typeof saveMetadata === 'function') {
+      await saveMetadata().catch(() => null);
+    }
+    return {
+      ok: true,
+      status: 'bound-live-campaign-chat',
+      expectedChatId,
+      currentChatId,
+      currentChatMatchesExpected: !expectedChatId || !currentChatId || String(expectedChatId) === String(currentChatId),
+      worldInfo: {
+        chatBoundName: metadata.world_info || null,
+        activeNames: settings.world_info?.globalSelect || []
+      },
+      chatMetadata: clone({
+        world_info: metadata.world_info || null,
+        hasSTMemoryBooks: Boolean(metadata.STMemoryBooks),
+        stMemoryBookHasRange: hasMemoryBookRange(metadata.STMemoryBooks),
+        hasSummaryception: Boolean(metadata.summaryception),
+        summaryceptionHasDiagnostics: hasSummaryceptionDiagnostics(metadata.summaryception)
+      })
+    };
+  }, {
+    worldName: EXTERNAL_CONTEXT_FIXTURE_WORLD,
+    expectedChatId,
+    fixtureMetadata
   });
 }
 
@@ -4394,14 +4952,46 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       directiveMessageCount: messages.filter((message) => message.directiveOwned).length,
       nonDirectiveAssistantCount: messages.filter((message) => !message.isUser && !message.isSystem && !message.directiveOwned).length,
       recentMessages: messages.slice(-8),
-      modelCalls: (view?.chatNative?.modelCalls || []).map((entry) => ({
-        roleId: entry.roleId || null,
-        status: entry.status || null,
-        ok: entry.ok === true,
-        providerKind: entry.providerKind || null,
-        providerId: entry.providerId || null,
-        errorCode: entry.errorCode || null
-      })).slice(-12),
+      modelCalls: (view?.chatNative?.modelCalls || []).map((entry) => {
+        const safeMetadata = {};
+        for (const key of [
+          'coreDiagnosticTarget',
+          'fallbackAdvisoryHash',
+          'fallbackHash',
+          'fallbackUsed',
+          'deterministicFallbackHash',
+          'lastGoodProjectionHash',
+          'sourceHash',
+          'requestHash',
+          'candidateFactCount'
+        ]) {
+          if (entry.metadata?.[key] === undefined || entry.metadata?.[key] === null) continue;
+          const value = entry.metadata[key];
+          safeMetadata[key] = typeof value === 'string' && value.length > 96
+            ? `${value.slice(0, 96)}...`
+            : value;
+        }
+        return {
+          id: entry.id || null,
+          roleId: entry.roleId || null,
+          status: entry.status || null,
+          ok: entry.ok === true,
+          providerKind: entry.providerKind || null,
+          providerId: entry.providerId || null,
+          errorCode: entry.errorCode || null,
+          requestHash: entry.requestHash || entry.metadata?.requestHash || null,
+          fallback: entry.fallback || entry.fallbackPolicy || null,
+          fallbackOutcome: entry.fallbackOutcome || entry.fallbackStatus || null,
+          retryable: entry.retryable ?? null,
+          structuredOutput: entry.structuredOutput === true,
+          mayProposeState: entry.mayProposeState === true,
+          mayInjectPrompt: entry.mayInjectPrompt === true,
+          parseStatus: entry.parseStatus || entry.parserStatus || null,
+          validationStatus: entry.validationStatus || null,
+          applyStatus: entry.applyStatus || null,
+          metadata: Object.keys(safeMetadata).length ? safeMetadata : null
+        };
+      }).slice(-12),
       sidecarCount: view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
       turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
       commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0
@@ -4503,7 +5093,9 @@ async function readSidecarActivity(page, beforeSnapshot) {
   });
 }
 
-async function waitForSidecarActivity(page, beforeSnapshot) {
+async function waitForSidecarActivity(page, beforeSnapshot, {
+  timeoutMs = CHAT_CAMPAIGN_TIMEOUT_MS
+} = {}) {
   return waitForJsonValue(page, async ({ modulePath, before }) => {
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
@@ -4555,7 +5147,7 @@ async function waitForSidecarActivity(page, beforeSnapshot) {
     modulePath: bridgeModulePath(),
     before: beforeSnapshot
   }, {
-    timeout: CHAT_CAMPAIGN_TIMEOUT_MS
+    timeout: timeoutMs
   });
 }
 
@@ -4706,6 +5298,22 @@ async function runChatNativeCampaignFlow(page) {
     );
   }
   assertBrowser(created.openCampaignChat?.ok !== false, 'Directive could not open the bound SillyTavern campaign chat.', activationDetails);
+  const externalContextFixtureActivation = await activateExternalContextFixtureForCampaignChat(page, {
+    expectedChatId: created.binding?.chatId || null
+  });
+  if (ACTIVATE_EXTERNAL_CONTEXT_FIXTURE) {
+    assertBrowser(
+      externalContextFixtureActivation?.ok === true,
+      'External context fixture activation did not bind the live campaign chat.',
+      externalContextFixtureActivation
+    );
+    appendLiveLog({
+      kind: 'external-context-fixture-activation',
+      status: 'pass',
+      scope: 'live-campaign-chat',
+      activation: externalContextFixtureActivation
+    });
+  }
   appendLiveLog({
     kind: 'campaign-start',
     status: 'pass',
@@ -4718,6 +5326,7 @@ async function runChatNativeCampaignFlow(page) {
     chatId: created.binding?.chatId || null,
     currentChatId: created.currentChatId || null,
     expectedChatId: created.expectedChatId || CHAT_CAMPAIGN_RESUME_CHAT_ID || null,
+    externalContextFixtureActivation,
     artifactDir: LIVE_ARTIFACT_DIR || null
   });
 
@@ -4832,10 +5441,35 @@ async function runChatNativeCampaignFlow(page) {
         afterSnapshot: snapshot
       })
     };
+    const hostNativeCompletionProofInput = {
+      campaignId: created.campaign?.id || null,
+      saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+      beforeSnapshot: beforeTurnSnapshot,
+      afterSnapshot: snapshot
+    };
+    const hostNativeCompletion = {
+      persisted: message.hostNativeCompletionRequired === true
+        ? await waitForPersistedHostNativeCompletionProof(page, hostNativeCompletionProofInput)
+        : await capturePersistedHostNativeCompletionProof(page, hostNativeCompletionProofInput)
+    };
+    if (message.hostNativeCompletionRequired === true) {
+      snapshot = await chatNativeRuntimeSnapshot(page);
+    }
+    const postHostNativeWaitTranscript = message.hostNativeCompletionRequired === true
+      ? await captureChatTranscript(page, {
+        reason: 'host-native-completion-proof',
+        scriptMessageId: message.id,
+        scriptCategory: message.category
+      })
+      : null;
+    if (postHostNativeWaitTranscript) transcriptCaptures.push(postHostNativeWaitTranscript);
+    const hostNativeCompletionRequirement = hostNativeCompletionRequirementProof(message, hostNativeCompletion.persisted);
     const recordedRound = rounds.at(-1);
     if (recordedRound && recordedRound.scriptMessageId === message.id) {
-      recordedRound.transcript = capture;
+      recordedRound.transcript = postHostNativeWaitTranscript || capture;
       recordedRound.generationTiming = generationTiming;
+      recordedRound.hostNativeCompletion = hostNativeCompletion;
+      recordedRound.hostNativeCompletionRequirement = hostNativeCompletionRequirement;
     }
     const newSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeTurnSnapshot?.sidecarRejectedCount || 0));
     const turnStatus = snapshot.openNarrationRecoveryCount > 0
@@ -4865,8 +5499,15 @@ async function runChatNativeCampaignFlow(page) {
       sidecarStatusCounts: snapshot.sidecarStatusCounts,
       recentRecoveryJournal: snapshot.recentRecoveryJournal,
       generationTiming,
-      transcript: capture
+      hostNativeCompletion,
+      hostNativeCompletionRequirement,
+      transcript: postHostNativeWaitTranscript || capture
     });
+    assertBrowser(
+      !hostNativeCompletionRequirement || hostNativeCompletionRequirement.status === 'pass',
+      'Required host-native completion proof was not recorded for the scripted hostContinue turn.',
+      hostNativeCompletionRequirement
+    );
     if ((snapshot.pendingInteractions || []).some((entry) => entry?.kind === 'terminalOutcomeDecision')) {
       stoppedOnTerminalDecision = true;
       break;
@@ -4947,10 +5588,19 @@ async function runChatNativeCampaignFlow(page) {
           afterSnapshot: snapshot
         })
       };
+      const resolutionHostNativeCompletion = {
+        persisted: await capturePersistedHostNativeCompletionProof(page, {
+          campaignId: created.campaign?.id || null,
+          saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+          beforeSnapshot: beforeResolutionSnapshot,
+          afterSnapshot: snapshot
+        })
+      };
       const recordedResolutionRound = rounds.at(-1);
       if (recordedResolutionRound?.scriptMessageId === `${message.id}:proceed`) {
         recordedResolutionRound.transcript = resolutionCapture;
         recordedResolutionRound.generationTiming = resolutionGenerationTiming;
+        recordedResolutionRound.hostNativeCompletion = resolutionHostNativeCompletion;
       }
       const resolutionNewSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeResolutionSnapshot?.sidecarRejectedCount || 0));
       const resolutionStatus = snapshot.openNarrationRecoveryCount > 0
@@ -4982,6 +5632,7 @@ async function runChatNativeCampaignFlow(page) {
         sidecarStatusCounts: snapshot.sidecarStatusCounts,
         recentRecoveryJournal: snapshot.recentRecoveryJournal,
         generationTiming: resolutionGenerationTiming,
+        hostNativeCompletion: resolutionHostNativeCompletion,
         transcript: resolutionCapture
       });
       if ((snapshot.pendingInteractions || []).some((entry) => entry?.kind === 'terminalOutcomeDecision')) {
@@ -5020,9 +5671,15 @@ async function runChatNativeCampaignFlow(page) {
     && round.after?.matchedIngress?.responseStrategy !== 'pause'
   ));
   const sidecars = sidecarActivityExpected
-    ? await waitForSidecarActivity(page, snapshot).catch((error) => ({
+    ? await waitForSidecarActivity(page, snapshot, {
+      timeoutMs: FINAL_SIDECAR_ACTIVITY_TIMEOUT_MS
+    }).catch((error) => ({
       skipped: true,
-      reason: error?.message || String(error)
+      reason: error?.code === 'BROWSER_EVALUATION_TIMEOUT'
+        ? 'final-sidecar-activity-browser-timeout'
+        : 'final-sidecar-activity-timeout',
+      timeoutMs: FINAL_SIDECAR_ACTIVITY_TIMEOUT_MS,
+      message: error?.message || String(error)
     }))
     : {
       skipped: true,
@@ -5147,6 +5804,10 @@ async function runChatNativeCampaignFlow(page) {
   const generationTimingStatus = generationTimingProof.status === 'fail'
     ? 'warning'
     : generationTimingProof.status;
+  const hostNativeCompletionProof = aggregateHostNativeCompletionProof(sentRounds);
+  const hostNativeCompletionStatus = hostNativeCompletionProof.status === 'fail'
+    ? 'warning'
+    : hostNativeCompletionProof.status;
   const preferredPlayEvidenceCount = sentRounds.filter((round) => round.preferredPlayEvidence !== false).length;
   const nonPreferredPlayEvidenceCount = sentRounds.length - preferredPlayEvidenceCount;
   const perspectiveQualityStatus = nonPreferredPlayEvidenceCount > 0 ? 'warning' : 'pass';
@@ -5165,6 +5826,7 @@ async function runChatNativeCampaignFlow(page) {
     || sidecarHealthStatus === 'warning'
     || pendingInteractionStatus === 'warning'
     || generationTimingStatus === 'warning'
+    || hostNativeCompletionStatus === 'warning'
     || perspectiveQualityStatus === 'warning'
     ? 'warning'
     : 'pass';
@@ -5204,6 +5866,7 @@ async function runChatNativeCampaignFlow(page) {
     expectedChatId: created.expectedChatId || CHAT_CAMPAIGN_RESUME_CHAT_ID || null,
     messageScriptSource: messageScript.source,
     plannedMessageCount: messageScript.messages.length,
+    hostNativeCompletionRequiredMessages: messageScript.hostNativeCompletionRequiredMessages || [],
     sentMessageCount: sentRoundCount,
     stoppedOnTerminalDecision,
     stoppedOnPendingInteraction,
@@ -5219,6 +5882,7 @@ async function runChatNativeCampaignFlow(page) {
     sidecarRejectedDelta,
     sidecarStatusCounts: finalSnapshot.sidecarStatusCounts,
     generationTimingProof,
+    hostNativeCompletionProof,
     narrationFailureCount: finalSnapshot.narrationFailureCount,
     openNarrationRecoveryCount: finalSnapshot.openNarrationRecoveryCount,
     perspectiveQualityStatus,
@@ -5234,15 +5898,20 @@ async function runChatNativeCampaignFlow(page) {
     skipped: false,
     mode: created.resumed ? 'resume' : 'fresh',
     created,
+    externalContextFixtureActivation,
     messageScript: {
       source: messageScript.source,
       messageCount: messageScript.messages.length,
+      hostNativeCompletionRequiredMessages: messageScript.hostNativeCompletionRequiredMessages || [],
       messages: messageScript.messages.map((message) => ({
         id: message.id,
         label: message.label,
         category: message.category,
         perspective: message.detectedPerspective || message.perspective,
         declaredPerspective: message.perspective,
+        expectedRoute: message.expectedRoute || null,
+        expectedResponseStrategy: message.expectedResponseStrategy || null,
+        hostNativeCompletionRequired: message.hostNativeCompletionRequired === true,
         preferredPlayEvidence: message.preferredPlayEvidence !== false,
         firstPersonNarrationSuspected: message.firstPersonNarrationSuspected === true,
         perspectiveWarning: message.perspectiveWarning || null,
@@ -5259,6 +5928,8 @@ async function runChatNativeCampaignFlow(page) {
     pendingInteractionStatus,
     generationTimingStatus,
     generationTimingProof,
+    hostNativeCompletionStatus,
+    hostNativeCompletionProof,
     perspectiveQualityStatus,
     preferredPlayEvidenceCount,
     nonPreferredPlayEvidenceCount,
@@ -5287,6 +5958,8 @@ async function runChatNativeCampaignFlow(page) {
       promptInspection: round.promptInspection || null,
       transcript: round.transcript || null,
       generationTiming: round.generationTiming || null,
+      hostNativeCompletion: round.hostNativeCompletion || null,
+      hostNativeCompletionRequirement: round.hostNativeCompletionRequirement || null,
       responseCount: round.after?.tracking?.responseCount ?? null,
       ingressCount: round.after?.tracking?.ingressCount ?? null,
       modelCalls: round.after?.modelCalls || [],

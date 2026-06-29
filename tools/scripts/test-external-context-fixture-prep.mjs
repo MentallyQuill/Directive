@@ -7,6 +7,7 @@ import {
   EXTERNAL_CONTEXT_FIXTURE_CHAT_FILE,
   EXTERNAL_CONTEXT_FIXTURE_CHAT_FOLDER,
   EXTERNAL_CONTEXT_FIXTURE_WORLD,
+  buildExternalContextFixtureChatMetadata,
   buildExternalContextFixtureBrowserSnapshot,
   prepareSillyTavernExternalContextFixture,
   validateSillyTavernExternalContextFixture
@@ -89,7 +90,10 @@ assert.equal(settings.extension_settings.disabledExtensions.includes('extension-
 assert.equal(settings.extension_settings.note.default, '');
 assert.equal(settings.world_info_settings.world_info.globalSelect.includes(EXTERNAL_CONTEXT_FIXTURE_WORLD), true);
 assert.equal(settings.extension_settings.STMemoryBooks.moduleSettings.enabled, true);
+assert.equal(settings.extension_settings.STMemoryBooks.ranges.length, 1);
+assert.equal(settings.extension_settings.STMemoryBooks.moduleSettings.ranges.length, 1);
 assert.equal(settings.extension_settings.summaryception.enabled, true);
+assert.equal(settings.extension_settings.summaryception.staleness.status, 'observed');
 assert.equal(settings.extension_settings.vectfox.enabled, true);
 assert.equal(settings.extension_settings.vectfox.vector_backend, 'fixture-local');
 
@@ -122,11 +126,24 @@ assert.equal(validationOnly.fixtureDepth.targetCoverage.vectFox.richUserCount, 1
 assert.equal(validationOnly.compatibility.externalPromptEnvironment.knownExternalPromptKeys.includes('summaryception'), true);
 assert.equal(validationOnly.compatibility.externalPromptEnvironment.knownExternalPromptKeys.includes('3_vectfox'), true);
 assert.equal(validationOnly.compatibility.externalPromptEnvironment.knownExternalPromptKeys.includes('3_vectfox_summarizer'), true);
+assert.equal(validationOnly.compatibility.externalPromptEnvironment.redactionReasons.includes('raw-payload'), true);
 
 const browserSnapshot = buildExternalContextFixtureBrowserSnapshot({ userHandle: 'directive-soak-a' });
 assert.equal(browserSnapshot.hostPromptRegistry.promptKeys.includes('worldInfoBefore'), true);
 assert.equal(browserSnapshot.hostPromptRegistry.promptKeys.includes('summaryception'), true);
 assert.equal(browserSnapshot.vectFox.promptKeys.includes('3_vectfox_summarizer'), true);
+assert.equal(browserSnapshot.memoryBooks.rangeDiagnostics.status, 'valid');
+assert.equal(browserSnapshot.summaryception.staleness.status, 'observed');
+assert.equal(browserSnapshot.vectFox.backendDiagnostics.status, 'local-backend-configured');
+assert.equal(writeRun.validation.fixtureDepth.targetCoverage.memoryBooks.handles.includes('directive-soak-a'), true);
+assert.equal(writeRun.validation.fixtureDepth.targetCoverage.summaryception.handles.includes('directive-soak-a'), true);
+assert.equal(writeRun.validation.fixtureDepth.targetCoverage.vectFox.handles.includes('directive-soak-a'), true);
+
+const fixtureMetadata = buildExternalContextFixtureChatMetadata();
+assert.equal(fixtureMetadata.STMemoryBooks.sceneStart, 0);
+assert.equal(fixtureMetadata.STMemoryBooks.sceneEnd, 3);
+assert.equal(fixtureMetadata.summaryception.staleness.status, 'observed');
+assert.equal(JSON.stringify(fixtureMetadata).includes('Raw'), false);
 
 const serialized = JSON.stringify(writeRun);
 assert.equal(serialized.includes('api_key'), false);

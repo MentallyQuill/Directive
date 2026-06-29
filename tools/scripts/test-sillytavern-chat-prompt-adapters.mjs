@@ -8,6 +8,7 @@ import {
   DIRECTIVE_STATIC_PROMPT_KEYS,
   createSillyTavernPromptAdapter
 } from '../../src/hosts/sillytavern/prompt-adapter.mjs';
+import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 
 let currentChatId = 'chat-before';
 let chat = [];
@@ -342,6 +343,288 @@ assert.equal(nonblockingRelease.generationStartedAt, '2026-06-22T12:34:56.000Z')
 assert.equal(nonblockingRelease.hostGenerationReleasedAt, '2026-06-22T12:34:56.000Z');
 assert.equal(nonblockingRelease.observedMessage, null);
 
+const callbackTimes = [
+  '2026-06-22T12:36:00.000Z',
+  '2026-06-22T12:36:07.000Z'
+];
+const nonblockingSettled = new Promise((resolve) => {
+  const callbackAdapter = createSillyTavernChatAdapter({
+    contextFactory: () => context,
+    now: () => callbackTimes.shift() || '2026-06-22T12:36:07.000Z',
+    scriptModule: {
+      isGenerating: () => false,
+      Generate() {
+        chat.push({
+          id: 'host-native-completion-1',
+          is_user: false,
+          mes: 'Host-native completion text.',
+          extra: {}
+        });
+        return Promise.resolve({ rawProviderPayload: 'RAW_HOST_PROVIDER_RESULT' });
+      }
+    }
+  });
+  callbackAdapter.continueHostGeneration({
+    ingressId: 'ingress-callback-1',
+    turnId: 'turn-callback-1',
+    outcomeId: 'outcome-callback-1',
+    reason: 'nonblocking-completion-callback-test',
+    waitForCompletion: false,
+    onHostGenerationObserved: resolve
+  }).then((release) => {
+    assert.equal(release.ok, true);
+    assert.equal(release.released, true);
+    assert.equal(release.waitForCompletion, false);
+    assert.equal(release.observationStatus, 'pending');
+    assert.equal(release.observedMessage, null);
+  });
+});
+const completionSettlement = await Promise.race([
+  nonblockingSettled,
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 100))
+]);
+assert.equal(completionSettlement.timedOut, undefined);
+assert.equal(completionSettlement.kind, 'directive.hostGenerationObservation.v1');
+assert.equal(completionSettlement.status, 'completed');
+assert.equal(completionSettlement.ingressId, 'ingress-callback-1');
+assert.equal(completionSettlement.turnId, 'turn-callback-1');
+assert.equal(completionSettlement.outcomeId, 'outcome-callback-1');
+assert.equal(completionSettlement.hostGenerationReleasedAt, '2026-06-22T12:36:00.000Z');
+assert.equal(completionSettlement.completedAt, '2026-06-22T12:36:07.000Z');
+assert.equal(completionSettlement.observedMessage.hostMessageId, 'host-native-completion-1');
+assert.equal(completionSettlement.observedMessage.textHash.length, 64);
+assert.equal(completionSettlement.observedMessage.textHash, hashStableJson({ text: 'Host-native completion text.' }));
+assert.equal(completionSettlement.observedMessage.textLength, 'Host-native completion text.'.length);
+const normalizedHostCompletion = normalizeSillyTavernMessagePayload(context, { hostMessageId: 'host-native-completion-1' });
+assert.equal(normalizedHostCompletion.textHash, completionSettlement.observedMessage.textHash);
+assert.equal(normalizedHostCompletion.textLength, completionSettlement.observedMessage.textLength);
+assert.equal(normalizedHostCompletion.textByteLength > normalizedHostCompletion.textLength, true);
+assert.equal('text' in completionSettlement.observedMessage, false);
+assert.equal('raw' in completionSettlement.observedMessage, false);
+assert.equal(JSON.stringify(completionSettlement).includes('RAW_HOST_PROVIDER_RESULT'), false);
+assert.equal(JSON.stringify(completionSettlement).includes('Host-native completion text.'), false);
+
+const delayedChat = [{
+  id: 'delayed-player-before',
+  is_user: true,
+  mes: 'Sam waited for her reply.',
+  extra: {}
+}];
+const delayedContext = {
+  chat: delayedChat,
+  chatId: 'delayed-host-native-chat',
+  getCurrentChatId() { return this.chatId; }
+};
+const delayedCallbackTimes = [
+  '2026-06-22T12:36:30.000Z',
+  '2026-06-22T12:36:34.000Z'
+];
+const delayedSettlementPromise = new Promise((resolve) => {
+  const delayedAdapter = createSillyTavernChatAdapter({
+    contextFactory: () => delayedContext,
+    now: () => delayedCallbackTimes.shift() || '2026-06-22T12:36:34.000Z',
+    scriptModule: {
+      isGenerating: () => false,
+      Generate() {
+        setTimeout(() => {
+          delayedChat.push({
+            id: 'host-native-delayed-completion-1',
+            is_user: false,
+            mes: 'Delayed host-native completion text.',
+            extra: {}
+          });
+        }, 25);
+        return Promise.resolve({ rawProviderPayload: 'RAW_DELAYED_HOST_PROVIDER_RESULT' });
+      }
+    }
+  });
+  delayedAdapter.continueHostGeneration({
+    ingressId: 'ingress-delayed-callback-1',
+    turnId: 'turn-delayed-callback-1',
+    outcomeId: 'outcome-delayed-callback-1',
+    reason: 'nonblocking-delayed-completion-callback-test',
+    waitForCompletion: false,
+    observationTimeoutMs: 250,
+    observationPollIntervalMs: 5,
+    onHostGenerationObserved: resolve
+  }).then((release) => {
+    assert.equal(release.ok, true);
+    assert.equal(release.released, true);
+    assert.equal(release.waitForCompletion, false);
+    assert.equal(release.observationStatus, 'pending');
+    assert.equal(release.observedMessage, null);
+  });
+});
+const delayedSettlement = await Promise.race([
+  delayedSettlementPromise,
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 500))
+]);
+assert.equal(delayedSettlement.timedOut, undefined);
+assert.equal(delayedSettlement.status, 'completed');
+assert.equal(delayedSettlement.observedMessage.hostMessageId, 'host-native-delayed-completion-1');
+assert.equal(delayedSettlement.observedMessage.chatId, 'delayed-host-native-chat');
+assert.equal(delayedSettlement.observedMessage.textHash.length, 64);
+assert.equal(delayedSettlement.observedMessage.textLength, 'Delayed host-native completion text.'.length);
+assert.equal(JSON.stringify(delayedSettlement).includes('RAW_DELAYED_HOST_PROVIDER_RESULT'), false);
+assert.equal(JSON.stringify(delayedSettlement).includes('Delayed host-native completion text.'), false);
+
+const neverSettlingChat = [{
+  id: 'never-settling-player-before',
+  is_user: true,
+  mes: 'Sam waited for her reply.',
+  extra: {}
+}];
+const neverSettlingContext = {
+  chat: neverSettlingChat,
+  chatId: 'never-settling-host-native-chat',
+  getCurrentChatId() { return this.chatId; }
+};
+const neverSettlingTimes = [
+  '2026-06-22T12:36:40.000Z',
+  '2026-06-22T12:36:46.000Z'
+];
+const neverSettlingSettlementPromise = new Promise((resolve) => {
+  const neverSettlingAdapter = createSillyTavernChatAdapter({
+    contextFactory: () => neverSettlingContext,
+    now: () => neverSettlingTimes.shift() || '2026-06-22T12:36:46.000Z',
+    scriptModule: {
+      isGenerating: () => false,
+      Generate() {
+        setTimeout(() => {
+          neverSettlingChat.push({
+            id: 'host-native-never-settling-completion-1',
+            is_user: false,
+            mes: 'Host row appeared while Generate stayed pending.',
+            extra: {}
+          });
+        }, 25);
+        return new Promise(() => {});
+      }
+    }
+  });
+  neverSettlingAdapter.continueHostGeneration({
+    ingressId: 'ingress-never-settling-callback-1',
+    turnId: 'turn-never-settling-callback-1',
+    outcomeId: 'outcome-never-settling-callback-1',
+    reason: 'nonblocking-never-settling-completion-callback-test',
+    waitForCompletion: false,
+    observationTimeoutMs: 250,
+    observationPollIntervalMs: 5,
+    onHostGenerationObserved: resolve
+  }).then((release) => {
+    assert.equal(release.ok, true);
+    assert.equal(release.released, true);
+    assert.equal(release.waitForCompletion, false);
+    assert.equal(release.observationStatus, 'pending');
+    assert.equal(release.observedMessage, null);
+  });
+});
+const neverSettlingSettlement = await Promise.race([
+  neverSettlingSettlementPromise,
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 500))
+]);
+assert.equal(neverSettlingSettlement.timedOut, undefined);
+assert.equal(neverSettlingSettlement.status, 'completed');
+assert.equal(neverSettlingSettlement.observedMessage.hostMessageId, 'host-native-never-settling-completion-1');
+assert.equal(neverSettlingSettlement.observedMessage.chatId, 'never-settling-host-native-chat');
+assert.equal(neverSettlingSettlement.observedMessage.textHash.length, 64);
+assert.equal(JSON.stringify(neverSettlingSettlement).includes('Host row appeared while Generate stayed pending.'), false);
+
+const staleContextChat = [{
+  id: 'stale-context-player-before',
+  is_user: true,
+  mes: 'Sam waited for her reply.',
+  extra: {}
+}];
+const liveGlobalChat = [...staleContextChat];
+globalThis.chat = liveGlobalChat;
+const staleContext = {
+  chat: staleContextChat,
+  chatId: 'stale-context-host-native-chat',
+  getCurrentChatId() { return this.chatId; }
+};
+const staleContextTimes = [
+  '2026-06-22T12:36:50.000Z',
+  '2026-06-22T12:36:56.000Z'
+];
+try {
+  const staleContextSettlementPromise = new Promise((resolve) => {
+    const staleContextAdapter = createSillyTavernChatAdapter({
+      contextFactory: () => staleContext,
+      now: () => staleContextTimes.shift() || '2026-06-22T12:36:56.000Z',
+      scriptModule: {
+        isGenerating: () => false,
+        Generate() {
+          setTimeout(() => {
+            liveGlobalChat.push({
+              id: 'host-native-global-chat-completion-1',
+              is_user: false,
+              mes: 'Host row appeared only on the live global chat array.',
+              extra: {}
+            });
+          }, 25);
+          return new Promise(() => {});
+        }
+      }
+    });
+    staleContextAdapter.continueHostGeneration({
+      ingressId: 'ingress-stale-context-callback-1',
+      turnId: 'turn-stale-context-callback-1',
+      outcomeId: 'outcome-stale-context-callback-1',
+      reason: 'nonblocking-stale-context-global-chat-callback-test',
+      waitForCompletion: false,
+      observationTimeoutMs: 250,
+      observationPollIntervalMs: 5,
+      onHostGenerationObserved: resolve
+    });
+  });
+  const staleContextSettlement = await Promise.race([
+    staleContextSettlementPromise,
+    new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 500))
+  ]);
+  assert.equal(staleContextSettlement.timedOut, undefined);
+  assert.equal(staleContextSettlement.status, 'completed');
+  assert.equal(staleContextSettlement.observedMessage.hostMessageId, 'host-native-global-chat-completion-1');
+  assert.equal(staleContextSettlement.observedMessage.chatId, 'stale-context-host-native-chat');
+  assert.equal(staleContextSettlement.observedMessage.textHash.length, 64);
+  assert.equal(JSON.stringify(staleContextSettlement).includes('Host row appeared only on the live global chat array.'), false);
+} finally {
+  delete globalThis.chat;
+}
+
+const failingSettled = new Promise((resolve) => {
+  const failingAdapter = createSillyTavernChatAdapter({
+    contextFactory: () => context,
+    now: () => '2026-06-22T12:37:00.000Z',
+    scriptModule: {
+      isGenerating: () => false,
+      Generate() {
+        return Promise.reject(new Error('Host generation failed after release.'));
+      }
+    }
+  });
+  failingAdapter.continueHostGeneration({
+    ingressId: 'ingress-callback-failure',
+    reason: 'nonblocking-failure-callback-test',
+    waitForCompletion: false,
+    onHostGenerationObserved: resolve
+  }).then((release) => {
+    assert.equal(release.ok, true);
+    assert.equal(release.released, true);
+    assert.equal(release.waitForCompletion, false);
+  });
+});
+const failureSettlement = await Promise.race([
+  failingSettled,
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 100))
+]);
+assert.equal(failureSettlement.timedOut, undefined);
+assert.equal(failureSettlement.kind, 'directive.hostGenerationObservation.v1');
+assert.equal(failureSettlement.status, 'failed');
+assert.equal(failureSettlement.ingressId, 'ingress-callback-failure');
+assert.equal(failureSettlement.error.code, 'DIRECTIVE_HOST_GENERATION_CONTINUE_FAILED');
+assert.equal(failureSettlement.hostGenerationReleasedAt, '2026-06-22T12:37:00.000Z');
+
 let alreadyGeneratingGenerateCalled = false;
 const alreadyGeneratingAdapter = createSillyTavernChatAdapter({
   contextFactory: () => context,
@@ -363,10 +646,53 @@ assert.equal(alreadyGeneratingRelease.ok, true);
 assert.equal(alreadyGeneratingRelease.skipped, true);
 assert.equal(alreadyGeneratingRelease.released, true);
 assert.equal(alreadyGeneratingRelease.waitForCompletion, false);
+assert.equal(alreadyGeneratingRelease.alreadyGenerating, true);
+assert.equal(alreadyGeneratingRelease.observationStatus, 'unavailable');
 assert.equal(alreadyGeneratingRelease.reason, 'host-already-generating');
 assert.equal(alreadyGeneratingRelease.generationStartedAt, '2026-06-22T12:35:56.000Z');
 assert.equal(alreadyGeneratingRelease.hostGenerationReleasedAt, '2026-06-22T12:35:56.000Z');
 assert.equal(alreadyGeneratingRelease.observedMessage, null);
+
+chat = [
+  { is_user: true, mes: 'Commander Arlen asks for counsel.' }
+];
+let alreadyGeneratingObservedResolve;
+const alreadyGeneratingObserved = new Promise((resolve) => {
+  alreadyGeneratingObservedResolve = resolve;
+});
+const alreadyGeneratingObservedAdapter = createSillyTavernChatAdapter({
+  contextFactory: () => context,
+  now: () => '2026-06-22T12:36:00.000Z',
+  scriptModule: {
+    isGenerating: () => true
+  }
+});
+setTimeout(() => {
+  chat.push({
+    is_user: false,
+    is_system: false,
+    mes: 'Bronn gives the narrow protocol frame.'
+  });
+}, 20);
+const alreadyGeneratingObservedRelease = await alreadyGeneratingObservedAdapter.continueHostGeneration({
+  reason: 'already-generating-observer-test',
+  waitForCompletion: false,
+  observationTimeoutMs: 1000,
+  observationPollIntervalMs: 5,
+  onHostGenerationObserved: (settlement) => alreadyGeneratingObservedResolve(settlement)
+});
+assert.equal(alreadyGeneratingObservedRelease.ok, true);
+assert.equal(alreadyGeneratingObservedRelease.skipped, true);
+assert.equal(alreadyGeneratingObservedRelease.released, true);
+assert.equal(alreadyGeneratingObservedRelease.alreadyGenerating, true);
+assert.equal(alreadyGeneratingObservedRelease.observationStatus, 'pending');
+const alreadyGeneratingSettlement = await alreadyGeneratingObserved;
+assert.equal(alreadyGeneratingSettlement.kind, 'directive.hostGenerationObservation.v1');
+assert.equal(alreadyGeneratingSettlement.status, 'completed');
+assert.equal(alreadyGeneratingSettlement.ok, true);
+assert.equal(alreadyGeneratingSettlement.reason, 'host-already-generating');
+assert.equal(alreadyGeneratingSettlement.observedMessage.hostMessageId, '1');
+assert.equal(alreadyGeneratingSettlement.observedMessage.textLength, 'Bronn gives the narrow protocol frame.'.length);
 
 currentChatId = 'other-chat';
 const opened = await adapter.open({
@@ -460,7 +786,8 @@ const promptContext = {
   extensionPrompts: {
     summaryception: { value: 'Raw Summaryception text must not persist.' },
     '3_vectfox': { value: 'Raw VectFox text must not persist.' },
-    worldInfoBefore: { value: 'Raw World Info text must not persist.' }
+    worldInfoBefore: { value: 'Raw World Info text must not persist.' },
+    third_party_context_block: { value: 'Raw unknown external context must not persist.' }
   },
   worldInfoSettings: {
     world_info: {
@@ -516,14 +843,26 @@ assert.match(promptInspectionAfterInstall.externalPromptEnvironmentRef.hash, /^[
 assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('summaryception'), true);
 assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('3_vectfox'), true);
 assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('worldInfoBefore'), true);
+assert.equal(promptInspectionAfterInstall.knownExternalPromptKeys.includes('third_party_context_block'), true);
 assert.equal(promptInspectionAfterInstall.directiveOwnedPromptKeys.every((key) => key.startsWith('directive.')), true);
 assert.equal(promptInspectionAfterInstall.finalHostPromptMayIncludeExternal, true);
 assert.equal(promptInspectionAfterInstall.redactions.some((entry) => entry.reason === 'secret'), true);
 assert.equal(promptInspectionAfterInstall.redactions.some((entry) => entry.reason === 'raw-payload'), true);
+assert.equal(promptInspectionAfterInstall.externalPromptEnvironmentTargets.memoryBooks.rangeDiagnostics.status, 'missing');
+assert.equal(promptInspectionAfterInstall.externalPromptEnvironmentTargets.summaryception.staleness.status, 'stale');
+assert.equal(promptInspectionAfterInstall.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.status, 'external-backend-configured');
+assert.equal(promptInspectionAfterInstall.externalPromptEnvironmentTargets.unknownExternalContext.status, 'observed');
+assert.equal(promptInspectionAfterInstall.externalPromptEnvironmentTargets.unknownExternalContext.promptKeyCount, 1);
+assert.match(promptInspectionAfterInstall.externalPromptEnvironmentTargets.unknownExternalContext.promptKeyHash, /^[a-f0-9]{64}$/);
+assert.equal(promptInspectionAfterInstall.externalPromptDiagnostics.length, 5);
+const promptUnknownDiagnostic = promptInspectionAfterInstall.externalPromptDiagnostics.find((entry) => entry.target === 'unknownExternalContext');
+assert.equal(promptUnknownDiagnostic.authority.directiveAuthority, false);
+assert.equal(promptUnknownDiagnostic.rawContentCaptured, false);
 const promptInspectionSerialized = JSON.stringify(promptInspectionAfterInstall);
 assert.equal(promptInspectionSerialized.includes('SECRET-QDRANT'), false);
 assert.equal(promptInspectionSerialized.includes('Raw vector payload'), false);
 assert.equal(promptInspectionSerialized.includes('Raw Summaryception'), false);
+assert.equal(promptInspectionSerialized.includes('Raw unknown external context'), false);
 assert.equal(promptCalls.filter((call) => call[1]).length, 2);
 for (const key of DIRECTIVE_STATIC_PROMPT_KEYS) {
   assert.ok(promptCalls.some((call) => call[0] === key && call[1] === ''), `${key} should be cleared before install when absent`);

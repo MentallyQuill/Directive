@@ -229,17 +229,38 @@ function normalizeMemoryBooks(input = {}) {
     sidePrompts: asBoolean(input.riskyModes?.sidePrompts ?? input.sidePrompts, false),
     atDepthUserOrAssistant: asBoolean(input.riskyModes?.atDepthUserOrAssistant ?? input.atDepthUserOrAssistant, false)
   });
+  const rangeInput = input.rangeDiagnostics || input.rangeStatus || {};
+  const rangeDiagnostics = compactObject({
+    status: asString(rangeInput.status || input.rangeStatus, 'unknown'),
+    entryRangeCount: asInteger(rangeInput.entryRangeCount ?? input.entryRangeCount, 0),
+    chatRangeCount: asInteger(rangeInput.chatRangeCount ?? input.chatRangeCount, 0),
+    validRangeCount: asInteger(rangeInput.validRangeCount ?? input.validRangeCount, 0),
+    invertedRangeCount: asInteger(rangeInput.invertedRangeCount ?? input.invertedRangeCount, 0),
+    outOfBoundsRangeCount: asInteger(rangeInput.outOfBoundsRangeCount ?? input.outOfBoundsRangeCount, 0),
+    staleRangeCount: asInteger(rangeInput.staleRangeCount ?? input.staleRangeCount, 0),
+    rangeHash: asString(rangeInput.rangeHash || input.rangeHash)
+  });
   return compactObject({
     installed: asBoolean(input.installed, false),
     enabled: asBoolean(input.enabled, false),
     activeBookName: asString(input.activeBookName || input.activeBook || input.chatBoundName),
     stMemoryBookEntryCount: asInteger(input.stMemoryBookEntryCount ?? input.entryCount, 0),
     stMemoryBookEntryHash: asString(input.stMemoryBookEntryHash || input.entryHash),
+    rangeDiagnostics,
     riskyModes
   });
 }
 
 function normalizeSummaryception(input = {}) {
+  const stalenessInput = input.staleness || input.visibilityDiagnostics || {};
+  const staleness = compactObject({
+    status: asString(stalenessInput.status || input.stalenessStatus, 'unknown'),
+    chatLength: asInteger(stalenessInput.chatLength ?? input.chatLength, 0),
+    summarizedRangeBeyondChat: asBoolean(stalenessInput.summarizedRangeBeyondChat ?? input.summarizedRangeBeyondChat, false),
+    staleAfterMutation: asBoolean(stalenessInput.staleAfterMutation ?? input.staleAfterMutation, false),
+    ghostedSystemVisibleCount: asInteger(stalenessInput.ghostedSystemVisibleCount ?? input.ghostedSystemVisibleCount, 0),
+    summarizedOnlyCount: asInteger(stalenessInput.summarizedOnlyCount ?? input.summarizedOnlyCount, 0)
+  });
   return compactObject({
     installed: asBoolean(input.installed, false),
     enabled: asBoolean(input.enabled, false),
@@ -248,12 +269,23 @@ function normalizeSummaryception(input = {}) {
     summarizedUpTo: asNumber(input.summarizedUpTo, -1),
     layerCount: asInteger(input.layerCount, 0),
     ghostedCount: asInteger(input.ghostedCount, 0),
+    staleness,
     injectionHash: asString(input.injectionHash),
     externalModelCalls: asBoolean(input.externalModelCalls, false)
   });
 }
 
 function normalizeVectFox(input = {}) {
+  const backendInput = input.backendDiagnostics || {};
+  const backendDiagnostics = compactObject({
+    status: asString(backendInput.status || input.backendStatus, input.disabledPresent ? 'disabled' : input.backendType || input.vectorBackend || input.backend ? 'configured' : 'unknown'),
+    backendType: asString(backendInput.backendType || input.backendType || input.vectorBackend || input.backend),
+    unavailable: asBoolean(backendInput.unavailable ?? input.backendUnavailable, false),
+    externalTimingObserved: asBoolean(backendInput.externalTimingObserved ?? input.externalTimingObserved, false),
+    interceptorLatencyMs: asNumber(backendInput.interceptorLatencyMs ?? input.interceptorLatencyMs),
+    retrievalLatencyMs: asNumber(backendInput.retrievalLatencyMs ?? input.retrievalLatencyMs),
+    timingHash: asString(backendInput.timingHash || input.timingHash)
+  });
   return compactObject({
     installed: asBoolean(input.installed, false),
     enabled: asBoolean(input.enabled, false),
@@ -266,7 +298,180 @@ function normalizeVectFox(input = {}) {
     summarizerInjectionEnabled: asBoolean(input.summarizerInjectionEnabled, false),
     ghostingEnabled: asBoolean(input.ghostingEnabled, false),
     generationInterceptorActive: asBoolean(input.generationInterceptorActive, false),
+    backendDiagnostics,
     settingsHash: asString(input.settingsHash)
+  });
+}
+
+function isKnownExternalContextPromptKey(key) {
+  const text = String(key || '').trim();
+  return /^summaryception$/i.test(text)
+    || /^3_vectfox/i.test(text)
+    || /^worldInfoBefore$/i.test(text)
+    || /^worldInfoAfter$/i.test(text)
+    || /^customDepthWI_/i.test(text)
+    || /^customWIOutlet_/i.test(text)
+    || /author.?note/i.test(text)
+    || /^2_floating_prompt$/i.test(text)
+    || /example/i.test(text);
+}
+
+function normalizeUnknownExternalContext(input = {}) {
+  const promptKeys = uniqueStrings(input.promptKeys || input.keys).filter(isExternalPromptKey);
+  const promptKeyPrefixes = uniqueStrings(input.promptKeyPrefixes || promptKeys.map((key) => {
+    const text = String(key || '').trim();
+    const match = text.match(/^(@?[A-Za-z0-9_-]+)/);
+    return match ? match[1] : 'unknown';
+  }));
+  const promptKeyHash = asString(input.promptKeyHash)
+    || (promptKeys.length ? hashStableJson(promptKeys) : null);
+  const promptKeyPrefixHash = asString(input.promptKeyPrefixHash)
+    || (promptKeyPrefixes.length ? hashStableJson(promptKeyPrefixes) : null);
+  const visibilityMarkerCount = asInteger(input.visibilityMarkerCount, 0);
+  const status = asString(
+    input.status,
+    promptKeys.length || visibilityMarkerCount > 0 ? 'observed' : 'none'
+  );
+  return compactObject({
+    status,
+    promptKeyCount: asInteger(input.promptKeyCount ?? promptKeys.length, promptKeys.length),
+    promptKeyPrefixes,
+    promptKeyHash,
+    promptKeyPrefixHash,
+    visibilityMarkerCount,
+    redactionReason: asString(input.redactionReason, promptKeys.length ? 'prompt-key-hash-only' : null)
+  });
+}
+
+function diagnosticStatusFor(target, value = {}) {
+  if (target === 'stLorebooks') {
+    if (value.active) return 'active';
+    if (value.enabled) return 'enabled';
+    if (value.installed) return 'installed';
+    return 'unknown';
+  }
+  if (target === 'memoryBooks') {
+    if (value.rangeDiagnostics?.status) return value.rangeDiagnostics.status;
+    if (value.enabled) return 'enabled';
+    if (value.installed) return 'installed';
+    return 'unknown';
+  }
+  if (target === 'summaryception') {
+    if (value.staleness?.status) return value.staleness.status;
+    if (value.promptKeyActive) return 'prompt-key-active';
+    if (value.enabled) return 'enabled';
+    if (value.installed) return 'installed';
+    return 'unknown';
+  }
+  if (target === 'vectFox') {
+    if (value.backendDiagnostics?.status) return value.backendDiagnostics.status;
+    if (value.enabled) return 'enabled';
+    if (value.disabledPresent) return 'disabled';
+    if (value.installed) return 'installed';
+    return 'unknown';
+  }
+  if (target === 'unknownExternalContext') {
+    return asString(value.status, value.promptKeyCount > 0 ? 'observed' : 'none');
+  }
+  return 'unknown';
+}
+
+function diagnosticLayerFor(target) {
+  if (target === 'vectFox') return 'modelVisibleGenerationEnvironment';
+  if (target === 'unknownExternalContext') return 'hostFinalPromptComposition';
+  return 'hostFinalPromptComposition';
+}
+
+function diagnosticEvidenceFor(target, value = {}) {
+  if (target === 'stLorebooks') {
+    return {
+      active: value.active === true,
+      enabled: value.enabled === true,
+      activeNameCount: Array.isArray(value.activeNames) ? value.activeNames.length : 0,
+      chatBound: Boolean(value.chatBoundName),
+      settingsHash: value.settingsHash || null,
+      promptPositions: value.promptPositions || []
+    };
+  }
+  if (target === 'memoryBooks') {
+    return {
+      enabled: value.enabled === true,
+      entryCount: value.stMemoryBookEntryCount || 0,
+      entryHash: value.stMemoryBookEntryHash || null,
+      rangeDiagnostics: value.rangeDiagnostics || {},
+      riskyModes: value.riskyModes || {}
+    };
+  }
+  if (target === 'summaryception') {
+    return {
+      enabled: value.enabled === true,
+      promptKeyActive: value.promptKeyActive === true,
+      layerCount: value.layerCount || 0,
+      ghostedCount: value.ghostedCount || 0,
+      staleness: value.staleness || {},
+      injectionHash: value.injectionHash || null,
+      externalModelCalls: value.externalModelCalls === true
+    };
+  }
+  if (target === 'vectFox') {
+    return {
+      enabled: value.enabled === true,
+      disabledPresent: value.disabledPresent === true,
+      promptKeyCount: Array.isArray(value.promptKeys) ? value.promptKeys.length : 0,
+      backendType: value.backendType || null,
+      semanticWorldInfoEnabled: value.semanticWorldInfoEnabled === true,
+      summarizerInjectionEnabled: value.summarizerInjectionEnabled === true,
+      ghostingEnabled: value.ghostingEnabled === true,
+      generationInterceptorActive: value.generationInterceptorActive === true,
+      backendDiagnostics: value.backendDiagnostics || {},
+      settingsHash: value.settingsHash || null
+    };
+  }
+  if (target === 'unknownExternalContext') {
+    return {
+      status: value.status || 'none',
+      promptKeyCount: value.promptKeyCount || 0,
+      promptKeyPrefixHash: value.promptKeyPrefixHash || null,
+      promptKeyHash: value.promptKeyHash || null,
+      visibilityMarkerCount: value.visibilityMarkerCount || 0,
+      redactionReason: value.redactionReason || null
+    };
+  }
+  return {};
+}
+
+function buildExternalPromptDiagnostics({
+  worldInfo = {},
+  memoryBooks = {},
+  summaryception = {},
+  vectFox = {},
+  unknownExternalContext = {},
+  source = 'sillytavern-observer',
+  mergeSource = 'single-observation'
+} = {}) {
+  return [
+    ['stLorebooks', worldInfo],
+    ['memoryBooks', memoryBooks],
+    ['summaryception', summaryception],
+    ['vectFox', vectFox],
+    ['unknownExternalContext', unknownExternalContext]
+  ].map(([target, value]) => {
+    const evidence = diagnosticEvidenceFor(target, value);
+    return {
+      kind: 'directive.externalPromptEnvironmentDiagnostic.v1',
+      schemaVersion: 1,
+      layer: diagnosticLayerFor(target),
+      target,
+      status: diagnosticStatusFor(target, value),
+      source,
+      mergeSource,
+      evidenceHash: hashStableJson(evidence),
+      authority: {
+        directiveAuthority: false,
+        role: 'diagnostics-provenance-only'
+      },
+      rawContentCaptured: false
+    };
   });
 }
 
@@ -283,6 +488,20 @@ export function normalizeExternalPromptEnvironment(input = {}) {
     summaryception.promptKeyActive ? summaryception.promptKey : null,
     ...vectFox.promptKeys
   ]).filter(isExternalPromptKey);
+  const unknownPromptKeys = knownExternalPromptKeys.filter((key) => !isKnownExternalContextPromptKey(key));
+  const unknownExternalContext = normalizeUnknownExternalContext({
+    promptKeys: unknownPromptKeys,
+    ...(sanitized.unknownExternalContext || {})
+  });
+  const diagnostics = buildExternalPromptDiagnostics({
+    worldInfo,
+    memoryBooks,
+    summaryception,
+    vectFox,
+    unknownExternalContext,
+    source: asString(sanitized.diagnosticSource || sanitized.source, 'sillytavern-observer'),
+    mergeSource: asString(sanitized.mergeSource, 'single-observation')
+  });
 
   const environment = compactObject({
     kind: EXTERNAL_CONTEXT_KIND,
@@ -298,6 +517,8 @@ export function normalizeExternalPromptEnvironment(input = {}) {
     memoryBooks,
     summaryception,
     vectFox,
+    unknownExternalContext,
+    diagnostics,
     knownExternalPromptKeys,
     unknownSignals: uniqueStrings(sanitized.unknownSignals || sanitized.unavailableSignals),
     redactions

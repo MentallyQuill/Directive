@@ -15,7 +15,7 @@ Host adapters should provide these services:
 | Lifecycle | Enable, disable, update, clean, delete, refresh. |
 | Storage | Map logical Directive records to host storage. |
 | Generation | Run role-based generation requests and batch sidecars if supported. |
-| Prompt | Install, update, rebuild, inspect, suspend, and clear prompt blocks. |
+| Prompt | Install, update, rebuild, inspect, suspend, and clear Directive-owned prompt blocks. |
 | Chat | Identify current chat, create/open campaign chat, post assistant messages, store binding metadata. |
 | Events | Observe player message, edit, delete, and chat switch events. |
 | Shell | Mount the Directive runtime shell into the host UI. |
@@ -39,6 +39,21 @@ Current responsibilities:
 - runtime bridge and generation interceptor;
 - message actions for reconciliation;
 - Assist button integration beside the SillyTavern input.
+
+### Context-Extension Coexistence
+
+SillyTavern users may run native World Info / Lorebooks, Memory Books, Summaryception, VectFox, and other context-extension tools while playing a Directive campaign. The SillyTavern adapter must coexist with those systems without turning them into Directive subsystems.
+
+Rules for the adapter:
+
+- clear, rebuild, and overwrite only Directive-owned prompt keys;
+- preserve host-owned prompt keys such as World Info surfaces, `summaryception`, `3_vectfox*`, Memory Books-produced World Info, and unknown third-party keys;
+- observe host-visible prompt keys, chat metadata, settings hashes, visibility markers, disabled/unavailable states, and timing hints only as compact diagnostics;
+- avoid private extension APIs as runtime dependencies unless a future reviewed interop flow explicitly approves that dependency;
+- classify evidence honestly as browser-confirmed, disk-confirmed, settings-only, disabled, not-installed, unavailable, or indeterminate;
+- redact raw prompt bodies, lorebook text, generated Memory Books text, Summaryception summaries, vector payloads, embeddings, collection names, endpoint URLs, provider errors, API keys, Qdrant secrets, and hidden Director material.
+
+External context may influence generation, but it is not Directive authority. Host adapters should surface `externalPromptEnvironmentRef`, target summaries, unavailable reasons, fixture-depth labels, and external latency/privacy diagnostics without committing external content to campaign state.
 
 ## Fake Host
 

@@ -12,6 +12,8 @@
     "memoryBooks",
     "summaryception",
     "vectFox",
+    "unknownExternalContext",
+    "diagnostics",
     "knownExternalPromptKeys",
     "redactions",
     "hash",
@@ -31,6 +33,11 @@
     "memoryBooks": { "$ref": "#/$defs/memoryBooks" },
     "summaryception": { "$ref": "#/$defs/summaryception" },
     "vectFox": { "$ref": "#/$defs/vectFox" },
+    "unknownExternalContext": { "$ref": "#/$defs/unknownExternalContext" },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
     "knownExternalPromptKeys": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
@@ -72,6 +79,20 @@
         "activeBookName": { "type": ["string", "null"] },
         "stMemoryBookEntryCount": { "type": "integer", "minimum": 0 },
         "stMemoryBookEntryHash": { "type": ["string", "null"] },
+        "rangeDiagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": { "type": "string" },
+            "entryRangeCount": { "type": "integer", "minimum": 0 },
+            "chatRangeCount": { "type": "integer", "minimum": 0 },
+            "validRangeCount": { "type": "integer", "minimum": 0 },
+            "invertedRangeCount": { "type": "integer", "minimum": 0 },
+            "outOfBoundsRangeCount": { "type": "integer", "minimum": 0 },
+            "staleRangeCount": { "type": "integer", "minimum": 0 },
+            "rangeHash": { "type": ["string", "null"] }
+          }
+        },
         "riskyModes": {
           "type": "object",
           "additionalProperties": false,
@@ -96,6 +117,18 @@
         "summarizedUpTo": { "type": "number" },
         "layerCount": { "type": "integer", "minimum": 0 },
         "ghostedCount": { "type": "integer", "minimum": 0 },
+        "staleness": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": { "type": "string" },
+            "chatLength": { "type": "integer", "minimum": 0 },
+            "summarizedRangeBeyondChat": { "type": "boolean" },
+            "staleAfterMutation": { "type": "boolean" },
+            "ghostedSystemVisibleCount": { "type": "integer", "minimum": 0 },
+            "summarizedOnlyCount": { "type": "integer", "minimum": 0 }
+          }
+        },
         "injectionHash": { "type": ["string", "null"] },
         "externalModelCalls": { "type": "boolean" }
       }
@@ -115,7 +148,83 @@
         "summarizerInjectionEnabled": { "type": "boolean" },
         "ghostingEnabled": { "type": "boolean" },
         "generationInterceptorActive": { "type": "boolean" },
+        "backendDiagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": { "type": "string" },
+            "backendType": { "type": ["string", "null"] },
+            "unavailable": { "type": "boolean" },
+            "externalTimingObserved": { "type": "boolean" },
+            "interceptorLatencyMs": { "type": ["number", "null"] },
+            "retrievalLatencyMs": { "type": ["number", "null"] },
+            "timingHash": { "type": ["string", "null"] }
+          }
+        },
         "settingsHash": { "type": ["string", "null"] }
+      }
+    },
+    "unknownExternalContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string" },
+        "promptKeyCount": { "type": "integer", "minimum": 0 },
+        "promptKeyPrefixes": { "type": "array", "items": { "type": "string" } },
+        "promptKeyHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "promptKeyPrefixHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "visibilityMarkerCount": { "type": "integer", "minimum": 0 },
+        "redactionReason": { "type": ["string", "null"] }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schemaVersion",
+        "layer",
+        "target",
+        "status",
+        "source",
+        "mergeSource",
+        "evidenceHash",
+        "authority",
+        "rawContentCaptured"
+      ],
+      "properties": {
+        "kind": { "const": "directive.externalPromptEnvironmentDiagnostic.v1" },
+        "schemaVersion": { "const": 1 },
+        "layer": {
+          "enum": [
+            "directiveOwnedPromptPacket",
+            "hostFinalPromptComposition",
+            "modelVisibleGenerationEnvironment"
+          ]
+        },
+        "target": {
+          "enum": [
+            "stLorebooks",
+            "memoryBooks",
+            "summaryception",
+            "vectFox",
+            "unknownExternalContext"
+          ]
+        },
+        "status": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "mergeSource": { "type": "string", "minLength": 1 },
+        "evidenceHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["directiveAuthority", "role"],
+          "properties": {
+            "directiveAuthority": { "const": false },
+            "role": { "const": "diagnostics-provenance-only" }
+          }
+        },
+        "rawContentCaptured": { "const": false }
       }
     },
     "redaction": {

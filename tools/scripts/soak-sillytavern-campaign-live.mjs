@@ -45,6 +45,9 @@ import {
 import {
   playerInputPerspectiveEvidence
 } from './lib/player-input-perspective.mjs';
+import {
+  summarizeModelCallFailurePolicy
+} from './lib/model-call-failure-policy.mjs';
 
 const args = new Set(process.argv.slice(2));
 const HELP = args.has('--help') || args.has('-h');
@@ -93,9 +96,18 @@ export const SOAK_SERVED_EXTENSION_PROOF_FILES = Object.freeze([
   'src/continuity/materializers/command-log-facts.mjs',
   'src/continuity/materializers/rejected-claim-facts.mjs',
   'src/generation/player-safe-prompt-context-builder.mjs',
+  'src/hosts/sillytavern/host-factory.mjs',
+  'src/hosts/sillytavern/chat-adapter.mjs',
+  'src/hosts/sillytavern/external-context-observer.mjs',
   'src/hosts/sillytavern/prompt-adapter.mjs',
+  'src/runtime/runtime-app.mjs',
+  'src/runtime/architecture-redesign-contracts.mjs',
   'src/runtime/response-dispatcher.mjs',
+  'src/runtime/message-reconciler.mjs',
   'src/runtime/chat-turn-orchestrator.mjs',
+  'src/runtime/turn-commit-coordinator.mjs',
+  'src/storage/core-store-v2.mjs',
+  'src/directors/open-world-event-reducers.mjs',
   'src/directors/open-world-turn-coordinator.mjs',
   'src/mission/director.mjs',
   'src/jobs/campaign-sidecar-scheduler.mjs',
@@ -1068,8 +1080,12 @@ export const SOAK_PHASES = Object.freeze([
 
 export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(1, 'acknowledge the handoff and ask for a clean operational picture', 'baseline'),
-  intent(2, 'order Operations to preserve the current bridge sensor and command-network telemetry buffer for the handoff log while asking Sickbay and Security to stage one standby rescue team in transporter room two until the readiness picture is complete', 'routine-command'),
-  intent(3, 'ask for protocol context before boarding', 'counsel'),
+  intent(2, 'ask Operations, Bronn, and Sickbay for a verbal readiness brief on bridge telemetry, decks nine through twelve, and available standby response without issuing execution orders', 'baseline'),
+  intent(3, 'ask for protocol context before boarding', 'counsel', {
+    expectedRoute: 'hostContinue',
+    expectedResponseStrategy: 'injectAndContinue',
+    hostNativeCompletionRequired: true
+  }),
   intent(4, 'issue a direct, parameterized readiness order: "Operations, target the Breckenridge internal command-network certificate compatibility handshake logs in the preserved handoff telemetry buffer; method is read-only offline comparison against the current bridge command-network state. Sensors, target lateral sensor alignment against the archived drydock baseline; method is passive internal calibration with no external emissions. Tactical, target the shipboard inert diagnostic pattern PTT-CAL-01 for port torpedo targeting; method is dry-fire solution simulation only, with arming circuits safed. Report exceptions to Arlen and Captain Whitaker; no course change, no active emissions, no arming circuits, and no crew reassignment without Captain Whitaker approving the scope."', 'consequential-command'),
   intent(5, 'request counsel from medical and tactical, then verify the Crew Character tab populates the involved officers', 'crew-character'),
   intent(6, 'authorize a limited rescue preparation with explicit scope: "Security and Sickbay, target transporter room two standby readiness for a possible Article 14 rescue response; method is muster-only preparation, equipment checks, and medical triage staging without boarding, transport lock, weapons draw, or course change. Bronn and Sato report staffing pressure and fatigue flags to Arlen before the team is released." Then verify the Crew Roster shows crew pressures', 'crew-roster'),
@@ -1157,6 +1173,9 @@ function messageProseForTurn(entry = {}) {
   if (entry.category === 'assist' || entry.category === 'assist-send') {
     return `${commandRail} and drafts the next message through Directive Assist before speaking: "Route this as a disciplined third-person command beat, with no private thoughts and no action assigned to another character."`;
   }
+  if (turn === 2) {
+    return `${commandRail} and asks for information rather than action. "Nayar, give me the status of the bridge sensor and command-network telemetry buffer as they stand now. Bronn, with Sickbay's input, summarize whether decks nine through twelve have any readiness or casualty-response concerns, and whether transporter room two has available standby space and equipment if a later rescue order is authorized. This is a report request only: no scans, no team movement, no transport lock, no weapons posture, and no execution order." Arlen leaves the officers room to answer in their own voices.`;
+  }
   if (turn === 6) {
     return `${commandRail} and gives the rescue preparation a bounded scope. "Security and Sickbay, target transporter room two standby readiness for a possible Article 14 rescue response. Method: muster-only preparation, equipment checks, and medical triage staging. No boarding, no transport lock, no weapons draw, and no course change. Bronn and Sato, report staffing pressure and fatigue flags to Arlen before the team is released." Arlen leaves execution to the departments and watches for the Crew Roster pressure record to reflect the cost.`;
   }
@@ -1229,9 +1248,20 @@ export function buildSoakChatMessageScript({ turnScript = SOAK_TURN_SCRIPT, turn
       perspective: 'third-person',
       text: messageProseForTurn(entry)
     };
+    if (entry.expectedRoute) message.expectedRoute = entry.expectedRoute;
+    if (entry.expectedResponseStrategy) message.expectedResponseStrategy = entry.expectedResponseStrategy;
+    if (entry.hostNativeCompletionRequired === true) message.hostNativeCompletionRequired = true;
     if (assist) message.assist = assist;
     return message;
   });
+  const hostNativeCompletionRequiredMessages = messages
+    .filter((message) => message.hostNativeCompletionRequired === true)
+    .map((message) => ({
+      id: message.id,
+      turn: message.turn,
+      expectedRoute: message.expectedRoute || null,
+      expectedResponseStrategy: message.expectedResponseStrategy || null
+    }));
   const coverageLimitations = [
     'This delegated live path sends 52 strict chat turns through SillyTavern and verifies ingress/model/response behavior.',
     'Continuity Projection Matrix evidence requires prompt-key/source-id proof and the five-user CPM coordinator for full certification.',
@@ -1247,6 +1277,7 @@ export function buildSoakChatMessageScript({ turnScript = SOAK_TURN_SCRIPT, turn
     perspective: 'third-person',
     plannedTurnCount: sourceTurnScript.length,
     executedTurnLimit: Number.isInteger(turnLimit) && turnLimit > 0 ? turnLimit : null,
+    hostNativeCompletionRequiredMessages,
     messages,
     coverageLimitations
   };
@@ -1605,17 +1636,18 @@ function storyQualityModelReviewResponseSchema() {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['messageId', 'dimensions'],
+          required: ['messageId', 'overallScore', 'severity', 'rationale'],
           properties: {
             messageId: { type: ['string', 'null'] },
             messageIndex: { type: ['integer', 'null'] },
             role: { type: ['string', 'null'] },
             overallScore: { type: ['number', 'null'] },
-            severity: { type: ['string', 'null'] },
-            rationale: { type: ['string', 'null'] },
+            severity: { type: ['string', 'null'], maxLength: 80 },
+            rationale: { type: ['string', 'null'], maxLength: 180 },
             confidence: { type: ['number', 'null'] },
             dimensions: {
               type: 'array',
+              maxItems: 3,
               items: {
                 type: 'object',
                 additionalProperties: false,
@@ -1623,8 +1655,8 @@ function storyQualityModelReviewResponseSchema() {
                 properties: {
                   dimension: { type: 'string' },
                   score: { type: ['number', 'null'] },
-                  rationale: { type: ['string', 'null'] },
-                  evidence: { type: ['string', 'null'] }
+                  rationale: { type: ['string', 'null'], maxLength: 120 },
+                  evidence: { type: ['string', 'null'], maxLength: 80 }
                 }
               }
             }
@@ -1694,6 +1726,9 @@ export function buildStoryQualityModelReviewRequest({
       'Review only the visible transcript excerpts and deterministic score summaries.',
       'Score prose quality, tense/PoV, player agency, NPC agency, continuity, mission pressure, crew reaction, and hidden-state safety.',
       'Do not reward fluent prose that changes campaign facts, authorizes NPC/player actions incorrectly, or leaks hidden/internal state.',
+      'Return one compact score object per transcript message; do not enumerate every dimension.',
+      'Use dimensions only for messages with score 0 or 1, with at most three short dimension findings.',
+      'Keep overallAssessment under 240 characters and each rationale under 180 characters.',
       'Return strict JSON matching responseSchema.'
     ],
     responseSchema: storyQualityModelReviewResponseSchema(),
@@ -1758,9 +1793,22 @@ export function buildStoryQualityModelReviewResult({
   const parsed = parseStoryQualityModelOutput(modelOutput);
   const scores = Array.isArray(parsed?.scores) ? parsed.scores.map(normalizeStoryQualityModelScore) : [];
   const counts = storyQualityModelReviewCounts(scores);
-  const finalStatus = status
-    || parsed?.status
-    || (parsed ? (counts.scoreZero > 0 ? 'fail' : counts.warningOrWeak > 0 ? 'warning' : 'pass') : 'not-run');
+  const attemptedReview = Boolean(modelCall) || modelOutput !== null && modelOutput !== undefined;
+  const timedOut = Boolean(
+    modelCall?.errorCode
+    && /timeout|timed/i.test(String(modelCall.errorCode))
+  ) || Boolean(
+    reason
+    && /timeout|timed out/i.test(String(reason))
+  );
+  const unparseableAttempt = attemptedReview && !parsed;
+  const inferredStatus = timedOut || unparseableAttempt
+    ? 'fail'
+    : parsed?.status
+      || (parsed ? (counts.scoreZero > 0 ? 'fail' : counts.warningOrWeak > 0 ? 'warning' : 'pass') : 'not-run');
+  const finalStatus = status === 'not-run' && (attemptedReview || timedOut)
+    ? 'fail'
+    : status || inferredStatus;
   return {
     kind: 'directive.liveCampaignSoak.storyQualityModelReviewResult',
     schemaVersion: 1,
@@ -1769,7 +1817,11 @@ export function buildStoryQualityModelReviewResult({
     runId: request?.runId || null,
     inputHash: request?.inputHash || null,
     status: finalStatus,
-    reason: reason || (parsed ? null : 'model-assisted story quality reviewer was not invoked or did not return parseable JSON'),
+    reason: reason || (parsed
+      ? null
+      : attemptedReview
+        ? 'model-assisted story quality reviewer did not return parseable JSON'
+        : 'model-assisted story quality reviewer was not invoked'),
     overallAssessment: parsed?.overallAssessment ? compact(String(parsed.overallAssessment), 1200) : null,
     counts,
     scores,
@@ -2454,8 +2506,13 @@ function phase(id, label, turnRange, purpose) {
   return Object.freeze({ id, label, turnRange, purpose, status: 'planned' });
 }
 
-function intent(turn, intentText, category) {
-  return Object.freeze({ turn, intent: intentText, category });
+function intent(turn, intentText, category, options = {}) {
+  return Object.freeze({
+    turn,
+    intent: intentText,
+    category,
+    ...(options && typeof options === 'object' && !Array.isArray(options) ? cloneJson(options) : {})
+  });
 }
 
 function conductScenario({
@@ -2713,6 +2770,8 @@ function relativeReportArtifacts(report = {}) {
     qualityReview: artifacts.qualityReview,
     screenshots: artifacts.screenshots,
     promptInspection: artifacts.promptInspection,
+    hostExtensions: artifacts.hostExtensions,
+    externalContextSummary: artifacts.externalContextSummary,
     storage: artifacts.storage,
     campaignMatrix: artifacts.campaignMatrix,
     objectiveAssignments: artifacts.objectiveAssignments,
@@ -2873,6 +2932,16 @@ export function buildReleaseCertificationSummary(report = {}) {
       evidence: {
         plannedTurns: report.turnScript?.length || 0,
         phases: report.phases?.length || 0
+      }
+    }),
+    evidenceGate({
+      id: 'live-model-call-failure-policy',
+      label: 'Model-call failure policy',
+      check: checkById.get('live-model-call-failure-policy') || null,
+      planned: report.modelCallPolicy?.fallbackWarningRequired === true,
+      evidence: report.modelCallPolicy?.failurePolicyEvidence || {
+        budget: report.modelCallPolicy?.budget || null,
+        fallbackWarningRequired: report.modelCallPolicy?.fallbackWarningRequired === true
       }
     }),
     evidenceGate({
@@ -3211,7 +3280,8 @@ export async function buildDryRunReport() {
     modelCallPolicy: {
       budget: 'unlimited',
       liveProvidersRequired: true,
-      fallbackWarningRequired: true
+      fallbackWarningRequired: true,
+      failurePolicyEvidence: null
     },
     strictModePolicy: strictModePolicy(),
     driverPolicy: {
@@ -3387,6 +3457,20 @@ function summaryMarkdown(report) {
   for (const entry of report.checks) {
     lines.push(`- ${entry.status}: ${entry.id} - ${entry.summary}`);
   }
+  lines.push('', '## Model-Call Failure Policy', '');
+  const modelCallFailurePolicy = report.modelCallPolicy?.failurePolicyEvidence || null;
+  if (modelCallFailurePolicy) {
+    lines.push(`- Status: ${modelCallFailurePolicy.status}`);
+    lines.push(`- Summary: ${modelCallFailurePolicy.summary}`);
+    lines.push(`- Counts: ${modelCallFailurePolicy.failedModelCallCount || 0} failed, ${modelCallFailurePolicy.fallbackHandledCalls?.length || 0} fallback-handled, ${modelCallFailurePolicy.releaseBlockingCalls?.length || 0} release-blocking, ${modelCallFailurePolicy.unresolvedCalls?.length || 0} unresolved`);
+    lines.push(`- Evidence source: ${modelCallFailurePolicy.evidenceSource || 'unknown'}`);
+    for (const call of (modelCallFailurePolicy.calls || []).slice(0, 8)) {
+      lines.push(`  - ${call.classification || 'unclassified'}: ${call.roleId || 'unknown-role'} ${call.errorCode || 'unknown-error'} ${call.requestHash ? `request ${compact(call.requestHash, 24)}` : 'missing request hash'}`);
+    }
+  } else {
+    lines.push('- Status: not-run');
+    lines.push('- Summary: No durable model-call failure policy evidence has been recorded yet.');
+  }
   lines.push('', '## Active Campaign Matrix', '');
   for (const campaign of report.campaignMatrix || []) {
     lines.push(`- ${campaign.title}: ${campaign.liveCoverage}, ${campaign.requiredCanaryTurns} planned live turns`);
@@ -3551,6 +3635,7 @@ export function buildLiveSmokeEnvironment({ report, messageScriptPath } = {}) {
     DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH: report.artifacts.liveLog,
     DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR: report.artifacts.transcript,
     DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR: report.artifacts.promptInspection,
+    DIRECTIVE_SILLYTAVERN_HOST_EXTENSIONS_DIR: report.artifacts.hostExtensions,
     DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_FILE: messageScriptPath,
     DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID: process.env.DIRECTIVE_SOAK_CAMPAIGN_PACKAGE_ID
       || process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID
@@ -3687,8 +3772,201 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
   };
 }
 
-export function liveGenerationTimingAssessment({ smokeReport = null, smokeSummary = null } = {}) {
-  const proof = smokeReport?.browser?.chatCampaignFlow?.generationTimingProof || null;
+function turnEndProofRecords(liveLogRecords = []) {
+  return (Array.isArray(liveLogRecords) ? liveLogRecords : [])
+    .filter((record) => record?.kind === 'turn-end');
+}
+
+function generationTimingProofFromLiveLogRecords(liveLogRecords = []) {
+  const proofs = turnEndProofRecords(liveLogRecords)
+    .map((record) => record.generationTiming?.persisted)
+    .filter(Boolean);
+  if (!proofs.length) return null;
+  const checked = proofs.flatMap((proof) => Array.isArray(proof.entries) ? proof.entries : []);
+  const skipped = proofs.flatMap((proof) => Array.isArray(proof.skippedEntries) ? proof.skippedEntries : []);
+  const failed = proofs.filter((proof) => proof.status === 'fail');
+  const warnings = proofs.filter((proof) => proof.status === 'warning');
+  const maxGenerationStartLatencyMs = checked.reduce((max, entry) => {
+    const value = Number(entry?.turnLatency?.generationStartLatencyMs);
+    return Number.isFinite(value) ? Math.max(max, value) : max;
+  }, 0);
+  return {
+    status: failed.length > 0 ? 'fail' : (warnings.length > 0 ? 'warning' : (checked.length > 0 ? 'pass' : 'warning')),
+    source: 'coreStoreTurnTiming',
+    timingSource: checked.length > 0 ? 'coreProjection' : null,
+    storageFormat: 'v2-core',
+    evidenceSource: 'delegatedSmokeLiveLog',
+    proofCount: proofs.length,
+    checkedTurnCount: checked.length,
+    checkedResponseCount: checked.length,
+    skippedTurnCount: skipped.length,
+    skippedResponseCount: skipped.length,
+    maxGenerationStartLatencyMs: checked.length > 0 ? maxGenerationStartLatencyMs : null,
+    warningCount: warnings.length,
+    failureCount: failed.length,
+    entries: checked,
+    skippedEntries: skipped
+  };
+}
+
+function hostNativeCompletionProofFromLiveLogRecords(liveLogRecords = []) {
+  const turnEndRecords = turnEndProofRecords(liveLogRecords);
+  const proofs = turnEndRecords
+    .map((record) => record.hostNativeCompletion?.persisted)
+    .filter(Boolean);
+  if (!proofs.length) return null;
+  const entries = proofs.flatMap((proof) => Array.isArray(proof.entries) ? proof.entries : []);
+  const requiredCompletions = turnEndRecords
+    .map((record) => record.hostNativeCompletionRequirement)
+    .filter((entry) => entry?.required === true);
+  const requiredCompletionFailures = requiredCompletions.filter((entry) => entry.status !== 'pass');
+  const requiredCompletionPasses = requiredCompletions.filter((entry) => entry.status === 'pass');
+  const completedHostContinueCount = proofs.reduce((sum, proof) => sum + Number(proof.completedHostContinueCount || 0), 0);
+  const failedHostContinueCount = proofs.reduce((sum, proof) => sum + Number(proof.failedHostContinueCount || 0), 0);
+  const candidateResponseCount = proofs.reduce((sum, proof) => sum + Number(proof.candidateResponseCount || 0), 0);
+  const targetTransactionCount = proofs.reduce((sum, proof) => sum + Number(proof.targetTransactionCount || 0), 0);
+  const failed = proofs.filter((proof) => proof.status === 'fail');
+  const warnings = proofs.filter((proof) => proof.status === 'warning');
+  const maxCompletionLatencyMs = entries.reduce((max, entry) => {
+    const value = Number(entry?.completionLatencyMs);
+    return Number.isFinite(value) ? Math.max(max, value) : max;
+  }, 0);
+  return {
+    status: failed.length > 0 || requiredCompletionFailures.length > 0
+      ? 'fail'
+      : (completedHostContinueCount > 0 && warnings.length === 0 ? 'pass' : 'warning'),
+    source: 'coreStoreResponseLedger',
+    completionSource: 'coreProjection',
+    storageFormat: 'v2-core',
+    evidenceSource: 'delegatedSmokeLiveLog',
+    proofCount: proofs.length,
+    targetTransactionCount,
+    candidateResponseCount,
+    completedHostContinueCount,
+    failedHostContinueCount,
+    requiredCompletionCount: requiredCompletions.length,
+    requiredCompletionPassCount: requiredCompletionPasses.length,
+    requiredCompletionFailureCount: requiredCompletionFailures.length,
+    maxCompletionLatencyMs: completedHostContinueCount > 0 ? maxCompletionLatencyMs || null : null,
+    warningCount: warnings.length,
+    failureCount: failed.length,
+    entries,
+    requiredCompletions,
+    requiredHostNativeCompletions: requiredCompletions,
+    unavailableReason: completedHostContinueCount > 0
+      ? null
+      : (proofs.map((proof) => proof.unavailableReason).find(Boolean) || 'no-hostContinue-completion-candidates')
+  };
+}
+
+function normalizeRequiredHostNativeCompletionMessage(message = {}) {
+  const scriptMessageId = message.scriptMessageId || message.id || null;
+  if (!scriptMessageId) return null;
+  const turn = Number(message.turn);
+  return {
+    scriptMessageId,
+    turn: Number.isFinite(turn) && turn > 0 ? turn : null,
+    expectedRoute: message.expectedRoute || 'hostContinue',
+    expectedResponseStrategy: message.expectedResponseStrategy || 'injectAndContinue'
+  };
+}
+
+function uniqueRequiredHostNativeCompletionMessages(messages = []) {
+  const seen = new Set();
+  const unique = [];
+  for (const message of messages) {
+    const normalized = normalizeRequiredHostNativeCompletionMessage(message);
+    if (!normalized) continue;
+    const key = [
+      normalized.scriptMessageId,
+      normalized.turn ?? '',
+      normalized.expectedRoute,
+      normalized.expectedResponseStrategy
+    ].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(normalized);
+  }
+  return unique;
+}
+
+function requiredHostNativeCompletionMessagesFromEvidence({ smokeReport = null, liveLogRecords = [] } = {}) {
+  const flow = smokeReport?.browser?.chatCampaignFlow || {};
+  const messageScript = flow.messageScript?.hostNativeCompletionRequiredMessages || [];
+  const runEndMessages = liveLogRecords
+    .filter((record) => record?.kind === 'run-end')
+    .flatMap((record) => Array.isArray(record.hostNativeCompletionRequiredMessages) ? record.hostNativeCompletionRequiredMessages : []);
+  const roundRequirements = Array.isArray(flow.rounds)
+    ? flow.rounds.map((round) => round.hostNativeCompletionRequirement).filter((entry) => entry?.required === true)
+    : [];
+  const liveLogRequirements = liveLogRecords
+    .map((record) => record?.hostNativeCompletionRequirement)
+    .filter((entry) => entry?.required === true);
+  return uniqueRequiredHostNativeCompletionMessages([
+    ...messageScript,
+    ...runEndMessages,
+    ...roundRequirements,
+    ...liveLogRequirements
+  ]);
+}
+
+function requiredHostNativeCompletionsFromProof(proof = {}) {
+  const direct = Array.isArray(proof?.requiredCompletions)
+    ? proof.requiredCompletions
+    : Array.isArray(proof?.requiredHostNativeCompletions)
+      ? proof.requiredHostNativeCompletions
+      : [];
+  return direct.filter((entry) => entry?.required === true || entry?.scriptMessageId || entry?.id);
+}
+
+function requiredHostNativeCompletionMatches(completion = {}, expected = {}) {
+  const turn = Number(completion.turn);
+  const expectedTurn = Number(expected.turn);
+  return completion.status === 'pass'
+    && (completion.scriptMessageId || completion.id || null) === expected.scriptMessageId
+    && (!Number.isFinite(expectedTurn) || expectedTurn <= 0 || turn === expectedTurn)
+    && (completion.expectedRoute || 'hostContinue') === expected.expectedRoute
+    && (completion.expectedResponseStrategy || 'injectAndContinue') === expected.expectedResponseStrategy
+    && completion.source === 'coreStoreResponseLedger'
+    && completion.completionSource === 'coreProjection'
+    && Number(completion.completedHostContinueCount || 0) > 0
+    && Number(completion.failedHostContinueCount || 0) === 0;
+}
+
+function assessRequiredHostNativeCompletions({ proof = {}, requiredMessages = [] } = {}) {
+  const expected = uniqueRequiredHostNativeCompletionMessages(requiredMessages);
+  const completions = requiredHostNativeCompletionsFromProof(proof);
+  const missing = [];
+  const matched = [];
+  for (const message of expected) {
+    const completion = completions.find((entry) => requiredHostNativeCompletionMatches(entry, message)) || null;
+    if (completion) matched.push(completion);
+    else missing.push(message);
+  }
+  const failed = completions.filter((entry) => entry.status && entry.status !== 'pass');
+  if (expected.length === 0) {
+    return {
+      status: failed.length > 0 ? 'fail' : 'not-required',
+      expected,
+      matched,
+      missing,
+      failed,
+      completions
+    };
+  }
+  return {
+    status: missing.length > 0 || failed.length > 0 ? 'fail' : 'pass',
+    expected,
+    matched,
+    missing,
+    failed,
+    completions
+  };
+}
+
+export function liveGenerationTimingAssessment({ smokeReport = null, smokeSummary = null, liveLogRecords = [] } = {}) {
+  const liveLogProof = generationTimingProofFromLiveLogRecords(liveLogRecords);
+  const proof = smokeReport?.browser?.chatCampaignFlow?.generationTimingProof || liveLogProof || null;
   const summaryProof = smokeSummary?.chatCampaign
     ? {
         status: smokeSummary.chatCampaign.generationTimingStatus || null,
@@ -3746,6 +4024,80 @@ export function liveGenerationTimingAssessment({ smokeReport = null, smokeSummar
   return {
     status: 'pass',
     summary: `Delegated smoke proved generation-start timing for ${evidence.checkedTurnCount} turn(s); max latency ${evidence.maxGenerationStartLatencyMs ?? 'unknown'} ms.${skippedSuffix}`,
+    proof: evidence
+  };
+}
+
+export function liveHostNativeCompletionAssessment({ smokeReport = null, smokeSummary = null, liveLogRecords = [] } = {}) {
+  const liveLogProof = hostNativeCompletionProofFromLiveLogRecords(liveLogRecords);
+  const proof = smokeReport?.browser?.chatCampaignFlow?.hostNativeCompletionProof || liveLogProof || null;
+  const requiredMessages = requiredHostNativeCompletionMessagesFromEvidence({ smokeReport, liveLogRecords });
+  const summaryProof = smokeSummary?.chatCampaign
+    ? {
+        status: smokeSummary.chatCampaign.hostNativeCompletionStatus || null,
+        source: smokeSummary.chatCampaign.hostNativeCompletionProofSource || 'compactSmokeSummary',
+        completionSource: smokeSummary.chatCampaign.hostNativeCompletionProofCompletionSource || null,
+        completedHostContinueCount: smokeSummary.chatCampaign.hostNativeCompletionCount ?? null,
+        failedHostContinueCount: smokeSummary.chatCampaign.hostNativeCompletionFailureCount ?? null,
+        maxCompletionLatencyMs: smokeSummary.chatCampaign.hostNativeCompletionMaxLatencyMs ?? null
+      }
+    : null;
+  if (!proof && !summaryProof) {
+    return {
+      status: 'warning',
+      summary: 'Delegated smoke did not report host-native completion proof.',
+      proof: null
+    };
+  }
+  if (!proof) {
+    return {
+      status: 'warning',
+      summary: 'Delegated smoke only reported compact host-native completion summary; full certification requires report.json CORE projection proof.',
+      proof: summaryProof
+    };
+  }
+  const evidence = proof;
+  if (evidence.status === 'fail') {
+    return {
+      status: 'fail',
+      summary: 'Delegated smoke reported failed or incomplete host-native completion projection evidence.',
+      proof: evidence
+    };
+  }
+  const requiredAssessment = assessRequiredHostNativeCompletions({ proof: evidence, requiredMessages });
+  if (requiredAssessment.status === 'fail') {
+    return {
+      status: 'fail',
+      summary: requiredAssessment.missing.length > 0
+        ? `Delegated smoke host-native completion proof is missing required turn binding for ${requiredAssessment.missing.map((entry) => entry.scriptMessageId).join(', ')}.`
+        : 'Delegated smoke host-native completion proof reported failed required-turn binding.',
+      proof: {
+        ...evidence,
+        requiredCompletionAssessment: requiredAssessment
+      }
+    };
+  }
+  const hasCoreProjectionProof = evidence.source === 'coreStoreResponseLedger'
+    && evidence.completionSource === 'coreProjection';
+  if (!hasCoreProjectionProof) {
+    return {
+      status: 'warning',
+      summary: `Delegated smoke host-native completion proof was not persisted CORE projection evidence; source=${evidence.source || 'unknown'}, completionSource=${evidence.completionSource || 'unknown'}.`,
+      proof: evidence
+    };
+  }
+  if (evidence.status !== 'pass' || Number(evidence.completedHostContinueCount || 0) <= 0) {
+    return {
+      status: 'warning',
+      summary: 'Delegated smoke did not prove any terminal host-native assistant completion for hostContinue.',
+      proof: evidence
+    };
+  }
+  return {
+    status: 'pass',
+    summary: requiredAssessment.status === 'pass'
+      ? `Delegated smoke proved ${evidence.completedHostContinueCount} terminal host-native completion(s), including ${requiredAssessment.matched.length} required turn binding(s), from persisted CORE projections; max completion latency ${evidence.maxCompletionLatencyMs ?? 'unknown'} ms.`
+      : `Delegated smoke proved ${evidence.completedHostContinueCount} terminal host-native completion(s) from persisted CORE projections; max completion latency ${evidence.maxCompletionLatencyMs ?? 'unknown'} ms.`,
     proof: evidence
   };
 }
@@ -3946,6 +4298,7 @@ function promptInspectionExternalSummary(promptInspection = null) {
       ? promptInspection.directiveOwnedPromptKeys.filter(Boolean).map(String)
       : [],
     finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal ?? null,
+    externalPromptEnvironmentTargets: cloneJson(promptInspection.externalPromptEnvironmentTargets || null),
     unavailableSignals: Array.isArray(promptInspection.unavailableSignals)
       ? promptInspection.unavailableSignals.filter(Boolean).map(String)
       : [],
@@ -3958,6 +4311,7 @@ function hasExternalPromptSummary(summary = {}) {
   return Boolean(
     summary.externalPromptEnvironmentRef
     || (Array.isArray(summary.knownExternalPromptKeys) && summary.knownExternalPromptKeys.length > 0)
+    || summary.externalPromptEnvironmentTargets
     || (Array.isArray(summary.unavailableSignals) && summary.unavailableSignals.length > 0)
     || (Array.isArray(summary.redactions) && summary.redactions.length > 0)
   );
@@ -3981,11 +4335,82 @@ function promptInspectionCaptureExternalSummary(report, capture = {}) {
   return hasExternalPromptSummary(fromArtifact) ? fromArtifact : (direct || fromArtifact);
 }
 
+function uniqueSortedStrings(values = []) {
+  return [...new Set(values.filter(Boolean).map(String))].sort();
+}
+
+function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
+  if (!report?.artifacts?.hostExtensions) {
+    return { status: 'missing', artifactPath: null, captureCount: captures.length };
+  }
+  const artifactPath = report.artifacts.externalContextSummary
+    || path.join(report.artifacts.hostExtensions, 'external-context-summary.json');
+  const refHashes = uniqueSortedStrings(captures.map((entry) => entry.externalPromptEnvironmentRef?.hash));
+  const knownExternalPromptKeys = uniqueSortedStrings(captures.flatMap((entry) => entry.knownExternalPromptKeys || []));
+  const directiveOwnedPromptKeys = uniqueSortedStrings(captures.flatMap((entry) => entry.directiveOwnedPromptKeys || []));
+  const unavailableSignals = uniqueSortedStrings(captures.flatMap((entry) => entry.unavailableSignals || []));
+  const redactionReasons = uniqueSortedStrings(captures.flatMap((entry) => entry.redactionReasons || []));
+  const targetSummaries = captures
+    .map((entry) => ({
+      scriptMessageId: entry.scriptMessageId || null,
+      scriptCategory: entry.scriptCategory || null,
+      targets: cloneJson(entry.externalPromptEnvironmentTargets || null)
+    }))
+    .filter((entry) => entry.targets);
+  const artifact = {
+    kind: 'directive.sillytavern.externalContextSummary.v1',
+    schemaVersion: 1,
+    runId: report.runId || null,
+    generatedAt: new Date().toISOString(),
+    source: 'delegated-smoke-prompt-inspection',
+    status: captures.length > 0 ? 'pass' : 'warning',
+    authority: {
+      directiveAuthority: false,
+      role: 'diagnostics-provenance-only'
+    },
+    aggregate: {
+      captureCount: captures.length,
+      refHashes,
+      knownExternalPromptKeys,
+      directiveOwnedPromptKeys,
+      finalHostPromptMayIncludeExternal: captures.some((entry) => entry.finalHostPromptMayIncludeExternal === true),
+      unavailableSignals,
+      redactionReasons,
+      targetSummaryCount: targetSummaries.length
+    },
+    captures,
+    targetSummaries
+  };
+  ensureDirectory(report.artifacts.hostExtensions);
+  writeJsonFile(artifactPath, artifact);
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'artifact',
+    status: 'written',
+    source: 'delegated-smoke-report',
+    artifact: 'external-context-summary',
+    path: relativeArtifactPath(report, artifactPath),
+    captureCount: captures.length,
+    knownExternalPromptKeys,
+    refHashes,
+    redactionReasons
+  });
+  return {
+    status: artifact.status,
+    artifactPath,
+    artifactPathRelative: relativeArtifactPath(report, artifactPath),
+    captureCount: captures.length,
+    knownExternalPromptKeys,
+    refHashes,
+    redactionReasons
+  };
+}
+
 export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {}) {
   const flow = smokeReport?.browser?.chatCampaignFlow || {};
   const rounds = Array.isArray(flow.rounds) ? flow.rounds : [];
   const transcriptCaptures = Array.isArray(flow.transcriptCaptures) ? flow.transcriptCaptures : [];
   const promptInspectionCaptures = Array.isArray(flow.promptInspectionCaptures) ? flow.promptInspectionCaptures : [];
+  const externalContextCaptures = [];
   let turnStartRecords = 0;
   let turnEndRecords = 0;
   let transcriptRecords = 0;
@@ -4028,6 +4453,8 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
       recentMessageCount: Array.isArray(round.recentMessages) ? round.recentMessages.length : null,
       modelCalls: boundedSmokeModelCalls(round.modelCalls || []),
       generationTiming: round.generationTiming || null,
+      hostNativeCompletion: round.hostNativeCompletion || null,
+      hostNativeCompletionRequirement: round.hostNativeCompletionRequirement || null,
       promptInspection: smokeArtifactReference(report, round.promptInspection),
       transcript: smokeArtifactReference(report, round.transcript)
     });
@@ -4048,7 +4475,7 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
   }
   for (const capture of promptInspectionCaptures) {
     const externalSummary = promptInspectionCaptureExternalSummary(report, capture);
-    appendJsonLine(report.artifacts.liveLog, {
+    const logEntry = {
       kind: 'prompt-inspection-capture',
       status: capture?.status || 'pass',
       source: 'delegated-smoke-report',
@@ -4058,15 +4485,19 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
       artifactPath: relativeArtifactPath(report, capture?.artifactPath),
       promptBlockCount: capture?.promptInspection?.blocks?.length ?? capture?.blockCount ?? null,
       ...externalSummary
-    });
+    };
+    appendJsonLine(report.artifacts.liveLog, logEntry);
+    externalContextCaptures.push(logEntry);
     promptInspectionRecords += 1;
   }
+  const externalContextSummary = writeExternalContextSummaryArtifact({ report, captures: externalContextCaptures });
   return {
     rounds: rounds.length,
     turnStartRecords,
     turnEndRecords,
     transcriptRecords,
-    promptInspectionRecords
+    promptInspectionRecords,
+    externalContextSummary
   };
 }
 
@@ -4696,10 +5127,25 @@ async function runLiveExecution(report) {
       smokeSummary = null;
     }
   }
+  const delegatedLiveLogRecords = readJsonLinesIfExists(report.artifacts.liveLog);
   const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
-  const generationTimingAssessment = liveGenerationTimingAssessment({ smokeReport, smokeSummary });
+  const generationTimingAssessment = liveGenerationTimingAssessment({
+    smokeReport,
+    smokeSummary,
+    liveLogRecords: delegatedLiveLogRecords
+  });
+  const hostNativeCompletionAssessment = liveHostNativeCompletionAssessment({
+    smokeReport,
+    smokeSummary,
+    liveLogRecords: delegatedLiveLogRecords
+  });
   const transcriptCopy = copyDelegatedSmokeTranscriptArtifacts({ report, smokeSummary, smokeReport });
   const promotedSmokeEvidence = promoteDelegatedSmokeEvidence({ report, smokeReport });
+  const modelCallFailurePolicy = summarizeModelCallFailurePolicy({ smokeReport, smokeSummary });
+  report.modelCallPolicy = {
+    ...(report.modelCallPolicy || {}),
+    failurePolicyEvidence: modelCallFailurePolicy
+  };
   let storyQualityReview = buildPostSmokeStoryQualityReview({
     report
   });
@@ -4773,6 +5219,26 @@ async function runLiveExecution(report) {
     }
   ));
   report.checks.push(check(
+    'live-model-call-failure-policy',
+    modelCallFailurePolicy.status,
+    modelCallFailurePolicy.summary,
+    {
+      smokeArtifactDir,
+      smokeReportPath,
+      smokeSummaryPath,
+      evidenceSource: modelCallFailurePolicy.evidenceSource,
+      authoritySource: modelCallFailurePolicy.authoritySource,
+      severityPolicy: modelCallFailurePolicy.severityPolicy,
+      failedModelCallCount: modelCallFailurePolicy.failedModelCallCount,
+      retainedModelCallCount: modelCallFailurePolicy.retainedModelCallCount,
+      modelCallCount: modelCallFailurePolicy.modelCallCount,
+      releaseBlockingCalls: modelCallFailurePolicy.releaseBlockingCalls,
+      unresolvedCalls: modelCallFailurePolicy.unresolvedCalls,
+      fallbackHandledCalls: modelCallFailurePolicy.fallbackHandledCalls,
+      calls: modelCallFailurePolicy.calls
+    }
+  ));
+  report.checks.push(check(
     'live-story-quality-transcript-review',
     storyQualityReview.status,
     storyQualityReview.summary,
@@ -4807,6 +5273,17 @@ async function runLiveExecution(report) {
       smokeReportPath,
       smokeSummaryPath,
       proof: generationTimingAssessment.proof
+    }
+  ));
+  report.checks.push(check(
+    'live-host-native-completion-proof',
+    hostNativeCompletionAssessment.status,
+    hostNativeCompletionAssessment.summary,
+    {
+      smokeArtifactDir,
+      smokeReportPath,
+      smokeSummaryPath,
+      proof: hostNativeCompletionAssessment.proof
     }
   ));
   report.checks.push(check(
@@ -4862,6 +5339,7 @@ async function runLiveExecution(report) {
     smokeArtifactDir,
     smokeSummary,
     smokeAssessment,
+    modelCallFailurePolicy,
     transcriptCopy: {
       status: transcriptCopy.status,
       copied: transcriptCopy.copied || null,

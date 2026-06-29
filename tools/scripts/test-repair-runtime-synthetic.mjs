@@ -245,6 +245,17 @@ assert.equal(samProjections.ingressLedger[0].status, 'recoveryRequired');
 assert.equal(samProjections.ingressLedger[0].textHash, oldSamHash);
 assert.equal(samProjections.responseLedger.length, 1);
 assert.equal(samProjections.recoveryJournal.length, 1);
+assert.equal(samProjections.recoveryJournal[0].sourceMutation.mutationKind, 'player-edited');
+assert.equal(samProjections.recoveryJournal[0].sourceMutation.oldTextHash, oldSamHash);
+assert.equal(samProjections.recoveryJournal[0].sourceMutation.newTextHash, newSamHash);
+assert.equal(samProjections.recoveryJournal[0].dependentOutcomeId, 'outcome-sam-1');
+assert.equal(samProjections.recoveryJournal[0].dependentResponseId, 'response-sam-1');
+assert.deepEqual(samProjections.recoveryJournal[0].allowedActions, [
+  'rollback-outcome',
+  'replace-dependent-response',
+  'branch',
+  'review'
+]);
 assert.equal(JSON.stringify(samHarness.coreStore.state).includes('Sam waited for her reply'), false);
 assert.equal(JSON.stringify(samHarness.coreStore.state).includes('RAW_DIRECTIVE_RESPONSE'), false);
 

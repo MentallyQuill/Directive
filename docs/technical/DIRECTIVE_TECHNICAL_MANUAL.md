@@ -304,6 +304,14 @@ Prompt context is built through `src/generation/player-safe-prompt-context-build
 
 Prompt packets use stable block ids, placement/depth metadata, hashes, and revisions. Prompt sync is chat-affine: it installs only into the bound campaign chat, suspends when the active chat does not match, and clears on completion, archive, or extension disable.
 
+### External Prompt Environment
+
+Directive owns its prompt packet and prompt revision, not the whole final SillyTavern prompt. Native World Info, Memory Books-produced World Info, Summaryception, VectFox, persona, character, preset, or other host extension material may still be added by SillyTavern after Directive installs its blocks.
+
+The host boundary records this as an external prompt environment: compact refs, known external prompt keys, target statuses, counts, hashes, visibility markers, unavailable reasons, and redaction summaries. `externalPromptEnvironmentRef` and related target summaries are provenance and diagnostics only. They do not import external lore, generated memories, Summaryception summaries, vector hits, prompt bodies, embeddings, API keys, or hidden Director material into Directive state.
+
+`finalHostPromptMayIncludeExternal` means the final host prompt may contain material outside Directive's packet. It is an honesty flag for operators and live proof, not a claim that Directive validated or owns that material.
+
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-prompt-inspection.png" alt="sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state">
 </p>
@@ -376,6 +384,8 @@ Host adapters must not fork core game logic. They should expose the same logical
 - capabilities.
 
 SillyTavern owns the active pre-alpha flow: extension launcher, command-spine shell, chat creation, message observation, generation interceptor, `setExtensionPrompt`, `/user/files` storage, provider routing through host/current/profile/direct endpoint modes, and message actions.
+
+SillyTavern also owns host context-extension surfaces. Directive must preserve non-Directive prompt keys and host World Info surfaces, observe only host-visible metadata where possible, and keep extension observations as diagnostics. Context-extension compatibility is coexistence: Directive does not call Memory Books, Summaryception, or VectFox internals as runtime dependencies, does not rewrite user lorebooks, and does not treat external summaries or vector results as campaign truth.
 
 Future host adapters can reuse these contracts after the SillyTavern alpha stabilizes. The fake host owns repeatable tests.
 

@@ -368,6 +368,14 @@ const responseRetryCase = await coreStore.markRecoveryRequired(retryTransaction.
   id: 'recovery-32',
   reason: 'host-response-post-failure',
   responseRetry: true,
+  repairDecision: {
+    kind: 'directive.repairResponseRecoveryDecision.v1',
+    eventType: 'hostResponsePostFailure',
+    policySource: 'core-store-sentinel',
+    responseStatus: 'responseRetryRequired',
+    phaseAfter: 'responseRetryRequired',
+    normalTurnAllowed: false
+  },
   allowedActions: ['retryResponse'],
   idempotencyKey: 'recovery-32-key',
   rawText: 'RAW_FAILED_RESPONSE_TEXT'
@@ -399,9 +407,143 @@ await assert.rejects(
     outcomeId: 'outcome-31',
     responseKind: 'directiveNarration'
   }),
-  /Invalid CORE transaction phase transition/,
+  (error) => error?.code === 'DIRECTIVE_CORE_RECOVERY_VISIBLE_RESPONSE_UNAUTHORIZED',
   'generic recoveryRequired remains terminal for visible responses'
 );
+
+const unavailableClosureFrame = createTurnSourceFrameContract({
+  id: 'frame-36',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'ashes-chat',
+  hostMessageId: '36',
+  textHash: hashStableJson({ text: 'A host-native response was unavailable, then reobserved.' }),
+  createdAt: '2026-06-28T15:00:36.000Z'
+});
+const unavailableClosureTransaction = await coreStore.beginTurn(unavailableClosureFrame, {
+  transactionId: 'txn-36',
+  ingressId: 'ingress-36',
+  idempotencyKey: 'begin-36'
+});
+await coreStore.advanceTurn(unavailableClosureTransaction.id, {
+  phase: 'routePending',
+  route: 'hostContinue',
+  reason: 'host-native-unavailable-reobserve-closure-route',
+  idempotencyKey: 'advance-36-route'
+});
+await coreStore.advanceTurn(unavailableClosureTransaction.id, {
+  phase: 'hostContinueReleased',
+  route: 'hostContinue',
+  reason: 'host-native-unavailable-reobserve-closure-release',
+  idempotencyKey: 'advance-36-release'
+});
+await coreStore.markRecoveryRequired(unavailableClosureTransaction.id, {
+  id: 'recovery-36',
+  reason: 'hostNativeAssistantUnavailable',
+  phaseAfter: 'recoveryRequired',
+  responseRetry: false,
+  repairDecision: {
+    kind: 'directive.repairResponseRecoveryDecision.v1',
+    eventType: 'hostNativeAssistantUnavailable',
+    responseStatus: 'unavailable',
+    allowedActions: ['reobserveHostAssistantRows', 'reviewHostNativeAvailability'],
+    normalTurnAllowed: false
+  },
+  allowedActions: ['reobserveHostAssistantRows', 'reviewHostNativeAvailability'],
+  idempotencyKey: 'recovery-36-key'
+});
+assert.equal(coreStore.state.transactions[unavailableClosureTransaction.id].phase, 'recoveryRequired');
+const unavailableClosureHash = hashStableJson({ text: 'The host-native row was reobserved safely.' });
+const unavailableClosure = await coreStore.recordVisibleResponse(unavailableClosureTransaction.id, {
+  idempotencyKey: 'response-36-key',
+  responseId: 'response-36',
+  hostMessageId: '37',
+  outcomeId: 'outcome-36',
+  responseKind: 'hostContinue',
+  textHash: unavailableClosureHash,
+  repairDecision: {
+    kind: 'directive.repairResponseReobserveClosureDecision.v1',
+    authorized: true,
+    action: 'recordVisibleResponse',
+    reason: 'host-native-response-reobserved',
+    eventType: 'hostNativeAssistantUnavailable',
+    recoveryCaseId: 'recovery-36',
+    recoveryId: 'recovery-36',
+    allowedActions: ['reobserveHostAssistantRows', 'reviewHostNativeAvailability'],
+    recoveryResolved: true
+  }
+});
+assert.equal(unavailableClosure.phase, 'visibleResponsePosted', 'authorized unavailable reobserve should close as visible response');
+assert.equal(coreStore.state.transactions[unavailableClosureTransaction.id].recoveryCaseId, null);
+const unavailableClosureProjection = await readCoreStoreProjectionsV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+const unavailableClosureRecovery = unavailableClosureProjection.recoveryJournal.find((entry) => (
+  entry.transactionId === unavailableClosureTransaction.id
+  && entry.status === 'resolved'
+));
+assert.equal(unavailableClosureRecovery.reason, 'host-native-response-reobserved');
+assert.equal(unavailableClosureRecovery.hostMessageId, '37');
+assert.equal(unavailableClosureRecovery.textHash, unavailableClosureHash);
+
+const hostNativeRepairFrame = createTurnSourceFrameContract({
+  id: 'frame-35',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'ashes-chat',
+  hostMessageId: '35',
+  textHash: hashStableJson({ text: 'A host-native continuation is observed after background settlement.' }),
+  createdAt: '2026-06-28T15:00:35.000Z'
+});
+const hostNativeRepairTransaction = await coreStore.beginTurn(hostNativeRepairFrame, {
+  transactionId: 'txn-35',
+  ingressId: 'ingress-35',
+  idempotencyKey: 'begin-35'
+});
+await coreStore.advanceTurn(hostNativeRepairTransaction.id, {
+  phase: 'routePending',
+  route: 'hostContinue',
+  reason: 'host-native-missing-hash-repair-test',
+  idempotencyKey: 'advance-35-route'
+});
+await coreStore.advanceTurn(hostNativeRepairTransaction.id, {
+  phase: 'hostContinueReleased',
+  route: 'hostContinue',
+  reason: 'host-native-released-before-background',
+  idempotencyKey: 'advance-35-release'
+});
+await coreStore.commitBackgroundBatch(hostNativeRepairTransaction.id, {
+  batchId: 'background-before-visible-35',
+  idempotencyKey: 'background-before-visible-35',
+  outcomeId: 'outcome-35',
+  operations: [],
+  workers: [{ workerKey: 'diagnostic', status: 'noChange' }]
+});
+assert.equal(coreStore.state.transactions[hostNativeRepairTransaction.id].phase, 'backgroundSettling');
+await coreStore.recordVisibleResponse(hostNativeRepairTransaction.id, {
+  idempotencyKey: 'response-35-key',
+  responseId: 'response-35',
+  hostMessageId: '36',
+  responseKind: 'hostContinue',
+  hostGenerationReleasedAt: '2026-06-28T15:00:35.000Z',
+  postedAt: '2026-06-28T15:00:45.000Z'
+});
+assert.equal(coreStore.state.transactions[hostNativeRepairTransaction.id].visibleResponseRef.textHash, null);
+const repairedHostNativeHash = hashStableJson({ text: 'Host-native row text was recovered later.' });
+await coreStore.repairVisibleResponseRef(hostNativeRepairTransaction.id, {
+  hostMessageId: '36',
+  textHash: repairedHostNativeHash,
+  reason: 'test-missing-host-native-text-hash',
+  idempotencyKey: 'repair-response-35-hash'
+});
+assert.equal(coreStore.state.transactions[hostNativeRepairTransaction.id].visibleResponseRef.textHash, repairedHostNativeHash);
+const repairedProjection = await readCoreStoreProjectionsV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+const repairedProjectionResponse = repairedProjection.responseLedger.find((entry) => entry.transactionId === hostNativeRepairTransaction.id);
+assert.equal(repairedProjectionResponse.textHash, repairedHostNativeHash);
 
 const settledRecoveryFrame = createTurnSourceFrameContract({
   id: 'frame-34',
@@ -433,12 +575,31 @@ const settledRecoveryCase = await coreStore.markRecoveryRequired(settledRecovery
   id: 'recovery-34',
   reason: 'playerMessageEdited',
   sourceMutation: {
+    kind: 'directive.sourceMutation.v1',
     sourceKind: 'playerIngress',
     eventType: 'playerMessageEdited',
     hostMessageId: '34',
+    ingressId: 'ingress-34',
+    outcomeId: 'outcome-34',
+    responseId: 'response-34',
+    sourceFrameId: 'frame-34',
+    replacementText: 'edited settled source raw text that must not persist',
     replacementTextHash: hashStableJson({ text: 'edited settled source' }),
+    replacementTextPresent: true,
+    preOutcomeRevision: 42,
     rawPlayerText: 'RAW_SETTLED_SOURCE_EDIT'
   },
+  repairDecision: {
+    kind: 'directive.repairDecision.v1',
+    eventType: 'playerMessageEdited',
+    sourceKind: 'playerIngress',
+    transactionId: 'txn-34',
+    sourceMutation: true,
+    action: 'reviewRequired',
+    normalTurnAllowed: false
+  },
+  dependentOutcomeId: 'outcome-34',
+  dependentResponseId: 'response-34',
   allowedActions: ['reviewSourceMutation'],
   idempotencyKey: 'recovery-34-key'
 });
@@ -498,18 +659,114 @@ await coreStore.commitBackgroundBatch(terminalResolutionTransaction.id, {
   ]
 });
 
+const restartPriorFrame = createTurnSourceFrameContract({
+  id: 'frame-restart-prior',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'ashes-chat',
+  hostMessageId: '37',
+  textHash: hashStableJson({ text: 'Prior latest row before edit.' }),
+  createdAt: '2026-06-28T15:00:37.000Z'
+});
+const restartPriorTransaction = await coreStore.beginTurn(restartPriorFrame, {
+  transactionId: 'txn-restart-prior',
+  ingressId: 'ingress-restart-prior',
+  idempotencyKey: 'begin-restart-prior'
+});
+const restartReplacementFrame = createTurnSourceFrameContract({
+  id: 'frame-restart-replacement',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'ashes-chat',
+  hostMessageId: '37',
+  textHash: hashStableJson({ text: 'Edited latest row without a dependent response.' }),
+  createdAt: '2026-06-28T15:00:38.000Z'
+});
+const restartReplacementTransaction = await coreStore.beginTurn(restartReplacementFrame, {
+  transactionId: 'txn-restart-replacement',
+  ingressId: 'ingress-restart-replacement',
+  idempotencyKey: 'begin-restart-replacement'
+});
+await assert.rejects(
+  () => coreStore.supersedeLatestSourceTransaction(transaction.id, restartReplacementTransaction.id, {
+    idempotencyKey: 'restart-after-visible-key'
+  }),
+  /cannot restart after mechanics or visible response/
+);
+const restartResult = await coreStore.supersedeLatestSourceTransaction(restartPriorTransaction.id, restartReplacementTransaction.id, {
+  priorRecoveryId: 'recovery-restart-prior',
+  reason: 'latest-source-reobserved',
+  idempotencyKey: 'restart-prior-to-replacement-key',
+  repairDecision: {
+    kind: 'directive.repairSourceReobserveDecision.v1',
+    action: 'restartLatestSource',
+    rawPlayerText: 'RAW_RESTART_PLAYER_TEXT'
+  },
+  sourceMutation: {
+    kind: 'directive.sourceMutation.v1',
+    sourceKind: 'playerIngress',
+    eventType: 'playerMessageReobserved',
+    hostMessageId: '37',
+    ingressId: 'ingress-restart-prior',
+    sourceFrameId: 'frame-restart-prior',
+    replacementIngressId: 'ingress-restart-replacement',
+    replacementSourceFrameId: 'frame-restart-replacement',
+    replacementText: 'RAW_RESTART_REPLACEMENT_TEXT'
+  }
+});
+assert.equal(restartResult.status, 'recorded');
+assert.equal(restartResult.priorTransaction.phase, 'restartSuperseded');
+assert.equal(restartResult.transaction.phase, 'observed');
+assert.equal(restartResult.sourceRestart.priorTransactionId, 'txn-restart-prior');
+assert.equal(restartResult.sourceRestart.newTransactionId, 'txn-restart-replacement');
+assert.equal(restartResult.sourceRestart.recoveryId, 'recovery-restart-prior');
+assert.equal(coreStore.state.transactions['txn-restart-prior'].restartedByTransactionId, 'txn-restart-replacement');
+assert.equal(coreStore.state.transactions['txn-restart-replacement'].restartedFromTransactionId, 'txn-restart-prior');
+assert.equal(JSON.stringify(coreStore.state).includes('RAW_RESTART_PLAYER_TEXT'), false, 'CORE source restart refs must not retain raw player text.');
+assert.equal(JSON.stringify(coreStore.state).includes('RAW_RESTART_REPLACEMENT_TEXT'), false, 'CORE source restart mutations must not retain raw replacement text.');
+const restartEventCount = coreStore.state.events.filter((event) => event.type === 'latestSourceRestarted').length;
+const replayRestartResult = await coreStore.supersedeLatestSourceTransaction(restartPriorTransaction.id, restartReplacementTransaction.id, {
+  priorRecoveryId: 'recovery-restart-prior',
+  reason: 'latest-source-reobserved',
+  idempotencyKey: 'restart-prior-to-replacement-key'
+});
+assert.equal(replayRestartResult.transaction.id, 'txn-restart-replacement');
+assert.equal(
+  coreStore.state.events.filter((event) => event.type === 'latestSourceRestarted').length,
+  restartEventCount,
+  'source restart idempotency must not append another latestSourceRestarted event'
+);
+await assert.rejects(
+  () => coreStore.supersedeLatestSourceTransaction(restartPriorTransaction.id, restartReplacementTransaction.id, {
+    idempotencyKey: 'restart-prior-to-replacement-other-key'
+  }),
+  /already has a source restart/
+);
+
 const projections = coreStore.readProjections();
-assert.equal(projections.ingressLedger.length, 5);
+assert.equal(projections.ingressLedger.length, 9);
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-29').status, 'settled');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-31').status, 'recoveryRequired');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-32').status, 'complete');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-33').status, 'settled');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-34').status, 'recoveryRequired');
-assert.equal(projections.responseLedger.length, 2);
+assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-35').status, 'complete');
+assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-36').status, 'complete');
+const restartPriorProjection = projections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-prior');
+const restartReplacementProjection = projections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-replacement');
+assert.equal(restartPriorProjection.status, 'restartSuperseded');
+assert.equal(restartPriorProjection.restartedByTransactionId, 'txn-restart-replacement');
+assert.equal(restartPriorProjection.sourceRestart.reason, 'latest-source-reobserved');
+assert.equal(restartReplacementProjection.status, 'pending');
+assert.equal(restartReplacementProjection.restartedFromTransactionId, 'txn-restart-prior');
+assert.equal(restartReplacementProjection.sourceRestart.priorIngressId, 'ingress-restart-prior');
+assert.equal(projections.responseLedger.length, 4);
 assert.equal(projections.responseLedger[0].hostMessageId, '30');
 assert.equal(projections.responseLedger[0].generationStartedAt, '2026-06-28T15:00:40.000Z');
 assert.equal(projections.responseLedger[0].turnTiming.architectureWithin60s, true);
 assert.equal(projections.responseLedger[0].turnTiming.generationStartLatencyMs, 40000);
+assert.equal(projections.responseLedger.find((entry) => entry.transactionId === 'txn-35').textHash, repairedHostNativeHash);
+assert.equal(projections.responseLedger.find((entry) => entry.transactionId === 'txn-36').textHash, unavailableClosureHash);
 const directiveTurnTiming = projections.turnTiming.find((entry) => entry.transactionId === 'txn-29');
 assert.ok(directiveTurnTiming, 'CORE projections should expose persisted generation-start timing for live proof');
 assert.equal(directiveTurnTiming.route, 'directiveCommit');
@@ -520,13 +777,53 @@ assert.equal(directiveTurnTiming.turnTiming.providerCompletionLatencyMs, 65000);
 assert.equal(directiveTurnTiming.turnTiming.architectureWithin60s, true);
 assert.equal(projections.turnLedger.entries.length, 1);
 assert.equal(projections.turnLedger.lastCommittedOutcomeId, 'outcome-29');
-assert.equal(projections.recoveryJournal.length, 3);
+assert.equal(projections.recoveryJournal.length, 6);
 assert.equal(projections.recoveryJournal[0].id, 'recovery-31');
-assert.equal(projections.recoveryJournal.find((entry) => entry.id === 'recovery-32').phase, 'responseRetryRequired');
-assert.equal(projections.recoveryJournal.find((entry) => entry.id === 'recovery-34').reason, 'playerMessageEdited');
+const responseRetryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-32');
+assert.equal(responseRetryProjection.phase, 'responseRetryRequired');
+assert.deepEqual(responseRetryProjection.allowedActions, ['retryResponse']);
+assert.equal(responseRetryProjection.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
+assert.equal(responseRetryProjection.repairDecision.policySource, 'core-store-sentinel');
+const unavailableRecoveryRequiredProjection = projections.recoveryJournal.find((entry) => (
+  entry.id === 'recovery-36'
+  && entry.status === 'required'
+));
+assert.equal(unavailableRecoveryRequiredProjection.phase, 'recoveryRequired');
+assert.deepEqual(unavailableRecoveryRequiredProjection.allowedActions, ['reobserveHostAssistantRows', 'reviewHostNativeAvailability']);
+const unavailableRecoveryResolvedProjection = projections.recoveryJournal.find((entry) => (
+  entry.id === 'recovery-36'
+  && entry.status === 'resolved'
+));
+assert.equal(unavailableRecoveryResolvedProjection.phase, 'visibleResponsePosted');
+assert.equal(unavailableRecoveryResolvedProjection.reason, 'host-native-response-reobserved');
+assert.equal(unavailableRecoveryResolvedProjection.hostMessageId, '37');
+const sourceMutationRecoveryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-34');
+assert.equal(sourceMutationRecoveryProjection.reason, 'playerMessageEdited');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.kind, 'directive.sourceMutation.v1');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceKind, 'playerIngress');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceFrameId, 'frame-34');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextHash.length, 64);
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextPresent, true);
+assert.equal('replacementText' in sourceMutationRecoveryProjection.sourceMutation, false);
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.rawPlayerText, '[redacted-raw-payload]');
+assert.equal(sourceMutationRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(sourceMutationRecoveryProjection.repairDecision.action, 'reviewRequired');
+assert.equal(sourceMutationRecoveryProjection.repairDecision.normalTurnAllowed, false);
+assert.equal(sourceMutationRecoveryProjection.dependentOutcomeId, 'outcome-34');
+assert.equal(sourceMutationRecoveryProjection.dependentResponseId, 'response-34');
+assert.deepEqual(sourceMutationRecoveryProjection.allowedActions, ['reviewSourceMutation']);
+assert.equal(JSON.stringify(sourceMutationRecoveryProjection).includes('RAW_SETTLED_SOURCE_EDIT'), false);
+assert.equal(JSON.stringify(sourceMutationRecoveryProjection).includes('edited settled source raw text'), false);
+const restartRecoveryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-restart-prior');
+assert.equal(restartRecoveryProjection.status, 'resolved');
+assert.equal(restartRecoveryProjection.phase, 'restartSuperseded');
+assert.equal(restartRecoveryProjection.replacementTransactionId, 'txn-restart-replacement');
+assert.equal(restartRecoveryProjection.replacementIngressId, 'ingress-restart-replacement');
+assert.equal(restartRecoveryProjection.sourceMutation.replacementTextHash.length, 64);
+assert.equal(JSON.stringify(restartRecoveryProjection).includes('RAW_RESTART_REPLACEMENT_TEXT'), false);
 assert.equal(projections.modelCallDiagnostics.length, 1);
 assert.equal(projections.modelCallDiagnostics[0].promptText, '[redacted-raw-payload]');
-assert.equal(projections.backgroundBatches.length, 4);
+assert.equal(projections.backgroundBatches.length, 5);
 const forgeBackgroundBatch = projections.backgroundBatches.find((entry) => entry.batchId === 'forge-29');
 assert.ok(forgeBackgroundBatch);
 assert.equal(forgeBackgroundBatch.transactionId, 'txn-29');
@@ -542,7 +839,7 @@ assert.equal(terminalCheckpointBackgroundBatches.length, 2);
 assert.equal(terminalCheckpointBackgroundBatches.every((entry) => entry.operationCount === 0), true, 'Terminal checkpoint settlement must not create mechanics operations.');
 assert.equal(terminalCheckpointBackgroundBatches.every((entry) => entry.workerCount === 1), true, 'Terminal checkpoint settlement must identify one terminal worker/control effect.');
 assert.equal(terminalCheckpointBackgroundBatches.some((entry) => entry.transactionId === 'txn-33'), true, 'Terminal resolution ingress must settle its own CORE transaction.');
-assert.equal(projections.sidecarDiagnostics.length, 6);
+assert.equal(projections.sidecarDiagnostics.length, 7);
 assert.equal(projections.sidecarDiagnostics.some((entry) => entry.worker === 'continuity'), true);
 assert.equal(projections.sidecarDiagnostics.filter((entry) => entry.worker === 'terminalOutcomeCheckpoint').length, 2);
 assert.equal(JSON.stringify(projections.sidecarDiagnostics).includes('RAW_TERMINAL_CHECKPOINT_TEXT'), false);
@@ -564,6 +861,16 @@ const persistedProjections = await readCoreStoreProjectionsV2(adapter, {
   saveId: 'save-core-v2'
 });
 assert.equal(persistedProjections.ingressLedger.length, projections.ingressLedger.length, 'persisted projection loader should derive ingress from segments');
+assert.equal(
+  persistedProjections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-prior').status,
+  'restartSuperseded',
+  'persisted projection loader should preserve prior restart status'
+);
+assert.equal(
+  persistedProjections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-replacement').restartedFromTransactionId,
+  'txn-restart-prior',
+  'persisted projection loader should preserve replacement source-restart link'
+);
 assert.equal(persistedProjections.responseLedger.length, projections.responseLedger.length, 'persisted projection loader should derive responses from segments');
 assert.equal(persistedProjections.turnTiming.length, projections.turnTiming.length, 'persisted projection loader should derive generation-start timing from segments');
 assert.equal(
@@ -573,6 +880,16 @@ assert.equal(
 );
 assert.equal(persistedProjections.turnLedger.entries.length, projections.turnLedger.entries.length, 'persisted projection loader should derive turns from segments');
 assert.equal(persistedProjections.recoveryJournal.length, projections.recoveryJournal.length, 'persisted projection loader should derive recovery from segments');
+assert.equal(
+  persistedProjections.recoveryJournal.find((entry) => entry.id === 'recovery-restart-prior').replacementTransactionId,
+  'txn-restart-replacement',
+  'persisted projection loader should preserve source-restart recovery resolution'
+);
+assert.equal(
+  persistedProjections.recoveryJournal.find((entry) => entry.id === 'recovery-34').sourceMutation.sourceKind,
+  'playerIngress',
+  'persisted projection loader should preserve sanitized source-mutation recovery details'
+);
 assert.equal(persistedProjections.backgroundBatches.length, projections.backgroundBatches.length, 'persisted projection loader should derive background batches from segments');
 const hydratedState = await loadCoreStoreStateV2(adapter, {
   campaignId: 'campaign-core-v2',
@@ -587,12 +904,22 @@ const hydratedCoreStore = createCoreStoreV2({
 });
 const hydratedProjections = hydratedCoreStore.readProjections();
 assert.equal(hydratedProjections.ingressLedger.length, projections.ingressLedger.length, 'hydrated CORE Store should preserve ingress projections');
+assert.equal(
+  hydratedProjections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-prior').restartedByTransactionId,
+  'txn-restart-replacement',
+  'hydrated CORE Store should preserve prior source-restart link'
+);
+assert.equal(
+  hydratedProjections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-replacement').sourceRestart.priorTransactionId,
+  'txn-restart-prior',
+  'hydrated CORE Store should preserve replacement source-restart ref'
+);
 assert.equal(hydratedProjections.responseLedger.length, projections.responseLedger.length, 'hydrated CORE Store should preserve response projections');
 assert.equal(hydratedProjections.turnTiming.length, projections.turnTiming.length, 'hydrated CORE Store should preserve timing projections');
 assert.equal(hydratedCoreStore.state.events.length, coreStore.state.events.length, 'hydrated CORE Store should preserve event segments');
 
 const head = await coreStore.loadHead();
-assert.equal(head.coreStore.counters.transactions, 5);
+assert.equal(head.coreStore.counters.transactions, 9);
 assert.equal(head.coreStore.counters.diagnostics, 3);
 assert.equal(head.coreStore.revisions.diagnostic, 3);
 assert.equal(head.coreStore.revisions.mechanics, 2, 'mechanics should advance for mechanics commit plus background operation only');
@@ -638,7 +965,9 @@ assert.equal(compactMechanicsOperation.operationCount, 1);
 assert.deepEqual(compactMechanicsOperation.changedRoots, ['worldState']);
 assert.equal(JSON.stringify(compactMechanicsOperation).includes('RAW_MECHANICS_TEXT'), false);
 assert.equal(eventSegment.entries.some((entry) => entry.type === 'visibleResponseRecorded'), true);
+assert.equal(eventSegment.entries.some((entry) => entry.type === 'visibleResponseRefRepaired'), true);
 assert.equal(eventSegment.entries.some((entry) => entry.type === 'recoveryRequired'), true);
+assert.equal(eventSegment.entries.some((entry) => entry.type === 'latestSourceRestarted'), true);
 const settledRecoveryEvent = eventSegment.entries.find((entry) => entry.type === 'recoveryRequired' && entry.payload?.recoveryCase?.id === 'recovery-34');
 assert.ok(settledRecoveryEvent, 'Settled source mutations should reopen the CORE transaction into recoveryRequired.');
 assert.equal(settledRecoveryEvent.payload.sourceMutation.sourceKind, 'playerIngress');

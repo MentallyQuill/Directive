@@ -1,4 +1,8 @@
-import { normalizeHostMessageVisibility } from '../../runtime/architecture-redesign-contracts.mjs';
+import {
+  hashStableJson,
+  normalizeHostMessageVisibility,
+  stableJsonByteLength
+} from '../../runtime/architecture-redesign-contracts.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -56,7 +60,9 @@ function messageText(message) {
 }
 
 function getChatArray(context) {
-  return Array.isArray(context?.chat) ? context.chat : [];
+  const contextChat = Array.isArray(context?.chat) ? context.chat : [];
+  const globalChat = Array.isArray(globalThis.chat) ? globalThis.chat : [];
+  return globalChat.length > contextChat.length ? globalChat : contextChat;
 }
 
 function getCharactersArray(context) {
@@ -841,11 +847,15 @@ export function normalizeSillyTavernMessage(message, index = null, options = {})
   if (!message || typeof message !== 'object') return null;
   const metadata = directiveMetadata(message);
   const hostMessageId = normalizeMessageId(message, Number.isInteger(index) ? index : null);
+  const text = messageText(message);
   return {
     id: hostMessageId,
     hostMessageId,
     index: Number.isInteger(index) ? index : null,
-    text: messageText(message),
+    text,
+    textHash: text ? hashStableJson({ text }) : null,
+    textLength: text.length,
+    textByteLength: text ? stableJsonByteLength({ text }) : 0,
     isUser: message.is_user === true || message.role === 'user',
     isSystem: message.is_system === true || message.role === 'system',
     directiveOwned: Boolean(metadata),
@@ -914,12 +924,16 @@ export function normalizeSillyTavernMessagePayload(context, payload = null) {
   }
   if (!message) return null;
   if (!Number.isInteger(index)) index = chat.indexOf(message);
+  const text = messageText(message);
 
   return {
     hostMessageId: normalizeMessageId(message, index >= 0 ? index : null),
     index: index >= 0 ? index : null,
     chatId: contextChatId(context),
-    text: messageText(message),
+    text,
+    textHash: text ? hashStableJson({ text }) : null,
+    textLength: text.length,
+    textByteLength: text ? stableJsonByteLength({ text }) : 0,
     isUser: message.is_user === true || message.role === 'user',
     isSystem: message.is_system === true || message.role === 'system',
     isDirectiveOwned: Boolean(directiveMetadata(message)),
@@ -1227,6 +1241,29 @@ export function createSillyTavernChatAdapter({
     }).filter(Boolean);
   }
 
+  async function refreshCurrentChat({ reason = 'directive-refresh-current-chat' } = {}) {
+    const ctx = context();
+    const refreshers = [
+      ctx?.reloadCurrentChat,
+      globalThis.reloadCurrentChat
+    ];
+    for (const refresh of refreshers) {
+      if (typeof refresh !== 'function') continue;
+      try {
+        await refresh.call(ctx, { reason });
+        return { ok: true, refreshed: true, reason };
+      } catch {
+        try {
+          await refresh.call(ctx);
+          return { ok: true, refreshed: true, reason };
+        } catch {
+          // Try the next available host hook.
+        }
+      }
+    }
+    return { ok: false, refreshed: false, reason: 'refresh-current-chat-unavailable' };
+  }
+
   function getLatestPlayerMessage() {
     const ctx = context();
     const chat = getChatArray(ctx);
@@ -1417,11 +1454,145 @@ export function createSillyTavernChatAdapter({
     };
   }
 
+  function observeNewHostAssistantMessage(ctx, beforeIds = new Set()) {
+    const afterChat = getChatArray(ctx);
+    for (let index = afterChat.length - 1; index >= 0; index -= 1) {
+      const messageId = normalizeMessageId(afterChat[index], index);
+      if (beforeIds.has(messageId)) continue;
+      const normalized = normalizeSillyTavernMessagePayload(ctx, { message: afterChat[index], index });
+      if (normalized && !normalized.isUser && !normalized.isDirectiveOwned) {
+        delete normalized.raw;
+        return normalized;
+      }
+    }
+    return null;
+  }
+
+  async function waitForNewHostAssistantMessage(beforeIds = new Set(), {
+    timeoutMs = 240000,
+    pollIntervalMs = 250,
+    shouldStop = null
+  } = {}) {
+    const startedAt = Date.now();
+    const deadlineAt = startedAt + Math.max(0, Number(timeoutMs || 0));
+    const interval = Math.max(10, Number(pollIntervalMs || 0));
+    while (true) {
+      if (typeof shouldStop === 'function' && shouldStop()) return null;
+      const observedMessage = observeNewHostAssistantMessage(context(), beforeIds);
+      if (observedMessage) return observedMessage;
+      if (Date.now() >= deadlineAt) return null;
+      await delay(Math.min(interval, Math.max(0, deadlineAt - Date.now())));
+    }
+  }
+
+  function hostGenerationObservationMessageRef(message = null) {
+    if (!message) return null;
+    const text = message.text || '';
+    return {
+      hostMessageId: message.hostMessageId || message.id || null,
+      index: message.index ?? null,
+      chatId: message.chatId || null,
+      textHash: text ? hashStableJson({ text }) : null,
+      textLength: typeof text === 'string' ? text.length : 0,
+      textByteLength: text ? stableJsonByteLength({ text }) : 0
+    };
+  }
+
+  function scheduleHostGenerationSettlement(callback, payload) {
+    if (typeof callback !== 'function') return;
+    const run = () => {
+      Promise.resolve()
+        .then(() => callback(cloneJson(payload)))
+        .catch(() => {});
+    };
+    if (typeof setTimeout === 'function') {
+      setTimeout(run, 0);
+    } else {
+      Promise.resolve().then(run);
+    }
+  }
+
+  function scheduleHostGenerationObservation({
+    beforeIds,
+    callback,
+    observationId,
+    ingressId = null,
+    turnId = null,
+    outcomeId = null,
+    reason,
+    type,
+    generationStartedAt,
+    observationTimeoutMs,
+    observationPollIntervalMs
+  } = {}) {
+    if (typeof callback !== 'function') return null;
+    let settled = false;
+    const settleOnce = (payload) => {
+      if (settled) return;
+      settled = true;
+      scheduleHostGenerationSettlement(callback, payload);
+    };
+    waitForNewHostAssistantMessage(beforeIds, {
+      timeoutMs: observationTimeoutMs,
+      pollIntervalMs: observationPollIntervalMs,
+      shouldStop: () => settled
+    })
+      .then((observedMessage) => {
+        settleOnce({
+          kind: 'directive.hostGenerationObservation.v1',
+          observationId,
+          ingressId,
+          turnId,
+          outcomeId,
+          status: observedMessage ? 'completed' : 'unavailable',
+          ok: Boolean(observedMessage),
+          released: true,
+          waitForCompletion: false,
+          reason,
+          type: type || 'normal',
+          generationStartedAt,
+          hostGenerationReleasedAt: generationStartedAt,
+          completedAt: now(),
+          observedMessage: hostGenerationObservationMessageRef(observedMessage)
+        });
+      })
+      .catch((error) => {
+        settleOnce({
+          kind: 'directive.hostGenerationObservation.v1',
+          observationId,
+          ingressId,
+          turnId,
+          outcomeId,
+          ok: false,
+          status: 'failed',
+          released: true,
+          waitForCompletion: false,
+          reason,
+          type: type || 'normal',
+          generationStartedAt,
+          hostGenerationReleasedAt: generationStartedAt,
+          failedAt: now(),
+          error: {
+            code: error?.code || 'DIRECTIVE_HOST_GENERATION_OBSERVATION_FAILED',
+            message: error?.message || String(error)
+          }
+        });
+      });
+    return settleOnce;
+  }
+
   async function continueHostGeneration({
     reason = 'directive-inject-and-continue',
     type = 'normal',
     automaticTrigger = true,
-    waitForCompletion = true
+    waitForCompletion = true,
+    observationTimeoutMs = 240000,
+    observationPollIntervalMs = 250,
+    onSettled = null,
+    onHostGenerationObserved = null,
+    ingressId = null,
+    turnId = null,
+    outcomeId = null
   } = {}) {
     try {
       const beforeContext = context();
@@ -1435,13 +1606,31 @@ export function createSillyTavernChatAdapter({
         : script.is_send_press === true;
       if (generating) {
         const generationStartedAt = now();
+        const observationId = `host-generation:${generationStartedAt}:${ingressId || turnId || outcomeId || reason}`;
+        const callback = typeof onHostGenerationObserved === 'function' ? onHostGenerationObserved : onSettled;
+        const observationSettler = scheduleHostGenerationObservation({
+          beforeIds,
+          callback,
+          observationId,
+          ingressId,
+          turnId,
+          outcomeId,
+          reason: 'host-already-generating',
+          type,
+          generationStartedAt,
+          observationTimeoutMs,
+          observationPollIntervalMs
+        });
         return {
           ok: true,
           skipped: true,
           released: true,
           waitForCompletion: false,
+          alreadyGenerating: true,
           reason: 'host-already-generating',
           type: type || 'normal',
+          observationId,
+          observationStatus: observationSettler ? 'pending' : 'unavailable',
           generationStartedAt,
           hostGenerationReleasedAt: generationStartedAt,
           observedMessage: null
@@ -1455,37 +1644,72 @@ export function createSillyTavernChatAdapter({
         };
       }
       const generationStartedAt = now();
+      const observationId = `host-generation:${generationStartedAt}:${ingressId || turnId || outcomeId || reason}`;
+      const callback = typeof onHostGenerationObserved === 'function' ? onHostGenerationObserved : onSettled;
       const generationPromise = script.Generate(type || 'normal', {
         automatic_trigger: automaticTrigger !== false
       });
       if (waitForCompletion === false) {
-        Promise.resolve(generationPromise).catch(() => {});
-        return {
+        const release = {
           ok: true,
           skipped: false,
           released: true,
           waitForCompletion: false,
           reason,
           type: type || 'normal',
+          observationId,
+          observationStatus: 'pending',
           generationStartedAt,
           hostGenerationReleasedAt: generationStartedAt,
           observedMessage: null
         };
+        if (typeof callback !== 'function') {
+          Promise.resolve(generationPromise).catch(() => {});
+          return release;
+        }
+        const observationSettler = scheduleHostGenerationObservation({
+          beforeIds,
+          callback,
+          observationId,
+          ingressId,
+          turnId,
+          outcomeId,
+          reason,
+          type,
+          generationStartedAt,
+          observationTimeoutMs,
+          observationPollIntervalMs
+        });
+        Promise.resolve(generationPromise)
+          .catch((error) => {
+            observationSettler?.({
+              kind: 'directive.hostGenerationObservation.v1',
+              observationId,
+              ingressId,
+              turnId,
+              outcomeId,
+              ok: false,
+              status: 'failed',
+              released: true,
+              waitForCompletion: false,
+              reason,
+              type: type || 'normal',
+              generationStartedAt,
+              hostGenerationReleasedAt: generationStartedAt,
+              failedAt: now(),
+              error: {
+                code: error?.code || 'DIRECTIVE_HOST_GENERATION_CONTINUE_FAILED',
+                message: error?.message || String(error)
+              }
+            });
+          });
+        return release;
       }
       const result = await generationPromise;
-      const afterContext = context();
-      const afterChat = getChatArray(afterContext);
-      let observedMessage = null;
-      for (let index = afterChat.length - 1; index >= 0; index -= 1) {
-        const messageId = normalizeMessageId(afterChat[index], index);
-        if (beforeIds.has(messageId)) continue;
-        const normalized = normalizeSillyTavernMessagePayload(afterContext, { message: afterChat[index], index });
-        if (normalized && !normalized.isUser && !normalized.isDirectiveOwned) {
-          delete normalized.raw;
-          observedMessage = normalized;
-          break;
-        }
-      }
+      const observedMessage = await waitForNewHostAssistantMessage(beforeIds, {
+        timeoutMs: observationTimeoutMs,
+        pollIntervalMs: observationPollIntervalMs
+      });
       return {
         ok: true,
         skipped: false,
@@ -1593,6 +1817,7 @@ export function createSillyTavernChatAdapter({
     cloneCurrentChatForSaveBranch,
     isCurrentChat,
     getRecentMessages,
+    refreshCurrentChat,
     getLatestPlayerMessage,
     getMessage,
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),

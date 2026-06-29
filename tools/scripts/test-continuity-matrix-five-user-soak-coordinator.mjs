@@ -6,6 +6,9 @@ import path from 'node:path';
 import {
   externalContextFixtureDepthCheckStatus
 } from './lib/sillytavern-live-harness.mjs';
+import {
+  summarizeModelCallFailurePolicy
+} from './lib/model-call-failure-policy.mjs';
 
 import {
   CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS,
@@ -13,17 +16,20 @@ import {
   buildReport,
   buildContinuityMatrixLanes,
   coordinatorReadinessUsers,
+  firstHostNativeCompletionRequiredTurn,
   summarizeExternalContextProbe,
   summarizeExternalContextGenerationArtifacts,
   summarizeExternalContextPromptArtifact,
   summarizeContinuityMatrixLane,
   summarizeFactualGroundingArtifacts,
   summarizeGenerationTimingCoreProof,
+  summarizeHostNativeCompletionProof,
   summarizeLaneArtifactCompleteness,
   summarizePromptInspectionArtifact,
   readinessCommandArgs,
   summarizeReadiness,
-  summarizeReusableContinuityMatrixLane
+  summarizeReusableContinuityMatrixLane,
+  summarizeStoryQualityReviewArtifacts
 } from './run-continuity-matrix-five-user-soak.mjs';
 
 function writeJson(filePath, value) {
@@ -38,6 +44,37 @@ function readJson(filePath) {
 function writeText(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, String(value), 'utf8');
+}
+
+function writeExternalContextSummary(root) {
+  writeJson(path.join(root, 'host-extensions', 'external-context-summary.json'), {
+    kind: 'directive.sillytavern.externalContextSummary.v1',
+    schemaVersion: 1,
+    source: 'delegated-smoke-prompt-inspection',
+    status: 'pass',
+    authority: {
+      directiveAuthority: false,
+      role: 'diagnostics-provenance-only'
+    },
+    aggregate: {
+      captureCount: 1,
+      refHashes: ['a'.repeat(64)],
+      knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore'],
+      finalHostPromptMayIncludeExternal: true,
+      redactionReasons: ['secret'],
+      targetSummaryCount: 1
+    },
+    targetSummaries: [{
+      scriptMessageId: 'soak-turn-01',
+      scriptCategory: 'directiveCommit',
+      targets: {
+        stLorebooks: { active: true, chatBound: true },
+        memoryBooks: { enabled: true, rangeDiagnostics: { status: 'valid' } },
+        summaryception: { enabled: true, staleness: { status: 'observed' } },
+        vectFox: { enabled: true, backendDiagnostics: { status: 'external-backend-configured' } }
+      }
+    }]
+  });
 }
 
 function makeArtifactRoot() {
@@ -85,6 +122,58 @@ function timingCheck({
   };
 }
 
+function hostNativeCompletionCheck({
+  status = 'pass',
+  proof = null,
+  summary = 'Delegated smoke proved 1 terminal host-native completion from persisted CORE projections.'
+} = {}) {
+  const requiredCompletion = {
+    required: true,
+    status: 'pass',
+    scriptMessageId: 'soak-turn-03',
+    turn: 3,
+    expectedRoute: 'hostContinue',
+    expectedResponseStrategy: 'injectAndContinue',
+    proofStatus: 'pass',
+    source: 'coreStoreResponseLedger',
+    completionSource: 'coreProjection',
+    completedHostContinueCount: 1,
+    failedHostContinueCount: 0,
+    unavailableReason: null
+  };
+  return {
+    id: 'live-host-native-completion-proof',
+    status,
+    summary,
+    details: {
+      proof: proof || {
+        status: 'pass',
+        source: 'coreStoreResponseLedger',
+        completionSource: 'coreProjection',
+        completedHostContinueCount: 1,
+        failedHostContinueCount: 0,
+        requiredCompletionCount: 1,
+        requiredCompletionPassCount: 1,
+        requiredCompletionFailureCount: 0,
+        maxCompletionLatencyMs: 9000,
+        requiredCompletions: [requiredCompletion],
+        requiredHostNativeCompletions: [requiredCompletion],
+        entries: [
+          {
+            responseId: 'response-host-1',
+            transactionId: 'txn-host-1',
+            route: 'hostContinue',
+            responseKind: 'hostContinue',
+            hostMessageId: 'assistant-host-1',
+            textHash: 'h'.repeat(64),
+            completionStatus: 'pass'
+          }
+        ]
+      }
+    }
+  };
+}
+
 function promptInspectionFixture({
   revision = 12,
   hash = 'prompt-hash',
@@ -100,18 +189,45 @@ function promptInspectionFixture({
     memoryBooks: {
       active: true,
       enabled: true,
-      entryCount: 4
+      entryCount: 4,
+      rangeDiagnostics: {
+        status: 'valid',
+        entryRangeCount: 2,
+        chatRangeCount: 1,
+        validRangeCount: 3,
+        invertedRangeCount: 0,
+        outOfBoundsRangeCount: 0,
+        staleRangeCount: 0,
+        rangeHash: 'range-fixture'
+      }
     },
     summaryception: {
       enabled: true,
       promptKeyActive: true,
       layerCount: 1,
-      ghostedCount: 2
+      ghostedCount: 2,
+      staleness: {
+        status: 'observed',
+        chatLength: 12,
+        summarizedRangeBeyondChat: false,
+        staleAfterMutation: false,
+        ghostedSystemVisibleCount: 0,
+        summarizedOnlyCount: 0
+      }
     },
     vectFox: {
       enabled: true,
       generationInterceptorActive: true,
-      promptKeys: ['3_vectfox']
+      promptKeys: ['3_vectfox'],
+      backendDiagnostics: {
+        status: 'external-backend-configured',
+        backendType: 'qdrant',
+        unavailable: false,
+        externalTimingObserved: true,
+        interceptorLatencyMs: 8,
+        retrievalLatencyMs: 13,
+        timingHash: 'vectfox-timing'
+      }
     }
   }
 } = {}) {
@@ -200,24 +316,155 @@ function writePassingLaneArtifacts(root, {
   turnLimit = null,
   includeTiming = true,
   timingProof = null,
+  includeHostNativeCompletion = true,
+  hostNativeCompletionProof = null,
+  includeStoryQuality = true,
+  storyQualityModelStatus = 'pass',
   promptCaptureCount = 1,
-  includePreGenerationPromptCaptures = true
+  includePreGenerationPromptCaptures = true,
+  failedModelCallCount = 0,
+  modelCalls = null
 } = {}) {
+  const smokeSummary = {
+    browser: {
+      chatCampaign: {
+        modelCallCount: 10,
+        retainedModelCallCount: Array.isArray(modelCalls) ? modelCalls.length : 10,
+        failedModelCallCount
+      }
+    }
+  };
+  const smokeReport = Array.isArray(modelCalls)
+    ? {
+        browser: {
+          chatCampaignFlow: {
+            final: {
+              modelCallCount: modelCalls.length,
+              modelCalls
+            }
+          }
+        }
+      }
+    : null;
+  const modelCallFailurePolicy = summarizeModelCallFailurePolicy({ smokeReport, smokeSummary });
+  const storyQualityRequestPath = path.join(root, 'quality-review', 'model-assisted-review', 'request.json');
+  const storyQualityResultPath = path.join(root, 'quality-review', 'model-assisted-review', 'result.json');
+  if (includeStoryQuality) {
+    writeJson(storyQualityRequestPath, {
+      kind: 'directive.liveCampaignSoak.storyQualityModelReviewRequest',
+      schemaVersion: 1,
+      requestId: 'story-quality-fixture',
+      runId: 'lane-run',
+      inputHash: 'story-quality-input-hash',
+      transcript: [
+        {
+          index: 0,
+          messageId: 'fixture-user-1',
+          role: 'user',
+          textHash: 'u'.repeat(64),
+          text: 'The commander gives the bridge a careful order.'
+        }
+      ],
+      deterministicScores: []
+    });
+    writeJson(storyQualityResultPath, {
+      kind: 'directive.liveCampaignSoak.storyQualityModelReviewResult',
+      schemaVersion: 1,
+      requestId: 'story-quality-fixture',
+      runId: 'lane-run',
+      inputHash: 'story-quality-input-hash',
+      status: storyQualityModelStatus,
+      reason: storyQualityModelStatus === 'not-run' ? 'fixture not invoked' : null,
+      counts: {
+        scores: storyQualityModelStatus === 'not-run' ? 0 : 1,
+        scoreZero: 0,
+        warningOrWeak: storyQualityModelStatus === 'warning' ? 1 : 0
+      },
+      scores: storyQualityModelStatus === 'not-run' ? [] : [
+        {
+          messageId: 'fixture-user-1',
+          messageIndex: 0,
+          role: 'user',
+          overallScore: storyQualityModelStatus === 'warning' ? 1 : 2,
+          dimensions: []
+        }
+      ],
+      modelCall: storyQualityModelStatus === 'not-run' ? null : {
+        roleId: 'storyQualityReviewer',
+        providerKind: 'utility',
+        status: 'ok',
+        ok: true,
+        latencyMs: 1200
+      }
+    });
+  }
   writeText(path.join(root, 'summary.md'), '# Lane Summary\n');
   writeText(path.join(root, 'live-log.jsonl'), `${JSON.stringify({ kind: 'run-end', status: 'pass' })}\n`);
   writeText(path.join(root, 'transcript', 'readable-chat.md'), '# Transcript\n\nBronn is Tellarite.\n');
+  writeExternalContextSummary(root);
   writeJson(path.join(root, 'fact-checks', 'canary-index.json'), {
     kind: 'directive.liveCampaignSoak.factualCanaryIndex',
     canaryCount: 2
   });
   writeJson(path.join(root, 'report.json'), {
-    status: 'pass',
+    status: modelCallFailurePolicy.status === 'fail' ? 'fail' : 'pass',
     runId: 'lane-run',
     mode: 'live',
+    modelCallPolicy: {
+      budget: 'unlimited',
+      liveProvidersRequired: true,
+      fallbackWarningRequired: true,
+      failurePolicyEvidence: modelCallFailurePolicy
+    },
     checks: [
       { id: 'live-factual-grounding-transcript-audit', status: 'pass', summary: 'ok' },
       { id: 'served-extension-freshness', status: 'pass', summary: 'ok' },
       ...(includeTiming ? [timingCheck({ proof: timingProof })] : []),
+      ...(includeHostNativeCompletion ? [hostNativeCompletionCheck({ proof: hostNativeCompletionProof })] : []),
+      {
+        id: 'live-model-call-failure-policy',
+        status: modelCallFailurePolicy.status,
+        summary: modelCallFailurePolicy.summary,
+        details: {
+          evidenceSource: modelCallFailurePolicy.evidenceSource,
+          authoritySource: modelCallFailurePolicy.authoritySource,
+          severityPolicy: modelCallFailurePolicy.severityPolicy,
+          failedModelCallCount: modelCallFailurePolicy.failedModelCallCount,
+          retainedModelCallCount: modelCallFailurePolicy.retainedModelCallCount,
+          modelCallCount: modelCallFailurePolicy.modelCallCount,
+          releaseBlockingCalls: modelCallFailurePolicy.releaseBlockingCalls,
+          unresolvedCalls: modelCallFailurePolicy.unresolvedCalls,
+          fallbackHandledCalls: modelCallFailurePolicy.fallbackHandledCalls,
+          calls: modelCallFailurePolicy.calls
+        }
+      },
+      ...(includeStoryQuality ? [{
+        id: 'live-story-quality-transcript-review',
+        status: 'pass',
+        summary: 'Story-quality review fixture passed.',
+        details: {
+          storyQualityReview: {
+            status: storyQualityModelStatus === 'fail' ? 'fail' : 'pass',
+            scoreCount: 1,
+            userScoreCount: 1,
+            assistantScoreCount: 0,
+            scoreZeroCount: 0,
+            averageScore: storyQualityModelStatus === 'warning' ? 1 : 2,
+            modelAssistedReview: {
+              status: storyQualityModelStatus,
+              requestPath: 'quality-review/model-assisted-review/request.json',
+              resultPath: 'quality-review/model-assisted-review/result.json',
+              providerOutputPath: 'smoke-story-quality-review/provider-result.json',
+              inputHash: 'story-quality-input-hash',
+              counts: {
+                scores: storyQualityModelStatus === 'not-run' ? 0 : 1,
+                scoreZero: 0,
+                warningOrWeak: storyQualityModelStatus === 'warning' ? 1 : 0
+              }
+            }
+          }
+        }
+      }] : []),
       {
         id: 'live-execution-turn-limit',
         status: turnLimit ? 'warning' : 'pass',
@@ -226,8 +473,10 @@ function writePassingLaneArtifacts(root, {
       }
     ],
     warnings: [],
-    failures: []
+    failures: modelCallFailurePolicy.status === 'fail' ? [modelCallFailurePolicy.summary] : []
   });
+  writeJson(path.join(root, 'smoke-chat-soak', 'report-summary.json'), smokeSummary);
+  if (smokeReport) writeJson(path.join(root, 'smoke-chat-soak', 'report.json'), smokeReport);
   if (includePreGenerationPromptCaptures) {
     for (let turn = 1; turn <= promptCaptureCount; turn += 1) {
       writePromptInspectionArtifact(root, {
@@ -351,6 +600,60 @@ function probeUser(handle, {
     },
     externalPromptEnvironment: {
       knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore'],
+      worldInfo: {
+        installed: true,
+        enabled: true,
+        active: true,
+        activeNames: ['Ashes Memory'],
+        chatBoundName: 'Ashes Memory'
+      },
+      memoryBooks: {
+        installed: true,
+        enabled: true,
+        activeBookName: 'Ashes Memory',
+        stMemoryBookEntryCount: 1,
+        rangeDiagnostics: {
+          status: 'valid',
+          entryRangeCount: 1,
+          chatRangeCount: 1,
+          validRangeCount: 2,
+          invertedRangeCount: 0,
+          outOfBoundsRangeCount: 0,
+          staleRangeCount: 0,
+          rangeHash: `range-${handle}`
+        }
+      },
+      summaryception: {
+        installed: true,
+        enabled: summaryceptionStatus !== 'not-installed',
+        promptKeyActive: summaryceptionStatus === 'browser-confirmed',
+        layerCount: 2,
+        ghostedCount: 3,
+        staleness: {
+          status: 'observed',
+          chatLength: 12,
+          summarizedRangeBeyondChat: false,
+          staleAfterMutation: false,
+          ghostedSystemVisibleCount: 0,
+          summarizedOnlyCount: 0
+        }
+      },
+      vectFox: {
+        installed: true,
+        enabled: vectFoxStatus === 'browser-confirmed',
+        disabledPresent: vectFoxStatus === 'disabled',
+        promptKeys: vectFoxStatus === 'browser-confirmed' ? ['3_vectfox'] : [],
+        generationInterceptorActive: vectFoxStatus === 'browser-confirmed',
+        backendDiagnostics: {
+          status: vectFoxStatus === 'browser-confirmed' ? 'external-backend-configured' : 'disabled',
+          backendType: vectFoxStatus === 'browser-confirmed' ? 'qdrant' : null,
+          unavailable: false,
+          externalTimingObserved: vectFoxStatus === 'browser-confirmed',
+          interceptorLatencyMs: vectFoxStatus === 'browser-confirmed' ? 8 : null,
+          retrievalLatencyMs: vectFoxStatus === 'browser-confirmed' ? 13 : null,
+          timingHash: vectFoxStatus === 'browser-confirmed' ? `vf-${handle}` : null
+        }
+      },
       rawPromptBody: 'RAW_PROMPT_CANARY_SHOULD_NOT_SURFACE'
     },
     targets: {
@@ -434,6 +737,9 @@ const richExternalProbeSummary = summarizeExternalContextProbe({
 assert.equal(richExternalProbeSummary.fixtureDepth.status, 'pass');
 assert.deepEqual(richExternalProbeSummary.fixtureDepth.missingTargets, []);
 assert.equal(richExternalProbeSummary.fixtureDepth.fullFixtureUserHandles.length, 5);
+assert.equal(richExternalProbeSummary.fixtureDepth.users[0].targets.memoryBooks.evidence.includes('memory-book-range-valid'), true);
+assert.equal(richExternalProbeSummary.fixtureDepth.users[0].targets.summaryception.evidence.includes('summaryception-staleness-observed'), true);
+assert.equal(richExternalProbeSummary.fixtureDepth.users[0].targets.vectFox.evidence.includes('vectfox-backend-external-backend-configured'), true);
 const readinessSummary = summarizeReadiness({
   exitCode: 0,
   signal: null,
@@ -482,6 +788,35 @@ assert.equal(externalGenerationSummary.expectedCaptureCount, null);
 assert.equal(externalGenerationSummary.knownExternalPromptKeys.includes('3_vectfox'), true);
 assert.equal(externalGenerationSummary.richFixturePressure.status, 'pass');
 assert.deepEqual(externalGenerationSummary.richFixturePressure.missingTargets, []);
+assert.equal(externalGenerationSummary.richFixturePressure.targetDiagnostics.memoryBooks.rangeStatus, 'valid');
+assert.equal(externalGenerationSummary.richFixturePressure.targetDiagnostics.summaryception.stalenessStatus, 'observed');
+assert.equal(externalGenerationSummary.richFixturePressure.targetDiagnostics.vectFox.backendStatus, 'external-backend-configured');
+
+const activeMissingDiagnosticsRoot = makeArtifactRoot();
+writePassingLaneArtifacts(activeMissingDiagnosticsRoot);
+const activeMissingDiagnosticsPath = path.join(activeMissingDiagnosticsRoot, 'prompt-inspection', 'pre-generation-soak-turn-01-0002.json');
+const activeMissingDiagnosticsPrompt = readJson(activeMissingDiagnosticsPath);
+delete activeMissingDiagnosticsPrompt.promptInspection.externalPromptEnvironmentTargets.memoryBooks.rangeDiagnostics;
+delete activeMissingDiagnosticsPrompt.promptInspection.externalPromptEnvironmentTargets.summaryception.staleness;
+delete activeMissingDiagnosticsPrompt.promptInspection.externalPromptEnvironmentTargets.vectFox.backendDiagnostics;
+writeJson(activeMissingDiagnosticsPath, activeMissingDiagnosticsPrompt);
+const activeMissingDiagnosticsSummary = summarizeExternalContextGenerationArtifacts({ artifactRoot: activeMissingDiagnosticsRoot });
+assert.equal(activeMissingDiagnosticsSummary.status, 'pass');
+assert.equal(activeMissingDiagnosticsSummary.richFixturePressure.status, 'fail');
+assert.deepEqual(activeMissingDiagnosticsSummary.richFixturePressure.missingTargets, ['memoryBooks', 'summaryception', 'vectFox']);
+
+const activeMissingStatusRoot = makeArtifactRoot();
+writePassingLaneArtifacts(activeMissingStatusRoot);
+const activeMissingStatusPath = path.join(activeMissingStatusRoot, 'prompt-inspection', 'pre-generation-soak-turn-01-0002.json');
+const activeMissingStatusPrompt = readJson(activeMissingStatusPath);
+activeMissingStatusPrompt.promptInspection.externalPromptEnvironmentTargets.summaryception.staleness.status = 'missing';
+activeMissingStatusPrompt.promptInspection.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.status = 'missing';
+writeJson(activeMissingStatusPath, activeMissingStatusPrompt);
+const activeMissingStatusSummary = summarizeExternalContextGenerationArtifacts({ artifactRoot: activeMissingStatusRoot });
+assert.equal(activeMissingStatusSummary.status, 'pass');
+assert.equal(activeMissingStatusSummary.richFixturePressure.status, 'fail');
+assert.deepEqual(activeMissingStatusSummary.richFixturePressure.missingTargets, ['summaryception', 'vectFox']);
+
 const factualSummary = summarizeFactualGroundingArtifacts({ artifactRoot: root });
 assert.equal(factualSummary.status, 'pass');
 assert.equal(factualSummary.checkCount, 2);
@@ -489,6 +824,16 @@ assert.equal(factualSummary.badCount, 0);
 const timingSummary = summarizeGenerationTimingCoreProof({ artifactRoot: root });
 assert.equal(timingSummary.status, 'pass');
 assert.equal(timingSummary.proof.timingSource, 'coreProjection');
+const hostNativeCompletionSummary = summarizeHostNativeCompletionProof({ artifactRoot: root });
+assert.equal(hostNativeCompletionSummary.status, 'pass');
+assert.equal(hostNativeCompletionSummary.proof.completionSource, 'coreProjection');
+assert.equal(hostNativeCompletionSummary.proof.completedHostContinueCount, 1);
+assert.equal(hostNativeCompletionSummary.requiredCompletionAssessment.status, 'pass');
+assert.equal(hostNativeCompletionSummary.requiredCompletionAssessment.matched[0].scriptMessageId, 'soak-turn-03');
+const storyQualitySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: root });
+assert.equal(storyQualitySummary.status, 'pass');
+assert.equal(storyQualitySummary.modelAssistedReview.status, 'pass');
+assert.equal(storyQualitySummary.modelAssistedReview.missing, false);
 const laneSummary = summarizeContinuityMatrixLane({
   lane: lanes[0],
   child: {
@@ -509,6 +854,10 @@ assert.equal(laneSummary.externalContextGenerationProof.captureCount, 1);
 assert.equal(laneSummary.externalContextGenerationProof.richFixturePressure.status, 'pass');
 assert.equal(laneSummary.factualGrounding.counts.respected, 6);
 assert.equal(laneSummary.generationTimingProof.status, 'pass');
+assert.equal(laneSummary.hostNativeCompletionProof.status, 'pass');
+assert.equal(laneSummary.storyQualityReview.status, 'pass');
+assert.equal(laneSummary.modelCallFailurePolicy.status, 'pass');
+assert.equal(laneSummary.modelCallFailurePolicy.durableEvidenceSource, 'lane-report:modelCallPolicy.failurePolicyEvidence');
 assert.equal(summarizeReusableContinuityMatrixLane({
   lane: lanes[0],
   artifactRoot: root,
@@ -538,6 +887,312 @@ const aggregateRichPassReport = buildReport({
 const aggregateRichPassCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'external-context-generation-proof');
 assert.equal(aggregateRichPassCheck.status, 'pass');
 assert.equal(aggregateRichPassCheck.details.richFixtureUserHandles.includes('directive-soak-a'), true);
+const aggregateHostNativeCompletionCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'host-native-completion-core-proof');
+assert.equal(aggregateHostNativeCompletionCheck.status, 'pass');
+assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].completedHostContinueCount, 1);
+assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].requiredCompletionStatus, 'pass');
+assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].requiredCompletionMatchedCount, 1);
+const aggregateStoryQualityCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'story-quality-model-review');
+assert.equal(aggregateStoryQualityCheck.status, 'pass');
+assert.equal(aggregateStoryQualityCheck.details.lanes[0].modelAssistedReviewStatus, 'pass');
+const aggregateModelCallPolicyCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'model-call-failure-policy');
+assert.equal(aggregateModelCallPolicyCheck.status, 'pass');
+assert.equal(aggregateModelCallPolicyCheck.details.lanes[0].failedModelCallCount, 0);
+assert.equal(firstHostNativeCompletionRequiredTurn(), 3);
+const aggregateHostNativeCoverageCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'host-native-completion-turn-coverage');
+assert.equal(aggregateHostNativeCoverageCheck.status, 'warning');
+assert.match(aggregateHostNativeCoverageCheck.summary, /before required host-native completion proof turn 3/);
+assert.equal(aggregateHostNativeCoverageCheck.details.turnLimit, 1);
+assert.equal(aggregateHostNativeCoverageCheck.details.firstHostNativeCompletionRequiredTurn, 3);
+const aggregateTurnThreeReport = buildReport({
+  runId: 'aggregate-turn-three',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '3',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [laneSummary]
+});
+assert.equal(
+  aggregateTurnThreeReport.checks.find((entry) => entry.id === 'host-native-completion-turn-coverage').status,
+  'pass'
+);
+const aggregateFullDepthReport = buildReport({
+  runId: 'aggregate-full-depth',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [laneSummary]
+});
+assert.equal(
+  aggregateFullDepthReport.checks.find((entry) => entry.id === 'host-native-completion-turn-coverage').status,
+  'pass'
+);
+
+const blockingModelCallRoot = makeArtifactRoot();
+writePassingLaneArtifacts(blockingModelCallRoot, {
+  failedModelCallCount: 1,
+  modelCalls: [{
+    id: 'model-call:blocking:narration',
+    roleId: 'narration',
+    providerKind: 'main',
+    status: 'failed',
+    ok: false,
+    latencyMs: 90000,
+    errorCode: 'DIRECTIVE_GENERATION_TIMEOUT',
+    requestHash: 'blocking-request-hash',
+    metadata: {
+      requestHash: 'blocking-request-hash'
+    }
+  }]
+});
+const blockingModelCallLaneSummary = summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: blockingModelCallRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: blockingModelCallRoot }
+  },
+  artifactRoot: blockingModelCallRoot
+});
+assert.equal(blockingModelCallLaneSummary.status, 'fail');
+assert.equal(blockingModelCallLaneSummary.modelCallFailurePolicy.status, 'fail');
+assert.equal(blockingModelCallLaneSummary.modelCallFailurePolicy.releaseBlockingCalls.length, 1);
+const blockingModelCallAggregate = buildReport({
+  runId: 'aggregate-blocking-model-call',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '1',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: blockingModelCallRoot },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [blockingModelCallLaneSummary]
+});
+assert.equal(blockingModelCallAggregate.checks.find((entry) => entry.id === 'model-call-failure-policy').status, 'fail');
+
+const notRunStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(notRunStoryQualityRoot, {
+  turnLimit: 1,
+  storyQualityModelStatus: 'not-run'
+});
+const notRunStoryQualitySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: notRunStoryQualityRoot });
+assert.equal(notRunStoryQualitySummary.status, 'warning');
+assert.equal(notRunStoryQualitySummary.modelAssistedReview.missing, true);
+const notRunStoryLaneSummary = summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: notRunStoryQualityRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: notRunStoryQualityRoot }
+  },
+  artifactRoot: notRunStoryQualityRoot,
+  turnLimit: 1
+});
+assert.equal(notRunStoryLaneSummary.status, 'warning');
+const boundedNotRunStoryReport = buildReport({
+  runId: 'aggregate-story-not-run-bounded',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '1',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: notRunStoryQualityRoot },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [notRunStoryLaneSummary]
+});
+assert.equal(
+  boundedNotRunStoryReport.checks.find((entry) => entry.id === 'story-quality-model-review').status,
+  'warning'
+);
+const unboundedNotRunStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(unboundedNotRunStoryQualityRoot, {
+  storyQualityModelStatus: 'not-run'
+});
+assert.equal(summarizeStoryQualityReviewArtifacts({ artifactRoot: unboundedNotRunStoryQualityRoot }).status, 'warning');
+assert.equal(summarizeReusableContinuityMatrixLane({
+  lane: lanes[0],
+  artifactRoot: unboundedNotRunStoryQualityRoot,
+  turnLimit: null
+}), null);
+const unboundedNotRunStoryReport = buildReport({
+  runId: 'aggregate-story-not-run-unbounded',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: notRunStoryQualityRoot },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [notRunStoryLaneSummary]
+});
+const unboundedStoryCheck = unboundedNotRunStoryReport.checks.find((entry) => entry.id === 'story-quality-model-review');
+assert.equal(unboundedStoryCheck.status, 'fail');
+assert.match(unboundedStoryCheck.summary, /unbounded certification requires pass/);
+
+const flatStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(flatStoryQualityRoot);
+const flatStoryReportPath = path.join(flatStoryQualityRoot, 'report.json');
+const flatStoryReport = readJson(flatStoryReportPath);
+const flatStoryCheck = flatStoryReport.checks.find((entry) => entry.id === 'live-story-quality-transcript-review');
+flatStoryCheck.details = {
+  modelAssistedReview: {
+    status: 'pass',
+    requestPath: 'quality-review/model-assisted-review/request.json',
+    resultPath: 'quality-review/model-assisted-review/result.json',
+    providerOutputPath: 'smoke-story-quality-review/provider-result.json',
+    inputHash: 'story-quality-input-hash',
+    counts: { scores: 1, scoreZero: 0, warningOrWeak: 0 }
+  }
+};
+writeJson(flatStoryReportPath, flatStoryReport);
+const flatStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: flatStoryQualityRoot });
+assert.equal(flatStorySummary.status, 'pass');
+assert.equal(flatStorySummary.modelAssistedReview.status, 'pass');
+
+const staleStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(staleStoryQualityRoot);
+const staleStoryResultPath = path.join(staleStoryQualityRoot, 'quality-review', 'model-assisted-review', 'result.json');
+const staleStoryResult = readJson(staleStoryResultPath);
+staleStoryResult.inputHash = 'stale-story-quality-input-hash';
+writeJson(staleStoryResultPath, staleStoryResult);
+const staleStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: staleStoryQualityRoot });
+assert.equal(staleStorySummary.status, 'fail');
+assert.equal(staleStorySummary.modelAssistedReview.validationFailed, true);
+assert.equal(staleStorySummary.modelAssistedReview.validationIssues.some((entry) => entry.code === 'input-hash-mismatch'), true);
+
+const wrongRoleStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(wrongRoleStoryQualityRoot);
+const wrongRoleStoryResultPath = path.join(wrongRoleStoryQualityRoot, 'quality-review', 'model-assisted-review', 'result.json');
+const wrongRoleStoryResult = readJson(wrongRoleStoryResultPath);
+wrongRoleStoryResult.modelCall.roleId = 'factualGroundingReviewer';
+writeJson(wrongRoleStoryResultPath, wrongRoleStoryResult);
+const wrongRoleStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: wrongRoleStoryQualityRoot });
+assert.equal(wrongRoleStorySummary.status, 'fail');
+assert.equal(wrongRoleStorySummary.modelAssistedReview.validationIssues.some((entry) => entry.code === 'model-call-role-mismatch'), true);
+
+const noScoreStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(noScoreStoryQualityRoot);
+const noScoreStoryResultPath = path.join(noScoreStoryQualityRoot, 'quality-review', 'model-assisted-review', 'result.json');
+const noScoreStoryResult = readJson(noScoreStoryResultPath);
+noScoreStoryResult.counts = { scores: 0, scoreZero: 0, warningOrWeak: 0 };
+noScoreStoryResult.scores = [];
+writeJson(noScoreStoryResultPath, noScoreStoryResult);
+const noScoreStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: noScoreStoryQualityRoot });
+assert.equal(noScoreStorySummary.status, 'fail');
+assert.equal(noScoreStorySummary.modelAssistedReview.validationIssues.some((entry) => entry.code === 'score-count-missing'), true);
+
+const partialCoverageStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(partialCoverageStoryQualityRoot);
+const partialCoverageStoryRequestPath = path.join(partialCoverageStoryQualityRoot, 'quality-review', 'model-assisted-review', 'request.json');
+const partialCoverageStoryRequest = readJson(partialCoverageStoryRequestPath);
+partialCoverageStoryRequest.transcript.push({
+  index: 1,
+  messageId: 'fixture-assistant-2',
+  role: 'assistant',
+  textHash: 'a'.repeat(64),
+  text: 'A second message that must be scored.'
+});
+writeJson(partialCoverageStoryRequestPath, partialCoverageStoryRequest);
+const partialCoverageStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: partialCoverageStoryQualityRoot });
+assert.equal(partialCoverageStorySummary.status, 'fail');
+assert.equal(partialCoverageStorySummary.modelAssistedReview.validationIssues.some((entry) => entry.code === 'score-transcript-coverage-mismatch'), true);
+
+const unparseableStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(unparseableStoryQualityRoot);
+writeJson(path.join(unparseableStoryQualityRoot, 'quality-review', 'model-assisted-review', 'result.json'), {
+  kind: 'directive.liveCampaignSoak.storyQualityModelReviewResult',
+  schemaVersion: 1,
+  status: 'fail',
+  reason: 'model-assisted story quality reviewer did not return parseable JSON',
+  modelCall: {
+    roleId: 'storyQualityReviewer',
+    status: 'ok',
+    ok: true
+  }
+});
+const unparseableStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: unparseableStoryQualityRoot });
+assert.equal(unparseableStorySummary.status, 'fail');
+assert.equal(unparseableStorySummary.modelAssistedReview.unparseable, true);
+
+const timeoutStoryQualityRoot = makeArtifactRoot();
+writePassingLaneArtifacts(timeoutStoryQualityRoot);
+writeJson(path.join(timeoutStoryQualityRoot, 'quality-review', 'model-assisted-review', 'result.json'), {
+  kind: 'directive.liveCampaignSoak.storyQualityModelReviewResult',
+  schemaVersion: 1,
+  status: 'fail',
+  reason: 'DIRECTIVE_GENERATION_TIMEOUT after 60000 ms',
+  modelCall: {
+    roleId: 'storyQualityReviewer',
+    status: 'failed',
+    ok: false,
+    errorCode: 'DIRECTIVE_GENERATION_TIMEOUT',
+    latencyMs: 60000
+  }
+});
+const timeoutStorySummary = summarizeStoryQualityReviewArtifacts({ artifactRoot: timeoutStoryQualityRoot });
+assert.equal(timeoutStorySummary.status, 'fail');
+assert.equal(timeoutStorySummary.modelAssistedReview.timedOut, true);
 
 const missingTimingRoot = makeArtifactRoot();
 writePassingLaneArtifacts(missingTimingRoot, { includeTiming: false });
@@ -590,6 +1245,87 @@ const skippedTimingSummary = summarizeGenerationTimingCoreProof({ artifactRoot: 
 assert.equal(skippedTimingSummary.status, 'warning');
 assert.match(skippedTimingSummary.summary, /incomplete/);
 
+const missingHostCompletionRoot = makeArtifactRoot();
+writePassingLaneArtifacts(missingHostCompletionRoot, { includeHostNativeCompletion: false });
+const missingHostCompletionSummary = summarizeHostNativeCompletionProof({ artifactRoot: missingHostCompletionRoot });
+assert.equal(missingHostCompletionSummary.status, 'fail');
+assert.match(missingHostCompletionSummary.summary, /missing live-host-native-completion-proof/);
+assert.equal(summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: missingHostCompletionRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: missingHostCompletionRoot }
+  },
+  artifactRoot: missingHostCompletionRoot
+}).status, 'fail');
+
+const nonCoreHostCompletionRoot = makeArtifactRoot();
+writePassingLaneArtifacts(nonCoreHostCompletionRoot, {
+  hostNativeCompletionProof: {
+    status: 'pass',
+    source: 'runtimeSnapshot',
+    completionSource: 'runtimeSnapshot',
+    completedHostContinueCount: 1
+  }
+});
+const nonCoreHostCompletionSummary = summarizeHostNativeCompletionProof({ artifactRoot: nonCoreHostCompletionRoot });
+assert.equal(nonCoreHostCompletionSummary.status, 'fail');
+assert.match(nonCoreHostCompletionSummary.summary, /not persisted CORE projection/);
+
+const incompleteHostCompletionRoot = makeArtifactRoot();
+writePassingLaneArtifacts(incompleteHostCompletionRoot, {
+  hostNativeCompletionProof: {
+    status: 'warning',
+    source: 'coreStoreResponseLedger',
+    completionSource: 'coreProjection',
+    completedHostContinueCount: 0,
+    failedHostContinueCount: 0,
+    unavailableReason: 'no-hostContinue-completion-candidates'
+  }
+});
+const incompleteHostCompletionSummary = summarizeHostNativeCompletionProof({ artifactRoot: incompleteHostCompletionRoot });
+assert.equal(incompleteHostCompletionSummary.status, 'warning');
+assert.match(incompleteHostCompletionSummary.summary, /incomplete/);
+
+const countOnlyHostCompletionRoot = makeArtifactRoot();
+writePassingLaneArtifacts(countOnlyHostCompletionRoot, {
+  hostNativeCompletionProof: {
+    status: 'pass',
+    source: 'coreStoreResponseLedger',
+    completionSource: 'coreProjection',
+    completedHostContinueCount: 1,
+    failedHostContinueCount: 0,
+    maxCompletionLatencyMs: 9000,
+    entries: [
+      {
+        responseId: 'response-host-count-only',
+        transactionId: 'txn-host-count-only',
+        route: 'hostContinue',
+        responseKind: 'hostContinue',
+        hostMessageId: 'assistant-host-count-only',
+        textHash: 'c'.repeat(64),
+        completionStatus: 'pass'
+      }
+    ]
+  }
+});
+const countOnlyHostCompletionSummary = summarizeHostNativeCompletionProof({
+  artifactRoot: countOnlyHostCompletionRoot,
+  turnLimit: '3'
+});
+assert.equal(countOnlyHostCompletionSummary.status, 'fail');
+assert.match(countOnlyHostCompletionSummary.summary, /missing required turn binding/);
+assert.equal(countOnlyHostCompletionSummary.requiredCompletionAssessment.missing[0].scriptMessageId, 'soak-turn-03');
+
+const preRequiredHostCompletionSummary = summarizeHostNativeCompletionProof({
+  artifactRoot: countOnlyHostCompletionRoot,
+  turnLimit: '2'
+});
+assert.equal(preRequiredHostCompletionSummary.status, 'pass');
+
 const fullRoot = makeArtifactRoot();
 writePassingLaneArtifacts(fullRoot, { promptCaptureCount: 52 });
 for (let turn = 2; turn <= 52; turn += 1) {
@@ -612,10 +1348,128 @@ const reusableFullLane = summarizeReusableContinuityMatrixLane({
 });
 assert.equal(reusableFullLane.reused, true);
 assert.equal(reusableFullLane.status, 'pass');
+assert.equal(reusableFullLane.artifactCompleteness.generationPromptFileCount, 52);
+assert.equal(reusableFullLane.artifactCompleteness.expectedPromptInspectionCount, 52);
+assert.equal(reusableFullLane.artifactCompleteness.promptInspectionDepthMissing, false);
+assert.equal(reusableFullLane.artifactCompleteness.externalContextSummaryPresent, true);
 assert.equal(summarizeReusableContinuityMatrixLane({
   lane: lanes[0],
   artifactRoot: root,
   turnLimit: '1'
+}), null);
+
+const missingExternalSummaryRoot = makeArtifactRoot();
+writePassingLaneArtifacts(missingExternalSummaryRoot, { turnLimit: 1 });
+fs.rmSync(path.join(missingExternalSummaryRoot, 'host-extensions'), { recursive: true, force: true });
+const missingExternalSummaryCompleteness = summarizeLaneArtifactCompleteness({
+  artifactRoot: missingExternalSummaryRoot,
+  turnLimit: '1'
+});
+assert.equal(missingExternalSummaryCompleteness.status, 'fail');
+assert.equal(missingExternalSummaryCompleteness.externalContextSummaryPresent, false);
+assert.equal(missingExternalSummaryCompleteness.missingFiles.includes('host-extensions/external-context-summary.json'), true);
+assert.equal(summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: missingExternalSummaryRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: missingExternalSummaryRoot }
+  },
+  artifactRoot: missingExternalSummaryRoot,
+  turnLimit: '1'
+}).status, 'fail');
+
+const malformedExternalSummaryRoot = makeArtifactRoot();
+writePassingLaneArtifacts(malformedExternalSummaryRoot, { turnLimit: 1 });
+writeJson(path.join(malformedExternalSummaryRoot, 'host-extensions', 'external-context-summary.json'), {
+  kind: 'directive.sillytavern.externalContextSummary.v1',
+  schemaVersion: 1,
+  status: 'warning',
+  authority: {
+    directiveAuthority: false,
+    role: 'diagnostics-provenance-only'
+  },
+  aggregate: {
+    captureCount: 0,
+    knownExternalPromptKeys: [],
+    refHashes: [],
+    targetSummaryCount: 0
+  }
+});
+const malformedExternalSummaryCompleteness = summarizeLaneArtifactCompleteness({
+  artifactRoot: malformedExternalSummaryRoot,
+  turnLimit: '1'
+});
+assert.equal(malformedExternalSummaryCompleteness.status, 'fail');
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.present, true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.status, 'fail');
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('status'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.captureCount'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.knownExternalPromptKeys'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.refHashes'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.targetSummaryCount'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.requiredTargets'), true);
+
+const genericExternalSummaryRoot = makeArtifactRoot();
+writePassingLaneArtifacts(genericExternalSummaryRoot, { turnLimit: 1 });
+writeJson(path.join(genericExternalSummaryRoot, 'host-extensions', 'external-context-summary.json'), {
+  kind: 'directive.sillytavern.externalContextSummary.v1',
+  schemaVersion: 1,
+  status: 'pass',
+  authority: {
+    directiveAuthority: false,
+    role: 'diagnostics-provenance-only'
+  },
+  aggregate: {
+    captureCount: 1,
+    knownExternalPromptKeys: ['generic_plugin_key'],
+    refHashes: ['a'.repeat(64)],
+    targetSummaryCount: 1
+  },
+  targetSummaries: [{
+    scriptMessageId: 'soak-turn-01',
+    targets: {
+      genericPlugin: { status: 'observed' }
+    }
+  }]
+});
+const genericExternalSummaryCompleteness = summarizeLaneArtifactCompleteness({
+  artifactRoot: genericExternalSummaryRoot,
+  turnLimit: '1'
+});
+assert.equal(genericExternalSummaryCompleteness.status, 'fail');
+assert.deepEqual(genericExternalSummaryCompleteness.externalContextSummary.missingTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
+
+const partialFullPromptDepthRoot = makeArtifactRoot();
+writePassingLaneArtifacts(partialFullPromptDepthRoot, { promptCaptureCount: 1 });
+for (let turn = 2; turn <= 52; turn += 1) {
+  writeJson(path.join(partialFullPromptDepthRoot, 'fact-checks', `soak-turn-${String(turn).padStart(2, '0')}`, 'fact-check.json'), {
+    status: 'pass',
+    counts: {
+      respected: 1,
+      omitted: 0,
+      unsupportedDetail: 0,
+      contradicted: 0,
+      promptAvailable: 1
+    },
+    results: []
+  });
+}
+const partialFullPromptDepth = summarizeLaneArtifactCompleteness({
+  artifactRoot: partialFullPromptDepthRoot,
+  turnLimit: null
+});
+assert.equal(partialFullPromptDepth.status, 'warning');
+assert.equal(partialFullPromptDepth.generationPromptFileCount, 1);
+assert.equal(partialFullPromptDepth.expectedPromptInspectionCount, 52);
+assert.equal(partialFullPromptDepth.promptInspectionDepthMissing, true);
+assert.equal(partialFullPromptDepth.factCheckDepthMissing, false);
+assert.equal(summarizeReusableContinuityMatrixLane({
+  lane: lanes[0],
+  artifactRoot: partialFullPromptDepthRoot,
+  turnLimit: null
 }), null);
 
 const boundedRoot = makeArtifactRoot();
@@ -640,6 +1494,9 @@ const partialFactDepth = summarizeLaneArtifactCompleteness({
   turnLimit: '5'
 });
 assert.equal(partialFactDepth.status, 'warning');
+assert.equal(partialFactDepth.generationPromptFileCount, 5);
+assert.equal(partialFactDepth.expectedPromptInspectionCount, 5);
+assert.equal(partialFactDepth.promptInspectionDepthMissing, false);
 assert.equal(partialFactDepth.factCheckDepthMissing, true);
 const reusablePartialFactDepth = summarizeReusableContinuityMatrixLane({
   lane: lanes[0],
@@ -648,6 +1505,37 @@ const reusablePartialFactDepth = summarizeReusableContinuityMatrixLane({
 });
 assert.equal(reusablePartialFactDepth.reused, true);
 assert.equal(reusablePartialFactDepth.status, 'warning');
+
+const partialPromptDepthRoot = makeArtifactRoot();
+writePassingLaneArtifacts(partialPromptDepthRoot, { turnLimit: 5, promptCaptureCount: 1 });
+for (let turn = 2; turn <= 5; turn += 1) {
+  writeJson(path.join(partialPromptDepthRoot, 'fact-checks', `soak-turn-${String(turn).padStart(2, '0')}`, 'fact-check.json'), {
+    status: 'pass',
+    counts: {
+      respected: 1,
+      omitted: 0,
+      unsupportedDetail: 0,
+      contradicted: 0,
+      promptAvailable: 1
+    },
+    results: []
+  });
+}
+const partialPromptDepth = summarizeLaneArtifactCompleteness({
+  artifactRoot: partialPromptDepthRoot,
+  turnLimit: '5'
+});
+assert.equal(partialPromptDepth.status, 'warning');
+assert.equal(partialPromptDepth.generationPromptFileCount, 1);
+assert.equal(partialPromptDepth.expectedPromptInspectionCount, 5);
+assert.equal(partialPromptDepth.promptInspectionDepthMissing, true);
+assert.equal(partialPromptDepth.factCheckDepthMissing, false);
+const reusablePartialPromptDepth = summarizeReusableContinuityMatrixLane({
+  lane: lanes[0],
+  artifactRoot: partialPromptDepthRoot,
+  turnLimit: '5'
+});
+assert.equal(reusablePartialPromptDepth, null);
 
 const missingGenerationPromptRoot = makeArtifactRoot();
 writePassingLaneArtifacts(missingGenerationPromptRoot, { includePreGenerationPromptCaptures: false });
@@ -705,6 +1593,9 @@ const genericExternalGeneration = summarizeExternalContextGenerationArtifacts({ 
 assert.equal(genericExternalGeneration.status, 'pass', 'Generic external key still proves only basic generation-time observability.');
 assert.equal(genericExternalGeneration.richFixturePressure.status, 'fail');
 assert.deepEqual(genericExternalGeneration.richFixturePressure.missingTargets, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
+assert.equal(genericExternalGeneration.richFixturePressure.targetDiagnostics.memoryBooks.rangeStatus, null);
+assert.equal(genericExternalGeneration.richFixturePressure.targetDiagnostics.summaryception.stalenessStatus, null);
+assert.equal(genericExternalGeneration.richFixturePressure.targetDiagnostics.vectFox.backendStatus, null);
 const genericLaneSummary = summarizeContinuityMatrixLane({
   lane: lanes[0],
   child: {
@@ -809,18 +1700,29 @@ assert.match(coordinatorSource, /external-context-readiness-proof/);
 assert.match(coordinatorSource, /external-context-fixture-depth/);
 assert.match(coordinatorSource, /external-context-generation-proof/);
 assert.match(coordinatorSource, /generation-start-timing-core-proof/);
+assert.match(coordinatorSource, /story-quality-model-review/);
+assert.match(coordinatorSource, /summarizeStoryQualityReviewArtifacts/);
 assert.match(coordinatorSource, /summarizeGenerationTimingCoreProof/);
 assert.match(coordinatorSource, /External Context Readiness/);
 assert.match(coordinatorSource, /FixtureDepth/);
 assert.match(coordinatorSource, /hostExtensions: path\.join\(root, 'host-extensions'\)/);
 assert.match(coordinatorSource, /hostExtensions: paths\.hostExtensions/);
+assert.match(coordinatorSource, /artifacts:\s*\{/);
+assert.match(coordinatorSource, /External context probe:/);
 
 fs.rmSync(readinessRoot, { recursive: true, force: true });
 fs.rmSync(root, { recursive: true, force: true });
+fs.rmSync(notRunStoryQualityRoot, { recursive: true, force: true });
+fs.rmSync(unboundedNotRunStoryQualityRoot, { recursive: true, force: true });
+fs.rmSync(flatStoryQualityRoot, { recursive: true, force: true });
+fs.rmSync(unparseableStoryQualityRoot, { recursive: true, force: true });
+fs.rmSync(timeoutStoryQualityRoot, { recursive: true, force: true });
 fs.rmSync(missingTimingRoot, { recursive: true, force: true });
 fs.rmSync(runtimeTimingRoot, { recursive: true, force: true });
 fs.rmSync(skippedTimingRoot, { recursive: true, force: true });
 fs.rmSync(fullRoot, { recursive: true, force: true });
+fs.rmSync(missingExternalSummaryRoot, { recursive: true, force: true });
+fs.rmSync(malformedExternalSummaryRoot, { recursive: true, force: true });
 fs.rmSync(boundedRoot, { recursive: true, force: true });
 fs.rmSync(partialFactDepthRoot, { recursive: true, force: true });
 fs.rmSync(missingGenerationPromptRoot, { recursive: true, force: true });

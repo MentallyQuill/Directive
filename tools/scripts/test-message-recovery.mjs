@@ -90,6 +90,7 @@ campaignState = recordDirectiveResponse(campaignState, {
 const persisted = [];
 const promptSyncs = [];
 const coreRecoveries = [];
+const coreDiagnostics = [];
 const coreTurnStore = {
   async markRecoveryRequired(transactionId, recoveryBundle = {}) {
     coreRecoveries.push({ transactionId, bundle: cloneJson(recoveryBundle) });
@@ -98,6 +99,13 @@ const coreTurnStore = {
       status: recoveryBundle.status || 'required',
       phase: recoveryBundle.phaseAfter || recoveryBundle.phase || 'recoveryRequired',
       reason: recoveryBundle.reason || null
+    };
+  },
+  async appendDiagnostics(transactionId, diagnosticsEvent = {}) {
+    coreDiagnostics.push({ transactionId, event: cloneJson(diagnosticsEvent) });
+    return {
+      id: diagnosticsEvent.id || `diagnostic:${transactionId}:${coreDiagnostics.length}`,
+      type: diagnosticsEvent.type || 'diagnostic'
     };
   }
 };
@@ -152,13 +160,18 @@ assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.i
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired'), true);
 assert.equal(coreRecoveries.at(-1).transactionId, 'txn-committed');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageEdited');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.action, 'reviewRequired');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.normalTurnAllowed, false);
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.sourceKind, 'playerIngress');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.replacementTextHash.length, 64);
 assert.equal(JSON.stringify(coreRecoveries.at(-1).bundle).includes('A materially changed committed order.'), false);
-assert.equal(
-  campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired').details.coreRecovery.status,
-  'recorded'
-);
+const committedEditRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired');
+assert.equal(committedEditRecovery.details.coreRecovery.status, 'recorded');
+assert.equal(committedEditRecovery.details.coreRecovery.decision.action, 'reviewRequired');
+assert.equal(committedEditRecovery.details.coreRecovery.decision.normalTurnAllowed, false);
+assert.equal(committedEditRecovery.details.coreRecovery.sourceMutation.sourceKind, 'playerIngress');
+assert.equal(committedEditRecovery.details.coreRecovery.sourceMutation.ingressId, 'ingress-committed');
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 4);
 
 const committedResponseEdit = await reconciler.reconcileEdited({
@@ -176,9 +189,16 @@ assert.match(responseEntry.editedAt, /^2026-06-22T03:00:/);
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseEdited' && entry.status === 'reviewRequired'), true);
 assert.equal(coreRecoveries.at(-1).transactionId, 'txn-committed');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseEdited');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.sourceKind, 'directiveResponse');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.sourceKind, 'directiveResponse');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.responseId, 'response-committed');
 assert.equal(JSON.stringify(coreRecoveries.at(-1).bundle).includes('A materially changed Directive response.'), false);
+const committedResponseEditRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'directiveResponseEdited' && entry.status === 'reviewRequired');
+assert.equal(committedResponseEditRecovery.details.coreRecovery.decision.action, 'reviewRequired');
+assert.equal(committedResponseEditRecovery.details.coreRecovery.decision.sourceKind, 'directiveResponse');
+assert.equal(committedResponseEditRecovery.details.coreRecovery.sourceMutation.sourceKind, 'directiveResponse');
+assert.equal(committedResponseEditRecovery.details.coreRecovery.sourceMutation.responseId, 'response-committed');
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 5);
 
 const committedResponseDelete = await reconciler.reconcileDeleted({
@@ -197,6 +217,64 @@ assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseDeleted');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.replacementTextHash, null);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 6);
 
+const visibilityOnlyIngressBefore = cloneJson(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed'));
+const persistedBeforeVisibility = persisted.length;
+const promptSyncsBeforeVisibility = promptSyncs.length;
+const recoveryJournalBeforeVisibility = campaignState.runtimeTracking.recoveryJournal.length;
+const coreRecoveriesBeforeVisibility = coreRecoveries.length;
+const coreDiagnosticsBeforeVisibility = coreDiagnostics.length;
+const visibilityOnly = await reconciler.reconcileVisibilityChanged({
+  hostMessageId: 'player-committed',
+  message: {
+    id: 'player-committed',
+    is_user: true,
+    extra: {
+      sc_ghosted: true,
+      vectfox: { promptExcluded: true }
+    }
+  },
+  index: 42,
+  chatMetadata: {
+    STMemoryBooks: { unhiddenIndices: [42] },
+    summaryception: { ghostedIndices: [42] },
+    vectFox: { promptExcludedIndices: [42] }
+  }
+});
+assert.equal(visibilityOnly.matched, true);
+assert.equal(visibilityOnly.action, 'visibilityOnlySourceRow');
+assert.equal(visibilityOnly.coreVisibility.status, 'recorded');
+assert.equal(visibilityOnly.coreVisibility.decision.action, 'visibilityOnlySourceRow');
+assert.equal(visibilityOnly.coreVisibility.decision.normalTurnAllowed, false);
+assert.equal(visibilityOnly.coreVisibility.decision.recoveryRequired, false);
+assert.equal(visibilityOnly.visibility.ghostedBySummaryception, true);
+assert.equal(visibilityOnly.visibility.promptExcludedByVectFox, true);
+assert.equal(visibilityOnly.visibility.unhiddenByMemoryBooks, true);
+const visibilityOnlyIngressAfter = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed');
+assert.deepEqual(visibilityOnlyIngressAfter, visibilityOnlyIngressBefore, 'Visibility-only observations must not mutate the ingress ledger.');
+assert.equal(campaignState.runtimeTracking.recoveryJournal.length, recoveryJournalBeforeVisibility, 'Visibility-only observations must not create legacy recovery journal entries.');
+assert.equal(coreRecoveries.length, coreRecoveriesBeforeVisibility, 'Visibility-only observations must not create CORE recovery cases.');
+assert.equal(coreDiagnostics.length, coreDiagnosticsBeforeVisibility + 1, 'Visibility-only observations should append one CORE diagnostic.');
+assert.equal(coreDiagnostics.at(-1).event.type, 'sourceVisibilityMutation');
+assert.equal(coreDiagnostics.at(-1).event.decision.action, 'visibilityOnlySourceRow');
+assert.equal(persisted.length, persistedBeforeVisibility, 'Visibility-only observations must not persist the campaign save.');
+assert.equal(promptSyncs.length, promptSyncsBeforeVisibility, 'Visibility-only observations must not synchronize prompt context.');
+
+const summarizedOnly = await reconciler.reconcileVisibilityChanged({
+  hostMessageId: 'player-committed',
+  message: {
+    id: 'player-committed',
+    is_user: true
+  },
+  index: 41,
+  chatMetadata: {
+    summaryception: { summarizedUpTo: 41 }
+  }
+});
+assert.equal(summarizedOnly.matched, false);
+assert.equal(summarizedOnly.action, 'sourceRowContinues');
+assert.equal(summarizedOnly.visibility.summarizedBySummaryception, true);
+assert.equal(coreDiagnostics.length, coreDiagnosticsBeforeVisibility + 1, 'Summarized-only rows should not append visibility diagnostics.');
+
 const rolledBack = await reconciler.reconcileDeleted({
   hostMessageId: 'player-committed',
   autoRollback: true
@@ -210,6 +288,14 @@ assert.equal(campaignState.mission.knownFacts.some((entry) => entry.id === 'fact
 assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'log-after'), false);
 assert.equal(campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'ingress-committed'), true, 'Ingress ledger must survive snapshot restore.');
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), true);
+const rollbackRecoveryEntry = campaignState.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.type === 'playerMessageDeleted'
+  && entry.hostMessageId === 'player-committed'
+));
+assert.equal(rollbackRecoveryEntry.details.rollbackActuation.kind, 'directive.repairRollbackActuationDecision.v1');
+assert.equal(rollbackRecoveryEntry.details.rollbackActuation.authorized, true);
+assert.equal(rollbackRecoveryEntry.details.rollbackActuation.action, 'restorePreOutcomeRevision');
+assert.equal(rollbackRecoveryEntry.details.rollbackActuation.restoreRevision, beforeOutcomeRevision);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2, 'Restored binding revision must be incremented once after prompt rebuild.');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageDeleted');
 assert.deepEqual(coreRecoveries.at(-1).bundle.allowedActions, ['rollbackToPreOutcomeRevision', 'reviewSourceMutation']);
@@ -217,6 +303,169 @@ assert.equal(JSON.stringify(coreRecoveries).includes('A materially changed'), fa
 assert.equal(coreRecoveries.length, 4);
 assert.equal(promptSyncs.length, 6);
 assert.equal(persisted.length, 12, 'Each recovery and its prompt revision must be persisted.');
+
+let failureState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-core-failure', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  mission: { activePhaseId: 'phase-before' },
+  commandLog: { entries: [] }
+});
+failureState = recordTurnIngress(failureState, {
+  id: 'ingress-core-failure',
+  hostMessageId: 'player-core-failure',
+  status: 'committed',
+  textHash: 'hash-core-failure',
+  sourceFrameId: 'frame-core-failure',
+  coreTransactionId: 'txn-core-failure'
+});
+const failureCandidate = cloneJson(failureState);
+failureCandidate.mission.activePhaseId = 'phase-after';
+failureState = commitTrackedCampaignState({
+  campaignState: failureState,
+  nextCampaignState: failureCandidate,
+  delta: {
+    source: 'missionDirector',
+    reason: 'Committed failure test outcome.',
+    domains: ['mission'],
+    ingressId: 'ingress-core-failure',
+    outcomeId: 'outcome-core-failure',
+    stable: true
+  },
+  now
+});
+failureState = updateTurnIngress(failureState, 'ingress-core-failure', {
+  status: 'committed',
+  outcomeId: 'outcome-core-failure'
+});
+const failureStateBeforeEdit = cloneJson(failureState);
+let failurePromptSyncs = 0;
+const failurePersisted = [];
+const failingReconciler = createMessageReconciler({
+  getCampaignState: () => failureState,
+  setCampaignState: (next) => { failureState = cloneJson(next); },
+  coreTurnStore: {
+    async markRecoveryRequired() {
+      const error = new Error('CORE recovery conflict');
+      error.code = 'DIRECTIVE_CORE_RECOVERY_ALREADY_REQUIRED';
+      throw error;
+    }
+  },
+  persist: async (state, summary) => failurePersisted.push({ summary, state: cloneJson(state) }),
+  syncPrompt: async (state) => {
+    failurePromptSyncs += 1;
+    return state;
+  },
+  now
+});
+await assert.rejects(
+  () => failingReconciler.reconcileEdited({
+    hostMessageId: 'player-core-failure',
+    replacementText: 'This old-ledger mutation must not land after CORE rejects recovery.'
+  }),
+  (error) => error?.code === 'DIRECTIVE_CORE_RECOVERY_ALREADY_REQUIRED'
+);
+assert.deepEqual(failureState, failureStateBeforeEdit, 'Old recovery ledgers must not mutate after CORE recovery conflict.');
+assert.equal(failurePromptSyncs, 0, 'Prompt sync must not run after CORE recovery conflict.');
+assert.equal(failurePersisted.length, 0, 'Persist must not run after CORE recovery conflict.');
+
+let decisionState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-repair-decision-projection', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  mission: { activePhaseId: 'phase-before' },
+  commandLog: { entries: [] }
+});
+decisionState = recordTurnIngress(decisionState, {
+  id: 'ingress-decision-player',
+  hostMessageId: 'player-decision-projection',
+  status: 'committed',
+  textHash: 'hash-decision-player',
+  outcomeId: 'outcome-decision-player',
+  sourceFrameId: 'frame-decision-player',
+  coreTransactionId: 'txn-decision-player'
+});
+decisionState = recordTurnIngress(decisionState, {
+  id: 'ingress-decision-response-source',
+  hostMessageId: 'player-decision-response-source',
+  status: 'committed',
+  textHash: 'hash-decision-response-source',
+  outcomeId: 'outcome-decision-response',
+  sourceFrameId: 'frame-decision-response',
+  coreTransactionId: 'txn-decision-response'
+});
+decisionState = recordDirectiveResponse(decisionState, {
+  id: 'response-decision-projection',
+  ingressId: 'ingress-decision-response-source',
+  turnId: 'turn-decision-response',
+  outcomeId: 'outcome-decision-response',
+  hostMessageId: 'assistant-decision-projection',
+  strategy: 'directivePosted',
+  responseKind: 'committedOutcome',
+  status: 'posted',
+  sourceFrameId: 'frame-decision-response',
+  coreTransactionId: 'txn-decision-response'
+});
+const decisionRepairCalls = [];
+const decisionReconciler = createMessageReconciler({
+  getCampaignState: () => decisionState,
+  setCampaignState: (next) => { decisionState = cloneJson(next); },
+  repairRuntime: {
+    async recordSourceMutationRecovery(options = {}) {
+      decisionRepairCalls.push(cloneJson(options));
+      return {
+        status: 'recorded',
+        transactionId: options.ingress?.coreTransactionId || options.response?.coreTransactionId || null,
+        decision: {
+          kind: 'directive.repairDecision.v1',
+          action: 'invalidateProjection',
+          sourceKind: options.response ? 'directiveResponse' : 'playerIngress',
+          legacyProjection: {
+            kind: 'directive.repairLegacyProjection.v1',
+            sourceProjectionStatus: 'invalidated',
+            responseProjectionStatus: 'invalidated',
+            recoveryJournalStatus: 'invalidated',
+            returnedAction: 'invalidated',
+            shouldRestoreRevision: false,
+            restoreRevision: null
+          }
+        }
+      };
+    }
+  },
+  persist: async () => {},
+  syncPrompt: async (state) => state,
+  now
+});
+const decisionPlayerEdit = await decisionReconciler.reconcileEdited({
+  hostMessageId: 'player-decision-projection',
+  replacementText: 'REPAIR decision should override committed player projection status.'
+});
+assert.equal(decisionPlayerEdit.action, 'invalidated');
+assert.equal(
+  decisionState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-decision-player').status,
+  'invalidated',
+  'Old ingress projection status must come from REPAIR legacyProjection, not committed-outcome inference.'
+);
+assert.equal(
+  decisionState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'playerMessageEdited').status,
+  'invalidated',
+  'Old ingress recovery status must come from REPAIR legacyProjection.'
+);
+const decisionResponseEdit = await decisionReconciler.reconcileEdited({
+  hostMessageId: 'assistant-decision-projection',
+  replacementText: 'REPAIR decision should override committed response projection status.'
+});
+assert.equal(decisionResponseEdit.action, 'invalidated');
+assert.equal(
+  decisionState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-decision-projection').status,
+  'invalidated',
+  'Old response projection status must come from REPAIR legacyProjection, not committed-outcome inference.'
+);
+assert.equal(
+  decisionState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'directiveResponseEdited').status,
+  'invalidated',
+  'Old response recovery status must come from REPAIR legacyProjection.'
+);
+assert.equal(decisionRepairCalls.length, 2);
 
 const missing = await reconciler.reconcileDeleted({ hostMessageId: 'missing-message' });
 assert.equal(missing.matched, false);

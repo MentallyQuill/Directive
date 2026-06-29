@@ -634,6 +634,8 @@ export function recordTurnIngress(campaignState, ingress, {
       sourceFrameId: compact(ingress.sourceFrameId) || ingress.sourceFrame?.id || null,
       sourceFrame: cloneJson(ingress.sourceFrame || null),
       coreTransactionId: compact(ingress.coreTransactionId) || null,
+      repairDecision: cloneJson(ingress.repairDecision || null),
+      sourceRestart: cloneJson(ingress.sourceRestart || null),
       status: ingress.status || 'received',
       classification: cloneJson(ingress.classification || null),
       workerPlan: cloneJson(ingress.workerPlan || null),
@@ -660,7 +662,9 @@ export function recordTurnIngress(campaignState, ingress, {
         'receivedAt',
         'sourceFrameId',
         'sourceFrame',
-        'coreTransactionId'
+        'coreTransactionId',
+        'repairDecision',
+        'sourceRestart'
       ]) {
         if ((record[key] === null || record[key] === undefined || record[key] === '') && existing[key] !== undefined) {
           merged[key] = existing[key];
@@ -714,6 +718,8 @@ export function recordDirectiveResponse(campaignState, response, {
         coreTransactionId: compact(response.coreTransactionId) || null,
         coreRelease: cloneJson(response.coreRelease || null),
         coreReleaseError: cloneJson(response.coreReleaseError || null),
+        coreRecovery: cloneJson(response.coreRecovery || null),
+        coreRecoveryError: cloneJson(response.coreRecoveryError || null),
         invalidatedAt: response.invalidatedAt || null,
         invalidationType: response.invalidationType || null,
         replacementText: response.replacementText || null,

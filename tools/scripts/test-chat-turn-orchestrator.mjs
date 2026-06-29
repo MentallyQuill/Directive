@@ -28,6 +28,15 @@ const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
+function fnv1a(text) {
+  let hash = 0x811c9dc5;
+  for (const char of String(text || '')) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
 const chat = createFakeChatAdapter({ chatId: 'campaign-chat' });
 const hostGenerationContinuations = [];
 chat.continueHostGeneration = async (payload = {}) => {
@@ -68,6 +77,7 @@ const advisoryEnrichmentCalls = [];
 const promptFrames = [];
 const coreBeginCalls = [];
 const coreAdvanceCalls = [];
+const coreSupersedeCalls = [];
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
 let nextPreviewOutcomeBand = null;
@@ -103,6 +113,30 @@ const coreTurnStore = {
       id: transactionId,
       phase: phasePatch.phase || 'observed',
       route: phasePatch.route || null
+    };
+  },
+  async supersedeLatestSourceTransaction(priorTransactionId, replacementTransactionId, options = {}) {
+    coreSupersedeCalls.push({
+      priorTransactionId,
+      replacementTransactionId,
+      options: cloneJson(options)
+    });
+    return {
+      status: 'recorded',
+      transaction: {
+        id: replacementTransactionId,
+        phase: 'observed'
+      },
+      priorTransaction: {
+        id: priorTransactionId,
+        phase: 'restartSuperseded'
+      },
+      sourceRestart: {
+        priorTransactionId,
+        newTransactionId: replacementTransactionId,
+        reason: options.reason || 'latest-source-reobserved',
+        recoveryId: options.priorRecoveryId || null
+      }
     };
   }
 };
@@ -1076,6 +1110,13 @@ assert.equal(dependentEdit.stale, true);
 assert.equal(dependentEdit.responseStrategy, 'staleSource');
 assert.equal(dependentEdit.abortDefaultGeneration, true);
 assert.equal(dependentEdit.reason, 'source-ingress-stale');
+assert.equal(dependentEdit.repairDecision.kind, 'directive.repairSourceReobserveDecision.v1');
+assert.equal(dependentEdit.repairDecision.action, 'blockDependentSourceReobserve');
+assert.equal(dependentEdit.repairDecision.normalTurnAllowed, false);
+assert.equal(dependentEdit.repairDecision.recoveryRequired, true);
+assert.equal(dependentEdit.repairDecision.isLatestActionablePlayerRow, true);
+assert.equal(dependentEdit.repairDecision.hasDependentAssistant, true);
+assert.equal(dependentEdit.repairDecision.hasCommittedOutcome, true);
 assert.ok(dependentEdit.staleReasons.includes('dependent-response'));
 assert.ok(dependentEdit.staleReasons.includes('status:recoveryRequired'));
 assert.ok(dependentEdit.staleReasons.includes('text-hash-changed'));
@@ -1095,6 +1136,165 @@ assert.equal(previewCalls.length, dependentEditPreviewCallsBefore);
 assert.equal(commitCalls.length, dependentEditCommitCallsBefore);
 assert.equal(sidecarCalls.length, dependentEditSidecarCallsBefore);
 assert.equal(persisted.length, dependentEditPersistedBefore);
+
+const latestRestartOldText = 'Sam listened to the carrier wave and waited.';
+const latestRestartEditedText = 'Sam listened to the carrier wave and waited. She did not ask the room to hurry.';
+const latestRestartHostMessageId = 'player-latest-restart-orchestrator';
+const latestRestartOldIngressId = `ingress:${campaignState.campaign.id}:campaign-chat:${latestRestartHostMessageId}:${fnv1a(latestRestartOldText)}`;
+const latestRestartOldTransactionId = 'txn:frame:latest-restart-old';
+campaignState = initializeCampaignRuntimeTracking(campaignState);
+campaignState.runtimeTracking.ingressLedger.push({
+  id: latestRestartOldIngressId,
+  hostMessageId: latestRestartHostMessageId,
+  chatId: 'campaign-chat',
+  campaignId: campaignState.campaign.id,
+  textHash: fnv1a(latestRestartOldText),
+  textPreview: latestRestartOldText,
+  status: 'recoveryRequired',
+  sourceFrameId: 'frame:latest-restart-old',
+  coreTransactionId: latestRestartOldTransactionId,
+  invalidatedAt: '2026-06-22T01:00:40.000Z',
+  invalidationType: 'playerMessageEdited',
+  replacementText: latestRestartEditedText,
+  editedAt: '2026-06-22T01:00:40.000Z'
+});
+campaignState = recordRecoveryEvent(campaignState, {
+  id: 'recovery-latest-restart-orchestrator',
+  type: 'playerMessageEdited',
+  status: 'invalidated',
+  hostMessageId: latestRestartHostMessageId,
+  ingressId: latestRestartOldIngressId,
+  recordedAt: '2026-06-22T01:00:40.000Z',
+  details: {
+    replacementText: latestRestartEditedText
+  }
+});
+setCampaignState(campaignState);
+const latestRestartClassifyCalls = [];
+const latestRestartCoreBeginBefore = coreBeginCalls.length;
+const latestRestartCoreSupersedeBefore = coreSupersedeCalls.length;
+const latestRestartPersistedBefore = persisted.length;
+const latestRestartOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async ({ text }) => {
+    latestRestartClassifyCalls.push(text);
+    return {
+      kind: 'directive.validatedTurnDecision',
+      classification: 'sceneColor',
+      confidence: 0.91,
+      ambiguity: 'low',
+      speechAct: 'color',
+      action: 'hold the room in patient silence',
+      target: 'bridge',
+      targetConfidence: 0.86,
+      domainSignals: ['scene-continuity'],
+      riskSignals: [],
+      missingInformation: [],
+      pendingInteractionResolution: null,
+      mixedIntent: false,
+      reasons: ['Latest no-outcome edited row should restart through REPAIR.'],
+      workerPlan: {},
+      responseStrategy: 'injectAndContinue',
+      source: 'utility-provider'
+    };
+  },
+  responseDispatcher,
+  stateDeltaGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Latest restart scene-color turn must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Latest restart scene-color turn must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule() {
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const latestRestartMessage = chat.pushPlayerMessage({
+  text: latestRestartEditedText,
+  hostMessageId: latestRestartHostMessageId
+});
+const latestRestart = await latestRestartOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: latestRestartMessage
+});
+const latestRestartState = initializeCampaignRuntimeTracking(campaignState);
+const latestRestartNewIngress = latestRestartState.runtimeTracking.ingressLedger.find((entry) => (
+  entry.hostMessageId === latestRestartHostMessageId
+  && entry.textHash === fnv1a(latestRestartEditedText)
+  && entry.sourceRestart?.priorIngressId === latestRestartOldIngressId
+));
+const latestRestartOldIngress = latestRestartState.runtimeTracking.ingressLedger.find((entry) => entry.id === latestRestartOldIngressId);
+const latestRestartRecovery = latestRestartState.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery-latest-restart-orchestrator');
+assert.equal(latestRestart.handled, true);
+assert.notEqual(latestRestart.reason, 'source-ingress-stale');
+assert.equal(latestRestart.decision.classification, 'sceneColor');
+assert.deepEqual(latestRestartClassifyCalls, [latestRestartEditedText]);
+assert.ok(latestRestartNewIngress, 'Latest edited no-outcome source must create a restarted ingress.');
+assert.notEqual(latestRestartNewIngress.id, latestRestartOldIngressId);
+assert.match(latestRestartNewIngress.id, /:restart:/);
+assert.equal(latestRestartNewIngress.status, 'complete');
+assert.equal(latestRestartNewIngress.repairDecision.action, 'restartLatestSource');
+assert.equal(latestRestartNewIngress.repairDecision.recoveryResolution.reason, 'latest-source-reobserved');
+assert.equal(latestRestartNewIngress.sourceRestart.priorTransactionId, latestRestartOldTransactionId);
+assert.equal(latestRestartNewIngress.sourceRestart.priorSourceFrameId, 'frame:latest-restart-old');
+assert.equal(latestRestartNewIngress.sourceRestart.priorRecoveryId, 'recovery-latest-restart-orchestrator');
+assert.notEqual(latestRestartNewIngress.coreTransactionId, latestRestartOldTransactionId);
+assert.notEqual(latestRestartNewIngress.sourceFrameId, 'frame:latest-restart-old');
+assert.equal(latestRestartOldIngress.status, 'restartSuperseded');
+assert.equal(latestRestartOldIngress.restartedByIngressId, latestRestartNewIngress.id);
+assert.equal(latestRestartOldIngress.restartCoreTransactionId, latestRestartNewIngress.coreTransactionId);
+assert.equal(latestRestartOldIngress.restartRepairDecision.action, 'restartLatestSource');
+assert.equal(latestRestartRecovery.status, 'resolved');
+assert.equal(latestRestartRecovery.resolution.reason, 'latest-source-reobserved');
+assert.equal(latestRestartRecovery.resolution.restartIngressId, latestRestartNewIngress.id);
+assert.equal(coreBeginCalls.length, latestRestartCoreBeginBefore + 1);
+assert.equal(coreBeginCalls.at(-1).options.ingressId, latestRestartNewIngress.id);
+assert.equal(coreBeginCalls.at(-1).options.transactionId, latestRestartNewIngress.coreTransactionId);
+assert.notEqual(coreBeginCalls.at(-1).options.idempotencyKey, `begin:${latestRestartOldIngressId}`);
+assert.equal(JSON.stringify(coreBeginCalls.at(-1)).includes(latestRestartEditedText), false, 'CORE begin refs must not store raw edited player text.');
+assert.equal(coreSupersedeCalls.length, latestRestartCoreSupersedeBefore + 1);
+assert.equal(coreSupersedeCalls.at(-1).priorTransactionId, latestRestartOldTransactionId);
+assert.equal(coreSupersedeCalls.at(-1).replacementTransactionId, latestRestartNewIngress.coreTransactionId);
+assert.equal(coreSupersedeCalls.at(-1).options.priorRecoveryId, 'recovery-latest-restart-orchestrator');
+assert.equal(coreSupersedeCalls.at(-1).options.sourceMutation.replacementSourceFrameId, latestRestartNewIngress.sourceFrameId);
+assert.equal(JSON.stringify(coreSupersedeCalls.at(-1)).includes(latestRestartEditedText), false, 'CORE supersede refs must not store raw edited player text.');
+assert.ok(persisted.length > latestRestartPersistedBefore);
+
+const latestRestartDuplicateBeginBefore = coreBeginCalls.length;
+const latestRestartDuplicateSupersedeBefore = coreSupersedeCalls.length;
+const latestRestartDuplicatePersistedBefore = persisted.length;
+const latestRestartDuplicateClassifyBefore = latestRestartClassifyCalls.length;
+const latestRestartDuplicate = await latestRestartOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: latestRestartMessage
+});
+const latestRestartDuplicateState = initializeCampaignRuntimeTracking(campaignState);
+assert.equal(latestRestartDuplicate.handled, true);
+assert.equal(latestRestartDuplicate.deduplicated, true);
+assert.equal(coreBeginCalls.length, latestRestartDuplicateBeginBefore);
+assert.equal(coreSupersedeCalls.length, latestRestartDuplicateSupersedeBefore);
+assert.equal(persisted.length, latestRestartDuplicatePersistedBefore);
+assert.equal(latestRestartClassifyCalls.length, latestRestartDuplicateClassifyBefore);
+assert.equal(
+  latestRestartDuplicateState.runtimeTracking.ingressLedger.filter((entry) => entry.sourceRestart?.priorIngressId === latestRestartOldIngressId).length,
+  1,
+  'Duplicate latest restart observation must not create another restart ingress.'
+);
+assert.equal(
+  latestRestartDuplicateState.runtimeTracking.recoveryJournal.filter((entry) => entry.id === 'recovery-latest-restart-orchestrator' && entry.status === 'resolved').length,
+  1,
+  'Duplicate latest restart observation must not resolve the same recovery twice.'
+);
 
 const failingClassifierOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
@@ -1163,7 +1363,7 @@ assert.equal(retriedClassifierFailure.handled, true);
 assert.notEqual(retriedClassifierFailure.deduplicated, true);
 assert.notEqual(retriedIngress.status, 'recoveryRequired');
 assert.equal(resolvedFailureRecovery.status, 'resolved');
-assert.equal(resolvedFailureRecovery.resolution.reason, 'message-reobserved');
+assert.equal(resolvedFailureRecovery.resolution.reason, 'latest-source-reobserved');
 
 const missingCurrentIngressOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },

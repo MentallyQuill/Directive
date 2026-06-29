@@ -26,6 +26,7 @@ import {
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
 import { runSceneHandshakeSettlement } from './scene-handshake-settler.mjs';
 import { createTurnSourceFrameContract } from './architecture-redesign-contracts.mjs';
+import { createRepairRuntime } from './repair-runtime.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -617,6 +618,7 @@ export function createChatTurnOrchestrator({
   turnCommitCoordinator = null,
   sidecarScheduler = null,
   messageReconciler = null,
+  repairRuntime = null,
   coreTurnStore = null,
   stateDeltaGateway,
   getCampaignState,
@@ -655,6 +657,7 @@ export function createChatTurnOrchestrator({
   const inFlight = new Map();
   const queues = new Map();
   const observedIngressRecords = new Map();
+  const repair = repairRuntime || createRepairRuntime({ coreTurnStore, now });
 
   function currentChatId() {
     return host.chat.getCurrentChatId?.() || host.chat.getCurrentBinding?.()?.chatId || null;
@@ -1060,6 +1063,21 @@ export function createChatTurnOrchestrator({
     return `ingress:${state.campaign?.id}:${chatId}:${messageId}:${fnv1a(message.text)}`;
   }
 
+  function restartIngressIdFor(baseIngressId, priorIngress = null, message = {}) {
+    const base = compact(baseIngressId);
+    if (!base) return base;
+    if (!priorIngress?.id) return base;
+    const seed = [
+      priorIngress.id,
+      priorIngress.recoveryId || '',
+      priorIngress.invalidatedAt || '',
+      priorIngress.failedAt || '',
+      priorIngress.status || '',
+      fnv1a(message?.text || '')
+    ].join('|');
+    return `${base}:restart:${fnv1a(seed)}`;
+  }
+
   function ingressTextKeyFor(state, message, chatId) {
     return `ingress-text:${state.campaign?.id}:${chatId}:${fnv1a(message?.text || '')}`;
   }
@@ -1108,14 +1126,49 @@ export function createChatTurnOrchestrator({
     });
   }
 
-  async function beginCoreTurnForIngress(sourceFrame, { ingressId, chatId } = {}) {
+  async function beginCoreTurnForIngress(sourceFrame, {
+    ingressId,
+    chatId,
+    sourceReobserveDecision = null,
+    priorIngressForRecovery = null
+  } = {}) {
+    const transactionId = `txn:${sourceFrame.id}`;
     if (typeof coreTurnStore?.beginTurn !== 'function') return null;
-    return coreTurnStore.beginTurn(sourceFrame, {
-      transactionId: `txn:${sourceFrame.id}`,
+    const transaction = await coreTurnStore.beginTurn(sourceFrame, {
+      transactionId,
       ingressId,
       chatId,
       idempotencyKey: `begin:${ingressId}`
     });
+    if (
+      sourceReobserveDecision?.action === 'restartLatestSource'
+      && priorIngressForRecovery?.coreTransactionId
+      && transaction?.id
+      && typeof coreTurnStore?.supersedeLatestSourceTransaction === 'function'
+    ) {
+      const priorRecoveryId = sourceReobserveDecision.recoveryResolution?.priorRecoveryId || null;
+      const restart = await coreTurnStore.supersedeLatestSourceTransaction(priorIngressForRecovery.coreTransactionId, transaction.id, {
+        reason: sourceReobserveDecision.recoveryResolution?.reason || 'latest-source-reobserved',
+        priorRecoveryId,
+        repairDecision: cloneJson(sourceReobserveDecision),
+        observedTextHash: sourceReobserveDecision.observedTextHash || sourceFrame.textHash || null,
+        sourceMutation: {
+          kind: 'directive.sourceMutation.v1',
+          sourceKind: 'playerIngress',
+          eventType: 'playerMessageReobserved',
+          hostMessageId: sourceFrame.hostMessageId || null,
+          ingressId: priorIngressForRecovery.id || null,
+          sourceFrameId: priorIngressForRecovery.sourceFrameId || null,
+          replacementIngressId: ingressId,
+          replacementSourceFrameId: sourceFrame.id,
+          replacementTextHash: sourceReobserveDecision.observedTextHash || sourceFrame.textHash || null,
+          replacementTextPresent: Boolean(sourceReobserveDecision.observedTextHash || sourceFrame.textHash)
+        },
+        idempotencyKey: `restart:${priorIngressForRecovery.coreTransactionId}:${transaction.id}:${sourceFrame.textHash || 'source'}`
+      });
+      return restart?.transaction || restart || null;
+    }
+    return transaction;
   }
 
   function findIngress(state, ingressId) {
@@ -1130,22 +1183,19 @@ export function createChatTurnOrchestrator({
     reason = 'host-response-post-failure',
     error = null
   } = {}) {
-    if (typeof coreTurnStore?.markRecoveryRequired !== 'function') return null;
     const ingress = findIngress(initializeCampaignRuntimeTracking(state), ingressId);
-    if (!ingress?.coreTransactionId) return null;
-    return coreTurnStore.markRecoveryRequired(ingress.coreTransactionId, {
-      id: recoveryId || `recovery:response:${ingressId || outcomeId || turnId || 'turn'}`,
+    return repair.recordResponseRecovery({
+      eventType: reason === 'provider-failure-after-mechanics-commit'
+        ? 'providerFailureAfterMechanicsCommit'
+        : 'hostResponsePostFailure',
       reason,
-      responseRetry: true,
-      status: 'required',
+      ingress,
       ingressId,
       outcomeId,
       turnId,
-      sourceFrameId: ingress.sourceFrameId || null,
-      errorCode: error?.code || null,
-      errorHash: error ? fnv1a(`${error.code || ''}:${error.message || ''}`) : null,
-      allowedActions: ['retryResponse'],
-      idempotencyKey: `core-response-retry:${ingress.coreTransactionId}:${recoveryId || ingressId || outcomeId || turnId || 'turn'}`
+      sourceFrameId: ingress?.sourceFrameId || null,
+      recoveryId: recoveryId || `recovery:response:${ingressId || outcomeId || turnId || 'turn'}`,
+      error
     });
   }
 
@@ -1245,6 +1295,14 @@ export function createChatTurnOrchestrator({
     )) || null;
   }
 
+  function findOpenNoOutcomeRecovery(state, ingress = null) {
+    if (!ingress || ingress.outcomeId) return null;
+    const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
+    return [...(tracking.recoveryJournal || [])].reverse().find((entry) => (
+      shouldResolveNoOutcomeRecoveryOnReobserve(ingress, entry)
+    )) || null;
+  }
+
   function ingressHasDependentResponse(state, ingress = null) {
     if (!ingress) return false;
     if (ingress.outcomeId || ingress.responseMessageId) return true;
@@ -1256,18 +1314,43 @@ export function createChatTurnOrchestrator({
     ));
   }
 
+  function latestSourceRestartDecision(state, ingress, message, stage) {
+    if (!ingress || ingressHasDependentResponse(state, ingress)) return null;
+    const priorRecovery = findOpenNoOutcomeRecovery(state, ingress);
+    const repairDecision = repair.evaluateSourceReobserve({
+      eventType: 'playerMessageReobserved',
+      stage,
+      ingress,
+      hasDependentResponse: false,
+      hasDependentAssistant: false,
+      hasCommittedOutcome: false,
+      isLatestActionablePlayerRow: true,
+      priorRecovery,
+      observedHostMessageId: messageHostMessageId(message),
+      observedTextHash: fnv1a(message?.text || '')
+    });
+    return repairDecision.action === 'restartLatestSource'
+      ? {
+          repairDecision,
+          priorRecovery,
+          priorIngress: ingress
+        }
+      : null;
+  }
+
   function staleIngressResult(state, ingressId, message, stage) {
     const current = state ? findIngress(initializeCampaignRuntimeTracking(state), ingressId) : null;
     const expectedHostMessageId = messageHostMessageId(message);
     const expectedTextHash = fnv1a(message?.text || '');
-    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired', 'canceled', 'awaitingRevision']);
-    const reasons = [];
-    if (!current) reasons.push('missing-ingress');
-    if (current && staleStatuses.has(current.status)) reasons.push(`status:${current.status}`);
-    if (current?.invalidatedAt || current?.invalidationType) reasons.push('invalidated');
-    if (current && expectedHostMessageId && current.hostMessageId !== expectedHostMessageId) reasons.push('host-message-changed');
-    if (current && expectedTextHash && current.textHash !== expectedTextHash) reasons.push('text-hash-changed');
-    if (!reasons.length) return null;
+    const repairDecision = repair.evaluateSourceReobserve({
+      eventType: 'playerMessageReobserved',
+      stage,
+      ingress: current,
+      hasDependentResponse: false,
+      observedHostMessageId: expectedHostMessageId,
+      observedTextHash: expectedTextHash
+    });
+    if (repairDecision.normalTurnAllowed) return null;
     return {
       handled: true,
       stale: true,
@@ -1275,7 +1358,8 @@ export function createChatTurnOrchestrator({
       abortDefaultGeneration: true,
       reason: 'source-ingress-stale',
       stage,
-      staleReasons: reasons,
+      staleReasons: repairDecision.reasons || [],
+      repairDecision: cloneJson(repairDecision),
       record: cloneJson(current),
       campaignState: cloneJson(state || getCampaignState() || null)
     };
@@ -1307,11 +1391,17 @@ export function createChatTurnOrchestrator({
   function dependentSourceRecoveryResult(state, ingress, message, stage) {
     const expectedHostMessageId = messageHostMessageId(message);
     const expectedTextHash = fnv1a(message?.text || '');
-    const reasons = ['dependent-response'];
-    if (ingress?.status) reasons.push(`status:${ingress.status}`);
-    if (ingress?.invalidatedAt || ingress?.invalidationType) reasons.push('invalidated');
-    if (ingress && expectedHostMessageId && ingress.hostMessageId !== expectedHostMessageId) reasons.push('host-message-changed');
-    if (ingress && expectedTextHash && ingress.textHash !== expectedTextHash) reasons.push('text-hash-changed');
+    const repairDecision = repair.evaluateSourceReobserve({
+      eventType: 'playerMessageReobserved',
+      stage,
+      ingress,
+      hasDependentResponse: true,
+      hasDependentAssistant: true,
+      hasCommittedOutcome: Boolean(ingress?.outcomeId),
+      isLatestActionablePlayerRow: true,
+      observedHostMessageId: expectedHostMessageId,
+      observedTextHash: expectedTextHash
+    });
     return {
       handled: true,
       stale: true,
@@ -1319,7 +1409,8 @@ export function createChatTurnOrchestrator({
       abortDefaultGeneration: true,
       reason: 'source-ingress-stale',
       stage,
-      staleReasons: [...new Set(reasons)],
+      staleReasons: repairDecision.reasons || [],
+      repairDecision: cloneJson(repairDecision),
       record: cloneJson(ingress || null),
       campaignState: cloneJson(state || getCampaignState() || null)
     };
@@ -1683,11 +1774,30 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function createIngress(state, message, chatId, ingressId) {
+  async function createIngress(state, message, chatId, ingressId, {
+    sourceReobserveDecision = null,
+    priorIngressForRecovery = null
+  } = {}) {
     const priorIngress = findIngress(state, ingressId);
     const receivedAt = timestamp(now);
     const sourceFrame = buildTurnSourceFrame(state, message, chatId, ingressId, receivedAt);
-    const coreTransaction = await beginCoreTurnForIngress(sourceFrame, { ingressId, chatId });
+    const coreTransaction = await beginCoreTurnForIngress(sourceFrame, {
+      ingressId,
+      chatId,
+      sourceReobserveDecision,
+      priorIngressForRecovery
+    });
+    const sourceRestart = sourceReobserveDecision?.action === 'restartLatestSource'
+      ? {
+          action: 'restartLatestSource',
+          reason: sourceReobserveDecision.recoveryResolution?.reason || 'latest-source-reobserved',
+          priorIngressId: priorIngressForRecovery?.id || sourceReobserveDecision.ingressId || null,
+          priorSourceFrameId: priorIngressForRecovery?.sourceFrameId || sourceReobserveDecision.sourceFrameId || null,
+          priorTransactionId: priorIngressForRecovery?.coreTransactionId || sourceReobserveDecision.transactionId || null,
+          priorRecoveryId: sourceReobserveDecision.recoveryResolution?.priorRecoveryId || null,
+          observedTextHash: sourceReobserveDecision.observedTextHash || null
+        }
+      : null;
     const ingressRecord = {
       id: ingressId,
       hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
@@ -1701,19 +1811,39 @@ export function createChatTurnOrchestrator({
       sourceFrameId: sourceFrame.id,
       sourceFrame,
       coreTransactionId: coreTransaction?.id || null,
+      repairDecision: sourceReobserveDecision ? cloneJson(sourceReobserveDecision) : null,
+      sourceRestart,
       status: 'classifying'
     };
     observedIngressRecords.set(ingressId, cloneJson(ingressRecord));
     let next = recordTurnIngress(state, ingressRecord);
-    if (priorIngress && !priorIngress.outcomeId) {
+    const recoverySourceIngress = priorIngressForRecovery || priorIngress;
+    if (
+      sourceRestart
+      && recoverySourceIngress?.id
+      && recoverySourceIngress.id !== ingressId
+    ) {
+      next = updateTurnIngress(next, recoverySourceIngress.id, {
+        status: 'restartSuperseded',
+        restartedAt: receivedAt,
+        restartedByIngressId: ingressId,
+        restartReason: sourceRestart.reason,
+        restartCoreTransactionId: coreTransaction?.id || null,
+        restartSourceFrameId: sourceFrame.id,
+        restartRepairDecision: cloneJson(sourceReobserveDecision)
+      });
+    }
+    if (recoverySourceIngress && !recoverySourceIngress.outcomeId) {
       const hostMessageId = message.hostMessageId || message.id || String(message.index ?? '');
       for (const recovery of next.runtimeTracking?.recoveryJournal || []) {
-        if (shouldResolveNoOutcomeRecoveryOnReobserve(priorIngress, recovery)) {
+        if (shouldResolveNoOutcomeRecoveryOnReobserve(recoverySourceIngress, recovery)) {
           next = resolveRecoveryEvent(next, recovery.id, {
             status: 'resolved',
             resolvedAt: timestamp(now),
-            reason: 'message-reobserved',
-            hostMessageId
+            reason: sourceReobserveDecision?.recoveryResolution?.reason || 'message-reobserved',
+            hostMessageId,
+            restartIngressId: sourceRestart?.priorIngressId ? ingressId : null,
+            repairDecision: sourceReobserveDecision ? cloneJson(sourceReobserveDecision) : null
           });
         }
       }
@@ -3383,6 +3513,7 @@ export function createChatTurnOrchestrator({
       }
     }
     const hostMessageId = messageHostMessageId(message);
+    const observedTextHash = fnv1a(message.text || '');
     if (existing && hostMessageId && !existing.hostMessageId) {
       state = await updateIngressState(state, existing.id, {
         hostMessageId,
@@ -3401,7 +3532,16 @@ export function createChatTurnOrchestrator({
         record: cloneJson(existing)
       };
     }
-    const existingByHostMessage = findIngressByHostMessageId(state, hostMessageId, chatId);
+    let existingByHostMessage = findIngressByHostMessageId(state, hostMessageId, chatId);
+    if (
+      existingByHostMessage
+      && existingByHostMessage.id !== existing?.id
+      && existingByHostMessage.textHash === observedTextHash
+      && !ingressHasDependentResponse(state, existingByHostMessage)
+    ) {
+      ingressId = existingByHostMessage.id;
+      existing = existingByHostMessage;
+    }
     if (
       existingByHostMessage
       && existingByHostMessage.id !== existing?.id
@@ -3410,7 +3550,29 @@ export function createChatTurnOrchestrator({
       return dependentSourceRecoveryResult(state, existingByHostMessage, message, 'before-reobserve-dependent-source');
     }
 
-    state = await createIngress(state, message, chatId, ingressId);
+    const restartCandidate = existingByHostMessage && existingByHostMessage.id !== existing?.id
+      ? existingByHostMessage
+      : existing;
+    const sourceRestart = latestSourceRestartDecision(state, restartCandidate, message, 'before-latest-boundary-restart');
+    if (sourceRestart) {
+      ingressId = restartIngressIdFor(ingressId, sourceRestart.priorIngress, message);
+      existing = findIngress(state, ingressId);
+      existingByHostMessage = findIngressByHostMessageId(state, hostMessageId, chatId);
+      if (
+        existingByHostMessage
+        && existingByHostMessage.id !== sourceRestart.priorIngress.id
+        && existingByHostMessage.textHash === observedTextHash
+        && !ingressHasDependentResponse(state, existingByHostMessage)
+      ) {
+        ingressId = existingByHostMessage.id;
+        existing = existingByHostMessage;
+      }
+    }
+
+    state = await createIngress(state, message, chatId, ingressId, {
+      sourceReobserveDecision: sourceRestart?.repairDecision || null,
+      priorIngressForRecovery: sourceRestart?.priorIngress || null
+    });
     let decision = null;
     let stage = 'classification';
     try {
@@ -3583,6 +3745,12 @@ export function createChatTurnOrchestrator({
     const result = await messageReconciler.reconcileEdited({
       hostMessageId,
       replacementText,
+      message: payload.message || (hostMessageId && typeof host?.chat?.getMessage === 'function'
+        ? host.chat.getMessage(hostMessageId)
+        : null),
+      index: payload.index || payload.message?.index || null,
+      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
+      visibilityMap: payload.visibilityMap || null,
       autoRollback: payload?.autoRollback === true
     });
     return { handled: result.matched === true, ...result };
@@ -3592,7 +3760,25 @@ export function createChatTurnOrchestrator({
     if (!messageReconciler) return { handled: false, reason: 'reconciler-unavailable' };
     const result = await messageReconciler.reconcileDeleted({
       hostMessageId: eventMessageId(payload),
+      message: payload.message || null,
+      index: payload.index || payload.message?.index || null,
+      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
+      visibilityMap: payload.visibilityMap || null,
       autoRollback: payload?.autoRollback === true
+    });
+    return { handled: result.matched === true, ...result };
+  }
+
+  async function handleMessageVisibilityChanged(payload = {}) {
+    if (!messageReconciler?.reconcileVisibilityChanged) return { handled: false, reason: 'reconciler-unavailable' };
+    const result = await messageReconciler.reconcileVisibilityChanged({
+      hostMessageId: eventMessageId(payload),
+      message: payload.message || (eventMessageId(payload) && typeof host?.chat?.getMessage === 'function'
+        ? host.chat.getMessage(eventMessageId(payload))
+        : null),
+      index: payload.index || payload.message?.index || null,
+      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
+      visibilityMap: payload.visibilityMap || payload.visibility_map || null
     });
     return { handled: result.matched === true, ...result };
   }
@@ -3617,6 +3803,7 @@ export function createChatTurnOrchestrator({
     interceptGeneration,
     handleMessageEdited,
     handleMessageDeleted,
+    handleMessageVisibilityChanged,
     handleChatChanged,
     resolveInteraction,
     retryCommittedResponse,

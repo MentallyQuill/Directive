@@ -17,6 +17,7 @@ const eventTypes = {
   MESSAGE_SENT: 'message_sent',
   USER_MESSAGE_RENDERED: 'user_message_rendered',
   MESSAGE_EDITED: 'message_edited',
+  MESSAGE_UPDATED: 'message_updated',
   MESSAGE_DELETED: 'message_deleted',
   EXTENSION_DISABLED: 'extension_disabled'
 };
@@ -24,7 +25,7 @@ const eventTypes = {
 assert.equal(__directiveEventTestHooks.wireEvents({ eventSource, eventTypes }), true);
 assert.deepEqual(
   registrations.map((entry) => entry.name).sort(),
-  ['chat_changed', 'extension_disabled', 'message_deleted', 'message_edited', 'message_sent', 'user_message_rendered'].sort()
+  ['chat_changed', 'extension_disabled', 'message_deleted', 'message_edited', 'message_sent', 'message_updated', 'user_message_rendered'].sort()
 );
 assert.equal(registrations.every((entry) => typeof entry.handler === 'function'), true);
 
@@ -67,7 +68,7 @@ assert.equal(__directiveEventTestHooks.wireEvents({
   document: lifecycleDocument
 }), true);
 const firstLifecycleAddCount = lifecycleAdds.length;
-assert.equal(firstLifecycleAddCount, 10);
+assert.equal(firstLifecycleAddCount, 11);
 assert.equal(lifecycleDocumentEvents.filter((entry) => entry.op === 'add').length, 4);
 assert.equal(__directiveEventTestHooks.wireEvents({
   eventSource: lifecycleSource,

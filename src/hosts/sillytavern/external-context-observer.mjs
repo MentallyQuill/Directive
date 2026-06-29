@@ -35,6 +35,11 @@ function objectKeyCount(value) {
   return value && typeof value === 'object' ? Object.keys(value).length : 0;
 }
 
+function boundedInteger(value, fallback = null) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.trunc(number) : fallback;
+}
+
 function promptKeysFrom(value) {
   if (!value || typeof value !== 'object') return [];
   if (Array.isArray(value)) {
@@ -51,6 +56,7 @@ function extensionSettingsFrom(context = {}) {
   return asObject(
     context.extensionSettings
     || context.extension_settings
+    || globalThis.extensionSettings
     || globalThis.extension_settings
   );
 }
@@ -59,6 +65,8 @@ function chatMetadataFrom(context = {}) {
   return asObject(
     context.chatMetadata
     || context.chat_metadata
+    || globalThis.chatMetadata
+    || globalThis.chat_metadata
   );
 }
 
@@ -74,7 +82,23 @@ function worldInfoSettingsFrom(context = {}) {
   return asObject(
     context.worldInfoSettings
     || context.world_info_settings
+    || globalThis.worldInfoSettings
     || globalThis.world_info_settings
+  );
+}
+
+function worldEntriesFrom(context = {}) {
+  return asObject(
+    context.worldInfoEntries
+    || context.worldEntries
+    || context.world_info_entries
+    || context.world_info?.entries
+    || context.worldInfo?.entries
+    || globalThis.worldInfoEntries
+    || globalThis.worldEntries
+    || globalThis.world_info_entries
+    || globalThis.world_info?.entries
+    || globalThis.worldInfo?.entries
   );
 }
 
@@ -108,6 +132,7 @@ export function collectSillyTavernExternalPromptKeys(context = {}) {
 export function summarizeSillyTavernExternalMessageMarkers(chat = []) {
   const counts = {
     summaryceptionGhosted: 0,
+    summaryceptionGhostedSystemVisible: 0,
     memoryBooksHidden: 0,
     memoryBooksUnhidden: 0,
     vectFoxGhosted: 0,
@@ -115,7 +140,12 @@ export function summarizeSillyTavernExternalMessageMarkers(chat = []) {
   };
   for (const message of asArray(chat)) {
     const extra = asObject(message?.extra);
-    if (extra.sc_ghosted || extra.summaryception?.ghosted) counts.summaryceptionGhosted += 1;
+    if (extra.sc_ghosted || extra.summaryception?.ghosted) {
+      counts.summaryceptionGhosted += 1;
+      if ((message?.is_system === true || message?.role === 'system') && message?.is_hidden !== true && message?.hidden !== true) {
+        counts.summaryceptionGhostedSystemVisible += 1;
+      }
+    }
     if (extra.stmb_hidden || extra.memoryBooks?.hidden) counts.memoryBooksHidden += 1;
     if (extra.stmb_unhidden || extra.memoryBooks?.unhidden) counts.memoryBooksUnhidden += 1;
     if (
@@ -130,6 +160,154 @@ export function summarizeSillyTavernExternalMessageMarkers(chat = []) {
     if (message?.is_hidden || message?.hidden) counts.nativeHidden += 1;
   }
   return counts;
+}
+
+function rangeRecord(source, start, end, chatLength = 0) {
+  const numericStart = boundedInteger(start);
+  const numericEnd = boundedInteger(end);
+  if (numericStart === null || numericEnd === null) return null;
+  const inverted = numericStart > numericEnd;
+  const outOfBounds = numericStart < 0 || (chatLength > 0 && numericEnd >= chatLength);
+  return {
+    source,
+    start: numericStart,
+    end: numericEnd,
+    inverted,
+    outOfBounds
+  };
+}
+
+function stMemoryBookRangeDiagnostics({
+  chatMetadata = {},
+  memoryBooksSettings = {},
+  memoryBooksModule = {},
+  worldEntries = {},
+  chatLength = 0
+} = {}) {
+  const ranges = [];
+  const metadata = asObject(chatMetadata.STMemoryBooks);
+  const metadataRange = rangeRecord('chat-metadata-scene', metadata.sceneStart, metadata.sceneEnd, chatLength);
+  if (metadataRange) ranges.push(metadataRange);
+  for (const entry of Object.values(worldEntries || {})) {
+    const record = asObject(entry);
+    if (record.stmemorybooks === true || record.extensions?.stmemorybooks === true) {
+      const entryRange = rangeRecord(`world-entry:${record.uid ?? ranges.length}`, record.STMB_start, record.STMB_end, chatLength);
+      if (entryRange) ranges.push(entryRange);
+    }
+  }
+  for (const entry of asArray(memoryBooksSettings.ranges || memoryBooksModule.ranges || memoryBooksSettings.entryRanges || memoryBooksModule.entryRanges)) {
+    const record = rangeRecord('settings-range', entry?.STMB_start ?? entry?.start, entry?.STMB_end ?? entry?.end, chatLength);
+    if (record) ranges.push(record);
+  }
+  const invertedRangeCount = ranges.filter((entry) => entry.inverted).length;
+  const outOfBoundsRangeCount = ranges.filter((entry) => entry.outOfBounds).length;
+  const validRangeCount = ranges.filter((entry) => !entry.inverted && !entry.outOfBounds).length;
+  const staleRangeCount = outOfBoundsRangeCount
+    + (boundedInteger(metadata.highestMemoryProcessed, -1) >= chatLength && chatLength > 0 ? 1 : 0);
+  const status = !ranges.length
+    ? 'missing'
+    : invertedRangeCount > 0
+      ? 'inverted'
+      : staleRangeCount > 0
+        ? 'stale'
+        : 'valid';
+  return {
+    status,
+    entryRangeCount: ranges.filter((entry) => entry.source.startsWith('world-entry:')).length,
+    chatRangeCount: metadataRange ? 1 : 0,
+    validRangeCount,
+    invertedRangeCount,
+    outOfBoundsRangeCount,
+    staleRangeCount,
+    rangeHash: ranges.length ? safeHash(ranges.map((entry) => ({
+      source: entry.source,
+      start: entry.start,
+      end: entry.end,
+      inverted: entry.inverted,
+      outOfBounds: entry.outOfBounds
+    }))) : null
+  };
+}
+
+function summaryceptionStalenessDiagnostics({
+  summaryceptionMetadata = {},
+  markers = {},
+  chatLength = 0
+} = {}) {
+  const explicitStaleness = asObject(summaryceptionMetadata.staleness || summaryceptionMetadata.visibilityDiagnostics);
+  if (explicitStaleness.status) {
+    return {
+      status: asString(explicitStaleness.status) || 'unknown',
+      chatLength: boundedInteger(explicitStaleness.chatLength, chatLength),
+      summarizedRangeBeyondChat: explicitStaleness.summarizedRangeBeyondChat === true,
+      staleAfterMutation: explicitStaleness.staleAfterMutation === true,
+      ghostedSystemVisibleCount: boundedInteger(explicitStaleness.ghostedSystemVisibleCount, markers.summaryceptionGhostedSystemVisible || 0),
+      summarizedOnlyCount: boundedInteger(explicitStaleness.summarizedOnlyCount, 0)
+    };
+  }
+  const summarizedUpTo = boundedInteger(summaryceptionMetadata.summarizedUpTo, -1);
+  const summarizedRangeBeyondChat = summarizedUpTo >= chatLength && chatLength > 0;
+  const staleAfterMutation = summaryceptionMetadata.stale === true || summaryceptionMetadata.staleAfterMutation === true;
+  const ghostedSystemVisibleCount = markers.summaryceptionGhostedSystemVisible || 0;
+  const summarizedOnlyCount = Math.max(0, Number(summaryceptionMetadata.summarizedOnlyCount || 0));
+  const status = summarizedRangeBeyondChat || staleAfterMutation
+    ? 'stale'
+    : ghostedSystemVisibleCount > 0
+      ? 'ghosted-system-visible'
+      : summarizedUpTo >= 0 || asArray(summaryceptionMetadata.layers).length || markers.summaryceptionGhosted
+        ? 'observed'
+        : 'unknown';
+  return {
+    status,
+    chatLength,
+    summarizedRangeBeyondChat,
+    staleAfterMutation,
+    ghostedSystemVisibleCount,
+    summarizedOnlyCount
+  };
+}
+
+function vectFoxBackendDiagnostics(vectFoxSettings = {}, markers = {}) {
+  const backendType = asString(vectFoxSettings.vector_backend || vectFoxSettings.backendType || vectFoxSettings.backend);
+  const unavailable = truthy(vectFoxSettings.unavailable)
+    || truthy(vectFoxSettings.backendUnavailable)
+    || truthy(vectFoxSettings.qdrantUnavailable);
+  const disabled = vectFoxSettings.enabled === false;
+  const externalBackend = /qdrant|cloud|remote/i.test(backendType || '');
+  const localBackend = /local|fixture/i.test(backendType || '');
+  const retrievalLatencyMs = boundedInteger(
+    vectFoxSettings.retrievalLatencyMs
+    ?? vectFoxSettings.lastRetrievalLatencyMs
+    ?? vectFoxSettings.timing?.retrievalLatencyMs
+  );
+  const interceptorLatencyMs = boundedInteger(
+    vectFoxSettings.interceptorLatencyMs
+    ?? vectFoxSettings.lastInterceptorLatencyMs
+    ?? vectFoxSettings.timing?.interceptorLatencyMs
+  );
+  const timingSeen = retrievalLatencyMs !== null || interceptorLatencyMs !== null || truthy(vectFoxSettings.timing?.observed);
+  const status = disabled
+    ? 'disabled'
+    : unavailable
+      ? 'unavailable'
+      : externalBackend
+        ? 'external-backend-configured'
+        : localBackend
+          ? 'local-backend-configured'
+          : backendType
+            ? 'configured'
+            : objectKeyCount(vectFoxSettings) > 0 || markers.vectFoxGhosted > 0
+              ? 'observed'
+              : 'unknown';
+  return {
+    status,
+    backendType,
+    unavailable,
+    externalTimingObserved: timingSeen,
+    interceptorLatencyMs,
+    retrievalLatencyMs,
+    timingHash: timingSeen ? safeHash({ interceptorLatencyMs, retrievalLatencyMs }) : null
+  };
 }
 
 export function observeSillyTavernExternalPromptEnvironment(context = null, options = {}) {
@@ -151,6 +329,7 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
   const promptRegistry = promptRegistryFrom(resolvedContext);
   const promptKeys = promptKeysFrom(promptRegistry);
   const worldInfoSettings = worldInfoSettingsFrom(resolvedContext);
+  const worldEntries = worldEntriesFrom(resolvedContext);
   const worldInfoNames = activeWorldInfoNames(worldInfoSettings);
   const markers = summarizeSillyTavernExternalMessageMarkers(chat);
   const memoryBooksSettings = asObject(
@@ -160,9 +339,21 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
   );
   const memoryBooksModule = asObject(memoryBooksSettings.moduleSettings || memoryBooksSettings);
   const summaryceptionSettings = asObject(extensionSettings.summaryception);
-  const summaryceptionMetadata = asObject(chatMetadata.summaryception);
+  const summaryceptionMetadata = asObject(
+    chatMetadata.summaryception
+    || summaryceptionSettings.fixtureDiagnostics
+    || (
+      summaryceptionSettings.staleness
+      || summaryceptionSettings.summarizedUpTo !== undefined
+      || summaryceptionSettings.layerCount !== undefined
+      || summaryceptionSettings.ghostedCount !== undefined
+        ? summaryceptionSettings
+        : {}
+    )
+  );
   const vectFoxSettings = asObject(extensionSettings.vectfox || extensionSettings.VectFox);
   const vectFoxPromptKeys = promptKeys.filter((key) => /^3_vectfox/i.test(key));
+  const chatLength = chat.length;
 
   return normalizeExternalPromptEnvironment({
     host: 'sillytavern',
@@ -191,6 +382,13 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
       activeBookName: chatMetadata.world_info || null,
       entryCount: memoryBooksSettings.entryCount || memoryBooksModule.entryCount || chatMetadata.STMemoryBooks?.entryCount,
       entryHash: memoryBooksSettings.entryHash || memoryBooksModule.entryHash || (chatMetadata.STMemoryBooks ? safeHash(chatMetadata.STMemoryBooks) : null),
+      rangeDiagnostics: stMemoryBookRangeDiagnostics({
+        chatMetadata,
+        memoryBooksSettings,
+        memoryBooksModule,
+        worldEntries,
+        chatLength
+      }),
       riskyModes: {
         autoSummary: truthy(memoryBooksModule.autoSummaryEnabled) || truthy(memoryBooksModule.autoSummary?.enabled),
         autoCreate: truthy(memoryBooksModule.autoCreateEnabled),
@@ -206,6 +404,11 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
       summarizedUpTo: summaryceptionMetadata.summarizedUpTo,
       layerCount: asArray(summaryceptionMetadata.layers).length || summaryceptionMetadata.layerCount,
       ghostedCount: Math.max(asArray(summaryceptionMetadata.ghostedIndices).length, Number(summaryceptionMetadata.ghostedCount || 0), markers.summaryceptionGhosted),
+      staleness: summaryceptionStalenessDiagnostics({
+        summaryceptionMetadata,
+        markers,
+        chatLength
+      }),
       injectionHash: objectKeyCount(summaryceptionSettings) > 0 ? safeHash(summaryceptionSettings) : null,
       externalModelCalls: Boolean(summaryceptionSettings.connectionSource && summaryceptionSettings.connectionSource !== 'profile')
     },
@@ -221,6 +424,7 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
       summarizerInjectionEnabled: truthy(vectFoxSettings.summarizer_injection_enabled),
       ghostingEnabled: truthy(vectFoxSettings.eventbase_ghost_enabled) || markers.vectFoxGhosted > 0,
       generationInterceptorActive: objectKeyCount(vectFoxSettings) > 0,
+      backendDiagnostics: vectFoxBackendDiagnostics(vectFoxSettings, markers),
       settingsHash: objectKeyCount(vectFoxSettings) > 0 ? safeHash(vectFoxSettings) : null
     },
     redactionSource: {

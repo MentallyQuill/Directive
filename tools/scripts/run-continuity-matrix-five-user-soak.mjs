@@ -20,6 +20,12 @@ import {
   SOAK_PARALLEL_WORKER_POLICY,
   SOAK_TURN_SCRIPT
 } from './soak-sillytavern-campaign-live.mjs';
+import {
+  assessStoryQualityReviewResult
+} from './replay-story-quality-review-preflight.mjs';
+import {
+  summarizeModelCallFailurePolicy
+} from './lib/model-call-failure-policy.mjs';
 
 export const CONTINUITY_MATRIX_FIVE_USER_ARTIFACT_ROOT = 'artifacts/live-soak/continuity-projection-matrix-five-user';
 
@@ -62,7 +68,7 @@ Bounded live proof:
   $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
   $env:DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b,directive-soak-c,directive-soak-d,directive-soak-e'
   $env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
-  node tools\\scripts\\run-continuity-matrix-five-user-soak.mjs --live --turn-limit 2 --write-artifacts
+  node tools\\scripts\\run-continuity-matrix-five-user-soak.mjs --live --turn-limit 3 --write-artifacts
 
 Full certification:
   Omit --turn-limit and DIRECTIVE_SOAK_TURN_LIMIT. The coordinator then runs the
@@ -409,11 +415,33 @@ function targetEvidenceFromPromptInspection(promptInspection = {}, knownExternal
   const memoryBooksActive = targets.memoryBooks?.active === true
     || targets.memoryBooks?.enabled === true
     || Number(targets.memoryBooks?.entryCount || 0) > 0;
+  const memoryBooksRangeStatus = targets.memoryBooks?.rangeDiagnostics?.status || null;
+  const summaryceptionStalenessStatus = targets.summaryception?.staleness?.status || null;
+  const vectFoxBackendStatus = targets.vectFox?.backendDiagnostics?.status || null;
+  const usefulStatus = (status, blocked = ['unknown', 'missing']) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return Boolean(normalized && !blocked.includes(normalized));
+  };
+  const diagnostics = {
+    memoryBooks: {
+      rangeStatus: memoryBooksRangeStatus,
+      rangeDiagnosticPresent: usefulStatus(memoryBooksRangeStatus)
+    },
+    summaryception: {
+      stalenessStatus: summaryceptionStalenessStatus,
+      stalenessDiagnosticPresent: usefulStatus(summaryceptionStalenessStatus)
+    },
+    vectFox: {
+      backendStatus: vectFoxBackendStatus,
+      backendDiagnosticPresent: usefulStatus(vectFoxBackendStatus, ['unknown', 'missing', 'unavailable'])
+    }
+  };
   return {
     stLorebooks: Boolean(worldInfoKey || targets.stLorebooks?.active || targets.stLorebooks?.enabled || targets.stLorebooks?.chatBound),
-    memoryBooks: Boolean(memoryBooksActive),
-    summaryception: Boolean(summaryceptionKey || targets.summaryception?.enabled || targets.summaryception?.promptKeyActive),
-    vectFox: Boolean(vectFoxKey || targets.vectFox?.enabled || targets.vectFox?.generationInterceptorActive || targets.vectFox?.summarizerInjectionEnabled),
+    memoryBooks: Boolean(memoryBooksActive && diagnostics.memoryBooks.rangeDiagnosticPresent),
+    summaryception: Boolean((summaryceptionKey || targets.summaryception?.enabled || targets.summaryception?.promptKeyActive) && diagnostics.summaryception.stalenessDiagnosticPresent),
+    vectFox: Boolean((vectFoxKey || targets.vectFox?.enabled || targets.vectFox?.generationInterceptorActive || targets.vectFox?.summarizerInjectionEnabled) && diagnostics.vectFox.backendDiagnosticPresent),
+    diagnostics,
     finalHostPromptMayIncludeExternal: promptInspection.finalHostPromptMayIncludeExternal === true,
     redactionReasons: [...new Set((promptInspection.redactions || []).map((entry) => entry?.reason).filter(Boolean))].sort()
   };
@@ -432,6 +460,12 @@ function richFixturePressureFromCaptures(captures = []) {
     requiredTargets: [...EXTERNAL_CONTEXT_TARGET_IDS],
     targetCoverage,
     missingTargets,
+    targetDiagnostics: Object.fromEntries(EXTERNAL_CONTEXT_TARGET_IDS.map((targetId) => [
+      targetId,
+      captures
+        .map((capture) => capture.targetEvidence?.diagnostics?.[targetId])
+        .find(Boolean) || null
+    ])),
     finalHostPromptMayIncludeExternal,
     redactionReasons: [...new Set(captures.flatMap((capture) => capture.targetEvidence?.redactionReasons || []))].sort()
   };
@@ -617,9 +651,188 @@ export function summarizeFactualGroundingArtifacts({ artifactRoot } = {}) {
   };
 }
 
+export function summarizeStoryQualityReviewArtifacts({ artifactRoot } = {}) {
+  const report = readJsonIfExists(artifactRoot ? path.join(artifactRoot, 'report.json') : '');
+  const check = (report?.checks || []).find((entry) => entry?.id === 'live-story-quality-transcript-review') || null;
+  const checkDetails = check?.details || {};
+  const storyReview = checkDetails.storyQualityReview || report?.storyQualityReview || null;
+  const modelReview = checkDetails.modelAssistedReview || storyReview?.modelAssistedReview || null;
+  const modelResultPath = modelReview?.resultPath
+    ? path.join(artifactRoot || '', modelReview.resultPath)
+    : path.join(artifactRoot || '', 'quality-review', 'model-assisted-review', 'result.json');
+  const modelResult = readJsonIfExists(modelResultPath) || null;
+  const modelStatus = modelResult?.status || modelReview?.status || null;
+  const modelCall = modelResult?.modelCall || modelReview?.modelCall || null;
+  const modelCounts = modelResult?.counts || modelReview?.counts || null;
+  const providerOutputPath = modelReview?.providerOutputPath || null;
+  const requestPath = modelReview?.requestPath || storyReview?.modelAssistedReviewRequestPathRelative || null;
+  const resultPath = modelReview?.resultPath || storyReview?.modelAssistedReviewResultPathRelative || null;
+  const absoluteRequestPath = requestPath
+    ? path.join(artifactRoot || '', requestPath)
+    : path.join(artifactRoot || '', 'quality-review', 'model-assisted-review', 'request.json');
+  const modelAssessment = assessStoryQualityReviewResult({ requestPath: absoluteRequestPath });
+  const deterministicStatus = storyReview?.status || check?.status || report?.storyQualityReview?.status || null;
+  const deterministicScoreCount = Number(storyReview?.scoreCount || 0);
+  const modelMissing = !modelStatus || modelStatus === 'not-run';
+  const modelFailed = modelStatus === 'fail';
+  const modelWarning = modelStatus === 'warning';
+  const modelUnparseable = Boolean(modelResult?.reason && /not return parseable JSON|did not return parseable JSON/i.test(String(modelResult.reason)));
+  const modelTimedOut = Boolean(
+    modelCall?.errorCode
+    && /timeout|timed|DIRECTIVE_GENERATION_TIMEOUT/i.test(String(modelCall.errorCode))
+  ) || Boolean(
+    modelResult?.reason
+    && /timeout|timed out|DIRECTIVE_GENERATION_TIMEOUT/i.test(String(modelResult.reason))
+  );
+  const modelEvidenceInvalid = modelAssessment.validationFailed === true
+    || modelAssessment.invalidStatus === true
+    || (modelAssessment.status === 'fail' && modelAssessment.missing !== true && modelAssessment.timedOut !== true && modelFailed !== true);
+  const status = !report || !check
+    ? 'fail'
+    : check.status === 'fail' || deterministicStatus === 'fail' || modelFailed || modelUnparseable || modelTimedOut || modelEvidenceInvalid
+      ? 'fail'
+      : modelMissing || modelWarning
+        ? 'warning'
+        : 'pass';
+  return {
+    status,
+    checkStatus: check?.status || null,
+    deterministicStatus,
+    deterministicScoreCount,
+    averageScore: storyReview?.averageScore ?? null,
+    scoreZeroCount: storyReview?.scoreZeroCount ?? null,
+    modelAssistedReview: {
+      status: modelStatus,
+      requestPath,
+      resultPath,
+      providerOutputPath,
+      inputHash: modelReview?.inputHash || modelResult?.inputHash || null,
+      counts: modelCounts,
+      modelCall,
+      reason: modelResult?.reason || null,
+      missing: modelMissing,
+      unparseable: modelUnparseable,
+      timedOut: modelTimedOut,
+      validationFailed: modelAssessment.validationFailed === true,
+      validationIssues: modelAssessment.validationIssues || [],
+      coverageStatus: modelAssessment.validationFailed === true ? 'fail' : modelAssessment.status,
+      assessmentStatus: modelAssessment.status,
+      assessmentReason: modelAssessment.reason || null
+    },
+    summary: !report
+      ? 'Lane report.json is missing; story-quality review cannot be verified.'
+      : !check
+        ? 'Lane report is missing live-story-quality-transcript-review check.'
+        : modelMissing
+          ? 'Model-assisted story-quality review is missing or still not-run.'
+          : modelTimedOut
+          ? 'Model-assisted story-quality review timed out.'
+          : modelUnparseable
+            ? 'Model-assisted story-quality review did not return parseable JSON.'
+            : modelEvidenceInvalid
+              ? `Model-assisted story-quality review evidence is invalid: ${modelAssessment.reason || 'validation failed'}.`
+              : `Story-quality review deterministic status ${deterministicStatus || 'unknown'} with model-assisted status ${modelStatus}.`
+  };
+}
+
 function expectedFactCheckCountForTurnLimit(turnLimit) {
   if (turnLimit === undefined) return null;
   return (requestedTurnLimitValue(turnLimit) || SOAK_TURN_SCRIPT.length) + 1;
+}
+
+export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
+  const filePath = path.join(artifactRoot || '', 'host-extensions', 'external-context-summary.json');
+  if (!filePath || !fs.existsSync(filePath)) {
+    return {
+      status: 'fail',
+      present: false,
+      file: 'host-extensions/external-context-summary.json',
+      artifactStatus: null,
+      captureCount: 0,
+      knownExternalPromptKeys: [],
+      refHashes: [],
+      targetSummaryCount: 0,
+      redactionReasons: [],
+      finalHostPromptMayIncludeExternal: null,
+      missingFields: ['file'],
+      summary: 'External context summary artifact is missing.'
+    };
+  }
+  let artifact = null;
+  try {
+    artifact = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    return {
+      status: 'fail',
+      present: true,
+      file: relativePathFrom(artifactRoot, filePath),
+      artifactStatus: null,
+      captureCount: 0,
+      knownExternalPromptKeys: [],
+      refHashes: [],
+      targetSummaryCount: 0,
+      redactionReasons: [],
+      finalHostPromptMayIncludeExternal: null,
+      missingFields: ['parseable-json'],
+      summary: `External context summary artifact could not be parsed: ${compact(error.message || error, 160)}`
+    };
+  }
+  const aggregate = artifact?.aggregate && typeof artifact.aggregate === 'object' ? artifact.aggregate : {};
+  const knownExternalPromptKeys = Array.isArray(aggregate.knownExternalPromptKeys)
+    ? aggregate.knownExternalPromptKeys.filter(Boolean).map(String)
+    : [];
+  const refHashes = Array.isArray(aggregate.refHashes)
+    ? aggregate.refHashes.filter(Boolean).map(String)
+    : [];
+  const redactionReasons = Array.isArray(aggregate.redactionReasons)
+    ? aggregate.redactionReasons.filter(Boolean).map(String)
+    : [];
+  const captureCount = Number(aggregate.captureCount || 0);
+  const targetSummaryCount = Number(aggregate.targetSummaryCount || 0);
+  const targetSummaries = Array.isArray(artifact.targetSummaries) ? artifact.targetSummaries : [];
+  const presentTargetSummaries = new Set();
+  for (const entry of targetSummaries) {
+    const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
+    for (const targetId of EXTERNAL_CONTEXT_TARGET_IDS) {
+      if (targets[targetId] && typeof targets[targetId] === 'object') presentTargetSummaries.add(targetId);
+    }
+  }
+  const missingTargetSummaries = EXTERNAL_CONTEXT_TARGET_IDS.filter((targetId) => !presentTargetSummaries.has(targetId));
+  const missingFields = [];
+  if (artifact.kind !== 'directive.sillytavern.externalContextSummary.v1') missingFields.push('kind');
+  if (artifact.status !== 'pass') missingFields.push('status');
+  if (artifact.authority?.directiveAuthority !== false) missingFields.push('authority.directiveAuthority');
+  if (!artifact.authority?.role) missingFields.push('authority.role');
+  if (!aggregate || typeof aggregate !== 'object') missingFields.push('aggregate');
+  if (captureCount <= 0) missingFields.push('aggregate.captureCount');
+  if (!knownExternalPromptKeys.length) missingFields.push('aggregate.knownExternalPromptKeys');
+  if (!refHashes.length) missingFields.push('aggregate.refHashes');
+  if (targetSummaryCount <= 0) missingFields.push('aggregate.targetSummaryCount');
+  if (missingTargetSummaries.length) missingFields.push('targetSummaries.requiredTargets');
+  const status = missingFields.length ? 'fail' : 'pass';
+  return {
+    status,
+    present: true,
+    file: relativePathFrom(artifactRoot, filePath),
+    artifactStatus: artifact.status || null,
+    captureCount,
+    knownExternalPromptKeys,
+    refHashes,
+    targetSummaryCount,
+    requiredTargetSummaries: [...EXTERNAL_CONTEXT_TARGET_IDS],
+    presentTargetSummaries: [...presentTargetSummaries],
+    missingTargetSummaries,
+    redactionReasons,
+    finalHostPromptMayIncludeExternal: aggregate.finalHostPromptMayIncludeExternal ?? null,
+    authority: {
+      directiveAuthority: artifact.authority?.directiveAuthority ?? null,
+      role: artifact.authority?.role || null
+    },
+    missingFields,
+    summary: status === 'pass'
+      ? `External context summary recorded ${captureCount} prompt-inspection capture(s) with ${targetSummaryCount} target summary record(s).`
+      : `External context summary artifact is invalid; missing or invalid fields: ${missingFields.join(', ')}.`
+  };
 }
 
 export function summarizeLaneArtifactCompleteness({ artifactRoot, turnLimit } = {}) {
@@ -627,24 +840,37 @@ export function summarizeLaneArtifactCompleteness({ artifactRoot, turnLimit } = 
     'report.json',
     'summary.md',
     'live-log.jsonl',
+    'host-extensions/external-context-summary.json',
     'fact-checks/canary-index.json',
     'transcript/readable-chat.md'
   ];
   const missingFiles = requiredFiles.filter((relative) => !fs.existsSync(path.join(artifactRoot || '', relative)));
-  const promptFileCount = listJsonFiles(path.join(artifactRoot || '', 'prompt-inspection')).length;
+  const externalContextSummary = summarizeExternalContextSummaryArtifact({ artifactRoot });
+  const promptArtifacts = promptInspectionArtifacts(artifactRoot);
+  const promptFileCount = promptArtifacts.length;
+  const generationPromptFileCount = promptArtifacts.filter(({ artifact }) => artifact?.reason === 'pre-generation').length;
   const factCheckCount = factCheckFiles(artifactRoot).length;
   const expectedFactCheckCount = expectedFactCheckCountForTurnLimit(turnLimit);
+  const expectedPromptInspectionCount = expectedGenerationPromptSnapshotCount(turnLimit);
   const missingPromptInspection = promptFileCount === 0;
+  const missingGenerationPromptInspection = generationPromptFileCount === 0;
   const missingFactChecks = factCheckCount === 0;
   const factCheckDepthMissing = expectedFactCheckCount !== null && factCheckCount < expectedFactCheckCount;
-  const hardMissing = missingFiles.length || missingPromptInspection || missingFactChecks;
+  const promptInspectionDepthMissing = expectedPromptInspectionCount !== null && generationPromptFileCount < expectedPromptInspectionCount;
+  const hardMissing = missingFiles.length || externalContextSummary.status !== 'pass' || missingPromptInspection || missingGenerationPromptInspection || missingFactChecks;
   return {
-    status: hardMissing ? 'fail' : factCheckDepthMissing ? 'warning' : 'pass',
+    status: hardMissing ? 'fail' : factCheckDepthMissing || promptInspectionDepthMissing ? 'warning' : 'pass',
     requiredFiles,
     missingFiles,
+    externalContextSummaryPresent: externalContextSummary.present === true,
+    externalContextSummaryPath: externalContextSummary.present ? path.join(artifactRoot || '', 'host-extensions', 'external-context-summary.json') : null,
+    externalContextSummary,
     promptFileCount,
+    generationPromptFileCount,
     factCheckCount,
+    expectedPromptInspectionCount,
     expectedFactCheckCount,
+    promptInspectionDepthMissing,
     factCheckDepthMissing
   };
 }
@@ -663,6 +889,7 @@ function summarizeChildReport({ artifactRoot } = {}) {
     status: report.status || 'unknown',
     runId: report.runId || null,
     mode: report.mode || null,
+    modelCallPolicy: report.modelCallPolicy || null,
     checks: (report.checks || []).map((entry) => ({
       id: entry.id,
       status: entry.status,
@@ -670,6 +897,72 @@ function summarizeChildReport({ artifactRoot } = {}) {
     })),
     warnings: report.warnings || [],
     failures: report.failures || []
+  };
+}
+
+function summarizeLaneModelCallFailurePolicy({ artifactRoot } = {}) {
+  const report = readJsonIfExists(artifactRoot ? path.join(artifactRoot, 'report.json') : '');
+  if (!report) {
+    return {
+      status: 'fail',
+      summary: 'Lane report.json is missing; model-call failure policy evidence cannot be verified.',
+      evidenceSource: 'missing-lane-report',
+      durableEvidenceSource: null,
+      failedModelCallCount: 0,
+      retainedModelCallCount: 0,
+      modelCallCount: 0,
+      calls: [],
+      releaseBlockingCalls: [{ classification: 'release-blocking-missing-lane-report' }],
+      unresolvedCalls: [],
+      fallbackHandledCalls: []
+    };
+  }
+  const durableEvidence = report.modelCallPolicy?.failurePolicyEvidence || null;
+  if (durableEvidence && typeof durableEvidence === 'object') {
+    return {
+      ...durableEvidence,
+      durableEvidenceSource: 'lane-report:modelCallPolicy.failurePolicyEvidence'
+    };
+  }
+  const policyCheck = (report.checks || []).find((entry) => entry?.id === 'live-model-call-failure-policy') || null;
+  if (policyCheck?.details) {
+    return {
+      status: policyCheck.status || 'fail',
+      summary: policyCheck.summary || 'Lane model-call failure policy check did not include a summary.',
+      evidenceSource: policyCheck.details.evidenceSource || 'lane-check-details',
+      authoritySource: policyCheck.details.authoritySource || null,
+      severityPolicy: policyCheck.details.severityPolicy || null,
+      durableEvidenceSource: 'lane-report:live-model-call-failure-policy.details',
+      failedModelCallCount: Number(policyCheck.details.failedModelCallCount || 0),
+      retainedModelCallCount: Number(policyCheck.details.retainedModelCallCount || 0),
+      modelCallCount: Number(policyCheck.details.modelCallCount || 0),
+      calls: policyCheck.details.calls || [],
+      releaseBlockingCalls: policyCheck.details.releaseBlockingCalls || [],
+      unresolvedCalls: policyCheck.details.unresolvedCalls || [],
+      fallbackHandledCalls: policyCheck.details.fallbackHandledCalls || []
+    };
+  }
+  const smokeSummary = readJsonIfExists(path.join(artifactRoot || '', 'smoke-chat-soak', 'report-summary.json'));
+  const smokeReport = readJsonIfExists(path.join(artifactRoot || '', 'smoke-chat-soak', 'report.json'));
+  const diagnosticPolicy = summarizeModelCallFailurePolicy({ smokeReport, smokeSummary });
+  return {
+    status: 'fail',
+    summary: 'Lane report is missing durable model-call failure policy evidence.',
+    evidenceSource: 'missing-lane-report-policy',
+    authoritySource: diagnosticPolicy.authoritySource || null,
+    severityPolicy: diagnosticPolicy.severityPolicy || 'Missing durable lane-owned policy evidence blocks certification.',
+    durableEvidenceSource: null,
+    failedModelCallCount: diagnosticPolicy.failedModelCallCount || 0,
+    retainedModelCallCount: diagnosticPolicy.retainedModelCallCount || 0,
+    modelCallCount: diagnosticPolicy.modelCallCount || 0,
+    calls: diagnosticPolicy.calls || [],
+    releaseBlockingCalls: [{
+      classification: 'release-blocking-missing-durable-lane-evidence',
+      failedModelCallCount: diagnosticPolicy.failedModelCallCount || 0,
+      diagnosticStatus: diagnosticPolicy.status || 'unknown'
+    }],
+    unresolvedCalls: [],
+    fallbackHandledCalls: []
   };
 }
 
@@ -741,6 +1034,84 @@ export function summarizeGenerationTimingCoreProof({ artifactRoot } = {}) {
   };
 }
 
+export function summarizeHostNativeCompletionProof({ artifactRoot, turnLimit = null } = {}) {
+  const report = readJsonIfExists(artifactRoot ? path.join(artifactRoot, 'report.json') : '');
+  if (!report) {
+    return {
+      status: 'fail',
+      summary: 'Lane report.json is missing; host-native completion proof cannot be verified.',
+      proof: null,
+      checkStatus: null
+    };
+  }
+  const completionCheck = (report.checks || []).find((entry) => entry?.id === 'live-host-native-completion-proof') || null;
+  if (!completionCheck) {
+    return {
+      status: 'fail',
+      summary: 'Lane report is missing live-host-native-completion-proof check.',
+      proof: null,
+      checkStatus: null
+    };
+  }
+  const proof = completionCheck.details?.proof || null;
+  if (completionCheck.status === 'fail') {
+    return {
+      status: 'fail',
+      summary: completionCheck.summary || 'Lane host-native completion proof failed.',
+      proof,
+      checkStatus: completionCheck.status
+    };
+  }
+  if (!proof) {
+    return {
+      status: 'fail',
+      summary: 'Lane host-native completion check did not include proof details.',
+      proof: null,
+      checkStatus: completionCheck.status || null
+    };
+  }
+  const hasCoreProjectionProof = proof.source === 'coreStoreResponseLedger'
+    && proof.completionSource === 'coreProjection';
+  if (!hasCoreProjectionProof) {
+    return {
+      status: 'fail',
+      summary: `Lane host-native completion proof is not persisted CORE projection evidence; source=${proof.source || 'unknown'}, completionSource=${proof.completionSource || 'unknown'}.`,
+      proof,
+      checkStatus: completionCheck.status || null
+    };
+  }
+  if (proof.status !== 'pass' || Number(proof.completedHostContinueCount || 0) <= 0 || completionCheck.status !== 'pass') {
+    return {
+      status: proof.status === 'fail' || completionCheck.status === 'fail' ? 'fail' : 'warning',
+      summary: 'Lane host-native completion proof is incomplete for certification.',
+      proof,
+      checkStatus: completionCheck.status || null
+    };
+  }
+  const requiredCompletionAssessment = assessRequiredHostNativeCompletionProof(proof);
+  const requiresRequiredTurnProof = requiredHostNativeCompletionProofRequired(turnLimit);
+  if (requiresRequiredTurnProof && requiredCompletionAssessment.status !== 'pass') {
+    return {
+      status: 'fail',
+      summary: requiredCompletionAssessment.missing.length > 0
+        ? `Lane host-native completion proof is missing required turn binding for ${requiredCompletionAssessment.missing.map((entry) => entry.scriptMessageId).join(', ')}.`
+        : 'Lane host-native completion proof reported failed required-turn binding.',
+      proof,
+      requiredCompletionAssessment,
+      checkStatus: completionCheck.status || null
+    };
+  }
+  return {
+    status: 'pass',
+    summary: requiresRequiredTurnProof
+      ? `Lane proved ${proof.completedHostContinueCount} terminal host-native completion(s), including ${requiredCompletionAssessment.matched.length} required turn binding(s), from persisted CORE projections; max completion latency ${proof.maxCompletionLatencyMs ?? 'unknown'} ms.`
+      : `Lane proved ${proof.completedHostContinueCount} terminal host-native completion(s) from persisted CORE projections; max completion latency ${proof.maxCompletionLatencyMs ?? 'unknown'} ms.`,
+    proof,
+    requiredCompletionAssessment,
+    checkStatus: completionCheck.status || null
+  };
+}
+
 export function summarizeContinuityMatrixLane({
   lane,
   child,
@@ -756,6 +1127,9 @@ export function summarizeContinuityMatrixLane({
   const factualGrounding = summarizeFactualGroundingArtifacts({ artifactRoot: resolvedArtifactRoot });
   const artifactCompleteness = summarizeLaneArtifactCompleteness({ artifactRoot: resolvedArtifactRoot, turnLimit });
   const generationTimingProof = summarizeGenerationTimingCoreProof({ artifactRoot: resolvedArtifactRoot });
+  const hostNativeCompletionProof = summarizeHostNativeCompletionProof({ artifactRoot: resolvedArtifactRoot, turnLimit });
+  const storyQualityReview = summarizeStoryQualityReviewArtifacts({ artifactRoot: resolvedArtifactRoot });
+  const modelCallFailurePolicy = summarizeLaneModelCallFailurePolicy({ artifactRoot: resolvedArtifactRoot });
   const processStatus = child?.exitCode === 0 ? 'pass' : 'fail';
   const laneStatus = worstStatus([
     processStatus,
@@ -765,7 +1139,10 @@ export function summarizeContinuityMatrixLane({
     externalContextGenerationProof.status,
     factualGrounding.status,
     artifactCompleteness.status,
-    generationTimingProof.status
+    generationTimingProof.status,
+    hostNativeCompletionProof.status,
+    storyQualityReview.status,
+    modelCallFailurePolicy.status
   ]);
   return {
     id: lane.id,
@@ -787,7 +1164,10 @@ export function summarizeContinuityMatrixLane({
     externalContextProof,
     externalContextGenerationProof,
     factualGrounding,
-    generationTimingProof
+    generationTimingProof,
+    hostNativeCompletionProof,
+    storyQualityReview,
+    modelCallFailurePolicy
   };
 }
 
@@ -858,7 +1238,7 @@ function laneArtifactRootForRun(paths, runId, laneId) {
   return path.join(laneArtifactRoot(paths, laneId), laneRunId(runId, laneId));
 }
 
-function childEnvForLane({ lane, paths, runId, turnLimit }) {
+function childEnvForLane({ lane, paths, runId, turnLimit, activateExternalContextFixture = false }) {
   const laneUser = {
     handle: lane.userHandle,
     password: lane.user?.password || ''
@@ -877,6 +1257,8 @@ function childEnvForLane({ lane, paths, runId, turnLimit }) {
   }
   if (turnLimit) env.DIRECTIVE_SOAK_TURN_LIMIT = String(turnLimit);
   else delete env.DIRECTIVE_SOAK_TURN_LIMIT;
+  if (activateExternalContextFixture) env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE = '1';
+  else delete env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE;
   return env;
 }
 
@@ -885,11 +1267,87 @@ function requestedTurnLimitValue(turnLimit) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+export function firstHostNativeCompletionRequiredTurn() {
+  const requiredTurns = requiredHostNativeCompletionMessages()
+    .map((entry) => Number(entry.turn))
+    .filter((turn) => Number.isFinite(turn) && turn > 0)
+    .sort((a, b) => a - b);
+  return requiredTurns[0] || null;
+}
+
+export function requiredHostNativeCompletionMessages() {
+  return SOAK_TURN_SCRIPT
+    .filter((entry) => entry?.hostNativeCompletionRequired === true)
+    .map((entry) => {
+      const turn = Number(entry.turn);
+      const scriptMessageId = entry.id || (Number.isFinite(turn) && turn > 0
+        ? `soak-turn-${String(turn).padStart(2, '0')}`
+        : null);
+      return {
+        scriptMessageId,
+        turn: Number.isFinite(turn) && turn > 0 ? turn : null,
+        expectedRoute: entry.expectedRoute || 'hostContinue',
+        expectedResponseStrategy: entry.expectedResponseStrategy || 'injectAndContinue'
+      };
+    })
+    .filter((entry) => entry.scriptMessageId);
+}
+
+function requiredHostNativeCompletionProofRequired(turnLimit) {
+  const firstRequiredTurn = firstHostNativeCompletionRequiredTurn();
+  if (!firstRequiredTurn) return false;
+  const requestedLimit = requestedTurnLimitValue(turnLimit);
+  return requestedLimit === null || requestedLimit >= firstRequiredTurn;
+}
+
+function requiredHostNativeCompletionsFromProof(proof = {}) {
+  const completions = Array.isArray(proof?.requiredCompletions)
+    ? proof.requiredCompletions
+    : Array.isArray(proof?.requiredHostNativeCompletions)
+      ? proof.requiredHostNativeCompletions
+      : [];
+  return completions.filter((entry) => entry?.required === true || entry?.scriptMessageId || entry?.id);
+}
+
+function requiredHostNativeCompletionMatches(completion = {}, expected = {}) {
+  const turn = Number(completion.turn);
+  const expectedTurn = Number(expected.turn);
+  return completion.status === 'pass'
+    && (completion.scriptMessageId || completion.id || null) === expected.scriptMessageId
+    && (!Number.isFinite(expectedTurn) || expectedTurn <= 0 || turn === expectedTurn)
+    && (completion.expectedRoute || 'hostContinue') === expected.expectedRoute
+    && (completion.expectedResponseStrategy || 'injectAndContinue') === expected.expectedResponseStrategy
+    && completion.source === 'coreStoreResponseLedger'
+    && completion.completionSource === 'coreProjection'
+    && Number(completion.completedHostContinueCount || 0) > 0
+    && Number(completion.failedHostContinueCount || 0) === 0;
+}
+
+function assessRequiredHostNativeCompletionProof(proof = {}) {
+  const expected = requiredHostNativeCompletionMessages();
+  const completions = requiredHostNativeCompletionsFromProof(proof);
+  const matched = [];
+  const missing = [];
+  for (const required of expected) {
+    const completion = completions.find((entry) => requiredHostNativeCompletionMatches(entry, required)) || null;
+    if (completion) matched.push(completion);
+    else missing.push(required);
+  }
+  const failed = completions.filter((entry) => entry.status && entry.status !== 'pass');
+  return {
+    status: missing.length > 0 || failed.length > 0 ? 'fail' : 'pass',
+    expected,
+    completions,
+    matched,
+    missing,
+    failed
+  };
+}
+
 function laneReportTurnLimit(report = {}) {
   const turnLimitCheck = (report.checks || []).find((entry) => entry.id === 'live-execution-turn-limit');
   const value = turnLimitCheck?.details?.turnLimit ?? null;
-  const parsed = Number.parseInt(String(value || '').trim(), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return requestedTurnLimitValue(value);
 }
 
 function laneArtifactTurnLimitMatches({ artifactRoot, turnLimit } = {}) {
@@ -924,7 +1382,12 @@ export function summarizeReusableContinuityMatrixLane({
     || (summary.artifactCompleteness?.status === 'warning' && !boundedTurnLimit)
     || summary.promptInspection?.status !== 'pass'
     || summary.externalContextProof?.status !== 'pass'
+    || summary.externalContextGenerationProof?.status !== 'pass'
     || summary.generationTimingProof?.status !== 'pass'
+    || summary.hostNativeCompletionProof?.status !== 'pass'
+    || summary.modelCallFailurePolicy?.status !== 'pass'
+    || summary.storyQualityReview?.status === 'fail'
+    || (summary.storyQualityReview?.status === 'warning' && !boundedTurnLimit)
     || summary.factualGrounding?.status === 'fail'
   ) {
     return null;
@@ -1196,6 +1659,28 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
         : 'Each lane will run the full 52-turn campaign soak.',
     { turnLimit: options.turnLimit || null }
   ));
+  const hostNativeRequiredTurn = firstHostNativeCompletionRequiredTurn();
+  const requestedTurnLimit = requestedTurnLimitValue(options.turnLimit);
+  const hostNativeTurnCoverageStatus = !options.live
+    ? 'skipped'
+    : hostNativeRequiredTurn && requestedTurnLimit && requestedTurnLimit < hostNativeRequiredTurn
+      ? 'warning'
+      : 'pass';
+  checks.push(reportCheck(
+    'host-native-completion-turn-coverage',
+    hostNativeTurnCoverageStatus,
+    !options.live
+      ? 'Host-native completion turn coverage skipped in dry-run mode.'
+      : hostNativeTurnCoverageStatus === 'warning'
+        ? `Each lane is limited to ${requestedTurnLimit} turn(s), before required host-native completion proof turn ${hostNativeRequiredTurn}.`
+        : hostNativeRequiredTurn
+          ? `Lane depth reaches required host-native completion proof turn ${hostNativeRequiredTurn}.`
+          : 'No required host-native completion turn is marked in the soak script.',
+    {
+      turnLimit: requestedTurnLimit,
+      firstHostNativeCompletionRequiredTurn: hostNativeRequiredTurn
+    }
+  ));
   const promptMissing = laneSummaries.filter((lane) => lane.promptInspection?.status !== 'pass');
   checks.push(reportCheck(
     'continuity-prompt-source-proof',
@@ -1268,6 +1753,61 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
       }))
     }
   ));
+  const hostCompletionMissing = laneSummaries.filter((lane) => lane.hostNativeCompletionProof?.status !== 'pass');
+  checks.push(reportCheck(
+    'host-native-completion-core-proof',
+    !options.live ? 'skipped' : hostCompletionMissing.length ? 'fail' : 'pass',
+    !options.live
+      ? 'Host-native completion CORE proof skipped in dry-run mode.'
+      : hostCompletionMissing.length
+        ? `${hostCompletionMissing.length} lane(s) are missing persisted CORE projection host-native completion proof.`
+        : 'Every live lane proved terminal host-native completion from persisted CORE Store response projections.',
+    {
+      lanes: laneSummaries.map((lane) => ({
+        id: lane.id,
+        userHandle: lane.userHandle,
+        status: lane.hostNativeCompletionProof?.status || 'missing',
+        checkStatus: lane.hostNativeCompletionProof?.checkStatus || null,
+        source: lane.hostNativeCompletionProof?.proof?.source || null,
+        completionSource: lane.hostNativeCompletionProof?.proof?.completionSource || null,
+        completedHostContinueCount: lane.hostNativeCompletionProof?.proof?.completedHostContinueCount ?? null,
+        failedHostContinueCount: lane.hostNativeCompletionProof?.proof?.failedHostContinueCount ?? null,
+        requiredCompletionStatus: lane.hostNativeCompletionProof?.requiredCompletionAssessment?.status || null,
+        requiredCompletionMatchedCount: lane.hostNativeCompletionProof?.requiredCompletionAssessment?.matched?.length ?? null,
+        requiredCompletionMissing: lane.hostNativeCompletionProof?.requiredCompletionAssessment?.missing || [],
+        requiredCompletions: lane.hostNativeCompletionProof?.requiredCompletionAssessment?.completions || [],
+        maxCompletionLatencyMs: lane.hostNativeCompletionProof?.proof?.maxCompletionLatencyMs ?? null,
+        summary: lane.hostNativeCompletionProof?.summary || null
+      }))
+    }
+  ));
+  const modelCallPolicyFailures = laneSummaries.filter((lane) => lane.modelCallFailurePolicy?.status === 'fail');
+  const modelCallPolicyWarnings = laneSummaries.filter((lane) => lane.modelCallFailurePolicy?.status === 'warning');
+  checks.push(reportCheck(
+    'model-call-failure-policy',
+    !options.live ? 'skipped' : modelCallPolicyFailures.length ? 'fail' : modelCallPolicyWarnings.length ? 'warning' : 'pass',
+    !options.live
+      ? 'Model-call failure policy evidence skipped in dry-run mode.'
+      : modelCallPolicyFailures.length
+        ? `${modelCallPolicyFailures.length} lane(s) have release-blocking or missing model-call failure policy evidence.`
+        : modelCallPolicyWarnings.length
+          ? `${modelCallPolicyWarnings.length} lane(s) have unresolved model-call failure policy evidence.`
+          : 'Every live lane has durable model-call failure policy evidence.',
+    {
+      lanes: laneSummaries.map((lane) => ({
+        id: lane.id,
+        userHandle: lane.userHandle,
+        status: lane.modelCallFailurePolicy?.status || 'missing',
+        summary: lane.modelCallFailurePolicy?.summary || null,
+        evidenceSource: lane.modelCallFailurePolicy?.evidenceSource || null,
+        durableEvidenceSource: lane.modelCallFailurePolicy?.durableEvidenceSource || null,
+        failedModelCallCount: lane.modelCallFailurePolicy?.failedModelCallCount || 0,
+        releaseBlockingCount: lane.modelCallFailurePolicy?.releaseBlockingCalls?.length || 0,
+        unresolvedCount: lane.modelCallFailurePolicy?.unresolvedCalls?.length || 0,
+        fallbackHandledCount: lane.modelCallFailurePolicy?.fallbackHandledCalls?.length || 0
+      }))
+    }
+  ));
   const factualHardFailures = laneSummaries.filter((lane) => lane.factualGrounding?.status === 'fail');
   const factualWarnings = laneSummaries.filter((lane) => lane.factualGrounding?.status === 'warning');
   checks.push(reportCheck(
@@ -1283,6 +1823,52 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
     {
       totalFactChecks: laneSummaries.reduce((sum, lane) => sum + (lane.factualGrounding?.checkCount || 0), 0),
       totalBadFindings: laneSummaries.reduce((sum, lane) => sum + (lane.factualGrounding?.badCount || 0), 0)
+    }
+  ));
+  const boundedTurnLimit = requestedTurnLimitValue(options.turnLimit) !== null;
+  const storyQualityFailures = laneSummaries.filter((lane) => lane.storyQualityReview?.status === 'fail');
+  const storyQualityWarnings = laneSummaries.filter((lane) => lane.storyQualityReview?.status === 'warning');
+  const modelReviewNotRun = laneSummaries.filter((lane) => lane.storyQualityReview?.modelAssistedReview?.missing === true);
+  const modelReviewWarnings = laneSummaries.filter((lane) => lane.storyQualityReview?.modelAssistedReview?.status === 'warning');
+  const storyQualityStatus = !options.live
+    ? 'skipped'
+    : storyQualityFailures.length
+      ? 'fail'
+      : storyQualityWarnings.length
+        ? (boundedTurnLimit ? 'warning' : 'fail')
+        : 'pass';
+  checks.push(reportCheck(
+    'story-quality-model-review',
+    storyQualityStatus,
+    !options.live
+      ? 'Story-quality model-review proof skipped in dry-run mode.'
+      : storyQualityFailures.length
+        ? `${storyQualityFailures.length} lane(s) failed story-quality review proof.`
+        : storyQualityWarnings.length
+          ? boundedTurnLimit
+            ? `${storyQualityWarnings.length} bounded lane(s) have incomplete or non-passing model-assisted story-quality review evidence.`
+            : `${storyQualityWarnings.length} lane(s) have incomplete or non-passing model-assisted story-quality review evidence; unbounded certification requires pass.`
+          : 'Every live lane has passing model-assisted story-quality review evidence.',
+    {
+      boundedTurnLimit,
+      missingOrNotRunCount: modelReviewNotRun.length,
+      warningCount: modelReviewWarnings.length,
+      lanes: laneSummaries.map((lane) => ({
+        id: lane.id,
+        userHandle: lane.userHandle,
+        status: lane.storyQualityReview?.status || 'missing',
+        checkStatus: lane.storyQualityReview?.checkStatus || null,
+        deterministicStatus: lane.storyQualityReview?.deterministicStatus || null,
+        deterministicScoreCount: lane.storyQualityReview?.deterministicScoreCount || 0,
+        averageScore: lane.storyQualityReview?.averageScore ?? null,
+        modelAssistedReviewStatus: lane.storyQualityReview?.modelAssistedReview?.status || null,
+        modelAssistedReviewResultPath: lane.storyQualityReview?.modelAssistedReview?.resultPath || null,
+        modelAssistedReviewProviderOutputPath: lane.storyQualityReview?.modelAssistedReview?.providerOutputPath || null,
+        modelAssistedReviewMissing: lane.storyQualityReview?.modelAssistedReview?.missing === true,
+        modelAssistedReviewUnparseable: lane.storyQualityReview?.modelAssistedReview?.unparseable === true,
+        modelAssistedReviewTimedOut: lane.storyQualityReview?.modelAssistedReview?.timedOut === true,
+        summary: lane.storyQualityReview?.summary || null
+      }))
     }
   ));
   const artifactFailures = laneSummaries.filter((lane) => lane.artifactCompleteness?.status === 'fail');
@@ -1305,6 +1891,11 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
         expectedFactCheckCount: lane.artifactCompleteness?.expectedFactCheckCount ?? null,
         factCheckDepthMissing: lane.artifactCompleteness?.factCheckDepthMissing === true,
         promptFileCount: lane.artifactCompleteness?.promptFileCount || 0,
+        generationPromptFileCount: lane.artifactCompleteness?.generationPromptFileCount || 0,
+        expectedPromptInspectionCount: lane.artifactCompleteness?.expectedPromptInspectionCount ?? null,
+        promptInspectionDepthMissing: lane.artifactCompleteness?.promptInspectionDepthMissing === true,
+        externalContextSummaryPresent: lane.artifactCompleteness?.externalContextSummaryPresent === true,
+        externalContextSummary: lane.artifactCompleteness?.externalContextSummary || null,
         missingFiles: lane.artifactCompleteness?.missingFiles || []
       }))
     }
@@ -1347,6 +1938,14 @@ function buildSummaryMarkdown(report) {
     lines.push(`Status: ${probe.status}`);
     lines.push(`Users: ${probe.userCount}`);
     lines.push(`Targets: ${Object.entries(probe.targetStatusCounts || {}).map(([status, count]) => `${status}=${count}`).join(', ') || 'none'}`);
+    if (report.artifacts?.hostExtensions) {
+      lines.push(`Aggregate host extension artifacts: ${path.relative(report.artifactRoot, report.artifacts.hostExtensions).replace(/\\/g, '/')}`);
+    }
+    if (report.readiness?.artifactRoot) {
+      const readinessHostExtensions = path.join(report.readiness.artifactRoot, 'host-extensions');
+      lines.push(`Readiness host extension artifacts: ${path.relative(report.artifactRoot, readinessHostExtensions).replace(/\\/g, '/')}`);
+      lines.push(`External context probe: ${path.relative(report.artifactRoot, path.join(readinessHostExtensions, 'external-context-probe.json')).replace(/\\/g, '/')}`);
+    }
     if (probe.fixtureDepth) {
       lines.push(`FixtureDepth: ${probe.fixtureDepth.status}`);
       lines.push(`Full fixture users: ${probe.fixtureDepth.fullFixtureUserHandles?.join(', ') || 'none'}`);
@@ -1364,9 +1963,16 @@ function buildSummaryMarkdown(report) {
     if (lane.externalContextProof) {
       lines.push(`  - externalContext: ${lane.externalContextProof.status}, keys=${lane.externalContextProof.knownExternalPromptKeys?.join(', ') || 'none'}`);
     }
+    if (lane.artifactCompleteness?.externalContextSummary) {
+      const summary = lane.artifactCompleteness.externalContextSummary;
+      lines.push(`  - externalContextSummary: ${summary.status}, captures=${summary.captureCount || 0}, targets=${summary.targetSummaryCount || 0}, artifact=${summary.file || 'missing'}`);
+    }
     if (lane.factualGrounding?.counts) {
       const counts = lane.factualGrounding.counts;
       lines.push(`  - factualGrounding: contradicted=${counts.contradicted || 0}, omitted=${counts.omitted || 0}, unsupportedDetail=${counts.unsupportedDetail || 0}`);
+    }
+    if (lane.modelCallFailurePolicy) {
+      lines.push(`  - modelCallFailurePolicy: ${lane.modelCallFailurePolicy.status}, failed=${lane.modelCallFailurePolicy.failedModelCallCount || 0}, blocking=${lane.modelCallFailurePolicy.releaseBlockingCalls?.length || 0}, handled=${lane.modelCallFailurePolicy.fallbackHandledCalls?.length || 0}`);
     }
   }
   if (report.warnings.length) {
@@ -1460,7 +2066,13 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
         return reusable;
       }
     }
-    const env = childEnvForLane({ lane, paths, runId, turnLimit: options.turnLimit });
+    const env = childEnvForLane({
+      lane,
+      paths,
+      runId,
+      turnLimit: options.turnLimit,
+      activateExternalContextFixture: options.activateExternalContextFixture === true
+    });
     coordinatorLog(paths, options, {
       kind: 'lane-start',
       status: 'started',
@@ -1514,6 +2126,14 @@ export function buildReport({
     status: finalStatus({ checks, options }),
     mode,
     artifactRoot: paths.root,
+    artifacts: {
+      report: paths.report,
+      summary: paths.summary,
+      liveLog: paths.liveLog,
+      lanes: paths.lanes,
+      readiness: paths.readiness,
+      hostExtensions: paths.hostExtensions
+    },
     options: {
       live: options.live,
       turnLimit: options.turnLimit || null,

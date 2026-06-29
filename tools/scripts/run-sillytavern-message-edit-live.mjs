@@ -6,7 +6,7 @@ import {
   PLAYWRIGHT_VIEWPORTS,
   appendJsonLine,
   authenticateSillyTavernUser,
-  compact,
+  compareServedExtension,
   createArtifactPaths,
   createRunId,
   ensureArtifactTree,
@@ -59,6 +59,23 @@ function sillyTavernPassword() {
     ?? process.env.DIRECTIVE_SOAK_ST_PASSWORD
     ?? process.env.SILLYTAVERN_PASSWORD
     ?? '';
+}
+
+function isNonHumanSillyTavernUser(value) {
+  const user = String(value || '').trim().toLowerCase();
+  return Boolean(user && user !== 'default-user');
+}
+
+function summarizeServedExtension(served = null) {
+  if (!served) return null;
+  return {
+    ok: served.ok === true,
+    mismatchCount: Number(served.mismatchCount || 0),
+    servedFailureCount: Number(served.servedFailureCount || 0),
+    comparedFiles: Array.isArray(served.compared)
+      ? served.compared.map((entry) => entry.relativePath).filter(Boolean)
+      : []
+  };
 }
 
 function cookieHeaderToBrowserCookies(cookieHeader, baseUrl) {
@@ -277,10 +294,10 @@ async function clickEditAndSave(page) {
   await page.waitForFunction(() => !document.querySelector('#curEditTextarea'), null, { timeout: 10000 }).catch(() => {});
   return {
     targetMesid: TARGET_MESID,
-    originalTextPreview: compact(originalText, 260),
     originalTextHash: sha256Text(originalText).slice(0, 16),
-    replacementTextPreview: compact(REPLACEMENT_TEXT, 260),
+    originalTextLength: originalText.length,
     replacementTextHash: sha256Text(REPLACEMENT_TEXT).slice(0, 16),
+    replacementTextLength: REPLACEMENT_TEXT.length,
     editButtonBox: editBox,
     doneButtonBox: doneBox
   };
@@ -310,16 +327,35 @@ async function waitForDirectiveRecovery(page, before) {
 async function liveReport(paths = null) {
   if (!BASE_URL) return { status: 'skipped', reason: 'SILLYTAVERN_BASE_URL is required.' };
   if (!LIVE) return { status: 'skipped', reason: 'Pass --live to edit a live SillyTavern message.' };
+  if (!isNonHumanSillyTavernUser(SILLYTAVERN_USER)) {
+    return { status: 'fail', failures: ['DIRECTIVE_SILLYTAVERN_USER must be set to a non-human soak user; default-user is reserved for human testing.'] };
+  }
   if (!TARGET_MESID) return { status: 'fail', failures: ['DIRECTIVE_MESSAGE_EDIT_TARGET_MESID is required.'] };
   if (!REPLACEMENT_TEXT) return { status: 'fail', failures: ['DIRECTIVE_MESSAGE_EDIT_REPLACEMENT_TEXT or DIRECTIVE_MESSAGE_EDIT_REPLACEMENT_FILE is required.'] };
   const browserResult = await launchPlaywrightBrowser({ headless: HEADLESS });
   if (!browserResult.ok) return { status: 'fail', failures: [browserResult.error?.message || 'Playwright browser launch failed.'], browser: browserResult };
-  const auth = SILLYTAVERN_USER
-    ? await authenticateSillyTavernUser({ baseUrl: BASE_URL, handle: SILLYTAVERN_USER, password: sillyTavernPassword() })
-    : null;
-  if (SILLYTAVERN_USER && !auth?.ok) {
+  const auth = await authenticateSillyTavernUser({ baseUrl: BASE_URL, handle: SILLYTAVERN_USER, password: sillyTavernPassword() });
+  if (!auth?.ok) {
     await browserResult.browser.close();
     return { status: 'fail', failures: [auth?.error || `SillyTavern login failed for ${SILLYTAVERN_USER}.`], auth };
+  }
+  const served = await compareServedExtension({
+    baseUrl: BASE_URL,
+    extensionPath: EXTENSION_PATH,
+    localRoot: process.cwd(),
+    headers: auth?.headers || {},
+    timeoutMs: 20000
+  });
+  if (paths?.hostExtensions) writeJsonFile(path.join(paths.hostExtensions, 'served-extension-compare.json'), served);
+  if (served.ok !== true) {
+    await browserResult.browser.close();
+    return {
+      status: 'fail',
+      failures: ['Served Directive extension is not synced with the current checkout.'],
+      baseUrl: BASE_URL,
+      sillyTavernUser: SILLYTAVERN_USER || null,
+      servedExtension: summarizeServedExtension(served)
+    };
   }
   const context = await browserResult.browser.newContext({ baseURL: BASE_URL, viewport: PLAYWRIGHT_VIEWPORTS.desktop });
   if (auth?.headers?.Cookie) await context.addCookies(cookieHeaderToBrowserCookies(auth.headers.Cookie, BASE_URL));
@@ -360,6 +396,7 @@ async function liveReport(paths = null) {
       status,
       baseUrl: BASE_URL,
       sillyTavernUser: SILLYTAVERN_USER || null,
+      servedExtension: summarizeServedExtension(served),
       resumeSaveId: RESUME_SAVE_ID || null,
       expectedChatId: RESUME_CHAT_ID || null,
       openedDirectiveWith,
@@ -369,11 +406,11 @@ async function liveReport(paths = null) {
       waited,
       before: {
         ...before,
-        targetMessage: before.targetMessage ? { ...before.targetMessage, text: undefined } : null
+        targetMessage: before.targetMessage ? { ...before.targetMessage, text: undefined, textPreview: undefined } : null
       },
       after: {
         ...after,
-        targetMessage: after.targetMessage ? { ...after.targetMessage, text: undefined } : null
+        targetMessage: after.targetMessage ? { ...after.targetMessage, text: undefined, textPreview: undefined } : null
       },
       deltas: {
         recovery: Number(after.recoveryCount || 0) - Number(before.recoveryCount || 0),
@@ -391,6 +428,7 @@ async function liveReport(paths = null) {
       errorDetails: error?.details || null,
       baseUrl: BASE_URL,
       sillyTavernUser: SILLYTAVERN_USER || null,
+      servedExtension: summarizeServedExtension(served),
       resumeSaveId: RESUME_SAVE_ID || null,
       expectedChatId: RESUME_CHAT_ID || null
     };

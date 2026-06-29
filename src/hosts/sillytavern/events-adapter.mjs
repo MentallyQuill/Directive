@@ -4,6 +4,7 @@ const SILLYTAVERN_EVENT_ALIASES = Object.freeze({
   extensionDisable: 'EXTENSION_DISABLE',
   messageSent: 'MESSAGE_SENT',
   messageEdited: 'MESSAGE_EDITED',
+  messageUpdated: 'MESSAGE_UPDATED',
   messageDeleted: 'MESSAGE_DELETED',
   generationStarted: 'GENERATION_STARTED',
   generationStopped: 'GENERATION_STOPPED',

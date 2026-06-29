@@ -912,6 +912,7 @@ function containsAny(records, patterns) {
 
 async function main() {
   assert.ok(BASE_URL, 'SILLYTAVERN_BASE_URL or ST_BASE_URL is required.');
+  assertLive(SILLYTAVERN_USER && SILLYTAVERN_USER !== 'default-user', 'DIRECTIVE_SILLYTAVERN_USER must be set to a non-human soak user; default-user is reserved for human testing.');
   const launched = await launchPlaywrightBrowser({
     headless: HEADLESS,
     timeoutMs: BROWSER_TIMEOUT_MS
@@ -1228,6 +1229,7 @@ async function main() {
 
     const result = {
       ok: true,
+      sillyTavernUser: SILLYTAVERN_USER,
       campaign: after.campaign,
       binding: after.binding,
       fixtureHostMessageId: inserted.hostMessageId,
@@ -1250,6 +1252,12 @@ async function main() {
       },
       sceneHandshakeModelCalls: after.sceneHandshakeModelCalls.slice(-4),
       selectedAssistantVariant: after.sceneHandshake.lastResult?.selectedAssistantVariant || null,
+      servedExtension: {
+        ok: served.ok === true,
+        mismatchCount: Number(served.mismatchCount || 0),
+        servedFailureCount: Number(served.servedFailureCount || 0),
+        comparedFiles: served.compared.map((entry) => entry.relativePath).filter(Boolean)
+      },
       servedExtensionCompared: served.compared.map((entry) => entry.relativePath),
       exportedSave: {
         saveId: exported.saveId,

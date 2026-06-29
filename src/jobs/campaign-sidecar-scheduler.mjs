@@ -61,6 +61,10 @@ const WORKER_BOUNDARY_NOTES = Object.freeze({
   ]
 });
 
+const SIDECAR_PROPOSAL_MAX_OPERATIONS = 3;
+const SIDECAR_PROPOSAL_MAX_TOKENS = 2200;
+const SIDECAR_REPAIR_MAX_TOKENS = 1400;
+
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -72,6 +76,10 @@ function isObject(value) {
 function compactText(value = '', maxLength = 240) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function compactDiagnosticText(value = '', maxLength = 1000) {
+  return compactText(value, maxLength);
 }
 
 function asArray(value) {
@@ -748,6 +756,7 @@ function proposalPrompt(workerKey, worker, campaignState, turnContext) {
     `Authorized top-level roots: ${worker.allowedRoots.join(', ')}.`,
     ...workerOperationRules(workerKey),
     'String values must be strict JSON-safe. Do not copy raw dialogue with double quotes into evidence fields; paraphrase quoted speech or escape every quote.',
+    `Keep the proposal compact: at most ${SIDECAR_PROPOSAL_MAX_OPERATIONS} operations, concise object values, and a summary under 180 characters. Prefer an empty operations array over exhaustive bookkeeping.`,
     'Mission Components in Context are player-reviewed source records. If an operation is derived from one, include its id in sourceComponentIds on the promoted record value. Do not overwrite or paraphrase component verbatim source text.',
     'If an observation belongs to another root, do not write it for this worker; mention the boundary in summary and return an empty operations array if needed.',
     ...boundaryNotes.map((note) => `Boundary: ${note}`),
@@ -927,7 +936,7 @@ export function createCampaignSidecarScheduler({
       request: {
         systemPrompt: 'Return one strict JSON state-delta proposal. No markdown, prose, or private reasoning.',
         prompt: proposalPrompt(workerKey, worker, state, turnContext),
-        maxTokens: 1800
+        maxTokens: SIDECAR_PROPOSAL_MAX_TOKENS
       }
     };
   }
@@ -978,6 +987,137 @@ export function createCampaignSidecarScheduler({
         diagnostics: cloneJson(result.diagnostics || null)
       };
     });
+  }
+
+  function workerResponseText(response = {}) {
+    return response.response?.text ?? response.response?.content ?? response.response ?? '';
+  }
+
+  function parsePositionNearEnd(message = '', text = '') {
+    const match = String(message || '').match(/\bposition\s+(\d+)/i);
+    if (!match) return false;
+    const position = Number(match[1]);
+    return Number.isFinite(position) && position >= Math.max(0, String(text || '').length - 8);
+  }
+
+  function shouldAttemptTruncatedJsonRepair(text = '', parsed = {}) {
+    const source = String(text || '').trim();
+    if (!source.includes('{')) return false;
+    if (source.length < 80) return false;
+    if (!source.endsWith('}')) return true;
+    const message = parsed.error?.message || parsed.diagnostics?.parse?.diagnostic?.message || '';
+    return /\b(unexpected end|unterminated|after property value)\b/i.test(message) && parsePositionNearEnd(message, source);
+  }
+
+  function sanitizedParseDiagnostic(parsed = {}) {
+    const diagnostic = parsed.diagnostics?.parse?.diagnostic || parsed.error?.details || {};
+    return {
+      ok: parsed.ok === true,
+      code: parsed.error?.code || diagnostic.code || null,
+      message: compactDiagnosticText(parsed.error?.message || diagnostic.message || null, 500),
+      visibleContentLength: Number.isFinite(Number(diagnostic.visibleContentLength)) ? Number(diagnostic.visibleContentLength) : null
+    };
+  }
+
+  function repairGenerationDiagnostic(generation = {}) {
+    return {
+      ok: generation.ok === true,
+      errorCode: generation.error?.code || null,
+      latencyMs: Number.isFinite(Number(generation.diagnostics?.latencyMs)) ? Number(generation.diagnostics.latencyMs) : null,
+      providerId: generation.diagnostics?.providerId || null,
+      providerKind: generation.diagnostics?.providerKind || null,
+      model: generation.diagnostics?.model || null
+    };
+  }
+
+  function proposalRepairPrompt(job, originalText, parsed) {
+    const workerKey = job.workerKey;
+    const worker = job.worker || WORKERS[workerKey] || {};
+    return [
+      `Repair Directive's ${workerKey} sidecar output into one valid JSON object only.`,
+      'The prior output appears truncated or malformed. Do not continue the truncated text.',
+      'Rebuild a compact proposal from the supplied context and the salvageable intent in the malformed output.',
+      'If the durable state change is uncertain, return an empty operations array.',
+      `Required workerId: "${workerKey}". Required baseRevision: ${job.baseRevision}.`,
+      `Authorized top-level roots: ${(worker.allowedRoots || []).join(', ')}.`,
+      ...workerOperationRules(workerKey),
+      `Hard limits: at most ${SIDECAR_PROPOSAL_MAX_OPERATIONS} operations; each string value under 180 characters; summary under 180 characters.`,
+      'Return exactly one JSON object shaped as {"id":"...","workerId":"...","baseRevision":0,"operations":[],"summary":"..."}.',
+      '',
+      `Initial parse failure: ${compactDiagnosticText(parsed.error?.message || 'Invalid JSON.', 500)}`,
+      `Malformed output excerpt:\n${compactDiagnosticText(originalText, 5000)}`,
+      '',
+      `Context:\n${JSON.stringify(sidecarContext(job.snapshot?.campaignState || {}, job.snapshot?.turnContext || {}, workerKey), null, 2)}`
+    ].join('\n');
+  }
+
+  async function attemptTruncatedJsonRepair(job, originalText, initialParsed) {
+    const generation = await generationRouter.generate(job.roleId || job.worker?.roleId, {
+      systemPrompt: 'Repair a Directive sidecar state-delta proposal. Return strict JSON only. No markdown, prose, or reasoning.',
+      prompt: proposalRepairPrompt(job, originalText, initialParsed),
+      maxTokens: SIDECAR_REPAIR_MAX_TOKENS,
+      metadata: {
+        sidecarRepair: true,
+        workerKey: job.workerKey,
+        baseRevision: job.baseRevision
+      }
+    }, {
+      timeoutMs: Math.min(Number(job.policy?.timeoutMs || 45000) || 45000, 45000)
+    });
+    const diagnostics = {
+      attempted: true,
+      reason: 'likely-truncated-json',
+      initial: sanitizedParseDiagnostic(initialParsed),
+      generation: repairGenerationDiagnostic(generation)
+    };
+    if (!generation.ok) {
+      return {
+        ok: false,
+        parsed: initialParsed,
+        diagnostics: {
+          ...diagnostics,
+          status: 'failed',
+          errorCode: generation.error?.code || 'DIRECTIVE_SIDECAR_REPAIR_FAILED'
+        }
+      };
+    }
+    const repairText = generation.response?.text ?? generation.response?.content ?? generation.response;
+    const repaired = parseStateDeltaProposalOutput(repairText, {
+      workerKey: job.workerKey,
+      allowedRoots: job.worker?.allowedRoots || [],
+      baseRevision: job.baseRevision,
+      forbiddenPathPolicy: dropForbiddenSidecarOperations ? 'drop' : 'reject'
+    });
+    if (!repaired.ok) {
+      return {
+        ok: false,
+        parsed: initialParsed,
+        diagnostics: {
+          ...diagnostics,
+          status: 'rejected',
+          repairedParse: sanitizedParseDiagnostic(repaired)
+        }
+      };
+    }
+    return {
+      ok: true,
+      parsed: {
+        ...repaired,
+        diagnostics: {
+          ...cloneJson(repaired.diagnostics || {}),
+          repair: {
+            ...diagnostics,
+            status: 'accepted',
+            repairedParse: sanitizedParseDiagnostic(repaired)
+          }
+        }
+      },
+      diagnostics: {
+        ...diagnostics,
+        status: 'accepted',
+        repairedParse: sanitizedParseDiagnostic(repaired)
+      }
+    };
   }
 
   async function runCommandBearingEvidenceClosureReview({
@@ -1081,8 +1221,9 @@ export function createCampaignSidecarScheduler({
       queueCoreDiagnostic(job, 'failed', { result, error });
       return result;
     }
-    const parsed = parseStateDeltaProposalOutput(
-      response.response?.text ?? response.response?.content ?? response.response,
+    const originalResponseText = workerResponseText(response);
+    let parsed = parseStateDeltaProposalOutput(
+      originalResponseText,
       {
         workerKey,
         allowedRoots: worker.allowedRoots,
@@ -1090,6 +1231,20 @@ export function createCampaignSidecarScheduler({
         forbiddenPathPolicy: dropForbiddenSidecarOperations ? 'drop' : 'reject'
       }
     );
+    if (!parsed.ok && shouldAttemptTruncatedJsonRepair(originalResponseText, parsed)) {
+      const repair = await attemptTruncatedJsonRepair(job, originalResponseText, parsed);
+      if (repair.ok) {
+        parsed = repair.parsed;
+      } else {
+        parsed = {
+          ...parsed,
+          diagnostics: {
+            ...cloneJson(parsed.diagnostics || {}),
+            repair: cloneJson(repair.diagnostics || null)
+          }
+        };
+      }
+    }
     if (!parsed.ok) {
       const error = parsed.error || {
         code: 'DIRECTIVE_SIDECAR_INVALID_PROPOSAL',
@@ -1213,46 +1368,51 @@ export function createCampaignSidecarScheduler({
     const currentState = freshestBatchState();
     const currentRevision = currentState.runtimeTracking.revision;
     if (currentRevision !== batchState.expectedRevision) {
-      const failure = {
-        code: 'DIRECTIVE_STATE_REVISION_CONFLICT',
-        message: `State delta revision conflict: expected ${batchState.expectedRevision}, current revision is ${currentRevision}.`,
-        details: {
-          expectedRevision: batchState.expectedRevision,
-          currentRevision,
-          batchBaseRevision: batchState.baseRevision
-        }
-      };
-      const journaled = await journal({
-        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:rejected`,
-        workerId: workerKey,
-        roleId: worker.roleId,
-        status: 'rejected',
-        baseRevision,
-        summary: proposal.summary || null,
-        ...proposalEventContext,
-        error: failure,
-        diagnostics: {
-          ...cloneJson(parsed.diagnostics || {}),
-          ...batchDiagnostics(job, {
-            applyBaseRevision: currentRevision,
+      if (currentRevision > batchState.expectedRevision) {
+        batchState.expectedRevision = currentRevision;
+        batchState.currentState = cloneJson(currentState);
+      } else {
+        const failure = {
+          code: 'DIRECTIVE_STATE_REVISION_CONFLICT',
+          message: `State delta revision conflict: expected ${batchState.expectedRevision}, current revision is ${currentRevision}.`,
+          details: {
             expectedRevision: batchState.expectedRevision,
-            stale: true
-          }),
-          feature: {
-            ok: false,
-            status: 'rejected',
-            missionComponents: cloneJson(missionComponentProvenance)
-          },
-          apply: {
-            ok: false,
-            error: failure
+            currentRevision,
+            batchBaseRevision: batchState.baseRevision
           }
-        }
-      }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
-      batchState.currentState = cloneJson(journaled);
-      const result = { workerKey, status: 'rejected', error: failure };
-      queueCoreDiagnostic(job, 'rejected', { result, error: failure });
-      return result;
+        };
+        const journaled = await journal({
+          id: proposal.id || `sidecar:${workerKey}:${baseRevision}:rejected`,
+          workerId: workerKey,
+          roleId: worker.roleId,
+          status: 'rejected',
+          baseRevision,
+          summary: proposal.summary || null,
+          ...proposalEventContext,
+          error: failure,
+          diagnostics: {
+            ...cloneJson(parsed.diagnostics || {}),
+            ...batchDiagnostics(job, {
+              applyBaseRevision: currentRevision,
+              expectedRevision: batchState.expectedRevision,
+              stale: true
+            }),
+            feature: {
+              ok: false,
+              status: 'rejected',
+              missionComponents: cloneJson(missionComponentProvenance)
+            },
+            apply: {
+              ok: false,
+              error: failure
+            }
+          }
+        }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
+        batchState.currentState = cloneJson(journaled);
+        const result = { workerKey, status: 'rejected', error: failure };
+        queueCoreDiagnostic(job, 'rejected', { result, error: failure });
+        return result;
+      }
     }
 
     const applyProposal = {
@@ -1510,7 +1670,7 @@ export function createCampaignSidecarScheduler({
               aggregateBatch: true,
               aggregateWorkerCount: accepted.length,
               aggregateOperationCount: operations.length,
-              rebased: false
+              rebased: baseRevision !== result.baseRevision
             }),
             feature: {
               ok: true,

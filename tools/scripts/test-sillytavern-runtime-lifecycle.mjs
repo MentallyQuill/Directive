@@ -146,13 +146,14 @@ assert.deepEqual([...registered.keys()].sort(), [
   eventTypes.EXTENSION_DISABLED,
   eventTypes.MESSAGE_DELETED,
   eventTypes.MESSAGE_EDITED,
+  eventTypes.MESSAGE_UPDATED,
   eventTypes.MESSAGE_REMOVED,
   eventTypes.MESSAGE_SENT,
   eventTypes.GENERATION_STOPPED,
   eventTypes.USER_MESSAGE_SENT,
   eventTypes.USER_MESSAGE_RENDERED
 ].sort());
-assert.equal(registered.has(eventTypes.MESSAGE_UPDATED), false, 'MESSAGE_UPDATED should not duplicate edit recovery.');
+assert.equal(registered.has(eventTypes.MESSAGE_UPDATED), true, 'MESSAGE_UPDATED should be routed to visibility-only observation, not edit recovery.');
 
 const calls = [];
 let nativeEditDecision = { protected: true, nativeEdit: 'intercept', mode: 'strict' };
@@ -164,6 +165,10 @@ const app = {
   async handleHostMessageEdited(payload) {
     calls.push(['edited', payload]);
     return { handled: true };
+  },
+  async handleHostMessageVisibilityChanged(payload) {
+    calls.push(['visibility', payload]);
+    return { handled: true, action: 'visibilityOnlySourceRow' };
   },
   async handleHostMessageDeleted(payload) {
     calls.push(['deleted', payload]);
@@ -627,14 +632,15 @@ if (originalDocument === undefined) {
 }
 
 await registered.get('message-edited')({ id: 4, text: 'edited' });
+await registered.get('message-updated')({ id: 4, extra: { sc_ghosted: true } });
 await registered.get('message-deleted')(4);
 __directiveEventTestHooks.rememberNativeDeleteIntent('16', { source: 'test-native-delete-button' });
 await registered.get('message-deleted')(41);
 await registered.get('chat-changed')({ chatId: 'chat-2' });
 const intercepted = await globalThis.directiveGenerationInterceptor([], 4096, () => {}, 'normal');
 assert.equal(intercepted.abortDefaultGeneration, true);
-assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 6).map((entry) => entry[0]), ['sent', 'generation-stopped', 'edited', 'deleted', 'deleted', 'chat']);
-assert.deepEqual(calls[callsBeforeSentObservation + 4], ['deleted', {
+assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 7).map((entry) => entry[0]), ['sent', 'generation-stopped', 'edited', 'visibility', 'deleted', 'deleted', 'chat']);
+assert.deepEqual(calls[callsBeforeSentObservation + 5], ['deleted', {
   hostMessageId: '16',
   source: 'test-native-delete-button',
   sillyTavernPayload: 41
@@ -670,7 +676,7 @@ assert.equal(promptClearCount, 1);
 assert.equal(globalThis.directiveGenerationInterceptor, undefined);
 assert.equal(getSillyTavernDirectiveRuntimeBridge().enabled, false);
 assert.equal(registered.size, 0);
-assert.equal(unregistered.length, 10);
+assert.equal(unregistered.length, 11);
 
 clearSillyTavernDirectiveRuntimeBridge();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

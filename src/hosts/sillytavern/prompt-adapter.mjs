@@ -84,6 +84,7 @@ function externalEnvironmentTargetSummary(environment = {}) {
       enabled: environment.memoryBooks?.enabled === true,
       active: Boolean(environment.memoryBooks?.activeBookName) || Number(environment.memoryBooks?.stMemoryBookEntryCount || 0) > 0,
       entryCount: Number(environment.memoryBooks?.stMemoryBookEntryCount || 0),
+      rangeDiagnostics: { ...(environment.memoryBooks?.rangeDiagnostics || {}) },
       riskyModes: { ...(environment.memoryBooks?.riskyModes || {}) }
     },
     summaryception: {
@@ -92,6 +93,7 @@ function externalEnvironmentTargetSummary(environment = {}) {
       promptKeyActive: environment.summaryception?.promptKeyActive === true,
       layerCount: Number(environment.summaryception?.layerCount || 0),
       ghostedCount: Number(environment.summaryception?.ghostedCount || 0),
+      staleness: { ...(environment.summaryception?.staleness || {}) },
       externalModelCalls: environment.summaryception?.externalModelCalls === true
     },
     vectFox: {
@@ -103,7 +105,19 @@ function externalEnvironmentTargetSummary(environment = {}) {
       semanticWorldInfoEnabled: environment.vectFox?.semanticWorldInfoEnabled === true,
       summarizerInjectionEnabled: environment.vectFox?.summarizerInjectionEnabled === true,
       ghostingEnabled: environment.vectFox?.ghostingEnabled === true,
-      generationInterceptorActive: environment.vectFox?.generationInterceptorActive === true
+      generationInterceptorActive: environment.vectFox?.generationInterceptorActive === true,
+      backendDiagnostics: { ...(environment.vectFox?.backendDiagnostics || {}) }
+    },
+    unknownExternalContext: {
+      status: environment.unknownExternalContext?.status || 'none',
+      promptKeyCount: Number(environment.unknownExternalContext?.promptKeyCount || 0),
+      promptKeyPrefixes: Array.isArray(environment.unknownExternalContext?.promptKeyPrefixes)
+        ? [...environment.unknownExternalContext.promptKeyPrefixes]
+        : [],
+      promptKeyHash: environment.unknownExternalContext?.promptKeyHash || null,
+      promptKeyPrefixHash: environment.unknownExternalContext?.promptKeyPrefixHash || null,
+      visibilityMarkerCount: Number(environment.unknownExternalContext?.visibilityMarkerCount || 0),
+      redactionReason: environment.unknownExternalContext?.redactionReason || null
     }
   };
 }
@@ -122,6 +136,7 @@ function externalPromptInspectionMetadata(context, binding = {}) {
       knownExternalPromptKeys: ref.knownExternalPromptKeys || [],
       finalHostPromptMayIncludeExternal: externalEnvironmentMayInfluencePrompt(environment),
       externalPromptEnvironmentTargets: externalEnvironmentTargetSummary(environment),
+      externalPromptDiagnostics: Array.isArray(environment.diagnostics) ? cloneJson(environment.diagnostics) : [],
       unavailableSignals: Array.isArray(environment.unknownSignals) ? [...environment.unknownSignals] : [],
       redactions: Array.isArray(environment.redactions) ? [...environment.redactions] : []
     };
@@ -332,6 +347,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
           knownExternalPromptKeys: activePacket?.knownExternalPromptKeys || [],
           finalHostPromptMayIncludeExternal: activePacket?.finalHostPromptMayIncludeExternal ?? null,
           externalPromptEnvironmentTargets: activePacket?.externalPromptEnvironmentTargets || null,
+          externalPromptDiagnostics: activePacket?.externalPromptDiagnostics || [],
           unavailableSignals: activePacket?.unavailableSignals || [],
           redactions: activePacket?.redactions || []
         };
@@ -348,6 +364,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       directiveOwnedPromptKeys: [...installed.keys()].filter(isDirectivePromptKey).sort(),
       finalHostPromptMayIncludeExternal: externalMetadata.finalHostPromptMayIncludeExternal ?? null,
       externalPromptEnvironmentTargets: cloneJson(externalMetadata.externalPromptEnvironmentTargets || null),
+      externalPromptDiagnostics: cloneJson(externalMetadata.externalPromptDiagnostics || []),
       unavailableSignals: cloneJson(externalMetadata.unavailableSignals || []),
       redactions: cloneJson(externalMetadata.redactions || []),
       ...(externalMetadata.externalPromptEnvironmentError ? { externalPromptEnvironmentError: cloneJson(externalMetadata.externalPromptEnvironmentError) } : {}),

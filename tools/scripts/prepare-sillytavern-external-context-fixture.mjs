@@ -117,11 +117,57 @@ function filterExternalFixtureDisabledEntries(value = []) {
     : [];
 }
 
+function fixtureMemoryBookRanges() {
+  return [
+    {
+      source: 'directive-external-context-fixture',
+      start: 0,
+      end: 2,
+      STMB_start: 0,
+      STMB_end: 2
+    }
+  ];
+}
+
+export function buildExternalContextFixtureChatMetadata() {
+  return {
+    world_info: EXTERNAL_CONTEXT_FIXTURE_WORLD,
+    STMemoryBooks: {
+      entryCount: 1,
+      entryHash: sha256Text(`${EXTERNAL_CONTEXT_FIXTURE_WORLD}:stmb-entry`).slice(0, 32),
+      sceneStart: 0,
+      sceneEnd: 3,
+      highestMemoryProcessed: 1,
+      manualLorebook: true
+    },
+    summaryception: {
+      summarizedUpTo: 2,
+      layers: [[{ hash: sha256Text('directive-summaryception-layer').slice(0, 16) }]],
+      layerCount: 1,
+      ghostedIndices: [1],
+      ghostedCount: 1,
+      staleness: {
+        status: 'observed',
+        chatLength: 5,
+        summarizedRangeBeyondChat: false,
+        staleAfterMutation: false,
+        ghostedSystemVisibleCount: 0,
+        summarizedOnlyCount: 0
+      }
+    },
+    vectFox: {
+      promptExcludedIndices: [2]
+    }
+  };
+}
+
 function fixtureSettings(existing = {}) {
   const worldInfoSettings = existing.world_info_settings || {};
   const worldInfo = worldInfoSettings.world_info || {};
   const extensionSettings = existing.extension_settings || {};
   const stmbModule = extensionSettings.STMemoryBooks?.moduleSettings || {};
+  const ranges = fixtureMemoryBookRanges();
+  const fixtureMetadata = buildExternalContextFixtureChatMetadata();
   return {
     ...existing,
     extensions: {
@@ -154,6 +200,8 @@ function fixtureSettings(existing = {}) {
         enabled: true,
         entryCount: Math.max(1, Number(extensionSettings.STMemoryBooks?.entryCount || 0)),
         entryHash: sha256Text(`${EXTERNAL_CONTEXT_FIXTURE_WORLD}:stmb-entry`).slice(0, 32),
+        ranges,
+        entryRanges: ranges,
         moduleSettings: {
           ...stmbModule,
           enabled: true,
@@ -161,6 +209,8 @@ function fixtureSettings(existing = {}) {
           autoCreateEnabled: true,
           unhideBeforeMemory: true,
           sidePromptsEnabled: true,
+          ranges,
+          entryRanges: ranges,
           summaryEntrySettings: {
             ...(stmbModule.summaryEntrySettings || {}),
             position: 4
@@ -171,7 +221,12 @@ function fixtureSettings(existing = {}) {
         ...(extensionSettings.summaryception || {}),
         enabled: true,
         injectionTemplate: '[Directive external-context fixture]\\n{{summary}}',
-        connectionSource: extensionSettings.summaryception?.connectionSource || 'profile'
+        connectionSource: extensionSettings.summaryception?.connectionSource || 'profile',
+        summarizedUpTo: fixtureMetadata.summaryception.summarizedUpTo,
+        layerCount: fixtureMetadata.summaryception.layerCount,
+        ghostedCount: fixtureMetadata.summaryception.ghostedCount,
+        staleness: fixtureMetadata.summaryception.staleness,
+        fixtureDiagnostics: fixtureMetadata.summaryception
       },
       vectfox: {
         ...(extensionSettings.vectfox || {}),
@@ -226,31 +281,14 @@ function fixtureWorld() {
 }
 
 function fixtureChatLines() {
+  const fixtureMetadata = buildExternalContextFixtureChatMetadata();
   const metadataLine = {
     name: 'Directive Fixture',
     is_system: true,
     mes: 'Directive external context fixture metadata row.',
     chat_metadata: {
       note_prompt: '',
-      world_info: EXTERNAL_CONTEXT_FIXTURE_WORLD,
-      STMemoryBooks: {
-        entryCount: 1,
-        entryHash: sha256Text(`${EXTERNAL_CONTEXT_FIXTURE_WORLD}:stmb-entry`).slice(0, 32),
-        sceneStart: 0,
-        sceneEnd: 3,
-        highestMemoryProcessed: 1,
-        manualLorebook: true
-      },
-      summaryception: {
-        summarizedUpTo: 2,
-        layers: [[{ hash: sha256Text('directive-summaryception-layer').slice(0, 16) }]],
-        layerCount: 1,
-        ghostedIndices: [1],
-        ghostedCount: 1
-      },
-      vectFox: {
-        promptExcludedIndices: [2]
-      }
+      ...fixtureMetadata
     }
   };
   const visibleLine = {
@@ -351,6 +389,16 @@ export function buildExternalContextFixtureBrowserSnapshot({ userHandle } = {}) 
       activeBookName: EXTERNAL_CONTEXT_FIXTURE_WORLD,
       entryCount: 1,
       entryHash: sha256Text(`${EXTERNAL_CONTEXT_FIXTURE_WORLD}:stmb-entry`).slice(0, 32),
+      rangeDiagnostics: {
+        status: 'valid',
+        entryRangeCount: 1,
+        chatRangeCount: 1,
+        validRangeCount: 2,
+        invertedRangeCount: 0,
+        outOfBoundsRangeCount: 0,
+        staleRangeCount: 0,
+        rangeHash: sha256Text(`${EXTERNAL_CONTEXT_FIXTURE_WORLD}:stmb-range`).slice(0, 32)
+      },
       riskyModes: {
         autoSummary: true,
         autoCreate: true,
@@ -364,6 +412,14 @@ export function buildExternalContextFixtureBrowserSnapshot({ userHandle } = {}) 
       globalSignatureSeen: true,
       installed: true,
       enabled: true,
+      staleness: {
+        status: 'observed',
+        chatLength: 5,
+        summarizedRangeBeyondChat: false,
+        staleAfterMutation: false,
+        ghostedSystemVisibleCount: 0,
+        summarizedOnlyCount: 0
+      },
       injectionHash: sha256Text('directive-summaryception-layer').slice(0, 32)
     },
     vectFox: {
@@ -376,6 +432,15 @@ export function buildExternalContextFixtureBrowserSnapshot({ userHandle } = {}) 
       summarizerInjectionEnabled: true,
       ghostingEnabled: true,
       generationInterceptorActive: true,
+      backendDiagnostics: {
+        status: 'local-backend-configured',
+        backendType: 'fixture-local',
+        unavailable: false,
+        externalTimingObserved: true,
+        interceptorLatencyMs: 7,
+        retrievalLatencyMs: 11,
+        timingHash: sha256Text('fixture-local:7:11').slice(0, 32)
+      },
       promptKeys: ['3_vectfox', '3_vectfox_eventbase', '3_vectfox_summarizer']
     },
     chatMetadata: {

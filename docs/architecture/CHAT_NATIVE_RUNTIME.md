@@ -40,6 +40,8 @@ The SillyTavern implementation is split into:
 
 The interceptor ignores quiet, sidecar, Directive-owned, non-bound-chat, and disabled-extension work. It allows ordinary generation for inject-and-continue turns and aborts it only when Directive owns or pauses the response.
 
+External context extensions remain host-owned. Native World Info, Memory Books-created World Info, Summaryception prompt blocks, VectFox prompt blocks, and unknown third-party prompt keys may affect the final SillyTavern prompt after Directive installs its packet. The runtime records compact external-environment refs and diagnostics, but it does not import, rewrite, validate, or repair those tools by default.
+
 ## Campaign Activation
 
 `campaign-activation-coordinator.mjs` executes a persisted journal:
@@ -123,6 +125,8 @@ After a committed turn, `campaign-end-condition-service.mjs` evaluates package `
 
 Each block records stable ID, priority, depth/placement policy, source revision, source ids where available, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required. See the [CPM technical manual](../technical/CONTINUITY_PROJECTION_MATRIX.md).
 
+The prompt revision describes Directive-owned context, not the complete host prompt. Prompt inspection records when the final host prompt may also include World Info, Memory Books, Summaryception, VectFox, persona, preset, or other host extension material. These observations are redacted diagnostics and cannot mutate mechanics, recoveries, sidecars, or committed campaign facts.
+
 The timekeeping reply header is part of this prompt-safety boundary. `context-orchestrator.mjs` emits a current `[Directive: Reply Header]` block for host-native generation, while Directive-owned reply paths prepend the header deterministically. Prior visible headers are treated as display artifacts and stripped from Directive-controlled model/evidence paths. See [Timekeeping System](TIMEKEEPING_SYSTEM.md).
 
 ## Sidecars
@@ -142,6 +146,8 @@ Settings renders the recent model-call journal in the Providers section. This gi
 ## Message Reconciliation
 
 `message-reconciler.mjs` handles edits and deletes by locating the ingress record and its pre-turn snapshot. Safe isolated changes can invalidate or roll back. Changes with dependent committed turns are marked `reviewRequired`, preserving the current campaign until the operator deliberately branches or restores.
+
+Source existence and prompt visibility are separate. Native hide controls, Summaryception ghosting or summarization, Memory Books hide/unhide markers, and VectFox prompt exclusion are visibility mutations while the host row still exists. True deletes, text edits, and selected-swipe changes are source mutations. REPAIR/SRE must receive those reasons separately so an external visibility change does not become a false delete, and a true source mutation does not become normal replacement ingress.
 
 ## Conclusion
 

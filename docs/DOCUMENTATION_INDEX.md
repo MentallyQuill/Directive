@@ -20,7 +20,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 ### Host Setup And Operations
 
-- [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
+- [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, prompt-ownership boundaries, and operator-facing external context-extension notes.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
 
 ### Campaign Package Contracts
@@ -31,25 +31,25 @@ These are the public-facing docs that should be safe to hand to operators, campa
 ### Runtime Architecture
 
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
-- [Continuity Projection Matrix (CPM) Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): as-coded source-backed continuity projection, prompt lanes, planner fallback, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification flow.
+- [Continuity Projection Matrix (CPM) Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): as-coded source-backed continuity projection, external-context authority boundary, prompt lanes, planner fallback, Director packets, sidecar handoff, contradiction hints, diagnostics, and certification flow.
 - [Directive Datasets](technical/DIRECTIVE_DATASETS.md): package, projection, crew, ship, mission graph, Mission Component, save-state, journal, and configuration data map, including how datasets feed CPM, Directors, sidecars, prompts, and UI.
 - [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and deterministic/Utility-backed time adjudication.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 
 ### Release Verification
 
-- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, CPM deterministic coverage, Command Bearing deterministic/live coverage, and package import safety.
-- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, CPM prompt/source proof, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, CPM deterministic coverage, external-context fixture-depth and summary-artifact proof, Command Bearing deterministic/live coverage, and package import safety.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, CPM prompt/source proof, external context-extension compatibility including validated summary artifacts, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
 
 ## Technical Manual
 
-- [Directive Technical Manual](technical/DIRECTIVE_TECHNICAL_MANUAL.md): Haynes-style technical overview covering runtime spine, package/state boundary, player turn lifecycle, model-call authority, state transactions, prompt context, sidecars, host adapters, and diagnostics.
+- [Directive Technical Manual](technical/DIRECTIVE_TECHNICAL_MANUAL.md): Haynes-style technical overview covering runtime spine, package/state boundary, player turn lifecycle, model-call authority, state transactions, prompt context, external prompt environment, sidecars, host adapters, and diagnostics.
 - [Player Turn Sequence](technical/PLAYER_TURN_SEQUENCE.md): post-to-response lifecycle from host ingress through classification, Director escalation, mechanics commit, narration, autosave, sidecars, and recovery.
 - [CPM Technical Manual](technical/CONTINUITY_PROJECTION_MATRIX.md): deep dive with source-frame, fact-index, prompt-lane, Director-packet, sidecar, contradiction, diagnostic, and certification infographics.
 - [Directive Datasets](technical/DIRECTIVE_DATASETS.md): technical map of source bibles, packages, projections, crew/ship datasets, mission graphs, Mission Components, save-state data, runtime journals, and dynamic-system consumers.
 - [Model Calls And Provider Routing](technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, provider sources, role groups, model-call authority table, structured output, and sanitized diagnostics.
-- [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
-- [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): SillyTavern adapter, fake host, host boundary diagram, and future host-adapter rules.
+- [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, external-context diagnostics boundary, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
+- [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): SillyTavern adapter, context-extension coexistence, fake host, host boundary diagram, and future host-adapter rules.
 
 ## Campaign Authoring
 
@@ -132,8 +132,8 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 ## Testing
 
-- [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, Command Bearing deterministic/live coverage, and the current alpha gate command list.
-- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, Command Bearing accumulation/closure/review/spend behavior, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, external-context compatibility proof, Command Bearing deterministic/live coverage, and the current alpha gate command list.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, external-context fixture-depth proof, Command Bearing accumulation/closure/review/spend behavior, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
 - [Documentation Render Tracking](testing/DOCUMENTATION_RENDER_TRACKING.md): source-controlled render gap register, `Render needed` marker inventory, target assets, and verification commands.
 
 ## Development Notes

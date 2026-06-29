@@ -22,20 +22,22 @@ const PHASES = new Set([
   'backgroundSettling',
   'responseRetryRequired',
   'recoveryRequired',
+  'restartSuperseded',
   'settled',
   'canceled'
 ]);
 
 const PHASE_TRANSITIONS = Object.freeze({
-  observed: new Set(['routePending', 'recoveryRequired', 'canceled']),
-  routePending: new Set(['hostContinueReleased', 'mechanicsPending', 'narrationStarted', 'visibleResponsePosted', 'backgroundSettling', 'responseRetryRequired', 'recoveryRequired', 'canceled', 'settled']),
+  observed: new Set(['routePending', 'recoveryRequired', 'restartSuperseded', 'canceled']),
+  routePending: new Set(['hostContinueReleased', 'mechanicsPending', 'narrationStarted', 'visibleResponsePosted', 'backgroundSettling', 'responseRetryRequired', 'recoveryRequired', 'restartSuperseded', 'canceled', 'settled']),
   hostContinueReleased: new Set(['visibleResponsePosted', 'backgroundSettling', 'responseRetryRequired', 'recoveryRequired', 'canceled', 'settled']),
   mechanicsPending: new Set(['narrationStarted', 'visibleResponsePosted', 'backgroundSettling', 'responseRetryRequired', 'recoveryRequired', 'canceled', 'settled']),
   narrationStarted: new Set(['visibleResponsePosted', 'responseRetryRequired', 'recoveryRequired', 'canceled']),
   visibleResponsePosted: new Set(['backgroundSettling', 'responseRetryRequired', 'recoveryRequired', 'canceled', 'settled']),
-  backgroundSettling: new Set(['settled', 'recoveryRequired', 'canceled']),
+  backgroundSettling: new Set(['visibleResponsePosted', 'settled', 'recoveryRequired', 'canceled']),
   responseRetryRequired: new Set(['visibleResponsePosted', 'recoveryRequired', 'canceled', 'settled']),
-  recoveryRequired: new Set(['canceled', 'settled']),
+  recoveryRequired: new Set(['restartSuperseded', 'canceled', 'settled']),
+  restartSuperseded: new Set([]),
   settled: new Set(['recoveryRequired']),
   canceled: new Set([])
 });
@@ -117,6 +119,22 @@ function sanitizeDiagnostic(value = {}) {
   return redactExternalDiagnostic(cloneJson(value));
 }
 
+function sanitizeRecoverySourceMutation(value = {}) {
+  const source = isObject(value) ? value : {};
+  const sanitized = sanitizeDiagnostic(source);
+  if (Object.prototype.hasOwnProperty.call(sanitized, 'replacementText')) {
+    const rawReplacementText = String(source.replacementText || '').trim();
+    if (!sanitized.replacementTextHash && rawReplacementText) {
+      sanitized.replacementTextHash = hashStableJson({ text: rawReplacementText });
+    }
+    if (sanitized.replacementTextPresent === undefined) {
+      sanitized.replacementTextPresent = Boolean(rawReplacementText);
+    }
+    delete sanitized.replacementText;
+  }
+  return sanitized;
+}
+
 function sourceFrameRef(sourceFrame = {}) {
   return compact({
     id: sourceFrame.id,
@@ -128,6 +146,32 @@ function sourceFrameRef(sourceFrame = {}) {
     sourceRevision: sourceFrame.sourceRevision || null,
     dedupeKey: sourceFrame.dedupeKey || sourceFrame.id || sourceFrame.hostMessageId || null,
     visibility: sourceFrame.visibility ? cloneJson(sourceFrame.visibility) : undefined
+  });
+}
+
+function sourceRestartRef({
+  priorTransaction = null,
+  transaction = null,
+  sourceFrame = null,
+  options = {},
+  occurredAt = null
+} = {}) {
+  return compact({
+    kind: 'directive.coreSourceRestart.v1',
+    schemaVersion: 1,
+    priorTransactionId: priorTransaction?.id || options.priorTransactionId || null,
+    priorIngressId: priorTransaction?.ingressId || options.priorIngressId || null,
+    priorSourceFrameId: priorTransaction?.sourceFrameId || options.priorSourceFrameId || null,
+    newTransactionId: transaction?.id || options.transactionId || null,
+    newIngressId: transaction?.ingressId || options.ingressId || null,
+    newSourceFrameId: transaction?.sourceFrameId || sourceFrame?.id || null,
+    hostMessageId: sourceFrame?.hostMessageId || priorTransaction?.sourceFrame?.hostMessageId || null,
+    observedTextHash: sourceFrame?.textHash || options.observedTextHash || null,
+    recoveryId: options.recoveryId || options.priorRecoveryId || null,
+    reason: options.reason || 'latest-source-reobserved',
+    idempotencyKey: options.idempotencyKey || null,
+    occurredAt,
+    repairDecision: options.repairDecision ? sanitizeDiagnostic(options.repairDecision) : undefined
   });
 }
 
@@ -183,8 +227,20 @@ function compactResponseRef(value = {}) {
     generationStartedAt: value.generationStartedAt || null,
     postedAt: value.postedAt || null,
     turnLatency: turnLatency ? sanitizeDiagnostic(turnLatency) : undefined,
-    textHash: value.textHash || null
+    textHash: value.textHash || null,
+    repairDecision: value.repairDecision ? sanitizeDiagnostic(value.repairDecision) : undefined
   });
+}
+
+function responseRefAuthorizesRecoveryClosure(ref = {}) {
+  const decision = ref.repairDecision || {};
+  return decision.kind === 'directive.repairResponseReobserveClosureDecision.v1'
+    && decision.authorized === true
+    && decision.recoveryResolved === true
+    && decision.action === 'recordVisibleResponse'
+    && (decision.eventType === 'hostNativeGenerationFailed' || decision.eventType === 'hostNativeAssistantUnavailable')
+    && Array.isArray(decision.allowedActions)
+    && decision.allowedActions.includes('reobserveHostAssistantRows');
 }
 
 function numericOrNull(value) {
@@ -402,7 +458,7 @@ function buildHead(state) {
       revisions: cloneJson(state.revisions),
       counters: cloneJson(state.counters),
       activeTransactionIds: Object.values(state.transactions)
-        .filter((transaction) => !['settled', 'canceled'].includes(transaction.phase))
+        .filter((transaction) => !['settled', 'canceled', 'restartSuperseded'].includes(transaction.phase))
         .map((transaction) => transaction.id),
       transactions: Object.fromEntries(Object.values(state.transactions).map((transaction) => [
         transaction.id,
@@ -453,6 +509,7 @@ function buildPersistPayload(state) {
 function projectionStatusForPhase(phase) {
   if (phase === 'responseRetryRequired') return 'responseRetryRequired';
   if (phase === 'recoveryRequired') return 'recoveryRequired';
+  if (phase === 'restartSuperseded') return 'restartSuperseded';
   if (phase === 'canceled') return 'canceled';
   if (phase === 'settled') return 'settled';
   if (phase === 'backgroundSettling') return 'complete';
@@ -491,6 +548,17 @@ function buildTurnTimingProjections(events = [], transactionMap = {}) {
         generationStartedAt: responseRef.generationStartedAt
       });
       timingByTransaction.set(txnId, mergeTiming(prior, responseTiming));
+      eventIdsByTransaction.set(txnId, [
+        ...(eventIdsByTransaction.get(txnId) || []),
+        event.id
+      ]);
+    }
+    if (event.type === 'visibleResponseRefRepaired') {
+      const responseRef = responseRefByTransaction.get(txnId) || {};
+      responseRefByTransaction.set(txnId, {
+        ...responseRef,
+        ...(payload.responseRefPatch || {})
+      });
       eventIdsByTransaction.set(txnId, [
         ...(eventIdsByTransaction.get(txnId) || []),
         event.id
@@ -553,6 +621,9 @@ function reconstructTransactionsFromEvents(events = []) {
       transaction.chatId = event.chatId || transaction.sourceFrame?.chatId || transaction.chatId;
       transaction.ingressId = payload.ingressId || transaction.ingressId;
       transaction.beginIdempotencyKey = event.idempotencyKey || transaction.beginIdempotencyKey || null;
+      transaction.sourceRestart = payload.sourceRestart ? cloneJson(payload.sourceRestart) : transaction.sourceRestart || null;
+      transaction.restartedFromTransactionId = payload.sourceRestart?.priorTransactionId || transaction.restartedFromTransactionId || null;
+      transaction.restartedFromIngressId = payload.sourceRestart?.priorIngressId || transaction.restartedFromIngressId || null;
     }
     if (event.type === 'phaseAdvanced') {
       transaction.phase = payload.toPhase || payload.phasePatch?.phase || transaction.phase;
@@ -561,6 +632,41 @@ function reconstructTransactionsFromEvents(events = []) {
         transaction.phaseAdvanceIdempotencyKeys = [
           ...new Set([...(transaction.phaseAdvanceIdempotencyKeys || []), event.idempotencyKey])
         ];
+      }
+    }
+    if (event.type === 'sourceRestarted' || event.type === 'latestSourceRestarted') {
+      const restart = payload.sourceRestart || {};
+      transaction.phase = payload.phaseAfter || restart.phaseAfter || 'restartSuperseded';
+      transaction.sourceRestart = cloneJson(restart);
+      transaction.restartedByTransactionId = restart.newTransactionId || transaction.restartedByTransactionId || null;
+      transaction.restartedByIngressId = restart.newIngressId || transaction.restartedByIngressId || null;
+      transaction.restartedBySourceFrameId = restart.newSourceFrameId || transaction.restartedBySourceFrameId || null;
+      transaction.restartReason = restart.reason || transaction.restartReason || null;
+      transaction.sourceRestartIdempotencyKey = event.idempotencyKey || transaction.sourceRestartIdempotencyKey || null;
+      if (restart.newTransactionId) {
+        const replacement = transactions[restart.newTransactionId] || {
+          id: restart.newTransactionId,
+          sourceFrameId: restart.newSourceFrameId || null,
+          chatId: transaction.chatId || null,
+          campaignId: transaction.campaignId || null,
+          saveId: transaction.saveId || null,
+          createdAt: event.occurredAt || null,
+          updatedAt: event.occurredAt || null,
+          phase: 'observed',
+          route: null,
+          outcomeId: null,
+          visibleResponseRef: null,
+          recoveryCaseId: null,
+          revisions: eventRevisions(event),
+          sourceFrame: null,
+          ingressId: restart.newIngressId || `ingress:${restart.newTransactionId}`,
+          phaseAdvanceIdempotencyKeys: []
+        };
+        replacement.sourceRestart = cloneJson(restart);
+        replacement.restartedFromTransactionId = restart.priorTransactionId || transaction.id || null;
+        replacement.restartedFromIngressId = restart.priorIngressId || null;
+        replacement.updatedAt = event.occurredAt || replacement.updatedAt || replacement.createdAt;
+        transactions[restart.newTransactionId] = replacement;
       }
     }
     if (event.type === 'mechanicsCommitted') {
@@ -574,6 +680,17 @@ function reconstructTransactionsFromEvents(events = []) {
       transaction.visibleResponseRef = cloneJson(payload.responseRef || {});
       transaction.outcomeId = transaction.visibleResponseRef?.outcomeId || transaction.outcomeId || null;
       transaction.visibleResponseIdempotencyKey = event.idempotencyKey || transaction.visibleResponseIdempotencyKey || null;
+      if (payload.recoveryResolution) {
+        transaction.recoveryCaseId = null;
+        transaction.recoveryReason = null;
+      }
+    }
+    if (event.type === 'visibleResponseRefRepaired') {
+      transaction.visibleResponseRef = compact({
+        ...(transaction.visibleResponseRef || {}),
+        ...(payload.responseRefPatch || {})
+      });
+      transaction.phase = transaction.visibleResponseRef ? 'visibleResponsePosted' : transaction.phase;
     }
     if (event.type === 'backgroundBatchCommitted') {
       const bundle = payload.operationBundle || {};
@@ -621,7 +738,25 @@ export function buildCoreStoreReadProjections(state = {}) {
     : reconstructTransactionsFromEvents(state.events || []);
   const transactions = Object.values(transactionMap || {});
   const responseEvents = (state.events || []).filter((event) => event.type === 'visibleResponseRecorded');
+  const visibleResponseRepairsByTransaction = new Map();
+  for (const event of state.events || []) {
+    if (event?.type !== 'visibleResponseRefRepaired') continue;
+    const transactionId = legacyTransactionId(event);
+    if (!transactionId) continue;
+    visibleResponseRepairsByTransaction.set(transactionId, {
+      ...(visibleResponseRepairsByTransaction.get(transactionId) || {}),
+      ...(eventPayload(event).responseRefPatch || {})
+    });
+  }
   const recoveryEvents = (state.events || []).filter((event) => event.type === 'recoveryRequired');
+  const responseRecoveryResolutionEvents = (state.events || []).filter((event) => (
+    event.type === 'visibleResponseRecorded'
+    && Boolean(eventPayload(event).recoveryResolution)
+  ));
+  const restartRecoveryEvents = (state.events || []).filter((event) => {
+    if (event.type !== 'latestSourceRestarted' && event.type !== 'sourceRestarted') return false;
+    return Boolean(eventPayload(event).recoveryResolution);
+  });
   const backgroundEvents = (state.events || []).filter((event) => event.type === 'backgroundBatchCommitted');
   const diagnostics = state.diagnostics || [];
   const turnTiming = buildTurnTimingProjections(state.events || [], transactionMap);
@@ -637,18 +772,29 @@ export function buildCoreStoreReadProjections(state = {}) {
       textHash: transaction.sourceFrame?.textHash || null,
       status: projectionStatusForPhase(transaction.phase),
       route: transaction.route || null,
-      outcomeId: transaction.outcomeId || null
+      outcomeId: transaction.outcomeId || null,
+      sourceRestart: transaction.sourceRestart ? cloneJson(transaction.sourceRestart) : undefined,
+      restartedByTransactionId: transaction.restartedByTransactionId || null,
+      restartedFromTransactionId: transaction.restartedFromTransactionId || null
     })),
-    responseLedger: responseEvents.map((event) => compact({
-      id: eventPayload(event).responseRef?.responseId || `response:${legacyTransactionId(event)}`,
-      transactionId: legacyTransactionId(event),
-      hostMessageId: eventPayload(event).responseRef?.hostMessageId || null,
-      outcomeId: eventPayload(event).responseRef?.outcomeId || null,
-      responseKind: eventPayload(event).responseRef?.kind || eventPayload(event).responseRef?.responseKind || null,
-      generationStartedAt: eventPayload(event).responseRef?.generationStartedAt || null,
-      turnTiming: eventPayload(event).responseRef?.turnLatency ? cloneJson(eventPayload(event).responseRef.turnLatency) : undefined,
-      status: 'posted'
-    })),
+    responseLedger: responseEvents.map((event) => {
+      const transactionId = legacyTransactionId(event);
+      const responseRef = {
+        ...(eventPayload(event).responseRef || {}),
+        ...(visibleResponseRepairsByTransaction.get(transactionId) || {})
+      };
+      return compact({
+        id: responseRef.responseId || `response:${transactionId}`,
+        transactionId,
+        hostMessageId: responseRef.hostMessageId || null,
+        outcomeId: responseRef.outcomeId || null,
+        responseKind: responseRef.kind || responseRef.responseKind || null,
+        generationStartedAt: responseRef.generationStartedAt || null,
+        textHash: responseRef.textHash || null,
+        turnTiming: responseRef.turnLatency ? cloneJson(responseRef.turnLatency) : undefined,
+        status: 'posted'
+      });
+    }),
     turnTiming,
     turnLedger: {
       entries: (state.turns || []).map((turn) => compact({
@@ -664,14 +810,62 @@ export function buildCoreStoreReadProjections(state = {}) {
       })),
       lastCommittedOutcomeId: [...(state.turns || [])].reverse().find((turn) => turn.outcomeId)?.outcomeId || null
     },
-    recoveryJournal: recoveryEvents.map((event) => compact({
-      id: eventPayload(event).recoveryCase?.id || `recovery:${legacyTransactionId(event)}`,
-      transactionId: legacyTransactionId(event),
-      status: eventPayload(event).recoveryCase?.status || 'required',
-      phase: eventPayload(event).phaseAfter || eventPayload(event).recoveryCase?.phase || null,
-      reason: eventPayload(event).recoveryCase?.reason || null,
-      sourceFrameId: transactionMap?.[legacyTransactionId(event)]?.sourceFrameId || event.sourceFrameId || null
-    })),
+    recoveryJournal: [
+      ...recoveryEvents.map((event) => {
+        const payload = eventPayload(event);
+        const transactionId = legacyTransactionId(event);
+        return compact({
+          id: payload.recoveryCase?.id || `recovery:${transactionId}`,
+          transactionId,
+          status: payload.recoveryCase?.status || 'required',
+          phase: payload.phaseAfter || payload.recoveryCase?.phase || null,
+          reason: payload.recoveryCase?.reason || null,
+          sourceFrameId: transactionMap?.[transactionId]?.sourceFrameId || event.sourceFrameId || null,
+          sourceMutation: cloneJson(payload.sourceMutation || null),
+          repairDecision: cloneJson(payload.repairDecision || null),
+          dependentOutcomeId: payload.dependentOutcomeId || null,
+          dependentResponseId: payload.dependentResponseId || null,
+          allowedActions: Array.isArray(payload.allowedActions) ? [...payload.allowedActions] : []
+        });
+      }),
+      ...responseRecoveryResolutionEvents.map((event) => {
+        const payload = eventPayload(event);
+        const transactionId = legacyTransactionId(event);
+        const resolution = payload.recoveryResolution || {};
+        return compact({
+          id: resolution.id || resolution.recoveryId || `recovery:${transactionId}:response-reobserve`,
+          transactionId,
+          status: resolution.status || 'resolved',
+          phase: 'visibleResponsePosted',
+          reason: resolution.reason || 'host-native-response-reobserved',
+          sourceFrameId: transactionMap?.[transactionId]?.sourceFrameId || event.sourceFrameId || null,
+          repairDecision: cloneJson(resolution.repairDecision || payload.responseRef?.repairDecision || null),
+          dependentOutcomeId: payload.responseRef?.outcomeId || null,
+          dependentResponseId: payload.responseRef?.responseId || null,
+          hostMessageId: payload.responseRef?.hostMessageId || null,
+          textHash: payload.responseRef?.textHash || null
+        });
+      }),
+      ...restartRecoveryEvents.map((event) => {
+        const payload = eventPayload(event);
+        const transactionId = legacyTransactionId(event);
+        const restart = payload.sourceRestart || payload.restartRef || {};
+        const resolution = payload.recoveryResolution || {};
+        return compact({
+          id: resolution.id || restart.recoveryId || `recovery:${transactionId}:restart`,
+          transactionId,
+          status: resolution.status || 'resolved',
+          phase: payload.phaseAfter || 'restartSuperseded',
+          reason: resolution.reason || restart.reason || 'latest-source-reobserved',
+          sourceFrameId: transactionMap?.[transactionId]?.sourceFrameId || event.sourceFrameId || null,
+          sourceMutation: cloneJson(payload.sourceMutation || null),
+          repairDecision: cloneJson(payload.repairDecision || null),
+          replacementTransactionId: resolution.replacementTransactionId || restart.newTransactionId || null,
+          replacementIngressId: resolution.replacementIngressId || restart.newIngressId || null,
+          replacementSourceFrameId: resolution.replacementSourceFrameId || restart.newSourceFrameId || null
+        });
+      })
+    ],
     modelCallDiagnostics: diagnostics
       .filter((entry) => entry.type === 'modelCall')
       .map(diagnosticPayload),
@@ -964,6 +1158,152 @@ export function createCoreStoreV2({
     async loadHead() {
       return loadV2MaterializedHead(adapter, { campaignId: state.campaignId, saveId: state.saveId, layout: 'core' });
     },
+    async supersedeLatestSourceTransaction(priorTransactionId, replacementTransactionId, options = {}) {
+      const idempotencyKey = requireNonEmptyString(options.idempotencyKey, 'idempotencyKey');
+      const priorTransaction = requireTransaction(priorTransactionId);
+      const replacementTransaction = requireTransaction(replacementTransactionId);
+      if (priorTransaction.id === replacementTransaction.id) {
+        const error = new Error('CORE source restart requires distinct prior and replacement transactions');
+        error.code = 'DIRECTIVE_CORE_SOURCE_RESTART_SAME_TRANSACTION';
+        throw error;
+      }
+      if (priorTransaction.sourceRestart) {
+        if (
+          priorTransaction.sourceRestart.idempotencyKey === idempotencyKey
+          && priorTransaction.sourceRestart.newTransactionId === replacementTransaction.id
+        ) {
+          return cloneJson({
+            kind: 'directive.coreSourceRestartResult.v1',
+            status: 'recorded',
+            sourceRestart: priorTransaction.sourceRestart,
+            priorTransaction,
+            transaction: replacementTransaction
+          });
+        }
+        const error = new Error(`CORE transaction "${priorTransaction.id}" already has a source restart`);
+        error.code = 'DIRECTIVE_CORE_SOURCE_ALREADY_RESTARTED';
+        throw error;
+      }
+      if (replacementTransaction.restartedFromTransactionId || replacementTransaction.sourceRestart) {
+        const error = new Error(`CORE transaction "${replacementTransaction.id}" is already a replacement source restart`);
+        error.code = 'DIRECTIVE_CORE_REPLACEMENT_ALREADY_RESTARTED';
+        throw error;
+      }
+      if (priorTransaction.turnId || priorTransaction.outcomeId || priorTransaction.visibleResponseRef) {
+        const error = new Error(`CORE transaction "${priorTransaction.id}" cannot restart after mechanics or visible response`);
+        error.code = 'DIRECTIVE_CORE_SOURCE_RESTART_HAS_DEPENDENTS';
+        throw error;
+      }
+      if (priorTransaction.backgroundBatchId || (priorTransaction.backgroundBatchIds || []).length > 0) {
+        const error = new Error(`CORE transaction "${priorTransaction.id}" cannot restart after background settlement`);
+        error.code = 'DIRECTIVE_CORE_SOURCE_RESTART_HAS_DEPENDENTS';
+        throw error;
+      }
+      if (
+        replacementTransaction.turnId
+        || replacementTransaction.outcomeId
+        || replacementTransaction.visibleResponseRef
+        || replacementTransaction.recoveryCaseId
+        || replacementTransaction.backgroundBatchId
+        || (replacementTransaction.backgroundBatchIds || []).length > 0
+      ) {
+        const error = new Error(`CORE replacement transaction "${replacementTransaction.id}" is not restartable`);
+        error.code = 'DIRECTIVE_CORE_REPLACEMENT_NOT_RESTARTABLE';
+        throw error;
+      }
+      if (priorTransaction.campaignId !== replacementTransaction.campaignId || priorTransaction.saveId !== replacementTransaction.saveId) {
+        const error = new Error('CORE source restart transactions must belong to the same campaign save');
+        error.code = 'DIRECTIVE_CORE_SOURCE_RESTART_SCOPE_MISMATCH';
+        throw error;
+      }
+      if (priorTransaction.chatId && replacementTransaction.chatId && priorTransaction.chatId !== replacementTransaction.chatId) {
+        const error = new Error('CORE source restart transactions must belong to the same chat');
+        error.code = 'DIRECTIVE_CORE_SOURCE_RESTART_CHAT_MISMATCH';
+        throw error;
+      }
+      const priorHostMessageId = priorTransaction.sourceFrame?.hostMessageId || null;
+      const replacementHostMessageId = replacementTransaction.sourceFrame?.hostMessageId || null;
+      if (priorHostMessageId && replacementHostMessageId && priorHostMessageId !== replacementHostMessageId) {
+        const error = new Error('CORE source restart host message ids must match');
+        error.code = 'DIRECTIVE_CORE_SOURCE_RESTART_HOST_MISMATCH';
+        throw error;
+      }
+      const phaseAfter = 'restartSuperseded';
+      assertPhaseTransition(priorTransaction.phase, phaseAfter);
+      const createdAt = timestamp();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = createdAt;
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      const restart = sourceRestartRef({
+        priorTransaction,
+        transaction: replacementTransaction,
+        sourceFrame: replacementTransaction.sourceFrame,
+        options: {
+          ...options,
+          transactionId: replacementTransaction.id,
+          ingressId: replacementTransaction.ingressId,
+          priorTransactionId: priorTransaction.id,
+          priorIngressId: priorTransaction.ingressId,
+          priorSourceFrameId: priorTransaction.sourceFrameId,
+          observedTextHash: replacementTransaction.sourceFrame?.textHash || options.observedTextHash || null,
+          idempotencyKey
+        },
+        occurredAt: createdAt
+      });
+      touchTransaction(priorTransaction, {
+        phase: phaseAfter,
+        sourceRestart: restart,
+        restartedByTransactionId: replacementTransaction.id,
+        restartedByIngressId: replacementTransaction.ingressId || null,
+        restartedBySourceFrameId: replacementTransaction.sourceFrameId,
+        restartReason: restart.reason || null,
+        sourceRestartIdempotencyKey: idempotencyKey
+      });
+      touchTransaction(replacementTransaction, {
+        sourceRestart: restart,
+        restartedFromTransactionId: priorTransaction.id,
+        restartedFromIngressId: priorTransaction.ingressId || null
+      });
+      state.hostMapRows = state.hostMapRows.map((row) => row?.transactionId === priorTransaction.id
+        ? {
+            ...row,
+            status: 'restartSuperseded',
+            sourceRestart: restart,
+            replacementTransactionId: replacementTransaction.id,
+            replacementSourceFrameId: replacementTransaction.sourceFrameId,
+            replacementIngressId: replacementTransaction.ingressId || null
+          }
+        : row);
+      appendEvent('latestSourceRestarted', priorTransaction, {
+        payload: {
+          phaseAfter,
+          sourceRestart: restart,
+          restartRef: restart,
+          recoveryResolution: (options.recoveryId || options.priorRecoveryId) ? {
+            id: options.recoveryId || options.priorRecoveryId,
+            status: 'resolved',
+            reason: restart.reason || 'latest-source-reobserved',
+            replacementTransactionId: replacementTransaction.id,
+            replacementIngressId: replacementTransaction.ingressId || null,
+            replacementSourceFrameId: replacementTransaction.sourceFrameId
+          } : undefined,
+          repairDecision: sanitizeDiagnostic(options.repairDecision || {}),
+          sourceMutation: sanitizeRecoverySourceMutation(options.sourceMutation || {})
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey,
+        occurredAt: createdAt
+      });
+      await persist();
+      return cloneJson({
+        kind: 'directive.coreSourceRestartResult.v1',
+        status: 'recorded',
+        sourceRestart: restart,
+        priorTransaction,
+        transaction: replacementTransaction
+      });
+    },
     async beginTurn(sourceFrame, options = {}) {
       requireObject(sourceFrame, 'sourceFrame');
       const createdAt = timestamp();
@@ -1111,13 +1451,21 @@ export function createCoreStoreV2({
     async recordVisibleResponse(transactionId, responseRef = {}) {
       const transaction = requireTransaction(transactionId);
       const ref = compactResponseRef(responseRef);
+      const closingRecovery = Boolean(transaction.recoveryCaseId) && responseRefAuthorizesRecoveryClosure(ref);
+      if (transaction.phase === 'recoveryRequired' && !closingRecovery) {
+        const error = new Error(`CORE transaction "${transaction.id}" recovery cannot be closed by visible response without REPAIR authorization`);
+        error.code = 'DIRECTIVE_CORE_RECOVERY_VISIBLE_RESPONSE_UNAUTHORIZED';
+        throw error;
+      }
       if (transaction.visibleResponseRef) {
         if (ref.idempotencyKey && transaction.visibleResponseIdempotencyKey === ref.idempotencyKey) return cloneJson(transaction);
         const error = new Error(`CORE transaction "${transaction.id}" already has a visible response`);
         error.code = 'DIRECTIVE_CORE_VISIBLE_RESPONSE_ALREADY_RECORDED';
         throw error;
       }
-      assertPhaseTransition(transaction.phase, 'visibleResponsePosted');
+      if (!(transaction.phase === 'recoveryRequired' && closingRecovery)) {
+        assertPhaseTransition(transaction.phase, 'visibleResponsePosted');
+      }
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, { runtime: 1 });
@@ -1125,7 +1473,9 @@ export function createCoreStoreV2({
         phase: 'visibleResponsePosted',
         visibleResponseRef: ref,
         outcomeId: ref.outcomeId || transaction.outcomeId || null,
-        visibleResponseIdempotencyKey: ref.idempotencyKey || null
+        visibleResponseIdempotencyKey: ref.idempotencyKey || null,
+        recoveryCaseId: closingRecovery ? null : transaction.recoveryCaseId,
+        recoveryReason: closingRecovery ? null : transaction.recoveryReason
       });
       state.hostMapRows.push(compact({
         hostMessageId: ref.hostMessageId || null,
@@ -1136,10 +1486,64 @@ export function createCoreStoreV2({
         responseKind: ref.kind || null
       }));
       appendEvent('visibleResponseRecorded', transaction, {
-        payload: { responseRef: ref },
+        payload: {
+          responseRef: ref,
+          recoveryResolution: closingRecovery ? compact({
+            id: ref.repairDecision?.recoveryCaseId || null,
+            recoveryId: ref.repairDecision?.recoveryId || null,
+            status: 'resolved',
+            reason: ref.repairDecision?.reason || 'host-native-response-reobserved',
+            repairDecision: ref.repairDecision ? sanitizeDiagnostic(ref.repairDecision) : undefined
+          }) : undefined
+        },
         revisionsBefore,
         revisionsAfter: state.revisions,
         idempotencyKey: ref.idempotencyKey || null
+      });
+      await persist();
+      return cloneJson(transaction);
+    },
+    async repairVisibleResponseRef(transactionId, responseRefPatch = {}) {
+      const transaction = requireTransaction(transactionId);
+      if (!transaction.visibleResponseRef) {
+        const error = new Error(`CORE transaction "${transaction.id}" has no visible response to repair`);
+        error.code = 'DIRECTIVE_CORE_VISIBLE_RESPONSE_REPAIR_UNAVAILABLE';
+        throw error;
+      }
+      const patch = compact({
+        hostMessageId: responseRefPatch.hostMessageId || null,
+        textHash: responseRefPatch.textHash || null
+      });
+      if (patch.hostMessageId && transaction.visibleResponseRef.hostMessageId && patch.hostMessageId !== transaction.visibleResponseRef.hostMessageId) {
+        const error = new Error(`CORE transaction "${transaction.id}" visible response host id does not match repair patch`);
+        error.code = 'DIRECTIVE_CORE_VISIBLE_RESPONSE_REPAIR_HOST_MISMATCH';
+        throw error;
+      }
+      const nextRef = compact({
+        ...transaction.visibleResponseRef,
+        hostMessageId: transaction.visibleResponseRef.hostMessageId || patch.hostMessageId || null,
+        textHash: transaction.visibleResponseRef.textHash || patch.textHash || null
+      });
+      const changed = JSON.stringify(nextRef) !== JSON.stringify(transaction.visibleResponseRef);
+      if (!changed) return cloneJson(transaction);
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      touchTransaction(transaction, {
+        phase: 'visibleResponsePosted',
+        visibleResponseRef: nextRef
+      });
+      appendEvent('visibleResponseRefRepaired', transaction, {
+        payload: {
+          responseRefPatch: compact({
+            hostMessageId: nextRef.hostMessageId || null,
+            textHash: nextRef.textHash || null
+          }),
+          reason: responseRefPatch.reason || 'missing-visible-response-ref-field'
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey: responseRefPatch.idempotencyKey || null
       });
       await persist();
       return cloneJson(transaction);
@@ -1181,7 +1585,8 @@ export function createCoreStoreV2({
         payload: {
           recoveryCase,
           phaseAfter,
-          sourceMutation: sanitizeDiagnostic(recoveryBundle.sourceMutation || {}),
+          sourceMutation: sanitizeRecoverySourceMutation(recoveryBundle.sourceMutation || {}),
+          repairDecision: sanitizeDiagnostic(recoveryBundle.repairDecision || {}),
           dependentOutcomeId: recoveryBundle.dependentOutcomeId || null,
           dependentResponseId: recoveryBundle.dependentResponseId || null,
           allowedActions: Array.isArray(recoveryBundle.allowedActions) ? [...recoveryBundle.allowedActions] : []

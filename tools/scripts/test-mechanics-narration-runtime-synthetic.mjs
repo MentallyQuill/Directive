@@ -275,7 +275,8 @@ await assert.rejects(
     generationStartedAt: '2026-06-28T17:02:40.000Z',
     postedAt: '2026-06-28T17:03:00.000Z'
   }),
-  /Invalid CORE transaction phase transition/,
+  (error) => error?.code === 'DIRECTIVE_CORE_RECOVERY_VISIBLE_RESPONSE_UNAUTHORIZED'
+    && /without REPAIR authorization/.test(error.message || ''),
   'REPAIR must explicitly reopen or branch a recovery-required transaction before response retry posts'
 );
 assert.equal(failureHarness.coreStore.state.turns.length, 1, 'failed-provider recovery must not rerun mechanics');

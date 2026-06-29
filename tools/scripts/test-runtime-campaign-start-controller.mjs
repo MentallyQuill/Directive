@@ -230,6 +230,7 @@ indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.saves[saved.id].path, savedPayloadPath, 'runtime v2 persist preserves v1 save index path');
 assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'runtime v2 persist marks runtime storage format');
 assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2ManifestRef?.logicalKey), true, 'runtime v2 persist attaches manifest ref');
+assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2RuntimePersistedAt), true, 'runtime v2 persist records a runtime persistence timestamp');
 
 const autosaveAfterRuntimePersist = await controller.autosaveCurrentGame({
   saveId: 'save-runtime-autosave-proof',
@@ -275,6 +276,8 @@ snapshot = adapter.snapshot();
 assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.8, 'manual checkpoint captures loaded v2 runtime state');
 indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, undefined, 'manual save resets runtime v2 marker until next runtime persist');
+assert.equal(indexes.saveIndex.saves[saved.id].v2ManifestRef, undefined, 'manual save clears runtime v2 manifest ref until next runtime persist');
+assert.equal(indexes.saveIndex.saves[saved.id].v2RuntimePersistedAt, undefined, 'manual save clears runtime v2 timestamp until next runtime persist');
 
 const branch = await controller.saveCurrentGameAs({
   name: 'Talia Serrin - alternate first watch'

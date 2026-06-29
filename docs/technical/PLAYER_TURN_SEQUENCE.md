@@ -195,6 +195,12 @@ Directive also installs a high-priority reply-header prompt block that names the
 
 For host-native swipes, Directive treats the currently selected assistant variant as the continuity source on the next accepted player reply. Raw JSONL rows, visible message indices, and selected swipe text are separate layers; recovery and source-capture code should use the live selected text that the player accepted, not an unselected alternate.
 
+### External Visibility Mutations
+
+SillyTavern context-extension tools may change prompt visibility without changing source existence. Summaryception can ghost or summarize rows, Memory Books can hide or unhide rows around memory capture, VectFox can exclude vectorized or ghosted material from prompt assembly, and native SillyTavern controls can hide messages. Those are visibility reasons until the host row is actually edited, deleted, or replaced by a different selected swipe.
+
+Turn settlement must therefore pass source ids, text hashes, selected-variant refs, and visibility reasons into REPAIR/SRE separately. External retrieval, summarization, or interceptor delay is also measured separately from Directive's submit-to-generation-start budget. A host row that still exists cannot become a delete merely because an extension hid it from the prompt, and external context cannot become committed campaign state without a reviewed import/export flow.
+
 ### Autosave And Sidecars
 
 After stable narration, the runtime creates a stable autosave. Sidecars may run after committed state is available. They operate on snapshots and propose validated deltas, or they journal failures without mutating state.

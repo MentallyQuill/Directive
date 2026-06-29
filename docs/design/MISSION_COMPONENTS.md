@@ -142,7 +142,7 @@ Add Component to Mission
 
 ### Implementation Reference: Memory Books Clip
 
-Use ST Memory Books' **Clip to Memory Book** feature as the primary UX and implementation reference for the highlighted-text affordance.
+Use ST Memory Books' **Clip to Memory Book** feature as prior-art UX reference for the highlighted-text affordance. This is not an integration dependency: Directive must not import, call, depend on, write to, or repair Memory Books internals for Mission Components.
 
 Reference files in the local SillyTavern extension:
 
@@ -159,7 +159,7 @@ Useful implementation patterns from Memory Books:
 - The floating button lifecycle binds `selectionchange`, `mouseup`, `keyup`, document `mousedown`, and scroll listeners, then hides the button when the selection is gone or the viewport changes.
 - The feature has an explicit setting to enable or disable the floating clip button.
 
-Directive should borrow the selection/button mechanics, not the storage semantics. Mission Components must keep Directive-specific guards for active campaign chat, save binding, stale source, source anchors, Utility categorization, and reviewed campaign-state writes.
+Directive should borrow the selection/button mechanics, not the storage semantics or extension state. Mission Components must keep Directive-specific guards for active campaign chat, save binding, stale source, source anchors, Utility categorization, and reviewed campaign-state writes.
 
 ## Review Popover
 

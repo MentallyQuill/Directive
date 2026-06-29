@@ -76,6 +76,12 @@ flowchart TB
 
 The frame receives a `sourceHash`. Prompt blocks, Director packets, caches, and diagnostics use that hash to prove which state slice they came from.
 
+### External Context Boundary
+
+External context can explain model influence, but it does not satisfy CPM source authority. Native World Info entries, Memory Books generated entries, Summaryception summaries, VectFox retrieval hits, and other host extension prompt material may be present in the final SillyTavern prompt. CPM records their presence only as external prompt-environment diagnostics: prompt keys, placement classes, counts, hashes, statuses, unavailable reasons, fixture-depth labels, and redaction summaries.
+
+External material cannot become an accepted fact, replace Command Log/CORE/FORGE summaries, resolve contradictions, satisfy required source ids, or override campaign-owned facts unless a future reviewed import/export flow creates an explicit Directive proposal with provenance and approval state. Until then, SRE may cite bounded external prompt-environment observations as non-authoritative evidence, but CPM source frames, fact indexes, and contradiction guards remain based on Directive-owned campaign state, selected host rows, accepted swipes, and reviewed imports.
+
 ### Selected Swipe Acceptance Boundary
 
 Generated assistant prose is provisional when it appears in chat. If a host message has multiple swipes, CPM does not ingest every swipe and does not treat unselected variants as lore. The acceptance boundary is the next player send:

@@ -111,7 +111,7 @@ $env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
 node tools\scripts\soak-sillytavern-campaign-live.mjs
 ```
 
-For CPM certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator must run one live campaign soak worker concurrently per Ashes lane/user and aggregate sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, and deterministic factual-grounding checks were present for every lane:
+For CPM certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator must run one live campaign soak worker concurrently per Ashes lane/user and aggregate sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, deterministic factual-grounding checks, and validated external-context summary artifacts were present for every lane:
 
 ```powershell
 $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
@@ -122,7 +122,34 @@ node tools\scripts\run-continuity-matrix-five-user-soak.mjs --live --write-artif
 
 Add `--turn-limit N` only for bounded proof. A bounded run can prove the coordinator, prompt injection, and factual-grounding gates, but it is not full 52-turn lane certification.
 
-If a full certification run is interrupted, rerun the coordinator with the same `DIRECTIVE_CPM_FIVE_USER_SOAK_RUN_ID` and `--resume`. Resume mode reuses only lane artifacts whose turn depth matches the requested run and whose CPM prompt/source proof and deterministic factual-grounding artifacts already pass, then continues the remaining lanes.
+If a full certification run is interrupted, rerun the coordinator with the same `DIRECTIVE_CPM_FIVE_USER_SOAK_RUN_ID` and `--resume`. Resume mode reuses only lane artifacts whose turn depth matches the requested run and whose CPM prompt/source proof, deterministic factual-grounding artifacts, external-context summary artifact, model-call failure policy, and story-quality review evidence already pass, then continues the remaining lanes.
+
+### Architecture Redesign Release Bundle
+
+The five-user chat soak certifies the full chat-native campaign loop; it does not by itself certify every specialized redesign surface. Final Architecture Redesign release evidence must also include the specialized live reports for Command Bearing closure, Command Bearing point lifecycle, catastrophic terminal endings, command-fitness terminal endings, and SillyTavern message mutation discovery plus actuation proof. Use `tools/scripts/preflight-architecture-redesign-release-bundle.mjs` after the Continuity Matrix `full-certification-preflight.json` is already strict-pass.
+
+The release-bundle manifest should point to:
+
+- the strict Continuity Matrix `full-certification-preflight.json`;
+- `run-command-bearing-closure-fixture-live.mjs` report;
+- `run-command-bearing-point-lifecycle-live.mjs` report;
+- `smoke-sillytavern-terminal-endings-live.mjs` report for `catastrophic-command`;
+- `smoke-sillytavern-terminal-endings-live.mjs` report for `command-fitness-ladder`;
+- `discover-sillytavern-message-mutation-live.mjs` report;
+- a live message-mutation actuation proof that covers source edit/delete, assistant edit/delete, and selected-swipe recovery.
+
+Discovery-only message mutation evidence is intentionally not enough for final certification. It proves the host exposes event names and controls; the actuation proof must show the edit/delete/swipe recovery paths actually move through REPAIR/SRE/CORE without using `default-user`. Build that proof with `tools/scripts/run-sillytavern-message-mutation-actuation-live.mjs --live --write-artifacts` against a non-human soak user and explicit safe targets. The generated `message-mutation-actuation-proof.json` is the artifact the release-bundle preflight consumes. `tools/scripts/preflight-sillytavern-message-mutation-actuation.mjs` remains the manual assembly path when the five child reports already exist.
+
+### External Context Compatibility
+
+The soak must prove coexistence with native ST Lorebooks / World Info, Memory Books, Summaryception, and VectFox without treating those tools as Directive-owned systems. The preflight and lane reports must separate two labels:
+
+- `observability`: installed, disabled, not installed, unavailable, settings-only, disk-confirmed, or browser-confirmed for the tested soak profile;
+- `fixtureDepth`: rich-active, browser-observed, disk-only, inactive, unavailable, or unknown active pressure for the prepared fixture.
+
+Rich external-context evidence requires target-specific prompt or runtime pressure, not just a generic external prompt key. Prepared non-human profiles should expose redacted fixtures for native World Info placement, Memory Books/STMB entries and range diagnostics, Summaryception ghost/layer/staleness diagnostics, and VectFox prompt/backend/interceptor diagnostics. Generation-time prompt snapshots must preserve `externalPromptEnvironmentRef`, target summaries, final-host-prompt inclusion evidence, and redaction reasons without storing raw lorebook text, generated Memory Books text, Summaryception summary text, vector payloads, embeddings, API keys, Qdrant secrets, endpoint URLs, or hidden Director material. Delegated smoke promotion must also write `host-extensions/external-context-summary.json`, and lane completeness plus full-certification preflight must fail missing, malformed, warning, zero-capture, no-key, no-ref-hash, or no-target-summary versions of that artifact.
+
+External latency is recorded separately from Directive architecture latency. VectFox retrieval/interceptor delay, Summaryception summarization, Memory Books generation, and host provider completion may explain a slow final response, but they do not count as Directive submit-to-generation-start time unless Directive itself waited on them before release.
 
 ## Model Call Policy
 
@@ -171,6 +198,7 @@ Before running the soak:
 - `default-user` is reserved for human testing only and must not be assigned to automated soak workers, storage probes, patch lanes, or campaign runners.
 - Every automated soak user has no inherited SillyTavern Author's Note contamination before campaign creation. The preflight must prove `extension_settings.note.default` is empty for the configured soak profiles and active chat `chat_metadata.note_prompt` values are empty. A run that creates chats with unrelated Author's Note content, such as old fantasy/Harry Potter profile instructions, is invalid evidence and must be marked invalidated before restarting.
 - Before parallel soak workers start, `check-sillytavern-multi-user-soak-readiness.mjs --live` proves each configured ST user can see its own Directive `/user/files` probe and cannot see another worker's probe.
+- External-context readiness has run for the same non-human profiles. A pass for `default-user`, copied settings, or disk-only extension files is planning evidence only; it is not five-user soak proof.
 - In SillyTavern account mode, the served-extension freshness preflight authenticates with a configured non-human soak user before reading protected `/scripts/extensions/third-party/Directive` files.
 - Utility and Reasoning providers are configured and pass `app.testProvider({ kind })`.
 - The operator explicitly accepts unlimited live model calls for this run.
@@ -195,15 +223,16 @@ artifacts/live-soak/sillytavern-campaign/<run-id>/
 
 Required artifacts:
 
-- `report.json`: structured pass/fail, phase results, model-call counts, turn ids, save ids, and artifact paths.
+- `report.json`: structured pass/fail, phase results, model-call counts, turn ids, save ids, and artifact paths, including `hostExtensions` and concrete `externalContextSummary`.
 - `summary.md`: human-readable release-certification summary, timeline, failures, warnings, residual risk, and follow-up tickets.
 - `live-log.jsonl`: append-only running test log, updated before and after every material action so interrupted runs still leave progress evidence.
 - `turns.jsonl`: one record per test turn or mutation.
-- `snapshots/`: bounded checkpoint summaries after dry-run artifact creation, live run start, preflight block, delegated smoke completion, operator stop, run end, later 5-10 turn intervals, and material mutations. These store counts, hashes, relative artifact paths, release-certification state, and warning/failure previews, not raw hidden state or full transcripts.
+- `snapshots/`: bounded checkpoint summaries after dry-run artifact creation, live run start, preflight block, delegated smoke completion, operator stop, run end, later 5-10 turn intervals, and material mutations. These store counts, hashes, relative artifact paths including `hostExtensions` and `externalContextSummary`, release-certification state, and warning/failure previews, not raw hidden state or full transcripts.
 - `transcript/`: readable player-visible campaign chat, source chat export, transcript index, and bounded redacted excerpts.
 - `screenshots/`: desktop and phone screenshots of Mission, Crew, Ship, Log, Campaign, and Settings at key checkpoints.
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
+- `host-extensions/`: external prompt-environment refs, target statuses, bounded hashes/counts, visibility markers, unavailable reasons, fixture-depth labels, redaction proof, and separate external timing for context-extension work when observable. The required generation-time summary is `host-extensions/external-context-summary.json`; it is diagnostics/provenance only and must validate before a lane can certify.
 - `fact-checks/`: generated player-safe fact canary packs, `canary-index.json`, prompt-availability audits, per-generation factual-grounding verdicts, contradiction summaries, and source pointers.
 - `continuity-projection-matrix/`: CPM prompt-key/source-id proof, diagnostics summaries, projection-run summaries, Director packet digests, sidecar provenance checks, contradiction/quarantine checks, and five-user coordinator aggregation.
 - `campaign-matrix/`: generated active-campaign canary scripts. In the current reset this contains Ashes only, with required live checks, planned third-person canary turns, and package-specific coverage notes. Deferred all-campaign rotation artifacts should use the same shape when re-enabled.

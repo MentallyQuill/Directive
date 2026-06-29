@@ -27,6 +27,8 @@ The user-facing version of this contract is [Storage And State Safety](../user/S
 
 Mission Components live inside campaign save state under the reviewed knowledge/component ledger, not in host lorebook storage. They are playthrough records tied to selected source text and source metadata.
 
+External context-extension observations are diagnostics, not campaign state. Native World Info entries, generated Memory Books entries, Summaryception summaries, VectFox vector hits, prompt keys, and retrieval timings can be recorded as bounded counts, hashes, refs, statuses, unavailable reasons, and redaction summaries. They must not dirty mechanics, prompt context, rollback snapshots, or committed facts merely because an external snapshot changed. A future import/export path must be explicit, reviewed, source-referenced, and approval-backed before any external material becomes Directive authority.
+
 ## Campaign Runtime Tracking
 
 `runtimeTracking` contains the operational ledger around the campaign state:
@@ -125,6 +127,8 @@ This prevents provider failure from becoming a hidden mechanics reroll.
 Message edits and deletes flow through the message reconciler. A safe, dependent-free change can roll back to a retained snapshot. A change with dependent committed turns becomes review-required instead of silently corrupting continuity.
 
 Native assistant swipes add another source-truth layer. The raw chat file can contain multiple assistant variants for the same visible message, while the player sees and accepts only the selected variant. Directive-owned response records, Scene Handshake, Continuity Projection Matrix (CPM) checks, Mission Components source matching, and recovery should treat the selected visible text as the accepted continuity source. If a later edit, delete, or swipe change invalidates a dependent committed turn, recovery should create a review-required state instead of silently adopting an unselected alternate.
+
+External visibility metadata is not delete evidence by itself. Summaryception `extra.sc_ghosted` or `ghostedIndices`, Memory Books hide/unhide markers, VectFox prompt exclusion, and native hidden flags should be preserved as visibility reasons while source ids and text hashes continue to prove row existence. True deletes and text edits dominate visibility metadata, but the recovery record must say which kind of mutation occurred.
 
 <!-- directive-render: id=docs-directive-message-recovery-swipes; target=assets/documentation/renders/docs-directive-message-recovery-swipes.png; source=diagram-or-fixture; -->
 Render needed: recovery/source-truth diagram showing edits, deletes, swipes, selected assistant variants, ingress/response ledgers, snapshot restore, review-required state, and prompt rebuild.

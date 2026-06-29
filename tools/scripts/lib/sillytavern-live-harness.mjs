@@ -175,6 +175,29 @@ function truthy(value) {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+function diagnosticStatus(value = {}) {
+  return String(value?.status || '').trim().toLowerCase();
+}
+
+function hasUsefulDiagnosticStatus(value = {}) {
+  const status = diagnosticStatus(value);
+  return Boolean(status && status !== 'unknown' && status !== 'missing');
+}
+
+function hasRichDiagnosticStatus(value = {}, {
+  allowUnavailable = false
+} = {}) {
+  const status = diagnosticStatus(value);
+  if (!status || ['unknown', 'missing'].includes(status)) return false;
+  if (!allowUnavailable && status === 'unavailable') return false;
+  return true;
+}
+
+function selectBestDiagnostic(...values) {
+  const diagnostics = values.filter((value) => value && typeof value === 'object' && !Array.isArray(value));
+  return diagnostics.find(hasUsefulDiagnosticStatus) || diagnostics[0] || null;
+}
+
 function targetStatus({ diskInstalled = false, diskEnabled = false, diskDisabled = false, browserConfirmed = false, browserUnavailable = false } = {}) {
   if (browserConfirmed) return 'browser-confirmed';
   if (diskDisabled) return 'disabled';
@@ -197,6 +220,12 @@ const EXTERNAL_CONTEXT_FIXTURE_TARGET_IDS = Object.freeze([
 function countValue(value) {
   const numeric = Number(value || 0);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+}
+
+function boundedInteger(value, fallback = null) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.floor(numeric));
 }
 
 function targetPromptKeys(target = {}) {
@@ -236,11 +265,14 @@ function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
       || browserSignals.messageMarkerSeen === true
       || browserSignals.promptKeySeen === true
       || promptKeys.some((key) => /memory/i.test(key));
-    if (!active || !entrySeen || !markerOrPrompt) return [];
+    const rangeStatus = memoryBooks.rangeDiagnostics?.status || null;
+    const rangeDiagnosticSeen = Boolean(rangeStatus && !['unknown', 'missing'].includes(rangeStatus));
+    if (!active || !entrySeen || !markerOrPrompt || !rangeDiagnosticSeen) return [];
     if (countValue(memoryBooks.stMemoryBookEntryCount) > 0) evidence.push('memory-book-entry');
     if (countValue(chatCounts.chatBoundWorld) > 0) evidence.push('memory-book-chat-bound-world');
     if (countValue(markerCounts.memoryBooksHidden) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('memory-book-visibility-marker');
     if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /memory/i.test(key))) evidence.push('memory-book-prompt-key');
+    evidence.push(`memory-book-range-${rangeStatus}`);
   } else if (targetId === 'summaryception') {
     const active = summaryception.enabled === true || target.diskSignals?.enabled === true;
     const promptSeen = browserSignals.promptKeySeen === true || promptKeys.includes('summaryception') || summaryception.promptKeyActive === true;
@@ -250,10 +282,13 @@ function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
       || countValue(chatCounts.ghostedCount) > 0
       || countValue(markerCounts.summaryceptionGhosted) > 0
       || browserSignals.messageMarkerSeen === true;
-    if (!active || !promptSeen || !summaryState) return [];
+    const stalenessStatus = summaryception.staleness?.status || null;
+    const stalenessSeen = hasRichDiagnosticStatus(summaryception.staleness);
+    if (!active || !promptSeen || !summaryState || !stalenessSeen) return [];
     if (countValue(summaryception.layerCount) > 0 || countValue(chatCounts.layerCount) > 0) evidence.push('summaryception-layer');
     if (countValue(summaryception.ghostedCount) > 0 || countValue(chatCounts.ghostedCount) > 0 || countValue(markerCounts.summaryceptionGhosted) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('summaryception-ghosted-row');
     if (promptSeen) evidence.push('summaryception-prompt-key');
+    evidence.push(`summaryception-staleness-${stalenessStatus}`);
   } else if (targetId === 'vectFox') {
     const active = vectFox.enabled === true || target.diskSignals?.enabled === true;
     const promptOrMarker = browserSignals.promptKeySeen === true
@@ -268,10 +303,13 @@ function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
       || Boolean(target.diskSignals?.settingsHash)
       || browserSignals.settingsSeen === true
       || browserSignals.globalSignatureSeen === true;
-    if (!active || !promptOrMarker || !settingsOrHook) return [];
+    const backendStatus = vectFox.backendDiagnostics?.status || null;
+    const backendDiagnosticSeen = hasRichDiagnosticStatus(vectFox.backendDiagnostics);
+    if (!active || !promptOrMarker || !settingsOrHook || !backendDiagnosticSeen) return [];
     if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /^3_vectfox/i.test(key))) evidence.push('vectfox-prompt-key');
     if (countValue(markerCounts.vectFoxGhosted) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('vectfox-ghosted-row');
     if (settingsOrHook) evidence.push('vectfox-settings-or-hook');
+    evidence.push(`vectfox-backend-${backendStatus}`);
   }
   return [...new Set(evidence)];
 }
@@ -369,6 +407,148 @@ export function externalContextFixtureDepthCheckStatus({
 function promptKeySeen(promptKeys = [], candidates = []) {
   const keys = new Set(unique(promptKeys).map((key) => key.toLowerCase()));
   return candidates.some((candidate) => keys.has(String(candidate).toLowerCase()));
+}
+
+function rangeDiagnosticsFromSignals({
+  browser = {},
+  diskEnvironment = null,
+  worlds = null,
+  chats = null
+} = {}) {
+  const browserDiagnostics = browser.memoryBooks?.rangeDiagnostics || null;
+  const diskDiagnostics = diskEnvironment?.memoryBooks?.rangeDiagnostics || null;
+  const worldDiagnostics = worlds?.stMemoryBookRangeDiagnostics || null;
+  const chatDiagnostics = chats?.stMemoryBookRangeDiagnostics || null;
+  const entryRangeCount = Number(worldDiagnostics?.entryRangeCount || 0);
+  const chatRangeCount = Number(chatDiagnostics?.chatRangeCount || 0);
+  const invertedRangeCount = Number(worldDiagnostics?.invertedRangeCount || 0) + Number(chatDiagnostics?.invertedRangeCount || 0);
+  const outOfBoundsRangeCount = Number(worldDiagnostics?.outOfBoundsRangeCount || 0) + Number(chatDiagnostics?.outOfBoundsRangeCount || 0);
+  const staleRangeCount = Number(worldDiagnostics?.staleRangeCount || 0) + Number(chatDiagnostics?.staleRangeCount || 0);
+  const validRangeCount = Number(worldDiagnostics?.validRangeCount || 0) + Number(chatDiagnostics?.validRangeCount || 0);
+  const rangeHashParts = [worldDiagnostics?.rangeHash, chatDiagnostics?.rangeHash].filter(Boolean);
+  const totalRangeCount = entryRangeCount + chatRangeCount;
+  const derivedDiagnostics = {
+    status: totalRangeCount
+      ? invertedRangeCount > 0 ? 'inverted' : staleRangeCount > 0 || outOfBoundsRangeCount > 0 ? 'stale' : 'valid'
+      : 'unknown',
+    entryRangeCount,
+    chatRangeCount,
+    validRangeCount,
+    invertedRangeCount,
+    outOfBoundsRangeCount,
+    staleRangeCount,
+    rangeHash: rangeHashParts.length ? objectHash(rangeHashParts) : null
+  };
+  return selectBestDiagnostic(browserDiagnostics, diskDiagnostics, derivedDiagnostics) || derivedDiagnostics;
+}
+
+function summaryceptionStalenessFromSignals({
+  browser = {},
+  diskEnvironment = null,
+  chats = null,
+  chatMetadata = {},
+  messageMarkers = {},
+  chatLength = 0
+} = {}) {
+  const browserStaleness = browser.summaryception?.staleness || null;
+  const diskStaleness = diskEnvironment?.summaryception?.staleness || null;
+  const summarizedUpTo = Number(chatMetadata.summaryception?.summarizedUpTo ?? chats?.summaryceptionSummarizedUpTo ?? -1);
+  const effectiveChatLength = boundedInteger(chatLength, 0) || boundedInteger(chats?.maxChatLength, 0) || 0;
+  const ghostedSystemVisibleCount = Number(messageMarkers.summaryceptionGhostedSystemVisible || chats?.summaryceptionGhostedSystemVisibleCount || 0);
+  const ghostedCount = Math.max(
+    Number(chatMetadata.summaryception?.ghostedCount || 0),
+    Number(messageMarkers.summaryceptionGhosted || 0),
+    Number(chats?.summaryceptionGhostedCount || 0)
+  );
+  const layerCount = Math.max(
+    Number(chatMetadata.summaryception?.layerCount || 0),
+    Number(chats?.summaryceptionLayerCount || 0)
+  );
+  const summarizedRangeBeyondChat = summarizedUpTo >= effectiveChatLength && effectiveChatLength > 0;
+  const browserOrChatObserved = Boolean(browser.summaryception?.settingsSeen
+    || browser.summaryception?.globalSignatureSeen
+    || chatMetadata.summaryception
+    || messageMarkers.summaryceptionGhosted);
+  const derivedStaleness = {
+    status: summarizedRangeBeyondChat
+      ? 'stale'
+      : ghostedSystemVisibleCount > 0
+        ? 'ghosted-system-visible'
+        : summarizedUpTo >= 0 || layerCount > 0 || ghostedCount > 0
+          ? 'observed'
+          : 'unknown',
+    chatLength: effectiveChatLength,
+    summarizedRangeBeyondChat,
+    staleAfterMutation: false,
+    ghostedSystemVisibleCount,
+    summarizedOnlyCount: 0
+  };
+  return selectBestDiagnostic(
+    browserStaleness,
+    browserOrChatObserved ? derivedStaleness : null,
+    diskStaleness,
+    derivedStaleness
+  ) || derivedStaleness;
+}
+
+function vectFoxBackendDiagnosticsFromSignals({
+  browser = {},
+  diskEnvironment = null,
+  vectfox = null,
+  messageMarkers = {},
+  disabledPresent = false
+} = {}) {
+  const browserDiagnostics = browser.vectFox?.backendDiagnostics || null;
+  const diskDiagnostics = diskEnvironment?.vectFox?.backendDiagnostics || null;
+  const browserBackendType = browser.vectFox?.backendType || null;
+  const fallbackBackendType = vectfox?.vector_backend || vectfox?.backendType || diskEnvironment?.vectFox?.backendType || null;
+  const unavailable = browser.vectFox?.backendUnavailable === true || vectfox?.backendUnavailable === true || vectfox?.qdrantUnavailable === true;
+  const browserObserved = Boolean(browser.vectFox?.settingsSeen
+    || browser.vectFox?.globalSignatureSeen
+    || browser.vectFox?.enabled === true
+    || browser.vectFox?.disabledPresent === true
+    || browser.vectFox?.backendType
+    || browser.vectFox?.generationInterceptorActive === true
+    || messageMarkers.vectFoxGhosted > 0);
+  const backendType = browserObserved ? browserBackendType : fallbackBackendType;
+  const disabled = browserObserved
+    ? browser.vectFox?.disabledPresent === true || browser.vectFox?.enabled === false
+    : disabledPresent === true || diskEnvironment?.vectFox?.disabledPresent === true || vectfox?.enabled === false;
+  const externalBackend = /qdrant|cloud|remote/i.test(String(backendType || ''));
+  const localBackend = /local|fixture/i.test(String(backendType || ''));
+  const externalTimingObserved = Boolean(browser.vectFox?.externalTimingObserved || vectfox?.timing?.observed || vectfox?.lastRetrievalLatencyMs || vectfox?.lastInterceptorLatencyMs);
+  const derivedDiagnostics = {
+    status: disabled
+      ? 'disabled'
+      : unavailable
+        ? 'unavailable'
+        : externalBackend
+          ? 'external-backend-configured'
+          : localBackend
+            ? 'local-backend-configured'
+            : backendType
+              ? 'configured'
+              : browser.vectFox?.settingsSeen || browser.vectFox?.globalSignatureSeen || messageMarkers.vectFoxGhosted > 0
+                ? 'observed'
+                : 'unknown',
+    backendType,
+    unavailable,
+    externalTimingObserved,
+    interceptorLatencyMs: boundedInteger(browser.vectFox?.interceptorLatencyMs ?? vectfox?.lastInterceptorLatencyMs),
+    retrievalLatencyMs: boundedInteger(browser.vectFox?.retrievalLatencyMs ?? vectfox?.lastRetrievalLatencyMs),
+    timingHash: externalTimingObserved
+      ? objectHash({
+        interceptorLatencyMs: boundedInteger(browser.vectFox?.interceptorLatencyMs ?? vectfox?.lastInterceptorLatencyMs),
+        retrievalLatencyMs: boundedInteger(browser.vectFox?.retrievalLatencyMs ?? vectfox?.lastRetrievalLatencyMs)
+      })
+      : null
+  };
+  return selectBestDiagnostic(
+    browserDiagnostics,
+    browserObserved || vectfox ? derivedDiagnostics : null,
+    diskDiagnostics,
+    derivedDiagnostics
+  ) || derivedDiagnostics;
 }
 
 function countMessageMarkers(markers = {}, keys = []) {
@@ -518,24 +698,53 @@ function scanUserWorldInfo(userRoot) {
   const worldFiles = walkFiles(worldsRoot, (filePath) => filePath.endsWith('.json'));
   let stMemoryBookEntryCount = 0;
   const stMemoryBookEntryRefs = [];
+  const stMemoryBookRangeRefs = [];
   for (const filePath of worldFiles) {
     const data = readJsonFileIfExists(filePath);
     const entries = data?.entries && typeof data.entries === 'object' ? data.entries : {};
     for (const [uid, entry] of Object.entries(entries)) {
       if (entry?.stmemorybooks === true || entry?.extensions?.stmemorybooks === true) {
+        const start = boundedInteger(entry.STMB_start ?? entry.extensions?.STMB_start);
+        const end = boundedInteger(entry.STMB_end ?? entry.extensions?.STMB_end);
+        const hasRange = start !== null || end !== null;
+        const inverted = start !== null && end !== null && start > end;
         stMemoryBookEntryCount += 1;
         stMemoryBookEntryRefs.push({
           world: path.basename(filePath, '.json'),
           uid: String(uid),
           titleHash: sha256Text(entry.comment || entry.title || entry.key?.[0] || uid)
         });
+        if (hasRange) {
+          stMemoryBookRangeRefs.push({
+            source: 'world-entry',
+            world: path.basename(filePath, '.json'),
+            uid: String(uid),
+            start: start ?? null,
+            end: end ?? null,
+            inverted
+          });
+        }
       }
     }
   }
+  const invertedRangeCount = stMemoryBookRangeRefs.filter((entry) => entry.inverted).length;
+  const rangeDiagnostics = {
+    status: stMemoryBookRangeRefs.length
+      ? invertedRangeCount > 0 ? 'inverted' : 'valid'
+      : stMemoryBookEntryCount > 0 ? 'missing' : 'unknown',
+    entryRangeCount: stMemoryBookRangeRefs.length,
+    chatRangeCount: 0,
+    validRangeCount: Math.max(0, stMemoryBookRangeRefs.length - invertedRangeCount),
+    invertedRangeCount,
+    outOfBoundsRangeCount: 0,
+    staleRangeCount: 0,
+    rangeHash: stMemoryBookRangeRefs.length ? objectHash(stMemoryBookRangeRefs) : null
+  };
   return {
     worldFileCount: worldFiles.length,
     stMemoryBookEntryCount,
-    stMemoryBookEntryHash: stMemoryBookEntryRefs.length ? objectHash(stMemoryBookEntryRefs) : null
+    stMemoryBookEntryHash: stMemoryBookEntryRefs.length ? objectHash(stMemoryBookEntryRefs) : null,
+    stMemoryBookRangeDiagnostics: rangeDiagnostics
   };
 }
 
@@ -543,30 +752,96 @@ function scanUserChatMetadata(userRoot) {
   const chatFiles = walkFiles(path.join(userRoot, 'chats'), (filePath) => filePath.endsWith('.jsonl'));
   const chatBoundWorlds = [];
   let summaryceptionGhostedCount = 0;
+  let summaryceptionGhostedSystemVisibleCount = 0;
   let summaryceptionLayerCount = 0;
   let summaryceptionSummarizedUpTo = -1;
+  let maxChatLength = 0;
+  const stMemoryBookRangeRefs = [];
   for (const filePath of chatFiles) {
+    const lines = fs.existsSync(filePath)
+      ? fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter((line) => line.trim())
+      : [];
+    maxChatLength = Math.max(maxChatLength, lines.length);
     let first = null;
     try {
-      first = JSON.parse(firstJsonLine(filePath) || '{}');
+      first = JSON.parse(lines[0] || firstJsonLine(filePath) || '{}');
     } catch {
       first = null;
     }
     const metadata = first?.chat_metadata || first?.metadata || {};
     if (metadata.world_info) chatBoundWorlds.push(metadata.world_info);
+    const stMemoryBooks = metadata.STMemoryBooks || {};
+    const sceneStart = boundedInteger(stMemoryBooks.sceneStart);
+    const sceneEnd = boundedInteger(stMemoryBooks.sceneEnd);
+    if (sceneStart !== null || sceneEnd !== null) {
+      stMemoryBookRangeRefs.push({
+        source: 'chat-metadata',
+        chatHash: sha256Text(path.relative(userRoot, filePath).replace(/\\/g, '/')),
+        start: sceneStart ?? null,
+        end: sceneEnd ?? null,
+        inverted: sceneStart !== null && sceneEnd !== null && sceneStart > sceneEnd,
+        outOfBounds: Math.max(sceneStart ?? 0, sceneEnd ?? 0) >= lines.length
+      });
+    }
     const summaryception = metadata.summaryception;
     if (summaryception && typeof summaryception === 'object') {
       summaryceptionGhostedCount += asArray(summaryception.ghostedIndices).length;
       summaryceptionLayerCount = Math.max(summaryceptionLayerCount, asArray(summaryception.layers).length);
       summaryceptionSummarizedUpTo = Math.max(summaryceptionSummarizedUpTo, Number(summaryception.summarizedUpTo ?? -1) || -1);
     }
+    for (const line of lines.slice(1)) {
+      let row = null;
+      try {
+        row = JSON.parse(line);
+      } catch {
+        row = null;
+      }
+      if (!row || row.extra?.sc_ghosted !== true) continue;
+      summaryceptionGhostedCount += 1;
+      if ((row.is_system === true || row.role === 'system') && row.is_hidden !== true) {
+        summaryceptionGhostedSystemVisibleCount += 1;
+      }
+    }
   }
+  const invertedRangeCount = stMemoryBookRangeRefs.filter((entry) => entry.inverted).length;
+  const outOfBoundsRangeCount = stMemoryBookRangeRefs.filter((entry) => entry.outOfBounds).length;
+  const stMemoryBookRangeDiagnostics = {
+    status: stMemoryBookRangeRefs.length
+      ? invertedRangeCount > 0 ? 'inverted' : outOfBoundsRangeCount > 0 ? 'stale' : 'valid'
+      : 'unknown',
+    entryRangeCount: 0,
+    chatRangeCount: stMemoryBookRangeRefs.length,
+    validRangeCount: Math.max(0, stMemoryBookRangeRefs.length - invertedRangeCount - outOfBoundsRangeCount),
+    invertedRangeCount,
+    outOfBoundsRangeCount,
+    staleRangeCount: outOfBoundsRangeCount,
+    rangeHash: stMemoryBookRangeRefs.length ? objectHash(stMemoryBookRangeRefs) : null
+  };
+  const summarizedRangeBeyondChat = summaryceptionSummarizedUpTo >= maxChatLength && maxChatLength > 0;
+  const summaryceptionStaleness = {
+    status: summarizedRangeBeyondChat
+      ? 'stale'
+      : summaryceptionGhostedSystemVisibleCount > 0
+        ? 'ghosted-system-visible'
+        : summaryceptionSummarizedUpTo >= 0 || summaryceptionLayerCount > 0 || summaryceptionGhostedCount > 0
+          ? 'observed'
+          : 'unknown',
+    chatLength: maxChatLength,
+    summarizedRangeBeyondChat,
+    staleAfterMutation: false,
+    ghostedSystemVisibleCount: summaryceptionGhostedSystemVisibleCount,
+    summarizedOnlyCount: 0
+  };
   return {
     chatFileCount: chatFiles.length,
     chatBoundWorlds: unique(chatBoundWorlds),
     summaryceptionGhostedCount,
+    summaryceptionGhostedSystemVisibleCount,
     summaryceptionLayerCount,
-    summaryceptionSummarizedUpTo
+    summaryceptionSummarizedUpTo,
+    maxChatLength,
+    stMemoryBookRangeDiagnostics,
+    summaryceptionStaleness
   };
 }
 
@@ -597,8 +872,27 @@ export function inspectSillyTavernExternalContextCompatibility({
     const settings = readJsonFileIfExists(settingsPath) || {};
     const extensionSettings = settings.extension_settings || {};
     const disabled = disabledExtensions(settings);
-    const worlds = fs.existsSync(userRoot) ? scanUserWorldInfo(userRoot) : { worldFileCount: 0, stMemoryBookEntryCount: 0, stMemoryBookEntryHash: null };
-    const chats = fs.existsSync(userRoot) ? scanUserChatMetadata(userRoot) : { chatFileCount: 0, chatBoundWorlds: [], summaryceptionGhostedCount: 0, summaryceptionLayerCount: 0, summaryceptionSummarizedUpTo: -1 };
+    const worlds = fs.existsSync(userRoot)
+      ? scanUserWorldInfo(userRoot)
+      : {
+        worldFileCount: 0,
+        stMemoryBookEntryCount: 0,
+        stMemoryBookEntryHash: null,
+        stMemoryBookRangeDiagnostics: { status: 'unknown', entryRangeCount: 0, chatRangeCount: 0, validRangeCount: 0, invertedRangeCount: 0, outOfBoundsRangeCount: 0, staleRangeCount: 0, rangeHash: null }
+      };
+    const chats = fs.existsSync(userRoot)
+      ? scanUserChatMetadata(userRoot)
+      : {
+        chatFileCount: 0,
+        chatBoundWorlds: [],
+        summaryceptionGhostedCount: 0,
+        summaryceptionGhostedSystemVisibleCount: 0,
+        summaryceptionLayerCount: 0,
+        summaryceptionSummarizedUpTo: -1,
+        maxChatLength: 0,
+        stMemoryBookRangeDiagnostics: { status: 'unknown', entryRangeCount: 0, chatRangeCount: 0, validRangeCount: 0, invertedRangeCount: 0, outOfBoundsRangeCount: 0, staleRangeCount: 0, rangeHash: null },
+        summaryceptionStaleness: { status: 'unknown', chatLength: 0, summarizedRangeBeyondChat: false, staleAfterMutation: false, ghostedSystemVisibleCount: 0, summarizedOnlyCount: 0 }
+      };
     const worldInfoSettings = settings.world_info_settings || {};
     const worldInfoSelect = worldInfoSettings.world_info?.globalSelect || worldInfoSettings.world_info?.global_select || [];
     const stmbSettings = extensionSettings.STMemoryBooks?.moduleSettings || {};
@@ -633,6 +927,7 @@ export function inspectSillyTavernExternalContextCompatibility({
         activeBookName: chats.chatBoundWorlds[0] || null,
         entryCount: worlds.stMemoryBookEntryCount,
         entryHash: worlds.stMemoryBookEntryHash,
+        rangeDiagnostics: rangeDiagnosticsFromSignals({ worlds, chats }),
         riskyModes: {
           autoSummary: stmbSettings.autoSummaryEnabled === true || stmbSettings.autoSummary?.enabled === true,
           autoCreate: stmbSettings.autoCreateEnabled === true,
@@ -648,6 +943,7 @@ export function inspectSillyTavernExternalContextCompatibility({
         summarizedUpTo: chats.summaryceptionSummarizedUpTo,
         layerCount: chats.summaryceptionLayerCount,
         ghostedCount: chats.summaryceptionGhostedCount,
+        staleness: chats.summaryceptionStaleness || summaryceptionStalenessFromSignals({ chats }),
         injectionHash: summaryception.injectionTemplate ? sha256Text(summaryception.injectionTemplate) : null,
         externalModelCalls: Boolean(summaryception.connectionSource && summaryception.connectionSource !== 'profile')
       },
@@ -663,6 +959,7 @@ export function inspectSillyTavernExternalContextCompatibility({
         summarizerInjectionEnabled: vectfox.summarizer_injection_enabled === true,
         ghostingEnabled: vectfox.eventbase_ghost_enabled === true,
         generationInterceptorActive: Boolean(extensionSettings.vectfox),
+        backendDiagnostics: vectFoxBackendDiagnosticsFromSignals({ vectfox, disabledPresent: vectFoxDisabled }),
         settingsHash: objectHash(vectfox),
         qdrant_api_key: vectfox.qdrant_api_key,
         vectorPayload: vectfox.collections
@@ -724,6 +1021,30 @@ export function buildExternalContextBrowserProbe({
       ...(browser.contextReady === false ? ['browser-context-unavailable'] : []),
       ...(browser.hostPromptRegistry?.available === false ? ['prompt-registry-unavailable'] : [])
     ]);
+    const browserRangeDiagnostics = rangeDiagnosticsFromSignals({ browser });
+    const combinedRangeDiagnostics = rangeDiagnosticsFromSignals({ browser, diskEnvironment });
+    const browserSummaryceptionStaleness = summaryceptionStalenessFromSignals({
+      browser,
+      chatMetadata,
+      messageMarkers,
+      chatLength: browser.chatLength
+    });
+    const combinedSummaryceptionStaleness = summaryceptionStalenessFromSignals({
+      browser,
+      diskEnvironment,
+      chatMetadata,
+      messageMarkers,
+      chatLength: browser.chatLength
+    });
+    const browserVectFoxBackendDiagnostics = vectFoxBackendDiagnosticsFromSignals({
+      browser,
+      messageMarkers
+    });
+    const combinedVectFoxBackendDiagnostics = vectFoxBackendDiagnosticsFromSignals({
+      browser,
+      diskEnvironment,
+      messageMarkers
+    });
     const browserEnvironment = normalizeExternalPromptEnvironment({
       host: 'sillytavern',
       userHandle: handle,
@@ -748,6 +1069,7 @@ export function buildExternalContextBrowserProbe({
         activeBookName: browser.memoryBooks?.activeBookName || null,
         entryCount: browser.memoryBooks?.entryCount,
         entryHash: browser.memoryBooks?.entryHash || null,
+        rangeDiagnostics: browserRangeDiagnostics,
         riskyModes: {
           autoSummary: truthy(browser.memoryBooks?.riskyModes?.autoSummary),
           autoCreate: truthy(browser.memoryBooks?.riskyModes?.autoCreate),
@@ -763,6 +1085,7 @@ export function buildExternalContextBrowserProbe({
         summarizedUpTo: chatMetadata.summaryception?.summarizedUpTo,
         layerCount: chatMetadata.summaryception?.layerCount,
         ghostedCount: Math.max(Number(chatMetadata.summaryception?.ghostedCount || 0), Number(messageMarkers.summaryceptionGhosted || 0)),
+        staleness: browserSummaryceptionStaleness,
         injectionHash: browser.summaryception?.injectionHash || null,
         externalModelCalls: truthy(browser.summaryception?.externalModelCalls)
       },
@@ -778,6 +1101,7 @@ export function buildExternalContextBrowserProbe({
         summarizerInjectionEnabled: truthy(browser.vectFox?.summarizerInjectionEnabled),
         ghostingEnabled: truthy(browser.vectFox?.ghostingEnabled),
         generationInterceptorActive: truthy(browser.vectFox?.generationInterceptorActive),
+        backendDiagnostics: browserVectFoxBackendDiagnostics,
         settingsHash: browser.vectFox?.settingsHash || null,
         qdrant_api_key: browser.vectFox?.qdrant_api_key,
         vectorPayload: browser.vectFox?.vectorPayload
@@ -808,6 +1132,7 @@ export function buildExternalContextBrowserProbe({
         activeBookName: browser.memoryBooks?.activeBookName || diskEnvironment?.memoryBooks?.activeBookName || null,
         entryCount: browser.memoryBooks?.entryCount ?? diskEnvironment?.memoryBooks?.stMemoryBookEntryCount,
         entryHash: browser.memoryBooks?.entryHash || diskEnvironment?.memoryBooks?.stMemoryBookEntryHash || null,
+        rangeDiagnostics: combinedRangeDiagnostics,
         riskyModes: {
           autoSummary: truthy(browser.memoryBooks?.riskyModes?.autoSummary) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.autoSummary),
           autoCreate: truthy(browser.memoryBooks?.riskyModes?.autoCreate) || Boolean(diskEnvironment?.memoryBooks?.riskyModes?.autoCreate),
@@ -823,6 +1148,7 @@ export function buildExternalContextBrowserProbe({
         summarizedUpTo: chatMetadata.summaryception?.summarizedUpTo ?? diskEnvironment?.summaryception?.summarizedUpTo,
         layerCount: chatMetadata.summaryception?.layerCount ?? diskEnvironment?.summaryception?.layerCount,
         ghostedCount: Math.max(Number(chatMetadata.summaryception?.ghostedCount || 0), Number(messageMarkers.summaryceptionGhosted || 0), Number(diskEnvironment?.summaryception?.ghostedCount || 0)),
+        staleness: combinedSummaryceptionStaleness,
         injectionHash: browser.summaryception?.injectionHash || diskEnvironment?.summaryception?.injectionHash || null,
         externalModelCalls: truthy(browser.summaryception?.externalModelCalls) || Boolean(diskEnvironment?.summaryception?.externalModelCalls)
       },
@@ -838,6 +1164,7 @@ export function buildExternalContextBrowserProbe({
         summarizerInjectionEnabled: truthy(browser.vectFox?.summarizerInjectionEnabled) || Boolean(diskEnvironment?.vectFox?.summarizerInjectionEnabled),
         ghostingEnabled: truthy(browser.vectFox?.ghostingEnabled) || Boolean(diskEnvironment?.vectFox?.ghostingEnabled),
         generationInterceptorActive: truthy(browser.vectFox?.generationInterceptorActive) || Boolean(diskEnvironment?.vectFox?.generationInterceptorActive),
+        backendDiagnostics: combinedVectFoxBackendDiagnostics,
         settingsHash: browser.vectFox?.settingsHash || diskEnvironment?.vectFox?.settingsHash || null,
         qdrant_api_key: browser.vectFox?.qdrant_api_key,
         vectorPayload: browser.vectFox?.vectorPayload
@@ -1018,6 +1345,7 @@ export function createArtifactPaths({
     playwright: path.join(root, 'playwright'),
     promptInspection: path.join(root, 'prompt-inspection'),
     hostExtensions: path.join(root, 'host-extensions'),
+    externalContextSummary: path.join(root, 'host-extensions', 'external-context-summary.json'),
     storage: path.join(root, 'storage'),
     campaignMatrix: path.join(root, 'campaign-matrix'),
     objectiveAssignments: path.join(root, 'objective-assignments'),

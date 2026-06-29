@@ -615,6 +615,16 @@ export async function handleMessageDeleted(payload = {}) {
   }
 }
 
+export async function handleMessageVisibilityChanged(payload = {}) {
+  if (!directiveIsEnabled()) return directiveDisabledResult();
+  try {
+    return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageVisibilityChanged?.(payload);
+  } catch (error) {
+    reportFailure('Failed to observe message visibility change', error);
+    return { handled: false, error: error?.message || String(error) };
+  }
+}
+
 export async function handleGenerationStopped(payload = {}) {
   if (!directiveIsEnabled()) return directiveDisabledResult();
   let cancelResult = null;
@@ -714,6 +724,7 @@ export function wireEvents(ctx) {
         events.USER_MESSAGE_RENDERED
       ], handlePlayerMessage, disposers);
       registerEventHandlers(adapter, [events.MESSAGE_EDITED], handleMessageEdited, disposers);
+      registerEventHandlers(adapter, [events.MESSAGE_UPDATED], handleMessageVisibilityChanged, disposers);
       registerEventHandlers(adapter, [
         events.MESSAGE_DELETED,
         events.MESSAGE_REMOVED
@@ -727,6 +738,7 @@ export function wireEvents(ctx) {
       registerEventHandlers(adapter, ['CHAT_CHANGED'], handleChatChanged, disposers);
       registerEventHandlers(adapter, ['MESSAGE_SENT', 'USER_MESSAGE_RENDERED'], handlePlayerMessage, disposers);
       registerEventHandlers(adapter, ['MESSAGE_EDITED'], handleMessageEdited, disposers);
+      registerEventHandlers(adapter, ['MESSAGE_UPDATED'], handleMessageVisibilityChanged, disposers);
       registerEventHandlers(adapter, ['MESSAGE_DELETED'], handleMessageDeleted, disposers);
       registerEventHandlers(adapter, ['GENERATION_STOPPED'], handleGenerationStopped, disposers);
       registerEventHandlers(adapter, ['EXTENSION_DISABLED', 'EXTENSION_DISABLE'], handleExtensionDisabled, disposers);
@@ -748,6 +760,7 @@ export function wireEvents(ctx) {
       events.USER_MESSAGE_RENDERED
     ], handlePlayerMessage, disposers);
     registerEventHandlers(fallbackAdapter, [events.MESSAGE_EDITED], handleMessageEdited, disposers);
+    registerEventHandlers(fallbackAdapter, [events.MESSAGE_UPDATED], handleMessageVisibilityChanged, disposers);
     registerEventHandlers(fallbackAdapter, [
       events.MESSAGE_DELETED,
       events.MESSAGE_REMOVED
@@ -767,6 +780,7 @@ export function wireEvents(ctx) {
     registerEventHandlers(fallbackAdapter, ['CHAT_CHANGED'], handleChatChanged, disposers);
     registerEventHandlers(fallbackAdapter, ['MESSAGE_SENT', 'USER_MESSAGE_RENDERED'], handlePlayerMessage, disposers);
     registerEventHandlers(fallbackAdapter, ['MESSAGE_EDITED'], handleMessageEdited, disposers);
+    registerEventHandlers(fallbackAdapter, ['MESSAGE_UPDATED'], handleMessageVisibilityChanged, disposers);
     registerEventHandlers(fallbackAdapter, ['MESSAGE_DELETED'], handleMessageDeleted, disposers);
     registerEventHandlers(fallbackAdapter, ['GENERATION_STOPPED'], handleGenerationStopped, disposers);
     registerEventHandlers(fallbackAdapter, ['EXTENSION_DISABLED', 'EXTENSION_DISABLE'], handleExtensionDisabled, disposers);
@@ -781,6 +795,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handlePlayerMessage,
   handleMessageEdited,
   handleMessageDeleted,
+  handleMessageVisibilityChanged,
   handleGenerationStopped,
   handleChatChanged,
   handleExtensionDisabled,

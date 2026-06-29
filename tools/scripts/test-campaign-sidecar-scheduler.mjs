@@ -341,6 +341,7 @@ const generationRouter = {
     generationRequests.push({ roleId, request: cloneJson(request || {}) });
     const response = responses.shift();
     assert.ok(response, `Unexpected ${roleId} sidecar request.`);
+    if (typeof response.assertRequest === 'function') response.assertRequest(roleId, request);
     if (typeof response.beforeReturn === 'function') await response.beforeReturn();
     return {
       ok: response.ok !== false,
@@ -633,6 +634,98 @@ const rejectedDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId ==
 assert.deepEqual(rejectedDiagnostics.map((entry) => entry.status), ['queued', 'running', 'rejected']);
 assert.equal(rejectedDiagnostics.at(-1).errorCode, 'DIRECTIVE_SIDECAR_JSON_INVALID');
 
+{
+  let repairState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-json-repair-test', status: 'active' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  repairState = recordTurnIngress(repairState, {
+    id: 'ingress-sidecar-json-repair',
+    hostMessageId: 'player-sidecar-json-repair',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-json-repair-test',
+    textHash: 'json-repair-source-hash',
+    textPreview: 'Source message for truncated sidecar JSON.',
+    status: 'committed',
+    outcomeId: 'outcome-sidecar-json-repair'
+  });
+  const repairGateway = createStateDeltaGateway({
+    getState: () => repairState,
+    setState: (next) => { repairState = cloneJson(next); },
+    persist: async (next) => { repairState = cloneJson(next); },
+    now
+  });
+  const repairCalls = [];
+  const repairPromptSyncs = [];
+  const rawTruncatedMarker = 'RAW_TRUNCATED_SIDECAR_TEXT_MUST_NOT_PERSIST';
+  const repairScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate(roleId, request) {
+        repairCalls.push({ roleId, request: cloneJson(request || {}) });
+        if (repairCalls.length === 1) {
+          return {
+            ok: true,
+            response: {
+              text: `{"id":"crew-truncated","workerId":"crew","baseRevision":0,"operations":[{"op":"append","path":"crew.casualties","value":{"id":"partial","summary":"${rawTruncatedMarker}`
+            }
+          };
+        }
+        assert.equal(roleId, 'crewDirector');
+        assert.equal(request.metadata?.sidecarRepair, true);
+        assert.match(request.prompt, /Repair Directive's crew sidecar output/);
+        return {
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: 'crew-repaired-json-proposal',
+              workerId: 'crew',
+              baseRevision: 0,
+              operations: [
+                { op: 'append', path: 'crew.casualties', value: { id: 'json-repair', summary: 'Repair team logged a bounded casualty follow-up.' } }
+              ],
+              summary: 'Recovered one compact crew update.'
+            })
+          },
+          diagnostics: { providerId: 'fake-json-repair-provider' }
+        };
+      }
+    },
+    stateDeltaGateway: repairGateway,
+    getCampaignState: () => repairState,
+    setCampaignState: (next) => { repairState = cloneJson(next); },
+    persistCampaignState: async (next) => { repairState = cloneJson(next); },
+    syncPromptContext: async (next, details) => {
+      repairPromptSyncs.push({ revision: next.runtimeTracking.revision, details: cloneJson(details) });
+      return next;
+    },
+    now
+  });
+  const repairResults = await repairScheduler.schedule({
+    workerPlan: { crew: true },
+    turnContext: {
+      ingressId: 'ingress-sidecar-json-repair',
+      turnId: 'turn-sidecar-json-repair',
+      outcomeId: 'outcome-sidecar-json-repair'
+    }
+  });
+  assert.equal(repairResults[0].status, 'applied');
+  assert.equal(repairCalls.length, 2, 'Likely-truncated JSON should receive one strict repair attempt.');
+  assert.equal(repairState.crew.casualties.at(-1).id, 'json-repair');
+  assert.equal(repairState.runtimeTracking.sidecarJournal.at(-1).status, 'applied');
+  assert.equal(repairState.runtimeTracking.sidecarJournal.at(-1).diagnostics.repair.attempted, true);
+  assert.equal(repairState.runtimeTracking.sidecarJournal.at(-1).diagnostics.repair.status, 'accepted');
+  assert.equal(repairState.runtimeTracking.sidecarJournal.at(-1).diagnostics.repair.initial.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
+  assert.equal(repairPromptSyncs.length, 1);
+  assert.equal(JSON.stringify(repairState.runtimeTracking.sidecarJournal).includes(rawTruncatedMarker), false, 'Accepted repair diagnostics must not persist malformed raw sidecar text.');
+}
+
 recordSourceIngress('ingress-3');
 responses.push({
   beforeReturn: async () => {
@@ -651,19 +744,19 @@ responses.push({
     operations: [
       { op: 'append', path: 'continuity.notes', value: 'Stale continuity proposal.' }
     ],
-    summary: 'This proposal should lose its revision race.'
+    summary: 'This proposal should rebase after unrelated revision drift.'
   }
 });
 results = await scheduler.schedule({
   workerPlan: { continuity: true },
   turnContext: { ingressId: 'ingress-3' }
 });
-assert.equal(results[0].status, 'rejected');
-assert.equal(results[0].error.code, 'DIRECTIVE_STATE_REVISION_CONFLICT');
-assert.equal(state.runtimeTracking.revision, 3);
-assert.equal(state.continuity.notes.length, 0);
-assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
-assert.equal(promptSyncs.length, 2, 'Rejected or stale sidecars must not rebuild prompt context.');
+assert.equal(results[0].status, 'applied');
+assert.equal(state.runtimeTracking.revision, 4);
+assert.equal(state.continuity.notes.at(-1), 'Stale continuity proposal.');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'applied');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.sidecarGeneration.rebased, true);
+assert.equal(promptSyncs.length, 3, 'Rebased sidecars with unchanged source should rebuild prompt context after apply.');
 assert.equal(persisted.length > 0, true);
 
 state = recordTurnIngress(state, {
@@ -711,7 +804,7 @@ assert.equal(state.runtimeTracking.revision, revisionBeforeStaleSource, 'Stale-s
 assert.equal(state.ship.damage.some((entry) => entry.id === 'stale-edit'), false);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
-assert.equal(promptSyncs.length, 2, 'Source-stale sidecars must not rebuild prompt context.');
+assert.equal(promptSyncs.length, 3, 'Source-stale sidecars must not rebuild prompt context.');
 await scheduler.pending();
 const staleDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-stale-edit');
 assert.deepEqual(staleDiagnostics.map((entry) => entry.status), ['queued', 'running', 'stale']);
@@ -1051,6 +1144,115 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
   assert.equal(batchJournal.every((entry) => entry.diagnostics.source.sourceFrameRef.id === 'frame-batch-1'), true);
   assert.equal(batchJournal.every((entry) => entry.diagnostics.source.sourceToken === 'turnSourceFrame:frame-batch-1'), true);
   assert.equal(JSON.stringify(batchJournal).includes('RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'), false);
+}
+
+{
+  let driftState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-rebase-test', status: 'active' },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  driftState = recordTurnIngress(driftState, {
+    id: 'ingress-rebase-1',
+    hostMessageId: 'player-rebase-1',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-rebase-test',
+    textHash: 'rebase-source-hash',
+    textPreview: 'Source message for rebased sidecars.',
+    status: 'committed',
+    outcomeId: 'outcome-rebase-1',
+    sourceFrameId: 'frame-rebase-1',
+    sourceFrame: {
+      id: 'frame-rebase-1',
+      campaignId: 'campaign-sidecar-rebase-test',
+      saveId: 'save-sidecar-rebase-test',
+      chatId: 'campaign-chat',
+      hostMessageId: 'player-rebase-1',
+      textHash: 'rebase-source-hash'
+    },
+    coreTransactionId: 'txn-rebase-1'
+  });
+  const driftGateway = createStateDeltaGateway({
+    getState: () => driftState,
+    setState: (next) => { driftState = cloneJson(next); },
+    persist: async (next) => { driftState = cloneJson(next); },
+    now
+  });
+  const driftApplyCalls = [];
+  const originalDriftApplyOperations = driftGateway.applyOperations;
+  driftGateway.applyOperations = async (proposal, policy) => {
+    driftApplyCalls.push({ proposal: cloneJson(proposal), policy: cloneJson(policy || {}) });
+    return originalDriftApplyOperations(proposal, policy);
+  };
+  let driftInjected = false;
+  const driftScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Multiple requested campaign sidecars should use the batch generation path.');
+      },
+      async batch(requests) {
+        if (!driftInjected) {
+          driftInjected = true;
+          await driftGateway.applyOperations({
+            id: 'background-drift-before-sidecar-apply',
+            workerId: 'testBackground',
+            baseRevision: driftState.runtimeTracking.revision,
+            operations: [{
+              op: 'append',
+              path: 'pressureLedger.records',
+              value: { id: 'pressure-background-drift', summary: 'Background state changed while sidecars were generating.' }
+            }],
+            summary: 'Simulate unrelated background revision drift.'
+          }, { allowedRoots: ['pressureLedger'] });
+        }
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: `${request.roleId}-rebase-proposal`,
+              operations: request.roleId === 'crewDirector'
+                ? [{ op: 'append', path: 'crew.casualties', value: { id: 'crew-rebase', summary: 'Minor injury recorded after rebase.' } }]
+                : [{ op: 'set', path: 'ship.condition', value: 'Operational with watch notes' }],
+              summary: 'Apply after unrelated revision drift.'
+            })
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: driftGateway,
+    getCampaignState: () => driftState,
+    setCampaignState: (next) => { driftState = cloneJson(next); },
+    persistCampaignState: async (next) => { driftState = cloneJson(next); },
+    now
+  });
+  const driftResults = await driftScheduler.schedule({
+    workerPlan: { crew: true, ship: true },
+    turnContext: {
+      ingressId: 'ingress-rebase-1',
+      turnId: 'turn-rebase-1',
+      outcomeId: 'outcome-rebase-1'
+    }
+  });
+  assert.deepEqual(driftResults.map((result) => result.status), ['applied', 'applied']);
+  assert.equal(driftApplyCalls.length, 2, 'one unrelated drift apply and one aggregate sidecar apply are expected');
+  assert.equal(driftApplyCalls[1].proposal.workerId, 'campaignSidecarBatch');
+  assert.equal(driftApplyCalls[1].proposal.baseRevision, 1);
+  assert.equal(driftApplyCalls[1].proposal.operations.length, 2);
+  assert.equal(driftState.pressureLedger.records.length, 1);
+  assert.equal(driftState.crew.casualties.length, 1);
+  assert.equal(driftState.ship.condition, 'Operational with watch notes');
+  const driftJournal = driftState.runtimeTracking.sidecarJournal.slice(-2);
+  assert.deepEqual(driftJournal.map((entry) => entry.status), ['applied', 'applied']);
+  assert.equal(driftJournal.every((entry) => entry.diagnostics.sidecarGeneration.aggregateBatch === true), true);
+  assert.equal(driftJournal.every((entry) => entry.diagnostics.sidecarGeneration.rebased === true), true);
+  assert.equal(driftJournal.every((entry) => entry.error === null), true);
 }
 
 {
