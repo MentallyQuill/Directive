@@ -25,8 +25,9 @@ import {
 } from '../command/command-bearing.mjs';
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
 import { runSceneHandshakeSettlement } from './scene-handshake-settler.mjs';
-import { createTurnSourceFrameContract } from './architecture-redesign-contracts.mjs';
-import { createRepairRuntime } from './repair-runtime.mjs';
+import { createTurnSourceFrame } from './frame-contracts.mjs';
+import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
+import { createSourceSettlementService } from './source-settlement-service.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -38,6 +39,52 @@ function timestamp(now) {
 
 function compact(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function sentenceCase(value) {
+  const text = compact(value);
+  if (!text) return '';
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+function ensureSentence(value) {
+  const text = sentenceCase(value);
+  if (!text) return '';
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+function fallbackOutcomeLead(resultBand = '') {
+  const normalized = compact(resultBand).toLowerCase();
+  if (normalized.includes('failure')) {
+    return 'The bridge absorbs the setback and keeps the next decision in view.';
+  }
+  if (normalized.includes('partial')) {
+    return 'The bridge moves forward, but the cost stays visible in the room.';
+  }
+  return 'The bridge folds the decision into the working rhythm.';
+}
+
+function fallbackVisibleConsequenceSentence(value) {
+  const text = compact(typeof value === 'string' ? value : value?.summary || value?.label);
+  if (!text) return '';
+  const lower = text.toLowerCase();
+  if (lower === 'formal inspection deferred until after handoff') {
+    return 'The formal inspection stays deferred until after the handoff.';
+  }
+  if (lower === 'the player accepts that first impressions come through working process rather than ceremony') {
+    return 'First impressions will be made through the work itself rather than ceremony.';
+  }
+  const demechanized = text
+    .replace(/^the player accepts that\s+/i, '')
+    .replace(/^formal inspection deferred\b/i, 'The formal inspection stays deferred');
+  return ensureSentence(demechanized);
+}
+
+function displaySafeOutcomeSummary(value) {
+  const text = compact(value);
+  if (!text) return '';
+  if (/\b(?:the player|result band|outcome packet|command log|directive)\b/i.test(text)) return '';
+  return ensureSentence(text);
 }
 
 function fnv1a(text) {
@@ -253,15 +300,17 @@ function narrationGenerationStartedAt(result) {
 function localOutcomeNarration(result) {
   const packet = result?.turnPacket || {};
   const outcome = packet.outcomePacket || {};
+  const summary = displaySafeOutcomeSummary(outcome.summary);
+  if (summary) return summary;
   const visible = packet.commandLogPacket?.visibleConsequences
     || outcome.visibleConsequences
     || outcome.costs
     || [];
   const details = (Array.isArray(visible) ? visible : [visible])
-    .map((entry) => compact(typeof entry === 'string' ? entry : entry?.summary || entry?.label))
+    .map(fallbackVisibleConsequenceSentence)
     .filter(Boolean)
     .join(' ');
-  return `The attempt resolves as ${compact(outcome.resultBand || 'resolved')}. ${details || 'The bridge records the outcome and turns to the next decision.'}`;
+  return [fallbackOutcomeLead(outcome.resultBand), details || 'The bridge turns to the next decision.'].filter(Boolean).join(' ');
 }
 
 function localRoutineNarration() {
@@ -639,6 +688,8 @@ export function createChatTurnOrchestrator({
   scheduleAdvisoryEnrichmentProcessor = null,
   postCommitConversationProcessor = null,
   rewriteCampaignIntro = null,
+  clearDirectivePrompt = null,
+  suspendDirectivePrompt = null,
   reportTurnActivity = null,
   now = null
 } = {}) {
@@ -657,7 +708,11 @@ export function createChatTurnOrchestrator({
   const inFlight = new Map();
   const queues = new Map();
   const observedIngressRecords = new Map();
-  const repair = repairRuntime || createRepairRuntime({ coreTurnStore, now });
+  const repair = repairRuntime || createRepairCommandBoundary({ coreTurnStore, now });
+  const sourceSettlement = createSourceSettlementService({
+    coreStore: coreTurnStore,
+    clock: () => timestamp(now)
+  });
 
   function currentChatId() {
     return host.chat.getCurrentChatId?.() || host.chat.getCurrentBinding?.()?.chatId || null;
@@ -741,6 +796,58 @@ export function createChatTurnOrchestrator({
     return getCampaignState() || state;
   }
 
+  async function preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter = null) {
+    const tracked = initializeCampaignRuntimeTracking(state);
+    const ingress = findIngress(tracked, ingressId);
+    const sourceFrame = ingress?.sourceFrame || null;
+    const transactionId = ingress?.coreTransactionId || null;
+    if (!sourceFrame || !transactionId) return null;
+    const expected = {
+      campaignId: state.campaign?.id || null,
+      saveId: state.campaignChatBinding?.saveId || null,
+      chatId
+    };
+    if (sourceFrame.selectedAssistantVariantHash) {
+      expected.selectedAssistantVariantHash = sourceFrame.selectedAssistantVariantHash;
+    }
+    try {
+      const decision = await sourceSettlement.preflightLatestPair({
+        transactionId,
+        sourceFrame,
+        expected,
+        idempotencyKey: `sre:scene-handshake-preflight:${transactionId}:${sourceFrame.sourceHash || sourceFrame.id}`,
+        reasons: ['scene-handshake-diagnostic-preflight'],
+        observedAt: timestamp(now)
+      });
+      reportActivity(activityReporter, {
+        phase: 'sreSceneHandshakePreflight',
+        mode: 'diagnostic',
+        source: 'sre',
+        ingressId,
+        transactionId,
+        sourceFrameId: sourceFrame.id || null,
+        status: decision.status || null,
+        providerCalled: decision.providerCalled === true,
+        applied: decision.applied === true
+      });
+      return decision;
+    } catch (error) {
+      reportActivity(activityReporter, {
+        phase: 'sreSceneHandshakePreflightFailed',
+        mode: 'diagnostic',
+        source: 'sre',
+        ingressId,
+        transactionId,
+        sourceFrameId: sourceFrame.id || null,
+        error: {
+          code: error?.code || null,
+          message: error?.message || String(error)
+        }
+      });
+      return null;
+    }
+  }
+
   async function settleSceneHandshake(state, message, chatId, ingressId, activityReporter = null) {
     const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
     let packageData = null;
@@ -755,6 +862,7 @@ export function createChatTurnOrchestrator({
       source: 'sceneHandshake',
       ingressId
     });
+    await preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter);
     const result = await runSceneHandshakeSettlement({
       campaignState: state,
       currentPlayerMessage: message,
@@ -1111,7 +1219,7 @@ export function createChatTurnOrchestrator({
   }
 
   function buildTurnSourceFrame(state, message, chatId, ingressId, observedAt) {
-    return createTurnSourceFrameContract({
+    return createTurnSourceFrame({
       id: `frame:${ingressId}`,
       campaignId: state.campaign?.id || null,
       saveId: state.campaignChatBinding?.saveId || null,
@@ -1122,6 +1230,11 @@ export function createChatTurnOrchestrator({
       sourceRevision: state.runtimeTracking?.revision || 0,
       externalPromptEnvironment: unknownExternalPromptEnvironment(observedAt),
       visibility: message.visibility || null,
+      currentPlayer: {
+        hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
+        role: 'player',
+        textHash: fnv1a(message.text)
+      },
       createdAt: observedAt
     });
   }
@@ -1133,8 +1246,9 @@ export function createChatTurnOrchestrator({
     priorIngressForRecovery = null
   } = {}) {
     const transactionId = `txn:${sourceFrame.id}`;
-    if (typeof coreTurnStore?.beginTurn !== 'function') return null;
-    const transaction = await coreTurnStore.beginTurn(sourceFrame, {
+    const observeSource = coreTurnStore?.observeSource || coreTurnStore?.beginTurn;
+    if (typeof observeSource !== 'function') return null;
+    const transaction = await observeSource.call(coreTurnStore, sourceFrame, {
       transactionId,
       ingressId,
       chatId,
@@ -1184,7 +1298,8 @@ export function createChatTurnOrchestrator({
     error = null
   } = {}) {
     const ingress = findIngress(initializeCampaignRuntimeTracking(state), ingressId);
-    return repair.recordResponseRecovery({
+    const handleResponseFailure = repair.handleResponseFailure || repair.recordResponseRecovery;
+    return handleResponseFailure.call(repair, {
       eventType: reason === 'provider-failure-after-mechanics-commit'
         ? 'providerFailureAfterMechanicsCommit'
         : 'hostResponsePostFailure',
@@ -1965,6 +2080,7 @@ export function createChatTurnOrchestrator({
     responseKind,
     idempotencyKey = null,
     timing = null,
+    metadata = {},
     activityReporter = null
   }) {
     const dispatchState = stateWithIngressFromFallback(state, state, ingressId);
@@ -1995,6 +2111,7 @@ export function createChatTurnOrchestrator({
         metadata: {
           classification: decision.classification,
           workerPlan: cloneJson(decision.workerPlan || {}),
+          ...cloneJson(metadata || {}),
           ...(timing?.directiveGenerationStartedAt ? {
             directiveGenerationStartedAt: timing.directiveGenerationStartedAt
           } : {})
@@ -3447,6 +3564,34 @@ export function createChatTurnOrchestrator({
     ));
     if (!recovery) return { ok: false, reason: 'response-recovery-not-found' };
     const details = recovery.details || {};
+    const ingress = recovery.ingressId ? findIngress(state, recovery.ingressId) : null;
+    let coreTransaction = null;
+    if (ingress?.coreTransactionId && typeof coreTurnStore?.getTransaction === 'function') {
+      try {
+        coreTransaction = await coreTurnStore.getTransaction(ingress.coreTransactionId);
+      } catch {
+        coreTransaction = null;
+      }
+    }
+    const authorizeRetry = repair.authorizeRetry || repair.evaluateResponseRetryActuation;
+    const retryActuationDecision = authorizeRetry.call(repair, {
+      recovery,
+      recoveryDecision: details.repairDecision || null,
+      transaction: coreTransaction,
+      transactionId: ingress?.coreTransactionId || details.coreTransactionId || null,
+      responseId: details.responseId || details.responseIdempotencyKey || null,
+      outcomeId: recovery.outcomeId || null,
+      turnId: details.turnId || null,
+      sourceFrameId: ingress?.sourceFrameId || details.sourceFrameId || null,
+      eventTime: timestamp(now)
+    });
+    if (ingress?.coreTransactionId && retryActuationDecision.authorized !== true) {
+      return {
+        ok: false,
+        reason: 'response-retry-not-authorized',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
     const decision = {
       classification: details.classification || 'directorResponseNeeded',
       workerPlan: cloneJson(details.workerPlan || {})
@@ -3460,7 +3605,10 @@ export function createChatTurnOrchestrator({
       turnId: details.turnId || null,
       outcomeId: recovery.outcomeId || null,
       responseKind: details.responseKind || 'committedOutcome',
-      idempotencyKey: details.responseIdempotencyKey || `directive-response-retry:${recovery.id}`
+      idempotencyKey: details.responseIdempotencyKey || `directive-response-retry:${recovery.id}`,
+      metadata: {
+        repairResponseRetryActuationDecision: retryActuationDecision
+      }
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
     state = resolveRecoveryEvent(state, recovery.id, {
@@ -3786,16 +3934,20 @@ export function createChatTurnOrchestrator({
   async function handleChatChanged() {
     const state = getCampaignState();
     if (!state?.campaignChatBinding) {
-      await host.prompt?.clear?.({ reason: 'no-active-campaign' });
-      return { active: false };
+      const result = typeof clearDirectivePrompt === 'function'
+        ? await clearDirectivePrompt({ reason: 'no-active-campaign' })
+        : await host.prompt?.clear?.({ reason: 'no-active-campaign' });
+      return { active: false, promptClear: cloneJson(result || null) };
     }
     const active = String(currentChatId() || '') === String(state.campaignChatBinding.chatId || '');
     if (active) {
       const next = await syncPrompt(initializeCampaignRuntimeTracking(state), 'Prompt context rebuilt after chat change.');
       return { active: true, campaignState: cloneJson(next) };
     }
-    await host.prompt?.clear?.({ reason: 'unbound-chat', preservePacket: true });
-    return { active: false, suspended: true };
+    const result = typeof suspendDirectivePrompt === 'function'
+      ? await suspendDirectivePrompt({ reason: 'unbound-chat' })
+      : await host.prompt?.clear?.({ reason: 'unbound-chat', preservePacket: true });
+    return { active: false, suspended: true, promptSuspension: cloneJson(result || null) };
   }
 
   return {

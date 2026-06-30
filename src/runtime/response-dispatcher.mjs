@@ -19,7 +19,7 @@ import {
   createTurnLatencyMetrics,
   hashStableJson
 } from './architecture-redesign-contracts.mjs';
-import { createRepairRuntime } from './repair-runtime.mjs';
+import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -72,7 +72,7 @@ export function createResponseDispatcher({
     throw new Error('ResponseDispatcher requires host.chat.postAssistantMessage.');
   }
 
-  const repair = repairRuntime || createRepairRuntime({ coreTurnStore, now });
+  const repair = repairRuntime || createRepairCommandBoundary({ coreTurnStore, now });
 
   function resolveState(campaignState) {
     const source = campaignState || getCampaignState?.();
@@ -216,7 +216,8 @@ export function createResponseDispatcher({
     ingress = null,
     entry = null,
     responseText = '',
-    directivePromptRevisionUsed = null
+    directivePromptRevisionUsed = null,
+    repairDecision = null
   } = {}) {
     if (typeof coreTurnStore?.advanceTurn !== 'function' || typeof coreTurnStore?.recordVisibleResponse !== 'function') return null;
     if (!ingress?.coreTransactionId || !entry?.hostMessageId) return null;
@@ -244,6 +245,7 @@ export function createResponseDispatcher({
       generationStartedAt: entry.directiveGenerationStartedAt || entry.generationStartedAt || null,
       turnLatency: entry.turnLatency || null,
       textHash: responseText ? hashContinuityText(responseText) : null,
+      repairDecision: repairDecision || undefined,
       idempotencyKey: `visible-response:${entry.id || transactionId}`
     });
   }
@@ -290,7 +292,8 @@ export function createResponseDispatcher({
     error = null,
   } = {}) {
     if (!responseId) return null;
-    return repair.recordResponseRecovery({
+    const handleResponseFailure = repair.handleResponseFailure || repair.recordResponseRecovery;
+    return handleResponseFailure.call(repair, {
       eventType: eventType || decision?.eventType || null,
       observationStatus,
       reason: decision?.reason || null,
@@ -311,7 +314,8 @@ export function createResponseDispatcher({
     error = null
   } = {}) {
     if (!responseId) return null;
-    return repair.recordResponseRecovery({
+    const handleResponseFailure = repair.handleResponseFailure || repair.recordResponseRecovery;
+    return handleResponseFailure.call(repair, {
       eventType: 'hostNativeContinuityContradiction',
       observationStatus: 'completed',
       reason: 'hostNativeContinuityContradiction',
@@ -364,9 +368,10 @@ export function createResponseDispatcher({
     textHash = null,
     eventTime = null
   } = {}) {
-    if (!response || typeof repair?.evaluateResponseReobserveClosure !== 'function') return null;
+    const authorizeReobserveClosure = repair?.authorizeReobserveClosure || repair?.evaluateResponseReobserveClosure;
+    if (!response || typeof authorizeReobserveClosure !== 'function') return null;
     const recovery = findResponseRecovery(campaignState, response);
-    return repair.evaluateResponseReobserveClosure({
+    return authorizeReobserveClosure.call(repair, {
       response,
       recovery,
       recoveryDecision: recovery?.details?.repairDecision || null,
@@ -1731,6 +1736,7 @@ export function createResponseDispatcher({
     const directiveGenerationStartedAt = metadata?.directiveGenerationStartedAt
       || metadata?.turnTiming?.directiveGenerationStartedAt
       || null;
+    const repairResponseRetryActuationDecision = metadata?.repairResponseRetryActuationDecision || null;
     const posted = await host.chat.postAssistantMessage({
       text: responseText,
       campaignId: state.campaign?.id || null,
@@ -1770,7 +1776,8 @@ export function createResponseDispatcher({
         ingress,
         entry,
         responseText,
-        directivePromptRevisionUsed: state.campaignChatBinding?.promptContextRevision ?? null
+        directivePromptRevisionUsed: state.campaignChatBinding?.promptContextRevision ?? null,
+        repairDecision: repairResponseRetryActuationDecision
       });
     } catch (error) {
       coreReleaseError = compactError(error, 'DIRECTIVE_CORE_VISIBLE_RESPONSE_RECORD_FAILED');

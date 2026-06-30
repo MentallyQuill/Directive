@@ -49,7 +49,8 @@ let state = {
         chatId: 'chat-recon',
         textHash: 'old',
         turnId: 'turn-1',
-        outcomeId: 'outcome-1'
+        outcomeId: 'outcome-1',
+        coreTransactionId: 'core-txn-1'
       }
     ],
     responseLedger: []
@@ -92,6 +93,7 @@ const gateway = createStateDeltaGateway({
 });
 
 let idSequence = 0;
+const sourcePreflightCalls = [];
 const service = createSceneReconciliationService({
   getCampaignState: () => state,
   stateDeltaGateway: gateway,
@@ -109,6 +111,24 @@ const service = createSceneReconciliationService({
       }
     }
   },
+  sourceSettlementService: {
+    async preflightRange(payload) {
+      sourcePreflightCalls.push(cloneJson(payload));
+      return {
+        kind: 'directive.sourceSettlementDecision.v1',
+        mode: 'explicitRange',
+        status: 'preflightClean',
+        transactionId: payload.transactionId || null,
+        rangeFrameId: `range-preflight-${sourcePreflightCalls.length}`,
+        rangeHash: payload.anchorRangeHash || null,
+        providerCalled: false,
+        applied: false,
+        reasons: payload.reasons || [],
+        diagnostic: { id: `core-diagnostic-${sourcePreflightCalls.length}` },
+        observedAt: '2026-06-22T12:00:00.000Z'
+      };
+    }
+  },
   idFactory(prefix) {
     idSequence += 1;
     return `${prefix}-${idSequence}`;
@@ -123,6 +143,19 @@ assert.equal(state.sceneReconciliation, undefined, 'Scene reconciliation ledger 
 
 const logResult = await service.reconcileMessage({ message: { hostMessageId: '1' } });
 assert.equal(logResult.ok, true);
+assert.equal(sourcePreflightCalls.length, 1);
+assert.equal(sourcePreflightCalls[0].transactionId, 'core-txn-1');
+assert.equal(sourcePreflightCalls[0].expected.chatId, 'chat-recon');
+assert.deepEqual(sourcePreflightCalls[0].reasons, ['scene-reconciliation-range-diagnostic-preflight']);
+assert.match(sourcePreflightCalls[0].messages[0].textHash, /^h[0-9a-z]+$/);
+assert.equal('text' in sourcePreflightCalls[0].messages[0], false);
+assert.equal(JSON.stringify(sourcePreflightCalls[0]).includes('Engineering reached the cargo bay'), false);
+assert.equal(logResult.sourcePreflight.status, 'preflightClean');
+assert.equal(logResult.sourcePreflight.providerCalled, false);
+assert.equal(logResult.sourcePreflight.applied, false);
+assert.equal(logResult.sourcePreflight.diagnosticId, 'core-diagnostic-1');
+assert.equal(JSON.stringify(logResult.sourcePreflight).includes('Engineering reached the cargo bay'), false);
+assert.equal(state.runtimeTracking.sceneReconciliation.runs.at(-1).sourcePreflight.status, 'preflightClean');
 assert.equal(logResult.applied.length, 1);
 assert.equal(logResult.pending.length, 0);
 assert.equal(state.commandLog.entries.length, 1);

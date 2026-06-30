@@ -382,12 +382,34 @@ const responseRetryCase = await coreStore.markRecoveryRequired(retryTransaction.
 });
 assert.equal(responseRetryCase.status, 'required');
 assert.equal(coreStore.state.transactions[retryTransaction.id].phase, 'responseRetryRequired');
+await assert.rejects(
+  () => coreStore.recordVisibleResponse(retryTransaction.id, {
+    idempotencyKey: 'response-32-unauthorized-key',
+    responseId: 'response-32-unauthorized',
+    hostMessageId: '33-unauthorized',
+    outcomeId: 'outcome-32',
+    responseKind: 'directiveNarration'
+  }),
+  (error) => error?.code === 'DIRECTIVE_CORE_RESPONSE_RETRY_VISIBLE_RESPONSE_UNAUTHORIZED',
+  'responseRetryRequired must not close without REPAIR retry actuation authorization'
+);
 const retriedResponse = await coreStore.recordVisibleResponse(retryTransaction.id, {
   idempotencyKey: 'response-32-key',
   responseId: 'response-32',
   hostMessageId: '33',
   outcomeId: 'outcome-32',
-  responseKind: 'directiveNarration'
+  responseKind: 'directiveNarration',
+  repairDecision: {
+    kind: 'directive.repairResponseRetryActuationDecision.v1',
+    eventType: 'hostResponsePostFailure',
+    action: 'recordVisibleResponse',
+    authorized: true,
+    recoveryResolved: true,
+    reason: 'directive-response-retry-posted',
+    recoveryCaseId: 'recovery-32',
+    recoveryId: 'recovery-32',
+    allowedActions: ['retryResponse']
+  }
 });
 assert.equal(retriedResponse.phase, 'visibleResponsePosted', 'response retry phase must allow recording the eventual visible response');
 const beforeRetryReplayEvents = coreStore.state.events.length;
@@ -399,6 +421,13 @@ await coreStore.recordVisibleResponse(retryTransaction.id, {
   responseKind: 'directiveNarration'
 });
 assert.equal(coreStore.state.events.length, beforeRetryReplayEvents, 'response retry replay must not append another visible-response event');
+const retryResolutionProjection = coreStore.readProjections().recoveryJournal.find((entry) => (
+  entry.transactionId === retryTransaction.id
+  && entry.status === 'resolved'
+  && entry.reason === 'directive-response-retry-posted'
+));
+assert.ok(retryResolutionProjection, 'response retry closure must project a resolved recovery');
+assert.equal(retryResolutionProjection.repairDecision.kind, 'directive.repairResponseRetryActuationDecision.v1');
 await assert.rejects(
   () => coreStore.recordVisibleResponse(recoveryTransaction.id, {
     idempotencyKey: 'response-31-key',
@@ -777,7 +806,7 @@ assert.equal(directiveTurnTiming.turnTiming.providerCompletionLatencyMs, 65000);
 assert.equal(directiveTurnTiming.turnTiming.architectureWithin60s, true);
 assert.equal(projections.turnLedger.entries.length, 1);
 assert.equal(projections.turnLedger.lastCommittedOutcomeId, 'outcome-29');
-assert.equal(projections.recoveryJournal.length, 6);
+assert.equal(projections.recoveryJournal.length, 7);
 assert.equal(projections.recoveryJournal[0].id, 'recovery-31');
 const responseRetryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-32');
 assert.equal(responseRetryProjection.phase, 'responseRetryRequired');

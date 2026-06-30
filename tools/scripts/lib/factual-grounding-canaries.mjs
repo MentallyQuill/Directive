@@ -259,6 +259,7 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
       expectedSourceIds: [
         'ship.uss-breckenridge.travel.opening-transit-mode',
         'ship.uss-breckenridge.travel.not-six-days-impulse',
+        'ship.uss-breckenridge.travel.not-short-refit-duration',
         'ship.uss-breckenridge.travel.crew-underway-duration',
         'ship.uss-breckenridge.travel.current-route'
       ],
@@ -302,6 +303,14 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
         'left the yard 3 days ago',
         'out of the yard three days ago',
         'out of the yard 3 days ago',
+        'three days out of Utopia Planitia',
+        '3 days out of Utopia Planitia',
+        'three days out of Utopia Planitia refit',
+        '3 days out of Utopia Planitia refit',
+        'three days out of Utopia Planitia\'s refit cradle',
+        '3 days out of Utopia Planitia\'s refit cradle',
+        'three days out of the refit cradle',
+        '3 days out of the refit cradle',
         'first crew contact happened only moments ago',
         'saucer-underside shuttlebay',
         'underside of the saucer',

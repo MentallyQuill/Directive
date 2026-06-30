@@ -145,6 +145,7 @@ const checks = [
   'test-transaction-store-v2.mjs',
   'test-old-save-importer-v2.mjs',
   'test-core-store-v2.mjs',
+  'test-smoke-sillytavern-core-proof-targeting.mjs',
   'test-fast-gate-runtime-synthetic.mjs',
   'test-mechanics-narration-runtime-synthetic.mjs',
   'test-repair-runtime.mjs',

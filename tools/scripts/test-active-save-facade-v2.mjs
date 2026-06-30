@@ -237,7 +237,12 @@ const loaded = await loadActiveCampaignStateV2(adapter, {
 assert.equal(loaded.found, true);
 assert.equal(loaded.campaignState.player.name, 'Sam Vickers');
 assert.equal(loaded.campaignState.campaign.currentStardate, 53061.7);
-assert.equal(loaded.campaignState.runtimeTracking, undefined, 'facade load returns materialized head state');
+assert.equal(loaded.campaignState.runtimeTracking.schemaVersion, 2, 'facade load returns compact runtime projections');
+assert.equal(loaded.campaignState.runtimeTracking.ingressLedger.length, 1);
+assert.equal(loaded.campaignState.runtimeTracking.ingressLedger[0].hostMessageId, '33');
+assert.equal(loaded.campaignState.runtimeTracking.responseLedger.length, 1);
+assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].hostMessageId, '34');
+assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].outcomeId, 'outcome-33');
 assert.equal(loaded.campaignState.runtimeResume.modelCallEventSequence, 42, 'facade load returns compact runtime resume cursor');
 
 snapshot = adapter.snapshot();

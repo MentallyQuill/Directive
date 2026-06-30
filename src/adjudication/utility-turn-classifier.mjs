@@ -82,7 +82,7 @@ function hasClosureRecommendationSignal(text = '') {
 const SCENE_NAVIGATION_SAFE_PATTERNS = Object.freeze([
   /\b(?:let'?s\s+)?cut\s+(?:within\s+(?:the\s+)?(?:current\s+)?scene\s+)?(?:to|ahead|forward|back)\b/i,
   /\b(?:jump|skip|fast[-\s]?forward|move|advance)\s+(?:ahead\s+)?(?:to|ahead|forward|back)\b/i,
-  /\b(?:continue|carry on|keep going)\s+(?:the\s+)?scene\b/i,
+  /\b(?:continue|continues|carry on|keep going)\s+(?:the\s+)?scene\b/i,
   /\blet\s+(?:the\s+)?scene\s+continue\b/i,
   /\bcontinue\s+from\s+here\b/i,
   /\b(?:next|following)\s+(?:scene|beat|moment)\b/i,
@@ -308,7 +308,7 @@ function sceneNavigationDecision(text = '', context = {}) {
     ambiguity: 'low',
     speechAct: 'scene-navigation',
     action: 'navigate within current scene',
-    target: normalized,
+    target: 'current scene pacing',
     targetConfidence: 0.82,
     domainSignals: ['scene', 'continuity'],
     reasons: ['The player requests local scene pacing without directing procedure or skipping a durable boundary.'],
@@ -359,11 +359,12 @@ function hasInSceneDialogueQuestion(text = '') {
 function hasOperationalOrderFrame(text = '') {
   const normalized = compact(text);
   const lower = normalized.toLowerCase();
-  const hasOrderFrame = /\b(?:order|orders|final order|instruction|command)\b/i.test(normalized)
-    || /["“][^"”]{0,500}["”]/.test(normalized);
-  if (!hasOrderFrame) return false;
+  if (hasQuotedOperationalCommand(normalized)) return true;
+  const explicitOrderFrame = /\b(?:order|orders|ordered|ordering|final order|instruction|instructions|instructs?|directs?|tells?|asks?)\b/i.test(normalized);
+  if (!explicitOrderFrame) return false;
   const hasOperationalSubject = /\b(?:medical|tactical|ops|operations|helm|security|engineering|sickbay|away team|rescue team|transporter|sensor|bridge|conn|watch|crew)\b/i.test(normalized);
-  const hasDirectiveVerb = /\b(?:prepare|prepares|protect|protects|keep|keeps|coordinate|coordinates|stage|stages|hold|holds|scan|scans|hail|hails|route|routes|launch|launches|deploy|deploys|maintain|maintains|monitor|monitors|secure|secures|report|reports|make|makes|take|takes)\b/i.test(normalized);
+  const hasDirectiveVerb = /\b(?:prepare|prepares|protect|protects|coordinate|coordinates|stage|stages|hold|holds|scan|scans|hail|hails|route|routes|launch|launches|deploy|deploys|maintain|maintains|monitor|monitors|secure|secures|report|reports|make|makes|take|takes)\b/i.test(normalized)
+    || /\b(?:keep|keeps)\b/i.test(normalized) && /\b(?:ready|safe|cold|open|closed|clear|secure|disciplined|informed|on standby)\b/i.test(normalized);
   const hasMissionPosture = includesAny(lower, [
     'rescue',
     'approach',
@@ -375,7 +376,7 @@ function hasOperationalOrderFrame(text = '') {
     'medical',
     'ops'
   ]);
-  return hasQuotedOperationalCommand(normalized) || (hasOperationalSubject && hasDirectiveVerb && hasMissionPosture);
+  return hasOperationalSubject && hasDirectiveVerb && hasMissionPosture;
 }
 
 function defaultWorkerPlan(overrides = {}) {
@@ -394,7 +395,11 @@ function listDomainSignals(lower = '') {
 }
 
 function hasCrewRelationshipCommandSignal(text = '') {
-  const lower = compact(text).toLowerCase();
+  const normalized = compact(text);
+  const lower = normalized.toLowerCase();
+  const narrativeAttemptOnly = /\battempts?\s+to\b[\s\S]{0,140}\b(?:acknowledge|ask|continue|leave|let)\b/i.test(normalized)
+    && !hasQuotedOperationalCommand(normalized);
+  if (narrativeAttemptOnly) return false;
   const targetSignal = includesAny(lower, [
     'bronn',
     'whitaker',
@@ -405,13 +410,11 @@ function hasCrewRelationshipCommandSignal(text = '') {
     'handoff',
     'tactical posture'
   ]);
-  const commandSignal = includesAny(lower, [
-    'tell ',
-    'ask ',
-    'have ',
+  const directedTarget = /\b(?:i\s+)?(?:ask|tell|have|order|instruct|direct)\s+(?:captain\s+)?(?:whitaker|bronn|nayar|sato|orison|orr|captain|senior staff|crew|tactical|ops|operations|security|engineering|sickbay)\b/i.test(normalized)
+    || /\b(?:whitaker|bronn|nayar|sato|orison|orr|captain|senior staff|crew|tactical|ops|operations|security|engineering|sickbay)\b[\s\S]{0,80}\b(?:ask|tell|order|instruct|direct|have)\b/i.test(normalized);
+  const relationshipPosture = includesAny(lower, [
     'i acknowledge',
     'i want',
-    'keep ',
     'show trust',
     'professional warmth',
     'non-threatening',
@@ -419,6 +422,7 @@ function hasCrewRelationshipCommandSignal(text = '') {
     'respect what the crew built',
     'trust my call'
   ]);
+  const commandSignal = directedTarget || relationshipPosture;
   return targetSignal && commandSignal;
 }
 
@@ -879,7 +883,13 @@ function deterministicClassification(text, context = {}) {
       action: 'issue operational order',
       target: 'crew operational posture',
       targetConfidence: 0.86,
-      domainSignals: ['mission', 'crew', 'ship', 'command'],
+      domainSignals: [
+        'mission',
+        ...(includesAny(lower, ['captain', 'whitaker', 'bronn', 'trust', 'respect', 'handoff', 'command rhythm']) ? ['relationship'] : []),
+        'crew',
+        'ship',
+        'command'
+      ],
       riskSignals: [],
       reasons: ['The player frames quoted or third-person prose as an operational order with crew/station assignments.'],
       workerPlan: {
@@ -1013,6 +1023,12 @@ function deterministicClassification(text, context = {}) {
       classification: 'consequentialCommand',
       confidence: 0.82,
       reasons: ['The player directs or frames crew/officer behavior in a way that can affect command rhythm, trust, or relationship state.'],
+      domainSignals: [
+        'relationship',
+        'crew',
+        ...(includesAny(lower, ['mission', 'handoff']) ? ['mission'] : []),
+        ...(includesAny(lower, ['ship', 'shield', 'tactical', 'weapon', 'system', 'engineering']) ? ['ship'] : [])
+      ],
       workerPlan: {
         missionDirector: true,
         relationship: true,

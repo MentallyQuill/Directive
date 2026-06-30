@@ -376,6 +376,74 @@ function findOutcomeForAnchor(state, anchor) {
   return asArray(state?.runtimeTracking?.responseLedger).find((entry) => anchor?.hostMessageId && entry.hostMessageId === anchor.hostMessageId)?.outcomeId || null;
 }
 
+function campaignIdForState(state = null) {
+  return compact(state?.campaign?.id || state?.campaign?.templateCampaignId) || null;
+}
+
+function saveIdForState(state = null) {
+  return compact(state?.campaign?.saveId || state?.saveId) || null;
+}
+
+function coreTransactionIdForMessage(state, message) {
+  const ingressId = compact(message?.ingressId || message?.metadata?.ingressId) || null;
+  const directIngress = ingressId
+    ? asArray(state?.runtimeTracking?.ingressLedger).find((entry) => entry?.id === ingressId)
+    : null;
+  const ingress = findIngressForMessage(state, message);
+  return compact(message?.coreTransactionId || message?.metadata?.coreTransactionId || directIngress?.coreTransactionId || ingress?.coreTransactionId) || null;
+}
+
+function coreTransactionIdForRange(state, messages = [], anchorRange = null) {
+  const candidates = [anchorRange?.start, anchorRange?.end, ...asArray(messages)];
+  for (const candidate of candidates) {
+    const transactionId = coreTransactionIdForMessage(state, candidate);
+    if (transactionId) return transactionId;
+  }
+  return null;
+}
+
+function expectedSourceForRange(state, anchorRange = null) {
+  return {
+    campaignId: campaignIdForState(state),
+    saveId: saveIdForState(state),
+    chatId: compact(anchorRange?.chatId || state?.campaignChatBinding?.chatId) || null,
+    branchId: compact(state?.campaignChatBinding?.branchId || state?.branchId) || null
+  };
+}
+
+function compactSourcePreflightDecision(decision = null) {
+  if (!isObject(decision)) return null;
+  return {
+    kind: 'directive.sceneReconciliationSourcePreflight.v1',
+    status: compact(decision.status) || 'unknown',
+    mode: compact(decision.mode) || 'explicitRange',
+    transactionId: compact(decision.transactionId) || null,
+    rangeFrameId: compact(decision.rangeFrameId) || null,
+    rangeHash: compact(decision.rangeHash) || null,
+    providerCalled: decision.providerCalled === true,
+    applied: decision.applied === true,
+    reasons: unique(asArray(decision.reasons).map(compact)),
+    diagnosticId: compact(decision.diagnostic?.id || decision.diagnosticId) || null,
+    errorCode: compact(decision.errorCode) || null,
+    observedAt: compact(decision.observedAt) || null
+  };
+}
+
+function sourcePreflightMessageRefs(messages = []) {
+  return normalizeReconciliationMessages(messages).map((message) => ({
+    hostMessageId: message.hostMessageId || null,
+    chatId: message.chatId || null,
+    role: message.role || null,
+    ordinal: Number.isInteger(message.ordinal) ? message.ordinal : null,
+    index: Number.isInteger(message.index) ? message.index : null,
+    textHash: message.textHash || null,
+    selectedAssistantVariantHash: message.selectedAssistantVariantHash || null,
+    ingressId: message.metadata?.ingressId || null,
+    turnId: message.metadata?.turnId || null,
+    outcomeId: message.metadata?.outcomeId || null
+  }));
+}
+
 export function createSceneReconciliationService({
   getCampaignState,
   stateDeltaGateway,
@@ -384,6 +452,7 @@ export function createSceneReconciliationService({
   getPackageData = null,
   processReconciledConversation = null,
   replayDirector = null,
+  sourceSettlementService = null,
   now = null,
   idFactory = null
 } = {}) {
@@ -497,6 +566,54 @@ export function createSceneReconciliationService({
     return result;
   }
 
+  async function preflightSourceRange({ state, actionId, messages, anchorRange, runId }) {
+    if (typeof sourceSettlementService?.preflightRange !== 'function') return null;
+    const transactionId = coreTransactionIdForRange(state, messages, anchorRange);
+    const expected = expectedSourceForRange(state, anchorRange);
+    const rangeMessageRefs = sourcePreflightMessageRefs(messages);
+    if (!transactionId) {
+      return compactSourcePreflightDecision({
+        status: 'skippedMissingCoreTransaction',
+        mode: 'explicitRange',
+        rangeHash: anchorRange?.rangeHash || null,
+        providerCalled: false,
+        applied: false,
+        reasons: ['scene-reconciliation-source-preflight-missing-core-transaction'],
+        observedAt: timestamp(now)
+      });
+    }
+    try {
+      const decision = await sourceSettlementService.preflightRange({
+        transactionId,
+        messages: rangeMessageRefs,
+        campaignId: expected.campaignId,
+        saveId: expected.saveId,
+        chatId: expected.chatId,
+        branchId: expected.branchId,
+        expected,
+        idempotencyKey: `sre:scene-reconciliation-preflight:${transactionId || 'no-core-transaction'}:${actionId}:${anchorRange?.rangeHash || stableTextHash(JSON.stringify(anchorRange || {}))}`,
+        reasons: ['scene-reconciliation-range-diagnostic-preflight'],
+        source: 'sceneReconciliation',
+        action: actionId,
+        reconciliationRunId: runId,
+        anchorRangeHash: anchorRange?.rangeHash || null
+      });
+      return compactSourcePreflightDecision(decision);
+    } catch (error) {
+      return compactSourcePreflightDecision({
+        status: 'preflightFailed',
+        mode: 'explicitRange',
+        transactionId,
+        rangeHash: anchorRange?.rangeHash || null,
+        providerCalled: false,
+        applied: false,
+        reasons: ['scene-reconciliation-source-preflight-error'],
+        errorCode: error?.code || 'source-preflight-error',
+        observedAt: timestamp(now)
+      });
+    }
+  }
+
   async function execute({ action: actionId, messages, anchorRange }) {
     const normalized = normalizeReconciliationMessages(messages);
     if (!normalized.length) return { ok: false, reason: 'empty-range' };
@@ -511,9 +628,11 @@ export function createSceneReconciliationService({
       anchorRange: cloneJson(anchorRange), affectedOutcomeIds: outcomeIdsForRange(stateAtStart, anchorRange),
       startedAt: timestamp(now), completedAt: null
     };
+    const sourcePreflight = await preflightSourceRange({ state: stateAtStart, actionId, messages: normalized, anchorRange, runId });
+    if (sourcePreflight) run.sourcePreflight = sourcePreflight;
     ledger.runs = bounded([...ledger.runs, run], LIMITS.runs);
     ledger.lastRunId = runId;
-    ledger.lastResult = { ok: true, action: actionId, status: 'running', runId, summary: 'Scene reconciliation started.' };
+    ledger.lastResult = { ok: true, action: actionId, status: 'running', runId, summary: 'Scene reconciliation started.', sourcePreflight };
     await writeLedger(ledger, `Scene reconciliation started: ${actionId}.`);
 
     const cache = current().chunkCache;
@@ -529,9 +648,9 @@ export function createSceneReconciliationService({
       const done = current();
       const completed = { ...run, status: 'completed', completedAt: timestamp(now), chunkCount: chunks.length, skippedChunkCount: skipped.length, proposalCount: 0, autoAppliedCount: 0, pendingCount: 0 };
       done.runs = bounded([...done.runs.filter((item) => item.id !== runId), completed], LIMITS.runs);
-      done.lastResult = { ok: true, action: actionId, runId, status: 'completed', summary: 'No changed chat chunks required reconciliation.', skippedChunkCount: skipped.length };
+      done.lastResult = { ok: true, action: actionId, runId, status: 'completed', summary: 'No changed chat chunks required reconciliation.', skippedChunkCount: skipped.length, sourcePreflight };
       await writeLedger(done, done.lastResult.summary);
-      return { ok: true, run: completed, applied: [], pending: [], skippedUnchanged: skipped.length, summary: done.lastResult.summary, sceneReconciliation: current() };
+      return { ok: true, run: completed, applied: [], pending: [], skippedUnchanged: skipped.length, summary: done.lastResult.summary, sourcePreflight, sceneReconciliation: current() };
     }
 
     const invalidation = await invalidateChangedRange(anchorRange);
@@ -593,9 +712,9 @@ export function createSceneReconciliationService({
     done.pending = bounded([...done.pending.filter((item) => !pending.some((next) => next.id === item.id)), ...pending], LIMITS.pending);
     done.chunkCache = bounded([...done.chunkCache.filter((item) => !newCache.some((next) => next.rangeHash === item.rangeHash)), ...newCache], LIMITS.cache);
     done.lastRunId = runId;
-    done.lastResult = { ok: true, action: actionId, runId, status: 'completed', summary: `${applied.length} safe update${applied.length === 1 ? '' : 's'} applied; ${pending.length} item${pending.length === 1 ? '' : 's'} pending review.`, messageCount: normalized.length, proposalCount: proposals.length, autoAppliedCount: applied.length, pendingCount: pending.length, skippedChunkCount: skipped.length };
+    done.lastResult = { ok: true, action: actionId, runId, status: 'completed', summary: `${applied.length} safe update${applied.length === 1 ? '' : 's'} applied; ${pending.length} item${pending.length === 1 ? '' : 's'} pending review.`, messageCount: normalized.length, proposalCount: proposals.length, autoAppliedCount: applied.length, pendingCount: pending.length, skippedChunkCount: skipped.length, sourcePreflight };
     await writeLedger(done, `Scene reconciliation completed: ${actionId}.`);
-    return { ok: true, run: completed, applied, pending, summary: done.lastResult.summary, sceneReconciliation: current() };
+    return { ok: true, run: completed, applied, pending, summary: done.lastResult.summary, sourcePreflight, sceneReconciliation: current() };
   }
 
   async function reconcileMessage(payload = {}) {

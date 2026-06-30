@@ -61,6 +61,7 @@ function runtimeSummary(campaignState = {}) {
   return {
     ingressCount: Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger.length : 0,
     responseCount: Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger.length : 0,
+    responseLedgerRevision: Math.max(0, Number(runtimeTracking.responseLedgerRevision) || 0),
     recoveryCount: Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal.length : 0,
     historyCount: Array.isArray(runtimeTracking.history) ? runtimeTracking.history.length : 0,
     turnCount: Array.isArray(turnLedger.entries) ? turnLedger.entries.length : 0,
@@ -79,6 +80,7 @@ function runtimeResumeCursor(campaignState = {}) {
     kind: 'directive.runtimeResumeCursor.v1',
     runtimeRevision: runtimeTracking.revision || 0,
     mechanicsRevision: runtimeTracking.mechanicsRevision || 0,
+    responseLedgerRevision: Math.max(0, Number(runtimeTracking.responseLedgerRevision) || 0),
     promptContextRevision: campaignState.campaignChatBinding?.promptContextRevision || null,
     modelCallCount: modelCalls.length,
     modelCallEventSequence: maxModelCallEventSequence(campaignState),
@@ -120,7 +122,8 @@ function hostRowsFromRuntime(campaignState = {}) {
       responseId: entry.id || null,
       turnId: entry.turnId || null,
       outcomeId: entry.outcomeId || null,
-      status: entry.status || null
+      status: entry.status || null,
+      outcomeIntegrity: entry.outcomeIntegrity ? cloneJson(entry.outcomeIntegrity) : undefined
     }))
   ];
 }
@@ -151,9 +154,51 @@ function runtimeEvents(campaignState = {}) {
       hostMessageId: entry.hostMessageId || null,
       turnId: entry.turnId || null,
       outcomeId: entry.outcomeId || null,
-      status: entry.status || null
+      status: entry.status || null,
+      responseKind: entry.responseKind || null,
+      outcomeIntegrity: entry.outcomeIntegrity ? cloneJson(entry.outcomeIntegrity) : undefined
     }))
   ];
+}
+
+function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
+  const entries = eventSegments.flatMap((segment) => (
+    Array.isArray(segment?.entries) ? segment.entries : []
+  ));
+  const ingressLedger = entries
+    .filter((entry) => entry?.type === 'runtimeIngressProjected')
+    .map((entry) => compact({
+      id: entry.ingressId || null,
+      hostMessageId: entry.hostMessageId || null,
+      turnId: entry.turnId || null,
+      outcomeId: entry.outcomeId || null,
+      textHash: entry.textHash || null,
+      status: entry.status || null
+    }));
+  const responseLedger = entries
+    .filter((entry) => entry?.type === 'runtimeResponseProjected')
+    .map((entry) => compact({
+      id: entry.responseId || null,
+      hostMessageId: entry.hostMessageId || null,
+      turnId: entry.turnId || null,
+      outcomeId: entry.outcomeId || null,
+      status: entry.status || null,
+      responseKind: entry.responseKind || null,
+      outcomeIntegrity: entry.outcomeIntegrity ? cloneJson(entry.outcomeIntegrity) : undefined
+    }));
+  const resume = headState?.runtimeResume || {};
+  return compact({
+    schemaVersion: 2,
+    revision: Math.max(0, Number(resume.runtimeRevision) || 0),
+    mechanicsRevision: Math.max(0, Number(resume.mechanicsRevision) || 0),
+    responseLedgerRevision: Math.max(0, Number(resume.responseLedgerRevision) || 0),
+    ingressLedger,
+    responseLedger,
+    recoveryJournal: [],
+    sidecarJournal: [],
+    modelCallJournal: [],
+    pendingInteractions: []
+  });
 }
 
 function turnRecords(campaignState = {}) {
@@ -317,6 +362,14 @@ export async function loadActiveCampaignStateV2(adapter, {
   try {
     const saveManifest = await loadV2SaveManifest(adapter, { campaignId, saveId });
     const head = await readV2ArtifactRef(adapter, saveManifest.head);
+    const eventSegments = [];
+    for (const ref of saveManifest.eventSegments || []) {
+      eventSegments.push(await readV2ArtifactRef(adapter, ref));
+    }
+    const campaignState = cloneJson(head.state || null);
+    if (campaignState) {
+      campaignState.runtimeTracking = runtimeTrackingFromEventSegments(eventSegments, campaignState);
+    }
     return {
       kind: 'directive.activeCampaignStateLoad.v2',
       storageFormat: 'v2',
@@ -324,8 +377,11 @@ export async function loadActiveCampaignStateV2(adapter, {
       campaignId,
       saveId,
       saveManifest,
-      campaignState: cloneJson(head.state || null),
-      head
+      campaignState,
+      head: {
+        ...head,
+        eventSegments
+      }
     };
   } catch (error) {
     return {

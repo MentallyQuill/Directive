@@ -131,6 +131,7 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
     lastDelta: null,
     ingressLedger: [],
     responseLedger: [],
+    responseLedgerRevision: 0,
     recoveryJournal: [],
     sidecarJournal: [],
     modelCallJournal: [],
@@ -184,6 +185,7 @@ function normalizedTracking(value, options = {}) {
     history: Array.isArray(input.history) ? cloneJson(input.history) : [],
     ingressLedger: Array.isArray(input.ingressLedger) ? cloneJson(input.ingressLedger) : [],
     responseLedger: Array.isArray(input.responseLedger) ? cloneJson(input.responseLedger) : [],
+    responseLedgerRevision: Math.max(0, Number(input.responseLedgerRevision) || 0),
     recoveryJournal: Array.isArray(input.recoveryJournal) ? cloneJson(input.recoveryJournal) : [],
     sidecarJournal: Array.isArray(input.sidecarJournal) ? cloneJson(input.sidecarJournal) : [],
     modelCallJournal: Array.isArray(input.modelCallJournal) ? cloneJson(input.modelCallJournal) : [],
@@ -737,11 +739,23 @@ export function recordDirectiveResponse(campaignState, response, {
 
 export function updateDirectiveResponse(campaignState, responseId, patch = {}) {
   const id = compact(responseId);
+  if (!id) return campaignState;
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
-    responseLedger: tracking.responseLedger.map((entry) => entry.id === id
-      ? { ...entry, ...cloneJson(patch) }
-      : entry)
+    ...(() => {
+      let updated = false;
+      const responseLedger = tracking.responseLedger.map((entry) => {
+        if (compact(entry.id) !== id && compact(entry.hostMessageId) !== id) return entry;
+        updated = true;
+        return { ...entry, ...cloneJson(patch) };
+      });
+      return {
+        responseLedger,
+        responseLedgerRevision: updated
+          ? Math.max(0, Number(tracking.responseLedgerRevision) || 0) + 1
+          : Math.max(0, Number(tracking.responseLedgerRevision) || 0)
+      };
+    })()
   }));
 }
 
@@ -808,6 +822,7 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
     historyIndex,
     ingressLedger: cloneJson(current.runtimeTracking.ingressLedger),
     responseLedger: cloneJson(current.runtimeTracking.responseLedger),
+    responseLedgerRevision: Math.max(0, Number(current.runtimeTracking.responseLedgerRevision) || 0),
     sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
     modelCallJournal: cloneJson(current.runtimeTracking.modelCallJournal),
     pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),

@@ -545,9 +545,9 @@ export function createFakePromptAdapter() {
     install: sync,
     update: sync,
     rebuild: sync,
-    async clear() {
+    async clear(options = {}) {
       blocks = [];
-      calls.push({ type: 'clear' });
+      calls.push({ type: 'clear', options: cloneJson(options) });
       return { ok: true, status: 'cleared' };
     },
     async syncForChat(identity = {}) {

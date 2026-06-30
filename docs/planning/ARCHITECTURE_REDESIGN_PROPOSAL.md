@@ -31,6 +31,8 @@ These decisions capture the current product and architecture direction for the r
 - External SillyTavern context-extension tools remain independent systems. Directive supports user compatibility with ST-Lorebooks / ST Lorebooks / World Info, Memory Books, Summaryception, and VectFox by preserving prompt ownership, source identity, visibility semantics, latency attribution, privacy boundaries, and bounded diagnostics. It does not directly integrate with, import, trust, rewrite, repair, or replace those tools by default.
 - The per-extension planning implications in this document are redesign scope, not appendix material. ST Lorebooks / World Info, Memory Books, Summaryception, and VectFox each create different prompt, source-visibility, latency, privacy, storage, and proof pressures; Directive combines only the shared LENS/Frame/REPAIR/CORE evidence boundaries needed for coexistence.
 - External-context proof must be one normalized LENS/Frame diagnostic contract shared by fixture prep, disk/browser probes, prompt-adapter summaries, readiness fixture-depth checks, and generation proof. Do not let each layer invent a separate definition of "rich active external context."
+- The redesign pivots to include the transferable Narrative Engine ideas as first-class Directive-native capabilities: a hybrid Recall Index over CORE/Frame evidence, LENS prompt budget lanes, witness-scoped continuity facts, FORGE scene/phase seals, and evidence-backed Correct-as-Swipe. These are not a separate app architecture and do not replace the CORE/Frame/SRE/REPAIR/FORGE/LENS ownership model.
+- Narrative Engine code should be referenced heavily but borrowed sparingly. Reimplement the architecture patterns inside Directive's contracts; do not port its app shell, server routes, storage model, UI, world simulator, local archive format, or vector database dependency. Any direct nontrivial code copy must keep MIT attribution and remain isolated behind Directive-native tests.
 - The save-size issue is not a tuning problem. A live save reaching tens of megabytes around message 33 means the full-save-as-runtime-log pattern cannot scale to the 5000-message target.
 - The turn-delay issue is not only provider latency. Directive must record and reduce submit-to-generation-start time separately from provider completion, external extension retrieval/interceptor delay, and background settlement.
 - Persisted generation-start proof belongs to CORE Store projections. Runtime snapshots are useful live diagnostics, the v1 save payload is a manual/checkpoint bridge, and the v2 active-save facade is a compact resume/index bridge; none of those should become the durable timing authority for architecture certification.
@@ -69,6 +71,7 @@ This proposal was built from current worktree discovery, the June 28 live Sam Vi
 - CPM and Handshake: continuity source frame, prompt projection, selected swipes, Scene Handshake, Scene Reconciliation.
 - Data and persistence: save record shape, storage repository, runtime snapshots, turn ledger snapshots, full-save rewrite sequence.
 - External context-extension compatibility: native ST Lorebooks/World Info, Memory Books, Summaryception, and VectFox installed-surface audit, prompt-key ownership, visibility mutation behavior, and redacted live-proof artifact design.
+- Narrative Engine transfer review: hybrid scene recall, prompt budget lanes, `knownBy` / witness-scoped facts, scene/phase seal sidecars, evidence-backed correction-as-swipe, structured lore/RAG metadata, and a code-borrowing policy that favors design reference over direct porting.
 
 Primary current files inspected:
 
@@ -85,6 +88,10 @@ Primary current files inspected:
 - `src/mission/director.mjs`
 - `src/generation/player-safe-prompt-context-builder.mjs`
 - `src/continuity/*`
+- `src/retrieval/recall-lanes.mjs`
+- `src/retrieval/dataset-index.mjs`
+- `src/retrieval/card-hydration.mjs`
+- `src/runtime/define-selection.mjs`
 - `src/storage/save-records.mjs`
 - `src/storage/directive-storage-repository.mjs`
 - `docs/development/TURN_LATENCY_AUDIT_2026_06_28.md`
@@ -101,6 +108,9 @@ The Sam Vickers audit is the source record for the redesign's latency, recovery,
 | Turn 31 / chat row 32 committed outcome | The committed turn posted a Directive-owned response after about `171s`; the dominant pre-response cost was `96,493ms` narration, with additional pre-narration and post-narration overhead. Post-turn work continued after the source was edited and later rejected stale sidecars. | `directiveCommit` must record generation-start before provider completion, move post-visible workers into FORGE, and cancel stale background work before provider calls where possible. |
 | Edited retry after `Sam waited for her reply.` | The same `hostMessageId: "31"` had an original committed ingress marked `recoveryRequired` and a replacement ingress reobserved as `sceneColor` / `injectAndContinue`, stranded at `classified`. | A dependent edited player row must enter REPAIR review, rollback, or dependent-row replacement. It must not re-enter normal classification unless it is still the latest source boundary. |
 | Save size around message 33 | The active save was `73,166,880` bytes around the low-30s chat rows. `turnLedger` was `21,836,975` minified bytes and `runtimeTracking` was `14,090,539`; retained turn packets nested large `runtimeTracking` copies inside open-world `rootsSet`. | Full-save-as-runtime-log cannot scale to 5000 messages. CORE Store needs compact event segments, bounded diagnostics, host refs/hashes, and materialized heads instead of hot full-save rewrites. |
+| June 30 bounded three-lane regression | Artifact `artifacts/live-soak/continuity-projection-matrix-five-user/2026-06-30T00-18-07-165Z/report.json` passed factual grounding, story-quality model review, continuity prompt/source proof, external-context generation proof, and model-call failure policy for `ashes-command-bearing-endings`, `ashes-drawer-projection`, and `ashes-sidecars-timekeeping` at turn limit 3. It still failed aggregate CORE timing/completion proof and lane artifact completeness because the harness retained early per-turn warnings and an external-context summary artifact mismatch even after final CORE reobserve had better evidence. | The remaining blocker is not just runtime behavior. Certification tooling must read final save-scoped CORE projections after reobserve, not stale v1 save ledgers, stale runtime summaries, or turn-end proof snapshots captured before host-native completion reconciliation finished. |
+| June 30 CORE-targeted bounded rerun | Artifact `artifacts/live-soak/continuity-projection-matrix-five-user/2026-06-30T01-05-30-310Z/report.json` reran the same three Ashes lanes at turn limit 3 after targeting proof by explicit player host ids and CORE transaction ids. It passed external-context readiness and fixture depth, host-native turn coverage, continuity prompt/source proof, external-context generation proof, generation-start CORE timing, host-native CORE completion, model-call failure policy, factual grounding, story-quality model review, and lane artifact completeness. The report stayed `warning` only because it was intentionally bounded to three lanes and three turns. | This closes the stale-runtimeTracking proof-pipeline false failure for bounded proof. The next certification question is no longer whether final CORE projections can prove the turn; it is whether the same CORE-targeted evidence holds in the full five-lane, 52-turn Ashes run with scale budgets and complete artifact coverage. |
+| V2 split evidence from June 30 | A current v2 save index entry had `runtimeStorageFormat: "v2"` and `v2RuntimePersistedAt: 2026-06-30T00:23:40.098Z` while the old v1 save payload stayed stale by design because the bridge wrote `wroteV1Payload: false`. The same save showed a compact CORE split (`core-head` about 3.9 KB, host map about 5.9 KB, events about 58.6 KB, turns about 1.7 KB, diagnostics about 144.7 KB), but the non-core v2 head was still about 333.5 KB after only three turns. | The split validates the CORE direction, but the active head still needs stricter size budgets. Tools and operators must follow the save index and manifest into the v2/core layout; an empty or old v1 `runtimeTracking` ledger is not authoritative evidence that CORE did not persist the turn. |
 
 ## Current Architecture Summary
 
@@ -174,6 +184,8 @@ Two rollback/history systems coexist:
 
 The June 28 audit measured a live save at 73,166,880 bytes at only about 33 chat rows. The largest roots were `turnLedger` at 21,836,975 minified bytes and `runtimeTracking` at 14,090,539 minified bytes. A follow-up code change now compacts nested `stateDelta.openWorld.rootsSet.runtimeTracking` inside retained turn-ledger deltas, but the larger architectural problem remains: runtime history and operational journals still live inside the hot save payload.
 
+The June 30 v2 bridge evidence narrows the storage target. CORE layout files were already much smaller than the old monolithic save roots, and host-map/source-frame/event projections retained the actual player and assistant bindings even when legacy `runtimeSummary` counts lagged. That is the desired authority boundary. The non-core active head still remained large for a three-turn run, so the redesign cannot stop at moving timing and host maps into CORE. Runtime resume heads, prompt/cache summaries, diagnostics pointers, and manual checkpoint bridges need explicit size budgets and write-frequency budgets before the 5000-message target is credible.
+
 ## Root-Cause Findings
 
 ### 1. The Visible Path Is Too Monolithic
@@ -242,7 +254,7 @@ Sidecars correctly validate roots and stale revisions. The cost problem is that 
 
 Stale checks must happen before provider calls when possible, not only before apply.
 
-The June 28 FORGE audit sharpened the production gap. The synthetic FORGE coordinator already proves the intended shape: source preflight, worker fan-out, conflict rejection, CORE `commitBackgroundBatch(...)`, diagnostics, and LENS prompt flush. The first production bridge now moves regular accepted campaign sidecars closer to that target: `campaign-sidecar-scheduler.mjs` parses and validates worker results first, rejects cross-worker path conflicts before mutation, applies accepted non-conflicting operations through one state-delta gateway call, records one best-effort CORE background batch when the source transaction is available, and runs one prompt sync for the accepted batch. The Command Log summary bridge now keeps its specialized presentation-only worker and separate post-visible-response queue, but successful settlement also writes a sanitized CORE background effect batch with outcome/source refs and assisted-summary hashes only. The Narrative Thread bridge now follows the same pattern for post-commit conversation work: committed chat-native turns queue extraction after the visible response, record redacted CORE sidecar diagnostics, guard source freshness before provider/apply stages, and commit successful settlement as a sanitized `narrative-thread:*` CORE background batch. The advisory enrichment bridge now uses the same settlement semantics for counsel turns: host generation releases with a deterministic fallback advisory, `missionDirectorAdvisor` runs post-release, and successful enrichment patches the same advisory id through a sanitized `advisory-enrichment:*` CORE background batch. This is the preferred convergence shape: shared FORGE/CORE settlement semantics without pretending every worker belongs inside one generic sidecar prompt.
+The June 28 FORGE audit sharpened the production gap. The synthetic FORGE coordinator already proves the intended shape: source preflight, worker fan-out, conflict rejection, CORE `commitBackgroundBatch(...)`, diagnostics, and LENS prompt flush. The first production bridge now moves regular campaign sidecars closer to that target in two steps: provider fan-out enters `createForgeCoordinator(...).runProviderBatch(...)` for provider idempotency and redacted provider diagnostics, then accepted worker results enter `settleAcceptedBatch(...)` for CORE background settlement. `campaign-sidecar-scheduler.mjs` still owns the temporary v1 parsing, validation, aggregate state-delta apply, prompt sync, and old sidecar journals, but it now records a stable sidecar-batch replay barrier so cached provider packets cannot duplicate those bridge mutations, and its remaining prompt-sync bridge emits LENS-normalized dirty domains plus stable sidecar-batch prompt idempotency keys instead of treating every accepted sidecar as a full prompt rebuild. The Command Log summary bridge now keeps its specialized presentation-only worker and separate post-visible-response queue, but successful settlement also writes a sanitized CORE background effect batch with outcome/source refs and assisted-summary hashes only. The Narrative Thread bridge now follows the same pattern for post-commit conversation work: committed chat-native turns queue extraction after the visible response, record redacted CORE sidecar diagnostics, guard source freshness before provider/apply stages, and commit successful settlement as a sanitized `narrative-thread:*` CORE background batch. The advisory enrichment bridge now uses the same settlement semantics for counsel turns: host generation releases with a deterministic fallback advisory, `missionDirectorAdvisor` runs post-release, and successful enrichment patches the same advisory id through a sanitized `advisory-enrichment:*` CORE background batch. This is the preferred convergence shape: shared FORGE/CORE/LENS settlement semantics without pretending every worker belongs inside one generic sidecar prompt.
 
 ## Target Architecture
 
@@ -271,9 +283,13 @@ flowchart TD
   Background --> Sidecars["FORGE"]
   Background --> Diagnostics["Diagnostics and model-call log"]
 
+  Sidecars --> Seal["Scene/Phase Seal Worker"]
   Settlement --> Store
+  Seal --> Store
   Projection --> Prompt["Prompt Packet Cache"]
   Sidecars --> Store
+  Store --> Recall["Directive Recall Index"]
+  Recall --> Projection
   Diagnostics --> DiagStore["Diagnostic Segments"]
 ```
 
@@ -699,6 +715,53 @@ CPM remains a core system. The redesign changes operational placement.
 
 Combine prompt dirtying, prompt rebuild scheduling, and prompt-cache writes behind LENS (`PromptProjectionScheduler`). Do not merge CPM into LENS. CPM remains the deterministic source-backed projection builder; CORE Store emits dirty domains and background effects; LENS decides when a prompt packet is built, reused, installed, or deferred.
 
+#### Prompt Budget Lanes
+
+The Narrative Engine review reinforced that prompt assembly needs explicit lanes with budgets, floors, and trace output. Directive already has CPM lanes, but the redesign should make LENS the owner of runtime prompt budgeting so retrieval, recent transcript, external-context diagnostics, and volatile turn state do not compete by accident.
+
+LENS prompt packets should be assembled from named lanes:
+
+| Lane | Purpose | Budget behavior | Source authority |
+| --- | --- | --- | --- |
+| `stableRules` | Directive rules, package rules, safety/style constraints, and fixed system instructions. | Reserved floor; cacheable across turns until package/preset/policy revision changes. | Directive package and preset contracts. |
+| `protectedContinuity` | Source-backed facts that must not be forgotten or contradicted. | Reserved floor with omission warnings if exceeded. | CORE/CPM/SRE accepted facts only. |
+| `activeScene` | Current location, time, mission phase, stakes, immediate scene state, and scene-seal summary. | Reserved floor, refreshed on scene/phase dirty domains. | CORE materialized head, FORGE scene seal, current Frame. |
+| `activeCast` | Present characters, known relationships, observed injuries/status, and witness-scoped knowledge relevant now. | Reserved floor plus active-actor boosts. | CORE/CPM facts with `knownBy` / `witnessedBy` metadata. |
+| `missionPressure` | Open orders, pressure ledger, unresolved command obligations, and timekeeping stakes. | Bounded rolling budget; stale lower-priority items may be summarized or omitted with trace. | Mission/Open-World reducers and FORGE digests. |
+| `recentTranscript` | Last accepted player/assistant source refs and compact previews needed for local coherence. | Sliding window; raw text remains host-owned and only bounded previews/refs enter Directive artifacts. | Frame/host refs and selected assistant variant hashes. |
+| `recall` | Hybrid scene recall hits, package/card facts, prior callbacks, and branch-relevant scene seals. | Dynamic budget after reserved floors; deterministic hits precede semantic candidates. | Directive Recall Index, package datasets, reviewed imports. |
+| `volatileTurn` | Current route hints, current player text projection, pending choices, and immediate utility output. | Short-lived overlay; excluded from long-lived base prompt cache. | Current transaction only. |
+| `externalEnvironment` | Redacted awareness that external SillyTavern tools may add context or latency. | Diagnostic only; never consumes authority budget and never stores raw external content. | LENS external prompt environment observer. |
+
+Every LENS prompt build should emit a prompt budget trace:
+
+```text
+kind: directive.lensPromptBudgetTrace.v1
+packetId
+promptRevision
+cacheKey
+lanes:
+  - id
+    budgetTokens
+    estimatedTokens
+    reservedFloor
+    includedRefs
+    omittedRefs
+    omissionReasons
+    authority
+cacheInputs:
+  mechanicsRevision
+  promptDomainVector
+  recallIndexRevision
+  sceneSealRevision
+  packageRevision
+  externalPromptEnvironmentRef
+```
+
+The trace is a diagnostics/proof artifact, not a prompt body archive. It may store ids, hashes, token estimates, lane names, and omission reasons. It must not store raw prompt text, raw transcript text, provider prompts/results, external Memory Books text, Summaryception summaries, VectFox vector hits, embeddings, or secrets.
+
+Manual Directive prompt clear and runtime-owned global cleanup clears are now part of this ownership boundary. Runtime manual clear, campaign-complete conclusion cleanup, completed-campaign load cleanup, completed-campaign archive cleanup, active-save deletion cleanup, no-active-campaign chat-change cleanup, and extension-disabled runtime cleanup call `LENS.clearDirectivePrompt(...)` rather than the host adapter directly when the runtime app bridge is available; the host adapter still performs the actual Directive-key clear, but LENS owns installed-lane cache invalidation and failure semantics. Because SillyTavern clear is global for Directive prompt keys, these clears invalidate all LENS installed lanes. If the host clear reports failure, LENS keeps installed state instead of pretending the prompt cache was cleared; conclusion cleanup records that failed LENS result instead of marking the prompt cleared. Preserve-packet chat suspension now uses `LENS.suspendDirectivePrompt(...)`: wrong-chat, unbound-chat, and activation-failed paths call the host clear with `preservePacket: true`, keep installed-lane cache records, record active/bound chat identity when available, and force reinstall when the bound chat is restored or activation retries instead of falsely reusing a clean cache key. Failed suspension preserves installed cache without marking the lane suspended. Extension-disabled keeps a direct host clear fallback only for bridge-unavailable teardown. Campaign activation prompt install now uses an injected LENS-backed lifecycle from runtime-app so activation can install while the campaign is still `activating` without direct host prompt calls; activation packet content construction still lives in the activation coordinator during this bridge. SillyTavern adapter internal rebuild/install-failed/syncForChat preserves remain host-local transport internals until adapter semantics move behind LENS.
+
 Dirty domains should be prompt-level categories, not raw storage roots only:
 
 ```text
@@ -763,6 +826,21 @@ Directive should therefore expose an External Context Compatibility Boundary wit
 | Optional reviewed interop | Future flows may let users import or export reviewed material. | CORE accepts external memory only through explicit review/approval records, never as automatic campaign truth. |
 
 This is intentionally not a request to replace ST Lorebooks, Memory Books, Summaryception, or VectFox. Users want those tools for context extension. Directive should make their presence legible and safe, not absorb their architectures.
+
+The support promise from this review is therefore operational compatibility:
+
+| Support dimension | What Directive must do | What Directive must not do |
+| --- | --- | --- |
+| Coexistence | Continue correct turn, prompt, recovery, and save behavior when these tools are installed, enabled, disabled, unavailable, or actively contributing context. | Require users to disable them before using Directive, or make Directive correctness depend on their private implementation details. |
+| Preservation | Preserve host-owned prompt keys, native World Info surfaces, chat metadata, visibility markers, settings, and external prompt contributors where observable. | Clear, rewrite, reorder, or disable external context as a side effect of Directive prompt lifecycle. |
+| Provenance | Record compact, redacted evidence that external context may have influenced a generation or added latency. | Claim that Directive's prompt revision is the complete model prompt, or store raw external prompt bodies, summaries, memories, vector hits, embeddings, secrets, or provider payloads. |
+| Authority | Keep Directive truth anchored in Frame, CORE, SRE, REPAIR, reviewed imports, and committed Directive events. | Treat lorebook entries, generated memories, Summaryception summaries, or VectFox retrieval hits as committed campaign state by default. |
+| Recovery | Distinguish true source edits/deletes from hidden, ghosted, summarized, unhidden, or prompt-excluded rows. | Let extension visibility churn create false deletes, replacement player ingress, stale-source loops, or automatic rollback decisions. |
+| Scale | Keep compatibility diagnostics bounded and segmented so they do not recreate full-save-as-runtime-log growth. | Add external-context snapshots, raw prompts, or generated memory bodies to the hot campaign save. |
+
+This keeps the redesign focused on Directive's responsibilities: prompt ownership, source identity, recovery correctness, timing attribution, privacy, and bounded evidence. Direct interop can still exist later, but only as an explicit reviewed import/export flow with provenance and approval state.
+
+This is also a boundary lesson from the broader Sam Vickers audit. The problem is not that Directive has many specialized systems, or that users have external context tools installed. The problem appears when each system records, saves, validates, or interprets a slightly different version of the same turn truth. The redesign should preserve independent feature ownership where it is useful, but combine the evidence spine: Frame identifies the source, CORE records the transaction, REPAIR/SRE decide source integrity, LENS records prompt/external environment provenance, and FORGE settles background work through bounded batches.
 
 ### Shared Compatibility Contract
 
@@ -1244,6 +1322,288 @@ The normalized output should include source-row existence, source mutation reaso
 
 This gives Stage 1 a concrete no-behavior-change slice: normalize external context, normalize host visibility, prove prompt-key coexistence, and add metrics that can later enforce the under-60-second and 5000-message requirements.
 
+## Narrative Engine Transfer Pivot
+
+The Narrative Engine review changes the target architecture in a specific way: Directive should adopt the useful narrative-memory and prompt-budget patterns, but express them through the existing redesign owners. The pivot does not create a second runtime, second storage model, or second prompt engine. CORE remains the durable authority, Frame remains the source token, SRE/REPAIR own source integrity and recovery, FORGE owns background settlement, and LENS owns prompt scheduling and prompt-budget traces.
+
+The transferable ideas are:
+
+1. Hybrid scene recall: lossless scene/event storage plus compact metadata, deterministic scoring, optional semantic candidates, chapter/phase funnels, and verbatim source refs when needed.
+2. Prompt budget lanes: explicit reserved budgets for rules, continuity, active scene, cast, mission pressure, recent transcript, recall, volatile turn state, and external-environment diagnostics.
+3. Witness-scoped facts: continuity facts track who knows, witnessed, or can infer a fact instead of using only global narrator/player visibility labels.
+4. Scene/phase seals: background workers create compact scene boundary records containing summaries, events, facts, witnesses, unresolved hooks, and correction candidates.
+5. Evidence-backed Correct-as-Swipe: selected text can be checked against Directive evidence, receive a verdict and citations, and produce a candidate assistant swipe without mutating accepted continuity until selected.
+6. Structured lore/RAG metadata: packages and authored datasets need richer retrieval metadata so deterministic retrieval remains strong before optional vectors are consulted.
+7. Pressure and arc digests: operational pressure, relational threads, callbacks, and unresolved obligations need compact rolling digests so the prompt does not depend on full chat history.
+
+### Code Borrowing Policy
+
+Narrative Engine is useful as a reference architecture, not as an implementation substrate. The current Directive redesign should use the following policy:
+
+| Category | Policy |
+| --- | --- |
+| Architecture patterns | Reference heavily. Use the ideas for hybrid recall, budget lanes, scene sealing, and correction workflow. |
+| Pure algorithms | Reimplement inside Directive unless copying a small standalone function is clearly cheaper and keeps tests simple. |
+| Direct code copy | Keep to a minimum. If copied, retain MIT attribution in the file or nearby notice and add Directive-native tests. |
+| Storage, server, app shell, UI | Do not port. Directive's CORE/v2 storage, SillyTavern host adapters, and shell are the target. |
+| Vector database dependency | Do not require. Semantic search remains optional, feature-gated, and non-authoritative. |
+| Example world content | Do not copy into Directive packages unless separately authored/reviewed for Directive. |
+
+Directive is solving a different problem than Narrative Engine: it must coexist inside SillyTavern, preserve selected-swipe source truth, support external context extensions, and scale a long campaign save without duplicating the transcript.
+
+### Directive Recall Index
+
+Directive should add a Recall Index as a capability owned by CORE projections and consumed by LENS, SRE, REPAIR, FORGE, and user-facing review tools. It is not a new authority store. It indexes Directive-owned evidence and returns refs, scores, and bounded previews.
+
+Source inputs:
+
+- accepted Frame refs for player ingress and selected assistant variants;
+- CORE visible response refs and committed mechanics events;
+- FORGE scene/phase seal records;
+- reviewed Mission Components and reviewed imports;
+- package and dataset cards with structured retrieval metadata;
+- Command Log summaries and Narrative Thread records that have already settled through CORE;
+- optional semantic candidate refs, when the vector feature gate is enabled.
+
+Non-inputs by default:
+
+- rejected assistant swipes;
+- stale source rows;
+- raw SillyTavern transcript copies;
+- raw provider prompts/results;
+- Memory Books generated text;
+- Summaryception summaries;
+- VectFox vector hits or embeddings;
+- any external context that has not passed an explicit reviewed import flow.
+
+The Recall Index should store compact, replayable entries:
+
+```text
+kind: directive.recallIndexEntry.v1
+id
+campaignId
+saveId
+branchId
+sourceFrameRef
+coreEventRefs
+sceneSealRef
+chapterId
+phaseId
+sceneId
+locationId
+actorIds
+subjectIds
+threadIds
+missionIds
+tags
+keywords
+timeRange
+authority: committed | reviewedImport | package | diagnosticCandidate
+textHash
+preview
+metadataHash
+embeddingRef
+```
+
+Recall query should be deterministic-first:
+
+1. Build query facets from current Frame, active actors, location, mission phase, `knownBy`/witness metadata, and prompt lane needs.
+2. Retrieve exact ids and deterministic facets first: active mission, actors, location, unresolved threads, recent callbacks, package cards, and scene seals.
+3. Score lexical candidates with bounded metadata and source hashes.
+4. Use optional semantic/vector candidates only as recall candidates, not truth.
+5. Funnel candidates by chapter/phase/scene boundaries so old but locally irrelevant hits do not crowd the prompt.
+6. Return ids, hashes, authority, score reasons, and bounded previews to LENS.
+7. Let LENS decide prompt inclusion through budget lanes and trace omissions.
+
+Recall Index write rules:
+
+- CORE events and scene seals advance `recallIndexRevision`.
+- Updating recall metadata cannot rewrite the full save or dirty all prompt lanes.
+- A recalled item is not automatically prompt-visible; LENS budget lanes decide inclusion.
+- A recalled item is not automatically true if its authority is `diagnosticCandidate`.
+- Selected-swipe changes, source edits, rollback, and branch changes must invalidate or fork affected recall entries through SRE/REPAIR.
+
+### Witness-Scoped Continuity Facts
+
+Directive should expand fact records beyond broad `narratorSafe`, `directorOnly`, `hidden`, or `playerFacing` labels. Those labels remain useful for audience gating, but they are not enough to prevent anti-telepathy errors or to reason about what a character can act on.
+
+Add these fields to relevant continuity facts, scene seals, materializers, and prompt projections:
+
+```text
+knownBy: [actorId | groupId]
+witnessedBy: [actorId | groupId]
+subjectIds: [actorId | objectId | locationId | threadId]
+disclosureState: undisclosed | witnessed | inferred | told | public | secret | falseBelief
+disclosureSourceFrameId
+evidenceRefs
+confidence
+```
+
+Planning implications:
+
+- `knownBy` means an actor may consciously know or reasonably recall the fact.
+- `witnessedBy` means an actor directly observed the event, but may not understand its meaning.
+- `subjectIds` make recall and prompt filtering subject-aware without broad keyword search.
+- `disclosureState` separates knowledge, inference, rumor, public record, secret, and false belief.
+- `evidenceRefs` must point to Frame/CORE/package/reviewed-import refs, not raw transcript blobs.
+- LENS active-cast and protected-continuity lanes must filter facts by active actors and allowed audience.
+- SRE must use witness fields when deciding whether a source correction changes what characters can know.
+- FORGE scene seals must extract or update witness fields when a scene boundary is sealed.
+
+The anti-telepathy rule becomes data-backed: if Sam knows a classified order only because external lore or a hidden Director note says so, that cannot enter the active-cast prompt lane unless there is a Directive evidence ref showing Sam learned it.
+
+### FORGE Scene/Phase Seal Worker
+
+Scene and phase boundaries should produce a compact seal record through FORGE. This replaces repeated sidecar saves and repeated broad summaries with one typed background settlement.
+
+Trigger candidates:
+
+- after a committed Directive turn that changes scene, location, mission phase, active cast, or high-pressure thread state;
+- after accepted Scene Handshake or Scene Reconciliation settlement;
+- after terminal checkpoint posting or resolution;
+- after branch creation or rollback acceptance;
+- after a configurable turn count or byte budget within a long scene;
+- before a prompt budget lane would otherwise need to carry too much recent transcript.
+
+Seal output:
+
+```text
+kind: directive.scenePhaseSeal.v1
+id
+sourceRangeFrameRef
+campaignId
+saveId
+branchId
+sceneId
+phaseId
+chapterId
+sealedAt
+summary
+events
+facts
+knownByUpdates
+witnessedByUpdates
+openThreads
+missionPressure
+callbacks
+contradictionCandidates
+correctionCandidates
+recallIndexEntries
+promptDirtyDomains
+```
+
+Seal rules:
+
+- The worker is a FORGE typed batch, not a foreground requirement.
+- It runs after visible generation starts or after a visible control response posts.
+- It uses source tokens and abort checks before provider calls and before apply.
+- It commits one CORE background batch with sanitized refs/hashes and bounded facts.
+- It may create Recall Index entries and prompt dirty domains, but LENS decides prompt rebuild timing.
+- It must not persist raw transcript text, raw prompt text, raw provider output, or raw external extension material.
+- It must separate extracted events/facts from suggested correction candidates; correction candidates require SRE/REPAIR review before they become state.
+
+### Evidence-Backed Correct-as-Swipe
+
+Directive should adapt the correction-as-swipe workflow as a product feature through existing seams. The flow should be evidence-first and non-mutating until the user accepts a candidate swipe.
+
+Target flow:
+
+```text
+User selects assistant prose
+  -> Define Selection captures selection refs and bounded text hash
+  -> SRE/Recall gather evidence from Frame, CORE, Recall Index, package data, and reviewed imports
+  -> SRE emits verdict: supported, contradicted, unsupported, ambiguous, or external-only
+  -> REPAIR opens a correction case if protected accepted prose may change
+  -> Utility/Narration rewrite proposes a replacement assistant swipe
+  -> host adapter appends assistant swipe with provenance refs
+  -> selected-swipe change later determines whether continuity changes
+```
+
+Responsibilities:
+
+| Owner | Responsibility |
+| --- | --- |
+| Define Selection | Ephemeral capture of selected text, source message id, swipe index, text hash, and bounded preview. |
+| Recall Index | Retrieve Directive-owned evidence and package/card evidence. |
+| SRE | Decide evidence verdict, selected-swipe integrity, and source-settlement implications. |
+| REPAIR | Own correction case state, protected prose rules, allowed actions, and idempotency. |
+| Narration/Utility | Generate a rewrite suggestion from evidence, not from hidden Director truth alone. |
+| Host adapter | Append the candidate as a new assistant swipe without selecting it automatically unless product policy says so. |
+| CORE | Record correction case refs, verdict, candidate swipe refs, and acceptance later through selected-swipe source truth. |
+
+This must not be implemented as direct mutation of assistant text. Adding a candidate swipe keeps the current continuity source intact until the user selects the new variant. If the user selects the new variant, SRE and REPAIR handle the selected-swipe source mutation and dependent continuity invalidation.
+
+### Structured Lore And RAG Metadata
+
+Directive packages and datasets should gain retrieval metadata that supports deterministic recall before optional semantic search. This is separate from external ST Lorebooks; it is Directive package metadata and reviewed content.
+
+Recommended metadata:
+
+```text
+retrieval:
+  mode: always | keyword | phase | actor | location | vectorCandidate | reviewedOnly
+  priority
+  linkedEntityIds
+  actorIds
+  locationIds
+  missionIds
+  phaseIds
+  threadIds
+  tags
+  keywords
+  negativeKeywords
+  activationRules
+  audience
+  knownBy
+  sourceAuthority
+  ragHints
+```
+
+Rules:
+
+- `always` must be rare and budgeted.
+- `vectorCandidate` means optional candidate retrieval only; it is never committed truth.
+- Package cards and reviewed imports may become Recall Index entries with package/reviewed authority.
+- External ST Lorebook hits remain external prompt influence unless explicitly imported through review.
+- RAG metadata must be represented in schemas and fixtures before package migration.
+
+### Pressure And Arc Digests
+
+The Narrative Engine pressure/arc digest idea should map to Directive's existing Mission, Open Threads, Command Bearing, Timekeeping, and Narrative Thread systems. Do not create a full NPC/world simulator. The useful target is compact digest output that LENS can budget and FORGE can update.
+
+Digest categories:
+
+- `missionPressure`: operational stakes, deadlines, ship status, command obligations, and active risk.
+- `openThreads`: unresolved human, relational, political, investigative, or shipboard story material.
+- `callbacks`: concrete prior details that should return later.
+- `arcPressure`: long-horizon character or crew arcs that matter to current scene choices.
+- `commandBearing`: earned recognition state after closure, not live quest XP.
+
+These digests should be CORE-backed, source-linked, and generated or refreshed through FORGE. LENS can place them in `missionPressure`, `activeCast`, or `recall` lanes. They should not grow into a second transcript summary log.
+
+### External Extension Implications
+
+The pivot must remain compatible with ST Lorebooks, Memory Books, Summaryception, and VectFox:
+
+| Extension | Planning implication |
+| --- | --- |
+| ST Lorebooks / World Info | Directive package/RAG metadata is separate from ST World Info. ST Lorebook hits may influence SillyTavern's final prompt, but Recall Index authority comes from Directive package refs, reviewed imports, Frame, and CORE. LENS should preserve ST prompt keys and record redacted prompt-environment evidence. |
+| Memory Books | Generated memories can be useful context for the model, but they are not witness-scoped Directive facts. If a user wants a Memory Books item to become Directive continuity, it needs reviewed import with evidence refs and `knownBy` metadata. Memory Books hide/unhide remains visibility-only unless host source rows changed. |
+| Summaryception | Directive scene seals do not replace or depend on Summaryception. Summaryception ghosting and summarized ranges must not erase source rows. If a summary is stale after edit/swipe/branch, LENS can warn, SRE/REPAIR preserve source truth, and CORE keeps only bounded diagnostics. |
+| VectFox | VectFox can remain an external semantic context tool. Directive may later expose optional vector candidate providers, but they must return refs/hashes into Recall Index rather than raw vector payloads as truth. VectFox interceptor latency must be attributed as external, not FORGE or LENS provider time. |
+
+### Implementation Boundaries
+
+The pivot adds capabilities, not new catch-all systems:
+
+- CORE owns durable recall, seal, correction, and witness-scope events.
+- Frame identifies accepted source rows and ranges.
+- SRE owns source integrity, evidence verdicts, selected-swipe implications, and stale guards.
+- REPAIR owns correction/recovery cases and allowed actions.
+- FORGE owns scene/phase seal generation and digest refresh.
+- LENS owns prompt budget lanes, prompt cache, recall inclusion, and trace output.
+- External tools remain external context contributors unless a reviewed import flow promotes a specific item.
+
 ## June 28 Implementation Reality Check
 
 The redesign now has meaningful proof, but the proof is uneven. Several target contracts are implemented and tested in synthetic or storage-shaped harnesses, while the live production turn spine still uses older v1 persistence and orchestration paths. Treat the following as the current truth before the next implementation stage.
@@ -1298,7 +1658,7 @@ Frame, latency metrics, fast gate, and mechanics/narration split have contract o
 - `tools/scripts/test-chat-native-runtime-flow.mjs` proves a real runtime app/fake-host campaign persists CORE projections for production player turns, keeps branch/source CORE projections isolated, writes queued runtime state into the v2 active-save head without rewriting the v1 checkpoint payload, reloads the app, appends another turn without overwriting earlier CORE ingress, and exposes CORE turn-ledger mechanics projections without raw player text, assistant text, snapshots, `runtimeTracking`, or `rootsSet`.
 - `tools/scripts/test-sillytavern-chat-prompt-adapters.mjs` proves the adapter can return from `continueHostGeneration({ waitForCompletion: false })` while `Generate(...)` remains unresolved, then emit a later hash-only completion/failure observation callback without raw provider payloads or assistant text.
 
-The production turn spine is now partially using the target path, but it is not a full cutover. `chat-turn-orchestrator.mjs` still routes through older ingress, Scene Handshake/classification, prompt sync, and response dispatch behavior. The real app now instantiates and hydrates CORE Store for active campaign chats; response dispatch has partial CORE bridges for hostContinue release, post-release host-native completion/failure projection, Directive-posted visible responses, retryable response recovery, and delayed host-native contradiction recovery; production Directive narration-start timing is recorded; deterministic chat-native mechanics checkpoints now produce CORE turn-ledger projections before the v1 checkpoint bridge persists, including validated redacted open-world reducer-source evidence when a reducer bundle is present and stale mechanics revision protection; Command Log summary, Narrative Thread settlement, advisory enrichment, and terminal checkpoint settlement have specialized queued/control bridges that now participate in CORE background settlement on success; regular campaign sidecars have a production source-frame-anchored one-batch CORE background bridge with compact proposals, source-fresh rebase over unrelated revision drift, and fail-closed repair for likely-truncated JSON; and model-call diagnostics have a best-effort CORE mirror with explicit post-release advisory targeting. A REPAIR/CORE bridge now exists beyond the synthetic level: `repair-runtime.mjs` opens CORE-first source-mutation recovery cases before old-ledger mutation, decides source-reobserve policy for the Sam Vickers dependent-edit guard, acts on latest/no-outcome source restarts by creating a distinct restart ingress and CORE transaction, records diagnostic-only visibility observations, authorizes source-mutation rollback actuation, and constructs/persists response-recovery policy for host-native unavailable/failed observations, synchronous and delayed host-native continuity contradictions, and Directive response post/provider failures. CORE Store can reopen settled transactions into `recoveryRequired`, production runtime exposes `markRecoveryRequired` and `supersedeLatestSourceTransaction`, fake-host runtime flow proves committed player-source edits plus committed Directive response edits/deletes persist CORE recovery before old projection updates, and direct REPAIR runtime tests cover source reobserve policy, response recovery policy, rollback actuation authorization, idempotency, visibility metadata, REPAIR-computed legacy projections, no-core fallback, missing writer failure, rollback-with-revision versus no-revision behavior, and raw-text redaction. The bridge stores ids, hashes, dependent refs, source Frame refs, compact REPAIR decisions including `legacyProjection`, allowed actions, source-restart refs, and replacement/error hashes while stripping raw replacement text and raw provider/post failure text; CORE recovery conflicts fail closed before old-ledger mutation. Response ledger projection now preserves compact CORE recovery refs and redacts synchronous host-continuation observed-message text into ids, flags, length, and hash. For source-mutation edit/delete paths, `MessageReconciler` consumes REPAIR's `legacyProjection` and rollback authorization; for latest/no-outcome source reobserves, `chat-turn-orchestrator` consumes REPAIR's `restartLatestSource` decision, creates the replacement CORE transaction with `beginTurn`, records the old-to-new link as `latestSourceRestarted`, and resolves the prior recovery as audit evidence; for response-recovery paths, `response-dispatcher` and `chat-turn-orchestrator` consume REPAIR response decisions while host I/O and retry execution stay outside REPAIR. Delayed host-native callbacks and manual `reobserveHostGenerationCompletions(...)` now record the hash-only visible response first, then reopen CORE `recoveryRequired` when contradiction review fails, preserving `visibleResponseRef` evidence without storing raw assistant prose in CORE or response ledgers. This is still not full REPAIR/SRE ownership because generic retry/rerun and broader rollback execution still use old ledgers or snapshots, and final SRE source-review ownership should move out of the response-dispatch bridge. Downstream SRE, REPAIR, LENS, broader response-state ownership, final bounded reducer application, and full background lifecycle writes still need to move from old runtime ledgers into CORE-owned events/projections. Command Log summary is not fully merged into `campaign-sidecar-scheduler.mjs` because it is presentation-only; Narrative Thread extraction is still using the existing director's internal multi-commit path while running off the awaited visible path. These bridges now use the shared background settlement semantics that FORGE should own.
+The production turn spine is now partially using the target path, but it is not a full cutover. `chat-turn-orchestrator.mjs` still routes through older ingress, Scene Handshake/classification, prompt sync, and response dispatch behavior. The real app now instantiates and hydrates CORE Store for active campaign chats; response dispatch has partial CORE bridges for hostContinue release, post-release host-native completion/failure projection, Directive-posted visible responses, retryable response recovery, and delayed host-native contradiction recovery; production Directive narration-start timing is recorded; deterministic chat-native mechanics checkpoints now produce CORE turn-ledger projections before the v1 checkpoint bridge persists, including validated redacted open-world reducer-source evidence when a reducer bundle is present and stale mechanics revision protection; Command Log summary, Narrative Thread settlement, advisory enrichment, and terminal checkpoint settlement have specialized queued/control bridges that now participate in CORE background settlement on success; regular campaign sidecars have a production source-frame-anchored one-batch background bridge with compact proposals, source-fresh rebase over unrelated revision drift, fail-closed repair for likely-truncated JSON, FORGE-owned provider-batch fan-out/replay diagnostics, scheduler-owned temporary v1 aggregate apply/prompt/journal bridging with LENS-normalized dirty domains and prompt idempotency keys, and FORGE-owned accepted-batch CORE settlement after the aggregate apply; and model-call diagnostics have a best-effort CORE mirror with explicit post-release advisory targeting. A REPAIR/CORE bridge now exists beyond the synthetic level: `repair-runtime.mjs` opens CORE-first source-mutation recovery cases before old-ledger mutation, decides source-reobserve policy for the Sam Vickers dependent-edit guard, acts on latest/no-outcome source restarts by creating a distinct restart ingress and CORE transaction, records diagnostic-only visibility observations, authorizes source-mutation rollback actuation, and constructs/persists response-recovery policy for host-native unavailable/failed observations, synchronous and delayed host-native continuity contradictions, and Directive response post/provider failures. CORE Store can reopen settled transactions into `recoveryRequired`, production runtime exposes `markRecoveryRequired` and `supersedeLatestSourceTransaction`, fake-host runtime flow proves committed player-source edits plus committed Directive response edits/deletes persist CORE recovery before old projection updates, and direct REPAIR runtime tests cover source reobserve policy, response recovery policy, rollback actuation authorization, idempotency, visibility metadata, REPAIR-computed legacy projections, no-core fallback, missing writer failure, rollback-with-revision versus no-revision behavior, and raw-text redaction. The bridge stores ids, hashes, dependent refs, source Frame refs, compact REPAIR decisions including `legacyProjection`, allowed actions, source-restart refs, and replacement/error hashes while stripping raw replacement text and raw provider/post failure text; CORE recovery conflicts fail closed before old-ledger mutation. Response ledger projection now preserves compact CORE recovery refs, compact Outcome Integrity refs, and response-ledger freshness through queued runtime persistence and v2 active-save event rehydration, while redacting synchronous host-continuation observed-message text into ids, flags, length, and hash. For source-mutation edit/delete paths, `MessageReconciler` consumes REPAIR's `legacyProjection` and rollback authorization; for latest/no-outcome source reobserves, `chat-turn-orchestrator` consumes REPAIR's `restartLatestSource` decision, creates the replacement CORE transaction with `beginTurn`, records the old-to-new link as `latestSourceRestarted`, and resolves the prior recovery as audit evidence; for response-recovery paths, `response-dispatcher` and `chat-turn-orchestrator` consume REPAIR response decisions while host I/O and retry execution stay outside REPAIR. Delayed host-native callbacks and manual `reobserveHostGenerationCompletions(...)` now record the hash-only visible response first, then reopen CORE `recoveryRequired` when contradiction review fails, preserving `visibleResponseRef` evidence without storing raw assistant prose in CORE or response ledgers. This is still not full REPAIR/SRE ownership because generic retry/rerun and broader rollback execution still use old ledgers or snapshots, and final SRE source-review ownership should move out of the response-dispatch bridge. Downstream SRE, REPAIR, LENS, broader response-state ownership, final bounded reducer application, and full background lifecycle writes still need to move from old runtime ledgers into CORE-owned events/projections. Command Log summary is not fully merged into `campaign-sidecar-scheduler.mjs` because it is presentation-only, and Narrative Thread extraction is still using the existing director's internal multi-commit path while running off the awaited visible path. These bridges now use the shared background settlement semantics that FORGE should own.
 
 Architecture consequence: the next runtime milestone is not CORE instantiation itself; it is migrating generic recovery, remaining background lifecycle events, broader response-state ownership, final reducer/event mechanics application, and final SRE review-worker ownership into CORE-owned event paths with old ledgers exposed as projections. The nonblocking hostContinue split removes contradiction review from the awaited release path in the normal case; if a host adapter returns an immediately observed contradictory assistant row, response dispatch now records REPAIR-owned CORE recovery before the old recovery projection. If the contradictory assistant row arrives later, response dispatch now keeps the hash-only visible response evidence and then opens contradiction recovery. The full SRE target is still a post-visible review/settlement worker over hash-only host refs, not inline response-dispatch ownership. Production now has deterministic proof that host generation can be released first and projected later through CORE with hash-only assistant refs, and the bounded June 29 five-user Ashes artifact records terminal host-native completion from live SillyTavern rows at turn 3. Full-depth certification still requires the unbounded 52-turn run plus exact required-turn binding in the durable proof artifacts.
 
@@ -1354,7 +1714,7 @@ The bounded five-user proof is deliberately shallow:
 - It did not prove rich generation-time external context. Those lane prompt snapshots showed only minimal known external prompt-key evidence, so browser-confirmed readiness must not be read as proof that Memory Books, Summaryception, or VectFox actively influenced generation.
 - It exercises realistic prose QA only lightly. A full run should score the whole transcript, not three visible messages per lane.
 
-The June 28 strict readiness evidence now demonstrates why that distinction matters. Artifact `artifacts/live-soak/sillytavern-campaign/2026-06-28T20-47-03-043Z/report.json` passed browser/runtime observability but failed `host-extension-fixture-depth`: the fixture was on disk, but the browser had no active fixture chat, no chat-bound World Info metadata, no rich ST Lorebook evidence, and no rich VectFox evidence. After correcting the fixture folder, clearing all known disabled-extension arrays, and adding explicit host-chat activation, artifact `artifacts/live-soak/sillytavern-campaign/2026-06-28T20-56-56-424Z/report.json` passed strict five-user readiness. `directive-soak-a` activated `Directive - Ashes - external-context-fixture` and produced `rich-active` evidence for native ST Lorebooks/World Info, Memory Books, Summaryception, and VectFox while `default-user` remained unused.
+The June 28 strict readiness evidence demonstrates why that distinction matters. Artifact `artifacts/live-soak/sillytavern-campaign/2026-06-28T20-47-03-043Z/report.json` passed browser/runtime observability but failed `host-extension-fixture-depth`: the fixture was on disk, but the browser had no active fixture chat, no chat-bound World Info metadata, no rich ST Lorebook evidence, and no rich VectFox evidence. After correcting the fixture folder, clearing all known disabled-extension arrays, and adding explicit host-chat activation, artifact `artifacts/live-soak/sillytavern-campaign/2026-06-28T20-56-56-424Z/report.json` passed strict five-user readiness for one rich non-human profile. The June 30 readiness artifact `artifacts/live-soak/sillytavern-campaign/2026-06-30T01-20-17-302Z/report.json` then promoted that proof to all five non-human soak users by running `--prepare-external-context-fixtures --activate-external-context-fixture`: every `directive-soak-*` profile activated `Directive - Ashes - external-context-fixture`, `fixtureDepth.fullFixtureUserHandles` listed all five handles, every target reported `richUserCount: 5`, and `default-user` remained unused.
 
 The follow-up coordinator gate now enforces the same distinction at generation time. Deterministic five-user coordinator tests require pre-generation prompt-inspection snapshots for the executed depth, preserve compact `externalPromptEnvironmentTargets` from the SillyTavern prompt adapter, and fail aggregate `external-context-generation-proof` when a rich fixture user lacks target-specific pressure for ST Lorebooks/World Info, Memory Books, Summaryception, VectFox, final-host-prompt inclusion, or redaction evidence. This is proof plumbing, not full certification: the unbounded Ashes run still has to produce that evidence live across all required lanes.
 
@@ -1365,6 +1725,17 @@ The next bounded hostContinue proof exposed a second bridge gap. Artifact `artif
 The follow-up CORE-projection smoke closed that specific persisted-extractor gap. Artifact `artifacts/live-soak/sillytavern-campaign/core-timing-mixed-proof-20260628-175644/report.json` passed from persisted CORE Store `turnTiming`, not v1 save ledgers: one `committedOutcome` `directivePosted` turn had `directiveGenerationStartedAt`, `generationStartLatencyMs: 13934`, `architectureWithin60s: true`, and `timingSource: "coreProjection"`. The same run also posted one `clarificationNeeded` deterministic pause as `skipped-non-generation`, giving aggregate `checkedTurnCount: 1`, `skippedTurnCount: 1`, `warningCount: 0`, and `failureCount: 0`. A preceding all-deterministic run at `artifacts/live-soak/sillytavern-campaign/core-timing-skipped-proof-20260628-175237/report.json` produced `checkedTurnCount: 0`, `skippedTurnCount: 3`, and aggregate `warning`, proving skipped posts cannot certify the latency metric alone.
 
 The five-user coordinator now enforces that distinction. `liveGenerationTimingAssessment(...)` reports summary-only timing, runtime-snapshot timing, missing `timingSource: "coreProjection"`, all-skipped proof, and unknown proof sources as incomplete evidence rather than pass. This keeps bounded smoke diagnostics useful while preventing full certification from accepting anything weaker than persisted CORE projection data.
+
+The June 30 CORE proof audit found a remaining contradiction between the architecture rule and the smoke/coordinator implementation. CORE has persisted host-map/source-frame/response/timing evidence for the current v2 layout, but several live proof paths still use legacy `runtimeTracking` as either the ingress authority or the selector for the CORE proof window. That means a run can visibly progress and persist CORE events, then fail because a stale `runtimeTracking.ingressLedger` count stayed behind. The redesign implication is explicit: `runtimeTracking` may be a diagnostic compatibility projection during migration, but certification cannot use it to decide whether a player message entered CORE, which transaction to check, or whether a host-native completion exists.
+
+The concrete legacy reads identified by the agent audit were:
+
+- `smoke-sillytavern-live.mjs`: `waitForChatNativeIngressCount()` waits on `view.chatNative.tracking.ingressCount`, the final ingress assertion compares `finalSnapshot.tracking.ingressCount` to expected sent player messages, post-send progress matching reads `campaignState.runtimeTracking.ingressLedger`, and both CORE proof functions still choose target transactions by diffing runtimeTracking-derived `recentIngressLedger` / `recentResponseLedger`.
+- `runtime-app.mjs`: `chatNative.tracking.ingressCount` and `responseCount` are computed from `state.runtimeTracking.ingressLedger` and `responseLedger`, so a v2/Core run can present stale legacy counts in live snapshots.
+- `soak-sillytavern-campaign-live.mjs`: live-log timing and host-native aggregation can keep an early warning status even when later CORE projection evidence passes after reobserve.
+- `run-continuity-matrix-five-user-soak.mjs`: aggregate timing and host-native gates promote lane warning/fail state from those lane checks, so stale legacy proof windows become aggregate certification failures.
+
+This is evidence of migration overlap, not a reason to revive the old save payload. The target fix is to make CORE host-map/source-frame/player-row evidence the proof selector, treat old `runtimeTracking` fields as `legacyRuntimeTracking` diagnostics, and capture final persisted CORE projection proof after reobserve before lane and coordinator aggregation.
 
 The same strict-evidence rule now applies to terminal host-native completion. The live smoke runner records per-round `hostNativeCompletion.persisted`, per-round `hostNativeCompletionRequirement`, and aggregate `hostNativeCompletionProof` from save-scoped CORE response projections. Delegated soak preserves the requirement object and emits `live-host-native-completion-proof`, and the five-user coordinator emits aggregate `host-native-completion-core-proof` with required-completion status per lane. The Ashes live script marks turn 3 with derived `scriptMessageId: "soak-turn-03"`, `turn: 3`, `expectedRoute: "hostContinue"`, `expectedResponseStrategy: "injectAndContinue"`, and `hostNativeCompletionRequired: true`. Certification must prove that exact required source turn, not merely any completed `hostContinue` count. Required proof therefore needs `source: "coreStoreResponseLedger"`, `completionSource: "coreProjection"`, `completedHostContinueCount > 0`, no failed hostContinue completions, no raw assistant text, and a passing required-turn binding for the scripted message id, turn, route, and response strategy. Missing, summary-only, runtime-only, non-CORE, count-only, or incomplete proof remains limited evidence.
 
@@ -1393,7 +1764,7 @@ Compatibility proof therefore needs two independent labels:
 - `observability`: the target extension or native system is installed, disabled-present, not installed, unavailable, settings-only, disk-confirmed, or browser-confirmed for the tested profile.
 - `fixtureDepth`: the tested profile has enough redacted active data to prove coexistence under real prompt/visibility pressure: native WI placement, STMB/Memory Books entries, Summaryception ghost/layer state, and VectFox prompt/interceptor state.
 
-`browser-confirmed` observability can pass readiness for a bounded smoke, but `fixtureDepth: shallow` must remain limited evidence for external-context compatibility certification. The fixture-depth target levels are `rich-active`, `browser-observed`, `disk-only`, `inactive`, `unavailable`, and `unknown`; full external-compatibility certification requires `rich-active` evidence for every target in at least one non-human soak profile. Multi-user readiness now reports `host-extension-fixture-depth`, and the five-user coordinator enforces the certification distinction: turn-limited live runs may warn on shallow fixture depth, but an unbounded full-certification run fails if `external-context-fixture-depth` is not `pass`. A deterministic prep tool now exists for this exact requirement: `tools/scripts/prepare-sillytavern-external-context-fixture.mjs` can dry-run, write, and validate bounded ST World Info/STMemoryBooks, Summaryception, and VectFox fixture data for `directive-soak-a` through `directive-soak-e`; it refuses `default-user` and does not copy extension source code, secrets, or external content into Directive state. The readiness script also supports `--external-context-fixture` for offline preflight artifacts with sanitized synthetic browser snapshots, and readiness plus the five-user coordinator support `--activate-external-context-fixture` for live certification against a prepared non-human profile. Offline fixture mode remains contract proof; live certification requires browser/runtime confirmation after the host has loaded the prepared fixture chat.
+`browser-confirmed` observability can pass readiness for a bounded smoke, but `fixtureDepth: shallow` must remain limited evidence for external-context compatibility certification. The fixture-depth target levels are `rich-active`, `browser-observed`, `disk-only`, `inactive`, `unavailable`, and `unknown`; full external-compatibility certification requires `rich-active` evidence for every target in at least one non-human soak profile, and the preferred full-release standard is now all five non-human profiles. Multi-user readiness now reports `host-extension-fixture-preparation` and `host-extension-fixture-depth`, and the five-user coordinator enforces the certification distinction: turn-limited live runs may warn on shallow fixture depth, but an unbounded full-certification run fails if `external-context-fixture-depth` is not `pass`. A deterministic prep tool now exists for this exact requirement: `tools/scripts/prepare-sillytavern-external-context-fixture.mjs` can dry-run, write, and validate bounded ST World Info/STMemoryBooks, Summaryception, and VectFox fixture data for `directive-soak-a` through `directive-soak-e`; it refuses `default-user` and does not copy extension source code, secrets, or external content into Directive state. The readiness script also supports `--external-context-fixture` for offline preflight artifacts with sanitized synthetic browser snapshots, `--prepare-external-context-fixtures` to write bounded fixture data to every configured non-human soak user, and `--activate-external-context-fixture` for live certification after those profiles are prepared. Offline fixture mode remains contract proof; live certification requires browser/runtime confirmation after the host has loaded the prepared fixture chat.
 
 ### Current Priority Order
 
@@ -1843,6 +2214,9 @@ The audit conclusion is to combine ownership of shared lifecycle mechanics, not 
 | Command Log summary + Narrative Thread extraction + quest/advisory enrichment + sidecars | Combine under FORGE settlement semantics, not one generic worker prompt. | State-delta workers run as typed provider sub-batches with one aggregate apply/prompt rebuild. Presentation-only or domain-specific workers such as Command Log and Narrative Thread remain specialized while settling through CORE background effects with sanitized refs/hashes. | Worker prompts, structured schemas, allowed-root policies, presentation summaries, source extraction, and deterministic reducers. |
 | CPM source frame + sidecar context + Handshake snapshot + reconciliation snapshots | Combine as Frame and range Frame. | Store ids, hashes, revisions, selected-variant metadata, bounded previews, and integrity state. Do not store full transcript text, prompt blocks, provider prompts/results, sidecar full-state snapshots, or rollback snapshots. | CPM materializers/projection logic, settlement mode prompts, reconciliation range UX, and sidecar worker context builders. |
 | Prompt sync + dirty-domain updates + prompt-cache writes | Combine as LENS. | Transaction commits emit prompt dirty domains and background effects. LENS coalesces rebuilds, owns cache keys, installs prompt packets, and records when a visible generation used a prior prompt revision. | CPM remains the projection builder. CORE Store remains mutation/revision authority. Host adapters only install packets. |
+| Accepted source frames + package/dataset retrieval + scene/phase seals + reviewed imports | Combine as a Directive Recall Index capability over CORE projections. | Index refs, hashes, metadata, subject/actor/location facets, authority labels, and bounded previews. Deterministic retrieval runs before optional semantic candidates; LENS decides prompt inclusion through budget lanes. | CORE authority, package authoring, SRE verdicts, external vector tools, and raw transcript storage. |
+| Prompt construction + recent transcript overlays + recall inclusion + omission proof | Combine under LENS prompt budget lanes. | LENS emits budget traces showing lane budgets, included refs, omitted refs, cache inputs, and external-environment refs without storing prompt bodies. | CPM fact materializers, CORE mutations, SRE/REPAIR source decisions, and host prompt transport. |
+| Define Selection + evidence retrieval + source verdict + correction proposal | Combine as an evidence-backed Correct-as-Swipe workflow through SRE/REPAIR. | Selected text produces an evidence verdict and candidate assistant swipe with provenance refs. Acceptance is handled later through selected-swipe source truth. | Direct assistant-text mutation, mechanics rerun, prompt rebuild ownership, and raw provider-output archives. |
 | ST Lorebooks + Memory Books + Summaryception + VectFox observations | Do not combine them into Directive. Treat them as external context-extension tools behind a compatibility boundary. | LENS records redacted external prompt environment snapshots; REPAIR handles visibility metadata; CORE keeps diagnostics separate from authority; host adapters clear only Directive-owned keys. | Each external extension remains independently owned by SillyTavern/user tooling. Directive does not import, rewrite, disable, or trust its content by default. |
 
 This is the line to hold during implementation: one owner for transaction phase, source integrity, persistence, recovery, background batching, prompt scheduling, and cancellation; separate domain engines for mission, open-world, CPM, source extraction, narration, command bearing, time, end conditions, and presentation summaries.
@@ -1857,6 +2231,11 @@ Deliverables:
 - CORE transaction schema.
 - v2 storage manifest/head/event/checkpoint schema.
 - external prompt environment diagnostic schema.
+- Recall Index entry/query/result schema.
+- witness-scoped fact fields: `knownBy`, `witnessedBy`, `subjectIds`, `disclosureState`, and evidence refs.
+- LENS prompt budget lane trace schema.
+- FORGE scene/phase seal schema.
+- evidence-backed correction case and candidate swipe provenance schema.
 - performance instrumentation fields.
 - synthetic 5000-message test fixture plan.
 
@@ -1864,6 +2243,7 @@ Exit criteria:
 
 - docs and schema tests define the 5000-message and under-60-second gates.
 - schema tests define redacted external context diagnostics for ST Lorebooks, Memory Books, Summaryception, and VectFox.
+- schema tests prove recall, witness-scope, scene-seal, prompt-budget, and correction-case records store refs/hashes and bounded previews rather than raw transcript/prompt/provider/external content.
 - no runtime behavior changes required yet.
 
 ### Phase 2: CORE Store
@@ -1875,6 +2255,8 @@ Deliverables:
 - manifest pointer commit;
 - checkpoint writer;
 - diagnostic segment writer;
+- recall index segment/projection writer;
+- scene-seal segment/projection writer;
 - one-time old-save importer for development only.
 
 Exit criteria:
@@ -1885,6 +2267,7 @@ Exit criteria:
 - no `runtimeTracking.history[].snapshot`;
 - no full `turnLedger.entries[].snapshotBefore`;
 - diagnostics are stored in diagnostics segments only;
+- recall index and scene-seal artifacts are bounded projections over CORE/Frame evidence, not full transcript copies;
 - edit/delete recovery updates one transaction and cannot reobserve a dependent edited row as a normal turn.
 
 ### Phase 3: Fast Gate Runtime
@@ -1893,6 +2276,7 @@ Deliverables:
 
 - host event creates Frame;
 - Frame includes external prompt environment reference or unknown-state marker;
+- Frame includes enough actor/location/phase/source facets for deterministic Recall Index query construction without embedding raw chat text;
 - fast gate returns `hostContinue`, `directiveCommit`, `directivePause`, or `recoveryReview`;
 - host continuation releases without Scene Handshake/advisory/prompt-sync waits.
 
@@ -1937,11 +2321,14 @@ Deliverables:
 - automatic latest-pair deterministic gate;
 - background model-backed settlement;
 - hard source-integrity no-auto-commit guard.
+- evidence verdict mode for Correct-as-Swipe and selected-text review;
+- witness-scoped fact updates and disclosure-state validation.
 
 Exit criteria:
 
 - edited dependent rows cannot reobserve into normal turn classification.
 - accepted selected swipe remains the only assistant-prose continuity source.
+- correction verdicts cite Frame/CORE/package/reviewed-import evidence and do not rely on external context as authority.
 
 ### Phase 7: FORGE
 
@@ -1951,11 +2338,14 @@ Deliverables:
 - stale source is checked before provider calls and before apply;
 - accepted worker outputs apply as one operation bundle;
 - one prompt rebuild after batch.
+- scene/phase seal worker emits compact summaries, fact updates, witness updates, callbacks, correction candidates, recall entries, and prompt dirty domains.
+- pressure/open-thread/callback digests settle through FORGE as bounded CORE background effects.
 - external summarizers/vectorizers are observed as external context, not FORGE workers, unless a future reviewed-import flow explicitly converts their output into Directive proposals.
 
 Exit criteria:
 
 - one background batch produces at most one state transaction and one prompt sync.
+- scene/phase seals update Recall Index without rewriting the hot save or archiving raw transcript/provider output.
 - Stop/edit/delete cancels queued background workers.
 
 ### Phase 8: REPAIR
@@ -1966,12 +2356,14 @@ Deliverables:
 - dependent outcome recovery choices;
 - branch/replay/replace flow;
 - source invalidation and prompt dirtying.
+- evidence-backed Correct-as-Swipe correction cases and candidate swipe provenance.
 - hidden/ghosted row normalization for Summaryception, Memory Books hide/unhide, and vector prompt ghosting.
 
 Exit criteria:
 
 - Sam Vickers edited-message loop cannot reproduce.
 - recovery state has one owner and one visible product path.
+- candidate correction swipes do not mutate accepted continuity until selected.
 - hidden/ghosted rows do not create false deletes or normal-turn reobserve loops.
 
 ### Phase 9: Scale And Live Gates
@@ -1980,6 +2372,8 @@ Deliverables:
 
 - synthetic 5000-message campaign scale test;
 - 5000-message prompt rebuild test;
+- 5000-message recall index and scene-seal scale test;
+- prompt budget lane trace and omission proof at scale;
 - event-log load/replay test;
 - live SillyTavern smoke for under-60-second generation-start instrumentation;
 - live SillyTavern coexistence smoke with installed ST Lorebooks, Memory Books, Summaryception, and VectFox present.
@@ -1987,6 +2381,7 @@ Deliverables:
 Exit criteria:
 
 - materialized head <= 8 MB minified at 5000-message synthetic scale;
+- recall index, scene seals, and prompt budget traces remain segmented and bounded at 5000-message synthetic scale;
 - no hot-path full-save rewrite;
 - submit-to-generation-begins under 60 seconds for hostContinue and directiveCommit paths under controlled provider latency;
 - sidecar/background work never blocks generation start;
@@ -2004,6 +2399,11 @@ Exit criteria:
 - `test-background-projection-batch.mjs`: concurrent generation, stale preflight, batch apply, conflict rejection.
 - `test-open-world-event-reducers.mjs`: no `rootsSet`, equivalent quest/world outcomes.
 - `test-prompt-dirty-domains.mjs`: prompt rebuild once per dirty bundle.
+- `test-directive-recall-index.mjs`: deterministic recall from CORE/Frame/package/scene-seal evidence, optional semantic candidates as non-authoritative refs, and selected-swipe invalidation.
+- `test-lens-prompt-budget-lanes.mjs`: lane floors, omission traces, cache inputs, and no raw prompt/transcript archival.
+- `test-witness-scoped-facts.mjs`: `knownBy`, `witnessedBy`, `subjectIds`, and `disclosureState` drive active-cast and anti-telepathy prompt inclusion.
+- `test-forge-scene-phase-seal.mjs`: scene seals settle as one bounded CORE background batch and update Recall Index without raw transcript/provider output.
+- `test-correct-as-swipe-workflow.mjs`: selected text evidence verdict, correction case, candidate swipe append, and later selected-swipe acceptance semantics.
 - `test-external-prompt-environment.mjs`: ST Lorebooks, Memory Books, Summaryception, and VectFox are observed/redacted without becoming authority.
 - `test-host-prompt-key-coexistence.mjs`: Directive clears only Directive-owned prompt keys.
 
@@ -2012,6 +2412,8 @@ Exit criteria:
 - controlled slow Utility provider;
 - controlled slow narration provider;
 - controlled huge campaign head;
+- controlled huge recall index and scene-seal set;
+- controlled prompt budget overflow with deterministic omission trace;
 - controlled diagnostics burst;
 - controlled sidecar batch stale cancellation.
 - controlled external generation-interceptor or vector-retrieval delay.
@@ -2042,6 +2444,9 @@ Required live evidence:
 - active head size;
 - event segment size;
 - Directive context revision/hash;
+- recall index revision and bounded query trace;
+- prompt budget lane trace with included/omitted refs;
+- scene/phase seal refs when a boundary is crossed;
 - external prompt environment snapshot;
 - canceled background jobs after edit/delete;
 - no old full-save rewrite in the hot path.
@@ -2058,7 +2463,10 @@ The redesign is successful when these are true:
 6. Edits/deletes with dependent assistant rows enter explicit recovery and cannot reobserve as ordinary turns.
 7. Open-world turns commit bounded events/operations, not broad root replacements.
 8. Prompt rebuilds are dirty-domain driven and occur at most once for the visible lane and once for the background bundle.
-9. Known external context-extension tools coexist: Directive does not clear their prompt keys, import their memory automatically, or treat their content as committed campaign truth.
+9. Recall Index, scene seals, and prompt budget traces remain bounded at 5000-message scale and never archive raw transcript/prompt/provider/external payloads.
+10. Witness-scoped facts prevent character knowledge leakage through `knownBy`, `witnessedBy`, and evidence refs.
+11. Evidence-backed Correct-as-Swipe can propose candidate assistant swipes without mutating accepted continuity until selected.
+12. Known external context-extension tools coexist: Directive does not clear their prompt keys, import their memory automatically, or treat their content as committed campaign truth.
 
 ## Non-Goals
 
@@ -2069,6 +2477,8 @@ The redesign is successful when these are true:
 - Make all background sidecars successful before visible generation.
 - Guarantee provider completion under 60 seconds. The architecture gate is generation start, not provider finish.
 - Directly integrate with or replace ST Lorebooks, Memory Books, Summaryception, or VectFox.
+- Port Narrative Engine's app/server/storage/UI architecture.
+- Require a vector database to make recall correct.
 - Store external API keys, raw vector payloads, or raw external prompt bodies in Directive diagnostics.
 
 ## Open Decisions
@@ -2081,6 +2491,8 @@ The redesign is successful when these are true:
 6. Which current runtime panels should read diagnostics segments directly, and which should consume compact view models?
 7. How much external prompt-order detail should be shown to users versus kept in diagnostics-only surfaces?
 8. Should Directive offer an optional approved-artifact export flow for vector tools before or after the v2 storage cutover?
+9. Should optional semantic recall use an internal lightweight index, an adapter to external vector providers, or both behind a feature flag?
+10. What exact lane token floors should LENS enforce for long campaigns, and should those floors be package-configurable?
 
 ## Recommended First Slice
 
@@ -2088,10 +2500,11 @@ Start with the architecture-bearing slice:
 
 1. Add v2 schemas for Frame, CORE transaction, event segments, materialized head, and save manifest.
 2. Add deterministic instrumentation for submit-to-generation-start.
-3. Implement transaction store in parallel with existing storage behind a feature flag.
-4. Convert one simple `hostContinue` path to fast gate plus v2 transaction record.
-5. Convert one simple `directiveCommit` path to split mechanics/narration start.
-6. Add a 5000-message synthetic scale test before broad migration.
+3. Add schema-only Recall Index, prompt budget trace, witness-scope, scene-seal, and correction-case contracts.
+4. Implement transaction store in parallel with existing storage behind a feature flag.
+5. Convert one simple `hostContinue` path to fast gate plus v2 transaction record.
+6. Convert one simple `directiveCommit` path to split mechanics/narration start.
+7. Add a 5000-message synthetic scale test before broad migration, including recall index, scene seals, prompt budget traces, and external diagnostics.
 
 This first slice proves the two hard goals before refactoring every sidecar and Director:
 

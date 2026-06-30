@@ -67,9 +67,69 @@ const generationRouter = {
 };
 const persisted = [];
 const activationActivity = [];
+const conclusionPromptClearRequests = [];
 const nowValues = Array.from({ length: 60 }, (_, index) => `2026-06-22T00:00:${String(index).padStart(2, '0')}.000Z`);
 let nowIndex = 0;
 const now = () => nowValues[Math.min(nowIndex++, nowValues.length - 1)];
+
+function createInjectedPromptLifecycle(promptAdapter, calls = []) {
+  let installCount = 0;
+  return {
+    calls,
+    async installPromptContext(options = {}) {
+      installCount += 1;
+      const cacheKey = `test-activation-cache-${installCount}`;
+      calls.push({
+        type: 'installPromptContext',
+        campaignStatus: options.campaignState?.campaign?.status || null,
+        binding: cloneJson(options.binding || null),
+        promptKind: options.promptContext?.kind || null,
+        lensDirtyDomains: cloneJson(options.promptContext?.lensDirtyDomains || null),
+        reason: options.reason || null,
+        activityContext: cloneJson(options.activityContext || null)
+      });
+      const installResult = await promptAdapter.install({
+        binding: options.binding,
+        packet: options.promptContext,
+        lane: 'visible',
+        reason: options.reason,
+        cacheKey
+      });
+      return {
+        ok: installResult?.ok !== false,
+        status: installResult?.status || 'installed',
+        packet: cloneJson(options.promptContext),
+        lens: {
+          status: 'installed',
+          lane: 'visible',
+          cacheKey
+        },
+        installResult: cloneJson(installResult || null)
+      };
+    },
+    async suspendPromptContext(options = {}) {
+      calls.push({
+        type: 'suspendPromptContext',
+        binding: cloneJson(options.binding || null),
+        reason: options.reason || null,
+        source: options.source || null,
+        activationId: options.activationId || null
+      });
+      const result = await promptAdapter.clear({
+        binding: options.binding,
+        lane: 'all',
+        reason: options.reason,
+        preservePacket: true
+      });
+      return {
+        ok: result?.ok !== false,
+        status: 'suspended',
+        lane: 'all',
+        result: cloneJson(result || null)
+      };
+    }
+  };
+}
 
 let initial = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
 initial.campaign = {
@@ -146,6 +206,8 @@ const firstPersonLocalIntro = __campaignActivationCoordinatorTestHooks.localIntr
 assert.match(firstPersonLocalIntro.text, /Captain Mara Whitaker's log/);
 assert.match(firstPersonLocalIntro.text, /\bI retain final authority\b/);
 
+const promptLifecycleCalls = [];
+const promptLifecycle = createInjectedPromptLifecycle(prompt, promptLifecycleCalls);
 const activation = createCampaignActivationCoordinator({
   host: {
     chat,
@@ -163,6 +225,8 @@ const activation = createCampaignActivationCoordinator({
   },
   generationRouter,
   persist: async (state, summary) => persisted.push({ state: cloneJson(state), summary }),
+  installPromptContext: promptLifecycle.installPromptContext,
+  suspendPromptContext: promptLifecycle.suspendPromptContext,
   now
 });
 const activated = await activation.activate({
@@ -191,6 +255,13 @@ assert.equal(
 );
 assert.equal(chat.messages().length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
+assert.equal(promptLifecycleCalls.filter((entry) => entry.type === 'installPromptContext').length, 1);
+assert.equal(promptLifecycleCalls.find((entry) => entry.type === 'installPromptContext')?.campaignStatus, 'activating');
+assert.equal(promptLifecycleCalls.find((entry) => entry.type === 'installPromptContext')?.promptKind, 'directive.playerSafePromptContext');
+assert.deepEqual(promptLifecycleCalls.find((entry) => entry.type === 'installPromptContext')?.lensDirtyDomains, []);
+assert.equal(prompt.calls().find((entry) => entry.type === 'sync')?.options.lane, 'visible');
+assert.equal(prompt.calls().find((entry) => entry.type === 'sync')?.options.reason, 'Campaign prompt context installed during activation.');
+assert.match(prompt.calls().find((entry) => entry.type === 'sync')?.options.cacheKey, /^test-activation-cache-/);
 assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null, true);
 assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision > 0, true);
 const introRequest = generationRequests.find((entry) => entry.roleId === 'campaignIntro')?.request;
@@ -241,6 +312,7 @@ assert.equal(retriedActivation.ok, true);
 assert.equal(chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
 assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
+assert.equal(promptLifecycleCalls.filter((entry) => entry.type === 'installPromptContext').length, 1);
 assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 1);
 
 const activityCountBeforeRewrite = activationActivity.length;
@@ -308,8 +380,12 @@ failureInitial.player = {
   rank: 'Commander',
   billet: 'Executive Officer'
 };
+const flakyPromptLifecycleCalls = [];
+const flakyPromptLifecycle = createInjectedPromptLifecycle(flakyPrompt, flakyPromptLifecycleCalls);
 const flakyActivation = createCampaignActivationCoordinator({
   host: { chat: flakyChat, prompt: flakyPrompt },
+  installPromptContext: flakyPromptLifecycle.installPromptContext,
+  suspendPromptContext: flakyPromptLifecycle.suspendPromptContext,
   now: () => '2026-06-22T01:00:00.000Z'
 });
 const failedActivation = await flakyActivation.activate({
@@ -331,6 +407,12 @@ assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'createOrBin
 assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
 assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'sync').length, 1);
 assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'clear').length, 1);
+assert.equal(flakyPromptLifecycleCalls.filter((entry) => entry.type === 'installPromptContext').length, 1);
+assert.equal(flakyPromptLifecycleCalls.filter((entry) => entry.type === 'suspendPromptContext').length, 1);
+const activationFailurePromptClear = flakyPrompt.calls().find((entry) => entry.type === 'clear');
+assert.equal(activationFailurePromptClear.options.reason, 'activation-failed');
+assert.equal(activationFailurePromptClear.options.preservePacket, true);
+assert.equal(activationFailurePromptClear.options.lane, 'all');
 
 const recoveredActivation = await flakyActivation.activate({
   campaignState: failedActivation.campaignState,
@@ -349,6 +431,8 @@ assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'createOrBin
 assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
 assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'sync').length, 2);
 assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'clear').length, 1);
+assert.equal(flakyPromptLifecycleCalls.filter((entry) => entry.type === 'installPromptContext').length, 2);
+assert.equal(flakyPromptLifecycleCalls.filter((entry) => entry.type === 'suspendPromptContext').length, 1);
 assert.equal(flakyPrompt.inspect().blockCount > 0, true);
 
 let campaignState = rewrittenIntro.campaignState;
@@ -367,6 +451,14 @@ const conclusion = createCampaignConclusionService({
   generationRouter,
   getCampaignState: () => campaignState,
   setCampaignState: (next) => { campaignState = cloneJson(next); },
+  clearDirectivePrompt: async (options = {}) => {
+    conclusionPromptClearRequests.push(cloneJson(options));
+    const result = await prompt.clear({
+      reason: options.reason || 'campaign-complete',
+      lane: 'all'
+    });
+    return { status: 'cleared', lane: 'all', result };
+  },
   persist: async (state, summary) => persisted.push({ state: cloneJson(state), summary }),
   now
 });
@@ -396,6 +488,11 @@ assert.equal(completed.campaignState.commandLog.entries.filter((entry) => entry.
 assert.equal(completed.campaignState.campaign.completionReason, 'The player completed the assigned campaign.');
 assert.equal(generationCalls.filter((role) => role === 'campaignConclusion').length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'clear').length, 1);
+assert.deepEqual(conclusionPromptClearRequests, [{ reason: 'campaign-complete' }]);
+const conclusionPromptClearCall = prompt.calls().filter((entry) => entry.type === 'clear').at(-1);
+assert.equal(conclusionPromptClearCall.options.reason, 'campaign-complete');
+assert.equal(conclusionPromptClearCall.options.lane, 'all');
+assert.equal(conclusionPromptClearCall.options.preservePacket, undefined);
 assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignConclusion').length, 1);
 assert.equal(
   chat.messages().find((message) => message.metadata?.responseKind === 'campaignConclusion')?.text.startsWith('*Stardate 53049.2 | 0830 hours*\n\n'),
@@ -406,5 +503,30 @@ const duplicate = await conclusion.conclude();
 assert.equal(duplicate.ok, true);
 assert.equal(duplicate.duplicate, true);
 assert.equal(postAttempts, 2);
+
+let failedCleanupState = cloneJson(completed.campaignState);
+failedCleanupState.conclusion = {
+  ...failedCleanupState.conclusion,
+  promptClearedAt: null,
+  promptClearError: null,
+  promptClearFailedAt: null
+};
+const failedPromptCleanupPersisted = [];
+const failedPromptCleanup = createCampaignConclusionService({
+  host: { chat: conclusionChat, prompt },
+  generationRouter,
+  getCampaignState: () => failedCleanupState,
+  setCampaignState: (next) => { failedCleanupState = cloneJson(next); },
+  clearDirectivePrompt: async () => ({ status: 'failed', reason: 'host-clear-failed' }),
+  persist: async (state, summary) => failedPromptCleanupPersisted.push({ state: cloneJson(state), summary }),
+  now
+});
+const failedCleanup = await failedPromptCleanup.conclude();
+assert.equal(failedCleanup.ok, true);
+assert.equal(failedCleanup.duplicate, true);
+assert.equal(failedCleanup.campaignState.conclusion.promptClearedAt, null);
+assert.equal(failedCleanup.campaignState.conclusion.promptClearError, 'host-clear-failed');
+assert.equal(Boolean(failedCleanup.campaignState.conclusion.promptClearFailedAt), true);
+assert.equal(failedPromptCleanupPersisted.at(-1).summary, 'Campaign prompt cleanup failure recorded.');
 
 console.log('Chat-native activation and conclusion tests passed: idempotent binding/intro/prompt activation, failed-open cleanup/retry, and no-reroll conclusion recovery');

@@ -172,7 +172,7 @@
       "registry": "NCC-74638",
       "condition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.",
       "travelContinuity": {
-        "openingShuttleApproach": "The player's shuttle approaches from astern and aligns with shuttlebay two in the aft section between the swept nacelle pylons. Do not depict the Intrepid-class Breckenridge as having a saucer-underside shuttlebay for this arrival."
+        "openingShuttleApproach": "The player's shuttle approaches from astern and aligns with shuttlebay two in the aft section between the swept nacelle pylons. For this opening arrival, the player disembarks through Shuttlebay 2; do not route, land, lower, or berth the player's shuttle on Shuttlebay 1, and do not depict the Intrepid-class Breckenridge as having a saucer-underside shuttlebay."
       },
       "technicalDebt": [
         {

@@ -114,6 +114,14 @@ function check(id, status, summary, details = null) {
   };
 }
 
+const AGGREGATE_DEPTH_ONLY_WARNING_IDS = new Set([
+  'turn-depth'
+]);
+
+const LANE_DEPTH_ONLY_WARNING_IDS = new Set([
+  'live-execution-turn-limit'
+]);
+
 function laneArtifactRoot(lane = {}, aggregateRoot = '') {
   if (lane.artifactRoot) return path.resolve(lane.artifactRoot);
   if (!aggregateRoot || !lane.id) return '';
@@ -137,19 +145,18 @@ export function expectedFullCertificationBudget({ expectedLanes = SOAK_PARALLEL_
 
 function warningIsDepthOnly({ checkEntry = null, laneSummaries = [] } = {}) {
   if (!checkEntry || checkEntry.status !== 'warning') return false;
-  if (checkEntry.id === 'turn-depth') return true;
+  if (AGGREGATE_DEPTH_ONLY_WARNING_IDS.has(checkEntry.id)) return true;
   if (checkEntry.id === 'lane-results') {
     return laneSummaries.length > 0 && laneSummaries.every((lane) => lane.depthOnlyWarnings === true);
   }
-  return /turn-limit|turn limited|bounded proof|bounded-depth|not full certification/i.test(String(checkEntry.summary || ''));
+  return false;
 }
 
 function laneDepthOnlyWarnings(laneReport = null) {
   if (!laneReport) return false;
   const warnings = (laneReport.checks || []).filter((entry) => entry.status === 'warning');
   if (!warnings.length) return false;
-  return warnings.every((entry) => entry.id === 'live-execution-turn-limit'
-    || /turn|bounded|limited/i.test(String(entry.summary || '')));
+  return warnings.every((entry) => LANE_DEPTH_ONLY_WARNING_IDS.has(entry.id));
 }
 
 function reportCheckStatuses(report = null) {

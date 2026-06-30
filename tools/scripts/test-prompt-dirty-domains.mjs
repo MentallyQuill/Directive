@@ -10,6 +10,9 @@ import {
   createSyntheticLensPromptScheduler
 } from '../../src/runtime/lens-prompt-scheduler-synthetic.mjs';
 import {
+  normalizePromptDirtyDomains
+} from '../../src/runtime/lens-prompt-scheduler.mjs';
+import {
   hashStableJson
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import {
@@ -20,6 +23,17 @@ import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-a
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
+
+assert.deepEqual(
+  normalizePromptDirtyDomains(['ship', 'crew', 'relationships']),
+  ['crewShipRelationship'],
+  'sidecar crew/ship/relationship roots should dirty one LENS relationship domain'
+);
+assert.deepEqual(
+  normalizePromptDirtyDomains(['commandBearing', 'commandLog', 'continuity', 'factIndex']),
+  ['command', 'continuity'],
+  'sidecar command and continuity roots should map to LENS prompt domains'
+);
 
 function createLoggingStorage() {
   const files = new Map();

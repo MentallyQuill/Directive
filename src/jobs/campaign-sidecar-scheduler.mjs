@@ -5,11 +5,20 @@ import {
 import { allowedRootsForModelRole } from '../generation/model-call-authority-matrix.mjs';
 import { parseStateDeltaProposalOutput } from './sidecar-output-contracts.mjs';
 import { runSidecarJobs } from './sidecar-job-runner.mjs';
+import {
+  createForgeBatchCommit,
+  normalizeForgeWorkerResult
+} from './forge-contracts.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
 import { runCommandBearingClosureReviews } from '../command/command-bearing-review.mjs';
 import { commitCommandBearingReviewRecords } from '../campaign/transaction-state.mjs';
 import { missionComponentsState } from '../runtime/mission-components.mjs';
-import { createTurnSourceFrameRef } from '../runtime/architecture-redesign-contracts.mjs';
+import {
+  createSourceToken,
+  createTurnSourceFrameRef
+} from '../runtime/frame-contracts.mjs';
+import { normalizePromptDirtyDomains } from '../runtime/lens-prompt-scheduler.mjs';
+import { hashStableJson } from '../runtime/architecture-redesign-contracts.mjs';
 
 const WORKERS = Object.freeze({
   continuity: {
@@ -677,8 +686,8 @@ function sourceIngressSnapshot(campaignState, ingressId) {
     hostMessageId: ingress.hostMessageId,
     textHash: ingress.textHash
   });
-  const sourceToken = sourceFrameRef?.id
-    ? `turnSourceFrame:${sourceFrameRef.id}`
+  const sourceToken = sourceFrameRef
+    ? createSourceToken(sourceFrameRef)
     : ingress.id
       ? `ingress:${ingress.id}`
       : null;
@@ -693,6 +702,37 @@ function sourceIngressSnapshot(campaignState, ingressId) {
     sourceToken,
     coreTransactionId: ingress.coreTransactionId || null
   };
+}
+
+function forgeWorkerResultForAcceptedSidecar(result = {}) {
+  const workerKey = result.workerKey;
+  const worker = WORKERS[workerKey] || {};
+  return normalizeForgeWorkerResult({
+    id: workerKey,
+    workerId: workerKey,
+    roleId: worker.roleId || workerKey,
+    lane: 'campaignSidecar',
+    allowedRoots: worker.allowedRoots || []
+  }, {
+    status: 'accepted',
+    operations: result.proposal?.operations || result.applyProposal?.operations || [],
+    promptDirtyDomains: normalizePromptDirtyDomains(worker.allowedRoots || []),
+    diagnostics: {
+      proposalId: result.applyProposal?.id || result.proposal?.id || null,
+      workerKey,
+      proposalStatus: result.proposal?.status || null
+    }
+  });
+}
+
+function promptDirtyDomainsForAcceptedSidecars(accepted = [], allowedRoots = []) {
+  return normalizePromptDirtyDomains([
+    ...allowedRoots,
+    ...accepted.flatMap((result) => result.applyProposal?.operations || result.proposal?.operations || [])
+      .map((operation) => operation?.domain || String(operation?.path || '').split('.')[0])
+      .filter(Boolean),
+    ...accepted.flatMap((result) => result.workerKey || [])
+  ]);
 }
 
 function staleSourceIngressFailure(job, currentState) {
@@ -777,6 +817,7 @@ export function createCampaignSidecarScheduler({
   syncPromptContext = null,
   appendCoreDiagnostic = null,
   commitCoreBackgroundBatch = null,
+  forgeCoordinator = null,
   now = null,
   dropForbiddenSidecarOperations = true,
   reportActivity = null
@@ -790,6 +831,7 @@ export function createCampaignSidecarScheduler({
 
   let queue = Promise.resolve();
   let diagnosticQueue = Promise.resolve();
+  const completedProviderBatches = new Map();
 
   function emitActivity(activityReporter, event = {}) {
     const reporter = typeof activityReporter === 'function' ? activityReporter : reportActivity;
@@ -941,6 +983,70 @@ export function createCampaignSidecarScheduler({
     };
   }
 
+  async function settleAcceptedWorkerBatchWithForge({
+    accepted = [],
+    allowedRoots = [],
+    turnContext = {},
+    baseRevision = null
+  } = {}) {
+    const transactionIds = [...new Set(accepted.map((result) => result.job?.sourceIngress?.coreTransactionId).filter(Boolean))];
+    if (transactionIds.length !== 1) return null;
+    const transactionId = transactionIds[0];
+    const sourceFrameRefs = [...new Map(accepted
+      .map((result) => result.job?.sourceIngress?.sourceFrameRef || result.job?.source?.sourceFrameRef || null)
+      .filter(Boolean)
+      .map((ref) => [ref.id || JSON.stringify(ref), ref])).values()];
+    const sourceTokens = [...new Set(accepted
+      .map((result) => result.job?.sourceIngress?.sourceToken || result.job?.source?.sourceToken)
+      .filter(Boolean))];
+    const idempotencyKey = `campaign-sidecar:${transactionId}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`;
+    const batchId = `campaign-sidecar:${transactionId}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`;
+    const workerResults = accepted.map(forgeWorkerResultForAcceptedSidecar);
+    const settlement = {
+      transactionId,
+      idempotencyKey,
+      batchId,
+      providerOwner: 'campaignSidecarScheduler',
+      phaseAfter: 'backgroundSettling',
+      outcomeId: turnContext.outcomeId || null,
+      sourceFrameRef: sourceFrameRefs.length === 1 ? cloneJson(sourceFrameRefs[0]) : undefined,
+      sourceToken: sourceTokens.length === 1 ? sourceTokens[0] : undefined,
+      baseMechanicsRevision: null,
+      promptDirtyDomains: normalizePromptDirtyDomains(allowedRoots),
+      workerResults,
+      observedAt: timestamp(now)
+    };
+    if (typeof forgeCoordinator?.settleAcceptedBatch === 'function') {
+      return forgeCoordinator.settleAcceptedBatch(settlement);
+    }
+    if (typeof commitCoreBackgroundBatch !== 'function') return null;
+    const forgeBatch = createForgeBatchCommit(settlement);
+    await commitCoreBackgroundBatch(transactionId, {
+      idempotencyKey: forgeBatch.idempotencyKey,
+      batchId: forgeBatch.batchId,
+      phaseAfter: 'backgroundSettling',
+      outcomeId: turnContext.outcomeId || null,
+      sourceFrameRef: forgeBatch.sourceFrameRef,
+      sourceToken: forgeBatch.sourceToken,
+      operations: forgeBatch.operations,
+      promptDirtyDomains: forgeBatch.promptDirtyDomains,
+      backgroundEffectRefs: forgeBatch.effectRefs,
+      workers: forgeBatch.workers,
+      forgeBatchRef: {
+        kind: 'directive.forgeBatchCommitRef.v1',
+        batchId: forgeBatch.batchId,
+        operationBundleHash: forgeBatch.operationBundleHash,
+        workerCount: forgeBatch.workers.length,
+        operationCount: forgeBatch.operations.length
+      }
+    });
+    return {
+      status: 'settled',
+      transactionId,
+      batch: forgeBatch
+    };
+  }
+
   function batchDiagnostics(job, extra = {}) {
     return {
       continuityProjection: cloneJson(job.source?.continuityProjection || null),
@@ -961,13 +1067,89 @@ export function createCampaignSidecarScheduler({
     };
   }
 
-  async function generateWorkers(jobs) {
-    const batch = await runSidecarJobs({
-      jobs,
-      generationRouter,
-      concurrent: jobs.length > 1,
-      now
-    });
+  function providerBatchContextForJobs(jobs = []) {
+    const transactionIds = [...new Set(jobs.map((job) => job?.sourceIngress?.coreTransactionId).filter(Boolean))];
+    const sourceTokens = [...new Set(jobs.map((job) => job?.sourceIngress?.sourceToken || job?.source?.sourceToken).filter(Boolean))];
+    const sourceFrameRefs = [...new Map(jobs
+      .map((job) => job?.sourceIngress?.sourceFrameRef || job?.source?.sourceFrameRef || null)
+      .filter(Boolean)
+      .map((ref) => [ref.id || JSON.stringify(ref), ref])).values()];
+    const transactionId = transactionIds.length === 1 ? transactionIds[0] : null;
+    const boundaryIds = [...new Set(jobs.flatMap((job) => [
+      job?.source?.outcomeId,
+      job?.baseEventContext?.outcomeId,
+      job?.source?.ingressId,
+      job?.baseEventContext?.ingressId,
+      job?.source?.turnId,
+      job?.baseEventContext?.turnId
+    ]).filter(Boolean))];
+    const boundaryId = boundaryIds.length === 1 ? boundaryIds[0] : 'no-source-boundary';
+    const sourceIdentity = sourceTokens.length === 1
+      ? sourceTokens[0]
+      : sourceFrameRefs.length === 1
+        ? sourceFrameRefs[0].id || hashStableJson(sourceFrameRefs[0]).slice(0, 16)
+        : hashStableJson(jobs.map((job) => ({
+          campaignId: job?.source?.campaignId || null,
+          saveId: job?.source?.saveId || null,
+          chatId: job?.source?.chatId || null,
+          ingressId: job?.source?.ingressId || null,
+          outcomeId: job?.source?.outcomeId || null,
+          sourceFrameId: job?.source?.sourceFrameId || null
+        }))).slice(0, 16);
+    const requestHash = hashStableJson(jobs.map((job) => ({
+      id: job?.id || null,
+      workerKey: job?.workerKey || null,
+      roleId: job?.roleId || null,
+      requestHash: hashStableJson({
+        systemPrompt: job?.request?.systemPrompt || '',
+        prompt: job?.request?.prompt || '',
+        maxTokens: job?.request?.maxTokens || null
+      })
+    }))).slice(0, 16);
+    const workerKey = jobs.map((job) => job?.workerKey || job?.type || job?.id).filter(Boolean).join('|') || 'no-workers';
+    const batchId = `campaign-sidecar-provider:${transactionId || 'no-core-transaction'}:${sourceIdentity}:${boundaryId}:${workerKey}`;
+    return {
+      transactionId,
+      batchId,
+      idempotencyKey: `${batchId}:${requestHash}`,
+      sourceToken: sourceTokens.length === 1 ? sourceTokens[0] : null,
+      sourceFrameRef: sourceFrameRefs.length === 1 ? cloneJson(sourceFrameRefs[0]) : null
+    };
+  }
+
+  async function generateWorkers(jobs, providerBatchContext = null) {
+    const context = providerBatchContext || providerBatchContextForJobs(jobs);
+    let providerResult = null;
+    const batch = typeof forgeCoordinator?.runProviderBatch === 'function'
+      ? ((providerResult = await forgeCoordinator.runProviderBatch({
+        jobs,
+        concurrent: jobs.length > 1,
+        transactionId: context.transactionId,
+        idempotencyKey: context.idempotencyKey,
+        sourceToken: context.sourceToken,
+        sourceFrameRef: context.sourceFrameRef,
+        upstreamOwner: 'campaignSidecarScheduler',
+        now,
+        runProviderBatch: () => runSidecarJobs({
+          jobs,
+          generationRouter,
+          concurrent: jobs.length > 1,
+          now
+        })
+      })).batch)
+      : await runSidecarJobs({
+        jobs,
+        generationRouter,
+        concurrent: jobs.length > 1,
+        now
+      });
+    if (!batch || !Array.isArray(batch.results)) {
+      const error = new Error(providerResult?.error?.message || 'FORGE provider batch did not return sidecar results.');
+      error.code = providerResult?.error?.code || 'DIRECTIVE_FORGE_PROVIDER_BATCH_MISSING_RESULTS';
+      error.providerBatchStatus = providerResult?.status || null;
+      error.providerBatchOriginalStatus = providerResult?.originalStatus || null;
+      throw error;
+    }
     return batch.results.map((result) => {
       if (result.status !== 'complete') {
         return {
@@ -1451,13 +1633,17 @@ export function createCampaignSidecarScheduler({
     };
   }
 
-  async function applyAcceptedWorkerBatch(pendingResults = [], turnContext = {}, batchState = {}) {
+  async function applyAcceptedWorkerBatch(pendingResults = [], turnContext = {}, batchState = {}, providerBatchContext = null) {
     const accepted = pendingResults.filter((result) => result.status === 'pendingApply');
     if (!accepted.length) return pendingResults;
     const operations = accepted.flatMap((result) => result.applyProposal?.operations || []);
     const allowedRoots = [...new Set(accepted.flatMap((result) => result.allowedRoots || []))];
     const workerKeys = accepted.map((result) => result.workerKey);
     const promptWorkerKey = workerKeys.length === 1 ? workerKeys[0] : 'campaignSidecarBatch';
+    const promptDirtyDomains = promptDirtyDomainsForAcceptedSidecars(accepted, allowedRoots);
+    const promptSyncBaseId = providerBatchContext?.batchId
+      || `campaign-sidecar:${turnContext.outcomeId || turnContext.ingressId || batchState.baseRevision || 'unknown'}`;
+    const promptSyncIdempotencyKey = `${promptSyncBaseId}:prompt-sync:accepted`;
     const baseRevision = batchState.expectedRevision ?? batchState.baseRevision;
     const conflictPaths = [];
     const seenPaths = [];
@@ -1547,41 +1733,16 @@ export function createCampaignSidecarScheduler({
       batchState.expectedRevision = applied.revision;
       setCampaignState(applied.campaignState);
       batchState.currentState = cloneJson(applied.campaignState);
-      if (typeof commitCoreBackgroundBatch === 'function') {
-        const transactionIds = [...new Set(accepted.map((result) => result.job?.sourceIngress?.coreTransactionId).filter(Boolean))];
-        if (transactionIds.length === 1) {
-          const sourceFrameRefs = [...new Map(accepted
-            .map((result) => result.job?.sourceIngress?.sourceFrameRef || result.job?.source?.sourceFrameRef || null)
-            .filter(Boolean)
-            .map((ref) => [ref.id || JSON.stringify(ref), ref])).values()];
-          const sourceTokens = [...new Set(accepted
-            .map((result) => result.job?.sourceIngress?.sourceToken || result.job?.source?.sourceToken)
-            .filter(Boolean))];
-          try {
-            await commitCoreBackgroundBatch(transactionIds[0], {
-              idempotencyKey: `campaign-sidecar:${transactionIds[0]}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`,
-              batchId: `campaign-sidecar:${transactionIds[0]}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`,
-              phaseAfter: 'backgroundSettling',
-              outcomeId: turnContext.outcomeId || null,
-              sourceFrameRef: sourceFrameRefs.length === 1 ? cloneJson(sourceFrameRefs[0]) : undefined,
-              sourceToken: sourceTokens.length === 1 ? sourceTokens[0] : undefined,
-              operations,
-              promptDirtyDomains: allowedRoots,
-              workers: accepted.map((result) => ({
-                workerId: result.workerKey,
-                status: 'applied',
-                operationCount: result.proposal?.operations?.length || 0
-              }))
-            });
-          } catch {
-            // CORE background ownership is best-effort during the v1/v2 bridge.
-          }
-        }
+      try {
+        await settleAcceptedWorkerBatchWithForge({ accepted, allowedRoots, turnContext, baseRevision });
+      } catch {
+        // CORE/FORGE background ownership is best-effort during the v1/v2 bridge.
       }
       if (typeof syncPromptContext === 'function') {
         synchronized = await syncPromptContext(applied.campaignState, {
           workerKey: promptWorkerKey,
           workerKeys,
+          promptDirtyDomains,
           aggregateBatch: true,
           proposals: accepted.map((result) => cloneJson(result.applyProposal))
         }, {
@@ -1596,6 +1757,8 @@ export function createCampaignSidecarScheduler({
             turnId: turnContext.turnId || null,
             outcomeId: turnContext.outcomeId || null,
             aggregateBatch: true,
+            promptDirtyDomains,
+            promptSyncIdempotencyKey,
             source: 'campaignSidecarScheduler'
           }
         });
@@ -1625,6 +1788,7 @@ export function createCampaignSidecarScheduler({
             const synchronizedReview = await syncPromptContext(commandBearingReview.campaignState, {
               workerKey: 'commandBearing',
               proposal: cloneJson(commandBearingResult.applyProposal),
+              promptDirtyDomains: normalizePromptDirtyDomains(['commandBearing']),
               commandBearingReview: true
             }, {
               activityReporter: commandBearingResult.job?.activityReporter || null,
@@ -1637,6 +1801,8 @@ export function createCampaignSidecarScheduler({
                 turnId: turnContext.turnId || null,
                 outcomeId: turnContext.outcomeId || null,
                 commandBearingReview: true,
+                promptDirtyDomains: normalizePromptDirtyDomains(['commandBearing']),
+                promptSyncIdempotencyKey: `${promptSyncBaseId}:prompt-sync:command-bearing-review`,
                 source: 'campaignSidecarScheduler'
               }
             });
@@ -1787,13 +1953,29 @@ export function createCampaignSidecarScheduler({
         requested.length,
         activityReporter
       ));
+      const providerBatchContext = providerBatchContextForJobs(jobs);
+      if (completedProviderBatches.has(providerBatchContext.batchId)) {
+        const replay = cloneJson(completedProviderBatches.get(providerBatchContext.batchId));
+        emitActivity(activityReporter, {
+          phase: 'sidecarsSettled',
+          mode: 'background',
+          requested,
+          results: cloneJson(replay.finalResults || []),
+          replayed: true,
+          classification: turnContext.classification || null,
+          ingressId: turnContext.ingressId || null,
+          turnId: turnContext.turnId || null,
+          outcomeId: turnContext.outcomeId || null
+        });
+        return replay.finalResults || [];
+      }
       for (const workerJob of jobs) {
         queueCoreDiagnostic(workerJob, 'queued');
         queueCoreDiagnostic(workerJob, 'running');
       }
       let responses;
       try {
-        responses = await generateWorkers(jobs);
+        responses = await generateWorkers(jobs, providerBatchContext);
       } catch (error) {
         for (const workerKey of requested) {
           emitActivity(activityReporter, {
@@ -1842,7 +2024,13 @@ export function createCampaignSidecarScheduler({
         }, turnContext, batchState);
         results.push(result);
       }
-      const finalResults = await applyAcceptedWorkerBatch(results, turnContext, batchState);
+      const finalResults = await applyAcceptedWorkerBatch(results, turnContext, batchState, providerBatchContext);
+      if (providerBatchContext.batchId && finalResults.every((result) => result.status !== 'failed')) {
+        completedProviderBatches.set(providerBatchContext.batchId, {
+          completedAt: timestamp(now),
+          finalResults: cloneJson(finalResults)
+        });
+      }
       for (const [index, result] of finalResults.entries()) {
         const workerJob = jobs[index] || {};
         emitActivity(activityReporter, {

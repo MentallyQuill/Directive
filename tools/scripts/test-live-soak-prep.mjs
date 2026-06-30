@@ -617,6 +617,8 @@ assert.match(liveSmokeSource, /generationTimingProofFromCoreProjections/);
 assert.match(liveSmokeSource, /hostNativeCompletionProofFromCoreProjections/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequirementProof/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequired/);
+assert.match(liveSmokeSource, /turn: Number\.isFinite\(turn\) && turn > 0 \? turn : null/);
+assert.match(liveSmokeSource, /turn: message\.turn/);
 assert.match(liveSmokeSource, /Required host-native completion proof was not recorded/);
 assert.match(liveSmokeSource, /createBrowserLogicalStorageAdapter/);
 assert.match(liveSmokeSource, /timingSource: 'coreProjection'/);
@@ -1130,6 +1132,11 @@ assert.equal(modelReviewRequest.canaries.every((entry) => entry.hiddenStateSafe 
 assert.equal(modelReviewRequest.transcript.length, 2);
 assert.equal(modelReviewRequest.deterministicChecks[0].checkId, badFactCheck.checkId);
 assert.match(modelReviewRequest.hiddenStatePolicy, /raw prompt bodies/);
+assert(modelReviewRequest.evaluatorInstructions.some((entry) => /findings only for material problems/i.test(entry)));
+assert(modelReviewRequest.evaluatorInstructions.some((entry) => /empty findings array/i.test(entry)));
+assert(modelReviewRequest.evaluatorInstructions.some((entry) => /Shuttlebay 1 being visible/i.test(entry) && /Shuttlebay 2/i.test(entry)));
+assert.equal(modelReviewRequest.responseSchema.properties.findings.maxItems, 8);
+assert.equal(modelReviewRequest.responseSchema.properties.findings.items.properties.evidenceSpans.maxItems, 2);
 assert.equal(modelReviewRequest.canaries.some((entry) => Object.hasOwn(entry, 'directorOnlyData')), false);
 assert.equal(modelReviewRequest.transcript.some((entry) => Object.hasOwn(entry, 'prompt')), false);
 assert.equal(modelReviewRequest.deterministicChecks.some((entry) => Object.hasOwn(entry, 'generatedTextPreview')), false);
@@ -1164,6 +1171,27 @@ assert.equal(modelReviewResult.status, 'fail');
 assert.equal(modelReviewResult.counts.contradicted, 1);
 assert.equal(modelReviewResult.counts.p1, 1);
 assert.equal(modelReviewResult.modelCall.roleId, 'factualGroundingReviewer');
+const factualStatusOnlyModelCallResult = buildModelAssistedFactualReviewResult({
+  request: modelReviewRequest,
+  modelOutput: JSON.stringify({
+    status: 'pass',
+    overallAssessment: 'No material factual problems.',
+    findings: []
+  }),
+  modelCall: { roleId: 'factualGroundingReviewer', status: 'ok' }
+});
+assert.equal(factualStatusOnlyModelCallResult.status, 'pass');
+assert.equal(factualStatusOnlyModelCallResult.modelCall.ok, true);
+const factualExplicitFailedModelCallResult = buildModelAssistedFactualReviewResult({
+  request: modelReviewRequest,
+  modelOutput: JSON.stringify({
+    status: 'pass',
+    overallAssessment: 'No material factual problems.',
+    findings: []
+  }),
+  modelCall: { roleId: 'factualGroundingReviewer', status: 'ok', ok: false }
+});
+assert.equal(factualExplicitFailedModelCallResult.modelCall.ok, false);
 const factualUnparseableAttempt = buildModelAssistedFactualReviewResult({
   request: modelReviewRequest,
   modelOutput: 'not strict json',
@@ -1290,6 +1318,7 @@ assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredPromptKeys.includes('dir
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('crew.hadrik-bronn.species'));
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('crew.hadrik-bronn.age-description'));
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('ship.uss-breckenridge.travel.not-six-days-impulse'));
+assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.requiredSourceIds.includes('ship.uss-breckenridge.travel.not-short-refit-duration'));
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.modelRoles.includes('continuityProjectionPlanner'));
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.modelRoles.includes('continuityContradictionReviewer'));
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.certificationGates.includes('five-user-cpm-coordinator-aggregates-passing-ashes-lane-evidence'));
@@ -1644,6 +1673,7 @@ assert.equal(report.continuityProjectionMatrixPolicy.artifactDirectory, 'continu
 assert.equal(report.continuityProjectionMatrixPolicy.coordinatorScript, 'tools/scripts/run-continuity-matrix-five-user-soak.mjs');
 assert(report.continuityProjectionMatrixPolicy.requiredPromptKeys.includes('directive.scene.active'));
 assert(report.continuityProjectionMatrixPolicy.requiredSourceIds.includes('ship.uss-breckenridge.travel.not-six-days-impulse'));
+assert(report.continuityProjectionMatrixPolicy.requiredSourceIds.includes('ship.uss-breckenridge.travel.not-short-refit-duration'));
 assert(report.continuityProjectionMatrixPolicy.modelRoles.includes('continuityProjectionPlanner'));
 assert(report.continuityProjectionMatrixPolicy.certificationGates.includes('mission-director-packets-carry-continuity-projection-digest'));
 assert(report.continuityProjectionMatrixPolicy.minimumEvidence.includes('five-user-coordinator-report-or-explicit bounded-run warning'));
@@ -2048,6 +2078,50 @@ assert.equal(timingAssessmentFromLiveLog.status, 'pass');
 assert.equal(timingAssessmentFromLiveLog.proof.evidenceSource, 'delegatedSmokeLiveLog');
 assert.equal(timingAssessmentFromLiveLog.proof.source, 'coreStoreTurnTiming');
 assert.equal(timingAssessmentFromLiveLog.proof.timingSource, 'coreProjection');
+const timingAssessmentFromRunEndLiveLog = liveGenerationTimingAssessment({
+  smokeReport: { browser: { chatCampaignFlow: {} } },
+  liveLogRecords: [
+    {
+      kind: 'turn-end',
+      scriptMessageId: 'soak-turn-01',
+      generationTiming: {
+        persisted: {
+          status: 'warning',
+          source: 'coreStoreTurnTiming',
+          timingSource: 'coreProjection',
+          targetTransactionCount: 0,
+          checkedTurnCount: 0,
+          entries: [],
+          unavailableReason: 'no-target-turn-timing-candidates'
+        }
+      }
+    },
+    {
+      kind: 'run-end',
+      generationTimingProof: {
+        status: 'pass',
+        source: 'coreStoreTurnTiming',
+        timingSource: 'coreProjection',
+        proofCount: 2,
+        checkedTurnCount: 1,
+        checkedResponseCount: 1,
+        skippedTurnCount: 0,
+        maxGenerationStartLatencyMs: 4200,
+        entries: [{
+          route: 'hostContinue',
+          responseKind: 'hostContinue',
+          timingStatus: 'pass',
+          turnLatency: {
+            generationStartLatencyMs: 4200,
+            architectureWithin60s: true
+          }
+        }]
+      }
+    }
+  ]
+});
+assert.equal(timingAssessmentFromRunEndLiveLog.status, 'pass');
+assert.equal(timingAssessmentFromRunEndLiveLog.proof.evidenceSource, 'delegatedSmokeLiveLogRunEnd');
 const hostNativeCompletionAssessment = liveHostNativeCompletionAssessment({ smokeReport: smokeReportForPromotion });
 assert.equal(hostNativeCompletionAssessment.status, 'pass');
 assert.match(hostNativeCompletionAssessment.summary, /terminal host-native completion/);
@@ -2117,6 +2191,55 @@ assert.equal(hostNativeCompletionAssessmentFromLiveLog.status, 'pass');
 assert.equal(hostNativeCompletionAssessmentFromLiveLog.proof.evidenceSource, 'delegatedSmokeLiveLog');
 assert.equal(hostNativeCompletionAssessmentFromLiveLog.proof.source, 'coreStoreResponseLedger');
 assert.equal(hostNativeCompletionAssessmentFromLiveLog.proof.completionSource, 'coreProjection');
+const hostNativeCompletionAssessmentFromRunEndLiveLog = liveHostNativeCompletionAssessment({
+  smokeReport: { browser: { chatCampaignFlow: {} } },
+  liveLogRecords: [
+    {
+      kind: 'turn-end',
+      scriptMessageId: 'soak-turn-03',
+      hostNativeCompletion: {
+        persisted: {
+          status: 'warning',
+          source: 'coreStoreResponseLedger',
+          completionSource: 'coreProjection',
+          targetTransactionCount: 0,
+          candidateResponseCount: 0,
+          completedHostContinueCount: 0,
+          failedHostContinueCount: 0,
+          entries: [],
+          unavailableReason: 'no-hostContinue-completion-candidates'
+        }
+      }
+    },
+    {
+      kind: 'run-end',
+      hostNativeCompletionProof: {
+        status: 'pass',
+        source: 'coreStoreResponseLedger',
+        completionSource: 'coreProjection',
+        completedHostContinueCount: 1,
+        failedHostContinueCount: 0,
+        requiredCompletionCount: 1,
+        requiredCompletionPassCount: 1,
+        requiredCompletionFailureCount: 0,
+        maxCompletionLatencyMs: 9000,
+        requiredCompletions: [requiredCompletion],
+        requiredHostNativeCompletions: [requiredCompletion],
+        entries: [{
+          responseId: 'response-host-run-end',
+          transactionId: 'txn-host-run-end',
+          route: 'hostContinue',
+          responseKind: 'hostContinue',
+          hostMessageId: 'assistant-host-run-end',
+          textHash: 'r'.repeat(64),
+          completionStatus: 'pass'
+        }]
+      }
+    }
+  ]
+});
+assert.equal(hostNativeCompletionAssessmentFromRunEndLiveLog.status, 'pass');
+assert.equal(hostNativeCompletionAssessmentFromRunEndLiveLog.proof.evidenceSource, 'delegatedSmokeLiveLogRunEnd');
 const missingCompletionLiveLogAssessment = liveHostNativeCompletionAssessment({
   smokeReport: { browser: { chatCampaignFlow: {} } },
   liveLogRecords: [{

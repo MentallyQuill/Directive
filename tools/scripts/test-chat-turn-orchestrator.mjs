@@ -78,6 +78,7 @@ const promptFrames = [];
 const coreBeginCalls = [];
 const coreAdvanceCalls = [];
 const coreSupersedeCalls = [];
+const coreDiagnosticCalls = [];
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
 let nextPreviewOutcomeBand = null;
@@ -137,6 +138,14 @@ const coreTurnStore = {
         reason: options.reason || 'latest-source-reobserved',
         recoveryId: options.priorRecoveryId || null
       }
+    };
+  },
+  async appendDiagnostics(transactionId, diagnostic = {}) {
+    coreDiagnosticCalls.push({ transactionId, diagnostic: cloneJson(diagnostic) });
+    return {
+      id: `diagnostic:${coreDiagnosticCalls.length}`,
+      transactionId,
+      diagnostic: cloneJson(diagnostic)
     };
   }
 };
@@ -519,6 +528,13 @@ const handshake = await send(
 );
 assert.equal(handshake.handled, true);
 assert.equal(handshakeActivity.some((event) => event.phase === 'settlingSceneHandshake' && event.source === 'sceneHandshake'), true);
+const sreHandshakePreflight = handshakeActivity.find((event) => event.phase === 'sreSceneHandshakePreflight');
+assert(sreHandshakePreflight, 'Scene Handshake should run an SRE diagnostic preflight before provider settlement.');
+assert.equal(sreHandshakePreflight.source, 'sre');
+assert.equal(sreHandshakePreflight.mode, 'diagnostic');
+assert.equal(sreHandshakePreflight.status, 'preflightClean');
+assert.equal(sreHandshakePreflight.providerCalled, false);
+assert.equal(sreHandshakePreflight.applied, false);
 const handshakeSettledActivity = handshakeActivity.find((event) => event.phase === 'sceneHandshakeSettled');
 assert.equal(handshakeSettledActivity.source, 'sceneHandshake');
 assert.equal(handshakeSettledActivity.disposition, 'autoCommit');
@@ -547,6 +563,18 @@ assert.equal(campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeHandsh
 assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeHandshake + 1);
 assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneHandshakePair');
 assert.ok(handshakeActivity.some((event) => event.phase === 'timeBoundaryAlreadyCommitted' && event.existingSource === 'sceneHandshakePair'));
+const handshakeIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-scene-handshake');
+const handshakeSreDiagnostic = coreDiagnosticCalls.find((entry) => (
+  entry.transactionId === handshakeIngress.coreTransactionId
+  && entry.diagnostic.type === 'sourceSettlement'
+  && entry.diagnostic.diagnosticOnly === true
+));
+assert(handshakeSreDiagnostic, 'SRE preflight should append a diagnostic to the ingress CORE transaction.');
+assert.equal(handshakeSreDiagnostic.diagnostic.status, 'preflightClean');
+assert.equal(handshakeSreDiagnostic.diagnostic.decision.providerCalled, false);
+assert.equal(handshakeSreDiagnostic.diagnostic.decision.applied, false);
+assert.equal(handshakeSreDiagnostic.diagnostic.decision.sourceFrameId, handshakeIngress.sourceFrameId);
+assert.equal(JSON.stringify(handshakeSreDiagnostic).includes('Sam spends 10 minutes'), false);
 const handshakeRequest = responseSwipeGenerationCalls.find((entry) => (
   entry.roleId === 'sceneHandshakeSettler'
   && entry.request.metadata.previousAssistantHostMessageId === 'assistant-host-handshake'
@@ -2061,7 +2089,8 @@ assert.equal(fallbackNarration.responseStrategy, 'directivePosted');
 const fallbackResponse = chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').at(-1);
 assert.ok(fallbackResponse);
 assert.match(fallbackResponse.text, /^\*Stardate \d+(?:\.\d+)? \| \d{4} hours\*\n\n/);
-assert.match(fallbackResponse.text, /The attempt resolves as Partial Failure\./);
+assert.doesNotMatch(fallbackResponse.text, /The attempt resolves as/i);
+assert.match(fallbackResponse.text, /The bridge absorbs the setback and keeps the next decision in view\./);
 assert.equal(
   fallbackResponse.text.includes('The order is carried out'),
   false,
@@ -2206,6 +2235,116 @@ assert.equal(
 );
 assert.equal(commitCalls.length, commitsBeforeStaleRiskConfirmation, 'Invalidated pending source must not commit mechanics on confirmation.');
 assert.equal(postCommitConversationCalls.length, postCommitBeforeStaleRiskConfirmation, 'Invalidated pending source must not queue Narrative Thread settlement.');
+
+const noActivePrompt = createFakePromptAdapter();
+const noActivePromptClearRequests = [];
+const noActiveCampaignOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: createFakeChatAdapter({ chatId: 'no-active-campaign-chat' }),
+    prompt: noActivePrompt
+  },
+  classify: async () => {
+    throw new Error('No-active-campaign chat change must not classify a turn.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('No-active-campaign chat change must not dispatch a response.');
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState: () => null,
+  setCampaignState: () => {},
+  persistCampaignState: async () => ({ ok: true }),
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('No-active-campaign chat change must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('No-active-campaign chat change must not commit a Director turn.');
+  },
+  clearDirectivePrompt: async (options = {}) => {
+    noActivePromptClearRequests.push(cloneJson(options));
+    const result = await noActivePrompt.clear({
+      reason: options.reason || 'no-active-campaign',
+      lane: 'all'
+    });
+    return { status: 'cleared', lane: 'all', result };
+  },
+  now
+});
+const noActiveChatChange = await noActiveCampaignOrchestrator.handleChatChanged();
+assert.equal(noActiveChatChange.active, false);
+assert.equal(noActiveChatChange.promptClear.status, 'cleared');
+assert.deepEqual(noActivePromptClearRequests, [{ reason: 'no-active-campaign' }]);
+const noActivePromptClearCall = noActivePrompt.calls().filter((entry) => entry.type === 'clear').at(-1);
+assert.equal(noActivePromptClearCall.options.reason, 'no-active-campaign');
+assert.equal(noActivePromptClearCall.options.lane, 'all');
+assert.equal(noActivePromptClearCall.options.preservePacket, undefined);
+
+const unboundPrompt = createFakePromptAdapter();
+const unboundLensClearRequests = [];
+const unboundLensSuspendRequests = [];
+const unboundState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+unboundState.campaign = {
+  ...unboundState.campaign,
+  id: 'unbound-campaign',
+  status: 'active'
+};
+unboundState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'bound-chat',
+  campaignId: 'unbound-campaign',
+  saveId: 'unbound-save'
+};
+const unboundChatOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: createFakeChatAdapter({ chatId: 'other-chat' }),
+    prompt: unboundPrompt
+  },
+  classify: async () => {
+    throw new Error('Unbound-chat change must not classify a turn.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Unbound-chat change must not dispatch a response.');
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState: () => unboundState,
+  setCampaignState: () => {},
+  persistCampaignState: async () => ({ ok: true }),
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Unbound-chat change must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Unbound-chat change must not commit a Director turn.');
+  },
+  clearDirectivePrompt: async (options = {}) => {
+    unboundLensClearRequests.push(cloneJson(options));
+    throw new Error('Unbound-chat preserve-packet suspension must not route through LENS global clear.');
+  },
+  suspendDirectivePrompt: async (options = {}) => {
+    unboundLensSuspendRequests.push(cloneJson(options));
+    const result = await unboundPrompt.clear({
+      reason: options.reason || 'unbound-chat',
+      lane: 'all',
+      preservePacket: true
+    });
+    return { status: 'suspended', lane: 'all', result };
+  },
+  now
+});
+const unboundChatChange = await unboundChatOrchestrator.handleChatChanged();
+assert.equal(unboundChatChange.active, false);
+assert.equal(unboundChatChange.suspended, true);
+assert.deepEqual(unboundLensClearRequests, []);
+assert.deepEqual(unboundLensSuspendRequests, [{ reason: 'unbound-chat' }]);
+assert.equal(unboundChatChange.promptSuspension.status, 'suspended');
+const unboundPromptClearCall = unboundPrompt.calls().filter((entry) => entry.type === 'clear').at(-1);
+assert.equal(unboundPromptClearCall.options.reason, 'unbound-chat');
+assert.equal(unboundPromptClearCall.options.preservePacket, true);
+assert.equal(unboundPromptClearCall.options.lane, 'all');
 
 assert.equal(sidecarCalls.length >= 4, true);
 assert.equal(persisted.length > 0, true);

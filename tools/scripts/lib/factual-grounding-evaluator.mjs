@@ -163,6 +163,7 @@ function factualReviewResponseSchema() {
       overallAssessment: { type: 'string' },
       findings: {
         type: 'array',
+        maxItems: 8,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -175,6 +176,7 @@ function factualReviewResponseSchema() {
             summary: { type: 'string' },
             evidenceSpans: {
               type: 'array',
+              maxItems: 2,
               items: {
                 type: 'object',
                 additionalProperties: false,
@@ -426,6 +428,26 @@ function sentenceLocalCooccurrence(text = '', focusTerms = [], targetPattern) {
   return false;
 }
 
+function sentenceRoutesOpeningShuttleToShuttlebayTwo(sentence = '') {
+  const text = String(sentence || '');
+  if (!/\b(?:shuttle\s*bay|shuttlebay)\s*(?:2|two)\b/i.test(text)) return false;
+  return (
+    /\b(?:route[sd]?|pulls?|guide[sd]?|direct[sed]?|bring(?:s|ing|ought)?|align[sed]?|receive[sd]?|arriv(?:e[sd]?|al)|dock(?:s|ed|ing)?|land(?:s|ed|ing)?|lower(?:s|ed|ing)?|berth(?:s|ed|ing)?|settle[sd]?)\b[^.!?]{0,180}\b(?:into|through|to|toward|towards|inside|within|onto|in)\s+(?:the\s+)?(?:larger\s+maintenance\s+hangar\s+of\s+)?(?:shuttle\s*bay|shuttlebay)\s*(?:2|two)\b/i.test(text)
+    || /\b(?:into|through|to|toward|towards|inside|within|onto|in)\s+(?:the\s+)?(?:larger\s+maintenance\s+hangar\s+of\s+)?(?:shuttle\s*bay|shuttlebay)\s*(?:2|two)\b[^.!?]{0,180}\b(?:deck|hangar|bay|arrival|dock(?:s|ed|ing)?|land(?:s|ed|ing)?|berth(?:s|ed|ing)?|settle[sd]?)\b/i.test(text)
+    || /\bpast\s+(?:it|(?:shuttle\s*bay|shuttlebay)\s*(?:1|one))\b[^.!?]{0,180}\b(?:into|through|to|inside|within)\s+(?:the\s+)?(?:larger\s+maintenance\s+hangar\s+of\s+)?(?:shuttle\s*bay|shuttlebay)\s*(?:2|two)\b/i.test(text)
+  );
+}
+
+function sentenceRoutesOpeningShuttleToShuttlebayOne(sentence = '') {
+  const text = String(sentence || '');
+  if (!/\b(?:shuttle\s*bay|shuttlebay)\s*(?:1|one)\b/i.test(text)) return false;
+  return (
+    /\b(?:Tanner|player'?s\s+shuttle|shuttle'?s\s+pilot|the\s+shuttle|personnel\s+shuttle|runabout|craft)\b[^.!?]{0,180}\b(?:route[sd]?|pulls?|guide[sd]?|direct[sed]?|bring(?:s|ing|ought)?|align[sed]?|receive[sd]?|arriv(?:e[sd]?|al)|dock(?:s|ed|ing)?|land(?:s|ed|ing)?|lower(?:s|ed|ing)?|berth(?:s|ed|ing)?|settle[sd]?|cross(?:es|ed|ing)?|pass(?:es|ed|ing)?)\b[^.!?]{0,180}\b(?:into|through|to|toward|towards|inside|within|onto|in|over)\s+(?:the\s+)?(?:primary\s+flight\s+deck\s+of\s+)?(?:shuttle\s*bay|shuttlebay)\s*(?:1|one)\b/i.test(text)
+    || /\b(?:into|through|to|toward|towards|inside|within|onto|in|over)\s+(?:the\s+)?(?:primary\s+flight\s+deck\s+of\s+)?(?:shuttle\s*bay|shuttlebay)\s*(?:1|one)\b[^.!?]{0,180}\b(?:Tanner|player'?s\s+shuttle|shuttle'?s\s+pilot|the\s+shuttle|personnel\s+shuttle|runabout|craft|arriv(?:e[sd]?|al)|dock(?:s|ed|ing)?|land(?:s|ed|ing)?|berth(?:s|ed|ing)?|settle[sd]?|threshold|deck)\b/i.test(text)
+    || /\b(?:shuttle\s*bay|shuttlebay)\s*(?:1|one)(?:'s)?\s+(?:primary\s+flight\s+deck\s+)?(?:threshold|deck|landing\s+pad|bay)\b[^.!?]{0,180}\b(?:Tanner|player'?s\s+shuttle|shuttle'?s\s+pilot|the\s+shuttle|personnel\s+shuttle|runabout|craft|arriv(?:e[sd]?|al)|dock(?:s|ed|ing)?|land(?:s|ed|ing)?|lower(?:s|ed|ing)?|berth(?:s|ed|ing)?|settle[sd]?|cross(?:es|ed|ing)?|pass(?:es|ed|ing)?)\b/i.test(text)
+  );
+}
+
 const UNIFORM_COLOR_PATTERNS = Object.freeze({
   'burgundy-red': /\b(?:burgundy[-\s]?red|command\s+red|red-and-black)\b/i,
   'mustard-yellow': /\b(?:mustard[-\s]?yellow|operations?\s+yellow|ops\s+yellow|engineering\s+yellow|tactical\s+yellow|security\s+yellow|gold|yellow)\b/i,
@@ -551,6 +573,29 @@ function inferredContradictions(text, canary) {
         textPreview: 'Generated text says the ship has been at impulse for six days.'
       });
     }
+    if (/\b(?:two|2)\s+weeks?\s+(?:out\s+of|since|after|post[-\s])\s+(?:the\s+)?refit\b/i.test(text)) {
+      matches.push({
+        term: 'two weeks out of refit',
+        textPreview: 'Generated text collapses the twenty-five-day post-Utopia shakedown transit into two weeks out of refit.'
+      });
+    }
+    if (/\b(?:since\s+(?:we|they|the\s+ship|breckenridge)\s+left|after\s+(?:we|they|the\s+ship|breckenridge)\s+left|from)\s+McKinney\s+Station\b/i.test(text)) {
+      matches.push({
+        term: 'McKinney Station departure origin',
+        textPreview: 'Generated text relocates the Breckenridge departure origin to McKinney Station instead of Utopia Planitia.'
+      });
+    }
+    const shuttlebayOneArrival = sentenceSegments(text).some((sentence) => (
+      sentenceRoutesOpeningShuttleToShuttlebayOne(sentence)
+      && !sentenceRoutesOpeningShuttleToShuttlebayTwo(sentence)
+      && !/\b(?:not|never|avoid(?:ed|s|ing)?|wrong|incorrect)\b[^.!?]{0,80}\b(?:shuttle\s*bay|shuttlebay)\s*(?:1|one)\b/i.test(sentence)
+    ));
+    if (shuttlebayOneArrival) {
+      matches.push({
+        term: 'Shuttlebay 1 arrival target',
+        textPreview: 'Generated text routes the opening player-shuttle arrival through Shuttlebay 1 instead of Shuttlebay 2.'
+      });
+    }
     if (
       /\b(?:out\s+of|left|departed|taken\s+her\s+out\s+of)\s+(?:spacedock|space\s+dock|the\s+yard|drydock|dry\s+dock)\s+(?:only\s+)?(?:3|three)\s+days\s+ago\b/i.test(text)
       || /\b(?:only\s+)?(?:3|three)\s+days\s+(?:out\s+of|underway\s+from|since\s+(?:leaving|departing))\s+(?:spacedock|space\s+dock|the\s+yard|drydock|dry\s+dock)\b/i.test(text)
@@ -558,6 +603,15 @@ function inferredContradictions(text, canary) {
       matches.push({
         term: 'only three days out of spacedock',
         textPreview: 'Generated text collapses the twenty-five-day transit into only three days out of the yard.'
+      });
+    }
+    if (
+      /\b(?:only\s+)?(?:3|three)\s+days\s+out\s+of\s+(?:Utopia\s+Planitia(?:'s)?(?:\s+refit\s+cradle)?|the\s+refit\s+cradle|refit\s+cradle)\b/i.test(text)
+      || /\b(?:out\s+of|left|departed|taken\s+her\s+out\s+of)\s+(?:Utopia\s+Planitia(?:'s)?(?:\s+refit\s+cradle)?|the\s+refit\s+cradle|refit\s+cradle)\s+(?:only\s+)?(?:3|three)\s+days\s+ago\b/i.test(text)
+    ) {
+      matches.push({
+        term: 'three days out of Utopia Planitia refit',
+        textPreview: 'Generated text collapses the twenty-five-day transit into three days out of Utopia Planitia or the refit cradle.'
       });
     }
   }
@@ -784,6 +838,10 @@ export function buildModelAssistedFactualReviewRequest({
       'Review the visible transcript for factual grounding against the supplied canaries.',
       'Do not penalize omission unless the fact is required for the visible scene or the transcript mentions the entity or premise incorrectly.',
       'Prefer deterministic check results when they identify a concrete contradiction, but add broader unsupported-detail or omission findings when visible transcript evidence supports them.',
+      'For the Ashes opening transit fact, do not treat Shuttlebay 1 being visible or mentioned as a contradiction if the same passage routes, pulls, lands, settles, or berths the player shuttle into/through Shuttlebay 2.',
+      'Return findings only for material problems: contradicted facts, unsupported details, P1 prompt-blocker omissions, or concrete P2 factual warnings.',
+      'Do not list respected, not-applicable, or harmless omitted facts as findings; summarize clean passes in overallAssessment instead.',
+      'If there are no material factual problems, return status "pass", a concise overallAssessment, and an empty findings array.',
       'Return strict JSON matching responseSchema.'
     ],
     responseSchema: factualReviewResponseSchema(),
@@ -867,6 +925,11 @@ export function buildModelAssistedFactualReviewResult({
   const finalStatus = status === 'not-run' && (attemptedReview || timedOut)
     ? 'fail'
     : status || inferredStatus;
+  const modelCallOk = modelCall?.ok === true
+    || (
+      modelCall?.ok !== false
+      && modelCall?.status === 'ok'
+    );
   return {
     kind: FACT_MODEL_REVIEW_RESULT_KIND,
     schemaVersion: 1,
@@ -889,7 +952,7 @@ export function buildModelAssistedFactualReviewResult({
       providerId: modelCall.providerId || null,
       model: modelCall.model || null,
       status: modelCall.status || null,
-      ok: modelCall.ok === true,
+      ok: modelCallOk,
       latencyMs: modelCall.latencyMs ?? null,
       errorCode: modelCall.errorCode || modelCall.error?.code || null
     } : null,

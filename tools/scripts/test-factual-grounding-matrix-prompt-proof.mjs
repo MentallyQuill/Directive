@@ -37,6 +37,7 @@ assert(transitCanary.expectedPromptKeys.includes('directive.continuity.domain'))
 assert(transitCanary.expectedPromptKeys.includes('directive.scene.active'));
 assert.match(transitCanary.summary, /shuttlebay two.*aft section between the swept nacelle pylons/i);
 assert(transitCanary.expectedSourceIds.includes('ship.uss-breckenridge.travel.not-six-days-impulse'));
+assert(transitCanary.expectedSourceIds.includes('ship.uss-breckenridge.travel.not-short-refit-duration'));
 assert(transitCanary.expectedSourceIds.includes('ship.uss-breckenridge.travel.current-route'));
 
 const matrixPromptBlocks = promptBlocksFromInspection({
@@ -55,7 +56,8 @@ const matrixPromptBlocks = promptBlocksFromInspection({
         'crew.mara-whitaker.age-description',
         'crew.priya-nayar.species',
         'crew.priya-nayar.billet',
-        'ship.uss-breckenridge.travel.not-six-days-impulse'
+        'ship.uss-breckenridge.travel.not-six-days-impulse',
+        'ship.uss-breckenridge.travel.not-short-refit-duration'
       ]
     },
     {
@@ -175,6 +177,99 @@ const quotedSentenceBoundaryCheck = buildFactualGroundingCheck({
 
 assert.equal(quotedSentenceBoundaryCheck.status, 'pass');
 assert.equal(quotedSentenceBoundaryCheck.counts.contradicted, 0);
+
+const refitOriginDriftCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-refit-origin-drift',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#refit-origin-drift',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [transitCanary.id],
+  generatedText: [
+    'Two weeks out of refit, the Breckenridge still sounds new under the deckplates.',
+    'Bronn glances up from the readiness board and says the shift has been carrying this since we left McKinney Station.'
+  ].join(' ')
+});
+
+assert.equal(refitOriginDriftCheck.status, 'fail');
+assert.equal(refitOriginDriftCheck.counts.contradicted, 1);
+const refitOriginResult = refitOriginDriftCheck.results.find((entry) => entry.factId === transitCanary.id);
+assert(refitOriginResult.contradictionMatches.some((entry) => /two weeks out of refit/i.test(entry.term)));
+assert(refitOriginResult.contradictionMatches.some((entry) => /McKinney Station/i.test(entry.term)));
+
+const shuttlebayOneArrivalCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-shuttlebay-one-arrival',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#shuttlebay-one-arrival',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [transitCanary.id],
+  generatedText: [
+    "The shuttle's pilot brought the Tanner through Shuttlebay 1's threshold, and the arresting field lowered it to the primary flight deck.",
+    'The bay crew signaled all-stop from the Shuttlebay 1 landing pad.'
+  ].join(' ')
+});
+
+assert.equal(shuttlebayOneArrivalCheck.status, 'fail');
+assert.equal(shuttlebayOneArrivalCheck.counts.contradicted, 1);
+assert(shuttlebayOneArrivalCheck.results.find((entry) => entry.factId === transitCanary.id).contradictionMatches.some((entry) => /Shuttlebay 1 arrival target/i.test(entry.term)));
+
+const negatedShuttlebayOneCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-negated-shuttlebay-one',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#negated-shuttlebay-one',
+  promptBlocks: matrixPromptBlocks,
+  generatedText: 'Bay control avoided Shuttlebay 1 for the opening arrival and routed the player shuttle through Shuttlebay 2.'
+});
+
+assert.equal(negatedShuttlebayOneCheck.status, 'pass');
+assert.equal(negatedShuttlebayOneCheck.counts.contradicted, 0);
+
+const visibleShuttlebayOneButShuttlebayTwoArrivalCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-visible-shuttlebay-one-arrives-shuttlebay-two',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#visible-shuttlebay-one-arrives-shuttlebay-two',
+  promptBlocks: matrixPromptBlocks,
+  generatedText: [
+    'Shuttlebay 1 -- the primary flight deck -- is visible through the inner archway,',
+    'but the tractor guide pulls the shuttle past it, deeper, into the larger maintenance hangar of Shuttlebay 2.',
+    'Deck markings scroll beneath the landing struts, and the arresting field settles the shuttle onto the hangar deck.'
+  ].join(' ')
+});
+
+assert.equal(visibleShuttlebayOneButShuttlebayTwoArrivalCheck.status, 'pass');
+assert.equal(visibleShuttlebayOneButShuttlebayTwoArrivalCheck.counts.contradicted, 0);
+
+const shuttlebayOneForwardShuttlebayTwoFloorCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-shuttlebay-one-forward-shuttlebay-two-floor',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#shuttlebay-one-forward-shuttlebay-two-floor',
+  promptBlocks: matrixPromptBlocks,
+  generatedText: [
+    'Shuttlebay 1, the primary flight deck, sat forward in the complex; behind it, the larger maintenance hangar designated Shuttlebay 2 waited with its doors open and arresting field charged.',
+    'The tractor beam eased the shuttle through the atmospheric threshold and settled it onto the hangar floor of Shuttlebay 2.'
+  ].join(' ')
+});
+
+assert.equal(shuttlebayOneForwardShuttlebayTwoFloorCheck.status, 'pass');
+assert.equal(shuttlebayOneForwardShuttlebayTwoFloorCheck.counts.contradicted, 0);
+
+const shortRefitDurationCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-short-refit-duration',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#short-refit-duration',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [transitCanary.id],
+  generatedText: "The U.S.S. Breckenridge was three days out of Utopia Planitia's refit cradle, and it showed."
+});
+
+assert.equal(shortRefitDurationCheck.status, 'fail');
+assert.equal(shortRefitDurationCheck.counts.contradicted, 1);
+assert(shortRefitDurationCheck.results.find((entry) => entry.factId === transitCanary.id).contradictionMatches.some((entry) => /three days out of Utopia Planitia refit/i.test(entry.term)));
 
 const crossVerbTellariteCheck = buildFactualGroundingCheck({
   pack: ashesPack,

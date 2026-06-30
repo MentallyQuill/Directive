@@ -194,9 +194,9 @@
       "exteriorPlacement": "Aft dorsal secondary hull between the swept nacelle-pylon frame",
       "functions": ["shuttle launch", "shuttle recovery", "auxiliary-craft repair", "mission staging", "EVA preparation"],
       "sceneUses": ["arrival", "away-team launch", "emergency recovery", "small-craft repair", "physical mission logistics"],
-      "hardFacts": ["The main shuttlebay complex is aft on Deck 10.", "Small craft approach from astern toward the aft bay.", "Shuttlebay 1 is the primary flight deck; the larger maintenance hangar/shuttlebay 2 sits behind it."],
+      "hardFacts": ["The main shuttlebay complex is aft on Deck 10.", "Small craft approach from astern toward the aft bay.", "Shuttlebay 1 is the primary flight deck; the larger maintenance hangar/shuttlebay 2 sits behind it.", "Ashes opening exception: the player's arrival uses Shuttlebay 2, not Shuttlebay 1."],
       "textures": ["aft doors", "approach lights", "arresting field", "bay force field", "deck markings", "maintenance cradles", "shuttle control station"],
-      "constraints": ["Do not depict routine Intrepid-class shuttle docking through a wide mouth in the underside of the saucer.", "Launch and recovery involve shields, force fields, tractor/arresting support, and flight-deck clearance."],
+      "constraints": ["Do not depict routine Intrepid-class shuttle docking through a wide mouth in the underside of the saucer.", "Launch and recovery involve shields, force fields, tractor/arresting support, and flight-deck clearance.", "For the Ashes opening player arrival, do not land, lower, or berth the shuttle on Shuttlebay 1; use Shuttlebay 2."],
       "keywords": ["shuttlebay", "shuttle bay", "shuttle", "hangar", "flight deck", "launch", "recovery", "docking", "aft bay"]
     },
     {
@@ -360,9 +360,9 @@
       "retrieval": { "lanes": ["ship_exterior", "ship_area", "opening_shuttle_rendezvous", "shuttlebay"], "keywords": ["shuttle", "shuttlebay", "shuttle bay", "hangar", "docking", "aft bay", "approach", "Rangiroa"], "priority": "critical" },
       "payload": {
         "summary": "Normal shuttle approach to an Intrepid-class ship is aft, toward the Deck 10 shuttlebay complex in the dorsal secondary hull, visually framed by the nacelle-pylon geometry.",
-        "constraints": ["Do not depict routine shuttle docking through the underside, belly, ventral saucer, or primary-hull mouth.", "Use aft approach lights, bay force field, arresting support, and deck crew for shuttle recovery texture."],
+        "constraints": ["Do not depict routine shuttle docking through the underside, belly, ventral saucer, or primary-hull mouth.", "Use aft approach lights, bay force field, arresting support, and deck crew for shuttle recovery texture.", "For the Ashes opening player arrival, Shuttlebay 2 is the arrival bay; do not land, lower, or berth the player's shuttle on Shuttlebay 1."],
         "narratorSafe": true,
-        "hardAnchors": ["Deck 10 aft shuttlebay complex.", "Small craft approach from astern.", "Shuttlebay 1 is the primary flight deck; shuttlebay 2 is the larger maintenance hangar behind it."],
+        "hardAnchors": ["Deck 10 aft shuttlebay complex.", "Small craft approach from astern.", "Shuttlebay 1 is the primary flight deck; shuttlebay 2 is the larger maintenance hangar behind it.", "Ashes opening player arrival uses Shuttlebay 2, not Shuttlebay 1."],
         "textures": ["aft doors", "approach beacon", "pylon frame", "bay threshold", "arresting field", "deck markings"],
         "avoid": ["wide lit mouth in the underside of the saucer", "saucer-underside shuttlebay", "ventral primary-hull hangar"]
       }
@@ -550,10 +550,10 @@
       "gates": { "playerKnowledge": "serviceRecord", "requiresRevealedFactIds": [], "blocksUntilFactIds": [], "requiresOutcomeIds": [] },
       "retrieval": { "lanes": ["ship_area", "shuttlebay", "opening_shuttle_rendezvous"], "keywords": ["shuttlebay", "shuttle bay", "shuttle", "hangar", "flight deck", "launch", "recovery", "aft bay"], "priority": "critical" },
       "payload": {
-        "summary": "The Deck 10 aft shuttlebay complex is the ship's mission threshold: shuttlebay 1 flight deck, larger maintenance hangar/shuttlebay 2 behind it, deck crew, EVA lockers, and shuttle-control work.",
-        "constraints": ["Do not place normal Intrepid-class shuttlebay doors in the underside of the saucer.", "Use shields, force fields, approach lights, arresting support, flight-deck clearance, and medical/security standby when recovery is risky."],
+        "summary": "The Deck 10 aft shuttlebay complex is the ship's mission threshold: shuttlebay 1 flight deck, larger maintenance hangar/shuttlebay 2 behind it, deck crew, EVA lockers, and shuttle-control work. In the Ashes opening, the player's arrival uses Shuttlebay 2, not Shuttlebay 1.",
+        "constraints": ["Do not place normal Intrepid-class shuttlebay doors in the underside of the saucer.", "Use shields, force fields, approach lights, arresting support, flight-deck clearance, and medical/security standby when recovery is risky.", "For the Ashes opening player arrival, do not land, lower, or berth the shuttle on Shuttlebay 1; use Shuttlebay 2."],
         "narratorSafe": true,
-        "hardAnchors": ["Deck 10 aft dorsal secondary hull.", "Approach from astern.", "Shuttlebay 1 primary flight deck; shuttlebay 2 larger maintenance hangar."],
+        "hardAnchors": ["Deck 10 aft dorsal secondary hull.", "Approach from astern.", "Shuttlebay 1 primary flight deck; shuttlebay 2 larger maintenance hangar.", "Ashes opening player arrival uses Shuttlebay 2, not Shuttlebay 1."],
         "textures": ["aft doors", "bay force field", "deck markings", "maintenance cradles", "shuttle control", "EVA lockers"],
         "avoid": ["saucer-underside hangar", "belly shuttlebay", "primary-hull mouth"]
       }

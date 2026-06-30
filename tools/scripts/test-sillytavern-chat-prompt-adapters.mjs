@@ -902,6 +902,12 @@ await assert.rejects(
 const suspended = await promptAdapter.syncForChat({ chatId: 'unbound-chat' });
 assert.equal(suspended.active, false);
 assert.equal(promptAdapter.inspect().blockCount, 0);
+currentChatId = binding.chatId;
+const resumed = await promptAdapter.syncForChat({ chatId: binding.chatId });
+assert.equal(resumed.ok, true);
+assert.equal(resumed.status, 'active');
+assert.equal(promptAdapter.inspect().blockCount, packet.blocks.length);
+assert.equal(promptAdapter.inspect().binding.chatId, binding.chatId);
 
 const unavailableContext = {
   chatId: 'chat-before',

@@ -396,6 +396,43 @@ assert(host.prompt.inspect().blockCount <= 13);
 assert.equal(view.promptInspection.blockCount, host.prompt.inspect().blockCount);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
 assert.equal(generationRoleCount('continuityProjectionPlanner'), 1, 'Activation prompt installation should use the continuity planner once.');
+const promptSyncCallsAfterActivation = host.prompt.calls().filter((entry) => entry.type === 'sync').length;
+const activationPromptInstallCall = host.prompt.calls().find((entry) => entry.type === 'sync');
+assert.equal(activationPromptInstallCall?.options.reason, 'Campaign prompt context installed during activation.', 'Activation prompt install should route through the runtime LENS lifecycle.');
+assert.equal(activationPromptInstallCall?.options.lane, 'visible', 'Activation prompt install should carry the LENS visible lane.');
+assert.match(activationPromptInstallCall?.options.cacheKey, /^[a-f0-9]{64}$/, 'Activation prompt install should carry a LENS cache key.');
+assert.equal(activationPromptInstallCall?.options.packet?.cacheKey, activationPromptInstallCall?.options.cacheKey, 'Activation prompt packet cache key should align with the LENS install request.');
+const lensPromptRebuild = await app.rebuildPromptContext();
+assert.equal(['installed', 'reused'].includes(lensPromptRebuild.lens.status), true, 'Runtime prompt synchronization should route cache decisions through LENS.');
+assert.match(lensPromptRebuild.lens.cacheKey, /^[a-f0-9]{64}$/);
+assert.equal(host.prompt.calls().filter((entry) => entry.type === 'sync').length >= promptSyncCallsAfterActivation, true);
+const promptSyncCallsAfterLensRebuild = host.prompt.calls().filter((entry) => entry.type === 'sync').length;
+const continuityPlannerCallsAfterLensRebuild = generationRoleCount('continuityProjectionPlanner');
+const cachedPromptRebuild = await app.rebuildPromptContext();
+assert.equal(cachedPromptRebuild.lens.status, 'reused', 'Unchanged prompt context should reuse the LENS cache.');
+assert.equal(cachedPromptRebuild.lens.rebuilt, false, 'Unchanged prompt context should not reinstall through the host prompt adapter.');
+assert.equal(host.prompt.calls().filter((entry) => entry.type === 'sync').length, promptSyncCallsAfterLensRebuild);
+assert.equal(
+  generationRoleCount('continuityProjectionPlanner'),
+  continuityPlannerCallsAfterLensRebuild,
+  'LENS cache reuse should not invoke the blocking continuity planner when the prompt source is unchanged.'
+);
+const promptClearCallsBeforeManualClear = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
+const manualPromptClear = await app.clearPromptContext({ reason: 'test-manual-lens-clear' });
+assert.equal(manualPromptClear.result.status, 'cleared', 'Manual prompt clear should route through LENS clear.');
+assert.equal(manualPromptClear.result.lane, 'all', 'Manual prompt clear should clear all LENS-installed prompt lanes.');
+assert.equal(manualPromptClear.result.result.ok, true, 'Manual prompt clear should preserve host clear success evidence.');
+assert.equal(host.prompt.inspect().blockCount, 0, 'Manual prompt clear should remove Directive prompt blocks from the host.');
+assert.equal(host.prompt.calls().filter((entry) => entry.type === 'clear').length, promptClearCallsBeforeManualClear + 1);
+const manualPromptClearCall = host.prompt.calls().filter((entry) => entry.type === 'clear').at(-1);
+assert.equal(manualPromptClearCall.options.reason, 'test-manual-lens-clear');
+assert.equal(manualPromptClearCall.options.lane, 'all');
+assert.equal(manualPromptClearCall.options.preservePacket, undefined);
+const rebuildAfterManualClear = await app.rebuildPromptContext();
+assert.equal(rebuildAfterManualClear.lens.status, 'installed', 'Prompt rebuild after LENS clear should install a fresh packet.');
+assert.equal(rebuildAfterManualClear.lens.rebuilt, true, 'Prompt rebuild after LENS clear must not reuse stale installed-lane state.');
+assert.equal(host.prompt.inspect().status, 'installed');
+assert.equal(host.prompt.inspect().blockCount > 0, true);
 
 const introBeforeNativeSwipe = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'campaignIntro');
 assert.equal(introBeforeNativeSwipe.swipes.length, 1);
@@ -466,6 +503,29 @@ assert.equal(host.prompt.inspect().status, 'installed');
 view = await app.getCurrentView({ tabId: 'campaign' });
 assert.equal(view.chatNative.manualSaveGuard.ok, true);
 assert.equal(view.chatNative.manualSaveGuard.reason, 'ok');
+const promptClearCallsBeforeUnboundSuspend = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
+host.chat.setCurrentChatId('unbound-chat-for-prompt-suspend');
+const unboundPromptSync = await app.rebuildPromptContext();
+assert.equal(unboundPromptSync.suspended, true);
+assert.equal(unboundPromptSync.active, false);
+assert.equal(unboundPromptSync.promptSuspension.status, 'suspended');
+assert.equal(unboundPromptSync.promptSuspension.lane, 'all');
+assert.equal(unboundPromptSync.promptSuspension.preservePacket, true);
+assert.equal(unboundPromptSync.promptSuspension.activeChatId, 'unbound-chat-for-prompt-suspend');
+assert.equal(unboundPromptSync.promptSuspension.boundChatId, 'duplicated-campaign-chat');
+assert.equal(unboundPromptSync.promptSuspension.result.ok, true);
+assert.equal(host.prompt.inspect().blockCount, 0, 'Unbound chat prompt suspension should remove Directive blocks from the current host prompt.');
+const unboundPromptSuspendCall = host.prompt.calls().filter((entry) => entry.type === 'clear').at(-1);
+assert.equal(host.prompt.calls().filter((entry) => entry.type === 'clear').length, promptClearCallsBeforeUnboundSuspend + 1);
+assert.equal(unboundPromptSuspendCall.options.reason, 'unbound-chat');
+assert.equal(unboundPromptSuspendCall.options.lane, 'all');
+assert.equal(unboundPromptSuspendCall.options.preservePacket, true);
+host.chat.setCurrentChatId('duplicated-campaign-chat');
+const resumedPromptSync = await app.rebuildPromptContext();
+assert.equal(resumedPromptSync.lens.status, 'installed', 'Returning to the bound chat should reinstall after LENS suspension instead of falsely reusing cache.');
+assert.equal(resumedPromptSync.lens.rebuilt, true);
+assert.equal(host.prompt.inspect().status, 'installed');
+assert.equal(host.prompt.inspect().blockCount > 0, true);
 const manualSave = await app.saveCurrentGame({ summary: 'Manual guard pass test.' });
 assert.equal(manualSave.ok, true);
 assert.equal(manualSave.saveGuard.ok, true);
@@ -1258,15 +1318,52 @@ const activeSave = saves.find((entry) => entry.id === view.activeSaveId);
 assert.ok(activeSave);
 assert.equal(activeSave.revision > 1, true);
 
+const promptClearCallsBeforeConclusion = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
 const completed = await reloadedApp.concludeCampaign({ reason: 'Runtime target-flow test completed.', type: 'playerChoice' });
 assert.equal(completed.campaignState.campaign.status, 'complete');
 assert.equal(completed.campaignState.conclusion.recapStatus, 'complete');
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignConclusion').length, 1);
 assert.equal(host.prompt.inspect().blockCount, 0);
+const promptClearCallsAfterConclusion = host.prompt.calls().filter((entry) => entry.type === 'clear');
+assert.equal(
+  promptClearCallsAfterConclusion.length,
+  promptClearCallsBeforeConclusion + 1,
+  'Campaign conclusion should clear Directive prompt state through LENS.'
+);
+const conclusionPromptClearCall = promptClearCallsAfterConclusion.at(-1);
+assert.equal(conclusionPromptClearCall.options.reason, 'campaign-complete');
+assert.equal(conclusionPromptClearCall.options.lane, 'all');
+assert.equal(conclusionPromptClearCall.options.preservePacket, undefined);
 
+const promptClearCallsBeforeArchive = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
 const archived = await reloadedApp.archiveCompletedCampaign();
 assert.equal(archived.campaignState.campaign.status, 'archived');
 assert.ok(archived.campaignState.campaign.archivedAt);
 assert.equal(host.prompt.inspect().blockCount, 0);
+const promptClearCallsAfterArchive = host.prompt.calls().filter((entry) => entry.type === 'clear');
+assert.equal(
+  promptClearCallsAfterArchive.length,
+  promptClearCallsBeforeArchive + 1,
+  'Archiving a completed campaign should clear Directive prompt state through LENS even when conclusion already cleared host blocks.'
+);
+const archivePromptClearCall = promptClearCallsAfterArchive.at(-1);
+assert.equal(archivePromptClearCall.options.reason, 'campaign-archived');
+assert.equal(archivePromptClearCall.options.lane, 'all');
+assert.equal(archivePromptClearCall.options.preservePacket, undefined);
 
-console.log('Chat-native runtime flow tests passed: no pre-activation injection, creator activation, automatic chat/intro, utility loop, committed outcome, REPAIR source/response recovery, autosave, conclusion, and archive');
+const promptClearCallsBeforeActiveDelete = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
+const deletedActiveSave = await reloadedApp.deleteCampaignSave({ saveId: activeSave.id });
+assert.equal(deletedActiveSave.deleteResult.deletedActive, true);
+assert.equal(host.prompt.inspect().blockCount, 0);
+const promptClearCallsAfterActiveDelete = host.prompt.calls().filter((entry) => entry.type === 'clear');
+assert.equal(
+  promptClearCallsAfterActiveDelete.length,
+  promptClearCallsBeforeActiveDelete + 1,
+  'Deleting the active save should clear all LENS-installed Directive prompt lanes.'
+);
+const activeDeletePromptClearCall = promptClearCallsAfterActiveDelete.at(-1);
+assert.equal(activeDeletePromptClearCall.options.reason, 'active-save-deleted');
+assert.equal(activeDeletePromptClearCall.options.lane, 'all');
+assert.equal(activeDeletePromptClearCall.options.preservePacket, undefined);
+
+console.log('Chat-native runtime flow tests passed: no pre-activation injection, creator activation, automatic chat/intro, utility loop, committed outcome, REPAIR source/response recovery, autosave, conclusion, archive, and active-save delete prompt cleanup');

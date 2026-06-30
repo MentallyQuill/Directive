@@ -274,6 +274,19 @@
       }
     },
     {
+      "id": "provider-fallback.ashes-clean-operational-picture.001",
+      "text": "Commander Arlen keeps her hands loosely behind her back at the command rail and continues the scene in third person. Arlen attempts to acknowledge the handoff and ask for a clean operational picture, making only her own command-character choice and leaving the mission director and crew to resolve the response.",
+      "providerOk": false,
+      "expect": {
+        "classificationAnyOf": ["sceneNavigation"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate"],
+        "forbiddenWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "sideMission", "narrator"]
+      }
+    },
+    {
       "id": "provider-routine.directive-posted.001",
       "text": "I tell Whitaker to keep the handoff public but brief, ask Bronn to note any tactical reservations in the log, and order Ops to schedule the formal systems inspection after the welcome aboard.",
       "providerResponse": {

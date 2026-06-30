@@ -35,7 +35,8 @@ const FACT_MODEL_REVIEW_RESULT_KIND = 'directive.liveCampaignSoak.factualModelRe
 export const CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS = Object.freeze([
   'crew.hadrik-bronn.species',
   'crew.hadrik-bronn.age-description',
-  'ship.uss-breckenridge.travel.not-six-days-impulse'
+  'ship.uss-breckenridge.travel.not-six-days-impulse',
+  'ship.uss-breckenridge.travel.not-short-refit-duration'
 ]);
 
 export const CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS = Object.freeze([
@@ -83,6 +84,8 @@ Options:
   --skip-readiness    Skip the five-user isolation preflight.
   --activate-external-context-fixture
                       Ask live readiness to activate the prepared rich fixture chat.
+  --prepare-external-context-fixtures
+                      Ask live readiness to write rich fixtures for selected non-human soak users before activation.
   --resume            Reuse matching completed lane artifacts for this run id.
   --turn-limit N      Bound each lane to N turns; produces a warning.
   --lanes a,b         Run lane ids or user handles matching the policy.
@@ -96,6 +99,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     writeArtifacts: false,
     skipReadiness: false,
     activateExternalContextFixture: false,
+    prepareExternalContextFixtures: false,
     resume: false,
     turnLimit: DEFAULT_TURN_LIMIT,
     laneFilter: []
@@ -107,6 +111,9 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--write-artifacts') options.writeArtifacts = true;
     else if (arg === '--skip-readiness') options.skipReadiness = true;
     else if (arg === '--activate-external-context-fixture') options.activateExternalContextFixture = true;
+    else if (arg === '--prepare-external-context-fixtures' || arg === '--prepare-external-context-fixture') {
+      options.prepareExternalContextFixtures = true;
+    }
     else if (arg === '--resume') options.resume = true;
     else if (arg === '--turn-limit') {
       options.turnLimit = String(argv[index + 1] || '').trim();
@@ -123,6 +130,10 @@ function parseArgs(argv = process.argv.slice(2)) {
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_LIVE === '1') options.live = true;
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_WRITE === '1') options.writeArtifacts = true;
   if (process.env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE === '1') options.activateExternalContextFixture = true;
+  if (process.env.DIRECTIVE_SOAK_PREPARE_EXTERNAL_CONTEXT_FIXTURES === '1'
+    || process.env.DIRECTIVE_SOAK_PREPARE_EXTERNAL_CONTEXT_FIXTURE === '1') {
+    options.prepareExternalContextFixtures = true;
+  }
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_RESUME === '1') options.resume = true;
   if (!options.turnLimit && process.env.DIRECTIVE_SOAK_TURN_LIMIT) {
     options.turnLimit = String(process.env.DIRECTIVE_SOAK_TURN_LIMIT || '').trim();
@@ -2231,6 +2242,7 @@ export function readinessCommandArgs(options = {}) {
   return [
     'tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs',
     '--live',
+    ...(options.prepareExternalContextFixtures ? ['--prepare-external-context-fixtures'] : []),
     ...(options.activateExternalContextFixture ? ['--activate-external-context-fixture'] : []),
     '--write-artifacts'
   ];

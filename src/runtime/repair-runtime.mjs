@@ -452,6 +452,74 @@ function buildResponseReobserveClosureDecision({
   };
 }
 
+function buildResponseRetryActuationDecision({
+  response = null,
+  recovery = null,
+  recoveryDecision = null,
+  transaction = null,
+  transactionId = null,
+  responseId = null,
+  outcomeId = null,
+  turnId = null,
+  sourceFrameId = null,
+  eventTime = null
+} = {}) {
+  const sourceDecision = recoveryDecision || recovery?.details?.repairDecision || response?.coreRecovery?.decision || {};
+  const eventType = responseRecoveryEventTypeFrom({ recoveryDecision: sourceDecision, response, recovery });
+  const allowedActions = Array.isArray(sourceDecision.allowedActions)
+    ? sourceDecision.allowedActions
+    : (Array.isArray(recovery?.details?.allowedActions) ? recovery.details.allowedActions : []);
+  const retryAllowed = allowedActions.includes('retryResponse');
+  const retryEventType = eventType === 'hostResponsePostFailure' || eventType === 'providerFailureAfterMechanicsCommit';
+  const effectiveTransactionId = compact(
+    transactionId
+      || transaction?.id
+      || sourceDecision.transactionId
+      || response?.coreTransactionId
+      || recovery?.details?.coreTransactionId
+      || ''
+  ) || null;
+  const effectiveResponseId = compact(responseId || response?.id || recovery?.details?.responseId || sourceDecision.responseId || '') || null;
+  const effectiveRecoveryId = compact(recovery?.id || sourceDecision.recoveryId || sourceDecision.recoveryCaseId || '') || null;
+  const transactionPhase = transaction?.phase || null;
+  const authorized = retryAllowed
+    && retryEventType
+    && Boolean(effectiveTransactionId)
+    && (!transactionPhase || transactionPhase === 'responseRetryRequired');
+  const deniedReason = authorized
+    ? null
+    : !retryEventType
+      ? 'response-retry-event-type-not-eligible'
+      : !retryAllowed
+        ? 'response-retry-action-not-allowed'
+        : !effectiveTransactionId
+          ? 'response-retry-transaction-missing'
+          : 'response-retry-transaction-not-retryable';
+  return {
+    kind: 'directive.repairResponseRetryActuationDecision.v1',
+    eventType,
+    sourceKind: 'directiveResponse',
+    action: 'recordVisibleResponse',
+    authorized,
+    deniedReason,
+    recoveryResolved: authorized,
+    reason: authorized ? 'directive-response-retry-posted' : deniedReason,
+    transactionId: effectiveTransactionId,
+    transactionPhase,
+    recoveryId: effectiveRecoveryId,
+    recoveryCaseId: transaction?.recoveryCaseId || effectiveRecoveryId || null,
+    responseId: effectiveResponseId,
+    outcomeId: outcomeId || response?.outcomeId || recovery?.outcomeId || sourceDecision.outcomeId || null,
+    turnId: turnId || response?.turnId || recovery?.details?.turnId || sourceDecision.turnId || null,
+    sourceFrameId: sourceFrameId || response?.sourceFrameId || recovery?.details?.sourceFrameId || sourceDecision.sourceFrameId || null,
+    allowedActions: cloneJson(allowedActions),
+    retryDirectiveResponse: authorized,
+    retryHostGeneration: false,
+    normalTurnAllowed: false,
+    observedAt: eventTime || null
+  };
+}
+
 function buildRollbackActuationDecision({
   coreRecovery = null,
   decision = null,
@@ -799,6 +867,9 @@ export function createRepairRuntime({
     },
     evaluateResponseReobserveClosure(options = {}) {
       return buildResponseReobserveClosureDecision(options);
+    },
+    evaluateResponseRetryActuation(options = {}) {
+      return buildResponseRetryActuationDecision(options);
     },
     evaluateRollbackActuation(options = {}) {
       return buildRollbackActuationDecision(options);

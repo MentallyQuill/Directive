@@ -234,6 +234,14 @@ function compactResponseRef(value = {}) {
 
 function responseRefAuthorizesRecoveryClosure(ref = {}) {
   const decision = ref.repairDecision || {};
+  if (decision.kind === 'directive.repairResponseRetryActuationDecision.v1') {
+    return decision.authorized === true
+      && decision.recoveryResolved === true
+      && decision.action === 'recordVisibleResponse'
+      && (decision.eventType === 'hostResponsePostFailure' || decision.eventType === 'providerFailureAfterMechanicsCommit')
+      && Array.isArray(decision.allowedActions)
+      && decision.allowedActions.includes('retryResponse');
+  }
   return decision.kind === 'directive.repairResponseReobserveClosureDecision.v1'
     && decision.authorized === true
     && decision.recoveryResolved === true
@@ -737,6 +745,7 @@ export function buildCoreStoreReadProjections(state = {}) {
     ? state.transactions
     : reconstructTransactionsFromEvents(state.events || []);
   const transactions = Object.values(transactionMap || {});
+  const hostMapRows = Array.isArray(state.hostMapRows) ? state.hostMapRows.map(cloneJson) : [];
   const responseEvents = (state.events || []).filter((event) => event.type === 'visibleResponseRecorded');
   const visibleResponseRepairsByTransaction = new Map();
   for (const event of state.events || []) {
@@ -763,6 +772,10 @@ export function buildCoreStoreReadProjections(state = {}) {
   return {
     kind: 'directive.coreStoreReadProjections.v1',
     schemaVersion: 1,
+    hostMapRows,
+    hostMap: {
+      rows: hostMapRows.map(cloneJson)
+    },
     ingressLedger: transactions.map((transaction) => compact({
       id: transaction.ingressId || `ingress:${transaction.id}`,
       transactionId: transaction.id,
@@ -1009,12 +1022,14 @@ export async function readCoreStoreProjectionsV2(adapter, {
     saveId: requireNonEmptyString(saveId, 'saveId'),
     layout
   });
-  const [events, turns, diagnostics] = await Promise.all([
+  const [hostMap, events, turns, diagnostics] = await Promise.all([
+    manifest.hostMap ? readV2ArtifactRef(adapter, manifest.hostMap) : null,
     readSegmentEntries(adapter, manifest.eventSegments || []),
     readSegmentEntries(adapter, manifest.turnSegments || []),
     readSegmentEntries(adapter, manifest.diagnosticsSegments || [])
   ]);
   return buildCoreStoreReadProjections({
+    hostMapRows: Array.isArray(hostMap?.rows) ? hostMap.rows.map(cloneJson) : [],
     events,
     turns,
     diagnostics,
@@ -1452,6 +1467,11 @@ export function createCoreStoreV2({
       const transaction = requireTransaction(transactionId);
       const ref = compactResponseRef(responseRef);
       const closingRecovery = Boolean(transaction.recoveryCaseId) && responseRefAuthorizesRecoveryClosure(ref);
+      if (transaction.phase === 'responseRetryRequired' && transaction.recoveryCaseId && !closingRecovery) {
+        const error = new Error(`CORE transaction "${transaction.id}" response retry cannot be closed by visible response without REPAIR authorization`);
+        error.code = 'DIRECTIVE_CORE_RESPONSE_RETRY_VISIBLE_RESPONSE_UNAUTHORIZED';
+        throw error;
+      }
       if (transaction.phase === 'recoveryRequired' && !closingRecovery) {
         const error = new Error(`CORE transaction "${transaction.id}" recovery cannot be closed by visible response without REPAIR authorization`);
         error.code = 'DIRECTIVE_CORE_RECOVERY_VISIBLE_RESPONSE_UNAUTHORIZED';
@@ -1463,7 +1483,7 @@ export function createCoreStoreV2({
         error.code = 'DIRECTIVE_CORE_VISIBLE_RESPONSE_ALREADY_RECORDED';
         throw error;
       }
-      if (!(transaction.phase === 'recoveryRequired' && closingRecovery)) {
+      if (!(['recoveryRequired', 'responseRetryRequired'].includes(transaction.phase) && closingRecovery)) {
         assertPhaseTransition(transaction.phase, 'visibleResponsePosted');
       }
       const revisionsBefore = cloneJson(state.revisions);
@@ -1492,7 +1512,11 @@ export function createCoreStoreV2({
             id: ref.repairDecision?.recoveryCaseId || null,
             recoveryId: ref.repairDecision?.recoveryId || null,
             status: 'resolved',
-            reason: ref.repairDecision?.reason || 'host-native-response-reobserved',
+            reason: ref.repairDecision?.reason || (
+              ref.repairDecision?.kind === 'directive.repairResponseRetryActuationDecision.v1'
+                ? 'directive-response-retry-posted'
+                : 'host-native-response-reobserved'
+            ),
             repairDecision: ref.repairDecision ? sanitizeDiagnostic(ref.repairDecision) : undefined
           }) : undefined
         },

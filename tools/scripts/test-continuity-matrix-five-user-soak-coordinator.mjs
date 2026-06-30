@@ -316,7 +316,8 @@ function promptInspectionFixture({
           promptKey: 'directive.continuity.invariants',
           sourceIds: [
             'crew.hadrik-bronn.species',
-            'ship.uss-breckenridge.travel.not-six-days-impulse'
+            'ship.uss-breckenridge.travel.not-six-days-impulse',
+            'ship.uss-breckenridge.travel.not-short-refit-duration'
           ]
         },
         {
@@ -636,6 +637,7 @@ function mutatePreGenerationScriptId(root, fileName, scriptMessageId) {
 assert.equal(CONTINUITY_MATRIX_REQUIRED_PROMPT_KEYS.includes('directive.continuity.invariants'), true);
 assert.equal(CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS.includes('crew.hadrik-bronn.species'), true);
 assert.equal(CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS.includes('ship.uss-breckenridge.travel.not-six-days-impulse'), true);
+assert.equal(CONTINUITY_MATRIX_REQUIRED_SOURCE_IDS.includes('ship.uss-breckenridge.travel.not-short-refit-duration'), true);
 
 const lanes = buildContinuityMatrixLanes({
   users: [
@@ -673,6 +675,16 @@ assert.deepEqual(readinessCommandArgs({ activateExternalContextFixture: false })
 assert.deepEqual(readinessCommandArgs({ activateExternalContextFixture: true }), [
   'tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs',
   '--live',
+  '--activate-external-context-fixture',
+  '--write-artifacts'
+]);
+assert.deepEqual(readinessCommandArgs({
+  prepareExternalContextFixtures: true,
+  activateExternalContextFixture: true
+}), [
+  'tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs',
+  '--live',
+  '--prepare-external-context-fixtures',
   '--activate-external-context-fixture',
   '--write-artifacts'
 ]);
@@ -1086,6 +1098,72 @@ assert.equal(aggregateHostNativeCompletionCheck.status, 'pass');
 assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].completedHostContinueCount, 1);
 assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].requiredCompletionStatus, 'pass');
 assert.equal(aggregateHostNativeCompletionCheck.details.lanes[0].requiredCompletionMatchedCount, 1);
+const staleLegacyWarningRoot = makeArtifactRoot();
+writePassingLaneArtifacts(staleLegacyWarningRoot);
+fs.appendFileSync(path.join(staleLegacyWarningRoot, 'live-log.jsonl'), `${JSON.stringify({
+  kind: 'turn-end',
+  status: 'warning',
+  scriptMessageId: 'soak-turn-03',
+  generationTiming: {
+    persisted: {
+      status: 'warning',
+      source: 'coreStoreTurnTiming',
+      timingSource: 'coreProjection',
+      targetTransactionCount: 0,
+      checkedTurnCount: 0,
+      entries: [],
+      unavailableReason: 'no-target-turn-timing-candidates'
+    }
+  },
+  hostNativeCompletion: {
+    persisted: {
+      status: 'warning',
+      source: 'coreStoreResponseLedger',
+      completionSource: 'coreProjection',
+      targetTransactionCount: 0,
+      completedHostContinueCount: 0,
+      failedHostContinueCount: 0,
+      entries: [],
+      unavailableReason: 'no-hostContinue-completion-candidates'
+    }
+  }
+})}\n`, 'utf8');
+const staleLegacyWarningLaneSummary = summarizeContinuityMatrixLane({
+  lane: lanes[0],
+  child: {
+    exitCode: 0,
+    signal: null,
+    stdout: JSON.stringify({ status: 'pass', artifactRoot: staleLegacyWarningRoot }),
+    stderr: '',
+    json: { status: 'pass', artifactRoot: staleLegacyWarningRoot }
+  },
+  artifactRoot: staleLegacyWarningRoot
+});
+assert.equal(staleLegacyWarningLaneSummary.generationTimingProof.status, 'pass');
+assert.equal(staleLegacyWarningLaneSummary.hostNativeCompletionProof.status, 'pass');
+const staleLegacyWarningAggregate = buildReport({
+  runId: 'aggregate-stale-legacy-warning',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '3',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root: staleLegacyWarningRoot },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [staleLegacyWarningLaneSummary]
+});
+assert.equal(staleLegacyWarningAggregate.checks.find((entry) => entry.id === 'generation-start-timing-core-proof').status, 'pass');
+assert.equal(staleLegacyWarningAggregate.checks.find((entry) => entry.id === 'host-native-completion-core-proof').status, 'pass');
 const aggregateStoryQualityCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'story-quality-model-review');
 assert.equal(aggregateStoryQualityCheck.status, 'pass');
 assert.equal(aggregateStoryQualityCheck.details.lanes[0].modelAssistedReviewStatus, 'pass');
@@ -2143,6 +2221,7 @@ fs.rmSync(timeoutStoryQualityRoot, { recursive: true, force: true });
 fs.rmSync(missingTimingRoot, { recursive: true, force: true });
 fs.rmSync(runtimeTimingRoot, { recursive: true, force: true });
 fs.rmSync(skippedTimingRoot, { recursive: true, force: true });
+fs.rmSync(staleLegacyWarningRoot, { recursive: true, force: true });
 fs.rmSync(fullRoot, { recursive: true, force: true });
 fs.rmSync(missingExternalSummaryRoot, { recursive: true, force: true });
 fs.rmSync(missingExternalSummaryFileRoot, { recursive: true, force: true });

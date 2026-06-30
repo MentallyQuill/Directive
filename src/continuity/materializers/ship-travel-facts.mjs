@@ -184,7 +184,7 @@ export function materializeShipTravelFacts({
       id: `${subject}.not-six-days-impulse`,
       kind: 'ship.travel.constraint',
       subject,
-      predicate: 'invalidTransitClaim',
+      predicate: 'invalidSixDayImpulseClaim',
       value: 'not-six-days-impulse-from-utopia',
       summary: `Do not describe the opening Breckenridge transit as six days at impulse from Utopia Planitia.`,
       render: {
@@ -196,6 +196,23 @@ export function materializeShipTravelFacts({
       visibility: CONTINUITY_VISIBILITY.narratorSafe,
       criticality: 'hard',
       tags: ['ship', 'travel', 'contradiction-guard', 'impulse']
+    }));
+    facts.push(createContinuityFact({
+      id: `${subject}.not-short-refit-duration`,
+      kind: 'ship.travel.constraint',
+      subject,
+      predicate: 'invalidShortRefitDurationClaim',
+      value: 'not-three-days-out-of-refit',
+      summary: `Do not describe the opening Breckenridge transit as only three days out of Utopia Planitia, spacedock, drydock, the yard, or a refit cradle; the crew has been underway together for twenty-five days before the player joins.`,
+      render: {
+        narrator: `Do not describe the opening Breckenridge transit as only three days out of Utopia Planitia, spacedock, drydock, the yard, or a refit cradle; the crew has been underway together for twenty-five days before the player joins.`,
+        director: `Contradiction guard: reject claims that the Breckenridge is only three days out of Utopia Planitia, spacedock, drydock, the yard, or a refit cradle at the opening.`
+      },
+      source: { type: 'continuityMatrix', packageId, path: 'ship.travelContinuity + crew.relationshipModel.startingFrame' },
+      authority: 'campaignState',
+      visibility: CONTINUITY_VISIBILITY.narratorSafe,
+      criticality: 'hard',
+      tags: ['ship', 'travel', 'contradiction-guard', 'refit-duration']
     }));
   }
 

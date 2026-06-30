@@ -14,8 +14,6 @@ import {
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createGenerationRouter } from '../generation/generation-router.mjs';
 import {
-  buildPlayerSafePromptContext,
-  buildPlayerSafePromptContextWithContinuityPlanner,
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
@@ -34,6 +32,7 @@ import {
 } from './mission-components.mjs';
 import { prepareDefineSelection } from './define-selection.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
+import { createForgeCoordinator } from '../jobs/forge-coordinator.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
 import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
@@ -74,7 +73,18 @@ import {
 } from '../continuity/diagnostics.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
-import { createRepairRuntime } from './repair-runtime.mjs';
+import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
+import { createSourceSettlementService } from './source-settlement-service.mjs';
+import {
+  createLensPromptScheduler,
+  normalizePromptDirtyDomains
+} from './lens-prompt-scheduler.mjs';
+import {
+  buildLensPromptPacket,
+  createLensPromptInput,
+  lensPromptPacketProjectionSummary
+} from './lens-prompt-packet-builder.mjs';
+import { createCoreTurnRuntime } from './core-turn-runtime.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
@@ -425,6 +435,8 @@ function factualGroundingReviewSystemPrompt() {
     'You are Directive\'s factual grounding reviewer for a live campaign soak test.',
     'Use only the provided player-safe canary facts, source pointers, deterministic summaries, and visible transcript excerpts.',
     'Do not infer from hidden truth, raw prompt bodies, provider reasoning, raw relationship values, hidden pressure values, hidden clocks, cookies, CSRF tokens, or API keys.',
+    'Report only material factual problems as findings. Do not enumerate clean, respected, not-applicable, or harmless omitted facts.',
+    'If there are no material factual problems, return status "pass", a concise overallAssessment, and an empty findings array.',
     'Return strict JSON matching the supplied responseSchema. Do not include markdown or commentary.'
   ].join('\n');
 }
@@ -724,6 +736,7 @@ function stateBindingForFreshness(state = null, {
 function stateFreshnessCounters(state = null) {
   const tracking = state?.runtimeTracking || {};
   const ledger = tracking.endConditionLedger || {};
+  const responseLedger = Array.isArray(tracking.responseLedger) ? tracking.responseLedger : [];
   return {
     revision: Math.max(0, Number(tracking.revision) || 0),
     mechanicsRevision: Math.max(0, Number(tracking.mechanicsRevision) || 0),
@@ -731,7 +744,9 @@ function stateFreshnessCounters(state = null) {
     commandLogEntries: commandLogEntryCount(state),
     turnLedgerEntries: countArray(state?.turnLedger?.entries),
     ingressLedgerEntries: countArray(tracking.ingressLedger),
-    responseLedgerEntries: countArray(tracking.responseLedger),
+    responseLedgerEntries: responseLedger.length,
+    responseLedgerRevision: Math.max(0, Number(tracking.responseLedgerRevision) || 0),
+    responseLedgerIntegritySelections: responseLedger.filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
     recoveryJournalEntries: countArray(tracking.recoveryJournal),
     sidecarJournalEntries: countArray(tracking.sidecarJournal),
     pendingInteractions: countArray(tracking.pendingInteractions),
@@ -740,6 +755,62 @@ function stateFreshnessCounters(state = null) {
     endConditionBranchRecords: countArray(ledger.branchRecords),
     endConditionContinuationFrames: countArray(ledger.continuationFrames),
     modelCallJournalEntries: countArray(tracking.modelCallJournal)
+  };
+}
+
+function responseLedgerIntegrityRank(entry = null) {
+  return entry?.outcomeIntegrity?.selectedRevisionId ? 1 : 0;
+}
+
+function mergeFresherResponseLedgerProjection(candidateState = null, inMemoryState = null) {
+  if (!candidateState || !inMemoryState) return candidateState;
+  const candidateTracking = candidateState.runtimeTracking || {};
+  const memoryTracking = inMemoryState.runtimeTracking || {};
+  const candidateLedger = Array.isArray(candidateTracking.responseLedger) ? candidateTracking.responseLedger : [];
+  const memoryLedger = Array.isArray(memoryTracking.responseLedger) ? memoryTracking.responseLedger : [];
+  if (!memoryLedger.length) return candidateState;
+  if (!candidateLedger.length) {
+    return {
+      ...cloneJson(candidateState),
+      runtimeTracking: {
+        ...cloneJson(candidateTracking),
+        responseLedger: cloneJson(memoryLedger),
+        responseLedgerRevision: Math.max(
+          Number(candidateTracking.responseLedgerRevision) || 0,
+          Number(memoryTracking.responseLedgerRevision) || 0
+        )
+      }
+    };
+  }
+  const memoryByKey = new Map();
+  for (const entry of memoryLedger) {
+    const keys = [compactString(entry?.id), compactString(entry?.hostMessageId)].filter(Boolean);
+    for (const key of keys) memoryByKey.set(key, entry);
+  }
+  let changed = false;
+  const responseLedger = candidateLedger.map((entry) => {
+    const memory = memoryByKey.get(compactString(entry?.id)) || memoryByKey.get(compactString(entry?.hostMessageId));
+    if (!memory) return entry;
+    if (responseLedgerIntegrityRank(memory) <= responseLedgerIntegrityRank(entry)) return entry;
+    changed = true;
+    return {
+      ...entry,
+      editedAt: memory.editedAt || entry.editedAt || null,
+      replacementText: memory.replacementText ?? entry.replacementText ?? null,
+      outcomeIntegrity: cloneJson(memory.outcomeIntegrity || null)
+    };
+  });
+  if (!changed) return candidateState;
+  return {
+    ...cloneJson(candidateState),
+    runtimeTracking: {
+      ...cloneJson(candidateTracking),
+      responseLedger,
+      responseLedgerRevision: Math.max(
+        Number(candidateTracking.responseLedgerRevision) || 0,
+        Number(memoryTracking.responseLedgerRevision) || 0
+      )
+    }
   };
 }
 
@@ -780,6 +851,14 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   const inMemory = stateFreshnessCounters(inMemoryState);
   if (inMemory.turnLedgerEntries > candidate.turnLedgerEntries) return true;
   if (candidate.turnLedgerEntries > inMemory.turnLedgerEntries) return false;
+  if (
+    inMemory.responseLedgerEntries >= candidate.responseLedgerEntries
+    && inMemory.responseLedgerIntegritySelections > candidate.responseLedgerIntegritySelections
+  ) return true;
+  if (
+    candidate.responseLedgerEntries >= inMemory.responseLedgerEntries
+    && candidate.responseLedgerIntegritySelections > inMemory.responseLedgerIntegritySelections
+  ) return false;
 
   const materialKeys = [
     'promptContextRevision',
@@ -787,6 +866,8 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
     'turnLedgerEntries',
     'ingressLedgerEntries',
     'responseLedgerEntries',
+    'responseLedgerRevision',
+    'responseLedgerIntegritySelections',
     'recoveryJournalEntries',
     'sidecarJournalEntries',
     'pendingInteractions',
@@ -899,21 +980,6 @@ function timestampFromNow(now) {
   return new Date().toISOString();
 }
 
-function promptContextProjectionSummary(packet = null) {
-  const projection = packet?.continuityProjection || {};
-  const plan = projection.plan || {};
-  return {
-    revision: Number(packet?.revision || 0) || null,
-    blockCount: Array.isArray(packet?.blocks) ? packet.blocks.length : 0,
-    contentHash: packet?.contentHash || packet?.hash || null,
-    projectionHash: projection.hash || null,
-    sourceHash: projection.sourceHash || null,
-    selectedFactCount: Array.isArray(plan.selectedFactIds) ? plan.selectedFactIds.length : 0,
-    guardedFactCount: Array.isArray(plan.guardFactIds) ? plan.guardFactIds.length : 0,
-    auditFactCount: Array.isArray(plan.auditFactIds) ? plan.auditFactIds.length : 0
-  };
-}
-
 function reportContinuityProjectionActivity(activityReporter, event = {}) {
   if (typeof activityReporter !== 'function') return;
   try {
@@ -965,7 +1031,7 @@ export function createDirectiveRuntimeApp({
       campaignState = state;
     },
     resolveCoreDiagnosticTarget: coreDiagnosticTargetForModelCall,
-    appendCoreDiagnostic: (transactionId, event) => runtimeCoreTurnStore.appendDiagnostics(transactionId, event)
+    appendCoreDiagnostic: (transactionId, event) => runtimeCoreTurnStore.appendDiagnostic(transactionId, event)
   });
   const activeSaveGuard = createActiveSaveGuard({ runtimeHost });
 
@@ -1012,6 +1078,7 @@ export function createDirectiveRuntimeApp({
   let lastError = null;
   let chatNativeServices = null;
   let durabilityCoordinator = null;
+  let lensPromptScheduler = null;
   let publicApi = null;
   let runtimePersistQueue = Promise.resolve();
   let commandLogSummaryQueue = Promise.resolve();
@@ -1469,6 +1536,34 @@ export function createDirectiveRuntimeApp({
   }
 
   const runtimeCoreTurnStore = {
+    async observeSource(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).observeSource(...args);
+    },
+    async releaseHostContinue(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).releaseHostContinue(...args);
+    },
+    async routePending(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).routePending(...args);
+    },
+    async commitDirectiveMechanics(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).commitDirectiveMechanics(...args);
+    },
+    async openRecovery(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).openRecovery(...args);
+    },
+    async settleBackgroundBatch(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).settleBackgroundBatch(...args);
+    },
+    async appendDiagnostic(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      return createCoreTurnRuntime({ coreStore: store }).appendDiagnostic(...args);
+    },
     async beginTurn(...args) {
       const store = await ensureActiveCoreTurnStore();
       if (typeof store?.beginTurn !== 'function') return null;
@@ -1529,6 +1624,205 @@ export function createDirectiveRuntimeApp({
     }
   };
 
+  const DEFAULT_LENS_PROMPT_DIRTY_DOMAINS = Object.freeze([
+    'identity',
+    'sceneTime',
+    'missionQuestThread',
+    'crewShipRelationship',
+    'command',
+    'continuity',
+    'sourceBinding',
+    'terminalRecovery'
+  ]);
+
+  function ensureLensPromptScheduler() {
+    if (lensPromptScheduler) return lensPromptScheduler;
+    lensPromptScheduler = createLensPromptScheduler({
+      coreStore: runtimeCoreTurnStore,
+      clock: () => timestampFromNow(now),
+      installPromptPacket: async ({
+        method = 'install',
+        binding = {},
+        packet = null,
+        lane = 'visible',
+        reason = 'lens-prompt-install',
+        cacheKey = null
+      } = {}) => {
+        const requestedMethod = method === 'rebuild' && typeof runtimeHost?.prompt?.rebuild === 'function'
+          ? 'rebuild'
+          : 'install';
+        if (typeof runtimeHost?.prompt?.[requestedMethod] !== 'function') {
+          const error = new Error('Directive prompt installation is unavailable.');
+          error.code = 'DIRECTIVE_PROMPT_API_UNAVAILABLE';
+          throw error;
+        }
+        return runtimeHost.prompt[requestedMethod]({
+          binding,
+          packet,
+          lane,
+          reason,
+          cacheKey
+        });
+      },
+      clearPromptPacket: async (options = {}) => runtimeHost?.prompt?.clear?.(options) || { ok: true },
+      observeExternalPromptEnvironment: async () => null
+    });
+    return lensPromptScheduler;
+  }
+
+  async function clearDirectivePromptThroughLens({ transactionId = null, reason = 'runtime-clear' } = {}) {
+    if (typeof runtimeHost?.prompt?.clear !== 'function') {
+      return { ok: false, reason: 'prompt-adapter-unavailable' };
+    }
+    return ensureLensPromptScheduler().clearDirectivePrompt({
+      transactionId,
+      lane: 'all',
+      allLanes: true,
+      reason
+    });
+  }
+
+  async function suspendDirectivePromptThroughLens({
+    transactionId = null,
+    reason = 'runtime-suspend',
+    binding = null,
+    activeChatId = null,
+    boundChatId = null,
+    source = null
+  } = {}) {
+    if (typeof runtimeHost?.prompt?.clear !== 'function') {
+      return { ok: false, reason: 'prompt-adapter-unavailable' };
+    }
+    return ensureLensPromptScheduler().suspendDirectivePrompt({
+      transactionId,
+      lane: 'all',
+      allLanes: true,
+      reason,
+      binding,
+      activeChatId,
+      boundChatId,
+      source
+    });
+  }
+
+  function promptMessageRefForLens(message = {}, index = 0) {
+    const text = message?.text ?? message?.content ?? message?.mes ?? '';
+    return {
+      id: compactString(message?.id || message?.hostMessageId || message?.messageId || index),
+      role: compactString(message?.role || message?.authorRole || (message?.is_user === true ? 'player' : 'assistant')),
+      textHash: message?.textHash || hashStableJson({ text: String(text || '') })
+    };
+  }
+
+  function promptFrameForLensCache(promptFrame = null) {
+    const frame = promptFrame && typeof promptFrame === 'object' ? cloneJson(promptFrame) : {};
+    const recentMessageRefs = Array.isArray(frame.recentChatMessages)
+      ? frame.recentChatMessages.slice(-12).map(promptMessageRefForLens)
+      : [];
+    const acceptedAssistantVariant = frame.acceptedAssistantVariant || null;
+    const acceptedAssistantVariantHash = acceptedAssistantVariant
+      ? hashStableJson({
+          id: acceptedAssistantVariant.id || acceptedAssistantVariant.hostMessageId || null,
+          selectedSwipeIndex: acceptedAssistantVariant.selectedSwipeIndex ?? acceptedAssistantVariant.swipeIndex ?? null,
+          textHash: acceptedAssistantVariant.textHash || hashStableJson({ text: String(acceptedAssistantVariant.text || acceptedAssistantVariant.mes || '') })
+        })
+      : null;
+    const sourceHash = compactString(frame.turnSourceHash || frame.sourceHash)
+      || hashStableJson({
+        playerTextHash: frame.playerText ? hashStableJson({ text: String(frame.playerText) }) : null,
+        recentMessageRefs,
+        acceptedAssistantVariantHash,
+        scene: frame.scene || null,
+        activity: frame.activity || null
+      });
+    return {
+      ...frame,
+      turnSourceHash: sourceHash,
+      sourceHash,
+      recentMessageRefs,
+      acceptedAssistantVariantHash,
+      recentChatMessages: frame.recentChatMessages
+    };
+  }
+
+  function promptExternalEnvironmentRefForSync(promptFrame = null) {
+    if (promptFrame?.externalPromptEnvironmentRef?.hash) return cloneJson(promptFrame.externalPromptEnvironmentRef);
+    try {
+      const inspected = runtimeHost?.prompt?.inspect?.() || null;
+      if (inspected?.externalPromptEnvironmentRef?.hash) {
+        return cloneJson(inspected.externalPromptEnvironmentRef);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  function promptDirtyDomainsForSync({ promptFrame = null, activityContext = null } = {}) {
+    const requested = [
+      ...(Array.isArray(activityContext?.promptDirtyDomains) ? activityContext.promptDirtyDomains : []),
+      ...(Array.isArray(promptFrame?.promptDirtyDomains) ? promptFrame.promptDirtyDomains : [])
+    ];
+    const normalized = normalizePromptDirtyDomains(requested.length ? requested : DEFAULT_LENS_PROMPT_DIRTY_DOMAINS);
+    return normalized.length ? normalized : [...DEFAULT_LENS_PROMPT_DIRTY_DOMAINS];
+  }
+
+  function lensTransactionIdForPromptSync(activityContext = null) {
+    const explicit = compactString(activityContext?.coreTransactionId || activityContext?.transactionId);
+    if (explicit) return explicit;
+    const ingress = runtimeIngressForContext(activityContext || {});
+    return compactString(ingress?.coreTransactionId);
+  }
+
+  function lensCampaignContextForPromptSync(state = null, assets = null) {
+    const binding = bindingFromState(state);
+    const freshness = stateFreshnessCounters(state);
+    const domainVersionVector = {
+      revision: freshness.revision,
+      mechanicsRevision: freshness.mechanicsRevision,
+      commandLogEntries: freshness.commandLogEntries,
+      turnLedgerEntries: freshness.turnLedgerEntries,
+      ingressLedgerEntries: freshness.ingressLedgerEntries,
+      responseLedgerEntries: freshness.responseLedgerEntries,
+      responseLedgerRevision: freshness.responseLedgerRevision,
+      responseLedgerIntegritySelections: freshness.responseLedgerIntegritySelections,
+      recoveryJournalEntries: freshness.recoveryJournalEntries,
+      sidecarJournalEntries: freshness.sidecarJournalEntries,
+      pendingInteractions: freshness.pendingInteractions,
+      endConditionDetections: freshness.endConditionDetections,
+      endConditionDecisions: freshness.endConditionDecisions,
+      endConditionBranchRecords: freshness.endConditionBranchRecords,
+      endConditionContinuationFrames: freshness.endConditionContinuationFrames
+    };
+    return {
+      campaignId: compactString(state?.campaign?.id || binding?.campaignId),
+      saveId: compactString(binding?.saveId || controller?.activeSaveId),
+      chatId: compactString(binding?.chatId),
+      branchId: compactString(binding?.branchId) || 'main',
+      mechanicsRevision: freshness.mechanicsRevision,
+      runtimeRevision: freshness.revision,
+      domainVersionVector,
+      policyHash: hashStableJson({
+        simulationMode: state?.settings?.simulationMode || null,
+        campaignStatus: state?.campaign?.status || null,
+        promptContract: 'directive-lens-runtime-v1'
+      }),
+      packageVersion: compactString(assets?.packageData?.metadata?.version || assets?.packageData?.version || assets?.packageData?.id),
+      crewDatasetHash: assets?.crewDataset ? hashStableJson({
+        id: assets.crewDataset.id || null,
+        version: assets.crewDataset.version || assets.crewDataset.metadata?.version || null
+      }) : null,
+      shipDatasetHash: assets?.shipDataset ? hashStableJson({
+        id: assets.shipDataset.id || null,
+        version: assets.shipDataset.version || assets.shipDataset.metadata?.version || null
+      }) : null,
+      projectionHash: assets?.projection ? hashStableJson({
+        id: assets.projection.id || null,
+        version: assets.projection.version || assets.projection.metadata?.version || null
+      }) : null
+    };
+  }
+
   async function loadCampaignStateForSessionSave(saveId = null, binding = null) {
     const id = compactString(saveId);
     if (!id) return null;
@@ -1587,12 +1881,13 @@ export function createDirectiveRuntimeApp({
   }
 
   function preferFresherInMemoryChatState(candidateState = null, inMemoryState = null, chatId = null) {
+    const mergedCandidate = mergeFresherResponseLedgerProjection(candidateState, inMemoryState);
     if (!shouldPreferInMemoryCampaignState(candidateState, inMemoryState, {
       chatId,
       fallbackHostId: runtimeHost?.id || null,
       fallbackSaveId: controller?.activeSaveId || null
     })) {
-      return candidateState;
+      return mergedCandidate;
     }
     campaignState = cloneJson(inMemoryState);
     return campaignState;
@@ -1610,6 +1905,9 @@ export function createDirectiveRuntimeApp({
         historyDepth: state.runtimeTracking.history?.length || 0,
         ingressCount: state.runtimeTracking.ingressLedger?.length || 0,
         responseCount: state.runtimeTracking.responseLedger?.length || 0,
+        responseLedgerRevision: state.runtimeTracking.responseLedgerRevision || 0,
+        responseLedgerIntegritySelections: (state.runtimeTracking.responseLedger || [])
+          .filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
         sidecarCount: state.runtimeTracking.sidecarJournal?.length || 0,
         modelCallCount: state.runtimeTracking.modelCallJournal?.length || 0,
         lastDelta: cloneJson(state.runtimeTracking.lastDelta || null),
@@ -2986,7 +3284,7 @@ export function createDirectiveRuntimeApp({
         batchId,
         phaseAfter: 'backgroundSettling',
         outcomeId: target.outcomeId || guard?.outcomeId || null,
-        promptDirtyDomains: ['threadLedger', 'questLedger', 'commandBearing'].filter((domain, index, values) => values.indexOf(domain) === index),
+        promptDirtyDomains: normalizePromptDirtyDomains(['threadLedger', 'questLedger', 'commandBearing']),
         backgroundEffectRefs: [
           {
             effect: 'narrativeThreadExtraction',
@@ -3318,7 +3616,7 @@ export function createDirectiveRuntimeApp({
         idempotencyKey: batchId,
         batchId,
         phaseAfter: 'backgroundSettling',
-        promptDirtyDomains: ['commandCompetence'],
+        promptDirtyDomains: normalizePromptDirtyDomains(['commandCompetence']),
         backgroundEffectRefs: [
           {
             effect: 'advisoryEnrichment',
@@ -3731,7 +4029,7 @@ export function createDirectiveRuntimeApp({
   async function appendSidecarCoreDiagnostic(event = {}) {
     const target = sidecarCoreDiagnosticTargetForEvent(event);
     if (!target) return null;
-    return runtimeCoreTurnStore.appendDiagnostics(target.transactionId, {
+    return runtimeCoreTurnStore.appendDiagnostic(target.transactionId, {
       ...cloneJson(event),
       type: 'sidecar',
       source: event.source || 'campaignSidecarScheduler',
@@ -3956,7 +4254,8 @@ export function createDirectiveRuntimeApp({
   }
 
   async function persistRuntimeCampaignStateNow(state, summary = 'Directive campaign state updated.') {
-    const nextState = modelCallJournal.applyPending(cloneJson(state));
+    let nextState = modelCallJournal.applyPending(cloneJson(state));
+    nextState = mergeFresherResponseLedgerProjection(nextState, campaignState);
     const targetSaveId = compactString(nextState?.campaignChatBinding?.saveId || controller?.activeSaveId);
     const activeSaveId = compactString(controller?.activeSaveId);
     if (!targetSaveId) return null;
@@ -4073,7 +4372,9 @@ export function createDirectiveRuntimeApp({
     activityReporter = null,
     activitySource = 'promptSync',
     activityMode = 'blocking',
-    activityContext = null
+    activityContext = null,
+    idempotencyKey = null,
+    promptSyncIdempotencyKey = null
   } = {}) {
     if (!runtimeHost?.prompt?.install || !state?.campaignChatBinding?.chatId || state.campaign?.status !== 'active') {
       return { ok: false, skipped: true, reason: 'inactive-or-unbound', campaignState: cloneJson(state) };
@@ -4087,24 +4388,29 @@ export function createDirectiveRuntimeApp({
     }
     const currentChatId = runtimeHost.chat?.getCurrentChatId?.() || runtimeHost.chat?.getCurrentBinding?.()?.chatId || null;
     if (currentChatId && String(currentChatId) !== String(state.campaignChatBinding.chatId)) {
-      await runtimeHost.prompt.clear?.({ reason: 'unbound-chat', preservePacket: true });
-      return { ok: true, active: false, suspended: true, campaignState: cloneJson(state) };
+      const promptSuspension = await suspendDirectivePromptThroughLens({
+        reason: 'unbound-chat',
+        binding: state.campaignChatBinding,
+        activeChatId: currentChatId,
+        boundChatId: state.campaignChatBinding.chatId,
+        source: 'runtime-app.synchronizeActivePrompt'
+      });
+      return {
+        ok: true,
+        active: false,
+        suspended: true,
+        promptSuspension: cloneJson(promptSuspension),
+        campaignState: cloneJson(state)
+      };
     }
     const assets = optionalActiveRuntimeAssets();
     const frame = promptFrame && typeof promptFrame === 'object' ? promptFrame : {};
-    const promptInput = {
+    const promptInput = createLensPromptInput({
       campaignState: state,
-      packageData: assets?.packageData || null,
-      crewDataset: assets?.crewDataset || null,
-      shipDataset: assets?.shipDataset || null,
-      campaignProjection: assets?.projection || null,
-      scene: frame.scene || null,
-      playerText: frame.playerText || '',
-      recentMessageSummary: frame.recentMessageSummary || null,
-      recentChatMessages: Array.isArray(frame.recentChatMessages) ? frame.recentChatMessages : [],
-      acceptedAssistantVariant: frame.acceptedAssistantVariant || null,
+      assets,
+      promptFrame: frame,
       createdAt: timestampFromNow(now)
-    };
+    });
     const shouldUseContinuityPlanner = useContinuityPlanner === true
       || (useContinuityPlanner !== false && rebuild === true && !promptFrame);
     const method = rebuild && runtimeHost.prompt.rebuild ? 'rebuild' : 'install';
@@ -4128,38 +4434,78 @@ export function createDirectiveRuntimeApp({
         phase: 'continuityProjectionBuilding'
       });
     }
-    let packet;
+    let packet = null;
+    let lensResult = null;
+    const lens = ensureLensPromptScheduler();
+    const lensPromptFrame = promptFrameForLensCache(frame);
+    const externalPromptEnvironmentRef = promptExternalEnvironmentRefForSync(lensPromptFrame);
+    const dirtyDomains = promptDirtyDomainsForSync({ promptFrame: lensPromptFrame, activityContext });
+    const lane = activityMode === 'background' ? 'background' : 'visible';
+    const transactionId = lensTransactionIdForPromptSync(activityContext);
+    const lensIdempotencyKey = compactString(promptSyncIdempotencyKey || idempotencyKey || activityContext?.promptSyncIdempotencyKey);
+    const campaignContext = lensCampaignContextForPromptSync(state, assets);
+    lens.markDirty({
+      lane,
+      dirtyDomains,
+      source: activitySource || 'promptSync',
+      idempotencyKey: lensIdempotencyKey ? `${lensIdempotencyKey}:dirty` : null
+    });
     try {
-      packet = shouldUseContinuityPlanner
-        ? await buildPlayerSafePromptContextWithContinuityPlanner(promptInput, {
-            generationRouter: defaultGenerationRouter
-          })
-        : buildPlayerSafePromptContext(promptInput);
-      const projectionSummary = promptContextProjectionSummary(packet);
-      reportContinuityProjectionActivity(activityReporter, {
-        ...baseActivity,
-        ...projectionSummary,
-        phase: 'continuityProjectionValidating'
-      });
-      reportContinuityProjectionActivity(activityReporter, {
-        ...baseActivity,
-        ...projectionSummary,
-        phase: 'continuityProjectionInstalling'
-      });
-      const result = await runtimeHost.prompt[method]({
+      lensResult = await lens.flush({
+        transactionId,
+        lane,
         binding: state.campaignChatBinding,
-        packet
+        campaignContext,
+        promptFrame: lensPromptFrame,
+        externalPromptEnvironmentRef,
+        reason,
+        installMethod: method,
+        idempotencyKey: lensIdempotencyKey,
+        buildDirectivePromptPacket: async ({
+          revision,
+          dirtyDomains: lensDirtyDomains,
+          cacheKey,
+          externalPromptEnvironmentRef: lensExternalPromptEnvironmentRef
+        } = {}) => {
+          const built = await buildLensPromptPacket({
+            promptInput,
+            useContinuityPlanner: shouldUseContinuityPlanner,
+            generationRouter: defaultGenerationRouter,
+            revision,
+            dirtyDomains: lensDirtyDomains,
+            cacheKey,
+            externalPromptEnvironmentRef: lensExternalPromptEnvironmentRef
+          });
+          const projectionSummary = lensPromptPacketProjectionSummary(built);
+          reportContinuityProjectionActivity(activityReporter, {
+            ...baseActivity,
+            ...projectionSummary,
+            phase: 'continuityProjectionValidating'
+          });
+          reportContinuityProjectionActivity(activityReporter, {
+            ...baseActivity,
+            ...projectionSummary,
+            phase: 'continuityProjectionInstalling'
+          });
+          return built;
+        }
       });
-      if (result?.ok === false) {
-        const error = new Error(result?.error?.message || 'Directive prompt synchronization failed.');
-        error.code = result?.error?.code || 'DIRECTIVE_PROMPT_SYNC_FAILED';
-        throw error;
-      }
+      packet = lensResult?.packet || null;
+      const projectionSummary = packet
+        ? lensPromptPacketProjectionSummary(packet)
+        : {
+            revision: lensResult?.directiveOwnedRevision || lensResult?.installed?.directiveOwnedRevision || null,
+            blockCount: lensResult?.installed?.blockCount || 0,
+            contentHash: lensResult?.packetHash || lensResult?.installed?.packetHash || lensResult?.installed?.promptHash || null
+          };
       reportContinuityProjectionActivity(activityReporter, {
         ...baseActivity,
         ...projectionSummary,
         phase: 'continuityProjectionInstalled',
-        status: 'complete'
+        status: 'complete',
+        lensStatus: lensResult?.status || null,
+        lensRebuilt: lensResult?.rebuilt === true,
+        lensLane: lane
       });
     } catch (error) {
       reportContinuityProjectionActivity(activityReporter, {
@@ -4174,14 +4520,118 @@ export function createDirectiveRuntimeApp({
       });
       throw error;
     }
-    const next = recordPromptContextRevision(state, packet, {
-      installedAt: timestampFromNow(now),
-      status: 'active'
-    });
+    const next = packet
+      ? recordPromptContextRevision(state, packet, {
+          installedAt: timestampFromNow(now),
+          status: 'active'
+        })
+      : cloneJson(state);
     campaignState = next;
     await runtimeHost.chat?.updateBindingMetadata?.(next.campaignChatBinding);
     if (persist) await persistRuntimeCampaignState(next, reason);
-    return { ok: true, active: true, packet: cloneJson(packet), campaignState: cloneJson(next) };
+    return {
+      ok: true,
+      active: true,
+      packet: cloneJson(packet),
+      lens: {
+        status: lensResult?.status || null,
+        rebuilt: lensResult?.rebuilt === true,
+        lane,
+        cacheKey: lensResult?.cacheKey || lensResult?.installed?.cacheKey || null,
+        externalPromptEnvironmentRef: cloneJson(lensResult?.externalPromptEnvironmentRef || externalPromptEnvironmentRef || null)
+      },
+      campaignState: cloneJson(next)
+    };
+  }
+
+  async function installActivationPromptThroughLens({
+    campaignState: activationState = campaignState,
+    packageData = null,
+    crewDataset = null,
+    shipDataset = null,
+    campaignProjection = null,
+    binding = null,
+    promptContext = null,
+    reason = 'Campaign prompt context installed during activation.',
+    activityContext = null
+  } = {}) {
+    if (!runtimeHost?.prompt?.install || !activationState?.campaignChatBinding?.chatId) {
+      return { ok: false, skipped: true, reason: 'inactive-or-unbound' };
+    }
+    if (!promptContext?.blocks) {
+      return { ok: false, reason: 'prompt-context-unavailable' };
+    }
+    const targetState = {
+      ...cloneJson(activationState),
+      campaignChatBinding: {
+        ...(cloneJson(activationState.campaignChatBinding || {})),
+        ...(binding ? cloneJson(binding) : {})
+      }
+    };
+    const lens = ensureLensPromptScheduler();
+    const lane = 'visible';
+    const assets = {
+      packageData,
+      crewDataset,
+      shipDataset,
+      projection: campaignProjection
+    };
+    const lensPromptFrame = promptFrameForLensCache({
+      source: 'campaignActivation',
+      activity: 'campaignActivationPromptInstall',
+      activationId: compactString(activityContext?.activationId),
+      promptDirtyDomains: DEFAULT_LENS_PROMPT_DIRTY_DOMAINS
+    });
+    const externalPromptEnvironmentRef = promptExternalEnvironmentRefForSync(lensPromptFrame);
+    const dirtyDomains = promptDirtyDomainsForSync({
+      promptFrame: lensPromptFrame,
+      activityContext: {
+        ...(activityContext && typeof activityContext === 'object' ? cloneJson(activityContext) : {}),
+        promptDirtyDomains: DEFAULT_LENS_PROMPT_DIRTY_DOMAINS
+      }
+    });
+    const campaignContext = lensCampaignContextForPromptSync(targetState, assets);
+    lens.markDirty({
+      lane,
+      dirtyDomains,
+      source: 'campaignActivation'
+    });
+    const lensResult = await lens.flush({
+      transactionId: null,
+      lane,
+      binding: targetState.campaignChatBinding,
+      campaignContext,
+      promptFrame: lensPromptFrame,
+      externalPromptEnvironmentRef,
+      reason,
+      installMethod: 'install',
+      forceRebuild: true,
+      buildDirectivePromptPacket: async ({
+        revision,
+        dirtyDomains: lensDirtyDomains = [],
+        cacheKey,
+        externalPromptEnvironmentRef: lensExternalPromptEnvironmentRef = null
+      } = {}) => ({
+        ...cloneJson(promptContext),
+        revision,
+        cacheKey,
+        externalPromptEnvironmentRef: cloneJson(lensExternalPromptEnvironmentRef || null),
+        lensDirtyDomains: cloneJson(Array.isArray(lensDirtyDomains) ? lensDirtyDomains : [])
+      })
+    });
+    const packet = lensResult?.packet || null;
+    return {
+      ok: lensResult?.status !== 'failed',
+      status: lensResult?.status || null,
+      packet: cloneJson(packet || promptContext),
+      lens: {
+        status: lensResult?.status || null,
+        rebuilt: lensResult?.rebuilt === true,
+        lane,
+        cacheKey: lensResult?.cacheKey || lensResult?.installed?.cacheKey || null,
+        externalPromptEnvironmentRef: cloneJson(lensResult?.externalPromptEnvironmentRef || externalPromptEnvironmentRef || null)
+      }
+    };
   }
 
   function beginProgrammaticChatOpenSuppression(binding = null, reason = '') {
@@ -4331,7 +4781,7 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       now
     });
-    const repairRuntime = createRepairRuntime({
+    const repairRuntime = createRepairCommandBoundary({
       coreTurnStore: runtimeCoreTurnStore,
       now
     });
@@ -4357,12 +4807,24 @@ export function createDirectiveRuntimeApp({
       })).campaignState,
       now
     });
+    const sourceSettlementService = createSourceSettlementService({
+      coreStore: runtimeCoreTurnStore,
+      clock: () => timestampFromNow(now)
+    });
     const sceneReconciliation = createSceneReconciliationService({
       getCampaignState,
       stateDeltaGateway,
       host: runtimeHost,
+      sourceSettlementService,
       now,
       idFactory
+    });
+    const forgeCoordinator = createForgeCoordinator({
+      coreStore: {
+        commitBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.settleBackgroundBatch(transactionId, bundle),
+        appendDiagnostics: (transactionId, event) => runtimeCoreTurnStore.appendDiagnostic(transactionId, event)
+      },
+      clock: () => timestampFromNow(now)
     });
     const sidecarScheduler = createCampaignSidecarScheduler({
       generationRouter: defaultGenerationRouter,
@@ -4380,6 +4842,7 @@ export function createDirectiveRuntimeApp({
           activityReporter: options.activityReporter || null,
           activitySource: options.activitySource || 'sidecarPromptSync',
           activityMode: options.activityMode || 'background',
+          promptSyncIdempotencyKey: options.promptSyncIdempotencyKey || options.activityContext?.promptSyncIdempotencyKey || null,
           activityContext: options.activityContext || {
             workerKey: promptFrame?.workerKey || null,
             commandBearingReview: promptFrame?.commandBearingReview === true
@@ -4388,7 +4851,8 @@ export function createDirectiveRuntimeApp({
         return result.campaignState || state;
       },
       appendCoreDiagnostic: appendSidecarCoreDiagnostic,
-      commitCoreBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.commitBackgroundBatch(transactionId, bundle),
+      forgeCoordinator,
+      commitCoreBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.settleBackgroundBatch(transactionId, bundle),
       now
     });
     const narrativeThreadDirector = createNarrativeThreadDirector({
@@ -4411,6 +4875,19 @@ export function createDirectiveRuntimeApp({
       host: runtimeHost,
       generationRouter: defaultGenerationRouter,
       persist: persistCampaignState,
+      installPromptContext: installActivationPromptThroughLens,
+      suspendPromptContext: ({
+        campaignState: activationState = null,
+        binding = null,
+        reason = 'activation-failed',
+        source = 'campaignActivation'
+      } = {}) => suspendDirectivePromptThroughLens({
+        reason,
+        binding: binding || activationState?.campaignChatBinding || null,
+        activeChatId: runtimeHost.chat?.getCurrentChatId?.() || runtimeHost.chat?.getCurrentBinding?.()?.chatId || null,
+        boundChatId: binding?.chatId || activationState?.campaignChatBinding?.chatId || null,
+        source
+      }),
       now
     });
     const conclusionService = createCampaignConclusionService({
@@ -4418,6 +4895,7 @@ export function createDirectiveRuntimeApp({
       generationRouter: defaultGenerationRouter,
       getCampaignState,
       setCampaignState,
+      clearDirectivePrompt: ({ reason = 'campaign-complete' } = {}) => clearDirectivePromptThroughLens({ reason }),
       persist: persistCampaignState,
       now
     });
@@ -4516,6 +4994,14 @@ export function createDirectiveRuntimeApp({
       resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
       discardProvisionalDirectorTurn: () => publicApi.discardProvisionalDirectorTurn(),
       rewriteCampaignIntro: rewriteCampaignIntroFromNativeSwipe,
+      clearDirectivePrompt: ({ reason = 'no-active-campaign' } = {}) => clearDirectivePromptThroughLens({ reason }),
+      suspendDirectivePrompt: ({ reason = 'unbound-chat' } = {}) => suspendDirectivePromptThroughLens({
+        reason,
+        binding: campaignState?.campaignChatBinding || null,
+        activeChatId: runtimeHost.chat?.getCurrentChatId?.() || runtimeHost.chat?.getCurrentBinding?.()?.chatId || null,
+        boundChatId: campaignState?.campaignChatBinding?.chatId || null,
+        source: 'chat-turn-orchestrator.handleChatChanged'
+      }),
       now
     });
     chatNativeServices = {
@@ -4606,6 +5092,17 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  function adoptResponseLedgerProjection(projectedState = null) {
+    if (!projectedState) return;
+    campaignState = mergeFresherResponseLedgerProjection(campaignState, projectedState);
+    if (currentChatScope?.campaignState) {
+      currentChatScope = {
+        ...currentChatScope,
+        campaignState: mergeFresherResponseLedgerProjection(currentChatScope.campaignState, projectedState)
+      };
+    }
+  }
+
   function priorSwipeTextForRelaxedEdit(message = null) {
     const current = compactString(message?.text || message?.raw?.mes);
     const swipes = Array.isArray(message?.raw?.swipes)
@@ -4674,13 +5171,15 @@ export function createDirectiveRuntimeApp({
     if (review.accepted !== true) {
       const latest = outcomeIntegrityCampaignState() || state;
       const response = context.response || {};
-      const next = response.id
-        ? updateDirectiveResponse(latest, response.id, {
+      const responseUpdateId = context.hostMessageId || response.hostMessageId || response.id;
+      const next = responseUpdateId
+        ? updateDirectiveResponse(latest, responseUpdateId, {
             outcomeIntegrity: appendOutcomeIntegrityReview(response, reviewPatch)
           })
         : latest;
       campaignState = next;
       await persistRuntimeCampaignState(next, 'Outcome Integrity prose edit rejected.');
+      adoptResponseLedgerProjection(next);
       await refreshCampaignView();
       return {
         ok: false,
@@ -4729,8 +5228,9 @@ export function createDirectiveRuntimeApp({
     const response = context.response || {};
     const currentIntegrity = isObject(response.outcomeIntegrity) ? response.outcomeIntegrity : {};
     const revisions = Array.isArray(currentIntegrity.revisions) ? currentIntegrity.revisions : [];
-    const next = response.id
-      ? updateDirectiveResponse(latest, response.id, {
+    const responseUpdateId = context.hostMessageId || response.hostMessageId || response.id;
+    const next = responseUpdateId
+      ? updateDirectiveResponse(latest, responseUpdateId, {
           editedAt: revision.editedAt,
           replacementText: null,
           outcomeIntegrity: {
@@ -4744,6 +5244,7 @@ export function createDirectiveRuntimeApp({
       : latest;
     campaignState = next;
     await persistRuntimeCampaignState(next, 'Outcome Integrity prose edit accepted.');
+    adoptResponseLedgerProjection(next);
     await refreshCampaignView();
     return {
       ok: true,
@@ -6127,12 +6628,19 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async clearDirectivePrompt({ reason = 'runtime-clear' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        return cloneJson(await clearDirectivePromptThroughLens({ reason }));
+      });
+    },
+
     async clearPromptContext({ reason = 'manual-clear' } = {}) {
       return run(async () => {
         await ensureInitialized();
-        const result = await runtimeHost?.prompt?.clear?.({ reason });
+        const result = await clearDirectivePromptThroughLens({ reason });
         return {
-          result: cloneJson(result || { ok: false, reason: 'prompt-adapter-unavailable' }),
+          result: cloneJson(result),
           view: viewEnvelope('settings')
         };
       });
@@ -6153,7 +6661,7 @@ export function createDirectiveRuntimeApp({
             archivedAt: timestampFromNow(now)
           }
         };
-        await runtimeHost?.prompt?.clear?.({ reason: 'campaign-archived' });
+        await clearDirectivePromptThroughLens({ reason: 'campaign-archived' });
         const save = await persistRuntimeCampaignState(campaignState, 'Completed campaign archived.');
         return {
           save: cloneJson(save),
@@ -6622,7 +7130,7 @@ export function createDirectiveRuntimeApp({
             reason: 'Campaign prompt context rebuilt after loading the save.'
           });
         } else if (campaignState.campaign?.status === 'complete') {
-          await runtimeHost?.prompt?.clear?.({ reason: 'completed-campaign' });
+          await clearDirectivePromptThroughLens({ reason: 'completed-campaign' });
         }
         await refreshCampaignView();
         await refreshManualSaveGuard();
@@ -6650,7 +7158,7 @@ export function createDirectiveRuntimeApp({
           lastSceneReconciliationResult = null;
           lastActivationResult = null;
           lastConclusionResult = null;
-          await runtimeHost?.prompt?.clear?.({ reason: 'active-save-deleted' });
+          await clearDirectivePromptThroughLens({ reason: 'active-save-deleted' });
         }
         activeScreen = 'campaign';
         await refreshCampaignView();

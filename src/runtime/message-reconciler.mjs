@@ -5,7 +5,7 @@ import {
   updateTurnIngress
 } from './state-delta-gateway.mjs';
 import { markMissionComponentsSourceStatus } from './mission-components.mjs';
-import { createRepairRuntime } from './repair-runtime.mjs';
+import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -249,11 +249,12 @@ export function createMessageReconciler({
     if (typeof persist === 'function') await persist(getCampaignState(), summary);
   }
 
-  const repair = repairRuntime || createRepairRuntime({ coreTurnStore, now });
+  const repair = repairRuntime || createRepairCommandBoundary({ coreTurnStore, now });
 
   async function recordRepairSourceMutationRecovery(options = {}) {
     try {
-      return await repair.recordSourceMutationRecovery(options);
+      const handleSourceMutation = repair.handleSourceMutation || repair.recordSourceMutationRecovery;
+      return await handleSourceMutation.call(repair, options);
     } catch (error) {
       error.details = {
         ...(error.details || {}),
@@ -264,7 +265,8 @@ export function createMessageReconciler({
   }
 
   async function recordRepairVisibilityMutation(options = {}) {
-    if (typeof repair.recordVisibilityMutation !== 'function') {
+    const handleVisibilityMutation = repair.handleVisibilityMutation || repair.recordVisibilityMutation;
+    if (typeof handleVisibilityMutation !== 'function') {
       return {
         status: 'notRecorded',
         reason: 'repair-visibility-unavailable',
@@ -279,7 +281,7 @@ export function createMessageReconciler({
       };
     }
     try {
-      return await repair.recordVisibilityMutation(options);
+      return await handleVisibilityMutation.call(repair, options);
     } catch (error) {
       error.details = {
         ...(error.details || {}),
@@ -316,8 +318,9 @@ export function createMessageReconciler({
     eventType = null,
     eventTime = null
   } = {}) {
-    if (typeof repair.evaluateRollbackActuation === 'function') {
-      return repair.evaluateRollbackActuation({
+    const authorizeRollback = repair.authorizeRollback || repair.evaluateRollbackActuation;
+    if (typeof authorizeRollback === 'function') {
+      return authorizeRollback.call(repair, {
         coreRecovery,
         legacyProjection,
         eventType,

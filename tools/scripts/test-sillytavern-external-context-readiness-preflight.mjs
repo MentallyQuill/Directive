@@ -74,4 +74,45 @@ assert.equal(serialized.includes('raw Summaryception'), false);
 fs.rmSync(dataRoot, { recursive: true, force: true });
 fs.rmSync(artifactRoot, { recursive: true, force: true });
 
+const preparedByReadinessDataRoot = tempRoot('directive-external-context-readiness-autoprep-data-');
+const preparedByReadinessArtifactRoot = tempRoot('directive-external-context-readiness-autoprep-artifacts-');
+const preparedByReadinessRunId = 'external-context-readiness-autoprep';
+const preparedByReadiness = spawnSync(process.execPath, [
+  'tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs',
+  '--external-context-fixture',
+  '--prepare-external-context-fixtures',
+  '--write-artifacts'
+], {
+  cwd: process.cwd(),
+  encoding: 'utf8',
+  env: {
+    ...process.env,
+    DIRECTIVE_SOAK_RUN_ID: preparedByReadinessRunId,
+    DIRECTIVE_SOAK_ARTIFACT_DIR: preparedByReadinessArtifactRoot,
+    DIRECTIVE_SILLYTAVERN_DATA_ROOT: preparedByReadinessDataRoot,
+    DIRECTIVE_SOAK_ST_USERS: EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.join(','),
+    DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH: '1'
+  }
+});
+
+assert.equal(
+  preparedByReadiness.status,
+  0,
+  `readiness preflight should prepare and validate fixture users\nstdout=${preparedByReadiness.stdout}\nstderr=${preparedByReadiness.stderr}`
+);
+
+const preparedByReadinessReport = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'report.json'));
+const preparedByReadinessProbe = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'host-extensions', 'external-context-probe.json'));
+assert.equal(preparedByReadinessReport.externalContextFixturePreparation.status, 'pass');
+assert.equal(preparedByReadinessReport.externalContextFixturePreparation.resultCount, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
+assert.equal(
+  preparedByReadinessReport.checks.find((entry) => entry.id === 'host-extension-fixture-preparation')?.status,
+  'pass'
+);
+assert.equal(preparedByReadinessProbe.fixtureDepth.status, 'pass');
+assert.equal(preparedByReadinessProbe.fixtureDepth.fullFixtureUserHandles.length, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
+
+fs.rmSync(preparedByReadinessDataRoot, { recursive: true, force: true });
+fs.rmSync(preparedByReadinessArtifactRoot, { recursive: true, force: true });
+
 console.log('SillyTavern external-context readiness preflight tests passed.');

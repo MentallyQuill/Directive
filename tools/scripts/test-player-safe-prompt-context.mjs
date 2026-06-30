@@ -170,7 +170,11 @@ assert.equal(packetJson.includes('age: 47 at campaign start; describe her as lat
 assert.equal(packetJson.includes('age: Late fifties by human comparison.'), true);
 assert.equal(packetJson.includes('Lieutenant Commander Hadrik Bronn is Tellarite'), true);
 assert.equal(packetJson.includes('mustard-yellow'), true);
-assert.equal(packetJson.includes('Do not describe the opening Breckenridge transit as six days at impulse'), true);
+assert.equal(
+  packetJson.includes('Do not describe the opening Breckenridge transit as six days at impulse')
+  || packetJson.includes('Do not describe the opening Breckenridge transit as only three days out'),
+  true
+);
 assert.equal(packetJson.includes('A named location change is a playable scene boundary'), true);
 assert.equal(packetJson.includes('Do not enter a named location, resolve its purpose, and leave it in the same reply'), true);
 assert.equal(packetJson.includes('do not force the full Asterion Reach strategy conversation yet'), true);
@@ -253,7 +257,8 @@ const plannerPacket = await buildPlayerSafePromptContextWithContinuityPlanner({
             kind: CONTINUITY_PLAN_KIND,
             operations: [
               { factId: 'crew.hadrik-bronn.species', lane: 'L1', reason: 'active identity guard' },
-              { factId: 'ship.uss-breckenridge.travel.not-six-days-impulse', lane: 'L3', reason: 'active travel guard', force: 'boost', ttl: 'scene' }
+              { factId: 'ship.uss-breckenridge.travel.not-six-days-impulse', lane: 'L3', reason: 'active travel guard', force: 'boost', ttl: 'scene' },
+              { factId: 'ship.uss-breckenridge.travel.not-short-refit-duration', lane: 'L3', reason: 'active travel guard', force: 'boost', ttl: 'scene' }
             ],
             omitted: [{ factId: 'crew.hadrik-bronn.age-description', reason: 'utility budget omission' }],
             guardFocus: ['crew.hadrik-bronn.species'],

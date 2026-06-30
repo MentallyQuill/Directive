@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 
 import {
+  DEFAULT_SILLYTAVERN_DATA_ROOT,
   DEFAULT_SOAK_ARTIFACT_ROOT,
   appendJsonLine,
   buildExternalContextBrowserProbe,
@@ -22,7 +23,8 @@ import {
   EXTERNAL_CONTEXT_FIXTURE_CHAT_FILE,
   EXTERNAL_CONTEXT_FIXTURE_CHAT_FOLDER,
   EXTERNAL_CONTEXT_FIXTURE_WORLD,
-  buildExternalContextFixtureBrowserSnapshot
+  buildExternalContextFixtureBrowserSnapshot,
+  prepareSillyTavernExternalContextFixture
 } from './prepare-sillytavern-external-context-fixture.mjs';
 
 const args = new Set(process.argv.slice(2));
@@ -41,7 +43,15 @@ const EXTERNAL_CONTEXT_FIXTURE_PREVIEW = args.has('--external-context-fixture')
   || process.env.DIRECTIVE_SOAK_EXTERNAL_CONTEXT_FIXTURE_BROWSER_SNAPSHOT === '1';
 const ACTIVATE_EXTERNAL_CONTEXT_FIXTURE = args.has('--activate-external-context-fixture')
   || process.env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE === '1';
+const PREPARE_EXTERNAL_CONTEXT_FIXTURES = args.has('--prepare-external-context-fixtures')
+  || args.has('--prepare-external-context-fixture')
+  || process.env.DIRECTIVE_SOAK_PREPARE_EXTERNAL_CONTEXT_FIXTURES === '1'
+  || process.env.DIRECTIVE_SOAK_PREPARE_EXTERNAL_CONTEXT_FIXTURE === '1';
 const EXTERNAL_CONTEXT_COMPAT = LIVE || EXTERNAL_CONTEXT_FIXTURE_PREVIEW || process.env.DIRECTIVE_SOAK_EXTERNAL_CONTEXT_COMPAT === '1';
+const DATA_ROOT = process.env.DIRECTIVE_SILLYTAVERN_DATA_ROOT
+  || process.env.SILLYTAVERN_DATA_ROOT
+  || process.env.ST_DATA_ROOT
+  || DEFAULT_SILLYTAVERN_DATA_ROOT;
 const REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH = process.env.DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH === '1'
   || process.env.DIRECTIVE_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH === '1';
 const ALLOW_PLACEHOLDER_SOAK_USERS = process.env.DIRECTIVE_ALLOW_PLACEHOLDER_SOAK_USERS === '1';
@@ -84,7 +94,7 @@ Offline rich external-context fixture preflight:
   node tools\\scripts\\check-sillytavern-multi-user-soak-readiness.mjs --external-context-fixture --write-artifacts
 
 Live rich external-context fixture certification:
-  node tools\\scripts\\check-sillytavern-multi-user-soak-readiness.mjs --live --activate-external-context-fixture --write-artifacts
+  node tools\\scripts\\check-sillytavern-multi-user-soak-readiness.mjs --live --prepare-external-context-fixtures --activate-external-context-fixture --write-artifacts
 `;
 }
 
@@ -254,6 +264,56 @@ function externalContextFixturePreviewSnapshots(users = []) {
   return snapshots;
 }
 
+function prepareExternalContextFixtures(users = []) {
+  if (!PREPARE_EXTERNAL_CONTEXT_FIXTURES) {
+    return {
+      status: 'skipped',
+      requested: false,
+      dataRoot: DATA_ROOT,
+      results: [],
+      failures: []
+    };
+  }
+  const results = [];
+  const failures = [];
+  for (const user of users) {
+    try {
+      const result = prepareSillyTavernExternalContextFixture({
+        dataRoot: DATA_ROOT,
+        userHandle: user.handle,
+        write: true,
+        validate: true
+      });
+      const compactResult = {
+        userHandle: result.userHandle || user.handle,
+        status: result.status || 'unknown',
+        validationStatus: result.validation?.status || null,
+        fixtureDepthStatus: result.validation?.fixtureDepth?.status || null,
+        fullFixtureUserHandles: result.validation?.fixtureDepth?.fullFixtureUserHandles || [],
+        missingTargets: result.validation?.fixtureDepth?.missingTargets || []
+      };
+      results.push(compactResult);
+      if (compactResult.status !== 'pass' || compactResult.validationStatus !== 'pass') failures.push(compactResult);
+    } catch (error) {
+      const failure = {
+        userHandle: user.handle,
+        status: 'fail',
+        error: errorSummary(error)
+      };
+      results.push(failure);
+      failures.push(failure);
+    }
+  }
+  return {
+    status: failures.length ? 'fail' : 'pass',
+    requested: true,
+    dataRoot: DATA_ROOT,
+    resultCount: results.length,
+    results,
+    failures
+  };
+}
+
 function summaryMarkdown(report) {
   const lines = [
     '# Directive SillyTavern Multi-User Soak Readiness',
@@ -290,6 +350,7 @@ async function buildDryRunReport({ artifacts }) {
   const placeholderUserStatus = hasPlaceholderUsers
     ? LIVE && !ALLOW_PLACEHOLDER_SOAK_USERS ? 'fail' : 'warning'
     : 'pass';
+  const externalContextFixturePreparation = prepareExternalContextFixtures(USERS);
   const authorNoteCleanliness = inspectSillyTavernAuthorNoteCleanliness({ users: USERS, required: LIVE });
   const hostExtensionCompatibility = inspectSillyTavernExternalContextCompatibility({
     users: USERS,
@@ -344,6 +405,16 @@ async function buildDryRunReport({ artifacts }) {
       hostExtensionCompatibility.summary,
       hostExtensionCompatibility
     ),
+    check(
+      'host-extension-fixture-preparation',
+      externalContextFixturePreparation.requested ? externalContextFixturePreparation.status : 'skipped',
+      externalContextFixturePreparation.requested
+        ? externalContextFixturePreparation.status === 'pass'
+          ? 'Prepared rich external-context fixtures for configured non-human soak users.'
+          : 'One or more configured soak users could not receive a rich external-context fixture.'
+        : 'External-context fixture preparation was not requested.',
+      externalContextFixturePreparation
+    ),
     externalContextFixtureDepthCheck(externalContextProbe, { preBrowser: LIVE }),
     check(
       'base-url',
@@ -376,6 +447,7 @@ async function buildDryRunReport({ artifacts }) {
     baseUrl: BASE_URL || null,
     users: USERS.map(redactUser),
     artifacts,
+    externalContextFixturePreparation,
     hostExtensionCompatibility,
     externalContextProbe,
     checks,

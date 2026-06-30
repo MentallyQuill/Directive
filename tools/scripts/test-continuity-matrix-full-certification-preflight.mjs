@@ -1023,6 +1023,27 @@ const warningClassifications = classifyAggregateWarnings({
 });
 assert.equal(warningClassifications.find((entry) => entry.id === 'turn-depth').depthOnly, true);
 assert.equal(warningClassifications.find((entry) => entry.id === 'five-user-lane-policy').strictBlocking, true);
+const textOnlyTurnWarningClassifications = classifyAggregateWarnings({
+  aggregateReport: {
+    checks: [
+      {
+        id: 'sidecar-health',
+        status: 'warning',
+        summary: 'Sidecar warning after turn processing; not a bounded-depth warning.'
+      },
+      {
+        id: 'lane-results',
+        status: 'warning',
+        summary: '1 lane completed with warnings.'
+      }
+    ]
+  },
+  laneSummaries: [{
+    depthOnlyWarnings: false
+  }]
+});
+assert.equal(textOnlyTurnWarningClassifications.find((entry) => entry.id === 'sidecar-health').classification, 'strict-blocker');
+assert.equal(textOnlyTurnWarningClassifications.find((entry) => entry.id === 'lane-results').classification, 'strict-blocker');
 
 fs.rmSync(fullRoot, { recursive: true, force: true });
 fs.rmSync(aggregateFailRoot, { recursive: true, force: true });

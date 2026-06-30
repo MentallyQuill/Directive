@@ -72,7 +72,7 @@ assert.equal(registry.get('factualGroundingReviewer').mayProposeState, false);
 assert.equal(registry.get('factualGroundingReviewer').mayInjectPrompt, false);
 assert.equal(registry.get('factualGroundingReviewer').fallback, 'skip');
 assert.equal(registry.get('storyQualityReviewer').providerKind, 'utility');
-assert.equal(registry.get('storyQualityReviewer').timeoutMs, 60000);
+assert.equal(registry.get('storyQualityReviewer').timeoutMs, 120000);
 assert.equal(registry.get('storyQualityReviewer').mayProposeState, false);
 assert.equal(registry.get('storyQualityReviewer').mayInjectPrompt, false);
 assert.equal(registry.get('storyQualityReviewer').fallback, 'skip');

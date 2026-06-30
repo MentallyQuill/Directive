@@ -182,6 +182,14 @@ const app = {
     calls.push(['chat', payload]);
     return { active: true };
   },
+  async clearDirectivePrompt(payload) {
+    calls.push(['lens-clear', payload]);
+    const result = await host.prompt.clear({
+      reason: payload?.reason || 'extension-disabled',
+      lane: 'all'
+    });
+    return { status: 'cleared', lane: 'all', result };
+  },
   getOutcomeIntegrityNativeEditDecision(payload) {
     calls.push(['integrity-decision', payload.hostMessageId]);
     return { ...nativeEditDecision };
@@ -673,6 +681,12 @@ if (originalDocumentForHandoff === undefined) {
 
 await registered.get('extension-disabled')();
 assert.equal(promptClearCount, 1);
+const extensionDisableLensClear = calls.find((entry) => entry[0] === 'lens-clear');
+assert.deepEqual(extensionDisableLensClear, ['lens-clear', { reason: 'extension-disabled' }]);
+const extensionDisablePromptClear = calls.find((entry) => entry[0] === 'prompt-clear');
+assert.equal(extensionDisablePromptClear[1].reason, 'extension-disabled');
+assert.equal(extensionDisablePromptClear[1].lane, 'all');
+assert.equal(extensionDisablePromptClear[1].preservePacket, undefined);
 assert.equal(globalThis.directiveGenerationInterceptor, undefined);
 assert.equal(getSillyTavernDirectiveRuntimeBridge().enabled, false);
 assert.equal(registered.size, 0);

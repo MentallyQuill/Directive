@@ -27,6 +27,12 @@ import {
   timingProofEntryRequiresGenerationStart
 } from './lib/generation-timing-proof-policy.mjs';
 import {
+  corePlayerIngressProof,
+  generationTimingProofFromCoreProjections,
+  hostNativeCompletionProofFromCoreProjections,
+  uniqueStringList
+} from './lib/sillytavern-core-proof-policy.mjs';
+import {
   EXTERNAL_CONTEXT_FIXTURE_WORLD,
   buildExternalContextFixtureChatMetadata
 } from './prepare-sillytavern-external-context-fixture.mjs';
@@ -608,8 +614,10 @@ function normalizeChatScriptEntry(entry, index) {
     const text = String(entry.text || entry.message || entry.playerMessage || '').trim();
     if (!text) return null;
     const perspectiveEvidence = playerInputPerspectiveEvidence(text, entry.perspective || entry.playerInputPerspective || '');
+    const turn = Number(entry.turn);
     return {
       id: String(entry.id || `message-${index + 1}`),
+      turn: Number.isFinite(turn) && turn > 0 ? turn : null,
       label: String(entry.label || entry.id || `Message ${index + 1}`),
       category: String(entry.category || entry.kind || 'custom'),
       text,
@@ -648,6 +656,7 @@ function parseChatMessageScriptPayload(payload, source) {
     .filter((message) => message.hostNativeCompletionRequired === true)
     .map((message) => ({
       id: message.id,
+      turn: message.turn,
       label: message.label,
       category: message.category,
       expectedRoute: message.expectedRoute || null,
@@ -2521,68 +2530,6 @@ function sanitizeTimingResponse(response = {}, ingressById = new Map()) {
   };
 }
 
-function sanitizeCoreTimingProjection(projection = {}) {
-  const turnLatency = sanitizeTimingMetric(projection.turnTiming);
-  return {
-    transactionId: projection.transactionId || null,
-    coreTransactionId: projection.transactionId || null,
-    sourceFrameId: projection.sourceFrameId || null,
-    route: projection.route || null,
-    responseKind: projection.responseKind || null,
-    status: projection.status || null,
-    hostMessageId: projection.responseHostMessageId || null,
-    playerHostMessageId: projection.hostMessageId || null,
-    hostGenerationReleasedAt: turnLatency?.hostGenerationReleasedAt ?? null,
-    directiveGenerationStartedAt: turnLatency?.directiveGenerationStartedAt ?? null,
-    generationStartedAt: turnLatency?.generationStartedAt
-      ?? turnLatency?.directiveGenerationStartedAt
-      ?? turnLatency?.hostGenerationReleasedAt
-      ?? null,
-    timingSource: 'coreProjection',
-    eventIds: Array.isArray(projection.eventIds) ? projection.eventIds.filter(Boolean) : [],
-    turnLatency
-  };
-}
-
-function hostNativeCompletionStatus(entry = {}) {
-  if (entry.route !== 'hostContinue') return 'not-hostContinue';
-  if (!entry.hostGenerationReleasedAt) return 'missing-host-generation-release';
-  if (!entry.visibleResponsePostedAt) return 'missing-visible-response-posted';
-  if (!entry.hostMessageId) return 'missing-assistant-host-message';
-  return 'pass';
-}
-
-function sanitizeHostNativeCompletionProjection(response = {}, timingByTransaction = new Map()) {
-  const timing = timingByTransaction.get(response.transactionId) || {};
-  const turnTiming = sanitizeTimingMetric(timing.turnTiming);
-  const hostGenerationReleasedAt = turnTiming?.hostGenerationReleasedAt ?? null;
-  const visibleResponsePostedAt = turnTiming?.visibleResponsePostedAt ?? null;
-  const entry = {
-    responseId: response.id || null,
-    transactionId: response.transactionId || null,
-    coreTransactionId: response.transactionId || null,
-    route: timing.route || null,
-    responseKind: response.responseKind || null,
-    status: response.status || null,
-    hostMessageId: response.hostMessageId || null,
-    textHash: response.textHash || null,
-    textHashStatus: response.textHash ? 'present' : 'missing',
-    outcomeId: response.outcomeId || null,
-    sourceFrameId: timing.sourceFrameId || null,
-    playerHostMessageId: timing.hostMessageId || null,
-    hostGenerationReleasedAt,
-    visibleResponsePostedAt,
-    completionLatencyMs: Number.isFinite(hostGenerationReleasedAt) && Number.isFinite(visibleResponsePostedAt)
-      ? Math.max(0, visibleResponsePostedAt - hostGenerationReleasedAt)
-      : null,
-    eventIds: Array.isArray(timing.eventIds) ? timing.eventIds.filter(Boolean) : []
-  };
-  return {
-    ...entry,
-    completionStatus: hostNativeCompletionStatus(entry)
-  };
-}
-
 function generationTimingProofFromLedgers({
   source,
   ingressLedger = [],
@@ -2625,62 +2572,6 @@ function generationTimingProofFromLedgers({
   };
 }
 
-function hostNativeCompletionProofFromCoreProjections({
-  source = 'coreStoreResponseLedger',
-  projections = {},
-  beforeSnapshot = null,
-  afterSnapshot = null,
-  saveId = null,
-  campaignId = null,
-  payloadPath = null,
-  coreManifestPath = null
-} = {}) {
-  const beforeTransactionIds = new Set([
-    ...((beforeSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
-    ...((beforeSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
-  ]);
-  const afterTransactionIds = new Set([
-    ...((afterSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
-    ...((afterSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
-  ]);
-  const targetTransactionIds = new Set(
-    [...afterTransactionIds].filter((id) => !beforeTransactionIds.has(id))
-  );
-  const timingByTransaction = new Map((projections.turnTiming || [])
-    .filter((entry) => entry?.transactionId)
-    .map((entry) => [entry.transactionId, entry]));
-  const responseRows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
-  const candidates = responseRows.filter((entry) => (
-    entry?.transactionId
-    && entry.responseKind === 'hostContinue'
-    && (targetTransactionIds.size === 0 || targetTransactionIds.has(entry.transactionId))
-  ));
-  const entries = candidates.map((entry) => sanitizeHostNativeCompletionProjection(entry, timingByTransaction));
-  const completed = entries.filter((entry) => entry.completionStatus === 'pass');
-  const failed = entries.filter((entry) => entry.completionStatus !== 'pass');
-  const maxCompletionLatencyMs = completed.reduce((max, entry) => {
-    const value = Number(entry.completionLatencyMs);
-    return Number.isFinite(value) ? Math.max(max, value) : max;
-  }, 0);
-  return {
-    status: failed.length > 0 ? 'fail' : (completed.length > 0 ? 'pass' : 'warning'),
-    source,
-    completionSource: 'coreProjection',
-    storageFormat: 'v2-core',
-    saveId,
-    campaignId,
-    payloadPath,
-    coreManifestPath,
-    targetTransactionCount: targetTransactionIds.size,
-    candidateResponseCount: candidates.length,
-    completedHostContinueCount: completed.length,
-    failedHostContinueCount: failed.length,
-    maxCompletionLatencyMs: completed.length > 0 ? maxCompletionLatencyMs : null,
-    entries,
-    unavailableReason: candidates.length === 0 ? 'no-hostContinue-completion-candidates' : null
-  };
-}
-
 function hostNativeCompletionRequirementProof(message = {}, proof = {}) {
   if (message.hostNativeCompletionRequired !== true) return null;
   const source = proof?.source || null;
@@ -2706,70 +2597,9 @@ function hostNativeCompletionRequirementProof(message = {}, proof = {}) {
     completionSource,
     completedHostContinueCount,
     failedHostContinueCount,
+    targetPlayerHostMessageIds: uniqueStringList(proof?.targetPlayerHostMessageIds || []),
+    targetTransactionIds: uniqueStringList(proof?.targetTransactionIds || []),
     unavailableReason: proof?.unavailableReason || null
-  };
-}
-
-function generationTimingProofFromCoreProjections({
-  source = 'coreStoreTurnTiming',
-  projections = {},
-  beforeSnapshot = null,
-  afterSnapshot = null,
-  saveId = null,
-  campaignId = null,
-  payloadPath = null,
-  coreManifestPath = null
-} = {}) {
-  const beforeTransactionIds = new Set([
-    ...((beforeSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
-    ...((beforeSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
-  ]);
-  const afterTransactionIds = new Set([
-    ...((afterSnapshot?.recentResponseLedger || []).map((response) => response.coreTransactionId || response.transactionId).filter(Boolean)),
-    ...((afterSnapshot?.recentIngressLedger || []).map((ingress) => ingress.coreTransactionId || ingress.transactionId).filter(Boolean))
-  ]);
-  const targetTransactionIds = new Set(
-    [...afterTransactionIds].filter((id) => !beforeTransactionIds.has(id))
-  );
-  const timingEntries = Array.isArray(projections.turnTiming) ? projections.turnTiming : [];
-  const candidates = targetTransactionIds.size > 0
-    ? timingEntries.filter((entry) => entry?.transactionId && targetTransactionIds.has(entry.transactionId))
-    : (afterSnapshot ? [] : timingEntries.slice(-1));
-  const selected = candidates;
-  const entries = selected.map((entry) => sanitizeCoreTimingProjection(entry));
-  const checked = entries.filter((entry) => timingProofEntryRequiresGenerationStart(entry));
-  const statuses = checked.map((entry) => generationTimingEntryStatus(entry));
-  const skippedEntries = entries.filter((entry) => timingProofEntryIsNonGenerated(entry));
-  const maxGenerationStartLatencyMs = checked.reduce((max, entry) => {
-    const value = Number(entry.turnLatency?.generationStartLatencyMs);
-    return Number.isFinite(value) ? Math.max(max, value) : max;
-  }, 0);
-  const status = generationTimingProofStatus({ checked, statuses, entries });
-  return {
-    status,
-    source,
-    timingSource: 'coreProjection',
-    storageFormat: 'v2-core',
-    saveId,
-    campaignId,
-    payloadPath,
-    coreManifestPath,
-    checkedResponseCount: checked.length,
-    candidateResponseCount: candidates.length,
-    skippedResponseCount: skippedEntries.length,
-    skippedTurnCount: skippedEntries.length,
-    checkedTurnCount: checked.length,
-    candidateTurnCount: candidates.length,
-    targetTransactionCount: targetTransactionIds.size,
-    maxGenerationStartLatencyMs: checked.length > 0 ? maxGenerationStartLatencyMs : null,
-    entries: checked.map((entry, index) => ({
-      ...entry,
-      timingStatus: statuses[index] || 'unknown'
-    })),
-    skippedEntries: skippedEntries.map((entry) => ({
-      ...entry,
-      timingStatus: 'skipped-non-generation'
-    }))
   };
 }
 
@@ -2851,7 +2681,9 @@ async function capturePersistedGenerationTimingProof(page, {
   saveId = null,
   campaignId = null,
   beforeSnapshot = null,
-  afterSnapshot = null
+  afterSnapshot = null,
+  targetTransactionIds = [],
+  targetPlayerHostMessageIds = []
 } = {}) {
   try {
     const core = await captureCoreStoreProjections(page, {
@@ -2876,7 +2708,9 @@ async function capturePersistedGenerationTimingProof(page, {
       coreManifestPath: core.coreManifestPath,
       projections: core.projections,
       beforeSnapshot,
-      afterSnapshot
+      afterSnapshot,
+      targetTransactionIds,
+      targetPlayerHostMessageIds
     });
   } catch (error) {
     return {
@@ -2893,7 +2727,9 @@ async function capturePersistedHostNativeCompletionProof(page, {
   saveId = null,
   campaignId = null,
   beforeSnapshot = null,
-  afterSnapshot = null
+  afterSnapshot = null,
+  targetTransactionIds = [],
+  targetPlayerHostMessageIds = []
 } = {}) {
   try {
     const core = await captureCoreStoreProjections(page, {
@@ -2918,7 +2754,9 @@ async function capturePersistedHostNativeCompletionProof(page, {
       coreManifestPath: core.coreManifestPath,
       projections: core.projections,
       beforeSnapshot,
-      afterSnapshot
+      afterSnapshot,
+      targetTransactionIds,
+      targetPlayerHostMessageIds
     });
   } catch (error) {
     return {
@@ -2956,6 +2794,8 @@ async function waitForPersistedHostNativeCompletionProof(page, {
   campaignId = null,
   beforeSnapshot = null,
   afterSnapshot = null,
+  targetTransactionIds = [],
+  targetPlayerHostMessageIds = [],
   timeoutMs = HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS,
   pollingMs = 1000
 } = {}) {
@@ -2971,7 +2811,9 @@ async function waitForPersistedHostNativeCompletionProof(page, {
       saveId,
       campaignId,
       beforeSnapshot,
-      afterSnapshot
+      afterSnapshot,
+      targetTransactionIds,
+      targetPlayerHostMessageIds
     });
     latest = {
       ...latest,
@@ -3078,13 +2920,15 @@ function aggregateGenerationTimingProof(rounds = []) {
   const failed = proofs.filter((proof) => proof.status === 'fail');
   const warnings = proofs.filter((proof) => proof.status === 'warning');
   return {
-    status: failed.length > 0 ? 'fail' : (warnings.length > 0 ? 'warning' : (checked.length > 0 ? 'pass' : 'warning')),
+    status: failed.length > 0 ? 'fail' : (checked.length > 0 ? 'pass' : 'warning'),
     source: 'coreStoreTurnTiming',
     timingSource: persistedWithEntries.length ? 'coreProjection' : null,
     runtimeSnapshotAvailable: runtimeWithEntries.length > 0,
     proofCount: proofs.length,
     checkedTurnCount: checked.length,
     skippedTurnCount: skipped.length,
+    targetPlayerHostMessageIds: targetPlayerHostMessageIdsForRounds(rounds),
+    targetTransactionIds: uniqueStringList(proofs.flatMap((proof) => proof.targetTransactionIds || [])),
     maxGenerationStartLatencyMs: checked.reduce((max, entry) => {
       const value = Number(entry.turnLatency?.generationStartLatencyMs);
       return Number.isFinite(value) ? Math.max(max, value) : max;
@@ -3116,6 +2960,8 @@ function aggregateHostNativeCompletionProof(rounds = []) {
     proofCount: proofs.length,
     completedHostContinueCount: completed.length,
     failedHostContinueCount: failed.length,
+    targetPlayerHostMessageIds: targetPlayerHostMessageIdsForRounds(rounds),
+    targetTransactionIds: uniqueStringList(proofs.flatMap((proof) => proof.targetTransactionIds || [])),
     requiredCompletionCount: requiredCompletions.length,
     requiredCompletionPassCount: requiredCompletionPasses.length,
     requiredCompletionFailureCount: requiredCompletionFailures.length,
@@ -3132,6 +2978,19 @@ function aggregateHostNativeCompletionProof(rounds = []) {
     requiredHostNativeCompletions: requiredCompletions,
     unavailableReasons: [...new Set(proofs.map((proof) => proof.unavailableReason || proof.reason).filter(Boolean))]
   };
+}
+
+function targetPlayerHostMessageIdsForRound(round = {}) {
+  return uniqueStringList([
+    round.after?.matchedUserHostMessageId,
+    round.after?.matchedUserIndex,
+    round.after?.matchedIngress?.hostMessageId,
+    round.sendResult?.directiveFallbackScan?.matchedIndex
+  ]);
+}
+
+function targetPlayerHostMessageIdsForRounds(rounds = []) {
+  return uniqueStringList((rounds || []).flatMap((round) => targetPlayerHostMessageIdsForRound(round)));
 }
 
 async function assertMissionBodyShowsCampaign(page, summary) {
@@ -4924,6 +4783,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       tracking,
       progressSource: runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response',
       matchedUserIndex: matchedUser?.index ?? null,
+      matchedUserHostMessageId: matchedUser ? String(matchedUser.index) : null,
       visibleDirectiveResponse: visibleDirectiveResponse
         ? {
             index: visibleDirectiveResponse.index,
@@ -4937,6 +4797,9 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
             status: matchedIngress.status || null,
             responseStrategy: matchedIngress.responseStrategy || null,
             classification: matchedIngress.classification?.classification || null,
+            hostMessageId: matchedIngress.hostMessageId || null,
+            coreTransactionId: matchedIngress.coreTransactionId || matchedIngress.transactionId || null,
+            sourceFrameId: matchedIngress.sourceFrameId || matchedIngress.sourceFrame?.id || null,
             textPreview: compactText(matchedIngress.textPreview || matchedIngress.text || matchedIngress.messageText || '')
           }
         : null,
@@ -5212,8 +5075,70 @@ async function settleSidecarsForTurn(page, beforeSnapshot, {
 
 async function waitForChatNativeIngressCount(page, {
   baseIngressCount = 0,
-  expectedDelta = 0
+  expectedDelta = 0,
+  saveId = null,
+  campaignId = null,
+  targetPlayerHostMessageIds = []
 } = {}) {
+  const targetIds = uniqueStringList(targetPlayerHostMessageIds);
+  if (targetIds.length > 0) {
+    const startedAt = Date.now();
+    let latest = null;
+    while (Date.now() - startedAt < CHAT_CAMPAIGN_TIMEOUT_MS) {
+      const core = await captureCoreStoreProjections(page, {
+        saveId,
+        campaignId,
+        label: 'Directive save index for CORE ingress settlement'
+      }).catch((error) => ({
+        status: 'warning',
+        reason: error?.message || String(error),
+        saveId,
+        campaignId
+      }));
+      const proof = core.status === 'pass'
+        ? corePlayerIngressProof({
+          projections: core.projections,
+          targetPlayerHostMessageIds: targetIds
+        })
+        : {
+          status: 'warning',
+          source: 'coreStoreIngressLedger',
+          expectedPlayerHostMessageIds: targetIds,
+          matchedPlayerHostMessageIds: [],
+          missingPlayerHostMessageIds: targetIds,
+          expectedPlayerMessageCount: targetIds.length,
+          matchedPlayerMessageCount: 0,
+          reason: core.reason || 'core-projections-unavailable'
+        };
+      latest = {
+        status: proof.status,
+        source: 'coreStoreIngressLedger',
+        saveId: core.saveId || saveId || null,
+        campaignId: core.campaignId || campaignId || null,
+        payloadPath: core.payloadPath || null,
+        coreManifestPath: core.coreManifestPath || null,
+        corePlayerIngressProof: proof
+      };
+      if (proof.status === 'pass') return latest;
+      await sleep(Math.min(1000, Math.max(0, CHAT_CAMPAIGN_TIMEOUT_MS - (Date.now() - startedAt))));
+    }
+    return latest || {
+      status: 'warning',
+      source: 'coreStoreIngressLedger',
+      saveId,
+      campaignId,
+      corePlayerIngressProof: {
+        status: 'warning',
+        source: 'coreStoreIngressLedger',
+        expectedPlayerHostMessageIds: targetIds,
+        matchedPlayerHostMessageIds: [],
+        missingPlayerHostMessageIds: targetIds,
+        expectedPlayerMessageCount: targetIds.length,
+        matchedPlayerMessageCount: 0,
+        unavailableReason: 'core-ingress-settlement-timeout'
+      }
+    };
+  }
   const minimum = Number(baseIngressCount || 0) + Number(expectedDelta || 0);
   if (minimum <= 0) return chatNativeRuntimeSnapshot(page);
   const settled = await waitForJsonValue(page, async ({ modulePath, minimum }) => {
@@ -5427,6 +5352,7 @@ async function runChatNativeCampaignFlow(page) {
       scriptCategory: message.category
     });
     if (capture) transcriptCaptures.push(capture);
+    const targetPlayerHostMessageIds = targetPlayerHostMessageIdsForRound(round);
     const generationTiming = {
       runtime: generationTimingProofFromLedgers({
         source: 'runtimeSnapshot',
@@ -5438,14 +5364,16 @@ async function runChatNativeCampaignFlow(page) {
         campaignId: created.campaign?.id || null,
         saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
         beforeSnapshot: beforeTurnSnapshot,
-        afterSnapshot: snapshot
+        afterSnapshot: snapshot,
+        targetPlayerHostMessageIds
       })
     };
     const hostNativeCompletionProofInput = {
       campaignId: created.campaign?.id || null,
       saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
       beforeSnapshot: beforeTurnSnapshot,
-      afterSnapshot: snapshot
+      afterSnapshot: snapshot,
+      targetPlayerHostMessageIds
     };
     const hostNativeCompletion = {
       persisted: message.hostNativeCompletionRequired === true
@@ -5574,6 +5502,7 @@ async function runChatNativeCampaignFlow(page) {
         scriptCategory: 'pending-resolution'
       });
       if (resolutionCapture) transcriptCaptures.push(resolutionCapture);
+      const resolutionTargetPlayerHostMessageIds = targetPlayerHostMessageIdsForRound(resolution);
       const resolutionGenerationTiming = {
         runtime: generationTimingProofFromLedgers({
           source: 'runtimeSnapshot',
@@ -5585,7 +5514,8 @@ async function runChatNativeCampaignFlow(page) {
           campaignId: created.campaign?.id || null,
           saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
           beforeSnapshot: beforeResolutionSnapshot,
-          afterSnapshot: snapshot
+          afterSnapshot: snapshot,
+          targetPlayerHostMessageIds: resolutionTargetPlayerHostMessageIds
         })
       };
       const resolutionHostNativeCompletion = {
@@ -5593,7 +5523,8 @@ async function runChatNativeCampaignFlow(page) {
           campaignId: created.campaign?.id || null,
           saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
           beforeSnapshot: beforeResolutionSnapshot,
-          afterSnapshot: snapshot
+          afterSnapshot: snapshot,
+          targetPlayerHostMessageIds: resolutionTargetPlayerHostMessageIds
         })
       };
       const recordedResolutionRound = rounds.at(-1);
@@ -5642,26 +5573,33 @@ async function runChatNativeCampaignFlow(page) {
     }
   }
 
-  const sentRoundCount = rounds.filter((round) => !round.skippedSend).length;
+  const sentRounds = rounds.filter((round) => !round.skippedSend);
+  const sentRoundCount = sentRounds.length;
+  const sentPlayerHostMessageIds = targetPlayerHostMessageIdsForRounds(sentRounds);
   appendLiveLog({
     kind: 'checkpoint',
     status: 'in_progress',
     checkpoint: 'ingress-settle-after-script',
     baseIngressCount: created.tracking?.ingressCount || 0,
     expectedDelta: sentRoundCount,
-    expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount
+    expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount,
+    targetPlayerHostMessageIds: sentPlayerHostMessageIds
   });
   const ingressSettlement = await waitForChatNativeIngressCount(page, {
     baseIngressCount: created.tracking?.ingressCount || 0,
-    expectedDelta: sentRoundCount
+    expectedDelta: sentRoundCount,
+    campaignId: created.campaign?.id || null,
+    saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+    targetPlayerHostMessageIds: sentPlayerHostMessageIds
   });
   appendLiveLog({
     kind: 'checkpoint',
-    status: ingressSettlement ? 'pass' : 'warning',
+    status: ingressSettlement?.corePlayerIngressProof?.status || (ingressSettlement ? 'pass' : 'warning'),
     checkpoint: 'ingress-settle-after-script',
     baseIngressCount: created.tracking?.ingressCount || 0,
     expectedDelta: sentRoundCount,
     expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount,
+    targetPlayerHostMessageIds: sentPlayerHostMessageIds,
     ingressSettlement
   });
   let finalSnapshot = await chatNativeRuntimeSnapshot(page);
@@ -5688,11 +5626,21 @@ async function runChatNativeCampaignFlow(page) {
   finalSnapshot = sidecarActivityExpected ? await chatNativeRuntimeSnapshot(page) : finalSnapshot;
   const initialModelCalls = Number(created.tracking?.modelCallCount || 0);
   const finalModelCalls = Number(finalSnapshot.tracking?.modelCallCount || finalSnapshot.modelCallCount || 0);
+  const finalCoreIngressProof = ingressSettlement?.corePlayerIngressProof || null;
+  const finalCoreIngressOk = sentPlayerHostMessageIds.length > 0 && finalCoreIngressProof?.status === 'pass';
+  const finalLegacyIngressOk = Number(finalSnapshot.tracking?.ingressCount || 0) >= Number(created.tracking?.ingressCount || 0) + sentRoundCount;
   assertBrowser(
-    Number(finalSnapshot.tracking?.ingressCount || 0) >= Number(created.tracking?.ingressCount || 0) + sentRoundCount,
+    finalCoreIngressOk || (sentPlayerHostMessageIds.length === 0 && finalLegacyIngressOk),
     'Live chat-native campaign did not record every SillyTavern player message as a turn ingress.',
     {
       expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount,
+      targetPlayerHostMessageIds: sentPlayerHostMessageIds,
+      corePlayerIngressProof: finalCoreIngressProof,
+      legacyRuntimeTracking: {
+        ok: finalLegacyIngressOk,
+        initialIngressCount: Number(created.tracking?.ingressCount || 0),
+        finalIngressCount: Number(finalSnapshot.tracking?.ingressCount || 0)
+      },
       initialTracking: created.tracking || null,
       roundCount: sentRoundCount,
       rounds: rounds.map((round) => ({
@@ -5702,6 +5650,8 @@ async function runChatNativeCampaignFlow(page) {
         textPreview: compact(round.text, 100),
         resolvesPendingInteraction: round.resolvesPendingInteraction === true,
         afterTracking: round.after?.tracking || null,
+        matchedUserHostMessageId: round.after?.matchedUserHostMessageId || null,
+        targetPlayerHostMessageIds: targetPlayerHostMessageIdsForRound(round),
         afterChatLength: round.after?.chatLength || null,
         afterUserMessageCount: round.after?.userMessageCount || null,
         recentMessages: round.after?.recentMessages || []
@@ -5799,7 +5749,6 @@ async function runChatNativeCampaignFlow(page) {
   const sidecarRejectedDelta = Math.max(0, Number(finalSnapshot.sidecarRejectedCount || 0) - initialSidecarRejectedCount);
   const sidecarHealthStatus = sidecarRejectedDelta > 0 ? 'warning' : 'pass';
   const pendingInteractionStatus = Number(finalSnapshot.pendingInteractionCount || 0) > 0 ? 'warning' : 'pass';
-  const sentRounds = rounds.filter((round) => !round.skippedSend);
   const generationTimingProof = aggregateGenerationTimingProof(sentRounds);
   const generationTimingStatus = generationTimingProof.status === 'fail'
     ? 'warning'
@@ -5905,6 +5854,7 @@ async function runChatNativeCampaignFlow(page) {
       hostNativeCompletionRequiredMessages: messageScript.hostNativeCompletionRequiredMessages || [],
       messages: messageScript.messages.map((message) => ({
         id: message.id,
+        turn: message.turn,
         label: message.label,
         category: message.category,
         perspective: message.detectedPerspective || message.perspective,

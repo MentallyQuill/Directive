@@ -70,6 +70,7 @@ const gateway = createStateDeltaGateway({
 });
 let idCounter = 0;
 let reconciledConversation = null;
+let unexpectedSourcePreflightCalls = 0;
 const service = createSceneReconciliationService({
   getCampaignState: () => state,
   stateDeltaGateway: gateway,
@@ -86,12 +87,21 @@ const service = createSceneReconciliationService({
     getRecentMessages() { return messages; },
     normalizeMessagePayload(payload = {}) { return payload.message || payload; }
   } },
+  sourceSettlementService: {
+    async preflightRange() {
+      unexpectedSourcePreflightCalls += 1;
+      throw new Error('Missing CORE transaction ranges should skip before SRE preflight.');
+    }
+  },
   idFactory(prefix) { idCounter += 1; return `${prefix}.${idCounter}`; },
   now
 });
 
 const first = await service.reconcileFromHere({ message: { hostMessageId: 'm1' } });
 assert.equal(first.ok, true);
+assert.equal(first.sourcePreflight.status, 'skippedMissingCoreTransaction');
+assert.equal(first.sourcePreflight.providerCalled, false);
+assert.equal(unexpectedSourcePreflightCalls, 0);
 assert.equal(first.applied.length, 1, 'Low-risk command-log evidence should auto-apply.');
 assert.equal(first.pending.length, 1, 'Consequential ship condition must wait for explicit review.');
 assert.equal(state.ship.condition, projection.initialState.ship.condition, 'Pending mechanics must not alter live state.');

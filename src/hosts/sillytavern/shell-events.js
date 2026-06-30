@@ -663,9 +663,14 @@ export function disposeSillyTavernDirectiveEventLifecycle() {
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
   closeDirectiveGuidance('extension-disabled');
-  const { host } = getSillyTavernDirectiveRuntimeBridge();
+  const bridge = getSillyTavernDirectiveRuntimeBridge();
+  const { host } = bridge;
   try {
-    await host?.prompt?.clear?.({ reason: 'extension-disabled' });
+    if (typeof bridge.runtimeApp?.clearDirectivePrompt === 'function') {
+      await bridge.runtimeApp.clearDirectivePrompt({ reason: 'extension-disabled' });
+    } else {
+      await host?.prompt?.clear?.({ reason: 'extension-disabled' });
+    }
   } catch (error) {
     reportFailure('Failed to clear prompt context during disable', error);
   }

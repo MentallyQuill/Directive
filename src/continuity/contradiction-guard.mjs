@@ -145,6 +145,7 @@ function uniformDivisionFindings(text, facts, packageData) {
 
 function travelFindings(text, facts) {
   const hasTravelGuard = facts.some((fact) => fact.id.endsWith('.not-six-days-impulse'));
+  const shortRefitDurationGuard = facts.find((fact) => fact.id.endsWith('.not-short-refit-duration'));
   const shuttleApproachFact = facts.find((fact) => (
     fact.id.endsWith('.opening-transit-mode')
     && /shuttlebay two|saucer-underside|nacelle pylons/i.test(`${fact.summary || ''} ${fact.render?.narrator || ''}`)
@@ -172,6 +173,18 @@ function travelFindings(text, facts) {
       factId: facts.find((fact) => fact.id.endsWith('.not-six-days-impulse'))?.id || null,
       severity: 'blocker',
       summary: 'Generated text describes the Breckenridge opening transit as six days at impulse from Utopia Planitia.'
+    });
+  }
+  const badShortRefitDuration = shortRefitDurationGuard && (
+    /\b(?:only\s+)?(?:three|3)\s+days\s+out\s+of\s+(?:Utopia\s+Planitia(?:'s)?(?:\s+refit\s+cradle)?|spacedock|space\s+dock|drydock|dry\s+dock|the\s+yard|the\s+refit\s+cradle|refit\s+cradle)\b/i.test(normalized)
+    || /\b(?:out\s+of|left|departed|taken\s+her\s+out\s+of)\s+(?:Utopia\s+Planitia(?:'s)?(?:\s+refit\s+cradle)?|spacedock|space\s+dock|drydock|dry\s+dock|the\s+yard|the\s+refit\s+cradle|refit\s+cradle)\s+(?:only\s+)?(?:three|3)\s+days\s+ago\b/i.test(normalized)
+  );
+  if (badShortRefitDuration) {
+    findings.push({
+      kind: 'travel-contradiction',
+      factId: shortRefitDurationGuard.id,
+      severity: 'blocker',
+      summary: 'Generated text collapses the Breckenridge opening transit into only three days out of Utopia Planitia, spacedock, or the refit cradle.'
     });
   }
   const badSaucerShuttlebay = shuttleLayoutFact && (

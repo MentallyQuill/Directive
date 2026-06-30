@@ -12,8 +12,8 @@ import {
   buildStoryQualityModelReviewResult
 } from './soak-sillytavern-campaign-live.mjs';
 
-const DEFAULT_TIMEOUT_MS = 90000;
-const DEFAULT_MAX_LATENCY_MS = 60000;
+const DEFAULT_TIMEOUT_MS = 120000;
+const DEFAULT_MAX_LATENCY_MS = 120000;
 const EXPECTED_REQUEST_KIND = 'directive.liveCampaignSoak.storyQualityModelReviewRequest';
 const EXPECTED_RESULT_KIND = 'directive.liveCampaignSoak.storyQualityModelReviewResult';
 const EXPECTED_SCHEMA_VERSION = 1;

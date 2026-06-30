@@ -532,6 +532,43 @@ const directivePostProjection = coreStore.readProjections().recoveryJournal.find
 assert.equal(directivePostProjection.repairDecision.eventType, 'hostResponsePostFailure');
 assert.deepEqual(directivePostProjection.allowedActions, ['retryResponse']);
 assert.equal(JSON.stringify(coreStore.state).includes('Raw post failure should be hashed only.'), false);
+const directiveRetryActuation = repairRuntime.evaluateResponseRetryActuation({
+  recovery: {
+    id: 'recovery:response-post-failure-test',
+    outcomeId: 'outcome-response-post-failure',
+    details: {
+      repairDecision: directivePostRecovery.decision,
+      turnId: 'turn-response-post-failure',
+      sourceFrameId: 'frame-response-post-failure'
+    }
+  },
+  transaction: coreStore.state.transactions['txn-response-post-failure'],
+  responseId: 'response-post-failure-retry',
+  eventTime: '2026-06-28T18:00:00.000Z'
+});
+assert.equal(directiveRetryActuation.kind, 'directive.repairResponseRetryActuationDecision.v1');
+assert.equal(directiveRetryActuation.authorized, true);
+assert.equal(directiveRetryActuation.recoveryResolved, true);
+assert.equal(directiveRetryActuation.action, 'recordVisibleResponse');
+assert.equal(directiveRetryActuation.reason, 'directive-response-retry-posted');
+assert.equal(directiveRetryActuation.transactionId, 'txn-response-post-failure');
+assert.equal(directiveRetryActuation.recoveryCaseId, 'recovery:response-post-failure-test');
+assert.deepEqual(directiveRetryActuation.allowedActions, ['retryResponse']);
+const deniedRetryActuation = repairRuntime.evaluateResponseRetryActuation({
+  recovery: {
+    id: 'recovery:continuity-response-test',
+    details: {
+      repairDecision: hostContradictionDecision
+    }
+  },
+  transaction: {
+    id: 'txn-continuity-response-test',
+    phase: 'recoveryRequired',
+    recoveryCaseId: 'recovery:continuity-response-test'
+  }
+});
+assert.equal(deniedRetryActuation.authorized, false);
+assert.equal(deniedRetryActuation.deniedReason, 'response-retry-event-type-not-eligible');
 
 const dependentReobserve = repairRuntime.evaluateSourceReobserve({
   eventType: 'playerMessageReobserved',

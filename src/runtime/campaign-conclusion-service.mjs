@@ -114,11 +114,13 @@ export function createCampaignConclusionService({
   generationRouter = null,
   getCampaignState,
   setCampaignState,
+  clearDirectivePrompt,
   persist = null,
   now = null
 } = {}) {
   if (typeof getCampaignState !== 'function') throw new Error('getCampaignState must be a function');
   if (typeof setCampaignState !== 'function') throw new Error('setCampaignState must be a function');
+  if (typeof clearDirectivePrompt !== 'function') throw new Error('clearDirectivePrompt must be a function');
 
   async function persistState(state, summary) {
     setCampaignState(state);
@@ -224,7 +226,12 @@ export function createCampaignConclusionService({
   async function ensurePromptCleared(current, reason) {
     if (current.conclusion?.promptClearedAt) return cloneJson(current);
     try {
-      await host?.prompt?.clear?.({ reason: 'campaign-complete' });
+      const result = await clearDirectivePrompt({ reason: 'campaign-complete' });
+      if (result?.status === 'failed' || result?.ok === false || result?.result?.ok === false) {
+        const error = new Error(result?.reason || result?.result?.reason || 'Campaign prompt cleanup failed.');
+        error.details = cloneJson(result);
+        throw error;
+      }
     } catch (error) {
       const failed = cloneJson(current);
       failed.conclusion = {

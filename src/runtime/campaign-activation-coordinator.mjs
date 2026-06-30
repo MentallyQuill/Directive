@@ -1,8 +1,12 @@
 import {
-  buildPlayerSafePromptContextWithContinuityPlanner,
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
+import {
+  buildLensPromptPacket,
+  createLensPromptInput,
+  lensPromptPacketProjectionSummary
+} from './lens-prompt-packet-builder.mjs';
 import {
   globalScenePacingLines,
   scenePacingGuidance
@@ -561,21 +565,6 @@ function reportActivationActivity(host, payload = {}) {
   }
 }
 
-function promptContextProjectionSummary(packet = null) {
-  const projection = packet?.continuityProjection || {};
-  const plan = projection.plan || {};
-  return {
-    revision: Number(packet?.revision || 0) || null,
-    blockCount: Array.isArray(packet?.blocks) ? packet.blocks.length : 0,
-    contentHash: packet?.contentHash || packet?.hash || null,
-    projectionHash: projection.hash || null,
-    sourceHash: projection.sourceHash || null,
-    selectedFactCount: Array.isArray(plan.selectedFactIds) ? plan.selectedFactIds.length : 0,
-    guardedFactCount: Array.isArray(plan.guardFactIds) ? plan.guardFactIds.length : 0,
-    auditFactCount: Array.isArray(plan.auditFactIds) ? plan.auditFactIds.length : 0
-  };
-}
-
 function isPlayerMessage(message = null) {
   const user = message?.isUser === true || message?.is_user === true || message?.role === 'user';
   const directiveOwned = message?.isDirectiveOwned === true || message?.directiveOwned === true;
@@ -613,13 +602,18 @@ export function createCampaignActivationCoordinator({
   host,
   generationRouter = null,
   persist = null,
+  installPromptContext = null,
+  suspendPromptContext = null,
   now = null
 } = {}) {
   if (!host?.chat?.createOrBindCampaignChat) {
     throw new Error('Campaign activation requires a host chat adapter.');
   }
-  if (!host?.prompt?.install) {
-    throw new Error('Campaign activation requires a host prompt adapter.');
+  if (typeof installPromptContext !== 'function') {
+    throw new Error('Campaign activation requires a prompt install dependency.');
+  }
+  if (typeof suspendPromptContext !== 'function') {
+    throw new Error('Campaign activation requires a prompt suspend dependency.');
   }
 
   async function activate({
@@ -822,17 +816,22 @@ export function createCampaignActivationCoordinator({
         emitActivity({ ...projectionActivity, phase: 'continuityProjectionBuilding', status: 'running' });
         let promptContext;
         try {
-          promptContext = await buildPlayerSafePromptContextWithContinuityPlanner({
+          const promptInput = createLensPromptInput({
             campaignState: state,
-            packageData,
-            crewDataset,
-            shipDataset,
-            campaignProjection,
+            assets: {
+              packageData,
+              crewDataset,
+              shipDataset,
+              projection: campaignProjection
+            },
             createdAt: timestamp(now)
-          }, {
+          });
+          promptContext = await buildLensPromptPacket({
+            promptInput,
+            useContinuityPlanner: true,
             generationRouter
           });
-          const projectionSummary = promptContextProjectionSummary(promptContext);
+          let projectionSummary = lensPromptPacketProjectionSummary(promptContext);
           emitActivity({
             ...projectionActivity,
             ...projectionSummary,
@@ -845,14 +844,29 @@ export function createCampaignActivationCoordinator({
             phase: 'continuityProjectionInstalling',
             status: 'running'
           });
-          const promptResult = await host.prompt.install({
+          const promptResult = await installPromptContext({
+            campaignState: state,
+            packageData,
+            crewDataset,
+            shipDataset,
+            campaignProjection,
             binding: state.campaignChatBinding,
-            packet: promptContext
+            promptContext,
+            reason: 'Campaign prompt context installed during activation.',
+            activityContext: {
+              source: 'campaignActivation',
+              activationId: journal.activationId,
+              step: 'promptInstalled'
+            }
           });
-          if (!promptResult?.ok) {
+          if (promptResult?.ok === false || promptResult?.status === 'failed') {
             const error = new Error(promptResult?.error?.message || 'Campaign prompt installation failed.');
             error.code = promptResult?.error?.code || 'DIRECTIVE_PROMPT_INSTALL_FAILED';
             throw error;
+          }
+          if (promptResult?.packet?.blocks) {
+            promptContext = promptResult.packet;
+            projectionSummary = lensPromptPacketProjectionSummary(promptContext);
           }
           emitActivity({
             ...projectionActivity,
@@ -982,15 +996,18 @@ export function createCampaignActivationCoordinator({
       let promptCleanup = null;
       if (promptInstalledThisAttempt || completed(journal, 'promptInstalled')) {
         try {
-          const cleared = await host.prompt.clear?.({
+          const suspended = await suspendPromptContext({
+            campaignState: state,
             binding: state.campaignChatBinding,
             reason: 'activation-failed',
-            preservePacket: true
+            source: 'campaignActivation',
+            activationId: journal.activationId
           });
           promptCleanup = {
             attempted: true,
-            ok: cleared?.ok !== false,
-            status: cleared?.status || 'cleared'
+            ok: suspended?.ok !== false && suspended?.status !== 'failed',
+            status: suspended?.status || 'suspended',
+            result: cloneJson(suspended || null)
           };
         } catch (cleanupError) {
           promptCleanup = {

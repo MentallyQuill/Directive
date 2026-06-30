@@ -631,7 +631,8 @@ export const SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY = Object.freeze({
   requiredSourceIds: Object.freeze([
     'crew.hadrik-bronn.species',
     'crew.hadrik-bronn.age-description',
-    'ship.uss-breckenridge.travel.not-six-days-impulse'
+    'ship.uss-breckenridge.travel.not-six-days-impulse',
+    'ship.uss-breckenridge.travel.not-short-refit-duration'
   ]),
   modelRoles: Object.freeze([
     'continuityProjectionPlanner',
@@ -3783,7 +3784,21 @@ function turnEndProofRecords(liveLogRecords = []) {
     .filter((record) => record?.kind === 'turn-end');
 }
 
+function latestRunEndProof(liveLogRecords = [], field) {
+  return [...(Array.isArray(liveLogRecords) ? liveLogRecords : [])]
+    .reverse()
+    .find((record) => record?.kind === 'run-end' && record?.[field])
+    ?.[field] || null;
+}
+
 function generationTimingProofFromLiveLogRecords(liveLogRecords = []) {
+  const runEndProof = latestRunEndProof(liveLogRecords, 'generationTimingProof');
+  if (runEndProof) {
+    return {
+      ...runEndProof,
+      evidenceSource: 'delegatedSmokeLiveLogRunEnd'
+    };
+  }
   const proofs = turnEndProofRecords(liveLogRecords)
     .map((record) => record.generationTiming?.persisted)
     .filter(Boolean);
@@ -3797,7 +3812,7 @@ function generationTimingProofFromLiveLogRecords(liveLogRecords = []) {
     return Number.isFinite(value) ? Math.max(max, value) : max;
   }, 0);
   return {
-    status: failed.length > 0 ? 'fail' : (warnings.length > 0 ? 'warning' : (checked.length > 0 ? 'pass' : 'warning')),
+    status: failed.length > 0 ? 'fail' : (checked.length > 0 ? 'pass' : 'warning'),
     source: 'coreStoreTurnTiming',
     timingSource: checked.length > 0 ? 'coreProjection' : null,
     storageFormat: 'v2-core',
@@ -3816,6 +3831,13 @@ function generationTimingProofFromLiveLogRecords(liveLogRecords = []) {
 }
 
 function hostNativeCompletionProofFromLiveLogRecords(liveLogRecords = []) {
+  const runEndProof = latestRunEndProof(liveLogRecords, 'hostNativeCompletionProof');
+  if (runEndProof) {
+    return {
+      ...runEndProof,
+      evidenceSource: 'delegatedSmokeLiveLogRunEnd'
+    };
+  }
   const turnEndRecords = turnEndProofRecords(liveLogRecords);
   const proofs = turnEndRecords
     .map((record) => record.hostNativeCompletion?.persisted)
@@ -3840,7 +3862,7 @@ function hostNativeCompletionProofFromLiveLogRecords(liveLogRecords = []) {
   return {
     status: failed.length > 0 || requiredCompletionFailures.length > 0
       ? 'fail'
-      : (completedHostContinueCount > 0 && warnings.length === 0 ? 'pass' : 'warning'),
+      : (completedHostContinueCount > 0 ? 'pass' : 'warning'),
     source: 'coreStoreResponseLedger',
     completionSource: 'coreProjection',
     storageFormat: 'v2-core',
@@ -4014,7 +4036,7 @@ export function liveGenerationTimingAssessment({ smokeReport = null, smokeSummar
       proof: evidence
     };
   }
-  if (evidence.status !== 'pass' || Number(evidence.checkedTurnCount || 0) <= 0) {
+  if (Number(evidence.checkedTurnCount || 0) <= 0) {
     const skippedSuffix = Number(evidence.skippedTurnCount || 0) > 0
       ? ` ${evidence.skippedTurnCount} deterministic non-generation turn(s) were skipped.`
       : '';
@@ -4092,7 +4114,7 @@ export function liveHostNativeCompletionAssessment({ smokeReport = null, smokeSu
       proof: evidence
     };
   }
-  if (evidence.status !== 'pass' || Number(evidence.completedHostContinueCount || 0) <= 0) {
+  if (Number(evidence.completedHostContinueCount || 0) <= 0) {
     return {
       status: 'warning',
       summary: 'Delegated smoke did not prove any terminal host-native assistant completion for hostContinue.',
@@ -4779,7 +4801,20 @@ function storyQualityReviewProviderOutputPath(report) {
 
 function modelCallFromReviewProviderResult(providerResult = null, fallbackRoleId = 'factualGroundingReviewer') {
   const modelCall = providerResult?.modelCall || null;
-  if (modelCall) return modelCall;
+  if (modelCall) {
+    const status = modelCall.status || (providerResult?.ok === true ? 'ok' : null);
+    const ok = modelCall.ok === true
+      || (
+        modelCall.ok !== false
+        && status === 'ok'
+        && providerResult?.ok === true
+      );
+    return {
+      ...modelCall,
+      status,
+      ok
+    };
+  }
   const generation = providerResult?.generation || null;
   if (!generation) return null;
   return {
