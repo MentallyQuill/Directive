@@ -217,6 +217,48 @@ assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseDeleted');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.replacementTextHash, null);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 6);
 
+const selectedSwipeChange = await reconciler.reconcileSelectedSwipeChanged({
+  hostMessageId: 'assistant-committed',
+  selectedSwipe: {
+    selectedSwipeIndex: 1,
+    swipeCount: 3,
+    selectedAssistantVariantHash: 'selected-swipe-hash-64'
+  },
+  message: {
+    id: 'assistant-committed',
+    is_user: false,
+    raw: {
+      swipe_id: 1,
+      swipes: [
+        'RAW_DISCARDED_SWIPE_TEXT_MUST_NOT_PERSIST',
+        'RAW_SELECTED_SWIPE_TEXT_MUST_NOT_PERSIST',
+        'RAW_OTHER_SWIPE_TEXT_MUST_NOT_PERSIST'
+      ]
+    }
+  },
+  autoRollback: false
+});
+assert.equal(selectedSwipeChange.matched, true);
+assert.equal(selectedSwipeChange.action, 'reviewRequired');
+const swipedResponseEntry = campaignState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-committed');
+assert.equal(swipedResponseEntry.status, 'recoveryRequired');
+assert.equal(swipedResponseEntry.invalidationType, 'directiveResponseSelectedSwipeChanged');
+assert.match(swipedResponseEntry.selectedSwipeChangedAt, /^2026-06-22T03:00:/);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseSelectedSwipeChanged' && entry.status === 'reviewRequired'), true);
+assert.equal(coreRecoveries.at(-1).transactionId, 'txn-committed');
+assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseSelectedSwipeChanged');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.kind, 'directive.repairDecision.v1');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.normalTurnAllowed, false);
+assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.sourceKind, 'directiveResponse');
+assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.responseId, 'response-committed');
+assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.replacementTextHash, null);
+assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.selectedSwipe.selectedSwipeIndex, 1);
+assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.selectedSwipe.swipeCount, 3);
+assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.selectedSwipe.selectedTextHash, 'selected-swipe-hash-64');
+assert.equal(JSON.stringify(coreRecoveries.at(-1).bundle).includes('RAW_SELECTED_SWIPE_TEXT_MUST_NOT_PERSIST'), false);
+assert.equal(JSON.stringify(campaignState.runtimeTracking.recoveryJournal).includes('RAW_SELECTED_SWIPE_TEXT_MUST_NOT_PERSIST'), false);
+assert.equal(campaignState.campaignChatBinding.promptContextRevision, 7);
+
 const visibilityOnlyIngressBefore = cloneJson(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed'));
 const persistedBeforeVisibility = persisted.length;
 const promptSyncsBeforeVisibility = promptSyncs.length;
@@ -300,9 +342,9 @@ assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2, 'Restor
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageDeleted');
 assert.deepEqual(coreRecoveries.at(-1).bundle.allowedActions, ['rollbackToPreOutcomeRevision', 'reviewSourceMutation']);
 assert.equal(JSON.stringify(coreRecoveries).includes('A materially changed'), false, 'CORE recovery bundles must not store raw replacement text.');
-assert.equal(coreRecoveries.length, 4);
-assert.equal(promptSyncs.length, 6);
-assert.equal(persisted.length, 12, 'Each recovery and its prompt revision must be persisted.');
+assert.equal(coreRecoveries.length, 5);
+assert.equal(promptSyncs.length, 7);
+assert.equal(persisted.length, 14, 'Each recovery and its prompt revision must be persisted.');
 
 let failureState = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-core-failure', status: 'active' },
@@ -690,4 +732,4 @@ assert.equal(componentState.runtimeTracking.recoveryJournal.some((entry) => entr
 assert.equal(componentState.campaignChatBinding.promptContextRevision, 3);
 assert.equal(componentPersisted.length, 4);
 
-console.log('Message recovery tests passed: invalidation, review-required edits, tracked rollback, Scene Handshake and Mission Component source invalidation, ledger preservation, and prompt revision persistence');
+console.log('Message recovery tests passed: invalidation, selected-swipe source mutation, tracked rollback, Scene Handshake and Mission Component source invalidation, ledger preservation, and prompt revision persistence');

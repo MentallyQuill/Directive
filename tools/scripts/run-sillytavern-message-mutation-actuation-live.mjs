@@ -16,6 +16,19 @@ import {
 
 const REPORT_KIND = 'directive.sillytavernMessageMutation.actuationLiveRun.v1';
 const DEFAULT_TIMEOUT_MS = 300000;
+const FORBIDDEN_RAW_TEXT_KEYS = new Set([
+  'text',
+  'mes',
+  'originaltext',
+  'replacementtext',
+  'rawtext',
+  'fulltext',
+  'messagetext',
+  'assistanttext',
+  'playertext',
+  'prompt',
+  'provideroutput'
+]);
 
 const SCENARIOS = Object.freeze([
   {
@@ -338,6 +351,42 @@ function stdoutHash(value = '') {
   return value ? sha256Text(value).slice(0, 16) : null;
 }
 
+function isRawTextField(key, value) {
+  const normalized = String(key || '').toLowerCase();
+  return typeof value === 'string'
+    && value.trim()
+    && (FORBIDDEN_RAW_TEXT_KEYS.has(normalized) || normalized.endsWith('textpreview'));
+}
+
+function sanitizeParsedArtifact(value, state = { redactedCount: 0 }) {
+  if (Array.isArray(value)) return value.map((entry) => sanitizeParsedArtifact(entry, state));
+  if (!value || typeof value !== 'object') return value;
+  const output = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (isRawTextField(key, child)) {
+      state.redactedCount += 1;
+      const hashKey = `${key}Hash`;
+      if (!Object.prototype.hasOwnProperty.call(output, hashKey)) output[hashKey] = sha256Text(child).slice(0, 16);
+      output[`${key}Length`] = child.length;
+      continue;
+    }
+    output[key] = sanitizeParsedArtifact(child, state);
+  }
+  return output;
+}
+
+function sanitizeChildArtifact(value) {
+  const state = { redactedCount: 0 };
+  const artifact = sanitizeParsedArtifact(value, state);
+  if (state.redactedCount > 0 && artifact && typeof artifact === 'object' && !Array.isArray(artifact)) {
+    artifact.artifactRedaction = {
+      rawTextFieldCount: state.redactedCount,
+      strategy: 'hash-and-length'
+    };
+  }
+  return artifact;
+}
+
 function livePrerequisites(options) {
   const failures = [];
   if (!options.baseUrl) failures.push('SILLYTAVERN_BASE_URL or --base-url is required for live mutation actuation.');
@@ -455,7 +504,7 @@ async function runScenario(definition, options, {
   if (definition.selectedSwipe) {
     const parsed = parseJsonFromStdout(child.stdout);
     const reportPath = path.join(childRoot, `${options.runId}-selected-swipe.json`);
-    if (parsed) writeJsonFile(reportPath, parsed);
+    if (parsed) writeJsonFile(reportPath, sanitizeChildArtifact(parsed));
     return {
       id: definition.id,
       status: child.ok && parsed ? 'pass' : 'fail',
@@ -484,7 +533,7 @@ function summarizeChild(child = {}) {
     timedOut: child.timedOut === true,
     stdoutHash: stdoutHash(child.stdout),
     stderrHash: stdoutHash(child.stderr),
-    stderrPreview: String(child.stderr || '').replace(/\s+/g, ' ').trim().slice(0, 240) || null,
+    stderrLength: String(child.stderr || '').length,
     error: child.error || null
   };
 }

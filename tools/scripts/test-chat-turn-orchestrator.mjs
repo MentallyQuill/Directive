@@ -19,6 +19,7 @@ import {
   initializeCampaignRuntimeTracking,
   recordDirectiveResponse,
   recordRecoveryEvent,
+  recordTurnIngress,
   updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
@@ -74,11 +75,16 @@ const commitCalls = [];
 const responseSwipeGenerationCalls = [];
 const postCommitConversationCalls = [];
 const advisoryEnrichmentCalls = [];
+const forgeSceneSealCalls = [];
+const forgePressureArcDigestCalls = [];
+const forgeOpenWorldBoundaryCalls = [];
 const promptFrames = [];
 const coreBeginCalls = [];
 const coreAdvanceCalls = [];
 const coreSupersedeCalls = [];
 const coreDiagnosticCalls = [];
+const coreRecoveryCalls = [];
+const coreTransactions = new Map();
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
 let nextPreviewOutcomeBand = null;
@@ -102,25 +108,39 @@ const stateDeltaGateway = createStateDeltaGateway({
 const coreTurnStore = {
   async beginTurn(sourceFrame, options = {}) {
     coreBeginCalls.push({ sourceFrame: cloneJson(sourceFrame), options: cloneJson(options) });
-    return {
+    const transaction = {
       id: options.transactionId || `txn:${sourceFrame.id}`,
       phase: 'observed',
       sourceFrameId: sourceFrame.id
     };
+    coreTransactions.set(transaction.id, cloneJson(transaction));
+    return transaction;
   },
   async advanceTurn(transactionId, phasePatch = {}) {
     coreAdvanceCalls.push({ transactionId, phasePatch: cloneJson(phasePatch) });
-    return {
+    const existing = coreTransactions.get(transactionId) || { id: transactionId };
+    const transaction = {
+      ...existing,
       id: transactionId,
       phase: phasePatch.phase || 'observed',
       route: phasePatch.route || null
     };
+    coreTransactions.set(transactionId, cloneJson(transaction));
+    return transaction;
   },
   async supersedeLatestSourceTransaction(priorTransactionId, replacementTransactionId, options = {}) {
     coreSupersedeCalls.push({
       priorTransactionId,
       replacementTransactionId,
       options: cloneJson(options)
+    });
+    coreTransactions.set(priorTransactionId, {
+      ...(coreTransactions.get(priorTransactionId) || { id: priorTransactionId }),
+      phase: 'restartSuperseded'
+    });
+    coreTransactions.set(replacementTransactionId, {
+      ...(coreTransactions.get(replacementTransactionId) || { id: replacementTransactionId }),
+      phase: 'observed'
     });
     return {
       status: 'recorded',
@@ -139,6 +159,24 @@ const coreTurnStore = {
         recoveryId: options.priorRecoveryId || null
       }
     };
+  },
+  async markRecoveryRequired(transactionId, recoveryBundle = {}) {
+    coreRecoveryCalls.push({ transactionId, recoveryBundle: cloneJson(recoveryBundle) });
+    const recoveryCase = {
+      id: recoveryBundle.id || `recovery:${transactionId}`,
+      phase: recoveryBundle.phaseAfter || 'recoveryRequired',
+      reason: recoveryBundle.reason || null,
+      allowedActions: cloneJson(recoveryBundle.allowedActions || [])
+    };
+    coreTransactions.set(transactionId, {
+      ...(coreTransactions.get(transactionId) || { id: transactionId }),
+      phase: recoveryCase.phase,
+      recoveryCaseId: recoveryCase.id
+    });
+    return recoveryCase;
+  },
+  async getTransaction(transactionId) {
+    return cloneJson(coreTransactions.get(transactionId) || null);
   },
   async appendDiagnostics(transactionId, diagnostic = {}) {
     coreDiagnosticCalls.push({ transactionId, diagnostic: cloneJson(diagnostic) });
@@ -336,10 +374,57 @@ const orchestrator = createChatTurnOrchestrator({
     nextCommandBearingPrompt = null;
     pendingTurn = {
       turnId,
+      sceneSnapshot: {
+        sceneId: 'scene-bridge-intercept',
+        activePhaseId: 'phase-bridge-intercept',
+        locationId: 'breckenridge-bridge',
+        presentCharacters: ['sam-vickers', 'mara-whitaker']
+      },
       outcomePacket: {
         id: outcomeId,
         resultBand: nextPreviewOutcomeBand || commandBearingPrompt.actions?.[0]?.from || 'success',
         visibleConsequences: ['The order changes the tactical posture.']
+      },
+      stateDelta: {
+        mission: {
+          phaseAdvance: {
+            from: 'phase-bridge-watch',
+            to: 'phase-bridge-intercept',
+            availableDecisionPointIds: ['decision.bridge-intercept-followup']
+          }
+        },
+        openWorld: {
+          reducerBundle: {
+            kind: 'directive.openWorldReducerBundle.v1',
+            sourceOutcomeId: outcomeId,
+            sourceEventIds: [`event-${outcomeId}-1`],
+            sourceAnchorRange: {
+              rangeHash: `range-hash-${outcomeId}`,
+              hostMessageIds: ['RAW_OPEN_WORLD_HOST_MESSAGE_RANGE']
+            },
+            operations: [{
+              type: 'value.set',
+              path: ['worldState', 'currentLocationId'],
+              value: 'RAW_OPEN_WORLD_OPERATION_VALUE'
+            }, {
+              type: 'collection.mergeById',
+              path: ['questLedger', 'instances'],
+              upsert: [{
+                id: `quest-${outcomeId}`,
+                title: 'RAW_OPEN_WORLD_QUEST_TITLE'
+              }],
+              remove: []
+            }],
+            diagnostics: {
+              operationCount: 2,
+              changedRoots: ['worldState', 'questLedger'],
+              boundaryType: 'locationTransition',
+              eventCount: 1,
+              reactionCount: 0,
+              checkpointRequired: true
+            }
+          }
+        }
       },
       commandLogPacket: {
         visibleConsequences: ['The order changes the tactical posture.']
@@ -439,6 +524,48 @@ const orchestrator = createChatTurnOrchestrator({
         });
       }
       return Promise.resolve({ ok: true });
+    }
+  },
+  forgeCoordinator: {
+    settleScenePhaseSeal(payload) {
+      forgeSceneSealCalls.push(cloneJson(payload));
+      return Promise.resolve({
+        status: 'settled',
+        applied: true,
+        batch: {
+          recallRevisions: {
+            recallIndexRevision: 'recall-revision-orchestrator',
+            sceneSealRevision: 'scene-seal-revision-orchestrator'
+          }
+        }
+      });
+    },
+    settlePressureArcDigest(payload) {
+      forgePressureArcDigestCalls.push(cloneJson(payload));
+      return Promise.resolve({
+        status: 'settled',
+        applied: true,
+        batch: {
+          recallRevisions: {
+            recallIndexRevision: 'recall-revision-orchestrator',
+            pressureArcDigestRevision: 'pressure-arc-revision-orchestrator'
+          }
+        }
+      });
+    },
+    settleOpenWorldBoundary(payload) {
+      forgeOpenWorldBoundaryCalls.push(cloneJson(payload));
+      return Promise.resolve({
+        status: 'settled',
+        applied: true,
+        batch: {
+          backgroundEffectRefs: [{
+            kind: 'directive.openWorldBoundarySettlementRef.v1',
+            id: `open-world-boundary:${payload.outcomeId}`,
+            status: 'accepted'
+          }]
+        }
+      });
     }
   },
   schedulePostCommitConversationProcessor: (conversation) => {
@@ -691,6 +818,198 @@ assert.equal(
   'A CORE begin failure must not leave an old-ledger-only ingress projection.'
 );
 assert.equal(persisted.length, persistedCountBeforeCoreFailure, 'A CORE begin failure must not persist campaign state.');
+
+const missingCoreRecoveryWriterOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'locationTransition',
+    confidence: 0.92,
+    ambiguity: 'low',
+    speechAct: 'movement',
+    action: 'walk to engineering',
+    target: 'engineering',
+    targetConfidence: 0.85,
+    domainSignals: ['location-transition'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Fixture should reach Directive response dispatch.'],
+    workerPlan: {},
+    responseStrategy: 'directivePosted',
+    source: 'utility-provider'
+  }),
+  responseDispatcher: {
+    async dispatch() {
+      const error = new Error('Synthetic response post failure with missing CORE recovery writer.');
+      error.code = 'DIRECTIVE_TEST_RESPONSE_POST_FAILED';
+      throw error;
+    }
+  },
+  stateDeltaGateway,
+  coreTurnStore: {
+    async beginTurn(sourceFrame, options = {}) {
+      return {
+        id: options.transactionId || `txn:${sourceFrame.id}`,
+        phase: 'observed',
+        sourceFrameId: sourceFrame.id
+      };
+    },
+    async advanceTurn(transactionId, phasePatch = {}) {
+      return {
+        id: transactionId,
+        phase: phasePatch.phase || 'observed',
+        route: phasePatch.route || null
+      };
+    }
+  },
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Missing CORE recovery writer fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Missing CORE recovery writer fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule() {
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const missingCoreRecoveryMessage = chat.pushPlayerMessage({
+  text: 'I head to Engineering while the channel clears.',
+  hostMessageId: 'player-core-recovery-writer-missing'
+});
+const missingCoreRecoveryResult = await missingCoreRecoveryWriterOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: missingCoreRecoveryMessage
+});
+assert.equal(missingCoreRecoveryResult.recoveryRequired, true);
+assert.equal(missingCoreRecoveryResult.error.code, 'DIRECTIVE_CORE_RESPONSE_RECOVERY_NOT_RECORDED');
+assert.match(missingCoreRecoveryResult.error.message, /CORE response recovery was not recorded/);
+const missingCoreRecoveryIngress = campaignState.runtimeTracking.ingressLedger.find(
+  (entry) => entry.hostMessageId === 'player-core-recovery-writer-missing'
+);
+assert.ok(missingCoreRecoveryIngress?.coreTransactionId, 'Fixture must prove this was a CORE-backed turn.');
+assert.equal(
+  campaignState.runtimeTracking.recoveryJournal.some((entry) => (
+    entry.type === 'hostResponsePostFailure'
+    && entry.ingressId === missingCoreRecoveryIngress.id
+  )),
+  false,
+  'A CORE-backed response failure must not fall back to an old-ledger-only recovery.'
+);
+
+const oldLedgerRetryBaselineState = cloneJson(campaignState);
+const oldLedgerRetryPersistedBefore = persisted.length;
+const oldLedgerRetryIngressId = 'ingress-old-ledger-response-retry';
+const oldLedgerRetryRecoveryId = 'recovery-old-ledger-response-retry';
+let oldLedgerRetryFixtureState = recordTurnIngress(campaignState, {
+  id: oldLedgerRetryIngressId,
+  hostMessageId: 'player-old-ledger-response-retry',
+  chatId: 'campaign-chat',
+  campaignId: campaignState.campaign?.id,
+  textHash: fnv1a('Retry should be owned by REPAIR, not old ledgers.'),
+  textPreview: 'Retry should be owned by REPAIR, not old ledgers.',
+  sourceFrameId: 'source-old-ledger-response-retry',
+  status: 'recoveryRequired',
+  responseStrategy: 'directivePosted',
+  turnId: 'turn-old-ledger-response-retry',
+  outcomeId: 'outcome-old-ledger-response-retry',
+  coreTransactionId: null
+});
+oldLedgerRetryFixtureState = recordRecoveryEvent(oldLedgerRetryFixtureState, {
+  id: oldLedgerRetryRecoveryId,
+  type: 'hostResponsePostFailure',
+  status: 'open',
+  ingressId: oldLedgerRetryIngressId,
+  outcomeId: 'outcome-old-ledger-response-retry',
+  recordedAt: now(),
+  details: {
+    strategy: 'directivePosted',
+    text: 'This retry must not dispatch without REPAIR authority.',
+    turnId: 'turn-old-ledger-response-retry',
+    responseKind: 'committedOutcome',
+    responseIdempotencyKey: 'directive-response-retry:old-ledger-only',
+    classification: 'directorResponseNeeded',
+    workerPlan: {},
+    repairDecision: {
+      authorized: false,
+      reason: 'missing-core-transaction'
+    }
+  }
+});
+setCampaignState(oldLedgerRetryFixtureState);
+const oldLedgerRetryDispatchCalls = [];
+const oldLedgerRetryRepairDecisions = [];
+const oldLedgerRetryOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('Old-ledger response retry fixture must not classify.');
+  },
+  responseDispatcher: {
+    async dispatch(payload) {
+      oldLedgerRetryDispatchCalls.push(cloneJson(payload));
+      return {
+        campaignState: payload.campaignState,
+        response: {
+          hostMessageId: 'assistant-old-ledger-response-retry',
+          text: 'Unauthorized retry should not post.'
+        }
+      };
+    }
+  },
+  repairRuntime: {
+    authorizeRetry(input) {
+      oldLedgerRetryRepairDecisions.push(cloneJson(input));
+      return {
+        authorized: false,
+        reason: 'missing-core-transaction',
+        transactionId: input.transactionId || null
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Old-ledger response retry fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Old-ledger response retry fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+try {
+  const oldLedgerRetry = await oldLedgerRetryOrchestrator.retryCommittedResponse({
+    recoveryId: oldLedgerRetryRecoveryId
+  });
+  assert.equal(oldLedgerRetry.ok, false);
+  assert.equal(oldLedgerRetry.reason, 'response-retry-not-authorized');
+  assert.equal(oldLedgerRetry.decision.authorized, false);
+  assert.equal(oldLedgerRetry.decision.reason, 'missing-core-transaction');
+  assert.equal(oldLedgerRetryRepairDecisions.length, 1);
+  assert.equal(oldLedgerRetryRepairDecisions[0].transactionId, null);
+  assert.equal(oldLedgerRetryDispatchCalls.length, 0, 'Unauthorized old-ledger retry must not dispatch a response.');
+  assert.equal(persisted.length, oldLedgerRetryPersistedBefore, 'Unauthorized old-ledger retry must not persist campaign state.');
+  assert.equal(
+    getCampaignState().runtimeTracking.recoveryJournal.find((entry) => entry.id === oldLedgerRetryRecoveryId)?.status,
+    'open',
+    'Unauthorized old-ledger retry must not resolve recovery.'
+  );
+} finally {
+  setCampaignState(oldLedgerRetryBaselineState);
+  persisted.splice(oldLedgerRetryPersistedBefore);
+}
 
 const commandLogBeforeSceneNavigation = campaignState.commandLog?.entries?.length || 0;
 const elapsedMinutesBeforeSceneNavigation = campaignState.worldState?.elapsedMinutes ?? 0;
@@ -1165,6 +1484,101 @@ assert.equal(commitCalls.length, dependentEditCommitCallsBefore);
 assert.equal(sidecarCalls.length, dependentEditSidecarCallsBefore);
 assert.equal(persisted.length, dependentEditPersistedBefore);
 
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-selected-swipe-orchestrator',
+  text: 'Accepted selected response.',
+  swipes: [
+    'Discarded selected-swipe orchestrator draft.',
+    'Accepted selected response.',
+    'Unused selected-swipe orchestrator draft.'
+  ],
+  swipeId: 1
+});
+const selectedSwipeReconcilerCalls = [];
+const selectedSwipeOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('Selected-swipe source mutation must not classify a normal turn.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Selected-swipe source mutation must not dispatch a response.');
+    }
+  },
+  generationRouter: {
+    async generate() {
+      throw new Error('Selected-swipe source mutation must not generate.');
+    }
+  },
+  messageReconciler: {
+    async reconcileSelectedSwipeChanged(payload) {
+      selectedSwipeReconcilerCalls.push(cloneJson(payload));
+      return {
+        matched: true,
+        action: 'reviewRequired',
+        repairDecision: {
+          kind: 'directive.repairSourceMutationDecision.v1',
+          normalTurnAllowed: false
+        }
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async () => {
+    throw new Error('Selected-swipe source mutation must not sync prompt directly.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Selected-swipe source mutation must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Selected-swipe source mutation must not commit a Director turn.');
+  },
+  now
+});
+const selectedSwipeResult = await selectedSwipeOrchestrator.handleMessageSelectedSwipeChanged({
+  hostMessageId: 'assistant-selected-swipe-orchestrator',
+  selectedSwipeIndex: '1',
+  swipeCount: '3',
+  index: 17,
+  chatMetadata: { chatId: 'campaign-chat', source: 'MESSAGE_SWIPED' },
+  visibility_map: { 'assistant-selected-swipe-orchestrator': { visible: true } }
+});
+assert.equal(selectedSwipeResult.handled, true);
+assert.equal(selectedSwipeResult.action, 'reviewRequired');
+assert.equal(selectedSwipeResult.repairDecision.normalTurnAllowed, false);
+assert.equal(selectedSwipeReconcilerCalls.length, 1);
+assert.equal(selectedSwipeReconcilerCalls[0].hostMessageId, 'assistant-selected-swipe-orchestrator');
+assert.deepEqual(selectedSwipeReconcilerCalls[0].selectedSwipe, {
+  selectedSwipeIndex: 1,
+  swipeCount: 3,
+  selectedAssistantVariantHash: null
+});
+assert.equal(selectedSwipeReconcilerCalls[0].index, 17);
+assert.deepEqual(selectedSwipeReconcilerCalls[0].chatMetadata, { chatId: 'campaign-chat', source: 'MESSAGE_SWIPED' });
+assert.deepEqual(selectedSwipeReconcilerCalls[0].visibilityMap, { 'assistant-selected-swipe-orchestrator': { visible: true } });
+assert.equal(selectedSwipeReconcilerCalls[0].message.hostMessageId, 'assistant-selected-swipe-orchestrator');
+assert.equal(selectedSwipeReconcilerCalls[0].message.text, 'Accepted selected response.');
+assert.deepEqual(selectedSwipeReconcilerCalls[0].message.swipes, [
+  'Discarded selected-swipe orchestrator draft.',
+  'Accepted selected response.',
+  'Unused selected-swipe orchestrator draft.'
+]);
+const invalidSelectedSwipeResult = await selectedSwipeOrchestrator.handleMessageSelectedSwipeChanged({
+  id: 'assistant-selected-swipe-orchestrator',
+  selectedSwipeIndex: 'not-a-number',
+  swipeCount: ''
+});
+assert.equal(invalidSelectedSwipeResult.handled, true);
+assert.equal(selectedSwipeReconcilerCalls.length, 2);
+assert.deepEqual(selectedSwipeReconcilerCalls[1].selectedSwipe, {
+  selectedSwipeIndex: null,
+  swipeCount: null,
+  selectedAssistantVariantHash: null
+});
+
 const latestRestartOldText = 'Sam listened to the carrier wave and waited.';
 const latestRestartEditedText = 'Sam listened to the carrier wave and waited. She did not ask the room to hurry.';
 const latestRestartHostMessageId = 'player-latest-restart-orchestrator';
@@ -1332,6 +1746,7 @@ const failingClassifierOrchestrator = createChatTurnOrchestrator({
     throw error;
   },
   responseDispatcher,
+  coreTurnStore,
   generationRouter: {
     async generate(roleId, request) {
       responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
@@ -1369,6 +1784,7 @@ const classifierFailureMessage = chat.pushPlayerMessage({
   text: 'Log the retry check, preserve the watch handoff, and keep the Captain informed.',
   hostMessageId: 'player-classifier-failure'
 });
+const coreRecoveryCountBeforeClassifierFailure = coreRecoveryCalls.length;
 const classifierFailure = await failingClassifierOrchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
   message: classifierFailureMessage
@@ -1380,6 +1796,80 @@ assert.equal(failedIngress.status, 'recoveryRequired');
 assert.equal(failedIngress.error.code, 'DIRECTIVE_TEST_CLASSIFIER_FAILED');
 assert.equal(failedRecovery.status, 'open');
 assert.equal(failedRecovery.details.stage, 'classification');
+assert.equal(coreRecoveryCalls.length, coreRecoveryCountBeforeClassifierFailure + 1, 'CORE-backed classifier failure must record CORE recovery before old recovery projection.');
+assert.equal(coreRecoveryCalls.at(-1).transactionId, failedIngress.coreTransactionId);
+assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.id, failedRecovery.id);
+assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.reason, 'chatTurnProcessingFailure');
+assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.sourceMutation.eventType, 'chatTurnProcessingFailure');
+assert.equal(failedRecovery.details.coreRecovery.transactionId, failedIngress.coreTransactionId);
+
+const coreRecoveryFailurePersistedBefore = persisted.length;
+const coreRecoveryFailureHostMessageId = 'player-classifier-core-recovery-failure';
+const failingCoreRecoveryOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    const error = new Error('Classifier failure should require CORE recovery.');
+    error.code = 'DIRECTIVE_TEST_CLASSIFIER_CORE_RECOVERY_FAILED';
+    throw error;
+  },
+  responseDispatcher,
+  coreTurnStore: {
+    async beginTurn(sourceFrame, options = {}) {
+      return {
+        id: options.transactionId || `txn:${sourceFrame.id}`,
+        phase: 'observed',
+        sourceFrameId: sourceFrame.id
+      };
+    },
+    async markRecoveryRequired() {
+      const error = new Error('Synthetic CORE processing recovery failure.');
+      error.code = 'DIRECTIVE_CORE_PROCESSING_RECOVERY_FAILED';
+      throw error;
+    }
+  },
+  generationRouter: {
+    async generate() {
+      throw new Error('CORE processing recovery failure fixture must not generate.');
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('CORE processing recovery failure fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('CORE processing recovery failure fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const coreRecoveryFailureMessage = chat.pushPlayerMessage({
+  text: 'Record the failed recovery attempt without treating old ledgers as settled authority.',
+  hostMessageId: coreRecoveryFailureHostMessageId
+});
+await assert.rejects(
+  () => failingCoreRecoveryOrchestrator.observePlayerMessage({
+    chatId: 'campaign-chat',
+    message: coreRecoveryFailureMessage
+  }),
+  /Synthetic CORE processing recovery failure/
+);
+assert.equal(
+  campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.hostMessageId === coreRecoveryFailureHostMessageId),
+  false,
+  'CORE recovery failure must not persist old chatTurnProcessingFailure recovery.'
+);
+assert.equal(
+  campaignState.runtimeTracking.ingressLedger.some((entry) => (
+    entry.hostMessageId === coreRecoveryFailureHostMessageId && entry.status === 'recoveryRequired'
+  )),
+  false,
+  'CORE recovery failure must not mark old ingress projection recoveryRequired.'
+);
+assert.equal(persisted.length, coreRecoveryFailurePersistedBefore + 1, 'CORE recovery failure may persist the initial ingress only, not old recovery projection.');
 
 const retriedClassifierFailure = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
@@ -1787,6 +2277,55 @@ assert.equal(postCommitConversationCalls[0].messages.map((entry) => entry.role).
 assert.equal(consequential.postCommitConversation.scheduled, true);
 assert.equal(consequential.postCommitConversation.status, 'queued');
 assert.equal(consequential.postCommitConversation.outcomeId, 'outcome-1');
+assert.equal(forgeSceneSealCalls.length, 1);
+const consequentialIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-consequential');
+const consequentialSeal = forgeSceneSealCalls[0];
+assert.equal(consequentialSeal.transactionId, consequentialIngress.coreTransactionId);
+assert.equal(consequentialSeal.outcomeId, 'outcome-1');
+assert.equal(consequentialSeal.flushLens, true);
+assert.equal(consequentialSeal.sourceFrameRef.id, consequentialIngress.sourceFrameId);
+assert.equal(consequentialSeal.seal.phaseId, 'phase-bridge-intercept');
+assert.equal(consequentialSeal.seal.sceneId, 'scene-bridge-intercept');
+assert.equal(consequentialSeal.seal.locationId, 'breckenridge-bridge');
+assert.deepEqual(consequentialSeal.seal.actorIds, ['sam-vickers', 'mara-whitaker']);
+assert.equal(consequentialSeal.seal.eventRefs[0].assistantHostMessageId, consequentialResponse.hostMessageId);
+assert.equal(JSON.stringify(consequentialSeal).includes('I order helm to change course'), false);
+assert.equal(JSON.stringify(consequentialSeal).includes('Committed narration for outcome-1'), false);
+assert.equal(forgePressureArcDigestCalls.length, 1);
+const consequentialDigest = forgePressureArcDigestCalls[0];
+assert.equal(consequentialDigest.transactionId, consequentialIngress.coreTransactionId);
+assert.equal(consequentialDigest.outcomeId, 'outcome-1');
+assert.equal(consequentialDigest.flushLens, true);
+assert.equal(consequentialDigest.sourceFrameRef.id, consequentialIngress.sourceFrameId);
+assert.equal(consequentialDigest.digest.phaseId, 'phase-bridge-intercept');
+assert.equal(consequentialDigest.digest.sceneId, 'scene-bridge-intercept');
+assert.equal(consequentialDigest.digest.locationId, 'breckenridge-bridge');
+assert.deepEqual(consequentialDigest.digest.actorIds, ['sam-vickers', 'mara-whitaker']);
+assert.equal(consequentialDigest.digest.callbackRefs[0].assistantHostMessageId, consequentialResponse.hostMessageId);
+assert.equal(consequentialDigest.digest.tags.includes('pressure-arc-digest'), true);
+assert.equal(consequentialDigest.digest.summaryDigest.hash.startsWith('fnv1a:'), true);
+assert.equal(JSON.stringify(consequentialDigest).includes('I order helm to change course'), false);
+assert.equal(JSON.stringify(consequentialDigest).includes('Committed narration for outcome-1'), false);
+assert.equal(forgeOpenWorldBoundaryCalls.length, 1);
+const consequentialBoundary = forgeOpenWorldBoundaryCalls[0];
+assert.equal(consequentialBoundary.transactionId, consequentialIngress.coreTransactionId);
+assert.equal(consequentialBoundary.outcomeId, 'outcome-1');
+assert.equal(consequentialBoundary.flushLens, true);
+assert.equal(consequentialBoundary.sourceFrameRef.id, consequentialIngress.sourceFrameId);
+assert.equal(consequentialBoundary.reducerRef.sourceKind, 'directive.openWorldReducerBundle.v1');
+assert.equal(consequentialBoundary.reducerRef.sourceOutcomeId, 'outcome-1');
+assert.deepEqual(consequentialBoundary.reducerRef.changedRoots, ['questLedger', 'worldState']);
+assert.equal(consequentialBoundary.reducerRef.operationCount, 2);
+assert.equal(consequentialBoundary.reducerRef.diagnostics.boundaryType, 'locationTransition');
+assert.equal(consequentialBoundary.reducerRef.sourceAnchorRangeHash, 'range-hash-outcome-1');
+assert.equal(consequentialBoundary.boundaryType, 'locationTransition');
+assert.equal(consequentialBoundary.phaseId, 'phase-bridge-intercept');
+assert.equal(consequentialBoundary.sceneId, 'scene-bridge-intercept');
+assert.equal(consequentialBoundary.locationId, 'breckenridge-bridge');
+assert.equal(JSON.stringify(consequentialBoundary).includes('I order helm to change course'), false);
+assert.equal(JSON.stringify(consequentialBoundary).includes('Committed narration for outcome-1'), false);
+assert.equal(JSON.stringify(consequentialBoundary).includes('RAW_OPEN_WORLD'), false);
+assert.equal(JSON.stringify(consequentialBoundary).includes('hostMessageIds'), false);
 
 const consequenceDuplicate = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
@@ -1796,6 +2335,9 @@ assert.equal(consequenceDuplicate.deduplicated, true);
 assert.equal(consequenceDuplicate.abortDefaultGeneration, true);
 assert.equal(commitCalls.length, 1);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
+assert.equal(forgeSceneSealCalls.length, 1);
+assert.equal(forgePressureArcDigestCalls.length, 1);
+assert.equal(forgeOpenWorldBoundaryCalls.length, 1);
 
 const indexedMessageText = 'I order helm to intercept the armed raider and tactical to disable its weapons before it reaches the convoy.';
 const indexedMessage = await orchestrator.observePlayerMessage({
@@ -2101,11 +2643,19 @@ assert.equal(fallbackResponseLedger.responseKind, 'committedOutcome');
 assert.equal(fallbackResponseLedger.directiveGenerationStartedAt, fallbackGenerationStartedAt);
 assert.equal(fallbackResponseLedger.generationStartedAt, fallbackGenerationStartedAt);
 assert.equal(fallbackResponseLedger.turnLatency.directiveGenerationStartedAt, Date.parse(fallbackGenerationStartedAt));
+const fallbackRecovery = campaignState.runtimeTracking.recoveryJournal.find(
+  (entry) => entry.type === 'providerFailureAfterMechanicsCommit' && entry.outcomeId === commitCalls.at(-1).outcomeId
+);
 assert.equal(
-  campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'providerFailureAfterMechanicsCommit' && entry.outcomeId === commitCalls.at(-1).outcomeId),
+  Boolean(fallbackRecovery),
   true,
   'Narration fallback should still record provider-failure recovery after mechanics commit.'
 );
+assert.equal(fallbackRecovery.details.repairDecision.eventType, 'providerFailureAfterMechanicsCommit');
+assert.equal(fallbackRecovery.details.repairDecision.retryDirectiveResponse, true);
+assert.equal(fallbackRecovery.details.coreRecovery.status, 'recorded');
+assert.equal(fallbackRecovery.details.coreRecovery.transactionId, fallbackRecovery.details.repairDecision.transactionId);
+assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.repairDecision.eventType, 'providerFailureAfterMechanicsCommit');
 
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;
 const lastPlayer = chat.pushPlayerMessage({ text: 'I smile and wait.', hostMessageId: 'player-interceptor' });

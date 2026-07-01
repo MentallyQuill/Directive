@@ -55,6 +55,16 @@ const EXTERNAL_CONTEXT_TARGET_IDS = Object.freeze([
   'vectFox'
 ]);
 
+const EXTERNAL_CONTEXT_FORBIDDEN_SUMMARY_KEY_PATTERN = /^(?:raw|full|verbatim)/i;
+const EXTERNAL_CONTEXT_FORBIDDEN_SUMMARY_PAYLOAD_KEY_PATTERN = /(?:promptBody|promptText|rawPromptBody|rawPrompt|providerOutput|providerResponse|vectorPayload|embedding|embeddings|generatedMemory|memoryBookText|summaryText|summaryBody|summaryLayerText|endpointUrl|endpoint|collectionName|payloadBody|rawContent|rawSummary|rawText|messageText|api[_-]?key|secret|password|credential|authorization|qdrant[_-]?api[_-]?key)/i;
+const EXTERNAL_CONTEXT_FORBIDDEN_SUMMARY_VALUE_PATTERN = /(?:SECRET|RAW_|raw prompt|raw vector|raw Summaryception|raw lorebook|generated Memory Book|vector payload|embedding payload|QDRANT_ENDPOINT|qdrant endpoint|api key)/i;
+
+function isExternalContextRedactionMetadataPath(pathKey = '') {
+  const value = String(pathKey || '');
+  return /(?:^|\.)redactionReasons(?:\[\d+\])?$/.test(value)
+    || /(?:^|\.)redactions\[\d+\]\.(?:key|reason)$/.test(value);
+}
+
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 const DEFAULT_TURN_LIMIT = '';
 let signalHandlersInstalled = false;
@@ -431,6 +441,9 @@ function targetEvidenceFromPromptInspection(promptInspection = {}, knownExternal
   ));
   const summaryceptionKey = keys.includes('summaryception');
   const vectFoxKey = keys.some((key) => /^3_vectfox/i.test(key));
+  const stLorebooksActive = targets.stLorebooks?.active === true
+    || targets.stLorebooks?.enabled === true
+    || targets.stLorebooks?.chatBound === true;
   const memoryBooksActive = targets.memoryBooks?.active === true
     || targets.memoryBooks?.enabled === true
     || Number(targets.memoryBooks?.entryCount || 0) > 0;
@@ -456,7 +469,7 @@ function targetEvidenceFromPromptInspection(promptInspection = {}, knownExternal
     }
   };
   return {
-    stLorebooks: Boolean(worldInfoKey || targets.stLorebooks?.active || targets.stLorebooks?.enabled || targets.stLorebooks?.chatBound),
+    stLorebooks: Boolean(worldInfoKey && stLorebooksActive),
     memoryBooks: Boolean(memoryBooksActive && diagnostics.memoryBooks.rangeDiagnosticPresent),
     summaryception: Boolean((summaryceptionKey || targets.summaryception?.enabled || targets.summaryception?.promptKeyActive) && diagnostics.summaryception.stalenessDiagnosticPresent),
     vectFox: Boolean((vectFoxKey || targets.vectFox?.enabled || targets.vectFox?.generationInterceptorActive || targets.vectFox?.summarizerInjectionEnabled) && diagnostics.vectFox.backendDiagnosticPresent),
@@ -1004,14 +1017,25 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
   const captureCount = Number(aggregate.captureCount || 0);
   const targetSummaryCount = Number(aggregate.targetSummaryCount || 0);
   const targetSummaries = Array.isArray(artifact.targetSummaries) ? artifact.targetSummaries : [];
+  const forbiddenFields = forbiddenExternalContextSummaryFields(artifact);
   const presentTargetSummaries = new Set();
+  const usefulTargetSummaries = new Set();
   for (const entry of targetSummaries) {
     const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
     for (const targetId of EXTERNAL_CONTEXT_TARGET_IDS) {
-      if (targets[targetId] && typeof targets[targetId] === 'object') presentTargetSummaries.add(targetId);
+      if (targets[targetId] && typeof targets[targetId] === 'object') {
+        presentTargetSummaries.add(targetId);
+        if (externalContextTargetSummaryHasUsefulEvidence(targetId, targets[targetId])) {
+          usefulTargetSummaries.add(targetId);
+        }
+      }
     }
   }
   const missingTargetSummaries = EXTERNAL_CONTEXT_TARGET_IDS.filter((targetId) => !presentTargetSummaries.has(targetId));
+  const placeholderTargetSummaries = EXTERNAL_CONTEXT_TARGET_IDS.filter((targetId) => (
+    presentTargetSummaries.has(targetId)
+    && !usefulTargetSummaries.has(targetId)
+  ));
   const missingFields = [];
   if (artifact.kind !== 'directive.sillytavern.externalContextSummary.v1') missingFields.push('kind');
   if (artifact.status !== 'pass') missingFields.push('status');
@@ -1022,7 +1046,10 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
   if (!knownExternalPromptKeys.length) missingFields.push('aggregate.knownExternalPromptKeys');
   if (!refHashes.length) missingFields.push('aggregate.refHashes');
   if (targetSummaryCount <= 0) missingFields.push('aggregate.targetSummaryCount');
+  if (aggregate.finalHostPromptMayIncludeExternal !== true) missingFields.push('aggregate.finalHostPromptMayIncludeExternal');
   if (missingTargetSummaries.length) missingFields.push('targetSummaries.requiredTargets');
+  if (placeholderTargetSummaries.length) missingFields.push('targetSummaries.usefulTargets');
+  if (forbiddenFields.length) missingFields.push('redaction.forbiddenFields');
   const status = missingFields.length ? 'fail' : 'pass';
   return {
     status,
@@ -1035,18 +1062,72 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
     targetSummaryCount,
     requiredTargetSummaries: [...EXTERNAL_CONTEXT_TARGET_IDS],
     presentTargetSummaries: [...presentTargetSummaries],
+    usefulTargetSummaries: [...usefulTargetSummaries],
     missingTargetSummaries,
+    placeholderTargetSummaries,
     redactionReasons,
     finalHostPromptMayIncludeExternal: aggregate.finalHostPromptMayIncludeExternal ?? null,
     authority: {
       directiveAuthority: artifact.authority?.directiveAuthority ?? null,
       role: artifact.authority?.role || null
     },
+    forbiddenFields,
     missingFields,
     summary: status === 'pass'
       ? `External context summary recorded ${captureCount} prompt-inspection capture(s) with ${targetSummaryCount} target summary record(s).`
-      : `External context summary artifact is invalid; missing or invalid fields: ${missingFields.join(', ')}.`
+      : `External context summary artifact is invalid; missing, invalid, or unsafe fields: ${missingFields.join(', ')}.`
   };
+}
+
+function externalContextTargetSummaryHasUsefulEvidence(targetId, target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  const usefulStatus = (value, blocked = ['unknown', 'missing', 'unavailable']) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return Boolean(normalized && !blocked.includes(normalized));
+  };
+  const hasArray = (value) => Array.isArray(value) && value.some(Boolean);
+  const hasPositiveNumber = (value) => Number.isFinite(Number(value)) && Number(value) > 0;
+  if (target.active === true || target.enabled === true || target.chatBound === true || target.promptKeyActive === true) return true;
+  if (hasArray(target.promptKeys) || hasArray(target.placements) || hasArray(target.redactionReasons)) return true;
+  if (target.settingsHash || target.entryHash || target.injectionHash || target.environmentHash || target.hash) return true;
+  if (hasPositiveNumber(target.entryCount) || hasPositiveNumber(target.rangeCount) || hasPositiveNumber(target.markerCount)) return true;
+  if (usefulStatus(target.status)) return true;
+  if (targetId === 'memoryBooks' && usefulStatus(target.rangeDiagnostics?.status)) return true;
+  if (targetId === 'summaryception' && usefulStatus(target.staleness?.status)) return true;
+  if (targetId === 'vectFox' && usefulStatus(target.backendDiagnostics?.status)) return true;
+  return false;
+}
+
+function forbiddenExternalContextSummaryFields(value, pathKey = '') {
+  const out = [];
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      out.push(...forbiddenExternalContextSummaryFields(item, `${pathKey}[${index}]`));
+    });
+    return out;
+  }
+  if (!value || typeof value !== 'object') {
+    if (
+      typeof value === 'string'
+      && EXTERNAL_CONTEXT_FORBIDDEN_SUMMARY_VALUE_PATTERN.test(value)
+      && !isExternalContextRedactionMetadataPath(pathKey)
+    ) {
+      out.push(pathKey || 'value');
+    }
+    return out;
+  }
+  for (const [key, item] of Object.entries(value)) {
+    const nextKey = pathKey ? `${pathKey}.${key}` : key;
+    if (
+      EXTERNAL_CONTEXT_FORBIDDEN_SUMMARY_KEY_PATTERN.test(key)
+      || EXTERNAL_CONTEXT_FORBIDDEN_SUMMARY_PAYLOAD_KEY_PATTERN.test(key)
+    ) {
+      out.push(nextKey);
+      continue;
+    }
+    out.push(...forbiddenExternalContextSummaryFields(item, nextKey));
+  }
+  return out;
 }
 
 export function summarizeLaneArtifactCompleteness({ artifactRoot, turnLimit } = {}) {

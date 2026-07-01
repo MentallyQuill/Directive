@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.runtime.lensPromptBudgetTrace.v1",
+  "title": "Directive LENS Prompt Budget Trace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "schemaVersion", "packetId", "promptRevision", "cacheKey", "lanes", "cacheInputs", "hash", "byteLength"],
+  "properties": {
+    "kind": { "const": "directive.lensPromptBudgetTrace.v1" },
+    "schemaVersion": { "const": 1 },
+    "packetId": { "type": ["string", "null"] },
+    "promptRevision": { "type": ["number", "null"] },
+    "cacheKey": { "type": ["string", "null"] },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "budgetTokens", "estimatedTokens", "reservedFloor", "includedRefs", "omittedRefs", "omissionReasons", "authority", "diagnosticOnly"],
+        "properties": {
+          "id": {
+            "enum": [
+              "stableRules",
+              "protectedContinuity",
+              "activeScene",
+              "activeCast",
+              "missionPressure",
+              "recentTranscript",
+              "recall",
+              "volatileTurn",
+              "externalEnvironment"
+            ]
+          },
+          "budgetTokens": { "type": "integer", "minimum": 0 },
+          "estimatedTokens": { "type": "integer", "minimum": 0 },
+          "reservedFloor": { "type": "integer", "minimum": 0 },
+          "includedRefs": { "type": "array" },
+          "omittedRefs": { "type": "array" },
+          "omissionReasons": { "type": "array", "items": { "type": "string" } },
+          "authority": { "type": "string" },
+          "diagnosticOnly": { "type": "boolean" }
+        }
+      }
+    },
+    "cacheInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mechanicsRevision", "promptDomainVector", "recallIndexRevision", "sceneSealRevision", "pressureArcDigestRevision", "packageRevision", "externalPromptEnvironmentRef"],
+      "properties": {
+        "mechanicsRevision": { "type": ["number", "null"] },
+        "promptDomainVector": { "type": ["object", "null"] },
+        "recallIndexRevision": { "type": ["string", "null"] },
+        "sceneSealRevision": { "type": ["string", "null"] },
+        "pressureArcDigestRevision": { "type": ["string", "null"] },
+        "packageRevision": { "type": ["string", "null"] },
+        "externalPromptEnvironmentRef": { "type": ["object", "null"] }
+      }
+    },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "byteLength": { "type": "integer", "minimum": 0 }
+  }
+}

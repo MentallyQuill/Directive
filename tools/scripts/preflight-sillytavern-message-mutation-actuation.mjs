@@ -264,6 +264,144 @@ function trackingChanged(before = null, after = null, kind = 'ingress') {
     || a?.replacementTextSet !== b?.replacementTextSet;
 }
 
+function proofTargetMesid(proof = {}) {
+  return String(proof.targetHostMessageId || proof.targetMesid || proof.hostMessageId || '').trim();
+}
+
+function validateSourceMutationProof({
+  proof = null,
+  artifact = {},
+  mutationKind,
+  expectedSourceRole,
+  expectedTrackedKind,
+  failures = []
+} = {}) {
+  if (!proof || typeof proof !== 'object') {
+    failures.push('sourceMutationProof is missing');
+    return null;
+  }
+  if (proof.kind !== 'directive.sourceMutationProof.v1') {
+    failures.push('sourceMutationProof kind must be directive.sourceMutationProof.v1');
+  }
+  if (proof.mutationKind !== mutationKind) {
+    failures.push(`sourceMutationProof mutationKind must be ${mutationKind}`);
+  }
+  if (proof.sourceRole !== expectedSourceRole) {
+    failures.push(`sourceMutationProof sourceRole must be ${expectedSourceRole}`);
+  }
+  if (proof.trackedKind !== expectedTrackedKind) {
+    failures.push(`sourceMutationProof trackedKind must be ${expectedTrackedKind}`);
+  }
+  const expectedMesid = String(
+    artifact.before?.targetMesid
+      || artifact.after?.targetMesid
+      || artifact[mutationKind === 'delete' ? 'deletion' : 'edit']?.targetMesid
+      || ''
+  ).trim();
+  const reportedMesid = proofTargetMesid(proof);
+  if (!reportedMesid) failures.push('sourceMutationProof targetHostMessageId is missing');
+  else if (expectedMesid && reportedMesid !== expectedMesid) {
+    failures.push(`sourceMutationProof targetHostMessageId mismatch: expected ${expectedMesid}, got ${reportedMesid}`);
+  }
+  if (proof.nativeHostControlMoved !== true) failures.push('sourceMutationProof nativeHostControlMoved must be true');
+  if (proof.trackingChanged !== true) failures.push('sourceMutationProof trackingChanged must be true');
+  if (Number(proof.recoveryDelta || 0) <= 0) failures.push('sourceMutationProof recoveryDelta must be positive');
+  if (!proof.coreRecovery?.status) failures.push('sourceMutationProof.coreRecovery status is missing');
+  if (!proof.coreRecovery?.recoveryCaseId && !proof.coreRecovery?.id && !proof.coreRecovery?.transactionId) {
+    failures.push('sourceMutationProof.coreRecovery id is missing');
+  }
+  if (proof.repairDecision?.kind !== 'directive.repairDecision.v1') {
+    failures.push('sourceMutationProof.repairDecision kind is missing');
+  }
+  if (!proof.repairDecision?.action) failures.push('sourceMutationProof.repairDecision action is missing');
+  if (!proof.repairDecision?.eventType) failures.push('sourceMutationProof.repairDecision eventType is missing');
+  return {
+    kind: proof.kind || null,
+    mutationKind: proof.mutationKind || null,
+    sourceRole: proof.sourceRole || null,
+    trackedKind: proof.trackedKind || null,
+    targetHostMessageId: reportedMesid || null,
+    nativeHostControlMoved: proof.nativeHostControlMoved === true,
+    trackingChanged: proof.trackingChanged === true,
+    recoveryDelta: Number(proof.recoveryDelta || 0),
+    coreRecovery: {
+      status: proof.coreRecovery?.status || null,
+      phase: proof.coreRecovery?.phase || null,
+      recoveryCaseId: proof.coreRecovery?.recoveryCaseId || proof.coreRecovery?.id || null,
+      transactionId: proof.coreRecovery?.transactionId || null
+    },
+    repairDecision: {
+      kind: proof.repairDecision?.kind || null,
+      action: proof.repairDecision?.action || null,
+      eventType: proof.repairDecision?.eventType || null,
+      sourceKind: proof.repairDecision?.sourceKind || null,
+      recoveryStatus: proof.repairDecision?.recoveryStatus || null
+    }
+  };
+}
+
+function validateSourceIntegrityProof({
+  proof = null,
+  variant = null,
+  sourceHashes = null,
+  failures = []
+} = {}) {
+  if (!proof || typeof proof !== 'object') {
+    failures.push('sourceIntegrityProof is missing');
+    return null;
+  }
+  if (proof.kind !== 'directive.sourceIntegrityProof.v1') {
+    failures.push('sourceIntegrityProof kind must be directive.sourceIntegrityProof.v1');
+  }
+  const integrityKind = proof.integrityKind || proof.mutationKind || null;
+  if (integrityKind !== 'selectedSwipe') failures.push('sourceIntegrityProof integrityKind must be selectedSwipe');
+  if (proof.sourceRole !== 'assistant') failures.push('sourceIntegrityProof sourceRole must be assistant');
+  const proofSelectedIndex = Number(proof.selectedSwipeIndex);
+  const proofSwipeCount = Number(proof.swipeCount);
+  if (!Number.isFinite(proofSelectedIndex)) failures.push('sourceIntegrityProof selectedSwipeIndex is missing');
+  if (!Number.isFinite(proofSwipeCount) || proofSwipeCount < 2) failures.push('sourceIntegrityProof swipeCount must be at least 2');
+  if (variant && Number.isFinite(Number(variant.selectedSwipeIndex)) && proofSelectedIndex !== Number(variant.selectedSwipeIndex)) {
+    failures.push('sourceIntegrityProof selectedSwipeIndex does not match selectedAssistantVariant');
+  }
+  if (variant && Number.isFinite(Number(variant.swipeCount)) && proofSwipeCount !== Number(variant.swipeCount)) {
+    failures.push('sourceIntegrityProof swipeCount does not match selectedAssistantVariant');
+  }
+  if (proof.sourceIntegrity !== 'clean') failures.push(`sourceIntegrityProof sourceIntegrity is ${proof.sourceIntegrity || 'missing'}`);
+  if (proof.selectedHashMatchesPrevious !== true) {
+    failures.push('sourceIntegrityProof selectedHashMatchesPrevious must be true');
+  }
+  if (proof.discardedSwipeCanariesAbsent !== true) {
+    failures.push('sourceIntegrityProof discardedSwipeCanariesAbsent must be true');
+  }
+  const hashRefs = proof.sourceTextHashes || proof.hashRefs || {};
+  const selectedHash = hashRefs.selectedAssistantVariant || sourceHashes?.selectedAssistantVariant || null;
+  const previousHash = hashRefs.previousAssistant || sourceHashes?.previousAssistant || null;
+  if (!selectedHash || !previousHash) {
+    failures.push('sourceIntegrityProof source hash refs are missing');
+  } else if (selectedHash !== previousHash) {
+    failures.push('sourceIntegrityProof selected assistant hash does not match previous assistant hash');
+  }
+  if (!proof.sreDecision?.status) failures.push('sourceIntegrityProof.sreDecision status is missing');
+  return {
+    kind: proof.kind || null,
+    integrityKind,
+    sourceRole: proof.sourceRole || null,
+    selectedSwipeIndex: Number.isFinite(proofSelectedIndex) ? proofSelectedIndex : null,
+    swipeCount: Number.isFinite(proofSwipeCount) ? proofSwipeCount : null,
+    sourceIntegrity: proof.sourceIntegrity || null,
+    selectedHashMatchesPrevious: proof.selectedHashMatchesPrevious === true,
+    discardedSwipeCanariesAbsent: proof.discardedSwipeCanariesAbsent === true,
+    sourceTextHashes: {
+      selectedAssistantVariant: selectedHash,
+      previousAssistant: previousHash
+    },
+    sreDecision: {
+      status: proof.sreDecision?.status || null,
+      action: proof.sreDecision?.action || null
+    }
+  };
+}
+
 function scenarioResult({
   id,
   artifactPath,
@@ -316,6 +454,14 @@ function validateEditScenario({ id, filePath, expectedIsUser }) {
   }
   if (Number(artifact.deltas?.recovery || 0) <= 0) failures.push('recovery journal delta did not increase after edit');
   if (Number(artifact.deltas?.promptContextRevision || 0) < 0) warnings.push('prompt context revision moved backward');
+  const sourceMutationProof = validateSourceMutationProof({
+    proof: artifact.sourceMutationProof,
+    artifact,
+    mutationKind: 'edit',
+    expectedSourceRole: expectedIsUser ? 'source' : 'assistant',
+    expectedTrackedKind: trackedKind,
+    failures
+  });
   return scenarioResult({
     id,
     artifactPath: filePath,
@@ -330,7 +476,8 @@ function validateEditScenario({ id, filePath, expectedIsUser }) {
       beforeStatus: artifact.before?.[trackedKind]?.status || null,
       afterStatus: artifact.after?.[trackedKind]?.status || null,
       deltaRecovery: Number(artifact.deltas?.recovery || 0),
-      deltaPromptContextRevision: Number(artifact.deltas?.promptContextRevision || 0)
+      deltaPromptContextRevision: Number(artifact.deltas?.promptContextRevision || 0),
+      sourceMutationProof
     }
   });
 }
@@ -364,6 +511,14 @@ function validateDeleteScenario({ id, filePath, expectedIsUser }) {
   }
   if (Number(artifact.deltas?.recovery || 0) <= 0) failures.push('recovery journal delta did not increase after delete');
   if (Number(artifact.deltas?.chatLength || 0) >= 0) warnings.push('chat length did not decrease after delete');
+  const sourceMutationProof = validateSourceMutationProof({
+    proof: artifact.sourceMutationProof,
+    artifact,
+    mutationKind: 'delete',
+    expectedSourceRole: expectedIsUser ? 'source' : 'assistant',
+    expectedTrackedKind: trackedKind,
+    failures
+  });
   return scenarioResult({
     id,
     artifactPath: filePath,
@@ -379,7 +534,8 @@ function validateDeleteScenario({ id, filePath, expectedIsUser }) {
       afterStatus: artifact.after?.[trackedKind]?.status || null,
       deltaChatLength: Number(artifact.deltas?.chatLength || 0),
       deltaRecovery: Number(artifact.deltas?.recovery || 0),
-      deltaPromptContextRevision: Number(artifact.deltas?.promptContextRevision || 0)
+      deltaPromptContextRevision: Number(artifact.deltas?.promptContextRevision || 0),
+      sourceMutationProof
     }
   });
 }
@@ -411,6 +567,12 @@ function validateSelectedSwipeScenario(filePath) {
   if (!artifact.sourceEditInvalidation) {
     warnings.push('selected-swipe proof did not include source edit invalidation closeout');
   }
+  const sourceIntegrityProof = validateSourceIntegrityProof({
+    proof: artifact.sourceIntegrityProof,
+    variant,
+    sourceHashes,
+    failures
+  });
   return scenarioResult({
     id: 'selected-swipe',
     artifactPath: filePath,
@@ -426,7 +588,8 @@ function validateSelectedSwipeScenario(filePath) {
       swipeCount: Number.isFinite(Number(variant?.swipeCount)) ? Number(variant.swipeCount) : null,
       sourceIntegrity: variant?.sourceIntegrity || null,
       hashMatched: Boolean(sourceHashes?.selectedAssistantVariant && sourceHashes.selectedAssistantVariant === sourceHashes.previousAssistant),
-      sourceEditInvalidation: artifact.sourceEditInvalidation || null
+      sourceEditInvalidation: artifact.sourceEditInvalidation || null,
+      sourceIntegrityProof
     }
   });
 }

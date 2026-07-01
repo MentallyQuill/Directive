@@ -37,6 +37,10 @@ import {
   campaignPackageImportPath
 } from '../../src/storage/directive-storage-repository.mjs';
 import {
+  persistActiveCampaignStateV2
+} from '../../src/storage/active-save-facade-v2.mjs';
+import {
+  commitV2EventTurnSegments,
   commitV2SaveLayout
 } from '../../src/storage/transaction-store-v2.mjs';
 
@@ -68,6 +72,15 @@ function requireEqual(actual, expected, location) {
 function requireIncludes(values, expected, location) {
   if (!Array.isArray(values) || !values.includes(expected)) {
     at(location, `missing "${expected}"`);
+  }
+}
+
+async function requireRejectsWithCode(action, expectedCode, location) {
+  try {
+    await action();
+    at(location, `did not reject with ${expectedCode}`);
+  } catch (error) {
+    requireEqual(error?.code, expectedCode, location);
   }
 }
 
@@ -343,6 +356,145 @@ requireEqual(adapter.writeLog, [
   DIRECTIVE_STORAGE_PATHS.saveIndex
 ], 'overwriting an indexed save avoids redundant storage index upload');
 
+const runtimeBridgeState = {
+  ...cloneJson(firstSave.payload.campaignState),
+  campaign: {
+    ...firstSave.payload.campaignState.campaign,
+    currentStardate: 53050.6
+  },
+  runtimeTracking: {
+    ingressLedger: [{
+      id: 'runtime-bridge-ingress',
+      hostMessageId: '44',
+      textHash: 'runtime-bridge-hash-44',
+      status: 'classified'
+    }],
+    responseLedger: [{
+      id: 'runtime-bridge-response',
+      hostMessageId: '45',
+      outcomeId: 'runtime-bridge-outcome',
+      replacementText: 'RAW_RUNTIME_BRIDGE_REPLACEMENT_TEXT',
+      status: 'posted'
+    }],
+    recoveryJournal: [],
+    history: [{
+      snapshot: {
+        rawRuntimeBridgeHistory: 'RAW_RUNTIME_BRIDGE_HISTORY'
+      }
+    }]
+  }
+};
+const runtimeBridgePersist = await persistActiveCampaignStateV2(adapter, {
+  saveRecord: firstSave,
+  campaignState: runtimeBridgeState,
+  packageData,
+  summary: 'Repository runtime bridge v2 persist.',
+  reason: 'repository-runtime-bridge-test',
+  now: '2026-06-18T19:30:10.000Z'
+});
+requireEqual(runtimeBridgePersist.storageFormat, 'v2', 'runtime bridge persist storage format');
+snapshot = adapter.snapshot();
+requireEqual(snapshot[firstSavePath].payload.campaignState.campaign.currentStardate, 53050.4, 'runtime bridge persist leaves v1 checkpoint stale');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].runtimeStorageFormat, 'v2', 'runtime bridge marks save index entry');
+const runtimeBridgeLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
+  now: '2026-06-18T19:30:11.000Z'
+});
+requireEqual(runtimeBridgeLoaded.campaign.currentStardate, 53050.6, 'load campaign save prefers runtime bridge v2 state');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.schemaVersion, 2, 'load campaign save rehydrates compact runtime bridge projections');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.ingressLedger[0].hostMessageId, '44', 'load campaign save restores runtime bridge ingress projection');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.ingressLedger[0].textHash, 'runtime-bridge-hash-44', 'load campaign save restores runtime bridge ingress hash');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger[0].replacementText, undefined, 'runtime bridge load does not rehydrate raw replacement text');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger[0].replacementTextPresent, true, 'runtime bridge load preserves replacement-text presence');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger[0].replacementTextHash.length, 64, 'runtime bridge load preserves replacement-text hash');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.history, undefined, 'runtime bridge load does not restore raw runtime history');
+const recoveredRuntimeBridge = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:30:12.000Z'
+});
+requireEqual(recoveredRuntimeBridge.activeSaveId, firstSave.id, 'active recovery keeps runtime bridge save active');
+requireEqual(recoveredRuntimeBridge.storageFormat, 'v2', 'active recovery reports runtime bridge v2 storage format');
+requireEqual(recoveredRuntimeBridge.campaignState.campaign.currentStardate, 53050.6, 'active recovery prefers runtime bridge v2 state');
+requireEqual(recoveredRuntimeBridge.campaignState.runtimeTracking.schemaVersion, 2, 'active recovery rehydrates compact runtime bridge projections');
+const runtimeBridgeManifestPath = runtimeBridgePersist.saveManifestRef.logicalKey;
+snapshot = adapter.snapshot();
+const runtimeBridgeFreshIndex = cloneJson(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex]);
+const runtimeBridgeFreshRef = cloneJson(runtimeBridgeFreshIndex.saves[firstSave.id].v2ManifestRef);
+const runtimeBridgeStaleRefIndex = cloneJson(runtimeBridgeFreshIndex);
+runtimeBridgeStaleRefIndex.saves[firstSave.id].v2ManifestRef = {
+  ...runtimeBridgeStaleRefIndex.saves[firstSave.id].v2ManifestRef,
+  hash: '0'.repeat(64)
+};
+await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeStaleRefIndex);
+const runtimeBridgeStaleRefLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
+  now: '2026-06-18T19:30:12.500Z'
+});
+requireEqual(runtimeBridgeStaleRefLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge manifest ref hash is stale');
+requireEqual(
+  runtimeBridgeStaleRefLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
+  false,
+  'stale runtime bridge ref fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
+);
+const recoveredRuntimeBridgeStaleRef = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:30:12.750Z'
+});
+requireEqual(recoveredRuntimeBridgeStaleRef.storageFormat, undefined, 'active recovery fallback reports v1 storage when runtime bridge manifest ref hash is stale');
+requireEqual(recoveredRuntimeBridgeStaleRef.campaignState.campaign.currentStardate, 53050.4, 'active recovery falls back to stale v1 checkpoint when runtime bridge manifest ref hash is stale');
+const runtimeBridgeRestoredIndex = cloneJson(runtimeBridgeFreshIndex);
+runtimeBridgeRestoredIndex.saves[firstSave.id].v2ManifestRef = runtimeBridgeFreshRef;
+await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeRestoredIndex);
+snapshot = adapter.snapshot();
+const runtimeBridgeManifest = cloneJson(snapshot[runtimeBridgeManifestPath]);
+const runtimeBridgeHeadPath = runtimeBridgeManifest.head.logicalKey;
+const originalRuntimeBridgeHead = cloneJson(snapshot[runtimeBridgeHeadPath]);
+const corruptRuntimeBridgeHead = cloneJson(originalRuntimeBridgeHead);
+corruptRuntimeBridgeHead.state.campaign.currentStardate = 59998.8;
+await adapter.writeJson(runtimeBridgeHeadPath, corruptRuntimeBridgeHead);
+const runtimeBridgeCorruptHeadLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
+  now: '2026-06-18T19:30:12.800Z'
+});
+requireEqual(runtimeBridgeCorruptHeadLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge head hash mismatches');
+requireEqual(
+  runtimeBridgeCorruptHeadLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
+  false,
+  'corrupt runtime bridge head fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
+);
+await adapter.writeJson(runtimeBridgeHeadPath, originalRuntimeBridgeHead);
+const runtimeBridgeEventPath = runtimeBridgeManifest.eventSegments[0].logicalKey;
+const originalRuntimeBridgeEventSegment = cloneJson(snapshot[runtimeBridgeEventPath]);
+const corruptRuntimeBridgeEventSegment = cloneJson(originalRuntimeBridgeEventSegment);
+corruptRuntimeBridgeEventSegment.entries[0].status = 'corrupted-after-ref';
+await adapter.writeJson(runtimeBridgeEventPath, corruptRuntimeBridgeEventSegment);
+const runtimeBridgeCorruptEventLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
+  now: '2026-06-18T19:30:12.900Z'
+});
+requireEqual(runtimeBridgeCorruptEventLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge event segment hash mismatches');
+requireEqual(
+  runtimeBridgeCorruptEventLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
+  false,
+  'corrupt runtime bridge event fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
+);
+await adapter.writeJson(runtimeBridgeEventPath, originalRuntimeBridgeEventSegment);
+adapter.deleteJson(runtimeBridgeManifestPath);
+const runtimeBridgeFallbackLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
+  now: '2026-06-18T19:30:13.000Z'
+});
+requireEqual(runtimeBridgeFallbackLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge manifest is missing');
+requireEqual(
+  runtimeBridgeFallbackLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
+  false,
+  'runtime bridge fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
+);
+requireEqual(
+  stable(runtimeBridgeFallbackLoaded).includes('RAW_RUNTIME_BRIDGE_HISTORY'),
+  false,
+  'runtime bridge fallback does not restore raw v2 runtime history from the missing bridge'
+);
+const recoveredRuntimeBridgeFallback = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:30:14.000Z'
+});
+requireEqual(recoveredRuntimeBridgeFallback.activeSaveId, firstSave.id, 'active recovery fallback keeps first save active after missing runtime bridge manifest');
+requireEqual(recoveredRuntimeBridgeFallback.storageFormat, undefined, 'active recovery fallback reports v1 storage when runtime bridge manifest is missing');
+requireEqual(recoveredRuntimeBridgeFallback.campaignState.campaign.currentStardate, 53050.4, 'active recovery falls back to stale v1 checkpoint when runtime bridge manifest is missing');
+
 const v2CampaignState = {
   ...campaignState,
   campaign: {
@@ -434,6 +586,92 @@ const recoveredV2 = await recoverActiveCampaignSave(adapter, {
 requireEqual(recoveredV2.activeSaveId, v2SaveId, 'recover active v2 save id');
 requireEqual(recoveredV2.storageFormat, 'v2', 'recover active v2 storage format');
 requireEqual(recoveredV2.campaignState.player.name, 'Talia Renn', 'recover active v2 materialized state');
+await commitV2EventTurnSegments(adapter, {
+  campaignId: v2CampaignState.campaign.id,
+  saveId: v2SaveId,
+  now: '2026-06-18T19:30:34.250Z',
+  eventSegments: [[{
+    id: 'v2-hot-ingress-event',
+    type: 'runtimeIngressProjected',
+    ingressId: 'v2-hot-ingress',
+    hostMessageId: 'msg-v2-hot-player',
+    turnId: 'turn-v2-hot',
+    textHash: 'hash-v2-hot-player',
+    status: 'classified'
+  }, {
+    id: 'v2-hot-response-event',
+    type: 'runtimeResponseProjected',
+    responseId: 'v2-hot-response',
+    hostMessageId: 'msg-v2-hot-assistant',
+    turnId: 'turn-v2-hot',
+    outcomeId: 'outcome-v2-hot',
+    status: 'posted',
+    responseKind: 'committedOutcome'
+  }]],
+  turnSegments: [[{
+    kind: 'directive.coreStoreTurnRecord.v1',
+    schemaVersion: 1,
+    id: 'v2-hot-turn-record',
+    turnId: 'turn-v2-hot',
+    outcomeId: 'outcome-v2-hot',
+    phase: 'runtimeProjected'
+  }]],
+  metadata: {
+    source: 'repository-pure-v2-hot-append'
+  }
+});
+let loadedV2AfterHotAppend = null;
+let loadedV2AfterHotAppendError = null;
+try {
+  loadedV2AfterHotAppend = await loadCampaignSaveFromStorage(adapter, v2SaveId, {
+    now: '2026-06-18T19:30:34.300Z'
+  });
+} catch (error) {
+  loadedV2AfterHotAppendError = error;
+}
+requireEqual(loadedV2AfterHotAppendError?.code || null, null, 'pure v2 load after hot append should not reject on stale manifest ref metadata');
+requireEqual(
+  loadedV2AfterHotAppend?.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-player'),
+  true,
+  'pure v2 load after hot append rehydrates appended runtime ingress projection'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.runtimeTracking?.responseLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-assistant' && entry.outcomeId === 'outcome-v2-hot'),
+  true,
+  'pure v2 load after hot append rehydrates appended runtime response projection'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.turnLedger?.entries?.some((entry) => entry.turnId === 'turn-v2-hot' && entry.outcomeId === 'outcome-v2-hot'),
+  true,
+  'pure v2 load after hot append rehydrates appended turn projection'
+);
+const recoveredV2AfterHotAppend = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:30:34.350Z'
+});
+requireEqual(
+  recoveredV2AfterHotAppend.campaignState?.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-player'),
+  true,
+  'pure v2 recovery after hot append rehydrates appended runtime ingress projection'
+);
+requireEqual(
+  recoveredV2AfterHotAppend.campaignState?.turnLedger?.entries?.some((entry) => entry.turnId === 'turn-v2-hot'),
+  true,
+  'pure v2 recovery after hot append rehydrates appended turn projection'
+);
+snapshot = adapter.snapshot();
+const v2HeadPath = v2Commit.saveManifest.head.logicalKey;
+const originalV2Head = cloneJson(snapshot[v2HeadPath]);
+const corruptV2Head = cloneJson(originalV2Head);
+corruptV2Head.state.campaign.currentStardate = 59999.9;
+await adapter.writeJson(v2HeadPath, corruptV2Head);
+await requireRejectsWithCode(
+  () => loadCampaignSaveFromStorage(adapter, v2SaveId, {
+    now: '2026-06-18T19:30:34.500Z'
+  }),
+  'DIRECTIVE_V2_ARTIFACT_HASH_MISMATCH',
+  'pure v2 save load fails closed when materialized head hash mismatches'
+);
+await adapter.writeJson(v2HeadPath, originalV2Head);
 await loadCampaignSaveFromStorage(adapter, firstSave.id, {
   now: '2026-06-18T19:30:35.000Z'
 });

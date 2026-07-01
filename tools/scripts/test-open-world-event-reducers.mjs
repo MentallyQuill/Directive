@@ -195,6 +195,11 @@ assert.deepEqual(
   'compact reducer refs should expose stable changed roots without raw operation values'
 );
 assert.equal(JSON.stringify(validRef).includes('value.set'), false);
+assert.equal(JSON.stringify(validRef).includes('"value"'), false);
+assert.equal(JSON.stringify(validRef).includes('"upsert"'), false);
+assert.equal(JSON.stringify(validRef).includes('"remove"'), false);
+assert.equal(JSON.stringify(validRef).includes('"hostMessageIds"'), false);
+assertNoForbiddenPayload(validRef, 'compact reducer ref');
 
 const invalidRootBundle = cloneJson(coordinated.turnPacket.stateDelta.openWorld.reducerBundle);
 invalidRootBundle.operations[0].path = ['turnLedger', 'entries'];

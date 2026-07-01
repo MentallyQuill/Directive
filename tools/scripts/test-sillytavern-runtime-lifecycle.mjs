@@ -134,6 +134,7 @@ const eventTypes = {
   MESSAGE_EDITED: 'message-edited',
   MESSAGE_UPDATED: 'message-updated',
   MESSAGE_DELETED: 'message-deleted',
+  MESSAGE_SWIPED: 'message-swiped',
   MESSAGE_REMOVED: 'message-removed',
   GENERATION_STOPPED: 'generation-stopped',
   EXTENSION_DISABLED: 'extension-disabled',
@@ -147,6 +148,7 @@ assert.deepEqual([...registered.keys()].sort(), [
   eventTypes.MESSAGE_DELETED,
   eventTypes.MESSAGE_EDITED,
   eventTypes.MESSAGE_UPDATED,
+  eventTypes.MESSAGE_SWIPED,
   eventTypes.MESSAGE_REMOVED,
   eventTypes.MESSAGE_SENT,
   eventTypes.GENERATION_STOPPED,
@@ -173,6 +175,10 @@ const app = {
   async handleHostMessageDeleted(payload) {
     calls.push(['deleted', payload]);
     return { handled: true };
+  },
+  async handleHostMessageSelectedSwipeChanged(payload) {
+    calls.push(['selected-swipe', payload]);
+    return { handled: true, action: 'selectedSwipeSourceMutation' };
   },
   async handleHostGenerationStopped(payload) {
     calls.push(['generation-stopped', payload]);
@@ -307,6 +313,11 @@ assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
 assert.equal(calls.at(-1)[0], 'generation-stopped');
 assert.equal(calls.at(-1)[1].reason, 'host-generation-stopped');
 clearDirectiveTurnActivity(stopActivityToken);
+
+const selectedSwipeResult = await registered.get('message-swiped')({ id: '31', selectedSwipeIndex: 1, swipeCount: 3 });
+assert.equal(selectedSwipeResult.handled, true);
+assert.equal(selectedSwipeResult.action, 'selectedSwipeSourceMutation');
+assert.deepEqual(calls.at(-1), ['selected-swipe', { id: '31', selectedSwipeIndex: 1, swipeCount: 3 }]);
 
 const originalDocument = globalThis.document;
 globalThis.document = createFakeDocument();
@@ -647,8 +658,8 @@ await registered.get('message-deleted')(41);
 await registered.get('chat-changed')({ chatId: 'chat-2' });
 const intercepted = await globalThis.directiveGenerationInterceptor([], 4096, () => {}, 'normal');
 assert.equal(intercepted.abortDefaultGeneration, true);
-assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 7).map((entry) => entry[0]), ['sent', 'generation-stopped', 'edited', 'visibility', 'deleted', 'deleted', 'chat']);
-assert.deepEqual(calls[callsBeforeSentObservation + 5], ['deleted', {
+assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 8).map((entry) => entry[0]), ['sent', 'generation-stopped', 'selected-swipe', 'edited', 'visibility', 'deleted', 'deleted', 'chat']);
+assert.deepEqual(calls[callsBeforeSentObservation + 6], ['deleted', {
   hostMessageId: '16',
   source: 'test-native-delete-button',
   sillyTavernPayload: 41
@@ -690,7 +701,7 @@ assert.equal(extensionDisablePromptClear[1].preservePacket, undefined);
 assert.equal(globalThis.directiveGenerationInterceptor, undefined);
 assert.equal(getSillyTavernDirectiveRuntimeBridge().enabled, false);
 assert.equal(registered.size, 0);
-assert.equal(unregistered.length, 11);
+assert.equal(unregistered.length, 12);
 
 clearSillyTavernDirectiveRuntimeBridge();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

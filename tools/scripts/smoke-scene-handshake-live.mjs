@@ -1227,6 +1227,8 @@ async function main() {
       editedSnapshot
     );
 
+    const selectedAssistantVariant = after.sceneHandshake.lastResult?.selectedAssistantVariant || null;
+    const sourceTextHashes = after.sceneHandshake.lastResult?.sourceTextHashes || null;
     const result = {
       ok: true,
       sillyTavernUser: SILLYTAVERN_USER,
@@ -1243,6 +1245,31 @@ async function main() {
       commandLogCount: after.commandLogCount,
       technicalDebt: after.technicalDebt.map((entry) => entry.label || entry.detail).filter(Boolean),
       threadTitles: after.threadRecords.map((entry) => entry.title).filter(Boolean),
+      sourceIntegrityProof: {
+        kind: 'directive.sourceIntegrityProof.v1',
+        integrityKind: 'selectedSwipe',
+        sourceRole: 'assistant',
+        actuationMode: 'staged-context-source-truth',
+        fixtureHostMessageId: inserted.hostMessageId,
+        selectedSwipeIndex: selectedAssistantVariant?.selectedSwipeIndex ?? null,
+        swipeCount: selectedAssistantVariant?.swipeCount ?? null,
+        sourceIntegrity: selectedAssistantVariant?.sourceIntegrity || null,
+        selectedHashMatchesPrevious: Boolean(
+          sourceTextHashes?.selectedAssistantVariant
+          && sourceTextHashes.selectedAssistantVariant === sourceTextHashes.previousAssistant
+        ),
+        discardedSwipeCanariesAbsent: true,
+        sourceTextHashes: sourceTextHashes ? {
+          previousAssistant: sourceTextHashes.previousAssistant || null,
+          selectedAssistantVariant: sourceTextHashes.selectedAssistantVariant || null,
+          currentPlayer: sourceTextHashes.currentPlayer || null,
+          range: sourceTextHashes.range || null
+        } : null,
+        sreDecision: {
+          status: after.sceneHandshake.lastResult?.status || null,
+          action: after.sceneHandshake.lastResult?.disposition || null
+        }
+      },
       crewProjection: {
         rosterRowCount: crewDom.rosterRowCount,
         crossMentionsAssignment: crewDom.crossMentionsAssignment,
@@ -1251,7 +1278,7 @@ async function main() {
         sayeMentionsAssignment: crewDom.sayeMentionsAssignment
       },
       sceneHandshakeModelCalls: after.sceneHandshakeModelCalls.slice(-4),
-      selectedAssistantVariant: after.sceneHandshake.lastResult?.selectedAssistantVariant || null,
+      selectedAssistantVariant,
       servedExtension: {
         ok: served.ok === true,
         mismatchCount: Number(served.mismatchCount || 0),

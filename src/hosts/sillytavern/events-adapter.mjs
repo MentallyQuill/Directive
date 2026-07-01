@@ -6,6 +6,8 @@ const SILLYTAVERN_EVENT_ALIASES = Object.freeze({
   messageEdited: 'MESSAGE_EDITED',
   messageUpdated: 'MESSAGE_UPDATED',
   messageDeleted: 'MESSAGE_DELETED',
+  messageSwiped: 'MESSAGE_SWIPED',
+  messageSwipe: 'MESSAGE_SWIPED',
   generationStarted: 'GENERATION_STARTED',
   generationStopped: 'GENERATION_STOPPED',
   generationEnded: 'GENERATION_ENDED'

@@ -519,6 +519,14 @@ function countArray(value) {
   return Array.isArray(value) ? value.length : 0;
 }
 
+function acceptedBackgroundBatchWorkerCount(backgroundBatches = []) {
+  return (Array.isArray(backgroundBatches) ? backgroundBatches : []).reduce((sum, batch) => {
+    if (!batch?.acceptedBatchHash && !batch?.forgeBatchRef?.acceptedBatchHash) return sum;
+    const workerCount = Number(batch.workerCount ?? batch.forgeBatchRef?.workerCount);
+    return sum + (Number.isFinite(workerCount) && workerCount > 0 ? workerCount : 1);
+  }, 0);
+}
+
 function commandLogEntryCount(state = null) {
   if (Array.isArray(state?.commandLog)) return state.commandLog.length;
   return countArray(state?.commandLog?.entries);
@@ -737,18 +745,47 @@ function stateFreshnessCounters(state = null) {
   const tracking = state?.runtimeTracking || {};
   const ledger = tracking.endConditionLedger || {};
   const responseLedger = Array.isArray(tracking.responseLedger) ? tracking.responseLedger : [];
+  const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections
+    || tracking?.directiveRuntimeEvidence?.coreStoreReadProjections
+    || null;
+  const coreTurnLedgerEntries = Array.isArray(coreProjection?.turnLedger?.entries)
+    ? coreProjection.turnLedger.entries.length
+    : null;
+  const coreIngressLedgerEntries = Array.isArray(coreProjection?.ingressLedger)
+    ? coreProjection.ingressLedger.length
+    : null;
+  const coreResponseLedger = Array.isArray(coreProjection?.responseLedger)
+    ? coreProjection.responseLedger
+    : null;
+  const coreRecoveryJournalEntries = Array.isArray(coreProjection?.recoveryJournal)
+    ? coreProjection.recoveryJournal.length
+    : null;
+  const coreSidecarDiagnostics = Array.isArray(coreProjection?.sidecarDiagnostics)
+    ? coreProjection.sidecarDiagnostics.length
+    : null;
+  const coreAcceptedBackgroundWorkers = Array.isArray(coreProjection?.backgroundBatches)
+    ? acceptedBackgroundBatchWorkerCount(coreProjection.backgroundBatches)
+    : null;
   return {
     revision: Math.max(0, Number(tracking.revision) || 0),
     mechanicsRevision: Math.max(0, Number(tracking.mechanicsRevision) || 0),
     promptContextRevision: Math.max(0, Number(state?.campaignChatBinding?.promptContextRevision) || 0),
     commandLogEntries: commandLogEntryCount(state),
-    turnLedgerEntries: countArray(state?.turnLedger?.entries),
-    ingressLedgerEntries: countArray(tracking.ingressLedger),
-    responseLedgerEntries: responseLedger.length,
+    turnLedgerEntries: Math.max(countArray(state?.turnLedger?.entries), coreTurnLedgerEntries ?? 0),
+    ingressLedgerEntries: Math.max(countArray(tracking.ingressLedger), coreIngressLedgerEntries ?? 0),
+    responseLedgerEntries: Math.max(responseLedger.length, coreResponseLedger?.length ?? 0),
     responseLedgerRevision: Math.max(0, Number(tracking.responseLedgerRevision) || 0),
-    responseLedgerIntegritySelections: responseLedger.filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
-    recoveryJournalEntries: countArray(tracking.recoveryJournal),
-    sidecarJournalEntries: countArray(tracking.sidecarJournal),
+    responseLedgerIntegritySelections: Math.max(
+      responseLedger.filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
+      (coreResponseLedger || []).filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length
+    ),
+    recoveryJournalEntries: Math.max(countArray(tracking.recoveryJournal), coreRecoveryJournalEntries ?? 0),
+    sidecarJournalEntries: Math.max(
+      countArray(tracking.sidecarJournal),
+      Number(state?.runtimeResume?.sidecarCount) || 0,
+      coreSidecarDiagnostics ?? 0,
+      coreAcceptedBackgroundWorkers ?? 0
+    ),
     pendingInteractions: countArray(tracking.pendingInteractions),
     endConditionDetections: countArray(ledger.detections),
     endConditionDecisions: countArray(ledger.decisions),
@@ -1003,6 +1040,35 @@ export function createDirectiveRuntimeApp({
   const runtimeHost = host ? assertDirectiveHost(host) : null;
   const storageAdapter = adapter || runtimeHost?.storage;
   let campaignState = null;
+  function forgeSourceCurrentForRuntime(payload = {}) {
+    const tracked = campaignState ? initializeCampaignRuntimeTracking(campaignState) : null;
+    const ledger = tracked?.runtimeTracking?.ingressLedger || [];
+    const sourceFrameId = compactString(payload.sourceFrameRef?.id || payload.sourceFrameRef?.sourceFrameId);
+    const sourceToken = compactString(payload.sourceToken);
+    const ingress = [...ledger].reverse().find((entry) => (
+      (payload.transactionId && entry.coreTransactionId === payload.transactionId)
+      || (sourceFrameId && (entry.sourceFrameId === sourceFrameId || entry.sourceFrame?.id === sourceFrameId))
+      || (sourceToken && entry.sourceFrame?.sourceToken === sourceToken)
+    )) || null;
+    if (!ingress) return { ok: false, reason: 'source-ingress-missing' };
+    if (ingress.invalidatedAt || ingress.deletedAt || ingress.editedAt) {
+      return { ok: false, reason: 'source-ingress-mutated' };
+    }
+    if (['restartSuperseded', 'superseded', 'invalidated', 'source-stale', 'deleted'].includes(compactString(ingress.status))) {
+      return { ok: false, reason: `source-ingress-${compactString(ingress.status)}` };
+    }
+    if (payload.transactionId && ingress.coreTransactionId && ingress.coreTransactionId !== payload.transactionId) {
+      return { ok: false, reason: 'source-transaction-mismatch' };
+    }
+    if (sourceFrameId && ingress.sourceFrameId && ingress.sourceFrameId !== sourceFrameId) {
+      return { ok: false, reason: 'source-frame-mismatch' };
+    }
+    if (sourceToken && ingress.sourceFrame?.sourceToken && ingress.sourceFrame.sourceToken !== sourceToken) {
+      return { ok: false, reason: 'source-token-mismatch' };
+    }
+    return { ok: true };
+  }
+
   function coreDiagnosticTargetForModelCall(event = {}) {
     if (!campaignState) return null;
     const tracked = initializeCampaignRuntimeTracking(campaignState);
@@ -1074,11 +1140,13 @@ export function createDirectiveRuntimeApp({
   let lastDirectivePresetInstallResult = null;
   let lastManualSaveGuard = null;
   let currentChatScope = null;
+  let runtimeSettingsOverlay = null;
   let programmaticChatOpenSuppression = null;
   let lastError = null;
   let chatNativeServices = null;
   let durabilityCoordinator = null;
   let lensPromptScheduler = null;
+  let runtimeForgeCoordinator = null;
   let publicApi = null;
   let runtimePersistQueue = Promise.resolve();
   let commandLogSummaryQueue = Promise.resolve();
@@ -1624,6 +1692,26 @@ export function createDirectiveRuntimeApp({
     }
   };
 
+  async function settleInternalForgeBackgroundBatch(prepared = null, {
+    sourceFrameId = null,
+    internalOwner = null,
+    providerOwner = 'forge-internal',
+    flushLens = false
+  } = {}) {
+    if (!prepared?.transactionId || !prepared?.bundle) return null;
+    if (typeof runtimeForgeCoordinator?.settleInternalBackgroundBatch === 'function') {
+      return runtimeForgeCoordinator.settleInternalBackgroundBatch({
+        transactionId: prepared.transactionId,
+        bundle: prepared.bundle,
+        sourceFrameRef: sourceFrameId ? { id: sourceFrameId } : prepared.bundle.sourceFrameRef,
+        internalOwner,
+        providerOwner,
+        flushLens
+      });
+    }
+    return runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+  }
+
   const DEFAULT_LENS_PROMPT_DIRTY_DOMAINS = Object.freeze([
     'identity',
     'sceneTime',
@@ -1646,7 +1734,8 @@ export function createDirectiveRuntimeApp({
         packet = null,
         lane = 'visible',
         reason = 'lens-prompt-install',
-        cacheKey = null
+        cacheKey = null,
+        cacheInputs = {}
       } = {}) => {
         const requestedMethod = method === 'rebuild' && typeof runtimeHost?.prompt?.rebuild === 'function'
           ? 'rebuild'
@@ -1661,7 +1750,8 @@ export function createDirectiveRuntimeApp({
           packet,
           lane,
           reason,
-          cacheKey
+          cacheKey,
+          cacheInputs
         });
       },
       clearPromptPacket: async (options = {}) => runtimeHost?.prompt?.clear?.(options) || { ok: true },
@@ -1823,6 +1913,106 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  async function lensCacheInputsForPromptSync() {
+    if (typeof runtimeCoreTurnStore?.readProjections !== 'function') return {};
+    try {
+      const projections = await runtimeCoreTurnStore.readProjections() || {};
+      const recallIndexRevision = compactString(projections.recallIndex?.revision);
+      const sceneSealRevision = compactString(projections.sceneSealRevision);
+      const pressureArcDigestRevision = compactString(projections.pressureArcDigestRevision);
+      return {
+        ...(recallIndexRevision ? { recallIndexRevision } : {}),
+        ...(sceneSealRevision ? { sceneSealRevision } : {}),
+        ...(pressureArcDigestRevision ? { pressureArcDigestRevision } : {})
+      };
+    } catch (error) {
+      console.warn('[Directive] Failed to read CORE prompt cache inputs:', error);
+      return {};
+    }
+  }
+
+  function coreProjectionFreshnessEvidence(projections = null) {
+    if (!projections || typeof projections !== 'object') return null;
+    return {
+      kind: 'directive.coreStoreReadProjections.v1',
+      turnLedger: {
+        entries: cloneJson(Array.isArray(projections.turnLedger?.entries) ? projections.turnLedger.entries : [])
+      },
+      ingressLedger: cloneJson(Array.isArray(projections.ingressLedger) ? projections.ingressLedger : []),
+      responseLedger: cloneJson(Array.isArray(projections.responseLedger) ? projections.responseLedger : []),
+      recoveryJournal: cloneJson(Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []),
+      sidecarDiagnostics: cloneJson(Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []),
+      backgroundBatches: cloneJson(Array.isArray(projections.backgroundBatches) ? projections.backgroundBatches : [])
+    };
+  }
+
+  async function coreSidecarDiagnosticCount() {
+    if (typeof runtimeCoreTurnStore?.readProjections !== 'function') return null;
+    try {
+      const projections = await runtimeCoreTurnStore.readProjections() || {};
+      return Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics.length : 0;
+    } catch (error) {
+      console.warn('[Directive] Failed to read CORE sidecar diagnostics:', error);
+      return null;
+    }
+  }
+
+  async function coreSidecarResumeCount() {
+    if (typeof runtimeCoreTurnStore?.readProjections !== 'function') return null;
+    try {
+      const projections = await runtimeCoreTurnStore.readProjections() || {};
+      const diagnosticCount = Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics.length : 0;
+      const acceptedBackgroundWorkers = acceptedBackgroundBatchWorkerCount(projections.backgroundBatches);
+      return Math.max(diagnosticCount, acceptedBackgroundWorkers);
+    } catch (error) {
+      console.warn('[Directive] Failed to read CORE sidecar resume count:', error);
+      return null;
+    }
+  }
+
+  async function stateWithCoreProjectionFreshnessEvidence(state = null) {
+    if (!state || typeof runtimeCoreTurnStore?.readProjections !== 'function') return state;
+    const stateDescriptor = coreStoreDescriptorForState(state);
+    const activeDescriptor = coreStoreDescriptorForState(campaignState);
+    if (
+      !stateDescriptor
+      || !activeDescriptor
+      || stateDescriptor.key !== activeDescriptor.key
+    ) {
+      return state;
+    }
+    try {
+      const evidence = coreProjectionFreshnessEvidence(await runtimeCoreTurnStore.readProjections());
+      if (!evidence) return state;
+      return {
+        ...cloneJson(state),
+        directiveRuntimeEvidence: {
+          ...cloneJson(state.directiveRuntimeEvidence || {}),
+          coreStoreReadProjections: evidence
+        }
+      };
+    } catch (error) {
+      console.warn('[Directive] Failed to read CORE freshness projections:', error);
+      return state;
+    }
+  }
+
+  async function refreshRuntimePersistenceAfterCoreDiagnostics(reason = 'Runtime CORE diagnostics refreshed.') {
+    if (!campaignState) return null;
+    const coreCount = await coreSidecarResumeCount();
+    if (!Number.isFinite(coreCount) || coreCount <= 0) return null;
+    const currentCount = stateFreshnessCounters(campaignState).sidecarJournalEntries;
+    if (coreCount <= currentCount) return null;
+    campaignState = {
+      ...cloneJson(campaignState),
+      runtimeResume: {
+        ...cloneJson(campaignState.runtimeResume || {}),
+        sidecarCount: coreCount
+      }
+    };
+    return persistRuntimeCampaignState(campaignState, reason);
+  }
+
   async function loadCampaignStateForSessionSave(saveId = null, binding = null) {
     const id = compactString(saveId);
     if (!id) return null;
@@ -1880,9 +2070,10 @@ export function createDirectiveRuntimeApp({
     return Number(state?.runtimeTracking?.revision || 0);
   }
 
-  function preferFresherInMemoryChatState(candidateState = null, inMemoryState = null, chatId = null) {
+  async function preferFresherInMemoryChatState(candidateState = null, inMemoryState = null, chatId = null) {
     const mergedCandidate = mergeFresherResponseLedgerProjection(candidateState, inMemoryState);
-    if (!shouldPreferInMemoryCampaignState(candidateState, inMemoryState, {
+    const inMemoryForComparison = await stateWithCoreProjectionFreshnessEvidence(inMemoryState);
+    if (!shouldPreferInMemoryCampaignState(candidateState, inMemoryForComparison, {
       chatId,
       fallbackHostId: runtimeHost?.id || null,
       fallbackSaveId: controller?.activeSaveId || null
@@ -1895,6 +2086,7 @@ export function createDirectiveRuntimeApp({
 
   function chatNativeViewForState(state = null, saveGuard = null) {
     if (!state) return null;
+    const freshness = stateFreshnessCounters(state);
     return {
       binding: cloneJson(state.campaignChatBinding || null),
       activation: cloneJson(state.activationJournal || null),
@@ -1908,7 +2100,7 @@ export function createDirectiveRuntimeApp({
         responseLedgerRevision: state.runtimeTracking.responseLedgerRevision || 0,
         responseLedgerIntegritySelections: (state.runtimeTracking.responseLedger || [])
           .filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
-        sidecarCount: state.runtimeTracking.sidecarJournal?.length || 0,
+        sidecarCount: freshness.sidecarJournalEntries,
         modelCallCount: state.runtimeTracking.modelCallJournal?.length || 0,
         lastDelta: cloneJson(state.runtimeTracking.lastDelta || null),
         lastCommittedTurn: cloneJson(state.runtimeTracking.lastCommittedTurn || null),
@@ -2146,7 +2338,7 @@ export function createDirectiveRuntimeApp({
     if (save) {
       try {
         resolvedState = await loadCampaignStateForSessionSave(save.id, bindingFromSave(save) || normalizedBinding(metadata || null));
-        resolvedState = preferFresherInMemoryChatState(resolvedState, inMemoryStateBeforeRefresh, current.activeChatId);
+        resolvedState = await preferFresherInMemoryChatState(resolvedState, inMemoryStateBeforeRefresh, current.activeChatId);
         const binding = bindingFromState(resolvedState);
         if (binding?.chatId && binding.chatId !== current.activeChatId) {
           status = 'metadata-conflict';
@@ -3080,7 +3272,10 @@ export function createDirectiveRuntimeApp({
     const prepared = commandLogSummaryCoreBackgroundBundle(guard, result);
     if (!prepared) return null;
     try {
-      return await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+      return await settleInternalForgeBackgroundBatch(prepared, {
+        sourceFrameId: guard?.sourceFrameId,
+        internalOwner: 'commandLogSummary'
+      });
     } catch (error) {
       queueCommandLogSummaryCoreDiagnostic(guard, 'backgroundBridgeFailed', {
         reason: 'core-background-bridge-failed',
@@ -3330,7 +3525,10 @@ export function createDirectiveRuntimeApp({
     const prepared = postCommitConversationCoreBackgroundBundle(guard, result);
     if (!prepared) return null;
     try {
-      return await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+      return await settleInternalForgeBackgroundBatch(prepared, {
+        sourceFrameId: guard?.sourceFrameId,
+        internalOwner: 'narrativeThreadDirector'
+      });
     } catch (error) {
       queuePostCommitConversationCoreDiagnostic(guard, 'backgroundBridgeFailed', {
         reason: 'core-background-bridge-failed',
@@ -3379,11 +3577,11 @@ export function createDirectiveRuntimeApp({
       scheduledAt: timestampFromNow(now)
     };
     lastPostCommitConversationResult = cloneJson(scheduled);
-    queuePostCommitConversationCoreDiagnostic(sourceGuard, 'queued', { reason, result: scheduled });
     const runTask = async () => {
       postCommitConversationPendingCount += 1;
       try {
         await settleCommandLogSummaryQueue();
+        queuePostCommitConversationCoreDiagnostic(sourceGuard, 'queued', { reason, result: scheduled });
         if (!postCommitConversationGuardCurrent(sourceGuard)) {
           lastPostCommitConversationResult = stalePostCommitConversationResult(sourceGuard, 'source-stale-before-provider');
           queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
@@ -3406,7 +3604,10 @@ export function createDirectiveRuntimeApp({
           return cloneJson(lastPostCommitConversationResult);
         }
         if (result?.campaignState) {
-          campaignState = applyRuntimeSettings(result.campaignState);
+          campaignState = mergeFresherResponseLedgerProjection(
+            applyRuntimeSettings(result.campaignState),
+            campaignState
+          );
           const synchronized = await synchronizeActivePrompt(campaignState, {
             persist: false,
             useContinuityPlanner: false,
@@ -3420,7 +3621,10 @@ export function createDirectiveRuntimeApp({
               outcomeId: sourceGuard.outcomeId || null
             }
           });
-          campaignState = applyRuntimeSettings(synchronized.campaignState || campaignState);
+          campaignState = mergeFresherResponseLedgerProjection(
+            applyRuntimeSettings(synchronized.campaignState || campaignState),
+            campaignState
+          );
           await persistRuntimeCampaignState(
             campaignState,
             'Narrative thread background settlement synchronized prompt context.'
@@ -3654,7 +3858,10 @@ export function createDirectiveRuntimeApp({
     const prepared = advisoryEnrichmentCoreBackgroundBundle(guard, result);
     if (!prepared) return null;
     try {
-      return await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+      return await settleInternalForgeBackgroundBatch(prepared, {
+        sourceFrameId: guard?.sourceFrameId,
+        internalOwner: 'missionDirectorAdvisor'
+      });
     } catch (error) {
       queueAdvisoryEnrichmentCoreDiagnostic(guard, 'backgroundBridgeFailed', {
         reason: 'core-background-bridge-failed',
@@ -3730,7 +3937,10 @@ export function createDirectiveRuntimeApp({
           return cloneJson(lastAdvisoryEnrichmentResult);
         }
         if (result?.campaignState) {
-          campaignState = applyRuntimeSettings(result.campaignState);
+          campaignState = mergeFresherResponseLedgerProjection(
+            applyRuntimeSettings(result.campaignState),
+            campaignState
+          );
           await settleRuntimePersistenceQueue();
         }
         lastAdvisoryEnrichmentResult = {
@@ -3939,7 +4149,10 @@ export function createDirectiveRuntimeApp({
                 idempotencyKey: `terminal-checkpoint-resolution-route:${target.transactionId}:${target.interactionId || target.ingressId || 'decision'}`
               });
             }
-            backgroundBatchCommitted = await runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
+            backgroundBatchCommitted = await settleInternalForgeBackgroundBatch(prepared, {
+              sourceFrameId: target.sourceFrameId,
+              internalOwner: 'terminalOutcomeCheckpoint'
+            });
           } catch (error) {
             const diagnostic = terminalCheckpointDiagnosticEvent(target, event, 'backgroundBridgeFailed', {
               reason: 'core-background-bridge-failed',
@@ -4253,17 +4466,74 @@ export function createDirectiveRuntimeApp({
     return true;
   }
 
+  function preserveCurrentRuntimeSettingsForBoundState(nextState = null, currentState = null, targetSaveId = null) {
+    if (!nextState || !currentState) return nextState;
+    if (!isObject(currentState?.settings)) return nextState;
+    const nextBinding = bindingFromState(nextState);
+    const currentBinding = bindingFromState(currentState);
+    const nextCampaignId = compactString(nextState?.campaign?.id || nextBinding?.campaignId);
+    const currentCampaignId = compactString(currentState?.campaign?.id || currentBinding?.campaignId);
+    const saveId = compactString(targetSaveId);
+    const nextSaveId = compactString(nextBinding?.saveId || saveId);
+    const currentSaveId = compactString(currentBinding?.saveId || controller?.activeSaveId);
+    if (!nextCampaignId || !currentCampaignId || nextCampaignId !== currentCampaignId) return nextState;
+    if (saveId && nextSaveId && nextSaveId !== saveId) return nextState;
+    if (saveId && currentSaveId && currentSaveId !== saveId) return nextState;
+    if (hashStableJson(nextState?.settings || {}) === hashStableJson(currentState.settings || {})) return nextState;
+    return {
+      ...cloneJson(nextState),
+      settings: cloneJson(currentState.settings)
+    };
+  }
+
+  function runtimeSettingsOverlayApplies(state = null, targetSaveId = null) {
+    if (!runtimeSettingsOverlay?.settings) return false;
+    const binding = bindingFromState(state);
+    const stateCampaignId = compactString(state?.campaign?.id || binding?.campaignId);
+    const stateSaveId = compactString(binding?.saveId || targetSaveId);
+    return Boolean(
+      stateCampaignId
+      && stateCampaignId === runtimeSettingsOverlay.campaignId
+      && stateSaveId
+      && stateSaveId === runtimeSettingsOverlay.saveId
+    );
+  }
+
+  function applyRuntimeSettingsOverlay(state = null, targetSaveId = null) {
+    if (!runtimeSettingsOverlayApplies(state, targetSaveId)) return state;
+    if (hashStableJson(state?.settings || {}) === hashStableJson(runtimeSettingsOverlay.settings || {})) return state;
+    return {
+      ...cloneJson(state),
+      settings: cloneJson(runtimeSettingsOverlay.settings)
+    };
+  }
+
+  function rememberRuntimeSettingsOverlay(state = null) {
+    const binding = bindingFromState(state);
+    const campaignId = compactString(state?.campaign?.id || binding?.campaignId);
+    const saveId = compactString(binding?.saveId || controller?.activeSaveId);
+    if (!campaignId || !saveId || !isObject(state?.settings)) return;
+    runtimeSettingsOverlay = {
+      campaignId,
+      saveId,
+      settings: cloneJson(state.settings)
+    };
+  }
+
   async function persistRuntimeCampaignStateNow(state, summary = 'Directive campaign state updated.') {
     let nextState = modelCallJournal.applyPending(cloneJson(state));
     nextState = mergeFresherResponseLedgerProjection(nextState, campaignState);
     const targetSaveId = compactString(nextState?.campaignChatBinding?.saveId || controller?.activeSaveId);
+    nextState = preserveCurrentRuntimeSettingsForBoundState(nextState, campaignState, targetSaveId);
+    nextState = applyRuntimeSettingsOverlay(nextState, targetSaveId);
     const activeSaveId = compactString(controller?.activeSaveId);
     if (!targetSaveId) return null;
     const isActiveSaveWrite = !activeSaveId || activeSaveId === targetSaveId;
     if (!isActiveSaveWrite) {
+      const stateForPersistence = await stateWithCoreProjectionFreshnessEvidence(nextState);
       const save = await controller.persistRuntimeCampaignState({
         saveId: targetSaveId,
-        campaignState: nextState,
+        campaignState: stateForPersistence,
         summary,
         reason: 'runtimePersist:background-save',
         markActive: false
@@ -4271,15 +4541,17 @@ export function createDirectiveRuntimeApp({
       await refreshCampaignView();
       return cloneJson(save);
     }
-    if (shouldPreferInMemoryCampaignState(nextState, campaignState, {
+    const campaignStateForFreshness = await stateWithCoreProjectionFreshnessEvidence(campaignState);
+    if (shouldPreferInMemoryCampaignState(nextState, campaignStateForFreshness, {
       chatId: nextState?.campaignChatBinding?.chatId || campaignState?.campaignChatBinding?.chatId || null,
       fallbackHostId: runtimeHost?.id || null,
       fallbackSaveId: targetSaveId
     })) {
       campaignState = modelCallJournal.applyPending(campaignState);
+      const stateForPersistence = await stateWithCoreProjectionFreshnessEvidence(campaignState);
       const save = await controller.persistRuntimeCampaignState({
         saveId: targetSaveId,
-        campaignState,
+        campaignState: stateForPersistence,
         summary: `Preserved fresher runtime state over stale write: ${summary}`,
         reason: 'runtimePersist:fresher-state',
         markActive: false
@@ -4289,9 +4561,10 @@ export function createDirectiveRuntimeApp({
     }
     if (shouldPreserveFresherTerminalState(campaignState, nextState, summary)) {
       campaignState = modelCallJournal.applyPending(campaignState);
+      const stateForPersistence = await stateWithCoreProjectionFreshnessEvidence(campaignState);
       const save = await controller.persistRuntimeCampaignState({
         saveId: targetSaveId,
-        campaignState,
+        campaignState: stateForPersistence,
         summary: 'Preserved pending terminal outcome state over stale runtime write.',
         reason: 'runtimePersist:preserve-terminal',
         markActive: false
@@ -4300,13 +4573,15 @@ export function createDirectiveRuntimeApp({
       return cloneJson(save);
     }
     campaignState = nextState;
+    const stateForPersistence = await stateWithCoreProjectionFreshnessEvidence(nextState);
     const save = await controller.persistRuntimeCampaignState({
       saveId: targetSaveId,
-      campaignState,
+      campaignState: stateForPersistence,
       summary,
       reason: 'runtimePersist',
       markActive: false
     });
+    campaignState = mergeFresherResponseLedgerProjection(campaignState, nextState);
     await refreshCampaignView();
     return cloneJson(save);
   }
@@ -4374,7 +4649,9 @@ export function createDirectiveRuntimeApp({
     activityMode = 'blocking',
     activityContext = null,
     idempotencyKey = null,
-    promptSyncIdempotencyKey = null
+    promptSyncIdempotencyKey = null,
+    beforeInstallPrompt = null,
+    commitRuntimeState = true
   } = {}) {
     if (!runtimeHost?.prompt?.install || !state?.campaignChatBinding?.chatId || state.campaign?.status !== 'active') {
       return { ok: false, skipped: true, reason: 'inactive-or-unbound', campaignState: cloneJson(state) };
@@ -4383,7 +4660,7 @@ export function createDirectiveRuntimeApp({
       reason: 'prompt-sync'
     });
     state = normalizedTime.campaignState || state;
-    if (normalizedTime.changed && campaignState?.campaign?.id === state?.campaign?.id) {
+    if (commitRuntimeState !== false && normalizedTime.changed && campaignState?.campaign?.id === state?.campaign?.id) {
       campaignState = state;
     }
     const currentChatId = runtimeHost.chat?.getCurrentChatId?.() || runtimeHost.chat?.getCurrentBinding?.()?.chatId || null;
@@ -4444,6 +4721,7 @@ export function createDirectiveRuntimeApp({
     const transactionId = lensTransactionIdForPromptSync(activityContext);
     const lensIdempotencyKey = compactString(promptSyncIdempotencyKey || idempotencyKey || activityContext?.promptSyncIdempotencyKey);
     const campaignContext = lensCampaignContextForPromptSync(state, assets);
+    const lensCacheInputs = await lensCacheInputsForPromptSync();
     lens.markDirty({
       lane,
       dirtyDomains,
@@ -4457,10 +4735,12 @@ export function createDirectiveRuntimeApp({
         binding: state.campaignChatBinding,
         campaignContext,
         promptFrame: lensPromptFrame,
+        cacheInputs: lensCacheInputs,
         externalPromptEnvironmentRef,
         reason,
         installMethod: method,
         idempotencyKey: lensIdempotencyKey,
+        beforeInstallPrompt,
         buildDirectivePromptPacket: async ({
           revision,
           dirtyDomains: lensDirtyDomains,
@@ -4520,15 +4800,18 @@ export function createDirectiveRuntimeApp({
       });
       throw error;
     }
+    const promptInstallSkipped = lensResult?.status === 'installSkippedStale';
     const next = packet
       ? recordPromptContextRevision(state, packet, {
           installedAt: timestampFromNow(now),
           status: 'active'
         })
       : cloneJson(state);
-    campaignState = next;
-    await runtimeHost.chat?.updateBindingMetadata?.(next.campaignChatBinding);
-    if (persist) await persistRuntimeCampaignState(next, reason);
+    if (commitRuntimeState !== false && !promptInstallSkipped) {
+      campaignState = next;
+      await runtimeHost.chat?.updateBindingMetadata?.(next.campaignChatBinding);
+      if (persist) await persistRuntimeCampaignState(next, reason);
+    }
     return {
       ok: true,
       active: true,
@@ -4540,6 +4823,7 @@ export function createDirectiveRuntimeApp({
         cacheKey: lensResult?.cacheKey || lensResult?.installed?.cacheKey || null,
         externalPromptEnvironmentRef: cloneJson(lensResult?.externalPromptEnvironmentRef || externalPromptEnvironmentRef || null)
       },
+      promptInstallSkipped,
       campaignState: cloneJson(next)
     };
   }
@@ -4552,13 +4836,29 @@ export function createDirectiveRuntimeApp({
     campaignProjection = null,
     binding = null,
     promptContext = null,
+    promptInput = null,
+    useContinuityPlanner = true,
+    generationRouter = defaultGenerationRouter,
     reason = 'Campaign prompt context installed during activation.',
     activityContext = null
   } = {}) {
     if (!runtimeHost?.prompt?.install || !activationState?.campaignChatBinding?.chatId) {
       return { ok: false, skipped: true, reason: 'inactive-or-unbound' };
     }
-    if (!promptContext?.blocks) {
+    const assets = {
+      packageData,
+      crewDataset,
+      shipDataset,
+      projection: campaignProjection
+    };
+    const resolvedPromptInput = promptInput && typeof promptInput === 'object'
+      ? promptInput
+      : (promptContext?.blocks ? null : createLensPromptInput({
+          campaignState: activationState,
+          assets,
+          createdAt: timestampFromNow(now)
+        }));
+    if (!promptContext?.blocks && !resolvedPromptInput) {
       return { ok: false, reason: 'prompt-context-unavailable' };
     }
     const targetState = {
@@ -4570,12 +4870,6 @@ export function createDirectiveRuntimeApp({
     };
     const lens = ensureLensPromptScheduler();
     const lane = 'visible';
-    const assets = {
-      packageData,
-      crewDataset,
-      shipDataset,
-      projection: campaignProjection
-    };
     const lensPromptFrame = promptFrameForLensCache({
       source: 'campaignActivation',
       activity: 'campaignActivationPromptInstall',
@@ -4611,13 +4905,26 @@ export function createDirectiveRuntimeApp({
         dirtyDomains: lensDirtyDomains = [],
         cacheKey,
         externalPromptEnvironmentRef: lensExternalPromptEnvironmentRef = null
-      } = {}) => ({
-        ...cloneJson(promptContext),
-        revision,
-        cacheKey,
-        externalPromptEnvironmentRef: cloneJson(lensExternalPromptEnvironmentRef || null),
-        lensDirtyDomains: cloneJson(Array.isArray(lensDirtyDomains) ? lensDirtyDomains : [])
-      })
+      } = {}) => {
+        if (resolvedPromptInput) {
+          return buildLensPromptPacket({
+            promptInput: resolvedPromptInput,
+            useContinuityPlanner,
+            generationRouter,
+            revision,
+            dirtyDomains: lensDirtyDomains,
+            cacheKey,
+            externalPromptEnvironmentRef: lensExternalPromptEnvironmentRef
+          });
+        }
+        return {
+          ...cloneJson(promptContext),
+          revision,
+          cacheKey,
+          externalPromptEnvironmentRef: cloneJson(lensExternalPromptEnvironmentRef || null),
+          lensDirtyDomains: cloneJson(Array.isArray(lensDirtyDomains) ? lensDirtyDomains : [])
+        };
+      }
     });
     const packet = lensResult?.packet || null;
     return {
@@ -4819,13 +5126,107 @@ export function createDirectiveRuntimeApp({
       now,
       idFactory
     });
-    const forgeCoordinator = createForgeCoordinator({
+    runtimeForgeCoordinator = createForgeCoordinator({
       coreStore: {
         commitBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.settleBackgroundBatch(transactionId, bundle),
         appendDiagnostics: (transactionId, event) => runtimeCoreTurnStore.appendDiagnostic(transactionId, event)
       },
+      lens: ensureLensPromptScheduler(),
+      acceptedBatchPromptFlusher: async (input = {}) => {
+        const promptDirtyDomains = normalizePromptDirtyDomains(input.promptDirtyDomains || input.promptFrame?.promptDirtyDomains || []);
+        const promptSyncIdempotencyKey = compactString(input.promptSyncIdempotencyKey || input.idempotencyKey);
+        const workerKey = input.workerKey || input.promptFrame?.workerKey || 'campaignSidecarBatch';
+        const workerKeys = Array.isArray(input.workerKeys)
+          ? cloneJson(input.workerKeys)
+          : (Array.isArray(input.promptFrame?.workerKeys) ? cloneJson(input.promptFrame.workerKeys) : []);
+        const promptFrame = {
+          ...(input.promptFrame && typeof input.promptFrame === 'object' ? cloneJson(input.promptFrame) : {}),
+          workerKey,
+          workerKeys,
+          promptDirtyDomains,
+          aggregateBatch: input.aggregateBatch === true || input.promptFrame?.aggregateBatch === true,
+          sourceFrameRef: cloneJson(input.sourceFrameRef || input.promptFrame?.sourceFrameRef || null),
+          sourceToken: input.sourceToken || input.promptFrame?.sourceToken || null,
+          coreAcceptedBatchProjection: cloneJson(
+            input.coreAcceptedBatchProjection
+            || input.promptFrame?.coreAcceptedBatchProjection
+            || null
+          ),
+          cacheInputs: cloneJson(input.cacheInputs || input.promptFrame?.cacheInputs || {})
+        };
+        const activityContext = input.activityContext && typeof input.activityContext === 'object'
+          ? cloneJson(input.activityContext)
+          : {
+              workerKey,
+              workerKeys,
+              aggregateBatch: promptFrame.aggregateBatch === true,
+              promptDirtyDomains,
+              transactionId: input.transactionId || null,
+              coreTransactionId: input.transactionId || null,
+              source: 'campaignSidecarScheduler'
+            };
+        const result = await synchronizeActivePrompt(input.campaignState || campaignState, {
+          persist: false,
+          commitRuntimeState: input.commitRuntimeState !== false,
+          promptFrame,
+          useContinuityPlanner: false,
+          reason: 'Prompt context synchronized after accepted sidecar state delta.',
+          activityReporter: input.activityReporter || null,
+          activitySource: input.activitySource || 'sidecarPromptSync',
+          activityMode: input.activityMode || 'background',
+          promptSyncIdempotencyKey,
+          beforeInstallPrompt: input.beforeInstallPrompt,
+          activityContext
+        });
+        return {
+          ...cloneJson(result || {}),
+          campaignState: cloneJson(result?.campaignState || input.campaignState || campaignState)
+        };
+      },
+      commandBearingReviewPromptFlusher: async (input = {}) => {
+        const promptDirtyDomains = ['commandBearing'];
+        const promptSyncIdempotencyKey = compactString(input.promptSyncIdempotencyKey || input.idempotencyKey);
+        const promptFrame = {
+          ...(input.promptFrame && typeof input.promptFrame === 'object' ? cloneJson(input.promptFrame) : {}),
+          workerKey: 'commandBearing',
+          promptDirtyDomains,
+          commandBearingReview: true,
+          sourceFrameRef: cloneJson(input.sourceFrameRef || input.promptFrame?.sourceFrameRef || null),
+          sourceToken: input.sourceToken || input.promptFrame?.sourceToken || null,
+          cacheInputs: cloneJson(input.cacheInputs || input.promptFrame?.cacheInputs || {})
+        };
+        const activityContext = input.activityContext && typeof input.activityContext === 'object'
+          ? cloneJson(input.activityContext)
+          : {
+              workerKey: 'commandBearing',
+              commandBearingReview: true,
+              promptDirtyDomains,
+              transactionId: input.transactionId || null,
+              coreTransactionId: input.transactionId || null,
+              source: 'campaignSidecarScheduler'
+            };
+        const result = await synchronizeActivePrompt(input.campaignState || campaignState, {
+          persist: false,
+          commitRuntimeState: input.commitRuntimeState !== false,
+          promptFrame,
+          useContinuityPlanner: false,
+          reason: 'Prompt context synchronized after Command Bearing closure review.',
+          activityReporter: input.activityReporter || null,
+          activitySource: input.activitySource || 'sidecarPromptSync',
+          activityMode: input.activityMode || 'background',
+          promptSyncIdempotencyKey,
+          beforeInstallPrompt: input.beforeInstallPrompt,
+          activityContext
+        });
+        return {
+          ...cloneJson(result || {}),
+          campaignState: cloneJson(result?.campaignState || input.campaignState || campaignState)
+        };
+      },
+      isSourceCurrent: forgeSourceCurrentForRuntime,
       clock: () => timestampFromNow(now)
     });
+    const forgeCoordinator = runtimeForgeCoordinator;
     const sidecarScheduler = createCampaignSidecarScheduler({
       generationRouter: defaultGenerationRouter,
       stateDeltaGateway,
@@ -4950,6 +5351,7 @@ export function createDirectiveRuntimeApp({
       responseDispatcher,
       turnCommitCoordinator,
       sidecarScheduler,
+      forgeCoordinator,
       messageReconciler,
       repairRuntime,
       coreTurnStore: runtimeCoreTurnStore,
@@ -5366,16 +5768,36 @@ export function createDirectiveRuntimeApp({
             view: viewEnvelope('mission')
           };
         }
-        const before = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
+        const sidecarJournalCountBefore = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
+        const coreSidecarDiagnosticsBefore = await coreSidecarDiagnosticCount();
+        const coreSidecarResumeCountBefore = await coreSidecarResumeCount();
         const results = await services.sidecarScheduler.pending();
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
-        const after = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
+        const sidecarJournalCountAfter = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
+        const coreSidecarDiagnosticsAfter = await coreSidecarDiagnosticCount();
+        const coreSidecarResumeCountAfter = await coreSidecarResumeCount();
+        const sidecarCountBefore = Math.max(sidecarJournalCountBefore, coreSidecarResumeCountBefore ?? 0);
+        const sidecarCountAfter = Math.max(sidecarJournalCountAfter, coreSidecarResumeCountAfter ?? 0);
+        const sidecarJournalDelta = Math.max(0, sidecarJournalCountAfter - sidecarJournalCountBefore);
+        const coreSidecarDiagnosticDelta = Number.isFinite(coreSidecarDiagnosticsBefore) && Number.isFinite(coreSidecarDiagnosticsAfter)
+          ? Math.max(0, coreSidecarDiagnosticsAfter - coreSidecarDiagnosticsBefore)
+          : null;
+        const sidecarCountDelta = Math.max(0, sidecarCountAfter - sidecarCountBefore);
+        const resultCount = Array.isArray(results) ? results.length : 0;
         return {
           ok: true,
-          sidecarCountBefore: before,
-          sidecarCountAfter: after,
-          sidecarDelta: Math.max(0, after - before),
+          sidecarCountBefore,
+          sidecarCountAfter,
+          sidecarJournalCountBefore,
+          sidecarJournalCountAfter,
+          sidecarJournalDelta,
+          coreSidecarDiagnosticsBefore,
+          coreSidecarDiagnosticsAfter,
+          coreSidecarDiagnosticDelta,
+          coreSidecarResumeCountBefore,
+          coreSidecarResumeCountAfter,
+          sidecarDelta: Math.max(sidecarCountDelta, sidecarJournalDelta, coreSidecarDiagnosticDelta ?? 0, resultCount),
           results: cloneJson(results || []),
           commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           postCommitConversationResult: cloneJson(postCommitConversationResult),
@@ -5395,6 +5817,8 @@ export function createDirectiveRuntimeApp({
         await terminalCheckpointSettlementQueue;
         await terminalCheckpointDiagnosticQueue;
         await modelCallJournal.flushCoreDiagnostics();
+        await refreshRuntimePersistenceAfterCoreDiagnostics('Runtime CORE diagnostics metadata refreshed.');
+        await settleRuntimePersistenceQueue();
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
         return {
@@ -5761,6 +6185,17 @@ export function createDirectiveRuntimeApp({
         const services = ensureChatNativeServices();
         return services?.orchestrator?.handleMessageVisibilityChanged
           ? services.orchestrator.handleMessageVisibilityChanged(payload)
+          : { handled: false, reason: 'chat-native-host-unavailable' };
+      });
+    },
+
+    async handleHostMessageSelectedSwipeChanged(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
+        const services = ensureChatNativeServices();
+        return services?.orchestrator?.handleMessageSelectedSwipeChanged
+          ? services.orchestrator.handleMessageSelectedSwipeChanged(payload)
           : { handled: false, reason: 'chat-native-host-unavailable' };
       });
     },
@@ -6230,13 +6665,22 @@ export function createDirectiveRuntimeApp({
     async updateRuntimeHistoryLimit({ maxTurnSaveHistory = null, historyLimit = null } = {}) {
       return run(async () => {
         await ensureInitialized();
+        await settleRuntimePersistenceQueue();
         requireObject(campaignState, 'campaignState');
         const limit = normalizeTurnSaveHistoryLimit(maxTurnSaveHistory ?? historyLimit);
         campaignState = applyRuntimeSettings(campaignState, { maxTurnSaveHistory: limit });
+        rememberRuntimeSettingsOverlay(campaignState);
+        if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
+          currentChatScope = {
+            ...currentChatScope,
+            campaignState: cloneJson(campaignState)
+          };
+        }
         const save = await persistRuntimeCampaignState(
           campaignState,
           `Runtime turn save history limited to ${limit} turn(s).`
         );
+        campaignState = applyRuntimeSettingsOverlay(campaignState, controller?.activeSaveId);
         await refreshCampaignView();
         return {
           kind: 'directive.runtimeHistoryLimitUpdated',
@@ -6258,6 +6702,7 @@ export function createDirectiveRuntimeApp({
     } = {}) {
       return run(async () => {
         await ensureInitialized();
+        await settleRuntimePersistenceQueue();
         requireObject(campaignState, 'campaignState');
         const limit = normalizeTurnSaveHistoryLimit(
           maxTurnSaveHistory ?? historyLimit ?? campaignState.settings?.maxTurnSaveHistory ?? campaignState.runtimeTracking?.historyLimit
@@ -6283,10 +6728,18 @@ export function createDirectiveRuntimeApp({
           autosaveEveryMessages: autosaveInterval,
           outcomeIntegrity: nextOutcomeIntegrity
         });
+        rememberRuntimeSettingsOverlay(campaignState);
+        if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
+          currentChatScope = {
+            ...currentChatScope,
+            campaignState: cloneJson(campaignState)
+          };
+        }
         const save = await persistRuntimeCampaignState(
           campaignState,
           `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s), Outcome Integrity ${nextOutcomeIntegrity.mode}.`
         );
+        campaignState = applyRuntimeSettingsOverlay(campaignState, controller?.activeSaveId);
         await refreshCampaignView();
         return {
           kind: 'directive.runtimeSettingsUpdated',
@@ -7268,9 +7721,13 @@ export function createDirectiveRuntimeApp({
           rebuild: true,
           reason: 'Prompt context rebuilt after Save Game As cloned-chat branch creation.'
         });
-        campaignState = promptResult?.campaignState
-          ? applyRuntimeSettings(promptResult.campaignState)
-          : applyRuntimeSettings(campaignState);
+        campaignState = stateWithSaveBranchChatBinding(
+          promptResult?.campaignState
+            ? applyRuntimeSettings(promptResult.campaignState)
+            : applyRuntimeSettings(campaignState),
+          branchBinding,
+          sourceBinding
+        );
         const save = await controller.saveCurrentGame({
           saveId: branchSave.id,
           campaignState,
@@ -7343,7 +7800,8 @@ export function createDirectiveRuntimeApp({
         await settleRuntimePersistenceQueue();
         const save = await controller.saveCurrentGame({
           campaignState,
-          summary: 'State Safety settled the active campaign state.'
+          summary: 'State Safety settled the active campaign state.',
+          forceCheckpoint: true
         });
         lastStateSafetyResult = {
           kind: 'directive.stateSafetyAction',

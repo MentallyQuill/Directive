@@ -4367,18 +4367,65 @@ function uniqueSortedStrings(values = []) {
   return [...new Set(values.filter(Boolean).map(String))].sort();
 }
 
+const EXTERNAL_CONTEXT_SECRET_KEY_PATTERN = /(?:api[_-]?key|secret|password|credential|authorization|qdrant[_-]?api[_-]?key|token)$/i;
+const EXTERNAL_CONTEXT_RAW_KEY_PATTERN = /^(?:raw|full|verbatim)/i;
+const EXTERNAL_CONTEXT_PAYLOAD_KEY_PATTERN = /(?:promptBody|promptText|rawPromptBody|rawPrompt|providerOutput|providerResponse|vectorPayload|embedding|embeddings|generatedMemory|memoryBookText|summaryText|summaryBody|summaryLayerText|endpointUrl|endpoint|collectionName|payloadBody|rawContent|rawSummary|rawText|messageText)/i;
+const EXTERNAL_CONTEXT_RAW_VALUE_PATTERN = /(?:SECRET|RAW_|raw prompt|raw vector|raw Summaryception|raw lorebook|generated Memory Book|vector payload|embedding payload|QDRANT_ENDPOINT|qdrant endpoint|api key)/i;
+
+function isExternalContextRedactionMetadataPath(pathKey = '') {
+  const value = String(pathKey || '');
+  return /(?:^|\.)redactionReasons(?:\[\d+\])?$/.test(value)
+    || /(?:^|\.)redactions\[\d+\]\.(?:key|reason)$/.test(value);
+}
+
+function sanitizeExternalContextSummaryValue(value, redactions = [], pathKey = '') {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => sanitizeExternalContextSummaryValue(item, redactions, `${pathKey}[${index}]`));
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      const nextKey = pathKey ? `${pathKey}.${key}` : key;
+      if (EXTERNAL_CONTEXT_SECRET_KEY_PATTERN.test(key)) {
+        redactions.push({ key: nextKey, reason: 'secret' });
+        continue;
+      }
+      if (EXTERNAL_CONTEXT_RAW_KEY_PATTERN.test(key) || EXTERNAL_CONTEXT_PAYLOAD_KEY_PATTERN.test(key)) {
+        redactions.push({ key: nextKey, reason: 'raw-payload' });
+        continue;
+      }
+      out[key] = sanitizeExternalContextSummaryValue(item, redactions, nextKey);
+    }
+    return out;
+  }
+  if (
+    typeof value === 'string'
+    && EXTERNAL_CONTEXT_RAW_VALUE_PATTERN.test(value)
+    && !isExternalContextRedactionMetadataPath(pathKey)
+  ) {
+    redactions.push({ key: pathKey || 'value', reason: 'raw-payload' });
+    return '[redacted-raw-payload]';
+  }
+  return value;
+}
+
 function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
   if (!report?.artifacts?.hostExtensions) {
     return { status: 'missing', artifactPath: null, captureCount: captures.length };
   }
   const artifactPath = report.artifacts.externalContextSummary
     || path.join(report.artifacts.hostExtensions, 'external-context-summary.json');
-  const refHashes = uniqueSortedStrings(captures.map((entry) => entry.externalPromptEnvironmentRef?.hash));
-  const knownExternalPromptKeys = uniqueSortedStrings(captures.flatMap((entry) => entry.knownExternalPromptKeys || []));
-  const directiveOwnedPromptKeys = uniqueSortedStrings(captures.flatMap((entry) => entry.directiveOwnedPromptKeys || []));
-  const unavailableSignals = uniqueSortedStrings(captures.flatMap((entry) => entry.unavailableSignals || []));
-  const redactionReasons = uniqueSortedStrings(captures.flatMap((entry) => entry.redactionReasons || []));
-  const targetSummaries = captures
+  const artifactRedactions = [];
+  const safeCaptures = sanitizeExternalContextSummaryValue(captures, artifactRedactions, 'captures');
+  const refHashes = uniqueSortedStrings(safeCaptures.map((entry) => entry.externalPromptEnvironmentRef?.hash));
+  const knownExternalPromptKeys = uniqueSortedStrings(safeCaptures.flatMap((entry) => entry.knownExternalPromptKeys || []));
+  const directiveOwnedPromptKeys = uniqueSortedStrings(safeCaptures.flatMap((entry) => entry.directiveOwnedPromptKeys || []));
+  const unavailableSignals = uniqueSortedStrings(safeCaptures.flatMap((entry) => entry.unavailableSignals || []));
+  const redactionReasons = uniqueSortedStrings([
+    ...safeCaptures.flatMap((entry) => entry.redactionReasons || []),
+    ...artifactRedactions.map((entry) => entry.reason)
+  ]);
+  const targetSummaries = safeCaptures
     .map((entry) => ({
       scriptMessageId: entry.scriptMessageId || null,
       scriptCategory: entry.scriptCategory || null,
@@ -4406,7 +4453,8 @@ function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
       redactionReasons,
       targetSummaryCount: targetSummaries.length
     },
-    captures,
+    captures: safeCaptures,
+    redactions: artifactRedactions,
     targetSummaries
   };
   ensureDirectory(report.artifacts.hostExtensions);

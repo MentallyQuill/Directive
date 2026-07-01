@@ -47,6 +47,27 @@ function normalizeDirtyDomains(values = []) {
   return uniqueStrings(values).filter((domain) => PROMPT_DIRTY_DOMAINS.has(domain));
 }
 
+function acceptedSidecarBatchCacheInput(promptFrame = {}) {
+  const projection = promptFrame?.coreAcceptedBatchProjection
+    || promptFrame?.acceptedSidecarBatchProjection
+    || null;
+  const background = projection?.background && typeof projection.background === 'object'
+    ? projection.background
+    : {};
+  const acceptedBatchHash = asString(
+    promptFrame?.acceptedSidecarBatchHash
+    || promptFrame?.acceptedBatchHash
+    || projection?.acceptedBatchHash
+  );
+  if (!acceptedBatchHash) return null;
+  return compact({
+    acceptedBatchHash,
+    transactionId: asString(projection?.transactionId || promptFrame?.acceptedBatchTransactionId),
+    batchId: asString(projection?.batchId || promptFrame?.acceptedBatchId),
+    backgroundBatchId: asString(background.backgroundBatchId || background.batchId || projection?.backgroundBatchId)
+  });
+}
+
 function directivePromptBlocks(blocks = []) {
   return (Array.isArray(blocks) ? blocks : []).map((block, index) => {
     const id = asString(block.id, `block-${index + 1}`);
@@ -84,6 +105,8 @@ function buildPromptCacheKey({
     shipDatasetHash: campaignContext.shipDatasetHash || null,
     projectionHash: campaignContext.projectionHash || null,
     turnSourceHash: promptFrame.turnSourceHash || null,
+    sourceToken: promptFrame.sourceToken || null,
+    acceptedSidecarBatch: acceptedSidecarBatchCacheInput(promptFrame),
     dirtyDomains,
     externalPromptEnvironmentHash: externalPromptEnvironmentRef?.hash || null
   });
@@ -241,6 +264,7 @@ export function createSyntheticLensPromptScheduler({
     externalPromptEnvironment = null,
     reason = 'lens-flush',
     hostGenerationReleasedAt = null,
+    beforeInstallPrompt = null,
     idempotencyKey = null
   } = {}) {
     const key = idempotencyKey ? `flush:${idempotencyKey}` : null;
@@ -316,8 +340,64 @@ export function createSyntheticLensPromptScheduler({
       blocks: directivePromptBlocks(built.blocks || []),
       continuityProjection: built.continuityProjection ? cloneJson(built.continuityProjection) : undefined
     };
+    const method = prior ? 'rebuild' : 'install';
+    if (typeof beforeInstallPrompt === 'function') {
+      const guardResult = await beforeInstallPrompt({
+        method,
+        lane,
+        binding: cloneJson(binding),
+        cacheKey,
+        reason,
+        dirtyDomains,
+        promptFrame: cloneJson(promptFrame),
+        campaignContext: cloneJson(campaignContext),
+        externalPromptEnvironmentRef: cloneJson(observed.ref),
+        packetRef: compact({
+          kind: packet.kind,
+          revision,
+          cacheKey,
+          hash: packet.hash,
+          blockCount: packet.blocks.length,
+          promptKeys: packet.blocks.map((block) => block.promptKey)
+        })
+      });
+      const installAllowed = guardResult === undefined
+        || guardResult === null
+        || guardResult === true
+        || (typeof guardResult === 'object' && guardResult.ok !== false && guardResult.allow !== false && guardResult.stale !== true);
+      if (!installAllowed) {
+        const { redactedPayload } = redactedDiagnostic({
+          status: 'installSkippedStale',
+          severity: 'warning',
+          lane,
+          reason,
+          dirtyPrompt: true,
+          dirtyDomains,
+          cacheKey,
+          directivePromptRevision: revision,
+          externalPromptEnvironmentRef: observed.ref,
+          guard: compact({
+            status: typeof guardResult === 'object' ? asString(guardResult.status, 'rejected') : 'rejected',
+            reason: typeof guardResult === 'object' ? asString(guardResult.reason) : null,
+            code: typeof guardResult === 'object' ? asString(guardResult.code) : null
+          })
+        });
+        const diagnostic = await appendPromptDiagnostic(transactionId, redactedPayload);
+        return {
+          status: 'installSkippedStale',
+          rebuilt: false,
+          built: true,
+          lane,
+          dirtyPrompt: true,
+          dirtyDomains,
+          cacheKey,
+          externalPromptEnvironmentRef: observed.ref,
+          diagnostic
+        };
+      }
+    }
     const installResult = await installPromptPacket({
-      method: prior ? 'rebuild' : 'install',
+      method,
       binding,
       packet,
       lane,

@@ -9,6 +9,8 @@ import {
 } from '../../src/storage/logical-storage-paths.mjs';
 import {
   chunkV2SegmentEntries,
+  commitV2DiagnosticsSegments,
+  commitV2EventTurnSegments,
   commitV2SaveLayout,
   createV2SegmentRecord,
   loadV2CampaignManifest,
@@ -24,7 +26,7 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
-function createLoggingStorage({ corruptOnWrite = null } = {}) {
+function createLoggingStorage({ corruptOnWrite = null, afterReadJson = null } = {}) {
   const files = new Map();
   const writeLog = [];
   const readLog = [];
@@ -41,7 +43,11 @@ function createLoggingStorage({ corruptOnWrite = null } = {}) {
         error.code = 'ENOENT';
         throw error;
       }
-      return cloneJson(files.get(filePath));
+      const value = cloneJson(files.get(filePath));
+      if (typeof afterReadJson === 'function') {
+        await afterReadJson(filePath, cloneJson(value));
+      }
+      return value;
     },
     async writeJson(filePath, value) {
       writeLog.push(filePath);
@@ -233,6 +239,237 @@ assert.equal(
   corruptStorage.writeLog.some((path) => path.endsWith('/save-manifest.v2.json') || path.endsWith('/campaign-manifest.v2.json')),
   false,
   'manifest pointers should not be written after blob hash verification fails'
+);
+
+let corruptReusedTailWrite = false;
+const corruptReuseStorage = createLoggingStorage({
+  corruptOnWrite(filePath, value) {
+    if (corruptReusedTailWrite && filePath.includes('/events/0000')) {
+      value.entries.push({ id: 'corrupted-after-hash' });
+    }
+  }
+});
+const corruptReuseAdapter = createLogicalStorageAdapter({ storage: corruptReuseStorage, hostId: 'fake' });
+await commitV2SaveLayout(corruptReuseAdapter, {
+  campaignId: 'campaign-corrupt-reuse',
+  saveId: 'save-corrupt-reuse',
+  now,
+  head: {
+    state: {
+      player: { name: 'Original' }
+    }
+  },
+  eventSegments: [[{ id: 'event-1', type: 'turnEvent' }]]
+});
+const corruptReuseWriteStart = corruptReuseStorage.writeLog.length;
+corruptReusedTailWrite = true;
+await assert.rejects(
+  () => commitV2SaveLayout(corruptReuseAdapter, {
+    campaignId: 'campaign-corrupt-reuse',
+    saveId: 'save-corrupt-reuse',
+    now: '2026-06-28T14:02:00.000Z',
+    reuseExistingSegmentRefs: true,
+    head: {
+      state: {
+        player: { name: 'Still Original' }
+      }
+    },
+    eventSegments: [[
+      { id: 'event-1', type: 'turnEvent' },
+      { id: 'event-2', type: 'turnEvent' }
+    ]]
+  }),
+  (error) => error?.code === 'DIRECTIVE_V2_ARTIFACT_HASH_MISMATCH'
+);
+assert.equal(
+  corruptReuseStorage.writeLog
+    .slice(corruptReuseWriteStart)
+    .some((path) => path.endsWith('/save-manifest.v2.json') || path.endsWith('/campaign-manifest.v2.json')),
+  false,
+  'manifest pointers should not be written after reused-tail blob hash verification fails'
+);
+
+const appendStorage = createLoggingStorage();
+const appendAdapter = createLogicalStorageAdapter({ storage: appendStorage, hostId: 'fake' });
+const appendInitial = await commitV2SaveLayout(appendAdapter, {
+  campaignId: 'campaign-append-delta',
+  saveId: 'save-append-delta',
+  now,
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  },
+  eventSegments: [Array.from({ length: 14 }, (_, index) => ({
+    id: `append-event-${index + 1}`,
+    type: 'turnEvent',
+    summary: `append event ${index + 1} ${'x'.repeat(140)}`
+  }))],
+  turnSegments: [[{ id: 'append-turn-1', turnId: 'turn-1', outcomeId: 'outcome-1' }]],
+  segmentMaxBytes: {
+    event: 1200,
+    turn: 1200
+  }
+});
+assert.equal(appendInitial.refs.eventSegments.length > 1, true, 'append delta fixture should have sealed event history');
+const appendInitialManifest = await loadV2SaveManifest(appendAdapter, {
+  campaignId: 'campaign-append-delta',
+  saveId: 'save-append-delta'
+});
+const appendSealedEventRefs = appendInitialManifest.eventSegments.slice(0, -1);
+const appendOldTailRef = appendInitialManifest.eventSegments.at(-1);
+const appendOldTail = await readV2ArtifactRef(appendAdapter, appendOldTailRef);
+const appendReadStart = appendStorage.readLog.length;
+const appendWriteStart = appendStorage.writeLog.length;
+const appendResult = await commitV2EventTurnSegments(appendAdapter, {
+  campaignId: 'campaign-append-delta',
+  saveId: 'save-append-delta',
+  now: '2026-06-28T14:03:00.000Z',
+  eventSegments: [[{ id: 'append-event-hot', type: 'turnEvent', summary: `hot append ${'x'.repeat(120)}` }]],
+  turnSegments: [[{ id: 'append-turn-hot', turnId: 'turn-hot', outcomeId: 'outcome-hot' }]],
+  segmentMaxBytes: {
+    event: 1200,
+    turn: 1200
+  }
+});
+const appendReadKeys = appendStorage.readLog.slice(appendReadStart);
+const appendWriteKeys = appendStorage.writeLog.slice(appendWriteStart);
+const appendSealedKeys = new Set(appendSealedEventRefs.map((ref) => ref.logicalKey));
+assert.deepEqual(appendReadKeys.filter((key) => appendSealedKeys.has(key)), [], 'append delta must not read sealed event history');
+assert.deepEqual(appendWriteKeys.filter((key) => appendSealedKeys.has(key)), [], 'append delta must not write sealed event history');
+assert.equal(appendWriteKeys.includes(appendOldTailRef.logicalKey), false, 'append delta must not overwrite the old event tail key');
+assert.notEqual(appendResult.refs.eventSegments.at(-1).logicalKey, appendOldTailRef.logicalKey, 'append delta should publish a changed tail through a versioned/new key');
+assert.deepEqual(await readV2ArtifactRef(appendAdapter, appendOldTailRef), appendOldTail, 'old event tail must remain readable after append delta');
+const appendManifestAfter = await loadV2SaveManifest(appendAdapter, {
+  campaignId: 'campaign-append-delta',
+  saveId: 'save-append-delta'
+});
+for (const [index, ref] of appendSealedEventRefs.entries()) {
+  assert.deepEqual(appendManifestAfter.eventSegments[index], ref, `append delta must preserve sealed event ref ${index}`);
+}
+assert.equal(appendWriteKeys.at(-2), appendResult.saveManifestRef.logicalKey, 'append delta save manifest should be the penultimate pointer write');
+assert.equal(appendWriteKeys.at(-1), appendResult.campaignManifestRef.logicalKey, 'append delta campaign manifest should be final pointer write');
+
+const diagnosticsInterleaveCampaignId = 'campaign-diagnostics-interleave';
+const diagnosticsInterleaveSaveId = 'save-diagnostics-interleave';
+const diagnosticsInterleaveStorage = createLoggingStorage();
+const diagnosticsInterleaveAdapter = createLogicalStorageAdapter({ storage: diagnosticsInterleaveStorage, hostId: 'fake' });
+await commitV2SaveLayout(diagnosticsInterleaveAdapter, {
+  campaignId: diagnosticsInterleaveCampaignId,
+  saveId: diagnosticsInterleaveSaveId,
+  now,
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  },
+  eventSegments: [[{ id: 'event-before-interleave', type: 'turnEvent' }]],
+  turnSegments: [[{ id: 'turn-before-interleave', turnId: 'turn-before', outcomeId: 'outcome-before' }]],
+  diagnosticsSegments: [[{
+    id: 'diag-before-interleave',
+    type: 'sidecar',
+    status: 'running'
+  }]]
+});
+await Promise.all([
+  commitV2EventTurnSegments(diagnosticsInterleaveAdapter, {
+    campaignId: diagnosticsInterleaveCampaignId,
+    saveId: diagnosticsInterleaveSaveId,
+    now: '2026-06-28T14:04:02.000Z',
+    eventSegments: [[{ id: 'event-after-interleave', type: 'turnEvent' }]],
+    turnSegments: [[{ id: 'turn-after-interleave', turnId: 'turn-after', outcomeId: 'outcome-after' }]]
+  }),
+  commitV2DiagnosticsSegments(diagnosticsInterleaveAdapter, {
+    campaignId: diagnosticsInterleaveCampaignId,
+    saveId: diagnosticsInterleaveSaveId,
+    now: '2026-06-28T14:04:01.000Z',
+    diagnosticsSegments: [[{
+      id: 'diag-interleaved',
+      type: 'sidecar',
+      status: 'queued'
+    }]]
+  })
+]);
+const diagnosticsInterleaveManifest = await loadV2SaveManifest(diagnosticsInterleaveAdapter, {
+  campaignId: diagnosticsInterleaveCampaignId,
+  saveId: diagnosticsInterleaveSaveId
+});
+const diagnosticsInterleaveEntries = (await Promise.all(diagnosticsInterleaveManifest.diagnosticsSegments.map((ref) => readV2ArtifactRef(diagnosticsInterleaveAdapter, ref))))
+  .flatMap((segment) => segment.entries || []);
+assert.deepEqual(
+  diagnosticsInterleaveEntries.map((entry) => entry.id),
+  ['diag-before-interleave', 'diag-interleaved'],
+  'concurrent event/turn and diagnostics appends must preserve diagnostics refs'
+);
+assert.equal(
+  diagnosticsInterleaveManifest.eventSegments.length >= 1,
+  true,
+  'concurrent event/turn and diagnostics appends must preserve event refs'
+);
+
+const diagnosticsRepairCampaignId = 'campaign-diagnostics-repair';
+const diagnosticsRepairSaveId = 'save-diagnostics-repair';
+const diagnosticsRepairStorage = createLoggingStorage();
+const diagnosticsRepairAdapter = createLogicalStorageAdapter({ storage: diagnosticsRepairStorage, hostId: 'fake' });
+await commitV2SaveLayout(diagnosticsRepairAdapter, {
+  campaignId: diagnosticsRepairCampaignId,
+  saveId: diagnosticsRepairSaveId,
+  now,
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  },
+  diagnosticsSegments: [[{
+    id: 'diag-repair-before',
+    type: 'sidecar',
+    status: 'before'
+  }]]
+});
+const diagnosticsRepairStaleManifest = await loadV2SaveManifest(diagnosticsRepairAdapter, {
+  campaignId: diagnosticsRepairCampaignId,
+  saveId: diagnosticsRepairSaveId
+});
+const missingRecentDiagnostic = {
+  id: 'diag-repair-missing-recent',
+  type: 'sidecar',
+  status: 'queued'
+};
+await commitV2DiagnosticsSegments(diagnosticsRepairAdapter, {
+  campaignId: diagnosticsRepairCampaignId,
+  saveId: diagnosticsRepairSaveId,
+  now: '2026-06-28T14:05:01.000Z',
+  diagnosticsSegments: [[missingRecentDiagnostic]]
+});
+await diagnosticsRepairAdapter.writeJson(
+  saveManifestV2LogicalKey({
+    campaignId: diagnosticsRepairCampaignId,
+    saveId: diagnosticsRepairSaveId
+  }),
+  diagnosticsRepairStaleManifest
+);
+const currentRecentDiagnostic = {
+  id: 'diag-repair-current',
+  type: 'sidecar',
+  status: 'running'
+};
+await commitV2DiagnosticsSegments(diagnosticsRepairAdapter, {
+  campaignId: diagnosticsRepairCampaignId,
+  saveId: diagnosticsRepairSaveId,
+  now: '2026-06-28T14:05:02.000Z',
+  diagnosticsSegments: [[currentRecentDiagnostic]],
+  recentDiagnostics: [missingRecentDiagnostic, currentRecentDiagnostic]
+});
+const diagnosticsRepairManifest = await loadV2SaveManifest(diagnosticsRepairAdapter, {
+  campaignId: diagnosticsRepairCampaignId,
+  saveId: diagnosticsRepairSaveId
+});
+const diagnosticsRepairEntries = (await Promise.all(diagnosticsRepairManifest.diagnosticsSegments.map((ref) => readV2ArtifactRef(diagnosticsRepairAdapter, ref))))
+  .flatMap((segment) => segment.entries || []);
+assert.deepEqual(
+  diagnosticsRepairEntries.map((entry) => entry.id),
+  ['diag-repair-before', 'diag-repair-missing-recent', 'diag-repair-current'],
+  'diagnostics append must repair recent diagnostics missing from a stale manifest tail'
 );
 
 console.log('Transaction store v2 tests passed.');

@@ -233,6 +233,22 @@ function preOutcomeRevision(campaignState, ingress) {
   return matching ? Number(matching.revision) : null;
 }
 
+function sourceMutationEventType(type, { response = null, ingress = null } = {}) {
+  if (type === 'deleted') {
+    if (response) return 'directiveResponseDeleted';
+    if (ingress) return 'playerMessageDeleted';
+    return 'sceneHandshakeSourceDeleted';
+  }
+  if (type === 'selectedSwipeChanged') {
+    if (response) return 'directiveResponseSelectedSwipeChanged';
+    if (ingress) return 'playerMessageSelectedSwipeChanged';
+    return 'sceneHandshakeSourceSelectedSwipeChanged';
+  }
+  if (response) return 'directiveResponseEdited';
+  if (ingress) return 'playerMessageEdited';
+  return 'sceneHandshakeSourceEdited';
+}
+
 export function createMessageReconciler({
   getCampaignState,
   setCampaignState,
@@ -354,13 +370,14 @@ export function createMessageReconciler({
     index = null,
     chatMetadata = null,
     visibilityMap = null,
-    autoRollback = false
+    autoRollback = false,
+    selectedSwipe = null
   } = {}) {
     const state = getCampaignState();
     const ingress = findIngress(state, hostMessageId);
     const response = ingress ? null : findResponse(state, hostMessageId);
     if (!ingress && !response) {
-      const eventType = type === 'deleted' ? 'sceneHandshakeSourceDeleted' : 'sceneHandshakeSourceEdited';
+      const eventType = sourceMutationEventType(type);
       const eventTime = timestamp(now);
       const invalidated = invalidateSceneHandshakeSources(state, {
         hostMessageId,
@@ -407,7 +424,7 @@ export function createMessageReconciler({
       };
     }
     if (response) {
-      const eventType = type === 'deleted' ? 'directiveResponseDeleted' : 'directiveResponseEdited';
+      const eventType = sourceMutationEventType(type, { response });
       const eventTime = timestamp(now);
       const revision = preOutcomeRevision(state, {
         id: response.ingressId,
@@ -425,7 +442,8 @@ export function createMessageReconciler({
         message,
         index,
         chatMetadata,
-        visibilityMap
+        visibilityMap,
+        selectedSwipe
       });
       const legacyProjection = legacyProjectionFromRepair(coreRecovery, {
         sourceKind: 'directiveResponse',
@@ -439,7 +457,10 @@ export function createMessageReconciler({
         invalidationType: eventType,
         replacementText: compact(replacementText) || null,
         editedAt: eventType === 'directiveResponseEdited' ? eventTime : response.editedAt || null,
-        deletedAt: eventType === 'directiveResponseDeleted' ? eventTime : response.deletedAt || null
+        deletedAt: eventType === 'directiveResponseDeleted' ? eventTime : response.deletedAt || null,
+        selectedSwipeChangedAt: eventType === 'directiveResponseSelectedSwipeChanged'
+          ? eventTime
+          : response.selectedSwipeChangedAt || null
       });
       next = recordRecoveryEvent(next, {
         type: eventType,
@@ -496,7 +517,7 @@ export function createMessageReconciler({
         campaignState: cloneJson(next)
       };
     }
-    const eventType = type === 'deleted' ? 'playerMessageDeleted' : 'playerMessageEdited';
+    const eventType = sourceMutationEventType(type, { ingress });
     const eventTime = timestamp(now);
     const revision = preOutcomeRevision(state, ingress);
     const coreRecovery = await recordRepairSourceMutationRecovery({
@@ -511,7 +532,8 @@ export function createMessageReconciler({
       message,
       index,
       chatMetadata,
-      visibilityMap
+      visibilityMap,
+      selectedSwipe
     });
     const legacyProjection = legacyProjectionFromRepair(coreRecovery, {
       sourceKind: 'playerIngress',
@@ -532,7 +554,10 @@ export function createMessageReconciler({
       invalidationType: eventType,
       replacementText: compact(replacementText) || null,
       editedAt: eventType === 'playerMessageEdited' ? eventTime : ingress.editedAt || null,
-      deletedAt: eventType === 'playerMessageDeleted' ? eventTime : ingress.deletedAt || null
+      deletedAt: eventType === 'playerMessageDeleted' ? eventTime : ingress.deletedAt || null,
+      selectedSwipeChangedAt: eventType === 'playerMessageSelectedSwipeChanged'
+        ? eventTime
+        : ingress.selectedSwipeChangedAt || null
     });
     next = recordRecoveryEvent(next, {
       type: eventType,
@@ -601,6 +626,7 @@ export function createMessageReconciler({
 
   const reconcileEdited = (options = {}) => reconcile({ ...options, type: 'edited' });
   const reconcileDeleted = (options = {}) => reconcile({ ...options, type: 'deleted' });
+  const reconcileSelectedSwipeChanged = (options = {}) => reconcile({ ...options, type: 'selectedSwipeChanged' });
   async function reconcileVisibilityChanged({
     hostMessageId,
     message = null,
@@ -665,6 +691,7 @@ export function createMessageReconciler({
   return {
     reconcileEdited,
     reconcileDeleted,
+    reconcileSelectedSwipeChanged,
     reconcileVisibilityChanged,
     handleEdit(campaignState, payload = {}) {
       if (campaignState && typeof setCampaignState === 'function') setCampaignState(campaignState);
@@ -698,6 +725,17 @@ export function createMessageReconciler({
         chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
         visibilityMap: payload.visibilityMap || null
       });
+    },
+    handleSelectedSwipeChange(campaignState, payload = {}) {
+      if (campaignState && typeof setCampaignState === 'function') setCampaignState(campaignState);
+      return reconcileSelectedSwipeChanged({
+        hostMessageId: payload.hostMessageId || payload.messageId || payload.message_id || payload.id || payload.index,
+        selectedSwipe: payload.selectedSwipe || payload,
+        message: payload.message || payload,
+        index: payload.index || payload.message?.index || null,
+        chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
+        visibilityMap: payload.visibilityMap || null
+      });
     }
   };
 }
@@ -705,6 +743,7 @@ export function createMessageReconciler({
 export const __messageReconcilerTestHooks = Object.freeze({
   findIngress,
   preOutcomeRevision,
+  sourceMutationEventType,
   invalidateSceneHandshakeSources,
   markMissionComponentSources
 });

@@ -10,6 +10,7 @@ import {
   createSyntheticLensPromptScheduler
 } from '../../src/runtime/lens-prompt-scheduler-synthetic.mjs';
 import {
+  createLensPromptScheduler,
   normalizePromptDirtyDomains
 } from '../../src/runtime/lens-prompt-scheduler.mjs';
 import {
@@ -338,6 +339,45 @@ assert.equal(noDirtyFlush.status, 'reused');
 assert.equal(noDirtyFlush.rebuilt, false);
 assert.equal(buildCalls.length, 1, 'clean visible lane must not rebuild');
 
+lens.enqueueDirty({
+  lane: 'visible',
+  source: 'sre',
+  dirtyDomains: ['sourceBinding'],
+  idempotencyKey: 'dirty-visible-stale-guard'
+});
+const beforeStaleGuardPromptCalls = promptCalls.length;
+const beforeStaleGuardBuildCalls = buildCalls.length;
+const staleGuardCalls = [];
+const staleGuardFlush = await lens.flush({
+  transactionId: 'txn-lens-visible',
+  lane: 'visible',
+  binding,
+  campaignContext,
+  promptFrame: { turnSourceHash: 'turn-source-hash-stale' },
+  reason: 'visible-stale-source-build-only',
+  idempotencyKey: 'visible-stale-source-build-only',
+  beforeInstallPrompt: async (payload) => {
+    staleGuardCalls.push(payload);
+    return false;
+  }
+});
+assert.equal(staleGuardFlush.status, 'installSkippedStale');
+assert.equal(staleGuardFlush.rebuilt, false);
+assert.equal(staleGuardFlush.dirtyPrompt, true);
+assert.equal(staleGuardFlush.packet, undefined, 'Stale prompt install skips must not return raw prompt packets.');
+assert.equal(staleGuardCalls.length, 1, 'LENS should ask the caller before host prompt install.');
+assert.equal(staleGuardCalls[0].lane, 'visible');
+assert.equal(staleGuardCalls[0].cacheKey, staleGuardFlush.cacheKey);
+assert.deepEqual(staleGuardCalls[0].dirtyDomains, ['sourceBinding']);
+assert.equal(buildCalls.length, beforeStaleGuardBuildCalls + 1, 'Stale install guard still builds enough to know the cache key.');
+assert.equal(promptCalls.length, beforeStaleGuardPromptCalls, 'Stale install guard must prevent host prompt writes.');
+assert.deepEqual(lens.inspect().pendingDirtyDomains.visible, ['sourceBinding'], 'Rejected stale install should keep dirty state for retry.');
+assert.equal(lens.inspect().installed.visible.directiveOwnedRevision, 1, 'Rejected stale install must not advance installed revision.');
+const staleSkippedDiagnostic = harness.coreStore.state.diagnostics.find((entry) => entry.redactedPayload?.status === 'installSkippedStale');
+assert(staleSkippedDiagnostic, 'LENS stale install skip should append compact diagnostic evidence.');
+assert.equal(JSON.stringify(staleSkippedDiagnostic).includes('RAW_LENS_PROMPT_BODY'), false);
+assert.equal(JSON.stringify(staleSkippedDiagnostic).includes('RAW_LENS_BUILDER_RESPONSE'), false);
+
 const hostHarness = createHarness({
   nowPrefix: '2026-06-28T20:10',
   nowValues: [
@@ -469,6 +509,149 @@ assert.equal(backgroundFlush.status, 'installed');
 assert.deepEqual(backgroundFlush.dirtyDomains, ['continuity', 'crewShipRelationship']);
 assert.equal(backgroundBuildCalls.length, 1, 'background batch should produce one prompt rebuild');
 
+backgroundLens.enqueueDirty({
+  lane: 'background',
+  source: 'forge-accepted-batch',
+  dirtyDomains: ['continuity'],
+  idempotencyKey: 'accepted-batch-cache-a'
+});
+const acceptedBatchFlushA = await backgroundLens.flush({
+  transactionId: 'txn-lens-background',
+  lane: 'background',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: backgroundHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'cpm-source-hash-background'
+  },
+  promptFrame: {
+    sourceToken: 'source-token-accepted-batch-cache',
+    coreAcceptedBatchProjection: {
+      kind: 'directive.coreAcceptedSidecarBatchProjection.v1',
+      acceptedBatchHash: 'accepted-batch-hash-a',
+      background: { backgroundBatchId: 'background-batch-a' }
+    }
+  },
+  reason: 'accepted-batch-cache-a'
+});
+backgroundLens.enqueueDirty({
+  lane: 'background',
+  source: 'forge-accepted-batch',
+  dirtyDomains: ['continuity'],
+  idempotencyKey: 'accepted-batch-cache-b'
+});
+const acceptedBatchFlushB = await backgroundLens.flush({
+  transactionId: 'txn-lens-background',
+  lane: 'background',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: backgroundHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'cpm-source-hash-background'
+  },
+  promptFrame: {
+    sourceToken: 'source-token-accepted-batch-cache',
+    coreAcceptedBatchProjection: {
+      kind: 'directive.coreAcceptedSidecarBatchProjection.v1',
+      acceptedBatchHash: 'accepted-batch-hash-b',
+      background: { backgroundBatchId: 'background-batch-b' }
+    }
+  },
+  reason: 'accepted-batch-cache-b'
+});
+assert.equal(
+  acceptedBatchFlushB.status,
+  'installed',
+  'Distinct accepted sidecar batch hashes must force a distinct LENS prompt cache install.'
+);
+assert.notEqual(
+  acceptedBatchFlushB.cacheKey,
+  acceptedBatchFlushA.cacheKey,
+  'LENS cache identity must include compact CORE accepted-batch projection evidence.'
+);
+const productionAcceptedBuildCalls = [];
+const productionAcceptedLens = createLensPromptScheduler({
+  clock: backgroundHarness.clock,
+  buildDirectivePromptPacket: async (payload) => {
+    productionAcceptedBuildCalls.push(payload);
+    return {
+      hash: hashStableJson({
+        revision: payload.revision,
+        cacheKey: payload.cacheKey,
+        acceptedBatchHash: payload.promptFrame?.coreAcceptedBatchProjection?.acceptedBatchHash || null
+      }),
+      blocks: [{
+        id: 'production-accepted-sidecar',
+        promptKey: 'directive.lens.production-accepted-sidecar',
+        title: 'Production Accepted Sidecar Prompt',
+        text: 'Accepted sidecar projection.',
+        placement: 'inPrompt',
+        depth: 0,
+        role: 'system'
+      }]
+    };
+  },
+  installPromptPacket: async () => ({ ok: true }),
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    status: 'observed'
+  })
+});
+productionAcceptedLens.enqueueDirty({
+  lane: 'background',
+  source: 'forge-accepted-batch',
+  dirtyDomains: ['continuity'],
+  idempotencyKey: 'production-accepted-a'
+});
+const productionAcceptedFlushA = await productionAcceptedLens.flush({
+  transactionId: 'txn-lens-background',
+  lane: 'background',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: backgroundHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'cpm-source-hash-background'
+  },
+  promptFrame: {
+    sourceToken: 'source-token-production-accepted',
+    coreAcceptedBatchProjection: {
+      kind: 'directive.coreAcceptedSidecarBatchProjection.v1',
+      acceptedBatchHash: 'production-accepted-hash-a',
+      background: { backgroundBatchId: 'production-background-a' }
+    }
+  },
+  reason: 'production-accepted-a'
+});
+productionAcceptedLens.enqueueDirty({
+  lane: 'background',
+  source: 'forge-accepted-batch',
+  dirtyDomains: ['continuity'],
+  idempotencyKey: 'production-accepted-b'
+});
+const productionAcceptedFlushB = await productionAcceptedLens.flush({
+  transactionId: 'txn-lens-background',
+  lane: 'background',
+  binding,
+  campaignContext: {
+    ...campaignContext,
+    mechanicsRevision: backgroundHarness.coreStore.state.revisions.mechanics,
+    cpmSourceHash: 'cpm-source-hash-background'
+  },
+  promptFrame: {
+    sourceToken: 'source-token-production-accepted',
+    coreAcceptedBatchProjection: {
+      kind: 'directive.coreAcceptedSidecarBatchProjection.v1',
+      acceptedBatchHash: 'production-accepted-hash-b',
+      background: { backgroundBatchId: 'production-background-b' }
+    }
+  },
+  reason: 'production-accepted-b'
+});
+assert.equal(productionAcceptedFlushA.status, 'installed');
+assert.equal(productionAcceptedFlushB.status, 'installed');
+assert.notEqual(productionAcceptedFlushB.cacheKey, productionAcceptedFlushA.cacheKey);
+assert.equal(productionAcceptedBuildCalls.length, 2, 'Production LENS should rebuild for a distinct CORE accepted-batch projection hash.');
+
 const failureHarness = createHarness({
   nowPrefix: '2026-06-28T20:30',
   nowValues: [
@@ -560,4 +743,4 @@ const replayFailureFlush = await failureLens.flush({
 assert.equal(replayFailureFlush.replayed, true);
 assert.equal(failureInstallCalls, 2, 'successful retry with same idempotency key must not install twice');
 
-console.log('LENS prompt scheduler synthetic tests passed.');
+console.log('LENS prompt scheduler tests passed.');

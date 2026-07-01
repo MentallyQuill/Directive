@@ -5,6 +5,8 @@ import path from 'node:path';
 
 import { runMessageMutationActuation } from './run-sillytavern-message-mutation-actuation-live.mjs';
 
+const RAW_SENTINEL = 'RAW_SENTINEL_CHILD_TEXT_SHOULD_NOT_SURVIVE';
+
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -115,6 +117,43 @@ function mutationReport({
       chatLength: after.chatLength - before.chatLength,
       recovery: after.recoveryCount - before.recoveryCount,
       promptContextRevision: after.promptContextRevision - before.promptContextRevision
+    },
+    sourceMutationProof: {
+      kind: 'directive.sourceMutationProof.v1',
+      mutationKind: operation,
+      sourceRole: isUser ? 'source' : 'assistant',
+      trackedKind,
+      targetHostMessageId: targetMesid,
+      nativeHostControlMoved: true,
+      nativeHostControls: operation === 'delete'
+        ? { editButton: true, deleteButton: true, confirmation: true, nativeDialog: false }
+        : { editButton: true, doneButton: true },
+      textHashes: operation === 'delete'
+        ? { original: 'original-hash' }
+        : { original: 'original-hash', replacement: 'replacement-hash' },
+      trackingChanged: true,
+      recoveryDelta: 1,
+      promptContextRevisionDelta: 1,
+      beforeStatus: beforeTracked.status,
+      afterStatus: afterTracked.status,
+      coreRecovery: {
+        status: 'recorded',
+        transactionId: `txn.${operation}.${trackedKind}.${targetMesid}`,
+        recoveryCaseId: `case.${operation}.${trackedKind}.${targetMesid}`,
+        phase: 'recoveryRequired',
+        reason: trackedKind === 'ingress'
+          ? `playerMessage${operation === 'delete' ? 'Deleted' : 'Edited'}`
+          : `directiveResponse${operation === 'delete' ? 'Deleted' : 'Edited'}`
+      },
+      repairDecision: {
+        kind: 'directive.repairDecision.v1',
+        action: 'reviewRequired',
+        eventType: trackedKind === 'ingress'
+          ? `playerMessage${operation === 'delete' ? 'Deleted' : 'Edited'}`
+          : `directiveResponse${operation === 'delete' ? 'Deleted' : 'Edited'}`,
+        sourceKind: trackedKind === 'ingress' ? 'playerIngress' : 'directiveResponse',
+        recoveryStatus: 'reviewRequired'
+      }
     }
   };
 }
@@ -146,6 +185,28 @@ function selectedSwipeReport(user = 'directive-soak-b') {
       ok: true,
       action: 'sceneHandshakeInvalidated',
       lastStatus: 'invalidated'
+    },
+    sourceIntegrityProof: {
+      kind: 'directive.sourceIntegrityProof.v1',
+      integrityKind: 'selectedSwipe',
+      sourceRole: 'assistant',
+      actuationMode: 'staged-context-source-truth',
+      fixtureHostMessageId: 'assistant-selected-swipe',
+      selectedSwipeIndex: 1,
+      swipeCount: 3,
+      sourceIntegrity: 'clean',
+      selectedHashMatchesPrevious: true,
+      discardedSwipeCanariesAbsent: true,
+      sourceTextHashes: {
+        selectedAssistantVariant: 'hash-selected',
+        previousAssistant: 'hash-selected',
+        currentPlayer: 'hash-player',
+        range: 'hash-range'
+      },
+      sreDecision: {
+        status: 'settled',
+        action: 'autoCommit'
+      }
     }
   };
 }
@@ -253,11 +314,14 @@ function createFakeChildRunner({ warningScenario = '' } = {}) {
   const runChild = async (command, args, { env, scenario }) => {
     calls.push({ command, args, env, scenario });
     if (scenario === 'selected-swipe') {
+      const report = selectedSwipeReport();
+      report.prompt = RAW_SENTINEL;
+      report.debug = { text: RAW_SENTINEL };
       return {
         ok: true,
         exitCode: 0,
-        stdout: `log before json\n${JSON.stringify(selectedSwipeReport())}\nlog after json`,
-        stderr: ''
+        stdout: `log before json\n${JSON.stringify(report)}\nlog after json`,
+        stderr: `selected child stderr ${RAW_SENTINEL}`
       };
     }
     const runId = env.DIRECTIVE_MESSAGE_EDIT_RUN_ID || env.DIRECTIVE_MESSAGE_DELETE_RUN_ID;
@@ -268,7 +332,7 @@ function createFakeChildRunner({ warningScenario = '' } = {}) {
       ok: true,
       exitCode: 0,
       stdout: JSON.stringify({ ok: true, status: report.status }),
-      stderr: ''
+      stderr: `child stderr ${RAW_SENTINEL}`
     };
   };
   return { calls, runChild };
@@ -311,9 +375,17 @@ assert.equal(fakeLive.calls.find((call) => call.scenario === 'source-edit').env.
 assert.equal(fakeLive.calls.find((call) => call.scenario === 'assistant-delete').env.DIRECTIVE_MESSAGE_DELETE_SEGMENT, 'assistant-delete');
 assert.equal(fakeLive.calls.find((call) => call.scenario === 'selected-swipe').args.includes('--write-artifacts'), false);
 assert.equal(JSON.stringify(live.report).includes('Sam waited for her reply.'), false);
+assert.equal(JSON.stringify(live.report).includes(RAW_SENTINEL), false);
 const liveManifest = JSON.parse(fs.readFileSync(live.report.manifestPath, 'utf8'));
 assert.equal(Object.values(liveManifest).every((entry) => entry && !path.isAbsolute(entry)), true);
 assert.equal(liveManifest.selectedSwipe.endsWith('children/live-synthetic-selected-swipe.json'), true);
+const liveChildrenText = fs.readFileSync(path.join(live.report.artifactRoot, 'children.json'), 'utf8');
+const liveProofText = fs.readFileSync(live.report.proofPath, 'utf8');
+const selectedSwipeText = fs.readFileSync(path.join(live.report.artifactRoot, liveManifest.selectedSwipe), 'utf8');
+assert.equal(liveChildrenText.includes(RAW_SENTINEL), false);
+assert.equal(liveProofText.includes(RAW_SENTINEL), false);
+assert.equal(selectedSwipeText.includes(RAW_SENTINEL), false);
+assert.equal(JSON.parse(selectedSwipeText).artifactRedaction.rawTextFieldCount, 2);
 
 const duplicateRoot = makeRoot();
 const duplicateFake = createFakeChildRunner();

@@ -212,7 +212,87 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
   return page.evaluate(async ({ modulePath, targetMesid }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const count = (value) => Array.isArray(value) ? value.length : 0;
-    const text = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const hashText = (value) => {
+      const text = String(value || '');
+      let hash = 2166136261;
+      for (let index = 0; index < text.length; index += 1) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16).padStart(8, '0');
+    };
+    const compactDecision = (value = null) => value && typeof value === 'object' ? ({
+      kind: value.kind || null,
+      action: value.action || null,
+      eventType: value.eventType || null,
+      sourceKind: value.sourceKind || null,
+      normalTurnAllowed: value.normalTurnAllowed === true,
+      recoveryRequired: value.recoveryRequired === true,
+      recoveryStatus: value.recoveryStatus || value.legacyProjection?.recoveryJournalStatus || null,
+      transactionId: value.transactionId || null,
+      recoveryCaseId: value.recoveryCaseId || null,
+      legacyProjection: value.legacyProjection ? {
+        sourceProjectionStatus: value.legacyProjection.sourceProjectionStatus || null,
+        responseProjectionStatus: value.legacyProjection.responseProjectionStatus || null,
+        recoveryJournalStatus: value.legacyProjection.recoveryJournalStatus || null,
+        returnedAction: value.legacyProjection.returnedAction || null,
+        shouldRestoreRevision: value.legacyProjection.shouldRestoreRevision === true
+      } : null
+    }) : null;
+    const compactSourceMutation = (value = null) => value && typeof value === 'object' ? ({
+      kind: value.kind || null,
+      sourceKind: value.sourceKind || null,
+      eventType: value.eventType || null,
+      hostMessageId: value.hostMessageId || null,
+      ingressId: value.ingressId || null,
+      responseId: value.responseId || null,
+      outcomeId: value.outcomeId || null,
+      sourceFrameId: value.sourceFrameId || null,
+      replacementTextHash: value.replacementTextHash || null,
+      replacementTextPresent: value.replacementTextPresent === true,
+      preOutcomeRevision: Number.isFinite(Number(value.preOutcomeRevision)) ? Number(value.preOutcomeRevision) : null,
+      autoRollback: value.autoRollback === true,
+      priorStatus: value.priorStatus || null
+    }) : null;
+    const compactCoreRecovery = (value = null) => value && typeof value === 'object' ? ({
+      status: value.status || null,
+      transactionId: value.transactionId || null,
+      recoveryCaseId: value.recoveryCaseId || value.id || null,
+      phase: value.phase || null,
+      reason: value.reason || null,
+      sourceMutation: compactSourceMutation(value.sourceMutation || value.decision?.sourceMutation || null),
+      decision: compactDecision(value.decision || value.repairDecision || null)
+    }) : null;
+    const compactRecoveryEntry = (entry = null) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const details = entry.details || {};
+      const coreRecovery = compactCoreRecovery(details.coreRecovery || entry.coreRecovery || null);
+      return {
+        id: entry.id || null,
+        type: entry.type || null,
+        status: entry.status || null,
+        hostMessageId: entry.hostMessageId || null,
+        ingressId: entry.ingressId || details.ingressId || null,
+        outcomeId: entry.outcomeId || details.outcomeId || null,
+        responseId: details.responseId || null,
+        responseKind: details.responseKind || null,
+        turnId: details.turnId || null,
+        recordedAt: entry.recordedAt || null,
+        coreRecovery,
+        repairDecision: compactDecision(details.repairDecision || coreRecovery?.decision || entry.repairDecision || null),
+        rollbackActuation: details.rollbackActuation ? {
+          kind: details.rollbackActuation.kind || null,
+          authorized: details.rollbackActuation.authorized === true,
+          action: details.rollbackActuation.action || null,
+          eventType: details.rollbackActuation.eventType || null,
+          sourceKind: details.rollbackActuation.sourceKind || null,
+          recoveryStatus: details.rollbackActuation.recoveryStatus || null,
+          restoreRevision: Number.isFinite(Number(details.rollbackActuation.restoreRevision))
+            ? Number(details.rollbackActuation.restoreRevision)
+            : null
+        } : null
+      };
+    };
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -226,6 +306,9 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const ingress = (tracking.ingressLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
     const response = (tracking.responseLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
     const reconciliation = tracking.sceneReconciliation || {};
+    const recoveryJournal = Array.isArray(tracking.recoveryJournal) ? tracking.recoveryJournal : [];
+    const latestRecovery = [...recoveryJournal].reverse().find((entry) => String(entry?.hostMessageId || '') === String(targetMesid)) || null;
+    const messageText = String(message?.mes || '');
     return {
       currentChatId: host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null,
       chatLength: chat.length,
@@ -234,9 +317,8 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         name: message.name || '',
         isUser: message.is_user === true,
         isSystem: message.is_system === true,
-        text: String(message.mes || ''),
-        textPreview: text(message.mes).slice(0, 240),
-        textHash: message.mes ? String(message.mes).length : 0
+        textHash: hashText(messageText),
+        textLength: messageText.length
       } : null,
       ingress: ingress ? {
         id: ingress.id || null,
@@ -265,8 +347,9 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         replacementTextSet: Boolean(response.replacementText)
       } : null,
       promptContextRevision: view?.chatNative?.binding?.promptContextRevision || view?.campaignState?.campaignChatBinding?.promptContextRevision || null,
-      recoveryCount: count(tracking.recoveryJournal),
-      recentRecoveryJournal: clone((tracking.recoveryJournal || []).slice(-6)),
+      recoveryCount: count(recoveryJournal),
+      latestRecovery: compactRecoveryEntry(latestRecovery),
+      recentRecoveryJournal: recoveryJournal.slice(-6).map(compactRecoveryEntry).filter(Boolean),
       sceneReconciliation: {
         runsCount: count(reconciliation.runs),
         lastResult: clone(reconciliation.lastResult || null)
@@ -307,7 +390,7 @@ async function waitForDirectiveRecovery(page, before) {
   const beforeRecoveryCount = Number(before?.recoveryCount || 0);
   const beforeIngressStatus = before?.ingress?.status || null;
   const beforeResponseStatus = before?.response?.status || null;
-  const beforeText = before?.targetMessage?.text || '';
+  const beforeTextHash = before?.targetMessage?.textHash || '';
   const deadline = Date.now() + 60000;
   let latest = null;
   while (Date.now() < deadline) {
@@ -315,13 +398,70 @@ async function waitForDirectiveRecovery(page, before) {
     const snapshot = await runtimeSnapshot(page).catch(() => null);
     if (!snapshot) continue;
     latest = snapshot;
-    const textChanged = snapshot.targetMessage?.text && snapshot.targetMessage.text !== beforeText;
+    const textChanged = snapshot.targetMessage?.textHash && snapshot.targetMessage.textHash !== beforeTextHash;
     const recoveryChanged = Number(snapshot.recoveryCount || 0) > beforeRecoveryCount;
     const ingressChanged = snapshot.ingress?.status && snapshot.ingress.status !== beforeIngressStatus;
     const responseChanged = snapshot.response?.status && snapshot.response.status !== beforeResponseStatus;
     if (textChanged && (recoveryChanged || ingressChanged || responseChanged)) return { ok: true, snapshot };
   }
   return { ok: false, timedOut: true, snapshot: latest };
+}
+
+function compactProofDecision(after = {}, trackedKind = 'ingress') {
+  const latest = after?.latestRecovery || null;
+  return latest?.repairDecision
+    || latest?.coreRecovery?.decision
+    || after?.[trackedKind]?.repairDecision
+    || after?.[trackedKind]?.coreRecovery?.decision
+    || null;
+}
+
+function compactProofRecovery(after = {}, trackedKind = 'ingress') {
+  return after?.latestRecovery?.coreRecovery
+    || after?.[trackedKind]?.coreRecovery
+    || null;
+}
+
+function sourceMutationProof({ mutationKind, before = {}, after = {}, control = {} } = {}) {
+  const trackedKind = before?.ingress ? 'ingress' : 'response';
+  const sourceRole = trackedKind === 'ingress' ? 'source' : 'assistant';
+  const coreRecovery = compactProofRecovery(after, trackedKind);
+  const repairDecision = compactProofDecision(after, trackedKind);
+  return {
+    kind: 'directive.sourceMutationProof.v1',
+    mutationKind,
+    sourceRole,
+    trackedKind,
+    targetHostMessageId: String(before?.targetMesid || after?.targetMesid || control?.targetMesid || ''),
+    nativeHostControlMoved: Boolean(control?.editButtonBox && control?.doneButtonBox),
+    nativeHostControls: {
+      editButton: Boolean(control?.editButtonBox),
+      doneButton: Boolean(control?.doneButtonBox)
+    },
+    textHashes: {
+      original: control?.originalTextHash || null,
+      replacement: control?.replacementTextHash || null
+    },
+    trackingChanged: Boolean(trackingChangedForProof(before, after, trackedKind)),
+    recoveryDelta: Number(after?.recoveryCount || 0) - Number(before?.recoveryCount || 0),
+    promptContextRevisionDelta: Number(after?.promptContextRevision || 0) - Number(before?.promptContextRevision || 0),
+    beforeStatus: before?.[trackedKind]?.status || null,
+    afterStatus: after?.[trackedKind]?.status || null,
+    coreRecovery,
+    repairDecision
+  };
+}
+
+function trackingChangedForProof(before = {}, after = {}, trackedKind = 'ingress') {
+  const a = before?.[trackedKind] || null;
+  const b = after?.[trackedKind] || null;
+  if (!a && !b) return false;
+  return a?.status !== b?.status
+    || a?.editedAt !== b?.editedAt
+    || a?.deletedAt !== b?.deletedAt
+    || a?.invalidatedAt !== b?.invalidatedAt
+    || a?.recoveryId !== b?.recoveryId
+    || a?.replacementTextSet !== b?.replacementTextSet;
 }
 
 async function liveReport(paths = null) {
@@ -388,6 +528,12 @@ async function liveReport(paths = null) {
     const waited = await waitForDirectiveRecovery(page, before);
     const after = waited.snapshot || await runtimeSnapshot(page);
     const status = waited.ok ? 'pass' : 'warning';
+    const proof = sourceMutationProof({
+      mutationKind: 'edit',
+      before,
+      after,
+      control: edit
+    });
     return {
       schemaVersion: 1,
       kind: 'directive.sillytavernMessageEdit.live',
@@ -403,6 +549,7 @@ async function liveReport(paths = null) {
       presetDialog,
       openCampaign,
       edit,
+      sourceMutationProof: proof,
       waited,
       before: {
         ...before,

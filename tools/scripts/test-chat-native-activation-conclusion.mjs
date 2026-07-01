@@ -8,6 +8,7 @@ import {
   createCampaignActivationCoordinator
 } from '../../src/runtime/campaign-activation-coordinator.mjs';
 import { createCampaignConclusionService } from '../../src/runtime/campaign-conclusion-service.mjs';
+import { buildLensPromptPacket } from '../../src/runtime/lens-prompt-packet-builder.mjs';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
 
 const root = process.cwd();
@@ -79,18 +80,28 @@ function createInjectedPromptLifecycle(promptAdapter, calls = []) {
     async installPromptContext(options = {}) {
       installCount += 1;
       const cacheKey = `test-activation-cache-${installCount}`;
+      const packet = options.promptContext?.blocks
+        ? cloneJson(options.promptContext)
+        : await buildLensPromptPacket({
+            promptInput: options.promptInput,
+            useContinuityPlanner: options.useContinuityPlanner === true,
+            generationRouter: options.generationRouter,
+            revision: installCount,
+            dirtyDomains: [],
+            cacheKey
+          });
       calls.push({
         type: 'installPromptContext',
         campaignStatus: options.campaignState?.campaign?.status || null,
         binding: cloneJson(options.binding || null),
-        promptKind: options.promptContext?.kind || null,
-        lensDirtyDomains: cloneJson(options.promptContext?.lensDirtyDomains || null),
+        promptKind: packet?.kind || null,
+        lensDirtyDomains: cloneJson(packet?.lensDirtyDomains || null),
         reason: options.reason || null,
         activityContext: cloneJson(options.activityContext || null)
       });
       const installResult = await promptAdapter.install({
         binding: options.binding,
-        packet: options.promptContext,
+        packet,
         lane: 'visible',
         reason: options.reason,
         cacheKey
@@ -98,11 +109,12 @@ function createInjectedPromptLifecycle(promptAdapter, calls = []) {
       return {
         ok: installResult?.ok !== false,
         status: installResult?.status || 'installed',
-        packet: cloneJson(options.promptContext),
+        packet: cloneJson(packet),
         lens: {
           status: 'installed',
           lane: 'visible',
-          cacheKey
+          cacheKey,
+          directiveOwnedRevision: installCount
         },
         installResult: cloneJson(installResult || null)
       };

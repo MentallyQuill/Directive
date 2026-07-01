@@ -13,7 +13,9 @@ import {
   hashStableJson
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import {
-  createCoreStoreV2
+  createCoreStoreV2,
+  loadCoreStoreStateV2,
+  readCoreStoreProjectionsV2
 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
 
@@ -238,6 +240,61 @@ assert.equal(cleanStateJson.includes('RAW_FACT_TEXT'), false);
 assert.equal(cleanStateJson.includes('RAW_EXTERNAL_SUMMARY'), false);
 assert.equal(cleanStateJson.includes('RAW_VECTOR_RESULT'), false);
 assert.equal(cleanStateJson.includes('RAW_MEMORY_BOOK_PROMPT'), false);
+const hydratedCleanState = await loadCoreStoreStateV2(harness.adapter, {
+  campaignId: 'campaign-forge-synthetic',
+  saveId: 'save-forge-synthetic'
+});
+assert.deepEqual(hydratedCleanState.promptDirtyDomains, ['continuity', 'crewShipRelationship'], 'hydrated CORE state must derive FORGE dirty domains from background events');
+assert.equal(hydratedCleanState.transactions['txn-forge-clean'].backgroundBatchIds.includes('forge:txn-forge-clean'), true, 'hydrated CORE state must derive FORGE batch ids from background events');
+assert.equal(
+  hydratedCleanState.transactions['txn-forge-clean'].backgroundBatches.some((entry) => (
+    entry.batchId === 'forge:txn-forge-clean'
+    && entry.operationCount === 2
+    && entry.workerCount === 2
+  )),
+  true,
+  'hydrated CORE state must derive FORGE background summaries from appended events'
+);
+const hydratedCleanStore = createCoreStoreV2({
+  adapter: harness.adapter,
+  campaignId: 'campaign-forge-synthetic',
+  saveId: 'save-forge-synthetic',
+  now: harness.clock,
+  initialState: hydratedCleanState
+});
+const hydratedBackgroundEventCount = hydratedCleanStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length;
+await hydratedCleanStore.commitBackgroundBatch('txn-forge-clean', {
+  baseMechanicsRevision: hydratedCleanStore.state.revisions.mechanics,
+  idempotencyKey: 'forge-clean-1',
+  batchId: 'forge:txn-forge-clean',
+  phaseAfter: 'backgroundSettling'
+});
+assert.equal(
+  hydratedCleanStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length,
+  hydratedBackgroundEventCount,
+  'hydrated CORE background replay must not append a second FORGE batch event'
+);
+await assert.rejects(
+  () => hydratedCleanStore.commitBackgroundBatch('txn-forge-clean', {
+    idempotencyKey: 'forge-clean-other-key',
+    batchId: 'forge:txn-forge-clean',
+    phaseAfter: 'backgroundSettling'
+  }),
+  /already has background batch/,
+  'hydrated CORE background replay must reject a different key for an existing FORGE batch'
+);
+const cleanProjections = await readCoreStoreProjectionsV2(harness.adapter, {
+  campaignId: 'campaign-forge-synthetic',
+  saveId: 'save-forge-synthetic'
+});
+const cleanProjectedBatch = cleanProjections.backgroundBatches.find((entry) => (
+  entry.transactionId === 'txn-forge-clean'
+  && entry.batchId === 'forge:txn-forge-clean'
+));
+assert.ok(cleanProjectedBatch, 'persisted projections must derive the FORGE background batch from event segments');
+assert.equal(cleanProjectedBatch.operationCount, 2);
+assert.equal(cleanProjectedBatch.workerCount, 2);
+assert.deepEqual(cleanProjectedBatch.dirtyDomains, ['continuity', 'crewShipRelationship']);
 const replay = await forge.run({
   transactionId: 'txn-forge-clean',
   sourceToken: 'source-token-forge-clean',

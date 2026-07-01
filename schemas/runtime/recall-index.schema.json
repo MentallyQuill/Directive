@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.runtime.recallIndex.v1",
+  "title": "Directive Recall Index Contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entry", "query", "result"],
+  "properties": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "id", "campaignId", "saveId", "branchId", "authority", "hash", "byteLength"],
+      "properties": {
+        "kind": { "const": "directive.recallIndexEntry.v1" },
+        "schemaVersion": { "const": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "campaignId": { "type": ["string", "null"] },
+        "saveId": { "type": ["string", "null"] },
+        "branchId": { "type": "string", "minLength": 1 },
+        "sourceFrameRef": { "type": ["object", "null"] },
+        "coreEventRefs": { "type": "array" },
+        "sceneSealRef": { "type": ["object", "null"] },
+        "chapterId": { "type": ["string", "null"] },
+        "phaseId": { "type": ["string", "null"] },
+        "sceneId": { "type": ["string", "null"] },
+        "locationId": { "type": ["string", "null"] },
+        "actorIds": { "type": "array", "items": { "type": "string" } },
+        "subjectIds": { "type": "array", "items": { "type": "string" } },
+        "threadIds": { "type": "array", "items": { "type": "string" } },
+        "missionIds": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "timeRange": { "type": ["object", "null"] },
+        "authority": { "enum": ["committed", "reviewedImport", "package", "diagnosticCandidate"] },
+        "textHash": { "type": ["string", "null"] },
+        "preview": { "type": ["string", "null"], "maxLength": 180 },
+        "metadataHash": { "type": ["string", "null"] },
+        "embeddingRef": { "type": ["object", "null"] },
+        "stale": { "type": "boolean" },
+        "staleReason": { "type": ["string", "null"] },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "byteLength": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "branchId", "includeSemanticCandidates", "limit", "hash"],
+      "properties": {
+        "kind": { "const": "directive.recallQuery.v1" },
+        "schemaVersion": { "const": 1 },
+        "campaignId": { "type": ["string", "null"] },
+        "saveId": { "type": ["string", "null"] },
+        "branchId": { "type": "string" },
+        "sourceFrameId": { "type": ["string", "null"] },
+        "actorIds": { "type": "array", "items": { "type": "string" } },
+        "subjectIds": { "type": "array", "items": { "type": "string" } },
+        "locationIds": { "type": "array", "items": { "type": "string" } },
+        "missionIds": { "type": "array", "items": { "type": "string" } },
+        "threadIds": { "type": "array", "items": { "type": "string" } },
+        "phaseIds": { "type": "array", "items": { "type": "string" } },
+        "sceneIds": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "includeSemanticCandidates": { "type": "boolean" },
+        "limit": { "type": "integer", "minimum": 1 },
+        "invalidatedSourceFrameIds": { "type": "array", "items": { "type": "string" } },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "recallIndexRevision", "queryHash", "includedRefs", "omittedRefs", "trace", "hash", "byteLength"],
+      "properties": {
+        "kind": { "const": "directive.recallResult.v1" },
+        "schemaVersion": { "const": 1 },
+        "recallIndexRevision": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "queryHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "includedRefs": { "type": "array" },
+        "omittedRefs": { "type": "array" },
+        "trace": { "type": "object" },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "byteLength": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
+

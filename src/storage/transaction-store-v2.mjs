@@ -138,6 +138,15 @@ function segmentLimit(segmentType) {
   return TRANSACTION_STORE_V2_LIMITS.eventSegmentBytes;
 }
 
+function segmentMaxBytesFor(segmentType, segmentMaxBytes = null) {
+  if (Number.isFinite(Number(segmentMaxBytes))) return Number(segmentMaxBytes);
+  if (!isObject(segmentMaxBytes)) return segmentLimit(segmentType);
+  const direct = segmentMaxBytes[segmentType];
+  const named = segmentMaxBytes[`${segmentType}SegmentBytes`];
+  const value = Number(direct ?? named);
+  return Number.isFinite(value) ? value : segmentLimit(segmentType);
+}
+
 function segmentLogicalKey({ segmentType, campaignId, saveId, segmentId, layout = 'active' }) {
   const storageLayout = normalizeV2Layout(layout);
   if (segmentType === 'event') {
@@ -156,6 +165,17 @@ function segmentLogicalKey({ segmentType, campaignId, saveId, segmentId, layout 
       : diagnosticsSegmentV2LogicalKey({ campaignId, saveId, segmentId });
   }
   throw new Error(`Unknown v2 segment type "${segmentType}"`);
+}
+
+function segmentLogicalKeyBelongsTo({ logicalKey, segmentType, campaignId, saveId, layout = 'active' }) {
+  const storageLayout = normalizeV2Layout(layout);
+  const folder = segmentType === 'event'
+    ? 'events'
+    : (segmentType === 'turn' ? 'turns' : 'diagnostics');
+  const prefix = storageLayout === 'core'
+    ? `campaigns/${campaignId}/saves/${saveId}/core/${folder}/`
+    : `campaigns/${campaignId}/saves/${saveId}/${folder}/`;
+  return String(logicalKey || '').startsWith(prefix) && String(logicalKey || '').endsWith('.v2.json');
 }
 
 function checkpointLogicalKey({ campaignId, saveId, checkpointId, layout = 'active' }) {
@@ -296,6 +316,347 @@ async function verifyV2ArtifactRefs(adapter, refs = []) {
     await readV2ArtifactRef(adapter, ref);
   }
   return true;
+}
+
+function isMissingV2ManifestError(error) {
+  return error?.code === 'ENOENT'
+    || error?.code === 'DIRECTIVE_FAKE_HOST_FILE_MISSING'
+    || /not found/i.test(String(error?.message || ''));
+}
+
+async function loadExistingManifestForReuse(adapter, {
+  campaignId,
+  saveId,
+  layout
+} = {}) {
+  try {
+    return await loadV2SaveManifest(adapter, { campaignId, saveId, layout });
+  } catch (error) {
+    if (isMissingV2ManifestError(error)) return null;
+    throw error;
+  }
+}
+
+async function loadReusableSegment(adapter, ref = null) {
+  if (!ref?.logicalKey) return null;
+  try {
+    const record = await readV2ArtifactRef(adapter, ref);
+    return { ref: cloneJson(ref), record };
+  } catch {
+    // A broken existing ref should not block a full rewrite of that segment.
+    return null;
+  }
+}
+
+function canReusePublishedSegmentRef({
+  ref,
+  segmentType,
+  campaignId,
+  saveId,
+  segmentId,
+  entries = [],
+  layout = 'active'
+} = {}) {
+  if (!ref?.logicalKey) return false;
+  return segmentLogicalKeyBelongsTo({ logicalKey: ref.logicalKey, segmentType, campaignId, saveId, layout })
+    && typeof ref.hash === 'string'
+    && ref.hash.length > 0
+    && Number.isFinite(Number(ref.byteLength))
+    && ref.kind === segmentKind(segmentType)
+    && Number(ref.entryCount) === entries.length;
+}
+
+function refsEqual(left = [], right = []) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  return left.every((ref, index) => (
+    ref?.logicalKey === right[index]?.logicalKey
+    && ref?.hash === right[index]?.hash
+    && ref?.byteLength === right[index]?.byteLength
+    && ref?.entryCount === right[index]?.entryCount
+  ));
+}
+
+function mergeArtifactRefs(...groups) {
+  const merged = [];
+  const seen = new Set();
+  for (const group of groups) {
+    for (const ref of group || []) {
+      if (!ref?.logicalKey) continue;
+      const key = `${ref.logicalKey}:${ref.hash || ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(cloneJson(ref));
+    }
+  }
+  return merged;
+}
+
+function refsAfterAppend({ baseRefs = [], latestRefs = [], appendedRefs = [] } = {}) {
+  const base = (baseRefs || []).map(cloneJson);
+  const latest = (latestRefs || []).map(cloneJson);
+  const appended = (appendedRefs || []).map(cloneJson);
+  if (refsEqual(latest, base)) return appended;
+  if (refsEqual(appended, base)) return latest;
+  return mergeArtifactRefs(latest, appended);
+}
+
+async function readRecentSegmentEntryIds(adapter, refs = [], maxSegments = 3) {
+  const ids = new Set();
+  const tailRefs = (refs || []).slice(-Math.max(1, Number(maxSegments) || 1));
+  for (const ref of tailRefs) {
+    try {
+      const segment = await readV2ArtifactRef(adapter, ref);
+      for (const entry of segment.entries || []) {
+        if (entry?.id) ids.add(entry.id);
+      }
+    } catch {
+      // Missing or corrupt old diagnostic tails are handled by appending the recent window below.
+    }
+  }
+  return ids;
+}
+
+function diagnosticsEntryGroupsWithRecentRepair({
+  persistedIds = new Set(),
+  diagnosticsSegments = [],
+  recentDiagnostics = []
+} = {}) {
+  const nextEntries = normalizeEntryGroups(diagnosticsSegments);
+  const nextIds = new Set(nextEntries.map((entry) => entry?.id).filter(Boolean));
+  const repairEntries = [];
+  for (const entry of recentDiagnostics || []) {
+    if (!entry?.id || persistedIds.has(entry.id) || nextIds.has(entry.id)) continue;
+    repairEntries.push(cloneJson(entry));
+    nextIds.add(entry.id);
+  }
+  if (!repairEntries.length) return diagnosticsSegments;
+  return [[...repairEntries, ...nextEntries]];
+}
+
+const v2AppendCommitQueues = new Map();
+
+async function enqueueV2AppendCommit({ campaignId, saveId, layout = 'active' } = {}, task) {
+  const key = `${normalizeV2Layout(layout)}:${requireNonEmptyString(campaignId, 'campaignId')}:${requireNonEmptyString(saveId, 'saveId')}`;
+  const prior = v2AppendCommitQueues.get(key) || Promise.resolve();
+  const run = prior.then(task, task);
+  const settled = run.then(() => null, () => null);
+  v2AppendCommitQueues.set(key, settled);
+  try {
+    return await run;
+  } finally {
+    if (v2AppendCommitQueues.get(key) === settled) v2AppendCommitQueues.delete(key);
+  }
+}
+
+function versionedSegmentIdForWrite(options = {}) {
+  const base = requireNonEmptyString(options.segmentId, 'segmentId');
+  const fingerprint = hashStableJson({
+    segmentType: options.segmentType || null,
+    entries: options.entries || [],
+    createdAt: options.createdAt || null,
+    source: options.source || null
+  }).slice(0, 12);
+  return `${base}-${fingerprint}`;
+}
+
+async function writeV2SegmentMaybeReuse(adapter, options = {}, existingSegment = null, {
+  avoidOverwriteExistingRef = false
+} = {}) {
+  const logicalKey = segmentLogicalKey({
+    segmentType: options.segmentType,
+    campaignId: options.campaignId,
+    saveId: options.saveId,
+    segmentId: options.segmentId,
+    layout: options.layout
+  });
+  const existing = existingSegment?.ref?.logicalKey === logicalKey
+    || segmentLogicalKeyBelongsTo({
+      logicalKey: existingSegment?.ref?.logicalKey,
+      segmentType: options.segmentType,
+      campaignId: options.campaignId,
+      saveId: options.saveId,
+      layout: options.layout
+    })
+    ? existingSegment
+    : null;
+  const record = createV2SegmentRecord({
+    ...options,
+    createdAt: existing?.record?.createdAt || options.createdAt,
+    source: existing?.record?.source || options.source
+  });
+  const maxBytes = Number(options.maxBytes || segmentLimit(options.segmentType));
+  if (record.byteLength > maxBytes) {
+    const error = new Error(`${options.segmentType} segment ${record.segmentId} exceeds ${maxBytes} bytes`);
+    error.code = 'DIRECTIVE_V2_SEGMENT_TOO_LARGE';
+    error.details = { segmentType: options.segmentType, segmentId: record.segmentId, byteLength: record.byteLength, maxBytes };
+    throw error;
+  }
+  const normalizedLogicalKey = segmentLogicalKey({
+    segmentType: options.segmentType,
+    campaignId: record.campaignId,
+    saveId: record.saveId,
+    segmentId: record.segmentId,
+    layout: options.layout
+  });
+  const nextRef = artifactRef({ logicalKey: normalizedLogicalKey, record });
+  if (existing?.ref?.hash === nextRef.hash && existing.ref.byteLength === nextRef.byteLength) {
+    return {
+      record: existing.record,
+      ref: cloneJson(existing.ref),
+      reused: true,
+      wrote: false
+    };
+  }
+  let recordToWrite = record;
+  let logicalKeyToWrite = normalizedLogicalKey;
+  let refToWrite = nextRef;
+  if (avoidOverwriteExistingRef && existing?.ref?.logicalKey) {
+    const versionedSegmentId = versionedSegmentIdForWrite(options);
+    const segmentCreatedAt = existing?.record?.createdAt || options.createdAt;
+    const segmentSource = existing?.record?.source || options.source;
+    recordToWrite = createV2SegmentRecord({
+      ...options,
+      segmentId: versionedSegmentId,
+      createdAt: segmentCreatedAt,
+      source: segmentSource
+    });
+    if (recordToWrite.byteLength > maxBytes) {
+      const error = new Error(`${options.segmentType} segment ${recordToWrite.segmentId} exceeds ${maxBytes} bytes`);
+      error.code = 'DIRECTIVE_V2_SEGMENT_TOO_LARGE';
+      error.details = { segmentType: options.segmentType, segmentId: recordToWrite.segmentId, byteLength: recordToWrite.byteLength, maxBytes };
+      throw error;
+    }
+    logicalKeyToWrite = segmentLogicalKey({
+      segmentType: options.segmentType,
+      campaignId: recordToWrite.campaignId,
+      saveId: recordToWrite.saveId,
+      segmentId: recordToWrite.segmentId,
+      layout: options.layout
+    });
+    refToWrite = artifactRef({ logicalKey: logicalKeyToWrite, record: recordToWrite });
+  }
+  await writeJson(adapter, logicalKeyToWrite, recordToWrite);
+  return {
+    record: recordToWrite,
+    ref: refToWrite,
+    reused: false,
+    wrote: true
+  };
+}
+
+async function writeV2SegmentForCommit(adapter, options = {}, {
+  existingRef = null,
+  reusePublishedRef = false
+} = {}) {
+  if (reusePublishedRef && canReusePublishedSegmentRef({ ref: existingRef, ...options })) {
+    return {
+      record: null,
+      ref: cloneJson(existingRef),
+      reused: true,
+      wrote: false,
+      trustedPublishedRef: true
+    };
+  }
+  return writeV2SegmentMaybeReuse(adapter, options, await loadReusableSegment(adapter, existingRef), {
+    avoidOverwriteExistingRef: Boolean(existingRef?.logicalKey)
+  });
+}
+
+async function appendV2SegmentEntriesForCommit(adapter, {
+  segmentType,
+  campaignId,
+  saveId,
+  currentRefs = [],
+  entryGroups = [],
+  createdAt = null,
+  layout = 'active',
+  maxBytes = null
+} = {}) {
+  const type = requireNonEmptyString(segmentType, 'segmentType');
+  const refs = currentRefs.map(cloneJson);
+  const newEntries = normalizeEntryGroups(entryGroups);
+  const refsToVerify = [];
+  const verificationLogicalKeys = [];
+  if (newEntries.length === 0) {
+    return { refs, refsToVerify, verificationLogicalKeys };
+  }
+
+  const limit = Number(maxBytes || segmentLimit(type));
+  let remaining = [...newEntries];
+  if (refs.length > 0) {
+    const tailIndex = refs.length - 1;
+    const tailRef = refs[tailIndex];
+    const tailRecord = await readV2ArtifactRef(adapter, tailRef);
+    const tailEntries = Array.isArray(tailRecord.entries) ? tailRecord.entries.map(cloneJson) : [];
+    const appendedTailEntries = [...tailEntries];
+    while (remaining.length > 0) {
+      const candidateEntries = [...appendedTailEntries, remaining[0]];
+      const candidate = createV2SegmentRecord({
+        segmentType: type,
+        campaignId,
+        saveId,
+        segmentId: String(tailIndex).padStart(4, '0'),
+        entries: candidateEntries,
+        createdAt: tailRecord.createdAt || createdAt,
+        source: tailRecord.source || null
+      });
+      if (candidate.byteLength > limit) break;
+      appendedTailEntries.push(remaining.shift());
+    }
+    if (appendedTailEntries.length > tailEntries.length) {
+      const result = await writeV2SegmentMaybeReuse(adapter, {
+        segmentType: type,
+        campaignId,
+        saveId,
+        segmentId: String(tailIndex).padStart(4, '0'),
+        entries: appendedTailEntries,
+        createdAt,
+        layout,
+        maxBytes: limit
+      }, {
+        ref: cloneJson(tailRef),
+        record: tailRecord
+      }, {
+        avoidOverwriteExistingRef: true
+      });
+      refs[tailIndex] = result.ref;
+      if (result.wrote) {
+        refsToVerify.push(result.ref);
+        verificationLogicalKeys.push(result.ref.logicalKey);
+      }
+    }
+  }
+
+  if (remaining.length > 0) {
+    const chunks = chunkV2SegmentEntries({
+      segmentType: type,
+      campaignId,
+      saveId,
+      entries: remaining,
+      createdAt,
+      maxBytes: limit
+    });
+    for (const [index, entries] of chunks.entries()) {
+      const result = await writeV2SegmentForCommit(adapter, {
+        segmentType: type,
+        campaignId,
+        saveId,
+        segmentId: String(refs.length + index).padStart(4, '0'),
+        entries,
+        createdAt,
+        layout,
+        maxBytes: limit
+      });
+      refs.push(result.ref);
+      if (result.wrote) {
+        refsToVerify.push(result.ref);
+        verificationLogicalKeys.push(result.ref.logicalKey);
+      }
+    }
+  }
+
+  return { refs, refsToVerify, verificationLogicalKeys };
 }
 
 export async function writeV2Segment(adapter, options = {}) {
@@ -471,12 +832,26 @@ export async function commitV2SaveLayout(adapter, {
   current = true,
   metadata = null,
   now = null,
-  layout = 'active'
+  layout = 'active',
+  reuseExistingSegmentRefs = false,
+  segmentMaxBytes = null
 } = {}) {
   const id = requireNonEmptyString(campaignId, 'campaignId');
   const save = requireNonEmptyString(saveId, 'saveId');
   const timestamp = now || isoNow();
   const storageLayout = normalizeV2Layout(layout);
+  return enqueueV2AppendCommit({ campaignId: id, saveId: save, layout: storageLayout }, async () => {
+  const existingManifest = reuseExistingSegmentRefs === true
+    ? await loadExistingManifestForReuse(adapter, { campaignId: id, saveId: save, layout: storageLayout })
+    : null;
+  const existingEventSegmentRefs = existingManifest?.eventSegments || [];
+  const existingTurnSegmentRefs = existingManifest?.turnSegments || [];
+  const existingDiagnosticsSegmentRefs = existingManifest?.diagnosticsSegments || [];
+  const segmentRefsToVerify = [];
+  const verificationLogicalKeys = [];
+  const eventSegmentMaxBytes = segmentMaxBytesFor('event', segmentMaxBytes);
+  const turnSegmentMaxBytes = segmentMaxBytesFor('turn', segmentMaxBytes);
+  const diagnosticsSegmentMaxBytes = segmentMaxBytesFor('diagnostics', segmentMaxBytes);
 
   const eventSegmentRefs = [];
   const eventChunks = chunkV2SegmentEntries({
@@ -484,18 +859,30 @@ export async function commitV2SaveLayout(adapter, {
     campaignId: id,
     saveId: save,
     entries: eventSegments,
-    createdAt: timestamp
+    createdAt: timestamp,
+    maxBytes: eventSegmentMaxBytes
   });
   for (const [index, entries] of eventChunks.entries()) {
-    eventSegmentRefs.push((await writeV2Segment(adapter, {
+    const result = await writeV2SegmentForCommit(adapter, {
       segmentType: 'event',
       campaignId: id,
       saveId: save,
       segmentId: String(index).padStart(4, '0'),
       entries,
       createdAt: timestamp,
-      layout: storageLayout
-    })).ref);
+      layout: storageLayout,
+      maxBytes: eventSegmentMaxBytes
+    }, {
+      existingRef: existingEventSegmentRefs[index] || null,
+      reusePublishedRef: Boolean(existingManifest)
+        && index < existingEventSegmentRefs.length - 1
+        && index < eventChunks.length - 1
+    });
+    eventSegmentRefs.push(result.ref);
+    if (result.wrote) {
+      segmentRefsToVerify.push(result.ref);
+      verificationLogicalKeys.push(result.ref.logicalKey);
+    }
   }
 
   const turnSegmentRefs = [];
@@ -504,18 +891,30 @@ export async function commitV2SaveLayout(adapter, {
     campaignId: id,
     saveId: save,
     entries: turnSegments,
-    createdAt: timestamp
+    createdAt: timestamp,
+    maxBytes: turnSegmentMaxBytes
   });
   for (const [index, entries] of turnChunks.entries()) {
-    turnSegmentRefs.push((await writeV2Segment(adapter, {
+    const result = await writeV2SegmentForCommit(adapter, {
       segmentType: 'turn',
       campaignId: id,
       saveId: save,
       segmentId: String(index).padStart(4, '0'),
       entries,
       createdAt: timestamp,
-      layout: storageLayout
-    })).ref);
+      layout: storageLayout,
+      maxBytes: turnSegmentMaxBytes
+    }, {
+      existingRef: existingTurnSegmentRefs[index] || null,
+      reusePublishedRef: Boolean(existingManifest)
+        && index < existingTurnSegmentRefs.length - 1
+        && index < turnChunks.length - 1
+    });
+    turnSegmentRefs.push(result.ref);
+    if (result.wrote) {
+      segmentRefsToVerify.push(result.ref);
+      verificationLogicalKeys.push(result.ref.logicalKey);
+    }
   }
 
   const diagnosticsSegmentRefs = [];
@@ -524,18 +923,30 @@ export async function commitV2SaveLayout(adapter, {
     campaignId: id,
     saveId: save,
     entries: diagnosticsSegments,
-    createdAt: timestamp
+    createdAt: timestamp,
+    maxBytes: diagnosticsSegmentMaxBytes
   });
   for (const [index, entries] of diagnosticsChunks.entries()) {
-    diagnosticsSegmentRefs.push((await writeV2Segment(adapter, {
+    const result = await writeV2SegmentForCommit(adapter, {
       segmentType: 'diagnostics',
       campaignId: id,
       saveId: save,
       segmentId: String(index).padStart(4, '0'),
       entries,
       createdAt: timestamp,
-      layout: storageLayout
-    })).ref);
+      layout: storageLayout,
+      maxBytes: diagnosticsSegmentMaxBytes
+    }, {
+      existingRef: existingDiagnosticsSegmentRefs[index] || null,
+      reusePublishedRef: Boolean(existingManifest)
+        && index < existingDiagnosticsSegmentRefs.length - 1
+        && index < diagnosticsChunks.length - 1
+    });
+    diagnosticsSegmentRefs.push(result.ref);
+    if (result.wrote) {
+      segmentRefsToVerify.push(result.ref);
+      verificationLogicalKeys.push(result.ref.logicalKey);
+    }
   }
 
   const checkpointRefs = [];
@@ -580,15 +991,40 @@ export async function commitV2SaveLayout(adapter, {
   }) : null;
 
   await verifyV2ArtifactRefs(adapter, [
-    ...eventSegmentRefs,
-    ...turnSegmentRefs,
-    ...diagnosticsSegmentRefs,
+    ...segmentRefsToVerify,
     ...checkpointRefs,
     headWrite.ref,
     hostMapWrite?.ref || null,
     promptCacheWrite?.ref || null
   ]);
 
+  const latestManifest = reuseExistingSegmentRefs === true
+    ? await loadExistingManifestForReuse(adapter, { campaignId: id, saveId: save, layout: storageLayout })
+    : null;
+  const finalEventSegmentRefs = latestManifest
+    ? refsAfterAppend({
+        baseRefs: existingEventSegmentRefs,
+        latestRefs: latestManifest.eventSegments || [],
+        appendedRefs: eventSegmentRefs
+      })
+    : eventSegmentRefs;
+  const finalTurnSegmentRefs = latestManifest
+    ? refsAfterAppend({
+        baseRefs: existingTurnSegmentRefs,
+        latestRefs: latestManifest.turnSegments || [],
+        appendedRefs: turnSegmentRefs
+      })
+    : turnSegmentRefs;
+  const finalDiagnosticsSegmentRefs = latestManifest
+    ? refsAfterAppend({
+        baseRefs: existingDiagnosticsSegmentRefs,
+        latestRefs: latestManifest.diagnosticsSegments || [],
+        appendedRefs: diagnosticsSegmentRefs
+      })
+    : diagnosticsSegmentRefs;
+  const finalCheckpointRefs = checkpointRefs.length > 0
+    ? checkpointRefs
+    : (latestManifest?.checkpoints || existingManifest?.checkpoints || []);
   const saveManifest = createV2SaveManifest({
     campaignId: id,
     saveId: save,
@@ -596,10 +1032,10 @@ export async function commitV2SaveLayout(adapter, {
     headRef: headWrite.ref,
     hostMapRef: hostMapWrite?.ref || null,
     promptCacheRef: promptCacheWrite?.ref || null,
-    eventSegmentRefs,
-    turnSegmentRefs,
-    diagnosticsSegmentRefs,
-    checkpointRefs,
+    eventSegmentRefs: finalEventSegmentRefs,
+    turnSegmentRefs: finalTurnSegmentRefs,
+    diagnosticsSegmentRefs: finalDiagnosticsSegmentRefs,
+    checkpointRefs: finalCheckpointRefs,
     importedFrom,
     current,
     metadata,
@@ -623,9 +1059,7 @@ export async function commitV2SaveLayout(adapter, {
   await writeJson(adapter, campaignManifestKey, campaignManifest);
 
   const verification = await verifyJsonFiles(adapter, [
-    ...eventSegmentRefs.map((ref) => ref.logicalKey),
-    ...turnSegmentRefs.map((ref) => ref.logicalKey),
-    ...diagnosticsSegmentRefs.map((ref) => ref.logicalKey),
+    ...new Set(verificationLogicalKeys),
     ...checkpointRefs.map((ref) => ref.logicalKey),
     headWrite.ref.logicalKey,
     ...(hostMapWrite ? [hostMapWrite.ref.logicalKey] : []),
@@ -643,19 +1077,21 @@ export async function commitV2SaveLayout(adapter, {
       head: headWrite.ref,
       hostMap: hostMapWrite?.ref || null,
       promptCache: promptCacheWrite?.ref || null,
-      eventSegments: eventSegmentRefs,
-      turnSegments: turnSegmentRefs,
-      diagnosticsSegments: diagnosticsSegmentRefs,
-      checkpoints: checkpointRefs
+      eventSegments: finalEventSegmentRefs,
+      turnSegments: finalTurnSegmentRefs,
+      diagnosticsSegments: finalDiagnosticsSegmentRefs,
+      checkpoints: finalCheckpointRefs
     },
     verification
   };
+  });
 }
 
 export async function commitV2DiagnosticsSegments(adapter, {
   campaignId,
   saveId,
   diagnosticsSegments = [],
+  recentDiagnostics = [],
   metadata = null,
   now = null,
   layout = 'active'
@@ -664,6 +1100,7 @@ export async function commitV2DiagnosticsSegments(adapter, {
   const save = requireNonEmptyString(saveId, 'saveId');
   const timestamp = now || isoNow();
   const storageLayout = normalizeV2Layout(layout);
+  return enqueueV2AppendCommit({ campaignId: id, saveId: save, layout: storageLayout }, async () => {
   const currentManifest = await loadV2SaveManifest(adapter, { campaignId: id, saveId: save, layout: storageLayout });
   let currentCampaignManifest = null;
   try {
@@ -672,57 +1109,57 @@ export async function commitV2DiagnosticsSegments(adapter, {
     currentCampaignManifest = null;
   }
 
-  const diagnosticsSegmentRefs = [];
-  const diagnosticsChunks = chunkV2SegmentEntries({
+  const persistedRecentDiagnosticIds = Array.isArray(recentDiagnostics) && recentDiagnostics.length > 0
+    ? await readRecentSegmentEntryIds(adapter, currentManifest.diagnosticsSegments || [])
+    : new Set();
+  const diagnosticsEntryGroups = diagnosticsEntryGroupsWithRecentRepair({
+    persistedIds: persistedRecentDiagnosticIds,
+    diagnosticsSegments,
+    recentDiagnostics
+  });
+  const diagnosticsAppend = await appendV2SegmentEntriesForCommit(adapter, {
     segmentType: 'diagnostics',
     campaignId: id,
     saveId: save,
-    entries: diagnosticsSegments,
-    createdAt: timestamp
+    currentRefs: currentManifest.diagnosticsSegments || [],
+    entryGroups: diagnosticsEntryGroups,
+    createdAt: timestamp,
+    layout: storageLayout,
+    maxBytes: segmentMaxBytesFor('diagnostics')
   });
-  const segmentStartIndex = (currentManifest.diagnosticsSegments || []).length;
-  for (const [index, entries] of diagnosticsChunks.entries()) {
-    diagnosticsSegmentRefs.push((await writeV2Segment(adapter, {
-      segmentType: 'diagnostics',
-      campaignId: id,
-      saveId: save,
-      segmentId: String(segmentStartIndex + index).padStart(4, '0'),
-      entries,
-      createdAt: timestamp,
-      layout: storageLayout
-    })).ref);
-  }
 
   await verifyV2ArtifactRefs(adapter, [
-    currentManifest.head,
-    currentManifest.hostMap || null,
-    currentManifest.promptCache || null,
-    ...(currentManifest.eventSegments || []),
-    ...(currentManifest.turnSegments || []),
-    ...(currentManifest.diagnosticsSegments || []),
-    ...diagnosticsSegmentRefs,
-    ...(currentManifest.checkpoints || [])
+    ...diagnosticsAppend.refsToVerify
   ]);
 
+  const latestManifest = await loadV2SaveManifest(adapter, { campaignId: id, saveId: save, layout: storageLayout });
+  let latestCampaignManifest = currentCampaignManifest;
+  try {
+    latestCampaignManifest = await loadV2CampaignManifest(adapter, id, { layout: storageLayout });
+  } catch {
+    latestCampaignManifest = currentCampaignManifest;
+  }
+  const diagnosticsSegmentRefs = refsAfterAppend({
+    baseRefs: currentManifest.diagnosticsSegments || [],
+    latestRefs: latestManifest.diagnosticsSegments || [],
+    appendedRefs: diagnosticsAppend.refs
+  });
   const saveManifest = createV2SaveManifest({
     campaignId: id,
     saveId: save,
-    branchId: currentManifest.branchId || 'main',
-    headRef: currentManifest.head,
-    hostMapRef: currentManifest.hostMap || null,
-    promptCacheRef: currentManifest.promptCache || null,
-    eventSegmentRefs: currentManifest.eventSegments || [],
-    turnSegmentRefs: currentManifest.turnSegments || [],
-    diagnosticsSegmentRefs: [
-      ...(currentManifest.diagnosticsSegments || []),
-      ...diagnosticsSegmentRefs
-    ],
-    checkpointRefs: currentManifest.checkpoints || [],
-    importedFrom: currentManifest.importedFrom || null,
-    current: currentManifest.current !== false,
-    metadata: metadata || currentManifest.metadata || null,
+    branchId: latestManifest.branchId || currentManifest.branchId || 'main',
+    headRef: latestManifest.head || currentManifest.head,
+    hostMapRef: latestManifest.hostMap || currentManifest.hostMap || null,
+    promptCacheRef: latestManifest.promptCache || currentManifest.promptCache || null,
+    eventSegmentRefs: latestManifest.eventSegments || currentManifest.eventSegments || [],
+    turnSegmentRefs: latestManifest.turnSegments || currentManifest.turnSegments || [],
+    diagnosticsSegmentRefs,
+    checkpointRefs: latestManifest.checkpoints || currentManifest.checkpoints || [],
+    importedFrom: latestManifest.importedFrom || currentManifest.importedFrom || null,
+    current: latestManifest.current !== false && currentManifest.current !== false,
+    metadata: metadata || latestManifest.metadata || currentManifest.metadata || null,
     layout: storageLayout,
-    createdAt: currentManifest.createdAt || timestamp,
+    createdAt: latestManifest.createdAt || currentManifest.createdAt || timestamp,
     updatedAt: timestamp
   });
   const saveManifestKey = saveManifestLogicalKey({ campaignId: id, saveId: save, layout: storageLayout });
@@ -733,16 +1170,16 @@ export async function commitV2DiagnosticsSegments(adapter, {
     campaignId: id,
     activeSaveId: save,
     saveManifestRef,
-    saves: currentCampaignManifest?.saves || {},
+    saves: latestCampaignManifest?.saves || currentCampaignManifest?.saves || {},
     layout: storageLayout,
-    createdAt: currentCampaignManifest?.createdAt || timestamp,
+    createdAt: latestCampaignManifest?.createdAt || currentCampaignManifest?.createdAt || timestamp,
     updatedAt: timestamp
   });
   const campaignManifestKey = campaignManifestLogicalKey({ campaignId: id, layout: storageLayout });
   await writeJson(adapter, campaignManifestKey, campaignManifest);
 
   const verification = await verifyJsonFiles(adapter, [
-    ...diagnosticsSegmentRefs.map((ref) => ref.logicalKey),
+    ...diagnosticsAppend.verificationLogicalKeys,
     saveManifestKey,
     campaignManifestKey
   ]);
@@ -753,19 +1190,147 @@ export async function commitV2DiagnosticsSegments(adapter, {
     saveManifest,
     saveManifestRef,
     refs: {
-      head: currentManifest.head,
-      hostMap: currentManifest.hostMap || null,
-      promptCache: currentManifest.promptCache || null,
-      eventSegments: currentManifest.eventSegments || [],
-      turnSegments: currentManifest.turnSegments || [],
-      diagnosticsSegments: [
-        ...(currentManifest.diagnosticsSegments || []),
-        ...diagnosticsSegmentRefs
-      ],
-      checkpoints: currentManifest.checkpoints || []
+      head: latestManifest.head || currentManifest.head,
+      hostMap: latestManifest.hostMap || currentManifest.hostMap || null,
+      promptCache: latestManifest.promptCache || currentManifest.promptCache || null,
+      eventSegments: latestManifest.eventSegments || currentManifest.eventSegments || [],
+      turnSegments: latestManifest.turnSegments || currentManifest.turnSegments || [],
+      diagnosticsSegments: diagnosticsSegmentRefs,
+      checkpoints: latestManifest.checkpoints || currentManifest.checkpoints || []
     },
     verification
   };
+  });
+}
+
+export async function commitV2EventTurnSegments(adapter, {
+  campaignId,
+  saveId,
+  eventSegments = [],
+  turnSegments = [],
+  metadata = null,
+  now = null,
+  layout = 'active',
+  segmentMaxBytes = null
+} = {}) {
+  const id = requireNonEmptyString(campaignId, 'campaignId');
+  const save = requireNonEmptyString(saveId, 'saveId');
+  const timestamp = now || isoNow();
+  const storageLayout = normalizeV2Layout(layout);
+  return enqueueV2AppendCommit({ campaignId: id, saveId: save, layout: storageLayout }, async () => {
+  const currentManifest = await loadV2SaveManifest(adapter, { campaignId: id, saveId: save, layout: storageLayout });
+  let currentCampaignManifest = null;
+  try {
+    currentCampaignManifest = await loadV2CampaignManifest(adapter, id, { layout: storageLayout });
+  } catch {
+    currentCampaignManifest = null;
+  }
+
+  const eventAppend = await appendV2SegmentEntriesForCommit(adapter, {
+    segmentType: 'event',
+    campaignId: id,
+    saveId: save,
+    currentRefs: currentManifest.eventSegments || [],
+    entryGroups: eventSegments,
+    createdAt: timestamp,
+    layout: storageLayout,
+    maxBytes: segmentMaxBytesFor('event', segmentMaxBytes)
+  });
+  const turnAppend = await appendV2SegmentEntriesForCommit(adapter, {
+    segmentType: 'turn',
+    campaignId: id,
+    saveId: save,
+    currentRefs: currentManifest.turnSegments || [],
+    entryGroups: turnSegments,
+    createdAt: timestamp,
+    layout: storageLayout,
+    maxBytes: segmentMaxBytesFor('turn', segmentMaxBytes)
+  });
+
+  const refsToVerify = [
+    ...eventAppend.refsToVerify,
+    ...turnAppend.refsToVerify
+  ];
+  await verifyV2ArtifactRefs(adapter, refsToVerify);
+
+  const latestManifest = await loadV2SaveManifest(adapter, { campaignId: id, saveId: save, layout: storageLayout });
+  let latestCampaignManifest = currentCampaignManifest;
+  try {
+    latestCampaignManifest = await loadV2CampaignManifest(adapter, id, { layout: storageLayout });
+  } catch {
+    latestCampaignManifest = currentCampaignManifest;
+  }
+  const eventSegmentRefs = refsAfterAppend({
+    baseRefs: currentManifest.eventSegments || [],
+    latestRefs: latestManifest.eventSegments || [],
+    appendedRefs: eventAppend.refs
+  });
+  const turnSegmentRefs = refsAfterAppend({
+    baseRefs: currentManifest.turnSegments || [],
+    latestRefs: latestManifest.turnSegments || [],
+    appendedRefs: turnAppend.refs
+  });
+  const diagnosticsSegmentRefs = latestManifest.diagnosticsSegments || currentManifest.diagnosticsSegments || [];
+  const saveManifest = createV2SaveManifest({
+    campaignId: id,
+    saveId: save,
+    branchId: latestManifest.branchId || currentManifest.branchId || 'main',
+    headRef: latestManifest.head || currentManifest.head,
+    hostMapRef: latestManifest.hostMap || currentManifest.hostMap || null,
+    promptCacheRef: latestManifest.promptCache || currentManifest.promptCache || null,
+    eventSegmentRefs,
+    turnSegmentRefs,
+    diagnosticsSegmentRefs,
+    checkpointRefs: latestManifest.checkpoints || currentManifest.checkpoints || [],
+    importedFrom: latestManifest.importedFrom || currentManifest.importedFrom || null,
+    current: latestManifest.current !== false && currentManifest.current !== false,
+    metadata: metadata || latestManifest.metadata || currentManifest.metadata || null,
+    layout: storageLayout,
+    createdAt: latestManifest.createdAt || currentManifest.createdAt || timestamp,
+    updatedAt: timestamp
+  });
+  const saveManifestKey = saveManifestLogicalKey({ campaignId: id, saveId: save, layout: storageLayout });
+  await writeJson(adapter, saveManifestKey, saveManifest);
+  const saveManifestRef = artifactRef({ logicalKey: saveManifestKey, record: saveManifest });
+
+  const campaignManifest = createV2CampaignManifest({
+    campaignId: id,
+    activeSaveId: save,
+    saveManifestRef,
+    saves: latestCampaignManifest?.saves || currentCampaignManifest?.saves || {},
+    layout: storageLayout,
+    createdAt: latestCampaignManifest?.createdAt || currentCampaignManifest?.createdAt || timestamp,
+    updatedAt: timestamp
+  });
+  const campaignManifestKey = campaignManifestLogicalKey({ campaignId: id, layout: storageLayout });
+  await writeJson(adapter, campaignManifestKey, campaignManifest);
+
+  const verification = await verifyJsonFiles(adapter, [
+    ...new Set([
+      ...eventAppend.verificationLogicalKeys,
+      ...turnAppend.verificationLogicalKeys
+    ]),
+    saveManifestKey,
+    campaignManifestKey
+  ]);
+
+  return {
+    campaignManifest,
+    campaignManifestRef: artifactRef({ logicalKey: campaignManifestKey, record: campaignManifest }),
+    saveManifest,
+    saveManifestRef,
+    refs: {
+      head: latestManifest.head || currentManifest.head,
+      hostMap: latestManifest.hostMap || currentManifest.hostMap || null,
+      promptCache: latestManifest.promptCache || currentManifest.promptCache || null,
+      eventSegments: eventSegmentRefs,
+      turnSegments: turnSegmentRefs,
+      diagnosticsSegments: diagnosticsSegmentRefs,
+      checkpoints: latestManifest.checkpoints || currentManifest.checkpoints || []
+    },
+    verification
+  };
+  });
 }
 
 export async function loadV2SaveManifest(adapter, {

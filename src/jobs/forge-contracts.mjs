@@ -37,6 +37,8 @@ function uniqueStrings(values = []) {
   return out;
 }
 
+const RAW_KEY_PATTERN = /(?:raw|body|prompt|provider|transcript|summaryception|memoryBook|vectorPayload|embedding|secret|api[_-]?key|password|token|qdrant)/i;
+
 function rootOf(path = '') {
   return String(path || '').split('.')[0] || null;
 }
@@ -45,6 +47,67 @@ function sanitizeDiagnostic(value = {}) {
   const redactions = [];
   const payload = redactExternalDiagnostic(value, redactions);
   return { payload, redactions };
+}
+
+function safeEffectRef(value = null) {
+  if (!value || typeof value !== 'object') return null;
+  const out = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (RAW_KEY_PATTERN.test(key)) continue;
+    if (item === undefined) continue;
+    if (Array.isArray(item)) out[key] = uniqueStrings(item);
+    else if (item && typeof item === 'object') out[key] = safeEffectRef(item) || undefined;
+    else out[key] = item;
+  }
+  const safe = compactObject(out);
+  const kind = asString(safe.kind || safe.type, 'directive.forgeEffectRef.v1');
+  const hash = asString(safe.hash) || hashStableJson(safe);
+  return compactObject({
+    ...safe,
+    kind,
+    status: asString(safe.status),
+    hash
+  });
+}
+
+function deriveScenePhaseSealRefs(effectRefs = []) {
+  return effectRefs.filter((ref) => asString(ref.kind || ref.type, '').includes('scenePhaseSealRef'));
+}
+
+function deriveRecallEntryRefs(effectRefs = []) {
+  return effectRefs.filter((ref) => asString(ref.kind || ref.type, '').includes('recallIndexEntryRef'));
+}
+
+function derivePressureArcDigestRefs(effectRefs = []) {
+  return effectRefs.filter((ref) => asString(ref.kind || ref.type, '').includes('pressureArcDigestRef'));
+}
+
+function sceneSealRevision(refs = []) {
+  return refs.length ? hashStableJson(refs.map((ref) => ({
+    id: ref.id || null,
+    hash: ref.hash || null,
+    sourceFrameId: ref.sourceFrameId || null,
+    sceneSealId: ref.sceneSealId || null
+  }))) : null;
+}
+
+function pressureArcDigestRevision(refs = []) {
+  return refs.length ? hashStableJson(refs.map((ref) => ({
+    id: ref.id || null,
+    hash: ref.hash || null,
+    sourceFrameId: ref.sourceFrameId || null,
+    pressureArcDigestId: ref.pressureArcDigestId || null
+  }))) : null;
+}
+
+function recallIndexRevision(refs = []) {
+  return refs.length ? hashStableJson(refs.map((ref) => ({
+    id: ref.id || null,
+    hash: ref.hash || null,
+    sceneSealId: ref.sceneSealId || null,
+    pressureArcDigestId: ref.pressureArcDigestId || null,
+    sourceFrameId: ref.sourceFrameId || null
+  }))) : null;
 }
 
 export function normalizeForgeWorkerDescriptor(worker = {}) {
@@ -117,18 +180,15 @@ export function normalizeForgeWorkerResult(worker = {}, result = {}) {
     if (normalized.rejected) rejectedOperations.push(normalized);
     else operations.push(normalized);
   }
-  const effectRefs = (Array.isArray(result.effectRefs) ? result.effectRefs : []).map((effect) => compactObject({
-    kind: asString(effect.kind || effect.type, 'directive.forgeEffectRef.v1'),
-    id: asString(effect.id),
-    status: asString(effect.status),
-    hash: asString(effect.hash) || hashStableJson(effect)
-  })).filter((effect) => effect.id || effect.hash);
+  const effectRefs = (Array.isArray(result.effectRefs) ? result.effectRefs : [])
+    .map(safeEffectRef)
+    .filter((effect) => effect?.id || effect?.hash);
   const diagnostics = sanitizeDiagnostic({
     ...(result.diagnostics || {}),
     rawPrompt: result.rawPrompt,
     rawResponse: result.rawResponse,
     rawPromptBody: result.rawPromptBody,
-    providerOutput: result.providerOutput,
+    rawProviderOutput: result.providerOutput,
     externalContextOutputs: result.externalContextOutputs
   });
   return {
@@ -175,23 +235,52 @@ export function findForgePathConflict(workerResults = []) {
 export function createForgeBatchCommit(input = {}) {
   const workerResults = Array.isArray(input.workerResults) ? input.workerResults : [];
   const operations = workerResults.flatMap((result) => result.operations || []);
-  const effectRefs = workerResults.flatMap((result) => result.effectRefs || []);
+  const effectRefs = workerResults
+    .flatMap((result) => result.effectRefs || [])
+    .map(safeEffectRef)
+    .filter((effect) => effect?.id || effect?.hash);
+  const scenePhaseSealRefs = deriveScenePhaseSealRefs(effectRefs);
+  const recallIndexEntryRefs = deriveRecallEntryRefs(effectRefs);
+  const pressureArcDigestRefs = derivePressureArcDigestRefs(effectRefs);
+  const recallRevisions = compactObject({
+    recallIndexRevision: asString(input.recallRevisions?.recallIndexRevision) || recallIndexRevision(recallIndexEntryRefs),
+    sceneSealRevision: asString(input.recallRevisions?.sceneSealRevision) || sceneSealRevision(scenePhaseSealRefs),
+    pressureArcDigestRevision: asString(input.recallRevisions?.pressureArcDigestRevision) || pressureArcDigestRevision(pressureArcDigestRefs)
+  });
   const promptDirtyDomains = uniqueStrings([
     ...(input.promptDirtyDomains || []),
     ...workerResults.flatMap((result) => result.promptDirtyDomains || [])
   ]);
   const sourceFrameRef = input.sourceFrameRef || createTurnSourceFrameRef(input.sourceFrame || {});
+  const computedAcceptedBatchHash = workerResults.length ? hashStableJson(workerResults) : null;
+  const suppliedAcceptedBatchHash = asString(input.acceptedBatchHash || input.workerResultsHash);
+  if (computedAcceptedBatchHash && suppliedAcceptedBatchHash && computedAcceptedBatchHash !== suppliedAcceptedBatchHash) {
+    const error = new Error('FORGE accepted batch hash does not match worker results.');
+    error.code = 'DIRECTIVE_FORGE_ACCEPTED_BATCH_HASH_MISMATCH';
+    error.details = {
+      suppliedAcceptedBatchHash,
+      computedAcceptedBatchHash
+    };
+    throw error;
+  }
+  const acceptedBatchHash = computedAcceptedBatchHash || suppliedAcceptedBatchHash;
   return compactObject({
     kind: 'directive.forgeBatchCommit.v1',
     schemaVersion: 1,
     batchId: asString(input.batchId) || `forge:${asString(input.transactionId, 'no-transaction')}`,
     transactionId: asString(input.transactionId),
     idempotencyKey: asString(input.idempotencyKey),
+    acceptedBatchHash,
     sourceToken: asString(input.sourceToken || input.sourceFrame?.sourceToken),
     sourceFrameRef,
     baseMechanicsRevision: input.baseRevisions?.mechanics ?? input.baseMechanicsRevision,
     operations,
     effectRefs,
+    backgroundEffectRefs: effectRefs,
+    scenePhaseSealRefs,
+    pressureArcDigestRefs,
+    recallIndexEntryRefs,
+    recallRevisions,
     promptDirtyDomains,
     workers: workerResults.map((result) => ({
       workerId: result.workerId,
@@ -203,8 +292,10 @@ export function createForgeBatchCommit(input = {}) {
     operationBundleHash: hashStableJson({
       operations,
       effectRefs,
+      recallRevisions,
       promptDirtyDomains,
-      sourceFrameRef
+      sourceFrameRef,
+      acceptedBatchHash
     })
   });
 }

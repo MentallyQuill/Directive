@@ -237,13 +237,18 @@ assert.match(replacementHistory.acceptedAt, /^2026-06-19T07:/);
 const branchSourceChatId = host.chat.getCurrentChatId();
 const branch = await app.saveCurrentGameAs({ name: 'Stage 18 Replacement Branch' });
 assert.equal(branch.ok, true);
-assert.equal(branch.save.metadata.branch.parentSaveId, 'save-stage18-3');
-assert.equal(branch.save.metadata.branch.divergenceOutcomeId, replacementOutcomeId);
-assert.equal(branch.save.payload.campaignState.turnLedger.lastCommittedOutcomeId, replacementOutcomeId);
-assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
-assert.notEqual(branch.save.payload.campaignState.campaignChatBinding.chatId, branchSourceChatId);
+const branchMetadata = branch.save.saveIndexEntry?.metadata?.branch || branch.branchSave?.saveIndexEntry?.metadata?.branch;
+const branchState = branch.view.loadedCampaignState || branch.view.campaignState;
+assert.equal(branchMetadata.parentSaveId, 'save-stage18-3');
+assert.equal(branchMetadata.divergenceOutcomeId, replacementOutcomeId);
+assert.equal(
+  branchState.turnLedger.lastCommittedOutcomeId || branchState.turnLedger.entries?.at(-1)?.outcomeId,
+  replacementOutcomeId
+);
+assert.equal(branchState.campaignChatBinding.saveId, branch.save.id);
 assert.equal(branch.branchChat.sourceChatId, branchSourceChatId);
-assert.equal(branch.branchChat.chatId, branch.save.payload.campaignState.campaignChatBinding.chatId);
+assert.notEqual(branch.branchChat.chatId, branchSourceChatId);
+assert.equal(host.chat.getCurrentChatId(), branch.branchChat.chatId);
 assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 
 const deleted = await app.deleteCommittedOutcome({ outcomeId: replacementOutcomeId });

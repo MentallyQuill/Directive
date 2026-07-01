@@ -6,7 +6,6 @@ import { allowedRootsForModelRole } from '../generation/model-call-authority-mat
 import { parseStateDeltaProposalOutput } from './sidecar-output-contracts.mjs';
 import { runSidecarJobs } from './sidecar-job-runner.mjs';
 import {
-  createForgeBatchCommit,
   normalizeForgeWorkerResult
 } from './forge-contracts.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
@@ -704,6 +703,14 @@ function sourceIngressSnapshot(campaignState, ingressId) {
   };
 }
 
+function sourceTokenForJob(job = {}) {
+  return job?.sourceIngress?.sourceToken
+    || job?.source?.sourceToken
+    || (job?.sourceIngress?.sourceFrameRef ? createSourceToken(job.sourceIngress.sourceFrameRef) : null)
+    || (job?.source?.sourceFrameRef ? createSourceToken(job.source.sourceFrameRef) : null)
+    || null;
+}
+
 function forgeWorkerResultForAcceptedSidecar(result = {}) {
   const workerKey = result.workerKey;
   const worker = WORKERS[workerKey] || {};
@@ -823,7 +830,7 @@ export function createCampaignSidecarScheduler({
   reportActivity = null
 } = {}) {
   if (!generationRouter?.generate) throw new Error('CampaignSidecarScheduler requires generationRouter.generate.');
-  if (!stateDeltaGateway?.applyOperations) throw new Error('CampaignSidecarScheduler requires stateDeltaGateway.applyOperations.');
+  if (!stateDeltaGateway?.validateOperations) throw new Error('CampaignSidecarScheduler requires stateDeltaGateway.validateOperations.');
   if (typeof getCampaignState !== 'function' || typeof setCampaignState !== 'function') {
     throw new Error('CampaignSidecarScheduler requires campaign state callbacks.');
   }
@@ -911,6 +918,12 @@ export function createCampaignSidecarScheduler({
       anchorRangeHash: job.baseEventContext?.anchorRangeHash || null,
       reconciliationRunId: job.baseEventContext?.reconciliationRunId || null,
       staleReasons: error?.details?.reasons ? cloneJson(error.details.reasons) : undefined,
+      forgeSettlement: result?.forgeSettlement ? cloneJson(result.forgeSettlement) : undefined,
+      postSettlementWarnings: Array.isArray(result?.postSettlementWarnings)
+        ? cloneJson(result.postSettlementWarnings)
+        : (Array.isArray(details.postSettlementWarnings) ? cloneJson(details.postSettlementWarnings) : undefined),
+      replayed: result?.replayed === true || details.replayed === true ? true : undefined,
+      bridgeReason: error?.details?.reason || undefined,
       batch: {
         concurrent: job.batchSize > 1,
         batchSize: job.batchSize,
@@ -983,7 +996,7 @@ export function createCampaignSidecarScheduler({
     };
   }
 
-  async function settleAcceptedWorkerBatchWithForge({
+  function acceptedBatchSettlementForForge({
     accepted = [],
     allowedRoots = [],
     turnContext = {},
@@ -999,13 +1012,15 @@ export function createCampaignSidecarScheduler({
     const sourceTokens = [...new Set(accepted
       .map((result) => result.job?.sourceIngress?.sourceToken || result.job?.source?.sourceToken)
       .filter(Boolean))];
+    const workerResults = accepted.map(forgeWorkerResultForAcceptedSidecar);
+    const acceptedBatchHash = hashStableJson(workerResults);
     const idempotencyKey = `campaign-sidecar:${transactionId}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`;
     const batchId = `campaign-sidecar:${transactionId}:${turnContext.outcomeId || turnContext.ingressId || baseRevision}`;
-    const workerResults = accepted.map(forgeWorkerResultForAcceptedSidecar);
     const settlement = {
       transactionId,
       idempotencyKey,
       batchId,
+      acceptedBatchHash,
       providerOwner: 'campaignSidecarScheduler',
       phaseAfter: 'backgroundSettling',
       outcomeId: turnContext.outcomeId || null,
@@ -1016,35 +1031,539 @@ export function createCampaignSidecarScheduler({
       workerResults,
       observedAt: timestamp(now)
     };
-    if (typeof forgeCoordinator?.settleAcceptedBatch === 'function') {
-      return forgeCoordinator.settleAcceptedBatch(settlement);
-    }
-    if (typeof commitCoreBackgroundBatch !== 'function') return null;
-    const forgeBatch = createForgeBatchCommit(settlement);
-    await commitCoreBackgroundBatch(transactionId, {
-      idempotencyKey: forgeBatch.idempotencyKey,
-      batchId: forgeBatch.batchId,
-      phaseAfter: 'backgroundSettling',
-      outcomeId: turnContext.outcomeId || null,
-      sourceFrameRef: forgeBatch.sourceFrameRef,
-      sourceToken: forgeBatch.sourceToken,
-      operations: forgeBatch.operations,
-      promptDirtyDomains: forgeBatch.promptDirtyDomains,
-      backgroundEffectRefs: forgeBatch.effectRefs,
-      workers: forgeBatch.workers,
-      forgeBatchRef: {
-        kind: 'directive.forgeBatchCommitRef.v1',
-        batchId: forgeBatch.batchId,
-        operationBundleHash: forgeBatch.operationBundleHash,
-        workerCount: forgeBatch.workers.length,
-        operationCount: forgeBatch.operations.length
-      }
-    });
-    return {
-      status: 'settled',
-      transactionId,
-      batch: forgeBatch
+    return settlement;
+  }
+
+  function forgeBridgeFailureFromResult(result, phase) {
+    const replayResult = result?.status === 'replayed' ? result.result : null;
+    const status = compactSafeIdentifier(result?.status || 'unknown', { fallback: 'unknown' });
+    const effectiveStatus = compactSafeIdentifier(replayResult?.status || result?.status || 'unknown', { fallback: 'unknown' });
+    const reason = result?.reason || replayResult?.reason || result?.diagnostic?.diagnostic?.reason || result?.diagnostic?.reason || replayResult?.diagnostic?.diagnostic?.reason || replayResult?.diagnostic?.reason || null;
+    const error = new Error(`CORE/FORGE accepted sidecar bridge ${phase} did not settle safely.`);
+    error.code = phase === 'preflight'
+      ? 'DIRECTIVE_FORGE_PREFLIGHT_FAILED'
+      : 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED';
+    error.details = {
+      phase,
+      status,
+      effectiveStatus,
+      replayed: result?.status === 'replayed',
+      reason,
+      providerOwner: compactSafeIdentifier(result?.providerOwner || null, { fallback: null }),
+      diagnosticId: compactSafeIdentifier(result?.diagnostic?.id || null, { fallback: null })
     };
+    return error;
+  }
+
+  function forgeEffectiveResult(result) {
+    return result?.status === 'replayed' ? result.result : result;
+  }
+
+  function compactSourceFrameRefForAcceptedBatch(ref = null) {
+    if (!ref || typeof ref !== 'object') return null;
+    const externalRef = ref.externalPromptEnvironmentRef && typeof ref.externalPromptEnvironmentRef === 'object'
+      ? {
+        kind: ref.externalPromptEnvironmentRef.kind || null,
+        schemaVersion: ref.externalPromptEnvironmentRef.schemaVersion || null,
+        hash: ref.externalPromptEnvironmentRef.hash || null,
+        byteLength: Number.isFinite(Number(ref.externalPromptEnvironmentRef.byteLength))
+          ? Number(ref.externalPromptEnvironmentRef.byteLength)
+          : null,
+        status: ref.externalPromptEnvironmentRef.status || null,
+        observedAt: ref.externalPromptEnvironmentRef.observedAt || null,
+        knownExternalPromptKeys: Array.isArray(ref.externalPromptEnvironmentRef.knownExternalPromptKeys)
+          ? [...ref.externalPromptEnvironmentRef.knownExternalPromptKeys]
+          : []
+      }
+      : null;
+    return {
+      kind: ref.kind || 'directive.turnSourceFrameRef.v1',
+      schemaVersion: ref.schemaVersion || 1,
+      id: ref.id || null,
+      campaignId: ref.campaignId || null,
+      saveId: ref.saveId || null,
+      chatId: ref.chatId || null,
+      hostMessageId: ref.hostMessageId || null,
+      textHash: ref.textHash || null,
+      selectedAssistantVariantHash: ref.selectedAssistantVariantHash || null,
+      ...(externalRef ? { externalPromptEnvironmentRef: externalRef } : {})
+    };
+  }
+
+  function coreAcceptedBatchProjectionForPrompt({
+    settlement = null,
+    forgeSettlement = null,
+    workerKeys = [],
+    promptDirtyDomains = []
+  } = {}) {
+    if (!settlement) return null;
+    const effective = forgeEffectiveResult(forgeSettlement) || {};
+    const background = effective.background || {};
+    const workerResults = Array.isArray(settlement.workerResults) ? settlement.workerResults : [];
+    const operationCount = workerResults.reduce((count, result) => (
+      count + (Array.isArray(result.operations) ? result.operations.length : 0)
+    ), 0);
+    const backgroundBatchIds = [
+      background.backgroundBatchId,
+      ...(Array.isArray(background.backgroundBatchIds) ? background.backgroundBatchIds : []),
+      ...(Array.isArray(background.backgroundBatches) ? background.backgroundBatches.map((batch) => batch?.batchId) : [])
+    ].filter(Boolean);
+    return {
+      kind: 'directive.coreAcceptedSidecarBatchProjection.v1',
+      schemaVersion: 1,
+      transactionId: settlement.transactionId || null,
+      batchId: settlement.batchId || null,
+      idempotencyKey: settlement.idempotencyKey || null,
+      acceptedBatchHash: effective.acceptedBatchHash || settlement.acceptedBatchHash || null,
+      outcomeId: settlement.outcomeId || null,
+      providerOwner: settlement.providerOwner || 'campaignSidecarScheduler',
+      workerKey: 'campaignSidecarBatch',
+      workerKeys: [...workerKeys],
+      dirtyDomains: [...promptDirtyDomains],
+      operationCount,
+      workerCount: workerResults.length,
+      sourceFrameRef: compactSourceFrameRefForAcceptedBatch(settlement.sourceFrameRef || null),
+      sourceToken: settlement.sourceToken || null,
+      background: {
+        status: effective.status || null,
+        transactionId: background.id || background.transactionId || background.coreTransactionId || settlement.transactionId || null,
+        backgroundBatchIds,
+        warningCount: Array.isArray(effective.warnings) ? effective.warnings.length : 0
+      }
+    };
+  }
+
+  function isSuccessfulForgeAcceptedSettlement(result) {
+    const effective = forgeEffectiveResult(result);
+    return effective?.status === 'settled' || effective?.status === 'noChange';
+  }
+
+  function compactDiagnosticHash(value) {
+    if (value === null || value === undefined) return null;
+    return hashStableJson(String(value)).slice(0, 16);
+  }
+
+  function compactTextEvidenceHash(value) {
+    if (value === null || value === undefined) return null;
+    const text = String(value).trim();
+    return text ? hashStableJson(text).slice(0, 16) : null;
+  }
+
+  function compactSafeIdentifier(value, { fallback = null, allowed = null, rejectPattern = /(RAW|PROMPT|PROVIDER|MESSAGE|TEXT|SECRET|PRIVATE)/ } = {}) {
+    if (value === null || value === undefined) return fallback;
+    const normalized = String(value).replace(/[^A-Za-z0-9_.:-]/g, '-').slice(0, 96);
+    if (allowed && allowed.has(normalized)) return normalized;
+    if (!/^[A-Za-z0-9_.:-]{1,96}$/.test(normalized)) return fallback;
+    if (rejectPattern && rejectPattern.test(normalized.toUpperCase())) return fallback;
+    return normalized || fallback;
+  }
+
+  function compactSafeCode(value, fallback = 'DIRECTIVE_SIDECAR_BATCH_REJECTED') {
+    const raw = String(value || '');
+    const knownNonDirectiveCodes = new Set(['SIMULATED_FAILURE']);
+    if (knownNonDirectiveCodes.has(raw)) return raw;
+    if (/^DIRECTIVE_[A-Z0-9_:-]{1,80}$/.test(raw) && !/(RAW|PROMPT|PROVIDER|MESSAGE|TEXT|SECRET|PRIVATE)/.test(raw)) {
+      return raw;
+    }
+    return fallback;
+  }
+
+  function compactSafeReason(value) {
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).replace(/[^A-Za-z0-9_.:-]/g, '-').slice(0, 96);
+    const known = new Set([
+      'path-conflict',
+      'accepted-batch-replay-mismatch',
+      'source-token-stale',
+      'source-stale',
+      'revision-mismatch',
+      'bridge-failed-before-old-mutation',
+      'DIRECTIVE_SIDECAR_SOURCE_STALE',
+      'DIRECTIVE_SIDECAR_SOURCE_INGRESS_MISSING',
+      'DIRECTIVE_STATE_REVISION_CONFLICT'
+    ]);
+    if (known.has(normalized)) return normalized;
+    return 'unsafe-reason-redacted';
+  }
+
+  function backgroundMatchesTransaction(background = null, transactionId = null) {
+    if (!background || typeof background !== 'object') return false;
+    if (background.ok === false) return false;
+    const backgroundTransactionId = background.id || background.transactionId || background.coreTransactionId || null;
+    if (!transactionId || !backgroundTransactionId || backgroundTransactionId !== transactionId) return false;
+    return true;
+  }
+
+  function backgroundMatchesBatch(background = null, { expectedBatchId = null, expectedIdempotencyKey = null } = {}) {
+    if (!background || typeof background !== 'object') return false;
+    const batchIds = [
+      background.backgroundBatchId,
+      ...(Array.isArray(background.backgroundBatchIds) ? background.backgroundBatchIds : []),
+      ...(Array.isArray(background.backgroundBatches) ? background.backgroundBatches.map((batch) => batch?.batchId) : [])
+    ].filter(Boolean);
+    if (!expectedBatchId || !batchIds.includes(expectedBatchId)) return false;
+    if (!expectedIdempotencyKey) return true;
+    const idempotencyKeys = [
+      background.backgroundIdempotencyKey,
+      ...(Array.isArray(background.backgroundIdempotencyKeys) ? background.backgroundIdempotencyKeys : []),
+      ...(Array.isArray(background.backgroundBatches) ? background.backgroundBatches.map((batch) => batch?.idempotencyKey) : [])
+    ].filter(Boolean);
+    return idempotencyKeys.includes(expectedIdempotencyKey);
+  }
+
+  function backgroundMatchesReviewHash(background = null, expectedReviewHash = null) {
+    if (!expectedReviewHash || !background || typeof background !== 'object') return false;
+    const hashes = [
+      background.reviewHash,
+      background.forgeBatchRef?.reviewHash,
+      ...(Array.isArray(background.backgroundBatches)
+        ? background.backgroundBatches.flatMap((batch) => [
+            batch?.reviewHash,
+            batch?.forgeBatchRef?.reviewHash,
+            batch?.batchRef?.reviewHash
+          ])
+        : []),
+      ...(Array.isArray(background.backgroundEffectRefs)
+        ? background.backgroundEffectRefs.flatMap((effect) => [
+            effect?.reviewHash,
+            effect?.forgeBatchRef?.reviewHash
+          ])
+        : [])
+    ].filter(Boolean);
+    return hashes.includes(expectedReviewHash);
+  }
+
+  function commandBearingReviewRecordHashInput(record = {}) {
+    return {
+      id: compactSafeIdentifier(record.id || null, { fallback: null }),
+      closureId: compactSafeIdentifier(record.closureId || null, { fallback: null }),
+      markAwarded: record.markAwarded === true,
+      awardedTrack: compactSafeIdentifier(record.awardedTrack || null, {
+        fallback: null,
+        allowed: new Set(['inspiration', 'resolve'])
+      }),
+      criteriaSatisfied: {
+        agency: record.criteriaSatisfied?.agency === true,
+        commitment: record.criteriaSatisfied?.commitment === true,
+        causality: record.criteriaSatisfied?.causality === true
+      },
+      evidenceIdHashes: Array.isArray(record.evidenceIds)
+        ? record.evidenceIds.map((id) => compactTextEvidenceHash(id)).filter(Boolean).sort()
+        : [],
+      awardSummaryHash: compactTextEvidenceHash(record.awardSummary),
+      noAwardReasonHash: compactTextEvidenceHash(record.noAwardReason)
+    };
+  }
+
+  function commandBearingReviewHashInput(review = {}) {
+    const records = Array.isArray(review.review?.records)
+      ? review.review.records.map(commandBearingReviewRecordHashInput)
+      : [];
+    records.sort((left, right) => String(left.closureId || left.id || '').localeCompare(String(right.closureId || right.id || '')));
+    return {
+      status: compactSafeIdentifier(review.status || null, { fallback: null }),
+      sourceOutcomeIdHashes: Array.isArray(review.sourceOutcomeIds)
+        ? review.sourceOutcomeIds.map((id) => compactTextEvidenceHash(id)).filter(Boolean).sort()
+        : [],
+      stateRevision: review.campaignState?.runtimeTracking?.revision || null,
+      records
+    };
+  }
+
+  function backgroundMatchesAcceptedBatchHash(background = null, expectedAcceptedBatchHash = null) {
+    if (!expectedAcceptedBatchHash || !background || typeof background !== 'object') return false;
+    const hashes = [
+      background.acceptedBatchHash,
+      background.forgeBatchRef?.acceptedBatchHash,
+      ...(Array.isArray(background.backgroundBatches)
+        ? background.backgroundBatches.flatMap((batch) => [
+            batch?.acceptedBatchHash,
+            batch?.forgeBatchRef?.acceptedBatchHash,
+            batch?.batchRef?.acceptedBatchHash
+          ])
+        : []),
+      ...(Array.isArray(background.backgroundEffectRefs)
+        ? background.backgroundEffectRefs.flatMap((effect) => [
+            effect?.acceptedBatchHash,
+            effect?.forgeBatchRef?.acceptedBatchHash
+          ])
+        : [])
+    ].filter(Boolean);
+    return hashes.includes(expectedAcceptedBatchHash);
+  }
+
+  function acceptedBatchHashMatches(result, expectedAcceptedBatchHash = null) {
+    if (!expectedAcceptedBatchHash) return true;
+    const effective = forgeEffectiveResult(result);
+    return effective?.acceptedBatchHash === expectedAcceptedBatchHash;
+  }
+
+  function hasDurableAcceptedSettlement(result, {
+    effectful = false,
+    expectedTransactionId = null,
+    expectedBatchId = null,
+    expectedIdempotencyKey = null,
+    expectedAcceptedBatchHash = null
+  } = {}) {
+    if (!effectful) return true;
+    const effective = forgeEffectiveResult(result);
+    if (!effective) return false;
+    if (!acceptedBatchHashMatches(result, expectedAcceptedBatchHash)) return false;
+    const hasDurableBackground = backgroundMatchesTransaction(effective.background, expectedTransactionId)
+      && backgroundMatchesBatch(effective.background, { expectedBatchId, expectedIdempotencyKey })
+      && backgroundMatchesAcceptedBatchHash(effective.background, expectedAcceptedBatchHash);
+    if (hasDurableBackground) return true;
+    return false;
+  }
+
+  function assertForgeBridgeResultSafe(result, phase, options = {}) {
+    if (!result) return;
+    if (result.status === 'replayed') {
+      if (!isSuccessfulForgeAcceptedSettlement(result) || !hasDurableAcceptedSettlement(result, options)) {
+        throw forgeBridgeFailureFromResult(result, phase);
+      }
+      return;
+    }
+    const safeStatuses = phase === 'preflight'
+      ? new Set(['prepared'])
+      : new Set(['settled', 'noChange']);
+    if (!safeStatuses.has(result.status)) {
+      throw forgeBridgeFailureFromResult(result, phase);
+    }
+    if (phase === 'finalSettlement' && !hasDurableAcceptedSettlement(result, options)) {
+      throw forgeBridgeFailureFromResult(result, phase);
+    }
+  }
+
+  function compactForgeSettlementWarning(warning = null) {
+    if (!warning || typeof warning !== 'object') return null;
+    const knownStages = new Set(['diagnostics', 'lens', 'promptSync', 'commandBearingReview', 'acceptedJournal']);
+    const knownStatuses = new Set(['ok', 'warning', 'failed', 'skipped']);
+    const stage = knownStages.has(warning.stage) ? warning.stage : 'unknown';
+    const code = /^DIRECTIVE_[A-Z0-9_:-]{1,80}$/.test(String(warning.code || ''))
+      && !/(RAW|PROMPT|PROVIDER|MESSAGE|TEXT|SECRET|PRIVATE)/.test(String(warning.code || ''))
+      ? String(warning.code)
+      : 'DIRECTIVE_FORGE_SETTLEMENT_WARNING';
+    const status = knownStatuses.has(warning.status) ? warning.status : null;
+    return {
+      stage,
+      code,
+      ...(status ? { status } : {}),
+      ...(stage === 'unknown' || code === 'DIRECTIVE_FORGE_SETTLEMENT_WARNING' ? { diagnosticHash: compactDiagnosticHash(warning) } : {})
+    };
+  }
+
+  function compactForgeSettlementDiagnostics(result) {
+    if (!result) return null;
+    const effective = forgeEffectiveResult(result) || result;
+    return {
+      status: effective.status || null,
+      applied: effective.applied === true,
+      transactionId: effective.transactionId || result.transactionId || null,
+      acceptedBatchHash: effective.acceptedBatchHash || null,
+      replayed: result.status === 'replayed' || result.replayed === true || effective.replayed === true,
+      warning: compactForgeSettlementWarning(effective.warning),
+      warningCount: Array.isArray(effective.warnings) ? effective.warnings.length : 0
+    };
+  }
+
+  function compactPostSettlementWarning(stage, error) {
+    const warning = {
+      stage,
+      code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_WARNING'
+    };
+    const knownStages = new Set(['oldProjectionPersist', 'lens', 'promptSync', 'commandBearingReview', 'acceptedJournal']);
+    const safeStage = knownStages.has(warning.stage) ? warning.stage : 'unknown';
+    const rawCode = String(warning.code || '');
+    const safeCode = /^DIRECTIVE_[A-Z0-9_:-]{1,80}$/.test(rawCode)
+      && !/(RAW|PROMPT|PROVIDER|MESSAGE|TEXT|SECRET|PRIVATE)/.test(rawCode)
+      ? rawCode
+      : 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_WARNING';
+    return {
+      stage: safeStage,
+      code: safeCode,
+      ...(safeStage === 'unknown' || safeCode === 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_WARNING' ? { diagnosticHash: compactDiagnosticHash(warning) } : {})
+    };
+  }
+
+  function compactBridgeFailureDetails(error, compensation) {
+    const details = error?.details || {};
+    return {
+      phase: compactSafeIdentifier(details.phase || null, { fallback: null }),
+      status: compactSafeIdentifier(details.status || null, { fallback: null }),
+      effectiveStatus: compactSafeIdentifier(details.effectiveStatus || null, { fallback: null }),
+      replayed: details.replayed === true,
+      reason: compactSafeReason(details.reason),
+      providerOwner: compactSafeIdentifier(details.providerOwner || null, { fallback: null }),
+      diagnosticId: compactSafeIdentifier(details.diagnosticId || null, { fallback: null }),
+      compensation: cloneJson(compensation)
+    };
+  }
+
+  function genericBridgeFailureMessage(code) {
+    return `Campaign sidecar bridge rejected before accepted settlement (${code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED'}).`;
+  }
+
+  function compactProviderBatchFailure(error) {
+    const code = compactSafeCode(error?.code || 'DIRECTIVE_SIDECAR_BATCH_FAILED', 'DIRECTIVE_SIDECAR_BATCH_FAILED');
+    return {
+      code,
+      message: `Campaign sidecar provider batch failed (${code}).`
+    };
+  }
+
+  function compactWorkerFailureError(error) {
+    const code = compactSafeCode(error?.code || 'DIRECTIVE_SIDECAR_WORKER_FAILED', 'DIRECTIVE_SIDECAR_WORKER_FAILED');
+    return {
+      code,
+      message: `Campaign sidecar worker failed (${code}).`
+    };
+  }
+
+  function compactProviderDiagnostics(diagnostics = null) {
+    if (!diagnostics || typeof diagnostics !== 'object') return null;
+    return {
+      providerId: compactSafeIdentifier(diagnostics.providerId || null, { fallback: null }),
+      providerKind: compactSafeIdentifier(diagnostics.providerKind || null, { fallback: null }),
+      model: compactSafeIdentifier(diagnostics.model || null, { fallback: null }),
+      latencyMs: Number.isFinite(Number(diagnostics.latencyMs)) ? Number(diagnostics.latencyMs) : null,
+      transportStatus: Number.isFinite(Number(diagnostics.transport?.status)) ? Number(diagnostics.transport.status) : null,
+      featureStatus: compactSafeIdentifier(diagnostics.feature?.status || null, { fallback: null }),
+      diagnosticHash: compactDiagnosticHash(diagnostics)
+    };
+  }
+
+  function isForgeAcceptedReplay(result) {
+    return result?.status === 'replayed' && isSuccessfulForgeAcceptedSettlement(result);
+  }
+
+  function forgeOwnsAcceptedPromptFlush() {
+    return typeof forgeCoordinator?.flushAcceptedBatchPrompt === 'function'
+      || typeof forgeCoordinator?.settleAcceptedBatch === 'function'
+      || typeof forgeCoordinator?.prepareAcceptedBatch === 'function';
+  }
+
+  function acceptedPromptFlushUnavailableWarning() {
+    return compactPostSettlementWarning('lens', {
+      code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_UNAVAILABLE'
+    });
+  }
+
+  function appliedReplayResults(pendingResults = [], accepted = [], replayResult = null, {
+    postSettlementWarnings: replayPostSettlementWarnings = []
+  } = {}) {
+    const currentRevision = getCampaignState()?.runtimeTracking?.revision || 0;
+    const diagnostics = compactForgeSettlementDiagnostics(replayResult);
+    const warnings = Array.isArray(replayPostSettlementWarnings) ? cloneJson(replayPostSettlementWarnings) : [];
+    return pendingResults.map((result) => {
+      if (result.status !== 'pendingApply') return result;
+      const final = {
+        workerKey: result.workerKey,
+        status: 'applied',
+        replayed: true,
+        proposal: cloneJson(result.proposal),
+        revision: currentRevision,
+        domains: [],
+        forgeSettlement: diagnostics,
+        ...(warnings.length ? { postSettlementWarnings: cloneJson(warnings) } : {})
+      };
+      queueCoreDiagnostic(result.job, 'applied', { result: final, replayed: true });
+      return final;
+    });
+  }
+
+  async function prepareAcceptedWorkerBatchWithForge(options = {}) {
+    const settlement = options.settlement || acceptedBatchSettlementForForge(options);
+    if (!settlement) return null;
+    const effectful = settlement.workerResults.some((result) => (result.operations || []).length > 0);
+    if (typeof forgeCoordinator?.prepareAcceptedBatch === 'function') {
+      const result = await forgeCoordinator.prepareAcceptedBatch(settlement);
+      assertForgeBridgeResultSafe(result, 'preflight', {
+        effectful,
+        expectedTransactionId: settlement.transactionId,
+        expectedBatchId: settlement.batchId,
+        expectedIdempotencyKey: settlement.idempotencyKey,
+        expectedAcceptedBatchHash: settlement.acceptedBatchHash
+      });
+      return result;
+    }
+    return null;
+  }
+
+  async function settleAcceptedWorkerBatchWithForge(options = {}) {
+    const settlement = options.settlement || acceptedBatchSettlementForForge(options);
+    if (!settlement) return null;
+    const effectful = settlement.workerResults.some((result) => (result.operations || []).length > 0);
+    if (typeof forgeCoordinator?.settleAcceptedBatch === 'function') {
+      const result = await forgeCoordinator.settleAcceptedBatch(settlement);
+      assertForgeBridgeResultSafe(result, 'finalSettlement', {
+        effectful,
+        expectedTransactionId: settlement.transactionId,
+        expectedBatchId: settlement.batchId,
+        expectedIdempotencyKey: settlement.idempotencyKey,
+        expectedAcceptedBatchHash: settlement.acceptedBatchHash
+      });
+      return result;
+    }
+    return null;
+  }
+
+  function campaignContextForForgePromptFlush(campaignState = {}) {
+    const binding = campaignState?.campaignChatBinding || {};
+    return {
+      campaignId: campaignState?.campaign?.id || binding.campaignId || null,
+      saveId: binding.saveId || null,
+      branchId: binding.branchId || 'main',
+      chatId: binding.chatId || null,
+      mechanicsRevision: campaignState?.runtimeTracking?.revision ?? null
+    };
+  }
+
+  function promptFlushStateFingerprint(campaignState = {}) {
+    const binding = campaignState?.campaignChatBinding || {};
+    return {
+      campaignId: campaignState?.campaign?.id || binding.campaignId || null,
+      saveId: binding.saveId || null,
+      branchId: binding.branchId || 'main',
+      chatId: binding.chatId || null,
+      revision: campaignState?.runtimeTracking?.revision ?? null
+    };
+  }
+
+  function promptFlushInputStillCurrent(inputState = {}, currentState = {}) {
+    return hashStableJson(promptFlushStateFingerprint(inputState)) === hashStableJson(promptFlushStateFingerprint(currentState));
+  }
+
+  function promptInstallFreshnessGuard(inputState = {}) {
+    const inputFingerprint = promptFlushStateFingerprint(inputState);
+    return () => {
+      const currentState = initializeCampaignRuntimeTracking(getCampaignState());
+      if (hashStableJson(inputFingerprint) === hashStableJson(promptFlushStateFingerprint(currentState))) return true;
+      return {
+        ok: false,
+        status: 'stale-source',
+        code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE',
+        reason: 'prompt-source-state-changed-before-install'
+      };
+    };
+  }
+
+  function promptInstallSkippedByFreshnessGuard(result = {}) {
+    return result?.promptInstallSkipped === true
+      || result?.status === 'installSkippedStale'
+      || result?.lens?.status === 'installSkippedStale';
+  }
+
+  function finalSettlementUnavailableError() {
+    const error = new Error('Accepted sidecar batch has no durable FORGE/CORE settlement path.');
+    error.code = 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED';
+    error.details = {
+      phase: 'finalSettlement',
+      status: 'missingBridge',
+      effectiveStatus: 'missingBridge',
+      reason: 'bridge-failed-before-old-mutation'
+    };
+    return error;
   }
 
   function batchDiagnostics(job, extra = {}) {
@@ -1117,6 +1636,20 @@ export function createCampaignSidecarScheduler({
     };
   }
 
+  function isProviderBatchCompletionCacheable(finalResults = []) {
+    return Array.isArray(finalResults)
+      && finalResults.length > 0
+      && finalResults.every((result) => {
+        if (result?.status !== 'applied') return false;
+        if (result?.recoveryRequired) return false;
+        if (result?.error) return false;
+        if (Array.isArray(result?.postSettlementWarnings) && result.postSettlementWarnings.length > 0) return false;
+        const forgeStatus = result?.forgeSettlement?.status || null;
+        if (forgeStatus && !['settled', 'noChange'].includes(forgeStatus)) return false;
+        return true;
+      });
+  }
+
   async function generateWorkers(jobs, providerBatchContext = null) {
     const context = providerBatchContext || providerBatchContextForJobs(jobs);
     let providerResult = null;
@@ -1152,21 +1685,21 @@ export function createCampaignSidecarScheduler({
     }
     return batch.results.map((result) => {
       if (result.status !== 'complete') {
-        return {
-          ok: false,
-          error: result.error || {
-            code: `DIRECTIVE_SIDECAR_${String(result.status || 'failed').toUpperCase()}`,
-            message: `Sidecar job ${result.status || 'failed'}.`
-          },
-          diagnostics: cloneJson(result.diagnostics || null)
-        };
+        const error = compactWorkerFailureError(result.error || {
+          code: `DIRECTIVE_SIDECAR_${String(result.status || 'failed').toUpperCase()}`
+        });
+      return {
+        ok: false,
+        error,
+        diagnostics: compactProviderDiagnostics(result.diagnostics || null)
+      };
       }
       return {
         ok: true,
         response: {
           text: typeof result.packet === 'string' ? result.packet : JSON.stringify(result.packet ?? null)
         },
-        diagnostics: cloneJson(result.diagnostics || null)
+        diagnostics: compactProviderDiagnostics(result.diagnostics || null)
       };
     });
   }
@@ -1359,7 +1892,7 @@ export function createCampaignSidecarScheduler({
         sidecarWorkerId: 'commandBearing',
         parsedDiagnostics: cloneJson(parsedDiagnostics || null)
       }
-    });
+    }, { persist: false });
     return {
       attempted: true,
       status: 'appliedReviews',
@@ -1367,6 +1900,65 @@ export function createCampaignSidecarScheduler({
       reviewPlan,
       review,
       campaignState: committed
+    };
+  }
+
+  async function settleCommandBearingReviewMutation({
+    transactionId,
+    turnContext = {},
+    review = {},
+    workerResult = null
+  } = {}) {
+    if (!review?.campaignState) return null;
+    if (!transactionId || typeof commitCoreBackgroundBatch !== 'function') {
+      const error = new Error('Command Bearing closure review mutation has no durable CORE settlement path.');
+      error.code = 'DIRECTIVE_COMMAND_BEARING_REVIEW_SETTLEMENT_FAILED';
+      throw error;
+    }
+    const sourceId = turnContext.outcomeId || turnContext.ingressId || workerResult?.baseRevision || 'unknown';
+    const reviewIds = Array.isArray(review.review?.records)
+      ? review.review.records.map((record) => record?.closureId).filter(Boolean)
+      : [];
+    const batchId = `command-bearing-review:${transactionId}:${sourceId}`;
+    const idempotencyKey = `${batchId}:settle`;
+    const reviewHash = hashStableJson(commandBearingReviewHashInput(review)).slice(0, 16);
+    const background = await commitCoreBackgroundBatch(transactionId, {
+      idempotencyKey,
+      batchId,
+      phaseAfter: 'commandBearingReview',
+      outcomeId: turnContext.outcomeId || null,
+      sourceFrameRef: cloneJson(workerResult?.job?.sourceIngress?.sourceFrameRef || null),
+      sourceToken: sourceTokenForJob(workerResult?.job),
+      operations: [],
+      promptDirtyDomains: normalizePromptDirtyDomains(['commandBearing']),
+      backgroundEffectRefs: reviewIds.map((id) => ({
+        kind: 'directive.commandBearingReviewClosure.v1',
+        id,
+        reviewHash
+      })),
+      workers: ['commandBearing'],
+      forgeBatchRef: {
+        kind: 'directive.commandBearingReviewCommitRef.v1',
+        batchId,
+        reviewCount: reviewIds.length,
+        stateRevision: review.campaignState.runtimeTracking?.revision || null,
+        reviewHash
+      }
+    });
+    if (
+      !backgroundMatchesTransaction(background, transactionId)
+      || !backgroundMatchesBatch(background, { expectedBatchId: batchId, expectedIdempotencyKey: idempotencyKey })
+      || !backgroundMatchesReviewHash(background, reviewHash)
+    ) {
+      const error = new Error('Command Bearing closure review CORE settlement receipt was not durable.');
+      error.code = 'DIRECTIVE_COMMAND_BEARING_REVIEW_SETTLEMENT_FAILED';
+      throw error;
+    }
+    return {
+      background,
+      reviewHash,
+      batchId,
+      idempotencyKey
     };
   }
 
@@ -1380,7 +1972,7 @@ export function createCampaignSidecarScheduler({
         : local;
     };
     if (!response.ok) {
-      const error = cloneJson(response.error);
+      const error = compactWorkerFailureError(response.error);
       const journaled = await journal({
         id: `sidecar:${workerKey}:${baseRevision}:${Date.now()}`,
         workerId: workerKey,
@@ -1394,7 +1986,7 @@ export function createCampaignSidecarScheduler({
           transport: {
             ok: false
           },
-          provider: cloneJson(response.diagnostics || null),
+          provider: compactProviderDiagnostics(response.diagnostics || null),
           sourceAnchorRange: cloneJson(baseEventContext.sourceAnchorRange)
         }
       }, `${workerKey} sidecar failed without mutating campaign state.`);
@@ -1516,33 +2108,15 @@ export function createCampaignSidecarScheduler({
 
     if (proposal.operations.length === 0) {
       const droppedCount = Number(parsed.diagnostics?.schema?.droppedForbiddenOperationCount || 0);
-      const summary = droppedCount > 0
-        ? `${workerKey} proposed ${droppedCount} out-of-scope operation(s); no mutation applied.`
-        : proposal.summary || 'No durable state change proposed.';
-      const journaled = await journal({
-        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:no-change`,
-        workerId: workerKey,
-        roleId: worker.roleId,
+      const result = {
+        workerKey,
         status: 'noChange',
-        baseRevision,
-        summary,
-        ...proposalEventContext,
+        proposal: cloneJson(proposal),
         diagnostics: {
-          ...cloneJson(parsed.diagnostics || {}),
-          ...batchDiagnostics(job),
-          feature: {
-            ok: true,
-            status: 'noChange',
-            missionComponents: cloneJson(missionComponentProvenance)
-          },
-          apply: {
-            ok: true,
-            skipped: true
-          }
+          droppedForbiddenOperationCount: droppedCount,
+          skipped: true
         }
-      }, `${workerKey} sidecar completed with no durable change.`);
-      batchState.currentState = cloneJson(journaled);
-      const result = { workerKey, status: 'noChange', proposal: cloneJson(proposal) };
+      };
       queueCoreDiagnostic(job, 'noChange', { result });
       return result;
     }
@@ -1641,9 +2215,11 @@ export function createCampaignSidecarScheduler({
     const workerKeys = accepted.map((result) => result.workerKey);
     const promptWorkerKey = workerKeys.length === 1 ? workerKeys[0] : 'campaignSidecarBatch';
     const promptDirtyDomains = promptDirtyDomainsForAcceptedSidecars(accepted, allowedRoots);
-    const promptSyncBaseId = providerBatchContext?.batchId
+    const promptSyncBaseId = providerBatchContext?.idempotencyKey
+      || providerBatchContext?.batchId
       || `campaign-sidecar:${turnContext.outcomeId || turnContext.ingressId || batchState.baseRevision || 'unknown'}`;
-    const promptSyncIdempotencyKey = `${promptSyncBaseId}:prompt-sync:accepted`;
+    const promptAcceptedBatchHash = hashStableJson(accepted.map(forgeWorkerResultForAcceptedSidecar));
+    const promptSyncIdempotencyKey = `${promptSyncBaseId}:prompt-sync:accepted:${promptAcceptedBatchHash}`;
     const baseRevision = batchState.expectedRevision ?? batchState.baseRevision;
     const conflictPaths = [];
     const seenPaths = [];
@@ -1725,20 +2301,208 @@ export function createCampaignSidecarScheduler({
     };
     let applied;
     let synchronized = null;
+    let forgeSettlement = null;
     let commandBearingReviews = new Map();
     const beforeApplyState = cloneJson(batchState.currentState || getCampaignState());
+    const postSettlementWarnings = [];
+    let compatibilityProjectionAssigned = false;
+    let oldProjectionPersistFailed = false;
     try {
+      const acceptedSettlement = acceptedBatchSettlementForForge({ accepted, allowedRoots, turnContext, baseRevision });
+      if (!acceptedSettlement || typeof forgeCoordinator?.settleAcceptedBatch !== 'function') {
+        throw finalSettlementUnavailableError();
+      }
       setCampaignState(beforeApplyState);
-      applied = await stateDeltaGateway.applyOperations(combinedProposal, { allowedRoots });
+      const forgePreflight = await prepareAcceptedWorkerBatchWithForge({
+        settlement: acceptedSettlement,
+        accepted,
+        allowedRoots,
+        turnContext,
+        baseRevision
+      });
+      if (isForgeAcceptedReplay(forgePreflight)) {
+        return appliedReplayResults(pendingResults, accepted, forgePreflight, {
+          postSettlementWarnings: forgeOwnsAcceptedPromptFlush()
+            ? [acceptedPromptFlushUnavailableWarning()]
+            : []
+        });
+      }
+      const compatibilityProjection = await stateDeltaGateway.validateOperations(combinedProposal, { allowedRoots });
+      forgeSettlement = await settleAcceptedWorkerBatchWithForge({
+        settlement: acceptedSettlement,
+        accepted,
+        allowedRoots,
+        turnContext,
+        baseRevision
+      });
+      if (!forgeSettlement && operations.length > 0) throw finalSettlementUnavailableError();
+      applied = compatibilityProjection;
       batchState.expectedRevision = applied.revision;
       setCampaignState(applied.campaignState);
       batchState.currentState = cloneJson(applied.campaignState);
-      try {
-        await settleAcceptedWorkerBatchWithForge({ accepted, allowedRoots, turnContext, baseRevision });
-      } catch {
-        // CORE/FORGE background ownership is best-effort during the v1/v2 bridge.
+      compatibilityProjectionAssigned = true;
+    } catch (error) {
+      const compensation = compatibilityProjectionAssigned
+        ? {
+          attempted: true,
+          restored: true,
+          restoredRevision: beforeApplyState.runtimeTracking?.revision || 0
+        }
+        : {
+          attempted: false,
+          restored: false,
+          reason: 'bridge-failed-before-old-mutation'
+        };
+      if (compatibilityProjectionAssigned) {
+        setCampaignState(beforeApplyState);
+        batchState.currentState = cloneJson(beforeApplyState);
+        batchState.expectedRevision = beforeApplyState.runtimeTracking?.revision || batchState.baseRevision || 0;
+        await persistCampaignState(beforeApplyState, 'Compensated rejected campaign sidecar batch bridge mutation.');
       }
-      if (typeof syncPromptContext === 'function') {
+      const failure = {
+        code: compactSafeCode(error?.code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED'),
+        message: genericBridgeFailureMessage(compactSafeCode(error?.code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED')),
+        details: compactBridgeFailureDetails(error, compensation)
+      };
+      const journalEvents = accepted.map((result) => ({
+        id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:rejected`,
+        workerId: result.workerKey,
+        roleId: result.roleId,
+        status: 'rejected',
+        baseRevision: result.baseRevision,
+        summary: result.proposal?.summary || null,
+        ...result.proposalEventContext,
+        error: failure,
+        diagnostics: {
+          ...cloneJson(result.parsedDiagnostics || {}),
+          ...batchDiagnostics(result.job, {
+            applyBaseRevision: baseRevision,
+            aggregateBatch: true
+          }),
+          feature: {
+            ok: false,
+            status: 'rejected',
+            missionComponents: cloneJson(result.missionComponentProvenance)
+          },
+          compensation: cloneJson(compensation),
+          apply: {
+            ok: false,
+            error: failure
+          }
+        }
+      }));
+      const journaled = await journalBatch(journalEvents, 'Rejected campaign sidecar batch results.');
+      batchState.currentState = cloneJson(journaled);
+      return pendingResults.map((result) => {
+        if (result.status !== 'pendingApply') return result;
+        const final = { workerKey: result.workerKey, status: 'rejected', error: failure };
+        queueCoreDiagnostic(result.job, 'rejected', { result: final, error: failure });
+        return final;
+      });
+    }
+
+    try {
+      await persistCampaignState(applied.campaignState, 'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.');
+    } catch (error) {
+      oldProjectionPersistFailed = true;
+      postSettlementWarnings.push(compactPostSettlementWarning('oldProjectionPersist', {
+        code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_OLD_PROJECTION_PERSIST_FAILED'
+      }));
+    }
+
+    let forgePromptFlushAttempted = false;
+    const promptSettlement = acceptedBatchSettlementForForge({ accepted, allowedRoots, turnContext, baseRevision });
+    const commandBearingAccepted = workerKeys.includes('commandBearing');
+    const allowAcceptedBatchPromptFlush = !oldProjectionPersistFailed || !commandBearingAccepted;
+    const forgeOwnsPromptFlush = forgeOwnsAcceptedPromptFlush();
+    if (allowAcceptedBatchPromptFlush && typeof forgeCoordinator?.flushAcceptedBatchPrompt === 'function' && promptSettlement) {
+      try {
+        forgePromptFlushAttempted = true;
+        const effectiveForgeSettlement = forgeEffectiveResult(forgeSettlement) || {};
+        const acceptedPromptInputState = cloneJson(applied.campaignState);
+        const coreAcceptedBatchProjection = coreAcceptedBatchProjectionForPrompt({
+          settlement: promptSettlement,
+          forgeSettlement,
+          workerKeys,
+          promptDirtyDomains
+        });
+        const forgePromptFlush = await forgeCoordinator.flushAcceptedBatchPrompt({
+          transactionId: promptSettlement.transactionId,
+          campaignState: cloneJson(acceptedPromptInputState),
+          coreAcceptedBatchProjection,
+          promptDirtyDomains,
+          promptSyncIdempotencyKey,
+          idempotencyKey: promptSyncIdempotencyKey,
+          workerKey: promptWorkerKey,
+          workerKeys,
+          aggregateBatch: true,
+          binding: cloneJson(applied.campaignState?.campaignChatBinding || {}),
+          campaignContext: campaignContextForForgePromptFlush(applied.campaignState),
+          sourceFrameRef: cloneJson(promptSettlement.sourceFrameRef || null),
+          sourceToken: promptSettlement.sourceToken || null,
+          cacheInputs: cloneJson(effectiveForgeSettlement.batch?.recallRevisions || {}),
+          commitRuntimeState: false,
+          beforeInstallPrompt: promptInstallFreshnessGuard(acceptedPromptInputState),
+          promptFrame: {
+            workerKey: promptWorkerKey,
+            workerKeys,
+            promptDirtyDomains,
+            aggregateBatch: true
+          },
+          activityReporter: accepted[0]?.job?.activityReporter || null,
+          activitySource: 'sidecarPromptSync',
+          activityMode: 'background',
+          activityContext: {
+            workerKey: promptWorkerKey,
+            workerKeys,
+            classification: turnContext.classification || null,
+            ingressId: turnContext.ingressId || null,
+            turnId: turnContext.turnId || null,
+            outcomeId: turnContext.outcomeId || null,
+            transactionId: promptSettlement.transactionId,
+            coreTransactionId: promptSettlement.transactionId,
+            aggregateBatch: true,
+            promptDirtyDomains,
+            promptSyncIdempotencyKey,
+            source: 'campaignSidecarScheduler'
+          }
+        });
+        if (promptInstallSkippedByFreshnessGuard(forgePromptFlush)) {
+          const currentPromptState = initializeCampaignRuntimeTracking(getCampaignState());
+          applied.campaignState = cloneJson(currentPromptState);
+          applied.revision = currentPromptState.runtimeTracking?.revision || applied.revision;
+          batchState.currentState = cloneJson(currentPromptState);
+          batchState.expectedRevision = applied.revision;
+          postSettlementWarnings.push(compactPostSettlementWarning('lens', {
+            code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE'
+          }));
+        } else if (!forgePromptFlush) {
+          postSettlementWarnings.push(acceptedPromptFlushUnavailableWarning());
+        } else if (forgePromptFlush?.campaignState) {
+          synchronized = forgePromptFlush.campaignState;
+          applied.campaignState = synchronized;
+          setCampaignState(synchronized);
+          batchState.currentState = cloneJson(synchronized);
+          await persistCampaignState(synchronized, 'Campaign sidecar batch prompt context synchronized.');
+        }
+      } catch (error) {
+        forgePromptFlushAttempted = true;
+        postSettlementWarnings.push(compactPostSettlementWarning('lens', {
+          code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_FAILED'
+        }));
+      }
+    } else if (allowAcceptedBatchPromptFlush && forgeOwnsPromptFlush) {
+      forgePromptFlushAttempted = true;
+      postSettlementWarnings.push(acceptedPromptFlushUnavailableWarning());
+    }
+
+    if (
+      !forgePromptFlushAttempted
+      && typeof syncPromptContext === 'function'
+      && !forgeOwnsPromptFlush
+      && allowAcceptedBatchPromptFlush
+    ) {
+      try {
         synchronized = await syncPromptContext(applied.campaignState, {
           workerKey: promptWorkerKey,
           workerKeys,
@@ -1768,9 +2532,17 @@ export function createCampaignSidecarScheduler({
           batchState.currentState = cloneJson(synchronized);
           await persistCampaignState(synchronized, 'Campaign sidecar batch prompt context synchronized.');
         }
+      } catch (error) {
+        postSettlementWarnings.push(compactPostSettlementWarning('promptSync', {
+          code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_PROMPT_SYNC_FAILED'
+        }));
       }
-      const commandBearingResult = accepted.find((result) => result.workerKey === 'commandBearing');
-      if (commandBearingResult) {
+    }
+    const commandBearingResult = accepted.find((result) => result.workerKey === 'commandBearing');
+    if (commandBearingResult && !oldProjectionPersistFailed) {
+      const beforeCommandBearingReviewState = cloneJson(batchState.currentState);
+      let commandBearingReviewMutated = false;
+      try {
         let commandBearingReview = await runCommandBearingEvidenceClosureReview({
           beforeState: beforeApplyState,
           currentState: batchState.currentState,
@@ -1779,16 +2551,104 @@ export function createCampaignSidecarScheduler({
           parsedDiagnostics: commandBearingResult.parsedDiagnostics
         });
         if (commandBearingReview.campaignState) {
+          commandBearingReviewMutated = true;
           applied.campaignState = commandBearingReview.campaignState;
           applied.revision = commandBearingReview.campaignState.runtimeTracking?.revision || applied.revision;
           setCampaignState(commandBearingReview.campaignState);
           batchState.currentState = cloneJson(commandBearingReview.campaignState);
           batchState.expectedRevision = applied.revision;
-          if (typeof syncPromptContext === 'function') {
+          const commandBearingReviewSettlement = await settleCommandBearingReviewMutation({
+            transactionId: commandBearingResult.job?.sourceIngress?.coreTransactionId || null,
+            turnContext,
+            review: commandBearingReview,
+            workerResult: commandBearingResult
+          });
+          await persistCampaignState(commandBearingReview.campaignState, 'Command Bearing sidecar closure review compatibility projection persisted after CORE settlement.');
+          const commandBearingReviewHash = commandBearingReviewSettlement?.reviewHash || null;
+          const commandBearingReviewPromptSyncIdempotencyKey = `${promptSyncBaseId}:prompt-sync:command-bearing-review:${commandBearingReviewHash || 'unknown-review'}`;
+          const commandBearingReviewPromptDirtyDomains = ['commandBearing'];
+          const commandBearingReviewSourceToken = sourceTokenForJob(commandBearingResult.job);
+          const commandBearingReviewPromptFrame = {
+            workerKey: 'commandBearing',
+            promptDirtyDomains: commandBearingReviewPromptDirtyDomains,
+            commandBearingReview: true,
+            sourceFrameRef: cloneJson(commandBearingResult.job?.sourceIngress?.sourceFrameRef || null),
+            sourceToken: commandBearingReviewSourceToken
+          };
+          if (typeof forgeCoordinator?.flushCommandBearingReviewPrompt === 'function') {
+            try {
+              const commandBearingReviewPromptInputState = cloneJson(commandBearingReview.campaignState);
+              const forgeReviewPromptFlush = await forgeCoordinator.flushCommandBearingReviewPrompt({
+                transactionId: commandBearingResult.job?.sourceIngress?.coreTransactionId || null,
+                campaignState: cloneJson(commandBearingReviewPromptInputState),
+                promptDirtyDomains: commandBearingReviewPromptDirtyDomains,
+                promptSyncIdempotencyKey: commandBearingReviewPromptSyncIdempotencyKey,
+                idempotencyKey: commandBearingReviewPromptSyncIdempotencyKey,
+                workerKey: 'commandBearing',
+                commandBearingReview: true,
+                binding: cloneJson(commandBearingReview.campaignState?.campaignChatBinding || {}),
+                campaignContext: campaignContextForForgePromptFlush(commandBearingReview.campaignState),
+                sourceFrameRef: cloneJson(commandBearingResult.job?.sourceIngress?.sourceFrameRef || null),
+                sourceFrame: cloneJson(commandBearingResult.job?.sourceIngress?.sourceFrameRef || null),
+                sourceToken: commandBearingReviewSourceToken,
+                cacheInputs: {},
+                commitRuntimeState: false,
+                beforeInstallPrompt: promptInstallFreshnessGuard(commandBearingReviewPromptInputState),
+                promptFrame: commandBearingReviewPromptFrame,
+                activityReporter: commandBearingResult.job?.activityReporter || null,
+                activitySource: 'sidecarPromptSync',
+                activityMode: 'background',
+                activityContext: {
+                  workerKey: 'commandBearing',
+                  classification: turnContext.classification || null,
+                  ingressId: turnContext.ingressId || null,
+                  turnId: turnContext.turnId || null,
+                  outcomeId: turnContext.outcomeId || null,
+                  transactionId: commandBearingResult.job?.sourceIngress?.coreTransactionId || null,
+                  coreTransactionId: commandBearingResult.job?.sourceIngress?.coreTransactionId || null,
+                  commandBearingReview: true,
+                  promptDirtyDomains: commandBearingReviewPromptDirtyDomains,
+                  promptSyncIdempotencyKey: commandBearingReviewPromptSyncIdempotencyKey,
+                  source: 'campaignSidecarScheduler'
+                }
+              });
+              if (promptInstallSkippedByFreshnessGuard(forgeReviewPromptFlush)) {
+                const currentPromptState = initializeCampaignRuntimeTracking(getCampaignState());
+                applied.campaignState = cloneJson(currentPromptState);
+                applied.revision = currentPromptState.runtimeTracking?.revision || applied.revision;
+                batchState.currentState = cloneJson(currentPromptState);
+                batchState.expectedRevision = applied.revision;
+                postSettlementWarnings.push(compactPostSettlementWarning('lens', {
+                  code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE'
+                }));
+              } else if (forgeReviewPromptFlush?.campaignState) {
+                const currentPromptState = initializeCampaignRuntimeTracking(getCampaignState());
+                if (promptFlushInputStillCurrent(commandBearingReviewPromptInputState, currentPromptState)) {
+                  applied.campaignState = forgeReviewPromptFlush.campaignState;
+                  applied.revision = forgeReviewPromptFlush.campaignState.runtimeTracking?.revision || applied.revision;
+                  setCampaignState(forgeReviewPromptFlush.campaignState);
+                  batchState.currentState = cloneJson(forgeReviewPromptFlush.campaignState);
+                  batchState.expectedRevision = applied.revision;
+                  await persistCampaignState(forgeReviewPromptFlush.campaignState, 'Command Bearing sidecar closure review prompt context synchronized.');
+                } else {
+                  applied.campaignState = cloneJson(currentPromptState);
+                  applied.revision = currentPromptState.runtimeTracking?.revision || applied.revision;
+                  batchState.currentState = cloneJson(currentPromptState);
+                  batchState.expectedRevision = applied.revision;
+                  postSettlementWarnings.push(compactPostSettlementWarning('lens', {
+                    code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE'
+                  }));
+                }
+              }
+            } catch (error) {
+              postSettlementWarnings.push(compactPostSettlementWarning('lens', {
+                code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_FAILED'
+              }));
+            }
+          } else if (typeof syncPromptContext === 'function') {
             const synchronizedReview = await syncPromptContext(commandBearingReview.campaignState, {
               workerKey: 'commandBearing',
-              proposal: cloneJson(commandBearingResult.applyProposal),
-              promptDirtyDomains: normalizePromptDirtyDomains(['commandBearing']),
+              promptDirtyDomains: commandBearingReviewPromptDirtyDomains,
               commandBearingReview: true
             }, {
               activityReporter: commandBearingResult.job?.activityReporter || null,
@@ -1801,8 +2661,8 @@ export function createCampaignSidecarScheduler({
                 turnId: turnContext.turnId || null,
                 outcomeId: turnContext.outcomeId || null,
                 commandBearingReview: true,
-                promptDirtyDomains: normalizePromptDirtyDomains(['commandBearing']),
-                promptSyncIdempotencyKey: `${promptSyncBaseId}:prompt-sync:command-bearing-review`,
+                promptDirtyDomains: commandBearingReviewPromptDirtyDomains,
+                promptSyncIdempotencyKey: commandBearingReviewPromptSyncIdempotencyKey,
                 source: 'campaignSidecarScheduler'
               }
             });
@@ -1817,96 +2677,35 @@ export function createCampaignSidecarScheduler({
           }
         }
         commandBearingReviews = new Map([[commandBearingResult.workerKey, commandBearingReview]]);
-      }
-      const journalEvents = accepted.map((result) => {
-        const commandBearingReview = commandBearingReviews.get(result.workerKey) || { attempted: false, reason: 'not-command-bearing-worker' };
-        return {
-          id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:${applied.revision}`,
-          workerId: result.workerKey,
-          roleId: result.roleId,
-          status: 'applied',
-          baseRevision: result.baseRevision,
-          appliedRevision: applied.revision,
-          summary: result.proposal?.summary || `${result.proposal?.operations?.length || 0} operation(s) applied.`,
-          ...result.proposalEventContext,
-          diagnostics: {
-            ...cloneJson(result.parsedDiagnostics || {}),
-            ...batchDiagnostics(result.job, {
-              applyBaseRevision: baseRevision,
-              aggregateBatch: true,
-              aggregateWorkerCount: accepted.length,
-              aggregateOperationCount: operations.length,
-              rebased: baseRevision !== result.baseRevision
-            }),
-            feature: {
-              ok: true,
-              status: 'applied',
-              commandBearingReview: commandBearingReviewDiagnostics(commandBearingReview),
-              missionComponents: cloneJson(result.missionComponentProvenance)
-            },
-            apply: {
-              ok: true,
-              revision: applied.revision,
-              domains: cloneJson(applied.domains || [])
-            }
-          }
-        };
-      });
-      const journaled = await journalBatch(journalEvents, 'Recorded accepted campaign sidecar batch results.');
-      batchState.currentState = cloneJson(journaled);
-      return pendingResults.map((result) => {
-        if (result.status !== 'pendingApply') return result;
-        const final = {
-          workerKey: result.workerKey,
-          status: 'applied',
-          proposal: cloneJson(result.proposal),
-          revision: applied.revision,
-          domains: applied.domains
-        };
-        queueCoreDiagnostic(result.job, 'applied', { result: final });
-        return final;
-      });
-    } catch (error) {
-      const failure = {
-        code: error?.code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED',
-        message: error?.message || String(error),
-        details: cloneJson(error?.details || null)
-      };
-      const journalEvents = accepted.map((result) => ({
-        id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:rejected`,
-        workerId: result.workerKey,
-        roleId: result.roleId,
-        status: 'rejected',
-        baseRevision: result.baseRevision,
-        summary: result.proposal?.summary || null,
-        ...result.proposalEventContext,
-        error: failure,
-        diagnostics: {
-          ...cloneJson(result.parsedDiagnostics || {}),
-          ...batchDiagnostics(result.job, {
-            applyBaseRevision: baseRevision,
-            aggregateBatch: true
-          }),
-          feature: {
-            ok: false,
-            status: 'rejected',
-            missionComponents: cloneJson(result.missionComponentProvenance)
-          },
-          apply: {
-            ok: false,
-            error: failure
-          }
+      } catch (error) {
+        if (commandBearingReviewMutated) {
+          applied.campaignState = cloneJson(beforeCommandBearingReviewState);
+          applied.revision = beforeCommandBearingReviewState.runtimeTracking?.revision || applied.revision;
+          setCampaignState(beforeCommandBearingReviewState);
+          batchState.currentState = cloneJson(beforeCommandBearingReviewState);
+          batchState.expectedRevision = applied.revision;
+          await persistCampaignState(beforeCommandBearingReviewState, 'Reverted Command Bearing sidecar closure review without durable settlement.');
         }
-      }));
-      const journaled = await journalBatch(journalEvents, 'Rejected campaign sidecar batch results.');
-      batchState.currentState = cloneJson(journaled);
-      return pendingResults.map((result) => {
-        if (result.status !== 'pendingApply') return result;
-        const final = { workerKey: result.workerKey, status: 'rejected', error: failure };
-        queueCoreDiagnostic(result.job, 'rejected', { result: final, error: failure });
-        return final;
-      });
+        postSettlementWarnings.push(compactPostSettlementWarning('commandBearingReview', {
+          code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_COMMAND_BEARING_FAILED'
+        }));
+      }
     }
+    return pendingResults.map((result) => {
+      if (result.status !== 'pendingApply') return result;
+      const final = {
+        workerKey: result.workerKey,
+        status: 'applied',
+        proposal: cloneJson(result.proposal),
+        revision: applied.revision,
+        domains: applied.domains,
+        forgeSettlement: compactForgeSettlementDiagnostics(forgeSettlement),
+        postSettlementWarnings: cloneJson(postSettlementWarnings),
+        recoveryRequired: null
+      };
+      queueCoreDiagnostic(result.job, 'applied', { result: final, postSettlementWarnings: cloneJson(postSettlementWarnings) });
+      return final;
+    });
   }
 
   function schedule({ workerPlan = {}, turnContext = {}, activityReporter = null } = {}) {
@@ -1954,8 +2753,9 @@ export function createCampaignSidecarScheduler({
         activityReporter
       ));
       const providerBatchContext = providerBatchContextForJobs(jobs);
-      if (completedProviderBatches.has(providerBatchContext.batchId)) {
-        const replay = cloneJson(completedProviderBatches.get(providerBatchContext.batchId));
+      const providerReplayKey = providerBatchContext.idempotencyKey || providerBatchContext.batchId;
+      if (completedProviderBatches.has(providerReplayKey)) {
+        const replay = cloneJson(completedProviderBatches.get(providerReplayKey));
         emitActivity(activityReporter, {
           phase: 'sidecarsSettled',
           mode: 'background',
@@ -1977,6 +2777,12 @@ export function createCampaignSidecarScheduler({
       try {
         responses = await generateWorkers(jobs, providerBatchContext);
       } catch (error) {
+        const failure = compactProviderBatchFailure(error);
+        const failedResults = jobs.map((workerJob) => ({
+          workerKey: workerJob.workerKey,
+          status: 'failed',
+          error: cloneJson(failure)
+        }));
         for (const workerKey of requested) {
           emitActivity(activityReporter, {
             phase: 'sidecarWorker',
@@ -1991,21 +2797,15 @@ export function createCampaignSidecarScheduler({
           mode: 'review',
           requested,
           classification: turnContext.classification || null,
-          error: {
-            message: error?.message || String(error)
-          }
+          error: cloneJson(failure)
         });
         for (const workerJob of jobs) {
-          const failure = {
-            code: error?.code || 'DIRECTIVE_SIDECAR_BATCH_FAILED',
-            message: error?.message || String(error)
-          };
           queueCoreDiagnostic(workerJob, 'failed', {
             result: { workerKey: workerJob.workerKey, status: 'failed', error: failure },
             error: failure
           });
         }
-        throw error;
+        return failedResults;
       }
       const batchState = {
         baseRevision,
@@ -2025,8 +2825,8 @@ export function createCampaignSidecarScheduler({
         results.push(result);
       }
       const finalResults = await applyAcceptedWorkerBatch(results, turnContext, batchState, providerBatchContext);
-      if (providerBatchContext.batchId && finalResults.every((result) => result.status !== 'failed')) {
-        completedProviderBatches.set(providerBatchContext.batchId, {
+      if (providerReplayKey && isProviderBatchCompletionCacheable(finalResults)) {
+        completedProviderBatches.set(providerReplayKey, {
           completedAt: timestamp(now),
           finalResults: cloneJson(finalResults)
         });

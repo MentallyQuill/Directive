@@ -852,7 +852,11 @@ const visibleFailureDuplicate = await visibleFailureDispatcher.dispatch({
   outcomeId: 'outcome-response-core-visible-failure',
   idempotencyKey: 'response-core-visible-failure'
 });
+assert.equal(visibleFailureDuplicate.ok, false, 'CORE visible-response recovery duplicate must not report success from old responseLedger alone');
 assert.equal(visibleFailureDuplicate.duplicate, true);
+assert.equal(visibleFailureDuplicate.recoveryRequired, true);
+assert.equal(visibleFailureDuplicate.recoveryId, 'recovery:core-visible-response:response-core-visible-failure');
+assert.equal(visibleFailureDuplicate.coreReleaseError.code, 'DIRECTIVE_CORE_VISIBLE_WRITE_FAILED');
 assert.equal(visibleFailurePostCalls, 1, 'CORE visible-response recovery duplicate must not repost visible text');
 
 let failureState = addIngress(createCampaignState({
@@ -940,7 +944,11 @@ const failureDuplicate = await failureDispatcher.dispatch({
   responseKind: 'hostGeneration',
   idempotencyKey: 'response-core-bridge-failure'
 });
+assert.equal(failureDuplicate.ok, false, 'CORE host-release recovery duplicate must not report success from old responseLedger alone');
 assert.equal(failureDuplicate.duplicate, true);
+assert.equal(failureDuplicate.recoveryRequired, true);
+assert.equal(failureDuplicate.recoveryId, 'recovery:core-host-continue:response-core-bridge-failure');
+assert.equal(failureDuplicate.coreReleaseError.code, 'DIRECTIVE_CORE_RELEASE_WRITE_FAILED');
 assert.equal(failureHostReleaseCalls, 1, 'recovery duplicate must not release host generation again');
 
 const unavailableFrame = createTurnSourceFrameContract({

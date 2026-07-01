@@ -27,7 +27,9 @@ for (const schemaPath of [
   'schemas/runtime/turn-source-frame.schema.json',
   'schemas/runtime/turn-transaction.schema.json',
   'schemas/runtime/external-prompt-environment.schema.json',
-  'schemas/runtime/architecture-metrics.schema.json'
+  'schemas/runtime/architecture-metrics.schema.json',
+  'schemas/runtime/recall-index.schema.json',
+  'schemas/runtime/lens-prompt-budget-trace.schema.json'
 ]) {
   const schema = readJson(schemaPath);
   assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
@@ -37,6 +39,8 @@ for (const schemaPath of [
 assert.equal(readJson('schemas/runtime/turn-source-frame.schema.json').properties.externalPromptEnvironmentRef.type.includes('object'), true);
 assert.equal(readJson('schemas/runtime/external-prompt-environment.schema.json').required.includes('redactions'), true);
 assert.equal(readJson('schemas/runtime/architecture-metrics.schema.json').properties.latency.properties.architectureWithin60s.type.includes('boolean'), true);
+assert.equal(readJson('schemas/runtime/recall-index.schema.json').properties.result.required.includes('includedRefs'), true);
+assert.equal(readJson('schemas/runtime/lens-prompt-budget-trace.schema.json').properties.lanes.items.properties.id.enum.includes('recall'), true);
 
 assert.equal(ARCHITECTURE_REDESIGN_CONTRACTS.EXTERNAL_CONTEXT_KIND, 'directive.externalPromptEnvironment.v1');
 assert.equal(isDirectivePromptKey('directive.context.revolving'), true);

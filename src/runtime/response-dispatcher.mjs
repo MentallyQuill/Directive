@@ -87,6 +87,23 @@ export function createResponseDispatcher({
     )) || null;
   }
 
+  function existingResponseDispatchResult(existing, state) {
+    const entry = cloneJson(existing);
+    if (existing?.status === 'recoveryRequired' || existing?.recoveryRequired === true) {
+      return {
+        ok: false,
+        duplicate: true,
+        recoveryRequired: true,
+        entry,
+        recoveryId: existing.recoveryId || null,
+        coreReleaseError: cloneJson(existing.coreReleaseError || null),
+        coreRecoveryError: cloneJson(existing.coreRecoveryError || null),
+        campaignState: state
+      };
+    }
+    return { ok: true, duplicate: true, entry, campaignState: state };
+  }
+
   function findIngress(campaignState, ingressId) {
     if (!ingressId) return null;
     const state = initializeCampaignRuntimeTracking(campaignState);
@@ -1445,7 +1462,7 @@ export function createResponseDispatcher({
     const state = resolveState(campaignState);
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || turnId || 'turn'}:host`;
     const existing = findExisting(state, key);
-    if (existing) return { ok: true, duplicate: true, entry: cloneJson(existing), campaignState: state };
+    if (existing) return existingResponseDispatchResult(existing, state);
     const ingress = findIngress(state, ingressId);
     let hostContinuation = null;
     let releasePersistedResolve = null;
@@ -1730,7 +1747,7 @@ export function createResponseDispatcher({
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || outcomeId || turnId || 'turn'}:${responseType}`;
     const existing = findExisting(state, key);
     if (existing) {
-      return { ok: true, duplicate: true, entry: cloneJson(existing), campaignState: state };
+      return existingResponseDispatchResult(existing, state);
     }
     const ingress = findIngress(state, ingressId);
     const directiveGenerationStartedAt = metadata?.directiveGenerationStartedAt

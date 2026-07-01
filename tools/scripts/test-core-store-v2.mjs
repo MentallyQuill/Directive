@@ -12,8 +12,7 @@ import {
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
 import {
   loadV2SaveManifest,
-  readV2ArtifactRef,
-  readV2Segment
+  readV2ArtifactRef
 } from '../../src/storage/transaction-store-v2.mjs';
 
 function cloneJson(value) {
@@ -23,12 +22,17 @@ function cloneJson(value) {
 function createLoggingStorage() {
   const files = new Map();
   const writeLog = [];
+  const readLog = [];
+  const verifyLog = [];
   return {
     writeLog,
+    readLog,
+    verifyLog,
     snapshot() {
       return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
     },
     async readJson(filePath) {
+      readLog.push(filePath);
       if (!files.has(filePath)) {
         const error = new Error(`not found: ${filePath}`);
         error.code = 'ENOENT';
@@ -42,6 +46,7 @@ function createLoggingStorage() {
       return { ok: true, path: filePath };
     },
     async verifyJsonFiles(paths) {
+      verifyLog.push(...paths);
       return Object.fromEntries(paths.map((filePath) => [filePath, files.has(filePath)]));
     }
   };
@@ -80,17 +85,89 @@ const duplicateBegin = await coreStore.beginTurn(sourceFrame, {
   idempotencyKey: 'begin-29'
 });
 assert.equal(duplicateBegin.revisions.runtime, 1, 'same beginTurn idempotency key should replay without advancing revisions');
+assert.equal(transaction.sourceFrame.campaignId, 'campaign-core-v2', 'CORE source frame refs should retain campaign id');
+assert.equal(transaction.sourceFrame.saveId, 'save-core-v2', 'CORE source frame refs should retain save id');
+assert.equal(transaction.sourceFrame.chatId, 'ashes-chat', 'CORE source frame refs should retain chat id');
+const scopeGuardStorage = createLoggingStorage();
+const scopeGuardAdapter = createLogicalStorageAdapter({ storage: scopeGuardStorage, hostId: 'fake' });
+const scopeGuardStore = createCoreStoreV2({
+  adapter: scopeGuardAdapter,
+  campaignId: 'campaign-scope-a',
+  saveId: 'save-scope-a',
+  now: () => '2026-06-28T15:00:09.000Z'
+});
+const mismatchedScopeFrame = createTurnSourceFrameContract({
+  id: 'frame-scope-mismatch',
+  campaignId: 'campaign-scope-b',
+  saveId: 'save-scope-b',
+  chatId: 'scope-chat',
+  hostMessageId: 'scope-host-1',
+  textHash: hashStableJson({ text: 'wrong save' }),
+  createdAt: '2026-06-28T15:00:09.000Z'
+});
+await assert.rejects(
+  () => scopeGuardStore.beginTurn(mismatchedScopeFrame, {
+    transactionId: 'txn-scope-mismatch',
+    ingressId: 'ingress-scope-mismatch',
+    idempotencyKey: 'begin-scope-mismatch'
+  }),
+  /CORE source frame scope mismatch/
+);
+assert.equal(scopeGuardStorage.writeLog.length, 0, 'CORE source frame scope mismatch must not write manifests or event segments');
 await assert.rejects(
   () => coreStore.advanceTurn(transaction.id, { phase: 'settled' }),
   /Invalid CORE transaction phase transition/
 );
 
+const manifestBeforeAdvance = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeAdvanceHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeAdvanceHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeAdvancePromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeAdvanceTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeAdvanceWriteStart = storage.writeLog.length;
+const beforeAdvanceReadStart = storage.readLog.length;
 await coreStore.advanceTurn(transaction.id, {
   phase: 'routePending',
   route: 'directiveCommit',
   reason: 'consequential-command',
   idempotencyKey: 'advance-29'
 });
+const advanceWriteKeys = storage.writeLog.slice(beforeAdvanceWriteStart);
+const advanceReadKeys = storage.readLog.slice(beforeAdvanceReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeAdvanceHeadWrites, 'advanceTurn must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeAdvanceHostMapWrites, 'advanceTurn must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeAdvancePromptWrites, 'advanceTurn must not rewrite prompt cache on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeAdvanceTurnWrites, 'advanceTurn must not write turn segments');
+assert.equal(advanceWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'advanceTurn append should write exactly one event tail');
+assert.equal(advanceWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'advanceTurn append should publish one save manifest');
+assert.equal(advanceWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'advanceTurn append should publish one campaign manifest');
+assert.equal(advanceWriteKeys.length, 3, 'advanceTurn append should write only event tail, save manifest, and campaign manifest');
+assert.equal(advanceWriteKeys[advanceWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'advanceTurn append should write save manifest after segment artifacts');
+assert.equal(advanceWriteKeys[advanceWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'advanceTurn append should write campaign manifest last');
+assert.equal(advanceReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'advanceTurn append must not read CORE head');
+assert.equal(advanceReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'advanceTurn append must not read host map');
+assert.equal(advanceReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'advanceTurn append must not read prompt cache');
+const manifestAfterAdvance = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterAdvance.head, manifestBeforeAdvance.head, 'advanceTurn append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterAdvance.hostMap, manifestBeforeAdvance.hostMap, 'advanceTurn append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterAdvance.promptCache, manifestBeforeAdvance.promptCache, 'advanceTurn append should preserve the prior prompt-cache ref');
+assert.deepEqual(manifestAfterAdvance.turnSegments, manifestBeforeAdvance.turnSegments, 'advanceTurn append should preserve turn refs');
+const hydratedAfterAdvance = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterAdvance.transactions[transaction.id].phase, 'routePending', 'hydration should derive advanceTurn phase from appended events');
+assert.equal(hydratedAfterAdvance.transactions[transaction.id].route, 'directiveCommit', 'hydration should derive advanceTurn route from appended events');
+assert.equal(hydratedAfterAdvance.transactions[transaction.id].phaseAdvanceIdempotencyKeys.includes('advance-29'), true, 'hydration should preserve advanceTurn idempotency from events');
+assert.equal(hydratedAfterAdvance.revisions.runtime, 2, 'hydration should derive runtime revision from appended advanceTurn event');
 const beforeAdvanceReplayEvents = coreStore.state.events.length;
 const replayAdvance = await coreStore.advanceTurn(transaction.id, {
   phase: 'routePending',
@@ -107,6 +184,16 @@ await assert.rejects(
   }),
   /Stale CORE mechanics base revision/
 );
+const manifestBeforeMechanics = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeMechanicsHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeMechanicsHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeMechanicsPromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeMechanicsWriteStart = storage.writeLog.length;
+const beforeMechanicsReadStart = storage.readLog.length;
 const mechanics = await coreStore.commitMechanics(transaction.id, {
   baseMechanicsRevision: 0,
   idempotencyKey: 'mechanics-29',
@@ -128,6 +215,37 @@ const mechanics = await coreStore.commitMechanics(transaction.id, {
     }
   ]
 });
+const mechanicsWriteKeys = storage.writeLog.slice(beforeMechanicsWriteStart);
+const mechanicsReadKeys = storage.readLog.slice(beforeMechanicsReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeMechanicsHeadWrites, 'mechanics commit must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeMechanicsHostMapWrites, 'mechanics commit must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeMechanicsPromptWrites, 'mechanics commit must not rewrite prompt cache on the append-only hot path');
+assert.equal(mechanicsWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'mechanics append should write exactly one event tail');
+assert.equal(mechanicsWriteKeys.filter((key) => key.includes('/turns/')).length, 1, 'mechanics append should write exactly one turn tail');
+assert.equal(mechanicsWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'mechanics append should publish one save manifest');
+assert.equal(mechanicsWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'mechanics append should publish one campaign manifest');
+assert.equal(mechanicsWriteKeys.length, 4, 'mechanics append should write only event tail, turn tail, save manifest, and campaign manifest');
+assert.equal(mechanicsWriteKeys[mechanicsWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'mechanics append should write save manifest after segment artifacts');
+assert.equal(mechanicsWriteKeys[mechanicsWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'mechanics append should write campaign manifest last');
+assert.equal(mechanicsReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'mechanics append must not read CORE head');
+assert.equal(mechanicsReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'mechanics append must not read host map');
+assert.equal(mechanicsReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'mechanics append must not read prompt cache');
+const manifestAfterMechanics = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterMechanics.head, manifestBeforeMechanics.head, 'mechanics append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterMechanics.hostMap, manifestBeforeMechanics.hostMap, 'mechanics append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterMechanics.promptCache, manifestBeforeMechanics.promptCache, 'mechanics append should preserve the prior prompt-cache ref');
+const hydratedAfterMechanics = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterMechanics.transactions[transaction.id].turnId, 'turn-29', 'hydration should derive mechanics turn id from appended event/turn segments');
+assert.equal(hydratedAfterMechanics.transactions[transaction.id].outcomeId, 'outcome-29', 'hydration should derive mechanics outcome from appended event/turn segments');
+assert.equal(hydratedAfterMechanics.revisions.mechanics, 1, 'hydration should derive mechanics revision from appended event/turn segments');
+assert.equal(hydratedAfterMechanics.promptDirtyDomains.includes('missionQuestThread'), true, 'hydration should derive prompt dirty domains from appended turn segments');
 assert.equal(mechanics.outcomeId, 'outcome-29');
 assert.equal(mechanics.operationCount, 1);
 assert.equal(coreStore.state.revisions.prompt, 0, 'CORE must emit dirty domains without owning prompt revision');
@@ -146,6 +264,7 @@ const beforeDiagnosticsHeadWrites = storage.writeLog.filter((key) => key.endsWit
 const beforeDiagnosticsPromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
 const beforeDiagnosticsEventWrites = storage.writeLog.filter((key) => key.includes('/events/')).length;
 const beforeDiagnosticsTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeDiagnosticsReadStart = storage.readLog.length;
 const modelDiagnostic = await coreStore.appendDiagnostics(transaction.id, {
   type: 'modelCall',
   roleId: 'utilityTurnClassifier',
@@ -163,11 +282,29 @@ assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).len
 assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeDiagnosticsPromptWrites, 'diagnostics-only append must not rewrite prompt cache');
 assert.equal(storage.writeLog.filter((key) => key.includes('/events/')).length, beforeDiagnosticsEventWrites, 'diagnostics-only append must not rewrite event segments');
 assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeDiagnosticsTurnWrites, 'diagnostics-only append must not rewrite turn segments');
+const diagnosticsReadKeys = storage.readLog.slice(beforeDiagnosticsReadStart);
+assert.equal(diagnosticsReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'diagnostics-only append must not read head');
+assert.equal(diagnosticsReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'diagnostics-only append must not read host map');
+assert.equal(diagnosticsReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'diagnostics-only append must not read prompt cache');
+assert.equal(diagnosticsReadKeys.some((key) => key.includes('/events/')), false, 'diagnostics-only append must not read event segments');
+assert.equal(diagnosticsReadKeys.some((key) => key.includes('/turns/')), false, 'diagnostics-only append must not read turn segments');
 assert.equal(modelDiagnostic.kind, 'directive.coreDiagnostic.v1');
 assert.equal(modelDiagnostic.redactedPayload.promptText, '[redacted-raw-payload]');
 assert.equal(modelDiagnostic.redactedPayload.responseSnapshot, '[redacted-raw-payload]');
 assert.equal(modelDiagnostic.redactedPayload.apiKey, '[redacted-secret]');
 
+const manifestBeforeResponse = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeResponseHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeResponseHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeResponsePromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeResponseTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeResponseDiagnosticsWrites = storage.writeLog.filter((key) => key.includes('/diagnostics/')).length;
+const beforeResponseWriteStart = storage.writeLog.length;
+const beforeResponseReadStart = storage.readLog.length;
 const postedResponse = await coreStore.recordVisibleResponse(transaction.id, {
   idempotencyKey: 'response-30-key',
   responseId: 'response-30',
@@ -186,6 +323,58 @@ const postedResponse = await coreStore.recordVisibleResponse(transaction.id, {
   },
   rawResponse: 'RAW_RESPONSE_TEXT'
 });
+const responseWriteKeys = storage.writeLog.slice(beforeResponseWriteStart);
+const responseReadKeys = storage.readLog.slice(beforeResponseReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeResponseHeadWrites, 'recordVisibleResponse must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeResponseHostMapWrites, 'recordVisibleResponse must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeResponsePromptWrites, 'recordVisibleResponse must not rewrite prompt cache on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeResponseTurnWrites, 'recordVisibleResponse must not write turn segments');
+assert.equal(storage.writeLog.filter((key) => key.includes('/diagnostics/')).length, beforeResponseDiagnosticsWrites, 'recordVisibleResponse must not write diagnostics segments');
+assert.equal(responseWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'recordVisibleResponse append should write exactly one event tail');
+assert.equal(responseWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'recordVisibleResponse append should publish one save manifest');
+assert.equal(responseWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'recordVisibleResponse append should publish one campaign manifest');
+assert.equal(responseWriteKeys.length, 3, 'recordVisibleResponse append should write only event tail, save manifest, and campaign manifest');
+assert.equal(responseWriteKeys[responseWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'recordVisibleResponse append should write save manifest after segment artifacts');
+assert.equal(responseWriteKeys[responseWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'recordVisibleResponse append should write campaign manifest last');
+assert.equal(responseReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'recordVisibleResponse append must not read CORE head');
+assert.equal(responseReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'recordVisibleResponse append must not read host map');
+assert.equal(responseReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'recordVisibleResponse append must not read prompt cache');
+assert.equal(responseReadKeys.some((key) => key.includes('/turns/')), false, 'recordVisibleResponse append must not read turn segments');
+const manifestAfterResponse = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterResponse.head, manifestBeforeResponse.head, 'recordVisibleResponse append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterResponse.hostMap, manifestBeforeResponse.hostMap, 'recordVisibleResponse append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterResponse.promptCache, manifestBeforeResponse.promptCache, 'recordVisibleResponse append should preserve the prior prompt-cache ref');
+assert.deepEqual(manifestAfterResponse.turnSegments, manifestBeforeResponse.turnSegments, 'recordVisibleResponse append should preserve turn refs');
+assert.deepEqual(manifestAfterResponse.diagnosticsSegments, manifestBeforeResponse.diagnosticsSegments, 'recordVisibleResponse append should preserve diagnostics refs');
+const hydratedAfterResponse = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterResponse.transactions[transaction.id].phase, 'visibleResponsePosted', 'hydration should derive visible response phase from appended events');
+assert.equal(hydratedAfterResponse.transactions[transaction.id].visibleResponseRef.hostMessageId, '30', 'hydration should derive visible response host id from appended events');
+assert.equal(hydratedAfterResponse.transactions[transaction.id].visibleResponseRef.textHash, null, 'hydration should keep hash-only missing response text state without raw response text');
+assert.equal(hydratedAfterResponse.revisions.runtime, 4, 'hydration should derive runtime revision from appended response event');
+const hydratedResponseReplayStore = createCoreStoreV2({
+  adapter,
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  now: () => `2026-06-28T15:00:${String(tick++).padStart(2, '0')}.000Z`,
+  initialState: hydratedAfterResponse
+});
+const hydratedResponseReplayEventCount = hydratedResponseReplayStore.state.events.length;
+const hydratedResponseReplay = await hydratedResponseReplayStore.recordVisibleResponse(transaction.id, {
+  idempotencyKey: 'response-30-key',
+  responseId: 'response-30',
+  hostMessageId: '30',
+  outcomeId: 'outcome-29',
+  responseKind: 'directiveNarration'
+});
+assert.deepEqual(hydratedResponseReplay.visibleResponseRef, postedResponse.visibleResponseRef, 'hydrated same-key visible response should replay without mutation');
+assert.equal(hydratedResponseReplayStore.state.events.length, hydratedResponseReplayEventCount, 'hydrated same-key visible response replay must not append another event');
 const beforeResponseReplayEvents = coreStore.state.events.length;
 const replayResponse = await coreStore.recordVisibleResponse(transaction.id, {
   idempotencyKey: 'response-30-key',
@@ -235,7 +424,21 @@ await coreStore.commitBackgroundBatch(transaction.id, {
     }
   ]
 });
-await coreStore.commitBackgroundBatch(transaction.id, {
+const manifestBeforeBackground = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeBackgroundHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeBackgroundHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeBackgroundPromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeBackgroundTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeBackgroundDiagnosticsWrites = storage.writeLog.filter((key) => key.includes('/diagnostics/')).length;
+const beforeBackgroundWriteStart = storage.writeLog.length;
+const beforeBackgroundReadStart = storage.readLog.length;
+const acceptedBatchHash29 = hashStableJson({ accepted: 'sidecar-batch-29' });
+const reviewHash29 = hashStableJson({ review: 'command-bearing-review-29' }).slice(0, 16);
+const backgroundCommit29 = await coreStore.commitBackgroundBatch(transaction.id, {
   baseMechanicsRevision: 1,
   idempotencyKey: 'forge-29-key',
   batchId: 'forge-29',
@@ -261,6 +464,22 @@ await coreStore.commitBackgroundBatch(transaction.id, {
       factHash: 'fact-hash-1'
     }
   ],
+  backgroundEffectRefs: [
+    {
+      kind: 'directive.commandBearingReviewClosure.v1',
+      id: 'closure-29',
+      reviewHash: reviewHash29,
+      rawReviewText: 'RAW_BACKGROUND_REVIEW_TEXT'
+    }
+  ],
+  forgeBatchRef: {
+    kind: 'directive.forgeBatchCommitRef.v1',
+    batchId: 'forge-29',
+    operationBundleHash: 'operation-bundle-hash-29',
+    acceptedBatchHash: acceptedBatchHash29,
+    reviewHash: reviewHash29,
+    rawProviderText: 'RAW_BACKGROUND_PROVIDER_TEXT'
+  },
   workers: [
     {
       worker: 'continuity',
@@ -269,6 +488,72 @@ await coreStore.commitBackgroundBatch(transaction.id, {
     }
   ]
 });
+const returnedBackground29 = backgroundCommit29.backgroundBatches.find((entry) => entry.batchId === 'forge-29');
+assert.equal(returnedBackground29.forgeBatchRef.acceptedBatchHash, acceptedBatchHash29, 'commitBackgroundBatch return should carry accepted batch identity in durable ref evidence');
+assert.equal(returnedBackground29.forgeBatchRef.reviewHash, reviewHash29, 'commitBackgroundBatch return should carry review hash identity in durable ref evidence');
+assert.equal(returnedBackground29.backgroundEffectRefs[0].reviewHash, reviewHash29, 'commitBackgroundBatch return should carry compact effect review hash evidence');
+assert.equal(JSON.stringify(returnedBackground29).includes('RAW_BACKGROUND_PROVIDER_TEXT'), false, 'returned background batch refs must redact raw provider text');
+assert.equal(JSON.stringify(returnedBackground29).includes('RAW_BACKGROUND_REVIEW_TEXT'), false, 'returned background effect refs must redact raw review text');
+const backgroundWriteKeys = storage.writeLog.slice(beforeBackgroundWriteStart);
+const backgroundReadKeys = storage.readLog.slice(beforeBackgroundReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeBackgroundHeadWrites, 'commitBackgroundBatch must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeBackgroundHostMapWrites, 'commitBackgroundBatch must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeBackgroundPromptWrites, 'commitBackgroundBatch must not rewrite prompt cache on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeBackgroundTurnWrites, 'commitBackgroundBatch must not write turn segments');
+assert.equal(storage.writeLog.filter((key) => key.includes('/diagnostics/')).length, beforeBackgroundDiagnosticsWrites, 'commitBackgroundBatch must not write diagnostics segments');
+assert.equal(backgroundWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'commitBackgroundBatch append should write exactly one event tail');
+assert.equal(backgroundWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'commitBackgroundBatch append should publish one save manifest');
+assert.equal(backgroundWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'commitBackgroundBatch append should publish one campaign manifest');
+assert.equal(backgroundWriteKeys.length, 3, 'commitBackgroundBatch append should write only event tail, save manifest, and campaign manifest');
+assert.equal(backgroundWriteKeys[backgroundWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'commitBackgroundBatch append should write save manifest after segment artifacts');
+assert.equal(backgroundWriteKeys[backgroundWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'commitBackgroundBatch append should write campaign manifest last');
+assert.equal(backgroundReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'commitBackgroundBatch append must not read CORE head');
+assert.equal(backgroundReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'commitBackgroundBatch append must not read host map');
+assert.equal(backgroundReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'commitBackgroundBatch append must not read prompt cache');
+assert.equal(backgroundReadKeys.some((key) => key.includes('/turns/')), false, 'commitBackgroundBatch append must not read turn segments');
+const manifestAfterBackground = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterBackground.head, manifestBeforeBackground.head, 'commitBackgroundBatch append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterBackground.hostMap, manifestBeforeBackground.hostMap, 'commitBackgroundBatch append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterBackground.promptCache, manifestBeforeBackground.promptCache, 'commitBackgroundBatch append should preserve the prior prompt-cache ref');
+assert.deepEqual(manifestAfterBackground.turnSegments, manifestBeforeBackground.turnSegments, 'commitBackgroundBatch append should preserve turn refs');
+assert.deepEqual(manifestAfterBackground.diagnosticsSegments, manifestBeforeBackground.diagnosticsSegments, 'commitBackgroundBatch append should preserve diagnostics refs');
+const hydratedAfterBackground = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterBackground.transactions[transaction.id].backgroundBatchIds.includes('forge-29'), true, 'hydration should derive background batch ids from appended events');
+assert.equal(hydratedAfterBackground.transactions[transaction.id].backgroundBatches.some((entry) => entry.batchId === 'forge-29' && entry.operationCount === 1), true, 'hydration should derive background operation summary from appended events');
+const hydratedBackground29 = hydratedAfterBackground.transactions[transaction.id].backgroundBatches.find((entry) => entry.batchId === 'forge-29');
+assert.equal(hydratedBackground29.forgeBatchRef.acceptedBatchHash, acceptedBatchHash29, 'hydration should preserve compact accepted batch identity from background event refs');
+assert.equal(hydratedBackground29.forgeBatchRef.reviewHash, reviewHash29, 'hydration should preserve compact review hash from background event refs');
+assert.equal(hydratedBackground29.backgroundEffectRefs[0].reviewHash, reviewHash29, 'hydration should preserve compact effect review hash evidence');
+assert.equal(JSON.stringify(hydratedBackground29).includes('RAW_BACKGROUND_PROVIDER_TEXT'), false, 'hydrated background refs must redact raw provider text');
+assert.equal(JSON.stringify(hydratedBackground29).includes('RAW_BACKGROUND_REVIEW_TEXT'), false, 'hydrated background refs must redact raw review text');
+assert.equal(hydratedAfterBackground.promptDirtyDomains.includes('continuity'), true, 'hydration should derive background prompt dirty domains from appended events');
+assert.equal(hydratedAfterBackground.revisions.mechanics, 2, 'hydration should derive background mechanics revision from appended events');
+const hydratedBackgroundReplayStore = createCoreStoreV2({
+  adapter,
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  now: () => `2026-06-28T15:00:${String(tick++).padStart(2, '0')}.000Z`,
+  initialState: hydratedAfterBackground
+});
+const hydratedBackgroundReplayEventCount = hydratedBackgroundReplayStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length;
+await hydratedBackgroundReplayStore.commitBackgroundBatch(transaction.id, {
+  baseMechanicsRevision: 2,
+  idempotencyKey: 'forge-29-key',
+  batchId: 'forge-29',
+  phaseAfter: 'backgroundSettling'
+});
+assert.equal(
+  hydratedBackgroundReplayStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length,
+  hydratedBackgroundReplayEventCount,
+  'hydrated same-key background batch replay must not append another event'
+);
 await coreStore.commitBackgroundBatch(transaction.id, {
   idempotencyKey: 'command-log-summary-29-key',
   batchId: 'command-log-summary-29',
@@ -336,6 +621,18 @@ const recoveryTransaction = await coreStore.beginTurn(recoveryFrame, {
   ingressId: 'ingress-31',
   idempotencyKey: 'begin-31'
 });
+const manifestBeforeRecovery = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeRecoveryHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeRecoveryHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeRecoveryPromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeRecoveryTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeRecoveryDiagnosticsWrites = storage.writeLog.filter((key) => key.includes('/diagnostics/')).length;
+const beforeRecoveryWriteStart = storage.writeLog.length;
+const beforeRecoveryReadStart = storage.readLog.length;
 await coreStore.markRecoveryRequired(recoveryTransaction.id, {
   id: 'recovery-31',
   reason: 'dependent-player-edit',
@@ -343,6 +640,57 @@ await coreStore.markRecoveryRequired(recoveryTransaction.id, {
   idempotencyKey: 'recovery-31-key',
   rawText: 'RAW_EDITED_PLAYER_TEXT'
 });
+const recoveryWriteKeys = storage.writeLog.slice(beforeRecoveryWriteStart);
+const recoveryReadKeys = storage.readLog.slice(beforeRecoveryReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeRecoveryHeadWrites, 'markRecoveryRequired must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeRecoveryHostMapWrites, 'markRecoveryRequired must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeRecoveryPromptWrites, 'markRecoveryRequired must not rewrite prompt cache on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeRecoveryTurnWrites, 'markRecoveryRequired must not write turn segments');
+assert.equal(storage.writeLog.filter((key) => key.includes('/diagnostics/')).length, beforeRecoveryDiagnosticsWrites, 'markRecoveryRequired must not write diagnostics segments');
+assert.equal(recoveryWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'markRecoveryRequired append should write exactly one event tail');
+assert.equal(recoveryWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'markRecoveryRequired append should publish one save manifest');
+assert.equal(recoveryWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'markRecoveryRequired append should publish one campaign manifest');
+assert.equal(recoveryWriteKeys.length, 3, 'markRecoveryRequired append should write only event tail, save manifest, and campaign manifest');
+assert.equal(recoveryWriteKeys[recoveryWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'markRecoveryRequired append should write save manifest after segment artifacts');
+assert.equal(recoveryWriteKeys[recoveryWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'markRecoveryRequired append should write campaign manifest last');
+assert.equal(recoveryReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'markRecoveryRequired append must not read CORE head');
+assert.equal(recoveryReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'markRecoveryRequired append must not read host map');
+assert.equal(recoveryReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'markRecoveryRequired append must not read prompt cache');
+assert.equal(recoveryReadKeys.some((key) => key.includes('/turns/')), false, 'markRecoveryRequired append must not read turn segments');
+const manifestAfterRecovery = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterRecovery.head, manifestBeforeRecovery.head, 'markRecoveryRequired append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterRecovery.hostMap, manifestBeforeRecovery.hostMap, 'markRecoveryRequired append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterRecovery.promptCache, manifestBeforeRecovery.promptCache, 'markRecoveryRequired append should preserve the prior prompt-cache ref');
+assert.deepEqual(manifestAfterRecovery.turnSegments, manifestBeforeRecovery.turnSegments, 'markRecoveryRequired append should preserve turn refs');
+assert.deepEqual(manifestAfterRecovery.diagnosticsSegments, manifestBeforeRecovery.diagnosticsSegments, 'markRecoveryRequired append should preserve diagnostics refs');
+const hydratedAfterRecovery = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterRecovery.transactions[recoveryTransaction.id].phase, 'recoveryRequired', 'hydration should derive recovery phase from appended events');
+assert.equal(hydratedAfterRecovery.transactions[recoveryTransaction.id].recoveryCaseId, 'recovery-31', 'hydration should derive recovery case id from appended events');
+assert.equal(hydratedAfterRecovery.transactions[recoveryTransaction.id].recoveryIdempotencyKey, 'recovery-31-key', 'hydration should preserve recovery idempotency from appended events');
+assert.equal(hydratedAfterRecovery.revisions.runtime >= coreStore.state.transactions[recoveryTransaction.id].revisions.runtime, true, 'hydration should fold runtime revision from appended recovery event');
+const hydratedRecoveryReplayStore = createCoreStoreV2({
+  adapter,
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  now: () => `2026-06-28T15:00:${String(tick++).padStart(2, '0')}.000Z`,
+  initialState: hydratedAfterRecovery
+});
+const hydratedRecoveryReplayEventCount = hydratedRecoveryReplayStore.state.events.length;
+const hydratedRecoveryReplay = await hydratedRecoveryReplayStore.markRecoveryRequired(recoveryTransaction.id, {
+  id: 'recovery-31',
+  reason: 'dependent-player-edit',
+  status: 'required',
+  idempotencyKey: 'recovery-31-key'
+});
+assert.equal(hydratedRecoveryReplay.id, 'recovery-31', 'hydrated same-key recovery should replay the existing case');
+assert.equal(hydratedRecoveryReplayStore.state.events.length, hydratedRecoveryReplayEventCount, 'hydrated same-key recovery replay must not append another event');
 
 const retryFrame = createTurnSourceFrameContract({
   id: 'frame-32',
@@ -560,12 +908,51 @@ await coreStore.recordVisibleResponse(hostNativeRepairTransaction.id, {
 });
 assert.equal(coreStore.state.transactions[hostNativeRepairTransaction.id].visibleResponseRef.textHash, null);
 const repairedHostNativeHash = hashStableJson({ text: 'Host-native row text was recovered later.' });
+const manifestBeforeResponseRepair = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeResponseRepairHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeResponseRepairHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeResponseRepairPromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeResponseRepairTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeResponseRepairDiagnosticsWrites = storage.writeLog.filter((key) => key.includes('/diagnostics/')).length;
+const beforeResponseRepairWriteStart = storage.writeLog.length;
+const beforeResponseRepairReadStart = storage.readLog.length;
 await coreStore.repairVisibleResponseRef(hostNativeRepairTransaction.id, {
   hostMessageId: '36',
   textHash: repairedHostNativeHash,
   reason: 'test-missing-host-native-text-hash',
   idempotencyKey: 'repair-response-35-hash'
 });
+const responseRepairWriteKeys = storage.writeLog.slice(beforeResponseRepairWriteStart);
+const responseRepairReadKeys = storage.readLog.slice(beforeResponseRepairReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeResponseRepairHeadWrites, 'repairVisibleResponseRef must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeResponseRepairHostMapWrites, 'repairVisibleResponseRef must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeResponseRepairPromptWrites, 'repairVisibleResponseRef must not rewrite prompt cache on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeResponseRepairTurnWrites, 'repairVisibleResponseRef must not write turn segments');
+assert.equal(storage.writeLog.filter((key) => key.includes('/diagnostics/')).length, beforeResponseRepairDiagnosticsWrites, 'repairVisibleResponseRef must not write diagnostics segments');
+assert.equal(responseRepairWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'repairVisibleResponseRef append should write exactly one event tail');
+assert.equal(responseRepairWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'repairVisibleResponseRef append should publish one save manifest');
+assert.equal(responseRepairWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'repairVisibleResponseRef append should publish one campaign manifest');
+assert.equal(responseRepairWriteKeys.length, 3, 'repairVisibleResponseRef append should write only event tail, save manifest, and campaign manifest');
+assert.equal(responseRepairWriteKeys[responseRepairWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'repairVisibleResponseRef append should write save manifest after segment artifacts');
+assert.equal(responseRepairWriteKeys[responseRepairWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'repairVisibleResponseRef append should write campaign manifest last');
+assert.equal(responseRepairReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'repairVisibleResponseRef append must not read CORE head');
+assert.equal(responseRepairReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'repairVisibleResponseRef append must not read host map');
+assert.equal(responseRepairReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'repairVisibleResponseRef append must not read prompt cache');
+assert.equal(responseRepairReadKeys.some((key) => key.includes('/turns/')), false, 'repairVisibleResponseRef append must not read turn segments');
+const manifestAfterResponseRepair = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterResponseRepair.head, manifestBeforeResponseRepair.head, 'repairVisibleResponseRef append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterResponseRepair.hostMap, manifestBeforeResponseRepair.hostMap, 'repairVisibleResponseRef append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterResponseRepair.promptCache, manifestBeforeResponseRepair.promptCache, 'repairVisibleResponseRef append should preserve the prior prompt-cache ref');
+assert.deepEqual(manifestAfterResponseRepair.turnSegments, manifestBeforeResponseRepair.turnSegments, 'repairVisibleResponseRef append should preserve turn refs');
+assert.deepEqual(manifestAfterResponseRepair.diagnosticsSegments, manifestBeforeResponseRepair.diagnosticsSegments, 'repairVisibleResponseRef append should preserve diagnostics refs');
 assert.equal(coreStore.state.transactions[hostNativeRepairTransaction.id].visibleResponseRef.textHash, repairedHostNativeHash);
 const repairedProjection = await readCoreStoreProjectionsV2(adapter, {
   campaignId: 'campaign-core-v2',
@@ -573,6 +960,39 @@ const repairedProjection = await readCoreStoreProjectionsV2(adapter, {
 });
 const repairedProjectionResponse = repairedProjection.responseLedger.find((entry) => entry.transactionId === hostNativeRepairTransaction.id);
 assert.equal(repairedProjectionResponse.textHash, repairedHostNativeHash);
+const repairedProjectionHostRow = repairedProjection.hostMap.rows.find((entry) => entry.role === 'assistant' && entry.transactionId === hostNativeRepairTransaction.id);
+assert.equal(repairedProjectionHostRow.textHash, repairedHostNativeHash, 'host-map projection should derive repaired response hash from events');
+const hydratedAfterResponseRepair = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterResponseRepair.transactions[hostNativeRepairTransaction.id].visibleResponseRef.textHash, repairedHostNativeHash, 'hydration should derive repaired response hash from appended events');
+const beforeDuplicateRepairEvents = coreStore.state.events.length;
+const duplicateRepair = await coreStore.repairVisibleResponseRef(hostNativeRepairTransaction.id, {
+  hostMessageId: '36',
+  textHash: repairedHostNativeHash,
+  reason: 'duplicate-repair-no-op',
+  idempotencyKey: 'repair-response-35-hash'
+});
+assert.equal(duplicateRepair.visibleResponseRef.textHash, repairedHostNativeHash, 'duplicate visible response repair should replay the repaired ref');
+assert.equal(coreStore.state.events.length, beforeDuplicateRepairEvents, 'duplicate visible response repair must not append another event');
+const hydratedResponseRepairStore = createCoreStoreV2({
+  adapter,
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  now: () => `2026-06-28T15:00:${String(tick++).padStart(2, '0')}.000Z`,
+  initialState: hydratedAfterResponseRepair
+});
+await assert.rejects(
+  () => hydratedResponseRepairStore.repairVisibleResponseRef(hostNativeRepairTransaction.id, {
+    hostMessageId: '37',
+    textHash: hashStableJson({ text: 'Wrong host row.' }),
+    reason: 'wrong-host-from-hydrated-ref',
+    idempotencyKey: 'repair-response-35-wrong-host'
+  }),
+  /visible response host id does not match repair patch/,
+  'hydrated event-derived visible response refs should still reject host-id repair mismatches'
+);
 
 const settledRecoveryFrame = createTurnSourceFrameContract({
   id: 'frame-34',
@@ -722,6 +1142,18 @@ await assert.rejects(
   }),
   /cannot restart after mechanics or visible response/
 );
+const manifestBeforeRestart = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeRestartHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeRestartHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeRestartPromptWrites = storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length;
+const beforeRestartTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeRestartDiagnosticsWrites = storage.writeLog.filter((key) => key.includes('/diagnostics/')).length;
+const beforeRestartWriteStart = storage.writeLog.length;
+const beforeRestartReadStart = storage.readLog.length;
 const restartResult = await coreStore.supersedeLatestSourceTransaction(restartPriorTransaction.id, restartReplacementTransaction.id, {
   priorRecoveryId: 'recovery-restart-prior',
   reason: 'latest-source-reobserved',
@@ -743,6 +1175,33 @@ const restartResult = await coreStore.supersedeLatestSourceTransaction(restartPr
     replacementText: 'RAW_RESTART_REPLACEMENT_TEXT'
   }
 });
+const restartWriteKeys = storage.writeLog.slice(beforeRestartWriteStart);
+const restartReadKeys = storage.readLog.slice(beforeRestartReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeRestartHeadWrites, 'supersedeLatestSourceTransaction must not rewrite CORE head on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeRestartHostMapWrites, 'supersedeLatestSourceTransaction must not rewrite host map on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeRestartPromptWrites, 'supersedeLatestSourceTransaction must not rewrite prompt cache on the append-only hot path');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeRestartTurnWrites, 'supersedeLatestSourceTransaction must not write turn segments');
+assert.equal(storage.writeLog.filter((key) => key.includes('/diagnostics/')).length, beforeRestartDiagnosticsWrites, 'supersedeLatestSourceTransaction must not write diagnostics segments');
+assert.equal(restartWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'supersedeLatestSourceTransaction append should write exactly one event tail');
+assert.equal(restartWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'supersedeLatestSourceTransaction append should publish one save manifest');
+assert.equal(restartWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'supersedeLatestSourceTransaction append should publish one campaign manifest');
+assert.equal(restartWriteKeys.length, 3, 'supersedeLatestSourceTransaction append should write only event tail, save manifest, and campaign manifest');
+assert.equal(restartWriteKeys[restartWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'supersedeLatestSourceTransaction append should write save manifest after segment artifacts');
+assert.equal(restartWriteKeys[restartWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'supersedeLatestSourceTransaction append should write campaign manifest last');
+assert.equal(restartReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'supersedeLatestSourceTransaction append must not read CORE head');
+assert.equal(restartReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'supersedeLatestSourceTransaction append must not read host map');
+assert.equal(restartReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'supersedeLatestSourceTransaction append must not read prompt cache');
+assert.equal(restartReadKeys.some((key) => key.includes('/turns/')), false, 'supersedeLatestSourceTransaction append must not read turn segments');
+const manifestAfterRestart = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterRestart.head, manifestBeforeRestart.head, 'supersedeLatestSourceTransaction append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterRestart.hostMap, manifestBeforeRestart.hostMap, 'supersedeLatestSourceTransaction append should preserve the prior host-map ref');
+assert.deepEqual(manifestAfterRestart.promptCache, manifestBeforeRestart.promptCache, 'supersedeLatestSourceTransaction append should preserve the prior prompt-cache ref');
+assert.deepEqual(manifestAfterRestart.turnSegments, manifestBeforeRestart.turnSegments, 'supersedeLatestSourceTransaction append should preserve turn refs');
+assert.deepEqual(manifestAfterRestart.diagnosticsSegments, manifestBeforeRestart.diagnosticsSegments, 'supersedeLatestSourceTransaction append should preserve diagnostics refs');
 assert.equal(restartResult.status, 'recorded');
 assert.equal(restartResult.priorTransaction.phase, 'restartSuperseded');
 assert.equal(restartResult.transaction.phase, 'observed');
@@ -753,6 +1212,41 @@ assert.equal(coreStore.state.transactions['txn-restart-prior'].restartedByTransa
 assert.equal(coreStore.state.transactions['txn-restart-replacement'].restartedFromTransactionId, 'txn-restart-prior');
 assert.equal(JSON.stringify(coreStore.state).includes('RAW_RESTART_PLAYER_TEXT'), false, 'CORE source restart refs must not retain raw player text.');
 assert.equal(JSON.stringify(coreStore.state).includes('RAW_RESTART_REPLACEMENT_TEXT'), false, 'CORE source restart mutations must not retain raw replacement text.');
+const hydratedAfterRestart = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(hydratedAfterRestart.transactions['txn-restart-prior'].phase, 'restartSuperseded', 'hydration should derive source-restart prior phase from appended events');
+assert.equal(hydratedAfterRestart.transactions['txn-restart-prior'].restartedByTransactionId, 'txn-restart-replacement', 'hydration should derive source-restart prior replacement link from appended events');
+assert.equal(hydratedAfterRestart.transactions['txn-restart-replacement'].restartedFromTransactionId, 'txn-restart-prior', 'hydration should derive replacement source link from appended events');
+assert.equal(JSON.stringify(hydratedAfterRestart).includes('RAW_RESTART_PLAYER_TEXT'), false, 'hydrated CORE source restart refs must not retain raw player text.');
+assert.equal(JSON.stringify(hydratedAfterRestart).includes('RAW_RESTART_REPLACEMENT_TEXT'), false, 'hydrated CORE source restart mutations must not retain raw replacement text.');
+const hydratedRestartReplayStore = createCoreStoreV2({
+  adapter,
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  now: () => `2026-06-28T15:00:${String(tick++).padStart(2, '0')}.000Z`,
+  initialState: hydratedAfterRestart
+});
+const hydratedRestartReplayEventCount = hydratedRestartReplayStore.state.events.filter((event) => event.type === 'latestSourceRestarted').length;
+const hydratedRestartReplay = await hydratedRestartReplayStore.supersedeLatestSourceTransaction('txn-restart-prior', 'txn-restart-replacement', {
+  priorRecoveryId: 'recovery-restart-prior',
+  reason: 'latest-source-reobserved',
+  idempotencyKey: 'restart-prior-to-replacement-key'
+});
+assert.equal(hydratedRestartReplay.transaction.id, 'txn-restart-replacement', 'hydrated same-key source restart should replay the replacement transaction');
+assert.equal(
+  hydratedRestartReplayStore.state.events.filter((event) => event.type === 'latestSourceRestarted').length,
+  hydratedRestartReplayEventCount,
+  'hydrated same-key source restart replay must not append another event'
+);
+await assert.rejects(
+  () => hydratedRestartReplayStore.supersedeLatestSourceTransaction('txn-restart-prior', 'txn-restart-replacement', {
+    idempotencyKey: 'restart-prior-to-replacement-hydrated-other-key'
+  }),
+  /already has a source restart/,
+  'hydrated different-key source restart should reject as already restarted'
+);
 const restartEventCount = coreStore.state.events.filter((event) => event.type === 'latestSourceRestarted').length;
 const replayRestartResult = await coreStore.supersedeLatestSourceTransaction(restartPriorTransaction.id, restartReplacementTransaction.id, {
   priorRecoveryId: 'recovery-restart-prior',
@@ -885,11 +1379,38 @@ assert.equal(commandLogSummaryDiagnostic.rawPromptBody, '[redacted-raw-payload]'
 assert.equal(projections.sidecarDiagnostics.some((entry) => entry.worker === 'commandLogSummary' && entry.assistedSummaryHash === 'summary-hash-29'), true);
 assert.equal(JSON.stringify(projections.sidecarDiagnostics).includes('RAW_COMMAND_LOG_SUMMARY_TEXT'), false);
 assert.equal(JSON.stringify(projections.sidecarDiagnostics).includes('RAW_COMMAND_LOG_BACKGROUND_SUMMARY'), false);
+const persistedProjectionReadStart = storage.readLog.length;
 const persistedProjections = await readCoreStoreProjectionsV2(adapter, {
   campaignId: 'campaign-core-v2',
   saveId: 'save-core-v2'
 });
+const persistedProjectionReadKeys = storage.readLog.slice(persistedProjectionReadStart);
+assert.equal(
+  persistedProjectionReadKeys.some((key) => key.endsWith('/host-map.v2.json')),
+  false,
+  'persisted projection loader should derive host-map rows from events without reading the host-map cache'
+);
 assert.equal(persistedProjections.ingressLedger.length, projections.ingressLedger.length, 'persisted projection loader should derive ingress from segments');
+assert.equal(
+  persistedProjections.hostMap.rows.some((row) => row.role === 'player' && row.hostMessageId === '29' && row.transactionId === 'txn-29'),
+  true,
+  'persisted projection loader should derive player host-map rows from turnObserved events'
+);
+assert.equal(
+  persistedProjections.hostMap.rows.some((row) => row.role === 'assistant' && row.hostMessageId === '30' && row.transactionId === 'txn-29'),
+  true,
+  'persisted projection loader should derive assistant host-map rows from visibleResponseRecorded events'
+);
+assert.equal(
+  persistedProjections.hostMap.rows.some((row) => (
+    row.role === 'player'
+    && row.transactionId === 'txn-restart-prior'
+    && row.status === 'restartSuperseded'
+    && row.replacementTransactionId === 'txn-restart-replacement'
+  )),
+  true,
+  'persisted projection loader should derive source-restart host-map status from latestSourceRestarted events'
+);
 assert.equal(
   persistedProjections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-prior').status,
   'restartSuperseded',
@@ -946,15 +1467,21 @@ assert.equal(
 assert.equal(hydratedProjections.responseLedger.length, projections.responseLedger.length, 'hydrated CORE Store should preserve response projections');
 assert.equal(hydratedProjections.turnTiming.length, projections.turnTiming.length, 'hydrated CORE Store should preserve timing projections');
 assert.equal(hydratedCoreStore.state.events.length, coreStore.state.events.length, 'hydrated CORE Store should preserve event segments');
+assert.equal(hydratedCoreStore.state.counters.transactions, 9, 'hydrated CORE Store should derive current transaction count from event segments');
+assert.equal(hydratedCoreStore.state.counters.diagnostics, 3, 'hydrated CORE Store should derive current diagnostic count from diagnostics segments');
+assert.equal(hydratedCoreStore.state.revisions.diagnostic, 3, 'hydrated CORE Store should derive current diagnostic revision from diagnostics segments');
+assert.equal(hydratedCoreStore.state.revisions.mechanics, 2, 'hydrated CORE Store should derive mechanics revision from event/turn segments');
+assert.equal(hydratedCoreStore.state.revisions.prompt, 0, 'hydrated CORE Store must not advance prompt revision');
+assert.equal(hydratedCoreStore.state.promptDirtyDomains.includes('missionQuestThread'), true);
+assert.equal(hydratedCoreStore.state.promptDirtyDomains.includes('continuity'), true);
 
 const head = await coreStore.loadHead();
-assert.equal(head.coreStore.counters.transactions, 9);
-assert.equal(head.coreStore.counters.diagnostics, 3);
-assert.equal(head.coreStore.revisions.diagnostic, 3);
-assert.equal(head.coreStore.revisions.mechanics, 2, 'mechanics should advance for mechanics commit plus background operation only');
+assert.equal(
+  head.coreStore.counters.transactions < hydratedCoreStore.state.counters.transactions,
+  true,
+  'CORE materialized head is a checkpoint/cache; current transaction authority comes from manifest-selected segments'
+);
 assert.equal(head.coreStore.revisions.prompt, 0, 'CORE head must not advance prompt revision');
-assert.equal(head.coreStore.promptDirtyDomains.includes('missionQuestThread'), true);
-assert.equal(head.coreStore.promptDirtyDomains.includes('continuity'), true);
 
 const saveManifest = await loadV2SaveManifest(adapter, {
   campaignId: 'campaign-core-v2',
@@ -965,13 +1492,7 @@ assert.equal(saveManifest.layout, 'core');
 assert.equal(saveManifest.eventSegments.length, 1);
 assert.equal(saveManifest.turnSegments.length, 1);
 assert.equal(saveManifest.diagnosticsSegments.length >= 1, true);
-const eventSegment = await readV2Segment(adapter, {
-  segmentType: 'event',
-  campaignId: 'campaign-core-v2',
-  saveId: 'save-core-v2',
-  segmentId: '0000',
-  layout: 'core'
-});
+const eventSegment = await readV2ArtifactRef(adapter, saveManifest.eventSegments[0]);
 assert.equal(eventSegment.entries.every((entry) => entry.kind === 'directive.coreEvent.v1'), true);
 assert.deepEqual(eventSegment.entries.map((entry) => entry.sequence), eventSegment.entries.map((_, index) => index + 1));
 assert.equal(eventSegment.entries.every((entry) => entry.txnId && entry.sourceFrameId && entry.occurredAt), true);
@@ -1002,13 +1523,7 @@ assert.ok(settledRecoveryEvent, 'Settled source mutations should reopen the CORE
 assert.equal(settledRecoveryEvent.payload.sourceMutation.sourceKind, 'playerIngress');
 assert.equal(settledRecoveryEvent.payload.sourceMutation.replacementTextHash.length, 64);
 assert.equal(JSON.stringify(settledRecoveryEvent).includes('RAW_SETTLED_SOURCE_EDIT'), false);
-const diagnosticSegment = await readV2Segment(adapter, {
-  segmentType: 'diagnostics',
-  campaignId: 'campaign-core-v2',
-  saveId: 'save-core-v2',
-  segmentId: '0000',
-  layout: 'core'
-});
+const diagnosticSegment = await readV2ArtifactRef(adapter, saveManifest.diagnosticsSegments[0]);
 const diagnosticEntries = (await Promise.all(saveManifest.diagnosticsSegments.map((ref) => readV2ArtifactRef(adapter, ref))))
   .flatMap((segment) => segment.entries || []);
 assert.equal(diagnosticEntries.length, 3);
@@ -1046,5 +1561,263 @@ for (const marker of [
 }
 
 assert.equal(coreStore.estimateSize() < 1024 * 1024, true);
+
+let rewriteTick = 0;
+const rewriteStorage = createLoggingStorage();
+const rewriteAdapter = createLogicalStorageAdapter({ storage: rewriteStorage, hostId: 'fake' });
+const rewriteCoreStore = createCoreStoreV2({
+  adapter: rewriteAdapter,
+  campaignId: 'campaign-core-rewrite-guard',
+  saveId: 'save-core-rewrite-guard',
+  now: () => `2026-06-28T16:${String(Math.floor(rewriteTick / 60)).padStart(2, '0')}:${String(rewriteTick++ % 60).padStart(2, '0')}.000Z`,
+  segmentMaxBytes: {
+    event: 14000,
+    turn: 5000,
+    diagnostics: 5000
+  }
+});
+
+async function driveRewriteGuardTurn(index) {
+  const frame = createTurnSourceFrameContract({
+    id: `rewrite-frame-${String(index).padStart(4, '0')}`,
+    campaignId: 'campaign-core-rewrite-guard',
+    saveId: 'save-core-rewrite-guard',
+    chatId: 'rewrite-guard-chat',
+    hostMessageId: `rewrite-host-${String(index).padStart(4, '0')}`,
+    textHash: hashStableJson({ text: `rewrite guard player ${index}` }),
+    createdAt: `2026-06-28T16:00:${String(index % 60).padStart(2, '0')}.000Z`
+  });
+  const transaction = await rewriteCoreStore.beginTurn(frame, {
+    transactionId: `rewrite-txn-${String(index).padStart(4, '0')}`,
+    ingressId: `rewrite-ingress-${String(index).padStart(4, '0')}`,
+    idempotencyKey: `rewrite-begin-${index}`
+  });
+  await rewriteCoreStore.advanceTurn(transaction.id, {
+    phase: 'routePending',
+    route: 'directiveCommit',
+    reason: 'sealed-segment-rewrite-guard',
+    idempotencyKey: `rewrite-route-${index}`
+  });
+  await rewriteCoreStore.commitMechanics(transaction.id, {
+    baseMechanicsRevision: index - 1,
+    idempotencyKey: `rewrite-mechanics-${index}`,
+    turnId: `rewrite-turn-${String(index).padStart(4, '0')}`,
+    outcomeId: `rewrite-outcome-${String(index).padStart(4, '0')}`,
+    summary: `rewrite guard mechanics summary ${index} ${'x'.repeat(520)}`,
+    committedRoots: ['mission'],
+    promptDirtyDomains: ['missionQuestThread'],
+    operations: [{
+      domain: 'mission',
+      op: 'appendLog',
+      summary: `rewrite guard compact operation ${index}`,
+      sourceHash: hashStableJson({ source: 'rewrite-guard', index }),
+      operationCount: 1,
+      changedRoots: ['mission']
+    }]
+  });
+  await rewriteCoreStore.recordVisibleResponse(transaction.id, {
+    idempotencyKey: `rewrite-response-${index}`,
+    responseId: `rewrite-response-${String(index).padStart(4, '0')}`,
+    hostMessageId: `rewrite-assistant-${String(index).padStart(4, '0')}`,
+    outcomeId: `rewrite-outcome-${String(index).padStart(4, '0')}`,
+    responseKind: 'directiveNarration',
+    directiveGenerationStartedAt: `2026-06-28T16:01:${String(index % 60).padStart(2, '0')}.000Z`,
+    postedAt: `2026-06-28T16:02:${String(index % 60).padStart(2, '0')}.000Z`
+  });
+}
+
+async function openRewriteGuardTransaction(index) {
+  const frame = createTurnSourceFrameContract({
+    id: `rewrite-frame-${String(index).padStart(4, '0')}`,
+    campaignId: 'campaign-core-rewrite-guard',
+    saveId: 'save-core-rewrite-guard',
+    chatId: 'rewrite-guard-chat',
+    hostMessageId: `rewrite-host-${String(index).padStart(4, '0')}`,
+    textHash: hashStableJson({ text: `rewrite guard player ${index}` }),
+    createdAt: `2026-06-28T16:00:${String(index % 60).padStart(2, '0')}.000Z`
+  });
+  const transaction = await rewriteCoreStore.beginTurn(frame, {
+    transactionId: `rewrite-txn-${String(index).padStart(4, '0')}`,
+    ingressId: `rewrite-ingress-${String(index).padStart(4, '0')}`,
+    idempotencyKey: `rewrite-begin-${index}`
+  });
+  await rewriteCoreStore.advanceTurn(transaction.id, {
+    phase: 'routePending',
+    route: 'directiveCommit',
+    reason: 'sealed-segment-rewrite-guard',
+    idempotencyKey: `rewrite-route-${index}`
+  });
+  return transaction;
+}
+
+async function commitRewriteGuardMechanics(transaction, index) {
+  return rewriteCoreStore.commitMechanics(transaction.id, {
+    baseMechanicsRevision: index - 1,
+    idempotencyKey: `rewrite-mechanics-${index}`,
+    turnId: `rewrite-turn-${String(index).padStart(4, '0')}`,
+    outcomeId: `rewrite-outcome-${String(index).padStart(4, '0')}`,
+    summary: `rewrite guard mechanics summary ${index} ${'x'.repeat(520)}`,
+    committedRoots: ['mission'],
+    promptDirtyDomains: ['missionQuestThread'],
+    operations: [{
+      domain: 'mission',
+      op: 'appendLog',
+      summary: `rewrite guard compact operation ${index}`,
+      sourceHash: hashStableJson({ source: 'rewrite-guard', index }),
+      operationCount: 1,
+      changedRoots: ['mission']
+    }]
+  });
+}
+
+for (let index = 1; index <= 18; index += 1) {
+  await driveRewriteGuardTurn(index);
+}
+
+const beforeOpenTransactionWriteStart = rewriteStorage.writeLog.length;
+const beforeOpenTransactionReadStart = rewriteStorage.readLog.length;
+const beforeOpenTransactionVerifyStart = rewriteStorage.verifyLog.length;
+const rewriteHotTransaction = await openRewriteGuardTransaction(19);
+const openTransactionWriteKeys = rewriteStorage.writeLog.slice(beforeOpenTransactionWriteStart);
+const openTransactionReadKeys = rewriteStorage.readLog.slice(beforeOpenTransactionReadStart);
+const openTransactionVerifyKeys = rewriteStorage.verifyLog.slice(beforeOpenTransactionVerifyStart);
+
+const rewriteManifestBefore = await loadV2SaveManifest(rewriteAdapter, {
+  campaignId: 'campaign-core-rewrite-guard',
+  saveId: 'save-core-rewrite-guard',
+  layout: 'core'
+});
+assert.equal(rewriteManifestBefore.eventSegments.length > 1, true, 'rewrite guard should force event segment rollover');
+assert.equal(rewriteManifestBefore.turnSegments.length > 1, true, 'rewrite guard should force turn segment rollover');
+const sealedCoreSegmentRefsBefore = [
+  ...rewriteManifestBefore.eventSegments.slice(0, -1),
+  ...rewriteManifestBefore.turnSegments.slice(0, -1)
+];
+const sealedCoreSegmentKeys = new Set(sealedCoreSegmentRefsBefore.map((ref) => ref.logicalKey));
+const oldOpenTailRefs = [
+  rewriteManifestBefore.eventSegments[rewriteManifestBefore.eventSegments.length - 1],
+  rewriteManifestBefore.turnSegments[rewriteManifestBefore.turnSegments.length - 1]
+];
+const sealedCoreSegmentKeysForOpen = new Set([
+  ...rewriteManifestBefore.eventSegments.slice(0, -1),
+  ...rewriteManifestBefore.turnSegments.slice(0, -1)
+].map((ref) => ref.logicalKey));
+assert.deepEqual(
+  openTransactionWriteKeys.filter((key) => sealedCoreSegmentKeysForOpen.has(key)),
+  [],
+  'hot CORE begin/route open must not rewrite sealed event/turn segments'
+);
+assert.deepEqual(
+  openTransactionReadKeys.filter((key) => sealedCoreSegmentKeysForOpen.has(key)),
+  [],
+  'hot CORE begin/route open must not read sealed event/turn segments'
+);
+assert.deepEqual(
+  openTransactionVerifyKeys.filter((key) => sealedCoreSegmentKeysForOpen.has(key)),
+  [],
+  'hot CORE begin/route open must not verify sealed event/turn segments'
+);
+assert.equal(openTransactionWriteKeys.some((key) => key.endsWith('/head.v2.json')), false, 'hot CORE begin/route open must not rewrite head');
+assert.equal(openTransactionWriteKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'hot CORE begin/route open must not rewrite host map');
+assert.equal(openTransactionWriteKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'hot CORE begin/route open must not rewrite prompt cache');
+assert.equal(openTransactionReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'hot CORE begin/route open must not read head');
+assert.equal(openTransactionReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'hot CORE begin/route open must not read host map');
+assert.equal(openTransactionReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'hot CORE begin/route open must not read prompt cache');
+assert.equal(openTransactionWriteKeys.filter((key) => key.includes('/events/')).length, 2, 'hot CORE begin/route open should write one begin event tail and one route event tail');
+assert.equal(openTransactionWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 2, 'hot CORE begin/route open should publish one save manifest per event append');
+assert.equal(openTransactionWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 2, 'hot CORE begin/route open should publish one campaign manifest per event append');
+assert.equal(openTransactionWriteKeys.length, 6, 'hot CORE begin/route open should write only event tail and manifest pointers for each append');
+const oldOpenTailRecords = await Promise.all(oldOpenTailRefs.map((ref) => readV2ArtifactRef(rewriteAdapter, ref)));
+const writeStart = rewriteStorage.writeLog.length;
+const readStart = rewriteStorage.readLog.length;
+const verifyStart = rewriteStorage.verifyLog.length;
+await commitRewriteGuardMechanics(rewriteHotTransaction, 19);
+const hotTurnWriteKeys = rewriteStorage.writeLog.slice(writeStart);
+const hotTurnReadKeys = rewriteStorage.readLog.slice(readStart);
+const hotTurnVerifyKeys = rewriteStorage.verifyLog.slice(verifyStart);
+assert.deepEqual(
+  hotTurnWriteKeys.filter((key) => sealedCoreSegmentKeys.has(key)),
+  [],
+  'hot CORE turn must not rewrite sealed event/turn segments'
+);
+assert.deepEqual(
+  hotTurnReadKeys.filter((key) => sealedCoreSegmentKeys.has(key)),
+  [],
+  'hot CORE turn must not read sealed event/turn segments'
+);
+assert.deepEqual(
+  hotTurnVerifyKeys.filter((key) => sealedCoreSegmentKeys.has(key)),
+  [],
+  'hot CORE turn must not verify sealed event/turn segments'
+);
+assert.deepEqual(
+  hotTurnWriteKeys.filter((key) => oldOpenTailRefs.some((ref) => ref.logicalKey === key)),
+  [],
+  'hot CORE turn must not overwrite the prior open event/turn tails'
+);
+assert.equal(hotTurnWriteKeys.some((key) => key.endsWith('/head.v2.json')), false, 'hot CORE mechanics append must not rewrite head');
+assert.equal(hotTurnWriteKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'hot CORE mechanics append must not rewrite host map');
+assert.equal(hotTurnWriteKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'hot CORE mechanics append must not rewrite prompt cache');
+assert.equal(hotTurnReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'hot CORE mechanics append must not read head');
+assert.equal(hotTurnReadKeys.some((key) => key.endsWith('/host-map.v2.json')), false, 'hot CORE mechanics append must not read host map');
+assert.equal(hotTurnReadKeys.some((key) => key.endsWith('/prompt-cache.v2.json')), false, 'hot CORE mechanics append must not read prompt cache');
+assert.equal(
+  hotTurnWriteKeys.some((key) => (
+    key.startsWith('campaigns/campaign-core-rewrite-guard/saves/save-core-rewrite-guard/')
+    && !key.includes('/core/')
+  )),
+  false,
+  'hot CORE mechanics append must not write active-save facade keys'
+);
+assert.equal(hotTurnWriteKeys.some((key) => key.endsWith('.v1.json')), false, 'hot CORE mechanics append must not write legacy v1 saves');
+assert.equal(hotTurnWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'hot CORE mechanics append should write one event tail');
+assert.equal(hotTurnWriteKeys.filter((key) => key.includes('/turns/')).length, 1, 'hot CORE mechanics append should write one turn tail');
+assert.equal(hotTurnWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'hot CORE mechanics append should write one save manifest');
+assert.equal(hotTurnWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'hot CORE mechanics append should write one campaign manifest');
+assert.equal(hotTurnWriteKeys.length, 4, 'hot CORE mechanics append should write only event tail, turn tail, save manifest, and campaign manifest');
+assert.equal(hotTurnWriteKeys[hotTurnWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'hot CORE mechanics append should publish save manifest after blobs');
+assert.equal(hotTurnWriteKeys[hotTurnWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'hot CORE mechanics append should publish campaign manifest last');
+const rewriteManifestAfter = await loadV2SaveManifest(rewriteAdapter, {
+  campaignId: 'campaign-core-rewrite-guard',
+  saveId: 'save-core-rewrite-guard',
+  layout: 'core'
+});
+assert.deepEqual(rewriteManifestAfter.head, rewriteManifestBefore.head, 'hot CORE mechanics append should preserve head ref');
+assert.deepEqual(rewriteManifestAfter.hostMap, rewriteManifestBefore.hostMap, 'hot CORE mechanics append should preserve host-map ref');
+assert.deepEqual(rewriteManifestAfter.promptCache, rewriteManifestBefore.promptCache, 'hot CORE mechanics append should preserve prompt-cache ref');
+assert.deepEqual(rewriteManifestAfter.diagnosticsSegments, rewriteManifestBefore.diagnosticsSegments, 'hot CORE mechanics append should preserve diagnostics refs');
+const afterSegmentRefsByKey = new Map([
+  ...rewriteManifestAfter.eventSegments,
+  ...rewriteManifestAfter.turnSegments
+].map((ref) => [ref.logicalKey, ref]));
+for (const sealedRef of sealedCoreSegmentRefsBefore) {
+  assert.deepEqual(
+    afterSegmentRefsByKey.get(sealedRef.logicalKey),
+    sealedRef,
+    `sealed CORE segment ref must remain stable: ${sealedRef.logicalKey}`
+  );
+}
+const openTailRecordsAfter = await Promise.all(oldOpenTailRefs.map((ref) => readV2ArtifactRef(rewriteAdapter, ref)));
+assert.deepEqual(openTailRecordsAfter, oldOpenTailRecords, 'old open event/turn tail records should remain readable and unchanged');
+const rewriteEventEntriesAfter = [];
+for (const ref of rewriteManifestAfter.eventSegments) {
+  const segment = await readV2ArtifactRef(rewriteAdapter, ref);
+  rewriteEventEntriesAfter.push(...segment.entries);
+}
+const rewriteTurnEntriesAfter = [];
+for (const ref of rewriteManifestAfter.turnSegments) {
+  const segment = await readV2ArtifactRef(rewriteAdapter, ref);
+  rewriteTurnEntriesAfter.push(...segment.entries);
+}
+assert.equal(
+  rewriteEventEntriesAfter.some((entry) => entry.idempotencyKey === 'rewrite-mechanics-19' && entry.type === 'mechanicsCommitted'),
+  true,
+  'hot CORE mechanics append should publish the new mechanics event through manifest-selected refs'
+);
+assert.equal(
+  rewriteTurnEntriesAfter.some((entry) => entry.transactionId === rewriteHotTransaction.id && entry.turnId === 'rewrite-turn-0019'),
+  true,
+  'hot CORE mechanics append should publish the new turn through manifest-selected refs'
+);
 
 console.log('Core Store v2 tests passed.');

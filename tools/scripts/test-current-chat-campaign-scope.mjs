@@ -227,6 +227,72 @@ const missionGraphs = [
     false,
     'A same-chat mechanics checkpoint with a committed turn must beat a higher-revision prompt-only in-memory state.'
   );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        turnLedger: {
+          entries: [
+            { turnId: 'old-turn', outcomeId: 'old-outcome' },
+            { turnId: 'stale-old-ledger-turn', outcomeId: 'stale-old-ledger-outcome' },
+            { turnId: 'stale-old-ledger-turn-2', outcomeId: 'stale-old-ledger-outcome-2' }
+          ]
+        },
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          ingressLedger: [
+            { id: 'old-ingress' },
+            { id: 'stale-old-ledger-ingress' }
+          ],
+          responseLedger: [
+            { id: 'old-response', status: 'posted' },
+            { id: 'stale-old-ledger-response', status: 'posted' }
+          ],
+          recoveryJournal: [
+            { id: 'stale-old-ledger-recovery', status: 'open' }
+          ]
+        }
+      },
+      {
+        ...richerInMemoryState,
+        turnLedger: { entries: [{ turnId: 'old-turn', outcomeId: 'old-outcome' }] },
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          responseLedger: [{ id: 'old-response', status: 'posted' }]
+        },
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            turnLedger: {
+              entries: [
+                { turnId: 'old-turn', outcomeId: 'old-outcome' },
+                { turnId: 'core-fresh-turn', outcomeId: 'core-fresh-outcome' },
+                { turnId: 'core-fresh-turn-2', outcomeId: 'core-fresh-outcome-2' },
+                { turnId: 'core-fresh-turn-3', outcomeId: 'core-fresh-outcome-3' }
+              ]
+            },
+            ingressLedger: [
+              { id: 'old-ingress' },
+              { id: 'core-fresh-ingress' },
+              { id: 'core-fresh-ingress-2' }
+            ],
+            responseLedger: [
+              { id: 'old-response', status: 'posted' },
+              { id: 'core-fresh-response', status: 'posted' },
+              { id: 'core-fresh-response-2', status: 'posted' }
+            ],
+            recoveryJournal: [
+              { id: 'core-fresh-recovery', status: 'open' },
+              { id: 'core-fresh-recovery-2', status: 'open' }
+            ]
+          }
+        }
+      },
+      { chatId: 'scope-freshness-chat' }
+    ),
+    true,
+    'CORE read-projection freshness evidence must outrank stale old-ledger growth for the same chat/save.'
+  );
   const restoredCommittedOutcome = __directiveRuntimeAppTestHooks.restoreCommittedOutcomeState(
     {
       ...staleScopedState,

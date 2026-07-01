@@ -20,6 +20,76 @@ function replacementTextHash(replacementText = null) {
   return text ? hashStableJson({ text }) : null;
 }
 
+function finiteInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function messageTextHash(value = null) {
+  const text = compact(value);
+  return text ? hashStableJson({ text }) : null;
+}
+
+function selectedSwipeMutationFields({
+  message = null,
+  selectedSwipe = null
+} = {}) {
+  const raw = message?.raw && typeof message.raw === 'object' ? message.raw : {};
+  const swipes = Array.isArray(selectedSwipe?.swipes)
+    ? selectedSwipe.swipes
+    : (Array.isArray(message?.swipes)
+      ? message.swipes
+      : (Array.isArray(raw.swipes) ? raw.swipes : []));
+  const selectedSwipeIndex = finiteInteger(
+    selectedSwipe?.selectedSwipeIndex
+    ?? selectedSwipe?.swipeIndex
+    ?? selectedSwipe?.swipe_id
+    ?? message?.selectedSwipeIndex
+    ?? message?.swipeIndex
+    ?? message?.swipe_id
+    ?? raw.swipe_id
+  );
+  const swipeCount = finiteInteger(
+    selectedSwipe?.swipeCount
+    ?? message?.swipeCount
+    ?? raw.swipeCount
+    ?? (swipes.length || null)
+  );
+  const selectedText = selectedSwipe?.selectedText
+    || selectedSwipe?.text
+    || (selectedSwipeIndex !== null ? swipes[selectedSwipeIndex] : null)
+    || message?.text
+    || message?.mes
+    || raw.mes
+    || raw.content
+    || null;
+  const visibleText = message?.text
+    || message?.mes
+    || raw.mes
+    || raw.content
+    || null;
+  const selectedTextHash = selectedSwipe?.selectedAssistantVariantHash
+    || selectedSwipe?.selectedTextHash
+    || messageTextHash(selectedText);
+  const visibleTextHash = selectedSwipe?.visibleTextHash || messageTextHash(visibleText);
+  if (
+    selectedSwipeIndex === null
+    && swipeCount === null
+    && !selectedTextHash
+    && !visibleTextHash
+  ) {
+    return null;
+  }
+  return {
+    kind: 'directive.selectedSwipeMutation.v1',
+    selectedSwipeIndex,
+    swipeCount,
+    selectedTextHash: selectedTextHash || null,
+    visibleTextHash: visibleTextHash || null,
+    selectedHashMatchesVisible: Boolean(selectedTextHash && visibleTextHash && selectedTextHash === visibleTextHash)
+  };
+}
+
 function allowedCoreRecoveryActions({ recoveryStatus, sourceKind, autoRollback = false } = {}) {
   if (sourceKind !== 'directiveResponse' && recoveryStatus === 'rollbackPending') {
     return ['rollbackToPreOutcomeRevision', 'reviewSourceMutation'];
@@ -568,10 +638,15 @@ function buildSourceMutation({
   response = null,
   revision = null,
   autoRollback = false,
-  visibility = null
+  visibility = null,
+  selectedSwipe = null,
+  message = null
 } = {}) {
   const source = sourceRecord({ ingress, response });
   const sourceKind = sourceKindFor({ response });
+  const selectedSwipeMutation = /swipe/i.test(String(eventType || ''))
+    ? selectedSwipeMutationFields({ message, selectedSwipe })
+    : null;
   return {
     kind: 'directive.sourceMutation.v1',
     sourceKind,
@@ -586,6 +661,7 @@ function buildSourceMutation({
     preOutcomeRevision: hasPreOutcomeRevision(revision) ? Number(revision) : null,
     autoRollback: autoRollback === true,
     visibility: visibility ? cloneJson(visibility) : undefined,
+    selectedSwipe: selectedSwipeMutation ? cloneJson(selectedSwipeMutation) : undefined,
     observedAt: eventTime,
     priorStatus: source?.status || null
   };
@@ -609,7 +685,8 @@ export function createRepairRuntime({
     message = null,
     index = null,
     chatMetadata = null,
-    visibilityMap = null
+    visibilityMap = null,
+    selectedSwipe = null
   } = {}) {
     const source = sourceRecord({ ingress, response });
     const transactionId = compact(ingress?.coreTransactionId || response?.coreTransactionId);
@@ -618,7 +695,8 @@ export function createRepairRuntime({
       const sourceMutation = {
         outcomeId: ingress?.outcomeId || response?.outcomeId || null,
         responseId: response?.id || null,
-        preOutcomeRevision: hasPreOutcomeRevision(revision) ? Number(revision) : null
+        preOutcomeRevision: hasPreOutcomeRevision(revision) ? Number(revision) : null,
+        selectedSwipe: selectedSwipeMutationFields({ message, selectedSwipe })
       };
       const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
         sourceKind,
@@ -661,7 +739,9 @@ export function createRepairRuntime({
       response,
       revision,
       autoRollback,
-      visibility
+      visibility,
+      selectedSwipe,
+      message
     });
     const sourceKind = sourceKindFor({ response });
     const effectiveRecoveryStatus = recoveryStatusForSourceMutation({

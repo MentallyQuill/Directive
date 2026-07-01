@@ -16,6 +16,9 @@ import {
 } from '../time/campaign-time-header.mjs';
 import { timeAdvanceBoundary } from '../directors/director-coordinator.mjs';
 import {
+  compactOpenWorldReducerBundleRef
+} from '../directors/open-world-event-reducers.mjs';
+import {
   adjudicateTimeAdvance,
   findTimeBoundaryForPlayerMessage
 } from '../time/time-advance-adjudicator.mjs';
@@ -25,7 +28,10 @@ import {
 } from '../command/command-bearing.mjs';
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
 import { runSceneHandshakeSettlement } from './scene-handshake-settler.mjs';
-import { createTurnSourceFrame } from './frame-contracts.mjs';
+import {
+  createTurnSourceFrame,
+  createTurnSourceFrameRef
+} from './frame-contracts.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 
@@ -136,6 +142,10 @@ const NO_OUTCOME_RECOVERY_TYPES = new Set([
   'playerMessageDeleted',
   'playerMessageEdited',
   'chatTurnProcessingFailure'
+]);
+
+const RESPONSE_RETRY_RECOVERY_TYPES = new Set([
+  'hostResponsePostFailure'
 ]);
 
 const TIME_BOUNDARY_DOMAINS = Object.freeze([
@@ -275,6 +285,41 @@ function eventReplacementText(payload) {
     || payload.message?.mes
     || payload.message?.content
     || null;
+}
+
+function eventNonNegativeInteger(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric >= 0 ? numeric : null;
+}
+
+function eventSelectedSwipe(payload = {}) {
+  if (!payload || typeof payload !== 'object') return null;
+  const selectedSwipeIndex = payload.selectedSwipeIndex
+    ?? payload.swipeIndex
+    ?? payload.swipe_id
+    ?? payload.message?.selectedSwipeIndex
+    ?? payload.message?.swipeIndex
+    ?? payload.message?.swipe_id
+    ?? payload.message?.raw?.swipe_id
+    ?? null;
+  const swipeCount = payload.swipeCount
+    ?? payload.message?.swipeCount
+    ?? payload.message?.raw?.swipeCount
+    ?? (Array.isArray(payload.swipes)
+      ? payload.swipes.length
+      : (Array.isArray(payload.message?.swipes)
+        ? payload.message.swipes.length
+        : (Array.isArray(payload.message?.raw?.swipes) ? payload.message.raw.swipes.length : null)));
+  return {
+    selectedSwipeIndex: eventNonNegativeInteger(selectedSwipeIndex),
+    swipeCount: eventNonNegativeInteger(swipeCount),
+    selectedAssistantVariantHash: payload.selectedAssistantVariantHash
+      || payload.selectedTextHash
+      || payload.message?.selectedAssistantVariantHash
+      || payload.message?.metadata?.selectedAssistantVariantHash
+      || null
+  };
 }
 
 function narrationText(result) {
@@ -666,6 +711,7 @@ export function createChatTurnOrchestrator({
   responseDispatcher,
   turnCommitCoordinator = null,
   sidecarScheduler = null,
+  forgeCoordinator = null,
   messageReconciler = null,
   repairRuntime = null,
   coreTurnStore = null,
@@ -1131,6 +1177,637 @@ export function createChatTurnOrchestrator({
     });
   }
 
+  function scenePhaseSealPayloadForCommittedTurn({
+    state,
+    ingressId,
+    decision = {},
+    committed = {},
+    turnId = null,
+    outcomeId = null,
+    playerMessage = null,
+    assistantMessageId = null,
+    assistantText = ''
+  } = {}) {
+    const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
+    const ingress = findIngress(tracked, ingressId);
+    const transactionId = compact(ingress?.coreTransactionId || '');
+    const sourceFrame = ingress?.sourceFrame || null;
+    const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
+      id: ingress?.sourceFrameId || null,
+      campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || null,
+      saveId: tracked?.campaignChatBinding?.saveId || null,
+      chatId: ingress?.chatId || tracked?.campaignChatBinding?.chatId || null,
+      hostMessageId: ingress?.hostMessageId || null,
+      textHash: ingress?.textHash || null
+    });
+    if (!transactionId || !sourceFrameRef || !outcomeId) return null;
+
+    const turnPacket = committed?.turnPacket || {};
+    const missionDelta = turnPacket.stateDelta?.mission || turnPacket.missionDelta || {};
+    const phaseAdvance = missionDelta.phaseAdvance || null;
+    const graphTransition = missionDelta.graphTransition || null;
+    const sceneSnapshot = turnPacket.sceneSnapshot || turnPacket.scene || {};
+    const hasSealSignal = Boolean(
+      phaseAdvance
+      || graphTransition
+      || sceneSnapshot.sceneId
+      || sceneSnapshot.activePhaseId
+      || sceneSnapshot.phaseId
+      || sceneSnapshot.locationId
+      || sceneSnapshot.currentLocationId
+    );
+    if (!hasSealSignal) return null;
+
+    const attentionScene = tracked?.attentionState?.scene || {};
+    const phaseId = compact(
+      phaseAdvance?.to
+      || graphTransition?.to
+      || sceneSnapshot.activePhaseId
+      || sceneSnapshot.phaseId
+      || tracked?.mission?.activePhaseId
+      || tracked?.mission?.phase
+      || attentionScene.phaseId
+    );
+    const locationId = compact(
+      sceneSnapshot.locationId
+      || sceneSnapshot.currentLocationId
+      || attentionScene.locationId
+      || tracked?.worldState?.currentLocationId
+    );
+    const sceneId = compact(
+      sceneSnapshot.sceneId
+      || sceneSnapshot.id
+      || attentionScene.sceneId
+      || attentionScene.id
+      || (phaseId || locationId ? `scene:${phaseId || 'phase'}:${locationId || 'location'}` : '')
+    );
+    const summarySource = compact(
+      turnPacket.outcomePacket?.summary
+      || turnPacket.outcomePacket?.title
+      || turnPacket.commandLogPacket?.summary
+      || assistantText
+      || decision.action
+      || decision.classification
+    );
+    const boundaryKey = [
+      phaseAdvance?.from || graphTransition?.from || phaseId || 'phase',
+      phaseAdvance?.to || graphTransition?.to || phaseId || 'phase',
+      locationId || 'no-location'
+    ].join('->');
+    return {
+      transactionId,
+      sourceToken: compact(sourceFrame?.sourceToken || `turnSourceFrame:${sourceFrameRef.id || sourceFrameRef.dedupeKey || transactionId}`),
+      sourceFrame,
+      sourceFrameRef,
+      outcomeId,
+      flushLens: true,
+      batchId: `scene-phase-seal:${outcomeId}:${boundaryKey}`,
+      idempotencyKey: `scene-phase-seal:${transactionId}:${outcomeId}:${boundaryKey}:${sourceFrameRef.dedupeKey || sourceFrameRef.id || 'source'}`,
+      seal: {
+        id: `scene-seal:${outcomeId}:${boundaryKey}`,
+        campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || sourceFrameRef.campaignId || null,
+        saveId: tracked?.campaignChatBinding?.saveId || sourceFrameRef.saveId || null,
+        branchId: tracked?.campaignChatBinding?.branchId || 'main',
+        transactionId,
+        outcomeId,
+        sourceFrameRef,
+        chapterId: compact(tracked?.mission?.activeMissionGraphId || tracked?.mission?.activeMissionId || ''),
+        phaseId,
+        sceneId,
+        locationId,
+        actorIds: [
+          ...(Array.isArray(sceneSnapshot.presentCharacters) ? sceneSnapshot.presentCharacters : []),
+          ...(Array.isArray(sceneSnapshot.presentActorIds) ? sceneSnapshot.presentActorIds : []),
+          ...(Array.isArray(sceneSnapshot.relevantCrewIds) ? sceneSnapshot.relevantCrewIds : [])
+        ],
+        subjectIds: [
+          ...(Array.isArray(decision.domainSignals) ? decision.domainSignals : []),
+          ...(Array.isArray(decision.riskSignals) ? decision.riskSignals : [])
+        ],
+        threadIds: [
+          tracked?.attentionState?.foregroundThreadId || null,
+          tracked?.threadLedger?.foregroundThreadId || null
+        ],
+        missionIds: [
+          tracked?.mission?.activeMissionId || null,
+          tracked?.attentionState?.foregroundQuestId || null
+        ],
+        tags: [
+          'runtime-committed-turn',
+          phaseAdvance ? 'phase-advance' : null,
+          graphTransition ? 'graph-transition' : null,
+          decision.classification || null
+        ],
+        keywords: [
+          phaseId,
+          locationId,
+          decision.classification || null
+        ],
+        summaryDigest: summarySource ? {
+          hash: `fnv1a:${fnv1a(summarySource)}`,
+          length: summarySource.length
+        } : null,
+        eventRefs: [{
+          kind: 'directive.coreCommittedTurnRef.v1',
+          id: turnId || outcomeId,
+          transactionId,
+          outcomeId,
+          assistantHostMessageId: assistantMessageId || null,
+          playerHostMessageId: messageHostMessageId(playerMessage) || ingress?.hostMessageId || null,
+          sourceFrameId: sourceFrameRef.id || null
+        }]
+      }
+    };
+  }
+
+  function uniqueCompactStrings(values = []) {
+    const seen = new Set();
+    const out = [];
+    for (const value of Array.isArray(values) ? values : [values]) {
+      const text = compact(value);
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      out.push(text);
+    }
+    return out;
+  }
+
+  function boundedRefs(values = [], mapper = (value) => value, limit = 8) {
+    return (Array.isArray(values) ? values : [])
+      .map(mapper)
+      .filter(Boolean)
+      .slice(0, limit);
+  }
+
+  function pressureArcDigestPayloadForCommittedTurn({
+    state,
+    ingressId,
+    decision = {},
+    committed = {},
+    turnId = null,
+    outcomeId = null,
+    playerMessage = null,
+    assistantMessageId = null
+  } = {}) {
+    const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
+    const ingress = findIngress(tracked, ingressId);
+    const transactionId = compact(ingress?.coreTransactionId || '');
+    const sourceFrame = ingress?.sourceFrame || null;
+    const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
+      id: ingress?.sourceFrameId || null,
+      campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || null,
+      saveId: tracked?.campaignChatBinding?.saveId || null,
+      chatId: ingress?.chatId || tracked?.campaignChatBinding?.chatId || null,
+      hostMessageId: ingress?.hostMessageId || null,
+      textHash: ingress?.textHash || null
+    });
+    if (!transactionId || !sourceFrameRef || !outcomeId) return null;
+
+    const turnPacket = committed?.turnPacket || {};
+    const outcomePacket = turnPacket.outcomePacket || {};
+    const commandLogPacket = turnPacket.commandLogPacket || {};
+    const sceneSnapshot = turnPacket.sceneSnapshot || turnPacket.scene || {};
+    const attentionState = tracked?.attentionState || {};
+    const pressureRecords = Array.isArray(tracked?.pressureLedger?.records) ? tracked.pressureLedger.records : [];
+    const storyArcs = Array.isArray(tracked?.storyArcLedger?.arcs)
+      ? tracked.storyArcLedger.arcs
+      : (Array.isArray(tracked?.storyArcLedger?.records) ? tracked.storyArcLedger.records : []);
+    const commandSpend = tracked?.commandBearing?.spendLedger?.[outcomeId] || null;
+    const visibleConsequences = [
+      ...(Array.isArray(outcomePacket.visibleConsequences) ? outcomePacket.visibleConsequences : []),
+      ...(Array.isArray(commandLogPacket.visibleConsequences) ? commandLogPacket.visibleConsequences : [])
+    ];
+    const pressureIds = uniqueCompactStrings([
+      ...(Array.isArray(turnPacket.pressureIds) ? turnPacket.pressureIds : []),
+      ...pressureRecords.map((record) => record?.id),
+      ...(Array.isArray(decision.pressureIds) ? decision.pressureIds : [])
+    ]);
+    const arcIds = uniqueCompactStrings([
+      ...(Array.isArray(turnPacket.arcIds) ? turnPacket.arcIds : []),
+      ...storyArcs.map((arc) => arc?.id || arc?.arcId),
+      ...(Array.isArray(decision.arcIds) ? decision.arcIds : [])
+    ]);
+    const threadIds = uniqueCompactStrings([
+      ...(Array.isArray(turnPacket.threadIds) ? turnPacket.threadIds : []),
+      attentionState.foregroundThreadId,
+      tracked?.threadLedger?.foregroundThreadId,
+      ...(Array.isArray(decision.threadIds) ? decision.threadIds : [])
+    ]);
+    const missionIds = uniqueCompactStrings([
+      ...(Array.isArray(turnPacket.missionIds) ? turnPacket.missionIds : []),
+      tracked?.mission?.activeMissionId,
+      attentionState.foregroundQuestId,
+      ...(Array.isArray(decision.missionIds) ? decision.missionIds : [])
+    ]);
+    const hasDigestSignal = Boolean(
+      pressureIds.length
+      || arcIds.length
+      || threadIds.length
+      || missionIds.length
+      || visibleConsequences.length
+      || commandSpend
+      || decision.classification === 'consequentialCommand'
+    );
+    if (!hasDigestSignal) return null;
+
+    const phaseId = compact(
+      sceneSnapshot.activePhaseId
+      || sceneSnapshot.phaseId
+      || tracked?.mission?.activePhaseId
+      || tracked?.mission?.phase
+      || attentionState.scene?.phaseId
+    );
+    const locationId = compact(
+      sceneSnapshot.locationId
+      || sceneSnapshot.currentLocationId
+      || attentionState.scene?.locationId
+      || tracked?.worldState?.currentLocationId
+    );
+    const sceneId = compact(
+      sceneSnapshot.sceneId
+      || sceneSnapshot.id
+      || attentionState.scene?.sceneId
+      || attentionState.scene?.id
+      || (phaseId || locationId ? `scene:${phaseId || 'phase'}:${locationId || 'location'}` : '')
+    );
+    const summarySource = compact(
+      outcomePacket.summary
+      || commandLogPacket.summary
+      || visibleConsequences.join(' ')
+      || decision.action
+      || decision.classification
+    );
+    const boundaryKey = [
+      phaseId || 'phase',
+      locationId || 'location',
+      pressureIds[0] || arcIds[0] || threadIds[0] || missionIds[0] || 'pressure'
+    ].join(':');
+    return {
+      transactionId,
+      sourceToken: compact(sourceFrame?.sourceToken || `turnSourceFrame:${sourceFrameRef.id || sourceFrameRef.dedupeKey || transactionId}`),
+      sourceFrame,
+      sourceFrameRef,
+      outcomeId,
+      flushLens: true,
+      batchId: `pressure-arc-digest:${outcomeId}:${boundaryKey}`,
+      idempotencyKey: `pressure-arc-digest:${transactionId}:${outcomeId}:${boundaryKey}:${sourceFrameRef.dedupeKey || sourceFrameRef.id || 'source'}`,
+      digest: {
+        id: `pressure-arc-digest:${outcomeId}:${boundaryKey}`,
+        campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || sourceFrameRef.campaignId || null,
+        saveId: tracked?.campaignChatBinding?.saveId || sourceFrameRef.saveId || null,
+        branchId: tracked?.campaignChatBinding?.branchId || 'main',
+        transactionId,
+        outcomeId,
+        sourceFrameRef,
+        chapterId: compact(tracked?.mission?.activeMissionGraphId || tracked?.mission?.activeMissionId || ''),
+        phaseId,
+        sceneId,
+        locationId,
+        pressureIds,
+        arcIds,
+        threadIds,
+        missionIds,
+        actorIds: [
+          ...(Array.isArray(sceneSnapshot.presentCharacters) ? sceneSnapshot.presentCharacters : []),
+          ...(Array.isArray(sceneSnapshot.presentActorIds) ? sceneSnapshot.presentActorIds : []),
+          ...(Array.isArray(sceneSnapshot.relevantCrewIds) ? sceneSnapshot.relevantCrewIds : [])
+        ],
+        subjectIds: uniqueCompactStrings([
+          ...(Array.isArray(decision.domainSignals) ? decision.domainSignals : []),
+          ...(Array.isArray(decision.riskSignals) ? decision.riskSignals : []),
+          outcomePacket.resultBand || null
+        ]),
+        tags: [
+          'runtime-committed-turn',
+          'pressure-arc-digest',
+          commandSpend ? 'command-bearing-spend' : null,
+          decision.classification || null
+        ],
+        keywords: [
+          phaseId,
+          locationId,
+          decision.classification || null,
+          outcomePacket.resultBand || null
+        ],
+        summaryDigest: summarySource ? {
+          hash: `fnv1a:${fnv1a(summarySource)}`,
+          length: summarySource.length
+        } : null,
+        pressureRefs: boundedRefs(pressureRecords, (record) => ({
+          kind: 'directive.pressureRef.v1',
+          id: record?.id || null,
+          status: record?.status || null,
+          hash: record?.hash || (record?.id ? `fnv1a:${fnv1a(JSON.stringify({
+            id: record.id,
+            status: record.status || null,
+            phaseId: record.phaseId || null
+          }))}` : null)
+        })),
+        arcRefs: boundedRefs(storyArcs, (arc) => ({
+          kind: 'directive.storyArcRef.v1',
+          id: arc?.id || arc?.arcId || null,
+          status: arc?.status || null,
+          hash: arc?.hash || (arc?.id || arc?.arcId ? `fnv1a:${fnv1a(JSON.stringify({
+            id: arc.id || arc.arcId,
+            status: arc.status || null,
+            stageId: arc.stageId || null
+          }))}` : null)
+        })),
+        openThreadRefs: boundedRefs(threadIds, (id) => ({
+          kind: 'directive.openThreadRef.v1',
+          id,
+          status: 'open'
+        })),
+        callbackRefs: [{
+          kind: 'directive.coreCommittedTurnRef.v1',
+          id: turnId || outcomeId,
+          transactionId,
+          outcomeId,
+          assistantHostMessageId: assistantMessageId || null,
+          playerHostMessageId: messageHostMessageId(playerMessage) || ingress?.hostMessageId || null,
+          sourceFrameId: sourceFrameRef.id || null
+        }]
+      }
+    };
+  }
+
+  function openWorldBoundaryPayloadForCommittedTurn({
+    state,
+    ingressId,
+    decision = {},
+    committed = {},
+    turnId = null,
+    outcomeId = null
+  } = {}) {
+    const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
+    const ingress = findIngress(tracked, ingressId);
+    const transactionId = compact(ingress?.coreTransactionId || '');
+    const sourceFrame = ingress?.sourceFrame || null;
+    const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
+      id: ingress?.sourceFrameId || null,
+      campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || null,
+      saveId: tracked?.campaignChatBinding?.saveId || null,
+      chatId: ingress?.chatId || tracked?.campaignChatBinding?.chatId || null,
+      hostMessageId: ingress?.hostMessageId || null,
+      textHash: ingress?.textHash || null
+    });
+    if (!transactionId || !sourceFrameRef || !outcomeId) return null;
+
+    const turnPacket = committed?.turnPacket || {};
+    const reducerBundle = turnPacket.stateDelta?.openWorld?.reducerBundle
+      || turnPacket.openWorld?.reducerBundle
+      || turnPacket.openWorldReducerBundle
+      || null;
+    if (reducerBundle?.kind !== 'directive.openWorldReducerBundle.v1') return null;
+
+    let reducerRef = null;
+    try {
+      reducerRef = compactOpenWorldReducerBundleRef(reducerBundle, { outcomeId });
+    } catch {
+      return null;
+    }
+    const sceneSnapshot = turnPacket.sceneSnapshot || turnPacket.scene || {};
+    const phaseId = compact(
+      sceneSnapshot.activePhaseId
+      || sceneSnapshot.phaseId
+      || tracked?.mission?.activePhaseId
+      || tracked?.mission?.phase
+      || tracked?.attentionState?.scene?.phaseId
+    );
+    const locationId = compact(
+      sceneSnapshot.locationId
+      || sceneSnapshot.currentLocationId
+      || tracked?.attentionState?.scene?.locationId
+      || tracked?.worldState?.currentLocationId
+    );
+    const sceneId = compact(
+      sceneSnapshot.sceneId
+      || sceneSnapshot.id
+      || tracked?.attentionState?.scene?.sceneId
+      || tracked?.attentionState?.scene?.id
+      || (phaseId || locationId ? `scene:${phaseId || 'phase'}:${locationId || 'location'}` : '')
+    );
+    const boundaryType = compact(reducerRef.diagnostics?.boundaryType || reducerBundle.diagnostics?.boundaryType || 'openWorld');
+    const boundaryKey = [
+      boundaryType || 'openWorld',
+      reducerRef.sourceHash ? reducerRef.sourceHash.slice(0, 16) : reducerRef.factHash?.slice(0, 16) || 'no-reducer-hash'
+    ].join(':');
+    return {
+      transactionId,
+      sourceToken: compact(sourceFrame?.sourceToken || `turnSourceFrame:${sourceFrameRef.id || sourceFrameRef.dedupeKey || transactionId}`),
+      sourceFrame,
+      sourceFrameRef,
+      outcomeId,
+      flushLens: true,
+      batchId: `open-world-boundary:${outcomeId}:${boundaryKey}`,
+      idempotencyKey: `open-world-boundary:${transactionId}:${outcomeId}:${boundaryKey}:${sourceFrameRef.dedupeKey || sourceFrameRef.id || 'source'}`,
+      reducerRef,
+      boundaryType,
+      turnId,
+      sceneId,
+      phaseId,
+      locationId,
+      tags: [
+        'runtime-committed-turn',
+        'open-world-boundary',
+        boundaryType,
+        decision.classification || null
+      ],
+      keywords: [
+        phaseId,
+        locationId,
+        decision.classification || null,
+        ...(Array.isArray(reducerRef.changedRoots) ? reducerRef.changedRoots : [])
+      ]
+    };
+  }
+
+  function scheduleScenePhaseSealForCommittedTurn(input = {}, activityReporter = null) {
+    if (typeof forgeCoordinator?.settleScenePhaseSeal !== 'function') return null;
+    const payload = scenePhaseSealPayloadForCommittedTurn(input);
+    if (!payload) return null;
+    reportActivity(activityReporter, {
+      phase: 'scenePhaseSealQueued',
+      mode: 'background',
+      source: 'forge',
+      ingressId: input.ingressId || null,
+      turnId: input.turnId || null,
+      outcomeId: input.outcomeId || null,
+      transactionId: payload.transactionId,
+      sourceFrameId: payload.sourceFrameRef?.id || null
+    });
+    try {
+      const settlement = Promise.resolve(forgeCoordinator.settleScenePhaseSeal(payload));
+      settlement.then((result) => {
+        reportActivity(activityReporter, {
+          phase: 'scenePhaseSealSettled',
+          mode: 'background',
+          source: 'forge',
+          ingressId: input.ingressId || null,
+          turnId: input.turnId || null,
+          outcomeId: input.outcomeId || null,
+          transactionId: payload.transactionId,
+          status: result?.status || null,
+          applied: result?.applied === true
+        });
+      }).catch((error) => {
+        reportActivity(activityReporter, {
+          phase: 'scenePhaseSealFailed',
+          mode: 'background',
+          source: 'forge',
+          ingressId: input.ingressId || null,
+          turnId: input.turnId || null,
+          outcomeId: input.outcomeId || null,
+          transactionId: payload.transactionId,
+          error: {
+            code: error?.code || null,
+            message: error?.message || String(error)
+          }
+        });
+      });
+      return settlement;
+    } catch (error) {
+      reportActivity(activityReporter, {
+        phase: 'scenePhaseSealFailed',
+        mode: 'background',
+        source: 'forge',
+        ingressId: input.ingressId || null,
+        turnId: input.turnId || null,
+        outcomeId: input.outcomeId || null,
+        transactionId: payload.transactionId,
+        error: {
+          code: error?.code || null,
+          message: error?.message || String(error)
+        }
+      });
+      return null;
+    }
+  }
+
+  function schedulePressureArcDigestForCommittedTurn(input = {}, activityReporter = null) {
+    if (typeof forgeCoordinator?.settlePressureArcDigest !== 'function') return null;
+    const payload = pressureArcDigestPayloadForCommittedTurn(input);
+    if (!payload) return null;
+    reportActivity(activityReporter, {
+      phase: 'pressureArcDigestQueued',
+      mode: 'background',
+      source: 'forge',
+      ingressId: input.ingressId || null,
+      turnId: input.turnId || null,
+      outcomeId: input.outcomeId || null,
+      transactionId: payload.transactionId,
+      sourceFrameId: payload.sourceFrameRef?.id || null
+    });
+    try {
+      const settlement = Promise.resolve(forgeCoordinator.settlePressureArcDigest(payload));
+      settlement.then((result) => {
+        reportActivity(activityReporter, {
+          phase: 'pressureArcDigestSettled',
+          mode: 'background',
+          source: 'forge',
+          ingressId: input.ingressId || null,
+          turnId: input.turnId || null,
+          outcomeId: input.outcomeId || null,
+          transactionId: payload.transactionId,
+          status: result?.status || null,
+          applied: result?.applied === true
+        });
+      }).catch((error) => {
+        reportActivity(activityReporter, {
+          phase: 'pressureArcDigestFailed',
+          mode: 'background',
+          source: 'forge',
+          ingressId: input.ingressId || null,
+          turnId: input.turnId || null,
+          outcomeId: input.outcomeId || null,
+          transactionId: payload.transactionId,
+          error: {
+            code: error?.code || null,
+            message: error?.message || String(error)
+          }
+        });
+      });
+      return settlement;
+    } catch (error) {
+      reportActivity(activityReporter, {
+        phase: 'pressureArcDigestFailed',
+        mode: 'background',
+        source: 'forge',
+        ingressId: input.ingressId || null,
+        turnId: input.turnId || null,
+        outcomeId: input.outcomeId || null,
+        transactionId: payload.transactionId,
+        error: {
+          code: error?.code || null,
+          message: error?.message || String(error)
+        }
+      });
+      return null;
+    }
+  }
+
+  function scheduleOpenWorldBoundaryForCommittedTurn(input = {}, activityReporter = null) {
+    if (typeof forgeCoordinator?.settleOpenWorldBoundary !== 'function') return null;
+    const payload = openWorldBoundaryPayloadForCommittedTurn(input);
+    if (!payload) return null;
+    reportActivity(activityReporter, {
+      phase: 'openWorldBoundaryQueued',
+      mode: 'background',
+      source: 'forge',
+      ingressId: input.ingressId || null,
+      turnId: input.turnId || null,
+      outcomeId: input.outcomeId || null,
+      transactionId: payload.transactionId,
+      sourceFrameId: payload.sourceFrameRef?.id || null
+    });
+    try {
+      const settlement = Promise.resolve(forgeCoordinator.settleOpenWorldBoundary(payload));
+      settlement.then((result) => {
+        reportActivity(activityReporter, {
+          phase: 'openWorldBoundarySettled',
+          mode: 'background',
+          source: 'forge',
+          ingressId: input.ingressId || null,
+          turnId: input.turnId || null,
+          outcomeId: input.outcomeId || null,
+          transactionId: payload.transactionId,
+          status: result?.status || null,
+          applied: result?.applied === true
+        });
+      }).catch((error) => {
+        reportActivity(activityReporter, {
+          phase: 'openWorldBoundaryFailed',
+          mode: 'background',
+          source: 'forge',
+          ingressId: input.ingressId || null,
+          turnId: input.turnId || null,
+          outcomeId: input.outcomeId || null,
+          transactionId: payload.transactionId,
+          error: {
+            code: error?.code || null,
+            message: error?.message || String(error)
+          }
+        });
+      });
+      return settlement;
+    } catch (error) {
+      reportActivity(activityReporter, {
+        phase: 'openWorldBoundaryFailed',
+        mode: 'background',
+        source: 'forge',
+        ingressId: input.ingressId || null,
+        turnId: input.turnId || null,
+        outcomeId: input.outcomeId || null,
+        transactionId: payload.transactionId,
+        error: {
+          code: error?.code || null,
+          message: error?.message || String(error)
+        }
+      });
+      return null;
+    }
+  }
+
   async function recordTerminalCheckpointSettlementEvent(event = {}) {
     if (typeof recordTerminalCheckpointSettlement !== 'function') return null;
     try {
@@ -1312,6 +1989,142 @@ export function createChatTurnOrchestrator({
       recoveryId: recoveryId || `recovery:response:${ingressId || outcomeId || turnId || 'turn'}`,
       error
     });
+  }
+
+  function responseRetryRecoveryCoreError({
+    ingress = null,
+    result = null,
+    originalError = null,
+    recoveryId = null,
+    reason = null,
+    outcomeId = null,
+    turnId = null
+  } = {}) {
+    const coreTransactionId = compact(
+      ingress?.coreTransactionId
+      || result?.transactionId
+      || result?.decision?.transactionId
+      || ''
+    ) || null;
+    const error = new Error(
+      originalError?.message
+        ? `CORE response recovery failed: ${originalError.message}`
+        : `CORE response recovery was not recorded for ${coreTransactionId || recoveryId || outcomeId || turnId || 'turn'}.`
+    );
+    error.code = 'DIRECTIVE_CORE_RESPONSE_RECOVERY_NOT_RECORDED';
+    error.details = {
+      ingressId: ingress?.id || null,
+      coreTransactionId,
+      recoveryId: recoveryId || null,
+      outcomeId: outcomeId || null,
+      turnId: turnId || null,
+      status: result?.status || null,
+      reason: result?.reason || reason || null
+    };
+    if (originalError) error.cause = originalError;
+    return error;
+  }
+
+  async function markCoreResponseRetryRequiredForBridge(state, payload = {}) {
+    const tracked = initializeCampaignRuntimeTracking(state);
+    const ingress = findIngress(tracked, payload.ingressId);
+    try {
+      const result = await markCoreResponseRetryRequired(tracked, payload);
+      if (ingress?.coreTransactionId && result?.status !== 'recorded') {
+        throw responseRetryRecoveryCoreError({
+          ingress,
+          result,
+          recoveryId: payload.recoveryId,
+          reason: payload.reason,
+          outcomeId: payload.outcomeId,
+          turnId: payload.turnId
+        });
+      }
+      return result;
+    } catch (error) {
+      if (ingress?.coreTransactionId && error?.code !== 'DIRECTIVE_CORE_RESPONSE_RECOVERY_NOT_RECORDED') {
+        throw responseRetryRecoveryCoreError({
+          ingress,
+          originalError: error,
+          recoveryId: payload.recoveryId,
+          reason: payload.reason,
+          outcomeId: payload.outcomeId,
+          turnId: payload.turnId
+        });
+      }
+      if (ingress?.coreTransactionId) throw error;
+      return {
+        status: 'notRecorded',
+        reason: 'no-core-transaction',
+        transactionId: null,
+        decision: null
+      };
+    }
+  }
+
+  async function markCoreTurnProcessingFailureForBridge(state, {
+    ingressId = null,
+    recoveryId = null,
+    stage = 'processing',
+    failure = null,
+    decision = null,
+    message = null
+  } = {}) {
+    const tracked = initializeCampaignRuntimeTracking(state);
+    const ingress = findIngress(tracked, ingressId);
+    const transactionId = compact(ingress?.coreTransactionId || '');
+    if (!transactionId || typeof coreTurnStore?.markRecoveryRequired !== 'function') return null;
+    const sourceFrameRef = ingress?.sourceFrame
+      ? createTurnSourceFrameRef(ingress.sourceFrame)
+      : (ingress?.sourceFrameId ? { id: ingress.sourceFrameId } : null);
+    const recoveryCase = await coreTurnStore.markRecoveryRequired(transactionId, {
+      id: recoveryId || `recovery:chat-turn:${stage || 'processing'}:${ingressId || messageHostMessageId(message) || 'turn'}`,
+      phaseAfter: 'recoveryRequired',
+      status: 'required',
+      reason: 'chatTurnProcessingFailure',
+      idempotencyKey: `chat-turn-processing-failure:${recoveryId || ingressId || messageHostMessageId(message) || transactionId}`,
+      sourceMutation: {
+        kind: 'directive.sourceMutation.v1',
+        eventType: 'chatTurnProcessingFailure',
+        sourceKind: 'playerIngress',
+        hostMessageId: messageHostMessageId(message) || ingress?.hostMessageId || null,
+        ingressId: ingress?.id || ingressId || null,
+        sourceFrameId: ingress?.sourceFrameId || null,
+        sourceFrameRef,
+        textHash: ingress?.textHash || null,
+        errorCode: failure?.code || null,
+        stage: stage || 'processing'
+      },
+      repairDecision: {
+        kind: 'directive.repairDecision.v1',
+        eventType: 'chatTurnProcessingFailure',
+        sourceKind: 'playerIngress',
+        transactionId,
+        sourceFrameId: ingress?.sourceFrameId || null,
+        normalTurnAllowed: false,
+        action: 'reviewTurnProcessingFailure',
+        stage: stage || 'processing',
+        classification: decision?.classification || null,
+        errorCode: failure?.code || null
+      },
+      allowedActions: ['reviewTurnProcessingFailure', 'retryTurnFromSource']
+    });
+    return {
+      transactionId,
+      recoveryCase: cloneJson(recoveryCase),
+      reason: 'chatTurnProcessingFailure'
+    };
+  }
+
+  function responseRetryCoreProjection(coreResponseRecovery = null) {
+    if (!coreResponseRecovery) return null;
+    return {
+      status: coreResponseRecovery.status || null,
+      transactionId: coreResponseRecovery.transactionId || null,
+      recoveryCaseId: coreResponseRecovery.recoveryCaseId || null,
+      phase: coreResponseRecovery.phase || null,
+      reason: coreResponseRecovery.reason || coreResponseRecovery.decision?.reason || null
+    };
   }
 
   function messageHostMessageId(message = {}) {
@@ -1979,6 +2792,14 @@ export function createChatTurnOrchestrator({
       setCampaignState(next);
       return next;
     }
+    const coreRecovery = await markCoreTurnProcessingFailureForBridge(next, {
+      ingressId,
+      recoveryId,
+      stage,
+      failure,
+      decision,
+      message
+    });
     next = recordRecoveryEvent(next, {
       id: recoveryId,
       type: 'chatTurnProcessingFailure',
@@ -1990,7 +2811,8 @@ export function createChatTurnOrchestrator({
       details: {
         stage: stage || 'processing',
         classification: cloneJson(decision || null),
-        error: failure
+        error: failure,
+        coreRecovery: coreRecovery ? cloneJson(coreRecovery) : null
       }
     });
     if (ingressId) {
@@ -2000,6 +2822,7 @@ export function createChatTurnOrchestrator({
         workerPlan: decision?.workerPlan ? cloneJson(decision.workerPlan) : existing?.workerPlan || null,
         responseStrategy: decision?.responseStrategy || existing?.responseStrategy || null,
         recoveryId,
+        coreRecovery: coreRecovery ? cloneJson(coreRecovery) : null,
         error: failure,
         failedAt: timestamp(now)
       });
@@ -2166,18 +2989,14 @@ export function createChatTurnOrchestrator({
         failed = marked.campaignState;
       }
       const recoveryId = `recovery:response:${ingressId || outcomeId || turnId || 'turn'}`;
-      try {
-        await markCoreResponseRetryRequired(failed, {
-          ingressId,
-          outcomeId,
-          turnId,
-          recoveryId,
-          reason: 'host-response-post-failure',
-          error: failure
-        });
-      } catch {
-        // CORE retry recovery is best-effort during the bridge; old recovery remains authoritative.
-      }
+      const coreResponseRecovery = await markCoreResponseRetryRequiredForBridge(failed, {
+        ingressId,
+        outcomeId,
+        turnId,
+        recoveryId,
+        reason: 'host-response-post-failure',
+        error: failure
+      });
       failed = recordRecoveryEvent(failed, {
         id: recoveryId,
         type: 'hostResponsePostFailure',
@@ -2191,6 +3010,9 @@ export function createChatTurnOrchestrator({
           turnId,
           responseKind,
           responseIdempotencyKey: `directive-response-retry:${recoveryId}`,
+          coreTransactionId: coreResponseRecovery?.transactionId || findIngress(failed, ingressId)?.coreTransactionId || null,
+          coreRecovery: responseRetryCoreProjection(coreResponseRecovery),
+          repairDecision: cloneJson(coreResponseRecovery?.decision || null),
           classification: decision.classification,
           workerPlan: cloneJson(decision.workerPlan || {}),
           error: failure
@@ -2964,18 +3786,14 @@ export function createChatTurnOrchestrator({
       });
     }
     if (!committed?.narrationResult?.ok) {
-      try {
-        await markCoreResponseRetryRequired(next, {
-          ingressId,
-          outcomeId,
-          turnId,
-          recoveryId: `recovery:narration:${outcomeId}`,
-          reason: 'provider-failure-after-mechanics-commit',
-          error: committed?.narrationResult?.error || null
-        });
-      } catch {
-        // CORE retry recovery is best-effort during the bridge; old recovery remains authoritative.
-      }
+      const coreResponseRecovery = await markCoreResponseRetryRequiredForBridge(next, {
+        ingressId,
+        outcomeId,
+        turnId,
+        recoveryId: `recovery:narration:${outcomeId}`,
+        reason: 'provider-failure-after-mechanics-commit',
+        error: committed?.narrationResult?.error || null
+      });
       next = recordRecoveryEvent(next, {
         id: `recovery:narration:${outcomeId}`,
         type: 'providerFailureAfterMechanicsCommit',
@@ -2985,6 +3803,9 @@ export function createChatTurnOrchestrator({
         recordedAt: timestamp(now),
         details: {
           turnId,
+          coreTransactionId: coreResponseRecovery?.transactionId || findIngress(next, ingressId)?.coreTransactionId || null,
+          coreRecovery: responseRetryCoreProjection(coreResponseRecovery),
+          repairDecision: cloneJson(coreResponseRecovery?.decision || null),
           error: cloneJson(committed?.narrationResult?.error || null),
           fallbackResponsePosted: true
         }
@@ -3072,6 +3893,35 @@ export function createChatTurnOrchestrator({
       continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
       directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
       visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
+    }, activityReporter);
+    scheduleScenePhaseSealForCommittedTurn({
+      state: next,
+      ingressId,
+      decision,
+      committed,
+      turnId,
+      outcomeId,
+      playerMessage: message,
+      assistantMessageId: dispatched.result.response?.hostMessageId || null,
+      assistantText: text
+    }, activityReporter);
+    schedulePressureArcDigestForCommittedTurn({
+      state: next,
+      ingressId,
+      decision,
+      committed,
+      turnId,
+      outcomeId,
+      playerMessage: message,
+      assistantMessageId: dispatched.result.response?.hostMessageId || null
+    }, activityReporter);
+    scheduleOpenWorldBoundaryForCommittedTurn({
+      state: next,
+      ingressId,
+      decision,
+      committed,
+      turnId,
+      outcomeId
     }, activityReporter);
     const commandLogSummaryResult = typeof scheduleCommandLogSummaryForCommittedTurn === 'function'
       ? scheduleCommandLogSummaryForCommittedTurn({
@@ -3414,18 +4264,14 @@ export function createChatTurnOrchestrator({
       completedAt: timestamp(now)
     });
     if (!committed?.narrationResult?.ok) {
-      try {
-        await markCoreResponseRetryRequired(state, {
-          ingressId: interaction.ingressId,
-          outcomeId,
-          turnId,
-          recoveryId: `recovery:narration:${outcomeId}`,
-          reason: 'provider-failure-after-mechanics-commit',
-          error: committed?.narrationResult?.error || null
-        });
-      } catch {
-        // CORE retry recovery is best-effort during the bridge; old recovery remains authoritative.
-      }
+      const coreResponseRecovery = await markCoreResponseRetryRequiredForBridge(state, {
+        ingressId: interaction.ingressId,
+        outcomeId,
+        turnId,
+        recoveryId: `recovery:narration:${outcomeId}`,
+        reason: 'provider-failure-after-mechanics-commit',
+        error: committed?.narrationResult?.error || null
+      });
       state = recordRecoveryEvent(state, {
         id: `recovery:narration:${outcomeId}`,
         type: 'providerFailureAfterMechanicsCommit',
@@ -3435,6 +4281,9 @@ export function createChatTurnOrchestrator({
         recordedAt: timestamp(now),
         details: {
           turnId,
+          coreTransactionId: coreResponseRecovery?.transactionId || findIngress(state, interaction.ingressId)?.coreTransactionId || null,
+          coreRecovery: responseRetryCoreProjection(coreResponseRecovery),
+          repairDecision: cloneJson(coreResponseRecovery?.decision || null),
           error: cloneJson(committed?.narrationResult?.error || null),
           fallbackResponsePosted: true
         }
@@ -3558,7 +4407,7 @@ export function createChatTurnOrchestrator({
     let state = initializeCampaignRuntimeTracking(getCampaignState());
     const recoveries = state.runtimeTracking.recoveryJournal || [];
     const recovery = [...recoveries].reverse().find((entry) => (
-      entry.type === 'hostResponsePostFailure'
+      RESPONSE_RETRY_RECOVERY_TYPES.has(entry.type)
       && entry.status === 'open'
       && (!recoveryId || entry.id === recoveryId)
     ));
@@ -3585,7 +4434,7 @@ export function createChatTurnOrchestrator({
       sourceFrameId: ingress?.sourceFrameId || details.sourceFrameId || null,
       eventTime: timestamp(now)
     });
-    if (ingress?.coreTransactionId && retryActuationDecision.authorized !== true) {
+    if (retryActuationDecision.authorized !== true) {
       return {
         ok: false,
         reason: 'response-retry-not-authorized',
@@ -3931,6 +4780,22 @@ export function createChatTurnOrchestrator({
     return { handled: result.matched === true, ...result };
   }
 
+  async function handleMessageSelectedSwipeChanged(payload = {}) {
+    if (!messageReconciler?.reconcileSelectedSwipeChanged) return { handled: false, reason: 'reconciler-unavailable' };
+    const hostMessageId = eventMessageId(payload);
+    const result = await messageReconciler.reconcileSelectedSwipeChanged({
+      hostMessageId,
+      selectedSwipe: eventSelectedSwipe(payload),
+      message: payload.message || (hostMessageId && typeof host?.chat?.getMessage === 'function'
+        ? host.chat.getMessage(hostMessageId)
+        : null),
+      index: payload.index || payload.message?.index || null,
+      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
+      visibilityMap: payload.visibilityMap || payload.visibility_map || null
+    });
+    return { handled: result.matched === true, ...result };
+  }
+
   async function handleChatChanged() {
     const state = getCampaignState();
     if (!state?.campaignChatBinding) {
@@ -3956,6 +4821,7 @@ export function createChatTurnOrchestrator({
     handleMessageEdited,
     handleMessageDeleted,
     handleMessageVisibilityChanged,
+    handleMessageSelectedSwipeChanged,
     handleChatChanged,
     resolveInteraction,
     retryCommittedResponse,

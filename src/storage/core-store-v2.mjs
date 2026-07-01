@@ -1,11 +1,13 @@
 import {
   createTurnLatencyMetrics,
+  createTurnSourceFrameRef,
   hashStableJson,
   redactExternalDiagnostic,
   stableJsonByteLength
 } from '../runtime/architecture-redesign-contracts.mjs';
 import {
   commitV2DiagnosticsSegments,
+  commitV2EventTurnSegments,
   commitV2SaveLayout,
   loadV2MaterializedHead,
   loadV2SaveManifest,
@@ -136,17 +138,28 @@ function sanitizeRecoverySourceMutation(value = {}) {
 }
 
 function sourceFrameRef(sourceFrame = {}) {
-  return compact({
-    id: sourceFrame.id,
-    hostMessageId: sourceFrame.hostMessageId || null,
-    chatId: sourceFrame.chatId || null,
-    textHash: sourceFrame.textHash || null,
-    selectedAssistantVariantHash: sourceFrame.selectedAssistantVariantHash || null,
-    externalPromptEnvironmentRef: sourceFrame.externalPromptEnvironmentRef ? cloneJson(sourceFrame.externalPromptEnvironmentRef) : undefined,
-    sourceRevision: sourceFrame.sourceRevision || null,
-    dedupeKey: sourceFrame.dedupeKey || sourceFrame.id || sourceFrame.hostMessageId || null,
-    visibility: sourceFrame.visibility ? cloneJson(sourceFrame.visibility) : undefined
-  });
+  return createTurnSourceFrameRef(sourceFrame);
+}
+
+function assertSourceFrameScope(sourceFrame = {}, { campaignId, saveId } = {}) {
+  const sourceCampaignId = String(sourceFrame.campaignId || '').trim();
+  const sourceSaveId = String(sourceFrame.saveId || '').trim();
+  const expectedCampaignId = String(campaignId || '').trim();
+  const expectedSaveId = String(saveId || '').trim();
+  if (
+    (sourceCampaignId && expectedCampaignId && sourceCampaignId !== expectedCampaignId)
+    || (sourceSaveId && expectedSaveId && sourceSaveId !== expectedSaveId)
+  ) {
+    const error = new Error('CORE source frame scope mismatch');
+    error.code = 'DIRECTIVE_CORE_SOURCE_FRAME_SCOPE_MISMATCH';
+    error.details = {
+      campaignId: expectedCampaignId || null,
+      saveId: expectedSaveId || null,
+      sourceCampaignId: sourceCampaignId || null,
+      sourceSaveId: sourceSaveId || null
+    };
+    throw error;
+  }
 }
 
 function sourceRestartRef({
@@ -194,8 +207,60 @@ function compactOperation(operation = {}) {
   }));
 }
 
+function compactBackgroundEffectRef(ref = {}) {
+  return compact({
+    kind: ref.kind || ref.effectKind || null,
+    effect: ref.effect || null,
+    id: ref.id || ref.hash || null,
+    hash: ref.hash || null,
+    status: ref.status || null,
+    authority: ref.authority || null,
+    outcomeId: ref.outcomeId || null,
+    turnId: ref.turnId || null,
+    ingressId: ref.ingressId || null,
+    sourceFrameId: ref.sourceFrameId || null,
+    sceneSealId: ref.sceneSealId || null,
+    pressureArcDigestId: ref.pressureArcDigestId || null,
+    openWorldBoundarySettlementId: ref.openWorldBoundarySettlementId || null,
+    operationCount: Number.isFinite(Number(ref.operationCount)) ? Number(ref.operationCount) : undefined,
+    changedRoots: Array.isArray(ref.changedRoots) ? ref.changedRoots.map((root) => String(root || '').trim()).filter(Boolean) : undefined,
+    boundaryType: ref.boundaryType || null,
+    sceneId: ref.sceneId || null,
+    phaseId: ref.phaseId || null,
+    locationId: ref.locationId || null,
+    actorIds: Array.isArray(ref.actorIds) ? ref.actorIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
+    subjectIds: Array.isArray(ref.subjectIds) ? ref.subjectIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
+    threadIds: Array.isArray(ref.threadIds) ? ref.threadIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
+    missionIds: Array.isArray(ref.missionIds) ? ref.missionIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
+    pressureIds: Array.isArray(ref.pressureIds) ? ref.pressureIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
+    arcIds: Array.isArray(ref.arcIds) ? ref.arcIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
+    tags: Array.isArray(ref.tags) ? ref.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : undefined,
+    keywords: Array.isArray(ref.keywords) ? ref.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean) : undefined,
+    reviewHash: ref.reviewHash || null,
+    acceptedBatchHash: ref.acceptedBatchHash || null
+  });
+}
+
+function compactForgeBatchRef(ref = {}) {
+  return compact({
+    kind: ref.kind || null,
+    batchId: ref.batchId || null,
+    operationBundleHash: ref.operationBundleHash || null,
+    acceptedBatchHash: ref.acceptedBatchHash || null,
+    reviewHash: ref.reviewHash || null,
+    workerCount: Number.isFinite(Number(ref.workerCount)) ? Number(ref.workerCount) : undefined,
+    operationCount: Number.isFinite(Number(ref.operationCount)) ? Number(ref.operationCount) : undefined,
+    reviewCount: Number.isFinite(Number(ref.reviewCount)) ? Number(ref.reviewCount) : undefined,
+    stateRevision: Number.isFinite(Number(ref.stateRevision)) ? Number(ref.stateRevision) : undefined
+  });
+}
+
 function operationBundleRef(bundle = {}) {
   const operations = Array.isArray(bundle.operations) ? bundle.operations.map(compactOperation) : [];
+  const backgroundEffectRefs = Array.isArray(bundle.backgroundEffectRefs)
+    ? bundle.backgroundEffectRefs.map(compactBackgroundEffectRef).filter((ref) => Object.keys(ref).length > 0)
+    : undefined;
+  const forgeBatchRef = bundle.forgeBatchRef ? compactForgeBatchRef(bundle.forgeBatchRef) : undefined;
   return compact({
     batchId: bundle.batchId || null,
     outcomeId: bundle.outcomeId || null,
@@ -206,11 +271,37 @@ function operationBundleRef(bundle = {}) {
     operations,
     operationBundleHash: hashStableJson(bundle),
     dirtyDomains: Array.isArray(bundle.promptDirtyDomains) ? [...bundle.promptDirtyDomains] : [],
-    backgroundEffectRefs: Array.isArray(bundle.backgroundEffectRefs) ? bundle.backgroundEffectRefs.map(sanitizeDiagnostic) : undefined,
+    backgroundEffectRefs,
+    scenePhaseSealRefs: Array.isArray(bundle.scenePhaseSealRefs) ? bundle.scenePhaseSealRefs.map(sanitizeDiagnostic) : undefined,
+    pressureArcDigestRefs: Array.isArray(bundle.pressureArcDigestRefs) ? bundle.pressureArcDigestRefs.map(sanitizeDiagnostic) : undefined,
+    recallEntryRefs: Array.isArray(bundle.recallEntryRefs) ? bundle.recallEntryRefs.map(sanitizeDiagnostic) : undefined,
+    recallRevisions: bundle.recallRevisions ? sanitizeDiagnostic(bundle.recallRevisions) : undefined,
+    forgeBatchRef,
     rejectedRefs: Array.isArray(bundle.rejectedRefs) ? bundle.rejectedRefs.map(sanitizeDiagnostic) : undefined,
     staleResultRefs: Array.isArray(bundle.staleResultRefs) ? bundle.staleResultRefs.map(sanitizeDiagnostic) : undefined,
     workers: Array.isArray(bundle.workers) ? bundle.workers.map(sanitizeDiagnostic) : undefined,
     phaseAfter: bundle.phaseAfter || undefined
+  });
+}
+
+function backgroundBatchRefFromBundle(bundle = {}, { idempotencyKey = null, occurredAt = null } = {}) {
+  const effectRefs = Array.isArray(bundle.backgroundEffectRefs)
+    ? bundle.backgroundEffectRefs.map(compactBackgroundEffectRef).filter((ref) => Object.keys(ref).length > 0)
+    : [];
+  const forgeBatchRef = bundle.forgeBatchRef ? compactForgeBatchRef(bundle.forgeBatchRef) : undefined;
+  return compact({
+    batchId: bundle.batchId || null,
+    idempotencyKey,
+    outcomeId: bundle.outcomeId || null,
+    operationCount: Number.isFinite(Number(bundle.operationCount)) ? Number(bundle.operationCount) : 0,
+    dirtyDomains: Array.isArray(bundle.dirtyDomains) ? cloneJson(bundle.dirtyDomains) : [],
+    effectCount: effectRefs.length,
+    workerCount: Array.isArray(bundle.workers) ? bundle.workers.length : 0,
+    occurredAt,
+    forgeBatchRef,
+    backgroundEffectRefs: effectRefs.length ? effectRefs : undefined,
+    acceptedBatchHash: forgeBatchRef?.acceptedBatchHash || undefined,
+    reviewHash: forgeBatchRef?.reviewHash || effectRefs.find((ref) => ref?.reviewHash)?.reviewHash || undefined
   });
 }
 
@@ -703,12 +794,8 @@ function reconstructTransactionsFromEvents(events = []) {
     if (event.type === 'backgroundBatchCommitted') {
       const bundle = payload.operationBundle || {};
       const batchId = bundle.batchId || `background:${transaction.id}`;
-      const backgroundRef = compact({
-        batchId,
+      const backgroundRef = backgroundBatchRefFromBundle({ ...bundle, batchId }, {
         idempotencyKey: event.idempotencyKey || null,
-        outcomeId: bundle.outcomeId || null,
-        operationCount: bundle.operationCount || 0,
-        workerCount: Array.isArray(bundle.workers) ? bundle.workers.length : 0,
         occurredAt: event.occurredAt || null
       });
       transaction.phase = payload.phaseAfter || bundle.phaseAfter || 'backgroundSettling';
@@ -745,7 +832,10 @@ export function buildCoreStoreReadProjections(state = {}) {
     ? state.transactions
     : reconstructTransactionsFromEvents(state.events || []);
   const transactions = Object.values(transactionMap || {});
-  const hostMapRows = Array.isArray(state.hostMapRows) ? state.hostMapRows.map(cloneJson) : [];
+  const hostMapRows = mergeHostMapRows(
+    Array.isArray(state.hostMapRows) ? state.hostMapRows.map(cloneJson) : [],
+    deriveHostMapRowsFromEvents(state.events || [])
+  );
   const responseEvents = (state.events || []).filter((event) => event.type === 'visibleResponseRecorded');
   const visibleResponseRepairsByTransaction = new Map();
   for (const event of state.events || []) {
@@ -767,6 +857,10 @@ export function buildCoreStoreReadProjections(state = {}) {
     return Boolean(eventPayload(event).recoveryResolution);
   });
   const backgroundEvents = (state.events || []).filter((event) => event.type === 'backgroundBatchCommitted');
+  const backgroundEffectRefs = backgroundEffectRefsFromEvents(backgroundEvents);
+  const sceneSealRefs = sceneSealRefsFromEffectRefs(backgroundEffectRefs);
+  const pressureArcDigestRefs = pressureArcDigestRefsFromEffectRefs(backgroundEffectRefs);
+  const recallEntryRefs = recallEntryRefsFromEffectRefs(backgroundEffectRefs);
   const diagnostics = state.diagnostics || [];
   const turnTiming = buildTurnTimingProjections(state.events || [], transactionMap);
   return {
@@ -894,15 +988,20 @@ export function buildCoreStoreReadProjections(state = {}) {
       id: event.id,
       transactionId: legacyTransactionId(event),
       sourceFrameId: event.sourceFrameId || null,
-      batchId: eventPayload(event).operationBundle?.batchId || null,
-      outcomeId: eventPayload(event).operationBundle?.outcomeId || null,
-      operationCount: eventPayload(event).operationBundle?.operationCount || 0,
-      dirtyDomains: cloneJson(eventPayload(event).operationBundle?.dirtyDomains || []),
-      workerCount: Array.isArray(eventPayload(event).operationBundle?.workers)
-        ? eventPayload(event).operationBundle.workers.length
-        : 0,
-      occurredAt: event.occurredAt || null
-    }))
+      ...backgroundBatchRefFromBundle(eventPayload(event).operationBundle || {}, {
+        idempotencyKey: event.idempotencyKey || null,
+        occurredAt: event.occurredAt || null
+      })
+    })),
+    backgroundEffectRefs,
+    sceneSealRefs,
+    sceneSealRevision: sceneSealRevisionFromRefs(sceneSealRefs),
+    pressureArcDigestRefs,
+    pressureArcDigestRevision: pressureArcDigestRevisionFromRefs(pressureArcDigestRefs),
+    recallIndex: {
+      revision: recallRevisionFromEntryRefs(recallEntryRefs),
+      entryRefs: recallEntryRefs
+    }
   };
 }
 
@@ -917,6 +1016,179 @@ async function readSegmentEntries(adapter, refs = []) {
 
 function uniqueStrings(values = []) {
   return [...new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function hostMapRowKey(row = {}) {
+  const role = row.role || 'unknown';
+  const transactionId = row.transactionId || '';
+  if (transactionId) return `${role}|${transactionId}`;
+  return [
+    role,
+    row.hostMessageId || '',
+    row.sourceFrameId || '',
+    row.outcomeId || ''
+  ].join('|');
+}
+
+function mergeHostMapRows(...groups) {
+  const rows = new Map();
+  for (const group of groups) {
+    for (const row of group || []) {
+      if (!isObject(row)) continue;
+      const cleanRow = compact(cloneJson(row));
+      const key = hostMapRowKey(cleanRow);
+      rows.set(key, compact({
+        ...(rows.get(key) || {}),
+        ...cleanRow
+      }));
+    }
+  }
+  return [...rows.values()];
+}
+
+function deriveHostMapRowsFromEvents(events = []) {
+  const rows = [];
+  for (const event of events || []) {
+    const transactionId = legacyTransactionId(event);
+    if (!transactionId) continue;
+    const payload = eventPayload(event);
+    if (event.type === 'turnObserved') {
+      const sourceRef = payload.sourceFrameRef || payload.sourceFrame || {};
+      rows.push(compact({
+        hostMessageId: sourceRef.hostMessageId || null,
+        role: 'player',
+        transactionId,
+        sourceFrameId: event.sourceFrameId || sourceRef.id || null,
+        chatId: event.chatId || sourceRef.chatId || null,
+        textHash: sourceRef.textHash || null,
+        visibility: sourceRef.visibility || null
+      }));
+    }
+    if (event.type === 'visibleResponseRecorded') {
+      const ref = payload.responseRef || {};
+      rows.push(compact({
+        hostMessageId: ref.hostMessageId || null,
+        role: 'assistant',
+        transactionId,
+        outcomeId: ref.outcomeId || null,
+        chatId: event.chatId || null,
+        responseKind: ref.kind || ref.responseKind || null,
+        textHash: ref.textHash || null
+      }));
+    }
+    if (event.type === 'visibleResponseRefRepaired') {
+      const patch = payload.responseRefPatch || {};
+      rows.push(compact({
+        hostMessageId: patch.hostMessageId || null,
+        role: 'assistant',
+        transactionId,
+        textHash: patch.textHash || null
+      }));
+    }
+    if (event.type === 'latestSourceRestarted' || event.type === 'sourceRestarted') {
+      const restart = payload.sourceRestart || payload.restartRef || {};
+      const resolution = payload.recoveryResolution || {};
+      rows.push(compact({
+        role: 'player',
+        transactionId,
+        status: payload.phaseAfter || restart.phaseAfter || 'restartSuperseded',
+        sourceRestart: restart,
+        replacementTransactionId: resolution.replacementTransactionId || restart.newTransactionId || null,
+        replacementSourceFrameId: resolution.replacementSourceFrameId || restart.newSourceFrameId || null,
+        replacementIngressId: resolution.replacementIngressId || restart.newIngressId || null
+      }));
+    }
+  }
+  return mergeHostMapRows(rows);
+}
+
+function derivePromptDirtyDomainsFromEvents(events = []) {
+  return uniqueStrings((events || []).flatMap((event) => {
+    if (event?.type !== 'backgroundBatchCommitted') return [];
+    const bundle = eventPayload(event).operationBundle || {};
+    return [
+      ...(Array.isArray(bundle.dirtyDomains) ? bundle.dirtyDomains : []),
+      ...(Array.isArray(bundle.promptDirtyDomains) ? bundle.promptDirtyDomains : [])
+    ];
+  }));
+}
+
+function backgroundEffectRefsFromEvents(events = []) {
+  return (events || []).flatMap((event) => {
+    if (event?.type !== 'backgroundBatchCommitted') return [];
+    const transactionId = legacyTransactionId(event);
+    const bundle = eventPayload(event).operationBundle || {};
+    const refs = Array.isArray(bundle.backgroundEffectRefs)
+      ? bundle.backgroundEffectRefs
+      : [
+        ...(Array.isArray(bundle.scenePhaseSealRefs) ? bundle.scenePhaseSealRefs : []),
+        ...(Array.isArray(bundle.pressureArcDigestRefs) ? bundle.pressureArcDigestRefs : []),
+        ...(Array.isArray(bundle.recallEntryRefs) ? bundle.recallEntryRefs : []),
+        ...(Array.isArray(bundle.effectRefs) ? bundle.effectRefs : [])
+      ];
+    return refs.map((ref) => compact({
+      ...cloneJson(ref),
+      transactionId: ref.transactionId || transactionId || null,
+      backgroundBatchId: bundle.batchId || null,
+      sourceFrameId: ref.sourceFrameId || event.sourceFrameId || bundle.sourceFrameRef?.id || null,
+      occurredAt: event.occurredAt || null
+    }));
+  });
+}
+
+function sceneSealRefsFromEffectRefs(effectRefs = []) {
+  return effectRefs
+    .filter((ref) => String(ref.kind || ref.type || '').includes('scenePhaseSealRef'))
+    .map((ref) => sanitizeDiagnostic(ref));
+}
+
+function recallEntryRefsFromEffectRefs(effectRefs = []) {
+  return effectRefs
+    .filter((ref) => String(ref.kind || ref.type || '').includes('recallIndexEntryRef'))
+    .map((ref) => sanitizeDiagnostic(ref));
+}
+
+function pressureArcDigestRefsFromEffectRefs(effectRefs = []) {
+  return effectRefs
+    .filter((ref) => String(ref.kind || ref.type || '').includes('pressureArcDigestRef'))
+    .map((ref) => sanitizeDiagnostic(ref));
+}
+
+function recallRevisionFromEntryRefs(entryRefs = []) {
+  return entryRefs.length ? hashStableJson(entryRefs.map((ref) => ({
+    id: ref.id || null,
+    hash: ref.hash || null,
+    sceneSealId: ref.sceneSealId || null,
+    pressureArcDigestId: ref.pressureArcDigestId || null,
+    sourceFrameId: ref.sourceFrameId || null
+  }))) : null;
+}
+
+function sceneSealRevisionFromRefs(sceneSealRefs = []) {
+  return sceneSealRefs.length ? hashStableJson(sceneSealRefs.map((ref) => ({
+    id: ref.id || null,
+    hash: ref.hash || null,
+    sourceFrameId: ref.sourceFrameId || null,
+    sceneSealId: ref.sceneSealId || null
+  }))) : null;
+}
+
+function pressureArcDigestRevisionFromRefs(pressureArcDigestRefs = []) {
+  return pressureArcDigestRefs.length ? hashStableJson(pressureArcDigestRefs.map((ref) => ({
+    id: ref.id || null,
+    hash: ref.hash || null,
+    sourceFrameId: ref.sourceFrameId || null,
+    pressureArcDigestId: ref.pressureArcDigestId || null
+  }))) : null;
+}
+
+function latestTimestamp(...values) {
+  const candidates = values
+    .map((value) => typeof value === 'function' ? value() : value)
+    .filter((value) => typeof value === 'string' && value.trim() !== '');
+  if (candidates.length === 0) return isoNow();
+  const sorted = candidates.sort();
+  return sorted[sorted.length - 1];
 }
 
 function coreStoreCounters({ transactions = {}, events = [], turns = [], diagnostics = [] } = {}) {
@@ -974,7 +1246,7 @@ export async function loadCoreStoreStateV2(adapter, {
     readSegmentEntries(adapter, manifest.diagnosticsSegments || [])
   ]);
   const coreHead = head?.coreStore || {};
-  const timestamp = coreHead.updatedAt || manifest.updatedAt || (typeof now === 'function' ? now() : now) || isoNow();
+  const timestamp = latestTimestamp(coreHead.updatedAt, manifest.updatedAt, now);
   const transactions = Object.fromEntries(Object.entries(reconstructTransactionsFromEvents(events)).map(([key, transaction]) => [
     key,
     normalizeHydratedTransaction(transaction, {
@@ -1002,11 +1274,15 @@ export async function loadCoreStoreStateV2(adapter, {
     events: events.map(cloneJson),
     turns: turns.map(cloneJson),
     diagnostics: diagnostics.map(cloneJson),
-    hostMapRows: Array.isArray(hostMap?.rows) ? hostMap.rows.map(cloneJson) : [],
+    hostMapRows: mergeHostMapRows(
+      Array.isArray(hostMap?.rows) ? hostMap.rows.map(cloneJson) : [],
+      deriveHostMapRowsFromEvents(events)
+    ),
     promptDirtyDomains: uniqueStrings([
       ...(Array.isArray(coreHead.promptDirtyDomains) ? coreHead.promptDirtyDomains : []),
       ...(Array.isArray(promptCache?.dirtyDomains) ? promptCache.dirtyDomains : []),
-      ...turns.flatMap((turn) => Array.isArray(turn?.promptDirtyDomains) ? turn.promptDirtyDomains : [])
+      ...turns.flatMap((turn) => Array.isArray(turn?.promptDirtyDomains) ? turn.promptDirtyDomains : []),
+      ...derivePromptDirtyDomainsFromEvents(events)
     ]),
     counters: coreStoreCounters({ transactions, events, turns, diagnostics })
   };
@@ -1022,14 +1298,12 @@ export async function readCoreStoreProjectionsV2(adapter, {
     saveId: requireNonEmptyString(saveId, 'saveId'),
     layout
   });
-  const [hostMap, events, turns, diagnostics] = await Promise.all([
-    manifest.hostMap ? readV2ArtifactRef(adapter, manifest.hostMap) : null,
+  const [events, turns, diagnostics] = await Promise.all([
     readSegmentEntries(adapter, manifest.eventSegments || []),
     readSegmentEntries(adapter, manifest.turnSegments || []),
     readSegmentEntries(adapter, manifest.diagnosticsSegments || [])
   ]);
   return buildCoreStoreReadProjections({
-    hostMapRows: Array.isArray(hostMap?.rows) ? hostMap.rows.map(cloneJson) : [],
     events,
     turns,
     diagnostics,
@@ -1043,7 +1317,8 @@ export function createCoreStoreV2({
   saveId,
   branchId = 'main',
   now = null,
-  initialState = null
+  initialState = null,
+  segmentMaxBytes = null
 } = {}) {
   requireObject(adapter, 'storage adapter');
   const id = requireNonEmptyString(campaignId, 'campaignId');
@@ -1077,6 +1352,7 @@ export function createCoreStoreV2({
     });
   let lastCommit = null;
   let writeQueue = Promise.resolve();
+  let hasPublishedLayout = Boolean(initialState);
 
   function timestamp() {
     return clock();
@@ -1106,14 +1382,55 @@ export function createCoreStoreV2({
     return run;
   }
 
+  function eventTurnDeltaCursor() {
+    return {
+      eventStart: state.events.length,
+      turnStart: state.turns.length
+    };
+  }
+
   async function persist() {
     state.updatedAt = timestamp();
     const snapshot = cloneJson(state);
     return enqueueWrite(async () => {
       lastCommit = await commitV2SaveLayout(adapter, {
         ...buildPersistPayload(snapshot),
-        layout: 'core'
+        layout: 'core',
+        reuseExistingSegmentRefs: true,
+        segmentMaxBytes
       });
+      hasPublishedLayout = true;
+      return lastCommit;
+    });
+  }
+
+  async function persistEventTurnDelta(cursor, metadata = {}) {
+    const eventStart = Number(cursor?.eventStart ?? state.events.length);
+    const turnStart = Number(cursor?.turnStart ?? state.turns.length);
+    const events = state.events.slice(eventStart).map(cloneJson);
+    const turns = state.turns.slice(turnStart).map(cloneJson);
+    const committedAt = state.updatedAt;
+    const eventCount = state.events.length;
+    const turnCount = state.turns.length;
+    return enqueueWrite(async () => {
+      lastCommit = await commitV2EventTurnSegments(adapter, {
+        campaignId: state.campaignId,
+        saveId: state.saveId,
+        eventSegments: events.length > 0 ? [events] : [],
+        turnSegments: turns.length > 0 ? [turns] : [],
+        metadata: {
+          source: 'core-store-v2-event-turn-delta',
+          eventCount,
+          turnCount,
+          deltaEventCount: events.length,
+          deltaTurnCount: turns.length,
+          ...cloneJson(metadata)
+        },
+        now: committedAt,
+        layout: 'core',
+        segmentMaxBytes
+      });
+      hasPublishedLayout = true;
       return lastCommit;
     });
   }
@@ -1245,6 +1562,7 @@ export function createCoreStoreV2({
       }
       const phaseAfter = 'restartSuperseded';
       assertPhaseTransition(priorTransaction.phase, phaseAfter);
+      const deltaCursor = eventTurnDeltaCursor();
       const createdAt = timestamp();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = createdAt;
@@ -1310,7 +1628,11 @@ export function createCoreStoreV2({
         idempotencyKey,
         occurredAt: createdAt
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'supersedeLatestSourceTransaction',
+        transactionId: priorTransaction.id,
+        replacementTransactionId: replacementTransaction.id
+      });
       return cloneJson({
         kind: 'directive.coreSourceRestartResult.v1',
         status: 'recorded',
@@ -1321,6 +1643,11 @@ export function createCoreStoreV2({
     },
     async beginTurn(sourceFrame, options = {}) {
       requireObject(sourceFrame, 'sourceFrame');
+      assertSourceFrameScope(sourceFrame, {
+        campaignId: state.campaignId,
+        saveId: state.saveId
+      });
+      const deltaCursor = eventTurnDeltaCursor();
       const createdAt = timestamp();
       const transactionId = options.transactionId || `txn:${sourceFrame.id || sourceFrame.hostMessageId || state.counters.transactions + 1}`;
       const existing = state.transactions[transactionId];
@@ -1371,7 +1698,14 @@ export function createCoreStoreV2({
         idempotencyKey: options.idempotencyKey || null,
         occurredAt: createdAt
       });
-      await persist();
+      if (hasPublishedLayout) {
+        await persistEventTurnDelta(deltaCursor, {
+          operation: 'beginTurn',
+          transactionId: transaction.id
+        });
+      } else {
+        await persist();
+      }
       return cloneJson(transaction);
     },
     async advanceTurn(transactionId, phasePatch = {}) {
@@ -1385,6 +1719,7 @@ export function createCoreStoreV2({
       }
       const fromPhase = transaction.phase;
       const phase = phasePatch.phase ? assertPhaseTransition(fromPhase, phasePatch.phase) : transaction.phase;
+      const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, { runtime: 1 });
@@ -1408,7 +1743,10 @@ export function createCoreStoreV2({
         revisionsAfter: state.revisions,
         idempotencyKey: phasePatch.idempotencyKey || null
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'advanceTurn',
+        transactionId: transaction.id
+      });
       return cloneJson(transaction);
     },
     async commitMechanics(transactionId, operationBundle = {}) {
@@ -1428,6 +1766,7 @@ export function createCoreStoreV2({
         error.details = { expected: state.revisions.mechanics, actual: Number(bundle.baseMechanicsRevision) };
         throw error;
       }
+      const deltaCursor = eventTurnDeltaCursor();
       const phaseAfter = bundle.phaseAfter ? assertPhaseTransition(transaction.phase, bundle.phaseAfter) : transaction.phase;
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
@@ -1460,7 +1799,10 @@ export function createCoreStoreV2({
         revisionsAfter: state.revisions,
         idempotencyKey: bundle.idempotencyKey || null
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'commitMechanics',
+        transactionId: transaction.id
+      });
       return cloneJson(turn);
     },
     async recordVisibleResponse(transactionId, responseRef = {}) {
@@ -1486,6 +1828,7 @@ export function createCoreStoreV2({
       if (!(['recoveryRequired', 'responseRetryRequired'].includes(transaction.phase) && closingRecovery)) {
         assertPhaseTransition(transaction.phase, 'visibleResponsePosted');
       }
+      const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, { runtime: 1 });
@@ -1524,7 +1867,10 @@ export function createCoreStoreV2({
         revisionsAfter: state.revisions,
         idempotencyKey: ref.idempotencyKey || null
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'recordVisibleResponse',
+        transactionId: transaction.id
+      });
       return cloneJson(transaction);
     },
     async repairVisibleResponseRef(transactionId, responseRefPatch = {}) {
@@ -1550,6 +1896,7 @@ export function createCoreStoreV2({
       });
       const changed = JSON.stringify(nextRef) !== JSON.stringify(transaction.visibleResponseRef);
       if (!changed) return cloneJson(transaction);
+      const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, { runtime: 1 });
@@ -1569,7 +1916,10 @@ export function createCoreStoreV2({
         revisionsAfter: state.revisions,
         idempotencyKey: responseRefPatch.idempotencyKey || null
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'repairVisibleResponseRef',
+        transactionId: transaction.id
+      });
       return cloneJson(transaction);
     },
     async markRecoveryRequired(transactionId, recoveryBundle = {}) {
@@ -1588,6 +1938,7 @@ export function createCoreStoreV2({
           ? 'responseRetryRequired'
           : 'recoveryRequired');
       assertPhaseTransition(transaction.phase, phaseAfter);
+      const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, { runtime: 1 });
@@ -1619,7 +1970,10 @@ export function createCoreStoreV2({
         revisionsAfter: state.revisions,
         idempotencyKey: recoveryBundle.idempotencyKey || null
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'markRecoveryRequired',
+        transactionId: transaction.id
+      });
       return cloneJson(recoveryCase);
     },
     async commitBackgroundBatch(transactionId, operationBundle = {}) {
@@ -1650,6 +2004,7 @@ export function createCoreStoreV2({
       const phaseAfter = operationBundle.phaseAfter
         ? assertPhaseTransition(transaction.phase, operationBundle.phaseAfter)
         : assertPhaseTransition(transaction.phase, 'backgroundSettling');
+      const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, {
@@ -1658,12 +2013,12 @@ export function createCoreStoreV2({
       });
       if (hasPromptDirty) state.promptDirtyDomains.push(...operationBundle.promptDirtyDomains);
       state.counters.backgrounds += 1;
-      const backgroundRef = compact({
-        batchId,
+      const bundleRef = operationBundleRef({
+        ...operationBundle,
+        batchId
+      });
+      const backgroundRef = backgroundBatchRefFromBundle(bundleRef, {
         idempotencyKey,
-        outcomeId: operationBundle.outcomeId || null,
-        operationCount: hasOperations ? operationBundle.operations.length : 0,
-        workerCount: Array.isArray(operationBundle.workers) ? operationBundle.workers.length : 0,
         occurredAt: state.updatedAt
       });
       touchTransaction(transaction, {
@@ -1685,17 +2040,18 @@ export function createCoreStoreV2({
       });
       appendEvent('backgroundBatchCommitted', transaction, {
         payload: {
-          operationBundle: operationBundleRef({
-            ...operationBundle,
-            batchId
-          }),
+          operationBundle: bundleRef,
           phaseAfter
         },
         revisionsBefore,
         revisionsAfter: state.revisions,
         idempotencyKey
       });
-      await persist();
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'commitBackgroundBatch',
+        transactionId: transaction.id,
+        batchId
+      });
       return cloneJson(transaction);
     },
     async appendDiagnostics(transactionId, diagnosticsEvent = {}) {
@@ -1721,6 +2077,7 @@ export function createCoreStoreV2({
           campaignId: state.campaignId,
           saveId: state.saveId,
           diagnosticsSegments: [diagnostic],
+          recentDiagnostics: state.diagnostics.slice(-8),
           metadata: {
             source: 'core-store-v2-diagnostics',
             diagnosticCount: state.diagnostics.length

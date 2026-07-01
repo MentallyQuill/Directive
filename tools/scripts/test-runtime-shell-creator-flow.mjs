@@ -671,7 +671,7 @@ async function assertCampaignPanelsRender(panel) {
 
   await findButton(panel, 'Log').click();
   assert.match(textOf(panel), /Campaign Start/);
-  assert.match(textOf(panel), /accepted assignment/);
+  assert.match(textOf(panel), /Player character created/);
   assert.match(textOf(panel), /First mission state initialized from package projection/);
   assertNoUnwiredPlaceholders(panel);
 
@@ -1028,7 +1028,16 @@ assert.equal(runtimeApplyButton.disabled, false, 'Runtime Apply should activate 
 await runtimeApplyButton.click();
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 await findButton(panel, 'Mission').click();
-await findButton(panel, 'Build Opening Scene').click();
+assert.equal(
+  queryAll(panel, 'button').some((button) => textOf(button).trim() === 'Build Opening Scene'),
+  false,
+  'Start Campaign should post the opening scene, so Mission should not offer the recovery build action.'
+);
+assert.equal(
+  host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length,
+  1,
+  'Start Campaign should post exactly one opening scene.'
+);
 assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await app.previewDirectorTurn({
   playerInput: 'I report to Captain Whitaker, acknowledge the active Hesperus situation, and coordinate a cautious response from the bridge.'
@@ -1076,14 +1085,18 @@ assert(queryAll(panel, '[data-input-path]').every((control) => control.dataset.i
 await findButton(panel, 'Save Game').click();
 let updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 2);
-assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 1);
+assert.equal(
+  updatedSaves.find((save) => save.slotType === 'firstSave').revision,
+  revisionBeforeManualSave,
+  'Save Game should persist runtime-current state through v2 without rewriting the v1 first-save checkpoint.'
+);
 await findButton(panel, 'Settings').click();
 await findButton(panel, 'Safety').click();
 assertActiveSettingsSubtab(panel, 'Safety');
 await findButton(panel, 'Settle Active State').click();
 assert.match(textOf(panel), /Active state settled into/);
 updatedSaves = await listCampaignSaves(adapter);
-assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 2);
+assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 1);
 await findButton(panel, 'Providers').click();
 assertActiveSettingsSubtab(panel, 'Providers');
 assertModelRoutingFolders(panel);
@@ -1102,7 +1115,7 @@ assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '8');
 assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 updatedSaves = await listCampaignSaves(adapter);
 const runtimeSettingsSave = updatedSaves.find((save) => save.slotType === 'firstSave');
-assert.equal(runtimeSettingsSave.revision, revisionBeforeManualSave + 2, 'Runtime settings Apply must not rewrite the v1 manual checkpoint payload.');
+assert.equal(runtimeSettingsSave.revision, revisionBeforeManualSave + 1, 'Runtime settings Apply must not rewrite the v1 manual checkpoint payload.');
 let indexesAfterRuntimeSettings = await getDirectiveStorageIndexes(adapter);
 let runtimeSettingsSaveIndexEntry = indexesAfterRuntimeSettings.saveIndex.saves[runtimeSettingsSave.id];
 assert.equal(runtimeSettingsSaveIndexEntry.runtimeStorageFormat, 'v2', 'Runtime settings Apply must mark runtime-current state as v2.');
@@ -1115,7 +1128,7 @@ await findButton(panel, 'Settle Active State').click();
 assert.match(textOf(panel), /Active state settled into/);
 updatedSaves = await listCampaignSaves(adapter);
 const settledRuntimeSettingsSave = updatedSaves.find((save) => save.slotType === 'firstSave');
-assert.equal(settledRuntimeSettingsSave.revision, revisionBeforeManualSave + 3, 'Settle Active State remains an explicit v1 checkpoint write.');
+assert.equal(settledRuntimeSettingsSave.revision, revisionBeforeManualSave + 2, 'Settle Active State remains an explicit v1 checkpoint write.');
 indexesAfterRuntimeSettings = await getDirectiveStorageIndexes(adapter);
 runtimeSettingsSaveIndexEntry = indexesAfterRuntimeSettings.saveIndex.saves[settledRuntimeSettingsSave.id];
 assert.equal(runtimeSettingsSaveIndexEntry.runtimeStorageFormat, undefined, 'Settle Active State must clear the runtime-current v2 marker by writing a v1 checkpoint.');

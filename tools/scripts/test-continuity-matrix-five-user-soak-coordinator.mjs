@@ -1705,6 +1705,7 @@ assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missing
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.knownExternalPromptKeys'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.refHashes'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.targetSummaryCount'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.finalHostPromptMayIncludeExternal'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.requiredTargets'), true);
 
 const genericExternalSummaryRoot = makeArtifactRoot();
@@ -1736,6 +1737,30 @@ const genericExternalSummaryCompleteness = summarizeLaneArtifactCompleteness({
 });
 assert.equal(genericExternalSummaryCompleteness.status, 'fail');
 assert.deepEqual(genericExternalSummaryCompleteness.externalContextSummary.missingTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
+
+const placeholderExternalSummaryRoot = makeArtifactRoot();
+writePassingLaneArtifacts(placeholderExternalSummaryRoot, { turnLimit: 1 });
+const placeholderExternalSummary = readJson(path.join(placeholderExternalSummaryRoot, 'host-extensions', 'external-context-summary.json'));
+writeJson(path.join(placeholderExternalSummaryRoot, 'host-extensions', 'external-context-summary.json'), {
+  ...placeholderExternalSummary,
+  targetSummaries: [{
+    scriptMessageId: 'soak-turn-01',
+    targets: {
+      stLorebooks: {},
+      memoryBooks: {},
+      summaryception: {},
+      vectFox: {}
+    }
+  }]
+});
+const placeholderExternalSummaryCompleteness = summarizeLaneArtifactCompleteness({
+  artifactRoot: placeholderExternalSummaryRoot,
+  turnLimit: '1'
+});
+assert.equal(placeholderExternalSummaryCompleteness.status, 'fail');
+assert.deepEqual(placeholderExternalSummaryCompleteness.externalContextSummary.missingTargetSummaries, []);
+assert.deepEqual(placeholderExternalSummaryCompleteness.externalContextSummary.placeholderTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
+assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.usefulTargets'), true);
 
 const partialFullPromptDepthRoot = makeArtifactRoot();
 writePassingLaneArtifacts(partialFullPromptDepthRoot, { promptCaptureCount: 1 });

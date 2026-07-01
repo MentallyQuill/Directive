@@ -962,7 +962,7 @@ export function createStateDeltaGateway({
   if (typeof getState !== 'function') throw new Error('getState must be a function');
   if (typeof setState !== 'function') throw new Error('setState must be a function');
 
-  async function commit(nextCampaignState, delta) {
+  async function commit(nextCampaignState, delta, options = {}) {
     const current = getState();
     const tracked = commitTrackedCampaignState({
       campaignState: current,
@@ -971,8 +971,9 @@ export function createStateDeltaGateway({
       now,
       allowedDomains
     });
+    const shouldPersist = options.persist !== false && delta?.persist !== false;
     setState(tracked);
-    if (typeof persist === 'function') await persist(tracked, delta);
+    if (shouldPersist && typeof persist === 'function') await persist(tracked, delta);
     return cloneJson(tracked);
   }
 
@@ -1011,7 +1012,7 @@ export function createStateDeltaGateway({
     return cloneJson(restored);
   }
 
-  async function applyOperations(proposal = {}, policy = {}) {
+  function validateOperationsCore(proposal = {}, policy = {}) {
     const allowedRoots = [...new Set((policy.allowedRoots || proposal.allowedRoots || []).map(compact).filter(Boolean))];
     const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
     if (operations.length > 25) {
@@ -1047,18 +1048,46 @@ export function createStateDeltaGateway({
       now,
       allowedDomains
     });
-    setState(result.campaignState);
-    if (!result.noChange && typeof persist === 'function') await persist(result.campaignState, normalizedProposal);
     return cloneJson({
       ...result,
       applied: result.noChange !== true,
-      domains: operationRoots
+      domains: operationRoots,
+      persisted: false,
+      mutated: false
+    });
+  }
+
+  async function validateOperations(proposal = {}, policy = {}) {
+    return validateOperationsCore(proposal, policy);
+  }
+
+  async function applyOperations(proposal = {}, policy = {}) {
+    const result = validateOperationsCore(proposal, policy);
+    const shouldPersist = policy.persist !== false;
+    setState(result.campaignState);
+    if (!result.noChange && shouldPersist && typeof persist === 'function') await persist(result.campaignState, {
+      ...cloneJson(proposal),
+      domains: result.domains,
+      metadata: {
+        ...cloneJson(proposal.metadata || {}),
+        proposalId: proposal.id || null,
+        workerId: proposal.workerId || null,
+        reconciliationRunId: proposal.runId || proposal.reconciliationRunId || null,
+        sourceAnchorRange: cloneJson(proposal.sourceAnchorRange || proposal.anchorRange || null),
+        evidenceMessageIds: cloneJson(proposal.evidenceMessageIds || [])
+      }
+    });
+    return cloneJson({
+      ...result,
+      persisted: result.noChange !== true && shouldPersist && typeof persist === 'function',
+      mutated: true
     });
   }
 
   return {
     commit,
     applyProposal,
+    validateOperations,
     applyOperations,
     restore,
     revision: () => initializeCampaignRuntimeTracking(getState()).runtimeTracking.revision,

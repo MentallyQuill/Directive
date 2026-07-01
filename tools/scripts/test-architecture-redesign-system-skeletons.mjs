@@ -217,8 +217,8 @@ const lensBuildCalls = [];
 const lens = createLensPromptScheduler({
   coreStore: lensCore,
   clock: () => '2026-06-30T02:00:00.000Z',
-  buildDirectivePromptPacket: async ({ revision, dirtyDomains, cacheKey, externalPromptEnvironmentRef }) => {
-    lensBuildCalls.push({ revision, dirtyDomains, cacheKey, externalPromptEnvironmentRef });
+  buildDirectivePromptPacket: async ({ revision, dirtyDomains, cacheKey, cacheInputs, externalPromptEnvironmentRef }) => {
+    lensBuildCalls.push({ revision, dirtyDomains, cacheKey, cacheInputs, externalPromptEnvironmentRef });
     return {
       kind: 'directive.playerSafePromptContext',
       revision,
@@ -304,6 +304,107 @@ assert.equal(lensBuildCalls.length, 1);
 lens.markDirty({
   lane: 'visible',
   dirtyDomains: ['factIndex'],
+  idempotencyKey: 'dirty-recall-revision'
+});
+const revisionFlush = await lens.flushVisible({
+  transactionId: 'txn-lens-revision',
+  binding: { campaignId: 'campaign-ashes' },
+  campaignContext: {
+    mechanicsRevision: 1,
+    recallIndexRevision: 'recall-revision-from-core',
+    sceneSealRevision: 'scene-seal-revision-from-core',
+    pressureArcDigestRevision: 'pressure-arc-revision-from-core'
+  },
+  promptFrame,
+  externalPromptEnvironmentRef: frame.externalPromptEnvironmentRef,
+  idempotencyKey: 'flush-recall-revision'
+});
+assert.equal(revisionFlush.status, 'installed');
+assert.equal(revisionFlush.rebuilt, true);
+assert.equal(revisionFlush.cacheInputs.recallIndexRevision, 'recall-revision-from-core');
+assert.equal(revisionFlush.cacheInputs.sceneSealRevision, 'scene-seal-revision-from-core');
+assert.equal(revisionFlush.cacheInputs.pressureArcDigestRevision, 'pressure-arc-revision-from-core');
+assert.equal(installedPackets.length, 2);
+assert.equal(lensBuildCalls.length, 2);
+assert.equal(lensBuildCalls[1].cacheInputs.recallIndexRevision, 'recall-revision-from-core');
+assert.equal(installedPackets[1].cacheInputs.sceneSealRevision, 'scene-seal-revision-from-core');
+assert.equal(installedPackets[1].cacheInputs.pressureArcDigestRevision, 'pressure-arc-revision-from-core');
+assert.equal(lens.inspect().installed.visible.cacheInputs.sceneSealRevision, 'scene-seal-revision-from-core');
+assert.equal(lens.inspect().installed.visible.cacheInputs.pressureArcDigestRevision, 'pressure-arc-revision-from-core');
+assert.equal(lensCore.calls.some((call) => call.diagnostic?.cacheInputs?.recallIndexRevision === 'recall-revision-from-core'), true);
+
+lens.markDirty({
+  lane: 'visible',
+  dirtyDomains: ['factIndex'],
+  idempotencyKey: 'dirty-recall-revision-repeat'
+});
+const sameRevisionFlush = await lens.flushVisible({
+  transactionId: 'txn-lens-revision-repeat',
+  binding: { campaignId: 'campaign-ashes' },
+  campaignContext: {
+    mechanicsRevision: 1,
+    recallIndexRevision: 'recall-revision-from-core',
+    sceneSealRevision: 'scene-seal-revision-from-core',
+    pressureArcDigestRevision: 'pressure-arc-revision-from-core'
+  },
+  promptFrame,
+  externalPromptEnvironmentRef: frame.externalPromptEnvironmentRef,
+  idempotencyKey: 'flush-recall-revision-repeat'
+});
+assert.equal(sameRevisionFlush.status, 'reused');
+assert.equal(sameRevisionFlush.rebuilt, false);
+assert.equal(installedPackets.length, 2);
+assert.equal(lensBuildCalls.length, 2);
+
+lens.markDirty({
+  lane: 'visible',
+  dirtyDomains: ['factIndex'],
+  idempotencyKey: 'dirty-scene-seal-revision-change'
+});
+const changedSceneSealFlush = await lens.flushVisible({
+  transactionId: 'txn-lens-scene-seal-change',
+  binding: { campaignId: 'campaign-ashes' },
+  campaignContext: {
+    mechanicsRevision: 1,
+    recallIndexRevision: 'recall-revision-from-core',
+    sceneSealRevision: 'scene-seal-revision-changed',
+    pressureArcDigestRevision: 'pressure-arc-revision-from-core'
+  },
+  promptFrame,
+  externalPromptEnvironmentRef: frame.externalPromptEnvironmentRef,
+  idempotencyKey: 'flush-scene-seal-revision-change'
+});
+assert.equal(changedSceneSealFlush.status, 'installed');
+assert.equal(changedSceneSealFlush.cacheInputs.sceneSealRevision, 'scene-seal-revision-changed');
+assert.equal(installedPackets.length, 3);
+assert.equal(lensBuildCalls.length, 3);
+
+lens.markDirty({
+  lane: 'visible',
+  dirtyDomains: ['factIndex'],
+  idempotencyKey: 'dirty-pressure-arc-revision-change'
+});
+const changedPressureArcFlush = await lens.flushVisible({
+  transactionId: 'txn-lens-pressure-arc-change',
+  binding: { campaignId: 'campaign-ashes' },
+  campaignContext: {
+    mechanicsRevision: 1,
+    recallIndexRevision: 'recall-revision-from-core',
+    sceneSealRevision: 'scene-seal-revision-changed',
+    pressureArcDigestRevision: 'pressure-arc-revision-changed'
+  },
+  promptFrame,
+  externalPromptEnvironmentRef: frame.externalPromptEnvironmentRef,
+  idempotencyKey: 'flush-pressure-arc-revision-change'
+});
+assert.equal(changedPressureArcFlush.status, 'installed');
+assert.equal(changedPressureArcFlush.cacheInputs.pressureArcDigestRevision, 'pressure-arc-revision-changed');
+assert.equal(installedPackets.length, 4);
+assert.equal(lensBuildCalls.length, 4);
+
+lens.markDirty({
+  lane: 'visible',
+  dirtyDomains: ['factIndex'],
   idempotencyKey: 'dirty-observe-external'
 });
 const observedFlush = await lens.flushVisible({
@@ -316,8 +417,8 @@ const observedFlush = await lens.flushVisible({
 assert.equal(observedFlush.status, 'installed');
 assert.equal(observedFlush.externalPromptEnvironmentRef.knownExternalPromptKeys.includes('summaryception'), true);
 assert.equal(observedFlush.externalPromptEnvironmentRef.knownExternalPromptKeys.includes('3_vectfox'), true);
-assert.equal(installedPackets.length, 2);
-assert.equal(lensBuildCalls.length, 2);
+assert.equal(installedPackets.length, 5);
+assert.equal(lensBuildCalls.length, 5);
 assert.equal(JSON.stringify(lensCore.calls).includes('RAW SUMMARY FROM LENS OBSERVER MUST NOT PERSIST'), false);
 assert.equal(JSON.stringify(lensCore.calls).includes('RAW VECTOR FROM LENS OBSERVER MUST NOT PERSIST'), false);
 lens.markDirty({
@@ -547,7 +648,18 @@ const batch = createForgeBatchCommit({
 });
 assert.equal(batch.kind, 'directive.forgeBatchCommit.v1');
 assert.equal(batch.operations.length, 1);
+assert.equal(batch.acceptedBatchHash, hashStableJson([normalizedWorker]));
 assert.deepEqual(batch.promptDirtyDomains, ['continuity']);
+assert.throws(
+  () => createForgeBatchCommit({
+    transactionId: 'txn-forge-spoof',
+    sourceFrame: frame,
+    workerResults: [normalizedWorker],
+    acceptedBatchHash: 'spoofed-accepted-batch-hash',
+    idempotencyKey: 'forge-spoof-1'
+  }),
+  (error) => error?.code === 'DIRECTIVE_FORGE_ACCEPTED_BATCH_HASH_MISMATCH'
+);
 
 const forgeCore = createFakeCoreStore();
 const forgeLens = createLensPromptScheduler({
@@ -583,6 +695,9 @@ const forgeResult = await forge.run({
 });
 assert.equal(forgeResult.status, 'applied');
 assert.equal(forgeCore.calls.some((call) => call.method === 'commitBackgroundBatch'), true);
+const forgeRunBackgroundCommit = forgeCore.calls.find((call) => call.method === 'commitBackgroundBatch' && call.transactionId === 'txn-forge');
+assert.equal(forgeRunBackgroundCommit.operationBundle.forgeBatchRef.acceptedBatchHash, forgeResult.acceptedBatchHash);
+assert.equal(forgeRunBackgroundCommit.operationBundle.forgeBatchRef.operationBundleHash, forgeResult.batch.operationBundleHash);
 assert.equal(JSON.stringify(forgeCore.calls).includes('RAW FORGE VALUE'), false);
 assert.equal(JSON.stringify(forgeCore.calls).includes('RAW FORGE RUN PROMPT'), false);
 const forgeReplay = await forge.run({
@@ -598,6 +713,27 @@ const forgeReplay = await forge.run({
   }]
 });
 assert.equal(forgeReplay.status, 'replayed');
+const forgeRunAcceptedReplayMismatch = await forge.settleAcceptedBatch({
+  transactionId: 'txn-forge',
+  sourceFrame: frame,
+  sourceToken: frame.sourceToken,
+  idempotencyKey: 'forge-run-1',
+  workerResults: [{
+    kind: 'directive.forgeWorkerResult.v1',
+    workerId: 'continuity',
+    status: 'accepted',
+    operations: [{
+      domain: 'continuity',
+      op: 'upsertFactHash',
+      path: 'continuity.factIndex',
+      valueHash: hashStableJson({ different: true }),
+      workerId: 'continuity'
+    }],
+    promptDirtyDomains: ['continuity']
+  }]
+});
+assert.equal(forgeRunAcceptedReplayMismatch.status, 'rejected');
+assert.equal(forgeRunAcceptedReplayMismatch.reason, 'accepted-batch-replay-mismatch');
 let sidecarProviderCalls = 0;
 const sidecarExecution = await forge.runProviderBatch({
   transactionId: 'txn-forge-sidecar-provider',
@@ -664,7 +800,9 @@ await assert.rejects(
       throw error;
     }
   }),
-  /provider failed before packet/
+  (error) => error?.code === 'DIRECTIVE_TEST_PROVIDER_FAILED'
+    && /FORGE provider batch failed/.test(error.message)
+    && !/provider failed before packet/.test(error.message)
 );
 const sidecarFailureReplay = await forge.runProviderBatch({
   transactionId: 'txn-forge-sidecar-provider-failure',
@@ -704,11 +842,21 @@ assert.equal(settledAccepted.providerCallAttempted, false);
 assert.equal(settledAccepted.providerOwner, 'campaignSidecarScheduler');
 assert.equal(forgeCore.calls.filter((call) => call.method === 'commitBackgroundBatch').length, 2);
 assert.equal(JSON.stringify(forgeCore.calls).includes('RAW SIDECAR VALUE'), false);
+const settledReplayWithoutEvidence = await forge.settleAcceptedBatch({
+  transactionId: 'txn-forge-sidecar',
+  sourceFrame: frame,
+  sourceToken: frame.sourceToken,
+  idempotencyKey: 'forge-sidecar-settle-1',
+  workerResults: []
+});
+assert.equal(settledReplayWithoutEvidence.status, 'rejected');
+assert.equal(settledReplayWithoutEvidence.reason, 'accepted-batch-replay-mismatch');
 const settledReplay = await forge.settleAcceptedBatch({
   transactionId: 'txn-forge-sidecar',
   sourceFrame: frame,
   sourceToken: frame.sourceToken,
   idempotencyKey: 'forge-sidecar-settle-1',
+  acceptedBatchHash: settledAccepted.acceptedBatchHash,
   workerResults: []
 });
 assert.equal(settledReplay.status, 'replayed');

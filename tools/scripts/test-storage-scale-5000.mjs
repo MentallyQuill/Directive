@@ -10,9 +10,25 @@ import {
   recordStorageWrite,
   stableJsonByteLength
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
+import {
+  createLensPromptBudgetTrace
+} from '../../src/runtime/lens-prompt-budget-trace.mjs';
+import {
+  createRecallQuery,
+  normalizeRecallIndexEntry,
+  queryRecallIndex
+} from '../../src/retrieval/recall-index.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
 import {
+  initializeDirectiveStorage,
+  loadCampaignSaveFromStorage,
+  recoverActiveCampaignSave,
+  storeCampaignV2SaveManifestIndexEntry
+} from '../../src/storage/directive-storage-repository.mjs';
+import {
+  commitV2EventTurnSegments,
   commitV2SaveLayout,
+  loadV2CampaignManifest,
   loadV2SaveManifest,
   readV2ArtifactRef
 } from '../../src/storage/transaction-store-v2.mjs';
@@ -24,6 +40,10 @@ const ACTIVE_PROMPT_CACHE_MAX_BYTES = 1024 * 1024;
 const HOST_MAP_MAX_BYTES = 5 * 1024 * 1024;
 const EVENT_SEGMENT_MAX_BYTES = 2 * 1024 * 1024;
 const DIAGNOSTICS_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
+const RECALL_INDEX_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
+const SCENE_SEAL_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
+const PROMPT_BUDGET_TRACE_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
+const AUXILIARY_SCALE_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
 const SEGMENT_HEADROOM_BYTES = 8 * 1024;
 
 function repeated(label, index, targetLength) {
@@ -302,6 +322,335 @@ function createPromptCache({ materializedHead }) {
   };
 }
 
+function createRecallEntries(messages, externalRef) {
+  const playerMessages = messages.filter((message) => message.role === 'player');
+  const deterministicEntries = playerMessages.map((message, index) => normalizeRecallIndexEntry({
+    id: `recall-${String(index + 1).padStart(5, '0')}`,
+    campaignId: 'campaign-ashes-scale',
+    saveId: 'save-ashes-scale',
+    branchId: 'main',
+    sourceFrameRef: {
+      id: `frame-${message.hostMessageId}`,
+      hostMessageId: message.hostMessageId,
+      textHash: makeHash('message-text', message.text),
+      externalPromptEnvironmentRef: index % 125 === 0 ? externalRef : null,
+      rawTranscript: 'RAW_SCALE_RECALL_TRANSCRIPT'
+    },
+    sceneSealRef: index % 20 === 0
+      ? {
+          id: `seal-${String(index / 20).padStart(4, '0')}`,
+          hash: makeHash('scene-seal', index),
+          rawSummary: 'RAW_SCALE_SEAL_SUMMARY'
+        }
+      : null,
+    phaseId: `phase-${index % 24}`,
+    sceneId: `scene-${index % 120}`,
+    locationId: ['bridge', 'ready-room', 'shuttlebay-two', 'sickbay'][index % 4],
+    actorIds: ['sam-vickers', index % 3 === 0 ? 'bronn' : 'tala'],
+    subjectIds: [index % 5 === 0 ? 'command-handoff' : 'mission-pressure'],
+    threadIds: [`thread-${index % 64}`],
+    missionIds: ['ashes-of-peace'],
+    tags: ['scale', index % 7 === 0 ? 'callback' : 'routine'],
+    keywords: ['breckenridge', index % 11 === 0 ? 'warning' : 'pressure'],
+    authority: index % 37 === 0 ? 'package' : 'committed',
+    textHash: makeHash('recall-text', message.text),
+    preview: repeated('bounded recall preview', index, 140),
+    metadataHash: makeHash('recall-metadata', index),
+    rawProviderOutput: 'RAW_SCALE_RECALL_PROVIDER'
+  }));
+  const semanticCandidates = Array.from({ length: 250 }, (_, index) => normalizeRecallIndexEntry({
+    id: `semantic-candidate-${String(index + 1).padStart(4, '0')}`,
+    campaignId: 'campaign-ashes-scale',
+    saveId: 'save-ashes-scale',
+    branchId: 'main',
+    authority: 'diagnosticCandidate',
+    actorIds: ['sam-vickers'],
+    subjectIds: ['mission-pressure'],
+    threadIds: [`thread-${index % 64}`],
+    missionIds: ['ashes-of-peace'],
+    keywords: ['pressure', index % 2 === 0 ? 'warning' : 'supply'],
+    embeddingRef: {
+      id: `embedding-${index + 1}`,
+      hash: makeHash('embedding-ref', index),
+      vectorPayload: 'RAW_SCALE_VECTOR_PAYLOAD',
+      apiKey: 'SECRET-SCALE-QDRANT'
+    },
+    textHash: makeHash('semantic-hit', index)
+  }));
+  return [...deterministicEntries, ...semanticCandidates];
+}
+
+function createRecallScaleResult(recallEntries) {
+  const query = createRecallQuery({
+    campaignId: 'campaign-ashes-scale',
+    saveId: 'save-ashes-scale',
+    branchId: 'main',
+    sourceFrameId: 'frame-msg-05000',
+    actorIds: ['sam-vickers', 'bronn'],
+    subjectIds: ['mission-pressure'],
+    locationId: 'bridge',
+    missionId: 'ashes-of-peace',
+    threadIds: ['thread-1', 'thread-7'],
+    phaseId: 'phase-3',
+    tags: ['scale', 'callback'],
+    keywords: ['pressure', 'warning'],
+    includeSemanticCandidates: true,
+    limit: 12,
+    invalidatedSourceFrameIds: ['frame-msg-00031']
+  });
+  return queryRecallIndex({ entries: recallEntries, query });
+}
+
+function createScenePhaseSeals(messages, recallEntries) {
+  const playerMessages = messages.filter((message) => message.role === 'player');
+  return Array.from({ length: 240 }, (_, index) => {
+    const source = playerMessages[index * 10] || playerMessages[playerMessages.length - 1];
+    return {
+      kind: 'directive.scenePhaseSeal.v1',
+      schemaVersion: 1,
+      id: `scene-seal-${String(index + 1).padStart(4, '0')}`,
+      campaignId: 'campaign-ashes-scale',
+      saveId: 'save-ashes-scale',
+      phaseId: `phase-${index % 24}`,
+      sceneId: `scene-${index % 120}`,
+      sourceFrameRefs: [{
+        id: `frame-${source.hostMessageId}`,
+        hostMessageId: source.hostMessageId,
+        textHash: makeHash('message-text', source.text)
+      }],
+      recallEntryRefs: recallEntries.slice(index * 2, index * 2 + 3).map((entry) => ({
+        id: entry.id,
+        textHash: entry.textHash,
+        authority: entry.authority
+      })),
+      status: index % 19 === 0 ? 'superseded' : 'active',
+      sealHash: makeHash('scene-phase-seal', index),
+      summaryHash: makeHash('scene-phase-summary', index),
+      promptDirtyDomains: ['continuity', 'missionQuestThread'],
+      rawTranscript: undefined
+    };
+  });
+}
+
+function createWitnessFacts(messages) {
+  const playerMessages = messages.filter((message) => message.role === 'player');
+  return Array.from({ length: 640 }, (_, index) => {
+    const source = playerMessages[index % playerMessages.length];
+    return {
+      kind: 'directive.witnessScopedFact.v1',
+      schemaVersion: 1,
+      id: `witness-fact-${String(index + 1).padStart(4, '0')}`,
+      campaignId: 'campaign-ashes-scale',
+      saveId: 'save-ashes-scale',
+      sourceFrameRef: {
+        id: `frame-${source.hostMessageId}`,
+        hostMessageId: source.hostMessageId,
+        textHash: makeHash('message-text', source.text)
+      },
+      factHash: makeHash('witness-fact', index),
+      knownBy: ['sam-vickers', index % 2 === 0 ? 'bronn' : 'tala'],
+      witnessedBy: index % 3 === 0 ? ['bridge-crew'] : ['senior-staff'],
+      confidence: index % 11 === 0 ? 'contested' : 'accepted',
+      directiveAuthority: true
+    };
+  });
+}
+
+function createCorrectionCases(messages) {
+  const assistantMessages = messages.filter((message) => message.role === 'assistant');
+  return Array.from({ length: 80 }, (_, index) => {
+    const source = assistantMessages[(index * 13) % assistantMessages.length];
+    return {
+      kind: 'directive.correctionCase.v1',
+      schemaVersion: 1,
+      id: `correction-case-${String(index + 1).padStart(4, '0')}`,
+      campaignId: 'campaign-ashes-scale',
+      saveId: 'save-ashes-scale',
+      status: index % 9 === 0 ? 'accepted' : 'proposed',
+      sourceFrameRef: {
+        id: `frame-${source.hostMessageId}`,
+        hostMessageId: source.hostMessageId,
+        selectedVariantHash: makeHash('selected-swipe', `${source.hostMessageId}:0`)
+      },
+      evidenceRefs: [{
+        id: `recall-${String(index + 1).padStart(5, '0')}`,
+        authority: 'committed',
+        hash: makeHash('correction-evidence', index)
+      }],
+      candidateSwipeRef: {
+        id: `candidate-swipe-${index + 1}`,
+        textHash: makeHash('candidate-swipe-text', index),
+        providerOutputHash: makeHash('candidate-swipe-provider', index)
+      },
+      allowedActions: ['acceptAsSwipe', 'reject']
+    };
+  });
+}
+
+function createPackageRetrievalMetadata() {
+  return Array.from({ length: 160 }, (_, index) => ({
+    kind: 'directive.packageRetrievalMetadata.v1',
+    schemaVersion: 1,
+    id: `package-retrieval-${String(index + 1).padStart(4, '0')}`,
+    packageId: 'ashes-of-peace',
+    sourceKind: ['campaign-package', 'crew-dataset', 'ship-dataset'][index % 3],
+    sourceId: `package-source-${index + 1}`,
+    authority: 'package',
+    facetHash: makeHash('package-retrieval-facet', index),
+    keywords: ['breckenridge', index % 2 === 0 ? 'crew' : 'mission'],
+    subjectIds: [index % 2 === 0 ? 'ship-layout' : 'mission-pressure']
+  }));
+}
+
+function createPromptBudgetTraces({ messages, recallResult, sceneSeals, externalRef }) {
+  const playerMessages = messages.filter((message) => message.role === 'player');
+  return Array.from({ length: 500 }, (_, index) => {
+    const source = playerMessages[index * 5] || playerMessages[playerMessages.length - 1];
+    const recallRefs = recallResult.includedRefs.slice(0, 8).map((ref, offset) => ({
+      id: `${ref.id}:trace-${index}-${offset}`,
+      kind: 'directive.recallResultRef.v1',
+      authority: ref.authority,
+      hash: ref.textHash || ref.metadataHash || makeHash('recall-trace-ref', `${index}:${offset}`),
+      estimatedTokens: offset < 2 ? 70 : 160,
+      rawPromptBody: 'RAW_SCALE_BUDGET_RECALL_PROMPT'
+    }));
+    return createLensPromptBudgetTrace({
+      packetId: `packet-scale-${String(index + 1).padStart(4, '0')}`,
+      promptRevision: index + 1,
+      cacheKey: makeHash('prompt-budget-cache', index),
+      cacheInputs: {
+        mechanicsRevision: index,
+        promptDomainVector: {
+          continuity: index % 5,
+          missionQuestThread: index % 7
+        },
+        recallIndexRevision: recallResult.recallIndexRevision,
+        sceneSealRevision: sceneSeals[index % sceneSeals.length].sealHash,
+        packageRevision: makeHash('package-revision', 'ashes-of-peace'),
+        externalPromptEnvironmentRef: externalRef
+      },
+      lanes: [
+        {
+          id: 'stableRules',
+          budgetTokens: 900,
+          reservedFloor: 700,
+          authority: 'directive',
+          refs: [{
+            id: 'directive-rules',
+            kind: 'preset',
+            hash: makeHash('stable-rules', 1),
+            estimatedTokens: 520
+          }]
+        },
+        {
+          id: 'activeScene',
+          budgetTokens: 700,
+          reservedFloor: 400,
+          authority: 'core',
+          refs: [{
+            id: sceneSeals[index % sceneSeals.length].id,
+            kind: 'sceneSeal',
+            hash: sceneSeals[index % sceneSeals.length].sealHash,
+            sourceFrameId: `frame-${source.hostMessageId}`,
+            estimatedTokens: 420
+          }]
+        },
+        {
+          id: 'recentTranscript',
+          budgetTokens: 640,
+          authority: 'frame',
+          refs: [{
+            id: `recent-${source.hostMessageId}`,
+            kind: 'frameRef',
+            hash: makeHash('message-text', source.text),
+            sourceFrameId: `frame-${source.hostMessageId}`,
+            estimatedTokens: 280,
+            rawTranscript: 'RAW_SCALE_RECENT_TRANSCRIPT'
+          }]
+        },
+        {
+          id: 'recall',
+          budgetTokens: 420,
+          authority: 'recallIndex',
+          refs: recallRefs
+        },
+        {
+          id: 'externalEnvironment',
+          budgetTokens: 0,
+          authority: 'diagnostic',
+          refs: [{
+            id: externalRef.hash,
+            kind: 'directive.externalPromptEnvironmentRef.v1',
+            hash: externalRef.hash,
+            estimatedTokens: 900,
+            rawPromptBody: 'RAW_SCALE_EXTERNAL_PROMPT',
+            apiKey: 'SECRET-SCALE-EXTERNAL'
+          }]
+        }
+      ]
+    });
+  });
+}
+
+function createAuxiliaryScaleArtifacts({ messages, externalRef }) {
+  const recallEntries = createRecallEntries(messages, externalRef);
+  const recallResult = createRecallScaleResult(recallEntries);
+  const sceneSeals = createScenePhaseSeals(messages, recallEntries);
+  const witnessFacts = createWitnessFacts(messages);
+  const correctionCases = createCorrectionCases(messages);
+  const packageRetrievalMetadata = createPackageRetrievalMetadata();
+  const promptBudgetTraces = createPromptBudgetTraces({
+    messages,
+    recallResult,
+    sceneSeals,
+    externalRef
+  });
+  return {
+    recallEntries,
+    recallResult,
+    sceneSeals,
+    witnessFacts,
+    correctionCases,
+    packageRetrievalMetadata,
+    promptBudgetTraces,
+    segments: {
+      recallIndex: rollSegments('directive.recallIndexSegment.v1', recallEntries, RECALL_INDEX_SEGMENT_MAX_BYTES),
+      sceneSeals: rollSegments('directive.scenePhaseSealSegment.v1', sceneSeals, SCENE_SEAL_SEGMENT_MAX_BYTES),
+      promptBudgetTraces: rollSegments('directive.lensPromptBudgetTraceSegment.v1', promptBudgetTraces, PROMPT_BUDGET_TRACE_SEGMENT_MAX_BYTES),
+      witnessFacts: rollSegments('directive.witnessScopedFactSegment.v1', witnessFacts, AUXILIARY_SCALE_SEGMENT_MAX_BYTES),
+      correctionCases: rollSegments('directive.correctionCaseSegment.v1', correctionCases, AUXILIARY_SCALE_SEGMENT_MAX_BYTES),
+      packageRetrievalMetadata: rollSegments('directive.packageRetrievalMetadataSegment.v1', packageRetrievalMetadata, AUXILIARY_SCALE_SEGMENT_MAX_BYTES)
+    }
+  };
+}
+
+async function writeAuxiliaryScaleSegments(adapter, category, segments) {
+  const refs = [];
+  for (const [index, segment] of segments.entries()) {
+    const segmentId = String(index).padStart(4, '0');
+    const logicalKey = `campaigns/campaign-ashes-scale/saves/save-ashes-scale/${category}/${segmentId}.v1.json`;
+    const record = {
+      ...segment,
+      campaignId: 'campaign-ashes-scale',
+      saveId: 'save-ashes-scale',
+      segmentId
+    };
+    const withSize = {
+      ...record,
+      byteLength: stableJsonByteLength(record)
+    };
+    await adapter.writeJson(logicalKey, withSize);
+    refs.push({
+      logicalKey,
+      kind: withSize.kind,
+      hash: withSize.hash,
+      byteLength: stableJsonByteLength(withSize),
+      entryCount: withSize.entryCount
+    });
+  }
+  return refs;
+}
+
 function createLegacyLargeSave(messages) {
   const turnCount = Math.floor(messages.length / 2);
   return {
@@ -398,16 +747,110 @@ function evaluateThresholds(report) {
   if (report.sizes.hostMapBytes > HOST_MAP_MAX_BYTES) violations.push('host-map-too-large');
   if (report.sizes.eventSegmentMaxBytes > EVENT_SEGMENT_MAX_BYTES) violations.push('event-segment-too-large');
   if (report.sizes.diagnosticsSegmentMaxBytes > DIAGNOSTICS_SEGMENT_MAX_BYTES) violations.push('diagnostics-segment-too-large');
+  if (report.sizes.recallIndexSegmentMaxBytes > RECALL_INDEX_SEGMENT_MAX_BYTES) violations.push('recall-index-segment-too-large');
+  if (report.sizes.sceneSealSegmentMaxBytes > SCENE_SEAL_SEGMENT_MAX_BYTES) violations.push('scene-seal-segment-too-large');
+  if (report.sizes.promptBudgetTraceSegmentMaxBytes > PROMPT_BUDGET_TRACE_SEGMENT_MAX_BYTES) violations.push('prompt-budget-trace-segment-too-large');
+  if (report.sizes.auxiliarySegmentMaxBytes > AUXILIARY_SCALE_SEGMENT_MAX_BYTES) violations.push('auxiliary-segment-too-large');
   if (report.writeCounters.fullSaveRewriteCount !== 0) violations.push('hot-path-full-save-rewrite');
   if (report.writeCounters.writesBeforeGenerationStart > 1) violations.push('too-many-writes-before-generation-start');
   if (report.turnWriteBudget?.writesPerSettledTurn > 4) violations.push('too-many-writes-per-settled-turn');
+  if (report.turnWriteBudget?.sealedSegmentRewriteCount > 0) violations.push('sealed-segment-rewrite');
+  if (report.turnWriteBudget?.openTailOverwriteCount > 0) violations.push('open-tail-overwrite');
+  if (report.turnReadBudget?.sealedSegmentReadCount > 0) violations.push('sealed-segment-read');
+  if (report.turnReadBudget?.sealedSegmentVerifyCount > 0) violations.push('sealed-segment-verify');
   if (report.latency.architectureWithin60s !== true) violations.push('generation-start-over-budget');
   return violations;
+}
+
+function completedWriteKeys(progressEvents = []) {
+  return progressEvents
+    .filter((event) => event.operation === 'writeJson' && event.phase === 'storageWriteComplete')
+    .map((event) => event.logicalKey);
+}
+
+function segmentRefs(refGroups = []) {
+  return refGroups.flatMap((refs) => Array.isArray(refs) ? refs : [refs]).filter(Boolean);
+}
+
+function byteMapForRefs(refs = []) {
+  return new Map(refs.map((ref) => [ref.logicalKey, Number(ref.byteLength || 0)]));
+}
+
+function createLoggingJsonStorage(storage) {
+  const readLog = [];
+  const writeLog = [];
+  const verifyLog = [];
+  return {
+    readLog,
+    writeLog,
+    verifyLog,
+    async readJson(filePath) {
+      readLog.push(filePath);
+      return storage.readJson(filePath);
+    },
+    async writeJson(filePath, value) {
+      writeLog.push(filePath);
+      return storage.writeJson(filePath, value);
+    },
+    async verifyJsonFiles(paths = []) {
+      verifyLog.push(...paths);
+      return storage.verifyJsonFiles(paths);
+    },
+    async deleteJsonFile(filePath) {
+      return storage.deleteJsonFile(filePath);
+    },
+    async listJsonFiles(prefix = '') {
+      return storage.listJsonFiles(prefix);
+    },
+    snapshot() {
+      return storage.snapshot();
+    }
+  };
+}
+
+function createHotTurnWriteBudget({
+  hotTurnWriteKeys = [],
+  sealedSegmentRefs = [],
+  protectedOpenTailRefs = [],
+  allSegmentRefs = []
+} = {}) {
+  const sealedKeys = new Set(sealedSegmentRefs.map((ref) => ref.logicalKey));
+  const protectedOpenTailKeys = new Set(protectedOpenTailRefs.map((ref) => ref.logicalKey));
+  const bytesByKey = byteMapForRefs(allSegmentRefs);
+  const rewrittenSealedKeys = hotTurnWriteKeys.filter((key) => sealedKeys.has(key));
+  const overwrittenOpenTailKeys = hotTurnWriteKeys.filter((key) => protectedOpenTailKeys.has(key));
+  return {
+    targetWritesPerSettledTurn: 2,
+    maxWritesPerSettledTurn: 4,
+    writesPerSettledTurn: hotTurnWriteKeys.length,
+    sealedSegmentRewriteCount: rewrittenSealedKeys.length,
+    sealedSegmentRewriteBytes: rewrittenSealedKeys.reduce((total, key) => total + (bytesByKey.get(key) || 0), 0),
+    openTailOverwriteCount: overwrittenOpenTailKeys.length,
+    overwrittenOpenTailKeys,
+    rewrittenSealedKeys
+  };
+}
+
+function createHotTurnReadBudget({
+  hotTurnReadKeys = [],
+  hotTurnVerifyKeys = [],
+  sealedSegmentRefs = []
+} = {}) {
+  const sealedKeys = new Set(sealedSegmentRefs.map((ref) => ref.logicalKey));
+  const readSealedKeys = hotTurnReadKeys.filter((key) => sealedKeys.has(key));
+  const verifiedSealedKeys = hotTurnVerifyKeys.filter((key) => sealedKeys.has(key));
+  return {
+    sealedSegmentReadCount: readSealedKeys.length,
+    sealedSegmentVerifyCount: verifiedSealedKeys.length,
+    readSealedKeys,
+    verifiedSealedKeys
+  };
 }
 
 const messages = createSyntheticMessages(MESSAGE_COUNT);
 const externalEnvironment = createExternalEnvironment();
 const externalRef = createExternalPromptEnvironmentRef(externalEnvironment);
+const auxiliaryScaleArtifacts = createAuxiliaryScaleArtifacts({ messages, externalRef });
 const materializedHead = createMaterializedHead({ externalRef });
 const hostMap = createHostMap(messages, externalRef);
 const eventSegments = rollSegments('directive.eventSegment.v2', createTurnEvents(messages), EVENT_SEGMENT_MAX_BYTES);
@@ -421,10 +864,12 @@ materializedHead.counts.diagnosticsSegments = diagnosticsSegments.length;
 const promptCache = createPromptCache({ materializedHead });
 
 const v2Counters = createStorageWriteCounters();
-const fakeStorage = createFakeJsonStorage();
+const fakeStorage = createLoggingJsonStorage(createFakeJsonStorage());
+const storageProgressEvents = [];
 const storageAdapter = createLogicalStorageAdapter({
   storage: fakeStorage,
-  hostId: 'fake'
+  hostId: 'fake',
+  onProgress: (event) => storageProgressEvents.push(event)
 });
 
 const turnEntries = messages
@@ -460,6 +905,136 @@ const saveManifest = await loadV2SaveManifest(storageAdapter, {
   campaignId: 'campaign-ashes-scale',
   saveId: 'save-ashes-scale'
 });
+await initializeDirectiveStorage(storageAdapter, { now: '2026-06-28T12:00:31.000Z' });
+await storeCampaignV2SaveManifestIndexEntry(storageAdapter, {
+  saveManifest,
+  saveManifestRef: substrateCommit.saveManifestRef,
+  name: 'Ashes Scale V2',
+  slotType: 'manual',
+  summary: '5000-message Ashes scale fixture',
+  now: '2026-06-28T12:00:32.000Z'
+});
+const auxiliaryRefs = {
+  recallIndex: await writeAuxiliaryScaleSegments(storageAdapter, 'recall-index', auxiliaryScaleArtifacts.segments.recallIndex),
+  sceneSeals: await writeAuxiliaryScaleSegments(storageAdapter, 'scene-seals', auxiliaryScaleArtifacts.segments.sceneSeals),
+  promptBudgetTraces: await writeAuxiliaryScaleSegments(storageAdapter, 'prompt-budget-traces', auxiliaryScaleArtifacts.segments.promptBudgetTraces),
+  witnessFacts: await writeAuxiliaryScaleSegments(storageAdapter, 'witness-facts', auxiliaryScaleArtifacts.segments.witnessFacts),
+  correctionCases: await writeAuxiliaryScaleSegments(storageAdapter, 'correction-cases', auxiliaryScaleArtifacts.segments.correctionCases),
+  packageRetrievalMetadata: await writeAuxiliaryScaleSegments(storageAdapter, 'package-retrieval', auxiliaryScaleArtifacts.segments.packageRetrievalMetadata)
+};
+const allSegmentRefs = segmentRefs([
+  substrateCommit.refs.eventSegments,
+  substrateCommit.refs.turnSegments,
+  substrateCommit.refs.diagnosticsSegments,
+  substrateCommit.refs.checkpoints,
+  auxiliaryRefs.recallIndex,
+  auxiliaryRefs.sceneSeals,
+  auxiliaryRefs.promptBudgetTraces,
+  auxiliaryRefs.witnessFacts,
+  auxiliaryRefs.correctionCases,
+  auxiliaryRefs.packageRetrievalMetadata
+]);
+const sealedSegmentRefs = segmentRefs([
+  substrateCommit.refs.eventSegments.slice(0, -1),
+  substrateCommit.refs.turnSegments.slice(0, -1),
+  auxiliaryRefs.recallIndex.slice(0, -1),
+  auxiliaryRefs.sceneSeals.slice(0, -1),
+  auxiliaryRefs.promptBudgetTraces.slice(0, -1)
+]);
+const bootstrapWriteKeys = completedWriteKeys(storageProgressEvents);
+const expectedBootstrapStorageKeyCount = substrateCommit.refs.eventSegments.length
+  + substrateCommit.refs.turnSegments.length
+  + substrateCommit.refs.diagnosticsSegments.length
+  + substrateCommit.refs.checkpoints.length
+  + auxiliaryRefs.recallIndex.length
+  + auxiliaryRefs.sceneSeals.length
+  + auxiliaryRefs.promptBudgetTraces.length
+  + auxiliaryRefs.witnessFacts.length
+  + auxiliaryRefs.correctionCases.length
+  + auxiliaryRefs.packageRetrievalMetadata.length
+  + 9;
+const bootstrapStorageKeyCount = Object.keys(fakeStorage.snapshot()).length;
+const oldOpenEventTailRef = substrateCommit.refs.eventSegments.at(-1);
+const oldOpenTurnTailRef = substrateCommit.refs.turnSegments.at(-1);
+const oldOpenEventTail = await readV2ArtifactRef(storageAdapter, oldOpenEventTailRef);
+const oldOpenTurnTail = await readV2ArtifactRef(storageAdapter, oldOpenTurnTailRef);
+const hotReadStart = fakeStorage.readLog.length;
+const hotWriteStart = fakeStorage.writeLog.length;
+const hotVerifyStart = fakeStorage.verifyLog.length;
+const hotTurnCommit = await commitV2EventTurnSegments(storageAdapter, {
+  campaignId: 'campaign-ashes-scale',
+  saveId: 'save-ashes-scale',
+  now: '2026-06-28T12:00:45.000Z',
+  eventSegments: [[
+    {
+      id: 'event-hot-05001',
+      type: 'playerIngressObserved',
+      transactionId: 'txn-02501',
+      turnId: 'turn-02501',
+      source: {
+        chatId: 'ashes-scale-chat',
+        hostMessageId: 'msg-05001',
+        textHash: makeHash('message-text', 'hot turn player text')
+      },
+      revision: MESSAGE_COUNT + 1,
+      compactSummary: repeated('hot turn player summary', 1, 720)
+    },
+    {
+      id: 'event-hot-05002',
+      type: 'visibleResponseRecorded',
+      transactionId: 'txn-02501',
+      turnId: 'turn-02501',
+      outcomeId: 'outcome-02501',
+      source: {
+        chatId: 'ashes-scale-chat',
+        hostMessageId: 'msg-05002',
+        textHash: makeHash('message-text', 'hot turn assistant text')
+      },
+      revision: MESSAGE_COUNT + 2,
+      compactSummary: repeated('hot turn assistant summary', 2, 720)
+    }
+  ]],
+  turnSegments: [[{
+    id: 'turn-entry-2501',
+    turnId: 'turn-02501',
+    outcomeId: 'outcome-02501',
+    sourceHash: makeHash('turn-source', 'msg-05002')
+  }]],
+  metadata: {
+    source: 'storage-scale-hot-turn',
+    messageCount: MESSAGE_COUNT + 2
+  }
+});
+const hotTurnReadKeys = fakeStorage.readLog.slice(hotReadStart);
+const compactHotTurnWriteKeys = fakeStorage.writeLog.slice(hotWriteStart);
+const hotTurnVerifyKeys = fakeStorage.verifyLog.slice(hotVerifyStart);
+const hotTurnManifest = await loadV2SaveManifest(storageAdapter, {
+  campaignId: 'campaign-ashes-scale',
+  saveId: 'save-ashes-scale'
+});
+const hotTurnCampaignManifest = await loadV2CampaignManifest(storageAdapter, 'campaign-ashes-scale');
+const reloadReadStart = fakeStorage.readLog.length;
+const reloadVerifyStart = fakeStorage.verifyLog.length;
+const loadedAfterHotAppend = await loadCampaignSaveFromStorage(storageAdapter, 'save-ashes-scale', {
+  markActive: false,
+  now: '2026-06-28T12:00:46.000Z'
+});
+const recoveredAfterHotAppend = await recoverActiveCampaignSave(storageAdapter, {
+  now: '2026-06-28T12:00:47.000Z'
+});
+const reloadReadKeys = fakeStorage.readLog.slice(reloadReadStart);
+const reloadVerifyKeys = fakeStorage.verifyLog.slice(reloadVerifyStart);
+const hotOpenEventTailRef = hotTurnCommit.refs.eventSegments.at(-1);
+const hotOpenTurnTailRef = hotTurnCommit.refs.turnSegments.at(-1);
+const hotTurnBudgetRefs = segmentRefs([
+  allSegmentRefs,
+  hotTurnCommit.refs.eventSegments,
+  hotTurnCommit.refs.turnSegments
+]);
+const segmentizedRewriteHotTurnWriteKeys = [
+  ...sealedSegmentRefs.slice(0, 1).map((ref) => ref.logicalKey),
+  ...compactHotTurnWriteKeys
+];
 for (const [index, ref] of substrateCommit.refs.eventSegments.entries()) {
   recordStorageWrite(v2Counters, {
     logicalKey: ref.logicalKey,
@@ -473,6 +1048,16 @@ recordStorageWrite(v2Counters, { logicalKey: substrateCommit.refs.hostMap.logica
 recordStorageWrite(v2Counters, { logicalKey: substrateCommit.refs.promptCache.logicalKey, type: 'segment', bytes: substrateCommit.refs.promptCache.byteLength });
 for (const ref of substrateCommit.refs.diagnosticsSegments) {
   recordStorageWrite(v2Counters, { logicalKey: ref.logicalKey, type: 'diagnostics', bytes: ref.byteLength });
+}
+for (const ref of [
+  ...auxiliaryRefs.recallIndex,
+  ...auxiliaryRefs.sceneSeals,
+  ...auxiliaryRefs.promptBudgetTraces,
+  ...auxiliaryRefs.witnessFacts,
+  ...auxiliaryRefs.correctionCases,
+  ...auxiliaryRefs.packageRetrievalMetadata
+]) {
+  recordStorageWrite(v2Counters, { logicalKey: ref.logicalKey, type: 'segment', bytes: ref.byteLength });
 }
 recordStorageWrite(v2Counters, { logicalKey: substrateCommit.saveManifestRef.logicalKey, type: 'manifest', bytes: substrateCommit.saveManifestRef.byteLength });
 
@@ -494,15 +1079,38 @@ const v2Report = {
     hostMapBytes: stableJsonByteLength(substrateHostMap),
     eventSegmentMaxBytes: Math.max(...substrateCommit.refs.eventSegments.map((ref) => ref.byteLength)),
     diagnosticsSegmentMaxBytes: Math.max(...substrateCommit.refs.diagnosticsSegments.map((ref) => ref.byteLength)),
+    recallIndexSegmentMaxBytes: Math.max(...auxiliaryRefs.recallIndex.map((ref) => ref.byteLength)),
+    sceneSealSegmentMaxBytes: Math.max(...auxiliaryRefs.sceneSeals.map((ref) => ref.byteLength)),
+    promptBudgetTraceSegmentMaxBytes: Math.max(...auxiliaryRefs.promptBudgetTraces.map((ref) => ref.byteLength)),
+    auxiliarySegmentMaxBytes: Math.max(
+      ...auxiliaryRefs.witnessFacts.map((ref) => ref.byteLength),
+      ...auxiliaryRefs.correctionCases.map((ref) => ref.byteLength),
+      ...auxiliaryRefs.packageRetrievalMetadata.map((ref) => ref.byteLength)
+    ),
     eventSegmentCount: substrateCommit.refs.eventSegments.length,
-    diagnosticsSegmentCount: substrateCommit.refs.diagnosticsSegments.length
+    diagnosticsSegmentCount: substrateCommit.refs.diagnosticsSegments.length,
+    recallIndexSegmentCount: auxiliaryRefs.recallIndex.length,
+    sceneSealSegmentCount: auxiliaryRefs.sceneSeals.length,
+    promptBudgetTraceSegmentCount: auxiliaryRefs.promptBudgetTraces.length
   },
   writeCounters: v2Counters,
   turnWriteBudget: {
-    targetWritesPerSettledTurn: 2,
-    maxWritesPerSettledTurn: 4,
-    writesPerSettledTurn: 3
+    ...createHotTurnWriteBudget({
+      hotTurnWriteKeys: compactHotTurnWriteKeys,
+      sealedSegmentRefs,
+      protectedOpenTailRefs: [oldOpenEventTailRef, oldOpenTurnTailRef],
+      allSegmentRefs: hotTurnBudgetRefs
+    }),
+    bootstrapWriteCount: bootstrapWriteKeys.length,
+    bootstrapWroteSealedSegmentCount: bootstrapWriteKeys.filter((key) => (
+      new Set(sealedSegmentRefs.map((ref) => ref.logicalKey)).has(key)
+    )).length
   },
+  turnReadBudget: createHotTurnReadBudget({
+    hotTurnReadKeys,
+    hotTurnVerifyKeys,
+    sealedSegmentRefs
+  }),
   latency
 };
 
@@ -514,20 +1122,181 @@ assert.equal(substrateCommit.refs.eventSegments.length > 1, true, 'substrate sho
 assert.deepEqual(evaluateThresholds(v2Report), []);
 assert.equal(v2Report.sizes.promptCacheBytes <= ACTIVE_PROMPT_CACHE_MAX_BYTES, true);
 assert.equal(
-  Object.keys(fakeStorage.snapshot()).length,
-  substrateCommit.refs.eventSegments.length
-    + substrateCommit.refs.turnSegments.length
-    + substrateCommit.refs.diagnosticsSegments.length
-    + substrateCommit.refs.checkpoints.length
-    + 5,
+  bootstrapStorageKeyCount,
+  expectedBootstrapStorageKeyCount,
   'scale harness should round-trip candidate artifacts through logical storage'
 );
+assert.equal(v2Report.turnWriteBudget.writesPerSettledTurn, compactHotTurnWriteKeys.length, 'hot-turn write budget should use actual storage writes');
+assert.equal(v2Report.turnWriteBudget.sealedSegmentRewriteCount, 0, 'hot turn must not rewrite sealed history');
+assert.equal(v2Report.turnWriteBudget.openTailOverwriteCount, 0, 'hot turn must not overwrite open-tail keys still named by the previous manifest');
+assert.equal(v2Report.turnReadBudget.sealedSegmentReadCount, 0, 'hot turn must not read sealed history');
+assert.equal(v2Report.turnReadBudget.sealedSegmentVerifyCount, 0, 'hot turn must not verify sealed history through storage');
+assert.equal(compactHotTurnWriteKeys.includes(hotOpenEventTailRef.logicalKey), true, 'hot turn should write the manifest-selected event tail/new event segment');
+assert.equal(compactHotTurnWriteKeys.includes(hotOpenTurnTailRef.logicalKey), true, 'hot turn should write the manifest-selected turn tail/new turn segment');
+assert.equal(compactHotTurnWriteKeys.includes(oldOpenEventTailRef.logicalKey), false, 'hot turn must not overwrite the prior event tail key');
+assert.equal(compactHotTurnWriteKeys.includes(oldOpenTurnTailRef.logicalKey), false, 'hot turn must not overwrite the prior turn tail key');
+assert.notEqual(hotOpenEventTailRef.logicalKey, oldOpenEventTailRef.logicalKey, 'changed event tail should publish through a versioned/new key');
+assert.notEqual(hotOpenTurnTailRef.logicalKey, oldOpenTurnTailRef.logicalKey, 'changed turn tail should publish through a versioned/new key');
+assert.deepEqual(await readV2ArtifactRef(storageAdapter, oldOpenEventTailRef), oldOpenEventTail, 'previous event tail should remain readable through the old manifest ref');
+assert.deepEqual(await readV2ArtifactRef(storageAdapter, oldOpenTurnTailRef), oldOpenTurnTail, 'previous turn tail should remain readable through the old manifest ref');
+assert.equal(compactHotTurnWriteKeys.at(-2), hotTurnCommit.saveManifestRef.logicalKey, 'save manifest should be the penultimate hot pointer write');
+assert.equal(compactHotTurnWriteKeys.at(-1), hotTurnCommit.campaignManifestRef.logicalKey, 'campaign manifest should be the final hot pointer write');
+assert.equal(hotTurnManifest.hash, hotTurnCommit.saveManifest.hash, 'loaded hot manifest should match the committed save manifest hash');
+assert.equal(hotTurnCampaignManifest.saves['save-ashes-scale'].manifest.hash, hotTurnCommit.saveManifestRef.hash, 'campaign manifest should point at the hot save manifest hash');
+assert.equal(
+  loadedAfterHotAppend.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-05001'),
+  true,
+  'manifest-owned production reload should see the hot appended player ingress'
+);
+assert.equal(
+  loadedAfterHotAppend.runtimeTracking?.responseLedger?.some((entry) => (
+    entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
+  )),
+  true,
+  'manifest-owned production reload should see the hot appended assistant response'
+);
+assert.equal(
+  loadedAfterHotAppend.turnLedger?.entries?.some((entry) => (
+    entry.turnId === 'turn-02501' && entry.outcomeId === 'outcome-02501'
+  )),
+  true,
+  'manifest-owned production reload should see the hot appended turn ledger entry'
+);
+assert.equal(recoveredAfterHotAppend.storageFormat, 'v2', 'active save recovery should recover the manifest-owned v2 save');
+assert.equal(recoveredAfterHotAppend.activeSaveId, 'save-ashes-scale', 'active save recovery should select the registered v2 scale save');
+assert.equal(
+  recoveredAfterHotAppend.campaignState?.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-05001'),
+  true,
+  'active save recovery should see the hot appended player ingress'
+);
+assert.equal(
+  recoveredAfterHotAppend.campaignState?.runtimeTracking?.responseLedger?.some((entry) => (
+    entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
+  )),
+  true,
+  'active save recovery should see the hot appended assistant response'
+);
+assert.equal(
+  reloadReadKeys.filter((key) => new Set(sealedSegmentRefs.map((ref) => ref.logicalKey)).has(key)).length,
+  0,
+  'production reload after hot append must not read sealed event/turn history'
+);
+assert.equal(
+  reloadVerifyKeys.filter((key) => new Set(sealedSegmentRefs.map((ref) => ref.logicalKey)).has(key)).length,
+  0,
+  'production reload after hot append must not verify sealed event/turn history'
+);
+for (const [index, ref] of substrateCommit.refs.eventSegments.slice(0, -1).entries()) {
+  assert.deepEqual(hotTurnManifest.eventSegments[index], ref, `hot turn must preserve sealed event segment ref ${index}`);
+}
+for (const [index, ref] of substrateCommit.refs.turnSegments.slice(0, -1).entries()) {
+  assert.deepEqual(hotTurnManifest.turnSegments[index], ref, `hot turn must preserve sealed turn segment ref ${index}`);
+}
+await Promise.all(segmentRefs([
+  hotTurnManifest.eventSegments,
+  hotTurnManifest.turnSegments,
+  hotTurnManifest.diagnosticsSegments,
+  hotTurnManifest.checkpoints
+]).map((ref) => readV2ArtifactRef(storageAdapter, ref)));
+assert.equal(auxiliaryScaleArtifacts.recallEntries.length, MESSAGE_COUNT / 2 + 250);
+assert.equal(auxiliaryScaleArtifacts.recallResult.includedRefs.length, 12);
+assert.equal(auxiliaryScaleArtifacts.recallResult.includedRefs.every((ref) => ref.directiveAuthority === true), true);
+assert.equal(
+  auxiliaryScaleArtifacts.recallResult.omittedRefs.some((ref) => (
+    String(ref.id || '').startsWith('semantic-candidate-') && ref.directiveAuthority === false
+  )),
+  true,
+  'scale recall query should keep optional semantic candidates non-authoritative when deterministic refs fill the budget'
+);
+assert.equal(
+  auxiliaryScaleArtifacts.recallResult.omittedRefs.some((ref) => ref.omissionReason === 'stale-source'),
+  true,
+  'scale recall query should prove invalidated source refs are omitted'
+);
+assert.equal(auxiliaryScaleArtifacts.sceneSeals.length, 240);
+assert.equal(auxiliaryScaleArtifacts.witnessFacts.length, 640);
+assert.equal(auxiliaryScaleArtifacts.correctionCases.length, 80);
+assert.equal(auxiliaryScaleArtifacts.packageRetrievalMetadata.length, 160);
+assert.equal(auxiliaryScaleArtifacts.promptBudgetTraces.length, 500);
+assert.equal(
+  auxiliaryScaleArtifacts.promptBudgetTraces.some((trace) => (
+    trace.lanes.some((lane) => lane.id === 'recall' && lane.omittedRefs.some((ref) => ref.omissionReason === 'budget-exceeded'))
+  )),
+  true,
+  'prompt budget scale traces should prove recall omissions are traceable'
+);
+assert.equal(
+  auxiliaryScaleArtifacts.promptBudgetTraces.every((trace) => (
+    trace.lanes.find((lane) => lane.id === 'externalEnvironment')?.diagnosticOnly === true
+  )),
+  true,
+  'external prompt environment lane remains diagnostic-only at scale'
+);
+assert.equal(v2Report.turnWriteBudget.sealedSegmentRewriteCount, 0, 'Stage 2 target forbids rewriting sealed segments per turn');
+assert.equal(v2Report.turnWriteBudget.bootstrapWroteSealedSegmentCount > 0, true, 'bulk bootstrap may write sealed historical segments before the hot-turn budget begins');
+const segmentizedRewriteReport = {
+  ...v2Report,
+  turnWriteBudget: createHotTurnWriteBudget({
+    hotTurnWriteKeys: segmentizedRewriteHotTurnWriteKeys,
+    sealedSegmentRefs,
+    protectedOpenTailRefs: [oldOpenEventTailRef, oldOpenTurnTailRef],
+    allSegmentRefs: hotTurnBudgetRefs
+  })
+};
+const segmentizedRewriteViolations = evaluateThresholds(segmentizedRewriteReport);
+assert.equal(segmentizedRewriteViolations.includes('sealed-segment-rewrite'), true, 'scale gate must fail v2 designs that rewrite sealed event/turn segments per turn');
+assert.equal(segmentizedRewriteViolations.includes('hot-path-full-save-rewrite'), false, 'compact v2 rewrite-all-history designs fail separately from legacy full-save rewrites');
+const openTailOverwriteReport = {
+  ...v2Report,
+  turnWriteBudget: createHotTurnWriteBudget({
+    hotTurnWriteKeys: [
+      oldOpenEventTailRef.logicalKey,
+      hotTurnCommit.saveManifestRef.logicalKey,
+      hotTurnCommit.campaignManifestRef.logicalKey
+    ],
+    sealedSegmentRefs,
+    protectedOpenTailRefs: [oldOpenEventTailRef, oldOpenTurnTailRef],
+    allSegmentRefs: hotTurnBudgetRefs
+  })
+};
+assert.equal(
+  evaluateThresholds(openTailOverwriteReport).includes('open-tail-overwrite'),
+  true,
+  'scale gate must fail hot turns that overwrite the old open-tail key still named by the previous manifest'
+);
+const sealedReadReport = {
+  ...v2Report,
+  turnReadBudget: createHotTurnReadBudget({
+    hotTurnReadKeys: sealedSegmentRefs.slice(0, 1).map((ref) => ref.logicalKey),
+    hotTurnVerifyKeys: [],
+    sealedSegmentRefs
+  })
+};
+assert.equal(evaluateThresholds(sealedReadReport).includes('sealed-segment-read'), true, 'scale gate must fail hot turns that read sealed segment history');
+const sealedVerifyReport = {
+  ...v2Report,
+  turnReadBudget: createHotTurnReadBudget({
+    hotTurnReadKeys: [],
+    hotTurnVerifyKeys: sealedSegmentRefs.slice(0, 1).map((ref) => ref.logicalKey),
+    sealedSegmentRefs
+  })
+};
+assert.equal(evaluateThresholds(sealedVerifyReport).includes('sealed-segment-verify'), true, 'scale gate must fail hot turns that verify sealed segment history through storage');
 
 const serializedV2 = JSON.stringify(fakeStorage.snapshot());
 assert.equal(serializedV2.includes('SECRET-QDRANT-KEY'), false);
 assert.equal(serializedV2.includes('Raw vector payload'), false);
 assert.equal(serializedV2.includes('Raw rolling summary'), false);
 assert.equal(serializedV2.includes('Raw lorebook content'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_RECALL_TRANSCRIPT'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_RECALL_PROVIDER'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_SEAL_SUMMARY'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_VECTOR_PAYLOAD'), false);
+assert.equal(serializedV2.includes('SECRET-SCALE-QDRANT'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_BUDGET_RECALL_PROMPT'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_RECENT_TRANSCRIPT'), false);
+assert.equal(serializedV2.includes('RAW_SCALE_EXTERNAL_PROMPT'), false);
+assert.equal(serializedV2.includes('SECRET-SCALE-EXTERNAL'), false);
 assert.equal(serializedV2.includes(messages[0].text), false, 'v2 layout must not retain raw transcript text');
 assert.equal(serializedV2.includes('"rootsSet"'), false, 'v2 layout must not retain broad open-world rootsSet replacements');
 
@@ -566,5 +1335,16 @@ console.log('Storage scale 5000 tests passed:', JSON.stringify({
   promptCacheBytes: v2Report.sizes.promptCacheBytes,
   eventSegments: v2Report.sizes.eventSegmentCount,
   diagnosticsSegments: v2Report.sizes.diagnosticsSegmentCount,
+  recallIndexSegments: v2Report.sizes.recallIndexSegmentCount,
+  sceneSealSegments: v2Report.sizes.sceneSealSegmentCount,
+  promptBudgetTraceSegments: v2Report.sizes.promptBudgetTraceSegmentCount,
+  recallIndexSegmentMaxBytes: v2Report.sizes.recallIndexSegmentMaxBytes,
+  sceneSealSegmentMaxBytes: v2Report.sizes.sceneSealSegmentMaxBytes,
+  promptBudgetTraceSegmentMaxBytes: v2Report.sizes.promptBudgetTraceSegmentMaxBytes,
+  hotTurnWrites: v2Report.turnWriteBudget.writesPerSettledTurn,
+  hotTurnReads: hotTurnReadKeys.length,
+  sealedSegmentReads: v2Report.turnReadBudget.sealedSegmentReadCount,
+  sealedSegmentRewrites: v2Report.turnWriteBudget.sealedSegmentRewriteCount,
+  openTailOverwrites: v2Report.turnWriteBudget.openTailOverwriteCount,
   legacyFullSaveBytes: legacyReport.sizes.materializedHeadBytes
 }));

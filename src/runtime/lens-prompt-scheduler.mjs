@@ -65,6 +65,69 @@ function uniqueStrings(values = []) {
   return out;
 }
 
+function acceptedSidecarBatchCacheInput({
+  cacheInputs = {},
+  promptFrame = {}
+} = {}) {
+  const projection = promptFrame?.coreAcceptedBatchProjection
+    || promptFrame?.acceptedSidecarBatchProjection
+    || cacheInputs?.coreAcceptedBatchProjection
+    || cacheInputs?.acceptedSidecarBatchProjection
+    || null;
+  const background = projection?.background && typeof projection.background === 'object'
+    ? projection.background
+    : {};
+  const acceptedBatchHash = asString(
+    cacheInputs?.acceptedSidecarBatchHash
+    || cacheInputs?.acceptedBatchHash
+    || promptFrame?.acceptedSidecarBatchHash
+    || promptFrame?.acceptedBatchHash
+    || projection?.acceptedBatchHash
+  );
+  if (!acceptedBatchHash) return null;
+  return compactObject({
+    acceptedBatchHash,
+    transactionId: asString(projection?.transactionId || promptFrame?.acceptedBatchTransactionId || cacheInputs?.acceptedBatchTransactionId),
+    batchId: asString(projection?.batchId || promptFrame?.acceptedBatchId || cacheInputs?.acceptedBatchId),
+    backgroundBatchId: asString(background.backgroundBatchId || background.batchId || projection?.backgroundBatchId),
+    workerCount: Number.isFinite(Number(projection?.workerCount)) ? Number(projection.workerCount) : undefined,
+    operationCount: Number.isFinite(Number(projection?.operationCount)) ? Number(projection.operationCount) : undefined
+  });
+}
+
+function normalizePromptCacheInputs({
+  cacheInputs = {},
+  campaignContext = {},
+  promptFrame = {}
+} = {}) {
+  const recallRevisions = {
+    ...(promptFrame?.recallRevisions || {}),
+    ...(campaignContext?.recallRevisions || {}),
+    ...(cacheInputs?.recallRevisions || {})
+  };
+  return compactObject({
+    recallIndexRevision: asString(
+      cacheInputs?.recallIndexRevision
+      || campaignContext?.recallIndexRevision
+      || promptFrame?.recallIndexRevision
+      || recallRevisions.recallIndexRevision
+    ),
+    sceneSealRevision: asString(
+      cacheInputs?.sceneSealRevision
+      || campaignContext?.sceneSealRevision
+      || promptFrame?.sceneSealRevision
+      || recallRevisions.sceneSealRevision
+    ),
+    pressureArcDigestRevision: asString(
+      cacheInputs?.pressureArcDigestRevision
+      || campaignContext?.pressureArcDigestRevision
+      || promptFrame?.pressureArcDigestRevision
+      || recallRevisions.pressureArcDigestRevision
+    ),
+    acceptedSidecarBatch: acceptedSidecarBatchCacheInput({ cacheInputs, promptFrame })
+  });
+}
+
 export function normalizePromptDirtyDomains(values = []) {
   return uniqueStrings(
     uniqueStrings(values)
@@ -93,7 +156,8 @@ function buildPromptCacheKey({
   campaignContext = {},
   dirtyDomains = [],
   promptFrame = {},
-  externalPromptEnvironmentRef = null
+  externalPromptEnvironmentRef = null,
+  cacheInputs = {}
 } = {}) {
   return hashStableJson({
     lane,
@@ -115,6 +179,11 @@ function buildPromptCacheKey({
     sourceFrameId: promptFrame.sourceFrameId || null,
     sourceToken: promptFrame.sourceToken || null,
     dirtyDomains,
+    recallIndexRevision: cacheInputs.recallIndexRevision || null,
+    sceneSealRevision: cacheInputs.sceneSealRevision || null,
+    pressureArcDigestRevision: cacheInputs.pressureArcDigestRevision || null,
+    acceptedSidecarBatchHash: cacheInputs.acceptedSidecarBatch?.acceptedBatchHash || null,
+    acceptedSidecarBackgroundBatchId: cacheInputs.acceptedSidecarBatch?.backgroundBatchId || null,
     externalPromptEnvironmentHash: externalPromptEnvironmentRef?.hash || null
   });
 }
@@ -264,10 +333,12 @@ export function createLensPromptScheduler({
     promptFrame = {},
     externalPromptEnvironment = null,
     externalPromptEnvironmentRef = null,
+    cacheInputs = {},
     reason = 'lens-flush',
     hostGenerationReleasedAt = null,
     installMethod = null,
     buildDirectivePromptPacket: buildDirectivePromptPacketOverride = null,
+    beforeInstallPrompt = null,
     forceRebuild = false,
     idempotencyKey = null
   } = {}) {
@@ -319,13 +390,19 @@ export function createLensPromptScheduler({
       externalEnvironmentRefs.set(resolvedExternalPromptEnvironmentRef.hash, resolvedExternalPromptEnvironmentRef);
     }
 
+    const promptCacheInputs = normalizePromptCacheInputs({
+      cacheInputs,
+      campaignContext,
+      promptFrame
+    });
     const cacheKey = buildPromptCacheKey({
       lane,
       binding,
       campaignContext,
       promptFrame,
       dirtyDomains,
-      externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef
+      externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+      cacheInputs: promptCacheInputs
     });
     const prior = installedByLane.get(lane) || null;
     const suspended = suspendedByLane.get(lane) || null;
@@ -356,16 +433,79 @@ export function createLensPromptScheduler({
       promptFrame,
       binding,
       cacheKey,
+      cacheInputs: promptCacheInputs,
+      recallIndexRevision: promptCacheInputs.recallIndexRevision || null,
+      sceneSealRevision: promptCacheInputs.sceneSealRevision || null,
+      pressureArcDigestRevision: promptCacheInputs.pressureArcDigestRevision || null,
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef
     });
     packet.blocks = directivePromptBlocks(packet.blocks || []);
     const method = asString(installMethod) || (prior ? 'rebuild' : 'install');
+    if (typeof beforeInstallPrompt === 'function') {
+      const guardResult = await beforeInstallPrompt({
+        method,
+        lane,
+        binding: cloneJson(binding),
+        cacheKey,
+        cacheInputs: promptCacheInputs,
+        reason,
+        dirtyDomains,
+        promptFrame: cloneJson(promptFrame),
+        campaignContext: cloneJson(campaignContext),
+        externalPromptEnvironmentRef: cloneJson(resolvedExternalPromptEnvironmentRef),
+        packetRef: compactObject({
+          kind: packet.kind || null,
+          revision,
+          cacheKey,
+          hash: packet.hash || hashStableJson(packet),
+          blockCount: packet.blocks.length,
+          promptKeys: packet.blocks.map((block) => block.promptKey)
+        })
+      });
+      const installAllowed = guardResult === undefined
+        || guardResult === null
+        || guardResult === true
+        || (typeof guardResult === 'object' && guardResult.ok !== false && guardResult.allow !== false && guardResult.stale !== true);
+      if (!installAllowed) {
+        const diagnostic = await appendPromptDiagnostic(transactionId, {
+          status: 'installSkippedStale',
+          severity: 'warning',
+          observedAt: clock(),
+          lane,
+          reason,
+          dirtyPrompt: true,
+          dirtyDomains,
+          cacheKey,
+          cacheInputs: promptCacheInputs,
+          directivePromptRevision: revision,
+          externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+          guard: compactObject({
+            status: typeof guardResult === 'object' ? asString(guardResult.status, 'rejected') : 'rejected',
+            reason: typeof guardResult === 'object' ? asString(guardResult.reason) : null,
+            code: typeof guardResult === 'object' ? asString(guardResult.code) : null
+          })
+        });
+        return {
+          status: 'installSkippedStale',
+          rebuilt: false,
+          built: true,
+          lane,
+          dirtyPrompt: true,
+          dirtyDomains,
+          cacheKey,
+          cacheInputs: promptCacheInputs,
+          externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+          diagnostic
+        };
+      }
+    }
     const installResult = await installPromptPacket({
       method,
       lane,
       packet,
       binding,
       cacheKey,
+      cacheInputs: promptCacheInputs,
       reason
     });
     if (installResult?.ok === false) {
@@ -386,6 +526,7 @@ export function createLensPromptScheduler({
       promptKeys: packet.blocks.map((block) => block.promptKey),
       installedAt,
       appliesTo,
+      cacheInputs: promptCacheInputs,
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
       installResult
     });
@@ -403,6 +544,7 @@ export function createLensPromptScheduler({
       dirtyDomains,
       directivePromptRevision: directiveOwnedRevision,
       cacheKey,
+      cacheInputs: promptCacheInputs,
       promptHash: installed.promptHash,
       promptKeys: installed.promptKeys,
       cacheRecord: installed,
@@ -426,6 +568,7 @@ export function createLensPromptScheduler({
       directiveOwnedRevision,
       packetHash: installed.promptHash,
       cacheKey,
+      cacheInputs: promptCacheInputs,
       appliesTo,
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
       packet,

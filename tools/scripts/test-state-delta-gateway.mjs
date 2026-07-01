@@ -85,6 +85,24 @@ assert.equal(second.revision, 2);
 assert.equal(state.mission.knownFacts.length, 1);
 assert.equal(persisted.length, 2);
 
+const validatedOnly = await gateway.validateOperations({
+  id: 'proposal-validate-only',
+  workerId: 'ship',
+  baseRevision: 2,
+  operations: [
+    { op: 'set', path: 'ship.condition', value: 'Validated but not yet applied' }
+  ],
+  summary: 'Validate ship condition projection without mutating runtime state.'
+}, { allowedRoots: ['ship'] });
+assert.equal(validatedOnly.applied, true);
+assert.equal(validatedOnly.revision, 3);
+assert.equal(validatedOnly.persisted, false);
+assert.equal(validatedOnly.mutated, false);
+assert.equal(validatedOnly.campaignState.ship.condition, 'Validated but not yet applied');
+assert.equal(state.ship.condition, 'Degraded but operational', 'validateOperations must not mutate live gateway state.');
+assert.equal(state.runtimeTracking.revision, 2, 'validateOperations must not advance live runtime revision.');
+assert.equal(persisted.length, 2, 'validateOperations must not persist compatibility projection.');
+
 state = recordModelCallEvent(state, {
   id: 'model-call.fixture.utility',
   roleId: 'utilityTurnClassifier',

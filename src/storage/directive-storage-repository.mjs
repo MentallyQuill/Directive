@@ -14,6 +14,9 @@ import {
   readV2ArtifactRef
 } from './transaction-store-v2.mjs';
 import {
+  loadActiveCampaignStateV2
+} from './active-save-facade-v2.mjs';
+import {
   assertDirectiveUserFilesPath,
   DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
 } from './directive-storage-filenames.mjs';
@@ -45,6 +48,10 @@ function requireNonEmptyString(value, label) {
     throw new Error(`${label} must be a non-empty string`);
   }
   return value.trim();
+}
+
+function compact(value = {}) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
 }
 
 function isoNow() {
@@ -447,9 +454,6 @@ function isV2SaveIndexEntry(entry = {}) {
 
 function v2ManifestRefForSaveEntry(entry = {}, record = null, { includeRuntimeBridge = false } = {}) {
   if (includeRuntimeBridge && entry.v2ManifestRef?.logicalKey) return cloneJson(entry.v2ManifestRef);
-  if (entry.manifestRef?.logicalKey && (entry.payloadKind === 'directive.saveManifest.v2' || entry.kind === 'directive.saveManifest.v2')) {
-    return cloneJson(entry.manifestRef);
-  }
   if (record?.kind === 'directive.saveManifest.v2') {
     return {
       logicalKey: entry.path,
@@ -458,7 +462,51 @@ function v2ManifestRefForSaveEntry(entry = {}, record = null, { includeRuntimeBr
       kind: record.kind
     };
   }
+  if (entry.manifestRef?.logicalKey && (entry.payloadKind === 'directive.saveManifest.v2' || entry.kind === 'directive.saveManifest.v2')) {
+    return cloneJson(entry.manifestRef);
+  }
   return null;
+}
+
+function isRuntimeV2BridgeEntry(entry = {}) {
+  return entry.runtimeStorageFormat === 'v2' && Boolean(entry.v2ManifestRef?.logicalKey);
+}
+
+async function loadRuntimeBridgeCampaignStateV2(adapter, {
+  entry = null,
+  saveRecord = null
+} = {}) {
+  if (!isRuntimeV2BridgeEntry(entry)) return { found: false, skipped: true };
+  const v2ManifestRef = v2ManifestRefForSaveEntry(entry, saveRecord, { includeRuntimeBridge: true });
+  if (!v2ManifestRef?.logicalKey) return { found: false, skipped: true };
+  if (saveRecord?.kind !== 'directive.campaignSave') {
+    return { found: false, skipped: true, reason: 'runtime-v2-bridge-requires-v1-checkpoint' };
+  }
+  try {
+    await readV2ArtifactRef(adapter, v2ManifestRef);
+  } catch (error) {
+    return {
+      found: false,
+      skipped: false,
+      reason: 'runtime-v2-bridge-ref-unreadable',
+      error,
+      v2ManifestRef
+    };
+  }
+  const loaded = await loadActiveCampaignStateV2(adapter, {
+    saveRecord,
+    fallbackCampaignState: saveRecord.payload?.campaignState || null
+  });
+  return loaded?.found && isObject(loaded.campaignState)
+    ? {
+        ...loaded,
+        v2ManifestRef
+      }
+    : {
+        ...loaded,
+        found: false,
+        v2ManifestRef
+      };
 }
 
 async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
@@ -473,13 +521,78 @@ async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
     throw error;
   }
   const head = await readV2ArtifactRef(adapter, manifest.head);
-  if (!isObject(head.state)) {
+  const headState = isObject(head.state)
+    ? head.state
+    : (head.kind === 'directive.materializedCampaignHead.v2' || isObject(head.campaign))
+      ? head
+      : null;
+  if (!isObject(headState)) {
     const error = new Error('v2 active campaign head is missing materialized state');
     error.code = 'DIRECTIVE_V2_ACTIVE_HEAD_STATE_MISSING';
     error.details = { layout: head.layout || manifest.layout || null, campaignId: manifest.campaignId || null, saveId: manifest.saveId || null };
     throw error;
   }
-  return cloneJson(head.state);
+  const eventSegments = [];
+  const latestEventRef = (manifest.eventSegments || []).at(-1);
+  if (latestEventRef) {
+    eventSegments.push(await readV2ArtifactRef(adapter, latestEventRef));
+  }
+  const turnSegments = [];
+  const latestTurnRef = (manifest.turnSegments || []).at(-1);
+  if (latestTurnRef) {
+    turnSegments.push(await readV2ArtifactRef(adapter, latestTurnRef));
+  }
+  const campaignState = cloneJson(headState);
+  const eventEntries = eventSegments.flatMap((segment) => (Array.isArray(segment?.entries) ? segment.entries : []));
+  const turnEntries = turnSegments.flatMap((segment) => (Array.isArray(segment?.entries) ? segment.entries : []));
+  const ingressLedger = eventEntries
+    .filter((entry) => entry?.type === 'runtimeIngressProjected' || entry?.type === 'playerIngressObserved' || entry?.type === 'turnObserved')
+    .map((entry) => compact({
+      id: entry.ingressId || entry.source?.hostMessageId || entry.hostMessageId || entry.id || null,
+      hostMessageId: entry.hostMessageId || entry.source?.hostMessageId || null,
+      turnId: entry.turnId || null,
+      outcomeId: entry.outcomeId || null,
+      textHash: entry.textHash || entry.source?.textHash || null,
+      status: entry.status || entry.phase || 'observed'
+    }));
+  const responseLedger = eventEntries
+    .filter((entry) => entry?.type === 'runtimeResponseProjected' || entry?.type === 'visibleResponseRecorded')
+    .map((entry) => compact({
+      id: entry.responseId || entry.source?.hostMessageId || entry.hostMessageId || entry.id || null,
+      hostMessageId: entry.hostMessageId || entry.source?.hostMessageId || null,
+      turnId: entry.turnId || null,
+      outcomeId: entry.outcomeId || null,
+      status: entry.status || 'posted',
+      responseKind: entry.responseKind || entry.kind || null,
+      replacementTextPresent: entry.replacementTextPresent,
+      replacementTextHash: entry.replacementTextHash,
+      replacementTextLength: entry.replacementTextLength,
+      outcomeIntegrity: entry.outcomeIntegrity ? cloneJson(entry.outcomeIntegrity) : undefined
+    }));
+  if (ingressLedger.length > 0 || responseLedger.length > 0) {
+    campaignState.runtimeTracking = compact({
+      ...(campaignState.runtimeTracking || {}),
+      schemaVersion: 2,
+      ingressLedger,
+      responseLedger,
+      recoveryJournal: [],
+      sidecarJournal: [],
+      modelCallJournal: [],
+      pendingInteractions: []
+    });
+  }
+  if (turnEntries.length > 0) {
+    campaignState.turnLedger = {
+      ...(campaignState.turnLedger || {}),
+      entries: turnEntries.map((entry) => compact({
+        id: entry.id || entry.turnId || null,
+        turnId: entry.turnId || entry.id || null,
+        outcomeId: entry.outcomeId || null,
+        phase: entry.phase || null
+      }))
+    };
+  }
+  return campaignState;
 }
 
 async function markCampaignSaveActiveInIndex(adapter, saveIndex, saveId, options = {}) {
@@ -848,11 +961,19 @@ export async function markCampaignSaveRuntimeV2State(adapter, {
   }
   const nextMetadata = metadata ? cloneJson(metadata) : cloneJson(existing.metadata || {});
   nextMetadata.lastUpdatedAt = nextMetadata.lastUpdatedAt || updatedAt;
+  const manifestOwnedSave = existing.storageFormat === 'v2'
+    || existing.payloadKind === 'directive.saveManifest.v2'
+    || existing.kind === 'directive.saveManifest.v2'
+    || Boolean(existing.manifestRef?.logicalKey);
   index.saves[id] = {
     ...cloneJson(existing),
     current: current === true ? true : existing.current === true,
     updatedAt,
     metadata: nextMetadata,
+    path: manifestOwnedSave ? manifestRef.logicalKey : existing.path,
+    storageFormat: manifestOwnedSave ? 'v2' : existing.storageFormat,
+    payloadKind: manifestOwnedSave ? 'directive.saveManifest.v2' : existing.payloadKind,
+    manifestRef: manifestOwnedSave ? manifestRef : existing.manifestRef,
     runtimeStorageFormat: 'v2',
     v2RuntimePersistedAt: updatedAt,
     v2ManifestRef: manifestRef
@@ -1018,6 +1139,14 @@ export async function loadCampaignSaveFromStorage(adapter, saveId, options = {})
 
   if (options.markActive !== false) {
     await markCampaignSaveActiveInIndex(adapter, index, id, options);
+  }
+
+  const runtimeBridge = await loadRuntimeBridgeCampaignStateV2(adapter, {
+    entry,
+    saveRecord: record
+  });
+  if (runtimeBridge.found && isObject(runtimeBridge.campaignState)) {
+    return cloneJson(runtimeBridge.campaignState);
   }
 
   const v2ManifestRef = v2ManifestRefForSaveEntry(entry, record);
@@ -1346,6 +1475,32 @@ export async function recoverActiveCampaignSave(adapter, options = {}) {
 
   for (const entry of candidates) {
     const result = await readJsonDiagnostic(adapter, entry.path);
+    if (result.status === 'ok') {
+      const runtimeBridge = await loadRuntimeBridgeCampaignStateV2(adapter, {
+        entry,
+        saveRecord: result.value
+      });
+      if (runtimeBridge.found && isObject(runtimeBridge.campaignState)) {
+        const needsIndexRepair = index.activeSaveId !== entry.id || entry.current !== true || currentEntries.length > 1;
+        if (needsIndexRepair) {
+          await markCampaignSaveActiveInIndex(adapter, index, entry.id, options);
+        }
+        return {
+          kind: 'directive.activeSaveRecovery',
+          checkedAt,
+          recovered: needsIndexRepair || issues.length > 0,
+          activeSaveId: entry.id,
+          saveRecord: cloneJson(result.value),
+          campaignState: cloneJson(runtimeBridge.campaignState),
+          storageFormat: 'v2',
+          diagnostics: {
+            status: diagnosticStatus(issues),
+            ok: issues.every((issue) => issue.severity !== 'error'),
+            issues
+          }
+        };
+      }
+    }
     const v2ManifestRef = v2ManifestRefForSaveEntry(entry, result.value);
     if (v2ManifestRef) {
       try {

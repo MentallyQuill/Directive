@@ -22,10 +22,12 @@ import {
 import {
   cleanMissingStorageIndexRecords,
   diagnoseDirectiveStorage,
+  getDirectiveStorageIndexes,
   initializeDirectiveStorage,
   loadCampaignSaveRecordFromStorage,
   listCampaignSaves,
   listCharacterCreatorDrafts,
+  pruneCampaignAutosaves,
   recoverActiveCampaignSave
 } from '../storage/directive-storage-repository.mjs';
 import {
@@ -436,6 +438,66 @@ export function createCampaignStartController({
     return registry.getPackage(packageId);
   }
 
+  function saveIndexEntryHasV2Authority(entry = null) {
+    return entry?.runtimeStorageFormat === 'v2'
+      || entry?.storageFormat === 'v2'
+      || entry?.payloadKind === 'directive.saveManifest.v2'
+      || Boolean(entry?.v2ManifestRef?.logicalKey)
+      || Boolean(entry?.manifestRef?.logicalKey);
+  }
+
+  async function shouldPersistManualSaveAsV2(saveId) {
+    const indexes = await getDirectiveStorageIndexes(adapter);
+    return saveIndexEntryHasV2Authority(indexes.saveIndex?.saves?.[saveId]);
+  }
+
+  async function persistRuntimeCampaignStateForSaveRecord({
+    saveRecord,
+    campaignState,
+    packageId = null,
+    summary = null,
+    reason = 'runtimePersist',
+    markActive = true,
+    createIndexEntry = false,
+    name = null,
+    slotType = 'manual',
+    now: savedAt = null
+  } = {}) {
+    requireObject(saveRecord, 'saveRecord');
+    requireObject(campaignState, 'campaignState');
+    const packageData = packageForState(campaignState, packageId);
+    const result = await persistActiveCampaignStateV2(adapter, {
+      saveRecord,
+      campaignState,
+      packageData,
+      summary,
+      reason,
+      current: markActive !== false ? saveRecord.current === true : false,
+      createIndexEntry,
+      name,
+      slotType,
+      now: savedAt || currentTime()
+    });
+    if (markActive !== false) {
+      activeSaveId = result.saveId;
+      activePackageId = result.saveIndexEntry?.metadata?.packageId || activePackageId;
+      activeCampaignState = cloneJson(campaignState);
+    }
+    return cloneJson(result);
+  }
+
+  async function persistRuntimeCampaignStateForSave({
+    saveId,
+    ...options
+  } = {}) {
+    const id = requireNonEmptyString(saveId, 'saveId');
+    const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+    return persistRuntimeCampaignStateForSaveRecord({
+      saveRecord,
+      ...options
+    });
+  }
+
   return {
     get packageIds() {
       return [...registry.packageIds];
@@ -517,13 +579,21 @@ export function createCampaignStartController({
 
     async exportActiveSave({ saveId = activeSaveId } = {}) {
       const id = requireNonEmptyString(saveId, 'saveId');
+      const exportedAt = currentTime();
       const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+      const campaignState = await loadGame({
+        adapter,
+        saveId: id,
+        markActive: false,
+        now: exportedAt
+      });
       return {
         kind: 'directive.activeSaveExport',
-        exportedAt: currentTime(),
+        exportedAt,
         saveId: id,
         fileName: `directive-save-${id}.json`,
-        saveRecord: cloneJson(saveRecord)
+        saveRecord: cloneJson(saveRecord),
+        campaignState: cloneJson(campaignState)
       };
     },
 
@@ -672,10 +742,20 @@ export function createCampaignStartController({
       saveId = activeSaveId,
       campaignState = activeCampaignState,
       packageId = null,
-      summary = null
+      summary = null,
+      forceCheckpoint = false
     } = {}) {
       const id = requireNonEmptyString(saveId, 'saveId');
       requireObject(campaignState, 'campaignState');
+      if (!forceCheckpoint && await shouldPersistManualSaveAsV2(id)) {
+        return persistRuntimeCampaignStateForSave({
+          saveId: id,
+          campaignState,
+          packageId,
+          summary,
+          reason: 'manualSave'
+        });
+      }
       const packageData = packageForState(campaignState, packageId);
       const save = await saveGame({
         adapter,
@@ -700,27 +780,14 @@ export function createCampaignStartController({
       markActive = true
     } = {}) {
       const id = requireNonEmptyString(saveId, 'saveId');
-      requireObject(campaignState, 'campaignState');
-      const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
-      if (saveRecord.kind !== 'directive.campaignSave') {
-        throw new Error('Runtime persistence requires a v1 manual checkpoint save record');
-      }
-      const packageData = packageForState(campaignState, packageId);
-      const result = await persistActiveCampaignStateV2(adapter, {
-        saveRecord,
+      return persistRuntimeCampaignStateForSave({
+        saveId: id,
         campaignState,
-        packageData,
+        packageId,
         summary,
         reason,
-        current: markActive !== false ? saveRecord.current === true : false,
-        now: currentTime()
+        markActive
       });
-      if (markActive !== false) {
-        activeSaveId = result.saveId;
-        activePackageId = result.saveIndexEntry?.metadata?.packageId || activePackageId;
-        activeCampaignState = cloneJson(campaignState);
-      }
-      return cloneJson(result);
     },
 
     async saveCurrentGameAs({
@@ -732,10 +799,49 @@ export function createCampaignStartController({
       summary = null
     } = {}) {
       requireObject(campaignState, 'campaignState');
+      const sourceId = requireNonEmptyString(sourceSaveId, 'sourceSaveId');
+      if (await shouldPersistManualSaveAsV2(sourceId)) {
+        const indexes = await getDirectiveStorageIndexes(adapter);
+        const sourceEntry = indexes.saveIndex?.saves?.[sourceId] || {};
+        const sourceRecord = await loadCampaignSaveRecordFromStorage(adapter, sourceId);
+        const branchedAt = currentTime();
+        const branchPoint = branchFrom || {
+          divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId
+            || sourceRecord.payload?.campaignState?.turnLedger?.lastCommittedOutcomeId
+            || null
+        };
+        const branchName = name?.trim() || `${sourceEntry.name || sourceRecord.name || sourceId} Copy`;
+        return persistRuntimeCampaignStateForSaveRecord({
+          saveRecord: {
+            kind: 'directive.saveManifest.v2',
+            id: requireNonEmptyString(newSaveId, 'newSaveId'),
+            name: branchName,
+            current: true,
+            branchId: newSaveId,
+            metadata: {
+              campaignId: campaignState?.campaign?.id || sourceEntry.metadata?.campaignId || sourceRecord.metadata?.campaignId || null,
+              branch: {
+                parentSaveId: sourceId,
+                parentSaveName: sourceEntry.name || sourceRecord.name || sourceId,
+                divergenceOutcomeId: branchPoint?.divergenceOutcomeId || null,
+                branchedAt
+              }
+            }
+          },
+          campaignState,
+          summary,
+          reason: 'saveAs',
+          markActive: true,
+          createIndexEntry: true,
+          name: branchName,
+          slotType: 'manual',
+          now: branchedAt
+        });
+      }
       const packageData = packageForState(campaignState);
       const save = await saveGameAs({
         adapter,
-        sourceSaveId,
+        sourceSaveId: sourceId,
         newSaveId,
         name,
         now: currentTime(),
@@ -788,6 +894,41 @@ export function createCampaignStartController({
       keep = 3
     } = {}) {
       requireObject(campaignState, 'campaignState');
+      if (activeSaveId && await shouldPersistManualSaveAsV2(activeSaveId)) {
+        const savedAt = currentTime();
+        const save = await persistRuntimeCampaignStateForSaveRecord({
+          saveRecord: {
+            kind: 'directive.saveManifest.v2',
+            id: requireNonEmptyString(saveId, 'saveId'),
+            name: `Autosave - ${campaignState.player?.name || campaignState.campaign?.title || saveId}`,
+            current: false,
+            branchId: activeSaveId,
+            metadata: {
+              campaignId: campaignState?.campaign?.id || null
+            }
+          },
+          campaignState,
+          packageId,
+          summary,
+          reason: 'autosave',
+          markActive: false,
+          createIndexEntry: true,
+          name: `Autosave - ${campaignState.player?.name || campaignState.campaign?.title || saveId}`,
+          slotType: 'autosave',
+          now: savedAt
+        });
+        const prune = await pruneCampaignAutosaves(adapter, {
+          campaignId: campaignState.campaign?.id,
+          keep,
+          now: savedAt
+        });
+        activePackageId = save.saveIndexEntry?.metadata?.packageId || activePackageId;
+        activeCampaignState = cloneJson(campaignState);
+        return {
+          save: cloneJson(save),
+          prune: cloneJson(prune)
+        };
+      }
       const packageData = packageForState(campaignState, packageId);
       const result = await autosaveGame({
         adapter,
@@ -821,8 +962,13 @@ export function createCampaignStartController({
 
     async readGameState({ saveId } = {}) {
       const id = requireNonEmptyString(saveId, 'saveId');
-      const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
-      return cloneJson(saveRecord.payload?.campaignState || null);
+      const campaignState = await loadGame({
+        adapter,
+        saveId: id,
+        markActive: false,
+        now: currentTime()
+      });
+      return cloneJson(campaignState || null);
     }
   };
 }

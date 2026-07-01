@@ -326,7 +326,7 @@ async function assertCoreHealthy({ adapter, campaignId, saveId }) {
   assert.equal(coreHead.layout, 'core');
   assert.equal(coreHead.state, undefined);
   assert.equal(coreHead.coreStore.counters.transactions, 1);
-  assert.equal(coreHead.coreStore.counters.turns, 1);
+  assert.equal(coreHead.coreStore.counters.turns, 0, 'mechanics hot append must not rewrite the CORE head');
   assert.equal(coreHead.coreStore.counters.diagnostics, 0, 'diagnostics-only append must not rewrite the CORE head');
   const projections = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
   assert.equal(projections.ingressLedger.length, 1);

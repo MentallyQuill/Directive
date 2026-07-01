@@ -108,6 +108,43 @@ function mutationReport({
       chatLength: after.chatLength - before.chatLength,
       recovery: after.recoveryCount - before.recoveryCount,
       promptContextRevision: after.promptContextRevision - before.promptContextRevision
+    },
+    sourceMutationProof: {
+      kind: 'directive.sourceMutationProof.v1',
+      mutationKind: operation,
+      sourceRole: isUser ? 'source' : 'assistant',
+      trackedKind,
+      targetHostMessageId: '12',
+      nativeHostControlMoved: true,
+      nativeHostControls: operation === 'delete'
+        ? { editButton: true, deleteButton: true, confirmation: true, nativeDialog: false }
+        : { editButton: true, doneButton: true },
+      textHashes: operation === 'delete'
+        ? { original: 'original-hash' }
+        : { original: 'original-hash', replacement: 'replacement-hash' },
+      trackingChanged: true,
+      recoveryDelta: 1,
+      promptContextRevisionDelta: 1,
+      beforeStatus: beforeTracked.status,
+      afterStatus: afterTracked.status,
+      coreRecovery: {
+        status: 'recorded',
+        transactionId: `txn.${operation}.${trackedKind}`,
+        recoveryCaseId: `case.${operation}.${trackedKind}`,
+        phase: 'recoveryRequired',
+        reason: trackedKind === 'ingress'
+          ? `playerMessage${operation === 'delete' ? 'Deleted' : 'Edited'}`
+          : `directiveResponse${operation === 'delete' ? 'Deleted' : 'Edited'}`
+      },
+      repairDecision: {
+        kind: 'directive.repairDecision.v1',
+        action: operation === 'delete' ? 'reviewRequired' : 'reviewRequired',
+        eventType: trackedKind === 'ingress'
+          ? `playerMessage${operation === 'delete' ? 'Deleted' : 'Edited'}`
+          : `directiveResponse${operation === 'delete' ? 'Deleted' : 'Edited'}`,
+        sourceKind: trackedKind === 'ingress' ? 'playerIngress' : 'directiveResponse',
+        recoveryStatus: 'reviewRequired'
+      }
     }
   };
 }
@@ -139,6 +176,28 @@ function selectedSwipeReport(user = 'directive-soak-b') {
       ok: true,
       action: 'sceneHandshakeInvalidated',
       lastStatus: 'invalidated'
+    },
+    sourceIntegrityProof: {
+      kind: 'directive.sourceIntegrityProof.v1',
+      integrityKind: 'selectedSwipe',
+      sourceRole: 'assistant',
+      actuationMode: 'staged-context-source-truth',
+      fixtureHostMessageId: 'assistant-selected-swipe',
+      selectedSwipeIndex: 1,
+      swipeCount: 3,
+      sourceIntegrity: 'clean',
+      selectedHashMatchesPrevious: true,
+      discardedSwipeCanariesAbsent: true,
+      sourceTextHashes: {
+        selectedAssistantVariant: 'hash-selected',
+        previousAssistant: 'hash-selected',
+        currentPlayer: 'hash-player',
+        range: 'hash-range'
+      },
+      sreDecision: {
+        status: 'settled',
+        action: 'autoCommit'
+      }
     }
   };
 }
@@ -277,6 +336,44 @@ const missingControlReport = buildMessageMutationActuationProof({
 assert.equal(missingControlReport.status, 'fail');
 assert(missingControlReport.failures.some((entry) => /source-edit: native edit done button evidence is missing/.test(entry)));
 
+const missingProofRoot = makeRoot();
+const missingProofArtifact = mutationReport({
+  kind: 'directive.sillytavernMessageEdit.live',
+  isUser: true,
+  trackedKind: 'ingress',
+  operation: 'edit'
+});
+delete missingProofArtifact.sourceMutationProof;
+const missingProofBundle = writeBundle(missingProofRoot, {
+  sourceEdit: missingProofArtifact
+});
+const missingProofReport = buildMessageMutationActuationProof({
+  manifest: missingProofBundle.manifest,
+  strict: true
+});
+assert.equal(missingProofReport.status, 'fail');
+assert(missingProofReport.failures.some((entry) => /source-edit: sourceMutationProof is missing/.test(entry)));
+
+const incompleteProofRoot = makeRoot();
+const incompleteProofArtifact = mutationReport({
+  kind: 'directive.sillytavernMessageDelete.live',
+  isUser: false,
+  trackedKind: 'response',
+  operation: 'delete'
+});
+delete incompleteProofArtifact.sourceMutationProof.coreRecovery.status;
+delete incompleteProofArtifact.sourceMutationProof.repairDecision.kind;
+const incompleteProofBundle = writeBundle(incompleteProofRoot, {
+  assistantDelete: incompleteProofArtifact
+});
+const incompleteProofReport = buildMessageMutationActuationProof({
+  manifest: incompleteProofBundle.manifest,
+  strict: true
+});
+assert.equal(incompleteProofReport.status, 'fail');
+assert(incompleteProofReport.failures.some((entry) => /assistant-delete: sourceMutationProof\.coreRecovery status is missing/.test(entry)));
+assert(incompleteProofReport.failures.some((entry) => /assistant-delete: sourceMutationProof\.repairDecision kind is missing/.test(entry)));
+
 const selectedDefaultRoot = makeRoot();
 const selectedDefaultBundle = writeBundle(selectedDefaultRoot, {
   selectedSwipe: selectedSwipeReport('default-user')
@@ -330,14 +427,53 @@ const rawRecoveryReport = buildMessageMutationActuationProof({
 assert.equal(rawRecoveryReport.status, 'fail');
 assert(rawRecoveryReport.failures.some((entry) => /source-edit: raw text fields are present: recentRecoveryJournal\.0\.details\.replacementText/.test(entry)));
 
+const rawWaitedRoot = makeRoot();
+const rawWaitedArtifact = mutationReport({
+  kind: 'directive.sillytavernMessageEdit.live',
+  isUser: false,
+  trackedKind: 'response',
+  operation: 'edit'
+});
+rawWaitedArtifact.waited.snapshot = {
+  targetMessage: {
+    text: 'This raw assistant text must not be retained.'
+  }
+};
+const rawWaitedBundle = writeBundle(rawWaitedRoot, {
+  assistantEdit: rawWaitedArtifact
+});
+const rawWaitedReport = buildMessageMutationActuationProof({
+  manifest: rawWaitedBundle.manifest,
+  strict: true
+});
+assert.equal(rawWaitedReport.status, 'fail');
+assert(rawWaitedReport.failures.some((entry) => /assistant-edit: raw text fields are present: waited\.snapshot\.targetMessage\.text/.test(entry)));
+
+const missingIntegrityRoot = makeRoot();
+const missingIntegrityArtifact = selectedSwipeReport();
+delete missingIntegrityArtifact.sourceIntegrityProof;
+const missingIntegrityBundle = writeBundle(missingIntegrityRoot, {
+  selectedSwipe: missingIntegrityArtifact
+});
+const missingIntegrityReport = buildMessageMutationActuationProof({
+  manifest: missingIntegrityBundle.manifest,
+  strict: true
+});
+assert.equal(missingIntegrityReport.status, 'fail');
+assert(missingIntegrityReport.failures.some((entry) => /selected-swipe: sourceIntegrityProof is missing/.test(entry)));
+
 fs.rmSync(passRoot, { recursive: true, force: true });
 fs.rmSync(roleMismatchRoot, { recursive: true, force: true });
 fs.rmSync(selectedMissingRoot, { recursive: true, force: true });
 fs.rmSync(defaultUserRoot, { recursive: true, force: true });
 fs.rmSync(missingServedRoot, { recursive: true, force: true });
 fs.rmSync(missingControlRoot, { recursive: true, force: true });
+fs.rmSync(missingProofRoot, { recursive: true, force: true });
+fs.rmSync(incompleteProofRoot, { recursive: true, force: true });
 fs.rmSync(selectedDefaultRoot, { recursive: true, force: true });
 fs.rmSync(rawTextRoot, { recursive: true, force: true });
 fs.rmSync(rawRecoveryRoot, { recursive: true, force: true });
+fs.rmSync(rawWaitedRoot, { recursive: true, force: true });
+fs.rmSync(missingIntegrityRoot, { recursive: true, force: true });
 
 console.log('SillyTavern message mutation actuation preflight tests passed.');

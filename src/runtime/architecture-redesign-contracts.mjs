@@ -2,7 +2,7 @@ const EXTERNAL_CONTEXT_KIND = 'directive.externalPromptEnvironment.v1';
 const TURN_SOURCE_FRAME_KIND = 'directive.turnSourceFrame.v1';
 
 const SECRET_KEY_PATTERN = /(?:api[_-]?key|secret|token|password|credential|authorization|qdrant[_-]?api[_-]?key)/i;
-const RAW_PAYLOAD_KEY_PATTERN = /(?:rawPrompt|promptBody|promptText|rawPromptBody|promptSnapshot|responseSnapshot|rawResponse|rawVector|vectorPayload|embedding|embeddings|rawText|rawContent|rawSummary|rawPlayerText|rawCheckpointText|messageText|textPreview|promptContent|checkpointText|narrationRawText)/i;
+const RAW_PAYLOAD_KEY_PATTERN = /(?:rawPrompt|promptBody|promptText|rawPromptBody|promptSnapshot|responseSnapshot|rawResponse|providerOutput|providerResponse|providerPayload|rawVector|vectorPayload|embedding|embeddings|rawText|rawContent|rawSummary|rawPlayerText|rawCheckpointText|messageText|textPreview|promptContent|checkpointText|narrationRawText)/i;
 const ARCHITECTURE_SOURCE_TOKEN_KEY_PATTERN = /^(?:sourceToken|turnSourceToken)$/i;
 const ARCHITECTURE_SOURCE_TOKEN_VALUE_PATTERN = /^(?:turnSourceFrame|ingress):[A-Za-z0-9_.:-]+$/;
 

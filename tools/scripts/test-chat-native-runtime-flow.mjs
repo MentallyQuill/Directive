@@ -8,7 +8,10 @@ import {
   DIRECTIVE_STORAGE_PATHS,
   listCampaignSaves
 } from '../../src/storage/directive-storage-repository.mjs';
-import { readCoreStoreProjectionsV2 } from '../../src/storage/core-store-v2.mjs';
+import {
+  loadCoreStoreStateV2,
+  readCoreStoreProjectionsV2
+} from '../../src/storage/core-store-v2.mjs';
 import { loadV2MaterializedHead } from '../../src/storage/transaction-store-v2.mjs';
 
 const root = process.cwd();
@@ -572,14 +575,17 @@ const sourceMessageCountBeforeBranch = host.chat.messagesForChat(sourceChatId).l
 const branch = await app.saveCurrentGameAs({ name: 'Guarded Branch' });
 assert.equal(branch.ok, true);
 assert.notEqual(branch.save.id, view.chatNative.binding.saveId);
+assert.equal(branch.save.kind, 'directive.activeCampaignStatePersist.v2');
+assert.equal(branch.save.storageFormat, 'v2');
+assert.equal(branch.save.wroteV1Payload, false);
 assert.equal(branch.view.chatNative.binding.saveId, branch.save.id);
 assert.notEqual(branch.view.chatNative.binding.chatId, sourceChatId);
 assert.equal(branch.branchChat.sourceChatId, sourceChatId);
 assert.equal(branch.branchChat.chatId, branch.view.chatNative.binding.chatId);
-assert.equal(branch.save.payload.campaignState.campaignChatBinding.chatId, branch.view.chatNative.binding.chatId);
+assert.equal(branch.view.campaignState.campaignChatBinding.chatId, branch.view.chatNative.binding.chatId);
 assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
-assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
+assert.equal(branch.view.campaignState.campaignChatBinding.saveId, branch.save.id);
 assert.equal(host.chat.messagesForChat(sourceChatId).length, sourceMessageCountBeforeBranch);
 assert.equal(host.chat.messagesForChat(branch.view.chatNative.binding.chatId).length, sourceMessageCountBeforeBranch);
 
@@ -645,13 +651,21 @@ const loadedSource = await app.loadGame({ saveId: sourceSaveId });
 assertRuntimeViewBoundToSave(loadedSource, sourceSaveId, 'load source save after branch');
 assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
 assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
-assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
+assert.equal(branch.view.campaignState.campaignChatBinding.saveId, branch.save.id);
 view = loadedSource;
 const sourceStorageBeforeRuntimeTurns = host.storage.snapshot();
 const sourceSaveIndexBeforeRuntimeTurns = sourceStorageBeforeRuntimeTurns[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
 const sourceV1PayloadPath = sourceSaveIndexBeforeRuntimeTurns.path;
 const sourceV1PayloadBeforeRuntimeTurns = cloneJson(sourceStorageBeforeRuntimeTurns[sourceV1PayloadPath]);
 const continuityPlannerCallsBeforePlayerTurns = generationRoleCount('continuityProjectionPlanner');
+await assert.rejects(
+  () => readCoreStoreProjectionsV2(host.storage, {
+    campaignId: view.campaignState.campaign.id,
+    saveId: sourceSaveId
+  }),
+  /not found/,
+  'fresh active campaign should not rely on preexisting CORE/v2 projections before the first source-save player turn'
+);
 
 const colorMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-color',
@@ -664,6 +678,27 @@ const colorResult = await app.observeHostPlayerMessage({
 assert.equal(colorResult.decision.classification, 'sceneColor');
 assert.equal(colorResult.abortDefaultGeneration, false);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 0);
+const firstTurnCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: sourceSaveId
+});
+const firstTurnIngress = colorResult.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-color');
+assert.ok(firstTurnIngress?.sourceFrameId, 'first source-save player turn must create old ingress with sourceFrameId compatibility projection');
+assert.ok(firstTurnIngress?.coreTransactionId, 'first source-save player turn must create old ingress with CORE transaction id');
+const firstTurnCoreIngress = firstTurnCoreProjections.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-color');
+assert.ok(firstTurnCoreIngress, 'first source-save player turn must bootstrap readable CORE/v2 ingress projection');
+assert.equal(firstTurnCoreIngress.transactionId, firstTurnIngress.coreTransactionId, 'first source-save CORE transaction id must match old ingress projection');
+assert.equal(firstTurnCoreIngress.sourceFrameId, firstTurnIngress.sourceFrameId, 'first source-save CORE source frame id must match old ingress projection');
+assert.equal(firstTurnCoreIngress.chatId, view.chatNative.binding.chatId, 'first source-save CORE projection must use active chat id');
+const firstTurnSourceStorage = host.storage.snapshot();
+const firstTurnSourceSaveIndex = firstTurnSourceStorage[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
+assert.equal(firstTurnSourceSaveIndex.runtimeStorageFormat, 'v2', 'first source-save player turn must mark runtime-current state as v2');
+assert.equal(Boolean(firstTurnSourceSaveIndex.v2ManifestRef?.logicalKey), true, 'first source-save player turn must attach a v2 runtime manifest ref');
+assert.deepEqual(
+  firstTurnSourceStorage[sourceV1PayloadPath],
+  sourceV1PayloadBeforeRuntimeTurns,
+  'first source-save player turn must not rewrite the original v1 checkpoint payload'
+);
 
 const sceneNavigationMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-scene-navigation',
@@ -852,6 +887,22 @@ const coreProjectionsBeforeReload = await readCoreStoreProjectionsV2(host.storag
 assert.equal(coreProjectionsBeforeReload.ingressLedger.length, view.chatNative.tracking.ingressCount, 'Production chat turns should persist CORE ingress projections for the active save.');
 assert.equal(coreProjectionsBeforeReload.ingressLedger.some((entry) => entry.hostMessageId === 'runtime-player-consequential'), true);
 assert.equal(coreProjectionsBeforeReload.ingressLedger.some((entry) => entry.hostMessageId === 'runtime-player-branch-color'), false, 'Source save CORE projections must not include branch-save turns.');
+assert.equal(Boolean(coreProjectionsBeforeReload.sceneSealRevision), true, 'Production CORE projections must expose scene-seal revision evidence before reload.');
+assert.equal(Boolean(coreProjectionsBeforeReload.pressureArcDigestRevision), true, 'Production CORE projections must expose pressure/arc digest revision evidence before reload.');
+const promptRebuildWithCoreRevisions = await app.rebuildPromptContext();
+const latestPromptSyncBeforeReload = host.prompt.calls().filter((entry) => entry.type === 'sync').at(-1);
+const latestPromptCacheInputsBeforeReload = latestPromptSyncBeforeReload?.options?.packet?.cacheInputs || latestPromptSyncBeforeReload?.options?.cacheInputs || {};
+assert.equal(promptRebuildWithCoreRevisions.ok, true);
+assert.equal(
+  latestPromptCacheInputsBeforeReload.sceneSealRevision,
+  coreProjectionsBeforeReload.sceneSealRevision,
+  'Runtime prompt sync must await CORE projections and include scene-seal revision cache input.'
+);
+assert.equal(
+  latestPromptCacheInputsBeforeReload.pressureArcDigestRevision,
+  coreProjectionsBeforeReload.pressureArcDigestRevision,
+  'Runtime prompt sync must await CORE projections and include pressure/arc digest revision cache input.'
+);
 assert.ok(
   coreProjectionsBeforeReload.modelCallDiagnostics.some((entry) => (
     entry.roleId === 'utilityTurnClassifier'
@@ -892,7 +943,16 @@ const coreHeadBeforeReload = await loadV2MaterializedHead(host.storage, {
   saveId: view.activeSaveId,
   layout: 'core'
 });
-assert.equal(coreHeadBeforeReload.coreStore.counters.transactions >= view.chatNative.tracking.ingressCount, true);
+const coreStateBeforeReload = await loadCoreStoreStateV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+assert.equal(coreStateBeforeReload.counters.transactions >= view.chatNative.tracking.ingressCount, true);
+assert.equal(
+  coreHeadBeforeReload.coreStore.counters.transactions <= coreStateBeforeReload.counters.transactions,
+  true,
+  'CORE materialized head may lag append-only event authority before reload'
+);
 
 const committedResponse = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'committedOutcome');
 const editContext = await app.prepareOutcomeIntegrityEdit({
@@ -1002,8 +1062,53 @@ assert.equal(flushedSidecars.advisoryEnrichmentResult.ok, true);
 assert.equal(flushedSidecars.advisoryEnrichmentResult.applied, true);
 assert.equal(flushedSidecars.advisoryEnrichmentResult.advisoryId, reloadedCounselResult.advisory.id);
 assert.equal(Number.isFinite(flushedSidecars.sidecarCountAfter), true);
+assert.equal(Number.isFinite(flushedSidecars.coreSidecarDiagnosticDelta), true, 'Sidecar flush reporting should include CORE diagnostic delta.');
+assert.equal(
+  flushedSidecars.coreSidecarDiagnosticsAfter >= (flushedSidecars.results || []).length,
+  true,
+  'Sidecar flush reporting must expose CORE diagnostics instead of old sidecarJournal growth.'
+);
+assert.equal(
+  flushedSidecars.sidecarJournalCountAfter < flushedSidecars.coreSidecarDiagnosticsAfter,
+  true,
+  'This fixture must keep old sidecarJournal growth below CORE sidecar progress so chat-native tracking cannot pass through the legacy count alone.'
+);
+assert.equal(
+  flushedSidecars.sidecarCountAfter >= flushedSidecars.coreSidecarDiagnosticsAfter,
+  true,
+  'Sidecar flush sidecarCountAfter must report compact CORE sidecar progress, not the legacy sidecarJournal count.'
+);
+assert.equal(
+  flushedSidecars.sidecarDelta >= (flushedSidecars.results || []).length,
+  true,
+  'Sidecar flush delta should remain meaningful after accepted sidecars stop writing old v1 journals.'
+);
 await reloadedApp.flushRuntimeDiagnostics();
+const activeRuntimeHeadAfterSidecarFlush = await loadV2MaterializedHead(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: sourceSaveId
+});
+assert.equal(
+  activeRuntimeHeadAfterSidecarFlush.state.directiveRuntimeEvidence,
+  undefined,
+  'Active-save v2 head must not persist transient CORE read-projection evidence after sidecar flush.'
+);
+assert.equal(
+  activeRuntimeHeadAfterSidecarFlush.runtimeSummary.sidecarCount >= flushedSidecars.coreSidecarDiagnosticsAfter,
+  true,
+  'Active-save v2 runtime summary must count CORE sidecar diagnostics, not only old sidecarJournal rows.'
+);
+assert.equal(
+  activeRuntimeHeadAfterSidecarFlush.state.runtimeResume.sidecarCount >= flushedSidecars.coreSidecarDiagnosticsAfter,
+  true,
+  'Active-save v2 runtime resume cursor must count CORE sidecar diagnostics for reload metadata.'
+);
 view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+assert.equal(
+  view.chatNative.tracking.sidecarCount >= flushedSidecars.coreSidecarDiagnosticsAfter,
+  true,
+  'Chat-native tracking sidecarCount must use CORE sidecar progress after flush, not only old sidecarJournal rows.'
+);
 const reloadedRolesAfterFlush = host.generation.calls()
   .slice(generationCallCountBeforeReloadedTurn)
   .map((entry) => entry.role);
@@ -1316,7 +1421,8 @@ assert.equal(JSON.stringify(sourceMutationRecoveryProjection).includes('Serrin r
 const saves = await listCampaignSaves(host.storage);
 const activeSave = saves.find((entry) => entry.id === view.activeSaveId);
 assert.ok(activeSave);
-assert.equal(activeSave.revision > 1, true);
+assert.equal(activeSave.storageFormat === 'v2' || activeSave.runtimeStorageFormat === 'v2', true, 'Active save should retain v2 authority after runtime turns and manual save paths.');
+assert.equal(Boolean(activeSave.manifestRef?.logicalKey || activeSave.v2ManifestRef?.logicalKey), true, 'Active save should expose a v2 manifest ref instead of relying on v1 revision churn.');
 
 const promptClearCallsBeforeConclusion = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
 const completed = await reloadedApp.concludeCampaign({ reason: 'Runtime target-flow test completed.', type: 'playerChoice' });

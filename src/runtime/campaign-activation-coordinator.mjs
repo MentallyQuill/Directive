@@ -3,9 +3,7 @@ import {
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
 import {
-  buildLensPromptPacket,
-  createLensPromptInput,
-  lensPromptPacketProjectionSummary
+  createLensPromptInput
 } from './lens-prompt-packet-builder.mjs';
 import {
   globalScenePacingLines,
@@ -826,24 +824,6 @@ export function createCampaignActivationCoordinator({
             },
             createdAt: timestamp(now)
           });
-          promptContext = await buildLensPromptPacket({
-            promptInput,
-            useContinuityPlanner: true,
-            generationRouter
-          });
-          let projectionSummary = lensPromptPacketProjectionSummary(promptContext);
-          emitActivity({
-            ...projectionActivity,
-            ...projectionSummary,
-            phase: 'continuityProjectionValidating',
-            status: 'running'
-          });
-          emitActivity({
-            ...projectionActivity,
-            ...projectionSummary,
-            phase: 'continuityProjectionInstalling',
-            status: 'running'
-          });
           const promptResult = await installPromptContext({
             campaignState: state,
             packageData,
@@ -851,7 +831,9 @@ export function createCampaignActivationCoordinator({
             shipDataset,
             campaignProjection,
             binding: state.campaignChatBinding,
-            promptContext,
+            promptInput,
+            useContinuityPlanner: true,
+            generationRouter,
             reason: 'Campaign prompt context installed during activation.',
             activityContext: {
               source: 'campaignActivation',
@@ -866,11 +848,19 @@ export function createCampaignActivationCoordinator({
           }
           if (promptResult?.packet?.blocks) {
             promptContext = promptResult.packet;
-            projectionSummary = lensPromptPacketProjectionSummary(promptContext);
+          }
+          if (!promptContext?.blocks) {
+            const error = new Error('Campaign prompt installation did not return a prompt packet.');
+            error.code = 'DIRECTIVE_PROMPT_PACKET_MISSING';
+            throw error;
           }
           emitActivity({
             ...projectionActivity,
-            ...projectionSummary,
+            revision: Number(promptContext?.revision || 0) || null,
+            blockCount: Array.isArray(promptContext?.blocks) ? promptContext.blocks.length : 0,
+            contentHash: promptContext?.contentHash || promptContext?.hash || null,
+            projectionHash: promptContext?.continuityProjection?.hash || null,
+            sourceHash: promptContext?.continuityProjection?.sourceHash || null,
             phase: 'continuityProjectionInstalled',
             status: 'complete'
           });

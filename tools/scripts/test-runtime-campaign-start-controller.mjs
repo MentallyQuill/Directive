@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createCampaignStartController } from '../../src/runtime/campaign-start-controller.mjs';
-import { getDirectiveStorageIndexes } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  campaignSavePath,
+  getDirectiveStorageIndexes
+} from '../../src/storage/directive-storage-repository.mjs';
 
 const root = process.cwd();
 
@@ -238,20 +241,36 @@ const autosaveAfterRuntimePersist = await controller.autosaveCurrentGame({
   summary: 'Runtime controller autosave after v2 persist.',
   keep: 3
 });
-assert.equal(autosaveAfterRuntimePersist.save.kind, 'directive.campaignSave');
-assert.equal(autosaveAfterRuntimePersist.save.schemaVersion, 1);
-assert.equal(autosaveAfterRuntimePersist.save.slotType, 'autosave');
+assert.equal(autosaveAfterRuntimePersist.save.kind, 'directive.activeCampaignStatePersist.v2', 'runtime autosave after v2 takeover writes a v2 autosave');
+assert.equal(autosaveAfterRuntimePersist.save.storageFormat, 'v2');
+assert.equal(autosaveAfterRuntimePersist.save.wroteV1Payload, false, 'runtime autosave after v2 takeover does not write a v1 payload');
+assert.equal(autosaveAfterRuntimePersist.save.saveIndexEntry.slotType, 'autosave');
 indexes = await getDirectiveStorageIndexes(adapter);
 const autosaveEntry = indexes.saveIndex.saves[autosaveAfterRuntimePersist.save.id];
 assert.equal(autosaveEntry.slotType, 'autosave', 'autosave index entry remains on the autosave lane');
 assert.equal(autosaveEntry.current, false, 'runtime autosave does not become the active save');
-assert.equal(autosaveEntry.runtimeStorageFormat, undefined, 'autosave index entry does not get a runtime v2 marker');
-assert.equal(autosaveEntry.v2ManifestRef, undefined, 'autosave index entry does not get a runtime v2 manifest ref');
+assert.equal(autosaveEntry.storageFormat, 'v2', 'autosave index entry is v2-owned after runtime takeover');
+assert.equal(autosaveEntry.payloadKind, 'directive.saveManifest.v2', 'autosave index entry points at a v2 save manifest');
+assert.equal(Boolean(autosaveEntry.manifestRef?.logicalKey), true, 'autosave index entry carries a v2 manifest ref');
 assert.equal(indexes.saveIndex.activeSaveId, saved.id, 'runtime autosave does not move the active save pointer');
 assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'runtime autosave does not clear the active manual save v2 marker');
 snapshot = adapter.snapshot();
-assert.equal(snapshot[autosaveEntry.path].kind, 'directive.campaignSave', 'autosave payload remains a v1 campaign save record');
-assert.equal(snapshot[autosaveEntry.path].slotType, 'autosave', 'autosave payload keeps autosave slot type');
+assert.equal(snapshot[autosaveEntry.path].kind, 'directive.saveManifest.v2', 'autosave payload is a v2 save manifest');
+assert.equal(Boolean(snapshot[campaignSavePath(autosaveAfterRuntimePersist.save.id)]), false, 'runtime autosave after v2 takeover does not create a v1 campaign save payload');
+const secondAutosaveAfterRuntimePersist = await controller.autosaveCurrentGame({
+  saveId: 'save-runtime-autosave-prune-proof',
+  campaignState: controller.activeCampaignState,
+  summary: 'Runtime controller second v2 autosave.',
+  keep: 1
+});
+indexes = await getDirectiveStorageIndexes(adapter);
+snapshot = adapter.snapshot();
+assert.equal(secondAutosaveAfterRuntimePersist.save.kind, 'directive.activeCampaignStatePersist.v2', 'second runtime autosave after v2 takeover writes a v2 autosave');
+assert.equal(indexes.saveIndex.activeSaveId, saved.id, 'v2 autosave pruning does not move the active save pointer');
+assert.equal(Boolean(indexes.saveIndex.saves[autosaveAfterRuntimePersist.save.id]), false, 'v2 autosave pruning removes the older autosave index entry');
+assert.equal(Boolean(snapshot[autosaveEntry.path]), false, 'v2 autosave pruning deletes the older autosave manifest payload');
+assert.equal(indexes.saveIndex.saves[secondAutosaveAfterRuntimePersist.save.id].slotType, 'autosave', 'v2 autosave pruning keeps the newest autosave');
+assert.equal(indexes.saveIndex.saves[secondAutosaveAfterRuntimePersist.save.id].storageFormat, 'v2', 'newest autosave remains v2-owned after pruning');
 
 const runtimeLoadedController = createCampaignStartController({
   adapter,
@@ -263,29 +282,47 @@ const runtimeLoadedController = createCampaignStartController({
   now: () => '2026-06-28T09:10:00.000Z'
 });
 await runtimeLoadedController.initialize();
+assert.equal(runtimeLoadedController.activeCampaignState.campaign.currentStardate, 53052.8, 'active recovery must use v2 runtime-current state when the save index has a v2 runtime bridge');
+assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.schemaVersion, 2, 'active recovery must rehydrate compact runtime projections from the v2 runtime bridge');
+assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.ingressLedger[0].hostMessageId, '12');
+assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.ingressLedger[0].textHash, 'hash-12');
 const runtimeLoaded = await runtimeLoadedController.loadGame({ saveId: saved.id });
-assert.equal(runtimeLoaded.campaign.currentStardate, 53052.4, 'default load keeps v1 checkpoint as the runtime resume source during the v2 bridge');
-assert.equal(Boolean(runtimeLoaded.runtimeTracking), true, 'v1 checkpoint remains the source of hot runtime journals until v2 projections exist');
+assert.equal(runtimeLoaded.campaign.currentStardate, 53052.8, 'default load must use v2 runtime-current state when the save index has a v2 runtime bridge');
+assert.equal(runtimeLoaded.runtimeTracking.schemaVersion, 2, 'default load must rehydrate compact runtime projections from the active-save v2 bridge');
+assert.equal(runtimeLoaded.runtimeTracking.ingressLedger.length, 1, 'default load must restore compact runtime ingress projections from v2 event segments');
+assert.equal(runtimeLoaded.runtimeTracking.ingressLedger[0].hostMessageId, '12');
+assert.equal(runtimeLoaded.runtimeTracking.ingressLedger[0].textHash, 'hash-12');
+assert.equal(runtimeLoaded.runtimeTracking.history, undefined, 'default load must not restore raw runtime history snapshots from the stale v1 checkpoint');
 
 const savedAfterRuntimePersist = await controller.saveCurrentGame({
   campaignState: controller.activeCampaignState,
   summary: 'Runtime controller manual checkpoint after v2 persist.'
 });
-assert.equal(savedAfterRuntimePersist.revision, 3, 'manual save still writes a v1 checkpoint after v2 runtime persist');
+assert.equal(savedAfterRuntimePersist.kind, 'directive.activeCampaignStatePersist.v2', 'manual save after v2 runtime persist keeps v2 authority');
+assert.equal(savedAfterRuntimePersist.storageFormat, 'v2');
+assert.equal(savedAfterRuntimePersist.wroteV1Payload, false, 'manual save after v2 runtime persist must not rewrite the v1 checkpoint payload');
 snapshot = adapter.snapshot();
-assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.8, 'manual checkpoint captures loaded v2 runtime state');
+assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.4, 'manual save after v2 runtime persist leaves the stale v1 checkpoint untouched');
 indexes = await getDirectiveStorageIndexes(adapter);
-assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, undefined, 'manual save resets runtime v2 marker until next runtime persist');
-assert.equal(indexes.saveIndex.saves[saved.id].v2ManifestRef, undefined, 'manual save clears runtime v2 manifest ref until next runtime persist');
-assert.equal(indexes.saveIndex.saves[saved.id].v2RuntimePersistedAt, undefined, 'manual save clears runtime v2 timestamp until next runtime persist');
+assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'manual save after v2 runtime persist preserves the runtime v2 marker');
+assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2ManifestRef?.logicalKey), true, 'manual save after v2 runtime persist preserves the runtime v2 manifest ref');
+assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2RuntimePersistedAt), true, 'manual save after v2 runtime persist keeps a runtime v2 timestamp');
 
 const branch = await controller.saveCurrentGameAs({
   name: 'Talia Serrin - alternate first watch'
 });
-assert.equal(branch.kind, 'directive.campaignSave');
-assert.equal(branch.schemaVersion, 1);
+assert.equal(branch.kind, 'directive.activeCampaignStatePersist.v2', 'Save As after v2 runtime persist creates a v2-owned branch');
+assert.equal(branch.storageFormat, 'v2');
+assert.equal(branch.wroteV1Payload, false, 'Save As after v2 runtime persist must not create a v1 save payload');
+assert.equal(branch.saveId, 'save-runtime-4');
 assert.equal(branch.id, 'save-runtime-4');
 assert.equal(branch.name, 'Talia Serrin - alternate first watch');
+snapshot = adapter.snapshot();
+indexes = await getDirectiveStorageIndexes(adapter);
+assert.equal(indexes.saveIndex.saves[branch.saveId].storageFormat, 'v2', 'Save As branch index entry is v2-owned');
+assert.equal(indexes.saveIndex.saves[branch.saveId].payloadKind, 'directive.saveManifest.v2', 'Save As branch index entry points at a v2 save manifest');
+assert.equal(indexes.saveIndex.saves[branch.saveId].path, branch.saveManifestRef.logicalKey, 'Save As branch path is the v2 manifest');
+assert.equal(Boolean(snapshot[savedPayloadPath.replace(saved.id, branch.saveId)]), false, 'Save As branch does not create a v1 campaign save payload');
 
 const loaded = await controller.loadGame({ saveId: saved.id });
 assert.equal(loaded.player.name, 'Talia Serrin');
@@ -325,7 +362,7 @@ assert.equal(recoveredController.storageDiagnostics.counts.saves, 3);
 assert.equal(
   recoveredCampaign.saves.filter((entry) => entry.slotType === 'autosave').length,
   1,
-  'recovered campaign view should include the explicit v1 autosave without treating it as active'
+  'recovered campaign view should include the explicit v2 autosave without treating it as active'
 );
 assert.equal(recoveredCampaign.activeSaveId, saved.id);
 
