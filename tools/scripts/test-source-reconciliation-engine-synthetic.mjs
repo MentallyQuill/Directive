@@ -7,6 +7,9 @@ import {
   createSyntheticSourceReconciliationEngine
 } from '../../src/runtime/source-reconciliation-engine-synthetic.mjs';
 import {
+  createSourceSettlementService
+} from '../../src/runtime/source-settlement-service.mjs';
+import {
   hashStableJson
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import {
@@ -60,6 +63,91 @@ function createHarness({ nowPrefix = '2026-06-28T19:00', nowValues = [] } = {}) 
   const clock = () => nowValues[clockIndex++] || `${nowPrefix}:${String(clockIndex + 30).padStart(2, '0')}.000Z`;
   return { storage, adapter, coreStore, clock };
 }
+
+const defaultSettlementService = createSourceSettlementService();
+assert.equal(typeof defaultSettlementService.reconcileRange, 'undefined', 'default SRE service must not expose terminal range settlement without a range provider/apply owner');
+assert.equal(typeof defaultSettlementService.preflightRange, 'function');
+const providerOnlySettlementService = createSourceSettlementService({
+  runRangeProvider: async () => ({ operations: [] })
+});
+assert.equal(typeof providerOnlySettlementService.reconcileRange, 'undefined', 'provider-only SRE service must not expose terminal range settlement without an apply owner');
+const applyOnlySettlementService = createSourceSettlementService({
+  applySettlement: async () => ({ ok: true })
+});
+assert.equal(typeof applyOnlySettlementService.reconcileRange, 'undefined', 'apply-only SRE service must not expose terminal range settlement without a range provider');
+
+const failedSettlementService = createSourceSettlementService({
+  runRangeProvider: async () => ({
+    operations: [{
+      domain: 'commandLog',
+      op: 'append',
+      summary: 'Range settlement operation.'
+    }],
+    promptDirtyDomains: ['commandLog']
+  }),
+  applySettlement: async () => ({ ok: false, reasons: ['apply-settlement-failed'] })
+});
+const failedSettlement = await failedSettlementService.reconcileRange({
+  transactionId: 'txn-source-settlement-apply-failed',
+  campaignId: 'campaign-sre-synthetic',
+  saveId: 'save-sre-synthetic',
+  chatId: 'ashes-chat',
+  messages: [
+    { hostMessageId: '31', role: 'user', textHash: 'hash-player-31' },
+    { hostMessageId: '32', role: 'assistant', textHash: 'hash-assistant-32' }
+  ]
+});
+assert.equal(failedSettlement.status, 'repairRequired');
+assert.equal(failedSettlement.applied, false);
+assert.deepEqual(failedSettlement.reasons, ['apply-settlement-failed']);
+const failedEmptySettlementService = createSourceSettlementService({
+  runRangeProvider: async () => ({ operations: [] }),
+  applySettlement: async () => ({ ok: false, reason: 'empty-apply-failed' })
+});
+const failedEmptySettlement = await failedEmptySettlementService.reconcileRange({
+  transactionId: 'txn-source-settlement-empty-apply-failed',
+  campaignId: 'campaign-sre-synthetic',
+  saveId: 'save-sre-synthetic',
+  chatId: 'ashes-chat',
+  messages: [
+    { hostMessageId: '31', role: 'user', textHash: 'hash-player-31' },
+    { hostMessageId: '32', role: 'assistant', textHash: 'hash-assistant-32' }
+  ]
+});
+assert.equal(failedEmptySettlement.status, 'repairRequired');
+assert.equal(failedEmptySettlement.applied, false);
+assert.deepEqual(failedEmptySettlement.reasons, ['empty-apply-failed']);
+
+const latestProviderOnlySettlementService = createSourceSettlementService({
+  runLatestPairProvider: async () => ({
+    operations: [{
+      domain: 'commandLog',
+      op: 'append',
+      summary: 'Latest pair source operation without apply owner.'
+    }]
+  })
+});
+const latestProviderOnlySettlement = await latestProviderOnlySettlementService.settleLatestPair({
+  transactionId: 'txn-latest-provider-only',
+  sourceFrame: {
+    id: 'frame-latest-provider-only',
+    campaignId: 'campaign-sre-synthetic',
+    saveId: 'save-sre-synthetic',
+    chatId: 'ashes-chat',
+    selectedAssistantVariantHash: 'hash-selected-latest',
+    sourceIntegrity: 'clean'
+  },
+  expected: {
+    campaignId: 'campaign-sre-synthetic',
+    saveId: 'save-sre-synthetic',
+    chatId: 'ashes-chat',
+    selectedAssistantVariantHash: 'hash-selected-latest'
+  }
+});
+assert.notEqual(latestProviderOnlySettlement.status, 'accepted', 'latest-pair provider-only service must not become terminal accepted authority');
+assert.equal(latestProviderOnlySettlement.status, 'repairRequired');
+assert.equal(latestProviderOnlySettlement.applied, false);
+assert.equal(latestProviderOnlySettlement.reasons.includes('source-settlement-apply-owner-missing'), true);
 
 async function beginHostContinue(harness, {
   transactionId = 'txn-sre-1',
@@ -360,6 +448,58 @@ assert.equal(rangeProviderCalls[0].rangeFrame.rangeHash, rangeFrame.rangeHash);
 assert.equal(rangeHarness.coreStore.state.diagnostics.at(-1).redactedPayload.source.messageCount, 3);
 assert.equal(JSON.stringify(rangeHarness.coreStore.state).includes('RAW_RANGE_PROMPT'), false);
 assert.equal(JSON.stringify(rangeHarness.coreStore.state).includes('Range assistant message'), false);
+
+const failedApplyHarness = createHarness({ nowPrefix: '2026-06-28T19:25' });
+const failedApplyGate = await beginHostContinue(failedApplyHarness, {
+  transactionId: 'txn-sre-range-apply-failed',
+  frameId: 'frame-sre-range-apply-failed'
+});
+const failedApplySre = createSyntheticSourceReconciliationEngine({
+  coreStore: failedApplyHarness.coreStore,
+  runRangeProvider: async () => ({
+    operations: [{ domain: 'mission', op: 'set', path: 'mission.phase', value: 'Should not apply' }]
+  }),
+  applySettlement: async () => ({ ok: false, reasons: ['apply-settlement-failed'] })
+});
+const failedApplyFrame = failedApplySre.composeRangeFrame(rangeMessages, {
+  campaignId: 'campaign-sre-synthetic',
+  saveId: 'save-sre-synthetic',
+  chatId: 'ashes-chat'
+});
+const failedApply = await failedApplySre.reconcileRange({
+  transactionId: 'txn-sre-range-apply-failed',
+  settlementId: 'settlement-range-apply-failed',
+  sourceFrame: failedApplyGate.sourceFrame,
+  rangeFrame: failedApplyFrame,
+  messages: rangeMessages,
+  expected: { campaignId: 'campaign-sre-synthetic', saveId: 'save-sre-synthetic', chatId: 'ashes-chat' },
+  anchorRange: {
+    chatId: 'ashes-chat',
+    rangeHash: failedApplyFrame.rangeHash
+  }
+});
+assert.notEqual(failedApply.status, 'accepted', 'failed SRE apply must not become an accepted terminal settlement');
+assert.equal(failedApply.status, 'repairRequired');
+assert.equal(failedApply.applied, false);
+assert.equal(failedApply.reasons.includes('apply-settlement-failed'), true);
+
+const failedEmptyApplySre = createSyntheticSourceReconciliationEngine({
+  coreStore: failedApplyHarness.coreStore,
+  runRangeProvider: async () => ({ operations: [] }),
+  applySettlement: async () => ({ ok: false, reason: 'empty-apply-failed' })
+});
+const failedEmptyApply = await failedEmptyApplySre.reconcileRange({
+  transactionId: 'txn-sre-range-apply-failed',
+  settlementId: 'settlement-range-empty-apply-failed',
+  sourceFrame: failedApplyGate.sourceFrame,
+  rangeFrame: failedApplyFrame,
+  messages: rangeMessages,
+  expected: { campaignId: 'campaign-sre-synthetic', saveId: 'save-sre-synthetic', chatId: 'ashes-chat' }
+});
+assert.notEqual(failedEmptyApply.status, 'accepted', 'empty failed SRE apply must not become an accepted terminal settlement');
+assert.equal(failedEmptyApply.status, 'repairRequired');
+assert.equal(failedEmptyApply.applied, false);
+assert.equal(failedEmptyApply.reasons.includes('empty-apply-failed'), true);
 
 const drift = await rangeSre.reconcileRange({
   transactionId: 'txn-sre-range',

@@ -168,6 +168,103 @@ async function commitCoreMechanics({
   }
 }
 
+async function recordCoreOutcomeReplacement({
+  coreTurnStore,
+  transactionId,
+  outcomeReplacement,
+  turnPacket,
+  outcomeId
+} = {}) {
+  if (!outcomeReplacement || typeof coreTurnStore?.recordOutcomeReplacement !== 'function') return null;
+  const id = compact(outcomeReplacement.transactionId);
+  if (!id) {
+    const error = new Error('CORE outcome replacement recording requires an explicit replacement transaction id.');
+    error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
+    error.details = { transactionId: compact(transactionId) || null };
+    throw error;
+  }
+  const replacementRef = {
+    ...cloneJson(outcomeReplacement),
+    transactionId: id,
+    replacementOutcomeId: compact(outcomeReplacement.replacementOutcomeId) || outcomeId,
+    replacementTurnId: compact(outcomeReplacement.replacementTurnId) || turnPacket?.turnId || turnPacket?.id || null
+  };
+  return coreTurnStore.recordOutcomeReplacement(id, replacementRef);
+}
+
+function compactError(error) {
+  return {
+    name: error?.name || 'Error',
+    code: error?.code || null,
+    message: error?.message || String(error)
+  };
+}
+
+async function markCoreOutcomeReplacementPersistFailureRecovery({
+  coreTurnStore,
+  coreMechanics,
+  coreOutcomeReplacement,
+  outcomeReplacement,
+  outcomeId,
+  error
+} = {}) {
+  if (!coreOutcomeReplacement || typeof coreTurnStore?.markRecoveryRequired !== 'function') return null;
+  const transactionId = compact(coreOutcomeReplacement.transactionId)
+    || compact(outcomeReplacement?.transactionId)
+    || compact(coreMechanics?.transactionId);
+  if (!transactionId) return null;
+  const replacementOutcomeId = compact(outcomeReplacement?.replacementOutcomeId)
+    || compact(coreOutcomeReplacement.replacementOutcomeId)
+    || outcomeId;
+  const replacedOutcomeId = compact(outcomeReplacement?.replacedOutcomeId)
+    || compact(coreOutcomeReplacement.replacedOutcomeId)
+    || null;
+  return coreTurnStore.markRecoveryRequired(transactionId, {
+    id: `recovery:outcome-replacement-persist:${transactionId}`,
+    status: 'required',
+    reason: 'outcome-replacement-active-save-persist-failed',
+    phaseAfter: 'recoveryRequired',
+    dependentOutcomeId: replacementOutcomeId || outcomeId,
+    idempotencyKey: `outcome-replacement-active-save-persist-failed:${outcomeReplacement?.idempotencyKey || transactionId}:${replacementOutcomeId || outcomeId}`,
+    repairDecision: {
+      kind: 'directive.repairOutcomeReplacementPersistFailure.v1',
+      action: 'reviewOutcomeReplacementPersistFailure',
+      transactionId,
+      replacedOutcomeId,
+      replacementOutcomeId,
+      replacementTransactionId: compact(outcomeReplacement?.replacementTransactionId) || transactionId,
+      replacedTransactionId: compact(outcomeReplacement?.replacedTransactionId) || null,
+      normalTurnAllowed: false,
+      activeSavePersistError: compactError(error)
+    },
+    allowedActions: [
+      'reviewOutcomeReplacementPersistFailure',
+      'retryActiveSavePersistence',
+      'discardRerunCandidate'
+    ]
+  });
+}
+
+function annotateCoreMechanicsLedgerEntry(state, outcomeId, coreMechanics = null) {
+  const transactionId = compact(coreMechanics?.transactionId);
+  if (!state || !outcomeId || !transactionId) return state;
+  const entry = (state.turnLedger?.entries || []).find((item) => item?.outcomeId === outcomeId);
+  if (entry) {
+    entry.coreTransactionId = transactionId;
+    entry.coreTurnId = coreMechanics.turnId || null;
+    entry.coreOperationHash = coreMechanics.operationHash || null;
+  }
+  if (state.runtimeTracking?.lastCommittedTurn?.outcomeId === outcomeId) {
+    state.runtimeTracking.lastCommittedTurn = {
+      ...state.runtimeTracking.lastCommittedTurn,
+      coreTransactionId: transactionId,
+      coreTurnId: coreMechanics.turnId || null,
+      coreOperationHash: coreMechanics.operationHash || null
+    };
+  }
+  return state;
+}
+
 export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now = null } = {}) {
   if (typeof persist !== 'function') {
     throw new Error('TurnCommitCoordinator requires persist(campaignState, summary).');
@@ -177,7 +274,8 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
     beforeCampaignState,
     campaignState,
     turnPacket,
-    ingressId = null
+    ingressId = null,
+    outcomeReplacement = null
   } = {}) {
     const before = initializeCampaignRuntimeTracking(beforeCampaignState || campaignState);
     const after = initializeCampaignRuntimeTracking(campaignState);
@@ -210,9 +308,10 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
       now
     });
     const ingress = findIngressById(tracked, ingressId);
+    const mechanicsTransactionId = compact(outcomeReplacement?.transactionId) || ingress?.coreTransactionId || null;
     const coreMechanics = await commitCoreMechanics({
       coreTurnStore,
-      transactionId: ingress?.coreTransactionId || null,
+      transactionId: mechanicsTransactionId,
       beforeCampaignState: before,
       campaignState: tracked,
       turnPacket,
@@ -224,8 +323,39 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
       error.details = coreMechanics;
       throw error;
     }
-    const save = await persist(tracked, 'Committed mechanics checkpoint for the latest campaign turn.');
-    return { campaignState: tracked, save: cloneJson(save), outcomeId, coreMechanics };
+    annotateCoreMechanicsLedgerEntry(tracked, outcomeId, coreMechanics);
+    if (outcomeReplacement && coreMechanics.status !== 'committed') {
+      const error = new Error('CORE outcome replacement recording requires a committed CORE mechanics checkpoint.');
+      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_MECHANICS_REQUIRED';
+      error.details = { coreMechanics };
+      throw error;
+    }
+    const coreOutcomeReplacement = await recordCoreOutcomeReplacement({
+      coreTurnStore,
+      transactionId: coreMechanics.transactionId || ingress?.coreTransactionId || null,
+      outcomeReplacement,
+      turnPacket,
+      outcomeId
+    });
+    let save;
+    try {
+      save = await persist(tracked, 'Committed mechanics checkpoint for the latest campaign turn.');
+    } catch (error) {
+      try {
+        await markCoreOutcomeReplacementPersistFailureRecovery({
+          coreTurnStore,
+          coreMechanics,
+          coreOutcomeReplacement,
+          outcomeReplacement,
+          outcomeId,
+          error
+        });
+      } catch (recoveryError) {
+        error.coreOutcomeReplacementRecoveryError = compactError(recoveryError);
+      }
+      throw error;
+    }
+    return { campaignState: tracked, save: cloneJson(save), outcomeId, coreMechanics, coreOutcomeReplacement };
   }
 
   async function markNarration({

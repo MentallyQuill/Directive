@@ -84,6 +84,7 @@ const coreAdvanceCalls = [];
 const coreSupersedeCalls = [];
 const coreDiagnosticCalls = [];
 const coreRecoveryCalls = [];
+const coreVisibleResponseCalls = [];
 const coreTransactions = new Map();
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
@@ -174,6 +175,22 @@ const coreTurnStore = {
       recoveryCaseId: recoveryCase.id
     });
     return recoveryCase;
+  },
+  async recordVisibleResponse(transactionId, responseRef = {}) {
+    coreVisibleResponseCalls.push({ transactionId, responseRef: cloneJson(responseRef) });
+    const prior = coreTransactions.get(transactionId) || { id: transactionId };
+    const repairDecision = responseRef.repairDecision || null;
+    const closesRecovery = repairDecision?.authorized === true && repairDecision?.recoveryResolved === true;
+    const transaction = {
+      ...prior,
+      id: transactionId,
+      phase: 'visibleResponsePosted',
+      visibleResponseRef: cloneJson(responseRef),
+      visibleResponseIdempotencyKey: responseRef.idempotencyKey || null,
+      recoveryCaseId: closesRecovery ? null : prior.recoveryCaseId || null
+    };
+    coreTransactions.set(transactionId, cloneJson(transaction));
+    return transaction;
   },
   async getTransaction(transactionId) {
     return cloneJson(coreTransactions.get(transactionId) || null);
@@ -730,6 +747,97 @@ assert.equal(handshakePromptFrame.acceptedAssistantVariant.selectedSwipeIndex, 2
 assert.equal(handshakePromptFrame.acceptedAssistantVariant.swipeCount, 3);
 assert.equal(handshakePromptFrame.acceptedAssistantVariant.selectedTextHash, settledHandshake.selectedAssistantVariant.selectedTextHash);
 
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-terminal-sre-handshake',
+  text: 'Whitaker gives Sam one concrete next step: brief Commander Cross before lunch about the command-network handoff.'
+});
+const terminalSreProviderCalls = [];
+const terminalSreLegacyCalls = [];
+const terminalSrePromptFramesBefore = promptFrames.length;
+const terminalSreOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: ({ text, context }) => classifyChatTurn({ text, context }),
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      terminalSreLegacyCalls.push({ roleId, request: cloneJson(request) });
+      if (roleId === 'sceneHandshakeSettler') {
+        throw new Error('terminal SRE latest-pair settlement must replace legacy Scene Handshake provider in orchestrator path');
+      }
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-terminal-sre-unexpected-provider',
+          text: '{}'
+        },
+        diagnostics: { providerId: 'fake-terminal-sre-unexpected-provider' }
+      };
+    }
+  },
+  runLatestPairSettlementProvider: async (payload) => {
+    terminalSreProviderCalls.push(cloneJson(payload));
+    return {
+      settlement: {
+        acceptedPreviousResponse: true,
+        playerReplyRelation: 'acts-on',
+        confidence: 0.9,
+        disposition: 'autoCommit'
+      },
+      operations: [{
+        op: 'upsert',
+        path: 'commandLog.entries',
+        identityKey: 'id',
+        value: {
+          id: 'command-log:terminal-sre-orchestrator',
+          type: 'scene',
+          summaryInputs: ['Whitaker assigned Sam to brief Cross before lunch.'],
+          visibleConsequences: ['Sam accepted the Cross briefing as the next concrete command step.']
+        }
+      }]
+    };
+  },
+  stateDeltaGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state, promptFrame = null, options = {}) => {
+    promptFrames.push(cloneJson(promptFrame || null));
+    return {
+      ...cloneJson(state),
+      campaignChatBinding: {
+        ...state.campaignChatBinding,
+        promptContextRevision: (state.campaignChatBinding?.promptContextRevision || 0) + 1
+      }
+    };
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('terminal SRE orchestrator fixture must stay on Scene Handshake path');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('terminal SRE orchestrator fixture must not commit a Director turn');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const terminalSreActivity = [];
+const terminalSreMessage = chat.pushPlayerMessage({
+  text: '*Sam accepts Whitaker\'s priority and says he will brief Cross before lunch.*',
+  hostMessageId: 'player-terminal-sre-handshake'
+});
+const terminalSre = await terminalSreOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: terminalSreMessage,
+  turnActivityReporter: (event) => terminalSreActivity.push(cloneJson(event))
+});
+assert.equal(terminalSre.handled, true);
+assert.equal(terminalSreProviderCalls.length, 1);
+assert.equal(terminalSreLegacyCalls.some((entry) => entry.roleId === 'sceneHandshakeSettler'), false);
+assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-orchestrator'), true);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
+assert.ok(terminalSreActivity.some((event) => event.phase === 'sceneHandshakeSettled'));
+assert.equal(promptFrames.length > terminalSrePromptFramesBefore, true);
+
 const color = await send('*I nod once to the helmsman.*', 'player-color');
 assert.equal(color.decision.classification, 'sceneColor');
 assert.equal(color.abortDefaultGeneration, false);
@@ -770,6 +878,98 @@ assert.equal(colorDuplicate.abortDefaultGeneration, false);
 assert.equal(coreBeginCalls.length, coreBeginCountBeforeColorDuplicate, 'Duplicate observation must not begin another CORE transaction.');
 assert.equal(coreAdvanceCalls.length, coreAdvanceCountBeforeColorDuplicate, 'Duplicate observation must not advance CORE release again.');
 assert.equal(campaignState.runtimeTracking.responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
+
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-host-handshake-trimmed',
+  text: 'Selected source with harmless trailing whitespace.',
+  swipes: [
+    'Selected source with harmless trailing whitespace.   '
+  ]
+});
+const trimActivity = [];
+const trimHandshake = await send(
+  '*Sam accepts the selected source with a quiet nod.*',
+  'player-scene-handshake-trimmed',
+  { activityReporter: (event) => trimActivity.push(cloneJson(event)) }
+);
+assert.equal(trimHandshake.handled, true);
+const trimPreflight = trimActivity.find((event) => event.phase === 'sreSceneHandshakePreflight');
+assert(trimPreflight, 'Scene Handshake should preflight harmless selected-swipe whitespace.');
+assert.equal(trimPreflight.status, 'preflightClean');
+assert.equal(trimActivity.some((event) => event.phase === 'sceneHandshakeSourceBlocked'), false);
+
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-host-handshake-hash-drift',
+  text: 'Stable selected source text.',
+  swipes: ['Stable selected source text.']
+});
+const originalBeginTurn = coreTurnStore.beginTurn;
+coreTurnStore.beginTurn = async (sourceFrame, options = {}) => {
+  if (String(options.ingressId || '').includes('player-scene-handshake-hash-drift')) {
+    sourceFrame.selectedAssistantVariantHash = 'stale-selected-hash';
+  }
+  return originalBeginTurn.call(coreTurnStore, sourceFrame, options);
+};
+const hashDriftCallsBefore = responseSwipeGenerationCalls.length;
+const hashDriftActivity = [];
+const hashDriftHandshake = await send(
+  '*Sam accepts the selected source before the hash drift check completes.*',
+  'player-scene-handshake-hash-drift',
+  { activityReporter: (event) => hashDriftActivity.push(cloneJson(event)) }
+);
+coreTurnStore.beginTurn = originalBeginTurn;
+assert.equal(hashDriftHandshake.handled, true);
+const hashDriftPreflight = hashDriftActivity.find((event) => event.phase === 'sreSceneHandshakePreflight');
+assert(hashDriftPreflight, 'Scene Handshake should preflight freshly observed selected-swipe hash.');
+assert.equal(hashDriftPreflight.status, 'hardSkipped');
+assert.equal(hashDriftPreflight.reasons.includes('selected-variant-hash-mismatch'), true);
+assert.equal(
+  responseSwipeGenerationCalls
+    .slice(hashDriftCallsBefore)
+    .some((entry) => entry.roleId === 'sceneHandshakeSettler' && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake-hash-drift'),
+  false,
+  'Fresh selected-swipe hash mismatch must stop before Scene Handshake provider call.'
+);
+
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-host-handshake-mismatch',
+  text: 'Visible assistant text diverged from the selected native swipe.',
+  swipes: [
+    'Selected native swipe with different accepted source text.',
+    'Another unselected draft.'
+  ]
+});
+chat.pushAssistantMessage({
+  hostMessageId: 'system-row-before-mismatch',
+  text: 'System rows must not become the latest-pair previous assistant.',
+  isSystem: true
+});
+const mismatchSceneHandshakeCallsBefore = responseSwipeGenerationCalls.length;
+const mismatchSettledBefore = campaignState.runtimeTracking.sceneHandshake.settled.length;
+const mismatchCommandLogBefore = campaignState.commandLog.entries.length;
+const mismatchActivity = [];
+const mismatchHandshake = await send(
+  '*Sam starts to accept the mismatched assistant source, then pauses.*',
+  'player-scene-handshake-mismatch',
+  { activityReporter: (event) => mismatchActivity.push(cloneJson(event)) }
+);
+assert.equal(mismatchHandshake.handled, true);
+const mismatchPreflight = mismatchActivity.find((event) => event.phase === 'sreSceneHandshakePreflight');
+assert(mismatchPreflight, 'Scene Handshake must ask SRE before provider work for latest-pair source integrity.');
+assert.equal(mismatchPreflight.status, 'hardSkipped');
+assert.equal(mismatchPreflight.providerCalled, false);
+assert.equal(mismatchPreflight.applied, false);
+assert.equal(mismatchActivity.some((event) => event.phase === 'sceneHandshakeSourceBlocked'), true);
+assert.equal(
+  responseSwipeGenerationCalls
+    .slice(mismatchSceneHandshakeCallsBefore)
+    .some((entry) => entry.roleId === 'sceneHandshakeSettler' && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake-mismatch'),
+  false,
+  'SRE hardSkipped latest-pair source must stop before Scene Handshake provider call.'
+);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, mismatchSettledBefore);
+assert.equal(campaignState.commandLog.entries.length, mismatchCommandLogBefore);
+assert.equal(JSON.stringify(mismatchPreflight).includes('Visible assistant text diverged'), false);
 
 const ingressCountBeforeCoreFailure = campaignState.runtimeTracking.ingressLedger.length;
 const persistedCountBeforeCoreFailure = persisted.length;
@@ -2613,11 +2813,14 @@ assert.equal(
 
 nextPreviewOutcomeBand = 'Partial Failure';
 const fallbackGenerationStartedAt = '2026-06-22T01:31:00.000Z';
+const fallbackProviderRawCanary = 'RAW_PROVIDER_FAILURE_TEXT_SHOULD_NOT_PERSIST';
 nextNarrationResult = {
   ok: false,
   directiveGenerationStartedAt: fallbackGenerationStartedAt,
   error: {
     code: 'fixture_narration_timeout',
+    message: fallbackProviderRawCanary,
+    providerOutput: `Provider wrote ${fallbackProviderRawCanary} in an error payload.`,
     directiveGenerationStartedAt: fallbackGenerationStartedAt,
     generationStartedAt: fallbackGenerationStartedAt
   }
@@ -2656,6 +2859,131 @@ assert.equal(fallbackRecovery.details.repairDecision.retryDirectiveResponse, tru
 assert.equal(fallbackRecovery.details.coreRecovery.status, 'recorded');
 assert.equal(fallbackRecovery.details.coreRecovery.transactionId, fallbackRecovery.details.repairDecision.transactionId);
 assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.repairDecision.eventType, 'providerFailureAfterMechanicsCommit');
+assert.equal(fallbackResponseLedger.coreRelease, null, 'Provider-failure fallback must not consume CORE visible response before retry.');
+assert.equal(fallbackResponseLedger.status, 'responseRetryRequired');
+const fallbackIngressBeforeRetry = campaignState.runtimeTracking.ingressLedger.find(
+  (entry) => entry.outcomeId === fallbackRecovery.outcomeId
+);
+assert.equal(fallbackIngressBeforeRetry.status, 'responseRetryRequired');
+assert.equal(fallbackIngressBeforeRetry.recoveryId, fallbackRecovery.id);
+assert.equal(
+  coreVisibleResponseCalls.some((entry) => entry.transactionId === fallbackRecovery.details.coreRecovery.transactionId),
+  false,
+  'Provider-failure fallback must leave CORE responseRetryRequired open for the real retry.'
+);
+assert.equal(JSON.stringify(fallbackRecovery).includes(fallbackProviderRawCanary), false);
+assert.equal(JSON.stringify(coreRecoveryCalls.at(-1)).includes(fallbackProviderRawCanary), false);
+const providerFailureRetryResponseCallsBefore = responseSwipeGenerationCalls.length;
+const providerFailureRetryCommitCallsBefore = commitCalls.length;
+const originalRecordVisibleResponse = coreTurnStore.recordVisibleResponse;
+let forceProviderFailureCoreClosureFailure = true;
+coreTurnStore.recordVisibleResponse = async (...args) => {
+  if (forceProviderFailureCoreClosureFailure) {
+    const error = new Error('Synthetic CORE retry closure failure.');
+    error.code = 'SYNTHETIC_CORE_RETRY_CLOSURE_FAILURE';
+    throw error;
+  }
+  return originalRecordVisibleResponse.apply(coreTurnStore, args);
+};
+const failedProviderFailureRetry = await orchestrator.retryCommittedResponse({
+  recoveryId: fallbackRecovery.id
+});
+assert.equal(failedProviderFailureRetry.ok, false);
+assert.equal(failedProviderFailureRetry.reason, 'core-response-retry-closure-failed');
+const fallbackMessageAfterFailedRetry = chat.getMessage(fallbackResponse.hostMessageId);
+assert.equal(fallbackMessageAfterFailedRetry.swipes.length, 2);
+assert.equal(fallbackMessageAfterFailedRetry.swipe_id, 1);
+const providerFailureRetryResponseCallsAfterFailedRetry = responseSwipeGenerationCalls.length;
+const failedProviderFailureRetryAgain = await orchestrator.retryCommittedResponse({
+  recoveryId: fallbackRecovery.id
+});
+assert.equal(failedProviderFailureRetryAgain.ok, false);
+assert.equal(failedProviderFailureRetryAgain.reason, 'core-response-retry-closure-failed');
+const fallbackMessageAfterSecondFailedRetry = chat.getMessage(fallbackResponse.hostMessageId);
+assert.equal(fallbackMessageAfterSecondFailedRetry.swipes.length, 2);
+assert.equal(
+  responseSwipeGenerationCalls.length,
+  providerFailureRetryResponseCallsAfterFailedRetry,
+  'Repeated provider-failure retry after CORE closure failure must reuse the existing retry swipe.'
+);
+const switchedAwayMessages = chat.messages();
+const switchedAwayIndex = switchedAwayMessages.findIndex((entry) => entry.hostMessageId === fallbackResponse.hostMessageId);
+switchedAwayMessages[switchedAwayIndex].text = switchedAwayMessages[switchedAwayIndex].swipes[0];
+switchedAwayMessages[switchedAwayIndex].swipe_id = 0;
+switchedAwayMessages[switchedAwayIndex].metadata.selectedSwipeIndex = 0;
+chat.setMessagesForChat('campaign-chat', switchedAwayMessages);
+const switchedAwayRetry = await orchestrator.retryCommittedResponse({
+  recoveryId: fallbackRecovery.id
+});
+assert.equal(switchedAwayRetry.ok, false);
+assert.equal(switchedAwayRetry.reason, 'provider-failure-response-retry-not-selected');
+assert.equal(chat.getMessage(fallbackResponse.hostMessageId).swipes.length, 2);
+assert.equal(
+  responseSwipeGenerationCalls.length,
+  providerFailureRetryResponseCallsAfterFailedRetry,
+  'Provider-failure retry must not append a new swipe when the prior retry swipe is no longer selected.'
+);
+const hostInterloper = chat.pushAssistantMessage({
+  text: 'A host-native answer arrived after the fallback row.',
+  hostMessageId: 'assistant-provider-failure-interloper',
+  directiveOwned: false
+});
+const interloperRetry = await orchestrator.retryCommittedResponse({
+  recoveryId: fallbackRecovery.id
+});
+assert.equal(interloperRetry.ok, false);
+assert.equal(interloperRetry.reason, 'provider-failure-response-target-not-latest');
+const retrySelectedMessages = chat.messages().filter((entry) => entry.hostMessageId !== hostInterloper.hostMessageId);
+const retrySelectedIndex = retrySelectedMessages.findIndex((entry) => entry.hostMessageId === fallbackResponse.hostMessageId);
+retrySelectedMessages[retrySelectedIndex].text = retrySelectedMessages[retrySelectedIndex].swipes[1];
+retrySelectedMessages[retrySelectedIndex].swipe_id = 1;
+retrySelectedMessages[retrySelectedIndex].metadata.selectedSwipeIndex = 1;
+chat.setMessagesForChat('campaign-chat', retrySelectedMessages);
+forceProviderFailureCoreClosureFailure = false;
+const providerFailureRetry = await orchestrator.retryCommittedResponse({
+  recoveryId: fallbackRecovery.id
+});
+coreTurnStore.recordVisibleResponse = originalRecordVisibleResponse;
+assert.equal(providerFailureRetry.ok, true);
+assert.equal(providerFailureRetry.responseStrategy, 'directiveSwipe');
+assert.equal(
+  commitCalls.length,
+  providerFailureRetryCommitCallsBefore,
+  'Provider-failure response retry must not rerun mechanics or recommit the outcome.'
+);
+assert.equal(
+  responseSwipeGenerationCalls.length,
+  providerFailureRetryResponseCallsBefore + 1,
+  'Provider-failure retry should regenerate visible response text once, then reuse the same retry swipe for CORE closure replay.'
+);
+assert.equal(responseSwipeGenerationCalls.at(-1).roleId, 'narration');
+const fallbackMessageAfterRetry = chat.getMessage(fallbackResponse.hostMessageId);
+assert.equal(fallbackMessageAfterRetry.swipes.length, 2);
+assert.equal(fallbackMessageAfterRetry.swipe_id, 1);
+assert.equal(fallbackMessageAfterRetry.hostMessageId, fallbackResponse.hostMessageId);
+const providerFailureRecoveryAfterRetry = campaignState.runtimeTracking.recoveryJournal.find(
+  (entry) => entry.id === fallbackRecovery.id
+);
+assert.equal(providerFailureRecoveryAfterRetry.status, 'resolved');
+assert.equal(providerFailureRecoveryAfterRetry.resolution.reason, 'directive-response-retry-posted');
+const providerFailureResponseAfterRetry = campaignState.runtimeTracking.responseLedger.find(
+  (entry) => entry.id === fallbackResponseLedger.id
+);
+assert.equal(providerFailureResponseAfterRetry.responseRetry.recoveryId, fallbackRecovery.id);
+assert.equal(providerFailureResponseAfterRetry.responseRetry.swipeIndex, 1);
+assert.equal(providerFailureResponseAfterRetry.responseRetry.hostMessageId, fallbackResponse.hostMessageId);
+const providerFailureRetryCoreCall = coreVisibleResponseCalls.find((entry) => (
+  entry.transactionId === fallbackRecovery.details.coreRecovery.transactionId
+  && entry.responseRef?.repairDecision?.eventType === 'providerFailureAfterMechanicsCommit'
+));
+assert.ok(providerFailureRetryCoreCall, 'Provider-failure retry should close CORE recovery through REPAIR retry actuation.');
+assert.equal(providerFailureRetryCoreCall.responseRef.hostMessageId, fallbackResponse.hostMessageId);
+assert.equal(providerFailureRetryCoreCall.responseRef.outcomeId, fallbackRecovery.outcomeId);
+assert.equal(
+  coreTransactions.get(fallbackRecovery.details.coreRecovery.transactionId).recoveryCaseId,
+  null,
+  'Provider-failure retry should resolve the CORE recovery case.'
+);
 
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;
 const lastPlayer = chat.pushPlayerMessage({ text: 'I smile and wait.', hostMessageId: 'player-interceptor' });

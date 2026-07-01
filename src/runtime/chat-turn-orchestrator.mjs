@@ -6,7 +6,8 @@ import {
   resolveRecoveryEvent,
   resolvePendingInteraction,
   recordTurnIngress,
-  updateTurnIngress
+  updateTurnIngress,
+  updateDirectiveResponse
 } from './state-delta-gateway.mjs';
 import { composePauseResponse } from './response-dispatcher.mjs';
 import { createPlayerSafeCampaignProjection } from '../generation/player-safe-prompt-context-builder.mjs';
@@ -32,6 +33,7 @@ import {
   createTurnSourceFrame,
   createTurnSourceFrameRef
 } from './frame-contracts.mjs';
+import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 
@@ -145,7 +147,8 @@ const NO_OUTCOME_RECOVERY_TYPES = new Set([
 ]);
 
 const RESPONSE_RETRY_RECOVERY_TYPES = new Set([
-  'hostResponsePostFailure'
+  'hostResponsePostFailure',
+  'providerFailureAfterMechanicsCommit'
 ]);
 
 const TIME_BOUNDARY_DOMAINS = Object.freeze([
@@ -191,8 +194,37 @@ function generatedText(result) {
   );
 }
 
+function compactProviderFailureError(error = null) {
+  if (!error) return null;
+  const rawMessage = compact(error?.message || error?.reason || '');
+  const rawProviderOutput = compact(error?.providerOutput || error?.rawResponse || error?.text || '');
+  const message = rawMessage.slice(0, 900);
+  const providerOutput = rawProviderOutput.slice(0, 900);
+  return {
+    code: compact(error?.code) || 'PROVIDER_FAILURE',
+    directiveGenerationStartedAt: error?.directiveGenerationStartedAt || null,
+    generationStartedAt: error?.generationStartedAt || null,
+    messageLength: rawMessage.length,
+    providerOutputLength: rawProviderOutput.length,
+    messageHash: message ? hashStableJson({ message }) : null,
+    providerOutputHash: providerOutput ? hashStableJson({ providerOutput }) : null,
+    errorHash: hashStableJson({
+      code: error?.code || null,
+      message,
+      providerOutput,
+      directiveGenerationStartedAt: error?.directiveGenerationStartedAt || null,
+      generationStartedAt: error?.generationStartedAt || null
+    })
+  };
+}
+
 function displaySafeChatText(value) {
   return stripCampaignReplyHeader(value || '').trim();
+}
+
+function boundedJson(value, maxLength = 4000) {
+  const text = JSON.stringify(value || {}, null, 2);
+  return text.length > maxLength ? `${text.slice(0, maxLength)}\n...[truncated]` : text;
 }
 
 function displaySafeRecentChat(messages = []) {
@@ -733,6 +765,8 @@ export function createChatTurnOrchestrator({
   schedulePostCommitConversationProcessor = null,
   scheduleAdvisoryEnrichmentProcessor = null,
   postCommitConversationProcessor = null,
+  runLatestPairSettlementProvider = null,
+  validateLatestPairSettlementBeforeApply = null,
   rewriteCampaignIntro = null,
   clearDirectivePrompt = null,
   suspendDirectivePrompt = null,
@@ -848,13 +882,18 @@ export function createChatTurnOrchestrator({
     const sourceFrame = ingress?.sourceFrame || null;
     const transactionId = ingress?.coreTransactionId || null;
     if (!sourceFrame || !transactionId) return null;
+    const freshPreviousAssistant = selectedAssistantVariantRef(previousAssistantForFrame(message));
     const expected = {
       campaignId: state.campaign?.id || null,
       saveId: state.campaignChatBinding?.saveId || null,
       chatId
     };
-    if (sourceFrame.selectedAssistantVariantHash) {
-      expected.selectedAssistantVariantHash = sourceFrame.selectedAssistantVariantHash;
+    const expectedSelectedAssistantVariantHash = freshPreviousAssistant?.selectedTextHash
+      || freshPreviousAssistant?.selectedAssistantVariantHash
+      || sourceFrame.previousAssistant?.selectedAssistantVariantHash
+      || null;
+    if (expectedSelectedAssistantVariantHash) {
+      expected.selectedAssistantVariantHash = expectedSelectedAssistantVariantHash;
     }
     try {
       const decision = await sourceSettlement.preflightLatestPair({
@@ -874,7 +913,8 @@ export function createChatTurnOrchestrator({
         sourceFrameId: sourceFrame.id || null,
         status: decision.status || null,
         providerCalled: decision.providerCalled === true,
-        applied: decision.applied === true
+        applied: decision.applied === true,
+        reasons: cloneJson(decision.reasons || [])
       });
       return decision;
     } catch (error) {
@@ -896,6 +936,8 @@ export function createChatTurnOrchestrator({
 
   async function settleSceneHandshake(state, message, chatId, ingressId, activityReporter = null) {
     const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    const tracked = initializeCampaignRuntimeTracking(state);
+    const ingress = findIngress(tracked, ingressId);
     let packageData = null;
     try {
       packageData = typeof getPackageData === 'function' ? getPackageData() : null;
@@ -908,7 +950,20 @@ export function createChatTurnOrchestrator({
       source: 'sceneHandshake',
       ingressId
     });
-    await preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter);
+    const sourcePreflight = await preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter);
+    if (sourcePreflight && sourcePreflight.status !== 'preflightClean') {
+      reportActivity(activityReporter, {
+        phase: 'sceneHandshakeSourceBlocked',
+        mode: 'blocking',
+        source: 'sre',
+        ingressId,
+        status: sourcePreflight.status || null,
+        reasons: cloneJson(sourcePreflight.reasons || []),
+        providerCalled: sourcePreflight.providerCalled === true,
+        applied: sourcePreflight.applied === true
+      });
+      return state;
+    }
     const result = await runSceneHandshakeSettlement({
       campaignState: state,
       currentPlayerMessage: message,
@@ -917,6 +972,25 @@ export function createChatTurnOrchestrator({
       ingressId,
       generationRouter,
       stateDeltaGateway,
+      runLatestPairSettlementProvider,
+      validateLatestPairSettlementBeforeApply: async (payload = {}) => {
+        const latestState = initializeCampaignRuntimeTracking(getCampaignState() || state);
+        const latestIngress = findIngress(latestState, ingressId);
+        const expectedFrameId = payload.sourceFrame?.id || ingress?.sourceFrame?.id || null;
+        const currentFrameId = latestIngress?.sourceFrame?.id || null;
+        if (expectedFrameId && currentFrameId && expectedFrameId !== currentFrameId) {
+          return { ok: false, reasons: ['scene-handshake-source-frame-stale'] };
+        }
+        if (typeof validateLatestPairSettlementBeforeApply === 'function') {
+          return validateLatestPairSettlementBeforeApply({
+            ...payload,
+            ingress: cloneJson(latestIngress || null),
+            currentCampaignState: latestState
+          });
+        }
+        return { ok: true };
+      },
+      latestPairSourceFrame: ingress?.sourceFrame || null,
       packageData,
       now
     });
@@ -1895,7 +1969,79 @@ export function createChatTurnOrchestrator({
       || null;
   }
 
+  function messageText(message = {}) {
+    const raw = message.raw || {};
+    return displaySafeChatText(message.text || raw.text || raw.mes || raw.content || '');
+  }
+
+  function integerValue(...values) {
+    for (const value of values) {
+      const number = Number(value);
+      if (Number.isInteger(number)) return number;
+    }
+    return null;
+  }
+
+  function selectedAssistantVariantRef(message = null) {
+    if (!message) return null;
+    const raw = message.raw || {};
+    const swipes = Array.isArray(message.swipes)
+      ? message.swipes
+      : (Array.isArray(raw.swipes) ? raw.swipes : []);
+    const selectedSwipeIndex = integerValue(
+      message.selectedSwipeIndex,
+      message.swipe_id,
+      message.metadata?.selectedSwipeIndex,
+      raw.selectedSwipeIndex,
+      raw.swipe_id,
+      raw.metadata?.selectedSwipeIndex
+    );
+    const hasSelectedSwipe = swipes.length
+      && Number.isInteger(selectedSwipeIndex)
+      && selectedSwipeIndex >= 0
+      && selectedSwipeIndex < swipes.length;
+    const visibleText = messageText(message);
+    const selectedText = hasSelectedSwipe ? displaySafeChatText(swipes[selectedSwipeIndex] || '') : visibleText;
+    const selectedTextHash = fnv1a(selectedText);
+    const visibleTextHash = fnv1a(visibleText);
+    let sourceIntegrity = 'clean';
+    if (swipes.length && !hasSelectedSwipe) sourceIntegrity = 'stale';
+    if (hasSelectedSwipe && visibleText && selectedTextHash !== visibleTextHash) sourceIntegrity = 'mismatch';
+    return {
+      hostMessageId: message.hostMessageId || message.id || raw.hostMessageId || raw.id || null,
+      chatId: message.chatId || raw.chatId || null,
+      role: 'assistant',
+      selectedTextHash,
+      selectedAssistantVariantHash: selectedTextHash,
+      visibleTextHash,
+      selectedSwipeIndex: hasSelectedSwipe ? selectedSwipeIndex : null,
+      swipeCount: swipes.length || null,
+      sourceIntegrity
+    };
+  }
+
+  function previousAssistantForFrame(currentPlayerMessage = null) {
+    const recent = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    const currentId = String(currentPlayerMessage?.hostMessageId || currentPlayerMessage?.id || '');
+    const currentIndex = recent.findIndex((entry) => String(entry.hostMessageId || entry.id || '') === currentId);
+    const candidates = currentIndex >= 0 ? recent.slice(0, currentIndex) : recent;
+    return [...candidates].reverse().find((entry) => (
+      !entry.isUser
+      && entry.isSystem !== true
+      && entry.role !== 'user'
+      && entry.role !== 'system'
+      && entry.raw?.isSystem !== true
+      && entry.raw?.is_system !== true
+      && entry.raw?.role !== 'system'
+      && entry.isDirectiveOwned !== true
+      && entry.directiveOwned !== true
+    )) || null;
+  }
+
   function buildTurnSourceFrame(state, message, chatId, ingressId, observedAt) {
+    const previousAssistant = selectedAssistantVariantRef(previousAssistantForFrame(message));
+    const priorSelectedHash = previousAssistant?.selectedTextHash || null;
+    const explicitSelectedHash = selectedAssistantVariantHash(message);
     return createTurnSourceFrame({
       id: `frame:${ingressId}`,
       campaignId: state.campaign?.id || null,
@@ -1903,10 +2049,12 @@ export function createChatTurnOrchestrator({
       chatId,
       hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
       textHash: fnv1a(message.text),
-      selectedAssistantVariantHash: selectedAssistantVariantHash(message),
+      selectedAssistantVariantHash: explicitSelectedHash || priorSelectedHash,
+      sourceIntegrity: previousAssistant?.sourceIntegrity || undefined,
       sourceRevision: state.runtimeTracking?.revision || 0,
       externalPromptEnvironment: unknownExternalPromptEnvironment(observedAt),
       visibility: message.visibility || null,
+      previousAssistant,
       currentPlayer: {
         hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
         role: 'player',
@@ -2526,13 +2674,13 @@ export function createChatTurnOrchestrator({
       `Response ledger id: ${responseEntry?.id || 'unrecorded'}`,
       '',
       'Prior player message currently in chat:',
-      displaySafeChatText(priorPlayer?.text || '') || '(none)',
+      displaySafeChatText(priorPlayer?.text || '').slice(0, 900) || '(none)',
       '',
       'Current selected assistant response in chat:',
-      displaySafeChatText(target?.text || ''),
+      displaySafeChatText(target?.text || '').slice(0, 900),
       '',
       'Player-safe campaign context:',
-      JSON.stringify({ mission: safe.mission, ship: safe.ship, crew: safe.crew }, null, 2),
+      boundedJson({ mission: safe.mission, ship: safe.ship, crew: safe.crew }, 4000),
       '',
       'Recent selected transcript:',
       JSON.stringify(recent, null, 2),
@@ -3742,6 +3890,19 @@ export function createChatTurnOrchestrator({
     const generatedText = narrationText(committed);
     const directiveGenerationStartedAt = narrationGenerationStartedAt(committed);
     const text = generatedText || localOutcomeNarration(committed);
+    const providerFailureRecoveryId = committed?.narrationResult?.ok === false
+      ? `recovery:narration:${outcomeId}`
+      : null;
+    const providerFailureCoreRecovery = providerFailureRecoveryId
+      ? await markCoreResponseRetryRequiredForBridge(next, {
+        ingressId,
+        outcomeId,
+        turnId,
+        recoveryId: providerFailureRecoveryId,
+        reason: 'provider-failure-after-mechanics-commit',
+        error: compactProviderFailureError(committed?.narrationResult?.error || null)
+      })
+      : null;
     next = await commitAdjudicatedTimeBoundary(next, {
       ingressId,
       turnId,
@@ -3761,6 +3922,13 @@ export function createChatTurnOrchestrator({
       outcomeId,
       responseKind: 'committedOutcome',
       timing: { directiveGenerationStartedAt },
+      metadata: committed?.narrationResult?.ok === false ? {
+        providerFailureAfterMechanicsCommit: true,
+        fallbackResponsePosted: true,
+        providerFailureErrorCode: committed?.narrationResult?.error?.code || null,
+        providerFailureRecoveryId,
+        providerFailureCoreRecovery: responseRetryCoreProjection(providerFailureCoreRecovery)
+      } : {},
       activityReporter
     });
     next = dispatched.state;
@@ -3786,16 +3954,11 @@ export function createChatTurnOrchestrator({
       });
     }
     if (!committed?.narrationResult?.ok) {
-      const coreResponseRecovery = await markCoreResponseRetryRequiredForBridge(next, {
-        ingressId,
-        outcomeId,
-        turnId,
-        recoveryId: `recovery:narration:${outcomeId}`,
-        reason: 'provider-failure-after-mechanics-commit',
-        error: committed?.narrationResult?.error || null
-      });
+      const recoveryId = providerFailureRecoveryId;
+      const fallbackResponseRef = dispatched.result?.entry || dispatched.result?.response || null;
+      const coreResponseRecovery = providerFailureCoreRecovery;
       next = recordRecoveryEvent(next, {
-        id: `recovery:narration:${outcomeId}`,
+        id: recoveryId,
         type: 'providerFailureAfterMechanicsCommit',
         status: 'open',
         ingressId,
@@ -3803,17 +3966,35 @@ export function createChatTurnOrchestrator({
         recordedAt: timestamp(now),
         details: {
           turnId,
+          strategy: 'directivePosted',
+          responseKind: 'committedOutcome',
+          responseId: fallbackResponseRef?.id || fallbackResponseRef?.idempotencyKey || null,
+          responseIdempotencyKey: fallbackResponseRef?.id || fallbackResponseRef?.idempotencyKey || null,
+          hostMessageId: fallbackResponseRef?.hostMessageId || null,
           coreTransactionId: coreResponseRecovery?.transactionId || findIngress(next, ingressId)?.coreTransactionId || null,
           coreRecovery: responseRetryCoreProjection(coreResponseRecovery),
           repairDecision: cloneJson(coreResponseRecovery?.decision || null),
-          error: cloneJson(committed?.narrationResult?.error || null),
-          fallbackResponsePosted: true
+          error: compactProviderFailureError(committed?.narrationResult?.error || null),
+          fallbackResponsePosted: true,
+          responseRetryPath: 'assistantSwipe'
         }
       });
+      if (fallbackResponseRef?.id || fallbackResponseRef?.hostMessageId) {
+        next = updateDirectiveResponse(next, fallbackResponseRef.id || fallbackResponseRef.hostMessageId, {
+          status: 'responseRetryRequired',
+          recoveryId,
+          providerFallback: {
+            kind: 'directive.providerFailureFallback.v1',
+            reason: 'provider-failure-after-mechanics-commit',
+            coreTransactionId: coreResponseRecovery?.transactionId || findIngress(next, ingressId)?.coreTransactionId || null,
+            retryPath: 'assistantSwipe'
+          }
+        });
+      }
       await persistState(next, `Recorded narration recovery issue for ${outcomeId}.`);
     }
     next = await updateIngressState(next, ingressId, {
-      status: 'committed',
+      status: committed?.narrationResult?.ok === false ? 'responseRetryRequired' : 'committed',
       classification: cloneJson(decision),
       workerPlan: cloneJson(decision.workerPlan),
       responseStrategy: 'directivePosted',
@@ -3821,6 +4002,7 @@ export function createChatTurnOrchestrator({
       outcomeId,
       responseMessageId: dispatched.result.response?.hostMessageId || null,
       narrationFallbackUsed: !generatedText,
+      recoveryId: committed?.narrationResult?.ok === false ? `recovery:narration:${outcomeId}` : null,
       completedAt: timestamp(now)
     }, `Completed consequential chat turn ${turnId}.`);
     let postCommitConversation = null;
@@ -4208,6 +4390,19 @@ export function createChatTurnOrchestrator({
     const directiveGenerationStartedAt = narrationGenerationStartedAt(committed);
     const text = generatedText || localOutcomeNarration(committed);
     const resolutionIngressId = `${interaction.ingressId}:resolution:${interaction.id}`;
+    const providerFailureRecoveryId = committed?.narrationResult?.ok === false
+      ? `recovery:narration:${outcomeId}`
+      : null;
+    const providerFailureCoreRecovery = providerFailureRecoveryId
+      ? await markCoreResponseRetryRequiredForBridge(state, {
+        ingressId: interaction.ingressId,
+        outcomeId,
+        turnId,
+        recoveryId: providerFailureRecoveryId,
+        reason: 'provider-failure-after-mechanics-commit',
+        error: compactProviderFailureError(committed?.narrationResult?.error || null)
+      })
+      : null;
     const dispatched = await dispatchAndRecord({
       state,
       ingressId: resolutionIngressId,
@@ -4221,6 +4416,13 @@ export function createChatTurnOrchestrator({
       outcomeId,
       responseKind: 'committedOutcome',
       timing: { directiveGenerationStartedAt },
+      metadata: committed?.narrationResult?.ok === false ? {
+        providerFailureAfterMechanicsCommit: true,
+        fallbackResponsePosted: true,
+        providerFailureErrorCode: committed?.narrationResult?.error?.code || null,
+        providerFailureRecoveryId,
+        providerFailureCoreRecovery: responseRetryCoreProjection(providerFailureCoreRecovery)
+      } : {},
       activityReporter
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
@@ -4264,16 +4466,11 @@ export function createChatTurnOrchestrator({
       completedAt: timestamp(now)
     });
     if (!committed?.narrationResult?.ok) {
-      const coreResponseRecovery = await markCoreResponseRetryRequiredForBridge(state, {
-        ingressId: interaction.ingressId,
-        outcomeId,
-        turnId,
-        recoveryId: `recovery:narration:${outcomeId}`,
-        reason: 'provider-failure-after-mechanics-commit',
-        error: committed?.narrationResult?.error || null
-      });
+      const recoveryId = providerFailureRecoveryId;
+      const fallbackResponseRef = dispatched.result?.entry || dispatched.result?.response || null;
+      const coreResponseRecovery = providerFailureCoreRecovery;
       state = recordRecoveryEvent(state, {
-        id: `recovery:narration:${outcomeId}`,
+        id: recoveryId,
         type: 'providerFailureAfterMechanicsCommit',
         status: 'open',
         ingressId: interaction.ingressId,
@@ -4281,12 +4478,35 @@ export function createChatTurnOrchestrator({
         recordedAt: timestamp(now),
         details: {
           turnId,
+          strategy: 'directivePosted',
+          responseKind: 'committedOutcome',
+          responseId: fallbackResponseRef?.id || fallbackResponseRef?.idempotencyKey || null,
+          responseIdempotencyKey: fallbackResponseRef?.id || fallbackResponseRef?.idempotencyKey || null,
+          hostMessageId: fallbackResponseRef?.hostMessageId || null,
           coreTransactionId: coreResponseRecovery?.transactionId || findIngress(state, interaction.ingressId)?.coreTransactionId || null,
           coreRecovery: responseRetryCoreProjection(coreResponseRecovery),
           repairDecision: cloneJson(coreResponseRecovery?.decision || null),
-          error: cloneJson(committed?.narrationResult?.error || null),
-          fallbackResponsePosted: true
+          error: compactProviderFailureError(committed?.narrationResult?.error || null),
+          fallbackResponsePosted: true,
+          responseRetryPath: 'assistantSwipe'
         }
+      });
+      if (fallbackResponseRef?.id || fallbackResponseRef?.hostMessageId) {
+        state = updateDirectiveResponse(state, fallbackResponseRef.id || fallbackResponseRef.hostMessageId, {
+          status: 'responseRetryRequired',
+          recoveryId,
+          providerFallback: {
+            kind: 'directive.providerFailureFallback.v1',
+            reason: 'provider-failure-after-mechanics-commit',
+            coreTransactionId: coreResponseRecovery?.transactionId || findIngress(state, interaction.ingressId)?.coreTransactionId || null,
+            retryPath: 'assistantSwipe'
+          }
+        });
+      }
+      state = updateTurnIngress(state, interaction.ingressId, {
+        status: 'responseRetryRequired',
+        recoveryId,
+        lastError: compactProviderFailureError(committed?.narrationResult?.error || null)
       });
     }
     await persistState(state, `Resolved pending ${interaction.kind} interaction.`);
@@ -4441,6 +4661,16 @@ export function createChatTurnOrchestrator({
         decision: cloneJson(retryActuationDecision)
       };
     }
+    if (recovery.type === 'providerFailureAfterMechanicsCommit') {
+      return retryProviderFailureResponse({
+        state,
+        recovery,
+        details,
+        ingress,
+        coreTransaction,
+        retryActuationDecision
+      });
+    }
     const decision = {
       classification: details.classification || 'directorResponseNeeded',
       workerPlan: cloneJson(details.workerPlan || {})
@@ -4482,6 +4712,309 @@ export function createChatTurnOrchestrator({
       duplicate: dispatched.result?.duplicate === true,
       response: cloneJson(dispatched.result?.response || dispatched.result?.entry || null),
       campaignState: cloneJson(state)
+    };
+  }
+
+  async function retryProviderFailureResponse({
+    state,
+    recovery,
+    details = {},
+    ingress = null,
+    coreTransaction = null,
+    retryActuationDecision = null
+  } = {}) {
+    if (typeof host.chat.appendAssistantMessageSwipe !== 'function') {
+      return {
+        ok: false,
+        reason: 'assistant-swipes-unavailable',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    if (ingress?.coreTransactionId && typeof coreTurnStore?.recordVisibleResponse !== 'function') {
+      return {
+        ok: false,
+        reason: 'core-visible-response-writer-unavailable',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const targetHostMessageId = compact(details.hostMessageId || details.responseHostMessageId || '');
+    if (!targetHostMessageId) {
+      return {
+        ok: false,
+        reason: 'provider-failure-response-target-missing',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const recent = typeof host.chat.getRecentMessages === 'function'
+      ? await host.chat.getRecentMessages({ limit: 500, playerSafeOnly: false })
+      : [];
+    const messages = Array.isArray(recent) ? recent.filter(Boolean) : [];
+    const recentTargetIndex = messages.findIndex((message, index) => (
+      compact(message?.hostMessageId || message?.id || String(index)) === targetHostMessageId
+    ));
+    if (recentTargetIndex < 0) {
+      return {
+        ok: false,
+        reason: 'provider-failure-response-target-not-current',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const target = host.chat.getMessage?.(targetHostMessageId)
+      || (recentTargetIndex >= 0 ? messages[recentTargetIndex] : null);
+    if (!isDirectiveAssistantMessage(target)) {
+      return {
+        ok: false,
+        reason: 'provider-failure-response-target-not-directive-owned',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const laterSourceMessage = messages.slice(recentTargetIndex + 1).find((entry) => (
+      entry?.isUser === true
+      || entry?.role === 'user'
+      || (
+        entry?.isSystem !== true
+        && entry?.role !== 'system'
+        && (
+          entry?.role === 'assistant'
+          || entry?.isUser === false
+          || isDirectiveAssistantMessage(entry)
+        )
+      )
+    ));
+    if (laterSourceMessage) {
+      return {
+        ok: false,
+        reason: 'provider-failure-response-target-not-latest',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const priorPlayer = recentTargetIndex >= 0
+      ? [...messages.slice(0, recentTargetIndex)].reverse().find((entry) => (
+        entry?.isUser === true || entry?.role === 'user'
+      )) || null
+      : null;
+    const targetMetadata = responseMetadata(target) || {};
+    const responseKind = compact(details.responseKind || targetMetadata.responseKind || 'committedOutcome');
+    const responseEntry = (details.responseId || details.responseIdempotencyKey)
+      ? (state.runtimeTracking?.responseLedger || []).find((entry) => (
+        compact(entry.id) === compact(details.responseId || details.responseIdempotencyKey)
+      )) || responseEntryForMessage(state, target)
+      : responseEntryForMessage(state, target);
+    const sourceResponseId = compact(
+      responseEntry?.id
+      || details.responseId
+      || details.responseIdempotencyKey
+      || targetMetadata.idempotencyKey
+      || `response:${targetHostMessageId}`
+    );
+    const campaignId = compact(state.campaign?.id || '');
+    const targetCampaignId = compact(targetMetadata.campaignId || target?.raw?.metadata?.campaignId || '');
+    const targetOutcomeId = compact(targetMetadata.outcomeId || target?.raw?.metadata?.outcomeId || '');
+    const targetResponseId = compact(targetMetadata.idempotencyKey || target?.raw?.metadata?.idempotencyKey || '');
+    if (
+      !responseEntry
+      || (details.responseId && compact(responseEntry.id) !== compact(details.responseId))
+      || (targetResponseId && compact(responseEntry.id) !== targetResponseId)
+      || (responseEntry.hostMessageId && compact(responseEntry.hostMessageId) !== targetHostMessageId)
+      || (recovery.outcomeId && compact(responseEntry.outcomeId) !== compact(recovery.outcomeId))
+      || (targetOutcomeId && recovery.outcomeId && targetOutcomeId !== compact(recovery.outcomeId))
+      || (targetCampaignId && campaignId && targetCampaignId !== campaignId)
+    ) {
+      return {
+        ok: false,
+        reason: 'provider-failure-response-target-mismatch',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const runtimeMetadata = target?.raw?.extra?.runtimeMetadata || target?.extra?.runtimeMetadata || {};
+    const selectedRetryRecoveryId = compact(
+      targetMetadata.responseRetryRecoveryId
+      || runtimeMetadata.responseRetryRecoveryId
+      || ''
+    );
+    const priorRetry = responseEntry?.responseRetry || null;
+    if (priorRetry?.recoveryId === recovery.id && selectedRetryRecoveryId !== recovery.id) {
+      return {
+        ok: false,
+        reason: 'provider-failure-response-retry-not-selected',
+        decision: cloneJson(retryActuationDecision)
+      };
+    }
+    const revisionId = compact(
+      targetMetadata.responseRetryRevisionId
+      || runtimeMetadata.responseRetryRevisionId
+      || `${sourceResponseId}:retry:${recovery.id}`
+    );
+    let generated = null;
+    let retryText = '';
+    let swipe = null;
+    if (selectedRetryRecoveryId === recovery.id) {
+      retryText = target?.text || target?.mes || target?.content || target?.raw?.text || target?.raw?.mes || '';
+      if (!compact(retryText)) {
+        return {
+          ok: false,
+          reason: 'provider-failure-existing-retry-text-missing',
+          decision: cloneJson(retryActuationDecision)
+        };
+      }
+      const selectedRetryTextHash = hashStableJson({ text: retryText });
+      if (priorRetry?.textHash && priorRetry.textHash !== selectedRetryTextHash) {
+        return {
+          ok: false,
+          reason: 'provider-failure-response-retry-not-selected',
+          decision: cloneJson(retryActuationDecision)
+        };
+      }
+      swipe = {
+        hostMessageId: targetHostMessageId,
+        index: Number.isInteger(target.index) ? target.index : recentTargetIndex,
+        swipeIndex: Number.isInteger(targetMetadata.selectedSwipeIndex) ? targetMetadata.selectedSwipeIndex : null,
+        swipeCount: Number.isInteger(targetMetadata.swipeCount) ? targetMetadata.swipeCount : null,
+        duplicate: true
+      };
+      generated = { source: 'existing-provider-failure-retry-swipe' };
+    } else {
+      generated = await generateDirectiveResponseSwipeText({
+        state,
+        target,
+        priorPlayer,
+        responseEntry,
+        responseKind,
+        revisionId,
+        recentMessages: messages
+      });
+      retryText = prefixCampaignReplyHeader(generated.text, state);
+      swipe = await host.chat.appendAssistantMessageSwipe({
+        hostMessageId: targetHostMessageId,
+        text: retryText,
+        campaignId: state.campaign?.id || null,
+        responseKind,
+        extra: {
+          runtimeMetadata: {
+            ...runtimeMetadata,
+            responseRetry: true,
+            responseRetryReason: 'provider-failure-after-mechanics-commit',
+            responseRetryRecoveryId: recovery.id,
+            responseRetryRevisionId: revisionId,
+            responseRetrySource: generated.source,
+            repairResponseRetryActuationDecision: cloneJson(retryActuationDecision)
+          },
+          directive: {
+            responseKind,
+            responseRetryRecoveryId: recovery.id,
+            responseRetryReason: 'provider-failure-after-mechanics-commit',
+            responseRetryRevisionId: revisionId,
+            responseSwipeRevisionId: revisionId,
+            selectedResponseRevisionId: revisionId,
+            sourceResponseId
+          }
+        }
+      });
+    }
+    const textHash = hashStableJson({ text: retryText });
+    const eventTime = timestamp(now);
+    let coreCompletion = null;
+    try {
+      if (ingress?.coreTransactionId && typeof coreTurnStore?.recordVisibleResponse === 'function') {
+        coreCompletion = await coreTurnStore.recordVisibleResponse(ingress.coreTransactionId, {
+          kind: responseKind,
+          responseId: sourceResponseId,
+          hostMessageId: swipe.hostMessageId || targetHostMessageId,
+          outcomeId: recovery.outcomeId || null,
+          postedAt: eventTime,
+          generationStartedAt: eventTime,
+          textHash,
+          repairDecision: retryActuationDecision,
+          idempotencyKey: `provider-failure-response-retry:${recovery.id}:${revisionId}`
+        });
+      }
+    } catch (error) {
+      const coreCompletionError = {
+        code: error?.code || 'DIRECTIVE_CORE_PROVIDER_FAILURE_RETRY_CLOSURE_FAILED',
+        message: error?.message || String(error)
+      };
+      let failed = updateDirectiveResponse(state, sourceResponseId, {
+        responseRetry: {
+          kind: 'directive.responseRetry.v1',
+          status: 'coreClosureFailed',
+          recoveryId: recovery.id,
+          reason: 'provider-failure-after-mechanics-commit',
+          hostMessageId: swipe.hostMessageId || targetHostMessageId,
+          swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
+          swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
+          responseRevisionId: revisionId,
+          textHash,
+          coreCompletionError
+        }
+      });
+      await persistState(failed, `Recorded provider-failure response retry CORE closure failure for ${recovery.id}.`);
+      return {
+        ok: false,
+        reason: 'core-response-retry-closure-failed',
+        error: coreCompletionError,
+        decision: cloneJson(retryActuationDecision),
+        campaignState: cloneJson(failed)
+      };
+    }
+    let next = updateDirectiveResponse(state, sourceResponseId, {
+      status: 'posted',
+      responseRetry: {
+        kind: 'directive.responseRetry.v1',
+        status: 'complete',
+        recoveryId: recovery.id,
+        reason: 'directive-response-retry-posted',
+        source: 'providerFailureAfterMechanicsCommit',
+        hostMessageId: swipe.hostMessageId || targetHostMessageId,
+        swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
+        swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
+        responseRevisionId: revisionId,
+        sourceResponseId,
+        textHash,
+        generationSource: generated.source,
+        coreCompletion: coreCompletion ? {
+          transactionId: coreCompletion.id || ingress?.coreTransactionId || null,
+          phase: coreCompletion.phase || null,
+          route: coreCompletion.route || null
+        } : null
+      }
+    });
+    next = resolveRecoveryEvent(next, recovery.id, {
+      status: 'resolved',
+      reason: 'directive-response-retry-posted',
+      hostMessageId: swipe.hostMessageId || targetHostMessageId,
+      swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
+      swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
+      responseRevisionId: revisionId,
+      coreCompletion: coreCompletion ? {
+        transactionId: coreCompletion.id || ingress?.coreTransactionId || null,
+        phase: coreCompletion.phase || null
+      } : null
+    });
+    if (recovery.ingressId) {
+      next = updateTurnIngress(next, recovery.ingressId, {
+        status: recovery.outcomeId ? 'committed' : 'complete',
+        responseMessageId: swipe.hostMessageId || targetHostMessageId,
+        recoveryId: null,
+        lastError: null,
+        completedAt: eventTime
+      });
+    }
+    await persistState(next, `Retried provider-failed response for ${recovery.ingressId || recovery.outcomeId || recovery.id}.`);
+    const synced = await syncPrompt(next);
+    return {
+      ok: true,
+      responseStrategy: 'directiveSwipe',
+      recoveryId: recovery.id,
+      responseRevisionId: revisionId,
+      response: {
+        hostMessageId: swipe.hostMessageId || targetHostMessageId,
+        index: Number.isInteger(swipe.index) ? swipe.index : null,
+        swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
+        swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
+        duplicate: swipe.duplicate === true
+      },
+      decision: cloneJson(retryActuationDecision),
+      campaignState: cloneJson(synced)
     };
   }
 

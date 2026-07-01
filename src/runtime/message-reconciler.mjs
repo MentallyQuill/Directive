@@ -1,6 +1,5 @@
 import {
   recordRecoveryEvent,
-  restoreTrackedCampaignRevision,
   updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
@@ -307,6 +306,42 @@ export function createMessageReconciler({
     }
   }
 
+  async function recordRepairRollbackActuation(options = {}) {
+    const handleRollback = repair.recordRollbackActuation || repair.recordRollbackExecution;
+    if (typeof handleRollback !== 'function') {
+      return {
+        status: 'notRecorded',
+        reason: 'repair-rollback-record-unavailable',
+        transactionId: options.coreRecovery?.transactionId || options.rollbackActuation?.transactionId || null
+      };
+    }
+    try {
+      return await handleRollback.call(repair, options);
+    } catch (error) {
+      error.details = {
+        ...(error.details || {}),
+        eventType: options.eventType
+      };
+      throw error;
+    }
+  }
+
+  async function executeRepairRollbackActuation(options = {}) {
+    const executeRollback = repair.executeRollbackActuation || repair.executeRollbackExecution;
+    if (typeof executeRollback === 'function') {
+      try {
+        return await executeRollback.call(repair, options);
+      } catch (error) {
+        error.details = {
+          ...(error.details || {}),
+          eventType: options.eventType
+        };
+        throw error;
+      }
+    }
+    return recordRepairRollbackActuation(options);
+  }
+
   function legacyProjectionFromRepair(coreRecovery = {}, {
     sourceKind,
     hasCommittedOutcome = false,
@@ -548,7 +583,29 @@ export function createMessageReconciler({
         eventTime
       })
       : null;
-    let next = updateTurnIngress(state, ingress.id, {
+    let rollbackExecution = null;
+    if (rollbackActuation?.authorized === true && Number.isFinite(Number(rollbackActuation.restoreRevision))) {
+      rollbackExecution = await executeRepairRollbackActuation({
+        coreRecovery,
+        rollbackActuation,
+        legacyProjection,
+        eventType,
+        eventTime,
+        campaignState: state,
+        reason: `${eventType} rolled the campaign back before outcome ${ingress.outcomeId}.`
+      });
+      if (rollbackExecution?.status !== 'applied' || !rollbackExecution.campaignState) {
+        return {
+          ok: true,
+          matched: true,
+          action: 'rollbackBlocked',
+          ingress: cloneJson(ingress),
+          preOutcomeRevision: revision,
+          campaignState: cloneJson(state)
+        };
+      }
+    }
+    let next = updateTurnIngress(rollbackExecution?.campaignState || state, ingress.id, {
       status: legacyProjection.sourceProjectionStatus || 'recoveryRequired',
       invalidatedAt: eventTime,
       invalidationType: eventType,
@@ -587,11 +644,7 @@ export function createMessageReconciler({
     next = markedComponents.campaignState;
 
     let action = legacyProjection.returnedAction || 'reviewRequired';
-    if (rollbackActuation?.authorized === true && Number.isFinite(Number(rollbackActuation.restoreRevision))) {
-      next = restoreTrackedCampaignRevision(next, Number(rollbackActuation.restoreRevision), {
-        now,
-        reason: `${eventType} rolled the campaign back before outcome ${ingress.outcomeId}.`
-      });
+    if (rollbackExecution?.status === 'applied') {
       action = legacyProjection.returnedAction || 'rolledBack';
     } else if (legacyProjection.shouldRestoreRevision === true) {
       action = 'rollbackBlocked';

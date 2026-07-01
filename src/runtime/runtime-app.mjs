@@ -89,9 +89,11 @@ import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
+  recordTurnIngress,
   recordRecoveryEvent,
   updateDirectiveResponse
 } from './state-delta-gateway.mjs';
+import { createTurnSourceFrame } from './frame-contracts.mjs';
 import {
   indexRuntimeAssets,
   loadBundledCampaignPackageRecords,
@@ -188,6 +190,7 @@ function mergeObjects(base, patch) {
 const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 20;
 const MIN_TURN_SAVE_HISTORY_LIMIT = 2;
 const MAX_TURN_SAVE_HISTORY_LIMIT = 60;
+const REPLACEMENT_HISTORY_LIMIT = 32;
 const DEFAULT_AUTOSAVE_EVERY_MESSAGES = 20;
 const MIN_AUTOSAVE_EVERY_MESSAGES = 1;
 const MAX_AUTOSAVE_EVERY_MESSAGES = 200;
@@ -938,6 +941,311 @@ function hasTurnLedgerOutcome(state = null, outcomeId = null) {
   return (state?.turnLedger?.entries || []).some((entry) => entry?.outcomeId === id);
 }
 
+function compactOutcomeRerunLedgerRef(entry = null) {
+  if (!entry || typeof entry !== 'object') return null;
+  return {
+    replacedTransactionId: compactString(entry.coreTransactionId || entry.transactionId),
+    coreTransactionId: compactString(entry.coreTransactionId || entry.transactionId),
+    outcomeId: compactString(entry.outcomeId),
+    turnId: compactString(entry.turnId),
+    resultBand: compactString(entry.resultBand),
+    snapshotBeforeRetained: entry.snapshotBeforeRetained === true,
+    narrationStatus: compactString(entry.narrationStatus),
+    responseStatus: compactString(entry.responseStatus),
+    hasCommandBearingSpend: Boolean(entry.commandBearingSpend)
+  };
+}
+
+function buildOutcomeRerunSourceFrame({
+  state = null,
+  binding = null,
+  ledgerEntry = null,
+  outcomeId = null,
+  replacementTurnId = null,
+  replacementCandidateId = null,
+  replacementType = 'rerunOutcome',
+  playerInput = '',
+  replacementInputHash = null,
+  eventTime = null,
+  fallbackHostId = null
+} = {}) {
+  const replacedOutcomeId = compactString(outcomeId || ledgerEntry?.outcomeId);
+  const replacedTurnId = compactString(ledgerEntry?.turnId);
+  const replacedTransactionId = compactString(ledgerEntry?.coreTransactionId || ledgerEntry?.transactionId);
+  const replacementTurn = compactString(replacementTurnId);
+  const candidateId = compactString(replacementCandidateId);
+  const textHash = compactString(replacementInputHash) || hashStableJson({
+    replacementInput: String(playerInput || ''),
+    replacedOutcomeId,
+    replacementTurnId: replacementTurn,
+    replacementType
+  });
+  const sourceHash = hashStableJson({
+    sourceKind: 'committedOutcomeRerun',
+    candidateId,
+    replacedOutcomeId,
+    replacedTurnId,
+    replacedTransactionId,
+    replacementTurnId: replacementTurn,
+    replacementType,
+    textHash
+  });
+  const frameId = candidateId ? `frame:${candidateId}` : `frame:outcome-rerun:${sourceHash.slice(0, 16)}`;
+  return createTurnSourceFrame({
+    id: frameId,
+    sourceKind: 'committedOutcomeRerun',
+    campaignId: binding?.campaignId || state?.campaign?.id || null,
+    saveId: binding?.saveId || null,
+    chatId: binding?.chatId || null,
+    hostId: binding?.hostId || fallbackHostId || null,
+    hostMessageId: `outcome-rerun:${replacedOutcomeId}`,
+    textHash,
+    sourceHash,
+    sourceRevision: state?.runtimeTracking?.revision || 0,
+    outcomeRef: {
+      kind: 'directive.rerunOutcomeSourceRef.v1',
+      outcomeId: replacedOutcomeId,
+      turnId: replacedTurnId,
+      sourceFrameId: ledgerEntry?.sourceFrameId || null
+    },
+    turnRef: {
+      kind: 'directive.rerunReplacementTurnRef.v1',
+      turnId: replacementTurn,
+      outcomeId: replacedOutcomeId
+    },
+    visibility: {
+      sourceMutation: false,
+      reason: 'committed-outcome-rerun-preview'
+    },
+    createdAt: eventTime || null
+  });
+}
+
+function boundedReplacementHistory(entries = [], nextEntry = null, limit = REPLACEMENT_HISTORY_LIMIT) {
+  const source = Array.isArray(entries) ? entries : [];
+  const combined = nextEntry ? [...source, nextEntry] : [...source];
+  const numericLimit = Math.max(1, Number.isInteger(limit) ? limit : REPLACEMENT_HISTORY_LIMIT);
+  return combined.slice(Math.max(0, combined.length - numericLimit)).map(cloneJson);
+}
+
+function rowKey(row = {}, keySpec) {
+  if (Array.isArray(keySpec)) {
+    const values = keySpec.map((key) => compactString(row?.[key]));
+    return values.every(Boolean) ? values.join('\u0001') : '';
+  }
+  return compactString(row?.[keySpec]);
+}
+
+function rowKeySet(rows = [], keySpecs = []) {
+  const keys = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    for (const spec of keySpecs) {
+      const key = rowKey(row, spec);
+      if (key) keys.add(key);
+    }
+  }
+  return keys;
+}
+
+function rowsCoveredByCoreProjection(coreRows = [], legacyRows = [], keySpecs = []) {
+  const legacy = Array.isArray(legacyRows) ? legacyRows : [];
+  if (legacy.length === 0) return true;
+  const coreKeys = rowKeySet(coreRows, keySpecs);
+  if (coreKeys.size === 0) return false;
+  return legacy.every((row) => {
+    for (const spec of keySpecs) {
+      const key = rowKey(row, spec);
+      if (key && coreKeys.has(key)) return true;
+    }
+    return false;
+  });
+}
+
+function coreProjectionHasRuntimeAuthority(projections = {}, existingState = null) {
+  if (!existingState || typeof existingState !== 'object') return true;
+  const runtimeTracking = existingState.runtimeTracking || {};
+  const coreTurnLedger = projections.turnLedger || {};
+  return rowsCoveredByCoreProjection(projections.ingressLedger, runtimeTracking.ingressLedger, [
+    'id',
+    'ingressId',
+    'hostMessageId',
+    'transactionId',
+    'coreTransactionId',
+    'sourceFrameId'
+  ])
+    && rowsCoveredByCoreProjection(projections.responseLedger, runtimeTracking.responseLedger, [
+      'id',
+      'responseId',
+      'hostMessageId',
+      'transactionId',
+      'coreTransactionId',
+      ['turnId', 'outcomeId', 'responseKind']
+    ])
+    && rowsCoveredByCoreProjection(projections.recoveryJournal, runtimeTracking.recoveryJournal, [
+      'id',
+      'transactionId',
+      'coreTransactionId'
+    ])
+    && rowsCoveredByCoreProjection(coreTurnLedger.entries, existingState.turnLedger?.entries, [
+      'id',
+      'turnId',
+      'transactionId',
+      'coreTransactionId',
+      'outcomeId'
+    ])
+    && rowsCoveredByCoreProjection(coreTurnLedger.replacementHistory, existingState.turnLedger?.replacementHistory, [
+      'id',
+      'eventId',
+      'transactionId',
+      'coreTransactionId',
+      'replacedTransactionId',
+      'replacementTransactionId',
+      ['replacedOutcomeId', 'replacementOutcomeId'],
+      ['replacedTurnId', 'replacementTurnId']
+    ]);
+}
+
+function coreProjectionFreshnessEvidence(projections = null, existingState = null) {
+  if (!projections || typeof projections !== 'object') return null;
+  const evidence = {
+    kind: 'directive.coreStoreReadProjections.v1',
+    turnLedger: {
+      entries: cloneJson(Array.isArray(projections.turnLedger?.entries) ? projections.turnLedger.entries : []),
+      replacementHistory: cloneJson(Array.isArray(projections.turnLedger?.replacementHistory) ? projections.turnLedger.replacementHistory : []),
+      lastCommittedOutcomeId: projections.turnLedger?.lastCommittedOutcomeId || null,
+      lastReplacedOutcomeId: projections.turnLedger?.lastReplacedOutcomeId || null
+    },
+    ingressLedger: cloneJson(Array.isArray(projections.ingressLedger) ? projections.ingressLedger : []),
+    responseLedger: cloneJson(Array.isArray(projections.responseLedger) ? projections.responseLedger : []),
+    recoveryJournal: cloneJson(Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []),
+    sidecarDiagnostics: cloneJson(Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []),
+    backgroundBatches: cloneJson(Array.isArray(projections.backgroundBatches) ? projections.backgroundBatches : []),
+    commandBearingEvidence: cloneJson(Array.isArray(projections.commandBearingEvidence) ? projections.commandBearingEvidence : [])
+  };
+  if (coreProjectionHasRuntimeAuthority(projections, existingState)) {
+    evidence.runtimeAuthority = 'coreStoreV2';
+  }
+  return evidence;
+}
+
+const RERUN_PREVIEW_RAW_INPUT_KEYS = new Set([
+  'playerInput',
+  'playerText',
+  'declaredMethod'
+]);
+
+function collectRerunPreviewRawInputCandidates(value, out = new Set()) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectRerunPreviewRawInputCandidates(item, out);
+    return out;
+  }
+  if (!value || typeof value !== 'object') return out;
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'string' && RERUN_PREVIEW_RAW_INPUT_KEYS.has(key) && item.trim()) {
+      out.add(item.trim());
+    }
+    collectRerunPreviewRawInputCandidates(item, out);
+  }
+  return out;
+}
+
+function redactedRerunInputMarker(inputHash = null) {
+  const hash = compactString(inputHash);
+  return hash ? `[redacted-rerun-player-input:${hash.slice(0, 16)}]` : '[redacted-rerun-player-input]';
+}
+
+function redactRerunPreviewProjection(value, {
+  rawInput = null,
+  inputHash = null,
+  rawCandidates = null,
+  currentKey = null
+} = {}) {
+  const candidates = rawCandidates || collectRerunPreviewRawInputCandidates(value);
+  if (compactString(rawInput)) candidates.add(compactString(rawInput));
+  const marker = redactedRerunInputMarker(inputHash);
+  if (Array.isArray(value)) {
+    return value.map((item) => redactRerunPreviewProjection(item, {
+      inputHash,
+      rawCandidates: candidates,
+      currentKey
+    }));
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = redactRerunPreviewProjection(item, {
+        inputHash,
+        rawCandidates: candidates,
+        currentKey: key
+      });
+    }
+    return out;
+  }
+  if (typeof value !== 'string') return value;
+  if (RERUN_PREVIEW_RAW_INPUT_KEYS.has(currentKey)) return marker;
+  if (currentKey === 'summaryInputs' && value.trim()) return marker;
+  let text = value;
+  for (const candidate of candidates) {
+    if (!candidate || !text.includes(candidate)) continue;
+    text = text.split(candidate).join(marker);
+  }
+  return text;
+}
+
+function publicPendingDirectorTurnProjection(turnPacket = null, replacement = null) {
+  if (!turnPacket) return null;
+  if (!replacement) return cloneJson(turnPacket);
+  return redactRerunPreviewProjection(turnPacket, {
+    inputHash: replacement.replacementInputHash || replacement.repairDecision?.replacementInputHash || null
+  });
+}
+
+function assertFreshOutcomeRerunReplacementTarget({
+  replacement = null,
+  ledgerEntry = null
+} = {}) {
+  if (!replacement) return null;
+  const expectedOutcomeId = compactString(replacement.outcomeId);
+  const expectedTransactionId = compactString(
+    replacement.repairDecision?.replacedTransactionId
+    || replacement.replacedTransactionId
+  );
+  if (!expectedOutcomeId) return ledgerEntry || null;
+  if (!ledgerEntry || compactString(ledgerEntry.outcomeId) !== expectedOutcomeId) {
+    const error = new Error(`CORE outcome rerun rejected stale rerun target "${expectedOutcomeId}".`);
+    error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_STALE_TARGET';
+    error.details = {
+      outcomeId: expectedOutcomeId,
+      reason: 'rerun-target-missing'
+    };
+    throw error;
+  }
+  if (expectedTransactionId) {
+    const currentTransactionId = compactString(ledgerEntry.coreTransactionId || ledgerEntry.transactionId);
+    if (currentTransactionId !== expectedTransactionId) {
+      const error = new Error(`CORE outcome rerun rejected stale rerun target "${expectedOutcomeId}".`);
+      error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_STALE_TARGET';
+      error.details = {
+        outcomeId: expectedOutcomeId,
+        expectedTransactionId,
+        currentTransactionId: currentTransactionId || null,
+        reason: 'replaced-transaction-mismatch'
+      };
+      throw error;
+    }
+  }
+  if (replacement.repairDecision?.snapshotBeforeRetained === true && ledgerEntry.snapshotBeforeRetained !== true) {
+    const error = new Error(`CORE outcome rerun rejected stale rerun target "${expectedOutcomeId}".`);
+    error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_STALE_TARGET';
+    error.details = {
+      outcomeId: expectedOutcomeId,
+      reason: 'retained-snapshot-missing'
+    };
+    throw error;
+  }
+  return ledgerEntry;
+}
+
 function commandLogEntryOutcomeId(entry = null) {
   return compactString(entry?.sourceOutcomeId || entry?.outcomeId || entry?.id);
 }
@@ -994,6 +1302,9 @@ function restoreCommittedOutcomeState(state = null, checkpointState = null, outc
 
 export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
+  boundedReplacementHistory,
+  coreProjectionFreshnessEvidence,
+  assertFreshOutcomeRerunReplacementTarget,
   findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
   restoreCommittedOutcomeState,
@@ -1652,6 +1963,11 @@ export function createDirectiveRuntimeApp({
       if (typeof store?.recordVisibleResponse !== 'function') return null;
       return store.recordVisibleResponse(...args);
     },
+    async recordOutcomeReplacement(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.recordOutcomeReplacement !== 'function') return null;
+      return store.recordOutcomeReplacement(...args);
+    },
     async markRecoveryRequired(...args) {
       const store = await ensureActiveCoreTurnStore();
       if (typeof store?.markRecoveryRequired !== 'function') return null;
@@ -1691,6 +2007,103 @@ export function createDirectiveRuntimeApp({
       return typeof store?.loadHead === 'function' ? store.loadHead() : null;
     }
   };
+
+  async function beginOutcomeRerunReplacementTransaction({
+    ledgerEntry = null,
+    outcomeId = null,
+    replacementTurnId = null,
+    replacementOutcomeId = null,
+    replacementCandidateId = null,
+    replacementInputHash = null,
+    replacementType = 'rerunOutcome',
+    playerInput = '',
+    repairDecision = null,
+    eventTime = null
+  } = {}) {
+    if (!repairDecision?.coreTransactionRequired && !repairDecision?.replacementTransactionRequired) {
+      return {
+        repairDecision,
+        replacementTransactionId: compactString(repairDecision?.transactionId) || null,
+        replacementSourceFrame: null,
+        coreTransaction: null
+      };
+    }
+    const binding = bindingFromState(campaignState);
+    const sourceFrame = buildOutcomeRerunSourceFrame({
+      state: campaignState,
+      binding,
+      ledgerEntry,
+      outcomeId,
+      replacementTurnId,
+      replacementCandidateId,
+      replacementType,
+      playerInput,
+      replacementInputHash,
+      eventTime,
+      fallbackHostId: runtimeHost?.id || null
+    });
+    const transactionId = `txn:${sourceFrame.id}`;
+    const replacementIngressId = `ingress:outcome-rerun:${compactString(replacementCandidateId) || sourceFrame.sourceHash?.slice(0, 16) || compactString(outcomeId || ledgerEntry?.outcomeId)}`;
+    const transaction = await runtimeCoreTurnStore.beginTurn(sourceFrame, {
+      transactionId,
+      chatId: sourceFrame.chatId,
+      ingressId: replacementIngressId,
+      idempotencyKey: [
+        'outcome-rerun',
+        compactString(replacementCandidateId),
+        compactString(repairDecision?.replacedTransactionId || ledgerEntry?.coreTransactionId || ledgerEntry?.transactionId),
+        compactString(outcomeId || ledgerEntry?.outcomeId),
+        compactString(replacementTurnId),
+        sourceFrame.textHash || sourceFrame.sourceHash || 'source'
+      ].join(':')
+    });
+    const replacementTransactionId = compactString(transaction?.id);
+    if (!replacementTransactionId) {
+      const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${outcomeId || ledgerEntry?.outcomeId || 'unknown'}".`);
+      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
+      error.details = {
+        outcomeId: outcomeId || ledgerEntry?.outcomeId || null,
+        repairDecision: cloneJson(repairDecision || null)
+      };
+      throw error;
+    }
+    return {
+      repairDecision: {
+        ...cloneJson(repairDecision || {}),
+        transactionId: replacementTransactionId,
+        replacementTransactionRequired: false
+      },
+      replacementTransactionId,
+      replacementIngressId,
+      replacementSourceFrame: sourceFrame,
+      replacementIngress: {
+        id: replacementIngressId,
+        hostMessageId: sourceFrame.hostMessageId || null,
+        chatId: sourceFrame.chatId || null,
+        campaignId: sourceFrame.campaignId || null,
+        textHash: sourceFrame.textHash || null,
+        receivedAt: eventTime || timestampFromNow(now),
+        stateRevision: campaignState?.runtimeTracking?.revision || 0,
+        sourceFrameId: sourceFrame.id || null,
+        sourceFrame,
+        coreTransactionId: replacementTransactionId,
+        repairDecision: {
+          ...cloneJson(repairDecision || {}),
+          transactionId: replacementTransactionId,
+          replacementTransactionRequired: false
+        },
+        status: 'committed',
+        classification: {
+          classification: 'outcomeRerun',
+          sourceKind: 'committedOutcome'
+        },
+        responseStrategy: 'directivePosted',
+        turnId: compactString(replacementTurnId) || null,
+        outcomeId: compactString(replacementOutcomeId) || null
+      },
+      coreTransaction: cloneJson(transaction || { id: replacementTransactionId })
+    };
+  }
 
   async function settleInternalForgeBackgroundBatch(prepared = null, {
     sourceFrameId = null,
@@ -1920,30 +2333,25 @@ export function createDirectiveRuntimeApp({
       const recallIndexRevision = compactString(projections.recallIndex?.revision);
       const sceneSealRevision = compactString(projections.sceneSealRevision);
       const pressureArcDigestRevision = compactString(projections.pressureArcDigestRevision);
+      const commandBearingEvidenceRevision = Array.isArray(projections.commandBearingEvidence) && projections.commandBearingEvidence.length
+        ? hashStableJson(projections.commandBearingEvidence.map((entry) => ({
+          evidenceId: entry.evidenceId || entry.id || null,
+          evidenceHash: entry.evidenceHash || entry.hash || null,
+          transactionId: entry.transactionId || null,
+          batchId: entry.batchId || null,
+          sourceFrameId: entry.sourceFrameId || null
+        })))
+        : null;
       return {
         ...(recallIndexRevision ? { recallIndexRevision } : {}),
         ...(sceneSealRevision ? { sceneSealRevision } : {}),
-        ...(pressureArcDigestRevision ? { pressureArcDigestRevision } : {})
+        ...(pressureArcDigestRevision ? { pressureArcDigestRevision } : {}),
+        ...(commandBearingEvidenceRevision ? { commandBearingEvidenceRevision } : {})
       };
     } catch (error) {
       console.warn('[Directive] Failed to read CORE prompt cache inputs:', error);
       return {};
     }
-  }
-
-  function coreProjectionFreshnessEvidence(projections = null) {
-    if (!projections || typeof projections !== 'object') return null;
-    return {
-      kind: 'directive.coreStoreReadProjections.v1',
-      turnLedger: {
-        entries: cloneJson(Array.isArray(projections.turnLedger?.entries) ? projections.turnLedger.entries : [])
-      },
-      ingressLedger: cloneJson(Array.isArray(projections.ingressLedger) ? projections.ingressLedger : []),
-      responseLedger: cloneJson(Array.isArray(projections.responseLedger) ? projections.responseLedger : []),
-      recoveryJournal: cloneJson(Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []),
-      sidecarDiagnostics: cloneJson(Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []),
-      backgroundBatches: cloneJson(Array.isArray(projections.backgroundBatches) ? projections.backgroundBatches : [])
-    };
   }
 
   async function coreSidecarDiagnosticCount() {
@@ -1982,7 +2390,7 @@ export function createDirectiveRuntimeApp({
       return state;
     }
     try {
-      const evidence = coreProjectionFreshnessEvidence(await runtimeCoreTurnStore.readProjections());
+      const evidence = coreProjectionFreshnessEvidence(await runtimeCoreTurnStore.readProjections(), state);
       if (!evidence) return state;
       return {
         ...cloneJson(state),
@@ -2554,7 +2962,7 @@ export function createDirectiveRuntimeApp({
       lastActivationResult: cloneJson(lastActivationResult),
       lastConclusionResult: cloneJson(lastConclusionResult),
       lastDirectivePresetInstallResult: cloneJson(lastDirectivePresetInstallResult),
-      pendingDirectorTurn: cloneJson(pendingDirectorTurn),
+      pendingDirectorTurn: publicPendingDirectorTurnProjection(pendingDirectorTurn, pendingOutcomeReplacement),
       pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
       openWorld: cloneJson(openWorld),
       lastError: lastError ? {
@@ -5186,6 +5594,16 @@ export function createDirectiveRuntimeApp({
       commandBearingReviewPromptFlusher: async (input = {}) => {
         const promptDirtyDomains = ['commandBearing'];
         const promptSyncIdempotencyKey = compactString(input.promptSyncIdempotencyKey || input.idempotencyKey);
+        const coreCommandBearingReviewProjection = cloneJson(
+          input.coreCommandBearingReviewProjection
+          || input.promptFrame?.coreCommandBearingReviewProjection
+          || input.cacheInputs?.coreCommandBearingReviewProjection
+          || null
+        );
+        const cacheInputs = cloneJson(input.cacheInputs || input.promptFrame?.cacheInputs || {});
+        if (coreCommandBearingReviewProjection) {
+          cacheInputs.coreCommandBearingReviewProjection = cloneJson(coreCommandBearingReviewProjection);
+        }
         const promptFrame = {
           ...(input.promptFrame && typeof input.promptFrame === 'object' ? cloneJson(input.promptFrame) : {}),
           workerKey: 'commandBearing',
@@ -5193,7 +5611,8 @@ export function createDirectiveRuntimeApp({
           commandBearingReview: true,
           sourceFrameRef: cloneJson(input.sourceFrameRef || input.promptFrame?.sourceFrameRef || null),
           sourceToken: input.sourceToken || input.promptFrame?.sourceToken || null,
-          cacheInputs: cloneJson(input.cacheInputs || input.promptFrame?.cacheInputs || {})
+          coreCommandBearingReviewProjection,
+          cacheInputs
         };
         const activityContext = input.activityContext && typeof input.activityContext === 'object'
           ? cloneJson(input.activityContext)
@@ -5414,6 +5833,7 @@ export function createDirectiveRuntimeApp({
       stateDeltaGateway,
       responseDispatcher,
       messageReconciler,
+      repairRuntime,
       sceneReconciliation,
       coreTurnStore: runtimeCoreTurnStore,
       sidecarScheduler,
@@ -7967,9 +8387,13 @@ export function createDirectiveRuntimeApp({
         if (spendTrack) {
           throw new Error('Command Bearing points must be readied before the player message; post-outcome spendTrack commits are disabled.');
         }
-        const replacement = pendingOutcomeReplacement ? cloneJson(pendingOutcomeReplacement) : null;
+        let replacement = pendingOutcomeReplacement ? cloneJson(pendingOutcomeReplacement) : null;
         const baseCampaignState = replacement?.snapshotBefore || campaignState;
         const beforeCampaignState = cloneJson(baseCampaignState);
+        let replacementLedgerEntry = replacement
+          ? (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === replacement.outcomeId) || null
+          : null;
+        replacementLedgerEntry = assertFreshOutcomeRerunReplacementTarget({ replacement, ledgerEntry: replacementLedgerEntry });
         const result = commitProvisionalDirectorTurnRuntime({
           campaignState: baseCampaignState,
           turnPacket: pendingDirectorTurn,
@@ -7979,26 +8403,126 @@ export function createDirectiveRuntimeApp({
           confirmedWarningIds
         });
         let committedCandidateState = result.campaignState;
+        const replacementAcceptedAt = replacement ? timestampFromNow(now) : null;
         if (replacement) {
+          const replacementTransaction = await beginOutcomeRerunReplacementTransaction({
+            ledgerEntry: replacementLedgerEntry,
+            outcomeId: replacement.outcomeId,
+            replacementTurnId: result.turnPacket?.turnId || result.turnPacket?.id || null,
+            replacementOutcomeId: result.turnPacket?.outcomePacket?.id || result.turnPacket?.finalOutcome?.id || null,
+            replacementCandidateId: replacement.replacementCandidateId,
+            replacementInputHash: replacement.replacementInputHash,
+            replacementType: replacement.type || 'rerunOutcome',
+            repairDecision: replacement.repairDecision,
+            eventTime: replacementAcceptedAt
+          });
+          replacement = {
+            ...replacement,
+            replacementTransactionId: replacementTransaction.replacementTransactionId || replacement.replacementTransactionId || null,
+            replacementIngressId: replacementTransaction.replacementIngressId || replacement.replacementIngressId || null,
+            replacementIngress: replacementTransaction.replacementIngress || replacement.replacementIngress || null,
+            replacementSourceFrame: replacementTransaction.replacementSourceFrame || replacement.replacementSourceFrame || null,
+            coreTransaction: replacementTransaction.coreTransaction || replacement.coreTransaction || null,
+            repairDecision: replacementTransaction.repairDecision || replacement.repairDecision
+          };
+        }
+        const replacementTransactionId = compactString(
+          replacement?.replacementTransactionId
+          || replacement?.repairDecision?.transactionId
+          || replacement?.transactionId
+        );
+        const replacedTransactionId = compactString(
+          replacement?.repairDecision?.replacedTransactionId
+          || replacement?.replacedTransactionId
+        );
+        const coreOutcomeReplacement = replacement && replacementTransactionId
+          ? {
+              transactionId: replacementTransactionId,
+              replacedTransactionId,
+              replacementTransactionId,
+              idempotencyKey: `outcome-replacement:${replacementTransactionId}:${replacement.outcomeId}:${result.turnPacket.outcomePacket.id}`,
+              type: replacement.type || 'rerunOutcome',
+              replacedOutcomeId: replacement.outcomeId,
+              replacementOutcomeId: result.turnPacket.outcomePacket.id,
+              replacedTurnId: replacement.turnId || null,
+              replacementTurnId: result.turnPacket.turnId || result.turnPacket.id || null,
+              acceptedAt: replacementAcceptedAt,
+              repairDecision: cloneJson(replacement.repairDecision || null)
+            }
+          : null;
+        const legacyNoCoreOutcomeReplacement = replacement
+          && !coreOutcomeReplacement
+          && replacement.repairDecision?.action === 'createLegacyNoCoreRerunCandidate'
+          && replacement.repairDecision?.legacyNoCoreRerunAllowed === true;
+        if (replacement && !coreOutcomeReplacement && !legacyNoCoreOutcomeReplacement) {
+          const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${replacement.outcomeId || 'unknown'}".`);
+          error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
+          error.details = {
+            outcomeId: replacement.outcomeId || null,
+            repairDecision: cloneJson(replacement.repairDecision || null)
+          };
+          throw error;
+        }
+        if (legacyNoCoreOutcomeReplacement) {
           committedCandidateState.turnLedger = committedCandidateState.turnLedger || { entries: [], swipeRerollForbidden: true };
-          committedCandidateState.turnLedger.replacementHistory = [
-            ...(committedCandidateState.turnLedger.replacementHistory || []),
+          committedCandidateState.turnLedger.replacementHistory = boundedReplacementHistory(
+            committedCandidateState.turnLedger.replacementHistory,
             {
               type: replacement.type || 'rerunOutcome',
               replacedOutcomeId: replacement.outcomeId,
               replacementOutcomeId: result.turnPacket.outcomePacket.id,
               replacedTurnId: replacement.turnId || null,
-              acceptedAt: timestampFromNow(now)
+              repairDecision: cloneJson(replacement.repairDecision || null),
+              acceptedAt: replacementAcceptedAt
             }
-          ];
+          );
           committedCandidateState.turnLedger.lastReplacedOutcomeId = replacement.outcomeId;
         }
-        const mechanicsCheckpoint = await ensureTurnCommitCoordinator().checkpointMechanics({
-          beforeCampaignState,
-          campaignState: committedCandidateState,
-          turnPacket: result.turnPacket,
-          ingressId: committedCandidateState.runtimeTracking?.activeIngressId || null
-        });
+        if (replacement?.replacementIngress) {
+          committedCandidateState = recordTurnIngress(committedCandidateState, replacement.replacementIngress);
+        }
+        const mechanicsIngressId = replacement?.replacementIngressId
+          || committedCandidateState.runtimeTracking?.activeIngressId
+          || null;
+        let mechanicsCheckpoint = null;
+        try {
+          mechanicsCheckpoint = await ensureTurnCommitCoordinator().checkpointMechanics({
+            beforeCampaignState,
+            campaignState: committedCandidateState,
+            turnPacket: result.turnPacket,
+            ingressId: mechanicsIngressId,
+            outcomeReplacement: coreOutcomeReplacement
+          });
+        } catch (error) {
+          if (replacement && replacementTransactionId && typeof runtimeCoreTurnStore?.markRecoveryRequired === 'function') {
+            try {
+              await runtimeCoreTurnStore.markRecoveryRequired(replacementTransactionId, {
+                id: `recovery:outcome-rerun:${replacementTransactionId}`,
+                status: 'required',
+                reason: 'outcome-rerun-checkpoint-failed',
+                dependentOutcomeId: result.turnPacket?.outcomePacket?.id || result.turnPacket?.finalOutcome?.id || null,
+                allowedActions: ['discardRerunCandidate', 'retryOutcomeRerunCommit'],
+                repairDecision: cloneJson(replacement.repairDecision || null),
+                sourceMutation: {
+                  kind: 'directive.sourceMutation.v1',
+                  sourceKind: 'committedOutcomeRerun',
+                  eventType: 'outcomeRerunCommitFailed',
+                  sourceFrameId: replacement.replacementSourceFrame?.id || replacement.replacementIngress?.sourceFrameId || null,
+                  replacementSourceFrameId: replacement.replacementSourceFrame?.id || replacement.replacementIngress?.sourceFrameId || null,
+                  observedTextHash: replacement.replacementInputHash || replacement.replacementSourceFrame?.textHash || null,
+                  replacementTextPresent: Boolean(replacement.replacementInputHash || replacement.replacementSourceFrame?.textHash)
+                },
+                idempotencyKey: `outcome-rerun-checkpoint-failed:${replacementTransactionId}:${result.turnPacket?.outcomePacket?.id || 'outcome'}`
+              });
+            } catch (recoveryError) {
+              error.coreRecoveryError = {
+                code: recoveryError?.code || null,
+                message: recoveryError?.message || String(recoveryError)
+              };
+            }
+          }
+          throw error;
+        }
         campaignState = mechanicsCheckpoint.campaignState;
         lastMechanicsCheckpointState = cloneJson(mechanicsCheckpoint.campaignState);
         const terminalDecision = await ensureChatNativeServices()?.endConditionService?.evaluateCommittedTurn?.({
@@ -8070,10 +8594,49 @@ export function createDirectiveRuntimeApp({
         if (!ledgerEntry) {
           throw new Error(`Cannot rerun unknown outcome "${id}"`);
         }
+        const repair = ensureChatNativeServices()?.repairRuntime || null;
+        const authorizeRerun = repair?.authorizeRerunBranch || repair?.evaluateOutcomeRerunActuation;
+        let rerunDecision = typeof authorizeRerun === 'function'
+          ? authorizeRerun.call(repair, {
+            outcomeId: id,
+            requestedType: type,
+            ledgerEntry: compactOutcomeRerunLedgerRef(ledgerEntry),
+            eventTime: timestampFromNow(now)
+          })
+          : {
+              kind: 'directive.repairOutcomeRerunActuationDecision.v1',
+              eventType: 'outcomeRerunRequested',
+              sourceKind: 'committedOutcome',
+              authorized: false,
+              action: 'blockOutcomeRerun',
+              reason: 'repair-rerun-authority-unavailable',
+              deniedReason: 'repair-rerun-authority-unavailable',
+              outcomeId: id,
+              replacementType: type,
+              mechanicsRerunAuthorized: false,
+              normalTurnAllowed: false
+            };
+        if (rerunDecision.authorized !== true) {
+          const error = new Error(`REPAIR did not authorize rerun for outcome "${id}".`);
+          error.code = 'DIRECTIVE_REPAIR_RERUN_NOT_AUTHORIZED';
+          error.details = {
+            outcomeId: id,
+            decision: cloneJson(rerunDecision)
+          };
+          throw error;
+        }
         const snapshotBefore = cloneJson(ledgerEntry.snapshotBefore);
         const assets = activeRuntimeAssets();
         const graphRecord = activeMissionGraphRecord(assets, {
           activeMissionGraphId: snapshotBefore?.mission?.activeMissionGraphId
+        });
+        const replacementTurnId = turnId || idFactory('turn-rerun');
+        const replacementCandidateId = idFactory('rerun-candidate');
+        const replacementInputHash = hashStableJson({
+          replacementInput: String(playerInput || ''),
+          outcomeId: id,
+          replacementTurnId,
+          type
         });
         const result = createProvisionalDirectorTurnRuntime({
           campaignState: snapshotBefore,
@@ -8084,29 +8647,49 @@ export function createDirectiveRuntimeApp({
           shipDataset: assets.shipDataset,
           graphPath: graphRecord.path || snapshotBefore.mission?.activeMissionGraphPath,
           projectionPath: assets.projectionPath,
-          turnId: turnId || idFactory('turn-rerun'),
+          turnId: replacementTurnId,
           playerInput
         });
         pendingOutcomeReplacement = {
           type,
           outcomeId: id,
           turnId: ledgerEntry.turnId || null,
+          replacementCandidateId,
+          replacementInputHash,
+          replacedTransactionId: rerunDecision.replacedTransactionId || null,
           snapshotBefore,
+          repairDecision: cloneJson(rerunDecision),
           previewCreatedAt: timestampFromNow(now)
         };
-        pendingDirectorTurn = {
+        pendingDirectorTurn = redactRerunPreviewProjection({
           ...result.turnPacket,
           replacementForOutcomeId: id,
-          replacementType: type
-        };
+          replacementType: type,
+          replacementRepairDecision: cloneJson(rerunDecision)
+        }, {
+          rawInput: playerInput,
+          inputHash: replacementInputHash
+        });
         lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         return {
           turnPacket: cloneJson(pendingDirectorTurn),
-          provisionalOutcome: cloneJson(result.provisionalOutcome),
-          commandBearingPrompt: cloneJson(result.commandBearingPrompt),
-          narratorPacket: cloneJson(result.narratorPacket),
-          commandLogPacket: cloneJson(result.commandLogPacket),
+          provisionalOutcome: redactRerunPreviewProjection(result.provisionalOutcome, {
+            rawInput: playerInput,
+            inputHash: replacementInputHash
+          }),
+          commandBearingPrompt: redactRerunPreviewProjection(result.commandBearingPrompt, {
+            rawInput: playerInput,
+            inputHash: replacementInputHash
+          }),
+          narratorPacket: redactRerunPreviewProjection(result.narratorPacket, {
+            rawInput: playerInput,
+            inputHash: replacementInputHash
+          }),
+          commandLogPacket: redactRerunPreviewProjection(result.commandLogPacket, {
+            rawInput: playerInput,
+            inputHash: replacementInputHash
+          }),
           pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')

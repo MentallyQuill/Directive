@@ -61,9 +61,9 @@ function projectionKeySet(entry = {}, keys = []) {
     }));
 }
 
-function corePreferredRows(coreRows = null, legacyRows = [], keys = []) {
+function corePreferredRows(coreRows = null, legacyRows = [], keys = [], { authoritative = false } = {}) {
   if (!Array.isArray(coreRows)) return legacyRows;
-  if (coreRows.length >= legacyRows.length) return coreRows;
+  if (authoritative) return coreRows;
   const coreKeySets = coreRows.map((row) => projectionKeySet(row, keys));
   const usedCoreIndexes = new Set();
   const merged = legacyRows.map((legacyRow) => {
@@ -139,6 +139,51 @@ function compactRecoveryEvidence(entry = {}) {
     recoveryKind: entry.recoveryKind || entry.kind || null,
     reasonCode: entry.reasonCode || entry.code || null,
     ...transactionEvidence(entry)
+  });
+}
+
+function compactOutcomeRerunRepairDecision(value = {}) {
+  if (!isObject(value)) return undefined;
+  return compact({
+    kind: value.kind || 'directive.repairOutcomeRerunActuationDecision.v1',
+    eventType: value.eventType || null,
+    sourceKind: value.sourceKind || null,
+    transactionId: value.transactionId || null,
+    replacedTransactionId: value.replacedTransactionId || null,
+    authorized: value.authorized === true,
+    action: value.action || null,
+    reason: value.reason || null,
+    deniedReason: value.deniedReason || null,
+    outcomeId: value.outcomeId || null,
+    turnId: value.turnId || null,
+    resultBand: value.resultBand || null,
+    replacementType: value.replacementType || null,
+    branchCandidateRequired: value.branchCandidateRequired === true,
+    mechanicsRerunAuthorized: value.mechanicsRerunAuthorized === true,
+    replacementTransactionRequired: value.replacementTransactionRequired === true,
+    coreTransactionRequired: value.coreTransactionRequired === true,
+    legacyNoCoreRerunAllowed: value.legacyNoCoreRerunAllowed === true,
+    normalTurnAllowed: value.normalTurnAllowed === true,
+    observedAt: value.observedAt || null
+  });
+}
+
+function compactOutcomeReplacementRef(value = {}) {
+  if (!isObject(value)) return undefined;
+  return compact({
+    kind: value.kind || 'directive.coreOutcomeReplacementRef.v1',
+    schemaVersion: value.schemaVersion || 1,
+    transactionId: value.transactionId || value.coreTransactionId || null,
+    replacedTransactionId: value.replacedTransactionId || null,
+    replacementTransactionId: value.replacementTransactionId || value.transactionId || value.coreTransactionId || null,
+    type: value.type || value.replacementType || 'rerunOutcome',
+    replacedOutcomeId: value.replacedOutcomeId || value.outcomeId || null,
+    replacementOutcomeId: value.replacementOutcomeId || null,
+    replacedTurnId: value.replacedTurnId || null,
+    replacementTurnId: value.replacementTurnId || null,
+    idempotencyKey: value.idempotencyKey || null,
+    acceptedAt: value.acceptedAt || value.occurredAt || null,
+    repairDecision: compactOutcomeRerunRepairDecision(value.repairDecision)
   });
 }
 
@@ -269,6 +314,29 @@ function sidecarJournalFromDiagnosticsSegments(diagnosticsSegments = []) {
     byKey.set(key, row);
   }
   return order.map((item) => (typeof item === 'string' ? byKey.get(item) : item));
+}
+
+function commandBearingEvidenceFromDiagnosticsSegments(diagnosticsSegments = []) {
+  const entries = diagnosticsSegments.flatMap((segment) => (
+    Array.isArray(segment?.entries) ? segment.entries : []
+  ));
+  return entries
+    .filter((entry) => entry?.type === 'runtimeCommandBearingEvidenceProjected')
+    .map((entry) => compact({
+      kind: 'directive.commandBearingEvidenceProjection.v1',
+      evidenceId: entry.evidenceId || null,
+      transactionId: entry.transactionId || null,
+      batchId: entry.batchId || null,
+      sourceFrameId: entry.sourceFrameId || null,
+      sourceOutcomeId: entry.sourceOutcomeId || null,
+      primarySignal: entry.primarySignal || null,
+      trackSignals: Array.isArray(entry.trackSignals) ? cloneJson(entry.trackSignals) : undefined,
+      strength: entry.strength || null,
+      status: entry.status || null,
+      evidenceHash: entry.evidenceHash || null,
+      acceptedBatchHash: entry.acceptedBatchHash || null,
+      occurredAt: entry.occurredAt || null
+    }));
 }
 
 function mergeResponseProjectionRows(rows = []) {
@@ -471,6 +539,27 @@ function compactBackgroundBatchEvidence(entry = {}, index = 0) {
   });
 }
 
+function compactCommandBearingEvidence(entry = {}, index = 0) {
+  return compact({
+    kind: 'directive.coreDiagnostic.v1',
+    schemaVersion: 1,
+    id: `runtime-command-bearing-evidence-${index + 1}`,
+    type: 'runtimeCommandBearingEvidenceProjected',
+    evidenceId: entry.evidenceId || entry.id || null,
+    transactionId: entry.transactionId || null,
+    batchId: entry.batchId || entry.backgroundBatchId || null,
+    sourceFrameId: entry.sourceFrameId || null,
+    sourceOutcomeId: entry.sourceOutcomeId || entry.outcomeId || null,
+    primarySignal: entry.primarySignal || null,
+    trackSignals: compactIdentifierList(entry.trackSignals || []),
+    strength: entry.strength || null,
+    status: entry.status || null,
+    evidenceHash: entry.evidenceHash || entry.hash || null,
+    acceptedBatchHash: entry.acceptedBatchHash || entry.forgeBatchRef?.acceptedBatchHash || null,
+    occurredAt: entry.occurredAt || null
+  });
+}
+
 function compactPromptCacheResumeEvidence(promptCache = null) {
   if (!isObject(promptCache)) return null;
   const blocks = Array.isArray(promptCache.blocks) ? promptCache.blocks : [];
@@ -522,6 +611,11 @@ function coreRuntimeProjection(campaignState = {}) {
     || null;
 }
 
+function hasAuthoritativeCoreRuntimeProjection(campaignState = {}) {
+  const projection = coreRuntimeProjection(campaignState);
+  return projection?.runtimeAuthority === 'coreStoreV2';
+}
+
 function projectedCoreArray(campaignState = {}, key) {
   const projection = coreRuntimeProjection(campaignState);
   return Array.isArray(projection?.[key]) ? projection[key] : null;
@@ -550,6 +644,11 @@ function backgroundBatchRows(campaignState = {}) {
     .filter((entry) => isBackgroundBatchProjection(entry));
 }
 
+function commandBearingEvidenceRows(campaignState = {}) {
+  const coreRows = projectedCoreArray(campaignState, 'commandBearingEvidence');
+  return Array.isArray(coreRows) ? coreRows : [];
+}
+
 function projectedIngressRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'ingressLedger');
   const runtimeTracking = campaignState.runtimeTracking || {};
@@ -561,7 +660,7 @@ function projectedIngressRows(campaignState = {}) {
     'transactionId',
     'coreTransactionId',
     'sourceFrameId'
-  ]);
+  ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
 }
 
 function projectedResponseRows(campaignState = {}) {
@@ -575,19 +674,37 @@ function projectedResponseRows(campaignState = {}) {
     'transactionId',
     'coreTransactionId',
     ['turnId', 'outcomeId', 'responseKind']
-  ]);
+  ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
 }
 
 function projectedRecoveryRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'recoveryJournal');
   const runtimeTracking = campaignState.runtimeTracking || {};
   const legacyRows = Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal : [];
-  return corePreferredRows(coreRows, legacyRows, ['id', 'transactionId', 'coreTransactionId']);
+  return corePreferredRows(coreRows, legacyRows, ['id', 'transactionId', 'coreTransactionId'], {
+    authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState)
+  });
 }
 
 function projectedTurnLedger(campaignState = {}) {
   const projection = coreRuntimeProjection(campaignState);
   return isObject(projection?.turnLedger) ? projection.turnLedger : null;
+}
+
+function projectedOutcomeReplacementRows(campaignState = {}) {
+  const coreTurnLedger = projectedTurnLedger(campaignState);
+  const coreRows = Array.isArray(coreTurnLedger?.replacementHistory) ? coreTurnLedger.replacementHistory : null;
+  const legacyRows = Array.isArray(campaignState.turnLedger?.replacementHistory) ? campaignState.turnLedger.replacementHistory : [];
+  return corePreferredRows(coreRows, legacyRows, [
+    'id',
+    'eventId',
+    'transactionId',
+    'coreTransactionId',
+    'replacedTransactionId',
+    'replacementTransactionId',
+    ['replacedOutcomeId', 'replacementOutcomeId'],
+    ['replacedTurnId', 'replacementTurnId']
+  ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
 }
 
 function projectedTurnRows(campaignState = {}) {
@@ -599,7 +716,7 @@ function projectedTurnRows(campaignState = {}) {
       'turnId',
       'transactionId',
       'coreTransactionId'
-    ]);
+    ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
   }
   const projection = coreRuntimeProjection(campaignState);
   if (Array.isArray(projection?.turnRecords)) {
@@ -608,7 +725,7 @@ function projectedTurnRows(campaignState = {}) {
       'turnId',
       'transactionId',
       'coreTransactionId'
-    ]);
+    ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
   }
   if (Array.isArray(projection?.turns)) {
     return corePreferredRows(projection.turns, legacyRows, [
@@ -616,7 +733,7 @@ function projectedTurnRows(campaignState = {}) {
       'turnId',
       'transactionId',
       'coreTransactionId'
-    ]);
+    ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
   }
   return legacyRows;
 }
@@ -823,6 +940,7 @@ function runtimeEvents(campaignState = {}) {
   const ingressRows = projectedIngressRows(campaignState);
   const responseRows = projectedResponseRows(campaignState);
   const recoveryRows = projectedRecoveryRows(campaignState);
+  const replacementRows = projectedOutcomeReplacementRows(campaignState);
   return [
     ...ingressRows.map((entry, index) => compact({
       kind: 'directive.coreEvent.v1',
@@ -857,6 +975,17 @@ function runtimeEvents(campaignState = {}) {
     ...recoveryRows.map((entry, index) => compact({
       ...compactRecoveryEvidence(entry),
       id: `runtime-recovery-${index + 1}`
+    })),
+    ...replacementRows.map((entry, index) => compact({
+      kind: 'directive.coreEvent.v1',
+      schemaVersion: 1,
+      id: entry.eventId || `runtime-outcome-replacement-${index + 1}`,
+      type: 'outcomeReplacementRecorded',
+      txnId: entry.transactionId || entry.coreTransactionId || null,
+      occurredAt: entry.acceptedAt || entry.occurredAt || null,
+      payload: {
+        outcomeReplacementRef: compactOutcomeReplacementRef(entry)
+      }
     }))
   ];
 }
@@ -921,7 +1050,23 @@ function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
   });
 }
 
-function turnLedgerFromTurnSegments(turnSegments = []) {
+function outcomeReplacementHistoryFromEventSegments(eventSegments = []) {
+  return eventSegments.flatMap((segment) => (
+    Array.isArray(segment?.entries) ? segment.entries : []
+  ))
+    .filter((event) => event?.type === 'outcomeReplacementRecorded')
+    .map((event) => {
+      const ref = compactOutcomeReplacementRef(event.payload?.outcomeReplacementRef || {});
+      return compact({
+        ...ref,
+        transactionId: ref.transactionId || event.txnId || event.transactionId || null,
+        eventId: event.id || null,
+        occurredAt: event.occurredAt || ref.acceptedAt || null
+      });
+    });
+}
+
+function turnLedgerFromTurnSegments(turnSegments = [], eventSegments = []) {
   const entries = turnSegments.flatMap((segment) => (
     Array.isArray(segment?.entries) ? segment.entries : []
   ));
@@ -934,13 +1079,17 @@ function turnLedgerFromTurnSegments(turnSegments = []) {
     sourceFrameId: entry.sourceFrameId || null,
     stateDeltaHash: entry.stateDeltaHash || null,
     retainedPacketHash: entry.retainedPacketHash || null,
-    snapshotBeforeHash: entry.snapshotBeforeHash || null
+    snapshotBeforeHash: entry.snapshotBeforeHash || null,
+    snapshotBeforeRetained: entry.snapshotBeforeRetained === true || undefined
   }));
-  if (turnEntries.length === 0) return null;
+  const replacementHistory = outcomeReplacementHistoryFromEventSegments(eventSegments);
+  if (turnEntries.length === 0 && replacementHistory.length === 0) return null;
   return compact({
     schemaVersion: 2,
     entries: turnEntries,
-    lastCommittedOutcomeId: turnEntries.at(-1)?.outcomeId || null
+    lastCommittedOutcomeId: turnEntries.at(-1)?.outcomeId || null,
+    replacementHistory: replacementHistory.length ? replacementHistory : undefined,
+    lastReplacedOutcomeId: [...replacementHistory].reverse().find((entry) => entry.replacedOutcomeId)?.replacedOutcomeId || undefined
   });
 }
 
@@ -956,6 +1105,7 @@ function coreStoreReadProjectionsFromLoadedArtifacts({
   const sidecarRows = sidecarJournalFromDiagnosticsSegments(diagnosticsSegments);
   const sidecarDiagnostics = sidecarRows.filter((entry) => !isBackgroundBatchProjection(entry));
   const backgroundBatches = sidecarRows.filter((entry) => isBackgroundBatchProjection(entry));
+  const commandBearingEvidence = commandBearingEvidenceFromDiagnosticsSegments(diagnosticsSegments);
   return compact({
     kind: 'directive.coreStoreReadProjections.v1',
     ingressLedger: projectionArray(runtimeTracking.ingressLedger),
@@ -963,7 +1113,8 @@ function coreStoreReadProjectionsFromLoadedArtifacts({
     recoveryJournal: projectionArray(runtimeTracking.recoveryJournal),
     turnLedger: turnLedger ? cloneJson(turnLedger) : undefined,
     sidecarDiagnostics: projectionArray(sidecarDiagnostics),
-    backgroundBatches: projectionArray(backgroundBatches)
+    backgroundBatches: projectionArray(backgroundBatches),
+    commandBearingEvidence: projectionArray(commandBearingEvidence)
   });
 }
 
@@ -973,9 +1124,11 @@ function hasCoreStoreReadProjectionEvidence(projection = {}) {
     projection.responseLedger,
     projection.recoveryJournal,
     projection.sidecarDiagnostics,
-    projection.backgroundBatches
+    projection.backgroundBatches,
+    projection.commandBearingEvidence
   ].some((rows) => Array.isArray(rows) && rows.length)
-    || (isObject(projection.turnLedger) && Array.isArray(projection.turnLedger.entries) && projection.turnLedger.entries.length);
+    || (isObject(projection.turnLedger) && Array.isArray(projection.turnLedger.entries) && projection.turnLedger.entries.length)
+    || (isObject(projection.turnLedger) && Array.isArray(projection.turnLedger.replacementHistory) && projection.turnLedger.replacementHistory.length);
 }
 
 function turnRecords(campaignState = {}) {
@@ -991,7 +1144,8 @@ function turnRecords(campaignState = {}) {
     sourceFrameId: entry.sourceFrameId || null,
     stateDeltaHash: entry.stateDeltaHash || (entry.stateDelta ? hashStableJson(entry.stateDelta) : null),
     retainedPacketHash: entry.retainedPacketHash || (entry.retainedPacket ? hashStableJson(entry.retainedPacket) : null),
-    snapshotBeforeHash: entry.snapshotBeforeHash || (entry.snapshotBefore ? hashStableJson(entry.snapshotBefore) : null)
+    snapshotBeforeHash: entry.snapshotBeforeHash || (entry.snapshotBefore ? hashStableJson(entry.snapshotBefore) : null),
+    snapshotBeforeRetained: entry.snapshotBeforeRetained === true || Boolean(entry.snapshotBefore) || undefined
   }));
 }
 
@@ -1010,7 +1164,8 @@ function diagnostics(campaignState = {}, { reason = null, headBudget = null } = 
     }),
     ...modelCallRows(campaignState).map(compactModelCallEvidence),
     ...sidecarDiagnosticRows(campaignState).map(compactSidecarDiagnosticEvidence),
-    ...backgroundBatchRows(campaignState).map(compactBackgroundBatchEvidence)
+    ...backgroundBatchRows(campaignState).map(compactBackgroundBatchEvidence),
+    ...commandBearingEvidenceRows(campaignState).map(compactCommandBearingEvidence)
   ];
 }
 
@@ -1190,7 +1345,7 @@ export async function loadActiveCampaignStateV2(adapter, {
     if (campaignState) {
       campaignState.runtimeTracking = runtimeTrackingFromEventSegments(eventSegments, campaignState);
       campaignState.runtimeTracking.modelCallJournal = modelCallJournalFromDiagnosticsSegments(diagnosticsSegments);
-      const turnLedger = turnLedgerFromTurnSegments(turnSegments);
+      const turnLedger = turnLedgerFromTurnSegments(turnSegments, eventSegments);
       if (turnLedger) campaignState.turnLedger = turnLedger;
       const coreStoreReadProjections = coreStoreReadProjectionsFromLoadedArtifacts({
         runtimeTracking: campaignState.runtimeTracking,

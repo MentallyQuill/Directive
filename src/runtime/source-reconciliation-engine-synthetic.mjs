@@ -339,9 +339,39 @@ export function createSyntheticSourceReconciliationEngine({
       promptDirtyDomains,
       providerResult: cloneJson(providerResult)
     });
+    if (applyResult?.ok === false) {
+      const repairReasons = uniqueStrings(applyResult.reasons || [applyResult.reason || 'source-settlement-apply-failed']);
+      const diagnosticPayload = settlementDiagnostic({
+        input: normalizedInput,
+        status: 'repairRequired',
+        reasons: repairReasons,
+        source,
+        operations,
+        promptDirtyDomains,
+        providerResult,
+        observedAt
+      });
+      const diagnostic = await recordDiagnostic(input.transactionId, diagnosticPayload);
+      const result = {
+        mode,
+        status: 'repairRequired',
+        hardSkipped: true,
+        providerCalled: true,
+        applied: false,
+        reasons: repairReasons,
+        source,
+        operations,
+        promptDirtyDomains,
+        applyResult,
+        diagnostic,
+        observedAt
+      };
+      handled.set(idempotencyKey, result);
+      return cloneJson(result);
+    }
     const diagnosticPayload = settlementDiagnostic({
       input: normalizedInput,
-      status: 'accepted',
+      status: operations.length ? 'accepted' : 'noChange',
       source,
       operations,
       promptDirtyDomains,
@@ -351,10 +381,10 @@ export function createSyntheticSourceReconciliationEngine({
     const diagnostic = await recordDiagnostic(input.transactionId, diagnosticPayload);
     const result = {
       mode,
-      status: 'accepted',
+      status: operations.length ? 'accepted' : 'noChange',
       hardSkipped: false,
       providerCalled: true,
-      applied: true,
+      applied: operations.length > 0,
       source,
       operations,
       promptDirtyDomains,

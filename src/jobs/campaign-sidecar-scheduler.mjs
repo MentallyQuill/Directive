@@ -1,6 +1,5 @@
 import {
-  initializeCampaignRuntimeTracking,
-  recordSidecarEvent
+  initializeCampaignRuntimeTracking
 } from '../runtime/state-delta-gateway.mjs';
 import { allowedRootsForModelRole } from '../generation/model-call-authority-matrix.mjs';
 import { parseStateDeltaProposalOutput } from './sidecar-output-contracts.mjs';
@@ -554,6 +553,64 @@ function commandBearingEvidenceSourceOutcomeIds(operations = []) {
     .filter(Boolean))];
 }
 
+function compactCommandBearingRefId(value, fallback = null) {
+  if (value === null || value === undefined) return fallback;
+  const normalized = String(value).replace(/[^A-Za-z0-9_.:-]/g, '-').slice(0, 96);
+  if (!/^[A-Za-z0-9_.:-]{1,96}$/.test(normalized)) return fallback;
+  if (/(RAW|PROMPT|PROVIDER|MESSAGE|TEXT|SECRET|PRIVATE)/.test(normalized)) return fallback;
+  return normalized;
+}
+
+function compactCommandBearingTextHash(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text ? hashStableJson(text).slice(0, 16) : null;
+}
+
+function commandBearingEvidenceHashInput(record = {}) {
+  return {
+    id: compactCommandBearingRefId(record.id || null, null),
+    sourceOutcomeId: compactCommandBearingRefId(record.sourceOutcomeId || record.outcomeId || null, null),
+    sourceTurnId: compactCommandBearingRefId(record.sourceTurnId || record.turnId || null, null),
+    primarySignal: compactCommandBearingRefId(record.primarySignal || null, null),
+    trackSignals: Array.isArray(record.trackSignals)
+      ? record.trackSignals.map((signal) => compactCommandBearingRefId(signal, null)).filter(Boolean).sort()
+      : [],
+    strength: compactCommandBearingRefId(record.strength || null, null),
+    status: compactCommandBearingRefId(record.status || null, null),
+    visible: record.visible === true,
+    criteria: {
+      agency: record.criteria?.agency === true,
+      commitment: record.criteria?.commitment === true,
+      causality: record.criteria?.causality === true
+    },
+    actionSummaryHash: compactCommandBearingTextHash(record.actionSummary),
+    consequenceSummaryHash: compactCommandBearingTextHash(record.consequenceSummary),
+    playerFacingSummaryHash: compactCommandBearingTextHash(record.playerFacingSummary)
+  };
+}
+
+function commandBearingEvidenceEffectRefsForOperations(operations = []) {
+  return commandBearingEvidenceValues(operations).map((record, index) => {
+    const evidenceHash = hashStableJson(commandBearingEvidenceHashInput(record));
+    const id = compactCommandBearingRefId(record.id || null, `command-bearing-evidence:${evidenceHash.slice(0, 16)}`);
+    return {
+      kind: 'directive.commandBearingEvidence.v1',
+      id,
+      evidenceHash,
+      sourceOutcomeId: compactCommandBearingRefId(record.sourceOutcomeId || record.outcomeId || null, null),
+      sourceTurnId: compactCommandBearingRefId(record.sourceTurnId || record.turnId || null, null),
+      primarySignal: compactCommandBearingRefId(record.primarySignal || null, null),
+      trackSignals: Array.isArray(record.trackSignals)
+        ? record.trackSignals.map((signal) => compactCommandBearingRefId(signal, null)).filter(Boolean)
+        : [],
+      strength: compactCommandBearingRefId(record.strength || null, null),
+      status: compactCommandBearingRefId(record.status || null, null),
+      ordinal: index
+    };
+  });
+}
+
 function commandBearingReviewDiagnostics(review = {}) {
   if (!review || review.attempted === false) {
     return {
@@ -714,6 +771,7 @@ function sourceTokenForJob(job = {}) {
 function forgeWorkerResultForAcceptedSidecar(result = {}) {
   const workerKey = result.workerKey;
   const worker = WORKERS[workerKey] || {};
+  const operations = result.proposal?.operations || result.applyProposal?.operations || [];
   return normalizeForgeWorkerResult({
     id: workerKey,
     workerId: workerKey,
@@ -722,7 +780,10 @@ function forgeWorkerResultForAcceptedSidecar(result = {}) {
     allowedRoots: worker.allowedRoots || []
   }, {
     status: 'accepted',
-    operations: result.proposal?.operations || result.applyProposal?.operations || [],
+    operations,
+    effectRefs: workerKey === 'commandBearing'
+      ? commandBearingEvidenceEffectRefsForOperations(operations)
+      : [],
     promptDirtyDomains: normalizePromptDirtyDomains(worker.allowedRoots || []),
     diagnostics: {
       proposalId: result.applyProposal?.id || result.proposal?.id || null,
@@ -856,27 +917,12 @@ export function createCampaignSidecarScheduler({
   }
 
   async function journal(event, summary) {
-    const next = recordSidecarEvent(initializeCampaignRuntimeTracking(getCampaignState()), {
-      recordedAt: timestamp(now),
-      ...event
-    });
-    setCampaignState(next);
-    await persistCampaignState(next, summary || `Recorded ${event.workerId || 'sidecar'} ${event.status || 'event'}.`);
-    return next;
+    return initializeCampaignRuntimeTracking(getCampaignState());
   }
 
   async function journalBatch(events = [], summary = 'Recorded sidecar batch events.') {
     if (!events.length) return initializeCampaignRuntimeTracking(getCampaignState());
-    let next = initializeCampaignRuntimeTracking(getCampaignState());
-    for (const event of events) {
-      next = recordSidecarEvent(next, {
-        recordedAt: timestamp(now),
-        ...event
-      });
-    }
-    setCampaignState(next);
-    await persistCampaignState(next, summary);
-    return next;
+    return initializeCampaignRuntimeTracking(getCampaignState());
   }
 
   function diagnosticStatusForWorkerResult(status = null, error = null) {
@@ -924,6 +970,7 @@ export function createCampaignSidecarScheduler({
         : (Array.isArray(details.postSettlementWarnings) ? cloneJson(details.postSettlementWarnings) : undefined),
       replayed: result?.replayed === true || details.replayed === true ? true : undefined,
       bridgeReason: error?.details?.reason || undefined,
+      parse: details.parsedDiagnostics?.parse ? cloneJson(details.parsedDiagnostics.parse) : undefined,
       batch: {
         concurrent: job.batchSize > 1,
         batchSize: job.batchSize,
@@ -1103,6 +1150,23 @@ export function createCampaignSidecarScheduler({
     const operationCount = workerResults.reduce((count, result) => (
       count + (Array.isArray(result.operations) ? result.operations.length : 0)
     ), 0);
+    const commandBearingEvidence = workerResults
+      .flatMap((result) => Array.isArray(result.effectRefs) ? result.effectRefs : [])
+      .filter((ref) => ref?.kind === 'directive.commandBearingEvidence.v1')
+      .map((ref) => ({
+        kind: 'directive.commandBearingEvidenceProjection.v1',
+        evidenceId: ref.id || null,
+        transactionId: settlement.transactionId || null,
+        batchId: settlement.batchId || null,
+        sourceFrameId: settlement.sourceFrameRef?.id || null,
+        sourceOutcomeId: ref.sourceOutcomeId || ref.outcomeId || settlement.outcomeId || null,
+        primarySignal: ref.primarySignal || null,
+        trackSignals: Array.isArray(ref.trackSignals) ? [...ref.trackSignals] : [],
+        strength: ref.strength || null,
+        status: ref.status || null,
+        evidenceHash: ref.evidenceHash || ref.hash || null,
+        acceptedBatchHash: effective.acceptedBatchHash || settlement.acceptedBatchHash || null
+      }));
     const backgroundBatchIds = [
       background.backgroundBatchId,
       ...(Array.isArray(background.backgroundBatchIds) ? background.backgroundBatchIds : []),
@@ -1122,6 +1186,7 @@ export function createCampaignSidecarScheduler({
       dirtyDomains: [...promptDirtyDomains],
       operationCount,
       workerCount: workerResults.length,
+      commandBearingEvidence,
       sourceFrameRef: compactSourceFrameRefForAcceptedBatch(settlement.sourceFrameRef || null),
       sourceToken: settlement.sourceToken || null,
       background: {
@@ -1372,7 +1437,7 @@ export function createCampaignSidecarScheduler({
       stage,
       code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_WARNING'
     };
-    const knownStages = new Set(['oldProjectionPersist', 'lens', 'promptSync', 'commandBearingReview', 'acceptedJournal']);
+    const knownStages = new Set(['lens', 'promptSync', 'commandBearingReview', 'acceptedJournal']);
     const safeStage = knownStages.has(warning.stage) ? warning.stage : 'unknown';
     const rawCode = String(warning.code || '');
     const safeCode = /^DIRECTIVE_[A-Z0-9_:-]{1,80}$/.test(rawCode)
@@ -1554,6 +1619,66 @@ export function createCampaignSidecarScheduler({
       || result?.lens?.status === 'installSkippedStale';
   }
 
+  function promptOnlyCampaignState(currentState = {}, promptState = {}) {
+    const current = initializeCampaignRuntimeTracking(currentState);
+    const prompt = initializeCampaignRuntimeTracking(promptState);
+    const next = cloneJson(current);
+    if (prompt.campaignChatBinding && typeof prompt.campaignChatBinding === 'object') {
+      next.campaignChatBinding = {
+        ...(next.campaignChatBinding || {}),
+        ...cloneJson(prompt.campaignChatBinding)
+      };
+    }
+    if (prompt.runtimeResume && typeof prompt.runtimeResume === 'object') {
+      next.runtimeResume = {
+        ...(next.runtimeResume || {}),
+        promptContextRevision: prompt.runtimeResume.promptContextRevision ?? next.runtimeResume?.promptContextRevision ?? null,
+        externalPromptEnvironmentRef: cloneJson(prompt.runtimeResume.externalPromptEnvironmentRef || next.runtimeResume?.externalPromptEnvironmentRef || null)
+      };
+    }
+    if (prompt.runtimeTracking?.promptContext && typeof prompt.runtimeTracking.promptContext === 'object') {
+      next.runtimeTracking = initializeCampaignRuntimeTracking(next).runtimeTracking;
+      next.runtimeTracking.promptContext = cloneJson(prompt.runtimeTracking.promptContext);
+    }
+    return next;
+  }
+
+  function commandBearingCompatibilityState(currentState = {}, projectedState = {}) {
+    const current = initializeCampaignRuntimeTracking(currentState);
+    const projected = initializeCampaignRuntimeTracking(projectedState);
+    const next = cloneJson(current);
+    for (const root of ['commandBearing', 'commandCulture']) {
+      if (projected[root] && typeof projected[root] === 'object') {
+        next[root] = cloneJson(projected[root]);
+      }
+    }
+    const lastDelta = projected.runtimeTracking?.lastDelta
+      ? {
+        ...cloneJson(projected.runtimeTracking.lastDelta),
+        domains: (projected.runtimeTracking.lastDelta.domains || [])
+          .filter((domain) => ['commandBearing', 'commandCulture'].includes(domain))
+      }
+      : cloneJson(current.runtimeTracking?.lastDelta || null);
+    next.runtimeTracking = {
+      ...initializeCampaignRuntimeTracking(next).runtimeTracking,
+      revision: Math.max(
+        Number(current.runtimeTracking?.revision) || 0,
+        Number(projected.runtimeTracking?.revision) || 0
+      ),
+      mechanicsRevision: Math.max(
+        Number(current.runtimeTracking?.mechanicsRevision) || 0,
+        Number(projected.runtimeTracking?.mechanicsRevision) || 0
+      ),
+      lastDelta,
+      activeIngressId: projected.runtimeTracking?.activeIngressId || current.runtimeTracking?.activeIngressId || null,
+      lastStableRevision: Math.max(
+        Number(current.runtimeTracking?.lastStableRevision) || 0,
+        Number(projected.runtimeTracking?.lastStableRevision) || 0
+      )
+    };
+    return next;
+  }
+
   function finalSettlementUnavailableError() {
     const error = new Error('Accepted sidecar batch has no durable FORGE/CORE settlement path.');
     error.code = 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED';
@@ -1633,6 +1758,50 @@ export function createCampaignSidecarScheduler({
       idempotencyKey: `${batchId}:${requestHash}`,
       sourceToken: sourceTokens.length === 1 ? sourceTokens[0] : null,
       sourceFrameRef: sourceFrameRefs.length === 1 ? cloneJson(sourceFrameRefs[0]) : null
+    };
+  }
+
+  function providerBatchSourceFingerprint(job = {}) {
+    const source = job.sourceIngress || {};
+    return {
+      workerKey: job.workerKey || null,
+      roleId: job.roleId || null,
+      ingressId: source.id || job.baseEventContext?.ingressId || job.source?.ingressId || null,
+      hostMessageId: source.hostMessageId || null,
+      textHash: source.textHash || null,
+      status: source.status || null,
+      outcomeId: source.outcomeId || job.baseEventContext?.outcomeId || job.source?.outcomeId || null,
+      sourceFrameId: source.sourceFrameId || source.sourceFrameRef?.id || job.source?.sourceFrameRef?.id || null,
+      sourceToken: source.sourceToken || job.source?.sourceToken || null,
+      coreTransactionId: source.coreTransactionId || null
+    };
+  }
+
+  function providerBatchSourceFingerprints(jobs = []) {
+    return jobs.map(providerBatchSourceFingerprint);
+  }
+
+  function providerReplaySourceMismatchFailure(job = {}, cachedFingerprint = null) {
+    if (!cachedFingerprint || typeof cachedFingerprint !== 'object') return null;
+    const current = providerBatchSourceFingerprint(job);
+    const reasons = [];
+    for (const key of ['ingressId', 'hostMessageId', 'textHash', 'status', 'outcomeId', 'sourceFrameId', 'sourceToken', 'coreTransactionId']) {
+      const cachedValue = cachedFingerprint[key] ?? null;
+      const currentValue = current[key] ?? null;
+      if (cachedValue !== currentValue) {
+        reasons.push(`${key}-changed`);
+      }
+    }
+    if (!reasons.length) return null;
+    return {
+      code: 'DIRECTIVE_SIDECAR_SOURCE_STALE',
+      message: 'Cached sidecar result targets a player message whose source identity changed.',
+      details: {
+        ingressId: cachedFingerprint.ingressId || current.ingressId || null,
+        reasons,
+        source: cloneJson(cachedFingerprint),
+        current: cloneJson(current)
+      }
     };
   }
 
@@ -1962,6 +2131,37 @@ export function createCampaignSidecarScheduler({
     };
   }
 
+  function coreCommandBearingReviewProjectionForPrompt({
+    settlement = {},
+    review = {},
+    workerResult = null,
+    transactionId = null
+  } = {}) {
+    const backgroundBatch = Array.isArray(settlement.background?.backgroundBatches)
+      ? settlement.background.backgroundBatches.find((entry) => entry?.batchId === settlement.batchId) || null
+      : null;
+    const sourceFrameRef = workerResult?.job?.sourceIngress?.sourceFrameRef || null;
+    const records = Array.isArray(review.review?.records) ? review.review.records : [];
+    return {
+      kind: 'directive.coreCommandBearingReviewProjection.v1',
+      schemaVersion: 1,
+      transactionId: transactionId || null,
+      batchId: settlement.batchId || backgroundBatch?.batchId || null,
+      idempotencyKey: settlement.idempotencyKey || backgroundBatch?.idempotencyKey || null,
+      reviewHash: settlement.reviewHash || backgroundBatch?.reviewHash || backgroundBatch?.forgeBatchRef?.reviewHash || null,
+      sourceFrameRef: sourceFrameRef ? cloneJson(sourceFrameRef) : null,
+      sourceToken: sourceTokenForJob(workerResult?.job) || null,
+      forgeBatchRef: backgroundBatch?.forgeBatchRef ? cloneJson(backgroundBatch.forgeBatchRef) : null,
+      closures: records.map((record) => ({
+        kind: 'directive.commandBearingReviewClosure.v1',
+        closureId: record?.closureId || null,
+        awardedTrack: record?.awardedTrack || null,
+        markAwarded: record?.markAwarded === true,
+        reviewHash: settlement.reviewHash || backgroundBatch?.reviewHash || null
+      })).filter((record) => record.closureId)
+    };
+  }
+
   async function handleWorkerResponse(job, response, turnContext, batchState) {
     const { workerKey, worker, baseRevision, baseEventContext } = job;
     const freshestBatchState = () => {
@@ -2039,7 +2239,11 @@ export function createCampaignSidecarScheduler({
       }, `${workerKey} sidecar proposal was rejected.`);
       batchState.currentState = cloneJson(journaled);
       const result = { workerKey, status: 'rejected', error };
-      queueCoreDiagnostic(job, diagnosticStatusForWorkerResult(result.status, error), { result, error });
+      queueCoreDiagnostic(job, diagnosticStatusForWorkerResult(result.status, error), {
+        result,
+        error,
+        parsedDiagnostics: parsed.diagnostics || null
+      });
       return result;
     }
     let proposal = parsed.value;
@@ -2305,8 +2509,9 @@ export function createCampaignSidecarScheduler({
     let commandBearingReviews = new Map();
     const beforeApplyState = cloneJson(batchState.currentState || getCampaignState());
     const postSettlementWarnings = [];
-    let compatibilityProjectionAssigned = false;
-    let oldProjectionPersistFailed = false;
+    let compatibilityProjection = null;
+    const commandBearingAccepted = workerKeys.includes('commandBearing');
+    let commandBearingReviewInputState = null;
     try {
       const acceptedSettlement = acceptedBatchSettlementForForge({ accepted, allowedRoots, turnContext, baseRevision });
       if (!acceptedSettlement || typeof forgeCoordinator?.settleAcceptedBatch !== 'function') {
@@ -2327,7 +2532,7 @@ export function createCampaignSidecarScheduler({
             : []
         });
       }
-      const compatibilityProjection = await stateDeltaGateway.validateOperations(combinedProposal, { allowedRoots });
+      compatibilityProjection = await stateDeltaGateway.validateOperations(combinedProposal, { allowedRoots });
       forgeSettlement = await settleAcceptedWorkerBatchWithForge({
         settlement: acceptedSettlement,
         accepted,
@@ -2336,63 +2541,32 @@ export function createCampaignSidecarScheduler({
         baseRevision
       });
       if (!forgeSettlement && operations.length > 0) throw finalSettlementUnavailableError();
-      applied = compatibilityProjection;
-      batchState.expectedRevision = applied.revision;
-      setCampaignState(applied.campaignState);
-      batchState.currentState = cloneJson(applied.campaignState);
-      compatibilityProjectionAssigned = true;
-    } catch (error) {
-      const compensation = compatibilityProjectionAssigned
-        ? {
-          attempted: true,
-          restored: true,
-          restoredRevision: beforeApplyState.runtimeTracking?.revision || 0
-        }
-        : {
-          attempted: false,
-          restored: false,
-          reason: 'bridge-failed-before-old-mutation'
-        };
-      if (compatibilityProjectionAssigned) {
-        setCampaignState(beforeApplyState);
-        batchState.currentState = cloneJson(beforeApplyState);
-        batchState.expectedRevision = beforeApplyState.runtimeTracking?.revision || batchState.baseRevision || 0;
-        await persistCampaignState(beforeApplyState, 'Compensated rejected campaign sidecar batch bridge mutation.');
+      if (commandBearingAccepted) {
+        commandBearingReviewInputState = commandBearingCompatibilityState(beforeApplyState, compatibilityProjection.campaignState);
       }
+      applied = {
+        revision: beforeApplyState.runtimeTracking?.revision || batchState.baseRevision || 0,
+        domains: compatibilityProjection.domains || [],
+        campaignState: cloneJson(beforeApplyState),
+        compatibilityProjection: {
+          revision: compatibilityProjection.revision,
+          domains: cloneJson(compatibilityProjection.domains || [])
+        }
+      };
+      batchState.expectedRevision = applied.revision;
+      batchState.currentState = cloneJson(beforeApplyState);
+    } catch (error) {
+      const compensation = {
+        attempted: false,
+        restored: false,
+        reason: 'bridge-failed-before-old-mutation'
+      };
       const failure = {
         code: compactSafeCode(error?.code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED'),
         message: genericBridgeFailureMessage(compactSafeCode(error?.code || 'DIRECTIVE_SIDECAR_BATCH_REJECTED')),
         details: compactBridgeFailureDetails(error, compensation)
       };
-      const journalEvents = accepted.map((result) => ({
-        id: result.proposal?.id || `sidecar:${result.workerKey}:${result.baseRevision}:rejected`,
-        workerId: result.workerKey,
-        roleId: result.roleId,
-        status: 'rejected',
-        baseRevision: result.baseRevision,
-        summary: result.proposal?.summary || null,
-        ...result.proposalEventContext,
-        error: failure,
-        diagnostics: {
-          ...cloneJson(result.parsedDiagnostics || {}),
-          ...batchDiagnostics(result.job, {
-            applyBaseRevision: baseRevision,
-            aggregateBatch: true
-          }),
-          feature: {
-            ok: false,
-            status: 'rejected',
-            missionComponents: cloneJson(result.missionComponentProvenance)
-          },
-          compensation: cloneJson(compensation),
-          apply: {
-            ok: false,
-            error: failure
-          }
-        }
-      }));
-      const journaled = await journalBatch(journalEvents, 'Rejected campaign sidecar batch results.');
-      batchState.currentState = cloneJson(journaled);
+      batchState.currentState = cloneJson(initializeCampaignRuntimeTracking(getCampaignState()));
       return pendingResults.map((result) => {
         if (result.status !== 'pendingApply') return result;
         const final = { workerKey: result.workerKey, status: 'rejected', error: failure };
@@ -2401,25 +2575,15 @@ export function createCampaignSidecarScheduler({
       });
     }
 
-    try {
-      await persistCampaignState(applied.campaignState, 'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.');
-    } catch (error) {
-      oldProjectionPersistFailed = true;
-      postSettlementWarnings.push(compactPostSettlementWarning('oldProjectionPersist', {
-        code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_OLD_PROJECTION_PERSIST_FAILED'
-      }));
-    }
-
     let forgePromptFlushAttempted = false;
     const promptSettlement = acceptedBatchSettlementForForge({ accepted, allowedRoots, turnContext, baseRevision });
-    const commandBearingAccepted = workerKeys.includes('commandBearing');
-    const allowAcceptedBatchPromptFlush = !oldProjectionPersistFailed || !commandBearingAccepted;
     const forgeOwnsPromptFlush = forgeOwnsAcceptedPromptFlush();
-    if (allowAcceptedBatchPromptFlush && typeof forgeCoordinator?.flushAcceptedBatchPrompt === 'function' && promptSettlement) {
+    if (typeof forgeCoordinator?.flushAcceptedBatchPrompt === 'function' && promptSettlement) {
       try {
         forgePromptFlushAttempted = true;
         const effectiveForgeSettlement = forgeEffectiveResult(forgeSettlement) || {};
         const acceptedPromptInputState = cloneJson(applied.campaignState);
+        const acceptedPromptFreshnessState = cloneJson(applied.campaignState);
         const coreAcceptedBatchProjection = coreAcceptedBatchProjectionForPrompt({
           settlement: promptSettlement,
           forgeSettlement,
@@ -2436,13 +2600,13 @@ export function createCampaignSidecarScheduler({
           workerKey: promptWorkerKey,
           workerKeys,
           aggregateBatch: true,
-          binding: cloneJson(applied.campaignState?.campaignChatBinding || {}),
-          campaignContext: campaignContextForForgePromptFlush(applied.campaignState),
+          binding: cloneJson(acceptedPromptInputState?.campaignChatBinding || {}),
+          campaignContext: campaignContextForForgePromptFlush(acceptedPromptInputState),
           sourceFrameRef: cloneJson(promptSettlement.sourceFrameRef || null),
           sourceToken: promptSettlement.sourceToken || null,
           cacheInputs: cloneJson(effectiveForgeSettlement.batch?.recallRevisions || {}),
           commitRuntimeState: false,
-          beforeInstallPrompt: promptInstallFreshnessGuard(acceptedPromptInputState),
+          beforeInstallPrompt: promptInstallFreshnessGuard(acceptedPromptFreshnessState),
           promptFrame: {
             workerKey: promptWorkerKey,
             workerKeys,
@@ -2479,7 +2643,7 @@ export function createCampaignSidecarScheduler({
         } else if (!forgePromptFlush) {
           postSettlementWarnings.push(acceptedPromptFlushUnavailableWarning());
         } else if (forgePromptFlush?.campaignState) {
-          synchronized = forgePromptFlush.campaignState;
+          synchronized = promptOnlyCampaignState(getCampaignState(), forgePromptFlush.campaignState);
           applied.campaignState = synchronized;
           setCampaignState(synchronized);
           batchState.currentState = cloneJson(synchronized);
@@ -2491,7 +2655,7 @@ export function createCampaignSidecarScheduler({
           code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_FAILED'
         }));
       }
-    } else if (allowAcceptedBatchPromptFlush && forgeOwnsPromptFlush) {
+    } else if (forgeOwnsPromptFlush) {
       forgePromptFlushAttempted = true;
       postSettlementWarnings.push(acceptedPromptFlushUnavailableWarning());
     }
@@ -2500,7 +2664,6 @@ export function createCampaignSidecarScheduler({
       !forgePromptFlushAttempted
       && typeof syncPromptContext === 'function'
       && !forgeOwnsPromptFlush
-      && allowAcceptedBatchPromptFlush
     ) {
       try {
         synchronized = await syncPromptContext(applied.campaignState, {
@@ -2539,13 +2702,16 @@ export function createCampaignSidecarScheduler({
       }
     }
     const commandBearingResult = accepted.find((result) => result.workerKey === 'commandBearing');
-    if (commandBearingResult && !oldProjectionPersistFailed) {
+    if (commandBearingResult) {
       const beforeCommandBearingReviewState = cloneJson(batchState.currentState);
+      const commandBearingReviewCurrentState = commandBearingReviewInputState
+        ? promptOnlyCampaignState(commandBearingReviewInputState, batchState.currentState)
+        : batchState.currentState;
       let commandBearingReviewMutated = false;
       try {
         let commandBearingReview = await runCommandBearingEvidenceClosureReview({
           beforeState: beforeApplyState,
-          currentState: batchState.currentState,
+          currentState: commandBearingReviewCurrentState,
           proposal: commandBearingResult.proposal,
           proposalEventContext: commandBearingResult.proposalEventContext,
           parsedDiagnostics: commandBearingResult.parsedDiagnostics
@@ -2563,11 +2729,129 @@ export function createCampaignSidecarScheduler({
             review: commandBearingReview,
             workerResult: commandBearingResult
           });
-          await persistCampaignState(commandBearingReview.campaignState, 'Command Bearing sidecar closure review compatibility projection persisted after CORE settlement.');
           const commandBearingReviewHash = commandBearingReviewSettlement?.reviewHash || null;
           const commandBearingReviewPromptSyncIdempotencyKey = `${promptSyncBaseId}:prompt-sync:command-bearing-review:${commandBearingReviewHash || 'unknown-review'}`;
           const commandBearingReviewPromptDirtyDomains = ['commandBearing'];
           const commandBearingReviewSourceToken = sourceTokenForJob(commandBearingResult.job);
+          const commandBearingReviewPersistentBaseState = cloneJson(beforeCommandBearingReviewState);
+          const coreCommandBearingReviewProjection = coreCommandBearingReviewProjectionForPrompt({
+            settlement: commandBearingReviewSettlement,
+            review: commandBearingReview,
+            workerResult: commandBearingResult,
+            transactionId: commandBearingResult.job?.sourceIngress?.coreTransactionId || null
+          });
+          const commandBearingReviewPersistentBaseTracking = cloneJson(
+            initializeCampaignRuntimeTracking(commandBearingReviewPersistentBaseState).runtimeTracking
+          );
+          const commandBearingReviewTransientTracking = cloneJson(
+            initializeCampaignRuntimeTracking(commandBearingReview.campaignState).runtimeTracking
+          );
+          const commandBearingReviewPersistentBaseHistoryEntryHashes = new Set(
+            (commandBearingReviewPersistentBaseTracking.history || []).map((entry) => hashStableJson(entry))
+          );
+          const commandBearingReviewHistoryEntryHashes = (() => {
+            return new Set((commandBearingReviewTransientTracking.history || [])
+              .map((entry) => ({ entry, hash: hashStableJson(entry) }))
+              .filter(({ hash }) => !commandBearingReviewPersistentBaseHistoryEntryHashes.has(hash))
+              .map(({ hash }) => hash));
+          })();
+          const scrubCommandBearingReviewSnapshot = (snapshot = null) => {
+            if (!snapshot || typeof snapshot !== 'object') return cloneJson(snapshot);
+            const scrubbed = cloneJson(snapshot);
+            if (commandBearingReviewPersistentBaseState.commandBearing !== undefined) {
+              scrubbed.commandBearing = cloneJson(commandBearingReviewPersistentBaseState.commandBearing);
+            } else {
+              delete scrubbed.commandBearing;
+            }
+            if (commandBearingReviewPersistentBaseState.commandCulture !== undefined) {
+              scrubbed.commandCulture = cloneJson(commandBearingReviewPersistentBaseState.commandCulture);
+            } else {
+              delete scrubbed.commandCulture;
+            }
+            if (scrubbed.runtimeTracking && typeof scrubbed.runtimeTracking === 'object') {
+              scrubbed.runtimeTracking = {
+                ...cloneJson(scrubbed.runtimeTracking),
+                revision: Number(commandBearingReviewPersistentBaseTracking.revision) || 0,
+                mechanicsRevision: Number(commandBearingReviewPersistentBaseTracking.mechanicsRevision) || 0,
+                history: [],
+                historyIndex: -1,
+                lastDelta: cloneJson(commandBearingReviewPersistentBaseTracking.lastDelta || null),
+                activeIngressId: null,
+                lastStableRevision: Number(commandBearingReviewPersistentBaseTracking.lastStableRevision) || 0
+              };
+            }
+            return scrubbed;
+          };
+          const restoreCommandBearingReviewTracking = (tracking = {}) => {
+            const currentTracking = cloneJson(tracking || {});
+            const baseTracking = commandBearingReviewPersistentBaseTracking;
+            const reviewTracking = commandBearingReviewTransientTracking;
+            const reviewLastDeltaHash = reviewTracking.lastDelta ? hashStableJson(reviewTracking.lastDelta) : null;
+            const currentLastDeltaMatchesReview = Boolean(
+              reviewLastDeltaHash
+              && currentTracking.lastDelta
+              && hashStableJson(currentTracking.lastDelta) === reviewLastDeltaHash
+            );
+            const hasIndependentTrackingAdvance = Boolean(
+              currentTracking.lastDelta
+              && !currentLastDeltaMatchesReview
+              && (Number(currentTracking.revision) || 0) > (Number(reviewTracking.revision) || 0)
+            );
+            if (hasIndependentTrackingAdvance) {
+              const history = Array.isArray(currentTracking.history)
+                ? currentTracking.history
+                  .filter((entry) => !commandBearingReviewHistoryEntryHashes.has(hashStableJson(entry)))
+                  .map((entry) => {
+                    const entryHash = hashStableJson(entry);
+                    const nextEntry = cloneJson(entry);
+                    if (!commandBearingReviewPersistentBaseHistoryEntryHashes.has(entryHash) && nextEntry?.snapshot) {
+                      nextEntry.snapshot = scrubCommandBearingReviewSnapshot(nextEntry.snapshot);
+                    }
+                    return nextEntry;
+                  })
+                : [];
+              return {
+                ...currentTracking,
+                history,
+                historyIndex: history.length
+                  ? Math.min(Math.max(0, Number(currentTracking.historyIndex) || 0), history.length - 1)
+                  : -1
+              };
+            }
+            return {
+              ...currentTracking,
+              revision: Number(baseTracking.revision) || 0,
+              mechanicsRevision: Number(baseTracking.mechanicsRevision) || 0,
+              history: cloneJson(baseTracking.history || []),
+              historyIndex: Number.isInteger(baseTracking.historyIndex) ? baseTracking.historyIndex : -1,
+              lastDelta: cloneJson(baseTracking.lastDelta || null),
+              activeIngressId: baseTracking.activeIngressId || null,
+              lastStableRevision: Number(baseTracking.lastStableRevision) || 0
+            };
+          };
+          const commandBearingReviewCompatibilityState = (state = getCampaignState()) => {
+            const restored = cloneJson(initializeCampaignRuntimeTracking(state));
+            if (commandBearingReviewPersistentBaseState.commandBearing !== undefined) {
+              restored.commandBearing = cloneJson(commandBearingReviewPersistentBaseState.commandBearing);
+            } else {
+              delete restored.commandBearing;
+            }
+            if (commandBearingReviewPersistentBaseState.commandCulture !== undefined) {
+              restored.commandCulture = cloneJson(commandBearingReviewPersistentBaseState.commandCulture);
+            } else {
+              delete restored.commandCulture;
+            }
+            restored.runtimeTracking = restoreCommandBearingReviewTracking(restored.runtimeTracking);
+            return restored;
+          };
+          const restoreCommandBearingReviewCompatibilityState = () => {
+            const restored = commandBearingReviewCompatibilityState(getCampaignState());
+            applied.campaignState = restored;
+            applied.revision = restored.runtimeTracking?.revision || applied.revision;
+            setCampaignState(restored);
+            batchState.currentState = cloneJson(restored);
+            batchState.expectedRevision = applied.revision;
+          };
           const commandBearingReviewPromptFrame = {
             workerKey: 'commandBearing',
             promptDirtyDomains: commandBearingReviewPromptDirtyDomains,
@@ -2591,6 +2875,7 @@ export function createCampaignSidecarScheduler({
                 sourceFrameRef: cloneJson(commandBearingResult.job?.sourceIngress?.sourceFrameRef || null),
                 sourceFrame: cloneJson(commandBearingResult.job?.sourceIngress?.sourceFrameRef || null),
                 sourceToken: commandBearingReviewSourceToken,
+                coreCommandBearingReviewProjection,
                 cacheInputs: {},
                 commitRuntimeState: false,
                 beforeInstallPrompt: promptInstallFreshnessGuard(commandBearingReviewPromptInputState),
@@ -2613,34 +2898,34 @@ export function createCampaignSidecarScheduler({
                 }
               });
               if (promptInstallSkippedByFreshnessGuard(forgeReviewPromptFlush)) {
-                const currentPromptState = initializeCampaignRuntimeTracking(getCampaignState());
-                applied.campaignState = cloneJson(currentPromptState);
-                applied.revision = currentPromptState.runtimeTracking?.revision || applied.revision;
-                batchState.currentState = cloneJson(currentPromptState);
-                batchState.expectedRevision = applied.revision;
+                restoreCommandBearingReviewCompatibilityState();
                 postSettlementWarnings.push(compactPostSettlementWarning('lens', {
                   code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE'
+                }));
+              } else if (!forgeReviewPromptFlush?.campaignState) {
+                restoreCommandBearingReviewCompatibilityState();
+                postSettlementWarnings.push(compactPostSettlementWarning('lens', {
+                  code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_NO_STATE'
                 }));
               } else if (forgeReviewPromptFlush?.campaignState) {
                 const currentPromptState = initializeCampaignRuntimeTracking(getCampaignState());
                 if (promptFlushInputStillCurrent(commandBearingReviewPromptInputState, currentPromptState)) {
-                  applied.campaignState = forgeReviewPromptFlush.campaignState;
-                  applied.revision = forgeReviewPromptFlush.campaignState.runtimeTracking?.revision || applied.revision;
-                  setCampaignState(forgeReviewPromptFlush.campaignState);
-                  batchState.currentState = cloneJson(forgeReviewPromptFlush.campaignState);
+                  const synchronizedReview = promptOnlyCampaignState(commandBearingReviewPersistentBaseState, forgeReviewPromptFlush.campaignState);
+                  applied.campaignState = synchronizedReview;
+                  applied.revision = synchronizedReview.runtimeTracking?.revision || applied.revision;
+                  setCampaignState(synchronizedReview);
+                  batchState.currentState = cloneJson(synchronizedReview);
                   batchState.expectedRevision = applied.revision;
-                  await persistCampaignState(forgeReviewPromptFlush.campaignState, 'Command Bearing sidecar closure review prompt context synchronized.');
+                  await persistCampaignState(synchronizedReview, 'Command Bearing sidecar closure review prompt context synchronized.');
                 } else {
-                  applied.campaignState = cloneJson(currentPromptState);
-                  applied.revision = currentPromptState.runtimeTracking?.revision || applied.revision;
-                  batchState.currentState = cloneJson(currentPromptState);
-                  batchState.expectedRevision = applied.revision;
+                  restoreCommandBearingReviewCompatibilityState();
                   postSettlementWarnings.push(compactPostSettlementWarning('lens', {
                     code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE'
                   }));
                 }
               }
             } catch (error) {
+              restoreCommandBearingReviewCompatibilityState();
               postSettlementWarnings.push(compactPostSettlementWarning('lens', {
                 code: error?.code || 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_FAILED'
               }));
@@ -2667,13 +2952,21 @@ export function createCampaignSidecarScheduler({
               }
             });
             if (synchronizedReview) {
-              applied.campaignState = synchronizedReview;
-              applied.revision = synchronizedReview.runtimeTracking?.revision || applied.revision;
-              setCampaignState(synchronizedReview);
-              batchState.currentState = cloneJson(synchronizedReview);
+              const promptOnlyReview = promptOnlyCampaignState(commandBearingReviewPersistentBaseState, synchronizedReview);
+              applied.campaignState = promptOnlyReview;
+              applied.revision = promptOnlyReview.runtimeTracking?.revision || applied.revision;
+              setCampaignState(promptOnlyReview);
+              batchState.currentState = cloneJson(promptOnlyReview);
               batchState.expectedRevision = applied.revision;
-              await persistCampaignState(synchronizedReview, 'Command Bearing sidecar closure review prompt context synchronized.');
+              await persistCampaignState(promptOnlyReview, 'Command Bearing sidecar closure review prompt context synchronized.');
+            } else {
+              restoreCommandBearingReviewCompatibilityState();
+              postSettlementWarnings.push(compactPostSettlementWarning('promptSync', {
+                code: 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_REVIEW_SYNC_NO_STATE'
+              }));
             }
+          } else {
+            restoreCommandBearingReviewCompatibilityState();
           }
         }
         commandBearingReviews = new Map([[commandBearingResult.workerKey, commandBearingReview]]);
@@ -2756,6 +3049,45 @@ export function createCampaignSidecarScheduler({
       const providerReplayKey = providerBatchContext.idempotencyKey || providerBatchContext.batchId;
       if (completedProviderBatches.has(providerReplayKey)) {
         const replay = cloneJson(completedProviderBatches.get(providerReplayKey));
+        const replayState = initializeCampaignRuntimeTracking(getCampaignState());
+        const cachedSourceFingerprints = Array.isArray(replay.sourceFingerprints) ? replay.sourceFingerprints : [];
+        const replaySourceFailures = jobs.map((workerJob, index) => (
+          staleSourceIngressFailure(workerJob, replayState)
+          || providerReplaySourceMismatchFailure(workerJob, cachedSourceFingerprints[index])
+        ));
+        if (replaySourceFailures.some(Boolean)) {
+          const firstFailure = replaySourceFailures.find(Boolean);
+          const staleResults = jobs.map((workerJob, index) => {
+            const error = cloneJson(replaySourceFailures[index] || firstFailure);
+            const result = {
+              workerKey: workerJob.workerKey,
+              status: 'rejected',
+              error
+            };
+            queueCoreDiagnostic(workerJob, 'stale', { result, error });
+            emitActivity(activityReporter, {
+              phase: 'sidecarWorker',
+              mode: 'review',
+              workerKey: workerJob.workerKey,
+              status: 'rejected',
+              classification: turnContext.classification || null
+            });
+            return result;
+          });
+          emitActivity(activityReporter, {
+            phase: 'sidecarsSettled',
+            mode: 'review',
+            requested,
+            results: cloneJson(staleResults),
+            replayed: false,
+            rejectedReplay: true,
+            classification: turnContext.classification || null,
+            ingressId: turnContext.ingressId || null,
+            turnId: turnContext.turnId || null,
+            outcomeId: turnContext.outcomeId || null
+          });
+          return staleResults;
+        }
         emitActivity(activityReporter, {
           phase: 'sidecarsSettled',
           mode: 'background',
@@ -2828,7 +3160,8 @@ export function createCampaignSidecarScheduler({
       if (providerReplayKey && isProviderBatchCompletionCacheable(finalResults)) {
         completedProviderBatches.set(providerReplayKey, {
           completedAt: timestamp(now),
-          finalResults: cloneJson(finalResults)
+          finalResults: cloneJson(finalResults),
+          sourceFingerprints: providerBatchSourceFingerprints(jobs)
         });
       }
       for (const [index, result] of finalResults.entries()) {

@@ -134,6 +134,9 @@ function sanitizeRecoverySourceMutation(value = {}) {
     }
     delete sanitized.replacementText;
   }
+  for (const key of Object.keys(sanitized)) {
+    if (/^raw/i.test(key)) delete sanitized[key];
+  }
   return sanitized;
 }
 
@@ -216,6 +219,7 @@ function compactBackgroundEffectRef(ref = {}) {
     status: ref.status || null,
     authority: ref.authority || null,
     outcomeId: ref.outcomeId || null,
+    sourceOutcomeId: ref.sourceOutcomeId || null,
     turnId: ref.turnId || null,
     ingressId: ref.ingressId || null,
     sourceFrameId: ref.sourceFrameId || null,
@@ -236,6 +240,10 @@ function compactBackgroundEffectRef(ref = {}) {
     arcIds: Array.isArray(ref.arcIds) ? ref.arcIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
     tags: Array.isArray(ref.tags) ? ref.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : undefined,
     keywords: Array.isArray(ref.keywords) ? ref.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean) : undefined,
+    primarySignal: ref.primarySignal || null,
+    trackSignals: Array.isArray(ref.trackSignals) ? ref.trackSignals.map((signal) => String(signal || '').trim()).filter(Boolean) : undefined,
+    strength: ref.strength || null,
+    evidenceHash: ref.evidenceHash || null,
     reviewHash: ref.reviewHash || null,
     acceptedBatchHash: ref.acceptedBatchHash || null
   });
@@ -321,6 +329,164 @@ function compactResponseRef(value = {}) {
     textHash: value.textHash || null,
     repairDecision: value.repairDecision ? sanitizeDiagnostic(value.repairDecision) : undefined
   });
+}
+
+function compactOutcomeRerunRepairDecision(value = null) {
+  if (!isObject(value)) return undefined;
+  return compact({
+    kind: value.kind || null,
+    eventType: value.eventType || null,
+    sourceKind: value.sourceKind || null,
+    transactionId: value.transactionId || null,
+    replacedTransactionId: value.replacedTransactionId || null,
+    authorized: value.authorized === true,
+    action: value.action || null,
+    reason: value.reason || null,
+    deniedReason: value.deniedReason || null,
+    outcomeId: value.outcomeId || null,
+    turnId: value.turnId || null,
+    resultBand: value.resultBand || null,
+    replacementType: value.replacementType || null,
+    allowedActions: Array.isArray(value.allowedActions) ? [...value.allowedActions] : undefined,
+    branchCandidateRequired: value.branchCandidateRequired === true,
+    mechanicsRerunAuthorized: value.mechanicsRerunAuthorized === true,
+    replacementTransactionRequired: value.replacementTransactionRequired === true,
+    coreTransactionRequired: value.coreTransactionRequired === true,
+    legacyNoCoreRerunAllowed: value.legacyNoCoreRerunAllowed === true,
+    normalTurnAllowed: value.normalTurnAllowed === true,
+    observedAt: value.observedAt || null
+  });
+}
+
+function compactOutcomeReplacementRef(value = {}, { transaction = null, idempotencyKey = null, occurredAt = null } = {}) {
+  const source = isObject(value) ? value : {};
+  const replacementText = typeof source.replacementText === 'string' ? source.replacementText.trim() : '';
+  return compact({
+    kind: 'directive.coreOutcomeReplacementRef.v1',
+    schemaVersion: 1,
+    transactionId: transaction?.id || source.transactionId || null,
+    replacedTransactionId: source.replacedTransactionId || null,
+    replacementTransactionId: transaction?.id || source.replacementTransactionId || source.transactionId || null,
+    type: source.type || source.replacementType || 'rerunOutcome',
+    replacedOutcomeId: source.replacedOutcomeId || source.outcomeId || null,
+    replacementOutcomeId: source.replacementOutcomeId || null,
+    replacedTurnId: source.replacedTurnId || null,
+    replacementTurnId: source.replacementTurnId || null,
+    idempotencyKey: idempotencyKey || source.idempotencyKey || null,
+    acceptedAt: source.acceptedAt || occurredAt || null,
+    repairDecision: compactOutcomeRerunRepairDecision(source.repairDecision),
+    replacementTextPresent: replacementText ? true : undefined,
+    replacementTextHash: replacementText ? hashStableJson({ text: replacementText }) : undefined
+  });
+}
+
+function assertOutcomeReplacementReplayMatch(existingRef = {}, replacement = {}, transaction = {}) {
+  const checks = [
+    ['replacedOutcomeId', replacement.replacedOutcomeId || replacement.outcomeId, existingRef.replacedOutcomeId],
+    ['replacementOutcomeId', replacement.replacementOutcomeId, existingRef.replacementOutcomeId],
+    ['replacedTransactionId', replacement.replacedTransactionId, existingRef.replacedTransactionId],
+    ['replacementTransactionId', replacement.replacementTransactionId || transaction.id, existingRef.replacementTransactionId || transaction.id]
+  ];
+  for (const [field, requestedValue, existingValue] of checks) {
+    const requested = typeof requestedValue === 'string' ? requestedValue.trim() : '';
+    const existing = typeof existingValue === 'string' ? existingValue.trim() : '';
+    if (requested && existing && requested !== existing) {
+      const error = new Error(`CORE outcome replacement idempotency replay mismatch for ${field}`);
+      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_REPLAY_MISMATCH';
+      error.details = { field, requested, existing, transactionId: transaction.id || null };
+      throw error;
+    }
+  }
+}
+
+function nonEmptyString(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function recoveryResolutionMatches(resolution = {}, recovery = {}) {
+  const recoveryId = nonEmptyString(recovery.id);
+  if (!recoveryId) return false;
+  return [
+    resolution.id,
+    resolution.recoveryId,
+    resolution.recoveryCaseId
+  ].some((value) => nonEmptyString(value) === recoveryId);
+}
+
+function recoveryReplayResolutionFromEvents(events = [], { transactionId, recovery } = {}) {
+  const id = nonEmptyString(transactionId);
+  if (!id || !recovery?.id) return null;
+  for (const event of [...(events || [])].reverse()) {
+    if (legacyTransactionId(event) !== id) continue;
+    const payload = eventPayload(event);
+    if (event.type === 'visibleResponseRecorded' && recoveryResolutionMatches(payload.recoveryResolution || {}, recovery)) {
+      const resolution = payload.recoveryResolution || {};
+      return {
+        id: recovery.id,
+        status: 'resolved',
+        phase: 'visibleResponsePosted',
+        reason: resolution.reason || recovery.reason || null
+      };
+    }
+    if ((event.type === 'latestSourceRestarted' || event.type === 'sourceRestarted') && recoveryResolutionMatches(payload.recoveryResolution || {}, recovery)) {
+      const resolution = payload.recoveryResolution || {};
+      return {
+        id: recovery.id,
+        status: 'resolved',
+        phase: payload.phaseAfter || 'restartSuperseded',
+        reason: resolution.reason || recovery.reason || null
+      };
+    }
+    if (event.type === 'rollbackActuationRecorded') {
+      const rollback = payload.rollbackActuationRef || {};
+      if (nonEmptyString(rollback.recoveryCaseId) === nonEmptyString(recovery.id)) {
+        return {
+          id: recovery.id,
+          status: 'resolved',
+          phase: payload.phaseAfter || 'settled',
+          reason: recovery.reason || null
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function compactRollbackActuationRef(value = {}, { transaction = null, idempotencyKey = null, occurredAt = null } = {}) {
+  const source = isObject(value) ? value : {};
+  const stripRawKeys = (input = {}) => {
+    const output = sanitizeDiagnostic(input || {});
+    for (const key of Object.keys(output)) {
+      if (/^raw/i.test(key) || key === 'replacementText') delete output[key];
+    }
+    return output;
+  };
+  const rollbackActuation = stripRawKeys(source.rollbackActuation || {});
+  const sourceMutation = sanitizeRecoverySourceMutation(source.sourceMutation || {});
+  for (const key of Object.keys(sourceMutation)) {
+    if (/^raw/i.test(key)) delete sourceMutation[key];
+  }
+  return sanitizeDiagnostic(compact({
+    kind: 'directive.repairRollbackActuationRecord.v1',
+    schemaVersion: 1,
+    id: source.id || `rollback:${transaction?.id || source.transactionId || 'transaction'}`,
+    transactionId: transaction?.id || source.transactionId || rollbackActuation.transactionId || null,
+    recoveryCaseId: source.recoveryCaseId || rollbackActuation.recoveryCaseId || null,
+    eventType: source.eventType || rollbackActuation.eventType || sourceMutation.eventType || null,
+    sourceFrameId: source.sourceFrameId || sourceMutation.sourceFrameId || transaction?.sourceFrameId || null,
+    outcomeId: source.outcomeId || sourceMutation.outcomeId || rollbackActuation.outcomeId || transaction?.outcomeId || null,
+    restoreRevision: Number.isFinite(Number(source.restoreRevision ?? rollbackActuation.restoreRevision))
+      ? Number(source.restoreRevision ?? rollbackActuation.restoreRevision)
+      : null,
+    sourceMutation,
+    repairDecision: stripRawKeys(source.repairDecision || {}),
+    legacyProjection: stripRawKeys(source.legacyProjection || {}),
+    rollbackActuation,
+    idempotencyKey: idempotencyKey || source.idempotencyKey || null,
+    occurredAt: source.occurredAt || occurredAt || null,
+    observedAt: source.observedAt || occurredAt || null,
+    status: source.status || 'recorded'
+  }));
 }
 
 function responseRefAuthorizesRecoveryClosure(ref = {}) {
@@ -502,6 +668,7 @@ function turnRecord({
     operationHash: hashStableJson(bundle),
     committedRoots: Array.isArray(bundle.committedRoots) ? [...bundle.committedRoots] : [],
     promptDirtyDomains: Array.isArray(bundle.promptDirtyDomains) ? [...bundle.promptDirtyDomains] : [],
+    snapshotBeforeRetained: bundle.snapshotBeforeRetained === true || undefined,
     revisions: cloneJson(revisions)
   });
 }
@@ -742,6 +909,10 @@ function reconstructTransactionsFromEvents(events = []) {
       transaction.restartedBySourceFrameId = restart.newSourceFrameId || transaction.restartedBySourceFrameId || null;
       transaction.restartReason = restart.reason || transaction.restartReason || null;
       transaction.sourceRestartIdempotencyKey = event.idempotencyKey || transaction.sourceRestartIdempotencyKey || null;
+      if (payload.recoveryResolution) {
+        transaction.recoveryCaseId = null;
+        transaction.recoveryReason = null;
+      }
       if (restart.newTransactionId) {
         const replacement = transactions[restart.newTransactionId] || {
           id: restart.newTransactionId,
@@ -791,6 +962,17 @@ function reconstructTransactionsFromEvents(events = []) {
       });
       transaction.phase = transaction.visibleResponseRef ? 'visibleResponsePosted' : transaction.phase;
     }
+    if (event.type === 'outcomeReplacementRecorded') {
+      const replacementRef = payload.outcomeReplacementRef || {};
+      transaction.outcomeReplacements = [
+        ...(transaction.outcomeReplacements || []),
+        cloneJson(replacementRef)
+      ];
+      transaction.outcomeReplacementIdempotencyKeys = uniqueStrings([
+        ...(transaction.outcomeReplacementIdempotencyKeys || []),
+        event.idempotencyKey
+      ]);
+    }
     if (event.type === 'backgroundBatchCommitted') {
       const bundle = payload.operationBundle || {};
       const batchId = bundle.batchId || `background:${transaction.id}`;
@@ -820,6 +1002,20 @@ function reconstructTransactionsFromEvents(events = []) {
       transaction.recoveryReason = payload.recoveryCase?.reason || null;
       transaction.recoveryIdempotencyKey = event.idempotencyKey || transaction.recoveryIdempotencyKey || null;
     }
+    if (event.type === 'rollbackActuationRecorded') {
+      const rollback = payload.rollbackActuationRef || {};
+      transaction.phase = payload.phaseAfter || 'settled';
+      transaction.recoveryCaseId = null;
+      transaction.recoveryReason = null;
+      transaction.rollbackActuations = [
+        ...(transaction.rollbackActuations || []),
+        cloneJson(rollback)
+      ];
+      transaction.rollbackActuationIdempotencyKeys = uniqueStrings([
+        ...(transaction.rollbackActuationIdempotencyKeys || []),
+        event.idempotencyKey
+      ]);
+    }
     transaction.revisions = eventRevisions(event) || transaction.revisions;
     transaction.updatedAt = event.occurredAt || transaction.updatedAt || transaction.createdAt;
     transactions[txnId] = transaction;
@@ -837,6 +1033,7 @@ export function buildCoreStoreReadProjections(state = {}) {
     deriveHostMapRowsFromEvents(state.events || [])
   );
   const responseEvents = (state.events || []).filter((event) => event.type === 'visibleResponseRecorded');
+  const visibleResponseTransactionIds = new Set(responseEvents.map(legacyTransactionId).filter(Boolean));
   const visibleResponseRepairsByTransaction = new Map();
   for (const event of state.events || []) {
     if (event?.type !== 'visibleResponseRefRepaired') continue;
@@ -848,6 +1045,22 @@ export function buildCoreStoreReadProjections(state = {}) {
     });
   }
   const recoveryEvents = (state.events || []).filter((event) => event.type === 'recoveryRequired');
+  const responseRecoveryEvents = recoveryEvents.filter((event) => {
+    const payload = eventPayload(event);
+    const decision = payload.repairDecision || {};
+    return Boolean(
+      decision.responseStatus
+      || decision.recoveryType
+      || [
+        'hostResponsePostFailure',
+        'providerFailureAfterMechanicsCommit',
+        'hostNativeGenerationUnavailable',
+        'hostNativeGenerationFailed',
+        'hostNativeContinuityContradiction'
+      ].includes(decision.eventType)
+    );
+  });
+  const responseRecoveryTransactionIds = new Set(responseRecoveryEvents.map(legacyTransactionId).filter(Boolean));
   const responseRecoveryResolutionEvents = (state.events || []).filter((event) => (
     event.type === 'visibleResponseRecorded'
     && Boolean(eventPayload(event).recoveryResolution)
@@ -856,11 +1069,24 @@ export function buildCoreStoreReadProjections(state = {}) {
     if (event.type !== 'latestSourceRestarted' && event.type !== 'sourceRestarted') return false;
     return Boolean(eventPayload(event).recoveryResolution);
   });
+  const rollbackEvents = (state.events || []).filter((event) => event.type === 'rollbackActuationRecorded');
   const backgroundEvents = (state.events || []).filter((event) => event.type === 'backgroundBatchCommitted');
+  const outcomeReplacementEvents = (state.events || []).filter((event) => event.type === 'outcomeReplacementRecorded');
   const backgroundEffectRefs = backgroundEffectRefsFromEvents(backgroundEvents);
   const sceneSealRefs = sceneSealRefsFromEffectRefs(backgroundEffectRefs);
   const pressureArcDigestRefs = pressureArcDigestRefsFromEffectRefs(backgroundEffectRefs);
   const recallEntryRefs = recallEntryRefsFromEffectRefs(backgroundEffectRefs);
+  const backgroundBatches = backgroundEvents.map((event) => compact({
+    id: event.id,
+    transactionId: legacyTransactionId(event),
+    sourceFrameId: event.sourceFrameId || null,
+    ...backgroundBatchRefFromBundle(eventPayload(event).operationBundle || {}, {
+      idempotencyKey: event.idempotencyKey || null,
+      occurredAt: event.occurredAt || null
+    })
+  }));
+  const commandBearingEvidence = commandBearingEvidenceFromEffectRefs(backgroundEffectRefs, backgroundBatches);
+  const commandBearingReviewClosures = commandBearingReviewClosuresFromEffectRefs(backgroundEffectRefs, backgroundBatches);
   const diagnostics = state.diagnostics || [];
   const turnTiming = buildTurnTimingProjections(state.events || [], transactionMap);
   return {
@@ -884,24 +1110,75 @@ export function buildCoreStoreReadProjections(state = {}) {
       restartedByTransactionId: transaction.restartedByTransactionId || null,
       restartedFromTransactionId: transaction.restartedFromTransactionId || null
     })),
-    responseLedger: responseEvents.map((event) => {
-      const transactionId = legacyTransactionId(event);
-      const responseRef = {
-        ...(eventPayload(event).responseRef || {}),
-        ...(visibleResponseRepairsByTransaction.get(transactionId) || {})
-      };
-      return compact({
-        id: responseRef.responseId || `response:${transactionId}`,
-        transactionId,
-        hostMessageId: responseRef.hostMessageId || null,
-        outcomeId: responseRef.outcomeId || null,
-        responseKind: responseRef.kind || responseRef.responseKind || null,
-        generationStartedAt: responseRef.generationStartedAt || null,
-        textHash: responseRef.textHash || null,
-        turnTiming: responseRef.turnLatency ? cloneJson(responseRef.turnLatency) : undefined,
-        status: 'posted'
-      });
-    }),
+    responseLedger: (state.events || [])
+      .filter((event) => (
+        event.type === 'visibleResponseRecorded'
+        || (
+          event.type === 'phaseAdvanced'
+          && eventPayload(event).toPhase === 'hostContinueReleased'
+          && !visibleResponseTransactionIds.has(legacyTransactionId(event))
+          && !responseRecoveryTransactionIds.has(legacyTransactionId(event))
+        )
+        || (
+          event.type === 'recoveryRequired'
+          && responseRecoveryTransactionIds.has(legacyTransactionId(event))
+          && !visibleResponseTransactionIds.has(legacyTransactionId(event))
+        )
+      ))
+      .map((event) => {
+        const transactionId = legacyTransactionId(event);
+        if (event.type === 'phaseAdvanced') {
+          const payload = eventPayload(event);
+          const timing = compactTurnTiming(payload.timing || {});
+          return compact({
+            id: `response-release:${transactionId}`,
+            transactionId,
+            hostMessageId: null,
+            outcomeId: transactionMap?.[transactionId]?.outcomeId || null,
+            responseKind: 'hostContinue',
+            generationStartedAt: timing?.hostGenerationReleasedAt || event.occurredAt || null,
+            textHash: null,
+            turnTiming: timing || undefined,
+            status: 'hostContinueReleased'
+          });
+        }
+        if (event.type === 'recoveryRequired') {
+          const payload = eventPayload(event);
+          const decision = payload.repairDecision || {};
+          const phase = payload.phaseAfter || payload.recoveryCase?.phase || decision.responseStatus || 'recoveryRequired';
+          return compact({
+            id: payload.dependentResponseId || `response-recovery:${transactionId}:${payload.recoveryCase?.id || event.id}`,
+            transactionId,
+            hostMessageId: decision.hostMessageId || null,
+            outcomeId: payload.dependentOutcomeId || transactionMap?.[transactionId]?.outcomeId || null,
+            responseKind: decision.responseKind || (
+              decision.eventType && String(decision.eventType).startsWith('hostNative')
+                ? 'hostContinue'
+                : null
+            ),
+            generationStartedAt: null,
+            textHash: null,
+            recoveryId: payload.recoveryCase?.id || null,
+            repairDecision: sanitizeDiagnostic(decision),
+            status: phase
+          });
+        }
+        const responseRef = {
+          ...(eventPayload(event).responseRef || {}),
+          ...(visibleResponseRepairsByTransaction.get(transactionId) || {})
+        };
+        return compact({
+          id: responseRef.responseId || `response:${transactionId}`,
+          transactionId,
+          hostMessageId: responseRef.hostMessageId || null,
+          outcomeId: responseRef.outcomeId || null,
+          responseKind: responseRef.kind || responseRef.responseKind || null,
+          generationStartedAt: responseRef.generationStartedAt || null,
+          textHash: responseRef.textHash || null,
+          turnTiming: responseRef.turnLatency ? cloneJson(responseRef.turnLatency) : undefined,
+          status: 'posted'
+        });
+      }),
     turnTiming,
     turnLedger: {
       entries: (state.turns || []).map((turn) => compact({
@@ -913,9 +1190,19 @@ export function buildCoreStoreReadProjections(state = {}) {
         operationHash: turn.operationHash,
         operationSummary: turn.operationSummary,
         committedRoots: turn.committedRoots,
+        snapshotBeforeRetained: turn.snapshotBeforeRetained === true || undefined,
         revisions: cloneJson(turn.revisions)
       })),
-      lastCommittedOutcomeId: [...(state.turns || [])].reverse().find((turn) => turn.outcomeId)?.outcomeId || null
+      lastCommittedOutcomeId: [...(state.turns || [])].reverse().find((turn) => turn.outcomeId)?.outcomeId || null,
+      replacementHistory: outcomeReplacementEvents.map((event) => compact({
+        ...(eventPayload(event).outcomeReplacementRef || {}),
+        transactionId: legacyTransactionId(event),
+        eventId: event.id,
+        occurredAt: event.occurredAt || null
+      })),
+      lastReplacedOutcomeId: [...outcomeReplacementEvents].reverse()
+        .map((event) => eventPayload(event).outcomeReplacementRef?.replacedOutcomeId)
+        .find(Boolean) || null
     },
     recoveryJournal: [
       ...recoveryEvents.map((event) => {
@@ -971,8 +1258,35 @@ export function buildCoreStoreReadProjections(state = {}) {
           replacementIngressId: resolution.replacementIngressId || restart.newIngressId || null,
           replacementSourceFrameId: resolution.replacementSourceFrameId || restart.newSourceFrameId || null
         });
+      }),
+      ...rollbackEvents.map((event) => {
+        const payload = eventPayload(event);
+        const transactionId = legacyTransactionId(event);
+        const rollback = payload.rollbackActuationRef || {};
+        return compact({
+          id: rollback.recoveryCaseId || `recovery:${transactionId}:rollback`,
+          transactionId,
+          status: 'resolved',
+          phase: payload.phaseAfter || 'settled',
+          reason: 'rollback-actuated',
+          sourceFrameId: rollback.sourceFrameId || transactionMap?.[transactionId]?.sourceFrameId || event.sourceFrameId || null,
+          sourceMutation: cloneJson(rollback.sourceMutation || null),
+          repairDecision: cloneJson(rollback.repairDecision || null),
+          rollbackActuation: cloneJson(rollback.rollbackActuation || null),
+          restoreRevision: rollback.restoreRevision ?? null,
+          dependentOutcomeId: rollback.outcomeId || null
+        });
       })
     ],
+    rollbackActuations: rollbackEvents.map((event) => {
+      const payload = eventPayload(event);
+      return compact({
+        ...(payload.rollbackActuationRef || {}),
+        transactionId: legacyTransactionId(event),
+        eventId: event.id,
+        occurredAt: event.occurredAt || payload.rollbackActuationRef?.occurredAt || null
+      });
+    }),
     modelCallDiagnostics: diagnostics
       .filter((entry) => entry.type === 'modelCall')
       .map(diagnosticPayload),
@@ -984,16 +1298,10 @@ export function buildCoreStoreReadProjections(state = {}) {
         ? eventPayload(event).operationBundle.workers.map((worker) => cloneJson(worker))
         : [])
     ],
-    backgroundBatches: backgroundEvents.map((event) => compact({
-      id: event.id,
-      transactionId: legacyTransactionId(event),
-      sourceFrameId: event.sourceFrameId || null,
-      ...backgroundBatchRefFromBundle(eventPayload(event).operationBundle || {}, {
-        idempotencyKey: event.idempotencyKey || null,
-        occurredAt: event.occurredAt || null
-      })
-    })),
+    backgroundBatches,
     backgroundEffectRefs,
+    commandBearingEvidence,
+    commandBearingReviewClosures,
     sceneSealRefs,
     sceneSealRevision: sceneSealRevisionFromRefs(sceneSealRefs),
     pressureArcDigestRefs,
@@ -1152,6 +1460,58 @@ function pressureArcDigestRefsFromEffectRefs(effectRefs = []) {
   return effectRefs
     .filter((ref) => String(ref.kind || ref.type || '').includes('pressureArcDigestRef'))
     .map((ref) => sanitizeDiagnostic(ref));
+}
+
+function commandBearingEvidenceFromEffectRefs(effectRefs = [], backgroundBatches = []) {
+  const batchesById = new Map(
+    (backgroundBatches || [])
+      .filter((batch) => batch?.batchId)
+      .map((batch) => [batch.batchId, batch])
+  );
+  return (effectRefs || [])
+    .filter((ref) => ref.kind === 'directive.commandBearingEvidence.v1')
+    .map((ref) => {
+      const batch = batchesById.get(ref.backgroundBatchId) || {};
+      return compact({
+        kind: 'directive.commandBearingEvidenceProjection.v1',
+        evidenceId: ref.id || null,
+        transactionId: ref.transactionId || batch.transactionId || null,
+        batchId: ref.backgroundBatchId || batch.batchId || null,
+        sourceFrameId: ref.sourceFrameId || batch.sourceFrameId || null,
+        sourceOutcomeId: ref.sourceOutcomeId || ref.outcomeId || batch.outcomeId || null,
+        occurredAt: ref.occurredAt || batch.occurredAt || null,
+        primarySignal: ref.primarySignal || null,
+        trackSignals: Array.isArray(ref.trackSignals) ? [...ref.trackSignals] : undefined,
+        strength: ref.strength || null,
+        status: ref.status || null,
+        evidenceHash: ref.evidenceHash || ref.hash || null,
+        acceptedBatchHash: ref.acceptedBatchHash || batch.acceptedBatchHash || batch.forgeBatchRef?.acceptedBatchHash || null,
+        forgeBatchRef: batch.forgeBatchRef ? cloneJson(batch.forgeBatchRef) : undefined
+      });
+    });
+}
+
+function commandBearingReviewClosuresFromEffectRefs(effectRefs = [], backgroundBatches = []) {
+  const batchesById = new Map(
+    (backgroundBatches || [])
+      .filter((batch) => batch?.batchId)
+      .map((batch) => [batch.batchId, batch])
+  );
+  return (effectRefs || [])
+    .filter((ref) => ref.kind === 'directive.commandBearingReviewClosure.v1')
+    .map((ref) => {
+      const batch = batchesById.get(ref.backgroundBatchId) || {};
+      return compact({
+        kind: 'directive.commandBearingReviewClosureProjection.v1',
+        closureId: ref.id || null,
+        transactionId: ref.transactionId || batch.transactionId || null,
+        batchId: ref.backgroundBatchId || batch.batchId || null,
+        sourceFrameId: ref.sourceFrameId || batch.sourceFrameId || null,
+        occurredAt: ref.occurredAt || batch.occurredAt || null,
+        reviewHash: ref.reviewHash || batch.reviewHash || batch.forgeBatchRef?.reviewHash || null,
+        forgeBatchRef: batch.forgeBatchRef ? cloneJson(batch.forgeBatchRef) : undefined
+      });
+    });
 }
 
 function recallRevisionFromEntryRefs(entryRefs = []) {
@@ -1382,6 +1742,11 @@ export function createCoreStoreV2({
     return run;
   }
 
+  function restoreState(snapshot = {}) {
+    for (const key of Object.keys(state)) delete state[key];
+    Object.assign(state, cloneJson(snapshot));
+  }
+
   function eventTurnDeltaCursor() {
     return {
       eventStart: state.events.length,
@@ -1562,6 +1927,7 @@ export function createCoreStoreV2({
       }
       const phaseAfter = 'restartSuperseded';
       assertPhaseTransition(priorTransaction.phase, phaseAfter);
+      const stateBefore = cloneJson(state);
       const deltaCursor = eventTurnDeltaCursor();
       const createdAt = timestamp();
       const revisionsBefore = cloneJson(state.revisions);
@@ -1590,7 +1956,9 @@ export function createCoreStoreV2({
         restartedByIngressId: replacementTransaction.ingressId || null,
         restartedBySourceFrameId: replacementTransaction.sourceFrameId,
         restartReason: restart.reason || null,
-        sourceRestartIdempotencyKey: idempotencyKey
+        sourceRestartIdempotencyKey: idempotencyKey,
+        recoveryCaseId: (options.recoveryId || options.priorRecoveryId) ? null : priorTransaction.recoveryCaseId,
+        recoveryReason: (options.recoveryId || options.priorRecoveryId) ? null : priorTransaction.recoveryReason
       });
       touchTransaction(replacementTransaction, {
         sourceRestart: restart,
@@ -1628,11 +1996,16 @@ export function createCoreStoreV2({
         idempotencyKey,
         occurredAt: createdAt
       });
-      await persistEventTurnDelta(deltaCursor, {
-        operation: 'supersedeLatestSourceTransaction',
-        transactionId: priorTransaction.id,
-        replacementTransactionId: replacementTransaction.id
-      });
+      try {
+        await persistEventTurnDelta(deltaCursor, {
+          operation: 'supersedeLatestSourceTransaction',
+          transactionId: priorTransaction.id,
+          replacementTransactionId: replacementTransaction.id
+        });
+      } catch (error) {
+        restoreState(stateBefore);
+        throw error;
+      }
       return cloneJson({
         kind: 'directive.coreSourceRestartResult.v1',
         status: 'recorded',
@@ -1873,6 +2246,60 @@ export function createCoreStoreV2({
       });
       return cloneJson(transaction);
     },
+    async recordOutcomeReplacement(transactionId, replacement = {}) {
+      const transaction = requireTransaction(transactionId);
+      const idempotencyKey = requireNonEmptyString(replacement.idempotencyKey, 'idempotencyKey');
+      const existingEvent = (state.events || []).find((event) => (
+        event?.type === 'outcomeReplacementRecorded'
+        && legacyTransactionId(event) === transaction.id
+        && event.idempotencyKey === idempotencyKey
+      ));
+      if (existingEvent) {
+        const existingRef = eventPayload(existingEvent).outcomeReplacementRef || null;
+        assertOutcomeReplacementReplayMatch(existingRef || {}, replacement, transaction);
+        return cloneJson(existingRef);
+      }
+      requireNonEmptyString(replacement.replacedOutcomeId || replacement.outcomeId, 'replacedOutcomeId');
+      requireNonEmptyString(replacement.replacementOutcomeId, 'replacementOutcomeId');
+      const stateBefore = cloneJson(state);
+      const deltaCursor = eventTurnDeltaCursor();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      const outcomeReplacementRef = compactOutcomeReplacementRef(replacement, {
+        transaction,
+        idempotencyKey,
+        occurredAt: state.updatedAt
+      });
+      touchTransaction(transaction, {
+        outcomeReplacements: [
+          ...(transaction.outcomeReplacements || []),
+          outcomeReplacementRef
+        ],
+        outcomeReplacementIdempotencyKeys: uniqueStrings([
+          ...(transaction.outcomeReplacementIdempotencyKeys || []),
+          idempotencyKey
+        ])
+      });
+      appendEvent('outcomeReplacementRecorded', transaction, {
+        payload: {
+          outcomeReplacementRef
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey
+      });
+      try {
+        await persistEventTurnDelta(deltaCursor, {
+          operation: 'recordOutcomeReplacement',
+          transactionId: transaction.id
+        });
+      } catch (error) {
+        restoreState(stateBefore);
+        throw error;
+      }
+      return cloneJson(outcomeReplacementRef);
+    },
     async repairVisibleResponseRef(transactionId, responseRefPatch = {}) {
       const transaction = requireTransaction(transactionId);
       if (!transaction.visibleResponseRef) {
@@ -1924,6 +2351,21 @@ export function createCoreStoreV2({
     },
     async markRecoveryRequired(transactionId, recoveryBundle = {}) {
       const transaction = requireTransaction(transactionId);
+      const existingRecoveryEvent = recoveryBundle.idempotencyKey
+        ? (state.events || []).find((event) => (
+            event?.type === 'recoveryRequired'
+            && legacyTransactionId(event) === transaction.id
+            && event.idempotencyKey === recoveryBundle.idempotencyKey
+          ))
+        : null;
+      if (existingRecoveryEvent && !transaction.recoveryCaseId) {
+        const existingRecovery = eventPayload(existingRecoveryEvent).recoveryCase || {};
+        const priorResolution = recoveryReplayResolutionFromEvents(state.events || [], {
+          transactionId: transaction.id,
+          recovery: existingRecovery
+        });
+        if (priorResolution) return cloneJson(priorResolution);
+      }
       if (transaction.recoveryCaseId) {
         if (recoveryBundle.idempotencyKey && transaction.recoveryIdempotencyKey === recoveryBundle.idempotencyKey) {
           return cloneJson({ id: transaction.recoveryCaseId, status: 'required', reason: transaction.recoveryReason || null });
@@ -1938,6 +2380,7 @@ export function createCoreStoreV2({
           ? 'responseRetryRequired'
           : 'recoveryRequired');
       assertPhaseTransition(transaction.phase, phaseAfter);
+      const stateBefore = cloneJson(state);
       const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
@@ -1970,11 +2413,127 @@ export function createCoreStoreV2({
         revisionsAfter: state.revisions,
         idempotencyKey: recoveryBundle.idempotencyKey || null
       });
-      await persistEventTurnDelta(deltaCursor, {
-        operation: 'markRecoveryRequired',
-        transactionId: transaction.id
-      });
+      try {
+        await persistEventTurnDelta(deltaCursor, {
+          operation: 'markRecoveryRequired',
+          transactionId: transaction.id
+        });
+      } catch (error) {
+        restoreState(stateBefore);
+        throw error;
+      }
       return cloneJson(recoveryCase);
+    },
+    async recordRollbackActuation(transactionId, rollback = {}) {
+      const transaction = requireTransaction(transactionId);
+      const idempotencyKey = requireNonEmptyString(rollback.idempotencyKey, 'idempotencyKey');
+      const rollbackDecision = rollback.rollbackActuation || {};
+      const decisionTransactionId = rollbackDecision.transactionId || rollback.transactionId || null;
+      if (!decisionTransactionId) {
+        const error = new Error(`CORE rollback actuation transaction id is required for "${transaction.id}"`);
+        error.code = 'DIRECTIVE_CORE_ROLLBACK_TRANSACTION_REQUIRED';
+        throw error;
+      }
+      if (decisionTransactionId !== transaction.id) {
+        const error = new Error(`CORE rollback actuation transaction mismatch for "${transaction.id}"`);
+        error.code = 'DIRECTIVE_CORE_ROLLBACK_TRANSACTION_MISMATCH';
+        throw error;
+      }
+      if (rollbackDecision.authorized !== true || !Number.isFinite(Number(rollbackDecision.restoreRevision))) {
+        const error = new Error(`CORE rollback actuation for "${transaction.id}" is not REPAIR-authorized`);
+        error.code = 'DIRECTIVE_CORE_ROLLBACK_ACTUATION_UNAUTHORIZED';
+        throw error;
+      }
+      const existingEvent = (state.events || []).find((event) => (
+        event?.type === 'rollbackActuationRecorded'
+        && legacyTransactionId(event) === transaction.id
+        && event.idempotencyKey === idempotencyKey
+      ));
+      if (existingEvent) {
+        const existingRef = eventPayload(existingEvent).rollbackActuationRef || {};
+        const requestedRecoveryId = rollback.recoveryCaseId || rollbackDecision.recoveryCaseId || null;
+        if (requestedRecoveryId && existingRef.recoveryCaseId && requestedRecoveryId !== existingRef.recoveryCaseId) {
+          const error = new Error(`CORE rollback actuation recovery mismatch for "${transaction.id}"`);
+          error.code = 'DIRECTIVE_CORE_ROLLBACK_RECOVERY_MISMATCH';
+          throw error;
+        }
+        if (transaction.recoveryCaseId) {
+          const error = new Error(`CORE transaction "${transaction.id}" has an active recovery after rollback actuation replay`);
+          error.code = 'DIRECTIVE_CORE_ROLLBACK_REPLAY_ACTIVE_RECOVERY';
+          throw error;
+        }
+        return cloneJson({
+          id: existingRef.id || `rollback:${transaction.id}`,
+          status: 'recorded',
+          rollback: existingRef || null
+        });
+      }
+      if (!transaction.recoveryCaseId || transaction.phase !== 'recoveryRequired') {
+        const error = new Error(`CORE transaction "${transaction.id}" has no recovery case for rollback actuation`);
+        error.code = 'DIRECTIVE_CORE_ROLLBACK_RECOVERY_REQUIRED';
+        throw error;
+      }
+      const requestedRecoveryId = rollback.recoveryCaseId || rollbackDecision.recoveryCaseId || null;
+      if (!requestedRecoveryId) {
+        const error = new Error(`CORE rollback actuation recovery id is required for "${transaction.id}"`);
+        error.code = 'DIRECTIVE_CORE_ROLLBACK_RECOVERY_ID_REQUIRED';
+        throw error;
+      }
+      if (requestedRecoveryId !== transaction.recoveryCaseId) {
+        const error = new Error(`CORE rollback actuation recovery mismatch for "${transaction.id}"`);
+        error.code = 'DIRECTIVE_CORE_ROLLBACK_RECOVERY_MISMATCH';
+        throw error;
+      }
+      const phaseAfter = assertPhaseTransition(transaction.phase, rollback.phaseAfter || 'settled');
+      const stateBefore = cloneJson(state);
+      const deltaCursor = eventTurnDeltaCursor();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      const rollbackActuationRef = compactRollbackActuationRef({
+        ...rollback,
+        recoveryCaseId: rollback.recoveryCaseId || transaction.recoveryCaseId || null
+      }, {
+        transaction,
+        idempotencyKey,
+        occurredAt: state.updatedAt
+      });
+      touchTransaction(transaction, {
+        phase: phaseAfter,
+        recoveryCaseId: null,
+        recoveryReason: null,
+        rollbackActuations: [
+          ...(transaction.rollbackActuations || []),
+          rollbackActuationRef
+        ],
+        rollbackActuationIdempotencyKeys: uniqueStrings([
+          ...(transaction.rollbackActuationIdempotencyKeys || []),
+          idempotencyKey
+        ])
+      });
+      appendEvent('rollbackActuationRecorded', transaction, {
+        payload: {
+          rollbackActuationRef,
+          phaseAfter
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey
+      });
+      try {
+        await persistEventTurnDelta(deltaCursor, {
+          operation: 'recordRollbackActuation',
+          transactionId: transaction.id
+        });
+      } catch (error) {
+        restoreState(stateBefore);
+        throw error;
+      }
+      return cloneJson({
+        id: rollbackActuationRef.id || `rollback:${transaction.id}`,
+        status: 'recorded',
+        rollback: rollbackActuationRef
+      });
     },
     async commitBackgroundBatch(transactionId, operationBundle = {}) {
       const transaction = requireTransaction(transactionId);

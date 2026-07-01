@@ -652,6 +652,94 @@ assert.equal(productionAcceptedFlushB.status, 'installed');
 assert.notEqual(productionAcceptedFlushB.cacheKey, productionAcceptedFlushA.cacheKey);
 assert.equal(productionAcceptedBuildCalls.length, 2, 'Production LENS should rebuild for a distinct CORE accepted-batch projection hash.');
 
+const commandReviewBuildCalls = [];
+const commandReviewInstallCalls = [];
+const commandReviewLens = createLensPromptScheduler({
+  clock: backgroundHarness.clock,
+  buildDirectivePromptPacket: async (payload) => {
+    commandReviewBuildCalls.push(payload);
+    return {
+      hash: hashStableJson({
+        revision: payload.revision,
+        cacheKey: payload.cacheKey,
+        reviewHash: payload.cacheInputs?.commandBearingReview?.reviewHash || null
+      }),
+      blocks: [{
+        id: 'command-bearing-review',
+        promptKey: 'directive.lens.command-bearing-review',
+        title: 'Command Bearing Review Prompt',
+        text: 'Command Bearing review projection.',
+        placement: 'inPrompt',
+        depth: 0,
+        role: 'system'
+      }]
+    };
+  },
+  installPromptPacket: async (payload) => {
+    commandReviewInstallCalls.push(payload);
+    return { ok: true };
+  },
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    status: 'observed'
+  })
+});
+commandReviewLens.enqueueDirty({
+  lane: 'background',
+  source: 'command-bearing-review',
+  dirtyDomains: ['command'],
+  idempotencyKey: 'command-review-a'
+});
+const commandReviewFlushA = await commandReviewLens.flush({
+  transactionId: 'txn-command-review',
+  lane: 'background',
+  binding,
+  campaignContext,
+  promptFrame: {
+    sourceToken: 'source-token-command-review',
+    coreCommandBearingReviewProjection: {
+      kind: 'directive.coreCommandBearingReviewProjection.v1',
+      transactionId: 'txn-command-review',
+      batchId: 'command-review-batch-a',
+      reviewHash: 'command-review-hash-a',
+      sourceFrameRef: { id: 'frame-command-review' },
+      closures: [{ closureId: 'closure-command-review-a' }]
+    }
+  },
+  reason: 'command-review-a'
+});
+commandReviewLens.enqueueDirty({
+  lane: 'background',
+  source: 'command-bearing-review',
+  dirtyDomains: ['command'],
+  idempotencyKey: 'command-review-b'
+});
+const commandReviewFlushB = await commandReviewLens.flush({
+  transactionId: 'txn-command-review',
+  lane: 'background',
+  binding,
+  campaignContext,
+  promptFrame: {
+    sourceToken: 'source-token-command-review',
+    coreCommandBearingReviewProjection: {
+      kind: 'directive.coreCommandBearingReviewProjection.v1',
+      transactionId: 'txn-command-review',
+      batchId: 'command-review-batch-b',
+      reviewHash: 'command-review-hash-b',
+      sourceFrameRef: { id: 'frame-command-review' },
+      closures: [{ closureId: 'closure-command-review-b' }]
+    }
+  },
+  reason: 'command-review-b'
+});
+assert.equal(commandReviewFlushA.status, 'installed');
+assert.equal(commandReviewFlushB.status, 'installed');
+assert.notEqual(commandReviewFlushB.cacheKey, commandReviewFlushA.cacheKey, 'Command Bearing review projection hash must participate in LENS cache identity.');
+assert.equal(commandReviewBuildCalls[0].promptFrame.coreCommandBearingReviewProjection.kind, 'directive.coreCommandBearingReviewProjection.v1');
+assert.equal(commandReviewBuildCalls[0].cacheInputs.commandBearingReview.reviewHash, 'command-review-hash-a');
+assert.equal(commandReviewInstallCalls[0].cacheInputs.commandBearingReview.reviewHash, 'command-review-hash-a');
+assert.equal(JSON.stringify(commandReviewInstallCalls).includes('RAW_BACKGROUND_REVIEW_TEXT'), false);
+
 const failureHarness = createHarness({
   nowPrefix: '2026-06-28T20:30',
   nowValues: [

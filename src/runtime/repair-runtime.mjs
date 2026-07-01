@@ -590,6 +590,60 @@ function buildResponseRetryActuationDecision({
   };
 }
 
+function buildOutcomeRerunActuationDecision({
+  ledgerEntry = null,
+  outcomeId = null,
+  requestedType = 'rerunOutcome',
+  eventTime = null
+} = {}) {
+  const effectiveOutcomeId = compact(outcomeId || ledgerEntry?.outcomeId || '');
+  const replacementTransactionId = compact(ledgerEntry?.replacementTransactionId) || null;
+  const replacedTransactionId = compact(ledgerEntry?.replacedTransactionId || ledgerEntry?.transactionId || ledgerEntry?.coreTransactionId) || null;
+  const snapshotBeforeRetained = ledgerEntry?.snapshotBeforeRetained === true;
+  const supportedType = ['rerunOutcome', 'recalculateFromHere'].includes(String(requestedType || ''));
+  const authorized = Boolean(effectiveOutcomeId && ledgerEntry && snapshotBeforeRetained && supportedType);
+  const legacyNoCoreRerunAllowed = authorized && !replacedTransactionId && !replacementTransactionId;
+  const deniedReason = authorized
+    ? null
+    : !ledgerEntry
+      ? 'outcome-rerun-ledger-entry-missing'
+      : !snapshotBeforeRetained
+        ? 'outcome-rerun-snapshot-missing'
+        : !supportedType
+          ? 'outcome-rerun-type-not-supported'
+          : 'outcome-rerun-not-authorized';
+  return {
+    kind: 'directive.repairOutcomeRerunActuationDecision.v1',
+    eventType: 'outcomeRerunRequested',
+    sourceKind: 'committedOutcome',
+    authorized,
+    action: authorized
+      ? (replacedTransactionId || replacementTransactionId ? 'createRerunBranchCandidate' : 'createLegacyNoCoreRerunCandidate')
+      : 'blockOutcomeRerun',
+    reason: authorized
+      ? (replacedTransactionId ? 'outcome-rerun-branch-candidate' : 'legacy-no-core-rerun-branch-candidate')
+      : deniedReason,
+    deniedReason,
+    transactionId: replacementTransactionId,
+    replacedTransactionId,
+    outcomeId: effectiveOutcomeId || null,
+    turnId: ledgerEntry?.turnId || null,
+    resultBand: ledgerEntry?.resultBand || null,
+    replacementType: requestedType || 'rerunOutcome',
+    narrationStatus: ledgerEntry?.narrationStatus || null,
+    responseStatus: ledgerEntry?.responseStatus || null,
+    snapshotBeforeRetained,
+    allowedActions: authorized ? ['previewRerunBranchCandidate', 'commitRerunBranchCandidate'] : ['reviewOutcomeRerunRequest'],
+    branchCandidateRequired: true,
+    mechanicsRerunAuthorized: authorized,
+    replacementTransactionRequired: Boolean(replacedTransactionId && !replacementTransactionId),
+    coreTransactionRequired: Boolean(replacedTransactionId),
+    legacyNoCoreRerunAllowed,
+    normalTurnAllowed: false,
+    observedAt: eventTime || null
+  };
+}
+
 function buildRollbackActuationDecision({
   coreRecovery = null,
   decision = null,
@@ -626,6 +680,29 @@ function buildRollbackActuationDecision({
     restoreRevision,
     recoveryStatus: projection?.recoveryJournalStatus || null,
     observedAt: eventTime || null
+  };
+}
+
+function compactRollbackActuationRecord({
+  coreRecovery = null,
+  rollbackActuation = null,
+  legacyProjection = null,
+  eventType = null,
+  eventTime = null
+} = {}) {
+  const decision = coreRecovery?.decision || coreRecovery?.repairDecision || {};
+  const mutation = coreRecovery?.sourceMutation || decision?.sourceMutation || {};
+  return {
+    kind: 'directive.repairRollbackActuationRecord.v1',
+    status: 'recorded',
+    eventType: eventType || rollbackActuation?.eventType || decision?.eventType || null,
+    recoveryCaseId: coreRecovery?.recoveryCaseId || rollbackActuation?.recoveryCaseId || null,
+    transactionId: coreRecovery?.transactionId || rollbackActuation?.transactionId || decision?.transactionId || null,
+    sourceMutation: cloneJson(mutation),
+    repairDecision: cloneJson(decision),
+    legacyProjection: cloneJson(legacyProjection || decision?.legacyProjection || {}),
+    rollbackActuation: cloneJson(rollbackActuation || {}),
+    observedAt: eventTime || rollbackActuation?.observedAt || null
   };
 }
 
@@ -938,10 +1015,65 @@ export function createRepairRuntime({
     };
   }
 
+  async function recordRollbackActuation({
+    coreRecovery = null,
+    rollbackActuation = null,
+    legacyProjection = null,
+    eventType = null,
+    eventTime = null
+  } = {}) {
+    const transactionId = compact(
+      coreRecovery?.transactionId
+      || rollbackActuation?.transactionId
+      || coreRecovery?.decision?.transactionId
+      || coreRecovery?.repairDecision?.transactionId
+    );
+    if (!transactionId || typeof coreTurnStore?.recordRollbackActuation !== 'function') {
+      return {
+        status: 'notRecorded',
+        reason: transactionId ? 'core-rollback-writer-unavailable' : 'no-core-transaction',
+        transactionId: transactionId || null,
+        rollback: compactRollbackActuationRecord({
+          coreRecovery,
+          rollbackActuation,
+          legacyProjection,
+          eventType,
+          eventTime
+        })
+      };
+    }
+    const rollback = compactRollbackActuationRecord({
+      coreRecovery,
+      rollbackActuation,
+      legacyProjection,
+      eventType,
+      eventTime
+    });
+    const recorded = await coreTurnStore.recordRollbackActuation(transactionId, {
+      ...rollback,
+      idempotencyKey: `core-rollback-actuation:${transactionId}:${rollback.recoveryCaseId || rollback.eventType || 'rollback'}`
+    });
+    if (recorded?.status && recorded.status !== 'recorded') {
+      return {
+        status: recorded.status,
+        reason: recorded.reason || 'core-rollback-actuation-not-recorded',
+        transactionId,
+        rollback
+      };
+    }
+    return {
+      status: 'recorded',
+      transactionId,
+      rollback: recorded?.rollback || rollback,
+      recordId: recorded?.id || null
+    };
+  }
+
   return {
     recordSourceMutationRecovery,
     recordVisibilityMutation,
     recordResponseRecovery,
+    recordRollbackActuation,
     evaluateResponseRecovery(options = {}) {
       return buildResponseRecoveryDecision(options);
     },
@@ -950,6 +1082,9 @@ export function createRepairRuntime({
     },
     evaluateResponseRetryActuation(options = {}) {
       return buildResponseRetryActuationDecision(options);
+    },
+    evaluateOutcomeRerunActuation(options = {}) {
+      return buildOutcomeRerunActuationDecision(options);
     },
     evaluateRollbackActuation(options = {}) {
       return buildRollbackActuationDecision(options);
@@ -963,6 +1098,7 @@ export function createRepairRuntime({
 export const __repairRuntimeTestHooks = Object.freeze({
   allowedCoreRecoveryActions,
   buildRepairDecision,
+  buildOutcomeRerunActuationDecision,
   buildRollbackActuationDecision,
   buildResponseRecoveryDecision,
   buildResponseReobserveClosureDecision,

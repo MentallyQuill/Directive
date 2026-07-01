@@ -68,6 +68,23 @@ function acceptedSidecarBatchCacheInput(promptFrame = {}) {
   });
 }
 
+function commandBearingReviewCacheInput(promptFrame = {}) {
+  const projection = promptFrame?.coreCommandBearingReviewProjection
+    || promptFrame?.commandBearingReviewProjection
+    || null;
+  const reviewHash = asString(promptFrame?.commandBearingReviewHash || projection?.reviewHash);
+  if (!reviewHash) return null;
+  const closures = Array.isArray(projection?.closures) ? projection.closures : [];
+  return compact({
+    reviewHash,
+    transactionId: asString(projection?.transactionId || promptFrame?.commandBearingReviewTransactionId),
+    batchId: asString(projection?.batchId || promptFrame?.commandBearingReviewBatchId),
+    sourceFrameId: asString(projection?.sourceFrameId || projection?.sourceFrameRef?.id || promptFrame?.sourceFrameId),
+    closureCount: closures.length || undefined,
+    closureIds: closures.length ? uniqueStrings(closures.map((entry) => entry?.closureId)) : undefined
+  });
+}
+
 function directivePromptBlocks(blocks = []) {
   return (Array.isArray(blocks) ? blocks : []).map((block, index) => {
     const id = asString(block.id, `block-${index + 1}`);
@@ -107,6 +124,7 @@ function buildPromptCacheKey({
     turnSourceHash: promptFrame.turnSourceHash || null,
     sourceToken: promptFrame.sourceToken || null,
     acceptedSidecarBatch: acceptedSidecarBatchCacheInput(promptFrame),
+    commandBearingReview: commandBearingReviewCacheInput(promptFrame),
     dirtyDomains,
     externalPromptEnvironmentHash: externalPromptEnvironmentRef?.hash || null
   });

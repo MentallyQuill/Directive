@@ -1133,6 +1133,9 @@ assert.equal(coreStore.state.transactions[contradictionTransaction.id].phase, 'r
 const contradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-contradiction');
 assert.equal(contradictionResponse.status, 'recoveryRequired');
 assert.equal(contradictionResponse.coreRecovery.phase, 'recoveryRequired');
+assert.equal(contradictionResponse.continuityReview.kind, 'directive.continuityContradictionReview.v1');
+assert.equal(contradictionResponse.continuityReview.sreReview.kind, 'directive.sreHostNativeContinuityReview.v1');
+assert.equal(contradictionResponse.continuityReview.sreReview.source.hostMessageId, 'assistant-host-native-contradiction');
 assert.equal(contradictionResponse.hostContinuation.observedMessage.textHash.length, 64);
 assert.equal(JSON.stringify(contradictionResponse.hostContinuation).includes('very human ease'), false);
 const contradictionRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:continuity:response-core-host-native-contradiction');
@@ -1155,6 +1158,207 @@ assert.deepEqual(
   ['reviewHostNativeContinuityContradiction', 'fallbackDirectiveResponse', 'branchFromPriorRevision']
 );
 assert.equal(JSON.stringify(coreStore.state).includes('very human ease'), false);
+
+const sreOwnedFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-host-native-sre-owned',
+  campaignId,
+  saveId,
+  chatId,
+  hostMessageId: 'player-core-host-native-sre-owned',
+  textHash: hashStableJson({ text: 'Sam asks the host to continue through SRE-owned review.' }),
+  sourceRevision: 4,
+  createdAt: '2026-06-28T17:02:30.000Z'
+});
+const sreOwnedTransaction = await coreStore.beginTurn(sreOwnedFrame, {
+  transactionId: 'txn-response-core-host-native-sre-owned',
+  ingressId: 'ingress-response-core-host-native-sre-owned',
+  idempotencyKey: 'begin-response-core-host-native-sre-owned'
+});
+state = addIngress({
+  ...state,
+  continuity: {
+    acceptedFacts: [{
+      id: 'crew.hadrik-bronn.species',
+      subject: 'crew.hadrik-bronn',
+      predicate: 'species',
+      value: 'Tellarite',
+      summary: 'Hadrik Bronn is Tellarite.',
+      criticality: 'hard',
+      visibility: 'narratorSafe'
+    }]
+  }
+}, {
+  ingressId: 'ingress-response-core-host-native-sre-owned',
+  hostMessageId: 'player-core-host-native-sre-owned',
+  chatId,
+  campaignId,
+  sourceFrame: sreOwnedFrame,
+  coreTransactionId: sreOwnedTransaction.id,
+  receivedAt: '2026-06-28T17:02:30.000Z'
+});
+const sreReviewCalls = [];
+const invalidSreReviewedAt = '2026-02-30T00:00:00.000Z';
+const sreOwnedDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('SRE-owned host-native review test must not post Directive text.');
+      },
+      continueHostGeneration: async () => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        generationStartedAt: '2026-06-28T17:02:31.000Z',
+        hostGenerationReleasedAt: '2026-06-28T17:02:31.000Z',
+        observationStatus: 'completed',
+        observedMessage: {
+          hostMessageId: 'assistant-host-native-sre-owned',
+          index: 11,
+          chatId,
+          text: 'Hadrik Bronn smiled with a very human ease as the bridge settled.'
+        }
+      })
+    }
+  },
+  sourceReconciliationEngine: {
+    reviewHostNativeContinuity: async (payload = {}) => {
+      sreReviewCalls.push(cloneJson(payload));
+      return {
+        kind: 'directive.sreHostNativeContinuityReview.v1',
+        mode: 'hostNativeCompletion',
+        ok: true,
+        findings: [],
+        reviewer: 'test-sre',
+        sreReview: {
+          kind: 'directive.sreHostNativeContinuityReview.v1',
+          mode: 'hostNativeCompletion',
+          reviewer: 'test-sre',
+          reviewedAt: invalidSreReviewedAt,
+          source: {
+            responseId: 'malicious-sre-response-id',
+            ingressId: 'malicious-sre-ingress-id',
+            hostMessageId: 'assistant-host-native-sre-owned'
+          }
+        }
+      };
+    }
+  },
+  coreTurnStore: coreStore,
+  getCampaignState: () => state,
+  setCampaignState: (next) => { state = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { state = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const sreOwnedDispatch = await sreOwnedDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-host-native-sre-owned',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-host-native-sre-owned',
+  packageData: {
+    crew: {
+      senior: [{ id: 'hadrik-bronn', name: 'Hadrik Bronn', shortName: 'Bronn' }]
+    }
+  }
+});
+assert.equal(sreReviewCalls.length, 1, 'Response dispatcher must delegate host-native continuity review to SRE.');
+assert.equal(sreReviewCalls[0].mode, 'hostNativeCompletion');
+assert.equal(sreReviewCalls[0].responseId, 'response-core-host-native-sre-owned');
+assert.equal(sreOwnedDispatch.ok, true, 'SRE ok verdict should prevent dispatcher-local continuity rejection.');
+assert.equal(sreOwnedDispatch.recoveryRequired, undefined);
+const sreOwnedResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-sre-owned');
+assert.equal(sreOwnedResponse.status, 'released');
+assert.equal(sreOwnedResponse.continuityReview.reviewer, 'test-sre');
+assert.equal(sreOwnedResponse.continuityReview.sreReview.source.responseId, 'response-core-host-native-sre-owned');
+assert.equal(sreOwnedResponse.continuityReview.sreReview.source.ingressId, 'ingress-response-core-host-native-sre-owned');
+assert.equal(sreOwnedResponse.continuityReview.sreReview.source.hostMessageId, 'assistant-host-native-sre-owned');
+assert.equal(sreOwnedResponse.continuityReview.sreReview.reviewedAt, null);
+assert.equal(JSON.stringify(sreOwnedResponse).includes(invalidSreReviewedAt), false);
+assert.equal(
+  state.runtimeTracking.recoveryJournal.some((entry) => entry.id === 'recovery:continuity:response-core-host-native-sre-owned'),
+  false,
+  'SRE ok verdict must not create dispatcher-local contradiction recovery.'
+);
+
+const sreFailureFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-host-native-sre-failure',
+  campaignId,
+  saveId,
+  chatId,
+  hostMessageId: 'player-core-host-native-sre-failure',
+  textHash: hashStableJson({ text: 'Sam asks the host to continue through a failed SRE review.' }),
+  sourceRevision: 4,
+  createdAt: '2026-06-28T17:02:35.000Z'
+});
+const sreFailureTransaction = await coreStore.beginTurn(sreFailureFrame, {
+  transactionId: 'txn-response-core-host-native-sre-failure',
+  ingressId: 'ingress-response-core-host-native-sre-failure',
+  idempotencyKey: 'begin-response-core-host-native-sre-failure'
+});
+state = addIngress(state, {
+  ingressId: 'ingress-response-core-host-native-sre-failure',
+  hostMessageId: 'player-core-host-native-sre-failure',
+  chatId,
+  campaignId,
+  sourceFrame: sreFailureFrame,
+  coreTransactionId: sreFailureTransaction.id,
+  receivedAt: '2026-06-28T17:02:35.000Z'
+});
+const rawSreFailureCanary = 'RAW_SRE_REVIEW_FAILURE_TEXT_MUST_NOT_PERSIST';
+const rawSreFailureCodeCanary = 'RAW_SRE_ERROR_CODE_MUST_NOT_PERSIST';
+const sreFailureDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('SRE failure host-native review test must not post Directive text.');
+      },
+      continueHostGeneration: async () => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        generationStartedAt: '2026-06-28T17:02:36.000Z',
+        hostGenerationReleasedAt: '2026-06-28T17:02:36.000Z',
+        observationStatus: 'completed',
+        observedMessage: {
+          hostMessageId: 'assistant-host-native-sre-failure',
+          index: 12,
+          chatId,
+          text: 'The host-native answer cannot be source-reviewed in this test.'
+        }
+      })
+    }
+  },
+  sourceReconciliationEngine: {
+    reviewHostNativeContinuity: async () => {
+      const error = new Error(rawSreFailureCanary);
+      error.code = rawSreFailureCodeCanary;
+      throw error;
+    }
+  },
+  coreTurnStore: coreStore,
+  getCampaignState: () => state,
+  setCampaignState: (next) => { state = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { state = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const sreFailureDispatch = await sreFailureDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-host-native-sre-failure',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-host-native-sre-failure'
+});
+assert.equal(sreFailureDispatch.ok, false, 'SRE review failure must fail closed into recovery.');
+assert.equal(sreFailureDispatch.recoveryRequired, true);
+const sreFailureResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-sre-failure');
+assert.equal(sreFailureResponse.status, 'recoveryRequired');
+assert.equal(sreFailureResponse.continuityReview.error.code, 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_FAILED');
+assert.equal(JSON.stringify(sreFailureResponse).includes(rawSreFailureCanary), false);
+assert.equal(JSON.stringify(sreFailureResponse).includes(rawSreFailureCodeCanary), false);
+assert.equal(JSON.stringify(state.runtimeTracking.recoveryJournal).includes(rawSreFailureCanary), false);
+assert.equal(JSON.stringify(state.runtimeTracking.recoveryJournal).includes(rawSreFailureCodeCanary), false);
 
 const asyncContradictionFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-host-native-async-contradiction',

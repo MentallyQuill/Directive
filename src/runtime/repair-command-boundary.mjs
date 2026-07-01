@@ -1,4 +1,5 @@
 import { createRepairRuntime } from './repair-runtime.mjs';
+import { restoreTrackedCampaignRevision } from './state-delta-gateway.mjs';
 
 export function createRepairCommandBoundary(options = {}) {
   const repairRuntime = options.repairRuntime || createRepairRuntime(options);
@@ -27,14 +28,80 @@ export function createRepairCommandBoundary(options = {}) {
     return repairRuntime.evaluateRollbackActuation(input);
   }
 
+  function recordRollbackActuation(input = {}) {
+    if (typeof repairRuntime.recordRollbackActuation !== 'function') {
+      return {
+        status: 'notRecorded',
+        reason: 'repair-rollback-record-unavailable',
+        transactionId: input.coreRecovery?.transactionId || input.rollbackActuation?.transactionId || null
+      };
+    }
+    return repairRuntime.recordRollbackActuation(input);
+  }
+
+  async function executeRollbackActuation(input = {}) {
+    const rollbackActuation = input.rollbackActuation || {};
+    const restoreRevision = Number(rollbackActuation.restoreRevision);
+    if (rollbackActuation.authorized !== true || !Number.isFinite(restoreRevision)) {
+      return {
+        status: 'blocked',
+        reason: 'repair-rollback-not-authorized'
+      };
+    }
+    const campaignState = input.campaignState;
+    if (!campaignState || typeof campaignState !== 'object') {
+      return {
+        status: 'blocked',
+        reason: 'campaign-state-unavailable'
+      };
+    }
+    let restored;
+    try {
+      restored = restoreTrackedCampaignRevision(campaignState, restoreRevision, {
+        now: options.now,
+        reason: input.reason || `${input.eventType || rollbackActuation.eventType || 'sourceMutation'} rolled the campaign back before a dependent outcome.`
+      });
+    } catch (error) {
+      if (error?.code !== 'DIRECTIVE_STATE_SNAPSHOT_NOT_FOUND') throw error;
+      return {
+        status: 'blocked',
+        reason: 'rollback-restore-unavailable',
+        errorCode: error.code
+      };
+    }
+    const recorded = await recordRollbackActuation(input);
+    if (recorded?.status !== 'recorded') return recorded;
+    return {
+      ...recorded,
+      status: 'applied',
+      campaignState: restored
+    };
+  }
+
   function evaluateSourceReobserve(input = {}) {
     return repairRuntime.evaluateSourceReobserve(input);
   }
 
   function authorizeRerunBranch(input = {}) {
-    return evaluateSourceReobserve({
+    if (typeof repairRuntime.evaluateOutcomeRerunActuation !== 'function') {
+      const outcomeId = input.outcomeId || input.ledgerEntry?.outcomeId || null;
+      return {
+        kind: 'directive.repairOutcomeRerunActuationDecision.v1',
+        eventType: 'outcomeRerunRequested',
+        sourceKind: 'committedOutcome',
+        authorized: false,
+        action: 'blockOutcomeRerun',
+        reason: 'repair-rerun-authority-unavailable',
+        deniedReason: 'repair-rerun-authority-unavailable',
+        outcomeId,
+        replacementType: input.requestedType || input.type || 'rerunOutcome',
+        mechanicsRerunAuthorized: false,
+        normalTurnAllowed: false
+      };
+    }
+    return repairRuntime.evaluateOutcomeRerunActuation({
       ...input,
-      requestedAction: input.requestedAction || 'rerunFromSource'
+      requestedType: input.requestedType || input.type || 'rerunOutcome'
     });
   }
 
@@ -52,6 +119,8 @@ export function createRepairCommandBoundary(options = {}) {
     authorizeRerunBranch,
     authorizeReobserveClosure,
     evaluateSourceReobserve,
+    recordRollbackActuation,
+    executeRollbackActuation,
 
     // Compatibility aliases while old recovery call sites become projections.
     recordSourceMutationRecovery: handleSourceMutation,
@@ -59,7 +128,10 @@ export function createRepairCommandBoundary(options = {}) {
     evaluateResponseRecovery: planResponseFailure,
     recordResponseRecovery: handleResponseFailure,
     evaluateResponseRetryActuation: authorizeRetry,
+    evaluateOutcomeRerunActuation: authorizeRerunBranch,
     evaluateRollbackActuation: authorizeRollback,
+    recordRollbackExecution: recordRollbackActuation,
+    executeRollbackExecution: executeRollbackActuation,
     evaluateResponseReobserveClosure: authorizeReobserveClosure
   };
 }

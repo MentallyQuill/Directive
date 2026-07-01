@@ -34,6 +34,21 @@ function uniqueStrings(values = []) {
   return out;
 }
 
+function operationDomain(operation = {}) {
+  const path = asString(operation.path);
+  if (path) return path.split('.')[0];
+  return asString(operation.domain || operation.root);
+}
+
+function providerOperations(providerResult = {}) {
+  const operations = providerResult?.operations || providerResult?.settlement?.operations || [];
+  return Array.isArray(operations) ? cloneJson(operations) : [];
+}
+
+function operationDomains(operations = []) {
+  return uniqueStrings((Array.isArray(operations) ? operations : []).map(operationDomain));
+}
+
 function redacted(payload = {}) {
   const redactions = [];
   const redactedPayload = redactExternalDiagnostic(payload, redactions);
@@ -42,7 +57,7 @@ function redacted(payload = {}) {
 
 function normalizeOperations(operations = []) {
   return (Array.isArray(operations) ? operations : []).slice(0, 24).map((operation) => compactObject({
-    domain: asString(operation.domain || operation.root),
+    domain: operationDomain(operation),
     op: asString(operation.op || operation.operation),
     path: asString(operation.path),
     summary: asString(operation.summary),
@@ -77,15 +92,23 @@ export function createSourceSettlementDecision(input = {}) {
   });
 }
 
+const DEFAULT_LATEST_PAIR_PROVIDER = async () => ({ operations: [] });
+const DEFAULT_RANGE_PROVIDER = async () => ({ operations: [] });
+const DEFAULT_APPLY_SETTLEMENT = async () => ({ ok: true });
+
 export function createSourceSettlementService({
   coreStore = null,
   clock = () => new Date().toISOString(),
-  runLatestPairProvider = async () => ({ operations: [] }),
-  runRangeProvider = async () => ({ operations: [] }),
+  runLatestPairProvider = DEFAULT_LATEST_PAIR_PROVIDER,
+  runRangeProvider = DEFAULT_RANGE_PROVIDER,
   validateBeforeApply = async () => ({ ok: true }),
-  applySettlement = async () => ({ ok: true })
+  applySettlement = DEFAULT_APPLY_SETTLEMENT,
+  rangeSettlementEnabled = null
 } = {}) {
   const handled = new Map();
+  const terminalRangeSettlementEnabled = rangeSettlementEnabled === null
+    ? (runRangeProvider !== DEFAULT_RANGE_PROVIDER && applySettlement !== DEFAULT_APPLY_SETTLEMENT)
+    : rangeSettlementEnabled === true;
 
   async function appendDiagnostic(transactionId, payload = {}) {
     if (!transactionId || typeof coreStore?.appendDiagnostics !== 'function') return null;
@@ -135,18 +158,52 @@ export function createSourceSettlementService({
     }
 
     const provider = mode === 'explicitRange' ? runRangeProvider : runLatestPairProvider;
-    const providerResult = await provider({
-      ...input,
-      mode,
-      rangeFrame,
-      observedAt
-    });
-    const beforeApply = await validateBeforeApply({
-      ...input,
-      mode,
-      rangeFrame,
-      providerResult
-    });
+    let providerResult = null;
+    try {
+      providerResult = await provider({
+        ...input,
+        mode,
+        rangeFrame,
+        observedAt
+      });
+    } catch (error) {
+      const decision = createSourceSettlementDecision({
+        ...input,
+        mode,
+        rangeFrame,
+        status: 'repairRequired',
+        providerCalled: true,
+        applied: false,
+        reasons: ['source-settlement-provider-threw'],
+        observedAt
+      });
+      decision.diagnostic = await appendDiagnostic(transactionId, {
+        status: decision.status,
+        severity: 'warning',
+        decision,
+        error: {
+          code: error?.code || 'DIRECTIVE_SOURCE_SETTLEMENT_PROVIDER_THROW',
+          message: asString(error?.message || String(error))
+        }
+      });
+      handled.set(idempotencyKey, decision);
+      return cloneJson(decision);
+    }
+    let beforeApply = null;
+    try {
+      beforeApply = await validateBeforeApply({
+        ...input,
+        mode,
+        rangeFrame,
+        providerResult
+      });
+    } catch (error) {
+      beforeApply = {
+        ok: false,
+        reasons: ['source-settlement-validate-threw'],
+        error
+      };
+    }
     if (beforeApply?.ok === false) {
       const decision = createSourceSettlementDecision({
         ...input,
@@ -169,16 +226,75 @@ export function createSourceSettlementService({
       return cloneJson(decision);
     }
 
-    const operations = normalizeOperations(providerResult?.operations || providerResult?.settlement?.operations || []);
-    const applyResult = operations.length
-      ? await applySettlement({
+    const rawOperations = providerOperations(providerResult);
+    const operations = normalizeOperations(rawOperations);
+    const dirtyDomains = operationDomains(rawOperations);
+    if (operations.length && applySettlement === DEFAULT_APPLY_SETTLEMENT) {
+      const decision = createSourceSettlementDecision({
         ...input,
         mode,
         rangeFrame,
+        status: 'repairRequired',
+        providerCalled: true,
+        applied: false,
+        reasons: ['source-settlement-apply-owner-missing'],
         operations,
-        providerResult
-      })
-      : { ok: true, applied: false };
+        promptDirtyDomains: dirtyDomains,
+        observedAt
+      });
+      decision.diagnostic = await appendDiagnostic(transactionId, {
+        status: decision.status,
+        severity: 'warning',
+        decision,
+        rawPrompt: providerResult?.rawPrompt,
+        rawResponse: providerResult?.rawResponse
+      });
+      handled.set(idempotencyKey, decision);
+      return cloneJson(decision);
+    }
+    let applyResult = { ok: true, applied: false };
+    try {
+      applyResult = (operations.length || applySettlement !== DEFAULT_APPLY_SETTLEMENT)
+        ? await applySettlement({
+          ...input,
+          mode,
+          rangeFrame,
+          operations: rawOperations,
+          decisionOperations: operations,
+          providerResult
+        })
+        : { ok: true, applied: false };
+    } catch (error) {
+      applyResult = {
+        ok: false,
+        reasons: ['source-settlement-apply-threw'],
+        error
+      };
+    }
+    if (applyResult?.ok === false) {
+      const decision = createSourceSettlementDecision({
+        ...input,
+        mode,
+        rangeFrame,
+        status: 'repairRequired',
+        providerCalled: true,
+        applied: false,
+        reasons: uniqueStrings(applyResult.reasons || applyResult.reason || 'source-settlement-apply-failed'),
+        operations,
+        promptDirtyDomains: dirtyDomains,
+        observedAt
+      });
+      decision.diagnostic = await appendDiagnostic(transactionId, {
+        status: decision.status,
+        severity: 'warning',
+        decision,
+        rawPrompt: providerResult?.rawPrompt,
+        rawResponse: providerResult?.rawResponse
+      });
+      handled.set(idempotencyKey, decision);
+      return cloneJson(decision);
+    }
+
     const decision = createSourceSettlementDecision({
       ...input,
       mode,
@@ -187,7 +303,7 @@ export function createSourceSettlementService({
       providerCalled: true,
       applied: operations.length > 0 && applyResult?.ok !== false,
       operations,
-      promptDirtyDomains: providerResult?.promptDirtyDomains || operations.map((operation) => operation.domain),
+      promptDirtyDomains: dirtyDomains,
       observedAt
     });
     decision.diagnostic = await appendDiagnostic(transactionId, {
@@ -251,7 +367,9 @@ export function createSourceSettlementService({
     preflightRange: (input = {}) => preflight({ ...input, mode: 'explicitRange' }),
     evaluate,
     settleLatestPair: (input = {}) => evaluate({ ...input, mode: 'latestPair' }),
-    reconcileRange: (input = {}) => evaluate({ ...input, mode: 'explicitRange' }),
+    ...(terminalRangeSettlementEnabled
+      ? { reconcileRange: (input = {}) => evaluate({ ...input, mode: 'explicitRange' }) }
+      : {}),
     repairSettlement: (input = {}) => evaluate({ ...input, mode: 'recoveryRepair' })
   };
 }

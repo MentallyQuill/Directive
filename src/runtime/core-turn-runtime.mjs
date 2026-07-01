@@ -25,6 +25,12 @@ export function createCoreTurnRuntime({ coreStore } = {}) {
     recordVisibleResponse(transactionId, responseRef = {}) {
       return coreStore.recordVisibleResponse(transactionId, responseRef);
     },
+    recordOutcomeReplacement(transactionId, replacementRef = {}) {
+      return coreStore.recordOutcomeReplacement(transactionId, replacementRef);
+    },
+    recordRollbackActuation(transactionId, rollback = {}) {
+      return coreStore.recordRollbackActuation(transactionId, rollback);
+    },
     repairVisibleResponseRef(transactionId, responseRef = {}) {
       return coreStore.repairVisibleResponseRef(transactionId, responseRef);
     },

@@ -91,6 +91,8 @@ const persisted = [];
 const promptSyncs = [];
 const coreRecoveries = [];
 const coreDiagnostics = [];
+const coreRollbacks = [];
+const recoveryTrace = [];
 const coreTurnStore = {
   async markRecoveryRequired(transactionId, recoveryBundle = {}) {
     coreRecoveries.push({ transactionId, bundle: cloneJson(recoveryBundle) });
@@ -107,11 +109,28 @@ const coreTurnStore = {
       id: diagnosticsEvent.id || `diagnostic:${transactionId}:${coreDiagnostics.length}`,
       type: diagnosticsEvent.type || 'diagnostic'
     };
+  },
+  async recordRollbackActuation(transactionId, rollback = {}) {
+    recoveryTrace.push('rollback-recorded');
+    coreRollbacks.push({ transactionId, rollback: cloneJson(rollback) });
+    return {
+      id: rollback.id || `rollback:${transactionId}:${coreRollbacks.length}`,
+      status: 'recorded',
+      rollback
+    };
   }
 };
 const reconciler = createMessageReconciler({
   getCampaignState: () => campaignState,
-  setCampaignState: (next) => { campaignState = cloneJson(next); },
+  setCampaignState: (next) => {
+    if (
+      next?.mission?.activePhaseId === 'phase-before'
+      && !(next?.mission?.knownFacts || []).some((entry) => entry.id === 'fact-after')
+    ) {
+      recoveryTrace.push('set-restored-state');
+    }
+    campaignState = cloneJson(next);
+  },
   coreTurnStore,
   persist: async (state, summary) => persisted.push({ summary, state: cloneJson(state) }),
   syncPrompt: async (state) => {
@@ -338,6 +357,18 @@ assert.equal(rollbackRecoveryEntry.details.rollbackActuation.kind, 'directive.re
 assert.equal(rollbackRecoveryEntry.details.rollbackActuation.authorized, true);
 assert.equal(rollbackRecoveryEntry.details.rollbackActuation.action, 'restorePreOutcomeRevision');
 assert.equal(rollbackRecoveryEntry.details.rollbackActuation.restoreRevision, beforeOutcomeRevision);
+assert.equal(coreRollbacks.length, 1, 'Rollback execution must be recorded in CORE before the old snapshot projection is restored.');
+assert.equal(coreRollbacks.at(-1).transactionId, 'txn-committed');
+assert.equal(coreRollbacks.at(-1).rollback.kind, 'directive.repairRollbackActuationRecord.v1');
+assert.equal(coreRollbacks.at(-1).rollback.rollbackActuation.kind, 'directive.repairRollbackActuationDecision.v1');
+assert.equal(coreRollbacks.at(-1).rollback.rollbackActuation.restoreRevision, beforeOutcomeRevision);
+assert.equal(coreRollbacks.at(-1).rollback.sourceMutation.eventType, 'playerMessageDeleted');
+assert.equal(
+  recoveryTrace.indexOf('rollback-recorded') > -1
+    && recoveryTrace.indexOf('rollback-recorded') < recoveryTrace.indexOf('set-restored-state'),
+  true,
+  'CORE rollback actuation must be recorded before the restored compatibility state is assigned.'
+);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2, 'Restored binding revision must be incremented once after prompt rebuild.');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageDeleted');
 assert.deepEqual(coreRecoveries.at(-1).bundle.allowedActions, ['rollbackToPreOutcomeRevision', 'reviewSourceMutation']);
@@ -409,6 +440,74 @@ await assert.rejects(
 assert.deepEqual(failureState, failureStateBeforeEdit, 'Old recovery ledgers must not mutate after CORE recovery conflict.');
 assert.equal(failurePromptSyncs, 0, 'Prompt sync must not run after CORE recovery conflict.');
 assert.equal(failurePersisted.length, 0, 'Persist must not run after CORE recovery conflict.');
+
+let rollbackRecordFailureState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-rollback-record-failure', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  mission: { activePhaseId: 'phase-before' },
+  commandLog: { entries: [] }
+});
+rollbackRecordFailureState = recordTurnIngress(rollbackRecordFailureState, {
+  id: 'ingress-rollback-record-failure',
+  hostMessageId: 'player-rollback-record-failure',
+  status: 'committed',
+  textHash: 'hash-rollback-record-failure',
+  sourceFrameId: 'frame-rollback-record-failure',
+  coreTransactionId: 'txn-rollback-record-failure'
+});
+const rollbackRecordFailureCandidate = cloneJson(rollbackRecordFailureState);
+rollbackRecordFailureCandidate.mission.activePhaseId = 'phase-after';
+rollbackRecordFailureState = commitTrackedCampaignState({
+  campaignState: rollbackRecordFailureState,
+  nextCampaignState: rollbackRecordFailureCandidate,
+  delta: {
+    source: 'missionDirector',
+    reason: 'Committed rollback record failure test outcome.',
+    domains: ['mission'],
+    ingressId: 'ingress-rollback-record-failure',
+    outcomeId: 'outcome-rollback-record-failure',
+    stable: true
+  },
+  now
+});
+rollbackRecordFailureState = updateTurnIngress(rollbackRecordFailureState, 'ingress-rollback-record-failure', {
+  status: 'committed',
+  outcomeId: 'outcome-rollback-record-failure'
+});
+const rollbackRecordFailureBefore = cloneJson(rollbackRecordFailureState);
+let rollbackRecordFailurePromptSyncs = 0;
+const rollbackRecordFailurePersisted = [];
+const rollbackRecordFailureReconciler = createMessageReconciler({
+  getCampaignState: () => rollbackRecordFailureState,
+  setCampaignState: (next) => { rollbackRecordFailureState = cloneJson(next); },
+  coreTurnStore: {
+    async markRecoveryRequired(transactionId, recoveryBundle = {}) {
+      return {
+        id: recoveryBundle.id || `recovery:${transactionId}`,
+        status: 'required',
+        phase: 'recoveryRequired',
+        reason: recoveryBundle.reason || null
+      };
+    },
+    async recordRollbackActuation() {
+      return { status: 'notRecorded', reason: 'core-rollback-writer-unavailable' };
+    }
+  },
+  persist: async (state, summary) => rollbackRecordFailurePersisted.push({ summary, state: cloneJson(state) }),
+  syncPrompt: async (state) => {
+    rollbackRecordFailurePromptSyncs += 1;
+    return state;
+  },
+  now
+});
+const rollbackRecordFailure = await rollbackRecordFailureReconciler.reconcileDeleted({
+  hostMessageId: 'player-rollback-record-failure',
+  autoRollback: true
+});
+assert.equal(rollbackRecordFailure.action, 'rollbackBlocked');
+assert.deepEqual(rollbackRecordFailureState, rollbackRecordFailureBefore, 'Old recovery ledgers must not mutate when CORE rollback actuation is not recorded.');
+assert.equal(rollbackRecordFailurePromptSyncs, 0, 'Prompt sync must not run when rollback actuation is not recorded.');
+assert.equal(rollbackRecordFailurePersisted.length, 0, 'Persist must not run when rollback actuation is not recorded.');
 
 let decisionState = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-repair-decision-projection', status: 'active' },

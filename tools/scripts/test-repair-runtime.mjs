@@ -570,6 +570,63 @@ const deniedRetryActuation = repairRuntime.evaluateResponseRetryActuation({
 assert.equal(deniedRetryActuation.authorized, false);
 assert.equal(deniedRetryActuation.deniedReason, 'response-retry-event-type-not-eligible');
 
+const outcomeRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
+  outcomeId: 'outcome-rerun-authorized',
+  requestedType: 'rerunOutcome',
+  ledgerEntry: {
+    turnId: 'turn-rerun-authorized',
+    outcomeId: 'outcome-rerun-authorized',
+    replacedTransactionId: 'txn-rerun-authorized',
+    resultBand: 'Partial Success',
+    snapshotBeforeRetained: true,
+    narrationStatus: 'complete',
+    responseStatus: 'complete'
+  },
+  eventTime: '2026-06-22T01:00:40.000Z'
+});
+assert.equal(outcomeRerunActuation.kind, 'directive.repairOutcomeRerunActuationDecision.v1');
+assert.equal(outcomeRerunActuation.authorized, true);
+assert.equal(outcomeRerunActuation.action, 'createRerunBranchCandidate');
+assert.equal(outcomeRerunActuation.normalTurnAllowed, false);
+assert.equal(outcomeRerunActuation.branchCandidateRequired, true);
+assert.equal(outcomeRerunActuation.mechanicsRerunAuthorized, true);
+assert.equal(outcomeRerunActuation.outcomeId, 'outcome-rerun-authorized');
+assert.equal(outcomeRerunActuation.transactionId, null);
+assert.equal(outcomeRerunActuation.replacedTransactionId, 'txn-rerun-authorized');
+assert.equal(outcomeRerunActuation.replacementTransactionRequired, true);
+assert.equal(outcomeRerunActuation.turnId, 'turn-rerun-authorized');
+assert.equal(outcomeRerunActuation.replacementType, 'rerunOutcome');
+assert.deepEqual(outcomeRerunActuation.allowedActions, ['previewRerunBranchCandidate', 'commitRerunBranchCandidate']);
+
+const missingSnapshotRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
+  outcomeId: 'outcome-rerun-missing-snapshot',
+  requestedType: 'rerunOutcome',
+  ledgerEntry: {
+    turnId: 'turn-rerun-missing-snapshot',
+    outcomeId: 'outcome-rerun-missing-snapshot',
+    snapshotBeforeRetained: false
+  }
+});
+assert.equal(missingSnapshotRerunActuation.authorized, false);
+assert.equal(missingSnapshotRerunActuation.action, 'blockOutcomeRerun');
+assert.equal(missingSnapshotRerunActuation.reason, 'outcome-rerun-snapshot-missing');
+assert.equal(missingSnapshotRerunActuation.mechanicsRerunAuthorized, false);
+
+const rawSnapshotOnlyRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
+  outcomeId: 'outcome-rerun-raw-snapshot-only',
+  requestedType: 'rerunOutcome',
+  ledgerEntry: {
+    turnId: 'turn-rerun-raw-snapshot-only',
+    outcomeId: 'outcome-rerun-raw-snapshot-only',
+    snapshotBefore: {
+      rawCanary: 'RAW_RERUN_SNAPSHOT_MUST_NOT_AUTHORIZE'
+    }
+  }
+});
+assert.equal(rawSnapshotOnlyRerunActuation.authorized, false);
+assert.equal(rawSnapshotOnlyRerunActuation.reason, 'outcome-rerun-snapshot-missing');
+assert.equal(JSON.stringify(rawSnapshotOnlyRerunActuation).includes('RAW_RERUN_SNAPSHOT_MUST_NOT_AUTHORIZE'), false);
+
 const dependentReobserve = repairRuntime.evaluateSourceReobserve({
   eventType: 'playerMessageReobserved',
   stage: 'before-reobserve-dependent-source',

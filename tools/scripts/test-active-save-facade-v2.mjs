@@ -184,6 +184,7 @@ campaignState.sidecarJournal = [{
 campaignState.directiveRuntimeEvidence = {
   coreStoreReadProjections: {
     kind: 'directive.coreStoreReadProjections.v1',
+    runtimeAuthority: 'coreStoreV2',
     ingressLedger: [{
       id: 'ingress-core-44',
       hostMessageId: '44',
@@ -235,13 +236,27 @@ campaignState.directiveRuntimeEvidence = {
         stateDeltaHash: 'core-state-delta-hash',
         retainedPacketHash: 'core-retained-packet-hash',
         snapshotBeforeHash: 'core-snapshot-before-hash',
-        transactionId: 'txn-core-44',
-        sourceFrameId: 'frame-core-44',
-        stateDelta: {
-          rawTransientCoreProjection: transientCoreProjectionCanary
-        }
+      transactionId: 'txn-core-44',
+      sourceFrameId: 'frame-core-44',
+      snapshotBeforeRetained: true,
+      stateDelta: {
+        rawTransientCoreProjection: transientCoreProjectionCanary
+      }
       }],
-      lastCommittedOutcomeId: 'outcome-core-44'
+      lastCommittedOutcomeId: 'outcome-core-44',
+      replacementHistory: [{
+        kind: 'directive.coreOutcomeReplacementRef.v1',
+        transactionId: 'txn-core-44',
+        replacedOutcomeId: 'outcome-core-33',
+        replacementOutcomeId: 'outcome-core-44',
+        repairDecision: {
+          kind: 'directive.repairOutcomeRerunActuationDecision.v1',
+          transactionId: 'txn-core-44',
+          action: 'createRerunBranchCandidate'
+        },
+        rawSnapshot: transientCoreProjectionCanary
+      }],
+      lastReplacedOutcomeId: 'outcome-core-33'
     },
     sidecarDiagnostics: [
       {
@@ -265,6 +280,19 @@ campaignState.directiveRuntimeEvidence = {
       id: 'background-batch-core-sidecar',
       acceptedBatchHash: 'accepted-batch-core-sidecar-hash',
       workerCount: 4
+    }],
+    commandBearingEvidence: [{
+      evidenceId: 'bearing-evidence-core-1',
+      transactionId: 'txn-core-44',
+      batchId: 'background-batch-core-sidecar',
+      sourceFrameId: 'frame-core-44',
+      sourceOutcomeId: 'outcome-core-44',
+      primarySignal: 'resolve',
+      trackSignals: ['resolve'],
+      strength: 'strong',
+      status: 'open',
+      evidenceHash: 'bearing-evidence-core-hash',
+      rawEvidenceText: transientCoreSidecarCanary
     }]
   }
 };
@@ -421,6 +449,11 @@ assert.equal(backgroundDiagnostics.length, 1, 'diagnostics segment stores compac
 assert.equal(backgroundDiagnostics[0].backgroundBatchId, 'background-batch-core-sidecar');
 assert.equal(backgroundDiagnostics[0].acceptedBatchHash, 'accepted-batch-core-sidecar-hash');
 assert.equal(backgroundDiagnostics[0].workerCount, 4);
+const commandBearingEvidenceDiagnostics = diagnosticEntries.filter((entry) => entry.type === 'runtimeCommandBearingEvidenceProjected');
+assert.equal(commandBearingEvidenceDiagnostics.length, 1, 'diagnostics segment stores compact CORE Command Bearing evidence projections');
+assert.equal(commandBearingEvidenceDiagnostics[0].evidenceId, 'bearing-evidence-core-1');
+assert.equal(commandBearingEvidenceDiagnostics[0].primarySignal, 'resolve');
+assert.equal(JSON.stringify(commandBearingEvidenceDiagnostics).includes(transientCoreSidecarCanary), false, 'compact Command Bearing evidence omits raw evidence text');
 const v2Artifacts = Object.fromEntries(Object.entries(adapter.snapshot()).filter(([key]) => key.startsWith('campaigns/')));
 const v2ArtifactsJson = JSON.stringify(v2Artifacts);
 assert.equal(v2ArtifactsJson.includes('Sam waited for her reply.'), false, 'v2 artifacts omit raw player text');
@@ -484,11 +517,19 @@ assert.equal(loadedCoreReadProjections.sidecarDiagnostics[0].rawProviderOutput, 
 assert.equal(loadedCoreReadProjections.backgroundBatches.length, 1, 'facade load preserves accepted background-batch continuity under CORE projections');
 assert.equal(loadedCoreReadProjections.backgroundBatches[0].acceptedBatchHash, 'accepted-batch-core-sidecar-hash');
 assert.equal(loadedCoreReadProjections.backgroundBatches[0].workerCount, 4);
+assert.equal(loadedCoreReadProjections.commandBearingEvidence.length, 1, 'facade load preserves compact Command Bearing evidence under CORE projections');
+assert.equal(loadedCoreReadProjections.commandBearingEvidence[0].evidenceId, 'bearing-evidence-core-1');
+assert.equal(loadedCoreReadProjections.commandBearingEvidence[0].evidenceHash, 'bearing-evidence-core-hash');
+assert.equal(JSON.stringify(loadedCoreReadProjections.commandBearingEvidence).includes(transientCoreSidecarCanary), false, 'facade load must not rehydrate raw Command Bearing evidence text');
 assert.equal(JSON.stringify(loaded.campaignState).includes(replacementTextCanary), false, 'facade load omits raw replacement text from runtime projections');
 assert.equal(loaded.campaignState.turnLedger.entries.length, 1, 'facade load returns compact CORE turn projections');
 assert.equal(loaded.campaignState.turnLedger.entries[0].turnId, 'turn-core-44');
 assert.equal(loaded.campaignState.turnLedger.entries[0].outcomeId, 'outcome-core-44');
+assert.equal(loaded.campaignState.turnLedger.entries[0].snapshotBeforeRetained, true, 'facade load preserves retained-snapshot capability without raw snapshot');
 assert.equal(loaded.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome-core-44');
+assert.equal(loaded.campaignState.turnLedger.replacementHistory.at(-1).replacementOutcomeId, 'outcome-core-44');
+assert.equal(loaded.campaignState.turnLedger.lastReplacedOutcomeId, 'outcome-core-33');
+assert.equal(loadedCoreReadProjections.turnLedger.replacementHistory.at(-1).repairDecision.transactionId, 'txn-core-44');
 assert.equal(loaded.campaignState.runtimeResume.modelCallEventSequence, 42, 'facade load returns compact runtime resume cursor');
 assert.equal(loaded.campaignState.runtimeResume.sidecarCount, 4, 'facade load returns CORE accepted background-batch worker resume count');
 assert.equal(loaded.campaignState.commandLog.compactedForRuntimeHead, true, 'facade load returns compact Command Log projection');
@@ -569,6 +610,25 @@ assert.equal(snapshot[v1SavePath].kind, 'directive.campaignSave', 'v1 manual che
 const partialAdapter = createMemoryJsonAdapter();
 const partialState = cloneJson(campaignState);
 partialState.campaignChatBinding.saveId = 'save-active-v2-partial';
+delete partialState.directiveRuntimeEvidence.coreStoreReadProjections.runtimeAuthority;
+partialState.runtimeTracking.ingressLedger = [
+  {
+    id: 'legacy-ingress-old',
+    hostMessageId: 'host-old',
+    turnId: 'turn-old',
+    outcomeId: 'outcome-old',
+    textHash: 'legacy-ingress-old-hash',
+    status: 'classified'
+  },
+  {
+    id: 'legacy-ingress-shared',
+    hostMessageId: 'host-shared',
+    turnId: 'turn-shared',
+    outcomeId: 'outcome-shared',
+    textHash: 'legacy-ingress-shared-hash',
+    status: 'classified'
+  }
+];
 partialState.runtimeTracking.responseLedger = [
   {
     id: 'legacy-response-old',
@@ -598,8 +658,56 @@ partialState.turnLedger = {
       outcomeId: 'outcome-shared'
     }
   ],
-  lastCommittedOutcomeId: 'outcome-shared'
+  lastCommittedOutcomeId: 'outcome-shared',
+  replacementHistory: [
+    {
+      id: 'legacy-replacement-old',
+      replacedOutcomeId: 'outcome-old',
+      replacementOutcomeId: 'outcome-old-rerun',
+      replacedTurnId: 'turn-old',
+      replacementTurnId: 'turn-old-rerun'
+    },
+    {
+      id: 'legacy-replacement-shared',
+      replacedOutcomeId: 'outcome-shared',
+      replacementOutcomeId: 'outcome-shared-rerun',
+      replacedTurnId: 'turn-shared',
+      replacementTurnId: 'turn-shared-rerun'
+    }
+  ]
 };
+partialState.runtimeTracking.recoveryJournal = [
+  {
+    id: 'legacy-recovery-old',
+    status: 'reviewRequired',
+    transactionId: 'txn-old'
+  },
+  {
+    id: 'legacy-recovery-shared',
+    status: 'reviewRequired',
+    transactionId: 'txn-shared'
+  }
+];
+partialState.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger = [
+  {
+    id: 'core-ingress-shared',
+    hostMessageId: 'host-shared',
+    turnId: 'turn-shared',
+    outcomeId: 'outcome-shared',
+    textHash: 'core-ingress-shared-hash',
+    status: 'committed',
+    transactionId: 'txn-shared'
+  },
+  {
+    id: 'core-ingress-new',
+    hostMessageId: 'host-new',
+    turnId: 'turn-new',
+    outcomeId: 'outcome-new',
+    textHash: 'core-ingress-new-hash',
+    status: 'committed',
+    transactionId: 'txn-new'
+  }
+];
 partialState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger = [{
   id: 'core-response-shared',
   turnId: 'turn-shared',
@@ -617,9 +725,25 @@ partialState.directiveRuntimeEvidence.coreStoreReadProjections.turnLedger = {
     transactionId: 'txn-shared',
     stateDeltaHash: 'core-shared-state-delta-hash'
   }],
-  lastCommittedOutcomeId: 'outcome-shared'
+  lastCommittedOutcomeId: 'outcome-shared',
+  replacementHistory: [
+    {
+      id: 'core-replacement-shared',
+      transactionId: 'txn-shared',
+      replacedOutcomeId: 'outcome-shared',
+      replacementOutcomeId: 'outcome-shared-rerun',
+      replacedTurnId: 'turn-shared',
+      replacementTurnId: 'turn-shared-rerun'
+    }
+  ]
 };
-partialState.directiveRuntimeEvidence.coreStoreReadProjections.recoveryJournal = [];
+partialState.directiveRuntimeEvidence.coreStoreReadProjections.recoveryJournal = [
+  {
+    id: 'core-recovery-shared',
+    status: 'resolved',
+    transactionId: 'txn-shared'
+  }
+];
 const partialSaveRecord = createFirstCampaignSaveRecord({
   campaignState: partialState,
   packageData,
@@ -641,6 +765,13 @@ const partialHead = await loadV2MaterializedHead(partialAdapter, {
 });
 assert.equal(partialHead.runtimeSummary.responseCount, 2, 'partial CORE response projections must not shrink compact response counts');
 const partialEventSegment = await readV2ArtifactRef(partialAdapter, partialPersist.refs.eventSegments[0]);
+const partialIngresses = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeIngressProjected');
+assert.deepEqual(
+  partialIngresses.map((entry) => entry.outcomeId),
+  ['outcome-old', 'outcome-shared', 'outcome-new'],
+  'unmarked equal-cardinality CORE ingress merge preserves unmatched legacy rows and appends unmatched CORE rows'
+);
+assert.equal(partialIngresses.find((entry) => entry.outcomeId === 'outcome-shared')?.ingressId, 'core-ingress-shared');
 const partialResponses = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeResponseProjected');
 assert.deepEqual(
   partialResponses.map((entry) => entry.outcomeId),
@@ -649,6 +780,18 @@ assert.deepEqual(
 );
 assert.equal(partialResponses.filter((entry) => entry.outcomeId === 'outcome-shared').length, 1, 'partial CORE response merge dedupes logical fallback tuple matches');
 assert.equal(partialResponses.find((entry) => entry.outcomeId === 'outcome-shared')?.responseId, 'core-response-shared');
+const partialRecoveries = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeRecoveryProjected');
+assert.deepEqual(
+  partialRecoveries.map((entry) => entry.recoveryId),
+  ['legacy-recovery-old', 'core-recovery-shared'],
+  'unmarked partial CORE recovery merge preserves unmatched legacy recovery rows'
+);
+const partialReplacements = (partialEventSegment.entries || []).filter((entry) => entry.type === 'outcomeReplacementRecorded');
+assert.deepEqual(
+  partialReplacements.map((entry) => entry.payload?.outcomeReplacementRef?.replacedOutcomeId),
+  ['outcome-old', 'outcome-shared'],
+  'unmarked partial CORE replacement history merge preserves unmatched legacy replacements'
+);
 const partialLoaded = await loadActiveCampaignStateV2(partialAdapter, {
   saveRecord: partialSaveRecord,
   fallbackCampaignState: partialSaveRecord.payload.campaignState
@@ -660,6 +803,81 @@ assert.deepEqual(
   'partial CORE turn merge preserves chronological compatibility order'
 );
 assert.equal(partialLoaded.campaignState.turnLedger.entries.at(-1).id, 'core-turn-shared', 'partial CORE turn merge replaces matching legacy row with CORE row');
+
+const authoritativeCoreAdapter = createMemoryJsonAdapter();
+const authoritativeCoreState = cloneJson(partialState);
+authoritativeCoreState.campaignChatBinding.saveId = 'save-active-v2-authoritative-core';
+authoritativeCoreState.directiveRuntimeEvidence.coreStoreReadProjections.runtimeAuthority = 'coreStoreV2';
+const authoritativeCoreSaveRecord = createFirstCampaignSaveRecord({
+  campaignState: authoritativeCoreState,
+  packageData,
+  saveId: 'save-active-v2-authoritative-core',
+  savedAt: '2026-06-28T15:03:30.000Z'
+});
+await storeCampaignSave(authoritativeCoreAdapter, authoritativeCoreSaveRecord);
+const authoritativeCorePersist = await persistActiveCampaignStateV2(authoritativeCoreAdapter, {
+  saveRecord: authoritativeCoreSaveRecord,
+  campaignState: authoritativeCoreState,
+  packageData,
+  summary: 'Runtime v2 active-save authoritative CORE projection test.',
+  reason: 'test-runtime-authoritative-core-persist',
+  now: '2026-06-28T15:04:00.000Z'
+});
+const authoritativeEventSegment = await readV2ArtifactRef(authoritativeCoreAdapter, authoritativeCorePersist.refs.eventSegments[0]);
+const authoritativeIngresses = (authoritativeEventSegment.entries || []).filter((entry) => entry.type === 'runtimeIngressProjected');
+assert.deepEqual(
+  authoritativeIngresses.map((entry) => entry.outcomeId),
+  ['outcome-shared', 'outcome-new'],
+  'authoritative CORE runtime projections must not reserialize unmatched legacy ingress rows'
+);
+const authoritativeResponses = (authoritativeEventSegment.entries || []).filter((entry) => entry.type === 'runtimeResponseProjected');
+assert.deepEqual(
+  authoritativeResponses.map((entry) => entry.outcomeId),
+  ['outcome-shared'],
+  'authoritative CORE runtime projections must not reserialize unmatched legacy response rows'
+);
+const authoritativeTurnSegment = await readV2ArtifactRef(authoritativeCoreAdapter, authoritativeCorePersist.refs.turnSegments[0]);
+assert.deepEqual(
+  (authoritativeTurnSegment.entries || []).map((entry) => entry.outcomeId),
+  ['outcome-shared'],
+  'authoritative CORE runtime projections must not reserialize unmatched legacy turn rows'
+);
+const authoritativeRecoveries = (authoritativeEventSegment.entries || []).filter((entry) => entry.type === 'runtimeRecoveryProjected');
+assert.deepEqual(
+  authoritativeRecoveries.map((entry) => entry.recoveryId),
+  ['core-recovery-shared'],
+  'authoritative CORE runtime projections must not reserialize unmatched legacy recovery rows'
+);
+const authoritativeReplacements = (authoritativeEventSegment.entries || []).filter((entry) => entry.type === 'outcomeReplacementRecorded');
+assert.deepEqual(
+  authoritativeReplacements.map((entry) => entry.payload?.outcomeReplacementRef?.replacedOutcomeId),
+  ['outcome-shared'],
+  'authoritative CORE runtime projections must not reserialize unmatched legacy replacement history'
+);
+const authoritativeLoaded = await loadActiveCampaignStateV2(authoritativeCoreAdapter, {
+  saveRecord: authoritativeCoreSaveRecord,
+  fallbackCampaignState: authoritativeCoreSaveRecord.payload.campaignState
+});
+assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'legacy-ingress-old'),
+  false,
+  'authoritative CORE runtime load must not revive unmatched legacy ingress rows'
+);
+assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-old'),
+  false,
+  'authoritative CORE runtime load must not revive unmatched legacy response rows'
+);
+assert.equal(
+  authoritativeLoaded.campaignState.turnLedger.entries.some((entry) => entry.id === 'legacy-turn-old'),
+  false,
+  'authoritative CORE runtime load must not revive unmatched legacy turn rows'
+);
+assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.id === 'legacy-recovery-old'),
+  false,
+  'authoritative CORE runtime load must not revive unmatched legacy recovery rows'
+);
 
 const duplicateModelCallAdapter = createMemoryJsonAdapter();
 const duplicateModelCallState = cloneJson(campaignState);

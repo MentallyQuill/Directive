@@ -15,6 +15,7 @@ import {
   threadSemanticFingerprint,
   THREAD_TYPES
 } from '../threads/thread-ledger.mjs';
+import { createSourceSettlementService } from './source-settlement-service.mjs';
 
 const ROLE_ID = 'sceneHandshakeSettler';
 const KIND = 'directive.sceneHandshakeSettlement.v1';
@@ -1658,6 +1659,7 @@ function sceneHandshakeLedgerRecord({
   parse = null,
   applied = null,
   error = null,
+  metadata = null,
   recordedAt = null
 }) {
   return {
@@ -1695,6 +1697,7 @@ function sceneHandshakeLedgerRecord({
       code: error.code || 'DIRECTIVE_SCENE_HANDSHAKE_FAILED',
       message: compact(error.message || String(error), 300)
     } : null,
+    ...(metadata ? { metadata: cloneJson(metadata) } : {}),
     recordedAt: recordedAt || timestamp()
   };
 }
@@ -1738,6 +1741,210 @@ function idempotencyKeyFor(snapshot) {
     snapshot.source.currentPlayer.hostMessageId || 'player',
     snapshot.source.currentPlayer.textHash
   ].join(':');
+}
+
+function sourceSettlementFrameFor(snapshot = {}, sourceFrame = null) {
+  if (sourceFrame && typeof sourceFrame === 'object') return cloneJson(sourceFrame);
+  const selected = selectedAssistantVariantLedgerRecord(snapshot.source?.previousAssistant?.selectedVariant);
+  const selectedHash = selected?.selectedTextHash || snapshot.source?.previousAssistant?.textHash || null;
+  return {
+    id: `scene-handshake-frame:${snapshot.source?.sourceRangeHash || 'latest-pair'}`,
+    campaignId: snapshot.envelope?.campaignId || null,
+    saveId: snapshot.envelope?.saveId || null,
+    chatId: snapshot.envelope?.chatId || null,
+    sourceKind: 'sceneHandshakeLatestPair',
+    selectedAssistantVariantHash: selectedHash,
+    sourceIntegrity: selected?.sourceIntegrity || 'clean',
+    previousAssistant: {
+      hostMessageId: snapshot.source?.previousAssistant?.hostMessageId || null,
+      chatId: snapshot.envelope?.chatId || null,
+      role: 'assistant',
+      textHash: selectedHash,
+      selectedAssistantVariantHash: selectedHash
+    },
+    currentPlayer: {
+      hostMessageId: snapshot.source?.currentPlayer?.hostMessageId || null,
+      chatId: snapshot.envelope?.chatId || null,
+      role: 'player',
+      textHash: snapshot.source?.currentPlayer?.textHash || null
+    }
+  };
+}
+
+function sourceSettlementProviderSource(snapshot = {}, sourceFrame = {}) {
+  const selected = selectedAssistantVariantLedgerRecord(snapshot.source?.previousAssistant?.selectedVariant);
+  const selectedHash = selected?.selectedTextHash || snapshot.source?.previousAssistant?.textHash || null;
+  return {
+    sourceFrameId: sourceFrame.id || null,
+    previousAssistant: {
+      hostMessageId: snapshot.source?.previousAssistant?.hostMessageId || null,
+      chatId: snapshot.envelope?.chatId || null,
+      role: 'assistant',
+      textHash: selectedHash,
+      selectedAssistantVariantHash: selectedHash,
+      selectedAssistantVariant: selected
+    },
+    currentPlayer: {
+      hostMessageId: snapshot.source?.currentPlayer?.hostMessageId || null,
+      chatId: snapshot.envelope?.chatId || null,
+      role: 'player',
+      textHash: snapshot.source?.currentPlayer?.textHash || null
+    },
+    selectedAssistantVariantHash: selectedHash,
+    rangeHash: snapshot.source?.sourceRangeHash || null
+  };
+}
+
+async function runTerminalLatestPairSourceSettlement({
+  campaignState,
+  snapshot,
+  idempotencyKey,
+  settlementId,
+  stateDeltaGateway,
+  runLatestPairSettlementProvider,
+  validateLatestPairSettlementBeforeApply = null,
+  latestPairSourceFrame = null,
+  packageData = null,
+  generationRouter = null,
+  ingressId = null,
+  now = null
+} = {}) {
+  if (typeof runLatestPairSettlementProvider !== 'function' || !stateDeltaGateway?.applyOperations) return null;
+  const sourceFrame = sourceSettlementFrameFor(snapshot, latestPairSourceFrame);
+  const source = sourceSettlementProviderSource(snapshot, sourceFrame);
+  const expected = {
+    campaignId: snapshot.envelope.campaignId || null,
+    saveId: snapshot.envelope.saveId || null,
+    chatId: snapshot.envelope.chatId || null,
+    selectedAssistantVariantHash: source.selectedAssistantVariantHash || null
+  };
+  let applied = null;
+  let record = null;
+  let providerSettlement = null;
+  const sourceSettlement = createSourceSettlementService({
+    clock: () => timestamp(now),
+    runLatestPairProvider: runLatestPairSettlementProvider,
+    validateBeforeApply: typeof validateLatestPairSettlementBeforeApply === 'function'
+      ? validateLatestPairSettlementBeforeApply
+      : async () => ({ ok: true }),
+    applySettlement: async ({ operations = [], providerResult = null }) => {
+      if (!operations.length) return { ok: true, applied: false };
+      providerSettlement = providerResult?.settlement || null;
+      const materialChange = operations.some((operation) => operation.path?.split('.')[0] !== 'runtimeTracking');
+      const expectedApplied = {
+        revision: (campaignState.runtimeTracking?.revision || 0) + 1,
+        mechanicsRevision: (campaignState.runtimeTracking?.mechanicsRevision || 0) + (materialChange ? 1 : 0)
+      };
+      record = sceneHandshakeLedgerRecord({
+        settlementId,
+        idempotencyKey,
+        disposition: providerSettlement?.disposition || 'autoCommit',
+        status: 'settled',
+        reasons: ['source-settlement-latest-pair-accepted'],
+        snapshot,
+        settlement: providerSettlement,
+        operations,
+        applied: expectedApplied,
+        metadata: {
+          sourceOwner: 'sre',
+          sourceSettlementMode: 'latestPair'
+        },
+        recordedAt: timestamp(now)
+      });
+      const proposalOperations = [
+        ...operations,
+        ...sceneHandshakeResultOperations(record)
+      ];
+      applied = await stateDeltaGateway.applyOperations({
+        id: `${settlementId}:sourceSettlement`,
+        source: 'sourceSettlement',
+        reason: 'SRE latest-pair settlement committed accepted assistant/player source operations.',
+        summary: 'SRE latest-pair settlement committed accepted assistant/player source operations.',
+        baseRevision: campaignState.runtimeTracking?.revision || 0,
+        ingressId,
+        operations: proposalOperations,
+        domains: [...new Set(proposalOperations.map((operation) => operation.path.split('.')[0]))],
+        metadata: {
+          settlementId,
+          idempotencyKey,
+          sourceOwner: 'sre',
+          sourceSettlementMode: 'latestPair',
+          sourceAnchorRange: snapshot.source.sourceRangeHash,
+          selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
+          evidenceMessageIds: [
+            snapshot.source.previousAssistant.hostMessageId,
+            snapshot.source.currentPlayer.hostMessageId
+          ].filter(Boolean)
+        }
+      }, {
+        allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
+      });
+      return { ok: true, applied: true };
+    }
+  });
+  const decision = await sourceSettlement.settleLatestPair({
+    transactionId: `scene-handshake:${settlementId}`,
+    settlementId,
+    idempotencyKey: `sre:scene-handshake:${idempotencyKey}`,
+    sourceFrame,
+    source,
+    expected,
+    previousAssistant: source.previousAssistant,
+    currentPlayer: source.currentPlayer,
+    observedAt: timestamp(now)
+  });
+  if (decision.status !== 'accepted' || decision.applied !== true || !applied) {
+    return {
+      attempted: true,
+      ok: decision.status === 'noChange',
+      disposition: decision.status || 'sourceSettlementStopped',
+      promptDirty: false,
+      sourceSettlement: decision,
+      committedRoots: [],
+      operationCount: 0,
+      campaignState,
+      reason: decision.reasons?.[0] || decision.status || 'source-settlement-stopped'
+    };
+  }
+  const appliedRecord = {
+    ...record,
+    appliedRevision: applied.revision || null,
+    appliedMechanicsRevision: applied.mechanicsRevision || null
+  };
+  const timeAdvance = (providerSettlement?.disposition || 'autoCommit') === 'autoCommit'
+    ? await commitAcceptedSceneTimeAdvance({
+        campaignState: applied.campaignState,
+        snapshot,
+        settlement: providerSettlement || { acceptedPreviousResponse: true },
+        stateDeltaGateway,
+        packageData,
+        generationRouter,
+        ingressId,
+        settlementId,
+        now
+      })
+    : { campaignState: applied.campaignState, promptDirty: false, proposal: null, boundary: null };
+  const committedRootsFromApply = () => [
+    ...new Set([
+      ...(Array.isArray(applied?.domains) ? applied.domains : []),
+      ...(timeAdvance.boundary ? ['worldState', 'timeLedger', 'eventLedger'] : [])
+    ].filter(Boolean))
+  ];
+  return {
+    attempted: true,
+    ok: true,
+    disposition: 'autoCommit',
+    promptDirty: committedRootsFromApply().some((domain) => domain !== 'runtimeTracking') || timeAdvance.promptDirty,
+    sourceSettlement: decision,
+    record: appliedRecord,
+    settlement: cloneJson(providerSettlement),
+    committedRoots: committedRootsFromApply(),
+    operationCount: decision.operations?.length || 0,
+    campaignState: timeAdvance.campaignState,
+    applied,
+    timeAdvance: cloneJson(timeAdvance.proposal || null),
+    timeBoundary: cloneJson(timeAdvance.boundary?.event || null)
+  };
 }
 
 async function recordOnly({
@@ -1873,6 +2080,9 @@ export async function runSceneHandshakeSettlement({
   ingressId = null,
   generationRouter = null,
   stateDeltaGateway = null,
+  runLatestPairSettlementProvider = null,
+  validateLatestPairSettlementBeforeApply = null,
+  latestPairSourceFrame = null,
   packageData = null,
   now = null
 } = {}) {
@@ -1930,6 +2140,23 @@ export async function runSceneHandshakeSettlement({
       campaignState
     };
   }
+  const settlementId = `settlement:${snapshot.envelope.campaignId || 'campaign'}:${snapshot.source.sourceRangeHash}`;
+  const recordedAt = timestamp(now);
+  const terminalSourceSettlement = await runTerminalLatestPairSourceSettlement({
+    campaignState,
+    snapshot,
+    idempotencyKey,
+    settlementId,
+    stateDeltaGateway,
+    runLatestPairSettlementProvider,
+    validateLatestPairSettlementBeforeApply,
+    latestPairSourceFrame,
+    packageData,
+    generationRouter,
+    ingressId,
+    now
+  });
+  if (terminalSourceSettlement) return terminalSourceSettlement;
   if (!generationRouter?.generate) {
     return {
       attempted: false,
@@ -1938,8 +2165,6 @@ export async function runSceneHandshakeSettlement({
     };
   }
 
-  const settlementId = `settlement:${snapshot.envelope.campaignId || 'campaign'}:${snapshot.source.sourceRangeHash}`;
-  const recordedAt = timestamp(now);
   const request = createPrompt(snapshot);
   let generation = null;
   try {

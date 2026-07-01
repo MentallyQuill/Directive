@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
-import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import {
+  __directiveRuntimeAppTestHooks,
+  createDirectiveRuntimeApp
+} from '../../src/runtime/runtime-app.mjs';
 
 const root = process.cwd();
 
@@ -52,6 +55,74 @@ function stableMechanics(campaignState) {
     commandLog: campaignState.commandLog
   });
 }
+
+const boundedReplacementHistory = __directiveRuntimeAppTestHooks.boundedReplacementHistory(
+  Array.from({ length: 40 }, (_, index) => ({
+    type: 'rerunOutcome',
+    replacedOutcomeId: `old-${index}`,
+    replacementOutcomeId: `new-${index}`
+  })),
+  {
+    type: 'rerunOutcome',
+    replacedOutcomeId: 'old-40',
+    replacementOutcomeId: 'new-40'
+  }
+);
+assert.equal(boundedReplacementHistory.length, 32);
+assert.equal(boundedReplacementHistory[0].replacedOutcomeId, 'old-9');
+assert.equal(boundedReplacementHistory.at(-1).replacementOutcomeId, 'new-40');
+const coreProjectionEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence({
+  turnLedger: {
+    entries: [{ outcomeId: 'outcome-core-evidence' }],
+    replacementHistory: [{
+      kind: 'directive.coreOutcomeReplacementRef.v1',
+      replacedOutcomeId: 'outcome-core-evidence',
+      replacementOutcomeId: 'outcome-core-evidence-rerun'
+    }],
+    lastReplacedOutcomeId: 'outcome-core-evidence'
+  }
+});
+assert.equal(coreProjectionEvidence.runtimeAuthority, 'coreStoreV2', 'runtime-injected CORE projections must mark CORE as authoritative resume source');
+assert.equal(coreProjectionEvidence.turnLedger.replacementHistory.at(-1).replacementOutcomeId, 'outcome-core-evidence-rerun');
+assert.equal(coreProjectionEvidence.turnLedger.lastReplacedOutcomeId, 'outcome-core-evidence');
+const emptyCoreProjectionEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence(
+  {
+    turnLedger: { entries: [], replacementHistory: [] },
+    ingressLedger: [],
+    responseLedger: [],
+    recoveryJournal: []
+  },
+  {
+    runtimeTracking: {
+      ingressLedger: [{ id: 'legacy-ingress-1' }],
+      responseLedger: [{ id: 'legacy-response-1' }],
+      recoveryJournal: [{ id: 'legacy-recovery-1' }]
+    },
+    turnLedger: {
+      entries: [{ outcomeId: 'legacy-outcome-1' }],
+      replacementHistory: [{ replacedOutcomeId: 'legacy-old-1', replacementOutcomeId: 'legacy-new-1' }]
+    }
+  }
+);
+assert.equal(
+  emptyCoreProjectionEvidence.runtimeAuthority,
+  undefined,
+  'runtime-injected empty CORE projections must not mark CORE authoritative over populated legacy ledgers'
+);
+assert.throws(
+  () => __directiveRuntimeAppTestHooks.assertFreshOutcomeRerunReplacementTarget({
+    replacement: {
+      outcomeId: 'outcome-stale-rerun',
+      repairDecision: { replacedTransactionId: 'txn-original' }
+    },
+    ledgerEntry: {
+      outcomeId: 'outcome-stale-rerun',
+      coreTransactionId: 'txn-current'
+    }
+  }),
+  /stale rerun target/,
+  'CORE-backed rerun commit must reject stale preview transaction evidence before opening a replacement transaction'
+);
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
@@ -200,6 +271,8 @@ assert.equal(originalCommit.campaignState.mission.activePhaseId, 'hesperus-after
 assert.equal(originalCommit.campaignState.commandBearing.resolve.points, 0);
 assert.equal(originalCommit.campaignState.commandBearing.resolve.marks, 1);
 assert.equal(originalCommit.campaignState.commandBearing.spendLedger[originalOutcomeId].track, 'resolve');
+const originalLedgerEntry = originalCommit.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === originalOutcomeId);
+assert.equal(originalLedgerEntry?.snapshotBeforeRetained, true, 'rerun authority must use explicit retained-snapshot flag instead of raw snapshot presence');
 
 const beforeRewrite = stableMechanics(originalCommit.campaignState);
 const rewrite = await app.retryNarrationForLastTurn({ provider: narrator });
@@ -215,6 +288,11 @@ assert.equal(replacementPreview.provisionalOutcome.resultBand, 'Partial Failure'
 assert.equal(replacementPreview.campaignState.mission.activePhaseId, 'hesperus-aftermath');
 assert.equal(replacementPreview.view.pendingOutcomeReplacement.outcomeId, originalOutcomeId);
 assert.equal(replacementPreview.view.pendingDirectorTurn.replacementForOutcomeId, originalOutcomeId);
+assert.equal(replacementPreview.view.pendingOutcomeReplacement.repairDecision.kind, 'directive.repairOutcomeRerunActuationDecision.v1');
+assert.equal(replacementPreview.view.pendingOutcomeReplacement.repairDecision.authorized, true);
+assert.equal(replacementPreview.view.pendingOutcomeReplacement.repairDecision.action, 'createLegacyNoCoreRerunCandidate');
+assert.equal(replacementPreview.view.pendingOutcomeReplacement.repairDecision.legacyNoCoreRerunAllowed, true);
+assert.equal(replacementPreview.view.pendingOutcomeReplacement.repairDecision.outcomeId, originalOutcomeId);
 
 const replacementCommit = await app.commitProvisionalDirectorTurn({
   provider: narrator,
@@ -232,6 +310,9 @@ assert.equal(replacementHistory.type, 'rerunOutcome');
 assert.equal(replacementHistory.replacedOutcomeId, originalOutcomeId);
 assert.equal(replacementHistory.replacementOutcomeId, replacementOutcomeId);
 assert.equal(replacementHistory.replacedTurnId, 'turn.stage18.hesperus.001');
+assert.equal(replacementHistory.repairDecision.kind, 'directive.repairOutcomeRerunActuationDecision.v1');
+assert.equal(replacementHistory.repairDecision.authorized, true);
+assert.equal(replacementHistory.repairDecision.action, 'createLegacyNoCoreRerunCandidate');
 assert.match(replacementHistory.acceptedAt, /^2026-06-19T07:/);
 
 const branchSourceChatId = host.chat.getCurrentChatId();

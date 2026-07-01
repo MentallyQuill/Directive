@@ -95,6 +95,32 @@ function acceptedSidecarBatchCacheInput({
   });
 }
 
+function commandBearingReviewCacheInput({
+  cacheInputs = {},
+  promptFrame = {}
+} = {}) {
+  const projection = promptFrame?.coreCommandBearingReviewProjection
+    || cacheInputs?.coreCommandBearingReviewProjection
+    || promptFrame?.commandBearingReviewProjection
+    || cacheInputs?.commandBearingReviewProjection
+    || null;
+  const reviewHash = asString(
+    cacheInputs?.commandBearingReviewHash
+    || promptFrame?.commandBearingReviewHash
+    || projection?.reviewHash
+  );
+  if (!reviewHash) return null;
+  const closures = Array.isArray(projection?.closures) ? projection.closures : [];
+  return compactObject({
+    reviewHash,
+    transactionId: asString(projection?.transactionId || promptFrame?.commandBearingReviewTransactionId || cacheInputs?.commandBearingReviewTransactionId),
+    batchId: asString(projection?.batchId || promptFrame?.commandBearingReviewBatchId || cacheInputs?.commandBearingReviewBatchId),
+    sourceFrameId: asString(projection?.sourceFrameId || projection?.sourceFrameRef?.id || promptFrame?.sourceFrameId || cacheInputs?.sourceFrameId),
+    closureCount: closures.length || undefined,
+    closureIds: closures.length ? uniqueStrings(closures.map((entry) => entry?.closureId), 20, 160) : undefined
+  });
+}
+
 function normalizePromptCacheInputs({
   cacheInputs = {},
   campaignContext = {},
@@ -124,7 +150,8 @@ function normalizePromptCacheInputs({
       || promptFrame?.pressureArcDigestRevision
       || recallRevisions.pressureArcDigestRevision
     ),
-    acceptedSidecarBatch: acceptedSidecarBatchCacheInput({ cacheInputs, promptFrame })
+    acceptedSidecarBatch: acceptedSidecarBatchCacheInput({ cacheInputs, promptFrame }),
+    commandBearingReview: commandBearingReviewCacheInput({ cacheInputs, promptFrame })
   });
 }
 
@@ -184,6 +211,8 @@ function buildPromptCacheKey({
     pressureArcDigestRevision: cacheInputs.pressureArcDigestRevision || null,
     acceptedSidecarBatchHash: cacheInputs.acceptedSidecarBatch?.acceptedBatchHash || null,
     acceptedSidecarBackgroundBatchId: cacheInputs.acceptedSidecarBatch?.backgroundBatchId || null,
+    commandBearingReviewHash: cacheInputs.commandBearingReview?.reviewHash || null,
+    commandBearingReviewBatchId: cacheInputs.commandBearingReview?.batchId || null,
     externalPromptEnvironmentHash: externalPromptEnvironmentRef?.hash || null
   });
 }

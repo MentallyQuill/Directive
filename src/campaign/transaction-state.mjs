@@ -633,6 +633,7 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
     continuityProjection: cloneJson(turnPacket.provenance?.continuityProjection || null),
     narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
     commandLogSourceOutcomeId: turnPacket.commandLogPacket.sourceOutcomeId,
+    snapshotBeforeRetained: Boolean(snapshotBefore),
     snapshotBefore,
     narrationStatus: 'pending',
     narration: null,

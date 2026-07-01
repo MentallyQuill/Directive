@@ -985,6 +985,118 @@ const duplicate = await app.observeHostPlayerMessage({
 assert.equal(duplicate.deduplicated, true);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
 
+const coreBackedOutcomeId = view.chatNative.tracking.lastCommittedTurn.outcomeId;
+const coreBackedLedgerEntry = view.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === coreBackedOutcomeId);
+assert.ok(coreBackedLedgerEntry?.coreTransactionId, 'CORE-backed committed outcome must carry original transaction id before rerun preview.');
+const coreBackedRerunPreview = await app.previewOutcomeReplacement({
+  outcomeId: coreBackedOutcomeId,
+  turnId: 'turn.chat-native.core-rerun-preview',
+  playerInput: 'I countermand the pursuit and order the Breckenridge to hold position until we have corroborating sensor evidence.'
+});
+assert.equal(
+  JSON.stringify(coreBackedRerunPreview).includes('countermand the pursuit'),
+  false,
+  'CORE-backed rerun preview payload must not expose raw replacement player prose.'
+);
+assert.equal(
+  JSON.stringify(coreBackedRerunPreview.view.pendingDirectorTurn || {}).includes('countermand the pursuit'),
+  false,
+  'CORE-backed rerun preview view must not expose raw replacement player prose in pendingDirectorTurn.'
+);
+const pendingCoreBackedReplacement = coreBackedRerunPreview.pendingOutcomeReplacement;
+assert.equal(pendingCoreBackedReplacement.repairDecision.action, 'createRerunBranchCandidate');
+assert.equal(pendingCoreBackedReplacement.repairDecision.replacedTransactionId, coreBackedLedgerEntry.coreTransactionId);
+assert.ok(pendingCoreBackedReplacement.replacementCandidateId, 'CORE-backed rerun preview must allocate a compact replacement candidate id.');
+assert.ok(pendingCoreBackedReplacement.replacementInputHash, 'CORE-backed rerun preview must retain only a replacement input hash.');
+assert.equal(pendingCoreBackedReplacement.replacementTransactionId, undefined, 'CORE-backed rerun preview must not durably begin a replacement transaction before commit.');
+assert.equal(pendingCoreBackedReplacement.repairDecision.transactionId, null);
+assert.equal(pendingCoreBackedReplacement.repairDecision.replacementTransactionRequired, true);
+const coreProjectionsAfterRerunPreview = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+assert.equal(
+  JSON.stringify(coreProjectionsAfterRerunPreview).includes('countermand the pursuit'),
+  false,
+  'CORE-backed rerun preview must not leak raw replacement player prose into CORE projections.'
+);
+assert.equal(
+  coreProjectionsAfterRerunPreview.ingressLedger.length,
+  coreProjectionsBeforeReload.ingressLedger.length,
+  'CORE-backed rerun preview must not add durable CORE ingress before commit.'
+);
+const coreBackedRerunCommit = await app.commitProvisionalDirectorTurn({
+  generateNarration: false,
+  generateCommandLogSummary: false
+});
+const replacementTransactionId = coreBackedRerunCommit.mechanicsCheckpoint.coreMechanics.transactionId;
+assert.ok(replacementTransactionId, 'CORE-backed rerun commit must create a fresh replacement transaction.');
+assert.notEqual(replacementTransactionId, coreBackedLedgerEntry.coreTransactionId);
+assert.equal(coreBackedRerunCommit.mechanicsCheckpoint.coreOutcomeReplacement.replacedTransactionId, coreBackedLedgerEntry.coreTransactionId);
+assert.equal(coreBackedRerunCommit.mechanicsCheckpoint.coreOutcomeReplacement.replacementTransactionId, replacementTransactionId);
+const coreProjectionsAfterRerunCommit = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+assert.ok(
+  coreProjectionsAfterRerunCommit.ingressLedger.some((entry) => entry.transactionId === replacementTransactionId),
+  'CORE-backed rerun commit must persist the fresh replacement transaction projection.'
+);
+const coreReplacementHistory = coreProjectionsAfterRerunCommit.turnLedger.replacementHistory.at(-1);
+assert.equal(coreReplacementHistory.replacedTransactionId, coreBackedLedgerEntry.coreTransactionId);
+assert.equal(coreReplacementHistory.replacementTransactionId, replacementTransactionId);
+assert.equal(
+  JSON.stringify(coreBackedRerunCommit).includes('countermand the pursuit'),
+  false,
+  'CORE-backed rerun commit result must not expose raw replacement player prose.'
+);
+assert.equal(
+  JSON.stringify(coreProjectionsAfterRerunCommit).includes('countermand the pursuit'),
+  false,
+  'CORE-backed rerun commit must not leak raw replacement player prose into CORE projections.'
+);
+
+const failedRerunPreview = await app.previewOutcomeReplacement({
+  outcomeId: coreBackedRerunCommit.turnPacket.outcomePacket.id,
+  turnId: 'turn.chat-native.core-rerun-failure',
+  playerInput: 'I revise the replacement order and force a storage failure after the replacement transaction opens.'
+});
+const failedReplacementTransactionId = `txn:frame:${failedRerunPreview.pendingOutcomeReplacement.replacementCandidateId}`;
+const originalWriteJson = host.storage.writeJson.bind(host.storage);
+let injectedCoreEventWrites = 0;
+host.storage.writeJson = async (filePath, value) => {
+  if (String(filePath).includes('/core/events/')) {
+    injectedCoreEventWrites += 1;
+    if (injectedCoreEventWrites === 2) {
+      throw new Error('Injected rerun mechanics append failure');
+    }
+  }
+  return originalWriteJson(filePath, value);
+};
+try {
+  await assert.rejects(
+    () => app.commitProvisionalDirectorTurn({
+      generateNarration: false,
+      generateCommandLogSummary: false
+    }),
+    /Injected rerun mechanics append failure/
+  );
+} finally {
+  host.storage.writeJson = originalWriteJson;
+}
+const failedRerunProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: view.campaignState.campaign.id,
+  saveId: view.activeSaveId
+});
+const failedRerunRecovery = failedRerunProjections.recoveryJournal.find((entry) => entry.transactionId === failedReplacementTransactionId);
+assert.equal(failedRerunRecovery?.reason, 'outcome-rerun-checkpoint-failed');
+assert.equal(
+  JSON.stringify(failedRerunProjections).includes('I revise the replacement order'),
+  false,
+  'Failed CORE-backed rerun recovery projection must not leak raw replacement player prose.'
+);
+await app.discardProvisionalDirectorTurn();
+
 const reloadedApp = createDirectiveRuntimeApp({
   host,
   packageLoader: loadChatNativeAssets,

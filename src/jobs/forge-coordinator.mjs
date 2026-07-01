@@ -1198,6 +1198,7 @@ export function createForgeCoordinator({
       sourceFrameRef: cloneJson(input.sourceFrameRef || null),
       sourceFrame: cloneJson(input.sourceFrame || input.sourceFrameRef || null),
       sourceToken: input.sourceToken || input.promptFrame?.sourceToken || null,
+      coreCommandBearingReviewProjection: cloneJson(input.coreCommandBearingReviewProjection || null),
       cacheInputs: cloneJson(input.cacheInputs || {}),
       promptFrame: cloneJson(input.promptFrame || {}),
       idempotencyKey,

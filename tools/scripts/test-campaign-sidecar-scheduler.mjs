@@ -16,6 +16,64 @@ import {
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+function assertNoTransientCommandBearingReviewTracking(scenario, reviewInputRevision, label) {
+  const tracking = scenario.state.runtimeTracking || {};
+  const expectedBaseRevision = Math.max(0, Number(reviewInputRevision || 0) - 1);
+  assert.equal(tracking.revision, expectedBaseRevision, `${label}: runtime revision must roll back the transient review commit.`);
+  assert.equal(tracking.mechanicsRevision, expectedBaseRevision, `${label}: mechanics revision must roll back the transient review commit.`);
+  assert.equal(tracking.lastStableRevision, expectedBaseRevision, `${label}: stable revision must roll back the transient review commit.`);
+  assert.equal(
+    String(tracking.lastDelta?.reason || '').includes('Command Bearing closure review updated character progression'),
+    false,
+    `${label}: lastDelta must not retain the transient review commit.`
+  );
+  assert.equal(
+    (tracking.history || []).some((entry) => String(entry?.reason || '').includes('Command Bearing closure review updated character progression')),
+    false,
+    `${label}: history must not retain the transient review commit.`
+  );
+  assert.equal(
+    (tracking.history || []).some((entry) => {
+      const snapshot = entry?.snapshot || {};
+      return (snapshot.commandBearing?.reviewLedger?.records?.length || 0) > 0
+        || (snapshot.commandBearing?.tracks?.resolve?.marks || 0) > 0;
+    }),
+    false,
+    `${label}: history snapshots must not retain transient Command Bearing review roots.`
+  );
+  assert.equal(
+    (tracking.history || []).some((entry) => (entry?.snapshot?.runtimeTracking?.history?.length || 0) > 0),
+    false,
+    `${label}: history snapshots must not nest runtimeTracking.history.`
+  );
+}
+function assertNoCommandBearingReviewTrackingLeak(scenario, label) {
+  const tracking = scenario.state.runtimeTracking || {};
+  assert.equal(
+    String(tracking.lastDelta?.reason || '').includes('Command Bearing closure review updated character progression'),
+    false,
+    `${label}: lastDelta must not retain the transient review commit.`
+  );
+  assert.equal(
+    (tracking.history || []).some((entry) => String(entry?.reason || '').includes('Command Bearing closure review updated character progression')),
+    false,
+    `${label}: history must not retain the transient review commit.`
+  );
+  assert.equal(
+    (tracking.history || []).some((entry) => {
+      const snapshot = entry?.snapshot || {};
+      return (snapshot.commandBearing?.reviewLedger?.records?.length || 0) > 0
+        || (snapshot.commandBearing?.tracks?.resolve?.marks || 0) > 0;
+    }),
+    false,
+    `${label}: history snapshots must not retain transient Command Bearing review roots.`
+  );
+  assert.equal(
+    (tracking.history || []).some((entry) => (entry?.snapshot?.runtimeTracking?.history?.length || 0) > 0),
+    false,
+    `${label}: history snapshots must not nest runtimeTracking.history.`
+  );
+}
 const forgeBackgroundTransaction = (transactionId, bundle = {}) => ({
   id: transactionId,
   backgroundBatchId: bundle.batchId || `background:${transactionId}`,
@@ -382,7 +440,10 @@ async function runCommandBearingReviewPromptScenario({
   awardSummary = 'The commander accepted visible operational cost to preserve a lawful command boundary.',
   reviewCommitBackground = null,
   mutateLiveStateDuringReviewFlush = false,
-  reviewPersistThrows = false,
+  trackedLiveStateDuringReviewFlush = false,
+  seedBaseTrackingHistory = false,
+  reviewForgePromptMethod = true,
+  reviewFallbackReturnsState = true,
   reviewFlushThrows = false,
   reviewFlushReturnsState = true,
   rawCanary = 'RAW_COMMAND_BEARING_REVIEW_PROMPT_CANARY_MUST_NOT_PERSIST'
@@ -444,6 +505,36 @@ async function runCommandBearingReviewPromptScenario({
     },
     coreTransactionId: `txn-sidecar-command-bearing-${suffix}`
   });
+  if (seedBaseTrackingHistory) {
+    localState.runtimeTracking.revision = 1;
+    localState.runtimeTracking.mechanicsRevision = 1;
+    localState.runtimeTracking.history = [{
+      revision: 0,
+      committedAt: now(),
+      reason: 'Seed base tracked history before Command Bearing review.',
+      source: 'test',
+      snapshot: {
+        runtimeTracking: {
+          history: [],
+          historyIndex: -1
+        },
+        commandBearing: {
+          evidenceLedger: {
+            records: [{ id: 'base-history-sentinel', summary: 'Original base history snapshot.' }]
+          }
+        }
+      }
+    }];
+    localState.runtimeTracking.historyIndex = 0;
+    localState.runtimeTracking.lastDelta = {
+      source: 'test',
+      reason: 'Seed base tracked history before Command Bearing review.',
+      domains: ['commandBearing'],
+      revision: 1,
+      committedAt: now()
+    };
+    localState.runtimeTracking.lastStableRevision = 1;
+  }
   const expectedClosureId = closureId || `closure.milestone.milestone.sidecar.${suffix}.1`;
   const gatewayPersists = [];
   const localGateway = createStateDeltaGateway({
@@ -516,11 +607,6 @@ async function runCommandBearingReviewPromptScenario({
     setCampaignState: (next) => { localState = cloneJson(next); },
     persistCampaignState: async (next, reason) => {
       persistReasons.push(reason || null);
-      if (reviewPersistThrows && reason === 'Command Bearing sidecar closure review compatibility projection persisted after CORE settlement.') {
-        const error = new Error(`Review compatibility persist failed. ${rawCanary}`);
-        error.code = 'DIRECTIVE_REVIEW_COMPATIBILITY_PERSIST_FAILED';
-        throw error;
-      }
       localState = cloneJson(next);
     },
     commitCoreBackgroundBatch: async (transactionId, bundle) => {
@@ -534,84 +620,110 @@ async function runCommandBearingReviewPromptScenario({
       schedulerPromptSyncs.push({
         workerKey: details?.workerKey || null,
         commandBearingReview: details?.commandBearingReview === true,
-        promptSyncIdempotencyKey: options.activityContext?.promptSyncIdempotencyKey || null
+        promptSyncIdempotencyKey: options.activityContext?.promptSyncIdempotencyKey || null,
+        revision: next?.runtimeTracking?.revision ?? null
       });
+      if (details?.commandBearingReview === true && !reviewFallbackReturnsState) return null;
       return next;
     },
-    forgeCoordinator: createTestAcceptedForgeCoordinator({
-      commits: coreCommits,
-      acceptedBatchPromptFlusher: async (input = {}) => {
-        schedulerPromptSyncs.push({
-          workerKey: input.workerKey || null,
-          commandBearingReview: false,
-          promptSyncIdempotencyKey: input.activityContext?.promptSyncIdempotencyKey || null
-        });
-        return { ok: true, status: 'rebuilt', campaignState: cloneJson(input.campaignState) };
-      },
-      commandBearingReviewPromptFlusher: async (input = {}) => {
-        const promptFlush = {
-          promptSyncIdempotencyKey: input.promptSyncIdempotencyKey || null,
-          idempotencyKey: input.idempotencyKey || null,
-          promptDirtyDomains: cloneJson(input.promptDirtyDomains || []),
-          promptFrame: cloneJson(input.promptFrame || {}),
-          commitRuntimeState: input.commitRuntimeState !== false,
-          beforeInstallPrompt: typeof input.beforeInstallPrompt === 'function',
-          beforeInstallPromptResult: null,
-          coreCommitCountAtFlush: coreCommits.length,
-          persistReasonsAtFlush: [...persistReasons],
-          campaignRevision: input.campaignState?.runtimeTracking?.revision || 0
-        };
-        promptFlushes.push(promptFlush);
-        if (reviewFlushThrows) {
-          const error = new Error(`LENS review prompt flush failed. ${rawCanary}`);
-          error.code = 'DIRECTIVE_LENS_REVIEW_FLUSH_FAILED';
-          throw error;
-        }
-        if (!reviewFlushReturnsState) return { ok: true, status: 'noChange' };
-        if (mutateLiveStateDuringReviewFlush) {
-          const externallyAdvanced = cloneJson(input.campaignState);
-          externallyAdvanced.runtimeTracking.revision = (externallyAdvanced.runtimeTracking?.revision || 0) + 1;
-          externallyAdvanced.commandLog = externallyAdvanced.commandLog || {};
-          externallyAdvanced.commandLog.entries = Array.isArray(externallyAdvanced.commandLog.entries)
-            ? externallyAdvanced.commandLog.entries
-            : [];
-          externallyAdvanced.commandLog.entries.push({
-            id: `external-review-flush-race-${suffix}`,
-            summary: 'External state advanced while review prompt flush was in flight.'
+    forgeCoordinator: (() => {
+      const coordinator = createTestAcceptedForgeCoordinator({
+        commits: coreCommits,
+        acceptedBatchPromptFlusher: async (input = {}) => {
+          schedulerPromptSyncs.push({
+            workerKey: input.workerKey || null,
+            commandBearingReview: false,
+            promptSyncIdempotencyKey: input.activityContext?.promptSyncIdempotencyKey || null
           });
-          externallyAdvanced.campaignChatBinding = {
-            ...(externallyAdvanced.campaignChatBinding || {}),
-            promptContextOwner: `external-review-flush-race-${suffix}`
+          return { ok: true, status: 'rebuilt', campaignState: cloneJson(input.campaignState) };
+        },
+        commandBearingReviewPromptFlusher: async (input = {}) => {
+          const promptFlush = {
+            promptSyncIdempotencyKey: input.promptSyncIdempotencyKey || null,
+            idempotencyKey: input.idempotencyKey || null,
+            promptDirtyDomains: cloneJson(input.promptDirtyDomains || []),
+            promptFrame: cloneJson(input.promptFrame || {}),
+            commitRuntimeState: input.commitRuntimeState !== false,
+            beforeInstallPrompt: typeof input.beforeInstallPrompt === 'function',
+            beforeInstallPromptResult: null,
+            coreCommitCountAtFlush: coreCommits.length,
+            persistReasonsAtFlush: [...persistReasons],
+            campaignRevision: input.campaignState?.runtimeTracking?.revision || 0
           };
-          localState = externallyAdvanced;
-        }
-        if (typeof input.beforeInstallPrompt === 'function') {
-          const guardResult = await input.beforeInstallPrompt({
-            lane: 'background',
-            reason: 'test-command-bearing-review-before-install'
-          });
-          promptFlush.beforeInstallPromptResult = cloneJson(guardResult);
-          if (guardResult === false || guardResult?.ok === false || guardResult?.allow === false || guardResult?.stale === true) {
-            return {
-              ok: true,
-              status: 'installSkippedStale',
-              promptInstallSkipped: true,
-              lens: { status: 'installSkippedStale' }
-            };
+          promptFlushes.push(promptFlush);
+          if (reviewFlushThrows) {
+            const error = new Error(`LENS review prompt flush failed. ${rawCanary}`);
+            error.code = 'DIRECTIVE_LENS_REVIEW_FLUSH_FAILED';
+            throw error;
           }
+          if (!reviewFlushReturnsState) return { ok: true, status: 'noChange' };
+          if (trackedLiveStateDuringReviewFlush) {
+            const trackedDrift = cloneJson(input.campaignState);
+            trackedDrift.commandLog = trackedDrift.commandLog || {};
+            trackedDrift.commandLog.entries = Array.isArray(trackedDrift.commandLog.entries)
+              ? trackedDrift.commandLog.entries
+              : [];
+            trackedDrift.commandLog.entries.push({
+              id: `tracked-review-flush-race-${suffix}`,
+              summary: 'Tracked state advanced while review prompt flush was in flight.'
+            });
+            trackedDrift.campaignChatBinding = {
+              ...(trackedDrift.campaignChatBinding || {}),
+              promptContextOwner: `tracked-review-flush-race-${suffix}`
+            };
+            await localGateway.commit(trackedDrift, {
+              source: 'test-command-bearing-review-race',
+              reason: 'Tracked external drift during Command Bearing review prompt flush.',
+              summary: 'Tracked external drift during Command Bearing review prompt flush.',
+              domains: ['commandLog', 'campaignChatBinding']
+            }, { persist: false });
+          } else if (mutateLiveStateDuringReviewFlush) {
+            const externallyAdvanced = cloneJson(input.campaignState);
+            externallyAdvanced.runtimeTracking.revision = (externallyAdvanced.runtimeTracking?.revision || 0) + 1;
+            externallyAdvanced.commandLog = externallyAdvanced.commandLog || {};
+            externallyAdvanced.commandLog.entries = Array.isArray(externallyAdvanced.commandLog.entries)
+              ? externallyAdvanced.commandLog.entries
+              : [];
+            externallyAdvanced.commandLog.entries.push({
+              id: `external-review-flush-race-${suffix}`,
+              summary: 'External state advanced while review prompt flush was in flight.'
+            });
+            externallyAdvanced.campaignChatBinding = {
+              ...(externallyAdvanced.campaignChatBinding || {}),
+              promptContextOwner: `external-review-flush-race-${suffix}`
+            };
+            localState = externallyAdvanced;
+          }
+          if (typeof input.beforeInstallPrompt === 'function') {
+            const guardResult = await input.beforeInstallPrompt({
+              lane: 'background',
+              reason: 'test-command-bearing-review-before-install'
+            });
+            promptFlush.beforeInstallPromptResult = cloneJson(guardResult);
+            if (guardResult === false || guardResult?.ok === false || guardResult?.allow === false || guardResult?.stale === true) {
+              return {
+                ok: true,
+                status: 'installSkippedStale',
+                promptInstallSkipped: true,
+                lens: { status: 'installSkippedStale' }
+              };
+            }
+          }
+          const synchronized = cloneJson(input.campaignState);
+          synchronized.campaignChatBinding = {
+            ...(synchronized.campaignChatBinding || {}),
+            promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1,
+            promptContextOwner: `forge-lens-command-bearing-${suffix}`
+          };
+          if (mutateLiveStateDuringReviewFlush && input.commitRuntimeState !== false) {
+            localState = cloneJson(synchronized);
+          }
+          return { ok: true, status: 'rebuilt', campaignState: synchronized };
         }
-        const synchronized = cloneJson(input.campaignState);
-        synchronized.campaignChatBinding = {
-          ...(synchronized.campaignChatBinding || {}),
-          promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1,
-          promptContextOwner: `forge-lens-command-bearing-${suffix}`
-        };
-        if (mutateLiveStateDuringReviewFlush && input.commitRuntimeState !== false) {
-          localState = cloneJson(synchronized);
-        }
-        return { ok: true, status: 'rebuilt', campaignState: synchronized };
-      }
-    }),
+      });
+      if (!reviewForgePromptMethod) coordinator.flushCommandBearingReviewPrompt = undefined;
+      return coordinator;
+    })(),
     now
   }).schedule({
     workerPlan: { commandBearing: true },
@@ -778,12 +890,12 @@ assert.equal(firstActivityEvents[5].status, 'applied');
 assert.equal(firstActivityEvents.at(-1).mode, 'background');
 assert.equal(generationRequests.at(-1).request.prompt.includes('"continuityProjection"'), true);
 assert.equal(generationRequests.at(-1).request.prompt.includes('matrix-digest-1'), true);
-assert.equal(state.ship.condition, 'Degraded but operational');
-assert.equal(state.ship.damage.length, 1);
-assert.equal(state.runtimeTracking.revision, 1);
+assert.equal(state.ship.condition, 'Operational', 'FORGE-settled sidecars must not mutate v1 ship roots after CORE settlement.');
+assert.equal(state.ship.damage.length, 0, 'FORGE-settled sidecars must leave v1 ship roots to CORE read projections.');
+assert.equal(state.runtimeTracking.revision, 0);
 assert.equal(state.campaignChatBinding.promptContextRevision, 1);
 assert.deepEqual(promptSyncs, [{
-  revision: 1,
+  revision: 0,
   workerKey: 'ship',
   promptDirtyDomains: ['crewShipRelationship'],
   activityPromptDirtyDomains: ['crewShipRelationship'],
@@ -876,7 +988,7 @@ results = await scheduler.schedule({
   }
 });
 assert.equal(results[0].status, 'applied');
-assert.deepEqual(state.ship.technicalDebt.at(-1).sourceComponentIds, ['component.source.coolant']);
+assert.equal((state.ship.technicalDebt || []).length, 0, 'FORGE-settled sidecars must not project component-derived ship roots into v1 state.');
 assert.deepEqual(results[0].proposal.derivedFromComponentIds, ['component.source.coolant']);
 await scheduler.pending();
 const componentDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-component-source');
@@ -899,7 +1011,7 @@ results = await scheduler.schedule({
   turnContext: { ingressId: 'ingress-2' }
 });
 assert.equal(results[0].status, 'noChange');
-assert.equal(state.runtimeTracking.revision, 2, 'Out-of-scope-only sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.revision, 0, 'Out-of-scope-only sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.length, journalLengthBeforeOutOfScopeNoChange, 'No-change sidecars must not append old v1 success journals.');
 assert.equal(coreDiagnostics.some((entry) => entry.ingressId === 'ingress-2'), false, 'Sidecars without a CORE transaction must not emit CORE diagnostics.');
 
@@ -942,7 +1054,7 @@ results = await scheduler.schedule({
   turnContext: { ingressId: 'ingress-2b' }
 });
 assert.equal(results[0].status, 'noChange');
-assert.equal(state.runtimeTracking.revision, 2, 'No-op sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.revision, 0, 'No-op sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.length, journalLengthBeforeEmptyNoChange, 'No-op sidecars must not append old v1 success journals.');
 await scheduler.pending();
 const noChangeDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-2b');
@@ -966,12 +1078,13 @@ results = await scheduler.schedule({
 });
 assert.equal(results[0].status, 'rejected');
 assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
-assert.equal(state.runtimeTracking.revision, 2, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
-assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, false);
+assert.equal(state.runtimeTracking.revision, 0, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.sidecarJournal.length, journalLengthBeforeEmptyNoChange, 'Invalid JSON sidecars must not append old v1 rejected journals.');
 await scheduler.pending();
 const rejectedDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-2c');
 assert.deepEqual(rejectedDiagnostics.map((entry) => entry.status), ['queued', 'running', 'rejected']);
 assert.equal(rejectedDiagnostics.at(-1).errorCode, 'DIRECTIVE_SIDECAR_JSON_INVALID');
+assert.equal(rejectedDiagnostics.at(-1).parse?.ok, false);
 
 {
   let repairState = initializeCampaignRuntimeTracking({
@@ -1078,9 +1191,10 @@ assert.equal(rejectedDiagnostics.at(-1).errorCode, 'DIRECTIVE_SIDECAR_JSON_INVAL
   });
   assert.equal(repairResults[0].status, 'applied');
   assert.equal(repairCalls.length, 2, 'Likely-truncated JSON should receive one strict repair attempt.');
-  assert.equal(repairState.crew.casualties.at(-1).id, 'json-repair');
+  assert.equal(repairResults[0].proposal.operations.at(-1).value.id, 'json-repair');
   assert.equal(repairCoreCommits.length, 1);
   assert.equal(repairCoreCommits[0].transactionId, 'txn-sidecar-json-repair');
+  assert.equal(repairState.crew.casualties.length, 0, 'Repaired FORGE-settled sidecars must not persist v1 crew roots.');
   assert.equal(repairState.runtimeTracking.sidecarJournal.length, 0);
   assert.equal(repairPromptSyncs.length, 1);
   assert.equal(JSON.stringify(repairResults).includes(rawTruncatedMarker), false, 'Accepted repair diagnostics must not persist malformed raw sidecar text.');
@@ -1116,8 +1230,9 @@ results = await scheduler.schedule({
   turnContext: { ingressId: 'ingress-3', outcomeId: 'outcome-3' }
 });
 assert.equal(results[0].status, 'applied');
-assert.equal(state.runtimeTracking.revision, 4);
-assert.equal(state.continuity.notes.at(-1), 'Stale continuity proposal.');
+assert.equal(state.runtimeTracking.revision, 1, 'FORGE-settled sidecars must not advance v1 mechanics revision after unrelated drift.');
+assert.equal(state.continuity.notes.includes('Stale continuity proposal.'), false, 'FORGE-settled sidecars must not persist v1 continuity roots.');
+assert.equal(results[0].proposal.operations.at(-1).value, 'Stale continuity proposal.');
 assert.equal(results[0].forgeSettlement?.status, 'settled');
 assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-ingress-3');
 assert.equal(promptSyncs.length, 3, 'Rebased sidecars with unchanged source should rebuild prompt context after apply.');
@@ -1166,8 +1281,7 @@ assert.equal(results[0].status, 'rejected');
 assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
 assert.equal(state.runtimeTracking.revision, revisionBeforeStaleSource, 'Stale-source sidecars must not advance campaign revision.');
 assert.equal(state.ship.damage.some((entry) => entry.id === 'stale-edit'), false);
-assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
-assert.equal(state.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
+assert.equal(state.runtimeTracking.sidecarJournal.length, 0, 'Stale-source sidecars must not append old v1 rejected journals.');
 assert.equal(promptSyncs.length, 3, 'Source-stale sidecars must not rebuild prompt context.');
 await scheduler.pending();
 const staleDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-stale-edit');
@@ -1215,8 +1329,10 @@ results = await scheduler.schedule({
   }
 });
 assert.equal(results[0].status, 'applied');
-assert.equal(state.runtimeTracking.revision, revisionBeforeContinuityDrop + 1);
-assert.equal(state.continuity.notes.at(-1), 'Serrin kept the bridge watch disciplined after the handoff.');
+assert.equal(state.runtimeTracking.revision, revisionBeforeContinuityDrop, 'FORGE-settled continuity sidecars must not advance v1 mechanics revision.');
+assert.equal(state.continuity.notes.includes('Serrin kept the bridge watch disciplined after the handoff.'), false);
+assert.equal(results[0].proposal.operations.some((operation) => operation.path === 'continuity.notes'), true);
+assert.equal(results[0].proposal.operations.some((operation) => operation.path === 'commandLog.entries'), false);
 assert.equal(state.commandLog.entries.length, commandLogBeforeContinuityDrop, 'continuity sidecars must not append Command Log entries');
 assert.equal(state.runtimeTracking.sidecarJournal.length, journalLengthBeforeContinuityDrop);
 assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-commandlog-drop');
@@ -1293,6 +1409,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   const reviewPromptFlushes = [];
   const reviewCoreCommits = [];
   const reviewPersistReasons = [];
+  const reviewPersistSnapshots = [];
   const reviewScheduler = createCampaignSidecarScheduler({
     generationRouter: {
       async generate(roleId, request) {
@@ -1349,6 +1466,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     setCampaignState: (next) => { reviewState = cloneJson(next); },
     persistCampaignState: async (next, reason) => {
       reviewPersistReasons.push(reason || null);
+      reviewPersistSnapshots.push(cloneJson(next));
       reviewState = cloneJson(next);
     },
     commitCoreBackgroundBatch: async (transactionId, bundle) => {
@@ -1375,7 +1493,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
           coreCommitCountAtSync: reviewCoreCommits.length,
           promptDirtyDomains: cloneJson(input.promptDirtyDomains || []),
           activityPromptDirtyDomains: cloneJson(input.activityContext?.promptDirtyDomains || []),
-          promptSyncIdempotencyKey: input.activityContext?.promptSyncIdempotencyKey || null
+          promptSyncIdempotencyKey: input.activityContext?.promptSyncIdempotencyKey || null,
+          coreAcceptedBatchProjection: cloneJson(input.coreAcceptedBatchProjection || null)
         });
         return { ok: true, status: 'rebuilt', campaignState: cloneJson(input.campaignState) };
       },
@@ -1395,6 +1514,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
           campaignContext: cloneJson(input.campaignContext || {}),
           sourceFrameRef: cloneJson(input.sourceFrameRef || null),
           sourceToken: input.sourceToken || null,
+          coreCommandBearingReviewProjection: cloneJson(input.coreCommandBearingReviewProjection || null),
           campaignRevision: input.campaignState?.runtimeTracking?.revision || 0
         });
         const synchronized = cloneJson(input.campaignState);
@@ -1403,6 +1523,25 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
           chatId: synchronized.campaignChatBinding?.chatId || 'campaign-chat',
           promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1,
           promptContextOwner: 'forge-lens-command-bearing-review-test'
+        };
+        synchronized.ship = {
+          ...(synchronized.ship || {}),
+          condition: 'Illicit review prompt mutation'
+        };
+        synchronized.crew = {
+          ...(synchronized.crew || {}),
+          casualties: [
+            ...(synchronized.crew?.casualties || []),
+            { id: 'review-prompt-leak', summary: 'Must not persist from review prompt output.' }
+          ]
+        };
+        synchronized.runtimeTracking = {
+          ...(synchronized.runtimeTracking || {}),
+          promptContext: {
+            status: 'active',
+            revision: 17,
+            hash: 'command-bearing-review-prompt-hash'
+          }
         };
         return {
           ok: true,
@@ -1423,29 +1562,35 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   });
   assert.equal(reviewResults[0].status, 'applied');
   assert.equal(reviewCalls.length, 2, 'accepted Command Bearing evidence should trigger same-source closure review');
-  assert.equal(reviewState.commandBearing.evidenceLedger.records.length, 1);
-  assert.equal(reviewState.commandBearing.reviewLedger.records.length, 1);
-  assert.equal(reviewState.commandBearing.reviewLedger.records[0].awardedTrack, 'resolve');
-  assert.equal(reviewState.commandBearing.tracks.resolve.marks, 1);
+  assert.equal(reviewState.commandBearing.evidenceLedger?.records?.length || 0, 0, 'Accepted Command Bearing evidence must not persist old v1 evidence roots.');
+  assert.equal((reviewState.commandBearing.reviewLedger?.records || []).length, 0, 'Command Bearing review settlement must not persist old v1 review ledger roots.');
+  assert.equal(reviewState.commandBearing.tracks?.resolve?.marks || 0, 0, 'Command Bearing review settlement must not persist old v1 track marks.');
+  assert.equal(reviewState.ship.condition, 'Operational', 'Command Bearing review prompt output must not persist non-command ship roots.');
+  assert.equal(reviewState.crew.casualties.length, 0, 'Command Bearing review prompt output must not persist non-command crew roots.');
+  assert.equal(reviewState.runtimeTracking.promptContext.hash, 'command-bearing-review-prompt-hash');
   assert.equal(reviewGatewayPersists.length, 0, 'Command Bearing sidecar bridge must not persist through StateDeltaGateway before CORE review settlement.');
   assert.equal(reviewCoreCommits.length, 2, 'Command Bearing closure review mutation needs its own durable CORE background evidence.');
   assert.equal(reviewCoreCommits[0].transactionId, 'txn-sidecar-command-bearing-review');
   assert.equal(reviewCoreCommits[1].transactionId, 'txn-sidecar-command-bearing-review');
   assert.match(reviewCoreCommits[1].bundle.batchId, /^command-bearing-review:txn-sidecar-command-bearing-review:/);
   assert.equal(reviewCoreCommits[1].bundle.forgeBatchRef.kind, 'directive.commandBearingReviewCommitRef.v1');
+  assert.equal(reviewCoreCommits[1].bundle.backgroundEffectRefs[0].kind, 'directive.commandBearingReviewClosure.v1');
+  assert.equal(reviewCoreCommits[1].bundle.backgroundEffectRefs[0].id, 'closure.milestone.milestone.sidecar.resolve.1');
   assert.equal(reviewState.runtimeTracking.sidecarJournal.length, 0);
   assert.deepEqual(reviewPromptSyncs.map((entry) => entry.promptDirtyDomains), [['command']]);
   assert.deepEqual(reviewPromptSyncs.map((entry) => entry.activityPromptDirtyDomains), [['command']]);
   assert.match(reviewPromptSyncs[0].promptSyncIdempotencyKey, /^campaign-sidecar-provider:.*:prompt-sync:accepted:[a-f0-9]{64}$/);
   assert.equal(reviewPromptSyncs[0].coreCommitCountAtSync, 1);
+  assert.equal(reviewPromptSyncs[0].coreAcceptedBatchProjection.workerKeys.includes('commandBearing'), true);
+  assert.equal(reviewPromptSyncs[0].coreAcceptedBatchProjection.commandBearingEvidence.length, 1);
+  assert.equal(reviewPromptSyncs[0].coreAcceptedBatchProjection.commandBearingEvidence[0].evidenceId, 'bearing-evidence.sidecar.resolve');
+  assert.equal(JSON.stringify(reviewPromptSyncs[0].coreAcceptedBatchProjection.commandBearingEvidence).includes('RAW_COMMAND_BEARING'), false);
   assert.equal(reviewPromptFlushes.length, 1);
   assert.equal(reviewPromptFlushes[0].workerKey, 'commandBearing');
   assert.equal(reviewPromptFlushes[0].commandBearingReview, true);
   assert.equal(reviewPromptFlushes[0].coreCommitCountAtFlush, 2, 'Review-specific prompt flush must run only after the review CORE settlement receipt is durable.');
   assert.deepEqual(reviewPromptFlushes[0].persistReasonsAtFlush, [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
-    'Campaign sidecar batch prompt context synchronized.',
-    'Command Bearing sidecar closure review compatibility projection persisted after CORE settlement.'
+    'Campaign sidecar batch prompt context synchronized.'
   ]);
   assert.deepEqual(reviewPromptFlushes[0].promptDirtyDomains, ['commandBearing']);
   assert.deepEqual(reviewPromptFlushes[0].promptFrame.promptDirtyDomains, ['commandBearing']);
@@ -1456,6 +1601,11 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewPromptFlushes[0].transactionId, 'txn-sidecar-command-bearing-review');
   assert.equal(reviewPromptFlushes[0].sourceFrameRef.id, 'frame-sidecar-command-bearing-review');
   assert.ok(reviewPromptFlushes[0].sourceToken);
+  assert.equal(reviewPromptFlushes[0].coreCommandBearingReviewProjection?.kind, 'directive.coreCommandBearingReviewProjection.v1');
+  assert.equal(reviewPromptFlushes[0].coreCommandBearingReviewProjection.transactionId, 'txn-sidecar-command-bearing-review');
+  assert.equal(reviewPromptFlushes[0].coreCommandBearingReviewProjection.batchId, reviewCoreCommits[1].bundle.batchId);
+  assert.equal(reviewPromptFlushes[0].coreCommandBearingReviewProjection.reviewHash, reviewCoreCommits[1].bundle.forgeBatchRef.reviewHash);
+  assert.deepEqual(reviewPromptFlushes[0].coreCommandBearingReviewProjection.closures.map((entry) => entry.closureId), ['closure.milestone.milestone.sidecar.resolve.1']);
   assert.equal(reviewPromptFlushes[0].binding.chatId, 'campaign-chat');
   assert.equal(reviewPromptFlushes[0].campaignContext.chatId, 'campaign-chat');
   assert.equal(reviewPromptFlushes[0].campaignContext.campaignId, 'campaign-sidecar-command-bearing-review-test');
@@ -1463,10 +1613,168 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewPromptFlushes[0].idempotencyKey, reviewPromptFlushes[0].promptSyncIdempotencyKey);
   assert.equal(reviewPromptFlushes[0].promptSyncIdempotencyKey.endsWith(`:${reviewCoreCommits[1].bundle.forgeBatchRef.reviewHash}`), true);
   assert.deepEqual(reviewPersistReasons, [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
     'Campaign sidecar batch prompt context synchronized.',
-    'Command Bearing sidecar closure review compatibility projection persisted after CORE settlement.',
     'Command Bearing sidecar closure review prompt context synchronized.'
+  ]);
+  assert.equal(
+    reviewPersistSnapshots.some((snapshot) => (snapshot.commandBearing?.reviewLedger?.records || []).length > 0),
+    false,
+    'No persisted Command Bearing review snapshot may carry old v1 review records.'
+  );
+}
+
+{
+  let mixedCommandBearingState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-mixed-command-bearing-test', status: 'active' },
+    campaignChatBinding: {
+      campaignId: 'campaign-sidecar-mixed-command-bearing-test',
+      saveId: 'save-sidecar-mixed-command-bearing-test',
+      chatId: 'campaign-chat',
+      branchId: 'main'
+    },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    questLedger: { instances: [] },
+    attentionState: { foregroundQuestId: null },
+    worldState: { locations: [], actors: [], factions: [] },
+    storyArcLedger: { arcs: [], milestones: [] },
+    eventLedger: { events: [] },
+    threadLedger: { records: [] },
+    dynamicQuestCatalog: { templates: [] },
+    knowledgeLedger: { facts: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  mixedCommandBearingState = recordTurnIngress(mixedCommandBearingState, {
+    id: 'ingress-sidecar-mixed-command-bearing',
+    hostMessageId: 'player-sidecar-mixed-command-bearing',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-mixed-command-bearing-test',
+    textHash: 'mixed-command-bearing-source-hash',
+    textPreview: 'Source message for mixed Command Bearing batch.',
+    status: 'committed',
+    outcomeId: 'outcome.sidecar.mixed-command-bearing',
+    sourceFrameId: 'frame-sidecar-mixed-command-bearing',
+    coreTransactionId: 'txn-sidecar-mixed-command-bearing'
+  });
+  const mixedCommandBearingGateway = createStateDeltaGateway({
+    getState: () => mixedCommandBearingState,
+    setState: (next) => { mixedCommandBearingState = cloneJson(next); },
+    persist: async () => {
+      assert.fail('Mixed accepted sidecar bridge must not persist through StateDeltaGateway before CORE/FORGE settlement.');
+    },
+    now
+  });
+  const mixedCommandBearingCommits = [];
+  const mixedCommandBearingPersistReasons = [];
+  const mixedCommandBearingPromptFlushes = [];
+  const mixedCommandBearingResults = await createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Mixed sidecar batch should not need a Command Bearing closure review.');
+      },
+      async batch(requests) {
+        return requests.map((request) => {
+          if (request.roleId === 'commandBearingEvaluator') {
+            return {
+              ok: true,
+              response: {
+                text: JSON.stringify({
+                  id: 'mixed-command-bearing-evidence',
+                  operations: [{
+                    op: 'append',
+                    path: 'commandBearing.evidenceLedger.records',
+                    value: {
+                      id: 'bearing-evidence.sidecar.mixed',
+                      sourceOutcomeId: 'outcome.sidecar.mixed-command-bearing',
+                      sourceTurnId: 'turn.sidecar.mixed-command-bearing',
+                      primarySignal: 'resolve',
+                      trackSignals: ['resolve'],
+                      strength: 'moderate',
+                      criteria: { agency: true, commitment: true, causality: true },
+                      actionSummary: 'Held a mixed-batch boundary.',
+                      consequenceSummary: 'Command evidence was recorded without owning crew or ship state.',
+                      playerFacingSummary: 'This may support Resolve without applying unrelated sidecar roots.',
+                      visible: true,
+                      status: 'open'
+                    }
+                  }],
+                  summary: 'Record mixed Command Bearing evidence.'
+                })
+              }
+            };
+          }
+          return {
+            ok: true,
+            response: {
+              text: JSON.stringify({
+                id: `mixed-command-bearing-${request.roleId}`,
+                operations: [{
+                  op: request.roleId === 'shipDirector' ? 'set' : 'append',
+                  path: request.roleId === 'shipDirector' ? 'ship.condition' : 'crew.casualties',
+                  value: request.roleId === 'shipDirector'
+                    ? 'Shield grid fluctuating'
+                    : { id: 'mixed-command-bearing-crew', summary: 'Minor triage recorded by non-command sidecar.' }
+                }],
+                summary: 'Non-command sidecar must remain CORE-only.'
+              })
+            }
+          };
+        });
+      }
+    },
+    stateDeltaGateway: mixedCommandBearingGateway,
+    getCampaignState: () => mixedCommandBearingState,
+    setCampaignState: (next) => { mixedCommandBearingState = cloneJson(next); },
+    persistCampaignState: async (next, reason) => {
+      mixedCommandBearingPersistReasons.push(reason || null);
+      mixedCommandBearingState = cloneJson(next);
+    },
+    commitCoreBackgroundBatch: async (transactionId, bundle) => {
+      mixedCommandBearingCommits.push({ transactionId, bundle: cloneJson(bundle) });
+      return forgeBackgroundTransaction(transactionId, bundle);
+    },
+    forgeCoordinator: createTestAcceptedForgeCoordinator({
+      commits: mixedCommandBearingCommits,
+      acceptedBatchPromptFlusher: async (input = {}) => {
+        const promptInput = cloneJson(input.campaignState || {});
+        promptInput.coreAcceptedBatchProjection = cloneJson(input.coreAcceptedBatchProjection || null);
+        mixedCommandBearingPromptFlushes.push(promptInput);
+        const synchronized = cloneJson(input.campaignState);
+        synchronized.campaignChatBinding = {
+          ...(synchronized.campaignChatBinding || {}),
+          promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1,
+          promptContextOwner: 'mixed-command-bearing-prompt'
+        };
+        return { ok: true, status: 'rebuilt', campaignState: synchronized };
+      }
+    }),
+    now
+  }).schedule({
+    workerPlan: { crew: true, ship: true, commandBearing: true },
+    turnContext: {
+      ingressId: 'ingress-sidecar-mixed-command-bearing',
+      turnId: 'turn.sidecar.mixed-command-bearing',
+      outcomeId: 'outcome.sidecar.mixed-command-bearing'
+    }
+  });
+  assert.deepEqual(mixedCommandBearingResults.map((result) => result.status), ['applied', 'applied', 'applied']);
+  assert.equal(mixedCommandBearingPromptFlushes.length, 1);
+  assert.equal(mixedCommandBearingPromptFlushes[0].crew.casualties.length, 0, 'Mixed batch prompt input must not see transient non-command v1 roots.');
+  assert.equal(mixedCommandBearingPromptFlushes[0].ship.condition, 'Operational', 'Mixed batch prompt input must not see transient non-command v1 roots.');
+  assert.equal(mixedCommandBearingState.commandBearing.evidenceLedger?.records?.length || 0, 0, 'Mixed Command Bearing batches must not persist old v1 evidence roots.');
+  assert.equal(mixedCommandBearingPromptFlushes[0].coreAcceptedBatchProjection.commandBearingEvidence.length, 1);
+  assert.equal(mixedCommandBearingPromptFlushes[0].coreAcceptedBatchProjection.commandBearingEvidence[0].evidenceId, 'bearing-evidence.sidecar.mixed');
+  assert.equal(mixedCommandBearingState.crew.casualties.length, 0, 'Mixed Command Bearing batches must not persist non-command v1 crew roots.');
+  assert.equal(mixedCommandBearingState.ship.condition, 'Operational', 'Mixed Command Bearing batches must not persist non-command v1 ship roots.');
+  assert.equal(mixedCommandBearingState.campaignChatBinding.promptContextRevision, 1);
+  assert.deepEqual(mixedCommandBearingPersistReasons, [
+    'Campaign sidecar batch prompt context synchronized.'
   ]);
 }
 
@@ -1636,7 +1944,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     }
   });
   assert.equal(badReviewResults[0].status, 'applied');
-  assert.equal(badReviewState.commandBearing.evidenceLedger.records.length, 1);
+  assert.equal(badReviewState.commandBearing.evidenceLedger?.records?.length || 0, 0);
   assert.equal(badReviewState.commandBearing.reviewLedger?.records?.length || 0, 0);
   assert.equal(badReviewState.commandBearing.tracks?.resolve?.marks || 0, 0);
   assert.equal(badReviewCoreCommits.length, 2);
@@ -1653,24 +1961,53 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
 }
 
 {
-  const reviewPersistFailure = await runCommandBearingReviewPromptScenario({
-    suffix: 'review-persist-failure',
-    reviewPersistThrows: true,
-    rawCanary: 'RAW_REVIEW_COMPATIBILITY_PERSIST_FAILURE_MUST_NOT_PERSIST'
+  const reviewNoState = await runCommandBearingReviewPromptScenario({
+    suffix: 'review-no-state',
+    reviewFlushReturnsState: false,
+    rawCanary: 'RAW_REVIEW_NO_STATE_MUST_NOT_PERSIST'
   });
-  assert.deepEqual(reviewPersistFailure.results.map((result) => result.status), ['applied']);
-  assert.deepEqual(reviewPersistFailure.generationCalls, ['commandBearingEvaluator', 'commandBearingEvaluator']);
-  assert.equal(reviewPersistFailure.coreCommits.length, 2, 'Review CORE settlement should complete before compatibility persist failure is handled.');
-  assert.equal(reviewPersistFailure.promptFlushes.length, 0, 'Review prompt flush must not run after review compatibility persist failure.');
-  assert.deepEqual(reviewPersistFailure.schedulerPromptSyncs.map((entry) => entry.commandBearingReview), [false]);
-  assert.equal(reviewPersistFailure.state.commandBearing.evidenceLedger.records.length, 1);
-  assert.equal(reviewPersistFailure.state.commandBearing.reviewLedger?.records?.length || 0, 0);
-  assert.equal(reviewPersistFailure.state.commandBearing.tracks?.resolve?.marks || 0, 0);
-  assert.equal(reviewPersistFailure.results[0].postSettlementWarnings.length, 1);
-  assert.equal(reviewPersistFailure.results[0].postSettlementWarnings[0].stage, 'commandBearingReview');
-  assert.equal(reviewPersistFailure.results[0].postSettlementWarnings[0].code, 'DIRECTIVE_REVIEW_COMPATIBILITY_PERSIST_FAILED');
-  assert.equal(JSON.stringify(reviewPersistFailure.results).includes(reviewPersistFailure.rawCanary), false);
-  assert.equal(JSON.stringify(reviewPersistFailure.state).includes(reviewPersistFailure.rawCanary), false);
+  assert.deepEqual(reviewNoState.results.map((result) => result.status), ['applied']);
+  assert.deepEqual(reviewNoState.generationCalls, ['commandBearingEvaluator', 'commandBearingEvaluator']);
+  assert.equal(reviewNoState.coreCommits.length, 2);
+  assert.equal(reviewNoState.promptFlushes.length, 1);
+  assert.equal(reviewNoState.state.commandBearing.evidenceLedger?.records?.length || 0, 0);
+  assert.equal(reviewNoState.state.commandBearing.reviewLedger?.records?.length || 0, 0, 'No-state review prompt flush must restore transient v1 review ledger roots.');
+  assert.equal(reviewNoState.state.commandBearing.tracks?.resolve?.marks || 0, 0, 'No-state review prompt flush must restore transient v1 track marks.');
+  assertNoTransientCommandBearingReviewTracking(reviewNoState, reviewNoState.promptFlushes[0].campaignRevision, 'No-state review prompt flush');
+  assert.equal(reviewNoState.persistReasons.some((reason) => String(reason || '').includes('closure review prompt context synchronized')), false);
+  assert.equal(reviewNoState.results[0].postSettlementWarnings.length, 1);
+  assert.equal(reviewNoState.results[0].postSettlementWarnings[0].stage, 'lens');
+  assert.equal(reviewNoState.results[0].postSettlementWarnings[0].code, 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_NO_STATE');
+  assert.equal(JSON.stringify(reviewNoState.results).includes(reviewNoState.rawCanary), false);
+  assert.equal(JSON.stringify(reviewNoState.state).includes(reviewNoState.rawCanary), false);
+}
+
+{
+  const reviewFallbackNoState = await runCommandBearingReviewPromptScenario({
+    suffix: 'review-fallback-no-state',
+    reviewForgePromptMethod: false,
+    reviewFallbackReturnsState: false,
+    rawCanary: 'RAW_REVIEW_FALLBACK_NO_STATE_MUST_NOT_PERSIST'
+  });
+  assert.deepEqual(reviewFallbackNoState.results.map((result) => result.status), ['applied']);
+  assert.deepEqual(reviewFallbackNoState.generationCalls, ['commandBearingEvaluator', 'commandBearingEvaluator']);
+  assert.equal(reviewFallbackNoState.coreCommits.length, 2);
+  assert.equal(reviewFallbackNoState.promptFlushes.length, 0);
+  assert.deepEqual(reviewFallbackNoState.schedulerPromptSyncs.map((entry) => entry.commandBearingReview), [false, true]);
+  assert.equal(reviewFallbackNoState.state.commandBearing.evidenceLedger?.records?.length || 0, 0);
+  assert.equal(reviewFallbackNoState.state.commandBearing.reviewLedger?.records?.length || 0, 0, 'Fallback no-state review prompt sync must restore transient v1 review ledger roots.');
+  assert.equal(reviewFallbackNoState.state.commandBearing.tracks?.resolve?.marks || 0, 0, 'Fallback no-state review prompt sync must restore transient v1 track marks.');
+  assertNoTransientCommandBearingReviewTracking(
+    reviewFallbackNoState,
+    reviewFallbackNoState.schedulerPromptSyncs.find((entry) => entry.commandBearingReview)?.revision,
+    'Fallback no-state review prompt sync'
+  );
+  assert.equal(reviewFallbackNoState.persistReasons.some((reason) => String(reason || '').includes('closure review prompt context synchronized')), false);
+  assert.equal(reviewFallbackNoState.results[0].postSettlementWarnings.length, 1);
+  assert.equal(reviewFallbackNoState.results[0].postSettlementWarnings[0].stage, 'promptSync');
+  assert.equal(reviewFallbackNoState.results[0].postSettlementWarnings[0].code, 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_REVIEW_SYNC_NO_STATE');
+  assert.equal(JSON.stringify(reviewFallbackNoState.results).includes(reviewFallbackNoState.rawCanary), false);
+  assert.equal(JSON.stringify(reviewFallbackNoState.state).includes(reviewFallbackNoState.rawCanary), false);
 }
 
 {
@@ -1684,13 +2021,12 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewLensFailure.coreCommits.length, 2);
   assert.equal(reviewLensFailure.promptFlushes.length, 1);
   assert.deepEqual(reviewLensFailure.schedulerPromptSyncs.map((entry) => entry.commandBearingReview), [false]);
-  assert.equal(reviewLensFailure.state.commandBearing.evidenceLedger.records.length, 1);
-  assert.equal(reviewLensFailure.state.commandBearing.reviewLedger.records.length, 1, 'Review mutation must remain applied after non-critical LENS prompt flush failure.');
-  assert.equal(reviewLensFailure.state.commandBearing.tracks.resolve.marks, 1);
+  assert.equal(reviewLensFailure.state.commandBearing.evidenceLedger?.records?.length || 0, 0);
+  assert.equal(reviewLensFailure.state.commandBearing.reviewLedger?.records?.length || 0, 0, 'LENS prompt failure must not leave old v1 review roots applied.');
+  assert.equal(reviewLensFailure.state.commandBearing.tracks?.resolve?.marks || 0, 0);
+  assertNoTransientCommandBearingReviewTracking(reviewLensFailure, reviewLensFailure.promptFlushes[0].campaignRevision, 'LENS prompt failure');
   assert.deepEqual(reviewLensFailure.persistReasons, [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
-    'Campaign sidecar batch prompt context synchronized.',
-    'Command Bearing sidecar closure review compatibility projection persisted after CORE settlement.'
+    'Campaign sidecar batch prompt context synchronized.'
   ]);
   assert.equal(reviewLensFailure.results[0].postSettlementWarnings.length, 1);
   assert.equal(reviewLensFailure.results[0].postSettlementWarnings[0].stage, 'lens');
@@ -1743,7 +2079,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(wrongReviewIdempotency.coreCommits.length, 2);
   assert.equal(wrongReviewIdempotency.promptFlushes.length, 0, 'Bad review CORE idempotency receipt must block review prompt flush.');
   assert.deepEqual(wrongReviewIdempotency.schedulerPromptSyncs.map((entry) => entry.commandBearingReview), [false]);
-  assert.equal(wrongReviewIdempotency.state.commandBearing.evidenceLedger.records.length, 1);
+  assert.equal(wrongReviewIdempotency.state.commandBearing.evidenceLedger?.records?.length || 0, 0);
   assert.equal(wrongReviewIdempotency.state.commandBearing.reviewLedger?.records?.length || 0, 0);
   assert.equal(wrongReviewIdempotency.results[0].postSettlementWarnings.length, 1);
   assert.equal(wrongReviewIdempotency.results[0].postSettlementWarnings[0].stage, 'commandBearingReview');
@@ -1763,9 +2099,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewFlushRace.promptFlushes[0].beforeInstallPromptResult?.ok, false);
   assert.equal(reviewFlushRace.promptFlushes[0].beforeInstallPromptResult?.code, 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE');
   assert.deepEqual(reviewFlushRace.schedulerPromptSyncs.map((entry) => entry.commandBearingReview), [false]);
-  assert.equal(reviewFlushRace.state.commandBearing.evidenceLedger.records.length, 1);
-  assert.equal(reviewFlushRace.state.commandBearing.reviewLedger.records.length, 1, 'Review mutation must remain applied in the live current state.');
-  assert.equal(reviewFlushRace.state.commandBearing.tracks.resolve.marks, 1);
+  assert.equal(reviewFlushRace.state.commandBearing.evidenceLedger?.records?.length || 0, 0);
+  assert.equal(reviewFlushRace.state.commandBearing.reviewLedger?.records?.length || 0, 0, 'Stale review prompt install must not leave old v1 review roots applied.');
+  assert.equal(reviewFlushRace.state.commandBearing.tracks?.resolve?.marks || 0, 0);
+  assertNoTransientCommandBearingReviewTracking(reviewFlushRace, reviewFlushRace.promptFlushes[0].campaignRevision, 'Stale review prompt install');
   assert.equal(reviewFlushRace.state.commandLog.entries.some((entry) => entry.id === 'external-review-flush-race-review-flush-race'), true);
   assert.equal(reviewFlushRace.state.campaignChatBinding.promptContextOwner, 'external-review-flush-race-review-flush-race');
   assert.equal(reviewFlushRace.persistReasons.includes('Command Bearing sidecar closure review prompt context synchronized.'), false);
@@ -1774,6 +2111,41 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewFlushRace.results[0].postSettlementWarnings[0].code, 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE');
   assert.equal(JSON.stringify(reviewFlushRace.results).includes(reviewFlushRace.rawCanary), false);
   assert.equal(JSON.stringify(reviewFlushRace.state).includes(reviewFlushRace.rawCanary), false);
+}
+
+{
+  const reviewTrackedFlushRace = await runCommandBearingReviewPromptScenario({
+    suffix: 'review-tracked-flush-race',
+    trackedLiveStateDuringReviewFlush: true,
+    seedBaseTrackingHistory: true,
+    rawCanary: 'RAW_REVIEW_TRACKED_FLUSH_RACE_MUST_NOT_PERSIST'
+  });
+  assert.deepEqual(reviewTrackedFlushRace.results.map((result) => result.status), ['applied']);
+  assert.equal(reviewTrackedFlushRace.promptFlushes.length, 1);
+  assert.equal(reviewTrackedFlushRace.promptFlushes[0].commitRuntimeState, false);
+  assert.equal(reviewTrackedFlushRace.promptFlushes[0].beforeInstallPrompt, true);
+  assert.equal(reviewTrackedFlushRace.promptFlushes[0].beforeInstallPromptResult?.ok, false);
+  assert.deepEqual(reviewTrackedFlushRace.schedulerPromptSyncs.map((entry) => entry.commandBearingReview), [false]);
+  assert.equal(reviewTrackedFlushRace.state.commandBearing.evidenceLedger?.records?.length || 0, 0);
+  assert.equal(reviewTrackedFlushRace.state.commandBearing.reviewLedger?.records?.length || 0, 0);
+  assert.equal(reviewTrackedFlushRace.state.commandBearing.tracks?.resolve?.marks || 0, 0);
+  assert.equal(reviewTrackedFlushRace.state.commandLog.entries.some((entry) => entry.id === 'tracked-review-flush-race-review-tracked-flush-race'), true);
+  assert.equal(reviewTrackedFlushRace.state.campaignChatBinding.promptContextOwner, 'tracked-review-flush-race-review-tracked-flush-race');
+  assert.equal(reviewTrackedFlushRace.state.runtimeTracking.revision, reviewTrackedFlushRace.promptFlushes[0].campaignRevision + 1);
+  assert.equal(reviewTrackedFlushRace.state.runtimeTracking.lastDelta?.reason, 'Tracked external drift during Command Bearing review prompt flush.');
+  assertNoCommandBearingReviewTrackingLeak(reviewTrackedFlushRace, 'Tracked stale review prompt install');
+  const retainedBaseSnapshot = reviewTrackedFlushRace.state.runtimeTracking.history.find((entry) => entry.reason === 'Seed base tracked history before Command Bearing review.')?.snapshot;
+  assert.equal(
+    retainedBaseSnapshot?.commandBearing?.evidenceLedger?.records?.[0]?.id,
+    'base-history-sentinel',
+    'Review snapshot scrub must not rewrite pre-existing base history snapshots.'
+  );
+  assert.equal(reviewTrackedFlushRace.persistReasons.includes('Command Bearing sidecar closure review prompt context synchronized.'), false);
+  assert.equal(reviewTrackedFlushRace.results[0].postSettlementWarnings.length, 1);
+  assert.equal(reviewTrackedFlushRace.results[0].postSettlementWarnings[0].stage, 'lens');
+  assert.equal(reviewTrackedFlushRace.results[0].postSettlementWarnings[0].code, 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_STATE_STALE');
+  assert.equal(JSON.stringify(reviewTrackedFlushRace.results).includes(reviewTrackedFlushRace.rawCanary), false);
+  assert.equal(JSON.stringify(reviewTrackedFlushRace.state).includes(reviewTrackedFlushRace.rawCanary), false);
 }
 
 {
@@ -1830,6 +2202,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   const batchPromptSyncs = [];
   const batchForgeBackgroundBatches = [];
   const batchForgeDiagnostics = [];
+  const batchSetStateSnapshots = [];
   const batchGateway = createStateDeltaGateway({
     getState: () => batchState,
     setState: (next) => { batchState = cloneJson(next); },
@@ -1907,7 +2280,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     },
     stateDeltaGateway: batchGateway,
     getCampaignState: () => batchState,
-    setCampaignState: (next) => { batchState = cloneJson(next); },
+    setCampaignState: (next) => {
+      batchSetStateSnapshots.push(cloneJson(next));
+      batchState = cloneJson(next);
+    },
     persistCampaignState: async (next, reason) => {
       batchPersistReasons.push(reason || null);
       batchState = cloneJson(next);
@@ -1954,9 +2330,16 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(batchValidateCalls[0].policy.allowedRoots.sort(), ['crew', 'relationships', 'ship']);
   assert.equal(batchGatewayPersists.length, 0, 'StateDeltaGateway must not persist accepted sidecar projection before final CORE/FORGE settlement.');
   assert.equal(batchPromptSyncs.length, 0, 'FORGE-settled batches without a LENS prompt helper must not call scheduler-owned syncPromptContext.');
-  assert.deepEqual(batchPersistReasons, [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.'
-  ]);
+  assert.deepEqual(batchPersistReasons, [], 'FORGE-settled accepted sidecars must not persist v1 compatibility projection roots.');
+  assert.equal(
+    batchSetStateSnapshots.some((snapshot) => (
+      (snapshot.relationships?.seniorCrew || []).length > 0
+      || (snapshot.crew?.casualties || []).length > 0
+      || snapshot.ship?.condition === 'Damaged but mobile'
+    )),
+    false,
+    'FORGE-settled accepted sidecars must not assign projected v1 roots into runtime state.'
+  );
   assert.equal(batchResults.every((result) => result.postSettlementWarnings?.[0]?.stage === 'lens'), true);
   assert.equal(batchResults.every((result) => result.postSettlementWarnings?.[0]?.code === 'DIRECTIVE_SIDECAR_POST_SETTLEMENT_LENS_FLUSH_UNAVAILABLE'), true);
   assert.equal(batchForgeBackgroundBatches.length, 1);
@@ -2006,11 +2389,11 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(batchReplay.status, 'replayed');
   assert.equal(batchForgeBackgroundBatches.length, 1);
   assert.equal(batchForgeDiagnostics.length, 3);
-  assert.equal(batchState.runtimeTracking.revision, 1);
+  assert.equal(batchState.runtimeTracking.revision, 0);
   assert.equal(batchState.campaignChatBinding?.promptContextRevision || 0, 0);
-  assert.equal(batchState.relationships.seniorCrew.length, 1);
-  assert.equal(batchState.crew.casualties.length, 1);
-  assert.equal(batchState.ship.condition, 'Damaged but mobile');
+  assert.equal(batchState.relationships.seniorCrew.length, 0);
+  assert.equal(batchState.crew.casualties.length, 0);
+  assert.equal(batchState.ship.condition, 'Operational');
   assert.equal(batchState.runtimeTracking.sidecarJournal.length, 0, 'Accepted FORGE-settled sidecar batches must not duplicate applied entries into the old v1 sidecar journal.');
   assert.equal(JSON.stringify(batchResults).includes('RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'), false);
   const duplicateBatchResults = await batchScheduler.schedule({
@@ -2022,13 +2405,157 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     }
   });
   assert.deepEqual(duplicateBatchResults.map((result) => result.status), ['applied', 'applied', 'applied']);
-  assert.equal(batchCalls.length, 2);
+  assert.equal(batchCalls.length, 1, 'Clean accepted-batch replay must reuse provider batch result instead of regenerating sidecars.');
   assert.equal(batchApplyCalls.length, 0);
   assert.equal(batchValidateCalls.length, 1);
   assert.equal(batchPromptSyncs.length, 0);
   assert.equal(batchForgeBackgroundBatches.length, 1);
-  assert.equal(batchForgeDiagnostics.length, 4);
+  assert.equal(batchForgeDiagnostics.length, 3);
   assert.equal(batchState.runtimeTracking.sidecarJournal.length, 0);
+  batchState = updateTurnIngress(batchState, 'ingress-batch-1', {
+    status: 'invalidated',
+    invalidatedAt: '2026-06-22T06:04:00.000Z',
+    invalidationType: 'playerMessageEdited',
+    replacementText: 'Edited source after accepted provider cache.',
+    textHash: 'batch-1-edited-hash'
+  });
+  const staleCachedBatchResults = await batchScheduler.schedule({
+    workerPlan: { relationship: true, crew: true, ship: true },
+    turnContext: {
+      ingressId: 'ingress-batch-1',
+      turnId: 'turn-batch-1',
+      outcomeId: 'outcome-batch-1'
+    }
+  });
+  assert.deepEqual(staleCachedBatchResults.map((result) => result.status), ['rejected', 'rejected', 'rejected']);
+  assert.equal(staleCachedBatchResults.every((result) => result.error.code === 'DIRECTIVE_SIDECAR_SOURCE_STALE'), true);
+  assert.equal(batchCalls.length, 1, 'Stale provider-batch replay must reject before provider generation.');
+  assert.equal(batchValidateCalls.length, 1, 'Stale provider-batch replay must not revalidate cached accepted operations.');
+}
+
+{
+  let staleReplayState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-stale-provider-replay-test', status: 'active' },
+    campaignChatBinding: {
+      campaignId: 'campaign-sidecar-stale-provider-replay-test',
+      saveId: 'save-sidecar-stale-provider-replay-test',
+      chatId: 'campaign-chat',
+      branchId: 'main'
+    },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  staleReplayState = recordTurnIngress(staleReplayState, {
+    id: 'ingress-stale-provider-replay',
+    hostMessageId: 'player-stale-provider-replay',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-stale-provider-replay-test',
+    textHash: 'stale-provider-replay-source-hash',
+    textPreview: 'Source message for stale provider replay.',
+    status: 'committed',
+    outcomeId: 'outcome-stale-provider-replay',
+    sourceFrameId: 'frame-stale-provider-replay',
+    sourceFrame: {
+      kind: 'directive.turnSourceFrame.v1',
+      schemaVersion: 1,
+      id: 'frame-stale-provider-replay',
+      campaignId: 'campaign-sidecar-stale-provider-replay-test',
+      saveId: 'save-sidecar-stale-provider-replay-test',
+      chatId: 'campaign-chat',
+      hostMessageId: 'player-stale-provider-replay',
+      textHash: 'stale-provider-replay-source-hash'
+    },
+    coreTransactionId: 'txn-stale-provider-replay'
+  });
+  const staleReplayGateway = createStateDeltaGateway({
+    getState: () => staleReplayState,
+    setState: (next) => { staleReplayState = cloneJson(next); },
+    persist: async (next) => { staleReplayState = cloneJson(next); },
+    now
+  });
+  const staleReplayBatchCalls = [];
+  const staleReplayCommits = [];
+  const staleReplayPromptFlushes = [];
+  const staleReplayScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Multiple requested campaign sidecars should use the batch generation path.');
+      },
+      async batch(requests) {
+        staleReplayBatchCalls.push(requests.map((request) => request.roleId));
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: `stale-provider-replay-${request.roleId}`,
+              operations: [{
+                op: 'append',
+                path: request.roleId === 'crewDirector' ? 'crew.casualties' : 'relationships.seniorCrew',
+                value: { id: `stale-provider-replay-${request.roleId}`, summary: 'Cacheable accepted sidecar result.' }
+              }],
+              summary: 'Cacheable accepted provider replay result.'
+            })
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: staleReplayGateway,
+    getCampaignState: () => staleReplayState,
+    setCampaignState: (next) => { staleReplayState = cloneJson(next); },
+    persistCampaignState: async (next) => { staleReplayState = cloneJson(next); },
+    commitCoreBackgroundBatch: async (transactionId, bundle) => {
+      staleReplayCommits.push({ transactionId, bundle: cloneJson(bundle) });
+      return forgeBackgroundTransaction(transactionId, bundle);
+    },
+    forgeCoordinator: createTestAcceptedForgeCoordinator({
+      commits: staleReplayCommits,
+      acceptedBatchPromptFlusher: async (input = {}) => {
+        staleReplayPromptFlushes.push(cloneJson(input.coreAcceptedBatchProjection || null));
+        const synchronized = cloneJson(input.campaignState);
+        synchronized.campaignChatBinding = {
+          ...(synchronized.campaignChatBinding || {}),
+          promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1,
+          promptContextOwner: 'stale-provider-replay'
+        };
+        return { ok: true, status: 'rebuilt', campaignState: synchronized };
+      }
+    }),
+    now
+  });
+  const staleReplayFirst = await staleReplayScheduler.schedule({
+    workerPlan: { relationship: true, crew: true },
+    turnContext: {
+      ingressId: 'ingress-stale-provider-replay',
+      turnId: 'turn-stale-provider-replay',
+      outcomeId: 'outcome-stale-provider-replay'
+    }
+  });
+  staleReplayState = updateTurnIngress(staleReplayState, 'ingress-stale-provider-replay', {
+    status: 'committed',
+    replacementText: 'Edited after cacheable accepted provider batch.',
+    textHash: null
+  });
+  const staleReplaySecond = await staleReplayScheduler.schedule({
+    workerPlan: { relationship: true, crew: true },
+    turnContext: {
+      ingressId: 'ingress-stale-provider-replay',
+      turnId: 'turn-stale-provider-replay',
+      outcomeId: 'outcome-stale-provider-replay'
+    }
+  });
+  assert.deepEqual(staleReplayFirst.map((result) => result.status), ['applied', 'applied']);
+  assert.deepEqual(staleReplaySecond.map((result) => result.status), ['rejected', 'rejected']);
+  assert.equal(staleReplaySecond.every((result) => result.error.code === 'DIRECTIVE_SIDECAR_SOURCE_STALE'), true);
+  assert.equal(staleReplayBatchCalls.length, 1, 'Stale cacheable provider replay must reject before a second provider call.');
+  assert.equal(staleReplayCommits.length, 1, 'Stale cacheable provider replay must not create a second CORE/FORGE settlement.');
+  assert.equal(staleReplayPromptFlushes.length, 1, 'Stale cacheable provider replay must not rebuild prompt context.');
 }
 
 {
@@ -2254,20 +2781,14 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(forgeLensRetryResults.map((result) => result.status), ['applied', 'applied']);
   assert.equal(forgeLensBackgroundBatches.length, 2);
   assert.deepEqual(forgeLensPersistReasons, [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
     'Campaign sidecar batch prompt context synchronized.',
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
     'Campaign sidecar batch prompt context synchronized.'
   ]);
   assert.equal(forgeLensSchedulerPromptSyncs.length, 0, 'Accepted FORGE/LENS sidecar batches must not call scheduler-owned syncPromptContext.');
   assert.equal(forgeLensBatchCalls.length, 2);
   assert.equal(forgeLensPromptFlushCalls.length, 2);
-  assert.deepEqual(forgeLensPromptFlushPersistReasons[0], ['Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.']);
-  assert.deepEqual(forgeLensPromptFlushPersistReasons[1], [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
-    'Campaign sidecar batch prompt context synchronized.',
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.'
-  ]);
+  assert.deepEqual(forgeLensPromptFlushPersistReasons[0], []);
+  assert.deepEqual(forgeLensPromptFlushPersistReasons[1], ['Campaign sidecar batch prompt context synchronized.']);
   assert.equal(forgeLensPromptFlushCalls[0].transactionId, 'txn-forge-lens-prompt');
   assert.equal(forgeLensPromptFlushCalls[1].transactionId, 'txn-forge-lens-prompt');
   assert.equal(forgeLensPromptFlushCalls[0].coreAcceptedBatchProjection.kind, 'directive.coreAcceptedSidecarBatchProjection.v1');
@@ -2291,8 +2812,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(forgeLensPromptFlushCalls[1].workerKeys, ['relationship', 'crew']);
   assert.equal(forgeLensPromptFlushCalls[0].aggregateBatch, true);
   assert.equal(forgeLensPromptFlushCalls[1].aggregateBatch, true);
-  assert.equal(forgeLensPromptFlushCalls[0].campaignRevision, 1);
-  assert.equal(forgeLensPromptFlushCalls[1].campaignRevision, 2);
+  assert.equal(forgeLensPromptFlushCalls[0].campaignRevision, 0);
+  assert.equal(forgeLensPromptFlushCalls[1].campaignRevision, 0);
   assert.equal(forgeLensPromptState.campaignChatBinding.promptContextRevision, 2);
   assert.equal(forgeLensPromptState.campaignChatBinding.promptContextOwner, 'forge-lens-accepted-batch-test');
   assert.match(forgeLensPromptFlushCalls[0].promptSyncIdempotencyKey, /^campaign-sidecar-provider:txn-forge-lens-prompt:.*:prompt-sync:accepted:[a-f0-9]{64}$/);
@@ -2697,8 +3218,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(replayKeyApplyCalls.length, 0);
   assert.equal(replayKeyValidateCalls.length, 1);
   assert.equal(replayKeyCoreCommits.length, 1);
-  assert.equal(replayKeyState.relationships.seniorCrew.length, 1);
-  assert.equal(replayKeyState.crew.casualties.length, 1);
+  assert.equal(replayKeyState.relationships.seniorCrew.length, 0);
+  assert.equal(replayKeyState.crew.casualties.length, 0);
 }
 
 {
@@ -2841,8 +3362,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(rejectedReplaySettleCalls, 1);
   assert.equal(rejectedReplayApplyCalls.length, 0);
   assert.equal(rejectedReplayValidateCalls.length, 1);
-  assert.equal(rejectedReplayState.relationships.seniorCrew.length, 1);
-  assert.equal(rejectedReplayState.crew.casualties.length, 1);
+  assert.equal(rejectedReplayState.relationships.seniorCrew.length, 0);
+  assert.equal(rejectedReplayState.crew.casualties.length, 0);
   assert.equal(JSON.stringify(rejectedReplayFirst).includes('RAW_REJECTED_PROVIDER_CACHE_FRAME_TEXT_MUST_NOT_PERSIST'), false);
   assert.equal(JSON.stringify(rejectedReplaySecond).includes('RAW_REJECTED_PROVIDER_CACHE_FRAME_TEXT_MUST_NOT_PERSIST'), false);
 }
@@ -2963,8 +3484,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(postCommitWarningResults.map((result) => result.status), ['applied', 'applied']);
   assert.equal(postCommitWarningCoreCommits.length, 1);
   assert.equal(postCommitWarningPromptSyncs.length, 0);
-  assert.equal(postCommitWarningState.relationships.seniorCrew.length, 1);
-  assert.equal(postCommitWarningState.crew.casualties.length, 1);
+  assert.equal(postCommitWarningState.relationships.seniorCrew.length, 0);
+  assert.equal(postCommitWarningState.crew.casualties.length, 0);
   assert.equal(postCommitWarningState.campaignChatBinding?.promptContextRevision || 0, 0);
   assert.equal(postCommitWarningState.runtimeTracking.sidecarJournal.length, 0, 'Accepted FORGE-settled batches with compact CORE diagnostic warnings must not write old applied journals.');
   assert.equal(postCommitWarningResults.every((result) => result.forgeSettlement?.warning?.code === 'DIRECTIVE_TEST_POST_COMMIT_DIAGNOSTIC_FAILED'), true);
@@ -3102,8 +3623,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(forgeReplayApplyCalls.length, 0);
   assert.equal(forgeReplayValidateCalls.length, 1);
   assert.equal(forgeReplayCoreCommits.length, 1);
-  assert.equal(forgeReplayState.relationships.seniorCrew.length, 1);
-  assert.equal(forgeReplayState.crew.casualties.length, 1);
+  assert.equal(forgeReplayState.relationships.seniorCrew.length, 0);
+  assert.equal(forgeReplayState.crew.casualties.length, 0);
   assert.equal(forgeReplayState.runtimeTracking.sidecarJournal.length, forgeReplayJournalLength);
   const forgeReplayMismatch = await forgeReplayScheduler.schedule({
     workerPlan: { relationship: true, crew: true },
@@ -3119,8 +3640,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(forgeReplayApplyCalls.length, 0);
   assert.equal(forgeReplayValidateCalls.length, 1);
   assert.equal(forgeReplayCoreCommits.length, 1);
-  assert.equal(forgeReplayState.relationships.seniorCrew.length, 1);
-  assert.equal(forgeReplayState.crew.casualties.length, 1);
+  assert.equal(forgeReplayState.relationships.seniorCrew.length, 0);
+  assert.equal(forgeReplayState.crew.casualties.length, 0);
 }
 
 {
@@ -3659,8 +4180,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(postSettlementPromptThirdResults.map((result) => result.status), ['applied', 'applied']);
   assert.equal(postSettlementPromptBatchCalls.length, 3, 'LENS-unavailable accepted-batch replay must not become a clean provider-cache replay.');
   assert.equal(postSettlementPromptCoreCommits.length, 1);
-  assert.equal(postSettlementPromptState.relationships.seniorCrew.length, 1);
-  assert.equal(postSettlementPromptState.crew.casualties.length, 1);
+  assert.equal(postSettlementPromptState.relationships.seniorCrew.length, 0);
+  assert.equal(postSettlementPromptState.crew.casualties.length, 0);
   assert.equal(postSettlementPromptState.runtimeTracking.sidecarJournal.length, 0, 'Accepted FORGE-settled batches with prompt-sync warnings must not write old applied journals.');
   assert.equal(postSettlementPromptSchedulerSyncs.length, 0, 'Accepted FORGE-settled batches with no FORGE/LENS prompt helper must not call scheduler-owned syncPromptContext.');
   assert.equal(postSettlementPromptState.campaignChatBinding?.promptContextRevision || 0, 0, 'Missing FORGE/LENS prompt helper should not update prompt revision through scheduler fallback.');
@@ -3794,10 +4315,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(postSettlementJournalResults.every((result) => result.recoveryRequired == null), true);
   assert.equal(JSON.stringify(postSettlementJournalResults).includes(postSettlementJournalRawCanary), false);
   assert.equal(postSettlementJournalCoreCommits.length, 1);
-  assert.equal(postSettlementJournalPersistCount, 1);
-  assert.deepEqual(postSettlementJournalPersistReasons, ['Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.']);
-  assert.equal(postSettlementJournalState.relationships.seniorCrew.length, 1);
-  assert.equal(postSettlementJournalState.crew.casualties.length, 1);
+  assert.equal(postSettlementJournalPersistCount, 0);
+  assert.deepEqual(postSettlementJournalPersistReasons, []);
+  assert.equal(postSettlementJournalState.relationships.seniorCrew.length, 0);
+  assert.equal(postSettlementJournalState.crew.casualties.length, 0);
   assert.equal(postSettlementJournalState.runtimeTracking.sidecarJournal.length, 0, 'Accepted FORGE-settled batches should not attempt the old accepted journal persistence path.');
   const postSettlementJournalRecovery = postSettlementJournalPersistedState.runtimeTracking.recoveryJournal.at(-1);
   assert.equal(postSettlementJournalRecovery?.type === 'sidecarAcceptedJournalProjection', false);
@@ -4355,9 +4876,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(fallbackState.relationships.seniorCrew.length, 0);
   assert.equal(fallbackState.crew.casualties.length, 0);
   const fallbackRejectedJournal = fallbackState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(fallbackRejectedJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(fallbackRejectedJournal.every((entry) => entry.diagnostics.compensation?.attempted === false), true);
-  assert.equal(fallbackRejectedJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
+  assert.deepEqual(fallbackRejectedJournal.map((entry) => entry.status), []);
 }
 
 {
@@ -4509,9 +5028,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     assert.equal(badFallbackState.relationships.seniorCrew.length, 0);
     assert.equal(badFallbackState.crew.casualties.length, 0);
     const badFallbackJournal = badFallbackState.runtimeTracking.sidecarJournal.slice(-2);
-    assert.deepEqual(badFallbackJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-    assert.equal(badFallbackJournal.every((entry) => entry.diagnostics.compensation?.attempted === false), true);
-    assert.equal(badFallbackJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
+    assert.deepEqual(badFallbackJournal.map((entry) => entry.status), []);
   }
 }
 
@@ -4610,7 +5127,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     assert.equal(weakBackgroundState.relationships.seniorCrew.length, 0);
     assert.equal(weakBackgroundState.crew.casualties.length, 0);
     const weakBackgroundJournal = weakBackgroundState.runtimeTracking.sidecarJournal.slice(-2);
-    assert.deepEqual(weakBackgroundJournal.map((entry) => entry.status), ['rejected', 'rejected']);
+    assert.deepEqual(weakBackgroundJournal.map((entry) => entry.status), []);
   }
 }
 
@@ -4710,8 +5227,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(mismatchedBackgroundState.relationships.seniorCrew.length, 0);
   assert.equal(mismatchedBackgroundState.crew.casualties.length, 0);
   const mismatchedBackgroundJournal = mismatchedBackgroundState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(mismatchedBackgroundJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(mismatchedBackgroundJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
+  assert.deepEqual(mismatchedBackgroundJournal.map((entry) => entry.status), []);
 }
 
 {
@@ -4810,7 +5326,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(wrongBatchBackgroundState.relationships.seniorCrew.length, 0);
   assert.equal(wrongBatchBackgroundState.crew.casualties.length, 0);
   const wrongBatchBackgroundJournal = wrongBatchBackgroundState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(wrongBatchBackgroundJournal.map((entry) => entry.status), ['rejected', 'rejected']);
+  assert.deepEqual(wrongBatchBackgroundJournal.map((entry) => entry.status), []);
 }
 
 {
@@ -4909,7 +5425,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(missingHashBackgroundState.relationships.seniorCrew.length, 0);
   assert.equal(missingHashBackgroundState.crew.casualties.length, 0);
   const missingHashBackgroundJournal = missingHashBackgroundState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(missingHashBackgroundJournal.map((entry) => entry.status), ['rejected', 'rejected']);
+  assert.deepEqual(missingHashBackgroundJournal.map((entry) => entry.status), []);
 }
 
 {
@@ -5013,8 +5529,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     }
   });
   assert.deepEqual(realBackgroundResults.map((result) => result.status), ['applied', 'applied']);
-  assert.equal(realBackgroundState.relationships.seniorCrew.length, 1);
-  assert.equal(realBackgroundState.crew.casualties.length, 1);
+  assert.equal(realBackgroundState.relationships.seniorCrew.length, 0);
+  assert.equal(realBackgroundState.crew.casualties.length, 0);
   assert.equal(realBackgroundState.runtimeTracking.sidecarJournal.length, 0);
 }
 
@@ -5107,8 +5623,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(unsafeSettledState.relationships.seniorCrew.length, 0);
   assert.equal(unsafeSettledState.crew.casualties.length, 0);
   const unsafeSettledJournal = unsafeSettledState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(unsafeSettledJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(unsafeSettledJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
+  assert.deepEqual(unsafeSettledJournal.map((entry) => entry.status), []);
 }
 
 {
@@ -5227,8 +5742,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     assert.equal(idempotencyState.relationships.seniorCrew.length, 0);
     assert.equal(idempotencyState.crew.casualties.length, 0);
     const idempotencyJournal = idempotencyState.runtimeTracking.sidecarJournal.slice(-2);
-    assert.deepEqual(idempotencyJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-    assert.equal(idempotencyJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
+    assert.deepEqual(idempotencyJournal.map((entry) => entry.status), []);
   }
 }
 
@@ -5453,7 +5967,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(rawReasonResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(rawReasonResults.every((result) => result.error.details?.reason === 'unsafe-reason-redacted'), true);
   const rawReasonJournal = rawReasonState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(rawReasonJournal.map((entry) => entry.status), ['rejected', 'rejected']);
+  assert.deepEqual(rawReasonJournal.map((entry) => entry.status), []);
   assert.equal(JSON.stringify(rawReasonResults).includes(rawReasonCanary), false);
   assert.equal(JSON.stringify(rawReasonResults).includes(rawBridgeMetadataCanary), false);
   assert.equal(JSON.stringify(rawReasonJournal).includes(rawReasonCanary), false);
@@ -5461,6 +5975,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(JSON.stringify(rawReasonCoreDiagnostics).includes(rawReasonCanary), false);
   assert.equal(JSON.stringify(rawReasonCoreDiagnostics).includes(rawBridgeMetadataCanary), false);
+  assert.equal(rawReasonCoreDiagnostics.filter((entry) => entry.status === 'rejected').length, 2);
   assert.equal(rawReasonCoreDiagnostics.filter((entry) => entry.status === 'rejected').every((entry) => entry.bridgeReason === 'unsafe-reason-redacted'), true);
 }
 
@@ -5538,6 +6053,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(JSON.stringify(rawCodeResults).includes(rawCodeCanary), false);
   assert.equal(JSON.stringify(rawCodeJournal).includes(rawCodeCanary), false);
   await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(rawCodeCoreDiagnostics.filter((entry) => entry.status === 'rejected').length, 2);
   assert.equal(JSON.stringify(rawCodeCoreDiagnostics).includes(rawCodeCanary), false);
 }
 
@@ -5648,6 +6164,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       outcomeId: 'outcome-forge-preflight-fails'
     }
   });
+  await preflightScheduler.pending();
   assert.deepEqual(preflightResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(preflightResults.every((result) => result.error.code === 'DIRECTIVE_FORGE_PREFLIGHT_FAILED'), true);
   assert.equal(preflightApplyCalls.length, 0);
@@ -5657,9 +6174,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(preflightState.crew.casualties.length, 0);
   assert.equal(preflightState.runtimeTracking.revision, 0);
   const preflightJournal = preflightState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(preflightJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(preflightJournal.every((entry) => entry.error.code === 'DIRECTIVE_FORGE_PREFLIGHT_FAILED'), true);
-  assert.equal(preflightJournal.every((entry) => entry.diagnostics.apply.ok === false), true);
+  assert.deepEqual(preflightJournal.map((entry) => entry.status), []);
+  const preflightRejectedDiagnostics = preflightCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-forge-preflight-fails' && entry.status === 'rejected');
+  assert.deepEqual(preflightRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_FORGE_PREFLIGHT_FAILED', 'DIRECTIVE_FORGE_PREFLIGHT_FAILED']);
   assert.equal(JSON.stringify(preflightResults).includes(preflightRawExceptionCanary), false);
   assert.equal(JSON.stringify(preflightJournal).includes(preflightRawExceptionCanary), false);
   assert.equal(JSON.stringify(preflightCoreDiagnostics).includes(preflightRawExceptionCanary), false);
@@ -5784,6 +6301,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       outcomeId: 'outcome-forge-final-fails'
     }
   });
+  await finalSettlementScheduler.pending();
   assert.deepEqual(finalSettlementResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(finalSettlementResults.every((result) => result.error.code === 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED'), true);
   assert.equal(finalApplyCalls.length, 0);
@@ -5794,10 +6312,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(finalSettlementState.crew.casualties.length, 0);
   assert.equal(finalSettlementState.runtimeTracking.revision, 0);
   const finalSettlementJournal = finalSettlementState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(finalSettlementJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(finalSettlementJournal.every((entry) => entry.error.code === 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED'), true);
-  assert.equal(finalSettlementJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
-  assert.equal(finalSettlementJournal.every((entry) => entry.diagnostics.apply.ok === false), true);
+  assert.deepEqual(finalSettlementJournal.map((entry) => entry.status), []);
+  const finalSettlementRejectedDiagnostics = finalSettlementCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-forge-final-fails' && entry.status === 'rejected');
+  assert.deepEqual(finalSettlementRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED', 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED']);
   assert.equal(JSON.stringify(finalSettlementResults).includes(finalSettlementRawExceptionCanary), false);
   assert.equal(JSON.stringify(finalSettlementJournal).includes(finalSettlementRawExceptionCanary), false);
   assert.equal(JSON.stringify(finalSettlementCoreDiagnostics).includes(finalSettlementRawExceptionCanary), false);
@@ -5923,6 +6440,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       outcomeId: 'outcome-old-apply-fails'
     }
   });
+  await oldApplyFailureScheduler.pending();
   assert.deepEqual(oldApplyFailureResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(oldApplyFailureResults.every((result) => result.error.code === 'DIRECTIVE_COMPATIBILITY_VALIDATION_FAILED'), true);
   assert.equal(oldApplyValidatedSnapshots.length, 1);
@@ -5933,9 +6451,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(oldApplyFailureState.crew.casualties.length, 0);
   assert.equal(oldApplyFailureState.runtimeTracking.revision, 0);
   const oldApplyFailureJournal = oldApplyFailureState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(oldApplyFailureJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(oldApplyFailureJournal.every((entry) => entry.diagnostics.compensation?.reason === 'bridge-failed-before-old-mutation'), true);
-  assert.equal(oldApplyFailureJournal.every((entry) => entry.diagnostics.apply.ok === false), true);
+  assert.deepEqual(oldApplyFailureJournal.map((entry) => entry.status), []);
+  const oldApplyRejectedDiagnostics = oldApplyCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-old-apply-fails' && entry.status === 'rejected');
+  assert.deepEqual(oldApplyRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_COMPATIBILITY_VALIDATION_FAILED', 'DIRECTIVE_COMPATIBILITY_VALIDATION_FAILED']);
   assert.equal(JSON.stringify(oldApplyFailureResults).includes(oldApplyRawExceptionCanary), false);
   assert.equal(JSON.stringify(oldApplyFailureJournal).includes(oldApplyRawExceptionCanary), false);
   assert.equal(JSON.stringify(oldApplyCoreDiagnostics).includes(oldApplyRawExceptionCanary), false);
@@ -5961,7 +6479,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     chatId: 'campaign-chat',
     campaignId: 'campaign-sidecar-post-core-persist-failure-test',
     textHash: 'post-core-persist-failure-source-hash',
-    textPreview: 'Source message for post-CORE compatibility persist failure.',
+    textPreview: 'Source message for post-CORE prompt projection.',
     status: 'committed',
     outcomeId: 'outcome-post-core-persist-fails',
     sourceFrameId: 'frame-post-core-persist-fails',
@@ -5990,8 +6508,6 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   const postCoreForgePromptFlushes = [];
   const postCoreCommits = [];
   const postCorePersistCanary = 'RAW_POST_CORE_PERSIST_FAILURE_MUST_NOT_PERSIST';
-  const postCorePersistError = new Error(`Compatibility projection persist failed after CORE settlement. ${postCorePersistCanary}`);
-  postCorePersistError.code = 'DIRECTIVE_OLD_PROJECTION_PERSIST_FAILED';
   const postCorePersistResults = await createCampaignSidecarScheduler({
     generationRouter: {
       async generate() {
@@ -6006,9 +6522,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
               operations: [{
                 op: 'append',
                 path: request.roleId === 'crewDirector' ? 'crew.casualties' : 'relationships.seniorCrew',
-                value: { id: `post-core-persist-${request.roleId}`, summary: 'This CORE-settled result has a compatibility persist warning.' }
+                value: { id: `post-core-persist-${request.roleId}`, summary: 'This CORE-settled result has a prompt warning.' }
               }],
-              summary: 'Post-CORE compatibility persist warning proposal.'
+              summary: 'Post-CORE prompt warning proposal.'
             })
           }
         }));
@@ -6019,9 +6535,6 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     setCampaignState: (next) => { postCorePersistState = cloneJson(next); },
     persistCampaignState: async (next, reason) => {
       postCorePersistReasons.push(reason || null);
-      if (reason === 'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.') {
-        throw postCorePersistError;
-      }
       postCorePersistState = cloneJson(next);
     },
     syncPromptContext: async () => {
@@ -6048,6 +6561,29 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
           promptContextRevision: (synchronized.campaignChatBinding?.promptContextRevision || 0) + 1,
           promptContextOwner: 'forge-lens-post-core-persist-warning-test'
         };
+        synchronized.runtimeResume = {
+          ...(synchronized.runtimeResume || {}),
+          promptContextRevision: 9,
+          externalPromptEnvironmentRef: {
+            kind: 'directive.externalPromptEnvironmentRef.v1',
+            schemaVersion: 1,
+            hash: 'e'.repeat(64),
+            byteLength: 256,
+            status: 'observed'
+          }
+        };
+        synchronized.runtimeTracking = {
+          ...(synchronized.runtimeTracking || {}),
+          promptContext: {
+            status: 'active',
+            revision: 9,
+            hash: 'post-core-prompt-context-hash',
+            blockCount: 3,
+            continuityProjection: {
+              sourceHash: 'post-core-continuity-source-hash'
+            }
+          }
+        };
         return {
           ok: true,
           status: 'rebuilt',
@@ -6067,24 +6603,24 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   });
   assert.deepEqual(postCorePersistResults.map((result) => result.status), ['applied', 'applied']);
   assert.equal(postCoreCommits.length, 1);
-  assert.deepEqual(postCorePersistReasons, [
-    'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.',
-    'Campaign sidecar batch prompt context synchronized.'
-  ]);
-  assert.equal(postCorePromptSyncs.length, 0, 'Accepted FORGE/LENS sidecar batches must not fall back to scheduler-owned syncPromptContext after compatibility persistence fails.');
-  assert.equal(postCoreForgePromptFlushes.length, 1, 'Accepted CORE-settled sidecar prompt sync must stay on the FORGE/LENS flusher when compatibility projection persistence fails.');
+  assert.deepEqual(postCorePersistReasons, ['Campaign sidecar batch prompt context synchronized.']);
+  assert.equal(postCorePromptSyncs.length, 0, 'Accepted FORGE/LENS sidecar batches must not fall back to scheduler-owned syncPromptContext after CORE settlement.');
+  assert.equal(postCoreForgePromptFlushes.length, 1, 'Accepted CORE-settled sidecar prompt sync must stay on the FORGE/LENS flusher without old v1 projection writes.');
   assert.equal(postCoreForgePromptFlushes[0].transactionId, 'txn-post-core-persist-fails');
   assert.deepEqual(postCoreForgePromptFlushes[0].promptDirtyDomains, ['crewShipRelationship']);
-  assert.equal(postCoreForgePromptFlushes[0].campaignRevision, 1);
+  assert.equal(postCoreForgePromptFlushes[0].campaignRevision, 0);
   assert.equal(postCoreForgePromptFlushes[0].coreAcceptedBatchProjection.kind, 'directive.coreAcceptedSidecarBatchProjection.v1');
   assert.equal(postCoreForgePromptFlushes[0].coreAcceptedBatchProjection.transactionId, 'txn-post-core-persist-fails');
-  assert.equal(postCorePersistResults.every((result) => result.postSettlementWarnings.length === 1), true);
-  assert.equal(postCorePersistResults.every((result) => result.postSettlementWarnings[0].stage === 'oldProjectionPersist'), true);
-  assert.equal(postCorePersistResults.every((result) => result.postSettlementWarnings[0].code === 'DIRECTIVE_OLD_PROJECTION_PERSIST_FAILED'), true);
+  assert.equal(postCorePersistResults.every((result) => result.postSettlementWarnings.length === 0), true);
   assert.equal(postCorePersistState.campaignChatBinding.promptContextRevision, 1);
   assert.equal(postCorePersistState.campaignChatBinding.promptContextOwner, 'forge-lens-post-core-persist-warning-test');
-  assert.equal(postCorePersistState.relationships.seniorCrew.length, 1);
-  assert.equal(postCorePersistState.crew.casualties.length, 1);
+  assert.equal(postCorePersistState.runtimeResume.promptContextRevision, 9);
+  assert.equal(postCorePersistState.runtimeResume.externalPromptEnvironmentRef.hash, 'e'.repeat(64));
+  assert.equal(postCorePersistState.runtimeTracking.promptContext.revision, 9);
+  assert.equal(postCorePersistState.runtimeTracking.promptContext.hash, 'post-core-prompt-context-hash');
+  assert.equal(postCorePersistState.runtimeTracking.promptContext.continuityProjection.sourceHash, 'post-core-continuity-source-hash');
+  assert.equal(postCorePersistState.relationships.seniorCrew.length, 0);
+  assert.equal(postCorePersistState.crew.casualties.length, 0);
   assert.equal(postCorePersistState.runtimeTracking.sidecarJournal.length, 0);
   assert.equal(JSON.stringify(postCorePersistResults).includes(postCorePersistCanary), false);
 }
@@ -6124,7 +6660,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     chatId: 'campaign-chat',
     campaignId: 'campaign-sidecar-post-core-command-bearing-skip-test',
     textHash: 'post-core-command-bearing-source-hash',
-    textPreview: 'Source message for skipped Command Bearing review after compatibility persist failure.',
+    textPreview: 'Source message for Command Bearing review without old compatibility persist.',
     status: 'committed',
     outcomeId: 'outcome.post-core.command-bearing',
     sourceFrameId: 'frame-post-core-command-bearing',
@@ -6145,33 +6681,45 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     generationRouter: {
       async generate(roleId) {
         postCoreCommandBearingCalls.push(roleId);
-        if (postCoreCommandBearingCalls.length > 1) {
-          assert.fail('Command Bearing closure review must not run after aggregate compatibility persist failure.');
+        if (postCoreCommandBearingCalls.length === 1) {
+          return {
+            ok: true,
+            response: {
+              text: JSON.stringify({
+                id: 'command-bearing-post-core-skip-evidence',
+                operations: [{
+                  op: 'append',
+                  path: 'commandBearing.evidenceLedger.records',
+                  value: {
+                    id: 'bearing-evidence.post-core.skip',
+                    sourceOutcomeId: 'outcome.post-core.command-bearing',
+                    sourceTurnId: 'turn.post-core.command-bearing',
+                    primarySignal: 'resolve',
+                    trackSignals: ['resolve'],
+                    strength: 'strong',
+                    criteria: { agency: true, commitment: true, causality: true },
+                    actionSummary: 'Held a boundary before accepted-batch prompt sync completed.',
+                    consequenceSummary: 'The same outcome completed the milestone.',
+                    playerFacingSummary: 'This may support Resolve.',
+                    visible: true,
+                    status: 'open'
+                  }
+                }],
+                summary: 'Record Resolve evidence while accepted-batch prompt sync completes.'
+              })
+            }
+          };
         }
         return {
           ok: true,
           response: {
             text: JSON.stringify({
-              id: 'command-bearing-post-core-skip-evidence',
-              operations: [{
-                op: 'append',
-                path: 'commandBearing.evidenceLedger.records',
-                value: {
-                  id: 'bearing-evidence.post-core.skip',
-                  sourceOutcomeId: 'outcome.post-core.command-bearing',
-                  sourceTurnId: 'turn.post-core.command-bearing',
-                  primarySignal: 'resolve',
-                  trackSignals: ['resolve'],
-                  strength: 'strong',
-                  criteria: { agency: true, commitment: true, causality: true },
-                  actionSummary: 'Held a boundary before compatibility persistence failed.',
-                  consequenceSummary: 'The same outcome completed the milestone.',
-                  playerFacingSummary: 'This may support Resolve.',
-                  visible: true,
-                  status: 'open'
-                }
-              }],
-              summary: 'Record Resolve evidence while compatibility persistence fails.'
+              closureId: 'closure.milestone.post-core.command-bearing',
+              markAwarded: true,
+              awardedTrack: 'resolve',
+              criteriaSatisfied: { agency: true, commitment: true, causality: true },
+              evidenceIds: ['bearing-evidence.post-core.skip'],
+              awardSummary: 'Resolve evidence closed through CORE settlement.'
             })
           }
         };
@@ -6181,11 +6729,6 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     getCampaignState: () => postCoreCommandBearingState,
     setCampaignState: (next) => { postCoreCommandBearingState = cloneJson(next); },
     persistCampaignState: async (next, reason) => {
-      if (reason === 'Campaign sidecar batch compatibility projection persisted after CORE/FORGE settlement.') {
-        const error = new Error('Post-CORE compatibility persist failed for Command Bearing sidecar.');
-        error.code = 'DIRECTIVE_OLD_PROJECTION_PERSIST_FAILED';
-        throw error;
-      }
       postCoreCommandBearingState = cloneJson(next);
     },
     syncPromptContext: async () => {
@@ -6209,13 +6752,15 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     }
   });
   assert.deepEqual(postCoreCommandBearingResults.map((result) => result.status), ['applied']);
-  assert.deepEqual(postCoreCommandBearingCalls, ['commandBearingEvaluator']);
+  assert.deepEqual(postCoreCommandBearingCalls, ['commandBearingEvaluator', 'commandBearingEvaluator']);
   assert.equal(postCoreCommandBearingCommits.length, 1);
   assert.equal(postCoreCommandBearingPromptSyncs.length, 0);
-  assert.equal(postCoreCommandBearingState.commandBearing.evidenceLedger.records.length, 1);
+  assert.equal(postCoreCommandBearingState.commandBearing.evidenceLedger?.records?.length || 0, 0);
   assert.equal(postCoreCommandBearingState.commandBearing.reviewLedger?.records?.length || 0, 0);
-  assert.equal(postCoreCommandBearingResults[0].postSettlementWarnings.length, 1);
-  assert.equal(postCoreCommandBearingResults[0].postSettlementWarnings[0].stage, 'oldProjectionPersist');
+  assert.equal(
+    postCoreCommandBearingResults[0].postSettlementWarnings.some((warning) => warning.stage === 'oldProjectionPersist'),
+    false
+  );
 }
 
 {
@@ -6343,15 +6888,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(noCoreProviderCalls.map((call) => call.ingressId), ['no-core-ingress-1', 'no-core-ingress-2']);
   assert.equal(noCoreProviderCalls.length, 2);
   assert.equal(noCoreApplyCalls.length, 0, 'No-settlement accepted sidecars must reject before old projection assignment.');
-  assert.equal(noCoreSetCampaignStateCalls.length, 2, 'No-settlement accepted sidecars should assign only the rejected journal state.');
-  assert.equal(noCoreSetCampaignStateCalls.every((next) => (next.relationships?.seniorCrew || []).length === 0), true);
-  assert.deepEqual(noCoreSetCampaignStateCalls.map((next) => next.runtimeTracking.sidecarJournal.at(-1)?.status), ['rejected', 'rejected']);
+  assert.equal(noCoreSetCampaignStateCalls.length, 0, 'No-settlement accepted sidecars must not assign old rejected journal state.');
   assert.equal(noCoreState.relationships.seniorCrew.length, 0);
   assert.equal(noCorePersistReasons.includes('Compensated rejected campaign sidecar batch bridge mutation.'), false);
-  assert.deepEqual(noCorePersistReasons, [
-    'Rejected campaign sidecar batch results.',
-    'Rejected campaign sidecar batch results.'
-  ]);
+  assert.deepEqual(noCorePersistReasons, []);
 }
 
 {
@@ -6401,8 +6941,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     return originalPreparedNoFinalApplyOperations(proposal, policy);
   };
   const preparedNoFinalPromptSyncs = [];
+  const preparedNoFinalCoreDiagnostics = [];
   const preparedNoFinalRawCanary = 'RAW_PREPARED_NO_FINAL_MUST_NOT_PERSIST';
-  const preparedNoFinalResults = await createCampaignSidecarScheduler({
+  const preparedNoFinalScheduler = createCampaignSidecarScheduler({
     generationRouter: {
       async generate() {
         assert.fail('Multiple requested campaign sidecars should use the batch generation path.');
@@ -6432,6 +6973,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       preparedNoFinalPromptSyncs.push(true);
       return null;
     },
+    appendCoreDiagnostic: async (event) => {
+      preparedNoFinalCoreDiagnostics.push(cloneJson(event));
+      return { ok: true };
+    },
     forgeCoordinator: {
       async prepareAcceptedBatch() {
         return {
@@ -6445,7 +6990,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       return forgeBackgroundTransaction(transactionId, bundle);
     },
     now
-  }).schedule({
+  });
+  const preparedNoFinalResults = await preparedNoFinalScheduler.schedule({
     workerPlan: { relationship: true, crew: true },
     turnContext: {
       ingressId: 'ingress-prepared-no-final',
@@ -6453,6 +6999,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       outcomeId: 'outcome-prepared-no-final'
     }
   });
+  await preparedNoFinalScheduler.pending();
   assert.deepEqual(preparedNoFinalResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(preparedNoFinalResults.every((result) => result.error.code === 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED'), true);
   assert.equal(preparedNoFinalDirectCoreCalls.length, 0);
@@ -6461,8 +7008,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(preparedNoFinalState.relationships.seniorCrew.length, 0);
   assert.equal(preparedNoFinalState.crew.casualties.length, 0);
   const preparedNoFinalJournal = preparedNoFinalState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(preparedNoFinalJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(preparedNoFinalJournal.every((entry) => entry.diagnostics.compensation?.attempted === false), true);
+  assert.deepEqual(preparedNoFinalJournal.map((entry) => entry.status), []);
+  const preparedNoFinalRejectedDiagnostics = preparedNoFinalCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-prepared-no-final' && entry.status === 'rejected');
+  assert.deepEqual(preparedNoFinalRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED', 'DIRECTIVE_FORGE_FINAL_SETTLEMENT_FAILED']);
   assert.equal(JSON.stringify(preparedNoFinalResults).includes(preparedNoFinalRawCanary), false);
   assert.equal(JSON.stringify(preparedNoFinalJournal).includes(preparedNoFinalRawCanary), false);
 }
@@ -6513,7 +7061,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     return originalSettledPreflightApplyOperations(proposal, policy);
   };
   let settledPreflightFinalCalls = 0;
-  const settledPreflightResults = await createCampaignSidecarScheduler({
+  const settledPreflightCoreDiagnostics = [];
+  const settledPreflightScheduler = createCampaignSidecarScheduler({
     generationRouter: {
       async generate() {
         assert.fail('Multiple requested campaign sidecars should use the batch generation path.');
@@ -6539,6 +7088,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     getCampaignState: () => settledPreflightState,
     setCampaignState: (next) => { settledPreflightState = cloneJson(next); },
     persistCampaignState: async (next) => { settledPreflightState = cloneJson(next); },
+    appendCoreDiagnostic: async (event) => {
+      settledPreflightCoreDiagnostics.push(cloneJson(event));
+      return { ok: true };
+    },
     forgeCoordinator: {
       async prepareAcceptedBatch(input) {
         return {
@@ -6554,7 +7107,8 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       }
     },
     now
-  }).schedule({
+  });
+  const settledPreflightResults = await settledPreflightScheduler.schedule({
     workerPlan: { relationship: true, crew: true },
     turnContext: {
       ingressId: 'ingress-settled-preflight',
@@ -6562,14 +7116,16 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       outcomeId: 'outcome-settled-preflight'
     }
   });
+  await settledPreflightScheduler.pending();
   assert.deepEqual(settledPreflightResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(settledPreflightApplyCalls.length, 0);
   assert.equal(settledPreflightFinalCalls, 0);
   assert.equal(settledPreflightState.relationships.seniorCrew.length, 0);
   assert.equal(settledPreflightState.crew.casualties.length, 0);
   const settledPreflightJournal = settledPreflightState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(settledPreflightJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(settledPreflightJournal.every((entry) => entry.diagnostics.compensation?.attempted === false), true);
+  assert.deepEqual(settledPreflightJournal.map((entry) => entry.status), []);
+  const settledPreflightRejectedDiagnostics = settledPreflightCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-settled-preflight' && entry.status === 'rejected');
+  assert.deepEqual(settledPreflightRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_FORGE_PREFLIGHT_FAILED', 'DIRECTIVE_FORGE_PREFLIGHT_FAILED']);
 }
 
 {
@@ -6687,8 +7243,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(driftValidateCalls[0].proposal.baseRevision, 1);
   assert.equal(driftValidateCalls[0].proposal.operations.length, 2);
   assert.equal(driftState.pressureLedger.records.length, 1);
-  assert.equal(driftState.crew.casualties.length, 1);
-  assert.equal(driftState.ship.condition, 'Operational with watch notes');
+  assert.equal(driftState.crew.casualties.length, 0);
+  assert.equal(driftState.ship.condition, 'Operational');
+  assert.equal(driftResults.some((result) => result.proposal.operations.some((operation) => operation.path === 'crew.casualties')), true);
+  assert.equal(driftResults.some((result) => result.proposal.operations.some((operation) => operation.path === 'ship.condition')), true);
   assert.equal(driftCoreCommits.length, 1);
   assert.equal(driftCoreCommits[0].transactionId, 'txn-rebase-1');
   assert.equal(driftState.runtimeTracking.sidecarJournal.length, 0);
@@ -6714,7 +7272,17 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     textHash: 'conflict-source-hash',
     textPreview: 'Source message for conflicting sidecars.',
     status: 'committed',
-    outcomeId: 'outcome-conflict-1'
+    outcomeId: 'outcome-conflict-1',
+    sourceFrameId: 'frame-conflict-1',
+    sourceFrame: {
+      id: 'frame-conflict-1',
+      campaignId: 'campaign-sidecar-conflict-test',
+      saveId: 'save-sidecar-conflict-test',
+      chatId: 'campaign-chat',
+      hostMessageId: 'player-conflict-1',
+      textHash: 'conflict-source-hash'
+    },
+    coreTransactionId: 'txn-conflict-1'
   });
   const conflictGateway = createStateDeltaGateway({
     getState: () => conflictState,
@@ -6725,6 +7293,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   const conflictApplyCalls = [];
   const conflictPromptSyncs = [];
   const conflictCoreBackgroundBatches = [];
+  const conflictCoreDiagnostics = [];
   const originalConflictApplyOperations = conflictGateway.applyOperations;
   conflictGateway.applyOperations = async (proposal, policy) => {
     conflictApplyCalls.push({ proposal: cloneJson(proposal), policy: cloneJson(policy || {}) });
@@ -6762,12 +7331,17 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       conflictCoreBackgroundBatches.push({ transactionId, bundle: cloneJson(bundle) });
       return { ok: true };
     },
+    appendCoreDiagnostic: async (event) => {
+      conflictCoreDiagnostics.push(cloneJson(event));
+      return { ok: true };
+    },
     now
   });
   const conflictResults = await conflictScheduler.schedule({
     workerPlan: { relationship: true, crew: true },
     turnContext: { ingressId: 'ingress-conflict-1' }
   });
+  await conflictScheduler.pending();
   assert.deepEqual(conflictResults.map((result) => result.status), ['rejected', 'rejected']);
   assert.equal(conflictResults.every((result) => result.error.code === 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT'), true);
   assert.equal(conflictApplyCalls.length, 0);
@@ -6776,8 +7350,9 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(conflictState.runtimeTracking.revision, 0);
   assert.equal(conflictState.crew.casualties.length, 0);
   const conflictJournal = conflictState.runtimeTracking.sidecarJournal.slice(-2);
-  assert.deepEqual(conflictJournal.map((entry) => entry.status), ['rejected', 'rejected']);
-  assert.equal(conflictJournal.every((entry) => entry.error.code === 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT'), true);
+  assert.deepEqual(conflictJournal.map((entry) => entry.status), []);
+  const conflictRejectedDiagnostics = conflictCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-conflict-1' && entry.status === 'rejected');
+  assert.deepEqual(conflictRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT', 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT']);
 }
 
-console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, Mission Component provenance, stale-revision/source rejection, accepted prompt synchronization, conflict handling, and durable journaling');
+console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, Mission Component provenance, stale-revision/source rejection, accepted prompt synchronization, conflict handling, and CORE diagnostics/projections');

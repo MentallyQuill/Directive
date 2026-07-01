@@ -58,7 +58,16 @@ function committedState() {
   return {
     ...baseState(),
     mission: { activePhaseId: 'after-commit' },
-    worldState: { currentLocationId: 'after-location' }
+    worldState: { currentLocationId: 'after-location' },
+    turnLedger: {
+      entries: [{
+        turnId: 'turn-core-mechanics-order',
+        outcomeId: 'outcome-core-mechanics-order',
+        resultBand: 'Success'
+      }],
+      lastCommittedOutcomeId: 'outcome-core-mechanics-order',
+      swipeRerollForbidden: true
+    }
   };
 }
 
@@ -153,6 +162,23 @@ const coordinator = createTurnCommitCoordinator({
         outcomeId: bundle.outcomeId,
         operationHash: 'core-operation-hash'
       };
+    },
+    async recordOutcomeReplacement(transactionId, replacement) {
+      callOrder.push('core-replacement');
+      assert.equal(transactionId, 'txn-core-mechanics-order');
+      assert.equal(replacement.type, 'rerunOutcome');
+      assert.equal(replacement.replacedOutcomeId, 'outcome-old-core-mechanics-order');
+      assert.equal(replacement.replacementOutcomeId, 'outcome-core-mechanics-order');
+      assert.equal(replacement.replacedTurnId, 'turn-old-core-mechanics-order');
+      assert.equal(replacement.replacementTurnId, 'turn-core-mechanics-order');
+      assert.equal(replacement.repairDecision?.kind, 'directive.repairOutcomeRerunActuationDecision.v1');
+      assert.equal(replacement.repairDecision?.action, 'createRerunBranchCandidate');
+      return {
+        kind: 'directive.coreOutcomeReplacementRef.v1',
+        transactionId,
+        replacedOutcomeId: replacement.replacedOutcomeId,
+        replacementOutcomeId: replacement.replacementOutcomeId
+      };
     }
   }
 });
@@ -161,14 +187,35 @@ const success = await coordinator.checkpointMechanics({
   beforeCampaignState: baseState(),
   campaignState: committedState(),
   turnPacket,
-  ingressId: 'ingress-core-mechanics-order'
+  ingressId: 'ingress-core-mechanics-order',
+  outcomeReplacement: {
+    transactionId: 'txn-core-mechanics-order',
+    idempotencyKey: 'outcome-replacement:txn-core-mechanics-order:outcome-old-core-mechanics-order:outcome-core-mechanics-order',
+    type: 'rerunOutcome',
+    replacedOutcomeId: 'outcome-old-core-mechanics-order',
+    replacementOutcomeId: 'outcome-core-mechanics-order',
+    replacedTurnId: 'turn-old-core-mechanics-order',
+    replacementTurnId: 'turn-core-mechanics-order',
+    repairDecision: {
+      kind: 'directive.repairOutcomeRerunActuationDecision.v1',
+      authorized: true,
+      action: 'createRerunBranchCandidate',
+      outcomeId: 'outcome-old-core-mechanics-order'
+    }
+  }
 });
 
-assert.deepEqual(callOrder, ['core-advance', 'core-mechanics', 'persist']);
+assert.deepEqual(callOrder, ['core-advance', 'core-mechanics', 'core-replacement', 'persist']);
 assert.equal(success.coreMechanics.status, 'committed');
 assert.equal(success.coreMechanics.operationHash, 'core-operation-hash');
+assert.equal(success.coreOutcomeReplacement.kind, 'directive.coreOutcomeReplacementRef.v1');
+assert.equal(success.coreOutcomeReplacement.replacedOutcomeId, 'outcome-old-core-mechanics-order');
+assert.equal(success.coreOutcomeReplacement.replacementOutcomeId, 'outcome-core-mechanics-order');
 assert.equal(persisted.length, 1);
 assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.outcomeId, 'outcome-core-mechanics-order');
+assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.coreTransactionId, 'txn-core-mechanics-order');
+assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreTransactionId, 'txn-core-mechanics-order');
+assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreOperationHash, 'core-operation-hash');
 
 const failedPersisted = [];
 const failingCoordinator = createTurnCommitCoordinator({
@@ -212,6 +259,320 @@ await assert.rejects(
   }
 );
 assert.equal(failedPersisted.length, 0, 'v1 checkpoint must not persist when CORE mechanics fails first');
+
+const failedReplacementCalls = [];
+const failedReplacementPersisted = [];
+const failedReplacementCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:30.000Z',
+  persist: async (next, summary) => {
+    failedReplacementCalls.push('persist');
+    failedReplacementPersisted.push({ state: cloneJson(next), summary });
+    return { id: `save-failed-replacement-${failedReplacementPersisted.length}` };
+  },
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn() {
+      failedReplacementCalls.push('core-advance');
+      return { id: 'txn-core-mechanics-order', phase: 'routePending' };
+    },
+    async commitMechanics() {
+      failedReplacementCalls.push('core-mechanics');
+      return {
+        turnId: 'core-turn-failed-replacement',
+        outcomeId: 'outcome-core-mechanics-order',
+        operationHash: 'core-operation-hash'
+      };
+    },
+    async recordOutcomeReplacement() {
+      failedReplacementCalls.push('core-replacement');
+      const error = new Error('simulated CORE outcome replacement failure');
+      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_RECORD_FAILED';
+      throw error;
+    }
+  }
+});
+
+await assert.rejects(
+  () => failedReplacementCoordinator.checkpointMechanics({
+    beforeCampaignState: baseState(),
+    campaignState: committedState(),
+    turnPacket,
+    ingressId: 'ingress-core-mechanics-order',
+    outcomeReplacement: {
+      transactionId: 'txn-core-mechanics-order',
+      idempotencyKey: 'outcome-replacement:txn-core-mechanics-order:outcome-old-core-mechanics-order:outcome-core-mechanics-order',
+      type: 'rerunOutcome',
+      replacedOutcomeId: 'outcome-old-core-mechanics-order',
+      replacementOutcomeId: 'outcome-core-mechanics-order'
+    }
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_RECORD_FAILED');
+    return true;
+  }
+);
+assert.deepEqual(failedReplacementCalls, ['core-advance', 'core-mechanics', 'core-replacement']);
+assert.equal(failedReplacementPersisted.length, 0, 'v1 checkpoint must not persist when CORE replacement record fails');
+
+const replacementPersistFailureCalls = [];
+const replacementPersistFailureRecoveries = [];
+const replacementPersistFailureCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:40.000Z',
+  persist: async () => {
+    replacementPersistFailureCalls.push('persist');
+    const error = new Error('simulated active-save persist failure after replacement record');
+    error.code = 'DIRECTIVE_ACTIVE_SAVE_PERSIST_FAILED';
+    throw error;
+  },
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn() {
+      replacementPersistFailureCalls.push('core-advance');
+      return { id: 'txn-core-mechanics-order', phase: 'routePending' };
+    },
+    async commitMechanics() {
+      replacementPersistFailureCalls.push('core-mechanics');
+      return {
+        turnId: 'core-turn-replacement-persist-failure',
+        outcomeId: 'outcome-core-mechanics-order',
+        operationHash: 'core-operation-hash'
+      };
+    },
+    async recordOutcomeReplacement(transactionId, replacement) {
+      replacementPersistFailureCalls.push('core-replacement');
+      assert.equal(transactionId, 'txn-core-mechanics-order');
+      return {
+        kind: 'directive.coreOutcomeReplacementRef.v1',
+        transactionId,
+        replacedOutcomeId: replacement.replacedOutcomeId,
+        replacementOutcomeId: replacement.replacementOutcomeId
+      };
+    },
+    async markRecoveryRequired(transactionId, recoveryBundle) {
+      replacementPersistFailureCalls.push('core-recovery');
+      replacementPersistFailureRecoveries.push({ transactionId, recoveryBundle: cloneJson(recoveryBundle) });
+      return {
+        id: recoveryBundle.id,
+        status: 'required',
+        reason: recoveryBundle.reason
+      };
+    }
+  }
+});
+
+await assert.rejects(
+  () => replacementPersistFailureCoordinator.checkpointMechanics({
+    beforeCampaignState: baseState(),
+    campaignState: committedState(),
+    turnPacket,
+    ingressId: 'ingress-core-mechanics-order',
+    outcomeReplacement: {
+      transactionId: 'txn-core-mechanics-order',
+      idempotencyKey: 'outcome-replacement:txn-core-mechanics-order:persist-failure',
+      type: 'rerunOutcome',
+      replacedOutcomeId: 'outcome-old-core-mechanics-order',
+      replacementOutcomeId: 'outcome-core-mechanics-order'
+    }
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_ACTIVE_SAVE_PERSIST_FAILED');
+    return true;
+  }
+);
+assert.deepEqual(replacementPersistFailureCalls, ['core-advance', 'core-mechanics', 'core-replacement', 'persist', 'core-recovery']);
+assert.equal(replacementPersistFailureRecoveries.length, 1, 'CORE replacement persist failure should be durably recoverable');
+assert.equal(replacementPersistFailureRecoveries[0].transactionId, 'txn-core-mechanics-order');
+assert.equal(replacementPersistFailureRecoveries[0].recoveryBundle.reason, 'outcome-replacement-active-save-persist-failed');
+assert.equal(replacementPersistFailureRecoveries[0].recoveryBundle.dependentOutcomeId, 'outcome-core-mechanics-order');
+assert.equal(replacementPersistFailureRecoveries[0].recoveryBundle.repairDecision.action, 'reviewOutcomeReplacementPersistFailure');
+
+const missingReplacementTransactionCalls = [];
+const missingReplacementTransactionPersisted = [];
+const missingReplacementTransactionCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:45.000Z',
+  persist: async (next, summary) => {
+    missingReplacementTransactionCalls.push('persist');
+    missingReplacementTransactionPersisted.push({ state: cloneJson(next), summary });
+    return { id: `save-missing-replacement-transaction-${missingReplacementTransactionPersisted.length}` };
+  },
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn() {
+      missingReplacementTransactionCalls.push('core-advance');
+      return { id: 'txn-core-mechanics-order', phase: 'routePending' };
+    },
+    async commitMechanics() {
+      missingReplacementTransactionCalls.push('core-mechanics');
+      return {
+        turnId: 'core-turn-missing-replacement-transaction',
+        outcomeId: 'outcome-core-mechanics-order',
+        operationHash: 'core-operation-hash'
+      };
+    },
+    async recordOutcomeReplacement() {
+      missingReplacementTransactionCalls.push('core-replacement');
+      return { kind: 'directive.coreOutcomeReplacementRef.v1' };
+    }
+  }
+});
+
+await assert.rejects(
+  () => missingReplacementTransactionCoordinator.checkpointMechanics({
+    beforeCampaignState: baseState(),
+    campaignState: committedState(),
+    turnPacket,
+    ingressId: 'ingress-core-mechanics-order',
+    outcomeReplacement: {
+      idempotencyKey: 'outcome-replacement:missing-transaction',
+      type: 'rerunOutcome',
+      replacedOutcomeId: 'outcome-old-core-mechanics-order',
+      replacementOutcomeId: 'outcome-core-mechanics-order'
+    }
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED');
+    return true;
+  }
+);
+assert.deepEqual(missingReplacementTransactionCalls, ['core-advance', 'core-mechanics']);
+assert.equal(missingReplacementTransactionPersisted.length, 0, 'v1 checkpoint must not persist replacement records without explicit CORE replacement transaction');
+
+const skippedMechanicsReplacementPersisted = [];
+const skippedMechanicsReplacementCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:50.000Z',
+  persist: async (next, summary) => {
+    skippedMechanicsReplacementPersisted.push({ state: cloneJson(next), summary });
+    return { id: `save-skipped-mechanics-replacement-${skippedMechanicsReplacementPersisted.length}` };
+  },
+  coreTurnStore: {
+    async recordOutcomeReplacement() {
+      return { kind: 'directive.coreOutcomeReplacementRef.v1' };
+    }
+  }
+});
+
+await assert.rejects(
+  () => skippedMechanicsReplacementCoordinator.checkpointMechanics({
+    beforeCampaignState: baseState(),
+    campaignState: committedState(),
+    turnPacket,
+    ingressId: null,
+    outcomeReplacement: {
+      transactionId: 'txn-core-mechanics-order',
+      idempotencyKey: 'outcome-replacement:skipped-mechanics',
+      type: 'rerunOutcome',
+      replacedOutcomeId: 'outcome-old-core-mechanics-order',
+      replacementOutcomeId: 'outcome-core-mechanics-order'
+    }
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_MECHANICS_REQUIRED');
+    return true;
+  }
+);
+assert.equal(skippedMechanicsReplacementPersisted.length, 0, 'v1 checkpoint must not persist replacement records when CORE mechanics is skipped');
+
+const replacementMechanicsCalls = [];
+const replacementMechanicsPersisted = [];
+const replacementMechanicsState = baseState();
+replacementMechanicsState.runtimeTracking.ingressLedger[0].coreTransactionId = 'txn-original-committed-outcome';
+const replacementMechanicsCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:55.000Z',
+  persist: async (next, summary) => {
+    replacementMechanicsCalls.push('persist');
+    replacementMechanicsPersisted.push({ state: cloneJson(next), summary });
+    return { id: `save-replacement-mechanics-${replacementMechanicsPersisted.length}` };
+  },
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      replacementMechanicsCalls.push(['getTransaction', transactionId]);
+      assert.equal(transactionId, 'txn-fresh-replacement-branch');
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 2, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 2, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn(transactionId, patch) {
+      replacementMechanicsCalls.push(['core-advance', transactionId]);
+      assert.equal(transactionId, 'txn-fresh-replacement-branch');
+      assert.equal(patch.phase, 'routePending');
+      return { id: transactionId, phase: patch.phase };
+    },
+    async commitMechanics(transactionId, bundle) {
+      replacementMechanicsCalls.push(['core-mechanics', transactionId]);
+      assert.equal(transactionId, 'txn-fresh-replacement-branch');
+      assert.equal(bundle.outcomeId, 'outcome-core-mechanics-order');
+      return {
+        turnId: 'core-turn-fresh-replacement',
+        outcomeId: bundle.outcomeId,
+        operationHash: 'fresh-replacement-operation-hash'
+      };
+    },
+    async recordOutcomeReplacement(transactionId, replacement) {
+      replacementMechanicsCalls.push(['core-replacement', transactionId]);
+      assert.equal(transactionId, 'txn-fresh-replacement-branch');
+      assert.equal(replacement.replacedTransactionId, 'txn-original-committed-outcome');
+      assert.equal(replacement.replacementTransactionId, 'txn-fresh-replacement-branch');
+      return {
+        kind: 'directive.coreOutcomeReplacementRef.v1',
+        transactionId,
+        replacedTransactionId: replacement.replacedTransactionId,
+        replacementTransactionId: replacement.replacementTransactionId,
+        replacedOutcomeId: replacement.replacedOutcomeId,
+        replacementOutcomeId: replacement.replacementOutcomeId
+      };
+    }
+  }
+});
+
+const replacementMechanicsResult = await replacementMechanicsCoordinator.checkpointMechanics({
+  beforeCampaignState: replacementMechanicsState,
+  campaignState: {
+    ...committedState(),
+    runtimeTracking: replacementMechanicsState.runtimeTracking
+  },
+  turnPacket,
+  ingressId: 'ingress-core-mechanics-order',
+  outcomeReplacement: {
+    transactionId: 'txn-fresh-replacement-branch',
+    replacedTransactionId: 'txn-original-committed-outcome',
+    replacementTransactionId: 'txn-fresh-replacement-branch',
+    idempotencyKey: 'outcome-replacement:fresh-branch',
+    type: 'rerunOutcome',
+    replacedOutcomeId: 'outcome-old-core-mechanics-order',
+    replacementOutcomeId: 'outcome-core-mechanics-order'
+  }
+});
+assert.equal(replacementMechanicsResult.coreMechanics.transactionId, 'txn-fresh-replacement-branch');
+assert.equal(replacementMechanicsResult.coreOutcomeReplacement.transactionId, 'txn-fresh-replacement-branch');
+assert.equal(replacementMechanicsPersisted[0].state.turnLedger.entries.at(-1).coreTransactionId, 'txn-fresh-replacement-branch');
 
 const malformedReducerPacket = cloneJson(turnPacket);
 malformedReducerPacket.stateDelta.openWorld.reducerBundle.diagnostics.operationCount = 2;

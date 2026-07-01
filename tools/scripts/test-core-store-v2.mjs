@@ -5,6 +5,7 @@ import {
   hashStableJson
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import {
+  buildCoreStoreReadProjections,
   createCoreStoreV2,
   loadCoreStoreStateV2,
   readCoreStoreProjectionsV2
@@ -24,10 +25,14 @@ function createLoggingStorage() {
   const writeLog = [];
   const readLog = [];
   const verifyLog = [];
+  let failWritePredicate = null;
   return {
     writeLog,
     readLog,
     verifyLog,
+    failWritesWhen(predicate = null) {
+      failWritePredicate = typeof predicate === 'function' ? predicate : null;
+    },
     snapshot() {
       return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
     },
@@ -42,6 +47,11 @@ function createLoggingStorage() {
     },
     async writeJson(filePath, value) {
       writeLog.push(filePath);
+      if (failWritePredicate?.(filePath, value)) {
+        const error = new Error(`simulated write failure: ${filePath}`);
+        error.code = 'SIMULATED_WRITE_FAILURE';
+        throw error;
+      }
       files.set(filePath, cloneJson(value));
       return { ok: true, path: filePath };
     },
@@ -200,6 +210,7 @@ const mechanics = await coreStore.commitMechanics(transaction.id, {
   turnId: 'turn-29',
   outcomeId: 'outcome-29',
   summary: 'Sam frames the tactical risk without overruling the bridge.',
+  snapshotBeforeRetained: true,
   committedRoots: ['mission', 'commandLog'],
   promptDirtyDomains: ['missionQuestThread'],
   operations: [
@@ -244,6 +255,7 @@ const hydratedAfterMechanics = await loadCoreStoreStateV2(adapter, {
 });
 assert.equal(hydratedAfterMechanics.transactions[transaction.id].turnId, 'turn-29', 'hydration should derive mechanics turn id from appended event/turn segments');
 assert.equal(hydratedAfterMechanics.transactions[transaction.id].outcomeId, 'outcome-29', 'hydration should derive mechanics outcome from appended event/turn segments');
+assert.equal(hydratedAfterMechanics.turns.find((entry) => entry.turnId === 'turn-29')?.snapshotBeforeRetained, true, 'hydration should preserve retained-snapshot capability for rerun authorization');
 assert.equal(hydratedAfterMechanics.revisions.mechanics, 1, 'hydration should derive mechanics revision from appended event/turn segments');
 assert.equal(hydratedAfterMechanics.promptDirtyDomains.includes('missionQuestThread'), true, 'hydration should derive prompt dirty domains from appended turn segments');
 assert.equal(mechanics.outcomeId, 'outcome-29');
@@ -358,6 +370,340 @@ assert.equal(hydratedAfterResponse.transactions[transaction.id].phase, 'visibleR
 assert.equal(hydratedAfterResponse.transactions[transaction.id].visibleResponseRef.hostMessageId, '30', 'hydration should derive visible response host id from appended events');
 assert.equal(hydratedAfterResponse.transactions[transaction.id].visibleResponseRef.textHash, null, 'hydration should keep hash-only missing response text state without raw response text');
 assert.equal(hydratedAfterResponse.revisions.runtime, 4, 'hydration should derive runtime revision from appended response event');
+
+const manifestBeforeOutcomeReplacement = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+const beforeOutcomeReplacementHeadWrites = storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length;
+const beforeOutcomeReplacementHostMapWrites = storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length;
+const beforeOutcomeReplacementTurnWrites = storage.writeLog.filter((key) => key.includes('/turns/')).length;
+const beforeOutcomeReplacementWriteStart = storage.writeLog.length;
+const beforeOutcomeReplacementReadStart = storage.readLog.length;
+const outcomeReplacement = await coreStore.recordOutcomeReplacement(transaction.id, {
+  idempotencyKey: 'outcome-replacement-29',
+  type: 'rerunOutcome',
+  replacedTransactionId: 'txn-29-original',
+  replacedOutcomeId: 'outcome-29',
+  replacementOutcomeId: 'outcome-29-rerun',
+  replacedTurnId: 'turn-29',
+  replacementTurnId: 'turn-29-rerun',
+  repairDecision: {
+    kind: 'directive.repairOutcomeRerunActuationDecision.v1',
+    transactionId: transaction.id,
+    authorized: true,
+    action: 'createRerunBranchCandidate',
+    outcomeId: 'outcome-29',
+    rawSnapshot: 'RAW_RERUN_SNAPSHOT'
+  },
+  replacementText: 'RAW_RERUN_REPLACEMENT_TEXT'
+});
+assert.equal(outcomeReplacement.kind, 'directive.coreOutcomeReplacementRef.v1');
+assert.equal(outcomeReplacement.replacedOutcomeId, 'outcome-29');
+assert.equal(outcomeReplacement.replacedTransactionId, 'txn-29-original');
+assert.equal(outcomeReplacement.replacementTransactionId, transaction.id);
+assert.equal(outcomeReplacement.replacementOutcomeId, 'outcome-29-rerun');
+assert.equal(outcomeReplacement.repairDecision.kind, 'directive.repairOutcomeRerunActuationDecision.v1');
+assert.equal(outcomeReplacement.repairDecision.transactionId, transaction.id);
+assert.equal(JSON.stringify(outcomeReplacement).includes('RAW_RERUN'), false);
+const outcomeReplacementWriteKeys = storage.writeLog.slice(beforeOutcomeReplacementWriteStart);
+const outcomeReplacementReadKeys = storage.readLog.slice(beforeOutcomeReplacementReadStart);
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/head.v2.json')).length, beforeOutcomeReplacementHeadWrites, 'outcome replacement append must not rewrite CORE head');
+assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json')).length, beforeOutcomeReplacementHostMapWrites, 'outcome replacement append must not rewrite host map');
+assert.equal(storage.writeLog.filter((key) => key.includes('/turns/')).length, beforeOutcomeReplacementTurnWrites, 'outcome replacement append must not write turn segments');
+assert.equal(outcomeReplacementWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'outcome replacement append should write exactly one event tail');
+assert.equal(outcomeReplacementWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'outcome replacement append should publish one save manifest');
+assert.equal(outcomeReplacementWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'outcome replacement append should publish one campaign manifest');
+assert.equal(outcomeReplacementWriteKeys.length, 3, 'outcome replacement append should write only event tail and manifests');
+assert.equal(outcomeReplacementReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'outcome replacement append must not read CORE head');
+const manifestAfterOutcomeReplacement = await loadV2SaveManifest(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  layout: 'core'
+});
+assert.deepEqual(manifestAfterOutcomeReplacement.head, manifestBeforeOutcomeReplacement.head, 'outcome replacement append should preserve the prior materialized head ref');
+assert.deepEqual(manifestAfterOutcomeReplacement.turnSegments, manifestBeforeOutcomeReplacement.turnSegments, 'outcome replacement append should preserve turn refs');
+const outcomeReplacementProjections = coreStore.readProjections();
+const projectedOutcomeReplacement = outcomeReplacementProjections.turnLedger.replacementHistory.at(-1);
+assert.equal(projectedOutcomeReplacement.kind, 'directive.coreOutcomeReplacementRef.v1');
+assert.equal(projectedOutcomeReplacement.transactionId, transaction.id);
+assert.equal(projectedOutcomeReplacement.replacedOutcomeId, 'outcome-29');
+assert.equal(projectedOutcomeReplacement.replacementOutcomeId, 'outcome-29-rerun');
+assert.equal(projectedOutcomeReplacement.repairDecision.action, 'createRerunBranchCandidate');
+assert.equal(JSON.stringify(outcomeReplacementProjections).includes('RAW_RERUN'), false);
+const hydratedAfterOutcomeReplacement = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+assert.equal(
+  buildCoreStoreReadProjections(hydratedAfterOutcomeReplacement).turnLedger.replacementHistory.at(-1).replacementOutcomeId,
+  'outcome-29-rerun',
+  'hydration should derive outcome replacement projection from event segments'
+);
+const outcomeReplacementReplayEventCount = coreStore.state.events.length;
+await assert.rejects(
+  () => coreStore.recordOutcomeReplacement(transaction.id, {
+    idempotencyKey: 'outcome-replacement-29',
+    type: 'rerunOutcome',
+    replacedTransactionId: 'txn-29-original',
+    replacedOutcomeId: 'outcome-29',
+    replacementOutcomeId: 'outcome-29-different-rerun'
+  }),
+  (error) => error?.code === 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_REPLAY_MISMATCH',
+  'same outcome replacement idempotency key must reject a different replacement tuple'
+);
+assert.equal(coreStore.state.events.length, outcomeReplacementReplayEventCount, 'mismatched replacement replay must not append another event');
+
+const replacementFailureStorage = createLoggingStorage();
+const replacementFailureAdapter = createLogicalStorageAdapter({ storage: replacementFailureStorage, hostId: 'fake' });
+const replacementFailureStore = createCoreStoreV2({
+  adapter: replacementFailureAdapter,
+  campaignId: 'campaign-core-replacement-failure',
+  saveId: 'save-core-replacement-failure',
+  now: () => `2026-06-28T15:00:${String(tick++).padStart(2, '0')}.000Z`
+});
+await replacementFailureStore.beginTurn({
+  id: 'frame-replacement-failure',
+  campaignId: 'campaign-core-replacement-failure',
+  saveId: 'save-core-replacement-failure',
+  chatId: 'chat-core-replacement-failure',
+  hostMessageId: 'host-replacement-failure',
+  textHash: 'hash-replacement-failure'
+}, {
+  transactionId: 'txn-replacement-failure',
+  ingressId: 'ingress-replacement-failure',
+  idempotencyKey: 'begin-replacement-failure'
+});
+const replacementFailureEventCountBefore = replacementFailureStore.state.events.length;
+replacementFailureStorage.failWritesWhen((filePath) => filePath.includes('/events/'));
+await assert.rejects(
+  () => replacementFailureStore.recordOutcomeReplacement('txn-replacement-failure', {
+    idempotencyKey: 'outcome-replacement-failure-key',
+    replacedOutcomeId: 'outcome-replacement-failure-old',
+    replacementOutcomeId: 'outcome-replacement-failure-new'
+  }),
+  (error) => error.code === 'SIMULATED_WRITE_FAILURE'
+);
+assert.equal(
+  replacementFailureStore.state.events.length,
+  replacementFailureEventCountBefore,
+  'failed outcome replacement append must roll back in-memory event state'
+);
+replacementFailureStorage.failWritesWhen(null);
+const replacementFailureRetry = await replacementFailureStore.recordOutcomeReplacement('txn-replacement-failure', {
+  idempotencyKey: 'outcome-replacement-failure-key',
+  replacedOutcomeId: 'outcome-replacement-failure-old',
+  replacementOutcomeId: 'outcome-replacement-failure-new'
+});
+assert.equal(replacementFailureRetry.replacementOutcomeId, 'outcome-replacement-failure-new');
+
+const recoveryFailureStorage = createLoggingStorage();
+const recoveryFailureAdapter = createLogicalStorageAdapter({ storage: recoveryFailureStorage, hostId: 'fake' });
+const recoveryFailureStore = createCoreStoreV2({
+  adapter: recoveryFailureAdapter,
+  campaignId: 'campaign-core-recovery-failure',
+  saveId: 'save-core-recovery-failure',
+  now: () => `2026-06-28T15:01:${String(tick++).padStart(2, '0')}.000Z`
+});
+const recoveryFailureFrame = createTurnSourceFrameContract({
+  id: 'frame-recovery-failure',
+  campaignId: 'campaign-core-recovery-failure',
+  saveId: 'save-core-recovery-failure',
+  chatId: 'chat-core-recovery-failure',
+  hostMessageId: 'host-recovery-failure',
+  textHash: 'hash-recovery-failure'
+});
+await recoveryFailureStore.beginTurn(recoveryFailureFrame, {
+  transactionId: 'txn-recovery-failure',
+  ingressId: 'ingress-recovery-failure',
+  idempotencyKey: 'begin-recovery-failure'
+});
+await recoveryFailureStore.advanceTurn('txn-recovery-failure', {
+  phase: 'routePending',
+  route: 'directiveCommit',
+  idempotencyKey: 'recovery-failure-route'
+});
+const recoveryFailureEventCount = recoveryFailureStore.state.events.length;
+const recoveryFailureRevision = recoveryFailureStore.state.revisions.runtime;
+recoveryFailureStorage.failWritesWhen((filePath) => filePath.includes('/events/'));
+await assert.rejects(
+  () => recoveryFailureStore.markRecoveryRequired('txn-recovery-failure', {
+    id: 'recovery-persist-failure',
+    reason: 'persist-failure-test',
+    idempotencyKey: 'recovery-persist-failure-key'
+  }),
+  /simulated write failure/,
+  'failed recovery append should surface the write failure'
+);
+assert.equal(recoveryFailureStore.state.events.length, recoveryFailureEventCount, 'failed recovery append must roll back in-memory event state');
+assert.equal(recoveryFailureStore.state.transactions['txn-recovery-failure'].phase, 'routePending', 'failed recovery append must preserve prior transaction phase');
+assert.equal(recoveryFailureStore.state.transactions['txn-recovery-failure'].recoveryCaseId, null, 'failed recovery append must not leave an in-memory recovery case');
+assert.equal(recoveryFailureStore.state.revisions.runtime, recoveryFailureRevision, 'failed recovery append must restore runtime revision');
+recoveryFailureStorage.failWritesWhen(null);
+const recoveryFailureRetry = await recoveryFailureStore.markRecoveryRequired('txn-recovery-failure', {
+  id: 'recovery-persist-failure',
+  reason: 'persist-failure-test',
+  idempotencyKey: 'recovery-persist-failure-key'
+});
+assert.equal(recoveryFailureRetry.id, 'recovery-persist-failure');
+
+const restartFailureStorage = createLoggingStorage();
+const restartFailureAdapter = createLogicalStorageAdapter({ storage: restartFailureStorage, hostId: 'fake' });
+const restartFailureStore = createCoreStoreV2({
+  adapter: restartFailureAdapter,
+  campaignId: 'campaign-core-restart-failure',
+  saveId: 'save-core-restart-failure',
+  now: () => `2026-06-28T15:01:${String(tick++).padStart(2, '0')}.000Z`
+});
+const restartFailurePriorFrame = createTurnSourceFrameContract({
+  id: 'frame-restart-failure-prior',
+  campaignId: 'campaign-core-restart-failure',
+  saveId: 'save-core-restart-failure',
+  chatId: 'chat-core-restart-failure',
+  hostMessageId: 'host-restart-failure',
+  textHash: 'hash-restart-failure-prior'
+});
+const restartFailureReplacementFrame = createTurnSourceFrameContract({
+  id: 'frame-restart-failure-replacement',
+  campaignId: 'campaign-core-restart-failure',
+  saveId: 'save-core-restart-failure',
+  chatId: 'chat-core-restart-failure',
+  hostMessageId: 'host-restart-failure',
+  textHash: 'hash-restart-failure-replacement'
+});
+await restartFailureStore.beginTurn(restartFailurePriorFrame, {
+  transactionId: 'txn-restart-failure-prior',
+  ingressId: 'ingress-restart-failure-prior',
+  idempotencyKey: 'begin-restart-failure-prior'
+});
+await restartFailureStore.markRecoveryRequired('txn-restart-failure-prior', {
+  id: 'recovery-restart-failure',
+  reason: 'source-restart-failure-test',
+  idempotencyKey: 'recovery-restart-failure-key'
+});
+await restartFailureStore.beginTurn(restartFailureReplacementFrame, {
+  transactionId: 'txn-restart-failure-replacement',
+  ingressId: 'ingress-restart-failure-replacement',
+  idempotencyKey: 'begin-restart-failure-replacement'
+});
+const restartFailureEventCount = restartFailureStore.state.events.length;
+const restartFailureRevision = restartFailureStore.state.revisions.runtime;
+restartFailureStorage.failWritesWhen((filePath) => filePath.includes('/events/'));
+await assert.rejects(
+  () => restartFailureStore.supersedeLatestSourceTransaction('txn-restart-failure-prior', 'txn-restart-failure-replacement', {
+    priorRecoveryId: 'recovery-restart-failure',
+    reason: 'latest-source-reobserved',
+    idempotencyKey: 'restart-failure-key'
+  }),
+  /simulated write failure/,
+  'failed source restart append should surface the write failure'
+);
+assert.equal(restartFailureStore.state.events.length, restartFailureEventCount, 'failed source restart append must roll back in-memory event state');
+assert.equal(restartFailureStore.state.transactions['txn-restart-failure-prior'].phase, 'recoveryRequired', 'failed source restart append must preserve prior recovery phase');
+assert.equal(restartFailureStore.state.transactions['txn-restart-failure-prior'].recoveryCaseId, 'recovery-restart-failure', 'failed source restart append must preserve recovery case id');
+assert.equal(restartFailureStore.state.transactions['txn-restart-failure-prior'].sourceRestart, undefined, 'failed source restart append must not leave source restart state');
+assert.equal(restartFailureStore.state.transactions['txn-restart-failure-replacement'].restartedFromTransactionId, undefined, 'failed source restart append must not link replacement transaction');
+assert.equal(restartFailureStore.state.revisions.runtime, restartFailureRevision, 'failed source restart append must restore runtime revision');
+restartFailureStorage.failWritesWhen(null);
+const restartFailureRetry = await restartFailureStore.supersedeLatestSourceTransaction('txn-restart-failure-prior', 'txn-restart-failure-replacement', {
+  priorRecoveryId: 'recovery-restart-failure',
+  reason: 'latest-source-reobserved',
+  idempotencyKey: 'restart-failure-key'
+});
+assert.equal(restartFailureRetry.sourceRestart.newTransactionId, 'txn-restart-failure-replacement');
+
+const rollbackFailureStorage = createLoggingStorage();
+const rollbackFailureAdapter = createLogicalStorageAdapter({ storage: rollbackFailureStorage, hostId: 'fake' });
+const rollbackFailureStore = createCoreStoreV2({
+  adapter: rollbackFailureAdapter,
+  campaignId: 'campaign-core-rollback-failure',
+  saveId: 'save-core-rollback-failure',
+  now: () => `2026-06-28T15:02:${String(tick++).padStart(2, '0')}.000Z`
+});
+const rollbackFailureFrame = createTurnSourceFrameContract({
+  id: 'frame-rollback-failure',
+  campaignId: 'campaign-core-rollback-failure',
+  saveId: 'save-core-rollback-failure',
+  chatId: 'chat-core-rollback-failure',
+  hostMessageId: 'host-rollback-failure',
+  textHash: 'hash-rollback-failure'
+});
+await rollbackFailureStore.beginTurn(rollbackFailureFrame, {
+  transactionId: 'txn-rollback-failure',
+  ingressId: 'ingress-rollback-failure',
+  idempotencyKey: 'begin-rollback-failure'
+});
+await rollbackFailureStore.advanceTurn('txn-rollback-failure', {
+  phase: 'routePending',
+  route: 'directiveCommit',
+  idempotencyKey: 'rollback-failure-route'
+});
+await rollbackFailureStore.advanceTurn('txn-rollback-failure', {
+  phase: 'settled',
+  route: 'directiveCommit',
+  idempotencyKey: 'rollback-failure-settled'
+});
+await rollbackFailureStore.markRecoveryRequired('txn-rollback-failure', {
+  id: 'recovery-rollback-failure',
+  reason: 'playerMessageDeleted',
+  idempotencyKey: 'recovery-rollback-failure-key'
+});
+const rollbackFailureEventCount = rollbackFailureStore.state.events.length;
+rollbackFailureStorage.failWritesWhen((filePath) => filePath.includes('/events/'));
+await assert.rejects(
+  () => rollbackFailureStore.recordRollbackActuation('txn-rollback-failure', {
+    id: 'rollback-failure',
+    recoveryCaseId: 'recovery-rollback-failure',
+    eventType: 'playerMessageDeleted',
+    rollbackActuation: {
+      kind: 'directive.repairRollbackActuationDecision.v1',
+      authorized: true,
+      action: 'restorePreOutcomeRevision',
+      transactionId: 'txn-rollback-failure',
+      restoreRevision: 7
+    },
+    idempotencyKey: 'rollback-failure-key'
+  }),
+  /simulated write failure/,
+  'failed rollback actuation append should surface the write failure'
+);
+assert.equal(rollbackFailureStore.state.events.length, rollbackFailureEventCount, 'failed rollback actuation append must roll back in-memory event state');
+assert.equal(rollbackFailureStore.state.transactions['txn-rollback-failure'].phase, 'recoveryRequired', 'failed rollback actuation append must preserve recovery phase');
+assert.equal(rollbackFailureStore.state.transactions['txn-rollback-failure'].recoveryCaseId, 'recovery-rollback-failure', 'failed rollback actuation append must preserve recovery case id');
+rollbackFailureStorage.failWritesWhen(null);
+const rollbackFailureRetry = await rollbackFailureStore.recordRollbackActuation('txn-rollback-failure', {
+  id: 'rollback-failure',
+  recoveryCaseId: 'recovery-rollback-failure',
+  eventType: 'playerMessageDeleted',
+  rollbackActuation: {
+    kind: 'directive.repairRollbackActuationDecision.v1',
+    authorized: true,
+    action: 'restorePreOutcomeRevision',
+    transactionId: 'txn-rollback-failure',
+    restoreRevision: 7
+  },
+  idempotencyKey: 'rollback-failure-key'
+});
+assert.equal(rollbackFailureRetry.id, 'rollback-failure');
+await assert.rejects(
+  () => rollbackFailureStore.recordRollbackActuation('txn-rollback-failure', {
+    id: 'rollback-failure-unauthorized',
+    recoveryCaseId: 'recovery-rollback-failure',
+    eventType: 'playerMessageDeleted',
+    rollbackActuation: {
+      kind: 'directive.repairRollbackActuationDecision.v1',
+      authorized: false,
+      action: 'blockRollbackActuation',
+      transactionId: 'txn-rollback-failure',
+      restoreRevision: 7
+    },
+    idempotencyKey: 'rollback-failure-unauthorized-key'
+  }),
+  /no recovery case for rollback actuation|not REPAIR-authorized/,
+  'settled or unauthorized rollback actuation must not resolve a CORE recovery'
+);
+
 const hydratedResponseReplayStore = createCoreStoreV2({
   adapter,
   campaignId: 'campaign-core-v2',
@@ -466,6 +812,17 @@ const backgroundCommit29 = await coreStore.commitBackgroundBatch(transaction.id,
   ],
   backgroundEffectRefs: [
     {
+      kind: 'directive.commandBearingEvidence.v1',
+      id: 'bearing-evidence-29',
+      sourceOutcomeId: 'outcome-29',
+      primarySignal: 'resolve',
+      trackSignals: ['resolve'],
+      strength: 'strong',
+      status: 'open',
+      evidenceHash: 'bearing-evidence-hash-29',
+      rawEvidenceText: 'RAW_COMMAND_BEARING_EVIDENCE_TEXT'
+    },
+    {
       kind: 'directive.commandBearingReviewClosure.v1',
       id: 'closure-29',
       reviewHash: reviewHash29,
@@ -489,9 +846,10 @@ const backgroundCommit29 = await coreStore.commitBackgroundBatch(transaction.id,
   ]
 });
 const returnedBackground29 = backgroundCommit29.backgroundBatches.find((entry) => entry.batchId === 'forge-29');
+const returnedReviewEffect29 = returnedBackground29.backgroundEffectRefs.find((entry) => entry.kind === 'directive.commandBearingReviewClosure.v1');
 assert.equal(returnedBackground29.forgeBatchRef.acceptedBatchHash, acceptedBatchHash29, 'commitBackgroundBatch return should carry accepted batch identity in durable ref evidence');
 assert.equal(returnedBackground29.forgeBatchRef.reviewHash, reviewHash29, 'commitBackgroundBatch return should carry review hash identity in durable ref evidence');
-assert.equal(returnedBackground29.backgroundEffectRefs[0].reviewHash, reviewHash29, 'commitBackgroundBatch return should carry compact effect review hash evidence');
+assert.equal(returnedReviewEffect29.reviewHash, reviewHash29, 'commitBackgroundBatch return should carry compact effect review hash evidence');
 assert.equal(JSON.stringify(returnedBackground29).includes('RAW_BACKGROUND_PROVIDER_TEXT'), false, 'returned background batch refs must redact raw provider text');
 assert.equal(JSON.stringify(returnedBackground29).includes('RAW_BACKGROUND_REVIEW_TEXT'), false, 'returned background effect refs must redact raw review text');
 const backgroundWriteKeys = storage.writeLog.slice(beforeBackgroundWriteStart);
@@ -528,9 +886,10 @@ const hydratedAfterBackground = await loadCoreStoreStateV2(adapter, {
 assert.equal(hydratedAfterBackground.transactions[transaction.id].backgroundBatchIds.includes('forge-29'), true, 'hydration should derive background batch ids from appended events');
 assert.equal(hydratedAfterBackground.transactions[transaction.id].backgroundBatches.some((entry) => entry.batchId === 'forge-29' && entry.operationCount === 1), true, 'hydration should derive background operation summary from appended events');
 const hydratedBackground29 = hydratedAfterBackground.transactions[transaction.id].backgroundBatches.find((entry) => entry.batchId === 'forge-29');
+const hydratedReviewEffect29 = hydratedBackground29.backgroundEffectRefs.find((entry) => entry.kind === 'directive.commandBearingReviewClosure.v1');
 assert.equal(hydratedBackground29.forgeBatchRef.acceptedBatchHash, acceptedBatchHash29, 'hydration should preserve compact accepted batch identity from background event refs');
 assert.equal(hydratedBackground29.forgeBatchRef.reviewHash, reviewHash29, 'hydration should preserve compact review hash from background event refs');
-assert.equal(hydratedBackground29.backgroundEffectRefs[0].reviewHash, reviewHash29, 'hydration should preserve compact effect review hash evidence');
+assert.equal(hydratedReviewEffect29.reviewHash, reviewHash29, 'hydration should preserve compact effect review hash evidence');
 assert.equal(JSON.stringify(hydratedBackground29).includes('RAW_BACKGROUND_PROVIDER_TEXT'), false, 'hydrated background refs must redact raw provider text');
 assert.equal(JSON.stringify(hydratedBackground29).includes('RAW_BACKGROUND_REVIEW_TEXT'), false, 'hydrated background refs must redact raw review text');
 assert.equal(hydratedAfterBackground.promptDirtyDomains.includes('continuity'), true, 'hydration should derive background prompt dirty domains from appended events');
@@ -730,6 +1089,16 @@ const responseRetryCase = await coreStore.markRecoveryRequired(retryTransaction.
 });
 assert.equal(responseRetryCase.status, 'required');
 assert.equal(coreStore.state.transactions[retryTransaction.id].phase, 'responseRetryRequired');
+const responseRetryProjectionBeforeActuation = await readCoreStoreProjectionsV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+const responseRetryRowBeforeActuation = responseRetryProjectionBeforeActuation.responseLedger.find((entry) => (
+  entry.transactionId === retryTransaction.id
+));
+assert.ok(responseRetryRowBeforeActuation, 'CORE response projections should expose responseRetryRequired before retry actuation posts a visible response');
+assert.equal(responseRetryRowBeforeActuation.status, 'responseRetryRequired');
+assert.equal(responseRetryRowBeforeActuation.recoveryId, 'recovery-32');
 await assert.rejects(
   () => coreStore.recordVisibleResponse(retryTransaction.id, {
     idempotencyKey: 'response-32-unauthorized-key',
@@ -776,6 +1145,23 @@ const retryResolutionProjection = coreStore.readProjections().recoveryJournal.fi
 ));
 assert.ok(retryResolutionProjection, 'response retry closure must project a resolved recovery');
 assert.equal(retryResolutionProjection.repairDecision.kind, 'directive.repairResponseRetryActuationDecision.v1');
+const responseRetryRecoveryReplayEventCount = coreStore.state.events.length;
+const responseRetryRecoveryReplay = await coreStore.markRecoveryRequired(retryTransaction.id, {
+  id: 'recovery-32',
+  reason: 'host-response-post-failure',
+  responseRetry: true,
+  repairDecision: {
+    kind: 'directive.repairResponseRecoveryDecision.v1',
+    eventType: 'hostResponsePostFailure',
+    responseStatus: 'responseRetryRequired',
+    phaseAfter: 'responseRetryRequired'
+  },
+  idempotencyKey: 'recovery-32-key'
+});
+assert.equal(responseRetryRecoveryReplay.status, 'resolved', 'same recovery replay after visible response must resolve to the prior response closure');
+assert.equal(coreStore.state.events.length, responseRetryRecoveryReplayEventCount, 'same recovery replay after visible response must not append another recoveryRequired event');
+assert.equal(coreStore.state.transactions[retryTransaction.id].phase, 'visibleResponsePosted', 'same recovery replay after visible response must not reopen recovery');
+assert.equal(coreStore.state.transactions[retryTransaction.id].recoveryCaseId, null, 'same recovery replay after visible response must leave recovery closed');
 await assert.rejects(
   () => coreStore.recordVisibleResponse(recoveryTransaction.id, {
     idempotencyKey: 'response-31-key',
@@ -814,6 +1200,16 @@ await coreStore.advanceTurn(unavailableClosureTransaction.id, {
   reason: 'host-native-unavailable-reobserve-closure-release',
   idempotencyKey: 'advance-36-release'
 });
+const hostContinueReleaseProjection = await readCoreStoreProjectionsV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+const hostContinueReleaseRow = hostContinueReleaseProjection.responseLedger.find((entry) => (
+  entry.transactionId === unavailableClosureTransaction.id
+));
+assert.ok(hostContinueReleaseRow, 'CORE response projections should expose hostContinue releases before host-native response reobserve');
+assert.equal(hostContinueReleaseRow.status, 'hostContinueReleased');
+assert.equal(hostContinueReleaseRow.responseKind, 'hostContinue');
 await coreStore.markRecoveryRequired(unavailableClosureTransaction.id, {
   id: 'recovery-36',
   reason: 'hostNativeAssistantUnavailable',
@@ -863,6 +1259,237 @@ const unavailableClosureRecovery = unavailableClosureProjection.recoveryJournal.
 assert.equal(unavailableClosureRecovery.reason, 'host-native-response-reobserved');
 assert.equal(unavailableClosureRecovery.hostMessageId, '37');
 assert.equal(unavailableClosureRecovery.textHash, unavailableClosureHash);
+
+const rollbackFrame = createTurnSourceFrameContract({
+  id: 'frame-38',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'ashes-chat',
+  hostMessageId: '38',
+  textHash: hashStableJson({ text: 'A committed player source was deleted and rollback was authorized.' }),
+  createdAt: '2026-06-28T15:00:38.000Z'
+});
+const rollbackTransaction = await coreStore.beginTurn(rollbackFrame, {
+  transactionId: 'txn-38',
+  ingressId: 'ingress-38',
+  idempotencyKey: 'begin-38'
+});
+await coreStore.advanceTurn(rollbackTransaction.id, {
+  phase: 'routePending',
+  route: 'directiveCommit',
+  reason: 'rollback-actuation-route',
+  idempotencyKey: 'rollback-route-38'
+});
+await coreStore.advanceTurn(rollbackTransaction.id, {
+  phase: 'settled',
+  route: 'directiveCommit',
+  reason: 'rollback-source-was-settled',
+  idempotencyKey: 'rollback-settled-38'
+});
+await coreStore.markRecoveryRequired(rollbackTransaction.id, {
+  id: 'recovery-38',
+  reason: 'playerMessageDeleted',
+  sourceMutation: {
+    kind: 'directive.sourceMutation.v1',
+    sourceKind: 'playerIngress',
+    eventType: 'playerMessageDeleted',
+    hostMessageId: '38',
+    ingressId: 'ingress-38',
+    outcomeId: 'outcome-38',
+    sourceFrameId: 'frame-38',
+    preOutcomeRevision: 12,
+    rawDeletedText: 'RAW_DELETED_PLAYER_TEXT'
+  },
+  repairDecision: {
+    kind: 'directive.repairDecision.v1',
+    action: 'rollbackPending',
+    eventType: 'playerMessageDeleted',
+    sourceKind: 'playerIngress',
+    transactionId: 'txn-38',
+    legacyProjection: {
+      kind: 'directive.repairLegacyProjection.v1',
+      shouldRestoreRevision: true,
+      restoreRevision: 12
+    }
+  },
+  allowedActions: ['rollbackToPreOutcomeRevision', 'reviewSourceMutation'],
+  idempotencyKey: 'recovery-38-key'
+});
+await assert.rejects(
+  () => coreStore.recordRollbackActuation(rollbackTransaction.id, {
+    id: 'rollback-38-cross-transaction',
+    recoveryCaseId: 'recovery-38',
+    eventType: 'playerMessageDeleted',
+    rollbackActuation: {
+      kind: 'directive.repairRollbackActuationDecision.v1',
+      authorized: true,
+      action: 'restorePreOutcomeRevision',
+      transactionId: 'txn-other',
+      restoreRevision: 12,
+      recoveryCaseId: 'recovery-38'
+    },
+    idempotencyKey: 'rollback-38-cross-transaction-key'
+  }),
+  /transaction mismatch|not REPAIR-authorized/,
+  'rollback actuation decision must be scoped to the transaction being closed'
+);
+await assert.rejects(
+  () => coreStore.recordRollbackActuation(rollbackTransaction.id, {
+    id: 'rollback-38-cross-recovery',
+    recoveryCaseId: 'recovery-other',
+    eventType: 'playerMessageDeleted',
+    rollbackActuation: {
+      kind: 'directive.repairRollbackActuationDecision.v1',
+      authorized: true,
+      action: 'restorePreOutcomeRevision',
+      transactionId: 'txn-38',
+      restoreRevision: 12,
+      recoveryCaseId: 'recovery-other'
+    },
+    idempotencyKey: 'rollback-38-cross-recovery-key'
+  }),
+  /recovery mismatch|not REPAIR-authorized/,
+  'rollback actuation decision must be scoped to the recovery being closed'
+);
+await assert.rejects(
+  () => coreStore.recordRollbackActuation(rollbackTransaction.id, {
+    id: 'rollback-38-missing-transaction',
+    recoveryCaseId: 'recovery-38',
+    eventType: 'playerMessageDeleted',
+    rollbackActuation: {
+      kind: 'directive.repairRollbackActuationDecision.v1',
+      authorized: true,
+      action: 'restorePreOutcomeRevision',
+      restoreRevision: 12,
+      recoveryCaseId: 'recovery-38'
+    },
+    idempotencyKey: 'rollback-38-missing-transaction-key'
+  }),
+  /transaction id is required|transaction mismatch|not REPAIR-authorized/,
+  'rollback actuation decision must carry the transaction id it closes'
+);
+await assert.rejects(
+  () => coreStore.recordRollbackActuation(rollbackTransaction.id, {
+    id: 'rollback-38-missing-recovery',
+    eventType: 'playerMessageDeleted',
+    rollbackActuation: {
+      kind: 'directive.repairRollbackActuationDecision.v1',
+      authorized: true,
+      action: 'restorePreOutcomeRevision',
+      transactionId: 'txn-38',
+      restoreRevision: 12
+    },
+    idempotencyKey: 'rollback-38-missing-recovery-key'
+  }),
+  /recovery id is required|recovery mismatch|not REPAIR-authorized/,
+  'rollback actuation decision must carry the recovery id it closes'
+);
+const beforeRollbackWriteStart = storage.writeLog.length;
+const rollbackRecord = await coreStore.recordRollbackActuation(rollbackTransaction.id, {
+  id: 'rollback-38',
+  eventType: 'playerMessageDeleted',
+  recoveryCaseId: 'recovery-38',
+  sourceMutation: {
+    kind: 'directive.sourceMutation.v1',
+    sourceKind: 'playerIngress',
+    eventType: 'playerMessageDeleted',
+    hostMessageId: '38',
+    ingressId: 'ingress-38',
+    outcomeId: 'outcome-38',
+    sourceFrameId: 'frame-38',
+    preOutcomeRevision: 12,
+    rawDeletedText: 'RAW_DELETED_PLAYER_TEXT'
+  },
+  repairDecision: {
+    kind: 'directive.repairDecision.v1',
+    action: 'rollbackPending',
+    transactionId: 'txn-38',
+    rawDeletedText: 'RAW_DELETED_PLAYER_TEXT',
+    replacementText: 'RAW_REPLACEMENT_TEXT_FROM_REPAIR_DECISION'
+  },
+  legacyProjection: {
+    kind: 'directive.repairLegacyProjection.v1',
+    shouldRestoreRevision: true,
+    restoreRevision: 12,
+    rawDeletedText: 'RAW_DELETED_PLAYER_TEXT',
+    replacementText: 'RAW_REPLACEMENT_TEXT_FROM_LEGACY_PROJECTION'
+  },
+  rollbackActuation: {
+    kind: 'directive.repairRollbackActuationDecision.v1',
+    authorized: true,
+    action: 'restorePreOutcomeRevision',
+    transactionId: 'txn-38',
+    restoreRevision: 12,
+    recoveryCaseId: 'recovery-38',
+    rawDeletedText: 'RAW_DELETED_PLAYER_TEXT',
+    replacementText: 'RAW_REPLACEMENT_TEXT_FROM_ROLLBACK_ACTUATION'
+  },
+  idempotencyKey: 'rollback-38-key'
+});
+const rollbackWriteKeys = storage.writeLog.slice(beforeRollbackWriteStart);
+assert.equal(rollbackRecord.status, 'recorded');
+assert.equal(coreStore.state.transactions[rollbackTransaction.id].phase, 'settled');
+assert.equal(coreStore.state.transactions[rollbackTransaction.id].recoveryCaseId, null);
+assert.equal(rollbackWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'recordRollbackActuation append should write exactly one event tail');
+assert.equal(rollbackWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'recordRollbackActuation append should publish one save manifest');
+assert.equal(rollbackWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'recordRollbackActuation append should publish one campaign manifest');
+assert.equal(JSON.stringify(rollbackRecord).includes('RAW_DELETED_PLAYER_TEXT'), false, 'rollback actuation refs must not retain raw deleted source text');
+assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_REPAIR_DECISION'), false, 'rollback repair decisions must not retain raw replacement text');
+assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_LEGACY_PROJECTION'), false, 'rollback legacy projections must not retain raw replacement text');
+assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_ROLLBACK_ACTUATION'), false, 'rollback actuation decisions must not retain raw replacement text');
+const rollbackReplayEventCount = coreStore.state.events.length;
+const rollbackReplay = await coreStore.recordRollbackActuation(rollbackTransaction.id, {
+  id: 'rollback-38',
+  eventType: 'playerMessageDeleted',
+  recoveryCaseId: 'recovery-38',
+  rollbackActuation: {
+    kind: 'directive.repairRollbackActuationDecision.v1',
+    authorized: true,
+    action: 'restorePreOutcomeRevision',
+    transactionId: 'txn-38',
+    restoreRevision: 12
+  },
+  idempotencyKey: 'rollback-38-key'
+});
+assert.equal(rollbackReplay.id, 'rollback-38');
+assert.equal(coreStore.state.events.length, rollbackReplayEventCount, 'same rollback idempotency key must not append another event');
+const rollbackRecoveryReplayEventCount = coreStore.state.events.length;
+const rollbackRecoveryReplay = await coreStore.markRecoveryRequired(rollbackTransaction.id, {
+  id: 'recovery-38',
+  reason: 'playerMessageDeleted',
+  idempotencyKey: 'recovery-38-key'
+});
+assert.equal(rollbackRecoveryReplay.status, 'resolved', 'same source-delete recovery replay after rollback must resolve to the prior rollback instead of reopening recovery');
+assert.equal(coreStore.state.events.length, rollbackRecoveryReplayEventCount, 'same recovery idempotency key after rollback must not append another recoveryRequired event');
+assert.equal(coreStore.state.transactions[rollbackTransaction.id].phase, 'settled', 'same recovery replay after rollback must leave transaction settled');
+assert.equal(coreStore.state.transactions[rollbackTransaction.id].recoveryCaseId, null, 'same recovery replay after rollback must not reopen the recovery case');
+const rollbackReplayAfterRecoveryReplay = await coreStore.recordRollbackActuation(rollbackTransaction.id, {
+  id: 'rollback-38',
+  eventType: 'playerMessageDeleted',
+  recoveryCaseId: 'recovery-38',
+  rollbackActuation: {
+    kind: 'directive.repairRollbackActuationDecision.v1',
+    authorized: true,
+    action: 'restorePreOutcomeRevision',
+    transactionId: 'txn-38',
+    restoreRevision: 12
+  },
+  idempotencyKey: 'rollback-38-key'
+});
+assert.equal(rollbackReplayAfterRecoveryReplay.id, 'rollback-38');
+assert.equal(coreStore.state.transactions[rollbackTransaction.id].phase, 'settled', 'rollback replay after recovery replay must not leave recoveryRequired behind');
+const rollbackProjection = coreStore.readProjections();
+const rollbackResolvedRecovery = rollbackProjection.recoveryJournal.find((entry) => (
+  entry.transactionId === rollbackTransaction.id
+  && entry.status === 'resolved'
+));
+assert.equal(rollbackResolvedRecovery.reason, 'rollback-actuated');
+assert.equal(rollbackResolvedRecovery.restoreRevision, 12);
+assert.equal(rollbackProjection.rollbackActuations.some((entry) => entry.id === 'rollback-38' && entry.restoreRevision === 12), true);
+assert.equal(JSON.stringify(rollbackProjection).includes('RAW_DELETED_PLAYER_TEXT'), false, 'rollback projections must stay raw-redacted');
+assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_REPAIR_DECISION'), false, 'rollback projections must redact repair-decision raw text');
+assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_LEGACY_PROJECTION'), false, 'rollback projections must redact legacy-projection raw text');
+assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_ROLLBACK_ACTUATION'), false, 'rollback projections must redact rollback-actuation raw text');
 
 const hostNativeRepairFrame = createTurnSourceFrameContract({
   id: 'frame-35',
@@ -1122,6 +1749,11 @@ const restartPriorTransaction = await coreStore.beginTurn(restartPriorFrame, {
   ingressId: 'ingress-restart-prior',
   idempotencyKey: 'begin-restart-prior'
 });
+await coreStore.markRecoveryRequired(restartPriorTransaction.id, {
+  id: 'recovery-restart-prior',
+  reason: 'latest-source-reobserve',
+  idempotencyKey: 'recovery-restart-prior-key'
+});
 const restartReplacementFrame = createTurnSourceFrameContract({
   id: 'frame-restart-replacement',
   campaignId: 'campaign-core-v2',
@@ -1209,7 +1841,18 @@ assert.equal(restartResult.sourceRestart.priorTransactionId, 'txn-restart-prior'
 assert.equal(restartResult.sourceRestart.newTransactionId, 'txn-restart-replacement');
 assert.equal(restartResult.sourceRestart.recoveryId, 'recovery-restart-prior');
 assert.equal(coreStore.state.transactions['txn-restart-prior'].restartedByTransactionId, 'txn-restart-replacement');
+assert.equal(coreStore.state.transactions['txn-restart-prior'].recoveryCaseId, null, 'source restart recovery resolution must close the prior recovery case');
 assert.equal(coreStore.state.transactions['txn-restart-replacement'].restartedFromTransactionId, 'txn-restart-prior');
+const restartRecoveryReplayEventCount = coreStore.state.events.length;
+const restartRecoveryReplay = await coreStore.markRecoveryRequired(restartPriorTransaction.id, {
+  id: 'recovery-restart-prior',
+  reason: 'latest-source-reobserve',
+  idempotencyKey: 'recovery-restart-prior-key'
+});
+assert.equal(restartRecoveryReplay.status, 'resolved', 'same recovery replay after source restart must resolve to the prior source restart closure');
+assert.equal(coreStore.state.events.length, restartRecoveryReplayEventCount, 'same recovery replay after source restart must not append another recoveryRequired event');
+assert.equal(coreStore.state.transactions['txn-restart-prior'].phase, 'restartSuperseded', 'same recovery replay after source restart must not reopen recovery');
+assert.equal(coreStore.state.transactions['txn-restart-prior'].recoveryCaseId, null, 'same recovery replay after source restart must leave recovery closed');
 assert.equal(JSON.stringify(coreStore.state).includes('RAW_RESTART_PLAYER_TEXT'), false, 'CORE source restart refs must not retain raw player text.');
 assert.equal(JSON.stringify(coreStore.state).includes('RAW_RESTART_REPLACEMENT_TEXT'), false, 'CORE source restart mutations must not retain raw replacement text.');
 const hydratedAfterRestart = await loadCoreStoreStateV2(adapter, {
@@ -1267,7 +1910,7 @@ await assert.rejects(
 );
 
 const projections = coreStore.readProjections();
-assert.equal(projections.ingressLedger.length, 9);
+assert.equal(projections.ingressLedger.length, 10);
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-29').status, 'settled');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-31').status, 'recoveryRequired');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-32').status, 'complete');
@@ -1275,6 +1918,7 @@ assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === '
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-34').status, 'recoveryRequired');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-35').status, 'complete');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-36').status, 'complete');
+assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-38').status, 'settled');
 const restartPriorProjection = projections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-prior');
 const restartReplacementProjection = projections.ingressLedger.find((entry) => entry.transactionId === 'txn-restart-replacement');
 assert.equal(restartPriorProjection.status, 'restartSuperseded');
@@ -1300,7 +1944,7 @@ assert.equal(directiveTurnTiming.turnTiming.providerCompletionLatencyMs, 65000);
 assert.equal(directiveTurnTiming.turnTiming.architectureWithin60s, true);
 assert.equal(projections.turnLedger.entries.length, 1);
 assert.equal(projections.turnLedger.lastCommittedOutcomeId, 'outcome-29');
-assert.equal(projections.recoveryJournal.length, 7);
+assert.equal(projections.recoveryJournal.length, 10);
 assert.equal(projections.recoveryJournal[0].id, 'recovery-31');
 const responseRetryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-32');
 assert.equal(responseRetryProjection.phase, 'responseRetryRequired');
@@ -1328,7 +1972,7 @@ assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceFrameId, 'fra
 assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextHash.length, 64);
 assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextPresent, true);
 assert.equal('replacementText' in sourceMutationRecoveryProjection.sourceMutation, false);
-assert.equal(sourceMutationRecoveryProjection.sourceMutation.rawPlayerText, '[redacted-raw-payload]');
+assert.equal('rawPlayerText' in sourceMutationRecoveryProjection.sourceMutation, false);
 assert.equal(sourceMutationRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
 assert.equal(sourceMutationRecoveryProjection.repairDecision.action, 'reviewRequired');
 assert.equal(sourceMutationRecoveryProjection.repairDecision.normalTurnAllowed, false);
@@ -1337,7 +1981,25 @@ assert.equal(sourceMutationRecoveryProjection.dependentResponseId, 'response-34'
 assert.deepEqual(sourceMutationRecoveryProjection.allowedActions, ['reviewSourceMutation']);
 assert.equal(JSON.stringify(sourceMutationRecoveryProjection).includes('RAW_SETTLED_SOURCE_EDIT'), false);
 assert.equal(JSON.stringify(sourceMutationRecoveryProjection).includes('edited settled source raw text'), false);
-const restartRecoveryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-restart-prior');
+const rollbackRequiredProjection = projections.recoveryJournal.find((entry) => (
+  entry.id === 'recovery-38'
+  && entry.status === 'required'
+));
+assert.equal(rollbackRequiredProjection.phase, 'recoveryRequired');
+assert.deepEqual(rollbackRequiredProjection.allowedActions, ['rollbackToPreOutcomeRevision', 'reviewSourceMutation']);
+const rollbackResolvedProjection = projections.recoveryJournal.find((entry) => (
+  entry.id === 'recovery-38'
+  && entry.status === 'resolved'
+));
+assert.equal(rollbackResolvedProjection.reason, 'rollback-actuated');
+assert.equal(rollbackResolvedProjection.restoreRevision, 12);
+assert.equal(rollbackResolvedProjection.rollbackActuation.action, 'restorePreOutcomeRevision');
+assert.equal(projections.rollbackActuations.some((entry) => entry.id === 'rollback-38' && entry.restoreRevision === 12), true);
+assert.equal(JSON.stringify(rollbackResolvedProjection).includes('RAW_DELETED_PLAYER_TEXT'), false);
+const restartRecoveryProjection = projections.recoveryJournal.find((entry) => (
+  entry.id === 'recovery-restart-prior'
+  && entry.status === 'resolved'
+));
 assert.equal(restartRecoveryProjection.status, 'resolved');
 assert.equal(restartRecoveryProjection.phase, 'restartSuperseded');
 assert.equal(restartRecoveryProjection.replacementTransactionId, 'txn-restart-replacement');
@@ -1352,6 +2014,23 @@ assert.ok(forgeBackgroundBatch);
 assert.equal(forgeBackgroundBatch.transactionId, 'txn-29');
 assert.equal(forgeBackgroundBatch.operationCount, 1);
 assert.equal(forgeBackgroundBatch.workerCount, 1);
+assert.equal(projections.commandBearingEvidence.length, 1, 'CORE projections should expose Command Bearing evidence as a named read model.');
+assert.equal(projections.commandBearingEvidence[0].evidenceId, 'bearing-evidence-29');
+assert.equal(projections.commandBearingEvidence[0].transactionId, 'txn-29');
+assert.equal(projections.commandBearingEvidence[0].batchId, 'forge-29');
+assert.equal(projections.commandBearingEvidence[0].sourceFrameId, 'frame-29');
+assert.equal(projections.commandBearingEvidence[0].primarySignal, 'resolve');
+assert.deepEqual(projections.commandBearingEvidence[0].trackSignals, ['resolve']);
+assert.equal(projections.commandBearingEvidence[0].evidenceHash, 'bearing-evidence-hash-29');
+assert.equal(JSON.stringify(projections.commandBearingEvidence).includes('RAW_COMMAND_BEARING_EVIDENCE_TEXT'), false);
+assert.equal(projections.commandBearingReviewClosures.length, 1, 'CORE projections should expose Command Bearing review closures as a named read model.');
+assert.equal(projections.commandBearingReviewClosures[0].closureId, 'closure-29');
+assert.equal(projections.commandBearingReviewClosures[0].transactionId, 'txn-29');
+assert.equal(projections.commandBearingReviewClosures[0].batchId, 'forge-29');
+assert.equal(projections.commandBearingReviewClosures[0].reviewHash, reviewHash29);
+assert.equal(projections.commandBearingReviewClosures[0].sourceFrameId, 'frame-29');
+assert.equal(projections.commandBearingReviewClosures[0].forgeBatchRef.reviewHash, reviewHash29);
+assert.equal(JSON.stringify(projections.commandBearingReviewClosures).includes('RAW_BACKGROUND_REVIEW_TEXT'), false);
 const commandLogBackgroundBatch = projections.backgroundBatches.find((entry) => entry.batchId === 'command-log-summary-29');
 assert.ok(commandLogBackgroundBatch);
 assert.equal(commandLogBackgroundBatch.transactionId, 'txn-29');
@@ -1431,7 +2110,10 @@ assert.equal(
 assert.equal(persistedProjections.turnLedger.entries.length, projections.turnLedger.entries.length, 'persisted projection loader should derive turns from segments');
 assert.equal(persistedProjections.recoveryJournal.length, projections.recoveryJournal.length, 'persisted projection loader should derive recovery from segments');
 assert.equal(
-  persistedProjections.recoveryJournal.find((entry) => entry.id === 'recovery-restart-prior').replacementTransactionId,
+  persistedProjections.recoveryJournal.find((entry) => (
+    entry.id === 'recovery-restart-prior'
+    && entry.status === 'resolved'
+  )).replacementTransactionId,
   'txn-restart-replacement',
   'persisted projection loader should preserve source-restart recovery resolution'
 );
@@ -1467,7 +2149,7 @@ assert.equal(
 assert.equal(hydratedProjections.responseLedger.length, projections.responseLedger.length, 'hydrated CORE Store should preserve response projections');
 assert.equal(hydratedProjections.turnTiming.length, projections.turnTiming.length, 'hydrated CORE Store should preserve timing projections');
 assert.equal(hydratedCoreStore.state.events.length, coreStore.state.events.length, 'hydrated CORE Store should preserve event segments');
-assert.equal(hydratedCoreStore.state.counters.transactions, 9, 'hydrated CORE Store should derive current transaction count from event segments');
+assert.equal(hydratedCoreStore.state.counters.transactions, 10, 'hydrated CORE Store should derive current transaction count from event segments');
 assert.equal(hydratedCoreStore.state.counters.diagnostics, 3, 'hydrated CORE Store should derive current diagnostic count from diagnostics segments');
 assert.equal(hydratedCoreStore.state.revisions.diagnostic, 3, 'hydrated CORE Store should derive current diagnostic revision from diagnostics segments');
 assert.equal(hydratedCoreStore.state.revisions.mechanics, 2, 'hydrated CORE Store should derive mechanics revision from event/turn segments');
@@ -1542,7 +2224,7 @@ for (const marker of [
   'payload":{"campaignState"',
   'rootsSet',
   'runtimeTracking',
-  'snapshotBefore',
+  '"snapshotBefore":',
   'RAW_PROVIDER_PROMPT',
   'RAW_PROVIDER_RESPONSE',
   'RAW_MECHANICS_TEXT',

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  sceneHandshakeHash,
   runSceneHandshakeSettlement,
   __sceneHandshakeSettlerTestHooks
 } from '../../src/runtime/scene-handshake-settler.mjs';
@@ -89,6 +90,35 @@ const playerMessage = {
   isUser: true,
   text: 'Understood, Captain. I will start with Cross, meet Bronn, and walk the ship before we reach the Reach.'
 };
+
+function latestPairSourceFrameFor(harness, assistant = assistantMessage, player = playerMessage, suffix = 'latest-pair') {
+  const selectedTextHash = sceneHandshakeHash(assistant.text || '');
+  return {
+    kind: 'directive.turnSourceFrame.v1',
+    schemaVersion: 1,
+    id: `frame:test:${suffix}`,
+    sourceToken: `turnSourceFrame:test:${suffix}`,
+    campaignId: harness.state.campaign.id,
+    saveId: harness.state.campaignChatBinding.saveId,
+    chatId: harness.state.campaignChatBinding.chatId,
+    sourceKind: 'playerMessage',
+    selectedAssistantVariantHash: selectedTextHash,
+    sourceIntegrity: 'clean',
+    previousAssistant: {
+      hostMessageId: assistant.hostMessageId,
+      chatId: harness.state.campaignChatBinding.chatId,
+      role: 'assistant',
+      textHash: selectedTextHash,
+      selectedAssistantVariantHash: selectedTextHash
+    },
+    currentPlayer: {
+      hostMessageId: player.hostMessageId,
+      chatId: harness.state.campaignChatBinding.chatId,
+      role: 'player',
+      textHash: sceneHandshakeHash(player.text || '')
+    }
+  };
+}
 
 const settlement = {
   kind: 'directive.sceneHandshakeSettlement.v1',
@@ -247,6 +277,327 @@ assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.dis
 assert.ok(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount >= 8);
 assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
 assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sceneHandshake'));
+
+const terminalHarness = createHarness('terminal-sre-latest-pair');
+const terminalProviderCalls = [];
+let terminalLegacyGenerationCalls = 0;
+const terminalResult = await runSceneHandshakeSettlement({
+  campaignState: terminalHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre',
+  generationRouter: {
+    async generate() {
+      terminalLegacyGenerationCalls += 1;
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE latest-pair accept');
+    }
+  },
+  stateDeltaGateway: terminalHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalHarness, assistantMessage, playerMessage, 'terminal-sre-latest-pair'),
+  runLatestPairSettlementProvider: async (payload) => {
+    terminalProviderCalls.push(cloneJson(payload));
+    assert.equal(payload.mode, 'latestPair');
+    assert.equal(payload.source.previousAssistant.textHash, payload.source.previousAssistant.selectedAssistantVariant.selectedTextHash);
+    return {
+      settlement: {
+        acceptedPreviousResponse: true,
+        playerReplyRelation: 'acts-on',
+        confidence: 0.91,
+        disposition: 'autoCommit'
+      },
+      operations: [{
+        op: 'upsert',
+        path: 'commandLog.entries',
+        identityKey: 'id',
+        value: {
+          id: 'command-log:terminal-sre-latest-pair',
+          type: 'scene',
+          summaryInputs: ['Terminal SRE accepted the latest assistant/player pair.'],
+          visibleConsequences: ['SRE owned latest-pair settlement before the legacy Scene Handshake provider.']
+        }
+      }],
+      promptDirtyDomains: ['commandLog']
+    };
+  },
+  now: terminalHarness.now
+});
+terminalHarness.state = terminalResult.campaignState;
+assert.equal(terminalResult.attempted, true);
+assert.equal(terminalResult.ok, true);
+assert.equal(terminalLegacyGenerationCalls, 0);
+assert.ok(terminalResult.sourceSettlement, 'terminal SRE latest-pair result should expose compact sourceSettlement decision');
+assert.equal(terminalResult.sourceSettlement.status, 'accepted');
+assert.equal(terminalResult.sourceSettlement.providerCalled, true);
+assert.equal(terminalResult.sourceSettlement.applied, true);
+assert.equal(terminalProviderCalls.length, 1);
+assert.equal(terminalResult.promptDirty, true);
+assert.equal(terminalResult.committedRoots.includes('commandLog'), true);
+assert.equal(
+  terminalHarness.state.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-latest-pair'),
+  true,
+  'Terminal SRE latest-pair settlement should apply provider operations before legacy Scene Handshake.'
+);
+assert.equal(
+  terminalHarness.state.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceOwner,
+  'sre',
+  'Scene Handshake ledger should show SRE terminal ownership for latest-pair settlement.'
+);
+assert.ok(terminalHarness.persisted.some((proposal) => proposal.source === 'sourceSettlement'));
+
+const terminalMisleadingDomainHarness = createHarness('terminal-sre-misleading-domain');
+const terminalMisleadingDomain = await runSceneHandshakeSettlement({
+  campaignState: terminalMisleadingDomainHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalMisleadingDomainHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-misleading-domain',
+  generationRouter: {
+    async generate() {
+      throw new Error('legacy Scene Handshake provider must not repair misleading SRE domain metadata');
+    }
+  },
+  stateDeltaGateway: terminalMisleadingDomainHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalMisleadingDomainHarness, assistantMessage, playerMessage, 'terminal-sre-misleading-domain'),
+  runLatestPairSettlementProvider: async () => ({
+    operations: [{
+      domain: 'runtimeTracking',
+      op: 'upsert',
+      path: 'commandLog.entries',
+      identityKey: 'id',
+      value: {
+        id: 'command-log:terminal-sre-domain-from-path',
+        type: 'scene',
+        summaryInputs: ['Terminal SRE path root should control prompt dirtiness.']
+      }
+    }],
+    promptDirtyDomains: ['runtimeTracking']
+  }),
+  now: terminalMisleadingDomainHarness.now
+});
+terminalMisleadingDomainHarness.state = terminalMisleadingDomain.campaignState;
+assert.equal(terminalMisleadingDomain.ok, true);
+assert.equal(terminalMisleadingDomain.promptDirty, true);
+assert.equal(terminalMisleadingDomain.committedRoots.includes('commandLog'), true);
+assert.equal(
+  terminalMisleadingDomainHarness.state.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-domain-from-path'),
+  true,
+  'Terminal SRE committed roots should derive from applied operation paths, not provider-declared domains.'
+);
+
+const terminalThrowHarness = createHarness('terminal-sre-provider-throw');
+let terminalThrowLegacyGenerationCalls = 0;
+const terminalThrow = await runSceneHandshakeSettlement({
+  campaignState: terminalThrowHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalThrowHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-provider-throw',
+  generationRouter: {
+    async generate() {
+      terminalThrowLegacyGenerationCalls += 1;
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE provider throws');
+    }
+  },
+  stateDeltaGateway: terminalThrowHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalThrowHarness, assistantMessage, playerMessage, 'terminal-sre-provider-throw'),
+  runLatestPairSettlementProvider: async () => {
+    throw new Error('terminal SRE provider failed');
+  },
+  now: terminalThrowHarness.now
+});
+assert.equal(terminalThrow.attempted, true);
+assert.equal(terminalThrow.ok, false);
+assert.equal(terminalThrow.sourceSettlement.status, 'repairRequired');
+assert.equal(terminalThrow.sourceSettlement.providerCalled, true);
+assert.equal(terminalThrow.sourceSettlement.applied, false);
+assert.equal(terminalThrow.sourceSettlement.reasons.includes('source-settlement-provider-threw'), true);
+assert.equal(terminalThrowLegacyGenerationCalls, 0);
+assert.equal(terminalThrowHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+
+const terminalStaleHarness = createHarness('terminal-sre-stale-before-apply');
+let terminalStaleLegacyGenerationCalls = 0;
+const terminalStale = await runSceneHandshakeSettlement({
+  campaignState: terminalStaleHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalStaleHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-stale',
+  generationRouter: {
+    async generate() {
+      terminalStaleLegacyGenerationCalls += 1;
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE stale-before-apply');
+    }
+  },
+  stateDeltaGateway: terminalStaleHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalStaleHarness, assistantMessage, playerMessage, 'terminal-sre-stale-before-apply'),
+  validateLatestPairSettlementBeforeApply: async () => ({ ok: false, reasons: ['terminal-source-stale-before-apply'] }),
+  runLatestPairSettlementProvider: async () => ({
+    operations: [{
+      op: 'upsert',
+      path: 'commandLog.entries',
+      identityKey: 'id',
+      value: { id: 'command-log:terminal-sre-stale', type: 'scene' }
+    }]
+  }),
+  now: terminalStaleHarness.now
+});
+assert.equal(terminalStale.ok, false);
+assert.equal(terminalStale.sourceSettlement.status, 'staleBeforeApply');
+assert.equal(terminalStale.sourceSettlement.applied, false);
+assert.equal(terminalStale.sourceSettlement.reasons.includes('terminal-source-stale-before-apply'), true);
+assert.equal(terminalStaleLegacyGenerationCalls, 0);
+assert.equal(terminalStaleHarness.state.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-stale'), false);
+assert.equal(terminalStaleHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+
+const terminalRepairHarness = createHarness('terminal-sre-repair-required');
+let terminalRepairLegacyGenerationCalls = 0;
+const terminalRepair = await runSceneHandshakeSettlement({
+  campaignState: terminalRepairHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalRepairHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-repair',
+  generationRouter: {
+    async generate() {
+      terminalRepairLegacyGenerationCalls += 1;
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE apply repair');
+    }
+  },
+  stateDeltaGateway: terminalRepairHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalRepairHarness, assistantMessage, playerMessage, 'terminal-sre-repair-required'),
+  runLatestPairSettlementProvider: async () => ({
+    operations: [{
+      op: 'upsert',
+      path: 'crew.records',
+      identityKey: 'id',
+      value: { id: 'crew-forbidden-terminal-sre' }
+    }]
+  }),
+  now: terminalRepairHarness.now
+});
+assert.equal(terminalRepair.ok, false);
+assert.equal(terminalRepair.sourceSettlement.status, 'repairRequired');
+assert.equal(terminalRepair.sourceSettlement.applied, false);
+assert.equal(terminalRepair.sourceSettlement.reasons.includes('source-settlement-apply-threw'), true);
+assert.equal(terminalRepairLegacyGenerationCalls, 0);
+assert.equal(terminalRepairHarness.state.crew.records?.some?.((entry) => entry.id === 'crew-forbidden-terminal-sre') || false, false);
+assert.equal(terminalRepairHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+
+const terminalNoChangeHarness = createHarness('terminal-sre-no-change');
+let terminalNoChangeLegacyGenerationCalls = 0;
+const terminalNoChange = await runSceneHandshakeSettlement({
+  campaignState: terminalNoChangeHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalNoChangeHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-no-change',
+  generationRouter: {
+    async generate() {
+      terminalNoChangeLegacyGenerationCalls += 1;
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE noChange');
+    }
+  },
+  stateDeltaGateway: terminalNoChangeHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalNoChangeHarness, assistantMessage, playerMessage, 'terminal-sre-no-change'),
+  runLatestPairSettlementProvider: async () => ({ operations: [] }),
+  now: terminalNoChangeHarness.now
+});
+assert.equal(terminalNoChange.ok, true);
+assert.equal(terminalNoChange.sourceSettlement.status, 'noChange');
+assert.equal(terminalNoChange.sourceSettlement.applied, false);
+assert.equal(terminalNoChangeLegacyGenerationCalls, 0);
+assert.equal(terminalNoChangeHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+
+const terminalTimeHarness = createHarness('terminal-sre-time-advance');
+const terminalTimeAssistant = {
+  hostMessageId: 'assistant-terminal-ready-room',
+  index: 30,
+  role: 'assistant',
+  isUser: false,
+  text: 'Whitaker leads Sam out of the shuttlebay, through the corridor, and into the ready room.'
+};
+const terminalTimePlayer = {
+  hostMessageId: 'player-terminal-ready-room',
+  index: 31,
+  role: 'user',
+  isUser: true,
+  text: 'Sam steps inside and waits for the captain to begin.'
+};
+const terminalTime = await runSceneHandshakeSettlement({
+  campaignState: terminalTimeHarness.state,
+  currentPlayerMessage: terminalTimePlayer,
+  recentMessages: [terminalTimeAssistant, terminalTimePlayer],
+  chatId: terminalTimeHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-time',
+  generationRouter: {
+    async generate() {
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE time advance');
+    }
+  },
+  stateDeltaGateway: terminalTimeHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalTimeHarness, terminalTimeAssistant, terminalTimePlayer, 'terminal-sre-time-advance'),
+  runLatestPairSettlementProvider: async () => ({
+    settlement: {
+      acceptedPreviousResponse: true,
+      playerReplyRelation: 'acts-on',
+      confidence: 0.84,
+      disposition: 'autoCommit'
+    },
+    operations: [{
+      op: 'upsert',
+      path: 'commandLog.entries',
+      identityKey: 'id',
+      value: { id: 'command-log:terminal-sre-time', type: 'scene' }
+    }]
+  }),
+  packageData,
+  now: terminalTimeHarness.now
+});
+terminalTimeHarness.state = terminalTime.campaignState;
+assert.equal(terminalTime.ok, true);
+assert.equal(terminalTime.timeAdvance.elapsedMinutes, 5);
+assert.equal(terminalTimeHarness.state.worldState.elapsedMinutes, 5);
+assert.equal(terminalTimeHarness.state.timeLedger.lastBoundary.reason, 'intra-ship-transition');
+assert.equal(terminalTime.committedRoots.includes('worldState'), true);
+assert.equal(terminalTime.committedRoots.includes('timeLedger'), true);
+assert.ok(terminalTimeHarness.persisted.some((proposal) => proposal.source === 'timeAdvanceAdjudicator'));
+
+const terminalHardSkipHarness = createHarness('terminal-sre-hard-skip');
+let terminalHardSkipLegacyGenerationCalls = 0;
+const terminalHardSkipAssistant = {
+  ...assistantMessage,
+  hostMessageId: 'assistant-terminal-sre-hard-skip',
+  swipes: [
+    'Accepted selected source for hard skip.',
+    'Unselected visible source for hard skip.'
+  ],
+  swipeId: 99
+};
+const terminalHardSkip = await runSceneHandshakeSettlement({
+  campaignState: terminalHardSkipHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [terminalHardSkipAssistant, playerMessage],
+  chatId: terminalHardSkipHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-hard-skip',
+  generationRouter: {
+    async generate() {
+      terminalHardSkipLegacyGenerationCalls += 1;
+      throw new Error('legacy Scene Handshake provider must not run after terminal SRE hard skip');
+    }
+  },
+  stateDeltaGateway: terminalHardSkipHarness.gateway,
+  runLatestPairSettlementProvider: async () => {
+    throw new Error('terminal SRE hard skip must not call provider');
+  },
+  now: terminalHardSkipHarness.now
+});
+assert.equal(terminalHardSkip.attempted, true);
+assert.equal(terminalHardSkip.ok, false);
+assert.equal(terminalHardSkip.sourceSettlement.status, 'hardSkipped');
+assert.equal(terminalHardSkip.sourceSettlement.providerCalled, false);
+assert.equal(terminalHardSkipLegacyGenerationCalls, 0);
+assert.equal(terminalHardSkipHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
 
 const menuHarness = createHarness('menu-offramp');
 const menuAssistant = {

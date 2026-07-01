@@ -914,6 +914,10 @@ const repairBoundary = createRepairCommandBoundary({
       repairCalls.push(['reobserve', input]);
       return { authorized: true };
     },
+    evaluateOutcomeRerunActuation(input) {
+      repairCalls.push(['rerun', input]);
+      return { authorized: true };
+    },
     evaluateResponseReobserveClosure(input) {
       repairCalls.push(['closure', input]);
       return { authorized: true };
@@ -937,12 +941,53 @@ assert.deepEqual(repairCalls.map(([name]) => name), [
   'response',
   'retry',
   'rollback',
-  'reobserve',
+  'rerun',
   'closure',
   'response',
   'retry',
   'rollback',
   'closure'
 ]);
+
+const rollbackPrevalidationCalls = [];
+const rollbackPrevalidationBoundary = createRepairCommandBoundary({
+  now: () => '2026-06-28T15:03:00.000Z',
+  repairRuntime: {
+    async recordRollbackActuation(input = {}) {
+      rollbackPrevalidationCalls.push(cloneJson(input));
+      return { status: 'recorded', rollback: { id: 'rollback-prevalidation' } };
+    }
+  }
+});
+const rollbackPrevalidation = await rollbackPrevalidationBoundary.executeRollbackActuation({
+  coreRecovery: {
+    transactionId: 'txn-rollback-prevalidation',
+    recoveryCaseId: 'recovery-rollback-prevalidation',
+    decision: { transactionId: 'txn-rollback-prevalidation' },
+    sourceMutation: { eventType: 'playerMessageDeleted' }
+  },
+  rollbackActuation: {
+    kind: 'directive.repairRollbackActuationDecision.v1',
+    authorized: true,
+    action: 'restorePreOutcomeRevision',
+    transactionId: 'txn-rollback-prevalidation',
+    restoreRevision: 999
+  },
+  legacyProjection: {
+    shouldRestoreRevision: true,
+    restoreRevision: 999
+  },
+  eventType: 'playerMessageDeleted',
+  campaignState: {
+    campaign: { id: 'campaign-rollback-prevalidation' },
+    runtimeTracking: {
+      history: [],
+      recoveryJournal: []
+    }
+  }
+});
+assert.equal(rollbackPrevalidation.status, 'blocked', 'REPAIR rollback execution should block when restore candidate cannot be computed.');
+assert.equal(rollbackPrevalidation.reason, 'rollback-restore-unavailable');
+assert.equal(rollbackPrevalidationCalls.length, 0, 'CORE rollback actuation must not be recorded before a restore candidate exists.');
 
 console.log('Architecture redesign system skeleton contract tests passed');
