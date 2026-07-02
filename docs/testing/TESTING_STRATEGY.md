@@ -139,7 +139,9 @@ Coverage groups:
 
 `test-time-advance-adjudicator.mjs` covers deterministic and Utility-backed time-advance proposals: quiet conversations stay at zero, shipboard transitions remain small, explicit waits and scene cuts resolve to bounded elapsed minutes, oversized routine proposals clamp, and model proposals remain proposal-only until runtime validation commits a time boundary.
 
-`test-mission-components.mjs` and `test-mission-components-capture.mjs` cover highlighted-text Mission Component creation, source preservation, Utility/local proposal normalization, source-authority/type/status validation, stale/wrong-chat guards, component update/archive behavior, and the SillyTavern capture affordance.
+`test-mission-components.mjs` and `test-mission-components-capture.mjs` cover highlighted-text Mission Component creation, source preservation, Utility/local proposal normalization, source-authority/type/status validation, stale/wrong-chat guards, component update/archive behavior, the SillyTavern capture affordance, Define Selection, and the assistant-scoped Correct-as-Swipe candidate-swipe affordance.
+
+`test-correct-as-swipe-live.mjs` is the bounded live SillyTavern proof hook for Correct-as-Swipe. It compares the served extension against the checkout, requires an explicit `directive-soak-*` user, refuses `default-user`, opens the bound campaign chat, selects text in a recorded Directive assistant response, appends a candidate swipe through the UI, proves the visible selected swipe stays unchanged, checks compact correction state for raw selected/proposed text leaks, and exercises selected-swipe acceptance through the runtime event bridge. Run it on a non-human soak user for Wave 4/Ashes evidence; do not count an unrun hook as live certification.
 
 `test-command-competence-planner.mjs` covers the Stage 21 competence planner: routine professional action eligibility and rejection, Command Brief inputs, professional knowledge filtering, default Domain Report selection, Authority Notes, hidden-truth exclusion, and non-mutation of source policy, scene snapshot, and campaign state.
 

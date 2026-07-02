@@ -257,32 +257,49 @@ export function chunkV2SegmentEntries({
   const limit = Number(maxBytes || segmentLimit(type));
   const allEntries = normalizeEntryGroups(entries);
   const chunks = [];
-  let current = [];
-  for (const entry of allEntries) {
-    const next = [...current, entry];
-    const candidate = createV2SegmentRecord({
+  let start = 0;
+  while (start < allEntries.length) {
+    const segmentId = String(chunks.length).padStart(4, '0');
+    const firstCandidate = createV2SegmentRecord({
       segmentType: type,
       campaignId,
       saveId,
-      segmentId: String(chunks.length).padStart(4, '0'),
-      entries: next,
+      segmentId,
+      entries: allEntries.slice(start, start + 1),
       createdAt,
       source
     });
-    if (candidate.byteLength <= limit) {
-      current = next;
-      continue;
-    }
-    if (current.length === 0) {
+    if (firstCandidate.byteLength > limit) {
       const error = new Error(`${type} segment entry exceeds ${limit} bytes`);
       error.code = 'DIRECTIVE_V2_SEGMENT_ENTRY_TOO_LARGE';
-      error.details = { segmentType: type, byteLength: candidate.byteLength, maxBytes: limit };
+      error.details = { segmentType: type, byteLength: firstCandidate.byteLength, maxBytes: limit };
       throw error;
     }
-    chunks.push(current);
-    current = [entry];
+
+    let bestEnd = start + 1;
+    let low = start + 2;
+    let high = allEntries.length;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const candidate = createV2SegmentRecord({
+        segmentType: type,
+        campaignId,
+        saveId,
+        segmentId,
+        entries: allEntries.slice(start, mid),
+        createdAt,
+        source
+      });
+      if (candidate.byteLength <= limit) {
+        bestEnd = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    chunks.push(allEntries.slice(start, bestEnd));
+    start = bestEnd;
   }
-  if (current.length > 0) chunks.push(current);
   return chunks;
 }
 
@@ -1208,6 +1225,7 @@ export async function commitV2EventTurnSegments(adapter, {
   saveId,
   eventSegments = [],
   turnSegments = [],
+  checkpoints = [],
   metadata = null,
   now = null,
   layout = 'active',
@@ -1251,6 +1269,18 @@ export async function commitV2EventTurnSegments(adapter, {
     ...eventAppend.refsToVerify,
     ...turnAppend.refsToVerify
   ];
+  const checkpointRefs = [];
+  for (const checkpoint of checkpoints) {
+    checkpointRefs.push((await writeV2Checkpoint(adapter, {
+      campaignId: id,
+      saveId: save,
+      checkpointId: checkpoint.checkpointId || checkpoint.id,
+      checkpoint,
+      createdAt: timestamp,
+      layout: storageLayout
+    })).ref);
+  }
+  refsToVerify.push(...checkpointRefs);
   await verifyV2ArtifactRefs(adapter, refsToVerify);
 
   const latestManifest = await loadV2SaveManifest(adapter, { campaignId: id, saveId: save, layout: storageLayout });
@@ -1271,6 +1301,12 @@ export async function commitV2EventTurnSegments(adapter, {
     appendedRefs: turnAppend.refs
   });
   const diagnosticsSegmentRefs = latestManifest.diagnosticsSegments || currentManifest.diagnosticsSegments || [];
+  const finalCheckpointRefs = checkpointRefs.length
+    ? [
+        ...(latestManifest.checkpoints || currentManifest.checkpoints || []),
+        ...checkpointRefs
+      ]
+    : (latestManifest.checkpoints || currentManifest.checkpoints || []);
   const saveManifest = createV2SaveManifest({
     campaignId: id,
     saveId: save,
@@ -1281,7 +1317,7 @@ export async function commitV2EventTurnSegments(adapter, {
     eventSegmentRefs,
     turnSegmentRefs,
     diagnosticsSegmentRefs,
-    checkpointRefs: latestManifest.checkpoints || currentManifest.checkpoints || [],
+    checkpointRefs: finalCheckpointRefs,
     importedFrom: latestManifest.importedFrom || currentManifest.importedFrom || null,
     current: latestManifest.current !== false && currentManifest.current !== false,
     metadata: metadata || latestManifest.metadata || currentManifest.metadata || null,
@@ -1308,7 +1344,8 @@ export async function commitV2EventTurnSegments(adapter, {
   const verification = await verifyJsonFiles(adapter, [
     ...new Set([
       ...eventAppend.verificationLogicalKeys,
-      ...turnAppend.verificationLogicalKeys
+      ...turnAppend.verificationLogicalKeys,
+      ...checkpointRefs.map((ref) => ref.logicalKey)
     ]),
     saveManifestKey,
     campaignManifestKey
@@ -1326,7 +1363,7 @@ export async function commitV2EventTurnSegments(adapter, {
       eventSegments: eventSegmentRefs,
       turnSegments: turnSegmentRefs,
       diagnosticsSegments: diagnosticsSegmentRefs,
-      checkpoints: latestManifest.checkpoints || currentManifest.checkpoints || []
+      checkpoints: finalCheckpointRefs
     },
     verification
   };

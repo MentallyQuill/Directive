@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createCampaignEndConditionService } from '../../src/runtime/campaign-end-condition-service.mjs';
+import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
 
 const root = process.cwd();
@@ -65,6 +66,8 @@ function createHarness(initial = terminalState(), overrides = {}) {
   const conclusions = [];
   const terminalSettlements = [];
   const repairCalls = [];
+  const checkpointLoads = [];
+  const checkpointWrites = [];
   let nowIndex = 0;
   const now = () => `2026-06-23T10:00:${String(nowIndex++).padStart(2, '0')}.000Z`;
   const host = overrides.host === undefined
@@ -147,6 +150,18 @@ function createHarness(initial = terminalState(), overrides = {}) {
         }
       }
     : overrides.repairRuntime;
+  const loadTerminalCheckpoint = overrides.loadTerminalCheckpoint === undefined
+    ? null
+    : async (input = {}) => {
+        checkpointLoads.push(cloneJson(input));
+        return overrides.loadTerminalCheckpoint(input);
+      };
+  const writeTerminalCheckpoint = overrides.writeTerminalCheckpoint === undefined
+    ? null
+    : async (input = {}) => {
+        checkpointWrites.push(cloneJson(input));
+        return overrides.writeTerminalCheckpoint(input);
+      };
   const service = createCampaignEndConditionService({
     host,
     getCampaignState: () => state,
@@ -181,6 +196,8 @@ function createHarness(initial = terminalState(), overrides = {}) {
     saveTerminalBranch,
     concludeCampaign,
     repairRuntime,
+    loadTerminalCheckpoint,
+    writeTerminalCheckpoint,
     now
   });
   return {
@@ -193,7 +210,37 @@ function createHarness(initial = terminalState(), overrides = {}) {
     savedBranches,
     conclusions,
     terminalSettlements,
-    repairCalls
+    repairCalls,
+    checkpointLoads,
+    checkpointWrites
+  };
+}
+
+function checkpointStoreOverrides() {
+  const checkpoints = new Map();
+  return {
+    async writeTerminalCheckpoint(input = {}) {
+      checkpoints.set(input.checkpointId, cloneJson(input.checkpoint));
+      return {
+        ref: {
+          kind: 'directive.checkpoint.v2',
+          logicalKey: `campaigns/${input.campaignId}/saves/${input.saveId}/core/checkpoints/${input.checkpointId}.v2.json`,
+          hash: hashStableJson(input.checkpoint)
+        },
+        sourceKind: 'coreStoreV2.checkpoint',
+        sourceRevision: input.checkpoint?.sourceRevision ?? null
+      };
+    },
+    async loadTerminalCheckpoint(input = {}) {
+      const checkpoint = checkpoints.get(input.checkpointId);
+      return checkpoint
+        ? {
+            checkpoint: cloneJson(checkpoint),
+            sourceKind: 'coreStoreV2.checkpoint',
+            sourceRevision: checkpoint.sourceRevision ?? null
+          }
+        : null;
+    }
   };
 }
 
@@ -244,6 +291,46 @@ const noHostPost = await noHostHarness.service.postCheckpointDecision({ interact
 assert.equal(noHostPost.ok, false);
 assert.equal(noHostPost.reason, 'host-chat-post-unavailable');
 
+const checkpointProducerHarness = createHarness(terminalState(), {
+  writeTerminalCheckpoint: async (input = {}) => ({
+    ref: {
+      kind: 'directive.checkpoint.v2',
+      logicalKey: `campaigns/${input.campaignId}/saves/${input.saveId}/core/checkpoints/${input.checkpointId}.v2.json`,
+      hash: hashStableJson(input.checkpoint)
+    },
+    record: {
+      checkpoint: cloneJson(input.checkpoint)
+    },
+    sourceKind: 'coreStoreV2.checkpoint',
+    sourceRevision: 11
+  })
+});
+const checkpointProducerInteractionId = await detect(checkpointProducerHarness);
+assert.equal(checkpointProducerHarness.checkpointWrites.length, 1);
+assert.equal(checkpointProducerHarness.checkpointWrites[0].layout, 'core');
+assert.equal(checkpointProducerHarness.checkpointWrites[0].campaignId, 'campaign-end-condition-service-test');
+assert.equal(checkpointProducerHarness.checkpointWrites[0].saveId, 'save-terminal-test');
+assert.match(checkpointProducerHarness.checkpointWrites[0].checkpointId, /^terminal-terminal\.ashes\.breck-destroyed-objective-saved-outcome-terminal$/);
+assert.equal(checkpointProducerHarness.checkpointWrites[0].checkpoint.sourceKind, 'turnLedger.snapshotBefore');
+assert.equal(checkpointProducerHarness.checkpointWrites[0].checkpoint.outcomeId, 'outcome-terminal');
+assert.equal(checkpointProducerHarness.checkpointWrites[0].checkpoint.campaignState.campaign.checkpointMarker, 'before-terminal-outcome');
+const checkpointProducerDecision = checkpointProducerHarness.state.runtimeTracking.endConditionLedger.decisions[0];
+assert.equal(checkpointProducerDecision.id, checkpointProducerInteractionId);
+assert.equal(checkpointProducerDecision.checkpoint.coreCheckpointRef.kind, 'directive.coreTerminalReplayCheckpointRef.v1');
+assert.equal(checkpointProducerDecision.checkpoint.coreCheckpointRef.layout, 'core');
+assert.equal(checkpointProducerDecision.checkpoint.coreCheckpointRef.checkpointId, checkpointProducerHarness.checkpointWrites[0].checkpointId);
+assert.equal(checkpointProducerDecision.checkpoint.coreCheckpointRef.sourceKind, 'coreStoreV2.checkpoint');
+assert.equal(checkpointProducerDecision.checkpoint.coreCheckpointRef.sourceRevision, 11);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(checkpointProducerDecision.checkpoint.coreCheckpointRef, 'campaignState'),
+  false,
+  'Terminal decision must store checkpoint refs, not raw checkpoint state.'
+);
+assert.equal(
+  checkpointProducerHarness.state.runtimeTracking.pendingInteractions[0].metadata.checkpoint.coreCheckpointRef.checkpointId,
+  checkpointProducerHarness.checkpointWrites[0].checkpointId
+);
+
 const unsupportedHarness = createHarness();
 const unsupportedInteractionId = await detect(unsupportedHarness);
 const unsupported = await unsupportedHarness.service.resolveDecision({
@@ -253,6 +340,36 @@ const unsupported = await unsupportedHarness.service.resolveDecision({
 assert.equal(unsupported.ok, false);
 assert.equal(unsupported.reason, 'terminal-decision-action-unsupported');
 assert.equal(unsupported.action, 'invent-fifth-ending-button');
+
+const coreLedgerCheckpointState = terminalState();
+coreLedgerCheckpointState.turnLedger.entries[0].coreCheckpointRef = {
+  kind: 'directive.coreMechanicsCheckpointRef.v1',
+  campaignId: 'campaign-end-condition-service-test',
+  saveId: 'save-terminal-test',
+  checkpointId: 'core-mechanics-outcome-terminal',
+  layout: 'core',
+  sourceKind: 'turnCommitCoordinator.beforeCampaignState',
+  sourceRevision: 12
+};
+delete coreLedgerCheckpointState.turnLedger.entries[0].snapshotBefore;
+const coreLedgerCheckpointHarness = createHarness(coreLedgerCheckpointState, {
+  writeTerminalCheckpoint: async () => {
+    throw new Error('terminal detection must reuse CORE mechanics checkpoint ref');
+  }
+});
+const coreLedgerCheckpointInteractionId = await detect(coreLedgerCheckpointHarness);
+assert.equal(coreLedgerCheckpointHarness.checkpointWrites.length, 0, 'terminal detection must not duplicate existing CORE mechanics checkpoint artifacts');
+const coreLedgerCheckpointDecision = coreLedgerCheckpointHarness.state.runtimeTracking.endConditionLedger.decisions[0];
+assert.equal(coreLedgerCheckpointDecision.id, coreLedgerCheckpointInteractionId);
+assert.equal(coreLedgerCheckpointDecision.checkpoint.coreCheckpointRef.kind, 'directive.coreTerminalReplayCheckpointRef.v1');
+assert.equal(coreLedgerCheckpointDecision.checkpoint.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-terminal');
+assert.equal(coreLedgerCheckpointDecision.checkpoint.coreCheckpointRef.sourceKind, 'coreStoreV2.checkpoint');
+assert.equal(coreLedgerCheckpointDecision.checkpoint.coreCheckpointRef.sourceRevision, 12);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(coreLedgerCheckpointDecision.checkpoint.coreCheckpointRef, 'campaignState'),
+  false,
+  'Terminal decision must keep reused CORE checkpoint refs compact.'
+);
 
 const branchHarness = createHarness();
 const branchInteractionId = await detect(branchHarness);
@@ -301,7 +418,10 @@ assert.equal(pushHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpoint
 assert.equal(pushHarness.terminalSettlements[0].status, 'resolved');
 assert.equal(pushHarness.terminalSettlements[0].action, 'pushOn');
 
-const missingRepairHarness = createHarness(terminalState(), { repairRuntime: null });
+const missingRepairHarness = createHarness(terminalState(), {
+  ...checkpointStoreOverrides(),
+  repairRuntime: null
+});
 const missingRepairInteractionId = await detect(missingRepairHarness);
 const missingRepairPersistCount = missingRepairHarness.persisted.length;
 const missingRepairPromptSyncCount = missingRepairHarness.promptSyncs.length;
@@ -317,6 +437,7 @@ assert.equal(missingRepairHarness.persisted.length, missingRepairPersistCount);
 assert.equal(missingRepairHarness.promptSyncs.length, missingRepairPromptSyncCount);
 
 const deniedRepairHarness = createHarness(terminalState(), {
+  ...checkpointStoreOverrides(),
   repairRuntime: {
     authorizeTerminalCheckpointReplay(input = {}) {
       return {
@@ -351,9 +472,22 @@ assert.equal(deniedRepairHarness.state.runtimeTracking.endConditionLedger.decisi
 assert.equal(deniedRepairHarness.persisted.length, deniedRepairPersistCount);
 assert.equal(deniedRepairHarness.promptSyncs.length, deniedRepairPromptSyncCount);
 
+const oldSnapshotFallbackHarness = createHarness();
+const oldSnapshotFallbackInteractionId = await detect(oldSnapshotFallbackHarness);
+const oldSnapshotFallbackReplay = await oldSnapshotFallbackHarness.service.resolveDecision({
+  interactionId: oldSnapshotFallbackInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(oldSnapshotFallbackReplay.ok, false);
+assert.equal(oldSnapshotFallbackReplay.reason, 'checkpoint-snapshot-not-retained');
+assert.equal(oldSnapshotFallbackHarness.state.ship.status, 'destroyed');
+assert.equal(oldSnapshotFallbackHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
+
 const compactReplayState = terminalState();
 compactReplayState.turnLedger.entries[0].snapshotBefore.rawCanary = 'RAW_TERMINAL_SNAPSHOT_MUST_NOT_REACH_REPAIR';
-const compactReplayHarness = createHarness(compactReplayState);
+const compactReplayRawSnapshotHash = hashStableJson(compactReplayState.turnLedger.entries[0].snapshotBefore);
+compactReplayState.turnLedger.entries[0].snapshotBeforeHash = compactReplayRawSnapshotHash;
+const compactReplayHarness = createHarness(compactReplayState, checkpointStoreOverrides());
 const compactReplayInteractionId = await detect(compactReplayHarness);
 const compactReplay = await compactReplayHarness.service.resolveDecision({
   interactionId: compactReplayInteractionId,
@@ -371,6 +505,12 @@ assert.equal(compactReplayRepairCall.outcomeId, 'outcome-terminal');
 assert.equal(compactReplayRepairCall.snapshotPresent, true);
 assert.equal(typeof compactReplayRepairCall.snapshotHash, 'string');
 assert.notEqual(compactReplayRepairCall.snapshotHash, '');
+assert.notEqual(
+  compactReplayRepairCall.snapshotHash,
+  compactReplayRawSnapshotHash,
+  'Terminal replay REPAIR evidence must hash bounded checkpoint metadata instead of the full retained campaign snapshot.'
+);
+assert.equal(Object.prototype.hasOwnProperty.call(compactReplayRepairCall, 'snapshot'), false);
 assert.equal(JSON.stringify(compactReplayRepairCall).includes('RAW_TERMINAL_SNAPSHOT_MUST_NOT_REACH_REPAIR'), false);
 const compactReplayResolution = compactReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].resolution;
 assert.equal(compactReplayResolution.action, 'replayFromCheckpoint');
@@ -380,7 +520,7 @@ assert.equal(compactReplayResolution.repairDecision.action, 'restoreTerminalChec
 assert.equal(compactReplayResolution.repairDecision.snapshotHash, compactReplayRepairCall.snapshotHash);
 assert.equal(JSON.stringify(compactReplayResolution).includes('RAW_TERMINAL_SNAPSHOT_MUST_NOT_REACH_REPAIR'), false);
 
-const replayHarness = createHarness();
+const replayHarness = createHarness(terminalState(), checkpointStoreOverrides());
 const replayInteractionId = await detect(replayHarness);
 const replayed = await replayHarness.service.resolveDecision({
   interactionId: replayInteractionId,
@@ -413,10 +553,54 @@ const historyReplayed = await historyReplayHarness.service.resolveDecision({
   interactionId: historyReplayInteractionId,
   action: 'replayFromCheckpoint'
 });
-assert.equal(historyReplayed.ok, true);
-assert.equal(historyReplayHarness.state.campaign.checkpointMarker, 'before-terminal-outcome');
-assert.equal(historyReplayHarness.state.ship.status, 'operational');
-assert.equal(historyReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'replayed');
+assert.equal(historyReplayed.ok, false);
+assert.equal(historyReplayed.reason, 'checkpoint-snapshot-not-retained');
+assert.equal(historyReplayHarness.state.ship.status, 'destroyed');
+assert.equal(historyReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
+
+const coreCheckpointSnapshot = cloneJson(terminalState().turnLedger.entries[0].snapshotBefore);
+const coreCheckpointHarness = createHarness(terminalState(), {
+  loadTerminalCheckpoint: async (input = {}) => ({
+    kind: 'directive.coreTerminalReplayCheckpoint.v1',
+    checkpoint: {
+      campaignState: cloneJson(coreCheckpointSnapshot)
+    },
+    sourceKind: 'coreStoreV2.checkpoint',
+    sourceRevision: 42,
+    input: cloneJson(input)
+  })
+});
+const coreCheckpointInteractionId = await detect(coreCheckpointHarness);
+const coreCheckpointReplayState = cloneJson(coreCheckpointHarness.state);
+delete coreCheckpointReplayState.turnLedger.entries[0].snapshotBefore;
+coreCheckpointReplayState.runtimeTracking.history = [];
+coreCheckpointReplayState.runtimeTracking.lastStableRevision = 0;
+coreCheckpointReplayState.runtimeTracking.endConditionLedger.decisions[0].checkpoint = {
+  ...(coreCheckpointReplayState.runtimeTracking.endConditionLedger.decisions[0].checkpoint || {}),
+  coreCheckpointRef: {
+    kind: 'directive.coreTerminalReplayCheckpointRef.v1',
+    campaignId: 'campaign-end-condition-service-test',
+    saveId: 'save-terminal-test',
+    checkpointId: 'core-terminal-outcome-terminal',
+    layout: 'core'
+  }
+};
+coreCheckpointHarness.setState(coreCheckpointReplayState);
+const coreCheckpointReplay = await coreCheckpointHarness.service.resolveDecision({
+  interactionId: coreCheckpointInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(coreCheckpointReplay.ok, true);
+assert.equal(coreCheckpointHarness.checkpointLoads.length, 1);
+assert.equal(coreCheckpointHarness.checkpointLoads[0].campaignId, 'campaign-end-condition-service-test');
+assert.equal(coreCheckpointHarness.checkpointLoads[0].saveId, 'save-terminal-test');
+assert.equal(coreCheckpointHarness.checkpointLoads[0].checkpointId, 'core-terminal-outcome-terminal');
+assert.equal(coreCheckpointHarness.repairCalls.length, 1);
+assert.equal(coreCheckpointHarness.repairCalls[0].snapshotSourceKind, 'coreStoreV2.checkpoint');
+assert.equal(coreCheckpointHarness.repairCalls[0].ledgerRevision, 42);
+assert.equal(coreCheckpointHarness.state.campaign.checkpointMarker, 'before-terminal-outcome');
+assert.equal(coreCheckpointHarness.state.ship.status, 'operational');
+assert.equal(coreCheckpointHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'replayed');
 
 const missingSnapshotHarness = createHarness();
 const missingSnapshotInteractionId = await detect(missingSnapshotHarness);
@@ -432,18 +616,31 @@ const missingSnapshotReplay = await missingSnapshotHarness.service.resolveDecisi
 assert.equal(missingSnapshotReplay.ok, false);
 assert.equal(missingSnapshotReplay.reason, 'checkpoint-snapshot-not-retained');
 
-const ledgerOnlyReplayHarness = createHarness();
-const ledgerOnlyReplayInteractionId = await detect(ledgerOnlyReplayHarness);
-const ledgerOnlyState = cloneJson(ledgerOnlyReplayHarness.state);
-ledgerOnlyState.runtimeTracking.pendingInteractions = [];
-ledgerOnlyReplayHarness.setState(ledgerOnlyState);
-const ledgerOnlyReplayed = await ledgerOnlyReplayHarness.service.resolveDecision({
-  interactionId: ledgerOnlyReplayInteractionId,
+const genericHistoryReplayHarness = createHarness();
+const genericHistoryReplayInteractionId = await detect(genericHistoryReplayHarness);
+const genericHistoryReplayState = cloneJson(genericHistoryReplayHarness.state);
+const genericHistorySnapshot = cloneJson(genericHistoryReplayState.turnLedger.entries[0].snapshotBefore);
+delete genericHistoryReplayState.turnLedger.entries[0].snapshotBefore;
+genericHistoryReplayState.runtimeTracking.pendingInteractions = [];
+genericHistoryReplayState.runtimeTracking.history = [{
+  revision: 3,
+  committedAt: '2026-06-23T10:00:03.000Z',
+  source: 'directorTurn',
+  reason: 'Generic stable history snapshot must not authorize terminal checkpoint replay.',
+  outcomeId: 'different-outcome',
+  snapshot: genericHistorySnapshot
+}];
+genericHistoryReplayState.runtimeTracking.revision = 4;
+genericHistoryReplayState.runtimeTracking.lastStableRevision = 4;
+genericHistoryReplayHarness.setState(genericHistoryReplayState);
+const genericHistoryReplay = await genericHistoryReplayHarness.service.resolveDecision({
+  interactionId: genericHistoryReplayInteractionId,
   action: 'replayFromCheckpoint'
 });
-assert.equal(ledgerOnlyReplayed.ok, true);
-assert.equal(ledgerOnlyReplayHarness.state.campaign.checkpointMarker, 'before-terminal-outcome');
-assert.equal(ledgerOnlyReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'replayed');
+assert.equal(genericHistoryReplay.ok, false);
+assert.equal(genericHistoryReplay.reason, 'checkpoint-snapshot-not-retained');
+assert.equal(genericHistoryReplayHarness.state.ship.status, 'destroyed');
+assert.equal(genericHistoryReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
 
 const keepHarness = createHarness();
 const keepInteractionId = await detect(keepHarness);
@@ -462,12 +659,20 @@ assert.equal(keepHarness.conclusions[0].options.terminalOutcome.acceptedResoluti
 
 const noConclusionHarness = createHarness(terminalState(), { concludeCampaign: null });
 const noConclusionInteractionId = await detect(noConclusionHarness);
+const noConclusionPersistCount = noConclusionHarness.persisted.length;
+const noConclusionStateBefore = cloneJson(noConclusionHarness.state);
 const noConclusion = await noConclusionHarness.service.resolveDecision({
   interactionId: noConclusionInteractionId,
   action: 'keepEnding'
 });
 assert.equal(noConclusion.ok, false);
 assert.equal(noConclusion.reason, 'conclusion-service-unavailable');
-assert.equal(noConclusion.campaignState.runtimeTracking.endConditionLedger.decisions[0].status, 'keptEnding');
+assert.deepEqual(noConclusionHarness.state, noConclusionStateBefore);
+assert.equal(noConclusionHarness.persisted.length, noConclusionPersistCount);
+assert.equal(noConclusionHarness.conclusions.length, 0);
+assert.equal(noConclusionHarness.state.campaign.status, 'active');
+assert.equal(noConclusionHarness.state.conclusion?.terminalOutcome, undefined);
+assert.equal(noConclusionHarness.state.runtimeTracking.pendingInteractions[0].status, 'pending');
+assert.equal(noConclusionHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
 
 console.log('Campaign end-condition service tests passed: checkpoint post, branch save, Push On, replay, and keep-ending conclusion');

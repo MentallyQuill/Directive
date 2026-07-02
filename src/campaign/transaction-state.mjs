@@ -20,9 +20,9 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 20;
+const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 8;
 const MIN_TURN_SAVE_HISTORY_LIMIT = 2;
-const MAX_TURN_SAVE_HISTORY_LIMIT = 60;
+const MAX_TURN_SAVE_HISTORY_LIMIT = 20;
 const FULL_TURN_PACKET_RETENTION_LIMIT = 2;
 
 function normalizeTurnSaveHistoryLimit(value, fallback = DEFAULT_TURN_SAVE_HISTORY_LIMIT) {
@@ -60,6 +60,7 @@ function compactRuntimeTrackingSnapshot(value) {
     ingressLedger: [],
     responseLedger: [],
     recoveryJournal: [],
+    lifecycleJournal: [],
     sidecarJournal: [],
     modelCallJournal: [],
     pendingInteractions: [],
@@ -71,9 +72,9 @@ function compactRuntimeTrackingSnapshot(value) {
 function compactTurnLedgerEntrySnapshot(entry) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
   const compactEntry = {
-    ...entry,
-    snapshotBefore: null
+    ...entry
   };
+  delete compactEntry.snapshotBefore;
   delete compactEntry.stateDelta;
   delete compactEntry.competencePacket;
   compactEntry.narration = entry.narration ? {
@@ -93,10 +94,8 @@ function compactTurnLedgerEntrySnapshot(entry) {
 }
 
 function compactTurnLedgerEntryPacket(entry) {
-  const snapshotBefore = entry?.snapshotBefore || null;
   return {
-    ...compactTurnLedgerEntrySnapshot(entry),
-    snapshotBefore
+    ...compactTurnLedgerEntrySnapshot(entry)
   };
 }
 
@@ -110,17 +109,6 @@ function compactTurnLedgerStateDelta(stateDelta) {
   return compactDelta;
 }
 
-function cloneRollbackSnapshot(value) {
-  const snapshot = cloneJson(value);
-  if (snapshot?.runtimeTracking) {
-    snapshot.runtimeTracking = compactRuntimeTrackingSnapshot(snapshot.runtimeTracking);
-  }
-  if (Array.isArray(snapshot?.turnLedger?.entries)) {
-    snapshot.turnLedger.entries = snapshot.turnLedger.entries.map(compactTurnLedgerEntrySnapshot);
-  }
-  return snapshot;
-}
-
 function pruneTurnLedgerSnapshots(state, value = null) {
   const entries = state?.turnLedger?.entries;
   if (!Array.isArray(entries)) return state;
@@ -132,13 +120,18 @@ function pruneTurnLedgerSnapshots(state, value = null) {
         stateDelta: compactTurnLedgerStateDelta(entries[index].stateDelta)
       };
     }
+    delete entries[index].snapshotBefore;
+    if (!entries[index].coreCheckpointRef) {
+      entries[index].snapshotBeforeRetained = false;
+    }
   }
   const firstRetainedIndex = Math.max(0, entries.length - limit);
   for (let index = 0; index < firstRetainedIndex; index += 1) {
     entries[index] = {
-      ...entries[index],
-      snapshotBefore: null
+      ...entries[index]
     };
+    delete entries[index].snapshotBefore;
+    if (!entries[index].coreCheckpointRef) entries[index].snapshotBeforeRetained = false;
   }
   const firstFullPacketIndex = Math.max(0, entries.length - FULL_TURN_PACKET_RETENTION_LIMIT);
   for (let index = 0; index < firstFullPacketIndex; index += 1) {
@@ -619,7 +612,7 @@ function appendCommandLog(state, turnPacket) {
   });
 }
 
-function appendLedgerEntry(state, turnPacket, snapshotBefore) {
+function appendLedgerEntry(state, turnPacket) {
   if (!state.turnLedger) {
     state.turnLedger = { entries: [], swipeRerollForbidden: true };
   }
@@ -633,8 +626,7 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
     continuityProjection: cloneJson(turnPacket.provenance?.continuityProjection || null),
     narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
     commandLogSourceOutcomeId: turnPacket.commandLogPacket.sourceOutcomeId,
-    snapshotBeforeRetained: Boolean(snapshotBefore),
-    snapshotBefore,
+    snapshotBeforeRetained: false,
     narrationStatus: 'pending',
     narration: null,
     narrationFailures: [],
@@ -645,7 +637,6 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
 }
 
 export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarningIds = [] } = {}) {
-  const snapshotBefore = cloneRollbackSnapshot(campaignState);
   let nextState = cloneJson(campaignState);
 
   applyOpenWorldDelta(nextState, turnPacket.stateDelta?.openWorld || {});
@@ -663,7 +654,7 @@ export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarning
     crewIds: turnPacket.stateDelta?.relationships?.affectedCrewIds || null
   });
   appendCommandLog(nextState, turnPacket);
-  appendLedgerEntry(nextState, turnPacket, snapshotBefore);
+  appendLedgerEntry(nextState, turnPacket);
   pruneTurnLedgerSnapshots(nextState);
 
   return nextState;
@@ -762,10 +753,10 @@ export function editCommittedOutcome(campaignState, outcomeId, replacementTurnPa
   if (!entry) {
     throw new Error(`Cannot edit unknown outcome "${outcomeId}"`);
   }
-  if (!entry.snapshotBefore) {
-    throw new Error(`Cannot edit outcome "${outcomeId}" because its turn save history snapshot is no longer retained.`);
-  }
-  return commitDirectorTurn(entry.snapshotBefore, replacementTurnPacket);
+  const error = new Error(`Cannot edit outcome "${outcomeId}" from the pure transaction-state API; use the CORE checkpoint actuation path.`);
+  error.code = 'DIRECTIVE_CORE_CHECKPOINT_ACTUATION_REQUIRED';
+  error.details = { outcomeId, operation: 'editCommittedOutcome' };
+  throw error;
 }
 
 export function deleteCommittedOutcome(campaignState, outcomeId) {
@@ -773,10 +764,10 @@ export function deleteCommittedOutcome(campaignState, outcomeId) {
   if (!entry) {
     throw new Error(`Cannot delete unknown outcome "${outcomeId}"`);
   }
-  if (!entry.snapshotBefore) {
-    throw new Error(`Cannot delete outcome "${outcomeId}" because its turn save history snapshot is no longer retained.`);
-  }
-  return restoreCampaignSnapshot(entry.snapshotBefore);
+  const error = new Error(`Cannot delete outcome "${outcomeId}" from the pure transaction-state API; use the CORE checkpoint actuation path.`);
+  error.code = 'DIRECTIVE_CORE_CHECKPOINT_ACTUATION_REQUIRED';
+  error.details = { outcomeId, operation: 'deleteCommittedOutcome' };
+  throw error;
 }
 
 export function restoreCampaignSnapshot(snapshot) {

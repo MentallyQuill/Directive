@@ -5,6 +5,8 @@ import {
   registerRuntimeAction
 } from '../../src/runtime/runtime-actions.js';
 import {
+  DIRECTIVE_CORRECT_AS_SWIPE_BUTTON_CLASS,
+  DIRECTIVE_CORRECT_AS_SWIPE_POPOVER_CLASS,
   DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS,
   DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS,
   DIRECTIVE_MISSION_COMPONENT_CAPTURE_BUTTON_CLASS,
@@ -321,6 +323,8 @@ function setSelection({ anchorNode, focusNode, text }) {
 
 const calls = [];
 const defineCalls = [];
+const correctAsSwipeCalls = [];
+let refreshCount = 0;
 registerRuntimeAction('missionComponents.captureSelection', async (payload) => {
   calls.push(payload);
   return {
@@ -343,6 +347,18 @@ registerRuntimeAction('missionComponents.captureSelection', async (payload) => {
       warnings: []
     }
   };
+});
+registerRuntimeAction('correctAsSwipe.propose', async (payload) => {
+  correctAsSwipeCalls.push(payload);
+  return {
+    ok: true,
+    reason: 'candidate-swipe-appended',
+    summary: 'Correct-as-Swipe candidate appended.'
+  };
+});
+registerRuntimeAction('runtime.refresh', async () => {
+  refreshCount += 1;
+  return { ok: true };
 });
 registerRuntimeAction('defineSelection.lookup', async (payload) => {
   defineCalls.push(payload);
@@ -400,7 +416,42 @@ assert.equal(defineButton.title, 'Define Selection');
 assert.equal(defineButton.parentNode?.id, DIRECTIVE_OVERLAY_ROOT_ID);
 assert.equal(defineButton.children[0].textContent, '?');
 
+const correctButton = findByClass(fakeDocument.body, DIRECTIVE_CORRECT_AS_SWIPE_BUTTON_CLASS);
+assert(correctButton, 'Selecting assistant text should show the Correct-as-Swipe button');
+assert.equal(correctButton.hidden, false);
+assert.equal(correctButton.title, 'Correct as Swipe');
+assert.equal(correctButton.parentNode?.id, DIRECTIVE_OVERLAY_ROOT_ID);
+assert.equal(correctButton.children[0].textContent, 'C');
+
+await correctButton.click();
+const correctPopover = findByClass(fakeDocument.body, DIRECTIVE_CORRECT_AS_SWIPE_POPOVER_CLASS);
+assert(correctPopover, 'Correct-as-Swipe should render a dedicated candidate-swipe panel');
+assert.match(collectText(correctPopover), /Correct as Swipe/);
+assert.match(collectText(correctPopover), /Candidate Swipe/);
+const candidateInput = correctPopover.querySelector('[data-correct-as-swipe-field="proposedText"]');
+assert(candidateInput, 'Correct-as-Swipe panel must expose a candidate swipe textarea');
+assert.equal(candidateInput.value, 'Coolant seal, port nacelle, junction 7-C. Installation pending.');
+candidateInput.value = 'Coolant seal, port nacelle, junction 7-C. Installation complete.';
+const proposeButton = Array.from(correctPopover.querySelectorAll('button')).find((candidate) => candidate.textContent === 'Correct as Swipe');
+await proposeButton.click();
+assert.equal(correctAsSwipeCalls.length, 1);
+assert.equal(correctAsSwipeCalls[0].selection.selectedText, 'Coolant seal, port nacelle, junction 7-C.');
+assert.equal(correctAsSwipeCalls[0].selection.hostMessageId, '15');
+assert.equal(correctAsSwipeCalls[0].selection.message.text, 'Coolant seal, port nacelle, junction 7-C. Installation pending.');
+assert.equal(correctAsSwipeCalls[0].selection.message.role, 'assistant');
+assert.equal(correctAsSwipeCalls[0].selection.messageElement, undefined, 'Correct-as-Swipe runtime payload must not include DOM message elements');
+assert.equal(correctAsSwipeCalls[0].selection.rect, undefined, 'Correct-as-Swipe runtime payload must not include DOM rects');
+assert.equal(correctAsSwipeCalls[0].proposedText, 'Coolant seal, port nacelle, junction 7-C. Installation complete.');
+assert.equal(refreshCount, 1);
+assert.match(collectText(correctPopover), /Candidate Swipe Added/);
+
+__missionComponentsCaptureTestHooks.updateSelectionAffordance();
+assert.equal(button.hidden, false);
+assert.equal(defineButton.hidden, false);
+assert.equal(correctButton.hidden, false);
+
 await defineButton.click();
+assert.equal(findByClass(fakeDocument.body, DIRECTIVE_CORRECT_AS_SWIPE_POPOVER_CLASS), null, 'Opening Define Selection should close stale Correct-as-Swipe panels');
 assert.equal(defineCalls.length, 1);
 assert.equal(defineCalls[0].selection.selectedText, 'Coolant seal, port nacelle, junction 7-C.');
 assert.equal(defineCalls[0].selection.hostMessageId, '15');
@@ -444,6 +495,7 @@ setSelection({
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, false, 'Player-authored campaign selections should expose a capture button');
 assert.equal(defineButton.hidden, false, 'Player-authored campaign selections should expose a Define button');
+assert.equal(correctButton.hidden, true, 'Player-authored campaign selections should not expose Correct-as-Swipe');
 await button.click();
 assert.equal(calls.length, 2);
 assert.equal(calls[1].selection.hostMessageId, '17');
@@ -458,6 +510,7 @@ setSelection({
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, true, 'Cross-message selections should not expose a capture button');
 assert.equal(defineButton.hidden, true, 'Cross-message selections should not expose a Define button');
+assert.equal(correctButton.hidden, true, 'Cross-message selections should not expose Correct-as-Swipe');
 
 first.message.dataset.directiveReconciliationMarker = 'single';
 setSelection({
@@ -468,6 +521,7 @@ setSelection({
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, true, 'Reconciliation-marked messages should not expose a capture button');
 assert.equal(defineButton.hidden, true, 'Reconciliation-marked messages should not expose a Define button');
+assert.equal(correctButton.hidden, true, 'Reconciliation-marked messages should not expose Correct-as-Swipe');
 delete first.message.dataset.directiveReconciliationMarker;
 
 globalThis.SillyTavern = {
@@ -481,6 +535,7 @@ setSelection({
 __missionComponentsCaptureTestHooks.updateSelectionAffordance();
 assert.equal(button.hidden, true, 'Ambiguous current chat state should not expose a capture button');
 assert.equal(defineButton.hidden, true, 'Ambiguous current chat state should not expose a Define button');
+assert.equal(correctButton.hidden, true, 'Ambiguous current chat state should not expose Correct-as-Swipe');
 
 __missionComponentsCaptureTestHooks.reset();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

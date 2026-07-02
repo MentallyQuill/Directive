@@ -1,9 +1,15 @@
 import {
-  recordRecoveryEvent,
   updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
+import { acceptCorrectAsSwipeSelection } from './correct-as-swipe.mjs';
+import {
+  findLedgerIngress,
+  findLedgerIngressAsync,
+  findLedgerResponseAsync,
+  findLedgerResponse
+} from './runtime-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -17,14 +23,14 @@ function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
 
-function findIngress(campaignState, hostMessageId) {
+function findIngress(campaignState, hostMessageId, options = {}) {
   const id = compact(hostMessageId);
-  return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.hostMessageId === id) || null;
+  return findLedgerIngress(campaignState, { hostMessageId: id }, options);
 }
 
-function findResponse(campaignState, hostMessageId) {
+function findResponse(campaignState, hostMessageId, options = {}) {
   const id = compact(hostMessageId);
-  return (campaignState?.runtimeTracking?.responseLedger || []).find((entry) => entry.hostMessageId === id) || null;
+  return findLedgerResponse(campaignState, { hostMessageId: id }, options);
 }
 
 function sceneHandshakeCollections(campaignState = {}) {
@@ -109,6 +115,13 @@ function repairDependentInvalidationProjection(coreRecovery = {}) {
     || null;
 }
 
+function coreRecoveryRecorded(coreRecovery = null) {
+  return coreRecovery?.status === 'recorded'
+    || coreRecovery?.coreRecovery?.status === 'recorded'
+    || coreRecovery?.recoveryCase?.status === 'recorded'
+    || Boolean(coreRecovery?.recoveryCaseId || coreRecovery?.id);
+}
+
 function normalizeIdList(value = []) {
   return [...new Set((Array.isArray(value) ? value : [value]).map(compact).filter(Boolean))];
 }
@@ -189,24 +202,11 @@ function applySceneHandshakeProjection(campaignState = {}, projection = null, {
   next.runtimeTracking = tracking;
   const appliedSettlementIds = settlementIds.filter((id) => appliedIds.has(id));
   if (!appliedSettlementIds.length) return { campaignState, invalidatedCount: 0, settlementIds: [] };
-  const invalidated = recordRecoveryEvent(
-    invalidateDerivedSceneHandshakeRecords(next, appliedSettlementIds, {
-      hostMessageId: compact(hostMessageId),
-      invalidatedAt: eventTime,
-      invalidationType: eventType
-    }),
-    {
-      type: 'sceneHandshakeSourceInvalidated',
-      status: 'reviewRequired',
-      hostMessageId: compact(hostMessageId),
-      recordedAt: eventTime,
-      details: {
-        eventType,
-        settlementIds: appliedSettlementIds,
-        invalidatedSettlementCount: appliedSettlementIds.length
-      }
-    }
-  );
+  const invalidated = invalidateDerivedSceneHandshakeRecords(next, appliedSettlementIds, {
+    hostMessageId: compact(hostMessageId),
+    invalidatedAt: eventTime,
+    invalidationType: eventType
+  });
   return {
     campaignState: invalidated,
     invalidatedCount: appliedSettlementIds.length,
@@ -252,17 +252,7 @@ function applyMissionComponentProjection(campaignState = {}, projection = null, 
   });
   if (!markedCount) return { campaignState, markedCount: 0, componentIds: [] };
   return {
-    campaignState: recordRecoveryEvent(next, {
-      type: sourceStatus === 'deleted' ? 'missionComponentSourceDeleted' : 'missionComponentSourceEdited',
-      status: 'reviewRequired',
-      hostMessageId: compact(hostMessageId),
-      recordedAt: eventTime,
-      details: {
-        sourceStatus,
-        markedCount,
-        componentIds: markedIds
-      }
-    }),
+    campaignState: next,
     markedCount,
     componentIds: markedIds,
     sourceStatus
@@ -301,6 +291,62 @@ function preOutcomeRevision(campaignState, ingress) {
   return matching ? Number(matching.revision) : null;
 }
 
+function isObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function compactCheckpointRef(ref = null) {
+  if (!isObject(ref)) return null;
+  const checkpointId = compact(ref.checkpointId || ref.id);
+  if (!checkpointId) return null;
+  return {
+    kind: compact(ref.kind) || 'directive.coreMechanicsCheckpointRef.v1',
+    campaignId: compact(ref.campaignId) || null,
+    saveId: compact(ref.saveId) || null,
+    checkpointId,
+    layout: compact(ref.layout) || 'core',
+    sourceKind: compact(ref.sourceKind) || null,
+    sourceRevision: Number.isFinite(Number(ref.sourceRevision)) ? Number(ref.sourceRevision) : null,
+    logicalKey: compact(ref.logicalKey) || null,
+    hash: compact(ref.hash) || null
+  };
+}
+
+function coreCheckpointRefFromEntry(entry = null) {
+  return compactCheckpointRef(
+    entry?.coreCheckpointRef
+      || entry?.checkpointRef
+      || entry?.v2CheckpointRef
+      || null
+  );
+}
+
+function sourceMutationCoreCheckpointRef(campaignState = {}, ingress = null) {
+  const direct = coreCheckpointRefFromEntry(ingress);
+  if (direct) return direct;
+  const turnEntries = Array.isArray(campaignState?.turnLedger?.entries)
+    ? campaignState.turnLedger.entries
+    : [];
+  const ledgerEntry = [...turnEntries].reverse().find((entry) => (
+    (ingress?.outcomeId && entry?.outcomeId === ingress.outcomeId)
+    || (ingress?.id && entry?.ingressId === ingress.id)
+    || (ingress?.coreTransactionId && (
+      entry?.coreTransactionId === ingress.coreTransactionId
+      || entry?.transactionId === ingress.coreTransactionId
+    ))
+  ));
+  const ledgerRef = coreCheckpointRefFromEntry(ledgerEntry);
+  if (ledgerRef) return ledgerRef;
+  const history = Array.isArray(campaignState?.runtimeTracking?.history)
+    ? campaignState.runtimeTracking.history
+    : [];
+  const historyEntry = [...history].reverse().find((entry) => (
+    (ingress?.outcomeId && entry?.outcomeId === ingress.outcomeId)
+    || (ingress?.id && entry?.ingressId === ingress.id)
+  ));
+  return coreCheckpointRefFromEntry(historyEntry);
+}
+
 function sourceMutationEventType(type, { response = null, ingress = null } = {}) {
   if (type === 'deleted') {
     if (response) return 'directiveResponseDeleted';
@@ -324,6 +370,7 @@ export function createMessageReconciler({
   repairRuntime = null,
   persist = null,
   syncPrompt = null,
+  loadCoreCheckpointState = null,
   now = null
 } = {}) {
   if (typeof getCampaignState !== 'function') throw new Error('getCampaignState must be a function');
@@ -414,6 +461,23 @@ export function createMessageReconciler({
     return recordRepairRollbackActuation(options);
   }
 
+  async function loadSourceMutationCheckpointState(options = {}) {
+    if (typeof loadCoreCheckpointState !== 'function' || !options.coreCheckpointRef) return null;
+    try {
+      const loaded = await loadCoreCheckpointState(options);
+      if (!isObject(loaded)) return null;
+      return loaded.campaignState
+        || loaded.snapshot
+        || loaded.state
+        || loaded.checkpoint?.campaignState
+        || loaded.checkpoint?.snapshot
+        || loaded.checkpoint?.state
+        || loaded;
+    } catch {
+      return null;
+    }
+  }
+
   function legacyProjectionFromRepair(coreRecovery = {}, {
     sourceKind,
     hasCommittedOutcome = false,
@@ -481,8 +545,8 @@ export function createMessageReconciler({
     selectedSwipe = null
   } = {}) {
     const state = getCampaignState();
-    const ingress = findIngress(state, hostMessageId);
-    const response = ingress ? null : findResponse(state, hostMessageId);
+    const ingress = await findLedgerIngressAsync(state, { hostMessageId }, { coreTurnStore });
+    const response = ingress ? null : await findLedgerResponseAsync(state, { hostMessageId }, { coreTurnStore });
     if (!ingress && !response) {
       const eventType = sourceMutationEventType(type);
       const eventTime = timestamp(now);
@@ -547,6 +611,50 @@ export function createMessageReconciler({
     if (response) {
       const eventType = sourceMutationEventType(type, { response });
       const eventTime = timestamp(now);
+      if (eventType === 'directiveResponseSelectedSwipeChanged') {
+        const acceptedCorrection = await acceptCorrectAsSwipeSelection({
+          campaignState: state,
+          response,
+          selectedSwipe,
+          message,
+          now: () => eventTime,
+          updateResponse: (latest, responseUpdateId, correctionCase) => {
+            const currentResponse = findResponse(latest, responseUpdateId) || response;
+            const currentCorrectAsSwipe = currentResponse?.correctAsSwipe && typeof currentResponse.correctAsSwipe === 'object'
+              ? currentResponse.correctAsSwipe
+              : {};
+            const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
+            return updateDirectiveResponse(latest, responseUpdateId, {
+              correctAsSwipe: {
+                ...currentCorrectAsSwipe,
+                cases: [
+                  ...cases.filter((entry) => entry?.id !== correctionCase.id),
+                  correctionCase
+                ],
+                selectedCaseId: correctionCase.id,
+                lastAcceptedCaseId: correctionCase.id,
+                lastCaseId: correctionCase.id,
+                lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || null)
+              }
+            });
+          },
+          persist: async (next, summary) => {
+            setCampaignState(next);
+            await save(summary);
+          }
+        });
+        if (acceptedCorrection.matched === true) {
+          return {
+            ok: true,
+            matched: true,
+            action: acceptedCorrection.action,
+            response: cloneJson(response),
+            correctionCase: cloneJson(acceptedCorrection.correctionCase),
+            selectedSwipeIndex: acceptedCorrection.selectedSwipeIndex,
+            campaignState: cloneJson(getCampaignState())
+          };
+        }
+      }
       const revision = preOutcomeRevision(state, {
         id: response.ingressId,
         outcomeId: response.outcomeId
@@ -573,6 +681,17 @@ export function createMessageReconciler({
         autoRollback,
         revision
       });
+      if (!coreRecoveryRecorded(coreRecovery)) {
+        return {
+          ok: false,
+          matched: true,
+          action: 'coreRecoveryRequired',
+          reason: 'source-mutation-core-recovery-required',
+          response: cloneJson(response),
+          coreRecovery: cloneJson(coreRecovery || null),
+          campaignState: cloneJson(state)
+        };
+      }
       let next = updateDirectiveResponse(state, response.id, {
         status: legacyProjection.responseProjectionStatus || legacyProjection.sourceProjectionStatus || 'recoveryRequired',
         invalidatedAt: eventTime,
@@ -583,22 +702,6 @@ export function createMessageReconciler({
         selectedSwipeChangedAt: eventType === 'directiveResponseSelectedSwipeChanged'
           ? eventTime
           : response.selectedSwipeChangedAt || null
-      });
-      next = recordRecoveryEvent(next, {
-        type: eventType,
-        status: legacyProjection.recoveryJournalStatus || 'reviewRequired',
-        hostMessageId,
-        ingressId: response.ingressId || null,
-        outcomeId: response.outcomeId || null,
-        recordedAt: eventTime,
-        details: {
-          replacementText: compact(replacementText) || null,
-          preOutcomeRevision: revision,
-          responseId: response.id,
-          responseKind: response.responseKind || null,
-          turnId: response.turnId || null,
-          coreRecovery
-        }
       });
       const dependentInvalidation = applyRepairDependentInvalidation(next, coreRecovery, {
         hostMessageId,
@@ -660,6 +763,17 @@ export function createMessageReconciler({
       autoRollback,
       revision
     });
+    if (!coreRecoveryRecorded(coreRecovery)) {
+      return {
+        ok: false,
+        matched: true,
+        action: 'coreRecoveryRequired',
+        reason: 'source-mutation-core-recovery-required',
+        ingress: cloneJson(ingress),
+        coreRecovery: cloneJson(coreRecovery || null),
+        campaignState: cloneJson(state)
+      };
+    }
     const rollbackActuation = (autoRollback === true || legacyProjection.shouldRestoreRevision === true)
       ? rollbackActuationFromRepair(coreRecovery, {
         legacyProjection,
@@ -669,12 +783,29 @@ export function createMessageReconciler({
       : null;
     let rollbackExecution = null;
     if (rollbackActuation?.authorized === true && Number.isFinite(Number(rollbackActuation.restoreRevision))) {
+      const coreCheckpointRef = sourceMutationCoreCheckpointRef(state, ingress);
+      const coreCheckpointRestoreState = await loadSourceMutationCheckpointState({
+        state,
+        campaignState: state,
+        ingress: cloneJson(ingress),
+        outcomeId: ingress.outcomeId || null,
+        transactionId: ingress.coreTransactionId || coreRecovery?.transactionId || rollbackActuation.transactionId || null,
+        restoreRevision: rollbackActuation.restoreRevision,
+        coreRecovery,
+        rollbackActuation,
+        legacyProjection,
+        eventType,
+        eventTime,
+        coreCheckpointRef
+      });
       rollbackExecution = await executeRepairRollbackActuation({
         coreRecovery,
         rollbackActuation,
         legacyProjection,
         eventType,
         eventTime,
+        coreCheckpointRef,
+        coreCheckpointRestoreState,
         campaignState: state,
         reason: `${eventType} rolled the campaign back before outcome ${ingress.outcomeId}.`
       });
@@ -699,20 +830,6 @@ export function createMessageReconciler({
       selectedSwipeChangedAt: eventType === 'playerMessageSelectedSwipeChanged'
         ? eventTime
         : ingress.selectedSwipeChangedAt || null
-    });
-    next = recordRecoveryEvent(next, {
-      type: eventType,
-      status: legacyProjection.recoveryJournalStatus || 'reviewRequired',
-      hostMessageId,
-      ingressId: ingress.id,
-      outcomeId: ingress.outcomeId,
-      recordedAt: eventTime,
-      details: {
-        replacementText: compact(replacementText) || null,
-        preOutcomeRevision: revision,
-        coreRecovery,
-        rollbackActuation: rollbackActuation ? cloneJson(rollbackActuation) : null
-      }
     });
     const dependentInvalidation = applyRepairDependentInvalidation(next, coreRecovery, {
       hostMessageId,
@@ -768,8 +885,8 @@ export function createMessageReconciler({
     visibilityMap = null
   } = {}) {
     const state = getCampaignState();
-    const ingress = findIngress(state, hostMessageId);
-    const response = ingress ? null : findResponse(state, hostMessageId);
+    const ingress = await findLedgerIngressAsync(state, { hostMessageId }, { coreTurnStore });
+    const response = ingress ? null : await findLedgerResponseAsync(state, { hostMessageId }, { coreTurnStore });
     if (!ingress && !response) {
       return {
         ok: true,

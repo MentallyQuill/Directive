@@ -136,7 +136,12 @@ requireIncludes(
 );
 requireEqual(committed.commandLog.entries.at(-1).sourceOutcomeId, hesperusTurn.outcomePacket.id, 'commit commandLog source');
 requireEqual(committed.turnLedger.entries.length, 1, 'commit ledger length');
-requireEqual(stable(committed.turnLedger.entries[0].snapshotBefore), initialSnapshot, 'commit snapshotBefore');
+requireEqual(committed.turnLedger.entries[0].snapshotBeforeRetained, false, 'commit does not claim retained snapshot without CORE checkpoint');
+requireEqual(
+  Object.prototype.hasOwnProperty.call(committed.turnLedger.entries[0], 'snapshotBefore'),
+  false,
+  'commit does not store raw snapshotBefore in turn ledger'
+);
 
 const bearingReviewTurn = cloneJson(refusalTurn);
 bearingReviewTurn.outcomePacket.id = 'outcome.command-bearing.review.fixture';
@@ -303,16 +308,16 @@ requireEqual(failedNarration.turnLedger.entries[0].narrationFailures.length, 1, 
 requireEqual(failedNarration.turnLedger.pendingNarrationRecovery.outcomeId, hesperusTurn.outcomePacket.id, 'narration failure pending recovery');
 requireEqual(failedNarration.turnLedger.lastCommittedOutcomeId, committed.turnLedger.lastCommittedOutcomeId, 'narration failure preserves committed outcome');
 
-const edited = editCommittedOutcome(swiped, hesperusTurn.outcomePacket.id, refusalTurn);
-requireEqual(edited.mission.activePhaseId, 'hesperus-diversion', 'edit restores original phase before replacement');
-requireEqual(outcomeFlagValue(edited, 'prelude.command-decision-hesperus-fraud'), 'unawarded', 'edit removes original command decision flag');
-requireEqual((edited.commandBearing.resolve.awardedDecisionIds || []).length, 0, 'edit removes original command decision award');
-requireEqual((edited.commandBearing?.tracks?.resolve?.awardedSourceIds || []).length, 0, 'edit removes original commandBearing award');
-requireEqual(edited.turnLedger.entries.length, 1, 'edit replacement ledger length');
-requireEqual(edited.turnLedger.entries[0].outcomeId, refusalTurn.outcomePacket.id, 'edit replacement outcome');
-
-const deleted = deleteCommittedOutcome(swiped, hesperusTurn.outcomePacket.id);
-requireEqual(stable(deleted), initialSnapshot, 'delete restores pre-outcome snapshot');
+requireThrows(
+  () => editCommittedOutcome(swiped, hesperusTurn.outcomePacket.id, refusalTurn),
+  /CORE checkpoint/i,
+  'edit requires CORE checkpoint path'
+);
+requireThrows(
+  () => deleteCommittedOutcome(swiped, hesperusTurn.outcomePacket.id),
+  /CORE checkpoint/i,
+  'delete requires CORE checkpoint path'
+);
 
 const auditHeavyState = cloneJson(initialState);
 auditHeavyState.runtimeTracking = {
@@ -339,15 +344,23 @@ auditHeavyState.runtimeTracking = {
   }
 };
 const auditHeavyCommit = commitDirectorTurn(auditHeavyState, hesperusTurn);
-const auditSnapshot = auditHeavyCommit.turnLedger.entries.at(-1).snapshotBefore;
-requireEqual(auditSnapshot.runtimeTracking.history.length, 0, 'snapshot strips runtime history');
-requireEqual(auditSnapshot.runtimeTracking.ingressLedger.length, 0, 'snapshot strips ingress ledger');
-requireEqual(auditSnapshot.runtimeTracking.responseLedger.length, 0, 'snapshot strips response ledger');
-requireEqual(auditSnapshot.runtimeTracking.sidecarJournal.length, 0, 'snapshot strips sidecar journal');
-requireEqual(auditSnapshot.runtimeTracking.modelCallJournal.length, 0, 'snapshot strips model-call journal');
-requireEqual(auditSnapshot.runtimeTracking.pendingInteractions.length, 0, 'snapshot strips pending interactions');
-requireEqual(auditSnapshot.runtimeTracking.activeIngressId, null, 'snapshot clears active ingress');
-requireEqual(auditSnapshot.runtimeTracking.sceneReconciliation.runs.length, 0, 'snapshot strips reconciliation runs');
+const auditEntry = auditHeavyCommit.turnLedger.entries.at(-1);
+requireEqual(auditEntry.snapshotBeforeRetained, false, 'audit-heavy commit does not claim retained snapshot without CORE checkpoint');
+requireEqual(
+  Object.prototype.hasOwnProperty.call(auditEntry, 'snapshotBefore'),
+  false,
+  'audit-heavy commit does not store raw snapshotBefore'
+);
+requireEqual(
+  stable(auditHeavyCommit.turnLedger).includes('ingress-heavy'),
+  false,
+  'turn ledger must not retain old ingress ledger through raw snapshot'
+);
+requireEqual(
+  stable(auditHeavyCommit.turnLedger).includes('recovery-heavy'),
+  false,
+  'turn ledger must not retain old recovery ledger through raw snapshot'
+);
 
 const rejectedOpenWorldTurn = cloneJson(hesperusTurn);
 rejectedOpenWorldTurn.turnId = 'turn.open-world.roots-set.rejected';
@@ -421,26 +434,34 @@ for (let index = 1; index <= 5; index += 1) {
 requireEqual(cappedHistoryState.turnLedger.entries.length, 5, 'history cap keeps ledger entries');
 requireEqual(cappedHistoryState.turnLedger.snapshotRetentionLimit, 2, 'history cap records retention limit');
 requireEqual(cappedHistoryState.turnLedger.fullPacketRetentionLimit, 2, 'history cap records full packet retention limit');
-requireEqual(cappedHistoryState.turnLedger.entries[0].snapshotBefore, null, 'history cap prunes oldest snapshot');
-requireEqual(cappedHistoryState.turnLedger.entries[2].snapshotBefore, null, 'history cap prunes snapshots outside window');
+requireEqual(
+  Object.prototype.hasOwnProperty.call(cappedHistoryState.turnLedger.entries[0], 'snapshotBefore'),
+  false,
+  'history cap has no oldest raw snapshot'
+);
+requireEqual(
+  Object.prototype.hasOwnProperty.call(cappedHistoryState.turnLedger.entries[2], 'snapshotBefore'),
+  false,
+  'history cap has no raw snapshot outside window'
+);
 requireEqual(cappedHistoryState.turnLedger.entries[2].stateDelta, undefined, 'history cap compacts old active turn packets');
-requireEqual(Boolean(cappedHistoryState.turnLedger.entries[3].snapshotBefore), true, 'history cap retains penultimate snapshot');
-requireEqual(Boolean(cappedHistoryState.turnLedger.entries[4].snapshotBefore), true, 'history cap retains latest snapshot');
+requireEqual(cappedHistoryState.turnLedger.entries[3].snapshotBeforeRetained, false, 'history cap does not retain penultimate raw snapshot');
+requireEqual(cappedHistoryState.turnLedger.entries[4].snapshotBeforeRetained, false, 'history cap does not retain latest raw snapshot');
 requireEqual(Boolean(cappedHistoryState.turnLedger.entries[3].stateDelta), true, 'history cap retains penultimate full turn packet');
 requireEqual(Boolean(cappedHistoryState.turnLedger.entries[4].stateDelta), true, 'history cap keeps active ledger turn packet');
 requireEqual(
-  cappedHistoryState.turnLedger.entries[4].snapshotBefore.turnLedger.entries[0].stateDelta,
-  undefined,
-  'history cap compacts nested snapshot ledger packets'
+  stable(cappedHistoryState.turnLedger).includes('"snapshotBefore"'),
+  false,
+  'history cap does not retain nested raw snapshots'
 );
 requireThrows(
   () => deleteCommittedOutcome(cappedHistoryState, 'outcome.history-cap.1'),
-  /snapshot is no longer retained/,
+  /CORE checkpoint/i,
   'history cap delete expired outcome'
 );
 requireThrows(
   () => editCommittedOutcome(cappedHistoryState, 'outcome.history-cap.1', refusalTurn),
-  /snapshot is no longer retained/,
+  /CORE checkpoint/i,
   'history cap edit expired outcome'
 );
 

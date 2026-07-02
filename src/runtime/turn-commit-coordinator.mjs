@@ -37,6 +37,12 @@ function uniqueStrings(values = []) {
   return [...new Set(asArray(values).map((value) => String(value || '').trim()).filter(Boolean))];
 }
 
+function safeCheckpointId(value, fallback) {
+  const raw = String(value || fallback || 'core-mechanics-checkpoint').trim();
+  const safe = raw.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  return safe || String(fallback || 'core-mechanics-checkpoint');
+}
+
 function findIngressById(campaignState, ingressId) {
   const id = compact(ingressId);
   if (!id) return null;
@@ -138,6 +144,11 @@ async function commitCoreMechanics({
       outcomeId,
       summary: 'Committed deterministic Directive mechanics.',
       baseMechanicsRevision: baseMechanicsRevision ?? undefined,
+      checkpointBefore: {
+        checkpointId: safeCheckpointId(`core-mechanics-${outcomeId}`, `core-mechanics-${id}`),
+        sourceKind: 'turnCommitCoordinator.beforeCampaignState',
+        campaignState: beforeCampaignState
+      },
       operations,
       committedRoots: uniqueStrings(operations.map((operation) => operation.domain)),
       promptDirtyDomains: [],
@@ -156,7 +167,8 @@ async function commitCoreMechanics({
       turnId: turn?.turnId || bundle.turnId || null,
       outcomeId: turn?.outcomeId || outcomeId,
       operationCount: operations.length,
-      operationHash: turn?.operationHash || hashStableJson(bundle)
+      operationHash: turn?.operationHash || hashStableJson(bundle),
+      coreCheckpointRef: turn?.coreCheckpointRef ? cloneJson(turn.coreCheckpointRef) : null
     };
   } catch (error) {
     return {
@@ -253,13 +265,19 @@ function annotateCoreMechanicsLedgerEntry(state, outcomeId, coreMechanics = null
     entry.coreTransactionId = transactionId;
     entry.coreTurnId = coreMechanics.turnId || null;
     entry.coreOperationHash = coreMechanics.operationHash || null;
+    if (coreMechanics.coreCheckpointRef) {
+      entry.coreCheckpointRef = cloneJson(coreMechanics.coreCheckpointRef);
+      entry.snapshotBeforeRetained = true;
+    }
   }
   if (state.runtimeTracking?.lastCommittedTurn?.outcomeId === outcomeId) {
     state.runtimeTracking.lastCommittedTurn = {
       ...state.runtimeTracking.lastCommittedTurn,
       coreTransactionId: transactionId,
       coreTurnId: coreMechanics.turnId || null,
-      coreOperationHash: coreMechanics.operationHash || null
+      coreOperationHash: coreMechanics.operationHash || null,
+      snapshotBeforeRetained: Boolean(coreMechanics.coreCheckpointRef),
+      coreCheckpointRef: coreMechanics.coreCheckpointRef ? cloneJson(coreMechanics.coreCheckpointRef) : undefined
     };
   }
   return state;

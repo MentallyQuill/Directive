@@ -360,16 +360,29 @@ export function createFakeChatAdapter({
         swipeIndex = message.swipes.length;
         message.swipes.push(text);
       }
-      message.swipe_id = swipeIndex;
-      message.text = text;
-      message.metadata = {
-        ...(message.metadata || {}),
-        selectedSwipeIndex: swipeIndex,
-        selectedSwipeAt: '2026-06-22T00:00:00.000Z',
-        swipeCount: message.swipes.length,
-        ...(options.extra?.directive || {})
-      };
-      if (options.extra && typeof options.extra === 'object') {
+      const selected = options.select !== false;
+      if (selected) {
+        message.swipe_id = swipeIndex;
+        message.text = text;
+        message.metadata = {
+          ...(message.metadata || {}),
+          selectedSwipeIndex: swipeIndex,
+          selectedSwipeAt: '2026-06-22T00:00:00.000Z',
+          swipeCount: message.swipes.length,
+          ...(options.extra?.directive || {})
+        };
+      } else {
+        message.metadata = {
+          ...(message.metadata || {}),
+          swipeCount: message.swipes.length
+        };
+        message.swipe_info = Array.isArray(message.swipe_info) ? message.swipe_info : [];
+        message.swipe_info[swipeIndex] = {
+          send_date: '2026-06-22T00:00:00.000Z',
+          extra: cloneJson(options.extra || {})
+        };
+      }
+      if (selected && options.extra && typeof options.extra === 'object') {
         const extraPatch = cloneJson(options.extra);
         delete extraPatch.directive;
         message.extra = {
@@ -385,6 +398,7 @@ export function createFakeChatAdapter({
         swipeIndex,
         swipeCount: message.swipes.length,
         duplicate,
+        selected,
         text,
         metadata: cloneJson(message.metadata),
         message: cloneJson(message)

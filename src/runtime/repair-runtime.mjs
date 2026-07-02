@@ -19,6 +19,98 @@ function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
 
+function compactReasonEvidence(reason = '') {
+  const text = compact(reason);
+  return text
+    ? {
+        reasonLength: text.length,
+        reasonHash: hashStableJson({ reason: text.slice(0, 500) })
+      }
+    : {
+        reasonLength: 0,
+        reasonHash: null
+      };
+}
+
+export function buildCorrectAsSwipeLifecycleDecision({
+  correctionCase = null,
+  caseId = null,
+  action = null,
+  reason = '',
+  now = null
+} = {}) {
+  const effectiveCaseId = compact(caseId || correctionCase?.id);
+  const requestedAction = compact(action);
+  const statusBefore = compact(correctionCase?.status);
+  const decidedAt = timestamp(now);
+  const allowedActions = Array.isArray(correctionCase?.allowedActions)
+    ? correctionCase.allowedActions.map(compact).filter(Boolean)
+    : [];
+  const finalStatusByAction = {
+    rejectCorrectionCase: 'rejected',
+    expireCorrectionCase: 'expired'
+  };
+  const statusAfter = finalStatusByAction[requestedAction] || null;
+  const reasonEvidence = compactReasonEvidence(reason);
+  const base = {
+    kind: 'directive.repairCorrectAsSwipeLifecycleDecision.v1',
+    caseId: effectiveCaseId || null,
+    action: requestedAction || null,
+    statusBefore: statusBefore || null,
+    statusAfter,
+    source: {
+      responseId: compact(correctionCase?.responseId) || null,
+      hostMessageId: compact(correctionCase?.source?.hostMessageId) || null,
+      outcomeId: compact(correctionCase?.source?.outcomeId) || null,
+      turnId: compact(correctionCase?.source?.turnId) || null,
+      selectedTextHash: compact(correctionCase?.source?.selectedTextHash) || null
+    },
+    evidenceHash: compact(correctionCase?.evidenceVerdict?.evidenceHash) || null,
+    candidateTextHash: compact(correctionCase?.candidate?.textHash) || null,
+    normalTurnAllowed: false,
+    continuityMutation: 'none-until-selected',
+    decidedAt,
+    ...reasonEvidence
+  };
+  if (!effectiveCaseId || !correctionCase) {
+    return {
+      ...base,
+      status: 'blocked',
+      blockedReason: 'correction-case-missing',
+      allowedActions: ['reviewCorrectionCase']
+    };
+  }
+  if (!statusAfter) {
+    return {
+      ...base,
+      status: 'blocked',
+      blockedReason: 'unsupported-correction-case-action',
+      allowedActions: cloneJson(allowedActions)
+    };
+  }
+  if (statusBefore === statusAfter) {
+    return {
+      ...base,
+      status: 'alreadyApplied',
+      allowedActions: [],
+      idempotent: true
+    };
+  }
+  if (!allowedActions.includes(requestedAction)) {
+    return {
+      ...base,
+      status: 'blocked',
+      blockedReason: 'correction-case-action-not-allowed',
+      allowedActions: cloneJson(allowedActions)
+    };
+  }
+  return {
+    ...base,
+    status: 'approved',
+    allowedActions: []
+  };
+}
+
 function replacementTextHash(replacementText = null) {
   const text = compact(replacementText);
   return text ? hashStableJson({ text }) : null;
@@ -635,6 +727,24 @@ function buildHostNativeContinuityCompatibilityProjection({
   };
 }
 
+function coreContinuityProjectionFromCompatibility(projection = null) {
+  if (!isObjectRecord(projection)) return null;
+  return {
+    rejectedClaims: Array.isArray(projection.rejectedClaims) ? cloneJson(projection.rejectedClaims) : [],
+    projectionHints: Array.isArray(projection.projectionHints) ? cloneJson(projection.projectionHints) : [],
+    factUseStats: isObjectRecord(projection.factUseStats) ? cloneJson(projection.factUseStats) : {}
+  };
+}
+
+function continuityProjectionHasEvidence(projection = null) {
+  if (!isObjectRecord(projection)) return false;
+  return Boolean(
+    (Array.isArray(projection.rejectedClaims) && projection.rejectedClaims.length)
+    || (Array.isArray(projection.projectionHints) && projection.projectionHints.length)
+    || (isObjectRecord(projection.factUseStats) && Object.keys(projection.factUseStats).length)
+  );
+}
+
 function responseRecoveryEventTypeFrom({ recoveryDecision = null, response = null, recovery = null } = {}) {
   return normalizeResponseRecoveryEvent({
     eventType: recoveryDecision?.eventType
@@ -776,28 +886,31 @@ function buildOutcomeRerunActuationDecision({
   const replacementTransactionId = compact(ledgerEntry?.replacementTransactionId) || null;
   const replacedTransactionId = compact(ledgerEntry?.replacedTransactionId || ledgerEntry?.transactionId || ledgerEntry?.coreTransactionId) || null;
   const snapshotBeforeRetained = ledgerEntry?.snapshotBeforeRetained === true;
+  const snapshotPresent = ledgerEntry?.snapshotPresent === true;
   const supportedType = ['rerunOutcome', 'recalculateFromHere'].includes(String(requestedType || ''));
-  const authorized = Boolean(effectiveOutcomeId && ledgerEntry && snapshotBeforeRetained && supportedType);
-  const legacyNoCoreRerunAllowed = authorized && !replacedTransactionId && !replacementTransactionId;
+  const hasCoreTransaction = Boolean(replacedTransactionId || replacementTransactionId);
+  const authorized = Boolean(effectiveOutcomeId && ledgerEntry && snapshotBeforeRetained && snapshotPresent && supportedType && hasCoreTransaction);
   const deniedReason = authorized
     ? null
     : !ledgerEntry
       ? 'outcome-rerun-ledger-entry-missing'
       : !snapshotBeforeRetained
         ? 'outcome-rerun-snapshot-missing'
-        : !supportedType
-          ? 'outcome-rerun-type-not-supported'
-          : 'outcome-rerun-not-authorized';
+        : !snapshotPresent
+          ? 'outcome-rerun-snapshot-evidence-missing'
+          : !supportedType
+            ? 'outcome-rerun-type-not-supported'
+            : !hasCoreTransaction
+              ? 'outcome-rerun-core-transaction-missing'
+              : 'outcome-rerun-not-authorized';
   return {
     kind: 'directive.repairOutcomeRerunActuationDecision.v1',
     eventType: 'outcomeRerunRequested',
     sourceKind: 'committedOutcome',
     authorized,
-    action: authorized
-      ? (replacedTransactionId || replacementTransactionId ? 'createRerunBranchCandidate' : 'createLegacyNoCoreRerunCandidate')
-      : 'blockOutcomeRerun',
+    action: authorized ? 'createRerunBranchCandidate' : 'blockOutcomeRerun',
     reason: authorized
-      ? (replacedTransactionId ? 'outcome-rerun-branch-candidate' : 'legacy-no-core-rerun-branch-candidate')
+      ? 'outcome-rerun-branch-candidate'
       : deniedReason,
     deniedReason,
     transactionId: replacementTransactionId,
@@ -809,12 +922,12 @@ function buildOutcomeRerunActuationDecision({
     narrationStatus: ledgerEntry?.narrationStatus || null,
     responseStatus: ledgerEntry?.responseStatus || null,
     snapshotBeforeRetained,
+    snapshotPresent,
     allowedActions: authorized ? ['previewRerunBranchCandidate', 'commitRerunBranchCandidate'] : ['reviewOutcomeRerunRequest'],
     branchCandidateRequired: true,
     mechanicsRerunAuthorized: authorized,
     replacementTransactionRequired: Boolean(replacedTransactionId && !replacementTransactionId),
-    coreTransactionRequired: Boolean(replacedTransactionId),
-    legacyNoCoreRerunAllowed,
+    coreTransactionRequired: true,
     normalTurnAllowed: false,
     observedAt: eventTime || null
   };
@@ -1374,7 +1487,8 @@ export function createRepairRuntime({
     recoveryId = null,
     error = null,
     campaignState = null,
-    continuityReview = null
+    continuityReview = null,
+    responseRetryPlan = null
   } = {}) {
     const decision = buildResponseRecoveryDecision({
       eventType,
@@ -1406,6 +1520,14 @@ export function createRepairRuntime({
         })
       };
     }
+    const pendingCompatibilityProjection = buildHostNativeContinuityCompatibilityProjection({
+      decision,
+      recoveryId: id,
+      continuityReview,
+      campaignState,
+      eventTime: observedAt
+    });
+    const coreContinuityProjection = coreContinuityProjectionFromCompatibility(pendingCompatibilityProjection);
     const recoveryCase = await coreTurnStore.markRecoveryRequired(effectiveTransactionId, {
       id,
       reason: decision.reason,
@@ -1422,6 +1544,8 @@ export function createRepairRuntime({
       errorCode: decision.errorCode || null,
       errorHash: decision.errorHash || null,
       repairDecision: decision,
+      responseRetryPlan: cloneJson(responseRetryPlan || null),
+      continuityProjection: coreContinuityProjection,
       allowedActions: decision.allowedActions,
       observedAt,
       idempotencyKey: `core-response-recovery:${effectiveTransactionId}:${id}:${decision.reason}`
@@ -1433,6 +1557,7 @@ export function createRepairRuntime({
       phase: recoveryCase?.phase || decision.phaseAfter,
       reason: recoveryCase?.reason || decision.reason,
       decision,
+      continuityProjectionRecorded: continuityProjectionHasEvidence(coreContinuityProjection),
       compatibilityProjection: buildHostNativeContinuityCompatibilityProjection({
         decision,
         recoveryCase,
@@ -1526,6 +1651,9 @@ export function createRepairRuntime({
     },
     evaluateSourceReobserve(options = {}) {
       return buildSourceReobserveDecision(options);
+    },
+    evaluateCorrectAsSwipeLifecycle(options = {}) {
+      return buildCorrectAsSwipeLifecycleDecision(options);
     }
   };
 }
@@ -1539,6 +1667,7 @@ export const __repairRuntimeTestHooks = Object.freeze({
   buildCommittedOutcomeDeleteRollbackActuationDecision,
   buildResponseRecoveryDecision,
   buildResponseReobserveClosureDecision,
+  buildCorrectAsSwipeLifecycleDecision,
   buildSourceReobserveDecision,
   buildVisibilityDecision,
   buildSourceMutation,

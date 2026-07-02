@@ -175,6 +175,34 @@ assert.equal((await loadV2MaterializedHead(adapter, { campaignId, saveId })).sta
 assert.equal((await loadV2MaterializedHead(adapter, { campaignId, saveId, layout: 'core' })).coreStore.test, true);
 assert.equal((await loadV2SaveManifest(adapter, { campaignId, saveId, layout: 'core' })).eventSegments.length, 1);
 
+const coreManifestBeforeCheckpointAppend = await loadV2SaveManifest(adapter, { campaignId, saveId, layout: 'core' });
+const coreCheckpointAppend = await commitV2EventTurnSegments(adapter, {
+  campaignId,
+  saveId,
+  layout: 'core',
+  now: '2026-06-28T14:01:30.000Z',
+  eventSegments: [[{ id: 'core-event-2', type: 'mechanicsCommitted' }]],
+  turnSegments: [[{ id: 'core-turn-2', turnId: 'turn-core-2', outcomeId: 'outcome-core-2' }]],
+  checkpoints: [{
+    checkpointId: 'core-mechanics-outcome-core-2',
+    type: 'coreMechanicsPreOutcome',
+    outcomeId: 'outcome-core-2',
+    campaignState: { campaign: { id: campaignId }, marker: 'before-outcome-core-2' }
+  }]
+});
+assert.equal(coreCheckpointAppend.refs.checkpoints.length, coreManifestBeforeCheckpointAppend.checkpoints.length + 1);
+assert.equal(coreCheckpointAppend.refs.checkpoints.at(-1).logicalKey.endsWith('/core/checkpoints/core-mechanics-outcome-core-2.v2.json'), true);
+const coreCheckpoint = await loadV2Checkpoint(adapter, {
+  campaignId,
+  saveId,
+  checkpointId: 'core-mechanics-outcome-core-2',
+  layout: 'core'
+});
+assert.equal(coreCheckpoint.checkpoint.outcomeId, 'outcome-core-2');
+assert.equal(coreCheckpoint.checkpoint.campaignState.marker, 'before-outcome-core-2');
+assert.equal((await loadV2SaveManifest(adapter, { campaignId, saveId, layout: 'core' })).checkpoints.at(-1).hash, coreCheckpointAppend.refs.checkpoints.at(-1).hash);
+assert.equal((await loadV2SaveManifest(adapter, { campaignId, saveId })).hash, activeSaveManifestHash, 'CORE checkpoint append must not rewrite active-save manifest');
+
 const rolloverChunks = chunkV2SegmentEntries({
   segmentType: 'event',
   campaignId,

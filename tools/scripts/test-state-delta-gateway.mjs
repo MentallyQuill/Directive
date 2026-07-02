@@ -196,7 +196,9 @@ assert.equal(restored.ship.damage.length, 1);
 assert.equal(restored.mission.knownFacts.length, 0);
 assert.equal(restored.runtimeTracking.ingressLedger[0].id, 'ingress:one');
 assert.equal(restored.runtimeTracking.modelCallJournal[0].id, 'model-call.fixture.utility');
-assert.equal(restored.runtimeTracking.recoveryJournal.at(-1).type, 'restoreRevision');
+assert.equal(restored.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), false);
+assert.equal(restored.runtimeTracking.lifecycleJournal.at(-1).type, 'stateRevisionRestored');
+assert.equal(restored.runtimeTracking.lifecycleJournal.at(-1).details.toRevision, 1);
 
 const responseTimingState = recordDirectiveResponse(initializeCampaignRuntimeTracking({
   campaign: { id: 'response-timing' }

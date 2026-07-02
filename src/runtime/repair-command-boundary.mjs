@@ -1,5 +1,58 @@
 import { createRepairRuntime } from './repair-runtime.mjs';
-import { restoreTrackedCampaignRevision } from './state-delta-gateway.mjs';
+import { initializeCampaignRuntimeTracking } from './state-delta-gateway.mjs';
+
+function cloneJson(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function isObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function coreCheckpointRestoreState(input = {}) {
+  return input.coreCheckpointRestoreState
+    || input.coreCheckpointSnapshot
+    || input.restoreSnapshot
+    || input.restoreCampaignState
+    || input.rollbackActuation?.coreCheckpointRestoreState
+    || input.rollbackActuation?.restoreSnapshot
+    || null;
+}
+
+function restoreFromCheckpointSnapshot(campaignState = null, checkpointState = null, restoreRevision = null, {
+  now = null,
+  reason = 'Recovered prior campaign revision.'
+} = {}) {
+  if (!isObject(campaignState) || !isObject(checkpointState)) return null;
+  const current = initializeCampaignRuntimeTracking(campaignState);
+  const restored = initializeCampaignRuntimeTracking(cloneJson(checkpointState), {
+    historyLimit: current.runtimeTracking.historyLimit
+  });
+  restored.runtimeTracking = {
+    ...restored.runtimeTracking,
+    revision: Number.isFinite(Number(restoreRevision)) ? Number(restoreRevision) : current.runtimeTracking.revision,
+    history: [],
+    historyIndex: -1,
+    ingressLedger: cloneJson(current.runtimeTracking.ingressLedger),
+    responseLedger: cloneJson(current.runtimeTracking.responseLedger),
+    responseLedgerRevision: Math.max(0, Number(current.runtimeTracking.responseLedgerRevision) || 0),
+    sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
+    modelCallJournal: cloneJson(current.runtimeTracking.modelCallJournal),
+    lifecycleJournal: cloneJson(current.runtimeTracking.lifecycleJournal),
+    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
+    endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
+    activeIngressId: current.runtimeTracking.activeIngressId || null,
+    recoveryJournal: cloneJson(current.runtimeTracking.recoveryJournal),
+    lastDelta: {
+      source: 'recovery',
+      reason,
+      summary: reason,
+      domains: ['runtimeTracking'],
+      revision: Number.isFinite(Number(restoreRevision)) ? Number(restoreRevision) : current.runtimeTracking.revision
+    }
+  };
+  return restored;
+}
 
 export function createRepairCommandBoundary(options = {}) {
   const repairRuntime = options.repairRuntime || createRepairRuntime(options);
@@ -71,18 +124,27 @@ export function createRepairCommandBoundary(options = {}) {
         reason: 'campaign-state-unavailable'
       };
     }
-    let restored;
-    try {
-      restored = restoreTrackedCampaignRevision(campaignState, restoreRevision, {
-        now: options.now,
-        reason: input.reason || `${input.eventType || rollbackActuation.eventType || 'sourceMutation'} rolled the campaign back before a dependent outcome.`
-      });
-    } catch (error) {
-      if (error?.code !== 'DIRECTIVE_STATE_SNAPSHOT_NOT_FOUND') throw error;
+    const restoreSnapshot = coreCheckpointRestoreState(input);
+    if (!isObject(restoreSnapshot)) {
+      return {
+        status: 'blocked',
+        reason: input.campaignState?.runtimeTracking?.history?.length
+          ? 'rollback-core-checkpoint-required'
+          : 'rollback-restore-unavailable',
+        errorCode: input.campaignState?.runtimeTracking?.history?.length
+          ? 'DIRECTIVE_REPAIR_ROLLBACK_CORE_CHECKPOINT_REQUIRED'
+          : 'DIRECTIVE_STATE_SNAPSHOT_NOT_FOUND'
+      };
+    }
+    const restored = restoreFromCheckpointSnapshot(campaignState, restoreSnapshot, restoreRevision, {
+      now: options.now,
+      reason: input.reason || `${input.eventType || rollbackActuation.eventType || 'sourceMutation'} rolled the campaign back before a dependent outcome.`
+    });
+    if (!restored) {
       return {
         status: 'blocked',
         reason: 'rollback-restore-unavailable',
-        errorCode: error.code
+        errorCode: 'DIRECTIVE_STATE_SNAPSHOT_NOT_FOUND'
       };
     }
     const recorded = await recordRollbackActuation(input);

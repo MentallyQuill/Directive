@@ -1868,6 +1868,12 @@ export async function directiveRuntimeSnapshot(page, {
       };
     });
     const tracking = view?.chatNative?.tracking || {};
+    const runtimeTracking = view?.campaignState?.runtimeTracking || {};
+    const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
+      || view?.directiveRuntimeEvidence?.coreStoreReadProjections
+      || {};
+    const recoveryJournal = Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal : [];
+    const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
     return {
       bridgeAvailable: Boolean(bridge.runtimeApp),
       hostAvailable: Boolean(bridge.host),
@@ -1883,7 +1889,11 @@ export async function directiveRuntimeSnapshot(page, {
       modelCallCount: view?.chatNative?.modelCalls?.length || view?.campaignState?.runtimeTracking?.modelCallJournal?.length || 0,
       modelCallRoles: (view?.chatNative?.modelCalls || view?.campaignState?.runtimeTracking?.modelCallJournal || []).map((entry) => entry.roleId).filter(Boolean),
       sidecarCount: view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
-      recoveryCount: view?.campaignState?.runtimeTracking?.recoveryJournal?.length || 0,
+      recoveryCount: recoveryJournal.length,
+      legacyRecoveryCount: recoveryJournal.length,
+      coreRecoveryCount: coreRecoveryJournal.length,
+      latestCoreRecovery: clone(coreRecoveryJournal.at(-1) || null),
+      recentCoreRecoveryJournal: clone(coreRecoveryJournal.slice(-5)),
       sceneReconciliation: clone(view?.campaignState?.runtimeTracking?.sceneReconciliation || null),
       commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0,
       turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,

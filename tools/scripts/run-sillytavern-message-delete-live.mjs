@@ -239,6 +239,19 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const reconciliation = tracking.sceneReconciliation || {};
     const recoveryJournal = Array.isArray(tracking.recoveryJournal) ? tracking.recoveryJournal : [];
     const latestRecovery = [...recoveryJournal].reverse().find((entry) => String(entry?.hostMessageId || '') === String(targetMesid)) || null;
+    const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
+      || view?.directiveRuntimeEvidence?.coreStoreReadProjections
+      || {};
+    const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
+    const targetTransactionId = ingress?.coreTransactionId || response?.coreTransactionId || response?.coreRelease?.transactionId || null;
+    const targetRecoveryId = ingress?.recoveryId || response?.recoveryId || null;
+    const latestCoreRecovery = [...coreRecoveryJournal].reverse().find((entry) => (
+      (targetRecoveryId && String(entry.id || entry.recoveryId || entry.recoveryCaseId || '') === String(targetRecoveryId))
+      || (targetTransactionId && String(entry.transactionId || entry.coreTransactionId || entry.repairDecision?.transactionId || '') === String(targetTransactionId))
+      || (ingress?.id && String(entry.repairDecision?.ingressId || entry.ingressId || '') === String(ingress.id))
+      || (response?.id && String(entry.dependentResponseId || entry.responseId || '') === String(response.id))
+    )) || null;
+    const targetCoreRecovery = compactCoreRecovery(latestCoreRecovery);
     const messageText = String(message?.mes || '');
     return {
       currentChatId: host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null,
@@ -257,8 +270,12 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         status: ingress.status || null,
         outcomeId: ingress.outcomeId || null,
         turnId: ingress.turnId || null,
+        coreTransactionId: ingress.coreTransactionId || null,
+        sourceFrameId: ingress.sourceFrameId || null,
         textHash: ingress.textHash || null,
         recoveryId: ingress.recoveryId || null,
+        coreRecovery: compactCoreRecovery(ingress.coreRecovery || latestCoreRecovery),
+        repairDecision: compactDecision(ingress.repairDecision || latestCoreRecovery?.repairDecision || null),
         editedAt: ingress.editedAt || null,
         deletedAt: ingress.deletedAt || null
       } : null,
@@ -271,7 +288,11 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         ingressId: response.ingressId || null,
         outcomeId: response.outcomeId || null,
         turnId: response.turnId || null,
+        coreTransactionId: response.coreTransactionId || response.coreRelease?.transactionId || null,
+        sourceFrameId: response.sourceFrameId || null,
         recoveryId: response.recoveryId || null,
+        coreRecovery: compactCoreRecovery(response.coreRecovery || latestCoreRecovery),
+        repairDecision: compactDecision(response.repairDecision || latestCoreRecovery?.repairDecision || null),
         editedAt: response.editedAt || null,
         deletedAt: response.deletedAt || null,
         invalidatedAt: response.invalidatedAt || null,
@@ -279,6 +300,9 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
       } : null,
       promptContextRevision: view?.chatNative?.binding?.promptContextRevision || view?.campaignState?.campaignChatBinding?.promptContextRevision || null,
       recoveryCount: count(recoveryJournal),
+      legacyRecoveryCount: count(recoveryJournal),
+      coreRecoveryCount: count(coreRecoveryJournal),
+      targetCoreRecovery,
       latestRecovery: compactRecoveryEntry(latestRecovery),
       recentRecoveryJournal: recoveryJournal.slice(-6).map(compactRecoveryEntry).filter(Boolean),
       sceneReconciliation: {
@@ -371,7 +395,6 @@ async function clickDeleteAndConfirm(page, before) {
 }
 
 async function waitForDirectiveRecovery(page, before) {
-  const beforeRecoveryCount = Number(before?.recoveryCount || 0);
   const beforeIngressStatus = before?.ingress?.status || null;
   const beforeIngressDeletedAt = before?.ingress?.deletedAt || null;
   const beforeResponseStatus = before?.response?.status || null;
@@ -385,14 +408,17 @@ async function waitForDirectiveRecovery(page, before) {
     if (!snapshot) continue;
     latest = snapshot;
     const messageRemoved = !snapshot.targetMessage || (beforeTextHash && snapshot.targetMessage?.textHash !== beforeTextHash);
-    const recoveryChanged = Number(snapshot.recoveryCount || 0) > beforeRecoveryCount;
+    const coreRecoveryChanged = snapshot.targetCoreRecovery?.status && (
+      !before?.targetCoreRecovery?.recoveryCaseId
+      || snapshot.targetCoreRecovery.recoveryCaseId !== before.targetCoreRecovery.recoveryCaseId
+      || snapshot.targetCoreRecovery.status !== before.targetCoreRecovery.status
+    );
     const ingressChanged = (snapshot.ingress?.status && snapshot.ingress.status !== beforeIngressStatus)
       || (snapshot.ingress?.deletedAt && snapshot.ingress.deletedAt !== beforeIngressDeletedAt);
     const responseChanged = (snapshot.response?.status && snapshot.response.status !== beforeResponseStatus)
       || (snapshot.response?.deletedAt && snapshot.response.deletedAt !== beforeResponseDeletedAt);
-    const targetWasTracked = Boolean(before?.ingress || before?.response);
     const targetTrackingChanged = Boolean(ingressChanged || responseChanged);
-    if (messageRemoved && (targetTrackingChanged || (!targetWasTracked && recoveryChanged))) return { ok: true, snapshot };
+    if (messageRemoved && (coreRecoveryChanged || targetTrackingChanged)) return { ok: true, snapshot };
   }
   return { ok: false, timedOut: true, snapshot: latest };
 }
@@ -401,13 +427,15 @@ function compactProofDecision(after = {}, trackedKind = 'ingress') {
   const latest = after?.latestRecovery || null;
   return latest?.repairDecision
     || latest?.coreRecovery?.decision
+    || after?.targetCoreRecovery?.decision
     || after?.[trackedKind]?.repairDecision
     || after?.[trackedKind]?.coreRecovery?.decision
     || null;
 }
 
 function compactProofRecovery(after = {}, trackedKind = 'ingress') {
-  return after?.latestRecovery?.coreRecovery
+  return after?.targetCoreRecovery
+    || after?.latestRecovery?.coreRecovery
     || after?.[trackedKind]?.coreRecovery
     || null;
 }
@@ -448,7 +476,7 @@ function sourceMutationProof({ mutationKind, before = {}, after = {}, control = 
     messageRemoved: !after?.targetMessage || after?.targetMessage?.textHash !== before?.targetMessage?.textHash,
     chatLengthDelta: Number(after?.chatLength || 0) - Number(before?.chatLength || 0),
     trackingChanged: Boolean(trackingChangedForProof(before, after, trackedKind)),
-    recoveryDelta: Number(after?.recoveryCount || 0) - Number(before?.recoveryCount || 0),
+    legacyRecoveryDelta: Number(after?.legacyRecoveryCount ?? after?.recoveryCount ?? 0) - Number(before?.legacyRecoveryCount ?? before?.recoveryCount ?? 0),
     promptContextRevisionDelta: Number(after?.promptContextRevision || 0) - Number(before?.promptContextRevision || 0),
     beforeStatus: before?.[trackedKind]?.status || null,
     afterStatus: after?.[trackedKind]?.status || null,
@@ -541,7 +569,8 @@ async function liveReport(paths = null) {
       },
       deltas: {
         chatLength: Number(after.chatLength || 0) - Number(before.chatLength || 0),
-        recovery: Number(after.recoveryCount || 0) - Number(before.recoveryCount || 0),
+        legacyRecovery: Number(after.legacyRecoveryCount ?? after.recoveryCount ?? 0) - Number(before.legacyRecoveryCount ?? before.recoveryCount ?? 0),
+        coreRecovery: Number(after.coreRecoveryCount || 0) - Number(before.coreRecoveryCount || 0),
         promptContextRevision: Number(after.promptContextRevision || 0) - Number(before.promptContextRevision || 0)
       }
     };

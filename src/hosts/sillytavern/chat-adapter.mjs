@@ -1380,7 +1380,8 @@ export function createSillyTavernChatAdapter({
     text,
     campaignId = null,
     responseKind = 'narration',
-    extra = {}
+    extra = {},
+    select = true
   } = {}) {
     const ctx = context();
     if (!ctx) throw new Error('SillyTavern context is unavailable for message swipe updates.');
@@ -1414,30 +1415,38 @@ export function createSillyTavernChatAdapter({
       swipeIndex = swipes.length;
       swipes.push(normalizedText);
     }
-    message.swipe_id = swipeIndex;
-    message.mes = normalizedText;
     const selectedSwipeAt = now();
     const extraPatch = extra && typeof extra === 'object' && !Array.isArray(extra)
       ? cloneJson(extra)
       : {};
     delete extraPatch.directive;
     delete extraPatch[DIRECTIVE_MESSAGE_METADATA_KEY];
-    message.extra = {
-      ...(message.extra && typeof message.extra === 'object' && !Array.isArray(message.extra)
-        ? message.extra
-        : {}),
-      ...extraPatch
-    };
-    const swipeMetadata = setDirectiveMetadata(message, {
-      selectedSwipeIndex: swipeIndex,
-      selectedSwipeAt,
-      swipeCount: swipes.length,
-      ...(extra?.directive || extra?.[DIRECTIVE_MESSAGE_METADATA_KEY] || {})
-    });
     const swipeInfo = ensureMessageSwipeInfo(message);
+    const selected = select !== false;
+    let swipeMetadata = directiveMetadata(message) || {};
+    if (selected) {
+      message.swipe_id = swipeIndex;
+      message.mes = normalizedText;
+      message.extra = {
+        ...(message.extra && typeof message.extra === 'object' && !Array.isArray(message.extra)
+          ? message.extra
+          : {}),
+        ...extraPatch
+      };
+      swipeMetadata = setDirectiveMetadata(message, {
+        selectedSwipeIndex: swipeIndex,
+        selectedSwipeAt,
+        swipeCount: swipes.length,
+        ...(extra?.directive || extra?.[DIRECTIVE_MESSAGE_METADATA_KEY] || {})
+      });
+    } else {
+      swipeMetadata = setDirectiveMetadata(message, {
+        swipeCount: swipes.length
+      });
+    }
     swipeInfo[swipeIndex] = createSwipeInfo(message, {
       sendDate: selectedSwipeAt,
-      extra: message.extra
+      extra: selected ? message.extra : extraPatch
     });
     await refreshMessageDisplay(ctx, index, message);
     await saveChat(ctx);
@@ -1448,6 +1457,7 @@ export function createSillyTavernChatAdapter({
       swipeIndex,
       swipeCount: swipes.length,
       duplicate,
+      selected,
       text: normalizedText,
       metadata: cloneJson(swipeMetadata),
       message: cloneJson(message)

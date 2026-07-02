@@ -172,8 +172,145 @@ function decisionForInteraction(state, interaction) {
     || null;
 }
 
-function checkpointSnapshotRecord(state, decision) {
+function checkpointRefFromDecision(decision = {}) {
+  const checkpoint = decision?.checkpoint || {};
+  return checkpoint.coreCheckpointRef
+    || checkpoint.v2CheckpointRef
+    || checkpoint.checkpointRef
+    || decision?.coreCheckpointRef
+    || decision?.v2CheckpointRef
+    || null;
+}
+
+function snapshotFromLoadedCheckpoint(loaded) {
+  if (!isObject(loaded)) return null;
+  return loaded.campaignState
+    || loaded.snapshot
+    || loaded.state
+    || loaded.checkpoint?.campaignState
+    || loaded.checkpoint?.snapshot
+    || loaded.checkpoint?.state
+    || loaded.record?.checkpoint?.campaignState
+    || loaded.record?.checkpoint?.snapshot
+    || loaded.record?.checkpoint?.state
+    || loaded.payload?.campaignState
+    || null;
+}
+
+function safeCheckpointSegment(value, fallback = 'terminal-checkpoint') {
+  const safe = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 180);
+  return safe || fallback;
+}
+
+function terminalCheckpointId(detection = {}) {
+  return safeCheckpointSegment([
+    'terminal',
+    detection.conditionId,
+    detection.outcomeId || detection.turnId || detection.decisionId
+  ].filter(Boolean).join('-'));
+}
+
+function normalizeExistingCoreCheckpointRef(ref = {}, { campaignId = null, saveId = null } = {}) {
+  if (!isObject(ref)) return null;
+  const checkpointId = compact(ref.checkpointId || ref.id);
+  if (!checkpointId) return null;
+  return {
+    kind: 'directive.coreTerminalReplayCheckpointRef.v1',
+    campaignId: ref.campaignId || campaignId || null,
+    saveId: ref.saveId || saveId || null,
+    checkpointId,
+    layout: ref.layout || 'core',
+    sourceKind: 'coreStoreV2.checkpoint',
+    sourceRevision: numericRevision(ref.sourceRevision),
+    logicalKey: ref.logicalKey || null,
+    hash: ref.hash || null,
+    artifactKind: ref.artifactKind || ref.kind || null
+  };
+}
+
+function normalizeCoreCheckpointRef(writeResult, {
+  campaignId,
+  saveId,
+  checkpointId,
+  sourceRevision = null
+} = {}) {
+  if (!isObject(writeResult)) return null;
+  const ref = writeResult.coreCheckpointRef || writeResult.checkpointRef || writeResult.ref || {};
+  return {
+    kind: 'directive.coreTerminalReplayCheckpointRef.v1',
+    campaignId,
+    saveId,
+    checkpointId,
+    layout: 'core',
+    sourceKind: writeResult.sourceKind || ref.sourceKind || 'coreStoreV2.checkpoint',
+    sourceRevision: numericRevision(
+      writeResult.sourceRevision
+      ?? ref.sourceRevision
+      ?? writeResult.record?.checkpoint?.sourceRevision
+      ?? sourceRevision
+    ),
+    logicalKey: ref.logicalKey || writeResult.logicalKey || null,
+    hash: ref.hash || writeResult.hash || writeResult.record?.hash || null,
+    artifactKind: ref.kind || ref.artifactKind || writeResult.record?.kind || null
+  };
+}
+
+async function checkpointSnapshotRecord(state, decision, { loadTerminalCheckpoint = null } = {}) {
   const outcomeId = decision?.checkpoint?.outcomeId || decision?.outcomeId || null;
+  if (!outcomeId) return null;
+  const checkpointRef = checkpointRefFromDecision(decision);
+  if (checkpointRef) {
+    if (typeof loadTerminalCheckpoint !== 'function') return null;
+    const binding = state.campaignChatBinding || {};
+    const loaded = await loadTerminalCheckpoint({
+      ...cloneJson(checkpointRef),
+      campaignId: checkpointRef.campaignId || binding.campaignId || state.campaign?.id || null,
+      saveId: checkpointRef.saveId || binding.saveId || null,
+      checkpointId: checkpointRef.checkpointId || checkpointRef.id || null,
+      layout: checkpointRef.layout || 'core',
+      decisionId: decision?.id || null,
+      conditionId: decision?.conditionId || null,
+      turnId: decision?.turnId || null,
+      outcomeId
+    });
+    const snapshot = snapshotFromLoadedCheckpoint(loaded);
+    return snapshot
+      ? {
+          snapshot: cloneJson(snapshot),
+          sourceKind: loaded?.sourceKind || loaded?.checkpoint?.sourceKind || 'coreStoreV2.checkpoint',
+          sourceRevision: numericRevision(
+            loaded?.sourceRevision
+            ?? loaded?.revision
+            ?? loaded?.checkpoint?.sourceRevision
+            ?? loaded?.checkpoint?.revision
+          )
+        }
+      : null;
+  }
+  return null;
+}
+
+function coreCheckpointRefFromTurnLedger(state, detection = {}, { campaignId = null, saveId = null } = {}) {
+  const outcomeId = detection?.checkpoint?.outcomeId || detection?.outcomeId || null;
+  if (!outcomeId) return null;
+  const entry = (state.turnLedger?.entries || []).find((item) => item?.outcomeId === outcomeId);
+  const ref = entry?.coreCheckpointRef
+    || (
+      state.runtimeTracking?.lastCommittedTurn?.outcomeId === outcomeId
+        ? state.runtimeTracking.lastCommittedTurn.coreCheckpointRef
+        : null
+    );
+  return normalizeExistingCoreCheckpointRef(ref, { campaignId, saveId });
+}
+
+function retainedTerminalSnapshotRecord(state, decision) {
+  const outcomeId = decision?.checkpoint?.outcomeId || decision?.outcomeId || null;
+  if (!outcomeId) return null;
   const entry = (state.turnLedger?.entries || []).find((item) => item?.outcomeId === outcomeId);
   if (entry?.snapshotBefore) {
     return {
@@ -183,9 +320,7 @@ function checkpointSnapshotRecord(state, decision) {
     };
   }
   const history = Array.isArray(state.runtimeTracking?.history) ? state.runtimeTracking.history : [];
-  const outcomeEntry = outcomeId
-    ? [...history].reverse().find((item) => item?.outcomeId === outcomeId && item?.snapshot)
-    : null;
+  const outcomeEntry = [...history].reverse().find((item) => item?.outcomeId === outcomeId && item?.snapshot);
   if (outcomeEntry?.snapshot) {
     return {
       snapshot: cloneJson(outcomeEntry.snapshot),
@@ -193,25 +328,55 @@ function checkpointSnapshotRecord(state, decision) {
       sourceRevision: Number.isFinite(Number(outcomeEntry.revision)) ? Number(outcomeEntry.revision) : null
     };
   }
-  const lastStableRevision = Number(state.runtimeTracking?.lastStableRevision);
-  const stableEntry = Number.isFinite(lastStableRevision)
-    ? [...history].reverse().find((item) => Number(item?.revision) < lastStableRevision && item?.snapshot)
-    : null;
-  if (stableEntry?.snapshot) {
-    return {
-      snapshot: cloneJson(stableEntry.snapshot),
-      sourceKind: 'runtimeTracking.history.stableSnapshot',
-      sourceRevision: Number.isFinite(Number(stableEntry.revision)) ? Number(stableEntry.revision) : null
-    };
-  }
-  const fallbackEntry = [...history].reverse().find((item) => item?.snapshot);
-  return fallbackEntry?.snapshot
-    ? {
-        snapshot: cloneJson(fallbackEntry.snapshot),
-        sourceKind: 'runtimeTracking.history.snapshot',
-        sourceRevision: Number.isFinite(Number(fallbackEntry.revision)) ? Number(fallbackEntry.revision) : null
-      }
-    : null;
+  return null;
+}
+
+async function writeTerminalReplayCheckpointRecord(state, detection, { writeTerminalCheckpoint = null } = {}) {
+  const binding = state.campaignChatBinding || {};
+  const campaignId = detection?.checkpoint?.campaignId || binding.campaignId || state.campaign?.id || null;
+  const saveId = detection?.checkpoint?.saveId || binding.saveId || null;
+  const existingCoreCheckpointRef = coreCheckpointRefFromTurnLedger(state, detection, { campaignId, saveId });
+  if (existingCoreCheckpointRef) return existingCoreCheckpointRef;
+  if (typeof writeTerminalCheckpoint !== 'function') return null;
+  if (!campaignId || !saveId) return null;
+  const snapshotRecord = retainedTerminalSnapshotRecord(state, {
+    id: detection.decisionId || null,
+    conditionId: detection.conditionId || null,
+    turnId: detection.turnId || null,
+    outcomeId: detection.outcomeId || null,
+    checkpoint: detection.checkpoint || null
+  });
+  const snapshot = snapshotRecord?.snapshot || null;
+  if (!snapshot) return null;
+  const checkpointId = terminalCheckpointId(detection);
+  const checkpoint = {
+    kind: 'directive.coreTerminalReplayCheckpoint.v1',
+    type: 'terminalOutcomeReplay',
+    campaignId,
+    saveId,
+    checkpointId,
+    decisionId: detection.decisionId || null,
+    conditionId: detection.conditionId || null,
+    turnId: detection.turnId || null,
+    outcomeId: detection.outcomeId || null,
+    sourceKind: snapshotRecord.sourceKind || null,
+    sourceRevision: numericRevision(snapshotRecord.sourceRevision),
+    snapshotHash: hashStableJson(snapshot),
+    campaignState: cloneJson(snapshot)
+  };
+  const writeResult = await writeTerminalCheckpoint({
+    campaignId,
+    saveId,
+    checkpointId,
+    layout: 'core',
+    checkpoint
+  });
+  return normalizeCoreCheckpointRef(writeResult, {
+    campaignId,
+    saveId,
+    checkpointId,
+    sourceRevision: snapshotRecord.sourceRevision
+  });
 }
 
 function numericRevision(value) {
@@ -221,18 +386,39 @@ function numericRevision(value) {
 
 function terminalReplayRepairEvidence({ state, interaction, decision, snapshotRecord }) {
   const snapshot = snapshotRecord?.snapshot || null;
+  const decisionId = decision?.id || interaction?.metadata?.decisionId || interaction?.id || null;
+  const interactionId = interaction?.id || decision?.id || null;
+  const conditionId = decision?.conditionId || interaction?.metadata?.terminalOutcomeId || null;
+  const turnId = decision?.turnId || interaction?.turnId || null;
+  const outcomeId = decision?.checkpoint?.outcomeId || decision?.outcomeId || interaction?.outcomeId || null;
+  const runtimeRevision = numericRevision(state.runtimeTracking?.revision);
+  const ledgerRevision = numericRevision(snapshotRecord?.sourceRevision ?? state.runtimeTracking?.lastStableRevision);
+  const snapshotPresent = Boolean(snapshot);
+  const snapshotSourceKind = snapshotRecord?.sourceKind || null;
+  const snapshotHash = hashStableJson({
+    kind: 'directive.terminalCheckpointReplayEvidence.v1',
+    decisionId,
+    interactionId,
+    conditionId,
+    turnId,
+    outcomeId,
+    snapshotSourceKind,
+    snapshotPresent,
+    runtimeRevision,
+    ledgerRevision
+  });
   return {
-    decisionId: decision?.id || interaction?.metadata?.decisionId || interaction?.id || null,
-    interactionId: interaction?.id || decision?.id || null,
-    conditionId: decision?.conditionId || interaction?.metadata?.terminalOutcomeId || null,
-    turnId: decision?.turnId || interaction?.turnId || null,
-    outcomeId: decision?.checkpoint?.outcomeId || decision?.outcomeId || interaction?.outcomeId || null,
+    decisionId,
+    interactionId,
+    conditionId,
+    turnId,
+    outcomeId,
     action: 'restoreTerminalCheckpointSnapshot',
-    snapshotSourceKind: snapshotRecord?.sourceKind || null,
-    snapshotPresent: Boolean(snapshot),
-    snapshotHash: snapshot ? hashStableJson(snapshot) : null,
-    runtimeRevision: numericRevision(state.runtimeTracking?.revision),
-    ledgerRevision: numericRevision(snapshotRecord?.sourceRevision ?? state.runtimeTracking?.lastStableRevision)
+    snapshotSourceKind,
+    snapshotPresent,
+    snapshotHash: snapshotPresent ? snapshotHash : null,
+    runtimeRevision,
+    ledgerRevision
   };
 }
 
@@ -287,6 +473,8 @@ export function createCampaignEndConditionService({
   saveTerminalBranch = null,
   concludeCampaign = null,
   repairRuntime = null,
+  loadTerminalCheckpoint = null,
+  writeTerminalCheckpoint = null,
   now = null
 } = {}) {
   if (typeof getCampaignState !== 'function') throw new Error('getCampaignState must be a function');
@@ -348,7 +536,7 @@ export function createCampaignEndConditionService({
     let state = initializeCampaignRuntimeTracking(getCampaignState());
     const outcomeId = turnPacket?.outcomePacket?.id || state.turnLedger?.lastCommittedOutcomeId || null;
     const turnId = turnPacket?.turnId || turnPacket?.id || null;
-    const detection = detectCampaignEndCondition({
+    let detection = detectCampaignEndCondition({
       campaignState: state,
       packageContext: getPackageContext(),
       outcomeId,
@@ -357,6 +545,26 @@ export function createCampaignEndConditionService({
       now
     });
     if (!detection?.matched) return { ok: true, detection: cloneJson(detection || null), campaignState: cloneJson(state) };
+    const coreCheckpointRef = await writeTerminalReplayCheckpointRecord(state, detection, { writeTerminalCheckpoint });
+    if (coreCheckpointRef) {
+      detection = {
+        ...detection,
+        checkpoint: {
+          ...(detection.checkpoint || {}),
+          coreCheckpointRef
+        },
+        pendingInteraction: {
+          ...(detection.pendingInteraction || {}),
+          metadata: {
+            ...(detection.pendingInteraction?.metadata || {}),
+            checkpoint: {
+              ...(detection.checkpoint || {}),
+              coreCheckpointRef
+            }
+          }
+        }
+      };
+    }
 
     let ledger = endConditionLedger(state);
     if (ledger.decisions.some((decision) => decision.id === detection.decisionId && decision.status === 'pending')) {
@@ -430,7 +638,7 @@ export function createCampaignEndConditionService({
 
   async function replayFromCheckpoint({ interaction, decision }) {
     const current = initializeCampaignRuntimeTracking(getCampaignState());
-    const snapshotRecord = checkpointSnapshotRecord(current, decision);
+    const snapshotRecord = await checkpointSnapshotRecord(current, decision, { loadTerminalCheckpoint });
     const snapshot = snapshotRecord?.snapshot || null;
     if (!snapshot) return { ok: false, reason: 'checkpoint-snapshot-not-retained' };
     const repairDecision = compactRepairDecisionEvidence(await authorizeTerminalCheckpointReplay(
@@ -513,6 +721,13 @@ export function createCampaignEndConditionService({
   }
 
   async function keepEnding({ interaction, decision }) {
+    if (typeof concludeCampaign !== 'function') {
+      return {
+        ok: false,
+        reason: 'conclusion-service-unavailable',
+        campaignState: cloneJson(initializeCampaignRuntimeTracking(getCampaignState()))
+      };
+    }
     let state = initializeCampaignRuntimeTracking(getCampaignState());
     const detection = {
       conditionId: decision.conditionId,
@@ -551,7 +766,6 @@ export function createCampaignEndConditionService({
       finalCampaignBand: terminalMetadata.finalCampaignBand
     };
     await persistState(state, `Accepted terminal ending ${decision.conditionId}.`);
-    if (typeof concludeCampaign !== 'function') return { ok: false, reason: 'conclusion-service-unavailable', campaignState: cloneJson(state) };
     const concluded = await concludeCampaign({
       reason: decision.playerFacingSummary || 'The player accepted a terminal campaign ending.',
       type: 'terminalOutcome',

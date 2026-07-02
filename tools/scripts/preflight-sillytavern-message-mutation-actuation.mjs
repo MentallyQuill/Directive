@@ -268,6 +268,10 @@ function proofTargetMesid(proof = {}) {
   return String(proof.targetHostMessageId || proof.targetMesid || proof.hostMessageId || '').trim();
 }
 
+function legacyRecoveryDelta(artifact = {}) {
+  return Number(artifact.deltas?.legacyRecovery ?? artifact.deltas?.recovery ?? 0);
+}
+
 function validateSourceMutationProof({
   proof = null,
   artifact = {},
@@ -305,7 +309,6 @@ function validateSourceMutationProof({
   }
   if (proof.nativeHostControlMoved !== true) failures.push('sourceMutationProof nativeHostControlMoved must be true');
   if (proof.trackingChanged !== true) failures.push('sourceMutationProof trackingChanged must be true');
-  if (Number(proof.recoveryDelta || 0) <= 0) failures.push('sourceMutationProof recoveryDelta must be positive');
   if (!proof.coreRecovery?.status) failures.push('sourceMutationProof.coreRecovery status is missing');
   if (!proof.coreRecovery?.recoveryCaseId && !proof.coreRecovery?.id && !proof.coreRecovery?.transactionId) {
     failures.push('sourceMutationProof.coreRecovery id is missing');
@@ -323,7 +326,7 @@ function validateSourceMutationProof({
     targetHostMessageId: reportedMesid || null,
     nativeHostControlMoved: proof.nativeHostControlMoved === true,
     trackingChanged: proof.trackingChanged === true,
-    recoveryDelta: Number(proof.recoveryDelta || 0),
+    legacyRecoveryDelta: Number(proof.legacyRecoveryDelta ?? proof.recoveryDelta ?? 0),
     coreRecovery: {
       status: proof.coreRecovery?.status || null,
       phase: proof.coreRecovery?.phase || null,
@@ -452,7 +455,6 @@ function validateEditScenario({ id, filePath, expectedIsUser }) {
   if (!trackingChanged(artifact.before, artifact.after, trackedKind)) {
     failures.push(`${trackedKind} tracking did not change after edit`);
   }
-  if (Number(artifact.deltas?.recovery || 0) <= 0) failures.push('recovery journal delta did not increase after edit');
   if (Number(artifact.deltas?.promptContextRevision || 0) < 0) warnings.push('prompt context revision moved backward');
   const sourceMutationProof = validateSourceMutationProof({
     proof: artifact.sourceMutationProof,
@@ -475,7 +477,7 @@ function validateEditScenario({ id, filePath, expectedIsUser }) {
       trackedKind,
       beforeStatus: artifact.before?.[trackedKind]?.status || null,
       afterStatus: artifact.after?.[trackedKind]?.status || null,
-      deltaRecovery: Number(artifact.deltas?.recovery || 0),
+      legacyRecoveryDelta: legacyRecoveryDelta(artifact),
       deltaPromptContextRevision: Number(artifact.deltas?.promptContextRevision || 0),
       sourceMutationProof
     }
@@ -509,7 +511,6 @@ function validateDeleteScenario({ id, filePath, expectedIsUser }) {
   if (!trackingChanged(artifact.before, artifact.after, trackedKind)) {
     failures.push(`${trackedKind} tracking did not change after delete`);
   }
-  if (Number(artifact.deltas?.recovery || 0) <= 0) failures.push('recovery journal delta did not increase after delete');
   if (Number(artifact.deltas?.chatLength || 0) >= 0) warnings.push('chat length did not decrease after delete');
   const sourceMutationProof = validateSourceMutationProof({
     proof: artifact.sourceMutationProof,
@@ -533,7 +534,7 @@ function validateDeleteScenario({ id, filePath, expectedIsUser }) {
       beforeStatus: artifact.before?.[trackedKind]?.status || null,
       afterStatus: artifact.after?.[trackedKind]?.status || null,
       deltaChatLength: Number(artifact.deltas?.chatLength || 0),
-      deltaRecovery: Number(artifact.deltas?.recovery || 0),
+      legacyRecoveryDelta: legacyRecoveryDelta(artifact),
       deltaPromptContextRevision: Number(artifact.deltas?.promptContextRevision || 0),
       sourceMutationProof
     }

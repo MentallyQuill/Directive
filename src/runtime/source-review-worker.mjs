@@ -196,6 +196,55 @@ function sanitizeHostNativeContinuityReview(review = null, source = null) {
   };
 }
 
+function verdictFromValue(value = '') {
+  const verdict = compactText(value, 60);
+  return ['supported', 'contradicted', 'unsupported', 'ambiguous', 'external-only'].includes(verdict)
+    ? verdict
+    : 'ambiguous';
+}
+
+function sanitizeCorrectAsSwipeFinding(finding = {}) {
+  return sanitizeHostNativeReviewFinding(finding);
+}
+
+function sanitizeCorrectAsSwipeEvidenceVerdict(verdict = null, source = null) {
+  if (!verdict || typeof verdict !== 'object') return null;
+  const cleanVerdict = verdictFromValue(verdict.verdict || verdict.status);
+  const sourceRef = source && typeof source === 'object' ? source : {};
+  const rawEvidenceRefs = Array.isArray(verdict.evidenceRefIds)
+    ? verdict.evidenceRefIds
+    : (Array.isArray(verdict.refs) ? verdict.refs : []);
+  const evidenceRefIds = rawEvidenceRefs
+    .map((entry) => compactText(typeof entry === 'object' ? entry.id || entry.refId || entry.sourceId : entry, 180))
+    .filter(Boolean)
+    .slice(0, 12);
+  return {
+    kind: compactText(verdict.kind || 'directive.sreCorrectAsSwipeEvidenceVerdict.v1', 120),
+    verdict: cleanVerdict,
+    status: cleanVerdict,
+    checkedFactCount: Number.isFinite(Number(verdict.checkedFactCount)) ? Number(verdict.checkedFactCount) : 0,
+    findings: (Array.isArray(verdict.findings) ? verdict.findings : [])
+      .slice(0, 24)
+      .map(sanitizeCorrectAsSwipeFinding),
+    evidenceRefIds,
+    evidenceHash: compactText(verdict.evidenceHash, 120) || hashStableJson({
+      verdict: cleanVerdict,
+      evidenceRefIds,
+      checkedFactCount: Number(verdict.checkedFactCount || 0)
+    }),
+    reviewedAt: validIsoTimestamp(verdict.reviewedAt) || timestamp(null),
+    source: {
+      responseId: compactText(verdict.source?.responseId || sourceRef.responseId, 180) || null,
+      outcomeId: compactText(verdict.source?.outcomeId || sourceRef.outcomeId, 180) || null,
+      turnId: compactText(verdict.source?.turnId || sourceRef.turnId, 180) || null,
+      hostMessageId: compactText(verdict.source?.hostMessageId || sourceRef.hostMessageId, 180) || null,
+      textHash: compactText(verdict.source?.textHash || sourceRef.textHash, 180) || null
+    },
+    providerOutputHash: compactText(verdict.providerOutputHash, 180) || undefined,
+    error: verdict.error ? compactErrorRef(verdict.error, 'DIRECTIVE_SRE_CORRECT_AS_SWIPE_REVIEW_FAILED') : undefined
+  };
+}
+
 function failedHostNativeContinuityReview(error, source = null, now = null) {
   const summary = 'SRE host-native source review failed; recovery is required before accepting the assistant row.';
   return {
@@ -223,7 +272,8 @@ function failedHostNativeContinuityReview(error, source = null, now = null) {
 
 export const __sourceReviewWorkerTestHooks = Object.freeze({
   providedHostNativeReviewMatchesSource: providedHostNativeReviewMatchesSourceRef,
-  sanitizeHostNativeContinuityReview
+  sanitizeHostNativeContinuityReview,
+  sanitizeCorrectAsSwipeEvidenceVerdict
 });
 
 export function createSourceReviewWorker({
@@ -288,8 +338,67 @@ export function createSourceReviewWorker({
     return failedHostNativeContinuityReview({ code: 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_UNAVAILABLE' }, source, now);
   }
 
+  async function reviewCorrectAsSwipeEvidence({
+    text = '',
+    campaignState = null,
+    packageData = null,
+    crewDataset = null,
+    shipDataset = null,
+    campaignProjection = null,
+    responseId = null,
+    outcomeId = null,
+    turnId = null,
+    hostMessageId = null,
+    selectedTextHash = null,
+    evidenceRefIds = [],
+    externalContextOnly = false
+  } = {}) {
+    const selectedText = compact(text);
+    const source = {
+      responseId,
+      outcomeId,
+      turnId,
+      hostMessageId,
+      textHash: compact(selectedTextHash) || (selectedText ? hashStableJson({ text: selectedText }) : null)
+    };
+    if (typeof sre?.reviewCorrectAsSwipeEvidence === 'function') {
+      try {
+        const verdict = await sre.reviewCorrectAsSwipeEvidence({
+          text: selectedText,
+          campaignState,
+          packageData,
+          crewDataset,
+          shipDataset,
+          campaignProjection,
+          responseId,
+          outcomeId,
+          turnId,
+          hostMessageId,
+          selectedTextHash: source.textHash,
+          evidenceRefIds,
+          externalContextOnly
+        });
+        return sanitizeCorrectAsSwipeEvidenceVerdict(verdict, source)
+          || sanitizeCorrectAsSwipeEvidenceVerdict({
+            verdict: 'ambiguous',
+            error: { code: 'DIRECTIVE_SRE_CORRECT_AS_SWIPE_REVIEW_MALFORMED' }
+          }, source);
+      } catch (error) {
+        return sanitizeCorrectAsSwipeEvidenceVerdict({
+          verdict: 'ambiguous',
+          error
+        }, source);
+      }
+    }
+    return sanitizeCorrectAsSwipeEvidenceVerdict({
+      verdict: 'ambiguous',
+      error: { code: 'DIRECTIVE_SRE_CORRECT_AS_SWIPE_REVIEW_UNAVAILABLE' }
+    }, source);
+  }
+
   return {
     kind: 'directive.sourceReviewWorker.v1',
-    reviewHostNativeContinuity
+    reviewHostNativeContinuity,
+    reviewCorrectAsSwipeEvidence
   };
 }

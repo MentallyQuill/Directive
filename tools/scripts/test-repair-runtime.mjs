@@ -579,6 +579,7 @@ const outcomeRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
     replacedTransactionId: 'txn-rerun-authorized',
     resultBand: 'Partial Success',
     snapshotBeforeRetained: true,
+    snapshotPresent: true,
     narrationStatus: 'complete',
     responseStatus: 'complete'
   },
@@ -598,6 +599,27 @@ assert.equal(outcomeRerunActuation.turnId, 'turn-rerun-authorized');
 assert.equal(outcomeRerunActuation.replacementType, 'rerunOutcome');
 assert.deepEqual(outcomeRerunActuation.allowedActions, ['previewRerunBranchCandidate', 'commitRerunBranchCandidate']);
 
+const noCoreRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
+  outcomeId: 'outcome-rerun-no-core',
+  requestedType: 'rerunOutcome',
+  ledgerEntry: {
+    turnId: 'turn-rerun-no-core',
+    outcomeId: 'outcome-rerun-no-core',
+    resultBand: 'Partial Success',
+    snapshotBeforeRetained: true,
+    snapshotPresent: true,
+    narrationStatus: 'complete'
+  },
+  eventTime: '2026-06-22T01:00:41.000Z'
+});
+assert.equal(noCoreRerunActuation.authorized, false);
+assert.equal(noCoreRerunActuation.action, 'blockOutcomeRerun');
+assert.equal(noCoreRerunActuation.reason, 'outcome-rerun-core-transaction-missing');
+assert.equal(noCoreRerunActuation.replacedTransactionId, null);
+assert.equal(noCoreRerunActuation.replacementTransactionRequired, false);
+assert.equal(noCoreRerunActuation.coreTransactionRequired, true);
+assert.equal(Object.prototype.hasOwnProperty.call(noCoreRerunActuation, 'legacyNoCoreRerunAllowed'), false);
+
 const missingSnapshotRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
   outcomeId: 'outcome-rerun-missing-snapshot',
   requestedType: 'rerunOutcome',
@@ -611,6 +633,21 @@ assert.equal(missingSnapshotRerunActuation.authorized, false);
 assert.equal(missingSnapshotRerunActuation.action, 'blockOutcomeRerun');
 assert.equal(missingSnapshotRerunActuation.reason, 'outcome-rerun-snapshot-missing');
 assert.equal(missingSnapshotRerunActuation.mechanicsRerunAuthorized, false);
+
+const missingSnapshotEvidenceRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
+  outcomeId: 'outcome-rerun-missing-snapshot-evidence',
+  requestedType: 'rerunOutcome',
+  ledgerEntry: {
+    turnId: 'turn-rerun-missing-snapshot-evidence',
+    outcomeId: 'outcome-rerun-missing-snapshot-evidence',
+    snapshotBeforeRetained: true,
+    snapshotPresent: false
+  }
+});
+assert.equal(missingSnapshotEvidenceRerunActuation.authorized, false);
+assert.equal(missingSnapshotEvidenceRerunActuation.action, 'blockOutcomeRerun');
+assert.equal(missingSnapshotEvidenceRerunActuation.reason, 'outcome-rerun-snapshot-evidence-missing');
+assert.equal(missingSnapshotEvidenceRerunActuation.mechanicsRerunAuthorized, false);
 
 const rawSnapshotOnlyRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
   outcomeId: 'outcome-rerun-raw-snapshot-only',

@@ -1,19 +1,12 @@
 import {
   initializeCampaignRuntimeTracking,
   recordDirectiveResponse,
-  recordRecoveryEvent,
   resolveRecoveryEvent,
   updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
 import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
-import { quarantineGeneratedClaims } from '../continuity/claim-quarantine.mjs';
 import { hashContinuityText } from '../continuity/fact-schema.mjs';
-import {
-  addContinuityProjectionHints,
-  continuityHintsFromContradictionReview,
-  recordContinuityFactUseStats
-} from '../continuity/projection-hints.mjs';
 import { normalizeContinuityState } from '../continuity/state.mjs';
 import {
   createTurnLatencyMetrics,
@@ -24,6 +17,12 @@ import {
   __sourceReviewWorkerTestHooks,
   createSourceReviewWorker
 } from './source-review-worker.mjs';
+import {
+  createRuntimeLedgerViewAsync,
+  findLedgerIngressAsync,
+  findLedgerRecoveryAsync,
+  findLedgerResponseAsync
+} from './runtime-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -63,6 +62,41 @@ function compactRecoveryWriterErrorRef(error, fallbackCode = 'DIRECTIVE_CORE_HOS
 
 function isObjectRecord(value) {
   return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+const COMPATIBILITY_RAW_TEXT_KEYS = new Set([
+  'text',
+  'rawtext',
+  'rawsummary',
+  'rawprompt',
+  'body',
+  'content',
+  'message',
+  'prompt',
+  'provideroutput',
+  'assistanttext',
+  'playertext',
+  'observedtext',
+  'replacementtext',
+  'verbatim'
+]);
+
+function compatibilityProjectionHasUnsafeRawText(value, seen = new Set()) {
+  if (!value || typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.some((item) => compatibilityProjectionHasUnsafeRawText(item, seen));
+  }
+  for (const [rawKey, item] of Object.entries(value)) {
+    const key = String(rawKey || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (COMPATIBILITY_RAW_TEXT_KEYS.has(key)) {
+      if (typeof item === 'string' && compact(item)) return true;
+      if (item && typeof item === 'object') return true;
+    }
+    if (compatibilityProjectionHasUnsafeRawText(item, seen)) return true;
+  }
+  return false;
 }
 
 function appendCompatibilityRecords(existing = [], additions = []) {
@@ -113,7 +147,13 @@ function compatibilityProjectionIsComplete(projection = null) {
   if (compact(recoveryEvent.type) !== 'hostNativeContinuityContradiction') return false;
   if (compact(ingressPatch.status) !== 'recoveryRequired') return false;
   const rejectedClaims = Array.isArray(projection.rejectedClaims) ? projection.rejectedClaims : [];
-  return rejectedClaims.every((claim) => !Object.prototype.hasOwnProperty.call(claim || {}, 'text'));
+  const projectionHints = Array.isArray(projection.projectionHints) ? projection.projectionHints : [];
+  const factUseStats = isObjectRecord(projection.factUseStats) ? projection.factUseStats : {};
+  return !compatibilityProjectionHasUnsafeRawText({
+    rejectedClaims,
+    projectionHints,
+    factUseStats
+  });
 }
 
 function hostNativeContinuityReviewSourceRef(review = null) {
@@ -294,7 +334,10 @@ function sanitizedHostNativeContinuityCompatibilityProjection({
 }
 
 function applyHostNativeContinuityCompatibilityProjection(campaignState, projection = null, {
-  ingressId = null
+  ingressId = null,
+  applyContinuityProjection = true,
+  applyRecoveryEvent = true,
+  applyIngressPatch = true
 } = {}) {
   if (!isObjectRecord(projection)) {
     return { applied: false, campaignState, recoveryId: null };
@@ -304,7 +347,7 @@ function applyHostNativeContinuityCompatibilityProjection(campaignState, project
   const rejectedClaims = Array.isArray(projection.rejectedClaims) ? projection.rejectedClaims : [];
   const projectionHints = Array.isArray(projection.projectionHints) ? projection.projectionHints : [];
   const factUseStats = isObjectRecord(projection.factUseStats) ? projection.factUseStats : null;
-  if (rejectedClaims.length || projectionHints.length || factUseStats) {
+  if (applyContinuityProjection && (rejectedClaims.length || projectionHints.length || factUseStats)) {
     const continuity = normalizeContinuityState(next.continuity);
     next.continuity = normalizeContinuityState({
       ...continuity,
@@ -313,13 +356,16 @@ function applyHostNativeContinuityCompatibilityProjection(campaignState, project
       factUseStats: mergeCompatibilityFactUseStats(continuity.factUseStats, factUseStats)
     });
     applied = true;
-  }
-  if (isObjectRecord(projection.recoveryEvent)) {
-    next = recordRecoveryEvent(next, projection.recoveryEvent);
+  } else if (!applyContinuityProjection && (rejectedClaims.length || projectionHints.length || factUseStats)) {
     applied = true;
   }
-  if (ingressId && isObjectRecord(projection.ingressPatch)) {
+  if (isObjectRecord(projection.recoveryEvent)) {
+    applied = true;
+  }
+  if (applyIngressPatch && ingressId && isObjectRecord(projection.ingressPatch)) {
     next = updateTurnIngress(next, ingressId, projection.ingressPatch);
+    applied = true;
+  } else if (!applyIngressPatch && ingressId && isObjectRecord(projection.ingressPatch)) {
     applied = true;
   }
   return {
@@ -376,15 +422,84 @@ export function createResponseDispatcher({
     return initializeCampaignRuntimeTracking(source);
   }
 
-  function findExisting(campaignState, idempotencyKey) {
-    const state = initializeCampaignRuntimeTracking(campaignState);
-    return (state.runtimeTracking.responseLedger || []).find((entry) => (
+  async function findExisting(campaignState, idempotencyKey) {
+    const view = await createRuntimeLedgerViewAsync(campaignState, { coreTurnStore });
+    return (view.responseLedger || []).find((entry) => (
       idempotencyKey && entry.id === idempotencyKey
     )) || null;
   }
 
+  function projectedCoreRecoveryForResponse(response = null) {
+    if (!response || typeof coreTurnStore?.readProjections !== 'function') return null;
+    const transactionId = compact(response.coreTransactionId || response.transactionId);
+    if (!transactionId) return null;
+    const projections = coreTurnStore.readProjections() || {};
+    return (Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []).find((entry) => (
+      compact(entry.transactionId || entry.coreTransactionId) === transactionId
+      && compact(entry.status || entry.recoveryStatus) !== 'resolved'
+    )) || null;
+  }
+
+  function projectedCoreDiagnosticForResponse(response = null) {
+    if (!response || typeof coreTurnStore?.readProjections !== 'function') return null;
+    const transactionId = compact(response.coreTransactionId || response.transactionId);
+    const responseId = compact(response.id || response.responseId);
+    if (!transactionId && !responseId) return null;
+    const projections = coreTurnStore.readProjections() || {};
+    return (Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []).find((entry) => (
+      ['hostNativeContinuityRecovery', 'hostNativeCompletionRecord', 'hostContinueReleaseRecord', 'visibleResponseRecord'].includes(compact(entry.worker))
+      && compact(entry.status) === 'failed'
+      && (
+        (transactionId && compact(entry.transactionId) === transactionId)
+        || (responseId && compact(entry.responseId) === responseId)
+      )
+    )) || null;
+  }
+
+  function recoveryIdForCoreDiagnostic(diagnostic = null, response = null) {
+    const responseId = compact(response?.id || response?.responseId || diagnostic?.responseId);
+    if (!responseId) return null;
+    if (compact(diagnostic?.worker) === 'hostNativeCompletionRecord') {
+      return `recovery:core-host-native-completion:${responseId}`;
+    }
+    if (compact(diagnostic?.worker) === 'hostContinueReleaseRecord') {
+      return `recovery:core-host-continue:${responseId}`;
+    }
+    if (compact(diagnostic?.worker) === 'visibleResponseRecord') {
+      return `recovery:core-visible-response:${responseId}`;
+    }
+    return `recovery:continuity:${responseId}`;
+  }
+
   function existingResponseDispatchResult(existing, state) {
     const entry = cloneJson(existing);
+    const projectedCoreRecovery = projectedCoreRecoveryForResponse(existing);
+    if (projectedCoreRecovery) {
+      const recoveryStatus = compact(projectedCoreRecovery.phase || projectedCoreRecovery.status);
+      return {
+        ok: false,
+        duplicate: true,
+        recoveryRequired: recoveryStatus !== 'responseRetryRequired',
+        responseRetryRequired: recoveryStatus === 'responseRetryRequired',
+        entry,
+        recoveryId: projectedCoreRecovery.id || projectedCoreRecovery.recoveryId || null,
+        coreRecovery: cloneJson(projectedCoreRecovery),
+        campaignState: state
+      };
+    }
+    const projectedCoreDiagnostic = projectedCoreDiagnosticForResponse(existing);
+    if (projectedCoreDiagnostic) {
+      return {
+        ok: false,
+        duplicate: true,
+        recoveryRequired: true,
+        responseRetryRequired: false,
+        entry,
+        recoveryId: recoveryIdForCoreDiagnostic(projectedCoreDiagnostic, existing),
+        coreDiagnostic: cloneJson(projectedCoreDiagnostic),
+        campaignState: state
+      };
+    }
     if (
       existing?.status === 'recoveryRequired'
       || existing?.status === 'responseRetryRequired'
@@ -405,16 +520,14 @@ export function createResponseDispatcher({
     return { ok: true, duplicate: true, entry, campaignState: state };
   }
 
-  function findIngress(campaignState, ingressId) {
+  async function findIngress(campaignState, ingressId) {
     if (!ingressId) return null;
-    const state = initializeCampaignRuntimeTracking(campaignState);
-    return (state.runtimeTracking.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
+    return findLedgerIngressAsync(campaignState, { id: ingressId }, { coreTurnStore });
   }
 
-  function findResponse(campaignState, responseId) {
+  async function findResponse(campaignState, responseId) {
     if (!responseId) return null;
-    const state = initializeCampaignRuntimeTracking(campaignState);
-    return (state.runtimeTracking.responseLedger || []).find((entry) => entry.id === responseId) || null;
+    return findLedgerResponseAsync(campaignState, { id: responseId }, { coreTurnStore });
   }
 
   function hostMessageId(message = {}, index = null) {
@@ -530,6 +643,41 @@ export function createResponseDispatcher({
     });
   }
 
+  async function appendCoreHostContinueReleaseDiagnostic({
+    ingress = null,
+    responseId = null,
+    outcomeId = null,
+    turnId = null,
+    hostContinuation = null,
+    hostGenerationReleasedAt = null,
+    turnLatency = null,
+    error = null
+  } = {}) {
+    if (typeof coreTurnStore?.appendDiagnostics !== 'function') return null;
+    if (!ingress?.coreTransactionId || !responseId) return null;
+    return coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+      type: 'sidecar',
+      worker: 'hostContinueReleaseRecord',
+      status: 'failed',
+      severity: 'error',
+      eventType: 'coreHostContinueReleaseFailure',
+      responseId,
+      ingressId: ingress.id || null,
+      outcomeId: outcomeId || null,
+      turnId: turnId || null,
+      transactionId: ingress.coreTransactionId,
+      sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+      hostGenerationReleasedAt: hostGenerationReleasedAt || null,
+      hostContinuation: safeHostContinuationRef(hostContinuation),
+      turnLatency: cloneJson(turnLatency || null),
+      error: compactRecoveryWriterErrorRef(error, 'DIRECTIVE_CORE_HOST_CONTINUE_RELEASE_FAILED'),
+      repairPolicy: {
+        action: 'repairCoreHostContinueRelease',
+        hostRepairAvailable: false
+      }
+    });
+  }
+
   async function recordCoreVisibleResponse({
     ingress = null,
     entry = null,
@@ -596,6 +744,78 @@ export function createResponseDispatcher({
       textHash: hostMessageTextHash(observedMessage, observedText),
       repairDecision: repairDecision || undefined,
       idempotencyKey: `host-native-visible:${responseId}`
+    });
+  }
+
+  async function appendCoreVisibleResponseRecordDiagnostic({
+    ingress = null,
+    responseId = null,
+    outcomeId = null,
+    turnId = null,
+    hostMessageId = null,
+    visibleResponsePostedAt = null,
+    turnLatency = null,
+    error = null
+  } = {}) {
+    if (typeof coreTurnStore?.appendDiagnostics !== 'function') return null;
+    if (!ingress?.coreTransactionId || !responseId) return null;
+    return coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+      type: 'sidecar',
+      worker: 'visibleResponseRecord',
+      status: 'failed',
+      severity: 'error',
+      eventType: 'coreVisibleResponseRecordFailure',
+      responseId,
+      ingressId: ingress.id || null,
+      outcomeId: outcomeId || null,
+      turnId: turnId || null,
+      transactionId: ingress.coreTransactionId,
+      sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+      hostMessageId: hostMessageId || null,
+      visibleResponsePostedAt: visibleResponsePostedAt || null,
+      turnLatency: cloneJson(turnLatency || null),
+      error: compactRecoveryWriterErrorRef(error, 'DIRECTIVE_CORE_VISIBLE_RESPONSE_RECORD_FAILED'),
+      repairPolicy: {
+        action: 'repairCoreVisibleResponseRecord',
+        repostVisibleResponse: false
+      }
+    });
+  }
+
+  async function appendCoreHostNativeCompletionDiagnostic({
+    ingress = null,
+    responseId = null,
+    outcomeId = null,
+    turnId = null,
+    observedHostMessageId = null,
+    hostGenerationReleasedAt = null,
+    turnLatency = null,
+    error = null
+  } = {}) {
+    if (typeof coreTurnStore?.appendDiagnostics !== 'function') return null;
+    if (!ingress?.coreTransactionId || !responseId) return null;
+    return coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+      type: 'sidecar',
+      worker: 'hostNativeCompletionRecord',
+      status: 'failed',
+      severity: 'error',
+      eventType: 'coreHostNativeCompletionFailure',
+      responseId,
+      ingressId: ingress.id || null,
+      outcomeId: outcomeId || null,
+      turnId: turnId || null,
+      transactionId: ingress.coreTransactionId,
+      sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+      observedMessage: {
+        hostMessageId: observedHostMessageId || null
+      },
+      hostGenerationReleasedAt: hostGenerationReleasedAt || null,
+      turnLatency: cloneJson(turnLatency || null),
+      error: compactRecoveryWriterErrorRef(error, 'DIRECTIVE_CORE_HOST_NATIVE_COMPLETION_FAILED'),
+      repairPolicy: {
+        action: 'repairCoreHostNativeCompletion',
+        retryHostGeneration: false
+      }
     });
   }
 
@@ -686,21 +906,47 @@ export function createResponseDispatcher({
     });
   }
 
-  function findResponseRecovery(campaignState, response = null) {
+  async function findResponseRecovery(campaignState, response = null) {
     if (!response) return null;
-    const state = initializeCampaignRuntimeTracking(campaignState);
+    const projectedCoreRecovery = projectedCoreRecoveryForResponse(response);
+    if (projectedCoreRecovery) {
+      return {
+        id: projectedCoreRecovery.id || projectedCoreRecovery.recoveryId || null,
+        type: projectedCoreRecovery.repairDecision?.eventType || projectedCoreRecovery.reason || null,
+        status: projectedCoreRecovery.status || null,
+        ingressId: response.ingressId || null,
+        outcomeId: projectedCoreRecovery.dependentOutcomeId || response.outcomeId || null,
+        details: {
+          responseId: projectedCoreRecovery.dependentResponseId || response.id || null,
+          turnId: response.turnId || null,
+          coreTransactionId: projectedCoreRecovery.transactionId || response.coreTransactionId || null,
+          coreRecovery: {
+            id: projectedCoreRecovery.id || projectedCoreRecovery.recoveryId || null,
+            phase: projectedCoreRecovery.phase || null,
+            reason: projectedCoreRecovery.reason || null,
+            status: projectedCoreRecovery.status || null
+          },
+          repairDecision: cloneJson(projectedCoreRecovery.repairDecision || null),
+          recoveryPolicy: {
+            allowedActions: cloneJson(projectedCoreRecovery.allowedActions || [])
+          }
+        }
+      };
+    }
     const recoveryIds = [
       response.recoveryId,
       `recovery:host-native:${response.id}`,
       `recovery:continuity:${response.id}`,
       `recovery:core-host-native-completion:${response.id}`
     ].map(compact).filter(Boolean);
-    return (state.runtimeTracking?.recoveryJournal || []).find((entry) => (
-      recoveryIds.includes(compact(entry.id))
-    )) || null;
+    for (const recoveryId of recoveryIds) {
+      const recovery = await findLedgerRecoveryAsync(campaignState, { id: recoveryId }, { coreTurnStore });
+      if (recovery) return recovery;
+    }
+    return null;
   }
 
-  function evaluateResponseReobserveClosure({
+  async function evaluateResponseReobserveClosure({
     campaignState,
     response = null,
     transaction = null,
@@ -710,7 +956,7 @@ export function createResponseDispatcher({
   } = {}) {
     const authorizeReobserveClosure = repair?.authorizeReobserveClosure || repair?.evaluateResponseReobserveClosure;
     if (!response || typeof authorizeReobserveClosure !== 'function') return null;
-    const recovery = findResponseRecovery(campaignState, response);
+    const recovery = await findResponseRecovery(campaignState, response);
     return authorizeReobserveClosure.call(repair, {
       response,
       recovery,
@@ -723,7 +969,7 @@ export function createResponseDispatcher({
     });
   }
 
-  function closeResponseReobserveProjection({
+  async function closeResponseReobserveProjection({
     campaignState,
     response = null,
     observedHostMessageId = null,
@@ -735,7 +981,7 @@ export function createResponseDispatcher({
     repairDecision = null
   } = {}) {
     if (!response?.id) return campaignState;
-    const recovery = findResponseRecovery(campaignState, response);
+    const recovery = await findResponseRecovery(campaignState, response);
     let next = updateDirectiveResponse(campaignState, response.id, {
       status: 'complete',
       hostCompletedAt: eventTime,
@@ -829,6 +1075,7 @@ export function createResponseDispatcher({
     };
     let coreRecovery = null;
     let coreRecoveryError = null;
+    let coreRecoveryDiagnosticRecorded = false;
     let repairDecision = null;
     try {
       coreRecovery = await markCoreHostNativeContradiction({
@@ -854,6 +1101,36 @@ export function createResponseDispatcher({
         turnId,
         error: continuityError
       });
+      if (typeof coreTurnStore?.appendDiagnostics === 'function' && ingress?.coreTransactionId) {
+        try {
+          await coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+            type: 'sidecar',
+            worker: 'hostNativeContinuityRecovery',
+            status: 'failed',
+            severity: 'error',
+            eventType: 'hostNativeContinuityContradiction',
+            responseId: id || null,
+            ingressId: ingressId || null,
+            outcomeId: outcomeId || null,
+            turnId: turnId || null,
+            transactionId: ingress.coreTransactionId,
+            sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+            observedMessage: {
+              hostMessageId: hostId || null,
+              textHash: observedTextHash || hostMessageTextHash(observedMessage || {}, text)
+            },
+            error: coreRecoveryError,
+            repairPolicy: {
+              policySource: repairDecision?.policySource || null,
+              action: repairDecision?.recoveryAction || repairDecision?.action || null,
+              preferredFirstAction: repairDecision?.preferredFirstAction || null
+            }
+          });
+          coreRecoveryDiagnosticRecorded = true;
+        } catch {
+          // Best-effort diagnostic only; sanitized compatibility bridge still carries failure state.
+        }
+      }
     }
     const coreProjectionSupplied = coreRecovery && Object.prototype.hasOwnProperty.call(coreRecovery, 'compatibilityProjection');
     const decisionProjectionSupplied = repairDecision && Object.prototype.hasOwnProperty.call(repairDecision, 'compatibilityProjection');
@@ -883,14 +1160,17 @@ export function createResponseDispatcher({
             ? 'invalidRepairCompatibilityProjection'
             : 'missingRepairCompatibilityProjection')
       });
+    const coreBackedRecoveryRecorded = coreRecovery?.status === 'recorded' && !coreRecoveryError;
     const projectionRecoveryId = compatibilityProjectionRecoveryId(compatibilityProjection);
-    const effectiveRecoveryId = projectionRecoveryId || recoveryId;
+    const coreRecoveryId = compact(coreRecovery?.recoveryCaseId || coreRecovery?.id || coreRecovery?.recoveryId);
+    const coreDiagnosticBackedRecoveryFailure = Boolean(coreRecoveryError && coreRecoveryDiagnosticRecorded);
+    const effectiveRecoveryId = coreBackedRecoveryRecorded
+      ? (coreRecoveryId || recoveryId)
+      : (coreDiagnosticBackedRecoveryFailure ? recoveryId : (projectionRecoveryId || recoveryId));
 
     let next = campaignState;
-    if (id && findResponse(next, id)) {
-      next = updateDirectiveResponse(next, id, {
-        status: 'recoveryRequired',
-        recoveryId: effectiveRecoveryId,
+    if (id && await findResponse(next, id)) {
+      const baseRecoveryPatch = {
         hostCompletedAt: observedAt,
         turnLatency,
         hostObservationStatus: 'completed',
@@ -904,95 +1184,63 @@ export function createResponseDispatcher({
           phase: coreCompletion.phase || null,
           route: coreCompletion.route || null
         } : null,
-        coreRecovery: coreRecovery ? {
-          id: coreRecovery.recoveryCaseId || null,
-          status: coreRecovery.status || null,
-          phase: coreRecovery.phase || null,
-          reason: coreRecovery.reason || null
-        } : null,
-        coreRecoveryError,
-        continuityReview: cloneJson(review)
-      });
+      };
+      next = updateDirectiveResponse(next, id, coreBackedRecoveryRecorded
+        ? {
+            ...baseRecoveryPatch,
+            status: 'coreRecoveryProjected',
+            recoveryId: null,
+            coreRecovery: null,
+            coreRecoveryError: null,
+            continuityReview: null
+          }
+        : (coreDiagnosticBackedRecoveryFailure ? {
+            ...baseRecoveryPatch,
+            status: 'coreRecoveryDiagnosticProjected',
+            recoveryId: null,
+            coreRecovery: null,
+            coreRecoveryError: null,
+            continuityReview: null
+          }
+        : {
+            ...baseRecoveryPatch,
+            status: 'recoveryRequired',
+            recoveryId: effectiveRecoveryId,
+            coreRecovery: coreRecovery ? {
+              id: coreRecovery.recoveryCaseId || null,
+              status: coreRecovery.status || null,
+              phase: coreRecovery.phase || null,
+              reason: coreRecovery.reason || null
+            } : null,
+            coreRecoveryError,
+            continuityReview: cloneJson(review)
+          }));
     }
     const projectionApplication = applyHostNativeContinuityCompatibilityProjection(next, compatibilityProjection, {
-      ingressId
+      ingressId,
+      applyContinuityProjection: !coreBackedRecoveryRecorded,
+      applyRecoveryEvent: !(coreBackedRecoveryRecorded || coreDiagnosticBackedRecoveryFailure),
+      applyIngressPatch: !(coreBackedRecoveryRecorded || coreDiagnosticBackedRecoveryFailure)
     });
     if (projectionApplication.applied) {
       next = projectionApplication.campaignState;
+    } else if (coreDiagnosticBackedRecoveryFailure) {
+      next = cloneJson(next);
     } else {
-      next = quarantineGeneratedClaims(next, {
-        text,
-        source: {
-          kind: 'hostNativeGeneration',
-          responseId: id,
-          ingressId,
-          outcomeId,
-          hostMessageId: hostId
-        },
-        review,
-        status: 'rejected',
-        now: observedAt
-      }).campaignState;
-      const violationFactIds = [...new Set((review.findings || [])
-        .map((finding) => compact(finding?.factId))
-        .filter(Boolean))];
-      next = addContinuityProjectionHints(next, continuityHintsFromContradictionReview(review, {
-        campaignState: next,
-        now: observedAt
-      }), {
-        now: observedAt
-      });
-      next = recordContinuityFactUseStats(next, {
-        violationFactIds,
-        now: observedAt
-      });
-      next = recordRecoveryEvent(next, {
-        id: recoveryId,
-        type: 'hostNativeContinuityContradiction',
-        status: 'open',
-        hostMessageId: hostId,
-        ingressId,
-        outcomeId,
-        recordedAt: observedAt,
-        details: {
-          responseId: id,
-          hostMessageId: hostId,
-          findings: cloneJson(review.findings || []),
-          coreRecovery: cloneJson(coreRecovery || null),
-          coreRecoveryError,
-          repairDecision: cloneJson(repairDecision || null),
-          recoveryPolicy: {
-            action: repairDecision?.recoveryAction || 'reviewHostNativeContinuityContradiction',
-            reason: repairDecision?.recoverySummary || 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
-            hostRepairAvailable: false,
-            retryHostGeneration: repairDecision?.retryHostGeneration === true,
-            reobserveHostAssistantRows: repairDecision?.reobserveHostAssistantRows === true,
-            preferredFirstAction: repairDecision?.preferredFirstAction || 'reviewHostNativeContinuityContradiction',
-            allowedActions: cloneJson(repairDecision?.allowedActions || ['reviewHostNativeContinuityContradiction'])
-          }
-        }
-      });
-      if (ingressId) {
-        next = updateTurnIngress(next, ingressId, {
-          status: 'recoveryRequired',
-          responseStrategy: 'injectAndContinue',
-          turnId,
-          outcomeId,
-          recoveryId,
-          error: continuityError,
-          failedAt: observedAt
-        });
-      }
+      next = cloneJson(next);
     }
     return {
       ok: false,
       recoveryRequired: true,
       status: 'recoveryRequired',
-      recoveryId: projectionApplication.recoveryId || effectiveRecoveryId,
+      recoveryId: coreBackedRecoveryRecorded
+        ? effectiveRecoveryId
+        : (coreDiagnosticBackedRecoveryFailure ? effectiveRecoveryId : (projectionApplication.recoveryId || effectiveRecoveryId)),
       campaignState: cloneJson(next),
       continuityReview: cloneJson(review),
       coreRecovery: cloneJson(coreRecovery || null),
       coreRecoveryError,
+      coreDiagnosticBackedRecoveryFailure,
       repairDecision: cloneJson(repairDecision || null),
       compatibilityProjection: projectionApplication.applied ? cloneJson(compatibilityProjection) : null
     };
@@ -1015,7 +1263,7 @@ export function createResponseDispatcher({
     }
     if (transaction?.recoveryCaseId) {
       if (settlementStatus === 'completed' && hasObservedMessage) {
-        const closure = evaluateResponseReobserveClosure({
+        const closure = await evaluateResponseReobserveClosure({
           campaignState,
           response,
           transaction,
@@ -1048,9 +1296,9 @@ export function createResponseDispatcher({
   } = {}) {
     try {
       const current = resolveState();
-      const response = findResponse(current, responseId);
+      const response = await findResponse(current, responseId);
       if (!response) return null;
-      const ingress = findIngress(current, ingressId);
+      const ingress = await findIngress(current, ingressId);
       const status = settlement?.status || (settlement?.ok === false ? 'failed' : 'completed');
       const eventTime = settlement?.completedAt || settlement?.failedAt || timestamp(now);
       const hostGenerationReleasedAt = settlement?.hostGenerationReleasedAt
@@ -1112,7 +1360,7 @@ export function createResponseDispatcher({
           const transaction = typeof coreTurnStore?.getTransaction === 'function' && ingress?.coreTransactionId
             ? await coreTurnStore.getTransaction(ingress.coreTransactionId)
             : null;
-          repairClosure = evaluateResponseReobserveClosure({
+          repairClosure = await evaluateResponseReobserveClosure({
             campaignState: current,
             response,
             transaction,
@@ -1139,8 +1387,30 @@ export function createResponseDispatcher({
         } catch (error) {
           coreCompletionError = compactError(error, 'DIRECTIVE_CORE_HOST_NATIVE_COMPLETION_FAILED');
         }
+        let coreCompletionDiagnostic = null;
+        if (coreCompletionError) {
+          try {
+            coreCompletionDiagnostic = await appendCoreHostNativeCompletionDiagnostic({
+              ingress,
+              responseId,
+              outcomeId,
+              turnId,
+              observedHostMessageId,
+              hostGenerationReleasedAt,
+              turnLatency,
+              error: coreCompletionError
+            });
+          } catch {
+            // Fall through to the old sanitized recovery bridge below.
+          }
+        }
+        const coreCompletionDiagnosticRecorded = Boolean(coreCompletionDiagnostic);
+        const completionRecoveryId = `recovery:core-host-native-completion:${responseId}`;
         let next = updateDirectiveResponse(current, responseId, {
-          status: coreCompletionError ? 'recoveryRequired' : 'complete',
+          status: coreCompletionError
+            ? (coreCompletionDiagnosticRecorded ? 'coreRecoveryDiagnosticProjected' : 'recoveryRequired')
+            : 'complete',
+          recoveryId: coreCompletionError && !coreCompletionDiagnosticRecorded ? completionRecoveryId : null,
           hostCompletedAt: eventTime,
           turnLatency,
           hostObservation: {
@@ -1160,10 +1430,15 @@ export function createResponseDispatcher({
             eventType: repairClosure.eventType || null,
             recoveryCaseId: repairClosure.recoveryCaseId || null
           } : null,
-          coreCompletionError
+          coreCompletionError: coreCompletionDiagnosticRecorded ? null : coreCompletionError,
+          coreCompletionDiagnostic: coreCompletionDiagnosticRecorded ? {
+            id: coreCompletionDiagnostic.id || null,
+            worker: coreCompletionDiagnostic.payload?.worker || coreCompletionDiagnostic.worker || 'hostNativeCompletionRecord',
+            status: coreCompletionDiagnostic.payload?.status || coreCompletionDiagnostic.status || 'failed'
+          } : null
         });
         if (!coreCompletionError && repairClosure?.recoveryResolved === true) {
-          next = closeResponseReobserveProjection({
+          next = await closeResponseReobserveProjection({
             campaignState: next,
             response,
             observedHostMessageId,
@@ -1206,34 +1481,17 @@ export function createResponseDispatcher({
             };
           }
         }
-        if (coreCompletionError) {
-          const recoveryId = `recovery:core-host-native-completion:${responseId}`;
-          next = recordRecoveryEvent(next, {
-            id: recoveryId,
-            type: 'coreHostNativeCompletionFailure',
-            status: 'open',
-            ingressId,
-            outcomeId,
-            recordedAt: eventTime,
-            details: {
-              responseId,
-              turnId,
-              coreTransactionId: ingress?.coreTransactionId || null,
-              sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
-              hostMessageId: observedHostMessageId,
-              hostGenerationReleasedAt,
-              turnLatency: cloneJson(turnLatency),
-              error: coreCompletionError,
-              recoveryPolicy: {
-                action: 'repairCoreHostNativeCompletion',
-                reason: 'Host-native generation completed, but CORE could not record the visible response.',
-                retryHostGeneration: false
-              }
-            }
-          });
-        }
         await acceptState(next, `Recorded host-native completion for ${ingressId || responseId}.`);
-        return { ok: coreCompletionError ? false : true, status: coreCompletionError ? 'recoveryRequired' : 'complete' };
+        if (coreCompletionError) {
+          return {
+            ok: false,
+            status: coreCompletionDiagnosticRecorded ? 'coreRecoveryDiagnosticProjected' : 'recoveryRequired',
+            recoveryRequired: true,
+            recoveryId: completionRecoveryId,
+            coreDiagnostic: cloneJson(coreCompletionDiagnostic || null)
+          };
+        }
+        return { ok: true, status: 'complete' };
       }
 
       const failurePolicy = hostNativeFailurePolicy(status, {
@@ -1259,6 +1517,7 @@ export function createResponseDispatcher({
       } catch (error) {
         coreRecoveryError = compactError(error, 'DIRECTIVE_CORE_HOST_NATIVE_RECOVERY_FAILED');
       }
+      const coreBackedRecoveryRecorded = coreRecovery?.status === 'recorded' && !coreRecoveryError;
       const recoveryId = `recovery:host-native:${responseId}`;
       let next = updateDirectiveResponse(current, responseId, {
         status: failurePolicy.responseStatus,
@@ -1276,35 +1535,6 @@ export function createResponseDispatcher({
         } : null,
         coreRecoveryError,
         error: settlement?.error ? compactError(settlement.error, failurePolicy.errorCode) : null
-      });
-      next = recordRecoveryEvent(next, {
-        id: recoveryId,
-        type: failurePolicy.recoveryType,
-        status: 'open',
-        ingressId,
-        outcomeId,
-        recordedAt: eventTime,
-        details: {
-          responseId,
-          turnId,
-          coreTransactionId: ingress?.coreTransactionId || null,
-          sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
-          hostGenerationReleasedAt,
-          turnLatency: cloneJson(turnLatency),
-          observationStatus: status,
-          error: settlement?.error ? compactError(settlement.error, failurePolicy.errorCode) : null,
-          coreRecovery: cloneJson(coreRecovery || null),
-          coreRecoveryError,
-          repairDecision: cloneJson(failurePolicy),
-          recoveryPolicy: {
-            action: failurePolicy.recoveryAction,
-            reason: failurePolicy.recoverySummary,
-            retryHostGeneration: failurePolicy.retryHostGeneration,
-            reobserveHostAssistantRows: failurePolicy.reobserveHostAssistantRows,
-            preferredFirstAction: failurePolicy.preferredFirstAction,
-            allowedActions: cloneJson(failurePolicy.allowedActions)
-          }
-        }
       });
       await acceptState(next, `Recorded host-native ${failurePolicy.reason} for ${ingressId || responseId}.`);
       return { ok: false, status: failurePolicy.responseStatus, recoveryId };
@@ -1366,7 +1596,7 @@ export function createResponseDispatcher({
     }
     const results = [];
     for (const response of responses) {
-      const ingress = findIngress(state, response.ingressId);
+      const ingress = await findIngress(state, response.ingressId);
       const playerHostMessageId = compact(ingress?.hostMessageId);
       const playerIndex = recent.findIndex((message, index) => (
         playerHostMessageId && hostMessageId(message, index) === playerHostMessageId
@@ -1495,7 +1725,7 @@ export function createResponseDispatcher({
         let candidateIndex = -1;
         const runtimeResponse = responsesByTransaction.get(timing.transactionId) || null;
         const ingress = runtimeResponse?.ingressId
-          ? findIngress(state, runtimeResponse.ingressId)
+          ? await findIngress(state, runtimeResponse.ingressId)
           : null;
         const runtimeHostObservation = runtimeResponse?.hostObservation || null;
         const hashlessProjectionResponse = hashlessHostContinueResponsesByTransaction.get(timing.transactionId) || null;
@@ -1539,7 +1769,7 @@ export function createResponseDispatcher({
           } else if (runtimeHostObservation.textHash) {
             const postedAt = timestamp(now);
             try {
-              const repairClosure = evaluateResponseReobserveClosure({
+              const repairClosure = await evaluateResponseReobserveClosure({
                 campaignState: resolveState(),
                 response: runtimeResponse,
                 transaction: coreTransaction,
@@ -1565,8 +1795,8 @@ export function createResponseDispatcher({
               });
               if (recorded?.phase === 'visibleResponsePosted' && runtimeResponse) {
                 const latestState = resolveState();
-                const latestResponse = findResponse(latestState, runtimeResponse.id) || runtimeResponse;
-                let next = closeResponseReobserveProjection({
+                const latestResponse = (await findResponse(latestState, runtimeResponse.id)) || runtimeResponse;
+                let next = await closeResponseReobserveProjection({
                   campaignState: latestState,
                   response: latestResponse,
                   observedHostMessageId: compact(runtimeHostObservation.hostMessageId),
@@ -1670,7 +1900,7 @@ export function createResponseDispatcher({
         const textHash = hostMessageTextHash(candidate, observedText);
         const postedAt = timestamp(now);
         try {
-          const repairClosure = evaluateResponseReobserveClosure({
+          const repairClosure = await evaluateResponseReobserveClosure({
             campaignState: resolveState(),
             response: runtimeResponse,
             transaction: coreTransaction,
@@ -1704,8 +1934,8 @@ export function createResponseDispatcher({
           let runtimeContradiction = null;
           if (recorded?.phase === 'visibleResponsePosted' && runtimeResponse && !hashlessProjectionResponse) {
             const latestState = resolveState();
-            const latestResponse = findResponse(latestState, runtimeResponse.id) || runtimeResponse;
-            let next = closeResponseReobserveProjection({
+            const latestResponse = (await findResponse(latestState, runtimeResponse.id)) || runtimeResponse;
+            let next = await closeResponseReobserveProjection({
               campaignState: latestState,
               response: latestResponse,
               observedHostMessageId,
@@ -1839,9 +2069,9 @@ export function createResponseDispatcher({
   } = {}) {
     const state = resolveState(campaignState);
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || turnId || 'turn'}:host`;
-    const existing = findExisting(state, key);
+    const existing = await findExisting(state, key);
     if (existing) return existingResponseDispatchResult(existing, state);
-    const ingress = findIngress(state, ingressId);
+    const ingress = await findIngress(state, ingressId);
     let hostContinuation = null;
     let releasePersistedResolve = null;
     const releasePersistedPromise = new Promise((resolve) => {
@@ -1920,6 +2150,24 @@ export function createResponseDispatcher({
       ? `recovery:core-host-continue:${key}`
       : null;
     let recoveryId = continuityRecoveryId || coreReleaseRecoveryId;
+    let coreReleaseDiagnostic = null;
+    if (coreReleaseError) {
+      try {
+        coreReleaseDiagnostic = await appendCoreHostContinueReleaseDiagnostic({
+          ingress,
+          responseId: key,
+          outcomeId,
+          turnId,
+          hostContinuation,
+          hostGenerationReleasedAt,
+          turnLatency,
+          error: coreReleaseError
+        });
+      } catch {
+        // Fall through to the old sanitized recovery bridge below.
+      }
+    }
+    const coreReleaseDiagnosticRecorded = Boolean(coreReleaseDiagnostic);
     let continuityCoreRecovery = null;
     let continuityCoreRecoveryError = null;
     const entry = {
@@ -1930,9 +2178,11 @@ export function createResponseDispatcher({
       strategy: 'injectAndContinue',
       responseKind: responseType,
       postedAt: timestamp(now),
-      status: (continuityReview?.ok === false || coreReleaseError)
+      status: continuityReview?.ok === false
         ? 'recoveryRequired'
-        : (hostContinuation?.released === true ? 'released' : 'delegated'),
+        : (coreReleaseError
+            ? (coreReleaseDiagnosticRecorded ? 'coreRecoveryDiagnosticProjected' : 'recoveryRequired')
+            : (hostContinuation?.released === true ? 'released' : 'delegated')),
       sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
       hostGenerationReleasedAt,
       generationStartedAt: hostGenerationReleasedAt,
@@ -1944,7 +2194,12 @@ export function createResponseDispatcher({
         phase: coreRelease.phase || null,
         route: coreRelease.route || null
       } : null,
-      coreReleaseError,
+      coreReleaseError: coreReleaseDiagnosticRecorded ? null : coreReleaseError,
+      coreReleaseDiagnostic: coreReleaseDiagnosticRecorded ? {
+        id: coreReleaseDiagnostic.id || null,
+        worker: coreReleaseDiagnostic.payload?.worker || coreReleaseDiagnostic.worker || 'hostContinueReleaseRecord',
+        status: coreReleaseDiagnostic.payload?.status || coreReleaseDiagnostic.status || 'failed'
+      } : null,
       coreRecovery: continuityCoreRecovery ? {
         id: continuityCoreRecovery.recoveryCaseId || null,
         status: continuityCoreRecovery.status || null,
@@ -1952,7 +2207,7 @@ export function createResponseDispatcher({
         reason: continuityCoreRecovery.reason || null
       } : null,
       coreRecoveryError: continuityCoreRecoveryError,
-      recoveryId,
+      recoveryId: coreReleaseError && coreReleaseDiagnosticRecorded ? null : recoveryId,
       hostContinuation: safeHostContinuationRef(hostContinuation),
       hostObservation: observedMessage ? {
         hostMessageId: observedMessage.hostMessageId || observedMessage.id || null,
@@ -1988,69 +2243,36 @@ export function createResponseDispatcher({
       }
       if (contradictionSettlement?.recoveryRequired === true) {
         recoveryId = contradictionSettlement.recoveryId || recoveryId;
-        entry.recoveryId = recoveryId;
         continuityCoreRecovery = contradictionSettlement.coreRecovery || null;
         continuityCoreRecoveryError = contradictionSettlement.coreRecoveryError || null;
-        entry.coreRecovery = continuityCoreRecovery ? {
-          id: continuityCoreRecovery.recoveryCaseId || null,
-          status: continuityCoreRecovery.status || null,
-          phase: continuityCoreRecovery.phase || null,
-          reason: continuityCoreRecovery.reason || null
-        } : null;
-        entry.coreRecoveryError = continuityCoreRecoveryError;
+        if (
+          continuityCoreRecovery?.status === 'recorded'
+          && !continuityCoreRecoveryError
+        ) {
+          entry.status = 'coreRecoveryProjected';
+          entry.recoveryId = null;
+          entry.coreRecovery = null;
+          entry.coreRecoveryError = null;
+          entry.continuityReview = null;
+        } else if (contradictionSettlement.coreDiagnosticBackedRecoveryFailure === true) {
+          entry.status = 'coreRecoveryDiagnosticProjected';
+          entry.recoveryId = null;
+          entry.coreRecovery = null;
+          entry.coreRecoveryError = null;
+          entry.continuityReview = null;
+        } else {
+          entry.recoveryId = recoveryId;
+          entry.coreRecovery = continuityCoreRecovery ? {
+            id: continuityCoreRecovery.recoveryCaseId || null,
+            status: continuityCoreRecovery.status || null,
+            phase: continuityCoreRecovery.phase || null,
+            reason: continuityCoreRecovery.reason || null
+          } : null;
+          entry.coreRecoveryError = continuityCoreRecoveryError;
+        }
       }
     }
     next = recordDirectiveResponse(next, entry);
-    if (observedText && continuityReview?.ok !== false) {
-      next = quarantineGeneratedClaims(next, {
-        text: observedText,
-        source: {
-          kind: 'hostNativeGeneration',
-          responseId: key,
-          ingressId,
-          outcomeId,
-          hostMessageId: observedMessage?.hostMessageId || observedMessage?.id || null
-        },
-        review: continuityReview,
-        status: 'candidate',
-        now: entry.postedAt
-      }).campaignState;
-    }
-    if (coreReleaseError) {
-      next = recordRecoveryEvent(next, {
-        id: coreReleaseRecoveryId,
-        type: 'coreHostContinueReleaseFailure',
-        status: 'open',
-        ingressId,
-        outcomeId,
-        recordedAt: timestamp(now),
-        details: {
-          responseId: key,
-          coreTransactionId: ingress?.coreTransactionId || null,
-          sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
-          hostGenerationReleasedAt,
-          hostContinuation: safeHostContinuationRef(hostContinuation),
-          turnLatency: cloneJson(turnLatency),
-          error: coreReleaseError,
-          recoveryPolicy: {
-            action: 'recoveryRequired',
-            reason: 'Host generation was released but CORE could not record the hostContinueReleased phase.',
-            hostRepairAvailable: false
-          }
-        }
-      });
-      if (ingressId && !continuityRecoveryId) {
-        next = updateTurnIngress(next, ingressId, {
-          status: 'recoveryRequired',
-          responseStrategy: 'injectAndContinue',
-          turnId,
-          outcomeId,
-          recoveryId: coreReleaseRecoveryId,
-          error: coreReleaseError,
-          failedAt: entry.postedAt
-        });
-      }
-    }
     try {
       await acceptState(next, `Delegated response for ${ingressId || turnId || 'campaign turn'} to host generation.`);
     } finally {
@@ -2064,7 +2286,8 @@ export function createResponseDispatcher({
         entry: cloneJson(entry),
         hostContinuation: safeHostContinuationRef(hostContinuation),
         continuityReview: cloneJson(continuityReview),
-        coreReleaseError: cloneJson(coreReleaseError),
+        coreReleaseError: coreReleaseDiagnosticRecorded ? null : cloneJson(coreReleaseError),
+        coreDiagnostic: cloneJson(coreReleaseDiagnostic || null),
         recoveryId,
         campaignState: cloneJson(next)
       };
@@ -2097,11 +2320,11 @@ export function createResponseDispatcher({
       throw error;
     }
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || outcomeId || turnId || 'turn'}:${responseType}`;
-    const existing = findExisting(state, key);
+    const existing = await findExisting(state, key);
     if (existing) {
       return existingResponseDispatchResult(existing, state);
     }
-    const ingress = findIngress(state, ingressId);
+    const ingress = await findIngress(state, ingressId);
     const directiveGenerationStartedAt = metadata?.directiveGenerationStartedAt
       || metadata?.turnTiming?.directiveGenerationStartedAt
       || null;
@@ -2170,52 +2393,40 @@ export function createResponseDispatcher({
         coreReleaseError = compactError(error, 'DIRECTIVE_CORE_VISIBLE_RESPONSE_RECORD_FAILED');
       }
     }
+    let coreReleaseDiagnostic = null;
+    if (coreReleaseError) {
+      try {
+        coreReleaseDiagnostic = await appendCoreVisibleResponseRecordDiagnostic({
+          ingress,
+          responseId: key,
+          outcomeId,
+          turnId,
+          hostMessageId: entry.hostMessageId || null,
+          visibleResponsePostedAt: postedAt,
+          turnLatency,
+          error: coreReleaseError
+        });
+      } catch {
+        // Fall through to the old sanitized recovery bridge below.
+      }
+    }
+    const coreReleaseDiagnosticRecorded = Boolean(coreReleaseDiagnostic);
     entry.coreRelease = coreRelease ? {
       transactionId: coreRelease.id || ingress?.coreTransactionId || null,
       phase: coreRelease.phase || null,
       route: coreRelease.route || null
     } : null;
-    entry.coreReleaseError = coreReleaseError;
+    entry.coreReleaseError = coreReleaseDiagnosticRecorded ? null : coreReleaseError;
+    entry.coreReleaseDiagnostic = coreReleaseDiagnosticRecorded ? {
+      id: coreReleaseDiagnostic.id || null,
+      worker: coreReleaseDiagnostic.payload?.worker || coreReleaseDiagnostic.worker || 'visibleResponseRecord',
+      status: coreReleaseDiagnostic.payload?.status || coreReleaseDiagnostic.status || 'failed'
+    } : null;
     if (coreReleaseError) {
-      entry.status = 'recoveryRequired';
-      entry.recoveryId = `recovery:core-visible-response:${key}`;
+      entry.status = coreReleaseDiagnosticRecorded ? 'coreRecoveryDiagnosticProjected' : 'recoveryRequired';
+      entry.recoveryId = coreReleaseDiagnosticRecorded ? null : `recovery:core-visible-response:${key}`;
     }
     let next = recordDirectiveResponse(state, entry);
-    if (coreReleaseError) {
-      next = recordRecoveryEvent(next, {
-        id: entry.recoveryId,
-        type: 'coreVisibleResponseRecordFailure',
-        status: 'open',
-        ingressId,
-        outcomeId,
-        recordedAt: postedAt,
-        details: {
-          responseId: key,
-          hostMessageId: entry.hostMessageId || null,
-          coreTransactionId: ingress?.coreTransactionId || null,
-          sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
-          visibleResponsePostedAt: postedAt,
-          turnLatency: cloneJson(turnLatency),
-          error: coreReleaseError,
-          recoveryPolicy: {
-            action: 'repairCoreVisibleResponseRecord',
-            reason: 'Directive posted the visible response, but CORE could not record visibleResponsePosted.',
-            repostVisibleResponse: false
-          }
-        }
-      });
-      if (ingressId) {
-        next = updateTurnIngress(next, ingressId, {
-          status: 'recoveryRequired',
-          responseStrategy: entry.strategy,
-          turnId,
-          outcomeId,
-          recoveryId: entry.recoveryId,
-          error: coreReleaseError,
-          failedAt: postedAt
-        });
-      }
-    }
     await acceptState(next, `Posted Directive ${responseType} response for ${ingressId || outcomeId || turnId || 'campaign turn'}.`);
     if (entry.status === 'responseRetryRequired') {
       return {
@@ -2236,7 +2447,8 @@ export function createResponseDispatcher({
       posted: cloneJson(posted),
       response: cloneJson(posted),
       entry: cloneJson(entry),
-      coreReleaseError: cloneJson(coreReleaseError),
+      coreReleaseError: coreReleaseDiagnosticRecorded ? null : cloneJson(coreReleaseError),
+      coreDiagnostic: cloneJson(coreReleaseDiagnostic || null),
       recoveryId: entry.recoveryId || null,
       campaignState: cloneJson(next)
     };

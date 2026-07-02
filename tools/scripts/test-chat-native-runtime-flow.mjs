@@ -500,7 +500,8 @@ const rebindCall = host.chat.calls().filter((entry) => entry.type === 'createOrB
 assert.equal(rebindCall.options.createNew, false);
 assert.equal(rebindCall.options.existingChatId, null);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
-assert.equal(view.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'chatRebind' && entry.status === 'applied'), true);
+assert.equal(view.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'chatRebind'), false);
+assert.equal(view.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'chatRebind' && entry.status === 'applied'), true);
 assert.equal(host.prompt.inspect().status, 'installed');
 
 view = await app.getCurrentView({ tabId: 'campaign' });
@@ -1422,7 +1423,7 @@ const runtimeEditedResponseRecovery = view.campaignState.runtimeTracking.recover
   entry.type === 'directiveResponseEdited'
   && entry.details?.responseId === runtimeEditedResponseEntry.id
 ));
-assert.equal(runtimeEditedResponseRecovery.details.coreRecovery.status, 'recorded', 'Old response recovery journal should reference the CORE recovery write.');
+assert.equal(runtimeEditedResponseRecovery, undefined, 'CORE-recorded response edits must not write old recoveryJournal rows.');
 const coreProjectionsAfterResponseEdit = await readCoreStoreProjectionsV2(host.storage, {
   campaignId: view.campaignState.campaign.id,
   saveId: view.activeSaveId
@@ -1472,7 +1473,7 @@ const runtimeDeletedResponseRecovery = view.campaignState.runtimeTracking.recove
   entry.type === 'directiveResponseDeleted'
   && entry.details?.responseId === deletedRuntimeResponseEntry.id
 ));
-assert.equal(runtimeDeletedResponseRecovery.details.coreRecovery.status, 'recorded', 'Old deleted-response recovery journal should reference the CORE recovery write.');
+assert.equal(runtimeDeletedResponseRecovery, undefined, 'CORE-recorded response deletes must not write old recoveryJournal rows.');
 const coreProjectionsAfterResponseDelete = await readCoreStoreProjectionsV2(host.storage, {
   campaignId: view.campaignState.campaign.id,
   saveId: view.activeSaveId
@@ -1504,7 +1505,7 @@ const editedReloadedRecovery = view.campaignState.runtimeTracking.recoveryJourna
   entry.type === 'playerMessageEdited'
   && entry.ingressId === editedReloadedIngress.id
 ));
-assert.equal(editedReloadedRecovery.details.coreRecovery.status, 'recorded', 'Old recovery journal should reference the CORE recovery write.');
+assert.equal(editedReloadedRecovery, undefined, 'CORE-recorded player source edits must not write old recoveryJournal rows.');
 const coreProjectionsAfterSourceEdit = await readCoreStoreProjectionsV2(host.storage, {
   campaignId: view.campaignState.campaign.id,
   saveId: view.activeSaveId

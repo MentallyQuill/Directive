@@ -195,6 +195,24 @@ const coreTurnStore = {
   async getTransaction(transactionId) {
     return cloneJson(coreTransactions.get(transactionId) || null);
   },
+  readProjections() {
+    return {
+      recoveryJournal: coreRecoveryCalls.map(({ transactionId, recoveryBundle }) => {
+        const transaction = coreTransactions.get(transactionId) || {};
+        return {
+          id: recoveryBundle.id || transaction.recoveryCaseId || `recovery:${transactionId}`,
+          transactionId,
+          status: transaction.recoveryCaseId ? 'required' : 'resolved',
+          phase: transaction.phase || null,
+          reason: recoveryBundle.reason || null,
+          repairDecision: cloneJson(recoveryBundle.repairDecision || null),
+          dependentOutcomeId: recoveryBundle.dependentOutcomeId || null,
+          dependentResponseId: recoveryBundle.dependentResponseId || null,
+          allowedActions: cloneJson(recoveryBundle.allowedActions || [])
+        };
+      })
+    };
+  },
   async appendDiagnostics(transactionId, diagnostic = {}) {
     coreDiagnosticCalls.push({ transactionId, diagnostic: cloneJson(diagnostic) });
     return {
@@ -999,6 +1017,122 @@ assert.equal(
 );
 
 chat.pushAssistantMessage({
+  hostMessageId: 'assistant-production-default-sre-prompt-sync-fails',
+  text: 'Whitaker gives Sam a bridge-watch source that needs settlement before the prompt install fails.'
+});
+const promptSyncFailureRestoreCalls = [];
+const promptSyncFailureCoreRecoveryBefore = coreRecoveryCalls.length;
+const promptSyncFailureCommandLogBefore = campaignState.commandLog.entries.length;
+const promptSyncFailureGateway = {
+  ...stateDeltaGateway,
+  async restore(revision, options = {}) {
+    promptSyncFailureRestoreCalls.push({ revision, options: cloneJson(options) });
+    return cloneJson(getCampaignState());
+  }
+};
+const promptSyncFailureOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: () => {
+    throw new Error('Prompt-sync failure fixture must not classify after Scene Handshake prompt failure.');
+  },
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      if (roleId === 'sceneHandshakeSettler') {
+        throw new Error('prompt-sync failure default SRE path must not call legacy Scene Handshake role');
+      }
+      assert.equal(roleId, 'sourceSettlementLatestPair');
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-source-settlement-prompt-sync-failure',
+          text: JSON.stringify({
+            kind: 'directive.sceneHandshakeSettlement.v1',
+            acceptedPreviousResponse: true,
+            playerReplyRelation: 'acts-on',
+            confidence: 0.9,
+            disposition: 'autoCommit',
+            needsInternalReview: false,
+            internalReviewReasons: [],
+            deferReason: null,
+            operatorRecoveryOnly: false,
+            openAssignmentProposals: [],
+            commandLogProposals: [
+              {
+                summaryInputs: ['Prompt-sync failure settlement should enter recovery instead of old restore.'],
+                visibleConsequences: ['Sam accepted the bridge-watch settlement before prompt synchronization failed.']
+              }
+            ],
+            shipReadinessProposals: [],
+            threadSignals: []
+          })
+        },
+        diagnostics: { providerId: 'fake-source-settlement-prompt-sync-failure' }
+      };
+    }
+  },
+  stateDeltaGateway: promptSyncFailureGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  getPackageData: () => packageData,
+  syncPromptContext: async () => {
+    const error = new Error('Synthetic Scene Handshake prompt synchronization failure.');
+    error.code = 'DIRECTIVE_TEST_SCENE_HANDSHAKE_PROMPT_SYNC_FAILED';
+    throw error;
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Prompt-sync failure fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Prompt-sync failure fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const promptSyncFailureActivity = [];
+const promptSyncFailureMessage = chat.pushPlayerMessage({
+  text: '*Sam accepts Whitaker\'s bridge-watch source before the prompt install fails.*',
+  hostMessageId: 'player-production-default-sre-prompt-sync-fails'
+});
+const promptSyncFailure = await promptSyncFailureOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: promptSyncFailureMessage,
+  turnActivityReporter: (event) => promptSyncFailureActivity.push(cloneJson(event))
+});
+assert.equal(promptSyncFailure.handled, true);
+assert.equal(promptSyncFailure.recoveryRequired, true);
+assert.equal(promptSyncFailure.error.code, 'DIRECTIVE_TEST_SCENE_HANDSHAKE_PROMPT_SYNC_FAILED');
+assert.equal(promptSyncFailureRestoreCalls.length, 0, 'Scene Handshake prompt-sync failure must not use old revision restore.');
+const promptSyncFailureIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-production-default-sre-prompt-sync-fails');
+assert.equal(promptSyncFailureIngress.status, 'recoveryRequired');
+assert.equal(promptSyncFailureIngress.error.code, 'DIRECTIVE_TEST_SCENE_HANDSHAKE_PROMPT_SYNC_FAILED');
+assert.equal(promptSyncFailureIngress.coreRecovery.reason, 'chatTurnProcessingFailure');
+assert.equal(
+  coreRecoveryCalls.slice(promptSyncFailureCoreRecoveryBefore).some((entry) => (
+    entry.transactionId === promptSyncFailureIngress.coreTransactionId
+    && entry.recoveryBundle.reason === 'chatTurnProcessingFailure'
+    && entry.recoveryBundle.repairDecision?.stage === 'sceneHandshake'
+    && entry.recoveryBundle.repairDecision?.normalTurnAllowed === false
+  )),
+  true,
+  'Scene Handshake prompt-sync failure should enter CORE/REPAIR turn-processing recovery.'
+);
+assert.equal(
+  campaignState.runtimeTracking.recoveryJournal.some((entry) => (
+    entry.ingressId === promptSyncFailureIngress.id
+    && entry.type === 'chatTurnProcessingFailure'
+    && entry.details?.stage === 'sceneHandshake'
+    && entry.details?.coreRecovery?.reason === 'chatTurnProcessingFailure'
+  )),
+  false,
+  'CORE-backed Scene Handshake prompt-sync failure must not write old recoveryJournal rows.'
+);
+assert.equal(campaignState.commandLog.entries.length, promptSyncFailureCommandLogBefore + 1);
+assert.ok(promptSyncFailureActivity.some((event) => event.phase === 'recovery' && event.mode === 'review'));
+
+chat.pushAssistantMessage({
   hostMessageId: 'assistant-production-default-sre-no-apply-owner',
   text: 'Whitaker gives Sam a clean bridge-watch source that needs a latest-pair settlement.'
 });
@@ -1404,6 +1538,349 @@ assert.equal(
   false,
   'A CORE-backed response failure must not fall back to an old-ledger-only recovery.'
 );
+
+const coreBackedPostFailureBaselineState = cloneJson(campaignState);
+const coreBackedPostFailurePersistedBefore = persisted.length;
+const coreBackedPostFailureTransactions = new Map();
+const coreBackedPostFailureRecoveries = [];
+const coreBackedPostFailureDispatches = [];
+let coreBackedPostFailureDispatchMode = 'fail';
+const coreBackedPostFailureCoreStore = {
+  async beginTurn(sourceFrame, options = {}) {
+    const transaction = {
+      id: options.transactionId || `txn:${sourceFrame.id}`,
+      phase: 'observed',
+      sourceFrameId: sourceFrame.id
+    };
+    coreBackedPostFailureTransactions.set(transaction.id, cloneJson(transaction));
+    return cloneJson(transaction);
+  },
+  async advanceTurn(transactionId, phasePatch = {}) {
+    const transaction = {
+      ...(coreBackedPostFailureTransactions.get(transactionId) || { id: transactionId }),
+      phase: phasePatch.phase || 'observed',
+      route: phasePatch.route || null
+    };
+    coreBackedPostFailureTransactions.set(transactionId, cloneJson(transaction));
+    return cloneJson(transaction);
+  },
+  async markRecoveryRequired(transactionId, recoveryBundle = {}) {
+    coreBackedPostFailureRecoveries.push({ transactionId, recoveryBundle: cloneJson(recoveryBundle) });
+    const recoveryCase = {
+      id: recoveryBundle.id || `recovery:${transactionId}`,
+      phase: recoveryBundle.phaseAfter || 'recoveryRequired',
+      reason: recoveryBundle.reason || null
+    };
+    coreBackedPostFailureTransactions.set(transactionId, {
+      ...(coreBackedPostFailureTransactions.get(transactionId) || { id: transactionId }),
+      phase: recoveryCase.phase,
+      recoveryCaseId: recoveryCase.id
+    });
+    return cloneJson(recoveryCase);
+  },
+  async getTransaction(transactionId) {
+    return cloneJson(coreBackedPostFailureTransactions.get(transactionId) || null);
+  },
+  readProjections() {
+    return {
+      recoveryJournal: coreBackedPostFailureRecoveries.map(({ transactionId, recoveryBundle }) => ({
+        id: recoveryBundle.id || `recovery:${transactionId}`,
+        transactionId,
+        status: coreBackedPostFailureTransactions.get(transactionId)?.recoveryCaseId ? 'required' : 'resolved',
+        phase: coreBackedPostFailureTransactions.get(transactionId)?.phase || null,
+        reason: recoveryBundle.reason || null,
+        repairDecision: cloneJson(recoveryBundle.repairDecision || null),
+        responseRetryPlan: cloneJson(recoveryBundle.responseRetryPlan || null),
+        dependentOutcomeId: recoveryBundle.dependentOutcomeId || null,
+        dependentResponseId: recoveryBundle.dependentResponseId || null,
+        allowedActions: cloneJson(recoveryBundle.allowedActions || [])
+      }))
+    };
+  }
+};
+const coreBackedPostFailureOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'locationTransition',
+    confidence: 0.92,
+    ambiguity: 'low',
+    speechAct: 'movement',
+    action: 'walk to engineering',
+    target: 'engineering',
+    targetConfidence: 0.85,
+    domainSignals: ['location-transition'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Fixture should reach Directive response dispatch with CORE recovery.'],
+    workerPlan: {},
+    responseStrategy: 'directivePosted',
+    source: 'utility-provider'
+  }),
+  responseDispatcher: {
+    async dispatch(payload = {}) {
+      coreBackedPostFailureDispatches.push(cloneJson({
+        strategy: payload.strategy,
+        text: payload.text,
+        responseKind: payload.responseKind,
+        metadata: payload.metadata
+      }));
+      if (coreBackedPostFailureDispatchMode === 'retry') {
+        const response = {
+          id: 'response-core-backed-post-failure-retry',
+          hostMessageId: 'assistant-core-backed-post-failure-retry',
+          text: payload.text,
+          responseKind: payload.responseKind
+        };
+        return {
+          campaignState: recordDirectiveResponse(payload.campaignState, {
+            id: response.id,
+            ingressId: payload.ingressId,
+            hostMessageId: response.hostMessageId,
+            status: 'complete',
+            responseKind: payload.responseKind,
+            strategy: payload.strategy
+          }),
+          response
+        };
+      }
+      const error = new Error('RAW_HOST_RESPONSE_POST_FAILURE_TEXT_SHOULD_NOT_PERSIST');
+      error.code = 'DIRECTIVE_TEST_RESPONSE_POST_FAILED';
+      throw error;
+    }
+  },
+  stateDeltaGateway,
+  coreTurnStore: coreBackedPostFailureCoreStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('CORE-backed response post failure fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('CORE-backed response post failure fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule() {
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const coreBackedPostFailureMessage = chat.pushPlayerMessage({
+  text: 'I head to Engineering and wait for the hatch to answer.',
+  hostMessageId: 'player-core-backed-post-failure'
+});
+const coreBackedPostFailureResult = await coreBackedPostFailureOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: coreBackedPostFailureMessage
+});
+assert.equal(coreBackedPostFailureResult.recoveryRequired, true);
+const coreBackedPostFailureIngress = campaignState.runtimeTracking.ingressLedger.find(
+  (entry) => entry.hostMessageId === 'player-core-backed-post-failure'
+);
+assert.ok(coreBackedPostFailureIngress?.coreTransactionId);
+const coreBackedPostFailureRecovery = coreBackedPostFailureCoreStore.readProjections().recoveryJournal.find((entry) => (
+  entry.transactionId === coreBackedPostFailureIngress.coreTransactionId
+));
+assert.equal(coreBackedPostFailureRecovery.repairDecision.eventType, 'hostResponsePostFailure');
+assert.equal(coreBackedPostFailureRecovery.responseRetryPlan.kind, 'directive.responseRetryGenerationPlan.v1');
+assert.equal(coreBackedPostFailureRecovery.responseRetryPlan.responseKind, 'locationTransition');
+assert.equal(
+  campaignState.runtimeTracking.recoveryJournal.some((entry) => (
+    entry.type === 'hostResponsePostFailure'
+    && entry.ingressId === coreBackedPostFailureIngress.id
+  )),
+  false,
+  'CORE-backed response post failures must not write old hostResponsePostFailure rows.'
+);
+assert.equal(JSON.stringify(campaignState.runtimeTracking.recoveryJournal).includes('RAW_HOST_RESPONSE_POST_FAILURE_TEXT_SHOULD_NOT_PERSIST'), false);
+coreBackedPostFailureDispatchMode = 'retry';
+const coreBackedPostFailureRetry = await coreBackedPostFailureOrchestrator.retryCommittedResponse({
+  recoveryId: coreBackedPostFailureRecovery.id
+});
+assert.equal(coreBackedPostFailureRetry.ok, true);
+const coreBackedPostFailureRetryDispatch = coreBackedPostFailureDispatches.at(-1);
+assert.equal(coreBackedPostFailureRetryDispatch.responseKind, 'locationTransition');
+assert.match(coreBackedPostFailureRetryDispatch.text, /Engineering/i);
+assert.match(coreBackedPostFailureRetryDispatch.text, /threshold/i);
+assert.doesNotMatch(coreBackedPostFailureRetryDispatch.text, /RAW_HOST_RESPONSE_POST_FAILURE_TEXT_SHOULD_NOT_PERSIST/);
+assert.equal(coreBackedPostFailureRetry.response.text, coreBackedPostFailureRetryDispatch.text);
+setCampaignState(coreBackedPostFailureBaselineState);
+persisted.splice(coreBackedPostFailurePersistedBefore);
+
+const modelBackedRetryBaselineState = cloneJson(campaignState);
+const modelBackedRetryPersistedBefore = persisted.length;
+const modelBackedRetryIngressId = 'ingress-model-backed-response-retry';
+const modelBackedRetryRecoveryId = 'recovery-model-backed-response-retry';
+let modelBackedRetryState = recordTurnIngress(campaignState, {
+  id: modelBackedRetryIngressId,
+  hostMessageId: 'player-model-backed-response-retry',
+  chatId: 'campaign-chat',
+  campaignId: campaignState.campaign?.id,
+  textHash: fnv1a('Give the dockmaster room to answer.'),
+  textPreview: 'Give the dockmaster room to answer.',
+  sourceFrameId: 'source-model-backed-response-retry',
+  status: 'recoveryRequired',
+  responseStrategy: 'directivePosted',
+  turnId: 'turn-model-backed-response-retry',
+  outcomeId: 'outcome-model-backed-response-retry',
+  coreTransactionId: 'core-tx-model-backed-response-retry'
+});
+modelBackedRetryState.turnLedger = {
+  ...(modelBackedRetryState.turnLedger || {}),
+  entries: [
+    ...(modelBackedRetryState.turnLedger?.entries || []),
+    {
+      turnId: 'turn-model-backed-response-retry',
+      outcomeId: 'outcome-model-backed-response-retry',
+      resultBand: 'success-with-cost',
+      narrationStatus: 'pending'
+    }
+  ]
+};
+modelBackedRetryState.commandLog = {
+  ...(modelBackedRetryState.commandLog || {}),
+  entries: [
+    ...(modelBackedRetryState.commandLog?.entries || []),
+    {
+      sourceOutcomeId: 'outcome-model-backed-response-retry',
+      summaryInputs: ['The captain waited for the dockmaster instead of forcing the hatch.'],
+      visibleConsequences: ['The dockmaster acknowledged the pause and opened a calmer channel.']
+    }
+  ]
+};
+setCampaignState(modelBackedRetryState);
+const modelBackedRetryGenerations = [];
+const modelBackedRetryDispatches = [];
+const modelBackedRetryCoreStore = {
+  async getTransaction(transactionId) {
+    return transactionId === 'core-tx-model-backed-response-retry'
+      ? { id: transactionId, phase: 'recoveryRequired' }
+      : null;
+  },
+  readProjections() {
+    return {
+      recoveryJournal: [{
+        id: modelBackedRetryRecoveryId,
+        transactionId: 'core-tx-model-backed-response-retry',
+        status: 'required',
+        phase: 'recoveryRequired',
+        reason: 'hostResponsePostFailure',
+        dependentOutcomeId: 'outcome-model-backed-response-retry',
+        repairDecision: {
+          kind: 'directive.repairResponseRetryActuationDecision.v1',
+          authorized: true,
+          eventType: 'hostResponsePostFailure',
+          action: 'retryResponse',
+          transactionId: 'core-tx-model-backed-response-retry',
+          ingressId: modelBackedRetryIngressId,
+          outcomeId: 'outcome-model-backed-response-retry',
+          turnId: 'turn-model-backed-response-retry'
+        },
+        responseRetryPlan: {
+          kind: 'directive.responseRetryGenerationPlan.v1',
+          schemaVersion: 1,
+          strategy: 'directivePosted',
+          responseKind: 'committedOutcome',
+          classification: 'consequentialCommand',
+          modelBacked: {
+            role: 'narration',
+            mechanics: 'alreadyCommitted',
+            rerunMechanics: false
+          }
+        }
+      }]
+    };
+  }
+};
+const modelBackedRetryOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('Model-backed retry fixture must not classify or rerun mechanics.');
+  },
+  generationRouter: {
+    async generate(role, request) {
+      modelBackedRetryGenerations.push(cloneJson({ role, request }));
+      return {
+        ok: true,
+        response: {
+          text: 'The dockmaster answers with a careful breath, and the same committed choice settles into the room without changing course.'
+        }
+      };
+    }
+  },
+  responseDispatcher: {
+    async dispatch(payload = {}) {
+      modelBackedRetryDispatches.push(cloneJson(payload));
+      return {
+        campaignState: recordDirectiveResponse(payload.campaignState, {
+          id: 'response-model-backed-retry',
+          ingressId: payload.ingressId,
+          hostMessageId: 'assistant-model-backed-response-retry',
+          status: 'complete',
+          responseKind: payload.responseKind,
+          strategy: payload.strategy
+        }),
+        response: {
+          id: 'response-model-backed-retry',
+          hostMessageId: 'assistant-model-backed-response-retry',
+          text: payload.text,
+          responseKind: payload.responseKind
+        }
+      };
+    }
+  },
+  repairRuntime: {
+    authorizeRetry(input = {}) {
+      return {
+        authorized: true,
+        eventType: 'hostResponsePostFailure',
+        action: 'retryResponse',
+        transactionId: input.transactionId || null
+      };
+    }
+  },
+  stateDeltaGateway,
+  coreTurnStore: modelBackedRetryCoreStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Model-backed retry fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Model-backed retry fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+try {
+  const modelBackedRetry = await modelBackedRetryOrchestrator.retryCommittedResponse({
+    recoveryId: modelBackedRetryRecoveryId
+  });
+  assert.equal(modelBackedRetry.ok, true);
+  assert.equal(modelBackedRetryGenerations.length, 1);
+  assert.equal(modelBackedRetryGenerations[0].role, 'narration');
+  assert.equal(modelBackedRetryGenerations[0].request.metadata.rerunMechanics, false);
+  assert.equal(
+    modelBackedRetryGenerations[0].request.prompt.includes('RAW_HOST_RESPONSE_POST_FAILURE_TEXT_SHOULD_NOT_PERSIST'),
+    false,
+    'Model-backed retry prompt must not use the failed raw response text.'
+  );
+  assert.equal(modelBackedRetryDispatches.length, 1);
+  assert.equal(modelBackedRetryDispatches[0].responseKind, 'committedOutcome');
+  assert.match(modelBackedRetryDispatches[0].text, /dockmaster answers/i);
+  assert.equal(modelBackedRetry.response.text, modelBackedRetryDispatches[0].text);
+} finally {
+  setCampaignState(modelBackedRetryBaselineState);
+  persisted.splice(modelBackedRetryPersistedBefore);
+}
 
 const oldLedgerRetryBaselineState = cloneJson(campaignState);
 const oldLedgerRetryPersistedBefore = persisted.length;
@@ -2678,14 +3155,13 @@ const failedRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry
 assert.equal(classifierFailure.recoveryRequired, true);
 assert.equal(failedIngress.status, 'recoveryRequired');
 assert.equal(failedIngress.error.code, 'DIRECTIVE_TEST_CLASSIFIER_FAILED');
-assert.equal(failedRecovery.status, 'open');
-assert.equal(failedRecovery.details.stage, 'classification');
+assert.equal(failedRecovery, undefined, 'CORE-backed classifier failure must not write old recoveryJournal rows.');
 assert.equal(coreRecoveryCalls.length, coreRecoveryCountBeforeClassifierFailure + 1, 'CORE-backed classifier failure must record CORE recovery before old recovery projection.');
 assert.equal(coreRecoveryCalls.at(-1).transactionId, failedIngress.coreTransactionId);
-assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.id, failedRecovery.id);
+assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.id, failedIngress.recoveryId);
 assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.reason, 'chatTurnProcessingFailure');
 assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.sourceMutation.eventType, 'chatTurnProcessingFailure');
-assert.equal(failedRecovery.details.coreRecovery.transactionId, failedIngress.coreTransactionId);
+assert.equal(failedIngress.coreRecovery.transactionId, failedIngress.coreTransactionId);
 
 const coreRecoveryFailurePersistedBefore = persisted.length;
 const coreRecoveryFailureHostMessageId = 'player-classifier-core-recovery-failure';
@@ -2755,17 +3231,23 @@ assert.equal(
 );
 assert.equal(persisted.length, coreRecoveryFailurePersistedBefore + 1, 'CORE recovery failure may persist the initial ingress only, not old recovery projection.');
 
+const coreSupersedeBeforeClassifierRetry = coreSupersedeCalls.length;
 const retriedClassifierFailure = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
   message: classifierFailureMessage
 });
 const retriedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
-const resolvedFailureRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.id === failedRecovery.id);
 assert.equal(retriedClassifierFailure.handled, true);
 assert.notEqual(retriedClassifierFailure.deduplicated, true);
 assert.notEqual(retriedIngress.status, 'recoveryRequired');
-assert.equal(resolvedFailureRecovery.status, 'resolved');
-assert.equal(resolvedFailureRecovery.resolution.reason, 'latest-source-reobserved');
+assert.equal(
+  campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.ingressId === failedIngress.id && entry.type === 'chatTurnProcessingFailure'),
+  false,
+  'Classifier retry must not recreate old recoveryJournal rows.'
+);
+assert.equal(coreSupersedeCalls.length, coreSupersedeBeforeClassifierRetry + 1, 'Classifier retry should resolve CORE recovery through source restart.');
+assert.equal(coreSupersedeCalls.at(-1).priorTransactionId, failedIngress.coreTransactionId);
+assert.equal(coreSupersedeCalls.at(-1).options.priorRecoveryId, failedIngress.recoveryId);
 
 const missingCurrentIngressOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
@@ -2990,7 +3472,8 @@ assert.match(
 );
 assert.equal(
   observedState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'hostNativeContinuityContradiction'),
-  true
+  false,
+  'Host-native continuity contradiction must not write old recoveryJournal rows after response-dispatcher cutover.'
 );
 
 const introChat = createFakeChatAdapter({ chatId: 'intro-chat' });
@@ -3530,28 +4013,31 @@ assert.equal(fallbackResponseLedger.responseKind, 'committedOutcome');
 assert.equal(fallbackResponseLedger.directiveGenerationStartedAt, fallbackGenerationStartedAt);
 assert.equal(fallbackResponseLedger.generationStartedAt, fallbackGenerationStartedAt);
 assert.equal(fallbackResponseLedger.turnLatency.directiveGenerationStartedAt, Date.parse(fallbackGenerationStartedAt));
-const fallbackRecovery = campaignState.runtimeTracking.recoveryJournal.find(
+const fallbackOldRecovery = campaignState.runtimeTracking.recoveryJournal.find(
   (entry) => entry.type === 'providerFailureAfterMechanicsCommit' && entry.outcomeId === commitCalls.at(-1).outcomeId
 );
 assert.equal(
-  Boolean(fallbackRecovery),
-  true,
-  'Narration fallback should still record provider-failure recovery after mechanics commit.'
+  fallbackOldRecovery,
+  undefined,
+  'CORE-backed narration fallback must not write old provider-failure recovery rows.'
 );
-assert.equal(fallbackRecovery.details.repairDecision.eventType, 'providerFailureAfterMechanicsCommit');
-assert.equal(fallbackRecovery.details.repairDecision.retryDirectiveResponse, true);
-assert.equal(fallbackRecovery.details.coreRecovery.status, 'recorded');
-assert.equal(fallbackRecovery.details.coreRecovery.transactionId, fallbackRecovery.details.repairDecision.transactionId);
 assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.repairDecision.eventType, 'providerFailureAfterMechanicsCommit');
+const fallbackRecovery = coreTurnStore.readProjections().recoveryJournal.find((entry) => (
+  entry.id === coreRecoveryCalls.at(-1).recoveryBundle.id
+));
+assert.equal(fallbackRecovery.repairDecision.eventType, 'providerFailureAfterMechanicsCommit');
+assert.equal(fallbackRecovery.repairDecision.retryDirectiveResponse, true);
+assert.equal(fallbackRecovery.status, 'required');
+assert.equal(fallbackRecovery.transactionId, fallbackRecovery.repairDecision.transactionId);
 assert.equal(fallbackResponseLedger.coreRelease, null, 'Provider-failure fallback must not consume CORE visible response before retry.');
 assert.equal(fallbackResponseLedger.status, 'responseRetryRequired');
 const fallbackIngressBeforeRetry = campaignState.runtimeTracking.ingressLedger.find(
-  (entry) => entry.outcomeId === fallbackRecovery.outcomeId
+  (entry) => entry.outcomeId === fallbackRecovery.dependentOutcomeId
 );
 assert.equal(fallbackIngressBeforeRetry.status, 'responseRetryRequired');
 assert.equal(fallbackIngressBeforeRetry.recoveryId, fallbackRecovery.id);
 assert.equal(
-  coreVisibleResponseCalls.some((entry) => entry.transactionId === fallbackRecovery.details.coreRecovery.transactionId),
+  coreVisibleResponseCalls.some((entry) => entry.transactionId === fallbackRecovery.transactionId),
   false,
   'Provider-failure fallback must leave CORE responseRetryRequired open for the real retry.'
 );
@@ -3648,8 +4134,11 @@ assert.equal(fallbackMessageAfterRetry.hostMessageId, fallbackResponse.hostMessa
 const providerFailureRecoveryAfterRetry = campaignState.runtimeTracking.recoveryJournal.find(
   (entry) => entry.id === fallbackRecovery.id
 );
-assert.equal(providerFailureRecoveryAfterRetry.status, 'resolved');
-assert.equal(providerFailureRecoveryAfterRetry.resolution.reason, 'directive-response-retry-posted');
+assert.equal(providerFailureRecoveryAfterRetry, undefined, 'Provider-failure retry must not recreate old recovery rows.');
+const providerFailureCoreRecoveryAfterRetry = coreTurnStore.readProjections().recoveryJournal.find((entry) => (
+  entry.id === fallbackRecovery.id
+));
+assert.equal(providerFailureCoreRecoveryAfterRetry.status, 'resolved');
 const providerFailureResponseAfterRetry = campaignState.runtimeTracking.responseLedger.find(
   (entry) => entry.id === fallbackResponseLedger.id
 );
@@ -3657,14 +4146,14 @@ assert.equal(providerFailureResponseAfterRetry.responseRetry.recoveryId, fallbac
 assert.equal(providerFailureResponseAfterRetry.responseRetry.swipeIndex, 1);
 assert.equal(providerFailureResponseAfterRetry.responseRetry.hostMessageId, fallbackResponse.hostMessageId);
 const providerFailureRetryCoreCall = coreVisibleResponseCalls.find((entry) => (
-  entry.transactionId === fallbackRecovery.details.coreRecovery.transactionId
+  entry.transactionId === fallbackRecovery.transactionId
   && entry.responseRef?.repairDecision?.eventType === 'providerFailureAfterMechanicsCommit'
 ));
 assert.ok(providerFailureRetryCoreCall, 'Provider-failure retry should close CORE recovery through REPAIR retry actuation.');
 assert.equal(providerFailureRetryCoreCall.responseRef.hostMessageId, fallbackResponse.hostMessageId);
-assert.equal(providerFailureRetryCoreCall.responseRef.outcomeId, fallbackRecovery.outcomeId);
+assert.equal(providerFailureRetryCoreCall.responseRef.outcomeId, fallbackRecovery.dependentOutcomeId);
 assert.equal(
-  coreTransactions.get(fallbackRecovery.details.coreRecovery.transactionId).recoveryCaseId,
+  coreTransactions.get(fallbackRecovery.transactionId).recoveryCaseId,
   null,
   'Provider-failure retry should resolve the CORE recovery case.'
 );

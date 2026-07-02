@@ -76,7 +76,7 @@ function mutationReport({
     chatLength: operation === 'delete' ? 17 : 18,
     ingress: trackedKind === 'ingress' ? afterTracked : null,
     response: trackedKind === 'response' ? afterTracked : null,
-    recoveryCount: 2,
+    recoveryCount: 1,
     promptContextRevision: 9
   };
   return {
@@ -115,7 +115,7 @@ function mutationReport({
     after,
     deltas: {
       chatLength: after.chatLength - before.chatLength,
-      recovery: after.recoveryCount - before.recoveryCount,
+      legacyRecovery: after.recoveryCount - before.recoveryCount,
       promptContextRevision: after.promptContextRevision - before.promptContextRevision
     },
     sourceMutationProof: {
@@ -132,7 +132,7 @@ function mutationReport({
         ? { original: 'original-hash' }
         : { original: 'original-hash', replacement: 'replacement-hash' },
       trackingChanged: true,
-      recoveryDelta: 1,
+      legacyRecoveryDelta: 0,
       promptContextRevisionDelta: 1,
       beforeStatus: beforeTracked.status,
       afterStatus: afterTracked.status,

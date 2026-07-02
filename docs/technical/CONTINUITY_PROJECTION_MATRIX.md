@@ -203,7 +203,7 @@ flowchart LR
     PackageData --> DirectorPacket
     DirectorPacket --> MissionDirector["Mission or open-world Director"]
     MissionDirector --> TurnPacket["Committed turn packet\ncontinuity packet digest in provenance"]
-    TurnPacket --> TurnLedger["Turn ledger and response/recovery journals"]
+    TurnPacket --> TurnLedger["Turn ledger, response bridge rows, and CORE/REPAIR recovery projections"]
   end
 
   subgraph SidecarWork["Sidecar path"]

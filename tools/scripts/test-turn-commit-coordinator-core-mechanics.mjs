@@ -138,6 +138,11 @@ const coordinator = createTurnCommitCoordinator({
       assert.equal(bundle.outcomeId, 'outcome-core-mechanics-order');
       assert.equal(bundle.phaseAfter, 'mechanicsPending');
       assert.equal(bundle.baseMechanicsRevision, 0);
+      assert.equal(bundle.checkpointBefore.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
+      assert.equal(bundle.checkpointBefore.sourceKind, 'turnCommitCoordinator.beforeCampaignState');
+      assert.equal(bundle.checkpointBefore.campaignState.mission.activePhaseId, 'before-commit');
+      assert.equal(bundle.checkpointBefore.campaignState.worldState.currentLocationId, 'before-location');
+      assert.equal(bundle.checkpointBefore.campaignState.turnLedger.entries.length, 0);
       assert.equal(
         bundle.operations.some((operation) => operation.domain === 'mission'),
         true,
@@ -160,7 +165,12 @@ const coordinator = createTurnCommitCoordinator({
       return {
         turnId: 'core-turn-1',
         outcomeId: bundle.outcomeId,
-        operationHash: 'core-operation-hash'
+        operationHash: 'core-operation-hash',
+        coreCheckpointRef: {
+          kind: 'directive.coreMechanicsCheckpointRef.v1',
+          checkpointId: bundle.checkpointBefore.checkpointId,
+          layout: 'core'
+        }
       };
     },
     async recordOutcomeReplacement(transactionId, replacement) {
@@ -208,6 +218,7 @@ const success = await coordinator.checkpointMechanics({
 assert.deepEqual(callOrder, ['core-advance', 'core-mechanics', 'core-replacement', 'persist']);
 assert.equal(success.coreMechanics.status, 'committed');
 assert.equal(success.coreMechanics.operationHash, 'core-operation-hash');
+assert.equal(success.coreMechanics.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
 assert.equal(success.coreOutcomeReplacement.kind, 'directive.coreOutcomeReplacementRef.v1');
 assert.equal(success.coreOutcomeReplacement.replacedOutcomeId, 'outcome-old-core-mechanics-order');
 assert.equal(success.coreOutcomeReplacement.replacementOutcomeId, 'outcome-core-mechanics-order');
@@ -216,6 +227,8 @@ assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.outcomeId, 'ou
 assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.coreTransactionId, 'txn-core-mechanics-order');
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreTransactionId, 'txn-core-mechanics-order');
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreOperationHash, 'core-operation-hash');
+assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
+assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
 
 const failedPersisted = [];
 const failingCoordinator = createTurnCommitCoordinator({

@@ -1304,6 +1304,20 @@ export async function runDefineSelectionFromRuntime(payload = {}) {
   return runtimeApp.defineSelectionLookup(payload);
 }
 
+export async function runCorrectAsSwipeFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.proposeCorrectAsSwipeCandidate !== 'function') {
+    throw new Error('Correct-as-Swipe is unavailable until the Directive runtime app is initialized.');
+  }
+  return runtimeApp.proposeCorrectAsSwipeCandidate(payload);
+}
+
+export async function runCorrectAsSwipeSettleFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.settleCorrectAsSwipeCase !== 'function') {
+    throw new Error('Correct-as-Swipe case lifecycle is unavailable until the Directive runtime app is initialized.');
+  }
+  return runtimeApp.settleCorrectAsSwipeCase(payload);
+}
+
 function removeOutcomeIntegrityEditor() {
   if (!canUseDocument()) return;
   document.getElementById('directive-outcome-integrity-editor')?.remove();

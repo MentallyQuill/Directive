@@ -4,6 +4,8 @@ import {
   resetDirectiveRuntimeLayout,
   runCampaignIntroRewriteFromRuntime,
   runCommandBearingFromRuntime,
+  runCorrectAsSwipeFromRuntime,
+  runCorrectAsSwipeSettleFromRuntime,
   beginDirectiveGuidanceTutorial,
   runDefineSelectionFromRuntime,
   runDirectiveAssistFromRuntime,
@@ -21,6 +23,10 @@ import {
 import { registerRuntimeActions, runRuntimeAction } from '../runtime/runtime-actions.js';
 import { SCENE_RECONCILIATION_ACTION_IDS } from '../runtime/scene-reconciliation.mjs';
 import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../runtime/outcome-integrity.mjs';
+import {
+  CORRECT_AS_SWIPE_ACTION_ID,
+  CORRECT_AS_SWIPE_SETTLE_ACTION_ID
+} from '../runtime/correct-as-swipe.mjs';
 
 export function configureRuntimeActions() {
   registerRuntimeActions([
@@ -175,6 +181,18 @@ export function configureRuntimeActions() {
       category: 'defineSelection',
       label: 'Define Selection',
       handler: async (payload = {}) => runDefineSelectionFromRuntime(payload)
+    },
+    {
+      id: CORRECT_AS_SWIPE_ACTION_ID,
+      category: 'correctAsSwipe',
+      label: 'Correct as Swipe',
+      handler: async (payload = {}) => runCorrectAsSwipeFromRuntime(payload)
+    },
+    {
+      id: CORRECT_AS_SWIPE_SETTLE_ACTION_ID,
+      category: 'correctAsSwipe',
+      label: 'Settle Correct-as-Swipe Case',
+      handler: async (payload = {}) => runCorrectAsSwipeSettleFromRuntime(payload)
     },
     {
       id: OUTCOME_INTEGRITY_EDIT_ACTION_ID,

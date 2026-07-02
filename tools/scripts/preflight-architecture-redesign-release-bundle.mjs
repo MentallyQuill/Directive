@@ -345,6 +345,27 @@ function validateMessageMutationActuation(filePath) {
     return false;
   });
   if (shallowScenarios.length) failures.push('shallow scenario evidence');
+  const weakOwnerEvidenceScenarios = scenarios.filter((scenario) => {
+    const id = scenario?.id || scenario?.scenarioId || '';
+    const evidence = scenario?.evidence || {};
+    if (['source-edit', 'source-delete', 'assistant-edit', 'assistant-delete'].includes(id)) {
+      const proof = evidence.sourceMutationProof || {};
+      return !proof.coreRecovery?.status
+        || !(proof.coreRecovery.recoveryCaseId || proof.coreRecovery.id || proof.coreRecovery.transactionId)
+        || !proof.repairDecision?.kind
+        || !proof.repairDecision?.action
+        || !proof.repairDecision?.eventType;
+    }
+    if (id === 'selected-swipe') {
+      const proof = evidence.sourceIntegrityProof || {};
+      return !proof.kind
+        || !proof.selectedHostMessageId
+        || proof.sourceIntegrity !== 'clean'
+        || proof.hashMatched !== true;
+    }
+    return false;
+  });
+  if (weakOwnerEvidenceScenarios.length) failures.push('missing CORE/REPAIR owner evidence');
   return check(
     'message-mutation-actuation-live-proof',
     failures.length ? 'fail' : 'pass',
@@ -357,7 +378,8 @@ function validateMessageMutationActuation(filePath) {
       presentScenarios: [...scenarioIds],
       missingScenarios,
       failingScenarios: failingScenarios.map((scenario) => scenario?.id || scenario?.scenarioId || 'unknown'),
-      shallowScenarios: shallowScenarios.map((scenario) => scenario?.id || scenario?.scenarioId || 'unknown')
+      shallowScenarios: shallowScenarios.map((scenario) => scenario?.id || scenario?.scenarioId || 'unknown'),
+      weakOwnerEvidenceScenarios: weakOwnerEvidenceScenarios.map((scenario) => scenario?.id || scenario?.scenarioId || 'unknown')
     }
   );
 }

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 
 import { createMessageReconciler } from '../../src/runtime/message-reconciler.mjs';
+import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import {
   commitTrackedCampaignState,
   initializeCampaignRuntimeTracking,
   recordDirectiveResponse,
   recordTurnIngress,
+  updateDirectiveResponse,
   updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
@@ -23,13 +25,17 @@ campaignState = recordTurnIngress(campaignState, {
   id: 'ingress-uncommitted',
   hostMessageId: 'player-uncommitted',
   status: 'classified',
-  textHash: 'hash-uncommitted'
+  textHash: 'hash-uncommitted',
+  sourceFrameId: 'frame-uncommitted',
+  coreTransactionId: 'txn-uncommitted'
 });
 campaignState = recordTurnIngress(campaignState, {
   id: 'ingress-uncommitted-delete',
   hostMessageId: 'player-uncommitted-delete',
   status: 'classified',
-  textHash: 'hash-uncommitted-delete'
+  textHash: 'hash-uncommitted-delete',
+  sourceFrameId: 'frame-uncommitted-delete',
+  coreTransactionId: 'txn-uncommitted-delete'
 });
 campaignState = recordTurnIngress(campaignState, {
   id: 'ingress-committed',
@@ -85,6 +91,57 @@ campaignState = recordDirectiveResponse(campaignState, {
   status: 'posted',
   sourceFrameId: 'frame-committed',
   coreTransactionId: 'txn-committed'
+});
+campaignState = recordDirectiveResponse(campaignState, {
+  id: 'response-correct-as-swipe-accept',
+  ingressId: 'ingress-committed',
+  turnId: 'turn-committed',
+  outcomeId: 'outcome-committed',
+  hostMessageId: 'assistant-correct-as-swipe-accept',
+  strategy: 'directivePosted',
+  responseKind: 'committedOutcome',
+  status: 'posted',
+  sourceFrameId: 'frame-committed',
+  coreTransactionId: 'txn-committed'
+});
+const correctAsSwipeCandidateTextHash = hashStableJson({ text: 'RAW_CORRECT_AS_SWIPE_ACCEPTED_TEXT_MUST_NOT_PERSIST' });
+campaignState = updateDirectiveResponse(campaignState, 'response-correct-as-swipe-accept', {
+  correctAsSwipe: {
+    cases: [{
+      kind: 'directive.correctAsSwipe.case.v1',
+      id: 'correct-as-swipe-case-accept',
+      status: 'candidateAppended',
+      responseId: 'response-correct-as-swipe-accept',
+      source: {
+        hostMessageId: 'assistant-correct-as-swipe-accept',
+        selectedSwipeIndex: 0,
+        selectedTextHash: 'original-swipe-hash'
+      },
+      evidenceVerdict: {
+        verdict: 'contradicted',
+        evidenceHash: 'correct-as-swipe-evidence-hash'
+      },
+      candidate: {
+        textHash: correctAsSwipeCandidateTextHash,
+        textLength: 'RAW_CORRECT_AS_SWIPE_ACCEPTED_TEXT_MUST_NOT_PERSIST'.length
+      },
+      candidateSwipe: {
+        kind: 'directive.correctAsSwipe.candidateSwipe.v1',
+        caseId: 'correct-as-swipe-case-accept',
+        hostMessageId: 'assistant-correct-as-swipe-accept',
+        swipeIndex: 1,
+        swipeCount: 2,
+        selected: false,
+        textHash: correctAsSwipeCandidateTextHash
+      },
+      allowedActions: ['rejectCorrectionCase', 'expireCorrectionCase'],
+      acceptanceBoundary: 'selectedSwipeChanged',
+      continuityMutation: 'none-until-selected',
+      createdAt: '2026-06-22T02:59:00.000Z',
+      updatedAt: '2026-06-22T02:59:00.000Z'
+    }],
+    lastCaseId: 'correct-as-swipe-case-accept'
+  }
 });
 
 const persisted = [];
@@ -151,7 +208,11 @@ assert.equal(uncommittedEdit.action, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').status, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').replacementText, 'A revised but not yet committed message.');
 assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').editedAt, /^2026-06-22T03:00:/);
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'invalidated' && entry.outcomeId === null), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'invalidated' && entry.outcomeId === null), false, 'CORE-backed no-outcome player edits must not write old recoveryJournal rows.');
+assert.equal(coreRecoveries.at(-1).transactionId, 'txn-uncommitted');
+assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageEdited');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.action, 'invalidateProjection');
+assert.equal(JSON.stringify(coreRecoveries.at(-1).bundle).includes('A revised but not yet committed message.'), false);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2);
 
 const uncommittedDelete = await reconciler.reconcileDeleted({
@@ -161,7 +222,10 @@ assert.equal(uncommittedDelete.matched, true);
 assert.equal(uncommittedDelete.action, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted-delete').status, 'invalidated');
 assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted-delete').deletedAt, /^2026-06-22T03:00:/);
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageDeleted' && entry.status === 'invalidated' && entry.outcomeId === null), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageDeleted' && entry.status === 'invalidated' && entry.outcomeId === null), false, 'CORE-backed no-outcome player deletes must not write old recoveryJournal rows.');
+assert.equal(coreRecoveries.at(-1).transactionId, 'txn-uncommitted-delete');
+assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageDeleted');
+assert.equal(coreRecoveries.at(-1).bundle.repairDecision.action, 'invalidateProjection');
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 3);
 
 const committedEdit = await reconciler.reconcileEdited({
@@ -176,7 +240,7 @@ assert.equal(campaignState.mission.activePhaseId, 'phase-after');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').status, 'recoveryRequired');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').replacementText, 'A materially changed committed order.');
 assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').editedAt, /^2026-06-22T03:00:/);
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired'), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired'), false, 'CORE-recorded committed player edits must not write old recoveryJournal rows.');
 assert.equal(coreRecoveries.at(-1).transactionId, 'txn-committed');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageEdited');
 assert.equal(coreRecoveries.at(-1).bundle.repairDecision.kind, 'directive.repairDecision.v1');
@@ -185,12 +249,6 @@ assert.equal(coreRecoveries.at(-1).bundle.repairDecision.normalTurnAllowed, fals
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.sourceKind, 'playerIngress');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.replacementTextHash.length, 64);
 assert.equal(JSON.stringify(coreRecoveries.at(-1).bundle).includes('A materially changed committed order.'), false);
-const committedEditRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired');
-assert.equal(committedEditRecovery.details.coreRecovery.status, 'recorded');
-assert.equal(committedEditRecovery.details.coreRecovery.decision.action, 'reviewRequired');
-assert.equal(committedEditRecovery.details.coreRecovery.decision.normalTurnAllowed, false);
-assert.equal(committedEditRecovery.details.coreRecovery.sourceMutation.sourceKind, 'playerIngress');
-assert.equal(committedEditRecovery.details.coreRecovery.sourceMutation.ingressId, 'ingress-committed');
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 4);
 
 const committedResponseEdit = await reconciler.reconcileEdited({
@@ -205,7 +263,7 @@ const responseEntry = campaignState.runtimeTracking.responseLedger.find((entry) 
 assert.equal(responseEntry.status, 'recoveryRequired');
 assert.equal(responseEntry.replacementText, 'A materially changed Directive response.');
 assert.match(responseEntry.editedAt, /^2026-06-22T03:00:/);
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseEdited' && entry.status === 'reviewRequired'), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseEdited' && entry.status === 'reviewRequired'), false, 'CORE-recorded committed response edits must not write old recoveryJournal rows.');
 assert.equal(coreRecoveries.at(-1).transactionId, 'txn-committed');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseEdited');
 assert.equal(coreRecoveries.at(-1).bundle.repairDecision.kind, 'directive.repairDecision.v1');
@@ -213,11 +271,6 @@ assert.equal(coreRecoveries.at(-1).bundle.repairDecision.sourceKind, 'directiveR
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.sourceKind, 'directiveResponse');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.responseId, 'response-committed');
 assert.equal(JSON.stringify(coreRecoveries.at(-1).bundle).includes('A materially changed Directive response.'), false);
-const committedResponseEditRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'directiveResponseEdited' && entry.status === 'reviewRequired');
-assert.equal(committedResponseEditRecovery.details.coreRecovery.decision.action, 'reviewRequired');
-assert.equal(committedResponseEditRecovery.details.coreRecovery.decision.sourceKind, 'directiveResponse');
-assert.equal(committedResponseEditRecovery.details.coreRecovery.sourceMutation.sourceKind, 'directiveResponse');
-assert.equal(committedResponseEditRecovery.details.coreRecovery.sourceMutation.responseId, 'response-committed');
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 5);
 
 const committedResponseDelete = await reconciler.reconcileDeleted({
@@ -231,10 +284,48 @@ const deletedResponseEntry = campaignState.runtimeTracking.responseLedger.find((
 assert.equal(deletedResponseEntry.status, 'recoveryRequired');
 assert.match(deletedResponseEntry.deletedAt, /^2026-06-22T03:00:/);
 assert.equal(deletedResponseEntry.invalidationType, 'directiveResponseDeleted');
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseDeleted' && entry.status === 'reviewRequired'), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseDeleted' && entry.status === 'reviewRequired'), false, 'CORE-recorded committed response deletes must not write old recoveryJournal rows.');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseDeleted');
 assert.equal(coreRecoveries.at(-1).bundle.sourceMutation.replacementTextHash, null);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 6);
+
+const correctAsSwipeRecoveryCountBefore = coreRecoveries.length;
+const correctAsSwipePromptRevisionBefore = campaignState.campaignChatBinding.promptContextRevision;
+const correctAsSwipeAccept = await reconciler.reconcileSelectedSwipeChanged({
+  hostMessageId: 'assistant-correct-as-swipe-accept',
+  selectedSwipe: {
+    selectedSwipeIndex: 1,
+    swipeCount: 2,
+    selectedAssistantVariantHash: correctAsSwipeCandidateTextHash
+  },
+  message: {
+    id: 'assistant-correct-as-swipe-accept',
+    is_user: false,
+    raw: {
+      swipe_id: 1,
+      swipes: [
+        'RAW_ORIGINAL_CORRECT_AS_SWIPE_TEXT_MUST_NOT_PERSIST',
+        'RAW_CORRECT_AS_SWIPE_ACCEPTED_TEXT_MUST_NOT_PERSIST'
+      ]
+    }
+  },
+  autoRollback: false
+});
+assert.equal(correctAsSwipeAccept.matched, true);
+assert.equal(correctAsSwipeAccept.action, 'correctAsSwipeCandidateAccepted');
+assert.equal(coreRecoveries.length, correctAsSwipeRecoveryCountBefore, 'Correct-as-Swipe candidate acceptance must not enter generic REPAIR recovery.');
+assert.equal(campaignState.campaignChatBinding.promptContextRevision, correctAsSwipePromptRevisionBefore);
+const acceptedCorrectAsSwipeResponse = campaignState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-correct-as-swipe-accept');
+assert.equal(acceptedCorrectAsSwipeResponse.status, 'posted');
+assert.equal(acceptedCorrectAsSwipeResponse.invalidationType, null);
+assert.equal(acceptedCorrectAsSwipeResponse.correctAsSwipe.selectedCaseId, 'correct-as-swipe-case-accept');
+assert.equal(acceptedCorrectAsSwipeResponse.correctAsSwipe.lastAcceptedCaseId, 'correct-as-swipe-case-accept');
+assert.equal(acceptedCorrectAsSwipeResponse.correctAsSwipe.cases[0].status, 'accepted');
+assert.equal(acceptedCorrectAsSwipeResponse.correctAsSwipe.cases[0].candidateSwipe.selected, true);
+assert.equal(acceptedCorrectAsSwipeResponse.correctAsSwipe.cases[0].acceptedSelection.selectedSwipeIndex, 1);
+assert.equal(acceptedCorrectAsSwipeResponse.correctAsSwipe.cases[0].acceptedSelection.selectedTextHash, correctAsSwipeCandidateTextHash);
+assert.equal(JSON.stringify(acceptedCorrectAsSwipeResponse).includes('RAW_CORRECT_AS_SWIPE_ACCEPTED_TEXT_MUST_NOT_PERSIST'), false);
+assert.equal(JSON.stringify(campaignState.runtimeTracking.recoveryJournal).includes('RAW_CORRECT_AS_SWIPE_ACCEPTED_TEXT_MUST_NOT_PERSIST'), false);
 
 const selectedSwipeChange = await reconciler.reconcileSelectedSwipeChanged({
   hostMessageId: 'assistant-committed',
@@ -263,7 +354,7 @@ const swipedResponseEntry = campaignState.runtimeTracking.responseLedger.find((e
 assert.equal(swipedResponseEntry.status, 'recoveryRequired');
 assert.equal(swipedResponseEntry.invalidationType, 'directiveResponseSelectedSwipeChanged');
 assert.match(swipedResponseEntry.selectedSwipeChangedAt, /^2026-06-22T03:00:/);
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseSelectedSwipeChanged' && entry.status === 'reviewRequired'), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseSelectedSwipeChanged' && entry.status === 'reviewRequired'), false, 'CORE-recorded selected-swipe source mutations must not write old recoveryJournal rows.');
 assert.equal(coreRecoveries.at(-1).transactionId, 'txn-committed');
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'directiveResponseSelectedSwipeChanged');
 assert.equal(coreRecoveries.at(-1).bundle.repairDecision.kind, 'directive.repairDecision.v1');
@@ -336,46 +427,153 @@ assert.equal(summarizedOnly.action, 'sourceRowContinues');
 assert.equal(summarizedOnly.visibility.summarizedBySummaryception, true);
 assert.equal(coreDiagnostics.length, coreDiagnosticsBeforeVisibility + 1, 'Summarized-only rows should not append visibility diagnostics.');
 
+const historyOnlyRollbackBefore = cloneJson(campaignState);
+const coreRollbacksBeforeHistoryOnlyRollback = coreRollbacks.length;
+const promptSyncsBeforeHistoryOnlyRollback = promptSyncs.length;
+const persistedBeforeHistoryOnlyRollback = persisted.length;
 const rolledBack = await reconciler.reconcileDeleted({
   hostMessageId: 'player-committed',
   autoRollback: true
 });
 assert.equal(rolledBack.matched, true);
-assert.equal(rolledBack.action, 'rolledBack');
+assert.equal(rolledBack.action, 'rollbackBlocked');
 assert.equal(rolledBack.preOutcomeRevision, beforeOutcomeRevision);
-assert.equal(campaignState.runtimeTracking.revision, beforeOutcomeRevision);
-assert.equal(campaignState.mission.activePhaseId, 'phase-before');
-assert.equal(campaignState.mission.knownFacts.some((entry) => entry.id === 'fact-after'), false);
-assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'log-after'), false);
-assert.equal(campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'ingress-committed'), true, 'Ingress ledger must survive snapshot restore.');
-assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), true);
-const rollbackRecoveryEntry = campaignState.runtimeTracking.recoveryJournal.find((entry) => (
-  entry.type === 'playerMessageDeleted'
-  && entry.hostMessageId === 'player-committed'
-));
-assert.equal(rollbackRecoveryEntry.details.rollbackActuation.kind, 'directive.repairRollbackActuationDecision.v1');
-assert.equal(rollbackRecoveryEntry.details.rollbackActuation.authorized, true);
-assert.equal(rollbackRecoveryEntry.details.rollbackActuation.action, 'restorePreOutcomeRevision');
-assert.equal(rollbackRecoveryEntry.details.rollbackActuation.restoreRevision, beforeOutcomeRevision);
-assert.equal(coreRollbacks.length, 1, 'Rollback execution must be recorded in CORE before the old snapshot projection is restored.');
-assert.equal(coreRollbacks.at(-1).transactionId, 'txn-committed');
-assert.equal(coreRollbacks.at(-1).rollback.kind, 'directive.repairRollbackActuationRecord.v1');
-assert.equal(coreRollbacks.at(-1).rollback.rollbackActuation.kind, 'directive.repairRollbackActuationDecision.v1');
-assert.equal(coreRollbacks.at(-1).rollback.rollbackActuation.restoreRevision, beforeOutcomeRevision);
-assert.equal(coreRollbacks.at(-1).rollback.sourceMutation.eventType, 'playerMessageDeleted');
-assert.equal(
-  recoveryTrace.indexOf('rollback-recorded') > -1
-    && recoveryTrace.indexOf('rollback-recorded') < recoveryTrace.indexOf('set-restored-state'),
-  true,
-  'CORE rollback actuation must be recorded before the restored compatibility state is assigned.'
-);
-assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2, 'Restored binding revision must be incremented once after prompt rebuild.');
+assert.deepEqual(campaignState, historyOnlyRollbackBefore, 'History-only rollback must not mutate old recovery ledgers or restore old snapshots.');
+assert.equal(campaignState.runtimeTracking.revision, historyOnlyRollbackBefore.runtimeTracking.revision);
+assert.equal(campaignState.mission.activePhaseId, 'phase-after');
+assert.equal(campaignState.mission.knownFacts.some((entry) => entry.id === 'fact-after'), true);
+assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'log-after'), true);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), false);
+assert.equal(coreRollbacks.length, coreRollbacksBeforeHistoryOnlyRollback, 'History-only rollback must not record CORE rollback actuation.');
+assert.equal(recoveryTrace.includes('rollback-recorded'), false);
+assert.equal(recoveryTrace.includes('set-restored-state'), false);
 assert.equal(coreRecoveries.at(-1).bundle.reason, 'playerMessageDeleted');
 assert.deepEqual(coreRecoveries.at(-1).bundle.allowedActions, ['rollbackToPreOutcomeRevision', 'reviewSourceMutation']);
 assert.equal(JSON.stringify(coreRecoveries).includes('A materially changed'), false, 'CORE recovery bundles must not store raw replacement text.');
-assert.equal(coreRecoveries.length, 5);
-assert.equal(promptSyncs.length, 7);
-assert.equal(persisted.length, 14, 'Each recovery and its prompt revision must be persisted.');
+assert.equal(coreRecoveries.length, 7);
+assert.equal(promptSyncs.length, promptSyncsBeforeHistoryOnlyRollback, 'Prompt sync must not run when history-only rollback is blocked.');
+assert.equal(persisted.length, persistedBeforeHistoryOnlyRollback, 'Persist must not run when history-only rollback is blocked.');
+
+let checkpointRollbackState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-checkpoint-rollback', status: 'active' },
+  campaignChatBinding: { campaignId: 'campaign-checkpoint-rollback', saveId: 'save-checkpoint-rollback', chatId: 'campaign-chat', promptContextRevision: 1 },
+  mission: { activePhaseId: 'phase-before-checkpoint', knownFacts: [] },
+  commandLog: { entries: [] }
+});
+checkpointRollbackState = recordTurnIngress(checkpointRollbackState, {
+  id: 'ingress-checkpoint-rollback',
+  hostMessageId: 'player-checkpoint-rollback',
+  status: 'classified',
+  textHash: 'hash-checkpoint-rollback',
+  sourceFrameId: 'frame-checkpoint-rollback',
+  coreTransactionId: 'txn-checkpoint-rollback'
+});
+const checkpointRollbackRevision = checkpointRollbackState.runtimeTracking.revision;
+const checkpointRollbackSnapshot = cloneJson(checkpointRollbackState);
+const checkpointRollbackCandidate = cloneJson(checkpointRollbackState);
+checkpointRollbackCandidate.mission.activePhaseId = 'phase-after-checkpoint';
+checkpointRollbackCandidate.mission.knownFacts.push({ id: 'fact-after-checkpoint', summary: 'A checkpoint-backed fact.' });
+checkpointRollbackCandidate.commandLog.entries.push({ id: 'log-after-checkpoint', outcomeId: 'outcome-checkpoint-rollback' });
+checkpointRollbackState = commitTrackedCampaignState({
+  campaignState: checkpointRollbackState,
+  nextCampaignState: checkpointRollbackCandidate,
+  delta: {
+    source: 'missionDirector',
+    reason: 'Committed checkpoint rollback test outcome.',
+    domains: ['mission', 'commandLog'],
+    ingressId: 'ingress-checkpoint-rollback',
+    outcomeId: 'outcome-checkpoint-rollback',
+    stable: true
+  },
+  now
+});
+checkpointRollbackState = updateTurnIngress(checkpointRollbackState, 'ingress-checkpoint-rollback', {
+  status: 'committed',
+  outcomeId: 'outcome-checkpoint-rollback'
+});
+checkpointRollbackState.turnLedger = {
+  entries: [{
+    ingressId: 'ingress-checkpoint-rollback',
+    outcomeId: 'outcome-checkpoint-rollback',
+    turnId: 'turn-checkpoint-rollback',
+    coreTransactionId: 'txn-checkpoint-rollback',
+    snapshotBeforeRetained: true,
+    coreCheckpointRef: {
+      kind: 'directive.coreMechanicsCheckpointRef.v1',
+      campaignId: 'campaign-checkpoint-rollback',
+      saveId: 'save-checkpoint-rollback',
+      checkpointId: 'checkpoint-checkpoint-rollback',
+      layout: 'core'
+    }
+  }]
+};
+const checkpointRollbackPersisted = [];
+const checkpointRollbackPromptSyncs = [];
+const checkpointRollbackRollbacks = [];
+const checkpointRollbackTrace = [];
+const checkpointRollbackReconciler = createMessageReconciler({
+  getCampaignState: () => checkpointRollbackState,
+  setCampaignState: (next) => {
+    if (next?.mission?.activePhaseId === 'phase-before-checkpoint') checkpointRollbackTrace.push('set-restored-state');
+    checkpointRollbackState = cloneJson(next);
+  },
+  coreTurnStore: {
+    async markRecoveryRequired(transactionId, recoveryBundle = {}) {
+      return {
+        id: recoveryBundle.id || `recovery:${transactionId}`,
+        status: 'required',
+        phase: 'recoveryRequired',
+        reason: recoveryBundle.reason || null
+      };
+    },
+    async recordRollbackActuation(transactionId, rollback = {}) {
+      checkpointRollbackTrace.push('rollback-recorded');
+      checkpointRollbackRollbacks.push({ transactionId, rollback: cloneJson(rollback) });
+      return {
+        id: rollback.id || `rollback:${transactionId}:${checkpointRollbackRollbacks.length}`,
+        status: 'recorded',
+        rollback
+      };
+    }
+  },
+  loadCoreCheckpointState: async ({ coreCheckpointRef, ingress, outcomeId }) => {
+    checkpointRollbackTrace.push('checkpoint-loaded');
+    assert.equal(coreCheckpointRef.checkpointId, 'checkpoint-checkpoint-rollback');
+    assert.equal(ingress.id, 'ingress-checkpoint-rollback');
+    assert.equal(outcomeId, 'outcome-checkpoint-rollback');
+    return cloneJson(checkpointRollbackSnapshot);
+  },
+  persist: async (state, summary) => checkpointRollbackPersisted.push({ summary, state: cloneJson(state) }),
+  syncPrompt: async (state) => {
+    const next = cloneJson(state);
+    next.campaignChatBinding.promptContextRevision += 1;
+    checkpointRollbackPromptSyncs.push(next.campaignChatBinding.promptContextRevision);
+    return next;
+  },
+  now
+});
+const checkpointRollbackDelete = await checkpointRollbackReconciler.reconcileDeleted({
+  hostMessageId: 'player-checkpoint-rollback',
+  autoRollback: true
+});
+assert.equal(checkpointRollbackDelete.matched, true);
+assert.equal(checkpointRollbackDelete.action, 'rolledBack');
+assert.equal(checkpointRollbackDelete.preOutcomeRevision, checkpointRollbackRevision);
+assert.equal(checkpointRollbackState.runtimeTracking.revision, checkpointRollbackRevision);
+assert.equal(checkpointRollbackState.mission.activePhaseId, 'phase-before-checkpoint');
+assert.equal(checkpointRollbackState.mission.knownFacts.some((entry) => entry.id === 'fact-after-checkpoint'), false);
+assert.equal(checkpointRollbackState.commandLog.entries.some((entry) => entry.id === 'log-after-checkpoint'), false);
+assert.equal(checkpointRollbackState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-checkpoint-rollback').status, 'recoveryRequired');
+assert.equal(checkpointRollbackState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-checkpoint-rollback').deletedAt !== null, true);
+assert.equal(checkpointRollbackState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), false);
+assert.equal(checkpointRollbackRollbacks.length, 1);
+assert.equal(checkpointRollbackRollbacks.at(-1).transactionId, 'txn-checkpoint-rollback');
+assert.equal(checkpointRollbackRollbacks.at(-1).rollback.rollbackActuation.restoreRevision, checkpointRollbackRevision);
+assert.equal(checkpointRollbackTrace.indexOf('checkpoint-loaded') > -1, true);
+assert.equal(checkpointRollbackTrace.indexOf('checkpoint-loaded') < checkpointRollbackTrace.indexOf('rollback-recorded'), true);
+assert.equal(checkpointRollbackTrace.indexOf('rollback-recorded') < checkpointRollbackTrace.indexOf('set-restored-state'), true);
+assert.equal(checkpointRollbackPromptSyncs.length, 1);
+assert.equal(checkpointRollbackPersisted.length, 2);
 
 let failureState = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-core-failure', status: 'active' },
@@ -587,10 +785,11 @@ assert.equal(
   'Old ingress projection status must come from REPAIR legacyProjection, not committed-outcome inference.'
 );
 assert.equal(
-  decisionState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'playerMessageEdited').status,
-  'invalidated',
-  'Old ingress recovery status must come from REPAIR legacyProjection.'
+  decisionState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited'),
+  false,
+  'CORE-recorded player recovery decisions must not write old recoveryJournal rows.'
 );
+assert.equal(decisionRepairCalls.at(-1).ingress.id, 'ingress-decision-player');
 const decisionResponseEdit = await decisionReconciler.reconcileEdited({
   hostMessageId: 'assistant-decision-projection',
   replacementText: 'REPAIR decision should override committed response projection status.'
@@ -602,11 +801,12 @@ assert.equal(
   'Old response projection status must come from REPAIR legacyProjection, not committed-outcome inference.'
 );
 assert.equal(
-  decisionState.runtimeTracking.recoveryJournal.find((entry) => entry.type === 'directiveResponseEdited').status,
-  'invalidated',
-  'Old response recovery status must come from REPAIR legacyProjection.'
+  decisionState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseEdited'),
+  false,
+  'CORE-recorded response recovery decisions must not write old recoveryJournal rows.'
 );
 assert.equal(decisionRepairCalls.length, 2);
+assert.equal(decisionRepairCalls.at(-1).response.id, 'response-decision-projection');
 
 const missing = await reconciler.reconcileDeleted({ hostMessageId: 'missing-message' });
 assert.equal(missing.matched, false);
@@ -756,6 +956,15 @@ assert.equal(
   'active'
 );
 assert.equal(JSON.stringify(untrackedDependentState).includes('RAW_SHOULD_NOT_PERSIST'), false);
+assert.equal(
+  untrackedDependentState.runtimeTracking.recoveryJournal.some((entry) => (
+    entry.type === 'sceneHandshakeSourceInvalidated'
+    || entry.type === 'missionComponentSourceEdited'
+    || entry.type === 'missionComponentSourceDeleted'
+  )),
+  false,
+  'REPAIR dependent invalidation projections must not mirror untracked host-row recoveries into old recoveryJournal rows.'
+);
 
 let deletedComponentState = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-deleted-component-monotonic', status: 'active' },
@@ -936,7 +1145,11 @@ assert.equal(handshakeState.ship.technicalDebt[0].sourceStale, true);
 assert.equal(handshakeState.threadLedger.records[0].sourceStale, true);
 assert.equal(handshakeState.threadLedger.records[0].metadata.stale, true);
 assert.equal(handshakeState.threadLedger.records[0].metadata.staleReason, 'scene-handshake-source-invalidated');
-assert.equal(handshakeState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'sceneHandshakeSourceInvalidated'), true);
+assert.equal(
+  handshakeState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'sceneHandshakeSourceInvalidated'),
+  false,
+  'REPAIR-owned Scene Handshake dependent invalidation must not write old recoveryJournal rows.'
+);
 assert.equal(handshakeState.campaignChatBinding.promptContextRevision, 2);
 
 let playerHandshakeState = initializeCampaignRuntimeTracking({
@@ -974,11 +1187,14 @@ playerHandshakeState = recordTurnIngress(playerHandshakeState, {
   id: 'ingress-handshake-player',
   hostMessageId: 'player-accepts-orders-2',
   status: 'classified',
-  textHash: 'accepts-orders-2'
+  textHash: 'accepts-orders-2',
+  sourceFrameId: 'frame-handshake-player',
+  coreTransactionId: 'txn-handshake-player'
 });
 const playerHandshakeReconciler = createMessageReconciler({
   getCampaignState: () => playerHandshakeState,
   setCampaignState: (next) => { playerHandshakeState = cloneJson(next); },
+  coreTurnStore,
   persist: async () => {},
   syncPrompt: async (state) => {
     const next = cloneJson(state);
@@ -1057,7 +1273,11 @@ assert.equal(componentSourceEdit.matched, true);
 assert.equal(componentSourceEdit.action, 'missionComponentSourceInvalidated');
 assert.equal(componentSourceEdit.missionComponents.markedCount, 1);
 assert.equal(componentState.knowledgeLedger.components.records[0].source.sourceStatus, 'stale');
-assert.equal(componentState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'missionComponentSourceEdited'), true);
+assert.equal(
+  componentState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'missionComponentSourceEdited'),
+  false,
+  'REPAIR-owned Mission Component edit invalidation must not write old recoveryJournal rows.'
+);
 assert.equal(componentState.campaignChatBinding.promptContextRevision, 2);
 
 const componentSourceDelete = await componentReconciler.reconcileDeleted({
@@ -1067,8 +1287,58 @@ assert.equal(componentSourceDelete.matched, true);
 assert.equal(componentSourceDelete.action, 'missionComponentSourceInvalidated');
 assert.equal(componentSourceDelete.missionComponents.markedCount, 1);
 assert.equal(componentState.knowledgeLedger.components.records[0].source.sourceStatus, 'deleted');
-assert.equal(componentState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'missionComponentSourceDeleted'), true);
+assert.equal(
+  componentState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'missionComponentSourceDeleted'),
+  false,
+  'REPAIR-owned Mission Component delete invalidation must not write old recoveryJournal rows.'
+);
 assert.equal(componentState.campaignChatBinding.promptContextRevision, 3);
 assert.equal(componentPersisted.length, 4);
+
+let noCoreFallbackState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-no-core-fallback', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 }
+});
+noCoreFallbackState = recordTurnIngress(noCoreFallbackState, {
+  id: 'ingress-no-core-fallback',
+  hostMessageId: 'player-no-core-fallback',
+  status: 'committed',
+  textHash: 'hash-no-core-fallback',
+  outcomeId: 'outcome-no-core-fallback'
+});
+const noCoreFallbackRawText = 'RAW_NO_CORE_REPLACEMENT_TEXT_MUST_NOT_PERSIST';
+const noCoreFallbackBefore = cloneJson(noCoreFallbackState);
+const noCoreFallbackPersisted = [];
+const noCoreFallbackPromptSyncs = [];
+const noCoreFallbackReconciler = createMessageReconciler({
+  getCampaignState: () => noCoreFallbackState,
+  setCampaignState: (next) => { noCoreFallbackState = cloneJson(next); },
+  persist: async (state, summary) => noCoreFallbackPersisted.push({ state: cloneJson(state), summary }),
+  syncPrompt: async (state) => {
+    noCoreFallbackPromptSyncs.push(cloneJson(state));
+    return state;
+  },
+  now
+});
+const noCoreFallbackEdit = await noCoreFallbackReconciler.reconcileEdited({
+  hostMessageId: 'player-no-core-fallback',
+  replacementText: noCoreFallbackRawText
+});
+assert.equal(noCoreFallbackEdit.matched, true);
+assert.equal(noCoreFallbackEdit.ok, false);
+assert.equal(noCoreFallbackEdit.action, 'coreRecoveryRequired');
+assert.equal(noCoreFallbackEdit.reason, 'source-mutation-core-recovery-required');
+assert.deepEqual(noCoreFallbackState, noCoreFallbackBefore, 'No-CORE source mutation must fail closed before old ingress/recovery mutation.');
+assert.equal(noCoreFallbackPersisted.length, 0, 'No-CORE source mutation must not persist a fallback recovery row.');
+assert.equal(noCoreFallbackPromptSyncs.length, 0, 'No-CORE source mutation must not prompt-sync after blocked recovery.');
+assert.equal(
+  noCoreFallbackState.runtimeTracking.recoveryJournal.some((entry) => (
+    entry.type === 'playerMessageEdited'
+    && entry.ingressId === 'ingress-no-core-fallback'
+  )),
+  false,
+  'No-CORE source mutation must not write old recoveryJournal rows.'
+);
+assert.equal(JSON.stringify(noCoreFallbackState).includes(noCoreFallbackRawText), false);
 
 console.log('Message recovery tests passed: invalidation, selected-swipe source mutation, tracked rollback, Scene Handshake and Mission Component source invalidation, ledger preservation, and prompt revision persistence');

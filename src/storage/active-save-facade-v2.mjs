@@ -162,7 +162,6 @@ function compactOutcomeRerunRepairDecision(value = {}) {
     mechanicsRerunAuthorized: value.mechanicsRerunAuthorized === true,
     replacementTransactionRequired: value.replacementTransactionRequired === true,
     coreTransactionRequired: value.coreTransactionRequired === true,
-    legacyNoCoreRerunAllowed: value.legacyNoCoreRerunAllowed === true,
     normalTurnAllowed: value.normalTurnAllowed === true,
     observedAt: value.observedAt || null
   });
@@ -679,11 +678,7 @@ function projectedResponseRows(campaignState = {}) {
 
 function projectedRecoveryRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'recoveryJournal');
-  const runtimeTracking = campaignState.runtimeTracking || {};
-  const legacyRows = Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal : [];
-  return corePreferredRows(coreRows, legacyRows, ['id', 'transactionId', 'coreTransactionId'], {
-    authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState)
-  });
+  return Array.isArray(coreRows) ? coreRows : [];
 }
 
 function projectedTurnLedger(campaignState = {}) {

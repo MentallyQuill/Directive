@@ -46,6 +46,19 @@ const PROMPT_BUDGET_TRACE_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
 const AUXILIARY_SCALE_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
 const SEGMENT_HEADROOM_BYTES = 8 * 1024;
 
+const scaleTimings = [];
+let lastScaleTiming = Date.now();
+
+function markScaleTiming(label) {
+  const now = Date.now();
+  scaleTimings.push({ label, ms: now - lastScaleTiming });
+  lastScaleTiming = now;
+}
+
+function scaleTimingMs(label) {
+  return scaleTimings.find((entry) => entry.label === label)?.ms ?? 0;
+}
+
 function repeated(label, index, targetLength) {
   const seed = `${label}-${String(index).padStart(4, '0')} `;
   return seed.repeat(Math.ceil(targetLength / seed.length)).slice(0, targetLength);
@@ -848,20 +861,26 @@ function createHotTurnReadBudget({
 }
 
 const messages = createSyntheticMessages(MESSAGE_COUNT);
+markScaleTiming('messages');
 const externalEnvironment = createExternalEnvironment();
 const externalRef = createExternalPromptEnvironmentRef(externalEnvironment);
+markScaleTiming('external-environment');
 const auxiliaryScaleArtifacts = createAuxiliaryScaleArtifacts({ messages, externalRef });
+markScaleTiming('auxiliary-artifacts');
 const materializedHead = createMaterializedHead({ externalRef });
 const hostMap = createHostMap(messages, externalRef);
+markScaleTiming('head-host-map');
 const eventSegments = rollSegments('directive.eventSegment.v2', createTurnEvents(messages), EVENT_SEGMENT_MAX_BYTES);
 const diagnosticsSegments = rollSegments(
   'directive.diagnosticsSegment.v2',
   createDiagnostics(messages, externalEnvironment, externalRef),
   DIAGNOSTICS_SEGMENT_MAX_BYTES
 );
+markScaleTiming('event-diagnostics-segments');
 materializedHead.counts.eventSegments = eventSegments.length;
 materializedHead.counts.diagnosticsSegments = diagnosticsSegments.length;
 const promptCache = createPromptCache({ materializedHead });
+markScaleTiming('prompt-cache');
 
 const v2Counters = createStorageWriteCounters();
 const fakeStorage = createLoggingJsonStorage(createFakeJsonStorage());
@@ -898,6 +917,7 @@ const substrateCommit = await commitV2SaveLayout(storageAdapter, {
     sourceHash: makeHash('scale-checkpoint', MESSAGE_COUNT)
   }]
 });
+markScaleTiming('commit-v2-save-layout');
 const substrateHead = await readV2ArtifactRef(storageAdapter, substrateCommit.refs.head);
 const substrateHostMap = await readV2ArtifactRef(storageAdapter, substrateCommit.refs.hostMap);
 const substratePromptCache = await readV2ArtifactRef(storageAdapter, substrateCommit.refs.promptCache);
@@ -922,6 +942,7 @@ const auxiliaryRefs = {
   correctionCases: await writeAuxiliaryScaleSegments(storageAdapter, 'correction-cases', auxiliaryScaleArtifacts.segments.correctionCases),
   packageRetrievalMetadata: await writeAuxiliaryScaleSegments(storageAdapter, 'package-retrieval', auxiliaryScaleArtifacts.segments.packageRetrievalMetadata)
 };
+markScaleTiming('write-auxiliary-segments');
 const allSegmentRefs = segmentRefs([
   substrateCommit.refs.eventSegments,
   substrateCommit.refs.turnSegments,
@@ -1005,6 +1026,7 @@ const hotTurnCommit = await commitV2EventTurnSegments(storageAdapter, {
     messageCount: MESSAGE_COUNT + 2
   }
 });
+markScaleTiming('hot-turn-append');
 const hotTurnReadKeys = fakeStorage.readLog.slice(hotReadStart);
 const compactHotTurnWriteKeys = fakeStorage.writeLog.slice(hotWriteStart);
 const hotTurnVerifyKeys = fakeStorage.verifyLog.slice(hotVerifyStart);
@@ -1022,6 +1044,7 @@ const loadedAfterHotAppend = await loadCampaignSaveFromStorage(storageAdapter, '
 const recoveredAfterHotAppend = await recoverActiveCampaignSave(storageAdapter, {
   now: '2026-06-28T12:00:47.000Z'
 });
+markScaleTiming('hot-turn-reload');
 const reloadReadKeys = fakeStorage.readLog.slice(reloadReadStart);
 const reloadVerifyKeys = fakeStorage.verifyLog.slice(reloadVerifyStart);
 const hotOpenEventTailRef = hotTurnCommit.refs.eventSegments.at(-1);
@@ -1131,6 +1154,7 @@ assert.equal(v2Report.turnWriteBudget.sealedSegmentRewriteCount, 0, 'hot turn mu
 assert.equal(v2Report.turnWriteBudget.openTailOverwriteCount, 0, 'hot turn must not overwrite open-tail keys still named by the previous manifest');
 assert.equal(v2Report.turnReadBudget.sealedSegmentReadCount, 0, 'hot turn must not read sealed history');
 assert.equal(v2Report.turnReadBudget.sealedSegmentVerifyCount, 0, 'hot turn must not verify sealed history through storage');
+assert.equal(scaleTimingMs('commit-v2-save-layout') < 60000, true, '5000-message v2 layout commit must stay below the submit-to-generation budget');
 assert.equal(compactHotTurnWriteKeys.includes(hotOpenEventTailRef.logicalKey), true, 'hot turn should write the manifest-selected event tail/new event segment');
 assert.equal(compactHotTurnWriteKeys.includes(hotOpenTurnTailRef.logicalKey), true, 'hot turn should write the manifest-selected turn tail/new turn segment');
 assert.equal(compactHotTurnWriteKeys.includes(oldOpenEventTailRef.logicalKey), false, 'hot turn must not overwrite the prior event tail key');
@@ -1284,6 +1308,7 @@ const sealedVerifyReport = {
 assert.equal(evaluateThresholds(sealedVerifyReport).includes('sealed-segment-verify'), true, 'scale gate must fail hot turns that verify sealed segment history through storage');
 
 const serializedV2 = JSON.stringify(fakeStorage.snapshot());
+markScaleTiming('serialize-v2-snapshot');
 assert.equal(serializedV2.includes('SECRET-QDRANT-KEY'), false);
 assert.equal(serializedV2.includes('Raw vector payload'), false);
 assert.equal(serializedV2.includes('Raw rolling summary'), false);
@@ -1299,8 +1324,10 @@ assert.equal(serializedV2.includes('RAW_SCALE_EXTERNAL_PROMPT'), false);
 assert.equal(serializedV2.includes('SECRET-SCALE-EXTERNAL'), false);
 assert.equal(serializedV2.includes(messages[0].text), false, 'v2 layout must not retain raw transcript text');
 assert.equal(serializedV2.includes('"rootsSet"'), false, 'v2 layout must not retain broad open-world rootsSet replacements');
+markScaleTiming('redaction-canaries');
 
 const legacyLargeSave = createLegacyLargeSave(messages);
+markScaleTiming('legacy-fixture');
 const legacyCounters = createStorageWriteCounters();
 recordStorageWrite(legacyCounters, {
   logicalKey: 'saves/save-ashes-scale-legacy.v1.json',
@@ -1320,6 +1347,7 @@ const legacyReport = {
   latency
 };
 const legacyViolations = evaluateThresholds(legacyReport);
+markScaleTiming('legacy-report');
 assert.equal(legacyLargeSave.payload.campaignState.runtimeTracking.history.length, MESSAGE_COUNT / 2);
 assert.equal(legacyLargeSave.payload.campaignState.turnLedger.entries.length, MESSAGE_COUNT / 2);
 assert.equal(JSON.stringify(legacyLargeSave).includes('"rootsSet"'), true, 'legacy fixture should keep proving broad rootsSet pressure');
@@ -1346,5 +1374,6 @@ console.log('Storage scale 5000 tests passed:', JSON.stringify({
   sealedSegmentReads: v2Report.turnReadBudget.sealedSegmentReadCount,
   sealedSegmentRewrites: v2Report.turnWriteBudget.sealedSegmentRewriteCount,
   openTailOverwrites: v2Report.turnWriteBudget.openTailOverwriteCount,
-  legacyFullSaveBytes: legacyReport.sizes.materializedHeadBytes
+  legacyFullSaveBytes: legacyReport.sizes.materializedHeadBytes,
+  timings: scaleTimings
 }));

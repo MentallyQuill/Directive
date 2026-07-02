@@ -153,6 +153,10 @@ async function runtimeSnapshot(page) {
     const context = globalThis.SillyTavern?.getContext?.() || {};
     const tracking = view?.campaignState?.runtimeTracking || {};
     const reconciliation = tracking.sceneReconciliation || {};
+    const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
+      || view?.directiveRuntimeEvidence?.coreStoreReadProjections
+      || {};
+    const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
     const chat = Array.isArray(context.chat) ? context.chat : [];
     return {
       currentChatId: host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null,
@@ -162,6 +166,10 @@ async function runtimeSnapshot(page) {
       turnLedgerCount: count(view?.campaignState?.turnLedger?.entries || view?.campaignState?.turnLedger),
       commandLogCount: count(view?.campaignState?.commandLog?.entries || view?.campaignState?.commandLog),
       recoveryCount: count(tracking.recoveryJournal),
+      legacyRecoveryCount: count(tracking.recoveryJournal),
+      coreRecoveryCount: count(coreRecoveryJournal),
+      latestCoreRecovery: clone(coreRecoveryJournal.at(-1) || null),
+      recentCoreRecoveryJournal: clone(coreRecoveryJournal.slice(-5)),
       pendingInteractionCount: count(view?.chatNative?.pendingInteractions?.filter?.((entry) => entry?.status !== 'resolved') || []),
       modelCallCount: count(view?.chatNative?.modelCalls || tracking.modelCallJournal),
       sceneReconciliation: {
@@ -364,7 +372,8 @@ async function liveReport(paths = null) {
         pending: after.sceneReconciliation.pendingCount - before.sceneReconciliation.pendingCount,
         rejected: after.sceneReconciliation.rejectedCount - before.sceneReconciliation.rejectedCount,
         modelCalls: after.modelCallCount - before.modelCallCount,
-        recovery: after.recoveryCount - before.recoveryCount
+        legacyRecovery: after.legacyRecoveryCount - before.legacyRecoveryCount,
+        coreRecovery: after.coreRecoveryCount - before.coreRecoveryCount
       }
     };
   } catch (error) {

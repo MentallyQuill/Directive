@@ -1,5 +1,4 @@
 import {
-  deleteCommittedOutcome as restoreBeforeCommittedOutcome,
   pruneTurnSaveHistory,
   recordNarrationFailure,
   recordNarrationSuccess
@@ -74,6 +73,7 @@ import {
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
+import { createSourceReviewWorker } from './source-review-worker.mjs';
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 import {
   createLensPromptScheduler,
@@ -85,12 +85,13 @@ import {
   lensPromptPacketProjectionSummary
 } from './lens-prompt-packet-builder.mjs';
 import { createCoreTurnRuntime } from './core-turn-runtime.mjs';
+import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
+  recordLifecycleEvent,
   recordTurnIngress,
-  recordRecoveryEvent,
   updateDirectiveResponse
 } from './state-delta-gateway.mjs';
 import { createTurnSourceFrame } from './frame-contracts.mjs';
@@ -107,9 +108,15 @@ import {
 } from './model-call-journal.mjs';
 import { createActiveSaveGuard } from './active-save-guard.mjs';
 import {
+  copyCoreStoreStateV2ForSaveBranch,
   createCoreStoreV2,
   loadCoreStoreStateV2
 } from '../storage/core-store-v2.mjs';
+import {
+  commitV2SaveLayout,
+  loadV2Checkpoint,
+  writeV2Checkpoint
+} from '../storage/transaction-store-v2.mjs';
 import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import {
   runtimePackageIdForState,
@@ -127,6 +134,7 @@ import {
   applyOutcomeIntegritySettings,
   buildOutcomeIntegrityEditContext,
   createOutcomeIntegrityRevisionRecord,
+  findOutcomeIntegrityResponse,
   normalizeOutcomeIntegrityMode,
   normalizeOutcomeIntegrityReviewProviderKind,
   normalizeOutcomeIntegritySettings,
@@ -135,6 +143,10 @@ import {
   reviewOutcomeIntegrityEdit,
   validateOutcomeIntegrityProposedEdit
 } from './outcome-integrity.mjs';
+import {
+  proposeCorrectAsSwipe,
+  settleCorrectAsSwipeCaseLifecycle
+} from './correct-as-swipe.mjs';
 import { createSceneReconciliationService } from './scene-reconciliation.mjs';
 import { createTurnCommitCoordinator } from './turn-commit-coordinator.mjs';
 import {
@@ -187,9 +199,9 @@ function mergeObjects(base, patch) {
   return next;
 }
 
-const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 20;
+const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 8;
 const MIN_TURN_SAVE_HISTORY_LIMIT = 2;
-const MAX_TURN_SAVE_HISTORY_LIMIT = 60;
+const MAX_TURN_SAVE_HISTORY_LIMIT = 20;
 const REPLACEMENT_HISTORY_LIMIT = 32;
 const DEFAULT_AUTOSAVE_EVERY_MESSAGES = 20;
 const MIN_AUTOSAVE_EVERY_MESSAGES = 1;
@@ -252,7 +264,7 @@ function normalizeAutosaveEveryMessages(value, fallback = DEFAULT_AUTOSAVE_EVERY
 function applyTurnSaveHistoryLimit(campaignState, value = null) {
   if (!campaignState) return campaignState;
   const limit = normalizeTurnSaveHistoryLimit(
-    value ?? campaignState.settings?.maxTurnSaveHistory ?? campaignState.runtimeTracking?.historyLimit
+    value ?? campaignState.settings?.maxTurnSaveHistory
   );
   const next = initializeCampaignRuntimeTracking(campaignState, { historyLimit: limit });
   const history = Array.isArray(next.runtimeTracking.history)
@@ -319,6 +331,16 @@ function shouldAutosaveStableTurn(campaignState) {
 
 function compactString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function compactRuntimeErrorEvidence(error = null, fallbackCode = 'DIRECTIVE_RUNTIME_ERROR') {
+  const rawMessage = compactString(error?.message || error || '');
+  const message = rawMessage.slice(0, 900);
+  return {
+    code: compactString(error?.code) || fallbackCode,
+    messageLength: rawMessage.length,
+    messageHash: message ? hashStableJson({ message }) : null
+  };
 }
 
 function missionComponentMessageTextCandidates(message = {}) {
@@ -747,21 +769,16 @@ function stateBindingForFreshness(state = null, {
 function stateFreshnessCounters(state = null) {
   const tracking = state?.runtimeTracking || {};
   const ledger = tracking.endConditionLedger || {};
-  const responseLedger = Array.isArray(tracking.responseLedger) ? tracking.responseLedger : [];
+  const runtimeLedgerView = createRuntimeLedgerView(state || {});
+  const responseLedger = runtimeLedgerView.responseLedger || [];
   const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections
     || tracking?.directiveRuntimeEvidence?.coreStoreReadProjections
     || null;
   const coreTurnLedgerEntries = Array.isArray(coreProjection?.turnLedger?.entries)
     ? coreProjection.turnLedger.entries.length
     : null;
-  const coreIngressLedgerEntries = Array.isArray(coreProjection?.ingressLedger)
-    ? coreProjection.ingressLedger.length
-    : null;
   const coreResponseLedger = Array.isArray(coreProjection?.responseLedger)
     ? coreProjection.responseLedger
-    : null;
-  const coreRecoveryJournalEntries = Array.isArray(coreProjection?.recoveryJournal)
-    ? coreProjection.recoveryJournal.length
     : null;
   const coreSidecarDiagnostics = Array.isArray(coreProjection?.sidecarDiagnostics)
     ? coreProjection.sidecarDiagnostics.length
@@ -775,14 +792,14 @@ function stateFreshnessCounters(state = null) {
     promptContextRevision: Math.max(0, Number(state?.campaignChatBinding?.promptContextRevision) || 0),
     commandLogEntries: commandLogEntryCount(state),
     turnLedgerEntries: Math.max(countArray(state?.turnLedger?.entries), coreTurnLedgerEntries ?? 0),
-    ingressLedgerEntries: Math.max(countArray(tracking.ingressLedger), coreIngressLedgerEntries ?? 0),
-    responseLedgerEntries: Math.max(responseLedger.length, coreResponseLedger?.length ?? 0),
+    ingressLedgerEntries: countArray(runtimeLedgerView.ingressLedger),
+    responseLedgerEntries: responseLedger.length,
     responseLedgerRevision: Math.max(0, Number(tracking.responseLedgerRevision) || 0),
     responseLedgerIntegritySelections: Math.max(
       responseLedger.filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
       (coreResponseLedger || []).filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length
     ),
-    recoveryJournalEntries: Math.max(countArray(tracking.recoveryJournal), coreRecoveryJournalEntries ?? 0),
+    recoveryJournalEntries: countArray(runtimeLedgerView.recoveryJournal),
     sidecarJournalEntries: Math.max(
       countArray(tracking.sidecarJournal),
       Number(state?.runtimeResume?.sidecarCount) || 0,
@@ -941,8 +958,54 @@ function hasTurnLedgerOutcome(state = null, outcomeId = null) {
   return (state?.turnLedger?.entries || []).some((entry) => entry?.outcomeId === id);
 }
 
-function compactOutcomeRerunLedgerRef(entry = null) {
+function checkpointSnapshotFromRecord(record = null) {
+  if (!isObject(record)) return null;
+  return record.campaignState
+    || record.snapshot
+    || record.state
+    || record.checkpoint?.campaignState
+    || record.checkpoint?.snapshot
+    || record.checkpoint?.state
+    || record.record?.checkpoint?.campaignState
+    || record.record?.checkpoint?.snapshot
+    || record.record?.checkpoint?.state
+    || record.payload?.campaignState
+    || null;
+}
+
+function compactCheckpointRef(ref = null) {
+  if (!isObject(ref)) return null;
+  const checkpointId = compactString(ref.checkpointId || ref.id);
+  if (!checkpointId) return null;
+  return {
+    kind: compactString(ref.kind) || 'directive.coreMechanicsCheckpointRef.v1',
+    campaignId: compactString(ref.campaignId) || null,
+    saveId: compactString(ref.saveId) || null,
+    checkpointId,
+    layout: compactString(ref.layout) || 'core',
+    sourceKind: compactString(ref.sourceKind) || null,
+    sourceRevision: Number.isFinite(Number(ref.sourceRevision)) ? Number(ref.sourceRevision) : null,
+    logicalKey: compactString(ref.logicalKey) || null,
+    hash: compactString(ref.hash) || null
+  };
+}
+
+function coreCheckpointRefFromLedgerEntry(entry = null) {
+  return compactCheckpointRef(
+    entry?.coreCheckpointRef
+    || entry?.checkpointRef
+    || entry?.v2CheckpointRef
+    || null
+  );
+}
+
+function compactOutcomeRerunLedgerRef(entry = null, {
+  snapshotPresent = undefined,
+  snapshotSourceKind = null,
+  coreCheckpointRef = null
+} = {}) {
   if (!entry || typeof entry !== 'object') return null;
+  const compactRef = compactCheckpointRef(coreCheckpointRef) || coreCheckpointRefFromLedgerEntry(entry);
   return {
     replacedTransactionId: compactString(entry.coreTransactionId || entry.transactionId),
     coreTransactionId: compactString(entry.coreTransactionId || entry.transactionId),
@@ -950,10 +1013,60 @@ function compactOutcomeRerunLedgerRef(entry = null) {
     turnId: compactString(entry.turnId),
     resultBand: compactString(entry.resultBand),
     snapshotBeforeRetained: entry.snapshotBeforeRetained === true,
+    snapshotPresent: snapshotPresent === undefined ? isObject(entry.snapshotBefore) : snapshotPresent === true,
+    snapshotSourceKind: compactString(snapshotSourceKind) || (compactRef ? 'coreStoreV2.checkpoint' : undefined),
+    coreCheckpointRef: compactRef || undefined,
     narrationStatus: compactString(entry.narrationStatus),
     responseStatus: compactString(entry.responseStatus),
     hasCommandBearingSpend: Boolean(entry.commandBearingSpend)
   };
+}
+
+async function loadOutcomeRerunCheckpointSnapshot({
+  storageAdapter = null,
+  state = null,
+  controller = null,
+  ledgerEntry = null
+} = {}) {
+  const ref = coreCheckpointRefFromLedgerEntry(ledgerEntry);
+  if (!ref || !storageAdapter) return null;
+  const binding = state?.campaignChatBinding || {};
+  const campaignId = compactString(ref.campaignId || binding.campaignId || state?.campaign?.id);
+  const saveId = compactString(ref.saveId || binding.saveId || controller?.activeSaveId);
+  const checkpointId = compactString(ref.checkpointId);
+  if (!campaignId || !saveId || !checkpointId) return null;
+  try {
+    const record = await loadV2Checkpoint(storageAdapter, {
+      campaignId,
+      saveId,
+      checkpointId,
+      layout: compactString(ref.layout) || 'core'
+    });
+    const snapshot = checkpointSnapshotFromRecord(record);
+    if (!isObject(snapshot)) return null;
+    return {
+      snapshot: cloneJson(snapshot),
+      sourceKind: record?.sourceKind || record?.checkpoint?.sourceKind || ref.sourceKind || 'coreStoreV2.checkpoint',
+      sourceRevision: Number.isFinite(Number(
+        record?.sourceRevision
+        ?? record?.revision
+        ?? record?.checkpoint?.sourceRevision
+        ?? record?.checkpoint?.revision
+        ?? ref.sourceRevision
+      ))
+        ? Number(record?.sourceRevision ?? record?.revision ?? record?.checkpoint?.sourceRevision ?? record?.checkpoint?.revision ?? ref.sourceRevision)
+        : null,
+      coreCheckpointRef: {
+        ...ref,
+        campaignId,
+        saveId,
+        checkpointId,
+        layout: compactString(ref.layout) || 'core'
+      }
+    };
+  } catch {
+    return null;
+  }
 }
 
 function buildOutcomeRerunSourceFrame({
@@ -1080,11 +1193,6 @@ function coreProjectionHasRuntimeAuthority(projections = {}, existingState = nul
       'transactionId',
       'coreTransactionId',
       ['turnId', 'outcomeId', 'responseKind']
-    ])
-    && rowsCoveredByCoreProjection(projections.recoveryJournal, runtimeTracking.recoveryJournal, [
-      'id',
-      'transactionId',
-      'coreTransactionId'
     ])
     && rowsCoveredByCoreProjection(coreTurnLedger.entries, existingState.turnLedger?.entries, [
       'id',
@@ -1251,6 +1359,39 @@ function commandLogEntryOutcomeId(entry = null) {
 }
 
 const mutateCampaignStateForTest = Symbol.for('directive.runtimeApp.mutateCampaignStateForTest');
+const mutateCoreStoreStateForTest = Symbol.for('directive.runtimeApp.mutateCoreStoreStateForTest');
+
+function buildCoreStoreHeadSnapshot(state = {}) {
+  const transactions = Object.fromEntries(Object.values(state.transactions || {}).map((transaction) => [
+    transaction.id,
+    Object.fromEntries(Object.entries({
+      id: transaction.id,
+      phase: transaction.phase,
+      route: transaction.route || null,
+      sourceFrameId: transaction.sourceFrameId,
+      chatId: transaction.chatId,
+      updatedAt: transaction.updatedAt || transaction.createdAt,
+      revisions: cloneJson(transaction.revisions)
+    }).filter(([, value]) => value !== undefined))
+  ]));
+  return {
+    coreStore: {
+      kind: 'directive.coreStoreHead.v2',
+      schemaVersion: 1,
+      campaignId: state.campaignId,
+      saveId: state.saveId,
+      branchId: state.branchId || 'main',
+      updatedAt: state.updatedAt,
+      revisions: cloneJson(state.revisions || {}),
+      counters: cloneJson(state.counters || {}),
+      activeTransactionIds: Object.values(state.transactions || {})
+        .filter((transaction) => !['settled', 'canceled', 'restartSuperseded'].includes(transaction.phase))
+        .map((transaction) => transaction.id),
+      transactions,
+      promptDirtyDomains: [...new Set(state.promptDirtyDomains || [])]
+    }
+  };
+}
 
 function restoreCommittedOutcomeState(state = null, checkpointState = null, outcomeId = null) {
   const id = compactString(outcomeId);
@@ -1311,7 +1452,8 @@ export const __directiveRuntimeAppTestHooks = Object.freeze({
   stateFreshnessCounters,
   restoreCommittedOutcomeState,
   shouldPreferInMemoryCampaignState,
-  mutateCampaignStateForTest
+  mutateCampaignStateForTest,
+  mutateCoreStoreStateForTest
 });
 
 function defaultIdFactory() {
@@ -2037,12 +2179,13 @@ export function createDirectiveRuntimeApp({
     eventTime = null
   } = {}) {
     if (!repairDecision?.coreTransactionRequired && !repairDecision?.replacementTransactionRequired) {
-      return {
-        repairDecision,
-        replacementTransactionId: compactString(repairDecision?.transactionId) || null,
-        replacementSourceFrame: null,
-        coreTransaction: null
+      const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${outcomeId || ledgerEntry?.outcomeId || 'unknown'}".`);
+      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
+      error.details = {
+        outcomeId: outcomeId || ledgerEntry?.outcomeId || null,
+        repairDecision: cloneJson(repairDecision || null)
       };
+      throw error;
     }
     const binding = bindingFromState(campaignState);
     const sourceFrame = buildOutcomeRerunSourceFrame({
@@ -3330,6 +3473,7 @@ export function createDirectiveRuntimeApp({
       };
     } catch (error) {
       const failure = {
+        code: error?.code || 'DIRECTIVE_NARRATION_GENERATION_FAILED',
         failedAt: timestampFromNow(now),
         providerId: provider?.id || null,
         directiveGenerationStartedAt,
@@ -3350,19 +3494,15 @@ export function createDirectiveRuntimeApp({
         campaignState = narrationCheckpoint.campaignState;
         narrationCheckpointSave = narrationCheckpoint.save || null;
       } else {
-        campaignState = recordRecoveryEvent(initializeCampaignRuntimeTracking(campaignState), {
-          id: `recovery:narration-missing-outcome:${outcomeId || 'unknown'}`,
-          type: 'narrationBookkeepingMissingOutcome',
-          status: 'open',
+        const turnId = lastDirectorTurn?.turnId || lastDirectorTurn?.id || null;
+        const coreDiagnostic = await appendNarrationBookkeepingMissingOutcomeDiagnostic({
           outcomeId: outcomeId || null,
-          recordedAt: timestampFromNow(now),
-          details: {
-            turnId: lastDirectorTurn?.turnId || lastDirectorTurn?.id || null,
-            error: cloneJson(failure),
-            fallbackResponseAvailable: true
-          }
+          turnId,
+          failure
         });
-          await persistRuntimeCampaignState(campaignState, `Recorded narration bookkeeping recovery for ${outcomeId || 'unknown outcome'}.`);
+        if (coreDiagnostic) {
+          await persistRuntimeCampaignState(campaignState, `Recorded narration bookkeeping diagnostic for ${outcomeId || 'unknown outcome'}.`);
+        }
       }
       const commandLogSummaryResult = scheduleDeferredCommandLogSummary
         ? scheduleDeferredCommandLogSummaryQueue('afterDirectiveNarrationFailure')
@@ -3498,6 +3638,52 @@ export function createDirectiveRuntimeApp({
       return [...ledger].reverse().find((entry) => compactString(entry?.turnId) === turnId) || null;
     }
     return null;
+  }
+
+  function narrationBookkeepingCoreTargetForContext(context = {}) {
+    const ingress = runtimeIngressForContext(context);
+    const transactionId = compactString(context.coreTransactionId || ingress?.coreTransactionId);
+    if (!transactionId) return null;
+    return {
+      transactionId,
+      ingressId: compactString(ingress?.id || context.ingressId),
+      turnId: compactString(ingress?.turnId || context.turnId),
+      outcomeId: compactString(ingress?.outcomeId || context.outcomeId),
+      hostMessageId: compactString(ingress?.hostMessageId || context.hostMessageId),
+      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || context.sourceFrameId)
+    };
+  }
+
+  async function appendNarrationBookkeepingMissingOutcomeDiagnostic(context = {}) {
+    const target = narrationBookkeepingCoreTargetForContext(context);
+    if (!target) return null;
+    const failure = context.failure || null;
+    const event = {
+      type: 'runtimeDiagnostic',
+      worker: 'directiveNarration',
+      eventType: 'narrationBookkeepingMissingOutcome',
+      status: 'failed',
+      severity: 'warning',
+      reason: 'missing-turn-ledger-outcome',
+      outcomeId: target.outcomeId || context.outcomeId || null,
+      turnId: target.turnId || context.turnId || null,
+      ingressId: target.ingressId || context.ingressId || null,
+      hostMessageId: target.hostMessageId || context.hostMessageId || null,
+      sourceFrameId: target.sourceFrameId || context.sourceFrameId || null,
+      coreTransactionId: target.transactionId,
+      providerId: compactString(failure?.providerId || context.providerId),
+      directiveGenerationStartedAt: failure?.directiveGenerationStartedAt || context.directiveGenerationStartedAt || null,
+      generationStartedAt: failure?.generationStartedAt || context.generationStartedAt || null,
+      fallbackResponseAvailable: true,
+      error: compactRuntimeErrorEvidence(failure, 'DIRECTIVE_NARRATION_BOOKKEEPING_MISSING_OUTCOME'),
+      observedAt: timestampFromNow(now)
+    };
+    try {
+      await runtimeCoreTurnStore.appendDiagnostics(target.transactionId, event);
+      return cloneJson(event);
+    } catch {
+      return null;
+    }
   }
 
   function runtimeResponseForContext(context = {}) {
@@ -3856,6 +4042,7 @@ export function createDirectiveRuntimeApp({
       type: 'sidecar',
       worker: 'narrativeThreadDirector',
       sidecarType: 'narrativeThreadExtraction',
+      eventType: status === 'failed' ? 'postCommitConversationFailed' : 'postCommitConversation',
       roleId: 'narrativeThreadDirector',
       status,
       severity: ['failed', 'backgroundBridgeFailed'].includes(status) ? 'warning' : 'info',
@@ -3875,6 +4062,23 @@ export function createDirectiveRuntimeApp({
       errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
       observedAt: timestampFromNow(now)
     };
+  }
+
+  async function appendPostCommitConversationCoreDiagnostic(guard = null, status = 'queued', details = {}) {
+    const event = postCommitConversationDiagnosticEvent(guard, status, details);
+    if (!event) return null;
+    const target = postCommitConversationCoreTargetForGuard(guard);
+    if (!target) return null;
+    const append = postCommitConversationDiagnosticQueue
+      .catch(() => null)
+      .then(() => runtimeCoreTurnStore.appendDiagnostics(target.transactionId, event));
+    postCommitConversationDiagnosticQueue = append.then(() => null, () => null);
+    try {
+      await append;
+      return cloneJson(event);
+    } catch {
+      return null;
+    }
   }
 
   function queuePostCommitConversationCoreDiagnostic(guard = null, status = 'queued', details = {}) {
@@ -4105,26 +4309,21 @@ export function createDirectiveRuntimeApp({
                 message: error?.message || String(error)
               }
             };
+        let failureDiagnostic = null;
         if (!stale) {
-          campaignState = recordRecoveryEvent(initializeCampaignRuntimeTracking(campaignState), {
-            id: `recovery:post-commit-conversation:${sourceGuard.outcomeId || sourceGuard.turnId || sourceGuard.ingressId || 'unknown'}`,
-            type: 'postCommitConversationFailed',
-            status: 'open',
-            ingressId: sourceGuard.ingressId || null,
-            outcomeId: sourceGuard.outcomeId || null,
-            recordedAt: timestampFromNow(now),
-            details: {
-              turnId: sourceGuard.turnId || null,
-              error: { message: error?.message || String(error), code: error?.code || null }
-            }
+          failureDiagnostic = await appendPostCommitConversationCoreDiagnostic(sourceGuard, 'failed', {
+            reason,
+            result: lastPostCommitConversationResult,
+            error
           });
-          await persistRuntimeCampaignState(campaignState, `Recorded post-commit conversation recovery issue for ${sourceGuard.outcomeId || 'unknown outcome'}.`);
         }
-        queuePostCommitConversationCoreDiagnostic(sourceGuard, stale ? 'stale' : 'failed', {
-          reason,
-          result: lastPostCommitConversationResult,
-          error
-        });
+        if (stale) {
+          queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
+            reason,
+            result: lastPostCommitConversationResult,
+            error
+          });
+        }
         return cloneJson(lastPostCommitConversationResult);
       } finally {
         postCommitConversationPendingCount = Math.max(0, postCommitConversationPendingCount - 1);
@@ -5543,6 +5742,15 @@ export function createDirectiveRuntimeApp({
         useContinuityPlanner: false,
         reason: 'Prompt context rebuilt after message recovery.'
       })).campaignState,
+      loadCoreCheckpointState: async ({ coreCheckpointRef, state } = {}) => {
+        const loaded = await loadOutcomeRerunCheckpointSnapshot({
+          storageAdapter,
+          state: state || getCampaignState(),
+          controller,
+          ledgerEntry: { coreCheckpointRef }
+        });
+        return loaded?.snapshot || null;
+      },
       now
     });
     const sourceSettlementService = createSourceSettlementService({
@@ -5742,6 +5950,56 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       now
     });
+    async function loadTerminalCheckpointFromCore(input = {}) {
+      const state = getCampaignState() || {};
+      const binding = state.campaignChatBinding || {};
+      const campaignId = compactString(input.campaignId || binding.campaignId || state.campaign?.id);
+      const saveId = compactString(input.saveId || binding.saveId || controller?.activeSaveId);
+      const checkpointId = compactString(input.checkpointId || input.id);
+      if (!storageAdapter || !campaignId || !saveId || !checkpointId) return null;
+      try {
+        const record = await loadV2Checkpoint(storageAdapter, {
+          campaignId,
+          saveId,
+          checkpointId,
+          layout: compactString(input.layout) || 'core'
+        });
+        return record
+          ? {
+              ...record,
+              sourceKind: 'coreStoreV2.checkpoint',
+              sourceRevision: record.checkpoint?.revision ?? record.checkpoint?.runtimeRevision ?? record.revision ?? null
+            }
+          : null;
+      } catch {
+        return null;
+      }
+    }
+    async function writeTerminalCheckpointToCore(input = {}) {
+      const state = getCampaignState() || {};
+      const binding = state.campaignChatBinding || {};
+      const campaignId = compactString(input.campaignId || binding.campaignId || state.campaign?.id);
+      const saveId = compactString(input.saveId || binding.saveId || controller?.activeSaveId);
+      const checkpointId = compactString(input.checkpointId || input.id);
+      if (!storageAdapter || !campaignId || !saveId || !checkpointId || !isObject(input.checkpoint)) return null;
+      try {
+        const result = await writeV2Checkpoint(storageAdapter, {
+          campaignId,
+          saveId,
+          checkpointId,
+          checkpoint: input.checkpoint,
+          createdAt: timestampFromNow(now),
+          layout: compactString(input.layout) || 'core'
+        });
+        return {
+          ...cloneJson(result),
+          sourceKind: 'coreStoreV2.checkpoint',
+          sourceRevision: input.checkpoint?.sourceRevision ?? input.checkpoint?.runtimeRevision ?? null
+        };
+      } catch {
+        return null;
+      }
+    }
     const endConditionService = createCampaignEndConditionService({
       host: runtimeHost,
       getCampaignState,
@@ -5757,6 +6015,8 @@ export function createDirectiveRuntimeApp({
       saveTerminalBranch: (options) => controller.saveTerminalBranch(options),
       concludeCampaign: (options) => conclusionService.conclude(options),
       repairRuntime: repairRuntimeBoundary,
+      loadTerminalCheckpoint: loadTerminalCheckpointFromCore,
+      writeTerminalCheckpoint: writeTerminalCheckpointToCore,
       now
     });
     async function rewriteCampaignIntroFromNativeSwipe({
@@ -6104,6 +6364,177 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  async function proposeCorrectAsSwipeCandidate(payload = {}) {
+    await ensureInitialized();
+    await refreshCurrentChatCampaignScope();
+    const state = outcomeIntegrityCampaignState();
+    const message = hostMessageForOutcomeIntegrity(payload);
+    const hostMessageId = hostMessageIdFromPayload(payload);
+    const response = findOutcomeIntegrityResponse(state, hostMessageId)
+      || findOutcomeIntegrityResponse(state, message?.hostMessageId || message?.id)
+      || payload.response
+      || null;
+    if (!response) {
+      return {
+        ok: false,
+        accepted: false,
+        reason: 'response-not-recorded',
+        summary: 'Correct-as-Swipe requires a recorded Directive response.'
+      };
+    }
+    const sourceReview = createSourceReviewWorker({ now });
+    const assets = optionalActiveRuntimeAssets();
+    const selectedText = compactString(
+      payload.selection?.selectedText
+      || payload.selectedText
+      || payload.selection?.text
+      || ''
+    );
+    const proposedText = payload.proposedText ?? payload.candidateText ?? payload.rewriteText ?? payload.text;
+    const suppliedEvidenceVerdict = payload.evidenceVerdict || payload.verdict || null;
+    const evidenceVerdict = suppliedEvidenceVerdict
+      ? cloneJson(suppliedEvidenceVerdict)
+      : await sourceReview.reviewCorrectAsSwipeEvidence({
+          text: selectedText,
+          campaignState: state,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          shipDataset: assets?.shipDataset || null,
+          campaignProjection: assets?.projection || null,
+          responseId: response.id || null,
+          outcomeId: response.outcomeId || null,
+          turnId: response.turnId || null,
+          hostMessageId: hostMessageId || response.hostMessageId || null,
+          selectedTextHash: payload.selection?.selectedTextHash || payload.selectedTextHash || null,
+          evidenceRefIds: payload.evidenceRefIds || payload.selection?.evidenceRefIds || [],
+          externalContextOnly: payload.externalContextOnly === true || payload.selection?.externalContextOnly === true
+        });
+    const beforeContinuity = cloneJson(state?.continuity || null);
+    const result = await proposeCorrectAsSwipe({
+      campaignState: state,
+      host: runtimeHost,
+      coreTurnStore: runtimeCoreTurnStore,
+      response,
+      selection: {
+        ...(payload.selection || payload),
+        hostMessageId: hostMessageId || response.hostMessageId || null,
+        responseId: response.id || null,
+        outcomeId: response.outcomeId || null,
+        turnId: response.turnId || null,
+        coreTransactionId: response.coreTransactionId || null
+      },
+      proposedText,
+      evidenceVerdict,
+      idFactory,
+      now,
+      updateResponse: (latest, responseUpdateId, correctionCase) => {
+        const tracked = initializeCampaignRuntimeTracking(latest);
+        const currentResponse = findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
+        const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
+        return updateDirectiveResponse(tracked, responseUpdateId, {
+          correctAsSwipe: {
+            ...currentCorrectAsSwipe,
+            cases: [
+              ...cases.filter((entry) => entry?.id !== correctionCase.id),
+              correctionCase
+            ],
+            lastCaseId: correctionCase.id,
+            lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || null)
+          }
+        });
+      },
+      persist: async (next, summary) => {
+        campaignState = next;
+        await persistRuntimeCampaignState(next, summary);
+      }
+    });
+    if (result.campaignState) {
+      campaignState = result.campaignState;
+      adoptResponseLedgerProjection(result.campaignState);
+    }
+    await refreshCampaignView();
+    const afterState = outcomeIntegrityCampaignState();
+    return {
+      ...cloneJson(result),
+      accepted: false,
+      continuityUnchanged: JSON.stringify(beforeContinuity) === JSON.stringify(afterState?.continuity || null),
+      view: viewEnvelope('settings')
+    };
+  }
+
+  async function settleCorrectAsSwipeCase(payload = {}) {
+    await ensureInitialized();
+    await refreshCurrentChatCampaignScope();
+    const state = outcomeIntegrityCampaignState();
+    const caseId = compactString(payload.caseId || payload.id || payload.correctionCaseId || '');
+    const message = hostMessageForOutcomeIntegrity(payload);
+    const hostMessageId = hostMessageIdFromPayload(payload);
+    const responses = Array.isArray(state?.runtimeTracking?.responseLedger)
+      ? state.runtimeTracking.responseLedger
+      : [];
+    const response = findOutcomeIntegrityResponse(state, hostMessageId)
+      || findOutcomeIntegrityResponse(state, message?.hostMessageId || message?.id)
+      || responses.find((entry) => (
+        Array.isArray(entry?.correctAsSwipe?.cases)
+        && entry.correctAsSwipe.cases.some((correctionCase) => compactString(correctionCase?.id) === caseId)
+      ))
+      || payload.response
+      || null;
+    if (!response) {
+      return {
+        ok: false,
+        accepted: false,
+        reason: 'response-not-recorded',
+        summary: 'Correct-as-Swipe case lifecycle requires a recorded Directive response.'
+      };
+    }
+    const beforeContinuity = cloneJson(state?.continuity || null);
+    const result = await settleCorrectAsSwipeCaseLifecycle({
+      campaignState: state,
+      coreTurnStore: runtimeCoreTurnStore,
+      response,
+      caseId,
+      action: payload.action,
+      reason: payload.reason,
+      now,
+      updateResponse: (latest, responseUpdateId, correctionCase) => {
+        const tracked = initializeCampaignRuntimeTracking(latest);
+        const currentResponse = findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
+        const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
+        return updateDirectiveResponse(tracked, responseUpdateId, {
+          correctAsSwipe: {
+            ...currentCorrectAsSwipe,
+            cases: [
+              ...cases.filter((entry) => entry?.id !== correctionCase.id),
+              correctionCase
+            ],
+            lastCaseId: correctionCase.id,
+            lastLifecycleDecision: cloneJson(correctionCase.repairDecision || null),
+            lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || currentCorrectAsSwipe.lastCandidateSwipe || null)
+          }
+        });
+      },
+      persist: async (next, summary) => {
+        campaignState = next;
+        await persistRuntimeCampaignState(next, summary);
+      }
+    });
+    if (result.campaignState) {
+      campaignState = result.campaignState;
+      adoptResponseLedgerProjection(result.campaignState);
+    }
+    await refreshCampaignView();
+    const afterState = outcomeIntegrityCampaignState();
+    return {
+      ...cloneJson(result),
+      accepted: false,
+      continuityUnchanged: JSON.stringify(beforeContinuity) === JSON.stringify(afterState?.continuity || null),
+      view: viewEnvelope('settings')
+    };
+  }
+
   async function run(operation) {
     try {
       lastError = null;
@@ -6124,6 +6555,70 @@ export function createDirectiveRuntimeApp({
         const nextState = mutator(cloneJson(campaignState));
         if (nextState !== undefined) {
           campaignState = cloneJson(nextState);
+          await refreshCampaignView();
+        }
+        return viewEnvelope('mission');
+      });
+    },
+
+    [mutateCoreStoreStateForTest](mutator) {
+      return run(async () => {
+        await ensureInitialized();
+        if (typeof mutator !== 'function') {
+          throw new Error('mutateCoreStoreStateForTest requires a mutator function.');
+        }
+        const descriptor = coreStoreDescriptorForState(campaignState);
+        if (!descriptor) {
+          throw new Error('mutateCoreStoreStateForTest requires an active CORE store descriptor.');
+        }
+        const currentStore = await ensureActiveCoreTurnStore();
+        const nextState = mutator(cloneJson(currentStore?.state || {}));
+        if (nextState !== undefined) {
+          const persistedState = {
+            ...cloneJson(nextState),
+            campaignId: nextState.campaignId || descriptor.campaignId,
+            saveId: nextState.saveId || descriptor.saveId,
+            branchId: nextState.branchId || descriptor.branchId,
+            updatedAt: nextState.updatedAt || timestampFromNow(now)
+          };
+          await commitV2SaveLayout(storageAdapter, {
+            campaignId: persistedState.campaignId,
+            saveId: persistedState.saveId,
+            branchId: persistedState.branchId,
+            head: buildCoreStoreHeadSnapshot(persistedState),
+            hostMap: {
+              excludesRawChatText: true,
+              rows: cloneJson(persistedState.hostMapRows || [])
+            },
+            promptCache: {
+              directiveOwnedRevision: Number(persistedState.revisions?.prompt || 0),
+              dirtyDomains: [...new Set(persistedState.promptDirtyDomains || [])],
+              blocks: []
+            },
+            eventSegments: [cloneJson(persistedState.events || [])],
+            turnSegments: [cloneJson(persistedState.turns || [])],
+            diagnosticsSegments: [cloneJson(persistedState.diagnostics || [])],
+            metadata: {
+              source: 'runtime-app-test-core-store-mutation',
+              eventCount: Array.isArray(persistedState.events) ? persistedState.events.length : 0,
+              turnCount: Array.isArray(persistedState.turns) ? persistedState.turns.length : 0,
+              diagnosticCount: Array.isArray(persistedState.diagnostics) ? persistedState.diagnostics.length : 0
+            },
+            now: persistedState.updatedAt,
+            layout: 'core'
+          });
+          activeCoreTurnStoreRecord = {
+            ...descriptor,
+            store: createCoreStoreV2({
+              adapter: storageAdapter,
+              campaignId: persistedState.campaignId,
+              saveId: persistedState.saveId,
+              branchId: persistedState.branchId,
+              now,
+              initialState: persistedState
+            })
+          };
+          activeCoreTurnStorePending = null;
           await refreshCampaignView();
         }
         return viewEnvelope('mission');
@@ -6197,6 +6692,14 @@ export function createDirectiveRuntimeApp({
 
     async submitOutcomeIntegrityEdit(payload = {}) {
       return run(async () => submitOutcomeIntegrityEdit(payload));
+    },
+
+    async proposeCorrectAsSwipeCandidate(payload = {}) {
+      return run(async () => proposeCorrectAsSwipeCandidate(payload));
+    },
+
+    async settleCorrectAsSwipeCase(payload = {}) {
+      return run(async () => settleCorrectAsSwipeCase(payload));
     },
 
     async flushChatSidecars() {
@@ -7067,7 +7570,7 @@ export function createDirectiveRuntimeApp({
         }
 
         const changedAt = timestampFromNow(now);
-        campaignState = recordRecoveryEvent({
+        campaignState = recordLifecycleEvent({
           ...cloneJson(campaignState),
           settings: {
             ...cloneJson(campaignState.settings || {}),
@@ -7503,7 +8006,7 @@ export function createDirectiveRuntimeApp({
         const recentMessages = typeof runtimeHost.chat.getRecentMessages === 'function'
           ? await runtimeHost.chat.getRecentMessages({ limit: 1, playerSafeOnly: true })
           : null;
-        campaignState = recordRecoveryEvent(campaignState, {
+        campaignState = recordLifecycleEvent(campaignState, {
           id: `rebind:${campaignState.campaign?.id || 'campaign'}:${reboundAt}`,
           type: 'chatRebind',
           status: 'applied',
@@ -7528,7 +8031,7 @@ export function createDirectiveRuntimeApp({
                 }
           }
         });
-        await persistRuntimeCampaignState(campaignState, 'Campaign chat rebound and recovery journal updated.');
+        await persistRuntimeCampaignState(campaignState, 'Campaign chat rebound and lifecycle journal updated.');
         await refreshManualSaveGuard();
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
@@ -8167,13 +8670,22 @@ export function createDirectiveRuntimeApp({
           branchBinding,
           sourceBinding
         ));
-        resetActiveCoreTurnStore('save-as-branch-created');
         const branchSave = await controller.saveCurrentGameAs({
           newSaveId,
           name,
           campaignState,
           branchFrom: branchPoint
         });
+        await copyCoreStoreStateV2ForSaveBranch(storageAdapter, {
+          campaignId: campaignState?.campaign?.id || branchBinding.campaignId,
+          sourceSaveId: sourceBinding?.saveId || controller.activeSaveId,
+          targetSaveId: branchSave.id,
+          branchId: branchSave.id,
+          sourceChatId: sourceBinding?.chatId || null,
+          targetChatId: branchBinding.chatId || null,
+          now: () => timestampFromNow(now)
+        });
+        resetActiveCoreTurnStore('save-as-branch-created');
         await runtimeHost.chat.updateBindingMetadata?.(campaignState.campaignChatBinding);
         const promptResult = await synchronizeActivePrompt(campaignState, {
           persist: false,
@@ -8489,11 +9001,7 @@ export function createDirectiveRuntimeApp({
               repairDecision: cloneJson(replacement.repairDecision || null)
             }
           : null;
-        const legacyNoCoreOutcomeReplacement = replacement
-          && !coreOutcomeReplacement
-          && replacement.repairDecision?.action === 'createLegacyNoCoreRerunCandidate'
-          && replacement.repairDecision?.legacyNoCoreRerunAllowed === true;
-        if (replacement && !coreOutcomeReplacement && !legacyNoCoreOutcomeReplacement) {
+        if (replacement && !coreOutcomeReplacement) {
           const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${replacement.outcomeId || 'unknown'}".`);
           error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
           error.details = {
@@ -8501,21 +9009,6 @@ export function createDirectiveRuntimeApp({
             repairDecision: cloneJson(replacement.repairDecision || null)
           };
           throw error;
-        }
-        if (legacyNoCoreOutcomeReplacement) {
-          committedCandidateState.turnLedger = committedCandidateState.turnLedger || { entries: [], swipeRerollForbidden: true };
-          committedCandidateState.turnLedger.replacementHistory = boundedReplacementHistory(
-            committedCandidateState.turnLedger.replacementHistory,
-            {
-              type: replacement.type || 'rerunOutcome',
-              replacedOutcomeId: replacement.outcomeId,
-              replacementOutcomeId: result.turnPacket.outcomePacket.id,
-              replacedTurnId: replacement.turnId || null,
-              repairDecision: cloneJson(replacement.repairDecision || null),
-              acceptedAt: replacementAcceptedAt
-            }
-          );
-          committedCandidateState.turnLedger.lastReplacedOutcomeId = replacement.outcomeId;
         }
         if (replacement?.replacementIngress) {
           committedCandidateState = recordTurnIngress(committedCandidateState, replacement.replacementIngress);
@@ -8633,13 +9126,23 @@ export function createDirectiveRuntimeApp({
         if (!ledgerEntry) {
           throw new Error(`Cannot rerun unknown outcome "${id}"`);
         }
+        const checkpointSnapshot = await loadOutcomeRerunCheckpointSnapshot({
+          storageAdapter,
+          state: campaignState,
+          controller,
+          ledgerEntry
+        });
         const repair = ensureChatNativeServices()?.repairRuntime || null;
         const authorizeRerun = repair?.authorizeRerunBranch || repair?.evaluateOutcomeRerunActuation;
         let rerunDecision = typeof authorizeRerun === 'function'
           ? authorizeRerun.call(repair, {
             outcomeId: id,
             requestedType: type,
-            ledgerEntry: compactOutcomeRerunLedgerRef(ledgerEntry),
+            ledgerEntry: compactOutcomeRerunLedgerRef(ledgerEntry, {
+              snapshotPresent: Boolean(checkpointSnapshot?.snapshot),
+              snapshotSourceKind: checkpointSnapshot?.sourceKind || null,
+              coreCheckpointRef: checkpointSnapshot?.coreCheckpointRef || null
+            }),
             eventTime: timestampFromNow(now)
           })
           : {
@@ -8654,7 +9157,7 @@ export function createDirectiveRuntimeApp({
               replacementType: type,
               mechanicsRerunAuthorized: false,
               normalTurnAllowed: false
-            };
+          };
         if (rerunDecision.authorized !== true) {
           const error = new Error(`REPAIR did not authorize rerun for outcome "${id}".`);
           error.code = 'DIRECTIVE_REPAIR_RERUN_NOT_AUTHORIZED';
@@ -8664,7 +9167,7 @@ export function createDirectiveRuntimeApp({
           };
           throw error;
         }
-        const snapshotBefore = cloneJson(ledgerEntry.snapshotBefore);
+        const snapshotBefore = cloneJson(checkpointSnapshot?.snapshot);
         const assets = activeRuntimeAssets();
         const graphRecord = activeMissionGraphRecord(assets, {
           activeMissionGraphId: snapshotBefore?.mission?.activeMissionGraphId
@@ -8755,15 +9258,45 @@ export function createDirectiveRuntimeApp({
           error.details = { outcomeId: id };
           throw error;
         }
-        if (ledgerEntry.snapshotBeforeRetained !== true || !isObject(ledgerEntry.snapshotBefore)) {
-          const error = new Error(`A retained turn save history snapshot is required before deleting committed outcome "${id}".`);
+        try {
+          if (typeof runtimeCoreTurnStore?.getTransaction !== 'function') {
+            throw new Error('CORE transaction reader is unavailable.');
+          }
+          await runtimeCoreTurnStore.getTransaction(transactionId);
+        } catch (cause) {
+          const error = new Error(`CORE transaction is required before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_TRANSACTION_REQUIRED';
+          error.details = {
+            outcomeId: id,
+            transactionId,
+            reason: 'core-transaction-not-found'
+          };
+          error.cause = cause;
+          throw error;
+        }
+        const ledgerCoreCheckpointRef = coreCheckpointRefFromLedgerEntry(ledgerEntry);
+        if (!ledgerCoreCheckpointRef) {
+          const error = new Error(`CORE checkpoint ref is required before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_CORE_CHECKPOINT_REQUIRED';
+          error.details = { outcomeId: id, transactionId };
+          throw error;
+        }
+        const checkpointSnapshot = await loadOutcomeRerunCheckpointSnapshot({
+          storageAdapter,
+          state: campaignState,
+          controller,
+          ledgerEntry
+        });
+        const restoreSnapshot = checkpointSnapshot?.snapshot;
+        if (ledgerEntry.snapshotBeforeRetained !== true || !isObject(restoreSnapshot)) {
+          const error = new Error(`A retained turn save history snapshot or CORE checkpoint artifact is required before deleting committed outcome "${id}".`);
           error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_RETAINED_SNAPSHOT_REQUIRED';
           error.details = { outcomeId: id, transactionId };
           throw error;
         }
         const restoreRevision = Number(
-          ledgerEntry.snapshotBefore?.runtimeTracking?.revision
-          ?? ledgerEntry.snapshotBefore?.runtimeTracking?.stateRevision
+          restoreSnapshot?.runtimeTracking?.revision
+          ?? restoreSnapshot?.runtimeTracking?.stateRevision
         );
         if (!Number.isFinite(restoreRevision)) {
           const error = new Error(`REPAIR restore revision is required before deleting committed outcome "${id}".`);
@@ -8832,6 +9365,8 @@ export function createDirectiveRuntimeApp({
             turnId: ledgerEntry.turnId || null,
             sourceFrameId: ledgerEntry.sourceFrameId || null,
             snapshotBeforeRetained: ledgerEntry.snapshotBeforeRetained === true,
+            snapshotSourceKind: checkpointSnapshot?.sourceKind || 'coreStoreV2.checkpoint',
+            coreCheckpointRef: checkpointSnapshot?.coreCheckpointRef || ledgerCoreCheckpointRef,
             snapshotBefore: {
               runtimeTracking: {
                 revision: restoreRevision
@@ -8899,7 +9434,7 @@ export function createDirectiveRuntimeApp({
           };
           throw error;
         }
-        campaignState = restoreBeforeCommittedOutcome(campaignState, id);
+        campaignState = cloneJson(restoreSnapshot);
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
@@ -8921,7 +9456,9 @@ export function createDirectiveRuntimeApp({
       interactionId = null,
       action = 'replayFromCheckpoint',
       frameId = null,
-      playerArgument = null
+      playerArgument = null,
+      resolutionIngressId = null,
+      resolutionHostMessageId = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -8938,7 +9475,9 @@ export function createDirectiveRuntimeApp({
           interactionId,
           action,
           frameId,
-          playerArgument
+          playerArgument,
+          resolutionIngressId: compactString(resolutionIngressId),
+          resolutionHostMessageId: compactString(resolutionHostMessageId)
         });
         if (result?.campaignState) campaignState = result.campaignState;
         await refreshCampaignView();

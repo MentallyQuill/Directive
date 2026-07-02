@@ -658,7 +658,7 @@
         "Exploration",
         "Command"
       ],
-      "maxTurnSaveHistory": 20,
+      "maxTurnSaveHistory": 8,
       "storagePointerOnly": true
     },
     "captainState": {

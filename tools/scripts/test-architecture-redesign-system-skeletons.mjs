@@ -34,6 +34,7 @@ import {
 import {
   createForgeCoordinator
 } from '../../src/jobs/forge-coordinator.mjs';
+
 import {
   hashStableJson
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
@@ -41,6 +42,64 @@ import {
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
+
+function countSourceMatches(source, pattern) {
+  return [...source.matchAll(pattern)].length;
+}
+
+const repairCommandBoundarySource = readFileSync(
+  new URL('../../src/runtime/repair-command-boundary.mjs', import.meta.url),
+  'utf8'
+);
+assert.equal(
+  /type\s*:\s*['"]restoreRevision['"]/.test(repairCommandBoundarySource),
+  false,
+  'REPAIR rollback execution must not append old runtimeTracking.recoveryJournal restoreRevision rows.'
+);
+
+const stateDeltaGatewaySource = readFileSync(
+  new URL('../../src/runtime/state-delta-gateway.mjs', import.meta.url),
+  'utf8'
+);
+const activeSaveFacadeSource = readFileSync(
+  new URL('../../src/storage/active-save-facade-v2.mjs', import.meta.url),
+  'utf8'
+);
+const runtimeLedgerViewSource = readFileSync(
+  new URL('../../src/runtime/runtime-ledger-view.mjs', import.meta.url),
+  'utf8'
+);
+assert.equal(
+  /type\s*:\s*['"]restoreRevision['"]/.test(stateDeltaGatewaySource),
+  false,
+  'Generic state restore must not append old runtimeTracking.recoveryJournal restoreRevision rows.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /type\s*:\s*['"]stateRevisionRestored['"]/,
+  'Generic state restore should record compact lifecycle audit evidence instead of recovery authority.'
+);
+assert.match(
+  activeSaveFacadeSource,
+  /function\s+projectedRecoveryRows\s*\([\s\S]*?const\s+coreRows\s*=\s*projectedCoreArray\(campaignState,\s*['"]recoveryJournal['"]\)[\s\S]*?return\s+Array\.isArray\(coreRows\)\s*\?\s*coreRows\s*:\s*\[\]/,
+  'Active-save v2 recovery resume must be CORE-only and must not merge legacy runtimeTracking.recoveryJournal rows.'
+);
+const projectedRecoveryRowsBody = /function\s+projectedRecoveryRows\s*\([\s\S]*?\n\}[\s\S]*?\n\nfunction\s+projectedTurnLedger/.exec(activeSaveFacadeSource)?.[0] || '';
+assert.equal(
+  /runtimeTracking\.recoveryJournal/.test(projectedRecoveryRowsBody),
+  false,
+  'Active-save v2 recovery projection must not read old runtimeTracking.recoveryJournal as resume authority.'
+);
+assert.match(
+  runtimeLedgerViewSource,
+  /export\s+function\s+createRuntimeLedgerView\b[\s\S]*?recoveryJournal\s*=\s*coreRecovery\.length\s*\?[\s\S]*?:\s*\(authoritative\s*\?\s*\[\]\s*:\s*cloneJson\(legacyRecovery\)\)/,
+  'Runtime ledger view must keep recovery rows CORE-first and suppress legacy recovery rows whenever CORE recovery projection exists.'
+);
+assert.match(
+  runtimeLedgerViewSource,
+  /export\s+async\s+function\s+createRuntimeLedgerViewAsync\b[\s\S]*?await\s+readRuntimeCoreProjectionsAsync/,
+  'Runtime ledger view must provide an async CORE projection path for runtime-app CORE facades.'
+);
 
 const chatTurnOrchestratorSource = readFileSync(
   new URL('../../src/runtime/chat-turn-orchestrator.mjs', import.meta.url),
@@ -61,6 +120,32 @@ assert.match(
   /from\s+['"]\.\/source-settlement-latest-pair\.mjs['"]/,
   'Production chat-turn-orchestrator must route latest-pair settlement through the source-settlement latest-pair owner module.'
 );
+assert.equal(
+  chatTurnOrchestratorSource.includes("type: 'hostResponsePostFailure'")
+    || chatTurnOrchestratorSource.includes('type: "hostResponsePostFailure"'),
+  false,
+  'hostResponsePostFailure must not write old recoveryJournal rows.'
+);
+assert.equal(
+  chatTurnOrchestratorSource.includes('error: { message: error?.message || String(error) }'),
+  false,
+  'postCommitConversationFailed fallback must not persist raw error messages in old recoveryJournal details.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /function\s+compactPostCommitConversationError\b[\s\S]*?messageLength[\s\S]*?messageHash/,
+  'postCommitConversationFailed fallback must keep only compact error evidence.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /async\s+function\s+appendPostCommitConversationFailureDiagnostic\b[\s\S]*?coreTurnStore\?\.(?:appendDiagnostics|appendDiagnostic)/,
+  'Blocking postCommitConversation failures must attempt CORE diagnostics.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /const\s+postCommitConversationDiagnostic\s*=\s*await\s+appendPostCommitConversationFailureDiagnostic/,
+  'Blocking postCommitConversation failures must attempt diagnostics without old recovery fallback.'
+);
 
 const sourceSettlementLatestPairModuleUrl = new URL('../../src/runtime/source-settlement-latest-pair.mjs', import.meta.url);
 assert.equal(
@@ -72,6 +157,258 @@ const sourceSettlementLatestPair = await import(sourceSettlementLatestPairModule
 assert.equal(typeof sourceSettlementLatestPair.createLatestPairSourceSettlementProvider, 'function');
 assert.equal(typeof sourceSettlementLatestPair.settleLatestPairSource, 'function');
 
+const runtimeAppSource = readFileSync(
+  new URL('../../src/runtime/runtime-app.mjs', import.meta.url),
+  'utf8'
+);
+assert.match(
+  runtimeAppSource,
+  /createRuntimeLedgerView[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
+  'Runtime-app freshness arbitration must use the shared CORE-first runtime ledger view.'
+);
+assert.match(
+  runtimeAppSource,
+  /const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)/,
+  'Runtime-app freshness counters must be derived from the shared runtime ledger view.'
+);
+assert.equal(
+  /rowsCoveredByCoreProjection\(projections\.recoveryJournal,\s*runtimeTracking\.recoveryJournal/.test(runtimeAppSource),
+  false,
+  'Runtime-app CORE authority must not require CORE recovery projections to cover legacy recoveryJournal rows.'
+);
+const correctAsSwipeSource = readFileSync(
+  new URL('../../src/runtime/correct-as-swipe.mjs', import.meta.url),
+  'utf8'
+);
+const sourceReviewWorkerSource = readFileSync(
+  new URL('../../src/runtime/source-review-worker.mjs', import.meta.url),
+  'utf8'
+);
+const sourceReconciliationEngineSource = readFileSync(
+  new URL('../../src/runtime/source-reconciliation-engine.mjs', import.meta.url),
+  'utf8'
+);
+const sillyTavernChatAdapterSource = readFileSync(
+  new URL('../../src/hosts/sillytavern/chat-adapter.mjs', import.meta.url),
+  'utf8'
+);
+const fakeHostSource = readFileSync(
+  new URL('../../src/hosts/fake/fake-host.mjs', import.meta.url),
+  'utf8'
+);
+const missionComponentsCaptureSource = readFileSync(
+  new URL('../../src/hosts/sillytavern/mission-components-capture.js', import.meta.url),
+  'utf8'
+);
+const correctAsSwipeLiveSource = readFileSync(
+  new URL('./test-correct-as-swipe-live.mjs', import.meta.url),
+  'utf8'
+);
+const transactionStateSource = readFileSync(
+  new URL('../../src/campaign/transaction-state.mjs', import.meta.url),
+  'utf8'
+);
+const settingsPanelSource = readFileSync(
+  new URL('../../src/ui/settings-panel.js', import.meta.url),
+  'utf8'
+);
+const ashesProjectionSource = readFileSync(
+  new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', import.meta.url),
+  'utf8'
+);
+for (const [label, source] of [
+  ['runtime-app', runtimeAppSource],
+  ['transaction-state', transactionStateSource]
+]) {
+  assert.match(
+    source,
+    /const\s+DEFAULT_TURN_SAVE_HISTORY_LIMIT\s*=\s*8\s*;/,
+    `${label} must default retained old turn-save history to 8 for 5000-message scale.`
+  );
+  assert.match(
+    source,
+    /const\s+MAX_TURN_SAVE_HISTORY_LIMIT\s*=\s*20\s*;/,
+    `${label} must cap retained old turn-save history at 20 while CORE checkpoints own durable replay.`
+  );
+}
+assert.match(
+  stateDeltaGatewaySource,
+  /const\s+DEFAULT_HISTORY_LIMIT\s*=\s*8\s*;/,
+  'State delta gateway must default runtimeTracking.history to 8 compact snapshots.'
+);
+assert.equal(
+  /value\s*\?\?\s*campaignState\.settings\?\.maxTurnSaveHistory\s*\?\?\s*campaignState\.runtimeTracking\?\.historyLimit/.test(runtimeAppSource),
+  false,
+  'Runtime settings defaulting must not preserve old runtimeTracking.historyLimit as an implicit user setting.'
+);
+assert.match(
+  settingsPanelSource,
+  /historyLimitValue[\s\S]*\|\|\s*8[\s\S]*return\s+Number\.isFinite\(value\)\s*\?\s*value\s*:\s*8/,
+  'Settings UI must display the scale-oriented turn history default.'
+);
+assert.equal(
+  /historyLimitValue[\s\S]*runtimeTracking\?\.historyLimit/.test(settingsPanelSource),
+  false,
+  'Settings UI must not preserve old runtimeTracking.historyLimit as the visible default.'
+);
+assert.match(
+  settingsPanelSource,
+  /historyField\.control\.max\s*=\s*['"]20['"]/,
+  'Settings UI must cap the old turn history input at 20.'
+);
+assert.match(
+  ashesProjectionSource,
+  /"maxTurnSaveHistory"\s*:\s*8/,
+  'Bundled Ashes campaign must seed the scale-oriented turn history default.'
+);
+assert.match(
+  correctAsSwipeSource,
+  /CORRECT_AS_SWIPE_ACTION_ID\s*=\s*['"]correctAsSwipe\.propose['"]/,
+  'Correct-as-Swipe must expose a stable runtime action id.'
+);
+assert.match(
+  correctAsSwipeSource,
+  /CORRECT_AS_SWIPE_SETTLE_ACTION_ID\s*=\s*['"]correctAsSwipe\.settleCase['"]/,
+  'Correct-as-Swipe must expose a stable runtime action id for REPAIR lifecycle decisions.'
+);
+assert.match(
+  correctAsSwipeSource,
+  /acceptanceBoundary:\s*['"]selectedSwipeChanged['"][\s\S]*?continuityMutation:\s*['"]none-until-selected['"]/,
+  'Correct-as-Swipe correction cases must keep selected-swipe acceptance as the continuity boundary.'
+);
+assert.match(
+  correctAsSwipeSource,
+  /settleCorrectAsSwipeCaseLifecycle[\s\S]*?buildCorrectAsSwipeLifecycleDecision[\s\S]*?type:\s*['"]correctAsSwipeCaseLifecycle['"]/,
+  'Correct-as-Swipe lifecycle actions must go through REPAIR decisions and compact CORE diagnostics.'
+);
+assert.match(
+  correctAsSwipeSource,
+  /acceptCorrectAsSwipeSelection[\s\S]*?selectedTextHash[\s\S]*?candidateSwipe:[\s\S]*?selected:\s*true/,
+  'Correct-as-Swipe selected-swipe acceptance must require selected text hash evidence and mark only compact case refs.'
+);
+assert.match(
+  correctAsSwipeSource,
+  /appendAssistantMessageSwipe\s*\([\s\S]*?select:\s*false/,
+  'Correct-as-Swipe candidate swipes must append without auto-selecting the candidate.'
+);
+assert.match(
+  sillyTavernChatAdapterSource,
+  /select\s*=\s*true[\s\S]*?const\s+selected\s*=\s*select\s*!==\s*false[\s\S]*?if\s*\(\s*selected\s*\)\s*\{[\s\S]*?message\.swipe_id\s*=\s*swipeIndex[\s\S]*?\}\s*else\s*\{/,
+  'SillyTavern chat adapter must support unselected candidate swipe append while preserving default selected append behavior.'
+);
+assert.match(
+  fakeHostSource,
+  /const\s+selected\s*=\s*options\.select\s*!==\s*false[\s\S]*?if\s*\(\s*selected\s*\)\s*\{[\s\S]*?message\.swipe_id\s*=\s*swipeIndex[\s\S]*?\}\s*else\s*\{/,
+  'Fake host must model unselected candidate swipe append for Correct-as-Swipe tests.'
+);
+assert.match(
+  missionComponentsCaptureSource,
+  /DIRECTIVE_CORRECT_AS_SWIPE_BUTTON_CLASS[\s\S]*?correctAsSwipe\.propose[\s\S]*?proposedText:\s*candidate\.value/s,
+  'Highlighted assistant selections must expose a Correct-as-Swipe affordance that submits candidate prose through the runtime action.'
+);
+assert.match(
+  missionComponentsCaptureSource,
+  /correct\.hidden\s*=\s*state\.message\?\.role\s*!==\s*['"]assistant['"]/,
+  'Correct-as-Swipe selection affordance must stay assistant-message scoped.'
+);
+assert.match(
+  correctAsSwipeLiveSource,
+  /compareServedExtension[\s\S]*?SERVED_EXTENSION_FILES[\s\S]*?assert\.equal\(servedExtension\.ok,\s*true/,
+  'Correct-as-Swipe live proof must fail closed on served-extension mismatch.'
+);
+assert.match(
+  correctAsSwipeLiveSource,
+  /assert\.notEqual\(SILLYTAVERN_USER,\s*['"]default-user['"]/,
+  'Correct-as-Swipe live proof must not run against the human default-user lane.'
+);
+assert.match(
+  correctAsSwipeLiveSource,
+  /assert\(SILLYTAVERN_USER,\s*['"]Correct-as-Swipe live smoke requires DIRECTIVE_SILLYTAVERN_USER/,
+  'Correct-as-Swipe live proof must require an explicit non-human soak user.'
+);
+assert.match(
+  correctAsSwipeLiveSource,
+  /directive-correct-as-swipe-button[\s\S]*?directive-correct-as-swipe-popover[\s\S]*?selectedUnchanged/,
+  'Correct-as-Swipe live proof must exercise browser selection, UI append, and unselected candidate evidence.'
+);
+assert.match(
+  runtimeAppSource,
+  /from\s+['"]\.\.\/storage\/transaction-store-v2\.mjs['"][\s\S]*?\bloadV2Checkpoint\b[\s\S]*?\bwriteV2Checkpoint\b|(?:loadV2Checkpoint|writeV2Checkpoint)[\s\S]*?(?:loadV2Checkpoint|writeV2Checkpoint)[\s\S]*?from\s+['"]\.\.\/storage\/transaction-store-v2\.mjs['"]/,
+  'Runtime-app must import the v2 checkpoint loader/writer for CORE-backed terminal replay.'
+);
+assert.match(
+  runtimeAppSource,
+  /createCampaignEndConditionService\s*\(\s*\{[\s\S]*?\bloadTerminalCheckpoint\s*:/,
+  'Runtime-app must pass a CORE/v2 terminal checkpoint loader into the end-condition service.'
+);
+assert.equal(
+  runtimeAppSource.includes('error: { message: error?.message || String(error), code: error?.code || null }'),
+  false,
+  'Runtime-app postCommitConversationFailed fallback must not persist raw error messages in old recoveryJournal details.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+compactRuntimeErrorEvidence\b[\s\S]*?messageLength[\s\S]*?messageHash/,
+  'Runtime-app postCommitConversationFailed fallback must keep only compact error evidence.'
+);
+assert.match(
+  runtimeAppSource,
+  /async\s+function\s+appendPostCommitConversationCoreDiagnostic\b[\s\S]*?runtimeCoreTurnStore\.appendDiagnostics/,
+  'Runtime-app scheduled postCommitConversation failures must have an awaited CORE diagnostic path.'
+);
+assert.match(
+  runtimeAppSource,
+  /failureDiagnostic\s*=\s*await\s+appendPostCommitConversationCoreDiagnostic/,
+  'Runtime-app scheduled postCommitConversation failures must attempt a CORE diagnostic.'
+);
+assert.match(
+  runtimeAppSource,
+  /eventType\s*:\s*status\s*===\s*['"]failed['"]\s*\?\s*['"]postCommitConversationFailed['"]\s*:\s*['"]postCommitConversation['"]/,
+  'Runtime-app postCommitConversation CORE diagnostics must name failed extraction events.'
+);
+assert.equal(
+  runtimeAppSource.includes('campaignState = recordRecoveryEvent({')
+    && runtimeAppSource.includes("type: 'campaignDifficultyChange'"),
+  false,
+  'Campaign difficulty lifecycle changes must not use runtimeTracking.recoveryJournal as an administrative event log.'
+);
+assert.equal(
+  runtimeAppSource.includes('campaignState = recordRecoveryEvent(campaignState, {')
+    && runtimeAppSource.includes("type: 'chatRebind'"),
+  false,
+  'Chat rebinding lifecycle changes must not use runtimeTracking.recoveryJournal as an administrative event log.'
+);
+assert.match(
+  runtimeAppSource,
+  /recordLifecycleEvent\s*\([\s\S]*?type\s*:\s*['"]campaignDifficultyChange['"][\s\S]*?recordLifecycleEvent\s*\([\s\S]*?type\s*:\s*['"]chatRebind['"]/,
+  'Runtime-app administrative lifecycle changes must use the compact lifecycle journal.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+appendNarrationBookkeepingMissingOutcomeDiagnostic\b[\s\S]*?runtimeCoreTurnStore\.appendDiagnostics/,
+  'Narration missing-outcome bookkeeping must attempt a CORE diagnostic.'
+);
+assert.match(
+  runtimeAppSource,
+  /const\s+coreDiagnostic\s*=\s*await\s+appendNarrationBookkeepingMissingOutcomeDiagnostic[\s\S]*?if\s*\(\s*coreDiagnostic\s*\)\s*\{/,
+  'Narration missing-outcome bookkeeping must persist only after CORE diagnostic evidence exists.'
+);
+assert.match(
+  runtimeAppSource,
+  /createCampaignEndConditionService\s*\(\s*\{[\s\S]*?\bwriteTerminalCheckpoint\s*:/,
+  'Runtime-app must pass a CORE/v2 terminal checkpoint writer into the end-condition service.'
+);
+assert.match(
+  runtimeAppSource,
+  /async\s+resolveTerminalOutcomeDecision\s*\(\s*\{[\s\S]*?resolutionIngressId\s*=\s*null[\s\S]*?resolutionHostMessageId\s*=\s*null[\s\S]*?\}\s*=\s*\{\s*\}\s*\)\s*\{[\s\S]*?endConditionService\.resolveDecision\s*\(\s*\{[\s\S]*?\bresolutionIngressId\b[\s\S]*?\bresolutionHostMessageId\b[\s\S]*?\}\s*\)/,
+  'Runtime-app public resolveTerminalOutcomeDecision must accept and forward terminal resolution ingress/message ids.'
+);
+assert.match(
+  runtimeAppSource,
+  /createMessageReconciler\s*\(\s*\{[\s\S]*?\bloadCoreCheckpointState\s*:/,
+  'Runtime-app must pass a CORE checkpoint loader into message recovery rollback execution.'
+);
+
 const sourceReviewWorkerModuleUrl = new URL('../../src/runtime/source-review-worker.mjs', import.meta.url);
 assert.equal(
   existsSync(sourceReviewWorkerModuleUrl),
@@ -81,6 +418,33 @@ assert.equal(
 const sourceReviewWorker = await import(sourceReviewWorkerModuleUrl.href);
 assert.equal(typeof sourceReviewWorker.createSourceReviewWorker, 'function');
 assert.equal(typeof sourceReviewWorker.__sourceReviewWorkerTestHooks?.providedHostNativeReviewMatchesSource, 'function');
+assert.match(
+  runtimeAppSource,
+  /createSourceReviewWorker[\s\S]*?reviewCorrectAsSwipeEvidence[\s\S]*?proposeCorrectAsSwipe\(/,
+  'Runtime-app Correct-as-Swipe action must derive SRE evidence verdicts before appending candidate swipes.'
+);
+assert.match(
+  runtimeAppSource,
+  /const\s+proposedText\s*=\s*payload\.proposedText\s*\?\?\s*payload\.candidateText\s*\?\?\s*payload\.rewriteText\s*\?\?\s*payload\.text/,
+  'Runtime-app Correct-as-Swipe action must treat generic payload.text as candidate text, not selected evidence text.'
+);
+assert.equal(
+  sourceReviewWorkerSource.includes('directive.sreCorrectAsSwipeEvidenceVerdict.v1'),
+  true,
+  'Source-review worker must expose the Correct-as-Swipe evidence-verdict contract.'
+);
+for (const verdict of ['supported', 'contradicted', 'unsupported', 'ambiguous', 'external-only']) {
+  assert.equal(
+    sourceReviewWorkerSource.includes(`'${verdict}'`),
+    true,
+    `Source-review worker must keep Correct-as-Swipe verdict '${verdict}'.`
+  );
+}
+assert.match(
+  sourceReconciliationEngineSource,
+  /function\s+reviewCorrectAsSwipeEvidence[\s\S]*?reviewContinuityContradictions[\s\S]*?directive\.sreCorrectAsSwipeEvidenceVerdict\.v1/,
+  'SRE must own Correct-as-Swipe selected-text evidence verdict production.'
+);
 const rawSreFindingSummaryCanary = 'RAW_SRE_FINDING_SUMMARY_MUST_NOT_PERSIST';
 const summarySanitizingWorker = sourceReviewWorker.createSourceReviewWorker({
   sourceReconciliationEngine: {
@@ -165,6 +529,77 @@ assert.match(
   /from\s+['"]\.\/source-review-worker\.mjs['"]/,
   'Production response-dispatcher must route host-native source review through the source-review-worker owner module.'
 );
+assert.equal(
+  /claim-quarantine\.mjs/.test(responseDispatcherSource),
+  false,
+  'Production response-dispatcher must not import old generated-claim quarantine as a host-native recovery authority.'
+);
+assert.equal(
+  /\bquarantineGeneratedClaims\b/.test(responseDispatcherSource),
+  false,
+  'Production response-dispatcher must not write old continuity candidate/rejected claim roots.'
+);
+
+const messageReconcilerSource = readFileSync(
+  new URL('../../src/runtime/message-reconciler.mjs', import.meta.url),
+  'utf8'
+);
+assert.match(
+  responseDispatcherSource,
+  /createRuntimeLedgerViewAsync[\s\S]*?findLedgerIngressAsync[\s\S]*?findLedgerRecoveryAsync[\s\S]*?findLedgerResponseAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
+  'ResponseDispatcher must use the shared async CORE-first runtime ledger view for ingress/response/recovery lookup.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /createRuntimeLedgerViewAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
+  'ChatTurnOrchestrator response retry lookup must use the shared async CORE-first runtime ledger view.'
+);
+assert.match(
+  messageReconcilerSource,
+  /findLedgerIngressAsync[\s\S]*?findLedgerResponseAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
+  'MessageReconciler source mutation lookup must use the shared async CORE-first runtime ledger view.'
+);
+assert.match(
+  messageReconcilerSource,
+  /acceptCorrectAsSwipeSelection[\s\S]*?if\s*\(\s*acceptedCorrection\.matched\s*===\s*true\s*\)[\s\S]*?recordRepairSourceMutationRecovery/,
+  'MessageReconciler must accept known Correct-as-Swipe candidate selections before generic selected-swipe REPAIR recovery.'
+);
+assert.equal(
+  countSourceMatches(messageReconcilerSource, /recordRecoveryEvent\s*\(/g),
+  0,
+  'MessageReconciler must not write old recoveryJournal rows for source mutations.'
+);
+assert.match(
+  messageReconcilerSource,
+  /loadCoreCheckpointState[\s\S]*?coreCheckpointRestoreState[\s\S]*?executeRepairRollbackActuation/,
+  'Message recovery rollback must load CORE checkpoint state and pass it to REPAIR rollback execution.'
+);
+assert.match(
+  messageReconcilerSource,
+  /if\s*\(\s*!coreRecoveryRecorded\(coreRecovery\)\s*\)\s*\{[\s\S]*?action:\s*['"]coreRecoveryRequired['"][\s\S]*?reason:\s*['"]source-mutation-core-recovery-required['"]/,
+  'Message recovery must fail closed when source mutation CORE recovery cannot be recorded.'
+);
+assert.equal(
+  countSourceMatches(messageReconcilerSource, /if\s*\(\s*!coreRecoveryRecorded\(coreRecovery\)\s*\)\s*\{[\s\S]*?recordRecoveryEvent/g),
+  0,
+  'Message recovery must not retain no-CORE old recovery fallback writers.'
+);
+assert.equal(
+  messageReconcilerSource.includes('replacementTextEvidence'),
+  false,
+  'Message recovery must not keep old fallback replacement-text evidence helpers after no-CORE fallback removal.'
+);
+for (const oldDependentRecoveryType of [
+  'sceneHandshakeSourceInvalidated',
+  'missionComponentSourceEdited',
+  'missionComponentSourceDeleted'
+]) {
+  assert.equal(
+    messageReconcilerSource.includes(oldDependentRecoveryType),
+    false,
+    `REPAIR dependent invalidation must not write old recoveryJournal row ${oldDependentRecoveryType}.`
+  );
+}
 for (const localReviewFunction of [
   'providedHostNativeReviewMatchesSource',
   'sanitizeHostNativeContinuityReview',
@@ -176,6 +611,91 @@ for (const localReviewFunction of [
     `Production response-dispatcher must not locally implement ${localReviewFunction}.`
   );
 }
+assert.equal(
+  countSourceMatches(responseDispatcherSource, /recordRecoveryEvent\s*\(/g),
+  0,
+  'ResponseDispatcher must not write old recoveryJournal rows.'
+);
+assert.equal(
+  /import\s*\{[\s\S]*?\brecordRecoveryEvent\b[\s\S]*?\}\s*from\s*['"]\.\/state-delta-gateway\.mjs['"]/.test(responseDispatcherSource),
+  false,
+  'ResponseDispatcher must not import old recoveryJournal writer authority.'
+);
+assert.equal(
+  /coreCompletionError\s*&&\s*!coreCompletionDiagnosticRecorded[\s\S]*?recordRecoveryEvent/.test(responseDispatcherSource),
+  false,
+  'Host-native completion record failures must not write old recovery rows when CORE diagnostics cannot record.'
+);
+assert.equal(
+  /!\s*coreBackedRecoveryRecorded[\s\S]*?recordRecoveryEvent/.test(responseDispatcherSource),
+  false,
+  'Host-native failed/unavailable failures must not fall back to old recovery rows.'
+);
+assert.equal(
+  /coreReleaseError\s*&&\s*!\s*coreReleaseDiagnosticRecorded[\s\S]*?recordRecoveryEvent/.test(responseDispatcherSource),
+  false,
+  'HostContinue and visible response CORE failures must not write old recovery rows when CORE diagnostics cannot record.'
+);
+assert.match(
+  responseDispatcherSource,
+  /eventType\s*:\s*['"]coreHostNativeCompletionFailure['"]/,
+  'Host-native completion record failures must still have compact CORE diagnostic event evidence.'
+);
+assert.match(
+  responseDispatcherSource,
+  /eventType\s*:\s*status\s*===\s*['"]failed['"]\s*\?\s*['"]hostNativeGenerationFailed['"]\s*:\s*['"]hostNativeAssistantUnavailable['"]/,
+  'Host-native failed/unavailable failures must still have compact CORE recovery event evidence.'
+);
+assert.match(
+  responseDispatcherSource,
+  /eventType\s*:\s*['"]coreHostContinueReleaseFailure['"]/,
+  'HostContinue release record failures must still have compact CORE diagnostic event evidence.'
+);
+assert.match(
+  responseDispatcherSource,
+  /eventType\s*:\s*['"]coreVisibleResponseRecordFailure['"]/,
+  'Visible response record failures must still have compact CORE diagnostic event evidence.'
+);
+assert.equal(
+  countSourceMatches(chatTurnOrchestratorSource, /recordRecoveryEvent\s*\(/g),
+  0,
+  'ChatTurnOrchestrator must not write old recoveryJournal rows.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /const\s+coreRecovery\s*=\s*await\s+markCoreTurnProcessingFailureForBridge/,
+  'Chat-turn processing failures must attempt CORE recovery without old recovery fallback.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /const\s+coreResponseRecovery\s*=\s*await\s+markCoreResponseRetryRequiredForBridge/,
+  'Host response post failures must attempt CORE response retry recovery without old recovery fallback.'
+);
+assert.equal(
+  countSourceMatches(chatTurnOrchestratorSource, /if\s*\(\s*coreResponseRecovery\?\.status\s*!==\s*['"]recorded['"]\s*\)\s*\{[\s\S]*?type\s*:\s*['"]providerFailureAfterMechanicsCommit['"]/g),
+  0,
+  'Provider failure after mechanics commit must not write old recovery fallback rows.'
+);
+assert.equal(
+  countSourceMatches(chatTurnOrchestratorSource, /if\s*\(\s*!postCommitConversationDiagnostic\s*\)\s*\{[\s\S]*?type\s*:\s*['"]postCommitConversationFailed['"]/g),
+  0,
+  'Blocking post-commit conversation failures must not write old recovery fallback rows.'
+);
+assert.equal(
+  countSourceMatches(runtimeAppSource, /recordRecoveryEvent\s*\(/g),
+  0,
+  'Runtime-app must not write old recoveryJournal rows.'
+);
+assert.match(
+  runtimeAppSource,
+  /const\s+coreDiagnostic\s*=\s*await\s+appendNarrationBookkeepingMissingOutcomeDiagnostic[\s\S]*?if\s*\(\s*coreDiagnostic\s*\)\s*\{/,
+  'Narration missing-outcome must not persist without CORE diagnostic evidence.'
+);
+assert.match(
+  runtimeAppSource,
+  /failureDiagnostic\s*=\s*await\s+appendPostCommitConversationCoreDiagnostic/,
+  'Scheduled post-commit conversation failures must attempt CORE diagnostics without old recovery fallback.'
+);
 
 function createFakeCoreStore() {
   const calls = [];
@@ -1133,5 +1653,44 @@ const rollbackPrevalidation = await rollbackPrevalidationBoundary.executeRollbac
 assert.equal(rollbackPrevalidation.status, 'blocked', 'REPAIR rollback execution should block when restore candidate cannot be computed.');
 assert.equal(rollbackPrevalidation.reason, 'rollback-restore-unavailable');
 assert.equal(rollbackPrevalidationCalls.length, 0, 'CORE rollback actuation must not be recorded before a restore candidate exists.');
+
+const rollbackHistoryOnly = await rollbackPrevalidationBoundary.executeRollbackActuation({
+  coreRecovery: {
+    transactionId: 'txn-rollback-history-only',
+    recoveryCaseId: 'recovery-rollback-history-only',
+    decision: { transactionId: 'txn-rollback-history-only' },
+    sourceMutation: { eventType: 'playerMessageDeleted' }
+  },
+  rollbackActuation: {
+    kind: 'directive.repairRollbackActuationDecision.v1',
+    authorized: true,
+    action: 'restorePreOutcomeRevision',
+    transactionId: 'txn-rollback-history-only',
+    restoreRevision: 7
+  },
+  legacyProjection: {
+    shouldRestoreRevision: true,
+    restoreRevision: 7
+  },
+  eventType: 'playerMessageDeleted',
+  campaignState: {
+    campaign: { id: 'campaign-rollback-history-only' },
+    mission: { activePhaseId: 'after-history-only' },
+    runtimeTracking: {
+      revision: 8,
+      history: [{
+        revision: 7,
+        snapshot: {
+          campaign: { id: 'campaign-rollback-history-only' },
+          mission: { activePhaseId: 'before-history-only' }
+        }
+      }],
+      recoveryJournal: []
+    }
+  }
+});
+assert.equal(rollbackHistoryOnly.status, 'blocked', 'REPAIR rollback execution must not restore old runtimeTracking.history snapshots.');
+assert.equal(rollbackHistoryOnly.reason, 'rollback-core-checkpoint-required');
+assert.equal(rollbackPrevalidationCalls.length, 0, 'CORE rollback actuation must not be recorded for history-only rollback.');
 
 console.log('Architecture redesign system skeleton contract tests passed');

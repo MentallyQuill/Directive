@@ -210,6 +210,15 @@ const mechanics = await coreStore.commitMechanics(transaction.id, {
   turnId: 'turn-29',
   outcomeId: 'outcome-29',
   summary: 'Sam frames the tactical risk without overruling the bridge.',
+  checkpointBefore: {
+    checkpointId: 'core-mechanics-outcome-29',
+    sourceKind: 'turnCommitCoordinator.beforeCampaignState',
+    campaignState: {
+      campaign: { id: 'campaign-core-v2' },
+      checkpointMarker: 'before-outcome-29',
+      rawCheckpointText: 'RAW_CORE_MECHANICS_CHECKPOINT_STATE_ALLOWED_ONLY_IN_CHECKPOINT_ARTIFACT'
+    }
+  },
   snapshotBeforeRetained: true,
   committedRoots: ['mission', 'commandLog'],
   promptDirtyDomains: ['missionQuestThread'],
@@ -233,9 +242,10 @@ assert.equal(storage.writeLog.filter((key) => key.endsWith('/host-map.v2.json'))
 assert.equal(storage.writeLog.filter((key) => key.endsWith('/prompt-cache.v2.json')).length, beforeMechanicsPromptWrites, 'mechanics commit must not rewrite prompt cache on the append-only hot path');
 assert.equal(mechanicsWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'mechanics append should write exactly one event tail');
 assert.equal(mechanicsWriteKeys.filter((key) => key.includes('/turns/')).length, 1, 'mechanics append should write exactly one turn tail');
+assert.equal(mechanicsWriteKeys.filter((key) => key.includes('/core/checkpoints/')).length, 1, 'mechanics append should write one CORE checkpoint artifact when checkpointBefore is supplied');
 assert.equal(mechanicsWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'mechanics append should publish one save manifest');
 assert.equal(mechanicsWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'mechanics append should publish one campaign manifest');
-assert.equal(mechanicsWriteKeys.length, 4, 'mechanics append should write only event tail, turn tail, save manifest, and campaign manifest');
+assert.equal(mechanicsWriteKeys.length, 5, 'mechanics append should write event tail, turn tail, checkpoint artifact, save manifest, and campaign manifest');
 assert.equal(mechanicsWriteKeys[mechanicsWriteKeys.length - 2].endsWith('/save-manifest.v2.json'), true, 'mechanics append should write save manifest after segment artifacts');
 assert.equal(mechanicsWriteKeys[mechanicsWriteKeys.length - 1].endsWith('/campaign-manifest.v2.json'), true, 'mechanics append should write campaign manifest last');
 assert.equal(mechanicsReadKeys.some((key) => key.endsWith('/head.v2.json')), false, 'mechanics append must not read CORE head');
@@ -249,6 +259,11 @@ const manifestAfterMechanics = await loadV2SaveManifest(adapter, {
 assert.deepEqual(manifestAfterMechanics.head, manifestBeforeMechanics.head, 'mechanics append should preserve the prior materialized head ref');
 assert.deepEqual(manifestAfterMechanics.hostMap, manifestBeforeMechanics.hostMap, 'mechanics append should preserve the prior host-map ref');
 assert.deepEqual(manifestAfterMechanics.promptCache, manifestBeforeMechanics.promptCache, 'mechanics append should preserve the prior prompt-cache ref');
+assert.equal(manifestAfterMechanics.checkpoints.at(-1).logicalKey.endsWith('/core/checkpoints/core-mechanics-outcome-29.v2.json'), true);
+const mechanicsCheckpoint = await readV2ArtifactRef(adapter, manifestAfterMechanics.checkpoints.at(-1));
+assert.equal(mechanicsCheckpoint.checkpoint.checkpointId, 'core-mechanics-outcome-29');
+assert.equal(mechanicsCheckpoint.checkpoint.outcomeId, 'outcome-29');
+assert.equal(mechanicsCheckpoint.checkpoint.campaignState.checkpointMarker, 'before-outcome-29');
 const hydratedAfterMechanics = await loadCoreStoreStateV2(adapter, {
   campaignId: 'campaign-core-v2',
   saveId: 'save-core-v2'
@@ -256,10 +271,17 @@ const hydratedAfterMechanics = await loadCoreStoreStateV2(adapter, {
 assert.equal(hydratedAfterMechanics.transactions[transaction.id].turnId, 'turn-29', 'hydration should derive mechanics turn id from appended event/turn segments');
 assert.equal(hydratedAfterMechanics.transactions[transaction.id].outcomeId, 'outcome-29', 'hydration should derive mechanics outcome from appended event/turn segments');
 assert.equal(hydratedAfterMechanics.turns.find((entry) => entry.turnId === 'turn-29')?.snapshotBeforeRetained, true, 'hydration should preserve retained-snapshot capability for rerun authorization');
+assert.equal(hydratedAfterMechanics.turns.find((entry) => entry.turnId === 'turn-29')?.coreCheckpointRef?.checkpointId, 'core-mechanics-outcome-29', 'hydration should preserve compact CORE mechanics checkpoint ref');
+const hydratedMechanicsEvent = hydratedAfterMechanics.events.find((entry) => entry.type === 'mechanicsCommitted' && entry.txnId === transaction.id);
+assert.equal(hydratedMechanicsEvent?.payload?.operationBundle?.coreCheckpointRef?.checkpointId, 'core-mechanics-outcome-29', 'mechanics event should carry compact CORE checkpoint ref');
 assert.equal(hydratedAfterMechanics.revisions.mechanics, 1, 'hydration should derive mechanics revision from appended event/turn segments');
 assert.equal(hydratedAfterMechanics.promptDirtyDomains.includes('missionQuestThread'), true, 'hydration should derive prompt dirty domains from appended turn segments');
 assert.equal(mechanics.outcomeId, 'outcome-29');
 assert.equal(mechanics.operationCount, 1);
+assert.equal(mechanics.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-29');
+assert.equal(JSON.stringify(mechanics).includes('RAW_CORE_MECHANICS_CHECKPOINT_STATE_ALLOWED_ONLY_IN_CHECKPOINT_ARTIFACT'), false);
+assert.equal(JSON.stringify(hydratedAfterMechanics.turns).includes('RAW_CORE_MECHANICS_CHECKPOINT_STATE_ALLOWED_ONLY_IN_CHECKPOINT_ARTIFACT'), false);
+assert.equal(JSON.stringify(hydratedMechanicsEvent).includes('RAW_CORE_MECHANICS_CHECKPOINT_STATE_ALLOWED_ONLY_IN_CHECKPOINT_ARTIFACT'), false);
 assert.equal(coreStore.state.revisions.prompt, 0, 'CORE must emit dirty domains without owning prompt revision');
 const replayMechanics = await coreStore.commitMechanics(transaction.id, {
   baseMechanicsRevision: 0,
@@ -1051,6 +1073,80 @@ const hydratedRecoveryReplay = await hydratedRecoveryReplayStore.markRecoveryReq
 assert.equal(hydratedRecoveryReplay.id, 'recovery-31', 'hydrated same-key recovery should replay the existing case');
 assert.equal(hydratedRecoveryReplayStore.state.events.length, hydratedRecoveryReplayEventCount, 'hydrated same-key recovery replay must not append another event');
 
+const continuityRecoveryProjectionFrame = createTurnSourceFrameContract({
+  id: 'frame-continuity-recovery-projection',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'ashes-chat',
+  hostMessageId: '31-continuity-projection',
+  textHash: hashStableJson({ text: 'Continuity recovery projection canary.' }),
+  createdAt: '2026-06-28T15:00:31.500Z'
+});
+const continuityRecoveryProjectionTransaction = await coreStore.beginTurn(continuityRecoveryProjectionFrame, {
+  transactionId: 'txn-continuity-recovery-projection',
+  ingressId: 'ingress-continuity-recovery-projection',
+  idempotencyKey: 'begin-continuity-recovery-projection'
+});
+const rawContinuityProjectionCanary = 'RAW_CONTINUITY_RECOVERY_PROJECTION_TEXT_CANARY';
+await coreStore.markRecoveryRequired(continuityRecoveryProjectionTransaction.id, {
+  id: 'recovery-continuity-projection-canary',
+  reason: 'hostNativeContinuityContradiction',
+  status: 'required',
+  idempotencyKey: 'recovery-continuity-projection-canary-key',
+  continuityProjection: {
+    rejectedClaims: [{
+      id: 'claim.continuity-recovery-projection-canary',
+      status: 'rejected',
+      text: rawContinuityProjectionCanary,
+      message: rawContinuityProjectionCanary,
+      content: rawContinuityProjectionCanary,
+      textHash: hashStableJson({ text: rawContinuityProjectionCanary }),
+      source: {
+        kind: 'hostNativeGeneration',
+        message: rawContinuityProjectionCanary,
+        content: rawContinuityProjectionCanary,
+        hostMessageId: 'assistant-continuity-recovery-projection'
+      }
+    }],
+    projectionHints: [{
+      id: 'hint.continuity-recovery-projection-canary',
+      factId: 'fact.continuity-recovery-projection-canary',
+      mode: 'guard',
+      message: rawContinuityProjectionCanary,
+      content: rawContinuityProjectionCanary
+    }],
+    factUseStats: {
+      'fact.continuity-recovery-projection-canary': {
+        factId: 'fact.continuity-recovery-projection-canary',
+        violationCount: 1,
+        message: rawContinuityProjectionCanary,
+        content: rawContinuityProjectionCanary
+      }
+    }
+  }
+});
+const continuityRecoveryProjection = coreStore.readProjections().continuityRecoveryProjection;
+assert.equal(
+  continuityRecoveryProjection.rejectedClaims.some((entry) => entry.id === 'claim.continuity-recovery-projection-canary'),
+  true,
+  'CORE continuity recovery projection should retain compact rejected-claim evidence.'
+);
+assert.equal(
+  continuityRecoveryProjection.projectionHints.some((entry) => entry.id === 'hint.continuity-recovery-projection-canary'),
+  true,
+  'CORE continuity recovery projection should retain compact projection hints.'
+);
+assert.equal(
+  Boolean(continuityRecoveryProjection.factUseStats['fact.continuity-recovery-projection-canary']),
+  true,
+  'CORE continuity recovery projection should retain compact fact-use stats.'
+);
+assert.equal(
+  JSON.stringify(continuityRecoveryProjection).includes(rawContinuityProjectionCanary),
+  false,
+  'CORE continuity recovery projection must strip raw-bearing text fields before projection exposure.'
+);
+
 const retryFrame = createTurnSourceFrameContract({
   id: 'frame-32',
   campaignId: 'campaign-core-v2',
@@ -1075,6 +1171,18 @@ const responseRetryCase = await coreStore.markRecoveryRequired(retryTransaction.
   id: 'recovery-32',
   reason: 'host-response-post-failure',
   responseRetry: true,
+  responseRetryPlan: {
+    kind: 'directive.responseRetryGenerationPlan.v1',
+    schemaVersion: 1,
+    strategy: 'directivePosted',
+    responseKind: 'locationTransition',
+    classification: 'locationTransition',
+    text: 'RAW_RETRY_TEXT_MUST_NOT_PROJECT',
+    locationTransition: {
+      destinationLabel: 'Engineering',
+      rawPrompt: 'RAW_RETRY_PROMPT_MUST_NOT_PROJECT'
+    }
+  },
   repairDecision: {
     kind: 'directive.repairResponseRecoveryDecision.v1',
     eventType: 'hostResponsePostFailure',
@@ -1099,6 +1207,22 @@ const responseRetryRowBeforeActuation = responseRetryProjectionBeforeActuation.r
 assert.ok(responseRetryRowBeforeActuation, 'CORE response projections should expose responseRetryRequired before retry actuation posts a visible response');
 assert.equal(responseRetryRowBeforeActuation.status, 'responseRetryRequired');
 assert.equal(responseRetryRowBeforeActuation.recoveryId, 'recovery-32');
+const responseRetryRecoveryProjectionBeforeActuation = responseRetryProjectionBeforeActuation.recoveryJournal.find((entry) => (
+  entry.id === 'recovery-32'
+));
+assert.equal(responseRetryRecoveryProjectionBeforeActuation.responseRetryPlan.kind, 'directive.responseRetryGenerationPlan.v1');
+assert.equal(responseRetryRecoveryProjectionBeforeActuation.responseRetryPlan.responseKind, 'locationTransition');
+assert.equal(responseRetryRecoveryProjectionBeforeActuation.responseRetryPlan.locationTransition.destinationLabel, 'Engineering');
+assert.equal(
+  JSON.stringify(responseRetryRecoveryProjectionBeforeActuation.responseRetryPlan).includes('RAW_RETRY_TEXT_MUST_NOT_PROJECT'),
+  false,
+  'CORE retry-generation plans must not project raw retry text.'
+);
+assert.equal(
+  JSON.stringify(responseRetryRecoveryProjectionBeforeActuation.responseRetryPlan).includes('RAW_RETRY_PROMPT_MUST_NOT_PROJECT'),
+  false,
+  'CORE retry-generation plans must not project raw retry prompt.'
+);
 await assert.rejects(
   () => coreStore.recordVisibleResponse(retryTransaction.id, {
     idempotencyKey: 'response-32-unauthorized-key',
@@ -1910,7 +2034,7 @@ await assert.rejects(
 );
 
 const projections = coreStore.readProjections();
-assert.equal(projections.ingressLedger.length, 10);
+assert.equal(projections.ingressLedger.length, 11);
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-29').status, 'settled');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-31').status, 'recoveryRequired');
 assert.equal(projections.ingressLedger.find((entry) => entry.transactionId === 'txn-32').status, 'complete');
@@ -1944,7 +2068,7 @@ assert.equal(directiveTurnTiming.turnTiming.providerCompletionLatencyMs, 65000);
 assert.equal(directiveTurnTiming.turnTiming.architectureWithin60s, true);
 assert.equal(projections.turnLedger.entries.length, 1);
 assert.equal(projections.turnLedger.lastCommittedOutcomeId, 'outcome-29');
-assert.equal(projections.recoveryJournal.length, 10);
+assert.equal(projections.recoveryJournal.length, 11);
 assert.equal(projections.recoveryJournal[0].id, 'recovery-31');
 const responseRetryProjection = projections.recoveryJournal.find((entry) => entry.id === 'recovery-32');
 assert.equal(responseRetryProjection.phase, 'responseRetryRequired');
@@ -2149,7 +2273,7 @@ assert.equal(
 assert.equal(hydratedProjections.responseLedger.length, projections.responseLedger.length, 'hydrated CORE Store should preserve response projections');
 assert.equal(hydratedProjections.turnTiming.length, projections.turnTiming.length, 'hydrated CORE Store should preserve timing projections');
 assert.equal(hydratedCoreStore.state.events.length, coreStore.state.events.length, 'hydrated CORE Store should preserve event segments');
-assert.equal(hydratedCoreStore.state.counters.transactions, 10, 'hydrated CORE Store should derive current transaction count from event segments');
+assert.equal(hydratedCoreStore.state.counters.transactions, 11, 'hydrated CORE Store should derive current transaction count from event segments');
 assert.equal(hydratedCoreStore.state.counters.diagnostics, 3, 'hydrated CORE Store should derive current diagnostic count from diagnostics segments');
 assert.equal(hydratedCoreStore.state.revisions.diagnostic, 3, 'hydrated CORE Store should derive current diagnostic revision from diagnostics segments');
 assert.equal(hydratedCoreStore.state.revisions.mechanics, 2, 'hydrated CORE Store should derive mechanics revision from event/turn segments');

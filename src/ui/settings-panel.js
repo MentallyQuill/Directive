@@ -762,8 +762,8 @@ function appendModelCallDiagnostics(body, view) {
 }
 
 function historyLimitValue(state) {
-  const value = Number(state?.settings?.maxTurnSaveHistory || state?.runtimeTracking?.historyLimit || 20);
-  return Number.isFinite(value) ? value : 20;
+  const value = Number(state?.settings?.maxTurnSaveHistory || 8);
+  return Number.isFinite(value) ? value : 8;
 }
 
 function autosaveEveryMessagesValue(state) {
@@ -990,7 +990,7 @@ function appendRuntimeSettings(body, state, actions = {}) {
   });
   historyField.wrapper.className = `${historyField.wrapper.className} directive-runtime-history-field`.trim();
   historyField.control.min = '2';
-  historyField.control.max = '60';
+  historyField.control.max = '20';
   historyField.control.step = '1';
   historyField.control.dataset.inputPath = 'settings.maxTurnSaveHistory';
 

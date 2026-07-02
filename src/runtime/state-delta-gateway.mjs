@@ -44,7 +44,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'runtimeTracking'
 ]);
 
-const DEFAULT_HISTORY_LIMIT = 20;
+const DEFAULT_HISTORY_LIMIT = 8;
 const DEFAULT_INGRESS_LIMIT = 200;
 const DEFAULT_RESPONSE_LIMIT = 200;
 const FORBIDDEN_PATH_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -133,6 +133,7 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
     responseLedger: [],
     responseLedgerRevision: 0,
     recoveryJournal: [],
+    lifecycleJournal: [],
     sidecarJournal: [],
     modelCallJournal: [],
     sceneReconciliation: {
@@ -187,6 +188,7 @@ function normalizedTracking(value, options = {}) {
     responseLedger: Array.isArray(input.responseLedger) ? cloneJson(input.responseLedger) : [],
     responseLedgerRevision: Math.max(0, Number(input.responseLedgerRevision) || 0),
     recoveryJournal: Array.isArray(input.recoveryJournal) ? cloneJson(input.recoveryJournal) : [],
+    lifecycleJournal: Array.isArray(input.lifecycleJournal) ? cloneJson(input.lifecycleJournal) : [],
     sidecarJournal: Array.isArray(input.sidecarJournal) ? cloneJson(input.sidecarJournal) : [],
     modelCallJournal: Array.isArray(input.modelCallJournal) ? cloneJson(input.modelCallJournal) : [],
     sceneReconciliation: {
@@ -825,14 +827,11 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
     responseLedgerRevision: Math.max(0, Number(current.runtimeTracking.responseLedgerRevision) || 0),
     sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
     modelCallJournal: cloneJson(current.runtimeTracking.modelCallJournal),
-    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
-    endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
-    activeIngressId: current.runtimeTracking.activeIngressId || null,
-    recoveryJournal: [
-      ...cloneJson(current.runtimeTracking.recoveryJournal),
+    lifecycleJournal: bounded([
+      ...cloneJson(current.runtimeTracking.lifecycleJournal),
       {
-        id: `recovery-${current.runtimeTracking.recoveryJournal.length + 1}`,
-        type: 'restoreRevision',
+        id: `lifecycle-restore-${targetRevision}-${current.runtimeTracking.revision}`,
+        type: 'stateRevisionRestored',
         status: 'applied',
         recordedAt: timestamp(now),
         details: {
@@ -841,7 +840,11 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
           reason
         }
       }
-    ],
+    ], 100),
+    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
+    endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
+    activeIngressId: current.runtimeTracking.activeIngressId || null,
+    recoveryJournal: cloneJson(current.runtimeTracking.recoveryJournal),
     lastDelta: {
       source: 'recovery',
       reason,
@@ -880,6 +883,22 @@ export function recordSidecarEvent(campaignState, event = {}, { limit = 200 } = 
         recordedAt: event.recordedAt || new Date().toISOString(),
         error: cloneJson(event.error || null),
         diagnostics: cloneJson(event.diagnostics || null)
+      }
+    ], limit)
+  }));
+}
+
+export function recordLifecycleEvent(campaignState, event = {}, { limit = 100 } = {}) {
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    lifecycleJournal: bounded([
+      ...tracking.lifecycleJournal,
+      {
+        id: compact(event.id) || `lifecycle-${tracking.lifecycleJournal.length + 1}`,
+        type: compact(event.type) || 'lifecycle',
+        status: compact(event.status) || 'recorded',
+        recordedAt: event.recordedAt || new Date().toISOString(),
+        details: cloneJson(event.details || {})
       }
     ], limit)
   }));

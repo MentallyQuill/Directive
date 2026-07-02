@@ -4,7 +4,9 @@ import { getSillyTavernDirectiveRuntimeBridge } from './runtime-bridge.mjs';
 
 export const DIRECTIVE_MISSION_COMPONENT_CAPTURE_BUTTON_CLASS = 'directive-mission-component-capture-button';
 export const DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS = 'directive-define-selection-button';
+export const DIRECTIVE_CORRECT_AS_SWIPE_BUTTON_CLASS = 'directive-correct-as-swipe-button';
 export const DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS = 'directive-define-selection-popover';
+export const DIRECTIVE_CORRECT_AS_SWIPE_POPOVER_CLASS = 'directive-correct-as-swipe-popover';
 export const DIRECTIVE_MISSION_COMPONENT_POPOVER_CLASS = 'directive-mission-component-popover';
 export const DIRECTIVE_MISSION_COMPONENT_SOURCE_HIGHLIGHT_CLASS = 'directive-mission-component-source-highlight';
 
@@ -13,12 +15,15 @@ const MESSAGE_TEXT_SELECTOR = '.mes_text';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
 const BUTTON_LABEL = 'Add Component to Mission';
 const DEFINE_BUTTON_LABEL = 'Define Selection';
+const CORRECT_AS_SWIPE_BUTTON_LABEL = 'Correct as Swipe';
 
 let installed = false;
 let captureButton = null;
 let defineButton = null;
+let correctAsSwipeButton = null;
 let reviewPopover = null;
 let definePopover = null;
+let correctAsSwipePopover = null;
 let activeSelection = null;
 let hideTimer = null;
 let documentListeners = [];
@@ -269,6 +274,29 @@ function ensureDefineButton() {
   return defineButton;
 }
 
+function ensureCorrectAsSwipeButton() {
+  if (correctAsSwipeButton && (correctAsSwipeButton.isConnected === true || correctAsSwipeButton.parentNode)) return correctAsSwipeButton;
+  correctAsSwipeButton?.remove?.();
+  correctAsSwipeButton = document.createElement('button');
+  correctAsSwipeButton.type = 'button';
+  correctAsSwipeButton.className = `${DIRECTIVE_DEFINE_SELECTION_BUTTON_CLASS} ${DIRECTIVE_CORRECT_AS_SWIPE_BUTTON_CLASS}`;
+  correctAsSwipeButton.title = CORRECT_AS_SWIPE_BUTTON_LABEL;
+  correctAsSwipeButton.setAttribute('aria-label', CORRECT_AS_SWIPE_BUTTON_LABEL);
+  correctAsSwipeButton.dataset.directiveTour = 'correct-as-swipe.propose';
+  const icon = document.createElement('span');
+  icon.className = 'directive-define-selection-icon';
+  icon.textContent = 'C';
+  icon.setAttribute('aria-hidden', 'true');
+  correctAsSwipeButton.appendChild(icon);
+  correctAsSwipeButton.addEventListener?.('mousedown', (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+  });
+  correctAsSwipeButton.addEventListener?.('click', handleCorrectAsSwipeClick);
+  appendDirectiveOverlay(correctAsSwipeButton, { fallbackParent: document.body });
+  return correctAsSwipeButton;
+}
+
 function viewportSize() {
   return {
     width: Number(globalThis.innerWidth || document.documentElement?.clientWidth || 1024),
@@ -305,6 +333,7 @@ function hideCaptureButton() {
   activeSelection = null;
   if (captureButton) captureButton.hidden = true;
   if (defineButton) defineButton.hidden = true;
+  if (correctAsSwipeButton) correctAsSwipeButton.hidden = true;
 }
 
 function scheduleSelectionUpdate() {
@@ -322,9 +351,11 @@ function updateSelectionAffordance() {
   activeSelection = state;
   const button = ensureCaptureButton();
   const define = ensureDefineButton();
+  const correct = ensureCorrectAsSwipeButton();
   button.hidden = false;
   define.hidden = false;
-  positionButtons([button, define], state.rect);
+  correct.hidden = state.message?.role !== 'assistant';
+  positionButtons([button, define, correct.hidden ? null : correct], state.rect);
 }
 
 function ensurePopover() {
@@ -353,6 +384,20 @@ function ensureDefinePopover() {
   });
   appendDirectiveOverlay(definePopover, { fallbackParent: document.body });
   return definePopover;
+}
+
+function ensureCorrectAsSwipePopover() {
+  if (correctAsSwipePopover && (correctAsSwipePopover.isConnected === true || correctAsSwipePopover.parentNode)) return correctAsSwipePopover;
+  correctAsSwipePopover?.remove?.();
+  correctAsSwipePopover = document.createElement('aside');
+  correctAsSwipePopover.className = `${DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS} ${DIRECTIVE_CORRECT_AS_SWIPE_POPOVER_CLASS}`;
+  correctAsSwipePopover.setAttribute('role', 'dialog');
+  correctAsSwipePopover.setAttribute('aria-label', CORRECT_AS_SWIPE_BUTTON_LABEL);
+  correctAsSwipePopover.addEventListener?.('mousedown', (event) => {
+    event.stopPropagation?.();
+  });
+  appendDirectiveOverlay(correctAsSwipePopover, { fallbackParent: document.body });
+  return correctAsSwipePopover;
 }
 
 function positionPopover(popover, rect) {
@@ -788,6 +833,111 @@ function renderDefineError(popover, error) {
   popover.append(header, summary, closeButton);
 }
 
+function renderCorrectAsSwipeForm(popover, selection) {
+  clearElement(popover);
+  const header = document.createElement('div');
+  header.className = 'directive-define-selection-header';
+  const title = document.createElement('h3');
+  title.textContent = 'Correct as Swipe';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'directive-define-selection-close';
+  close.textContent = 'x';
+  close.setAttribute('aria-label', 'Close Correct-as-Swipe');
+  close.addEventListener?.('click', closeCorrectAsSwipePopover);
+  header.append(title, close);
+
+  const fieldWrapper = document.createElement('label');
+  fieldWrapper.className = 'directive-mission-component-popover-field';
+  const label = document.createElement('span');
+  label.textContent = 'Candidate Swipe';
+  const candidate = document.createElement('textarea');
+  candidate.rows = 6;
+  candidate.value = selection.messageText || selection.selectedText || '';
+  candidate.dataset.correctAsSwipeField = 'proposedText';
+  candidate.setAttribute('data-correct-as-swipe-field', 'proposedText');
+  fieldWrapper.append(label, candidate);
+
+  const source = document.createElement('details');
+  source.className = 'directive-define-selection-source';
+  const sourceSummary = document.createElement('summary');
+  sourceSummary.textContent = 'Source';
+  const sourceText = document.createElement('p');
+  sourceText.textContent = selection.selectedText;
+  source.append(sourceSummary, sourceText);
+
+  const actions = document.createElement('div');
+  actions.className = 'directive-define-selection-actions';
+  const propose = document.createElement('button');
+  propose.type = 'button';
+  propose.className = 'directive-button directive-primary-command';
+  propose.textContent = CORRECT_AS_SWIPE_BUTTON_LABEL;
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'directive-button directive-secondary-command';
+  closeButton.textContent = 'Close';
+  closeButton.addEventListener?.('click', closeCorrectAsSwipePopover);
+  const sync = () => {
+    propose.disabled = !compact(candidate.value);
+  };
+  candidate.addEventListener?.('input', sync);
+  sync();
+  propose.addEventListener?.('click', async () => {
+    if (!compact(candidate.value)) {
+      sync();
+      return;
+    }
+    propose.disabled = true;
+    try {
+      const result = await runRuntimeAction('correctAsSwipe.propose', {
+        selection: runtimeSelectionPayload(selection),
+        proposedText: candidate.value
+      });
+      if (result?.ok === false) {
+        renderCorrectAsSwipeError(popover, new Error(result.summary || result.reason || 'Correct-as-Swipe could not prepare a candidate.'));
+        return;
+      }
+      renderCorrectAsSwipeSaved(popover, result);
+      await runRuntimeAction('runtime.refresh');
+    } catch (error) {
+      renderCorrectAsSwipeError(popover, error);
+    } finally {
+      propose.disabled = false;
+    }
+  });
+  actions.append(propose, closeButton);
+  popover.append(header, fieldWrapper, source, actions);
+}
+
+function renderCorrectAsSwipeSaved(popover, result) {
+  clearElement(popover);
+  const title = document.createElement('h3');
+  title.textContent = 'Candidate Swipe Added';
+  const summary = document.createElement('p');
+  summary.textContent = result?.summary || result?.reason || 'Correct-as-Swipe candidate appended.';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'directive-button directive-secondary-command';
+  close.textContent = 'Close';
+  close.addEventListener?.('click', closeCorrectAsSwipePopover);
+  popover.append(title, summary, close);
+}
+
+function renderCorrectAsSwipeError(popover, error) {
+  clearElement(popover);
+  const title = document.createElement('h3');
+  title.textContent = 'Correct-as-Swipe Unavailable';
+  const summary = document.createElement('p');
+  summary.className = 'directive-define-selection-warning';
+  summary.textContent = error?.message || String(error || 'Correct-as-Swipe could not prepare a candidate.');
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'directive-button directive-secondary-command';
+  close.textContent = 'Close';
+  close.addEventListener?.('click', closeCorrectAsSwipePopover);
+  popover.append(title, summary, close);
+}
+
 function closePopover() {
   reviewPopover?.remove?.();
   reviewPopover = null;
@@ -796,6 +946,11 @@ function closePopover() {
 function closeDefinePopover() {
   definePopover?.remove?.();
   definePopover = null;
+}
+
+function closeCorrectAsSwipePopover() {
+  correctAsSwipePopover?.remove?.();
+  correctAsSwipePopover = null;
 }
 
 function runtimeSelectionPayload(selection = {}) {
@@ -822,6 +977,7 @@ async function handleCaptureClick(event) {
   if (!selection || selection.rejected) return;
   hideCaptureButton();
   closeDefinePopover();
+  closeCorrectAsSwipePopover();
   const popover = ensurePopover();
   popover.hidden = false;
   renderPopoverPending(popover, selection);
@@ -848,6 +1004,7 @@ async function handleDefineClick(event) {
   if (!selection || selection.rejected) return;
   hideCaptureButton();
   closePopover();
+  closeCorrectAsSwipePopover();
   const popover = ensureDefinePopover();
   popover.hidden = false;
   renderDefinePending(popover, selection);
@@ -867,12 +1024,28 @@ async function handleDefineClick(event) {
   }
 }
 
+async function handleCorrectAsSwipeClick(event) {
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  const selection = activeSelection || getFloatingSelectionState();
+  if (!selection || selection.rejected || selection.message?.role !== 'assistant') return;
+  hideCaptureButton();
+  closePopover();
+  closeDefinePopover();
+  const popover = ensureCorrectAsSwipePopover();
+  popover.hidden = false;
+  renderCorrectAsSwipeForm(popover, selection);
+  positionPopover(popover, selection.rect);
+}
+
 function onDocumentMouseDown(event) {
   if (
     event.target === captureButton
     || event.target === defineButton
+    || event.target === correctAsSwipeButton
     || event.target?.closest?.(`.${DIRECTIVE_MISSION_COMPONENT_POPOVER_CLASS}`)
     || event.target?.closest?.(`.${DIRECTIVE_DEFINE_SELECTION_POPOVER_CLASS}`)
+    || event.target?.closest?.(`.${DIRECTIVE_CORRECT_AS_SWIPE_POPOVER_CLASS}`)
   ) return;
   hideCaptureButton();
 }
@@ -943,12 +1116,16 @@ export function disposeMissionComponentsCapture() {
   }
   captureButton?.remove?.();
   defineButton?.remove?.();
+  correctAsSwipeButton?.remove?.();
   reviewPopover?.remove?.();
   definePopover?.remove?.();
+  correctAsSwipePopover?.remove?.();
   captureButton = null;
   defineButton = null;
+  correctAsSwipeButton = null;
   reviewPopover = null;
   definePopover = null;
+  correctAsSwipePopover = null;
   activeSelection = null;
   installed = false;
 }
@@ -957,6 +1134,7 @@ export const __missionComponentsCaptureTestHooks = Object.freeze({
   getFloatingSelectionState,
   updateSelectionAffordance,
   handleDefineClick,
+  handleCorrectAsSwipeClick,
   handleOpenSourceEvent,
   reset() {
     disposeMissionComponentsCapture();

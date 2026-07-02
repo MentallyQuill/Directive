@@ -141,10 +141,48 @@ function messageMutationActuation() {
       ok: true,
       artifactPath: `mutation/${id}.json`,
       evidence: id === 'selected-swipe'
-        ? { selectedSwipeIndex: 2, swipeCount: 3, hashMatched: true }
-        : { targetMesid: '12', targetRole: id.startsWith('source') ? 'source' : 'assistant', deltaRecovery: 1 }
+        ? {
+            selectedSwipeIndex: 2,
+            swipeCount: 3,
+            hashMatched: true,
+            sourceIntegrityProof: {
+              kind: 'directive.sourceIntegrityProof.v1',
+              selectedHostMessageId: 'assistant-selected-swipe',
+              sourceIntegrity: 'clean',
+              hashMatched: true
+            }
+          }
+        : {
+            targetMesid: '12',
+            targetRole: id.startsWith('source') ? 'source' : 'assistant',
+            legacyRecoveryDelta: 0,
+            sourceMutationProof: {
+              kind: 'directive.sourceMutationProof.v1',
+              coreRecovery: {
+                status: 'recorded',
+                recoveryCaseId: `recovery:${id}`,
+                transactionId: `core-tx:${id}`
+              },
+              repairDecision: {
+                kind: 'directive.repairDecision.v1',
+                action: id.endsWith('edit') ? 'repairSourceEdit' : 'repairSourceDelete',
+                eventType: id.endsWith('edit') ? 'messageEdited' : 'messageDeleted'
+              }
+            }
+          }
     }))
   };
+}
+
+function countOnlyMessageMutationActuation() {
+  const artifact = messageMutationActuation();
+  artifact.scenarios = artifact.scenarios.map((scenario) => ({
+    ...scenario,
+    evidence: scenario.id === 'selected-swipe'
+      ? { selectedSwipeIndex: 2, swipeCount: 3, hashMatched: true }
+      : { targetMesid: '12', targetRole: scenario.id.startsWith('source') ? 'source' : 'assistant', deltaRecovery: 1 }
+  }));
+  return artifact;
 }
 
 function shallowMessageMutationActuation() {
@@ -264,11 +302,31 @@ const shallowActuationCheck = shallowActuationReport.checks.find((entry) => entr
 assert.equal(shallowActuationCheck.status, 'fail');
 assert.equal(shallowActuationCheck.details.shallowScenarios.length, 5);
 
+const countOnlyActuationRoot = makeRoot();
+const countOnlyActuationBundle = writeBundle(countOnlyActuationRoot, {
+  messageMutationActuation: countOnlyMessageMutationActuation()
+});
+const countOnlyActuationReport = buildArchitectureReleaseBundlePreflight({
+  manifest: countOnlyActuationBundle.manifest,
+  strict: true
+});
+assert.equal(countOnlyActuationReport.status, 'fail');
+const countOnlyActuationCheck = countOnlyActuationReport.checks.find((entry) => entry.id === 'message-mutation-actuation-live-proof');
+assert.equal(countOnlyActuationCheck.status, 'fail');
+assert.deepEqual(countOnlyActuationCheck.details.weakOwnerEvidenceScenarios.sort(), [
+  'assistant-delete',
+  'assistant-edit',
+  'selected-swipe',
+  'source-delete',
+  'source-edit'
+]);
+
 fs.rmSync(passRoot, { recursive: true, force: true });
 fs.rmSync(discoveryOnlyRoot, { recursive: true, force: true });
 fs.rmSync(defaultUserRoot, { recursive: true, force: true });
 fs.rmSync(continuityRoot, { recursive: true, force: true });
 fs.rmSync(missingServedRoot, { recursive: true, force: true });
 fs.rmSync(shallowActuationRoot, { recursive: true, force: true });
+fs.rmSync(countOnlyActuationRoot, { recursive: true, force: true });
 
 console.log('Architecture redesign release bundle preflight tests passed.');

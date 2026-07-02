@@ -478,7 +478,7 @@ Record these events as they happen:
 - every edit, delete, swipe, message action, reconciliation, recalculation preview, accepted/rejected proposal, roots touched, prompt revision before/after, and live mechanic mutation result;
 - every command-conduct ladder step, including first breach, recovery control, escalation, terminal threshold, whether the step remained playable, and whether consequences were preserved;
 - every triage finding, including severity, assigned lane, reproduction pointer, transcript pointer, screenshots or save ids, whether the fix is immediate or deferred, and the next planned fix barrier;
-- every checkpoint summary: chat binding, save id/revision, ingress count, turn ledger count, command log count, pending interactions, recovery journal count, sidecar entries, prompt revision, and visible Mission/Crew/Ship/Log/Settings summaries;
+- every checkpoint summary: chat binding, save id/revision, ingress count, turn ledger count, command log count, pending interactions, CORE/REPAIR projected recovery count/latest case, legacy recovery-journal count as compatibility telemetry, sidecar entries, prompt revision, and visible Mission/Crew/Ship/Log/Settings summaries;
 - every transcript capture, including readable transcript path, source chat path, latest visible message id/index, latest turn, capture mode, and whether it is partial or final;
 - every End Conditions trigger, detection id, decision id, checkpoint message id, allowed actions, chosen action, expected and actual decision status, branch/save id, continuation frame id, conclusion/final band metadata, and persistence result;
 - every save/load branch operation, wrong-chat isolation probe, cross-campaign isolation probe, and prompt rebuild result;
@@ -567,7 +567,7 @@ Each checkpoint should include:
 - pending interaction count;
 - scene reconciliation last result;
 - expected and visible reply-header hash for the latest assistant message, campaign stardate, ship minute/time, and prompt-block reply-header hash;
-- recovery journal count and latest entry;
+- CORE/REPAIR projected recovery count, latest projected case, compact repair decision, and legacy recovery-journal count as compatibility telemetry;
 - model-call roles since previous checkpoint;
 - sidecar journal entries since previous checkpoint;
 - commandBearing point counts, readied state, spend ledger count, evidence ledger count, review ledger count, relationship perception count, and latest player-safe Command Bearing projection;
@@ -1344,7 +1344,7 @@ Run the boundary ladder in order. Do not skip directly to arc or milestone proof
 | Thread closure | a crew conflict, trust thread, discipline thread, or side problem resolves after multiple anchored interactions | thread ledger status, evidence ids by thread, reviewed closure ids | one closure candidate can queue review for relevant evidence only |
 | Quest or chapter closure | a mission objective, chapter beat, or quest step resolves in durable campaign state | mission/chapter/quest ledger status, outcome id, evidence ids by quest/chapter | review may queue once; unrelated evidence remains open |
 | Milestone or arc closure | a campaign milestone, story arc, or Command Crucible resolves | storyArcLedger, milestone id, arc id, review queue, duplicate guards | high-level review can run only for the durable closure id and cannot duplicate lower closure awards |
-| Retconned closure | edit or delete a source turn that contributed to evidence or closure | recovery journal, scene reconciliation invalidations, stale evidence/review markers, mark/point counts | state enters explicit recovery/review-required handling; it does not silently remove or duplicate Marks |
+| Retconned closure | edit or delete a source turn that contributed to evidence or closure | CORE/REPAIR projected recovery case, compact repair decision, scene reconciliation invalidations, stale evidence/review markers, mark/point counts | state enters explicit recovery/review-required handling; it does not silently remove or duplicate Marks |
 
 Boundary logs must name both the suspected boundary and the deterministic state root that proved or rejected it. "The scene felt over" is never enough.
 

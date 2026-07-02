@@ -353,6 +353,144 @@ const duplicateHostObservation = await hostObserved({
 assert.equal(duplicateHostObservation.status, 'alreadySettled');
 assert.equal(coreStore.state.events.length, eventsBeforeDuplicateCompletion);
 
+const completionFailureCampaignId = 'campaign-response-core-completion-failure';
+const completionFailureSaveId = 'save-response-core-completion-failure';
+const completionFailureChatId = 'ashes-chat-completion-failure';
+const completionFailureStorage = createLoggingStorage();
+const completionFailureAdapter = createLogicalStorageAdapter({ storage: completionFailureStorage, hostId: 'fake' });
+const completionFailureCoreStore = createCoreStoreV2({
+  adapter: completionFailureAdapter,
+  campaignId: completionFailureCampaignId,
+  saveId: completionFailureSaveId,
+  now
+});
+const completionFailureFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-completion-failure',
+  campaignId: completionFailureCampaignId,
+  saveId: completionFailureSaveId,
+  chatId: completionFailureChatId,
+  hostMessageId: 'player-core-completion-failure',
+  textHash: hashStableJson({ text: 'Sam asks the host to continue before CORE completion storage fails.' }),
+  sourceRevision: 1,
+  createdAt: '2026-06-28T17:00:30.000Z'
+});
+const completionFailureTransaction = await completionFailureCoreStore.beginTurn(completionFailureFrame, {
+  transactionId: 'txn-response-core-completion-failure',
+  ingressId: 'ingress-response-core-completion-failure',
+  idempotencyKey: 'begin-response-core-completion-failure'
+});
+let completionFailureState = addIngress(createCampaignState({
+  campaignId: completionFailureCampaignId,
+  saveId: completionFailureSaveId,
+  chatId: completionFailureChatId
+}), {
+  ingressId: 'ingress-response-core-completion-failure',
+  hostMessageId: 'player-core-completion-failure',
+  chatId: completionFailureChatId,
+  campaignId: completionFailureCampaignId,
+  sourceFrame: completionFailureFrame,
+  coreTransactionId: completionFailureTransaction.id,
+  receivedAt: '2026-06-28T17:00:30.000Z'
+});
+let completionFailureObserved = null;
+let completionFailureRecordCalls = 0;
+const rawCompletionFailureMessage = 'Synthetic CORE host-native visible-response write failed.';
+const completionFailureDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Completion failure bridge test must not post Directive text.');
+      },
+      continueHostGeneration: async (payload = {}) => {
+        completionFailureObserved = payload.onHostGenerationObserved;
+        return {
+          ok: true,
+          released: true,
+          skipped: false,
+          waitForCompletion: false,
+          reason: payload.reason,
+          generationStartedAt: '2026-06-28T17:00:40.000Z',
+          hostGenerationReleasedAt: '2026-06-28T17:00:40.000Z',
+          observationStatus: 'pending',
+          observationId: 'observation-response-core-completion-failure'
+        };
+      }
+    }
+  },
+  coreTurnStore: {
+    advanceTurn: (...args) => completionFailureCoreStore.advanceTurn(...args),
+    async recordVisibleResponse() {
+      completionFailureRecordCalls += 1;
+      const error = new Error(rawCompletionFailureMessage);
+      error.code = 'DIRECTIVE_CORE_VISIBLE_COMPLETION_WRITE_FAILED';
+      throw error;
+    },
+    appendDiagnostics: (...args) => completionFailureCoreStore.appendDiagnostics(...args),
+    readProjections: () => completionFailureCoreStore.readProjections()
+  },
+  getCampaignState: () => completionFailureState,
+  setCampaignState: (next) => { completionFailureState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { completionFailureState = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const completionFailureDispatch = await completionFailureDispatcher.dispatch({
+  campaignState: completionFailureState,
+  ingressId: 'ingress-response-core-completion-failure',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-completion-failure'
+});
+assert.equal(completionFailureDispatch.ok, true);
+assert.equal(typeof completionFailureObserved, 'function');
+const completionFailureObservation = await completionFailureObserved({
+  kind: 'directive.hostGenerationObservation.v1',
+  observationId: 'observation-response-core-completion-failure',
+  ingressId: 'ingress-response-core-completion-failure',
+  status: 'completed',
+  ok: true,
+  released: true,
+  waitForCompletion: false,
+  generationStartedAt: '2026-06-28T17:00:40.000Z',
+  hostGenerationReleasedAt: '2026-06-28T17:00:40.000Z',
+  completedAt: '2026-06-28T17:00:50.000Z',
+  observedMessage: {
+    hostMessageId: 'assistant-core-completion-failure',
+    index: 8,
+    chatId: completionFailureChatId,
+    text: 'The host completed, but CORE completion storage rejected it.'
+  }
+});
+assert.equal(completionFailureObservation.ok, false);
+assert.equal(completionFailureObservation.status, 'coreRecoveryDiagnosticProjected');
+assert.equal(completionFailureRecordCalls, 1);
+const completionFailureResponse = completionFailureState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-completion-failure');
+assert.equal(completionFailureResponse.status, 'coreRecoveryDiagnosticProjected');
+assert.equal(completionFailureResponse.recoveryId, null);
+assert.equal(completionFailureResponse.coreCompletionError, null);
+assert.equal(completionFailureState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'coreHostNativeCompletionFailure'), false);
+const completionFailureDiagnostic = completionFailureCoreStore.readProjections().sidecarDiagnostics.find((entry) => (
+  entry.worker === 'hostNativeCompletionRecord'
+  && entry.responseId === 'response-core-completion-failure'
+));
+assert.ok(completionFailureDiagnostic, 'CORE host-native completion write failures must append CORE diagnostics before old bridge fallback.');
+assert.equal(completionFailureDiagnostic.status, 'failed');
+assert.equal(completionFailureDiagnostic.eventType, 'coreHostNativeCompletionFailure');
+assert.equal(completionFailureDiagnostic.transactionId, completionFailureTransaction.id);
+assert.equal(JSON.stringify(completionFailureCoreStore.state).includes(rawCompletionFailureMessage), false);
+assert.equal(JSON.stringify(completionFailureState).includes(rawCompletionFailureMessage), false);
+const completionFailureDuplicate = await completionFailureDispatcher.dispatch({
+  campaignState: completionFailureState,
+  ingressId: 'ingress-response-core-completion-failure',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-completion-failure'
+});
+assert.equal(completionFailureDuplicate.duplicate, true);
+assert.equal(completionFailureDuplicate.ok, false);
+assert.equal(completionFailureDuplicate.recoveryRequired, true);
+assert.equal(completionFailureDuplicate.recoveryId, 'recovery:core-host-native-completion:response-core-completion-failure');
+assert.equal(completionFailureDuplicate.coreDiagnostic.worker, 'hostNativeCompletionRecord');
+
 const eventCountBeforeDuplicate = coreStore.state.events.length;
 const duplicate = await dispatcher.dispatch({
   campaignState: state,
@@ -884,6 +1022,8 @@ let visibleFailureState = addIngress(createCampaignState({
 });
 let visibleFailurePostCalls = 0;
 let visibleFailureRecordCalls = 0;
+const visibleFailureDiagnostics = [];
+const rawVisibleFailureMessage = 'Synthetic CORE visible-response write failed.';
 const visibleFailureDispatcher = createResponseDispatcher({
   host: {
     chat: {
@@ -902,9 +1042,24 @@ const visibleFailureDispatcher = createResponseDispatcher({
     },
     async recordVisibleResponse() {
       visibleFailureRecordCalls += 1;
-      const error = new Error('Synthetic CORE visible-response write failed.');
+      const error = new Error(rawVisibleFailureMessage);
       error.code = 'DIRECTIVE_CORE_VISIBLE_WRITE_FAILED';
       throw error;
+    },
+    async appendDiagnostics(transactionId, event = {}) {
+      const diagnostic = {
+        id: `core-diagnostic-visible-${visibleFailureDiagnostics.length + 1}`,
+        transactionId,
+        ...cloneJson(event)
+      };
+      visibleFailureDiagnostics.push(diagnostic);
+      return {
+        id: diagnostic.id,
+        payload: cloneJson(event)
+      };
+    },
+    readProjections() {
+      return { sidecarDiagnostics: cloneJson(visibleFailureDiagnostics) };
     }
   },
   getCampaignState: () => visibleFailureState,
@@ -928,20 +1083,27 @@ assert.equal(visibleFailurePostCalls, 1);
 assert.equal(visibleFailureRecordCalls, 1);
 assert.equal(visibleFailure.posted.hostMessageId, 'assistant-core-visible-failure');
 const visibleFailureResponse = visibleFailureState.runtimeTracking.responseLedger.at(-1);
-assert.equal(visibleFailureResponse.status, 'recoveryRequired');
+assert.equal(visibleFailureResponse.status, 'coreRecoveryDiagnosticProjected');
 assert.equal(visibleFailureResponse.hostMessageId, 'assistant-core-visible-failure');
-assert.equal(visibleFailureResponse.coreReleaseError.code, 'DIRECTIVE_CORE_VISIBLE_WRITE_FAILED');
+assert.equal(visibleFailureResponse.coreReleaseError, null);
+assert.equal(visibleFailureResponse.recoveryId, null);
 assert.equal(
   visibleFailureState.runtimeTracking.recoveryJournal.some((entry) => (
     entry.type === 'coreVisibleResponseRecordFailure'
     && entry.details?.recoveryPolicy?.repostVisibleResponse === false
   )),
-  true
+  false
 );
-assert.equal(
+assert.notEqual(
   visibleFailureState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-visible-failure').status,
-  'recoveryRequired'
+  'recoveryRequired',
+  'CORE-diagnostic-backed visible response record failure must not patch old ingress recovery status.'
 );
+assert.equal(visibleFailureDiagnostics.length, 1);
+assert.equal(visibleFailureDiagnostics[0].worker, 'visibleResponseRecord');
+assert.equal(visibleFailureDiagnostics[0].eventType, 'coreVisibleResponseRecordFailure');
+assert.equal(visibleFailureDiagnostics[0].responseId, 'response-core-visible-failure');
+assert.equal(JSON.stringify(visibleFailureDiagnostics).includes(rawVisibleFailureMessage), false);
 const visibleFailureDuplicate = await visibleFailureDispatcher.dispatch({
   campaignState: visibleFailureState,
   ingressId: 'ingress-response-core-visible-failure',
@@ -956,8 +1118,93 @@ assert.equal(visibleFailureDuplicate.ok, false, 'CORE visible-response recovery 
 assert.equal(visibleFailureDuplicate.duplicate, true);
 assert.equal(visibleFailureDuplicate.recoveryRequired, true);
 assert.equal(visibleFailureDuplicate.recoveryId, 'recovery:core-visible-response:response-core-visible-failure');
-assert.equal(visibleFailureDuplicate.coreReleaseError.code, 'DIRECTIVE_CORE_VISIBLE_WRITE_FAILED');
+assert.equal(visibleFailureDuplicate.coreDiagnostic.worker, 'visibleResponseRecord');
 assert.equal(visibleFailurePostCalls, 1, 'CORE visible-response recovery duplicate must not repost visible text');
+
+let visibleNoDiagnosticState = addIngress(createCampaignState({
+  campaignId: 'campaign-response-core-visible-no-diagnostic',
+  saveId: 'save-response-core-visible-no-diagnostic',
+  chatId
+}), {
+  ingressId: 'ingress-response-core-visible-no-diagnostic',
+  hostMessageId: 'player-core-visible-no-diagnostic',
+  chatId,
+  campaignId: 'campaign-response-core-visible-no-diagnostic',
+  sourceFrame: {
+    ...sourceFrame,
+    id: 'frame-response-core-visible-no-diagnostic',
+    campaignId: 'campaign-response-core-visible-no-diagnostic',
+    saveId: 'save-response-core-visible-no-diagnostic',
+    hostMessageId: 'player-core-visible-no-diagnostic'
+  },
+  coreTransactionId: 'txn-response-core-visible-no-diagnostic'
+});
+let visibleNoDiagnosticPostCalls = 0;
+let visibleNoDiagnosticRecordCalls = 0;
+let visibleNoDiagnosticAppendCalls = 0;
+const visibleNoDiagnosticDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        visibleNoDiagnosticPostCalls += 1;
+        return {
+          ok: true,
+          hostMessageId: 'assistant-core-visible-no-diagnostic'
+        };
+      }
+    }
+  },
+  coreTurnStore: {
+    async advanceTurn(transactionId, patch = {}) {
+      return { id: transactionId, phase: patch.phase || 'observed' };
+    },
+    async recordVisibleResponse() {
+      visibleNoDiagnosticRecordCalls += 1;
+      const error = new Error('Synthetic CORE visible-response write failed without diagnostic.');
+      error.code = 'DIRECTIVE_CORE_VISIBLE_WRITE_FAILED';
+      throw error;
+    },
+    async appendDiagnostics() {
+      visibleNoDiagnosticAppendCalls += 1;
+      throw new Error('Synthetic CORE diagnostic write failed.');
+    },
+    readProjections() {
+      return { sidecarDiagnostics: [] };
+    }
+  },
+  getCampaignState: () => visibleNoDiagnosticState,
+  setCampaignState: (next) => { visibleNoDiagnosticState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { visibleNoDiagnosticState = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const visibleNoDiagnostic = await visibleNoDiagnosticDispatcher.dispatch({
+  campaignState: visibleNoDiagnosticState,
+  ingressId: 'ingress-response-core-visible-no-diagnostic',
+  strategy: 'directivePosted',
+  responseKind: 'committedOutcome',
+  text: 'The bridge answers once; CORE and diagnostics fail closed.',
+  turnId: 'turn-response-core-visible-no-diagnostic',
+  outcomeId: 'outcome-response-core-visible-no-diagnostic',
+  idempotencyKey: 'response-core-visible-no-diagnostic'
+});
+assert.equal(visibleNoDiagnostic.ok, false);
+assert.equal(visibleNoDiagnostic.recoveryRequired, true);
+assert.equal(visibleNoDiagnosticPostCalls, 1);
+assert.equal(visibleNoDiagnosticRecordCalls, 1);
+assert.equal(visibleNoDiagnosticAppendCalls, 1);
+const visibleNoDiagnosticResponse = visibleNoDiagnosticState.runtimeTracking.responseLedger.at(-1);
+assert.equal(visibleNoDiagnosticResponse.status, 'recoveryRequired');
+assert.equal(visibleNoDiagnosticResponse.recoveryId, 'recovery:core-visible-response:response-core-visible-no-diagnostic');
+assert.equal(
+  visibleNoDiagnosticState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'coreVisibleResponseRecordFailure'),
+  false,
+  'No-diagnostic visible response record failure must fail closed without old recoveryJournal fallback.'
+);
+assert.notEqual(
+  visibleNoDiagnosticState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-visible-no-diagnostic').status,
+  'recoveryRequired',
+  'No-diagnostic visible response record failure must not patch old ingress recovery status.'
+);
 
 let failureState = addIngress(createCampaignState({
   campaignId: 'campaign-response-core-failure',
@@ -979,6 +1226,8 @@ let failureState = addIngress(createCampaignState({
 });
 let failureHostReleaseCalls = 0;
 let failureAdvanceCalls = 0;
+const failureDiagnostics = [];
+const rawFailureReleaseMessage = 'Synthetic CORE release write failed.';
 const failureDispatcher = createResponseDispatcher({
   host: {
     chat: {
@@ -1002,11 +1251,26 @@ const failureDispatcher = createResponseDispatcher({
     async advanceTurn(transactionId, patch = {}) {
       failureAdvanceCalls += 1;
       if (patch.phase === 'hostContinueReleased') {
-        const error = new Error('Synthetic CORE release write failed.');
+        const error = new Error(rawFailureReleaseMessage);
         error.code = 'DIRECTIVE_CORE_RELEASE_WRITE_FAILED';
         throw error;
       }
       return { id: transactionId, phase: patch.phase || 'observed' };
+    },
+    async appendDiagnostics(transactionId, event = {}) {
+      const diagnostic = {
+        id: `core-diagnostic-failure-${failureDiagnostics.length + 1}`,
+        transactionId,
+        ...cloneJson(event)
+      };
+      failureDiagnostics.push(diagnostic);
+      return {
+        id: diagnostic.id,
+        payload: cloneJson(event)
+      };
+    },
+    readProjections() {
+      return { sidecarDiagnostics: cloneJson(failureDiagnostics) };
     }
   },
   getCampaignState: () => failureState,
@@ -1026,17 +1290,24 @@ assert.equal(failed.recoveryRequired, true);
 assert.equal(failureHostReleaseCalls, 1);
 assert.equal(failureAdvanceCalls, 2);
 const failedResponse = failureState.runtimeTracking.responseLedger.at(-1);
-assert.equal(failedResponse.status, 'recoveryRequired');
+assert.equal(failedResponse.status, 'coreRecoveryDiagnosticProjected');
+assert.equal(failedResponse.recoveryId, null);
 assert.equal(failedResponse.hostGenerationReleasedAt, '2026-06-28T17:01:10.000Z');
-assert.equal(failedResponse.coreReleaseError.code, 'DIRECTIVE_CORE_RELEASE_WRITE_FAILED');
+assert.equal(failedResponse.coreReleaseError, null);
 assert.equal(
   failureState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'coreHostContinueReleaseFailure'),
-  true
+  false
 );
-assert.equal(
+assert.notEqual(
   failureState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-failure').status,
-  'recoveryRequired'
+  'recoveryRequired',
+  'CORE-diagnostic-backed host release failure must not patch old ingress recovery status.'
 );
+assert.equal(failureDiagnostics.length, 1);
+assert.equal(failureDiagnostics[0].worker, 'hostContinueReleaseRecord');
+assert.equal(failureDiagnostics[0].eventType, 'coreHostContinueReleaseFailure');
+assert.equal(failureDiagnostics[0].responseId, 'response-core-bridge-failure');
+assert.equal(JSON.stringify(failureDiagnostics).includes(rawFailureReleaseMessage), false);
 const failureDuplicate = await failureDispatcher.dispatch({
   campaignState: failureState,
   ingressId: 'ingress-response-core-failure',
@@ -1048,7 +1319,7 @@ assert.equal(failureDuplicate.ok, false, 'CORE host-release recovery duplicate m
 assert.equal(failureDuplicate.duplicate, true);
 assert.equal(failureDuplicate.recoveryRequired, true);
 assert.equal(failureDuplicate.recoveryId, 'recovery:core-host-continue:response-core-bridge-failure');
-assert.equal(failureDuplicate.coreReleaseError.code, 'DIRECTIVE_CORE_RELEASE_WRITE_FAILED');
+assert.equal(failureDuplicate.coreDiagnostic.worker, 'hostContinueReleaseRecord');
 assert.equal(failureHostReleaseCalls, 1, 'recovery duplicate must not release host generation again');
 
 const unavailableFrame = createTurnSourceFrameContract({
@@ -1133,13 +1404,7 @@ assert.equal(unavailableResponse.status, 'unavailable');
 assert.equal(unavailableResponse.hostObservationStatus, 'unavailable');
 assert.equal(unavailableResponse.coreRecovery.phase, 'recoveryRequired');
 const unavailableRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:host-native:response-core-host-native-unavailable');
-assert.equal(unavailableRecovery.type, 'hostNativeAssistantUnavailable');
-assert.equal(unavailableRecovery.details.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
-assert.equal(unavailableRecovery.details.repairDecision.eventType, 'hostNativeAssistantUnavailable');
-assert.equal(unavailableRecovery.details.repairDecision.responseStatus, 'unavailable');
-assert.equal(unavailableRecovery.details.recoveryPolicy.reobserveHostAssistantRows, true);
-assert.equal(unavailableRecovery.details.recoveryPolicy.retryHostGeneration, false);
-assert.deepEqual(unavailableRecovery.details.recoveryPolicy.allowedActions, ['reobserveHostAssistantRows', 'reviewHostNativeAvailability']);
+assert.equal(unavailableRecovery, undefined, 'CORE-backed host-native unavailable recovery must not write old recoveryJournal rows.');
 const unavailableCoreRecoveryEvent = coreStore.state.events.find((entry) => (
   entry.type === 'recoveryRequired'
   && entry.txnId === unavailableTransaction.id
@@ -1147,6 +1412,11 @@ const unavailableCoreRecoveryEvent = coreStore.state.events.find((entry) => (
 assert.equal(unavailableCoreRecoveryEvent.payload.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
 assert.equal(unavailableCoreRecoveryEvent.payload.repairDecision.eventType, 'hostNativeAssistantUnavailable');
 assert.deepEqual(unavailableCoreRecoveryEvent.payload.allowedActions, ['reobserveHostAssistantRows', 'reviewHostNativeAvailability']);
+const unavailableCoreRecoveryProjection = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === unavailableTransaction.id);
+assert.equal(unavailableCoreRecoveryProjection.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
+assert.equal(unavailableCoreRecoveryProjection.repairDecision.eventType, 'hostNativeAssistantUnavailable');
+assert.equal(unavailableCoreRecoveryProjection.repairDecision.responseStatus, 'unavailable');
+assert.deepEqual(unavailableCoreRecoveryProjection.allowedActions, ['reobserveHostAssistantRows', 'reviewHostNativeAvailability']);
 
 const contradictionFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-host-native-contradiction',
@@ -1231,20 +1501,20 @@ assert.equal(contradictionDispatch.ok, false);
 assert.equal(contradictionDispatch.recoveryRequired, true);
 assert.equal(coreStore.state.transactions[contradictionTransaction.id].phase, 'recoveryRequired');
 const contradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-contradiction');
-assert.equal(contradictionResponse.status, 'recoveryRequired');
-assert.equal(contradictionResponse.coreRecovery.phase, 'recoveryRequired');
-assert.equal(contradictionResponse.continuityReview.kind, 'directive.continuityContradictionReview.v1');
-assert.equal(contradictionResponse.continuityReview.sreReview.kind, 'directive.sreHostNativeContinuityReview.v1');
-assert.equal(contradictionResponse.continuityReview.sreReview.source.hostMessageId, 'assistant-host-native-contradiction');
+assert.equal(contradictionResponse.status, 'coreRecoveryProjected');
+assert.equal(contradictionResponse.coreRecovery, null);
+assert.equal(contradictionResponse.continuityReview, null);
 assert.equal(contradictionResponse.hostContinuation.observedMessage.textHash.length, 64);
 assert.equal(JSON.stringify(contradictionResponse.hostContinuation).includes('very human ease'), false);
 const contradictionRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:continuity:response-core-host-native-contradiction');
-assert.equal(contradictionRecovery.type, 'hostNativeContinuityContradiction');
-assert.equal(contradictionRecovery.details.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
-assert.equal(contradictionRecovery.details.repairDecision.eventType, 'hostNativeContinuityContradiction');
-assert.equal(contradictionRecovery.details.repairDecision.sreReviewRequired, true);
+assert.equal(contradictionRecovery, undefined, 'Valid CORE-backed continuity contradictions must not write old recoveryJournal rows.');
+const contradictionProjectedRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === contradictionTransaction.id);
+assert.equal(contradictionProjectedRecovery.reason, 'hostNativeContinuityContradiction');
+assert.equal(contradictionProjectedRecovery.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
+assert.equal(contradictionProjectedRecovery.repairDecision.eventType, 'hostNativeContinuityContradiction');
+assert.equal(contradictionProjectedRecovery.repairDecision.sreReviewRequired, true);
 assert.deepEqual(
-  contradictionRecovery.details.recoveryPolicy.allowedActions,
+  contradictionProjectedRecovery.allowedActions,
   ['reviewHostNativeContinuityContradiction', 'fallbackDirectiveResponse', 'branchFromPriorRevision']
 );
 const contradictionCoreRecoveryEvent = coreStore.state.events.find((entry) => (
@@ -1258,6 +1528,17 @@ assert.deepEqual(
   ['reviewHostNativeContinuityContradiction', 'fallbackDirectiveResponse', 'branchFromPriorRevision']
 );
 assert.equal(JSON.stringify(coreStore.state).includes('very human ease'), false);
+const contradictionDuplicateDispatch = await contradictionDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-host-native-contradiction',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-host-native-contradiction'
+});
+assert.equal(contradictionDuplicateDispatch.duplicate, true);
+assert.equal(contradictionDuplicateDispatch.ok, false, 'Duplicate CORE-backed contradiction must not report success from old response row.');
+assert.equal(contradictionDuplicateDispatch.recoveryRequired, true);
+assert.equal(contradictionDuplicateDispatch.recoveryId, contradictionProjectedRecovery.id);
 
 const staleObservedHashFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-host-native-stale-observed-hash',
@@ -1482,6 +1763,11 @@ assert.equal(
   false,
   'SRE ok verdict must not create dispatcher-local contradiction recovery.'
 );
+assert.equal(
+  (state.continuity?.candidateClaims || []).some((entry) => entry.source?.responseId === 'response-core-host-native-sre-owned'),
+  false,
+  'SRE ok verdict must not create dispatcher-local candidate quarantine records.'
+);
 
 const sreFailureFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-host-native-sre-failure',
@@ -1555,8 +1841,19 @@ const sreFailureDispatch = await sreFailureDispatcher.dispatch({
 assert.equal(sreFailureDispatch.ok, false, 'SRE review failure must fail closed into recovery.');
 assert.equal(sreFailureDispatch.recoveryRequired, true);
 const sreFailureResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-sre-failure');
-assert.equal(sreFailureResponse.status, 'recoveryRequired');
-assert.equal(sreFailureResponse.continuityReview.error.code, 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_FAILED');
+assert.equal(sreFailureResponse.status, 'coreRecoveryProjected');
+assert.equal(sreFailureResponse.recoveryId, null);
+assert.equal(sreFailureResponse.coreRecovery, null);
+assert.equal(sreFailureResponse.coreRecoveryError, null);
+assert.equal(sreFailureResponse.continuityReview, null);
+const sreFailureIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-host-native-sre-failure');
+assert.notEqual(sreFailureIngress.status, 'recoveryRequired', 'SRE failure with CORE recovery must not patch old ingress recovery status.');
+assert.equal(sreFailureIngress.recoveryId, undefined, 'SRE failure with CORE recovery must not patch old ingress recovery id.');
+const sreFailureOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.details?.responseId === 'response-core-host-native-sre-failure'
+  && entry.type === 'hostNativeContinuityContradiction'
+));
+assert.equal(sreFailureOldRecovery, undefined, 'SRE failure with CORE recovery must not open old recoveryJournal.');
 assert.equal(JSON.stringify(sreFailureResponse).includes(rawSreFailureCanary), false);
 assert.equal(JSON.stringify(sreFailureResponse).includes(rawSreFailureCodeCanary), false);
 assert.equal(JSON.stringify(state.runtimeTracking.recoveryJournal).includes(rawSreFailureCanary), false);
@@ -1666,15 +1963,18 @@ assert.equal(coreStore.state.transactions[asyncContradictionTransaction.id].phas
 assert.equal(coreStore.state.transactions[asyncContradictionTransaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-async-contradiction');
 assert.equal(coreStore.state.transactions[asyncContradictionTransaction.id].visibleResponseRef.textHash, hashStableJson({ text: 'Hadrik Bronn answered with a very human smile before the bridge quieted.' }));
 const asyncContradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-async-contradiction');
-assert.equal(asyncContradictionResponse.status, 'recoveryRequired');
+assert.equal(asyncContradictionResponse.status, 'coreRecoveryProjected');
 assert.equal(asyncContradictionResponse.hostObservation.hostMessageId, 'assistant-host-native-async-contradiction');
 assert.equal(asyncContradictionResponse.hostObservation.textHash, hashStableJson({ text: 'Hadrik Bronn answered with a very human smile before the bridge quieted.' }));
 assert.equal(asyncContradictionResponse.coreCompletion.phase, 'visibleResponsePosted');
-assert.equal(asyncContradictionResponse.coreRecovery.phase, 'recoveryRequired');
+assert.equal(asyncContradictionResponse.coreRecovery, null);
+assert.equal(asyncContradictionResponse.continuityReview, null);
 const asyncContradictionRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:continuity:response-core-host-native-async-contradiction');
-assert.equal(asyncContradictionRecovery.type, 'hostNativeContinuityContradiction');
-assert.equal(asyncContradictionRecovery.details.repairDecision.eventType, 'hostNativeContinuityContradiction');
-assert.equal(asyncContradictionRecovery.details.repairDecision.sreReviewRequired, true);
+assert.equal(asyncContradictionRecovery, undefined, 'Async CORE-backed continuity contradictions must not write old recoveryJournal rows.');
+const asyncContradictionProjectedRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === asyncContradictionTransaction.id);
+assert.equal(asyncContradictionProjectedRecovery.reason, 'hostNativeContinuityContradiction');
+assert.equal(asyncContradictionProjectedRecovery.repairDecision.eventType, 'hostNativeContinuityContradiction');
+assert.equal(asyncContradictionProjectedRecovery.repairDecision.sreReviewRequired, true);
 assert.equal(JSON.stringify(coreStore.state).includes('very human smile'), false);
 assert.equal(JSON.stringify(asyncContradictionResponse).includes('very human smile'), false);
 
@@ -1780,13 +2080,16 @@ assert.equal(coreStore.state.transactions[reobserveContradictionTransaction.id].
 assert.equal(coreStore.state.transactions[reobserveContradictionTransaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-reobserve-contradiction');
 assert.equal(coreStore.state.transactions[reobserveContradictionTransaction.id].visibleResponseRef.textHash, hashStableJson({ text: reobserveContradictionText }));
 const reobserveContradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-reobserve-contradiction');
-assert.equal(reobserveContradictionResponse.status, 'recoveryRequired');
+assert.equal(reobserveContradictionResponse.status, 'coreRecoveryProjected');
 assert.equal(reobserveContradictionResponse.hostObservation.hostMessageId, 'assistant-host-native-reobserve-contradiction');
 assert.equal(reobserveContradictionResponse.coreCompletion.phase, 'visibleResponsePosted');
-assert.equal(reobserveContradictionResponse.coreRecovery.phase, 'recoveryRequired');
+assert.equal(reobserveContradictionResponse.coreRecovery, null);
+assert.equal(reobserveContradictionResponse.continuityReview, null);
 const reobserveContradictionRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:continuity:response-core-host-native-reobserve-contradiction');
-assert.equal(reobserveContradictionRecovery.type, 'hostNativeContinuityContradiction');
-assert.equal(reobserveContradictionRecovery.details.repairDecision.sreReviewRequired, true);
+assert.equal(reobserveContradictionRecovery, undefined, 'Reobserved CORE-backed continuity contradictions must not write old recoveryJournal rows.');
+const reobserveContradictionProjectedRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === reobserveContradictionTransaction.id);
+assert.equal(reobserveContradictionProjectedRecovery.reason, 'hostNativeContinuityContradiction');
+assert.equal(reobserveContradictionProjectedRecovery.repairDecision.sreReviewRequired, true);
 assert.equal(JSON.stringify(coreStore.state).includes('human grin'), false);
 assert.equal(JSON.stringify(reobserveContradictionResponse).includes('human grin'), false);
 
@@ -1847,6 +2150,65 @@ const repairOwnedContradictionDecision = (options = {}, policySource = 'repair-o
   observationStatus: 'completed',
   policySource
 });
+function repairOwnedCoreContinuityProjectionPayload(decision) {
+  return {
+    rejectedClaims: [{
+      schemaVersion: 1,
+      id: 'generated-claim.repair-owned-projection-canary',
+      status: 'rejected',
+      categories: ['identity'],
+      textHash: hashStableJson({ text: 'repair-owned compact claim canary' }),
+      source: {
+        kind: 'hostNativeGeneration',
+        responseId: decision.responseId,
+        ingressId: decision.ingressId,
+        hostMessageId: 'assistant-host-native-repair-owned-contradiction'
+      },
+      sourceHash: hashStableJson({
+        kind: 'hostNativeGeneration',
+        responseId: decision.responseId,
+        ingressId: decision.ingressId,
+        hostMessageId: 'assistant-host-native-repair-owned-contradiction'
+      }),
+      extractedAt: repairOwnedCompatibilityRecordedAt,
+      authority: 'generatedClaim',
+      accepted: false,
+      findingFactIds: [repairOwnedCompatibilityFactId],
+      findingKinds: ['repair-owned-canary'],
+      review: {
+        kind: 'directive.sreHostNativeContinuityReview.v1',
+        ok: false,
+        findingCount: 1
+      }
+    }],
+    projectionHints: [{
+      id: 'hint.repair-owned-projection-canary',
+      factId: repairOwnedCompatibilityFactId,
+      mode: 'guard',
+      force: 'guard',
+      minimumLane: 'directive.continuity.invariants',
+      reason: 'Repair-owned compatibility projection canary.',
+      owner: 'repair',
+      source: { kind: 'repairCompatibilityProjection' },
+      createdRevision: 0,
+      expiresRevision: 4,
+      createdAt: repairOwnedCompatibilityRecordedAt
+    }],
+    factUseStats: {
+      [repairOwnedCompatibilityFactId]: {
+        factId: repairOwnedCompatibilityFactId,
+        selectedCount: 3,
+        guardedCount: 5,
+        violationCount: 7,
+        lastSelectedRevision: 0,
+        lastGuardedRevision: 0,
+        lastViolationRevision: 0,
+        lastLane: 'directive.continuity.invariants',
+        updatedAt: repairOwnedCompatibilityRecordedAt
+      }
+    }
+  };
+}
 const repairOwnedContradictionRuntime = {
   evaluateResponseRecovery(options = {}) {
     return repairOwnedContradictionDecision(options, 'repair-owned-continuity-fallback');
@@ -1871,6 +2233,7 @@ const repairOwnedContradictionRuntime = {
       responseRetry: false,
       phaseAfter: decision.phaseAfter,
       repairDecision: decision,
+      continuityProjection: repairOwnedCoreContinuityProjectionPayload(decision),
       allowedActions: decision.allowedActions,
       idempotencyKey: `repair-owned-continuity:${decision.transactionId}:${decision.responseId}`
     });
@@ -1881,6 +2244,7 @@ const repairOwnedContradictionRuntime = {
       phase: recoveryCase.phase,
       reason: recoveryCase.reason,
       decision,
+      continuityProjectionRecorded: true,
       compatibilityProjection: {
         rejectedClaims: [{
           schemaVersion: 1,
@@ -2060,18 +2424,33 @@ assert.equal(
   'Dispatcher must not write its hard-coded continuity recovery event when REPAIR supplies a compatibility projection.'
 );
 const repairOwnedProjectedRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === repairOwnedCompatibilityRecoveryId);
-assert.equal(repairOwnedProjectedRecovery.details.repairDecision.policySource, 'repair-owned-continuity-handler');
-assert.equal(repairOwnedProjectedRecovery.details.recoveryPolicy.action, 'repair-owned-projection-action');
-assert.deepEqual(repairOwnedProjectedRecovery.details.recoveryPolicy.allowedActions, ['repair-owned-projection-action', 'repair-owned-projection-review']);
-const repairOwnedProjectedIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-repair-owned-contradiction');
-assert.equal(repairOwnedProjectedIngress.recoveryId, repairOwnedCompatibilityRecoveryId);
-assert.equal(repairOwnedProjectedIngress.error.code, 'DIRECTIVE_REPAIR_OWNED_CONTINUITY_CANARY');
-const repairOwnedProjectedClaim = state.continuity.rejectedClaims.find((entry) => entry.id === 'generated-claim.repair-owned-projection-canary');
-assert.equal(repairOwnedProjectedClaim.source.responseId, 'response-core-repair-owned-contradiction');
-assert.equal(Object.prototype.hasOwnProperty.call(repairOwnedProjectedClaim, 'text'), false);
-assert.equal(JSON.stringify(state.continuity.rejectedClaims).includes('This answer trips the REPAIR-owned continuity review.'), false);
-assert.equal(state.continuity.projectionHints.some((entry) => entry.id === 'hint.repair-owned-projection-canary'), true);
-assert.deepEqual(state.continuity.factUseStats[repairOwnedCompatibilityFactId], {
+assert.equal(
+  repairOwnedProjectedRecovery,
+  undefined,
+  'REPAIR-owned contradiction recovery rows must come from CORE projections, not old runtimeTracking.recoveryJournal writes.'
+);
+const repairOwnedCoreRecovery = coreStore.readProjections().recoveryJournal.find((entry) => (
+  entry.transactionId === repairOwnedContradictionTransaction.id
+  && entry.reason === 'hostNativeContinuityContradiction'
+));
+assert.equal(repairOwnedCoreRecovery.repairDecision.policySource, 'repair-owned-continuity-handler');
+assert.deepEqual(repairOwnedCoreRecovery.allowedActions, ['repair-owned-continuity-review']);
+const repairOwnedCoreContinuityProjection = coreStore.readProjections().continuityRecoveryProjection;
+assert.ok(repairOwnedCoreContinuityProjection, 'CORE projections must expose continuity recovery projection evidence.');
+const repairOwnedCoreClaim = repairOwnedCoreContinuityProjection.rejectedClaims.find((entry) => (
+  entry.id === 'generated-claim.repair-owned-projection-canary'
+));
+assert.equal(repairOwnedCoreClaim.source.responseId, 'response-core-repair-owned-contradiction');
+assert.equal(Object.prototype.hasOwnProperty.call(repairOwnedCoreClaim, 'text'), false);
+assert.equal(
+  JSON.stringify(repairOwnedCoreContinuityProjection.rejectedClaims).includes('This answer trips the REPAIR-owned continuity review.'),
+  false
+);
+assert.equal(
+  repairOwnedCoreContinuityProjection.projectionHints.some((entry) => entry.id === 'hint.repair-owned-projection-canary'),
+  true
+);
+assert.deepEqual(repairOwnedCoreContinuityProjection.factUseStats[repairOwnedCompatibilityFactId], {
   factId: repairOwnedCompatibilityFactId,
   selectedCount: 3,
   guardedCount: 5,
@@ -2082,12 +2461,395 @@ assert.deepEqual(state.continuity.factUseStats[repairOwnedCompatibilityFactId], 
   lastLane: 'directive.continuity.invariants',
   updatedAt: repairOwnedCompatibilityRecordedAt
 });
+const repairOwnedResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-repair-owned-contradiction');
+assert.equal(repairOwnedContradictionDispatch.recoveryId, repairOwnedCoreRecovery.id);
+assert.equal(repairOwnedResponse.status, 'coreRecoveryProjected');
+assert.equal(repairOwnedResponse.recoveryId, null);
+assert.equal(repairOwnedResponse.coreRecovery, null);
+assert.equal(repairOwnedResponse.continuityReview, null);
+const repairOwnedCoreIngress = coreStore.readProjections().ingressLedger.find((entry) => (
+  entry.transactionId === repairOwnedContradictionTransaction.id
+));
+assert.equal(repairOwnedCoreIngress.status, 'recoveryRequired');
+assert.equal(repairOwnedCoreIngress.recoveryId, repairOwnedCoreRecovery.id);
+assert.equal(repairOwnedCoreIngress.recoveryReason, 'hostNativeContinuityContradiction');
+assert.equal(repairOwnedCoreIngress.recoveryStatus, 'required');
+assert.deepEqual(repairOwnedCoreIngress.allowedActions, ['repair-owned-continuity-review']);
+const repairOwnedProjectedIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-repair-owned-contradiction');
+assert.equal(repairOwnedProjectedIngress.recoveryId, undefined);
+assert.equal(repairOwnedProjectedIngress.error, null);
+const repairOwnedProjectedClaim = state.continuity.rejectedClaims.find((entry) => entry.id === 'generated-claim.repair-owned-projection-canary');
+assert.equal(repairOwnedProjectedClaim, undefined, 'Valid CORE-backed contradiction rejected claims must come from CORE projections, not old continuity state.');
+assert.equal(JSON.stringify(state.continuity.rejectedClaims).includes('This answer trips the REPAIR-owned continuity review.'), false);
+assert.equal(state.continuity.projectionHints.some((entry) => entry.id === 'hint.repair-owned-projection-canary'), false);
+assert.equal(state.continuity.factUseStats[repairOwnedCompatibilityFactId], undefined);
 const repairOwnedContradictionCoreEvent = coreStore.state.events.find((entry) => (
   entry.type === 'recoveryRequired'
   && entry.txnId === repairOwnedContradictionTransaction.id
 ));
 assert.equal(repairOwnedContradictionCoreEvent.payload.repairDecision.policySource, 'repair-owned-continuity-handler');
 assert.deepEqual(repairOwnedContradictionCoreEvent.payload.allowedActions, ['repair-owned-continuity-review']);
+
+const missingDurableProjectionFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-missing-durable-projection',
+  campaignId,
+  saveId,
+  chatId,
+  hostMessageId: 'player-core-missing-durable-projection',
+  textHash: hashStableJson({ text: 'Sam asks the host to continue into a missing durable projection contradiction.' }),
+  sourceRevision: 4,
+  createdAt: '2026-06-28T17:03:27.250Z'
+});
+const missingDurableProjectionTransaction = await coreStore.beginTurn(missingDurableProjectionFrame, {
+  transactionId: 'txn-response-core-missing-durable-projection',
+  ingressId: 'ingress-response-core-missing-durable-projection',
+  idempotencyKey: 'begin-response-core-missing-durable-projection'
+});
+state = addIngress(state, {
+  ingressId: 'ingress-response-core-missing-durable-projection',
+  hostMessageId: 'player-core-missing-durable-projection',
+  chatId,
+  campaignId,
+  sourceFrame: missingDurableProjectionFrame,
+  coreTransactionId: missingDurableProjectionTransaction.id,
+  receivedAt: '2026-06-28T17:03:27.250Z'
+});
+const missingDurableProjectionRecoveryId = 'recovery:continuity:missing-durable-projection-canary';
+const missingDurableProjectionFactId = 'crew.missing-durable.compatibility-canary';
+const missingDurableProjectionRuntime = {
+  async handleHostNativeContinuityContradiction(options = {}) {
+    const decision = repairOwnedContradictionDecision(options, 'repair-missing-durable-projection-handler');
+    const recoveryCase = await coreStore.markRecoveryRequired(decision.transactionId, {
+      id: options.recoveryId || `recovery:continuity:${decision.responseId}`,
+      reason: decision.reason,
+      status: 'required',
+      responseRetry: false,
+      phaseAfter: decision.phaseAfter,
+      repairDecision: decision,
+      allowedActions: decision.allowedActions,
+      idempotencyKey: `repair-missing-durable-projection:${decision.transactionId}:${decision.responseId}`
+    });
+    return {
+      status: 'recorded',
+      transactionId: decision.transactionId,
+      recoveryCaseId: recoveryCase.id,
+      phase: recoveryCase.phase,
+      reason: recoveryCase.reason,
+      decision,
+      compatibilityProjection: {
+        rejectedClaims: [{
+          id: 'generated-claim.missing-durable-projection-canary',
+          status: 'rejected',
+          categories: ['identity'],
+          textHash: hashStableJson({ text: 'missing durable projection compact claim' }),
+          source: {
+            kind: 'hostNativeGeneration',
+            responseId: decision.responseId,
+            ingressId: decision.ingressId,
+            hostMessageId: 'assistant-host-native-missing-durable-projection'
+          },
+          accepted: false,
+          findingFactIds: [missingDurableProjectionFactId]
+        }],
+        projectionHints: [{
+          id: 'hint.missing-durable-projection-canary',
+          factId: missingDurableProjectionFactId,
+          mode: 'guard',
+          owner: 'repair',
+          source: { kind: 'repairCompatibilityProjection' },
+          createdAt: repairOwnedCompatibilityRecordedAt
+        }],
+        factUseStats: {
+          [missingDurableProjectionFactId]: {
+            factId: missingDurableProjectionFactId,
+            violationCount: 1,
+            updatedAt: repairOwnedCompatibilityRecordedAt
+          }
+        },
+        recoveryEvent: {
+          id: missingDurableProjectionRecoveryId,
+          type: 'hostNativeContinuityContradiction',
+          status: 'open',
+          hostMessageId: 'assistant-host-native-missing-durable-projection',
+          ingressId: decision.ingressId,
+          outcomeId: decision.outcomeId,
+          recordedAt: repairOwnedCompatibilityRecordedAt,
+          details: {
+            responseId: decision.responseId,
+            hostMessageId: 'assistant-host-native-missing-durable-projection',
+            repairDecision: decision
+          }
+        },
+        ingressPatch: {
+          status: 'recoveryRequired',
+          responseStrategy: 'injectAndContinue',
+          turnId: decision.turnId,
+          outcomeId: decision.outcomeId,
+          recoveryId: missingDurableProjectionRecoveryId,
+          error: {
+            code: 'DIRECTIVE_MISSING_DURABLE_PROJECTION_CANARY',
+            message: 'Missing durable projection canary.'
+          },
+          failedAt: repairOwnedCompatibilityRecordedAt
+        }
+      }
+    };
+  }
+};
+const missingDurableProjectionDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Missing durable projection contradiction test must not post Directive text.');
+      },
+      continueHostGeneration: async () => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        generationStartedAt: '2026-06-28T17:03:27.300Z',
+        hostGenerationReleasedAt: '2026-06-28T17:03:27.300Z',
+        observationStatus: 'completed',
+        observedMessage: {
+          hostMessageId: 'assistant-host-native-missing-durable-projection',
+          index: 17,
+          chatId,
+          text: 'This answer trips missing durable projection review.'
+        }
+      })
+    }
+  },
+  coreTurnStore: coreStore,
+  sourceReconciliationEngine: {
+    reviewHostNativeContinuity: async () => ({
+      kind: 'directive.sreHostNativeContinuityReview.v1',
+      ok: false,
+      findings: [{
+        kind: 'protected-fact-contradiction',
+        factId: 'crew.hadrik-bronn.species',
+        severity: 'blocker',
+        summary: 'Synthetic contradiction with missing durable CORE projection.'
+      }],
+      checkedFactCount: 1,
+      reviewer: 'test-sre',
+      sreReview: {
+        kind: 'directive.sreHostNativeContinuityReview.v1',
+        mode: 'hostNativeCompletion',
+        reviewer: 'test-sre',
+        status: 'rejected',
+        reviewedAt: '2026-06-28T17:03:27.350Z',
+        source: {
+          responseId: 'response-core-missing-durable-projection',
+          ingressId: 'ingress-response-core-missing-durable-projection',
+          hostMessageId: 'assistant-host-native-missing-durable-projection'
+        }
+      }
+    })
+  },
+  repairRuntime: missingDurableProjectionRuntime,
+  getCampaignState: () => state,
+  setCampaignState: (next) => { state = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { state = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const missingDurableProjectionDispatch = await missingDurableProjectionDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-missing-durable-projection',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-missing-durable-projection'
+});
+assert.equal(missingDurableProjectionDispatch.ok, false);
+const missingDurableCoreRecovery = coreStore.readProjections().recoveryJournal.find((entry) => (
+  entry.transactionId === missingDurableProjectionTransaction.id
+  && entry.reason === 'hostNativeContinuityContradiction'
+));
+assert.equal(missingDurableCoreRecovery.repairDecision.policySource, 'repair-missing-durable-projection-handler');
+const missingDurableOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === missingDurableProjectionRecoveryId);
+assert.equal(missingDurableOldRecovery, undefined, 'CORE-recorded recovery should still demote old recoveryJournal when continuity projection proof is missing.');
+const missingDurableOldIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-missing-durable-projection');
+assert.equal(missingDurableOldIngress.recoveryId, undefined, 'CORE-recorded recovery should still demote old ingress recovery patch when continuity projection proof is missing.');
+assert.equal(
+  state.continuity.rejectedClaims.some((entry) => entry.id === 'generated-claim.missing-durable-projection-canary'),
+  false,
+  'CORE-recorded contradiction recovery must not mirror missing durable projection claims into old continuity state.'
+);
+assert.equal(
+  state.continuity.projectionHints.some((entry) => entry.id === 'hint.missing-durable-projection-canary'),
+  false,
+  'CORE-recorded contradiction recovery must not mirror missing durable projection hints into old continuity state.'
+);
+assert.equal(state.continuity.factUseStats[missingDurableProjectionFactId], undefined);
+
+const rawProjectionNestedCanary = 'RAW_REPAIR_NESTED_COMPATIBILITY_PROJECTION_TEXT_CANARY';
+const rawProjectionFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-raw-projection-contradiction',
+  campaignId,
+  saveId,
+  chatId,
+  hostMessageId: 'player-core-raw-projection-contradiction',
+  textHash: hashStableJson({ text: 'Sam asks the host to continue into a nested-raw REPAIR projection contradiction.' }),
+  sourceRevision: 4,
+  createdAt: '2026-06-28T17:03:27.500Z'
+});
+const rawProjectionTransaction = await coreStore.beginTurn(rawProjectionFrame, {
+  transactionId: 'txn-response-core-raw-projection-contradiction',
+  ingressId: 'ingress-response-core-raw-projection-contradiction',
+  idempotencyKey: 'begin-response-core-raw-projection-contradiction'
+});
+state = addIngress(state, {
+  ingressId: 'ingress-response-core-raw-projection-contradiction',
+  hostMessageId: 'player-core-raw-projection-contradiction',
+  chatId,
+  campaignId,
+  sourceFrame: rawProjectionFrame,
+  coreTransactionId: rawProjectionTransaction.id,
+  receivedAt: '2026-06-28T17:03:27.500Z'
+});
+const rawProjectionRecoveryId = 'recovery:continuity:raw-projection-canary';
+const rawProjectionRuntime = {
+  handleHostNativeContinuityContradiction: async (options = {}) => {
+    const decision = repairOwnedContradictionDecision(options, 'repair-owned-raw-projection-handler');
+    const recoveryCase = await coreStore.markRecoveryRequired(decision.transactionId, {
+      id: options.recoveryId || `recovery:continuity:${decision.responseId}`,
+      reason: decision.reason,
+      status: 'required',
+      responseRetry: false,
+      phaseAfter: decision.phaseAfter,
+      repairDecision: decision,
+      allowedActions: decision.allowedActions,
+      idempotencyKey: `repair-owned-raw-projection:${decision.transactionId}:${decision.responseId}`
+    });
+    return {
+      status: 'recorded',
+      transactionId: decision.transactionId,
+      recoveryCaseId: recoveryCase.id,
+      phase: recoveryCase.phase,
+      reason: recoveryCase.reason,
+      decision,
+      compatibilityProjection: {
+        rejectedClaims: [{
+          id: 'generated-claim.raw-projection-canary',
+          status: 'rejected',
+          categories: ['identity'],
+          textHash: hashStableJson({ text: 'raw nested projection canary' }),
+          source: {
+            kind: 'hostNativeGeneration',
+            responseId: decision.responseId,
+            ingressId: decision.ingressId,
+            hostMessageId: 'assistant-host-native-raw-projection-contradiction',
+            evidence: { rawText: rawProjectionNestedCanary }
+          },
+          accepted: false
+        }],
+        projectionHints: [{
+          id: 'hint.raw-projection-canary',
+          factId: repairOwnedCompatibilityFactId,
+          mode: 'guard',
+          source: {
+            kind: 'repairCompatibilityProjection',
+            diagnostics: { rawText: rawProjectionNestedCanary }
+          },
+          createdAt: repairOwnedCompatibilityRecordedAt
+        }],
+        factUseStats: {
+          [repairOwnedCompatibilityFactId]: {
+            factId: repairOwnedCompatibilityFactId,
+            violationCount: 1,
+            diagnostics: { rawText: rawProjectionNestedCanary },
+            updatedAt: repairOwnedCompatibilityRecordedAt
+          }
+        },
+        recoveryEvent: {
+          id: rawProjectionRecoveryId,
+          type: 'hostNativeContinuityContradiction',
+          status: 'open',
+          ingressId: decision.ingressId,
+          outcomeId: decision.outcomeId,
+          recordedAt: repairOwnedCompatibilityRecordedAt,
+          details: { responseId: decision.responseId }
+        },
+        ingressPatch: {
+          status: 'recoveryRequired',
+          responseStrategy: 'injectAndContinue',
+          turnId: decision.turnId,
+          outcomeId: decision.outcomeId,
+          recoveryId: rawProjectionRecoveryId,
+          error: {
+            code: 'DIRECTIVE_RAW_PROJECTION_CANARY',
+            message: 'Raw nested projection canary.'
+          },
+          failedAt: repairOwnedCompatibilityRecordedAt
+        }
+      }
+    };
+  }
+};
+const rawProjectionDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Raw projection contradiction bridge test must not post Directive text.');
+      },
+      continueHostGeneration: async () => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        generationStartedAt: '2026-06-28T17:03:27.600Z',
+        hostGenerationReleasedAt: '2026-06-28T17:03:27.600Z',
+        observationStatus: 'completed',
+        observedMessage: {
+          hostMessageId: 'assistant-host-native-raw-projection-contradiction',
+          index: 17,
+          chatId,
+          text: 'Hadrik Bronn answered with a human wink before the bridge quieted.'
+        }
+      })
+    }
+  },
+  coreTurnStore: coreStore,
+  repairRuntime: rawProjectionRuntime,
+  getCampaignState: () => state,
+  setCampaignState: (next) => { state = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { state = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const rawProjectionDispatch = await rawProjectionDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-raw-projection-contradiction',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-raw-projection-contradiction',
+  packageData: {
+    crew: {
+      senior: [{ id: 'hadrik-bronn', name: 'Hadrik Bronn', shortName: 'Bronn' }]
+    }
+  }
+});
+assert.equal(rawProjectionDispatch.ok, false);
+const rawProjectionCoreRecovery = coreStore.readProjections().recoveryJournal.find((entry) => (
+  entry.transactionId === rawProjectionTransaction.id
+  && entry.reason === 'hostNativeContinuityContradiction'
+));
+assert.equal(rawProjectionCoreRecovery.repairDecision.policySource, 'repair-owned-raw-projection-handler');
+const rawProjectionOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === rawProjectionRecoveryId);
+assert.equal(rawProjectionOldRecovery, undefined, 'Nested raw REPAIR compatibility projections must not be mirrored into old recoveryJournal.');
+const rawProjectionFallbackRecovery = state.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.details?.responseId === 'response-core-raw-projection-contradiction'
+  && entry.type === 'hostNativeContinuityContradiction'
+));
+assert.equal(rawProjectionFallbackRecovery, undefined, 'CORE-recorded invalid raw compatibility projection must not fall back to old recoveryJournal.');
+const rawProjectionIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-raw-projection-contradiction');
+assert.equal(rawProjectionIngress.recoveryId, undefined, 'CORE-recorded invalid raw compatibility projection must not patch old ingress recovery state.');
+assert.equal(
+  state.continuity.rejectedClaims.some((entry) => entry.id === 'generated-claim.raw-projection-canary'),
+  false,
+  'Nested raw REPAIR rejected-claim projection must be rejected before continuity mirroring.'
+);
+for (const container of [state, rawProjectionDispatch, coreStore.state]) {
+  assert.equal(JSON.stringify(container).includes(rawProjectionNestedCanary), false);
+}
 
 const emptyProjectionContradictionFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-empty-projection-contradiction',
@@ -2224,11 +2986,9 @@ const emptyProjectionRecovery = state.runtimeTracking.recoveryJournal.find((entr
   entry.details?.responseId === 'response-core-empty-projection-contradiction'
   && entry.type === 'hostNativeContinuityContradiction'
 ));
-assert.equal(Boolean(emptyProjectionRecovery), true);
-assert.notEqual(emptyProjectionRecovery.id, 'recovery:continuity:response-core-empty-projection-contradiction');
+assert.equal(emptyProjectionRecovery, undefined, 'CORE-recorded empty compatibility projection must not fall back to old recoveryJournal.');
 const emptyProjectionIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-empty-projection-contradiction');
-assert.equal(emptyProjectionIngress.status, 'recoveryRequired');
-assert.equal(emptyProjectionIngress.recoveryId, emptyProjectionRecovery.id);
+assert.equal(emptyProjectionIngress.recoveryId, undefined, 'CORE-recorded empty compatibility projection must not patch old ingress recovery state.');
 assert.equal(JSON.stringify(state).includes(emptyProjectionObservedText), false);
 assert.equal(JSON.stringify(emptyProjectionDispatch).includes(emptyProjectionObservedText), false);
 
@@ -2366,11 +3126,9 @@ const absentProjectionRecovery = state.runtimeTracking.recoveryJournal.find((ent
   entry.details?.responseId === 'response-core-absent-projection-contradiction'
   && entry.type === 'hostNativeContinuityContradiction'
 ));
-assert.equal(Boolean(absentProjectionRecovery), true);
-assert.notEqual(absentProjectionRecovery.id, 'recovery:continuity:response-core-absent-projection-contradiction');
+assert.equal(absentProjectionRecovery, undefined, 'CORE-recorded absent compatibility projection must not fall back to old recoveryJournal.');
 const absentProjectionIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-absent-projection-contradiction');
-assert.equal(absentProjectionIngress.status, 'recoveryRequired');
-assert.equal(absentProjectionIngress.recoveryId, absentProjectionRecovery.id);
+assert.equal(absentProjectionIngress.recoveryId, undefined, 'CORE-recorded absent compatibility projection must not patch old ingress recovery state.');
 for (const container of [state, absentProjectionDispatch, coreStore.state]) {
   assert.equal(JSON.stringify(container).includes('RAW_ABSENT_PROJECTION_OBSERVED_TEXT_CANARY'), false);
 }
@@ -2479,10 +3237,40 @@ const writerThrowDispatch = await writerThrowDispatcher.dispatch({
 });
 assert.equal(writerThrowDispatch.ok, false);
 assert.equal(writerThrowDispatch.recoveryRequired, true);
+assert.equal(writerThrowDispatch.recoveryId, 'recovery:continuity:response-core-writer-throw-contradiction');
 const writerThrowResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-writer-throw-contradiction');
-assert.equal(writerThrowResponse.status, 'recoveryRequired');
+assert.equal(writerThrowResponse.status, 'coreRecoveryDiagnosticProjected');
+assert.equal(writerThrowResponse.recoveryId, null);
+assert.equal(writerThrowResponse.coreRecoveryError, null);
+assert.equal(writerThrowResponse.continuityReview, null);
 const writerThrowIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-writer-throw-contradiction');
-assert.equal(writerThrowIngress.status, 'recoveryRequired');
+assert.notEqual(writerThrowIngress.status, 'recoveryRequired', 'REPAIR writer failure must not patch old ingress recovery status after CORE diagnostic is recorded.');
+assert.equal(writerThrowIngress.recoveryId, undefined, 'REPAIR writer failure must not patch old ingress recovery id after CORE diagnostic is recorded.');
+const writerThrowOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => (
+  entry.details?.responseId === 'response-core-writer-throw-contradiction'
+  && entry.type === 'hostNativeContinuityContradiction'
+));
+assert.equal(writerThrowOldRecovery, undefined, 'REPAIR writer failure must not open old recoveryJournal after CORE diagnostic is recorded.');
+const writerThrowDiagnostic = coreStore.readProjections().sidecarDiagnostics.find((entry) => (
+  entry.worker === 'hostNativeContinuityRecovery'
+  && entry.responseId === 'response-core-writer-throw-contradiction'
+));
+assert.ok(writerThrowDiagnostic, 'REPAIR writer failures must produce compact CORE diagnostics before old bridge fallback.');
+assert.equal(writerThrowDiagnostic.status, 'failed');
+assert.equal(writerThrowDiagnostic.eventType, 'hostNativeContinuityContradiction');
+assert.equal(writerThrowDiagnostic.transactionId, writerThrowTransaction.id);
+const writerThrowDuplicateDispatch = await writerThrowDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-writer-throw-contradiction',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-writer-throw-contradiction'
+});
+assert.equal(writerThrowDuplicateDispatch.duplicate, true);
+assert.equal(writerThrowDuplicateDispatch.ok, false, 'Duplicate writer-failure contradiction must not report success from old response row.');
+assert.equal(writerThrowDuplicateDispatch.recoveryRequired, true);
+assert.equal(writerThrowDuplicateDispatch.recoveryId, 'recovery:continuity:response-core-writer-throw-contradiction');
+assert.equal(writerThrowDuplicateDispatch.coreDiagnostic.worker, 'hostNativeContinuityRecovery');
 for (const container of [state, writerThrowDispatch, coreStore.state]) {
   const serialized = JSON.stringify(container);
   assert.equal(serialized.includes(rawWriterThrowMessage), false);
@@ -2525,6 +3313,12 @@ const contradictionReleaseFailureCoreStore = {
   },
   async markRecoveryRequired(...args) {
     return coreStore.markRecoveryRequired(...args);
+  },
+  async appendDiagnostics(...args) {
+    return coreStore.appendDiagnostics(...args);
+  },
+  readProjections() {
+    return coreStore.readProjections();
   }
 };
 const contradictionReleaseFailureDispatcher = createResponseDispatcher({
@@ -2599,19 +3393,35 @@ assert.equal(
     entry.id === 'recovery:continuity:response-core-contradiction-release-failure'
     && entry.type === 'hostNativeContinuityContradiction'
   )),
-  true,
-  'Contradiction recovery must keep its own journal entry when CORE release also fails.'
+  false,
+  'Valid contradiction recovery must come from CORE projection even when CORE release also fails.'
 );
+const contradictionReleaseFailureProjectedRecovery = coreStore.readProjections().recoveryJournal.find((entry) => (
+  entry.transactionId === contradictionReleaseFailureTransaction.id
+  && entry.reason === 'hostNativeContinuityContradiction'
+));
+assert.equal(contradictionReleaseFailureProjectedRecovery.repairDecision.eventType, 'hostNativeContinuityContradiction');
 assert.equal(
   contradictionReleaseFailureRecoveries.some((entry) => (
     entry.id === 'recovery:core-host-continue:response-core-contradiction-release-failure'
     && entry.type === 'coreHostContinueReleaseFailure'
   )),
-  true,
-  'CORE release failure must use a distinct recovery id when contradiction recovery already owns the response.'
+  false,
+  'CORE release failure must not write old recoveryJournal rows when a CORE diagnostic records.'
 );
+const contradictionReleaseFailureDiagnostic = coreStore.readProjections().sidecarDiagnostics.find((entry) => (
+  entry.worker === 'hostContinueReleaseRecord'
+  && entry.responseId === 'response-core-contradiction-release-failure'
+));
+assert.ok(contradictionReleaseFailureDiagnostic, 'CORE release failure must use CORE diagnostics when contradiction recovery already owns the response.');
+assert.equal(contradictionReleaseFailureDiagnostic.eventType, 'coreHostContinueReleaseFailure');
 const contradictionReleaseFailureIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-contradiction-release-failure');
-assert.equal(contradictionReleaseFailureIngress.recoveryId, 'recovery:continuity:response-core-contradiction-release-failure');
+assert.equal(contradictionReleaseFailureIngress.recoveryId, undefined);
+const contradictionReleaseFailureCoreIngress = coreStore.readProjections().ingressLedger.find((entry) => (
+  entry.transactionId === contradictionReleaseFailureTransaction.id
+));
+assert.equal(contradictionReleaseFailureCoreIngress.recoveryId, contradictionReleaseFailureProjectedRecovery.id);
+assert.equal(contradictionReleaseFailureCoreIngress.recoveryReason, 'hostNativeContinuityContradiction');
 
 const sentinelFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-repair-sentinel',
@@ -2753,14 +3563,16 @@ assert.equal(sentinelRepairCalls.filter((entry) => entry.type === 'record').leng
 assert.equal('host' in sentinelRepairCalls[0].options, false);
 assert.equal('chat' in sentinelRepairCalls[0].options, false);
 const sentinelRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:host-native:response-core-repair-sentinel');
-assert.equal(sentinelRecovery.details.repairDecision.policySource, 'repair-test-sentinel');
-assert.deepEqual(sentinelRecovery.details.recoveryPolicy.allowedActions, ['repair-sentinel-reobserve']);
+assert.equal(sentinelRecovery, undefined, 'REPAIR-owned host-native recovery policy must not write old recoveryJournal rows.');
 const sentinelCoreRecoveryEvent = coreStore.state.events.find((entry) => (
   entry.type === 'recoveryRequired'
   && entry.txnId === sentinelTransaction.id
 ));
 assert.equal(sentinelCoreRecoveryEvent.payload.repairDecision.policySource, 'repair-test-sentinel');
 assert.deepEqual(sentinelCoreRecoveryEvent.payload.allowedActions, ['repair-sentinel-reobserve']);
+const sentinelCoreRecoveryProjection = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === sentinelTransaction.id);
+assert.equal(sentinelCoreRecoveryProjection.repairDecision.policySource, 'repair-test-sentinel');
+assert.deepEqual(sentinelCoreRecoveryProjection.allowedActions, ['repair-sentinel-reobserve']);
 
 const failedFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-host-native-failed',
@@ -2848,17 +3660,7 @@ assert.equal(failedHostNativeResponse.status, 'responseRetryRequired');
 assert.equal(failedHostNativeResponse.hostObservationStatus, 'failed');
 assert.equal(failedHostNativeResponse.coreRecovery.phase, 'responseRetryRequired');
 const failedHostNativeRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:host-native:response-core-host-native-failed');
-assert.equal(failedHostNativeRecovery.type, 'hostNativeGenerationFailed');
-assert.equal(failedHostNativeRecovery.details.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
-assert.equal(failedHostNativeRecovery.details.repairDecision.eventType, 'hostNativeGenerationFailed');
-assert.equal(failedHostNativeRecovery.details.repairDecision.responseStatus, 'responseRetryRequired');
-assert.equal(failedHostNativeRecovery.details.recoveryPolicy.reobserveHostAssistantRows, true);
-assert.equal(failedHostNativeRecovery.details.recoveryPolicy.retryHostGeneration, true);
-assert.equal(failedHostNativeRecovery.details.recoveryPolicy.preferredFirstAction, 'reobserveHostAssistantRows');
-assert.deepEqual(
-  failedHostNativeRecovery.details.recoveryPolicy.allowedActions,
-  ['reobserveHostAssistantRows', 'retryHostGeneration', 'fallbackDirectiveResponse', 'reviewHostGenerationFailure']
-);
+assert.equal(failedHostNativeRecovery, undefined, 'CORE-backed host-native failed recovery must not write old recoveryJournal rows.');
 const failedCoreRecoveryEvent = coreStore.state.events.find((entry) => (
   entry.type === 'recoveryRequired'
   && entry.txnId === failedTransaction.id
@@ -2868,6 +3670,14 @@ assert.equal(failedCoreRecoveryEvent.payload.repairDecision.kind, 'directive.rep
 assert.equal(failedCoreRecoveryEvent.payload.repairDecision.eventType, 'hostNativeGenerationFailed');
 assert.deepEqual(
   failedCoreRecoveryEvent.payload.allowedActions,
+  ['reobserveHostAssistantRows', 'retryHostGeneration', 'fallbackDirectiveResponse', 'reviewHostGenerationFailure']
+);
+const failedCoreRecoveryProjection = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === failedTransaction.id);
+assert.equal(failedCoreRecoveryProjection.repairDecision.kind, 'directive.repairResponseRecoveryDecision.v1');
+assert.equal(failedCoreRecoveryProjection.repairDecision.eventType, 'hostNativeGenerationFailed');
+assert.equal(failedCoreRecoveryProjection.repairDecision.responseStatus, 'responseRetryRequired');
+assert.deepEqual(
+  failedCoreRecoveryProjection.allowedActions,
   ['reobserveHostAssistantRows', 'retryHostGeneration', 'fallbackDirectiveResponse', 'reviewHostGenerationFailure']
 );
 const retryObservedTextHash = hashStableJson({ text: 'Host-native retry completion text.' });
@@ -3031,7 +3841,17 @@ async function exerciseDelayedRecoveryReobserve({
     `${label}: old response projection should reflect recovery state`
   );
   const recovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === `recovery:host-native:${responseId}`);
-  assert.equal(recovery.status, 'open', `${label}: old recovery should start open`);
+  assert.equal(recovery, undefined, `${label}: CORE-backed host-native recovery must not open old recoveryJournal`);
+  const projectedRecoveryBeforeReobserve = coreStore.readProjections().recoveryJournal.find((entry) => (
+    entry.transactionId === txn.id
+    && entry.status === 'required'
+  ));
+  assert.ok(projectedRecoveryBeforeReobserve, `${label}: CORE projections should expose open host-native recovery`);
+  assert.equal(
+    projectedRecoveryBeforeReobserve.repairDecision.eventType,
+    observationStatus === 'failed' ? 'hostNativeGenerationFailed' : 'hostNativeAssistantUnavailable',
+    `${label}: CORE recovery projection should preserve REPAIR event type`
+  );
 
   const reobserve = await dispatcher.reobserveHostGenerationCompletions({
     campaignState: state
@@ -3045,8 +3865,7 @@ async function exerciseDelayedRecoveryReobserve({
   assert.equal(responseAfterReobserve.hostObservation.hostMessageId, assistantHostMessageId);
   assert.equal(responseAfterReobserve.hostObservation.textHash, hashStableJson({ text: assistantText }));
   const recoveryAfterReobserve = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === `recovery:host-native:${responseId}`);
-  assert.equal(recoveryAfterReobserve.status, 'resolved', `${label}: old recovery should resolve`);
-  assert.equal(recoveryAfterReobserve.resolution.reason, 'host-native-response-reobserved');
+  assert.equal(recoveryAfterReobserve, undefined, `${label}: delayed reobserve must not recreate old recoveryJournal`);
   assert.equal(JSON.stringify(responseAfterReobserve).includes(assistantText), false, `${label}: old response projection should not persist raw assistant text`);
   const projections = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
   const projectedResponse = projections.responseLedger.find((entry) => entry.transactionId === txn.id);

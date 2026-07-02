@@ -117,9 +117,14 @@ assert.equal(host.prompt.inspect().revision > promptRevisionBefore, true, 'campa
 assert.equal(stable(changed.campaignState.commandLog.entries), commandLogBefore, 'difficulty change must not rewrite Command Log entries');
 assert.equal(stable(changed.campaignState.turnLedger?.entries || []), turnLedgerBefore, 'difficulty change must not rewrite committed turn ledger entries');
 assert.equal(
-  changed.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Exploration'),
+  changed.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'campaignDifficultyChange'),
+  false,
+  'difficulty change must not write administrative events into recoveryJournal'
+);
+assert.equal(
+  changed.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Exploration'),
   true,
-  'difficulty change should leave an administrative recovery journal record'
+  'difficulty change should leave a compact administrative lifecycle record'
 );
 
 const savesAfterChange = await listCampaignSaves(host.storage);
@@ -155,7 +160,11 @@ const restoredCommand = await app.updateCampaignDifficulty({
 assert.equal(restoredCommand.changed, true);
 assert.equal(restoredCommand.campaignState.settings.simulationMode, 'Command');
 assert.equal(
-  restoredCommand.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Command'),
+  restoredCommand.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'campaignDifficultyChange'),
+  false
+);
+assert.equal(
+  restoredCommand.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Command'),
   true
 );
 

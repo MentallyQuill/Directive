@@ -500,6 +500,11 @@ assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].replacementT
 assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal.length, 1, 'facade load preserves compact CORE recovery projections');
 assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal[0].id, 'recovery-core-45');
 assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal[0].coreTransactionId, 'txn-core-45');
+assert.equal(
+  loaded.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.id === 'recovery-1'),
+  false,
+  'facade load must not revive legacy recovery rows once CORE recovery projections exist'
+);
 assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal.length, 1, 'facade load preserves compact model-call resume projections');
 assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].id, 'model-call:42:utilityTurnClassifier');
 assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].roleId, 'utilityTurnClassifier');
@@ -783,8 +788,8 @@ assert.equal(partialResponses.find((entry) => entry.outcomeId === 'outcome-share
 const partialRecoveries = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeRecoveryProjected');
 assert.deepEqual(
   partialRecoveries.map((entry) => entry.recoveryId),
-  ['legacy-recovery-old', 'core-recovery-shared'],
-  'unmarked partial CORE recovery merge preserves unmatched legacy recovery rows'
+  ['core-recovery-shared'],
+  'partial CORE recovery projection must not preserve unmatched legacy recovery rows'
 );
 const partialReplacements = (partialEventSegment.entries || []).filter((entry) => entry.type === 'outcomeReplacementRecorded');
 assert.deepEqual(

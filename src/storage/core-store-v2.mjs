@@ -9,6 +9,7 @@ import {
   commitV2DiagnosticsSegments,
   commitV2EventTurnSegments,
   commitV2SaveLayout,
+  loadV2Checkpoint,
   loadV2MaterializedHead,
   loadV2SaveManifest,
   readV2ArtifactRef
@@ -140,6 +141,88 @@ function sanitizeRecoverySourceMutation(value = {}) {
   return sanitized;
 }
 
+function compactResponseRetryPlan(value = {}) {
+  if (!isObject(value)) return null;
+  const stripRawTextKeys = (input) => {
+    if (Array.isArray(input)) return input.map(stripRawTextKeys);
+    if (!isObject(input)) return input;
+    const output = {};
+    for (const [key, item] of Object.entries(input)) {
+      if (/^raw/i.test(key) || /(?:^|_)(?:text|prompt|payload|content|output)$/i.test(key)) continue;
+      output[key] = stripRawTextKeys(item);
+    }
+    return output;
+  };
+  const sanitized = stripRawTextKeys(sanitizeDiagnostic(value));
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
+const CONTINUITY_PROJECTION_RAW_FIELD_KEYS = new Set([
+  'text',
+  'rawtext',
+  'message',
+  'content',
+  'body',
+  'prompt',
+  'provideroutput',
+  'assistanttext',
+  'playertext',
+  'observedtext',
+  'replacementtext',
+  'verbatim',
+  'summary'
+]);
+
+function normalizedContinuityProjectionFieldKey(key) {
+  return String(key || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function stripContinuityProjectionRawFields(value) {
+  if (Array.isArray(value)) return value.map(stripContinuityProjectionRawFields);
+  if (!isObject(value)) return value;
+  const next = {};
+  for (const [key, item] of Object.entries(value)) {
+    const normalizedKey = normalizedContinuityProjectionFieldKey(key);
+    if (
+      CONTINUITY_PROJECTION_RAW_FIELD_KEYS.has(normalizedKey)
+      || (normalizedKey.startsWith('raw') && !normalizedKey.endsWith('hash'))
+    ) {
+      continue;
+    }
+    next[key] = stripContinuityProjectionRawFields(item);
+  }
+  return next;
+}
+
+function compactContinuityRecoveryProjection(value = {}) {
+  const projection = isObject(value) ? value : {};
+  const rejectedClaims = Array.isArray(projection.rejectedClaims)
+    ? projection.rejectedClaims
+      .map((entry) => stripContinuityProjectionRawFields(sanitizeDiagnostic(entry)))
+      .filter((entry) => isObject(entry) && String(entry.id || '').trim())
+    : [];
+  const projectionHints = Array.isArray(projection.projectionHints)
+    ? projection.projectionHints
+      .map((entry) => stripContinuityProjectionRawFields(sanitizeDiagnostic(entry)))
+      .filter((entry) => isObject(entry) && String(entry.id || '').trim())
+    : [];
+  const factUseStats = {};
+  if (isObject(projection.factUseStats)) {
+    for (const [rawFactId, rawStats] of Object.entries(projection.factUseStats)) {
+      if (!isObject(rawStats)) continue;
+      const stats = stripContinuityProjectionRawFields(sanitizeDiagnostic(rawStats));
+      const factId = String(stats.factId || rawFactId || '').trim();
+      if (!factId) continue;
+      factUseStats[factId] = { ...stats, factId };
+    }
+  }
+  return compact({
+    rejectedClaims: rejectedClaims.length ? rejectedClaims : undefined,
+    projectionHints: projectionHints.length ? projectionHints : undefined,
+    factUseStats: Object.keys(factUseStats).length ? factUseStats : undefined
+  });
+}
+
 function sourceFrameRef(sourceFrame = {}) {
   return createTurnSourceFrameRef(sourceFrame);
 }
@@ -263,6 +346,55 @@ function compactForgeBatchRef(ref = {}) {
   });
 }
 
+function safeCheckpointId(value, fallback) {
+  const raw = String(value || fallback || 'core-mechanics-checkpoint').trim();
+  const safe = raw.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  return safe || String(fallback || 'core-mechanics-checkpoint');
+}
+
+function mechanicsCheckpointInput(bundle = {}) {
+  const candidate = bundle.checkpointBefore || bundle.coreCheckpoint || null;
+  if (!isObject(candidate) || !isObject(candidate.campaignState)) return null;
+  return candidate;
+}
+
+function mechanicsCheckpointRef(transaction, bundle = {}) {
+  const input = mechanicsCheckpointInput(bundle);
+  if (!input) return null;
+  const fallback = `core-mechanics-${bundle.outcomeId || bundle.turnId || transaction.id}`;
+  const sourceRevision = Number(input.sourceRevision);
+  return compact({
+    kind: 'directive.coreMechanicsCheckpointRef.v1',
+    campaignId: transaction.campaignId,
+    saveId: transaction.saveId,
+    checkpointId: safeCheckpointId(input.checkpointId, fallback),
+    layout: 'core',
+    sourceKind: input.sourceKind || 'coreStoreV2.commitMechanics',
+    sourceRevision: Number.isFinite(sourceRevision) ? sourceRevision : undefined
+  });
+}
+
+function mechanicsCheckpointArtifact(transaction, bundle = {}, ref = null, revisionsBefore = null) {
+  const input = mechanicsCheckpointInput(bundle);
+  if (!input || !ref) return null;
+  return compact({
+    kind: 'directive.coreMechanicsCheckpoint.v1',
+    schemaVersion: 1,
+    type: 'coreMechanicsPreOutcome',
+    campaignId: transaction.campaignId,
+    saveId: transaction.saveId,
+    checkpointId: ref.checkpointId,
+    transactionId: transaction.id,
+    turnId: bundle.turnId || transaction.turnId || transaction.id,
+    outcomeId: bundle.outcomeId || null,
+    sourceKind: ref.sourceKind,
+    sourceRevision: ref.sourceRevision,
+    revisionsBefore: revisionsBefore ? cloneJson(revisionsBefore) : undefined,
+    snapshotHash: hashStableJson(input.campaignState),
+    campaignState: cloneJson(input.campaignState)
+  });
+}
+
 function operationBundleRef(bundle = {}) {
   const operations = Array.isArray(bundle.operations) ? bundle.operations.map(compactOperation) : [];
   const backgroundEffectRefs = Array.isArray(bundle.backgroundEffectRefs)
@@ -279,6 +411,7 @@ function operationBundleRef(bundle = {}) {
     operations,
     operationBundleHash: hashStableJson(bundle),
     dirtyDomains: Array.isArray(bundle.promptDirtyDomains) ? [...bundle.promptDirtyDomains] : [],
+    coreCheckpointRef: bundle.coreCheckpointRef ? sanitizeDiagnostic(bundle.coreCheckpointRef) : undefined,
     backgroundEffectRefs,
     scenePhaseSealRefs: Array.isArray(bundle.scenePhaseSealRefs) ? bundle.scenePhaseSealRefs.map(sanitizeDiagnostic) : undefined,
     pressureArcDigestRefs: Array.isArray(bundle.pressureArcDigestRefs) ? bundle.pressureArcDigestRefs.map(sanitizeDiagnostic) : undefined,
@@ -352,7 +485,6 @@ function compactOutcomeRerunRepairDecision(value = null) {
     mechanicsRerunAuthorized: value.mechanicsRerunAuthorized === true,
     replacementTransactionRequired: value.replacementTransactionRequired === true,
     coreTransactionRequired: value.coreTransactionRequired === true,
-    legacyNoCoreRerunAllowed: value.legacyNoCoreRerunAllowed === true,
     normalTurnAllowed: value.normalTurnAllowed === true,
     observedAt: value.observedAt || null
   });
@@ -669,6 +801,7 @@ function turnRecord({
     committedRoots: Array.isArray(bundle.committedRoots) ? [...bundle.committedRoots] : [],
     promptDirtyDomains: Array.isArray(bundle.promptDirtyDomains) ? [...bundle.promptDirtyDomains] : [],
     snapshotBeforeRetained: bundle.snapshotBeforeRetained === true || undefined,
+    coreCheckpointRef: bundle.coreCheckpointRef ? sanitizeDiagnostic(bundle.coreCheckpointRef) : undefined,
     revisions: cloneJson(revisions)
   });
 }
@@ -733,6 +866,85 @@ function buildHead(state) {
       promptDirtyDomains: [...new Set(state.promptDirtyDomains)]
     }
   };
+}
+
+function retargetCoreValueForSaveBranch(value, {
+  campaignId = null,
+  sourceSaveId = null,
+  targetSaveId = null,
+  branchId = null,
+  sourceChatId = null,
+  targetChatId = null
+} = {}) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => retargetCoreValueForSaveBranch(entry, {
+      campaignId,
+      sourceSaveId,
+      targetSaveId,
+      branchId,
+      sourceChatId,
+      targetChatId
+    }));
+  }
+  if (!value || typeof value !== 'object') return cloneJson(value);
+  const next = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === 'campaignId' && campaignId) {
+      next[key] = campaignId;
+    } else if (key === 'saveId' && targetSaveId && (!sourceSaveId || String(entry || '').trim() === sourceSaveId)) {
+      next[key] = targetSaveId;
+    } else if (key === 'branchId' && branchId) {
+      next[key] = branchId;
+    } else if ((key === 'chatId' || key === 'currentChatId' || key === 'chat_id') && targetChatId && String(entry || '').trim() === String(sourceChatId || '').trim()) {
+      next[key] = targetChatId;
+    } else {
+      next[key] = retargetCoreValueForSaveBranch(entry, {
+        campaignId,
+        sourceSaveId,
+        targetSaveId,
+        branchId,
+        sourceChatId,
+        targetChatId
+      });
+    }
+  }
+  return next;
+}
+
+function compactCheckpointRef(value = null) {
+  if (!value || typeof value !== 'object') return null;
+  const checkpointId = String(value.checkpointId || value.id || '').trim();
+  if (!checkpointId) return null;
+  return {
+    checkpointId,
+    layout: String(value.layout || 'core').trim() || 'core'
+  };
+}
+
+async function branchCheckpointArtifacts(adapter, sourceState, options = {}) {
+  const refs = new Map();
+  for (const turn of sourceState.turns || []) {
+    const ref = compactCheckpointRef(turn?.coreCheckpointRef);
+    if (ref) refs.set(ref.checkpointId, ref);
+  }
+  const checkpoints = [];
+  for (const ref of refs.values()) {
+    try {
+      const record = await loadV2Checkpoint(adapter, {
+        campaignId: sourceState.campaignId,
+        saveId: sourceState.saveId,
+        checkpointId: ref.checkpointId,
+        layout: ref.layout || 'core'
+      });
+      checkpoints.push({
+        ...retargetCoreValueForSaveBranch(record.checkpoint || {}, options),
+        checkpointId: ref.checkpointId
+      });
+    } catch {
+      // Missing source checkpoint artifacts remain fail-closed after branching.
+    }
+  }
+  return checkpoints;
 }
 
 function buildHostMap(state) {
@@ -854,6 +1066,49 @@ function buildTurnTimingProjections(events = [], transactionMap = {}) {
       });
     })
     .filter(Boolean);
+}
+
+function buildActiveRecoveryProjectionByTransaction(events = []) {
+  const byTransaction = new Map();
+  for (const event of events || []) {
+    if (event?.type !== 'recoveryRequired') continue;
+    const transactionId = legacyTransactionId(event);
+    if (!transactionId) continue;
+    const payload = eventPayload(event);
+    const recoveryCase = payload.recoveryCase || {};
+    byTransaction.set(transactionId, compact({
+      recoveryId: recoveryCase.id || null,
+      recoveryStatus: recoveryCase.status || null,
+      recoveryReason: recoveryCase.reason || null,
+      recoveryPhase: payload.phaseAfter || recoveryCase.phase || null,
+      allowedActions: Array.isArray(payload.allowedActions) ? [...payload.allowedActions] : undefined
+    }));
+  }
+  return byTransaction;
+}
+
+function buildContinuityRecoveryProjection(events = []) {
+  const rejectedById = new Map();
+  const hintsById = new Map();
+  const factUseStats = {};
+  for (const event of events || []) {
+    if (event?.type !== 'recoveryRequired') continue;
+    const projection = compactContinuityRecoveryProjection(eventPayload(event).continuityProjection || {});
+    for (const claim of projection.rejectedClaims || []) {
+      rejectedById.set(claim.id, claim);
+    }
+    for (const hint of projection.projectionHints || []) {
+      hintsById.set(hint.id, hint);
+    }
+    for (const [factId, stats] of Object.entries(projection.factUseStats || {})) {
+      factUseStats[factId] = stats;
+    }
+  }
+  return {
+    rejectedClaims: [...rejectedById.values()],
+    projectionHints: [...hintsById.values()],
+    factUseStats
+  };
 }
 
 function reconstructTransactionsFromEvents(events = []) {
@@ -1061,6 +1316,8 @@ export function buildCoreStoreReadProjections(state = {}) {
     );
   });
   const responseRecoveryTransactionIds = new Set(responseRecoveryEvents.map(legacyTransactionId).filter(Boolean));
+  const activeRecoveryByTransaction = buildActiveRecoveryProjectionByTransaction(recoveryEvents);
+  const continuityRecoveryProjection = buildContinuityRecoveryProjection(recoveryEvents);
   const responseRecoveryResolutionEvents = (state.events || []).filter((event) => (
     event.type === 'visibleResponseRecorded'
     && Boolean(eventPayload(event).recoveryResolution)
@@ -1096,20 +1353,30 @@ export function buildCoreStoreReadProjections(state = {}) {
     hostMap: {
       rows: hostMapRows.map(cloneJson)
     },
-    ingressLedger: transactions.map((transaction) => compact({
-      id: transaction.ingressId || `ingress:${transaction.id}`,
-      transactionId: transaction.id,
-      sourceFrameId: transaction.sourceFrameId,
-      hostMessageId: transaction.sourceFrame?.hostMessageId || null,
-      chatId: transaction.chatId,
-      textHash: transaction.sourceFrame?.textHash || null,
-      status: projectionStatusForPhase(transaction.phase),
-      route: transaction.route || null,
-      outcomeId: transaction.outcomeId || null,
-      sourceRestart: transaction.sourceRestart ? cloneJson(transaction.sourceRestart) : undefined,
-      restartedByTransactionId: transaction.restartedByTransactionId || null,
-      restartedFromTransactionId: transaction.restartedFromTransactionId || null
-    })),
+    ingressLedger: transactions.map((transaction) => {
+      const recovery = transaction.recoveryCaseId
+        ? (activeRecoveryByTransaction.get(transaction.id) || {})
+        : {};
+      return compact({
+        id: transaction.ingressId || `ingress:${transaction.id}`,
+        transactionId: transaction.id,
+        sourceFrameId: transaction.sourceFrameId,
+        hostMessageId: transaction.sourceFrame?.hostMessageId || null,
+        chatId: transaction.chatId,
+        textHash: transaction.sourceFrame?.textHash || null,
+        status: projectionStatusForPhase(transaction.phase),
+        route: transaction.route || null,
+        outcomeId: transaction.outcomeId || null,
+        recoveryId: recovery.recoveryId || transaction.recoveryCaseId || null,
+        recoveryStatus: recovery.recoveryStatus || (transaction.recoveryCaseId ? 'required' : null),
+        recoveryReason: recovery.recoveryReason || transaction.recoveryReason || null,
+        recoveryPhase: recovery.recoveryPhase || (transaction.recoveryCaseId ? transaction.phase : null),
+        allowedActions: recovery.allowedActions,
+        sourceRestart: transaction.sourceRestart ? cloneJson(transaction.sourceRestart) : undefined,
+        restartedByTransactionId: transaction.restartedByTransactionId || null,
+        restartedFromTransactionId: transaction.restartedFromTransactionId || null
+      });
+    }),
     responseLedger: (state.events || [])
       .filter((event) => (
         event.type === 'visibleResponseRecorded'
@@ -1191,6 +1458,7 @@ export function buildCoreStoreReadProjections(state = {}) {
         operationSummary: turn.operationSummary,
         committedRoots: turn.committedRoots,
         snapshotBeforeRetained: turn.snapshotBeforeRetained === true || undefined,
+        coreCheckpointRef: turn.coreCheckpointRef ? cloneJson(turn.coreCheckpointRef) : undefined,
         revisions: cloneJson(turn.revisions)
       })),
       lastCommittedOutcomeId: [...(state.turns || [])].reverse().find((turn) => turn.outcomeId)?.outcomeId || null,
@@ -1217,6 +1485,7 @@ export function buildCoreStoreReadProjections(state = {}) {
           sourceFrameId: transactionMap?.[transactionId]?.sourceFrameId || event.sourceFrameId || null,
           sourceMutation: cloneJson(payload.sourceMutation || null),
           repairDecision: cloneJson(payload.repairDecision || null),
+          responseRetryPlan: cloneJson(payload.responseRetryPlan || null),
           dependentOutcomeId: payload.dependentOutcomeId || null,
           dependentResponseId: payload.dependentResponseId || null,
           allowedActions: Array.isArray(payload.allowedActions) ? [...payload.allowedActions] : []
@@ -1278,6 +1547,7 @@ export function buildCoreStoreReadProjections(state = {}) {
         });
       })
     ],
+    continuityRecoveryProjection,
     rollbackActuations: rollbackEvents.map((event) => {
       const payload = eventPayload(event);
       return compact({
@@ -1648,6 +1918,82 @@ export async function loadCoreStoreStateV2(adapter, {
   };
 }
 
+export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
+  campaignId,
+  sourceSaveId,
+  targetSaveId,
+  branchId = null,
+  sourceChatId = null,
+  targetChatId = null,
+  now = null
+} = {}) {
+  const id = requireNonEmptyString(campaignId, 'campaignId');
+  const sourceSave = requireNonEmptyString(sourceSaveId, 'sourceSaveId');
+  const targetSave = requireNonEmptyString(targetSaveId, 'targetSaveId');
+  const targetBranch = requireNonEmptyString(branchId || targetSave, 'branchId');
+  const sourceState = await loadCoreStoreStateV2(adapter, {
+    campaignId: id,
+    saveId: sourceSave,
+    missingOk: true,
+    now
+  });
+  if (!sourceState) return null;
+  const retargetOptions = {
+    campaignId: id,
+    sourceSaveId: sourceSave,
+    targetSaveId: targetSave,
+    branchId: targetBranch,
+    sourceChatId,
+    targetChatId
+  };
+  const timestamp = typeof now === 'function' ? now() : (now || isoNow());
+  const targetState = {
+    ...retargetCoreValueForSaveBranch(sourceState, retargetOptions),
+    campaignId: id,
+    saveId: targetSave,
+    branchId: targetBranch,
+    updatedAt: timestamp
+  };
+  const checkpoints = await branchCheckpointArtifacts(adapter, sourceState, retargetOptions);
+  const commit = await commitV2SaveLayout(adapter, {
+    campaignId: id,
+    saveId: targetSave,
+    branchId: targetBranch,
+    head: buildHead(targetState),
+    hostMap: {
+      excludesRawChatText: true,
+      rows: cloneJson(targetState.hostMapRows || [])
+    },
+    promptCache: {
+      directiveOwnedRevision: Number(targetState.revisions?.prompt || 0),
+      dirtyDomains: uniqueStrings(targetState.promptDirtyDomains || []),
+      blocks: []
+    },
+    eventSegments: [cloneJson(targetState.events || [])],
+    turnSegments: [cloneJson(targetState.turns || [])],
+    diagnosticsSegments: [cloneJson(targetState.diagnostics || [])],
+    checkpoints,
+    metadata: {
+      source: 'save-as-core-branch-clone',
+      parentSaveId: sourceSave,
+      targetSaveId: targetSave,
+      checkpointCount: checkpoints.length
+    },
+    importedFrom: {
+      campaignId: id,
+      saveId: sourceSave,
+      layout: 'core'
+    },
+    now: timestamp,
+    layout: 'core'
+  });
+  return {
+    state: cloneJson(targetState),
+    checkpointCount: checkpoints.length,
+    saveManifestRef: cloneJson(commit.saveManifestRef || null)
+  };
+}
+
 export async function readCoreStoreProjectionsV2(adapter, {
   campaignId,
   saveId,
@@ -1769,11 +2115,12 @@ export function createCoreStoreV2({
     });
   }
 
-  async function persistEventTurnDelta(cursor, metadata = {}) {
+  async function persistEventTurnDelta(cursor, metadata = {}, options = {}) {
     const eventStart = Number(cursor?.eventStart ?? state.events.length);
     const turnStart = Number(cursor?.turnStart ?? state.turns.length);
     const events = state.events.slice(eventStart).map(cloneJson);
     const turns = state.turns.slice(turnStart).map(cloneJson);
+    const checkpoints = Array.isArray(options.checkpoints) ? options.checkpoints.map(cloneJson) : [];
     const committedAt = state.updatedAt;
     const eventCount = state.events.length;
     const turnCount = state.turns.length;
@@ -1783,6 +2130,7 @@ export function createCoreStoreV2({
         saveId: state.saveId,
         eventSegments: events.length > 0 ? [events] : [],
         turnSegments: turns.length > 0 ? [turns] : [],
+        checkpoints,
         metadata: {
           source: 'core-store-v2-event-turn-delta',
           eventCount,
@@ -2144,6 +2492,9 @@ export function createCoreStoreV2({
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
       state.revisions = nextRevisions(state.revisions, { mechanics: 1, runtime: 1 });
+      const coreCheckpointRef = mechanicsCheckpointRef(transaction, bundle);
+      if (coreCheckpointRef) bundle.coreCheckpointRef = coreCheckpointRef;
+      const coreCheckpoint = mechanicsCheckpointArtifact(transaction, bundle, coreCheckpointRef, revisionsBefore);
       const turn = turnRecord({
         id: turnId(),
         transaction,
@@ -2175,6 +2526,8 @@ export function createCoreStoreV2({
       await persistEventTurnDelta(deltaCursor, {
         operation: 'commitMechanics',
         transactionId: transaction.id
+      }, {
+        checkpoints: coreCheckpoint ? [coreCheckpoint] : []
       });
       return cloneJson(turn);
     },
@@ -2405,6 +2758,8 @@ export function createCoreStoreV2({
           phaseAfter,
           sourceMutation: sanitizeRecoverySourceMutation(recoveryBundle.sourceMutation || {}),
           repairDecision: sanitizeDiagnostic(recoveryBundle.repairDecision || {}),
+          responseRetryPlan: compactResponseRetryPlan(recoveryBundle.responseRetryPlan || {}),
+          continuityProjection: compactContinuityRecoveryProjection(recoveryBundle.continuityProjection || {}),
           dependentOutcomeId: recoveryBundle.dependentOutcomeId || null,
           dependentResponseId: recoveryBundle.dependentResponseId || null,
           allowedActions: Array.isArray(recoveryBundle.allowedActions) ? [...recoveryBundle.allowedActions] : []
