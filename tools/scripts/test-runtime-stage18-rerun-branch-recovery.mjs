@@ -7,6 +7,8 @@ import {
   __directiveRuntimeAppTestHooks,
   createDirectiveRuntimeApp
 } from '../../src/runtime/runtime-app.mjs';
+import { createRepairRuntime } from '../../src/runtime/repair-runtime.mjs';
+import { readCoreStoreProjectionsV2 } from '../../src/storage/core-store-v2.mjs';
 
 const root = process.cwd();
 
@@ -54,6 +56,11 @@ function stableMechanics(campaignState) {
     relationships: campaignState.relationships,
     commandLog: campaignState.commandLog
   });
+}
+
+function assertNoRawRollbackPayload(value, label) {
+  const text = JSON.stringify(value || {});
+  assert.equal(/snapshotBefore|rawSnapshot|rawPlayer|playerInput|providerText|prompt/i.test(text), false, `${label} must stay compact and raw-redacted`);
 }
 
 const boundedReplacementHistory = __directiveRuntimeAppTestHooks.boundedReplacementHistory(
@@ -130,6 +137,8 @@ const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 let idSequence = 0;
+let denyCommittedOutcomeDeleteRollback = false;
+let committedOutcomeDeleteRollbackEvaluations = 0;
 const adapter = createMemoryJsonAdapter();
 const host = createFakeDirectiveHost({
   chatNative: true,
@@ -159,6 +168,30 @@ const app = createDirectiveRuntimeApp({
   idFactory(prefix) {
     idSequence += 1;
     return `${prefix}-stage18-${idSequence}`;
+  },
+  repairRuntimeFactory(options = {}) {
+    const base = createRepairRuntime(options);
+    return {
+      ...base,
+      evaluateCommittedOutcomeDeleteRollbackActuation(input = {}) {
+        committedOutcomeDeleteRollbackEvaluations += 1;
+        if (!denyCommittedOutcomeDeleteRollback) {
+          return base.evaluateCommittedOutcomeDeleteRollbackActuation(input);
+        }
+        return {
+          kind: 'directive.repairRollbackActuationDecision.v1',
+          authorized: false,
+          action: 'blockRollbackActuation',
+          reason: 'test-denied-committed-outcome-delete',
+          eventType: 'committedOutcomeDeleted',
+          sourceKind: 'committedOutcome',
+          transactionId: input.coreRecovery?.transactionId || null,
+          recoveryCaseId: input.coreRecovery?.recoveryCaseId || null,
+          outcomeId: input.sourceMutation?.outcomeId || input.decision?.outcomeId || null,
+          restoreRevision: input.legacyProjection?.restoreRevision ?? null
+        };
+      }
+    };
   },
   now: createSequence([
     '2026-06-19T07:00:00.000Z',
@@ -332,11 +365,211 @@ assert.notEqual(branch.branchChat.chatId, branchSourceChatId);
 assert.equal(host.chat.getCurrentChatId(), branch.branchChat.chatId);
 assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 
-const deleted = await app.deleteCommittedOutcome({ outcomeId: replacementOutcomeId });
-assert.equal(deleted.deletedOutcomeId, replacementOutcomeId);
+const beforeBlockedDelete = await app.getCurrentView({ tabId: 'mission' });
+await assert.rejects(
+  () => app.deleteCommittedOutcome({ outcomeId: replacementOutcomeId }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_DELETE_OUTCOME_TRANSACTION_REQUIRED');
+    assert.equal(error.details?.outcomeId, replacementOutcomeId);
+    return true;
+  },
+  'Deleting a legacy no-CORE outcome must fail closed before raw snapshot restore can run.'
+);
+const afterBlockedDelete = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(
+  afterBlockedDelete.campaignState.turnLedger.lastCommittedOutcomeId,
+  beforeBlockedDelete.campaignState.turnLedger.lastCommittedOutcomeId,
+  'Blocked legacy delete must not mutate turn ledger state.'
+);
+assert.equal(afterBlockedDelete.campaignState.mission.activePhaseId, beforeBlockedDelete.campaignState.mission.activePhaseId);
+
+const coreDeleteSource = host.chat.pushPlayerMessage({
+  hostMessageId: 'stage18-core-delete-source',
+  text: 'I order helm to change course and pursue the freighter while Operations preserves civilian-channel evidence.'
+});
+let coreDeleteTurn = await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: coreDeleteSource
+});
+if (coreDeleteTurn.responseStrategy === 'pause') {
+  const pausedView = await app.getCurrentView({ tabId: 'mission' });
+  const pending = pausedView.chatNative.pendingInteractions.find((entry) => entry.status === 'pending');
+  assert.ok(pending, 'CORE delete fixture should expose a resolvable pending interaction when classification pauses.');
+  coreDeleteTurn = (await app.resolvePendingChatInteraction({
+    interactionId: pending.id,
+    action: pending.kind === 'riskConfirmationNeeded' ? 'confirm' : 'accept'
+  })).result;
+}
+assert.equal(coreDeleteTurn.handled, true, 'CORE delete fixture must commit through the host-native path.');
+const beforeCoreDelete = await app.getCurrentView({ tabId: 'mission' });
+const coreDeleteLedgerEntry = beforeCoreDelete.campaignState.turnLedger.entries.at(-1);
+assert.ok(coreDeleteLedgerEntry?.outcomeId, 'CORE delete fixture should commit an outcome.');
+assert.ok(coreDeleteLedgerEntry?.coreTransactionId, 'CORE delete fixture outcome must carry a CORE transaction id.');
+const coreDeletedOutcomeId = coreDeleteLedgerEntry.outcomeId;
+const coreDeletedTransactionId = coreDeleteLedgerEntry.coreTransactionId;
+const mutateRuntimeAppCampaignState = __directiveRuntimeAppTestHooks.mutateCampaignStateForTest;
+assert.equal(typeof app[mutateRuntimeAppCampaignState], 'function', 'runtime app test hook should allow focused malformed ledger setup.');
+const retainedSnapshotBaseline = await app.getCurrentView({ tabId: 'mission' });
+await app[mutateRuntimeAppCampaignState]((state) => {
+  const next = cloneJson(state);
+  const entry = next.turnLedger.entries.find((item) => item.outcomeId === coreDeletedOutcomeId);
+  assert.ok(entry?.snapshotBefore, 'Malformed retained-snapshot fixture must start from an outcome with a retained snapshot.');
+  entry.stateRevision = Number(
+    entry.snapshotBefore.runtimeTracking?.revision
+    ?? entry.snapshotBefore.runtimeTracking?.stateRevision
+    ?? next.runtimeTracking?.revision
+  );
+  assert.equal(Number.isFinite(entry.stateRevision), true, 'Malformed retained-snapshot fixture must retain deterministic stateRevision fallback evidence.');
+  delete entry.snapshotBefore;
+  entry.snapshotBeforeRetained = false;
+  return next;
+});
+const beforeMissingSnapshotDelete = await app.getCurrentView({ tabId: 'mission' });
+const missingSnapshotLedgerEntry = beforeMissingSnapshotDelete.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === coreDeletedOutcomeId);
+assert.equal(missingSnapshotLedgerEntry.coreTransactionId, coreDeletedTransactionId);
+assert.equal(Number.isFinite(Number(missingSnapshotLedgerEntry.stateRevision)), true);
+assert.equal(Object.prototype.hasOwnProperty.call(missingSnapshotLedgerEntry, 'snapshotBefore'), false);
+assert.notEqual(missingSnapshotLedgerEntry.snapshotBeforeRetained, true);
+const beforeMissingSnapshotCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: beforeMissingSnapshotDelete.campaignState.campaign.id,
+  saveId: beforeMissingSnapshotDelete.campaignState.campaignChatBinding.saveId
+});
+const beforeMissingSnapshotRecoveryCount = beforeMissingSnapshotCoreProjections.recoveryJournal.filter((entry) => (
+  entry.transactionId === coreDeletedTransactionId
+  && entry.dependentOutcomeId === coreDeletedOutcomeId
+)).length;
+const beforeMissingSnapshotRollbackCount = beforeMissingSnapshotCoreProjections.rollbackActuations.filter((entry) => (
+  entry.transactionId === coreDeletedTransactionId
+  && entry.outcomeId === coreDeletedOutcomeId
+)).length;
+const beforeMissingSnapshotDeleteRollbackEvaluations = committedOutcomeDeleteRollbackEvaluations;
+await assert.rejects(
+  () => app.deleteCommittedOutcome({ outcomeId: coreDeletedOutcomeId }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_REPAIR_DELETE_OUTCOME_RETAINED_SNAPSHOT_REQUIRED');
+    assert.equal(error.details?.outcomeId, coreDeletedOutcomeId);
+    assert.equal(error.details?.transactionId, coreDeletedTransactionId);
+    return true;
+  },
+  'Missing retained snapshot must reject before REPAIR authorization, CORE recovery, or old restore.'
+);
+const afterMissingSnapshotDelete = await app.getCurrentView({ tabId: 'mission' });
+assert.deepEqual(afterMissingSnapshotDelete.campaignState.turnLedger, beforeMissingSnapshotDelete.campaignState.turnLedger, 'Missing-snapshot delete must not mutate turn ledger state.');
+assert.equal(afterMissingSnapshotDelete.campaignState.turnLedger.lastCommittedOutcomeId, coreDeletedOutcomeId, 'Missing-snapshot delete must not run old snapshot restore.');
+assert.equal(afterMissingSnapshotDelete.campaignState.mission.activePhaseId, beforeMissingSnapshotDelete.campaignState.mission.activePhaseId, 'Missing-snapshot delete must not mutate campaign state.');
+assert.deepEqual(afterMissingSnapshotDelete.pendingOutcomeReplacement || null, beforeMissingSnapshotDelete.pendingOutcomeReplacement || null, 'Missing-snapshot delete must not mutate pending outcome replacement cache.');
+assert.deepEqual(afterMissingSnapshotDelete.pendingDirectorTurn || null, beforeMissingSnapshotDelete.pendingDirectorTurn || null, 'Missing-snapshot delete must not mutate pending director turn cache.');
+assert.equal(committedOutcomeDeleteRollbackEvaluations, beforeMissingSnapshotDeleteRollbackEvaluations, 'Missing-snapshot delete must not ask REPAIR to authorize rollback.');
+const afterMissingSnapshotCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: beforeMissingSnapshotDelete.campaignState.campaign.id,
+  saveId: beforeMissingSnapshotDelete.campaignState.campaignChatBinding.saveId
+});
+assert.equal(
+  afterMissingSnapshotCoreProjections.recoveryJournal.filter((entry) => (
+    entry.transactionId === coreDeletedTransactionId
+    && entry.dependentOutcomeId === coreDeletedOutcomeId
+  )).length,
+  beforeMissingSnapshotRecoveryCount,
+  'Missing-snapshot delete must not write CORE recovery projection.'
+);
+assert.equal(
+  afterMissingSnapshotCoreProjections.rollbackActuations.filter((entry) => (
+    entry.transactionId === coreDeletedTransactionId
+    && entry.outcomeId === coreDeletedOutcomeId
+  )).length,
+  beforeMissingSnapshotRollbackCount,
+  'Missing-snapshot delete must not write CORE rollback actuation projection.'
+);
+await app[mutateRuntimeAppCampaignState](() => retainedSnapshotBaseline.loadedCampaignState || retainedSnapshotBaseline.campaignState);
+
+const beforeDeniedDelete = await app.getCurrentView({ tabId: 'mission' });
+const beforeDeniedCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: beforeDeniedDelete.campaignState.campaign.id,
+  saveId: beforeDeniedDelete.campaignState.campaignChatBinding.saveId
+});
+const beforeDeniedRecoveryCount = beforeDeniedCoreProjections.recoveryJournal.filter((entry) => (
+  entry.transactionId === coreDeletedTransactionId
+  && entry.dependentOutcomeId === coreDeletedOutcomeId
+)).length;
+const beforeDeniedRollbackCount = beforeDeniedCoreProjections.rollbackActuations.filter((entry) => (
+  entry.transactionId === coreDeletedTransactionId
+  && entry.outcomeId === coreDeletedOutcomeId
+)).length;
+denyCommittedOutcomeDeleteRollback = true;
+await assert.rejects(
+  () => app.deleteCommittedOutcome({ outcomeId: coreDeletedOutcomeId }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_REPAIR_DELETE_OUTCOME_ROLLBACK_NOT_AUTHORIZED');
+    assert.equal(error.details?.outcomeId, coreDeletedOutcomeId);
+    assert.equal(error.details?.transactionId, coreDeletedTransactionId);
+    return true;
+  },
+  'Denied REPAIR rollback must reject committed outcome delete before CORE recovery is written.'
+);
+denyCommittedOutcomeDeleteRollback = false;
+const afterDeniedDelete = await app.getCurrentView({ tabId: 'mission' });
+assert.deepEqual(afterDeniedDelete.campaignState.turnLedger, beforeDeniedDelete.campaignState.turnLedger, 'Denied delete must not mutate turn ledger state.');
+assert.equal(afterDeniedDelete.campaignState.turnLedger.lastCommittedOutcomeId, coreDeletedOutcomeId, 'Denied delete must not run old snapshot restore.');
+assert.equal(afterDeniedDelete.campaignState.mission.activePhaseId, beforeDeniedDelete.campaignState.mission.activePhaseId, 'Denied delete must not mutate campaign state.');
+assert.deepEqual(afterDeniedDelete.pendingOutcomeReplacement || null, beforeDeniedDelete.pendingOutcomeReplacement || null, 'Denied delete must not mutate pending outcome replacement cache.');
+assert.deepEqual(afterDeniedDelete.pendingDirectorTurn || null, beforeDeniedDelete.pendingDirectorTurn || null, 'Denied delete must not mutate pending director turn cache.');
+const afterDeniedCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: beforeDeniedDelete.campaignState.campaign.id,
+  saveId: beforeDeniedDelete.campaignState.campaignChatBinding.saveId
+});
+assert.equal(
+  afterDeniedCoreProjections.recoveryJournal.filter((entry) => (
+    entry.transactionId === coreDeletedTransactionId
+    && entry.dependentOutcomeId === coreDeletedOutcomeId
+  )).length,
+  beforeDeniedRecoveryCount,
+  'Denied delete must not write CORE recovery projection.'
+);
+assert.equal(
+  afterDeniedCoreProjections.rollbackActuations.filter((entry) => (
+    entry.transactionId === coreDeletedTransactionId
+    && entry.outcomeId === coreDeletedOutcomeId
+  )).length,
+  beforeDeniedRollbackCount,
+  'Denied delete must not write CORE rollback actuation projection.'
+);
+
+const deleted = await app.deleteCommittedOutcome({ outcomeId: coreDeletedOutcomeId });
+assert.equal(deleted.deletedOutcomeId, coreDeletedOutcomeId);
+assert.equal(deleted.rollbackActuation.status, 'recorded');
+assert.equal(deleted.rollbackActuation.rollback.kind, 'directive.repairRollbackActuationRecord.v1');
+assert.equal(deleted.rollbackActuation.rollback.transactionId, coreDeletedTransactionId);
+assert.equal(deleted.rollbackActuation.rollback.outcomeId, coreDeletedOutcomeId);
+assert.equal(deleted.rollbackActuation.rollback.rollbackActuation.kind, 'directive.repairRollbackActuationDecision.v1');
+assert.equal(deleted.rollbackActuation.rollback.rollbackActuation.authorized, true);
+assert.equal(deleted.rollbackActuation.rollback.rollbackActuation.sourceKind, 'committedOutcome');
+assert.equal(deleted.rollbackActuation.rollback.rollbackActuation.outcomeId, coreDeletedOutcomeId);
+assert.equal(deleted.rollbackActuation.rollback.rollbackActuation.transactionId, coreDeletedTransactionId);
+assert.ok(deleted.rollbackActuation.rollback.rollbackActuation.recoveryCaseId, 'Delete rollback evidence must include recovery case id.');
+assert.equal(Number.isFinite(Number(deleted.rollbackActuation.rollback.rollbackActuation.restoreRevision)), true, 'Delete rollback evidence must include restore revision.');
+assertNoRawRollbackPayload(deleted.rollbackActuation, 'delete rollback evidence');
+const deleteCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
+  campaignId: deleted.campaignState.campaign.id,
+  saveId: deleted.campaignState.campaignChatBinding.saveId
+});
+const projectedDeleteRollback = deleteCoreProjections.rollbackActuations.find((entry) => (
+  entry.transactionId === coreDeletedTransactionId
+  && entry.outcomeId === coreDeletedOutcomeId
+));
+assert.ok(projectedDeleteRollback, 'CORE projections must expose rollback actuation for deleted committed outcome.');
+assert.equal(projectedDeleteRollback.rollbackActuation.authorized, true);
+assert.equal(projectedDeleteRollback.rollbackActuation.sourceKind, 'committedOutcome');
+assertNoRawRollbackPayload(projectedDeleteRollback, 'projected delete rollback evidence');
+const projectedDeleteRecovery = deleteCoreProjections.recoveryJournal.find((entry) => (
+  entry.transactionId === coreDeletedTransactionId
+  && entry.dependentOutcomeId === coreDeletedOutcomeId
+  && entry.status === 'resolved'
+));
+assert.ok(projectedDeleteRecovery, 'CORE projections must expose recovery resolution for deleted committed outcome transaction.');
+assert.equal(projectedDeleteRecovery.status, 'resolved');
 assert.equal(deleted.campaignState.mission.activePhaseId, 'hesperus-diversion');
 assert.equal(deleted.campaignState.commandBearing.resolve.points, 1);
 assert.equal(deleted.campaignState.commandBearing.resolve.marks || 0, 0);
-assert.equal(deleted.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.stage18.rhythm.001');
+assert.equal(deleted.campaignState.turnLedger.lastCommittedOutcomeId, replacementOutcomeId);
 
 console.log('Stage 18 rerun/branch/recovery tests passed: narration rewrite, outcome rerun, rollback, branch metadata, and delete restore');

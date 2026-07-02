@@ -14,12 +14,16 @@ import {
   continuityHintsFromContradictionReview,
   recordContinuityFactUseStats
 } from '../continuity/projection-hints.mjs';
+import { normalizeContinuityState } from '../continuity/state.mjs';
 import {
   createTurnLatencyMetrics,
   hashStableJson
 } from './architecture-redesign-contracts.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
-import { createSourceReconciliationEngine } from './source-reconciliation-engine.mjs';
+import {
+  __sourceReviewWorkerTestHooks,
+  createSourceReviewWorker
+} from './source-review-worker.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -35,19 +39,6 @@ function compactText(value = '', maxLength = 240) {
   return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
 }
 
-function validIsoTimestamp(value) {
-  if (typeof value !== 'string') return null;
-  const text = compactText(value, 80);
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/.exec(text);
-  if (!match) return null;
-  const [, year, month, day, hour, minute, second, millis = '000'] = match;
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const roundTrip = `${parsed.getUTCFullYear().toString().padStart(4, '0')}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}T${String(parsed.getUTCHours()).padStart(2, '0')}:${String(parsed.getUTCMinutes()).padStart(2, '0')}:${String(parsed.getUTCSeconds()).padStart(2, '0')}.${String(parsed.getUTCMilliseconds()).padStart(3, '0')}Z`;
-  const normalizedInput = `${year}-${month}-${day}T${hour}:${minute}:${second}.${millis}Z`;
-  return roundTrip === normalizedInput ? text : null;
-}
-
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
@@ -59,21 +50,282 @@ function compactError(error, fallbackCode = 'DIRECTIVE_CORE_HOST_CONTINUE_RELEAS
   };
 }
 
-function safeErrorCode(value, fallbackCode = 'DIRECTIVE_ERROR') {
-  const code = compactText(value, 120);
-  return /^DIRECTIVE_[A-Z0-9_:-]{1,110}$/.test(code) ? code : fallbackCode;
+function compactRecoveryWriterErrorRef(error, fallbackCode = 'DIRECTIVE_CORE_HOST_NATIVE_CONTRADICTION_RECOVERY_FAILED') {
+  const message = String(error?.message || error || '');
+  const rawCode = String(error?.code || '');
+  return {
+    code: fallbackCode,
+    codeHash: rawCode ? hashStableJson({ code: rawCode.slice(0, 240) }) : undefined,
+    messageLength: message.length,
+    messageHash: hashStableJson({ message: message.slice(0, 900) })
+  };
 }
 
-function compactErrorRef(error, fallbackCode = 'DIRECTIVE_ERROR') {
-  const message = String(error?.message || error || '');
-  const truncated = message.slice(0, 900);
-  const rawCode = String(error?.code || '');
-  const code = safeErrorCode(rawCode, fallbackCode);
+function isObjectRecord(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function appendCompatibilityRecords(existing = [], additions = []) {
+  const byId = new Map((Array.isArray(existing) ? existing : [])
+    .filter(isObjectRecord)
+    .map((entry) => [compact(entry.id), cloneJson(entry)])
+    .filter(([id]) => id));
+  for (const rawEntry of Array.isArray(additions) ? additions : []) {
+    if (!isObjectRecord(rawEntry)) continue;
+    const entry = cloneJson(rawEntry);
+    const id = compact(entry.id);
+    if (!id) continue;
+    entry.id = id;
+    byId.set(id, entry);
+  }
+  return [...byId.values()];
+}
+
+function mergeCompatibilityFactUseStats(existing = {}, additions = {}) {
+  const next = isObjectRecord(existing) ? cloneJson(existing) : {};
+  if (!isObjectRecord(additions)) return next;
+  for (const [rawFactId, rawStats] of Object.entries(additions)) {
+    if (!isObjectRecord(rawStats)) continue;
+    const factId = compact(rawStats.factId || rawFactId);
+    if (!factId) continue;
+    const stats = cloneJson(rawStats);
+    stats.factId = compact(stats.factId) || factId;
+    next[factId] = stats;
+  }
+  return next;
+}
+
+function compatibilityProjectionRecoveryId(projection = null) {
+  if (!isObjectRecord(projection)) return null;
+  return compact(projection.recoveryEvent?.id)
+    || compact(projection.ingressPatch?.recoveryId)
+    || null;
+}
+
+function compatibilityProjectionIsComplete(projection = null) {
+  if (!isObjectRecord(projection)) return false;
+  const recoveryEvent = projection.recoveryEvent;
+  const ingressPatch = projection.ingressPatch;
+  if (!isObjectRecord(recoveryEvent) || !isObjectRecord(ingressPatch)) return false;
+  const recoveryEventId = compact(recoveryEvent.id);
+  const ingressRecoveryId = compact(ingressPatch.recoveryId);
+  if (!recoveryEventId || !ingressRecoveryId || recoveryEventId !== ingressRecoveryId) return false;
+  if (compact(recoveryEvent.type) !== 'hostNativeContinuityContradiction') return false;
+  if (compact(ingressPatch.status) !== 'recoveryRequired') return false;
+  const rejectedClaims = Array.isArray(projection.rejectedClaims) ? projection.rejectedClaims : [];
+  return rejectedClaims.every((claim) => !Object.prototype.hasOwnProperty.call(claim || {}, 'text'));
+}
+
+function hostNativeContinuityReviewSourceRef(review = null) {
+  const source = review?.sreReview?.source || {};
   return {
-    code,
-    codeHash: rawCode && rawCode !== code ? hashStableJson({ code: rawCode.slice(0, 240) }) : undefined,
-    messageLength: message.length,
-    messageHash: hashStableJson({ message: truncated })
+    responseId: compact(source.responseId) || null,
+    ingressId: compact(source.ingressId) || null,
+    outcomeId: compact(source.outcomeId) || null,
+    turnId: compact(source.turnId) || null,
+    hostMessageId: compact(source.hostMessageId) || null,
+    textHash: compact(source.textHash || review?.observedTextHash || review?.sourceTextHash) || null
+  };
+}
+
+function compactContinuityFindingRefs(review = null) {
+  return (Array.isArray(review?.findings) ? review.findings : [])
+    .map((finding) => {
+      if (!isObjectRecord(finding)) return null;
+      const kind = compact(finding.kind);
+      const factId = compact(finding.factId);
+      const severity = compact(finding.severity);
+      if (!kind && !factId && !severity) return null;
+      return {
+        kind: kind || null,
+        factId: factId || null,
+        severity: severity || null
+      };
+    })
+    .filter(Boolean);
+}
+
+function sanitizedHostNativeContinuityCompatibilityProjection({
+  recoveryId = null,
+  responseId = null,
+  ingressId = null,
+  outcomeId = null,
+  turnId = null,
+  hostMessageId = null,
+  observedTextHash = null,
+  observedAt = null,
+  review = null,
+  repairDecision = null,
+  coreRecovery = null,
+  coreRecoveryError = null,
+  campaignState = null,
+  reason = 'sanitizedCompatibilityProjection'
+} = {}) {
+  const reviewSource = hostNativeContinuityReviewSourceRef(review);
+  const baseRecoveryId = compact(recoveryId) || `recovery:continuity:${responseId || ingressId || 'host-native'}`;
+  const projectionRecoveryId = `recovery:continuity-projection:${hashStableJson({
+    baseRecoveryId,
+    responseId,
+    ingressId,
+    reason
+  }).slice(0, 24)}`;
+  const at = observedAt || timestamp(null);
+  const findings = compactContinuityFindingRefs(review);
+  const factIds = [...new Set(findings.map((finding) => compact(finding.factId)).filter(Boolean))];
+  const findingKinds = [...new Set(findings.map((finding) => compact(finding.kind)).filter(Boolean))];
+  const source = {
+    kind: 'hostNativeGeneration',
+    responseId: responseId || reviewSource.responseId,
+    ingressId: ingressId || reviewSource.ingressId,
+    outcomeId: outcomeId || reviewSource.outcomeId,
+    turnId: turnId || reviewSource.turnId,
+    hostMessageId: hostMessageId || reviewSource.hostMessageId,
+    textHash: compact(observedTextHash) || reviewSource.textHash
+  };
+  const claimSource = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== null && value !== undefined && value !== ''));
+  const currentRevision = Number(campaignState?.runtimeTracking?.revision ?? 0) || 0;
+  const rejectedClaims = factIds.length ? [{
+    schemaVersion: 1,
+    id: `generated-claim.${hashStableJson({ recoveryId: projectionRecoveryId, factIds, textHash: source.textHash || null })}`,
+    status: 'rejected',
+    categories: ['continuity'],
+    textHash: source.textHash || hashStableJson({ recoveryId: projectionRecoveryId, factIds }),
+    source: claimSource,
+    sourceHash: hashStableJson(claimSource),
+    extractedAt: at,
+    authority: 'generatedClaim',
+    accepted: false,
+    findingFactIds: factIds,
+    findingKinds,
+    review: {
+      kind: review?.kind || 'directive.sreHostNativeContinuityReview.v1',
+      ok: false,
+      checkedFactCount: Number(review?.checkedFactCount || 0),
+      findingCount: findings.length
+    }
+  }] : [];
+  const priorStats = isObjectRecord(campaignState?.continuity?.factUseStats)
+    ? campaignState.continuity.factUseStats
+    : {};
+  const factUseStats = Object.fromEntries(factIds.map((factId) => {
+    const prior = isObjectRecord(priorStats[factId]) ? priorStats[factId] : {};
+    return [factId, {
+      factId,
+      selectedCount: Number(prior.selectedCount || 0),
+      guardedCount: Number(prior.guardedCount || 0),
+      violationCount: Number(prior.violationCount || 0) + 1,
+      lastSelectedRevision: prior.lastSelectedRevision ?? null,
+      lastGuardedRevision: prior.lastGuardedRevision ?? null,
+      lastViolationRevision: currentRevision,
+      lastLane: prior.lastLane || 'directive.continuity.invariants',
+      updatedAt: at
+    }];
+  }));
+  const projectionHints = factIds.map((factId) => {
+    const finding = findings.find((entry) => entry.factId === factId) || {};
+    return {
+      id: `hint.violation.${hashStableJson({ recoveryId: projectionRecoveryId, factId, kind: finding.kind || null, revision: currentRevision })}`,
+      factId,
+      mode: 'guard',
+      force: 'guard',
+      minimumLane: 'directive.continuity.invariants',
+      reason: 'Recent continuity contradiction.',
+      owner: 'repair',
+      source: {
+        kind: 'hostNativeContinuityContradiction',
+        recoveryId: projectionRecoveryId,
+        findingKind: finding.kind || null
+      },
+      createdRevision: currentRevision,
+      expiresRevision: currentRevision + 4,
+      createdAt: at
+    };
+  });
+  return {
+    rejectedClaims,
+    projectionHints,
+    factUseStats,
+    recoveryEvent: {
+      id: projectionRecoveryId,
+      type: 'hostNativeContinuityContradiction',
+      status: 'open',
+      hostMessageId: source.hostMessageId || null,
+      ingressId: ingressId || null,
+      outcomeId: outcomeId || null,
+      recordedAt: at,
+      details: {
+        responseId: responseId || null,
+        hostMessageId: source.hostMessageId || null,
+        findings,
+        coreRecovery: coreRecovery ? {
+          status: coreRecovery.status || null,
+          transactionId: coreRecovery.transactionId || null,
+          recoveryCaseId: coreRecovery.recoveryCaseId || null,
+          phase: coreRecovery.phase || null,
+          reason: coreRecovery.reason || null
+        } : null,
+        coreRecoveryError: cloneJson(coreRecoveryError || null),
+        repairDecision: cloneJson(repairDecision || null),
+        recoveryPolicy: {
+          action: repairDecision?.recoveryAction || 'reviewHostNativeContinuityContradiction',
+          reason: repairDecision?.recoverySummary || 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
+          hostRepairAvailable: false,
+          retryHostGeneration: repairDecision?.retryHostGeneration === true,
+          reobserveHostAssistantRows: repairDecision?.reobserveHostAssistantRows === true,
+          preferredFirstAction: repairDecision?.preferredFirstAction || 'reviewHostNativeContinuityContradiction',
+          allowedActions: cloneJson(repairDecision?.allowedActions || ['reviewHostNativeContinuityContradiction'])
+        },
+        projectionFallbackReason: reason
+      }
+    },
+    ingressPatch: {
+      status: 'recoveryRequired',
+      responseStrategy: 'injectAndContinue',
+      turnId,
+      outcomeId,
+      recoveryId: projectionRecoveryId,
+      error: {
+        code: 'DIRECTIVE_HOST_NATIVE_CONTINUITY_CONTRADICTION',
+        message: 'Host-native generation contradicted protected continuity facts and requires recovery.'
+      },
+      failedAt: at
+    }
+  };
+}
+
+function applyHostNativeContinuityCompatibilityProjection(campaignState, projection = null, {
+  ingressId = null
+} = {}) {
+  if (!isObjectRecord(projection)) {
+    return { applied: false, campaignState, recoveryId: null };
+  }
+  let next = cloneJson(campaignState);
+  let applied = false;
+  const rejectedClaims = Array.isArray(projection.rejectedClaims) ? projection.rejectedClaims : [];
+  const projectionHints = Array.isArray(projection.projectionHints) ? projection.projectionHints : [];
+  const factUseStats = isObjectRecord(projection.factUseStats) ? projection.factUseStats : null;
+  if (rejectedClaims.length || projectionHints.length || factUseStats) {
+    const continuity = normalizeContinuityState(next.continuity);
+    next.continuity = normalizeContinuityState({
+      ...continuity,
+      rejectedClaims: appendCompatibilityRecords(continuity.rejectedClaims, rejectedClaims),
+      projectionHints: appendCompatibilityRecords(continuity.projectionHints, projectionHints),
+      factUseStats: mergeCompatibilityFactUseStats(continuity.factUseStats, factUseStats)
+    });
+    applied = true;
+  }
+  if (isObjectRecord(projection.recoveryEvent)) {
+    next = recordRecoveryEvent(next, projection.recoveryEvent);
+    applied = true;
+  }
+  if (ingressId && isObjectRecord(projection.ingressPatch)) {
+    next = updateTurnIngress(next, ingressId, projection.ingressPatch);
+    applied = true;
+  }
+  return {
+    applied,
+    campaignState: next,
+    recoveryId: compatibilityProjectionRecoveryId(projection)
   };
 }
 
@@ -96,11 +348,16 @@ export function composePauseResponse(type, context = {}) {
   return context.text || 'The bridge waits for the missing decision before the scene can proceed.';
 }
 
+export const __responseDispatcherTestHooks = Object.freeze({
+  providedHostNativeReviewMatchesSource: __sourceReviewWorkerTestHooks.providedHostNativeReviewMatchesSource
+});
+
 export function createResponseDispatcher({
   host,
   coreTurnStore = null,
   repairRuntime = null,
   sourceReconciliationEngine = null,
+  sourceReviewWorker = null,
   getCampaignState = null,
   setCampaignState = null,
   persist = null,
@@ -111,7 +368,7 @@ export function createResponseDispatcher({
   }
 
   const repair = repairRuntime || createRepairCommandBoundary({ coreTurnStore, now });
-  const sre = sourceReconciliationEngine || createSourceReconciliationEngine({ now });
+  const sourceReview = sourceReviewWorker || createSourceReviewWorker({ sourceReconciliationEngine, now });
 
   function resolveState(campaignState) {
     const source = campaignState || getCampaignState?.();
@@ -176,10 +433,10 @@ export function createResponseDispatcher({
   }
 
   function hostMessageTextHash(message = {}, text = null) {
-    const existing = compact(message?.textHash);
-    if (existing) return existing;
     const sourceText = text === null || text === undefined ? hostMessageText(message) : compact(text);
-    return sourceText ? hashStableJson({ text: sourceText }) : null;
+    if (sourceText) return hashStableJson({ text: sourceText });
+    const existing = compact(message?.textHash);
+    return existing || null;
   }
 
   function isUserHostMessage(message = {}) {
@@ -368,24 +625,46 @@ export function createResponseDispatcher({
   }
 
   async function markCoreHostNativeContradiction({
+    campaignState = null,
     ingress = null,
     responseId = null,
     outcomeId = null,
     turnId = null,
-    error = null
+    error = null,
+    continuityReview = null,
+    eventTime = null
   } = {}) {
     if (!responseId) return null;
+    const recoveryId = `recovery:continuity:${responseId}`;
+    const handleContinuityContradiction = repair.handleHostNativeContinuityContradiction
+      || repair.recordHostNativeContinuityContradiction;
+    if (typeof handleContinuityContradiction === 'function') {
+      return handleContinuityContradiction.call(repair, {
+        campaignState,
+        ingress,
+        responseId,
+        outcomeId,
+        turnId,
+        recoveryId,
+        error,
+        continuityReview: cloneJson(continuityReview || null),
+        eventTime
+      });
+    }
     const handleResponseFailure = repair.handleResponseFailure || repair.recordResponseRecovery;
     return handleResponseFailure.call(repair, {
       eventType: 'hostNativeContinuityContradiction',
       observationStatus: 'completed',
       reason: 'hostNativeContinuityContradiction',
+      campaignState,
       ingress,
       responseId,
       outcomeId,
       turnId,
-      recoveryId: `recovery:continuity:${responseId}`,
-      error
+      recoveryId,
+      error,
+      continuityReview: cloneJson(continuityReview || null),
+      eventTime
     });
   }
 
@@ -405,148 +684,6 @@ export function createResponseDispatcher({
       turnId,
       error
     });
-  }
-
-  function hostNativeReviewSourceRef({
-    responseId = null,
-    ingressId = null,
-    outcomeId = null,
-    turnId = null,
-    hostMessageId = null,
-    observedMessage = null
-  } = {}) {
-    return {
-      responseId: responseId || null,
-      ingressId: ingressId || null,
-      outcomeId: outcomeId || null,
-      turnId: turnId || null,
-      hostMessageId: hostMessageId || observedMessage?.hostMessageId || observedMessage?.id || null
-    };
-  }
-
-  function sanitizeHostNativeReviewFinding(finding = {}) {
-    return {
-      kind: compactText(finding?.kind, 120) || null,
-      factId: compactText(finding?.factId, 180) || null,
-      severity: compactText(finding?.severity, 60) || null,
-      summary: compactText(finding?.summary || finding?.reason, 360) || null
-    };
-  }
-
-  function sanitizeSreReviewRef(ref = null, source = null) {
-    if (!ref || typeof ref !== 'object') return null;
-    const refSource = ref.source && typeof ref.source === 'object' && !Array.isArray(ref.source)
-      ? ref.source
-      : {};
-    const trustedSource = hostNativeReviewSourceRef(source || {});
-    const sreSource = hostNativeReviewSourceRef(refSource);
-    return {
-      kind: compactText(ref.kind || 'directive.sreHostNativeContinuityReview.v1', 120),
-      mode: compactText(ref.mode || 'hostNativeCompletion', 80),
-      reviewer: compactText(ref.reviewer || 'sourceReconciliationEngine', 120),
-      status: compactText(ref.status || '', 80) || null,
-      reviewedAt: validIsoTimestamp(ref.reviewedAt),
-      source: {
-        ...trustedSource,
-        hostMessageId: trustedSource.hostMessageId || sreSource.hostMessageId || null
-      }
-    };
-  }
-
-  function sanitizeHostNativeContinuityReview(review = null, source = null) {
-    if (!review || typeof review !== 'object' || typeof review.ok !== 'boolean') {
-      return null;
-    }
-    return {
-      kind: compactText(review.kind || 'directive.sreHostNativeContinuityReview.v1', 120),
-      ok: review.ok === true,
-      findings: (Array.isArray(review.findings) ? review.findings : [])
-        .slice(0, 24)
-        .map(sanitizeHostNativeReviewFinding),
-      checkedFactCount: Number.isFinite(Number(review.checkedFactCount)) ? Number(review.checkedFactCount) : 0,
-      reviewer: compactText(review.reviewer, 120) || undefined,
-      mode: compactText(review.mode, 80) || undefined,
-      error: review.error ? compactErrorRef(review.error, 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_FAILED') : undefined,
-      sreReview: sanitizeSreReviewRef(review.sreReview || {
-        kind: 'directive.sreHostNativeContinuityReview.v1',
-        mode: review.mode || 'hostNativeCompletion',
-        reviewer: review.reviewer || 'sourceReconciliationEngine',
-        status: review.ok === true ? 'accepted' : 'rejected',
-        reviewedAt: review.reviewedAt || null,
-        source
-      }, source)
-    };
-  }
-
-  function failedHostNativeContinuityReview(error, source = null) {
-    return {
-      kind: 'directive.sreHostNativeContinuityReview.v1',
-      ok: false,
-      findings: [{
-        kind: 'source-review-unavailable',
-        factId: null,
-        severity: 'blocker',
-        summary: 'SRE host-native source review failed; recovery is required before accepting the assistant row.'
-      }],
-      checkedFactCount: 0,
-      error: compactErrorRef(error, 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_FAILED'),
-      sreReview: {
-        kind: 'directive.sreHostNativeContinuityReview.v1',
-        mode: source?.mode || 'hostNativeCompletion',
-        reviewer: 'sourceReconciliationEngine',
-        status: 'failed',
-        reviewedAt: timestamp(now),
-        source: hostNativeReviewSourceRef(source || {})
-      }
-    };
-  }
-
-  async function reviewHostNativeContinuity({
-    mode = 'hostNativeCompletion',
-    text = '',
-    campaignState = null,
-    packageData = null,
-    crewDataset = null,
-    shipDataset = null,
-    campaignProjection = null,
-    responseId = null,
-    ingressId = null,
-    outcomeId = null,
-    turnId = null,
-    observedMessage = null
-  } = {}) {
-    if (!compact(text)) return null;
-    const source = {
-      mode,
-      responseId,
-      ingressId,
-      outcomeId,
-      turnId,
-      observedMessage
-    };
-    if (typeof sre?.reviewHostNativeContinuity === 'function') {
-      try {
-        const review = await sre.reviewHostNativeContinuity({
-          mode,
-          text,
-          campaignState,
-          packageData,
-          crewDataset,
-          shipDataset,
-          campaignProjection,
-          responseId,
-          ingressId,
-          outcomeId,
-          turnId,
-          observedMessage
-        });
-        return sanitizeHostNativeContinuityReview(review, source)
-          || failedHostNativeContinuityReview({ code: 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_MALFORMED' }, source);
-      } catch (error) {
-        return failedHostNativeContinuityReview(error, source);
-      }
-    }
-    return failedHostNativeContinuityReview({ code: 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_UNAVAILABLE' }, source);
   }
 
   function findResponseRecovery(campaignState, response = null) {
@@ -636,30 +773,32 @@ export function createResponseDispatcher({
     return next;
   }
 
-  async function settleHostNativeContinuityContradiction({
-    campaignState,
-    ingress = null,
-    response = null,
-    responseId = null,
-    ingressId = null,
-    outcomeId = null,
-    turnId = null,
-    observedMessage = null,
-    observedText = '',
-    observedTextHash = null,
-    eventTime = null,
-    turnLatency = null,
-    coreCompletion = null,
-    packageData = null,
-    crewDataset = null,
-    shipDataset = null,
-    campaignProjection = null
-  } = {}) {
+  async function settleHostNativeContinuityContradiction(input = {}) {
+    const {
+      campaignState,
+      ingress = null,
+      response = null,
+      responseId = null,
+      ingressId = null,
+      outcomeId = null,
+      turnId = null,
+      observedMessage = null,
+      observedText = '',
+      observedTextHash = null,
+      eventTime = null,
+      turnLatency = null,
+      coreCompletion = null,
+      packageData = null,
+      crewDataset = null,
+      shipDataset = null,
+      campaignProjection = null,
+      continuityReview = undefined
+    } = input;
     const text = compact(observedText);
     if (!text) {
       return { ok: true, recoveryRequired: false, campaignState, continuityReview: null };
     }
-    const review = await reviewHostNativeContinuity({
+    const review = await sourceReview.reviewHostNativeContinuity({
       mode: 'hostNativeCompletion',
       text,
       campaignState,
@@ -671,7 +810,11 @@ export function createResponseDispatcher({
       ingressId,
       outcomeId,
       turnId,
-      observedMessage
+      observedMessage,
+      observedTextHash,
+      continuityReview: Object.prototype.hasOwnProperty.call(input, 'continuityReview')
+        ? continuityReview
+        : undefined
     });
     if (review?.ok !== false) {
       return { ok: true, recoveryRequired: false, campaignState, continuityReview: cloneJson(review) };
@@ -689,18 +832,22 @@ export function createResponseDispatcher({
     let repairDecision = null;
     try {
       coreRecovery = await markCoreHostNativeContradiction({
+        campaignState,
         ingress,
         responseId: id,
         outcomeId,
         turnId,
-        error: continuityError
+        error: continuityError,
+        continuityReview: review,
+        eventTime: observedAt
       });
       repairDecision = coreRecovery?.decision || null;
     } catch (error) {
-      coreRecoveryError = compactError(error, 'DIRECTIVE_CORE_HOST_NATIVE_CONTRADICTION_RECOVERY_FAILED');
+      coreRecoveryError = compactRecoveryWriterErrorRef(error, 'DIRECTIVE_CORE_HOST_NATIVE_CONTRADICTION_RECOVERY_FAILED');
       repairDecision = repair.evaluateResponseRecovery({
         eventType: 'hostNativeContinuityContradiction',
         observationStatus: 'completed',
+        campaignState,
         ingress,
         responseId: id,
         outcomeId,
@@ -708,12 +855,42 @@ export function createResponseDispatcher({
         error: continuityError
       });
     }
+    const coreProjectionSupplied = coreRecovery && Object.prototype.hasOwnProperty.call(coreRecovery, 'compatibilityProjection');
+    const decisionProjectionSupplied = repairDecision && Object.prototype.hasOwnProperty.call(repairDecision, 'compatibilityProjection');
+    const suppliedCompatibilityProjection = coreProjectionSupplied
+      ? coreRecovery.compatibilityProjection
+      : (decisionProjectionSupplied ? repairDecision.compatibilityProjection : null);
+    const suppliedProjectionValid = compatibilityProjectionIsComplete(suppliedCompatibilityProjection);
+    const compatibilityProjection = suppliedProjectionValid
+      ? suppliedCompatibilityProjection
+      : sanitizedHostNativeContinuityCompatibilityProjection({
+        recoveryId,
+        responseId: id,
+        ingressId,
+        outcomeId,
+        turnId,
+        hostMessageId: hostId,
+        observedTextHash: observedTextHash || hostMessageTextHash(observedMessage || {}, text),
+        observedAt,
+        review,
+        repairDecision,
+        coreRecovery,
+        coreRecoveryError,
+        campaignState,
+        reason: coreRecoveryError
+          ? 'repairWriterFailure'
+          : ((coreProjectionSupplied || decisionProjectionSupplied)
+            ? 'invalidRepairCompatibilityProjection'
+            : 'missingRepairCompatibilityProjection')
+      });
+    const projectionRecoveryId = compatibilityProjectionRecoveryId(compatibilityProjection);
+    const effectiveRecoveryId = projectionRecoveryId || recoveryId;
 
     let next = campaignState;
     if (id && findResponse(next, id)) {
       next = updateDirectiveResponse(next, id, {
         status: 'recoveryRequired',
-        recoveryId,
+        recoveryId: effectiveRecoveryId,
         hostCompletedAt: observedAt,
         turnLatency,
         hostObservationStatus: 'completed',
@@ -737,79 +914,87 @@ export function createResponseDispatcher({
         continuityReview: cloneJson(review)
       });
     }
-    next = quarantineGeneratedClaims(next, {
-      text,
-      source: {
-        kind: 'hostNativeGeneration',
-        responseId: id,
+    const projectionApplication = applyHostNativeContinuityCompatibilityProjection(next, compatibilityProjection, {
+      ingressId
+    });
+    if (projectionApplication.applied) {
+      next = projectionApplication.campaignState;
+    } else {
+      next = quarantineGeneratedClaims(next, {
+        text,
+        source: {
+          kind: 'hostNativeGeneration',
+          responseId: id,
+          ingressId,
+          outcomeId,
+          hostMessageId: hostId
+        },
+        review,
+        status: 'rejected',
+        now: observedAt
+      }).campaignState;
+      const violationFactIds = [...new Set((review.findings || [])
+        .map((finding) => compact(finding?.factId))
+        .filter(Boolean))];
+      next = addContinuityProjectionHints(next, continuityHintsFromContradictionReview(review, {
+        campaignState: next,
+        now: observedAt
+      }), {
+        now: observedAt
+      });
+      next = recordContinuityFactUseStats(next, {
+        violationFactIds,
+        now: observedAt
+      });
+      next = recordRecoveryEvent(next, {
+        id: recoveryId,
+        type: 'hostNativeContinuityContradiction',
+        status: 'open',
+        hostMessageId: hostId,
         ingressId,
         outcomeId,
-        hostMessageId: hostId
-      },
-      review,
-      status: 'rejected',
-      now: observedAt
-    }).campaignState;
-    const violationFactIds = [...new Set((review.findings || [])
-      .map((finding) => compact(finding?.factId))
-      .filter(Boolean))];
-    next = addContinuityProjectionHints(next, continuityHintsFromContradictionReview(review, {
-      campaignState: next,
-      now: observedAt
-    }), {
-      now: observedAt
-    });
-    next = recordContinuityFactUseStats(next, {
-      violationFactIds,
-      now: observedAt
-    });
-    next = recordRecoveryEvent(next, {
-      id: recoveryId,
-      type: 'hostNativeContinuityContradiction',
-      status: 'open',
-      hostMessageId: hostId,
-      ingressId,
-      outcomeId,
-      recordedAt: observedAt,
-      details: {
-        responseId: id,
-        hostMessageId: hostId,
-        findings: cloneJson(review.findings || []),
-        coreRecovery: cloneJson(coreRecovery || null),
-        coreRecoveryError,
-        repairDecision: cloneJson(repairDecision || null),
-        recoveryPolicy: {
-          action: repairDecision?.recoveryAction || 'reviewHostNativeContinuityContradiction',
-          reason: repairDecision?.recoverySummary || 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
-          hostRepairAvailable: false,
-          retryHostGeneration: repairDecision?.retryHostGeneration === true,
-          reobserveHostAssistantRows: repairDecision?.reobserveHostAssistantRows === true,
-          preferredFirstAction: repairDecision?.preferredFirstAction || 'reviewHostNativeContinuityContradiction',
-          allowedActions: cloneJson(repairDecision?.allowedActions || ['reviewHostNativeContinuityContradiction'])
+        recordedAt: observedAt,
+        details: {
+          responseId: id,
+          hostMessageId: hostId,
+          findings: cloneJson(review.findings || []),
+          coreRecovery: cloneJson(coreRecovery || null),
+          coreRecoveryError,
+          repairDecision: cloneJson(repairDecision || null),
+          recoveryPolicy: {
+            action: repairDecision?.recoveryAction || 'reviewHostNativeContinuityContradiction',
+            reason: repairDecision?.recoverySummary || 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
+            hostRepairAvailable: false,
+            retryHostGeneration: repairDecision?.retryHostGeneration === true,
+            reobserveHostAssistantRows: repairDecision?.reobserveHostAssistantRows === true,
+            preferredFirstAction: repairDecision?.preferredFirstAction || 'reviewHostNativeContinuityContradiction',
+            allowedActions: cloneJson(repairDecision?.allowedActions || ['reviewHostNativeContinuityContradiction'])
+          }
         }
-      }
-    });
-    if (ingressId) {
-      next = updateTurnIngress(next, ingressId, {
-        status: 'recoveryRequired',
-        responseStrategy: 'injectAndContinue',
-        turnId,
-        outcomeId,
-        recoveryId,
-        error: continuityError,
-        failedAt: observedAt
       });
+      if (ingressId) {
+        next = updateTurnIngress(next, ingressId, {
+          status: 'recoveryRequired',
+          responseStrategy: 'injectAndContinue',
+          turnId,
+          outcomeId,
+          recoveryId,
+          error: continuityError,
+          failedAt: observedAt
+        });
+      }
     }
     return {
       ok: false,
       recoveryRequired: true,
       status: 'recoveryRequired',
-      recoveryId,
+      recoveryId: projectionApplication.recoveryId || effectiveRecoveryId,
       campaignState: cloneJson(next),
       continuityReview: cloneJson(review),
       coreRecovery: cloneJson(coreRecovery || null),
       coreRecoveryError,
-      repairDecision: cloneJson(repairDecision || null)
+      repairDecision: cloneJson(repairDecision || null),
+      compatibilityProjection: projectionApplication.applied ? cloneJson(compatibilityProjection) : null
     };
   }
 
@@ -1710,7 +1895,10 @@ export function createResponseDispatcher({
     }
     const observedMessage = hostContinuation?.observedMessage || hostContinuation?.message || null;
     const observedText = compact(observedMessage?.text || observedMessage?.content || observedMessage?.mes || '');
-    const continuityReview = observedText ? await reviewHostNativeContinuity({
+    const observedMessageTextHash = observedText
+      ? hashStableJson({ text: observedText })
+      : hostMessageTextHash(observedMessage || {}, observedText);
+    const continuityReview = observedText ? await sourceReview.reviewHostNativeContinuity({
       mode: 'hostNativeCompletion',
       text: observedText,
       campaignState: state,
@@ -1722,41 +1910,18 @@ export function createResponseDispatcher({
       ingressId,
       outcomeId,
       turnId,
-      observedMessage
+      observedMessage,
+      observedTextHash: observedMessageTextHash
     }) : null;
-    const recoveryId = continuityReview?.ok === false
+    const continuityRecoveryId = continuityReview?.ok === false
       ? `recovery:continuity:${key}`
-      : (coreReleaseError ? `recovery:core-host-continue:${key}` : null);
+      : null;
+    const coreReleaseRecoveryId = coreReleaseError
+      ? `recovery:core-host-continue:${key}`
+      : null;
+    let recoveryId = continuityRecoveryId || coreReleaseRecoveryId;
     let continuityCoreRecovery = null;
     let continuityCoreRecoveryError = null;
-    let continuityRepairDecision = null;
-    if (continuityReview?.ok === false) {
-      const continuityError = {
-        code: 'DIRECTIVE_HOST_NATIVE_CONTINUITY_CONTRADICTION',
-        message: 'Host-native generation contradicted protected continuity facts and requires recovery.'
-      };
-      try {
-        continuityCoreRecovery = await markCoreHostNativeContradiction({
-          ingress,
-          responseId: key,
-          outcomeId,
-          turnId,
-          error: continuityError
-        });
-        continuityRepairDecision = continuityCoreRecovery?.decision || null;
-      } catch (error) {
-        continuityCoreRecoveryError = compactError(error, 'DIRECTIVE_CORE_HOST_NATIVE_CONTRADICTION_RECOVERY_FAILED');
-        continuityRepairDecision = repair.evaluateResponseRecovery({
-          eventType: 'hostNativeContinuityContradiction',
-          observationStatus: 'completed',
-          ingress,
-          responseId: key,
-          outcomeId,
-          turnId,
-          error: continuityError
-        });
-      }
-    }
     const entry = {
       id: key,
       ingressId,
@@ -1792,12 +1957,51 @@ export function createResponseDispatcher({
       hostObservation: observedMessage ? {
         hostMessageId: observedMessage.hostMessageId || observedMessage.id || null,
         index: observedMessage.index ?? null,
-        textHash: hostMessageTextHash(observedMessage, observedText)
+        textHash: observedMessageTextHash
       } : null,
       continuityReview: cloneJson(continuityReview)
     };
-    let next = recordDirectiveResponse(state, entry);
-    if (observedText) {
+    let next = state;
+    if (continuityReview?.ok === false) {
+      const contradictionSettlement = await settleHostNativeContinuityContradiction({
+        campaignState: next,
+        ingress,
+        response: entry,
+        responseId: key,
+        ingressId,
+        outcomeId,
+        turnId,
+        observedMessage,
+        observedText,
+        observedTextHash: observedMessageTextHash,
+        eventTime: entry.postedAt,
+        turnLatency,
+        coreCompletion: coreRelease,
+        packageData,
+        crewDataset,
+        shipDataset,
+        campaignProjection,
+        continuityReview
+      });
+      if (contradictionSettlement?.campaignState) {
+        next = contradictionSettlement.campaignState;
+      }
+      if (contradictionSettlement?.recoveryRequired === true) {
+        recoveryId = contradictionSettlement.recoveryId || recoveryId;
+        entry.recoveryId = recoveryId;
+        continuityCoreRecovery = contradictionSettlement.coreRecovery || null;
+        continuityCoreRecoveryError = contradictionSettlement.coreRecoveryError || null;
+        entry.coreRecovery = continuityCoreRecovery ? {
+          id: continuityCoreRecovery.recoveryCaseId || null,
+          status: continuityCoreRecovery.status || null,
+          phase: continuityCoreRecovery.phase || null,
+          reason: continuityCoreRecovery.reason || null
+        } : null;
+        entry.coreRecoveryError = continuityCoreRecoveryError;
+      }
+    }
+    next = recordDirectiveResponse(next, entry);
+    if (observedText && continuityReview?.ok !== false) {
       next = quarantineGeneratedClaims(next, {
         text: observedText,
         source: {
@@ -1808,67 +2012,13 @@ export function createResponseDispatcher({
           hostMessageId: observedMessage?.hostMessageId || observedMessage?.id || null
         },
         review: continuityReview,
-        status: continuityReview?.ok === false ? 'rejected' : 'candidate',
+        status: 'candidate',
         now: entry.postedAt
       }).campaignState;
     }
-    if (continuityReview?.ok === false) {
-      const violationFactIds = [...new Set((continuityReview.findings || [])
-        .map((finding) => compact(finding?.factId))
-        .filter(Boolean))];
-      next = addContinuityProjectionHints(next, continuityHintsFromContradictionReview(continuityReview, {
-        campaignState: next,
-        now: entry.postedAt
-      }), {
-        now: entry.postedAt
-      });
-      next = recordContinuityFactUseStats(next, {
-        violationFactIds,
-        now: entry.postedAt
-      });
-      next = recordRecoveryEvent(next, {
-        id: recoveryId,
-        type: 'hostNativeContinuityContradiction',
-        status: 'open',
-        ingressId,
-        outcomeId,
-        recordedAt: timestamp(now),
-        details: {
-          responseId: key,
-          hostMessageId: observedMessage?.hostMessageId || observedMessage?.id || null,
-          findings: cloneJson(continuityReview.findings || []),
-          coreRecovery: cloneJson(continuityCoreRecovery || null),
-          coreRecoveryError: continuityCoreRecoveryError,
-          repairDecision: cloneJson(continuityRepairDecision || null),
-          recoveryPolicy: {
-            action: continuityRepairDecision?.recoveryAction || 'reviewHostNativeContinuityContradiction',
-            reason: continuityRepairDecision?.recoverySummary || 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
-            hostRepairAvailable: false,
-            retryHostGeneration: continuityRepairDecision?.retryHostGeneration === true,
-            reobserveHostAssistantRows: continuityRepairDecision?.reobserveHostAssistantRows === true,
-            preferredFirstAction: continuityRepairDecision?.preferredFirstAction || 'reviewHostNativeContinuityContradiction',
-            allowedActions: cloneJson(continuityRepairDecision?.allowedActions || ['reviewHostNativeContinuityContradiction'])
-          }
-        }
-      });
-      if (ingressId) {
-        next = updateTurnIngress(next, ingressId, {
-          status: 'recoveryRequired',
-          responseStrategy: 'injectAndContinue',
-          turnId,
-          outcomeId,
-          recoveryId,
-          error: {
-            code: 'DIRECTIVE_HOST_NATIVE_CONTINUITY_CONTRADICTION',
-            message: 'Host-native generation contradicted protected continuity facts and requires recovery.'
-          },
-          failedAt: entry.postedAt
-        });
-      }
-    }
     if (coreReleaseError) {
       next = recordRecoveryEvent(next, {
-        id: recoveryId,
+        id: coreReleaseRecoveryId,
         type: 'coreHostContinueReleaseFailure',
         status: 'open',
         ingressId,
@@ -1889,13 +2039,13 @@ export function createResponseDispatcher({
           }
         }
       });
-      if (ingressId) {
+      if (ingressId && !continuityRecoveryId) {
         next = updateTurnIngress(next, ingressId, {
           status: 'recoveryRequired',
           responseStrategy: 'injectAndContinue',
           turnId,
           outcomeId,
-          recoveryId,
+          recoveryId: coreReleaseRecoveryId,
           error: coreReleaseError,
           failedAt: entry.postedAt
         });

@@ -154,6 +154,21 @@ const MATRIX = Object.freeze({
     hiddenStatePolicy: 'Receives a compact player-safe two-message snapshot plus hashes, time, location, and referenced resolver ids. It cannot write raw state deltas; the runtime validator owns all commits.',
     tests: ['test-scene-handshake-settler.mjs', 'test-chat-turn-orchestrator.mjs']
   },
+  sourceSettlementLatestPair: {
+    roleId: 'sourceSettlementLatestPair',
+    providerKind: 'utility',
+    trigger: 'SRE owns latest-pair settlement for a clean player reply to the immediately previous assistant message.',
+    blocking: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    allowedRoots: EMPTY,
+    owningModule: 'src/runtime/scene-handshake-settler.mjs',
+    parserSchema: 'directive.sceneHandshakeSettlement.v1',
+    fallback: 'fail-closed',
+    playerVisibleOutput: 'None directly; SRE validates source cleanliness and the Scene Handshake validator applies allowlisted operations.',
+    hiddenStatePolicy: 'Receives the same compact player-safe two-message snapshot as Scene Handshake plus source hashes. Durable SRE diagnostics keep hashes and metadata, not raw prompt, player, or assistant text.',
+    tests: ['test-chat-turn-orchestrator.mjs', 'test-source-reconciliation-engine-synthetic.mjs', 'test-model-call-authority-matrix.mjs']
+  },
   timeAdvanceAdjudicator: {
     roleId: 'timeAdvanceAdjudicator',
     providerKind: 'utility',

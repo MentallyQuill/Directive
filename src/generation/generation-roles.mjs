@@ -9,6 +9,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'sceneDeltaExtractor',
   'sceneReconciliationExtractor',
   'sceneHandshakeSettler',
+  'sourceSettlementLatestPair',
   'timeAdvanceAdjudicator',
   'relationshipEvaluator',
   'commandBearingFitChecker',
@@ -189,6 +190,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'defer'
+  },
+  sourceSettlementLatestPair: {
+    id: 'sourceSettlementLatestPair',
+    label: 'Source Settlement Latest Pair',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
   },
   timeAdvanceAdjudicator: {
     id: 'timeAdvanceAdjudicator',

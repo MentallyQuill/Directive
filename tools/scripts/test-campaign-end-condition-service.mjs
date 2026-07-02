@@ -64,6 +64,7 @@ function createHarness(initial = terminalState(), overrides = {}) {
   const savedBranches = [];
   const conclusions = [];
   const terminalSettlements = [];
+  const repairCalls = [];
   let nowIndex = 0;
   const now = () => `2026-06-23T10:00:${String(nowIndex++).padStart(2, '0')}.000Z`;
   const host = overrides.host === undefined
@@ -118,8 +119,34 @@ function createHarness(initial = terminalState(), overrides = {}) {
         const result = { ok: true, options: cloneJson(options), campaignState: cloneJson(next) };
         conclusions.push(result);
         return result;
-      }
+    }
     : overrides.concludeCampaign;
+  const repairRuntime = overrides.repairRuntime === undefined
+    ? {
+        authorizeTerminalCheckpointReplay(input = {}) {
+          repairCalls.push(cloneJson(input));
+          return {
+            kind: 'directive.repairTerminalCheckpointReplayActuationDecision.v1',
+            eventType: 'terminalCheckpointReplayRequested',
+            authorized: true,
+            action: 'restoreTerminalCheckpointSnapshot',
+            reason: 'terminal-checkpoint-replay-authorized',
+            decisionId: input.decisionId || null,
+            interactionId: input.interactionId || null,
+            conditionId: input.conditionId || null,
+            turnId: input.turnId || null,
+            outcomeId: input.outcomeId || null,
+            snapshotSourceKind: input.snapshotSourceKind || null,
+            snapshotPresent: input.snapshotPresent === true,
+            snapshotHash: input.snapshotHash || null,
+            runtimeRevision: input.runtimeRevision ?? null,
+            ledgerRevision: input.ledgerRevision ?? null,
+            normalTurnAllowed: false,
+            observedAt: '2026-06-23T10:00:repair.000Z'
+          };
+        }
+      }
+    : overrides.repairRuntime;
   const service = createCampaignEndConditionService({
     host,
     getCampaignState: () => state,
@@ -153,6 +180,7 @@ function createHarness(initial = terminalState(), overrides = {}) {
     },
     saveTerminalBranch,
     concludeCampaign,
+    repairRuntime,
     now
   });
   return {
@@ -164,7 +192,8 @@ function createHarness(initial = terminalState(), overrides = {}) {
     postedMessages,
     savedBranches,
     conclusions,
-    terminalSettlements
+    terminalSettlements,
+    repairCalls
   };
 }
 
@@ -271,6 +300,85 @@ assert.equal(pushHarness.terminalSettlements.length, 1);
 assert.equal(pushHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpointResolved');
 assert.equal(pushHarness.terminalSettlements[0].status, 'resolved');
 assert.equal(pushHarness.terminalSettlements[0].action, 'pushOn');
+
+const missingRepairHarness = createHarness(terminalState(), { repairRuntime: null });
+const missingRepairInteractionId = await detect(missingRepairHarness);
+const missingRepairPersistCount = missingRepairHarness.persisted.length;
+const missingRepairPromptSyncCount = missingRepairHarness.promptSyncs.length;
+const missingRepairReplay = await missingRepairHarness.service.resolveDecision({
+  interactionId: missingRepairInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(missingRepairReplay.ok, false);
+assert.equal(missingRepairReplay.reason, 'repair-terminal-checkpoint-replay-authority-unavailable');
+assert.equal(missingRepairHarness.state.ship.status, 'destroyed');
+assert.equal(missingRepairHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
+assert.equal(missingRepairHarness.persisted.length, missingRepairPersistCount);
+assert.equal(missingRepairHarness.promptSyncs.length, missingRepairPromptSyncCount);
+
+const deniedRepairHarness = createHarness(terminalState(), {
+  repairRuntime: {
+    authorizeTerminalCheckpointReplay(input = {}) {
+      return {
+        kind: 'directive.repairTerminalCheckpointReplayActuationDecision.v1',
+        authorized: false,
+        action: 'blockTerminalCheckpointReplay',
+        reason: 'terminal-checkpoint-replay-policy-denied',
+        deniedReason: 'terminal-checkpoint-replay-policy-denied',
+        decisionId: input.decisionId || null,
+        interactionId: input.interactionId || null,
+        conditionId: input.conditionId || null,
+        turnId: input.turnId || null,
+        outcomeId: input.outcomeId || null,
+        snapshotSourceKind: input.snapshotSourceKind || null,
+        snapshotPresent: input.snapshotPresent === true,
+        snapshotHash: input.snapshotHash || null
+      };
+    }
+  }
+});
+const deniedRepairInteractionId = await detect(deniedRepairHarness);
+const deniedRepairPersistCount = deniedRepairHarness.persisted.length;
+const deniedRepairPromptSyncCount = deniedRepairHarness.promptSyncs.length;
+const deniedRepairReplay = await deniedRepairHarness.service.resolveDecision({
+  interactionId: deniedRepairInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(deniedRepairReplay.ok, false);
+assert.equal(deniedRepairReplay.reason, 'terminal-checkpoint-replay-policy-denied');
+assert.equal(deniedRepairHarness.state.ship.status, 'destroyed');
+assert.equal(deniedRepairHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
+assert.equal(deniedRepairHarness.persisted.length, deniedRepairPersistCount);
+assert.equal(deniedRepairHarness.promptSyncs.length, deniedRepairPromptSyncCount);
+
+const compactReplayState = terminalState();
+compactReplayState.turnLedger.entries[0].snapshotBefore.rawCanary = 'RAW_TERMINAL_SNAPSHOT_MUST_NOT_REACH_REPAIR';
+const compactReplayHarness = createHarness(compactReplayState);
+const compactReplayInteractionId = await detect(compactReplayHarness);
+const compactReplay = await compactReplayHarness.service.resolveDecision({
+  interactionId: compactReplayInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(compactReplay.ok, true);
+assert.equal(compactReplayHarness.repairCalls.length, 1);
+const compactReplayRepairCall = compactReplayHarness.repairCalls[0];
+assert.equal(compactReplayRepairCall.action, 'restoreTerminalCheckpointSnapshot');
+assert.equal(compactReplayRepairCall.decisionId, compactReplayInteractionId);
+assert.equal(compactReplayRepairCall.interactionId, compactReplayInteractionId);
+assert.equal(compactReplayRepairCall.conditionId, 'terminal.ashes.breck-destroyed-objective-saved');
+assert.equal(compactReplayRepairCall.turnId, 'turn-terminal');
+assert.equal(compactReplayRepairCall.outcomeId, 'outcome-terminal');
+assert.equal(compactReplayRepairCall.snapshotPresent, true);
+assert.equal(typeof compactReplayRepairCall.snapshotHash, 'string');
+assert.notEqual(compactReplayRepairCall.snapshotHash, '');
+assert.equal(JSON.stringify(compactReplayRepairCall).includes('RAW_TERMINAL_SNAPSHOT_MUST_NOT_REACH_REPAIR'), false);
+const compactReplayResolution = compactReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].resolution;
+assert.equal(compactReplayResolution.action, 'replayFromCheckpoint');
+assert.equal(compactReplayResolution.repairDecision.kind, 'directive.repairTerminalCheckpointReplayActuationDecision.v1');
+assert.equal(compactReplayResolution.repairDecision.authorized, true);
+assert.equal(compactReplayResolution.repairDecision.action, 'restoreTerminalCheckpointSnapshot');
+assert.equal(compactReplayResolution.repairDecision.snapshotHash, compactReplayRepairCall.snapshotHash);
+assert.equal(JSON.stringify(compactReplayResolution).includes('RAW_TERMINAL_SNAPSHOT_MUST_NOT_REACH_REPAIR'), false);
 
 const replayHarness = createHarness();
 const replayInteractionId = await detect(replayHarness);

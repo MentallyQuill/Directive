@@ -1250,6 +1250,8 @@ function commandLogEntryOutcomeId(entry = null) {
   return compactString(entry?.sourceOutcomeId || entry?.outcomeId || entry?.id);
 }
 
+const mutateCampaignStateForTest = Symbol.for('directive.runtimeApp.mutateCampaignStateForTest');
+
 function restoreCommittedOutcomeState(state = null, checkpointState = null, outcomeId = null) {
   const id = compactString(outcomeId);
   if (!state || !checkpointState || !id) return state;
@@ -1308,7 +1310,8 @@ export const __directiveRuntimeAppTestHooks = Object.freeze({
   findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
   restoreCommittedOutcomeState,
-  shouldPreferInMemoryCampaignState
+  shouldPreferInMemoryCampaignState,
+  mutateCampaignStateForTest
 });
 
 function defaultIdFactory() {
@@ -1346,6 +1349,8 @@ export function createDirectiveRuntimeApp({
   packageLoader = loadBundledCampaignPackageRecords,
   idFactory = defaultIdFactory(),
   narrationProvider = null,
+  repairRuntime = null,
+  repairRuntimeFactory = null,
   now = null
 } = {}) {
   const runtimeHost = host ? assertDirectiveHost(host) : null;
@@ -1967,6 +1972,17 @@ export function createDirectiveRuntimeApp({
       const store = await ensureActiveCoreTurnStore();
       if (typeof store?.recordOutcomeReplacement !== 'function') return null;
       return store.recordOutcomeReplacement(...args);
+    },
+    async recordRollbackActuation(...args) {
+      const store = await ensureActiveCoreTurnStore();
+      if (typeof store?.recordRollbackActuation !== 'function') {
+        return {
+          status: 'notRecorded',
+          reason: 'core-rollback-writer-unavailable',
+          transactionId: args[0] || null
+        };
+      }
+      return store.recordRollbackActuation(...args);
     },
     async markRecoveryRequired(...args) {
       const store = await ensureActiveCoreTurnStore();
@@ -5496,14 +5512,21 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       now
     });
-    const repairRuntime = createRepairCommandBoundary({
+    const injectedRepairRuntime = typeof repairRuntimeFactory === 'function'
+      ? repairRuntimeFactory({
+          coreTurnStore: runtimeCoreTurnStore,
+          now
+        })
+      : repairRuntime;
+    const repairRuntimeBoundary = createRepairCommandBoundary({
+      ...(injectedRepairRuntime ? { repairRuntime: injectedRepairRuntime } : {}),
       coreTurnStore: runtimeCoreTurnStore,
       now
     });
     const responseDispatcher = createResponseDispatcher({
       host: runtimeHost,
       coreTurnStore: runtimeCoreTurnStore,
-      repairRuntime,
+      repairRuntime: repairRuntimeBoundary,
       getCampaignState,
       setCampaignState,
       persist: persistCampaignState,
@@ -5513,7 +5536,7 @@ export function createDirectiveRuntimeApp({
       getCampaignState,
       setCampaignState,
       coreTurnStore: runtimeCoreTurnStore,
-      repairRuntime,
+      repairRuntime: repairRuntimeBoundary,
       persist: persistCampaignState,
       syncPrompt: async (state) => (await synchronizeActivePrompt(state, {
         persist: false,
@@ -5733,6 +5756,7 @@ export function createDirectiveRuntimeApp({
       recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
       saveTerminalBranch: (options) => controller.saveTerminalBranch(options),
       concludeCampaign: (options) => conclusionService.conclude(options),
+      repairRuntime: repairRuntimeBoundary,
       now
     });
     async function rewriteCampaignIntroFromNativeSwipe({
@@ -5772,7 +5796,7 @@ export function createDirectiveRuntimeApp({
       sidecarScheduler,
       forgeCoordinator,
       messageReconciler,
-      repairRuntime,
+      repairRuntime: repairRuntimeBoundary,
       coreTurnStore: runtimeCoreTurnStore,
       stateDeltaGateway,
       getCampaignState,
@@ -5833,7 +5857,7 @@ export function createDirectiveRuntimeApp({
       stateDeltaGateway,
       responseDispatcher,
       messageReconciler,
-      repairRuntime,
+      repairRuntime: repairRuntimeBoundary,
       sceneReconciliation,
       coreTurnStore: runtimeCoreTurnStore,
       sidecarScheduler,
@@ -6091,6 +6115,21 @@ export function createDirectiveRuntimeApp({
   }
 
   publicApi = {
+    [mutateCampaignStateForTest](mutator) {
+      return run(async () => {
+        await ensureInitialized();
+        if (typeof mutator !== 'function') {
+          throw new Error('mutateCampaignStateForTest requires a mutator function.');
+        }
+        const nextState = mutator(cloneJson(campaignState));
+        if (nextState !== undefined) {
+          campaignState = cloneJson(nextState);
+          await refreshCampaignView();
+        }
+        return viewEnvelope('mission');
+      });
+    },
+
     async initialize() {
       return run(async () => {
         await ensureInitialized();
@@ -8702,6 +8741,164 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const id = requireNonEmptyString(outcomeId, 'outcomeId');
+        const ledgerEntry = (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === id);
+        if (!ledgerEntry) {
+          const error = new Error(`Cannot delete unknown outcome "${id}"`);
+          error.code = 'DIRECTIVE_DELETE_OUTCOME_NOT_FOUND';
+          error.details = { outcomeId: id };
+          throw error;
+        }
+        const transactionId = compactString(ledgerEntry.coreTransactionId || ledgerEntry.transactionId);
+        if (!transactionId) {
+          const error = new Error(`CORE transaction is required before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_TRANSACTION_REQUIRED';
+          error.details = { outcomeId: id };
+          throw error;
+        }
+        if (ledgerEntry.snapshotBeforeRetained !== true || !isObject(ledgerEntry.snapshotBefore)) {
+          const error = new Error(`A retained turn save history snapshot is required before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_RETAINED_SNAPSHOT_REQUIRED';
+          error.details = { outcomeId: id, transactionId };
+          throw error;
+        }
+        const restoreRevision = Number(
+          ledgerEntry.snapshotBefore?.runtimeTracking?.revision
+          ?? ledgerEntry.snapshotBefore?.runtimeTracking?.stateRevision
+        );
+        if (!Number.isFinite(restoreRevision)) {
+          const error = new Error(`REPAIR restore revision is required before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_RESTORE_REVISION_REQUIRED';
+          error.details = { outcomeId: id, transactionId };
+          throw error;
+        }
+        const repair = ensureChatNativeServices()?.repairRuntime || null;
+        const authorizeDeleteRollback = repair?.evaluateCommittedOutcomeDeleteRollbackActuation
+          || repair?.evaluateRollbackActuation;
+        if (typeof authorizeDeleteRollback !== 'function' || typeof repair?.recordRollbackActuation !== 'function') {
+          const error = new Error(`REPAIR rollback authority is required before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_ROLLBACK_UNAVAILABLE';
+          error.details = { outcomeId: id, transactionId };
+          throw error;
+        }
+        const eventTime = timestampFromNow(now);
+        const recoveryCaseId = `recovery:committed-outcome-delete:${transactionId}:${id}`;
+        const sourceMutation = {
+          kind: 'directive.sourceMutation.v1',
+          sourceKind: 'committedOutcome',
+          eventType: 'committedOutcomeDeleted',
+          transactionId,
+          outcomeId: id,
+          turnId: ledgerEntry.turnId || null,
+          sourceFrameId: ledgerEntry.sourceFrameId || null,
+          preOutcomeRevision: restoreRevision
+        };
+        const repairDecision = {
+          kind: 'directive.repairDecision.v1',
+          eventType: 'committedOutcomeDeleted',
+          sourceKind: 'committedOutcome',
+          action: 'rollbackPending',
+          reason: 'committed-outcome-delete-rollback-required',
+          transactionId,
+          outcomeId: id,
+          turnId: ledgerEntry.turnId || null,
+          sourceFrameId: ledgerEntry.sourceFrameId || null,
+          sourceMutation,
+          allowedActions: ['rollbackToPreOutcomeRevision', 'reviewCommittedOutcomeDelete'],
+          normalTurnAllowed: false,
+          observedAt: eventTime
+        };
+        let coreRecovery = {
+          status: 'planned',
+          transactionId,
+          recoveryCaseId,
+          phase: 'recoveryRequired',
+          reason: 'committedOutcomeDeleted',
+          decision: repairDecision,
+          repairDecision,
+          sourceMutation
+        };
+        const legacyProjection = {
+          shouldRestoreRevision: true,
+          restoreRevision,
+          recoveryJournalStatus: 'recoveryRequired'
+        };
+        const rollbackDecision = authorizeDeleteRollback.call(repair, {
+          coreRecovery,
+          decision: repairDecision,
+          ledgerEntry: {
+            coreTransactionId: transactionId,
+            transactionId,
+            outcomeId: id,
+            turnId: ledgerEntry.turnId || null,
+            sourceFrameId: ledgerEntry.sourceFrameId || null,
+            snapshotBeforeRetained: ledgerEntry.snapshotBeforeRetained === true,
+            snapshotBefore: {
+              runtimeTracking: {
+                revision: restoreRevision
+              }
+            }
+          },
+          legacyProjection,
+          sourceMutation,
+          eventTime
+        });
+        if (rollbackDecision?.authorized !== true) {
+          const error = new Error(`REPAIR did not authorize rollback before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_ROLLBACK_NOT_AUTHORIZED';
+          error.details = {
+            outcomeId: id,
+            transactionId,
+            repairDecision: cloneJson(rollbackDecision || null)
+          };
+          throw error;
+        }
+        const recoveryCase = await runtimeCoreTurnStore.markRecoveryRequired(transactionId, {
+          id: recoveryCaseId,
+          status: 'required',
+          phaseAfter: 'recoveryRequired',
+          reason: 'committedOutcomeDeleted',
+          dependentOutcomeId: id,
+          allowedActions: ['rollbackToPreOutcomeRevision', 'reviewCommittedOutcomeDelete'],
+          repairDecision,
+          sourceMutation,
+          observedAt: eventTime,
+          idempotencyKey: `committed-outcome-delete:${transactionId}:${id}`
+        });
+        if ((recoveryCase?.id || recoveryCaseId) !== recoveryCaseId) {
+          const error = new Error(`CORE recovery id mismatch before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_RECOVERY_MISMATCH';
+          error.details = {
+            outcomeId: id,
+            transactionId,
+            expectedRecoveryCaseId: recoveryCaseId,
+            recoveryCase: cloneJson(recoveryCase || null)
+          };
+          throw error;
+        }
+        coreRecovery = {
+          ...coreRecovery,
+          status: 'recorded',
+          recoveryCaseId: recoveryCase?.id || recoveryCaseId,
+          phase: recoveryCase?.phase || 'recoveryRequired',
+          reason: recoveryCase?.reason || 'committedOutcomeDeleted'
+        };
+        const rollbackActuation = await repair.recordRollbackActuation({
+          coreRecovery,
+          rollbackActuation: rollbackDecision,
+          legacyProjection,
+          eventType: 'committedOutcomeDeleted',
+          eventTime
+        });
+        if (rollbackActuation?.status !== 'recorded') {
+          const error = new Error(`CORE rollback actuation was not recorded before deleting committed outcome "${id}".`);
+          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_ROLLBACK_RECORD_REQUIRED';
+          error.details = {
+            outcomeId: id,
+            transactionId,
+            rollbackActuation: cloneJson(rollbackActuation || null)
+          };
+          throw error;
+        }
         campaignState = restoreBeforeCommittedOutcome(campaignState, id);
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
@@ -8711,6 +8908,9 @@ export function createDirectiveRuntimeApp({
         activeScreen = 'campaign';
         return {
           deletedOutcomeId: id,
+          coreRecovery: cloneJson(coreRecovery),
+          repairDecision: cloneJson(rollbackDecision),
+          rollbackActuation: cloneJson(rollbackActuation),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };

@@ -271,6 +271,37 @@ function fallbackSignatureIsPending(signature) {
   return nowMs() - startedAt < 30000;
 }
 
+function fallbackCandidateMatchesPayload(candidate = null, payload = {}) {
+  if (!candidate?.signature || !payload || typeof payload !== 'object') return Boolean(candidate?.signature);
+  const payloadHostMessageId = compactString(
+    payload.hostMessageId
+    ?? payload.messageId
+    ?? payload.message_id
+    ?? payload.id
+    ?? payload.message?.id
+    ?? payload.message?.messageId
+    ?? payload.message?.message_id
+    ?? payload.message?.uuid
+  );
+  if (payloadHostMessageId && candidate.hostMessageId && payloadHostMessageId !== String(candidate.hostMessageId)) {
+    return false;
+  }
+  const payloadIndex = Number.isInteger(payload.index)
+    ? payload.index
+    : (Number.isInteger(payload.messageId) ? payload.messageId : null);
+  if (Number.isInteger(payloadIndex) && Number.isInteger(candidate.index) && payloadIndex !== candidate.index) {
+    return false;
+  }
+  return true;
+}
+
+function rememberObservedFallbackCandidate(candidate = null) {
+  if (!candidate?.signature) return;
+  lastFallbackUserMessageSignature = candidate.signature;
+  lastFallbackChatId = candidate.chatId || lastFallbackChatId;
+  lastFallbackChatMessageCount = candidate.chatLength ?? lastFallbackChatMessageCount;
+}
+
 function clearPendingFallbackSignature(signature) {
   if (!signature) return;
   pendingFallbackUserMessageSignatures.delete(signature);
@@ -293,11 +324,9 @@ function handleFallbackPlayerMessage(candidate, reason = 'scan') {
       result = await observePlayerMessageInBackground({
         ...candidate.payload,
         fallbackReason: reason
-      }, activityToken);
+      }, activityToken, 0, candidate);
       if (result?.handled === true) {
-        lastFallbackUserMessageSignature = candidate.signature;
-        lastFallbackChatId = candidate.chatId || lastFallbackChatId;
-        lastFallbackChatMessageCount = candidate.chatLength ?? lastFallbackChatMessageCount;
+        rememberObservedFallbackCandidate(candidate);
       }
     } finally {
       if (result?.retryScheduled) schedulePendingFallbackClear(candidate.signature);
@@ -546,7 +575,7 @@ function turnActivityReporter(activityToken) {
   };
 }
 
-async function observePlayerMessageInBackground(payload = {}, activityToken = null, attempt = 0) {
+async function observePlayerMessageInBackground(payload = {}, activityToken = null, attempt = 0, fallbackCandidate = null) {
   let retryScheduled = false;
   try {
     const result = await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.({
@@ -556,7 +585,7 @@ async function observePlayerMessageInBackground(payload = {}, activityToken = nu
     if (shouldRetryPlayerMessageObservation(result, attempt)) {
       retryScheduled = true;
       scheduleSoon(() => {
-        observePlayerMessageInBackground(payload, activityToken, attempt + 1);
+        observePlayerMessageInBackground(payload, activityToken, attempt + 1, fallbackCandidate);
       }, PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS[attempt]);
       return {
         ...result,
@@ -564,6 +593,7 @@ async function observePlayerMessageInBackground(payload = {}, activityToken = nu
         retryAttempt: attempt + 1
       };
     }
+    if (result?.handled === true) rememberObservedFallbackCandidate(fallbackCandidate);
     return result;
   } catch (error) {
     reportFailure('Failed to process player message', error);
@@ -584,8 +614,20 @@ export function handlePlayerMessage(payload = {}) {
     label: 'Directive is reading your post...',
     phase: 'reading'
   });
-  scheduleSoon(() => {
-    observePlayerMessageInBackground(payload, activityToken);
+  const fallbackCandidate = latestUserMessageCandidate(payload.context || payload.sillyTavernContext || null);
+  const fallbackSignature = fallbackCandidateMatchesPayload(fallbackCandidate, payload)
+    ? fallbackCandidate.signature
+    : null;
+  if (fallbackSignature) pendingFallbackUserMessageSignatures.set(fallbackSignature, nowMs());
+  scheduleSoon(async () => {
+    let result = null;
+    try {
+      result = await observePlayerMessageInBackground(payload, activityToken, 0, fallbackCandidate);
+      if (result?.handled === true) rememberObservedFallbackCandidate(fallbackCandidate);
+    } finally {
+      if (result?.retryScheduled) schedulePendingFallbackClear(fallbackSignature);
+      else clearPendingFallbackSignature(fallbackSignature);
+    }
   });
   return {
     handled: true,

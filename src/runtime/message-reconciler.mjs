@@ -3,7 +3,6 @@ import {
   updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
-import { markMissionComponentsSourceStatus } from './mission-components.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 
 function cloneJson(value) {
@@ -39,23 +38,6 @@ function sceneHandshakeCollections(campaignState = {}) {
   ];
 }
 
-function sceneHandshakeRecordMatchesMessage(record = {}, hostMessageId = '') {
-  const id = compact(hostMessageId);
-  if (!id) return false;
-  return record.previousAssistantHostMessageId === id
-    || record.currentPlayerHostMessageId === id
-    || (Array.isArray(record.sourceMessageIds) && record.sourceMessageIds.includes(id))
-    || (Array.isArray(record.sourceAnchorRange?.sourceMessageIds) && record.sourceAnchorRange.sourceMessageIds.includes(id));
-}
-
-function sceneHandshakeRecordAlreadyInactive(record = {}) {
-  return Boolean(
-    record.invalidatedAt
-    || record.sourceStale === true
-    || ['invalidated', 'source-stale', 'superseded'].includes(String(record.status || '').toLowerCase())
-  );
-}
-
 function invalidateDerivedSceneHandshakeRecords(campaignState = {}, settlementIds = [], patch = {}) {
   const ids = new Set(settlementIds.map(compact).filter(Boolean));
   if (!ids.size) return campaignState;
@@ -71,8 +53,7 @@ function invalidateDerivedSceneHandshakeRecords(campaignState = {}, settlementId
       invalidationType: patch.invalidationType,
       sourceInvalidation: {
         hostMessageId: patch.hostMessageId,
-        eventType: patch.invalidationType,
-        replacementText: patch.replacementText || null
+        eventType: patch.invalidationType
       }
     };
   };
@@ -111,8 +92,7 @@ function invalidateDerivedSceneHandshakeRecords(campaignState = {}, settlementId
         invalidationType: patch.invalidationType,
         sourceInvalidation: {
           hostMessageId: patch.hostMessageId,
-          eventType: patch.invalidationType,
-          replacementText: patch.replacementText || null
+          eventType: patch.invalidationType
         }
       };
     })
@@ -121,105 +101,194 @@ function invalidateDerivedSceneHandshakeRecords(campaignState = {}, settlementId
   return next;
 }
 
-function invalidateSceneHandshakeSources(campaignState = {}, {
+function repairDependentInvalidationProjection(coreRecovery = {}) {
+  return coreRecovery?.decision?.dependentInvalidation
+    || coreRecovery?.dependentInvalidation
+    || coreRecovery?.decision?.legacyProjection?.dependentInvalidation
+    || coreRecovery?.legacyProjection?.dependentInvalidation
+    || null;
+}
+
+function normalizeIdList(value = []) {
+  return [...new Set((Array.isArray(value) ? value : [value]).map(compact).filter(Boolean))];
+}
+
+function sourceKindForRepairFallback({ ingress = null, response = null } = {}) {
+  if (response) return 'directiveResponse';
+  if (ingress) return 'playerIngress';
+  return 'untrackedHostMessage';
+}
+
+function repairUnavailableSourceMutationDecision(options = {}) {
+  const sourceKind = sourceKindForRepairFallback(options);
+  return {
+    status: 'notRecorded',
+    reason: 'repair-source-mutation-unavailable',
+    transactionId: compact(options.ingress?.coreTransactionId || options.response?.coreTransactionId) || null,
+    decision: {
+      kind: 'directive.repairDecision.v1',
+      eventType: options.eventType || null,
+      sourceKind,
+      transactionId: compact(options.ingress?.coreTransactionId || options.response?.coreTransactionId) || null,
+      sourceMutation: true,
+      hasDependent: Boolean(options.ingress?.outcomeId || options.response?.outcomeId || options.response?.id),
+      uncommitted: false,
+      action: 'repairSourceMutationUnavailable',
+      normalTurnAllowed: false,
+      legacyProjection: {
+        kind: 'directive.repairLegacyProjection.v1',
+        sourceProjectionStatus: 'recoveryRequired',
+        responseProjectionStatus: 'recoveryRequired',
+        recoveryJournalStatus: 'reviewRequired',
+        returnedAction: 'reviewRequired',
+        shouldRestoreRevision: false,
+        restoreRevision: null
+      }
+    }
+  };
+}
+
+function applySceneHandshakeProjection(campaignState = {}, projection = null, {
   hostMessageId,
   eventType,
-  eventTime,
-  replacementText = null
+  eventTime
 } = {}) {
-  const id = compact(hostMessageId);
-  if (!id) return { campaignState, invalidatedCount: 0, settlementIds: [] };
+  const settlementIds = normalizeIdList(projection?.sceneHandshake?.settlementIds);
+  if (!settlementIds.length) return { campaignState, invalidatedCount: 0, settlementIds: [] };
+  const idSet = new Set(settlementIds);
   const next = cloneJson(campaignState);
-  const patch = {
-    hostMessageId: id,
-    invalidatedAt: eventTime,
-    invalidationType: eventType,
-    replacementText: compact(replacementText) || null
-  };
-  const settlementIds = [];
   const tracking = next.runtimeTracking || {};
   tracking.sceneHandshake = tracking.sceneHandshake || {};
+  const appliedIds = new Set();
   for (const [key, records] of sceneHandshakeCollections(next)) {
     tracking.sceneHandshake[key] = records.map((record) => {
-      if (!sceneHandshakeRecordMatchesMessage(record, id) || sceneHandshakeRecordAlreadyInactive(record)) return record;
-      settlementIds.push(record.id);
+      const id = compact(record.id);
+      if (!idSet.has(id)) return record;
+      appliedIds.add(id);
       return {
         ...record,
         status: 'invalidated',
         sourceStale: true,
         invalidatedAt: eventTime,
         invalidationType: eventType,
-        replacementText: patch.replacementText,
         previousStatus: record.status || null
       };
     });
   }
-  if (
-    tracking.sceneHandshake.lastResult
-    && sceneHandshakeRecordMatchesMessage(tracking.sceneHandshake.lastResult, id)
-    && !sceneHandshakeRecordAlreadyInactive(tracking.sceneHandshake.lastResult)
-  ) {
-    settlementIds.push(tracking.sceneHandshake.lastResult.id);
+  if (tracking.sceneHandshake.lastResult && idSet.has(compact(tracking.sceneHandshake.lastResult.id))) {
+    appliedIds.add(compact(tracking.sceneHandshake.lastResult.id));
     tracking.sceneHandshake.lastResult = {
       ...tracking.sceneHandshake.lastResult,
       status: 'invalidated',
       sourceStale: true,
       invalidatedAt: eventTime,
       invalidationType: eventType,
-      replacementText: patch.replacementText,
       previousStatus: tracking.sceneHandshake.lastResult.status || null
     };
   }
   next.runtimeTracking = tracking;
-  const uniqueSettlementIds = [...new Set(settlementIds.map(compact).filter(Boolean))];
-  if (!uniqueSettlementIds.length) {
-    return { campaignState, invalidatedCount: 0, settlementIds: [] };
-  }
-  let invalidated = invalidateDerivedSceneHandshakeRecords(next, uniqueSettlementIds, patch);
-  invalidated = recordRecoveryEvent(invalidated, {
-    type: 'sceneHandshakeSourceInvalidated',
-    status: 'reviewRequired',
-    hostMessageId: id,
-    recordedAt: eventTime,
-    details: {
-      eventType,
-      replacementText: patch.replacementText,
-      settlementIds: uniqueSettlementIds,
-      invalidatedSettlementCount: uniqueSettlementIds.length
+  const appliedSettlementIds = settlementIds.filter((id) => appliedIds.has(id));
+  if (!appliedSettlementIds.length) return { campaignState, invalidatedCount: 0, settlementIds: [] };
+  const invalidated = recordRecoveryEvent(
+    invalidateDerivedSceneHandshakeRecords(next, appliedSettlementIds, {
+      hostMessageId: compact(hostMessageId),
+      invalidatedAt: eventTime,
+      invalidationType: eventType
+    }),
+    {
+      type: 'sceneHandshakeSourceInvalidated',
+      status: 'reviewRequired',
+      hostMessageId: compact(hostMessageId),
+      recordedAt: eventTime,
+      details: {
+        eventType,
+        settlementIds: appliedSettlementIds,
+        invalidatedSettlementCount: appliedSettlementIds.length
+      }
     }
-  });
+  );
   return {
     campaignState: invalidated,
-    invalidatedCount: uniqueSettlementIds.length,
-    settlementIds: uniqueSettlementIds
+    invalidatedCount: appliedSettlementIds.length,
+    settlementIds: appliedSettlementIds
   };
 }
 
-function markMissionComponentSources(campaignState = {}, {
+function applyMissionComponentProjection(campaignState = {}, projection = null, {
   hostMessageId,
   eventType,
   eventTime
 } = {}) {
-  const id = compact(hostMessageId);
-  if (!id) return { campaignState, markedCount: 0 };
-  const sourceStatus = /deleted/i.test(String(eventType || '')) ? 'deleted' : 'stale';
-  const marked = markMissionComponentsSourceStatus(campaignState, id, {
-    sourceStatus,
-    now: eventTime
+  const componentIds = normalizeIdList(projection?.missionComponents?.componentIds);
+  if (!componentIds.length) return { campaignState, markedCount: 0, componentIds: [] };
+  const idSet = new Set(componentIds);
+  const sourceStatus = compact(projection?.missionComponents?.sourceStatus)
+    || (/deleted/i.test(String(eventType || '')) ? 'deleted' : 'stale');
+  const records = campaignState?.knowledgeLedger?.components?.records;
+  if (!Array.isArray(records)) return { campaignState, markedCount: 0, componentIds: [] };
+  const next = cloneJson(campaignState);
+  let markedCount = 0;
+  const markedIds = [];
+  next.knowledgeLedger = next.knowledgeLedger || {};
+  next.knowledgeLedger.components = next.knowledgeLedger.components || {};
+  next.knowledgeLedger.components.records = records.map((record) => {
+    const id = compact(record.id);
+    if (!idSet.has(id)) return record;
+    if (record.source?.sourceStatus === 'deleted' && sourceStatus !== 'deleted') return record;
+    if (record.source?.sourceStatus === sourceStatus) return record;
+    markedCount += 1;
+    markedIds.push(id);
+    return {
+      ...record,
+      source: {
+        ...(record.source || {}),
+        sourceStatus
+      },
+      lifecycle: {
+        ...(record.lifecycle || {}),
+        updatedAt: eventTime
+      }
+    };
   });
-  if (!marked.markedCount) return marked;
+  if (!markedCount) return { campaignState, markedCount: 0, componentIds: [] };
   return {
-    campaignState: recordRecoveryEvent(marked.campaignState, {
+    campaignState: recordRecoveryEvent(next, {
       type: sourceStatus === 'deleted' ? 'missionComponentSourceDeleted' : 'missionComponentSourceEdited',
       status: 'reviewRequired',
-      hostMessageId: id,
+      hostMessageId: compact(hostMessageId),
       recordedAt: eventTime,
       details: {
         sourceStatus,
-        markedCount: marked.markedCount
+        markedCount,
+        componentIds: markedIds
       }
     }),
-    markedCount: marked.markedCount
+    markedCount,
+    componentIds: markedIds,
+    sourceStatus
+  };
+}
+
+function applyRepairDependentInvalidation(campaignState = {}, coreRecovery = {}, {
+  hostMessageId,
+  eventType,
+  eventTime
+} = {}) {
+  const projection = repairDependentInvalidationProjection(coreRecovery);
+  const sceneHandshake = applySceneHandshakeProjection(campaignState, projection, {
+    hostMessageId,
+    eventType,
+    eventTime
+  });
+  const missionComponents = applyMissionComponentProjection(sceneHandshake.campaignState, projection, {
+    hostMessageId,
+    eventType,
+    eventTime
+  });
+  return {
+    campaignState: missionComponents.campaignState,
+    sceneHandshake,
+    missionComponents
   };
 }
 
@@ -269,6 +338,9 @@ export function createMessageReconciler({
   async function recordRepairSourceMutationRecovery(options = {}) {
     try {
       const handleSourceMutation = repair.handleSourceMutation || repair.recordSourceMutationRecovery;
+      if (typeof handleSourceMutation !== 'function') {
+        return repairUnavailableSourceMutationDecision(options);
+      }
       return await handleSourceMutation.call(repair, options);
     } catch (error) {
       error.details = {
@@ -414,19 +486,31 @@ export function createMessageReconciler({
     if (!ingress && !response) {
       const eventType = sourceMutationEventType(type);
       const eventTime = timestamp(now);
-      const invalidated = invalidateSceneHandshakeSources(state, {
-        hostMessageId,
+      const coreRecovery = await recordRepairSourceMutationRecovery({
+        state,
+        campaignState: state,
         eventType,
         eventTime,
-        replacementText
+        hostMessageId,
+        replacementText,
+        preOutcomeRevision: null,
+        autoRollback,
+        message,
+        index,
+        chatMetadata,
+        visibilityMap,
+        selectedSwipe
       });
-      const markedComponents = markMissionComponentSources(invalidated.campaignState, {
+      const dependentInvalidation = applyRepairDependentInvalidation(state, coreRecovery, {
         hostMessageId,
         eventType,
         eventTime
       });
-      if (invalidated.invalidatedCount > 0 || markedComponents.markedCount > 0) {
-        let next = markedComponents.campaignState;
+      if (
+        dependentInvalidation.sceneHandshake.invalidatedCount > 0
+        || dependentInvalidation.missionComponents.markedCount > 0
+      ) {
+        let next = dependentInvalidation.campaignState;
         setCampaignState(next);
         await save(`Message recovery: ${eventType}.`);
         if (typeof syncPrompt === 'function') {
@@ -441,13 +525,15 @@ export function createMessageReconciler({
         return {
           ok: true,
           matched: true,
-          action: invalidated.invalidatedCount > 0 ? 'sceneHandshakeInvalidated' : 'missionComponentSourceInvalidated',
-          sceneHandshake: invalidated.invalidatedCount > 0 ? {
-            invalidatedCount: invalidated.invalidatedCount,
-            settlementIds: cloneJson(invalidated.settlementIds)
+          action: dependentInvalidation.sceneHandshake.invalidatedCount > 0 ? 'sceneHandshakeInvalidated' : 'missionComponentSourceInvalidated',
+          sceneHandshake: dependentInvalidation.sceneHandshake.invalidatedCount > 0 ? {
+            invalidatedCount: dependentInvalidation.sceneHandshake.invalidatedCount,
+            settlementIds: cloneJson(dependentInvalidation.sceneHandshake.settlementIds)
           } : null,
-          missionComponents: markedComponents.markedCount > 0 ? {
-            markedCount: markedComponents.markedCount
+          missionComponents: dependentInvalidation.missionComponents.markedCount > 0 ? {
+            markedCount: dependentInvalidation.missionComponents.markedCount,
+            componentIds: cloneJson(dependentInvalidation.missionComponents.componentIds),
+            sourceStatus: dependentInvalidation.missionComponents.sourceStatus || null
           } : null,
           campaignState: cloneJson(next)
         };
@@ -467,6 +553,7 @@ export function createMessageReconciler({
       });
       const coreRecovery = await recordRepairSourceMutationRecovery({
         state,
+        campaignState: state,
         eventType,
         eventTime,
         hostMessageId,
@@ -513,18 +600,12 @@ export function createMessageReconciler({
           coreRecovery
         }
       });
-      const invalidated = invalidateSceneHandshakeSources(next, {
-        hostMessageId,
-        eventType,
-        eventTime,
-        replacementText
-      });
-      const markedComponents = markMissionComponentSources(invalidated.campaignState, {
+      const dependentInvalidation = applyRepairDependentInvalidation(next, coreRecovery, {
         hostMessageId,
         eventType,
         eventTime
       });
-      next = markedComponents.campaignState;
+      next = dependentInvalidation.campaignState;
       setCampaignState(next);
       await save(`Message recovery: ${eventType}.`);
       if (typeof syncPrompt === 'function') {
@@ -542,12 +623,14 @@ export function createMessageReconciler({
         action: legacyProjection.returnedAction || 'reviewRequired',
         response: cloneJson(response),
         preOutcomeRevision: revision,
-        sceneHandshake: invalidated.invalidatedCount > 0 ? {
-          invalidatedCount: invalidated.invalidatedCount,
-          settlementIds: cloneJson(invalidated.settlementIds)
+        sceneHandshake: dependentInvalidation.sceneHandshake.invalidatedCount > 0 ? {
+          invalidatedCount: dependentInvalidation.sceneHandshake.invalidatedCount,
+          settlementIds: cloneJson(dependentInvalidation.sceneHandshake.settlementIds)
         } : null,
-        missionComponents: markedComponents.markedCount > 0 ? {
-          markedCount: markedComponents.markedCount
+        missionComponents: dependentInvalidation.missionComponents.markedCount > 0 ? {
+          markedCount: dependentInvalidation.missionComponents.markedCount,
+          componentIds: cloneJson(dependentInvalidation.missionComponents.componentIds),
+          sourceStatus: dependentInvalidation.missionComponents.sourceStatus || null
         } : null,
         campaignState: cloneJson(next)
       };
@@ -557,6 +640,7 @@ export function createMessageReconciler({
     const revision = preOutcomeRevision(state, ingress);
     const coreRecovery = await recordRepairSourceMutationRecovery({
       state,
+      campaignState: state,
       eventType,
       eventTime,
       hostMessageId,
@@ -630,18 +714,12 @@ export function createMessageReconciler({
         rollbackActuation: rollbackActuation ? cloneJson(rollbackActuation) : null
       }
     });
-    const invalidated = invalidateSceneHandshakeSources(next, {
-      hostMessageId,
-      eventType,
-      eventTime,
-      replacementText
-    });
-    const markedComponents = markMissionComponentSources(invalidated.campaignState, {
+    const dependentInvalidation = applyRepairDependentInvalidation(next, coreRecovery, {
       hostMessageId,
       eventType,
       eventTime
     });
-    next = markedComponents.campaignState;
+    next = dependentInvalidation.campaignState;
 
     let action = legacyProjection.returnedAction || 'reviewRequired';
     if (rollbackExecution?.status === 'applied') {
@@ -666,12 +744,14 @@ export function createMessageReconciler({
       action,
       ingress: cloneJson(ingress),
       preOutcomeRevision: revision,
-      sceneHandshake: invalidated.invalidatedCount > 0 ? {
-        invalidatedCount: invalidated.invalidatedCount,
-        settlementIds: cloneJson(invalidated.settlementIds)
+      sceneHandshake: dependentInvalidation.sceneHandshake.invalidatedCount > 0 ? {
+        invalidatedCount: dependentInvalidation.sceneHandshake.invalidatedCount,
+        settlementIds: cloneJson(dependentInvalidation.sceneHandshake.settlementIds)
       } : null,
-      missionComponents: markedComponents.markedCount > 0 ? {
-        markedCount: markedComponents.markedCount
+      missionComponents: dependentInvalidation.missionComponents.markedCount > 0 ? {
+        markedCount: dependentInvalidation.missionComponents.markedCount,
+        componentIds: cloneJson(dependentInvalidation.missionComponents.componentIds),
+        sourceStatus: dependentInvalidation.missionComponents.sourceStatus || null
       } : null,
       campaignState: cloneJson(next)
     };
@@ -797,6 +877,5 @@ export const __messageReconcilerTestHooks = Object.freeze({
   findIngress,
   preOutcomeRevision,
   sourceMutationEventType,
-  invalidateSceneHandshakeSources,
-  markMissionComponentSources
+  applyRepairDependentInvalidation
 });

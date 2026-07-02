@@ -11,6 +11,10 @@ function compact(value) {
   return String(value || '').trim();
 }
 
+function isObjectRecord(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
@@ -104,8 +108,10 @@ function allowedCoreRecoveryActions({ recoveryStatus, sourceKind, autoRollback =
     : ['reviewSourceMutation', 'rerunFromSource', 'branchFromPriorRevision'];
 }
 
-function sourceKindFor({ response = null } = {}) {
-  return response ? 'directiveResponse' : 'playerIngress';
+function sourceKindFor({ ingress = null, response = null } = {}) {
+  if (response) return 'directiveResponse';
+  if (ingress) return 'playerIngress';
+  return 'untrackedHostMessage';
 }
 
 function sourceRecord({ ingress = null, response = null } = {}) {
@@ -176,7 +182,8 @@ function buildRepairDecision({
   sourceKind,
   transactionId,
   sourceMutation,
-  autoRollback = false
+  autoRollback = false,
+  dependentInvalidation = null
 } = {}) {
   const hasDependent = Boolean(sourceMutation?.outcomeId || sourceMutation?.responseId);
   const uncommitted = recoveryStatus === 'invalidated';
@@ -199,7 +206,8 @@ function buildRepairDecision({
     uncommitted,
     action,
     normalTurnAllowed: false,
-    legacyProjection
+    legacyProjection,
+    dependentInvalidation: dependentInvalidation ? cloneJson(dependentInvalidation) : undefined
   };
 }
 
@@ -459,6 +467,174 @@ function buildResponseRecoveryDecision({
   };
 }
 
+function compactContinuityFindingRef(finding = {}) {
+  if (!isObjectRecord(finding)) return null;
+  const factId = compact(finding.factId);
+  const kind = compact(finding.kind);
+  const severity = compact(finding.severity);
+  if (!factId && !kind && !severity) return null;
+  return {
+    kind: kind || null,
+    factId: factId || null,
+    severity: severity || null
+  };
+}
+
+function continuityReviewSourceRef(continuityReview = null) {
+  const source = continuityReview?.sreReview?.source || {};
+  return {
+    responseId: compact(source.responseId) || null,
+    ingressId: compact(source.ingressId) || null,
+    outcomeId: compact(source.outcomeId) || null,
+    turnId: compact(source.turnId) || null,
+    hostMessageId: compact(source.hostMessageId) || null,
+    textHash: compact(source.textHash || continuityReview?.observedTextHash || continuityReview?.sourceTextHash) || null
+  };
+}
+
+function continuityFactUseStatsProjection({ campaignState = null, factIds = [], currentRevision = 0, observedAt = null } = {}) {
+  const priorStats = isObjectRecord(campaignState?.continuity?.factUseStats)
+    ? campaignState.continuity.factUseStats
+    : {};
+  return Object.fromEntries(factIds.map((factId) => {
+    const prior = isObjectRecord(priorStats[factId]) ? priorStats[factId] : {};
+    return [factId, {
+      factId,
+      selectedCount: Number(prior.selectedCount || 0),
+      guardedCount: Number(prior.guardedCount || 0),
+      violationCount: Number(prior.violationCount || 0) + 1,
+      lastSelectedRevision: prior.lastSelectedRevision ?? null,
+      lastGuardedRevision: prior.lastGuardedRevision ?? null,
+      lastViolationRevision: currentRevision,
+      lastLane: prior.lastLane || 'directive.continuity.invariants',
+      updatedAt: observedAt
+    }];
+  }));
+}
+
+function buildHostNativeContinuityCompatibilityProjection({
+  decision = null,
+  recoveryCase = null,
+  recoveryId = null,
+  continuityReview = null,
+  campaignState = null,
+  eventTime = null
+} = {}) {
+  if (decision?.eventType !== 'hostNativeContinuityContradiction') return null;
+  const id = compact(recoveryId) || `recovery:continuity:${decision.responseId || decision.ingressId || decision.transactionId || 'host-native'}`;
+  const observedAt = eventTime || new Date().toISOString();
+  const currentRevision = Number(campaignState?.runtimeTracking?.revision ?? 0) || 0;
+  const findings = (Array.isArray(continuityReview?.findings) ? continuityReview.findings : [])
+    .map(compactContinuityFindingRef)
+    .filter(Boolean);
+  const factIds = [...new Set(findings.map((finding) => compact(finding.factId)).filter(Boolean))];
+  const findingKinds = [...new Set(findings.map((finding) => compact(finding.kind)).filter(Boolean))];
+  const source = {
+    kind: 'hostNativeGeneration',
+    responseId: decision.responseId || continuityReviewSourceRef(continuityReview).responseId,
+    ingressId: decision.ingressId || continuityReviewSourceRef(continuityReview).ingressId,
+    outcomeId: decision.outcomeId || continuityReviewSourceRef(continuityReview).outcomeId,
+    turnId: decision.turnId || continuityReviewSourceRef(continuityReview).turnId,
+    hostMessageId: continuityReviewSourceRef(continuityReview).hostMessageId,
+    textHash: continuityReviewSourceRef(continuityReview).textHash
+  };
+  const claimSource = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== null && value !== undefined && value !== ''));
+  const rejectedClaims = factIds.length ? [{
+    schemaVersion: 1,
+    id: `generated-claim.${hashStableJson({ recoveryId: id, factIds, textHash: source.textHash || null })}`,
+    status: 'rejected',
+    categories: ['continuity'],
+    textHash: source.textHash || hashStableJson({ recoveryId: id, factIds }),
+    source: claimSource,
+    sourceHash: hashStableJson(claimSource),
+    extractedAt: observedAt,
+    authority: 'generatedClaim',
+    accepted: false,
+    findingFactIds: factIds,
+    findingKinds,
+    review: {
+      kind: continuityReview?.kind || 'directive.sreHostNativeContinuityReview.v1',
+      ok: false,
+      checkedFactCount: Number(continuityReview?.checkedFactCount || 0),
+      findingCount: findings.length
+    }
+  }] : [];
+  const projectionHints = factIds.map((factId) => {
+    const finding = findings.find((entry) => entry.factId === factId) || {};
+    return {
+      id: `hint.violation.${hashStableJson({ recoveryId: id, factId, kind: finding.kind || null, revision: currentRevision })}`,
+      factId,
+      mode: 'guard',
+      force: 'guard',
+      minimumLane: 'directive.continuity.invariants',
+      reason: 'Recent continuity contradiction.',
+      owner: 'repair',
+      source: {
+        kind: 'hostNativeContinuityContradiction',
+        recoveryId: id,
+        findingKind: finding.kind || null
+      },
+      createdRevision: currentRevision,
+      expiresRevision: currentRevision + 4,
+      createdAt: observedAt
+    };
+  });
+  return {
+    rejectedClaims,
+    projectionHints,
+    factUseStats: continuityFactUseStatsProjection({
+      campaignState,
+      factIds,
+      currentRevision,
+      observedAt
+    }),
+    recoveryEvent: {
+      id,
+      type: 'hostNativeContinuityContradiction',
+      status: 'open',
+      hostMessageId: source.hostMessageId || null,
+      ingressId: decision.ingressId || null,
+      outcomeId: decision.outcomeId || null,
+      recordedAt: observedAt,
+      details: {
+        responseId: decision.responseId || null,
+        hostMessageId: source.hostMessageId || null,
+        findings,
+        coreRecovery: {
+          status: recoveryCase ? 'recorded' : 'notRecorded',
+          transactionId: decision.transactionId || null,
+          recoveryCaseId: recoveryCase?.id || id,
+          phase: recoveryCase?.phase || decision.phaseAfter || null,
+          reason: recoveryCase?.reason || decision.reason || null
+        },
+        coreRecoveryError: null,
+        repairDecision: cloneJson(decision),
+        recoveryPolicy: {
+          action: decision.recoveryAction || 'reviewHostNativeContinuityContradiction',
+          reason: decision.recoverySummary || 'Host-native generation contradicted protected continuity facts and cannot be accepted unchanged.',
+          hostRepairAvailable: false,
+          retryHostGeneration: decision.retryHostGeneration === true,
+          reobserveHostAssistantRows: decision.reobserveHostAssistantRows === true,
+          preferredFirstAction: decision.preferredFirstAction || 'reviewHostNativeContinuityContradiction',
+          allowedActions: cloneJson(decision.allowedActions || ['reviewHostNativeContinuityContradiction'])
+        }
+      }
+    },
+    ingressPatch: {
+      status: 'recoveryRequired',
+      responseStrategy: 'injectAndContinue',
+      turnId: decision.turnId || null,
+      outcomeId: decision.outcomeId || null,
+      recoveryId: id,
+      error: {
+        code: decision.errorCode || 'DIRECTIVE_HOST_NATIVE_CONTINUITY_CONTRADICTION',
+        message: 'Host-native generation contradicted protected continuity facts and requires recovery.'
+      },
+      failedAt: observedAt
+    }
+  };
+}
+
 function responseRecoveryEventTypeFrom({ recoveryDecision = null, response = null, recovery = null } = {}) {
   return normalizeResponseRecoveryEvent({
     eventType: recoveryDecision?.eventType
@@ -644,6 +820,67 @@ function buildOutcomeRerunActuationDecision({
   };
 }
 
+function buildTerminalCheckpointReplayActuationDecision({
+  decisionId = null,
+  interactionId = null,
+  conditionId = null,
+  turnId = null,
+  outcomeId = null,
+  action = 'restoreTerminalCheckpointSnapshot',
+  snapshotSourceKind = null,
+  snapshotPresent = false,
+  snapshotHash = null,
+  runtimeRevision = null,
+  ledgerRevision = null,
+  eventTime = null
+} = {}) {
+  const effectiveDecisionId = compact(decisionId || interactionId);
+  const effectiveInteractionId = compact(interactionId || decisionId);
+  const effectiveAction = compact(action) || 'restoreTerminalCheckpointSnapshot';
+  const effectiveSnapshotHash = compact(snapshotHash);
+  const hasReplayRef = Boolean(
+    effectiveDecisionId
+    || effectiveInteractionId
+    || compact(conditionId)
+    || compact(outcomeId)
+  );
+  const hasSnapshotEvidence = snapshotPresent === true && Boolean(effectiveSnapshotHash);
+  const supportedAction = effectiveAction === 'restoreTerminalCheckpointSnapshot';
+  const authorized = Boolean(hasReplayRef && hasSnapshotEvidence && supportedAction);
+  const deniedReason = authorized
+    ? null
+    : !hasReplayRef
+      ? 'terminal-checkpoint-replay-ref-missing'
+      : !hasSnapshotEvidence
+        ? 'terminal-checkpoint-replay-snapshot-evidence-missing'
+        : !supportedAction
+          ? 'terminal-checkpoint-replay-action-not-supported'
+          : 'terminal-checkpoint-replay-not-authorized';
+  return {
+    kind: 'directive.repairTerminalCheckpointReplayActuationDecision.v1',
+    eventType: 'terminalCheckpointReplayRequested',
+    sourceKind: 'terminalOutcomeCheckpoint',
+    authorized,
+    action: authorized ? 'restoreTerminalCheckpointSnapshot' : 'blockTerminalCheckpointReplay',
+    requestedAction: effectiveAction,
+    reason: authorized ? 'terminal-checkpoint-replay-authorized' : deniedReason,
+    deniedReason,
+    decisionId: effectiveDecisionId || null,
+    interactionId: effectiveInteractionId || null,
+    conditionId: compact(conditionId) || null,
+    turnId: compact(turnId) || null,
+    outcomeId: compact(outcomeId) || null,
+    snapshotSourceKind: compact(snapshotSourceKind) || null,
+    snapshotPresent: snapshotPresent === true,
+    snapshotHash: effectiveSnapshotHash || null,
+    runtimeRevision: finiteInteger(runtimeRevision),
+    ledgerRevision: finiteInteger(ledgerRevision),
+    allowedActions: authorized ? ['restoreTerminalCheckpointSnapshot'] : ['reviewTerminalCheckpointReplayRequest'],
+    normalTurnAllowed: false,
+    observedAt: eventTime || null
+  };
+}
+
 function buildRollbackActuationDecision({
   coreRecovery = null,
   decision = null,
@@ -683,6 +920,78 @@ function buildRollbackActuationDecision({
   };
 }
 
+function buildCommittedOutcomeDeleteRollbackActuationDecision({
+  coreRecovery = null,
+  decision = null,
+  ledgerEntry = null,
+  legacyProjection = null,
+  sourceMutation = null,
+  eventTime = null
+} = {}) {
+  const transactionId = compact(
+    decision?.transactionId
+    || coreRecovery?.transactionId
+    || ledgerEntry?.coreTransactionId
+    || ledgerEntry?.transactionId
+  ) || null;
+  const outcomeId = compact(
+    decision?.outcomeId
+    || sourceMutation?.outcomeId
+    || ledgerEntry?.outcomeId
+  ) || null;
+  const restoreCandidate = legacyProjection?.restoreRevision
+    ?? sourceMutation?.preOutcomeRevision
+    ?? ledgerEntry?.snapshotBefore?.runtimeTracking?.revision;
+  const restoreRevision = hasPreOutcomeRevision(restoreCandidate) ? Number(restoreCandidate) : null;
+  const deleteMutation = {
+    ...(sourceMutation && typeof sourceMutation === 'object' ? cloneJson(sourceMutation) : {}),
+    kind: 'directive.sourceMutation.v1',
+    sourceKind: 'committedOutcome',
+    eventType: 'committedOutcomeDeleted',
+    transactionId,
+    outcomeId,
+    turnId: compact(sourceMutation?.turnId || decision?.turnId || ledgerEntry?.turnId) || null,
+    sourceFrameId: compact(sourceMutation?.sourceFrameId || decision?.sourceFrameId || ledgerEntry?.sourceFrameId) || null,
+    preOutcomeRevision: restoreRevision
+  };
+  const deleteDecision = {
+    ...(decision && typeof decision === 'object' ? cloneJson(decision) : {}),
+    kind: 'directive.repairDecision.v1',
+    eventType: 'committedOutcomeDeleted',
+    sourceKind: 'committedOutcome',
+    action: 'rollbackPending',
+    reason: decision?.reason || 'committed-outcome-delete-rollback-required',
+    transactionId,
+    outcomeId,
+    turnId: deleteMutation.turnId,
+    sourceFrameId: deleteMutation.sourceFrameId,
+    sourceMutation: deleteMutation,
+    allowedActions: Array.isArray(decision?.allowedActions)
+      ? cloneJson(decision.allowedActions)
+      : ['rollbackToPreOutcomeRevision', 'reviewCommittedOutcomeDelete'],
+    normalTurnAllowed: false
+  };
+  return buildRollbackActuationDecision({
+    coreRecovery: {
+      ...(coreRecovery && typeof coreRecovery === 'object' ? cloneJson(coreRecovery) : {}),
+      transactionId,
+      recoveryCaseId: coreRecovery?.recoveryCaseId || coreRecovery?.id || null,
+      decision: deleteDecision,
+      repairDecision: deleteDecision,
+      sourceMutation: deleteMutation
+    },
+    decision: deleteDecision,
+    legacyProjection: {
+      ...(legacyProjection && typeof legacyProjection === 'object' ? cloneJson(legacyProjection) : {}),
+      shouldRestoreRevision: true,
+      restoreRevision
+    },
+    sourceMutation: deleteMutation,
+    eventType: 'committedOutcomeDeleted',
+    eventTime
+  });
+}
+
 function compactRollbackActuationRecord({
   coreRecovery = null,
   rollbackActuation = null,
@@ -706,6 +1015,91 @@ function compactRollbackActuationRecord({
   };
 }
 
+function sceneHandshakeCollections(campaignState = {}) {
+  const ledger = campaignState?.runtimeTracking?.sceneHandshake || {};
+  return [
+    Array.isArray(ledger.settled) ? ledger.settled : [],
+    Array.isArray(ledger.pendingInternalReview) ? ledger.pendingInternalReview : [],
+    Array.isArray(ledger.deferred) ? ledger.deferred : [],
+    Array.isArray(ledger.operatorRecovery) ? ledger.operatorRecovery : [],
+    Array.isArray(ledger.rejected) ? ledger.rejected : [],
+    ledger.lastResult ? [ledger.lastResult] : []
+  ];
+}
+
+function sceneHandshakeRecordMatchesMessage(record = {}, hostMessageId = '') {
+  const id = compact(hostMessageId);
+  if (!id) return false;
+  return record.previousAssistantHostMessageId === id
+    || record.currentPlayerHostMessageId === id
+    || (Array.isArray(record.sourceMessageIds) && record.sourceMessageIds.includes(id))
+    || (Array.isArray(record.sourceAnchorRange?.sourceMessageIds) && record.sourceAnchorRange.sourceMessageIds.includes(id));
+}
+
+function sceneHandshakeRecordAlreadyInactive(record = {}) {
+  return Boolean(
+    record.invalidatedAt
+    || record.sourceStale === true
+    || ['invalidated', 'source-stale', 'superseded'].includes(String(record.status || '').toLowerCase())
+  );
+}
+
+function discoverSceneHandshakeDependentInvalidation(campaignState = {}, hostMessageId = '') {
+  const settlementIds = [];
+  for (const records of sceneHandshakeCollections(campaignState)) {
+    for (const record of records) {
+      if (!sceneHandshakeRecordMatchesMessage(record, hostMessageId) || sceneHandshakeRecordAlreadyInactive(record)) continue;
+      const id = compact(record.id);
+      if (id) settlementIds.push(id);
+    }
+  }
+  return [...new Set(settlementIds)];
+}
+
+function discoverMissionComponentDependentInvalidation(campaignState = {}, hostMessageId = '') {
+  const id = compact(hostMessageId);
+  if (!id) return [];
+  const records = campaignState?.knowledgeLedger?.components?.records;
+  if (!Array.isArray(records)) return [];
+  return [...new Set(records
+    .filter((record) => record?.source?.hostMessageId === id)
+    .map((record) => compact(record.id))
+    .filter(Boolean))];
+}
+
+function buildDependentInvalidationProjection({
+  campaignState = null,
+  hostMessageId = null,
+  eventType = null
+} = {}) {
+  const sceneHandshakeSettlementIds = discoverSceneHandshakeDependentInvalidation(campaignState, hostMessageId);
+  const sourceStatus = /deleted/i.test(String(eventType || '')) ? 'deleted' : 'stale';
+  const missionComponentIds = discoverMissionComponentDependentInvalidation(campaignState, hostMessageId)
+    .filter((componentId) => {
+      if (sourceStatus === 'deleted') return true;
+      const component = (campaignState?.knowledgeLedger?.components?.records || [])
+        .find((record) => compact(record?.id) === componentId);
+      return component?.source?.sourceStatus !== 'deleted';
+    });
+  const promptDirtyDomains = [];
+  if (sceneHandshakeSettlementIds.length) promptDirtyDomains.push('sceneHandshake');
+  if (missionComponentIds.length) promptDirtyDomains.push('missionComponents');
+  if (!sceneHandshakeSettlementIds.length && !missionComponentIds.length) return null;
+  return {
+    kind: 'directive.repairDependentInvalidation.v1',
+    sceneHandshake: sceneHandshakeSettlementIds.length ? {
+      settlementIds: sceneHandshakeSettlementIds,
+      invalidatedCount: sceneHandshakeSettlementIds.length
+    } : null,
+    missionComponents: missionComponentIds.length ? {
+      componentIds: missionComponentIds,
+      markedCount: missionComponentIds.length,
+      sourceStatus
+    } : null,
+    promptDirtyDomains
+  };
+}
+
 function buildSourceMutation({
   eventType,
   eventTime,
@@ -720,7 +1114,7 @@ function buildSourceMutation({
   message = null
 } = {}) {
   const source = sourceRecord({ ingress, response });
-  const sourceKind = sourceKindFor({ response });
+  const sourceKind = sourceKindFor({ ingress, response });
   const selectedSwipeMutation = /swipe/i.test(String(eventType || ''))
     ? selectedSwipeMutationFields({ message, selectedSwipe })
     : null;
@@ -763,18 +1157,33 @@ export function createRepairRuntime({
     index = null,
     chatMetadata = null,
     visibilityMap = null,
-    selectedSwipe = null
+    selectedSwipe = null,
+    state = null,
+    campaignState = null
   } = {}) {
     const source = sourceRecord({ ingress, response });
     const transactionId = compact(ingress?.coreTransactionId || response?.coreTransactionId);
+    const observedAt = eventTime || timestamp(now);
+    const effectiveCampaignState = campaignState || state || null;
+    const dependentInvalidation = buildDependentInvalidationProjection({
+      campaignState: effectiveCampaignState,
+      hostMessageId,
+      eventType
+    });
     if (!transactionId) {
-      const sourceKind = sourceKindFor({ response });
-      const sourceMutation = {
-        outcomeId: ingress?.outcomeId || response?.outcomeId || null,
-        responseId: response?.id || null,
-        preOutcomeRevision: hasPreOutcomeRevision(revision) ? Number(revision) : null,
-        selectedSwipe: selectedSwipeMutationFields({ message, selectedSwipe })
-      };
+      const sourceKind = sourceKindFor({ ingress, response });
+      const sourceMutation = buildSourceMutation({
+        eventType,
+        eventTime: observedAt,
+        hostMessageId,
+        replacementText,
+        ingress,
+        response,
+        revision,
+        autoRollback,
+        selectedSwipe,
+        message
+      });
       const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
         sourceKind,
         sourceMutation,
@@ -783,13 +1192,15 @@ export function createRepairRuntime({
       return {
         status: 'notRecorded',
         reason: 'no-core-transaction',
+        sourceMutation,
         decision: buildRepairDecision({
           eventType,
           recoveryStatus: effectiveRecoveryStatus,
           sourceKind,
           transactionId: null,
           sourceMutation,
-          autoRollback
+          autoRollback,
+          dependentInvalidation
         })
       };
     }
@@ -800,7 +1211,6 @@ export function createRepairRuntime({
       throw error;
     }
 
-    const observedAt = eventTime || timestamp(now);
     const visibility = sourceMutationVisibilityFields({
       message,
       index,
@@ -820,7 +1230,7 @@ export function createRepairRuntime({
       selectedSwipe,
       message
     });
-    const sourceKind = sourceKindFor({ response });
+    const sourceKind = sourceKindFor({ ingress, response });
     const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
       sourceKind,
       sourceMutation,
@@ -832,7 +1242,8 @@ export function createRepairRuntime({
       sourceKind,
       transactionId,
       sourceMutation,
-      autoRollback
+      autoRollback,
+      dependentInvalidation
     });
     const recoveryId = `recovery:source-mutation:${transactionId}:${eventType}`;
     const recoveryCase = await coreTurnStore.markRecoveryRequired(transactionId, {
@@ -868,7 +1279,7 @@ export function createRepairRuntime({
     chatMetadata = null,
     visibilityMap = null
   } = {}) {
-    const sourceKind = sourceKindFor({ response });
+    const sourceKind = sourceKindFor({ ingress, response });
     const transactionId = compact(ingress?.coreTransactionId || response?.coreTransactionId);
     const observedAt = eventTime || timestamp(now);
     const visibility = sourceMutationVisibilityFields({
@@ -961,7 +1372,9 @@ export function createRepairRuntime({
     turnId = null,
     sourceFrameId = null,
     recoveryId = null,
-    error = null
+    error = null,
+    campaignState = null,
+    continuityReview = null
   } = {}) {
     const decision = buildResponseRecoveryDecision({
       eventType,
@@ -976,15 +1389,23 @@ export function createRepairRuntime({
       error
     });
     const effectiveTransactionId = decision.transactionId;
+    const id = recoveryId || `recovery:response:${decision.responseId || decision.ingressId || decision.outcomeId || decision.turnId || effectiveTransactionId || 'untracked'}`;
+    const observedAt = eventTime || timestamp(now);
     if (!effectiveTransactionId || typeof coreTurnStore?.markRecoveryRequired !== 'function') {
       return {
         status: 'notRecorded',
         reason: effectiveTransactionId ? 'core-recovery-writer-unavailable' : 'no-core-transaction',
         transactionId: effectiveTransactionId || null,
-        decision
+        decision,
+        compatibilityProjection: buildHostNativeContinuityCompatibilityProjection({
+          decision,
+          recoveryId: id,
+          continuityReview,
+          campaignState,
+          eventTime: observedAt
+        })
       };
     }
-    const id = recoveryId || `recovery:response:${decision.responseId || decision.ingressId || decision.outcomeId || decision.turnId || effectiveTransactionId}`;
     const recoveryCase = await coreTurnStore.markRecoveryRequired(effectiveTransactionId, {
       id,
       reason: decision.reason,
@@ -1002,7 +1423,7 @@ export function createRepairRuntime({
       errorHash: decision.errorHash || null,
       repairDecision: decision,
       allowedActions: decision.allowedActions,
-      observedAt: eventTime || timestamp(now),
+      observedAt,
       idempotencyKey: `core-response-recovery:${effectiveTransactionId}:${id}:${decision.reason}`
     });
     return {
@@ -1011,7 +1432,15 @@ export function createRepairRuntime({
       recoveryCaseId: recoveryCase?.id || id,
       phase: recoveryCase?.phase || decision.phaseAfter,
       reason: recoveryCase?.reason || decision.reason,
-      decision
+      decision,
+      compatibilityProjection: buildHostNativeContinuityCompatibilityProjection({
+        decision,
+        recoveryCase,
+        recoveryId: id,
+        continuityReview,
+        campaignState,
+        eventTime: observedAt
+      })
     };
   }
 
@@ -1086,6 +1515,12 @@ export function createRepairRuntime({
     evaluateOutcomeRerunActuation(options = {}) {
       return buildOutcomeRerunActuationDecision(options);
     },
+    evaluateTerminalCheckpointReplayActuation(options = {}) {
+      return buildTerminalCheckpointReplayActuationDecision(options);
+    },
+    evaluateCommittedOutcomeDeleteRollbackActuation(options = {}) {
+      return buildCommittedOutcomeDeleteRollbackActuationDecision(options);
+    },
     evaluateRollbackActuation(options = {}) {
       return buildRollbackActuationDecision(options);
     },
@@ -1099,7 +1534,9 @@ export const __repairRuntimeTestHooks = Object.freeze({
   allowedCoreRecoveryActions,
   buildRepairDecision,
   buildOutcomeRerunActuationDecision,
+  buildTerminalCheckpointReplayActuationDecision,
   buildRollbackActuationDecision,
+  buildCommittedOutcomeDeleteRollbackActuationDecision,
   buildResponseRecoveryDecision,
   buildResponseReobserveClosureDecision,
   buildSourceReobserveDecision,

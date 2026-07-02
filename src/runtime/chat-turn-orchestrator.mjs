@@ -28,12 +28,18 @@ import {
   returnReadiedCommandBearingPoint
 } from '../command/command-bearing.mjs';
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
-import { runSceneHandshakeSettlement } from './scene-handshake-settler.mjs';
+import {
+  createLatestPairSourceSettlementProvider,
+  settleLatestPairSource
+} from './source-settlement-latest-pair.mjs';
 import {
   createTurnSourceFrame,
   createTurnSourceFrameRef
 } from './frame-contracts.mjs';
-import { hashStableJson } from './architecture-redesign-contracts.mjs';
+import {
+  hashStableJson,
+  normalizeHostMessageVisibility
+} from './architecture-redesign-contracts.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 
@@ -306,6 +312,32 @@ function eventMessageId(payload) {
     || payload?.message?.messageId
     || payload?.message?.message_id
     || null;
+}
+
+function carriesVisibilityEvidence(message = null, input = {}) {
+  if (!message || typeof message !== 'object') return false;
+  const visibility = normalizeHostMessageVisibility(message, input);
+  return Boolean(
+    visibility.hiddenByHost
+    || visibility.hiddenByExternal
+    || visibility.summaryceptionSummarized
+    || visibility.memoryBooksVisibilityMutation
+    || visibility.sourceMutation
+  );
+}
+
+function mergeVisibilityPayloadMessage(message = null, payload = null) {
+  if (!message || typeof message !== 'object' || !payload || typeof payload !== 'object') return message;
+  const merged = { ...message };
+  const extra = {
+    ...(message.extra && typeof message.extra === 'object' ? message.extra : {}),
+    ...(payload.extra && typeof payload.extra === 'object' ? payload.extra : {})
+  };
+  if (Object.keys(extra).length) merged.extra = extra;
+  for (const key of ['deleted', 'is_deleted', 'hidden', 'is_hidden']) {
+    if (payload[key] !== undefined) merged[key] = payload[key];
+  }
+  return merged;
 }
 
 function eventReplacementText(payload) {
@@ -793,6 +825,11 @@ export function createChatTurnOrchestrator({
     coreStore: coreTurnStore,
     clock: () => timestamp(now)
   });
+  const defaultLatestPairSettlementProvider = typeof runLatestPairSettlementProvider === 'function'
+    ? runLatestPairSettlementProvider
+    : (typeof generationRouter?.generate === 'function'
+      ? createLatestPairSourceSettlementProvider({ generationRouter, now })
+      : null);
 
   function currentChatId() {
     return host.chat.getCurrentChatId?.() || host.chat.getCurrentBinding?.()?.chatId || null;
@@ -964,7 +1001,7 @@ export function createChatTurnOrchestrator({
       });
       return state;
     }
-    const result = await runSceneHandshakeSettlement({
+    const result = await settleLatestPairSource({
       campaignState: state,
       currentPlayerMessage: message,
       recentMessages,
@@ -972,7 +1009,7 @@ export function createChatTurnOrchestrator({
       ingressId,
       generationRouter,
       stateDeltaGateway,
-      runLatestPairSettlementProvider,
+      runLatestPairSettlementProvider: defaultLatestPairSettlementProvider,
       validateLatestPairSettlementBeforeApply: async (payload = {}) => {
         const latestState = initializeCampaignRuntimeTracking(getCampaignState() || state);
         const latestIngress = findIngress(latestState, ingressId);
@@ -992,6 +1029,7 @@ export function createChatTurnOrchestrator({
       },
       latestPairSourceFrame: ingress?.sourceFrame || null,
       packageData,
+      coreStore: coreTurnStore,
       now
     });
     let next = result?.campaignState || state;
@@ -1002,6 +1040,7 @@ export function createChatTurnOrchestrator({
       source: 'sceneHandshake',
       ingressId,
       disposition: result.disposition || result.record?.disposition || null,
+      reasons: cloneJson(result.sourceSettlement?.reasons || result.record?.reasons || []),
       committedRoots: result.committedRoots || result.record?.committedRoots || [],
       operationCount: result.operationCount || result.record?.operationCount || 0
     });
@@ -5301,12 +5340,25 @@ export function createChatTurnOrchestrator({
 
   async function handleMessageVisibilityChanged(payload = {}) {
     if (!messageReconciler?.reconcileVisibilityChanged) return { handled: false, reason: 'reconciler-unavailable' };
+    const hostMessageId = eventMessageId(payload);
+    const visibilityInput = {
+      index: payload.index ?? null,
+      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
+      visibilityMap: payload.visibilityMap || payload.visibility_map || null
+    };
+    const wrapperCarriesVisibilityEvidence = carriesVisibilityEvidence(payload, visibilityInput);
+    const payloadMessage = payload.message
+      ? (wrapperCarriesVisibilityEvidence ? mergeVisibilityPayloadMessage(payload.message, payload) : payload.message)
+      : (wrapperCarriesVisibilityEvidence ? payload : null);
+    const hostMessage = payloadMessage
+      || (hostMessageId && typeof host?.chat?.getMessage === 'function'
+        ? await host.chat.getMessage(hostMessageId)
+        : null)
+      || payload;
     const result = await messageReconciler.reconcileVisibilityChanged({
-      hostMessageId: eventMessageId(payload),
-      message: payload.message || (eventMessageId(payload) && typeof host?.chat?.getMessage === 'function'
-        ? host.chat.getMessage(eventMessageId(payload))
-        : null),
-      index: payload.index || payload.message?.index || null,
+      hostMessageId,
+      message: hostMessage,
+      index: payload.index ?? payload.message?.index ?? hostMessage?.index ?? null,
       chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
       visibilityMap: payload.visibilityMap || payload.visibility_map || null
     });

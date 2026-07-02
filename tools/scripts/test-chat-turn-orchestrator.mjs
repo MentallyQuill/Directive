@@ -267,7 +267,7 @@ const orchestrator = createChatTurnOrchestrator({
           diagnostics: { providerId: 'fake-counsel-provider' }
         };
       }
-      if (roleId === 'sceneHandshakeSettler') {
+      if (roleId === 'sceneHandshakeSettler' || roleId === 'sourceSettlementLatestPair') {
         if (request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake') {
           return {
             ok: true,
@@ -720,10 +720,18 @@ assert.equal(handshakeSreDiagnostic.diagnostic.decision.applied, false);
 assert.equal(handshakeSreDiagnostic.diagnostic.decision.sourceFrameId, handshakeIngress.sourceFrameId);
 assert.equal(JSON.stringify(handshakeSreDiagnostic).includes('Sam spends 10 minutes'), false);
 const handshakeRequest = responseSwipeGenerationCalls.find((entry) => (
-  entry.roleId === 'sceneHandshakeSettler'
+  entry.roleId === 'sourceSettlementLatestPair'
   && entry.request.metadata.previousAssistantHostMessageId === 'assistant-host-handshake'
 ));
 assert(handshakeRequest, 'Scene Handshake request should be captured for the selected-swipe acceptance test.');
+assert.equal(
+  responseSwipeGenerationCalls.some((entry) => (
+    entry.roleId === 'sceneHandshakeSettler'
+    && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake'
+  )),
+  false,
+  'Production default Scene Handshake latest-pair settlement must not call the legacy role.'
+);
 assert.equal(handshakeRequest.request.metadata.selectedAssistantVariant.selectedSwipeIndex, 2);
 assert.equal(handshakeRequest.request.metadata.selectedAssistantVariant.swipeCount, 3);
 assert.equal(
@@ -867,6 +875,297 @@ assert.equal(colorIngress.sourceFrame.kind, 'directive.turnSourceFrame.v1');
 assert.equal(colorIngress.sourceFrame.externalPromptEnvironmentRef.status, 'unknown');
 assert.equal(colorResponse.turnLatency.architectureWithin60s, true);
 
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-production-default-sre-handshake',
+  text: 'Whitaker notes that the bridge watch is ready and leaves the next answer to Sam.'
+});
+const productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake = {
+  roleCalls: [],
+  promptFramesBefore: promptFrames.length,
+  commandLogBefore: campaignState.commandLog.entries.length,
+  elapsedMinutesBefore: campaignState.worldState?.elapsedMinutes ?? 0,
+  timeLedgerBefore: campaignState.timeLedger?.entries?.length || 0,
+  sceneHandshakeSettledBefore: campaignState.runtimeTracking.sceneHandshake.settled.length
+};
+const productionDefaultOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: ({ text, context }) => classifyChatTurn({ text, context }),
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.roleCalls.push({
+        roleId,
+        request: cloneJson(request)
+      });
+      if (roleId === 'sceneHandshakeSettler') {
+        throw new Error('production-default latest-pair SRE provider must replace legacy Scene Handshake provider');
+      }
+      assert.equal(roleId, 'sourceSettlementLatestPair');
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-source-settlement-latest-pair',
+          text: JSON.stringify({
+            kind: 'directive.sceneHandshakeSettlement.v1',
+            acceptedPreviousResponse: true,
+            playerReplyRelation: 'acts-on',
+            confidence: 0.9,
+            disposition: 'autoCommit',
+            needsInternalReview: false,
+            internalReviewReasons: [],
+            deferReason: null,
+            operatorRecoveryOnly: false,
+            openAssignmentProposals: [],
+            commandLogProposals: [
+              {
+                summaryInputs: ['Whitaker left the bridge watch answer to Sam.'],
+                visibleConsequences: ['Sam accepted the bridge watch as ready after five minutes of review.']
+              }
+            ],
+            shipReadinessProposals: [],
+            threadSignals: []
+          })
+        },
+        diagnostics: { providerId: 'fake-source-settlement-latest-pair' }
+      };
+    }
+  },
+  stateDeltaGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  getPackageData: () => packageData,
+  syncPromptContext: async (state, promptFrame = null) => {
+    promptFrames.push(cloneJson(promptFrame || null));
+    return {
+      ...cloneJson(state),
+      campaignChatBinding: {
+        ...state.campaignChatBinding,
+        promptContextRevision: (state.campaignChatBinding?.promptContextRevision || 0) + 1
+      }
+    };
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('production-default latest-pair fixture must stay on Scene Handshake path');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('production-default latest-pair fixture must not commit a Director turn');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const productionDefaultActivity = [];
+const productionDefaultMessage = chat.pushPlayerMessage({
+  text: '*Sam spends 5 minutes reviewing the bridge watch, then accepts that Whitaker left the next answer to him.*',
+  hostMessageId: 'player-production-default-sre-handshake'
+});
+const productionDefaultSre = await productionDefaultOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: productionDefaultMessage,
+  turnActivityReporter: (event) => productionDefaultActivity.push(cloneJson(event))
+});
+assert.equal(productionDefaultSre.handled, true);
+assert.equal(
+  productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.roleCalls.filter((entry) => entry.roleId === 'sourceSettlementLatestPair').length,
+  1
+);
+assert.equal(
+  productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.roleCalls.some((entry) => entry.roleId === 'sceneHandshakeSettler'),
+  false
+);
+assert.equal(
+  campaignState.commandLog.entries.filter((entry) => (
+    entry.type === 'sceneHandshake'
+    && entry.visibleConsequences?.includes('Sam accepted the bridge watch as ready after five minutes of review.')
+  )).length,
+  1
+);
+assert.equal(campaignState.commandLog.entries.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.commandLogBefore + 1);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.sceneHandshakeSettledBefore + 1);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
+assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceSettlementMode, 'latestPair');
+assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.operationCount, 1);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.modelRoleId, 'sourceSettlementLatestPair');
+assert.equal(campaignState.worldState.elapsedMinutes, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.elapsedMinutesBefore + 5);
+assert.equal(campaignState.timeLedger.entries.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.timeLedgerBefore + 1);
+assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.currentPlayerHostMessageId, 'player-production-default-sre-handshake');
+assert.ok(productionDefaultActivity.some((event) => event.phase === 'sceneHandshakeSettled'));
+assert.equal(promptFrames.length > productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.promptFramesBefore, true);
+assert.equal(
+  JSON.stringify(coreDiagnosticCalls.at(-1)).includes('Sam spends 5 minutes'),
+  false,
+  'SRE diagnostics must not persist raw player text.'
+);
+
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-production-default-sre-no-apply-owner',
+  text: 'Whitaker gives Sam a clean bridge-watch source that needs a latest-pair settlement.'
+});
+const {
+  applyOperations: omittedApplyOperationsForLatestPair,
+  ...stateDeltaGatewayWithoutApplyOperations
+} = stateDeltaGateway;
+assert.equal(typeof omittedApplyOperationsForLatestPair, 'function');
+const noApplyLatestPairCalls = [];
+const noApplyCommandLogBefore = campaignState.commandLog.entries.length;
+const noApplySettledBefore = campaignState.runtimeTracking.sceneHandshake.settled.length;
+const noApplyDiagnosticsBefore = coreDiagnosticCalls.length;
+const noApplyLatestPairOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: ({ text, context }) => classifyChatTurn({ text, context }),
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      noApplyLatestPairCalls.push({ roleId, request: cloneJson(request) });
+      if (roleId === 'sceneHandshakeSettler') {
+        throw new Error('missing-apply-owner default SRE path must not call legacy Scene Handshake role');
+      }
+      assert.equal(roleId, 'sourceSettlementLatestPair');
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-source-settlement-no-apply-owner',
+          text: JSON.stringify({
+            kind: 'directive.sceneHandshakeSettlement.v1',
+            acceptedPreviousResponse: true,
+            playerReplyRelation: 'acts-on',
+            confidence: 0.91,
+            disposition: 'autoCommit',
+            needsInternalReview: false,
+            internalReviewReasons: [],
+            deferReason: null,
+            operatorRecoveryOnly: false,
+            openAssignmentProposals: [],
+            commandLogProposals: [
+              {
+                summaryInputs: ['No-apply owner settlement must not mutate command log.'],
+                visibleConsequences: ['This command log entry must never commit without an apply owner.']
+              }
+            ],
+            shipReadinessProposals: [],
+            threadSignals: []
+          })
+        },
+        diagnostics: { providerId: 'fake-source-settlement-no-apply-owner' }
+      };
+    }
+  },
+  stateDeltaGateway: stateDeltaGatewayWithoutApplyOperations,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  getPackageData: () => packageData,
+  syncPromptContext: async () => {
+    throw new Error('Missing apply owner must fail closed before prompt sync.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Missing apply owner fixture must stay on Scene Handshake path.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Missing apply owner fixture must not commit Director mechanics.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const noApplyActivity = [];
+const noApplyMessage = chat.pushPlayerMessage({
+  text: '*Sam accepts the clean bridge-watch source without changing the command log directly.*',
+  hostMessageId: 'player-production-default-sre-no-apply-owner'
+});
+const noApplyResult = await noApplyLatestPairOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: noApplyMessage,
+  turnActivityReporter: (event) => noApplyActivity.push(cloneJson(event))
+});
+assert.equal(noApplyResult.handled, true);
+assert.equal(noApplyLatestPairCalls.filter((entry) => entry.roleId === 'sourceSettlementLatestPair').length, 1);
+assert.equal(noApplyLatestPairCalls.some((entry) => entry.roleId === 'sceneHandshakeSettler'), false);
+assert.equal(campaignState.commandLog.entries.length, noApplyCommandLogBefore);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, noApplySettledBefore);
+const noApplySettlementActivity = noApplyActivity.find((event) => event.phase === 'sceneHandshakeSettled');
+assert.equal(noApplySettlementActivity?.disposition, 'repairRequired');
+assert.equal(noApplySettlementActivity?.reasons?.includes('source-settlement-apply-owner-missing'), true);
+const noApplyDiagnostic = coreDiagnosticCalls.slice(noApplyDiagnosticsBefore).find((entry) => (
+  entry.diagnostic?.type === 'sourceSettlement'
+  && entry.diagnostic?.status === 'repairRequired'
+));
+assert(noApplyDiagnostic, 'Missing apply owner should leave an SRE repairRequired diagnostic.');
+assert.equal(noApplyDiagnostic.diagnostic.decision.providerCalled, true);
+assert.equal(noApplyDiagnostic.diagnostic.decision.applied, false);
+assert.equal(noApplyDiagnostic.diagnostic.decision.reasons.includes('source-settlement-apply-owner-missing'), true);
+
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-production-default-sre-provider-throw',
+  text: 'Whitaker gives Sam a clean source before the latest-pair provider throws.'
+});
+const rawProviderThrowCanary = 'RAW_LATEST_PAIR_PROVIDER_THROW_CANARY';
+const providerThrowLatestPairCalls = [];
+const providerThrowDiagnosticsBefore = coreDiagnosticCalls.length;
+const providerThrowCommandLogBefore = campaignState.commandLog.entries.length;
+const providerThrowOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: ({ text, context }) => classifyChatTurn({ text, context }),
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      providerThrowLatestPairCalls.push({ roleId, request: cloneJson(request) });
+      if (roleId === 'sceneHandshakeSettler') {
+        throw new Error('provider-throw default SRE path must not call legacy Scene Handshake role');
+      }
+      assert.equal(roleId, 'sourceSettlementLatestPair');
+      throw new Error(`${rawProviderThrowCanary}: ${request.prompt}`);
+    }
+  },
+  stateDeltaGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  getPackageData: () => packageData,
+  syncPromptContext: async () => {
+    throw new Error('Provider throw must fail closed before prompt sync.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Provider throw fixture must stay on Scene Handshake path.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Provider throw fixture must not commit Director mechanics.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const providerThrowActivity = [];
+const providerThrowMessage = chat.pushPlayerMessage({
+  text: '*Sam accepts the clean source before the latest-pair provider throws.*',
+  hostMessageId: 'player-production-default-sre-provider-throw'
+});
+const providerThrowResult = await providerThrowOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: providerThrowMessage,
+  turnActivityReporter: (event) => providerThrowActivity.push(cloneJson(event))
+});
+assert.equal(providerThrowResult.handled, true);
+assert.equal(providerThrowLatestPairCalls.filter((entry) => entry.roleId === 'sourceSettlementLatestPair').length, 1);
+assert.equal(providerThrowLatestPairCalls.some((entry) => entry.roleId === 'sceneHandshakeSettler'), false);
+assert.equal(campaignState.commandLog.entries.length, providerThrowCommandLogBefore);
+const providerThrowSettlementActivity = providerThrowActivity.find((event) => event.phase === 'sceneHandshakeSettled');
+assert.equal(providerThrowSettlementActivity?.disposition, 'repairRequired');
+assert.equal(providerThrowSettlementActivity?.reasons?.includes('source-settlement-provider-threw'), true);
+const providerThrowDiagnostic = coreDiagnosticCalls.slice(providerThrowDiagnosticsBefore).find((entry) => (
+  entry.diagnostic?.type === 'sourceSettlement'
+  && entry.diagnostic?.status === 'repairRequired'
+));
+assert(providerThrowDiagnostic, 'Provider throw should leave an SRE repairRequired diagnostic.');
+assert.equal(providerThrowDiagnostic.diagnostic.decision.providerCalled, true);
+assert.equal(providerThrowDiagnostic.diagnostic.decision.applied, false);
+assert.equal(providerThrowDiagnostic.diagnostic.decision.reasons.includes('source-settlement-provider-threw'), true);
+assert.equal(JSON.stringify(providerThrowResult).includes(rawProviderThrowCanary), false);
+assert.equal(JSON.stringify(providerThrowActivity).includes(rawProviderThrowCanary), false);
+assert.equal(JSON.stringify(providerThrowDiagnostic).includes(rawProviderThrowCanary), false);
+assert.equal(JSON.stringify(campaignState).includes(rawProviderThrowCanary), false);
+
 const coreBeginCountBeforeColorDuplicate = coreBeginCalls.length;
 const coreAdvanceCountBeforeColorDuplicate = coreAdvanceCalls.length;
 const colorDuplicate = await orchestrator.observePlayerMessage({
@@ -926,7 +1225,7 @@ assert.equal(hashDriftPreflight.reasons.includes('selected-variant-hash-mismatch
 assert.equal(
   responseSwipeGenerationCalls
     .slice(hashDriftCallsBefore)
-    .some((entry) => entry.roleId === 'sceneHandshakeSettler' && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake-hash-drift'),
+    .some((entry) => ['sceneHandshakeSettler', 'sourceSettlementLatestPair'].includes(entry.roleId) && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake-hash-drift'),
   false,
   'Fresh selected-swipe hash mismatch must stop before Scene Handshake provider call.'
 );
@@ -963,7 +1262,7 @@ assert.equal(mismatchActivity.some((event) => event.phase === 'sceneHandshakeSou
 assert.equal(
   responseSwipeGenerationCalls
     .slice(mismatchSceneHandshakeCallsBefore)
-    .some((entry) => entry.roleId === 'sceneHandshakeSettler' && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake-mismatch'),
+    .some((entry) => ['sceneHandshakeSettler', 'sourceSettlementLatestPair'].includes(entry.roleId) && entry.request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake-mismatch'),
   false,
   'SRE hardSkipped latest-pair source must stop before Scene Handshake provider call.'
 );
@@ -1178,8 +1477,12 @@ const oldLedgerRetryOrchestrator = createChatTurnOrchestrator({
   stateDeltaGateway,
   getCampaignState,
   setCampaignState,
-  persistCampaignState,
-  syncPromptContext: async (state) => state,
+  persistCampaignState: async () => {
+    throw new Error('Visibility payload test must not persist campaign state.');
+  },
+  syncPromptContext: async () => {
+    throw new Error('Visibility payload test must not sync prompt context.');
+  },
   previewDirectorTurn: async () => {
     throw new Error('Old-ledger response retry fixture must not preview a Director turn.');
   },
@@ -1210,6 +1513,387 @@ try {
   setCampaignState(oldLedgerRetryBaselineState);
   persisted.splice(oldLedgerRetryPersistedBefore);
 }
+
+const rawVisibilityPayloadCalls = [];
+const rawVisibilityPayloadOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: {
+      getCurrentChatId: () => 'campaign-chat',
+      getCurrentBinding: () => ({ chatId: 'campaign-chat' })
+    }
+  },
+  classify: async () => {
+    throw new Error('Visibility payload test must not classify.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Visibility payload test must not dispatch.');
+    }
+  },
+  messageReconciler: {
+    async reconcileVisibilityChanged(input = {}) {
+      rawVisibilityPayloadCalls.push(input);
+      return {
+        matched: true,
+        action: 'visibilityOnlySourceRow'
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState: async () => {
+    throw new Error('Visibility host lookup payload test must not persist campaign state.');
+  },
+  syncPromptContext: async () => {
+    throw new Error('Visibility host lookup payload test must not sync prompt context.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Visibility payload test must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Visibility payload test must not commit.');
+  },
+  now
+});
+const rawVisibilityPayloadResult = await rawVisibilityPayloadOrchestrator.handleMessageVisibilityChanged({
+  id: 'player-runtime-raw-visibility',
+  index: 44,
+  is_user: true,
+  extra: {
+    sc_ghosted: true,
+    vectfox_prompt_ghosted: true
+  }
+});
+assert.equal(rawVisibilityPayloadResult.handled, true);
+assert.equal(rawVisibilityPayloadCalls.length, 1);
+assert.equal(rawVisibilityPayloadCalls[0].hostMessageId, 'player-runtime-raw-visibility');
+assert.equal(rawVisibilityPayloadCalls[0].message.extra.sc_ghosted, true);
+assert.equal(rawVisibilityPayloadCalls[0].message.extra.vectfox_prompt_ghosted, true);
+
+const rawVisibilityPayloadWithHostLookupCalls = [];
+const rawVisibilityPayloadWithHostLookupOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: {
+      getCurrentChatId: () => 'campaign-chat',
+      getCurrentBinding: () => ({ chatId: 'campaign-chat' }),
+      getMessage: (hostMessageId) => ({
+        id: hostMessageId,
+        index: 46,
+        is_user: true,
+        extra: {}
+      })
+    }
+  },
+  classify: async () => {
+    throw new Error('Visibility host lookup payload test must not classify.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Visibility host lookup payload test must not dispatch.');
+    }
+  },
+  messageReconciler: {
+    async reconcileVisibilityChanged(input = {}) {
+      rawVisibilityPayloadWithHostLookupCalls.push(input);
+      return {
+        matched: true,
+        action: 'visibilityOnlySourceRow'
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Visibility host lookup payload test must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Visibility host lookup payload test must not commit.');
+  },
+  now
+});
+const rawVisibilityPayloadWithHostLookupResult = await rawVisibilityPayloadWithHostLookupOrchestrator.handleMessageVisibilityChanged({
+  id: 'player-runtime-raw-host-visibility',
+  index: 47,
+  is_user: true,
+  extra: {
+    sc_ghosted: true,
+    stmb_hidden: true,
+    vectfox_prompt_ghosted: true
+  }
+});
+assert.equal(rawVisibilityPayloadWithHostLookupResult.handled, true);
+assert.equal(rawVisibilityPayloadWithHostLookupCalls.length, 1);
+assert.equal(rawVisibilityPayloadWithHostLookupCalls[0].hostMessageId, 'player-runtime-raw-host-visibility');
+assert.equal(rawVisibilityPayloadWithHostLookupCalls[0].message.extra.sc_ghosted, true);
+assert.equal(rawVisibilityPayloadWithHostLookupCalls[0].message.extra.stmb_hidden, true);
+assert.equal(rawVisibilityPayloadWithHostLookupCalls[0].message.extra.vectfox_prompt_ghosted, true);
+assert.equal(rawVisibilityPayloadWithHostLookupCalls[0].index, 47);
+
+const nestedVisibilityPayloadCalls = [];
+const nestedVisibilityPayloadOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: {
+      getCurrentChatId: () => 'campaign-chat',
+      getCurrentBinding: () => ({ chatId: 'campaign-chat' }),
+      getMessage: (hostMessageId) => ({
+        id: hostMessageId,
+        index: 48,
+        is_user: true,
+        extra: {}
+      })
+    }
+  },
+  classify: async () => {
+    throw new Error('Nested visibility payload test must not classify.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Nested visibility payload test must not dispatch.');
+    }
+  },
+  messageReconciler: {
+    async reconcileVisibilityChanged(input = {}) {
+      nestedVisibilityPayloadCalls.push(input);
+      return {
+        matched: true,
+        action: 'visibilityOnlySourceRow'
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState: async () => {
+    throw new Error('Nested visibility payload test must not persist campaign state.');
+  },
+  syncPromptContext: async () => {
+    throw new Error('Nested visibility payload test must not sync prompt context.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Nested visibility payload test must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Nested visibility payload test must not commit.');
+  },
+  now
+});
+const nestedVisibilityPayloadResult = await nestedVisibilityPayloadOrchestrator.handleMessageVisibilityChanged({
+  id: 'player-runtime-nested-host-visibility',
+  index: 48,
+  message: {
+    id: 'player-runtime-nested-host-visibility',
+    index: 48,
+    is_user: true,
+    extra: {
+      sc_ghosted: true,
+      stmb_hidden: true,
+      vectfox_prompt_ghosted: true
+    }
+  }
+});
+assert.equal(nestedVisibilityPayloadResult.handled, true);
+assert.equal(nestedVisibilityPayloadCalls.length, 1);
+assert.equal(nestedVisibilityPayloadCalls[0].hostMessageId, 'player-runtime-nested-host-visibility');
+assert.equal(nestedVisibilityPayloadCalls[0].message.extra.sc_ghosted, true);
+assert.equal(nestedVisibilityPayloadCalls[0].message.extra.stmb_hidden, true);
+assert.equal(nestedVisibilityPayloadCalls[0].message.extra.vectfox_prompt_ghosted, true);
+assert.equal(nestedVisibilityPayloadCalls[0].index, 48);
+
+const wrapperVisibilityPayloadCalls = [];
+const wrapperVisibilityPayloadOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: {
+      getCurrentChatId: () => 'campaign-chat',
+      getCurrentBinding: () => ({ chatId: 'campaign-chat' }),
+      getMessage: (hostMessageId) => ({
+        id: hostMessageId,
+        index: 49,
+        is_user: true,
+        extra: {}
+      })
+    }
+  },
+  classify: async () => {
+    throw new Error('Wrapper visibility payload test must not classify.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Wrapper visibility payload test must not dispatch.');
+    }
+  },
+  messageReconciler: {
+    async reconcileVisibilityChanged(input = {}) {
+      wrapperVisibilityPayloadCalls.push(input);
+      return {
+        matched: true,
+        action: 'visibilityOnlySourceRow'
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState: async () => {
+    throw new Error('Wrapper visibility payload test must not persist campaign state.');
+  },
+  syncPromptContext: async () => {
+    throw new Error('Wrapper visibility payload test must not sync prompt context.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Wrapper visibility payload test must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Wrapper visibility payload test must not commit.');
+  },
+  now
+});
+const wrapperVisibilityPayloadResult = await wrapperVisibilityPayloadOrchestrator.handleMessageVisibilityChanged({
+  id: 'player-runtime-wrapper-host-visibility',
+  index: 49,
+  extra: {
+    sc_ghosted: true,
+    stmb_hidden: true,
+    vectfox_prompt_ghosted: true
+  },
+  message: {
+    id: 'player-runtime-wrapper-host-visibility',
+    index: 49,
+    is_user: true,
+    extra: {}
+  }
+});
+assert.equal(wrapperVisibilityPayloadResult.handled, true);
+assert.equal(wrapperVisibilityPayloadCalls.length, 1);
+assert.equal(wrapperVisibilityPayloadCalls[0].hostMessageId, 'player-runtime-wrapper-host-visibility');
+assert.equal(wrapperVisibilityPayloadCalls[0].message.id, 'player-runtime-wrapper-host-visibility');
+assert.equal(wrapperVisibilityPayloadCalls[0].message.extra.sc_ghosted, true);
+assert.equal(wrapperVisibilityPayloadCalls[0].message.extra.stmb_hidden, true);
+assert.equal(wrapperVisibilityPayloadCalls[0].message.extra.vectfox_prompt_ghosted, true);
+assert.equal(wrapperVisibilityPayloadCalls[0].index, 49);
+
+const zeroIndexVisibilityMapCalls = [];
+const zeroIndexVisibilityMapOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: {
+      getCurrentChatId: () => 'campaign-chat',
+      getCurrentBinding: () => ({ chatId: 'campaign-chat' }),
+      getMessage: (hostMessageId) => ({
+        id: hostMessageId,
+        index: 0,
+        is_user: true,
+        extra: {}
+      })
+    }
+  },
+  classify: async () => {
+    throw new Error('Zero-index visibility map test must not classify.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Zero-index visibility map test must not dispatch.');
+    }
+  },
+  messageReconciler: {
+    async reconcileVisibilityChanged(input = {}) {
+      zeroIndexVisibilityMapCalls.push(input);
+      return {
+        matched: true,
+        action: 'visibilityOnlySourceRow'
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState: async () => {
+    throw new Error('Zero-index visibility map test must not persist campaign state.');
+  },
+  syncPromptContext: async () => {
+    throw new Error('Zero-index visibility map test must not sync prompt context.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Zero-index visibility map test must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Zero-index visibility map test must not commit.');
+  },
+  now
+});
+const zeroIndexVisibilityMapResult = await zeroIndexVisibilityMapOrchestrator.handleMessageVisibilityChanged({
+  id: 'player-runtime-zero-index-visibility',
+  index: 0,
+  visibilityMap: {
+    nativeHiddenIndices: [0]
+  }
+});
+assert.equal(zeroIndexVisibilityMapResult.handled, true);
+assert.equal(zeroIndexVisibilityMapCalls.length, 1);
+assert.equal(zeroIndexVisibilityMapCalls[0].hostMessageId, 'player-runtime-zero-index-visibility');
+assert.equal(zeroIndexVisibilityMapCalls[0].index, 0);
+assert.deepEqual(zeroIndexVisibilityMapCalls[0].visibilityMap.nativeHiddenIndices, [0]);
+
+const asyncVisibilityMessageCalls = [];
+const asyncVisibilityMessageOrchestrator = createChatTurnOrchestrator({
+  host: {
+    chat: {
+      getCurrentChatId: () => 'campaign-chat',
+      getCurrentBinding: () => ({ chatId: 'campaign-chat' }),
+      getMessage: async (hostMessageId) => ({
+        id: hostMessageId,
+        index: 45,
+        is_user: true,
+        extra: {
+          stmb_hidden: true
+        }
+      })
+    }
+  },
+  classify: async () => {
+    throw new Error('Async visibility message test must not classify.');
+  },
+  responseDispatcher: {
+    dispatch: async () => {
+      throw new Error('Async visibility message test must not dispatch.');
+    }
+  },
+  messageReconciler: {
+    async reconcileVisibilityChanged(input = {}) {
+      asyncVisibilityMessageCalls.push(input);
+      return {
+        matched: true,
+        action: 'visibilityOnlySourceRow'
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState: async () => {
+    throw new Error('Async visibility message test must not persist campaign state.');
+  },
+  syncPromptContext: async () => {
+    throw new Error('Async visibility message test must not sync prompt context.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Async visibility message test must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Async visibility message test must not commit.');
+  },
+  now
+});
+const asyncVisibilityMessageResult = await asyncVisibilityMessageOrchestrator.handleMessageVisibilityChanged({
+  id: 'player-runtime-async-visibility',
+  index: 45
+});
+assert.equal(asyncVisibilityMessageResult.handled, true);
+assert.equal(asyncVisibilityMessageCalls.length, 1);
+assert.equal(typeof asyncVisibilityMessageCalls[0].message?.then, 'undefined', 'Visibility handler must await async host.chat.getMessage before REPAIR receives the message.');
+assert.equal(asyncVisibilityMessageCalls[0].message.extra.stmb_hidden, true);
 
 const commandLogBeforeSceneNavigation = campaignState.commandLog?.entries?.length || 0;
 const elapsedMinutesBeforeSceneNavigation = campaignState.worldState?.elapsedMinutes ?? 0;

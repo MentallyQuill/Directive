@@ -627,6 +627,62 @@ assert.equal(rawSnapshotOnlyRerunActuation.authorized, false);
 assert.equal(rawSnapshotOnlyRerunActuation.reason, 'outcome-rerun-snapshot-missing');
 assert.equal(JSON.stringify(rawSnapshotOnlyRerunActuation).includes('RAW_RERUN_SNAPSHOT_MUST_NOT_AUTHORIZE'), false);
 
+const terminalReplayActuation = repairRuntime.evaluateTerminalCheckpointReplayActuation({
+  decisionId: 'terminal-decision-authorized',
+  interactionId: 'terminal-decision-authorized',
+  conditionId: 'terminal.condition.authorized',
+  turnId: 'turn-terminal-authorized',
+  outcomeId: 'outcome-terminal-authorized',
+  action: 'restoreTerminalCheckpointSnapshot',
+  snapshotSourceKind: 'turnLedger.snapshotBefore',
+  snapshotPresent: true,
+  snapshotHash: 'hash-terminal-snapshot-authorized',
+  runtimeRevision: 21,
+  ledgerRevision: 20,
+  snapshot: {
+    rawCanary: 'RAW_TERMINAL_SNAPSHOT_MUST_NOT_AUTHORIZE'
+  },
+  eventTime: '2026-06-22T01:00:50.000Z'
+});
+assert.equal(terminalReplayActuation.kind, 'directive.repairTerminalCheckpointReplayActuationDecision.v1');
+assert.equal(terminalReplayActuation.authorized, true);
+assert.equal(terminalReplayActuation.action, 'restoreTerminalCheckpointSnapshot');
+assert.equal(terminalReplayActuation.reason, 'terminal-checkpoint-replay-authorized');
+assert.equal(terminalReplayActuation.decisionId, 'terminal-decision-authorized');
+assert.equal(terminalReplayActuation.interactionId, 'terminal-decision-authorized');
+assert.equal(terminalReplayActuation.conditionId, 'terminal.condition.authorized');
+assert.equal(terminalReplayActuation.turnId, 'turn-terminal-authorized');
+assert.equal(terminalReplayActuation.outcomeId, 'outcome-terminal-authorized');
+assert.equal(terminalReplayActuation.snapshotSourceKind, 'turnLedger.snapshotBefore');
+assert.equal(terminalReplayActuation.snapshotPresent, true);
+assert.equal(terminalReplayActuation.snapshotHash, 'hash-terminal-snapshot-authorized');
+assert.equal(terminalReplayActuation.runtimeRevision, 21);
+assert.equal(terminalReplayActuation.ledgerRevision, 20);
+assert.deepEqual(terminalReplayActuation.allowedActions, ['restoreTerminalCheckpointSnapshot']);
+assert.equal(terminalReplayActuation.normalTurnAllowed, false);
+assert.equal(Object.hasOwn(terminalReplayActuation, 'snapshot'), false);
+assert.equal(JSON.stringify(terminalReplayActuation).includes('RAW_TERMINAL_SNAPSHOT_MUST_NOT_AUTHORIZE'), false);
+
+const missingSnapshotTerminalReplayActuation = repairRuntime.evaluateTerminalCheckpointReplayActuation({
+  decisionId: 'terminal-decision-missing-snapshot',
+  interactionId: 'terminal-decision-missing-snapshot',
+  conditionId: 'terminal.condition.missing',
+  turnId: 'turn-terminal-missing',
+  outcomeId: 'outcome-terminal-missing',
+  action: 'restoreTerminalCheckpointSnapshot',
+  snapshotSourceKind: 'turnLedger.snapshotBefore',
+  snapshotPresent: false
+});
+assert.equal(missingSnapshotTerminalReplayActuation.kind, 'directive.repairTerminalCheckpointReplayActuationDecision.v1');
+assert.equal(missingSnapshotTerminalReplayActuation.authorized, false);
+assert.equal(missingSnapshotTerminalReplayActuation.action, 'blockTerminalCheckpointReplay');
+assert.equal(missingSnapshotTerminalReplayActuation.reason, 'terminal-checkpoint-replay-snapshot-evidence-missing');
+assert.equal(missingSnapshotTerminalReplayActuation.deniedReason, 'terminal-checkpoint-replay-snapshot-evidence-missing');
+assert.equal(missingSnapshotTerminalReplayActuation.snapshotPresent, false);
+assert.equal(missingSnapshotTerminalReplayActuation.snapshotHash, null);
+assert.deepEqual(missingSnapshotTerminalReplayActuation.allowedActions, ['reviewTerminalCheckpointReplayRequest']);
+assert.equal(missingSnapshotTerminalReplayActuation.normalTurnAllowed, false);
+
 const dependentReobserve = repairRuntime.evaluateSourceReobserve({
   eventType: 'playerMessageReobserved',
   stage: 'before-reobserve-dependent-source',
@@ -738,6 +794,124 @@ const missingReobserve = repairRuntime.evaluateSourceReobserve({
 assert.equal(missingReobserve.action, 'blockStaleSourceReobserve');
 assert.equal(missingReobserve.normalTurnAllowed, false);
 assert.equal(missingReobserve.reasons.includes('missing-ingress'), true);
+
+const untrackedDependentProjection = await repairRuntime.recordSourceMutationRecovery({
+  eventType: 'sceneHandshakeSourceEdited',
+  hostMessageId: 'assistant-untracked-dependent',
+  replacementText: 'RAW_REPAIR_PROJECTION_SHOULD_NOT_PERSIST',
+  campaignState: {
+    runtimeTracking: {
+      sceneHandshake: {
+        settled: [{
+          id: 'settlement-untracked-a',
+          status: 'settled',
+          previousAssistantHostMessageId: 'assistant-untracked-dependent',
+          currentPlayerHostMessageId: 'player-after-untracked-a'
+        }, {
+          id: 'settlement-untracked-b',
+          status: 'settled',
+          sourceMessageIds: ['assistant-untracked-dependent']
+        }, {
+          id: 'settlement-unrelated',
+          status: 'settled',
+          previousAssistantHostMessageId: 'assistant-unrelated'
+        }],
+        lastResult: {
+          id: 'settlement-untracked-a',
+          status: 'settled',
+          previousAssistantHostMessageId: 'assistant-untracked-dependent'
+        }
+      }
+    },
+    knowledgeLedger: {
+      components: {
+        records: [{
+          id: 'component-untracked-a',
+          source: {
+            hostMessageId: 'assistant-untracked-dependent',
+            sourceStatus: 'active'
+          }
+        }, {
+          id: 'component-untracked-b',
+          source: {
+            hostMessageId: 'assistant-untracked-dependent',
+            sourceStatus: 'active'
+          }
+        }, {
+          id: 'component-unrelated',
+          source: {
+            hostMessageId: 'assistant-unrelated',
+            sourceStatus: 'active'
+          }
+        }]
+      }
+    }
+  }
+});
+assert.equal(untrackedDependentProjection.status, 'notRecorded');
+assert.equal(untrackedDependentProjection.reason, 'no-core-transaction');
+assert.equal(untrackedDependentProjection.sourceMutation.sourceKind, 'untrackedHostMessage');
+assert.equal(untrackedDependentProjection.sourceMutation.replacementTextHash.length, 64);
+assert.equal(untrackedDependentProjection.sourceMutation.replacementTextPresent, true);
+assert.deepEqual(
+  untrackedDependentProjection.decision.dependentInvalidation.sceneHandshake.settlementIds,
+  ['settlement-untracked-a', 'settlement-untracked-b']
+);
+assert.deepEqual(
+  untrackedDependentProjection.decision.dependentInvalidation.missionComponents.componentIds,
+  ['component-untracked-a', 'component-untracked-b']
+);
+assert.equal(untrackedDependentProjection.decision.dependentInvalidation.missionComponents.sourceStatus, 'stale');
+assert.deepEqual(untrackedDependentProjection.decision.dependentInvalidation.promptDirtyDomains, ['sceneHandshake', 'missionComponents']);
+assert.equal(JSON.stringify(untrackedDependentProjection).includes('RAW_REPAIR_PROJECTION_SHOULD_NOT_PERSIST'), false);
+
+const untrackedDeletedProjection = await repairRuntime.recordSourceMutationRecovery({
+  eventType: 'sceneHandshakeSourceDeleted',
+  hostMessageId: 'assistant-untracked-dependent',
+  campaignState: {
+    knowledgeLedger: {
+      components: {
+        records: [{
+          id: 'component-delete-projection',
+          source: {
+            hostMessageId: 'assistant-untracked-dependent',
+            sourceStatus: 'active'
+          }
+        }]
+      }
+    }
+  }
+});
+assert.equal(untrackedDeletedProjection.decision.dependentInvalidation.missionComponents.sourceStatus, 'deleted');
+
+const staleAfterDeletedProjection = await repairRuntime.recordSourceMutationRecovery({
+  eventType: 'sceneHandshakeSourceEdited',
+  hostMessageId: 'assistant-untracked-dependent',
+  campaignState: {
+    knowledgeLedger: {
+      components: {
+        records: [{
+          id: 'component-stays-deleted',
+          source: {
+            hostMessageId: 'assistant-untracked-dependent',
+            sourceStatus: 'deleted'
+          }
+        }, {
+          id: 'component-can-be-stale',
+          source: {
+            hostMessageId: 'assistant-untracked-dependent',
+            sourceStatus: 'active'
+          }
+        }]
+      }
+    }
+  }
+});
+assert.deepEqual(
+  staleAfterDeletedProjection.decision.dependentInvalidation.missionComponents.componentIds,
+  ['component-can-be-stale']
+);
+assert.equal(staleAfterDeletedProjection.decision.dependentInvalidation.missionComponents.sourceStatus, 'stale');
 
 const noCore = await repairRuntime.recordSourceMutationRecovery({
   eventType: 'playerMessageEdited',

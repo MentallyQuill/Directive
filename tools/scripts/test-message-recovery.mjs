@@ -612,6 +612,246 @@ const missing = await reconciler.reconcileDeleted({ hostMessageId: 'missing-mess
 assert.equal(missing.matched, false);
 assert.equal(missing.action, 'ignored');
 
+let untrackedDependentState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-untracked-dependent-projection', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  knowledgeLedger: {
+    schemaVersion: 2,
+    facts: [],
+    rumors: [],
+    contradictions: [],
+    components: {
+      schemaVersion: 1,
+      records: [{
+        id: 'component-repair-selected',
+        title: 'Selected component',
+        type: 'lead',
+        status: 'active',
+        summary: 'Selected component depends on source row.',
+        sourceAuthority: 'dialogue',
+        links: {},
+        source: {
+          host: 'sillytavern',
+          chatId: 'campaign-chat',
+          hostMessageId: 'assistant-untracked-source',
+          messageRole: 'assistant',
+          textHash: 'component-selected-hash',
+          sourceStatus: 'active'
+        },
+        lifecycle: { createdAt: '2026-06-22T02:30:00.000Z', updatedAt: '2026-06-22T02:30:00.000Z' }
+      }, {
+        id: 'component-not-returned',
+        title: 'Non-returned component',
+        type: 'lead',
+        status: 'active',
+        summary: 'This component has the same source but REPAIR did not select it.',
+        sourceAuthority: 'dialogue',
+        links: {},
+        source: {
+          host: 'sillytavern',
+          chatId: 'campaign-chat',
+          hostMessageId: 'assistant-untracked-source',
+          messageRole: 'assistant',
+          textHash: 'component-extra-hash',
+          sourceStatus: 'active'
+        },
+        lifecycle: { createdAt: '2026-06-22T02:31:00.000Z', updatedAt: '2026-06-22T02:31:00.000Z' }
+      }]
+    }
+  },
+  runtimeTracking: {
+    sceneHandshake: {
+      settled: [{
+        id: 'settlement-repair-selected',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-untracked-source',
+        currentPlayerHostMessageId: 'player-untracked-reply'
+      }, {
+        id: 'settlement-not-returned',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-untracked-source',
+        currentPlayerHostMessageId: 'player-untracked-other'
+      }],
+      lastResult: {
+        id: 'settlement-not-returned',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-untracked-source',
+        currentPlayerHostMessageId: 'player-untracked-other'
+      }
+    }
+  }
+});
+const untrackedRepairCalls = [];
+const untrackedDependentReconciler = createMessageReconciler({
+  getCampaignState: () => untrackedDependentState,
+  setCampaignState: (next) => { untrackedDependentState = cloneJson(next); },
+  repairRuntime: {
+    async handleSourceMutation(options = {}) {
+      untrackedRepairCalls.push(cloneJson(options));
+      return {
+        status: 'notRecorded',
+        reason: 'untracked-host-row',
+        decision: {
+          kind: 'directive.repairDecision.v1',
+          eventType: options.eventType,
+          sourceKind: 'untrackedHostMessage',
+          legacyProjection: {
+            kind: 'directive.repairLegacyProjection.v1',
+            sourceProjectionStatus: 'invalidated',
+            responseProjectionStatus: 'invalidated',
+            recoveryJournalStatus: 'reviewRequired',
+            returnedAction: 'sceneHandshakeInvalidated',
+            shouldRestoreRevision: false,
+            restoreRevision: null
+          },
+          dependentInvalidation: {
+            kind: 'directive.repairDependentInvalidation.v1',
+            sceneHandshake: {
+              settlementIds: ['settlement-repair-selected'],
+              invalidatedCount: 1
+            },
+            missionComponents: {
+              componentIds: ['component-repair-selected'],
+              markedCount: 1,
+              sourceStatus: 'stale'
+            },
+            promptDirtyDomains: ['sceneHandshake', 'missionComponents']
+          }
+        }
+      };
+    }
+  },
+  persist: async () => {},
+  syncPrompt: async (state) => state,
+  now
+});
+const untrackedDependentEdit = await untrackedDependentReconciler.reconcileEdited({
+  hostMessageId: 'assistant-untracked-source',
+  replacementText: 'RAW_SHOULD_NOT_PERSIST'
+});
+assert.equal(untrackedRepairCalls.length, 1);
+assert.equal(untrackedRepairCalls[0].eventType, 'sceneHandshakeSourceEdited');
+assert.ok(untrackedRepairCalls[0].state);
+assert.ok(untrackedRepairCalls[0].campaignState);
+assert.equal(untrackedDependentEdit.matched, true);
+assert.equal(untrackedDependentEdit.sceneHandshake.invalidatedCount, 1);
+assert.deepEqual(untrackedDependentEdit.sceneHandshake.settlementIds, ['settlement-repair-selected']);
+assert.equal(untrackedDependentEdit.missionComponents.markedCount, 1);
+assert.deepEqual(untrackedDependentEdit.missionComponents.componentIds, ['component-repair-selected']);
+assert.equal(
+  untrackedDependentState.runtimeTracking.sceneHandshake.settled.find((entry) => entry.id === 'settlement-repair-selected').status,
+  'invalidated'
+);
+assert.equal(
+  untrackedDependentState.runtimeTracking.sceneHandshake.settled.find((entry) => entry.id === 'settlement-not-returned').status,
+  'settled'
+);
+assert.equal(untrackedDependentState.runtimeTracking.sceneHandshake.lastResult.status, 'settled');
+assert.equal(
+  untrackedDependentState.knowledgeLedger.components.records.find((entry) => entry.id === 'component-repair-selected').source.sourceStatus,
+  'stale'
+);
+assert.equal(
+  untrackedDependentState.knowledgeLedger.components.records.find((entry) => entry.id === 'component-not-returned').source.sourceStatus,
+  'active'
+);
+assert.equal(JSON.stringify(untrackedDependentState).includes('RAW_SHOULD_NOT_PERSIST'), false);
+
+let deletedComponentState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-deleted-component-monotonic', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  knowledgeLedger: {
+    components: {
+      schemaVersion: 1,
+      records: [{
+        id: 'component-deleted-stays-deleted',
+        title: 'Deleted component',
+        type: 'lead',
+        status: 'active',
+        source: {
+          hostMessageId: 'assistant-deleted-component-source',
+          sourceStatus: 'deleted'
+        },
+        lifecycle: { updatedAt: '2026-06-22T02:35:00.000Z' }
+      }]
+    }
+  }
+});
+let deletedComponentRepairCalls = 0;
+const deletedComponentReconciler = createMessageReconciler({
+  getCampaignState: () => deletedComponentState,
+  setCampaignState: (next) => { deletedComponentState = cloneJson(next); },
+  repairRuntime: {
+    async handleSourceMutation(options = {}) {
+      deletedComponentRepairCalls += 1;
+      return {
+        status: 'notRecorded',
+        reason: 'test-stale-projection-over-deleted',
+        decision: {
+          kind: 'directive.repairDecision.v1',
+          eventType: options.eventType,
+          sourceKind: 'untrackedHostMessage',
+          dependentInvalidation: {
+            kind: 'directive.repairDependentInvalidation.v1',
+            missionComponents: {
+              componentIds: ['component-deleted-stays-deleted'],
+              markedCount: 1,
+              sourceStatus: 'stale'
+            },
+            promptDirtyDomains: ['missionComponents']
+          }
+        }
+      };
+    }
+  },
+  persist: async () => {},
+  syncPrompt: async (state) => state,
+  now
+});
+const deletedComponentEdit = await deletedComponentReconciler.reconcileEdited({
+  hostMessageId: 'assistant-deleted-component-source'
+});
+assert.equal(deletedComponentRepairCalls, 1);
+assert.equal(deletedComponentEdit.action, 'ignored');
+assert.equal(
+  deletedComponentState.knowledgeLedger.components.records[0].source.sourceStatus,
+  'deleted'
+);
+
+let noRepairHandlerState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-no-repair-handler', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  knowledgeLedger: {
+    components: {
+      schemaVersion: 1,
+      records: [{
+        id: 'component-no-repair-handler',
+        source: {
+          hostMessageId: 'assistant-no-repair-handler',
+          sourceStatus: 'active'
+        }
+      }]
+    }
+  }
+});
+const noRepairHandlerReconciler = createMessageReconciler({
+  getCampaignState: () => noRepairHandlerState,
+  setCampaignState: (next) => { noRepairHandlerState = cloneJson(next); },
+  repairRuntime: {},
+  persist: async () => {},
+  syncPrompt: async (state) => state,
+  now
+});
+const noRepairHandlerEdit = await noRepairHandlerReconciler.reconcileEdited({
+  hostMessageId: 'assistant-no-repair-handler'
+});
+assert.equal(noRepairHandlerEdit.matched, false);
+assert.equal(noRepairHandlerEdit.action, 'ignored');
+assert.equal(
+  noRepairHandlerState.knowledgeLedger.components.records[0].source.sourceStatus,
+  'active'
+);
+
 let handshakeState = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-handshake-recovery', status: 'active' },
   campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },

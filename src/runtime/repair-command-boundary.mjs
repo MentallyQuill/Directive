@@ -20,11 +20,27 @@ export function createRepairCommandBoundary(options = {}) {
     return repairRuntime.recordResponseRecovery(input);
   }
 
+  function handleHostNativeContinuityContradiction(input = {}) {
+    return repairRuntime.recordResponseRecovery({
+      ...input,
+      eventType: 'hostNativeContinuityContradiction',
+      observationStatus: 'completed',
+      reason: 'hostNativeContinuityContradiction'
+    });
+  }
+
   function authorizeRetry(input = {}) {
     return repairRuntime.evaluateResponseRetryActuation(input);
   }
 
   function authorizeRollback(input = {}) {
+    return repairRuntime.evaluateRollbackActuation(input);
+  }
+
+  function authorizeCommittedOutcomeDeleteRollback(input = {}) {
+    if (typeof repairRuntime.evaluateCommittedOutcomeDeleteRollbackActuation === 'function') {
+      return repairRuntime.evaluateCommittedOutcomeDeleteRollbackActuation(input);
+    }
     return repairRuntime.evaluateRollbackActuation(input);
   }
 
@@ -105,6 +121,37 @@ export function createRepairCommandBoundary(options = {}) {
     });
   }
 
+  function authorizeTerminalCheckpointReplay(input = {}) {
+    if (typeof repairRuntime.evaluateTerminalCheckpointReplayActuation !== 'function') {
+      return {
+        kind: 'directive.repairTerminalCheckpointReplayActuationDecision.v1',
+        eventType: 'terminalCheckpointReplayRequested',
+        sourceKind: 'terminalOutcomeCheckpoint',
+        authorized: false,
+        action: 'blockTerminalCheckpointReplay',
+        requestedAction: input.action || 'restoreTerminalCheckpointSnapshot',
+        reason: 'repair-terminal-checkpoint-replay-authority-unavailable',
+        deniedReason: 'repair-terminal-checkpoint-replay-authority-unavailable',
+        decisionId: input.decisionId || input.interactionId || null,
+        interactionId: input.interactionId || input.decisionId || null,
+        conditionId: input.conditionId || null,
+        turnId: input.turnId || null,
+        outcomeId: input.outcomeId || null,
+        snapshotSourceKind: input.snapshotSourceKind || null,
+        snapshotPresent: input.snapshotPresent === true,
+        snapshotHash: input.snapshotHash || null,
+        runtimeRevision: input.runtimeRevision ?? null,
+        ledgerRevision: input.ledgerRevision ?? null,
+        allowedActions: ['reviewTerminalCheckpointReplayRequest'],
+        normalTurnAllowed: false
+      };
+    }
+    return repairRuntime.evaluateTerminalCheckpointReplayActuation({
+      ...input,
+      action: input.action || 'restoreTerminalCheckpointSnapshot'
+    });
+  }
+
   function authorizeReobserveClosure(input = {}) {
     return repairRuntime.evaluateResponseReobserveClosure(input);
   }
@@ -114,9 +161,12 @@ export function createRepairCommandBoundary(options = {}) {
     handleVisibilityMutation,
     planResponseFailure,
     handleResponseFailure,
+    handleHostNativeContinuityContradiction,
     authorizeRetry,
     authorizeRollback,
+    authorizeCommittedOutcomeDeleteRollback,
     authorizeRerunBranch,
+    authorizeTerminalCheckpointReplay,
     authorizeReobserveClosure,
     evaluateSourceReobserve,
     recordRollbackActuation,
@@ -127,8 +177,11 @@ export function createRepairCommandBoundary(options = {}) {
     recordVisibilityMutation: handleVisibilityMutation,
     evaluateResponseRecovery: planResponseFailure,
     recordResponseRecovery: handleResponseFailure,
+    recordHostNativeContinuityContradiction: handleHostNativeContinuityContradiction,
     evaluateResponseRetryActuation: authorizeRetry,
+    evaluateCommittedOutcomeDeleteRollbackActuation: authorizeCommittedOutcomeDeleteRollback,
     evaluateOutcomeRerunActuation: authorizeRerunBranch,
+    evaluateTerminalCheckpointReplayActuation: authorizeTerminalCheckpointReplay,
     evaluateRollbackActuation: authorizeRollback,
     recordRollbackExecution: recordRollbackActuation,
     executeRollbackExecution: executeRollbackActuation,

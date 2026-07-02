@@ -666,6 +666,101 @@ assert.deepEqual(calls[callsBeforeSentObservation + 6], ['deleted', {
 }]);
 assert.equal(calls.some((entry) => entry[0] === 'intercept'), true);
 
+const originalSillyTavernForVisibilityFallback = globalThis.SillyTavern;
+const visibilityFallbackContext = {
+  chatId: 'visibility-fallback-chat',
+  chat: []
+};
+globalThis.SillyTavern = {
+  getContext: () => visibilityFallbackContext
+};
+try {
+  __directiveEventTestHooks.resetUserMessageFallbackBaseline(visibilityFallbackContext);
+  visibilityFallbackContext.chat.push({
+    id: 'visibility-fallback-player',
+    is_user: true,
+    mes: 'Sam waited for her reply.'
+  });
+  const visibilityFallbackCallsBefore = calls.length;
+  const primaryVisibilitySent = await registered.get('message-sent')({
+    id: 'visibility-fallback-player',
+    index: 0,
+    message: visibilityFallbackContext.chat[0]
+  });
+  assert.equal(primaryVisibilitySent.scheduled, true);
+  await registered.get('message-updated')({
+    id: 'visibility-fallback-player',
+    index: 0,
+    extra: {
+      sc_ghosted: true,
+      stmb_hidden: true,
+      vectfox_prompt_ghosted: true
+    }
+  });
+  const visibilityFallbackScan = __directiveEventTestHooks.scanLatestUserMessageFallback(
+    'visibility-dom-mutation',
+    visibilityFallbackContext
+  );
+  assert.equal(
+    visibilityFallbackScan.handled,
+    false,
+    'Visibility-only DOM mutation must not schedule a second normal player observation while the primary MESSAGE_SENT observation is pending.'
+  );
+  assert.equal(visibilityFallbackScan.reason, 'observation-pending');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(
+    calls.slice(visibilityFallbackCallsBefore).map((entry) => entry[0]),
+    ['visibility', 'sent'],
+    'Visibility-only update should produce one visibility reconciliation and one primary sent observation, not a duplicate sent observation.'
+  );
+
+  visibilityFallbackContext.chatId = 'visibility-fallback-retry-chat';
+  visibilityFallbackContext.chat = [];
+  __directiveEventTestHooks.resetUserMessageFallbackBaseline(visibilityFallbackContext);
+  visibilityFallbackContext.chat.push({
+    id: 'visibility-fallback-retry-player',
+    is_user: true,
+    mes: 'Sam waited for her reply after the first observer missed the binding.'
+  });
+  const originalObserveHostPlayerMessage = app.observeHostPlayerMessage;
+  let visibilityRetryAttempts = 0;
+  app.observeHostPlayerMessage = async (payload) => {
+    visibilityRetryAttempts += 1;
+    calls.push(['sent-retry', payload]);
+    return visibilityRetryAttempts === 1
+      ? { handled: false, reason: 'inactive-or-unbound' }
+      : { handled: true, abortDefaultGeneration: false };
+  };
+  try {
+    const retryVisibilitySent = await registered.get('message-sent')({
+      id: 'visibility-fallback-retry-player',
+      index: 0,
+      message: visibilityFallbackContext.chat[0]
+    });
+    assert.equal(retryVisibilitySent.scheduled, true);
+    await new Promise((resolve) => setTimeout(resolve, 2800));
+    assert.equal(visibilityRetryAttempts, 2, 'Primary observation retry should succeed once after the transient miss.');
+    const retryVisibilityFallbackScan = __directiveEventTestHooks.scanLatestUserMessageFallback(
+      'visibility-retry-dom-mutation',
+      visibilityFallbackContext
+    );
+    assert.equal(
+      retryVisibilityFallbackScan.handled,
+      false,
+      'Fallback scan must not reobserve a primary MESSAGE_SENT row after its retry succeeds.'
+    );
+    assert.equal(retryVisibilityFallbackScan.reason, 'already-observed');
+  } finally {
+    app.observeHostPlayerMessage = originalObserveHostPlayerMessage;
+  }
+} finally {
+  if (originalSillyTavernForVisibilityFallback === undefined) {
+    delete globalThis.SillyTavern;
+  } else {
+    globalThis.SillyTavern = originalSillyTavernForVisibilityFallback;
+  }
+}
+
 const originalDocumentForHandoff = globalThis.document;
 globalThis.document = createFakeDocument();
 const handoffToken = markDirectiveTurnActivity({ delayMs: 0 });

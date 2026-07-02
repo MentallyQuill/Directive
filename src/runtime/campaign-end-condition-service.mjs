@@ -3,6 +3,7 @@ import {
   createConclusionMetadataFromDetection,
   detectCampaignEndCondition
 } from '../campaign/end-conditions.mjs';
+import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import {
   initializeCampaignRuntimeTracking,
   recordPendingInteraction,
@@ -171,21 +172,95 @@ function decisionForInteraction(state, interaction) {
     || null;
 }
 
-function checkpointSnapshot(state, decision) {
+function checkpointSnapshotRecord(state, decision) {
   const outcomeId = decision?.checkpoint?.outcomeId || decision?.outcomeId || null;
   const entry = (state.turnLedger?.entries || []).find((item) => item?.outcomeId === outcomeId);
-  if (entry?.snapshotBefore) return cloneJson(entry.snapshotBefore);
+  if (entry?.snapshotBefore) {
+    return {
+      snapshot: cloneJson(entry.snapshotBefore),
+      sourceKind: 'turnLedger.snapshotBefore',
+      sourceRevision: Number.isFinite(Number(entry.revision)) ? Number(entry.revision) : null
+    };
+  }
   const history = Array.isArray(state.runtimeTracking?.history) ? state.runtimeTracking.history : [];
   const outcomeEntry = outcomeId
     ? [...history].reverse().find((item) => item?.outcomeId === outcomeId && item?.snapshot)
     : null;
-  if (outcomeEntry?.snapshot) return cloneJson(outcomeEntry.snapshot);
+  if (outcomeEntry?.snapshot) {
+    return {
+      snapshot: cloneJson(outcomeEntry.snapshot),
+      sourceKind: 'runtimeTracking.history.outcomeSnapshot',
+      sourceRevision: Number.isFinite(Number(outcomeEntry.revision)) ? Number(outcomeEntry.revision) : null
+    };
+  }
   const lastStableRevision = Number(state.runtimeTracking?.lastStableRevision);
   const stableEntry = Number.isFinite(lastStableRevision)
     ? [...history].reverse().find((item) => Number(item?.revision) < lastStableRevision && item?.snapshot)
     : null;
-  if (stableEntry?.snapshot) return cloneJson(stableEntry.snapshot);
-  return cloneJson([...history].reverse().find((item) => item?.snapshot)?.snapshot || null);
+  if (stableEntry?.snapshot) {
+    return {
+      snapshot: cloneJson(stableEntry.snapshot),
+      sourceKind: 'runtimeTracking.history.stableSnapshot',
+      sourceRevision: Number.isFinite(Number(stableEntry.revision)) ? Number(stableEntry.revision) : null
+    };
+  }
+  const fallbackEntry = [...history].reverse().find((item) => item?.snapshot);
+  return fallbackEntry?.snapshot
+    ? {
+        snapshot: cloneJson(fallbackEntry.snapshot),
+        sourceKind: 'runtimeTracking.history.snapshot',
+        sourceRevision: Number.isFinite(Number(fallbackEntry.revision)) ? Number(fallbackEntry.revision) : null
+      }
+    : null;
+}
+
+function numericRevision(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function terminalReplayRepairEvidence({ state, interaction, decision, snapshotRecord }) {
+  const snapshot = snapshotRecord?.snapshot || null;
+  return {
+    decisionId: decision?.id || interaction?.metadata?.decisionId || interaction?.id || null,
+    interactionId: interaction?.id || decision?.id || null,
+    conditionId: decision?.conditionId || interaction?.metadata?.terminalOutcomeId || null,
+    turnId: decision?.turnId || interaction?.turnId || null,
+    outcomeId: decision?.checkpoint?.outcomeId || decision?.outcomeId || interaction?.outcomeId || null,
+    action: 'restoreTerminalCheckpointSnapshot',
+    snapshotSourceKind: snapshotRecord?.sourceKind || null,
+    snapshotPresent: Boolean(snapshot),
+    snapshotHash: snapshot ? hashStableJson(snapshot) : null,
+    runtimeRevision: numericRevision(state.runtimeTracking?.revision),
+    ledgerRevision: numericRevision(snapshotRecord?.sourceRevision ?? state.runtimeTracking?.lastStableRevision)
+  };
+}
+
+function compactRepairDecisionEvidence(decision = null) {
+  if (!isObject(decision)) return null;
+  return {
+    kind: decision.kind || null,
+    eventType: decision.eventType || null,
+    sourceKind: decision.sourceKind || null,
+    authorized: decision.authorized === true,
+    action: decision.action || null,
+    requestedAction: decision.requestedAction || null,
+    reason: decision.reason || null,
+    deniedReason: decision.deniedReason || null,
+    decisionId: decision.decisionId || null,
+    interactionId: decision.interactionId || null,
+    conditionId: decision.conditionId || null,
+    turnId: decision.turnId || null,
+    outcomeId: decision.outcomeId || null,
+    snapshotSourceKind: decision.snapshotSourceKind || null,
+    snapshotPresent: decision.snapshotPresent === true,
+    snapshotHash: decision.snapshotHash || null,
+    runtimeRevision: numericRevision(decision.runtimeRevision),
+    ledgerRevision: numericRevision(decision.ledgerRevision),
+    allowedActions: Array.isArray(decision.allowedActions) ? cloneJson(decision.allowedActions) : [],
+    normalTurnAllowed: decision.normalTurnAllowed === true,
+    observedAt: decision.observedAt || null
+  };
 }
 
 function checkpointText(interaction) {
@@ -211,6 +286,7 @@ export function createCampaignEndConditionService({
   recordTerminalCheckpointSettlement = null,
   saveTerminalBranch = null,
   concludeCampaign = null,
+  repairRuntime = null,
   now = null
 } = {}) {
   if (typeof getCampaignState !== 'function') throw new Error('getCampaignState must be a function');
@@ -236,6 +312,36 @@ export function createCampaignEndConditionService({
     } catch {
       return null;
     }
+  }
+
+  async function authorizeTerminalCheckpointReplay(input = {}) {
+    const authorize = repairRuntime?.authorizeTerminalCheckpointReplay
+      || repairRuntime?.evaluateTerminalCheckpointReplayActuation;
+    if (typeof authorize !== 'function') {
+      return {
+        kind: 'directive.repairTerminalCheckpointReplayActuationDecision.v1',
+        eventType: 'terminalCheckpointReplayRequested',
+        sourceKind: 'terminalOutcomeCheckpoint',
+        authorized: false,
+        action: 'blockTerminalCheckpointReplay',
+        requestedAction: input.action || 'restoreTerminalCheckpointSnapshot',
+        reason: 'repair-terminal-checkpoint-replay-authority-unavailable',
+        deniedReason: 'repair-terminal-checkpoint-replay-authority-unavailable',
+        decisionId: input.decisionId || input.interactionId || null,
+        interactionId: input.interactionId || input.decisionId || null,
+        conditionId: input.conditionId || null,
+        turnId: input.turnId || null,
+        outcomeId: input.outcomeId || null,
+        snapshotSourceKind: input.snapshotSourceKind || null,
+        snapshotPresent: input.snapshotPresent === true,
+        snapshotHash: input.snapshotHash || null,
+        runtimeRevision: input.runtimeRevision ?? null,
+        ledgerRevision: input.ledgerRevision ?? null,
+        allowedActions: ['reviewTerminalCheckpointReplayRequest'],
+        normalTurnAllowed: false
+      };
+    }
+    return authorize.call(repairRuntime, cloneJson(input));
   }
 
   async function evaluateCommittedTurn({ turnPacket = null, ingressId = null } = {}) {
@@ -324,8 +430,24 @@ export function createCampaignEndConditionService({
 
   async function replayFromCheckpoint({ interaction, decision }) {
     const current = initializeCampaignRuntimeTracking(getCampaignState());
-    const snapshot = checkpointSnapshot(current, decision);
+    const snapshotRecord = checkpointSnapshotRecord(current, decision);
+    const snapshot = snapshotRecord?.snapshot || null;
     if (!snapshot) return { ok: false, reason: 'checkpoint-snapshot-not-retained' };
+    const repairDecision = compactRepairDecisionEvidence(await authorizeTerminalCheckpointReplay(
+      terminalReplayRepairEvidence({
+        state: current,
+        interaction,
+        decision,
+        snapshotRecord
+      })
+    ));
+    if (repairDecision?.authorized !== true || repairDecision.action !== 'restoreTerminalCheckpointSnapshot') {
+      return {
+        ok: false,
+        reason: repairDecision?.deniedReason || repairDecision?.reason || 'terminal-checkpoint-replay-not-authorized',
+        repairDecision
+      };
+    }
     const currentLedger = endConditionLedger(current);
     const restoredLedger = {
       ...currentLedger,
@@ -335,7 +457,10 @@ export function createCampaignEndConditionService({
             ...item,
             status: 'replayed',
             resolvedAt: timestamp(now),
-            resolution: { action: 'replayFromCheckpoint' }
+            resolution: {
+              action: 'replayFromCheckpoint',
+              repairDecision
+            }
           }
         : item)
     };

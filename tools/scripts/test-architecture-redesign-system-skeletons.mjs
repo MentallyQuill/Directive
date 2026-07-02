@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 
 import {
   assertFrameCleanForSettlement,
@@ -39,6 +40,141 @@ import {
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+const chatTurnOrchestratorSource = readFileSync(
+  new URL('../../src/runtime/chat-turn-orchestrator.mjs', import.meta.url),
+  'utf8'
+);
+assert.equal(
+  /from\s+['"]\.\/scene-handshake-settler\.mjs['"]/.test(chatTurnOrchestratorSource),
+  false,
+  'Production chat-turn-orchestrator must depend on the source-settlement latest-pair owner instead of importing the legacy Scene Handshake settler directly.'
+);
+assert.equal(
+  /\brunSceneHandshakeSettlement\b/.test(chatTurnOrchestratorSource),
+  false,
+  'Production chat-turn-orchestrator must not reference runSceneHandshakeSettlement directly.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /from\s+['"]\.\/source-settlement-latest-pair\.mjs['"]/,
+  'Production chat-turn-orchestrator must route latest-pair settlement through the source-settlement latest-pair owner module.'
+);
+
+const sourceSettlementLatestPairModuleUrl = new URL('../../src/runtime/source-settlement-latest-pair.mjs', import.meta.url);
+assert.equal(
+  existsSync(sourceSettlementLatestPairModuleUrl),
+  true,
+  'Source-settlement latest-pair owner module must exist.'
+);
+const sourceSettlementLatestPair = await import(sourceSettlementLatestPairModuleUrl.href);
+assert.equal(typeof sourceSettlementLatestPair.createLatestPairSourceSettlementProvider, 'function');
+assert.equal(typeof sourceSettlementLatestPair.settleLatestPairSource, 'function');
+
+const sourceReviewWorkerModuleUrl = new URL('../../src/runtime/source-review-worker.mjs', import.meta.url);
+assert.equal(
+  existsSync(sourceReviewWorkerModuleUrl),
+  true,
+  'Source-review worker module must exist.'
+);
+const sourceReviewWorker = await import(sourceReviewWorkerModuleUrl.href);
+assert.equal(typeof sourceReviewWorker.createSourceReviewWorker, 'function');
+assert.equal(typeof sourceReviewWorker.__sourceReviewWorkerTestHooks?.providedHostNativeReviewMatchesSource, 'function');
+const rawSreFindingSummaryCanary = 'RAW_SRE_FINDING_SUMMARY_MUST_NOT_PERSIST';
+const summarySanitizingWorker = sourceReviewWorker.createSourceReviewWorker({
+  sourceReconciliationEngine: {
+    async reviewHostNativeContinuity() {
+      return {
+        kind: 'directive.sreHostNativeContinuityReview.v1',
+        ok: false,
+        findings: [{
+          kind: 'protected-fact-contradiction',
+          factId: 'crew.hadrik-bronn.species',
+          severity: 'blocker',
+          summary: rawSreFindingSummaryCanary,
+          reason: `${rawSreFindingSummaryCanary} reason`
+        }],
+        checkedFactCount: 1,
+        reviewer: 'test-sre'
+      };
+    }
+  },
+  now: () => '2026-06-30T02:00:00.000Z'
+});
+const sanitizedSourceReview = await summarySanitizingWorker.reviewHostNativeContinuity({
+  mode: 'hostNativeCompletion',
+  text: 'The assistant row is reviewed by the worker.',
+  responseId: 'response-source-review-summary-sanitized',
+  ingressId: 'ingress-source-review-summary-sanitized',
+  observedMessage: {
+    hostMessageId: 'assistant-source-review-summary-sanitized',
+    text: 'The assistant row is reviewed by the worker.'
+  }
+});
+assert.equal(
+  JSON.stringify(sanitizedSourceReview).includes(rawSreFindingSummaryCanary),
+  false,
+  'Source-review worker must not persist or return raw SRE finding summaries.'
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(sanitizedSourceReview.findings[0], 'summary'),
+  false,
+  'Source-review worker findings must expose structured/hash-only summary evidence.'
+);
+assert.equal(sanitizedSourceReview.findings[0].summaryLength, rawSreFindingSummaryCanary.length);
+assert.equal(
+  sanitizedSourceReview.findings[0].summaryHash,
+  hashStableJson({ summary: rawSreFindingSummaryCanary })
+);
+const unavailableReviewWorker = sourceReviewWorker.createSourceReviewWorker({
+  sourceReconciliationEngine: {
+    async reviewHostNativeContinuity() {
+      throw new Error('SRE unavailable for summary shape test.');
+    }
+  },
+  now: () => '2026-06-30T02:00:01.000Z'
+});
+const unavailableSourceReview = await unavailableReviewWorker.reviewHostNativeContinuity({
+  mode: 'hostNativeCompletion',
+  text: 'The assistant row cannot be reviewed.',
+  responseId: 'response-source-review-unavailable-summary-sanitized',
+  ingressId: 'ingress-source-review-unavailable-summary-sanitized',
+  observedMessage: {
+    hostMessageId: 'assistant-source-review-unavailable-summary-sanitized',
+    text: 'The assistant row cannot be reviewed.'
+  }
+});
+assert.equal(
+  Object.prototype.hasOwnProperty.call(unavailableSourceReview.findings[0], 'summary'),
+  false,
+  'Source-review worker failure findings must also avoid summary text.'
+);
+
+const responseDispatcherSource = readFileSync(
+  new URL('../../src/runtime/response-dispatcher.mjs', import.meta.url),
+  'utf8'
+);
+assert.equal(
+  /from\s+['"]\.\/source-reconciliation-engine\.mjs['"]/.test(responseDispatcherSource),
+  false,
+  'Production response-dispatcher must depend on source-review-worker instead of importing source-reconciliation-engine directly.'
+);
+assert.match(
+  responseDispatcherSource,
+  /from\s+['"]\.\/source-review-worker\.mjs['"]/,
+  'Production response-dispatcher must route host-native source review through the source-review-worker owner module.'
+);
+for (const localReviewFunction of [
+  'providedHostNativeReviewMatchesSource',
+  'sanitizeHostNativeContinuityReview',
+  'failedHostNativeContinuityReview'
+]) {
+  assert.equal(
+    new RegExp(`function\\s+${localReviewFunction}\\b`).test(responseDispatcherSource),
+    false,
+    `Production response-dispatcher must not locally implement ${localReviewFunction}.`
+  );
 }
 
 function createFakeCoreStore() {
@@ -918,6 +1054,10 @@ const repairBoundary = createRepairCommandBoundary({
       repairCalls.push(['rerun', input]);
       return { authorized: true };
     },
+    evaluateTerminalCheckpointReplayActuation(input) {
+      repairCalls.push(['terminalReplay', input]);
+      return { authorized: true };
+    },
     evaluateResponseReobserveClosure(input) {
       repairCalls.push(['closure', input]);
       return { authorized: true };
@@ -930,10 +1070,12 @@ assert.equal(repairBoundary.handleResponseFailure({ eventType: 'hostResponsePost
 assert.equal(repairBoundary.authorizeRetry({ transactionId: 'txn' }).authorized, true);
 assert.equal(repairBoundary.authorizeRollback({ transactionId: 'txn' }).authorized, true);
 assert.equal(repairBoundary.authorizeRerunBranch({ transactionId: 'txn' }).authorized, true);
+assert.equal(repairBoundary.authorizeTerminalCheckpointReplay({ decisionId: 'decision' }).authorized, true);
 assert.equal(repairBoundary.authorizeReobserveClosure({ transactionId: 'txn' }).authorized, true);
 assert.equal(repairBoundary.recordResponseRecovery({ eventType: 'hostResponsePostFailure' }).status, 'recorded');
 assert.equal(repairBoundary.evaluateResponseRetryActuation({ transactionId: 'txn' }).authorized, true);
 assert.equal(repairBoundary.evaluateRollbackActuation({ transactionId: 'txn' }).authorized, true);
+assert.equal(repairBoundary.evaluateTerminalCheckpointReplayActuation({ decisionId: 'decision' }).authorized, true);
 assert.equal(repairBoundary.evaluateResponseReobserveClosure({ transactionId: 'txn' }).authorized, true);
 assert.deepEqual(repairCalls.map(([name]) => name), [
   'source',
@@ -942,10 +1084,12 @@ assert.deepEqual(repairCalls.map(([name]) => name), [
   'retry',
   'rollback',
   'rerun',
+  'terminalReplay',
   'closure',
   'response',
   'retry',
   'rollback',
+  'terminalReplay',
   'closure'
 ]);
 

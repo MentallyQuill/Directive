@@ -18,6 +18,7 @@ import {
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 
 const ROLE_ID = 'sceneHandshakeSettler';
+export const SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID = 'sourceSettlementLatestPair';
 const KIND = 'directive.sceneHandshakeSettlement.v1';
 const DEFAULT_TIMEOUT_MS = 30000;
 const ACCEPTED_RELATIONS = new Set(['acknowledges', 'continues', 'acts-on', 'asks-followup']);
@@ -1660,6 +1661,7 @@ function sceneHandshakeLedgerRecord({
   applied = null,
   error = null,
   metadata = null,
+  modelRoleId = ROLE_ID,
   recordedAt = null
 }) {
   return {
@@ -1682,7 +1684,7 @@ function sceneHandshakeLedgerRecord({
     selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
     promptContextRevisionBefore: snapshot.envelope.promptContextRevision || 0,
     runtimeRevisionBefore: snapshot.envelope.runtimeRevision || 0,
-    modelRoleId: ROLE_ID,
+    modelRoleId,
     providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
     model: generation?.diagnostics?.model || generation?.response?.model || null,
     latencyMs: generation?.diagnostics?.latencyMs ?? null,
@@ -1699,6 +1701,90 @@ function sceneHandshakeLedgerRecord({
     } : null,
     ...(metadata ? { metadata: cloneJson(metadata) } : {}),
     recordedAt: recordedAt || timestamp()
+  };
+}
+
+export function createLatestPairSreSettlementProvider({
+  generationRouter = null,
+  now = null
+} = {}) {
+  return async function runLatestPairSreSettlementProvider(payload = {}) {
+    const snapshot = payload.snapshot || null;
+    if (!snapshot) {
+      const error = new Error('SRE latest-pair settlement requires a Scene Handshake snapshot.');
+      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_MISSING_SNAPSHOT';
+      throw error;
+    }
+    if (typeof generationRouter?.generate !== 'function') {
+      const error = new Error('SRE latest-pair settlement requires generationRouter.generate().');
+      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_NO_GENERATOR';
+      throw error;
+    }
+    const request = createPrompt(snapshot);
+    request.metadata = {
+      ...(request.metadata || {}),
+      source: 'sourceSettlementLatestPair',
+      sourceSettlementMode: 'latestPair'
+    };
+    let generation = null;
+    try {
+      generation = await generationRouter.generate(
+        SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
+        request,
+        { timeoutMs: DEFAULT_TIMEOUT_MS }
+      );
+    } catch (error) {
+      const wrapped = new Error('SRE latest-pair provider threw before returning output.');
+      wrapped.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_THROW';
+      wrapped.providerId = error?.providerId || null;
+      wrapped.latencyMs = error?.latencyMs ?? null;
+      throw wrapped;
+    }
+    const text = responseText(generation);
+    if (!generation?.ok || !text) {
+      const error = new Error('SRE latest-pair provider returned no usable output.');
+      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_EMPTY';
+      error.providerId = generation?.diagnostics?.providerId || generation?.response?.providerId || null;
+      error.latencyMs = generation?.diagnostics?.latencyMs ?? null;
+      throw error;
+    }
+    const parse = parseSceneHandshakeSettlementOutput(text);
+    if (!parse.ok) {
+      const error = new Error('SRE latest-pair provider returned invalid settlement JSON.');
+      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PARSE_FAILED';
+      error.providerId = generation?.diagnostics?.providerId || generation?.response?.providerId || null;
+      error.latencyMs = generation?.diagnostics?.latencyMs ?? null;
+      throw error;
+    }
+    const validation = validateSceneHandshakeSettlement(parse.value, {
+      campaignState: payload.campaignState,
+      snapshot,
+      settlementId: payload.settlementId,
+      recordedAt: payload.observedAt || timestamp(now)
+    });
+    if (validation.disposition !== 'autoCommit' && validation.settlement?.acceptedPreviousResponse) {
+      const error = new Error(`SRE latest-pair provider output rejected: ${validation.reasons.join(', ') || validation.disposition}.`);
+      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_VALIDATION_REJECTED';
+      error.providerId = generation?.diagnostics?.providerId || generation?.response?.providerId || null;
+      error.latencyMs = generation?.diagnostics?.latencyMs ?? null;
+      throw error;
+    }
+    return {
+      settlement: validation.settlement,
+      operations: validation.operations,
+      generation: {
+        ok: generation.ok === true,
+        diagnostics: cloneJson(generation.diagnostics || null),
+        response: {
+          providerId: generation?.response?.providerId || null,
+          model: generation?.response?.model || null
+        }
+      },
+      parse: {
+        ok: true
+      },
+      reasons: cloneJson(validation.reasons || [])
+    };
   };
 }
 
@@ -1806,10 +1892,11 @@ async function runTerminalLatestPairSourceSettlement({
   latestPairSourceFrame = null,
   packageData = null,
   generationRouter = null,
+  coreStore = null,
   ingressId = null,
   now = null
 } = {}) {
-  if (typeof runLatestPairSettlementProvider !== 'function' || !stateDeltaGateway?.applyOperations) return null;
+  if (typeof runLatestPairSettlementProvider !== 'function') return null;
   const sourceFrame = sourceSettlementFrameFor(snapshot, latestPairSourceFrame);
   const source = sourceSettlementProviderSource(snapshot, sourceFrame);
   const expected = {
@@ -1821,13 +1908,16 @@ async function runTerminalLatestPairSourceSettlement({
   let applied = null;
   let record = null;
   let providerSettlement = null;
-  const sourceSettlement = createSourceSettlementService({
+  const sourceSettlementOptions = {
+    coreStore,
     clock: () => timestamp(now),
     runLatestPairProvider: runLatestPairSettlementProvider,
     validateBeforeApply: typeof validateLatestPairSettlementBeforeApply === 'function'
       ? validateLatestPairSettlementBeforeApply
-      : async () => ({ ok: true }),
-    applySettlement: async ({ operations = [], providerResult = null }) => {
+      : async () => ({ ok: true })
+  };
+  if (typeof stateDeltaGateway?.applyOperations === 'function') {
+    sourceSettlementOptions.applySettlement = async ({ operations = [], providerResult = null }) => {
       if (!operations.length) return { ok: true, applied: false };
       providerSettlement = providerResult?.settlement || null;
       const materialChange = operations.some((operation) => operation.path?.split('.')[0] !== 'runtimeTracking');
@@ -1844,7 +1934,9 @@ async function runTerminalLatestPairSourceSettlement({
         snapshot,
         settlement: providerSettlement,
         operations,
+        generation: providerResult?.generation || null,
         applied: expectedApplied,
+        modelRoleId: SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
         metadata: {
           sourceOwner: 'sre',
           sourceSettlementMode: 'latestPair'
@@ -1880,13 +1972,16 @@ async function runTerminalLatestPairSourceSettlement({
         allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
       });
       return { ok: true, applied: true };
-    }
-  });
+    };
+  }
+  const sourceSettlement = createSourceSettlementService(sourceSettlementOptions);
   const decision = await sourceSettlement.settleLatestPair({
     transactionId: `scene-handshake:${settlementId}`,
     settlementId,
     idempotencyKey: `sre:scene-handshake:${idempotencyKey}`,
     sourceFrame,
+    snapshot,
+    campaignState,
     source,
     expected,
     previousAssistant: source.previousAssistant,
@@ -2084,6 +2179,7 @@ export async function runSceneHandshakeSettlement({
   validateLatestPairSettlementBeforeApply = null,
   latestPairSourceFrame = null,
   packageData = null,
+  coreStore = null,
   now = null
 } = {}) {
   if (!campaignState || !currentPlayerMessage?.text) {
@@ -2153,6 +2249,7 @@ export async function runSceneHandshakeSettlement({
     latestPairSourceFrame,
     packageData,
     generationRouter,
+    coreStore,
     ingressId,
     now
   });
