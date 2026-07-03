@@ -152,6 +152,32 @@ const unrelatedUniformMentionCheck = buildFactualGroundingCheck({
 assert.equal(unrelatedUniformMentionCheck.status, 'pass');
 assert.equal(unrelatedUniformMentionCheck.counts.contradicted, 0);
 
+const nearbyOtherUniformCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-nearby-other-uniform',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#nearby-other-uniform',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [bronnCanary.id],
+  generatedText: 'A yeoman in a burgundy-red command-division tunic stands just behind Bronn, who wears the mustard-yellow of the tactical division.'
+});
+
+assert.equal(nearbyOtherUniformCheck.status, 'pass');
+assert.equal(nearbyOtherUniformCheck.counts.contradicted, 0);
+
+const sameSentenceMultipleOfficerUniformCheck = buildFactualGroundingCheck({
+  pack: ashesPack,
+  generatedMessageId: 'matrix-same-sentence-multiple-officer-uniform',
+  generatedMessageIndex: null,
+  transcriptPointer: 'transcript/readable-chat.md#same-sentence-multiple-officer-uniform',
+  promptBlocks: matrixPromptBlocks,
+  requiredFactIds: [nayarCanary.id],
+  generatedText: 'Lieutenant Kieran Vale sits at conn in burgundy-red command colors, while Lieutenant Priya Nayar stands at operations in mustard-yellow operations colors.'
+});
+
+assert.equal(sameSentenceMultipleOfficerUniformCheck.status, 'pass');
+assert.equal(sameSentenceMultipleOfficerUniformCheck.counts.contradicted, 0);
+
 const whitakerAgeCheck = buildFactualGroundingCheck({
   pack: ashesPack,
   generatedMessageId: 'matrix-whitaker-age',

@@ -541,6 +541,147 @@ export function collectExternalPromptKeys(environment = {}) {
   ]).filter(isExternalPromptKey);
 }
 
+function targetHasExplicitInactiveEvidence(target, value = {}) {
+  if (target === 'stLorebooks') return value.installed === false || value.enabled === false || value.active === false;
+  if (target === 'memoryBooks') return value.installed === false || value.enabled === false;
+  if (target === 'summaryception') return value.installed === false || value.enabled === false;
+  if (target === 'vectFox') return value.installed === false || value.enabled === false || value.disabledPresent === true;
+  return true;
+}
+
+function targetRequiresRichEvidence(target, value = {}) {
+  if (target === 'stLorebooks') return value.active === true || value.enabled === true;
+  if (target === 'memoryBooks') {
+    return value.enabled === true
+      || Boolean(value.activeBookName)
+      || Number(value.stMemoryBookEntryCount || 0) > 0;
+  }
+  if (target === 'summaryception') return value.enabled === true || value.promptKeyActive === true;
+  if (target === 'vectFox') return value.enabled === true || value.generationInterceptorActive === true;
+  return false;
+}
+
+function targetHasRichEvidence(target, value = {}) {
+  if (target === 'stLorebooks') {
+    return value.active === true
+      || Boolean(value.chatBoundName)
+      || (Array.isArray(value.activeNames) && value.activeNames.length > 0)
+      || targetHasExplicitInactiveEvidence(target, value);
+  }
+  if (target === 'memoryBooks') {
+    const status = asString(value.rangeDiagnostics?.status);
+    return (status && status !== 'unknown')
+      || Boolean(value.stMemoryBookEntryHash)
+      || targetHasExplicitInactiveEvidence(target, value);
+  }
+  if (target === 'summaryception') {
+    const status = asString(value.staleness?.status);
+    return (status && status !== 'unknown')
+      || Boolean(value.injectionHash)
+      || targetHasExplicitInactiveEvidence(target, value);
+  }
+  if (target === 'vectFox') {
+    const status = asString(value.backendDiagnostics?.status);
+    return (status && status !== 'unknown')
+      || Boolean(value.settingsHash)
+      || (Array.isArray(value.promptKeys) && value.promptKeys.length > 0)
+      || targetHasExplicitInactiveEvidence(target, value);
+  }
+  return true;
+}
+
+function targetRichEvidenceStatus(target, value = {}) {
+  const requiresRichEvidence = targetRequiresRichEvidence(target, value);
+  const hasRichEvidence = targetHasRichEvidence(target, value);
+  return compactObject({
+    requiresRichEvidence,
+    richEvidence: hasRichEvidence,
+    richEvidenceMissing: requiresRichEvidence && !hasRichEvidence
+  });
+}
+
+export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
+  const normalized = environment.kind === EXTERNAL_CONTEXT_KIND
+    ? environment
+    : normalizeExternalPromptEnvironment(environment);
+  const worldInfo = normalized.worldInfo || {};
+  const memoryBooks = normalized.memoryBooks || {};
+  const summaryception = normalized.summaryception || {};
+  const vectFox = normalized.vectFox || {};
+  const unknownExternalContext = normalized.unknownExternalContext || {};
+  return {
+    stLorebooks: {
+      status: diagnosticStatusFor('stLorebooks', worldInfo),
+      installed: worldInfo.installed === true,
+      enabled: worldInfo.enabled === true,
+      active: worldInfo.active === true,
+      activeNameCount: Array.isArray(worldInfo.activeNames) ? worldInfo.activeNames.length : 0,
+      chatBound: Boolean(worldInfo.chatBoundName),
+      promptPositions: Array.isArray(worldInfo.promptPositions) ? [...worldInfo.promptPositions] : [],
+      directiveAuthority: false,
+      rawContentCaptured: false,
+      ...targetRichEvidenceStatus('stLorebooks', worldInfo)
+    },
+    memoryBooks: {
+      status: diagnosticStatusFor('memoryBooks', memoryBooks),
+      installed: memoryBooks.installed === true,
+      enabled: memoryBooks.enabled === true,
+      active: Boolean(memoryBooks.activeBookName) || Number(memoryBooks.stMemoryBookEntryCount || 0) > 0,
+      entryCount: Number(memoryBooks.stMemoryBookEntryCount || 0),
+      entryHash: memoryBooks.stMemoryBookEntryHash || null,
+      rangeDiagnostics: { ...(memoryBooks.rangeDiagnostics || {}) },
+      riskyModes: { ...(memoryBooks.riskyModes || {}) },
+      directiveAuthority: false,
+      rawContentCaptured: false,
+      ...targetRichEvidenceStatus('memoryBooks', memoryBooks)
+    },
+    summaryception: {
+      status: diagnosticStatusFor('summaryception', summaryception),
+      installed: summaryception.installed === true,
+      enabled: summaryception.enabled === true,
+      promptKeyActive: summaryception.promptKeyActive === true,
+      layerCount: Number(summaryception.layerCount || 0),
+      ghostedCount: Number(summaryception.ghostedCount || 0),
+      staleness: { ...(summaryception.staleness || {}) },
+      injectionHash: summaryception.injectionHash || null,
+      externalModelCalls: summaryception.externalModelCalls === true,
+      directiveAuthority: false,
+      rawContentCaptured: false,
+      ...targetRichEvidenceStatus('summaryception', summaryception)
+    },
+    vectFox: {
+      status: diagnosticStatusFor('vectFox', vectFox),
+      installed: vectFox.installed === true,
+      enabled: vectFox.enabled === true,
+      disabledPresent: vectFox.disabledPresent === true,
+      promptKeys: Array.isArray(vectFox.promptKeys) ? [...vectFox.promptKeys] : [],
+      backendType: vectFox.backendType || null,
+      semanticWorldInfoEnabled: vectFox.semanticWorldInfoEnabled === true,
+      summarizerInjectionEnabled: vectFox.summarizerInjectionEnabled === true,
+      ghostingEnabled: vectFox.ghostingEnabled === true,
+      generationInterceptorActive: vectFox.generationInterceptorActive === true,
+      backendDiagnostics: { ...(vectFox.backendDiagnostics || {}) },
+      settingsHash: vectFox.settingsHash || null,
+      directiveAuthority: false,
+      rawContentCaptured: false,
+      ...targetRichEvidenceStatus('vectFox', vectFox)
+    },
+    unknownExternalContext: {
+      status: diagnosticStatusFor('unknownExternalContext', unknownExternalContext),
+      promptKeyCount: Number(unknownExternalContext.promptKeyCount || 0),
+      promptKeyPrefixes: Array.isArray(unknownExternalContext.promptKeyPrefixes)
+        ? [...unknownExternalContext.promptKeyPrefixes]
+        : [],
+      promptKeyHash: unknownExternalContext.promptKeyHash || null,
+      promptKeyPrefixHash: unknownExternalContext.promptKeyPrefixHash || null,
+      visibilityMarkerCount: Number(unknownExternalContext.visibilityMarkerCount || 0),
+      redactionReason: unknownExternalContext.redactionReason || null,
+      directiveAuthority: false,
+      rawContentCaptured: false
+    }
+  };
+}
+
 export function createExternalPromptEnvironmentRef(environment = {}) {
   const normalized = environment.kind === EXTERNAL_CONTEXT_KIND
     ? environment

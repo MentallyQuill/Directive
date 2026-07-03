@@ -984,6 +984,7 @@ export function createResponseDispatcher({
     const recovery = await findResponseRecovery(campaignState, response);
     let next = updateDirectiveResponse(campaignState, response.id, {
       status: 'complete',
+      hostMessageId: observedHostMessageId,
       hostCompletedAt: eventTime,
       turnLatency,
       hostObservationStatus: 'completed',
@@ -1322,6 +1323,36 @@ export function createResponseDispatcher({
       if (terminalSettlement) {
         const visibleRef = terminalSettlement.transaction?.visibleResponseRef || null;
         const visibleHostMessageId = compact(visibleRef?.hostMessageId);
+        const effectiveObservedHostMessageId = compact(observedHostMessageId) || visibleHostMessageId;
+        const effectiveTextHash = observedTextHash || compact(visibleRef?.textHash);
+        const visiblePostedAt = visibleRef?.postedAt || eventTime;
+        const terminalTurnLatency = createTurnLatencyMetrics({
+          playerSubmittedAt: ingress?.playerSubmittedAt || ingress?.receivedAt || null,
+          turnObservedAt: ingress?.receivedAt || null,
+          routeDecidedAt: hostGenerationReleasedAt,
+          hostGenerationReleasedAt,
+          visibleResponsePostedAt: visiblePostedAt
+        });
+        const repairRuntimeProjection = async (coreCompletion = terminalSettlement.transaction) => {
+          if (!effectiveObservedHostMessageId || !effectiveTextHash) return false;
+          const needsRuntimeProjectionRepair = !compact(response.hostMessageId)
+            || !compact(response.hostObservation?.hostMessageId)
+            || !compact(response.hostObservation?.textHash);
+          if (!needsRuntimeProjectionRepair) return false;
+          const next = await closeResponseReobserveProjection({
+            campaignState: current,
+            response,
+            observedHostMessageId: effectiveObservedHostMessageId,
+            observedIndex: observedMessage?.index ?? null,
+            textHash: effectiveTextHash,
+            eventTime: visiblePostedAt,
+            turnLatency: terminalTurnLatency,
+            coreCompletion,
+            repairDecision: null
+          });
+          await acceptState(next, `Repaired host-native runtime projection for ${responseId || ingressId}.`);
+          return true;
+        };
         const canRepairMissingHash = terminalSettlement.status === 'visibleResponseRecorded'
           && typeof coreTurnStore?.repairVisibleResponseRef === 'function'
           && observedTextHash
@@ -1335,6 +1366,7 @@ export function createResponseDispatcher({
             reason: 'host-native-completion-reobserved-missing-hash',
             idempotencyKey: `visible-response-hash-repair:${responseId}`
           });
+          await repairRuntimeProjection(repaired);
           return {
             ok: true,
             status: 'complete',
@@ -1345,7 +1377,8 @@ export function createResponseDispatcher({
             }
           };
         }
-        return { ok: true, status: 'alreadySettled', terminalSettlement };
+        const runtimeProjectionRepaired = await repairRuntimeProjection(terminalSettlement.transaction);
+        return { ok: true, status: 'alreadySettled', runtimeProjectionRepaired, terminalSettlement };
       }
       const turnLatency = createTurnLatencyMetrics({
         playerSubmittedAt: ingress?.playerSubmittedAt || ingress?.receivedAt || null,
@@ -1410,6 +1443,7 @@ export function createResponseDispatcher({
           status: coreCompletionError
             ? (coreCompletionDiagnosticRecorded ? 'coreRecoveryDiagnosticProjected' : 'recoveryRequired')
             : 'complete',
+          hostMessageId: observedHostMessageId,
           recoveryId: coreCompletionError && !coreCompletionDiagnosticRecorded ? completionRecoveryId : null,
           hostCompletedAt: eventTime,
           turnLatency,
@@ -1559,7 +1593,8 @@ export function createResponseDispatcher({
     const responses = (tracking.responseLedger || []).filter((entry) => (
       entry?.strategy === 'injectAndContinue'
       && entry?.responseKind === 'hostGeneration'
-      && entry?.status === 'released'
+      && ['released', 'complete'].includes(compact(entry?.status))
+      && !compact(entry.hostMessageId)
       && !entry.hostObservation?.hostMessageId
     ));
     let refreshResult = null;

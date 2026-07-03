@@ -18,6 +18,21 @@
       }
     },
     "scoringWeights": { "type": "object", "additionalProperties": { "type": "number" } },
+    "lensPromptBudgetLanes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stableRules": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "protectedContinuity": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "activeScene": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "activeCast": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "missionPressure": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "recentTranscript": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "recall": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "volatileTurn": { "$ref": "#/$defs/lensPromptBudgetLane" },
+        "externalEnvironment": { "$ref": "#/$defs/lensPromptBudgetLane" }
+      }
+    },
     "blockPolicies": {
       "type": "object",
       "minProperties": 1,
@@ -25,6 +40,20 @@
     }
   },
   "$defs": {
+    "lensPromptBudgetLane": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "budgetTokens": { "type": "integer", "minimum": 0 },
+        "reservedFloor": { "type": "integer", "minimum": 0 },
+        "overflowPolicy": {
+          "type": "string",
+          "enum": ["omit-overflow", "fail-closed", "diagnostic-only"]
+        },
+        "authority": { "type": "string" },
+        "diagnosticOnly": { "type": "boolean" }
+      }
+    },
     "blockPolicy": {
       "type": "object",
       "additionalProperties": true,

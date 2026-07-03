@@ -360,8 +360,14 @@ function validateMessageMutationActuation(filePath) {
       const proof = evidence.sourceIntegrityProof || {};
       return !proof.kind
         || !proof.selectedHostMessageId
+        || proof.actuationMode !== 'native-host-swipe-control'
+        || proof.nativeHostControlMoved !== true
         || proof.sourceIntegrity !== 'clean'
-        || proof.hashMatched !== true;
+        || !(proof.hashMatched === true || proof.selectedHashMatchesPrevious === true)
+        || proof.discardedSwipeCanariesAbsent !== true
+        || !Number.isFinite(Number(proof.selectedSwipeIndex))
+        || Number(proof.swipeCount || 0) < 2
+        || !proof.sreDecision?.status;
     }
     return false;
   });

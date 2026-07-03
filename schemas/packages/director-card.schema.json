@@ -167,6 +167,32 @@
           "type": "string",
           "enum": ["low", "normal", "high", "critical"]
         },
+        "mode": {
+          "type": "string",
+          "enum": ["deterministic", "package", "reviewedImport", "sceneSeal", "semanticCandidate"]
+        },
+        "audience": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "audiences": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "knownBy": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "sourceAuthority": {
+          "type": "string",
+          "enum": ["frame", "core", "package", "reviewedImport", "sceneSeal", "diagnosticCandidate"]
+        },
+        "ragHints": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "array", "object", "null"]
+          }
+        },
         "cooldown": {
           "type": "object",
           "additionalProperties": false,

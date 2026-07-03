@@ -80,6 +80,10 @@ assert(!plan.blocks.some((block) => block.sourceIds?.includes('quest.dynamic.hid
 assert(plan.blocks.every((block) => block.audience === 'narratorSafe'));
 assert(plan.blocks.every((block) => Number.isInteger(block.depth) && block.depth >= 0));
 assert(plan.blocks.every((block) => block.tokenEstimate > 0));
+assert(plan.blocks.every((block) => typeof block.lensPromptBudgetLane === 'string' && block.lensPromptBudgetLane.length > 0));
+assert.equal(plan.blocks.find((block) => block.id === 'directive-contract')?.lensPromptBudgetLane, 'stableRules');
+assert.equal(plan.blocks.find((block) => block.id === 'immediate-scene')?.lensPromptBudgetLane, 'activeScene');
+assert.equal(plan.blocks.find((block) => block.id === 'relevant-crew')?.lensPromptBudgetLane, 'activeCast');
 assert.equal(plan.safety.rawHiddenValuesExposed, false);
 assert.equal(plan.safety.directorOnlyDataIncluded, false);
 
@@ -87,5 +91,6 @@ const recorded = recordContextPlan(state, plan, { installedAt: '2026-06-22T14:00
 assert.equal(recorded.runtimeTracking.promptContext.hash, plan.hash);
 assert.equal(recorded.runtimeTracking.promptContext.blockCount, plan.blocks.length);
 assert.equal(recorded.runtimeTracking.promptContext.tokenEstimate, plan.usage.total);
+assert.equal(recorded.runtimeTracking.promptContext.blocks.every((block) => block.lensPromptBudgetLane), true);
 
 console.log('test-open-world-context-budget: ok');

@@ -1219,37 +1219,55 @@ export function createChatTurnOrchestrator({
       });
       return state;
     }
-    const result = await settleLatestPairSource({
-      campaignState: state,
-      currentPlayerMessage: message,
-      recentMessages,
-      chatId,
-      ingressId,
-      generationRouter,
-      stateDeltaGateway,
-      runLatestPairSettlementProvider: defaultLatestPairSettlementProvider,
-      validateLatestPairSettlementBeforeApply: async (payload = {}) => {
-        const latestState = initializeCampaignRuntimeTracking(getCampaignState() || state);
-        const latestIngress = findIngress(latestState, ingressId);
-        const expectedFrameId = payload.sourceFrame?.id || ingress?.sourceFrame?.id || null;
-        const currentFrameId = latestIngress?.sourceFrame?.id || null;
-        if (expectedFrameId && currentFrameId && expectedFrameId !== currentFrameId) {
-          return { ok: false, reasons: ['scene-handshake-source-frame-stale'] };
+    let result = null;
+    try {
+      result = await settleLatestPairSource({
+        campaignState: state,
+        currentPlayerMessage: message,
+        recentMessages,
+        chatId,
+        ingressId,
+        generationRouter,
+        stateDeltaGateway,
+        runLatestPairSettlementProvider: defaultLatestPairSettlementProvider,
+        validateLatestPairSettlementBeforeApply: async (payload = {}) => {
+          const latestState = initializeCampaignRuntimeTracking(getCampaignState() || state);
+          const latestIngress = findIngress(latestState, ingressId);
+          const expectedFrameId = payload.sourceFrame?.id || ingress?.sourceFrame?.id || null;
+          const currentFrameId = latestIngress?.sourceFrame?.id || null;
+          if (expectedFrameId && currentFrameId && expectedFrameId !== currentFrameId) {
+            return { ok: false, reasons: ['scene-handshake-source-frame-stale'] };
+          }
+          if (typeof validateLatestPairSettlementBeforeApply === 'function') {
+            return validateLatestPairSettlementBeforeApply({
+              ...payload,
+              ingress: cloneJson(latestIngress || null),
+              currentCampaignState: latestState
+            });
+          }
+          return { ok: true };
+        },
+        latestPairSourceFrame: ingress?.sourceFrame || null,
+        packageData,
+        coreStore: coreTurnStore,
+        now
+      });
+    } catch (error) {
+      reportActivity(activityReporter, {
+        phase: 'sceneHandshakeDeferred',
+        mode: 'diagnostic',
+        source: 'sre',
+        ingressId,
+        transactionId: ingress?.coreTransactionId || null,
+        sourceFrameId: ingress?.sourceFrame?.id || null,
+        reasons: ['source-settlement-provider-failed-deferred'],
+        error: {
+          code: error?.code || null,
+          message: error?.message || String(error)
         }
-        if (typeof validateLatestPairSettlementBeforeApply === 'function') {
-          return validateLatestPairSettlementBeforeApply({
-            ...payload,
-            ingress: cloneJson(latestIngress || null),
-            currentCampaignState: latestState
-          });
-        }
-        return { ok: true };
-      },
-      latestPairSourceFrame: ingress?.sourceFrame || null,
-      packageData,
-      coreStore: coreTurnStore,
-      now
-    });
+      });
+      return state;
+    }
     let next = result?.campaignState || state;
     if (!result?.attempted && !result?.deduplicated) return next;
     reportActivity(activityReporter, {
@@ -2575,12 +2593,17 @@ export function createChatTurnOrchestrator({
     const responseRows = view.responseLedger || [];
     const ingressRows = view.ingressLedger || [];
     const targetRecoveryId = compact(recoveryId || '');
+    const closedRecoveryIds = new Set(recoveryRows
+      .filter((row) => ['resolved', 'applied'].includes(compact(row?.status)))
+      .map((row) => compact(row?.id || row?.recoveryId || ''))
+      .filter(Boolean));
     for (const row of [...recoveryRows].reverse()) {
       const repairDecision = row?.repairDecision || {};
       const eventType = compact(repairDecision.eventType || row.reason || '');
       if (!RESPONSE_RETRY_RECOVERY_TYPES.has(eventType)) continue;
-      if (['resolved', 'applied'].includes(compact(row.status))) continue;
       const rowRecoveryId = compact(row.id || row.recoveryId || '');
+      if (['resolved', 'applied'].includes(compact(row.status))) continue;
+      if (rowRecoveryId && closedRecoveryIds.has(rowRecoveryId)) continue;
       const transactionId = compact(row.transactionId || row.coreTransactionId || repairDecision.transactionId || '');
       if (targetRecoveryId && rowRecoveryId !== targetRecoveryId) continue;
       const response = responseRows.find((entry) => (
@@ -2603,8 +2626,10 @@ export function createChatTurnOrchestrator({
           turnId: repairDecision.turnId || response?.turnId || null,
           strategy: response?.strategy || 'directivePosted',
           responseKind: response?.responseKind || 'committedOutcome',
-          responseId: row.dependentResponseId || response?.id || null,
-          responseIdempotencyKey: row.dependentResponseId || response?.id || null,
+          responseId: row.dependentResponseId || null,
+          responseIdempotencyKey: row.dependentResponseId
+            || (rowRecoveryId ? `directive-response-retry:${rowRecoveryId}` : null)
+            || (transactionId ? `directive-response-retry:${transactionId}` : null),
           hostMessageId: response?.hostMessageId || null,
           responseRetryPlan: cloneJson(row.responseRetryPlan || repairDecision.responseRetryPlan || null),
           coreTransactionId: transactionId || null,
@@ -4363,7 +4388,8 @@ export function createChatTurnOrchestrator({
     next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision, {
       scene: {
         presentActorIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || []
-      }
+      },
+      recallRefs: committed?.turnPacket?.directorPackets?.narrator?.recallRefs || []
     }), activityReporter, {
       source: 'committedOutcome',
       classification: decision.classification,

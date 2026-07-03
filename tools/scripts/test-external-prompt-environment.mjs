@@ -6,7 +6,8 @@ import {
   createExternalPromptEnvironmentRef,
   hashStableJson,
   normalizeExternalPromptEnvironment,
-  stableJsonByteLength
+  stableJsonByteLength,
+  summarizeExternalPromptEnvironmentTargets
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
 
 const schema = JSON.parse(fs.readFileSync('schemas/runtime/external-prompt-environment.schema.json', 'utf8'));
@@ -52,6 +53,14 @@ const soakUsers = [
       activeBookName: 'Sam Vickers Memories',
       entryCount: 48,
       entryHash: hashStableJson({ entries: 48 }),
+      rangeDiagnostics: {
+        status: 'valid',
+        entryRangeCount: 48,
+        chatRangeCount: 2,
+        validRangeCount: 48,
+        staleRangeCount: 0,
+        rangeHash: hashStableJson({ ranges: 'sam-vickers-valid' })
+      },
       autoSummary: true,
       sidePrompts: true,
       promptText: 'Raw STMB side prompt must not persist.'
@@ -82,6 +91,14 @@ const soakUsers = [
       summarizedUpTo: 3100,
       layerCount: 7,
       ghostedCount: 2200,
+      staleness: {
+        status: 'current',
+        chatLength: 4200,
+        summarizedRangeBeyondChat: false,
+        staleAfterMutation: false,
+        ghostedSystemVisibleCount: 7,
+        summarizedOnlyCount: 2200
+      },
       injectionHash: hashStableJson({ summary: 'c' }),
       promptText: 'Raw Summaryception text must not persist.'
     },
@@ -111,6 +128,15 @@ const soakUsers = [
       promptKeys: ['3_vectfox', '3_vectfox_eventbase'],
       vectorBackend: 'qdrant',
       generationInterceptorActive: true,
+      backendDiagnostics: {
+        status: 'external-backend-configured',
+        backendType: 'qdrant',
+        unavailable: false,
+        externalTimingObserved: true,
+        retrievalLatencyMs: 42,
+        interceptorLatencyMs: 11,
+        timingHash: hashStableJson({ vectFox: 'qdrant-latency' })
+      },
       qdrant_api_key: 'SECRET-QDRANT-KEY',
       vectorPayload: ['Raw vector hit must not persist.']
     },
@@ -130,6 +156,14 @@ const soakUsers = [
       activeBookName: 'Combined Memory Book',
       entryCount: 96,
       entryHash: hashStableJson({ entries: 96 }),
+      rangeDiagnostics: {
+        status: 'valid',
+        entryRangeCount: 96,
+        chatRangeCount: 4,
+        validRangeCount: 96,
+        staleRangeCount: 0,
+        rangeHash: hashStableJson({ ranges: 'combined-valid' })
+      },
       autoHideUnhide: true,
       atDepthUserOrAssistant: true
     },
@@ -140,6 +174,14 @@ const soakUsers = [
       summarizedUpTo: 4200,
       layerCount: 11,
       ghostedCount: 3600,
+      staleness: {
+        status: 'current',
+        chatLength: 5200,
+        summarizedRangeBeyondChat: false,
+        staleAfterMutation: false,
+        ghostedSystemVisibleCount: 11,
+        summarizedOnlyCount: 3600
+      },
       injectionHash: hashStableJson({ summary: 'e' })
     },
     vectFox: {
@@ -148,7 +190,16 @@ const soakUsers = [
       promptKeys: ['3_vectfox', '3_vectfox_summarizer'],
       vectorBackend: 'local',
       summarizerInjectionEnabled: true,
-      ghostingEnabled: true
+      ghostingEnabled: true,
+      backendDiagnostics: {
+        status: 'local-backend-configured',
+        backendType: 'local',
+        unavailable: false,
+        externalTimingObserved: true,
+        retrievalLatencyMs: 18,
+        interceptorLatencyMs: 7,
+        timingHash: hashStableJson({ vectFox: 'local-latency' })
+      }
     },
     promptKeys: [
       'directive.campaign.context',
@@ -194,6 +245,14 @@ for (const environment of environments) {
   assert.equal(ref.hash, environment.hash);
   assert.equal(ref.knownExternalPromptKeys.some((key) => key.startsWith('directive.')), false);
   assert.deepEqual(ref.knownExternalPromptKeys, collectExternalPromptKeys(environment));
+  const targets = summarizeExternalPromptEnvironmentTargets(environment);
+  for (const [targetId, target] of Object.entries(targets)) {
+    assert.equal(target.directiveAuthority, false, `${environment.userHandle} ${targetId} should be provenance-only.`);
+    assert.equal(target.rawContentCaptured, false, `${environment.userHandle} ${targetId} should not capture raw external content.`);
+    if (target.richEvidenceMissing) {
+      assert.fail(`${environment.userHandle} ${targetId} is active but lacks rich external-context diagnostics.`);
+    }
+  }
   const serialized = JSON.stringify(environment);
   assert.equal(serialized.includes('SECRET'), false);
   assert.equal(serialized.includes('Raw native lorebook body'), false);
@@ -205,14 +264,36 @@ for (const environment of environments) {
 const byUser = Object.fromEntries(environments.map((environment) => [environment.userHandle, environment]));
 assert.deepEqual(byUser['directive-soak-a'].worldInfo.activeNames, ['Ashes Native Lorebook']);
 assert.equal(byUser['directive-soak-b'].memoryBooks.stMemoryBookEntryCount, 48);
+assert.equal(byUser['directive-soak-b'].memoryBooks.rangeDiagnostics.status, 'valid');
 assert.equal(byUser['directive-soak-b'].memoryBooks.riskyModes.autoSummary, true);
 assert.equal(byUser['directive-soak-c'].summaryception.ghostedCount, 2200);
+assert.equal(byUser['directive-soak-c'].summaryception.staleness.status, 'current');
 assert.equal(byUser['directive-soak-c'].knownExternalPromptKeys.includes('summaryception'), true);
 assert.equal(byUser['directive-soak-d'].vectFox.enabled, true);
 assert.equal(byUser['directive-soak-d'].vectFox.generationInterceptorActive, true);
+assert.equal(byUser['directive-soak-d'].vectFox.backendDiagnostics.status, 'external-backend-configured');
 assert.equal(byUser['directive-soak-e'].memoryBooks.riskyModes.atDepthUserOrAssistant, true);
 assert.equal(byUser['directive-soak-e'].summaryception.enabled, true);
 assert.equal(byUser['directive-soak-e'].vectFox.summarizerInjectionEnabled, true);
 assert.equal(byUser['directive-soak-e'].unknownSignals.includes('combined-extension-prompt-order-needs-live-proof'), true);
+
+const weakSummaryception = normalizeExternalPromptEnvironment({
+  host: 'sillytavern',
+  userHandle: 'directive-soak-weak',
+  chatId: 'ashes-directive-soak-weak',
+  campaignId: 'campaign-ashes-external-fixture',
+  observedAt: '2026-06-28T13:00:00.000Z',
+  promptKeys: ['summaryception'],
+  summaryception: {
+    installed: true,
+    enabled: true,
+    promptKeyActive: true,
+    staleness: { status: 'unknown' }
+  }
+});
+const weakTargets = summarizeExternalPromptEnvironmentTargets(weakSummaryception);
+assert.equal(weakTargets.summaryception.requiresRichEvidence, true);
+assert.equal(weakTargets.summaryception.richEvidence, false);
+assert.equal(weakTargets.summaryception.richEvidenceMissing, true);
 
 console.log('External prompt environment tests passed.');

@@ -132,17 +132,28 @@ function sourceKindForRepairFallback({ ingress = null, response = null } = {}) {
   return 'untrackedHostMessage';
 }
 
+function sourceMutationTransactionId({ ingress = null, response = null } = {}) {
+  return compact(
+    ingress?.coreTransactionId
+    || response?.coreTransactionId
+    || response?.coreRelease?.transactionId
+    || response?.coreCompletion?.transactionId
+    || response?.hostContinuation?.coreTransactionId
+  ) || null;
+}
+
 function repairUnavailableSourceMutationDecision(options = {}) {
   const sourceKind = sourceKindForRepairFallback(options);
+  const transactionId = sourceMutationTransactionId(options);
   return {
     status: 'notRecorded',
     reason: 'repair-source-mutation-unavailable',
-    transactionId: compact(options.ingress?.coreTransactionId || options.response?.coreTransactionId) || null,
+    transactionId,
     decision: {
       kind: 'directive.repairDecision.v1',
       eventType: options.eventType || null,
       sourceKind,
-      transactionId: compact(options.ingress?.coreTransactionId || options.response?.coreTransactionId) || null,
+      transactionId,
       sourceMutation: true,
       hasDependent: Boolean(options.ingress?.outcomeId || options.response?.outcomeId || options.response?.id),
       uncommitted: false,

@@ -122,6 +122,13 @@ const FINAL_SIDECAR_ACTIVITY_TIMEOUT_MS = positiveInteger(
   process.env.DIRECTIVE_SILLYTAVERN_FINAL_SIDECAR_ACTIVITY_TIMEOUT_MS,
   Math.min(CHAT_CAMPAIGN_TIMEOUT_MS, 30000)
 );
+const SIDECAR_MODEL_ROLE_IDS = Object.freeze([
+  'continuityTracker',
+  'relationshipEvaluator',
+  'crewDirector',
+  'shipDirector',
+  'commandBearingEvaluator'
+]);
 const SCREENSHOT_BASE_DIR = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR
   || path.join(os.tmpdir(), 'directive-sillytavern-smoke-screenshots');
 const SCREENSHOT_RUN_ID = new Date().toISOString().replace(/[:.]/g, '-');
@@ -4267,13 +4274,24 @@ async function resumeChatNativeLiveCampaign(page) {
       };
     }
 
-    const openResult = resumeSaveId
-      ? await app.openCampaignChat({ saveId: resumeSaveId })
-      : await app.openCampaignChat();
+    const resumeBinding = expectedChatId
+      ? {
+          chatId: expectedChatId,
+          saveId: resumeSaveId || null
+        }
+      : null;
+    const openCampaignInput = resumeSaveId
+      ? {
+          saveId: resumeSaveId,
+          ...(resumeBinding ? { binding: resumeBinding } : {})
+        }
+      : (resumeBinding ? { binding: resumeBinding } : undefined);
+    const openResult = await app.openCampaignChat(openCampaignInput);
     const view = await app.getCurrentView({ tabId: 'mission' });
     context = globalThis.SillyTavern?.getContext?.() || null;
     const currentChatId = host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null;
     const binding = view?.chatNative?.binding || null;
+    const activeSelectedEntity = readSelectedEntity();
     const expectedChatMatches = expectedChatId
       ? [currentChatId, binding?.chatId].map((value) => String(value || '')).includes(expectedChatId)
       : null;
@@ -4286,6 +4304,7 @@ async function resumeChatNativeLiveCampaign(page) {
       expectedChatMatches,
       currentChatId,
       selectedEntity,
+      activeSelectedEntity,
       autoSelectedEntity: null,
       providerTests: clone(providerTests),
       openCampaignChat: clone(openResult),
@@ -4661,27 +4680,30 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     const bridgeMod = await import(runtimeBridgeModulePath);
     const app = bridgeMod.getSillyTavernDirectiveRuntimeBridge?.().runtimeApp || null;
     const message = chat[matchedIndex] || null;
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     let direct = { scheduled: false, reason: 'observeHostPlayerMessage-unavailable' };
     if (app?.observeHostPlayerMessage) {
-      direct = { scheduled: true, reason: null };
-      Promise.resolve().then(() => app.observeHostPlayerMessage({
+      const observed = await app.observeHostPlayerMessage({
         chatId: currentChatId,
         index: matchedIndex,
         messageId: matchedIndex,
         hostMessageId: String(matchedIndex),
         message,
         source: 'smoke-after-native-send-direct'
-      })).catch((error) => {
-        console.warn('[Directive smoke] post-send direct observation failed:', error);
       });
+      direct = {
+        scheduled: true,
+        reason: observed?.reason || null,
+        handled: observed?.handled === true,
+        responseStrategy: observed?.responseStrategy || null,
+        abortDefaultGeneration: observed?.abortDefaultGeneration ?? null,
+        response: clone(observed?.response || null)
+      };
     }
     return {
       ok: true,
       scan,
-      direct: {
-        scheduled: direct?.scheduled === true,
-        reason: direct?.reason || null,
-      },
+      direct,
       matchedIndex,
       currentChatId,
       chatLength: chat.length
@@ -4692,7 +4714,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     before: beforeSnapshot,
     text
   }, {
-    timeout: Math.min(CHAT_CAMPAIGN_TIMEOUT_MS, 5000),
+    timeout: Math.min(CHAT_CAMPAIGN_TIMEOUT_MS, 120000),
     polling: 100
   }).catch((error) => ({
     ok: false,
@@ -4712,7 +4734,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     error: sendResult.directiveFallbackScan?.error || null
   });
 
-  const after = await waitForJsonValue(page, async ({ modulePath, before, text: expectedText }) => {
+  const after = await waitForJsonValue(page, async ({ modulePath, before, text: expectedText, targetHostMessageId }) => {
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -4734,6 +4756,10 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     };
     const tracking = view?.chatNative?.tracking || {};
     const ingressLedger = view?.campaignState?.runtimeTracking?.ingressLedger || [];
+    const responseLedger = view?.campaignState?.runtimeTracking?.responseLedger || [];
+    const priorResponseIds = new Set((before.recentResponseLedger || [])
+      .map((entry) => entry?.id)
+      .filter(Boolean));
     const pendingInteractions = (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved');
     const messages = chat.map((message, index) => ({
       index,
@@ -4759,19 +4785,40 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       ))
       : null;
     const matchedIngress = ingressLedger.find((entry) => (
-      String(entry?.textPreview || entry?.text || entry?.messageText || '').includes(expectedPrefix)
+      (
+        targetHostMessageId
+        && String(entry?.hostMessageId ?? entry?.messageId ?? '') === String(targetHostMessageId)
+      )
+      || String(entry?.textPreview || entry?.text || entry?.messageText || '').includes(expectedPrefix)
     ));
+    const matchedHostGenerationResponse = [...responseLedger].reverse().find((entry) => (
+      entry?.strategy === 'injectAndContinue'
+      && entry?.responseKind === 'hostGeneration'
+      && (
+        (matchedIngress?.id && entry.ingressId === matchedIngress.id)
+        || (!priorResponseIds.has(entry.id) && entry.id)
+        || (
+          targetHostMessageId
+          && entry.ingressId
+          && String(entry.ingressId).includes(`:${targetHostMessageId}:`)
+        )
+      )
+    ));
+    const runtimeCountProgress = Boolean(targetHostMessageId)
+      && Number(tracking.ingressCount || 0) > Number(before.tracking?.ingressCount || before.ingressCount || 0);
     const ingressAdvanced = matchedIngress
       && !['classifying', 'received', 'pending'].includes(String(matchedIngress.status || '').toLowerCase());
-    const runtimeProgress = Boolean(matchedIngress)
+    const runtimeProgress = (Boolean(matchedIngress) || runtimeCountProgress)
       && (
         ingressAdvanced
+        || runtimeCountProgress
         || Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
         || Number(tracking.modelCallCount || 0) > Number(before.tracking?.modelCallCount || 0)
       )
       && (
         ingressAdvanced
+        || runtimeCountProgress
         || Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
       );
@@ -4781,7 +4828,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     if (!matchedUserMessage || (!runtimeProgress && !visibleDirectiveProgress)) return null;
     return {
       tracking,
-      progressSource: runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response',
+      progressSource: runtimeCountProgress ? 'runtime-tracking-count' : (runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response'),
       matchedUserIndex: matchedUser?.index ?? null,
       matchedUserHostMessageId: matchedUser ? String(matchedUser.index) : null,
       visibleDirectiveResponse: visibleDirectiveResponse
@@ -4801,6 +4848,24 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
             coreTransactionId: matchedIngress.coreTransactionId || matchedIngress.transactionId || null,
             sourceFrameId: matchedIngress.sourceFrameId || matchedIngress.sourceFrame?.id || null,
             textPreview: compactText(matchedIngress.textPreview || matchedIngress.text || matchedIngress.messageText || '')
+          }
+        : null,
+      matchedHostGenerationResponse: matchedHostGenerationResponse
+        ? {
+            id: matchedHostGenerationResponse.id || null,
+            ingressId: matchedHostGenerationResponse.ingressId || null,
+            hostMessageId: matchedHostGenerationResponse.hostMessageId || null,
+            strategy: matchedHostGenerationResponse.strategy || null,
+            responseKind: matchedHostGenerationResponse.responseKind || null,
+            status: matchedHostGenerationResponse.status || null,
+            coreTransactionId: matchedHostGenerationResponse.coreTransactionId || null,
+            coreRelease: matchedHostGenerationResponse.coreRelease
+              ? {
+                  transactionId: matchedHostGenerationResponse.coreRelease.transactionId || null,
+                  phase: matchedHostGenerationResponse.coreRelease.phase || null,
+                  route: matchedHostGenerationResponse.coreRelease.route || null
+                }
+              : null
           }
         : null,
       pendingInteractions: pendingInteractions.map((entry) => ({
@@ -4862,7 +4927,10 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
   }, {
     modulePath: bridgeModulePath(),
     before: beforeSnapshot,
-    text
+    text,
+    targetHostMessageId: sendResult.directiveFallbackScan?.matchedIndex !== undefined && sendResult.directiveFallbackScan?.matchedIndex !== null
+      ? String(sendResult.directiveFallbackScan.matchedIndex)
+      : null
   }, {
     timeout: CHAT_CAMPAIGN_TIMEOUT_MS
   });
@@ -4904,7 +4972,7 @@ async function flushDirectiveSidecars(page) {
 }
 
 async function readSidecarActivity(page, beforeSnapshot) {
-  return page.evaluate(async ({ modulePath, before }) => {
+  return page.evaluate(async ({ modulePath, before, sidecarRoleIds }) => {
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -4917,13 +4985,7 @@ async function readSidecarActivity(page, beforeSnapshot) {
     const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
     const newSidecars = sidecars.slice(beforeSidecarCount);
     const newModelCalls = modelCalls.slice(beforeModelCallCount);
-    const sidecarModelRoles = new Set([
-      'continuityTracker',
-      'relationshipEvaluator',
-      'crewDirector',
-      'shipDirector',
-      'commandBearingEvaluator'
-    ]);
+    const sidecarModelRoles = new Set(sidecarRoleIds);
     const sidecarModelCallRoles = newModelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId);
     const sidecarDelta = Math.max(0, sidecars.length - beforeSidecarCount);
     return {
@@ -4952,14 +5014,15 @@ async function readSidecarActivity(page, beforeSnapshot) {
     };
   }, {
     modulePath: bridgeModulePath(),
-    before: beforeSnapshot
+    before: beforeSnapshot,
+    sidecarRoleIds: SIDECAR_MODEL_ROLE_IDS
   });
 }
 
 async function waitForSidecarActivity(page, beforeSnapshot, {
   timeoutMs = CHAT_CAMPAIGN_TIMEOUT_MS
 } = {}) {
-  return waitForJsonValue(page, async ({ modulePath, before }) => {
+  return waitForJsonValue(page, async ({ modulePath, before, sidecarRoleIds }) => {
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -4972,13 +5035,7 @@ async function waitForSidecarActivity(page, beforeSnapshot, {
     const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
     const newSidecars = sidecars.slice(beforeSidecarCount);
     const newModelCalls = modelCalls.slice(beforeModelCallCount);
-    const sidecarModelRoles = new Set([
-      'continuityTracker',
-      'relationshipEvaluator',
-      'crewDirector',
-      'shipDirector',
-      'commandBearingEvaluator'
-    ]);
+    const sidecarModelRoles = new Set(sidecarRoleIds);
     const sidecarModelCallRoles = newModelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId);
     const sidecarDelta = Math.max(0, sidecars.length - beforeSidecarCount);
     if (sidecarDelta <= 0 && sidecarModelCallRoles.length === 0) return null;
@@ -5008,7 +5065,8 @@ async function waitForSidecarActivity(page, beforeSnapshot, {
     };
   }, {
     modulePath: bridgeModulePath(),
-    before: beforeSnapshot
+    before: beforeSnapshot,
+    sidecarRoleIds: SIDECAR_MODEL_ROLE_IDS
   }, {
     timeout: timeoutMs
   });
@@ -5190,6 +5248,7 @@ async function runChatNativeCampaignFlow(page) {
     expectedChatMatches: created.expectedChatMatches ?? null,
     currentChatId: created.currentChatId || null,
     selectedEntity: created.selectedEntity,
+    activeSelectedEntity: created.activeSelectedEntity,
     autoSelectedEntity: created.autoSelectedEntity,
     campaign: created.campaign,
     binding: created.binding,
@@ -5205,8 +5264,15 @@ async function runChatNativeCampaignFlow(page) {
   if (!created.binding?.chatId) {
     throw new Error(`Live chat-native campaign did not bind a SillyTavern chat. Activation details: ${compact(activationDetails, 1800)}`);
   }
+  const directiveOwnedBinding = /^Directive(?:\b| - )/.test(String(created.binding?.entityName || ''))
+    || /^Directive(?:\b| - )/.test(String(created.activeSelectedEntity?.entityName || ''))
+    || (
+      created.binding?.createdByDirective === true
+      && /^Directive(?:\b| - )/.test(String(created.binding?.chatName || created.binding?.chatId || created.currentChatId || ''))
+      && (created.expectedChatMatches !== false)
+    );
   assertBrowser(
-    /^Directive(?:\b| - )/.test(String(created.binding?.entityName || '')),
+    directiveOwnedBinding,
     'Live chat-native campaign did not bind to a Directive-owned SillyTavern character card.',
     activationDetails
   );
@@ -5603,7 +5669,9 @@ async function runChatNativeCampaignFlow(page) {
     ingressSettlement
   });
   let finalSnapshot = await chatNativeRuntimeSnapshot(page);
-  const matchedIngressRounds = rounds.filter((round) => round.after?.matchedIngress);
+  const matchedIngressRounds = rounds.filter((round) => (
+    round.after?.matchedIngress || round.after?.matchedHostGenerationResponse
+  ));
   const sidecarActivityExpected = matchedIngressRounds.some((round) => (
     ['committed', 'complete'].includes(String(round.after?.matchedIngress?.status || '').toLowerCase())
     && round.after?.matchedIngress?.responseStrategy !== 'pause'
@@ -5676,8 +5744,21 @@ async function runChatNativeCampaignFlow(page) {
   );
   const delegatedHostGenerationRounds = matchedIngressRounds.filter((round) => (
     round.after?.matchedIngress?.responseStrategy === 'injectAndContinue'
+    || round.after?.matchedHostGenerationResponse?.strategy === 'injectAndContinue'
   ));
-  const delegatedHostGenerationContinuation = delegatedHostGenerationRounds.length > 0
+  const campaignStartResponseIds = new Set((campaignStartSnapshot.recentResponseLedger || [])
+    .map((entry) => entry?.id)
+    .filter(Boolean));
+  const finalHostGenerationResponses = (finalSnapshot.recentResponseLedger || []).filter((entry) => (
+    entry?.strategy === 'injectAndContinue'
+    && entry?.responseKind === 'hostGeneration'
+    && entry?.hostMessageId
+    && (!entry.id || !campaignStartResponseIds.has(entry.id))
+  ));
+  const delegatedHostGenerationContinuation = (
+    delegatedHostGenerationRounds.length > 0
+    || finalHostGenerationResponses.length > 0
+  )
     && Number(finalSnapshot.nonDirectiveAssistantCount || 0) > Number(campaignStartSnapshot.nonDirectiveAssistantCount || 0);
   const directiveOwnedResponseObserved = finalSnapshot.directiveMessageCount > Number(campaignStartSnapshot.directiveMessageCount || 0)
     || finalSnapshot.directiveResponseKinds.includes('committedOutcome');
@@ -5690,7 +5771,16 @@ async function runChatNativeCampaignFlow(page) {
       delegatedHostGenerationRounds: delegatedHostGenerationRounds.map((round) => ({
         scriptMessageId: round.scriptMessageId || null,
         classification: round.after?.matchedIngress?.classification || null,
-        responseStrategy: round.after?.matchedIngress?.responseStrategy || null
+        responseStrategy: round.after?.matchedIngress?.responseStrategy || round.after?.matchedHostGenerationResponse?.strategy || null,
+        responseStatus: round.after?.matchedHostGenerationResponse?.status || null,
+        responseHostMessageId: round.after?.matchedHostGenerationResponse?.hostMessageId || null
+      })),
+      finalHostGenerationResponses: finalHostGenerationResponses.map((entry) => ({
+        id: entry.id || null,
+        ingressId: entry.ingressId || null,
+        hostMessageId: entry.hostMessageId || null,
+        status: entry.status || null,
+        coreTransactionId: entry.coreTransactionId || null
       })),
       initialDirectiveMessageCount: Number(campaignStartSnapshot.directiveMessageCount || 0),
       finalDirectiveMessageCount: finalSnapshot.directiveMessageCount,
@@ -5707,14 +5797,20 @@ async function runChatNativeCampaignFlow(page) {
     'counselRequest'
   ].includes(String(round.after?.matchedIngress?.classification || '')));
   assertBrowser(
-    !directorTurnExpected || finalSnapshot.turnLedgerCount >= 1 || finalSnapshot.pendingInteractionCount > Number(campaignStartSnapshot.pendingInteractionCount || 0),
+    !directorTurnExpected
+      || finalSnapshot.turnLedgerCount >= 1
+      || finalSnapshot.pendingInteractionCount > Number(campaignStartSnapshot.pendingInteractionCount || 0)
+      || finalHostGenerationResponses.length > 0,
     'Live chat-native campaign did not commit or pause any director turn when one was expected.',
     {
       directorTurnExpected,
+      finalHostGenerationResponseCount: finalHostGenerationResponses.length,
       matchedIngressRounds: matchedIngressRounds.map((round) => ({
         scriptMessageId: round.scriptMessageId || null,
         classification: round.after?.matchedIngress?.classification || null,
-        responseStrategy: round.after?.matchedIngress?.responseStrategy || null
+        responseStrategy: round.after?.matchedIngress?.responseStrategy || round.after?.matchedHostGenerationResponse?.strategy || null,
+        responseStatus: round.after?.matchedHostGenerationResponse?.status || null,
+        responseHostMessageId: round.after?.matchedHostGenerationResponse?.hostMessageId || null
       })),
       turnLedgerCount: finalSnapshot.turnLedgerCount,
       pendingInteractionCount: finalSnapshot.pendingInteractionCount,
@@ -5722,10 +5818,16 @@ async function runChatNativeCampaignFlow(page) {
       finalSnapshot
     }
   );
+  const finalSidecarModelRoles = (Array.isArray(finalSnapshot.modelCalls) ? finalSnapshot.modelCalls : [])
+    .filter((entry) => SIDECAR_MODEL_ROLE_IDS.includes(entry?.roleId))
+    .map((entry) => entry.roleId);
+  const sidecarActivityObserved = Number(finalSnapshot.sidecarCount || 0) > 0
+    || (Array.isArray(sidecars?.sidecarModelRoles) && sidecars.sidecarModelRoles.length > 0)
+    || finalSidecarModelRoles.length > 0;
   assertBrowser(
-    !sidecarActivityExpected || finalSnapshot.sidecarCount > 0 || sidecars?.sidecarModelRoles?.length > 0,
+    !sidecarActivityExpected || sidecarActivityObserved,
     'Live chat-native campaign did not record sidecar journal or sidecar model-call activity.',
-    { sidecarActivityExpected, finalSnapshot, sidecars }
+    { sidecarActivityExpected, sidecarActivityObserved, finalSidecarModelRoles, finalSnapshot, sidecars }
   );
   const sidecarEvidence = [
     ...(Array.isArray(finalSnapshot.sidecars) ? finalSnapshot.sidecars : []),

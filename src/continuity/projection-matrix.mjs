@@ -4,6 +4,8 @@ import {
   asArray,
   cloneJson,
   compact,
+  factKnowledgeScope,
+  isFactActorScoped,
   hashContinuityText
 } from './fact-schema.mjs';
 import { buildContinuityFactIndex } from './fact-index.mjs';
@@ -36,7 +38,16 @@ function source(campaignState, id, sourceHash) {
 }
 
 function lineForFact(fact) {
-  return compact(fact?.render?.narrator || fact?.summary || fact?.id);
+  const text = compact(fact?.render?.narrator || fact?.summary || fact?.id);
+  const scope = factKnowledgeScope(fact);
+  const scopeParts = [
+    scope.knownBy.length ? `knownBy=${scope.knownBy.join(',')}` : null,
+    scope.witnessedBy.length ? `witnessedBy=${scope.witnessedBy.join(',')}` : null,
+    scope.subjectIds.length ? `subjects=${scope.subjectIds.join(',')}` : null,
+    scope.disclosureState && !['public', 'shared'].includes(scope.disclosureState) ? `disclosure=${scope.disclosureState}` : null
+  ].filter(Boolean);
+  if (!text || !scopeParts.length) return text;
+  return `${text} [Knowledge scope: ${scopeParts.join('; ')}.]`;
 }
 
 function activeSceneLines(sourceFrame, campaignState, packageData, scene = {}) {
@@ -95,12 +106,42 @@ function buildLaneContent({
   return lines.length ? lines.map((line) => `- ${line}`).join('\n') : '- No additional continuity facts selected for this lane.';
 }
 
+function factBudgetRef(fact, sourceFrame = null) {
+  const line = lineForFact(fact);
+  return {
+    id: fact.id,
+    kind: 'directive.continuityFactRef.v1',
+    authority: fact.authority || 'directive',
+    hash: fact.hash || hashContinuityText({ id: fact.id, summary: fact.summary }),
+    estimatedTokens: estimateTokens(line),
+    sourceFrameId: sourceFrame?.sourceHash || null,
+    lensPromptBudgetLane: isFactActorScoped(fact) ? 'activeCast' : 'protectedContinuity'
+  };
+}
+
+function factBudgetRefsForLane({ lane, factIndex, plan, sourceFrame }) {
+  if (!['directive.continuity.invariants', 'directive.continuity.domain'].includes(lane.promptKey)) return [];
+  const factById = new Map(factIndex.facts.map((fact) => [fact.id, fact]));
+  return asArray(plan?.laneFactIds?.[lane.promptKey])
+    .map((factId) => factById.get(factId))
+    .filter(Boolean)
+    .map((fact) => factBudgetRef(fact, sourceFrame));
+}
+
+function lensPromptBudgetLaneForContinuityPrompt(promptKey) {
+  if (promptKey === 'directive.contract') return 'stableRules';
+  if (promptKey === 'directive.scene.active') return 'activeScene';
+  if (promptKey === 'directive.recap.committed' || promptKey === 'directive.context.revolving') return 'recentTranscript';
+  return 'protectedContinuity';
+}
+
 function createLaneBlock({
   lane,
   content,
   campaignState,
   sourceHash,
-  sourceIds = []
+  sourceIds = [],
+  promptBudgetRefs = []
 }) {
   const normalized = assertHostPromptBlockSafeForInjection({
     id: lane.id,
@@ -128,7 +169,9 @@ function createLaneBlock({
     ttl: lane.ttl,
     sourceHash,
     sourceIds,
+    promptBudgetRefs,
     tokenEstimate: estimateTokens(normalized.text),
+    lensPromptBudgetLane: lensPromptBudgetLaneForContinuityPrompt(lane.promptKey),
     hash: hashContinuityText({ promptKey: lane.promptKey, content: normalized.text }),
     contentHash: hashContinuityText(normalized.text)
   };
@@ -201,7 +244,8 @@ export function buildContinuityProjectionMatrix({
     content: buildLaneContent({ lane, factIndex, plan, sourceFrame, campaignState, packageData, scene }),
     campaignState,
     sourceHash: sourceFrame.sourceHash,
-    sourceIds: asArray(plan.laneFactIds?.[lane.promptKey])
+    sourceIds: asArray(plan.laneFactIds?.[lane.promptKey]),
+    promptBudgetRefs: factBudgetRefsForLane({ lane, factIndex, plan, sourceFrame })
   }));
   const text = blocks.map((block) => `[Directive: ${block.title}]\n${block.content}`).join('\n\n');
   return {

@@ -221,6 +221,7 @@ const app = createDirectiveRuntimeApp({
     return value;
   }
 });
+assert.equal(typeof app.reobserveHostGenerationCompletions, 'function', 'Runtime app exposes host-native completion reobserve bridge for live proof.');
 const generationRoleCount = (roleId) => host.generation.calls().filter((entry) => entry.role === roleId).length;
 
 function assertRuntimeViewBoundToSave(runtimeView, saveId, label) {
@@ -405,6 +406,10 @@ assert.equal(activationPromptInstallCall?.options.reason, 'Campaign prompt conte
 assert.equal(activationPromptInstallCall?.options.lane, 'visible', 'Activation prompt install should carry the LENS visible lane.');
 assert.match(activationPromptInstallCall?.options.cacheKey, /^[a-f0-9]{64}$/, 'Activation prompt install should carry a LENS cache key.');
 assert.equal(activationPromptInstallCall?.options.packet?.cacheKey, activationPromptInstallCall?.options.cacheKey, 'Activation prompt packet cache key should align with the LENS install request.');
+assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.kind, 'directive.lensPromptBudgetTrace.v1', 'Activation prompt packet should carry a LENS prompt budget trace.');
+assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTraceRef?.hash, activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.hash, 'Activation prompt packet should carry a compact prompt budget trace ref.');
+assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.cacheInputs?.promptBudgetLaneOverrides?.protectedContinuity?.budgetTokens, 2800, 'Activation prompt trace should carry Ashes package LENS lane budget overrides.');
+assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.lanes?.find((lane) => lane.id === 'protectedContinuity')?.budgetTokens, 2800, 'Activation prompt trace should apply Ashes protected-continuity budget override.');
 const lensPromptRebuild = await app.rebuildPromptContext();
 assert.equal(['installed', 'reused'].includes(lensPromptRebuild.lens.status), true, 'Runtime prompt synchronization should route cache decisions through LENS.');
 assert.match(lensPromptRebuild.lens.cacheKey, /^[a-f0-9]{64}$/);
@@ -579,6 +584,12 @@ assert.notEqual(branch.save.id, view.chatNative.binding.saveId);
 assert.equal(branch.save.kind, 'directive.activeCampaignStatePersist.v2');
 assert.equal(branch.save.storageFormat, 'v2');
 assert.equal(branch.save.wroteV1Payload, false);
+assert.equal(branch.coreBranchClone?.recallSourceMutation?.kind, 'directive.recallSourceMutation.v1');
+assert.equal(branch.coreBranchClone.recallSourceMutation.action, 'save-as');
+assert.equal(branch.coreBranchClone.recallSourceMutation.saveId, sourceSaveId);
+assert.equal(branch.coreBranchClone.recallSourceMutation.targetSaveId, branch.save.id);
+assert.equal(branch.coreBranchClone.recallSourceMutation.targetBranchId, branch.save.id);
+assert.equal(JSON.stringify(branch.coreBranchClone).includes('Raw'), false);
 assert.equal(branch.view.chatNative.binding.saveId, branch.save.id);
 assert.notEqual(branch.view.chatNative.binding.chatId, sourceChatId);
 assert.equal(branch.branchChat.sourceChatId, sourceChatId);
@@ -1167,6 +1178,7 @@ assert.equal(typeof heldAdvisoryResolve, 'function', 'Advisory provider should r
 heldAdvisoryResolve();
 const flushedSidecars = await reloadedApp.flushChatSidecars();
 assert.equal(flushedSidecars.ok, true);
+assert.equal(typeof flushedSidecars.hostGenerationReobserveResult?.skipped, 'boolean', 'Sidecar flush reports host-generation reobserve status for live CORE completion proof.');
 assert.equal(flushedSidecars.commandLogSummaryResult.ok, true);
 assert.equal(flushedSidecars.postCommitConversationResult.ok, true);
 assert.equal(flushedSidecars.postCommitConversationResult.scheduled, true);
@@ -1395,7 +1407,7 @@ assertCoreMechanicsProjection({
 
 const editResponseSourceMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-response-edit',
-  text: 'Serrin asks Helm to keep the pursuit vector warm while Operations watches for any civilian transponder change.'
+  text: 'Serrin orders Helm to keep the pursuit vector warm while Operations watches for any civilian transponder change.'
 });
 const editResponseTurn = await reloadedApp.observeHostPlayerMessage({
   chatId: host.chat.getCurrentChatId(),
@@ -1407,7 +1419,10 @@ await reloadedApp.flushRuntimeDiagnostics();
 view = await reloadedApp.getCurrentView({ tabId: 'mission' });
 const editResponseIngress = view.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-response-edit');
 assert.ok(editResponseIngress?.coreTransactionId, 'Response-edit fixture turn should carry a CORE transaction.');
-const editFixtureResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.ingressId === editResponseIngress.id);
+const editFixtureResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => (
+  entry.ingressId === editResponseIngress.id
+  && entry.hostMessageId
+));
 assert.ok(editFixtureResponseEntry?.hostMessageId, 'Response-edit fixture turn should have a Directive assistant response.');
 const runtimeResponseEditText = 'The bridge answers in a revised cadence while Helm holds the pursuit vector and Operations keeps the command logged.';
 const runtimeResponseEdit = await reloadedApp.handleHostMessageEdited({
@@ -1519,6 +1534,13 @@ assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceKind, 'player
 assert.equal(sourceMutationRecoveryProjection.sourceMutation.hostMessageId, 'runtime-player-after-reload');
 assert.equal(sourceMutationRecoveryProjection.sourceMutation.ingressId, editedReloadedIngress.id);
 assert.equal(sourceMutationRecoveryProjection.sourceMutation.sourceFrameId, editedReloadedIngress.sourceFrameId);
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.recallSourceMutation.kind, 'directive.recallSourceMutation.v1');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.recallSourceMutation.action, 'source-edit');
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.recallSourceMutation.sourceFrameIds.includes(editedReloadedIngress.sourceFrameId), true);
+assert.equal(sourceMutationRecoveryProjection.sourceMutation.recallSourceMutation.hostMessageIds.includes('runtime-player-after-reload'), true);
+assert.equal(sourceMutationRecoveryProjection.recallAuxiliaryRewrite?.kind, 'directive.recallAuxiliaryRewrite.v1');
+assert.equal(sourceMutationRecoveryProjection.recallAuxiliaryRewrite.mode, 'snapshot');
+assert.equal(Number.isFinite(Number(sourceMutationRecoveryProjection.recallAuxiliaryRewrite.trace?.inputCount)), true);
 assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextHash.length, 64);
 assert.equal(sourceMutationRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
 assert.equal(sourceMutationRecoveryProjection.repairDecision.action, 'reviewRequired');

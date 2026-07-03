@@ -164,6 +164,7 @@ function normalizeCandidate(state, candidate) {
     mustInclude: candidate.mustInclude === true,
     salienceScore: Math.max(0, Math.min(100, Number(candidate.salienceScore || 0))),
     tokenEstimate: candidate.tokenEstimate || estimateTokens(text),
+    lensPromptBudgetLane: candidate.lensPromptBudgetLane || contextCandidateBudgetLane(candidate),
     placement: candidate.placement || 'inChat',
     depth: Number(candidate.depth ?? 4),
     role: candidate.role || 'system',
@@ -184,6 +185,19 @@ function normalizeCandidate(state, candidate) {
       playerVisible: true
     }
   };
+}
+
+function contextCandidateBudgetLane(candidate = {}) {
+  const id = compact(candidate.id);
+  if (id === 'directive-contract') return 'stableRules';
+  if (id === 'reply-header' || id === 'immediate-scene' || id === 'foreground-quest') return 'activeScene';
+  if (id === 'relevant-crew') return 'activeCast';
+  if (id === 'active-pressures' || id === 'engaged-threads' || id === 'nearby-opportunities' || id === 'main-arc-orientation') return 'missionPressure';
+  if (id === 'command-log-continuity') return 'recentTranscript';
+  if (id === 'location-context' || id === 'relevant-facts' || id === 'ship-status') return 'protectedContinuity';
+  if (Number(candidate.depth) <= 2 || candidate.mustInclude === true) return 'activeScene';
+  if (Number(candidate.depth) <= 5) return 'protectedContinuity';
+  return 'missionPressure';
 }
 
 function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMessageSummary = null }) {
@@ -484,6 +498,7 @@ function toHostBlock(state, candidate) {
     ttl: candidate.ttl,
     salienceScore: candidate.salienceScore,
     tokenEstimate: candidate.tokenEstimate,
+    lensPromptBudgetLane: candidate.lensPromptBudgetLane,
     sourceIds: cloneJson(candidate.sourceIds),
     reason: candidate.reason,
     hash: candidate.hash,
@@ -528,6 +543,7 @@ export function buildContextPlan({
       title: candidate.title,
       salienceScore: candidate.salienceScore,
       tokenEstimate: candidate.tokenEstimate,
+      lensPromptBudgetLane: candidate.lensPromptBudgetLane,
       omissionReason: candidate.omissionReason
     })),
     text,
@@ -558,6 +574,7 @@ export function recordContextPlan(state, plan, { installedAt = null, status = 'a
       priority: block.priority,
       salienceScore: block.salienceScore,
       tokenEstimate: block.tokenEstimate,
+      lensPromptBudgetLane: block.lensPromptBudgetLane || null,
       hash: block.hash
     })),
     installedAt

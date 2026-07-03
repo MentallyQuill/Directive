@@ -1,5 +1,6 @@
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
+import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
 
 export const OUTCOME_INTEGRITY_ROLE_ID = 'outcomeIntegrityReview';
 export const OUTCOME_INTEGRITY_SCHEMA_ID = 'directive.outcomeIntegrityReview.v1';
@@ -122,7 +123,8 @@ function responseKind(response = {}, message = {}) {
 export function findOutcomeIntegrityResponse(campaignState, hostMessageId) {
   const id = compact(hostMessageId, 120);
   if (!id) return null;
-  return asArray(campaignState?.runtimeTracking?.responseLedger)
+  const ledgerView = createRuntimeLedgerView(campaignState || {});
+  return asArray(ledgerView.responseLedger)
     .find((entry) => compact(entry?.hostMessageId, 120) === id) || null;
 }
 

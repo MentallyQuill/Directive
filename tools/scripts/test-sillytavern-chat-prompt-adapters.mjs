@@ -96,7 +96,46 @@ assert.equal(createdCharacterPayloads[0].mes_example, '');
 assert.deepEqual(selectedCharacterCalls[0], [1, { switchMenu: false }]);
 assert.equal(chat.length, 0);
 assert.equal(context.chatMetadata.directiveCampaignBinding.campaignId, 'campaign-st-adapter');
+assert.equal(context.chat_metadata.directiveCampaignBinding.campaignId, 'campaign-st-adapter');
+assert.equal(context.chatMetadata, context.chat_metadata);
 assert.equal(metadataSaves, 1);
+
+let dualMetadataSaves = 0;
+const dualMetadataContext = {
+  chatMetadata: {
+    summaryception: { layerCount: 1 }
+  },
+  chat_metadata: {
+    note_prompt: ''
+  },
+  characters: [{ name: 'Directive - Dual Metadata', avatar: 'dual.png' }],
+  characterId: 0,
+  name2: 'Directive - Dual Metadata',
+  chatId: 'dual-chat',
+  getCurrentChatId() { return 'dual-chat'; },
+  async saveMetadata() { dualMetadataSaves += 1; }
+};
+const dualMetadataAdapter = createSillyTavernChatAdapter({
+  contextFactory: () => dualMetadataContext,
+  now: () => '2026-06-22T12:00:00.000Z'
+});
+await dualMetadataAdapter.updateBindingMetadata({
+  hostId: 'sillytavern',
+  chatId: 'dual-chat',
+  campaignId: 'campaign-dual-metadata',
+  saveId: 'save-dual-metadata',
+  entityType: 'character',
+  entityId: '0',
+  entityName: 'Directive - Dual Metadata',
+  chatName: 'Directive - Dual Metadata',
+  status: 'bound'
+});
+assert.equal(dualMetadataContext.chatMetadata, dualMetadataContext.chat_metadata);
+assert.equal(dualMetadataContext.chat_metadata.directiveCampaignBinding.saveId, 'save-dual-metadata');
+assert.equal(dualMetadataContext.chat_metadata.summaryception.layerCount, 1);
+assert.equal(dualMetadataAdapter.getBindingMetadata().campaignId, 'campaign-dual-metadata');
+assert.equal(dualMetadataAdapter.getCurrentBinding().chatId, 'dual-chat');
+assert.equal(dualMetadataSaves, 1);
 
 forceSystemName2 = true;
 const firstPost = await adapter.postAssistantMessage({
@@ -157,13 +196,55 @@ assert.equal(chat[0].swipe_info[1].extra.overswipe_behavior, 'regenerate');
 assert.equal(chat[0].swipe_info[1].extra.directive.introRevisionId, 'intro:campaign-st-adapter:1');
 assert.equal(chatSaves, 4);
 
+chat.push({
+  id: 'host-generation-response',
+  name: 'Directive - Ashes of Peace',
+  is_user: false,
+  mes: 'Host-native prose recorded by CORE but not stamped with Directive metadata.'
+});
+await assert.rejects(
+  adapter.appendAssistantMessageSwipe({
+    hostMessageId: 'host-generation-response',
+    text: 'Blocked without explicit CORE host-generation authority.',
+    campaignId: 'campaign-st-adapter',
+    responseKind: 'hostGeneration',
+    select: false
+  }),
+  /Only Directive-owned assistant messages/
+);
+const coreHostGenerationSwipe = await adapter.appendAssistantMessageSwipe({
+  hostMessageId: 'host-generation-response',
+  text: 'Host-native prose receives an unselected Correct-as-Swipe candidate.',
+  campaignId: 'campaign-st-adapter',
+  responseKind: 'hostGeneration',
+  select: false,
+  allowUnownedAssistant: true,
+  extra: {
+    runtimeMetadata: {
+      correctAsSwipe: {
+        caseId: 'case-core-host-generation'
+      }
+    },
+    directive: {
+      correctAsSwipeCaseId: 'case-core-host-generation'
+    }
+  }
+});
+assert.equal(coreHostGenerationSwipe.ok, true);
+assert.equal(coreHostGenerationSwipe.swipeIndex, 1);
+assert.equal(chat[1].swipe_id, 0);
+assert.equal(chat[1].extra?.directive?.swipeCount, 2);
+assert.equal(chat[1].extra?.directive?.correctAsSwipeCaseId, undefined);
+assert.equal(chat[1].swipe_info[1].extra.runtimeMetadata.correctAsSwipe.caseId, 'case-core-host-generation');
+assert.equal(chat[1].swipe_info[1].extra.directive, undefined);
+
 chat.push({ id: 'player-1', is_user: true, mes: 'Preserve the telemetry and notify the Captain.' });
 const latest = adapter.getLatestPlayerMessage();
 assert.equal(latest.hostMessageId, 'player-1');
 assert.equal(latest.isUser, true);
 assert.equal(latest.isDirectiveOwned, false);
-assert.equal(normalizeSillyTavernMessagePayload(context, 1).text.includes('telemetry'), true);
-assert.equal(normalizeSillyTavernMessagePayload(context, { messageId: '1' }).hostMessageId, 'player-1');
+assert.equal(normalizeSillyTavernMessagePayload(context, 2).text.includes('telemetry'), true);
+assert.equal(normalizeSillyTavernMessagePayload(context, { messageId: '2' }).hostMessageId, 'player-1');
 assert.equal(normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-1' }).text.includes('telemetry'), true);
 assert.equal(
   normalizeSillyTavernMessagePayload(context, { messageId: '99' }),

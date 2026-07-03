@@ -62,6 +62,21 @@ assert.equal(handledFallback.fallbackHandledCalls.length, 1);
 assert.equal(handledFallback.calls[0].roleId, 'continuityProjectionPlanner');
 assert.equal(handledFallback.calls[0].requestHash, 'request-hash');
 
+const failClosedNoMutationFallback = summarizeModelCallFailurePolicy({
+  smokeSummary: smokeSummary({ failedModelCallCount: 1, modelCallCount: 1, retainedModelCallCount: 1 }),
+  smokeReport: smokeReport([failedCall({
+    id: 'model-call:source-settlement-timeout',
+    roleId: 'sourceSettlementLatestPair',
+    providerKind: 'utility'
+  })])
+});
+assert.equal(failClosedNoMutationFallback.status, 'pass');
+assert.equal(failClosedNoMutationFallback.fallbackHandledCalls.length, 1);
+assert.equal(
+  failClosedNoMutationFallback.fallbackHandledCalls[0].classification,
+  'fallback-handled-fail-closed-no-mutation'
+);
+
 const blockingRole = summarizeModelCallFailurePolicy({
   smokeSummary: smokeSummary({ failedModelCallCount: 1, modelCallCount: 1, retainedModelCallCount: 1 }),
   smokeReport: smokeReport([failedCall({

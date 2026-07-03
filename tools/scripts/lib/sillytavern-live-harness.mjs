@@ -232,10 +232,14 @@ function targetPromptKeys(target = {}) {
   return Array.isArray(target.promptKeys) ? target.promptKeys : [];
 }
 
+function environmentPromptKeys(environment = {}) {
+  return Array.isArray(environment.knownExternalPromptKeys) ? environment.knownExternalPromptKeys : [];
+}
+
 function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
   if ((target.status || 'unknown') !== 'browser-confirmed') return [];
   const evidence = [];
-  const promptKeys = targetPromptKeys(target);
+  const promptKeys = unique([...targetPromptKeys(target), ...environmentPromptKeys(environment)]);
   const chatCounts = target.chatMetadataCounts || {};
   const markerCounts = target.messageMarkerCounts || {};
   const browserSignals = target.browserSignals || {};
@@ -250,10 +254,15 @@ function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
       || Boolean(worldInfo.activeNames?.length);
     const sourceSeen = browserSignals.chatMetadataSeen === true
       || browserSignals.promptKeySeen === true
-      || promptKeys.some((key) => /^worldinfo/i.test(key));
+      || browserSignals.globalSignatureSeen === true
+      || promptKeys.some((key) => /^worldinfo/i.test(key))
+      || Boolean(worldInfo.chatBoundName)
+      || Boolean(worldInfo.settingsHash);
     if (!active || !sourceSeen) return [];
     if (countValue(chatCounts.chatBoundWorld) > 0 || Boolean(worldInfo.chatBoundName)) evidence.push('chat-bound-world');
     if (Boolean(worldInfo.activeNames?.length) || worldInfo.active === true) evidence.push('active-world-info');
+    if (browserSignals.globalSignatureSeen === true) evidence.push('world-info-global-signature');
+    if (Boolean(worldInfo.settingsHash)) evidence.push('world-info-settings');
     if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /^worldinfo/i.test(key))) evidence.push('world-info-prompt-key');
   } else if (targetId === 'memoryBooks') {
     const active = memoryBooks.enabled === true
@@ -261,15 +270,20 @@ function fixtureTargetEvidence(targetId, target = {}, environment = {}) {
       || countValue(memoryBooks.stMemoryBookEntryCount) > 0;
     const entrySeen = countValue(memoryBooks.stMemoryBookEntryCount) > 0
       || countValue(chatCounts.chatBoundWorld) > 0;
+    const metadataSeen = Boolean(memoryBooks.activeBookName)
+      || Boolean(memoryBooks.stMemoryBookEntryHash)
+      || hasRichDiagnosticStatus(memoryBooks.rangeDiagnostics);
     const markerOrPrompt = countValue(markerCounts.memoryBooksHidden) > 0
       || browserSignals.messageMarkerSeen === true
       || browserSignals.promptKeySeen === true
-      || promptKeys.some((key) => /memory/i.test(key));
+      || promptKeys.some((key) => /memory/i.test(key))
+      || metadataSeen;
     const rangeStatus = memoryBooks.rangeDiagnostics?.status || null;
     const rangeDiagnosticSeen = Boolean(rangeStatus && !['unknown', 'missing'].includes(rangeStatus));
     if (!active || !entrySeen || !markerOrPrompt || !rangeDiagnosticSeen) return [];
     if (countValue(memoryBooks.stMemoryBookEntryCount) > 0) evidence.push('memory-book-entry');
     if (countValue(chatCounts.chatBoundWorld) > 0) evidence.push('memory-book-chat-bound-world');
+    if (Boolean(memoryBooks.activeBookName) || Boolean(memoryBooks.stMemoryBookEntryHash)) evidence.push('memory-book-metadata');
     if (countValue(markerCounts.memoryBooksHidden) > 0 || browserSignals.messageMarkerSeen === true) evidence.push('memory-book-visibility-marker');
     if (browserSignals.promptKeySeen === true || promptKeys.some((key) => /memory/i.test(key))) evidence.push('memory-book-prompt-key');
     evidence.push(`memory-book-range-${rangeStatus}`);
@@ -1763,6 +1777,8 @@ export async function compareServedExtension({
     'src/hosts/sillytavern/bootstrap.js',
     'src/hosts/sillytavern/runtime-bridge.mjs',
     'src/runtime/runtime-app.mjs',
+    'src/runtime/message-reconciler.mjs',
+    'src/runtime/repair-runtime.mjs',
     ...files
   ])];
 

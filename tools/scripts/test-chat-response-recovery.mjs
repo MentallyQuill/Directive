@@ -1,25 +1,77 @@
 import assert from 'node:assert/strict';
 
 import { createFakeChatAdapter } from '../../src/hosts/fake/fake-host.mjs';
+import {
+  createTurnSourceFrameContract,
+  hashStableJson
+} from '../../src/runtime/architecture-redesign-contracts.mjs';
 import { createChatTurnOrchestrator } from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
-  recordRecoveryEvent,
   recordTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 import { createTurnCommitCoordinator } from '../../src/runtime/turn-commit-coordinator.mjs';
+import { createCoreStoreV2 } from '../../src/storage/core-store-v2.mjs';
+import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+function createLoggingStorage() {
+  const files = new Map();
+  return {
+    async readJson(filePath) {
+      if (!files.has(filePath)) {
+        const error = new Error(`not found: ${filePath}`);
+        error.code = 'ENOENT';
+        throw error;
+      }
+      return cloneJson(files.get(filePath));
+    },
+    async writeJson(filePath, value) {
+      files.set(filePath, cloneJson(value));
+      return { ok: true, path: filePath };
+    },
+    async verifyJsonFiles(paths) {
+      return Object.fromEntries(paths.map((filePath) => [filePath, files.has(filePath)]));
+    }
+  };
+}
+
 let sequence = 0;
 const now = () => `2026-06-22T14:00:${String(sequence++).padStart(2, '0')}.000Z`;
 const chat = createFakeChatAdapter({ chatId: 'recovery-chat' });
+const coreTurnStore = createCoreStoreV2({
+  adapter: createLogicalStorageAdapter({ storage: createLoggingStorage(), hostId: 'fake' }),
+  campaignId: 'recovery-campaign',
+  saveId: 'recovery-save',
+  now
+});
 let state = initializeCampaignRuntimeTracking({
   campaign: { id: 'recovery-campaign', status: 'active' },
-  campaignChatBinding: { hostId: 'fake', chatId: 'recovery-chat', campaignId: 'recovery-campaign' },
+  campaignChatBinding: { hostId: 'fake', chatId: 'recovery-chat', campaignId: 'recovery-campaign', saveId: 'recovery-save' },
   commandLog: { entries: [] },
   turnLedger: { entries: [] }
+});
+const sourceFrame = createTurnSourceFrameContract({
+  id: 'frame-recovery',
+  campaignId: 'recovery-campaign',
+  saveId: 'recovery-save',
+  chatId: 'recovery-chat',
+  hostMessageId: 'player-recovery',
+  textHash: hashStableJson({ text: 'I move toward the bridge and wait for the response.' }),
+  createdAt: now()
+});
+const transaction = await coreTurnStore.beginTurn(sourceFrame, {
+  transactionId: 'txn-recovery',
+  ingressId: 'ingress-recovery',
+  idempotencyKey: 'begin-recovery'
+});
+await coreTurnStore.advanceTurn(transaction.id, {
+  phase: 'routePending',
+  route: 'directiveCommit',
+  reason: 'response-recovery-test',
+  idempotencyKey: 'route-recovery'
 });
 state.runtimeTracking.lastCommittedTurn = {
   turnId: 'turn-recovery',
@@ -33,23 +85,50 @@ state = recordTurnIngress(state, {
   chatId: 'recovery-chat',
   campaignId: 'recovery-campaign',
   status: 'recoveryRequired',
-  outcomeId: 'outcome-recovery'
+  outcomeId: 'outcome-recovery',
+  sourceFrameId: sourceFrame.id,
+  sourceFrame,
+  coreTransactionId: transaction.id
 });
-state = recordRecoveryEvent(state, {
+const recoveryCase = await coreTurnStore.markRecoveryRequired(transaction.id, {
   id: 'recovery:response:ingress-recovery',
-  type: 'hostResponsePostFailure',
-  status: 'open',
+  reason: 'host-response-post-failure',
+  responseRetry: true,
+  phaseAfter: 'responseRetryRequired',
   ingressId: 'ingress-recovery',
   outcomeId: 'outcome-recovery',
-  details: {
+  turnId: 'turn-recovery',
+  sourceFrameId: sourceFrame.id,
+  dependentOutcomeId: 'outcome-recovery',
+  responseRetryPlan: {
+    kind: 'directive.responseRetryGenerationPlan.v1',
+    schemaVersion: 1,
     strategy: 'directivePosted',
-    text: 'The bridge executes the already committed maneuver.',
+    responseKind: 'locationTransition',
+    classification: 'locationTransition',
+    locationTransition: {
+      destinationLabel: 'the bridge'
+    }
+  },
+  repairDecision: {
+    kind: 'directive.repairResponseRecoveryDecision.v1',
+    eventType: 'hostResponsePostFailure',
+    recoveryId: 'recovery:response:ingress-recovery',
+    recoveryCaseId: 'recovery:response:ingress-recovery',
+    ingressId: 'ingress-recovery',
+    outcomeId: 'outcome-recovery',
     turnId: 'turn-recovery',
-    responseKind: 'committedOutcome',
-    classification: 'consequentialCommand',
-    workerPlan: { continuity: true }
-  }
+    sourceFrameId: sourceFrame.id,
+    transactionId: transaction.id,
+    responseStatus: 'responseRetryRequired',
+    phaseAfter: 'responseRetryRequired',
+    allowedActions: ['retryResponse'],
+    normalTurnAllowed: false
+  },
+  allowedActions: ['retryResponse'],
+  idempotencyKey: 'recovery-response-ingress-recovery'
 });
+assert.equal(recoveryCase.status, 'required');
 
 const persisted = [];
 async function persist(next, summary) {
@@ -66,6 +145,7 @@ const gateway = createStateDeltaGateway({
 });
 const dispatcher = createResponseDispatcher({
   host,
+  coreTurnStore,
   getCampaignState: () => state,
   setCampaignState: (next) => { state = cloneJson(next); },
   persist,
@@ -78,6 +158,7 @@ const orchestrator = createChatTurnOrchestrator({
   responseDispatcher: dispatcher,
   turnCommitCoordinator: coordinator,
   stateDeltaGateway: gateway,
+  coreTurnStore,
   getCampaignState: () => state,
   setCampaignState: (next) => { state = cloneJson(next); },
   persistCampaignState: persist,
@@ -91,10 +172,15 @@ const recovered = await orchestrator.retryCommittedResponse({ recoveryId: 'recov
 assert.equal(recovered.ok, true);
 assert.equal(state.runtimeTracking.lastCommittedTurn.outcomeId, 'outcome-recovery');
 assert.equal(state.runtimeTracking.lastCommittedTurn.responseStatus, 'complete');
-assert.equal(state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:response:ingress-recovery').status, 'resolved');
+assert.equal(state.runtimeTracking.recoveryJournal.length, 0);
 assert.equal(state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-recovery').status, 'committed');
 assert.equal(chat.messages().filter((message) => message.metadata?.outcomeId === 'outcome-recovery').length, 1);
 assert.equal(persisted.length > 0, true);
+const resolvedRecovery = coreTurnStore.readProjections().recoveryJournal.find((entry) => (
+  entry.id === 'recovery:response:ingress-recovery'
+  && entry.status === 'resolved'
+));
+assert.equal(resolvedRecovery?.repairDecision?.kind, 'directive.repairResponseRetryActuationDecision.v1');
 
 const duplicate = await orchestrator.retryCommittedResponse({ recoveryId: 'recovery:response:ingress-recovery' });
 assert.equal(duplicate.ok, false);

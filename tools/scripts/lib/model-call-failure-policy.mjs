@@ -16,6 +16,10 @@ const BLOCKING_MODEL_CALL_FALLBACKS = new Set([
   'fail-retryable'
 ]);
 
+const FAIL_CLOSED_NO_MUTATION_FALLBACK_ROLES = new Set([
+  'sourceSettlementLatestPair'
+]);
+
 function compactText(value = '', max = 160) {
   const text = String(value || '');
   if (text.length <= max) return text;
@@ -177,6 +181,26 @@ export function classifyFailedModelCall(call = {}) {
     };
   }
   const fallback = authority.fallback || null;
+  if (
+    fallback === 'fail-closed'
+    && FAIL_CLOSED_NO_MUTATION_FALLBACK_ROLES.has(roleId)
+    && authority.mayProposeState !== true
+    && authority.mayInjectPrompt !== true
+  ) {
+    return {
+      ...call,
+      classification: 'fallback-handled-fail-closed-no-mutation',
+      releaseBlocking: false,
+      unresolved: false,
+      authority: {
+        blocking: authority.blocking === true,
+        fallback,
+        mayProposeState: authority.mayProposeState === true,
+        mayInjectPrompt: authority.mayInjectPrompt === true
+      },
+      reason: `Role ${roleId} failed closed without prompt or state authority.`
+    };
+  }
   if (BLOCKING_MODEL_CALL_FALLBACKS.has(fallback)) {
     return {
       ...call,

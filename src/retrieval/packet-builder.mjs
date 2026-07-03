@@ -1,8 +1,12 @@
-import { indexDirectorDatasets } from './dataset-index.mjs';
+import {
+  buildRecallIndexEntriesFromDirectorDatasets,
+  indexDirectorDatasets
+} from './dataset-index.mjs';
 import { evaluateCardForAudience } from './gate-evaluator.mjs';
 import { collectRecallCandidates, narratorHintCardIds } from './recall-lanes.mjs';
 import { createRetrievalJournal, createRetrievalRunId } from './run-journal.mjs';
 import { hydrateDirectorCards } from './card-hydration.mjs';
+import { createRecallQuery, queryRecallIndex } from './recall-index.mjs';
 
 export const DIRECTOR_RETRIEVAL_AUDIENCES = Object.freeze([
   'missionDirector',
@@ -23,6 +27,36 @@ function unique(values = []) {
 
 function cardIdsFromCandidates(candidates = []) {
   return candidates.map((candidate) => candidate.cardId).filter(Boolean);
+}
+
+function mergeRecallEntries(...sources) {
+  const out = [];
+  const seen = new Set();
+  for (const source of sources) {
+    for (const entry of Array.isArray(source) ? source : []) {
+      const key = entry?.id || entry?.hash || entry?.textHash || entry?.metadataHash;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(cloneJson(entry));
+    }
+  }
+  return out;
+}
+
+function compact(value = '') {
+  return String(value ?? '').trim();
+}
+
+function recallKeywordsFor(sceneSnapshot = {}, intentParse = {}) {
+  return unique([
+    sceneSnapshot.activePhaseId,
+    sceneSnapshot.phaseId,
+    sceneSnapshot.locationId,
+    intentParse.primaryIntent,
+    ...(Array.isArray(intentParse.targetIds) ? intentParse.targetIds : []),
+    ...(Array.isArray(sceneSnapshot.relevantLocationIds) ? sceneSnapshot.relevantLocationIds : []),
+    ...(Array.isArray(sceneSnapshot.relevantSystemIds) ? sceneSnapshot.relevantSystemIds : [])
+  ].map(compact).filter((value) => value.length >= 3));
 }
 
 function narratorCandidateAllowed(candidate = {}, allowedHintIds = new Set()) {
@@ -103,15 +137,25 @@ export function runDirectorRetrieval({
   intentParse = {},
   turnId = null,
   outcomeId = null,
+  coreRecallEntries = [],
   audiences = DIRECTOR_RETRIEVAL_AUDIENCES
 } = {}) {
   const index = indexDirectorDatasets({ crewDataset, shipDataset, missionGraph });
+  const packageRecallEntries = buildRecallIndexEntriesFromDirectorDatasets({
+    crewDataset,
+    shipDataset,
+    missionGraph,
+    campaignId: sceneSnapshot.campaignId || campaignState?.campaign?.id || null,
+    saveId: campaignState?.campaignChatBinding?.saveId || campaignState?.saveId || null
+  });
+  const recallEntries = mergeRecallEntries(coreRecallEntries, packageRecallEntries);
   const runId = createRetrievalRunId({ turnId, outcomeId, sceneSnapshot, intentParse });
   const narratorHints = narratorHintCardIds({ sceneSnapshot, intentParse });
   const packets = {};
   const candidateIdsByAudience = {};
   const selectedByAudience = {};
   const blockedByAudience = {};
+  const recallByAudience = {};
 
   for (const audience of audiences) {
     let candidates = collectRecallCandidates({ index, sceneSnapshot, intentParse, audience });
@@ -141,12 +185,37 @@ export function runDirectorRetrieval({
       cardIds: packet.cardIds,
       audience
     });
+    const recallQuery = createRecallQuery({
+      campaignId: sceneSnapshot.campaignId || campaignState?.campaign?.id || null,
+      saveId: campaignState?.campaignChatBinding?.saveId || campaignState?.saveId || null,
+      branchId: campaignState?.branchId || 'main',
+      actorIds: sceneSnapshot.presentCharacters || [],
+      locationId: sceneSnapshot.locationId || null,
+      missionId: sceneSnapshot.missionId || sceneSnapshot.activeMissionId || null,
+      phaseId: sceneSnapshot.activePhaseId || sceneSnapshot.phaseId || null,
+      retrievalModes: ['deterministic', 'sceneSeal', 'reviewedImport', 'package'],
+      audience,
+      keywords: recallKeywordsFor(sceneSnapshot, intentParse),
+      limit: audience === 'narrator' ? 8 : 12
+    });
+    const recallResult = queryRecallIndex({
+      entries: recallEntries,
+      query: recallQuery
+    });
     packets[audience] = {
       audience,
       runId,
       cardIds: packet.cardIds,
       hydratedCards: hydration.cards,
-      omittedHydrationCardIds: hydration.omittedCardIds
+      omittedHydrationCardIds: hydration.omittedCardIds,
+      recallRefs: recallResult.includedRefs
+    };
+    recallByAudience[audience] = {
+      queryHash: recallResult.queryHash,
+      recallIndexRevision: recallResult.recallIndexRevision,
+      includedRefs: recallResult.includedRefs,
+      omittedRefs: recallResult.omittedRefs,
+      trace: recallResult.trace
     };
     candidateIdsByAudience[audience] = unique(packet.candidateCardIds);
     selectedByAudience[audience] = cloneJson(packet.cardIds);
@@ -171,7 +240,11 @@ export function runDirectorRetrieval({
     packets,
     diagnostics: {
       candidateIdsByAudience,
-      blockedByAudience
+      blockedByAudience,
+      recallIndex: {
+        entryCount: recallEntries.length,
+        byAudience: recallByAudience
+      }
     },
     journal
   };

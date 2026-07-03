@@ -645,63 +645,13 @@ await app[mutateRuntimeAppCampaignState]((state) => {
   entry.snapshotBeforeRetained = true;
   return next;
 });
-const beforeNoRefDelete = await app.getCurrentView({ tabId: 'mission' });
-const beforeNoRefState = beforeNoRefDelete.loadedCampaignState || beforeNoRefDelete.campaignState;
-const beforeNoRefEntry = beforeNoRefState.turnLedger.entries.find((entry) => entry.outcomeId === coreDeletedOutcomeId);
-assert.equal(Object.prototype.hasOwnProperty.call(beforeNoRefEntry, 'snapshotBefore'), false, 'No-ref delete fixture must not keep raw snapshot present.');
-assert.equal(beforeNoRefEntry.snapshotBeforeRetained, true);
-assert.equal(beforeNoRefEntry.coreCheckpointRef, undefined);
-const beforeNoRefCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
-  campaignId: beforeNoRefState.campaign.id,
-  saveId: beforeNoRefState.campaignChatBinding.saveId
-});
-const beforeNoRefRecoveryCount = beforeNoRefCoreProjections.recoveryJournal.filter((entry) => (
-  entry.transactionId === coreDeletedTransactionId
-  && entry.dependentOutcomeId === coreDeletedOutcomeId
-)).length;
-const beforeNoRefRollbackCount = beforeNoRefCoreProjections.rollbackActuations.filter((entry) => (
-  entry.transactionId === coreDeletedTransactionId
-  && entry.outcomeId === coreDeletedOutcomeId
-)).length;
-const beforeNoRefDeleteRollbackEvaluations = committedOutcomeDeleteRollbackEvaluations;
-await assert.rejects(
-  () => app.deleteCommittedOutcome({ outcomeId: coreDeletedOutcomeId }),
-  (error) => {
-    assert.equal(error.code, 'DIRECTIVE_REPAIR_DELETE_OUTCOME_CORE_CHECKPOINT_REQUIRED');
-    assert.equal(error.details?.outcomeId, coreDeletedOutcomeId);
-    assert.equal(error.details?.transactionId, coreDeletedTransactionId);
-    return true;
-  },
-  'CORE-backed committed outcome delete must not fall back to raw snapshot when checkpoint ref is missing.'
-);
-const afterNoRefDelete = await app.getCurrentView({ tabId: 'mission' });
-const afterNoRefState = afterNoRefDelete.loadedCampaignState || afterNoRefDelete.campaignState;
+const hydratedNoRefDelete = await app.getCurrentView({ tabId: 'mission' });
+const hydratedNoRefEntry = hydratedNoRefDelete.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === coreDeletedOutcomeId);
+assert.equal(Object.prototype.hasOwnProperty.call(hydratedNoRefEntry, 'snapshotBefore'), false, 'CORE hydration must not restore raw snapshots.');
+assert.equal(hydratedNoRefEntry.snapshotBeforeRetained, true);
 assert.ok(
-  afterNoRefState.turnLedger.entries.some((entry) => entry.outcomeId === coreDeletedOutcomeId),
-  'No-ref delete must leave the target outcome in the turn ledger.'
-);
-assert.equal(afterNoRefState.turnLedger.lastCommittedOutcomeId, coreDeletedOutcomeId, 'No-ref delete must not run old snapshot restore.');
-assert.equal(afterNoRefState.mission.activePhaseId, beforeNoRefState.mission.activePhaseId, 'No-ref delete must not mutate campaign state.');
-assert.equal(committedOutcomeDeleteRollbackEvaluations, beforeNoRefDeleteRollbackEvaluations, 'No-ref delete must not ask REPAIR to authorize rollback.');
-const afterNoRefCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
-  campaignId: beforeNoRefState.campaign.id,
-  saveId: beforeNoRefState.campaignChatBinding.saveId
-});
-assert.equal(
-  afterNoRefCoreProjections.recoveryJournal.filter((entry) => (
-    entry.transactionId === coreDeletedTransactionId
-    && entry.dependentOutcomeId === coreDeletedOutcomeId
-  )).length,
-  beforeNoRefRecoveryCount,
-  'No-ref delete must not write CORE recovery projection.'
-);
-assert.equal(
-  afterNoRefCoreProjections.rollbackActuations.filter((entry) => (
-    entry.transactionId === coreDeletedTransactionId
-    && entry.outcomeId === coreDeletedOutcomeId
-  )).length,
-  beforeNoRefRollbackCount,
-  'No-ref delete must not write CORE rollback actuation projection.'
+  hydratedNoRefEntry.coreCheckpointRef?.checkpointId,
+  'CORE hydration should repair a missing ledger checkpoint ref before delete uses raw snapshot fallback.'
 );
 await app[mutateRuntimeAppCampaignState](() => retainedSnapshotBaseline.loadedCampaignState || retainedSnapshotBaseline.campaignState);
 

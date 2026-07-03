@@ -91,6 +91,7 @@ import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
   recordLifecycleEvent,
+  recordDirectiveResponse,
   recordTurnIngress,
   updateDirectiveResponse
 } from './state-delta-gateway.mjs';
@@ -110,7 +111,8 @@ import { createActiveSaveGuard } from './active-save-guard.mjs';
 import {
   copyCoreStoreStateV2ForSaveBranch,
   createCoreStoreV2,
-  loadCoreStoreStateV2
+  loadCoreStoreStateV2,
+  readCoreRecallIndexAuxiliaryEntries
 } from '../storage/core-store-v2.mjs';
 import {
   commitV2SaveLayout,
@@ -2160,6 +2162,15 @@ export function createDirectiveRuntimeApp({
       const store = await ensureActiveCoreTurnStore();
       return typeof store?.readProjections === 'function' ? store.readProjections() : null;
     },
+    async readRecallIndexAuxiliaryEntries(refs = null) {
+      const projections = refs
+        ? null
+        : (typeof this.readProjections === 'function' ? await this.readProjections() : null);
+      const targetRefs = Array.isArray(refs)
+        ? refs
+        : (Array.isArray(projections?.recallIndex?.auxiliaryRefs) ? projections.recallIndex.auxiliaryRefs : []);
+      return readCoreRecallIndexAuxiliaryEntries(storageAdapter, targetRefs);
+    },
     async loadHead() {
       const store = await ensureActiveCoreTurnStore();
       return typeof store?.loadHead === 'function' ? store.loadHead() : null;
@@ -2467,8 +2478,10 @@ export function createDirectiveRuntimeApp({
       policyHash: hashStableJson({
         simulationMode: state?.settings?.simulationMode || null,
         campaignStatus: state?.campaign?.status || null,
-        promptContract: 'directive-lens-runtime-v1'
+        promptContract: 'directive-lens-runtime-v1',
+        lensPromptBudgetLanes: assets?.packageData?.contextPolicy?.lensPromptBudgetLanes || null
       }),
+      promptBudgetLaneOverrides: cloneJson(assets?.packageData?.contextPolicy?.lensPromptBudgetLanes || null),
       packageVersion: compactString(assets?.packageData?.metadata?.version || assets?.packageData?.version || assets?.packageData?.id),
       crewDatasetHash: assets?.crewDataset ? hashStableJson({
         id: assets.crewDataset.id || null,
@@ -2510,6 +2523,16 @@ export function createDirectiveRuntimeApp({
     } catch (error) {
       console.warn('[Directive] Failed to read CORE prompt cache inputs:', error);
       return {};
+    }
+  }
+
+  async function coreRecallEntriesForPromptSync() {
+    if (typeof runtimeCoreTurnStore?.readRecallIndexAuxiliaryEntries !== 'function') return [];
+    try {
+      return await runtimeCoreTurnStore.readRecallIndexAuxiliaryEntries() || [];
+    } catch (error) {
+      console.warn('[Directive] Failed to read CORE Recall auxiliary entries:', error);
+      return [];
     }
   }
 
@@ -5305,10 +5328,14 @@ export function createDirectiveRuntimeApp({
     }
     const assets = optionalActiveRuntimeAssets();
     const frame = promptFrame && typeof promptFrame === 'object' ? promptFrame : {};
+    const coreRecallEntries = await coreRecallEntriesForPromptSync();
     const promptInput = createLensPromptInput({
       campaignState: state,
       assets,
-      promptFrame: frame,
+      promptFrame: {
+        ...frame,
+        coreRecallEntries
+      },
       createdAt: timestampFromNow(now)
     });
     const shouldUseContinuityPlanner = useContinuityPlanner === true
@@ -6429,10 +6456,14 @@ export function createDirectiveRuntimeApp({
       now,
       updateResponse: (latest, responseUpdateId, correctionCase) => {
         const tracked = initializeCampaignRuntimeTracking(latest);
-        const currentResponse = findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const hotResponse = (tracked.runtimeTracking?.responseLedger || []).find((entry) => (
+          compactString(entry?.id) === compactString(responseUpdateId)
+          || compactString(entry?.hostMessageId) === compactString(responseUpdateId)
+        )) || null;
+        const currentResponse = hotResponse || findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
         const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
         const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
-        return updateDirectiveResponse(tracked, responseUpdateId, {
+        const patch = {
           correctAsSwipe: {
             ...currentCorrectAsSwipe,
             cases: [
@@ -6442,7 +6473,19 @@ export function createDirectiveRuntimeApp({
             lastCaseId: correctionCase.id,
             lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || null)
           }
-        });
+        };
+        if (!hotResponse && currentResponse) {
+          return recordDirectiveResponse(tracked, {
+            ...cloneJson(currentResponse),
+            ...patch,
+            id: currentResponse.id || currentResponse.responseId || responseUpdateId,
+            hostMessageId: currentResponse.hostMessageId || correctionCase.source?.hostMessageId || null,
+            status: currentResponse.status || 'posted',
+            responseKind: currentResponse.responseKind || currentResponse.kind || 'hostGeneration',
+            strategy: currentResponse.strategy || 'injectAndContinue'
+          });
+        }
+        return updateDirectiveResponse(tracked, responseUpdateId, patch);
       },
       persist: async (next, summary) => {
         campaignState = next;
@@ -6682,6 +6725,37 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async reobserveHostGenerationCompletions(options = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
+        const services = ensureChatNativeServices();
+        if (typeof services?.responseDispatcher?.reobserveHostGenerationCompletions !== 'function') {
+          return {
+            ok: false,
+            skipped: true,
+            reason: 'response-dispatcher-reobserve-unavailable'
+          };
+        }
+        const state = liveCampaignStateForView() || campaignState;
+        const assets = optionalRuntimeAssetsForState(state);
+        const result = await services.responseDispatcher.reobserveHostGenerationCompletions({
+          campaignState: state,
+          limit: options.limit,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          shipDataset: assets?.shipDataset || null,
+          campaignProjection: assets?.projection || null
+        });
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return {
+          ...cloneJson(result || {}),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
     getOutcomeIntegrityNativeEditDecision(payload = {}) {
       return outcomeIntegrityNativeEditDecision(payload);
     },
@@ -6710,6 +6784,21 @@ export function createDirectiveRuntimeApp({
         const postCommitConversationResult = await settlePostCommitConversationQueue();
         const advisoryEnrichmentResult = await settleAdvisoryEnrichmentQueue();
         const terminalCheckpointSettlementResult = await settleTerminalCheckpointSettlementQueue();
+        const reobserveState = liveCampaignStateForView() || campaignState;
+        const reobserveAssets = optionalRuntimeAssetsForState(reobserveState);
+        const hostGenerationReobserveResult = typeof services?.responseDispatcher?.reobserveHostGenerationCompletions === 'function'
+          ? await services.responseDispatcher.reobserveHostGenerationCompletions({
+            campaignState: reobserveState,
+            packageData: reobserveAssets?.packageData || null,
+            crewDataset: reobserveAssets?.crewDataset || null,
+            shipDataset: reobserveAssets?.shipDataset || null,
+            campaignProjection: reobserveAssets?.projection || null
+          })
+          : {
+            ok: false,
+            skipped: true,
+            reason: 'response-dispatcher-reobserve-unavailable'
+          };
         if (!services?.sidecarScheduler?.pending) {
           await refreshCampaignView();
           await refreshCurrentChatCampaignScope();
@@ -6721,12 +6810,14 @@ export function createDirectiveRuntimeApp({
               || advisoryEnrichmentResult?.scheduled === true
               || advisoryEnrichmentResult?.ok === true
               || terminalCheckpointSettlementResult?.scheduled === true
-              || terminalCheckpointSettlementResult?.ok === true,
+              || terminalCheckpointSettlementResult?.ok === true
+              || hostGenerationReobserveResult?.ok === true,
             reason: 'sidecar-scheduler-unavailable',
             commandLogSummaryResult: cloneJson(commandLogSummaryResult),
             postCommitConversationResult: cloneJson(postCommitConversationResult),
             advisoryEnrichmentResult: cloneJson(advisoryEnrichmentResult),
             terminalCheckpointSettlementResult: cloneJson(terminalCheckpointSettlementResult),
+            hostGenerationReobserveResult: cloneJson(hostGenerationReobserveResult),
             view: viewEnvelope('mission')
           };
         }
@@ -6765,6 +6856,7 @@ export function createDirectiveRuntimeApp({
           postCommitConversationResult: cloneJson(postCommitConversationResult),
           advisoryEnrichmentResult: cloneJson(advisoryEnrichmentResult),
           terminalCheckpointSettlementResult: cloneJson(terminalCheckpointSettlementResult),
+          hostGenerationReobserveResult: cloneJson(hostGenerationReobserveResult),
           view: viewEnvelope('mission')
         };
       });
@@ -6785,31 +6877,6 @@ export function createDirectiveRuntimeApp({
         await refreshCurrentChatCampaignScope();
         return {
           ok: true,
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async reobserveHostGenerationCompletions() {
-      return run(async () => {
-        await ensureInitialized();
-        await refreshCurrentChatCampaignScope();
-        const services = ensureChatNativeServices();
-        if (!services?.responseDispatcher?.reobserveHostGenerationCompletions) {
-          return { ok: false, skipped: true, reason: 'response-dispatcher-reobserve-unavailable' };
-        }
-        const assets = activeRuntimeAssets();
-        const result = await services.responseDispatcher.reobserveHostGenerationCompletions({
-          campaignState: liveCampaignStateForView() || campaignState,
-          packageData: assets?.packageData || null,
-          crewDataset: assets?.crewDataset || null,
-          shipDataset: assets?.shipDataset || null,
-          campaignProjection: assets?.projection || null
-        });
-        await refreshCampaignView();
-        await refreshCurrentChatCampaignScope();
-        return {
-          ...cloneJson(result),
           view: viewEnvelope('mission')
         };
       });
@@ -8676,7 +8743,7 @@ export function createDirectiveRuntimeApp({
           campaignState,
           branchFrom: branchPoint
         });
-        await copyCoreStoreStateV2ForSaveBranch(storageAdapter, {
+        const coreBranchClone = await copyCoreStoreStateV2ForSaveBranch(storageAdapter, {
           campaignId: campaignState?.campaign?.id || branchBinding.campaignId,
           sourceSaveId: sourceBinding?.saveId || controller.activeSaveId,
           targetSaveId: branchSave.id,
@@ -8712,6 +8779,14 @@ export function createDirectiveRuntimeApp({
           saveGuard: cloneJson(lastManualSaveGuard),
           save: cloneJson(save),
           branchSave: cloneJson(branchSave),
+          coreBranchClone: coreBranchClone ? {
+            checkpointCount: coreBranchClone.checkpointCount ?? null,
+            skipped: coreBranchClone.skipped === true,
+            reason: coreBranchClone.reason || null,
+            recallSourceMutation: cloneJson(coreBranchClone.recallSourceMutation || null),
+            recallAuxiliaryRewrite: cloneJson(coreBranchClone.recallAuxiliaryRewrite || null),
+            saveManifestRef: cloneJson(coreBranchClone.saveManifestRef || null)
+          } : null,
           branchChat: {
             sourceChatId: clonedBinding?.sourceChatId || sourceBinding?.chatId || null,
             chatId: campaignState.campaignChatBinding?.chatId || null,
@@ -8837,13 +8912,17 @@ export function createDirectiveRuntimeApp({
       playerInput,
       sceneSnapshotOverrides = {},
       turnId = null,
-      generateCommandLogSummary = true
+      generateCommandLogSummary = true,
+      coreRecallEntries = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const assets = activeRuntimeAssets();
         const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
+        const resolvedCoreRecallEntries = Array.isArray(coreRecallEntries)
+          ? coreRecallEntries
+          : await coreRecallEntriesForPromptSync();
         const result = runDirectorTurnRuntime({
           campaignState,
           packageData: assets.packageData,
@@ -8855,7 +8934,8 @@ export function createDirectiveRuntimeApp({
           projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn'),
           playerInput,
-          sceneSnapshotOverrides
+          sceneSnapshotOverrides,
+          coreRecallEntries: resolvedCoreRecallEntries
         });
         campaignState = result.campaignState;
         lastDirectorTurn = result.turnPacket;
@@ -8883,13 +8963,17 @@ export function createDirectiveRuntimeApp({
     async previewDirectorTurn({
       playerInput,
       sceneSnapshotOverrides = {},
-      turnId = null
+      turnId = null,
+      coreRecallEntries = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const assets = activeRuntimeAssets();
         const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
+        const resolvedCoreRecallEntries = Array.isArray(coreRecallEntries)
+          ? coreRecallEntries
+          : await coreRecallEntriesForPromptSync();
         const result = createProvisionalDirectorTurnRuntime({
           campaignState,
           packageData: assets.packageData,
@@ -8901,7 +8985,8 @@ export function createDirectiveRuntimeApp({
           projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn'),
           playerInput,
-          sceneSnapshotOverrides
+          sceneSnapshotOverrides,
+          coreRecallEntries: resolvedCoreRecallEntries
         });
         pendingDirectorTurn = result.turnPacket;
         pendingOutcomeReplacement = null;
@@ -9180,6 +9265,7 @@ export function createDirectiveRuntimeApp({
           replacementTurnId,
           type
         });
+        const coreRecallEntries = await coreRecallEntriesForPromptSync();
         const result = createProvisionalDirectorTurnRuntime({
           campaignState: snapshotBefore,
           packageData: assets.packageData,
@@ -9190,7 +9276,8 @@ export function createDirectiveRuntimeApp({
           graphPath: graphRecord.path || snapshotBefore.mission?.activeMissionGraphPath,
           projectionPath: assets.projectionPath,
           turnId: replacementTurnId,
-          playerInput
+          playerInput,
+          coreRecallEntries
         });
         pendingOutcomeReplacement = {
           type,

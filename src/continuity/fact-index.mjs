@@ -4,6 +4,9 @@ import {
   cloneJson,
   compact,
   createContinuityFact,
+  factKnowledgeScope,
+  isFalseBeliefDisclosureState,
+  isProvisionalDisclosureState,
   isFactVisibleToAudience
 } from './fact-schema.mjs';
 import { normalizeContinuityState } from './state.mjs';
@@ -20,6 +23,10 @@ function normalizeFact(value, fallbackAuthority = 'campaignState') {
 }
 
 function rankFact(fact) {
+  const scope = factKnowledgeScope(fact);
+  const disclosureRank = isFalseBeliefDisclosureState(scope.disclosureState)
+    ? -30
+    : (isProvisionalDisclosureState(scope.disclosureState) ? -10 : 0);
   const criticalityRank = {
     hard: 50,
     critical: 45,
@@ -29,10 +36,23 @@ function rankFact(fact) {
   }[compact(fact?.criticality).toLowerCase()] || 0;
   return [
     Number(fact?.authorityRank || 0),
+    disclosureRank,
     criticalityRank,
     Number(fact?.confidence || 0) * 10,
     Number(fact?.revision || 0)
   ];
+}
+
+function conflictPartitionKey(fact) {
+  const key = fact?.conflictKey || fact?.id;
+  const scope = factKnowledgeScope(fact);
+  if (!isFalseBeliefDisclosureState(scope.disclosureState)) return key;
+  const actors = [...new Set([
+    ...scope.knownBy,
+    ...scope.witnessedBy,
+    ...scope.subjectIds
+  ])].sort().join(',');
+  return `${key}:falseBelief:${actors || 'unknown'}`;
 }
 
 function compareFacts(left, right) {
@@ -90,7 +110,7 @@ export function buildContinuityFactIndex({
 
   const byConflictKey = new Map();
   for (const fact of acceptedById.values()) {
-    const key = fact.conflictKey || fact.id;
+    const key = conflictPartitionKey(fact);
     const siblings = byConflictKey.get(key) || [];
     siblings.push(fact);
     byConflictKey.set(key, siblings);

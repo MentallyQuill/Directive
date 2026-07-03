@@ -141,6 +141,17 @@ function sceneActorIds(scene = {}) {
   ]);
 }
 
+function sceneGroupIds(scene = {}) {
+  return unique([
+    ...(Array.isArray(scene?.presentGroupIds) ? scene.presentGroupIds : []),
+    ...(Array.isArray(scene?.relevantGroupIds) ? scene.relevantGroupIds : []),
+    ...(Array.isArray(scene?.referencedGroupIds) ? scene.referencedGroupIds : []),
+    ...(scene?.actorGroups && typeof scene.actorGroups === 'object' ? Object.keys(scene.actorGroups) : []),
+    ...(scene?.actorGroupMap && typeof scene.actorGroupMap === 'object' ? Object.keys(scene.actorGroupMap) : []),
+    ...(scene?.groupActorIds && typeof scene.groupActorIds === 'object' ? Object.keys(scene.groupActorIds) : [])
+  ]);
+}
+
 export function buildContinuitySourceFrame({
   campaignState,
   packageData = null,
@@ -159,6 +170,7 @@ export function buildContinuitySourceFrame({
   const acceptedVariant = normalizeAcceptedAssistantVariant(acceptedAssistantVariant);
   const shipSummary = shipDatasetSummary(shipDataset);
   const presentActorIds = sceneActorIds(scene);
+  const presentGroupIds = sceneGroupIds(scene);
   const referencedActors = referencedActorIds({
     packageData,
     crewDataset,
@@ -185,8 +197,12 @@ export function buildContinuitySourceFrame({
     recentMessages: recentMessages(recentChatMessages),
     acceptedAssistantVariant: acceptedVariant,
     presentActorIds,
+    presentGroupIds,
+    relevantGroupIds: presentGroupIds,
     referencedActorIds: referencedActors,
+    referencedGroupIds: [],
     relevantActorIds,
+    actorGroups: cloneJson(scene?.actorGroups || scene?.actorGroupMap || scene?.groupActorIds || {}),
     scene: cloneJson(scene || {}),
     packageRevision: packageData?.manifest?.version || null,
     crewDatasetRevision: crewDataset?.manifest?.version || null,

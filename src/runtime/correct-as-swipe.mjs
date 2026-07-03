@@ -416,6 +416,11 @@ export async function proposeCorrectAsSwipe({
     campaignId: campaignState?.campaign?.id || null,
     responseKind: response?.responseKind || 'narration',
     select: false,
+    allowUnownedAssistant: response?.kind === 'hostContinue'
+      || response?.responseKind === 'hostContinue'
+      || response?.responseKind === 'hostGeneration'
+      || response?.strategy === 'injectAndContinue'
+      || /:host$/.test(String(response?.id || response?.responseId || '')),
     extra: {
       runtimeMetadata: {
         correctAsSwipe: {

@@ -8,7 +8,9 @@ import {
   buildContinuitySourceFrame,
   buildContinuityProjectionMatrix,
   CONTINUITY_PLAN_KIND,
+  buildContinuityFactIndex,
   createContinuityFact,
+  factKnowledgeScope,
   isFactVisibleToAudience,
   materializeContinuityFacts,
   normalizeContinuityState,
@@ -143,6 +145,186 @@ const directorOnly = createContinuityFact({
 });
 assert.equal(isFactVisibleToAudience(directorOnly, CONTINUITY_VISIBILITY.narratorSafe), false);
 assert.equal(isFactVisibleToAudience(directorOnly, CONTINUITY_VISIBILITY.directorOnly), true);
+assert.equal(directorOnly.disclosureState, 'secret');
+assert.equal(factKnowledgeScope({ visibility: CONTINUITY_VISIBILITY.hidden }).disclosureState, 'secret');
+assert.equal(factKnowledgeScope({ visibility: CONTINUITY_VISIBILITY.playerFacing }).disclosureState, 'public');
+
+const bronnScopedFact = createContinuityFact({
+  id: 'witness.bronn.private-report',
+  kind: 'witness.private',
+  subject: 'crew.hadrik-bronn',
+  predicate: 'private-report',
+  summary: 'Bronn privately knows the sensor archive was sealed before the handoff.',
+  render: {
+    narrator: 'Bronn privately knows the sensor archive was sealed before the handoff.'
+  },
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  knownBy: ['hadrik-bronn'],
+  witnessedBy: ['hadrik-bronn'],
+  subjectIds: ['hadrik-bronn'],
+  disclosureState: 'private',
+  disclosureSourceFrameId: 'frame-private-bronn',
+  evidenceRefs: [{
+    kind: 'directive.sourceFrameRef.v1',
+    id: 'frame-private-bronn',
+    textHash: 'private-bronn-hash',
+    text: 'Raw evidence text must not persist.',
+    selectedText: 'Raw selected text must not persist.',
+    sourceText: 'Raw source text must not persist.',
+    quote: 'Raw quoted text must not persist.',
+    excerpt: 'Raw excerpt text must not persist.',
+    rawTranscript: 'Raw witness transcript must not persist.',
+    providerOutput: 'Raw provider output must not persist.'
+  }]
+});
+const semanticsScopedFact = createContinuityFact({
+  id: 'witness.sam.semantics-private',
+  kind: 'witness.private',
+  subject: 'crew.sam-vickers',
+  predicate: 'private-report',
+  summary: 'Sam privately knows the dockmaster altered the departure record.',
+  render: {
+    narrator: 'Sam privately knows the dockmaster altered the departure record.'
+  },
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  semantics: {
+    knownBy: ['sam-vickers'],
+    witnessedBy: ['sam-vickers'],
+    subjectIds: ['sam-vickers'],
+    disclosureState: 'private',
+    disclosureSourceFrameId: 'frame-private-sam-semantics',
+    evidenceRefs: [{
+      kind: 'directive.sourceFrameRef.v1',
+      id: 'frame-private-sam-semantics',
+      textHash: 'private-sam-semantics-hash',
+      text: 'Raw semantics evidence must not persist.',
+      selectedText: 'Raw selected semantics evidence must not persist.'
+    }]
+  }
+});
+const samScopedFact = createContinuityFact({
+  id: 'witness.sam.private-report',
+  kind: 'witness.private',
+  subject: 'crew.sam-vickers',
+  predicate: 'private-report',
+  summary: 'Sam privately knows the mediator planted a false corridor rumor.',
+  render: {
+    narrator: 'Sam privately knows the mediator planted a false corridor rumor.'
+  },
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers'],
+  disclosureState: 'private',
+  disclosureSourceFrameId: 'frame-private-sam'
+});
+const seniorStaffScopedFact = createContinuityFact({
+  id: 'witness.senior-staff.private-briefing',
+  kind: 'witness.private',
+  subject: 'crew.senior-staff',
+  predicate: 'private-briefing',
+  summary: 'Senior staff privately know the convoy beacon was authenticated.',
+  render: {
+    narrator: 'Senior staff privately know the convoy beacon was authenticated.'
+  },
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  knownBy: ['senior-staff'],
+  witnessedBy: ['senior-staff'],
+  subjectIds: ['senior-staff'],
+  disclosureState: 'private',
+  disclosureSourceFrameId: 'frame-senior-staff-private'
+});
+const objectiveRumorFact = createContinuityFact({
+  id: 'witness.sam.rumor.objective',
+  kind: 'witness.objective',
+  subject: 'crew.sam-vickers',
+  predicate: 'corridor-rumor',
+  summary: 'The corridor rumor about the mediator is false.',
+  render: {
+    narrator: 'The corridor rumor about the mediator is false.'
+  },
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  disclosureState: 'private',
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers']
+});
+const samFalseBeliefFact = createContinuityFact({
+  id: 'witness.sam.false-belief',
+  kind: 'witness.false-belief',
+  subject: 'crew.sam-vickers',
+  predicate: 'corridor-rumor',
+  summary: 'Sam incorrectly believes the mediator planted the corridor rumor.',
+  render: {
+    narrator: 'Sam incorrectly believes the mediator planted the corridor rumor.'
+  },
+  criticality: 'hard',
+  confidence: 0.99,
+  tags: ['crew', 'witness', 'invariant'],
+  disclosureState: 'falseBelief',
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers']
+});
+const samInferredFact = createContinuityFact({
+  id: 'witness.sam.inferred-record',
+  kind: 'witness.inferred',
+  subject: 'crew.sam-vickers',
+  predicate: 'departure-record',
+  summary: 'Sam infers the departure record was edited after docking.',
+  render: {
+    narrator: 'Sam infers the departure record was edited after docking.'
+  },
+  criticality: 'hard',
+  confidence: 0.95,
+  tags: ['crew', 'witness', 'invariant'],
+  disclosureState: 'inferred',
+  knownBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers']
+});
+assert.deepEqual(bronnScopedFact.knownBy, ['hadrik-bronn']);
+assert.deepEqual(bronnScopedFact.witnessedBy, ['hadrik-bronn']);
+assert.deepEqual(bronnScopedFact.subjectIds, ['hadrik-bronn']);
+assert.equal(bronnScopedFact.disclosureState, 'private');
+assert.equal(bronnScopedFact.evidenceRefs[0].textHash, 'private-bronn-hash');
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw evidence text'), false);
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw selected text'), false);
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw source text'), false);
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw quoted text'), false);
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw excerpt text'), false);
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw witness transcript'), false);
+assert.equal(JSON.stringify(bronnScopedFact).includes('Raw provider output'), false);
+assert.deepEqual(semanticsScopedFact.knownBy, ['sam-vickers']);
+assert.deepEqual(semanticsScopedFact.witnessedBy, ['sam-vickers']);
+assert.deepEqual(semanticsScopedFact.subjectIds, ['sam-vickers']);
+assert.equal(semanticsScopedFact.disclosureState, 'private');
+assert.equal(semanticsScopedFact.disclosureSourceFrameId, 'frame-private-sam-semantics');
+assert.equal(semanticsScopedFact.evidenceRefs[0].textHash, 'private-sam-semantics-hash');
+assert.equal(JSON.stringify(semanticsScopedFact).includes('Raw semantics evidence'), false);
+assert.equal(samFalseBeliefFact.confidence, 0.5);
+assert.equal(samInferredFact.confidence, 0.7);
+
+const perspectiveFactIndex = buildContinuityFactIndex({
+  campaignState: {
+    ...campaignState,
+    continuity: {
+      ...campaignState.continuity,
+      acceptedFacts: [objectiveRumorFact, samFalseBeliefFact]
+    }
+  },
+  packageData: null,
+  crewDataset: null,
+  shipDataset: null,
+  campaignProjection: null
+});
+assert.equal(perspectiveFactIndex.facts.some((fact) => fact.id === objectiveRumorFact.id), true);
+assert.equal(perspectiveFactIndex.facts.some((fact) => fact.id === samFalseBeliefFact.id), true);
+assert.equal(perspectiveFactIndex.conflicts.some((conflict) => conflict.rejectedFactId === samFalseBeliefFact.id), false);
 
 const matrix = buildContinuityProjectionMatrix({
   campaignState,
@@ -154,6 +336,10 @@ const matrix = buildContinuityProjectionMatrix({
   createdAt: '2026-06-26T00:00:00.000Z'
 });
 assert.deepEqual(matrix.blocks.map((block) => block.promptKey), DIRECTIVE_STATIC_PROMPT_KEYS);
+assert.deepEqual(
+  matrix.blocks.map((block) => block.lensPromptBudgetLane),
+  ['stableRules', 'protectedContinuity', 'activeScene', 'protectedContinuity', 'recentTranscript', 'recentTranscript']
+);
 assert.equal(matrix.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.match(matrix.text, /Bronn is Tellarite/i);
 assert.match(matrix.text, /mustard-yellow/i);
@@ -236,6 +422,97 @@ const goodReview = reviewContinuityContradictions({
   campaignProjection
 });
 assert.equal(goodReview.ok, true);
+
+const witnessCampaignState = {
+  ...campaignState,
+  continuity: {
+    ...campaignState.continuity,
+    acceptedFacts: [bronnScopedFact, samScopedFact, seniorStaffScopedFact]
+  }
+};
+const witnessMatrix = buildContinuityProjectionMatrix({
+  campaignState: witnessCampaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: {
+    activePhaseId: 'shuttle-rendezvous',
+    presentActorIds: ['hadrik-bronn'],
+    actorGroups: {
+      'senior-staff': ['hadrik-bronn', 'sam-vickers']
+    }
+  },
+  projectionPlan: {
+    kind: CONTINUITY_PLAN_KIND,
+    operations: [
+      { factId: bronnScopedFact.id, lane: 'directive.continuity.domain', reason: 'actor-known-private-fact' },
+      { factId: samScopedFact.id, lane: 'directive.continuity.domain', reason: 'blocked-private-fact' },
+      { factId: seniorStaffScopedFact.id, lane: 'directive.continuity.domain', reason: 'group-known-private-fact' }
+    ],
+    omitted: []
+  },
+  createdAt: '2026-06-26T00:00:00.000Z'
+});
+assert.match(witnessMatrix.text, /Bronn privately knows the sensor archive/i);
+assert.match(witnessMatrix.text, /Knowledge scope: knownBy=hadrik-bronn/i);
+assert.match(witnessMatrix.text, /Senior staff privately know the convoy beacon was authenticated/i);
+assert.match(witnessMatrix.text, /Knowledge scope: knownBy=senior-staff/i);
+assert.doesNotMatch(witnessMatrix.text, /mediator planted a false corridor rumor/i);
+assert.equal(witnessMatrix.plan.selectedFactIds.includes(bronnScopedFact.id), true);
+assert.equal(witnessMatrix.plan.selectedFactIds.includes(seniorStaffScopedFact.id), true);
+assert.equal(witnessMatrix.plan.selectedFactIds.includes(samScopedFact.id), false);
+assert.equal(
+  witnessMatrix.plan.rejections.some((rejection) => rejection.factId === samScopedFact.id && rejection.reason === 'witness-scope-blocked-fact'),
+  true
+);
+const witnessDomainBlock = witnessMatrix.blocks.find((block) => block.promptKey === 'directive.continuity.domain');
+assert.equal(
+  witnessDomainBlock.promptBudgetRefs.some((ref) => ref.id === bronnScopedFact.id && ref.lensPromptBudgetLane === 'activeCast'),
+  true
+);
+assert.equal(
+  witnessDomainBlock.promptBudgetRefs.some((ref) => ref.id === seniorStaffScopedFact.id && ref.lensPromptBudgetLane === 'activeCast'),
+  true
+);
+assert.equal(JSON.stringify(witnessDomainBlock.promptBudgetRefs).includes('sensor archive was sealed'), false);
+
+const samPerspectiveCampaignState = {
+  ...campaignState,
+  continuity: {
+    ...campaignState.continuity,
+    acceptedFacts: [objectiveRumorFact, samFalseBeliefFact, samInferredFact]
+  }
+};
+const samPerspectiveMatrix = buildContinuityProjectionMatrix({
+  campaignState: samPerspectiveCampaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['sam-vickers'] },
+  projectionPlan: {
+    kind: CONTINUITY_PLAN_KIND,
+    operations: [
+      { factId: samFalseBeliefFact.id, lane: 'directive.continuity.invariants', reason: 'perspective-not-truth-floor' },
+      { factId: samInferredFact.id, lane: 'directive.continuity.invariants', reason: 'provisional-not-truth-floor' }
+    ],
+    omitted: []
+  },
+  createdAt: '2026-06-26T00:00:00.000Z'
+});
+assert.match(samPerspectiveMatrix.text, /Sam incorrectly believes the mediator planted the corridor rumor/i);
+assert.match(samPerspectiveMatrix.text, /disclosure=falseBelief/i);
+assert.match(samPerspectiveMatrix.text, /Sam infers the departure record/i);
+assert.match(samPerspectiveMatrix.text, /disclosure=inferred/i);
+assert.equal(samPerspectiveMatrix.plan.laneFactIds['directive.continuity.invariants']?.includes(samFalseBeliefFact.id), false);
+assert.equal(samPerspectiveMatrix.plan.laneFactIds['directive.continuity.invariants']?.includes(samInferredFact.id), false);
+assert.equal(samPerspectiveMatrix.plan.laneFactIds['directive.continuity.domain'].includes(samFalseBeliefFact.id), true);
+assert.equal(samPerspectiveMatrix.plan.laneFactIds['directive.continuity.domain'].includes(samInferredFact.id), true);
+assert.equal(
+  samPerspectiveMatrix.plan.rejections.filter((rejection) => rejection.reason === 'lane-lowered-for-disclosure-state').length >= 2,
+  true
+);
 
 const unrelatedUniformReview = reviewContinuityContradictions({
   text: 'Lieutenant Commander Hadrik Bronn waited in a mustard-yellow tactical tunic. Captain Mara Whitaker, a Human commanding officer in a burgundy-red command uniform, expected the new XO on the bridge.',

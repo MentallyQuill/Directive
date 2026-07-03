@@ -26,6 +26,7 @@ import {
 import {
   createCoreStoreV2,
   loadCoreStoreStateV2,
+  readCoreRecallIndexAuxiliaryEntries,
   readCoreStoreProjectionsV2
 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
@@ -183,6 +184,7 @@ const genericBatch = createForgeBatchCommit({
 });
 assert.equal(genericBatch.pressureArcDigestRefs.length, 1);
 assert.equal(genericBatch.recallIndexEntryRefs.length, 1);
+assert.equal(genericBatch.recallEntries.length, 0);
 assert.equal(typeof genericBatch.recallRevisions.pressureArcDigestRevision, 'string');
 
 const settled = await forge.settlePressureArcDigest({
@@ -205,6 +207,7 @@ assert.deepEqual(lensFlushCalls[0].cacheInputs, settled.batch.recallRevisions);
 assert.equal(lensFlushCalls[0].cacheInputs.pressureArcDigestRevision, settled.batch.recallRevisions.pressureArcDigestRevision);
 assert.equal(settled.batch.pressureArcDigestRefs.length, 1);
 assert.equal(settled.batch.recallIndexEntryRefs.length, 1);
+assert.equal(settled.batch.recallEntries.length, 1);
 assert.deepEqual(sourceChecks.map((entry) => entry.phase), ['beforeBackgroundCommit']);
 assert.equal(coreStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length, 1);
 assert.deepEqual(coreStore.state.promptDirtyDomains, ['missionQuestThread', 'command', 'sourceBinding', 'crewShipRelationship']);
@@ -216,6 +219,8 @@ assert.equal(projections.pressureArcDigestRefs[0].sourceFrameId, sourceFrame.id)
 assert.equal(projections.pressureArcDigestRevision, settled.batch.recallRevisions.pressureArcDigestRevision);
 assert.equal(projections.recallIndex.entryRefs.length, 1);
 assert.equal(projections.recallIndex.entryRefs[0].pressureArcDigestId, 'pressure-arc-digest-bridge-handoff');
+assert.equal(projections.recallIndex.auxiliaryRefs.length, 1);
+assert.equal(projections.recallIndex.auxiliaryRefs[0].kind, 'directive.recallIndexSegment.v1');
 assert.equal(typeof projections.recallIndex.revision, 'string');
 assert.equal(projections.backgroundBatches.at(-1).effectCount, 2);
 assert.deepEqual(projections.backgroundBatches.at(-1).dirtyDomains, ['missionQuestThread', 'command', 'sourceBinding', 'crewShipRelationship']);
@@ -271,7 +276,14 @@ const hydratedProjections = await readCoreStoreProjectionsV2(adapter, {
 assert.equal(hydratedProjections.pressureArcDigestRefs.length, 1);
 assert.equal(hydratedProjections.pressureArcDigestRevision, projections.pressureArcDigestRevision);
 assert.equal(hydratedProjections.recallIndex.entryRefs.length, 1);
+assert.equal(hydratedProjections.recallIndex.auxiliaryRefs.length, 1);
 assert.equal(hydratedProjections.recallIndex.revision, projections.recallIndex.revision);
+const hydratedRecallEntries = await readCoreRecallIndexAuxiliaryEntries(adapter, hydratedProjections.recallIndex.auxiliaryRefs);
+assert.equal(hydratedRecallEntries.length, 1);
+assert.equal(hydratedRecallEntries[0].id, 'recall:pressure-arc-digest-bridge-handoff');
+assert.equal(JSON.stringify(hydratedProjections.recallIndex.auxiliaryRefs).includes('RAW_PROVIDER_PRESSURE_ARC_SUMMARY'), false);
+assert.equal(JSON.stringify(hydratedRecallEntries).includes('RAW_PROVIDER_PRESSURE_ARC_SUMMARY'), false);
+assert.equal(JSON.stringify(hydratedRecallEntries).includes('RAW_PRESSURE_BODY'), false);
 
 const beforeReplayEvents = coreStore.state.events.length;
 const replayed = await forge.settlePressureArcDigest({

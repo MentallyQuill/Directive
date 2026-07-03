@@ -457,6 +457,26 @@ const UNIFORM_COLOR_PATTERNS = Object.freeze({
 
 const UNIFORM_ASSIGNMENT_PATTERN = /\b(?:uniform|division\s+colou?rs?|department\s+colou?rs?|collar|wears?|wearing|wore|dressed|tunic|jacket|undershirt|yoke|sleeves?|shoulder\s+panels?|piping)\b/i;
 
+function sentenceAssignsUniformColorToFocus(sentence = '', focusTerms = [], colorPattern = null) {
+  if (!(colorPattern instanceof RegExp)) return false;
+  const colorSource = colorPattern.source;
+  for (const focusTerm of asArray(focusTerms)) {
+    const focusSource = focusTermPatternSource(focusTerm);
+    if (!focusSource) continue;
+    const focus = `\\b${focusSource}\\b`;
+    const focusBeforeColor = new RegExp(
+      `${focus}[^.!?]{0,140}\\b(?:wears?|wearing|wore|dressed|in|uniform|division\\s+colou?rs?|department\\s+colou?rs?|tunic|jacket|undershirt|yoke|sleeves?|shoulder\\s+panels?|piping)\\b[^.!?]{0,100}${colorSource}`,
+      'i'
+    );
+    const colorBeforeFocus = new RegExp(
+      `${colorSource}[^.!?]{0,100}\\b(?:uniform|division\\s+colou?rs?|department\\s+colou?rs?|tunic|jacket|undershirt|yoke|sleeves?|shoulder\\s+panels?|piping)\\b[^.!?]{0,140}${focus}`,
+      'i'
+    );
+    if (focusBeforeColor.test(sentence) || colorBeforeFocus.test(sentence)) return true;
+  }
+  return false;
+}
+
 function hasUniformColorContradiction(text, expectedColor, focusTerms = []) {
   const expected = normalizeText(expectedColor).replace(/\s+/g, '-');
   if (!UNIFORM_COLOR_PATTERNS[expected]) return false;
@@ -467,7 +487,8 @@ function hasUniformColorContradiction(text, expectedColor, focusTerms = []) {
     if (asArray(focusTerms).length > 0 && !asArray(focusTerms).some((focusTerm) => includesNormalized(sentence, focusTerm))) return false;
     if (/\bnot\s+(?:command\s+)?red\b/i.test(sentence) || /\bnot\s+red-and-black\b/i.test(sentence)) return false;
     if (!UNIFORM_ASSIGNMENT_PATTERN.test(sentence)) return false;
-    return wrongPatterns.some((pattern) => pattern.test(sentence));
+    if (sentenceAssignsUniformColorToFocus(sentence, focusTerms, UNIFORM_COLOR_PATTERNS[expected])) return false;
+    return wrongPatterns.some((pattern) => sentenceAssignsUniformColorToFocus(sentence, focusTerms, pattern));
   });
 }
 

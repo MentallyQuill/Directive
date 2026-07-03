@@ -21,6 +21,7 @@ const ROLE_ID = 'sceneHandshakeSettler';
 export const SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID = 'sourceSettlementLatestPair';
 const KIND = 'directive.sceneHandshakeSettlement.v1';
 const DEFAULT_TIMEOUT_MS = 30000;
+const LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS = 8000;
 const ACCEPTED_RELATIONS = new Set(['acknowledges', 'continues', 'acts-on', 'asks-followup']);
 const REJECTING_RELATIONS = new Set(['rejects', 'corrects']);
 const DISPOSITIONS = new Set(['autoCommit', 'internalReview', 'defer', 'operatorRecovery']);
@@ -1731,7 +1732,7 @@ export function createLatestPairSreSettlementProvider({
       generation = await generationRouter.generate(
         SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
         request,
-        { timeoutMs: DEFAULT_TIMEOUT_MS }
+        { timeoutMs: LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS }
       );
     } catch (error) {
       const wrapped = new Error('SRE latest-pair provider threw before returning output.');

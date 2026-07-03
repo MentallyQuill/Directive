@@ -6,6 +6,7 @@ import {
   CONTINUITY_PLAN_KIND,
   CONTINUITY_VISIBILITY,
   createContinuityFact,
+  factKnowledgeScope,
   validateContinuityProjectionPlan
 } from '../../src/continuity/index.mjs';
 
@@ -75,13 +76,71 @@ const hidden = createContinuityFact({
   criticality: 'hard',
   tags: ['invariant']
 });
+assert.equal(hidden.disclosureState, 'secret');
+assert.equal(factKnowledgeScope({ visibility: CONTINUITY_VISIBILITY.hidden }).disclosureState, 'secret');
+assert.equal(factKnowledgeScope({ visibility: CONTINUITY_VISIBILITY.narratorSafe }).disclosureState, 'public');
+const privateSam = createContinuityFact({
+  id: 'private.sam.only',
+  subject: 'crew.sam-vickers',
+  predicate: 'private-knowledge',
+  summary: 'Sam privately knows the corridor rumor is false.',
+  criticality: 'hard',
+  tags: ['crew', 'witness'],
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers'],
+  disclosureState: 'private',
+  disclosureSourceFrameId: 'frame-sam-private'
+});
+const groupPrivate = createContinuityFact({
+  id: 'private.senior-staff',
+  subject: 'crew.senior-staff',
+  predicate: 'private-knowledge',
+  summary: 'Senior staff privately know the beacon checksum is valid.',
+  criticality: 'hard',
+  tags: ['crew', 'witness'],
+  knownBy: ['senior-staff'],
+  witnessedBy: ['senior-staff'],
+  subjectIds: ['senior-staff'],
+  disclosureState: 'private',
+  disclosureSourceFrameId: 'frame-senior-staff'
+});
+const falseBeliefSam = createContinuityFact({
+  id: 'false-belief.sam.only',
+  subject: 'crew.sam-vickers',
+  predicate: 'private-knowledge',
+  summary: 'Sam wrongly believes the mediator planted the corridor rumor.',
+  criticality: 'hard',
+  confidence: 0.99,
+  tags: ['crew', 'witness', 'invariant', 'contradiction-guard'],
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers'],
+  disclosureState: 'falseBelief',
+  disclosureSourceFrameId: 'frame-sam-false-belief'
+});
+const inferredSam = createContinuityFact({
+  id: 'inferred.sam.only',
+  subject: 'crew.sam-vickers',
+  predicate: 'private-knowledge',
+  summary: 'Sam infers the departure record was edited after docking.',
+  criticality: 'hard',
+  confidence: 0.95,
+  tags: ['crew', 'witness', 'invariant'],
+  knownBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers'],
+  disclosureState: 'inferred',
+  disclosureSourceFrameId: 'frame-sam-inferred'
+});
 const factIndex = {
-  facts: [hard, support, guard, audit, outside, hidden],
+  facts: [hard, support, guard, audit, outside, hidden, privateSam, groupPrivate, falseBeliefSam, inferredSam],
   conflicts: [],
   rejected: [],
-  sourceCount: 6,
-  acceptedCount: 6
+  sourceCount: 10,
+  acceptedCount: 10
 };
+assert.equal(falseBeliefSam.confidence, 0.5);
+assert.equal(inferredSam.confidence, 0.7);
 
 const validated = validateContinuityProjectionPlan({
   kind: CONTINUITY_PLAN_KIND,
@@ -157,5 +216,129 @@ assert(invalid.rejections.some((rejection) => rejection.reason === 'compression-
 assert(invalid.rejections.some((rejection) => rejection.reason === 'invalid-compression-group-field' && rejection.field === 'prompt'));
 assert.equal(invalid.selectedFactIds.includes(hidden.id), false, 'Hidden hard facts must not be inserted for narrator-safe prompts.');
 assert.equal(invalid.selectedFactIds.includes(outside.id), false, 'Facts outside the planner request must not be selected.');
+
+const witnessBlocked = validateContinuityProjectionPlan({
+  kind: CONTINUITY_PLAN_KIND,
+  operations: [
+    { factId: privateSam.id, lane: 'directive.continuity.invariants', reason: 'should not leak to Bronn' }
+  ],
+  omitted: [],
+  guardFocus: [privateSam.id],
+  compressionGroups: []
+}, {
+  factIndex,
+  candidateFactIds: [privateSam.id],
+  hardFloorFactIds: [privateSam.id],
+  sourceFrame: {
+    relevantActorIds: ['hadrik-bronn']
+  }
+});
+assert.equal(witnessBlocked.selectedFactIds.includes(privateSam.id), false);
+assert(witnessBlocked.rejections.some((rejection) => rejection.factId === privateSam.id && rejection.reason === 'witness-scope-blocked-fact'));
+assert(witnessBlocked.rejections.some((rejection) => rejection.factId === privateSam.id && rejection.reason === 'required-witness-scope-blocked-fact'));
+assert(witnessBlocked.rejections.some((rejection) => rejection.factId === privateSam.id && rejection.reason === 'guard-focus-witness-scope-blocked-fact'));
+
+const witnessAllowed = validateContinuityProjectionPlan({
+  kind: CONTINUITY_PLAN_KIND,
+  operations: [
+    { factId: privateSam.id, lane: 'directive.continuity.invariants', reason: 'Sam can act on own private knowledge' }
+  ],
+  omitted: []
+}, {
+  factIndex,
+  candidateFactIds: [privateSam.id],
+  hardFloorFactIds: [privateSam.id],
+  sourceFrame: {
+    relevantActorIds: ['sam-vickers']
+  }
+});
+assert.equal(witnessAllowed.selectedFactIds.includes(privateSam.id), true);
+
+const witnessAllowedByPresentActorFallback = validateContinuityProjectionPlan({
+  kind: CONTINUITY_PLAN_KIND,
+  operations: [
+    { factId: privateSam.id, lane: 'directive.continuity.invariants', reason: 'Sam can act on own private knowledge' }
+  ],
+  omitted: []
+}, {
+  factIndex,
+  candidateFactIds: [privateSam.id],
+  hardFloorFactIds: [privateSam.id],
+  sourceFrame: {
+    relevantActorIds: [],
+    presentActorIds: ['sam-vickers']
+  }
+});
+assert.equal(witnessAllowedByPresentActorFallback.selectedFactIds.includes(privateSam.id), true);
+
+const groupAllowedByPresentActor = validateContinuityProjectionPlan({
+  kind: CONTINUITY_PLAN_KIND,
+  operations: [
+    { factId: groupPrivate.id, lane: 'directive.continuity.invariants', reason: 'Bronn belongs to senior staff' }
+  ],
+  omitted: []
+}, {
+  factIndex,
+  candidateFactIds: [groupPrivate.id],
+  hardFloorFactIds: [groupPrivate.id],
+  sourceFrame: {
+    relevantActorIds: ['hadrik-bronn'],
+    actorGroups: {
+      'senior-staff': ['hadrik-bronn', 'sam-vickers']
+    }
+  }
+});
+assert.equal(groupAllowedByPresentActor.selectedFactIds.includes(groupPrivate.id), true);
+
+const groupBlockedForOutsider = validateContinuityProjectionPlan({
+  kind: CONTINUITY_PLAN_KIND,
+  operations: [
+    { factId: groupPrivate.id, lane: 'directive.continuity.invariants', reason: 'outsider should not inherit staff fact' }
+  ],
+  omitted: []
+}, {
+  factIndex,
+  candidateFactIds: [groupPrivate.id],
+  hardFloorFactIds: [groupPrivate.id],
+  sourceFrame: {
+    relevantActorIds: ['civilian-observer'],
+    actorGroups: {
+      'senior-staff': ['hadrik-bronn', 'sam-vickers']
+    }
+  }
+});
+assert.equal(groupBlockedForOutsider.selectedFactIds.includes(groupPrivate.id), false);
+assert(groupBlockedForOutsider.rejections.some((rejection) => rejection.factId === groupPrivate.id && rejection.reason === 'witness-scope-blocked-fact'));
+
+const perspectiveValidated = validateContinuityProjectionPlan({
+  kind: CONTINUITY_PLAN_KIND,
+  operations: [
+    { factId: falseBeliefSam.id, lane: 'directive.continuity.invariants', reason: 'do not treat false belief as truth floor' },
+    { factId: inferredSam.id, lane: 'directive.continuity.invariants', reason: 'do not treat inference as truth floor' },
+    { factId: falseBeliefSam.id, action: 'guardOnly', reason: 'false belief is not contradiction guard truth' }
+  ],
+  omitted: [],
+  guardFocus: [],
+  compressionGroups: []
+}, {
+  factIndex,
+  candidateFactIds: [falseBeliefSam.id, inferredSam.id],
+  hardFloorFactIds: [falseBeliefSam.id, inferredSam.id],
+  sourceFrame: {
+    relevantActorIds: ['sam-vickers']
+  }
+});
+assert.equal(perspectiveValidated.selectedFactIds.includes(falseBeliefSam.id), true);
+assert.equal(perspectiveValidated.selectedFactIds.includes(inferredSam.id), true);
+assert.equal((perspectiveValidated.laneFactIds['directive.continuity.invariants'] || []).includes(falseBeliefSam.id), false);
+assert.equal((perspectiveValidated.laneFactIds['directive.continuity.invariants'] || []).includes(inferredSam.id), false);
+assert.equal(perspectiveValidated.laneFactIds['directive.continuity.domain'].includes(falseBeliefSam.id), true);
+assert.equal(perspectiveValidated.laneFactIds['directive.continuity.domain'].includes(inferredSam.id), true);
+assert(perspectiveValidated.rejections.some((rejection) => rejection.factId === falseBeliefSam.id && rejection.reason === 'perspective-fact-not-guardable'));
+assert.equal(perspectiveValidated.guardFactIds.includes(falseBeliefSam.id), false);
+assert.equal(
+  perspectiveValidated.rejections.filter((rejection) => rejection.reason === 'lane-lowered-for-disclosure-state').length >= 2,
+  true
+);
 
 console.log('Continuity projection plan validator tests passed: schema shape, legal lanes, guard/audit operations, audience gates, candidate gates, force/TTL, hard floors, and compression validation.');

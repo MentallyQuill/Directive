@@ -148,8 +148,18 @@ function messageMutationActuation() {
             sourceIntegrityProof: {
               kind: 'directive.sourceIntegrityProof.v1',
               selectedHostMessageId: 'assistant-selected-swipe',
+              actuationMode: 'native-host-swipe-control',
+              nativeHostControlMoved: true,
+              selectedSwipeIndex: 2,
+              swipeCount: 3,
               sourceIntegrity: 'clean',
-              hashMatched: true
+              hashMatched: true,
+              selectedHashMatchesPrevious: true,
+              discardedSwipeCanariesAbsent: true,
+              sreDecision: {
+                status: 'settled',
+                action: 'selectedSwipeAccepted'
+              }
             }
           }
         : {
@@ -321,6 +331,22 @@ assert.deepEqual(countOnlyActuationCheck.details.weakOwnerEvidenceScenarios.sort
   'source-edit'
 ]);
 
+const stagedSwipeRoot = makeRoot();
+const stagedSwipeActuation = messageMutationActuation();
+const stagedScenario = stagedSwipeActuation.scenarios.find((scenario) => scenario.id === 'selected-swipe');
+stagedScenario.evidence.sourceIntegrityProof.actuationMode = 'staged-context-source-truth';
+stagedScenario.evidence.sourceIntegrityProof.nativeHostControlMoved = false;
+const stagedSwipeBundle = writeBundle(stagedSwipeRoot, {
+  messageMutationActuation: stagedSwipeActuation
+});
+const stagedSwipeReport = buildArchitectureReleaseBundlePreflight({
+  manifest: stagedSwipeBundle.manifest,
+  strict: true
+});
+assert.equal(stagedSwipeReport.status, 'fail');
+const stagedSwipeCheck = stagedSwipeReport.checks.find((entry) => entry.id === 'message-mutation-actuation-live-proof');
+assert.deepEqual(stagedSwipeCheck.details.weakOwnerEvidenceScenarios, ['selected-swipe']);
+
 fs.rmSync(passRoot, { recursive: true, force: true });
 fs.rmSync(discoveryOnlyRoot, { recursive: true, force: true });
 fs.rmSync(defaultUserRoot, { recursive: true, force: true });
@@ -328,5 +354,6 @@ fs.rmSync(continuityRoot, { recursive: true, force: true });
 fs.rmSync(missingServedRoot, { recursive: true, force: true });
 fs.rmSync(shallowActuationRoot, { recursive: true, force: true });
 fs.rmSync(countOnlyActuationRoot, { recursive: true, force: true });
+fs.rmSync(stagedSwipeRoot, { recursive: true, force: true });
 
 console.log('Architecture redesign release bundle preflight tests passed.');

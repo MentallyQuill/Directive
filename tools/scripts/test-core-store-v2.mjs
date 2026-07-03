@@ -5,9 +5,14 @@ import {
   hashStableJson
 } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import {
+  createRecallSourceMutation
+} from '../../src/retrieval/recall-index.mjs';
+import {
   buildCoreStoreReadProjections,
+  copyCoreStoreStateV2ForSaveBranch,
   createCoreStoreV2,
   loadCoreStoreStateV2,
+  readCoreRecallIndexAuxiliaryEntries,
   readCoreStoreProjectionsV2
 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
@@ -2625,5 +2630,200 @@ assert.equal(
   true,
   'hot CORE mechanics append should publish the new turn through manifest-selected refs'
 );
+
+const recallAuxStorage = createLoggingStorage();
+const recallAuxAdapter = createLogicalStorageAdapter({ storage: recallAuxStorage, hostId: 'fake' });
+let recallAuxTick = 0;
+const recallAuxStore = createCoreStoreV2({
+  adapter: recallAuxAdapter,
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-source',
+  branchId: 'save-core-recall-source',
+  now: () => `2026-06-28T19:00:${String(recallAuxTick++).padStart(2, '0')}.000Z`
+});
+const recallAuxFrame = createTurnSourceFrameContract({
+  id: 'frame-recall-aux-29',
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-source',
+  branchId: 'save-core-recall-source',
+  chatId: 'chat-recall-aux-source',
+  hostMessageId: '29',
+  textHash: hashStableJson({ text: 'Sam waited for her reply.' }),
+  createdAt: '2026-06-28T19:00:00.000Z'
+});
+const recallAuxTransaction = await recallAuxStore.beginTurn(recallAuxFrame, {
+  transactionId: 'txn-recall-aux-29',
+  ingressId: 'ingress-recall-aux-29',
+  idempotencyKey: 'begin-recall-aux-29'
+});
+await recallAuxStore.advanceTurn(recallAuxTransaction.id, {
+  phase: 'routePending',
+  route: 'directiveCommit',
+  idempotencyKey: 'advance-recall-aux-29'
+});
+const recallAuxEntry = {
+  id: 'recall-aux-sam-waited',
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-source',
+  branchId: 'save-core-recall-source',
+  sourceFrameRef: {
+    id: 'frame-recall-aux-29',
+    hostMessageId: '29',
+    textHash: recallAuxFrame.textHash
+  },
+  actorIds: ['sam-vickers'],
+  tags: ['dialogue-pause'],
+  keywords: ['sam', 'waited', 'reply'],
+  authority: 'committed',
+  textHash: recallAuxFrame.textHash,
+  preview: 'Sam waited for her reply.'
+};
+await recallAuxStore.commitBackgroundBatch(recallAuxTransaction.id, {
+  batchId: 'forge-recall-aux-29',
+  idempotencyKey: 'forge-recall-aux-29',
+  phaseAfter: 'backgroundSettling',
+  backgroundEffectRefs: [{
+    kind: 'directive.recallIndexEntryRef.v1',
+    id: recallAuxEntry.id,
+    hash: recallAuxEntry.textHash,
+    sourceFrameId: recallAuxEntry.sourceFrameRef.id
+  }],
+  recallEntryRefs: [{
+    kind: 'directive.recallIndexEntryRef.v1',
+    id: recallAuxEntry.id,
+    hash: recallAuxEntry.textHash,
+    sourceFrameId: recallAuxEntry.sourceFrameRef.id
+  }],
+  recallEntries: [
+    recallAuxEntry,
+    {
+      ...recallAuxEntry,
+      id: 'recall-aux-raw-canary',
+      preview: 'Raw payload must not survive refs.',
+      rawTranscript: 'Raw transcript canary',
+      retrieval: {
+        ragHints: {
+          qdrantPayload: 'vector payload canary',
+          safeHint: 'pause'
+        }
+      }
+    }
+  ]
+});
+const recallAuxSourceState = await loadCoreStoreStateV2(recallAuxAdapter, {
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-source'
+});
+const recallAuxSourceRefs = recallAuxSourceState.events.flatMap((event) => (
+  event.payload?.operationBundle?.recallAuxiliaryRefs || []
+));
+assert.equal(recallAuxSourceRefs.length, 1, 'CORE background batch should write one Recall auxiliary segment ref');
+assert.equal(recallAuxSourceRefs[0].kind, 'directive.recallIndexSegment.v1');
+assert.equal(recallAuxSourceRefs[0].logicalKey.includes('/core/recall-index/'), true);
+assert.equal(recallAuxSourceRefs[0].logicalKey.includes('save-core-recall-source'), true);
+const recallAuxSourceEntries = await readCoreRecallIndexAuxiliaryEntries(recallAuxAdapter, recallAuxSourceRefs);
+assert.equal(recallAuxSourceEntries.length, 2);
+assert.equal(JSON.stringify(recallAuxSourceRefs).includes('Raw transcript canary'), false);
+assert.equal(JSON.stringify(recallAuxSourceEntries).includes('Raw transcript canary'), false);
+assert.equal(JSON.stringify(recallAuxSourceEntries).includes('vector payload canary'), false);
+
+const recallAuxClone = await copyCoreStoreStateV2ForSaveBranch(recallAuxAdapter, {
+  campaignId: 'campaign-core-recall-aux',
+  sourceSaveId: 'save-core-recall-source',
+  targetSaveId: 'save-core-recall-target',
+  branchId: 'branch-core-recall-target',
+  sourceChatId: 'chat-recall-aux-source',
+  targetChatId: 'chat-recall-aux-target',
+  now: '2026-06-28T19:02:00.000Z'
+});
+assert.equal(recallAuxClone.skipped, false);
+assert.equal(recallAuxClone.recallAuxiliaryRewrite?.trace?.inputCount, 2);
+assert.equal(recallAuxClone.recallAuxiliaryRewrite.trace.forkedCount, 2);
+assert.equal(recallAuxClone.recallAuxiliaryRewrite.targetRefs.length, 1);
+assert.equal(recallAuxClone.recallAuxiliaryRewrite.targetRefs[0].logicalKey.includes('save-core-recall-target'), true);
+const recallAuxTargetState = await loadCoreStoreStateV2(recallAuxAdapter, {
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-target'
+});
+const recallAuxTargetRefs = recallAuxTargetState.events.flatMap((event) => (
+  event.payload?.operationBundle?.recallAuxiliaryRefs || []
+));
+assert.equal(recallAuxTargetRefs.length, 1, 'Save As target CORE events should point at target Recall auxiliary refs');
+assert.equal(recallAuxTargetRefs[0].logicalKey.includes('save-core-recall-target'), true);
+assert.equal(recallAuxTargetRefs[0].logicalKey.includes('save-core-recall-source'), false);
+const recallAuxTargetEntries = await readCoreRecallIndexAuxiliaryEntries(recallAuxAdapter, recallAuxTargetRefs);
+assert.equal(recallAuxTargetEntries.length, 2);
+assert.equal(recallAuxTargetEntries.every((entry) => entry.saveId === 'save-core-recall-target'), true);
+assert.equal(recallAuxTargetEntries.every((entry) => entry.branchId === 'branch-core-recall-target'), true);
+assert.equal(recallAuxTargetEntries.every((entry) => entry.forkedFromRef?.saveId === 'save-core-recall-source'), true);
+assert.equal(JSON.stringify(recallAuxTargetEntries).includes('Raw transcript canary'), false);
+assert.equal(JSON.stringify(recallAuxTargetEntries).includes('vector payload canary'), false);
+
+const sourceEditRecallMutation = createRecallSourceMutation({
+  action: 'source-edit',
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-source',
+  branchId: 'save-core-recall-source',
+  sourceFrameIds: ['frame-recall-aux-29'],
+  hostMessageIds: ['29'],
+  reason: 'playerMessageEdited',
+  occurredAt: '2026-06-28T19:03:00.000Z'
+});
+await recallAuxStore.markRecoveryRequired(recallAuxTransaction.id, {
+  id: 'recovery-recall-aux-source-edit',
+  idempotencyKey: 'recovery-recall-aux-source-edit',
+  phaseAfter: 'recoveryRequired',
+  reason: 'playerMessageEdited',
+  sourceMutation: {
+    kind: 'directive.sourceMutation.v1',
+    sourceKind: 'playerIngress',
+    eventType: 'playerMessageEdited',
+    sourceFrameId: 'frame-recall-aux-29',
+    hostMessageId: '29',
+    replacementText: 'RAW_REPLACEMENT_TEXT_MUST_NOT_PERSIST',
+    replacementTextHash: hashStableJson({ text: 'RAW_REPLACEMENT_TEXT_MUST_NOT_PERSIST' }),
+    recallSourceMutation: sourceEditRecallMutation
+  },
+  repairDecision: {
+    kind: 'directive.repairDecision.v1',
+    action: 'reviewRequired',
+    normalTurnAllowed: false
+  },
+  allowedActions: ['reviewSourceMutation']
+});
+const recallAuxSourceEditProjections = recallAuxStore.readProjections();
+const recallAuxSourceEditRecovery = recallAuxSourceEditProjections.recoveryJournal.find((entry) => entry.id === 'recovery-recall-aux-source-edit');
+assert.equal(recallAuxSourceEditRecovery.recallAuxiliaryRewrite.kind, 'directive.recallAuxiliaryRewrite.v1');
+assert.equal(recallAuxSourceEditRecovery.recallAuxiliaryRewrite.mode, 'snapshot');
+assert.equal(recallAuxSourceEditRecovery.recallAuxiliaryRewrite.trace.inputCount, 2);
+assert.equal(recallAuxSourceEditRecovery.recallAuxiliaryRewrite.trace.invalidatedCount, 2);
+assert.equal(recallAuxSourceEditRecovery.recallAuxiliaryRefs.length, 1);
+assert.equal(recallAuxSourceEditProjections.recallIndex.auxiliaryRefs.length, 1);
+assert.equal(recallAuxSourceEditProjections.recallIndex.auxiliaryRefs[0].logicalKey, recallAuxSourceEditRecovery.recallAuxiliaryRefs[0].logicalKey);
+const recallAuxSourceEditEntries = await readCoreRecallIndexAuxiliaryEntries(recallAuxAdapter, recallAuxSourceEditProjections.recallIndex.auxiliaryRefs);
+assert.equal(recallAuxSourceEditEntries.length, 2);
+assert.equal(recallAuxSourceEditEntries.every((entry) => entry.stale === true), true);
+assert.equal(recallAuxSourceEditEntries.every((entry) => entry.invalidatedByRef?.action === 'source-edit'), true);
+assert.equal(JSON.stringify(recallAuxSourceEditRecovery).includes('RAW_REPLACEMENT_TEXT_MUST_NOT_PERSIST'), false);
+assert.equal(JSON.stringify(recallAuxSourceEditEntries).includes('RAW_REPLACEMENT_TEXT_MUST_NOT_PERSIST'), false);
+
+const recallAuxStaleClone = await copyCoreStoreStateV2ForSaveBranch(recallAuxAdapter, {
+  campaignId: 'campaign-core-recall-aux',
+  sourceSaveId: 'save-core-recall-source',
+  targetSaveId: 'save-core-recall-stale-target',
+  branchId: 'branch-core-recall-stale-target',
+  sourceChatId: 'chat-recall-aux-source',
+  targetChatId: 'chat-recall-aux-stale-target',
+  now: '2026-06-28T19:04:00.000Z'
+});
+assert.equal(recallAuxStaleClone.recallAuxiliaryRewrite.trace.inputCount, 2);
+assert.equal(recallAuxStaleClone.recallAuxiliaryRewrite.trace.forkedCount, 0);
+assert.equal(recallAuxStaleClone.recallAuxiliaryRewrite.targetRefs.length, 0);
+const recallAuxStaleTargetState = await loadCoreStoreStateV2(recallAuxAdapter, {
+  campaignId: 'campaign-core-recall-aux',
+  saveId: 'save-core-recall-stale-target'
+});
+assert.deepEqual(recallAuxStaleTargetState.events.flatMap((event) => event.payload?.operationBundle?.recallAuxiliaryRefs || []), []);
+assert.deepEqual(recallAuxStaleTargetState.events.flatMap((event) => event.payload?.recallAuxiliaryRefs || []), []);
 
 console.log('Core Store v2 tests passed.');

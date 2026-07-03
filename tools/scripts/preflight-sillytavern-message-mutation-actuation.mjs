@@ -41,7 +41,7 @@ Options:
   --source-delete PATH       run-sillytavern-message-delete-live.mjs report for a player/source row.
   --assistant-edit PATH      run-sillytavern-message-edit-live.mjs report for an assistant row.
   --assistant-delete PATH    run-sillytavern-message-delete-live.mjs report for an assistant row.
-  --selected-swipe PATH      smoke-scene-handshake-live.mjs JSON output proving selected-swipe source truth.
+  --selected-swipe PATH      run-sillytavern-selected-swipe-actuation-live.mjs JSON output proving native selected-swipe actuation.
   --strict                   Any warning fails.
   --write-artifacts          Write message-mutation-actuation-proof.json beside the manifest, or under artifacts/live-soak.
   --output PATH              Write the proof artifact to a specific path.
@@ -359,6 +359,11 @@ function validateSourceIntegrityProof({
   const integrityKind = proof.integrityKind || proof.mutationKind || null;
   if (integrityKind !== 'selectedSwipe') failures.push('sourceIntegrityProof integrityKind must be selectedSwipe');
   if (proof.sourceRole !== 'assistant') failures.push('sourceIntegrityProof sourceRole must be assistant');
+  if (proof.actuationMode !== 'native-host-swipe-control') {
+    failures.push('sourceIntegrityProof actuationMode must be native-host-swipe-control');
+  }
+  if (proof.nativeHostControlMoved !== true) failures.push('sourceIntegrityProof nativeHostControlMoved must be true');
+  if (!proof.selectedHostMessageId && !proof.fixtureHostMessageId) failures.push('sourceIntegrityProof selectedHostMessageId is missing');
   const proofSelectedIndex = Number(proof.selectedSwipeIndex);
   const proofSwipeCount = Number(proof.swipeCount);
   if (!Number.isFinite(proofSelectedIndex)) failures.push('sourceIntegrityProof selectedSwipeIndex is missing');
@@ -389,6 +394,9 @@ function validateSourceIntegrityProof({
     kind: proof.kind || null,
     integrityKind,
     sourceRole: proof.sourceRole || null,
+    actuationMode: proof.actuationMode || null,
+    nativeHostControlMoved: proof.nativeHostControlMoved === true,
+    selectedHostMessageId: proof.selectedHostMessageId || proof.fixtureHostMessageId || null,
     selectedSwipeIndex: Number.isFinite(proofSelectedIndex) ? proofSelectedIndex : null,
     swipeCount: Number.isFinite(proofSwipeCount) ? proofSwipeCount : null,
     sourceIntegrity: proof.sourceIntegrity || null,

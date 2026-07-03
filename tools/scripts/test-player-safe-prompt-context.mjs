@@ -155,6 +155,11 @@ assert.deepEqual(
   packet.blocks.filter((block) => DIRECTIVE_STATIC_PROMPT_KEYS.includes(block.promptKey)).map((block) => block.promptKey),
   DIRECTIVE_STATIC_PROMPT_KEYS
 );
+assert.equal(packet.blocks.every((block) => typeof block.lensPromptBudgetLane === 'string' && block.lensPromptBudgetLane.length > 0), true);
+assert.equal(packet.blocks.find((block) => block.promptKey === 'directive.contract')?.lensPromptBudgetLane, 'stableRules');
+assert.equal(packet.blocks.find((block) => block.promptKey === 'directive.scene.active')?.lensPromptBudgetLane, 'activeScene');
+assert.equal(packet.blocks.find((block) => block.promptKey === 'directive.continuity.invariants')?.lensPromptBudgetLane, 'protectedContinuity');
+assert.equal(packet.blocks.find((block) => block.id === 'reply-header')?.lensPromptBudgetLane, 'activeScene');
 assert.equal(packet.continuityProjection.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.equal(packet.blocks.some((block) => block.id === 'reply-header'), true);
 assert.equal(packet.blocks.some((block) => block.id === 'immediate-scene'), true);

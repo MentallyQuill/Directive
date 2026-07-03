@@ -435,6 +435,7 @@ function targetEvidenceFromPromptInspection(promptInspection = {}, knownExternal
   const worldInfoKey = keys.some((key) => (
     key === 'worldInfoBefore'
     || key === 'worldInfoAfter'
+    || key === '1_memory'
     || /^customDepthWI_/i.test(key)
     || /^customWIOutlet_/i.test(key)
     || key === '2_floating_prompt'

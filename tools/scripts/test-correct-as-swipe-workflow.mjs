@@ -14,6 +14,7 @@ import {
   initializeCampaignRuntimeTracking,
   updateDirectiveResponse
 } from '../../src/runtime/state-delta-gateway.mjs';
+import { findOutcomeIntegrityResponse } from '../../src/runtime/outcome-integrity.mjs';
 
 const host = createFakeDirectiveHost({
   chatNative: true,
@@ -60,6 +61,27 @@ let state = initializeCampaignRuntimeTracking({
     recoveryJournal: []
   }
 });
+
+const coreOnlyHostGenerationResponse = findOutcomeIntegrityResponse({
+  runtimeTracking: {
+    responseLedger: []
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      runtimeAuthority: 'coreStoreV2',
+      responseLedger: [{
+        id: 'directive-response:core-host-generation:host',
+        hostMessageId: 'core-host-generation',
+        responseKind: 'hostContinue',
+        kind: 'hostContinue',
+        strategy: 'injectAndContinue',
+        status: 'posted'
+      }]
+    }
+  }
+}, 'core-host-generation');
+assert.equal(coreOnlyHostGenerationResponse?.id, 'directive-response:core-host-generation:host');
+assert.equal(coreOnlyHostGenerationResponse?.responseKind, 'hostContinue');
 
 const diagnostics = [];
 const persisted = [];

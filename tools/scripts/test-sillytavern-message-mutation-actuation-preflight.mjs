@@ -181,8 +181,9 @@ function selectedSwipeReport(user = 'directive-soak-b') {
       kind: 'directive.sourceIntegrityProof.v1',
       integrityKind: 'selectedSwipe',
       sourceRole: 'assistant',
-      actuationMode: 'staged-context-source-truth',
-      fixtureHostMessageId: 'assistant-selected-swipe',
+      actuationMode: 'native-host-swipe-control',
+      nativeHostControlMoved: true,
+      selectedHostMessageId: 'assistant-selected-swipe',
       selectedSwipeIndex: 1,
       swipeCount: 3,
       sourceIntegrity: 'clean',
@@ -462,6 +463,21 @@ const missingIntegrityReport = buildMessageMutationActuationProof({
 assert.equal(missingIntegrityReport.status, 'fail');
 assert(missingIntegrityReport.failures.some((entry) => /selected-swipe: sourceIntegrityProof is missing/.test(entry)));
 
+const stagedSwipeRoot = makeRoot();
+const stagedSwipeArtifact = selectedSwipeReport();
+stagedSwipeArtifact.sourceIntegrityProof.actuationMode = 'staged-context-source-truth';
+stagedSwipeArtifact.sourceIntegrityProof.nativeHostControlMoved = false;
+const stagedSwipeBundle = writeBundle(stagedSwipeRoot, {
+  selectedSwipe: stagedSwipeArtifact
+});
+const stagedSwipeReport = buildMessageMutationActuationProof({
+  manifest: stagedSwipeBundle.manifest,
+  strict: true
+});
+assert.equal(stagedSwipeReport.status, 'fail');
+assert(stagedSwipeReport.failures.some((entry) => /selected-swipe: sourceIntegrityProof actuationMode must be native-host-swipe-control/.test(entry)));
+assert(stagedSwipeReport.failures.some((entry) => /selected-swipe: sourceIntegrityProof nativeHostControlMoved must be true/.test(entry)));
+
 fs.rmSync(passRoot, { recursive: true, force: true });
 fs.rmSync(roleMismatchRoot, { recursive: true, force: true });
 fs.rmSync(selectedMissingRoot, { recursive: true, force: true });
@@ -475,5 +491,6 @@ fs.rmSync(rawTextRoot, { recursive: true, force: true });
 fs.rmSync(rawRecoveryRoot, { recursive: true, force: true });
 fs.rmSync(rawWaitedRoot, { recursive: true, force: true });
 fs.rmSync(missingIntegrityRoot, { recursive: true, force: true });
+fs.rmSync(stagedSwipeRoot, { recursive: true, force: true });
 
 console.log('SillyTavern message mutation actuation preflight tests passed.');

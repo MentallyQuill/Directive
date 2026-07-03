@@ -13090,6 +13090,17 @@
       "internalDirectorTokens": 3600,
       "maxBlocks": 12
     },
+    "lensPromptBudgetLanes": {
+      "stableRules": { "budgetTokens": 1400, "reservedFloor": 800 },
+      "protectedContinuity": { "budgetTokens": 2800, "reservedFloor": 900, "overflowPolicy": "fail-closed" },
+      "activeScene": { "budgetTokens": 1100, "reservedFloor": 500 },
+      "activeCast": { "budgetTokens": 850, "reservedFloor": 300 },
+      "missionPressure": { "budgetTokens": 750, "reservedFloor": 220 },
+      "recentTranscript": { "budgetTokens": 1300, "reservedFloor": 400 },
+      "recall": { "budgetTokens": 1000, "reservedFloor": 0 },
+      "volatileTurn": { "budgetTokens": 550, "reservedFloor": 120 },
+      "externalEnvironment": { "budgetTokens": 0, "reservedFloor": 0, "overflowPolicy": "diagnostic-only", "diagnosticOnly": true }
+    },
     "scoringWeights": {
       "causalNecessity": 100,
       "foregroundQuest": 42,

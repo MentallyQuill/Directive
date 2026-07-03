@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   composeNarrationPrompt
 } from '../../src/generation/narration.mjs';
+import { normalizeRecallIndexEntry } from '../../src/retrieval/recall-index.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 
 const root = process.cwd();
@@ -123,9 +124,41 @@ await app.saveCreatorDraft({
 await app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
 
 const sceneSnapshot = fixture.input.sceneSnapshot;
+const coreSceneRecallEntry = normalizeRecallIndexEntry({
+  id: 'runtime-core-recall:hesperus-diversion',
+  campaignId: 'ashes-of-peace',
+  saveId: null,
+  branchId: 'main',
+  authority: 'committed',
+  sourceFrameRef: {
+    id: 'frame-runtime-hesperus',
+    textHash: 'frame-runtime-hesperus-hash',
+    rawPlayerText: 'Raw runtime player text must not enter Director retrieval refs.'
+  },
+  sceneSealRef: {
+    id: 'scene-seal-runtime-hesperus',
+    hash: 'scene-seal-runtime-hesperus-hash',
+    rawSummary: 'Raw runtime scene seal summary must not enter Director retrieval refs.'
+  },
+  phaseId: sceneSnapshot.activePhaseId,
+  locationId: sceneSnapshot.locationId,
+  actorIds: sceneSnapshot.presentCharacters,
+  subjectIds: ['hesperus-fraud'],
+  missionIds: [sceneSnapshot.missionId],
+  keywords: [sceneSnapshot.activePhaseId, sceneSnapshot.locationId, 'hesperus'],
+  retrieval: {
+    mode: 'sceneSeal',
+    priority: 100,
+    audience: ['narrator'],
+    sourceAuthority: 'sceneSeal'
+  },
+  textHash: 'runtime-core-recall-hesperus-hash',
+  preview: 'A prior scene seal frames the Hesperus diversion as a records-accountability decision.'
+});
 const turnResult = await app.runDirectorTurn({
   turnId: 'turn.runtime.hesperus.001',
   playerInput: sceneSnapshot.playerInput,
+  coreRecallEntries: [coreSceneRecallEntry],
   sceneSnapshotOverrides: {
     activePhaseId: sceneSnapshot.activePhaseId,
     stardate: sceneSnapshot.stardate,
@@ -140,6 +173,11 @@ assert.equal(turnResult.turnPacket.outcomePacket.resultBand, 'Partial Success');
 assert.equal(turnResult.turnPacket.sceneSnapshot.campaignId, 'ashes-of-peace');
 assert.equal(turnResult.turnPacket.sceneSnapshot.campaignInstanceId, 'campaign-runtime-director-2');
 assert.equal(turnResult.turnPacket.sceneSnapshot.activePhaseId, 'hesperus-diversion');
+assert.equal(
+  turnResult.turnPacket.directorPackets.narrator.recallRefs.some((ref) => ref.id === 'runtime-core-recall:hesperus-diversion'),
+  true
+);
+assert.equal(JSON.stringify(turnResult.turnPacket.directorPackets.narrator.recallRefs).includes('Raw runtime'), false);
 assert.equal(turnResult.turnPacket.provenance.continuityProjection.kind, 'directive.continuityDirectorPacketDigest.v1');
 assert.equal(turnResult.turnPacket.provenance.continuityProjection.audience, 'missionDirector');
 assert.equal(turnResult.turnPacket.provenance.continuityProjection.hash, turnResult.coordinatorDiagnostics.continuityProjection.hash);

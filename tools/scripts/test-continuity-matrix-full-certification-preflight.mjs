@@ -514,6 +514,47 @@ function setFullFixtureUsers(root, handles = []) {
   writeJson(reportPath, report);
 }
 
+function writeExternalContextProbe(root, handles = []) {
+  writeJson(path.join(root, 'host-extensions', 'external-context-probe.json'), {
+    kind: 'directive.sillytavern.externalContextProbe.v1',
+    schemaVersion: 1,
+    status: 'pass',
+    users: handles.map((handle) => ({
+      handle,
+      status: 'pass',
+      externalPromptEnvironment: {
+        knownExternalPromptKeys: ['worldInfoBefore', '1_memory', 'summaryception', '3_vectfox'],
+        worldInfo: {
+          active: true,
+          chatBoundName: 'Directive External Context Fixture',
+          settingsHash: 'world-info-settings-hash'
+        },
+        memoryBooks: {
+          enabled: true,
+          stMemoryBookEntryCount: 1,
+          rangeDiagnostics: { status: 'valid' }
+        },
+        summaryception: {
+          enabled: true,
+          layerCount: 1,
+          staleness: { status: 'fresh' }
+        },
+        vectFox: {
+          enabled: true,
+          settingsHash: 'vectfox-settings-hash',
+          backendDiagnostics: { status: 'external-backend-configured' }
+        }
+      },
+      targets: {
+        stLorebooks: { status: 'browser-confirmed', promptKeys: [] },
+        memoryBooks: { status: 'browser-confirmed', promptKeys: [] },
+        summaryception: { status: 'browser-confirmed', promptKeys: [] },
+        vectFox: { status: 'browser-confirmed', promptKeys: [] }
+      }
+    }))
+  });
+}
+
 const budget = expectedFullCertificationBudget();
 assert.equal(budget.fullTurnCount, 52);
 assert.equal(budget.factChecksPerLane, 53);
@@ -597,6 +638,57 @@ assert.deepEqual(
   allLanesCoverageFailCheck.details.missingUserHandles,
   SOAK_PARALLEL_WORKER_POLICY.lanes.slice(1).map((lane) => lane.userHandle)
 );
+
+const readinessProbeFixtureRoot = makeRoot();
+const readinessProbeFixtureLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => {
+  const artifactRoot = path.join(readinessProbeFixtureRoot, 'lanes', lane.id, `${path.basename(readinessProbeFixtureRoot)}-${lane.id}`);
+  writeLaneArtifacts(artifactRoot);
+  return { id: lane.id, userHandle: lane.userHandle, status: 'pass', artifactRoot };
+});
+aggregateReport(readinessProbeFixtureRoot, readinessProbeFixtureLanes);
+writeExternalContextProbe(
+  readinessProbeFixtureRoot,
+  SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => lane.userHandle)
+);
+const readinessProbeFixturePreflight = buildFullCertificationPreflight({
+  artifactRoot: readinessProbeFixtureRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+const readinessProbeFixtureCheck = readinessProbeFixturePreflight.checks.find((entry) => entry.id === 'external-context-coverage-standard');
+assert.equal(readinessProbeFixtureCheck.status, 'pass');
+assert.deepEqual(
+  readinessProbeFixtureCheck.details.fixtureDepth.fullFixtureUserHandles,
+  SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => lane.userHandle)
+);
+{
+  const reportPath = path.join(readinessProbeFixtureRoot, 'report.json');
+  const report = readJson(reportPath);
+  report.readiness.status = 'warning';
+  report.readiness.report = {
+    checks: [
+      { id: 'host-extension-fixture-depth', status: 'warning', summary: 'Stale aggregate fixture-depth warning.' }
+    ]
+  };
+  report.checks.unshift(
+    { id: 'live-readiness', status: 'warning', summary: 'Stale readiness warning from aggregate report.' },
+    { id: 'external-context-fixture-depth', status: 'warning', summary: 'Stale fixture-depth warning from aggregate report.' }
+  );
+  writeJson(reportPath, report);
+}
+const supersededReadinessWarningPreflight = buildFullCertificationPreflight({
+  artifactRoot: readinessProbeFixtureRoot,
+  strict: true,
+  coverageStandard: 'all-lanes'
+});
+assert.equal(supersededReadinessWarningPreflight.status, 'pass');
+const supersededWarnings = classifyAggregateWarnings({
+  aggregateReport: readJson(path.join(readinessProbeFixtureRoot, 'report.json')),
+  laneSummaries: supersededReadinessWarningPreflight.lanes,
+  artifactRoot: readinessProbeFixtureRoot
+});
+assert.equal(supersededWarnings.find((entry) => entry.id === 'live-readiness').depthOnly, true);
+assert.equal(supersededWarnings.find((entry) => entry.id === 'external-context-fixture-depth').depthOnly, true);
 
 const unknownCoveragePreflight = buildFullCertificationPreflight({
   artifactRoot: fullRoot,
@@ -1009,6 +1101,10 @@ boundedReport.checks.unshift({
   id: 'five-user-lane-policy',
   status: 'warning',
   summary: '1 Continuity Matrix soak lane(s) are selected.'
+}, {
+  id: 'lane-artifact-completeness',
+  status: 'warning',
+  summary: '1 lane wrote required artifacts with lower-than-planned fact-check depth.'
 });
 writeJson(path.join(boundedRoot, 'report.json'), boundedReport);
 const boundedPreflight = buildFullCertificationPreflight({ artifactRoot: boundedRoot, strict: true });
@@ -1022,6 +1118,7 @@ const warningClassifications = classifyAggregateWarnings({
   laneSummaries: boundedPreflight.lanes
 });
 assert.equal(warningClassifications.find((entry) => entry.id === 'turn-depth').depthOnly, true);
+assert.equal(warningClassifications.find((entry) => entry.id === 'lane-artifact-completeness').depthOnly, true);
 assert.equal(warningClassifications.find((entry) => entry.id === 'five-user-lane-policy').strictBlocking, true);
 const textOnlyTurnWarningClassifications = classifyAggregateWarnings({
   aggregateReport: {

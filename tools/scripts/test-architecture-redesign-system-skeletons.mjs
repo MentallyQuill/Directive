@@ -204,6 +204,14 @@ const correctAsSwipeLiveSource = readFileSync(
   new URL('./test-correct-as-swipe-live.mjs', import.meta.url),
   'utf8'
 );
+const selectedSwipeActuationLiveSource = readFileSync(
+  new URL('./run-sillytavern-selected-swipe-actuation-live.mjs', import.meta.url),
+  'utf8'
+);
+const messageMutationActuationRunnerSource = readFileSync(
+  new URL('./run-sillytavern-message-mutation-actuation-live.mjs', import.meta.url),
+  'utf8'
+);
 const transactionStateSource = readFileSync(
   new URL('../../src/campaign/transaction-state.mjs', import.meta.url),
   'utf8'
@@ -330,6 +338,21 @@ assert.match(
   correctAsSwipeLiveSource,
   /directive-correct-as-swipe-button[\s\S]*?directive-correct-as-swipe-popover[\s\S]*?selectedUnchanged/,
   'Correct-as-Swipe live proof must exercise browser selection, UI append, and unselected candidate evidence.'
+);
+assert.match(
+  selectedSwipeActuationLiveSource,
+  /assert\(args\.has\(['"]--live['"]\)[\s\S]*?actuationMode:\s*['"]native-host-swipe-control['"][\s\S]*?nativeHostControlMoved:\s*actuation\.nativeHostControlMoved\s*===\s*true/,
+  'Selected-swipe release proof must require live native host control actuation.'
+);
+assert.match(
+  selectedSwipeActuationLiveSource,
+  /proposeCorrectAsSwipeCandidate[\s\S]*?clickNativeSwipeControl[\s\S]*?nativeHostControls/,
+  'Selected-swipe runner must prepare an unselected candidate and then click a native SillyTavern swipe control.'
+);
+assert.match(
+  messageMutationActuationRunnerSource,
+  /id:\s*['"]selected-swipe['"][\s\S]*?script:\s*['"]tools\/scripts\/run-sillytavern-selected-swipe-actuation-live\.mjs['"]/,
+  'Message mutation actuation runner must use the native selected-swipe actuation runner, not staged Scene Handshake proof.'
 );
 assert.match(
   runtimeAppSource,
@@ -932,10 +955,31 @@ assert.equal(lensFlush.rebuilt, true);
 assert.equal(lensFlush.appliesTo, 'currentOrNextDirectiveGeneration');
 assert.deepEqual(lensFlush.dirtyDomains, ['missionQuestThread', 'command']);
 assert.equal(lensFlush.packet.blocks[0].promptKey.startsWith('directive.'), true);
+assert.equal(lensFlush.promptBudgetTrace.kind, 'directive.lensPromptBudgetTrace.v1');
+assert.equal(lensFlush.promptBudgetTraceRef.kind, 'directive.lensPromptBudgetTraceRef.v1');
+assert.equal(lensFlush.promptBudgetTraceRef.hash, lensFlush.promptBudgetTrace.hash);
+assert.deepEqual(
+  lensFlush.promptBudgetTrace.lanes.map((lane) => lane.id),
+  [
+    'stableRules',
+    'protectedContinuity',
+    'activeScene',
+    'activeCast',
+    'missionPressure',
+    'recentTranscript',
+    'recall',
+    'volatileTurn',
+    'externalEnvironment'
+  ]
+);
+assert.equal(lensFlush.promptBudgetTrace.lanes.find((lane) => lane.id === 'externalEnvironment').diagnosticOnly, true);
+assert.equal(lensFlush.installed.promptBudgetTraceRef.hash, lensFlush.promptBudgetTrace.hash);
+assert.equal(lensFlush.packet.lensPromptBudgetTrace.hash, lensFlush.promptBudgetTrace.hash);
 assert.equal(installedPackets.length, 1);
 assert.equal(lensBuildCalls.length, 1);
 assert.equal(lensBuildCalls[0].externalPromptEnvironmentRef.hash, frame.externalPromptEnvironmentRef.hash);
 assert.equal(lensCore.calls.some((call) => call.diagnostic?.cacheRecord?.externalPromptEnvironmentRef?.hash === frame.externalPromptEnvironmentRef.hash), true);
+assert.equal(lensCore.calls.some((call) => call.diagnostic?.promptBudgetTrace?.hash === lensFlush.promptBudgetTrace.hash), true);
 assert.equal(JSON.stringify(lensCore.calls).includes('RAW LENS PACKET PROMPT MUST NOT PERSIST'), false);
 assert.equal(JSON.stringify(lensCore.calls).includes('RAW LENS PACKET RESPONSE MUST NOT PERSIST'), false);
 
@@ -978,6 +1022,10 @@ const revisionFlush = await lens.flushVisible({
 assert.equal(revisionFlush.status, 'installed');
 assert.equal(revisionFlush.rebuilt, true);
 assert.equal(revisionFlush.cacheInputs.recallIndexRevision, 'recall-revision-from-core');
+assert.equal(revisionFlush.promptBudgetTrace.cacheInputs.recallIndexRevision, 'recall-revision-from-core');
+assert.equal(revisionFlush.promptBudgetTrace.cacheInputs.sceneSealRevision, 'scene-seal-revision-from-core');
+assert.equal(revisionFlush.promptBudgetTrace.cacheInputs.pressureArcDigestRevision, 'pressure-arc-revision-from-core');
+assert.equal(revisionFlush.promptBudgetTrace.lanes.find((lane) => lane.id === 'recall').includedRefs[0].hash, 'recall-revision-from-core');
 assert.equal(revisionFlush.cacheInputs.sceneSealRevision, 'scene-seal-revision-from-core');
 assert.equal(revisionFlush.cacheInputs.pressureArcDigestRevision, 'pressure-arc-revision-from-core');
 assert.equal(installedPackets.length, 2);

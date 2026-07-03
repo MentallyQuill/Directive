@@ -19,6 +19,7 @@ export const LENS_PROMPT_BUDGET_LANES = Object.freeze([
 
 const LANE_SET = new Set(LENS_PROMPT_BUDGET_LANES);
 const RAW_KEY_PATTERN = /(?:text|body|prompt|provider|raw|transcript|summaryception|memoryBook|vectorPayload|embedding|secret|api[_-]?key|password|token|qdrant)/i;
+const PROTECTED_LANES = new Set(['protectedContinuity']);
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -64,15 +65,119 @@ function safeRef(value = null) {
   return compactObject(out);
 }
 
+function safeExternalNested(value = {}) {
+  if (!value || typeof value !== 'object') return {};
+  const out = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (RAW_KEY_PATTERN.test(key) || /endpoint|url/i.test(key)) continue;
+    if (item === undefined) continue;
+    if (Array.isArray(item)) out[key] = uniqueStrings(item);
+    else if (item && typeof item === 'object') out[key] = safeExternalNested(item);
+    else out[key] = item;
+  }
+  return compactObject(out);
+}
+
+function pickSafe(value = {}, keys = []) {
+  const out = {};
+  for (const key of keys) {
+    if (!Object.hasOwn(value || {}, key) || value[key] === undefined) continue;
+    const item = value[key];
+    if (Array.isArray(item)) out[key] = uniqueStrings(item);
+    else if (item && typeof item === 'object') out[key] = safeExternalNested(item);
+    else out[key] = item;
+  }
+  return compactObject(out);
+}
+
+function safeExternalPromptEnvironmentTargets(value = null) {
+  if (!value || typeof value !== 'object') return null;
+  const common = [
+    'status',
+    'installed',
+    'enabled',
+    'directiveAuthority',
+    'rawContentCaptured',
+    'requiresRichEvidence',
+    'richEvidence',
+    'richEvidenceMissing'
+  ];
+  return compactObject({
+    stLorebooks: pickSafe(value.stLorebooks, [
+      ...common,
+      'active',
+      'activeNameCount',
+      'chatBound',
+      'promptPositions'
+    ]),
+    memoryBooks: pickSafe(value.memoryBooks, [
+      ...common,
+      'active',
+      'entryCount',
+      'entryHash',
+      'rangeDiagnostics',
+      'riskyModes'
+    ]),
+    summaryception: pickSafe(value.summaryception, [
+      ...common,
+      'promptKeyActive',
+      'layerCount',
+      'ghostedCount',
+      'staleness',
+      'injectionHash',
+      'externalModelCalls'
+    ]),
+    vectFox: pickSafe(value.vectFox, [
+      ...common,
+      'disabledPresent',
+      'backendType',
+      'semanticWorldInfoEnabled',
+      'summarizerInjectionEnabled',
+      'ghostingEnabled',
+      'generationInterceptorActive',
+      'backendDiagnostics',
+      'settingsHash'
+    ]),
+    unknownExternalContext: pickSafe(value.unknownExternalContext, [
+      'status',
+      'promptKeyCount',
+      'promptKeyPrefixes',
+      'promptKeyHash',
+      'promptKeyPrefixHash',
+      'visibilityMarkerCount',
+      'redactionReason',
+      'directiveAuthority',
+      'rawContentCaptured'
+    ])
+  });
+}
+
+function safePromptBudgetLaneOverrides(value = null) {
+  if (!value || typeof value !== 'object') return null;
+  const out = {};
+  for (const [laneId, lane] of Object.entries(value)) {
+    if (!LANE_SET.has(laneId) || !lane || typeof lane !== 'object') continue;
+    out[laneId] = compactObject({
+      budgetTokens: Math.max(0, Math.trunc(asNumber(lane.budgetTokens, 0))),
+      reservedFloor: Math.max(0, Math.trunc(asNumber(lane.reservedFloor, 0))),
+      overflowPolicy: ['omit-overflow', 'fail-closed', 'diagnostic-only'].includes(lane.overflowPolicy) ? lane.overflowPolicy : undefined,
+      authority: asString(lane.authority),
+      diagnosticOnly: lane.diagnosticOnly === true ? true : undefined
+    });
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 function normalizeBudgetRef(value = {}) {
   const safe = safeRef(value) || {};
+  const preservedHash = asString(value.hash || value.textHash || value.metadataHash || safe.hash || safe.textHash || safe.metadataHash);
   return compactObject({
     id: asString(safe.id || safe.refId || safe.sourceFrameId || safe.hash),
     kind: asString(safe.kind || safe.refKind),
     authority: asString(safe.authority),
-    hash: asString(safe.hash || safe.textHash || safe.metadataHash),
+    hash: preservedHash,
     estimatedTokens: Math.max(0, Math.trunc(asNumber(value.estimatedTokens ?? safe.estimatedTokens, 0))),
-    sourceFrameId: asString(safe.sourceFrameId || safe.sourceFrameRef?.id),
+    sourceFrameId: asString(value.sourceFrameId || value.sourceFrameRef?.id || safe.sourceFrameId || safe.sourceFrameRef?.id),
     omissionReason: asString(safe.omissionReason)
   });
 }
@@ -82,6 +187,11 @@ function normalizeLaneInput(lane = {}) {
   if (!LANE_SET.has(id)) {
     throw new Error(`Unknown LENS prompt budget lane: ${id || '<missing>'}`);
   }
+  const diagnosticOnly = lane.diagnosticOnly === true || id === 'externalEnvironment';
+  const defaultOverflowPolicy = diagnosticOnly
+    ? 'diagnostic-only'
+    : PROTECTED_LANES.has(id) ? 'fail-closed' : 'omit-overflow';
+  const overflowPolicy = asString(lane.overflowPolicy, defaultOverflowPolicy);
   return {
     id,
     budgetTokens: Math.max(0, Math.trunc(asNumber(lane.budgetTokens, 0))),
@@ -90,7 +200,8 @@ function normalizeLaneInput(lane = {}) {
     refs: (Array.isArray(lane.refs) ? lane.refs : []).map(normalizeBudgetRef).filter((ref) => ref.id || ref.hash),
     omittedRefs: (Array.isArray(lane.omittedRefs) ? lane.omittedRefs : []).map(normalizeBudgetRef).filter((ref) => ref.id || ref.hash),
     omissionReasons: uniqueStrings(lane.omissionReasons),
-    diagnosticOnly: lane.diagnosticOnly === true || id === 'externalEnvironment'
+    diagnosticOnly,
+    overflowPolicy
   };
 }
 
@@ -110,11 +221,22 @@ export function createLensPromptBudgetTrace({
     const lane = normalizeLaneInput(laneInput);
     const includedRefs = [];
     const omittedRefs = [...lane.omittedRefs];
+    const overBudgetRefs = [];
     const omissionReasons = new Set(lane.omissionReasons);
     let usedTokens = 0;
     for (const ref of lane.refs) {
       const nextTokens = usedTokens + Math.max(0, Number(ref.estimatedTokens) || 0);
       if (!lane.diagnosticOnly && lane.budgetTokens > 0 && nextTokens > lane.budgetTokens) {
+        if (lane.overflowPolicy === 'fail-closed') {
+          includedRefs.push(ref);
+          overBudgetRefs.push({
+            ...ref,
+            omissionReason: 'protected-budget-exceeded'
+          });
+          omissionReasons.add('protected-budget-exceeded');
+          usedTokens = nextTokens;
+          continue;
+        }
         omittedRefs.push({
           ...ref,
           omissionReason: 'budget-exceeded'
@@ -125,16 +247,31 @@ export function createLensPromptBudgetTrace({
       includedRefs.push(ref);
       usedTokens = nextTokens;
     }
+    const budgetExceeded = !lane.diagnosticOnly
+      && lane.budgetTokens > 0
+      && (usedTokens > lane.budgetTokens || omittedRefs.some((ref) => ref.omissionReason === 'budget-exceeded'));
+    const blocking = lane.overflowPolicy === 'fail-closed' && overBudgetRefs.length > 0;
+    const status = lane.diagnosticOnly
+      ? 'diagnostic-only'
+      : blocking ? 'blocked-over-budget'
+        : omittedRefs.some((ref) => ref.omissionReason === 'budget-exceeded') ? 'omitted-overflow'
+          : 'within-budget';
     normalizedLanes.push({
       id: lane.id,
       budgetTokens: lane.budgetTokens,
       estimatedTokens: usedTokens,
       reservedFloor: lane.reservedFloor,
+      reservedFloorSatisfied: lane.reservedFloor <= 0 || usedTokens >= lane.reservedFloor,
       includedRefs,
       omittedRefs,
+      overBudgetRefs,
       omissionReasons: [...omissionReasons],
       authority: lane.authority,
-      diagnosticOnly: lane.diagnosticOnly
+      diagnosticOnly: lane.diagnosticOnly,
+      overflowPolicy: lane.overflowPolicy,
+      budgetExceeded,
+      blocking,
+      status
     });
   }
   const trace = {
@@ -151,7 +288,9 @@ export function createLensPromptBudgetTrace({
       sceneSealRevision: asString(cacheInputs.sceneSealRevision),
       pressureArcDigestRevision: asString(cacheInputs.pressureArcDigestRevision),
       packageRevision: asString(cacheInputs.packageRevision),
-      externalPromptEnvironmentRef: safeRef(cacheInputs.externalPromptEnvironmentRef)
+      promptBudgetLaneOverrides: safePromptBudgetLaneOverrides(cacheInputs.promptBudgetLaneOverrides),
+      externalPromptEnvironmentRef: safeRef(cacheInputs.externalPromptEnvironmentRef),
+      externalPromptEnvironmentTargets: safeExternalPromptEnvironmentTargets(cacheInputs.externalPromptEnvironmentTargets)
     })
   };
   trace.hash = hashStableJson(trace);

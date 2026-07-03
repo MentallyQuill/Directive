@@ -246,19 +246,43 @@ function bestEntityForBinding(context, chatId, initialEntity = null) {
 }
 
 function readChatMetadataObject(context) {
-  if (context?.chatMetadata && typeof context.chatMetadata === 'object') return context.chatMetadata;
-  if (context?.chat_metadata && typeof context.chat_metadata === 'object') return context.chat_metadata;
+  const camel = context?.chatMetadata && typeof context.chatMetadata === 'object' ? context.chatMetadata : null;
+  const snake = context?.chat_metadata && typeof context.chat_metadata === 'object' ? context.chat_metadata : null;
+  if (camel && snake && camel !== snake) {
+    return {
+      ...cloneJson(camel),
+      ...cloneJson(snake),
+      [DIRECTIVE_CHAT_METADATA_KEY]: snake[DIRECTIVE_CHAT_METADATA_KEY] || camel[DIRECTIVE_CHAT_METADATA_KEY] || null
+    };
+  }
+  if (snake) return snake;
+  if (camel) return camel;
   return null;
 }
 
 function chatMetadataObject(context) {
-  const existing = readChatMetadataObject(context);
-  if (existing) return existing;
-  if (context && typeof context === 'object') {
-    context.chatMetadata = {};
-    return context.chatMetadata;
+  if (!context || typeof context !== 'object') return null;
+  const camel = context.chatMetadata && typeof context.chatMetadata === 'object' ? context.chatMetadata : null;
+  const snake = context.chat_metadata && typeof context.chat_metadata === 'object' ? context.chat_metadata : null;
+  if (snake && camel && snake !== camel) {
+    for (const [key, value] of Object.entries(camel)) {
+      if (snake[key] === undefined) snake[key] = cloneJson(value);
+    }
+    context.chatMetadata = snake;
+    return snake;
   }
-  return null;
+  if (snake) {
+    context.chatMetadata = snake;
+    return snake;
+  }
+  if (camel) {
+    context.chat_metadata = camel;
+    return camel;
+  }
+  const metadata = {};
+  context.chat_metadata = metadata;
+  context.chatMetadata = metadata;
+  return metadata;
 }
 
 function currentDirectiveBinding(context) {
@@ -1381,7 +1405,8 @@ export function createSillyTavernChatAdapter({
     campaignId = null,
     responseKind = 'narration',
     extra = {},
-    select = true
+    select = true,
+    allowUnownedAssistant = false
   } = {}) {
     const ctx = context();
     if (!ctx) throw new Error('SillyTavern context is unavailable for message swipe updates.');
@@ -1397,14 +1422,21 @@ export function createSillyTavernChatAdapter({
       throw new Error(`SillyTavern message ${id || '(missing)'} could not be found for swipe update.`);
     }
     const message = chat[index];
+    const assistantMessage = message?.is_user !== true && message?.role !== 'user' && message?.is_system !== true && message?.role !== 'system';
     const metadata = directiveMetadata(message);
     if (!metadata) {
-      throw new Error('Only Directive-owned assistant messages can receive Directive swipes.');
+      if (!allowUnownedAssistant || !assistantMessage) {
+        throw new Error('Only Directive-owned assistant messages can receive Directive swipes.');
+      }
     }
-    if (campaignId && metadata.campaignId && String(metadata.campaignId) !== String(campaignId)) {
+    let swipeMetadata = metadata || {
+      campaignId: campaignId || null,
+      responseKind: responseKind || 'narration'
+    };
+    if (campaignId && swipeMetadata.campaignId && String(swipeMetadata.campaignId) !== String(campaignId)) {
       throw new Error('Directive swipe campaign id does not match the target message.');
     }
-    if (responseKind && metadata.responseKind && String(metadata.responseKind) !== String(responseKind)) {
+    if (responseKind && swipeMetadata.responseKind && String(swipeMetadata.responseKind) !== String(responseKind)) {
       throw new Error('Directive swipe response kind does not match the target message.');
     }
 
@@ -1423,7 +1455,6 @@ export function createSillyTavernChatAdapter({
     delete extraPatch[DIRECTIVE_MESSAGE_METADATA_KEY];
     const swipeInfo = ensureMessageSwipeInfo(message);
     const selected = select !== false;
-    let swipeMetadata = directiveMetadata(message) || {};
     if (selected) {
       message.swipe_id = swipeIndex;
       message.mes = normalizedText;

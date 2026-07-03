@@ -11,6 +11,26 @@ function compactObject(value = {}) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
 }
 
+function asString(value, fallback = null) {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text || fallback;
+}
+
+function recallRefsFromEntries(entries = []) {
+  return (Array.isArray(entries) ? entries : []).map((entry) => compactObject({
+    id: asString(entry?.id || entry?.hash),
+    kind: 'directive.recallIndexEntryRef.v1',
+    authority: asString(entry?.authority, 'directive'),
+    hash: asString(entry?.textHash || entry?.metadataHash || entry?.hash),
+    estimatedTokens: Number.isFinite(Number(entry?.estimatedTokens))
+      ? Math.max(0, Math.trunc(Number(entry.estimatedTokens)))
+      : 120,
+    sourceFrameId: asString(entry?.sourceFrameRef?.id || entry?.sourceFrameId),
+    omissionReason: entry?.stale === true ? asString(entry.staleReason, 'stale-source') : undefined
+  })).filter((ref) => ref.id || ref.hash);
+}
+
 export function createLensPromptInput({
   campaignState = null,
   assets = {},
@@ -29,6 +49,9 @@ export function createLensPromptInput({
     recentMessageSummary: frame.recentMessageSummary || null,
     recentChatMessages: Array.isArray(frame.recentChatMessages) ? frame.recentChatMessages : [],
     acceptedAssistantVariant: frame.acceptedAssistantVariant || null,
+    recallRefs: Array.isArray(frame.recallRefs) ? cloneJson(frame.recallRefs) : [],
+    omittedRecallRefs: Array.isArray(frame.omittedRecallRefs) ? cloneJson(frame.omittedRecallRefs) : [],
+    coreRecallEntries: Array.isArray(frame.coreRecallEntries) ? cloneJson(frame.coreRecallEntries) : [],
     createdAt
   };
 }
@@ -60,12 +83,16 @@ export async function buildLensPromptPacket({
   const built = useContinuityPlanner
     ? await buildPlayerSafePromptContextWithContinuityPlanner(promptInput, { generationRouter })
     : buildPlayerSafePromptContext(promptInput);
+  const recallRefs = Array.isArray(promptInput.recallRefs) && promptInput.recallRefs.length
+    ? promptInput.recallRefs
+    : recallRefsFromEntries(promptInput.coreRecallEntries);
   return compactObject({
     ...built,
     revision,
     cacheKey,
+    recallRefs: recallRefs.length ? cloneJson(recallRefs) : undefined,
+    omittedRecallRefs: Array.isArray(promptInput.omittedRecallRefs) ? cloneJson(promptInput.omittedRecallRefs) : undefined,
     externalPromptEnvironmentRef: cloneJson(externalPromptEnvironmentRef || null),
     lensDirtyDomains: cloneJson(Array.isArray(dirtyDomains) ? dirtyDomains : [])
   });
 }
-

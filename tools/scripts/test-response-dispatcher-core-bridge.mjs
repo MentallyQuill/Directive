@@ -613,6 +613,7 @@ assert.equal(reobserveResult.results[0].status, 'complete');
 assert.equal(reobserveCoreStore.state.events.at(-1).type, 'visibleResponseRecorded');
 const reobservedResponse = reobserveState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-reobserve-1');
 assert.equal(reobservedResponse.status, 'complete');
+assert.equal(reobservedResponse.hostMessageId, 'assistant-core-reobserve-1');
 assert.equal(reobservedResponse.hostObservation.hostMessageId, 'assistant-core-reobserve-1');
 assert.equal(JSON.stringify(reobservedResponse).includes('The answer arrived through the bridge crew.'), false);
 const reobserveProjection = await readCoreStoreProjectionsV2(reobserveAdapter, {
@@ -889,6 +890,124 @@ const hashlessAfterProjection = await readCoreStoreProjectionsV2(hashlessAdapter
 const hashlessAfterResponse = hashlessAfterProjection.responseLedger.find((entry) => entry.transactionId === hashlessTransaction.id);
 assert.equal(hashlessAfterResponse.hostMessageId, 'assistant-core-hashless-reobserve-1');
 assert.equal(hashlessAfterResponse.textHash, hashlessAssistantHash);
+
+const settledCampaignId = 'campaign-response-core-settled-runtime-reobserve';
+const settledSaveId = 'save-response-core-settled-runtime-reobserve';
+const settledChatId = 'ashes-chat-settled-runtime-reobserve';
+const settledStorage = createLoggingStorage();
+const settledAdapter = createLogicalStorageAdapter({ storage: settledStorage, hostId: 'fake' });
+const settledCoreStore = createCoreStoreV2({
+  adapter: settledAdapter,
+  campaignId: settledCampaignId,
+  saveId: settledSaveId,
+  now
+});
+const settledFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-settled-runtime-reobserve',
+  campaignId: settledCampaignId,
+  saveId: settledSaveId,
+  chatId: settledChatId,
+  hostMessageId: 'player-core-settled-runtime-reobserve-1',
+  textHash: hashStableJson({ text: 'Sam waits for the host-native answer.' }),
+  sourceRevision: 0,
+  createdAt: '2026-06-28T17:03:30.000Z'
+});
+const settledTransaction = await settledCoreStore.beginTurn(settledFrame, {
+  transactionId: 'txn-response-core-settled-runtime-reobserve-1',
+  ingressId: 'ingress-response-core-settled-runtime-reobserve-1',
+  idempotencyKey: 'begin-response-core-settled-runtime-reobserve-1'
+});
+let settledState = addIngress(createCampaignState({
+  campaignId: settledCampaignId,
+  saveId: settledSaveId,
+  chatId: settledChatId
+}), {
+  ingressId: 'ingress-response-core-settled-runtime-reobserve-1',
+  hostMessageId: 'player-core-settled-runtime-reobserve-1',
+  chatId: settledChatId,
+  campaignId: settledCampaignId,
+  sourceFrame: settledFrame,
+  coreTransactionId: settledTransaction.id
+});
+const settledAssistantText = 'The host-native row was already visible before runtime projection caught up.';
+const settledDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Settled runtime reobserve test must not post Directive text.');
+      },
+      continueHostGeneration: async (payload = {}) => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        reason: payload.reason,
+        generationStartedAt: '2026-06-28T17:03:40.000Z',
+        hostGenerationReleasedAt: '2026-06-28T17:03:40.000Z',
+        observationStatus: 'pending',
+        observationId: 'observation-response-core-settled-runtime-reobserve-1'
+      }),
+      refreshCurrentChat: async () => ({ ok: true, refreshed: true }),
+      getRecentMessages: async () => [
+        {
+          hostMessageId: 'player-core-settled-runtime-reobserve-1',
+          index: 30,
+          chatId: settledChatId,
+          isUser: true,
+          text: 'Sam waits for the host-native answer.'
+        },
+        {
+          hostMessageId: 'assistant-core-settled-runtime-reobserve-1',
+          index: 31,
+          chatId: settledChatId,
+          isUser: false,
+          isSystem: false,
+          text: settledAssistantText
+        }
+      ]
+    }
+  },
+  coreTurnStore: settledCoreStore,
+  getCampaignState: () => settledState,
+  setCampaignState: (next) => { settledState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { settledState = initializeCampaignRuntimeTracking(next); },
+  now
+});
+await settledDispatcher.dispatch({
+  campaignState: settledState,
+  ingressId: 'ingress-response-core-settled-runtime-reobserve-1',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-settled-runtime-reobserve-1'
+});
+const settledAssistantHash = hashStableJson({ text: settledAssistantText });
+await settledCoreStore.recordVisibleResponse(settledTransaction.id, {
+  kind: 'hostContinue',
+  responseId: 'response-core-settled-runtime-reobserve-1',
+  hostMessageId: 'assistant-core-settled-runtime-reobserve-1',
+  postedAt: '2026-06-28T17:04:05.000Z',
+  hostGenerationReleasedAt: '2026-06-28T17:03:40.000Z',
+  generationStartedAt: '2026-06-28T17:03:40.000Z',
+  textHash: settledAssistantHash,
+  idempotencyKey: 'visible-response-core-settled-runtime-reobserve-1'
+});
+settledState.runtimeTracking.responseLedger = settledState.runtimeTracking.responseLedger.map((entry) => (
+  entry.id === 'response-core-settled-runtime-reobserve-1'
+    ? { ...entry, status: 'complete' }
+    : entry
+));
+const settledReobserveResult = await settledDispatcher.reobserveHostGenerationCompletions({
+  campaignState: settledState
+});
+assert.equal(settledReobserveResult.ok, true);
+assert.equal(settledReobserveResult.results[0].status, 'alreadySettled');
+assert.equal(settledReobserveResult.results[0].ok, true);
+const settledResponse = settledState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-settled-runtime-reobserve-1');
+assert.equal(settledResponse.status, 'complete');
+assert.equal(settledResponse.hostMessageId, 'assistant-core-settled-runtime-reobserve-1');
+assert.equal(settledResponse.hostObservation.hostMessageId, 'assistant-core-settled-runtime-reobserve-1');
+assert.equal(settledResponse.hostObservation.textHash, settledAssistantHash);
+assert.equal(JSON.stringify(settledResponse).includes(settledAssistantText), false);
 
 const directiveSourceFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-directive-posted',

@@ -26,6 +26,7 @@ import {
 import {
   createCoreStoreV2,
   loadCoreStoreStateV2,
+  readCoreRecallIndexAuxiliaryEntries,
   readCoreStoreProjectionsV2
 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
@@ -176,6 +177,7 @@ const genericBatch = createForgeBatchCommit({
 });
 assert.equal(genericBatch.scenePhaseSealRefs.length, 1);
 assert.equal(genericBatch.recallIndexEntryRefs.length, 1);
+assert.equal(genericBatch.recallEntries.length, 0);
 assert.equal(genericBatch.recallRevisions.recallIndexRevision, hashStableJson(genericBatch.recallIndexEntryRefs.map((ref) => ({
   id: ref.id || null,
   hash: ref.hash || null,
@@ -205,6 +207,7 @@ assert.equal(lensFlushCalls[0].cacheInputs.recallIndexRevision, settled.batch.re
 assert.equal(lensFlushCalls[0].cacheInputs.sceneSealRevision, settled.batch.recallRevisions.sceneSealRevision);
 assert.equal(settled.batch.scenePhaseSealRefs.length, 1);
 assert.equal(settled.batch.recallIndexEntryRefs.length, 1);
+assert.equal(settled.batch.recallEntries.length, 1);
 assert.equal(typeof settled.batch.recallRevisions.recallIndexRevision, 'string');
 assert.deepEqual(sourceChecks.map((entry) => entry.phase), ['beforeBackgroundCommit']);
 assert.equal(coreStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length, 1);
@@ -217,6 +220,8 @@ assert.equal(projections.sceneSealRefs[0].sourceFrameId, sourceFrame.id);
 assert.equal(projections.sceneSealRevision, settled.batch.recallRevisions.sceneSealRevision);
 assert.equal(projections.recallIndex.entryRefs.length, 1);
 assert.equal(projections.recallIndex.entryRefs[0].sceneSealId, 'scene-seal-bridge-handoff');
+assert.equal(projections.recallIndex.auxiliaryRefs.length, 1);
+assert.equal(projections.recallIndex.auxiliaryRefs[0].kind, 'directive.recallIndexSegment.v1');
 assert.equal(typeof projections.recallIndex.revision, 'string');
 assert.equal(projections.backgroundBatches.at(-1).effectCount, 4);
 assert.deepEqual(projections.backgroundBatches.at(-1).dirtyDomains, ['continuity', 'missionQuestThread', 'sourceBinding', 'crewShipRelationship']);
@@ -279,7 +284,14 @@ const hydratedProjections = await readCoreStoreProjectionsV2(adapter, {
 assert.equal(hydratedProjections.sceneSealRefs.length, 1);
 assert.equal(hydratedProjections.sceneSealRevision, projections.sceneSealRevision);
 assert.equal(hydratedProjections.recallIndex.entryRefs.length, 1);
+assert.equal(hydratedProjections.recallIndex.auxiliaryRefs.length, 1);
 assert.equal(hydratedProjections.recallIndex.revision, projections.recallIndex.revision);
+const hydratedRecallEntries = await readCoreRecallIndexAuxiliaryEntries(adapter, hydratedProjections.recallIndex.auxiliaryRefs);
+assert.equal(hydratedRecallEntries.length, 1);
+assert.equal(hydratedRecallEntries[0].sceneSealRef.id, 'scene-seal-bridge-handoff');
+assert.equal(JSON.stringify(hydratedProjections.recallIndex.auxiliaryRefs).includes('RAW_PROVIDER_SCENE_SUMMARY'), false);
+assert.equal(JSON.stringify(hydratedRecallEntries).includes('RAW_PROVIDER_SCENE_SUMMARY'), false);
+assert.equal(JSON.stringify(hydratedRecallEntries).includes('RAW_TRANSCRIPT_BODY'), false);
 
 const beforeReplayEvents = coreStore.state.events.length;
 const replayed = await forge.settleScenePhaseSeal({

@@ -463,6 +463,96 @@ assert.deepEqual(missingRichDiagnosticsDepth.missingTargets, ['summaryception', 
 assert.equal(missingRichDiagnosticsDepth.users[0].targets.summaryception.level, 'browser-observed');
 assert.equal(missingRichDiagnosticsDepth.users[0].targets.vectFox.level, 'browser-observed');
 
+const readinessProbeShapeDepth = summarizeExternalContextFixtureDepth({
+  users: [{
+    handle: 'directive-soak-a',
+    status: 'pass',
+    targets: {
+      stLorebooks: {
+        status: 'browser-confirmed',
+        browserSignals: { globalSignatureSeen: true },
+        promptKeys: []
+      },
+      memoryBooks: {
+        status: 'browser-confirmed',
+        browserSignals: { settingsSeen: true },
+        promptKeys: ['1_memory']
+      },
+      summaryception: {
+        status: 'browser-confirmed',
+        browserSignals: { settingsSeen: true },
+        chatMetadataCounts: { layerCount: 1 },
+        promptKeys: []
+      },
+      vectFox: {
+        status: 'browser-confirmed',
+        browserSignals: { settingsSeen: true },
+        promptKeys: []
+      }
+    },
+    externalPromptEnvironment: {
+      knownExternalPromptKeys: ['1_memory', 'summaryception', '3_vectfox', '3_vectfox_eventbase'],
+      worldInfo: {
+        installed: true,
+        enabled: true,
+        active: true,
+        chatBoundName: 'Directive External Context Fixture',
+        settingsHash: 'w'.repeat(64)
+      },
+      memoryBooks: {
+        enabled: true,
+        stMemoryBookEntryCount: 1,
+        rangeDiagnostics: { status: 'valid', entryRangeCount: 1, chatRangeCount: 1 }
+      },
+      summaryception: {
+        enabled: true,
+        promptKeyActive: true,
+        layerCount: 1,
+        staleness: { status: 'observed', chatLength: 5 }
+      },
+      vectFox: {
+        enabled: true,
+        promptKeys: ['3_vectfox', '3_vectfox_eventbase'],
+        backendType: 'qdrant',
+        semanticWorldInfoEnabled: true,
+        generationInterceptorActive: true,
+        backendDiagnostics: { status: 'external-backend-configured', backendType: 'qdrant' }
+      }
+    }
+  }]
+});
+assert.equal(readinessProbeShapeDepth.status, 'pass');
+assert.deepEqual(readinessProbeShapeDepth.missingTargets, []);
+assert.deepEqual(readinessProbeShapeDepth.fullFixtureUserHandles, ['directive-soak-a']);
+assert.equal(readinessProbeShapeDepth.users[0].targets.stLorebooks.evidence.includes('world-info-settings'), true);
+assert.equal(readinessProbeShapeDepth.users[0].targets.vectFox.evidence.includes('vectfox-prompt-key'), true);
+
+const memoryBooksMetadataDepth = summarizeExternalContextFixtureDepth({
+  users: [{
+    handle: 'directive-soak-e',
+    status: 'pass',
+    targets: {
+      memoryBooks: {
+        status: 'browser-confirmed',
+        browserSignals: { settingsSeen: true },
+        promptKeys: []
+      }
+    },
+    externalPromptEnvironment: {
+      memoryBooks: {
+        enabled: true,
+        activeBookName: 'Directive External Context Fixture',
+        stMemoryBookEntryCount: 1,
+        stMemoryBookEntryHash: 'm'.repeat(64),
+        rangeDiagnostics: { status: 'valid', entryRangeCount: 1, chatRangeCount: 10 }
+      }
+    }
+  }]
+});
+assert.equal(memoryBooksMetadataDepth.users[0].targets.memoryBooks.rich, true);
+assert.equal(memoryBooksMetadataDepth.users[0].targets.memoryBooks.evidence.includes('memory-book-metadata'), true);
+assert.equal(memoryBooksMetadataDepth.users[0].targets.memoryBooks.evidence.includes('memory-book-range-valid'), true);
+
 const vectFoxSettingsOnlyProbe = buildExternalContextBrowserProbe({
   runId: 'probe-vectfox-settings-only-no-hybrid-backend',
   users: ['directive-soak-a'],

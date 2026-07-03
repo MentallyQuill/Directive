@@ -241,6 +241,7 @@ export function createForgeBatchCommit(input = {}) {
     .filter((effect) => effect?.id || effect?.hash);
   const scenePhaseSealRefs = deriveScenePhaseSealRefs(effectRefs);
   const recallIndexEntryRefs = deriveRecallEntryRefs(effectRefs);
+  const recallEntries = workerResults.flatMap((result) => Array.isArray(result.recallEntries) ? result.recallEntries : []);
   const pressureArcDigestRefs = derivePressureArcDigestRefs(effectRefs);
   const recallRevisions = compactObject({
     recallIndexRevision: asString(input.recallRevisions?.recallIndexRevision) || recallIndexRevision(recallIndexEntryRefs),
@@ -280,6 +281,7 @@ export function createForgeBatchCommit(input = {}) {
     scenePhaseSealRefs,
     pressureArcDigestRefs,
     recallIndexEntryRefs,
+    recallEntries,
     recallRevisions,
     promptDirtyDomains,
     workers: workerResults.map((result) => ({

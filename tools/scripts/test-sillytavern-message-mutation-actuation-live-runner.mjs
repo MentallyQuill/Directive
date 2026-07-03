@@ -190,8 +190,9 @@ function selectedSwipeReport(user = 'directive-soak-b') {
       kind: 'directive.sourceIntegrityProof.v1',
       integrityKind: 'selectedSwipe',
       sourceRole: 'assistant',
-      actuationMode: 'staged-context-source-truth',
-      fixtureHostMessageId: 'assistant-selected-swipe',
+      actuationMode: 'native-host-swipe-control',
+      nativeHostControlMoved: true,
+      selectedHostMessageId: 'assistant-selected-swipe',
       selectedSwipeIndex: 1,
       swipeCount: 3,
       sourceIntegrity: 'clean',
@@ -338,6 +339,28 @@ function createFakeChildRunner({ warningScenario = '' } = {}) {
   return { calls, runChild };
 }
 
+function createStagedSelectedSwipeChildRunner() {
+  const calls = [];
+  const runChild = async (command, args, { env, scenario }) => {
+    calls.push({ command, args, env, scenario });
+    if (scenario === 'selected-swipe') {
+      const report = selectedSwipeReport();
+      report.sourceIntegrityProof.actuationMode = 'staged-context-source-truth';
+      report.sourceIntegrityProof.nativeHostControlMoved = false;
+      return {
+        ok: true,
+        exitCode: 0,
+        stdout: JSON.stringify(report),
+        stderr: ''
+      };
+    }
+    const runId = env.DIRECTIVE_MESSAGE_EDIT_RUN_ID || env.DIRECTIVE_MESSAGE_DELETE_RUN_ID;
+    writeJson(path.join(env.DIRECTIVE_SOAK_ARTIFACT_DIR, runId, 'report.json'), childReportForScenario(scenario, env));
+    return { ok: true, exitCode: 0, stdout: JSON.stringify({ ok: true }), stderr: '' };
+  };
+  return { calls, runChild };
+}
+
 const assemblyRoot = makeRoot();
 const assemblyReports = writeProvidedReports(assemblyRoot);
 const assembly = await runMessageMutationActuation({
@@ -374,6 +397,7 @@ assert.equal(fakeLive.calls.every((call) => call.env.DIRECTIVE_SILLYTAVERN_USER 
 assert.equal(fakeLive.calls.find((call) => call.scenario === 'source-edit').env.DIRECTIVE_MESSAGE_EDIT_SEGMENT, 'source-edit');
 assert.equal(fakeLive.calls.find((call) => call.scenario === 'assistant-delete').env.DIRECTIVE_MESSAGE_DELETE_SEGMENT, 'assistant-delete');
 assert.equal(fakeLive.calls.find((call) => call.scenario === 'selected-swipe').args.includes('--write-artifacts'), false);
+assert.equal(fakeLive.calls.find((call) => call.scenario === 'selected-swipe').args[0], 'tools/scripts/run-sillytavern-selected-swipe-actuation-live.mjs');
 assert.equal(JSON.stringify(live.report).includes('Sam waited for her reply.'), false);
 assert.equal(JSON.stringify(live.report).includes(RAW_SENTINEL), false);
 const liveManifest = JSON.parse(fs.readFileSync(live.report.manifestPath, 'utf8'));
@@ -463,7 +487,89 @@ assert.equal(warning.report.status, 'fail');
 assert(warning.report.failures.some((entry) => /source-edit: expected pass status, got warning/.test(entry)));
 assert.equal(warningFake.calls.length, 5);
 
-for (const root of [assemblyRoot, liveRoot, duplicateRoot, unsafeDeleteRoot, nonNumericRoot, configuredUserRoot, warningRoot]) {
+const stagedRoot = makeRoot();
+const stagedFake = createStagedSelectedSwipeChildRunner();
+const staged = await runMessageMutationActuation({
+  options: baseLiveOptions(stagedRoot, { runId: 'staged-selected-swipe-synthetic' }),
+  runChild: stagedFake.runChild,
+  env: {}
+});
+assert.equal(staged.report.status, 'fail');
+assert(staged.report.failures.some((entry) => /selected-swipe: sourceIntegrityProof actuationMode must be native-host-swipe-control/.test(entry)));
+assert.equal(stagedFake.calls.length, 5);
+
+const selectedSwipeRunnerSource = fs.readFileSync(new URL('./run-sillytavern-selected-swipe-actuation-live.mjs', import.meta.url), 'utf8');
+const editRunnerSource = fs.readFileSync(new URL('./run-sillytavern-message-edit-live.mjs', import.meta.url), 'utf8');
+const deleteRunnerSource = fs.readFileSync(new URL('./run-sillytavern-message-delete-live.mjs', import.meta.url), 'utf8');
+for (const [label, source] of [['edit', editRunnerSource], ['delete', deleteRunnerSource]]) {
+  assert.match(
+    source,
+    /summarizeOpenResult[\s\S]*promptBlockCount[\s\S]*promptTextFieldCount/,
+    `${label} runner must summarize openCampaign prompt packets instead of writing raw prompt text into reports.`
+  );
+  assert.doesNotMatch(
+    source,
+    /openResult:\s*clone\(openResult\)/,
+    `${label} runner must not clone full openCampaign openResult into live proof artifacts.`
+  );
+  assert.match(
+    source,
+    /expectsCoreRecovery[\s\S]*ownerEvidenceReady[\s\S]*coreRecoveryChanged/,
+    `${label} runner must wait for CORE recovery evidence for CORE-backed mutation targets.`
+  );
+  assert.match(
+    source,
+    /sourceMutationDecisionFromRecovery[\s\S]*recoveryCaseId[\s\S]*eventType/,
+    `${label} runner must preserve compact REPAIR decision evidence when CORE projection stores source-mutation event authority by recovery id.`
+  );
+  assert.match(
+    source,
+    /coreRecoveryEntries[\s\S]*coreRecoveryJournal[\s\S]*recoveryJournal/,
+    `${label} runner must find CORE-shaped recovery projections whether the live bridge exposes them through CORE projections or the runtime recovery mirror.`
+  );
+  assert.match(
+    source,
+    /triggerPostActuationReobserve[\s\S]*handleHostMessage/,
+    `${label} runner must explicitly record a post-actuation runtime reobserve when the native SillyTavern event does not arrive.`
+  );
+}
+assert.match(
+  selectedSwipeRunnerSource,
+  /entry\.index\s*===\s*chat\.length\s*-\s*1[\s\S]*nativeSwipeTargetRequirement:\s*'sillytavern-text-swipe-buttons-bind-to-last_mes'/,
+  'Selected-swipe native runner must fail before candidate append unless the recorded Directive-owned target is the latest host message.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /DIRECTIVE_SELECTED_SWIPE_CREATE_LATEST_TARGET[\s\S]*postAssistantMessage[\s\S]*recordDirectiveResponse[\s\S]*setup-only-latest-directive-owned-response/,
+  'Selected-swipe native runner must expose an opt-in setup path that creates a latest Directive-owned recorded target through host posting plus response-ledger setup.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /compactTargetSetupForReport[\s\S]*textHash[\s\S]*textLength/,
+  'Selected-swipe setup artifacts must report target hashes/counts instead of raw target prose.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /targetSetup\?\.responseId[\s\S]*String\(responseId\(response\) \|\| ''\) === String\(targetSetup\.responseId\)/,
+  'Selected-swipe setup target must use the exact setup response id so old positional host-message ledger rows cannot be selected.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /createRuntimeLedgerView[\s\S]*coreProjectionAvailable[\s\S]*core-ledger-host-generation/,
+  'Selected-swipe runner must accept CORE-recorded natural host-generation latest rows without setup-only Directive metadata.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /dismissDirectivePresetDialog[\s\S]*directive-preset-update-dialog[\s\S]*overlay\?\.remove/,
+  'Selected-swipe native runner must dismiss Directive preset-update overlays before clicking native SillyTavern swipe controls.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /controlAfterIndex[\s\S]*controlMoved[\s\S]*ok:\s*controlMoved[\s\S]*nativeHostControlMoved:\s*controlMoved/,
+  'Selected-swipe diagnostic native API fallback must not satisfy native host-control proof.'
+);
+
+for (const root of [assemblyRoot, liveRoot, duplicateRoot, unsafeDeleteRoot, nonNumericRoot, configuredUserRoot, warningRoot, stagedRoot]) {
   fs.rmSync(root, { recursive: true, force: true });
 }
 

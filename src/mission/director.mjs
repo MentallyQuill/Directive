@@ -1269,7 +1269,8 @@ export function runMissionDirectorTurn(input) {
     campaignState,
     intentParse,
     turnId: input.turnId,
-    outcomeId: outcomePacket.id
+    outcomeId: outcomePacket.id,
+    coreRecallEntries: input.coreRecallEntries || []
   });
   const phaseAdvance = evaluatePhaseAdvance({ graph, sceneSnapshot, intentParse, outcomePacket });
   const stateDelta = buildStateDelta({ graphIndex, campaignState, outcomePacket, intentParse, authorityCapabilityCheck, phaseAdvance });

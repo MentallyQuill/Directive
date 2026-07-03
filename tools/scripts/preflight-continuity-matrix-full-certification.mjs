@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import {
   compact,
   errorSummary,
+  summarizeExternalContextFixtureDepth,
   writeJsonFile
 } from './lib/sillytavern-live-harness.mjs';
 import {
@@ -118,6 +119,10 @@ const AGGREGATE_DEPTH_ONLY_WARNING_IDS = new Set([
   'turn-depth'
 ]);
 
+const READINESS_FIXTURE_WARNING_IDS = new Set([
+  'host-extension-fixture-depth'
+]);
+
 const LANE_DEPTH_ONLY_WARNING_IDS = new Set([
   'live-execution-turn-limit'
 ]);
@@ -143,9 +148,29 @@ export function expectedFullCertificationBudget({ expectedLanes = SOAK_PARALLEL_
   };
 }
 
-function warningIsDepthOnly({ checkEntry = null, laneSummaries = [] } = {}) {
+function readinessWarningsSupersededByProbe({ aggregateReport = {}, artifactRoot = '' } = {}) {
+  const fixtureDepth = fixtureDepthFromReport(aggregateReport, artifactRoot);
+  if (fixtureDepth?.status !== 'pass') return false;
+  const readinessChecks = aggregateReport.readiness?.report?.checks || [];
+  const nonPassing = readinessChecks.filter((entry) => entry.status !== 'pass' && entry.status !== 'skipped');
+  return nonPassing.every((entry) => READINESS_FIXTURE_WARNING_IDS.has(entry.id));
+}
+
+function warningIsDepthOnly({
+  checkEntry = null,
+  laneSummaries = [],
+  aggregateReport = {},
+  artifactRoot = ''
+} = {}) {
   if (!checkEntry || checkEntry.status !== 'warning') return false;
   if (AGGREGATE_DEPTH_ONLY_WARNING_IDS.has(checkEntry.id)) return true;
+  if (checkEntry.id === 'lane-artifact-completeness' && aggregateTurnLimit(aggregateReport)) return true;
+  if (checkEntry.id === 'external-context-fixture-depth') {
+    return fixtureDepthFromReport(aggregateReport, artifactRoot)?.status === 'pass';
+  }
+  if (checkEntry.id === 'live-readiness') {
+    return readinessWarningsSupersededByProbe({ aggregateReport, artifactRoot });
+  }
   if (checkEntry.id === 'lane-results') {
     return laneSummaries.length > 0 && laneSummaries.every((lane) => lane.depthOnlyWarnings === true);
   }
@@ -175,10 +200,15 @@ function checkStatus(report = null, id = '') {
   return (report?.checks || []).find((entry) => entry?.id === id)?.status || null;
 }
 
-export function classifyAggregateWarnings({ aggregateReport = {}, laneSummaries = [] } = {}) {
+export function classifyAggregateWarnings({ aggregateReport = {}, laneSummaries = [], artifactRoot = '' } = {}) {
   const warningChecks = (aggregateReport.checks || []).filter((entry) => entry.status === 'warning');
   return warningChecks.map((entry) => {
-    const depthOnly = warningIsDepthOnly({ checkEntry: entry, laneSummaries });
+    const depthOnly = warningIsDepthOnly({
+      checkEntry: entry,
+      laneSummaries,
+      aggregateReport,
+      artifactRoot
+    });
     return {
       id: entry.id || 'unknown',
       summary: entry.summary || '',
@@ -293,8 +323,16 @@ function summarizeLaneForPreflight(lane = {}, aggregateRoot = '') {
   };
 }
 
-function fixtureDepthFromReport(report = {}) {
-  return report.readiness?.externalContextProbe?.fixtureDepth
+function fixtureDepthFromReadinessArtifact(report = {}, artifactRoot = '') {
+  const readinessRoot = report.readiness?.artifactRoot || report.readiness?.externalContextProbe?.artifactRoot || artifactRoot;
+  const probe = readJsonIfExists(path.join(path.resolve(readinessRoot || ''), 'host-extensions', 'external-context-probe.json'));
+  if (!Array.isArray(probe?.users) || probe.__readError) return null;
+  return summarizeExternalContextFixtureDepth({ users: probe.users });
+}
+
+function fixtureDepthFromReport(report = {}, artifactRoot = '') {
+  return fixtureDepthFromReadinessArtifact(report, artifactRoot)
+    || report.readiness?.externalContextProbe?.fixtureDepth
     || report.readiness?.externalContextProbe?.externalProbe?.fixtureDepth
     || null;
 }
@@ -303,18 +341,23 @@ function normalizeUserHandle(value) {
   return String(value || '').trim();
 }
 
-function externalCoverageStatus({ report = {}, laneSummaries = [], coverageStandard = DEFAULT_COVERAGE_STANDARD } = {}) {
+function externalCoverageStatus({
+  report = {},
+  laneSummaries = [],
+  coverageStandard = DEFAULT_COVERAGE_STANDARD,
+  artifactRoot = ''
+} = {}) {
   if (!EXTERNAL_CONTEXT_COVERAGE_STANDARDS.has(coverageStandard)) {
     return {
       status: 'fail',
       summary: `Unknown external-context coverage standard "${coverageStandard}". Use single-rich-lane or all-lanes.`,
-      fixtureDepth: fixtureDepthFromReport(report),
+      fixtureDepth: fixtureDepthFromReport(report, artifactRoot),
       missingUserHandles: [],
       matchedUserHandles: [],
       nonLaneFixtureUserHandles: []
     };
   }
-  const fixtureDepth = fixtureDepthFromReport(report);
+  const fixtureDepth = fixtureDepthFromReport(report, artifactRoot);
   if (!fixtureDepth) {
     return {
       status: 'fail',
@@ -379,7 +422,9 @@ export function buildFullCertificationPreflight({
   const expected = expectedFullCertificationBudget({ expectedLanes });
   const lanes = Array.isArray(aggregateReport?.lanes) ? aggregateReport.lanes : [];
   const laneSummaries = lanes.map((lane) => summarizeLaneForPreflight(lane, resolvedRoot));
-  const warnings = aggregateReport ? classifyAggregateWarnings({ aggregateReport, laneSummaries }) : [];
+  const warnings = aggregateReport
+    ? classifyAggregateWarnings({ aggregateReport, laneSummaries, artifactRoot: resolvedRoot })
+    : [];
   const nonDepthWarnings = warnings.filter((entry) => entry.strictBlocking);
   const boundedWarnings = warnings.filter((entry) => entry.depthOnly);
   const turnLimit = aggregateReport ? aggregateTurnLimit(aggregateReport) : null;
@@ -430,13 +475,34 @@ export function buildFullCertificationPreflight({
   const modelCallPolicyFailures = laneSummaries.filter((lane) => lane.modelCallPolicy?.status === 'fail');
   const modelCallPolicyWarnings = laneSummaries.filter((lane) => lane.modelCallPolicy?.status === 'warning');
   const modelCallPolicyHandled = laneSummaries.filter((lane) => lane.modelCallPolicy?.fallbackHandledCalls?.length > 0);
-  const externalCoverage = externalCoverageStatus({ report: aggregateReport || {}, laneSummaries, coverageStandard });
+  const externalCoverage = externalCoverageStatus({
+    report: aggregateReport || {},
+    laneSummaries,
+    coverageStandard,
+    artifactRoot: resolvedRoot
+  });
   const aggregateNonPassingChecks = nonPassingChecks(aggregateReport);
-  const aggregateLiveStatusOk = aggregateReport?.status === 'pass' && aggregateNonPassingChecks.length === 0;
-  const laneLiveExecutionFailures = laneSummaries.filter((lane) => lane.aggregateLaneStatus !== 'pass'
-    || lane.reportStatus !== 'pass'
-    || lane.laneNonPassingChecks.length > 0
-    || (lane.liveSmokeDelegationStatus !== null && lane.liveSmokeDelegationStatus !== 'pass'));
+  const warningById = new Map(warnings.map((entry) => [entry.id, entry]));
+  const aggregateBlockingChecks = aggregateNonPassingChecks.filter((entry) => {
+    if (entry.status === 'warning') return warningById.get(entry.id)?.strictBlocking !== false;
+    return true;
+  });
+  const aggregateStatusOk = aggregateReport?.status === 'pass'
+    || (aggregateReport?.status === 'warning' && turnLimit && aggregateBlockingChecks.length === 0);
+  const aggregateLiveStatusOk = aggregateStatusOk && aggregateBlockingChecks.length === 0;
+  const laneLiveExecutionFailures = laneSummaries.filter((lane) => {
+    const laneAggregateStatusOk = lane.aggregateLaneStatus === 'pass'
+      || (lane.aggregateLaneStatus === 'warning' && lane.depthOnlyWarnings === true);
+    const laneReportStatusOk = lane.reportStatus === 'pass'
+      || (lane.reportStatus === 'warning' && lane.depthOnlyWarnings === true);
+    const laneBlockingNonPassingChecks = lane.laneNonPassingChecks.filter((entry) => (
+      entry.status !== 'warning' || lane.depthOnlyWarnings !== true
+    ));
+    return !laneAggregateStatusOk
+      || !laneReportStatusOk
+      || laneBlockingNonPassingChecks.length > 0
+      || (lane.liveSmokeDelegationStatus !== null && lane.liveSmokeDelegationStatus !== 'pass');
+  });
   const checks = [
     check(
       'artifact-root-readable',
@@ -456,7 +522,9 @@ export function buildFullCertificationPreflight({
         : 'Aggregate five-lane live execution report did not pass cleanly.',
       {
         aggregateStatus: aggregateReport?.status || null,
-        nonPassingChecks: aggregateNonPassingChecks
+        nonPassingChecks: aggregateBlockingChecks,
+        ignoredWarnings: aggregateNonPassingChecks
+          .filter((entry) => entry.status === 'warning' && warningById.get(entry.id)?.strictBlocking === false)
       }
     ),
     check(
@@ -524,11 +592,13 @@ export function buildFullCertificationPreflight({
     ),
     check(
       'strict-warning-dry-assessment',
-      nonDepthWarnings.length ? 'fail' : boundedWarnings.length ? 'warning' : 'pass',
+      nonDepthWarnings.length ? 'fail' : boundedWarnings.length && turnLimit ? 'warning' : 'pass',
       nonDepthWarnings.length
         ? `${nonDepthWarnings.length} aggregate warning(s) would block strict certification.`
         : boundedWarnings.length
-          ? `${boundedWarnings.length} warning(s) are classified as bounded-depth only.`
+          ? turnLimit
+            ? `${boundedWarnings.length} warning(s) are classified as bounded-depth only.`
+            : `${boundedWarnings.length} stale aggregate warning(s) are superseded by direct artifact proof.`
           : 'No aggregate warnings would block strict certification.',
       { strict, warnings, nonDepthWarningCount: nonDepthWarnings.length, boundedDepthWarningCount: boundedWarnings.length }
     ),

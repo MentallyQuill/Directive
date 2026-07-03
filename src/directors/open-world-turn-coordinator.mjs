@@ -108,7 +108,8 @@ function runTacticalOrSystemic({
   playerInput,
   sceneSnapshot,
   interpretation = null,
-  continuityDirectorPacket = null
+  continuityDirectorPacket = null,
+  coreRecallEntries = []
 }) {
   const quest = foreground(campaignState);
   const intentParse = parseIntent(sceneSnapshot);
@@ -126,7 +127,8 @@ function runTacticalOrSystemic({
           shipDataset,
           sceneSnapshot,
           campaignState,
-          continuityDirectorPacket
+          continuityDirectorPacket,
+          coreRecallEntries
         }),
         usedTacticalGraph: true,
         interpretation: null,
@@ -155,7 +157,8 @@ function runTacticalOrSystemic({
           shipDataset,
           sceneSnapshot,
           campaignState,
-          continuityDirectorPacket
+          continuityDirectorPacket,
+          coreRecallEntries
         }),
         usedTacticalGraph: true,
         interpretation: null,
@@ -308,7 +311,8 @@ export function createDirectorCoordinatorTurn({
   turnId,
   playerInput,
   sceneSnapshotOverrides = {},
-  actionInterpretation = null
+  actionInterpretation = null,
+  coreRecallEntries = []
 } = {}) {
   if (!campaignState || !packageData || !turnId || !text(playerInput)) throw new Error('campaignState, packageData, turnId, and playerInput are required.');
   const sceneSnapshot = buildOpenWorldSceneSnapshot(campaignState, packageData, playerInput, sceneSnapshotOverrides);
@@ -331,7 +335,7 @@ export function createDirectorCoordinatorTurn({
   const validatedInterpretation = actionInterpretation
     ? validateQuestActionInterpretation(actionInterpretation, { state: campaignState, packageData, questId: quest?.id, playerInput, sourceAnchorRange: sceneSnapshot.sourceAnchorRange })
     : null;
-  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, shipDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket });
+  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, shipDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket, coreRecallEntries });
   return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason, continuityDirectorPacket });
 }
 

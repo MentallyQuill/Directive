@@ -4,7 +4,7 @@
   "title": "Directive Recall Index Contracts",
   "type": "object",
   "additionalProperties": false,
-  "required": ["entry", "query", "result"],
+  "required": ["entry", "query", "result", "mutation"],
   "properties": {
     "entry": {
       "type": "object",
@@ -35,9 +35,24 @@
         "textHash": { "type": ["string", "null"] },
         "preview": { "type": ["string", "null"], "maxLength": 180 },
         "metadataHash": { "type": ["string", "null"] },
+        "retrieval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "priority", "audience", "knownBy", "sourceAuthority"],
+          "properties": {
+            "mode": { "enum": ["deterministic", "package", "reviewedImport", "sceneSeal", "semanticCandidate"] },
+            "priority": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "audience": { "type": "array", "items": { "type": "string" } },
+            "knownBy": { "type": "array", "items": { "type": "string" } },
+            "sourceAuthority": { "enum": ["frame", "core", "package", "reviewedImport", "sceneSeal", "diagnosticCandidate"] },
+            "ragHints": { "type": ["object", "null"] }
+          }
+        },
         "embeddingRef": { "type": ["object", "null"] },
         "stale": { "type": "boolean" },
         "staleReason": { "type": ["string", "null"] },
+        "invalidatedByRef": { "type": ["object", "null"] },
+        "forkedFromRef": { "type": ["object", "null"] },
         "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "byteLength": { "type": "integer", "minimum": 0 }
       }
@@ -62,6 +77,10 @@
         "sceneIds": { "type": "array", "items": { "type": "string" } },
         "tags": { "type": "array", "items": { "type": "string" } },
         "keywords": { "type": "array", "items": { "type": "string" } },
+        "retrievalModes": { "type": "array", "items": { "type": "string" } },
+        "audiences": { "type": "array", "items": { "type": "string" } },
+        "knownBy": { "type": "array", "items": { "type": "string" } },
+        "sourceAuthorities": { "type": "array", "items": { "type": "string" } },
         "includeSemanticCandidates": { "type": "boolean" },
         "limit": { "type": "integer", "minimum": 1 },
         "invalidatedSourceFrameIds": { "type": "array", "items": { "type": "string" } },
@@ -83,7 +102,27 @@
         "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "byteLength": { "type": "integer", "minimum": 0 }
       }
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "action", "branchId", "sourceFrameIds", "hostMessageIds", "replacementSourceFrameRefs", "reason", "hash"],
+      "properties": {
+        "kind": { "const": "directive.recallSourceMutation.v1" },
+        "schemaVersion": { "const": 1 },
+        "action": { "enum": ["source-edit", "source-delete", "assistant-edit", "assistant-delete", "selected-swipe", "branch", "save-as", "rollback"] },
+        "campaignId": { "type": ["string", "null"] },
+        "saveId": { "type": ["string", "null"] },
+        "branchId": { "type": "string", "minLength": 1 },
+        "targetSaveId": { "type": ["string", "null"] },
+        "targetBranchId": { "type": ["string", "null"] },
+        "sourceFrameIds": { "type": "array", "items": { "type": "string" } },
+        "hostMessageIds": { "type": "array", "items": { "type": "string" } },
+        "replacementSourceFrameRefs": { "type": "array" },
+        "reason": { "type": "string", "minLength": 1 },
+        "occurredAt": { "type": ["string", "null"] },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
     }
   }
 }
-

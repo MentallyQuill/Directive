@@ -2,6 +2,7 @@ import {
   hashStableJson,
   normalizeHostMessageVisibility
 } from './architecture-redesign-contracts.mjs';
+import { createRecallSourceMutation } from '../retrieval/recall-index.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -204,6 +205,42 @@ function sourceKindFor({ ingress = null, response = null } = {}) {
   if (response) return 'directiveResponse';
   if (ingress) return 'playerIngress';
   return 'untrackedHostMessage';
+}
+
+function sourceMutationTransactionId({ ingress = null, response = null } = {}) {
+  return compact(
+    ingress?.coreTransactionId
+    || response?.coreTransactionId
+    || response?.coreRelease?.transactionId
+    || response?.coreCompletion?.transactionId
+    || response?.hostContinuation?.coreTransactionId
+  ) || null;
+}
+
+function recallMutationActionForEvent(eventType = '') {
+  const text = String(eventType || '');
+  if (/selectedSwipe/i.test(text)) return 'selected-swipe';
+  if (/deleted/i.test(text)) return /directiveResponse/i.test(text) ? 'assistant-delete' : 'source-delete';
+  if (/directiveResponse/i.test(text)) return 'assistant-edit';
+  return 'source-edit';
+}
+
+function recallSourceMutationFor({
+  eventType = null,
+  campaignState = null,
+  sourceMutation = null
+} = {}) {
+  if (!sourceMutation?.sourceFrameId && !sourceMutation?.hostMessageId) return null;
+  return createRecallSourceMutation({
+    action: recallMutationActionForEvent(eventType || sourceMutation.eventType),
+    campaignId: campaignState?.campaign?.id || sourceMutation.campaignId || null,
+    saveId: campaignState?.campaignChatBinding?.saveId || sourceMutation.saveId || null,
+    branchId: campaignState?.campaignChatBinding?.saveId || sourceMutation.branchId || 'main',
+    sourceFrameIds: sourceMutation.sourceFrameId ? [sourceMutation.sourceFrameId] : [],
+    hostMessageIds: sourceMutation.hostMessageId ? [sourceMutation.hostMessageId] : [],
+    reason: sourceMutation.eventType || eventType || null,
+    occurredAt: sourceMutation.observedAt || null
+  });
 }
 
 function sourceRecord({ ingress = null, response = null } = {}) {
@@ -1224,14 +1261,15 @@ function buildSourceMutation({
   autoRollback = false,
   visibility = null,
   selectedSwipe = null,
-  message = null
+  message = null,
+  campaignState = null
 } = {}) {
   const source = sourceRecord({ ingress, response });
   const sourceKind = sourceKindFor({ ingress, response });
   const selectedSwipeMutation = /swipe/i.test(String(eventType || ''))
     ? selectedSwipeMutationFields({ message, selectedSwipe })
     : null;
-  return {
+  const mutation = {
     kind: 'directive.sourceMutation.v1',
     sourceKind,
     eventType,
@@ -1249,6 +1287,13 @@ function buildSourceMutation({
     observedAt: eventTime,
     priorStatus: source?.status || null
   };
+  const recallSourceMutation = recallSourceMutationFor({
+    eventType,
+    campaignState,
+    sourceMutation: mutation
+  });
+  if (recallSourceMutation) mutation.recallSourceMutation = recallSourceMutation;
+  return mutation;
 }
 
 export function createRepairRuntime({
@@ -1275,7 +1320,7 @@ export function createRepairRuntime({
     campaignState = null
   } = {}) {
     const source = sourceRecord({ ingress, response });
-    const transactionId = compact(ingress?.coreTransactionId || response?.coreTransactionId);
+    const transactionId = sourceMutationTransactionId({ ingress, response });
     const observedAt = eventTime || timestamp(now);
     const effectiveCampaignState = campaignState || state || null;
     const dependentInvalidation = buildDependentInvalidationProjection({
@@ -1295,7 +1340,8 @@ export function createRepairRuntime({
         revision,
         autoRollback,
         selectedSwipe,
-        message
+        message,
+        campaignState: effectiveCampaignState
       });
       const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
         sourceKind,
@@ -1341,7 +1387,8 @@ export function createRepairRuntime({
       autoRollback,
       visibility,
       selectedSwipe,
-      message
+      message,
+      campaignState: effectiveCampaignState
     });
     const sourceKind = sourceKindFor({ ingress, response });
     const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
@@ -1393,7 +1440,7 @@ export function createRepairRuntime({
     visibilityMap = null
   } = {}) {
     const sourceKind = sourceKindFor({ ingress, response });
-    const transactionId = compact(ingress?.coreTransactionId || response?.coreTransactionId);
+    const transactionId = sourceMutationTransactionId({ ingress, response });
     const observedAt = eventTime || timestamp(now);
     const visibility = sourceMutationVisibilityFields({
       message,

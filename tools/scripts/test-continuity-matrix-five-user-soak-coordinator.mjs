@@ -1988,6 +1988,23 @@ assert.deepEqual(genericExternalGeneration.richFixturePressure.missingTargets, [
 assert.equal(genericExternalGeneration.richFixturePressure.targetDiagnostics.memoryBooks.rangeStatus, null);
 assert.equal(genericExternalGeneration.richFixturePressure.targetDiagnostics.summaryception.stalenessStatus, null);
 assert.equal(genericExternalGeneration.richFixturePressure.targetDiagnostics.vectFox.backendStatus, null);
+
+const stLorebooksMemoryPromptRoot = makeArtifactRoot();
+writePassingLaneArtifacts(stLorebooksMemoryPromptRoot);
+const stLorebooksMemoryPromptPath = path.join(stLorebooksMemoryPromptRoot, 'prompt-inspection', 'pre-generation-soak-turn-01-0002.json');
+const stLorebooksMemoryPrompt = readJson(stLorebooksMemoryPromptPath);
+stLorebooksMemoryPrompt.promptInspection.knownExternalPromptKeys = ['1_memory', 'summaryception', '3_vectfox'];
+stLorebooksMemoryPrompt.promptInspection.externalPromptEnvironmentRef.knownExternalPromptKeys = ['1_memory', 'summaryception', '3_vectfox'];
+stLorebooksMemoryPrompt.promptInspection.externalPromptEnvironmentTargets.stLorebooks = {
+  active: true,
+  enabled: true,
+  chatBound: true
+};
+writeJson(stLorebooksMemoryPromptPath, stLorebooksMemoryPrompt);
+const stLorebooksMemoryGeneration = summarizeExternalContextGenerationArtifacts({ artifactRoot: stLorebooksMemoryPromptRoot });
+assert.equal(stLorebooksMemoryGeneration.richFixturePressure.targetCoverage.stLorebooks, true);
+assert.equal(stLorebooksMemoryGeneration.richFixturePressure.status, 'pass');
+
 const genericLaneSummary = summarizeContinuityMatrixLane({
   lane: lanes[0],
   child: {

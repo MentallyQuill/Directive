@@ -108,6 +108,41 @@ function logLive(entry) {
 async function openCampaignChat(page) {
   return page.evaluate(async ({ modulePath, resumeSaveId, expectedChatId }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const summarizeOpenResult = (value = null) => {
+      if (!value || typeof value !== 'object') return null;
+      const packet = value.openSync?.prompt?.packet || null;
+      const blocks = Array.isArray(packet?.blocks) ? packet.blocks : [];
+      return {
+        ok: value.ok !== false,
+        reason: value.reason || null,
+        binding: clone(value.binding || null),
+        openSync: value.openSync ? {
+          opened: value.openSync.opened === true,
+          metadataUpdated: value.openSync.metadataUpdated === true,
+          prompt: value.openSync.prompt ? {
+            ok: value.openSync.prompt.ok === true,
+            active: value.openSync.prompt.active === true,
+            revision: packet?.revision || null,
+            promptBlockCount: blocks.length,
+            promptTextFieldCount: blocks.filter((block) => typeof block?.text === 'string' && block.text.trim()).length,
+            promptContentFieldCount: blocks.filter((block) => typeof block?.content === 'string' && block.content.trim()).length,
+            usage: clone(packet?.usage || null),
+            budget: clone(packet?.budget || null),
+            blocks: blocks.map((block) => ({
+              id: block?.id || null,
+              kind: block?.kind || null,
+              promptKey: block?.promptKey || null,
+              placement: block?.placement || null,
+              role: block?.role || null,
+              contentHash: block?.contentHash || null,
+              hash: block?.hash || null,
+              tokenEstimate: Number.isFinite(Number(block?.tokenEstimate)) ? Number(block.tokenEstimate) : null,
+              sourceIdCount: Array.isArray(block?.sourceIds) ? block.sourceIds.length : 0
+            }))
+          } : null
+        } : null
+      };
+    };
     const context = () => globalThis.SillyTavern?.getContext?.() || {};
     try {
       const mod = await import(modulePath);
@@ -115,19 +150,28 @@ async function openCampaignChat(page) {
       const app = bridge.runtimeApp || null;
       const host = bridge.host || null;
       if (!app?.openCampaignChat) return { ok: false, reason: 'Directive runtime app does not expose openCampaignChat.' };
-      const openResult = resumeSaveId ? await app.openCampaignChat({ saveId: resumeSaveId }) : await app.openCampaignChat();
+      const binding = expectedChatId
+        ? {
+            chatId: expectedChatId,
+            saveId: resumeSaveId || null
+          }
+        : null;
+      const openResult = resumeSaveId
+        ? await app.openCampaignChat({ saveId: resumeSaveId, ...(binding ? { binding } : {}) })
+        : await app.openCampaignChat(binding ? { binding } : {});
       const view = app.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
       const currentContext = context();
       const currentChatId = host?.chat?.getCurrentChatId?.() || currentContext?.chatId || currentContext?.chat_id || null;
-      const binding = view?.chatNative?.binding || null;
+      const activeBinding = view?.chatNative?.binding || null;
       return {
         ok: openResult?.ok !== false,
+        openResult: summarizeOpenResult(openResult),
         currentChatId,
         expectedChatId: expectedChatId || null,
         expectedChatMatches: expectedChatId
-          ? [currentChatId, binding?.chatId].map((value) => String(value || '')).includes(expectedChatId)
+          ? [currentChatId, activeBinding?.chatId].map((value) => String(value || '')).includes(expectedChatId)
           : null,
-        binding: clone(binding)
+        binding: clone(activeBinding)
       };
     } catch (error) {
       return { ok: false, reason: error?.message || String(error) };
@@ -185,14 +229,42 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
       autoRollback: value.autoRollback === true,
       priorStatus: value.priorStatus || null
     }) : null;
+    const sourceMutationEventFromRecovery = (value = null) => {
+      const explicit = value?.sourceMutation?.eventType || value?.decision?.sourceMutation?.eventType || value?.reasonCode || null;
+      if (explicit) return explicit;
+      const id = String(value?.recoveryCaseId || value?.id || '');
+      const match = id.match(/:([A-Za-z]+(?:Edited|Deleted|Changed))$/);
+      return match ? match[1] : null;
+    };
+    const sourceKindFromEvent = (eventType = '') => {
+      if (/^playerMessage/.test(eventType)) return 'playerIngress';
+      if (/^directiveResponse/.test(eventType)) return 'directiveResponse';
+      return null;
+    };
+    const sourceMutationDecisionFromRecovery = (value = null) => {
+      const eventType = sourceMutationEventFromRecovery(value);
+      if (!eventType) return null;
+      return {
+        kind: 'directive.repairDecision.v1',
+        action: value?.status === 'resolved' ? 'resolved' : 'reviewRequired',
+        eventType,
+        sourceKind: sourceKindFromEvent(eventType),
+        normalTurnAllowed: false,
+        recoveryRequired: value?.status !== 'resolved',
+        recoveryStatus: value?.status === 'required' ? 'reviewRequired' : value?.status || null,
+        transactionId: value?.transactionId || value?.coreTransactionId || null,
+        recoveryCaseId: value?.recoveryCaseId || value?.id || null,
+        legacyProjection: null
+      };
+    };
     const compactCoreRecovery = (value = null) => value && typeof value === 'object' ? ({
       status: value.status || null,
-      transactionId: value.transactionId || null,
+      transactionId: value.transactionId || value.coreTransactionId || null,
       recoveryCaseId: value.recoveryCaseId || value.id || null,
       phase: value.phase || null,
-      reason: value.reason || null,
+      reason: value.reason || value.reasonCode || sourceMutationEventFromRecovery(value),
       sourceMutation: compactSourceMutation(value.sourceMutation || value.decision?.sourceMutation || null),
-      decision: compactDecision(value.decision || value.repairDecision || null)
+      decision: compactDecision(value.decision || value.repairDecision || null) || sourceMutationDecisionFromRecovery(value)
     }) : null;
     const compactRecoveryEntry = (entry = null) => {
       if (!entry || typeof entry !== 'object') return null;
@@ -243,9 +315,17 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections
       || {};
     const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
+    const coreRecoveryEntries = [...coreRecoveryJournal, ...recoveryJournal].filter((entry) => (
+      entry && typeof entry === 'object' && (
+        entry.coreTransactionId
+        || entry.transactionId
+        || String(entry.id || '').startsWith('recovery:source-mutation:')
+        || String(entry.id || '').startsWith('recovery:chat-turn:')
+      )
+    ));
     const targetTransactionId = ingress?.coreTransactionId || response?.coreTransactionId || response?.coreRelease?.transactionId || null;
     const targetRecoveryId = ingress?.recoveryId || response?.recoveryId || null;
-    const latestCoreRecovery = [...coreRecoveryJournal].reverse().find((entry) => (
+    const latestCoreRecovery = [...coreRecoveryEntries].reverse().find((entry) => (
       (targetRecoveryId && String(entry.id || entry.recoveryId || entry.recoveryCaseId || '') === String(targetRecoveryId))
       || (targetTransactionId && String(entry.transactionId || entry.coreTransactionId || entry.repairDecision?.transactionId || '') === String(targetTransactionId))
       || (ingress?.id && String(entry.repairDecision?.ingressId || entry.ingressId || '') === String(ingress.id))
@@ -400,6 +480,7 @@ async function waitForDirectiveRecovery(page, before) {
   const beforeResponseStatus = before?.response?.status || null;
   const beforeResponseDeletedAt = before?.response?.deletedAt || null;
   const beforeTextHash = before?.targetMessage?.textHash || '';
+  const expectsCoreRecovery = Boolean(before?.ingress?.coreTransactionId || before?.response?.coreTransactionId);
   const deadline = Date.now() + 60000;
   let latest = null;
   while (Date.now() < deadline) {
@@ -418,9 +499,47 @@ async function waitForDirectiveRecovery(page, before) {
     const responseChanged = (snapshot.response?.status && snapshot.response.status !== beforeResponseStatus)
       || (snapshot.response?.deletedAt && snapshot.response.deletedAt !== beforeResponseDeletedAt);
     const targetTrackingChanged = Boolean(ingressChanged || responseChanged);
-    if (messageRemoved && (coreRecoveryChanged || targetTrackingChanged)) return { ok: true, snapshot };
+    const ownerEvidenceReady = expectsCoreRecovery ? Boolean(coreRecoveryChanged || snapshot.targetCoreRecovery?.status) : targetTrackingChanged;
+    if (messageRemoved && targetTrackingChanged && ownerEvidenceReady) return { ok: true, snapshot };
   }
   return { ok: false, timedOut: true, snapshot: latest };
+}
+
+async function triggerPostActuationReobserve(page, control = {}) {
+  return page.evaluate(async ({ modulePath, targetMesid }) => {
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const host = bridge.host || null;
+    if (!app?.handleHostMessageDeleted) return { ok: false, reason: 'runtime-delete-handler-unavailable' };
+    const message = host?.chat?.getMessage ? await host.chat.getMessage(targetMesid) : null;
+    const result = await app.handleHostMessageDeleted({
+      hostMessageId: targetMesid,
+      index: Number.isFinite(Number(targetMesid)) ? Number(targetMesid) : null,
+      message,
+      source: 'live-runner-post-actuation-reobserve'
+    });
+    const compactResult = {
+      handled: result?.handled === true,
+      matched: result?.matched === true,
+      action: result?.action || null,
+      reason: result?.reason || null,
+      status: result?.status || null,
+      targetMesid,
+      coreRecoveryId: result?.coreRecovery?.recoveryCaseId || result?.coreRecovery?.id || result?.recoveryCaseId || null,
+      coreRecoveryStatus: result?.coreRecovery?.status || null,
+      preOutcomeRevision: Number.isFinite(Number(result?.preOutcomeRevision)) ? Number(result.preOutcomeRevision) : null,
+      postOutcomeRevision: Number.isFinite(Number(result?.postOutcomeRevision)) ? Number(result.postOutcomeRevision) : null
+    };
+    return {
+      ok: result?.handled === true || result?.matched === true,
+      targetMesid,
+      result: compactResult
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    targetMesid: control?.targetMesid || TARGET_MESID
+  });
 }
 
 function compactProofDecision(after = {}, trackedKind = 'ingress') {
@@ -535,7 +654,15 @@ async function liveReport(paths = null) {
     const before = await runtimeSnapshot(page);
     const deletion = await clickDeleteAndConfirm(page, before);
     if (paths?.screenshots) await page.screenshot({ path: path.join(paths.screenshots, 'message-deleted.png'), fullPage: false }).catch(() => null);
-    const waited = await waitForDirectiveRecovery(page, before);
+    let waited = await waitForDirectiveRecovery(page, before);
+    let postActuationReobserve = null;
+    if (waited.ok !== true) {
+      postActuationReobserve = await triggerPostActuationReobserve(page, deletion).catch((error) => ({
+        ok: false,
+        reason: error?.message || String(error)
+      }));
+      if (postActuationReobserve?.ok === true) waited = await waitForDirectiveRecovery(page, before);
+    }
     const after = waited.snapshot || await runtimeSnapshot(page);
     const status = waited.ok ? 'pass' : 'warning';
     const proof = sourceMutationProof({
@@ -557,6 +684,7 @@ async function liveReport(paths = null) {
       expectedChatId: RESUME_CHAT_ID || null,
       openCampaign,
       deletion,
+      postActuationReobserve,
       sourceMutationProof: proof,
       waited,
       before: {

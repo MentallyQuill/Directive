@@ -3,8 +3,13 @@ import {
   hashStableJson,
   isDirectivePromptKey,
   normalizeExternalPromptEnvironment,
-  redactExternalDiagnostic
+  redactExternalDiagnostic,
+  summarizeExternalPromptEnvironmentTargets
 } from './architecture-redesign-contracts.mjs';
+import {
+  createLensPromptBudgetTrace,
+  LENS_PROMPT_BUDGET_LANES
+} from './lens-prompt-budget-trace.mjs';
 
 export const PROMPT_DIRTY_DOMAIN_ALIASES = Object.freeze({
   threadLedger: 'missionQuestThread',
@@ -39,6 +44,18 @@ const PROMPT_DIRTY_DOMAINS = new Set([
   'terminalRecovery'
 ]);
 
+const PROMPT_BUDGET_DEFAULTS = Object.freeze({
+  stableRules: { budgetTokens: 1200, reservedFloor: 800 },
+  protectedContinuity: { budgetTokens: 2400, reservedFloor: 700 },
+  activeScene: { budgetTokens: 900, reservedFloor: 400 },
+  activeCast: { budgetTokens: 700, reservedFloor: 250 },
+  missionPressure: { budgetTokens: 650, reservedFloor: 180 },
+  recentTranscript: { budgetTokens: 1100, reservedFloor: 350 },
+  recall: { budgetTokens: 900, reservedFloor: 0 },
+  volatileTurn: { budgetTokens: 500, reservedFloor: 100 },
+  externalEnvironment: { budgetTokens: 0, reservedFloor: 0 }
+});
+
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -63,6 +80,440 @@ function uniqueStrings(values = []) {
     out.push(text);
   }
   return out;
+}
+
+function compactBudgetRef(value = {}) {
+  return compactObject({
+    id: asString(value.id || value.refId || value.sourceFrameId || value.hash),
+    kind: asString(value.kind || value.refKind),
+    authority: asString(value.authority, 'directive'),
+    hash: asString(value.hash || value.textHash || value.metadataHash),
+    estimatedTokens: Math.max(0, Math.trunc(Number(value.estimatedTokens) || 0)),
+    sourceFrameId: asString(value.sourceFrameId),
+    omissionReason: asString(value.omissionReason)
+  });
+}
+
+function normalizePromptBudgetLaneOverrides(value = {}) {
+  const source = value && typeof value === 'object' ? value : {};
+  const out = {};
+  for (const laneId of LENS_PROMPT_BUDGET_LANES) {
+    const entry = source[laneId];
+    if (!entry || typeof entry !== 'object') continue;
+    out[laneId] = compactObject({
+      budgetTokens: Number.isFinite(Number(entry.budgetTokens)) ? Math.max(0, Math.trunc(Number(entry.budgetTokens))) : undefined,
+      reservedFloor: Number.isFinite(Number(entry.reservedFloor)) ? Math.max(0, Math.trunc(Number(entry.reservedFloor))) : undefined,
+      overflowPolicy: ['omit-overflow', 'fail-closed', 'diagnostic-only'].includes(entry.overflowPolicy) ? entry.overflowPolicy : undefined,
+      authority: asString(entry.authority),
+      diagnosticOnly: entry.diagnosticOnly === true ? true : undefined
+    });
+  }
+  return out;
+}
+
+function promptBudgetLaneOverrideFor(laneId, {
+  campaignContext = {},
+  cacheInputs = {}
+} = {}) {
+  const fromCache = normalizePromptBudgetLaneOverrides(cacheInputs?.promptBudgetLaneOverrides);
+  const fromCampaign = normalizePromptBudgetLaneOverrides(
+    campaignContext?.promptBudgetLaneOverrides
+    || campaignContext?.lensPromptBudgetLanes
+    || campaignContext?.contextPolicy?.lensPromptBudgetLanes
+  );
+  return compactObject({
+    ...(fromCampaign[laneId] || {}),
+    ...(fromCache[laneId] || {})
+  });
+}
+
+function createBudgetLane(id, refs = [], extra = {}) {
+  const defaults = PROMPT_BUDGET_DEFAULTS[id] || {};
+  return compactObject({
+    id,
+    budgetTokens: Math.max(0, Math.trunc(Number(extra.budgetTokens ?? defaults.budgetTokens ?? 0))),
+    reservedFloor: Math.max(0, Math.trunc(Number(extra.reservedFloor ?? defaults.reservedFloor ?? 0))),
+    authority: asString(extra.authority, id === 'externalEnvironment' ? 'diagnostic' : 'directive'),
+    refs: refs.map(compactBudgetRef).filter((ref) => ref.id || ref.hash),
+    omittedRefs: (Array.isArray(extra.omittedRefs) ? extra.omittedRefs : []).map(compactBudgetRef).filter((ref) => ref.id || ref.hash),
+    omissionReasons: uniqueStrings(extra.omissionReasons),
+    diagnosticOnly: extra.diagnosticOnly === true || id === 'externalEnvironment',
+    overflowPolicy: asString(extra.overflowPolicy)
+  });
+}
+
+function sourceFrameBudgetId(promptFrame = {}) {
+  return asString(
+    promptFrame.sourceFrameId
+    || promptFrame.sourceFrameRef?.id
+    || promptFrame.frameId
+    || promptFrame.sourceToken
+  );
+}
+
+function sourceFrameBudgetHash(promptFrame = {}) {
+  return asString(
+    promptFrame.turnSourceHash
+    || promptFrame.sourceHash
+    || promptFrame.textHash
+    || promptFrame.sourceFrameRef?.textHash
+    || promptFrame.sourceFrameRef?.hash
+  );
+}
+
+function packetStructureHash(packet = {}) {
+  const blocks = Array.isArray(packet.blocks) ? packet.blocks : [];
+  return hashStableJson(blocks.map((block) => ({
+    id: asString(block.id),
+    promptKey: isDirectivePromptKey(block.promptKey) ? block.promptKey : null,
+    hash: asString(block.hash)
+  })));
+}
+
+function estimatePromptBlockTokens(block = {}) {
+  const explicit = Number(block.estimatedTokens ?? block.tokenEstimate ?? block.tokens);
+  if (Number.isFinite(explicit) && explicit >= 0) return Math.trunc(explicit);
+  const text = String(block.text || block.content || block.body || '');
+  return text ? Math.max(1, Math.ceil(text.length / 4)) : 0;
+}
+
+function promptBlockBudgetLane(block = {}) {
+  const explicit = asString(block.lensPromptBudgetLane || block.promptBudgetLane || block.budgetLane);
+  if (explicit && LENS_PROMPT_BUDGET_LANES.includes(explicit)) return explicit;
+  const key = asString(block.promptKey || block.key || block.id, '');
+  if (/^directive\.scene\.active$/i.test(key) || /^immediate-scene$/i.test(key)) return 'activeScene';
+  if (/^(relevant-crew|directive\.crew|directive\.active-cast)/i.test(key)) return 'activeCast';
+  if (/^(foreground-quest|active-pressures|engaged-threads|nearby-opportunities|main-arc-orientation|directive\.mission|directive\.command)/i.test(key)) return 'missionPressure';
+  if (/^(command-log-continuity|directive\.recap\.committed|directive\.context\.revolving)/i.test(key)) return 'recentTranscript';
+  if (/^(directive\.continuity\.|relevant-facts|location-context|ship-status)/i.test(key)) return 'protectedContinuity';
+  if (/^directive\.contract$/i.test(key) || /^directive-contract$/i.test(key)) return 'stableRules';
+  if (/^directive\.lens\./i.test(key)) return 'stableRules';
+  return null;
+}
+
+function promptBlockBudgetRef(block = {}) {
+  const id = asString(block.id || block.promptKey || block.key || block.hash);
+  const hash = asString(block.hash || block.contentHash || block.textHash);
+  if (!id && !hash) return null;
+  return compactObject({
+    id,
+    kind: asString(block.budgetRefKind || block.kind, 'directive.promptBlockRef.v1'),
+    authority: asString(block.authority, 'directive'),
+    hash,
+    estimatedTokens: estimatePromptBlockTokens(block),
+    sourceFrameId: asString(block.sourceFrameId || block.sourceFrameRef?.id)
+  });
+}
+
+function promptBlockBudgetRefs(block = {}) {
+  const refs = [];
+  const nested = Array.isArray(block.promptBudgetRefs)
+    ? block.promptBudgetRefs
+    : (Array.isArray(block.lensPromptBudgetRefs) ? block.lensPromptBudgetRefs : []);
+  for (const value of nested) {
+    const laneId = asString(value?.lensPromptBudgetLane || value?.promptBudgetLane || value?.budgetLane);
+    if (!LENS_PROMPT_BUDGET_LANES.includes(laneId)) continue;
+    const ref = compactBudgetRef(value);
+    if (ref.id || ref.hash) refs.push({ laneId, ref });
+  }
+  return refs;
+}
+
+function promptBudgetLanesFromPacket({
+  packet = {},
+  dirtyDomains = [],
+  promptFrame = {},
+  cacheInputs = {},
+  campaignContext = {},
+  externalPromptEnvironmentRef = null,
+  externalPromptEnvironmentTargets = null
+} = {}) {
+  const provided = packet.lensPromptBudgetLanes || packet.promptBudgetLanes;
+  if (Array.isArray(provided) && provided.length) {
+    return provided;
+  }
+  const dirtySet = new Set(dirtyDomains);
+  const sourceFrameId = sourceFrameBudgetId(promptFrame);
+  const sourceHash = sourceFrameBudgetHash(promptFrame);
+  const lanes = new Map(LENS_PROMPT_BUDGET_LANES.map((id) => [id, []]));
+  for (const block of Array.isArray(packet.blocks) ? packet.blocks : []) {
+    const laneId = promptBlockBudgetLane(block);
+    const ref = promptBlockBudgetRef(block);
+    if (laneId && ref) lanes.get(laneId)?.push(ref);
+    for (const nestedRef of promptBlockBudgetRefs(block)) {
+      lanes.get(nestedRef.laneId)?.push(nestedRef.ref);
+    }
+  }
+
+  if (!lanes.get('stableRules')?.length) lanes.get('stableRules')?.push({
+    id: 'directive-prompt-packet-structure',
+    kind: 'directive.promptPacketStructureRef.v1',
+    authority: 'directive',
+    hash: packetStructureHash(packet),
+    estimatedTokens: Math.max(80, (Array.isArray(packet.blocks) ? packet.blocks.length : 1) * 60)
+  });
+  if ((dirtySet.has('continuity') || campaignContext.projectionHash || campaignContext.cpmSourceHash) && !lanes.get('protectedContinuity')?.length) {
+    lanes.get('protectedContinuity')?.push({
+      id: 'directive-continuity-projection',
+      kind: 'directive.continuityProjectionRef.v1',
+      authority: 'directive',
+      hash: campaignContext.projectionHash || campaignContext.cpmSourceHash || packet.continuityProjection?.hash || null,
+      estimatedTokens: 220
+    });
+  }
+  if (dirtySet.has('sceneTime') || cacheInputs.sceneSealRevision) {
+    lanes.get('activeScene')?.push({
+      id: 'directive-active-scene',
+      kind: 'directive.sceneStateRef.v1',
+      authority: 'directive',
+      hash: cacheInputs.sceneSealRevision || campaignContext.sceneRevision || null,
+      estimatedTokens: 180
+    });
+  }
+  if (dirtySet.has('crewShipRelationship') || campaignContext.crewDatasetHash || campaignContext.shipDatasetHash) {
+    lanes.get('activeCast')?.push({
+      id: 'directive-active-cast',
+      kind: 'directive.activeCastRef.v1',
+      authority: 'directive',
+      hash: hashStableJson({
+        crewDatasetHash: campaignContext.crewDatasetHash || null,
+        shipDatasetHash: campaignContext.shipDatasetHash || null
+      }),
+      estimatedTokens: 160
+    });
+  }
+  if (dirtySet.has('missionQuestThread') || dirtySet.has('command') || cacheInputs.pressureArcDigestRevision) {
+    lanes.get('missionPressure')?.push({
+      id: 'directive-mission-pressure',
+      kind: 'directive.missionPressureRef.v1',
+      authority: 'directive',
+      hash: cacheInputs.pressureArcDigestRevision || campaignContext.domainVersionVector?.missionQuestThread || null,
+      estimatedTokens: 160
+    });
+  }
+  if (sourceFrameId || sourceHash) {
+    lanes.get('recentTranscript')?.push({
+      id: sourceFrameId || 'current-source-frame',
+      kind: 'directive.sourceFrameRef.v1',
+      authority: 'committed',
+      hash: sourceHash,
+      sourceFrameId,
+      estimatedTokens: 180
+    });
+  }
+  for (const ref of Array.isArray(packet.recallRefs) ? packet.recallRefs : []) {
+    lanes.get('recall')?.push({
+      ...ref,
+      kind: ref.kind || 'directive.recallResultRef.v1',
+      authority: ref.authority || 'directive',
+      estimatedTokens: ref.estimatedTokens ?? 120
+    });
+  }
+  if (cacheInputs.recallIndexRevision) {
+    lanes.get('recall')?.push({
+      id: 'directive-recall-index',
+      kind: 'directive.recallIndexRevisionRef.v1',
+      authority: 'directive',
+      hash: cacheInputs.recallIndexRevision,
+      estimatedTokens: 120
+    });
+  }
+  const omittedRecallRefs = Array.isArray(packet.omittedRecallRefs)
+    ? packet.omittedRecallRefs
+    : (Array.isArray(packet.recallOmittedRefs) ? packet.recallOmittedRefs : []);
+  if (promptFrame.sourceToken || promptFrame.turnSourceHash || promptFrame.currentRoute) {
+    lanes.get('volatileTurn')?.push({
+      id: 'directive-volatile-turn',
+      kind: 'directive.volatileTurnRef.v1',
+      authority: 'directive',
+      hash: hashStableJson({
+        sourceToken: promptFrame.sourceToken || null,
+        turnSourceHash: promptFrame.turnSourceHash || null,
+        currentRoute: promptFrame.currentRoute || null
+      }),
+      sourceFrameId,
+      estimatedTokens: 90
+    });
+  }
+  if (externalPromptEnvironmentRef?.hash) {
+    lanes.get('externalEnvironment')?.push({
+      id: externalPromptEnvironmentRef.hash,
+      kind: externalPromptEnvironmentRef.kind || 'directive.externalPromptEnvironmentRef.v1',
+      authority: 'diagnostic',
+      hash: externalPromptEnvironmentRef.hash,
+      estimatedTokens: 0
+    });
+  }
+
+  return LENS_PROMPT_BUDGET_LANES.map((id) => createBudgetLane(
+    id,
+    lanes.get(id) || [],
+    {
+      ...promptBudgetLaneOverrideFor(id, { campaignContext, cacheInputs }),
+      omittedRefs: id === 'recall' ? omittedRecallRefs : undefined
+    }
+  ));
+}
+
+function createPromptBudgetTraceForPacket({
+  packet = {},
+  revision = null,
+  cacheKey = null,
+  dirtyDomains = [],
+  promptFrame = {},
+  cacheInputs = {},
+  campaignContext = {},
+  externalPromptEnvironmentRef = null,
+  externalPromptEnvironmentTargets = null
+} = {}) {
+  return createLensPromptBudgetTrace({
+    packetId: packet.id || packet.packetId || cacheKey,
+    promptRevision: revision,
+    cacheKey,
+    lanes: promptBudgetLanesFromPacket({
+      packet,
+      dirtyDomains,
+      promptFrame,
+      cacheInputs,
+      campaignContext,
+      externalPromptEnvironmentRef
+    }),
+    cacheInputs: {
+      mechanicsRevision: campaignContext.mechanicsRevision ?? null,
+      promptDomainVector: campaignContext.domainVersionVector || null,
+      recallIndexRevision: cacheInputs.recallIndexRevision || null,
+      sceneSealRevision: cacheInputs.sceneSealRevision || null,
+      pressureArcDigestRevision: cacheInputs.pressureArcDigestRevision || null,
+      packageRevision: campaignContext.packageRevision || campaignContext.packageVersion || cacheInputs.packageRevision || null,
+      promptBudgetLaneOverrides: campaignContext.promptBudgetLaneOverrides || cacheInputs.promptBudgetLaneOverrides || null,
+      externalPromptEnvironmentRef,
+      externalPromptEnvironmentTargets
+    }
+  });
+}
+
+function promptBudgetTraceRef(trace = null) {
+  if (!trace || typeof trace !== 'object') return null;
+  return compactObject({
+    kind: 'directive.lensPromptBudgetTraceRef.v1',
+    traceKind: trace.kind || null,
+    hash: trace.hash || null,
+    byteLength: trace.byteLength || null,
+    laneCount: Array.isArray(trace.lanes) ? trace.lanes.length : undefined,
+    promptRevision: trace.promptRevision ?? null,
+    cacheKey: trace.cacheKey || null
+  });
+}
+
+function refMatchKeys(ref = {}) {
+  return [
+    ref.id,
+    ref.hash,
+    ref.sourceFrameId
+  ].map((value) => asString(value)).filter(Boolean);
+}
+
+function blockMatchKeys(block = {}) {
+  return [
+    block.id,
+    block.promptKey,
+    block.key,
+    block.hash,
+    block.contentHash,
+    block.sourceFrameId,
+    block.sourceFrameRef?.id
+  ].map((value) => asString(value)).filter(Boolean);
+}
+
+function stripBuildOnlyBlockBudgetFields(block = {}) {
+  const {
+    promptBudgetRefs: _promptBudgetRefs,
+    lensPromptBudgetRefs: _lensPromptBudgetRefs,
+    rawPromptBody: _rawPromptBody,
+    rawResponse: _rawResponse,
+    ...safeBlock
+  } = block;
+  return safeBlock;
+}
+
+function refreshPromptPacketAfterBudget(packet = {}, enforcement = {}) {
+  const {
+    promptBudgetLanes: _promptBudgetLanes,
+    lensPromptBudgetLanes: _lensPromptBudgetLanes,
+    rawPromptBody: _rawPromptBody,
+    rawResponse: _rawResponse,
+    recallRefs,
+    omittedRecallRefs,
+    recallOmittedRefs,
+    ...safePacket
+  } = packet;
+  const blocks = Array.isArray(packet.blocks) ? packet.blocks : [];
+  const text = blocks.map((block) => String(block.text || block.content || '').trim()).filter(Boolean).join('\n\n');
+  const hash = hashStableJson({
+    revision: packet.revision ?? null,
+    cacheKey: packet.cacheKey || null,
+    blocks: blocks.map((block) => ({
+      id: block.id || null,
+      promptKey: block.promptKey || null,
+      hash: block.hash || block.contentHash || null
+    }))
+  });
+  return compactObject({
+    ...safePacket,
+    text: text || packet.text,
+    hash,
+    contentHash: hash,
+    recallRefs: Array.isArray(recallRefs)
+      ? recallRefs.map(compactBudgetRef).filter((ref) => ref.id || ref.hash)
+      : undefined,
+    omittedRecallRefs: Array.isArray(omittedRecallRefs || recallOmittedRefs)
+      ? (omittedRecallRefs || recallOmittedRefs).map(compactBudgetRef).filter((ref) => ref.id || ref.hash)
+      : undefined,
+    lensPromptBudgetEnforcement: enforcement
+  });
+}
+
+function applyPromptBudgetTraceToPacket(packet = {}, trace = null) {
+  const blocks = Array.isArray(packet.blocks) ? packet.blocks : [];
+  const lanes = Array.isArray(trace?.lanes) ? trace.lanes : [];
+  const omittedKeys = new Set();
+  const blockingLanes = [];
+  for (const lane of lanes) {
+    if (lane?.blocking === true) blockingLanes.push(lane.id);
+    for (const ref of Array.isArray(lane?.omittedRefs) ? lane.omittedRefs : []) {
+      for (const key of refMatchKeys(ref)) omittedKeys.add(key);
+    }
+  }
+  const includedBlocks = [];
+  const omittedBlocks = [];
+  for (const block of blocks) {
+    const keys = blockMatchKeys(block);
+    if (keys.some((key) => omittedKeys.has(key))) {
+      omittedBlocks.push(compactObject({
+        id: block.id || null,
+        promptKey: block.promptKey || null,
+        hash: block.hash || block.contentHash || null,
+        lane: promptBlockBudgetLane(block),
+        omissionReason: 'budget-exceeded'
+      }));
+      continue;
+    }
+    includedBlocks.push(stripBuildOnlyBlockBudgetFields(block));
+  }
+  const enforcement = compactObject({
+    kind: 'directive.lensPromptBudgetEnforcement.v1',
+    schemaVersion: 1,
+    status: blockingLanes.length ? 'blocked' : (omittedBlocks.length ? 'filtered' : 'pass'),
+    originalBlockCount: blocks.length,
+    includedBlockCount: includedBlocks.length,
+    omittedBlockCount: omittedBlocks.length,
+    omittedBlocks,
+    blockingLanes
+  });
+  return {
+    packet: refreshPromptPacketAfterBudget({ ...packet, blocks: includedBlocks }, enforcement),
+    enforcement
+  };
 }
 
 function acceptedSidecarBatchCacheInput({
@@ -209,6 +660,9 @@ function buildPromptCacheKey({
     recallIndexRevision: cacheInputs.recallIndexRevision || null,
     sceneSealRevision: cacheInputs.sceneSealRevision || null,
     pressureArcDigestRevision: cacheInputs.pressureArcDigestRevision || null,
+    promptBudgetLaneOverridesHash: hashStableJson(normalizePromptBudgetLaneOverrides(
+      campaignContext.promptBudgetLaneOverrides || cacheInputs.promptBudgetLaneOverrides || {}
+    )),
     acceptedSidecarBatchHash: cacheInputs.acceptedSidecarBatch?.acceptedBatchHash || null,
     acceptedSidecarBackgroundBatchId: cacheInputs.acceptedSidecarBatch?.backgroundBatchId || null,
     commandBearingReviewHash: cacheInputs.commandBearingReview?.reviewHash || null,
@@ -298,18 +752,20 @@ export function createLensPromptScheduler({
         unknownSignals: ['external-prompt-environment-unavailable']
       });
     const ref = createExternalPromptEnvironmentRef(normalized);
+    const targets = summarizeExternalPromptEnvironmentTargets(normalized);
     externalEnvironmentRefs.set(ref.hash, ref);
     await appendPromptDiagnostic(transactionId, {
       status: 'externalEnvironmentObserved',
       severity: 'info',
       observedAt,
       externalPromptEnvironmentRef: ref,
+      externalPromptEnvironmentTargets: targets,
       knownExternalPromptKeys: ref.knownExternalPromptKeys,
       rawPromptBody: raw?.rawPromptBody,
       vectorPayload: raw?.vectFox?.vectorPayload,
       apiKey: raw?.apiKey || raw?.vectFox?.qdrant_api_key
     });
-    return { environment: normalized, ref };
+    return { environment: normalized, ref, targets };
   }
 
   function markDirty({
@@ -419,6 +875,10 @@ export function createLensPromptScheduler({
       externalEnvironmentRefs.set(resolvedExternalPromptEnvironmentRef.hash, resolvedExternalPromptEnvironmentRef);
     }
 
+    const resolvedExternalPromptEnvironmentTargets = observed?.targets
+      || (externalPromptEnvironment ? summarizeExternalPromptEnvironmentTargets(externalPromptEnvironment) : null)
+      || resolvedExternalPromptEnvironmentRef?.externalPromptEnvironmentTargets
+      || null;
     const promptCacheInputs = normalizePromptCacheInputs({
       cacheInputs,
       campaignContext,
@@ -455,7 +915,7 @@ export function createLensPromptScheduler({
     const packetBuilder = typeof buildDirectivePromptPacketOverride === 'function'
       ? buildDirectivePromptPacketOverride
       : buildDirectivePromptPacket;
-    const packet = await packetBuilder({
+    let packet = await packetBuilder({
       revision,
       dirtyDomains,
       campaignContext,
@@ -469,6 +929,55 @@ export function createLensPromptScheduler({
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef
     });
     packet.blocks = directivePromptBlocks(packet.blocks || []);
+    const promptBudgetTrace = createPromptBudgetTraceForPacket({
+      packet,
+      revision,
+      cacheKey,
+      dirtyDomains,
+      promptFrame,
+      cacheInputs: promptCacheInputs,
+      campaignContext,
+      externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+      externalPromptEnvironmentTargets: resolvedExternalPromptEnvironmentTargets
+    });
+    const budgetApplication = applyPromptBudgetTraceToPacket(packet, promptBudgetTrace);
+    packet = budgetApplication.packet;
+    packet.lensPromptBudgetTrace = promptBudgetTrace;
+    packet.lensPromptBudgetTraceRef = promptBudgetTraceRef(promptBudgetTrace);
+    if (budgetApplication.enforcement.status === 'blocked') {
+      const diagnostic = await appendPromptDiagnostic(transactionId, {
+        status: 'promptBudgetBlocked',
+        severity: 'warning',
+        observedAt: clock(),
+        lane,
+        reason,
+        dirtyPrompt: true,
+        dirtyDomains,
+        cacheKey,
+        cacheInputs: promptCacheInputs,
+        promptBudgetTrace,
+        promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+        promptBudgetEnforcement: budgetApplication.enforcement,
+        directivePromptRevision: revision,
+        externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef
+      });
+      return {
+        status: 'promptBudgetBlocked',
+        rebuilt: false,
+        built: true,
+        lane,
+        dirtyPrompt: true,
+        dirtyDomains,
+        cacheKey,
+        cacheInputs: promptCacheInputs,
+        externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+        promptBudgetTrace,
+        promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+        promptBudgetEnforcement: budgetApplication.enforcement,
+        packet,
+        diagnostic
+      };
+    }
     const method = asString(installMethod) || (prior ? 'rebuild' : 'install');
     if (typeof beforeInstallPrompt === 'function') {
       const guardResult = await beforeInstallPrompt({
@@ -506,6 +1015,9 @@ export function createLensPromptScheduler({
           dirtyDomains,
           cacheKey,
           cacheInputs: promptCacheInputs,
+          promptBudgetTrace,
+          promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+          promptBudgetEnforcement: budgetApplication.enforcement,
           directivePromptRevision: revision,
           externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
           guard: compactObject({
@@ -557,6 +1069,8 @@ export function createLensPromptScheduler({
       appliesTo,
       cacheInputs: promptCacheInputs,
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+      promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+      promptBudgetEnforcement: budgetApplication.enforcement,
       installResult
     });
     installedByLane.set(lane, installed);
@@ -574,6 +1088,9 @@ export function createLensPromptScheduler({
       directivePromptRevision: directiveOwnedRevision,
       cacheKey,
       cacheInputs: promptCacheInputs,
+      promptBudgetTrace,
+      promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+      promptBudgetEnforcement: budgetApplication.enforcement,
       promptHash: installed.promptHash,
       promptKeys: installed.promptKeys,
       cacheRecord: installed,
@@ -600,6 +1117,9 @@ export function createLensPromptScheduler({
       cacheInputs: promptCacheInputs,
       appliesTo,
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+      promptBudgetTrace,
+      promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+      promptBudgetEnforcement: budgetApplication.enforcement,
       packet,
       installed,
       observedExternalEnvironment: observed ? cloneJson(observed.ref) : null,

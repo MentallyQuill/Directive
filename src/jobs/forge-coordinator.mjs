@@ -446,6 +446,7 @@ export function createForgeCoordinator({
         scenePhaseSealRefs: batch.scenePhaseSealRefs,
         pressureArcDigestRefs: batch.pressureArcDigestRefs,
         recallEntryRefs: batch.recallIndexEntryRefs,
+        recallEntries: batch.recallEntries,
         recallRevisions: batch.recallRevisions,
         forgeBatchRef: {
           kind: 'directive.forgeBatchCommitRef.v1',
@@ -761,6 +762,7 @@ export function createForgeCoordinator({
         scenePhaseSealRefs: batch.scenePhaseSealRefs,
         pressureArcDigestRefs: batch.pressureArcDigestRefs,
         recallEntryRefs: batch.recallIndexEntryRefs,
+        recallEntries: batch.recallEntries,
         recallRevisions: batch.recallRevisions,
         forgeBatchRef: {
           kind: 'directive.forgeBatchCommitRef.v1',

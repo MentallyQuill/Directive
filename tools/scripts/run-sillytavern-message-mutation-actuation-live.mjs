@@ -90,7 +90,7 @@ const SCENARIOS = Object.freeze([
   {
     id: 'selected-swipe',
     reportKey: 'selectedSwipe',
-    script: 'tools/scripts/smoke-scene-handshake-live.mjs',
+    script: 'tools/scripts/run-sillytavern-selected-swipe-actuation-live.mjs',
     selectedSwipe: true
   }
 ]);

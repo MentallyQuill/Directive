@@ -1,7 +1,8 @@
 import { DIRECTIVE_STATIC_PROMPT_KEYS } from '../../continuity/prompt-keys.mjs';
 import {
   createExternalPromptEnvironmentRef,
-  isDirectivePromptKey
+  isDirectivePromptKey,
+  summarizeExternalPromptEnvironmentTargets
 } from '../../runtime/architecture-redesign-contracts.mjs';
 import {
   observeSillyTavernExternalPromptEnvironment
@@ -69,59 +70,6 @@ function externalEnvironmentMayInfluencePrompt(environment = {}) {
   );
 }
 
-function externalEnvironmentTargetSummary(environment = {}) {
-  return {
-    stLorebooks: {
-      installed: environment.worldInfo?.installed === true,
-      enabled: environment.worldInfo?.enabled === true,
-      active: environment.worldInfo?.active === true,
-      activeNameCount: Array.isArray(environment.worldInfo?.activeNames) ? environment.worldInfo.activeNames.length : 0,
-      chatBound: Boolean(environment.worldInfo?.chatBoundName),
-      promptPositions: Array.isArray(environment.worldInfo?.promptPositions) ? [...environment.worldInfo.promptPositions] : []
-    },
-    memoryBooks: {
-      installed: environment.memoryBooks?.installed === true,
-      enabled: environment.memoryBooks?.enabled === true,
-      active: Boolean(environment.memoryBooks?.activeBookName) || Number(environment.memoryBooks?.stMemoryBookEntryCount || 0) > 0,
-      entryCount: Number(environment.memoryBooks?.stMemoryBookEntryCount || 0),
-      rangeDiagnostics: { ...(environment.memoryBooks?.rangeDiagnostics || {}) },
-      riskyModes: { ...(environment.memoryBooks?.riskyModes || {}) }
-    },
-    summaryception: {
-      installed: environment.summaryception?.installed === true,
-      enabled: environment.summaryception?.enabled === true,
-      promptKeyActive: environment.summaryception?.promptKeyActive === true,
-      layerCount: Number(environment.summaryception?.layerCount || 0),
-      ghostedCount: Number(environment.summaryception?.ghostedCount || 0),
-      staleness: { ...(environment.summaryception?.staleness || {}) },
-      externalModelCalls: environment.summaryception?.externalModelCalls === true
-    },
-    vectFox: {
-      installed: environment.vectFox?.installed === true,
-      enabled: environment.vectFox?.enabled === true,
-      disabledPresent: environment.vectFox?.disabledPresent === true,
-      promptKeys: Array.isArray(environment.vectFox?.promptKeys) ? [...environment.vectFox.promptKeys] : [],
-      backendType: environment.vectFox?.backendType || null,
-      semanticWorldInfoEnabled: environment.vectFox?.semanticWorldInfoEnabled === true,
-      summarizerInjectionEnabled: environment.vectFox?.summarizerInjectionEnabled === true,
-      ghostingEnabled: environment.vectFox?.ghostingEnabled === true,
-      generationInterceptorActive: environment.vectFox?.generationInterceptorActive === true,
-      backendDiagnostics: { ...(environment.vectFox?.backendDiagnostics || {}) }
-    },
-    unknownExternalContext: {
-      status: environment.unknownExternalContext?.status || 'none',
-      promptKeyCount: Number(environment.unknownExternalContext?.promptKeyCount || 0),
-      promptKeyPrefixes: Array.isArray(environment.unknownExternalContext?.promptKeyPrefixes)
-        ? [...environment.unknownExternalContext.promptKeyPrefixes]
-        : [],
-      promptKeyHash: environment.unknownExternalContext?.promptKeyHash || null,
-      promptKeyPrefixHash: environment.unknownExternalContext?.promptKeyPrefixHash || null,
-      visibilityMarkerCount: Number(environment.unknownExternalContext?.visibilityMarkerCount || 0),
-      redactionReason: environment.unknownExternalContext?.redactionReason || null
-    }
-  };
-}
-
 function externalPromptInspectionMetadata(context, binding = {}) {
   try {
     const environment = observeSillyTavernExternalPromptEnvironment(context, {
@@ -135,7 +83,7 @@ function externalPromptInspectionMetadata(context, binding = {}) {
       externalPromptEnvironmentRef: ref,
       knownExternalPromptKeys: ref.knownExternalPromptKeys || [],
       finalHostPromptMayIncludeExternal: externalEnvironmentMayInfluencePrompt(environment),
-      externalPromptEnvironmentTargets: externalEnvironmentTargetSummary(environment),
+      externalPromptEnvironmentTargets: summarizeExternalPromptEnvironmentTargets(environment),
       externalPromptDiagnostics: Array.isArray(environment.diagnostics) ? cloneJson(environment.diagnostics) : [],
       unavailableSignals: Array.isArray(environment.unknownSignals) ? [...environment.unknownSignals] : [],
       redactions: Array.isArray(environment.redactions) ? [...environment.redactions] : []

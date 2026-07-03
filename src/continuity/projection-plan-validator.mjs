@@ -1,9 +1,12 @@
 import {
+  CONTINUITY_DISCLOSURE_STATE,
   CONTINUITY_VISIBILITY,
   asArray,
   cloneJson,
   compact,
+  factKnowledgeScope,
   hashContinuityText,
+  isFactAllowedForSourceFrame,
   isFactVisibleToAudience
 } from './fact-schema.mjs';
 import { CONTINUITY_PROMPT_LANES } from './prompt-keys.mjs';
@@ -179,7 +182,18 @@ function tagSet(fact) {
   return new Set(asArray(fact?.tags).map((tag) => compact(tag).toLowerCase()).filter(Boolean));
 }
 
+function factDisclosureState(fact) {
+  return factKnowledgeScope(fact).disclosureState;
+}
+
+function isPerspectiveOrProvisionalFact(fact) {
+  const state = factDisclosureState(fact);
+  return state === CONTINUITY_DISCLOSURE_STATE.falseBelief
+    || state === CONTINUITY_DISCLOSURE_STATE.inferred;
+}
+
 function isHardFact(fact) {
+  if (isPerspectiveOrProvisionalFact(fact)) return false;
   const criticality = compact(fact?.criticality).toLowerCase();
   const tags = tagSet(fact);
   return criticality === 'hard'
@@ -239,6 +253,14 @@ function laneAtLeastAsProminent(candidateLane, minimumLane) {
 function applyMinimumLane(lane, minimumLane) {
   if (!minimumLane) return lane;
   return laneAtLeastAsProminent(lane, minimumLane) ? lane : minimumLane;
+}
+
+function capLaneForFactDisclosure(fact, lane) {
+  if (!isPerspectiveOrProvisionalFact(fact)) return { lane, lowered: false };
+  if (lane === 'directive.continuity.invariants') {
+    return { lane: 'directive.continuity.domain', lowered: true };
+  }
+  return { lane, lowered: false };
 }
 
 function operationKey(operation) {
@@ -404,6 +426,10 @@ export function buildDeterministicContinuityProjectionPlan({
   const counts = new Map();
   for (const fact of sortFactsForDeterministicProjection(factIndex?.facts, sourceFrame)) {
     const hint = hints.get(fact.id);
+    if (!isFactAllowedForSourceFrame(fact, sourceFrame)) {
+      omitted.push({ factId: fact.id, reason: 'witness-scope' });
+      continue;
+    }
     const turnRelevant = isTurnRelevantFact(fact, sourceFrame);
     const defaultLane = defaultContinuityLaneForFact(fact);
     const lane = applyMinimumLane(defaultLane, hint?.minimumLane || (turnRelevant ? 'directive.continuity.domain' : null));
@@ -450,11 +476,15 @@ function plannerCandidateSets({ factIndex, candidateFactIds = null, hardFloorFac
 export function isPlanFactSelectable(fact, {
   audience = CONTINUITY_VISIBILITY.narratorSafe,
   candidates = new Set(),
-  hardFloors = new Set()
+  hardFloors = new Set(),
+  sourceFrame = null
 } = {}) {
   if (!fact) return { ok: false, reason: 'unknown-fact-id' };
   if (!isFactVisibleToAudience(fact, audience)) {
     return { ok: false, reason: 'audience-blocked-fact' };
+  }
+  if (!isFactAllowedForSourceFrame(fact, sourceFrame)) {
+    return { ok: false, reason: 'witness-scope-blocked-fact' };
   }
   if (!candidates.has(fact.id) && !hardFloors.has(fact.id)) {
     return { ok: false, reason: 'fact-not-in-planner-candidates' };
@@ -484,14 +514,15 @@ function validateGuardFocus(rawGuardFocus = [], {
   factById,
   audience,
   candidates,
-  hardFloors
+  hardFloors,
+  sourceFrame = null
 } = {}) {
   const guardFocus = [];
   const rejections = [];
   for (const rawFactId of asArray(rawGuardFocus)) {
     const factId = compact(rawFactId);
     const fact = factById.get(factId);
-    const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors });
+    const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors, sourceFrame });
     if (!selectable.ok) {
       rejections.push({ factId: factId || null, reason: `guard-focus-${selectable.reason}` });
       continue;
@@ -505,7 +536,8 @@ function validateCompressionGroups(rawGroups = [], {
   factById,
   audience,
   candidates,
-  hardFloors
+  hardFloors,
+  sourceFrame = null
 } = {}) {
   const compressionGroups = [];
   const rejections = [];
@@ -532,7 +564,7 @@ function validateCompressionGroups(rawGroups = [], {
     for (const rawFactId of asArray(group?.factIds)) {
       const factId = compact(rawFactId);
       const fact = factById.get(factId);
-      const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors });
+      const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors, sourceFrame });
       if (!selectable.ok) {
         rejections.push({
           groupId: compact(group?.id) || null,
@@ -606,7 +638,7 @@ export function validateContinuityProjectionPlan(plan, {
     }
     const factId = compact(rawOperation?.factId);
     const fact = factById.get(factId);
-    const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors });
+    const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors, sourceFrame });
     if (!selectable.ok) {
       rejections.push({ factId: factId || null, reason: selectable.reason });
       continue;
@@ -642,6 +674,10 @@ export function validateContinuityProjectionPlan(plan, {
     });
     const action = actionChoice.action;
     if (action === 'guardOnly' || action === 'auditOnly') {
+      if (action === 'guardOnly' && isPerspectiveOrProvisionalFact(fact)) {
+        rejections.push({ factId, reason: 'perspective-fact-not-guardable' });
+        continue;
+      }
       const key = operationKey({ factId, action });
       if (seenOperation.has(key)) continue;
       seenOperation.add(key);
@@ -663,7 +699,9 @@ export function validateContinuityProjectionPlan(plan, {
     const minimumLane = (hardFloors.has(factId) || isHardFact(fact))
       ? 'directive.continuity.invariants'
       : (hint?.minimumLane || (turnRelevant ? 'directive.continuity.domain' : null));
-    const lane = applyMinimumLane(rawLane || defaultLane, minimumLane);
+    const uncappedLane = applyMinimumLane(rawLane || defaultLane, minimumLane);
+    const cappedLane = capLaneForFactDisclosure(fact, uncappedLane);
+    const lane = cappedLane.lane;
     const key = operationKey({ factId, lane });
     if (seenOperation.has(key)) continue;
     const laneLimit = DEFAULT_FACT_LIMITS[lane] || 0;
@@ -685,7 +723,9 @@ export function validateContinuityProjectionPlan(plan, {
       confidence: operationConfidence(rawOperation?.confidence),
       compressionGroupId: compact(rawOperation?.compressionGroupId) || null
     });
-    if (lane !== rawLane) {
+    if (cappedLane.lowered) {
+      rejections.push({ factId, reason: 'lane-lowered-for-disclosure-state', requestedLane: rawLane, lane });
+    } else if (lane !== rawLane) {
       rejections.push({ factId, reason: 'lane-raised-to-minimum', requestedLane: rawLane, lane });
     }
   }
@@ -693,7 +733,7 @@ export function validateContinuityProjectionPlan(plan, {
   for (const fact of sortFactsForDeterministicProjection(facts, sourceFrame)) {
     const hint = hints.get(fact.id);
     const turnRelevant = isTurnRelevantFact(fact, sourceFrame);
-    const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors });
+    const selectable = isPlanFactSelectable(fact, { audience, candidates, hardFloors, sourceFrame });
     const required = isRequiredFactForPlan(fact, {
       hint,
       sourceFrame,
@@ -704,10 +744,12 @@ export function validateContinuityProjectionPlan(plan, {
     }
     if (!required || selected.has(fact.id)) continue;
     if (!selectable.ok) continue;
-    const lane = applyMinimumLane(
+    const uncappedLane = applyMinimumLane(
       defaultContinuityLaneForFact(fact),
       (hardFloors.has(fact.id) || isHardFact(fact)) ? 'directive.continuity.invariants' : (hint?.minimumLane || (turnRelevant ? 'directive.continuity.domain' : null))
     );
+    const cappedLane = capLaneForFactDisclosure(fact, uncappedLane);
+    const lane = cappedLane.lane;
     operations.push({
       factId: fact.id,
       lane,
@@ -718,6 +760,9 @@ export function validateContinuityProjectionPlan(plan, {
       confidence: null,
       compressionGroupId: null
     });
+    if (cappedLane.lowered) {
+      rejections.push({ factId: fact.id, reason: 'lane-lowered-for-disclosure-state', requestedLane: uncappedLane, lane });
+    }
     selected.add(fact.id);
   }
 
@@ -725,14 +770,16 @@ export function validateContinuityProjectionPlan(plan, {
     factById,
     audience,
     candidates,
-    hardFloors
+    hardFloors,
+    sourceFrame
   });
   rejections.push(...guardFocusResult.rejections);
   const compressionResult = validateCompressionGroups(proposed.compressionGroups, {
     factById,
     audience,
     candidates,
-    hardFloors
+    hardFloors,
+    sourceFrame
   });
   rejections.push(...compressionResult.rejections);
 

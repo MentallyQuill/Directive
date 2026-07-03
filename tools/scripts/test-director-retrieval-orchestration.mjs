@@ -5,6 +5,7 @@ import {
   buildAudienceGateReport,
   runDirectorRetrieval
 } from '../../src/retrieval/packet-builder.mjs';
+import { normalizeRecallIndexEntry } from '../../src/retrieval/recall-index.mjs';
 
 const root = process.cwd();
 
@@ -137,6 +138,92 @@ const hydratedShuttlebay = shuttleRun.packets.narrator.hydratedCards.find((card)
 assert(hydratedShuttlebay, 'Narrator packet should hydrate the shuttlebay card.');
 assert.match(JSON.stringify(hydratedShuttlebay.guidance), /Deck 10 aft dorsal secondary hull/i);
 assert.match(JSON.stringify(hydratedShuttlebay.guidance), /saucer-underside|belly shuttlebay|primary-hull mouth/i);
+assert.equal(shuttleRun.diagnostics.recallIndex.entryCount > 0, true);
+const narratorRecallRefs = shuttleRun.diagnostics.recallIndex.byAudience.narrator.includedRefs;
+assert.equal(narratorRecallRefs.some((ref) => ref.id === 'package-recall:ship.intrepid.exterior.shuttle-approach'), true);
+assert.equal(narratorRecallRefs.some((ref) => ref.id === 'package-recall:ship.intrepid.location.shuttlebay'), true);
+const shuttleRecallRef = narratorRecallRefs.find((ref) => ref.id === 'package-recall:ship.intrepid.exterior.shuttle-approach');
+assert.equal(shuttleRecallRef.retrieval.mode, 'package');
+assert.equal(shuttleRecallRef.retrieval.sourceAuthority, 'package');
+assert.equal(shuttleRecallRef.retrieval.audience.includes('narrator'), true);
+assert.equal(shuttleRecallRef.scoreReasons.includes('retrievalMode'), true);
+assert.equal(shuttleRun.packets.narrator.recallRefs.some((ref) => ref.id === shuttleRecallRef.id), true);
+const serializedRecallDiagnostics = JSON.stringify(shuttleRun.diagnostics.recallIndex);
+assert.equal(serializedRecallDiagnostics.includes('Do not depict routine shuttle docking'), false);
+assert.equal(serializedRecallDiagnostics.includes('Deck 10 aft shuttlebay complex'), false);
+assert.equal(serializedRecallDiagnostics.includes('saucer-underside shuttlebay'), false);
+
+const coreSceneSealRecall = normalizeRecallIndexEntry({
+  id: 'core-recall:scene-seal:shuttle-rendezvous',
+  campaignId: finalReviewTurn.sceneSnapshot.campaignId || null,
+  saveId: null,
+  branchId: 'main',
+  authority: 'committed',
+  sourceFrameRef: {
+    id: 'frame-shuttle-rendezvous',
+    textHash: 'frame-shuttle-rendezvous-hash',
+    rawPlayerText: 'Raw player text from the CORE source frame must not serialize.'
+  },
+  sceneSealRef: {
+    id: 'scene-seal-shuttle-rendezvous',
+    hash: 'scene-seal-shuttle-rendezvous-hash',
+    rawSummary: 'Raw FORGE seal summary must not serialize.'
+  },
+  phaseId: 'shuttle-rendezvous',
+  sceneId: 'scene-shuttle-rendezvous',
+  locationId: 'intrepid.shuttlebay-complex',
+  actorIds: finalReviewTurn.sceneSnapshot.presentCharacters || [],
+  subjectIds: ['shuttle-rendezvous'],
+  missionIds: [finalReviewTurn.sceneSnapshot.missionId || finalReviewTurn.sceneSnapshot.activeMissionId],
+  keywords: ['shuttle-rendezvous', 'intrepid.shuttlebay-complex', 'establish-arrival-tone'],
+  retrieval: {
+    mode: 'sceneSeal',
+    priority: 100,
+    audience: ['narrator'],
+    sourceAuthority: 'sceneSeal',
+    ragHints: {
+      facet: 'scene-seal',
+      rawPromptText: 'Raw scene-seal prompt hint must not serialize.'
+    }
+  },
+  textHash: 'core-scene-seal-recall-hash',
+  preview: 'The shuttle approach has already been framed as a careful, quiet rendezvous at the shuttlebay complex.'
+});
+const hybridShuttleRun = runDirectorRetrieval({
+  crewDataset,
+  shipDataset,
+  missionGraph: graph,
+  sceneSnapshot: {
+    ...finalReviewTurn.sceneSnapshot,
+    activePhaseId: 'shuttle-rendezvous',
+    phaseId: 'shuttle-rendezvous',
+    locationId: 'intrepid.shuttlebay-complex',
+    playerInput: 'The shuttle lines up for shuttlebay docking from astern.',
+    audiences: ['narrator']
+  },
+  campaignState: simulationFixture.baseCampaignState,
+  intentParse: { primaryIntent: 'establish-arrival-tone' },
+  turnId: 'turn.retrieval.shuttle-rendezvous.hybrid',
+  outcomeId: 'outcome.retrieval.shuttle-rendezvous.hybrid',
+  coreRecallEntries: [coreSceneSealRecall],
+  audiences: ['narrator']
+});
+const hybridNarratorRefs = hybridShuttleRun.diagnostics.recallIndex.byAudience.narrator.includedRefs;
+assert.equal(hybridNarratorRefs[0].id, 'core-recall:scene-seal:shuttle-rendezvous');
+assert.equal(hybridNarratorRefs[0].authority, 'committed');
+assert.equal(hybridNarratorRefs[0].retrieval.mode, 'sceneSeal');
+assert.equal(hybridNarratorRefs[0].retrieval.sourceAuthority, 'sceneSeal');
+assert.equal(hybridNarratorRefs[0].scoreReasons.includes('sceneSeal'), true);
+assert.equal(hybridNarratorRefs.some((ref) => ref.id === 'package-recall:ship.intrepid.location.shuttlebay'), true);
+assert.equal(
+  hybridShuttleRun.packets.narrator.recallRefs.some((ref) => ref.id === 'core-recall:scene-seal:shuttle-rendezvous'),
+  true
+);
+assert.equal(hybridShuttleRun.diagnostics.recallIndex.entryCount > shuttleRun.diagnostics.recallIndex.entryCount, true);
+const serializedHybridRecall = JSON.stringify(hybridShuttleRun.diagnostics.recallIndex);
+assert.equal(serializedHybridRecall.includes('Raw player text from the CORE source frame'), false);
+assert.equal(serializedHybridRecall.includes('Raw FORGE seal summary'), false);
+assert.equal(serializedHybridRecall.includes('Raw scene-seal prompt hint'), false);
 
 const seniorBriefingReport = buildAudienceGateReport({
   cards: crewDataset.cards,

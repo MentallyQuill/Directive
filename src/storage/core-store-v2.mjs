@@ -14,6 +14,14 @@ import {
   loadV2SaveManifest,
   readV2ArtifactRef
 } from './transaction-store-v2.mjs';
+import {
+  applyRecallSourceMutation,
+  createRecallSourceMutation,
+  normalizeRecallIndexEntry
+} from '../retrieval/recall-index.mjs';
+
+const RECALL_INDEX_AUXILIARY_SEGMENT_KIND = 'directive.recallIndexSegment.v1';
+const RECALL_INDEX_AUXILIARY_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
 
 const PHASES = new Set([
   'observed',
@@ -120,6 +128,261 @@ function maxRevisions(...values) {
 
 function sanitizeDiagnostic(value = {}) {
   return redactExternalDiagnostic(cloneJson(value));
+}
+
+function safeLogicalSegment(value, fallback = 'segment') {
+  const raw = String(value || fallback).trim() || fallback;
+  return raw.replace(/[^a-zA-Z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '') || fallback;
+}
+
+function recallAuxiliarySegmentLogicalKey({ campaignId, saveId, segmentId }) {
+  return `campaigns/${safeLogicalSegment(campaignId, 'campaign')}/saves/${safeLogicalSegment(saveId, 'save')}/core/recall-index/${safeLogicalSegment(segmentId, 'segment')}.v1.json`;
+}
+
+function artifactRefForRecord({ logicalKey, record }) {
+  return compact({
+    logicalKey,
+    kind: record.kind || undefined,
+    hash: record.hash || hashStableJson(record),
+    byteLength: record.byteLength || stableJsonByteLength(record),
+    entryCount: Number.isFinite(Number(record.entryCount)) ? Number(record.entryCount) : undefined
+  });
+}
+
+function withRecordHashAndSize(record = {}) {
+  const base = cloneJson(record);
+  delete base.hash;
+  delete base.byteLength;
+  const withHash = {
+    ...base,
+    hash: hashStableJson(base)
+  };
+  return {
+    ...withHash,
+    byteLength: stableJsonByteLength(withHash)
+  };
+}
+
+function chunkRecallAuxiliaryEntries(entries = [], maxBytes = RECALL_INDEX_AUXILIARY_SEGMENT_MAX_BYTES) {
+  const chunks = [];
+  let current = [];
+  for (const entry of entries || []) {
+    const candidate = [...current, entry];
+    const candidateRecord = {
+      kind: RECALL_INDEX_AUXILIARY_SEGMENT_KIND,
+      schemaVersion: 1,
+      entries: candidate,
+      entryCount: candidate.length
+    };
+    if (current.length > 0 && stableJsonByteLength(candidateRecord) > maxBytes) {
+      chunks.push(current);
+      current = [entry];
+    } else {
+      current = candidate;
+    }
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
+function collectRecallEntriesFromOperationBundle(operationBundle = {}) {
+  return (Array.isArray(operationBundle.recallEntries) ? operationBundle.recallEntries : [])
+    .map((entry) => normalizeRecallIndexEntry(sanitizeDiagnostic(entry)))
+    .filter((entry) => entry && typeof entry === 'object');
+}
+
+export async function writeCoreRecallIndexAuxiliarySegments(adapter, {
+  campaignId,
+  saveId,
+  branchId = null,
+  transactionId = null,
+  batchId = null,
+  entries = [],
+  createdAt = null,
+  source = 'core-background-batch'
+} = {}) {
+  const id = requireNonEmptyString(campaignId, 'campaignId');
+  const save = requireNonEmptyString(saveId, 'saveId');
+  const cleanEntries = (Array.isArray(entries) ? entries : [])
+    .map((entry) => normalizeRecallIndexEntry(sanitizeDiagnostic(entry)))
+    .filter((entry) => entry && typeof entry === 'object');
+  if (cleanEntries.length === 0) return [];
+  const timestamp = createdAt || isoNow();
+  const refs = [];
+  const segmentBase = `${safeLogicalSegment(batchId || transactionId || hashStableJson(cleanEntries).slice(0, 12), 'recall')}`;
+  for (const [index, segmentEntries] of chunkRecallAuxiliaryEntries(cleanEntries).entries()) {
+    const segmentId = `${segmentBase}-${String(index).padStart(4, '0')}`;
+    const logicalKey = recallAuxiliarySegmentLogicalKey({ campaignId: id, saveId: save, segmentId });
+    const record = withRecordHashAndSize({
+      kind: RECALL_INDEX_AUXILIARY_SEGMENT_KIND,
+      schemaVersion: 1,
+      campaignId: id,
+      saveId: save,
+      branchId: branchId || save,
+      transactionId,
+      batchId,
+      segmentId,
+      source,
+      excludesRawContent: true,
+      createdAt: timestamp,
+      entries: segmentEntries,
+      entryCount: segmentEntries.length
+    });
+    await adapter.writeJson(logicalKey, record);
+    refs.push(artifactRefForRecord({ logicalKey, record }));
+  }
+  return refs;
+}
+
+export async function readCoreRecallIndexAuxiliaryEntries(adapter, refs = []) {
+  const entries = [];
+  const seen = new Set();
+  for (const ref of refs || []) {
+    if (!ref?.logicalKey || seen.has(ref.logicalKey)) continue;
+    seen.add(ref.logicalKey);
+    const segment = await readV2ArtifactRef(adapter, ref);
+    if (Array.isArray(segment.entries)) {
+      entries.push(...segment.entries.map((entry) => normalizeRecallIndexEntry(sanitizeDiagnostic(entry))));
+    }
+  }
+  return entries;
+}
+
+function recallAuxiliaryRefsFromEvents(events = []) {
+  let refs = [];
+  const seen = new Set();
+  const addRefs = (values = []) => {
+    for (const ref of values || []) {
+      if (!ref?.logicalKey || seen.has(ref.logicalKey)) continue;
+      seen.add(ref.logicalKey);
+      refs.push(cloneJson(ref));
+    }
+  };
+  for (const event of events || []) {
+    const payload = eventPayload(event);
+    const bundle = payload.operationBundle || {};
+    if (payload.recallAuxiliaryRewrite?.mode === 'snapshot') {
+      refs = [];
+      seen.clear();
+    }
+    addRefs(bundle.recallAuxiliaryRefs || []);
+    addRefs(payload.recallAuxiliaryRefs || []);
+  }
+  return refs;
+}
+
+function replaceRecallAuxiliaryRefs(value, refs = []) {
+  if (Array.isArray(value)) return value.map((entry) => replaceRecallAuxiliaryRefs(entry, refs));
+  if (!value || typeof value !== 'object') return cloneJson(value);
+  const next = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === 'recallAuxiliaryRefs' && Array.isArray(entry)) {
+      next[key] = refs.map(cloneJson);
+    } else {
+      next[key] = replaceRecallAuxiliaryRefs(entry, refs);
+    }
+  }
+  return next;
+}
+
+async function forkRecallAuxiliaryArtifactsForSaveBranch(adapter, {
+  sourceState,
+  mutation,
+  targetSaveId,
+  targetBranchId,
+  now = null
+} = {}) {
+  const sourceRefs = recallAuxiliaryRefsFromEvents(sourceState?.events || []);
+  if (sourceRefs.length === 0) {
+    return {
+      sourceRefs: [],
+      targetRefs: [],
+      trace: {
+        inputCount: 0,
+        outputCount: 0,
+        forkedCount: 0
+      }
+    };
+  }
+  const sourceEntries = await readCoreRecallIndexAuxiliaryEntries(adapter, sourceRefs);
+  const result = applyRecallSourceMutation({ entries: sourceEntries, mutation });
+  const targetEntries = (result.entries || [])
+    .filter((entry) => entry.saveId === targetSaveId && entry.branchId === targetBranchId)
+    .map(cloneJson);
+  const targetRefs = await writeCoreRecallIndexAuxiliarySegments(adapter, {
+    campaignId: sourceState.campaignId,
+    saveId: targetSaveId,
+    branchId: targetBranchId,
+    transactionId: 'save-as',
+    batchId: `save-as-${hashStableJson({ sourceSaveId: sourceState.saveId }).slice(0, 12)}`,
+    entries: targetEntries,
+    createdAt: typeof now === 'function' ? now() : now,
+    source: 'save-as-recall-fork'
+  });
+  return {
+    sourceRefs,
+    targetRefs,
+    trace: {
+      ...cloneJson(result.trace || {}),
+      targetEntryCount: targetEntries.length,
+      sourceRefCount: sourceRefs.length,
+      targetRefCount: targetRefs.length
+    }
+  };
+}
+
+async function rewriteRecallAuxiliaryArtifactsForSourceMutation(adapter, {
+  state,
+  mutation,
+  transactionId = null,
+  recoveryCaseId = null,
+  now = null
+} = {}) {
+  if (!mutation?.kind) return null;
+  const sourceRefs = recallAuxiliaryRefsFromEvents(state?.events || []);
+  if (sourceRefs.length === 0) {
+    return {
+      kind: 'directive.recallAuxiliaryRewrite.v1',
+      mode: 'snapshot',
+      sourceRefs: [],
+      targetRefs: [],
+      trace: {
+        inputCount: 0,
+        outputCount: 0,
+        invalidatedCount: 0,
+        forkedCount: 0,
+        sourceRefCount: 0,
+        targetRefCount: 0
+      }
+    };
+  }
+  const sourceEntries = await readCoreRecallIndexAuxiliaryEntries(adapter, sourceRefs);
+  const result = applyRecallSourceMutation({ entries: sourceEntries, mutation });
+  const targetRefs = await writeCoreRecallIndexAuxiliarySegments(adapter, {
+    campaignId: state.campaignId,
+    saveId: state.saveId,
+    branchId: state.branchId,
+    transactionId,
+    batchId: `source-mutation-${hashStableJson({
+      transactionId,
+      recoveryCaseId,
+      mutationHash: mutation.hash
+    }).slice(0, 12)}`,
+    entries: result.entries || [],
+    createdAt: typeof now === 'function' ? now() : now,
+    source: 'repair-source-mutation-recall-rewrite'
+  });
+  return {
+    kind: 'directive.recallAuxiliaryRewrite.v1',
+    mode: 'snapshot',
+    sourceRefs,
+    targetRefs,
+    trace: {
+      ...cloneJson(result.trace || {}),
+      sourceRefCount: sourceRefs.length,
+      targetRefCount: targetRefs.length
+    }
+  };
 }
 
 function sanitizeRecoverySourceMutation(value = {}) {
@@ -416,6 +679,7 @@ function operationBundleRef(bundle = {}) {
     scenePhaseSealRefs: Array.isArray(bundle.scenePhaseSealRefs) ? bundle.scenePhaseSealRefs.map(sanitizeDiagnostic) : undefined,
     pressureArcDigestRefs: Array.isArray(bundle.pressureArcDigestRefs) ? bundle.pressureArcDigestRefs.map(sanitizeDiagnostic) : undefined,
     recallEntryRefs: Array.isArray(bundle.recallEntryRefs) ? bundle.recallEntryRefs.map(sanitizeDiagnostic) : undefined,
+    recallAuxiliaryRefs: Array.isArray(bundle.recallAuxiliaryRefs) ? bundle.recallAuxiliaryRefs.map(sanitizeDiagnostic) : undefined,
     recallRevisions: bundle.recallRevisions ? sanitizeDiagnostic(bundle.recallRevisions) : undefined,
     forgeBatchRef,
     rejectedRefs: Array.isArray(bundle.rejectedRefs) ? bundle.rejectedRefs.map(sanitizeDiagnostic) : undefined,
@@ -1484,6 +1748,8 @@ export function buildCoreStoreReadProjections(state = {}) {
           reason: payload.recoveryCase?.reason || null,
           sourceFrameId: transactionMap?.[transactionId]?.sourceFrameId || event.sourceFrameId || null,
           sourceMutation: cloneJson(payload.sourceMutation || null),
+          recallAuxiliaryRefs: Array.isArray(payload.recallAuxiliaryRefs) ? payload.recallAuxiliaryRefs.map(cloneJson) : undefined,
+          recallAuxiliaryRewrite: payload.recallAuxiliaryRewrite ? cloneJson(payload.recallAuxiliaryRewrite) : undefined,
           repairDecision: cloneJson(payload.repairDecision || null),
           responseRetryPlan: cloneJson(payload.responseRetryPlan || null),
           dependentOutcomeId: payload.dependentOutcomeId || null,
@@ -1578,7 +1844,8 @@ export function buildCoreStoreReadProjections(state = {}) {
     pressureArcDigestRevision: pressureArcDigestRevisionFromRefs(pressureArcDigestRefs),
     recallIndex: {
       revision: recallRevisionFromEntryRefs(recallEntryRefs),
-      entryRefs: recallEntryRefs
+      entryRefs: recallEntryRefs,
+      auxiliaryRefs: recallAuxiliaryRefsFromEvents(state.events || [])
     }
   };
 }
@@ -1937,7 +2204,27 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
     missingOk: true,
     now
   });
-  if (!sourceState) return null;
+  const timestamp = typeof now === 'function' ? now() : (now || isoNow());
+  const recallSourceMutation = createRecallSourceMutation({
+    action: 'save-as',
+    campaignId: id,
+    saveId: sourceSave,
+    branchId: sourceState?.branchId || sourceSave,
+    targetSaveId: targetSave,
+    targetBranchId: targetBranch,
+    reason: sourceState ? 'save-as-core-branch-clone' : 'save-as-core-branch-clone-source-missing',
+    occurredAt: timestamp
+  });
+  if (!sourceState) {
+    return {
+      state: null,
+      checkpointCount: 0,
+      skipped: true,
+      reason: 'source-core-state-missing',
+      recallSourceMutation,
+      saveManifestRef: null
+    };
+  }
   const retargetOptions = {
     campaignId: id,
     sourceSaveId: sourceSave,
@@ -1946,9 +2233,18 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
     sourceChatId,
     targetChatId
   };
-  const timestamp = typeof now === 'function' ? now() : (now || isoNow());
+  const recallAuxiliaryRewrite = await forkRecallAuxiliaryArtifactsForSaveBranch(adapter, {
+    sourceState,
+    mutation: recallSourceMutation,
+    targetSaveId: targetSave,
+    targetBranchId: targetBranch,
+    now: timestamp
+  });
   const targetState = {
-    ...retargetCoreValueForSaveBranch(sourceState, retargetOptions),
+    ...replaceRecallAuxiliaryRefs(
+      retargetCoreValueForSaveBranch(sourceState, retargetOptions),
+      recallAuxiliaryRewrite.targetRefs
+    ),
     campaignId: id,
     saveId: targetSave,
     branchId: targetBranch,
@@ -1977,7 +2273,9 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
       source: 'save-as-core-branch-clone',
       parentSaveId: sourceSave,
       targetSaveId: targetSave,
-      checkpointCount: checkpoints.length
+      checkpointCount: checkpoints.length,
+      recallSourceMutation,
+      recallAuxiliaryRewrite
     },
     importedFrom: {
       campaignId: id,
@@ -1990,6 +2288,9 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
   return {
     state: cloneJson(targetState),
     checkpointCount: checkpoints.length,
+    skipped: false,
+    recallSourceMutation: cloneJson(recallSourceMutation),
+    recallAuxiliaryRewrite: cloneJson(recallAuxiliaryRewrite),
     saveManifestRef: cloneJson(commit.saveManifestRef || null)
   };
 }
@@ -2733,11 +3034,6 @@ export function createCoreStoreV2({
           ? 'responseRetryRequired'
           : 'recoveryRequired');
       assertPhaseTransition(transaction.phase, phaseAfter);
-      const stateBefore = cloneJson(state);
-      const deltaCursor = eventTurnDeltaCursor();
-      const revisionsBefore = cloneJson(state.revisions);
-      state.updatedAt = timestamp();
-      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
       const recoveryCase = {
         id: recoveryBundle.id || `recovery:${transaction.id}`,
         status: recoveryBundle.status || 'required',
@@ -2745,6 +3041,19 @@ export function createCoreStoreV2({
         reason: recoveryBundle.reason || null,
         detailsHash: hashStableJson(recoveryBundle)
       };
+      const sourceMutation = sanitizeRecoverySourceMutation(recoveryBundle.sourceMutation || {});
+      const recallAuxiliaryRewrite = await rewriteRecallAuxiliaryArtifactsForSourceMutation(adapter, {
+        state,
+        mutation: sourceMutation.recallSourceMutation || null,
+        transactionId: transaction.id,
+        recoveryCaseId: recoveryCase.id,
+        now: timestamp()
+      });
+      const stateBefore = cloneJson(state);
+      const deltaCursor = eventTurnDeltaCursor();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
       state.counters.recoveries += 1;
       touchTransaction(transaction, {
         phase: phaseAfter,
@@ -2756,7 +3065,13 @@ export function createCoreStoreV2({
         payload: {
           recoveryCase,
           phaseAfter,
-          sourceMutation: sanitizeRecoverySourceMutation(recoveryBundle.sourceMutation || {}),
+          sourceMutation,
+          recallAuxiliaryRefs: recallAuxiliaryRewrite?.targetRefs?.length
+            ? recallAuxiliaryRewrite.targetRefs.map(sanitizeDiagnostic)
+            : undefined,
+          recallAuxiliaryRewrite: recallAuxiliaryRewrite
+            ? sanitizeDiagnostic(recallAuxiliaryRewrite)
+            : undefined,
           repairDecision: sanitizeDiagnostic(recoveryBundle.repairDecision || {}),
           responseRetryPlan: compactResponseRetryPlan(recoveryBundle.responseRetryPlan || {}),
           continuityProjection: compactContinuityRecoveryProjection(recoveryBundle.continuityProjection || {}),
@@ -2918,6 +3233,27 @@ export function createCoreStoreV2({
       const phaseAfter = operationBundle.phaseAfter
         ? assertPhaseTransition(transaction.phase, operationBundle.phaseAfter)
         : assertPhaseTransition(transaction.phase, 'backgroundSettling');
+      const recallEntries = collectRecallEntriesFromOperationBundle(operationBundle);
+      const recallAuxiliaryRefs = await writeCoreRecallIndexAuxiliarySegments(adapter, {
+        campaignId: state.campaignId,
+        saveId: state.saveId,
+        branchId: state.branchId,
+        transactionId: transaction.id,
+        batchId,
+        entries: recallEntries,
+        createdAt: timestamp(),
+        source: 'core-background-batch'
+      });
+      const operationBundleForEvent = {
+        ...operationBundle,
+        recallEntries: undefined,
+        recallAuxiliaryRefs: recallAuxiliaryRefs.length > 0
+          ? [
+            ...(Array.isArray(operationBundle.recallAuxiliaryRefs) ? operationBundle.recallAuxiliaryRefs : []),
+            ...recallAuxiliaryRefs
+          ]
+          : operationBundle.recallAuxiliaryRefs
+      };
       const deltaCursor = eventTurnDeltaCursor();
       const revisionsBefore = cloneJson(state.revisions);
       state.updatedAt = timestamp();
@@ -2928,7 +3264,7 @@ export function createCoreStoreV2({
       if (hasPromptDirty) state.promptDirtyDomains.push(...operationBundle.promptDirtyDomains);
       state.counters.backgrounds += 1;
       const bundleRef = operationBundleRef({
-        ...operationBundle,
+        ...operationBundleForEvent,
         batchId
       });
       const backgroundRef = backgroundBatchRefFromBundle(bundleRef, {
