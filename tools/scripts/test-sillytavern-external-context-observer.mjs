@@ -5,6 +5,9 @@ import {
   observeSillyTavernExternalPromptEnvironment,
   summarizeSillyTavernExternalMessageMarkers
 } from '../../src/hosts/sillytavern/external-context-observer.mjs';
+import {
+  summarizeExternalPromptEnvironmentTargets
+} from '../../src/runtime/architecture-redesign-contracts.mjs';
 
 const context = {
   userHandle: 'directive-soak-c',
@@ -28,6 +31,10 @@ const context = {
     world_info_depth: 3,
     world_info_budget: 100,
     world_info_recursive: true,
+    timing: {
+      promptComposeLatencyMs: 12,
+      rawTimingPayload: 'Raw lorebook timing payload must not persist.'
+    },
     rawPromptBody: 'Raw world info body must not persist.'
   },
   extensionSettings: {
@@ -40,6 +47,11 @@ const context = {
         sidePromptsEnabled: true,
         summaryEntrySettings: {
           position: 4
+        },
+        timing: {
+          memoryScanLatencyMs: 18,
+          retrievalLatencyMs: 21,
+          rawTimingPayload: 'Raw Memory Books timing payload must not persist.'
         }
       },
       entryCount: 4,
@@ -49,6 +61,10 @@ const context = {
     summaryception: {
       enabled: true,
       connectionSource: 'custom',
+      timing: {
+        summaryLatencyMs: 44,
+        rawTimingPayload: 'Raw Summaryception timing payload must not persist.'
+      },
       promptText: 'Raw Summaryception prompt must not persist.'
     },
     vectfox: {
@@ -122,12 +138,19 @@ assert.equal(environment.memoryBooks.riskyModes.autoCreate, true);
 assert.equal(environment.memoryBooks.riskyModes.autoHideUnhide, true);
 assert.equal(environment.memoryBooks.riskyModes.sidePrompts, true);
 assert.equal(environment.memoryBooks.riskyModes.atDepthUserOrAssistant, true);
+assert.equal(environment.memoryBooks.timingDiagnostics.scanLatencyMs, 18);
+assert.equal(environment.memoryBooks.timingDiagnostics.retrievalLatencyMs, 21);
+assert.equal(environment.memoryBooks.timingDiagnostics.source, 'memoryBooks');
+assert.match(environment.memoryBooks.timingDiagnostics.timingHash, /^[a-f0-9]{64}$/);
 assert.equal(environment.summaryception.enabled, true);
 assert.equal(environment.summaryception.promptKeyActive, true);
 assert.equal(environment.summaryception.summarizedUpTo, 8);
 assert.equal(environment.summaryception.layerCount, 1);
 assert.equal(environment.summaryception.ghostedCount, 2);
 assert.equal(environment.summaryception.externalModelCalls, true);
+assert.equal(environment.summaryception.timingDiagnostics.summaryLatencyMs, 44);
+assert.equal(environment.summaryception.timingDiagnostics.source, 'summaryception');
+assert.match(environment.summaryception.timingDiagnostics.timingHash, /^[a-f0-9]{64}$/);
 assert.equal(environment.vectFox.enabled, true);
 assert.equal(environment.vectFox.backendType, 'qdrant');
 assert.equal(environment.vectFox.semanticWorldInfoEnabled, true);
@@ -142,6 +165,9 @@ assert.equal(environment.knownExternalPromptKeys.includes('third_party_context_b
 assert.equal(environment.unknownExternalContext.status, 'observed');
 assert.equal(environment.unknownExternalContext.promptKeyCount, 1);
 assert.equal(environment.unknownExternalContext.promptKeyPrefixes.includes('third_party_context_block'), true);
+assert.equal(environment.worldInfo.timingDiagnostics.composeLatencyMs, 12);
+assert.equal(environment.worldInfo.timingDiagnostics.source, 'stLorebooks');
+assert.match(environment.worldInfo.timingDiagnostics.timingHash, /^[a-f0-9]{64}$/);
 assert.match(environment.unknownExternalContext.promptKeyHash, /^[a-f0-9]{64}$/);
 assert.match(environment.unknownExternalContext.promptKeyPrefixHash, /^[a-f0-9]{64}$/);
 assert.equal(environment.unknownExternalContext.redactionReason, 'prompt-key-hash-only');
@@ -160,6 +186,10 @@ assert.equal(environment.redactions.some((entry) => entry.reason === 'secret'), 
 assert.equal(environment.redactions.some((entry) => entry.reason === 'raw-payload'), true);
 assert.match(environment.hash, /^[a-f0-9]{64}$/);
 assert.equal(environment.byteLength > 0, true);
+const targetSummaries = summarizeExternalPromptEnvironmentTargets(environment);
+assert.equal(targetSummaries.stLorebooks.timingDiagnostics.composeLatencyMs, 12);
+assert.equal(targetSummaries.memoryBooks.timingDiagnostics.scanLatencyMs, 18);
+assert.equal(targetSummaries.summaryception.timingDiagnostics.summaryLatencyMs, 44);
 
 const settingsOnlySummaryception = observeSillyTavernExternalPromptEnvironment({
   userHandle: 'directive-soak-a',
@@ -201,6 +231,9 @@ assert.equal(serialized.includes('Raw Memory Books'), false);
 assert.equal(serialized.includes('Raw world info'), false);
 assert.equal(serialized.includes('Raw generated memory'), false);
 assert.equal(serialized.includes('Raw unknown external context'), false);
+assert.equal(serialized.includes('Raw lorebook timing payload'), false);
+assert.equal(serialized.includes('Raw Memory Books timing payload'), false);
+assert.equal(serialized.includes('Raw Summaryception timing payload'), false);
 
 const previousGlobalChatMetadata = globalThis.chat_metadata;
 const previousGlobalWorldInfoSettings = globalThis.world_info_settings;

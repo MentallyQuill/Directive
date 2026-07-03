@@ -15,6 +15,7 @@ import {
   createSourceToken,
   createTurnSourceFrameRef
 } from '../runtime/frame-contracts.mjs';
+import { createRuntimeLedgerView } from '../runtime/runtime-ledger-view.mjs';
 import { normalizePromptDirtyDomains } from '../runtime/lens-prompt-scheduler.mjs';
 import { hashStableJson } from '../runtime/architecture-redesign-contracts.mjs';
 
@@ -728,7 +729,8 @@ function workerRequiredShape(workerKey, worker, revision, turnContext = {}) {
 
 function ingressById(campaignState, ingressId) {
   if (!ingressId) return null;
-  return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
+  return (createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [])
+    .find((entry) => entry.id === ingressId) || null;
 }
 
 function sourceIngressSnapshot(campaignState, ingressId) {
@@ -3206,5 +3208,6 @@ export const __campaignSidecarSchedulerTestHooks = Object.freeze({
   WORKERS,
   parseProposal,
   sidecarContext,
+  sourceIngressSnapshot,
   proposalPrompt
 });

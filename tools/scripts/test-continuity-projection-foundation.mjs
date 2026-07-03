@@ -74,6 +74,8 @@ assert.match(travelText, /Utopia Planitia/i);
 assert.match(travelText, /ten-day/i);
 assert.match(travelText, /5\.5 to 6 light-years/i);
 assert.match(travelText, /drops to impulse.*transfer waypoint/i);
+assert.match(travelText, /do not depict.*holding course at warp/i);
+assert.match(travelText, /streaking stars at warp/i);
 assert.match(travelText, /shuttlebay two.*aft section between the swept nacelle pylons/i);
 assert.match(travelText, /Do not describe.*six days at impulse/i);
 assert.doesNotMatch(travelText, /six days since leaving Utopia Planitia/i);
@@ -287,6 +289,20 @@ const samInferredFact = createContinuityFact({
   knownBy: ['sam-vickers'],
   subjectIds: ['sam-vickers']
 });
+const samPublicScopedFact = createContinuityFact({
+  id: 'witness.sam.public-scoped-report',
+  kind: 'witness.scoped',
+  subject: 'crew.sam-vickers',
+  predicate: 'public-scoped-report',
+  summary: 'Sam has a witness-scoped report even though disclosure defaults public.',
+  render: {
+    narrator: 'Sam has a witness-scoped report even though disclosure defaults public.'
+  },
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers']
+});
 assert.deepEqual(bronnScopedFact.knownBy, ['hadrik-bronn']);
 assert.deepEqual(bronnScopedFact.witnessedBy, ['hadrik-bronn']);
 assert.deepEqual(bronnScopedFact.subjectIds, ['hadrik-bronn']);
@@ -326,6 +342,63 @@ assert.equal(perspectiveFactIndex.facts.some((fact) => fact.id === objectiveRumo
 assert.equal(perspectiveFactIndex.facts.some((fact) => fact.id === samFalseBeliefFact.id), true);
 assert.equal(perspectiveFactIndex.conflicts.some((conflict) => conflict.rejectedFactId === samFalseBeliefFact.id), false);
 
+const bronnPerspectiveFactIndex = buildContinuityFactIndex({
+  campaignState: {
+    ...campaignState,
+    continuity: {
+      ...campaignState.continuity,
+      acceptedFacts: [bronnScopedFact, samScopedFact, seniorStaffScopedFact, samPublicScopedFact]
+    }
+  },
+  packageData: null,
+  crewDataset: null,
+  shipDataset: null,
+  campaignProjection: null,
+  sourceFrame: {
+    presentActorIds: ['hadrik-bronn'],
+    actorGroups: {
+      'senior-staff': ['hadrik-bronn', 'sam-vickers']
+    }
+  }
+});
+assert.equal(bronnPerspectiveFactIndex.facts.some((fact) => fact.id === bronnScopedFact.id), true);
+assert.equal(bronnPerspectiveFactIndex.facts.some((fact) => fact.id === seniorStaffScopedFact.id), true);
+assert.equal(bronnPerspectiveFactIndex.facts.some((fact) => fact.id === samScopedFact.id), false);
+assert.equal(bronnPerspectiveFactIndex.facts.some((fact) => fact.id === samPublicScopedFact.id), false);
+assert.equal(
+  bronnPerspectiveFactIndex.rejected.some((rejection) => (
+    rejection.factId === samScopedFact.id
+    && rejection.reason === 'source-frame-knowledge-gate'
+  )),
+  true
+);
+assert.equal(
+  bronnPerspectiveFactIndex.rejected.some((rejection) => (
+    rejection.factId === samPublicScopedFact.id
+    && rejection.reason === 'source-frame-knowledge-gate'
+  )),
+  true
+);
+
+const samPerspectiveFactIndex = buildContinuityFactIndex({
+  campaignState: {
+    ...campaignState,
+    continuity: {
+      ...campaignState.continuity,
+      acceptedFacts: [bronnScopedFact, samScopedFact]
+    }
+  },
+  packageData: null,
+  crewDataset: null,
+  shipDataset: null,
+  campaignProjection: null,
+  sourceFrame: {
+    presentActorIds: ['sam-vickers']
+  }
+});
+assert.equal(samPerspectiveFactIndex.facts.some((fact) => fact.id === samScopedFact.id), true);
+assert.equal(samPerspectiveFactIndex.facts.some((fact) => fact.id === bronnScopedFact.id), false);
+
 const matrix = buildContinuityProjectionMatrix({
   campaignState,
   packageData,
@@ -347,6 +420,34 @@ assert.match(matrix.text, /six days at impulse/i);
 assert.match(matrix.text, /Deck 10.*aft dorsal secondary hull/i);
 assert.match(matrix.text, /saucer-underside/i);
 assert.doesNotMatch(matrix.text, /directorOnly|rawValues/i);
+
+const bronnMatrixScopedState = {
+  ...campaignState,
+  continuity: {
+    ...campaignState.continuity,
+    acceptedFacts: [bronnScopedFact, samPublicScopedFact]
+  }
+};
+const bronnMatrixScopedFacts = buildContinuityProjectionMatrix({
+  campaignState: bronnMatrixScopedState,
+  packageData: null,
+  crewDataset: null,
+  shipDataset: null,
+  campaignProjection: null,
+  scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] },
+  projectionPlan: {
+    kind: CONTINUITY_PLAN_KIND,
+    operations: [
+      { factId: bronnScopedFact.id, lane: 'directive.continuity.domain', reason: 'actor-known-private-fact' },
+      { factId: samPublicScopedFact.id, lane: 'directive.continuity.domain', reason: 'public-but-scoped-fact' }
+    ],
+    omitted: []
+  },
+  createdAt: '2026-06-26T00:00:00.000Z'
+});
+assert.match(bronnMatrixScopedFacts.text, /Bronn privately knows the sensor archive/i);
+assert.doesNotMatch(bronnMatrixScopedFacts.text, /witness-scoped report even though disclosure defaults public/i);
+assert.equal(bronnMatrixScopedFacts.plan.selectedFactIds.includes(samPublicScopedFact.id), false);
 
 const turnRelevantMatrix = buildContinuityProjectionMatrix({
   campaignState,
@@ -462,10 +563,6 @@ assert.doesNotMatch(witnessMatrix.text, /mediator planted a false corridor rumor
 assert.equal(witnessMatrix.plan.selectedFactIds.includes(bronnScopedFact.id), true);
 assert.equal(witnessMatrix.plan.selectedFactIds.includes(seniorStaffScopedFact.id), true);
 assert.equal(witnessMatrix.plan.selectedFactIds.includes(samScopedFact.id), false);
-assert.equal(
-  witnessMatrix.plan.rejections.some((rejection) => rejection.factId === samScopedFact.id && rejection.reason === 'witness-scope-blocked-fact'),
-  true
-);
 const witnessDomainBlock = witnessMatrix.blocks.find((block) => block.promptKey === 'directive.continuity.domain');
 assert.equal(
   witnessDomainBlock.promptBudgetRefs.some((ref) => ref.id === bronnScopedFact.id && ref.lensPromptBudgetLane === 'activeCast'),

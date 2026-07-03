@@ -18,6 +18,10 @@ function asString(value, fallback = null) {
   return text || fallback;
 }
 
+function compactObject(value = {}) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
+}
+
 function truthy(value) {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
@@ -310,6 +314,26 @@ function vectFoxBackendDiagnostics(vectFoxSettings = {}, markers = {}) {
   };
 }
 
+function externalTimingDiagnostics(input = {}, source = null) {
+  const timing = asObject(input.timing);
+  const diagnostics = compactObject(Object.fromEntries(Object.entries({
+    observed: truthy(input.timingObserved) || truthy(timing.observed),
+    composeLatencyMs: boundedInteger(input.composeLatencyMs ?? input.promptComposeLatencyMs ?? timing.composeLatencyMs ?? timing.promptComposeLatencyMs),
+    scanLatencyMs: boundedInteger(input.scanLatencyMs ?? input.worldInfoScanLatencyMs ?? input.memoryScanLatencyMs ?? timing.scanLatencyMs ?? timing.worldInfoScanLatencyMs ?? timing.memoryScanLatencyMs),
+    retrievalLatencyMs: boundedInteger(input.retrievalLatencyMs ?? input.lastRetrievalLatencyMs ?? timing.retrievalLatencyMs ?? timing.lastRetrievalLatencyMs),
+    summaryLatencyMs: boundedInteger(input.summaryLatencyMs ?? input.lastSummaryLatencyMs ?? timing.summaryLatencyMs ?? timing.lastSummaryLatencyMs),
+    interceptorLatencyMs: boundedInteger(input.interceptorLatencyMs ?? input.lastInterceptorLatencyMs ?? timing.interceptorLatencyMs ?? timing.lastInterceptorLatencyMs),
+    source
+  }).filter(([, value]) => value !== null)));
+  const observed = diagnostics.observed
+    || diagnostics.composeLatencyMs !== null
+    || diagnostics.scanLatencyMs !== null
+    || diagnostics.retrievalLatencyMs !== null
+    || diagnostics.summaryLatencyMs !== null
+    || diagnostics.interceptorLatencyMs !== null;
+  return observed ? diagnostics : undefined;
+}
+
 export function observeSillyTavernExternalPromptEnvironment(context = null, options = {}) {
   const resolvedContext = context || globalThis.SillyTavern?.getContext?.() || null;
   const observedAt = options.observedAt || new Date().toISOString();
@@ -374,7 +398,8 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
       depth: worldInfoSettings.world_info_depth,
       budgetPercent: worldInfoSettings.world_info_budget,
       recursive: worldInfoSettings.world_info_recursive,
-      promptPositions: extensionPromptPositions(promptKeys)
+      promptPositions: extensionPromptPositions(promptKeys),
+      timingDiagnostics: externalTimingDiagnostics(worldInfoSettings, 'stLorebooks')
     },
     memoryBooks: {
       installed: objectKeyCount(memoryBooksSettings) > 0 || Boolean(globalThis.STMemoryBooks || globalThis.SillyTavernMemoryBooks),
@@ -395,7 +420,12 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
         autoHideUnhide: truthy(memoryBooksModule.unhideBeforeMemory) || Boolean(memoryBooksModule.autoHideMode),
         sidePrompts: truthy(memoryBooksModule.sidePromptsEnabled) || truthy(memoryBooksModule.sidePrompts?.enabled),
         atDepthUserOrAssistant: Number(memoryBooksModule.summaryEntrySettings?.position) === 4
-      }
+      },
+      timingDiagnostics: externalTimingDiagnostics({
+        ...memoryBooksSettings,
+        ...memoryBooksModule,
+        timing: memoryBooksSettings.timing || memoryBooksModule.timing
+      }, 'memoryBooks')
     },
     summaryception: {
       installed: objectKeyCount(summaryceptionSettings) > 0 || Boolean(globalThis.Summaryception || globalThis.summaryception),
@@ -410,7 +440,12 @@ export function observeSillyTavernExternalPromptEnvironment(context = null, opti
         chatLength
       }),
       injectionHash: objectKeyCount(summaryceptionSettings) > 0 ? safeHash(summaryceptionSettings) : null,
-      externalModelCalls: Boolean(summaryceptionSettings.connectionSource && summaryceptionSettings.connectionSource !== 'profile')
+      externalModelCalls: Boolean(summaryceptionSettings.connectionSource && summaryceptionSettings.connectionSource !== 'profile'),
+      timingDiagnostics: externalTimingDiagnostics({
+        ...summaryceptionSettings,
+        ...summaryceptionMetadata,
+        timing: summaryceptionSettings.timing || summaryceptionMetadata.timing
+      }, 'summaryception')
     },
     vectFox: {
       installed: objectKeyCount(vectFoxSettings) > 0 || Boolean(globalThis.VectFox || globalThis.vectFox || globalThis.vectfox),

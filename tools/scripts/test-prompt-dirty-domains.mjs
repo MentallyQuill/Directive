@@ -290,6 +290,119 @@ const campaignContext = {
   shipDatasetHash: 'ship-hash-1',
   projectionHash: 'projection-hash-1'
 };
+
+const inspectionHarness = createHarness({
+  nowPrefix: '2026-06-28T20:05',
+  nowValues: [
+    '2026-06-28T20:05:01.000Z',
+    '2026-06-28T20:05:02.000Z',
+    '2026-06-28T20:05:03.000Z',
+    '2026-06-28T20:05:04.000Z'
+  ]
+});
+await beginTransaction(inspectionHarness, {
+  transactionId: 'txn-lens-inspection-bundle',
+  route: 'directiveCommit',
+  hostMessageId: '75'
+});
+const inspectionRefHash = 'b'.repeat(64);
+const inspectionTargets = {
+  stLorebooks: {
+    status: 'active',
+    installed: true,
+    enabled: true,
+    active: true,
+    activeNameCount: 1,
+    promptPositions: ['before'],
+    directiveAuthority: false,
+    rawContentCaptured: false
+  },
+  memoryBooks: {
+    status: 'valid',
+    installed: true,
+    enabled: true,
+    active: true,
+    entryCount: 3,
+    rangeDiagnostics: { status: 'valid', rangeHash: 'memory-range-hash' },
+    directiveAuthority: false,
+    rawContentCaptured: false
+  },
+  summaryception: {
+    status: 'current',
+    installed: true,
+    enabled: true,
+    promptKeyActive: true,
+    staleness: { status: 'current' },
+    directiveAuthority: false,
+    rawContentCaptured: false
+  },
+  vectFox: {
+    status: 'external-backend-configured',
+    installed: true,
+    enabled: true,
+    backendDiagnostics: { status: 'external-backend-configured', backendType: 'qdrant' },
+    directiveAuthority: false,
+    rawContentCaptured: false
+  }
+};
+const inspectionLens = createLensPromptScheduler({
+  coreStore: inspectionHarness.coreStore,
+  clock: inspectionHarness.clock,
+  buildDirectivePromptPacket: async ({ revision }) => ({
+    revision,
+    hash: `inspection-packet-${revision}`,
+    blocks: [{
+      id: 'inspection-visible',
+      promptKey: 'directive.lens.inspection-visible',
+      title: 'Inspection Visible Prompt',
+      text: 'Compact external inspection proof.',
+      placement: 'inPrompt',
+      depth: 0,
+      role: 'system'
+    }]
+  }),
+  installPromptPacket: async () => ({ ok: true }),
+  observeExternalPromptEnvironment: async () => ({
+    host: 'sillytavern',
+    externalPromptEnvironmentRef: {
+      kind: 'directive.externalPromptEnvironmentRef.v1',
+      hash: inspectionRefHash,
+      byteLength: 777,
+      status: 'observed',
+      observedAt: '2026-06-28T20:05:00.000Z',
+      knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore']
+    },
+    knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore'],
+    externalPromptEnvironmentTargets: inspectionTargets,
+    rawPromptBody: 'RAW_INSPECTION_BUNDLE_PROMPT',
+    vectFox: {
+      vectorPayload: ['RAW_INSPECTION_BUNDLE_VECTOR']
+    }
+  })
+});
+inspectionLens.markDirty({
+  lane: 'visible',
+  source: 'prompt-adapter-inspection',
+  dirtyDomains: ['continuity'],
+  idempotencyKey: 'dirty-inspection-bundle'
+});
+const inspectionFlush = await inspectionLens.flush({
+  transactionId: 'txn-lens-inspection-bundle',
+  lane: 'visible',
+  binding,
+  campaignContext,
+  promptFrame: { turnSourceHash: 'turn-source-hash-inspection-bundle' },
+  reason: 'inspection-bundle-visible'
+});
+assert.equal(inspectionFlush.status, 'installed');
+assert.equal(inspectionFlush.externalPromptEnvironmentRef.hash, inspectionRefHash);
+assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentRef.hash, inspectionRefHash);
+assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.memoryBooks.rangeDiagnostics.status, 'valid');
+assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.summaryception.staleness.status, 'current');
+assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.status, 'external-backend-configured');
+assert.equal(JSON.stringify(inspectionHarness.coreStore.state).includes('RAW_INSPECTION_BUNDLE_PROMPT'), false);
+assert.equal(JSON.stringify(inspectionHarness.coreStore.state).includes('RAW_INSPECTION_BUNDLE_VECTOR'), false);
+
 const visibleFlush = await lens.flush({
   transactionId: 'txn-lens-visible',
   lane: 'visible',

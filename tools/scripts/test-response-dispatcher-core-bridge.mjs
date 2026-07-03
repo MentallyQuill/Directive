@@ -281,6 +281,16 @@ assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.hostGenerat
 assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.directiveGenerationStartedAt, null);
 assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.providerCompletionLatencyMs, null);
   const persistedProjection = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
+  const hostReleaseProjection = persistedProjection.responseLedger.find((entry) => entry.id === 'response-core-bridge-1');
+  assert.ok(hostReleaseProjection, 'CORE host-continue projection must carry the dispatcher response id.');
+  assert.equal(hostReleaseProjection.status, 'hostContinueReleased');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).authority, 'compatibilityProjection');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).projectionSource, 'coreStoreV2');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).coreProjection.responseId, 'response-core-bridge-1');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.source, 'coreStoreV2');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.mirroredOperation, 'hostContinueRelease');
+  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.transactionId, transaction.id);
   assert.equal(persistedProjection.ingressLedger[0].status, 'hostContinueReleased');
   const hostTimingProjection = persistedProjection.turnTiming.find((entry) => entry.transactionId === transaction.id);
   assert.ok(hostTimingProjection, 'CORE persisted projections expose hostContinue timing');
@@ -324,6 +334,14 @@ assert.equal(coreStore.state.transactions[transaction.id].visibleResponseRef.kin
 assert.equal(coreStore.state.transactions[transaction.id].visibleResponseRef.textHash, observedTextHash);
 const completedResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-bridge-1');
 assert.equal(completedResponse.status, 'complete');
+assert.equal(completedResponse.authority, 'compatibilityProjection');
+assert.equal(completedResponse.projectionSource, 'coreStoreV2');
+assert.equal(completedResponse.coreProjection.responseId, 'response-core-bridge-1');
+assert.equal(completedResponse.coreProjection.status, 'posted');
+assert.equal(completedResponse.compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
+assert.equal(completedResponse.compatibilityMirror.source, 'coreStoreV2');
+assert.equal(completedResponse.compatibilityMirror.mirroredOperation, 'hostNativeCompletion');
+assert.equal(completedResponse.compatibilityMirror.transactionId, transaction.id);
 assert.equal(completedResponse.hostObservation.hostMessageId, 'assistant-host-native-1');
 assert.equal(completedResponse.hostObservation.textHash, observedTextHash);
 assert.notEqual(completedResponse.hostObservation.textHash, staleObservedCallbackHash);
@@ -465,6 +483,9 @@ assert.equal(completionFailureObservation.status, 'coreRecoveryDiagnosticProject
 assert.equal(completionFailureRecordCalls, 1);
 const completionFailureResponse = completionFailureState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-completion-failure');
 assert.equal(completionFailureResponse.status, 'coreRecoveryDiagnosticProjected');
+assert.equal(completionFailureResponse.authority, 'compatibilityProjection');
+assert.equal(completionFailureResponse.projectionSource, 'coreStoreV2');
+assert.equal(completionFailureResponse.coreProjection.responseId, 'response-core-completion-failure');
 assert.equal(completionFailureResponse.recoveryId, null);
 assert.equal(completionFailureResponse.coreCompletionError, null);
 assert.equal(completionFailureState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'coreHostNativeCompletionFailure'), false);
@@ -492,6 +513,23 @@ assert.equal(completionFailureDuplicate.recoveryId, 'recovery:core-host-native-c
 assert.equal(completionFailureDuplicate.coreDiagnostic.worker, 'hostNativeCompletionRecord');
 
 const eventCountBeforeDuplicate = coreStore.state.events.length;
+const duplicateWithoutOldResponseLedger = await dispatcher.dispatch({
+  campaignState: {
+    ...state,
+    runtimeTracking: {
+      ...state.runtimeTracking,
+      responseLedger: []
+    }
+  },
+  ingressId: 'ingress-response-core-1',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-bridge-1'
+});
+assert.equal(duplicateWithoutOldResponseLedger.duplicate, true);
+assert.equal(duplicateWithoutOldResponseLedger.ok, true);
+assert.equal(hostReleaseCalls, 1, 'CORE-projected duplicate dispatch must not release host generation again when old responseLedger is absent');
+assert.equal(coreStore.state.events.length, eventCountBeforeDuplicate, 'CORE-projected duplicate dispatch must not advance CORE again');
 const duplicate = await dispatcher.dispatch({
   campaignState: state,
   ingressId: 'ingress-response-core-1',
@@ -608,11 +646,18 @@ const reobserveResult = await reobserveDispatcher.reobserveHostGenerationComplet
 assert.equal(reobserveResult.ok, true);
 assert.equal(reobserveRefreshCalls, 1);
 assert.equal(reobserveResult.refreshResult.ok, true);
+assert.equal(reobserveResult.checkedResponseCount, 1);
 assert.equal(reobserveResult.completedCount, 1);
 assert.equal(reobserveResult.results[0].status, 'complete');
 assert.equal(reobserveCoreStore.state.events.at(-1).type, 'visibleResponseRecorded');
 const reobservedResponse = reobserveState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-reobserve-1');
+assert.equal(reobservedResponse.id, 'response-core-reobserve-1');
 assert.equal(reobservedResponse.status, 'complete');
+assert.equal(reobservedResponse.authority, 'compatibilityProjection');
+assert.equal(reobservedResponse.projectionSource, 'coreStoreV2');
+assert.equal(reobservedResponse.coreProjection.responseId, 'response-core-reobserve-1');
+assert.equal(reobservedResponse.coreProjection.transactionId, 'txn-response-core-reobserve-1');
+assert.equal(reobservedResponse.coreProjection.status, 'posted');
 assert.equal(reobservedResponse.hostMessageId, 'assistant-core-reobserve-1');
 assert.equal(reobservedResponse.hostObservation.hostMessageId, 'assistant-core-reobserve-1');
 assert.equal(JSON.stringify(reobservedResponse).includes('The answer arrived through the bridge crew.'), false);
@@ -624,6 +669,68 @@ const reobservedProjectionResponse = reobserveProjection.responseLedger.find((en
 assert.equal(reobservedProjectionResponse.hostMessageId, 'assistant-core-reobserve-1');
 assert.equal(reobservedProjectionResponse.responseKind, 'hostContinue');
 assert.equal(reobservedProjectionResponse.textHash.length, 64);
+
+const silentReobserveState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-response-silent-reobserve' },
+  campaignChatBinding: {
+    hostId: 'fake',
+    chatId: 'ashes-chat-silent-reobserve',
+    campaignId: 'campaign-response-silent-reobserve',
+    saveId: 'save-response-silent-reobserve'
+  },
+  runtimeTracking: {
+    ingressLedger: [{
+      id: 'ingress-response-silent-reobserve',
+      hostMessageId: 'player-response-silent-reobserve',
+      chatId: 'ashes-chat-silent-reobserve',
+      campaignId: 'campaign-response-silent-reobserve',
+      status: 'classified'
+    }],
+    responseLedger: [{
+      id: 'response-silent-reobserve',
+      ingressId: 'ingress-response-silent-reobserve',
+      strategy: 'injectAndContinue',
+      responseKind: 'hostGeneration',
+      status: 'released'
+    }]
+  }
+});
+const silentReobserveDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Silent reobserve demotion test must not post Directive text.');
+      },
+      getRecentMessages: async () => [{
+        hostMessageId: 'player-response-silent-reobserve',
+        isUser: true,
+        text: 'Sam waited.'
+      }, {
+        hostMessageId: 'assistant-response-silent-reobserve',
+        isUser: false,
+        isSystem: false,
+        text: 'A silent old row should not be reobserved.'
+      }]
+    }
+  },
+  coreTurnStore: {
+    async readProjections() {
+      return {
+        responseLedger: [{ id: 'response-unrelated-core-reobserve', transactionId: 'txn-unrelated-reobserve', status: 'posted' }],
+        recoveryJournal: []
+      };
+    }
+  },
+  getCampaignState: () => silentReobserveState,
+  setCampaignState: () => {},
+  now
+});
+const silentReobserveResult = await silentReobserveDispatcher.reobserveHostGenerationCompletions({
+  campaignState: silentReobserveState
+});
+assert.equal(silentReobserveResult.skipped, true);
+assert.equal(silentReobserveResult.reason, 'no-released-host-generation-responses');
+assert.equal(silentReobserveResult.checkedResponseCount, 0);
 
 const claimedCampaignId = 'campaign-response-core-claimed-reobserve';
 const claimedSaveId = 'save-response-core-claimed-reobserve';
@@ -1000,8 +1107,10 @@ const settledReobserveResult = await settledDispatcher.reobserveHostGenerationCo
   campaignState: settledState
 });
 assert.equal(settledReobserveResult.ok, true);
-assert.equal(settledReobserveResult.results[0].status, 'alreadySettled');
-assert.equal(settledReobserveResult.results[0].ok, true);
+assert.equal(settledReobserveResult.checkedResponseCount, 0);
+assert.equal(settledReobserveResult.checkedCoreProjectionCount, 1);
+assert.equal(settledReobserveResult.coreProjectionResults[0].status, 'alreadySettled');
+assert.equal(settledReobserveResult.coreProjectionResults[0].ok, true);
 const settledResponse = settledState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-settled-runtime-reobserve-1');
 assert.equal(settledResponse.status, 'complete');
 assert.equal(settledResponse.hostMessageId, 'assistant-core-settled-runtime-reobserve-1');
@@ -1095,6 +1204,9 @@ assert.equal(directivePosted.ok, true);
 assert.equal(directivePostCalls, 1);
 const directivePostedResponse = state.runtimeTracking.responseLedger.at(-1);
 assert.equal(directivePostedResponse.strategy, 'directivePosted');
+assert.equal(directivePostedResponse.authority, 'compatibilityProjection');
+assert.equal(directivePostedResponse.projectionSource, 'coreStoreV2');
+assert.equal(directivePostedResponse.coreProjection.responseId, 'response-core-directive-posted');
 assert.equal(directivePostedResponse.directiveGenerationStartedAt, '2026-06-28T17:00:30.000Z');
 assert.equal(directivePostedResponse.generationStartedAt, '2026-06-28T17:00:30.000Z');
 assert.equal(directivePostedResponse.turnLatency.directiveGenerationStartedAt, Date.parse('2026-06-28T17:00:30.000Z'));
@@ -1296,24 +1408,33 @@ const visibleNoDiagnosticDispatcher = createResponseDispatcher({
   persist: async (next) => { visibleNoDiagnosticState = initializeCampaignRuntimeTracking(next); },
   now
 });
-const visibleNoDiagnostic = await visibleNoDiagnosticDispatcher.dispatch({
-  campaignState: visibleNoDiagnosticState,
-  ingressId: 'ingress-response-core-visible-no-diagnostic',
-  strategy: 'directivePosted',
-  responseKind: 'committedOutcome',
-  text: 'The bridge answers once; CORE and diagnostics fail closed.',
-  turnId: 'turn-response-core-visible-no-diagnostic',
-  outcomeId: 'outcome-response-core-visible-no-diagnostic',
-  idempotencyKey: 'response-core-visible-no-diagnostic'
-});
-assert.equal(visibleNoDiagnostic.ok, false);
-assert.equal(visibleNoDiagnostic.recoveryRequired, true);
+await assert.rejects(
+  () => visibleNoDiagnosticDispatcher.dispatch({
+    campaignState: visibleNoDiagnosticState,
+    ingressId: 'ingress-response-core-visible-no-diagnostic',
+    strategy: 'directivePosted',
+    responseKind: 'committedOutcome',
+    text: 'The bridge answers once; CORE and diagnostics fail closed.',
+    turnId: 'turn-response-core-visible-no-diagnostic',
+    outcomeId: 'outcome-response-core-visible-no-diagnostic',
+    idempotencyKey: 'response-core-visible-no-diagnostic'
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_RESPONSE_PROJECTION_REQUIRED');
+    assert.equal(error.details?.responseId, 'response-core-visible-no-diagnostic');
+    assert.equal(error.details?.transactionId, 'txn-response-core-visible-no-diagnostic');
+    return true;
+  },
+  'No-diagnostic visible response record failure must fail closed before old response compatibility projection.'
+);
 assert.equal(visibleNoDiagnosticPostCalls, 1);
 assert.equal(visibleNoDiagnosticRecordCalls, 1);
 assert.equal(visibleNoDiagnosticAppendCalls, 1);
-const visibleNoDiagnosticResponse = visibleNoDiagnosticState.runtimeTracking.responseLedger.at(-1);
-assert.equal(visibleNoDiagnosticResponse.status, 'recoveryRequired');
-assert.equal(visibleNoDiagnosticResponse.recoveryId, 'recovery:core-visible-response:response-core-visible-no-diagnostic');
+assert.equal(
+  (visibleNoDiagnosticState.runtimeTracking.responseLedger || []).length,
+  0,
+  'No-diagnostic visible response record failure must not write old response compatibility rows.'
+);
 assert.equal(
   visibleNoDiagnosticState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'coreVisibleResponseRecordFailure'),
   false,
@@ -3776,6 +3897,8 @@ assert.equal(failedObservation.status, 'responseRetryRequired');
 assert.equal(coreStore.state.transactions[failedTransaction.id].phase, 'responseRetryRequired');
 const failedHostNativeResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-failed');
 assert.equal(failedHostNativeResponse.status, 'responseRetryRequired');
+assert.equal(failedHostNativeResponse.authority, 'compatibilityProjection');
+assert.equal(failedHostNativeResponse.projectionSource, 'coreStoreV2');
 assert.equal(failedHostNativeResponse.hostObservationStatus, 'failed');
 assert.equal(failedHostNativeResponse.coreRecovery.phase, 'responseRetryRequired');
 const failedHostNativeRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery:host-native:response-core-host-native-failed');
@@ -3825,6 +3948,13 @@ assert.equal(coreStore.state.transactions[failedTransaction.id].phase, 'visibleR
 assert.equal(coreStore.state.transactions[failedTransaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-retry-1');
 const retriedHostNativeResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-failed');
 assert.equal(retriedHostNativeResponse.status, 'complete');
+assert.equal(retriedHostNativeResponse.authority, 'compatibilityProjection');
+assert.equal(retriedHostNativeResponse.projectionSource, 'coreStoreV2');
+assert.equal(retriedHostNativeResponse.coreProjection.status, 'posted');
+assert.equal(retriedHostNativeResponse.compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
+assert.equal(retriedHostNativeResponse.compatibilityMirror.source, 'coreStoreV2');
+assert.equal(retriedHostNativeResponse.compatibilityMirror.mirroredOperation, 'hostNativeReobserveClosure');
+assert.equal(retriedHostNativeResponse.compatibilityMirror.transactionId, failedTransaction.id);
 assert.equal(retriedHostNativeResponse.hostObservation.hostMessageId, 'assistant-host-native-retry-1');
 assert.equal(retriedHostNativeResponse.hostObservation.textHash, retryObservedTextHash);
 const duplicateFailedObservation = await failedObserved({
@@ -3981,6 +4111,11 @@ async function exerciseDelayedRecoveryReobserve({
   assert.equal(coreStore.state.transactions[txn.id].visibleResponseRef.hostMessageId, assistantHostMessageId);
   const responseAfterReobserve = state.runtimeTracking.responseLedger.find((entry) => entry.id === responseId);
   assert.equal(responseAfterReobserve.status, 'complete', `${label}: old response projection should close`);
+  assert.equal(responseAfterReobserve.authority, 'compatibilityProjection', `${label}: old response row should remain mirror-only`);
+  assert.equal(responseAfterReobserve.compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1', `${label}: old response row should name mirror contract`);
+  assert.equal(responseAfterReobserve.compatibilityMirror.source, 'coreStoreV2', `${label}: old response row should mirror CORE`);
+  assert.equal(responseAfterReobserve.compatibilityMirror.mirroredOperation, 'hostNativeReobserveClosure', `${label}: old response row should name reobserve mirror operation`);
+  assert.equal(responseAfterReobserve.compatibilityMirror.transactionId, txn.id, `${label}: old response row should cite CORE transaction`);
   assert.equal(responseAfterReobserve.hostObservation.hostMessageId, assistantHostMessageId);
   assert.equal(responseAfterReobserve.hostObservation.textHash, hashStableJson({ text: assistantText }));
   const recoveryAfterReobserve = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === `recovery:host-native:${responseId}`);

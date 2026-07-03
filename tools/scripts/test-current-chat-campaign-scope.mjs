@@ -183,6 +183,254 @@ const missionGraphs = [
     true,
     'Prompt/model-call-only stale writes must not replace a same-chat state with a committed turn ledger entry.'
   );
+  const projectionAuthorityEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence({
+    ingressLedger: [{
+      id: 'core-ingress-authority',
+      hostMessageId: 'core-player-authority',
+      transactionId: 'txn-core-authority',
+      status: 'classified'
+    }],
+    responseLedger: [{
+      id: 'core-response-authority',
+      hostMessageId: 'core-assistant-authority',
+      transactionId: 'txn-core-authority',
+      responseKind: 'hostContinue',
+      status: 'posted'
+    }],
+    recoveryJournal: [],
+    turnLedger: { entries: [], replacementHistory: [] }
+  }, {
+    runtimeTracking: {
+      ingressLedger: [{ id: 'silent-old-ingress-authority', hostMessageId: 'silent-old-player-authority', status: 'old' }],
+      responseLedger: [{ id: 'silent-old-response-authority', hostMessageId: 'silent-old-assistant-authority', status: 'old' }]
+    }
+  });
+  assert.equal(
+    projectionAuthorityEvidence.runtimeAuthority,
+    'coreStoreV2',
+    'Silent old ledger rows must not prevent CORE read projections from being marked authoritative.'
+  );
+  const missingMirrorAuthorityEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence({
+    ingressLedger: [{
+      id: 'core-ingress-authority',
+      hostMessageId: 'core-player-authority',
+      transactionId: 'txn-core-authority',
+      status: 'classified'
+    }],
+    responseLedger: [],
+    recoveryJournal: [],
+    turnLedger: { entries: [], replacementHistory: [] }
+  }, {
+    runtimeTracking: {
+      ingressLedger: [{
+        id: 'missing-core-ingress-authority',
+        hostMessageId: 'missing-core-player-authority',
+        status: 'old',
+        authority: 'compatibilityProjectionUnavailable',
+        projectionSource: 'runtimeTrackingLegacy',
+        compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'missingCoreProjection' }
+      }]
+    }
+  });
+  assert.equal(
+    missingMirrorAuthorityEvidence.runtimeAuthority,
+    undefined,
+    'Tagged compatibility mirrors without matching CORE rows must still block authoritative CORE read projection markers.'
+  );
+  const mergeCandidateEmpty = {
+    runtimeTracking: {
+      responseLedger: [],
+      responseLedgerRevision: 0
+    }
+  };
+  assert.equal(
+    __directiveRuntimeAppTestHooks.stateFreshnessCounters({
+      runtimeTracking: { responseLedgerRevision: 44 }
+    }).responseLedgerRevision,
+    0,
+    'Runtime freshness counters must not treat old runtimeTracking.responseLedgerRevision as CORE freshness.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.stateFreshnessCounters({
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          responseLedgerRevision: 12
+        }
+      },
+      runtimeTracking: { responseLedgerRevision: 44 }
+    }).responseLedgerRevision,
+    12,
+    'Runtime freshness counters must use CORE responseLedgerRevision over old runtimeTracking.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.stateFreshnessCounters({
+      runtimeTracking: {
+        sidecarJournal: Array.from({ length: 6 }, (_, index) => ({ id: `old-sidecar-${index}` }))
+      }
+    }).sidecarJournalEntries,
+    0,
+    'Runtime freshness counters must not treat old sidecarJournal rows as freshness.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.stateFreshnessCounters({
+      runtimeResume: { sidecarCount: 2 },
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          sidecarDiagnostics: [{ id: 'core-sidecar-1' }],
+          backgroundBatches: [{ id: 'core-background-batch', acceptedBatchHash: 'hash', workerCount: 3 }]
+        }
+      },
+      runtimeTracking: {
+        sidecarJournal: Array.from({ length: 9 }, (_, index) => ({ id: `old-sidecar-shadow-${index}` }))
+      }
+    }).sidecarJournalEntries,
+    3,
+    'Runtime freshness counters must use CORE/background/runtimeResume sidecar evidence over old sidecarJournal rows.'
+  );
+  const mergeSilentMemory = {
+    runtimeTracking: {
+      responseLedger: [{
+        id: 'silent-memory-response',
+        hostMessageId: 'silent-memory-assistant',
+        status: 'posted',
+        outcomeIntegrity: { selectedRevisionId: 'silent-revision' }
+      }],
+      responseLedgerRevision: 7
+    }
+  };
+  const silentMergeResult = __directiveRuntimeAppTestHooks.mergeFresherResponseLedgerProjection(
+    mergeCandidateEmpty,
+    mergeSilentMemory
+  );
+  assert.equal(
+    silentMergeResult.runtimeTracking.responseLedger.length,
+    0,
+    'Fresher response merge must not copy silent old in-memory response rows.'
+  );
+  assert.equal(
+    silentMergeResult.runtimeTracking.responseLedgerRevision,
+    0,
+    'Fresher response merge must not promote old in-memory responseLedgerRevision into runtimeTracking.'
+  );
+  const taggedMergeResult = __directiveRuntimeAppTestHooks.mergeFresherResponseLedgerProjection(
+    mergeCandidateEmpty,
+    {
+      runtimeTracking: {
+        responseLedger: [{
+          id: 'tagged-memory-response',
+          hostMessageId: 'tagged-memory-assistant',
+          status: 'posted',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: {
+            kind: 'directive.coreResponseCompatibilityMirror.v1',
+            source: 'coreStoreV2',
+            status: 'posted'
+          },
+          outcomeIntegrity: { selectedRevisionId: 'tagged-revision' }
+        }],
+        responseLedgerRevision: 8
+      }
+    }
+  );
+  assert.equal(
+    taggedMergeResult.runtimeTracking.responseLedger.length,
+    0,
+    'Fresher response merge must not resurrect tagged old rows into runtimeTracking without CORE projection evidence.'
+  );
+  assert.equal(taggedMergeResult.directiveRuntimeEvidence?.coreStoreReadProjections?.responseLedger, undefined);
+  assert.equal(
+    taggedMergeResult.runtimeTracking.responseLedgerRevision,
+    0,
+    'Fresher response merge must not promote tagged old responseLedgerRevision into runtimeTracking.'
+  );
+  const coreProjectionMergeResult = __directiveRuntimeAppTestHooks.mergeFresherResponseLedgerProjection(
+    mergeCandidateEmpty,
+    {
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          responseLedgerRevision: 9,
+          responseLedger: [{
+            id: 'core-memory-response',
+            responseId: 'core-memory-response',
+            hostMessageId: 'core-memory-assistant',
+            transactionId: 'txn-core-memory-response',
+            responseKind: 'hostContinue',
+            status: 'posted',
+            outcomeIntegrity: { selectedRevisionId: 'core-revision' }
+          }]
+        }
+      },
+      runtimeTracking: {
+        responseLedger: [{
+          id: 'silent-memory-response',
+          hostMessageId: 'silent-memory-assistant',
+          status: 'posted',
+          outcomeIntegrity: { selectedRevisionId: 'silent-revision' }
+        }],
+        responseLedgerRevision: 9
+      }
+    }
+  );
+  assert.equal(coreProjectionMergeResult.runtimeTracking.responseLedger.length, 0);
+  assert.equal(coreProjectionMergeResult.runtimeTracking.responseLedgerRevision, 0);
+  const mergedCoreProjectionRows = coreProjectionMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger;
+  assert.equal(
+    coreProjectionMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responseLedgerRevision,
+    9,
+    'Fresher response merge must carry CORE responseLedgerRevision as projection evidence, not old runtimeTracking.'
+  );
+  assert.equal(mergedCoreProjectionRows.length, 1);
+  assert.equal(mergedCoreProjectionRows[0].id, 'core-memory-response');
+  assert.equal(mergedCoreProjectionRows[0].authority, 'compatibilityProjection');
+  assert.equal(mergedCoreProjectionRows[0].projectionSource, 'coreStoreV2');
+  assert.equal(mergedCoreProjectionRows[0].compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
+  assert.equal(mergedCoreProjectionRows[0].coreProjection.transactionId, 'txn-core-memory-response');
+  const hostIdOnlyMergeResult = __directiveRuntimeAppTestHooks.mergeFresherResponseLedgerProjection(
+    {
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          responseLedger: [{
+            id: 'candidate-response-stable-id',
+            responseId: 'candidate-response-stable-id',
+            hostMessageId: 'shared-host-message',
+            transactionId: 'txn-candidate-response',
+            responseKind: 'hostContinue',
+            status: 'posted',
+            outcomeIntegrity: { selectedRevisionId: 'candidate-revision' }
+          }]
+        }
+      },
+      runtimeTracking: {
+        responseLedger: [],
+        responseLedgerRevision: 1
+      }
+    },
+    {
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          responseLedger: [{
+            id: 'memory-response-different-stable-id',
+            responseId: 'memory-response-different-stable-id',
+            hostMessageId: 'shared-host-message',
+            transactionId: 'txn-memory-response',
+            responseKind: 'hostContinue',
+            status: 'posted',
+            outcomeIntegrity: { selectedRevisionId: 'memory-revision' }
+          }]
+        }
+      },
+      runtimeTracking: {
+        responseLedger: [],
+        responseLedgerRevision: 2
+      }
+    }
+  );
+  assert.equal(
+    hostIdOnlyMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger.length,
+    2,
+    'Fresher response projection merge must not match solely by SillyTavern hostMessageId.'
+  );
   assert.equal(
     __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
       {
@@ -334,8 +582,13 @@ const missionGraphs = [
   assert.equal(restoredCommittedOutcome.commandLog.entries.some((entry) => entry.sourceOutcomeId === 'fresh-outcome'), true);
   assert.equal(
     restoredCommittedOutcome.runtimeTracking.history.some((entry) => entry.source === 'missionDirector' && entry.outcomeId === 'fresh-outcome'),
-    true,
-    'Restoring a committed outcome must preserve the authoritative mechanics history entry.'
+    false,
+    'Restoring a committed outcome must not import old checkpoint runtime history as replay authority.'
+  );
+  assert.deepEqual(
+    restoredCommittedOutcome.runtimeTracking.history.map((entry) => entry.source),
+    ['sidecar:continuity'],
+    'Restoring a committed outcome must keep current compact history only.'
   );
 }
 

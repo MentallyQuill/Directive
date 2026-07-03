@@ -36,6 +36,15 @@ function baseState() {
         outcomeId: 'outcome.unseen-border-end-condition-test',
         resultBand: 'Failure',
         tags: ['end-condition-fixture'],
+        coreCheckpointRef: {
+          kind: 'directive.coreMechanicsCheckpointRef.v1',
+          campaignId: 'unseen-border-end-condition-test',
+          saveId: 'save-unseen-border-end-condition-test',
+          checkpointId: 'core-checkpoint-unseen-border-end-condition-test',
+          layout: 'core',
+          sourceKind: 'coreStoreV2.checkpoint',
+          sourceRevision: 1
+        },
         snapshotBefore
       }
     ],
@@ -80,7 +89,8 @@ function requireCondition(state, conditionId, expectedFinalBand = null) {
   assert.equal(result.conditionId, conditionId);
   assert.equal(result.pendingInteraction.kind, 'terminalOutcomeDecision');
   assert.equal(result.pendingInteraction.metadata.terminalOutcomeId, conditionId);
-  assert.equal(result.pendingInteraction.metadata.checkpoint.source, 'preOutcomeSnapshot');
+  assert.equal(result.pendingInteraction.metadata.checkpoint.source, 'coreCheckpoint');
+  assert.equal(result.pendingInteraction.metadata.checkpoint.coreCheckpointRef.checkpointId, 'core-checkpoint-unseen-border-end-condition-test');
   assert.ok(result.pendingInteraction.options.some((option) => option.action === 'replayFromCheckpoint'));
   assert.ok(result.pendingInteraction.options.some((option) => option.action === 'keepEnding'));
   if (expectedFinalBand) assert.equal(result.finalCampaignBand, expectedFinalBand);

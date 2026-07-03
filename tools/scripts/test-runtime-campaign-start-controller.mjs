@@ -283,15 +283,14 @@ const runtimeLoadedController = createCampaignStartController({
 });
 await runtimeLoadedController.initialize();
 assert.equal(runtimeLoadedController.activeCampaignState.campaign.currentStardate, 53052.8, 'active recovery must use v2 runtime-current state when the save index has a v2 runtime bridge');
-assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.schemaVersion, 2, 'active recovery must rehydrate compact runtime projections from the v2 runtime bridge');
-assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.ingressLedger[0].hostMessageId, '12');
-assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.ingressLedger[0].textHash, 'hash-12');
+assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.schemaVersion, 2, 'active recovery must rehydrate compact runtime resume state from the v2 runtime bridge');
+assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.ingressLedger.length, 0, 'active recovery must not rehydrate no-transaction ingress projections into old runtimeTracking');
+assert.equal(runtimeLoadedController.activeCampaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger, undefined, 'active recovery must not promote no-transaction ingress projections to CORE read evidence');
 const runtimeLoaded = await runtimeLoadedController.loadGame({ saveId: saved.id });
 assert.equal(runtimeLoaded.campaign.currentStardate, 53052.8, 'default load must use v2 runtime-current state when the save index has a v2 runtime bridge');
-assert.equal(runtimeLoaded.runtimeTracking.schemaVersion, 2, 'default load must rehydrate compact runtime projections from the active-save v2 bridge');
-assert.equal(runtimeLoaded.runtimeTracking.ingressLedger.length, 1, 'default load must restore compact runtime ingress projections from v2 event segments');
-assert.equal(runtimeLoaded.runtimeTracking.ingressLedger[0].hostMessageId, '12');
-assert.equal(runtimeLoaded.runtimeTracking.ingressLedger[0].textHash, 'hash-12');
+assert.equal(runtimeLoaded.runtimeTracking.schemaVersion, 2, 'default load must rehydrate compact runtime resume state from the active-save v2 bridge');
+assert.equal(runtimeLoaded.runtimeTracking.ingressLedger.length, 0, 'default load must keep no-transaction ingress projections out of old runtimeTracking');
+assert.equal(runtimeLoaded.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger, undefined, 'default load must not promote runtimeBridge-only ingress to CORE read evidence');
 assert.equal(runtimeLoaded.runtimeTracking.history, undefined, 'default load must not restore raw runtime history snapshots from the stale v1 checkpoint');
 
 const savedAfterRuntimePersist = await controller.saveCurrentGame({

@@ -12,8 +12,9 @@ import {
   buildStoryQualityModelReviewResult
 } from './soak-sillytavern-campaign-live.mjs';
 
-const DEFAULT_TIMEOUT_MS = 120000;
+const DEFAULT_TIMEOUT_MS = 300000;
 const DEFAULT_MAX_LATENCY_MS = 120000;
+const DEFAULT_RETRY_COUNT = 1;
 const EXPECTED_REQUEST_KIND = 'directive.liveCampaignSoak.storyQualityModelReviewRequest';
 const EXPECTED_RESULT_KIND = 'directive.liveCampaignSoak.storyQualityModelReviewResult';
 const EXPECTED_SCHEMA_VERSION = 1;
@@ -33,6 +34,7 @@ Options:
   --output PATH          Write one aggregate preflight report to PATH.
   --timeout-ms N         Timeout per review-only smoke call. Default ${DEFAULT_TIMEOUT_MS}.
   --max-latency-ms N     Treat reviewer latency at or above N as timeout evidence. Default ${DEFAULT_MAX_LATENCY_MS}.
+  --retry-count N        Retry failed/empty provider output inside review-only smoke. Default ${DEFAULT_RETRY_COUNT}.
 `;
 }
 
@@ -46,6 +48,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     output: '',
     timeoutMs: DEFAULT_TIMEOUT_MS,
     maxLatencyMs: DEFAULT_MAX_LATENCY_MS,
+    retryCount: DEFAULT_RETRY_COUNT,
     help: false
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -59,6 +62,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--output') options.output = path.resolve(argv[++index] || '');
     else if (arg === '--timeout-ms') options.timeoutMs = positiveInteger(argv[++index], DEFAULT_TIMEOUT_MS);
     else if (arg === '--max-latency-ms') options.maxLatencyMs = positiveInteger(argv[++index], DEFAULT_MAX_LATENCY_MS);
+    else if (arg === '--retry-count') options.retryCount = nonNegativeInteger(argv[++index], DEFAULT_RETRY_COUNT);
     else if (arg && !arg.startsWith('-')) options.artifactRoots.push(path.resolve(arg));
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -68,6 +72,11 @@ function parseArgs(argv = process.argv.slice(2)) {
 function positiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value || '').trim(), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function nonNegativeInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function readJsonFileIfExists(filePath) {
@@ -189,7 +198,7 @@ function childProcessResult(command, args, options = {}) {
   });
 }
 
-async function replayRequest({ requestPath, timeoutMs } = {}) {
+async function replayRequest({ requestPath, timeoutMs, retryCount = DEFAULT_RETRY_COUNT } = {}) {
   const request = readJsonFileIfExists(requestPath);
   if (!request || request.__readError) {
     return {
@@ -211,6 +220,7 @@ async function replayRequest({ requestPath, timeoutMs } = {}) {
     DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_ONLY: '1',
     DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH: requestPath,
     DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_OUTPUT_PATH: providerOutputPath,
+    DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_RETRY_COUNT: String(Math.max(0, Number(retryCount) || 0)),
     DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN: '0',
     DIRECTIVE_SILLYTAVERN_OPEN_WORLD_FLOW: '0',
     DIRECTIVE_SILLYTAVERN_SAVE_FLOW: '0',
@@ -246,6 +256,7 @@ async function replayRequest({ requestPath, timeoutMs } = {}) {
     stdoutPath,
     stderrPath,
     child,
+    retryCount: Math.max(0, Number(retryCount) || 0),
     providerOutput,
     result
   };
@@ -402,7 +413,11 @@ export async function runStoryQualityReviewPreflight(options = {}) {
   const replays = [];
   if (!options.dryRun) {
     for (const requestPath of requests) {
-      replays.push(await replayRequest({ requestPath, timeoutMs: options.timeoutMs }));
+      replays.push(await replayRequest({
+        requestPath,
+        timeoutMs: options.timeoutMs,
+        retryCount: options.retryCount ?? DEFAULT_RETRY_COUNT
+      }));
     }
   }
   const assessments = requests.map((requestPath) => assessStoryQualityReviewResult({
@@ -416,6 +431,9 @@ export async function runStoryQualityReviewPreflight(options = {}) {
     status: finalStatus(assessments),
     strict: options.strict === true,
     dryRun: options.dryRun === true,
+    timeoutMs: options.timeoutMs || DEFAULT_TIMEOUT_MS,
+    maxLatencyMs: options.maxLatencyMs || DEFAULT_MAX_LATENCY_MS,
+    retryCount: Math.max(0, Number(options.retryCount ?? DEFAULT_RETRY_COUNT) || 0),
     requestCount: requests.length,
     replayedCount: replays.length,
     artifactRoots: (options.artifactRoots || []).map((root) => path.resolve(root)),
@@ -425,6 +443,7 @@ export async function runStoryQualityReviewPreflight(options = {}) {
       requestPath: entry.requestPath,
       resultPath: entry.resultPath,
       providerOutputPath: entry.providerOutputPath || null,
+      retryCount: entry.retryCount ?? null,
       exitCode: entry.child?.exitCode ?? null,
       signal: entry.child?.signal || null,
       childError: entry.child?.error || null,

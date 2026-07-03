@@ -85,7 +85,10 @@ import {
   lensPromptPacketProjectionSummary
 } from './lens-prompt-packet-builder.mjs';
 import { createCoreTurnRuntime } from './core-turn-runtime.mjs';
-import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
+import {
+  createRuntimeLedgerView,
+  readRuntimeCoreProjections
+} from './runtime-ledger-view.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
@@ -105,7 +108,8 @@ import {
 } from './package-library.mjs';
 import {
   createRuntimeModelCallJournal,
-  gameplayStateFingerprint
+  gameplayStateFingerprint,
+  maxModelCallEventSequence
 } from './model-call-journal.mjs';
 import { createActiveSaveGuard } from './active-save-guard.mjs';
 import {
@@ -788,6 +792,7 @@ function stateFreshnessCounters(state = null) {
   const coreAcceptedBackgroundWorkers = Array.isArray(coreProjection?.backgroundBatches)
     ? acceptedBackgroundBatchWorkerCount(coreProjection.backgroundBatches)
     : null;
+  const modelCallDiagnostics = modelCallDiagnosticsForState(state);
   return {
     revision: Math.max(0, Number(tracking.revision) || 0),
     mechanicsRevision: Math.max(0, Number(tracking.mechanicsRevision) || 0),
@@ -796,14 +801,13 @@ function stateFreshnessCounters(state = null) {
     turnLedgerEntries: Math.max(countArray(state?.turnLedger?.entries), coreTurnLedgerEntries ?? 0),
     ingressLedgerEntries: countArray(runtimeLedgerView.ingressLedger),
     responseLedgerEntries: responseLedger.length,
-    responseLedgerRevision: Math.max(0, Number(tracking.responseLedgerRevision) || 0),
+    responseLedgerRevision: Math.max(0, Number(coreProjection?.responseLedgerRevision) || 0),
     responseLedgerIntegritySelections: Math.max(
       responseLedger.filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
       (coreResponseLedger || []).filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length
     ),
     recoveryJournalEntries: countArray(runtimeLedgerView.recoveryJournal),
     sidecarJournalEntries: Math.max(
-      countArray(tracking.sidecarJournal),
       Number(state?.runtimeResume?.sidecarCount) || 0,
       coreSidecarDiagnostics ?? 0,
       coreAcceptedBackgroundWorkers ?? 0
@@ -813,63 +817,123 @@ function stateFreshnessCounters(state = null) {
     endConditionDecisions: countArray(ledger.decisions),
     endConditionBranchRecords: countArray(ledger.branchRecords),
     endConditionContinuationFrames: countArray(ledger.continuationFrames),
-    modelCallJournalEntries: countArray(tracking.modelCallJournal)
+    modelCallJournalEntries: modelCallDiagnostics.length
   };
+}
+
+function modelCallDiagnosticsForState(state = null) {
+  const projections = readRuntimeCoreProjections(state || {});
+  const projected = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
+  if (projected.length) return cloneJson(projected);
+  return Array.isArray(state?.runtimeTracking?.modelCallJournal)
+    ? cloneJson(state.runtimeTracking.modelCallJournal)
+    : [];
 }
 
 function responseLedgerIntegrityRank(entry = null) {
   return entry?.outcomeIntegrity?.selectedRevisionId ? 1 : 0;
 }
 
+function responseProjectionCompatibilityFields(entry = {}, operation = 'fresherResponseLedgerMerge') {
+  const responseId = compactString(entry?.id || entry?.responseId);
+  const transactionId = compactString(entry?.transactionId || entry?.coreTransactionId || entry?.coreRelease?.transactionId);
+  const status = compactString(entry?.status);
+  return {
+    authority: entry?.authority || 'compatibilityProjection',
+    projectionSource: entry?.projectionSource || 'coreStoreV2',
+    compatibilityMirror: cloneJson(entry?.compatibilityMirror || {
+      kind: 'directive.coreResponseCompatibilityMirror.v1',
+      source: 'coreStoreV2',
+      mirroredOperation: operation,
+      responseId: responseId || null,
+      transactionId: transactionId || null,
+      status: status || null
+    }),
+    coreProjection: cloneJson(entry?.coreProjection || {
+      kind: 'directive.coreResponseProjectionRef.v1',
+      id: responseId || null,
+      responseId: responseId || null,
+      transactionId: transactionId || null,
+      status: status || null
+    })
+  };
+}
+
+function responseRowsForFresherMerge(state = null) {
+  const projections = readRuntimeCoreProjections(state || {});
+  const rows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
+  return rows.map((entry) => ({
+    ...cloneJson(entry),
+    ...responseProjectionCompatibilityFields(entry)
+  }));
+}
+
+function responseProjectionMergeKeys(entry = {}) {
+  return [
+    compactString(entry?.id),
+    compactString(entry?.responseId),
+    compactString(entry?.transactionId),
+    compactString(entry?.coreTransactionId),
+    rowKey(entry, ['turnId', 'outcomeId', 'responseKind'])
+  ].filter(Boolean);
+}
+
+function mergeResponseProjectionRows(candidateRows = [], memoryRows = []) {
+  const output = Array.isArray(candidateRows) ? cloneJson(candidateRows) : [];
+  const indexByKey = new Map();
+  for (const [index, entry] of output.entries()) {
+    for (const key of responseProjectionMergeKeys(entry)) indexByKey.set(key, index);
+  }
+  for (const memory of Array.isArray(memoryRows) ? memoryRows : []) {
+    const keys = responseProjectionMergeKeys(memory);
+    const existingIndex = keys.map((key) => indexByKey.get(key)).find((index) => Number.isInteger(index));
+    if (!Number.isInteger(existingIndex)) {
+      const nextIndex = output.length;
+      output.push(cloneJson(memory));
+      for (const key of keys) indexByKey.set(key, nextIndex);
+      continue;
+    }
+    const existing = output[existingIndex];
+    if (responseLedgerIntegrityRank(memory) <= responseLedgerIntegrityRank(existing)) continue;
+    output[existingIndex] = {
+      ...cloneJson(existing),
+      authority: memory.authority || existing.authority || null,
+      projectionSource: memory.projectionSource || existing.projectionSource || null,
+      compatibilityMirror: cloneJson(memory.compatibilityMirror || existing.compatibilityMirror || null),
+      coreProjection: cloneJson(memory.coreProjection || existing.coreProjection || null),
+      editedAt: memory.editedAt || existing.editedAt || null,
+      replacementText: memory.replacementText ?? existing.replacementText ?? null,
+      outcomeIntegrity: cloneJson(memory.outcomeIntegrity || null)
+    };
+  }
+  return output;
+}
+
 function mergeFresherResponseLedgerProjection(candidateState = null, inMemoryState = null) {
   if (!candidateState || !inMemoryState) return candidateState;
   const candidateTracking = candidateState.runtimeTracking || {};
-  const memoryTracking = inMemoryState.runtimeTracking || {};
-  const candidateLedger = Array.isArray(candidateTracking.responseLedger) ? candidateTracking.responseLedger : [];
-  const memoryLedger = Array.isArray(memoryTracking.responseLedger) ? memoryTracking.responseLedger : [];
+  const candidateEvidence = candidateState.directiveRuntimeEvidence?.coreStoreReadProjections || {};
+  const memoryEvidence = readRuntimeCoreProjections(inMemoryState || {});
+  const memoryLedger = responseRowsForFresherMerge(inMemoryState);
   if (!memoryLedger.length) return candidateState;
-  if (!candidateLedger.length) {
-    return {
-      ...cloneJson(candidateState),
-      runtimeTracking: {
-        ...cloneJson(candidateTracking),
-        responseLedger: cloneJson(memoryLedger),
-        responseLedgerRevision: Math.max(
-          Number(candidateTracking.responseLedgerRevision) || 0,
-          Number(memoryTracking.responseLedgerRevision) || 0
-        )
-      }
-    };
-  }
-  const memoryByKey = new Map();
-  for (const entry of memoryLedger) {
-    const keys = [compactString(entry?.id), compactString(entry?.hostMessageId)].filter(Boolean);
-    for (const key of keys) memoryByKey.set(key, entry);
-  }
-  let changed = false;
-  const responseLedger = candidateLedger.map((entry) => {
-    const memory = memoryByKey.get(compactString(entry?.id)) || memoryByKey.get(compactString(entry?.hostMessageId));
-    if (!memory) return entry;
-    if (responseLedgerIntegrityRank(memory) <= responseLedgerIntegrityRank(entry)) return entry;
-    changed = true;
-    return {
-      ...entry,
-      editedAt: memory.editedAt || entry.editedAt || null,
-      replacementText: memory.replacementText ?? entry.replacementText ?? null,
-      outcomeIntegrity: cloneJson(memory.outcomeIntegrity || null)
-    };
-  });
-  if (!changed) return candidateState;
+  const responseLedger = mergeResponseProjectionRows(candidateEvidence.responseLedger, memoryLedger);
+  const responseLedgerRevision = Math.max(
+    Number(candidateEvidence.responseLedgerRevision) || 0,
+    Number(memoryEvidence.responseLedgerRevision) || 0
+  );
   return {
     ...cloneJson(candidateState),
-    runtimeTracking: {
-      ...cloneJson(candidateTracking),
-      responseLedger,
-      responseLedgerRevision: Math.max(
-        Number(candidateTracking.responseLedgerRevision) || 0,
-        Number(memoryTracking.responseLedgerRevision) || 0
-      )
-    }
+    directiveRuntimeEvidence: {
+      ...cloneJson(candidateState.directiveRuntimeEvidence || {}),
+      coreStoreReadProjections: {
+        ...cloneJson(candidateEvidence),
+        kind: candidateEvidence.kind || memoryEvidence.kind || 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: candidateEvidence.runtimeAuthority || memoryEvidence.runtimeAuthority,
+        responseLedgerRevision,
+        responseLedger
+      }
+    },
+    runtimeTracking: cloneJson(candidateTracking)
   };
 }
 
@@ -1136,6 +1200,32 @@ function buildOutcomeRerunSourceFrame({
   });
 }
 
+function outcomeRerunIngressProjection({
+  replacementTransactionId = null,
+  replacedTransactionId = null,
+  replacementIngressId = null,
+  outcomeId = null,
+  replacementOutcomeId = null,
+  replacementTurnId = null,
+  sourceFrame = null,
+  repairDecision = null
+} = {}) {
+  const transactionId = compactString(replacementTransactionId || repairDecision?.transactionId);
+  if (!transactionId) return null;
+  return {
+    kind: 'directive.coreIngressOutcomeRerunProjectionRef.v1',
+    transactionId,
+    replacedTransactionId: compactString(replacedTransactionId || repairDecision?.replacedTransactionId) || null,
+    ingressId: compactString(replacementIngressId) || null,
+    replacedOutcomeId: compactString(outcomeId || repairDecision?.outcomeId) || null,
+    replacementOutcomeId: compactString(replacementOutcomeId) || null,
+    replacementTurnId: compactString(replacementTurnId) || null,
+    sourceFrameId: compactString(sourceFrame?.id) || null,
+    sourceKind: 'committedOutcomeRerun',
+    status: 'committed'
+  };
+}
+
 function boundedReplacementHistory(entries = [], nextEntry = null, limit = REPLACEMENT_HISTORY_LIMIT) {
   const source = Array.isArray(entries) ? entries : [];
   const combined = nextEntry ? [...source, nextEntry] : [...source];
@@ -1176,11 +1266,23 @@ function rowsCoveredByCoreProjection(coreRows = [], legacyRows = [], keySpecs = 
   });
 }
 
+function compatibilityRowsThatCanBlockCoreAuthority(legacyRows = [], coreRows = []) {
+  const rows = Array.isArray(legacyRows) ? legacyRows : [];
+  if (!Array.isArray(coreRows) || coreRows.length === 0) return rows;
+  return rows.filter((row) => {
+    const authority = compactString(row?.authority);
+    if (authority === 'compatibilityProjectionUnavailable') return true;
+    return Boolean(row?.compatibilityMirror || compactString(row?.projectionSource) === 'coreStoreV2');
+  });
+}
+
 function coreProjectionHasRuntimeAuthority(projections = {}, existingState = null) {
   if (!existingState || typeof existingState !== 'object') return true;
   const runtimeTracking = existingState.runtimeTracking || {};
   const coreTurnLedger = projections.turnLedger || {};
-  return rowsCoveredByCoreProjection(projections.ingressLedger, runtimeTracking.ingressLedger, [
+  const ingressRows = Array.isArray(projections.ingressLedger) ? projections.ingressLedger : [];
+  const responseRows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
+  return rowsCoveredByCoreProjection(ingressRows, compatibilityRowsThatCanBlockCoreAuthority(runtimeTracking.ingressLedger, ingressRows), [
     'id',
     'ingressId',
     'hostMessageId',
@@ -1188,7 +1290,7 @@ function coreProjectionHasRuntimeAuthority(projections = {}, existingState = nul
     'coreTransactionId',
     'sourceFrameId'
   ])
-    && rowsCoveredByCoreProjection(projections.responseLedger, runtimeTracking.responseLedger, [
+    && rowsCoveredByCoreProjection(responseRows, compatibilityRowsThatCanBlockCoreAuthority(runtimeTracking.responseLedger, responseRows), [
       'id',
       'responseId',
       'hostMessageId',
@@ -1356,6 +1458,31 @@ function assertFreshOutcomeRerunReplacementTarget({
   return ledgerEntry;
 }
 
+function assertOutcomeReplacementCheckpointBase({
+  replacement = null,
+  ledgerEntry = null
+} = {}) {
+  if (!replacement) return null;
+  const coreCheckpointRef = compactCheckpointRef(
+    replacement.coreCheckpointRef
+    || replacement.repairDecision?.coreCheckpointRef
+    || coreCheckpointRefFromLedgerEntry(ledgerEntry)
+  );
+  if (!coreCheckpointRef || !isObject(replacement.snapshotBefore)) {
+    const outcomeId = compactString(replacement.outcomeId || ledgerEntry?.outcomeId || 'unknown');
+    const error = new Error(`CORE checkpoint snapshot is required before committing rerun of outcome "${outcomeId}".`);
+    error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_CHECKPOINT_REQUIRED';
+    error.details = {
+      outcomeId,
+      reason: !coreCheckpointRef ? 'core-checkpoint-ref-missing' : 'core-checkpoint-snapshot-missing',
+      coreCheckpointRef: coreCheckpointRef || null,
+      snapshotPresent: isObject(replacement.snapshotBefore)
+    };
+    throw error;
+  }
+  return coreCheckpointRef;
+}
+
 function commandLogEntryOutcomeId(entry = null) {
   return compactString(entry?.sourceOutcomeId || entry?.outcomeId || entry?.id);
 }
@@ -1424,24 +1551,6 @@ function restoreCommittedOutcomeState(state = null, checkpointState = null, outc
       lastCommittedTurn: cloneJson(checkpointTracking.lastCommittedTurn)
     };
   }
-  const currentHistory = Array.isArray(next.runtimeTracking?.history) ? cloneJson(next.runtimeTracking.history) : [];
-  const currentOutcomeSources = new Set(currentHistory
-    .filter((entry) => compactString(entry?.outcomeId) === id)
-    .map((entry) => compactString(entry?.source)));
-  const checkpointHistory = Array.isArray(checkpointTracking.history) ? checkpointTracking.history : [];
-  const missingHistory = checkpointHistory.filter((entry) => (
-    compactString(entry?.outcomeId) === id
-    && !currentOutcomeSources.has(compactString(entry?.source))
-  ));
-  if (missingHistory.length) {
-    next.runtimeTracking = {
-      ...(next.runtimeTracking || {}),
-      history: [
-        ...currentHistory,
-        ...missingHistory.map(cloneJson)
-      ]
-    };
-  }
   return next;
 }
 
@@ -1450,8 +1559,10 @@ export const __directiveRuntimeAppTestHooks = Object.freeze({
   boundedReplacementHistory,
   coreProjectionFreshnessEvidence,
   assertFreshOutcomeRerunReplacementTarget,
+  assertOutcomeReplacementCheckpointBase,
   findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
+  mergeFresherResponseLedgerProjection,
   restoreCommittedOutcomeState,
   shouldPreferInMemoryCampaignState,
   mutateCampaignStateForTest,
@@ -1502,7 +1613,7 @@ export function createDirectiveRuntimeApp({
   let campaignState = null;
   function forgeSourceCurrentForRuntime(payload = {}) {
     const tracked = campaignState ? initializeCampaignRuntimeTracking(campaignState) : null;
-    const ledger = tracked?.runtimeTracking?.ingressLedger || [];
+    const ledger = createRuntimeLedgerView(tracked || {}, { runtimeOverlay: true }).ingressLedger || [];
     const sourceFrameId = compactString(payload.sourceFrameRef?.id || payload.sourceFrameRef?.sourceFrameId);
     const sourceToken = compactString(payload.sourceToken);
     const ingress = [...ledger].reverse().find((entry) => (
@@ -1537,7 +1648,7 @@ export function createDirectiveRuntimeApp({
     const requestedIngressId = compactString(metadata.ingressId || metadata.sourceIngressId);
     const targetIngressId = requestedIngressId || activeIngressId;
     if (!targetIngressId) return null;
-    const ingress = (tracked.runtimeTracking?.ingressLedger || [])
+    const ingress = (createRuntimeLedgerView(tracked || {}, { runtimeOverlay: true }).ingressLedger || [])
       .find((entry) => entry?.id === targetIngressId) || null;
     if (!ingress?.coreTransactionId) return null;
     const explicitBackgroundTarget = metadata.coreDiagnosticTarget === 'advisoryEnrichment'
@@ -2257,6 +2368,18 @@ export function createDirectiveRuntimeApp({
         sourceFrameId: sourceFrame.id || null,
         sourceFrame,
         coreTransactionId: replacementTransactionId,
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        coreProjection: outcomeRerunIngressProjection({
+          replacementTransactionId,
+          replacedTransactionId: repairDecision?.replacedTransactionId || ledgerEntry?.coreTransactionId || ledgerEntry?.transactionId || null,
+          replacementIngressId,
+          outcomeId: outcomeId || ledgerEntry?.outcomeId || null,
+          replacementOutcomeId,
+          replacementTurnId,
+          sourceFrame,
+          repairDecision
+        }),
         repairDecision: {
           ...cloneJson(repairDecision || {}),
           transactionId: replacementTransactionId,
@@ -2338,7 +2461,7 @@ export function createDirectiveRuntimeApp({
         });
       },
       clearPromptPacket: async (options = {}) => runtimeHost?.prompt?.clear?.(options) || { ok: true },
-      observeExternalPromptEnvironment: async () => null
+      observeExternalPromptEnvironment: async (input = {}) => promptExternalEnvironmentForSync(input?.promptFrame || null)
     });
     return lensPromptScheduler;
   }
@@ -2419,16 +2542,54 @@ export function createDirectiveRuntimeApp({
   }
 
   function promptExternalEnvironmentRefForSync(promptFrame = null) {
-    if (promptFrame?.externalPromptEnvironmentRef?.hash) return cloneJson(promptFrame.externalPromptEnvironmentRef);
+    const environment = promptExternalEnvironmentForSync(promptFrame);
+    return environment?.externalPromptEnvironmentRef?.hash
+      ? cloneJson(environment.externalPromptEnvironmentRef)
+      : null;
+  }
+
+  function promptExternalEnvironmentForSync(promptFrame = null) {
+    const frameRef = promptFrame?.externalPromptEnvironmentRef?.hash
+      ? cloneJson(promptFrame.externalPromptEnvironmentRef)
+      : null;
+    const frameTargets = promptFrame?.externalPromptEnvironmentTargets || promptFrame?.externalPromptEnvironmentRef?.externalPromptEnvironmentTargets || null;
+    const frameEnvironment = frameRef ? {
+      host: 'sillytavern',
+      status: frameRef.status || 'observed',
+      chatId: compactString(promptFrame.chatId || promptFrame.binding?.chatId || campaignState?.campaignChatBinding?.chatId),
+      saveId: compactString(promptFrame.saveId || promptFrame.binding?.saveId || campaignState?.campaignChatBinding?.saveId || controller?.activeSaveId),
+      campaignId: compactString(promptFrame.campaignId || promptFrame.binding?.campaignId || campaignState?.campaign?.id),
+      externalPromptEnvironmentRef: frameRef,
+      knownExternalPromptKeys: cloneJson(frameRef.knownExternalPromptKeys || []),
+      externalPromptEnvironmentTargets: cloneJson(frameTargets)
+    } : null;
     try {
-      const inspected = runtimeHost?.prompt?.inspect?.() || null;
-      if (inspected?.externalPromptEnvironmentRef?.hash) {
-        return cloneJson(inspected.externalPromptEnvironmentRef);
-      }
+      const inspected = runtimeHost?.prompt?.inspect?.({ includeText: false }) || null;
+      const inspectedRef = inspected?.externalPromptEnvironmentRef?.hash ? inspected.externalPromptEnvironmentRef : null;
+      const ref = inspectedRef || frameRef;
+      const knownExternalPromptKeys = [
+        ...(Array.isArray(frameRef?.knownExternalPromptKeys) ? frameRef.knownExternalPromptKeys : []),
+        ...(Array.isArray(inspected?.knownExternalPromptKeys)
+        ? inspected.knownExternalPromptKeys
+        : (Array.isArray(inspectedRef?.knownExternalPromptKeys) ? inspectedRef.knownExternalPromptKeys : []))
+      ];
+      if (!ref && !knownExternalPromptKeys.length && !inspected?.externalPromptEnvironmentTargets) return null;
+      return {
+        host: 'sillytavern',
+        status: ref?.status || inspected?.status || 'observed',
+        chatId: compactString(inspected?.binding?.chatId || campaignState?.campaignChatBinding?.chatId),
+        saveId: compactString(inspected?.binding?.saveId || campaignState?.campaignChatBinding?.saveId || controller?.activeSaveId),
+        campaignId: compactString(inspected?.binding?.campaignId || campaignState?.campaign?.id),
+        externalPromptEnvironmentRef: ref ? cloneJson(ref) : null,
+        knownExternalPromptKeys: cloneJson(knownExternalPromptKeys),
+        finalHostPromptMayIncludeExternal: inspected?.finalHostPromptMayIncludeExternal ?? null,
+        externalPromptEnvironmentTargets: cloneJson(inspected?.externalPromptEnvironmentTargets || frameTargets || null),
+        unavailableSignals: cloneJson(inspected?.unavailableSignals || []),
+        redactions: cloneJson(inspected?.redactions || [])
+      };
     } catch {
-      return null;
+      return frameEnvironment;
     }
-    return null;
   }
 
   function promptDirtyDomainsForSync({ promptFrame = null, activityContext = null } = {}) {
@@ -2677,6 +2838,10 @@ export function createDirectiveRuntimeApp({
   function chatNativeViewForState(state = null, saveGuard = null) {
     if (!state) return null;
     const freshness = stateFreshnessCounters(state);
+    const runtimeLedgerView = createRuntimeLedgerView(state || {});
+    const runtimeResponseLedger = runtimeLedgerView.responseLedger || [];
+    const runtimeRecoveryJournal = runtimeLedgerView.recoveryJournal || [];
+    const modelCallDiagnostics = modelCallDiagnosticsForState(state);
     return {
       binding: cloneJson(state.campaignChatBinding || null),
       activation: cloneJson(state.activationJournal || null),
@@ -2685,22 +2850,23 @@ export function createDirectiveRuntimeApp({
         revision: state.runtimeTracking.revision || 0,
         lastStableRevision: state.runtimeTracking.lastStableRevision || 0,
         historyDepth: state.runtimeTracking.history?.length || 0,
-        ingressCount: state.runtimeTracking.ingressLedger?.length || 0,
-        responseCount: state.runtimeTracking.responseLedger?.length || 0,
-        responseLedgerRevision: state.runtimeTracking.responseLedgerRevision || 0,
-        responseLedgerIntegritySelections: (state.runtimeTracking.responseLedger || [])
+        ingressCount: runtimeLedgerView.ingressLedger?.length || 0,
+        responseCount: runtimeResponseLedger.length,
+        responseLedgerRevision: freshness.responseLedgerRevision,
+        responseLedgerIntegritySelections: runtimeResponseLedger
           .filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
         sidecarCount: freshness.sidecarJournalEntries,
-        modelCallCount: state.runtimeTracking.modelCallJournal?.length || 0,
+        modelCallCount: modelCallDiagnostics.length,
+        modelCallEventSequence: maxModelCallEventSequence(state),
         lastDelta: cloneJson(state.runtimeTracking.lastDelta || null),
         lastCommittedTurn: cloneJson(state.runtimeTracking.lastCommittedTurn || null),
-        latestModelCall: cloneJson((state.runtimeTracking.modelCallJournal || []).at(-1) || null)
+        latestModelCall: cloneJson(modelCallDiagnostics.at(-1) || null)
       } : null,
       prompt: cloneJson(state.campaignChatBinding?.promptContext || null),
       manualSaveGuard: cloneJson(saveGuard || null),
       pendingInteractions: cloneJson(state.runtimeTracking?.pendingInteractions || []),
-      recovery: cloneJson(state.runtimeTracking?.recoveryJournal || []),
-      modelCalls: cloneJson(state.runtimeTracking?.modelCallJournal || []),
+      recovery: cloneJson(runtimeRecoveryJournal),
+      modelCalls: cloneJson(modelCallDiagnostics),
       sceneReconciliation: cloneJson(state.runtimeTracking?.sceneReconciliation || null)
     };
   }
@@ -3643,9 +3809,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function runtimeIngressForContext(context = {}) {
-    const ledger = Array.isArray(campaignState?.runtimeTracking?.ingressLedger)
-      ? campaignState.runtimeTracking.ingressLedger
-      : [];
+    const ledger = createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [];
     const ingressId = compactString(context.ingressId);
     if (ingressId) {
       const byId = ledger.find((entry) => entry?.id === ingressId);
@@ -3710,9 +3874,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function runtimeResponseForContext(context = {}) {
-    const ledger = Array.isArray(campaignState?.runtimeTracking?.responseLedger)
-      ? campaignState.runtimeTracking.responseLedger
-      : [];
+    const ledger = createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).responseLedger || [];
     const responseId = compactString(context.responseId);
     if (responseId) {
       const byId = ledger.find((entry) => compactString(entry?.id) === responseId);
@@ -4563,6 +4725,7 @@ export function createDirectiveRuntimeApp({
     const runTask = async () => {
       advisoryEnrichmentPendingCount += 1;
       try {
+        await Promise.resolve();
         if (!advisoryEnrichmentGuardCurrent(sourceGuard)) {
           lastAdvisoryEnrichmentResult = staleAdvisoryEnrichmentResult(sourceGuard, 'source-stale-before-provider');
           queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'stale', {
@@ -5365,7 +5528,8 @@ export function createDirectiveRuntimeApp({
     let lensResult = null;
     const lens = ensureLensPromptScheduler();
     const lensPromptFrame = promptFrameForLensCache(frame);
-    const externalPromptEnvironmentRef = promptExternalEnvironmentRefForSync(lensPromptFrame);
+    const externalPromptEnvironment = promptExternalEnvironmentForSync(lensPromptFrame);
+    const externalPromptEnvironmentRef = externalPromptEnvironment?.externalPromptEnvironmentRef || null;
     const dirtyDomains = promptDirtyDomainsForSync({ promptFrame: lensPromptFrame, activityContext });
     const lane = activityMode === 'background' ? 'background' : 'visible';
     const transactionId = lensTransactionIdForPromptSync(activityContext);
@@ -5386,6 +5550,7 @@ export function createDirectiveRuntimeApp({
         campaignContext,
         promptFrame: lensPromptFrame,
         cacheInputs: lensCacheInputs,
+        externalPromptEnvironment,
         externalPromptEnvironmentRef,
         reason,
         installMethod: method,
@@ -5526,7 +5691,8 @@ export function createDirectiveRuntimeApp({
       activationId: compactString(activityContext?.activationId),
       promptDirtyDomains: DEFAULT_LENS_PROMPT_DIRTY_DOMAINS
     });
-    const externalPromptEnvironmentRef = promptExternalEnvironmentRefForSync(lensPromptFrame);
+    const externalPromptEnvironment = promptExternalEnvironmentForSync(lensPromptFrame);
+    const externalPromptEnvironmentRef = externalPromptEnvironment?.externalPromptEnvironmentRef || null;
     const dirtyDomains = promptDirtyDomainsForSync({
       promptFrame: lensPromptFrame,
       activityContext: {
@@ -5546,6 +5712,7 @@ export function createDirectiveRuntimeApp({
       binding: targetState.campaignChatBinding,
       campaignContext,
       promptFrame: lensPromptFrame,
+      externalPromptEnvironment,
       externalPromptEnvironmentRef,
       reason,
       installMethod: 'install',
@@ -6225,6 +6392,60 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  function responseCompatibilityProjectionPatch(response = {}, {
+    kind,
+    action = null,
+    revision = null,
+    correctionCase = null,
+    reviewPatch = null
+  } = {}) {
+    const responseId = compactString(response.id || response.responseId || '');
+    const transactionId = compactString(
+      response.coreTransactionId
+      || response.transactionId
+      || response.coreProjection?.transactionId
+      || response.coreProjection?.coreTransactionId
+      || response.compatibilityMirror?.transactionId
+      || response.coreRecovery?.transactionId
+      || response.coreRelease?.transactionId
+      || response.coreCompletion?.transactionId
+      || ''
+    );
+    if (!transactionId) {
+      const error = new Error('Response lifecycle CORE projection requires transaction evidence.');
+      error.code = 'DIRECTIVE_CORE_RESPONSE_PROJECTION_TRANSACTION_REQUIRED';
+      error.details = {
+        kind: kind || null,
+        responseId: responseId || null,
+        hostMessageId: compactString(response.hostMessageId || '') || null
+      };
+      throw error;
+    }
+    return {
+      authority: 'compatibilityProjection',
+      projectionSource: 'coreStoreV2',
+      coreProjection: {
+        kind,
+        responseId: responseId || null,
+        hostMessageId: compactString(response.hostMessageId || '') || null,
+        outcomeId: compactString(response.outcomeId || '') || null,
+        turnId: compactString(response.turnId || '') || null,
+        transactionId,
+        action: action || null,
+        revisionId: revision?.id || null,
+        revisionTextHash: revision?.textHash || null,
+        correctionCaseId: correctionCase?.id || null,
+        correctionStatus: correctionCase?.status || null,
+        candidateTextHash: correctionCase?.candidate?.textHash || correctionCase?.candidateSwipe?.textHash || null,
+        selectedSwipeIndex: Number.isInteger(correctionCase?.candidateSwipe?.swipeIndex)
+          ? correctionCase.candidateSwipe.swipeIndex
+          : null,
+        reviewVerdict: reviewPatch?.verdict || revision?.reviewVerdict || null,
+        projectedAt: timestampFromNow(now)
+      }
+    };
+  }
+
   function adoptResponseLedgerProjection(projectedState = null) {
     if (!projectedState) return;
     campaignState = mergeFresherResponseLedgerProjection(campaignState, projectedState);
@@ -6304,10 +6525,17 @@ export function createDirectiveRuntimeApp({
     if (review.accepted !== true) {
       const latest = outcomeIntegrityCampaignState() || state;
       const response = context.response || {};
-      const responseUpdateId = context.hostMessageId || response.hostMessageId || response.id;
+      const responseUpdateId = response.id || response.responseId || context.responseId || context.sourceResponseId || response.hostMessageId || context.hostMessageId;
       const next = responseUpdateId
         ? updateDirectiveResponse(latest, responseUpdateId, {
+            ...responseCompatibilityProjectionPatch(response, {
+              kind: 'directive.coreResponseOutcomeIntegrityProjectionRef.v1',
+              action: 'reviewRejected',
+              reviewPatch
+            }),
             outcomeIntegrity: appendOutcomeIntegrityReview(response, reviewPatch)
+          }, {
+            missingCoreWriteMode: 'reject'
           })
         : latest;
       campaignState = next;
@@ -6361,9 +6589,15 @@ export function createDirectiveRuntimeApp({
     const response = context.response || {};
     const currentIntegrity = isObject(response.outcomeIntegrity) ? response.outcomeIntegrity : {};
     const revisions = Array.isArray(currentIntegrity.revisions) ? currentIntegrity.revisions : [];
-    const responseUpdateId = context.hostMessageId || response.hostMessageId || response.id;
+    const responseUpdateId = response.id || response.responseId || context.responseId || context.sourceResponseId || response.hostMessageId || context.hostMessageId;
     const next = responseUpdateId
       ? updateDirectiveResponse(latest, responseUpdateId, {
+          ...responseCompatibilityProjectionPatch(response, {
+            kind: 'directive.coreResponseOutcomeIntegrityProjectionRef.v1',
+            action: 'editAccepted',
+            revision,
+            reviewPatch
+          }),
           editedAt: revision.editedAt,
           replacementText: null,
           outcomeIntegrity: {
@@ -6373,6 +6607,8 @@ export function createDirectiveRuntimeApp({
             selectedRevisionId: revision.id,
             lastReview: reviewPatch
           }
+        }, {
+          missingCoreWriteMode: 'reject'
         })
       : latest;
     campaignState = next;
@@ -6456,11 +6692,17 @@ export function createDirectiveRuntimeApp({
       now,
       updateResponse: (latest, responseUpdateId, correctionCase) => {
         const tracked = initializeCampaignRuntimeTracking(latest);
-        const hotResponse = (tracked.runtimeTracking?.responseLedger || []).find((entry) => (
+        const projectedResponse = (createRuntimeLedgerView(tracked).responseLedger || []).find((entry) => (
           compactString(entry?.id) === compactString(responseUpdateId)
           || compactString(entry?.hostMessageId) === compactString(responseUpdateId)
         )) || null;
-        const currentResponse = hotResponse || findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const hasCompatibilityResponseRow = Boolean(projectedResponse && (
+          projectedResponse.authority
+          || projectedResponse.compatibilityMirror
+          || projectedResponse.projectionSource
+        ));
+        const currentResponse = projectedResponse || findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const stableResponseId = compactString(currentResponse.id || currentResponse.responseId || response.id || response.responseId);
         const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
         const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
         const patch = {
@@ -6474,18 +6716,26 @@ export function createDirectiveRuntimeApp({
             lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || null)
           }
         };
-        if (!hotResponse && currentResponse) {
-          return recordDirectiveResponse(tracked, {
-            ...cloneJson(currentResponse),
-            ...patch,
-            id: currentResponse.id || currentResponse.responseId || responseUpdateId,
-            hostMessageId: currentResponse.hostMessageId || correctionCase.source?.hostMessageId || null,
-            status: currentResponse.status || 'posted',
-            responseKind: currentResponse.responseKind || currentResponse.kind || 'hostGeneration',
-            strategy: currentResponse.strategy || 'injectAndContinue'
-          });
+        if (!hasCompatibilityResponseRow) {
+          const error = new Error('Correct-as-Swipe requires a CORE response projection before candidate lifecycle update.');
+          error.code = 'DIRECTIVE_CORRECT_AS_SWIPE_RESPONSE_PROJECTION_REQUIRED';
+          error.details = {
+            action: 'candidateAppended',
+            responseId: stableResponseId || compactString(responseUpdateId) || null,
+            hostMessageId: compactString(currentResponse?.hostMessageId || correctionCase.source?.hostMessageId || '') || null
+          };
+          throw error;
         }
-        return updateDirectiveResponse(tracked, responseUpdateId, patch);
+        return stableResponseId ? updateDirectiveResponse(tracked, stableResponseId, {
+          ...responseCompatibilityProjectionPatch(currentResponse, {
+            kind: 'directive.coreResponseCorrectAsSwipeProjectionRef.v1',
+            action: 'candidateAppended',
+            correctionCase
+          }),
+          ...patch
+        }, {
+          missingCoreWriteMode: 'reject'
+        }) : tracked;
       },
       persist: async (next, summary) => {
         campaignState = next;
@@ -6513,9 +6763,7 @@ export function createDirectiveRuntimeApp({
     const caseId = compactString(payload.caseId || payload.id || payload.correctionCaseId || '');
     const message = hostMessageForOutcomeIntegrity(payload);
     const hostMessageId = hostMessageIdFromPayload(payload);
-    const responses = Array.isArray(state?.runtimeTracking?.responseLedger)
-      ? state.runtimeTracking.responseLedger
-      : [];
+    const responses = createRuntimeLedgerView(state || {}).responseLedger || [];
     const response = findOutcomeIntegrityResponse(state, hostMessageId)
       || findOutcomeIntegrityResponse(state, message?.hostMessageId || message?.id)
       || responses.find((entry) => (
@@ -6543,10 +6791,20 @@ export function createDirectiveRuntimeApp({
       now,
       updateResponse: (latest, responseUpdateId, correctionCase) => {
         const tracked = initializeCampaignRuntimeTracking(latest);
-        const currentResponse = findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const projectedResponse = (createRuntimeLedgerView(tracked).responseLedger || []).find((entry) => (
+          compactString(entry?.id) === compactString(responseUpdateId)
+          || compactString(entry?.hostMessageId) === compactString(responseUpdateId)
+        )) || null;
+        const hasCompatibilityResponseRow = Boolean(projectedResponse && (
+          projectedResponse.authority
+          || projectedResponse.compatibilityMirror
+          || projectedResponse.projectionSource
+        ));
+        const currentResponse = projectedResponse || findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const stableResponseId = compactString(currentResponse.id || currentResponse.responseId || response.id || response.responseId);
         const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
         const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
-        return updateDirectiveResponse(tracked, responseUpdateId, {
+        const patch = {
           correctAsSwipe: {
             ...currentCorrectAsSwipe,
             cases: [
@@ -6557,7 +6815,27 @@ export function createDirectiveRuntimeApp({
             lastLifecycleDecision: cloneJson(correctionCase.repairDecision || null),
             lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || currentCorrectAsSwipe.lastCandidateSwipe || null)
           }
-        });
+        };
+        if (!hasCompatibilityResponseRow) {
+          const error = new Error('Correct-as-Swipe requires a CORE response projection before case lifecycle update.');
+          error.code = 'DIRECTIVE_CORRECT_AS_SWIPE_RESPONSE_PROJECTION_REQUIRED';
+          error.details = {
+            action: 'caseLifecycleUpdated',
+            responseId: stableResponseId || compactString(responseUpdateId) || null,
+            hostMessageId: compactString(currentResponse?.hostMessageId || correctionCase.source?.hostMessageId || '') || null
+          };
+          throw error;
+        }
+        return stableResponseId ? updateDirectiveResponse(tracked, stableResponseId, {
+          ...responseCompatibilityProjectionPatch(currentResponse, {
+            kind: 'directive.coreResponseCorrectAsSwipeProjectionRef.v1',
+            action: 'caseLifecycleUpdated',
+            correctionCase
+          }),
+          ...patch
+        }, {
+          missingCoreWriteMode: 'reject'
+        }) : tracked;
       },
       persist: async (next, summary) => {
         campaignState = next;
@@ -7590,13 +7868,18 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async rebuildPromptContext() {
+    async rebuildPromptContext({
+      promptFrame = null,
+      persist = true,
+      reason = 'Player-safe campaign prompt context rebuilt manually.'
+    } = {}) {
       return run(async () => {
         await ensureInitialized();
         const result = await synchronizeActivePrompt(campaignState, {
-          persist: true,
+          persist,
           rebuild: true,
-          reason: 'Player-safe campaign prompt context rebuilt manually.'
+          promptFrame,
+          reason
         });
         await refreshCampaignView();
         return { ...cloneJson(result), view: viewEnvelope('settings') };
@@ -7838,7 +8121,7 @@ export function createDirectiveRuntimeApp({
         }
         validateFactualGroundingReviewRequest(reviewRequest);
         const stateBefore = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCallCountBefore = campaignState?.runtimeTracking?.modelCallJournal?.length || 0;
+        const modelCallCountBefore = modelCallDiagnosticsForState(campaignState).length;
         const generated = await generationRouter.generate(
           FACTUAL_GROUNDING_REVIEW_ROLE_ID,
           factualGroundingReviewProviderRequest(reviewRequest)
@@ -7851,7 +8134,7 @@ export function createDirectiveRuntimeApp({
           || ''
         );
         const stateAfter = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCalls = campaignState?.runtimeTracking?.modelCallJournal || [];
+        const modelCalls = modelCallDiagnosticsForState(campaignState);
         const latestModelCall = modelCalls.at(-1) || null;
         return {
           kind: 'directive.factualGroundingReviewProviderResult',
@@ -7890,7 +8173,7 @@ export function createDirectiveRuntimeApp({
         }
         validateStoryQualityReviewRequest(reviewRequest);
         const stateBefore = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCallCountBefore = campaignState?.runtimeTracking?.modelCallJournal?.length || 0;
+        const modelCallCountBefore = modelCallDiagnosticsForState(campaignState).length;
         const generated = await generationRouter.generate(
           STORY_QUALITY_REVIEW_ROLE_ID,
           storyQualityReviewProviderRequest(reviewRequest)
@@ -7903,7 +8186,7 @@ export function createDirectiveRuntimeApp({
           || ''
         );
         const stateAfter = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCalls = campaignState?.runtimeTracking?.modelCallJournal || [];
+        const modelCalls = modelCallDiagnosticsForState(campaignState);
         const latestModelCall = modelCalls.at(-1) || null;
         return {
           kind: 'directive.storyQualityReviewProviderResult',
@@ -9024,12 +9307,13 @@ export function createDirectiveRuntimeApp({
           throw new Error('Command Bearing points must be readied before the player message; post-outcome spendTrack commits are disabled.');
         }
         let replacement = pendingOutcomeReplacement ? cloneJson(pendingOutcomeReplacement) : null;
-        const baseCampaignState = replacement?.snapshotBefore || campaignState;
-        const beforeCampaignState = cloneJson(baseCampaignState);
         let replacementLedgerEntry = replacement
           ? (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === replacement.outcomeId) || null
           : null;
         replacementLedgerEntry = assertFreshOutcomeRerunReplacementTarget({ replacement, ledgerEntry: replacementLedgerEntry });
+        const replacementCoreCheckpointRef = assertOutcomeReplacementCheckpointBase({ replacement, ledgerEntry: replacementLedgerEntry });
+        const baseCampaignState = replacement ? replacement.snapshotBefore : campaignState;
+        const beforeCampaignState = cloneJson(baseCampaignState);
         const result = commitProvisionalDirectorTurnRuntime({
           campaignState: baseCampaignState,
           turnPacket: pendingDirectorTurn,
@@ -9059,6 +9343,7 @@ export function createDirectiveRuntimeApp({
             replacementIngress: replacementTransaction.replacementIngress || replacement.replacementIngress || null,
             replacementSourceFrame: replacementTransaction.replacementSourceFrame || replacement.replacementSourceFrame || null,
             coreTransaction: replacementTransaction.coreTransaction || replacement.coreTransaction || null,
+            coreCheckpointRef: replacementCoreCheckpointRef || replacement.coreCheckpointRef || null,
             repairDecision: replacementTransaction.repairDecision || replacement.repairDecision
           };
         }
@@ -9096,7 +9381,9 @@ export function createDirectiveRuntimeApp({
           throw error;
         }
         if (replacement?.replacementIngress) {
-          committedCandidateState = recordTurnIngress(committedCandidateState, replacement.replacementIngress);
+          committedCandidateState = recordTurnIngress(committedCandidateState, replacement.replacementIngress, {
+            missingCoreWriteMode: 'reject'
+          });
         }
         const mechanicsIngressId = replacement?.replacementIngressId
           || committedCandidateState.runtimeTracking?.activeIngressId
@@ -9287,6 +9574,8 @@ export function createDirectiveRuntimeApp({
           replacementInputHash,
           replacedTransactionId: rerunDecision.replacedTransactionId || null,
           snapshotBefore,
+          coreCheckpointRef: cloneJson(checkpointSnapshot?.coreCheckpointRef || null),
+          snapshotSourceKind: checkpointSnapshot?.sourceKind || null,
           repairDecision: cloneJson(rerunDecision),
           previewCreatedAt: timestampFromNow(now)
         };

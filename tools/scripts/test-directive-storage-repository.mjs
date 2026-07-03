@@ -400,12 +400,13 @@ const runtimeBridgeLoaded = await loadCampaignSaveFromStorage(adapter, firstSave
   now: '2026-06-18T19:30:11.000Z'
 });
 requireEqual(runtimeBridgeLoaded.campaign.currentStardate, 53050.6, 'load campaign save prefers runtime bridge v2 state');
-requireEqual(runtimeBridgeLoaded.runtimeTracking.schemaVersion, 2, 'load campaign save rehydrates compact runtime bridge projections');
-requireEqual(runtimeBridgeLoaded.runtimeTracking.ingressLedger[0].hostMessageId, '44', 'load campaign save restores runtime bridge ingress projection');
-requireEqual(runtimeBridgeLoaded.runtimeTracking.ingressLedger[0].textHash, 'runtime-bridge-hash-44', 'load campaign save restores runtime bridge ingress hash');
-requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger[0].replacementText, undefined, 'runtime bridge load does not rehydrate raw replacement text');
-requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger[0].replacementTextPresent, true, 'runtime bridge load preserves replacement-text presence');
-requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger[0].replacementTextHash.length, 64, 'runtime bridge load preserves replacement-text hash');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.schemaVersion, 2, 'load campaign save rehydrates compact runtime bridge resume state');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.ingressLedger.length, 0, 'runtime bridge load keeps ingress projections out of old runtimeTracking');
+requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger.length, 0, 'runtime bridge load keeps response projections out of old runtimeTracking');
+const runtimeBridgeProjection = runtimeBridgeLoaded.directiveRuntimeEvidence?.coreStoreReadProjections || {};
+requireEqual(runtimeBridgeProjection.ingressLedger, undefined, 'runtime bridge load does not promote no-transaction ingress rows to CORE read evidence');
+requireEqual(runtimeBridgeProjection.responseLedger, undefined, 'runtime bridge load does not promote no-transaction response rows to CORE read evidence');
+requireEqual(stable(runtimeBridgeLoaded).includes('RAW_RUNTIME_BRIDGE_REPLACEMENT_TEXT'), false, 'runtime bridge load does not rehydrate raw replacement text');
 requireEqual(runtimeBridgeLoaded.runtimeTracking.history, undefined, 'runtime bridge load does not restore raw runtime history');
 const recoveredRuntimeBridge = await recoverActiveCampaignSave(adapter, {
   now: '2026-06-18T19:30:12.000Z'
@@ -413,7 +414,9 @@ const recoveredRuntimeBridge = await recoverActiveCampaignSave(adapter, {
 requireEqual(recoveredRuntimeBridge.activeSaveId, firstSave.id, 'active recovery keeps runtime bridge save active');
 requireEqual(recoveredRuntimeBridge.storageFormat, 'v2', 'active recovery reports runtime bridge v2 storage format');
 requireEqual(recoveredRuntimeBridge.campaignState.campaign.currentStardate, 53050.6, 'active recovery prefers runtime bridge v2 state');
-requireEqual(recoveredRuntimeBridge.campaignState.runtimeTracking.schemaVersion, 2, 'active recovery rehydrates compact runtime bridge projections');
+requireEqual(recoveredRuntimeBridge.campaignState.runtimeTracking.schemaVersion, 2, 'active recovery rehydrates compact runtime bridge resume state');
+requireEqual(recoveredRuntimeBridge.campaignState.runtimeTracking.ingressLedger.length, 0, 'active recovery keeps ingress projections out of old runtimeTracking');
+requireEqual(recoveredRuntimeBridge.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger, undefined, 'active recovery does not promote no-transaction ingress rows to CORE read evidence');
 const runtimeBridgeManifestPath = runtimeBridgePersist.saveManifestRef.logicalKey;
 snapshot = adapter.snapshot();
 const runtimeBridgeFreshIndex = cloneJson(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex]);
@@ -443,6 +446,11 @@ runtimeBridgeRestoredIndex.saves[firstSave.id].v2ManifestRef = runtimeBridgeFres
 await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeRestoredIndex);
 snapshot = adapter.snapshot();
 const runtimeBridgeManifest = cloneJson(snapshot[runtimeBridgeManifestPath]);
+requireEqual(
+  Array.isArray(runtimeBridgeManifest.eventSegments) ? runtimeBridgeManifest.eventSegments.length : 0,
+  0,
+  'runtime bridge v2 persist does not write no-CORE ingress/response event segments'
+);
 const runtimeBridgeHeadPath = runtimeBridgeManifest.head.logicalKey;
 const originalRuntimeBridgeHead = cloneJson(snapshot[runtimeBridgeHeadPath]);
 const corruptRuntimeBridgeHead = cloneJson(originalRuntimeBridgeHead);
@@ -458,21 +466,6 @@ requireEqual(
   'corrupt runtime bridge head fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
 );
 await adapter.writeJson(runtimeBridgeHeadPath, originalRuntimeBridgeHead);
-const runtimeBridgeEventPath = runtimeBridgeManifest.eventSegments[0].logicalKey;
-const originalRuntimeBridgeEventSegment = cloneJson(snapshot[runtimeBridgeEventPath]);
-const corruptRuntimeBridgeEventSegment = cloneJson(originalRuntimeBridgeEventSegment);
-corruptRuntimeBridgeEventSegment.entries[0].status = 'corrupted-after-ref';
-await adapter.writeJson(runtimeBridgeEventPath, corruptRuntimeBridgeEventSegment);
-const runtimeBridgeCorruptEventLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
-  now: '2026-06-18T19:30:12.900Z'
-});
-requireEqual(runtimeBridgeCorruptEventLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge event segment hash mismatches');
-requireEqual(
-  runtimeBridgeCorruptEventLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
-  false,
-  'corrupt runtime bridge event fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
-);
-await adapter.writeJson(runtimeBridgeEventPath, originalRuntimeBridgeEventSegment);
 adapter.deleteJson(runtimeBridgeManifestPath);
 const runtimeBridgeFallbackLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
   now: '2026-06-18T19:30:13.000Z'
@@ -632,26 +625,66 @@ try {
 requireEqual(loadedV2AfterHotAppendError?.code || null, null, 'pure v2 load after hot append should not reject on stale manifest ref metadata');
 requireEqual(
   loadedV2AfterHotAppend?.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-player'),
-  true,
-  'pure v2 load after hot append rehydrates appended runtime ingress projection'
+  false,
+  'pure v2 load after hot append keeps ingress projection out of old runtimeTracking'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.runtimeTracking?.ingressLedger?.find((entry) => entry.hostMessageId === 'msg-v2-hot-player')?.authority,
+  undefined,
+  'pure v2 load after hot append does not materialize an old ingress mirror'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.runtimeTracking?.ingressLedger?.find((entry) => entry.hostMessageId === 'msg-v2-hot-player')?.projectionSource,
+  undefined,
+  'pure v2 load after hot append does not tag old ingress projection source'
 );
 requireEqual(
   loadedV2AfterHotAppend?.runtimeTracking?.responseLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-assistant' && entry.outcomeId === 'outcome-v2-hot'),
-  true,
-  'pure v2 load after hot append rehydrates appended runtime response projection'
+  false,
+  'pure v2 load after hot append keeps response projection out of old runtimeTracking'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.runtimeTracking?.responseLedger?.find((entry) => entry.hostMessageId === 'msg-v2-hot-assistant')?.projectionSource,
+  undefined,
+  'pure v2 load after hot append does not tag old response projection source'
 );
 requireEqual(
   loadedV2AfterHotAppend?.turnLedger?.entries?.some((entry) => entry.turnId === 'turn-v2-hot' && entry.outcomeId === 'outcome-v2-hot'),
   true,
   'pure v2 load after hot append rehydrates appended turn projection'
 );
+requireEqual(
+  loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.runtimeAuthority,
+  'coreStoreV2',
+  'pure v2 load after hot append exposes CORE runtime authority as transient read projection evidence'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-player'),
+  true,
+  'pure v2 load after hot append exposes ingress through CORE read projections'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.responseLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-assistant' && entry.outcomeId === 'outcome-v2-hot'),
+  true,
+  'pure v2 load after hot append exposes response through CORE read projections'
+);
+requireEqual(
+  loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.turnLedger?.entries?.some((entry) => entry.turnId === 'turn-v2-hot' && entry.outcomeId === 'outcome-v2-hot'),
+  true,
+  'pure v2 load after hot append exposes turn records through CORE read projections'
+);
 const recoveredV2AfterHotAppend = await recoverActiveCampaignSave(adapter, {
   now: '2026-06-18T19:30:34.350Z'
 });
 requireEqual(
   recoveredV2AfterHotAppend.campaignState?.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-player'),
-  true,
-  'pure v2 recovery after hot append rehydrates appended runtime ingress projection'
+  false,
+  'pure v2 recovery after hot append keeps ingress projection out of old runtimeTracking'
+);
+requireEqual(
+  recoveredV2AfterHotAppend.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections?.runtimeAuthority,
+  'coreStoreV2',
+  'pure v2 recovery after hot append exposes CORE runtime authority projection evidence'
 );
 requireEqual(
   recoveredV2AfterHotAppend.campaignState?.turnLedger?.entries?.some((entry) => entry.turnId === 'turn-v2-hot'),

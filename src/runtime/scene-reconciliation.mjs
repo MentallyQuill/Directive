@@ -1,5 +1,6 @@
 import { invalidateOpenWorldCausalityForReconciliation, processWorldBoundary } from '../directors/director-coordinator.mjs';
 import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
+import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
 
 export const SCENE_RECONCILIATION_ACTION_IDS = Object.freeze({
   reconcileMessage: 'reconciliation.reconcileMessage',
@@ -62,6 +63,41 @@ function bounded(values, limit) { return asArray(values).slice(Math.max(0, asArr
 function timestamp(now) { return typeof now === 'function' ? now() : (now || new Date().toISOString()); }
 function unique(values) { return [...new Set(asArray(values).filter(Boolean))]; }
 function rootOf(path) { return compact(path).split('.')[0] || null; }
+function compactCoreCheckpointRef(ref = null) {
+  if (!isObject(ref)) return null;
+  const checkpointId = compact(ref.checkpointId || ref.id);
+  if (!checkpointId) return null;
+  return {
+    kind: compact(ref.kind) || 'directive.coreMechanicsCheckpointRef.v1',
+    campaignId: compact(ref.campaignId) || null,
+    saveId: compact(ref.saveId) || null,
+    checkpointId,
+    layout: compact(ref.layout) || 'core',
+    sourceKind: compact(ref.sourceKind) || null,
+    sourceRevision: Number.isFinite(Number(ref.sourceRevision)) ? Number(ref.sourceRevision) : null,
+    logicalKey: compact(ref.logicalKey) || null,
+    hash: compact(ref.hash) || null
+  };
+}
+
+function coreCheckpointRefFromLedgerEntry(entry = null) {
+  return compactCoreCheckpointRef(entry?.coreCheckpointRef || entry?.checkpointRef || entry?.v2CheckpointRef || null);
+}
+
+function snapshotFromLoadedCoreCheckpoint(loaded = null) {
+  if (!isObject(loaded)) return null;
+  return loaded.campaignState
+    || loaded.snapshot
+    || loaded.state
+    || loaded.checkpoint?.campaignState
+    || loaded.checkpoint?.snapshot
+    || loaded.checkpoint?.state
+    || loaded.record?.checkpoint?.campaignState
+    || loaded.record?.checkpoint?.snapshot
+    || loaded.record?.checkpoint?.state
+    || loaded.payload?.campaignState
+    || null;
+}
 
 export function stableTextHash(value) {
   let hash = 2166136261;
@@ -134,7 +170,7 @@ function normalizeAnchor(anchor = null) {
 }
 
 function findIngressForMessage(state, message) {
-  const ledger = asArray(state?.runtimeTracking?.ingressLedger);
+  const ledger = asArray(createRuntimeLedgerView(state || {}).ingressLedger);
   return ledger.find((entry) => message?.hostMessageId && String(entry.hostMessageId || '') === String(message.hostMessageId))
     || ledger.find((entry) => message?.textHash && String(entry.textHash || '') === String(message.textHash))
     || null;
@@ -360,10 +396,11 @@ function dedupeProposals(proposals) {
 function outcomeIdsForRange(state, range) {
   const ids = new Set();
   const messageIds = new Set([range?.start?.hostMessageId, range?.end?.hostMessageId].filter(Boolean));
-  for (const ingress of asArray(state?.runtimeTracking?.ingressLedger)) {
+  const runtimeLedgerView = createRuntimeLedgerView(state || {});
+  for (const ingress of asArray(runtimeLedgerView.ingressLedger)) {
     if (messageIds.has(ingress.hostMessageId) && ingress.outcomeId) ids.add(ingress.outcomeId);
   }
-  for (const response of asArray(state?.runtimeTracking?.responseLedger)) {
+  for (const response of asArray(runtimeLedgerView.responseLedger)) {
     if (messageIds.has(response.hostMessageId) && response.outcomeId) ids.add(response.outcomeId);
   }
   return [...ids];
@@ -373,7 +410,7 @@ function findOutcomeForAnchor(state, anchor) {
   if (anchor?.outcomeId) return anchor.outcomeId;
   const ingress = findIngressForMessage(state, anchor);
   if (ingress?.outcomeId) return ingress.outcomeId;
-  return asArray(state?.runtimeTracking?.responseLedger).find((entry) => anchor?.hostMessageId && entry.hostMessageId === anchor.hostMessageId)?.outcomeId || null;
+  return asArray(createRuntimeLedgerView(state || {}).responseLedger).find((entry) => anchor?.hostMessageId && entry.hostMessageId === anchor.hostMessageId)?.outcomeId || null;
 }
 
 function campaignIdForState(state = null) {
@@ -386,8 +423,9 @@ function saveIdForState(state = null) {
 
 function coreTransactionIdForMessage(state, message) {
   const ingressId = compact(message?.ingressId || message?.metadata?.ingressId) || null;
+  const ingressRows = asArray(createRuntimeLedgerView(state || {}).ingressLedger);
   const directIngress = ingressId
-    ? asArray(state?.runtimeTracking?.ingressLedger).find((entry) => entry?.id === ingressId)
+    ? ingressRows.find((entry) => entry?.id === ingressId)
     : null;
   const ingress = findIngressForMessage(state, message);
   return compact(message?.coreTransactionId || message?.metadata?.coreTransactionId || directIngress?.coreTransactionId || ingress?.coreTransactionId) || null;
@@ -506,6 +544,7 @@ export function createSceneReconciliationService({
   getPackageData = null,
   processReconciledConversation = null,
   replayDirector = null,
+  loadCoreCheckpointState = null,
   sourceSettlementService = null,
   now = null,
   idFactory = null
@@ -947,17 +986,45 @@ export function createSceneReconciliationService({
     const ledgerEntry = index >= 0 ? entries[index] : null;
     const previewId = makeId('recalc-preview');
     let replayPreview = null;
-    if (ledgerEntry?.snapshotBefore && typeof replayDirector === 'function') {
-      replayPreview = await replayDirector({ snapshotBefore: cloneJson(ledgerEntry.snapshotBefore), ledgerEntry: cloneJson(ledgerEntry), anchor, payload: cloneJson(payload), maxTurns: Math.max(1, Math.min(8, Number(payload.maxTurns || 4))) });
+    let checkpointSnapshot = null;
+    let checkpointRef = coreCheckpointRefFromLedgerEntry(ledgerEntry);
+    let checkpointSourceKind = null;
+    if (checkpointRef && typeof loadCoreCheckpointState === 'function') {
+      const binding = state.campaignChatBinding || {};
+      const loaded = await loadCoreCheckpointState({
+        coreCheckpointRef: checkpointRef,
+        state,
+        ledgerEntry: cloneJson(ledgerEntry),
+        outcomeId,
+        purpose: 'sceneReconciliationRecalculateFromHere'
+      });
+      checkpointSnapshot = snapshotFromLoadedCoreCheckpoint(loaded);
+      checkpointSourceKind = compact(
+        loaded?.sourceKind
+        || loaded?.checkpoint?.sourceKind
+        || checkpointRef.sourceKind
+        || ''
+      ) || (checkpointSnapshot ? 'coreStoreV2.checkpoint' : null);
+      checkpointRef = {
+        ...checkpointRef,
+        campaignId: checkpointRef.campaignId || binding.campaignId || state.campaign?.id || null,
+        saveId: checkpointRef.saveId || binding.saveId || null
+      };
     }
+    if (checkpointSnapshot && typeof replayDirector === 'function') {
+      replayPreview = await replayDirector({ snapshotBefore: cloneJson(checkpointSnapshot), coreCheckpointRef: cloneJson(checkpointRef), snapshotSourceKind: checkpointSourceKind, ledgerEntry: cloneJson(ledgerEntry), anchor, payload: cloneJson(payload), maxTurns: Math.max(1, Math.min(8, Number(payload.maxTurns || 4))) });
+    }
+    const previewAvailable = Boolean(checkpointSnapshot);
     const preview = {
-      id: previewId, status: ledgerEntry?.snapshotBefore ? 'previewAvailable' : 'stopped',
+      id: previewId, status: previewAvailable ? 'previewAvailable' : 'stopped',
       createdAt: timestamp(now), baseRevision: stateDeltaGateway.revision(), baseMechanicsRevision: stateDeltaGateway.mechanicsRevision?.() ?? 0,
       anchor, anchorRange: anchorRangeForMessages([message], { state, now }), outcomeId: outcomeId || null,
-      hasSnapshotBefore: Boolean(ledgerEntry?.snapshotBefore),
+      hasSnapshotBefore: previewAvailable,
+      coreCheckpointRef: previewAvailable ? cloneJson(checkpointRef) : null,
+      snapshotSourceKind: previewAvailable ? checkpointSourceKind : null,
       droppedOutcomeIds: index >= 0 ? entries.slice(index + 1).map((item) => item.outcomeId).filter(Boolean) : [],
       replayPreview: cloneJson(replayPreview),
-      summary: ledgerEntry?.snapshotBefore ? 'Scratch replay preview is available; live state has not changed.' : 'No pre-outcome snapshot was found.'
+      summary: previewAvailable ? 'Scratch replay preview is available from CORE checkpoint; live state has not changed.' : 'No CORE checkpoint snapshot was found.'
     };
     const ledger = current();
     ledger.recalculationPreviews = bounded([...ledger.recalculationPreviews, preview], LIMITS.previews);

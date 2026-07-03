@@ -207,6 +207,7 @@ export function redactExternalDiagnostic(value, redactions = []) {
 }
 
 function normalizeWorldInfo(input = {}) {
+  const timingDiagnostics = normalizeExternalTimingDiagnostics(input.timingDiagnostics || input.timing);
   return compactObject({
     installed: asBoolean(input.installed, true),
     enabled: asBoolean(input.enabled, false),
@@ -217,8 +218,39 @@ function normalizeWorldInfo(input = {}) {
     depth: asNumber(input.depth),
     budgetPercent: asNumber(input.budgetPercent ?? input.budget),
     recursive: input.recursive === undefined ? undefined : asBoolean(input.recursive),
-    promptPositions: uniqueStrings(input.promptPositions || input.positions)
+    promptPositions: uniqueStrings(input.promptPositions || input.positions),
+    timingDiagnostics
   });
+}
+
+function normalizeExternalTimingDiagnostics(input = {}) {
+  const timingNumber = (value) => (value === null || value === undefined ? undefined : asNumber(value));
+  const diagnostics = compactObject({
+    observed: asBoolean(input.observed, false),
+    composeLatencyMs: timingNumber(input.composeLatencyMs),
+    scanLatencyMs: timingNumber(input.scanLatencyMs),
+    retrievalLatencyMs: timingNumber(input.retrievalLatencyMs),
+    summaryLatencyMs: timingNumber(input.summaryLatencyMs),
+    interceptorLatencyMs: timingNumber(input.interceptorLatencyMs),
+    source: asString(input.source)
+  });
+  const observed = diagnostics.observed === true
+    || diagnostics.composeLatencyMs !== undefined
+    || diagnostics.scanLatencyMs !== undefined
+    || diagnostics.retrievalLatencyMs !== undefined
+    || diagnostics.summaryLatencyMs !== undefined
+    || diagnostics.interceptorLatencyMs !== undefined;
+  if (!observed) return undefined;
+  diagnostics.observed = true;
+  diagnostics.timingHash = asString(input.timingHash) || hashStableJson({
+    composeLatencyMs: diagnostics.composeLatencyMs ?? null,
+    scanLatencyMs: diagnostics.scanLatencyMs ?? null,
+    retrievalLatencyMs: diagnostics.retrievalLatencyMs ?? null,
+    summaryLatencyMs: diagnostics.summaryLatencyMs ?? null,
+    interceptorLatencyMs: diagnostics.interceptorLatencyMs ?? null,
+    source: diagnostics.source || null
+  });
+  return diagnostics;
 }
 
 function normalizeMemoryBooks(input = {}) {
@@ -247,7 +279,8 @@ function normalizeMemoryBooks(input = {}) {
     stMemoryBookEntryCount: asInteger(input.stMemoryBookEntryCount ?? input.entryCount, 0),
     stMemoryBookEntryHash: asString(input.stMemoryBookEntryHash || input.entryHash),
     rangeDiagnostics,
-    riskyModes
+    riskyModes,
+    timingDiagnostics: normalizeExternalTimingDiagnostics(input.timingDiagnostics || input.timing)
   });
 }
 
@@ -271,7 +304,8 @@ function normalizeSummaryception(input = {}) {
     ghostedCount: asInteger(input.ghostedCount, 0),
     staleness,
     injectionHash: asString(input.injectionHash),
-    externalModelCalls: asBoolean(input.externalModelCalls, false)
+    externalModelCalls: asBoolean(input.externalModelCalls, false),
+    timingDiagnostics: normalizeExternalTimingDiagnostics(input.timingDiagnostics || input.timing)
   });
 }
 
@@ -390,7 +424,8 @@ function diagnosticEvidenceFor(target, value = {}) {
       activeNameCount: Array.isArray(value.activeNames) ? value.activeNames.length : 0,
       chatBound: Boolean(value.chatBoundName),
       settingsHash: value.settingsHash || null,
-      promptPositions: value.promptPositions || []
+      promptPositions: value.promptPositions || [],
+      timingDiagnostics: value.timingDiagnostics || {}
     };
   }
   if (target === 'memoryBooks') {
@@ -399,7 +434,8 @@ function diagnosticEvidenceFor(target, value = {}) {
       entryCount: value.stMemoryBookEntryCount || 0,
       entryHash: value.stMemoryBookEntryHash || null,
       rangeDiagnostics: value.rangeDiagnostics || {},
-      riskyModes: value.riskyModes || {}
+      riskyModes: value.riskyModes || {},
+      timingDiagnostics: value.timingDiagnostics || {}
     };
   }
   if (target === 'summaryception') {
@@ -410,7 +446,8 @@ function diagnosticEvidenceFor(target, value = {}) {
       ghostedCount: value.ghostedCount || 0,
       staleness: value.staleness || {},
       injectionHash: value.injectionHash || null,
-      externalModelCalls: value.externalModelCalls === true
+      externalModelCalls: value.externalModelCalls === true,
+      timingDiagnostics: value.timingDiagnostics || {}
     };
   }
   if (target === 'vectFox') {
@@ -618,6 +655,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       activeNameCount: Array.isArray(worldInfo.activeNames) ? worldInfo.activeNames.length : 0,
       chatBound: Boolean(worldInfo.chatBoundName),
       promptPositions: Array.isArray(worldInfo.promptPositions) ? [...worldInfo.promptPositions] : [],
+      timingDiagnostics: { ...(worldInfo.timingDiagnostics || {}) },
       directiveAuthority: false,
       rawContentCaptured: false,
       ...targetRichEvidenceStatus('stLorebooks', worldInfo)
@@ -631,6 +669,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       entryHash: memoryBooks.stMemoryBookEntryHash || null,
       rangeDiagnostics: { ...(memoryBooks.rangeDiagnostics || {}) },
       riskyModes: { ...(memoryBooks.riskyModes || {}) },
+      timingDiagnostics: { ...(memoryBooks.timingDiagnostics || {}) },
       directiveAuthority: false,
       rawContentCaptured: false,
       ...targetRichEvidenceStatus('memoryBooks', memoryBooks)
@@ -645,6 +684,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       staleness: { ...(summaryception.staleness || {}) },
       injectionHash: summaryception.injectionHash || null,
       externalModelCalls: summaryception.externalModelCalls === true,
+      timingDiagnostics: { ...(summaryception.timingDiagnostics || {}) },
       directiveAuthority: false,
       rawContentCaptured: false,
       ...targetRichEvidenceStatus('summaryception', summaryception)

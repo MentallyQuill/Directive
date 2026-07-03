@@ -30,6 +30,7 @@ import {
   corePlayerIngressProof,
   generationTimingProofFromCoreProjections,
   hostNativeCompletionProofFromCoreProjections,
+  hostNativeCompletionTargetOutcome,
   uniqueStringList
 } from './lib/sillytavern-core-proof-policy.mjs';
 import {
@@ -96,6 +97,10 @@ const STORY_QUALITY_REVIEW_REQUEST_PATH = String(process.env.DIRECTIVE_SILLYTAVE
 const STORY_QUALITY_REVIEW_OUTPUT_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_OUTPUT_PATH || '').trim()
   ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_OUTPUT_PATH)
   : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'story-quality-review-provider-result.json') : '');
+const STORY_QUALITY_REVIEW_RETRY_COUNT = positiveInteger(
+  process.env.DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_RETRY_COUNT,
+  1
+);
 const COMPACT_STDOUT = process.env.DIRECTIVE_SILLYTAVERN_COMPACT_STDOUT === '1';
 const REQUIRE_BATCHED_SIDECARS = process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS === '1'
   || (process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS !== '0' && !CAMPAIGN_PACKAGE_ID);
@@ -112,7 +117,7 @@ const GENERATION_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_
 const CHAT_CAMPAIGN_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS, Math.max(120000, GENERATION_TIMEOUT_MS));
 const HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS = positiveInteger(
   process.env.DIRECTIVE_SILLYTAVERN_HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS,
-  Math.min(Math.max(CHAT_CAMPAIGN_TIMEOUT_MS, 240000), 240000)
+  Math.min(Math.max(CHAT_CAMPAIGN_TIMEOUT_MS, 360000), 360000)
 );
 const SIDECAR_SETTLE_TIMEOUT_MS = positiveInteger(
   process.env.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS,
@@ -2561,6 +2566,8 @@ function generationTimingProofFromLedgers({
   return {
     status,
     source,
+    certificationEvidence: false,
+    diagnosticOnlyReason: 'raw-runtime-ledger-snapshot-not-certification-evidence',
     saveId,
     payloadPath,
     checkedResponseCount: checked.length,
@@ -2585,11 +2592,15 @@ function hostNativeCompletionRequirementProof(message = {}, proof = {}) {
   const completionSource = proof?.completionSource || null;
   const completedHostContinueCount = Number(proof?.completedHostContinueCount || 0);
   const failedHostContinueCount = Number(proof?.failedHostContinueCount || 0);
+  const targetOutcome = hostNativeCompletionTargetOutcome(proof, {
+    targetTransactionIds: proof?.targetTransactionIds || [],
+    targetPlayerHostMessageIds: proof?.targetPlayerHostMessageIds || []
+  });
   const pass = proof?.status === 'pass'
     && source === 'coreStoreResponseLedger'
     && completionSource === 'coreProjection'
-    && completedHostContinueCount > 0
-    && failedHostContinueCount === 0;
+    && targetOutcome.targetCompletedHostContinueCount > 0
+    && targetOutcome.targetFailedHostContinueCount === 0;
   return {
     required: true,
     status: pass ? 'pass' : 'fail',
@@ -2604,6 +2615,10 @@ function hostNativeCompletionRequirementProof(message = {}, proof = {}) {
     completionSource,
     completedHostContinueCount,
     failedHostContinueCount,
+    targetOutcomeStatus: targetOutcome.status,
+    targetEntryCount: targetOutcome.targetEntryCount,
+    targetCompletedHostContinueCount: targetOutcome.targetCompletedHostContinueCount,
+    targetFailedHostContinueCount: targetOutcome.targetFailedHostContinueCount,
     targetPlayerHostMessageIds: uniqueStringList(proof?.targetPlayerHostMessageIds || []),
     targetTransactionIds: uniqueStringList(proof?.targetTransactionIds || []),
     unavailableReason: proof?.unavailableReason || null
@@ -2887,11 +2902,22 @@ async function waitForPersistedHostNativeCompletionProof(page, {
           : []
       } : null
     };
+    const targetOutcome = hostNativeCompletionTargetOutcome(latest, {
+      targetTransactionIds,
+      targetPlayerHostMessageIds
+    });
     const completed = Number(latest?.completedHostContinueCount || 0);
     const failed = Number(latest?.failedHostContinueCount || 0);
-    if (latest?.status === 'pass' || completed > 0 || failed > 0) {
+    const targetCompleted = Number(targetOutcome.targetCompletedHostContinueCount || 0);
+    const noExplicitTargetReady = targetOutcome.hasExplicitTargets !== true
+      && (latest?.status === 'pass' || completed > 0 || failed > 0);
+    if (targetOutcome.status === 'pass' || noExplicitTargetReady) {
       return {
         ...latest,
+        targetOutcomeStatus: targetOutcome.status,
+        targetCompletedHostContinueCount: targetCompleted,
+        targetFailedHostContinueCount: Number(targetOutcome.targetFailedHostContinueCount || 0),
+        targetEntryCount: targetOutcome.targetEntryCount,
         waitedForCompletionProof: attempts > 1,
         proofWaitAttempts: attempts,
         proofWaitMs: Date.now() - startedAt,
@@ -2901,6 +2927,10 @@ async function waitForPersistedHostNativeCompletionProof(page, {
     if (Date.now() - startedAt >= timeout) break;
     await sleep(Math.min(polling, Math.max(0, timeout - (Date.now() - startedAt))));
   }
+  const targetOutcome = hostNativeCompletionTargetOutcome(latest, {
+    targetTransactionIds,
+    targetPlayerHostMessageIds
+  });
   return {
     ...(latest || {
       status: 'warning',
@@ -2909,6 +2939,10 @@ async function waitForPersistedHostNativeCompletionProof(page, {
       saveId: saveId || null,
       campaignId: campaignId || null
     }),
+    targetOutcomeStatus: targetOutcome.status,
+    targetCompletedHostContinueCount: Number(targetOutcome.targetCompletedHostContinueCount || 0),
+    targetFailedHostContinueCount: Number(targetOutcome.targetFailedHostContinueCount || 0),
+    targetEntryCount: targetOutcome.targetEntryCount,
     waitedForCompletionProof: attempts > 0,
     proofWaitAttempts: attempts,
     proofWaitMs: Date.now() - startedAt,
@@ -3226,6 +3260,10 @@ function bridgeModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
 }
 
+function runtimeLedgerViewModulePath() {
+  return `${EXTENSION_PATH}/src/runtime/runtime-ledger-view.mjs`;
+}
+
 function shellEventsModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/shell-events.js`;
 }
@@ -3480,7 +3518,7 @@ function capturePromptInspectionSnapshot(snapshot, metadata = {}) {
 }
 
 async function chatNativeRuntimeSnapshot(page) {
-  return evaluateBrowserJson(page, async (modulePath) => {
+  return evaluateBrowserJson(page, async ({ modulePath, ledgerModulePath }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const compactText = (value, max = 180) => {
       const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -3562,6 +3600,12 @@ async function chatNativeRuntimeSnapshot(page) {
           entityName: context?.name2 || context?.characterName || globalThis.name2 || 'Character'
         };
     const mod = await import(modulePath);
+    let ledgerTools = null;
+    try {
+      ledgerTools = await import(ledgerModulePath);
+    } catch {
+      ledgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const host = bridge.host || null;
@@ -3635,8 +3679,21 @@ async function chatNativeRuntimeSnapshot(page) {
       metadata: safeModelCallMetadata(entry.metadata || null),
       recordedAt: entry.recordedAt || null
     });
+    const campaignState = view?.campaignState || {};
+    const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
+      ? ledgerTools.createRuntimeLedgerView(campaignState, { runtimeOverlay: true })
+      : null;
+    const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
+      ? ledgerTools.readRuntimeCoreProjections(campaignState)
+      : {};
     const modelCalls = (view?.chatNative?.modelCalls || []).map(safeModelCall);
-    const sidecars = (view?.campaignState?.runtimeTracking?.sidecarJournal || []).map((entry) => ({
+    const coreSidecarRows = [
+      ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
+      ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
+    ];
+    const sidecars = (coreSidecarRows.length
+      ? coreSidecarRows
+      : (view?.campaignState?.runtimeTracking?.sidecarJournal || [])).map((entry) => ({
       id: entry.id || null,
       workerId: entry.workerId || null,
       roleId: entry.roleId || null,
@@ -3653,8 +3710,12 @@ async function chatNativeRuntimeSnapshot(page) {
       return counts;
     }, {});
     const runtimeTracking = view?.campaignState?.runtimeTracking || {};
-    const ingressLedger = Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : [];
-    const responseLedger = Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : [];
+    const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger)
+      ? runtimeLedgerView.ingressLedger
+      : (Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : []);
+    const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger)
+      ? runtimeLedgerView.responseLedger
+      : (Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : []);
     const safeTurnLatency = (value) => value && typeof value === 'object'
       ? {
           kind: value.kind || null,
@@ -3715,9 +3776,11 @@ async function chatNativeRuntimeSnapshot(page) {
     const turnLedgerEntries = Array.isArray(turnLedgerRoot?.entries)
       ? turnLedgerRoot.entries
       : (Array.isArray(turnLedgerRoot) ? turnLedgerRoot : []);
-    const recoveryJournal = Array.isArray(view?.campaignState?.runtimeTracking?.recoveryJournal)
-      ? view.campaignState.runtimeTracking.recoveryJournal
-      : [];
+    const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal)
+      ? runtimeLedgerView.recoveryJournal
+      : (Array.isArray(view?.campaignState?.runtimeTracking?.recoveryJournal)
+          ? view.campaignState.runtimeTracking.recoveryJournal
+          : []);
     const narrationRecoveries = recoveryJournal.filter((entry) => entry?.type === 'providerFailureAfterMechanicsCommit');
     const openNarrationRecoveries = narrationRecoveries.filter((entry) => !['resolved', 'closed'].includes(String(entry?.status || '').toLowerCase()));
     const narrationFailureTurns = turnLedgerEntries.filter((entry) => String(entry?.narrationStatus || '').toLowerCase() === 'failed');
@@ -3739,6 +3802,13 @@ async function chatNativeRuntimeSnapshot(page) {
       binding: clone(view?.chatNative?.binding || null),
       activation: clone(view?.chatNative?.activation || null),
       tracking: clone(tracking),
+      runtimeLedgerView: runtimeLedgerView ? {
+        coreProjectionAvailable: runtimeLedgerView.coreProjectionAvailable === true,
+        authoritative: runtimeLedgerView.authoritative === true,
+        ingressCount: Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger.length : 0,
+        responseCount: Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger.length : 0,
+        recoveryCount: Array.isArray(runtimeLedgerView.recoveryJournal) ? runtimeLedgerView.recoveryJournal.length : 0
+      } : null,
       recentIngressLedger: ingressLedger.slice(-24).map(safeIngress),
       recentResponseLedger: responseLedger.slice(-24).map(safeResponse),
       pendingInteractionCount: pendingInteractions.length,
@@ -3798,7 +3868,10 @@ async function chatNativeRuntimeSnapshot(page) {
         ? globalThis.__directiveSmokeErrors.slice(-8)
         : []
     };
-  }, bridgeModulePath(), BROWSER_TIMEOUT_MS);
+  }, {
+    modulePath: bridgeModulePath(),
+    ledgerModulePath: runtimeLedgerViewModulePath()
+  }, BROWSER_TIMEOUT_MS);
 }
 
 async function waitForDirectiveRuntimeQuiescence(page, {
@@ -4734,8 +4807,14 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     error: sendResult.directiveFallbackScan?.error || null
   });
 
-  const after = await waitForJsonValue(page, async ({ modulePath, before, text: expectedText, targetHostMessageId }) => {
+  const after = await waitForJsonValue(page, async ({ modulePath, ledgerModulePath, before, text: expectedText, targetHostMessageId }) => {
     const mod = await import(modulePath);
+    let ledgerTools = null;
+    try {
+      ledgerTools = await import(ledgerModulePath);
+    } catch {
+      ledgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const view = app?.getCurrentView
@@ -4755,8 +4834,22 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       return normalized.length <= max ? normalized : `${normalized.slice(0, max)}...`;
     };
     const tracking = view?.chatNative?.tracking || {};
-    const ingressLedger = view?.campaignState?.runtimeTracking?.ingressLedger || [];
-    const responseLedger = view?.campaignState?.runtimeTracking?.responseLedger || [];
+    const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
+      ? ledgerTools.readRuntimeCoreProjections(view?.campaignState || {})
+      : {};
+    const coreSidecars = [
+      ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
+      ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
+    ];
+    const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger)
+      ? runtimeLedgerView.ingressLedger
+      : (view?.campaignState?.runtimeTracking?.ingressLedger || []);
+    const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger)
+      ? runtimeLedgerView.responseLedger
+      : (view?.campaignState?.runtimeTracking?.responseLedger || []);
     const priorResponseIds = new Set((before.recentResponseLedger || [])
       .map((entry) => entry?.id)
       .filter(Boolean));
@@ -4808,27 +4901,44 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       && Number(tracking.ingressCount || 0) > Number(before.tracking?.ingressCount || before.ingressCount || 0);
     const ingressAdvanced = matchedIngress
       && !['classifying', 'received', 'pending'].includes(String(matchedIngress.status || '').toLowerCase());
+    const directObservation = before?.lastDirectiveFallbackScan?.direct || null;
+    const directObservedProgress = Boolean(matchedUserMessage)
+      && directObservation?.handled === true
+      && (
+        !targetHostMessageId
+        || String(matchedUser?.index ?? '') === String(targetHostMessageId)
+      )
+      && ['directivePosted', 'injectAndContinue', 'pause'].includes(String(directObservation?.responseStrategy || ''));
     const runtimeProgress = (Boolean(matchedIngress) || runtimeCountProgress)
       && (
         ingressAdvanced
         || runtimeCountProgress
-        || Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
+        || responseLedger.length > Number(before.runtimeLedgerView?.responseCount || before.recentResponseLedger?.length || before.tracking?.responseCount || 0)
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
         || Number(tracking.modelCallCount || 0) > Number(before.tracking?.modelCallCount || 0)
       )
       && (
         ingressAdvanced
         || runtimeCountProgress
-        || Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
+        || responseLedger.length > Number(before.runtimeLedgerView?.responseCount || before.recentResponseLedger?.length || before.tracking?.responseCount || 0)
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
       );
     const directiveMessageCount = messages.filter((message) => message.directiveOwned).length;
     const visibleDirectiveProgress = Boolean(visibleDirectiveResponse)
       && directiveMessageCount > Number(before.directiveMessageCount || 0);
-    if (!matchedUserMessage || (!runtimeProgress && !visibleDirectiveProgress)) return null;
+    if (!matchedUserMessage || (!runtimeProgress && !visibleDirectiveProgress && !directObservedProgress)) return null;
     return {
       tracking,
-      progressSource: runtimeCountProgress ? 'runtime-tracking-count' : (runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response'),
+      runtimeLedgerView: runtimeLedgerView ? {
+        coreProjectionAvailable: runtimeLedgerView.coreProjectionAvailable === true,
+        authoritative: runtimeLedgerView.authoritative === true,
+        ingressCount: Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger.length : 0,
+        responseCount: Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger.length : 0,
+        recoveryCount: Array.isArray(runtimeLedgerView.recoveryJournal) ? runtimeLedgerView.recoveryJournal.length : 0
+      } : null,
+      progressSource: directObservedProgress
+        ? 'direct-observeHostPlayerMessage'
+        : (runtimeCountProgress ? 'runtime-tracking-count' : (runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response')),
       matchedUserIndex: matchedUser?.index ?? null,
       matchedUserHostMessageId: matchedUser ? String(matchedUser.index) : null,
       visibleDirectiveResponse: visibleDirectiveResponse
@@ -4920,13 +5030,17 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
           metadata: Object.keys(safeMetadata).length ? safeMetadata : null
         };
       }).slice(-12),
-      sidecarCount: view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
+      sidecarCount: coreSidecars.length || view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
       turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
       commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0
     };
   }, {
     modulePath: bridgeModulePath(),
-    before: beforeSnapshot,
+    ledgerModulePath: runtimeLedgerViewModulePath(),
+    before: {
+      ...beforeSnapshot,
+      lastDirectiveFallbackScan: sendResult.directiveFallbackScan || null
+    },
     text,
     targetHostMessageId: sendResult.directiveFallbackScan?.matchedIndex !== undefined && sendResult.directiveFallbackScan?.matchedIndex !== null
       ? String(sendResult.directiveFallbackScan.matchedIndex)
@@ -4972,14 +5086,27 @@ async function flushDirectiveSidecars(page) {
 }
 
 async function readSidecarActivity(page, beforeSnapshot) {
-  return page.evaluate(async ({ modulePath, before, sidecarRoleIds }) => {
+  return page.evaluate(async ({ modulePath, ledgerModulePath, before, sidecarRoleIds }) => {
     const mod = await import(modulePath);
+    let ledgerTools = null;
+    try {
+      ledgerTools = await import(ledgerModulePath);
+    } catch {
+      ledgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const view = app?.getCurrentView
       ? await app.getCurrentView({ tabId: 'mission' })
       : null;
-    const sidecars = view?.campaignState?.runtimeTracking?.sidecarJournal || [];
+    const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
+      ? ledgerTools.readRuntimeCoreProjections(view?.campaignState || {})
+      : {};
+    const coreSidecars = [
+      ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
+      ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
+    ];
+    const sidecars = coreSidecars.length ? coreSidecars : (view?.campaignState?.runtimeTracking?.sidecarJournal || []);
     const modelCalls = view?.chatNative?.modelCalls || [];
     const beforeSidecarCount = Number(before.sidecarCount || 0);
     const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
@@ -5014,6 +5141,7 @@ async function readSidecarActivity(page, beforeSnapshot) {
     };
   }, {
     modulePath: bridgeModulePath(),
+    ledgerModulePath: runtimeLedgerViewModulePath(),
     before: beforeSnapshot,
     sidecarRoleIds: SIDECAR_MODEL_ROLE_IDS
   });
@@ -5022,14 +5150,27 @@ async function readSidecarActivity(page, beforeSnapshot) {
 async function waitForSidecarActivity(page, beforeSnapshot, {
   timeoutMs = CHAT_CAMPAIGN_TIMEOUT_MS
 } = {}) {
-  return waitForJsonValue(page, async ({ modulePath, before, sidecarRoleIds }) => {
+  return waitForJsonValue(page, async ({ modulePath, ledgerModulePath, before, sidecarRoleIds }) => {
     const mod = await import(modulePath);
+    let ledgerTools = null;
+    try {
+      ledgerTools = await import(ledgerModulePath);
+    } catch {
+      ledgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const view = app?.getCurrentView
       ? await app.getCurrentView({ tabId: 'mission' })
       : null;
-    const sidecars = view?.campaignState?.runtimeTracking?.sidecarJournal || [];
+    const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
+      ? ledgerTools.readRuntimeCoreProjections(view?.campaignState || {})
+      : {};
+    const coreSidecars = [
+      ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
+      ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
+    ];
+    const sidecars = coreSidecars.length ? coreSidecars : (view?.campaignState?.runtimeTracking?.sidecarJournal || []);
     const modelCalls = view?.chatNative?.modelCalls || [];
     const beforeSidecarCount = Number(before.sidecarCount || 0);
     const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
@@ -5065,6 +5206,7 @@ async function waitForSidecarActivity(page, beforeSnapshot, {
     };
   }, {
     modulePath: bridgeModulePath(),
+    ledgerModulePath: runtimeLedgerViewModulePath(),
     before: beforeSnapshot,
     sidecarRoleIds: SIDECAR_MODEL_ROLE_IDS
   }, {
@@ -5421,7 +5563,7 @@ async function runChatNativeCampaignFlow(page) {
     const targetPlayerHostMessageIds = targetPlayerHostMessageIdsForRound(round);
     const generationTiming = {
       runtime: generationTimingProofFromLedgers({
-        source: 'runtimeSnapshot',
+        source: 'runtimeLedgerDiagnostic',
         ingressLedger: snapshot.recentIngressLedger || [],
         responseLedger: snapshot.recentResponseLedger || [],
         beforeResponseIds: (beforeTurnSnapshot?.recentResponseLedger || []).map((response) => response.id).filter(Boolean)
@@ -5571,7 +5713,7 @@ async function runChatNativeCampaignFlow(page) {
       const resolutionTargetPlayerHostMessageIds = targetPlayerHostMessageIdsForRound(resolution);
       const resolutionGenerationTiming = {
         runtime: generationTimingProofFromLedgers({
-          source: 'runtimeSnapshot',
+          source: 'runtimeLedgerDiagnostic',
           ingressLedger: snapshot.recentIngressLedger || [],
           responseLedger: snapshot.recentResponseLedger || [],
           beforeResponseIds: (beforeResolutionSnapshot?.recentResponseLedger || []).map((response) => response.id).filter(Boolean)
@@ -7499,26 +7641,50 @@ async function runStoryQualityReviewOnly(page) {
     requestId: reviewRequest?.requestId || null,
     inputHash: reviewRequest?.inputHash || null
   });
-  const result = await page.evaluate(async ({ modulePath, request }) => {
-    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
-    const mod = await import(modulePath);
-    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
-    const app = bridge.runtimeApp || null;
-    if (!app?.runStoryQualityReview) {
-      return {
-        ok: false,
-        reason: 'Directive runtime app does not expose runStoryQualityReview.'
-      };
-    }
-    if (typeof app.initialize === 'function') {
-      await app.initialize();
-    }
-    const review = await app.runStoryQualityReview({ reviewRequest: request });
-    return clone(review);
-  }, {
-    modulePath: bridgeModulePath(),
-    request: reviewRequest
-  });
+  let result = null;
+  const maxAttempts = Math.max(1, 1 + STORY_QUALITY_REVIEW_RETRY_COUNT);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    result = await page.evaluate(async ({ modulePath, request }) => {
+      const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+      const mod = await import(modulePath);
+      const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+      const app = bridge.runtimeApp || null;
+      if (!app?.runStoryQualityReview) {
+        return {
+          ok: false,
+          reason: 'Directive runtime app does not expose runStoryQualityReview.'
+        };
+      }
+      if (typeof app.initialize === 'function') {
+        await app.initialize();
+      }
+      const review = await app.runStoryQualityReview({ reviewRequest: request });
+      return clone(review);
+    }, {
+      modulePath: bridgeModulePath(),
+      request: reviewRequest
+    });
+    result = {
+      ...(result || {}),
+      reviewAttempt: attempt,
+      reviewMaxAttempts: maxAttempts
+    };
+    const timeout = result?.generation?.error?.code === 'DIRECTIVE_GENERATION_TIMEOUT'
+      || result?.modelCall?.errorCode === 'DIRECTIVE_GENERATION_TIMEOUT';
+    const empty = !String(result?.text || '').trim();
+    if (result?.ok === true || attempt >= maxAttempts || (!timeout && !empty)) break;
+    appendLiveLog({
+      kind: 'model-assisted-story-quality-review',
+      status: 'retry',
+      requestPath: STORY_QUALITY_REVIEW_REQUEST_PATH,
+      outputPath: STORY_QUALITY_REVIEW_OUTPUT_PATH || null,
+      requestId: reviewRequest?.requestId || null,
+      inputHash: reviewRequest?.inputHash || null,
+      attempt,
+      maxAttempts,
+      reason: result?.generation?.error?.message || result?.reason || 'empty story-quality reviewer output'
+    });
+  }
   const output = {
     kind: 'directive.sillytavern.storyQualityReviewProviderResult',
     capturedAt: new Date().toISOString(),

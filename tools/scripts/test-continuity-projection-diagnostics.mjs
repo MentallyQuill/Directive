@@ -150,6 +150,61 @@ assert.equal(telemetry.kind, 'directive.continuityTelemetry.v1');
 assert.equal(telemetry.rejectedClaimCount, 1);
 assert.equal(telemetry.staticKeys.missingStaticKeyCount, 1);
 
+const projectedCampaignState = {
+  ...campaignState,
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      responseLedger: [{
+        id: 'core.response.continuity',
+        hostMessageId: 'core-host-message',
+        status: 'posted',
+        hostObservation: {
+          hostMessageId: 'core-host-message',
+          textHash: 'core-observed-text-hash'
+        },
+        continuityReview: {
+          ok: true,
+          findings: []
+        }
+      }],
+      recoveryJournal: [{
+        id: 'core.recovery.continuity',
+        type: 'hostNativeContinuityContradiction',
+        status: 'resolved'
+      }]
+    }
+  },
+  runtimeTracking: {
+    ...campaignState.runtimeTracking,
+    responseLedger: [{
+      id: 'stale.old.response.continuity',
+      hostMessageId: 'stale-old-host-message',
+      status: 'recoveryRequired',
+      hostObservation: {
+        hostMessageId: 'stale-old-host-message',
+        textHash: 'stale-old-observed-text-hash'
+      },
+      continuityReview: {
+        ok: false,
+        findings: [{ summary: 'RAW_STALE_OLD_CONTINUITY_FINDING' }]
+      }
+    }],
+    recoveryJournal: [{
+      id: 'stale.old.recovery.continuity',
+      type: 'hostNativeContinuityContradiction',
+      status: 'open'
+    }]
+  }
+};
+const projectedDiagnostics = buildContinuityProjectionDiagnostics({ campaignState: projectedCampaignState, promptInspection });
+assert.equal(projectedDiagnostics.latestReview.status, 'ok');
+assert.equal(projectedDiagnostics.latestReview.responseStatus, 'posted');
+assert.equal(projectedDiagnostics.latestReview.observationTextHash, 'core-observed-text-hash');
+assert.equal(projectedDiagnostics.latestReview.recoveryCount, 1);
+assert.equal(projectedDiagnostics.latestReview.latestRecoveryStatus, 'resolved');
+assert.equal(JSON.stringify(projectedDiagnostics).includes('stale-old'), false);
+assert.equal(JSON.stringify(projectedDiagnostics).includes('RAW_STALE_OLD_CONTINUITY_FINDING'), false);
+
 const serialized = JSON.stringify({ diagnostics, telemetry });
 for (const forbidden of [hiddenFactText, rejectedClaimText, rawFactId, rawSourceId, 'host-message-raw-1', 'response.raw.1', 'claim.rejected.raw']) {
   assert.doesNotMatch(serialized, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `Diagnostics leaked ${forbidden}`);

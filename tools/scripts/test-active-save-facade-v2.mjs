@@ -122,6 +122,7 @@ campaignState.campaignChatBinding = {
   promptContextRevision: 11
 };
 campaignState.runtimeTracking = {
+  responseLedgerRevision: 999,
   ingressLedger: [{
     id: 'ingress-33-oldhash',
     hostMessageId: '33',
@@ -140,20 +141,20 @@ campaignState.runtimeTracking = {
     replacementText: replacementTextCanary,
     status: 'posted'
   }],
-    recoveryJournal: [{ id: 'recovery-1', status: 'reviewRequired' }],
+  recoveryJournal: [{ id: 'recovery-1', status: 'reviewRequired' }],
   modelCallJournal: [{
-    id: 'model-call:42:utilityTurnClassifier',
-    roleId: 'utilityTurnClassifier',
+    id: 'model-call:41:legacyUtilityTurnClassifier',
+    roleId: 'legacyUtilityTurnClassifier',
     providerKind: 'utility',
     providerId: 'provider-fixture',
     model: 'model-fixture',
     status: 'ok',
-    requestHash: 'request-hash-utility-42',
+    requestHash: 'request-hash-legacy-41',
     parseStatus: 'ok',
     validationStatus: 'ok',
     appliedStatus: 'applied',
-    latencyMs: 321,
-    recordedAt: '2026-06-28T15:00:45.000Z',
+    latencyMs: 123,
+    recordedAt: '2026-06-28T15:00:44.000Z',
     campaignRevision: 17,
     prompt: modelCallPromptCanary,
     response: modelCallResponseCanary
@@ -185,6 +186,7 @@ campaignState.directiveRuntimeEvidence = {
   coreStoreReadProjections: {
     kind: 'directive.coreStoreReadProjections.v1',
     runtimeAuthority: 'coreStoreV2',
+    responseLedgerRevision: 9,
     ingressLedger: [{
       id: 'ingress-core-44',
       hostMessageId: '44',
@@ -226,6 +228,21 @@ campaignState.directiveRuntimeEvidence = {
       transactionId: 'txn-core-45',
       sourceFrameId: 'frame-core-45',
       rawRecoveryText: transientCoreProjectionCanary
+    }],
+    modelCallDiagnostics: [{
+      id: 'model-call:42:utilityTurnClassifier',
+      roleId: 'utilityTurnClassifier',
+      providerKind: 'utility',
+      providerId: 'provider-fixture',
+      model: 'model-fixture',
+      status: 'ok',
+      requestHash: 'request-hash-utility-42',
+      parseStatus: 'ok',
+      validationStatus: 'ok',
+      appliedStatus: 'applied',
+      latencyMs: 321,
+      recordedAt: '2026-06-28T15:00:45.000Z',
+      campaignRevision: 17
     }],
     turnLedger: {
       entries: [{
@@ -378,6 +395,7 @@ assert.equal(head.state.player.name, 'Sam Vickers');
 assert.equal(head.state.campaign.currentStardate, 53061.7);
 assert.equal(head.state.runtimeTracking, undefined, 'materialized head omits runtimeTracking journals');
 assert.equal(head.state.directiveRuntimeEvidence, undefined, 'materialized head omits transient CORE read-projection evidence');
+assert.equal(head.state.runtimeResume.responseLedgerRevision, 9, 'materialized head resume cursor uses CORE projection response revision over old runtimeTracking');
 assert.equal(head.state.runtimeResume.modelCallEventSequence, 42, 'materialized head keeps compact model-call resume cursor');
 assert.equal(head.state.runtimeResume.sidecarCount, 4, 'materialized head resume cursor counts CORE accepted background-batch workers over old sidecar journals');
 assert.equal(head.runtimeHeadBudget.status, 'pass', 'active runtime head should stay under the bridge budget');
@@ -402,8 +420,9 @@ assert.equal(
   'runtime-current v2 head omits older turn-scaled Command Log text'
 );
 assert.equal(head.runtimeSummary.historyCount, 1, 'runtime summary keeps compact history count');
-assert.equal(head.runtimeSummary.modelCallCount, 1, 'runtime summary counts runtimeTracking model-call journal entries');
-assert.equal(head.runtimeSummary.modelCallEventSequence, 42, 'runtime summary keeps compact model-call sequence cursor');
+assert.equal(head.runtimeSummary.responseLedgerRevision, 9, 'runtime summary uses CORE projection response revision over old runtimeTracking');
+assert.equal(head.runtimeSummary.modelCallCount, 1, 'runtime summary counts CORE model-call diagnostics when projected');
+assert.equal(head.runtimeSummary.modelCallEventSequence, 42, 'runtime summary keeps CORE model-call sequence cursor over old journal telemetry');
 assert.equal(head.runtimeSummary.sidecarCount, 4, 'runtime summary counts CORE accepted background-batch workers over old sidecar journals');
 
 const hostMap = await readV2ArtifactRef(adapter, result.refs.hostMap);
@@ -438,6 +457,11 @@ assert.equal(modelCallDiagnostics.length, 1, 'diagnostics segment stores compact
 assert.equal(modelCallDiagnostics[0].modelCallId, 'model-call:42:utilityTurnClassifier');
 assert.equal(modelCallDiagnostics[0].roleId, 'utilityTurnClassifier');
 assert.equal(modelCallDiagnostics[0].requestHash, 'request-hash-utility-42');
+assert.equal(
+  diagnosticEntries.some((entry) => entry.modelCallId === 'model-call:41:legacyUtilityTurnClassifier'),
+  false,
+  'diagnostics segment omits stale old model-call journal rows when CORE diagnostics exist'
+);
 const sidecarDiagnostics = diagnosticEntries.filter((entry) => entry.type === 'runtimeSidecarDiagnosticProjected');
 assert.equal(sidecarDiagnostics.length, 3, 'diagnostics segment stores compact CORE sidecar projections');
 assert.equal(sidecarDiagnostics[0].sidecarId, 'core-sidecar-1');
@@ -482,24 +506,10 @@ const loaded = await loadActiveCampaignStateV2(adapter, {
 assert.equal(loaded.found, true);
 assert.equal(loaded.campaignState.player.name, 'Sam Vickers');
 assert.equal(loaded.campaignState.campaign.currentStardate, 53061.7);
-assert.equal(loaded.campaignState.runtimeTracking.schemaVersion, 2, 'facade load returns compact runtime projections');
-assert.equal(loaded.campaignState.runtimeTracking.ingressLedger.length, 1);
-assert.equal(loaded.campaignState.runtimeTracking.ingressLedger[0].hostMessageId, '44');
-assert.equal(loaded.campaignState.runtimeTracking.ingressLedger[0].textHash, 'corehash');
-assert.equal(loaded.campaignState.runtimeTracking.ingressLedger[0].coreTransactionId, 'txn-core-44');
-assert.equal(loaded.campaignState.runtimeTracking.ingressLedger[0].sourceFrameId, 'frame-core-44');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger.length, 1);
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].hostMessageId, '45');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].outcomeId, 'outcome-core-44');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].coreTransactionId, 'txn-core-45');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].replacementText, undefined, 'facade load must not rehydrate raw replacement text');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].replacementTextPresent, true, 'facade load preserves replacement-text presence evidence');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].replacementTextHash.length, 64, 'facade load preserves replacement-text hash evidence');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].replacementTextHash, coreReplacementTextHash, 'facade load preserves CORE replacement-text hash evidence');
-assert.equal(loaded.campaignState.runtimeTracking.responseLedger[0].replacementTextLength, 777, 'facade load preserves CORE replacement-text length evidence');
-assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal.length, 1, 'facade load preserves compact CORE recovery projections');
-assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal[0].id, 'recovery-core-45');
-assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal[0].coreTransactionId, 'txn-core-45');
+assert.equal(loaded.campaignState.runtimeTracking.schemaVersion, 2, 'facade load returns compact runtime resume state');
+assert.equal(loaded.campaignState.runtimeTracking.ingressLedger.length, 0, 'facade load keeps CORE ingress projections out of old runtimeTracking');
+assert.equal(loaded.campaignState.runtimeTracking.responseLedger.length, 0, 'facade load keeps CORE response projections out of old runtimeTracking');
+assert.equal(loaded.campaignState.runtimeTracking.recoveryJournal.length, 0, 'facade load keeps CORE recovery projections out of old runtimeTracking');
 assert.equal(
   loaded.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.id === 'recovery-1'),
   false,
@@ -515,6 +525,31 @@ assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].response, 
 const loadedCoreReadProjections = loaded.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections || {};
 assert.equal(loaded.campaignState.runtimeTracking.sidecarJournal.length, 0, 'facade load keeps accepted CORE sidecar/background diagnostics out of legacy sidecarJournal');
 assert.equal(loadedCoreReadProjections.kind, 'directive.coreStoreReadProjections.v1', 'facade load returns transient CORE read projection evidence');
+assert.equal(loadedCoreReadProjections.runtimeAuthority, 'coreStoreV2', 'facade load marks v2 read projections as CORE runtime authority');
+assert.equal(loadedCoreReadProjections.ingressLedger.length, 1);
+assert.equal(loadedCoreReadProjections.ingressLedger[0].hostMessageId, '44');
+assert.equal(loadedCoreReadProjections.ingressLedger[0].textHash, 'corehash');
+assert.equal(loadedCoreReadProjections.ingressLedger[0].coreTransactionId, 'txn-core-44');
+assert.equal(loadedCoreReadProjections.ingressLedger[0].sourceFrameId, 'frame-core-44');
+assert.equal(loadedCoreReadProjections.responseLedger.length, 1);
+assert.equal(loadedCoreReadProjections.responseLedger[0].hostMessageId, '45');
+assert.equal(loadedCoreReadProjections.responseLedger[0].outcomeId, 'outcome-core-44');
+assert.equal(loadedCoreReadProjections.responseLedger[0].coreTransactionId, 'txn-core-45');
+assert.equal(loadedCoreReadProjections.responseLedger[0].replacementText, undefined, 'facade load must not rehydrate raw replacement text');
+assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextPresent, true, 'facade load preserves replacement-text presence');
+assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextHash.length, 64, 'facade load preserves replacement-text hash');
+assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextHash, coreReplacementTextHash, 'facade load preserves CORE replacement-text hash');
+assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextLength, 777, 'facade load preserves CORE replacement-text length');
+assert.equal(loadedCoreReadProjections.recoveryJournal.length, 1, 'facade load preserves compact CORE recovery projections');
+assert.equal(loadedCoreReadProjections.recoveryJournal[0].id, 'recovery-core-45');
+assert.equal(loadedCoreReadProjections.recoveryJournal[0].coreTransactionId, 'txn-core-45');
+assert.equal(loadedCoreReadProjections.recoveryJournal[0].authority, 'compatibilityProjection');
+assert.equal(loadedCoreReadProjections.recoveryJournal[0].projectionSource, 'coreStoreV2');
+assert.equal(loadedCoreReadProjections.recoveryJournal[0].compatibilityMirror.kind, 'directive.coreRecoveryCompatibilityMirror.v1');
+assert.equal(loadedCoreReadProjections.modelCallDiagnostics.length, 1, 'facade load preserves compact model-call diagnostics under CORE projections');
+assert.equal(loadedCoreReadProjections.modelCallDiagnostics[0].id, 'model-call:42:utilityTurnClassifier');
+assert.equal(loadedCoreReadProjections.modelCallDiagnostics[0].requestHash, 'request-hash-utility-42');
+assert.equal(loadedCoreReadProjections.modelCallDiagnostics[0].prompt, undefined, 'CORE read model-call diagnostics omit raw prompt text');
 assert.equal(loadedCoreReadProjections.sidecarDiagnostics.length, 3, 'facade load preserves compact CORE sidecar diagnostic continuity under CORE projections');
 assert.equal(loadedCoreReadProjections.sidecarDiagnostics[0].id, 'core-sidecar-1');
 assert.equal(loadedCoreReadProjections.sidecarDiagnostics[0].workerKey, 'relationship');
@@ -535,6 +570,7 @@ assert.equal(loaded.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome-co
 assert.equal(loaded.campaignState.turnLedger.replacementHistory.at(-1).replacementOutcomeId, 'outcome-core-44');
 assert.equal(loaded.campaignState.turnLedger.lastReplacedOutcomeId, 'outcome-core-33');
 assert.equal(loadedCoreReadProjections.turnLedger.replacementHistory.at(-1).repairDecision.transactionId, 'txn-core-44');
+assert.equal(loaded.campaignState.runtimeResume.responseLedgerRevision, 9, 'facade load returns CORE projection response revision in resume cursor');
 assert.equal(loaded.campaignState.runtimeResume.modelCallEventSequence, 42, 'facade load returns compact runtime resume cursor');
 assert.equal(loaded.campaignState.runtimeResume.sidecarCount, 4, 'facade load returns CORE accepted background-batch worker resume count');
 assert.equal(loaded.campaignState.commandLog.compactedForRuntimeHead, true, 'facade load returns compact Command Log projection');
@@ -626,6 +662,28 @@ partialState.runtimeTracking.ingressLedger = [
     status: 'classified'
   },
   {
+    id: 'legacy-ingress-tagged',
+    hostMessageId: 'host-tagged',
+    turnId: 'turn-tagged',
+    outcomeId: 'outcome-tagged',
+    textHash: 'legacy-ingress-tagged-hash',
+    status: 'classified',
+    authority: 'compatibilityProjectionUnavailable',
+    projectionSource: 'runtimeTrackingLegacy',
+    compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'missingCoreProjection' }
+  },
+  {
+    id: 'legacy-ingress-core-tagged',
+    hostMessageId: 'host-core-tagged',
+    turnId: 'turn-core-tagged',
+    outcomeId: 'outcome-core-tagged',
+    textHash: 'legacy-ingress-core-tagged-hash',
+    status: 'classified',
+    authority: 'compatibilityProjection',
+    projectionSource: 'coreStoreV2',
+    compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'coreProjection' }
+  },
+  {
     id: 'legacy-ingress-shared',
     hostMessageId: 'host-shared',
     turnId: 'turn-shared',
@@ -641,6 +699,26 @@ partialState.runtimeTracking.responseLedger = [
     outcomeId: 'outcome-old',
     responseKind: 'hostContinue',
     status: 'posted'
+  },
+  {
+    id: 'legacy-response-tagged',
+    turnId: 'turn-tagged',
+    outcomeId: 'outcome-tagged',
+    responseKind: 'hostContinue',
+    status: 'posted',
+    authority: 'compatibilityProjectionUnavailable',
+    projectionSource: 'runtimeTrackingLegacy',
+    compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'missingCoreProjection' }
+  },
+  {
+    id: 'legacy-response-core-tagged',
+    turnId: 'turn-core-tagged',
+    outcomeId: 'outcome-core-tagged',
+    responseKind: 'hostContinue',
+    status: 'posted',
+    authority: 'compatibilityProjection',
+    projectionSource: 'coreStoreV2',
+    compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'coreProjection' }
   },
   {
     id: 'legacy-response-shared',
@@ -768,21 +846,27 @@ const partialHead = await loadV2MaterializedHead(partialAdapter, {
   campaignId: partialState.campaign.id,
   saveId: partialSaveRecord.id
 });
-assert.equal(partialHead.runtimeSummary.responseCount, 2, 'partial CORE response projections must not shrink compact response counts');
+assert.equal(partialHead.runtimeSummary.responseCount, 1, 'partial CORE response projections must drop missing-CORE compatibility mirror counts');
 const partialEventSegment = await readV2ArtifactRef(partialAdapter, partialPersist.refs.eventSegments[0]);
 const partialIngresses = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeIngressProjected');
 assert.deepEqual(
   partialIngresses.map((entry) => entry.outcomeId),
-  ['outcome-old', 'outcome-shared', 'outcome-new'],
-  'unmarked equal-cardinality CORE ingress merge preserves unmatched legacy rows and appends unmatched CORE rows'
+  ['outcome-shared', 'outcome-new'],
+  'partial CORE ingress merge drops silent legacy rows and missing-CORE compatibility mirrors'
 );
 assert.equal(partialIngresses.find((entry) => entry.outcomeId === 'outcome-shared')?.ingressId, 'core-ingress-shared');
+assert.equal(partialIngresses.some((entry) => entry.outcomeId === 'outcome-old'), false, 'partial CORE ingress merge must not serialize untagged old rows');
+assert.equal(partialIngresses.some((entry) => entry.outcomeId === 'outcome-tagged'), false, 'partial CORE ingress merge must not serialize missing-CORE mirrors');
+assert.equal(partialIngresses.some((entry) => entry.outcomeId === 'outcome-core-tagged'), false, 'partial CORE ingress merge must not serialize tagged old rows without CORE projection rows');
 const partialResponses = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeResponseProjected');
 assert.deepEqual(
   partialResponses.map((entry) => entry.outcomeId),
-  ['outcome-old', 'outcome-shared'],
-  'partial CORE response merge preserves ledger order while replacing matching rows'
+  ['outcome-shared'],
+  'partial CORE response merge drops silent legacy rows and missing-CORE compatibility mirrors'
 );
+assert.equal(partialResponses.some((entry) => entry.outcomeId === 'outcome-old'), false, 'partial CORE response merge must not serialize untagged old rows');
+assert.equal(partialResponses.some((entry) => entry.outcomeId === 'outcome-tagged'), false, 'partial CORE response merge must not serialize missing-CORE mirrors');
+assert.equal(partialResponses.some((entry) => entry.outcomeId === 'outcome-core-tagged'), false, 'partial CORE response merge must not serialize tagged old rows without CORE projection rows');
 assert.equal(partialResponses.filter((entry) => entry.outcomeId === 'outcome-shared').length, 1, 'partial CORE response merge dedupes logical fallback tuple matches');
 assert.equal(partialResponses.find((entry) => entry.outcomeId === 'outcome-shared')?.responseId, 'core-response-shared');
 const partialRecoveries = (partialEventSegment.entries || []).filter((entry) => entry.type === 'runtimeRecoveryProjected');
@@ -801,6 +885,56 @@ const partialLoaded = await loadActiveCampaignStateV2(partialAdapter, {
   saveRecord: partialSaveRecord,
   fallbackCampaignState: partialSaveRecord.payload.campaignState
 });
+assert.equal(
+  partialLoaded.campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'legacy-ingress-old'),
+  false,
+  'partial CORE runtime load must not revive untagged legacy ingress rows'
+);
+assert.equal(
+  partialLoaded.campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'legacy-ingress-tagged'),
+  false,
+  'partial CORE runtime load must not revive missing-CORE ingress compatibility mirrors'
+);
+assert.equal(
+  partialLoaded.campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'legacy-ingress-core-tagged'),
+  false,
+  'partial CORE runtime load must not revive tagged ingress compatibility rows without CORE projection rows'
+);
+assert.equal(
+  partialLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-old'),
+  false,
+  'partial CORE runtime load must not revive untagged legacy response rows'
+);
+assert.equal(
+  partialLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-tagged'),
+  false,
+  'partial CORE runtime load must not revive missing-CORE response compatibility mirrors'
+);
+assert.equal(
+  partialLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-core-tagged'),
+  false,
+  'partial CORE runtime load must not revive tagged response compatibility rows without CORE projection rows'
+);
+assert.deepEqual(
+  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger || []).map((entry) => entry.outcomeId),
+  ['outcome-shared', 'outcome-new'],
+  'loaded CORE read projections must omit runtimeBridge-only ingress compatibility mirrors'
+);
+assert.deepEqual(
+  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger || []).map((entry) => entry.outcomeId),
+  ['outcome-shared'],
+  'loaded CORE read projections must omit runtimeBridge-only response compatibility mirrors'
+);
+assert.equal(
+  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger || []).some((entry) => entry.outcomeId === 'outcome-tagged'),
+  false,
+  'tagged missing-core ingress mirrors must not become CORE read projections after load'
+);
+assert.equal(
+  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger || []).some((entry) => entry.outcomeId === 'outcome-tagged'),
+  false,
+  'tagged missing-core response mirrors must not become CORE read projections after load'
+);
 assert.equal(partialLoaded.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome-shared', 'partial CORE turn merge must not regress last committed outcome on reload');
 assert.deepEqual(
   partialLoaded.campaignState.turnLedger.entries.map((entry) => entry.outcomeId),
@@ -808,6 +942,63 @@ assert.deepEqual(
   'partial CORE turn merge preserves chronological compatibility order'
 );
 assert.equal(partialLoaded.campaignState.turnLedger.entries.at(-1).id, 'core-turn-shared', 'partial CORE turn merge replaces matching legacy row with CORE row');
+
+const responseHostCollisionAdapter = createMemoryJsonAdapter();
+const responseHostCollisionState = cloneJson(campaignState);
+responseHostCollisionState.campaignChatBinding.saveId = 'save-active-v2-response-host-collision';
+const responseHostCollisionSaveRecord = createFirstCampaignSaveRecord({
+  campaignState: responseHostCollisionState,
+  packageData,
+  saveId: 'save-active-v2-response-host-collision',
+  savedAt: '2026-06-28T15:03:15.000Z'
+});
+await commitV2SaveLayout(responseHostCollisionAdapter, {
+  campaignId: responseHostCollisionState.campaign.id,
+  saveId: responseHostCollisionSaveRecord.id,
+  head: {
+    kind: 'directive.activeRuntimeHead.v2',
+    state: responseHostCollisionState
+  },
+  eventSegments: [
+    {
+      type: 'runtimeResponseProjected',
+      responseId: 'core-response-host-collision',
+      hostMessageId: 'same-host-response-id',
+      turnId: 'turn-core-host-collision',
+      outcomeId: 'outcome-core-host-collision',
+      responseKind: 'hostContinue',
+      status: 'posted',
+      transactionId: 'txn-core-host-collision'
+    },
+    {
+      type: 'runtimeResponseProjected',
+      responseId: 'legacy-response-host-collision',
+      hostMessageId: 'same-host-response-id',
+      turnId: 'turn-legacy-host-collision',
+      outcomeId: 'outcome-legacy-host-collision',
+      responseKind: 'hostContinue',
+      status: 'posted',
+      authority: 'compatibilityProjectionUnavailable',
+      projectionSource: 'runtimeTrackingLegacy'
+    }
+  ],
+  now: '2026-06-28T15:03:16.000Z'
+});
+const responseHostCollisionLoaded = await loadActiveCampaignStateV2(responseHostCollisionAdapter, {
+  saveRecord: responseHostCollisionSaveRecord,
+  fallbackCampaignState: responseHostCollisionSaveRecord.payload.campaignState
+});
+const responseHostCollisionRows = responseHostCollisionLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger || [];
+assert.deepEqual(
+  responseHostCollisionRows.map((entry) => entry.outcomeId),
+  ['outcome-core-host-collision'],
+  'loaded response projection rows must not merge by SillyTavern hostMessageId before missing-CORE rows are filtered'
+);
+assert.equal(
+  responseHostCollisionRows.every((entry) => entry.projectionSource === 'coreStoreV2' && entry.authority !== 'compatibilityProjectionUnavailable'),
+  true,
+  'loaded response projection rows must be CORE-backed after filtering'
+);
 
 const authoritativeCoreAdapter = createMemoryJsonAdapter();
 const authoritativeCoreState = cloneJson(partialState);
@@ -869,9 +1060,29 @@ assert.equal(
   'authoritative CORE runtime load must not revive unmatched legacy ingress rows'
 );
 assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'legacy-ingress-tagged'),
+  false,
+  'authoritative CORE runtime load must not revive tagged legacy ingress fallback rows'
+);
+assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'legacy-ingress-core-tagged'),
+  false,
+  'authoritative CORE runtime load must not revive tagged ingress compatibility rows without CORE projection rows'
+);
+assert.equal(
   authoritativeLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-old'),
   false,
   'authoritative CORE runtime load must not revive unmatched legacy response rows'
+);
+assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-tagged'),
+  false,
+  'authoritative CORE runtime load must not revive tagged legacy response fallback rows'
+);
+assert.equal(
+  authoritativeLoaded.campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === 'legacy-response-core-tagged'),
+  false,
+  'authoritative CORE runtime load must not revive tagged response compatibility rows without CORE projection rows'
 );
 assert.equal(
   authoritativeLoaded.campaignState.turnLedger.entries.some((entry) => entry.id === 'legacy-turn-old'),
@@ -884,9 +1095,98 @@ assert.equal(
   'authoritative CORE runtime load must not revive unmatched legacy recovery rows'
 );
 
+const oldResponseRevisionAdapter = createMemoryJsonAdapter();
+const oldResponseRevisionState = cloneJson(campaignState);
+oldResponseRevisionState.campaignChatBinding.saveId = 'save-active-v2-old-response-revision';
+oldResponseRevisionState.runtimeTracking.responseLedgerRevision = 1234;
+delete oldResponseRevisionState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedgerRevision;
+const oldResponseRevisionSaveRecord = createFirstCampaignSaveRecord({
+  campaignState: oldResponseRevisionState,
+  packageData,
+  saveId: 'save-active-v2-old-response-revision',
+  savedAt: '2026-06-28T15:04:30.000Z'
+});
+await storeCampaignSave(oldResponseRevisionAdapter, oldResponseRevisionSaveRecord);
+await persistActiveCampaignStateV2(oldResponseRevisionAdapter, {
+  saveRecord: oldResponseRevisionSaveRecord,
+  campaignState: oldResponseRevisionState,
+  packageData,
+  summary: 'Runtime v2 active-save old response revision demotion test.',
+  reason: 'test-runtime-old-response-ledger-revision-demotion',
+  now: '2026-06-28T15:05:00.000Z'
+});
+const oldResponseRevisionHead = await loadV2MaterializedHead(oldResponseRevisionAdapter, {
+  campaignId: oldResponseRevisionState.campaign.id,
+  saveId: oldResponseRevisionSaveRecord.id
+});
+assert.equal(
+  oldResponseRevisionHead.state.runtimeResume.responseLedgerRevision,
+  0,
+  'materialized head resume cursor must not use old runtimeTracking responseLedgerRevision when CORE revision is absent'
+);
+assert.equal(
+  oldResponseRevisionHead.runtimeSummary.responseLedgerRevision,
+  0,
+  'runtime summary must not use old runtimeTracking responseLedgerRevision when CORE revision is absent'
+);
+
+const oldSidecarCountAdapter = createMemoryJsonAdapter();
+const oldSidecarCountState = cloneJson(campaignState);
+oldSidecarCountState.campaignChatBinding.saveId = 'save-active-v2-old-sidecar-count';
+delete oldSidecarCountState.directiveRuntimeEvidence.coreStoreReadProjections.sidecarDiagnostics;
+delete oldSidecarCountState.directiveRuntimeEvidence.coreStoreReadProjections.backgroundBatches;
+delete oldSidecarCountState.runtimeResume;
+oldSidecarCountState.runtimeTracking.sidecarJournal = Array.from({ length: 5 }, (_, index) => ({
+  id: `legacy-sidecar-${index + 1}`,
+  workerKey: 'legacy',
+  status: 'accepted'
+}));
+const oldSidecarCountSaveRecord = createFirstCampaignSaveRecord({
+  campaignState: oldSidecarCountState,
+  packageData,
+  saveId: 'save-active-v2-old-sidecar-count',
+  savedAt: '2026-06-28T15:05:30.000Z'
+});
+await storeCampaignSave(oldSidecarCountAdapter, oldSidecarCountSaveRecord);
+const oldSidecarCountPersist = await persistActiveCampaignStateV2(oldSidecarCountAdapter, {
+  saveRecord: oldSidecarCountSaveRecord,
+  campaignState: oldSidecarCountState,
+  packageData,
+  summary: 'Runtime v2 active-save old sidecar count demotion test.',
+  reason: 'test-runtime-old-sidecar-count-demotion',
+  now: '2026-06-28T15:06:00.000Z'
+});
+const oldSidecarCountHead = await loadV2MaterializedHead(oldSidecarCountAdapter, {
+  campaignId: oldSidecarCountState.campaign.id,
+  saveId: oldSidecarCountSaveRecord.id
+});
+assert.equal(
+  oldSidecarCountHead.state.runtimeResume.sidecarCount,
+  0,
+  'materialized head resume cursor must not use old sidecarJournal rows when CORE sidecar evidence is absent'
+);
+assert.equal(
+  oldSidecarCountHead.runtimeSummary.sidecarCount,
+  0,
+  'runtime summary must not use old sidecarJournal rows when CORE sidecar evidence is absent'
+);
+const oldSidecarCountDiagnostics = await readV2ArtifactRef(oldSidecarCountAdapter, oldSidecarCountPersist.refs.diagnosticsSegments[0]);
+const oldSidecarCountDiagnosticsJson = JSON.stringify(oldSidecarCountDiagnostics);
+assert.equal(
+  oldSidecarCountDiagnosticsJson.includes('legacy-sidecar-'),
+  false,
+  'diagnostics segment must not serialize old sidecarJournal rows when CORE sidecar evidence is absent'
+);
+assert.equal(
+  (oldSidecarCountDiagnostics.entries || []).some((entry) => entry.type === 'runtimeSidecarDiagnosticProjected' || entry.type === 'runtimeBackgroundBatchProjected'),
+  false,
+  'diagnostics segment must not synthesize sidecar/background projections from old sidecarJournal rows'
+);
+
 const duplicateModelCallAdapter = createMemoryJsonAdapter();
 const duplicateModelCallState = cloneJson(campaignState);
 duplicateModelCallState.campaignChatBinding.saveId = 'save-active-v2-duplicate-model-call';
+delete duplicateModelCallState.directiveRuntimeEvidence.coreStoreReadProjections.modelCallDiagnostics;
 duplicateModelCallState.runtimeTracking.modelCallJournal = [
   {
     id: 'model-call:42:utilityTurnClassifier',
@@ -1076,6 +1376,63 @@ assert.equal(
   JSON.stringify(promptResumeLoaded).includes('RAW_PROMPT_CACHE_BLOCK_CANARY'),
   false,
   'facade load returns compact prompt-cache resume evidence without raw prompt blocks'
+);
+
+const bridgeRecoveryAdapter = createMemoryJsonAdapter();
+const bridgeRecoveryState = cloneJson(campaignState);
+bridgeRecoveryState.campaignChatBinding = {
+  ...bridgeRecoveryState.campaignChatBinding,
+  saveId: 'save-active-v2-bridge-recovery'
+};
+delete bridgeRecoveryState.runtimeTracking;
+delete bridgeRecoveryState.turnLedger;
+delete bridgeRecoveryState.directiveRuntimeEvidence;
+const bridgeRecoverySaveRecord = createFirstCampaignSaveRecord({
+  campaignState: bridgeRecoveryState,
+  packageData,
+  saveId: 'save-active-v2-bridge-recovery',
+  savedAt: '2026-06-28T15:11:30.000Z'
+});
+await storeCampaignSave(bridgeRecoveryAdapter, bridgeRecoverySaveRecord);
+await commitV2SaveLayout(bridgeRecoveryAdapter, {
+  campaignId: bridgeRecoveryState.campaign.id,
+  saveId: bridgeRecoverySaveRecord.id,
+  branchId: 'main',
+  now: '2026-06-28T15:12:00.000Z',
+  current: true,
+  metadata: bridgeRecoverySaveRecord.metadata,
+  head: {
+    source: 'active-save-facade-v2-test',
+    state: bridgeRecoveryState,
+    excludesRuntimeJournals: true
+  },
+  hostMap: { rows: [] },
+  promptCache: { blocks: [] },
+  eventSegments: [[{
+    kind: 'directive.coreEvent.v1',
+    schemaVersion: 1,
+    id: 'bridge-recovery-event-1',
+    type: 'runtimeRecoveryProjected',
+    recoveryId: 'bridge-recovery-no-core',
+    status: 'reviewRequired'
+  }]],
+  turnSegments: [[]],
+  diagnosticsSegments: [[]],
+  checkpoints: []
+});
+const bridgeRecoveryLoaded = await loadActiveCampaignStateV2(bridgeRecoveryAdapter, {
+  saveRecord: bridgeRecoverySaveRecord,
+  fallbackCampaignState: bridgeRecoverySaveRecord.payload.campaignState
+});
+assert.equal(
+  bridgeRecoveryLoaded.campaignState.runtimeTracking.recoveryJournal.length,
+  0,
+  'runtimeBridge-only recovery rows must not reload into old runtimeTracking recoveryJournal'
+);
+assert.equal(
+  bridgeRecoveryLoaded.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.recoveryJournal,
+  undefined,
+  'runtimeBridge-only recovery rows must not become CORE read projections on load'
 );
 
 console.log('Active save facade v2 tests passed.');

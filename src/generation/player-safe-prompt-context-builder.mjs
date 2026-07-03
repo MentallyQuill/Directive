@@ -543,7 +543,8 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
     crewDataset,
     shipDataset,
     campaignProjection,
-    audience: CONTINUITY_VISIBILITY.narratorSafe
+    audience: CONTINUITY_VISIBILITY.narratorSafe,
+    sourceFrame
   });
   const activeHints = projectionHints || activeContinuityProjectionHints(campaignState);
   let plannerResult;

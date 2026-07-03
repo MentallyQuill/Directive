@@ -54,6 +54,68 @@ function compact(value = {}) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
 }
 
+function compactString(value = '') {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function runtimeBridgeProjectionSource(entry = {}) {
+  return compactString(entry.projectionSource)
+    || (compactString(entry.coreTransactionId || entry.transactionId || entry.coreProjection?.transactionId)
+      ? 'coreStoreV2'
+      : 'coreStoreV2');
+}
+
+function runtimeBridgeAuthorityFields(kind, entry = {}) {
+  const projectionSource = runtimeBridgeProjectionSource(entry);
+  const authority = compactString(entry.authority)
+    || (projectionSource === 'coreStoreV2' ? 'compatibilityProjection' : 'compatibilityProjectionUnavailable');
+  const rowKind = kind === 'ingress'
+    ? 'directive.coreIngressCompatibilityMirror.v1'
+    : 'directive.coreResponseCompatibilityMirror.v1';
+  return {
+    authority,
+    projectionSource,
+    compatibilityMirror: entry.compatibilityMirror
+      ? cloneJson(entry.compatibilityMirror)
+      : compact({
+          kind: rowKind,
+          status: authority === 'compatibilityProjectionUnavailable' ? 'runtimeBridgeProjection' : 'coreProjection',
+          transactionId: entry.transactionId || entry.coreTransactionId || entry.coreProjection?.transactionId || null,
+          ingressId: kind === 'ingress' ? (entry.ingressId || entry.id || null) : undefined,
+          responseId: kind === 'response' ? (entry.responseId || entry.id || null) : undefined,
+          projectionSource
+        })
+  };
+}
+
+function projectionArray(rows = []) {
+  return Array.isArray(rows) && rows.length ? cloneJson(rows) : undefined;
+}
+
+function coreStoreReadProjectionsFromLoadedV2({
+  ingressLedger = [],
+  responseLedger = [],
+  turnLedger = null
+} = {}) {
+  return compact({
+    kind: 'directive.coreStoreReadProjections.v1',
+    runtimeAuthority: 'coreStoreV2',
+    ingressLedger: projectionArray(ingressLedger),
+    responseLedger: projectionArray(responseLedger),
+    recoveryJournal: [],
+    turnLedger: turnLedger ? cloneJson(turnLedger) : undefined
+  });
+}
+
+function hasCoreStoreReadProjectionEvidence(projections = {}) {
+  return Boolean(
+    projections?.runtimeAuthority === 'coreStoreV2'
+    || (Array.isArray(projections?.ingressLedger) && projections.ingressLedger.length)
+    || (Array.isArray(projections?.responseLedger) && projections.responseLedger.length)
+    || (isObject(projections?.turnLedger) && Array.isArray(projections.turnLedger.entries) && projections.turnLedger.entries.length)
+  );
+}
+
 function isoNow() {
   return new Date().toISOString();
 }
@@ -553,7 +615,8 @@ async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
       turnId: entry.turnId || null,
       outcomeId: entry.outcomeId || null,
       textHash: entry.textHash || entry.source?.textHash || null,
-      status: entry.status || entry.phase || 'observed'
+      status: entry.status || entry.phase || 'observed',
+      ...runtimeBridgeAuthorityFields('ingress', entry)
     }));
   const responseLedger = eventEntries
     .filter((entry) => entry?.type === 'runtimeResponseProjected' || entry?.type === 'visibleResponseRecorded')
@@ -567,22 +630,23 @@ async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
       replacementTextPresent: entry.replacementTextPresent,
       replacementTextHash: entry.replacementTextHash,
       replacementTextLength: entry.replacementTextLength,
-      outcomeIntegrity: entry.outcomeIntegrity ? cloneJson(entry.outcomeIntegrity) : undefined
+      outcomeIntegrity: entry.outcomeIntegrity ? cloneJson(entry.outcomeIntegrity) : undefined,
+      ...runtimeBridgeAuthorityFields('response', entry)
     }));
   if (ingressLedger.length > 0 || responseLedger.length > 0) {
     campaignState.runtimeTracking = compact({
       ...(campaignState.runtimeTracking || {}),
       schemaVersion: 2,
-      ingressLedger,
-      responseLedger,
+      ingressLedger: [],
+      responseLedger: [],
       recoveryJournal: [],
       sidecarJournal: [],
       modelCallJournal: [],
       pendingInteractions: []
     });
   }
-  if (turnEntries.length > 0) {
-    campaignState.turnLedger = {
+  const projectedTurnLedger = turnEntries.length > 0
+    ? {
       ...(campaignState.turnLedger || {}),
       entries: turnEntries.map((entry) => compact({
         id: entry.id || entry.turnId || null,
@@ -590,7 +654,21 @@ async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
         outcomeId: entry.outcomeId || null,
         phase: entry.phase || null
       }))
-    };
+    }
+    : null;
+  if (projectedTurnLedger) {
+    campaignState.turnLedger = projectedTurnLedger;
+  }
+  const coreStoreReadProjections = coreStoreReadProjectionsFromLoadedV2({
+    ingressLedger,
+    responseLedger,
+    turnLedger: projectedTurnLedger
+  });
+  if (hasCoreStoreReadProjectionEvidence(coreStoreReadProjections)) {
+    campaignState.directiveRuntimeEvidence = compact({
+      ...(isObject(campaignState.directiveRuntimeEvidence) ? campaignState.directiveRuntimeEvidence : {}),
+      coreStoreReadProjections
+    });
   }
   return campaignState;
 }

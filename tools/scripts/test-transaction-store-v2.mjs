@@ -13,6 +13,7 @@ import {
   commitV2EventTurnSegments,
   commitV2SaveLayout,
   createV2SegmentRecord,
+  importCampaignSaveRecordToV2,
   loadV2CampaignManifest,
   loadV2Checkpoint,
   loadV2MaterializedHead,
@@ -499,5 +500,246 @@ assert.deepEqual(
   ['diag-repair-before', 'diag-repair-missing-recent', 'diag-repair-current'],
   'diagnostics append must repair recent diagnostics missing from a stale manifest tail'
 );
+
+const legacyProjectionImportStorage = createLoggingStorage();
+const legacyProjectionImportAdapter = createLogicalStorageAdapter({ storage: legacyProjectionImportStorage, hostId: 'fake' });
+const legacyProjectionImport = await importCampaignSaveRecordToV2(legacyProjectionImportAdapter, {
+  kind: 'directive.campaignSave',
+  id: 'save-legacy-projection-import',
+  current: true,
+  metadata: { campaignId: 'campaign-legacy-projection-import' },
+  payload: {
+    campaignState: {
+      campaign: { id: 'campaign-legacy-projection-import' },
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          ingressLedger: [{
+            id: 'core-ingress-import',
+            hostMessageId: 'core-player-import',
+            transactionId: 'txn-import',
+            status: 'classified',
+            textHash: 'hash-core-player-import'
+          }],
+          responseLedger: [{
+            id: 'core-response-import',
+            hostMessageId: 'core-assistant-import',
+            transactionId: 'txn-import',
+            responseKind: 'hostContinue',
+            status: 'posted'
+          }],
+          recoveryJournal: [{
+            id: 'core-recovery-import',
+            transactionId: 'txn-import',
+            status: 'resolved'
+          }],
+          modelCallDiagnostics: [{
+            id: 'core-model-call-import',
+            roleId: 'storyQualityReviewer',
+            status: 'ok',
+            transactionId: 'txn-import',
+            requestHash: 'model-call-hash-import'
+          }],
+          sidecarDiagnostics: [{
+            id: 'core-sidecar-import',
+            worker: 'sceneSeal',
+            status: 'accepted',
+            transactionId: 'txn-import',
+            acceptedBatchHash: 'sidecar-hash-import'
+          }],
+          backgroundBatches: [{
+            id: 'core-background-import',
+            batchId: 'batch-import',
+            worker: 'pressureArcDigest',
+            status: 'settled',
+            transactionId: 'txn-import',
+            acceptedBatchHash: 'background-hash-import'
+          }]
+        }
+      },
+      runtimeTracking: {
+        ingressLedger: [
+          { id: 'silent-ingress-import', hostMessageId: 'silent-player-import', status: 'classified' },
+          {
+            id: 'tagged-ingress-import',
+            hostMessageId: 'tagged-player-import',
+            status: 'classified',
+            authority: 'compatibilityProjectionUnavailable',
+            projectionSource: 'runtimeTrackingLegacy',
+            compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'missingCoreProjection' }
+          }
+        ],
+        responseLedger: [
+          { id: 'silent-response-import', hostMessageId: 'silent-assistant-import', responseKind: 'hostContinue', status: 'posted' },
+          {
+            id: 'tagged-response-import',
+            hostMessageId: 'tagged-assistant-import',
+            responseKind: 'hostContinue',
+            status: 'posted',
+            authority: 'compatibilityProjectionUnavailable',
+            projectionSource: 'runtimeTrackingLegacy',
+            compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'missingCoreProjection' }
+          }
+        ],
+        recoveryJournal: [{ id: 'silent-recovery-import', status: 'reviewRequired' }],
+        modelCallJournal: [{
+          id: 'silent-model-call-import',
+          roleId: 'legacyReviewer',
+          status: 'ok',
+          prompt: 'SILENT_OLD_MODEL_CALL_IMPORT_SHOULD_NOT_SURVIVE'
+        }],
+        sidecarJournal: [{
+          id: 'silent-sidecar-import',
+          worker: 'legacyWorker',
+          status: 'accepted',
+          rawCanary: 'SILENT_OLD_SIDECAR_IMPORT_SHOULD_NOT_SURVIVE'
+        }]
+      },
+      turnLedger: {
+        entries: [{ id: 'turn-import-1', outcomeId: 'outcome-import-1' }]
+      }
+    }
+  }
+}, {
+  now: '2026-06-28T14:06:00.000Z'
+});
+const legacyProjectionHostMap = await readV2ArtifactRef(legacyProjectionImportAdapter, legacyProjectionImport.refs.hostMap);
+const legacyProjectionEventEntries = (await Promise.all(legacyProjectionImport.refs.eventSegments.map((ref) => readV2ArtifactRef(legacyProjectionImportAdapter, ref))))
+  .flatMap((segment) => segment.entries || []);
+const legacyProjectionDiagnosticEntries = (await Promise.all(legacyProjectionImport.refs.diagnosticsSegments.map((ref) => readV2ArtifactRef(legacyProjectionImportAdapter, ref))))
+  .flatMap((segment) => segment.entries || []);
+const legacyProjectionHead = await readV2ArtifactRef(legacyProjectionImportAdapter, legacyProjectionImport.refs.head);
+assert.deepEqual(
+  legacyProjectionHostMap.rows.map((row) => row.hostMessageId),
+  ['core-player-import', 'core-assistant-import'],
+  'legacy import host map must use CORE-first runtime ledger view and suppress missing-CORE mirrors'
+);
+assert.deepEqual(
+  legacyProjectionEventEntries
+    .filter((entry) => entry.type === 'legacyIngressImported' || entry.type === 'legacyResponseImported')
+    .map((entry) => entry.hostMessageId),
+  ['core-player-import', 'core-assistant-import'],
+  'legacy import event segments must use CORE-first runtime ledger view and suppress missing-CORE mirrors'
+);
+assert.deepEqual(
+  {
+    ingressCount: legacyProjectionHead.legacyRuntimeSummary.ingressCount,
+    responseCount: legacyProjectionHead.legacyRuntimeSummary.responseCount,
+    recoveryCount: legacyProjectionHead.legacyRuntimeSummary.recoveryCount,
+    modelCallCount: legacyProjectionHead.legacyRuntimeSummary.modelCallCount,
+    sidecarCount: legacyProjectionHead.legacyRuntimeSummary.sidecarCount
+  },
+  { ingressCount: 1, responseCount: 1, recoveryCount: 1, modelCallCount: 1, sidecarCount: 2 },
+  'legacy import summary must count CORE projected runtime rows and model-call/sidecar/background projections, not silent old ledgers or missing-CORE mirrors'
+);
+assert.deepEqual(
+  legacyProjectionDiagnosticEntries
+    .filter((entry) => entry.type === 'runtimeModelCallProjected')
+    .map((entry) => entry.status),
+  ['ok'],
+  'legacy import diagnostics must use CORE model-call projections instead of old modelCallJournal rows when projections exist'
+);
+assert.deepEqual(
+  legacyProjectionDiagnosticEntries
+    .filter((entry) => entry.type === 'runtimeSidecarDiagnosticProjected' || entry.type === 'runtimeBackgroundBatchProjected')
+    .map((entry) => entry.type),
+  ['runtimeSidecarDiagnosticProjected', 'runtimeBackgroundBatchProjected'],
+  'legacy import diagnostics must use CORE sidecar/background projections instead of old sidecarJournal rows when projections exist'
+);
+assert.equal(JSON.stringify(legacyProjectionHostMap).includes('silent-player-import'), false);
+assert.equal(JSON.stringify(legacyProjectionEventEntries).includes('silent-response-import'), false);
+assert.equal(JSON.stringify(legacyProjectionDiagnosticEntries).includes('SILENT_OLD_MODEL_CALL_IMPORT_SHOULD_NOT_SURVIVE'), false);
+assert.equal(JSON.stringify(legacyProjectionDiagnosticEntries).includes('SILENT_OLD_SIDECAR_IMPORT_SHOULD_NOT_SURVIVE'), false);
+
+const legacySidecarOnlyImportStorage = createLoggingStorage();
+const legacySidecarOnlyImportAdapter = createLogicalStorageAdapter({ storage: legacySidecarOnlyImportStorage, hostId: 'fake' });
+const legacySidecarOnlyImport = await importCampaignSaveRecordToV2(legacySidecarOnlyImportAdapter, {
+  kind: 'directive.campaignSave',
+  id: 'save-legacy-sidecar-only-import',
+  current: true,
+  metadata: { campaignId: 'campaign-legacy-sidecar-only-import' },
+  payload: {
+    campaignState: {
+      campaign: { id: 'campaign-legacy-sidecar-only-import' },
+      runtimeTracking: {
+        sidecarJournal: [{
+          id: 'legacy-sidecar-only-import',
+          worker: 'legacyWorker',
+          status: 'accepted',
+          rawCanary: 'LEGACY_SIDECAR_ONLY_IMPORT_SHOULD_NOT_SURVIVE'
+        }]
+      },
+      sidecarJournal: [{
+        id: 'legacy-top-level-sidecar-only-import',
+        worker: 'legacyTopLevelWorker',
+        status: 'accepted',
+        rawCanary: 'LEGACY_TOP_LEVEL_SIDECAR_ONLY_IMPORT_SHOULD_NOT_SURVIVE'
+      }]
+    }
+  }
+}, {
+  now: '2026-06-28T14:07:00.000Z'
+});
+const legacySidecarOnlyHead = await readV2ArtifactRef(legacySidecarOnlyImportAdapter, legacySidecarOnlyImport.refs.head);
+const legacySidecarOnlyDiagnostics = (await Promise.all(legacySidecarOnlyImport.refs.diagnosticsSegments.map((ref) => readV2ArtifactRef(legacySidecarOnlyImportAdapter, ref))))
+  .flatMap((segment) => segment.entries || []);
+assert.equal(
+  legacySidecarOnlyHead.legacyRuntimeSummary.sidecarCount,
+  0,
+  'legacy import summary must not count old sidecarJournal rows when CORE sidecar projections are absent'
+);
+assert.equal(
+  legacySidecarOnlyDiagnostics.some((entry) => entry.type === 'legacySidecarImported' || entry.type === 'runtimeSidecarDiagnosticProjected' || entry.type === 'runtimeBackgroundBatchProjected'),
+  false,
+  'legacy import diagnostics must not synthesize sidecar diagnostics from old sidecarJournal rows when CORE projections are absent'
+);
+assert.equal(JSON.stringify(legacySidecarOnlyDiagnostics).includes('LEGACY_SIDECAR_ONLY_IMPORT_SHOULD_NOT_SURVIVE'), false);
+assert.equal(JSON.stringify(legacySidecarOnlyDiagnostics).includes('LEGACY_TOP_LEVEL_SIDECAR_ONLY_IMPORT_SHOULD_NOT_SURVIVE'), false);
+
+const legacyModelCallOnlyImportStorage = createLoggingStorage();
+const legacyModelCallOnlyImportAdapter = createLogicalStorageAdapter({ storage: legacyModelCallOnlyImportStorage, hostId: 'fake' });
+const legacyModelCallOnlyImport = await importCampaignSaveRecordToV2(legacyModelCallOnlyImportAdapter, {
+  kind: 'directive.campaignSave',
+  id: 'save-legacy-model-call-only-import',
+  current: true,
+  metadata: { campaignId: 'campaign-legacy-model-call-only-import' },
+  payload: {
+    campaignState: {
+      campaign: { id: 'campaign-legacy-model-call-only-import' },
+      runtimeTracking: {
+        modelCallJournal: [{
+          id: 'legacy-model-call-only-import',
+          roleId: 'legacyReviewer',
+          status: 'ok',
+          prompt: 'LEGACY_MODEL_CALL_ONLY_PROMPT_SHOULD_NOT_SURVIVE',
+          response: 'LEGACY_MODEL_CALL_ONLY_RESPONSE_SHOULD_NOT_SURVIVE'
+        }]
+      },
+      modelCallJournal: [{
+        id: 'legacy-top-level-model-call-only-import',
+        roleId: 'legacyTopLevelReviewer',
+        status: 'ok',
+        prompt: 'LEGACY_TOP_LEVEL_MODEL_CALL_ONLY_PROMPT_SHOULD_NOT_SURVIVE'
+      }]
+    }
+  }
+}, {
+  now: '2026-06-28T14:08:00.000Z'
+});
+const legacyModelCallOnlyHead = await readV2ArtifactRef(legacyModelCallOnlyImportAdapter, legacyModelCallOnlyImport.refs.head);
+const legacyModelCallOnlyDiagnostics = (await Promise.all(legacyModelCallOnlyImport.refs.diagnosticsSegments.map((ref) => readV2ArtifactRef(legacyModelCallOnlyImportAdapter, ref))))
+  .flatMap((segment) => segment.entries || []);
+assert.equal(
+  legacyModelCallOnlyHead.legacyRuntimeSummary.modelCallCount,
+  0,
+  'legacy import summary must not count old modelCallJournal rows when CORE model-call projections are absent'
+);
+assert.equal(
+  legacyModelCallOnlyDiagnostics.some((entry) => entry.type === 'legacyModelCallImported' || entry.type === 'runtimeModelCallProjected'),
+  false,
+  'legacy import diagnostics must not synthesize model-call diagnostics from old modelCallJournal rows when CORE projections are absent'
+);
+assert.equal(JSON.stringify(legacyModelCallOnlyDiagnostics).includes('LEGACY_MODEL_CALL_ONLY_PROMPT_SHOULD_NOT_SURVIVE'), false);
+assert.equal(JSON.stringify(legacyModelCallOnlyDiagnostics).includes('LEGACY_MODEL_CALL_ONLY_RESPONSE_SHOULD_NOT_SURVIVE'), false);
+assert.equal(JSON.stringify(legacyModelCallOnlyDiagnostics).includes('LEGACY_TOP_LEVEL_MODEL_CALL_ONLY_PROMPT_SHOULD_NOT_SURVIVE'), false);
 
 console.log('Transaction store v2 tests passed.');

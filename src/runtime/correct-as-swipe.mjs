@@ -72,7 +72,7 @@ function sourceSelectionRef(input = {}) {
 }
 
 function responseIdForUpdate(response = {}, sourceRef = {}) {
-  return compactId(sourceRef.hostMessageId || response.hostMessageId || response.id);
+  return compactId(sourceRef.responseId || response.id || response.responseId || response.idempotencyKey);
 }
 
 function selectedSwipeTextHash({ selectedSwipe = null, message = null } = {}) {

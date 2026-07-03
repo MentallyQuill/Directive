@@ -529,10 +529,50 @@ for (const [label, source] of [['edit', editRunnerSource], ['delete', deleteRunn
   );
   assert.match(
     source,
+    /runtimeLedgerViewModulePath[\s\S]*runtime-ledger-view\.mjs[\s\S]*createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
+    `${label} runner runtime snapshot must use the CORE-first runtime ledger view before selecting target ingress/response/recovery evidence.`
+  );
+  assert.doesNotMatch(
+    source,
+    /\(tracking\.(ingressLedger|responseLedger)\s*\|\|\s*\[\]\)\.find/,
+    `${label} runner must not select target ingress/response evidence from raw runtimeTracking ledgers.`
+  );
+  assert.match(
+    source,
+    /legacyRecoveryCount:\s*count\(tracking\.recoveryJournal\)/,
+    `${label} runner may expose raw recovery count only as a named legacy diagnostic.`
+  );
+  assert.match(
+    source,
     /triggerPostActuationReobserve[\s\S]*handleHostMessage/,
     `${label} runner must explicitly record a post-actuation runtime reobserve when the native SillyTavern event does not arrive.`
   );
+  assert.match(
+    source,
+    /HOST_EVENT_GRACE_MS[\s\S]*REOBSERVE_RECOVERY_WAIT_MS[\s\S]*waitForDirectiveRecovery\(page,\s*before,\s*\{\s*timeoutMs:\s*HOST_EVENT_GRACE_MS\s*\}\)/,
+    `${label} runner must use a short native-event grace period before explicit reobserve so assembled live proof does not spend minutes waiting on missing host events.`
+  );
+  assert.match(
+    source,
+    /trackedCoreRecoveryReady[\s\S]*snapshot\[trackedKind\]\?\.coreRecovery\?\.status[\s\S]*ownerEvidenceReady/,
+    `${label} runner must accept compact CORE recovery evidence stored on the tracked ledger row, not only the separate projection row.`
+  );
 }
+assert.match(
+  deleteRunnerSource,
+  /handleHostMessageDeleted\(\{[\s\S]*message:\s*null[\s\S]*deletedMessageRef[\s\S]*originalTextHash/,
+  'Delete runner post-actuation reobserve must pass deleted-message identity, not host.chat.getMessage(targetMesid), because SillyTavern reindexes later rows into the deleted mesid.'
+);
+assert.match(
+  deleteRunnerSource,
+  /chatLengthDropped[\s\S]*Number\(snapshot\.chatLength \|\| 0\) < Number\(before\?\.chatLength \|\| 0\)[\s\S]*messageRemoved = chatLengthDropped/,
+  'Delete runner wait must treat chat-length shrink as message-removal evidence because SillyTavern can reindex or reuse the deleted mesid row.'
+);
+assert.match(
+  deleteRunnerSource,
+  /const chatLengthDelta = Number\(after\?\.chatLength \|\| 0\) - Number\(before\?\.chatLength \|\| 0\)[\s\S]*messageRemoved: chatLengthDelta < 0/,
+  'Delete runner proof must report deletion when chat length shrinks even if the same mesid selector remains populated after host reindexing.'
+);
 assert.match(
   selectedSwipeRunnerSource,
   /entry\.index\s*===\s*chat\.length\s*-\s*1[\s\S]*nativeSwipeTargetRequirement:\s*'sillytavern-text-swipe-buttons-bind-to-last_mes'/,
@@ -542,6 +582,31 @@ assert.match(
   selectedSwipeRunnerSource,
   /DIRECTIVE_SELECTED_SWIPE_CREATE_LATEST_TARGET[\s\S]*postAssistantMessage[\s\S]*recordDirectiveResponse[\s\S]*setup-only-latest-directive-owned-response/,
   'Selected-swipe native runner must expose an opt-in setup path that creates a latest Directive-owned recorded target through host posting plus response-ledger setup.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /recordDirectiveResponse[\s\S]*authority:\s*'compatibilityProjection'[\s\S]*directive\.coreResponseSelectedSwipeSetupProjectionRef\.v1[\s\S]*textHash/,
+  'Selected-swipe setup response row must be a CORE compatibility projection with hash-only setup evidence.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /createRuntimeLedgerView\(refreshed\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
+  'Selected-swipe setup proof must confirm recorded responses through the CORE-first runtime ledger view.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
+  'Selected-swipe candidate selection must read response targets through the CORE-first runtime ledger view.'
+);
+assert.match(
+  selectedSwipeRunnerSource,
+  /runtime-ledger-view-response-ledger-unavailable/,
+  'Selected-swipe candidate selection must fail closed when CORE-first runtime response view is unavailable.'
+);
+assert.doesNotMatch(
+  selectedSwipeRunnerSource,
+  /runtimeTracking\??\.responseLedger/,
+  'Selected-swipe native runner must not target or verify swipes from raw runtimeTracking.responseLedger.'
 );
 assert.match(
   selectedSwipeRunnerSource,

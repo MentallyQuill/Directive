@@ -199,6 +199,49 @@ await assert.rejects(
   }),
   /Stale CORE mechanics base revision/
 );
+const beforeUnboundedMechanicsEvents = coreStore.state.events.length;
+const beforeUnboundedMechanicsWrites = storage.writeLog.length;
+await assert.rejects(
+  () => coreStore.commitMechanics(transaction.id, {
+    baseMechanicsRevision: 0,
+    idempotencyKey: 'mechanics-unbounded-29',
+    turnId: 'turn-unbounded-29',
+    outcomeId: 'outcome-unbounded-29',
+    operations: [{
+      domain: 'mission',
+      op: 'appendLog',
+      rawText: 'RAW_MECHANICS_TEXT'
+    }]
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_UNBOUNDED_MECHANICS_OPERATION');
+    assert.match(error.message, /unbounded field/);
+    return true;
+  }
+);
+assert.equal(coreStore.state.events.length, beforeUnboundedMechanicsEvents, 'unbounded mechanics operation must fail before appending events');
+assert.equal(storage.writeLog.length, beforeUnboundedMechanicsWrites, 'unbounded mechanics operation must fail before writing CORE artifacts');
+await assert.rejects(
+  () => coreStore.commitMechanics(transaction.id, {
+    baseMechanicsRevision: 0,
+    idempotencyKey: 'mechanics-value-payload-29',
+    turnId: 'turn-value-payload-29',
+    outcomeId: 'outcome-value-payload-29',
+    operations: [{
+      domain: 'mission',
+      op: 'set',
+      path: 'mission.activePhaseId',
+      value: 'payload-must-not-enter-core-mechanics'
+    }]
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_UNBOUNDED_MECHANICS_OPERATION');
+    assert.match(error.message, /operations\.0\.value/);
+    return true;
+  }
+);
+assert.equal(coreStore.state.events.length, beforeUnboundedMechanicsEvents, 'value-payload mechanics operation must not append events');
+assert.equal(storage.writeLog.length, beforeUnboundedMechanicsWrites, 'value-payload mechanics operation must not write CORE artifacts');
 const manifestBeforeMechanics = await loadV2SaveManifest(adapter, {
   campaignId: 'campaign-core-v2',
   saveId: 'save-core-v2',
@@ -234,9 +277,20 @@ const mechanics = await coreStore.commitMechanics(transaction.id, {
       summary: 'Clarified the bridge decision under pressure.',
       sourceKind: 'directive.openWorldReducerBundle.v1',
       sourceHash: 'open-world-reducer-source-hash',
+      sourceOutcomeId: 'outcome-29',
+      sourceTurnId: 'turn-29',
       operationCount: 1,
       changedRoots: ['worldState'],
-      rawText: 'RAW_MECHANICS_TEXT'
+      valueHash: 'open-world-reducer-operation-hash'
+    },
+    {
+      domain: 'values',
+      op: 'domainCommitted',
+      summary: 'Compatibility fallback for source-less values root.',
+      sourceKind: 'directive.compatibilityMechanicsDomainFallback.v1',
+      sourceHash: 'compatibility-fallback-source-hash',
+      sourceOutcomeId: 'outcome-29',
+      valueHash: 'compatibility-fallback-value-hash'
     }
   ]
 });
@@ -282,7 +336,7 @@ assert.equal(hydratedMechanicsEvent?.payload?.operationBundle?.coreCheckpointRef
 assert.equal(hydratedAfterMechanics.revisions.mechanics, 1, 'hydration should derive mechanics revision from appended event/turn segments');
 assert.equal(hydratedAfterMechanics.promptDirtyDomains.includes('missionQuestThread'), true, 'hydration should derive prompt dirty domains from appended turn segments');
 assert.equal(mechanics.outcomeId, 'outcome-29');
-assert.equal(mechanics.operationCount, 1);
+assert.equal(mechanics.operationCount, 2);
 assert.equal(mechanics.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-29');
 assert.equal(JSON.stringify(mechanics).includes('RAW_CORE_MECHANICS_CHECKPOINT_STATE_ALLOWED_ONLY_IN_CHECKPOINT_ARTIFACT'), false);
 assert.equal(JSON.stringify(hydratedAfterMechanics.turns).includes('RAW_CORE_MECHANICS_CHECKPOINT_STATE_ALLOWED_ONLY_IN_CHECKPOINT_ARTIFACT'), false);
@@ -2322,9 +2376,18 @@ const mechanicsEvent = eventSegment.entries.find((entry) => entry.type === 'mech
 const compactMechanicsOperation = mechanicsEvent.payload.operationBundle.operations.find((operation) => operation.sourceKind === 'directive.openWorldReducerBundle.v1');
 assert.ok(compactMechanicsOperation, 'CORE mechanics event should retain redacted reducer-bundle operation metadata');
 assert.equal(compactMechanicsOperation.sourceHash, 'open-world-reducer-source-hash');
+assert.equal(compactMechanicsOperation.sourceOutcomeId, 'outcome-29');
+assert.equal(compactMechanicsOperation.sourceTurnId, 'turn-29');
 assert.equal(compactMechanicsOperation.operationCount, 1);
 assert.deepEqual(compactMechanicsOperation.changedRoots, ['worldState']);
 assert.equal(JSON.stringify(compactMechanicsOperation).includes('RAW_MECHANICS_TEXT'), false);
+const compactFallbackMechanicsOperation = mechanicsEvent.payload.operationBundle.operations.find((operation) => operation.sourceKind === 'directive.compatibilityMechanicsDomainFallback.v1');
+assert.ok(compactFallbackMechanicsOperation, 'CORE mechanics event should retain compatibility fallback metadata');
+assert.equal(compactFallbackMechanicsOperation.domain, 'values');
+assert.equal(compactFallbackMechanicsOperation.op, 'domainCommitted');
+assert.equal(compactFallbackMechanicsOperation.sourceHash, 'compatibility-fallback-source-hash');
+assert.equal(compactFallbackMechanicsOperation.sourceOutcomeId, 'outcome-29');
+assert.equal(compactFallbackMechanicsOperation.valueHash, 'compatibility-fallback-value-hash');
 assert.equal(eventSegment.entries.some((entry) => entry.type === 'visibleResponseRecorded'), true);
 assert.equal(eventSegment.entries.some((entry) => entry.type === 'visibleResponseRefRepaired'), true);
 assert.equal(eventSegment.entries.some((entry) => entry.type === 'recoveryRequired'), true);

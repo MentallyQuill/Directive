@@ -11,6 +11,44 @@ export function uniqueStringList(values = []) {
     .filter(Boolean))];
 }
 
+export function hostNativeCompletionTargetOutcome(proof = {}, {
+  targetTransactionIds = [],
+  targetPlayerHostMessageIds = []
+} = {}) {
+  const transactionIds = new Set(uniqueStringList([
+    ...(targetTransactionIds || []),
+    ...(proof?.targetTransactionIds || [])
+  ]));
+  const playerHostMessageIds = new Set(uniqueStringList([
+    ...(targetPlayerHostMessageIds || []),
+    ...(proof?.targetPlayerHostMessageIds || [])
+  ]));
+  const hasExplicitTargets = transactionIds.size > 0 || playerHostMessageIds.size > 0;
+  const entries = Array.isArray(proof?.entries) ? proof.entries : [];
+  const targetEntries = hasExplicitTargets
+    ? entries.filter((entry) => {
+      const transactionId = String(entry?.transactionId || entry?.coreTransactionId || '').trim();
+      const playerHostMessageId = String(entry?.playerHostMessageId || '').trim();
+      const transactionMatches = transactionIds.size === 0 || transactionIds.has(transactionId);
+      const playerHostMatches = playerHostMessageIds.size === 0 || playerHostMessageIds.has(playerHostMessageId);
+      return transactionMatches && playerHostMatches;
+    })
+    : entries;
+  const completed = targetEntries.filter((entry) => entry?.completionStatus === 'pass');
+  const failed = targetEntries.filter((entry) => entry?.completionStatus && entry.completionStatus !== 'pass');
+  return {
+    status: failed.length > 0 ? 'fail' : (completed.length > 0 ? 'pass' : 'pending'),
+    hasExplicitTargets,
+    targetTransactionIds: [...transactionIds],
+    targetPlayerHostMessageIds: [...playerHostMessageIds],
+    targetEntryCount: targetEntries.length,
+    targetCompletedHostContinueCount: completed.length,
+    targetFailedHostContinueCount: failed.length,
+    targetEntries,
+    targetFailures: failed
+  };
+}
+
 function sanitizeTimingMetric(value) {
   if (!value || typeof value !== 'object') return null;
   return {

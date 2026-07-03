@@ -61,12 +61,25 @@ function projectionKeySet(entry = {}, keys = []) {
     }));
 }
 
-function corePreferredRows(coreRows = null, legacyRows = [], keys = [], { authoritative = false } = {}) {
+function isTaggedCompatibilityProjectionRow(row = {}) {
+  const authority = compactString(row.authority);
+  if (!authority) return false;
+  if (authority === 'compatibilityProjectionUnavailable') return false;
+  return Boolean(row.compatibilityMirror || compactString(row.projectionSource) === 'coreStoreV2');
+}
+
+function corePreferredRows(coreRows = null, legacyRows = [], keys = [], {
+  authoritative = false,
+  requireTaggedLegacyWithCore = false
+} = {}) {
   if (!Array.isArray(coreRows)) return legacyRows;
   if (authoritative) return coreRows;
+  const fallbackRows = requireTaggedLegacyWithCore
+    ? legacyRows.filter((legacyRow) => isTaggedCompatibilityProjectionRow(legacyRow))
+    : legacyRows;
   const coreKeySets = coreRows.map((row) => projectionKeySet(row, keys));
   const usedCoreIndexes = new Set();
-  const merged = legacyRows.map((legacyRow) => {
+  const merged = fallbackRows.map((legacyRow) => {
     const legacyKeys = projectionKeySet(legacyRow, keys);
     const matchingCoreIndex = coreKeySets.findIndex((coreKeys, index) => (
       !usedCoreIndexes.has(index)
@@ -90,6 +103,39 @@ function transactionEvidence(entry = {}) {
     coreTransactionId,
     sourceFrameId: compactString(entry.sourceFrameId)
   });
+}
+
+function runtimeBridgeProjectionSource(entry = {}) {
+  return compactString(entry.projectionSource)
+    || (compactString(entry.coreTransactionId || entry.transactionId)
+      ? 'coreStoreV2'
+      : 'runtimeBridgeV2');
+}
+
+function runtimeBridgeAuthorityFields(kind, entry = {}) {
+  const projectionSource = runtimeBridgeProjectionSource(entry);
+  const authority = compactString(entry.authority)
+    || (projectionSource === 'coreStoreV2' ? 'compatibilityProjection' : 'compatibilityProjectionUnavailable');
+  const rowKind = kind === 'ingress'
+    ? 'directive.coreIngressCompatibilityMirror.v1'
+    : (kind === 'recovery'
+        ? 'directive.coreRecoveryCompatibilityMirror.v1'
+        : 'directive.coreResponseCompatibilityMirror.v1');
+  return {
+    authority,
+    projectionSource,
+    compatibilityMirror: entry.compatibilityMirror
+      ? cloneJson(entry.compatibilityMirror)
+      : compact({
+          kind: rowKind,
+          status: authority === 'compatibilityProjectionUnavailable' ? 'runtimeBridgeProjection' : 'coreProjection',
+          transactionId: entry.transactionId || entry.coreTransactionId || null,
+          ingressId: kind === 'ingress' ? (entry.ingressId || entry.id || null) : undefined,
+          responseId: kind === 'response' ? (entry.responseId || entry.id || null) : undefined,
+          recoveryId: kind === 'recovery' ? (entry.recoveryId || entry.id || null) : undefined,
+          projectionSource
+        })
+  };
 }
 
 function compactOutcomeIntegrityEvidence(integrity = null) {
@@ -120,7 +166,6 @@ function responseProjectionKeys(entry = {}) {
     .filter(Boolean);
   return [
     compactString(entry.transactionId || entry.coreTransactionId),
-    compactString(entry.hostMessageId),
     tuple.length === 3 ? tuple.join(':') : null,
     compactString(entry.id || entry.responseId)
   ].filter(Boolean);
@@ -197,7 +242,8 @@ function runtimeRecoveryLedgerFromEvents(entries = []) {
       status: entry.status || null,
       recoveryKind: entry.recoveryKind || null,
       reasonCode: entry.reasonCode || null,
-      ...transactionEvidence(entry)
+      ...transactionEvidence(entry),
+      ...runtimeBridgeAuthorityFields('recovery', entry)
     }));
 }
 
@@ -391,6 +437,8 @@ function compactReplacementTextEvidence(entry = {}) {
 }
 
 function modelCallRows(campaignState = {}) {
+  const coreRows = projectedCoreArray(campaignState, 'modelCallDiagnostics');
+  if (Array.isArray(coreRows)) return coreRows;
   return runtimeCollection(campaignState, 'modelCallJournal');
 }
 
@@ -631,16 +679,12 @@ function isBackgroundBatchProjection(entry = {}) {
 
 function sidecarDiagnosticRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'sidecarDiagnostics');
-  if (Array.isArray(coreRows)) return coreRows;
-  return runtimeCollection(campaignState, 'sidecarJournal')
-    .filter((entry) => !isBackgroundBatchProjection(entry));
+  return Array.isArray(coreRows) ? coreRows : [];
 }
 
 function backgroundBatchRows(campaignState = {}) {
   const projection = coreRuntimeProjection(campaignState);
-  if (Array.isArray(projection?.backgroundBatches)) return projection.backgroundBatches;
-  return runtimeCollection(campaignState, 'sidecarJournal')
-    .filter((entry) => isBackgroundBatchProjection(entry));
+  return Array.isArray(projection?.backgroundBatches) ? projection.backgroundBatches : [];
 }
 
 function commandBearingEvidenceRows(campaignState = {}) {
@@ -650,30 +694,12 @@ function commandBearingEvidenceRows(campaignState = {}) {
 
 function projectedIngressRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'ingressLedger');
-  const runtimeTracking = campaignState.runtimeTracking || {};
-  const legacyRows = Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : [];
-  return corePreferredRows(coreRows, legacyRows, [
-    'id',
-    'ingressId',
-    'hostMessageId',
-    'transactionId',
-    'coreTransactionId',
-    'sourceFrameId'
-  ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
+  return Array.isArray(coreRows) ? cloneJson(coreRows) : [];
 }
 
 function projectedResponseRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'responseLedger');
-  const runtimeTracking = campaignState.runtimeTracking || {};
-  const legacyRows = Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : [];
-  return corePreferredRows(coreRows, legacyRows, [
-    'id',
-    'responseId',
-    'hostMessageId',
-    'transactionId',
-    'coreTransactionId',
-    ['turnId', 'outcomeId', 'responseKind']
-  ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
+  return Array.isArray(coreRows) ? cloneJson(coreRows) : [];
 }
 
 function projectedRecoveryRows(campaignState = {}) {
@@ -762,9 +788,7 @@ function coreAcceptedBackgroundWorkerCount(campaignState = {}) {
 }
 
 function sidecarResumeCount(campaignState = {}) {
-  const sidecars = runtimeCollection(campaignState, 'sidecarJournal');
   return Math.max(
-    sidecars.length,
     Number(campaignState?.runtimeResume?.sidecarCount) || 0,
     coreSidecarDiagnosticCount(campaignState),
     coreAcceptedBackgroundWorkerCount(campaignState)
@@ -790,7 +814,7 @@ function runtimeSummary(campaignState = {}) {
   return {
     ingressCount: ingressRows.length,
     responseCount: responseRows.length,
-    responseLedgerRevision: Math.max(0, Number(projection?.responseLedgerRevision ?? runtimeTracking.responseLedgerRevision) || 0),
+    responseLedgerRevision: Math.max(0, Number(projection?.responseLedgerRevision) || 0),
     recoveryCount: recoveryRows.length,
     historyCount: Array.isArray(runtimeTracking.history) ? runtimeTracking.history.length : 0,
     turnCount: turns.length,
@@ -803,12 +827,13 @@ function runtimeSummary(campaignState = {}) {
 
 function runtimeResumeCursor(campaignState = {}) {
   const runtimeTracking = campaignState.runtimeTracking || {};
+  const projection = coreRuntimeProjection(campaignState);
   const modelCalls = modelCallRows(campaignState);
   return compact({
     kind: 'directive.runtimeResumeCursor.v1',
     runtimeRevision: runtimeTracking.revision || 0,
     mechanicsRevision: runtimeTracking.mechanicsRevision || 0,
-    responseLedgerRevision: Math.max(0, Number(runtimeTracking.responseLedgerRevision) || 0),
+    responseLedgerRevision: Math.max(0, Number(projection?.responseLedgerRevision) || 0),
     promptContextRevision: campaignState.campaignChatBinding?.promptContextRevision || null,
     modelCallCount: modelCalls.length,
     modelCallEventSequence: maxModelCallEventSequence(campaignState),
@@ -997,7 +1022,7 @@ function coalesceRuntimeResponseLedger(rows = []) {
   return mergeResponseProjectionRows(rows);
 }
 
-function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
+function runtimeProjectionsFromEventSegments(eventSegments = []) {
   const entries = eventSegments.flatMap((segment) => (
     Array.isArray(segment?.entries) ? segment.entries : []
   ));
@@ -1010,7 +1035,8 @@ function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
       outcomeId: entry.outcomeId || null,
       textHash: entry.textHash || null,
       status: entry.status || null,
-      ...transactionEvidence(entry)
+      ...transactionEvidence(entry),
+      ...runtimeBridgeAuthorityFields('ingress', entry)
     }));
   const responseLedger = coalesceRuntimeResponseLedger(entries
     .filter((entry) => entry?.type === 'runtimeResponseProjected')
@@ -1027,18 +1053,27 @@ function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
       replacementTextHash: entry.replacementTextHash,
       replacementTextLength: entry.replacementTextLength,
       ...transactionEvidence(entry),
+      ...runtimeBridgeAuthorityFields('response', entry),
       outcomeIntegrity: compactOutcomeIntegrityEvidence(entry.outcomeIntegrity)
     })));
   const recoveryJournal = runtimeRecoveryLedgerFromEvents(entries);
+  return {
+    ingressLedger,
+    responseLedger,
+    recoveryJournal
+  };
+}
+
+function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
   const resume = headState?.runtimeResume || {};
   return compact({
     schemaVersion: 2,
     revision: Math.max(0, Number(resume.runtimeRevision) || 0),
     mechanicsRevision: Math.max(0, Number(resume.mechanicsRevision) || 0),
     responseLedgerRevision: Math.max(0, Number(resume.responseLedgerRevision) || 0),
-    ingressLedger,
-    responseLedger,
-    recoveryJournal,
+    ingressLedger: [],
+    responseLedger: [],
+    recoveryJournal: [],
     sidecarJournal: [],
     modelCallJournal: [],
     pendingInteractions: []
@@ -1092,21 +1127,31 @@ function projectionArray(rows = []) {
   return Array.isArray(rows) && rows.length ? cloneJson(rows) : undefined;
 }
 
+function coreStoreProjectionRows(rows = []) {
+  return (Array.isArray(rows) ? rows : []).filter((entry) => (
+    compactString(entry?.projectionSource) === 'coreStoreV2'
+    && compactString(entry?.authority) !== 'compatibilityProjectionUnavailable'
+  ));
+}
+
 function coreStoreReadProjectionsFromLoadedArtifacts({
-  runtimeTracking = {},
+  runtimeProjections = {},
   turnLedger = null,
   diagnosticsSegments = []
 } = {}) {
+  const modelCallDiagnostics = modelCallJournalFromDiagnosticsSegments(diagnosticsSegments);
   const sidecarRows = sidecarJournalFromDiagnosticsSegments(diagnosticsSegments);
   const sidecarDiagnostics = sidecarRows.filter((entry) => !isBackgroundBatchProjection(entry));
   const backgroundBatches = sidecarRows.filter((entry) => isBackgroundBatchProjection(entry));
   const commandBearingEvidence = commandBearingEvidenceFromDiagnosticsSegments(diagnosticsSegments);
   return compact({
     kind: 'directive.coreStoreReadProjections.v1',
-    ingressLedger: projectionArray(runtimeTracking.ingressLedger),
-    responseLedger: projectionArray(runtimeTracking.responseLedger),
-    recoveryJournal: projectionArray(runtimeTracking.recoveryJournal),
+    runtimeAuthority: 'coreStoreV2',
+    ingressLedger: projectionArray(coreStoreProjectionRows(runtimeProjections.ingressLedger)),
+    responseLedger: projectionArray(coreStoreProjectionRows(runtimeProjections.responseLedger)),
+    recoveryJournal: projectionArray(coreStoreProjectionRows(runtimeProjections.recoveryJournal)),
     turnLedger: turnLedger ? cloneJson(turnLedger) : undefined,
+    modelCallDiagnostics: projectionArray(modelCallDiagnostics),
     sidecarDiagnostics: projectionArray(sidecarDiagnostics),
     backgroundBatches: projectionArray(backgroundBatches),
     commandBearingEvidence: projectionArray(commandBearingEvidence)
@@ -1338,12 +1383,13 @@ export async function loadActiveCampaignStateV2(adapter, {
       : null;
     const campaignState = applyPromptCacheResumeEvidence(cloneJson(head.state || null), promptCache);
     if (campaignState) {
+      const runtimeProjections = runtimeProjectionsFromEventSegments(eventSegments);
       campaignState.runtimeTracking = runtimeTrackingFromEventSegments(eventSegments, campaignState);
       campaignState.runtimeTracking.modelCallJournal = modelCallJournalFromDiagnosticsSegments(diagnosticsSegments);
       const turnLedger = turnLedgerFromTurnSegments(turnSegments, eventSegments);
       if (turnLedger) campaignState.turnLedger = turnLedger;
       const coreStoreReadProjections = coreStoreReadProjectionsFromLoadedArtifacts({
-        runtimeTracking: campaignState.runtimeTracking,
+        runtimeProjections,
         turnLedger,
         diagnosticsSegments
       });

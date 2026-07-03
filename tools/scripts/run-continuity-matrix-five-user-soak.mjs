@@ -67,6 +67,7 @@ function isExternalContextRedactionMetadataPath(pathKey = '') {
 
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 const DEFAULT_TURN_LIMIT = '';
+const DEFAULT_LIVE_LANE_CONCURRENCY = 1;
 let signalHandlersInstalled = false;
 let signalLogPath = null;
 const activeChildProcesses = new Set();
@@ -86,7 +87,9 @@ Bounded live proof:
 
 Full certification:
   Omit --turn-limit and DIRECTIVE_SOAK_TURN_LIMIT. The coordinator then runs the
-  full 52-turn live campaign soak concurrently once per lane/user.
+  full 52-turn live campaign soak once per lane/user. Live lanes run one at a
+  time by default so SillyTavern and shared providers do not starve host-native
+  continuations; raise --lane-concurrency only for stress testing.
 
 Options:
   --live              Run live SillyTavern readiness and lane soaks.
@@ -99,6 +102,8 @@ Options:
   --resume            Reuse matching completed lane artifacts for this run id.
   --turn-limit N      Bound each lane to N turns; produces a warning.
   --lanes a,b         Run lane ids or user handles matching the policy.
+  --lane-concurrency N
+                      Number of live lane processes to run at once; default 1.
 `;
 }
 
@@ -112,6 +117,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     prepareExternalContextFixtures: false,
     resume: false,
     turnLimit: DEFAULT_TURN_LIMIT,
+    laneConcurrency: DEFAULT_LIVE_LANE_CONCURRENCY,
     laneFilter: []
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -135,6 +141,11 @@ function parseArgs(argv = process.argv.slice(2)) {
       index += 1;
     } else if (arg.startsWith('--lanes=')) {
       options.laneFilter = parseList(arg.slice('--lanes='.length));
+    } else if (arg === '--lane-concurrency') {
+      options.laneConcurrency = positiveInteger(argv[index + 1], DEFAULT_LIVE_LANE_CONCURRENCY);
+      index += 1;
+    } else if (arg.startsWith('--lane-concurrency=')) {
+      options.laneConcurrency = positiveInteger(arg.slice('--lane-concurrency='.length), DEFAULT_LIVE_LANE_CONCURRENCY);
     }
   }
   if (process.env.DIRECTIVE_CPM_FIVE_USER_SOAK_LIVE === '1') options.live = true;
@@ -148,7 +159,39 @@ function parseArgs(argv = process.argv.slice(2)) {
   if (!options.turnLimit && process.env.DIRECTIVE_SOAK_TURN_LIMIT) {
     options.turnLimit = String(process.env.DIRECTIVE_SOAK_TURN_LIMIT || '').trim();
   }
+  if (process.env.DIRECTIVE_CPM_FIVE_USER_LANE_CONCURRENCY) {
+    options.laneConcurrency = positiveInteger(process.env.DIRECTIVE_CPM_FIVE_USER_LANE_CONCURRENCY, options.laneConcurrency);
+  }
   return options;
+}
+
+function positiveInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function liveLaneConcurrency(options = {}, laneCount = 0) {
+  const count = positiveInteger(laneCount, 0);
+  const configured = positiveInteger(options.laneConcurrency, DEFAULT_LIVE_LANE_CONCURRENCY);
+  if (count <= 0) return configured;
+  return Math.max(1, Math.min(count, configured));
+}
+
+export async function mapWithConcurrency(items = [], concurrency = 1, mapper = async (item) => item) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length === 0) return [];
+  const workerCount = Math.max(1, Math.min(list.length, positiveInteger(concurrency, 1)));
+  const results = new Array(list.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < list.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(list[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }
 
 function parseList(value = '') {
@@ -982,6 +1025,7 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
       targetSummaryCount: 0,
       redactionReasons: [],
       finalHostPromptMayIncludeExternal: null,
+      timingCoverage: null,
       missingFields: ['file'],
       summary: 'External context summary artifact is missing.'
     };
@@ -1001,6 +1045,7 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
       targetSummaryCount: 0,
       redactionReasons: [],
       finalHostPromptMayIncludeExternal: null,
+      timingCoverage: null,
       missingFields: ['parseable-json'],
       summary: `External context summary artifact could not be parsed: ${compact(error.message || error, 160)}`
     };
@@ -1019,6 +1064,7 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
   const targetSummaryCount = Number(aggregate.targetSummaryCount || 0);
   const targetSummaries = Array.isArray(artifact.targetSummaries) ? artifact.targetSummaries : [];
   const forbiddenFields = forbiddenExternalContextSummaryFields(artifact);
+  const timingCoverage = externalContextSummaryTimingCoverage(targetSummaries, aggregate.timingCoverage);
   const presentTargetSummaries = new Set();
   const usefulTargetSummaries = new Set();
   for (const entry of targetSummaries) {
@@ -1047,6 +1093,8 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
   if (!knownExternalPromptKeys.length) missingFields.push('aggregate.knownExternalPromptKeys');
   if (!refHashes.length) missingFields.push('aggregate.refHashes');
   if (targetSummaryCount <= 0) missingFields.push('aggregate.targetSummaryCount');
+  if (!aggregate.timingCoverage || typeof aggregate.timingCoverage !== 'object') missingFields.push('aggregate.timingCoverage');
+  if (timingCoverage.timedTargetCount <= 0) missingFields.push('aggregate.timingCoverage.targetsWithTiming');
   if (aggregate.finalHostPromptMayIncludeExternal !== true) missingFields.push('aggregate.finalHostPromptMayIncludeExternal');
   if (missingTargetSummaries.length) missingFields.push('targetSummaries.requiredTargets');
   if (placeholderTargetSummaries.length) missingFields.push('targetSummaries.usefulTargets');
@@ -1068,6 +1116,7 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
     placeholderTargetSummaries,
     redactionReasons,
     finalHostPromptMayIncludeExternal: aggregate.finalHostPromptMayIncludeExternal ?? null,
+    timingCoverage,
     authority: {
       directiveAuthority: artifact.authority?.directiveAuthority ?? null,
       role: artifact.authority?.role || null
@@ -1077,6 +1126,36 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
     summary: status === 'pass'
       ? `External context summary recorded ${captureCount} prompt-inspection capture(s) with ${targetSummaryCount} target summary record(s).`
       : `External context summary artifact is invalid; missing, invalid, or unsafe fields: ${missingFields.join(', ')}.`
+  };
+}
+
+function externalContextSummaryTargetHasTiming(target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  return Boolean(
+    target.timingDiagnostics?.observed === true
+    || target.timingDiagnostics?.timingHash
+    || target.backendDiagnostics?.externalTimingObserved === true
+    || target.backendDiagnostics?.timingHash
+  );
+}
+
+function externalContextSummaryTimingCoverage(targetSummaries = [], supplied = {}) {
+  const targetsWithTiming = new Set();
+  for (const entry of Array.isArray(targetSummaries) ? targetSummaries : []) {
+    const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
+    for (const targetId of EXTERNAL_CONTEXT_TARGET_IDS) {
+      if (externalContextSummaryTargetHasTiming(targets[targetId])) targetsWithTiming.add(targetId);
+    }
+  }
+  const requiredTargets = Array.isArray(supplied?.requiredTargets) && supplied.requiredTargets.length
+    ? supplied.requiredTargets.filter(Boolean).map(String)
+    : [...EXTERNAL_CONTEXT_TARGET_IDS];
+  return {
+    requiredTargets,
+    targetsWithTiming: [...targetsWithTiming].sort(),
+    targetsMissingTiming: requiredTargets.filter((targetId) => !targetsWithTiming.has(targetId)),
+    timedTargetCount: targetsWithTiming.size,
+    status: targetsWithTiming.size > 0 ? (targetsWithTiming.size >= requiredTargets.length ? 'pass' : 'partial') : 'missing'
   };
 }
 
@@ -2333,11 +2412,13 @@ export function readinessCommandArgs(options = {}) {
 async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers = [] }) {
   const laneSummaries = [];
   let readiness = null;
+  const laneConcurrency = liveLaneConcurrency(options, lanes.length);
   coordinatorLog(paths, options, {
     kind: 'run-start',
     status: 'started',
     runId,
     laneCount: lanes.length,
+    laneConcurrency,
     turnLimit: options.turnLimit || null,
     resume: options.resume === true
   });
@@ -2430,7 +2511,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
     });
     return laneSummary;
   }
-  laneSummaries.push(...await Promise.all(lanes.map((lane) => runLane(lane))));
+  laneSummaries.push(...await mapWithConcurrency(lanes, laneConcurrency, (lane) => runLane(lane)));
   return { readiness, laneSummaries };
 }
 
@@ -2466,6 +2547,7 @@ export function buildReport({
       turnLimit: options.turnLimit || null,
       skipReadiness: options.skipReadiness,
       resume: options.resume,
+      laneConcurrency: options.live ? liveLaneConcurrency(options, lanes.length) : null,
       laneFilter: options.laneFilter
     },
     policy: {

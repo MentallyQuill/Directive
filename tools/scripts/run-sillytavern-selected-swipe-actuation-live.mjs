@@ -270,6 +270,7 @@ async function createLatestDirectiveOwnedTarget(page) {
     const messageText = String(text || '').trim();
     if (!messageText) return { ok: false, reason: 'setup-target-text-missing' };
     const bridgeMod = await import(`${extensionPath}/src/hosts/sillytavern/runtime-bridge.mjs`);
+    const ledgerMod = await import(`${extensionPath}/src/runtime/runtime-ledger-view.mjs`);
     const stateMod = await import(`${extensionPath}/src/runtime/state-delta-gateway.mjs`);
     const bridge = bridgeMod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -282,6 +283,7 @@ async function createLatestDirectiveOwnedTarget(page) {
     const campaignId = view?.campaignState?.campaign?.id || null;
     const saveId = view?.campaignState?.campaignChatBinding?.saveId || null;
     const now = new Date().toISOString();
+    const textHash = compact(messageText ? await crypto.subtle.digest('SHA-256', new TextEncoder().encode(messageText)).then((buffer) => Array.from(new Uint8Array(buffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('')) : '');
     const idempotencyKey = `selected-swipe-actuation-target:${campaignId || 'campaign'}:${Date.now()}`;
     const posted = await host.chat.postAssistantMessage({
       text: messageText,
@@ -304,10 +306,23 @@ async function createLatestDirectiveOwnedTarget(page) {
       responseKind: 'narration',
       strategy: 'directivePosted',
       status: 'posted',
-      postedAt: now
+      postedAt: now,
+      authority: 'compatibilityProjection',
+      projectionSource: 'coreStoreV2',
+      coreProjection: {
+        kind: 'directive.coreResponseSelectedSwipeSetupProjectionRef.v1',
+        responseId,
+        hostMessageId: posted.hostMessageId || null,
+        setupOnly: true,
+        textHash,
+        recordedAt: now
+      }
     }));
     const refreshed = app?.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
-    const responses = refreshed?.campaignState?.runtimeTracking?.responseLedger || [];
+    const ledgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
+      ? ledgerMod.createRuntimeLedgerView(refreshed?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const responses = Array.isArray(ledgerView?.responseLedger) ? ledgerView.responseLedger : [];
     const response = responses.find((entry) => String(entry?.hostMessageId || '') === String(posted.hostMessageId)) || null;
     return {
       ok: true,
@@ -318,8 +333,9 @@ async function createLatestDirectiveOwnedTarget(page) {
       hostMessageId: posted.hostMessageId || null,
       responseId,
       responseRecorded: Boolean(response),
+      responseEvidenceSource: response ? 'runtimeLedgerView' : null,
       duplicate: posted.duplicate === true,
-      textHash: compact(messageText ? await crypto.subtle.digest('SHA-256', new TextEncoder().encode(messageText)).then((buffer) => Array.from(new Uint8Array(buffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('')) : ''),
+      textHash,
       textLength: messageText.length,
       textPreview: compact(messageText, 180)
     };
@@ -359,13 +375,12 @@ async function prepareCandidateSwipe(page, targetSetup = null) {
     }
     const view = await app.getCurrentView({ tabId: 'mission' });
     const ledgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
-      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {})
+      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
       : null;
-    const responses = Array.isArray(ledgerView?.responseLedger) && ledgerView.responseLedger.length > 0
-      ? ledgerView.responseLedger
-      : (Array.isArray(view?.campaignState?.runtimeTracking?.responseLedger)
-          ? view.campaignState.runtimeTracking.responseLedger
-          : []);
+    if (!Array.isArray(ledgerView?.responseLedger)) {
+      return { ok: false, reason: 'runtime-ledger-view-response-ledger-unavailable' };
+    }
+    const responses = ledgerView.responseLedger;
     const responseHostId = (response) => response?.hostMessageId
       ?? response?.responseRef?.hostMessageId
       ?? response?.payload?.responseRef?.hostMessageId
@@ -486,7 +501,10 @@ async function prepareCandidateSwipe(page, targetSetup = null) {
     });
     if (result?.ok === false) return { ok: false, reason: result.reason || 'candidate-append-failed', result: clone(result) };
     const latestView = await app.getCurrentView({ tabId: 'mission' });
-    const latestResponses = latestView?.campaignState?.runtimeTracking?.responseLedger || [];
+    const latestLedgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
+      ? ledgerMod.createRuntimeLedgerView(latestView?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const latestResponses = Array.isArray(latestLedgerView?.responseLedger) ? latestLedgerView.responseLedger : [];
     const latestResponse = targetSetup?.responseId
       ? latestResponses.find((entry) => String(entry?.id || '') === String(targetSetup.responseId))
       : latestResponses.find((entry) => String(entry?.id || '') === String(responseId(response) || ''))
@@ -748,13 +766,17 @@ async function inspectSelectedSwipeState(page, target) {
   return page.evaluate(async ({ extensionPath, hostMessageId, selectedTextHash }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const mod = await import(`${extensionPath}/src/hosts/sillytavern/runtime-bridge.mjs`);
+    const ledgerMod = await import(`${extensionPath}/src/runtime/runtime-ledger-view.mjs`);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const view = app?.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
     const context = globalThis.SillyTavern?.getContext?.() || {};
     const chat = Array.isArray(context.chat) ? context.chat : [];
     const message = chat[Number(hostMessageId)] || chat.find((entry, index) => String(entry?.extra?.message_id ?? entry?.id ?? index) === String(hostMessageId)) || null;
-    const responses = view?.campaignState?.runtimeTracking?.responseLedger || [];
+    const ledgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
+      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const responses = Array.isArray(ledgerView?.responseLedger) ? ledgerView.responseLedger : [];
     const response = responses.find((entry) => String(entry?.hostMessageId || '') === String(hostMessageId));
     const cases = Array.isArray(response?.correctAsSwipe?.cases) ? response.correctAsSwipe.cases : [];
     const acceptedCase = cases.find((entry) => (
@@ -768,6 +790,7 @@ async function inspectSelectedSwipeState(page, target) {
       swipeCount: swipes.length,
       selectedText: selectedSwipeIndex !== null ? swipes[selectedSwipeIndex] || '' : '',
       responseFound: Boolean(response),
+      responseEvidenceSource: response ? 'runtimeLedgerView' : null,
       acceptedCase: clone(acceptedCase),
       action: acceptedCase?.status === 'accepted' ? 'correctAsSwipeCandidateAccepted' : 'nativeSelectedSwipeObserved'
     };

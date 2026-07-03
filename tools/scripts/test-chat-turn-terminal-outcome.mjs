@@ -49,6 +49,7 @@ const postCommitScheduleCalls = [];
 let pendingTurn = null;
 let classifyMode = 'consequential';
 let previewRequiresWarning = false;
+let dropResolvedIngressOnce = false;
 
 const getCampaignState = () => campaignState;
 const setCampaignState = (next) => { campaignState = cloneJson(next); };
@@ -63,8 +64,61 @@ const stateDeltaGateway = createStateDeltaGateway({
   persist: persistCampaignState,
   now
 });
+const coreTransactions = new Map();
+const coreTurnStore = {
+  async beginTurn(sourceFrame, options = {}) {
+    const transaction = {
+      id: options.transactionId || `txn:${sourceFrame.id}`,
+      phase: 'observed',
+      sourceFrameId: sourceFrame.id
+    };
+    coreTransactions.set(transaction.id, transaction);
+    return transaction;
+  },
+  async advanceTurn(transactionId, patch = {}) {
+    const previous = coreTransactions.get(transactionId) || { id: transactionId };
+    const next = {
+      ...previous,
+      ...cloneJson(patch),
+      id: transactionId,
+      phase: patch.phase || previous.phase || 'observed'
+    };
+    coreTransactions.set(transactionId, next);
+    return next;
+  },
+  async recordVisibleResponse(transactionId, responseRef = {}) {
+    const previous = coreTransactions.get(transactionId) || { id: transactionId };
+    const next = {
+      ...previous,
+      id: transactionId,
+      phase: 'visibleResponsePosted',
+      visibleResponseRef: cloneJson(responseRef)
+    };
+    coreTransactions.set(transactionId, next);
+    return next;
+  },
+  async readProjections() {
+    return {
+      responseLedger: [...coreTransactions.values()]
+        .filter((transaction) => transaction.visibleResponseRef || transaction.responseId || ['hostContinueReleased', 'visibleResponsePosted'].includes(transaction.phase))
+        .map((transaction) => ({
+          id: transaction.visibleResponseRef?.responseId || transaction.responseId || null,
+          responseId: transaction.visibleResponseRef?.responseId || transaction.responseId || null,
+          transactionId: transaction.id,
+          hostMessageId: transaction.visibleResponseRef?.hostMessageId || null,
+          outcomeId: transaction.visibleResponseRef?.outcomeId || transaction.outcomeId || null,
+          responseKind: transaction.visibleResponseRef?.responseKind || transaction.responseKind || null,
+          status: transaction.phase,
+          generationStartedAt: transaction.visibleResponseRef?.visibleResponsePostedAt || null
+        }))
+        .filter((entry) => entry.responseId || entry.transactionId),
+      recoveryJournal: []
+    };
+  }
+};
 const responseDispatcher = createResponseDispatcher({
   host: { chat },
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persist: persistCampaignState,
@@ -111,6 +165,7 @@ const orchestrator = createChatTurnOrchestrator({
   },
   responseDispatcher,
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -213,7 +268,7 @@ const orchestrator = createChatTurnOrchestrator({
     await persistCampaignState(next, 'Fixture terminal checkpoint posted.');
     return { ok: true, posted, campaignState: cloneJson(next) };
   },
-  resolveTerminalOutcomeDecision: async ({ interactionId, action, playerArgument }) => {
+  resolveTerminalOutcomeDecision: async ({ interactionId, action, playerArgument, resolutionIngressId }) => {
     terminalResolutionCalls.push({ interactionId, action, playerArgument });
     let next = resolvePendingInteraction(initializeCampaignRuntimeTracking(campaignState), interactionId, {
       status: 'resolved',
@@ -224,6 +279,10 @@ const orchestrator = createChatTurnOrchestrator({
     next.runtimeTracking.endConditionLedger.decisions = next.runtimeTracking.endConditionLedger.decisions.map((entry) => entry.id === interactionId
       ? { ...entry, status: 'pushedOn', resolvedAt: now(), resolution: { action, playerArgument } }
       : entry);
+    if (dropResolvedIngressOnce) {
+      dropResolvedIngressOnce = false;
+      next.runtimeTracking.ingressLedger = (next.runtimeTracking.ingressLedger || []).filter((entry) => entry.id !== resolutionIngressId);
+    }
     setCampaignState(next);
     await persistCampaignState(next, 'Fixture terminal decision resolved.');
     return { ok: true, action, campaignState: cloneJson(next) };
@@ -335,6 +394,51 @@ assert.equal(commandLogScheduleCalls.length, 1, 'Terminal checkpoint replies mus
 assert.equal(postCommitScheduleCalls.length, 1, 'Terminal checkpoint replies must not schedule Narrative Thread extraction.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === 'terminal-decision-orchestrator').status, 'resolved');
 assert.equal(campaignState.runtimeTracking.endConditionLedger.decisions[0].status, 'pushedOn');
+
+const missingIngressTerminal = {
+  id: 'terminal-decision-missing-ingress',
+  kind: 'terminalOutcomeDecision',
+  status: 'pending',
+  ingressId: 'ingress-terminal-missing-ingress-source',
+  turnId: 'turn-terminal-missing-ingress',
+  outcomeId: 'outcome-terminal-missing-ingress',
+  prompt: 'Directive Checkpoint',
+  options: [
+    { id: 'pushOn', action: 'pushOn', label: 'Push On' }
+  ],
+  metadata: {
+    terminalOutcomeId: 'terminal-missing-ingress'
+  }
+};
+campaignState = recordPendingInteraction(initializeCampaignRuntimeTracking(campaignState), missingIngressTerminal);
+campaignState.runtimeTracking.endConditionLedger = {
+  ...(campaignState.runtimeTracking.endConditionLedger || {}),
+  activeDecisionId: missingIngressTerminal.id,
+  decisions: [{
+    id: missingIngressTerminal.id,
+    status: 'pending',
+    conditionId: 'terminal-missing-ingress'
+  }]
+};
+setCampaignState(campaignState);
+const terminalMissingIngressCountBefore = campaignState.runtimeTracking.ingressLedger.length;
+dropResolvedIngressOnce = true;
+const missingIngressReply = chat.pushPlayerMessage({
+  text: 'Push on. Keep the evidence moving.',
+  hostMessageId: 'player-terminal-missing-ingress-resolution'
+});
+const missingIngressResolution = await orchestrator.observePlayerMessage({
+  chatId: 'terminal-chat',
+  message: missingIngressReply
+});
+assert.equal(missingIngressResolution.resolvedPendingInteraction, false);
+assert.equal(missingIngressResolution.reason, 'terminal-resolution-ingress-core-projection-required');
+assert.equal(
+  campaignState.runtimeTracking.ingressLedger.some((entry) => entry.hostMessageId === 'player-terminal-missing-ingress-resolution'),
+  false,
+  'Terminal resolution must not synthesize a missing no-CORE ingress row after resolver state drops it.'
+);
+assert.equal(campaignState.runtimeTracking.ingressLedger.length, terminalMissingIngressCountBefore);
 
 campaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
 campaignState.campaign = {

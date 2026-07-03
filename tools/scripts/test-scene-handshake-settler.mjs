@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  buildSceneHandshakeSnapshot,
   sceneHandshakeHash,
   runSceneHandshakeSettlement,
   __sceneHandshakeSettlerTestHooks
@@ -199,6 +200,17 @@ const settlement = {
 };
 
 const acceptedHarness = createHarness('accepted');
+acceptedHarness.state = {
+  ...acceptedHarness.state,
+  runtimeTracking: {
+    ...acceptedHarness.state.runtimeTracking,
+    recoveryJournal: [{
+      id: 'legacy-scene-handshake-recovery',
+      status: 'reviewRequired',
+      type: 'legacyOldRecoveryRow'
+    }]
+  }
+};
 const generationCalls = [];
 const acceptedRouter = {
   async generate(roleId, request) {
@@ -238,6 +250,7 @@ assert.equal(generationCalls[0].roleId, 'sceneHandshakeSettler');
 assert.equal(generationCalls[0].request.prompt.includes('timeAndLocation'), true);
 assert.equal(generationCalls[0].request.prompt.includes('currentStardate'), true);
 assert.equal(generationCalls[0].request.prompt.includes('knownFactSignals'), false);
+assert.equal(generationCalls[0].request.prompt.includes('"pendingRecoveryCount": 0'), true);
 assert.equal(generationCalls[0].request.metadata.promptBudget.maxPreviousAssistantChars > 0, true);
 assert.equal(Array.isArray(generationCalls[0].request.metadata.optionalSlicesIncluded), true);
 assert.match(generationCalls[0].request.metadata.sourceTextHashes.previousAssistant, /^[0-9a-f]{8}$/);
@@ -277,6 +290,44 @@ assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.dis
 assert.ok(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount >= 8);
 assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
 assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sceneHandshake'));
+
+const coreRecoverySnapshotHarness = createHarness('core-recovery-snapshot');
+coreRecoverySnapshotHarness.state = {
+  ...coreRecoverySnapshotHarness.state,
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      recoveryJournal: [{
+        id: 'core-scene-handshake-recovery',
+        status: 'reviewRequired',
+        projectionSource: 'coreStoreV2',
+        authority: 'compatibilityProjection',
+        compatibilityMirror: {
+          kind: 'directive.coreRecoveryCompatibilityMirror.v1'
+        }
+      }]
+    }
+  },
+  runtimeTracking: {
+    ...coreRecoverySnapshotHarness.state.runtimeTracking,
+    recoveryJournal: [{
+      id: 'legacy-scene-handshake-recovery',
+      status: 'reviewRequired'
+    }]
+  }
+};
+const coreRecoverySnapshot = buildSceneHandshakeSnapshot({
+  campaignState: coreRecoverySnapshotHarness.state,
+  previousAssistantMessage: assistantMessage,
+  currentPlayerMessage: playerMessage,
+  chatId: coreRecoverySnapshotHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-core-recovery-snapshot',
+  recentMessages: [assistantMessage, playerMessage]
+});
+assert.equal(
+  coreRecoverySnapshot.safety.pendingRecoveryCount,
+  1,
+  'Scene Handshake pending recovery count must come from CORE projection rows, not raw legacy rows.'
+);
 
 const terminalHarness = createHarness('terminal-sre-latest-pair');
 const terminalProviderCalls = [];

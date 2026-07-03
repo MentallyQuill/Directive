@@ -48,6 +48,7 @@ import {
   SOAK_PLAYER_INPUT_POLICY,
   SOAK_PHASES,
   SOAK_READABLE_TRANSCRIPT_POLICY,
+  SOAK_ROUTINE_SINGLE_USER_POLICY,
   SOAK_SCENE_HANDSHAKE_POLICY,
   SOAK_SERVED_EXTENSION_PROOF_FILES,
   SOAK_STORY_QUALITY_POLICY,
@@ -82,11 +83,15 @@ import {
   statusFromChecks,
   strictModePolicy,
   writeSoakCheckpoint,
-  promoteDelegatedSmokeEvidence
+  promoteDelegatedSmokeEvidence,
+  selectRoutineSoakUser
 } from './soak-sillytavern-campaign-live.mjs';
 import {
   playerInputPerspectiveEvidence
 } from './lib/player-input-perspective.mjs';
+import {
+  hostNativeCompletionTargetOutcome
+} from './lib/sillytavern-core-proof-policy.mjs';
 
 assert.equal(normalizeBaseUrl('http://127.0.0.1:8000///'), 'http://127.0.0.1:8000');
 assert.equal(normalizeExtensionPath('scripts/extensions/third-party/Directive/'), '/scripts/extensions/third-party/Directive');
@@ -668,7 +673,11 @@ assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS/);
 assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_UI_BOOT_TIMEOUT_MS/);
 assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY/);
 assert.match(soakRunnerSource, /invokeModelAssistedFactualReview/);
+assert.match(soakRunnerSource, /function liveExecutionUserSelection/);
+assert.match(soakRunnerSource, /ignoredConfiguredHandles/);
+assert.match(soakRunnerSource, /reservedRejectedHandles/);
 const liveSmokeSource = fs.readFileSync(path.resolve('tools/scripts/smoke-sillytavern-live.mjs'), 'utf8');
+const liveHarnessSource = fs.readFileSync(path.resolve('tools/scripts/lib/sillytavern-live-harness.mjs'), 'utf8');
 const generationTimingPolicySource = fs.readFileSync(path.resolve('tools/scripts/lib/generation-timing-proof-policy.mjs'), 'utf8');
 assert.match(liveSmokeSource, /UI_BOOT_TIMEOUT_MS/);
 assert.match(liveSmokeSource, /directiveExtensionControlSnapshot/);
@@ -691,6 +700,9 @@ assert.match(liveSmokeSource, /runFactualGroundingReviewOnly/);
 assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH/);
 assert.match(liveSmokeSource, /runStoryQualityReviewOnly/);
 assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_REQUEST_PATH/);
+assert.match(liveSmokeSource, /STORY_QUALITY_REVIEW_RETRY_COUNT/);
+assert.match(liveSmokeSource, /reviewAttempt/);
+assert.match(liveSmokeSource, /status: 'retry'/);
 assert.match(liveSmokeSource, /capturePersistedGenerationTimingProof/);
 assert.match(liveSmokeSource, /capturePersistedHostNativeCompletionProof/);
 assert.match(liveSmokeSource, /HOST_NATIVE_COMPLETION_PROOF_TIMEOUT_MS/);
@@ -705,6 +717,7 @@ assert.match(liveSmokeSource, /hostNativeCompletionProof/);
 assert.match(liveSmokeSource, /readCoreStoreProjectionsV2/);
 assert.match(liveSmokeSource, /generationTimingProofFromCoreProjections/);
 assert.match(liveSmokeSource, /hostNativeCompletionProofFromCoreProjections/);
+assert.match(liveSmokeSource, /hostNativeCompletionTargetOutcome/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequirementProof/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequired/);
 assert.match(liveSmokeSource, /turn: Number\.isFinite\(turn\) && turn > 0 \? turn : null/);
@@ -734,6 +747,28 @@ assert.match(generationTimingPolicySource, /DIRECTIVE_NON_GENERATED_TIMING_RESPO
 assert.match(generationTimingPolicySource, /committedOutcome/);
 assert.match(generationTimingPolicySource, /clarificationNeeded/);
 assert.match(generationTimingPolicySource, /generationTimingProofStatus/);
+assert.match(liveSmokeSource, /targetOutcome\.status === 'pass'/);
+assert.match(liveSmokeSource, /targetOutcome\.hasExplicitTargets !== true/);
+assert.match(liveSmokeSource, /noExplicitTargetReady/);
+assert.match(liveSmokeSource, /function\s+runtimeLedgerViewModulePath\(\)/);
+assert.match(liveSmokeSource, /createRuntimeLedgerView\(campaignState,\s*\{\s*runtimeOverlay:\s*true\s*\}\)/);
+assert.match(liveSmokeSource, /runtimeLedgerView\.ingressLedger/);
+assert.match(liveSmokeSource, /runtimeLedgerView\.responseLedger/);
+assert.match(liveSmokeSource, /runtimeLedgerView\.recoveryJournal/);
+assert.match(liveSmokeSource, /readRuntimeCoreProjections\(campaignState\)/);
+assert.match(liveSmokeSource, /runtimeCoreProjections\?\.sidecarDiagnostics/);
+assert.match(liveSmokeSource, /runtimeCoreProjections\?\.backgroundBatches/);
+assert.match(liveSmokeSource, /certificationEvidence:\s*false/);
+assert.match(liveSmokeSource, /raw-runtime-ledger-snapshot-not-certification-evidence/);
+assert.match(liveSmokeSource, /source:\s*'runtimeLedgerDiagnostic'/);
+assert.match(liveHarnessSource, /runtime-ledger-view\.mjs/);
+assert.match(liveHarnessSource, /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/);
+assert.match(liveHarnessSource, /readRuntimeCoreProjections\(view\?\.campaignState \|\| \{\}\)/);
+assert.match(liveHarnessSource, /runtimeLedgerView\.recoveryJournal/);
+assert.match(liveHarnessSource, /coreSidecars\.length \|\| legacySidecarCount/);
+assert.match(soakRunnerSource, /function proofSourceIssue/);
+assert.match(soakRunnerSource, /invalidProofCount/);
+assert.match(soakRunnerSource, /mixed-or-non-core/);
 assert.doesNotMatch(liveSmokeSource, /Directive save payload for generation timing proof/);
 assert.doesNotMatch(liveSmokeSource, /runtimeTracking\.responseLedger\s*\|\|\s*\[\]/);
 assert.doesNotMatch(liveSmokeSource, /runtimeTracking\.ingressLedger\s*\|\|\s*\[\]/);
@@ -1079,6 +1114,8 @@ const transitCanary = ashesCanaryPack.canaries.find((entry) => entry.id.endsWith
 assert(transitCanary);
 assert(transitCanary.positiveTerms.some((entry) => /final ten days before the Asterion Reach/i.test(entry)));
 assert(transitCanary.contradictionWatchlist.some((entry) => /out of spacedock three days ago/i.test(entry)));
+assert(transitCanary.contradictionWatchlist.some((entry) => /holding course at warp/i.test(entry)));
+assert(transitCanary.contradictionWatchlist.some((entry) => /streaking stars at warp/i.test(entry)));
 const badFactCheck = buildFactualGroundingCheck({
   pack: ashesCanaryPack,
   generatedMessageId: 'mes-001',
@@ -1415,6 +1452,37 @@ assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.certificationGates.includes('fiv
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.minimumEvidence.includes('director-packet-digest-hash-sourceHash-selectedFactCount-and-audience'));
 assert(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.stateInspection.includes('Mission drawer sanitized continuity diagnostics card'));
 assert.match(SOAK_CONTINUITY_PROJECTION_MATRIX_POLICY.failureSeverityPolicy, /required static prompt keys/);
+assert.equal(SOAK_ROUTINE_SINGLE_USER_POLICY.strategy, 'single-non-human-lane-routine-validation');
+assert.equal(SOAK_ROUTINE_SINGLE_USER_POLICY.defaultWorkerLimit, 1);
+assert.equal(SOAK_ROUTINE_SINGLE_USER_POLICY.fiveLaneUse, 'final-certification-or-explicit-reenable-only');
+const routineSelection = selectRoutineSoakUser({
+  configuredUsers: [
+    { handle: 'directive-soak-a', password: 'a' },
+    { handle: 'directive-soak-b', password: 'b' },
+    { handle: 'directive-soak-c', password: 'c' }
+  ]
+});
+assert.equal(routineSelection.selectedHandle, 'directive-soak-a');
+assert.equal(routineSelection.configuredCount, 3);
+assert.deepEqual(routineSelection.ignoredConfiguredHandles, ['directive-soak-b', 'directive-soak-c']);
+assert.deepEqual(routineSelection.reservedRejectedHandles, []);
+const explicitRoutineSelection = selectRoutineSoakUser({
+  explicitUser: { handle: 'directive-soak-b', password: 'b', source: 'DIRECTIVE_SILLYTAVERN_USER' },
+  configuredUsers: [
+    { handle: 'directive-soak-a', password: 'a' },
+    { handle: 'directive-soak-c', password: 'c' }
+  ]
+});
+assert.equal(explicitRoutineSelection.selectedHandle, 'directive-soak-b');
+assert.deepEqual(explicitRoutineSelection.ignoredConfiguredHandles, ['directive-soak-a', 'directive-soak-c']);
+const reservedRoutineSelection = selectRoutineSoakUser({
+  explicitUser: { handle: 'default-user', password: 'human', source: 'DIRECTIVE_SILLYTAVERN_USER' },
+  configuredUsers: [
+    { handle: 'directive-soak-c', password: 'c' }
+  ]
+});
+assert.equal(reservedRoutineSelection.selectedHandle, 'directive-soak-c');
+assert.deepEqual(reservedRoutineSelection.reservedRejectedHandles, ['default-user']);
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.strategy, 'ashes-first-five-lane-coverage');
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.defaultWorkerHandles.length, 5);
 assert.deepEqual(
@@ -1875,14 +1943,20 @@ writeJsonFile(promptSnapshotPath, {
     directiveOwnedPromptKeys: ['directive.contract', 'directive.scene.active'],
     finalHostPromptMayIncludeExternal: true,
     externalPromptEnvironmentTargets: {
+      stLorebooks: {
+        active: true,
+        timingDiagnostics: { observed: true, composeLatencyMs: 12, timingHash: 'l'.repeat(64) }
+      },
       memoryBooks: {
-        rangeDiagnostics: { status: 'valid', validCount: 1, hash: 'm'.repeat(64) }
+        rangeDiagnostics: { status: 'valid', validCount: 1, hash: 'm'.repeat(64) },
+        timingDiagnostics: { observed: true, scanLatencyMs: 18, timingHash: 'm'.repeat(64) }
       },
       summaryception: {
-        staleness: { status: 'observed', summarizedOnlyCount: 1, hash: 's'.repeat(64) }
+        staleness: { status: 'observed', summarizedOnlyCount: 1, hash: 's'.repeat(64) },
+        timingDiagnostics: { observed: true, summaryLatencyMs: 44, timingHash: 's'.repeat(64) }
       },
       vectFox: {
-        backendDiagnostics: { status: 'local-backend-configured', backendType: 'redacted-local', hash: 'v'.repeat(64) }
+        backendDiagnostics: { status: 'local-backend-configured', backendType: 'redacted-local', externalTimingObserved: true, timingHash: 'v'.repeat(64), hash: 'v'.repeat(64) }
       }
     },
     unavailableSignals: [],
@@ -2146,6 +2220,8 @@ assert.equal(externalContextSummary.authority.role, 'diagnostics-provenance-only
 assert.equal(externalContextSummary.aggregate.captureCount, 1);
 assert.equal(externalContextSummary.aggregate.knownExternalPromptKeys.includes('summaryception'), true);
 assert.equal(externalContextSummary.aggregate.targetSummaryCount, 1);
+assert.equal(externalContextSummary.aggregate.timingCoverage.timedTargetCount, 4);
+assert.deepEqual(externalContextSummary.aggregate.timingCoverage.targetsMissingTiming, []);
 assert.equal(externalContextSummary.targetSummaries[0].targets.vectFox.backendDiagnostics.status, 'local-backend-configured');
 assert.equal(liveLogLines.some((entry) => entry.kind === 'artifact' && entry.artifact === 'external-context-summary'), true);
 assert.equal(transcriptCopyResult.status, 'pass');
@@ -2156,6 +2232,7 @@ assert.equal(promotionResult.turnEndRecords, 1);
 assert.equal(promotionResult.transcriptRecords, 1);
 assert.equal(promotionResult.promptInspectionRecords, 1);
 assert.equal(promotionResult.externalContextSummary.artifactPathRelative, 'host-extensions/external-context-summary.json');
+assert.equal(promotionResult.externalContextSummary.timingCoverage.timedTargetCount, 4);
 const timingAssessment = liveGenerationTimingAssessment({ smokeReport: smokeReportForPromotion });
 assert.equal(timingAssessment.status, 'pass');
 assert.match(timingAssessment.summary, /generation-start timing/);
@@ -2168,6 +2245,34 @@ assert.equal(timingAssessmentFromLiveLog.status, 'pass');
 assert.equal(timingAssessmentFromLiveLog.proof.evidenceSource, 'delegatedSmokeLiveLog');
 assert.equal(timingAssessmentFromLiveLog.proof.source, 'coreStoreTurnTiming');
 assert.equal(timingAssessmentFromLiveLog.proof.timingSource, 'coreProjection');
+const nonCoreTimingAssessmentFromLiveLog = liveGenerationTimingAssessment({
+  smokeReport: { browser: { chatCampaignFlow: {} } },
+  liveLogRecords: [{
+    kind: 'turn-end',
+    scriptMessageId: 'soak-turn-non-core',
+    generationTiming: {
+      persisted: {
+        status: 'pass',
+        source: 'runtimeSnapshot',
+        timingSource: 'runtimeSnapshot',
+        checkedTurnCount: 1,
+        checkedResponseCount: 1,
+        entries: [{
+          route: 'hostContinue',
+          responseKind: 'hostContinue',
+          timingStatus: 'pass',
+          turnLatency: {
+            generationStartLatencyMs: 4200,
+            architectureWithin60s: true
+          }
+        }]
+      }
+    }
+  }]
+});
+assert.equal(nonCoreTimingAssessmentFromLiveLog.status, 'fail');
+assert.equal(nonCoreTimingAssessmentFromLiveLog.proof.invalidProofCount, 1);
+assert.equal(nonCoreTimingAssessmentFromLiveLog.proof.source, 'mixed-or-non-core');
 const timingAssessmentFromRunEndLiveLog = liveGenerationTimingAssessment({
   smokeReport: { browser: { chatCampaignFlow: {} } },
   liveLogRecords: [
@@ -2216,6 +2321,37 @@ const hostNativeCompletionAssessment = liveHostNativeCompletionAssessment({ smok
 assert.equal(hostNativeCompletionAssessment.status, 'pass');
 assert.match(hostNativeCompletionAssessment.summary, /terminal host-native completion/);
 assert.equal(hostNativeCompletionAssessment.proof.completedHostContinueCount, 1);
+const unrelatedHostNativeOutcome = hostNativeCompletionTargetOutcome({
+  targetPlayerHostMessageIds: ['7'],
+  entries: [{
+    transactionId: 'txn-other',
+    playerHostMessageId: '6',
+    completionStatus: 'pass'
+  }]
+});
+assert.equal(unrelatedHostNativeOutcome.status, 'pending');
+assert.equal(unrelatedHostNativeOutcome.targetCompletedHostContinueCount, 0);
+const failedTargetHostNativeOutcome = hostNativeCompletionTargetOutcome({
+  targetPlayerHostMessageIds: ['7'],
+  entries: [{
+    transactionId: 'txn-target',
+    playerHostMessageId: '7',
+    completionStatus: 'missing-visible-response-posted'
+  }]
+});
+assert.equal(failedTargetHostNativeOutcome.status, 'fail');
+assert.equal(failedTargetHostNativeOutcome.targetFailedHostContinueCount, 1);
+const passedTargetHostNativeOutcome = hostNativeCompletionTargetOutcome({
+  targetTransactionIds: ['txn-target'],
+  targetPlayerHostMessageIds: ['7'],
+  entries: [{
+    transactionId: 'txn-target',
+    playerHostMessageId: '7',
+    completionStatus: 'pass'
+  }]
+});
+assert.equal(passedTargetHostNativeOutcome.status, 'pass');
+assert.equal(passedTargetHostNativeOutcome.targetCompletedHostContinueCount, 1);
 const requiredHostNativeCompletionSmokeReport = {
   browser: {
     chatCampaignFlow: {
@@ -2281,6 +2417,35 @@ assert.equal(hostNativeCompletionAssessmentFromLiveLog.status, 'pass');
 assert.equal(hostNativeCompletionAssessmentFromLiveLog.proof.evidenceSource, 'delegatedSmokeLiveLog');
 assert.equal(hostNativeCompletionAssessmentFromLiveLog.proof.source, 'coreStoreResponseLedger');
 assert.equal(hostNativeCompletionAssessmentFromLiveLog.proof.completionSource, 'coreProjection');
+const nonCoreHostNativeCompletionAssessmentFromLiveLog = liveHostNativeCompletionAssessment({
+  smokeReport: { browser: { chatCampaignFlow: {} } },
+  liveLogRecords: [{
+    kind: 'turn-end',
+    scriptMessageId: 'soak-turn-non-core-host',
+    hostNativeCompletion: {
+      persisted: {
+        status: 'pass',
+        source: 'runtimeSnapshot',
+        completionSource: 'runtimeSnapshot',
+        targetTransactionCount: 1,
+        candidateResponseCount: 1,
+        completedHostContinueCount: 1,
+        failedHostContinueCount: 0,
+        entries: [{
+          responseId: 'response-non-core-host',
+          transactionId: 'txn-non-core-host',
+          route: 'hostContinue',
+          responseKind: 'hostContinue',
+          completionLatencyMs: 9000,
+          completionStatus: 'pass'
+        }]
+      }
+    }
+  }]
+});
+assert.equal(nonCoreHostNativeCompletionAssessmentFromLiveLog.status, 'fail');
+assert.equal(nonCoreHostNativeCompletionAssessmentFromLiveLog.proof.invalidProofCount, 1);
+assert.equal(nonCoreHostNativeCompletionAssessmentFromLiveLog.proof.source, 'mixed-or-non-core');
 const hostNativeCompletionAssessmentFromRunEndLiveLog = liveHostNativeCompletionAssessment({
   smokeReport: { browser: { chatCampaignFlow: {} } },
   liveLogRecords: [

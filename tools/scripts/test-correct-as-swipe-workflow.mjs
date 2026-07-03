@@ -12,6 +12,7 @@ import {
 import { createSourceReviewWorker } from '../../src/runtime/source-review-worker.mjs';
 import {
   initializeCampaignRuntimeTracking,
+  recordDirectiveResponse,
   updateDirectiveResponse
 } from '../../src/runtime/state-delta-gateway.mjs';
 import { findOutcomeIntegrityResponse } from '../../src/runtime/outcome-integrity.mjs';
@@ -83,13 +84,45 @@ const coreOnlyHostGenerationResponse = findOutcomeIntegrityResponse({
 assert.equal(coreOnlyHostGenerationResponse?.id, 'directive-response:core-host-generation:host');
 assert.equal(coreOnlyHostGenerationResponse?.responseKind, 'hostContinue');
 
+const correctAsSwipeRecordState = recordDirectiveResponse(initializeCampaignRuntimeTracking({}), {
+  id: 'response-core-only-correct-as-swipe',
+  hostMessageId: 'core-only-correct-as-swipe',
+  responseKind: 'hostContinue',
+  status: 'posted',
+  authority: 'compatibilityProjection',
+  projectionSource: 'coreStoreV2',
+  coreProjection: {
+    kind: 'directive.coreResponseCorrectAsSwipeProjectionRef.v1',
+    responseId: 'response-core-only-correct-as-swipe',
+    hostMessageId: 'core-only-correct-as-swipe',
+    transactionId: 'txn-core-only-correct-as-swipe',
+    correctionCaseId: 'correct-as-swipe-case-fixture',
+    candidateTextHash: 'candidate-hash-only'
+  },
+  correctAsSwipe: {
+    lastCaseId: 'correct-as-swipe-case-fixture',
+    cases: [{
+      id: 'correct-as-swipe-case-fixture',
+      status: 'candidateAppended',
+      candidate: { textHash: 'candidate-hash-only' }
+    }]
+  }
+});
+const correctAsSwipeRecord = correctAsSwipeRecordState.runtimeTracking.responseLedger[0];
+assert.equal(correctAsSwipeRecord.authority, 'compatibilityProjection');
+assert.equal(correctAsSwipeRecord.projectionSource, 'coreStoreV2');
+assert.equal(correctAsSwipeRecord.coreProjection.kind, 'directive.coreResponseCorrectAsSwipeProjectionRef.v1');
+assert.equal(correctAsSwipeRecord.coreProjection.transactionId, 'txn-core-only-correct-as-swipe');
+assert.equal(correctAsSwipeRecord.correctAsSwipe.lastCaseId, 'correct-as-swipe-case-fixture');
+assert.equal(correctAsSwipeRecord.correctAsSwipe.cases[0].candidate.textHash, 'candidate-hash-only');
+
 const diagnostics = [];
 const persisted = [];
 const rawSelectedText = 'RAW_SELECTED_TEXT_SHOULD_NOT_PERSIST';
 const rawCandidateText = 'RAW_CANDIDATE_TEXT_SHOULD_NOT_PERSIST';
 const rawLifecycleReason = 'RAW_LIFECYCLE_REASON_SHOULD_NOT_PERSIST';
 function appendOrReplaceCorrectionCase(latest, responseUpdateId, correctionCase) {
-  const response = latest.runtimeTracking.responseLedger.find((entry) => entry.hostMessageId === responseUpdateId);
+  const response = latest.runtimeTracking.responseLedger.find((entry) => entry.id === responseUpdateId || entry.responseId === responseUpdateId);
   const currentCorrectAsSwipe = response?.correctAsSwipe || {};
   return updateDirectiveResponse(latest, responseUpdateId, {
     correctAsSwipe: {

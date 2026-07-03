@@ -70,6 +70,7 @@ Highest priority:
 - Message edits and deletes either restore a safe snapshot or enter review-required recovery when dependent turns exist.
 - Campaign completion posts one final response, marks the save complete, clears prompt injection, and permits explicit archive.
 - Utility and Reasoning provider settings remain independent; direct endpoint API keys are session-only.
+- Routine live validation during the redesign uses one explicit non-human SillyTavern test user. Five-user soak lanes are reserved for final certification or a deliberate re-enable decision, and `default-user` remains human/manual only.
 
 ## Visual Smoke Targets
 
@@ -160,6 +161,8 @@ Coverage groups:
 - `test-continuity-matrix-five-user-soak-coordinator.mjs`
 
 The live five-user CPM coordinator is certification evidence only when run against SillyTavern with non-human soak users. Bounded `--turn-limit` runs prove the coordinator and canaries, not the full 52-turn certification.
+
+During architecture redesign implementation, live validation defaults to exactly one explicit non-human `directive-soak-*` user. Treat one ST user as the normal implementation topology, reuse that lane for routine proof unless the test needs a fresh campaign/user, and do not run all five soak lanes for routine slices. Reserve five-lane proof for user-approved bounded artifact checks and final Wave 4 certification. `default-user` remains a human/manual lane and cannot satisfy soak proof.
 
 `test-open-world-thread-engine.mjs` covers schema-v2 thread lifecycle, evidence merging, promotion readiness, player-safe summaries, and hidden-state exclusion.
 

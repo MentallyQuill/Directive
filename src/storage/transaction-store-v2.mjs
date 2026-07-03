@@ -4,6 +4,10 @@ import {
   stableJsonByteLength
 } from '../runtime/architecture-redesign-contracts.mjs';
 import {
+  createRuntimeLedgerView,
+  readRuntimeCoreProjections
+} from '../runtime/runtime-ledger-view.mjs';
+import {
   campaignManifestV2LogicalKey,
   checkpointV2LogicalKey,
   coreCampaignManifestV2LogicalKey,
@@ -1405,23 +1409,36 @@ export async function loadV2MaterializedHead(adapter, {
 
 function summarizeLegacyRuntime(campaignState = {}) {
   const runtimeTracking = campaignState.runtimeTracking || {};
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState);
   const turnLedger = campaignState.turnLedger || {};
-  const modelCalls = Array.isArray(runtimeTracking.modelCallJournal)
-    ? runtimeTracking.modelCallJournal
-    : (Array.isArray(campaignState.modelCallJournal) ? campaignState.modelCallJournal : []);
-  const sidecars = Array.isArray(runtimeTracking.sidecarJournal)
-    ? runtimeTracking.sidecarJournal
-    : (Array.isArray(campaignState.sidecarJournal) ? campaignState.sidecarJournal : []);
+  const modelCalls = legacyRuntimeModelCallRows(campaignState);
+  const sidecars = legacyRuntimeSidecarRows(campaignState);
   return {
-    ingressCount: Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger.length : 0,
-    responseCount: Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger.length : 0,
-    recoveryCount: Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal.length : 0,
+    ingressCount: Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger.length : 0,
+    responseCount: Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger.length : 0,
+    recoveryCount: Array.isArray(runtimeLedgerView.recoveryJournal) ? runtimeLedgerView.recoveryJournal.length : 0,
     historyCount: Array.isArray(runtimeTracking.history) ? runtimeTracking.history.length : 0,
     turnCount: Array.isArray(turnLedger.entries) ? turnLedger.entries.length : 0,
     lastCommittedOutcomeId: turnLedger.lastCommittedOutcomeId || null,
     modelCallCount: modelCalls.length,
     sidecarCount: sidecars.length
   };
+}
+
+function legacyRuntimeModelCallRows(campaignState = {}) {
+  const projections = readRuntimeCoreProjections(campaignState);
+  const modelCallDiagnostics = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
+  return modelCallDiagnostics.map((entry) => ({ type: 'runtimeModelCallProjected', entry }));
+}
+
+function legacyRuntimeSidecarRows(campaignState = {}) {
+  const projections = readRuntimeCoreProjections(campaignState);
+  const sidecarDiagnostics = Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : [];
+  const backgroundBatches = Array.isArray(projections.backgroundBatches) ? projections.backgroundBatches : [];
+  return [
+    ...sidecarDiagnostics.map((entry) => ({ type: 'runtimeSidecarDiagnosticProjected', entry })),
+    ...backgroundBatches.map((entry) => ({ type: 'runtimeBackgroundBatchProjected', entry }))
+  ];
 }
 
 function legacyHeadState(campaignState = {}) {
@@ -1436,9 +1453,9 @@ function legacyHeadState(campaignState = {}) {
 }
 
 function legacyHostRows(campaignState = {}) {
-  const runtimeTracking = campaignState.runtimeTracking || {};
-  const ingressRows = Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : [];
-  const responseRows = Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : [];
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState);
+  const ingressRows = Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
+  const responseRows = Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger : [];
   return [
     ...ingressRows.map((entry) => compact({
       hostMessageId: entry.hostMessageId || null,
@@ -1461,10 +1478,10 @@ function legacyHostRows(campaignState = {}) {
 }
 
 function legacyEvents(campaignState = {}) {
-  const runtimeTracking = campaignState.runtimeTracking || {};
   const turnLedger = campaignState.turnLedger || {};
-  const ingressRows = Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : [];
-  const responseRows = Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : [];
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState);
+  const ingressRows = Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
+  const responseRows = Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger : [];
   const turns = Array.isArray(turnLedger.entries) ? turnLedger.entries : [];
   return [
     ...ingressRows.map((entry, index) => compact({
@@ -1516,23 +1533,18 @@ function legacyTurnEntries(campaignState = {}) {
 }
 
 function legacyDiagnostics(campaignState = {}) {
-  const runtimeTracking = campaignState.runtimeTracking || {};
-  const modelCalls = Array.isArray(runtimeTracking.modelCallJournal)
-    ? runtimeTracking.modelCallJournal
-    : (Array.isArray(campaignState.modelCallJournal) ? campaignState.modelCallJournal : []);
-  const sidecars = Array.isArray(runtimeTracking.sidecarJournal)
-    ? runtimeTracking.sidecarJournal
-    : (Array.isArray(campaignState.sidecarJournal) ? campaignState.sidecarJournal : []);
+  const modelCalls = legacyRuntimeModelCallRows(campaignState);
+  const sidecars = legacyRuntimeSidecarRows(campaignState);
   return [
-    ...modelCalls.map((entry, index) => ({
+    ...modelCalls.map(({ entry, type }, index) => ({
       id: `legacy-model-call-${index + 1}`,
-      type: 'legacyModelCallImported',
+      type,
       sourceHash: hashStableJson(entry),
       status: entry.status || null
     })),
-    ...sidecars.map((entry, index) => ({
+    ...sidecars.map(({ entry, type }, index) => ({
       id: `legacy-sidecar-${index + 1}`,
-      type: 'legacySidecarImported',
+      type,
       worker: entry.worker || null,
       sourceHash: hashStableJson(entry),
       status: entry.status || null

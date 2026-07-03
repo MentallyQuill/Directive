@@ -100,16 +100,21 @@ node tools\scripts\check-playwright-soak-readiness.mjs
 node tools\scripts\soak-sillytavern-campaign-live.mjs --dry-run --no-write
 ```
 
-The soak should be a separate runner, not a default mode of `smoke-sillytavern-live.mjs`. Recommended future runner:
+The soak should be a separate runner, not a default mode of `smoke-sillytavern-live.mjs`. Routine architecture-redesign validation now uses one explicit non-human SillyTavern user. Pick one `directive-soak-*` profile, usually the profile already holding the relevant Ashes save/chat, and keep using it until the slice needs a fresh user or campaign. Do not use `default-user` for automated evidence.
+
+Recommended routine single-user runner:
 
 ```powershell
 $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
 $env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
 $env:DIRECTIVE_LIVE_GENERATION='1'
 $env:DIRECTIVE_LIVE_CAMPAIGN_SOAK='1'
+$env:DIRECTIVE_ST_USER='directive-soak-b'
 $env:DIRECTIVE_LIVE_MODEL_CALL_BUDGET='unlimited'
 node tools\scripts\soak-sillytavern-campaign-live.mjs
 ```
+
+Current architecture-redesign implementation work should not use this five-user coordinator as the default validation path. Normal live validation uses one explicit non-human SillyTavern soak user, usually one `directive-soak-*` profile, after the served-extension sync. The five-user coordinator stays paused for ordinary implementation slices until explicitly re-enabled, or until the redesign reaches the final Wave 4 certification gate.
 
 For CPM certification, use the five-user coordinator after the served-extension sync and multi-user readiness preflight. The coordinator must run one live campaign soak worker concurrently per Ashes lane/user and aggregate sanitized evidence that the required CPM prompt keys, Bronn species/age source ids, Breckenridge transit guard source id, deterministic factual-grounding checks, and validated external-context summary artifacts were present for every lane:
 
@@ -193,6 +198,7 @@ Before running the soak:
 - SillyTavern is reachable through `SILLYTAVERN_BASE_URL`.
 - First, before any other soak action, sync the served or installed SillyTavern Directive extension to the checkout under test. Parallel extension fixes may make the installed copy stale until testing begins.
 - The served Directive extension is the checkout under test, or the checkout has been copied into the installed SillyTavern extension path and acknowledged with `DIRECTIVE_CONFIRM_EXTENSION_SYNCED=1`.
+- Normal development validation uses one non-human SillyTavern soak user. This is enough for implementation smoke, single-lane rehearsal, external-context compatibility checks, and turn-loop debugging unless the selected gate explicitly requires multiple lanes.
 - For parallel soak workers, SillyTavern multi-user mode is enabled and every worker has a dedicated ST user, Playwright browser context, run id, artifact folder, campaign chat, save branch, and provider/session budget.
 - The full breadth-first parallel soak uses five non-human SillyTavern users: `directive-soak-a`, `directive-soak-b`, `directive-soak-c`, `directive-soak-d`, and `directive-soak-e`. Fewer workers may be used for a focused probe, but that is not full five-lane coverage evidence.
 - `default-user` is reserved for human testing only and must not be assigned to automated soak workers, storage probes, patch lanes, or campaign runners.
@@ -693,6 +699,8 @@ After Ashes evidence is useful and current P0/P1 blockers are cleared, restore a
 
 Parallel soak workers are useful only if their state, coverage lane, and fix policy are explicit. Treat each worker as a coverage lane first. A worker becomes a patch lane only when a P0/P1 blocker must be fixed immediately or when the coordinator schedules a fix barrier.
 
+Current implementation default: run one non-human SillyTavern user, one browser context, one artifact folder, and one campaign lane. Use the matrix below only when the user explicitly re-enables multi-user work or when Wave 4 final certification is ready.
+
 - one SillyTavern user account;
 - one Playwright browser context;
 - one Directive run id and artifact folder;
@@ -700,7 +708,9 @@ Parallel soak workers are useful only if their state, coverage lane, and fix pol
 - one branch or worktree when code changes are being made;
 - one installed/served extension copy if the SillyTavern host supports per-user extension installs, otherwise one separate SillyTavern host/dataRoot per patch lane.
 
-Current Ashes five-lane assignment:
+Final-certification Ashes five-lane assignment:
+
+Until final certification, select one row from this table as the active routine lane and leave the others idle. Do not spend ordinary implementation time running all five lanes unless the user explicitly re-enables that mode or the work has reached final certification. `default-user` is reserved for human/manual testing and cannot count as soak proof.
 
 | Worker | ST User | Primary Lane | Coverage Goal | Stop Rule |
 |---|---|---|---|---|
@@ -721,7 +731,7 @@ Default fix policy:
 - Deferred findings must still be logged immediately with severity, lane, reproduction steps, current save/chat ids, transcript pointers, screenshot or artifact pointers, and whether another worker should avoid duplicating that exact scenario.
 - Reproduction work should be assigned deliberately. Do not send all workers to verify the same bug unless the goal is cross-user reproduction, post-fix verification, or release-candidate sanity.
 
-Best workflow:
+Best workflow for final multi-user certification:
 
 1. Start from a clean coordination point: repo tests pass, extension copy is synced, `check-sillytavern-multi-user-soak-readiness.mjs --live` passes for all five users, and every worker writes its own `live-log.jsonl`.
 2. Assign the five workers to the five distinct Ashes lanes above. The default mode is breadth-first discovery inside Ashes, not five agents repeating the same long soak or spending current effort on all-campaign startup.

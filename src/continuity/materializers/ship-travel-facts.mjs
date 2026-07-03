@@ -132,19 +132,19 @@ export function materializeShipTravelFacts({
         baselineRemainingDistance: travelContinuity.baselineRemainingDistance || null,
         speedPolicy: travelContinuity.speedPolicy || null
       },
-      summary: travelContinuity.openingTransitMode || travelContinuity.openingImpulseContext,
+      summary: travelContinuity.openingImpulseContext || travelContinuity.openingTransitMode,
       render: {
         narrator: [
-          travelContinuity.openingTransitMode,
           travelContinuity.openingImpulseContext,
+          travelContinuity.openingTransitMode,
           travelContinuity.openingShuttleApproach,
           travelContinuity.baselineRemainingTravel,
           travelContinuity.baselineRemainingDistance,
           travelContinuity.speedPolicy
         ].map(compact).filter(Boolean).join(' '),
         director: [
-          travelContinuity.openingTransitMode,
           travelContinuity.openingImpulseContext,
+          travelContinuity.openingTransitMode,
           travelContinuity.openingShuttleApproach,
           travelContinuity.baselineRemainingTravel,
           travelContinuity.baselineRemainingDistance,

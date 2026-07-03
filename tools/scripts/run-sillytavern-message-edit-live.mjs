@@ -33,6 +33,8 @@ const RESUME_CHAT_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID |
 const TARGET_MESID = String(process.env.DIRECTIVE_MESSAGE_EDIT_TARGET_MESID || '').trim();
 const SEGMENT = String(process.env.DIRECTIVE_MESSAGE_EDIT_SEGMENT || 'message-edit').trim() || 'message-edit';
 const REPLACEMENT_TEXT = replacementText();
+const HOST_EVENT_GRACE_MS = Number.parseInt(process.env.DIRECTIVE_MESSAGE_EDIT_HOST_EVENT_GRACE_MS || '5000', 10);
+const REOBSERVE_RECOVERY_WAIT_MS = Number.parseInt(process.env.DIRECTIVE_MESSAGE_EDIT_REOBSERVE_WAIT_MS || '20000', 10);
 
 function usage() {
   return `Directive SillyTavern live message edit runner
@@ -100,6 +102,10 @@ function cookieHeaderToBrowserCookies(cookieHeader, baseUrl) {
 
 function bridgeModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
+}
+
+function runtimeLedgerViewModulePath() {
+  return `${EXTENSION_PATH}/src/runtime/runtime-ledger-view.mjs`;
 }
 
 function cssAttrValue(value) {
@@ -365,6 +371,12 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
       };
     };
     const mod = await import(modulePath);
+    let ledgerTools = null;
+    try {
+      ledgerTools = await import(ledgerModulePath);
+    } catch {
+      ledgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const host = bridge.host || null;
@@ -374,10 +386,15 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const index = Number(targetMesid);
     const message = Number.isInteger(index) ? chat[index] : null;
     const tracking = view?.campaignState?.runtimeTracking || {};
-    const ingress = (tracking.ingressLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
-    const response = (tracking.responseLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
+    const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
+    const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger) ? runtimeLedgerView.responseLedger : [];
+    const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal) ? runtimeLedgerView.recoveryJournal : [];
+    const ingress = ingressLedger.find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
+    const response = responseLedger.find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
     const reconciliation = tracking.sceneReconciliation || {};
-    const recoveryJournal = Array.isArray(tracking.recoveryJournal) ? tracking.recoveryJournal : [];
     const latestRecovery = [...recoveryJournal].reverse().find((entry) => String(entry?.hostMessageId || '') === String(targetMesid)) || null;
     const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections
@@ -444,12 +461,19 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         editedAt: response.editedAt || null,
         deletedAt: response.deletedAt || null,
         invalidatedAt: response.invalidatedAt || null,
-        replacementTextSet: Boolean(response.replacementText)
+        replacementTextSet: response.replacementTextPresent === true || Boolean(response.replacementTextHash || response.replacementText)
       } : null,
       promptContextRevision: view?.chatNative?.binding?.promptContextRevision || view?.campaignState?.campaignChatBinding?.promptContextRevision || null,
       recoveryCount: count(recoveryJournal),
-      legacyRecoveryCount: count(recoveryJournal),
+      legacyRecoveryCount: count(tracking.recoveryJournal),
       coreRecoveryCount: count(coreRecoveryJournal),
+      runtimeLedgerView: runtimeLedgerView ? {
+        coreProjectionAvailable: runtimeLedgerView.coreProjectionAvailable === true,
+        authoritative: runtimeLedgerView.authoritative === true,
+        ingressCount: count(runtimeLedgerView.ingressLedger),
+        responseCount: count(runtimeLedgerView.responseLedger),
+        recoveryCount: count(runtimeLedgerView.recoveryJournal)
+      } : null,
       targetCoreRecovery,
       latestRecovery: compactRecoveryEntry(latestRecovery),
       recentRecoveryJournal: recoveryJournal.slice(-6).map(compactRecoveryEntry).filter(Boolean),
@@ -458,7 +482,7 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         lastResult: clone(reconciliation.lastResult || null)
       }
     };
-  }, { modulePath: bridgeModulePath(), targetMesid });
+  }, { modulePath: bridgeModulePath(), ledgerModulePath: runtimeLedgerViewModulePath(), targetMesid });
 }
 
 async function clickEditAndSave(page) {
@@ -489,18 +513,19 @@ async function clickEditAndSave(page) {
   };
 }
 
-async function waitForDirectiveRecovery(page, before) {
+async function waitForDirectiveRecovery(page, before, { timeoutMs = 60000 } = {}) {
   const beforeIngressStatus = before?.ingress?.status || null;
   const beforeResponseStatus = before?.response?.status || null;
   const beforeTextHash = before?.targetMessage?.textHash || '';
   const expectsCoreRecovery = Boolean(before?.ingress?.coreTransactionId || before?.response?.coreTransactionId);
-  const deadline = Date.now() + 60000;
+  const deadline = Date.now() + Math.max(1000, Number(timeoutMs) || 60000);
   let latest = null;
   while (Date.now() < deadline) {
     await page.waitForTimeout(1000);
     const snapshot = await runtimeSnapshot(page).catch(() => null);
     if (!snapshot) continue;
     latest = snapshot;
+    const trackedKind = before?.ingress ? 'ingress' : 'response';
     const textChanged = snapshot.targetMessage?.textHash && snapshot.targetMessage.textHash !== beforeTextHash;
     const coreRecoveryChanged = snapshot.targetCoreRecovery?.status && (
       !before?.targetCoreRecovery?.recoveryCaseId
@@ -510,14 +535,15 @@ async function waitForDirectiveRecovery(page, before) {
     const ingressChanged = snapshot.ingress?.status && snapshot.ingress.status !== beforeIngressStatus;
     const responseChanged = snapshot.response?.status && snapshot.response.status !== beforeResponseStatus;
     const targetTrackingChanged = Boolean(ingressChanged || responseChanged);
-    const ownerEvidenceReady = expectsCoreRecovery ? Boolean(coreRecoveryChanged || snapshot.targetCoreRecovery?.status) : targetTrackingChanged;
+    const trackedCoreRecoveryReady = Boolean(snapshot[trackedKind]?.coreRecovery?.status || snapshot[trackedKind]?.repairDecision?.kind);
+    const ownerEvidenceReady = expectsCoreRecovery ? Boolean(coreRecoveryChanged || snapshot.targetCoreRecovery?.status || trackedCoreRecoveryReady) : targetTrackingChanged;
     if (textChanged && targetTrackingChanged && ownerEvidenceReady) return { ok: true, snapshot };
   }
   return { ok: false, timedOut: true, snapshot: latest };
 }
 
-async function triggerPostActuationReobserve(page, control = {}) {
-  return page.evaluate(async ({ modulePath, targetMesid, replacementText }) => {
+async function triggerPostActuationReobserve(page, control = {}, before = {}) {
+  return page.evaluate(async ({ modulePath, targetMesid, replacementText, stableSourceRef }) => {
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -526,6 +552,8 @@ async function triggerPostActuationReobserve(page, control = {}) {
     const message = host?.chat?.getMessage ? await host.chat.getMessage(targetMesid) : null;
     const result = await app.handleHostMessageEdited({
       hostMessageId: targetMesid,
+      ingressId: stableSourceRef.ingressId || null,
+      responseId: stableSourceRef.responseId || null,
       index: Number.isFinite(Number(targetMesid)) ? Number(targetMesid) : null,
       text: replacementText,
       message,
@@ -551,7 +579,11 @@ async function triggerPostActuationReobserve(page, control = {}) {
   }, {
     modulePath: bridgeModulePath(),
     targetMesid: control?.targetMesid || TARGET_MESID,
-    replacementText: REPLACEMENT_TEXT
+    replacementText: REPLACEMENT_TEXT,
+    stableSourceRef: {
+      ingressId: before?.ingress?.id || null,
+      responseId: before?.response?.id || null
+    }
   });
 }
 
@@ -675,14 +707,14 @@ async function liveReport(paths = null) {
     const before = await runtimeSnapshot(page);
     const edit = await clickEditAndSave(page);
     if (paths?.screenshots) await page.screenshot({ path: path.join(paths.screenshots, 'message-edited.png'), fullPage: false }).catch(() => null);
-    let waited = await waitForDirectiveRecovery(page, before);
+    let waited = await waitForDirectiveRecovery(page, before, { timeoutMs: HOST_EVENT_GRACE_MS });
     let postActuationReobserve = null;
     if (waited.ok !== true) {
-      postActuationReobserve = await triggerPostActuationReobserve(page, edit).catch((error) => ({
+      postActuationReobserve = await triggerPostActuationReobserve(page, edit, before).catch((error) => ({
         ok: false,
         reason: error?.message || String(error)
       }));
-      if (postActuationReobserve?.ok === true) waited = await waitForDirectiveRecovery(page, before);
+      if (postActuationReobserve?.ok === true) waited = await waitForDirectiveRecovery(page, before, { timeoutMs: REOBSERVE_RECOVERY_WAIT_MS });
     }
     const after = waited.snapshot || await runtimeSnapshot(page);
     const status = waited.ok ? 'pass' : 'warning';

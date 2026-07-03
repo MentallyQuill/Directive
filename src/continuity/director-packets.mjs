@@ -75,7 +75,8 @@ export function buildContinuityDirectorPacket({
     crewDataset,
     shipDataset,
     campaignProjection,
-    audience: visibilityAudience
+    audience: visibilityAudience,
+    sourceFrame
   });
   const facts = factIndex.facts
     .filter((fact) => matchesAudience(fact, audience))

@@ -26,6 +26,8 @@ import {
   summarizeHostNativeCompletionProof,
   summarizeLaneArtifactCompleteness,
   summarizePromptInspectionArtifact,
+  liveLaneConcurrency,
+  mapWithConcurrency,
   readinessCommandArgs,
   summarizeReadiness,
   summarizeReusableContinuityMatrixLane,
@@ -62,16 +64,23 @@ function writeExternalContextSummary(root) {
       knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore'],
       finalHostPromptMayIncludeExternal: true,
       redactionReasons: ['secret'],
-      targetSummaryCount: 1
+      targetSummaryCount: 1,
+      timingCoverage: {
+        requiredTargets: ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'],
+        targetsWithTiming: ['memoryBooks', 'stLorebooks', 'summaryception', 'vectFox'],
+        targetsMissingTiming: [],
+        timedTargetCount: 4,
+        status: 'pass'
+      }
     },
     targetSummaries: [{
       scriptMessageId: 'soak-turn-01',
       scriptCategory: 'directiveCommit',
       targets: {
-        stLorebooks: { active: true, chatBound: true },
-        memoryBooks: { enabled: true, rangeDiagnostics: { status: 'valid' } },
-        summaryception: { enabled: true, staleness: { status: 'observed' } },
-        vectFox: { enabled: true, backendDiagnostics: { status: 'external-backend-configured' } }
+        stLorebooks: { active: true, chatBound: true, timingDiagnostics: { observed: true, composeLatencyMs: 12, timingHash: 'l'.repeat(64) } },
+        memoryBooks: { enabled: true, rangeDiagnostics: { status: 'valid' }, timingDiagnostics: { observed: true, scanLatencyMs: 18, timingHash: 'm'.repeat(64) } },
+        summaryception: { enabled: true, staleness: { status: 'observed' }, timingDiagnostics: { observed: true, summaryLatencyMs: 44, timingHash: 's'.repeat(64) } },
+        vectFox: { enabled: true, backendDiagnostics: { status: 'external-backend-configured', externalTimingObserved: true, timingHash: 'v'.repeat(64) } }
       }
     }]
   });
@@ -1624,6 +1633,8 @@ assert.equal(reusableFullLane.artifactCompleteness.generationPromptFileCount, 52
 assert.equal(reusableFullLane.artifactCompleteness.expectedPromptInspectionCount, 52);
 assert.equal(reusableFullLane.artifactCompleteness.promptInspectionDepthMissing, false);
 assert.equal(reusableFullLane.artifactCompleteness.externalContextSummaryPresent, true);
+assert.equal(reusableFullLane.artifactCompleteness.externalContextSummary.timingCoverage.timedTargetCount, 4);
+assert.deepEqual(reusableFullLane.artifactCompleteness.externalContextSummary.timingCoverage.targetsMissingTiming, []);
 assert.equal(summarizeReusableContinuityMatrixLane({
   lane: lanes[0],
   artifactRoot: root,
@@ -1705,6 +1716,8 @@ assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missing
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.knownExternalPromptKeys'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.refHashes'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.targetSummaryCount'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.finalHostPromptMayIncludeExternal'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.requiredTargets'), true);
 
@@ -1761,6 +1774,7 @@ assert.equal(placeholderExternalSummaryCompleteness.status, 'fail');
 assert.deepEqual(placeholderExternalSummaryCompleteness.externalContextSummary.missingTargetSummaries, []);
 assert.deepEqual(placeholderExternalSummaryCompleteness.externalContextSummary.placeholderTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
 assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.usefulTargets'), true);
+assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
 
 const partialFullPromptDepthRoot = makeArtifactRoot();
 writePassingLaneArtifacts(partialFullPromptDepthRoot, { promptCaptureCount: 1 });
@@ -2238,6 +2252,23 @@ const badFindingFactualModelReviewSummary = summarizeFactualGroundingArtifacts({
 assert.equal(badFindingFactualModelReviewSummary.status, 'fail');
 assert.equal(badFindingFactualModelReviewSummary.modelAssistedReview.validationIssues.includes('model-review-bad-findings'), true);
 
+assert.equal(liveLaneConcurrency({ laneConcurrency: 5 }, 3), 3);
+assert.equal(liveLaneConcurrency({ laneConcurrency: 2 }, 5), 2);
+assert.equal(liveLaneConcurrency({ laneConcurrency: 0 }, 5), 1);
+let activeLaneWorkers = 0;
+let maxActiveLaneWorkers = 0;
+const mappedLaneResults = await mapWithConcurrency([1, 2, 3, 4], 2, async (value) => {
+  activeLaneWorkers += 1;
+  maxActiveLaneWorkers = Math.max(maxActiveLaneWorkers, activeLaneWorkers);
+  await new Promise((resolve) => {
+    setTimeout(resolve, value === 1 ? 15 : 5);
+  });
+  activeLaneWorkers -= 1;
+  return value * 10;
+});
+assert.deepEqual(mappedLaneResults, [10, 20, 30, 40]);
+assert.equal(maxActiveLaneWorkers <= 2, true);
+
 const coordinatorSource = fs.readFileSync('tools/scripts/run-continuity-matrix-five-user-soak.mjs', 'utf8');
 assert.match(coordinatorSource, /external-context-readiness-proof/);
 assert.match(coordinatorSource, /external-context-fixture-depth/);
@@ -2252,6 +2283,8 @@ assert.match(coordinatorSource, /hostExtensions: path\.join\(root, 'host-extensi
 assert.match(coordinatorSource, /hostExtensions: paths\.hostExtensions/);
 assert.match(coordinatorSource, /artifacts:\s*\{/);
 assert.match(coordinatorSource, /External context probe:/);
+assert.match(coordinatorSource, /--lane-concurrency N/);
+assert.match(coordinatorSource, /mapWithConcurrency\(lanes, laneConcurrency/);
 
 fs.rmSync(readinessRoot, { recursive: true, force: true });
 fs.rmSync(root, { recursive: true, force: true });

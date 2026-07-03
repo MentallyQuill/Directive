@@ -28,6 +28,15 @@ function baseState() {
         turnId: 'turn.end-condition-test',
         outcomeId: 'outcome.end-condition-test',
         resultBand: 'Failure',
+        coreCheckpointRef: {
+          kind: 'directive.coreMechanicsCheckpointRef.v1',
+          campaignId: state.campaign.id,
+          saveId: 'save-end-condition-test',
+          checkpointId: 'core-checkpoint-end-condition-test',
+          layout: 'core',
+          sourceKind: 'coreStoreV2.checkpoint',
+          sourceRevision: 1
+        },
         snapshotBefore: {
           campaign: { id: state.campaign.id },
           restored: true
@@ -55,7 +64,10 @@ function requireCondition(state, id, expectedBand = null) {
   assert.equal(result.conditionId, id);
   assert.equal(result.pendingInteraction.kind, 'terminalOutcomeDecision');
   assert.equal(result.pendingInteraction.metadata.terminalOutcomeId, id);
-  assert.equal(result.pendingInteraction.metadata.checkpoint.source, 'preOutcomeSnapshot');
+  assert.equal(result.pendingInteraction.metadata.checkpoint.source, 'coreCheckpoint');
+  assert.equal(result.pendingInteraction.metadata.checkpoint.retained, true);
+  assert.equal(result.pendingInteraction.metadata.checkpoint.coreCheckpointRef.checkpointId, 'core-checkpoint-end-condition-test');
+  assert.equal(JSON.stringify(result.pendingInteraction.metadata.checkpoint.coreCheckpointRef).includes('restored'), false);
   assert(result.pendingInteraction.options.some((option) => option.action === 'replayFromCheckpoint'));
   assert(result.pendingInteraction.options.some((option) => option.action === 'keepEnding'));
   if (expectedBand) assert.equal(result.finalCampaignBand, expectedBand);
@@ -66,6 +78,21 @@ function requireCondition(state, id, expectedBand = null) {
   const state = baseState();
   state.flags['ashes-of-peace-complete'] = true;
   requireCondition(state, 'completion.ashes.terms-we-keep-resolved', 'Success');
+}
+
+{
+  const state = baseState();
+  delete state.turnLedger.entries[0].coreCheckpointRef;
+  state.flags['ashes-of-peace-complete'] = true;
+  const result = detect(state);
+  assert.equal(result?.matched, true);
+  assert.equal(result.pendingInteraction.metadata.checkpoint.source, 'lastStableAutosave');
+  assert.equal(result.pendingInteraction.metadata.checkpoint.retained, false);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(result.pendingInteraction.metadata.checkpoint, 'coreCheckpointRef'),
+    false,
+    'old inline snapshotBefore must not advertise retained replay authority'
+  );
 }
 
 {

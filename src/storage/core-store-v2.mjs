@@ -547,6 +547,7 @@ function compactOperation(operation = {}) {
     sourceKind: operation.sourceKind || null,
     sourceHash: operation.sourceHash || null,
     sourceOutcomeId: operation.sourceOutcomeId || null,
+    sourceTurnId: operation.sourceTurnId || null,
     sourceEventIds: Array.isArray(operation.sourceEventIds) ? operation.sourceEventIds.map((id) => String(id || '').trim()).filter(Boolean) : undefined,
     sourceAnchorRangeHash: operation.sourceAnchorRangeHash || null,
     operationCount: Number.isFinite(Number(operation.operationCount)) ? Number(operation.operationCount) : undefined,
@@ -554,6 +555,54 @@ function compactOperation(operation = {}) {
     factHash: operation.factHash || null,
     valueHash: operation.value === undefined ? operation.valueHash || null : hashStableJson(operation.value)
   }));
+}
+
+const FORBIDDEN_MECHANICS_OPERATION_KEY = /^(?:value|payload|campaignState|rootsSet|snapshotBefore|snapshotAfter|before|after)$/i;
+const FORBIDDEN_MECHANICS_OPERATION_CONTENT_KEY = /(?:raw|prompt|provider|vector|embedding|secret|api[_-]?key|password|credential|authorization|transcript)/i;
+
+function findForbiddenMechanicsOperationKey(value, path = []) {
+  if (!value || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const found = findForbiddenMechanicsOperationKey(value[index], [...path, String(index)]);
+      if (found) return found;
+    }
+    return null;
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (
+      FORBIDDEN_MECHANICS_OPERATION_KEY.test(key)
+      || FORBIDDEN_MECHANICS_OPERATION_CONTENT_KEY.test(key)
+    ) {
+      return [...path, key].join('.');
+    }
+    const found = findForbiddenMechanicsOperationKey(item, [...path, key]);
+    if (found) return found;
+  }
+  return null;
+}
+
+function assertBoundedMechanicsOperations(bundle = {}) {
+  if (!Array.isArray(bundle.operations)) return;
+  for (const [index, operation] of bundle.operations.entries()) {
+    if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {
+      const error = new Error(`CORE mechanics operation ${index} must be a bounded object`);
+      error.code = 'DIRECTIVE_CORE_UNBOUNDED_MECHANICS_OPERATION';
+      throw error;
+    }
+    const forbiddenPath = findForbiddenMechanicsOperationKey(operation, [`operations.${index}`]);
+    if (forbiddenPath) {
+      const error = new Error(`CORE mechanics operation contains unbounded field "${forbiddenPath}"`);
+      error.code = 'DIRECTIVE_CORE_UNBOUNDED_MECHANICS_OPERATION';
+      error.details = { path: forbiddenPath };
+      throw error;
+    }
+    if (!operation.domain || !(operation.op || operation.operation)) {
+      const error = new Error(`CORE mechanics operation ${index} requires domain and op`);
+      error.code = 'DIRECTIVE_CORE_UNBOUNDED_MECHANICS_OPERATION';
+      throw error;
+    }
+  }
 }
 
 function compactBackgroundEffectRef(ref = {}) {
@@ -1662,11 +1711,12 @@ export function buildCoreStoreReadProjections(state = {}) {
           const payload = eventPayload(event);
           const timing = compactTurnTiming(payload.timing || {});
           return compact({
-            id: `response-release:${transactionId}`,
+            id: payload.responseId || `response-release:${transactionId}`,
+            responseId: payload.responseId || null,
             transactionId,
             hostMessageId: null,
-            outcomeId: transactionMap?.[transactionId]?.outcomeId || null,
-            responseKind: 'hostContinue',
+            outcomeId: payload.outcomeId || transactionMap?.[transactionId]?.outcomeId || null,
+            responseKind: payload.responseKind || 'hostContinue',
             generationStartedAt: timing?.hostGenerationReleasedAt || event.occurredAt || null,
             textHash: null,
             turnTiming: timing || undefined,
@@ -2759,7 +2809,10 @@ export function createCoreStoreV2({
           toPhase: phase,
           route: phasePatch.route === undefined ? transaction.route : phasePatch.route,
           timing: sanitizeDiagnostic(phasePatch.timing || {}),
-          directivePromptRevisionUsed: phasePatch.directivePromptRevisionUsed ?? null
+          directivePromptRevisionUsed: phasePatch.directivePromptRevisionUsed ?? null,
+          responseId: phasePatch.responseId || null,
+          responseKind: phasePatch.responseKind || null,
+          outcomeId: phasePatch.outcomeId || null
         },
         revisionsBefore,
         revisionsAfter: state.revisions,
@@ -2774,6 +2827,7 @@ export function createCoreStoreV2({
     async commitMechanics(transactionId, operationBundle = {}) {
       const transaction = requireTransaction(transactionId);
       const bundle = cloneJson(operationBundle);
+      assertBoundedMechanicsOperations(bundle);
       if (transaction.turnId) {
         if (bundle.idempotencyKey && transaction.mechanicsIdempotencyKey === bundle.idempotencyKey) {
           return cloneJson(state.turns.find((turn) => turn.transactionId === transaction.id));

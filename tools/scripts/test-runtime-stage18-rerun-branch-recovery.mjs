@@ -131,6 +131,35 @@ assert.throws(
   /stale rerun target/,
   'CORE-backed rerun commit must reject stale preview transaction evidence before opening a replacement transaction'
 );
+assert.throws(
+  () => __directiveRuntimeAppTestHooks.assertOutcomeReplacementCheckpointBase({
+    replacement: {
+      outcomeId: 'outcome-inline-snapshot-only',
+      snapshotBefore: { campaign: { id: 'raw-inline-snapshot' } }
+    },
+    ledgerEntry: {
+      outcomeId: 'outcome-inline-snapshot-only'
+    }
+  }),
+  /CORE checkpoint snapshot is required/,
+  'CORE-backed rerun commit must reject inline snapshotBefore without a CORE checkpoint ref.'
+);
+assert.doesNotThrow(
+  () => __directiveRuntimeAppTestHooks.assertOutcomeReplacementCheckpointBase({
+    replacement: {
+      outcomeId: 'outcome-core-checkpoint',
+      snapshotBefore: { campaign: { id: 'core-loaded-snapshot' } },
+      coreCheckpointRef: {
+        kind: 'directive.coreMechanicsCheckpointRef.v1',
+        checkpointId: 'checkpoint-outcome-core'
+      }
+    },
+    ledgerEntry: {
+      outcomeId: 'outcome-core-checkpoint'
+    }
+  }),
+  'CORE-backed rerun commit should allow snapshot state loaded from a compact CORE checkpoint ref.'
+);
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
@@ -357,6 +386,8 @@ assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.repairDec
 assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.repairDecision.authorized, true);
 assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.repairDecision.action, 'createRerunBranchCandidate');
 assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.repairDecision.replacedTransactionId, 'txn-stage18-original-rerun');
+assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.coreCheckpointRef.checkpointId, coreRerunCheckpointId);
+assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.snapshotSourceKind, 'coreStoreV2.checkpoint');
 assert.equal(coreCheckpointRerunPreview.view.pendingDirectorTurn.replacementForOutcomeId, originalOutcomeId);
 await app.discardProvisionalDirectorTurn();
 await app[mutateRuntimeAppCampaignState](() => cloneJson(originalCommit.campaignState));

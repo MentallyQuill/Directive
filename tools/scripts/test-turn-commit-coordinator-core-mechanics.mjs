@@ -41,7 +41,32 @@ function baseState() {
       saveId: 'save-core-mechanics-order'
     },
     mission: { activePhaseId: 'before-commit' },
+    commandCulture: { tendencies: [], rawValuesHidden: true },
+    pressureLedger: { records: [], candidateReviews: [], rawValuesHidden: true },
+    commandBearing: {
+      tracks: {
+        inspiration: { marks: 0, earnedRecords: [] },
+        resolve: { marks: 0, earnedRecords: [] }
+      },
+      awardedSources: {},
+      evidenceLedger: { records: [] },
+      reviewLedger: { records: [], reviewedClosureIds: {} },
+      rawValuesHidden: true
+    },
+    commandCompetence: {
+      standingOrders: [],
+      assumedActionsLedger: [],
+      warningLedger: [],
+      acceptedRiskLedger: [],
+      authorityNotesLedger: [],
+      counselRequestLedger: [],
+      retroactiveCompetenceLedger: []
+    },
+    relationships: { descriptiveLog: [] },
     worldState: { currentLocationId: 'before-location' },
+    ship: { status: 'operational' },
+    player: { status: 'alive', commandStatus: 'active' },
+    flags: {},
     commandLog: { entries: [] },
     turnLedger: { entries: [] },
     runtimeTracking: {
@@ -58,12 +83,147 @@ function committedState() {
   return {
     ...baseState(),
     mission: { activePhaseId: 'after-commit' },
-    worldState: { currentLocationId: 'after-location' },
+    commandCulture: {
+      tendencies: [{
+        id: 'culture-core-mechanics-order',
+        tendency: 'deliberate-bridge-discipline'
+      }],
+      rawValuesHidden: true
+    },
+    pressureLedger: {
+      records: [{
+        id: 'pressure-core-mechanics-order',
+        type: 'crew',
+        title: 'Bridge rhythm pressure',
+        playerSummary: 'RAW_PRESSURE_LEDGER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        directorSummary: 'RAW_PRESSURE_LEDGER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        status: 'active',
+        urgencyBand: 'medium',
+        escalationBand: 'signal',
+        rawValuesHidden: true
+      }],
+      candidateReviews: [],
+      rawValuesHidden: true
+    },
+    commandBearing: {
+      tracks: {
+        inspiration: {
+          marks: 1,
+          earnedRecords: [{
+            id: 'bearing-core-mechanics-order',
+            track: 'inspiration',
+            sourceId: 'bearing-core-mechanics-order',
+            decisionId: 'bearing-core-mechanics-order',
+            summary: 'RAW_COMMAND_BEARING_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+          }]
+        },
+        resolve: { marks: 0, earnedRecords: [] }
+      },
+      awardedSources: {
+        'bearing-core-mechanics-order:inspiration': {
+          sourceId: 'bearing-core-mechanics-order',
+          track: 'inspiration',
+          awardedAtOutcomeId: 'outcome-core-mechanics-order',
+          summary: 'RAW_COMMAND_BEARING_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+        }
+      },
+      evidenceLedger: { records: [] },
+      reviewLedger: { records: [], reviewedClosureIds: {} },
+      rawValuesHidden: true
+    },
+    commandCompetence: {
+      standingOrders: [],
+      assumedActionsLedger: [{
+        type: 'routineAction',
+        id: 'competence-core-mechanics-order',
+        sourceTurnId: 'turn-core-mechanics-order',
+        sourceOutcomeId: 'outcome-core-mechanics-order',
+        activeMissionId: null,
+        activePhaseId: null,
+        summary: 'RAW_COMMAND_COMPETENCE_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        playerVisible: true
+      }],
+      warningLedger: [],
+      acceptedRiskLedger: [],
+      authorityNotesLedger: [],
+      counselRequestLedger: [],
+      retroactiveCompetenceLedger: []
+    },
+    relationships: {
+      descriptiveLog: [{
+        id: 'relationship-core-mechanics-order',
+        summary: 'RAW_RELATIONSHIP_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      }],
+      memoryLedger: [{
+        crewId: 'crew-core-mechanics-order',
+        event: 'RAW_RELATIONSHIP_MEMORY_EVENT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        interpretation: 'RAW_RELATIONSHIP_MEMORY_INTERPRETATION_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        weight: 'moderate',
+        visibility: 'hidden',
+        sourceOutcomeId: 'outcome-core-mechanics-order'
+      }],
+      rawValuesHidden: true
+    },
+    worldState: {
+      currentLocationId: 'after-location',
+      actors: [{
+        id: 'actor-core-mechanics-order',
+        posture: 'RAW_ACTOR_POSTURE_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        history: []
+      }],
+      fronts: [{
+        id: 'front-core-mechanics-order',
+        status: 'active',
+        summary: 'RAW_FRONT_RECORD_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        history: []
+      }],
+      clocks: [{
+        id: 'clock-core-mechanics-order',
+        value: 2,
+        lastReason: 'RAW_CLOCK_REASON_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        history: [{
+          from: 1,
+          to: 2,
+          reason: 'RAW_CLOCK_REASON_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+        }]
+      }]
+    },
+    ship: { status: 'RAW_TERMINAL_SHIP_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS' },
+    player: {
+      status: 'alive',
+      commandStatus: 'RAW_TERMINAL_PLAYER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+    },
+    flags: {
+      'terminal-core-mechanics-order': 'RAW_TERMINAL_FLAG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+    },
+    commandLog: {
+      entries: [{
+        sourceOutcomeId: 'outcome-core-mechanics-order',
+        summaryInputs: ['RAW_COMMAND_LOG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'],
+        visibleConsequences: ['RAW_COMMAND_LOG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS']
+      }]
+    },
     turnLedger: {
       entries: [{
         turnId: 'turn-core-mechanics-order',
         outcomeId: 'outcome-core-mechanics-order',
-        resultBand: 'Success'
+        resultBand: 'Success',
+        stateDelta: { commandBearing: { earnedCount: 1 } },
+        competencePacket: {
+          kind: 'directive.competencePacket',
+          routineActions: [{
+            id: 'competence-core-mechanics-order',
+            summary: 'RAW_TURN_LEDGER_PACKET_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+          }]
+        },
+        continuityProjection: { source: 'fixture' },
+        narratorSourceOutcomeId: 'outcome-core-mechanics-order',
+        commandLogSourceOutcomeId: 'outcome-core-mechanics-order',
+        snapshotBeforeRetained: false,
+        narrationStatus: 'pending',
+        narration: null,
+        narrationFailures: [],
+        narrationRevisions: []
       }],
       lastCommittedOutcomeId: 'outcome-core-mechanics-order',
       swipeRerollForbidden: true
@@ -77,7 +237,99 @@ const turnPacket = {
     id: 'outcome-core-mechanics-order',
     resultBand: 'Success'
   },
+  narratorPacket: {
+    sourceOutcomeId: 'outcome-core-mechanics-order'
+  },
+  commandLogPacket: {
+    kind: 'directive.commandLogPacket',
+    sourceOutcomeId: 'outcome-core-mechanics-order',
+    summaryInputs: ['RAW_COMMAND_LOG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'],
+    visibleConsequences: ['RAW_COMMAND_LOG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS']
+  },
+  competencePacket: {
+    kind: 'directive.competencePacket',
+    sourceTurnId: 'turn-core-mechanics-order',
+    sourceOutcomeId: 'outcome-core-mechanics-order',
+    routineActions: [{
+      id: 'competence-core-mechanics-order',
+      summary: 'RAW_COMMAND_COMPETENCE_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+    }],
+    proceduralWarnings: [],
+    authorityNotes: [],
+    noGotchaPolicyApplied: true
+  },
   stateDelta: {
+    mission: {
+      activePhaseIdSet: 'after-commit'
+    },
+    commandCulture: {
+      tendenciesAdd: [{
+        id: 'culture-core-mechanics-order',
+        tendency: 'deliberate-bridge-discipline'
+      }]
+    },
+    pressureLedger: {
+      upsertRecords: [{
+        id: 'pressure-core-mechanics-order',
+        type: 'crew',
+        title: 'Bridge rhythm pressure',
+        playerSummary: 'RAW_PRESSURE_LEDGER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        directorSummary: 'RAW_PRESSURE_LEDGER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS',
+        status: 'active',
+        urgencyBand: 'medium',
+        escalationBand: 'signal'
+      }]
+    },
+    commandBearing: {
+      earnedRecordsAdd: [{
+        id: 'bearing-core-mechanics-order',
+        track: 'inspiration',
+        sourceId: 'bearing-core-mechanics-order',
+        decisionId: 'bearing-core-mechanics-order',
+        outcomeId: 'outcome-core-mechanics-order',
+        summary: 'RAW_COMMAND_BEARING_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      }]
+    },
+    relationships: {
+      affectedCrewIds: ['crew-core-mechanics-order'],
+      descriptiveChanges: [{
+        id: 'relationship-core-mechanics-order',
+        summary: 'RAW_RELATIONSHIP_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      }]
+    },
+    actors: {
+      rawValuesHidden: true,
+      upsertPostures: [{
+        actorId: 'actor-core-mechanics-order',
+        posture: 'RAW_ACTOR_POSTURE_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      }]
+    },
+    fronts: {
+      rawValuesHidden: true,
+      upsertRecords: [{
+        id: 'front-core-mechanics-order',
+        status: 'active',
+        summary: 'RAW_FRONT_RECORD_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      }]
+    },
+    clocks: [{
+      id: 'clock-core-mechanics-order',
+      from: 1,
+      to: 2,
+      reason: 'RAW_CLOCK_REASON_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+    }],
+    terminalState: {
+      shipPatch: {
+        status: 'RAW_TERMINAL_SHIP_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      },
+      playerPatch: {
+        commandStatus: 'RAW_TERMINAL_PLAYER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      },
+      flagsSet: [{
+        id: 'terminal-core-mechanics-order',
+        value: 'RAW_TERMINAL_FLAG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+      }]
+    },
     openWorld: {
       reducerBundle: {
         kind: 'directive.openWorldReducerBundle.v1',
@@ -104,6 +356,9 @@ const turnPacket = {
   },
   provenance: {
     continuityProjection: { source: 'fixture' }
+  },
+  sceneSnapshot: {
+    presentCharacters: ['player-commander', 'crew-core-mechanics-order']
   }
 };
 
@@ -148,10 +403,155 @@ const coordinator = createTurnCommitCoordinator({
         true,
         'CORE mechanics bundle should record the changed mechanics domain'
       );
+      const missionOperation = bundle.operations.find((operation) => operation.domain === 'mission');
+      assert.equal(missionOperation.op, 'stateDeltaCommitted');
+      assert.equal(missionOperation.sourceKind, 'directive.turnPacketStateDelta.v1');
+      assert.equal(missionOperation.path, 'stateDelta.mission');
+      assert.ok(missionOperation.sourceHash, 'explicit mission delta should carry a bounded source hash');
+      assert.ok(missionOperation.valueHash, 'explicit mission delta should carry committed root hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'mission' && operation.op === 'domainCommitted'),
+        false,
+        'explicit mission stateDelta should replace broad domainCommitted mechanics source'
+      );
+      const commandCultureOperation = bundle.operations.find((operation) => operation.domain === 'commandCulture');
+      assert.ok(commandCultureOperation, 'CORE mechanics bundle should record commandCulture change');
+      assert.equal(commandCultureOperation.op, 'stateDeltaCommitted');
+      assert.equal(commandCultureOperation.sourceKind, 'directive.turnPacketStateDelta.v1');
+      assert.equal(commandCultureOperation.path, 'stateDelta.commandCulture');
+      assert.ok(commandCultureOperation.sourceHash, 'explicit commandCulture delta should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'commandCulture' && operation.op === 'domainCommitted'),
+        false,
+        'explicit commandCulture stateDelta should replace broad domainCommitted mechanics source'
+      );
+      const pressureOperation = bundle.operations.find((operation) => operation.domain === 'pressureLedger');
+      assert.ok(pressureOperation, 'CORE mechanics bundle should record pressureLedger change');
+      assert.equal(pressureOperation.op, 'stateDeltaCommitted');
+      assert.equal(pressureOperation.sourceKind, 'directive.turnPacketStateDelta.v1');
+      assert.equal(pressureOperation.path, 'stateDelta.pressureLedger');
+      assert.ok(pressureOperation.sourceHash, 'explicit pressureLedger delta should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'pressureLedger' && operation.op === 'domainCommitted'),
+        false,
+        'explicit pressureLedger stateDelta should replace broad domainCommitted mechanics source'
+      );
+      const commandBearingOperation = bundle.operations.find((operation) => operation.domain === 'commandBearing');
+      assert.ok(commandBearingOperation, 'CORE mechanics bundle should record commandBearing change');
+      assert.equal(commandBearingOperation.op, 'stateDeltaCommitted');
+      assert.equal(commandBearingOperation.sourceKind, 'directive.turnPacketStateDelta.v1');
+      assert.equal(commandBearingOperation.path, 'stateDelta.commandBearing');
+      assert.ok(commandBearingOperation.sourceHash, 'explicit commandBearing delta should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'commandBearing' && operation.op === 'domainCommitted'),
+        false,
+        'explicit commandBearing stateDelta should replace broad domainCommitted mechanics source'
+      );
+      const commandCompetenceOperation = bundle.operations.find((operation) => operation.domain === 'commandCompetence');
+      assert.ok(commandCompetenceOperation, 'CORE mechanics bundle should record commandCompetence change');
+      assert.equal(commandCompetenceOperation.op, 'competencePacketCommitted');
+      assert.equal(commandCompetenceOperation.sourceKind, 'directive.competencePacket');
+      assert.equal(commandCompetenceOperation.path, 'competencePacket');
+      assert.ok(commandCompetenceOperation.sourceHash, 'explicit competence packet should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'commandCompetence' && operation.op === 'domainCommitted'),
+        false,
+        'explicit competencePacket should replace broad commandCompetence domainCommitted mechanics source'
+      );
+      const commandLogOperation = bundle.operations.find((operation) => operation.domain === 'commandLog');
+      assert.ok(commandLogOperation, 'CORE mechanics bundle should record commandLog change');
+      assert.equal(commandLogOperation.op, 'commandLogPacketCommitted');
+      assert.equal(commandLogOperation.sourceKind, 'directive.commandLogPacket');
+      assert.equal(commandLogOperation.path, 'commandLogPacket');
+      assert.ok(commandLogOperation.sourceHash, 'explicit commandLog packet should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'commandLog' && operation.op === 'domainCommitted'),
+        false,
+        'explicit commandLogPacket should replace broad commandLog domainCommitted mechanics source'
+      );
+      const turnLedgerOperation = bundle.operations.find((operation) => operation.domain === 'turnLedger');
+      assert.ok(turnLedgerOperation, 'CORE mechanics bundle should record turnLedger change');
+      assert.equal(turnLedgerOperation.op, 'turnLedgerEntryCommitted');
+      assert.equal(turnLedgerOperation.sourceKind, 'directive.turnLedgerEntryPacket.v1');
+      assert.equal(turnLedgerOperation.path, 'turnPacket');
+      assert.ok(turnLedgerOperation.sourceHash, 'explicit turn packet ledger source should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'turnLedger' && operation.op === 'domainCommitted'),
+        false,
+        'explicit turnLedger packet should replace broad turnLedger domainCommitted mechanics source'
+      );
+      const actorOperation = bundle.operations.find((operation) => operation.op === 'actorPosturesCommitted');
+      assert.ok(actorOperation, 'CORE mechanics bundle should record actor posture worldState source');
+      assert.equal(actorOperation.domain, 'worldState');
+      assert.equal(actorOperation.sourceKind, 'directive.turnPacketStateDelta.actors.v1');
+      assert.equal(actorOperation.path, 'stateDelta.actors');
+      assert.equal(actorOperation.operationCount, 1);
+      assert.ok(actorOperation.sourceHash, 'explicit actor delta should carry a bounded source hash');
+      const frontOperation = bundle.operations.find((operation) => operation.op === 'frontRecordsCommitted');
+      assert.ok(frontOperation, 'CORE mechanics bundle should record front worldState source');
+      assert.equal(frontOperation.domain, 'worldState');
+      assert.equal(frontOperation.sourceKind, 'directive.turnPacketStateDelta.fronts.v1');
+      assert.equal(frontOperation.path, 'stateDelta.fronts');
+      assert.equal(frontOperation.operationCount, 1);
+      assert.ok(frontOperation.sourceHash, 'explicit front delta should carry a bounded source hash');
+      const clockOperation = bundle.operations.find((operation) => operation.op === 'clockDeltasCommitted');
+      assert.ok(clockOperation, 'CORE mechanics bundle should record clock worldState source');
+      assert.equal(clockOperation.domain, 'worldState');
+      assert.equal(clockOperation.sourceKind, 'directive.turnPacketStateDelta.clocks.v1');
+      assert.equal(clockOperation.path, 'stateDelta.clocks');
+      assert.equal(clockOperation.operationCount, 1);
+      assert.ok(clockOperation.sourceHash, 'explicit clock delta should carry a bounded source hash');
+      const shipTerminalOperation = bundle.operations.find((operation) => operation.op === 'shipTerminalStateCommitted');
+      assert.ok(shipTerminalOperation, 'CORE mechanics bundle should record ship terminal-state source');
+      assert.equal(shipTerminalOperation.domain, 'ship');
+      assert.equal(shipTerminalOperation.sourceKind, 'directive.turnPacketStateDelta.terminalState.ship.v1');
+      assert.equal(shipTerminalOperation.path, 'stateDelta.terminalState.shipPatch');
+      assert.ok(shipTerminalOperation.sourceHash, 'explicit ship terminal delta should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'ship' && operation.op === 'domainCommitted'),
+        false,
+        'explicit terminal ship source should replace broad ship domainCommitted mechanics source'
+      );
+      const playerTerminalOperation = bundle.operations.find((operation) => operation.op === 'playerTerminalStateCommitted');
+      assert.ok(playerTerminalOperation, 'CORE mechanics bundle should record player terminal-state source');
+      assert.equal(playerTerminalOperation.domain, 'player');
+      assert.equal(playerTerminalOperation.sourceKind, 'directive.turnPacketStateDelta.terminalState.player.v1');
+      assert.equal(playerTerminalOperation.path, 'stateDelta.terminalState.playerPatch');
+      assert.ok(playerTerminalOperation.sourceHash, 'explicit player terminal delta should carry a bounded source hash');
+      const flagsTerminalOperation = bundle.operations.find((operation) => operation.op === 'flagsTerminalStateCommitted');
+      assert.ok(flagsTerminalOperation, 'CORE mechanics bundle should record flags terminal-state source');
+      assert.equal(flagsTerminalOperation.domain, 'flags');
+      assert.equal(flagsTerminalOperation.sourceKind, 'directive.turnPacketStateDelta.terminalState.flags.v1');
+      assert.equal(flagsTerminalOperation.path, 'stateDelta.terminalState.flagsSet');
+      assert.equal(flagsTerminalOperation.operationCount, 1);
+      assert.ok(flagsTerminalOperation.sourceHash, 'explicit flags terminal delta should carry a bounded source hash');
+      const relationshipOperation = bundle.operations.find((operation) => operation.op === 'relationshipStateDeltaCommitted');
+      assert.ok(relationshipOperation, 'CORE mechanics bundle should record explicit relationship state delta source');
+      assert.equal(relationshipOperation.domain, 'relationships');
+      assert.equal(relationshipOperation.sourceKind, 'directive.turnPacketStateDelta.relationships.v1');
+      assert.equal(relationshipOperation.path, 'stateDelta.relationships');
+      assert.ok(relationshipOperation.sourceHash, 'explicit relationship delta should carry a bounded source hash');
+      const relationshipMemoryOperation = bundle.operations.find((operation) => operation.op === 'relationshipMemoryDerivedCommitted');
+      assert.ok(relationshipMemoryOperation, 'CORE mechanics bundle should record derived relationship memory source');
+      assert.equal(relationshipMemoryOperation.domain, 'relationships');
+      assert.equal(relationshipMemoryOperation.sourceKind, 'directive.relationshipMemoryFromTurn.v1');
+      assert.equal(relationshipMemoryOperation.path, 'relationshipMemoryFromTurn');
+      assert.equal(relationshipMemoryOperation.operationCount, 1);
+      assert.ok(relationshipMemoryOperation.sourceHash, 'derived relationship memory should carry a bounded source hash');
+      assert.equal(
+        bundle.operations.some((operation) => operation.domain === 'relationships' && operation.op === 'domainCommitted'),
+        false,
+        'explicit relationship operations should replace broad relationship domainCommitted mechanics source'
+      );
       assert.equal(
         bundle.operations.some((operation) => operation.domain === 'worldState' && operation.op === 'domainCommitted'),
         false,
         'reducer-owned roots should not also be recorded as broad domain commits'
+      );
+      assert.equal(
+        bundle.operations.some((operation) => operation.op === 'domainCommitted'),
+        false,
+        'fully sourced turn fixture should not need compatibility domain fallback operations'
       );
       const reducerOperation = bundle.operations.find((operation) => operation.op === 'reducerBundleCommitted');
       assert.ok(reducerOperation, 'CORE mechanics bundle should include open-world reducer source evidence');
@@ -162,6 +562,20 @@ const coordinator = createTurnCommitCoordinator({
       assert.ok(reducerOperation.sourceHash, 'reducer source evidence should include a stable source hash');
       assert.ok(reducerOperation.valueHash, 'reducer source evidence should include an operation hash');
       assert.equal(JSON.stringify(bundle).includes('RAW_OPEN_WORLD_REDUCER_VALUE'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_PRESSURE_LEDGER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_COMMAND_BEARING_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_COMMAND_COMPETENCE_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_COMMAND_LOG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_TURN_LEDGER_PACKET_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_ACTOR_POSTURE_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_FRONT_RECORD_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_CLOCK_REASON_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_TERMINAL_SHIP_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_TERMINAL_PLAYER_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_TERMINAL_FLAG_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_RELATIONSHIP_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_RELATIONSHIP_MEMORY_EVENT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
+      assert.equal(JSON.stringify(bundle).includes('RAW_RELATIONSHIP_MEMORY_INTERPRETATION_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
       return {
         turnId: 'core-turn-1',
         outcomeId: bundle.outcomeId,
@@ -229,6 +643,71 @@ assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreTransactionId, 'tx
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreOperationHash, 'core-operation-hash');
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
 assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
+
+let fallbackMechanicsBundle = null;
+const fallbackBeforeState = baseState();
+fallbackBeforeState.values = { standingPrinciples: [] };
+fallbackBeforeState.runtimeTracking.ingressLedger[0].coreTransactionId = 'txn-core-mechanics-fallback';
+const fallbackAfterState = cloneJson(fallbackBeforeState);
+fallbackAfterState.values = {
+  standingPrinciples: [{
+    id: 'values-core-mechanics-fallback',
+    summary: 'RAW_VALUES_FALLBACK_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'
+  }]
+};
+const fallbackTurnPacket = {
+  turnId: 'turn-core-mechanics-fallback',
+  outcomePacket: {
+    id: 'outcome-core-mechanics-fallback',
+    resultBand: 'Mixed'
+  },
+  stateDelta: {},
+  provenance: {}
+};
+const fallbackCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:00:30.000Z',
+  persist: async () => ({ id: 'save-fallback-mechanics' }),
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      assert.equal(transactionId, 'txn-core-mechanics-fallback');
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn(transactionId, patch) {
+      assert.equal(transactionId, 'txn-core-mechanics-fallback');
+      assert.equal(patch.phase, 'routePending');
+      return { id: transactionId, phase: patch.phase };
+    },
+    async commitMechanics(transactionId, bundle) {
+      assert.equal(transactionId, 'txn-core-mechanics-fallback');
+      fallbackMechanicsBundle = cloneJson(bundle);
+      return {
+        turnId: 'core-turn-fallback',
+        outcomeId: bundle.outcomeId,
+        operationHash: 'fallback-operation-hash'
+      };
+    }
+  }
+});
+await fallbackCoordinator.checkpointMechanics({
+  beforeCampaignState: fallbackBeforeState,
+  campaignState: fallbackAfterState,
+  turnPacket: fallbackTurnPacket,
+  ingressId: 'ingress-core-mechanics-order'
+});
+const fallbackOperation = fallbackMechanicsBundle.operations.find((operation) => operation.domain === 'values');
+assert.ok(fallbackOperation, 'source-less value root should retain compatibility fallback evidence');
+assert.equal(fallbackOperation.op, 'domainCommitted');
+assert.equal(fallbackOperation.sourceKind, 'directive.compatibilityMechanicsDomainFallback.v1');
+assert.equal(fallbackOperation.sourceOutcomeId, 'outcome-core-mechanics-fallback');
+assert.ok(fallbackOperation.sourceHash, 'compatibility fallback should carry a bounded source hash');
+assert.ok(fallbackOperation.valueHash, 'compatibility fallback should carry committed root hash');
+assert.equal(JSON.stringify(fallbackMechanicsBundle).includes('RAW_VALUES_FALLBACK_TEXT_SHOULD_NOT_ENTER_CORE_MECHANICS'), false);
 
 const failedPersisted = [];
 const failingCoordinator = createTurnCommitCoordinator({

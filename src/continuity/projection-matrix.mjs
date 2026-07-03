@@ -214,7 +214,8 @@ export function buildContinuityProjectionMatrix({
     crewDataset,
     shipDataset,
     campaignProjection,
-    audience: CONTINUITY_VISIBILITY.narratorSafe
+    audience: CONTINUITY_VISIBILITY.narratorSafe,
+    sourceFrame
   });
   const activeHints = projectionHints || activeContinuityProjectionHints(campaignState);
   const deterministicPlan = buildDeterministicContinuityProjectionPlan({

@@ -8,6 +8,9 @@ import {
   EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS,
   prepareSillyTavernExternalContextFixture
 } from './prepare-sillytavern-external-context-fixture.mjs';
+import {
+  summarizeExternalContextSummaryArtifact
+} from './run-continuity-matrix-five-user-soak.mjs';
 
 function tempRoot(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -52,13 +55,20 @@ assert.equal(child.status, 0, `readiness preflight should exit 0\nstdout=${child
 
 const reportPath = path.join(artifactRoot, runId, 'report.json');
 const probePath = path.join(artifactRoot, runId, 'host-extensions', 'external-context-probe.json');
+const summaryPath = path.join(artifactRoot, runId, 'host-extensions', 'external-context-summary.json');
 const report = readJson(reportPath);
 const probe = readJson(probePath);
+const summaryArtifact = readJson(summaryPath);
 assert.equal(report.status, 'pass');
 assert.equal(report.checks.find((entry) => entry.id === 'host-extension-compatibility')?.status, 'pass');
 assert.equal(report.checks.find((entry) => entry.id === 'host-extension-fixture-depth')?.status, 'pass');
 assert.equal(probe.status, 'pass');
 assert.equal(probe.fixtureDepth.status, 'pass');
+assert.equal(report.externalContextSummary.status, 'pass');
+assert.equal(summaryArtifact.kind, 'directive.sillytavern.externalContextSummary.v1');
+assert.equal(summaryArtifact.aggregate.captureCount, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
+assert.equal(summaryArtifact.aggregate.finalHostPromptMayIncludeExternal, true);
+assert.equal(summarizeExternalContextSummaryArtifact({ artifactRoot: path.join(artifactRoot, runId) }).status, 'pass');
 assert.equal(probe.fixtureDepth.fullFixtureUserHandles.length, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
 assert.deepEqual(probe.fixtureDepth.missingTargets, []);
 for (const target of ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']) {
@@ -103,6 +113,9 @@ assert.equal(
 
 const preparedByReadinessReport = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'report.json'));
 const preparedByReadinessProbe = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'host-extensions', 'external-context-probe.json'));
+const preparedByReadinessSummary = summarizeExternalContextSummaryArtifact({
+  artifactRoot: path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId)
+});
 assert.equal(preparedByReadinessReport.externalContextFixturePreparation.status, 'pass');
 assert.equal(preparedByReadinessReport.externalContextFixturePreparation.resultCount, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
 assert.equal(
@@ -111,6 +124,8 @@ assert.equal(
 );
 assert.equal(preparedByReadinessProbe.fixtureDepth.status, 'pass');
 assert.equal(preparedByReadinessProbe.fixtureDepth.fullFixtureUserHandles.length, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
+assert.equal(preparedByReadinessReport.externalContextSummary.status, 'pass');
+assert.equal(preparedByReadinessSummary.status, 'pass');
 
 fs.rmSync(preparedByReadinessDataRoot, { recursive: true, force: true });
 fs.rmSync(preparedByReadinessArtifactRoot, { recursive: true, force: true });

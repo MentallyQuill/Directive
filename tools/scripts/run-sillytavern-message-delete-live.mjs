@@ -31,6 +31,8 @@ const RESUME_SAVE_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID |
 const RESUME_CHAT_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID || '').trim();
 const TARGET_MESID = String(process.env.DIRECTIVE_MESSAGE_DELETE_TARGET_MESID || '').trim();
 const SEGMENT = String(process.env.DIRECTIVE_MESSAGE_DELETE_SEGMENT || 'message-delete').trim() || 'message-delete';
+const HOST_EVENT_GRACE_MS = Number.parseInt(process.env.DIRECTIVE_MESSAGE_DELETE_HOST_EVENT_GRACE_MS || '5000', 10);
+const REOBSERVE_RECOVERY_WAIT_MS = Number.parseInt(process.env.DIRECTIVE_MESSAGE_DELETE_REOBSERVE_WAIT_MS || '20000', 10);
 
 function usage() {
   return `Directive SillyTavern live message delete runner
@@ -91,6 +93,10 @@ function cookieHeaderToBrowserCookies(cookieHeader, baseUrl) {
 
 function bridgeModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
+}
+
+function runtimeLedgerViewModulePath() {
+  return `${EXTENSION_PATH}/src/runtime/runtime-ledger-view.mjs`;
 }
 
 function cssAttrValue(value) {
@@ -297,6 +303,12 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
       };
     };
     const mod = await import(modulePath);
+    let ledgerTools = null;
+    try {
+      ledgerTools = await import(ledgerModulePath);
+    } catch {
+      ledgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const host = bridge.host || null;
@@ -306,10 +318,15 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const index = Number(targetMesid);
     const message = Number.isInteger(index) ? chat[index] : null;
     const tracking = view?.campaignState?.runtimeTracking || {};
-    const ingress = (tracking.ingressLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
-    const response = (tracking.responseLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
+    const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
+    const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger) ? runtimeLedgerView.responseLedger : [];
+    const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal) ? runtimeLedgerView.recoveryJournal : [];
+    const ingress = ingressLedger.find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
+    const response = responseLedger.find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
     const reconciliation = tracking.sceneReconciliation || {};
-    const recoveryJournal = Array.isArray(tracking.recoveryJournal) ? tracking.recoveryJournal : [];
     const latestRecovery = [...recoveryJournal].reverse().find((entry) => String(entry?.hostMessageId || '') === String(targetMesid)) || null;
     const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections
@@ -376,12 +393,19 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         editedAt: response.editedAt || null,
         deletedAt: response.deletedAt || null,
         invalidatedAt: response.invalidatedAt || null,
-        replacementTextSet: Boolean(response.replacementText)
+        replacementTextSet: response.replacementTextPresent === true || Boolean(response.replacementTextHash || response.replacementText)
       } : null,
       promptContextRevision: view?.chatNative?.binding?.promptContextRevision || view?.campaignState?.campaignChatBinding?.promptContextRevision || null,
       recoveryCount: count(recoveryJournal),
-      legacyRecoveryCount: count(recoveryJournal),
+      legacyRecoveryCount: count(tracking.recoveryJournal),
       coreRecoveryCount: count(coreRecoveryJournal),
+      runtimeLedgerView: runtimeLedgerView ? {
+        coreProjectionAvailable: runtimeLedgerView.coreProjectionAvailable === true,
+        authoritative: runtimeLedgerView.authoritative === true,
+        ingressCount: count(runtimeLedgerView.ingressLedger),
+        responseCount: count(runtimeLedgerView.responseLedger),
+        recoveryCount: count(runtimeLedgerView.recoveryJournal)
+      } : null,
       targetCoreRecovery,
       latestRecovery: compactRecoveryEntry(latestRecovery),
       recentRecoveryJournal: recoveryJournal.slice(-6).map(compactRecoveryEntry).filter(Boolean),
@@ -390,7 +414,7 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         lastResult: clone(reconciliation.lastResult || null)
       }
     };
-  }, { modulePath: bridgeModulePath(), targetMesid });
+  }, { modulePath: bridgeModulePath(), ledgerModulePath: runtimeLedgerViewModulePath(), targetMesid });
 }
 
 async function clickVisibleConfirmation(page) {
@@ -474,21 +498,23 @@ async function clickDeleteAndConfirm(page, before) {
   };
 }
 
-async function waitForDirectiveRecovery(page, before) {
+async function waitForDirectiveRecovery(page, before, { timeoutMs = 60000 } = {}) {
   const beforeIngressStatus = before?.ingress?.status || null;
   const beforeIngressDeletedAt = before?.ingress?.deletedAt || null;
   const beforeResponseStatus = before?.response?.status || null;
   const beforeResponseDeletedAt = before?.response?.deletedAt || null;
   const beforeTextHash = before?.targetMessage?.textHash || '';
   const expectsCoreRecovery = Boolean(before?.ingress?.coreTransactionId || before?.response?.coreTransactionId);
-  const deadline = Date.now() + 60000;
+  const deadline = Date.now() + Math.max(1000, Number(timeoutMs) || 60000);
   let latest = null;
   while (Date.now() < deadline) {
     await page.waitForTimeout(1000);
     const snapshot = await runtimeSnapshot(page).catch(() => null);
     if (!snapshot) continue;
     latest = snapshot;
-    const messageRemoved = !snapshot.targetMessage || (beforeTextHash && snapshot.targetMessage?.textHash !== beforeTextHash);
+    const trackedKind = before?.ingress ? 'ingress' : 'response';
+    const chatLengthDropped = Number(snapshot.chatLength || 0) < Number(before?.chatLength || 0);
+    const messageRemoved = chatLengthDropped || !snapshot.targetMessage || (beforeTextHash && snapshot.targetMessage?.textHash !== beforeTextHash);
     const coreRecoveryChanged = snapshot.targetCoreRecovery?.status && (
       !before?.targetCoreRecovery?.recoveryCaseId
       || snapshot.targetCoreRecovery.recoveryCaseId !== before.targetCoreRecovery.recoveryCaseId
@@ -499,24 +525,26 @@ async function waitForDirectiveRecovery(page, before) {
     const responseChanged = (snapshot.response?.status && snapshot.response.status !== beforeResponseStatus)
       || (snapshot.response?.deletedAt && snapshot.response.deletedAt !== beforeResponseDeletedAt);
     const targetTrackingChanged = Boolean(ingressChanged || responseChanged);
-    const ownerEvidenceReady = expectsCoreRecovery ? Boolean(coreRecoveryChanged || snapshot.targetCoreRecovery?.status) : targetTrackingChanged;
+    const trackedCoreRecoveryReady = Boolean(snapshot[trackedKind]?.coreRecovery?.status || snapshot[trackedKind]?.repairDecision?.kind);
+    const ownerEvidenceReady = expectsCoreRecovery ? Boolean(coreRecoveryChanged || snapshot.targetCoreRecovery?.status || trackedCoreRecoveryReady) : targetTrackingChanged;
     if (messageRemoved && targetTrackingChanged && ownerEvidenceReady) return { ok: true, snapshot };
   }
   return { ok: false, timedOut: true, snapshot: latest };
 }
 
-async function triggerPostActuationReobserve(page, control = {}) {
-  return page.evaluate(async ({ modulePath, targetMesid }) => {
+async function triggerPostActuationReobserve(page, control = {}, before = {}) {
+  return page.evaluate(async ({ modulePath, targetMesid, deletedMessageRef, stableSourceRef }) => {
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
-    const host = bridge.host || null;
     if (!app?.handleHostMessageDeleted) return { ok: false, reason: 'runtime-delete-handler-unavailable' };
-    const message = host?.chat?.getMessage ? await host.chat.getMessage(targetMesid) : null;
     const result = await app.handleHostMessageDeleted({
       hostMessageId: targetMesid,
+      ingressId: stableSourceRef.ingressId || null,
+      responseId: stableSourceRef.responseId || null,
       index: Number.isFinite(Number(targetMesid)) ? Number(targetMesid) : null,
-      message,
+      message: null,
+      deletedMessageRef,
       source: 'live-runner-post-actuation-reobserve'
     });
     const compactResult = {
@@ -538,7 +566,15 @@ async function triggerPostActuationReobserve(page, control = {}) {
     };
   }, {
     modulePath: bridgeModulePath(),
-    targetMesid: control?.targetMesid || TARGET_MESID
+    targetMesid: control?.targetMesid || TARGET_MESID,
+    stableSourceRef: {
+      ingressId: before?.ingress?.id || null,
+      responseId: before?.response?.id || null
+    },
+    deletedMessageRef: {
+      originalTextHash: control?.originalTextHash || null,
+      originalTextLength: Number.isFinite(Number(control?.originalTextLength)) ? Number(control.originalTextLength) : null
+    }
   });
 }
 
@@ -576,6 +612,7 @@ function sourceMutationProof({ mutationKind, before = {}, after = {}, control = 
   const sourceRole = trackedKind === 'ingress' ? 'source' : 'assistant';
   const coreRecovery = compactProofRecovery(after, trackedKind);
   const repairDecision = compactProofDecision(after, trackedKind);
+  const chatLengthDelta = Number(after?.chatLength || 0) - Number(before?.chatLength || 0);
   return {
     kind: 'directive.sourceMutationProof.v1',
     mutationKind,
@@ -592,8 +629,8 @@ function sourceMutationProof({ mutationKind, before = {}, after = {}, control = 
     textHashes: {
       original: control?.originalTextHash || null
     },
-    messageRemoved: !after?.targetMessage || after?.targetMessage?.textHash !== before?.targetMessage?.textHash,
-    chatLengthDelta: Number(after?.chatLength || 0) - Number(before?.chatLength || 0),
+    messageRemoved: chatLengthDelta < 0 || !after?.targetMessage || after?.targetMessage?.textHash !== before?.targetMessage?.textHash,
+    chatLengthDelta,
     trackingChanged: Boolean(trackingChangedForProof(before, after, trackedKind)),
     legacyRecoveryDelta: Number(after?.legacyRecoveryCount ?? after?.recoveryCount ?? 0) - Number(before?.legacyRecoveryCount ?? before?.recoveryCount ?? 0),
     promptContextRevisionDelta: Number(after?.promptContextRevision || 0) - Number(before?.promptContextRevision || 0),
@@ -654,14 +691,14 @@ async function liveReport(paths = null) {
     const before = await runtimeSnapshot(page);
     const deletion = await clickDeleteAndConfirm(page, before);
     if (paths?.screenshots) await page.screenshot({ path: path.join(paths.screenshots, 'message-deleted.png'), fullPage: false }).catch(() => null);
-    let waited = await waitForDirectiveRecovery(page, before);
+    let waited = await waitForDirectiveRecovery(page, before, { timeoutMs: HOST_EVENT_GRACE_MS });
     let postActuationReobserve = null;
     if (waited.ok !== true) {
-      postActuationReobserve = await triggerPostActuationReobserve(page, deletion).catch((error) => ({
+      postActuationReobserve = await triggerPostActuationReobserve(page, deletion, before).catch((error) => ({
         ok: false,
         reason: error?.message || String(error)
       }));
-      if (postActuationReobserve?.ok === true) waited = await waitForDirectiveRecovery(page, before);
+      if (postActuationReobserve?.ok === true) waited = await waitForDirectiveRecovery(page, before, { timeoutMs: REOBSERVE_RECOVERY_WAIT_MS });
     }
     const after = waited.snapshot || await runtimeSnapshot(page);
     const status = waited.ok ? 'pass' : 'warning';

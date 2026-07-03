@@ -82,6 +82,44 @@ function uniqueStrings(values = []) {
   return out;
 }
 
+function externalPromptInspectionBundle(raw = null, observedAt = null) {
+  if (!raw || typeof raw !== 'object') return null;
+  const sourceRef = raw.externalPromptEnvironmentRef || raw.ref || null;
+  if (!sourceRef?.hash) return null;
+  const knownExternalPromptKeys = uniqueStrings([
+    ...(Array.isArray(sourceRef.knownExternalPromptKeys) ? sourceRef.knownExternalPromptKeys : []),
+    ...(Array.isArray(raw.knownExternalPromptKeys) ? raw.knownExternalPromptKeys : [])
+  ]);
+  const ref = compactObject({
+    ...cloneJson(sourceRef),
+    kind: sourceRef.kind || 'directive.externalPromptEnvironmentRef.v1',
+    schemaVersion: sourceRef.schemaVersion || 1,
+    hash: sourceRef.hash,
+    status: sourceRef.status || raw.status || 'observed',
+    observedAt: sourceRef.observedAt || raw.observedAt || observedAt || null,
+    knownExternalPromptKeys
+  });
+  const environment = normalizeExternalPromptEnvironment({
+    host: raw.host || 'sillytavern',
+    userHandle: raw.userHandle || raw.user,
+    chatId: raw.chatId,
+    saveId: raw.saveId,
+    campaignId: raw.campaignId,
+    observedAt: ref.observedAt || observedAt,
+    status: ref.status || 'observed',
+    promptKeys: knownExternalPromptKeys,
+    unknownSignals: raw.unavailableSignals || raw.unknownSignals,
+    diagnosticSource: raw.diagnosticSource || 'prompt-adapter-inspection',
+    mergeSource: raw.mergeSource || 'prompt-adapter-inspection'
+  });
+  const targets = raw.externalPromptEnvironmentTargets || raw.externalTargets || summarizeExternalPromptEnvironmentTargets(environment);
+  return {
+    environment,
+    ref,
+    targets: cloneJson(targets)
+  };
+}
+
 function compactBudgetRef(value = {}) {
   return compactObject({
     id: asString(value.id || value.refId || value.sourceFrameId || value.hash),
@@ -743,7 +781,8 @@ export function createLensPromptScheduler({
   async function observeExternalEnvironment({ transactionId = null, environment = null, input = null } = {}) {
     const observedAt = clock();
     const raw = environment || await observeExternalPromptEnvironment(input || {});
-    const normalized = normalizeExternalPromptEnvironment(raw
+    const inspection = externalPromptInspectionBundle(raw, observedAt);
+    const normalized = inspection?.environment || normalizeExternalPromptEnvironment(raw
       ? { observedAt, ...raw }
       : {
         host: 'unknown',
@@ -751,8 +790,8 @@ export function createLensPromptScheduler({
         observedAt,
         unknownSignals: ['external-prompt-environment-unavailable']
       });
-    const ref = createExternalPromptEnvironmentRef(normalized);
-    const targets = summarizeExternalPromptEnvironmentTargets(normalized);
+    const ref = inspection?.ref || createExternalPromptEnvironmentRef(normalized);
+    const targets = inspection?.targets || summarizeExternalPromptEnvironmentTargets(normalized);
     externalEnvironmentRefs.set(ref.hash, ref);
     await appendPromptDiagnostic(transactionId, {
       status: 'externalEnvironmentObserved',

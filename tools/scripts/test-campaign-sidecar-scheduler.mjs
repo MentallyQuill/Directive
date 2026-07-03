@@ -11,11 +11,17 @@ import { parseStateDeltaProposalOutput } from '../../src/jobs/sidecar-output-con
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
-  recordTurnIngress,
+  recordTurnIngress as recordTurnIngressStrict,
   updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+function recordTurnIngress(campaignState, ingress, options = {}) {
+  return recordTurnIngressStrict(campaignState, ingress, {
+    missingCoreWriteMode: 'quarantine',
+    ...options
+  });
+}
 function assertNoTransientCommandBearingReviewTracking(scenario, reviewInputRevision, label) {
   const tracking = scenario.state.runtimeTracking || {};
   const expectedBaseRevision = Math.max(0, Number(reviewInputRevision || 0) - 1);
@@ -433,6 +439,49 @@ function recordSourceIngress(ingressId, {
     coreTransactionId
   });
 }
+
+const sourceSnapshotDemotion = __campaignSidecarSchedulerTestHooks.sourceIngressSnapshot({
+  campaignChatBinding: {
+    saveId: 'save-sidecar-test'
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      ingressLedger: [{
+        id: 'ingress-sidecar-core-projected',
+        hostMessageId: 'host-sidecar-core-projected',
+        chatId: 'campaign-chat',
+        campaignId: 'campaign-sidecar-test',
+        textHash: 'core-source-hash',
+        status: 'committed',
+        outcomeId: 'outcome-sidecar-core-projected',
+        sourceFrameId: 'frame-sidecar-core-projected',
+        coreTransactionId: 'txn-sidecar-core-projected'
+      }],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  },
+  runtimeTracking: {
+    ingressLedger: [{
+      id: 'ingress-sidecar-core-projected',
+      hostMessageId: 'host-sidecar-stale-legacy',
+      chatId: 'campaign-chat',
+      textHash: 'stale-source-hash',
+      status: 'staleLegacy',
+      outcomeId: 'outcome-sidecar-stale-legacy',
+      sourceFrameId: 'frame-sidecar-stale-legacy',
+      coreTransactionId: 'txn-sidecar-stale-legacy'
+    }]
+  }
+}, 'ingress-sidecar-core-projected');
+assert.equal(
+  sourceSnapshotDemotion.coreTransactionId,
+  'txn-sidecar-core-projected',
+  'Sidecar source ingress snapshot must prefer CORE projection over stale raw runtimeTracking.ingressLedger.'
+);
+assert.equal(sourceSnapshotDemotion.hostMessageId, 'host-sidecar-core-projected');
+assert.equal(sourceSnapshotDemotion.outcomeId, 'outcome-sidecar-core-projected');
+assert.equal(sourceSnapshotDemotion.sourceFrameId, 'frame-sidecar-core-projected');
 
 async function runCommandBearingReviewPromptScenario({
   suffix,

@@ -26,6 +26,9 @@ import {
   buildExternalContextFixtureBrowserSnapshot,
   prepareSillyTavernExternalContextFixture
 } from './prepare-sillytavern-external-context-fixture.mjs';
+import {
+  writeExternalContextSummaryArtifact
+} from './soak-sillytavern-campaign-live.mjs';
 
 const args = new Set(process.argv.slice(2));
 const HELP = args.has('--help') || args.has('-h');
@@ -216,6 +219,92 @@ function externalContextFixtureDepthCheck(externalContextProbe, { preBrowser = f
           preBrowser
         }
   );
+}
+
+function uniqueSortedStrings(values = []) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean))]
+    .sort();
+}
+
+function redactionReasons(redactions = []) {
+  return uniqueSortedStrings((Array.isArray(redactions) ? redactions : []).map((entry) => entry?.reason));
+}
+
+function externalContextCaptureFromProbeUser(user = {}) {
+  const environment = user.externalPromptEnvironment || {};
+  const targets = user.targets || {};
+  const promptKeys = uniqueSortedStrings([
+    ...(environment.knownExternalPromptKeys || []),
+    ...(user.hostPromptRegistry?.promptKeys || [])
+  ]);
+  const usefulTargetCount = ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']
+    .filter((targetId) => targets[targetId]?.status === 'browser-confirmed' || targets[targetId]?.level === 'rich-active')
+    .length;
+  return {
+    scriptMessageId: `external-context-fixture:${user.handle || 'unknown'}`,
+    scriptCategory: 'externalContextCompatibility',
+    userHandle: user.handle || null,
+    externalPromptEnvironmentRef: {
+      kind: 'directive.externalPromptEnvironmentRef.v1',
+      hash: user.combinedEnvironmentHash || environment.hash || null,
+      status: environment.status || user.status || null,
+      byteLength: Number.isFinite(Number(environment.byteLength)) ? Number(environment.byteLength) : null
+    },
+    knownExternalPromptKeys: promptKeys,
+    directiveOwnedPromptKeys: promptKeys.filter((key) => /^directive\./i.test(key)),
+    finalHostPromptMayIncludeExternal: usefulTargetCount > 0 || promptKeys.some((key) => !/^directive\./i.test(key)),
+    unavailableSignals: user.unavailableSignals || [],
+    redactionReasons: redactionReasons(user.redactions || environment.redactions || []),
+    externalPromptEnvironmentTargets: {
+      stLorebooks: {
+        status: targets.stLorebooks?.status || null,
+        level: targets.stLorebooks?.level || null,
+        evidence: targets.stLorebooks?.evidence || [],
+        active: environment.worldInfo?.active === true,
+        enabled: environment.worldInfo?.enabled === true,
+        chatBound: Boolean(environment.worldInfo?.chatBoundName),
+        promptPositions: environment.worldInfo?.promptPositions || []
+      },
+      memoryBooks: {
+        status: targets.memoryBooks?.status || null,
+        level: targets.memoryBooks?.level || null,
+        evidence: targets.memoryBooks?.evidence || [],
+        enabled: environment.memoryBooks?.enabled === true,
+        activeBookName: environment.memoryBooks?.activeBookName || null,
+        rangeDiagnostics: environment.memoryBooks?.rangeDiagnostics || null,
+        riskyModes: environment.memoryBooks?.riskyModes || null
+      },
+      summaryception: {
+        status: targets.summaryception?.status || null,
+        level: targets.summaryception?.level || null,
+        evidence: targets.summaryception?.evidence || [],
+        enabled: environment.summaryception?.enabled === true,
+        promptKeyActive: environment.summaryception?.promptKeyActive === true,
+        layerCount: Number(environment.summaryception?.layerCount || 0),
+        ghostedCount: Number(environment.summaryception?.ghostedCount || 0),
+        staleness: environment.summaryception?.staleness || null
+      },
+      vectFox: {
+        status: targets.vectFox?.status || null,
+        level: targets.vectFox?.level || null,
+        evidence: targets.vectFox?.evidence || [],
+        enabled: environment.vectFox?.enabled === true,
+        promptKeys: environment.vectFox?.promptKeys || targets.vectFox?.promptKeys || [],
+        generationInterceptorActive: environment.vectFox?.generationInterceptorActive === true,
+        backendDiagnostics: environment.vectFox?.backendDiagnostics || null
+      }
+    }
+  };
+}
+
+function writeReadinessExternalContextSummary(report = {}) {
+  if (!WRITE_ARTIFACTS || !EXTERNAL_CONTEXT_COMPAT || !report?.externalContextProbe) {
+    return { status: 'skipped', reason: 'external-context-summary-not-requested' };
+  }
+  const captures = (report.externalContextProbe.users || []).map(externalContextCaptureFromProbeUser);
+  return writeExternalContextSummaryArtifact({ report, captures });
 }
 
 function upsertCheck(checks, entry) {
@@ -1354,6 +1443,7 @@ async function main() {
 
   if (WRITE_ARTIFACTS) {
     writeJsonFile(`${artifacts.hostExtensions}/external-context-probe.json`, report.externalContextProbe);
+    report.externalContextSummary = writeReadinessExternalContextSummary(report);
     writeJsonFile(artifacts.report, report);
     writeTextFile(artifacts.summary, summaryMarkdown(report));
     appendJsonLine(artifacts.liveLog, {

@@ -7,6 +7,12 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+const coreCheckpointSnapshot = {
+  campaign: { id: 'campaign-scene-reconciliation', status: 'active' },
+  mission: { activePhaseId: 'before-revision' },
+  commandLog: { entries: [] }
+};
+
 let state = {
   campaign: {
     id: 'campaign-scene-reconciliation',
@@ -14,7 +20,8 @@ let state = {
     status: 'active'
   },
   campaignChatBinding: {
-    chatId: 'chat-recon'
+    chatId: 'chat-recon',
+    saveId: 'save-scene-recon'
   },
   commandLog: {
     entries: []
@@ -32,10 +39,15 @@ let state = {
       {
         turnId: 'turn-1',
         outcomeId: 'outcome-1',
-        snapshotBefore: {
-          campaign: { id: 'campaign-scene-reconciliation', status: 'active' },
-          mission: { activePhaseId: 'before-revision' },
-          commandLog: { entries: [] }
+        snapshotBeforeRetained: true,
+        coreCheckpointRef: {
+          kind: 'directive.coreMechanicsCheckpointRef.v1',
+          campaignId: 'campaign-scene-reconciliation',
+          saveId: 'save-scene-recon',
+          checkpointId: 'scene-recalc-checkpoint-1',
+          layout: 'core',
+          sourceKind: 'coreStoreV2.checkpoint',
+          sourceRevision: 3
         }
       }
     ]
@@ -94,6 +106,8 @@ const gateway = createStateDeltaGateway({
 
 let idSequence = 0;
 const sourcePreflightCalls = [];
+const replayDirectorCalls = [];
+const checkpointLoadCalls = [];
 const service = createSceneReconciliationService({
   getCampaignState: () => state,
   stateDeltaGateway: gateway,
@@ -128,6 +142,25 @@ const service = createSceneReconciliationService({
         observedAt: '2026-06-22T12:00:00.000Z'
       };
     }
+  },
+  async loadCoreCheckpointState(input = {}) {
+    checkpointLoadCalls.push(cloneJson(input));
+    return {
+      checkpoint: {
+        campaignState: cloneJson(coreCheckpointSnapshot),
+        sourceKind: 'coreStoreV2.checkpoint'
+      },
+      sourceKind: 'coreStoreV2.checkpoint',
+      sourceRevision: 3
+    };
+  },
+  async replayDirector(input = {}) {
+    replayDirectorCalls.push(cloneJson(input));
+    return {
+      ok: true,
+      basePhase: input.snapshotBefore?.mission?.activePhaseId || null,
+      checkpointId: input.coreCheckpointRef?.checkpointId || null
+    };
   },
   idFactory(prefix) {
     idSequence += 1;
@@ -189,8 +222,32 @@ const recalc = await service.recalculateFromHere({ message: { hostMessageId: '1'
 assert.equal(recalc.ok, true);
 assert.equal(recalc.outcomeId, 'outcome-1');
 assert.equal(recalc.hasSnapshotBefore, true);
+assert.equal(checkpointLoadCalls.length, 1);
+assert.equal(checkpointLoadCalls[0].coreCheckpointRef.checkpointId, 'scene-recalc-checkpoint-1');
+assert.equal(replayDirectorCalls.length, 1);
+assert.equal(replayDirectorCalls[0].snapshotBefore.mission.activePhaseId, 'before-revision');
+assert.equal(replayDirectorCalls[0].coreCheckpointRef.checkpointId, 'scene-recalc-checkpoint-1');
+assert.equal(recalc.replayPreview.basePhase, 'before-revision');
+assert.equal(recalc.sceneReconciliation.recalculationPreviews.at(-1).coreCheckpointRef.checkpointId, 'scene-recalc-checkpoint-1');
+assert.equal(recalc.sceneReconciliation.recalculationPreviews.at(-1).snapshotSourceKind, 'coreStoreV2.checkpoint');
 assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.action, 'recalculateFromHere');
 assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.destructive, true);
+const stateAfterCoreRecalc = cloneJson(state);
+const loadCallsAfterCoreRecalc = checkpointLoadCalls.length;
+const replayCallsAfterCoreRecalc = replayDirectorCalls.length;
+state.turnLedger.entries[0] = {
+  turnId: 'turn-1',
+  outcomeId: 'outcome-1',
+  snapshotBefore: cloneJson(coreCheckpointSnapshot)
+};
+const oldSnapshotRecalc = await service.recalculateFromHere({ message: { hostMessageId: '1' } });
+assert.equal(oldSnapshotRecalc.ok, false);
+assert.equal(oldSnapshotRecalc.status, 'stopped');
+assert.equal(oldSnapshotRecalc.hasSnapshotBefore, false);
+assert.equal(oldSnapshotRecalc.sceneReconciliation.recalculationPreviews.at(-1).coreCheckpointRef, null);
+assert.equal(checkpointLoadCalls.length, loadCallsAfterCoreRecalc, 'Old snapshot-only recalc must not load CORE without a ref.');
+assert.equal(replayDirectorCalls.length, replayCallsAfterCoreRecalc, 'Old snapshot-only recalc must not call replayDirector.');
+state = stateAfterCoreRecalc;
 
 await service.setStart({ message: { hostMessageId: '1' } });
 await service.setEnd({ message: { hostMessageId: '3' } });
@@ -356,7 +413,13 @@ assert.equal(blockedState.runtimeTracking.sceneReconciliation.lastResult.status,
 assert.equal(JSON.stringify(blockedState.runtimeTracking.sceneReconciliation.lastResult).includes('Engineering reached the cargo bay'), false);
 assert.equal(JSON.stringify(blockedState.runtimeTracking.sceneReconciliation.runs).includes('Engineering reached the cargo bay'), false);
 
-function createSettlementFixture({ status, suffix }) {
+function createSettlementFixture({
+  status,
+  suffix,
+  directiveRuntimeEvidence = null,
+  runtimeTrackingOverride = null,
+  turnLedgerEntries = null
+}) {
   let fixtureState = {
     campaign: {
       id: `campaign-scene-reconciliation-${suffix}`,
@@ -402,6 +465,18 @@ function createSettlementFixture({ status, suffix }) {
       responseLedger: []
     }
   };
+  if (directiveRuntimeEvidence) {
+    fixtureState.directiveRuntimeEvidence = cloneJson(directiveRuntimeEvidence);
+  }
+  if (runtimeTrackingOverride) {
+    fixtureState.runtimeTracking = {
+      ...fixtureState.runtimeTracking,
+      ...cloneJson(runtimeTrackingOverride)
+    };
+  }
+  if (turnLedgerEntries) {
+    fixtureState.turnLedger.entries = cloneJson(turnLedgerEntries);
+  }
   const gatewayCore = createStateDeltaGateway({
     getState: () => fixtureState,
     setState: (next) => { fixtureState = cloneJson(next); },
@@ -499,6 +574,64 @@ assert.deepEqual(
 assert.equal(acceptedFixture.getState().commandLog.entries.length, 1, 'SRE accepted range should allow safe reconciliation apply');
 assert.equal(JSON.stringify(acceptedResult.sourceSettlement).includes('Engineering reached the cargo bay'), false);
 assert.equal(JSON.stringify(acceptedFixture.getState().runtimeTracking.sceneReconciliation.runs).includes('Engineering reached the cargo bay'), false);
+
+const coreAuthorityFixture = createSettlementFixture({
+  status: 'accepted',
+  suffix: 'core-authority',
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      ingressLedger: [{
+        id: 'core-ingress-scene-reconciliation',
+        hostMessageId: '1',
+        chatId: 'chat-recon',
+        turnId: 'turn-core-authority',
+        outcomeId: 'outcome-core-authority',
+        coreTransactionId: 'core-txn-authority'
+      }],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  },
+  runtimeTrackingOverride: {
+    ingressLedger: [{
+      id: 'stale-legacy-ingress-scene-reconciliation',
+      hostMessageId: '1',
+      chatId: 'chat-recon',
+      turnId: 'turn-stale-legacy',
+      outcomeId: 'outcome-stale-legacy',
+      coreTransactionId: 'stale-legacy-txn'
+    }],
+    responseLedger: [{
+      id: 'stale-legacy-response-scene-reconciliation',
+      hostMessageId: '1',
+      chatId: 'chat-recon',
+      outcomeId: 'outcome-stale-response',
+      coreTransactionId: 'stale-response-txn'
+    }]
+  },
+  turnLedgerEntries: [{
+    turnId: 'turn-core-authority',
+    outcomeId: 'outcome-core-authority',
+    snapshotBefore: {
+      campaign: { id: 'campaign-scene-reconciliation-core-authority', status: 'active' },
+      mission: { activePhaseId: 'before-core-authority' },
+      commandLog: { entries: [] }
+    }
+  }]
+});
+const coreAuthorityResult = await coreAuthorityFixture.service.reconcileMessage({ message: { hostMessageId: '1' } });
+assert.equal(coreAuthorityResult.ok, true);
+assert.equal(coreAuthorityFixture.calls.settlement.length, 1);
+assert.equal(
+  coreAuthorityFixture.calls.settlement[0].transactionId,
+  'core-txn-authority',
+  'Scene Reconciliation SRE settlement must use CORE ingress projection transaction instead of stale raw runtimeTracking.ingressLedger.'
+);
+assert.equal(
+  coreAuthorityFixture.calls.settlement[0].transactionId === 'stale-legacy-txn',
+  false,
+  'Scene Reconciliation must not let stale raw ingress transaction drive source settlement when CORE projections exist.'
+);
 
 const staleFixture = createSettlementFixture({ status: 'staleBeforeApply', suffix: 'stale' });
 const staleResult = await staleFixture.service.reconcileMessage({ message: { hostMessageId: '1' } });

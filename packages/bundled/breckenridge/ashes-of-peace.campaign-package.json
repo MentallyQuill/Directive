@@ -66,8 +66,8 @@
     },
     "travelContinuity": {
       "marsDepartureOffsetDaysBeforeOpening": 25,
-      "openingTransitMode": "The Breckenridge has been underway from the Mars/Utopia Planitia refit context for twenty-five days before the player joins, using a conservative warp flight plan through Federation territory.",
-      "openingImpulseContext": "At the opening, the ship drops to impulse at a charted transfer waypoint only to receive the player's long-range Starfleet personnel shuttle.",
+      "openingTransitMode": "The Breckenridge has been underway from the Mars/Utopia Planitia refit context for twenty-five days before the player joins, using a conservative warp flight plan through Federation territory before the opening handoff.",
+      "openingImpulseContext": "At the opening, the ship drops to impulse at a charted transfer waypoint to receive the player's long-range Starfleet personnel shuttle. During the shuttle approach, landing, disembarkation, and immediate handoff scene, do not depict the Breckenridge holding course at warp, streaking stars at warp, or warp-speed motion; use impulse, station-keeping, local starfield, or resumed-warp only after the handoff scene clearly transitions.",
       "openingShuttleApproach": "The player's shuttle approaches from astern and aligns with shuttlebay two in the aft section between the swept nacelle pylons. For this opening arrival, the player disembarks through Shuttlebay 2; do not route, land, lower, or berth the player's shuttle on Shuttlebay 1, and do not depict the Intrepid-class Breckenridge as having a saucer-underside shuttlebay.",
       "baselineRemainingTravel": "The player joins with a baseline ten-day prelude remaining before the Asterion Reach.",
       "baselineRemainingDistance": "The remaining prelude represents roughly 5.5 to 6 light-years of travel in stable Directive continuity.",

@@ -314,6 +314,17 @@ export function isFactKnownToActor(fact = {}, actorId = null) {
 export function isFactAllowedForSourceFrame(fact = {}, sourceFrame = null) {
   if (!isFactActorScoped(fact)) return true;
   const scope = factKnowledgeScope(fact);
+  const subject = normalizeActorId(fact.subject || '');
+  const explicitKnowledgeIds = new Set([
+    ...scope.knownBy,
+    ...scope.witnessedBy,
+    ...scope.subjectIds.filter((actorId) => actorId !== subject)
+  ]);
+  if (explicitKnowledgeIds.size > 0) {
+    const relevant = relevantKnowledgeIdsForSourceFrame(sourceFrame);
+    if (!relevant.allIds.length) return false;
+    return relevant.allIds.some((actorId) => explicitKnowledgeIds.has(actorId));
+  }
   if ([CONTINUITY_DISCLOSURE_STATE.public, CONTINUITY_DISCLOSURE_STATE.shared].includes(scope.disclosureState)) return true;
   const relevant = relevantKnowledgeIdsForSourceFrame(sourceFrame);
   if (!relevant.allIds.length) return false;

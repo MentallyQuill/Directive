@@ -212,8 +212,17 @@ const terminalInteraction = {
     finalCampaignBandCandidate: 'Partial Success',
     reason: 'The Breckenridge is lost but the Reach objective may still be saved.',
     checkpoint: {
-      source: 'preOutcomeSnapshot',
-      retained: true
+      source: 'coreCheckpoint',
+      retained: true,
+      coreCheckpointRef: {
+        kind: 'directive.coreMechanicsCheckpointRef.v1',
+        campaignId: 'campaign-end-condition-ui-test',
+        saveId: 'save-end-condition-ui-test',
+        checkpointId: 'core-checkpoint-end-condition-ui-test',
+        layout: 'core',
+        sourceKind: 'coreStoreV2.checkpoint',
+        sourceRevision: 1
+      }
     },
     continuationFrameIds: ['survivors-after-breck-loss']
   }
@@ -286,7 +295,7 @@ assert.match(missionText, /Directive Checkpoint/);
 assert.match(missionText, /Terminal decision/);
 assert.match(missionText, /Great Failure/);
 assert.match(missionText, /Partial Success/);
-assert.match(missionText, /PreOutcomeSnapshot/);
+assert.match(missionText, /CoreCheckpoint/);
 assert.match(missionText, /Saved Terminal Branches\s+1/);
 assert.match(missionText, /The Breckenridge is lost but the Reach objective may still be saved/);
 assert.doesNotMatch(missionText, /Revise Order/);

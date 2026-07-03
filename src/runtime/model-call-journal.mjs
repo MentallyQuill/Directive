@@ -2,6 +2,7 @@ import {
   initializeCampaignRuntimeTracking,
   recordModelCallEvent
 } from './state-delta-gateway.mjs';
+import { readRuntimeCoreProjections } from './runtime-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -13,15 +14,37 @@ function timestampFromNow(now) {
   return new Date().toISOString();
 }
 
+function modelCallSequenceFromId(id) {
+  const match = /^model-call:(\d+):/.exec(String(id || ''));
+  const sequence = match ? Number(match[1]) : 0;
+  return Number.isFinite(sequence) ? sequence : 0;
+}
+
 export function maxModelCallEventSequence(state = null) {
   const resumeSequence = Number(state?.runtimeResume?.modelCallEventSequence || 0);
-  const journal = state?.runtimeTracking?.modelCallJournal;
-  if (!Array.isArray(journal)) return Number.isFinite(resumeSequence) ? resumeSequence : 0;
+  const journal = [
+    ...modelCallDiagnosticsFromCoreProjections(state),
+    ...(Array.isArray(state?.runtimeTracking?.modelCallJournal) ? state.runtimeTracking.modelCallJournal : [])
+  ];
+  if (!journal.length) return Number.isFinite(resumeSequence) ? resumeSequence : 0;
   return journal.reduce((max, entry) => {
-    const match = /^model-call:(\d+):/.exec(String(entry?.id || ''));
-    const sequence = match ? Number(match[1]) : 0;
-    return Number.isFinite(sequence) && sequence > max ? sequence : max;
+    const sequence = modelCallSequenceFromId(entry?.id);
+    return sequence > max ? sequence : max;
   }, Number.isFinite(resumeSequence) ? resumeSequence : 0);
+}
+
+function modelCallDiagnosticsFromCoreProjections(state = null) {
+  const projections = readRuntimeCoreProjections(state || {});
+  return Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
+}
+
+function modelCallIdsForDedupe(state = null) {
+  return new Set([
+    ...modelCallDiagnosticsFromCoreProjections(state).map((entry) => entry?.id || entry?.modelCallId),
+    ...(Array.isArray(state?.runtimeTracking?.modelCallJournal)
+      ? state.runtimeTracking.modelCallJournal.map((entry) => entry?.id || entry?.modelCallId)
+      : [])
+  ].filter(Boolean));
 }
 
 export function gameplayStateFingerprint(state) {
@@ -43,14 +66,16 @@ export function createRuntimeModelCallJournal({
   const pendingModelCallEvents = [];
   let coreDiagnosticQueue = Promise.resolve();
 
-  function enqueueCoreDiagnostic(modelCallEvent = {}) {
+  function coreDiagnosticTargetForEvent(modelCallEvent = {}) {
     if (typeof appendCoreDiagnostic !== 'function' || typeof resolveCoreDiagnosticTarget !== 'function') return;
-    let target = null;
     try {
-      target = resolveCoreDiagnosticTarget(modelCallEvent);
+      return resolveCoreDiagnosticTarget(modelCallEvent) || null;
     } catch {
-      target = null;
+      return null;
     }
+  }
+
+  function enqueueCoreDiagnostic(modelCallEvent = {}, target = null) {
     if (!target?.transactionId) return;
     const diagnosticEvent = {
       type: 'modelCall',
@@ -78,6 +103,21 @@ export function createRuntimeModelCallJournal({
       .catch(() => null);
   }
 
+  function recordResumeCursor(state, modelCallEvent = {}) {
+    if (!state) return state;
+    const next = initializeCampaignRuntimeTracking(state);
+    const sequence = modelCallSequenceFromId(modelCallEvent.id);
+    next.runtimeResume = {
+      ...(next.runtimeResume || {}),
+      kind: next.runtimeResume?.kind || 'directive.runtimeResumeCursor.v1',
+      modelCallEventSequence: Math.max(
+        maxModelCallEventSequence(next),
+        Number.isFinite(sequence) ? sequence : 0
+      )
+    };
+    return next;
+  }
+
   function synchronize(state = getCampaignState()) {
     modelCallEventSequence = Math.max(modelCallEventSequence, maxModelCallEventSequence(state));
   }
@@ -86,8 +126,12 @@ export function createRuntimeModelCallJournal({
     if (!state || pendingModelCallEvents.length === 0) return state;
     let next = initializeCampaignRuntimeTracking(state);
     synchronize(next);
-    const seen = new Set((next.runtimeTracking.modelCallJournal || []).map((entry) => entry.id));
+    const seen = modelCallIdsForDedupe(next);
     for (const event of pendingModelCallEvents) {
+      if (event.coreDiagnosticPrimary === true) {
+        next = recordResumeCursor(next, event);
+        continue;
+      }
       if (seen.has(event.id)) continue;
       next = recordModelCallEvent(next, event);
       seen.add(event.id);
@@ -104,12 +148,16 @@ export function createRuntimeModelCallJournal({
       campaignRevision: campaignState?.runtimeTracking?.revision || 0,
       recordedAt: timestampFromNow(now)
     };
+    const coreDiagnosticTarget = coreDiagnosticTargetForEvent(modelCallEvent);
+    if (coreDiagnosticTarget?.transactionId) {
+      modelCallEvent.coreDiagnosticPrimary = true;
+    }
     pendingModelCallEvents.push(modelCallEvent);
     if (pendingModelCallEvents.length > 200) pendingModelCallEvents.shift();
     if (campaignState) {
       setCampaignState(applyPending(campaignState));
     }
-    enqueueCoreDiagnostic(modelCallEvent);
+    enqueueCoreDiagnostic(modelCallEvent, coreDiagnosticTarget);
     return cloneJson(modelCallEvent);
   }
 

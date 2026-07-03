@@ -231,6 +231,7 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
   const transitLocationIndex = asArray(packageData?.world?.locations).findIndex((entry) => entry?.id === 'breckenridge-in-transit');
   const transitLocation = transitLocationIndex >= 0 ? packageData.world.locations[transitLocationIndex] : null;
   const shuttleApproach = packageData?.ship?.travelContinuity?.openingShuttleApproach || null;
+  const openingImpulseContext = packageData?.ship?.travelContinuity?.openingImpulseContext || null;
   const openingQuestIndex = asArray(packageData?.questTemplates?.templates).findIndex((entry) => (
     /final ten days of transit/i.test(String(entry?.playerSummary || entry?.summary || ''))
   ));
@@ -249,6 +250,7 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
         relationshipStart,
         finalTransitSummary,
         shuttlePhase?.summary,
+        openingImpulseContext,
         shuttleApproach,
         underwayFact?.summary,
         'The generation must not claim the Breckenridge has simply been sitting at impulse for days before the handoff.'
@@ -265,6 +267,7 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
       ],
       sourcePointers: [
         sourcePointer(packagePath, jsonPointer('crew', 'relationshipModel', 'startingFrame'), 'crew starting frame'),
+        openingImpulseContext ? sourcePointer(packagePath, jsonPointer('ship', 'travelContinuity', 'openingImpulseContext'), 'opening impulse context') : null,
         shuttleApproach ? sourcePointer(packagePath, jsonPointer('ship', 'travelContinuity', 'openingShuttleApproach'), 'opening shuttle approach') : null,
         transitLocationIndex >= 0 ? sourcePointer(packagePath, jsonPointer('world', 'locations', transitLocationIndex, 'playerSafeSummary'), 'current transit location player-safe summary') : null,
         openingQuestIndex >= 0 ? sourcePointer(packagePath, jsonPointer('questTemplates', 'templates', openingQuestIndex, 'playerSummary'), 'opening quest player summary') : null,
@@ -275,6 +278,7 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
         relationshipStart,
         finalTransitSummary,
         shuttlePhase?.summary,
+        openingImpulseContext,
         shuttleApproach,
         underwayFact?.summary,
         handoffFact?.summary
@@ -312,6 +316,11 @@ function ashesSpecificCanaries({ campaignSlug, packagePath, packageData, mission
         'three days out of the refit cradle',
         '3 days out of the refit cradle',
         'first crew contact happened only moments ago',
+        'holds course at warp',
+        'holding course at warp',
+        'streaking stars at warp',
+        'steady field of streaking stars at warp',
+        'during the shuttle handoff at warp',
         'saucer-underside shuttlebay',
         'underside of the saucer',
         'Bronn did not serve as acting XO during transit'

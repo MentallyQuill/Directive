@@ -15,6 +15,7 @@ import {
   threadSemanticFingerprint,
   THREAD_TYPES
 } from '../threads/thread-ledger.mjs';
+import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 
 const ROLE_ID = 'sceneHandshakeSettler';
@@ -394,6 +395,7 @@ export function buildSceneHandshakeSnapshot({
 } = {}) {
   const state = campaignState || {};
   const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
+  const runtimeLedgerView = createRuntimeLedgerView(state);
   const previousVariant = selectedAssistantVariant(previousAssistantMessage);
   const previousText = previousVariant.text.slice(0, MAX_PREVIOUS_TEXT);
   const playerText = sourceText(currentPlayerMessage).slice(0, MAX_PLAYER_TEXT);
@@ -485,7 +487,7 @@ export function buildSceneHandshakeSnapshot({
     safety: {
       currentChatGuardStatus: 'clean',
       saveGuardStatus: 'clean',
-      pendingRecoveryCount: asArray(state.runtimeTracking?.recoveryJournal).filter((entry) => !['resolved', 'applied'].includes(entry?.status)).length,
+      pendingRecoveryCount: asArray(runtimeLedgerView.recoveryJournal).filter((entry) => !['resolved', 'applied'].includes(entry?.status)).length,
       pendingSceneReconciliationCount: asArray(state.runtimeTracking?.sceneReconciliation?.pending).length,
       staleSourceWarnings: []
     }

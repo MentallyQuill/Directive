@@ -1777,6 +1777,8 @@ export async function compareServedExtension({
     'src/hosts/sillytavern/bootstrap.js',
     'src/hosts/sillytavern/runtime-bridge.mjs',
     'src/runtime/runtime-app.mjs',
+    'src/runtime/chat-turn-orchestrator.mjs',
+    'src/runtime/runtime-ledger-view.mjs',
     'src/runtime/message-reconciler.mjs',
     'src/runtime/repair-runtime.mjs',
     ...files
@@ -1840,7 +1842,8 @@ export async function directiveRuntimeSnapshot(page, {
   extensionPath = DEFAULT_DIRECTIVE_EXTENSION_PATH
 } = {}) {
   const modulePath = `${normalizeExtensionPath(extensionPath)}/src/hosts/sillytavern/runtime-bridge.mjs`;
-  return page.evaluate(async ({ modulePath: bridgeModulePath }) => {
+  const ledgerModulePath = `${normalizeExtensionPath(extensionPath)}/src/runtime/runtime-ledger-view.mjs`;
+  return page.evaluate(async ({ modulePath: bridgeModulePath, ledgerModulePath: runtimeLedgerViewModulePath }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const compactText = (value, max = 180) => {
       const normalized = String(value || '').replace(/\s+/g, ' ').trim();
@@ -1856,8 +1859,14 @@ export async function directiveRuntimeSnapshot(page, {
     const context = globalThis.SillyTavern?.getContext?.() || null;
     let bridge = {};
     let view = null;
+    let ledgerTools = null;
     try {
       const mod = await import(bridgeModulePath);
+      try {
+        ledgerTools = await import(runtimeLedgerViewModulePath);
+      } catch {
+        ledgerTools = null;
+      }
       bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
       view = bridge.runtimeApp?.getCurrentView
         ? await bridge.runtimeApp.getCurrentView({ tabId: 'mission' })
@@ -1885,11 +1894,25 @@ export async function directiveRuntimeSnapshot(page, {
     });
     const tracking = view?.chatNative?.tracking || {};
     const runtimeTracking = view?.campaignState?.runtimeTracking || {};
+    const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      : null;
+    const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
+      ? ledgerTools.readRuntimeCoreProjections(view?.campaignState || {})
+      : {};
     const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections
       || {};
-    const recoveryJournal = Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal : [];
+    const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal)
+      ? runtimeLedgerView.recoveryJournal
+      : (Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal : []);
     const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
+    const coreSidecars = [
+      ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
+      ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
+    ];
+    const legacyRecoveryCount = Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal.length : 0;
+    const legacySidecarCount = Array.isArray(runtimeTracking.sidecarJournal) ? runtimeTracking.sidecarJournal.length : 0;
     return {
       bridgeAvailable: Boolean(bridge.runtimeApp),
       hostAvailable: Boolean(bridge.host),
@@ -1904,12 +1927,20 @@ export async function directiveRuntimeSnapshot(page, {
       pendingInteractionCount: (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved').length,
       modelCallCount: view?.chatNative?.modelCalls?.length || view?.campaignState?.runtimeTracking?.modelCallJournal?.length || 0,
       modelCallRoles: (view?.chatNative?.modelCalls || view?.campaignState?.runtimeTracking?.modelCallJournal || []).map((entry) => entry.roleId).filter(Boolean),
-      sidecarCount: view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
+      sidecarCount: coreSidecars.length || legacySidecarCount,
+      legacySidecarCount,
       recoveryCount: recoveryJournal.length,
-      legacyRecoveryCount: recoveryJournal.length,
+      legacyRecoveryCount,
       coreRecoveryCount: coreRecoveryJournal.length,
       latestCoreRecovery: clone(coreRecoveryJournal.at(-1) || null),
       recentCoreRecoveryJournal: clone(coreRecoveryJournal.slice(-5)),
+      runtimeLedgerView: runtimeLedgerView ? {
+        coreProjectionAvailable: runtimeLedgerView.coreProjectionAvailable === true,
+        authoritative: runtimeLedgerView.authoritative === true,
+        ingressCount: Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger.length : 0,
+        responseCount: Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger.length : 0,
+        recoveryCount: Array.isArray(runtimeLedgerView.recoveryJournal) ? runtimeLedgerView.recoveryJournal.length : 0
+      } : null,
       sceneReconciliation: clone(view?.campaignState?.runtimeTracking?.sceneReconciliation || null),
       commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0,
       turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
@@ -1920,7 +1951,7 @@ export async function directiveRuntimeSnapshot(page, {
         status: view?.campaignState?.campaign?.status || null
       }
     };
-  }, { modulePath });
+  }, { modulePath, ledgerModulePath });
 }
 
 export async function waitForSillyTavernIdle(page, {

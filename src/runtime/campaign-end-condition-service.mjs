@@ -308,75 +308,13 @@ function coreCheckpointRefFromTurnLedger(state, detection = {}, { campaignId = n
   return normalizeExistingCoreCheckpointRef(ref, { campaignId, saveId });
 }
 
-function retainedTerminalSnapshotRecord(state, decision) {
-  const outcomeId = decision?.checkpoint?.outcomeId || decision?.outcomeId || null;
-  if (!outcomeId) return null;
-  const entry = (state.turnLedger?.entries || []).find((item) => item?.outcomeId === outcomeId);
-  if (entry?.snapshotBefore) {
-    return {
-      snapshot: cloneJson(entry.snapshotBefore),
-      sourceKind: 'turnLedger.snapshotBefore',
-      sourceRevision: Number.isFinite(Number(entry.revision)) ? Number(entry.revision) : null
-    };
-  }
-  const history = Array.isArray(state.runtimeTracking?.history) ? state.runtimeTracking.history : [];
-  const outcomeEntry = [...history].reverse().find((item) => item?.outcomeId === outcomeId && item?.snapshot);
-  if (outcomeEntry?.snapshot) {
-    return {
-      snapshot: cloneJson(outcomeEntry.snapshot),
-      sourceKind: 'runtimeTracking.history.outcomeSnapshot',
-      sourceRevision: Number.isFinite(Number(outcomeEntry.revision)) ? Number(outcomeEntry.revision) : null
-    };
-  }
-  return null;
-}
-
 async function writeTerminalReplayCheckpointRecord(state, detection, { writeTerminalCheckpoint = null } = {}) {
   const binding = state.campaignChatBinding || {};
   const campaignId = detection?.checkpoint?.campaignId || binding.campaignId || state.campaign?.id || null;
   const saveId = detection?.checkpoint?.saveId || binding.saveId || null;
   const existingCoreCheckpointRef = coreCheckpointRefFromTurnLedger(state, detection, { campaignId, saveId });
   if (existingCoreCheckpointRef) return existingCoreCheckpointRef;
-  if (typeof writeTerminalCheckpoint !== 'function') return null;
-  if (!campaignId || !saveId) return null;
-  const snapshotRecord = retainedTerminalSnapshotRecord(state, {
-    id: detection.decisionId || null,
-    conditionId: detection.conditionId || null,
-    turnId: detection.turnId || null,
-    outcomeId: detection.outcomeId || null,
-    checkpoint: detection.checkpoint || null
-  });
-  const snapshot = snapshotRecord?.snapshot || null;
-  if (!snapshot) return null;
-  const checkpointId = terminalCheckpointId(detection);
-  const checkpoint = {
-    kind: 'directive.coreTerminalReplayCheckpoint.v1',
-    type: 'terminalOutcomeReplay',
-    campaignId,
-    saveId,
-    checkpointId,
-    decisionId: detection.decisionId || null,
-    conditionId: detection.conditionId || null,
-    turnId: detection.turnId || null,
-    outcomeId: detection.outcomeId || null,
-    sourceKind: snapshotRecord.sourceKind || null,
-    sourceRevision: numericRevision(snapshotRecord.sourceRevision),
-    snapshotHash: hashStableJson(snapshot),
-    campaignState: cloneJson(snapshot)
-  };
-  const writeResult = await writeTerminalCheckpoint({
-    campaignId,
-    saveId,
-    checkpointId,
-    layout: 'core',
-    checkpoint
-  });
-  return normalizeCoreCheckpointRef(writeResult, {
-    campaignId,
-    saveId,
-    checkpointId,
-    sourceRevision: snapshotRecord.sourceRevision
-  });
+  return null;
 }
 
 function numericRevision(value) {

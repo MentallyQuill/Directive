@@ -272,6 +272,93 @@ for (const marker of [
   assert.equal(serializedV2.includes(marker), false, `v2 import artifacts must not include ${marker}`);
 }
 
+const projectedLegacySave = createLegacySave();
+projectedLegacySave.id = 'save-import-v1-projected';
+projectedLegacySave.metadata.campaignId = 'campaign-import-v1-projected';
+projectedLegacySave.payload.campaignState.campaign.id = 'campaign-import-v1-projected';
+projectedLegacySave.payload.campaignState.runtimeTracking.directiveRuntimeEvidence = {
+  coreStoreReadProjections: {
+    ingressLedger: [{
+      id: 'core-import-ingress',
+      hostMessageId: 'core-import-player',
+      status: 'classified',
+      textHash: 'hash-core-import-player'
+    }],
+    responseLedger: [{
+      id: 'core-import-response',
+      hostMessageId: 'core-import-assistant',
+      responseKind: 'hostContinue',
+      status: 'posted'
+    }],
+    recoveryJournal: [{
+      id: 'core-import-recovery',
+      transactionId: 'txn-core-import',
+      status: 'resolved'
+    }]
+  }
+};
+projectedLegacySave.payload.campaignState.runtimeTracking.ingressLedger = [
+  { id: 'silent-import-ingress', hostMessageId: 'silent-import-player', status: 'old' },
+  {
+    id: 'tagged-import-ingress',
+    hostMessageId: 'tagged-import-player',
+    status: 'old',
+    authority: 'compatibilityProjectionUnavailable',
+    projectionSource: 'runtimeTrackingLegacy',
+    compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'missingCoreProjection' }
+  }
+];
+projectedLegacySave.payload.campaignState.runtimeTracking.responseLedger = [
+  { id: 'silent-import-response', hostMessageId: 'silent-import-assistant', status: 'old' },
+  {
+    id: 'tagged-import-response',
+    hostMessageId: 'tagged-import-assistant',
+    responseKind: 'hostContinue',
+    status: 'old',
+    authority: 'compatibilityProjectionUnavailable',
+    projectionSource: 'runtimeTrackingLegacy',
+    compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'missingCoreProjection' }
+  }
+];
+projectedLegacySave.payload.campaignState.runtimeTracking.recoveryJournal = [
+  { id: 'silent-import-recovery', status: 'old' }
+];
+const projectedStorage = createMemoryStorage();
+const projectedAdapter = createLogicalStorageAdapter({ storage: projectedStorage, hostId: 'fake' });
+const projectedImported = await importCampaignSaveRecordToV2(projectedAdapter, projectedLegacySave, {
+  now: '2026-06-28T14:16:00.000Z'
+});
+const projectedHostMap = await readV2ArtifactRef(projectedAdapter, projectedImported.refs.hostMap);
+assert.deepEqual(
+  projectedHostMap.rows.map((row) => row.hostMessageId),
+  ['core-import-player', 'tagged-import-player', 'core-import-assistant', 'tagged-import-assistant'],
+  'old-save v2 import must project CORE rows and tagged compatibility mirrors only'
+);
+const projectedEventSegment = await readV2Segment(projectedAdapter, {
+  segmentType: 'event',
+  campaignId: 'campaign-import-v1-projected',
+  saveId: 'save-import-v1-projected',
+  segmentId: '0000'
+});
+assert.deepEqual(
+  projectedEventSegment.entries
+    .filter((entry) => entry.type === 'legacyIngressImported' || entry.type === 'legacyResponseImported')
+    .map((entry) => entry.hostMessageId),
+  ['core-import-player', 'tagged-import-player', 'core-import-assistant', 'tagged-import-assistant'],
+  'old-save v2 import event segments must not revive silent old ledger rows when CORE projections exist'
+);
+assert.deepEqual(
+  {
+    ingressCount: projectedImported.saveManifest.importedFrom.summary.ingressCount,
+    responseCount: projectedImported.saveManifest.importedFrom.summary.responseCount,
+    recoveryCount: projectedImported.saveManifest.importedFrom.summary.recoveryCount
+  },
+  { ingressCount: 2, responseCount: 2, recoveryCount: 1 },
+  'old-save v2 import summary must count CORE-first projected runtime rows'
+);
+assert.equal(JSON.stringify(projectedStorage.snapshot()).includes('silent-import-player'), false);
+assert.equal(JSON.stringify(projectedStorage.snapshot()).includes('silent-import-response'), false);
+
 const secondStorage = createMemoryStorage();
 const secondAdapter = createLogicalStorageAdapter({ storage: secondStorage, hostId: 'fake' });
 const importedAgain = await importCampaignSaveRecordToV2(secondAdapter, saveRecord, {

@@ -1167,17 +1167,31 @@ assert.equal(compactHotTurnWriteKeys.at(-2), hotTurnCommit.saveManifestRef.logic
 assert.equal(compactHotTurnWriteKeys.at(-1), hotTurnCommit.campaignManifestRef.logicalKey, 'campaign manifest should be the final hot pointer write');
 assert.equal(hotTurnManifest.hash, hotTurnCommit.saveManifest.hash, 'loaded hot manifest should match the committed save manifest hash');
 assert.equal(hotTurnCampaignManifest.saves['save-ashes-scale'].manifest.hash, hotTurnCommit.saveManifestRef.hash, 'campaign manifest should point at the hot save manifest hash');
+const loadedHotCoreProjections = loadedAfterHotAppend.directiveRuntimeEvidence?.coreStoreReadProjections || {};
+const recoveredHotCoreProjections = recoveredAfterHotAppend.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections || {};
 assert.equal(
   loadedAfterHotAppend.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-05001'),
-  true,
-  'manifest-owned production reload should see the hot appended player ingress'
+  false,
+  'manifest-owned production reload must keep hot appended player ingress out of old runtimeTracking'
 );
 assert.equal(
   loadedAfterHotAppend.runtimeTracking?.responseLedger?.some((entry) => (
     entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
   )),
+  false,
+  'manifest-owned production reload must keep hot appended assistant response out of old runtimeTracking'
+);
+assert.equal(
+  loadedHotCoreProjections.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-05001'),
   true,
-  'manifest-owned production reload should see the hot appended assistant response'
+  'manifest-owned production reload should see the hot appended player ingress through CORE projections'
+);
+assert.equal(
+  loadedHotCoreProjections.responseLedger?.some((entry) => (
+    entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
+  )),
+  true,
+  'manifest-owned production reload should see the hot appended assistant response through CORE projections'
 );
 assert.equal(
   loadedAfterHotAppend.turnLedger?.entries?.some((entry) => (
@@ -1190,15 +1204,27 @@ assert.equal(recoveredAfterHotAppend.storageFormat, 'v2', 'active save recovery 
 assert.equal(recoveredAfterHotAppend.activeSaveId, 'save-ashes-scale', 'active save recovery should select the registered v2 scale save');
 assert.equal(
   recoveredAfterHotAppend.campaignState?.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-05001'),
-  true,
-  'active save recovery should see the hot appended player ingress'
+  false,
+  'active save recovery must keep the hot appended player ingress out of old runtimeTracking'
 );
 assert.equal(
   recoveredAfterHotAppend.campaignState?.runtimeTracking?.responseLedger?.some((entry) => (
     entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
   )),
+  false,
+  'active save recovery must keep the hot appended assistant response out of old runtimeTracking'
+);
+assert.equal(
+  recoveredHotCoreProjections.ingressLedger?.some((entry) => entry.hostMessageId === 'msg-05001'),
   true,
-  'active save recovery should see the hot appended assistant response'
+  'active save recovery should see the hot appended player ingress through CORE projections'
+);
+assert.equal(
+  recoveredHotCoreProjections.responseLedger?.some((entry) => (
+    entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
+  )),
+  true,
+  'active save recovery should see the hot appended assistant response through CORE projections'
 );
 assert.equal(
   reloadReadKeys.filter((key) => new Set(sealedSegmentRefs.map((ref) => ref.logicalKey)).has(key)).length,

@@ -196,10 +196,16 @@ const passReport = await runStoryQualityReviewPreflight({
   artifactRoots: [passOnlyRoot],
   dryRun: true,
   strict: true,
-  writeArtifacts: true
+  writeArtifacts: true,
+  timeoutMs: 300000,
+  maxLatencyMs: 120000,
+  retryCount: 1
 });
 assert.equal(passReport.status, 'pass');
 assert.equal(passReport.requestCount, 1);
+assert.equal(passReport.timeoutMs, 300000);
+assert.equal(passReport.maxLatencyMs, 120000);
+assert.equal(passReport.retryCount, 1);
 assert.equal(fs.existsSync(path.join(passOnlyRoot, 'story-quality-review-preflight.json')), true);
 
 const mixedReport = await runStoryQualityReviewPreflight({
@@ -211,6 +217,13 @@ assert.equal(mixedReport.status, 'fail');
 assert.equal(mixedReport.requestCount, 5);
 assert.equal(mixedReport.assessments.filter((entry) => entry.status === 'fail').length, 4);
 assert.equal(readJson(passPair.resultPath).status, 'pass');
+
+const preflightSource = fs.readFileSync(new URL('./replay-story-quality-review-preflight.mjs', import.meta.url), 'utf8');
+assert.match(preflightSource, /const DEFAULT_TIMEOUT_MS = 300000/);
+assert.match(preflightSource, /const DEFAULT_RETRY_COUNT = 1/);
+assert.match(preflightSource, /--retry-count N/);
+assert.match(preflightSource, /DIRECTIVE_SILLYTAVERN_STORY_QUALITY_REVIEW_RETRY_COUNT/);
+assert.match(preflightSource, /retryCount:\s*Math\.max\(0,\s*Number\(options\.retryCount/);
 
 fs.rmSync(root, { recursive: true, force: true });
 fs.rmSync(passOnlyRoot, { recursive: true, force: true });

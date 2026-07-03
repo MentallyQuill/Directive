@@ -28,6 +28,36 @@ const directorOnlyFact = createContinuityFact({
   criticality: 'high',
   tags: ['mission']
 });
+const bronnPrivateFact = createContinuityFact({
+  id: 'witness.bronn.private-tactical-context',
+  kind: 'witness.private',
+  subject: 'crew.hadrik-bronn',
+  predicate: 'tactical-context',
+  summary: 'Bronn privately knows the tactical archive was sealed before docking.',
+  visibility: CONTINUITY_VISIBILITY.directorOnly,
+  authority: 'campaignState',
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  knownBy: ['hadrik-bronn'],
+  witnessedBy: ['hadrik-bronn'],
+  subjectIds: ['hadrik-bronn'],
+  disclosureState: 'private'
+});
+const samPrivateFact = createContinuityFact({
+  id: 'witness.sam.private-mediator-context',
+  kind: 'witness.private',
+  subject: 'crew.sam-vickers',
+  predicate: 'mediator-context',
+  summary: 'Sam privately knows the mediator altered the corridor report.',
+  visibility: CONTINUITY_VISIBILITY.directorOnly,
+  authority: 'campaignState',
+  criticality: 'high',
+  tags: ['crew', 'witness'],
+  knownBy: ['sam-vickers'],
+  witnessedBy: ['sam-vickers'],
+  subjectIds: ['sam-vickers'],
+  disclosureState: 'private'
+});
 const campaignState = {
   ...campaignProjection.initialState,
   campaign: {
@@ -36,7 +66,7 @@ const campaignState = {
   },
   continuity: {
     ...campaignProjection.initialState.continuity,
-    acceptedFacts: [directorOnlyFact]
+    acceptedFacts: [directorOnlyFact, bronnPrivateFact, samPrivateFact]
   }
 };
 
@@ -72,6 +102,27 @@ assert.ok(missionPacket.facts.some((fact) => fact.id === 'crew.hadrik-bronn.spec
 assert.equal(Object.hasOwn(missionPacket, 'stateDelta'), false);
 assert.equal(Object.hasOwn(missionPacket, 'outcomePacket'), false);
 assert.equal(Object.hasOwn(missionPacket, 'allowedRoots'), false);
+
+const crewPacket = buildContinuityDirectorPacket({
+  audience: 'crewDirector',
+  campaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: {
+    activePhaseId: 'shuttle-rendezvous',
+    presentActorIds: ['hadrik-bronn']
+  },
+  playerText: 'I ask Bronn for the real tactical handoff.'
+});
+assert.ok(crewPacket.facts.some((fact) => fact.id === bronnPrivateFact.id));
+assert.equal(crewPacket.facts.some((fact) => fact.id === samPrivateFact.id), false);
+assert.equal(
+  crewPacket.audit.blockedByAudienceCount > 0,
+  true,
+  'source-frame witness gating should report blocked facts in packet audit'
+);
 
 const shipPacket = buildContinuityDirectorPacket({
   audience: 'shipDirector',

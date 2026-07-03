@@ -71,6 +71,18 @@ const SOAK_TURN_LIMIT = positiveInteger(process.env.DIRECTIVE_SOAK_TURN_LIMIT, 0
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 
+export const SOAK_ROUTINE_SINGLE_USER_POLICY = Object.freeze({
+  strategy: 'single-non-human-lane-routine-validation',
+  defaultWorkerLimit: 1,
+  reservedHumanOnlyHandles: Object.freeze(['default-user']),
+  selectionOrder: Object.freeze([
+    'DIRECTIVE_SILLYTAVERN_USER',
+    'first non-human DIRECTIVE_SOAK_ST_USERS entry',
+    'first non-human DIRECTIVE_PARALLEL_SOAK_USERS entry'
+  ]),
+  fiveLaneUse: 'final-certification-or-explicit-reenable-only'
+});
+
 export const SOAK_SERVED_EXTENSION_PROOF_FILES = Object.freeze([
   'src/continuity/fact-schema.mjs',
   'src/continuity/state.mjs',
@@ -188,8 +200,56 @@ function explicitExecutionUser() {
   };
 }
 
+export function selectRoutineSoakUser({
+  explicitUser = null,
+  configuredUsers: users = []
+} = {}) {
+  const normalizedExplicit = explicitUser?.handle
+    ? {
+      ...explicitUser,
+      handle: normalizeUserHandle(explicitUser.handle),
+      source: explicitUser.source || 'DIRECTIVE_SILLYTAVERN_USER'
+    }
+    : null;
+  const configured = (Array.isArray(users) ? users : [])
+    .map((entry, index) => entry?.handle
+      ? {
+        ...entry,
+        handle: normalizeUserHandle(entry.handle),
+        source: entry.source || 'DIRECTIVE_SOAK_ST_USERS',
+        configuredIndex: Number.isInteger(entry.configuredIndex) ? entry.configuredIndex : index
+      }
+      : null)
+    .filter(Boolean);
+  const candidates = [
+    normalizedExplicit,
+    ...configured
+  ].filter(Boolean);
+  const selected = candidates.find((entry) => !RESERVED_HUMAN_ONLY_USERS.has(entry.handle)) || null;
+  return {
+    kind: 'directive.routineSingleSoakUserSelection.v1',
+    selected,
+    selectedHandle: selected?.handle || null,
+    configuredCount: configured.length,
+    ignoredConfiguredHandles: configured
+      .filter((entry) => selected?.handle && entry.handle !== selected.handle)
+      .map((entry) => entry.handle),
+    reservedRejectedHandles: candidates
+      .filter((entry) => RESERVED_HUMAN_ONLY_USERS.has(entry.handle))
+      .map((entry) => entry.handle),
+    strategy: SOAK_ROUTINE_SINGLE_USER_POLICY.strategy
+  };
+}
+
 function liveExecutionUser() {
-  return explicitExecutionUser() || firstConfiguredSoakUser();
+  return liveExecutionUserSelection().selected;
+}
+
+function liveExecutionUserSelection() {
+  return selectRoutineSoakUser({
+    explicitUser: explicitExecutionUser(),
+    configuredUsers: configuredSoakUsers()
+  });
 }
 
 function reservedConfiguredUsers() {
@@ -3142,7 +3202,8 @@ async function buildChecks({ artifacts = null } = {}) {
     { baseUrl: BASE_URL || null }
   ));
 
-  const executionUser = liveExecutionUser();
+  const executionUserSelection = liveExecutionUserSelection();
+  const executionUser = executionUserSelection.selected;
   checks.push(check(
     'live-execution-soak-user',
     !LIVE_EXECUTION ? 'skipped' : executionUser?.handle ? 'pass' : 'fail',
@@ -3154,6 +3215,12 @@ async function buildChecks({ artifacts = null } = {}) {
     {
       handle: executionUser?.handle || null,
       source: executionUser?.source || 'DIRECTIVE_SOAK_ST_USERS',
+      selection: {
+        strategy: executionUserSelection.strategy,
+        configuredCount: executionUserSelection.configuredCount,
+        ignoredConfiguredHandles: executionUserSelection.ignoredConfiguredHandles,
+        reservedRejectedHandles: executionUserSelection.reservedRejectedHandles
+      },
       reservedHumanOnly: [...RESERVED_HUMAN_ONLY_USERS]
     }
   ));
@@ -3791,6 +3858,32 @@ function latestRunEndProof(liveLogRecords = [], field) {
     ?.[field] || null;
 }
 
+function proofSourceIssue(proof = {}, { expectedSource, expectedProjectionField, expectedProjectionValue }) {
+  if (!proof || typeof proof !== 'object') {
+    return {
+      reason: 'missing-proof',
+      source: null,
+      projectionSource: null
+    };
+  }
+  const projectionSource = proof?.[expectedProjectionField] || null;
+  if (proof.source !== expectedSource) {
+    return {
+      reason: 'non-core-source',
+      source: proof.source || null,
+      projectionSource
+    };
+  }
+  if (projectionSource !== expectedProjectionValue) {
+    return {
+      reason: 'non-core-projection',
+      source: proof.source || null,
+      projectionSource
+    };
+  }
+  return null;
+}
+
 function generationTimingProofFromLiveLogRecords(liveLogRecords = []) {
   const runEndProof = latestRunEndProof(liveLogRecords, 'generationTimingProof');
   if (runEndProof) {
@@ -3807,17 +3900,29 @@ function generationTimingProofFromLiveLogRecords(liveLogRecords = []) {
   const skipped = proofs.flatMap((proof) => Array.isArray(proof.skippedEntries) ? proof.skippedEntries : []);
   const failed = proofs.filter((proof) => proof.status === 'fail');
   const warnings = proofs.filter((proof) => proof.status === 'warning');
+  const invalidProofs = proofs
+    .map((proof, index) => ({
+      index,
+      issue: proofSourceIssue(proof, {
+        expectedSource: 'coreStoreTurnTiming',
+        expectedProjectionField: 'timingSource',
+        expectedProjectionValue: 'coreProjection'
+      })
+    }))
+    .filter((entry) => entry.issue);
   const maxGenerationStartLatencyMs = checked.reduce((max, entry) => {
     const value = Number(entry?.turnLatency?.generationStartLatencyMs);
     return Number.isFinite(value) ? Math.max(max, value) : max;
   }, 0);
   return {
-    status: failed.length > 0 ? 'fail' : (checked.length > 0 ? 'pass' : 'warning'),
-    source: 'coreStoreTurnTiming',
-    timingSource: checked.length > 0 ? 'coreProjection' : null,
+    status: invalidProofs.length > 0 || failed.length > 0 ? 'fail' : (checked.length > 0 ? 'pass' : 'warning'),
+    source: invalidProofs.length > 0 ? 'mixed-or-non-core' : 'coreStoreTurnTiming',
+    timingSource: invalidProofs.length > 0 ? null : (checked.length > 0 ? 'coreProjection' : null),
     storageFormat: 'v2-core',
     evidenceSource: 'delegatedSmokeLiveLog',
     proofCount: proofs.length,
+    invalidProofCount: invalidProofs.length,
+    invalidProofs,
     checkedTurnCount: checked.length,
     checkedResponseCount: checked.length,
     skippedTurnCount: skipped.length,
@@ -3855,19 +3960,31 @@ function hostNativeCompletionProofFromLiveLogRecords(liveLogRecords = []) {
   const targetTransactionCount = proofs.reduce((sum, proof) => sum + Number(proof.targetTransactionCount || 0), 0);
   const failed = proofs.filter((proof) => proof.status === 'fail');
   const warnings = proofs.filter((proof) => proof.status === 'warning');
+  const invalidProofs = proofs
+    .map((proof, index) => ({
+      index,
+      issue: proofSourceIssue(proof, {
+        expectedSource: 'coreStoreResponseLedger',
+        expectedProjectionField: 'completionSource',
+        expectedProjectionValue: 'coreProjection'
+      })
+    }))
+    .filter((entry) => entry.issue);
   const maxCompletionLatencyMs = entries.reduce((max, entry) => {
     const value = Number(entry?.completionLatencyMs);
     return Number.isFinite(value) ? Math.max(max, value) : max;
   }, 0);
   return {
-    status: failed.length > 0 || requiredCompletionFailures.length > 0
+    status: invalidProofs.length > 0 || failed.length > 0 || requiredCompletionFailures.length > 0
       ? 'fail'
       : (completedHostContinueCount > 0 ? 'pass' : 'warning'),
-    source: 'coreStoreResponseLedger',
-    completionSource: 'coreProjection',
+    source: invalidProofs.length > 0 ? 'mixed-or-non-core' : 'coreStoreResponseLedger',
+    completionSource: invalidProofs.length > 0 ? null : 'coreProjection',
     storageFormat: 'v2-core',
     evidenceSource: 'delegatedSmokeLiveLog',
     proofCount: proofs.length,
+    invalidProofCount: invalidProofs.length,
+    invalidProofs,
     targetTransactionCount,
     candidateResponseCount,
     completedHostContinueCount,
@@ -4409,7 +4526,35 @@ function sanitizeExternalContextSummaryValue(value, redactions = [], pathKey = '
   return value;
 }
 
-function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
+function externalContextTargetHasTiming(target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  return Boolean(
+    target.timingDiagnostics?.observed === true
+    || target.timingDiagnostics?.timingHash
+    || target.backendDiagnostics?.externalTimingObserved === true
+    || target.backendDiagnostics?.timingHash
+  );
+}
+
+function externalContextTimingCoverage(targetSummaries = []) {
+  const requiredTargets = ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'];
+  const targetsWithTiming = new Set();
+  for (const entry of Array.isArray(targetSummaries) ? targetSummaries : []) {
+    const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
+    for (const targetId of requiredTargets) {
+      if (externalContextTargetHasTiming(targets[targetId])) targetsWithTiming.add(targetId);
+    }
+  }
+  return {
+    requiredTargets,
+    targetsWithTiming: [...targetsWithTiming].sort(),
+    targetsMissingTiming: requiredTargets.filter((targetId) => !targetsWithTiming.has(targetId)),
+    timedTargetCount: targetsWithTiming.size,
+    status: targetsWithTiming.size > 0 ? 'partial' : 'missing'
+  };
+}
+
+export function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
   if (!report?.artifacts?.hostExtensions) {
     return { status: 'missing', artifactPath: null, captureCount: captures.length };
   }
@@ -4432,6 +4577,7 @@ function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
       targets: cloneJson(entry.externalPromptEnvironmentTargets || null)
     }))
     .filter((entry) => entry.targets);
+  const timingCoverage = externalContextTimingCoverage(targetSummaries);
   const artifact = {
     kind: 'directive.sillytavern.externalContextSummary.v1',
     schemaVersion: 1,
@@ -4451,7 +4597,8 @@ function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
       finalHostPromptMayIncludeExternal: captures.some((entry) => entry.finalHostPromptMayIncludeExternal === true),
       unavailableSignals,
       redactionReasons,
-      targetSummaryCount: targetSummaries.length
+      targetSummaryCount: targetSummaries.length,
+      timingCoverage
     },
     captures: safeCaptures,
     redactions: artifactRedactions,
@@ -4468,7 +4615,8 @@ function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
     captureCount: captures.length,
     knownExternalPromptKeys,
     refHashes,
-    redactionReasons
+    redactionReasons,
+    timingCoverage
   });
   return {
     status: artifact.status,
@@ -4477,7 +4625,8 @@ function writeExternalContextSummaryArtifact({ report, captures = [] } = {}) {
     captureCount: captures.length,
     knownExternalPromptKeys,
     refHashes,
-    redactionReasons
+    redactionReasons,
+    timingCoverage
   };
 }
 

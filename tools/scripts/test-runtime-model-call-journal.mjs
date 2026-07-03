@@ -51,6 +51,53 @@ state.runtimeTracking.modelCallJournal.push({
 });
 assert.equal(maxModelCallEventSequence(state), 17);
 
+const projectedSequenceState = {
+  ...trackedState('campaign-projected-model-calls'),
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      modelCallDiagnostics: [{
+        id: 'model-call:33:projected',
+        roleId: 'projected',
+        status: 'ok',
+        requestHash: 'projected-hash'
+      }]
+    }
+  }
+};
+assert.equal(maxModelCallEventSequence(projectedSequenceState), 33, 'CORE model-call diagnostics advance the resume sequence view.');
+
+let projectedDedupeState = {
+  ...trackedState('campaign-projected-dedupe'),
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      modelCallDiagnostics: [{
+        id: 'model-call:1:utilityTurnClassifier',
+        roleId: 'utilityTurnClassifier',
+        status: 'ok',
+        requestHash: 'projected-dedupe-hash'
+      }]
+    }
+  }
+};
+const projectedDedupeService = createRuntimeModelCallJournal({
+  now: () => '2026-06-26T00:00:30.000Z',
+  getCampaignState: () => null,
+  setCampaignState: (next) => {
+    projectedDedupeState = next;
+  }
+});
+projectedDedupeService.record({
+  roleId: 'utilityTurnClassifier',
+  providerKind: 'utility',
+  requestHash: 'projected-dedupe-hash'
+});
+projectedDedupeState = projectedDedupeService.applyPending(projectedDedupeState);
+assert.equal(
+  projectedDedupeState.runtimeTracking.modelCallJournal.length,
+  0,
+  'Pending legacy fallback replay must dedupe against CORE model-call diagnostics.'
+);
+
 const next = service.record({
   roleId: 'directiveAssist',
   providerKind: 'reasoning',
@@ -84,10 +131,13 @@ assert.notEqual(
 );
 
 const coreDiagnostics = [];
+let coreState = trackedState('campaign-core-diagnostics');
 const coreService = createRuntimeModelCallJournal({
   now: () => '2026-06-26T00:01:00.000Z',
-  getCampaignState: () => trackedState('campaign-core-diagnostics'),
-  setCampaignState() {},
+  getCampaignState: () => coreState,
+  setCampaignState(next) {
+    coreState = next;
+  },
   resolveCoreDiagnosticTarget: () => ({
     transactionId: 'txn:frame:ingress-core',
     ingressId: 'ingress-core',
@@ -112,12 +162,17 @@ assert.equal(coreDiagnostics[0].event.type, 'modelCall');
 assert.equal(coreDiagnostics[0].event.modelCallId, coreEvent.id);
 assert.equal(coreDiagnostics[0].event.requestHash, 'core123');
 assert.equal(coreDiagnostics[0].event.hostMessageId, 'host-message-core');
+assert.equal(coreState.runtimeTracking.modelCallJournal.length, 0, 'CORE-targeted model calls must not grow old modelCallJournal.');
+assert.equal(coreState.runtimeResume.modelCallEventSequence, 1, 'CORE-targeted model calls keep only compact resume cursor in runtime state.');
 
 const skippedDiagnostics = [];
+let skipState = trackedState('campaign-core-diagnostics-skip');
 const skipService = createRuntimeModelCallJournal({
   now: () => '2026-06-26T00:02:00.000Z',
-  getCampaignState: () => trackedState('campaign-core-diagnostics-skip'),
-  setCampaignState() {},
+  getCampaignState: () => skipState,
+  setCampaignState(next) {
+    skipState = next;
+  },
   resolveCoreDiagnosticTarget: () => null,
   appendCoreDiagnostic: async (transactionId, event) => {
     skippedDiagnostics.push({ transactionId, event });
@@ -130,6 +185,7 @@ skipService.record({
 });
 await skipService.flushCoreDiagnostics();
 assert.equal(skippedDiagnostics.length, 0, 'missing CORE transaction should skip diagnostic mirror');
+assert.equal(skipState.runtimeTracking.modelCallJournal.length, 1, 'missing CORE transaction keeps compact legacy model-call journal fallback.');
 
 let failureState = trackedState('campaign-core-diagnostics-failure');
 const failingCoreService = createRuntimeModelCallJournal({
@@ -154,9 +210,6 @@ const failingEvent = failingCoreService.record({
   requestHash: 'failure123'
 });
 await failingCoreService.flushCoreDiagnostics();
-assert.equal(failureState.runtimeTracking.modelCallJournal.at(-1).id, failingEvent.id);
-assert.equal(
-  failureState.runtimeTracking.modelCallJournal.at(-1).requestHash,
-  'failure123',
-  'CORE diagnostic failures must not suppress the legacy model-call journal'
-);
+assert.equal(failureState.runtimeTracking.modelCallJournal.length, 0, 'CORE-targeted diagnostic failures must not grow old modelCallJournal.');
+assert.equal(failureState.runtimeResume.modelCallEventSequence, 1, 'CORE-targeted diagnostic failures still preserve compact resume cursor.');
+assert.equal(failingEvent.id, 'model-call:1:utilityTurnClassifier');

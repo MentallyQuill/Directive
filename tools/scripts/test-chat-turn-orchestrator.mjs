@@ -18,7 +18,6 @@ import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
   recordDirectiveResponse,
-  recordRecoveryEvent,
   recordTurnIngress,
   updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
@@ -28,6 +27,24 @@ const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, fil
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+
+function recordLegacyRecoveryFixture(campaignState, event, { limit = 100 } = {}) {
+  const state = initializeCampaignRuntimeTracking(cloneJson(campaignState));
+  const id = String(event.id || `recovery-${state.runtimeTracking.recoveryJournal.length + 1}`).trim();
+  const entries = state.runtimeTracking.recoveryJournal.filter((entry) => entry.id !== id);
+  entries.push({
+    id,
+    type: event.type || 'recovery',
+    status: event.status || 'recorded',
+    hostMessageId: event.hostMessageId || null,
+    ingressId: event.ingressId || null,
+    outcomeId: event.outcomeId || null,
+    recordedAt: event.recordedAt || new Date().toISOString(),
+    details: cloneJson(event.details || {})
+  });
+  state.runtimeTracking.recoveryJournal = entries.slice(-limit);
+  return state;
+}
 
 function fnv1a(text) {
   let hash = 0x811c9dc5;
@@ -124,7 +141,11 @@ const coreTurnStore = {
       ...existing,
       id: transactionId,
       phase: phasePatch.phase || 'observed',
-      route: phasePatch.route || null
+      route: phasePatch.route || null,
+      responseId: phasePatch.responseId || existing.responseId || null,
+      responseKind: phasePatch.responseKind || existing.responseKind || null,
+      outcomeId: phasePatch.outcomeId || existing.outcomeId || null,
+      timing: cloneJson(phasePatch.timing || existing.timing || null)
     };
     coreTransactions.set(transactionId, cloneJson(transaction));
     return transaction;
@@ -196,7 +217,22 @@ const coreTurnStore = {
     return cloneJson(coreTransactions.get(transactionId) || null);
   },
   readProjections() {
+    const responseLedger = [...coreTransactions.values()]
+      .filter((transaction) => transaction.visibleResponseRef || transaction.responseId || ['hostContinueReleased', 'visibleResponsePosted'].includes(transaction.phase))
+      .map((transaction) => ({
+        id: transaction.visibleResponseRef?.responseId || transaction.responseId || null,
+        responseId: transaction.visibleResponseRef?.responseId || transaction.responseId || null,
+        transactionId: transaction.id,
+        hostMessageId: transaction.visibleResponseRef?.hostMessageId || null,
+        outcomeId: transaction.visibleResponseRef?.outcomeId || transaction.outcomeId || null,
+        responseKind: transaction.visibleResponseRef?.responseKind || transaction.responseKind || null,
+        status: transaction.phase,
+        generationStartedAt: transaction.timing?.hostGenerationReleasedAt || transaction.visibleResponseRef?.visibleResponsePostedAt || null,
+        turnTiming: cloneJson(transaction.timing || null)
+      }))
+      .filter((entry) => entry.responseId || entry.transactionId);
     return {
+      responseLedger,
       recoveryJournal: coreRecoveryCalls.map(({ transactionId, recoveryBundle }) => {
         const transaction = coreTransactions.get(transactionId) || {};
         return {
@@ -1452,6 +1488,93 @@ assert.equal(
 );
 assert.equal(persisted.length, persistedCountBeforeCoreFailure, 'A CORE begin failure must not persist campaign state.');
 
+const ingressCountBeforeMissingCoreWriter = campaignState.runtimeTracking.ingressLedger.length;
+const persistedCountBeforeMissingCoreWriter = persisted.length;
+const missingCoreWriterOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('Missing CORE ingress writer fixture must not classify.');
+  },
+  responseDispatcher,
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Missing CORE ingress writer fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Missing CORE ingress writer fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const missingCoreWriterMessage = chat.pushPlayerMessage({
+  text: '*Sam waits for CORE ingress ownership before moving the turn forward.*',
+  hostMessageId: 'player-core-ingress-writer-missing'
+});
+await assert.rejects(
+  () => missingCoreWriterOrchestrator.observePlayerMessage({
+    chatId: 'campaign-chat',
+    message: missingCoreWriterMessage
+  }),
+  /CORE turn source observation is required/
+);
+assert.equal(campaignState.runtimeTracking.ingressLedger.length, ingressCountBeforeMissingCoreWriter);
+assert.equal(
+  campaignState.runtimeTracking.ingressLedger.some((entry) => entry.hostMessageId === 'player-core-ingress-writer-missing'),
+  false,
+  'Missing CORE ingress writer must not create a quarantined old-ledger ingress.'
+);
+assert.equal(persisted.length, persistedCountBeforeMissingCoreWriter, 'Missing CORE ingress writer must not persist campaign state.');
+
+const ingressCountBeforeNullCoreTransaction = campaignState.runtimeTracking.ingressLedger.length;
+const persistedCountBeforeNullCoreTransaction = persisted.length;
+const nullCoreTransactionOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    throw new Error('Null CORE transaction fixture must not classify.');
+  },
+  responseDispatcher,
+  stateDeltaGateway,
+  coreTurnStore: {
+    async beginTurn() {
+      return null;
+    }
+  },
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Null CORE transaction fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Null CORE transaction fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const nullCoreTransactionMessage = chat.pushPlayerMessage({
+  text: '*Sam waits for a concrete CORE transaction id before continuing.*',
+  hostMessageId: 'player-core-ingress-transaction-missing'
+});
+await assert.rejects(
+  () => nullCoreTransactionOrchestrator.observePlayerMessage({
+    chatId: 'campaign-chat',
+    message: nullCoreTransactionMessage
+  }),
+  /did not return a transaction id/
+);
+assert.equal(campaignState.runtimeTracking.ingressLedger.length, ingressCountBeforeNullCoreTransaction);
+assert.equal(
+  campaignState.runtimeTracking.ingressLedger.some((entry) => entry.hostMessageId === 'player-core-ingress-transaction-missing'),
+  false,
+  'Missing CORE transaction id must not create a quarantined old-ledger ingress.'
+);
+assert.equal(persisted.length, persistedCountBeforeNullCoreTransaction, 'Missing CORE transaction id must not persist campaign state.');
+
 const missingCoreRecoveryWriterOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: async () => ({
@@ -1642,6 +1765,8 @@ const coreBackedPostFailureOrchestrator = createChatTurnOrchestrator({
             status: 'complete',
             responseKind: payload.responseKind,
             strategy: payload.strategy
+          }, {
+            missingCoreWriteMode: 'quarantine'
           }),
           response
         };
@@ -1825,6 +1950,8 @@ const modelBackedRetryOrchestrator = createChatTurnOrchestrator({
           status: 'complete',
           responseKind: payload.responseKind,
           strategy: payload.strategy
+        }, {
+          missingCoreWriteMode: 'quarantine'
         }),
         response: {
           id: 'response-model-backed-retry',
@@ -1899,8 +2026,10 @@ let oldLedgerRetryFixtureState = recordTurnIngress(campaignState, {
   turnId: 'turn-old-ledger-response-retry',
   outcomeId: 'outcome-old-ledger-response-retry',
   coreTransactionId: null
+}, {
+  missingCoreWriteMode: 'quarantine'
 });
-oldLedgerRetryFixtureState = recordRecoveryEvent(oldLedgerRetryFixtureState, {
+oldLedgerRetryFixtureState = recordLegacyRecoveryFixture(oldLedgerRetryFixtureState, {
   id: oldLedgerRetryRecoveryId,
   type: 'hostResponsePostFailure',
   status: 'open',
@@ -1952,6 +2081,7 @@ const oldLedgerRetryOrchestrator = createChatTurnOrchestrator({
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState: async () => {
@@ -1974,11 +2104,8 @@ try {
     recoveryId: oldLedgerRetryRecoveryId
   });
   assert.equal(oldLedgerRetry.ok, false);
-  assert.equal(oldLedgerRetry.reason, 'response-retry-not-authorized');
-  assert.equal(oldLedgerRetry.decision.authorized, false);
-  assert.equal(oldLedgerRetry.decision.reason, 'missing-core-transaction');
-  assert.equal(oldLedgerRetryRepairDecisions.length, 1);
-  assert.equal(oldLedgerRetryRepairDecisions[0].transactionId, null);
+  assert.equal(oldLedgerRetry.reason, 'response-recovery-not-found');
+  assert.equal(oldLedgerRetryRepairDecisions.length, 0);
   assert.equal(oldLedgerRetryDispatchCalls.length, 0, 'Unauthorized old-ledger retry must not dispatch a response.');
   assert.equal(persisted.length, oldLedgerRetryPersistedBefore, 'Unauthorized old-ledger retry must not persist campaign state.');
   assert.equal(
@@ -2017,6 +2144,7 @@ const rawVisibilityPayloadOrchestrator = createChatTurnOrchestrator({
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState: async () => {
@@ -2080,6 +2208,7 @@ const rawVisibilityPayloadWithHostLookupOrchestrator = createChatTurnOrchestrato
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -2509,7 +2638,9 @@ const droppedIngressDelegationDispatcher = {
         ingressLedger: []
       }
     });
-    const next = recordDirectiveResponse(missingIngressState, entry);
+    const next = recordDirectiveResponse(missingIngressState, entry, {
+      missingCoreWriteMode: 'quarantine'
+    });
     setCampaignState(next);
     await persistCampaignState(next, 'Fixture persisted delegated response without ingress.');
     return {
@@ -2543,6 +2674,7 @@ const droppedIngressDelegationOrchestrator = createChatTurnOrchestrator({
   }),
   responseDispatcher: droppedIngressDelegationDispatcher,
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -2606,6 +2738,7 @@ const droppedIngressPromptSyncOrchestrator = createChatTurnOrchestrator({
   }),
   responseDispatcher,
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -2707,6 +2840,7 @@ const staleClassifierOrchestrator = createChatTurnOrchestrator({
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -2956,12 +3090,18 @@ campaignState.runtimeTracking.ingressLedger.push({
   status: 'recoveryRequired',
   sourceFrameId: 'frame:latest-restart-old',
   coreTransactionId: latestRestartOldTransactionId,
+  authority: 'compatibilityProjection',
+  projectionSource: 'coreStoreV2',
+  compatibilityMirror: {
+    kind: 'directive.coreIngressCompatibilityMirror.v1',
+    status: 'coreProjected'
+  },
   invalidatedAt: '2026-06-22T01:00:40.000Z',
   invalidationType: 'playerMessageEdited',
   replacementText: latestRestartEditedText,
   editedAt: '2026-06-22T01:00:40.000Z'
 });
-campaignState = recordRecoveryEvent(campaignState, {
+campaignState = recordLegacyRecoveryFixture(campaignState, {
   id: 'recovery-latest-restart-orchestrator',
   type: 'playerMessageEdited',
   status: 'invalidated',
@@ -3050,16 +3190,23 @@ assert.equal(latestRestartNewIngress.repairDecision.action, 'restartLatestSource
 assert.equal(latestRestartNewIngress.repairDecision.recoveryResolution.reason, 'latest-source-reobserved');
 assert.equal(latestRestartNewIngress.sourceRestart.priorTransactionId, latestRestartOldTransactionId);
 assert.equal(latestRestartNewIngress.sourceRestart.priorSourceFrameId, 'frame:latest-restart-old');
-assert.equal(latestRestartNewIngress.sourceRestart.priorRecoveryId, 'recovery-latest-restart-orchestrator');
+assert.equal(latestRestartNewIngress.sourceRestart.priorRecoveryId, null);
 assert.notEqual(latestRestartNewIngress.coreTransactionId, latestRestartOldTransactionId);
 assert.notEqual(latestRestartNewIngress.sourceFrameId, 'frame:latest-restart-old');
 assert.equal(latestRestartOldIngress.status, 'restartSuperseded');
 assert.equal(latestRestartOldIngress.restartedByIngressId, latestRestartNewIngress.id);
 assert.equal(latestRestartOldIngress.restartCoreTransactionId, latestRestartNewIngress.coreTransactionId);
 assert.equal(latestRestartOldIngress.restartRepairDecision.action, 'restartLatestSource');
-assert.equal(latestRestartRecovery.status, 'resolved');
-assert.equal(latestRestartRecovery.resolution.reason, 'latest-source-reobserved');
-assert.equal(latestRestartRecovery.resolution.restartIngressId, latestRestartNewIngress.id);
+assert.equal(latestRestartOldIngress.authority, 'compatibilityProjection');
+assert.equal(latestRestartOldIngress.projectionSource, 'coreStoreV2');
+assert.equal(latestRestartOldIngress.coreProjection.kind, 'directive.coreIngressSourceRestartProjectionRef.v1');
+assert.equal(latestRestartOldIngress.coreProjection.priorTransactionId, latestRestartOldTransactionId);
+assert.equal(latestRestartOldIngress.coreProjection.replacementTransactionId, latestRestartNewIngress.coreTransactionId);
+assert.equal(latestRestartOldIngress.coreProjection.priorIngressId, latestRestartOldIngressId);
+assert.equal(latestRestartOldIngress.coreProjection.replacementIngressId, latestRestartNewIngress.id);
+assert.equal(latestRestartOldIngress.coreProjection.eventType, 'playerMessageReobserved');
+assert.equal(latestRestartOldIngress.coreProjection.status, 'restartSuperseded');
+assert.equal(latestRestartRecovery, undefined);
 assert.equal(coreBeginCalls.length, latestRestartCoreBeginBefore + 1);
 assert.equal(coreBeginCalls.at(-1).options.ingressId, latestRestartNewIngress.id);
 assert.equal(coreBeginCalls.at(-1).options.transactionId, latestRestartNewIngress.coreTransactionId);
@@ -3068,7 +3215,7 @@ assert.equal(JSON.stringify(coreBeginCalls.at(-1)).includes(latestRestartEditedT
 assert.equal(coreSupersedeCalls.length, latestRestartCoreSupersedeBefore + 1);
 assert.equal(coreSupersedeCalls.at(-1).priorTransactionId, latestRestartOldTransactionId);
 assert.equal(coreSupersedeCalls.at(-1).replacementTransactionId, latestRestartNewIngress.coreTransactionId);
-assert.equal(coreSupersedeCalls.at(-1).options.priorRecoveryId, 'recovery-latest-restart-orchestrator');
+assert.equal(coreSupersedeCalls.at(-1).options.priorRecoveryId, null);
 assert.equal(coreSupersedeCalls.at(-1).options.sourceMutation.replacementSourceFrameId, latestRestartNewIngress.sourceFrameId);
 assert.equal(JSON.stringify(coreSupersedeCalls.at(-1)).includes(latestRestartEditedText), false, 'CORE supersede refs must not store raw edited player text.');
 assert.ok(persisted.length > latestRestartPersistedBefore);
@@ -3094,9 +3241,9 @@ assert.equal(
   'Duplicate latest restart observation must not create another restart ingress.'
 );
 assert.equal(
-  latestRestartDuplicateState.runtimeTracking.recoveryJournal.filter((entry) => entry.id === 'recovery-latest-restart-orchestrator' && entry.status === 'resolved').length,
-  1,
-  'Duplicate latest restart observation must not resolve the same recovery twice.'
+  latestRestartDuplicateState.runtimeTracking.recoveryJournal.filter((entry) => entry.id === 'recovery-latest-restart-orchestrator').length,
+  0,
+  'Duplicate latest restart observation must not revive the old recovery row.'
 );
 
 const failingClassifierOrchestrator = createChatTurnOrchestrator({
@@ -3162,6 +3309,14 @@ assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.id, failedIngress.recoveryI
 assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.reason, 'chatTurnProcessingFailure');
 assert.equal(coreRecoveryCalls.at(-1).recoveryBundle.sourceMutation.eventType, 'chatTurnProcessingFailure');
 assert.equal(failedIngress.coreRecovery.transactionId, failedIngress.coreTransactionId);
+assert.equal(failedIngress.authority, 'compatibilityProjection');
+assert.equal(failedIngress.projectionSource, 'coreStoreV2');
+assert.equal(failedIngress.coreProjection.kind, 'directive.coreIngressRecoveryProjectionRef.v1');
+assert.equal(failedIngress.coreProjection.transactionId, failedIngress.coreTransactionId);
+assert.equal(failedIngress.coreProjection.ingressId, failedIngress.id);
+assert.equal(failedIngress.coreProjection.recoveryCaseId, failedIngress.recoveryId);
+assert.equal(failedIngress.coreProjection.eventType, 'chatTurnProcessingFailure');
+assert.equal(failedIngress.coreProjection.status, 'recoveryRequired');
 
 const coreRecoveryFailurePersistedBefore = persisted.length;
 const coreRecoveryFailureHostMessageId = 'player-classifier-core-recovery-failure';
@@ -3280,6 +3435,7 @@ const missingCurrentIngressOrchestrator = createChatTurnOrchestrator({
   },
   responseDispatcher,
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -3361,6 +3517,7 @@ const directiveRoutineOrchestrator = createChatTurnOrchestrator({
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -3428,8 +3585,12 @@ assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBef
 const observedContinuationChat = createFakeChatAdapter({ chatId: 'observed-host-native-chat' });
 observedContinuationChat.continueHostGeneration = async () => ({
   ok: true,
+  released: true,
   skipped: false,
   reason: 'directive-inject-and-continue',
+  waitForCompletion: false,
+  generationStartedAt: '2026-06-28T17:05:00.000Z',
+  hostGenerationReleasedAt: '2026-06-28T17:05:00.000Z',
   observedMessage: {
     hostMessageId: 'host-native-bad-1',
     index: 9,
@@ -3437,8 +3598,52 @@ observedContinuationChat.continueHostGeneration = async () => ({
   }
 });
 let observedState = initializeCampaignRuntimeTracking(cloneJson(campaignState));
+observedState = recordTurnIngress(observedState, {
+  id: 'ingress-host-native-observed',
+  hostMessageId: 'player-host-native-observed',
+  chatId: 'observed-host-native-chat',
+  campaignId: observedState.campaign?.id || 'campaign-orchestration-test',
+  sourceFrame: {
+    id: 'frame-host-native-observed',
+    sourceKind: 'playerMessage',
+    campaignId: observedState.campaign?.id || 'campaign-orchestration-test',
+    saveId: observedState.campaignChatBinding?.saveId || null,
+    chatId: 'observed-host-native-chat',
+    hostMessageId: 'player-host-native-observed',
+    textHash: 'hash-host-native-observed',
+    sourceRevision: observedState.runtimeTracking?.revision || 0
+  },
+  coreTransactionId: 'txn-host-native-observed'
+}, {
+  missingCoreWriteMode: 'reject'
+});
+const observedCoreResponseProjections = [];
 const observedDispatcher = createResponseDispatcher({
   host: { chat: observedContinuationChat },
+  coreTurnStore: {
+    async advanceTurn(transactionId, patch = {}) {
+      if (patch.phase === 'hostContinueReleased' && patch.responseId) {
+        observedCoreResponseProjections.push({
+          id: patch.responseId,
+          responseId: patch.responseId,
+          transactionId,
+          status: 'hostContinueReleased',
+          responseKind: patch.responseKind || 'hostContinue'
+        });
+      }
+      return {
+        id: transactionId,
+        phase: patch.phase || 'hostContinueReleased',
+        route: patch.route || 'hostContinue'
+      };
+    },
+    async readProjections() {
+      return {
+        responseLedger: cloneJson(observedCoreResponseProjections),
+        recoveryJournal: []
+      };
+    }
+  },
   getCampaignState: () => observedState,
   setCampaignState: (next) => { observedState = initializeCampaignRuntimeTracking(next); },
   persist: async (next) => { observedState = initializeCampaignRuntimeTracking(next); },
@@ -3867,6 +4072,7 @@ const clarificationAnswerOrchestrator = createChatTurnOrchestrator({
     }
   },
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,
@@ -3908,7 +4114,7 @@ campaignState = updateTurnIngress(campaignState, samAnswerIngress.id, {
   invalidationType: 'playerMessageDeleted',
   replacementText: null
 });
-campaignState = recordRecoveryEvent(campaignState, {
+campaignState = recordLegacyRecoveryFixture(campaignState, {
   id: 'recovery-sam-answer-delete',
   type: 'playerMessageDeleted',
   status: 'invalidated',
@@ -3927,8 +4133,7 @@ assert.equal(samAnswerReobserved.handled, true);
 assert.notEqual(reobservedIngress.status, 'invalidated');
 assert.equal(reobservedIngress.invalidationType, null);
 assert.equal(reobservedIngress.invalidatedAt, null);
-assert.equal(resolvedDeleteRecovery.status, 'resolved');
-assert.equal(resolvedDeleteRecovery.resolution.reason, 'message-reobserved');
+assert.equal(resolvedDeleteRecovery, undefined);
 
 const readiedSeed = migrateCommandBearingState(campaignState);
 readiedSeed.tracks.resolve.points = 1;
@@ -4008,7 +4213,12 @@ assert.equal(
   false,
   'Local committed-outcome fallback must not imply a contested player-authored order succeeded.'
 );
-const fallbackResponseLedger = campaignState.runtimeTracking.responseLedger.at(-1);
+const fallbackResponseLedger = [...campaignState.runtimeTracking.responseLedger].reverse().find((entry) => (
+  entry.responseKind === 'committedOutcome'
+  && entry.status === 'responseRetryRequired'
+  && entry.providerFallback?.reason === 'provider-failure-after-mechanics-commit'
+));
+assert.ok(fallbackResponseLedger, 'Provider-failure fallback response ledger row must be recorded.');
 assert.equal(fallbackResponseLedger.responseKind, 'committedOutcome');
 assert.equal(fallbackResponseLedger.directiveGenerationStartedAt, fallbackGenerationStartedAt);
 assert.equal(fallbackResponseLedger.generationStartedAt, fallbackGenerationStartedAt);
@@ -4031,6 +4241,12 @@ assert.equal(fallbackRecovery.status, 'required');
 assert.equal(fallbackRecovery.transactionId, fallbackRecovery.repairDecision.transactionId);
 assert.equal(fallbackResponseLedger.coreRelease, null, 'Provider-failure fallback must not consume CORE visible response before retry.');
 assert.equal(fallbackResponseLedger.status, 'responseRetryRequired');
+assert.equal(fallbackResponseLedger.authority, 'compatibilityProjection');
+assert.equal(fallbackResponseLedger.projectionSource, 'coreStoreV2');
+assert.equal(fallbackResponseLedger.coreProjection.kind, 'directive.coreResponseRetryProjectionRef.v1');
+assert.equal(fallbackResponseLedger.coreProjection.transactionId, fallbackRecovery.transactionId);
+assert.equal(fallbackResponseLedger.coreProjection.recoveryCaseId, fallbackRecovery.id);
+assert.equal(fallbackResponseLedger.coreProjection.status, 'responseRetryRequired');
 const fallbackIngressBeforeRetry = campaignState.runtimeTracking.ingressLedger.find(
   (entry) => entry.outcomeId === fallbackRecovery.dependentOutcomeId
 );
@@ -4060,6 +4276,13 @@ const failedProviderFailureRetry = await orchestrator.retryCommittedResponse({
 });
 assert.equal(failedProviderFailureRetry.ok, false);
 assert.equal(failedProviderFailureRetry.reason, 'core-response-retry-closure-failed');
+const providerFailureResponseAfterFailedRetry = campaignState.runtimeTracking.responseLedger.find(
+  (entry) => entry.id === fallbackResponseLedger.id
+);
+assert.equal(providerFailureResponseAfterFailedRetry.authority, 'compatibilityProjection');
+assert.equal(providerFailureResponseAfterFailedRetry.projectionSource, 'coreStoreV2');
+assert.equal(providerFailureResponseAfterFailedRetry.coreProjection.status, 'coreClosureFailed');
+assert.equal(providerFailureResponseAfterFailedRetry.coreProjection.recoveryCaseId, fallbackRecovery.id);
 const fallbackMessageAfterFailedRetry = chat.getMessage(fallbackResponse.hostMessageId);
 assert.equal(fallbackMessageAfterFailedRetry.swipes.length, 2);
 assert.equal(fallbackMessageAfterFailedRetry.swipe_id, 1);
@@ -4143,6 +4366,11 @@ const providerFailureResponseAfterRetry = campaignState.runtimeTracking.response
   (entry) => entry.id === fallbackResponseLedger.id
 );
 assert.equal(providerFailureResponseAfterRetry.responseRetry.recoveryId, fallbackRecovery.id);
+assert.equal(providerFailureResponseAfterRetry.authority, 'compatibilityProjection');
+assert.equal(providerFailureResponseAfterRetry.projectionSource, 'coreStoreV2');
+assert.equal(providerFailureResponseAfterRetry.coreProjection.kind, 'directive.coreResponseRetryProjectionRef.v1');
+assert.equal(providerFailureResponseAfterRetry.coreProjection.status, 'posted');
+assert.equal(providerFailureResponseAfterRetry.coreProjection.recoveryCaseId, fallbackRecovery.id);
 assert.equal(providerFailureResponseAfterRetry.responseRetry.swipeIndex, 1);
 assert.equal(providerFailureResponseAfterRetry.responseRetry.hostMessageId, fallbackResponse.hostMessageId);
 const providerFailureRetryCoreCall = coreVisibleResponseCalls.find((entry) => (
@@ -4219,6 +4447,7 @@ const providerOverrideOrchestrator = createChatTurnOrchestrator({
   responseDispatcher,
   generationRouter: null,
   stateDeltaGateway,
+  coreTurnStore,
   getCampaignState,
   setCampaignState,
   persistCampaignState,

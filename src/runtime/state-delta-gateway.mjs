@@ -8,6 +8,8 @@
 
 import { validateCommandBearingEvidenceProposal } from '../command/command-bearing.mjs';
 import { normalizeContinuityState } from '../continuity/state.mjs';
+import { hashStableJson } from './architecture-redesign-contracts.mjs';
+import { createRuntimeLedgerView, readRuntimeCoreProjections } from './runtime-ledger-view.mjs';
 
 export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'campaign',
@@ -59,6 +61,22 @@ function isObject(value) {
 
 function compact(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function replacementTextProjectionFields(source = {}) {
+  if (!isObject(source)) return {};
+  const hasRawReplacement = Object.prototype.hasOwnProperty.call(source, 'replacementText');
+  const hasProjection = Object.prototype.hasOwnProperty.call(source, 'replacementTextPresent')
+    || Object.prototype.hasOwnProperty.call(source, 'replacementTextHash')
+    || Object.prototype.hasOwnProperty.call(source, 'replacementTextLength');
+  if (!hasRawReplacement && !hasProjection) return {};
+  const rawReplacementText = hasRawReplacement ? compact(source.replacementText) : '';
+  return {
+    replacementText: null,
+    replacementTextPresent: source.replacementTextPresent ?? (hasRawReplacement ? Boolean(rawReplacementText) : undefined),
+    replacementTextHash: source.replacementTextHash ?? (rawReplacementText ? hashStableJson({ text: rawReplacementText }) : (hasRawReplacement ? null : undefined)),
+    replacementTextLength: source.replacementTextLength ?? (hasRawReplacement ? rawReplacementText.length : undefined)
+  };
 }
 
 function timestamp(now) {
@@ -172,6 +190,87 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
   };
 }
 
+function isCoreRecoveryProjectionRow(entry = {}) {
+  const projectionSource = compact(entry.projectionSource);
+  return (
+    isObject(entry)
+    && projectionSource === 'coreStoreV2'
+    && (
+      compact(entry.authority) === 'compatibilityProjection'
+      || entry.compatibilityMirror?.kind === 'directive.coreRecoveryCompatibilityMirror.v1'
+      || entry.coreProjection
+      || entry.coreRecovery
+    )
+  );
+}
+
+function runtimeProjectionKey(row = {}, key) {
+  if (isObject(key) && Array.isArray(key.anyOf)) {
+    return key.anyOf.map((item) => compact(row?.[item])).filter(Boolean);
+  }
+  if (Array.isArray(key)) {
+    const parts = key.map((item) => compact(row?.[item]));
+    return parts.every(Boolean) ? parts.join('|') : '';
+  }
+  return compact(row?.[key]);
+}
+
+function runtimeLedgerRowsMatch(a = {}, b = {}, keys = []) {
+  return keys.some((key) => {
+    const left = runtimeProjectionKey(a, key);
+    const right = runtimeProjectionKey(b, key);
+    if (Array.isArray(left) || Array.isArray(right)) {
+      const leftValues = Array.isArray(left) ? left : [left];
+      const rightValues = Array.isArray(right) ? right : [right];
+      return leftValues.some((leftValue) => leftValue && rightValues.includes(leftValue));
+    }
+    return left && right && left === right;
+  });
+}
+
+function runtimeOverlayRowsNotCoveredByCore(viewRows = [], coreRows = [], keys = []) {
+  const rows = Array.isArray(viewRows) ? viewRows : [];
+  const core = Array.isArray(coreRows) ? coreRows : [];
+  if (!core.length) return cloneJson(rows);
+  return cloneJson(rows.filter((row) => !core.some((coreRow) => runtimeLedgerRowsMatch(row, coreRow, keys))));
+}
+
+function runtimeTrackingLedgersFromView(campaignState = {}, runtimeLedgerView = {}) {
+  const projections = readRuntimeCoreProjections(campaignState);
+  return {
+    ingressLedger: runtimeOverlayRowsNotCoveredByCore(runtimeLedgerView.ingressLedger, projections.ingressLedger, [
+      'id',
+      'ingressId',
+      { anyOf: ['transactionId', 'coreTransactionId'] },
+      'sourceFrameId'
+    ]),
+    responseLedger: runtimeOverlayRowsNotCoveredByCore(runtimeLedgerView.responseLedger, projections.responseLedger, [
+      'id',
+      'responseId',
+      { anyOf: ['transactionId', 'coreTransactionId'] },
+      ['turnId', 'outcomeId', 'responseKind']
+    ]),
+    recoveryJournal: runtimeOverlayRowsNotCoveredByCore(runtimeLedgerView.recoveryJournal, projections.recoveryJournal, [
+      'id',
+      'recoveryId',
+      'recoveryCaseId',
+      { anyOf: ['transactionId', 'coreTransactionId'] }
+    ])
+  };
+}
+
+function modelCallJournalFromCoreProjections(campaignState = {}) {
+  const projections = readRuntimeCoreProjections(campaignState);
+  const modelCallDiagnostics = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
+  if (modelCallDiagnostics.length) return cloneJson(modelCallDiagnostics);
+  return cloneJson(campaignState.runtimeTracking?.modelCallJournal || []);
+}
+
+function responseLedgerRevisionFromCoreProjections(campaignState = {}) {
+  const projections = readRuntimeCoreProjections(campaignState);
+  return Math.max(0, Number(projections.responseLedgerRevision) || 0);
+}
+
 function normalizedTracking(value, options = {}) {
   const defaults = runtimeTrackingDefaults(options);
   const input = isObject(value) ? value : {};
@@ -187,9 +286,11 @@ function normalizedTracking(value, options = {}) {
     ingressLedger: Array.isArray(input.ingressLedger) ? cloneJson(input.ingressLedger) : [],
     responseLedger: Array.isArray(input.responseLedger) ? cloneJson(input.responseLedger) : [],
     responseLedgerRevision: Math.max(0, Number(input.responseLedgerRevision) || 0),
-    recoveryJournal: Array.isArray(input.recoveryJournal) ? cloneJson(input.recoveryJournal) : [],
+    recoveryJournal: Array.isArray(input.recoveryJournal)
+      ? cloneJson(input.recoveryJournal.filter(isCoreRecoveryProjectionRow))
+      : [],
     lifecycleJournal: Array.isArray(input.lifecycleJournal) ? cloneJson(input.lifecycleJournal) : [],
-    sidecarJournal: Array.isArray(input.sidecarJournal) ? cloneJson(input.sidecarJournal) : [],
+    sidecarJournal: [],
     modelCallJournal: Array.isArray(input.modelCallJournal) ? cloneJson(input.modelCallJournal) : [],
     sceneReconciliation: {
       ...cloneJson(defaults.sceneReconciliation),
@@ -241,6 +342,8 @@ export function initializeCampaignRuntimeTracking(campaignState, options = {}) {
 
 export function createCampaignStateSnapshot(campaignState) {
   const snapshot = cloneJson(campaignState);
+  delete snapshot.directiveRuntimeEvidence;
+  delete snapshot.runtimeResume;
   if (snapshot?.turnLedger) {
     snapshot.turnLedger = compactTurnLedgerSnapshot(snapshot.turnLedger);
   }
@@ -315,6 +418,8 @@ export function commitTrackedCampaignState({
   ensureAllowedDomains(descriptor.domains, allowedDomains);
 
   const tracking = normalizedTracking(base.runtimeTracking, { historyLimit });
+  const runtimeLedgerView = createRuntimeLedgerView(base, { runtimeOverlay: true });
+  const runtimeTrackingLedgers = runtimeTrackingLedgersFromView(base, runtimeLedgerView);
   let history = cloneJson(tracking.history);
   let historyIndex = Number.isInteger(tracking.historyIndex)
     ? tracking.historyIndex
@@ -353,11 +458,12 @@ export function commitTrackedCampaignState({
       revision: nextRevision,
       committedAt
     },
-    ingressLedger: cloneJson(tracking.ingressLedger),
-    responseLedger: cloneJson(tracking.responseLedger),
-    recoveryJournal: cloneJson(tracking.recoveryJournal),
-    sidecarJournal: cloneJson(tracking.sidecarJournal),
-    modelCallJournal: cloneJson(tracking.modelCallJournal),
+    ingressLedger: runtimeTrackingLedgers.ingressLedger,
+    responseLedger: runtimeTrackingLedgers.responseLedger,
+    responseLedgerRevision: responseLedgerRevisionFromCoreProjections(base),
+    recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
+    sidecarJournal: [],
+    modelCallJournal: modelCallJournalFromCoreProjections(base),
     pendingInteractions: cloneJson(tracking.pendingInteractions),
     endConditionLedger: cloneJson(tracking.endConditionLedger),
     activeIngressId: descriptor.ingressId || tracking.activeIngressId || null,
@@ -617,14 +723,116 @@ function updateTracking(campaignState, mutator) {
   return next;
 }
 
+function coreEvidenceStatus(source = {}) {
+  if (!isObject(source)) return 'missingCoreProjection';
+  if (source.coreProjection) {
+    const projectionKind = compact(source.coreProjection?.kind);
+    if (projectionKind.includes('coreResponse') || source.coreProjection?.responseId) return 'coreResponseProjection';
+    if (projectionKind.includes('coreIngress') || source.coreProjection?.ingressId) return 'coreIngressProjection';
+    return 'coreProjection';
+  }
+  if (source.compatibilityMirror) return 'compatibilityMirror';
+  if (source.coreRecovery || source.coreRecoveryError) return 'coreRecovery';
+  if (source.coreRelease || source.coreCompletion || source.coreReleaseDiagnostic || source.coreRecoveryDiagnostic) return 'coreResponseProjection';
+  if (source.coreTransactionId) return 'coreTransaction';
+  return 'missingCoreProjection';
+}
+
+function assertMissingCoreWriteAllowed(kind, source = {}, { missingCoreWriteMode = 'reject' } = {}) {
+  const evidence = coreEvidenceStatus(source);
+  const explicitAuthority = compact(source.authority);
+  if (evidence !== 'missingCoreProjection') return;
+  if (explicitAuthority && explicitAuthority !== 'compatibilityProjectionUnavailable') return;
+  if (missingCoreWriteMode === 'quarantine') return;
+  const error = new Error(`${kind} old-ledger write requires CORE projection evidence or explicit quarantine mode`);
+  error.code = 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE';
+  error.details = {
+    kind,
+    evidence,
+    authority: explicitAuthority || null
+  };
+  throw error;
+}
+
+function oldLedgerAuthorityFieldsForUpdate(kind, existing = {}, patch = {}, merged = {}, options = {}) {
+  const patchEvidence = coreEvidenceStatus(patch);
+  const patchAuthority = compact(patch.authority);
+  if (!patchAuthority && patchEvidence !== 'missingCoreProjection') {
+    return oldLedgerAuthorityFields(kind, {
+      ...merged,
+      authority: null,
+      projectionSource: patch.projectionSource || null,
+      compatibilityMirror: patch.compatibilityMirror || null
+    }, options);
+  }
+  return oldLedgerAuthorityFields(kind, merged, options);
+}
+
+function compatibilityMirrorRef(kind, source = {}, status = null) {
+  const rowKind = kind === 'ingress' ? 'directive.coreIngressCompatibilityMirror.v1' : 'directive.coreResponseCompatibilityMirror.v1';
+  return {
+    kind: rowKind,
+    status: compact(status || coreEvidenceStatus(source)) || null,
+    transactionId: compact(
+      source.coreTransactionId
+      || source.coreProjection?.transactionId
+      || source.coreProjection?.coreTransactionId
+      || source.coreRecovery?.transactionId
+      || source.coreRelease?.transactionId
+      || source.coreCompletion?.transactionId
+    ) || null,
+    ingressId: compact(source.id || source.ingressId) || null,
+    responseId: kind === 'response' ? (compact(source.id || source.responseId || source.idempotencyKey) || null) : null,
+    projectionSource: compact(source.projectionSource) || null
+  };
+}
+
+function oldLedgerAuthorityFields(kind, source = {}, options = {}) {
+  assertMissingCoreWriteAllowed(kind, source, options);
+  const explicitAuthority = compact(source.authority);
+  const evidence = coreEvidenceStatus(source);
+  const projectionSource = compact(source.projectionSource) || (evidence === 'missingCoreProjection' ? 'runtimeTrackingLegacy' : 'coreStoreV2');
+  if (explicitAuthority) {
+    return {
+      authority: explicitAuthority,
+      projectionSource,
+      compatibilityMirror: cloneJson(source.compatibilityMirror || compatibilityMirrorRef(kind, source, evidence))
+    };
+  }
+  if (kind === 'ingress' && evidence === 'coreTransaction') {
+    return {
+      authority: 'coreIngressProjection',
+      projectionSource,
+      compatibilityMirror: compatibilityMirrorRef(kind, source, 'sourceObserved')
+    };
+  }
+  if (evidence !== 'missingCoreProjection') {
+    return {
+      authority: evidence === 'coreResponseProjection' ? 'compatibilityProjection' : 'compatibilityProjection',
+      projectionSource,
+      compatibilityMirror: cloneJson(source.compatibilityMirror || compatibilityMirrorRef(kind, source, evidence))
+    };
+  }
+  return {
+    authority: 'compatibilityProjectionUnavailable',
+    projectionSource,
+    compatibilityMirror: cloneJson(source.compatibilityMirror || compatibilityMirrorRef(kind, source, 'missingCoreProjection'))
+  };
+}
+
 export function recordTurnIngress(campaignState, ingress, {
-  limit = DEFAULT_INGRESS_LIMIT
+  limit = DEFAULT_INGRESS_LIMIT,
+  missingCoreWriteMode = 'reject'
 } = {}) {
   if (!isObject(ingress)) throw new Error('ingress must be an object');
   const id = compact(ingress.id || ingress.ingressId);
   if (!id) throw new Error('ingress.id must be a non-empty string');
   return updateTracking(campaignState, (tracking) => {
     const existingIndex = tracking.ingressLedger.findIndex((entry) => entry.id === id);
+    const existingForAuthority = existingIndex >= 0 ? tracking.ingressLedger[existingIndex] : null;
+    const authority = oldLedgerAuthorityFields('ingress', existingForAuthority
+      ? { ...cloneJson(existingForAuthority), ...cloneJson(ingress) }
+      : ingress, { missingCoreWriteMode });
     const record = {
       id,
       hostMessageId: compact(ingress.hostMessageId) || null,
@@ -638,6 +846,11 @@ export function recordTurnIngress(campaignState, ingress, {
       sourceFrameId: compact(ingress.sourceFrameId) || ingress.sourceFrame?.id || null,
       sourceFrame: cloneJson(ingress.sourceFrame || null),
       coreTransactionId: compact(ingress.coreTransactionId) || null,
+      coreRecovery: cloneJson(ingress.coreRecovery || null),
+      coreProjection: cloneJson(ingress.coreProjection || null),
+      compatibilityMirror: authority.compatibilityMirror,
+      projectionSource: authority.projectionSource,
+      authority: authority.authority,
       repairDecision: cloneJson(ingress.repairDecision || null),
       sourceRestart: cloneJson(ingress.sourceRestart || null),
       status: ingress.status || 'received',
@@ -649,7 +862,7 @@ export function recordTurnIngress(campaignState, ingress, {
       responseMessageId: ingress.responseMessageId || null,
       invalidatedAt: ingress.invalidatedAt || null,
       invalidationType: ingress.invalidationType || null,
-      replacementText: ingress.replacementText || null,
+      ...replacementTextProjectionFields(ingress),
       error: cloneJson(ingress.error || null)
     };
     const ledger = cloneJson(tracking.ingressLedger);
@@ -667,6 +880,11 @@ export function recordTurnIngress(campaignState, ingress, {
         'sourceFrameId',
         'sourceFrame',
         'coreTransactionId',
+        'coreRecovery',
+        'coreProjection',
+        'compatibilityMirror',
+        'projectionSource',
+        'authority',
         'repairDecision',
         'sourceRestart'
       ]) {
@@ -684,20 +902,36 @@ export function recordTurnIngress(campaignState, ingress, {
   });
 }
 
-export function updateTurnIngress(campaignState, ingressId, patch = {}) {
+export function updateTurnIngress(campaignState, ingressId, patch = {}, {
+  missingCoreWriteMode = 'reject'
+} = {}) {
   const id = compact(ingressId);
+  const sanitizedPatch = {
+    ...cloneJson(patch),
+    ...replacementTextProjectionFields(patch)
+  };
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
-    ingressLedger: tracking.ingressLedger.map((entry) => entry.id === id
-      ? { ...entry, ...cloneJson(patch) }
-      : entry)
+    ingressLedger: tracking.ingressLedger.map((entry) => {
+      if (entry.id !== id) return entry;
+      const merged = { ...entry, ...sanitizedPatch };
+      const authority = oldLedgerAuthorityFieldsForUpdate('ingress', entry, sanitizedPatch, merged, { missingCoreWriteMode });
+      return {
+        ...merged,
+        compatibilityMirror: authority.compatibilityMirror,
+        projectionSource: authority.projectionSource,
+        authority: authority.authority
+      };
+    })
   }));
 }
 
 export function recordDirectiveResponse(campaignState, response, {
-  limit = DEFAULT_RESPONSE_LIMIT
+  limit = DEFAULT_RESPONSE_LIMIT,
+  missingCoreWriteMode = 'reject'
 } = {}) {
   if (!isObject(response)) throw new Error('response must be an object');
+  const authority = oldLedgerAuthorityFields('response', response, { missingCoreWriteMode });
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
     responseLedger: bounded([
@@ -722,14 +956,20 @@ export function recordDirectiveResponse(campaignState, response, {
         coreTransactionId: compact(response.coreTransactionId) || null,
         coreRelease: cloneJson(response.coreRelease || null),
         coreReleaseError: cloneJson(response.coreReleaseError || null),
+        coreReleaseDiagnostic: cloneJson(response.coreReleaseDiagnostic || null),
         coreRecovery: cloneJson(response.coreRecovery || null),
         coreRecoveryError: cloneJson(response.coreRecoveryError || null),
+        coreProjection: cloneJson(response.coreProjection || null),
+        compatibilityMirror: authority.compatibilityMirror,
+        projectionSource: authority.projectionSource,
+        authority: authority.authority,
         invalidatedAt: response.invalidatedAt || null,
         invalidationType: response.invalidationType || null,
-        replacementText: response.replacementText || null,
+        ...replacementTextProjectionFields(response),
         editedAt: response.editedAt || null,
         deletedAt: response.deletedAt || null,
         outcomeIntegrity: cloneJson(response.outcomeIntegrity || null),
+        correctAsSwipe: cloneJson(response.correctAsSwipe || null),
         hostContinuation: cloneJson(response.hostContinuation || null),
         hostObservation: cloneJson(response.hostObservation || null),
         continuityReview: cloneJson(response.continuityReview || null),
@@ -739,65 +979,47 @@ export function recordDirectiveResponse(campaignState, response, {
   }));
 }
 
-export function updateDirectiveResponse(campaignState, responseId, patch = {}) {
+export function updateDirectiveResponse(campaignState, responseId, patch = {}, {
+  missingCoreWriteMode = 'reject',
+  allowHostMessageIdMatch = false
+} = {}) {
   const id = compact(responseId);
   if (!id) return campaignState;
+  const sanitizedPatch = {
+    ...cloneJson(patch),
+    ...replacementTextProjectionFields(patch)
+  };
+  const responseLedgerRevision = responseLedgerRevisionFromCoreProjections(campaignState);
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
     ...(() => {
-      let updated = false;
       const responseLedger = tracking.responseLedger.map((entry) => {
-        if (compact(entry.id) !== id && compact(entry.hostMessageId) !== id) return entry;
-        updated = true;
-        return { ...entry, ...cloneJson(patch) };
+        if (
+          compact(entry.id) !== id
+          && compact(entry.responseId) !== id
+          && !(allowHostMessageIdMatch === true && compact(entry.hostMessageId) === id)
+        ) return entry;
+        const merged = { ...entry, ...sanitizedPatch };
+        const authority = oldLedgerAuthorityFieldsForUpdate('response', entry, sanitizedPatch, merged, { missingCoreWriteMode });
+        return {
+          ...merged,
+          compatibilityMirror: authority.compatibilityMirror,
+          projectionSource: authority.projectionSource,
+          authority: authority.authority
+        };
       });
       return {
         responseLedger,
-        responseLedgerRevision: updated
-          ? Math.max(0, Number(tracking.responseLedgerRevision) || 0) + 1
-          : Math.max(0, Number(tracking.responseLedgerRevision) || 0)
+        responseLedgerRevision
       };
     })()
   }));
 }
 
-export function recordRecoveryEvent(campaignState, event, {
-  limit = 100
-} = {}) {
-  if (!isObject(event)) throw new Error('event must be an object');
-  return updateTracking(campaignState, (tracking) => {
-    const id = compact(event.id) || `recovery-${tracking.recoveryJournal.length + 1}`;
-    const entries = tracking.recoveryJournal.filter((entry) => entry.id !== id);
-    entries.push({
-      id,
-      type: event.type || 'recovery',
-      status: event.status || 'recorded',
-      hostMessageId: compact(event.hostMessageId) || null,
-      ingressId: compact(event.ingressId) || null,
-      outcomeId: compact(event.outcomeId) || null,
-      recordedAt: event.recordedAt || new Date().toISOString(),
-      details: cloneJson(event.details || {})
-    });
-    return {
-      ...tracking,
-      recoveryJournal: bounded(entries, limit)
-    };
-  });
-}
-
 export function resolveRecoveryEvent(campaignState, recoveryId, resolution = {}) {
   const id = compact(recoveryId);
-  return updateTracking(campaignState, (tracking) => ({
-    ...tracking,
-    recoveryJournal: tracking.recoveryJournal.map((entry) => entry.id === id
-      ? {
-          ...entry,
-          status: resolution.status || 'resolved',
-          resolvedAt: resolution.resolvedAt || new Date().toISOString(),
-          resolution: cloneJson(resolution)
-        }
-      : entry)
-  }));
+  if (!id) return campaignState;
+  return campaignState;
 }
 
 export function restoreTrackedCampaignRevision(campaignState, revision, {
@@ -815,18 +1037,23 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
   const restored = initializeCampaignRuntimeTracking(entry.snapshot, {
     historyLimit: current.runtimeTracking.historyLimit
   });
+  if (isObject(current.directiveRuntimeEvidence)) {
+    restored.directiveRuntimeEvidence = cloneJson(current.directiveRuntimeEvidence);
+  }
   const history = cloneJson(current.runtimeTracking.history);
   const historyIndex = history.findIndex((item) => Number(item.revision) === targetRevision);
+  const currentLedgerView = createRuntimeLedgerView(current, { runtimeOverlay: true });
+  const runtimeTrackingLedgers = runtimeTrackingLedgersFromView(current, currentLedgerView);
   restored.runtimeTracking = {
     ...restored.runtimeTracking,
     revision: targetRevision,
     history,
     historyIndex,
-    ingressLedger: cloneJson(current.runtimeTracking.ingressLedger),
-    responseLedger: cloneJson(current.runtimeTracking.responseLedger),
-    responseLedgerRevision: Math.max(0, Number(current.runtimeTracking.responseLedgerRevision) || 0),
-    sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
-    modelCallJournal: cloneJson(current.runtimeTracking.modelCallJournal),
+    ingressLedger: runtimeTrackingLedgers.ingressLedger,
+    responseLedger: runtimeTrackingLedgers.responseLedger,
+    responseLedgerRevision: responseLedgerRevisionFromCoreProjections(current),
+    sidecarJournal: [],
+    modelCallJournal: modelCallJournalFromCoreProjections(current),
     lifecycleJournal: bounded([
       ...cloneJson(current.runtimeTracking.lifecycleJournal),
       {
@@ -844,7 +1071,7 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
     pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
     endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
     activeIngressId: current.runtimeTracking.activeIngressId || null,
-    recoveryJournal: cloneJson(current.runtimeTracking.recoveryJournal),
+    recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
     lastDelta: {
       source: 'recovery',
       reason,
@@ -857,35 +1084,6 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
     lastStableRevision: targetRevision
   };
   return restored;
-}
-
-
-
-export function recordSidecarEvent(campaignState, event = {}, { limit = 200 } = {}) {
-  return updateTracking(campaignState, (tracking) => ({
-    ...tracking,
-    sidecarJournal: bounded([
-      ...tracking.sidecarJournal,
-      {
-        id: compact(event.id) || `sidecar-${tracking.sidecarJournal.length + 1}`,
-        workerId: compact(event.workerId) || null,
-        roleId: compact(event.roleId) || null,
-        status: event.status || 'recorded',
-        baseRevision: Number.isFinite(Number(event.baseRevision)) ? Number(event.baseRevision) : tracking.revision,
-        appliedRevision: Number.isFinite(Number(event.appliedRevision)) ? Number(event.appliedRevision) : null,
-        summary: compact(event.summary) || null,
-        ingressId: compact(event.ingressId) || null,
-        turnId: compact(event.turnId) || null,
-        outcomeId: compact(event.outcomeId) || null,
-        reconciliationRunId: compact(event.reconciliationRunId) || null,
-        sourceAnchorRange: cloneJson(event.sourceAnchorRange || null),
-        anchorRangeHash: compact(event.anchorRangeHash || event.sourceAnchorRange?.rangeHash) || null,
-        recordedAt: event.recordedAt || new Date().toISOString(),
-        error: cloneJson(event.error || null),
-        diagnostics: cloneJson(event.diagnostics || null)
-      }
-    ], limit)
-  }));
 }
 
 export function recordLifecycleEvent(campaignState, event = {}, { limit = 100 } = {}) {
@@ -926,8 +1124,7 @@ export function recordModelCallEvent(campaignState, event = {}, { limit = 200 } 
         latencyMs: Number.isFinite(Number(event.latencyMs)) ? Math.max(0, Number(event.latencyMs)) : null,
         retryable: event.retryable === true,
         recordedAt: event.recordedAt || new Date().toISOString(),
-        errorCode: compact(event.errorCode) || null,
-        metadata: cloneJson(event.metadata || null)
+        errorCode: compact(event.errorCode) || null
       }
     ], limit)
   }));

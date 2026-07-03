@@ -2,6 +2,7 @@ import {
   commitTrackedCampaignState,
   initializeCampaignRuntimeTracking
 } from './state-delta-gateway.mjs';
+import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
 import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import {
   compactOpenWorldReducerBundleRef,
@@ -46,12 +47,14 @@ function safeCheckpointId(value, fallback) {
 function findIngressById(campaignState, ingressId) {
   const id = compact(ingressId);
   if (!id) return null;
-  return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry?.id === id) || null;
+  return (createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [])
+    .find((entry) => entry?.id === id) || null;
 }
 
-function mechanicsDomainOperations(before = {}, after = {}, { excludedDomains = [] } = {}) {
+function mechanicsDomainOperations(before = {}, after = {}, { excludedDomains = [], turnPacket = {}, outcomeId = null } = {}) {
   const operations = [];
   const excluded = new Set(excludedDomains);
+  const sourceOutcomeId = outcomeId || turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null;
   for (const domain of MECHANICS_DOMAINS) {
     if (excluded.has(domain)) continue;
     const beforeHash = hashStableJson(before?.[domain] ?? null);
@@ -62,10 +65,299 @@ function mechanicsDomainOperations(before = {}, after = {}, { excludedDomains = 
       op: 'domainCommitted',
       path: domain,
       summary: `Committed ${domain} mechanics.`,
+      sourceKind: 'directive.compatibilityMechanicsDomainFallback.v1',
+      sourceOutcomeId,
+      sourceHash: hashStableJson({
+        domain,
+        sourceOutcomeId,
+        beforeHash,
+        afterHash
+      }),
       beforeHash,
       valueHash: afterHash
     });
   }
+  return operations;
+}
+
+function meaningfulDelta(value) {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+}
+
+const EXPLICIT_STATE_DELTA_DOMAINS = Object.freeze(['mission', 'commandCulture', 'pressureLedger', 'commandBearing']);
+
+function explicitStateDeltaDomainOperations(turnPacket = {}, before = {}, after = {}, { excludedDomains = [] } = {}) {
+  const stateDelta = turnPacket?.stateDelta || {};
+  const excluded = new Set(excludedDomains);
+  const operations = [];
+  for (const domain of EXPLICIT_STATE_DELTA_DOMAINS) {
+    if (excluded.has(domain)) continue;
+    if (!meaningfulDelta(stateDelta[domain])) continue;
+    const beforeHash = hashStableJson(before?.[domain] ?? null);
+    const afterHash = hashStableJson(after?.[domain] ?? null);
+    if (beforeHash === afterHash) continue;
+    operations.push({
+      domain,
+      op: 'stateDeltaCommitted',
+      path: `stateDelta.${domain}`,
+      summary: `Committed ${domain} mechanics from explicit turn packet state delta.`,
+      sourceKind: 'directive.turnPacketStateDelta.v1',
+      sourceOutcomeId: turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null,
+      sourceHash: hashStableJson(stateDelta[domain]),
+      valueHash: afterHash
+    });
+  }
+  return operations;
+}
+
+function explicitCompetencePacketOperation(turnPacket = {}, before = {}, after = {}, { excludedDomains = [] } = {}) {
+  const excluded = new Set(excludedDomains);
+  if (excluded.has('commandCompetence')) return null;
+  const competencePacket = turnPacket?.competencePacket || null;
+  if (!meaningfulDelta(competencePacket)) return null;
+  const beforeHash = hashStableJson(before?.commandCompetence ?? null);
+  const afterHash = hashStableJson(after?.commandCompetence ?? null);
+  if (beforeHash === afterHash) return null;
+  return {
+    domain: 'commandCompetence',
+    op: 'competencePacketCommitted',
+    path: 'competencePacket',
+    summary: 'Committed commandCompetence mechanics from explicit competence packet.',
+    sourceKind: competencePacket?.kind || 'directive.competencePacket',
+    sourceOutcomeId: competencePacket?.sourceOutcomeId || turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null,
+    sourceHash: hashStableJson(competencePacket),
+    valueHash: afterHash
+  };
+}
+
+function explicitPacketAppendOperations(turnPacket = {}, before = {}, after = {}, { excludedDomains = [] } = {}) {
+  const excluded = new Set(excludedDomains);
+  const operations = [];
+  const outcomeId = turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null;
+  const turnId = turnPacket?.turnId || turnPacket?.id || null;
+
+  const commandLogPacket = turnPacket?.commandLogPacket || null;
+  if (!excluded.has('commandLog') && meaningfulDelta(commandLogPacket)) {
+    const beforeHash = hashStableJson(before?.commandLog ?? null);
+    const afterHash = hashStableJson(after?.commandLog ?? null);
+    if (beforeHash !== afterHash) {
+      operations.push({
+        domain: 'commandLog',
+        op: 'commandLogPacketCommitted',
+        path: 'commandLogPacket',
+        summary: 'Committed commandLog mechanics from explicit command log packet.',
+        sourceKind: commandLogPacket?.kind || 'directive.commandLogPacket',
+        sourceOutcomeId: commandLogPacket?.sourceOutcomeId || outcomeId,
+        sourceHash: hashStableJson(commandLogPacket),
+        valueHash: afterHash
+      });
+    }
+  }
+
+  if (!excluded.has('turnLedger') && (turnId || outcomeId)) {
+    const beforeHash = hashStableJson(before?.turnLedger ?? null);
+    const afterHash = hashStableJson(after?.turnLedger ?? null);
+    if (beforeHash !== afterHash) {
+      operations.push({
+        domain: 'turnLedger',
+        op: 'turnLedgerEntryCommitted',
+        path: 'turnPacket',
+        targetId: outcomeId,
+        summary: 'Committed turnLedger mechanics from explicit turn packet.',
+        sourceKind: 'directive.turnLedgerEntryPacket.v1',
+        sourceOutcomeId: outcomeId,
+        sourceTurnId: turnId,
+        sourceHash: hashStableJson({
+          turnId,
+          outcomePacket: turnPacket?.outcomePacket || null,
+          stateDelta: turnPacket?.stateDelta || null,
+          competencePacket: turnPacket?.competencePacket || null,
+          provenance: turnPacket?.provenance || null,
+          narratorSourceOutcomeId: turnPacket?.narratorPacket?.sourceOutcomeId || null,
+          commandLogSourceOutcomeId: commandLogPacket?.sourceOutcomeId || null
+        }),
+        valueHash: afterHash
+      });
+    }
+  }
+
+  return operations;
+}
+
+function explicitWorldStateSubDeltaOperations(turnPacket = {}, before = {}, after = {}) {
+  const stateDelta = turnPacket?.stateDelta || {};
+  const outcomeId = turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null;
+  const operations = [];
+  const specs = [
+    {
+      deltaKey: 'actors',
+      worldStateKey: 'actors',
+      op: 'actorPosturesCommitted',
+      path: 'stateDelta.actors',
+      sourceKind: 'directive.turnPacketStateDelta.actors.v1'
+    },
+    {
+      deltaKey: 'fronts',
+      worldStateKey: 'fronts',
+      op: 'frontRecordsCommitted',
+      path: 'stateDelta.fronts',
+      sourceKind: 'directive.turnPacketStateDelta.fronts.v1'
+    },
+    {
+      deltaKey: 'clocks',
+      worldStateKey: 'clocks',
+      op: 'clockDeltasCommitted',
+      path: 'stateDelta.clocks',
+      sourceKind: 'directive.turnPacketStateDelta.clocks.v1'
+    }
+  ];
+
+  for (const spec of specs) {
+    const source = stateDelta?.[spec.deltaKey];
+    if (!meaningfulDelta(source)) continue;
+    const beforeHash = hashStableJson(before?.worldState?.[spec.worldStateKey] ?? null);
+    const afterHash = hashStableJson(after?.worldState?.[spec.worldStateKey] ?? null);
+    if (beforeHash === afterHash) continue;
+    const sourceArray = Array.isArray(source) ? source : null;
+    const sourceRecords = sourceArray
+      || source?.upsertPostures
+      || source?.upsertRecords
+      || [];
+    operations.push({
+      domain: 'worldState',
+      op: spec.op,
+      path: spec.path,
+      summary: `Committed worldState ${spec.worldStateKey} mechanics from explicit turn packet delta.`,
+      sourceKind: spec.sourceKind,
+      sourceOutcomeId: outcomeId,
+      sourceHash: hashStableJson(source),
+      operationCount: Array.isArray(sourceRecords) ? sourceRecords.length : undefined,
+      changedRoots: ['worldState'],
+      valueHash: afterHash
+    });
+  }
+
+  return operations;
+}
+
+function explicitTerminalStateOperations(turnPacket = {}, before = {}, after = {}, { excludedDomains = [] } = {}) {
+  const excluded = new Set(excludedDomains);
+  const terminalState = turnPacket?.stateDelta?.terminalState || null;
+  if (!meaningfulDelta(terminalState)) return [];
+  const outcomeId = turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null;
+  const specs = [
+    {
+      domain: 'ship',
+      deltaKey: 'shipPatch',
+      op: 'shipTerminalStateCommitted',
+      path: 'stateDelta.terminalState.shipPatch',
+      sourceKind: 'directive.turnPacketStateDelta.terminalState.ship.v1'
+    },
+    {
+      domain: 'player',
+      deltaKey: 'playerPatch',
+      op: 'playerTerminalStateCommitted',
+      path: 'stateDelta.terminalState.playerPatch',
+      sourceKind: 'directive.turnPacketStateDelta.terminalState.player.v1'
+    },
+    {
+      domain: 'flags',
+      deltaKey: 'flagsSet',
+      op: 'flagsTerminalStateCommitted',
+      path: 'stateDelta.terminalState.flagsSet',
+      sourceKind: 'directive.turnPacketStateDelta.terminalState.flags.v1'
+    }
+  ];
+  const operations = [];
+  for (const spec of specs) {
+    if (excluded.has(spec.domain)) continue;
+    const source = terminalState?.[spec.deltaKey];
+    if (!meaningfulDelta(source)) continue;
+    const beforeHash = hashStableJson(before?.[spec.domain] ?? null);
+    const afterHash = hashStableJson(after?.[spec.domain] ?? null);
+    if (beforeHash === afterHash) continue;
+    const sourceRecords = Array.isArray(source) ? source : [source];
+    operations.push({
+      domain: spec.domain,
+      op: spec.op,
+      path: spec.path,
+      summary: `Committed ${spec.domain} terminal-state mechanics from explicit turn packet delta.`,
+      sourceKind: spec.sourceKind,
+      sourceOutcomeId: outcomeId,
+      sourceHash: hashStableJson(source),
+      operationCount: sourceRecords.length,
+      valueHash: afterHash
+    });
+  }
+  return operations;
+}
+
+function explicitRelationshipOperations(turnPacket = {}, before = {}, after = {}, { excludedDomains = [] } = {}) {
+  const excluded = new Set(excludedDomains);
+  if (excluded.has('relationships')) return [];
+  const relationshipDelta = turnPacket?.stateDelta?.relationships || null;
+  const outcomeId = turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null;
+  const operations = [];
+
+  if (meaningfulDelta(relationshipDelta)) {
+    const beforeDirectHash = hashStableJson({
+      descriptiveLog: before?.relationships?.descriptiveLog || [],
+      perceptionLedger: before?.relationships?.perceptionLedger || [],
+      rawValuesHidden: before?.relationships?.rawValuesHidden ?? null
+    });
+    const afterDirectHash = hashStableJson({
+      descriptiveLog: after?.relationships?.descriptiveLog || [],
+      perceptionLedger: after?.relationships?.perceptionLedger || [],
+      rawValuesHidden: after?.relationships?.rawValuesHidden ?? null
+    });
+    if (beforeDirectHash !== afterDirectHash) {
+      const deltaRecords = [
+        ...asArray(relationshipDelta.descriptiveChanges),
+        ...asArray(relationshipDelta.perceptionRecordsAdd),
+        ...asArray(relationshipDelta.playerPerceptionsAdd)
+      ];
+      operations.push({
+        domain: 'relationships',
+        op: 'relationshipStateDeltaCommitted',
+        path: 'stateDelta.relationships',
+        summary: 'Committed relationships mechanics from explicit turn packet state delta.',
+        sourceKind: 'directive.turnPacketStateDelta.relationships.v1',
+        sourceOutcomeId: outcomeId,
+        sourceHash: hashStableJson(relationshipDelta),
+        operationCount: deltaRecords.length,
+        valueHash: afterDirectHash
+      });
+    }
+  }
+
+  const beforeMemoryHash = hashStableJson(before?.relationships?.memoryLedger || []);
+  const afterMemoryHash = hashStableJson(after?.relationships?.memoryLedger || []);
+  if (beforeMemoryHash !== afterMemoryHash) {
+    const crewIds = asArray(relationshipDelta?.affectedCrewIds).length
+      ? asArray(relationshipDelta.affectedCrewIds)
+      : asArray(turnPacket?.sceneSnapshot?.presentCharacters).filter((id) => id !== 'player-commander');
+    operations.push({
+      domain: 'relationships',
+      op: 'relationshipMemoryDerivedCommitted',
+      path: 'relationshipMemoryFromTurn',
+      summary: 'Committed derived relationship memory from turn outcome and scoped crew ids.',
+      sourceKind: 'directive.relationshipMemoryFromTurn.v1',
+      sourceOutcomeId: outcomeId,
+      sourceHash: hashStableJson({
+        outcomeId,
+        turnId: turnPacket?.turnId || turnPacket?.id || null,
+        outcomeSummary: turnPacket?.outcomePacket?.summary || null,
+        relationshipDelta,
+        crewIds
+      }),
+      operationCount: crewIds.length,
+      valueHash: afterMemoryHash
+    });
+  }
+
   return operations;
 }
 
@@ -133,9 +425,30 @@ async function commitCoreMechanics({
     }
     const reducerOperation = openWorldReducerOperation(turnPacket, outcomeId);
     const reducerRoots = reducerOperation?.changedRoots || [];
-    const operations = mechanicsDomainOperations(beforeCampaignState, campaignState, {
+    const explicitOperations = explicitStateDeltaDomainOperations(turnPacket, beforeCampaignState, campaignState, {
       excludedDomains: reducerRoots
     });
+    const competenceOperation = explicitCompetencePacketOperation(turnPacket, beforeCampaignState, campaignState, {
+      excludedDomains: reducerRoots
+    });
+    if (competenceOperation) explicitOperations.push(competenceOperation);
+    explicitOperations.push(...explicitPacketAppendOperations(turnPacket, beforeCampaignState, campaignState, {
+      excludedDomains: reducerRoots
+    }));
+    explicitOperations.push(...explicitWorldStateSubDeltaOperations(turnPacket, beforeCampaignState, campaignState));
+    explicitOperations.push(...explicitTerminalStateOperations(turnPacket, beforeCampaignState, campaignState, {
+      excludedDomains: reducerRoots
+    }));
+    explicitOperations.push(...explicitRelationshipOperations(turnPacket, beforeCampaignState, campaignState, {
+      excludedDomains: reducerRoots
+    }));
+    const explicitRoots = explicitOperations.map((operation) => operation.domain);
+    const operations = mechanicsDomainOperations(beforeCampaignState, campaignState, {
+      excludedDomains: [...reducerRoots, ...explicitRoots],
+      turnPacket,
+      outcomeId
+    });
+    operations.push(...explicitOperations);
     if (reducerOperation) operations.push(reducerOperation);
     const bundle = {
       batchId: `mechanics:${outcomeId}`,

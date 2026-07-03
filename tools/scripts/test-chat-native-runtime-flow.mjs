@@ -425,6 +425,73 @@ assert.equal(
   continuityPlannerCallsAfterLensRebuild,
   'LENS cache reuse should not invoke the blocking continuity planner when the prompt source is unchanged.'
 );
+const originalPromptInspect = host.prompt.inspect.bind(host.prompt);
+const staleExternalRef = {
+  kind: 'directive.externalPromptEnvironmentRef.v1',
+  hash: 'a'.repeat(64),
+  byteLength: 101,
+  status: 'observed',
+  observedAt: '2026-06-22T04:05:00.000Z',
+  knownExternalPromptKeys: ['summaryception']
+};
+const freshExternalRef = {
+  kind: 'directive.externalPromptEnvironmentRef.v1',
+  hash: 'c'.repeat(64),
+  byteLength: 202,
+  status: 'observed',
+  observedAt: '2026-06-22T04:05:01.000Z',
+  knownExternalPromptKeys: ['summaryception', '3_vectfox', 'worldInfoBefore']
+};
+host.prompt.inspect = (options = {}) => ({
+  ...originalPromptInspect(options),
+  externalPromptEnvironmentRef: cloneJson(freshExternalRef),
+  knownExternalPromptKeys: cloneJson(freshExternalRef.knownExternalPromptKeys),
+  finalHostPromptMayIncludeExternal: true,
+  externalPromptEnvironmentTargets: {
+    memoryBooks: {
+      status: 'valid',
+      installed: true,
+      enabled: true,
+      active: true,
+      rangeDiagnostics: { status: 'valid', rangeHash: 'chat-native-memory-range' },
+      directiveAuthority: false,
+      rawContentCaptured: false
+    },
+    summaryception: {
+      status: 'current',
+      installed: true,
+      enabled: true,
+      promptKeyActive: true,
+      staleness: { status: 'current' },
+      directiveAuthority: false,
+      rawContentCaptured: false
+    },
+    vectFox: {
+      status: 'external-backend-configured',
+      installed: true,
+      enabled: true,
+      backendDiagnostics: { status: 'external-backend-configured', backendType: 'qdrant' },
+      directiveAuthority: false,
+      rawContentCaptured: false
+    }
+  }
+});
+const externalContextRebuild = await app.rebuildPromptContext({
+  reason: 'test-fresh-external-context-cache-identity',
+  promptFrame: {
+    turnSourceHash: 'turn-source-hash-stale-external-frame',
+    promptDirtyDomains: ['continuity'],
+    externalPromptEnvironmentRef: staleExternalRef
+  }
+});
+assert.equal(externalContextRebuild.lens.status, 'installed');
+assert.equal(externalContextRebuild.lens.externalPromptEnvironmentRef.hash, freshExternalRef.hash, 'Runtime LENS sync should prefer fresh prompt-adapter external ref over stale prompt-frame ref.');
+assert.equal(externalContextRebuild.packet.lensPromptBudgetTrace.cacheInputs.externalPromptEnvironmentRef.hash, freshExternalRef.hash, 'Runtime LENS budget trace cache identity should use fresh prompt-adapter external ref.');
+assert.equal(externalContextRebuild.packet.lensPromptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.memoryBooks.rangeDiagnostics.status, 'valid');
+assert.equal(externalContextRebuild.packet.lensPromptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.summaryception.staleness.status, 'current');
+assert.equal(externalContextRebuild.packet.lensPromptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.status, 'external-backend-configured');
+assert.equal(JSON.stringify(externalContextRebuild.packet.lensPromptBudgetTrace).includes(staleExternalRef.hash), false, 'Stale prompt-frame external ref must not remain in cache trace when fresh inspection exists.');
+host.prompt.inspect = originalPromptInspect;
 const promptClearCallsBeforeManualClear = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
 const manualPromptClear = await app.clearPromptContext({ reason: 'test-manual-lens-clear' });
 assert.equal(manualPromptClear.result.status, 'cleared', 'Manual prompt clear should route through LENS clear.');
@@ -797,9 +864,23 @@ if (consequentialResult.responseStrategy === 'pause') {
 view = await app.getCurrentView({ tabId: 'mission' });
 assert.equal(view.chatNative.tracking.ingressCount, 6);
 assert.equal(view.chatNative.tracking.responseCount >= 6, true);
-assert.equal(view.chatNative.tracking.modelCallCount > 0, true);
-assert.equal(view.chatNative.modelCalls.some((entry) => entry.roleId === 'utilityTurnClassifier'), true);
-assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call journal must not store raw player text.');
+assert.equal(view.chatNative.tracking.modelCallEventSequence > 0, true, 'CORE-targeted model calls must advance compact resume cursor.');
+assert.equal(
+  view.chatNative.tracking.modelCallEventSequence >= view.chatNative.tracking.modelCallCount,
+  true,
+  'CORE-targeted model calls must expose compact projected diagnostics without outrunning the cursor.'
+);
+assert.equal(
+  view.chatNative.modelCalls.length,
+  view.chatNative.tracking.modelCallCount,
+  'Chat-native model-call view must keep count and compact diagnostic list consistent.'
+);
+assert.equal(
+  view.chatNative.modelCalls.every((entry) => !entry.prompt && !entry.response && (entry.requestHash || entry.status)),
+  true,
+  'Chat-native model-call view must expose compact/redacted diagnostic rows only.'
+);
+assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call resume view must not store raw player text.');
 assert.ok(view.chatNative.tracking.lastCommittedTurn?.outcomeId);
 assert.equal(view.chatNative.tracking.lastCommittedTurn.narrationStatus, 'complete');
 assert.equal(view.chatNative.tracking.lastCommittedTurn.responseStatus, 'complete');
@@ -813,6 +894,7 @@ assert.equal(
   'Player-turn prompt synchronization must not invoke the blocking continuity planner.'
 );
 view = (await app.flushRuntimeDiagnostics()).view;
+assert.equal(view.chatNative.tracking.modelCallEventSequence > 0, true, 'Runtime diagnostics flush must preserve compact model-call resume cursor.');
 const sourceStorageAfterRuntimeTurns = host.storage.snapshot();
 const sourceSaveIndexAfterRuntimeTurns = sourceStorageAfterRuntimeTurns[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
 assert.equal(sourceSaveIndexAfterRuntimeTurns.path, sourceV1PayloadPath, 'Queued runtime persistence must preserve the v1 checkpoint payload path.');
@@ -923,6 +1005,11 @@ assert.ok(
   )),
   'Production chat turns should mirror redacted model-call diagnostics into CORE diagnostics.'
 );
+assert.equal(
+  JSON.stringify(coreProjectionsBeforeReload.modelCallDiagnostics).includes('change course and pursue'),
+  false,
+  'CORE model-call diagnostics must not store raw player text.'
+);
 assertCoreHostContinueBridge({
   projections: coreProjectionsBeforeReload,
   state: view.campaignState,
@@ -989,6 +1076,14 @@ view = await app.getCurrentView({ tabId: 'mission' });
 const editedResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.hostMessageId === committedResponse.hostMessageId);
 assert.equal(editedResponseEntry.outcomeId, editContext.lockedContext.outcomeId);
 assert.equal(editedResponseEntry.outcomeIntegrity.selectedRevisionId, editResult.revision.id);
+assert.equal(editedResponseEntry.authority, 'compatibilityProjection');
+assert.equal(editedResponseEntry.projectionSource, 'coreStoreV2');
+assert.equal(editedResponseEntry.coreProjection.kind, 'directive.coreResponseOutcomeIntegrityProjectionRef.v1');
+assert.ok(editedResponseEntry.coreProjection.transactionId, 'Outcome Integrity lifecycle projection must carry CORE transaction evidence.');
+assert.equal(editedResponseEntry.coreProjection.action, 'editAccepted');
+assert.equal(editedResponseEntry.coreProjection.revisionId, editResult.revision.id);
+assert.equal(editedResponseEntry.coreProjection.revisionTextHash, editResult.revision.textHash);
+assert.equal(JSON.stringify(editedResponseEntry.coreProjection).includes(editedText), false);
 
 const duplicate = await app.observeHostPlayerMessage({
   chatId: host.chat.getCurrentChatId(),

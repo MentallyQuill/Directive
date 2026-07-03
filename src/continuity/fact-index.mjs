@@ -6,8 +6,10 @@ import {
   createContinuityFact,
   factKnowledgeScope,
   isFalseBeliefDisclosureState,
+  isFactAllowedForSourceFrame,
   isProvisionalDisclosureState,
-  isFactVisibleToAudience
+  isFactVisibleToAudience,
+  normalizeActorId
 } from './fact-schema.mjs';
 import { normalizeContinuityState } from './state.mjs';
 import { materializeContinuityFacts } from './materializers/index.mjs';
@@ -55,6 +57,14 @@ function conflictPartitionKey(fact) {
   return `${key}:falseBelief:${actors || 'unknown'}`;
 }
 
+function hasExplicitKnowledgeScope(fact) {
+  const scope = factKnowledgeScope(fact);
+  const subject = normalizeActorId(fact?.subject || '');
+  return scope.knownBy.length > 0
+    || scope.witnessedBy.length > 0
+    || scope.subjectIds.some((actorId) => actorId !== subject);
+}
+
 function compareFacts(left, right) {
   const leftRank = rankFact(left);
   const rightRank = rankFact(right);
@@ -82,7 +92,8 @@ export function buildContinuityFactIndex({
   shipDataset = null,
   campaignProjection = null,
   additionalFacts = [],
-  audience = CONTINUITY_VISIBILITY.narratorSafe
+  audience = CONTINUITY_VISIBILITY.narratorSafe,
+  sourceFrame = null
 } = {}) {
   if (!campaignState || typeof campaignState !== 'object') throw new Error('campaignState must be an object.');
   const continuity = normalizeContinuityState(campaignState.continuity);
@@ -98,6 +109,10 @@ export function buildContinuityFactIndex({
   for (const fact of sourceFacts) {
     if (!isFactVisibleToAudience(fact, audience)) {
       rejected.push({ factId: fact.id, reason: 'audience-gate' });
+      continue;
+    }
+    if (sourceFrame && hasExplicitKnowledgeScope(fact) && !isFactAllowedForSourceFrame(fact, sourceFrame)) {
+      rejected.push({ factId: fact.id, reason: 'source-frame-knowledge-gate' });
       continue;
     }
     const existingSameId = acceptedById.get(fact.id);

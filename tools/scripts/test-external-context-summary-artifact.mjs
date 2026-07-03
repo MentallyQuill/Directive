@@ -52,17 +52,20 @@ const richPromptInspection = {
       active: true,
       chatBound: true,
       placement: 'worldInfoBefore',
+      timingDiagnostics: { observed: true, composeLatencyMs: 12, timingHash: 'l'.repeat(64) },
       rawLorebookText: 'RAW_LOREBOOK_TEXT should not survive.'
     },
     memoryBooks: {
       enabled: true,
       rangeDiagnostics: { status: 'valid', rangeCount: 2 },
+      timingDiagnostics: { observed: true, scanLatencyMs: 18, timingHash: 'm'.repeat(64) },
       generatedMemory: 'generated Memory Book text should not survive.'
     },
     summaryception: {
       enabled: true,
       promptKeyActive: true,
       staleness: { status: 'observed' },
+      timingDiagnostics: { observed: true, summaryLatencyMs: 44, timingHash: 's'.repeat(64) },
       rawSummary: 'raw Summaryception text should not survive.'
     },
     vectFox: {
@@ -71,6 +74,8 @@ const richPromptInspection = {
       generationInterceptorActive: true,
       backendDiagnostics: {
         status: 'external-backend-configured',
+        externalTimingObserved: true,
+        timingHash: 'v'.repeat(64),
         endpointUrl: 'QDRANT_ENDPOINT should not survive.'
       },
       vectorPayload: 'raw vector payload should not survive.',
@@ -117,10 +122,16 @@ assert.equal(artifact.aggregate.knownExternalPromptKeys.includes('summaryception
 assert.equal(artifact.aggregate.knownExternalPromptKeys.includes('3_vectfox'), true);
 assert.equal(artifact.aggregate.redactionReasons.includes('secret'), true);
 assert.equal(artifact.aggregate.redactionReasons.includes('raw-payload'), true);
+assert.equal(artifact.aggregate.timingCoverage.timedTargetCount, 4);
+assert.deepEqual(artifact.aggregate.timingCoverage.targetsMissingTiming, []);
 assert.equal(artifact.targetSummaries[0].targets.stLorebooks.active, true);
 assert.equal(artifact.targetSummaries[0].targets.memoryBooks.rangeDiagnostics.status, 'valid');
 assert.equal(artifact.targetSummaries[0].targets.summaryception.staleness.status, 'observed');
 assert.equal(artifact.targetSummaries[0].targets.vectFox.backendDiagnostics.status, 'external-backend-configured');
+assert.equal(artifact.targetSummaries[0].targets.stLorebooks.timingDiagnostics.observed, true);
+assert.equal(artifact.targetSummaries[0].targets.memoryBooks.timingDiagnostics.observed, true);
+assert.equal(artifact.targetSummaries[0].targets.summaryception.timingDiagnostics.observed, true);
+assert.equal(artifact.targetSummaries[0].targets.vectFox.backendDiagnostics.externalTimingObserved, true);
 
 const serialized = JSON.stringify(artifact);
 for (const forbidden of [
@@ -148,6 +159,8 @@ assert.deepEqual(summary.usefulTargetSummaries, ['stLorebooks', 'memoryBooks', '
 assert.equal(summary.finalHostPromptMayIncludeExternal, true);
 assert.equal(summary.authority.directiveAuthority, false);
 assert.equal(summary.redactionReasons.includes('raw-payload'), true);
+assert.equal(summary.timingCoverage.timedTargetCount, 4);
+assert.deepEqual(summary.timingCoverage.targetsMissingTiming, []);
 
 const generationSummary = summarizeExternalContextGenerationArtifacts({ artifactRoot: root, turnLimit: 1 });
 assert.equal(generationSummary.status, 'pass');
@@ -228,5 +241,6 @@ assert.equal(placeholderSummary.status, 'fail');
 assert.deepEqual(placeholderSummary.missingTargetSummaries, []);
 assert.deepEqual(placeholderSummary.placeholderTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
 assert.equal(placeholderSummary.missingFields.includes('targetSummaries.usefulTargets'), true);
+assert.equal(placeholderSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
 
 console.log('External context summary artifact tests passed.');

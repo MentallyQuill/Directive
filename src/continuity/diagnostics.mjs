@@ -6,6 +6,7 @@ import {
 } from './fact-schema.mjs';
 import { DIRECTIVE_STATIC_PROMPT_KEYS } from './prompt-keys.mjs';
 import { normalizeContinuityState } from './state.mjs';
+import { createRuntimeLedgerView } from '../runtime/runtime-ledger-view.mjs';
 
 function latest(values = []) {
   return asArray(values).at(-1) || null;
@@ -32,10 +33,12 @@ function sanitizedClaimRecord(claim = {}) {
   };
 }
 
-function latestContinuityReview(runtimeTracking = {}) {
-  const response = [...asArray(runtimeTracking.responseLedger)].reverse()
+function latestContinuityReview(campaignState = {}) {
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState || {});
+  const recoveryRows = asArray(runtimeLedgerView.recoveryJournal);
+  const response = [...asArray(runtimeLedgerView.responseLedger)].reverse()
     .find((entry) => entry?.continuityReview);
-  const recovery = [...asArray(runtimeTracking.recoveryJournal)].reverse()
+  const recovery = [...recoveryRows].reverse()
     .find((entry) => String(entry?.type || '').includes('Continuity') || String(entry?.type || '').includes('continuity'));
   return {
     status: response?.continuityReview?.ok === false ? 'contradicted' : (response?.continuityReview ? 'ok' : 'not-reviewed'),
@@ -44,7 +47,7 @@ function latestContinuityReview(runtimeTracking = {}) {
     responseIdHash: hashOrNull(response?.id),
     hostMessageIdHash: hashOrNull(response?.hostObservation?.hostMessageId || response?.hostMessageId),
     observationTextHash: response?.hostObservation?.textHash || null,
-    recoveryCount: asArray(runtimeTracking.recoveryJournal).filter((entry) => (
+    recoveryCount: recoveryRows.filter((entry) => (
       String(entry?.type || '').includes('Continuity') || String(entry?.type || '').includes('continuity')
     )).length,
     latestRecoveryIdHash: hashOrNull(recovery?.id),
@@ -105,7 +108,7 @@ export function buildContinuityProjectionDiagnostics({
     activeHintCount: count(continuity.projectionHints),
     projectionRunCount: count(continuity.projectionRuns),
     staticKeys: keyStatus,
-    latestReview: latestContinuityReview(campaignState?.runtimeTracking || {}),
+    latestReview: latestContinuityReview(campaignState || {}),
     latestCandidateClaim: sanitizedClaimRecord(latest(continuity.candidateClaims)),
     latestRejectedClaim: sanitizedClaimRecord(latest(continuity.rejectedClaims))
   };

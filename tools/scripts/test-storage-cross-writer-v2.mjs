@@ -236,7 +236,11 @@ async function writeCoreTurn({ adapter, campaignId, saveId, chatId }, suffix) {
       domain: 'mission',
       op: 'appendLog',
       summary: 'Recorded cross-writer mission effect.',
-      rawText: 'RAW_CORE_MECHANICS_TEXT'
+      sourceKind: 'directive.crossWriterFixture.v1',
+      sourceHash: hashStableJson({ fixture: `cross-writer-${suffix}`, root: 'mission' }),
+      operationCount: 1,
+      changedRoots: ['mission'],
+      valueHash: hashStableJson({ missionEffect: `cross-writer-${suffix}` })
     }]
   });
   await coreStore.recordVisibleResponse(transaction.id, {

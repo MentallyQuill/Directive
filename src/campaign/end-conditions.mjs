@@ -217,13 +217,22 @@ function isTerminalBlockedByMode(condition, simulationMode) {
 
 function checkpointSource(campaignState, outcomeId, condition, packageEndConditions) {
   const policy = condition.checkpointPolicy || packageEndConditions.defaultCheckpointPolicy || {};
-  const preferred = policy.preferred || 'preOutcomeSnapshot';
   const entry = array(campaignState?.turnLedger?.entries).find((item) => item?.outcomeId === outcomeId)
     || latestTurnEntry(campaignState);
-  if (preferred === 'preOutcomeSnapshot' && entry?.snapshotBefore) {
-    return { source: 'preOutcomeSnapshot', outcomeId: entry.outcomeId || outcomeId || null, retained: true };
+  const coreCheckpointRef = entry?.coreCheckpointRef
+    || (
+      campaignState?.runtimeTracking?.lastCommittedTurn?.outcomeId === (entry?.outcomeId || outcomeId || null)
+        ? campaignState.runtimeTracking.lastCommittedTurn.coreCheckpointRef
+        : null
+    );
+  if (coreCheckpointRef && typeof coreCheckpointRef === 'object') {
+    return {
+      source: 'coreCheckpoint',
+      outcomeId: entry?.outcomeId || outcomeId || null,
+      retained: true,
+      coreCheckpointRef: cloneJson(coreCheckpointRef)
+    };
   }
-  if (entry?.snapshotBefore) return { source: 'preOutcomeSnapshot', outcomeId: entry.outcomeId || outcomeId || null, retained: true };
   return { source: array(policy.fallbacks)[0] || 'lastStableAutosave', outcomeId: entry?.outcomeId || outcomeId || null, retained: false };
 }
 
