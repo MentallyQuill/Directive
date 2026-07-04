@@ -665,7 +665,13 @@ assert.equal(
   beforeMissingSnapshotRollbackCount,
   'Missing-snapshot delete must not write CORE rollback actuation projection.'
 );
-await app[mutateRuntimeAppCampaignState](() => retainedSnapshotBaseline.loadedCampaignState || retainedSnapshotBaseline.campaignState);
+await app[mutateRuntimeAppCampaignState]((state) => {
+  const next = cloneJson(retainedSnapshotBaseline.campaignState || state);
+  const entry = next.turnLedger.entries.find((item) => item.outcomeId === coreDeletedOutcomeId);
+  assert.ok(entry?.coreCheckpointRef, 'Denied delete fixture must retain CORE checkpoint evidence.');
+  entry.snapshotBeforeRetained = true;
+  return next;
+});
 
 await app[mutateRuntimeAppCampaignState]((state) => {
   const next = cloneJson(state);
@@ -684,9 +690,15 @@ assert.ok(
   hydratedNoRefEntry.coreCheckpointRef?.checkpointId,
   'CORE hydration should repair a missing ledger checkpoint ref before delete uses raw snapshot fallback.'
 );
-await app[mutateRuntimeAppCampaignState](() => retainedSnapshotBaseline.loadedCampaignState || retainedSnapshotBaseline.campaignState);
+await app[mutateRuntimeAppCampaignState]((state) => {
+  const next = cloneJson(retainedSnapshotBaseline.campaignState || state);
+  const entry = next.turnLedger.entries.find((item) => item.outcomeId === coreDeletedOutcomeId);
+  assert.ok(entry?.coreCheckpointRef, 'Denied delete fixture must retain CORE checkpoint evidence.');
+  entry.snapshotBeforeRetained = true;
+  return next;
+});
 
-const beforeDeniedDelete = await app.getCurrentView({ tabId: 'mission' });
+let beforeDeniedDelete = await app.getCurrentView({ tabId: 'mission' });
 const beforeDeniedCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
   campaignId: beforeDeniedDelete.campaignState.campaign.id,
   saveId: beforeDeniedDelete.campaignState.campaignChatBinding.saveId
@@ -699,6 +711,14 @@ const beforeDeniedRollbackCount = beforeDeniedCoreProjections.rollbackActuations
   entry.transactionId === coreDeletedTransactionId
   && entry.outcomeId === coreDeletedOutcomeId
 )).length;
+await app[mutateRuntimeAppCampaignState]((state) => {
+  const next = cloneJson(state);
+  const entry = next.turnLedger.entries.find((item) => item.outcomeId === coreDeletedOutcomeId);
+  assert.ok(entry?.coreCheckpointRef, 'Denied delete fixture must retain CORE checkpoint evidence.');
+  entry.snapshotBeforeRetained = true;
+  return next;
+});
+beforeDeniedDelete = await app.getCurrentView({ tabId: 'mission' });
 denyCommittedOutcomeDeleteRollback = true;
 await assert.rejects(
   () => app.deleteCommittedOutcome({ outcomeId: coreDeletedOutcomeId }),

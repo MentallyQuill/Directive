@@ -67,6 +67,70 @@ function createHarness({ nowPrefix = '2026-06-28T19:00', nowValues = [] } = {}) 
 const defaultSettlementService = createSourceSettlementService();
 assert.equal(typeof defaultSettlementService.reconcileRange, 'undefined', 'default SRE service must not expose terminal range settlement without a range provider/apply owner');
 assert.equal(typeof defaultSettlementService.preflightRange, 'function');
+const rejectingPreflightDiagnostics = createSourceSettlementService({
+  coreStore: {
+    appendDiagnostics: async () => {
+      throw new Error('Injected preflight diagnostic write failure');
+    }
+  }
+});
+const rejectedDiagnosticPreflight = await rejectingPreflightDiagnostics.preflightLatestPair({
+  transactionId: 'txn-sre-preflight-rejecting-diagnostic',
+  sourceFrame: {
+    id: 'frame-sre-preflight-rejecting-diagnostic',
+    campaignId: 'campaign-sre-synthetic',
+    saveId: 'save-sre-synthetic',
+    chatId: 'ashes-chat',
+    sourceIntegrity: 'clean'
+  },
+  expected: {
+    campaignId: 'campaign-sre-synthetic',
+    saveId: 'save-sre-synthetic',
+    chatId: 'ashes-chat'
+  }
+});
+assert.equal(rejectedDiagnosticPreflight.status, 'preflightClean');
+assert.equal(rejectedDiagnosticPreflight.providerCalled, false);
+assert.equal(rejectedDiagnosticPreflight.diagnostic.status, 'queued');
+assert.equal(
+  rejectedDiagnosticPreflight.diagnostic.reason,
+  'source-settlement-preflight-diagnostic-deferred',
+  'Diagnostic-only CORE append failure must not reject or block SRE preflight.'
+);
+let slowDiagnosticResolved = false;
+const slowPreflightDiagnostics = createSourceSettlementService({
+  coreStore: {
+    appendDiagnostics: () => new Promise((resolve) => {
+      setTimeout(() => {
+        slowDiagnosticResolved = true;
+        resolve({ status: 'written', id: 'slow-preflight-diagnostic' });
+      }, 750);
+    })
+  }
+});
+const slowStartedAt = Date.now();
+const slowDiagnosticPreflight = await slowPreflightDiagnostics.preflightLatestPair({
+  transactionId: 'txn-sre-preflight-slow-diagnostic',
+  sourceFrame: {
+    id: 'frame-sre-preflight-slow-diagnostic',
+    campaignId: 'campaign-sre-synthetic',
+    saveId: 'save-sre-synthetic',
+    chatId: 'ashes-chat',
+    sourceIntegrity: 'clean'
+  },
+  expected: {
+    campaignId: 'campaign-sre-synthetic',
+    saveId: 'save-sre-synthetic',
+    chatId: 'ashes-chat'
+  }
+});
+const slowElapsedMs = Date.now() - slowStartedAt;
+assert.equal(slowDiagnosticPreflight.status, 'preflightClean');
+assert.equal(slowDiagnosticPreflight.diagnostic.status, 'queued');
+assert.equal(slowDiagnosticPreflight.diagnostic.diagnosticOnly, true);
+assert.equal(slowElapsedMs < 700, true, `Slow diagnostic append must defer before blocking preflight; elapsed ${slowElapsedMs}ms.`);
+await new Promise((resolve) => setTimeout(resolve, 300));
+assert.equal(slowDiagnosticResolved, true, 'Slow preflight diagnostic append should still settle after deferred preflight return.');
 const providerOnlySettlementService = createSourceSettlementService({
   runRangeProvider: async () => ({ operations: [] })
 });

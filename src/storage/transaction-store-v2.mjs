@@ -15,6 +15,7 @@ import {
   coreDiagnosticsSegmentV2LogicalKey,
   coreEventSegmentV2LogicalKey,
   coreHostMapV2LogicalKey,
+  coreMaterializedHeadRootV2LogicalKey,
   coreMaterializedHeadV2LogicalKey,
   corePromptCacheV2LogicalKey,
   coreSaveManifestV2LogicalKey,
@@ -22,6 +23,7 @@ import {
   diagnosticsSegmentV2LogicalKey,
   eventSegmentV2LogicalKey,
   hostMapV2LogicalKey,
+  materializedHeadRootV2LogicalKey,
   materializedHeadV2LogicalKey,
   promptCacheV2LogicalKey,
   saveManifestV2LogicalKey,
@@ -194,6 +196,12 @@ function materializedHeadLogicalKey({ campaignId, saveId, layout = 'active' }) {
     : materializedHeadV2LogicalKey({ campaignId, saveId });
 }
 
+function materializedHeadRootLogicalKey({ campaignId, saveId, root, layout = 'active' }) {
+  return normalizeV2Layout(layout) === 'core'
+    ? coreMaterializedHeadRootV2LogicalKey({ campaignId, saveId, root })
+    : materializedHeadRootV2LogicalKey({ campaignId, saveId, root });
+}
+
 function hostMapLogicalKey({ campaignId, saveId, layout = 'active' }) {
   return normalizeV2Layout(layout) === 'core'
     ? coreHostMapV2LogicalKey({ campaignId, saveId })
@@ -324,6 +332,34 @@ async function verifyJsonFiles(adapter, logicalKeys) {
   return adapter.verifyJsonFiles(logicalKeys);
 }
 
+async function deleteJsonFileIfSupported(adapter, logicalKey) {
+  if (!logicalKey || typeof adapter.deleteJsonFile !== 'function') return false;
+  try {
+    await adapter.deleteJsonFile(logicalKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function cleanupReplacedSegmentRefs(adapter, {
+  beforeRefs = [],
+  afterRefs = [],
+  segmentType,
+  campaignId,
+  saveId,
+  layout = 'active'
+} = {}) {
+  const afterKeys = new Set((afterRefs || []).map((ref) => ref?.logicalKey).filter(Boolean));
+  let deleted = 0;
+  for (const ref of beforeRefs || []) {
+    if (!ref?.logicalKey || afterKeys.has(ref.logicalKey)) continue;
+    if (!segmentLogicalKeyBelongsTo({ logicalKey: ref.logicalKey, segmentType, campaignId, saveId, layout })) continue;
+    if (await deleteJsonFileIfSupported(adapter, ref.logicalKey)) deleted += 1;
+  }
+  return { deleted };
+}
+
 export async function readV2ArtifactRef(adapter, ref = {}) {
   requireObject(ref, 'artifact ref');
   const logicalKey = requireNonEmptyString(ref.logicalKey, 'artifact ref logicalKey');
@@ -396,6 +432,15 @@ function refsEqual(left = [], right = []) {
     && ref?.byteLength === right[index]?.byteLength
     && ref?.entryCount === right[index]?.entryCount
   ));
+}
+
+function segmentEntriesEqual(left = {}, right = {}) {
+  return left?.kind === right?.kind
+    && left?.schemaVersion === right?.schemaVersion
+    && left?.campaignId === right?.campaignId
+    && left?.saveId === right?.saveId
+    && Number(left?.entryCount) === Number(right?.entryCount)
+    && hashStableJson(left?.entries || []) === hashStableJson(right?.entries || []);
 }
 
 function mergeArtifactRefs(...groups) {
@@ -521,6 +566,14 @@ async function writeV2SegmentMaybeReuse(adapter, options = {}, existingSegment =
     layout: options.layout
   });
   const nextRef = artifactRef({ logicalKey: normalizedLogicalKey, record });
+  if (existing?.ref?.logicalKey && segmentEntriesEqual(existing.record, record)) {
+    return {
+      record: existing.record,
+      ref: cloneJson(existing.ref),
+      reused: true,
+      wrote: false
+    };
+  }
   if (existing?.ref?.hash === nextRef.hash && existing.ref.byteLength === nextRef.byteLength) {
     return {
       record: existing.record,
@@ -592,7 +645,8 @@ async function appendV2SegmentEntriesForCommit(adapter, {
   entryGroups = [],
   createdAt = null,
   layout = 'active',
-  maxBytes = null
+  maxBytes = null,
+  appendToTail = true
 } = {}) {
   const type = requireNonEmptyString(segmentType, 'segmentType');
   const refs = currentRefs.map(cloneJson);
@@ -605,7 +659,7 @@ async function appendV2SegmentEntriesForCommit(adapter, {
 
   const limit = Number(maxBytes || segmentLimit(type));
   let remaining = [...newEntries];
-  if (refs.length > 0) {
+  if (appendToTail !== false && refs.length > 0) {
     const tailIndex = refs.length - 1;
     const tailRef = refs[tailIndex];
     const tailRecord = await readV2ArtifactRef(adapter, tailRef);
@@ -725,7 +779,9 @@ export async function writeV2Checkpoint(adapter, {
   checkpointId,
   checkpoint,
   createdAt = null,
-  layout = 'active'
+  layout = 'active',
+  existingRef = null,
+  reuseIfEquivalent = false
 } = {}) {
   const record = withArtifactMetadata({
     kind: 'directive.checkpoint.v2',
@@ -737,10 +793,33 @@ export async function writeV2Checkpoint(adapter, {
     checkpoint: cloneJson(checkpoint || {})
   });
   const logicalKey = checkpointLogicalKey({ campaignId: record.campaignId, saveId: record.saveId, checkpointId: record.checkpointId, layout });
+  if (reuseIfEquivalent === true && existingRef?.logicalKey === logicalKey) {
+    try {
+      const existing = await readV2ArtifactRef(adapter, existingRef);
+      const comparableExisting = stripVolatileArtifactFields(existing);
+      const comparableRecord = stripVolatileArtifactFields(record);
+      delete comparableExisting.createdAt;
+      delete comparableRecord.createdAt;
+      if (isObject(comparableExisting.checkpoint)) delete comparableExisting.checkpoint.reason;
+      if (isObject(comparableRecord.checkpoint)) delete comparableRecord.checkpoint.reason;
+      if (hashStableJson(comparableExisting) === hashStableJson(comparableRecord)) {
+        return {
+          record: existing,
+          ref: cloneJson(existingRef),
+          reused: true,
+          wrote: false
+        };
+      }
+    } catch {
+      // Broken refs are repaired by writing the candidate checkpoint below.
+    }
+  }
   await writeJson(adapter, logicalKey, record);
   return {
     record,
-    ref: artifactRef({ logicalKey, record })
+    ref: artifactRef({ logicalKey, record }),
+    reused: false,
+    wrote: true
   };
 }
 
@@ -764,6 +843,285 @@ async function writeArtifact(adapter, logicalKey, value) {
   return {
     record,
     ref: artifactRef({ logicalKey, record })
+  };
+}
+
+function contentAddressedArtifactLogicalKey(logicalKey, hash) {
+  const text = requireNonEmptyString(logicalKey, 'logicalKey');
+  const digest = requireNonEmptyString(hash, 'artifact hash');
+  if (text.endsWith('.v2.json')) return text.replace(/\.v2\.json$/, `.${digest}.v2.json`);
+  if (text.endsWith('.json')) return text.replace(/\.json$/, `.${digest}.json`);
+  return `${text}.${digest}`;
+}
+
+async function writeContentAddressedArtifact(adapter, logicalKey, value) {
+  const record = withArtifactMetadata(value);
+  const contentKey = contentAddressedArtifactLogicalKey(logicalKey, record.hash);
+  const ref = artifactRef({ logicalKey: contentKey, record });
+  try {
+    await readV2ArtifactRef(adapter, ref);
+    return {
+      record,
+      ref,
+      reused: true,
+      wrote: false
+    };
+  } catch {
+    await writeJson(adapter, contentKey, record);
+    return {
+      record,
+      ref,
+      reused: false,
+      wrote: true
+    };
+  }
+}
+
+function stripVolatileArtifactFields(record = {}) {
+  const stripped = cloneJson(record || {});
+  delete stripped.hash;
+  delete stripped.byteLength;
+  delete stripped.updatedAt;
+  return stripped;
+}
+
+function stripRuntimeProjectionOnlyHeadFields(record = {}) {
+  const stripped = stripVolatileArtifactFields(record);
+  delete stripped.runtimeSummary;
+  delete stripped.runtimeHeadBudget;
+  delete stripped.materializedHeadStateHash;
+  delete stripped.runtimeProjectionState;
+  if (isObject(stripped.state)) {
+    delete stripped.state.runtimeResume;
+  }
+  return stripped;
+}
+
+function reusableHeadWriteForRuntimeProjectionOnly(existingHead = null, existingRef = null, nextHead = null) {
+  if (!isObject(existingHead) || !existingRef?.logicalKey || !isObject(nextHead)) return null;
+  if (
+    hashStableJson(stripRuntimeProjectionOnlyHeadFields(existingHead))
+    !== hashStableJson(stripRuntimeProjectionOnlyHeadFields(nextHead))
+  ) {
+    return null;
+  }
+  return {
+    record: cloneJson(existingHead),
+    ref: cloneJson(existingRef),
+    reused: true,
+    wrote: false,
+    ignoredRuntimeProjectionOnlyChange: true
+  };
+}
+
+function reusableContentWriteForUpdatedAtOnly(existingRecord = null, existingRef = null, nextRecord = null) {
+  if (!isObject(existingRecord) || !existingRef?.logicalKey || !isObject(nextRecord)) return null;
+  if (hashStableJson(stripVolatileArtifactFields(existingRecord)) !== hashStableJson(stripVolatileArtifactFields(nextRecord))) {
+    return null;
+  }
+  return {
+    record: cloneJson(existingRecord),
+    ref: cloneJson(existingRef),
+    reused: true,
+    wrote: false,
+    ignoredVolatileOnlyChange: true
+  };
+}
+
+async function writeArtifactMaybeReuse(adapter, logicalKey, value, existingRef = null, {
+  ignoreUpdatedAtOnly = false,
+  ignoreRuntimeProjectionOnly = false
+} = {}) {
+  const record = withArtifactMetadata(value);
+  if (existingRef?.logicalKey === logicalKey) {
+    try {
+      const existing = await readV2ArtifactRef(adapter, existingRef);
+      const existingRefVerified = artifactRef({ logicalKey, record: existing });
+      if (
+        existingRefVerified.hash === record.hash
+        && existingRefVerified.byteLength === record.byteLength
+      ) {
+        return {
+          record: existing,
+          ref: cloneJson(existingRef),
+          reused: true,
+          wrote: false
+        };
+      }
+      if (
+        ignoreUpdatedAtOnly
+        && hashStableJson(stripVolatileArtifactFields(existing)) === hashStableJson(stripVolatileArtifactFields(record))
+      ) {
+        return {
+          record: existing,
+          ref: cloneJson(existingRef),
+          reused: true,
+          wrote: false,
+          ignoredVolatileOnlyChange: true
+        };
+      }
+      if (
+        ignoreRuntimeProjectionOnly
+        && hashStableJson(stripRuntimeProjectionOnlyHeadFields(existing)) === hashStableJson(stripRuntimeProjectionOnlyHeadFields(record))
+      ) {
+        return {
+          record: existing,
+          ref: cloneJson(existingRef),
+          reused: true,
+          wrote: false,
+          ignoredRuntimeProjectionOnlyChange: true
+        };
+      }
+    } catch {
+      // Broken refs are repaired by writing the candidate artifact below.
+    }
+  }
+  await writeJson(adapter, logicalKey, record);
+  return {
+    record,
+    ref: artifactRef({ logicalKey, record }),
+    reused: false,
+    wrote: true
+  };
+}
+
+function materializedHeadRootSegment(root) {
+  const text = requireNonEmptyString(root, 'materialized head root');
+  const slug = text
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'root';
+  return `${slug}-${hashStableJson(text).slice(0, 12)}`;
+}
+
+function createMaterializedHeadRootRecord({
+  campaignId,
+  saveId,
+  branchId = 'main',
+  root,
+  value,
+  updatedAt,
+  layout = 'active'
+} = {}) {
+  return {
+    kind: 'directive.materializedCampaignHeadRoot.v2',
+    schemaVersion: 2,
+    layout: normalizeV2Layout(layout),
+    campaignId: requireNonEmptyString(campaignId, 'campaignId'),
+    saveId: requireNonEmptyString(saveId, 'saveId'),
+    branchId,
+    root: requireNonEmptyString(root, 'materialized head root'),
+    updatedAt: updatedAt || isoNow(),
+    value: cloneJson(value)
+  };
+}
+
+async function readReusableArtifact(adapter, ref = null) {
+  if (!ref?.logicalKey) return null;
+  try {
+    return await readV2ArtifactRef(adapter, ref);
+  } catch {
+    return null;
+  }
+}
+
+async function prepareMaterializedHeadForCommit(adapter, {
+  campaignId,
+  saveId,
+  branchId = 'main',
+  head = {},
+  updatedAt,
+  layout = 'active',
+  existingHead = null
+} = {}) {
+  const storageLayout = normalizeV2Layout(layout);
+  const baseHead = {
+    ...cloneJson(head || {}),
+    kind: 'directive.materializedCampaignHead.v2',
+    schemaVersion: 2,
+    layout: storageLayout,
+    campaignId,
+    saveId,
+    branchId,
+    updatedAt: updatedAt || isoNow()
+  };
+  if (storageLayout !== 'active' || !isObject(baseHead.state)) {
+    return {
+      record: baseHead,
+      refsToVerify: []
+    };
+  }
+
+  const existingRootRefs = isObject(existingHead?.stateRootRefs) ? existingHead.stateRootRefs : {};
+  const stateRootRefs = {};
+  const runtimeProjectionState = {};
+  const refsToVerify = [];
+  for (const [root, value] of Object.entries(baseHead.state).sort(([left], [right]) => left.localeCompare(right))) {
+    if (root === 'runtimeResume') {
+      runtimeProjectionState[root] = cloneJson(value);
+      continue;
+    }
+    const rootKey = materializedHeadRootLogicalKey({
+      campaignId,
+      saveId,
+      root: materializedHeadRootSegment(root),
+      layout: storageLayout
+    });
+    const rootRecord = createMaterializedHeadRootRecord({
+      campaignId,
+      saveId,
+      branchId,
+      root,
+      value,
+      updatedAt,
+      layout: storageLayout
+    });
+    const existingRootRef = existingRootRefs[root] || null;
+    const existingRoot = await readReusableArtifact(adapter, existingRootRef);
+    const rootWrite = reusableContentWriteForUpdatedAtOnly(
+      existingRoot,
+      existingRootRef,
+      withArtifactMetadata(rootRecord)
+    ) || await writeContentAddressedArtifact(adapter, rootKey, rootRecord);
+    stateRootRefs[root] = rootWrite.ref;
+    if (rootWrite.wrote) refsToVerify.push(rootWrite.ref);
+  }
+
+  const { state, ...headWithoutState } = baseHead;
+  return {
+    record: compact({
+      ...headWithoutState,
+      stateStorage: 'rootRefs',
+      stateRootCount: Object.keys(stateRootRefs).length,
+      stateRootRefs,
+      runtimeProjectionState: Object.keys(runtimeProjectionState).length ? runtimeProjectionState : undefined
+    }),
+    refsToVerify
+  };
+}
+
+async function hydrateMaterializedHeadState(adapter, head = {}) {
+  if (isObject(head.state) || !isObject(head.stateRootRefs)) return head;
+  const state = {};
+  for (const [root, ref] of Object.entries(head.stateRootRefs)) {
+    const rootRecord = await readV2ArtifactRef(adapter, ref);
+    if (rootRecord.root && rootRecord.root !== root) {
+      const error = new Error(`Materialized head root mismatch for ${root}`);
+      error.code = 'DIRECTIVE_V2_HEAD_ROOT_MISMATCH';
+      error.details = { expected: root, actual: rootRecord.root, logicalKey: ref.logicalKey || null };
+      throw error;
+    }
+    state[root] = cloneJson(rootRecord.value);
+  }
+  if (isObject(head.runtimeProjectionState)) {
+    Object.assign(state, cloneJson(head.runtimeProjectionState));
+  }
+  return {
+    ...head,
+    state,
+    hydratedStateRootCount: Object.keys(state).length
   };
 }
 
@@ -971,28 +1329,38 @@ export async function commitV2SaveLayout(adapter, {
   }
 
   const checkpointRefs = [];
-  for (const checkpoint of checkpoints) {
-    checkpointRefs.push((await writeV2Checkpoint(adapter, {
+  for (const [index, checkpoint] of checkpoints.entries()) {
+    const checkpointWrite = await writeV2Checkpoint(adapter, {
       campaignId: id,
       saveId: save,
       checkpointId: checkpoint.checkpointId || checkpoint.id,
       checkpoint,
       createdAt: timestamp,
-      layout: storageLayout
-    })).ref);
+      layout: storageLayout,
+      existingRef: existingManifest?.checkpoints?.[index] || null,
+      reuseIfEquivalent: true
+    });
+    checkpointRefs.push(checkpointWrite.ref);
   }
 
-  const headWrite = await writeArtifact(adapter, materializedHeadLogicalKey({ campaignId: id, saveId: save, layout: storageLayout }), {
-    ...cloneJson(head || {}),
-    kind: 'directive.materializedCampaignHead.v2',
-    schemaVersion: 2,
-    layout: storageLayout,
+  const existingHead = await readReusableArtifact(adapter, existingManifest?.head || null);
+  const preparedHead = await prepareMaterializedHeadForCommit(adapter, {
     campaignId: id,
     saveId: save,
     branchId,
-    updatedAt: timestamp
+    head,
+    updatedAt: timestamp,
+    layout: storageLayout,
+    existingHead
   });
-  const hostMapWrite = hostMap ? await writeArtifact(adapter, hostMapLogicalKey({ campaignId: id, saveId: save, layout: storageLayout }), {
+  const headKey = materializedHeadLogicalKey({ campaignId: id, saveId: save, layout: storageLayout });
+  const headWrite = reusableHeadWriteForRuntimeProjectionOnly(
+    existingHead,
+    existingManifest?.head || null,
+    withArtifactMetadata(preparedHead.record)
+  ) || await writeContentAddressedArtifact(adapter, headKey, preparedHead.record);
+  const hostMapKey = hostMapLogicalKey({ campaignId: id, saveId: save, layout: storageLayout });
+  const hostMapWrite = hostMap ? await writeArtifactMaybeReuse(adapter, hostMapKey, {
     ...cloneJson(hostMap),
     kind: 'directive.hostMessageMap.v2',
     schemaVersion: 2,
@@ -1000,8 +1368,11 @@ export async function commitV2SaveLayout(adapter, {
     campaignId: id,
     saveId: save,
     updatedAt: timestamp
+  }, existingManifest?.hostMap || null, {
+    ignoreUpdatedAtOnly: true
   }) : null;
-  const promptCacheWrite = promptCache ? await writeArtifact(adapter, promptCacheLogicalKey({ campaignId: id, saveId: save, layout: storageLayout }), {
+  const promptCacheKey = promptCacheLogicalKey({ campaignId: id, saveId: save, layout: storageLayout });
+  const promptCacheWrite = promptCache ? await writeArtifactMaybeReuse(adapter, promptCacheKey, {
     ...cloneJson(promptCache),
     kind: 'directive.promptCache.v2',
     schemaVersion: 2,
@@ -1009,14 +1380,17 @@ export async function commitV2SaveLayout(adapter, {
     campaignId: id,
     saveId: save,
     updatedAt: timestamp
+  }, existingManifest?.promptCache || null, {
+    ignoreUpdatedAtOnly: true
   }) : null;
 
   await verifyV2ArtifactRefs(adapter, [
+    ...preparedHead.refsToVerify,
     ...segmentRefsToVerify,
     ...checkpointRefs,
-    headWrite.ref,
-    hostMapWrite?.ref || null,
-    promptCacheWrite?.ref || null
+    headWrite.wrote ? headWrite.ref : null,
+    hostMapWrite?.wrote ? hostMapWrite.ref : null,
+    promptCacheWrite?.wrote ? promptCacheWrite.ref : null
   ]);
 
   const latestManifest = reuseExistingSegmentRefs === true
@@ -1067,6 +1441,10 @@ export async function commitV2SaveLayout(adapter, {
   const saveManifestKey = saveManifestLogicalKey({ campaignId: id, saveId: save, layout: storageLayout });
   await writeJson(adapter, saveManifestKey, saveManifest);
   const saveManifestRef = artifactRef({ logicalKey: saveManifestKey, record: saveManifest });
+  await writeArtifactMaybeReuse(adapter, headKey, preparedHead.record, null, {
+    ignoreUpdatedAtOnly: true,
+    ignoreRuntimeProjectionOnly: true
+  });
 
   const campaignManifest = createV2CampaignManifest({
     campaignId: id,
@@ -1081,13 +1459,25 @@ export async function commitV2SaveLayout(adapter, {
 
   const verification = await verifyJsonFiles(adapter, [
     ...new Set(verificationLogicalKeys),
+    ...preparedHead.refsToVerify.map((ref) => ref.logicalKey),
     ...checkpointRefs.map((ref) => ref.logicalKey),
-    headWrite.ref.logicalKey,
-    ...(hostMapWrite ? [hostMapWrite.ref.logicalKey] : []),
-    ...(promptCacheWrite ? [promptCacheWrite.ref.logicalKey] : []),
+    ...(headWrite.wrote ? [headWrite.ref.logicalKey] : []),
+    ...(hostMapWrite?.wrote ? [hostMapWrite.ref.logicalKey] : []),
+    ...(promptCacheWrite?.wrote ? [promptCacheWrite.ref.logicalKey] : []),
     saveManifestKey,
     campaignManifestKey
   ]);
+
+  const cleanup = {
+    replacedDiagnostics: await cleanupReplacedSegmentRefs(adapter, {
+      beforeRefs: existingDiagnosticsSegmentRefs,
+      afterRefs: finalDiagnosticsSegmentRefs,
+      segmentType: 'diagnostics',
+      campaignId: id,
+      saveId: save,
+      layout: storageLayout
+    })
+  };
 
   return {
     campaignManifest,
@@ -1103,7 +1493,8 @@ export async function commitV2SaveLayout(adapter, {
       diagnosticsSegments: finalDiagnosticsSegmentRefs,
       checkpoints: finalCheckpointRefs
     },
-    verification
+    verification,
+    cleanup
   };
   });
 }
@@ -1146,7 +1537,8 @@ export async function commitV2DiagnosticsSegments(adapter, {
     entryGroups: diagnosticsEntryGroups,
     createdAt: timestamp,
     layout: storageLayout,
-    maxBytes: segmentMaxBytesFor('diagnostics')
+    maxBytes: segmentMaxBytesFor('diagnostics'),
+    appendToTail: false
   });
 
   await verifyV2ArtifactRefs(adapter, [
@@ -1398,18 +1790,21 @@ export async function loadV2CampaignManifest(adapter, campaignId, {
 export async function loadV2MaterializedHead(adapter, {
   campaignId,
   saveId,
-  layout = 'active'
+  layout = 'active',
+  headRef = null
 } = {}) {
-  return readJson(adapter, materializedHeadLogicalKey({
-    campaignId: requireNonEmptyString(campaignId, 'campaignId'),
-    saveId: requireNonEmptyString(saveId, 'saveId'),
-    layout
-  }));
+  const id = requireNonEmptyString(campaignId, 'campaignId');
+  const save = requireNonEmptyString(saveId, 'saveId');
+  const expectedLogicalKey = materializedHeadLogicalKey({ campaignId: id, saveId: save, layout });
+  const head = headRef?.logicalKey
+    ? await readV2ArtifactRef(adapter, headRef)
+    : await readJson(adapter, expectedLogicalKey);
+  return hydrateMaterializedHeadState(adapter, head);
 }
 
 function summarizeLegacyRuntime(campaignState = {}) {
   const runtimeTracking = campaignState.runtimeTracking || {};
-  const runtimeLedgerView = createRuntimeLedgerView(campaignState);
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState, { runtimeOverlay: true });
   const turnLedger = campaignState.turnLedger || {};
   const modelCalls = legacyRuntimeModelCallRows(campaignState);
   const sidecars = legacyRuntimeSidecarRows(campaignState);
@@ -1453,7 +1848,7 @@ function legacyHeadState(campaignState = {}) {
 }
 
 function legacyHostRows(campaignState = {}) {
-  const runtimeLedgerView = createRuntimeLedgerView(campaignState);
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState, { runtimeOverlay: true });
   const ingressRows = Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
   const responseRows = Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger : [];
   return [
@@ -1479,7 +1874,7 @@ function legacyHostRows(campaignState = {}) {
 
 function legacyEvents(campaignState = {}) {
   const turnLedger = campaignState.turnLedger || {};
-  const runtimeLedgerView = createRuntimeLedgerView(campaignState);
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState, { runtimeOverlay: true });
   const ingressRows = Array.isArray(runtimeLedgerView.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
   const responseRows = Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger : [];
   const turns = Array.isArray(turnLedger.entries) ? turnLedger.entries : [];

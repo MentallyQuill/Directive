@@ -605,6 +605,229 @@ const missionGraphs = [
     true,
     'CORE read-projection freshness evidence must outrank stale old-ledger growth for the same chat/save.'
   );
+  const mergedRuntimePersistPending = __directiveRuntimeAppTestHooks.mergeRuntimePersistPendingRequest(
+    {
+      summary: 'Committed turn persisted.',
+      state: {
+        ...richerInMemoryState,
+        campaignChatBinding: {
+          ...richerInMemoryState.campaignChatBinding,
+          promptContextRevision: 3
+        },
+        turnLedger: {
+          entries: [
+            { turnId: 'old-turn', outcomeId: 'old-outcome' },
+            { turnId: 'pending-turn', outcomeId: 'pending-outcome' }
+          ]
+        },
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            turnLedger: {
+              entries: [
+                { turnId: 'old-turn', outcomeId: 'old-outcome' },
+                { turnId: 'pending-turn', outcomeId: 'pending-outcome' }
+              ]
+            },
+            ingressLedger: [
+              { id: 'old-ingress' },
+              { id: 'pending-ingress', turnId: 'pending-turn' }
+            ]
+          }
+        }
+      }
+    },
+    {
+      summary: 'Prompt context persisted.',
+      state: {
+        ...richerInMemoryState,
+        campaignChatBinding: {
+          ...richerInMemoryState.campaignChatBinding,
+          promptContextRevision: 4
+        },
+        runtimeResume: { sidecarCount: 2 },
+        turnLedger: {
+          entries: [{ turnId: 'old-turn', outcomeId: 'old-outcome' }]
+        },
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            turnLedger: {
+              entries: [{ turnId: 'old-turn', outcomeId: 'old-outcome' }]
+            },
+            sidecarDiagnostics: [
+              { id: 'sidecar-diagnostic-1', status: 'settled' },
+              { id: 'sidecar-diagnostic-2', status: 'settled' }
+            ]
+          }
+        }
+      }
+    },
+    { chatId: 'scope-freshness-chat', fallbackSaveId: 'save.scope-freshness' }
+  );
+  assert.equal(
+    mergedRuntimePersistPending.state.campaignChatBinding.promptContextRevision,
+    4,
+    'Runtime persist pending merge must keep the newest prompt context revision.'
+  );
+  assert.equal(
+    mergedRuntimePersistPending.state.turnLedger.entries.some((entry) => entry.turnId === 'pending-turn'),
+    true,
+    'Runtime persist pending merge must not drop a fresher queued CORE turn projection.'
+  );
+  assert.equal(
+    mergedRuntimePersistPending.state.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger
+      .some((entry) => entry.id === 'pending-ingress'),
+    true,
+    'Runtime persist pending merge must preserve queued CORE ingress evidence.'
+  );
+  assert.equal(
+    mergedRuntimePersistPending.state.runtimeResume.sidecarCount,
+    2,
+    'Runtime persist pending merge must keep newer runtime resume counters from the later request.'
+  );
+  const mergedRuntimePersistPendingWithoutOldLedgers = __directiveRuntimeAppTestHooks.mergeRuntimePersistPendingRequest(
+    {
+      summary: 'Prior CORE runtime projections plus stale old ledgers.',
+      state: {
+        ...richerInMemoryState,
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          ingressLedger: [{ id: 'stale-raw-ingress', status: 'received' }],
+          responseLedger: [{ id: 'stale-raw-response', status: 'posted' }],
+          recoveryJournal: [{ id: 'stale-raw-recovery', status: 'open' }]
+        },
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            ingressLedger: [{ id: 'core-merge-ingress', transactionId: 'txn.merge.1' }],
+            responseLedger: [{ id: 'core-merge-response', transactionId: 'txn.merge.1', status: 'posted' }],
+            recoveryJournal: [{ id: 'core-merge-recovery', transactionId: 'txn.merge.1', status: 'open' }]
+          }
+        }
+      }
+    },
+    {
+      summary: 'Persisted state without old runtime ledgers.',
+      state: {
+        ...richerInMemoryState,
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          ingressLedger: [],
+          responseLedger: [],
+          recoveryJournal: []
+        }
+      }
+    },
+    { chatId: 'scope-freshness-chat', fallbackSaveId: 'save.scope-freshness' }
+  );
+  assert.equal(
+    (mergedRuntimePersistPendingWithoutOldLedgers.state.runtimeTracking.ingressLedger || [])
+      .some((entry) => entry.id === 'stale-raw-ingress'),
+    false,
+    'Runtime persist pending merge must not resurrect raw old ingress ledger rows when CORE projections carry freshness.'
+  );
+  assert.equal(
+    (mergedRuntimePersistPendingWithoutOldLedgers.state.runtimeTracking.responseLedger || [])
+      .some((entry) => entry.id === 'stale-raw-response'),
+    false,
+    'Runtime persist pending merge must not resurrect raw old response ledger rows when CORE projections carry freshness.'
+  );
+  assert.equal(
+    (mergedRuntimePersistPendingWithoutOldLedgers.state.runtimeTracking.recoveryJournal || [])
+      .some((entry) => entry.id === 'stale-raw-recovery'),
+    false,
+    'Runtime persist pending merge must not resurrect raw old recovery journal rows when CORE projections carry freshness.'
+  );
+  assert.equal(
+    mergedRuntimePersistPendingWithoutOldLedgers.state.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger
+      .some((entry) => entry.id === 'core-merge-ingress'),
+    true,
+    'Runtime persist pending merge must keep fresher CORE ingress projection evidence instead of old ledger rows.'
+  );
+  assert.equal(
+    mergedRuntimePersistPendingWithoutOldLedgers.state.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger
+      .some((entry) => entry.id === 'core-merge-response'),
+    true,
+    'Runtime persist pending merge must keep fresher CORE response projection evidence instead of old ledger rows.'
+  );
+  assert.equal(
+    mergedRuntimePersistPendingWithoutOldLedgers.state.directiveRuntimeEvidence.coreStoreReadProjections.recoveryJournal
+      .some((entry) => entry.id === 'core-merge-recovery'),
+    true,
+    'Runtime persist pending merge must keep fresher CORE recovery projection evidence instead of old journal rows.'
+  );
+  const mergedRuntimePersistPendingWithoutTerminalMirror = __directiveRuntimeAppTestHooks.mergeRuntimePersistPendingRequest(
+    {
+      summary: 'Prior pending interactions.',
+      state: {
+        ...richerInMemoryState,
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          pendingInteractions: [{
+            id: 'terminal-pending-mirror-stale',
+            kind: 'terminalOutcomeDecision',
+            status: 'pending',
+            authority: 'terminalDecisionProjection',
+            compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'terminalDecisionProjection' }
+          }, {
+            id: 'risk-pending-still-owned',
+            kind: 'riskConfirmationNeeded',
+            status: 'pending',
+            authority: 'corePendingInteractionProjection',
+            compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'corePendingInteractionProjection' }
+          }]
+        }
+      }
+    },
+    {
+      summary: 'Terminal ledger state persisted.',
+      state: {
+        ...richerInMemoryState,
+        runtimeTracking: {
+          ...richerInMemoryState.runtimeTracking,
+          pendingInteractions: [],
+          endConditionLedger: {
+            schemaVersion: 1,
+            activeDecisionId: 'terminal-decision-ledger-owned',
+            detections: [],
+            decisions: [{
+              id: 'terminal-decision-ledger-owned',
+              status: 'pending',
+              authority: 'terminalDecisionProjection',
+              coreProjection: {
+                kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+                rowKind: 'decision',
+                decisionId: 'terminal-decision-ledger-owned',
+                status: 'pending'
+              }
+            }],
+            branchRecords: [],
+            continuationFrames: []
+          }
+        }
+      }
+    },
+    { chatId: 'scope-freshness-chat', fallbackSaveId: 'save.scope-freshness' }
+  );
+  assert.equal(
+    mergedRuntimePersistPendingWithoutTerminalMirror.state.runtimeTracking.pendingInteractions
+      .some((entry) => entry.kind === 'terminalOutcomeDecision'),
+    false,
+    'Runtime persist pending merge must not resurrect terminal decisions from pendingInteractions.'
+  );
+  assert.equal(
+    mergedRuntimePersistPendingWithoutTerminalMirror.state.runtimeTracking.pendingInteractions
+      .some((entry) => entry.id === 'risk-pending-still-owned'),
+    false,
+    'Runtime persist pending merge must not preserve non-terminal pending interactions in old runtimeTracking rows.'
+  );
+  assert.equal(
+    mergedRuntimePersistPendingWithoutTerminalMirror.state.directiveRuntimeEvidence.coreStoreReadProjections.pendingInteractions
+      .some((entry) => entry.id === 'risk-pending-still-owned'),
+    true,
+    'Runtime persist pending merge must still preserve non-terminal CORE pending interactions under CORE read projections.'
+  );
   const restoredCommittedOutcome = __directiveRuntimeAppTestHooks.restoreCommittedOutcomeState(
     {
       ...staleScopedState,
@@ -650,9 +873,9 @@ const missionGraphs = [
     'Restoring a committed outcome must not import old checkpoint runtime history as replay authority.'
   );
   assert.deepEqual(
-    restoredCommittedOutcome.runtimeTracking.history.map((entry) => entry.source),
-    ['sidecar:continuity'],
-    'Restoring a committed outcome must keep current compact history only.'
+    restoredCommittedOutcome.runtimeTracking.history,
+    [],
+    'Restoring a committed outcome must clear old current compact history rows.'
   );
 }
 

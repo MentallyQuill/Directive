@@ -128,8 +128,21 @@ function compactBudgetRef(value = {}) {
     hash: asString(value.hash || value.textHash || value.metadataHash),
     estimatedTokens: Math.max(0, Math.trunc(Number(value.estimatedTokens) || 0)),
     sourceFrameId: asString(value.sourceFrameId),
+    knowledgeScope: compactKnowledgeScope(value.knowledgeScope),
     omissionReason: asString(value.omissionReason)
   });
+}
+
+function compactKnowledgeScope(value = {}) {
+  if (!value || typeof value !== 'object') return undefined;
+  const out = compactObject({
+    knownBy: uniqueStrings(value.knownBy),
+    witnessedBy: uniqueStrings(value.witnessedBy),
+    subjectIds: uniqueStrings(value.subjectIds),
+    disclosureState: asString(value.disclosureState),
+    disclosureSourceFrameId: asString(value.disclosureSourceFrameId)
+  });
+  return Object.keys(out).length ? out : undefined;
 }
 
 function normalizePromptBudgetLaneOverrides(value = {}) {
@@ -737,9 +750,119 @@ function defaultPromptPacketBuilder({
   };
 }
 
+function promptBudgetTraceDiagnosticSummary(trace = null) {
+  if (!trace || typeof trace !== 'object') return null;
+  const lanes = Array.isArray(trace.lanes) ? trace.lanes : [];
+  return compactObject({
+    kind: trace.kind || 'directive.lensPromptBudgetTrace.v1',
+    schemaVersion: trace.schemaVersion ?? null,
+    hash: trace.hash || null,
+    byteLength: trace.byteLength || null,
+    promptRevision: trace.promptRevision ?? null,
+    cacheKey: trace.cacheKey || null,
+    laneCount: lanes.length,
+    blockingLaneIds: lanes.filter((lane) => lane?.blocking === true).map((lane) => lane.id).filter(Boolean),
+    overflowLaneIds: lanes.filter((lane) => lane?.budgetExceeded === true).map((lane) => lane.id).filter(Boolean),
+    diagnosticOnlyLaneIds: lanes.filter((lane) => lane?.diagnosticOnly === true).map((lane) => lane.id).filter(Boolean),
+    lanes: lanes.map((lane) => compactObject({
+      id: lane.id || null,
+      status: lane.status || null,
+      includedRefCount: Array.isArray(lane.includedRefs) ? lane.includedRefs.length : 0,
+      omittedRefCount: Array.isArray(lane.omittedRefs) ? lane.omittedRefs.length : 0,
+      overBudgetRefCount: Array.isArray(lane.overBudgetRefs) ? lane.overBudgetRefs.length : 0,
+      omissionReasons: uniqueStrings(lane.omissionReasons),
+      diagnosticOnly: lane.diagnosticOnly === true ? true : undefined,
+      overflowPolicy: lane.overflowPolicy || null,
+      budgetExceeded: lane.budgetExceeded === true ? true : undefined,
+      blocking: lane.blocking === true ? true : undefined
+    }))
+  });
+}
+
+function compactTargetStatus(value = null, nestedStatusKeys = []) {
+  if (!value || typeof value !== 'object') return undefined;
+  const nested = {};
+  for (const key of nestedStatusKeys) {
+    const item = value[key];
+    if (!item || typeof item !== 'object') continue;
+    nested[key] = compactObject({
+      status: asString(item.status),
+      hash: asString(item.hash || item.entryHash || item.settingsHash || item.injectionHash)
+    });
+  }
+  return compactObject({
+    status: asString(value.status) || undefined,
+    active: value.active === true ? true : undefined,
+    enabled: value.enabled === true ? true : undefined,
+    installed: value.installed === true ? true : undefined,
+    directiveAuthority: value.directiveAuthority === true ? true : value.directiveAuthority === false ? false : undefined,
+    richEvidence: value.richEvidence === true ? true : undefined,
+    richEvidenceMissing: value.richEvidenceMissing === true ? true : undefined,
+    promptKeyCount: Number.isFinite(Number(value.promptKeyCount)) ? Math.max(0, Math.trunc(Number(value.promptKeyCount))) : undefined,
+    promptKeyHash: asString(value.promptKeyHash || value.promptKeyPrefixHash) || undefined,
+    activeNameCount: Number.isFinite(Number(value.activeNameCount)) ? Math.max(0, Math.trunc(Number(value.activeNameCount))) : undefined,
+    entryCount: Number.isFinite(Number(value.entryCount)) ? Math.max(0, Math.trunc(Number(value.entryCount))) : undefined,
+    layerCount: Number.isFinite(Number(value.layerCount)) ? Math.max(0, Math.trunc(Number(value.layerCount))) : undefined,
+    ghostedCount: Number.isFinite(Number(value.ghostedCount)) ? Math.max(0, Math.trunc(Number(value.ghostedCount))) : undefined,
+    backendType: asString(value.backendType) || undefined,
+    disabledPresent: value.disabledPresent === true ? true : undefined,
+    ...nested
+  });
+}
+
+function compactExternalTargetsForDiagnostic(targets = null) {
+  if (!targets || typeof targets !== 'object') return undefined;
+  return compactObject({
+    stLorebooks: compactTargetStatus(targets.stLorebooks),
+    memoryBooks: compactTargetStatus(targets.memoryBooks, ['rangeDiagnostics']),
+    summaryception: compactTargetStatus(targets.summaryception, ['staleness']),
+    vectFox: compactTargetStatus(targets.vectFox, ['backendDiagnostics']),
+    unknownExternalContext: compactTargetStatus(targets.unknownExternalContext)
+  });
+}
+
+function compactPromptDiagnosticPayload(payload = {}) {
+  const {
+    rawPromptBody: _rawPromptBody,
+    rawResponse: _rawResponse,
+    vectorPayload: _vectorPayload,
+    apiKey: _apiKey,
+    cacheRecord: _cacheRecord,
+    externalPromptEnvironmentTargets,
+    promptKeys,
+    directiveOwnedPromptKeys,
+    promptBudgetTrace,
+    promptBudgetTraceRef: existingPromptBudgetTraceRef,
+    ...rest
+  } = payload;
+  const compactExternalTargets = compactExternalTargetsForDiagnostic(externalPromptEnvironmentTargets);
+  const safePromptKeys = uniqueStrings(promptKeys);
+  const safeDirectivePromptKeys = uniqueStrings(directiveOwnedPromptKeys);
+  const promptKeyEvidence = compactObject({
+    promptKeyCount: safePromptKeys.length || undefined,
+    promptKeyHash: safePromptKeys.length ? hashStableJson(safePromptKeys) : undefined,
+    directiveOwnedPromptKeyCount: safeDirectivePromptKeys.length || undefined,
+    directiveOwnedPromptKeyHash: safeDirectivePromptKeys.length ? hashStableJson(safeDirectivePromptKeys) : undefined
+  });
+  if (!promptBudgetTrace) {
+    return compactObject({
+      ...rest,
+      ...promptKeyEvidence,
+      externalPromptEnvironmentTargets: compactExternalTargets
+    });
+  }
+  return compactObject({
+    ...rest,
+    ...promptKeyEvidence,
+    externalPromptEnvironmentTargets: compactExternalTargets,
+    promptBudgetTraceRef: existingPromptBudgetTraceRef || promptBudgetTraceRef(promptBudgetTrace),
+    promptBudgetTraceSummary: promptBudgetTraceDiagnosticSummary(promptBudgetTrace)
+  });
+}
+
 function redactedDiagnostic(payload = {}) {
   const redactions = [];
-  const redactedPayload = redactExternalDiagnostic(payload, redactions);
+  const redactedPayload = redactExternalDiagnostic(compactPromptDiagnosticPayload(payload), redactions);
   return { redactedPayload, redactions };
 }
 
@@ -757,6 +880,7 @@ export function createLensPromptScheduler({
   const suspendedByLane = new Map();
   const externalEnvironmentRefs = new Map();
   let directiveOwnedRevision = 0;
+  let activePromptDiagnosticBatch = null;
 
   function pendingDirty(lane) {
     return new Set(dirtyByLane.get(lane) || []);
@@ -770,12 +894,41 @@ export function createLensPromptScheduler({
   }
 
   async function appendPromptDiagnostic(transactionId, payload = {}) {
-    if (!transactionId || typeof coreStore?.appendDiagnostics !== 'function') return null;
+    if (
+      !transactionId
+      || (
+        typeof coreStore?.appendDiagnostics !== 'function'
+        && typeof coreStore?.appendDiagnosticsBatch !== 'function'
+      )
+    ) return null;
     const { redactedPayload } = redactedDiagnostic({
       type: 'promptSchedule',
       ...payload
     });
+    if (Array.isArray(activePromptDiagnosticBatch)) {
+      activePromptDiagnosticBatch.push({ transactionId, diagnostic: redactedPayload });
+      return cloneJson(redactedPayload);
+    }
     return coreStore.appendDiagnostics(transactionId, redactedPayload);
+  }
+
+  async function flushPromptDiagnostics(batch = []) {
+    const diagnosticsByTransaction = new Map();
+    for (const entry of batch || []) {
+      if (!entry?.transactionId || !entry?.diagnostic) continue;
+      const diagnostics = diagnosticsByTransaction.get(entry.transactionId) || [];
+      diagnostics.push(cloneJson(entry.diagnostic));
+      diagnosticsByTransaction.set(entry.transactionId, diagnostics);
+    }
+    for (const [transactionId, diagnostics] of diagnosticsByTransaction.entries()) {
+      if (typeof coreStore?.appendDiagnosticsBatch === 'function') {
+        await coreStore.appendDiagnosticsBatch(transactionId, diagnostics);
+      } else if (typeof coreStore?.appendDiagnostics === 'function') {
+        for (const diagnostic of diagnostics) {
+          await coreStore.appendDiagnostics(transactionId, diagnostic);
+        }
+      }
+    }
   }
 
   async function observeExternalEnvironment({ transactionId = null, environment = null, input = null } = {}) {
@@ -793,17 +946,6 @@ export function createLensPromptScheduler({
     const ref = inspection?.ref || createExternalPromptEnvironmentRef(normalized);
     const targets = inspection?.targets || summarizeExternalPromptEnvironmentTargets(normalized);
     externalEnvironmentRefs.set(ref.hash, ref);
-    await appendPromptDiagnostic(transactionId, {
-      status: 'externalEnvironmentObserved',
-      severity: 'info',
-      observedAt,
-      externalPromptEnvironmentRef: ref,
-      externalPromptEnvironmentTargets: targets,
-      knownExternalPromptKeys: ref.knownExternalPromptKeys,
-      rawPromptBody: raw?.rawPromptBody,
-      vectorPayload: raw?.vectFox?.vectorPayload,
-      apiKey: raw?.apiKey || raw?.vectFox?.qdrant_api_key
-    });
     return { environment: normalized, ref, targets };
   }
 
@@ -866,6 +1008,10 @@ export function createLensPromptScheduler({
     forceRebuild = false,
     idempotencyKey = null
   } = {}) {
+    const priorPromptDiagnosticBatch = activePromptDiagnosticBatch;
+    const promptDiagnosticBatch = [];
+    activePromptDiagnosticBatch = promptDiagnosticBatch;
+    try {
     const key = idempotencyKey ? `lens-flush:${idempotencyKey}` : null;
     if (key && handled.has(key)) {
       return {
@@ -998,7 +1144,8 @@ export function createLensPromptScheduler({
         promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
         promptBudgetEnforcement: budgetApplication.enforcement,
         directivePromptRevision: revision,
-        externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef
+        externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+        externalPromptEnvironmentTargets: resolvedExternalPromptEnvironmentTargets
       });
       return {
         status: 'promptBudgetBlocked',
@@ -1059,6 +1206,7 @@ export function createLensPromptScheduler({
           promptBudgetEnforcement: budgetApplication.enforcement,
           directivePromptRevision: revision,
           externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+          externalPromptEnvironmentTargets: resolvedExternalPromptEnvironmentTargets,
           guard: compactObject({
             status: typeof guardResult === 'object' ? asString(guardResult.status, 'rejected') : 'rejected',
             reason: typeof guardResult === 'object' ? asString(guardResult.reason) : null,
@@ -1136,6 +1284,7 @@ export function createLensPromptScheduler({
       directiveOwnedPromptKeys: installed.promptKeys.filter(isDirectivePromptKey),
       externalPromptKeysObserved: resolvedExternalPromptEnvironmentRef?.knownExternalPromptKeys || [],
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+      externalPromptEnvironmentTargets: resolvedExternalPromptEnvironmentTargets,
       resumedFromSuspension: Boolean(suspended),
       suspension: suspended ? {
         reason: suspended.reason,
@@ -1164,6 +1313,10 @@ export function createLensPromptScheduler({
       observedExternalEnvironment: observed ? cloneJson(observed.ref) : null,
       diagnostic
     };
+    } finally {
+      activePromptDiagnosticBatch = priorPromptDiagnosticBatch;
+      await flushPromptDiagnostics(promptDiagnosticBatch);
+    }
   }
 
   async function clearDirectivePrompt({ transactionId = null, lane = 'visible', reason = 'lens-clear', allLanes = false } = {}) {

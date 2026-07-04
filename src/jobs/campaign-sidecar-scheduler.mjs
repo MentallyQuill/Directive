@@ -733,9 +733,32 @@ function ingressById(campaignState, ingressId) {
     .find((entry) => entry.id === ingressId) || null;
 }
 
-function sourceIngressSnapshot(campaignState, ingressId) {
+function sourceIngressSnapshot(campaignState, ingressId, turnContext = {}) {
   const ingress = ingressById(campaignState, ingressId);
-  if (!ingress) return null;
+  if (!ingress) {
+    const sourceFrameId = compactText(turnContext.sourceFrameId || turnContext.sourceFrameRef?.id);
+    const coreTransactionId = compactText(turnContext.coreTransactionId || turnContext.transactionId);
+    if (!ingressId || (!sourceFrameId && !coreTransactionId)) return null;
+    const sourceFrameRef = createTurnSourceFrameRef({
+      id: sourceFrameId || `frame:${ingressId}`,
+      campaignId: campaignState?.campaign?.id || turnContext.campaignId || null,
+      saveId: campaignState?.campaignChatBinding?.saveId || turnContext.saveId || null,
+      chatId: campaignState?.campaignChatBinding?.chatId || turnContext.chatId || null,
+      hostMessageId: turnContext.sourceMessageId || turnContext.hostMessageId || null,
+      textHash: turnContext.playerTextHash || null
+    });
+    return {
+      id: ingressId,
+      hostMessageId: turnContext.sourceMessageId || turnContext.hostMessageId || null,
+      textHash: turnContext.playerTextHash || null,
+      status: turnContext.sourceStatus || null,
+      outcomeId: turnContext.outcomeId || null,
+      sourceFrameId: sourceFrameRef?.id || sourceFrameId || null,
+      sourceFrameRef,
+      sourceToken: sourceFrameRef ? createSourceToken(sourceFrameRef) : null,
+      coreTransactionId
+    };
+  }
   const sourceFrameRef = createTurnSourceFrameRef(ingress.sourceFrame || {
     id: ingress.sourceFrameId,
     campaignId: ingress.campaignId,
@@ -758,7 +781,7 @@ function sourceIngressSnapshot(campaignState, ingressId) {
     sourceFrameId: sourceFrameRef?.id || ingress.sourceFrameId || ingress.sourceFrame?.id || null,
     sourceFrameRef,
     sourceToken,
-    coreTransactionId: ingress.coreTransactionId || null
+    coreTransactionId: ingress.coreTransactionId || ingress.transactionId || null
   };
 }
 
@@ -818,6 +841,7 @@ function staleSourceIngressFailure(job, currentState) {
     };
   }
   const current = ingressById(currentState, source.id);
+  if (!current && source.coreTransactionId && source.sourceFrameId) return null;
   if (!current) {
     return {
       code: 'DIRECTIVE_SIDECAR_SOURCE_INGRESS_MISSING',
@@ -886,6 +910,7 @@ export function createCampaignSidecarScheduler({
   persistCampaignState,
   syncPromptContext = null,
   appendCoreDiagnostic = null,
+  appendCoreDiagnosticsBatch = null,
   commitCoreBackgroundBatch = null,
   forgeCoordinator = null,
   now = null,
@@ -901,6 +926,7 @@ export function createCampaignSidecarScheduler({
 
   let queue = Promise.resolve();
   let diagnosticQueue = Promise.resolve();
+  let activeDiagnosticBatch = null;
   const completedProviderBatches = new Map();
 
   function emitActivity(activityReporter, event = {}) {
@@ -984,15 +1010,42 @@ export function createCampaignSidecarScheduler({
   }
 
   function queueCoreDiagnostic(job, status, details = {}) {
-    if (typeof appendCoreDiagnostic !== 'function') return null;
+    if (typeof appendCoreDiagnostic !== 'function' && typeof appendCoreDiagnosticsBatch !== 'function') return null;
     const event = sidecarCoreDiagnosticEvent(job, status, details);
     if (!event) return null;
     if (!event.coreTransactionId) return null;
+    queueCoreDiagnosticEvent(event);
+    return cloneJson(event);
+  }
+
+  function queueCoreDiagnosticEvent(event = {}) {
+    if (!event || typeof event !== 'object' || !event.coreTransactionId) return null;
+    if (Array.isArray(activeDiagnosticBatch)) {
+      activeDiagnosticBatch.push(cloneJson(event));
+    } else {
+      flushCoreDiagnostics([event]);
+    }
+    return cloneJson(event);
+  }
+
+  function flushCoreDiagnostics(events = []) {
+    const diagnostics = (Array.isArray(events) ? events : [events])
+      .filter((event) => event && typeof event === 'object' && !Array.isArray(event));
+    if (!diagnostics.length) return diagnosticQueue;
     diagnosticQueue = diagnosticQueue
       .catch(() => null)
-      .then(() => appendCoreDiagnostic(cloneJson(event)))
+      .then(async () => {
+        if (typeof appendCoreDiagnosticsBatch === 'function') {
+          return appendCoreDiagnosticsBatch(cloneJson(diagnostics));
+        }
+        if (typeof appendCoreDiagnostic !== 'function') return null;
+        for (const event of diagnostics) {
+          await appendCoreDiagnostic(cloneJson(event));
+        }
+        return null;
+      })
       .catch(() => null);
-    return cloneJson(event);
+    return diagnosticQueue;
   }
 
   function createWorkerJob(workerKey, state, turnContext, index, batchSize, activityReporter = null) {
@@ -1000,7 +1053,7 @@ export function createCampaignSidecarScheduler({
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
     const baseRevision = state.runtimeTracking.revision;
     const baseEventContext = sidecarEventContext(turnContext);
-    const sourceIngress = sourceIngressSnapshot(state, baseEventContext.ingressId);
+    const sourceIngress = sourceIngressSnapshot(state, baseEventContext.ingressId, turnContext);
     const source = {
       campaignId: state.campaign?.id || null,
       saveId: state.campaignChatBinding?.saveId || null,
@@ -1562,7 +1615,17 @@ export function createCampaignSidecarScheduler({
     if (!settlement) return null;
     const effectful = settlement.workerResults.some((result) => (result.operations || []).length > 0);
     if (typeof forgeCoordinator?.settleAcceptedBatch === 'function') {
-      const result = await forgeCoordinator.settleAcceptedBatch(settlement);
+      const canBatchSettlementDiagnostics = typeof appendCoreDiagnostic === 'function' || typeof appendCoreDiagnosticsBatch === 'function';
+      const settlementInput = canBatchSettlementDiagnostics
+        ? {
+            ...settlement,
+            appendDiagnostic: (transactionId, diagnostic) => queueCoreDiagnosticEvent({
+              ...cloneJson(diagnostic || {}),
+              coreTransactionId: transactionId
+            })
+          }
+        : settlement;
+      const result = await forgeCoordinator.settleAcceptedBatch(settlementInput);
       assertForgeBridgeResultSafe(result, 'finalSettlement', {
         effectful,
         expectedTransactionId: settlement.transactionId,
@@ -1834,6 +1897,10 @@ export function createCampaignSidecarScheduler({
         sourceFrameRef: context.sourceFrameRef,
         upstreamOwner: 'campaignSidecarScheduler',
         now,
+        appendDiagnostic: (transactionId, diagnostic) => queueCoreDiagnosticEvent({
+          ...cloneJson(diagnostic || {}),
+          coreTransactionId: transactionId
+        }),
         runProviderBatch: () => runSidecarJobs({
           jobs,
           generationRouter,
@@ -2748,42 +2815,6 @@ export function createCampaignSidecarScheduler({
           const commandBearingReviewTransientTracking = cloneJson(
             initializeCampaignRuntimeTracking(commandBearingReview.campaignState).runtimeTracking
           );
-          const commandBearingReviewPersistentBaseHistoryEntryHashes = new Set(
-            (commandBearingReviewPersistentBaseTracking.history || []).map((entry) => hashStableJson(entry))
-          );
-          const commandBearingReviewHistoryEntryHashes = (() => {
-            return new Set((commandBearingReviewTransientTracking.history || [])
-              .map((entry) => ({ entry, hash: hashStableJson(entry) }))
-              .filter(({ hash }) => !commandBearingReviewPersistentBaseHistoryEntryHashes.has(hash))
-              .map(({ hash }) => hash));
-          })();
-          const scrubCommandBearingReviewSnapshot = (snapshot = null) => {
-            if (!snapshot || typeof snapshot !== 'object') return cloneJson(snapshot);
-            const scrubbed = cloneJson(snapshot);
-            if (commandBearingReviewPersistentBaseState.commandBearing !== undefined) {
-              scrubbed.commandBearing = cloneJson(commandBearingReviewPersistentBaseState.commandBearing);
-            } else {
-              delete scrubbed.commandBearing;
-            }
-            if (commandBearingReviewPersistentBaseState.commandCulture !== undefined) {
-              scrubbed.commandCulture = cloneJson(commandBearingReviewPersistentBaseState.commandCulture);
-            } else {
-              delete scrubbed.commandCulture;
-            }
-            if (scrubbed.runtimeTracking && typeof scrubbed.runtimeTracking === 'object') {
-              scrubbed.runtimeTracking = {
-                ...cloneJson(scrubbed.runtimeTracking),
-                revision: Number(commandBearingReviewPersistentBaseTracking.revision) || 0,
-                mechanicsRevision: Number(commandBearingReviewPersistentBaseTracking.mechanicsRevision) || 0,
-                history: [],
-                historyIndex: -1,
-                lastDelta: cloneJson(commandBearingReviewPersistentBaseTracking.lastDelta || null),
-                activeIngressId: null,
-                lastStableRevision: Number(commandBearingReviewPersistentBaseTracking.lastStableRevision) || 0
-              };
-            }
-            return scrubbed;
-          };
           const restoreCommandBearingReviewTracking = (tracking = {}) => {
             const currentTracking = cloneJson(tracking || {});
             const baseTracking = commandBearingReviewPersistentBaseTracking;
@@ -2800,32 +2831,18 @@ export function createCampaignSidecarScheduler({
               && (Number(currentTracking.revision) || 0) > (Number(reviewTracking.revision) || 0)
             );
             if (hasIndependentTrackingAdvance) {
-              const history = Array.isArray(currentTracking.history)
-                ? currentTracking.history
-                  .filter((entry) => !commandBearingReviewHistoryEntryHashes.has(hashStableJson(entry)))
-                  .map((entry) => {
-                    const entryHash = hashStableJson(entry);
-                    const nextEntry = cloneJson(entry);
-                    if (!commandBearingReviewPersistentBaseHistoryEntryHashes.has(entryHash) && nextEntry?.snapshot) {
-                      nextEntry.snapshot = scrubCommandBearingReviewSnapshot(nextEntry.snapshot);
-                    }
-                    return nextEntry;
-                  })
-                : [];
               return {
                 ...currentTracking,
-                history,
-                historyIndex: history.length
-                  ? Math.min(Math.max(0, Number(currentTracking.historyIndex) || 0), history.length - 1)
-                  : -1
+                history: [],
+                historyIndex: -1
               };
             }
             return {
               ...currentTracking,
               revision: Number(baseTracking.revision) || 0,
               mechanicsRevision: Number(baseTracking.mechanicsRevision) || 0,
-              history: cloneJson(baseTracking.history || []),
-              historyIndex: Number.isInteger(baseTracking.historyIndex) ? baseTracking.historyIndex : -1,
+              history: [],
+              historyIndex: -1,
               lastDelta: cloneJson(baseTracking.lastDelta || null),
               activeIngressId: baseTracking.activeIngressId || null,
               lastStableRevision: Number(baseTracking.lastStableRevision) || 0
@@ -3017,7 +3034,11 @@ export function createCampaignSidecarScheduler({
       });
     }
     const job = async () => {
-      if (requested.length > 0) {
+      const priorDiagnosticBatch = activeDiagnosticBatch;
+      const diagnosticBatch = [];
+      activeDiagnosticBatch = diagnosticBatch;
+      try {
+        if (requested.length > 0) {
         emitActivity(activityReporter, {
           phase: 'sidecarsRunning',
           mode: 'background',
@@ -3189,6 +3210,10 @@ export function createCampaignSidecarScheduler({
         });
       }
       return finalResults;
+      } finally {
+        activeDiagnosticBatch = priorDiagnosticBatch;
+        await flushCoreDiagnostics(diagnosticBatch);
+      }
     };
     queue = queue.then(job, job);
     return queue;

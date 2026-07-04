@@ -65,6 +65,18 @@ function safeRef(value = null) {
   return compactObject(out);
 }
 
+function safeKnowledgeScope(value = null) {
+  if (!value || typeof value !== 'object') return undefined;
+  const out = compactObject({
+    knownBy: uniqueStrings(value.knownBy),
+    witnessedBy: uniqueStrings(value.witnessedBy),
+    subjectIds: uniqueStrings(value.subjectIds),
+    disclosureState: asString(value.disclosureState),
+    disclosureSourceFrameId: asString(value.disclosureSourceFrameId)
+  });
+  return Object.keys(out).length ? out : undefined;
+}
+
 function safeExternalNested(value = {}) {
   if (!value || typeof value !== 'object') return {};
   const out = {};
@@ -178,6 +190,7 @@ function normalizeBudgetRef(value = {}) {
     hash: preservedHash,
     estimatedTokens: Math.max(0, Math.trunc(asNumber(value.estimatedTokens ?? safe.estimatedTokens, 0))),
     sourceFrameId: asString(value.sourceFrameId || value.sourceFrameRef?.id || safe.sourceFrameId || safe.sourceFrameRef?.id),
+    knowledgeScope: safeKnowledgeScope(value.knowledgeScope || safe.knowledgeScope),
     omissionReason: asString(safe.omissionReason)
   });
 }

@@ -124,6 +124,7 @@ const checks = [
   'test-response-dispatcher-core-bridge.mjs',
   'test-chat-native-runtime-flow.mjs',
   'test-current-chat-campaign-scope.mjs',
+  'test-runtime-persist-coordinator.mjs',
   'test-directive-guidance.mjs',
   'test-directive-training-scenario.mjs',
   'test-directive-training-render-targets.mjs',

@@ -11,8 +11,14 @@ import {
   migrateCommandBearingState,
   readyCommandBearingPoint
 } from '../../src/command/command-bearing.mjs';
-import { createChatTurnOrchestrator } from '../../src/runtime/chat-turn-orchestrator.mjs';
+import {
+  __chatTurnOrchestratorTestHooks,
+  createChatTurnOrchestrator
+} from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.mjs';
+import { createRuntimeLedgerView } from '../../src/runtime/runtime-ledger-view.mjs';
+import { createLatestPairSourceSettlementProvider } from '../../src/runtime/source-settlement-latest-pair.mjs';
+import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import { buildContinuityProjectionMatrix } from '../../src/continuity/index.mjs';
 import {
   createStateDeltaGateway,
@@ -27,6 +33,37 @@ const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, fil
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+
+function lastCommittedTurnProjectionFields({
+  transactionId = null,
+  turnId = null,
+  outcomeId = null,
+  status = 'mirrored'
+} = {}) {
+  const txn = String(transactionId || '').trim();
+  const turn = String(turnId || '').trim();
+  const outcome = String(outcomeId || '').trim();
+  const cleanStatus = String(status || '').trim() || 'mirrored';
+  return {
+    authority: 'compatibilityProjection',
+    projectionSource: txn ? 'coreStoreV2' : 'turnLedger',
+    compatibilityMirror: {
+      kind: 'directive.lastCommittedTurnCompatibilityMirror.v1',
+      status: cleanStatus,
+      outcomeId: outcome || null,
+      turnId: turn || null,
+      transactionId: txn || null,
+      source: 'testTurnCommitCoordinator'
+    },
+    coreProjection: {
+      kind: 'directive.coreLastCommittedTurnProjectionRef.v1',
+      outcomeId: outcome || null,
+      turnId: turn || null,
+      transactionId: txn || null,
+      status: cleanStatus
+    }
+  };
+}
 
 function recordLegacyRecoveryFixture(campaignState, event, { limit = 100 } = {}) {
   const state = initializeCampaignRuntimeTracking(cloneJson(campaignState));
@@ -53,6 +90,24 @@ function fnv1a(text) {
     hash = Math.imul(hash, 0x01000193);
   }
   return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function runtimeLedger(state = campaignState, options = {}) {
+  return createRuntimeLedgerView(state, { coreTurnStore, runtimeOverlay: true, ...options });
+}
+
+function latestRuntimeResponse(state = campaignState) {
+  return (runtimeLedger(state).responseLedger || []).at(-1);
+}
+
+function runtimeResponseForPlayerHost(hostMessageId, state = campaignState) {
+  const ledger = runtimeLedger(state);
+  const ingress = (ledger.ingressLedger || []).find((entry) => entry.hostMessageId === hostMessageId) || null;
+  const transactionId = ingress?.coreTransactionId || ingress?.transactionId || null;
+  return (ledger.responseLedger || []).find((entry) => (
+    (ingress?.id && entry.ingressId === ingress.id)
+    || (transactionId && (entry.transactionId === transactionId || entry.coreTransactionId === transactionId))
+  )) || null;
 }
 
 const chat = createFakeChatAdapter({ chatId: 'campaign-chat' });
@@ -102,6 +157,7 @@ const coreSupersedeCalls = [];
 const coreDiagnosticCalls = [];
 const coreRecoveryCalls = [];
 const coreVisibleResponseCalls = [];
+const corePendingInteractionEvents = [];
 const coreTransactions = new Map();
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
@@ -129,7 +185,8 @@ const coreTurnStore = {
     const transaction = {
       id: options.transactionId || `txn:${sourceFrame.id}`,
       phase: 'observed',
-      sourceFrameId: sourceFrame.id
+      sourceFrameId: sourceFrame.id,
+      ingressId: options.ingressId || `ingress:${options.transactionId || sourceFrame.id}`
     };
     coreTransactions.set(transaction.id, cloneJson(transaction));
     return transaction;
@@ -213,6 +270,59 @@ const coreTurnStore = {
     coreTransactions.set(transactionId, cloneJson(transaction));
     return transaction;
   },
+  async recordPendingInteraction(transactionId, interaction = {}) {
+    const transaction = coreTransactions.get(transactionId) || { id: transactionId };
+    const row = {
+      id: interaction.id,
+      kind: interaction.kind || 'decision',
+      status: 'pending',
+      ingressId: interaction.ingressId || transaction.ingressId || null,
+      turnId: interaction.turnId || null,
+      outcomeId: interaction.outcomeId || transaction.outcomeId || null,
+      coreTransactionId: transactionId,
+      prompt: interaction.prompt || null,
+      options: cloneJson(interaction.options || []),
+      authority: 'corePendingInteractionProjection',
+      projectionSource: 'coreStoreV2',
+      compatibilityMirror: {
+        kind: 'directive.pendingInteractionCompatibilityMirror.v1',
+        status: 'pending',
+        interactionId: interaction.id,
+        ingressId: interaction.ingressId || transaction.ingressId || null,
+        transactionId
+      },
+      coreProjection: {
+        kind: 'directive.corePendingInteractionProjectionRef.v1',
+        interactionId: interaction.id,
+        transactionId,
+        ingressId: interaction.ingressId || transaction.ingressId || null,
+        status: 'pending'
+      }
+    };
+    corePendingInteractionEvents.push({ type: 'recorded', transactionId, row: cloneJson(row) });
+    return cloneJson(row);
+  },
+  async resolvePendingInteraction(transactionId, interactionId, resolution = {}) {
+    const prior = [...corePendingInteractionEvents].reverse()
+      .map((event) => event.row)
+      .find((entry) => entry.id === interactionId) || { id: interactionId, kind: 'decision' };
+    const row = {
+      ...cloneJson(prior),
+      status: resolution.status || 'resolved',
+      resolvedAt: resolution.resolvedAt || now(),
+      resolution: cloneJson(resolution),
+      compatibilityMirror: {
+        ...(prior.compatibilityMirror || {}),
+        status: resolution.status || 'resolved'
+      },
+      coreProjection: {
+        ...(prior.coreProjection || {}),
+        status: resolution.status || 'resolved'
+      }
+    };
+    corePendingInteractionEvents.push({ type: 'resolved', transactionId, row: cloneJson(row) });
+    return cloneJson(row);
+  },
   async getTransaction(transactionId) {
     return cloneJson(coreTransactions.get(transactionId) || null);
   },
@@ -225,13 +335,19 @@ const coreTurnStore = {
         transactionId: transaction.id,
         hostMessageId: transaction.visibleResponseRef?.hostMessageId || null,
         outcomeId: transaction.visibleResponseRef?.outcomeId || transaction.outcomeId || null,
-        responseKind: transaction.visibleResponseRef?.responseKind || transaction.responseKind || null,
+        responseKind: transaction.visibleResponseRef?.responseKind || transaction.visibleResponseRef?.kind || transaction.responseKind || null,
         status: transaction.phase,
-        generationStartedAt: transaction.timing?.hostGenerationReleasedAt || transaction.visibleResponseRef?.visibleResponsePostedAt || null,
+        directiveGenerationStartedAt: transaction.visibleResponseRef?.directiveGenerationStartedAt || transaction.timing?.directiveGenerationStartedAt || null,
+        generationStartedAt: transaction.timing?.hostGenerationReleasedAt || transaction.visibleResponseRef?.directiveGenerationStartedAt || transaction.visibleResponseRef?.visibleResponsePostedAt || null,
+        turnLatency: cloneJson(transaction.timing || null),
         turnTiming: cloneJson(transaction.timing || null)
       }))
       .filter((entry) => entry.responseId || entry.transactionId);
     return {
+      pendingInteractions: Object.values(corePendingInteractionEvents.reduce((acc, event) => {
+        acc[event.row.id] = event.row;
+        return acc;
+      }, {})).map(cloneJson),
       responseLedger,
       recoveryJournal: coreRecoveryCalls.map(({ transactionId, recoveryBundle }) => {
         const transaction = coreTransactions.get(transactionId) || {};
@@ -267,11 +383,11 @@ const responseDispatcher = createResponseDispatcher({
   now
 });
 
-const orchestrator = createChatTurnOrchestrator({
-  host: { chat, prompt },
-  classify: ({ text, context }) => classifyChatTurn({ text, context }),
-  responseDispatcher,
-  generationRouter: {
+function corePendingInteractions() {
+  return coreTurnStore.readProjections().pendingInteractions || [];
+}
+
+const primaryGenerationRouter = {
     async generate(roleId, request) {
       responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
       if (roleId === 'commandBearingSpendValidator') {
@@ -401,8 +517,18 @@ const orchestrator = createChatTurnOrchestrator({
         },
         diagnostics: { providerId: 'fake-response-swipe-provider' }
       };
-    }
-  },
+  }
+};
+
+const orchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: ({ text, context }) => classifyChatTurn({ text, context }),
+  responseDispatcher,
+  generationRouter: primaryGenerationRouter,
+  runLatestPairSettlementProvider: createLatestPairSourceSettlementProvider({
+    generationRouter: primaryGenerationRouter,
+    now
+  }),
   stateDeltaGateway,
   coreTurnStore,
   getCampaignState,
@@ -538,13 +664,30 @@ const orchestrator = createChatTurnOrchestrator({
       outcomeId: turnPacket.outcomePacket.id,
       visibleConsequences: cloneJson(turnPacket.commandLogPacket.visibleConsequences)
     });
+    next.turnLedger = next.turnLedger || { entries: [] };
+    next.turnLedger.entries = next.turnLedger.entries || [];
+    next.turnLedger.entries.push({
+      id: `turn-ledger-${turnPacket.outcomePacket.id}`,
+      turnId: turnPacket.turnId,
+      outcomeId: turnPacket.outcomePacket.id,
+      resultBand: turnPacket.outcomePacket.resultBand,
+      finalResultBand: turnPacket.outcomePacket.resultBand,
+      narrationStatus: 'complete',
+      responseStatus: 'pending',
+      committedAt: now()
+    });
     next.runtimeTracking.lastCommittedTurn = {
       turnId: turnPacket.turnId,
       outcomeId: turnPacket.outcomePacket.id,
       resultBand: turnPacket.outcomePacket.resultBand,
       narrationStatus: 'complete',
       responseStatus: 'pending',
-      committedAt: now()
+      committedAt: now(),
+      ...lastCommittedTurnProjectionFields({
+        turnId: turnPacket.turnId,
+        outcomeId: turnPacket.outcomePacket.id,
+        status: 'mechanicsPending'
+      })
     };
     setCampaignState(next);
     await persistCampaignState(next, 'Stub mechanics committed before narration.');
@@ -575,8 +718,17 @@ const orchestrator = createChatTurnOrchestrator({
     async markResponse({ campaignState: state, outcomeId, status, hostMessageId }) {
       const next = initializeCampaignRuntimeTracking(state);
       assert.equal(next.runtimeTracking.lastCommittedTurn.outcomeId, outcomeId);
-      next.runtimeTracking.lastCommittedTurn.responseStatus = status;
-      next.runtimeTracking.lastCommittedTurn.hostMessageId = hostMessageId;
+      next.runtimeTracking.lastCommittedTurn = {
+        ...next.runtimeTracking.lastCommittedTurn,
+        responseStatus: status,
+        hostMessageId,
+        ...lastCommittedTurnProjectionFields({
+          transactionId: next.runtimeTracking.lastCommittedTurn.coreTransactionId,
+          turnId: next.runtimeTracking.lastCommittedTurn.turnId,
+          outcomeId,
+          status: `response:${status}`
+        })
+      };
       setCampaignState(next);
       await persistCampaignState(next, 'Response checkpoint updated.');
       return { campaignState: next };
@@ -671,6 +823,12 @@ const orchestrator = createChatTurnOrchestrator({
   },
   now
 });
+assert.equal(typeof orchestrator.debugSnapshot, 'function', 'Chat-turn orchestrator exposes a live debug snapshot for smoke diagnostics.');
+assert.equal(
+  orchestrator.debugSnapshot().revision,
+  __chatTurnOrchestratorTestHooks.CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION,
+  'Chat-turn orchestrator debug snapshot reports the current hot-path revision.'
+);
 
 async function send(text, hostMessageId, options = {}) {
   const message = chat.pushPlayerMessage({ text, hostMessageId });
@@ -905,13 +1063,13 @@ assert.equal(color.decision.classification, 'sceneColor');
 assert.equal(color.abortDefaultGeneration, false);
 assert.equal(chat.messages().filter((entry) => entry.isDirectiveOwned).length, 0);
 const colorIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-color');
-const colorResponse = campaignState.runtimeTracking.responseLedger.at(-1);
+const colorResponse = latestRuntimeResponse();
 const colorCoreBegin = coreBeginCalls.find((entry) => entry.options.ingressId === colorIngress.id);
 assert(colorCoreBegin, 'CORE ingress bridge should begin a transaction before old ingress projection.');
 const colorCoreAdvances = coreAdvanceCalls.filter((entry) => entry.transactionId === colorIngress.coreTransactionId);
 assert.equal(colorResponse.strategy, 'injectAndContinue');
 assert.equal(hostGenerationContinuations.at(-1).waitForCompletion, false);
-assert.equal(colorResponse.status, 'released');
+assert.equal(colorResponse.status, 'hostContinueReleased');
 assert.equal(colorResponse.hostGenerationReleaseMode, 'nonblocking');
 assert.equal(colorResponse.sourceFrameId, colorIngress.sourceFrameId);
 assert.equal(colorIngress.coreTransactionId, colorCoreBegin.options.transactionId);
@@ -941,49 +1099,54 @@ const productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake = {
   timeLedgerBefore: campaignState.timeLedger?.entries?.length || 0,
   sceneHandshakeSettledBefore: campaignState.runtimeTracking.sceneHandshake.settled.length
 };
+const productionDefaultLatestPairGenerationRouter = {
+  async generate(roleId, request) {
+    productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.roleCalls.push({
+      roleId,
+      request: cloneJson(request)
+    });
+    if (roleId === 'sceneHandshakeSettler') {
+      throw new Error('production-default latest-pair SRE provider must replace legacy Scene Handshake provider');
+    }
+    assert.equal(roleId, 'sourceSettlementLatestPair');
+    return {
+      ok: true,
+      response: {
+        providerId: 'fake-source-settlement-latest-pair',
+        text: JSON.stringify({
+          kind: 'directive.sceneHandshakeSettlement.v1',
+          acceptedPreviousResponse: true,
+          playerReplyRelation: 'acts-on',
+          confidence: 0.9,
+          disposition: 'autoCommit',
+          needsInternalReview: false,
+          internalReviewReasons: [],
+          deferReason: null,
+          operatorRecoveryOnly: false,
+          openAssignmentProposals: [],
+          commandLogProposals: [
+            {
+              summaryInputs: ['Whitaker left the bridge watch answer to Sam.'],
+              visibleConsequences: ['Sam accepted the bridge watch as ready after five minutes of review.']
+            }
+          ],
+          shipReadinessProposals: [],
+          threadSignals: []
+        })
+      },
+      diagnostics: { providerId: 'fake-source-settlement-latest-pair' }
+    };
+  }
+};
 const productionDefaultOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: ({ text, context }) => classifyChatTurn({ text, context }),
   responseDispatcher,
-  generationRouter: {
-    async generate(roleId, request) {
-      productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.roleCalls.push({
-        roleId,
-        request: cloneJson(request)
-      });
-      if (roleId === 'sceneHandshakeSettler') {
-        throw new Error('production-default latest-pair SRE provider must replace legacy Scene Handshake provider');
-      }
-      assert.equal(roleId, 'sourceSettlementLatestPair');
-      return {
-        ok: true,
-        response: {
-          providerId: 'fake-source-settlement-latest-pair',
-          text: JSON.stringify({
-            kind: 'directive.sceneHandshakeSettlement.v1',
-            acceptedPreviousResponse: true,
-            playerReplyRelation: 'acts-on',
-            confidence: 0.9,
-            disposition: 'autoCommit',
-            needsInternalReview: false,
-            internalReviewReasons: [],
-            deferReason: null,
-            operatorRecoveryOnly: false,
-            openAssignmentProposals: [],
-            commandLogProposals: [
-              {
-                summaryInputs: ['Whitaker left the bridge watch answer to Sam.'],
-                visibleConsequences: ['Sam accepted the bridge watch as ready after five minutes of review.']
-              }
-            ],
-            shipReadinessProposals: [],
-            threadSignals: []
-          })
-        },
-        diagnostics: { providerId: 'fake-source-settlement-latest-pair' }
-      };
-    }
-  },
+  generationRouter: productionDefaultLatestPairGenerationRouter,
+  runLatestPairSettlementProvider: createLatestPairSourceSettlementProvider({
+    generationRouter: productionDefaultLatestPairGenerationRouter,
+    now
+  }),
   stateDeltaGateway,
   coreTurnStore,
   getCampaignState,
@@ -1107,6 +1270,7 @@ const promptSyncFailureOrchestrator = createChatTurnOrchestrator({
       };
     }
   },
+  enableDefaultLatestPairSettlementProvider: true,
   stateDeltaGateway: promptSyncFailureGateway,
   coreTurnStore,
   getCampaignState,
@@ -1144,7 +1308,6 @@ assert.equal(promptSyncFailureRestoreCalls.length, 0, 'Scene Handshake prompt-sy
 const promptSyncFailureIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-production-default-sre-prompt-sync-fails');
 assert.equal(promptSyncFailureIngress.status, 'recoveryRequired');
 assert.equal(promptSyncFailureIngress.error.code, 'DIRECTIVE_TEST_SCENE_HANDSHAKE_PROMPT_SYNC_FAILED');
-assert.equal(promptSyncFailureIngress.coreRecovery.reason, 'chatTurnProcessingFailure');
 assert.equal(
   coreRecoveryCalls.slice(promptSyncFailureCoreRecoveryBefore).some((entry) => (
     entry.transactionId === promptSyncFailureIngress.coreTransactionId
@@ -1221,6 +1384,7 @@ const noApplyLatestPairOrchestrator = createChatTurnOrchestrator({
       };
     }
   },
+  enableDefaultLatestPairSettlementProvider: true,
   stateDeltaGateway: stateDeltaGatewayWithoutApplyOperations,
   coreTurnStore,
   getCampaignState,
@@ -1288,6 +1452,7 @@ const providerThrowOrchestrator = createChatTurnOrchestrator({
       throw new Error(`${rawProviderThrowCanary}: ${request.prompt}`);
     }
   },
+  enableDefaultLatestPairSettlementProvider: true,
   stateDeltaGateway,
   coreTurnStore,
   getCampaignState,
@@ -1574,6 +1739,141 @@ assert.equal(
   'Missing CORE transaction id must not create a quarantined old-ledger ingress.'
 );
 assert.equal(persisted.length, persistedCountBeforeNullCoreTransaction, 'Missing CORE transaction id must not persist campaign state.');
+
+const mechanicsFailureRecoveryCalls = [];
+const mechanicsFailureCoreTransactions = new Map();
+const mechanicsFailureCoreStore = {
+  async beginTurn(sourceFrame, options = {}) {
+    const transaction = {
+      id: options.transactionId || `txn:${sourceFrame.id}`,
+      phase: 'observed',
+      sourceFrameId: sourceFrame.id
+    };
+    mechanicsFailureCoreTransactions.set(transaction.id, cloneJson(transaction));
+    return cloneJson(transaction);
+  },
+  async getTransaction(transactionId) {
+    return cloneJson(mechanicsFailureCoreTransactions.get(transactionId) || null);
+  },
+  async getRevisions() {
+    return { mechanics: 0, runtime: 0, diagnostic: 0, prompt: 0 };
+  },
+  async advanceTurn(transactionId, phasePatch = {}) {
+    const prior = mechanicsFailureCoreTransactions.get(transactionId) || { id: transactionId };
+    const next = {
+      ...prior,
+      phase: phasePatch.phase || prior.phase,
+      route: phasePatch.route || prior.route || null,
+      revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+    };
+    mechanicsFailureCoreTransactions.set(transactionId, cloneJson(next));
+    return cloneJson(next);
+  },
+  async commitMechanics() {
+    const error = new Error('Synthetic CORE mechanics commit failure.');
+    error.code = 'DIRECTIVE_CORE_MECHANICS_COMMIT_FAILED';
+    throw error;
+  },
+  async markRecoveryRequired(transactionId, recoveryBundle = {}) {
+    mechanicsFailureRecoveryCalls.push({ transactionId, recoveryBundle: cloneJson(recoveryBundle) });
+    const recoveryCase = {
+      id: recoveryBundle.id || `recovery:${transactionId}`,
+      phase: recoveryBundle.phaseAfter || 'recoveryRequired',
+      reason: recoveryBundle.reason || null,
+      allowedActions: cloneJson(recoveryBundle.allowedActions || [])
+    };
+    mechanicsFailureCoreTransactions.set(transactionId, {
+      ...(mechanicsFailureCoreTransactions.get(transactionId) || { id: transactionId }),
+      phase: recoveryCase.phase,
+      recoveryCaseId: recoveryCase.id
+    });
+    return cloneJson(recoveryCase);
+  },
+  readProjections() {
+    return {
+      recoveryJournal: mechanicsFailureRecoveryCalls.map(({ transactionId, recoveryBundle }) => ({
+        id: recoveryBundle.id || `recovery:${transactionId}`,
+        transactionId,
+        status: 'required',
+        phase: recoveryBundle.phaseAfter || 'recoveryRequired',
+        reason: recoveryBundle.reason || null,
+        repairDecision: cloneJson(recoveryBundle.repairDecision || null),
+        allowedActions: cloneJson(recoveryBundle.allowedActions || [])
+      }))
+    };
+  }
+};
+const mechanicsFailureDispatcher = createResponseDispatcher({
+  host: { chat },
+  coreTurnStore: mechanicsFailureCoreStore,
+  getCampaignState,
+  setCampaignState,
+  persist: persistCampaignState,
+  now
+});
+const mechanicsFailureOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    classification: 'consequentialCommand',
+    responseStrategy: 'directivePosted',
+    workerPlan: { missionDirector: true },
+    reasons: ['synthetic mechanics failure regression']
+  }),
+  responseDispatcher: mechanicsFailureDispatcher,
+  stateDeltaGateway,
+  coreTurnStore: mechanicsFailureCoreStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async ({ turnId }) => ({
+    turnPacket: {
+      turnId,
+      outcomePacket: {
+        id: 'outcome-core-mechanics-failure-regression',
+        resultBand: 'success',
+        visibleConsequences: ['The regression outcome would have committed mechanics.']
+      },
+      commandLogPacket: {
+        visibleConsequences: ['The regression outcome would have committed mechanics.']
+      }
+    },
+    warningConfirmation: { required: false }
+  }),
+  commitProvisionalDirectorTurn: async () => {
+    const error = new Error('Synthetic CORE mechanics commit failure.');
+    error.code = 'DIRECTIVE_CORE_MECHANICS_COMMIT_FAILED';
+    throw error;
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const mechanicsFailureMessage = chat.pushPlayerMessage({
+  text: 'I order helm to execute the synthetic mechanics failure regression.',
+  hostMessageId: 'player-core-mechanics-failure'
+});
+const mechanicsFailure = await mechanicsFailureOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: mechanicsFailureMessage
+});
+assert.equal(mechanicsFailure.recoveryRequired, true);
+assert.equal(mechanicsFailure.responseStrategy, 'injectAndContinue');
+assert.equal(mechanicsFailure.abortDefaultGeneration, false);
+assert.equal(mechanicsFailure.error.code, 'DIRECTIVE_CORE_MECHANICS_COMMIT_FAILED');
+assert.equal(mechanicsFailureRecoveryCalls.length, 1);
+assert.equal(
+  mechanicsFailureRecoveryCalls[0].recoveryBundle.repairDecision.errorMessage,
+  undefined,
+  'CORE recovery must not persist raw turn-processing failure messages.'
+);
+assert.equal(
+  mechanicsFailureRecoveryCalls[0].recoveryBundle.repairDecision.errorMessageHash,
+  hashStableJson({ message: 'Synthetic CORE mechanics commit failure.' })
+);
+assert.equal(
+  mechanicsFailureRecoveryCalls[0].recoveryBundle.repairDecision.errorSummary,
+  'Turn processing failed before Directive could complete the response path.'
+);
 
 const missingCoreRecoveryWriterOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
@@ -2533,7 +2833,7 @@ assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeSceneN
 assert.equal(campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeSceneNavigation + 10);
 assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeSceneNavigation + 1);
 assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneContinuation');
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
+assert.equal(latestRuntimeResponse().strategy, 'injectAndContinue');
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'classifying'));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'classified' && event.classification === 'sceneNavigation'));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'scene' && event.classification === 'sceneNavigation'));
@@ -2560,8 +2860,8 @@ assert.equal(hostGenerationContinuations.length, hostGenerationContinuationsBefo
 assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeLocationTransition + 2);
 assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeLocationTransition + 1);
 assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'locationTransition');
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'directivePosted');
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'locationTransition');
+assert.equal(latestRuntimeResponse().strategy, 'directivePosted');
+assert.equal(latestRuntimeResponse().responseKind, 'locationTransition');
 const locationTransitionResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'locationTransition');
 assert(locationTransitionResponse, 'Location transition should post a Directive-owned pacing response.');
 assert.match(locationTransitionResponse.text, /Engineering/i);
@@ -3015,6 +3315,126 @@ assert.equal(previewCalls.length, dependentEditPreviewCallsBefore);
 assert.equal(commitCalls.length, dependentEditCommitCallsBefore);
 assert.equal(sidecarCalls.length, dependentEditSidecarCallsBefore);
 assert.equal(persisted.length, dependentEditPersistedBefore);
+
+const asyncCoreDependentChat = createFakeChatAdapter({ chatId: 'async-core-dependent-chat' });
+let asyncCoreDependentState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+asyncCoreDependentState.campaign = {
+  ...asyncCoreDependentState.campaign,
+  id: 'campaign-async-core-dependent',
+  title: 'Ashes of Peace',
+  status: 'active'
+};
+asyncCoreDependentState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'async-core-dependent-chat',
+  campaignId: asyncCoreDependentState.campaign.id,
+  saveId: 'save-async-core-dependent',
+  promptContextRevision: 1
+};
+await asyncCoreDependentChat.bindCurrentChat({
+  campaignId: asyncCoreDependentState.campaign.id,
+  saveId: asyncCoreDependentState.campaignChatBinding.saveId
+});
+const asyncCoreDependentIngress = {
+  id: 'ingress-async-core-dependent',
+  hostMessageId: 'player-async-core-dependent',
+  chatId: 'async-core-dependent-chat',
+  campaignId: asyncCoreDependentState.campaign.id,
+  textHash: fnv1a('Sam waited.'),
+  status: 'committed',
+  outcomeId: 'outcome-async-core-dependent',
+  responseMessageId: 'assistant-async-core-dependent',
+  sourceFrameId: 'frame-async-core-dependent',
+  coreTransactionId: 'txn-async-core-dependent',
+  authority: 'compatibilityProjection',
+  projectionSource: 'coreStoreV2',
+  compatibilityMirror: true
+};
+const asyncCoreDependentResponse = {
+  id: 'response-async-core-dependent',
+  ingressId: asyncCoreDependentIngress.id,
+  ingressHostMessageId: asyncCoreDependentIngress.hostMessageId,
+  hostMessageId: 'assistant-async-core-dependent',
+  outcomeId: asyncCoreDependentIngress.outcomeId,
+  responseKind: 'committedOutcome',
+  status: 'posted',
+  transactionId: asyncCoreDependentIngress.coreTransactionId
+};
+let asyncCoreBeginTurnCalls = 0;
+const asyncCoreDependentStore = {
+  async readProjections() {
+    return {
+      ingressLedger: [cloneJson(asyncCoreDependentIngress)],
+      responseLedger: [cloneJson(asyncCoreDependentResponse)],
+      recoveryJournal: []
+    };
+  },
+  async beginTurn() {
+    asyncCoreBeginTurnCalls += 1;
+    throw new Error('Async CORE dependent reobserve must not start a fresh CORE turn.');
+  }
+};
+const asyncCoreDependentGateway = createStateDeltaGateway({
+  getState: () => asyncCoreDependentState,
+  setState: (next) => { asyncCoreDependentState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => {
+    asyncCoreDependentState = initializeCampaignRuntimeTracking(next);
+    return asyncCoreDependentState;
+  }
+});
+const asyncCoreDependentOrchestrator = createChatTurnOrchestrator({
+  host: { chat: asyncCoreDependentChat, prompt },
+  classify: async () => {
+    throw new Error('Async CORE dependent reobserve must not re-enter classification.');
+  },
+  responseDispatcher: {
+    async dispatch() {
+      throw new Error('Async CORE dependent reobserve must not dispatch.');
+    }
+  },
+  generationRouter: {
+    async generate() {
+      throw new Error('Async CORE dependent reobserve must not generate.');
+    }
+  },
+  stateDeltaGateway: asyncCoreDependentGateway,
+  coreTurnStore: asyncCoreDependentStore,
+  getCampaignState: () => asyncCoreDependentState,
+  setCampaignState: (next) => { asyncCoreDependentState = initializeCampaignRuntimeTracking(next); },
+  persistCampaignState: async (next) => {
+    asyncCoreDependentState = initializeCampaignRuntimeTracking(next);
+    return asyncCoreDependentState;
+  },
+  syncPromptContext: async () => {
+    throw new Error('Async CORE dependent reobserve must not sync prompt.');
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Async CORE dependent reobserve must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Async CORE dependent reobserve must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  now
+});
+const asyncCoreDependentMessage = asyncCoreDependentChat.pushPlayerMessage({
+  text: 'Sam waited. Sam waited for her reply.',
+  hostMessageId: 'player-async-core-dependent'
+});
+const asyncCoreDependentResult = await asyncCoreDependentOrchestrator.observePlayerMessage({
+  chatId: 'async-core-dependent-chat',
+  message: asyncCoreDependentMessage
+});
+assert.equal(asyncCoreDependentResult.handled, true);
+assert.equal(asyncCoreDependentResult.stale, true);
+assert.equal(asyncCoreDependentResult.responseStrategy, 'staleSource');
+assert.equal(asyncCoreDependentResult.reason, 'source-ingress-stale');
+assert.equal(asyncCoreDependentResult.repairDecision.action, 'blockDependentSourceReobserve');
+assert.ok(asyncCoreDependentResult.staleReasons.includes('dependent-response'));
+assert.ok(asyncCoreDependentResult.staleReasons.includes('text-hash-changed'));
+assert.equal(asyncCoreBeginTurnCalls, 0);
+assert.equal(asyncCoreDependentState.runtimeTracking.ingressLedger.length, 0);
+assert.equal(asyncCoreDependentState.runtimeTracking.responseLedger.length, 0);
 
 chat.pushAssistantMessage({
   hostMessageId: 'assistant-selected-swipe-orchestrator',
@@ -3585,8 +4005,10 @@ const directiveRoutine = await directiveRoutineOrchestrator.observePlayerMessage
 assert.equal(directiveRoutine.decision.classification, 'routineCommand');
 assert.equal(directiveRoutine.responseStrategy, 'directivePosted');
 assert.equal(directiveRoutine.abortDefaultGeneration, true);
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'directivePosted');
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'routineCommand');
+assert.equal((runtimeLedger().responseLedger || []).some((entry) => (
+  entry.strategy === 'directivePosted'
+  && entry.responseKind === 'routineCommand'
+)), true);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, 1);
 
 const responseLedgerBeforeSwipe = cloneJson(campaignState.runtimeTracking.responseLedger);
@@ -3695,9 +4117,9 @@ const observedDispatch = await observedDispatcher.dispatch({
 });
 assert.equal(observedDispatch.ok, false);
 assert.equal(observedDispatch.recoveryRequired, true);
-assert.equal(observedState.runtimeTracking.responseLedger.at(-1).status, 'recoveryRequired');
-assert.match(observedState.runtimeTracking.responseLedger.at(-1).recoveryId, /^recovery:continuity:/);
-assert.equal(observedState.runtimeTracking.responseLedger.at(-1).continuityReview.ok, false);
+assert.equal(latestRuntimeResponse(observedState).status, 'recoveryRequired');
+assert.match(latestRuntimeResponse(observedState).recoveryId, /^recovery:continuity:/);
+assert.equal(latestRuntimeResponse(observedState).continuityReview.ok, false);
 assert.equal(observedState.continuity.rejectedClaims.length > 0, true);
 assert.equal(observedState.continuity.projectionHints.length > 0, true);
 assert.equal(Object.values(observedState.continuity.factUseStats).some((stats) => stats.violationCount > 0), true);
@@ -3852,11 +4274,12 @@ assert.equal(counsel.advisory.subject, 'Decision support advisory');
 assert.equal(counsel.advisory.involvedCrewIds.length, 0);
 assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).id, counsel.advisory.id);
 assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).options.length, 0);
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'hostGeneration');
+const counselResponse = runtimeResponseForPlayerHost('player-counsel-format');
+assert.equal(counselResponse.strategy, 'injectAndContinue');
+assert.equal(counselResponse.responseKind, 'hostContinue');
 assert.equal(hostGenerationContinuations.length, continuationsBeforeCounsel + 1);
 assert.equal(hostGenerationContinuations.at(-1).reason, 'directive-inject-and-continue');
-assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).hostContinuation?.ok, true);
+assert.equal(counselResponse.hostContinuation?.ok, true);
 assert.equal(responseSwipeGenerationCalls.filter((call) => call.roleId === 'missionDirectorAdvisor').length, advisorCallsBeforeCounsel);
 assert.equal(counsel.advisoryEnrichment.status, 'queued');
 assert.equal(counsel.advisoryEnrichment.advisoryId, counsel.advisory.id);
@@ -3873,12 +4296,11 @@ assert.equal(previewCalls.length, 1);
 assert.equal(commitCalls.length, 1);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
 assert.equal(campaignState.runtimeTracking.lastCommittedTurn.responseStatus, 'complete');
-const consequentialResponse = campaignState.runtimeTracking.responseLedger.at(-1);
+const consequentialResponse = runtimeResponseForPlayerHost('player-consequential');
 assert.equal(consequentialResponse.strategy, 'directivePosted');
 assert.equal(consequentialResponse.responseKind, 'committedOutcome');
 assert.ok(consequentialResponse.directiveGenerationStartedAt);
 assert.equal(consequentialResponse.directiveGenerationStartedAt, consequentialResponse.generationStartedAt);
-assert.equal(consequentialResponse.turnLatency.directiveGenerationStartedAt, Date.parse(consequentialResponse.directiveGenerationStartedAt));
 assert.equal(campaignState.runtimeTracking.activeIngressId.includes('player-consequential'), true);
 assert.equal(postCommitConversationCalls.length, 1);
 assert.equal(postCommitConversationCalls[0].outcomeId, 'outcome-1');
@@ -4004,7 +4426,8 @@ assert.equal(risk.decision.classification, 'riskConfirmationNeeded');
 assert.equal(risk.abortDefaultGeneration, true);
 assert.equal(previewCalls.length, 3, 'Risk classification must still create a provisional Director turn.');
 assert.equal(commitCalls.length, 2, 'Risk mechanics must remain uncommitted until confirmation.');
-const riskInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.ingressId?.includes('player-risk') && entry.status === 'pending');
+assert.deepEqual(campaignState.runtimeTracking.pendingInteractions, [], 'Risk pause must not write v1 pendingInteractions rows.');
+const riskInteraction = corePendingInteractions().find((entry) => entry.ingressId?.includes('player-risk') && entry.status === 'pending');
 assert.ok(riskInteraction);
 assert.ok(riskInteraction.turnId);
 assert.ok(riskInteraction.outcomeId);
@@ -4017,7 +4440,8 @@ assert.equal(riskResolution.abortDefaultGeneration, true);
 assert.equal(commitCalls.length, 3);
 assert.equal(commitCalls.at(-1).confirmWarnings, true);
 assert.equal(previewCalls.length, 3, 'Chat confirmation must resolve the pending turn, not preview a new one.');
-assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === riskInteraction.id).status, 'resolved');
+assert.equal(corePendingInteractions().find((entry) => entry.id === riskInteraction.id).status, 'resolved');
+assert.deepEqual(campaignState.runtimeTracking.pendingInteractions, [], 'Risk resolution must keep v1 pendingInteractions empty.');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 3);
 assert.equal(postCommitConversationCalls.length, postCommitConversationCallsBeforeRiskResolution + 1);
 assert.equal(riskResolution.postCommitConversation.scheduled, true);
@@ -4036,19 +4460,19 @@ const clarification = await send('Proceed.', 'player-clarification');
 assert.equal(clarification.decision.classification, 'clarificationNeeded');
 assert.equal(clarification.abortDefaultGeneration, true);
 assert.equal(previewCalls.length, 3, 'Clarification should pause before invoking the Director.');
-const clarificationInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.ingressId?.includes('player-clarification') && entry.status === 'pending');
+const clarificationInteraction = corePendingInteractions().find((entry) => entry.ingressId?.includes('player-clarification') && entry.status === 'pending');
 assert.ok(clarificationInteraction);
 assert.equal(clarificationInteraction.options.length, 0);
 const postCommitConversationCallsBeforeCancel = postCommitConversationCalls.length;
 const canceled = await orchestrator.resolveInteraction({ interactionId: clarificationInteraction.id, action: 'cancel' });
 assert.equal(canceled.ok, true);
 assert.equal(commitCalls.length, 3);
-assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === clarificationInteraction.id).status, 'canceled');
+assert.equal(corePendingInteractions().find((entry) => entry.id === clarificationInteraction.id).status, 'canceled');
 assert.equal(postCommitConversationCalls.length, postCommitConversationCallsBeforeCancel, 'Canceling a pending interaction must not queue Narrative Thread settlement.');
 
 const samClarification = await send('Proceed.', 'player-clarification-sam');
 assert.equal(samClarification.decision.classification, 'clarificationNeeded');
-const samClarificationInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => (
+const samClarificationInteraction = corePendingInteractions().find((entry) => (
   entry.ingressId?.includes('player-clarification-sam') && entry.status === 'pending'
 ));
 assert.ok(samClarificationInteraction);
@@ -4141,7 +4565,7 @@ assert.equal(samAnswer.decision.classification, 'routineCommand');
 assert.equal(samAnswer.responseStrategy, 'directivePosted');
 assert.equal(samAnswer.abortDefaultGeneration, true);
 assert.equal(commitCalls.length, commitCallsBeforeSamAnswer, 'Clarification answers without provisional turns must not call commitProvisionalDirectorTurn.');
-assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === samClarificationInteraction.id).status, 'resolved');
+assert.equal(corePendingInteractions().find((entry) => entry.id === samClarificationInteraction.id).status, 'resolved');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, routineResponsesBeforeSamAnswer + 1);
 
 const samAnswerIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-clarification-sam-answer');
@@ -4215,7 +4639,7 @@ assert.equal(
 );
 assert.equal(campaignState.commandBearing.readied, null);
 assert.equal(
-  campaignState.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'commandBearing' && entry.ingressId?.includes('player-readied-resolve')),
+  corePendingInteractions().some((entry) => entry.kind === 'commandBearing' && entry.ingressId?.includes('player-readied-resolve')),
   false,
   'Readied Command Bearing spend must not use the old pause-first pending interaction.'
 );
@@ -4526,7 +4950,7 @@ assert.equal(
 
 const staleRisk = await send('Fire phasers and disable their life support again.', 'player-risk-stale');
 assert.equal(staleRisk.decision.classification, 'riskConfirmationNeeded');
-const staleRiskInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => (
+const staleRiskInteraction = corePendingInteractions().find((entry) => (
   entry.ingressId?.includes('player-risk-stale') && entry.status === 'pending'
 ));
 assert.ok(staleRiskInteraction);
@@ -4662,6 +5086,459 @@ const unboundPromptClearCall = unboundPrompt.calls().filter((entry) => entry.typ
 assert.equal(unboundPromptClearCall.options.reason, 'unbound-chat');
 assert.equal(unboundPromptClearCall.options.preservePacket, true);
 assert.equal(unboundPromptClearCall.options.lane, 'all');
+
+let timeoutHarnessState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+timeoutHarnessState.campaign = {
+  ...timeoutHarnessState.campaign,
+  id: 'scene-handshake-timeout-campaign',
+  status: 'active'
+};
+timeoutHarnessState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'scene-handshake-timeout-chat',
+  campaignId: timeoutHarnessState.campaign.id,
+  saveId: 'scene-handshake-timeout-save',
+  promptContextRevision: 1
+};
+const timeoutHarnessChat = createFakeChatAdapter({ chatId: 'scene-handshake-timeout-chat' });
+timeoutHarnessChat.continueHostGeneration = async (payload = {}) => ({
+  ok: true,
+  released: true,
+  waitForCompletion: payload.waitForCompletion,
+  generationStartedAt: now(),
+  hostGenerationReleasedAt: now()
+});
+const timeoutHarnessGateway = createStateDeltaGateway({
+  getState: () => timeoutHarnessState,
+  setState: (next) => { timeoutHarnessState = cloneJson(next); },
+  persist: async (next) => {
+    timeoutHarnessState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+const timeoutHarnessDispatcher = createResponseDispatcher({
+  host: { chat: timeoutHarnessChat },
+  coreTurnStore,
+  getCampaignState: () => timeoutHarnessState,
+  setCampaignState: (next) => { timeoutHarnessState = cloneJson(next); },
+  persist: async (next) => {
+    timeoutHarnessState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+const timeoutHarnessActivities = [];
+const timeoutHarnessOrchestrator = createChatTurnOrchestrator({
+  host: { chat: timeoutHarnessChat, prompt: createFakePromptAdapter() },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'sceneColor',
+    confidence: 0.91,
+    ambiguity: 'low',
+    speechAct: 'scene-color',
+    action: '',
+    target: '',
+    targetConfidence: 0,
+    domainSignals: ['scene-color'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Scene Handshake timeout must fail open to host-native continuation.'],
+    workerPlan: {},
+    responseStrategy: 'injectAndContinue'
+  }),
+  responseDispatcher: timeoutHarnessDispatcher,
+  generationRouter: primaryGenerationRouter,
+  runLatestPairSettlementProvider: async () => new Promise(() => {}),
+  sceneHandshakeSettlementTimeoutMs: 5,
+  stateDeltaGateway: timeoutHarnessGateway,
+  coreTurnStore,
+  getCampaignState: () => timeoutHarnessState,
+  setCampaignState: (next) => { timeoutHarnessState = cloneJson(next); },
+  persistCampaignState: async (next) => {
+    timeoutHarnessState = cloneJson(next);
+    return { ok: true };
+  },
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Scene Handshake timeout fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Scene Handshake timeout fixture must not commit a Director turn.');
+  },
+  reportTurnActivity: (event) => timeoutHarnessActivities.push(cloneJson(event)),
+  now
+});
+timeoutHarnessChat.pushAssistantMessage({
+  text: 'Bronn finishes the status report and waits for Arlen to answer.',
+  hostMessageId: 'assistant-scene-handshake-timeout'
+});
+const timeoutHarnessMessage = timeoutHarnessChat.pushPlayerMessage({
+  text: '*Commander Arlen waits for Bronn to finish his report.*',
+  hostMessageId: 'player-scene-handshake-timeout'
+});
+const timeoutHarnessResult = await timeoutHarnessOrchestrator.observePlayerMessage({
+  chatId: 'scene-handshake-timeout-chat',
+  message: timeoutHarnessMessage
+});
+const timeoutHarnessIngress = timeoutHarnessState.runtimeTracking.ingressLedger.find((entry) => (
+  entry.hostMessageId === 'player-scene-handshake-timeout'
+));
+assert.equal(timeoutHarnessResult.handled, true);
+assert.equal(timeoutHarnessResult.responseStrategy, 'injectAndContinue');
+assert.equal(
+  timeoutHarnessActivities.some((entry) => entry.phase === 'sceneHandshakeDeferred'
+    && entry.error?.code === 'DIRECTIVE_SCENE_HANDSHAKE_SETTLEMENT_TIMEOUT'),
+  true,
+  'Scene Handshake settlement timeout should be visible as diagnostic activity.'
+);
+assert.equal(
+  timeoutHarnessState.runtimeTracking.responseLedger.some((entry) => (
+    entry.ingressId === timeoutHarnessIngress.id
+    && entry.responseKind === 'hostGeneration'
+    && ['released', 'complete', 'hostContinueReleased'].includes(entry.status)
+  )),
+  true,
+  'Host-native continuation must still be recorded after Scene Handshake times out.'
+);
+
+let preflightDisabledState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+preflightDisabledState.campaign = {
+  ...preflightDisabledState.campaign,
+  id: 'campaign-scene-handshake-disabled-preflight',
+  title: 'Ashes of Peace',
+  status: 'active'
+};
+preflightDisabledState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'scene-handshake-disabled-preflight-chat',
+  campaignId: preflightDisabledState.campaign.id,
+  saveId: 'scene-handshake-disabled-preflight-save',
+  promptContextRevision: 1
+};
+const preflightDisabledChat = createFakeChatAdapter({ chatId: 'scene-handshake-disabled-preflight-chat' });
+preflightDisabledChat.continueHostGeneration = async (payload = {}) => ({
+  ok: true,
+  released: true,
+  waitForCompletion: payload.waitForCompletion,
+  generationStartedAt: now(),
+  hostGenerationReleasedAt: now()
+});
+const preflightDisabledGateway = createStateDeltaGateway({
+  getState: () => preflightDisabledState,
+  setState: (next) => { preflightDisabledState = cloneJson(next); },
+  persist: async (next) => {
+    preflightDisabledState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+let disabledPreflightDiagnosticCalls = 0;
+const preflightDisabledCoreStore = {
+  ...coreTurnStore,
+  appendDiagnostics: async (transactionId, event = {}) => {
+    if (event?.type === 'sourceSettlement') {
+      disabledPreflightDiagnosticCalls += 1;
+      return new Promise(() => {});
+    }
+    return coreTurnStore.appendDiagnostics(transactionId, event);
+  }
+};
+const preflightDisabledDispatcher = createResponseDispatcher({
+  host: { chat: preflightDisabledChat },
+  coreTurnStore: preflightDisabledCoreStore,
+  getCampaignState: () => preflightDisabledState,
+  setCampaignState: (next) => { preflightDisabledState = cloneJson(next); },
+  persist: async (next) => {
+    preflightDisabledState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+const preflightDisabledOrchestrator = createChatTurnOrchestrator({
+  host: { chat: preflightDisabledChat, prompt: createFakePromptAdapter() },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'sceneColor',
+    confidence: 0.91,
+    ambiguity: 'low',
+    speechAct: 'scene-color',
+    action: '',
+    target: '',
+    targetConfidence: 0,
+    domainSignals: ['scene-color'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Disabled Scene Handshake must not block host-native continuation.'],
+    workerPlan: {},
+    responseStrategy: 'injectAndContinue'
+  }),
+  responseDispatcher: preflightDisabledDispatcher,
+  generationRouter: primaryGenerationRouter,
+  enableDefaultLatestPairSettlementProvider: false,
+  stateDeltaGateway: preflightDisabledGateway,
+  coreTurnStore: preflightDisabledCoreStore,
+  getCampaignState: () => preflightDisabledState,
+  setCampaignState: (next) => { preflightDisabledState = cloneJson(next); },
+  persistCampaignState: async (next) => {
+    preflightDisabledState = cloneJson(next);
+    return { ok: true };
+  },
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Disabled Scene Handshake fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Disabled Scene Handshake fixture must not commit a Director turn.');
+  },
+  now
+});
+preflightDisabledChat.pushAssistantMessage({
+  text: 'Bronn finishes the status report and waits for Arlen to answer.',
+  hostMessageId: 'assistant-scene-handshake-disabled-preflight'
+});
+const preflightDisabledMessage = preflightDisabledChat.pushPlayerMessage({
+  text: '*Commander Arlen waits for Bronn to finish his report.*',
+  hostMessageId: 'player-scene-handshake-disabled-preflight'
+});
+const preflightDisabledActivities = [];
+const preflightDisabledResult = await preflightDisabledOrchestrator.observePlayerMessage({
+  chatId: 'scene-handshake-disabled-preflight-chat',
+  message: preflightDisabledMessage,
+  turnActivityReporter: (event) => preflightDisabledActivities.push(cloneJson(event))
+});
+assert.equal(preflightDisabledResult.handled, true);
+assert.equal(preflightDisabledResult.responseStrategy, 'injectAndContinue');
+assert.equal(
+  disabledPreflightDiagnosticCalls,
+  0,
+  'Disabled Scene Handshake must skip preflight diagnostics on the host-native hot path.'
+);
+assert.equal(
+  preflightDisabledActivities.some((entry) => entry.phase === 'sceneHandshakeSkipped'),
+  true,
+  'Disabled Scene Handshake must report a diagnostic skip before classification.'
+);
+assert.equal(
+  preflightDisabledActivities.some((entry) => entry.phase === 'settlingSceneHandshake'),
+  false,
+  'Disabled Scene Handshake must not enter the blocking settlement phase.'
+);
+
+let stalledPersistState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+stalledPersistState.campaign = {
+  ...stalledPersistState.campaign,
+  id: 'campaign-stalled-ingress-persist',
+  title: 'Ashes of Peace',
+  status: 'active'
+};
+stalledPersistState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'stalled-ingress-persist-chat',
+  campaignId: stalledPersistState.campaign.id,
+  saveId: 'stalled-ingress-persist-save',
+  promptContextRevision: 1
+};
+const stalledPersistChat = createFakeChatAdapter({ chatId: 'stalled-ingress-persist-chat' });
+stalledPersistChat.continueHostGeneration = async (payload = {}) => ({
+  ok: true,
+  released: true,
+  waitForCompletion: payload.waitForCompletion,
+  generationStartedAt: now(),
+  hostGenerationReleasedAt: now()
+});
+const stalledPersistGateway = createStateDeltaGateway({
+  getState: () => stalledPersistState,
+  setState: (next) => { stalledPersistState = cloneJson(next); },
+  persist: async (next) => {
+    stalledPersistState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+let stalledPersistCallCount = 0;
+const stalledPersistDispatcher = createResponseDispatcher({
+  host: { chat: stalledPersistChat },
+  coreTurnStore,
+  getCampaignState: () => stalledPersistState,
+  setCampaignState: (next) => { stalledPersistState = cloneJson(next); },
+  persist: async (next) => {
+    stalledPersistState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+const stalledPersistOrchestrator = createChatTurnOrchestrator({
+  host: { chat: stalledPersistChat, prompt: createFakePromptAdapter() },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'sceneColor',
+    confidence: 0.91,
+    ambiguity: 'low',
+    speechAct: 'scene-color',
+    action: '',
+    target: '',
+    targetConfidence: 0,
+    domainSignals: ['scene-color'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Ingress persistence must not block host-native continuation.'],
+    workerPlan: {},
+    responseStrategy: 'injectAndContinue'
+  }),
+  responseDispatcher: stalledPersistDispatcher,
+  generationRouter: primaryGenerationRouter,
+  enableDefaultLatestPairSettlementProvider: false,
+  ingressPersistTimeoutMs: 25,
+  stateDeltaGateway: stalledPersistGateway,
+  coreTurnStore,
+  getCampaignState: () => stalledPersistState,
+  setCampaignState: (next) => { stalledPersistState = cloneJson(next); },
+  persistCampaignState: async (next, summary) => {
+    stalledPersistState = cloneJson(next);
+    stalledPersistCallCount += 1;
+    if (String(summary || '').startsWith('Captured campaign-chat player message')) {
+      return new Promise(() => {});
+    }
+    return { ok: true };
+  },
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Stalled ingress persist fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Stalled ingress persist fixture must not commit a Director turn.');
+  },
+  now
+});
+stalledPersistChat.pushAssistantMessage({
+  text: 'Bronn finishes the status report and waits for Arlen to answer.',
+  hostMessageId: 'assistant-stalled-ingress-persist'
+});
+const stalledPersistMessage = stalledPersistChat.pushPlayerMessage({
+  text: '*Commander Arlen waits for Bronn to finish his report.*',
+  hostMessageId: 'player-stalled-ingress-persist'
+});
+const stalledPersistResult = await Promise.race([
+  stalledPersistOrchestrator.observePlayerMessage({
+    chatId: 'stalled-ingress-persist-chat',
+    message: stalledPersistMessage
+  }),
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 120))
+]);
+assert.equal(stalledPersistResult.timedOut, undefined, 'Stalled ingress persist must not block host-native continuation.');
+assert.equal(stalledPersistResult.handled, true);
+assert.equal(stalledPersistResult.responseStrategy, 'injectAndContinue');
+assert.equal(stalledPersistCallCount > 0, true);
+
+let stalledCoreReadState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+stalledCoreReadState.campaign = {
+  ...stalledCoreReadState.campaign,
+  id: 'campaign-stalled-core-read',
+  title: 'Ashes of Peace',
+  status: 'active'
+};
+stalledCoreReadState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'stalled-core-read-chat',
+  campaignId: stalledCoreReadState.campaign.id,
+  saveId: 'stalled-core-read-save',
+  promptContextRevision: 1
+};
+const stalledCoreReadChat = createFakeChatAdapter({ chatId: 'stalled-core-read-chat' });
+const stalledCoreReadGateway = createStateDeltaGateway({
+  getState: () => stalledCoreReadState,
+  setState: (next) => { stalledCoreReadState = cloneJson(next); },
+  persist: async (next) => {
+    stalledCoreReadState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+let stalledCoreReadClassified = false;
+let stalledCoreReadDispatched = false;
+const stalledCoreReadStore = {
+  async beginTurn() {
+    return new Promise(() => {});
+  },
+  readProjections() {
+    return new Promise(() => {});
+  }
+};
+const stalledCoreReadOrchestrator = createChatTurnOrchestrator({
+  host: { chat: stalledCoreReadChat, prompt: createFakePromptAdapter() },
+  classify: async () => {
+    stalledCoreReadClassified = true;
+    return {
+      kind: 'directive.validatedTurnDecision',
+      classification: 'sceneColor',
+      confidence: 0.91,
+      ambiguity: 'low',
+      speechAct: 'scene-color',
+      action: '',
+      target: '',
+      targetConfidence: 0,
+      domainSignals: ['scene-color'],
+      riskSignals: [],
+      missingInformation: [],
+      pendingInteractionResolution: null,
+      mixedIntent: false,
+      reasons: ['CORE projection reads must not block host-native continuation.'],
+      workerPlan: {},
+      responseStrategy: 'injectAndContinue'
+    };
+  },
+  responseDispatcher: {
+    dispatch: async ({ campaignState, ingressId, strategy, responseKind }) => {
+      stalledCoreReadDispatched = true;
+      return {
+        ok: true,
+        entry: { id: `response:${ingressId}`, ingressId, strategy, responseKind, status: 'released' },
+        campaignState: cloneJson(campaignState)
+      };
+    }
+  },
+  generationRouter: primaryGenerationRouter,
+  enableDefaultLatestPairSettlementProvider: false,
+  coreBeginTurnTimeoutMs: 20,
+  coreProjectionReadTimeoutMs: 20,
+  stateDeltaGateway: stalledCoreReadGateway,
+  coreTurnStore: stalledCoreReadStore,
+  getCampaignState: () => stalledCoreReadState,
+  setCampaignState: (next) => { stalledCoreReadState = cloneJson(next); },
+  persistCampaignState: async (next) => {
+    stalledCoreReadState = cloneJson(next);
+    return { ok: true };
+  },
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Stalled CORE read fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Stalled CORE read fixture must not commit a Director turn.');
+  },
+  now
+});
+const stalledCoreReadMessage = stalledCoreReadChat.pushPlayerMessage({
+  text: '*Commander Arlen waits for Bronn to finish his report.*',
+  hostMessageId: 'player-stalled-core-read'
+});
+const stalledCoreReadResult = await Promise.race([
+  stalledCoreReadOrchestrator.observePlayerMessage({
+    chatId: 'stalled-core-read-chat',
+    message: stalledCoreReadMessage
+  }),
+  new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 1200))
+]);
+assert.equal(stalledCoreReadResult.timedOut, undefined, 'Stalled CORE source observation and projection reads must not block host-native continuation.');
+assert.equal(stalledCoreReadClassified, true, 'Stalled CORE source observation and projection reads still allow classification.');
+assert.equal(stalledCoreReadDispatched, true, 'Stalled CORE source observation and projection reads still allow host generation delegation.');
 
 assert.equal(sidecarCalls.length >= 4, true);
 assert.equal(persisted.length > 0, true);

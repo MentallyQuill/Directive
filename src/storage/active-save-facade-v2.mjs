@@ -3,6 +3,7 @@ import {
 } from './save-records.mjs';
 import {
   commitV2SaveLayout,
+  loadV2MaterializedHead,
   loadV2SaveManifest,
   readV2ArtifactRef
 } from './transaction-store-v2.mjs';
@@ -48,6 +49,23 @@ function compact(value = {}) {
 function compactString(value = null) {
   const text = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
   return text || null;
+}
+
+function compactCheckpointRef(ref = null) {
+  if (!isObject(ref)) return null;
+  const checkpointId = compactString(ref.checkpointId || ref.id);
+  if (!checkpointId) return null;
+  return compact({
+    kind: compactString(ref.kind) || 'directive.coreMechanicsCheckpointRef.v1',
+    campaignId: compactString(ref.campaignId) || undefined,
+    saveId: compactString(ref.saveId) || undefined,
+    checkpointId,
+    layout: compactString(ref.layout) || 'core',
+    sourceKind: compactString(ref.sourceKind) || undefined,
+    sourceRevision: Number.isFinite(Number(ref.sourceRevision)) ? Number(ref.sourceRevision) : undefined,
+    logicalKey: compactString(ref.logicalKey) || undefined,
+    hash: compactString(ref.hash) || undefined
+  });
 }
 
 function projectionKeySet(entry = {}, keys = []) {
@@ -439,7 +457,7 @@ function compactReplacementTextEvidence(entry = {}) {
 function modelCallRows(campaignState = {}) {
   const coreRows = projectedCoreArray(campaignState, 'modelCallDiagnostics');
   if (Array.isArray(coreRows)) return coreRows;
-  return runtimeCollection(campaignState, 'modelCallJournal');
+  return [];
 }
 
 function compactNumber(value) {
@@ -796,11 +814,12 @@ function sidecarResumeCount(campaignState = {}) {
 }
 
 function maxModelCallEventSequence(campaignState = {}) {
+  const resumeSequence = Number(campaignState?.runtimeResume?.modelCallEventSequence || 0);
   return modelCallRows(campaignState).reduce((max, entry) => {
     const match = /^model-call:(\d+):/.exec(String(entry?.id || ''));
     const sequence = match ? Number(match[1]) : 0;
     return Number.isFinite(sequence) && sequence > max ? sequence : max;
-  }, 0);
+  }, Number.isFinite(resumeSequence) ? resumeSequence : 0);
 }
 
 function runtimeSummary(campaignState = {}) {
@@ -838,6 +857,21 @@ function runtimeResumeCursor(campaignState = {}) {
     modelCallCount: modelCalls.length,
     modelCallEventSequence: maxModelCallEventSequence(campaignState),
     sidecarCount: sidecarResumeCount(campaignState)
+  });
+}
+
+function mergeRuntimeResumeCursor(existing = null, refreshed = null) {
+  const left = isObject(existing) ? existing : {};
+  const right = isObject(refreshed) ? refreshed : {};
+  return compact({
+    kind: right.kind || left.kind || 'directive.runtimeResumeCursor.v1',
+    runtimeRevision: Math.max(0, Number(left.runtimeRevision) || 0, Number(right.runtimeRevision) || 0),
+    mechanicsRevision: Math.max(0, Number(left.mechanicsRevision) || 0, Number(right.mechanicsRevision) || 0),
+    responseLedgerRevision: Math.max(0, Number(left.responseLedgerRevision) || 0, Number(right.responseLedgerRevision) || 0),
+    promptContextRevision: Math.max(0, Number(left.promptContextRevision) || 0, Number(right.promptContextRevision) || 0) || null,
+    modelCallCount: Math.max(0, Number(left.modelCallCount) || 0, Number(right.modelCallCount) || 0),
+    modelCallEventSequence: Math.max(0, Number(left.modelCallEventSequence) || 0, Number(right.modelCallEventSequence) || 0),
+    sidecarCount: Math.max(0, Number(left.sidecarCount) || 0, Number(right.sidecarCount) || 0)
   });
 }
 
@@ -927,6 +961,12 @@ function runtimeHeadBudget(headState = {}) {
     status: byteLength <= ACTIVE_RUNTIME_HEAD_MAX_BYTES ? 'pass' : 'warning',
     roots: roots.slice(0, 12)
   };
+}
+
+function runtimeActiveHeadCheckpointStateHash(headState = {}) {
+  const semanticHeadState = cloneJson(headState || {});
+  delete semanticHeadState.runtimeResume;
+  return hashStableJson(semanticHeadState);
 }
 
 function hostRowsFromRuntime(campaignState = {}) {
@@ -1110,7 +1150,8 @@ function turnLedgerFromTurnSegments(turnSegments = [], eventSegments = []) {
     stateDeltaHash: entry.stateDeltaHash || null,
     retainedPacketHash: entry.retainedPacketHash || null,
     snapshotBeforeHash: entry.snapshotBeforeHash || null,
-    snapshotBeforeRetained: entry.snapshotBeforeRetained === true || undefined
+    snapshotBeforeRetained: entry.snapshotBeforeRetained === true || undefined,
+    coreCheckpointRef: compactCheckpointRef(entry.coreCheckpointRef || entry.checkpointRef || entry.v2CheckpointRef) || undefined
   }));
   const replacementHistory = outcomeReplacementHistoryFromEventSegments(eventSegments);
   if (turnEntries.length === 0 && replacementHistory.length === 0) return null;
@@ -1185,7 +1226,8 @@ function turnRecords(campaignState = {}) {
     stateDeltaHash: entry.stateDeltaHash || (entry.stateDelta ? hashStableJson(entry.stateDelta) : null),
     retainedPacketHash: entry.retainedPacketHash || (entry.retainedPacket ? hashStableJson(entry.retainedPacket) : null),
     snapshotBeforeHash: entry.snapshotBeforeHash || (entry.snapshotBefore ? hashStableJson(entry.snapshotBefore) : null),
-    snapshotBeforeRetained: entry.snapshotBeforeRetained === true || Boolean(entry.snapshotBefore) || undefined
+    snapshotBeforeRetained: entry.snapshotBeforeRetained === true || Boolean(entry.snapshotBefore) || undefined,
+    coreCheckpointRef: compactCheckpointRef(entry.coreCheckpointRef || entry.checkpointRef || entry.v2CheckpointRef) || undefined
   }));
 }
 
@@ -1245,6 +1287,7 @@ export async function persistActiveCampaignStateV2(adapter, {
   reason = 'runtimePersist',
   current = null,
   createIndexEntry = false,
+  updateSaveIndex = true,
   name = null,
   slotType = 'manual',
   now = null
@@ -1298,9 +1341,10 @@ export async function persistActiveCampaignStateV2(adapter, {
     checkpoints: [{
       checkpointId: 'runtime-active-head',
       type: 'runtimeActiveHead',
-      stateHash: hashStableJson(headState),
+      stateHash: runtimeActiveHeadCheckpointStateHash(headState),
       reason
-    }]
+    }],
+    reuseExistingSegmentRefs: true
   });
 
   const saveIndexEntry = createIndexEntry
@@ -1314,7 +1358,26 @@ export async function persistActiveCampaignStateV2(adapter, {
         summary,
         now: savedAt
       })
-    : await markCampaignSaveRuntimeV2State(adapter, {
+    : updateSaveIndex === false
+      ? {
+          id: saveId,
+          name: name || saveRecord.name || saveId,
+          current: current === null ? saveRecord.current === true : current === true,
+          updatedAt: savedAt,
+          metadata,
+          path: saveRecord.path || saveRecord.manifestRef?.logicalKey || saveRecord.v2ManifestRef?.logicalKey || commit.saveManifestRef.logicalKey,
+          storageFormat: saveRecord.storageFormat || (saveRecord.kind === 'directive.saveManifest.v2' ? 'v2' : undefined),
+          payloadKind: saveRecord.payloadKind || (saveRecord.kind === 'directive.saveManifest.v2' ? 'directive.saveManifest.v2' : undefined),
+          manifestRef: saveRecord.manifestRef ? cloneJson(saveRecord.manifestRef) : undefined,
+          runtimeStorageFormat: 'v2',
+          v2RuntimePersistedAt: savedAt,
+          v2ManifestRef: {
+            logicalKey: commit.saveManifestRef.logicalKey,
+            kind: commit.saveManifestRef.kind
+          },
+          indexWriteSkipped: true
+        }
+      : await markCampaignSaveRuntimeV2State(adapter, {
         saveId,
         saveManifest: commit.saveManifest,
         saveManifestRef: commit.saveManifestRef,
@@ -1365,7 +1428,7 @@ export async function loadActiveCampaignStateV2(adapter, {
   const saveId = saveIdFor(saveRecord);
   try {
     const saveManifest = await loadV2SaveManifest(adapter, { campaignId, saveId });
-    const head = await readV2ArtifactRef(adapter, saveManifest.head);
+    const head = await loadV2MaterializedHead(adapter, { campaignId, saveId, headRef: saveManifest.head });
     const eventSegments = [];
     for (const ref of saveManifest.eventSegments || []) {
       eventSegments.push(await readV2ArtifactRef(adapter, ref));
@@ -1398,6 +1461,10 @@ export async function loadActiveCampaignStateV2(adapter, {
           coreStoreReadProjections
         });
       }
+      campaignState.runtimeResume = mergeRuntimeResumeCursor(
+        campaignState.runtimeResume,
+        runtimeResumeCursor(campaignState)
+      );
     }
     return {
       kind: 'directive.activeCampaignStateLoad.v2',

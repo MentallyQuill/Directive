@@ -79,6 +79,28 @@ function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
 
+function timeoutError(code, message, timeoutMs) {
+  const error = new Error(message);
+  error.code = code;
+  error.timeoutMs = timeoutMs;
+  return error;
+}
+
+async function withTimeout(promise, timeoutMs, errorFactory) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(errorFactory()), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export function sceneHandshakeHash(text = '') {
   let hash = 0x811c9dc5;
   for (const char of String(text || '')) {
@@ -395,7 +417,7 @@ export function buildSceneHandshakeSnapshot({
 } = {}) {
   const state = campaignState || {};
   const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
-  const runtimeLedgerView = createRuntimeLedgerView(state);
+  const runtimeLedgerView = createRuntimeLedgerView(state, { runtimeOverlay: true });
   const previousVariant = selectedAssistantVariant(previousAssistantMessage);
   const previousText = previousVariant.text.slice(0, MAX_PREVIOUS_TEXT);
   const playerText = sourceText(currentPlayerMessage).slice(0, MAX_PLAYER_TEXT);
@@ -1767,16 +1789,25 @@ export function createLatestPairSreSettlementProvider({
     };
     let generation = null;
     try {
-      generation = await generationRouter.generate(
-        SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
-        request,
-        { timeoutMs: LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS }
+      generation = await withTimeout(
+        Promise.resolve(generationRouter.generate(
+          SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
+          request,
+          { timeoutMs: LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS }
+        )),
+        LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS,
+        () => timeoutError(
+          'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_TIMEOUT',
+          'SRE latest-pair provider timed out before returning output.',
+          LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS
+        )
       );
     } catch (error) {
       const wrapped = new Error('SRE latest-pair provider threw before returning output.');
-      wrapped.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_THROW';
+      wrapped.code = error?.code || 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_THROW';
       wrapped.providerId = error?.providerId || null;
       wrapped.latencyMs = error?.latencyMs ?? null;
+      wrapped.timeoutMs = error?.timeoutMs ?? null;
       throw wrapped;
     }
     const text = responseText(generation);

@@ -26,8 +26,55 @@ const MECHANICS_DOMAINS = Object.freeze([
   'captainState'
 ]);
 
+const MECHANICS_CHECKPOINT_STATE_ROOTS = Object.freeze([
+  'activeCampaignPackage',
+  'attentionState',
+  'campaign',
+  'campaignAssets',
+  'campaignChatBinding',
+  'campaignTracks',
+  'canon',
+  'captainState',
+  'commandBearing',
+  'commandCompetence',
+  'commandCulture',
+  'commandLog',
+  'continuity',
+  'crew',
+  'directives',
+  'dynamicQuestCatalog',
+  'eventLedger',
+  'flags',
+  'knowledgeLedger',
+  'mission',
+  'player',
+  'pressureLedger',
+  'questLedger',
+  'relationships',
+  'runtimeResume',
+  'sceneReconciliation',
+  'settings',
+  'ship',
+  'storyArcLedger',
+  'threadLedger',
+  'timeLedger',
+  'turnLedger',
+  'ui',
+  'values',
+  'worldState'
+]);
+
 function compact(value) {
   return String(value || '').trim();
+}
+
+function mechanicsCheckpointCampaignState(campaignState = {}) {
+  const source = campaignState && typeof campaignState === 'object' ? campaignState : {};
+  const snapshot = {};
+  for (const key of MECHANICS_CHECKPOINT_STATE_ROOTS) {
+    if (source[key] !== undefined) snapshot[key] = cloneJson(source[key]);
+  }
+  return snapshot;
 }
 
 function asArray(value) {
@@ -38,10 +85,21 @@ function uniqueStrings(values = []) {
   return [...new Set(asArray(values).map((value) => String(value || '').trim()).filter(Boolean))];
 }
 
+const CORE_MECHANICS_CHECKPOINT_ID_MAX_LENGTH = 72;
+const CORE_MECHANICS_CHECKPOINT_HASH_LENGTH = 12;
+
 function safeCheckpointId(value, fallback) {
   const raw = String(value || fallback || 'core-mechanics-checkpoint').trim();
   const safe = raw.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
-  return safe || String(fallback || 'core-mechanics-checkpoint');
+  const checkpointId = safe || String(fallback || 'core-mechanics-checkpoint');
+  if (checkpointId.length <= CORE_MECHANICS_CHECKPOINT_ID_MAX_LENGTH) return checkpointId;
+  const suffix = hashStableJson({ checkpointId }).slice(0, CORE_MECHANICS_CHECKPOINT_HASH_LENGTH);
+  const prefixLength = Math.max(
+    1,
+    CORE_MECHANICS_CHECKPOINT_ID_MAX_LENGTH - CORE_MECHANICS_CHECKPOINT_HASH_LENGTH - 1
+  );
+  const prefix = checkpointId.slice(0, prefixLength).replace(/[-._]+$/g, '') || 'core-mechanics';
+  return `${prefix}-${suffix}`;
 }
 
 function findIngressById(campaignState, ingressId) {
@@ -49,6 +107,37 @@ function findIngressById(campaignState, ingressId) {
   if (!id) return null;
   return (createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [])
     .find((entry) => entry?.id === id) || null;
+}
+
+function lastCommittedTurnProjectionFields({
+  transactionId = null,
+  turnId = null,
+  outcomeId = null,
+  status = 'mirrored'
+} = {}) {
+  const txn = compact(transactionId);
+  const turn = compact(turnId);
+  const outcome = compact(outcomeId);
+  const cleanStatus = compact(status) || 'mirrored';
+  return {
+    authority: 'compatibilityProjection',
+    projectionSource: txn ? 'coreStoreV2' : 'turnLedger',
+    compatibilityMirror: {
+      kind: 'directive.lastCommittedTurnCompatibilityMirror.v1',
+      status: cleanStatus,
+      outcomeId: outcome || null,
+      turnId: turn || null,
+      transactionId: txn || null,
+      source: 'turnCommitCoordinator'
+    },
+    coreProjection: {
+      kind: 'directive.coreLastCommittedTurnProjectionRef.v1',
+      outcomeId: outcome || null,
+      turnId: turn || null,
+      transactionId: txn || null,
+      status: cleanStatus
+    }
+  };
 }
 
 function mechanicsDomainOperations(before = {}, after = {}, { excludedDomains = [], turnPacket = {}, outcomeId = null } = {}) {
@@ -460,7 +549,7 @@ async function commitCoreMechanics({
       checkpointBefore: {
         checkpointId: safeCheckpointId(`core-mechanics-${outcomeId}`, `core-mechanics-${id}`),
         sourceKind: 'turnCommitCoordinator.beforeCampaignState',
-        campaignState: beforeCampaignState
+        campaignState: mechanicsCheckpointCampaignState(beforeCampaignState)
       },
       operations,
       committedRoots: uniqueStrings(operations.map((operation) => operation.domain)),
@@ -589,8 +678,12 @@ function annotateCoreMechanicsLedgerEntry(state, outcomeId, coreMechanics = null
       coreTransactionId: transactionId,
       coreTurnId: coreMechanics.turnId || null,
       coreOperationHash: coreMechanics.operationHash || null,
-      snapshotBeforeRetained: Boolean(coreMechanics.coreCheckpointRef),
-      coreCheckpointRef: coreMechanics.coreCheckpointRef ? cloneJson(coreMechanics.coreCheckpointRef) : undefined
+      ...lastCommittedTurnProjectionFields({
+        transactionId,
+        turnId: coreMechanics.turnId || state.runtimeTracking.lastCommittedTurn.turnId,
+        outcomeId,
+        status: 'coreMechanicsCommitted'
+      })
     };
   }
   return state;
@@ -614,14 +707,24 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
     if (!outcomeId) throw new Error('Committed turn packet is missing outcome id.');
     validateOpenWorldReducerSource(turnPacket);
     const committedAt = timestamp(now);
+    const ingress = findIngressById(after, ingressId);
+    const mechanicsTransactionId = compact(outcomeReplacement?.transactionId) || ingress?.coreTransactionId || null;
+    const turnId = turnPacket?.turnId || turnPacket?.id || null;
     after.runtimeTracking.lastCommittedTurn = {
-      turnId: turnPacket?.turnId || turnPacket?.id || null,
+      turnId,
       outcomeId,
       resultBand: turnPacket?.outcomePacket?.resultBand || turnPacket?.finalOutcome?.resultBand || null,
       continuityProjection: cloneJson(turnPacket?.provenance?.continuityProjection || null),
       narrationStatus: 'pending',
       responseStatus: 'pending',
-      committedAt
+      committedAt,
+      coreTransactionId: mechanicsTransactionId || null,
+      ...lastCommittedTurnProjectionFields({
+        transactionId: mechanicsTransactionId,
+        turnId,
+        outcomeId,
+        status: 'mechanicsPending'
+      })
     };
     const tracked = commitTrackedCampaignState({
       campaignState: before,
@@ -638,8 +741,6 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
       },
       now
     });
-    const ingress = findIngressById(tracked, ingressId);
-    const mechanicsTransactionId = compact(outcomeReplacement?.transactionId) || ingress?.coreTransactionId || null;
     const coreMechanics = await commitCoreMechanics({
       coreTurnStore,
       transactionId: mechanicsTransactionId,
@@ -672,21 +773,40 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
     try {
       save = await persist(tracked, 'Committed mechanics checkpoint for the latest campaign turn.');
     } catch (error) {
-      try {
-        await markCoreOutcomeReplacementPersistFailureRecovery({
-          coreTurnStore,
-          coreMechanics,
-          coreOutcomeReplacement,
-          outcomeReplacement,
-          outcomeId,
-          error
-        });
-      } catch (recoveryError) {
-        error.coreOutcomeReplacementRecoveryError = compactError(recoveryError);
+      if (outcomeReplacement) {
+        try {
+          await markCoreOutcomeReplacementPersistFailureRecovery({
+            coreTurnStore,
+            coreMechanics,
+            coreOutcomeReplacement,
+            outcomeReplacement,
+            outcomeId,
+            error
+          });
+        } catch (recoveryError) {
+          error.coreOutcomeReplacementRecoveryError = compactError(recoveryError);
+        }
+        throw error;
       }
-      throw error;
+      return {
+        campaignState: tracked,
+        save: null,
+        outcomeId,
+        coreMechanics,
+        coreOutcomeReplacement,
+        persistStatus: 'failedAfterCoreMechanics',
+        persistError: compactError(error)
+      };
     }
-    return { campaignState: tracked, save: cloneJson(save), outcomeId, coreMechanics, coreOutcomeReplacement };
+    return {
+      campaignState: tracked,
+      save: cloneJson(save),
+      outcomeId,
+      coreMechanics,
+      coreOutcomeReplacement,
+      persistStatus: 'stored',
+      persistError: null
+    };
   }
 
   async function markNarration({
@@ -706,11 +826,26 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
         narrationStatus: status,
         narrationError: error ? cloneJson(error) : null,
         directiveGenerationStartedAt: startedAt,
-        narrationUpdatedAt: timestamp(now)
+        narrationUpdatedAt: timestamp(now),
+        ...lastCommittedTurnProjectionFields({
+          transactionId: next.runtimeTracking.lastCommittedTurn.coreTransactionId,
+          turnId: next.runtimeTracking.lastCommittedTurn.turnId,
+          outcomeId,
+          status: `narration:${status}`
+        })
       };
     }
-    const save = await persist(next, `Narration ${status === 'complete' ? 'completed' : status} for the latest committed turn.`);
-    return { campaignState: next, save: cloneJson(save) };
+    try {
+      const save = await persist(next, `Narration ${status === 'complete' ? 'completed' : status} for the latest committed turn.`);
+      return { campaignState: next, save: cloneJson(save), persistStatus: 'stored', persistError: null };
+    } catch (persistError) {
+      return {
+        campaignState: next,
+        save: null,
+        persistStatus: 'failedAfterNarration',
+        persistError: compactError(persistError)
+      };
+    }
   }
 
   async function markResponse({ campaignState, outcomeId, status, hostMessageId = null, error = null } = {}) {
@@ -721,11 +856,26 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
         responseStatus: status,
         hostMessageId,
         responseError: error ? cloneJson(error) : null,
-        responseUpdatedAt: timestamp(now)
+        responseUpdatedAt: timestamp(now),
+        ...lastCommittedTurnProjectionFields({
+          transactionId: next.runtimeTracking.lastCommittedTurn.coreTransactionId,
+          turnId: next.runtimeTracking.lastCommittedTurn.turnId,
+          outcomeId,
+          status: `response:${status}`
+        })
       };
     }
-    const save = await persist(next, `Campaign response ${status} for the latest committed turn.`);
-    return { campaignState: next, save: cloneJson(save) };
+    try {
+      const save = await persist(next, `Campaign response ${status} for the latest committed turn.`);
+      return { campaignState: next, save: cloneJson(save), persistStatus: 'stored', persistError: null };
+    } catch (persistError) {
+      return {
+        campaignState: next,
+        save: null,
+        persistStatus: 'failedAfterResponse',
+        persistError: compactError(persistError)
+      };
+    }
   }
 
   return { checkpointMechanics, markNarration, markResponse };

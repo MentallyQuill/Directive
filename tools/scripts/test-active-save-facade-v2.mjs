@@ -595,9 +595,9 @@ const resumedModelCall = resumedModelCallJournal.record({
 });
 assert.match(resumedModelCall.id, /^model-call:43:directiveAssist$/, 'model-call journal resumes sequence from compact v2 evidence');
 assert.equal(
-  new Set(loadedRuntimeState.runtimeTracking.modelCallJournal.map((entry) => entry.id)).size,
   loadedRuntimeState.runtimeTracking.modelCallJournal.length,
-  'model-call journal ids remain unique after recording on a v2-reloaded state'
+  0,
+  'model-call recording after v2 reload keeps old runtimeTracking.modelCallJournal empty'
 );
 const loadedRepersist = await persistActiveCampaignStateV2(adapter, {
   saveRecord,
@@ -633,6 +633,51 @@ assert.equal(
   'repersisting loaded compact state writes accepted background-batch projection from read evidence'
 );
 assert.equal(loadedRepersistBackgroundDiagnostics[0].acceptedBatchHash, 'accepted-batch-core-sidecar-hash');
+
+const diagnosticsOnlyState = cloneJson(loaded.campaignState);
+diagnosticsOnlyState.directiveRuntimeEvidence.coreStoreReadProjections.sidecarDiagnostics.push({
+  id: 'core-sidecar-diagnostics-only',
+  status: 'accepted',
+  workerKey: 'diagnostics-only'
+}, {
+  id: 'core-sidecar-diagnostics-only-2',
+  status: 'accepted',
+  workerKey: 'diagnostics-only'
+});
+const diagnosticsOnlyBaseHeadRef = loadedRepersist.refs.head;
+adapter.resetLog();
+const diagnosticsOnlyRepersist = await persistActiveCampaignStateV2(adapter, {
+  saveRecord,
+  campaignState: diagnosticsOnlyState,
+  packageData,
+  summary: 'Runtime v2 diagnostics-only repersist test.',
+  reason: 'runtimePersist:diagnostics-only',
+  now: '2026-06-28T15:04:45.000Z'
+});
+assert.equal(
+  adapter.writeLog.includes(diagnosticsOnlyBaseHeadRef.logicalKey),
+  false,
+  'diagnostics-only CORE projection changes must not rewrite the full materialized head'
+);
+assert.equal(
+  diagnosticsOnlyRepersist.refs.head.logicalKey,
+  diagnosticsOnlyBaseHeadRef.logicalKey,
+  'diagnostics-only CORE projection changes should keep the current committed materialized head ref'
+);
+assert.equal(
+  adapter.writeLog.includes(result.refs.checkpoints[0].logicalKey),
+  false,
+  'diagnostics-only CORE projection changes must not rewrite the runtime-active-head checkpoint'
+);
+const diagnosticsOnlyLoaded = await loadActiveCampaignStateV2(adapter, {
+  saveRecord,
+  fallbackCampaignState: saveRecord.payload.campaignState
+});
+assert.equal(
+  diagnosticsOnlyLoaded.campaignState.runtimeResume.sidecarCount,
+  5,
+  'facade load derives fresh sidecar resume count from diagnostics segments when materialized head is reused'
+);
 
 snapshot = adapter.snapshot();
 assert.equal(snapshot['indexes/saves.v1.json'].activeSaveId, saveRecord.id);
@@ -1177,11 +1222,15 @@ assert.equal(
   'diagnostics segment must not synthesize sidecar/background projections from old sidecarJournal rows'
 );
 
-const duplicateModelCallAdapter = createMemoryJsonAdapter();
-const duplicateModelCallState = cloneJson(campaignState);
-duplicateModelCallState.campaignChatBinding.saveId = 'save-active-v2-duplicate-model-call';
-delete duplicateModelCallState.directiveRuntimeEvidence.coreStoreReadProjections.modelCallDiagnostics;
-duplicateModelCallState.runtimeTracking.modelCallJournal = [
+const oldModelCallFallbackAdapter = createMemoryJsonAdapter();
+const oldModelCallFallbackState = cloneJson(campaignState);
+oldModelCallFallbackState.campaignChatBinding.saveId = 'save-active-v2-old-model-call-fallback';
+delete oldModelCallFallbackState.directiveRuntimeEvidence.coreStoreReadProjections.modelCallDiagnostics;
+oldModelCallFallbackState.runtimeResume = {
+  ...(oldModelCallFallbackState.runtimeResume || {}),
+  modelCallEventSequence: 42
+};
+oldModelCallFallbackState.runtimeTracking.modelCallJournal = [
   {
     id: 'model-call:42:utilityTurnClassifier',
     roleId: 'utilityTurnClassifier',
@@ -1197,37 +1246,41 @@ duplicateModelCallState.runtimeTracking.modelCallJournal = [
     recordedAt: '2026-06-28T15:00:46.000Z'
   }
 ];
-const duplicateModelCallSaveRecord = createFirstCampaignSaveRecord({
-  campaignState: duplicateModelCallState,
+const oldModelCallFallbackSaveRecord = createFirstCampaignSaveRecord({
+  campaignState: oldModelCallFallbackState,
   packageData,
-  saveId: 'save-active-v2-duplicate-model-call',
+  saveId: 'save-active-v2-old-model-call-fallback',
   savedAt: '2026-06-28T15:05:30.000Z'
 });
-await storeCampaignSave(duplicateModelCallAdapter, duplicateModelCallSaveRecord);
-await persistActiveCampaignStateV2(duplicateModelCallAdapter, {
-  saveRecord: duplicateModelCallSaveRecord,
-  campaignState: duplicateModelCallState,
+await storeCampaignSave(oldModelCallFallbackAdapter, oldModelCallFallbackSaveRecord);
+await persistActiveCampaignStateV2(oldModelCallFallbackAdapter, {
+  saveRecord: oldModelCallFallbackSaveRecord,
+  campaignState: oldModelCallFallbackState,
   packageData,
-  summary: 'Runtime v2 active-save duplicate model-call projection test.',
-  reason: 'test-runtime-duplicate-model-call-persist',
+  summary: 'Runtime v2 active-save old model-call fallback demotion test.',
+  reason: 'test-runtime-old-model-call-fallback-demotion',
   now: '2026-06-28T15:06:00.000Z'
 });
-const duplicateModelCallLoaded = await loadActiveCampaignStateV2(duplicateModelCallAdapter, {
-  saveRecord: duplicateModelCallSaveRecord,
-  fallbackCampaignState: duplicateModelCallSaveRecord.payload.campaignState
+const oldModelCallFallbackLoaded = await loadActiveCampaignStateV2(oldModelCallFallbackAdapter, {
+  saveRecord: oldModelCallFallbackSaveRecord,
+  fallbackCampaignState: oldModelCallFallbackSaveRecord.payload.campaignState
 });
 assert.equal(
-  duplicateModelCallLoaded.campaignState.runtimeTracking.modelCallJournal.length,
+  oldModelCallFallbackLoaded.campaignState.runtimeTracking.modelCallJournal.length,
   0,
-  'facade load keeps deduped model-call diagnostics out of old runtimeTracking'
+  'facade load keeps old model-call fallback telemetry out of runtimeTracking'
 );
-const duplicateModelCallCoreDiagnostics = duplicateModelCallLoaded.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.modelCallDiagnostics || [];
+const oldModelCallFallbackCoreDiagnostics = oldModelCallFallbackLoaded.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.modelCallDiagnostics || [];
 assert.equal(
-  duplicateModelCallCoreDiagnostics.length,
-  1,
-  'facade load dedupes repeated compact model-call projections by id under CORE diagnostics'
+  oldModelCallFallbackCoreDiagnostics.length,
+  0,
+  'facade load must not synthesize CORE model-call diagnostics from old modelCallJournal rows'
 );
-assert.equal(duplicateModelCallCoreDiagnostics[0].latencyMs, 654, 'model-call projection dedupe keeps the latest compact row under CORE diagnostics');
+assert.equal(
+  oldModelCallFallbackLoaded.campaignState.runtimeResume.modelCallEventSequence,
+  42,
+  'facade load may preserve compact runtimeResume sequence without promoting old model-call rows'
+);
 
 const coreWorkerShapeAdapter = createMemoryJsonAdapter();
 const coreWorkerShapeState = cloneJson(campaignState);

@@ -11,6 +11,7 @@ import {
   saveManifestV2LogicalKey
 } from './logical-storage-paths.mjs';
 import {
+  loadV2MaterializedHead,
   readV2ArtifactRef
 } from './transaction-store-v2.mjs';
 import {
@@ -534,6 +535,20 @@ function isRuntimeV2BridgeEntry(entry = {}) {
   return entry.runtimeStorageFormat === 'v2' && Boolean(entry.v2ManifestRef?.logicalKey);
 }
 
+async function readIndexedV2ArtifactRef(adapter, ref = {}) {
+  try {
+    return await readV2ArtifactRef(adapter, ref);
+  } catch (error) {
+    if (error?.code !== 'DIRECTIVE_V2_ARTIFACT_HASH_MISMATCH' || !ref?.logicalKey) {
+      throw error;
+    }
+    return readV2ArtifactRef(adapter, {
+      logicalKey: ref.logicalKey,
+      kind: ref.kind || undefined
+    });
+  }
+}
+
 async function loadRuntimeBridgeCampaignStateV2(adapter, {
   entry = null,
   saveRecord = null
@@ -545,7 +560,7 @@ async function loadRuntimeBridgeCampaignStateV2(adapter, {
     return { found: false, skipped: true, reason: 'runtime-v2-bridge-requires-v1-checkpoint' };
   }
   try {
-    await readV2ArtifactRef(adapter, v2ManifestRef);
+    await readIndexedV2ArtifactRef(adapter, v2ManifestRef);
   } catch (error) {
     return {
       found: false,
@@ -582,7 +597,12 @@ async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
     error.details = { layout: manifest.layout, campaignId: manifest.campaignId || null, saveId: manifest.saveId || null };
     throw error;
   }
-  const head = await readV2ArtifactRef(adapter, manifest.head);
+  const head = await loadV2MaterializedHead(adapter, {
+    campaignId: manifest.campaignId,
+    saveId: manifest.saveId,
+    layout: manifest.layout || 'active',
+    headRef: manifest.head
+  });
   const headState = isObject(head.state)
     ? head.state
     : (head.kind === 'directive.materializedCampaignHead.v2' || isObject(head.campaign))
@@ -1230,7 +1250,7 @@ export async function loadCampaignSaveFromStorage(adapter, saveId, options = {})
   const v2ManifestRef = v2ManifestRefForSaveEntry(entry, record);
   if (v2ManifestRef) {
     try {
-      const manifest = await readV2ArtifactRef(adapter, v2ManifestRef);
+      const manifest = await readIndexedV2ArtifactRef(adapter, v2ManifestRef);
       return loadV2CampaignStateFromSaveManifest(adapter, manifest);
     } catch (error) {
       if (record.kind !== 'directive.campaignSave') throw error;
@@ -1582,7 +1602,7 @@ export async function recoverActiveCampaignSave(adapter, options = {}) {
     const v2ManifestRef = v2ManifestRefForSaveEntry(entry, result.value);
     if (v2ManifestRef) {
       try {
-        const manifest = await readV2ArtifactRef(adapter, v2ManifestRef);
+        const manifest = await readIndexedV2ArtifactRef(adapter, v2ManifestRef);
         const campaignState = await loadV2CampaignStateFromSaveManifest(adapter, manifest);
         const needsIndexRepair = index.activeSaveId !== entry.id || entry.current !== true || currentEntries.length > 1;
         if (needsIndexRepair) {

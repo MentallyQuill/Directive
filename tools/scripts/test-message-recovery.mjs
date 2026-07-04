@@ -683,6 +683,21 @@ const checkpointRollbackReconciler = createMessageReconciler({
     checkpointRollbackState = cloneJson(next);
   },
   coreTurnStore: {
+    async readProjections() {
+      return {
+        kind: 'directive.coreStoreReadProjections.v1',
+        responseLedgerRevision: 1,
+        ingressLedger: [{
+          id: 'ingress-checkpoint-rollback',
+          hostMessageId: 'player-checkpoint-rollback',
+          transactionId: 'txn-checkpoint-rollback',
+          status: 'recoveryRequired',
+          deletedAt: '2026-06-22T03:00:00.000Z'
+        }],
+        responseLedger: [],
+        recoveryJournal: []
+      };
+    },
     async markRecoveryRequired(transactionId, recoveryBundle = {}) {
       return {
         id: recoveryBundle.id || `recovery:${transactionId}`,
@@ -728,8 +743,10 @@ assert.equal(checkpointRollbackState.runtimeTracking.revision, checkpointRollbac
 assert.equal(checkpointRollbackState.mission.activePhaseId, 'phase-before-checkpoint');
 assert.equal(checkpointRollbackState.mission.knownFacts.some((entry) => entry.id === 'fact-after-checkpoint'), false);
 assert.equal(checkpointRollbackState.commandLog.entries.some((entry) => entry.id === 'log-after-checkpoint'), false);
-assert.equal(checkpointRollbackState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-checkpoint-rollback').status, 'recoveryRequired');
-assert.equal(checkpointRollbackState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-checkpoint-rollback').deletedAt !== null, true);
+assert.deepEqual(checkpointRollbackState.runtimeTracking.ingressLedger, [], 'checkpoint rollback restore must not revive old ingress mirrors.');
+const checkpointRollbackProjectedIngress = checkpointRollbackState.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger.find((entry) => entry.id === 'ingress-checkpoint-rollback');
+assert.equal(checkpointRollbackProjectedIngress.status, 'recoveryRequired');
+assert.equal(checkpointRollbackProjectedIngress.deletedAt !== null, true);
 assert.equal(checkpointRollbackState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), false);
 assert.equal(checkpointRollbackRollbacks.length, 1);
 assert.equal(checkpointRollbackRollbacks.at(-1).transactionId, 'txn-checkpoint-rollback');

@@ -1065,7 +1065,12 @@ assert.deepEqual(
 assert.match(textOf(logCards[0]), /working transfer/, 'Latest accepted outcome should appear first');
 assert.match(textOf(logCards[1]), /Campaign Start/, 'Campaign start should remain the first chronological record');
 await findButton(panel, 'Campaign').click();
-assert.match(textOf(panel), /(?:Narration completed|Command Log assisted summary settled) for the latest committed turn\./);
+assert.match(textOf(panel), /Campaign activation: chatBound\./);
+assert.doesNotMatch(
+  textOf(panel),
+  /(?:Narration completed|Command Log assisted summary settled) for the latest committed turn\./,
+  'Campaign session index should not require hot runtime background-persist summaries after v2 save-index rewrite deferral.'
+);
 assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Campaign snapshot should not expose raw command-log sidecar JSON');
 await findButton(panel, 'Mission').click();
 

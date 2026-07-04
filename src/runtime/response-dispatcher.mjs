@@ -32,6 +32,16 @@ function compact(value) {
   return String(value || '').trim();
 }
 
+function ingressCoreTransactionId(ingress = null) {
+  return compact(
+    ingress?.coreTransactionId
+    || ingress?.transactionId
+    || ingress?.coreProjection?.transactionId
+    || ingress?.coreProjection?.coreTransactionId
+    || ''
+  ) || null;
+}
+
 function compactText(value = '', maxLength = 240) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (text.length <= maxLength) return text;
@@ -456,13 +466,13 @@ export function createResponseDispatcher({
   }
 
   async function findExisting(campaignState, idempotencyKey) {
-    const view = await createRuntimeLedgerViewAsync(campaignState, { coreTurnStore });
+    const view = await createRuntimeLedgerViewAsync(campaignState, { coreTurnStore, runtimeOverlay: true });
     const response = (view.responseLedger || []).find((entry) => (
       idempotencyKey && entry.id === idempotencyKey
     )) || null;
     if (response) return response;
     if (!idempotencyKey || typeof coreTurnStore?.readProjections !== 'function') return null;
-    const projections = coreTurnStore.readProjections() || {};
+    const projections = await coreTurnStore.readProjections() || {};
     const diagnostic = (Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []).find((entry) => (
       ['hostNativeContinuityRecovery', 'hostNativeCompletionRecord', 'hostContinueReleaseRecord', 'visibleResponseRecord'].includes(compact(entry.worker))
       && compact(entry.status) === 'failed'
@@ -481,23 +491,23 @@ export function createResponseDispatcher({
     };
   }
 
-  function projectedCoreRecoveryForResponse(response = null) {
+  async function projectedCoreRecoveryForResponse(response = null) {
     if (!response || typeof coreTurnStore?.readProjections !== 'function') return null;
     const transactionId = compact(response.coreTransactionId || response.transactionId);
     if (!transactionId) return null;
-    const projections = coreTurnStore.readProjections() || {};
+    const projections = await coreTurnStore.readProjections() || {};
     return (Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []).find((entry) => (
       compact(entry.transactionId || entry.coreTransactionId) === transactionId
       && compact(entry.status || entry.recoveryStatus) !== 'resolved'
     )) || null;
   }
 
-  function projectedCoreDiagnosticForResponse(response = null) {
+  async function projectedCoreDiagnosticForResponse(response = null) {
     if (!response || typeof coreTurnStore?.readProjections !== 'function') return null;
     const transactionId = compact(response.coreTransactionId || response.transactionId);
     const responseId = compact(response.id || response.responseId);
     if (!transactionId && !responseId) return null;
-    const projections = coreTurnStore.readProjections() || {};
+    const projections = await coreTurnStore.readProjections() || {};
     return (Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []).find((entry) => (
       ['hostNativeContinuityRecovery', 'hostNativeCompletionRecord', 'hostContinueReleaseRecord', 'visibleResponseRecord'].includes(compact(entry.worker))
       && compact(entry.status) === 'failed'
@@ -523,9 +533,9 @@ export function createResponseDispatcher({
     return `recovery:continuity:${responseId}`;
   }
 
-  function existingResponseDispatchResult(existing, state) {
+  async function existingResponseDispatchResult(existing, state) {
     const entry = cloneJson(existing);
-    const projectedCoreRecovery = projectedCoreRecoveryForResponse(existing);
+    const projectedCoreRecovery = await projectedCoreRecoveryForResponse(existing);
     if (projectedCoreRecovery) {
       const recoveryStatus = compact(projectedCoreRecovery.phase || projectedCoreRecovery.status);
       return {
@@ -539,7 +549,7 @@ export function createResponseDispatcher({
         campaignState: state
       };
     }
-    const projectedCoreDiagnostic = projectedCoreDiagnosticForResponse(existing);
+    const projectedCoreDiagnostic = await projectedCoreDiagnosticForResponse(existing);
     if (projectedCoreDiagnostic) {
       return {
         ok: false,
@@ -574,12 +584,12 @@ export function createResponseDispatcher({
 
   async function findIngress(campaignState, ingressId) {
     if (!ingressId) return null;
-    return findLedgerIngressAsync(campaignState, { id: ingressId }, { coreTurnStore });
+    return findLedgerIngressAsync(campaignState, { id: ingressId }, { coreTurnStore, runtimeOverlay: true });
   }
 
   async function findResponse(campaignState, responseId) {
     if (!responseId) return null;
-    return findLedgerResponseAsync(campaignState, { id: responseId }, { coreTurnStore });
+    return findLedgerResponseAsync(campaignState, { id: responseId }, { coreTurnStore, runtimeOverlay: true });
   }
 
   async function readCoreResponseProjectionFor(entry = null) {
@@ -823,8 +833,8 @@ export function createResponseDispatcher({
     directivePromptRevisionUsed = null
   } = {}) {
     if (typeof coreTurnStore?.advanceTurn !== 'function') return null;
-    if (!ingress?.coreTransactionId || hostContinuation?.released !== true) return null;
-    const transactionId = ingress.coreTransactionId;
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId || hostContinuation?.released !== true) return null;
     const routePendingIdempotencyKey = `route-pending:${transactionId}`;
     await coreTurnStore.advanceTurn(transactionId, {
       phase: 'routePending',
@@ -869,8 +879,9 @@ export function createResponseDispatcher({
     error = null
   } = {}) {
     if (typeof coreTurnStore?.appendDiagnostics !== 'function') return null;
-    if (!ingress?.coreTransactionId || !responseId) return null;
-    return coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId || !responseId) return null;
+    return coreTurnStore.appendDiagnostics(transactionId, {
       type: 'sidecar',
       worker: 'hostContinueReleaseRecord',
       status: 'failed',
@@ -880,7 +891,7 @@ export function createResponseDispatcher({
       ingressId: ingress.id || null,
       outcomeId: outcomeId || null,
       turnId: turnId || null,
-      transactionId: ingress.coreTransactionId,
+      transactionId,
       sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
       hostGenerationReleasedAt: hostGenerationReleasedAt || null,
       hostContinuation: safeHostContinuationRef(hostContinuation),
@@ -901,8 +912,8 @@ export function createResponseDispatcher({
     repairDecision = null
   } = {}) {
     if (typeof coreTurnStore?.advanceTurn !== 'function' || typeof coreTurnStore?.recordVisibleResponse !== 'function') return null;
-    if (!ingress?.coreTransactionId || !entry?.hostMessageId) return null;
-    const transactionId = ingress.coreTransactionId;
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId || !entry?.hostMessageId) return null;
     try {
       await coreTurnStore.advanceTurn(transactionId, {
         phase: 'routePending',
@@ -944,10 +955,11 @@ export function createResponseDispatcher({
     repairDecision = null
   } = {}) {
     if (typeof coreTurnStore?.recordVisibleResponse !== 'function') return null;
-    if (!ingress?.coreTransactionId || !observedMessage || !responseId) return null;
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId || !observedMessage || !responseId) return null;
     const observedHostMessageId = observedMessage.hostMessageId || observedMessage.id || null;
     if (!observedHostMessageId) return null;
-    return coreTurnStore.recordVisibleResponse(ingress.coreTransactionId, {
+    return coreTurnStore.recordVisibleResponse(transactionId, {
       kind: 'hostContinue',
       responseId,
       hostMessageId: observedHostMessageId,
@@ -973,8 +985,9 @@ export function createResponseDispatcher({
     error = null
   } = {}) {
     if (typeof coreTurnStore?.appendDiagnostics !== 'function') return null;
-    if (!ingress?.coreTransactionId || !responseId) return null;
-    return coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId || !responseId) return null;
+    return coreTurnStore.appendDiagnostics(transactionId, {
       type: 'sidecar',
       worker: 'visibleResponseRecord',
       status: 'failed',
@@ -984,7 +997,7 @@ export function createResponseDispatcher({
       ingressId: ingress.id || null,
       outcomeId: outcomeId || null,
       turnId: turnId || null,
-      transactionId: ingress.coreTransactionId,
+      transactionId,
       sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
       hostMessageId: hostMessageId || null,
       visibleResponsePostedAt: visibleResponsePostedAt || null,
@@ -1008,8 +1021,9 @@ export function createResponseDispatcher({
     error = null
   } = {}) {
     if (typeof coreTurnStore?.appendDiagnostics !== 'function') return null;
-    if (!ingress?.coreTransactionId || !responseId) return null;
-    return coreTurnStore.appendDiagnostics(ingress.coreTransactionId, {
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId || !responseId) return null;
+    return coreTurnStore.appendDiagnostics(transactionId, {
       type: 'sidecar',
       worker: 'hostNativeCompletionRecord',
       status: 'failed',
@@ -1019,7 +1033,7 @@ export function createResponseDispatcher({
       ingressId: ingress.id || null,
       outcomeId: outcomeId || null,
       turnId: turnId || null,
-      transactionId: ingress.coreTransactionId,
+      transactionId,
       sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
       observedMessage: {
         hostMessageId: observedHostMessageId || null
@@ -1123,7 +1137,7 @@ export function createResponseDispatcher({
 
   async function findResponseRecovery(campaignState, response = null) {
     if (!response) return null;
-    const projectedCoreRecovery = projectedCoreRecoveryForResponse(response);
+    const projectedCoreRecovery = await projectedCoreRecoveryForResponse(response);
     if (projectedCoreRecovery) {
       return {
         id: projectedCoreRecovery.id || projectedCoreRecovery.recoveryId || null,
@@ -1476,8 +1490,9 @@ export function createResponseDispatcher({
     campaignState = null
   } = {}) {
     if (typeof coreTurnStore?.getTransaction !== 'function') return null;
-    if (!ingress?.coreTransactionId) return null;
-    const transaction = await coreTurnStore.getTransaction(ingress.coreTransactionId);
+    const transactionId = ingressCoreTransactionId(ingress);
+    if (!transactionId) return null;
+    const transaction = await coreTurnStore.getTransaction(transactionId);
     if (transaction?.visibleResponseRef) {
       return { status: 'visibleResponseRecorded', transaction };
     }
@@ -1609,8 +1624,9 @@ export function createResponseDispatcher({
       if (status === 'completed' && observedMessage && observedHostMessageId) {
         let repairClosure = null;
         if (response?.recoveryId || response?.coreRecovery) {
-          const transaction = typeof coreTurnStore?.getTransaction === 'function' && ingress?.coreTransactionId
-            ? await coreTurnStore.getTransaction(ingress.coreTransactionId)
+          const transactionId = ingressCoreTransactionId(ingress);
+          const transaction = typeof coreTurnStore?.getTransaction === 'function' && transactionId
+            ? await coreTurnStore.getTransaction(transactionId)
             : null;
           repairClosure = await evaluateResponseReobserveClosure({
             campaignState: current,
@@ -1813,7 +1829,7 @@ export function createResponseDispatcher({
       return { ok: false, skipped: true, reason: 'host-recent-messages-unavailable' };
     }
     const state = resolveState(campaignState);
-    const runtimeLedgerView = await createRuntimeLedgerViewAsync(state, { coreTurnStore });
+    const runtimeLedgerView = await createRuntimeLedgerViewAsync(state, { coreTurnStore, runtimeOverlay: true });
     const responseLedger = runtimeLedgerView.responseLedger || [];
     const responseNeedsHostReobserve = (entry = {}) => (
       entry?.strategy === 'injectAndContinue'
@@ -2407,7 +2423,7 @@ export function createResponseDispatcher({
     const state = resolveState(campaignState);
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || turnId || 'turn'}:host`;
     const existing = await findExisting(state, key);
-    if (existing) return existingResponseDispatchResult(existing, state);
+    if (existing) return await existingResponseDispatchResult(existing, state);
     const ingress = await findIngress(state, ingressId);
     let hostContinuation = null;
     let releasePersistedResolve = null;
@@ -2525,9 +2541,9 @@ export function createResponseDispatcher({
       generationStartedAt: hostGenerationReleasedAt,
       hostGenerationReleaseMode: hostContinuation?.waitForCompletion === false ? 'nonblocking' : 'blocking-or-unknown',
       turnLatency,
-      coreTransactionId: ingress?.coreTransactionId || null,
+      coreTransactionId: ingressCoreTransactionId(ingress),
       coreRelease: coreRelease ? {
-        transactionId: coreRelease.id || ingress?.coreTransactionId || null,
+        transactionId: coreRelease.id || ingressCoreTransactionId(ingress),
         phase: coreRelease.phase || null,
         route: coreRelease.route || null
       } : null,
@@ -2609,11 +2625,11 @@ export function createResponseDispatcher({
         }
       }
     }
-    next = await recordDirectiveResponseCompatibility(next, entry, {
-      coreDiagnostic: coreReleaseDiagnostic || null,
-      mirroredOperation: 'hostContinueRelease'
-    });
     try {
+      next = await recordDirectiveResponseCompatibility(next, entry, {
+        coreDiagnostic: coreReleaseDiagnostic || null,
+        mirroredOperation: 'hostContinueRelease'
+      });
       await acceptState(next, `Delegated response for ${ingressId || turnId || 'campaign turn'} to host generation.`);
     } finally {
       releasePersistedResolve?.();
@@ -2662,7 +2678,7 @@ export function createResponseDispatcher({
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || outcomeId || turnId || 'turn'}:${responseType}`;
     const existing = await findExisting(state, key);
     if (existing) {
-      return existingResponseDispatchResult(existing, state);
+      return await existingResponseDispatchResult(existing, state);
     }
     const ingress = await findIngress(state, ingressId);
     const directiveGenerationStartedAt = metadata?.directiveGenerationStartedAt
@@ -2715,7 +2731,7 @@ export function createResponseDispatcher({
       directiveGenerationStartedAt,
       generationStartedAt: directiveGenerationStartedAt,
       turnLatency,
-      coreTransactionId: ingress?.coreTransactionId || null,
+      coreTransactionId: ingressCoreTransactionId(ingress),
       coreRecovery: providerFailureCoreRecovery
     };
     let coreRelease = null;
@@ -2752,7 +2768,7 @@ export function createResponseDispatcher({
     }
     const coreReleaseDiagnosticRecorded = Boolean(coreReleaseDiagnostic);
     entry.coreRelease = coreRelease ? {
-      transactionId: coreRelease.id || ingress?.coreTransactionId || null,
+      transactionId: coreRelease.id || ingressCoreTransactionId(ingress),
       phase: coreRelease.phase || null,
       route: coreRelease.route || null
     } : null;

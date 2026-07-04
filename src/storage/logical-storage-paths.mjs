@@ -11,6 +11,7 @@ export const DIRECTIVE_LOGICAL_STORAGE_KEYS = Object.freeze({
   campaignManifestV2: 'campaigns/{campaignId}/campaign-manifest.v2.json',
   saveManifestV2: 'campaigns/{campaignId}/saves/{saveId}/save-manifest.v2.json',
   materializedHeadV2: 'campaigns/{campaignId}/saves/{saveId}/head.v2.json',
+  materializedHeadRootV2: 'campaigns/{campaignId}/saves/{saveId}/head-roots/{root}.v2.json',
   hostMapV2: 'campaigns/{campaignId}/saves/{saveId}/host-map.v2.json',
   promptCacheV2: 'campaigns/{campaignId}/saves/{saveId}/prompt-cache.v2.json',
   eventSegmentV2: 'campaigns/{campaignId}/saves/{saveId}/events/{segmentId}.v2.json',
@@ -20,6 +21,7 @@ export const DIRECTIVE_LOGICAL_STORAGE_KEYS = Object.freeze({
   coreCampaignManifestV2: 'campaigns/{campaignId}/core/campaign-manifest.v2.json',
   coreSaveManifestV2: 'campaigns/{campaignId}/saves/{saveId}/core/save-manifest.v2.json',
   coreMaterializedHeadV2: 'campaigns/{campaignId}/saves/{saveId}/core/head.v2.json',
+  coreMaterializedHeadRootV2: 'campaigns/{campaignId}/saves/{saveId}/core/head-roots/{root}.v2.json',
   coreHostMapV2: 'campaigns/{campaignId}/saves/{saveId}/core/host-map.v2.json',
   corePromptCacheV2: 'campaigns/{campaignId}/saves/{saveId}/core/prompt-cache.v2.json',
   coreEventSegmentV2: 'campaigns/{campaignId}/saves/{saveId}/core/events/{segmentId}.v2.json',
@@ -79,6 +81,10 @@ export function materializedHeadV2LogicalKey({ campaignId, saveId } = {}) {
   return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.materializedHeadV2, { campaignId, saveId });
 }
 
+export function materializedHeadRootV2LogicalKey({ campaignId, saveId, root } = {}) {
+  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.materializedHeadRootV2, { campaignId, saveId, root });
+}
+
 export function hostMapV2LogicalKey({ campaignId, saveId } = {}) {
   return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.hostMapV2, { campaignId, saveId });
 }
@@ -113,6 +119,10 @@ export function coreSaveManifestV2LogicalKey({ campaignId, saveId } = {}) {
 
 export function coreMaterializedHeadV2LogicalKey({ campaignId, saveId } = {}) {
   return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.coreMaterializedHeadV2, { campaignId, saveId });
+}
+
+export function coreMaterializedHeadRootV2LogicalKey({ campaignId, saveId, root } = {}) {
+  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.coreMaterializedHeadRootV2, { campaignId, saveId, root });
 }
 
 export function coreHostMapV2LogicalKey({ campaignId, saveId } = {}) {

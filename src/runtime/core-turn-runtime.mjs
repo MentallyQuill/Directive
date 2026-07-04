@@ -19,6 +19,27 @@ export function createCoreTurnRuntime({ coreStore } = {}) {
         phase: 'routePending'
       });
     },
+    recordPendingInteraction(transactionId, interaction = {}) {
+      if (typeof coreStore.recordPendingInteraction === 'function') {
+        return coreStore.recordPendingInteraction(transactionId, interaction);
+      }
+      void transactionId;
+      void interaction;
+      const error = new Error('CORE pending interaction projections require a CORE Store recordPendingInteraction writer');
+      error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED';
+      throw error;
+    },
+    resolvePendingInteraction(transactionId, interactionId, resolution = {}) {
+      if (typeof coreStore.resolvePendingInteraction === 'function') {
+        return coreStore.resolvePendingInteraction(transactionId, interactionId, resolution);
+      }
+      void transactionId;
+      void interactionId;
+      void resolution;
+      const error = new Error('CORE pending interaction resolution projections require a CORE Store resolvePendingInteraction writer');
+      error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED';
+      throw error;
+    },
     commitDirectiveMechanics(transactionId, mechanicsBundle = {}) {
       return coreStore.commitMechanics(transactionId, mechanicsBundle);
     },
@@ -42,6 +63,13 @@ export function createCoreTurnRuntime({ coreStore } = {}) {
     },
     appendDiagnostic(transactionId, diagnostic = {}) {
       return coreStore.appendDiagnostics(transactionId, diagnostic);
+    },
+    appendDiagnosticsBatch(transactionId, diagnostics = []) {
+      if (typeof coreStore.appendDiagnosticsBatch === 'function') {
+        return coreStore.appendDiagnosticsBatch(transactionId, diagnostics);
+      }
+      return Promise.all((Array.isArray(diagnostics) ? diagnostics : [diagnostics])
+        .map((diagnostic) => coreStore.appendDiagnostics(transactionId, diagnostic)));
     },
     readProjections() {
       return typeof coreStore.readProjections === 'function' ? coreStore.readProjections() : null;

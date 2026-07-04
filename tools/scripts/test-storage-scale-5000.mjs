@@ -973,7 +973,7 @@ const expectedBootstrapStorageKeyCount = substrateCommit.refs.eventSegments.leng
   + auxiliaryRefs.witnessFacts.length
   + auxiliaryRefs.correctionCases.length
   + auxiliaryRefs.packageRetrievalMetadata.length
-  + 9;
+  + 10;
 const bootstrapStorageKeyCount = Object.keys(fakeStorage.snapshot()).length;
 const oldOpenEventTailRef = substrateCommit.refs.eventSegments.at(-1);
 const oldOpenTurnTailRef = substrateCommit.refs.turnSegments.at(-1);

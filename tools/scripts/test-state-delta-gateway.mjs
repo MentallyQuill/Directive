@@ -53,10 +53,36 @@ sidecarDemotionCommitState = commitTrackedCampaignState({
 });
 assert.deepEqual(sidecarDemotionCommitState.runtimeTracking.sidecarJournal, []);
 sidecarDemotionCommitState.runtimeTracking.sidecarJournal = [{ id: 'legacy-sidecar-before-restore' }];
-const sidecarDemotionRestoredState = restoreTrackedCampaignRevision(sidecarDemotionCommitState, 0, {
-  reason: 'Legacy sidecar restore demotion fixture.'
-});
-assert.deepEqual(sidecarDemotionRestoredState.runtimeTracking.sidecarJournal, []);
+assert.deepEqual(
+  sidecarDemotionCommitState.runtimeTracking.history,
+  [],
+  'tracked history must not store hot campaign history rows for old sidecar restore.'
+);
+assert.throws(
+  () => restoreTrackedCampaignRevision(sidecarDemotionCommitState, 0, {
+    reason: 'Legacy sidecar restore demotion fixture.'
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED',
+  'history-only sidecar restore must fail closed instead of restoring embedded old snapshots.'
+);
+const rawLegacySnapshotRestoreState = cloneJson(sidecarDemotionCommitState);
+rawLegacySnapshotRestoreState.runtimeTracking.history = [{
+  revision: 0,
+  snapshot: {
+    campaign: { id: 'raw-legacy-snapshot-restore' },
+    mission: { activePhaseId: 'raw-legacy-before' },
+    runtimeTracking: { revision: 0 }
+  }
+}];
+rawLegacySnapshotRestoreState.mission.activePhaseId = 'raw-legacy-after';
+assert.throws(
+  () => restoreTrackedCampaignRevision(rawLegacySnapshotRestoreState, 0, {
+    reason: 'Raw legacy snapshot must not restore.'
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED'
+    && error.details?.retiredAuthority === 'runtimeTracking.history.snapshot',
+  'generic restore must fail closed even if a raw old runtimeTracking.history snapshot is injected.'
+);
 
 const terminalLedgerDemotionState = initializeCampaignRuntimeTracking({
   campaign: { id: 'terminal-ledger-demotion-init' },
@@ -420,8 +446,8 @@ const pendingInteractionDemotionState = initializeCampaignRuntimeTracking({
 });
 assert.deepEqual(
   pendingInteractionDemotionState.runtimeTracking.pendingInteractions.map((entry) => entry.id),
-  ['core-pending-interaction-row', 'terminal-pending-interaction-row', 'repair-pending-interaction-row'],
-  'Runtime tracking initialization must drop untagged and legacy pending interaction telemetry rows while preserving owned projections.'
+  [],
+  'Runtime tracking initialization must drop imported pending interaction rows; CORE pending projections own live pause state.'
 );
 
 const modelCallInitDemotionState = initializeCampaignRuntimeTracking({
@@ -455,27 +481,9 @@ const modelCallInitDemotionState = initializeCampaignRuntimeTracking({
   }
 });
 assert.deepEqual(
-  Object.keys(modelCallInitDemotionState.runtimeTracking.modelCallJournal[0]).sort(),
-  [
-    'appliedStatus',
-    'campaignRevision',
-    'errorCode',
-    'id',
-    'latencyMs',
-    'model',
-    'parseStatus',
-    'providerId',
-    'providerKind',
-    'recordedAt',
-    'requestHash',
-    'retryable',
-    'roleId',
-    'sanitizedReason',
-    'status',
-    'trigger',
-    'validationStatus'
-  ].sort(),
-  'Runtime tracking initialization must reduce old model-call telemetry to compact allowed fields.'
+  modelCallInitDemotionState.runtimeTracking.modelCallJournal,
+  [],
+  'Runtime tracking initialization must drop old model-call telemetry rows; CORE diagnostics are authoritative.'
 );
 assert.equal(
   JSON.stringify(modelCallInitDemotionState.runtimeTracking.modelCallJournal).includes('RAW_INIT_MODEL_CALL_'),
@@ -538,6 +546,60 @@ assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.responseLedger[0].re
 assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.ingressLedger[0].sourceFrame.textHash, 'frame-init-hash');
 assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.responseLedger[0].hostObservation.textHash, 'response-observation-hash');
 
+const lastCommittedTurnInitDemotionState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'last-committed-turn-init-demotion' },
+  runtimeTracking: {
+    lastCommittedTurn: {
+      outcomeId: 'outcome-silent-old-last-committed',
+      narrationStatus: 'complete',
+      prompt: 'RAW_LAST_COMMITTED_TURN_PROMPT_SHOULD_NOT_SURVIVE'
+    }
+  }
+});
+assert.equal(
+  lastCommittedTurnInitDemotionState.runtimeTracking.lastCommittedTurn,
+  undefined,
+  'Runtime tracking initialization must drop untagged old lastCommittedTurn authority.'
+);
+const lastCommittedTurnProjectionState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'last-committed-turn-projection' },
+  runtimeTracking: {
+    lastCommittedTurn: {
+      outcomeId: 'outcome-projected-last-committed',
+      turnId: 'turn-projected-last-committed',
+      coreTransactionId: 'txn-projected-last-committed',
+      narrationStatus: 'complete',
+      responseStatus: 'posted',
+      authority: 'compatibilityProjection',
+      projectionSource: 'coreStoreV2',
+      compatibilityMirror: {
+        kind: 'directive.lastCommittedTurnCompatibilityMirror.v1',
+        status: 'response:posted',
+        outcomeId: 'outcome-projected-last-committed',
+        turnId: 'turn-projected-last-committed',
+        transactionId: 'txn-projected-last-committed'
+      },
+      coreProjection: {
+        kind: 'directive.coreLastCommittedTurnProjectionRef.v1',
+        outcomeId: 'outcome-projected-last-committed',
+        turnId: 'turn-projected-last-committed',
+        transactionId: 'txn-projected-last-committed',
+        status: 'response:posted'
+      },
+      rawText: 'RAW_LAST_COMMITTED_TURN_TEXT_SHOULD_NOT_SURVIVE'
+    }
+  }
+});
+assert.equal(lastCommittedTurnProjectionState.runtimeTracking.lastCommittedTurn.outcomeId, 'outcome-projected-last-committed');
+assert.equal(lastCommittedTurnProjectionState.runtimeTracking.lastCommittedTurn.authority, 'compatibilityProjection');
+assert.equal(lastCommittedTurnProjectionState.runtimeTracking.lastCommittedTurn.projectionSource, 'coreStoreV2');
+assert.equal(lastCommittedTurnProjectionState.runtimeTracking.lastCommittedTurn.compatibilityMirror.kind, 'directive.lastCommittedTurnCompatibilityMirror.v1');
+assert.equal(
+  JSON.stringify(lastCommittedTurnProjectionState.runtimeTracking.lastCommittedTurn).includes('RAW_LAST_COMMITTED_TURN_'),
+  false,
+  'Projected lastCommittedTurn mirror must strip raw payload fields.'
+);
+
 const historyInitDemotionState = initializeCampaignRuntimeTracking({
   campaign: { id: 'history-init-demotion' },
   runtimeTracking: {
@@ -579,22 +641,13 @@ const historyInitDemotionText = JSON.stringify(historyInitDemotionState.runtimeT
 assert.equal(
   historyInitDemotionText.includes('RAW_INIT_HISTORY_'),
   false,
-  'Runtime tracking initialization must strip raw payloads from imported old history entries and snapshots.'
+  'Runtime tracking initialization must strip raw payloads from imported old history entries.'
 );
-assert.equal(
-  historyInitDemotionState.runtimeTracking.history[0].snapshot.mission.activePhaseId,
-  'before-history-init-demotion',
-  'Runtime tracking initialization must keep restorable compact state fields in imported old history snapshots.'
+assert.deepEqual(
+  historyInitDemotionState.runtimeTracking.history,
+  [],
+  'Runtime tracking initialization must not import old history rows.'
 );
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.directiveRuntimeEvidence, undefined);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeResume, undefined);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.history.length, 0);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.ingressLedger.length, 0);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.responseLedger.length, 0);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.recoveryJournal.length, 0);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.sidecarJournal.length, 0);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.modelCallJournal.length, 0);
-assert.equal(historyInitDemotionState.runtimeTracking.history[0].snapshot.runtimeTracking.pendingInteractions.length, 0);
 
 const legacyHistoryLimitState = initializeCampaignRuntimeTracking({
   campaign: { id: 'legacy-history-limit-demotion' },
@@ -616,14 +669,14 @@ assert.equal(
   'Runtime tracking initialization must ignore old runtimeTracking.historyLimit and use the scale-oriented default.'
 );
 assert.deepEqual(
-  legacyHistoryLimitState.runtimeTracking.history.map((entry) => entry.revision),
-  [4, 5, 6, 7, 8, 9, 10, 11],
-  'Runtime tracking initialization must bound imported old history to the active history limit.'
+  legacyHistoryLimitState.runtimeTracking.history,
+  [],
+  'Runtime tracking initialization must drop imported old history rows.'
 );
 assert.equal(
   legacyHistoryLimitState.runtimeTracking.historyIndex,
-  7,
-  'Runtime tracking initialization must clamp old historyIndex after bounding imported history.'
+  -1,
+  'Runtime tracking initialization must reset old historyIndex after dropping imported history.'
 );
 const explicitHistoryLimitState = initializeCampaignRuntimeTracking({
   campaign: { id: 'explicit-history-limit-demotion' },
@@ -637,7 +690,7 @@ const explicitHistoryLimitState = initializeCampaignRuntimeTracking({
   }
 }, { historyLimit: 6 });
 assert.equal(explicitHistoryLimitState.runtimeTracking.historyLimit, 6);
-assert.deepEqual(explicitHistoryLimitState.runtimeTracking.history.map((entry) => entry.revision), [6, 7, 8, 9, 10, 11]);
+assert.deepEqual(explicitHistoryLimitState.runtimeTracking.history, []);
 
 let state = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-state-gateway', status: 'active' },
@@ -824,8 +877,7 @@ assert.equal(first.applied, true);
 assert.equal(first.revision, 1);
 assert.equal(state.ship.damage.length, 1);
 assert.equal(state.runtimeTracking.ingressLedger[0].id, 'ingress:one');
-assert.equal(state.runtimeTracking.history.length, 1);
-assert.equal(state.runtimeTracking.history[0].snapshot.ship.damage.length, 0);
+assert.deepEqual(state.runtimeTracking.history, []);
 
 const second = await gateway.applyOperations({
   id: 'proposal-2',
@@ -867,35 +919,29 @@ assert.throws(
     requestHash: 'blocked-request-hash'
   }),
   (error) => error.code === 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE',
-  'direct model-call old-ledger writes must reject unless explicitly marked legacy telemetry'
+  'direct model-call old-ledger writes must reject without CORE diagnostic projection authority'
 );
 
-state = recordModelCallEvent(state, {
-  id: 'model-call.fixture.utility',
-  roleId: 'utilityTurnClassifier',
-  providerKind: 'utility',
-  status: 'ok',
-  providerId: 'fixture-provider',
-  requestHash: 'abc12345',
-  latencyMs: 12,
-  prompt: 'RAW_MODEL_CALL_PROMPT_SHOULD_NOT_SURVIVE',
-  response: 'RAW_MODEL_CALL_RESPONSE_SHOULD_NOT_SURVIVE',
-  metadata: {
-    prompt: 'RAW_MODEL_CALL_METADATA_PROMPT_SHOULD_NOT_SURVIVE',
-    providerPayload: { body: 'RAW_MODEL_CALL_METADATA_BODY_SHOULD_NOT_SURVIVE' }
-  }
-}, {
-  allowLegacyModelCallTelemetry: true
-});
-assert.equal(state.runtimeTracking.modelCallJournal.length, 1);
-assert.equal(state.runtimeTracking.modelCallJournal[0].roleId, 'utilityTurnClassifier');
-assert.equal(state.runtimeTracking.modelCallJournal[0].requestHash, 'abc12345');
-assert.equal(state.runtimeTracking.modelCallJournal[0].metadata, undefined, 'old model-call fallback must not persist arbitrary metadata');
-assert.equal(
-  JSON.stringify(state.runtimeTracking.modelCallJournal).includes('RAW_MODEL_CALL_'),
-  false,
-  'old model-call fallback must not persist raw prompt/response/metadata canaries'
+assert.throws(
+  () => recordModelCallEvent(state, {
+    id: 'model-call.fixture.utility',
+    roleId: 'utilityTurnClassifier',
+    providerKind: 'utility',
+    status: 'ok',
+    providerId: 'fixture-provider',
+    requestHash: 'abc12345',
+    latencyMs: 12,
+    prompt: 'RAW_MODEL_CALL_PROMPT_SHOULD_NOT_SURVIVE',
+    response: 'RAW_MODEL_CALL_RESPONSE_SHOULD_NOT_SURVIVE',
+    metadata: {
+      prompt: 'RAW_MODEL_CALL_METADATA_PROMPT_SHOULD_NOT_SURVIVE',
+      providerPayload: { body: 'RAW_MODEL_CALL_METADATA_BODY_SHOULD_NOT_SURVIVE' }
+    }
+  }, {}),
+  (error) => error.code === 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE',
+  'direct model-call old-ledger writes must reject even when an options object is passed'
 );
+assert.equal(state.runtimeTracking.modelCallJournal.length, 0, 'direct model-call old-ledger writes must not grow runtimeTracking.modelCallJournal');
 
 assert.throws(
   () => recordLifecycleEvent(state, {
@@ -933,60 +979,62 @@ assert.throws(
     ingressId: 'ingress:one',
     prompt: 'Clarify intent.'
   }),
-  (error) => error.code === 'DIRECTIVE_PENDING_INTERACTION_AUTHORITY_REQUIRED',
-  'pending interaction old-ledger writes must reject without CORE, terminal, or REPAIR authority'
+  (error) => error.code === 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED',
+  'pending interaction old-ledger writes must reject because CORE projections own live pending state'
 );
 
-state = recordPendingInteraction(state, {
-  id: 'interaction:core-authorized',
-  kind: 'clarificationNeeded',
-  ingressId: 'ingress:one',
-  prompt: 'Clarify intent.',
-  authority: 'corePendingInteractionProjection',
-  projectionSource: 'coreStoreV2',
-  coreTransactionId: 'txn:pending:core',
-  coreProjection: {
-    kind: 'directive.corePendingInteractionProjectionRef.v1',
-    interactionId: 'interaction:core-authorized',
+assert.throws(
+  () => recordPendingInteraction(state, {
+    id: 'interaction:core-authorized',
+    kind: 'clarificationNeeded',
     ingressId: 'ingress:one',
-    transactionId: 'txn:pending:core',
-    status: 'pending'
-  }
-});
-let pendingInteraction = state.runtimeTracking.pendingInteractions.find((entry) => entry.id === 'interaction:core-authorized');
-assert.equal(pendingInteraction.authority, 'corePendingInteractionProjection');
-assert.equal(pendingInteraction.projectionSource, 'coreStoreV2');
-assert.equal(pendingInteraction.compatibilityMirror.transactionId, 'txn:pending:core');
-state = resolvePendingInteraction(state, 'interaction:core-authorized', {
-  status: 'resolved',
-  action: 'accept',
-  resolvedAt: '2026-06-28T17:00:00.000Z'
-});
-pendingInteraction = state.runtimeTracking.pendingInteractions.find((entry) => entry.id === 'interaction:core-authorized');
-assert.equal(pendingInteraction.status, 'resolved');
-assert.equal(pendingInteraction.authority, 'corePendingInteractionProjection');
-
-state = recordPendingInteraction(state, {
-  id: 'interaction:terminal-authorized',
-  kind: 'terminalOutcomeDecision',
-  ingressId: 'ingress:terminal',
-  turnId: 'turn:terminal',
-  outcomeId: 'outcome:terminal',
-  prompt: 'Directive Checkpoint',
-  authority: 'terminalDecisionProjection',
-  projectionSource: 'terminalOutcomeDecision',
-  coreProjection: {
-    kind: 'directive.terminalPendingInteractionProjectionRef.v1',
-    decisionId: 'interaction:terminal-authorized',
-    conditionId: 'terminal.condition',
+    prompt: 'Clarify intent.',
+    authority: 'corePendingInteractionProjection',
+    projectionSource: 'coreStoreV2',
+    coreTransactionId: 'txn:pending:core',
+    coreProjection: {
+      kind: 'directive.corePendingInteractionProjectionRef.v1',
+      interactionId: 'interaction:core-authorized',
+      ingressId: 'ingress:one',
+      transactionId: 'txn:pending:core',
+      status: 'pending'
+    }
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED',
+  'even owner-tagged pending interaction rows must not write into runtimeTracking.pendingInteractions'
+);
+assert.throws(
+  () => resolvePendingInteraction(state, 'interaction:core-authorized', {
+    status: 'resolved',
+    action: 'accept',
+    resolvedAt: '2026-06-28T17:00:00.000Z'
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED',
+  'pending interaction resolution must write CORE projections instead of old runtimeTracking rows'
+);
+assert.throws(
+  () => recordPendingInteraction(state, {
+    id: 'interaction:terminal-authorized',
+    kind: 'terminalOutcomeDecision',
+    ingressId: 'ingress:terminal',
     turnId: 'turn:terminal',
     outcomeId: 'outcome:terminal',
-    status: 'pending'
-  }
-});
-pendingInteraction = state.runtimeTracking.pendingInteractions.find((entry) => entry.id === 'interaction:terminal-authorized');
-assert.equal(pendingInteraction.authority, 'terminalDecisionProjection');
-assert.equal(pendingInteraction.projectionSource, 'terminalOutcomeDecision');
+    prompt: 'Directive Checkpoint',
+    authority: 'terminalDecisionProjection',
+    projectionSource: 'terminalOutcomeDecision',
+    coreProjection: {
+      kind: 'directive.terminalPendingInteractionProjectionRef.v1',
+      decisionId: 'interaction:terminal-authorized',
+      conditionId: 'terminal.condition',
+      turnId: 'turn:terminal',
+      outcomeId: 'outcome:terminal',
+      status: 'pending'
+    }
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED',
+  'terminal pending prompts must also use CORE/read-projection evidence rather than v1 pending rows'
+);
+assert.deepEqual(state.runtimeTracking.pendingInteractions, []);
 
 await assert.rejects(
   gateway.applyOperations({
@@ -1062,15 +1110,11 @@ await assert.rejects(
   (error) => error.code === 'DIRECTIVE_COMMAND_BEARING_OPERATION_FORBIDDEN'
 );
 
-const restored = await gateway.restore(1, { reason: 'Restore before continuity update.' });
-assert.equal(restored.runtimeTracking.revision, 1);
-assert.equal(restored.ship.damage.length, 1);
-assert.equal(restored.mission.knownFacts.length, 0);
-assert.equal(restored.runtimeTracking.ingressLedger[0].id, 'ingress:one');
-assert.equal(restored.runtimeTracking.modelCallJournal[0].id, 'model-call.fixture.utility');
-assert.equal(restored.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), false);
-assert.equal(restored.runtimeTracking.lifecycleJournal.at(-1).type, 'stateRevisionRestored');
-assert.equal(restored.runtimeTracking.lifecycleJournal.at(-1).details.toRevision, 1);
+await assert.rejects(
+  gateway.restore(1, { reason: 'Restore before continuity update.' }),
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED',
+  'generic history-only restore must fail closed; CORE checkpoints own rollback authority.'
+);
 
 let genericRestoreDemotionState = initializeCampaignRuntimeTracking({
   campaign: { id: 'generic-restore-demotion' },
@@ -1327,13 +1371,13 @@ hotOverlayCommitState = commitTrackedCampaignState({
 });
 assert.deepEqual(
   hotOverlayCommitState.runtimeTracking.ingressLedger.map((entry) => entry.id),
-  ['hot-ingress-overlay'],
-  'state commit must preserve only hot CORE-tagged ingress overlay rows in old runtimeTracking ledgers'
+  [],
+  'state commit must drop old ingress mirrors once CORE projections exist'
 );
 assert.deepEqual(
   hotOverlayCommitState.runtimeTracking.responseLedger.map((entry) => entry.id),
-  ['hot-response-overlay'],
-  'state commit must preserve only hot CORE-tagged response overlay rows in old runtimeTracking ledgers'
+  [],
+  'state commit must drop old response mirrors once CORE projections exist'
 );
 assert.equal(
   hotOverlayCommitState.runtimeTracking.responseLedgerRevision,
@@ -1347,110 +1391,108 @@ assert.equal(
 );
 assert.deepEqual(
   createRuntimeLedgerView(hotOverlayCommitState, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
-  ['core-ingress-hot-overlay', 'hot-ingress-overlay'],
-  'runtime ledger view must expose CORE ingress plus hot overlay rows after state commit'
+  ['core-ingress-hot-overlay'],
+  'runtime ledger view must expose CORE ingress after state commit mirror demotion'
 );
 assert.deepEqual(
   createRuntimeLedgerView(hotOverlayCommitState, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
-  ['core-response-hot-overlay', 'hot-response-overlay'],
-  'runtime ledger view must expose CORE response plus hot overlay rows after state commit'
+  ['core-response-hot-overlay'],
+  'runtime ledger view must expose CORE response after state commit mirror demotion'
 );
-assert.equal(
-  Object.prototype.hasOwnProperty.call(hotOverlayCommitState.runtimeTracking.history[0], 'snapshot'),
-  false,
-  'CORE-authoritative hot-overlay commit must not keep old snapshot restore authority.'
-);
-assert.equal(
-  hotOverlayCommitState.runtimeTracking.history[0].snapshotRef.kind,
-  'directive.coreRuntimeHistorySnapshotRef.v1',
-  'CORE-authoritative hot-overlay commit must keep only a compact history ref.'
+assert.deepEqual(
+  hotOverlayCommitState.runtimeTracking.history,
+  [],
+  'CORE-authoritative hot-overlay commit must not keep hot history rows.'
 );
 assert.throws(
   () => restoreTrackedCampaignRevision(hotOverlayCommitState, 0, {
     reason: 'Restore hot overlay fixture.'
   }),
-  /No tracked snapshot exists for revision 0\./,
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED',
   'generic old-snapshot restore must fail closed for CORE-authoritative history refs'
 );
-const genericRestoreDemoted = restoreTrackedCampaignRevision(genericRestoreDemotionState, 0, {
-  reason: 'Restore generic demotion fixture.'
-});
-assert.equal(genericRestoreDemoted.mission.activePhaseId, 'phase-before-generic-restore');
-assert.deepEqual(
-  genericRestoreDemoted.runtimeTracking.ingressLedger.map((entry) => entry.id),
-  [],
-  'generic restore must not mirror CORE ingress projection rows back into old runtimeTracking ledgers'
+assert.throws(
+  () => restoreTrackedCampaignRevision(genericRestoreDemotionState, 0, {
+    reason: 'Restore generic demotion fixture.'
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED',
+  'generic restore must fail closed after embedded history snapshots are retired.'
 );
 assert.deepEqual(
-  genericRestoreDemoted.runtimeTracking.responseLedger.map((entry) => entry.id),
+  genericRestoreDemotionState.runtimeTracking.ingressLedger.map((entry) => entry.id),
   [],
-  'generic restore must not mirror CORE response projection rows back into old runtimeTracking ledgers'
+  'state commit must not mirror CORE ingress projection rows back into old runtimeTracking ledgers'
 );
 assert.deepEqual(
-  genericRestoreDemoted.runtimeTracking.recoveryJournal.map((entry) => entry.id),
+  genericRestoreDemotionState.runtimeTracking.responseLedger.map((entry) => entry.id),
   [],
-  'generic restore must not mirror CORE recovery projection rows back into old runtimeTracking ledgers'
+  'state commit must not mirror CORE response projection rows back into old runtimeTracking ledgers'
 );
 assert.deepEqual(
-  genericRestoreDemoted.runtimeTracking.modelCallJournal.map((entry) => entry.id),
+  genericRestoreDemotionState.runtimeTracking.recoveryJournal.map((entry) => entry.id),
   [],
-  'generic restore must keep CORE model-call diagnostics out of old runtimeTracking.modelCallJournal'
+  'state commit must not mirror CORE recovery projection rows back into old runtimeTracking ledgers'
+);
+assert.deepEqual(
+  genericRestoreDemotionState.runtimeTracking.modelCallJournal.map((entry) => entry.id),
+  [],
+  'state commit must keep CORE model-call diagnostics out of old runtimeTracking.modelCallJournal'
 );
 assert.equal(
-  genericRestoreDemoted.runtimeTracking.responseLedgerRevision,
+  genericRestoreDemotionState.runtimeTracking.responseLedgerRevision,
   77,
-  'generic restore must preserve CORE response revision instead of stale old responseLedgerRevision'
+  'state commit must preserve CORE response revision instead of stale old responseLedgerRevision'
 );
 assert.equal(
-  JSON.stringify(genericRestoreDemoted.runtimeTracking.modelCallJournal).includes('SILENT_OLD_GENERIC_RESTORE_MODEL_CALL_PROMPT_SHOULD_NOT_SURVIVE'),
+  JSON.stringify(genericRestoreDemotionState.runtimeTracking.modelCallJournal).includes('SILENT_OLD_GENERIC_RESTORE_MODEL_CALL_PROMPT_SHOULD_NOT_SURVIVE'),
   false,
-  'generic restore must not carry raw old model-call prompt text'
+  'state commit must not carry raw old model-call prompt text'
 );
 assert.deepEqual(
-  readRuntimeCoreProjections(genericRestoreDemoted).modelCallDiagnostics.map((entry) => entry.id),
+  readRuntimeCoreProjections(genericRestoreDemotionState).modelCallDiagnostics.map((entry) => entry.id),
   ['core-model-call-generic-restore'],
-  'generic restore must preserve compact CORE model-call diagnostics under CORE projections'
+  'state commit must preserve compact CORE model-call diagnostics under CORE projections'
 );
 assert.deepEqual(
-  genericRestoreDemoted.runtimeTracking.pendingInteractions.map((entry) => entry.id),
-  ['terminal-pending-generic-restore'],
-  'generic restore must preserve only owner-tagged pending interactions.'
+  genericRestoreDemotionState.runtimeTracking.pendingInteractions.map((entry) => entry.id),
+  [],
+  'state commit must keep pending interactions out of old runtimeTracking rows; CORE projections own live pending state.'
 );
 assert.deepEqual(
-  terminalDecisionLedgerView(genericRestoreDemoted).detections.map((entry) => entry.id),
+  terminalDecisionLedgerView(genericRestoreDemotionState).detections.map((entry) => entry.id),
   ['terminal-detection-generic-restore'],
-  'generic restore must preserve only terminal projection detection rows.'
+  'state commit must preserve only terminal projection detection rows.'
 );
 assert.deepEqual(
-  terminalDecisionLedgerView(genericRestoreDemoted).decisions.map((entry) => entry.id),
+  terminalDecisionLedgerView(genericRestoreDemotionState).decisions.map((entry) => entry.id),
   ['terminal-decision-generic-restore'],
-  'generic restore must drop unowned terminal decision rows.'
+  'state commit must drop unowned terminal decision rows.'
 );
 assert.deepEqual(
-  terminalDecisionLedgerView(genericRestoreDemoted).branchRecords.map((entry) => entry.id),
+  terminalDecisionLedgerView(genericRestoreDemotionState).branchRecords.map((entry) => entry.id),
   ['terminal-branch-generic-restore'],
-  'generic restore must drop unowned terminal branch rows.'
+  'state commit must drop unowned terminal branch rows.'
 );
 assert.equal(
-  JSON.stringify(genericRestoreDemoted.runtimeTracking).includes('silent-terminal-')
-    || JSON.stringify(genericRestoreDemoted.runtimeTracking).includes('silent-pending-generic-restore'),
+  JSON.stringify(genericRestoreDemotionState.runtimeTracking).includes('silent-terminal-')
+    || JSON.stringify(genericRestoreDemotionState.runtimeTracking).includes('silent-pending-generic-restore'),
   false,
-  'generic restore must not carry raw unowned pending or terminal ledger rows.'
+  'state commit must not carry raw unowned pending or terminal ledger rows.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemoted, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
   ['core-ingress-generic-restore'],
-  'runtime ledger view must still expose CORE ingress rows after generic restore old-ledger demotion'
+  'runtime ledger view must still expose CORE ingress rows after state commit old-ledger demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemoted, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
   ['core-response-generic-restore'],
-  'runtime ledger view must still expose CORE response rows after generic restore old-ledger demotion'
+  'runtime ledger view must still expose CORE response rows after state commit old-ledger demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemoted, { runtimeOverlay: true }).recoveryJournal.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).recoveryJournal.map((entry) => entry.id),
   ['core-recovery-generic-restore'],
-  'runtime ledger view must still expose CORE recovery rows after generic restore old-ledger demotion'
+  'runtime ledger view must still expose CORE recovery rows after state commit old-ledger demotion'
 );
 
 const responseTimingState = recordDirectiveResponse(initializeCampaignRuntimeTracking({
@@ -1832,8 +1874,11 @@ transientSnapshotState = commitTrackedCampaignState({
     stable: true
   }
 });
-assert.equal(transientSnapshotState.runtimeTracking.history[0].snapshot.directiveRuntimeEvidence, undefined);
-assert.equal(transientSnapshotState.runtimeTracking.history[0].snapshot.runtimeResume, undefined);
+assert.deepEqual(
+  transientSnapshotState.runtimeTracking.history,
+  [],
+  'tracked history must not store transient campaign history rows.'
+);
 
 let coreAuthoritativeHistoryState = initializeCampaignRuntimeTracking({
   campaign: { id: 'core-authoritative-history' },
@@ -1865,23 +1910,63 @@ coreAuthoritativeHistoryState = commitTrackedCampaignState({
     outcomeId: 'outcome-core-authoritative-history'
   }
 });
-assert.equal(
-  Object.prototype.hasOwnProperty.call(coreAuthoritativeHistoryState.runtimeTracking.history[0], 'snapshot'),
-  false,
-  'CORE-authoritative commits must not store full runtimeTracking.history snapshots.'
+assert.deepEqual(
+  coreAuthoritativeHistoryState.runtimeTracking.history,
+  [],
+  'CORE-authoritative commits must not store runtimeTracking.history rows.'
 );
-assert.equal(
-  coreAuthoritativeHistoryState.runtimeTracking.history[0].snapshotRef.kind,
-  'directive.coreRuntimeHistorySnapshotRef.v1'
-);
-assert.equal(coreAuthoritativeHistoryState.runtimeTracking.history[0].snapshotRef.authority, 'coreStoreV2');
-assert.equal(coreAuthoritativeHistoryState.runtimeTracking.history[0].snapshotRef.outcomeId, 'outcome-core-authoritative-history');
 assert.throws(
   () => restoreTrackedCampaignRevision(coreAuthoritativeHistoryState, 0, {
     reason: 'CORE authoritative history should require checkpoint restore.'
   }),
-  /No tracked snapshot exists for revision 0\./,
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED',
   'CORE-authoritative history refs must not authorize old snapshot restore.'
 );
 
-console.log('State delta gateway tests passed: revision checks, root authorization, bounded snapshots, ingress preservation, and recovery');
+let coreProjectionHistoryState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'core-projection-history' },
+  mission: { activePhaseId: 'before-core-projection-history' },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      ingressLedger: [{ id: 'core-ingress-projection-history', transactionId: 'txn-core-projection-history' }],
+      responseLedger: [{ id: 'core-response-projection-history', transactionId: 'txn-core-projection-history' }],
+      recoveryJournal: [{ id: 'core-recovery-projection-history', transactionId: 'txn-core-projection-history' }],
+      turnLedger: {
+        entries: [{
+          turnId: 'turn-core-projection-history',
+          outcomeId: 'outcome-core-projection-history',
+          transactionId: 'txn-core-projection-history'
+        }]
+      }
+    }
+  }
+});
+const coreProjectionHistoryNext = cloneJson(coreProjectionHistoryState);
+coreProjectionHistoryNext.mission.activePhaseId = 'after-core-projection-history';
+coreProjectionHistoryState = commitTrackedCampaignState({
+  campaignState: coreProjectionHistoryState,
+  nextCampaignState: coreProjectionHistoryNext,
+  delta: {
+    source: 'test',
+    reason: 'CORE projection history fixture.',
+    domains: ['mission'],
+    stable: true,
+    turnId: 'turn-core-projection-history',
+    outcomeId: 'outcome-core-projection-history'
+  }
+});
+assert.deepEqual(
+  coreProjectionHistoryState.runtimeTracking.history,
+  [],
+  'CORE projection-backed commits must not store runtimeTracking.history rows even when runtimeAuthority marker is absent.'
+);
+assert.throws(
+  () => restoreTrackedCampaignRevision(coreProjectionHistoryState, 0, {
+    reason: 'CORE projection history should require checkpoint restore.'
+  }),
+  (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED',
+  'CORE projection-backed history refs must not authorize old snapshot restore.'
+);
+
+console.log('State delta gateway tests passed: revision checks, root authorization, retired history rows, ingress preservation, and recovery');

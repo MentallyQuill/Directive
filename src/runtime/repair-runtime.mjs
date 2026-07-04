@@ -210,7 +210,9 @@ function sourceKindFor({ ingress = null, response = null } = {}) {
 function sourceMutationTransactionId({ ingress = null, response = null } = {}) {
   return compact(
     ingress?.coreTransactionId
+    || ingress?.transactionId
     || response?.coreTransactionId
+    || response?.transactionId
     || response?.coreRelease?.transactionId
     || response?.coreCompletion?.transactionId
     || response?.hostContinuation?.coreTransactionId

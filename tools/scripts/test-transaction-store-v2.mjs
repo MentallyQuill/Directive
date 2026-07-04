@@ -31,9 +31,11 @@ function createLoggingStorage({ corruptOnWrite = null, afterReadJson = null } = 
   const files = new Map();
   const writeLog = [];
   const readLog = [];
+  const deleteLog = [];
   return {
     writeLog,
     readLog,
+    deleteLog,
     snapshot() {
       return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
     },
@@ -55,6 +57,11 @@ function createLoggingStorage({ corruptOnWrite = null, afterReadJson = null } = 
       const next = cloneJson(value);
       if (typeof corruptOnWrite === 'function') corruptOnWrite(filePath, next);
       files.set(filePath, next);
+      return { ok: true, path: filePath };
+    },
+    async deleteJsonFile(filePath) {
+      deleteLog.push(filePath);
+      files.delete(filePath);
       return { ok: true, path: filePath };
     },
     async verifyJsonFiles(paths) {
@@ -119,7 +126,17 @@ const result = await commitV2SaveLayout(adapter, {
   ]
 });
 
-assert.equal(storage.writeLog.at(-2), saveManifestV2LogicalKey({ campaignId, saveId }), 'save manifest should be written after blobs');
+assert.equal(
+  storage.writeLog.includes(saveManifestV2LogicalKey({ campaignId, saveId })),
+  true,
+  'save manifest should be written after blobs'
+);
+assert.equal(
+  storage.writeLog.indexOf(saveManifestV2LogicalKey({ campaignId, saveId }))
+    < storage.writeLog.indexOf(campaignManifestV2LogicalKey(campaignId)),
+  true,
+  'save manifest should be written before campaign manifest pointer'
+);
 assert.equal(storage.writeLog.at(-1), campaignManifestV2LogicalKey(campaignId), 'campaign manifest should be the final pointer write');
 assert.equal(result.saveManifest.current, true);
 assert.equal(result.refs.eventSegments.length, 1);
@@ -136,6 +153,87 @@ assert.equal(campaignManifest.activeSaveId, saveId);
 assert.equal(campaignManifest.saves[saveId].manifest.hash, result.saveManifestRef.hash);
 const head = await loadV2MaterializedHead(adapter, { campaignId, saveId });
 assert.equal(head.state.player.name, 'Sam Vickers');
+
+{
+  const interruptedCampaignId = 'campaign-interrupted-head';
+  const interruptedSaveId = 'save-interrupted-head';
+  const interruptedSaveManifestKey = saveManifestV2LogicalKey({
+    campaignId: interruptedCampaignId,
+    saveId: interruptedSaveId
+  });
+  let saveManifestWrites = 0;
+  const interruptedStorage = createLoggingStorage({
+    corruptOnWrite: (filePath) => {
+      if (filePath !== interruptedSaveManifestKey) return;
+      saveManifestWrites += 1;
+      if (saveManifestWrites === 2) {
+        const error = new Error('simulated save-manifest write interruption');
+        error.code = 'SIMULATED_SAVE_MANIFEST_WRITE_INTERRUPTION';
+        throw error;
+      }
+    }
+  });
+  const interruptedAdapter = createLogicalStorageAdapter({ storage: interruptedStorage, hostId: 'fake' });
+  const interruptedInitial = await commitV2SaveLayout(interruptedAdapter, {
+    campaignId: interruptedCampaignId,
+    saveId: interruptedSaveId,
+    now,
+    head: {
+      state: {
+        campaign: { id: interruptedCampaignId },
+        player: { name: 'Old Sam' },
+        continuity: { dossier: 'old continuity' }
+      }
+    },
+    eventSegments: [[]],
+    turnSegments: [[]],
+    diagnosticsSegments: [[]]
+  });
+  await assert.rejects(
+    () => commitV2SaveLayout(interruptedAdapter, {
+      campaignId: interruptedCampaignId,
+      saveId: interruptedSaveId,
+      now: '2026-06-28T14:00:10.000Z',
+      head: {
+        state: {
+          campaign: { id: interruptedCampaignId },
+          player: { name: 'New Sam' },
+          continuity: { dossier: 'new continuity' }
+        }
+      },
+      eventSegments: [[]],
+      turnSegments: [[]],
+      diagnosticsSegments: [[]]
+    }),
+    /simulated save-manifest write interruption/
+  );
+  const interruptedManifest = await loadV2SaveManifest(interruptedAdapter, {
+    campaignId: interruptedCampaignId,
+    saveId: interruptedSaveId
+  });
+  assert.equal(
+    interruptedManifest.head.hash,
+    interruptedInitial.saveManifest.head.hash,
+    'interrupted commit must leave save manifest pointing at last committed immutable head ref'
+  );
+  const interruptedLoadedHead = await loadV2MaterializedHead(interruptedAdapter, {
+    campaignId: interruptedCampaignId,
+    saveId: interruptedSaveId,
+    headRef: interruptedManifest.head
+  });
+  assert.equal(interruptedLoadedHead.state.player.name, 'Old Sam');
+  assert.equal(interruptedLoadedHead.state.continuity.dossier, 'old continuity');
+  const interruptedCanonicalHead = await loadV2MaterializedHead(interruptedAdapter, {
+    campaignId: interruptedCampaignId,
+    saveId: interruptedSaveId
+  });
+  assert.equal(
+    interruptedCanonicalHead.state.player.name,
+    'Old Sam',
+    'canonical latest head must not advance before the save manifest write succeeds'
+  );
+}
+
 const eventSegment = await readV2Segment(adapter, {
   segmentType: 'event',
   campaignId,
@@ -152,6 +250,61 @@ assert.equal(checkpoint.checkpoint.snapshotHash, 'checkpoint-hash');
 const promptCache = await readV2ArtifactRef(adapter, result.refs.promptCache);
 assert.equal(promptCache.directiveOwnedRevision, 7);
 
+const rootSplitStorage = createLoggingStorage();
+const rootSplitAdapter = createLogicalStorageAdapter({ storage: rootSplitStorage, hostId: 'fake' });
+const rootSplitCampaignId = 'campaign-root-split-head';
+const rootSplitSaveId = 'save-root-split-head';
+const largeContinuityText = 'continuity '.repeat(24000);
+const rootSplitInitial = await commitV2SaveLayout(rootSplitAdapter, {
+  campaignId: rootSplitCampaignId,
+  saveId: rootSplitSaveId,
+  now,
+  head: {
+    state: {
+      campaign: { title: 'Ashes of Peace' },
+      player: { name: 'Sam Vickers' },
+      continuity: { dossier: largeContinuityText }
+    },
+    runtimeSummary: { sidecarCount: 0 }
+  },
+  reuseExistingSegmentRefs: true
+});
+const rawRootSplitHead = await readV2ArtifactRef(rootSplitAdapter, rootSplitInitial.refs.head);
+assert.equal(rawRootSplitHead.state, undefined, 'materialized head file should not inline full root state');
+assert.equal(Boolean(rawRootSplitHead.stateRootRefs?.continuity?.logicalKey), true, 'materialized head file should point at continuity root artifact');
+assert.equal(
+  rootSplitInitial.refs.head.byteLength < 12000,
+  true,
+  'materialized head pointer file must stay compact even when continuity root is large'
+);
+const hydratedRootSplitHead = await loadV2MaterializedHead(rootSplitAdapter, {
+  campaignId: rootSplitCampaignId,
+  saveId: rootSplitSaveId
+});
+assert.equal(hydratedRootSplitHead.state.continuity.dossier, largeContinuityText, 'materialized head loader hydrates split root state');
+const continuityRootKey = rawRootSplitHead.stateRootRefs.continuity.logicalKey;
+const rootSplitWriteStart = rootSplitStorage.writeLog.length;
+await commitV2SaveLayout(rootSplitAdapter, {
+  campaignId: rootSplitCampaignId,
+  saveId: rootSplitSaveId,
+  now: '2026-06-28T14:00:30.000Z',
+  head: {
+    state: {
+      campaign: { title: 'Ashes of Peace' },
+      player: { name: 'Mira Arlen' },
+      continuity: { dossier: largeContinuityText }
+    },
+    runtimeSummary: { sidecarCount: 0 }
+  },
+  reuseExistingSegmentRefs: true
+});
+const rootSplitDeltaWrites = rootSplitStorage.writeLog.slice(rootSplitWriteStart);
+assert.equal(
+  rootSplitDeltaWrites.includes(continuityRootKey),
+  false,
+  'unchanged large materialized-head root must not be rewritten when another root changes'
+);
+
 const activeSaveManifestHash = (await loadV2SaveManifest(adapter, { campaignId, saveId })).hash;
 const coreResult = await commitV2SaveLayout(adapter, {
   campaignId,
@@ -166,7 +319,17 @@ const coreResult = await commitV2SaveLayout(adapter, {
   },
   eventSegments: [[{ id: 'core-event-1', kind: 'directive.coreEvent.v1', type: 'turnObserved' }]]
 });
-assert.equal(storage.writeLog.at(-2), coreSaveManifestV2LogicalKey({ campaignId, saveId }), 'CORE save manifest should use the CORE namespace');
+assert.equal(
+  storage.writeLog.includes(coreSaveManifestV2LogicalKey({ campaignId, saveId })),
+  true,
+  'CORE save manifest should use the CORE namespace'
+);
+assert.equal(
+  storage.writeLog.indexOf(coreSaveManifestV2LogicalKey({ campaignId, saveId }))
+    < storage.writeLog.indexOf(coreCampaignManifestV2LogicalKey(campaignId)),
+  true,
+  'CORE save manifest should be written before CORE campaign manifest pointer'
+);
 assert.equal(storage.writeLog.at(-1), coreCampaignManifestV2LogicalKey(campaignId), 'CORE campaign manifest should use the CORE namespace');
 assert.notEqual(coreResult.refs.head.logicalKey, result.refs.head.logicalKey, 'CORE head ref must not overlap active-save head ref');
 assert.equal(coreResult.saveManifest.layout, 'core');
@@ -244,8 +407,8 @@ await assert.rejects(
 
 const corruptStorage = createLoggingStorage({
   corruptOnWrite(filePath, value) {
-    if (filePath.endsWith('/head.v2.json')) {
-      value.state.player.name = 'Corrupted After Hash';
+    if (filePath.includes('/head-roots/player-')) {
+      value.value.name = 'Corrupted After Hash';
     }
   }
 });
@@ -379,6 +542,88 @@ for (const [index, ref] of appendSealedEventRefs.entries()) {
 assert.equal(appendWriteKeys.at(-2), appendResult.saveManifestRef.logicalKey, 'append delta save manifest should be the penultimate pointer write');
 assert.equal(appendWriteKeys.at(-1), appendResult.campaignManifestRef.logicalKey, 'append delta campaign manifest should be final pointer write');
 
+const identicalDiagnosticsStorage = createLoggingStorage();
+const identicalDiagnosticsAdapter = createLogicalStorageAdapter({ storage: identicalDiagnosticsStorage, hostId: 'fake' });
+const identicalDiagnosticEntry = {
+  id: 'runtime-persistence-summary',
+  type: 'runtimePersistenceSummary',
+  status: 'ok',
+  runtimeSummary: {
+    ingressCount: 1,
+    responseCount: 0
+  }
+};
+const identicalDiagnosticsInitial = await commitV2SaveLayout(identicalDiagnosticsAdapter, {
+  campaignId: 'campaign-identical-diagnostics',
+  saveId: 'save-identical-diagnostics',
+  now,
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  },
+  diagnosticsSegments: [[identicalDiagnosticEntry]],
+  reuseExistingSegmentRefs: true
+});
+const changedDiagnosticEntry = {
+  ...identicalDiagnosticEntry,
+  runtimeSummary: {
+    ingressCount: 1,
+    responseCount: 1
+  }
+};
+const changedDiagnostics = await commitV2SaveLayout(identicalDiagnosticsAdapter, {
+  campaignId: 'campaign-identical-diagnostics',
+  saveId: 'save-identical-diagnostics',
+  now: '2026-06-28T14:03:30.000Z',
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  },
+  diagnosticsSegments: [[changedDiagnosticEntry]],
+  reuseExistingSegmentRefs: true
+});
+assert.notDeepEqual(
+  changedDiagnostics.refs.diagnosticsSegments,
+  identicalDiagnosticsInitial.refs.diagnosticsSegments,
+  'changed diagnostics should publish one changed segment ref'
+);
+assert.equal(
+  identicalDiagnosticsStorage.deleteLog.includes(identicalDiagnosticsInitial.refs.diagnosticsSegments[0].logicalKey),
+  true,
+  'changed replacement diagnostics should delete the superseded diagnostics segment after manifest publish'
+);
+assert.equal(
+  Object.keys(identicalDiagnosticsStorage.snapshot()).filter((key) => key.includes('/diagnostics/')).length,
+  1,
+  'replacement diagnostics should not accumulate orphaned diagnostics segment files'
+);
+const identicalDiagnosticsWriteStart = identicalDiagnosticsStorage.writeLog.length;
+const identicalDiagnosticsRepeat = await commitV2SaveLayout(identicalDiagnosticsAdapter, {
+  campaignId: 'campaign-identical-diagnostics',
+  saveId: 'save-identical-diagnostics',
+  now: '2026-06-28T14:03:31.000Z',
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  },
+  diagnosticsSegments: [[changedDiagnosticEntry]],
+  reuseExistingSegmentRefs: true
+});
+const identicalDiagnosticsRepeatWrites = identicalDiagnosticsStorage.writeLog.slice(identicalDiagnosticsWriteStart);
+assert.deepEqual(
+  identicalDiagnosticsRepeat.refs.diagnosticsSegments,
+  changedDiagnostics.refs.diagnosticsSegments,
+  'unchanged versioned diagnostics segments should reuse the existing ref instead of publishing timestamp-only variants'
+);
+assert.equal(
+  identicalDiagnosticsRepeatWrites.some((key) => key.includes('/diagnostics/')),
+  false,
+  'unchanged diagnostics repersist must not write another diagnostics segment file'
+);
+
 const diagnosticsInterleaveCampaignId = 'campaign-diagnostics-interleave';
 const diagnosticsInterleaveSaveId = 'save-diagnostics-interleave';
 const diagnosticsInterleaveStorage = createLoggingStorage();
@@ -499,6 +744,55 @@ assert.deepEqual(
   diagnosticsRepairEntries.map((entry) => entry.id),
   ['diag-repair-before', 'diag-repair-missing-recent', 'diag-repair-current'],
   'diagnostics append must repair recent diagnostics missing from a stale manifest tail'
+);
+
+const diagnosticsBurstCampaignId = 'campaign-diagnostics-burst';
+const diagnosticsBurstSaveId = 'save-diagnostics-burst';
+const diagnosticsBurstStorage = createLoggingStorage();
+const diagnosticsBurstAdapter = createLogicalStorageAdapter({ storage: diagnosticsBurstStorage, hostId: 'fake' });
+await commitV2SaveLayout(diagnosticsBurstAdapter, {
+  campaignId: diagnosticsBurstCampaignId,
+  saveId: diagnosticsBurstSaveId,
+  now,
+  head: {
+    state: {
+      player: { name: 'Sam Vickers' }
+    }
+  }
+});
+const diagnosticsBurstWriteStart = diagnosticsBurstStorage.writeLog.length;
+for (let index = 0; index < 12; index += 1) {
+  await commitV2DiagnosticsSegments(diagnosticsBurstAdapter, {
+    campaignId: diagnosticsBurstCampaignId,
+    saveId: diagnosticsBurstSaveId,
+    now: `2026-06-28T14:06:${String(index).padStart(2, '0')}.000Z`,
+    diagnosticsSegments: [[{
+      id: `diag-burst-${index}`,
+      type: 'sidecar',
+      status: 'queued',
+      payloadHash: `hash-${index}`
+    }]]
+  });
+}
+const diagnosticsBurstWrites = diagnosticsBurstStorage.writeLog
+  .slice(diagnosticsBurstWriteStart)
+  .filter((key) => key.includes('/diagnostics/'));
+const diagnosticsBurstSnapshot = diagnosticsBurstStorage.snapshot();
+const diagnosticsBurstRecords = diagnosticsBurstWrites.map((key) => diagnosticsBurstSnapshot[key]);
+assert.equal(diagnosticsBurstWrites.length, 12, 'diagnostics burst should write one bounded segment per append');
+assert.equal(
+  Math.max(...diagnosticsBurstRecords.map((record) => Number(record.entryCount || 0))),
+  1,
+  'diagnostics burst must not republish a growing diagnostics tail'
+);
+const diagnosticsBurstManifest = await loadV2SaveManifest(diagnosticsBurstAdapter, {
+  campaignId: diagnosticsBurstCampaignId,
+  saveId: diagnosticsBurstSaveId
+});
+assert.equal(
+  diagnosticsBurstManifest.diagnosticsSegments.length,
+  12,
+  'diagnostics burst should retain each bounded appended diagnostics segment ref'
 );
 
 const legacyProjectionImportStorage = createLoggingStorage();

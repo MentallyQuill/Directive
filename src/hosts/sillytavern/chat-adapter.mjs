@@ -59,6 +59,23 @@ function messageText(message) {
   return String(value || '');
 }
 
+function hydrateSkeletalEventMessage(chatMessage = null, eventMessage = null) {
+  if (!chatMessage || typeof chatMessage !== 'object' || !eventMessage || typeof eventMessage !== 'object') {
+    return eventMessage;
+  }
+  if (messageText(eventMessage)) return eventMessage;
+  const merged = {
+    ...cloneJson(chatMessage),
+    ...cloneJson(eventMessage)
+  };
+  if (!messageText(merged)) {
+    for (const key of ['mes', 'content', 'text']) {
+      if (messageText({ [key]: chatMessage[key] })) merged[key] = chatMessage[key];
+    }
+  }
+  return merged;
+}
+
 function getChatArray(context) {
   const contextChat = Array.isArray(context?.chat) ? context.chat : [];
   const globalChat = Array.isArray(globalThis.chat) ? globalThis.chat : [];
@@ -918,8 +935,11 @@ export function normalizeSillyTavernMessagePayload(context, payload = null) {
     if (numericIndex !== null) index = numericIndex;
   }
 
-  let message = payload?.message && typeof payload.message === 'object'
+  const payloadMessage = payload?.message && typeof payload.message === 'object'
     ? payload.message
+    : null;
+  let message = payloadMessage
+    ? hydrateSkeletalEventMessage(Number.isInteger(index) ? chat[index] : null, payloadMessage)
     : null;
   if (!message && Number.isInteger(index)) message = chat[index] || null;
   if (!message && reference.id) {

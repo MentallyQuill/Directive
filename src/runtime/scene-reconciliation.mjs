@@ -188,7 +188,7 @@ function normalizeAnchor(anchor = null) {
 }
 
 function findIngressForMessage(state, message) {
-  const ledger = asArray(createRuntimeLedgerView(state || {}).ingressLedger);
+  const ledger = asArray(createRuntimeLedgerView(state || {}, { runtimeOverlay: true }).ingressLedger);
   return ledger.find((entry) => message?.hostMessageId && String(entry.hostMessageId || '') === String(message.hostMessageId))
     || ledger.find((entry) => message?.textHash && String(entry.textHash || '') === String(message.textHash))
     || null;
@@ -417,7 +417,7 @@ function dedupeProposals(proposals) {
 function outcomeIdsForRange(state, range) {
   const ids = new Set();
   const messageIds = new Set([range?.start?.hostMessageId, range?.end?.hostMessageId].filter(Boolean));
-  const runtimeLedgerView = createRuntimeLedgerView(state || {});
+  const runtimeLedgerView = createRuntimeLedgerView(state || {}, { runtimeOverlay: true });
   for (const ingress of asArray(runtimeLedgerView.ingressLedger)) {
     if (messageIds.has(ingress.hostMessageId) && ingress.outcomeId) ids.add(ingress.outcomeId);
   }
@@ -431,7 +431,8 @@ function findOutcomeForAnchor(state, anchor) {
   if (anchor?.outcomeId) return anchor.outcomeId;
   const ingress = findIngressForMessage(state, anchor);
   if (ingress?.outcomeId) return ingress.outcomeId;
-  return asArray(createRuntimeLedgerView(state || {}).responseLedger).find((entry) => anchor?.hostMessageId && entry.hostMessageId === anchor.hostMessageId)?.outcomeId || null;
+  return asArray(createRuntimeLedgerView(state || {}, { runtimeOverlay: true }).responseLedger)
+    .find((entry) => anchor?.hostMessageId && entry.hostMessageId === anchor.hostMessageId)?.outcomeId || null;
 }
 
 function campaignIdForState(state = null) {
@@ -444,7 +445,7 @@ function saveIdForState(state = null) {
 
 function coreTransactionIdForMessage(state, message) {
   const ingressId = compact(message?.ingressId || message?.metadata?.ingressId) || null;
-  const ingressRows = asArray(createRuntimeLedgerView(state || {}).ingressLedger);
+  const ingressRows = asArray(createRuntimeLedgerView(state || {}, { runtimeOverlay: true }).ingressLedger);
   const directIngress = ingressId
     ? ingressRows.find((entry) => entry?.id === ingressId)
     : null;

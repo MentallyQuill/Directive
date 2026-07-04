@@ -48,7 +48,7 @@ state.runtimeTracking.modelCallJournal.push({
   roleId: 'existing',
   recordedAt: '2026-06-26T00:00:10.000Z'
 });
-assert.equal(maxModelCallEventSequence(state), 17);
+assert.equal(maxModelCallEventSequence(state), 1, 'old modelCallJournal rows no longer advance model-call sequence.');
 
 const projectedSequenceState = {
   ...trackedState('campaign-projected-model-calls'),
@@ -102,9 +102,9 @@ const next = service.record({
   providerKind: 'reasoning',
   requestHash: 'def456'
 });
-assert.match(next.id, /^model-call:18:directiveAssist$/);
-assert.equal(state.runtimeTracking.modelCallJournal.at(-1).id, 'model-call:17:existing');
-assert.equal(state.runtimeResume.modelCallEventSequence, 18, 'new missing-CORE call advances cursor without old journal append');
+assert.match(next.id, /^model-call:2:directiveAssist$/);
+assert.equal(state.runtimeTracking.modelCallJournal.length, 0, 'recording reinitializes state and drops old modelCallJournal rows');
+assert.equal(state.runtimeResume.modelCallEventSequence, 2, 'new missing-CORE call advances cursor without old journal append');
 
 const withDifferentJournal = {
   ...state,
@@ -197,7 +197,7 @@ skipService.record({
 });
 await skipService.flushCoreDiagnostics();
 assert.equal(skippedDiagnostics.length, 0, 'missing CORE transaction should skip diagnostic mirror');
-assert.equal(skipState.runtimeTracking.modelCallJournal.length, 0, 'missing CORE transaction must not grow old modelCallJournal fallback.');
+assert.equal(skipState.runtimeTracking.modelCallJournal.length, 0, 'missing CORE transaction must not grow old modelCallJournal rows.');
 assert.equal(skipState.runtimeResume.modelCallEventSequence, 1, 'missing CORE transaction keeps compact resume cursor only.');
 
 let failureState = trackedState('campaign-core-diagnostics-failure');

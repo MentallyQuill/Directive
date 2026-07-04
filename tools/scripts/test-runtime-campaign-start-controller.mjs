@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createCampaignStartController } from '../../src/runtime/campaign-start-controller.mjs';
 import {
+  DIRECTIVE_STORAGE_PATHS,
   campaignSavePath,
   getDirectiveStorageIndexes
 } from '../../src/storage/directive-storage-repository.mjs';
@@ -19,6 +20,7 @@ function cloneJson(value) {
 
 function createMemoryJsonAdapter() {
   const files = new Map();
+  const writeLog = [];
   return {
     async readJson(filePath) {
       if (!files.has(filePath)) {
@@ -29,6 +31,7 @@ function createMemoryJsonAdapter() {
       return cloneJson(files.get(filePath));
     },
     async writeJson(filePath, value) {
+      writeLog.push(filePath);
       files.set(filePath, cloneJson(value));
     },
     async deleteJsonFile(filePath) {
@@ -37,7 +40,8 @@ function createMemoryJsonAdapter() {
     },
     snapshot() {
       return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
-    }
+    },
+    writeLog
   };
 }
 
@@ -206,6 +210,13 @@ let indexes = await getDirectiveStorageIndexes(adapter);
 const savedPayloadPath = indexes.saveIndex.saves[saved.id].path;
 const runtimeState = cloneJson(controller.activeCampaignState);
 runtimeState.campaign.currentStardate = 53052.8;
+runtimeState.campaignChatBinding = {
+  hostId: 'fake-host',
+  chatId: 'runtime-controller-chat',
+  campaignId: runtimeState.campaign.id,
+  saveId: saved.id,
+  status: 'bound'
+};
 runtimeState.runtimeTracking = {
   ingressLedger: [{
     id: 'runtime-controller-ingress',
@@ -234,6 +245,26 @@ assert.equal(indexes.saveIndex.saves[saved.id].path, savedPayloadPath, 'runtime 
 assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'runtime v2 persist marks runtime storage format');
 assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2ManifestRef?.logicalKey), true, 'runtime v2 persist attaches manifest ref');
 assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2RuntimePersistedAt), true, 'runtime v2 persist records a runtime persistence timestamp');
+
+const hotRuntimePersistWriteStart = adapter.writeLog.length;
+const hotRuntimeState = cloneJson(runtimeState);
+hotRuntimeState.campaign.currentStardate = 53052.9;
+const hotRuntimePersist = await controller.persistRuntimeCampaignState({
+  campaignState: hotRuntimeState,
+  summary: 'Runtime controller hot v2 persist without index rewrite.',
+  reason: 'runtimePersist:background-save',
+  markActive: false
+});
+assert.equal(hotRuntimePersist.storageFormat, 'v2');
+assert.equal(hotRuntimePersist.saveIndexEntry.indexWriteSkipped, true, 'hot runtime persist should report deferred save-index update');
+const hotRuntimePersistWrites = adapter.writeLog.slice(hotRuntimePersistWriteStart);
+assert.equal(
+  hotRuntimePersistWrites.includes(DIRECTIVE_STORAGE_PATHS.saveIndex),
+  false,
+  'hot runtime persist on an already-v2 save must not rewrite the full save index'
+);
+indexes = await getDirectiveStorageIndexes(adapter);
+assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'deferred hot persist keeps existing v2 marker in save index');
 
 const autosaveAfterRuntimePersist = await controller.autosaveCurrentGame({
   saveId: 'save-runtime-autosave-proof',
@@ -282,12 +313,12 @@ const runtimeLoadedController = createCampaignStartController({
   now: () => '2026-06-28T09:10:00.000Z'
 });
 await runtimeLoadedController.initialize();
-assert.equal(runtimeLoadedController.activeCampaignState.campaign.currentStardate, 53052.8, 'active recovery must use v2 runtime-current state when the save index has a v2 runtime bridge');
+assert.equal(runtimeLoadedController.activeCampaignState.campaign.currentStardate, 53052.9, 'active recovery must use latest v2 runtime-current state even when save-index manifest hash is stale');
 assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.schemaVersion, 2, 'active recovery must rehydrate compact runtime resume state from the v2 runtime bridge');
 assert.equal(runtimeLoadedController.activeCampaignState.runtimeTracking.ingressLedger.length, 0, 'active recovery must not rehydrate no-transaction ingress projections into old runtimeTracking');
 assert.equal(runtimeLoadedController.activeCampaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger, undefined, 'active recovery must not promote no-transaction ingress projections to CORE read evidence');
 const runtimeLoaded = await runtimeLoadedController.loadGame({ saveId: saved.id });
-assert.equal(runtimeLoaded.campaign.currentStardate, 53052.8, 'default load must use v2 runtime-current state when the save index has a v2 runtime bridge');
+assert.equal(runtimeLoaded.campaign.currentStardate, 53052.9, 'default load must use latest v2 runtime-current state even when save-index manifest hash is stale');
 assert.equal(runtimeLoaded.runtimeTracking.schemaVersion, 2, 'default load must rehydrate compact runtime resume state from the active-save v2 bridge');
 assert.equal(runtimeLoaded.runtimeTracking.ingressLedger.length, 0, 'default load must keep no-transaction ingress projections out of old runtimeTracking');
 assert.equal(runtimeLoaded.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger, undefined, 'default load must not promote runtimeBridge-only ingress to CORE read evidence');

@@ -451,6 +451,19 @@ export function createCampaignStartController({
     return saveIndexEntryHasV2Authority(indexes.saveIndex?.saves?.[saveId]);
   }
 
+  async function canDeferHotRuntimeSaveIndexUpdate(saveId) {
+    const indexes = await getDirectiveStorageIndexes(adapter);
+    const entry = indexes.saveIndex?.saves?.[saveId] || null;
+    return Boolean(
+      saveIndexEntryHasV2Authority(entry)
+      && (
+        entry?.metadata?.campaignChatBinding?.chatId
+        || entry?.metadata?.chatId
+        || entry?.chatId
+      )
+    );
+  }
+
   async function persistRuntimeCampaignStateForSaveRecord({
     saveRecord,
     campaignState,
@@ -459,6 +472,7 @@ export function createCampaignStartController({
     reason = 'runtimePersist',
     markActive = true,
     createIndexEntry = false,
+    updateSaveIndex = true,
     name = null,
     slotType = 'manual',
     now: savedAt = null
@@ -474,6 +488,7 @@ export function createCampaignStartController({
       reason,
       current: markActive !== false ? saveRecord.current === true : false,
       createIndexEntry,
+      updateSaveIndex,
       name,
       slotType,
       now: savedAt || currentTime()
@@ -491,10 +506,19 @@ export function createCampaignStartController({
     ...options
   } = {}) {
     const id = requireNonEmptyString(saveId, 'saveId');
+    const reason = options.reason || 'runtimePersist';
+    const hotRuntimePersist = options.markActive === false
+      && /^runtimePersist(?::|$)/.test(String(reason || ''));
+    const updateSaveIndex = options.updateSaveIndex ?? (
+      hotRuntimePersist
+        ? !(await canDeferHotRuntimeSaveIndexUpdate(id))
+        : true
+    );
     const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
     return persistRuntimeCampaignStateForSaveRecord({
       saveRecord,
-      ...options
+      ...options,
+      updateSaveIndex
     });
   }
 
@@ -777,7 +801,8 @@ export function createCampaignStartController({
       packageId = null,
       summary = null,
       reason = 'runtimePersist',
-      markActive = true
+      markActive = true,
+      updateSaveIndex = undefined
     } = {}) {
       const id = requireNonEmptyString(saveId, 'saveId');
       return persistRuntimeCampaignStateForSave({
@@ -786,7 +811,8 @@ export function createCampaignStartController({
         packageId,
         summary,
         reason,
-        markActive
+        markActive,
+        updateSaveIndex
       });
     },
 

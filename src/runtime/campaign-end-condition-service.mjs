@@ -6,9 +6,7 @@ import {
 import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import {
   initializeCampaignRuntimeTracking,
-  isPendingInteractionProjectionRow,
-  recordPendingInteraction,
-  resolvePendingInteraction
+  isPendingInteractionProjectionRow
 } from './state-delta-gateway.mjs';
 import {
   terminalDecisionLedgerView,
@@ -67,6 +65,7 @@ function detectionRecord(detection) {
     severity: detection.severity,
     simulationMode: detection.simulationMode,
     detectedAt: detection.detectedAt,
+    ingressId: detection.ingressId || null,
     turnId: detection.turnId || null,
     outcomeId: detection.outcomeId || null,
     terminalOutcomeBand: detection.terminalOutcomeBand,
@@ -83,6 +82,7 @@ function decisionRecord(detection) {
     conditionId: detection.conditionId,
     status: 'pending',
     createdAt: detection.detectedAt,
+    ingressId: detection.ingressId || detection.pendingInteraction?.ingressId || null,
     turnId: detection.turnId || null,
     outcomeId: detection.outcomeId || null,
     terminalOutcomeBand: detection.terminalOutcomeBand,
@@ -96,25 +96,6 @@ function decisionRecord(detection) {
     resolution: null,
     savedBranchIds: [],
     ...terminalLedgerAuthority(detection, { rowKind: 'decision', status: 'pending' })
-  };
-}
-
-function terminalPendingInteractionAuthority(detection = {}) {
-  const coreCheckpointRef = detection.checkpoint?.coreCheckpointRef || detection.pendingInteraction?.metadata?.checkpoint?.coreCheckpointRef || null;
-  return {
-    authority: 'terminalDecisionProjection',
-    projectionSource: coreCheckpointRef ? 'coreStoreV2' : 'terminalOutcomeDecision',
-    coreCheckpointRef: cloneJson(coreCheckpointRef || null),
-    coreProjection: {
-      kind: 'directive.terminalPendingInteractionProjectionRef.v1',
-      decisionId: detection.decisionId || null,
-      detectionId: detection.id || null,
-      conditionId: detection.conditionId || null,
-      turnId: detection.turnId || null,
-      outcomeId: detection.outcomeId || null,
-      checkpointId: coreCheckpointRef?.checkpointId || null,
-      status: 'pending'
-    }
   };
 }
 
@@ -548,23 +529,14 @@ export function createCampaignEndConditionService({
       decisions: [...ledger.decisions, decisionRecord(detection)]
     };
     state = withTerminalDecisionLedgerProjection(state, ledger);
-    state = recordPendingInteraction(state, {
-      ...detection.pendingInteraction,
-      ...terminalPendingInteractionAuthority(detection),
-      metadata: {
-        ...detection.pendingInteraction.metadata,
-        decisionId: detection.decisionId
-      },
-      details: {
-        detectionId: detection.id,
-        conditionId: detection.conditionId
-      }
-    });
+    const pendingInteraction = interactionFromDecision(
+      ledger.decisions.find((decision) => decision.id === detection.decisionId)
+    ) || cloneJson(detection.pendingInteraction || null);
     await persistState(state, `Recorded terminal outcome decision ${detection.conditionId}.`);
     return {
       ok: true,
       detection: cloneJson(detection),
-      pendingInteraction: cloneJson(detection.pendingInteraction),
+      pendingInteraction: cloneJson(pendingInteraction),
       campaignState: cloneJson(state)
     };
   }
@@ -649,8 +621,6 @@ export function createCampaignEndConditionService({
       initializeCampaignRuntimeTracking(snapshot),
       restoredLedger
     );
-    restored.runtimeTracking.pendingInteractions = (restored.runtimeTracking?.pendingInteractions || [])
-      .filter((entry) => entry.id !== interaction.id);
     restored = await persistState(restored, `Replayed from terminal outcome checkpoint ${decision.id}.`);
     restored = await syncStatePrompt(restored, 'Prompt context rebuilt after terminal checkpoint replay.');
     return { ok: true, action: 'replayFromCheckpoint', campaignState: cloneJson(restored) };
@@ -683,12 +653,6 @@ export function createCampaignEndConditionService({
         : item)
     };
     state = withTerminalDecisionLedgerProjection(state, ledger);
-    state = resolvePendingInteraction(state, interaction.id, {
-      status: 'resolved',
-      action: 'pushOn',
-      frameId: selectedFrameId,
-      resolvedAt: timestamp(now)
-    });
     await persistState(state, `Accepted terminal Push On frame ${selectedFrameId}.`);
     state = await syncStatePrompt(state, 'Prompt context rebuilt after terminal Push On.');
     return { ok: true, action: 'pushOn', frame: cloneJson(applied.frame), campaignState: cloneJson(state) };
@@ -727,11 +691,6 @@ export function createCampaignEndConditionService({
         : item)
     };
     state = withTerminalDecisionLedgerProjection(state, ledger);
-    state = resolvePendingInteraction(state, interaction.id, {
-      status: 'resolved',
-      action: 'keepEnding',
-      resolvedAt: timestamp(now)
-    });
     state.conclusion = {
       ...(state.conclusion || {}),
       terminalOutcome: cloneJson(terminalMetadata)

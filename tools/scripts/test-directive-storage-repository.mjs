@@ -430,17 +430,17 @@ await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeStaleRef
 const runtimeBridgeStaleRefLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
   now: '2026-06-18T19:30:12.500Z'
 });
-requireEqual(runtimeBridgeStaleRefLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge manifest ref hash is stale');
+requireEqual(runtimeBridgeStaleRefLoaded.campaign.currentStardate, 53050.6, 'load campaign save follows stable runtime bridge logical key when save-index manifest hash is stale');
 requireEqual(
   runtimeBridgeStaleRefLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
   false,
-  'stale runtime bridge ref fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
+  'stale runtime bridge ref does not invent legacy runtime ingress projections'
 );
 const recoveredRuntimeBridgeStaleRef = await recoverActiveCampaignSave(adapter, {
   now: '2026-06-18T19:30:12.750Z'
 });
-requireEqual(recoveredRuntimeBridgeStaleRef.storageFormat, undefined, 'active recovery fallback reports v1 storage when runtime bridge manifest ref hash is stale');
-requireEqual(recoveredRuntimeBridgeStaleRef.campaignState.campaign.currentStardate, 53050.4, 'active recovery falls back to stale v1 checkpoint when runtime bridge manifest ref hash is stale');
+requireEqual(recoveredRuntimeBridgeStaleRef.storageFormat, 'v2', 'active recovery reports v2 storage when only save-index manifest hash is stale');
+requireEqual(recoveredRuntimeBridgeStaleRef.campaignState.campaign.currentStardate, 53050.6, 'active recovery follows stable runtime bridge logical key when save-index manifest hash is stale');
 const runtimeBridgeRestoredIndex = cloneJson(runtimeBridgeFreshIndex);
 runtimeBridgeRestoredIndex.saves[firstSave.id].v2ManifestRef = runtimeBridgeFreshRef;
 await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeRestoredIndex);
@@ -454,7 +454,7 @@ requireEqual(
 const runtimeBridgeHeadPath = runtimeBridgeManifest.head.logicalKey;
 const originalRuntimeBridgeHead = cloneJson(snapshot[runtimeBridgeHeadPath]);
 const corruptRuntimeBridgeHead = cloneJson(originalRuntimeBridgeHead);
-corruptRuntimeBridgeHead.state.campaign.currentStardate = 59998.8;
+corruptRuntimeBridgeHead.stateRootCount = 999;
 await adapter.writeJson(runtimeBridgeHeadPath, corruptRuntimeBridgeHead);
 const runtimeBridgeCorruptHeadLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
   now: '2026-06-18T19:30:12.800Z'
@@ -695,7 +695,7 @@ snapshot = adapter.snapshot();
 const v2HeadPath = v2Commit.saveManifest.head.logicalKey;
 const originalV2Head = cloneJson(snapshot[v2HeadPath]);
 const corruptV2Head = cloneJson(originalV2Head);
-corruptV2Head.state.campaign.currentStardate = 59999.9;
+corruptV2Head.stateRootCount = 999;
 await adapter.writeJson(v2HeadPath, corruptV2Head);
 await requireRejectsWithCode(
   () => loadCampaignSaveFromStorage(adapter, v2SaveId, {

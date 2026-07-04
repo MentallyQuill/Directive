@@ -154,6 +154,10 @@ function createCampaignState({ campaignId, saveId, chatId }) {
       }
     }]
   };
+  campaignState.runtimeResume = {
+    kind: 'directive.runtimeResumeCursor.v1',
+    modelCallEventSequence: 77
+  };
   campaignState.turnLedger = {
     entries: [{
       turnId: 'turn-active-33',
@@ -373,7 +377,8 @@ async function testActiveThenCore() {
   const snapshot = storage.snapshot();
   assert.equal(Boolean(snapshot[activeHeadPath]), true);
   assert.equal(Boolean(snapshot[coreHeadPath]), true);
-  assert.equal(snapshot[activeHeadPath].state.player.name, 'Sam Vickers');
+  const activeHead = await loadV2MaterializedHead(adapter, { campaignId, saveId });
+  assert.equal(activeHead.state.player.name, 'Sam Vickers');
   assert.equal(snapshot[coreHeadPath].coreStore.counters.transactions, 1);
 }
 
@@ -411,7 +416,8 @@ async function testCoreThenActive() {
   const coreManifestAfter = await loadV2SaveManifest(adapter, { campaignId, saveId, layout: 'core' });
   assert.equal(coreManifestAfter.hash, coreManifestBefore.hash, 'active-save writer must not rewrite CORE manifest');
   const snapshot = storage.snapshot();
-  assert.equal(snapshot[activeHeadPath].state.player.name, 'Sam Vickers');
+  const activeHead = await loadV2MaterializedHead(adapter, { campaignId, saveId });
+  assert.equal(activeHead.state.player.name, 'Sam Vickers');
   assert.equal(snapshot[coreHeadPath].coreStore.counters.transactions, 1);
   const v2Snapshot = Object.fromEntries(Object.entries(snapshot).filter(([key]) => key.startsWith('campaigns/')));
   assert.equal(JSON.stringify(v2Snapshot).includes('RAW_CORE_PROVIDER_PROMPT'), false);

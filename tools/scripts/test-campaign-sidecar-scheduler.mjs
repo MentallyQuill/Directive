@@ -2206,11 +2206,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewTrackedFlushRace.state.runtimeTracking.revision, reviewTrackedFlushRace.promptFlushes[0].campaignRevision + 1);
   assert.equal(reviewTrackedFlushRace.state.runtimeTracking.lastDelta?.reason, 'Tracked external drift during Command Bearing review prompt flush.');
   assertNoCommandBearingReviewTrackingLeak(reviewTrackedFlushRace, 'Tracked stale review prompt install');
-  const retainedBaseSnapshot = reviewTrackedFlushRace.state.runtimeTracking.history.find((entry) => entry.reason === 'Seed base tracked history before Command Bearing review.')?.snapshot;
-  assert.equal(
-    retainedBaseSnapshot?.commandBearing?.evidenceLedger?.records?.[0]?.id,
-    'base-history-sentinel',
-    'Review snapshot scrub must not rewrite pre-existing base history snapshots.'
+  assert.deepEqual(
+    reviewTrackedFlushRace.state.runtimeTracking.history,
+    [],
+    'Review snapshot scrub must not retain pre-existing base history rows.'
   );
   assert.equal(reviewTrackedFlushRace.persistReasons.includes('Command Bearing sidecar closure review prompt context synchronized.'), false);
   assert.equal(reviewTrackedFlushRace.results[0].postSettlementWarnings.length, 1);
@@ -2274,6 +2273,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   const batchPromptSyncs = [];
   const batchForgeBackgroundBatches = [];
   const batchForgeDiagnostics = [];
+  const batchSchedulerDiagnosticBatches = [];
   const batchSetStateSnapshots = [];
   const batchGateway = createStateDeltaGateway({
     getState: () => batchState,
@@ -2373,6 +2373,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
       };
       return synchronized;
     },
+    appendCoreDiagnosticsBatch: async (events) => {
+      batchSchedulerDiagnosticBatches.push(cloneJson(events));
+      return events.map((event, index) => ({ id: `scheduler-batch-diagnostic-${index + 1}`, event: cloneJson(event) }));
+    },
     forgeCoordinator: batchForgeCoordinator,
     commitCoreBackgroundBatch: async () => {
       assert.fail('Campaign sidecar accepted batches should settle through FORGE before the direct CORE fallback.');
@@ -2429,20 +2433,31 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(batchForgeBackgroundBatches[0].bundle.forgeBatchRef.operationCount, 3);
   assert.deepEqual(batchForgeBackgroundBatches[0].bundle.workers.map((entry) => entry.workerId), ['relationship', 'crew', 'ship']);
   assert.equal(batchForgeBackgroundBatches[0].bundle.workers.every((entry) => entry.status === 'accepted'), true);
-  assert.equal(batchForgeDiagnostics.length, 2);
-  assert.equal(batchForgeDiagnostics[0].transactionId, 'txn-batch-1');
-  assert.equal(batchForgeDiagnostics[0].diagnostic.type, 'forge');
-  assert.equal(batchForgeDiagnostics[0].diagnostic.status, 'providerBatchComplete');
-  assert.equal(batchForgeDiagnostics[0].diagnostic.providerCallAttempted, true);
-  assert.equal(batchForgeDiagnostics[0].diagnostic.providerOwner, 'forge');
-  assert.equal(batchForgeDiagnostics[0].diagnostic.upstreamOwner, 'campaignSidecarScheduler');
-  assert.equal(batchForgeDiagnostics[0].diagnostic.jobCount, 3);
-  assert.equal(batchForgeDiagnostics[0].diagnostic.results.every((entry) => entry.packetHash), true);
-  assert.equal(batchForgeDiagnostics[1].transactionId, 'txn-batch-1');
-  assert.equal(batchForgeDiagnostics[1].diagnostic.type, 'forge');
-  assert.equal(batchForgeDiagnostics[1].diagnostic.status, 'settled');
-  assert.equal(batchForgeDiagnostics[1].diagnostic.providerCallAttempted, false);
-  assert.equal(batchForgeDiagnostics[1].diagnostic.providerOwner, 'campaignSidecarScheduler');
+  assert.equal(batchForgeDiagnostics.length, 0, 'Scheduler-owned FORGE settlement diagnostics should join the scheduler diagnostics batch instead of writing a separate segment.');
+  assert.equal(batchSchedulerDiagnosticBatches.length, 1, 'scheduler should flush one CORE diagnostics batch for the sidecar job.');
+  const batchSchedulerDiagnosticStatuses = batchSchedulerDiagnosticBatches[0].map((entry) => entry.status);
+  assert.equal(
+    batchSchedulerDiagnosticStatuses.includes('providerBatchComplete'),
+    true,
+    'scheduler diagnostics batch should include FORGE provider-batch completion with worker lifecycle diagnostics.'
+  );
+  assert.equal(
+    batchSchedulerDiagnosticStatuses.includes('settled'),
+    true,
+    'scheduler diagnostics batch should include FORGE accepted-batch settlement with worker lifecycle diagnostics.'
+  );
+  assert.equal(batchSchedulerDiagnosticBatches[0].filter((entry) => entry.type === 'forge').length, 2);
+  assert.equal(batchSchedulerDiagnosticBatches[0].filter((entry) => entry.type === 'sidecar').length, 9);
+  const schedulerProviderDiagnostic = batchSchedulerDiagnosticBatches[0].find((entry) => entry.type === 'forge' && entry.status === 'providerBatchComplete');
+  assert.equal(schedulerProviderDiagnostic.providerCallAttempted, true);
+  assert.equal(schedulerProviderDiagnostic.providerOwner, 'forge');
+  assert.equal(schedulerProviderDiagnostic.upstreamOwner, 'campaignSidecarScheduler');
+  assert.equal(schedulerProviderDiagnostic.jobCount, 3);
+  assert.equal(schedulerProviderDiagnostic.results.every((entry) => entry.packetHash), true);
+  const schedulerSettlementDiagnostic = batchSchedulerDiagnosticBatches[0].find((entry) => entry.type === 'forge' && entry.status === 'settled');
+  assert.equal(schedulerSettlementDiagnostic.providerCallAttempted, false);
+  assert.equal(schedulerSettlementDiagnostic.providerOwner, 'campaignSidecarScheduler');
+  assert.equal(schedulerSettlementDiagnostic.operationCount, 3);
   assert.equal(JSON.stringify(batchForgeBackgroundBatches).includes('RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'), false);
   assert.equal(JSON.stringify(batchForgeDiagnostics).includes('RAW_BATCH_FRAME_TEXT_MUST_NOT_PERSIST'), false);
   const batchReplayWithoutEvidence = await batchForgeCoordinator.settleAcceptedBatch({
@@ -2460,7 +2475,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   });
   assert.equal(batchReplay.status, 'replayed');
   assert.equal(batchForgeBackgroundBatches.length, 1);
-  assert.equal(batchForgeDiagnostics.length, 3);
+  assert.equal(batchForgeDiagnostics.length, 1, 'Only direct replay-mismatch evidence should bypass the scheduler diagnostics batch.');
   assert.equal(batchState.runtimeTracking.revision, 0);
   assert.equal(batchState.campaignChatBinding?.promptContextRevision || 0, 0);
   assert.equal(batchState.relationships.seniorCrew.length, 0);
@@ -2482,7 +2497,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(batchValidateCalls.length, 1);
   assert.equal(batchPromptSyncs.length, 0);
   assert.equal(batchForgeBackgroundBatches.length, 1);
-  assert.equal(batchForgeDiagnostics.length, 3);
+  assert.equal(batchForgeDiagnostics.length, 1);
   assert.equal(batchState.runtimeTracking.sidecarJournal.length, 0);
   batchState = updateTurnIngress(batchState, 'ingress-batch-1', {
     status: 'invalidated',
@@ -3890,6 +3905,10 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(directSuppliedHashMismatch.status, 'rejected');
   assert.equal(directSuppliedHashMismatch.reason, 'accepted-batch-hash-mismatch');
   assert.equal(directReplayCommits.length, 1);
+  assert.equal(directReplayDiagnostics[0].diagnostic.workerResults, undefined);
+  assert.equal(directReplayDiagnostics[0].diagnostic.workerResultSummary.kind, 'directive.forgeWorkerResultSummary.v1');
+  assert.equal(directReplayDiagnostics[0].diagnostic.workerResultSummary.workerCount, 1);
+  assert.equal(directReplayDiagnostics[0].diagnostic.workerResultSummary.operationCount, 1);
   assert.equal(directReplayDiagnostics.at(-2).diagnostic.reason, 'accepted-batch-replay-mismatch');
   assert.equal(directReplayDiagnostics.at(-1).diagnostic.reason, 'accepted-batch-hash-mismatch');
 }

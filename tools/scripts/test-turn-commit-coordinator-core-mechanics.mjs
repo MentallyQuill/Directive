@@ -404,6 +404,7 @@ const coordinator = createTurnCommitCoordinator({
       assert.equal(bundle.checkpointBefore.campaignState.mission.activePhaseId, 'before-commit');
       assert.equal(bundle.checkpointBefore.campaignState.worldState.currentLocationId, 'before-location');
       assert.equal(bundle.checkpointBefore.campaignState.turnLedger.entries.length, 0);
+      assert.equal(bundle.checkpointBefore.campaignState.runtimeTracking, undefined);
       assert.equal(
         bundle.operations.some((operation) => operation.domain === 'mission'),
         true,
@@ -644,11 +645,94 @@ assert.equal(success.coreOutcomeReplacement.replacedOutcomeId, 'outcome-old-core
 assert.equal(success.coreOutcomeReplacement.replacementOutcomeId, 'outcome-core-mechanics-order');
 assert.equal(persisted.length, 1);
 assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.outcomeId, 'outcome-core-mechanics-order');
+assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.authority, 'compatibilityProjection');
+assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.projectionSource, 'coreStoreV2');
+assert.equal(
+  persisted[0].state.runtimeTracking.lastCommittedTurn.compatibilityMirror.kind,
+  'directive.lastCommittedTurnCompatibilityMirror.v1'
+);
+assert.equal(
+  persisted[0].state.runtimeTracking.lastCommittedTurn.coreProjection.kind,
+  'directive.coreLastCommittedTurnProjectionRef.v1'
+);
 assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.coreTransactionId, 'txn-core-mechanics-order');
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreTransactionId, 'txn-core-mechanics-order');
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreOperationHash, 'core-operation-hash');
 assert.equal(persisted[0].state.turnLedger.entries.at(-1).coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
-assert.equal(persisted[0].state.runtimeTracking.lastCommittedTurn.coreCheckpointRef.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
+assert.equal(
+  Object.prototype.hasOwnProperty.call(persisted[0].state.runtimeTracking.lastCommittedTurn, 'coreCheckpointRef'),
+  false,
+  'lastCommittedTurn mirror must not carry CORE checkpoint authority.'
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(persisted[0].state.runtimeTracking.lastCommittedTurn, 'snapshotBeforeRetained'),
+  false,
+  'lastCommittedTurn mirror must not carry snapshot retention authority.'
+);
+
+let longCheckpointId = null;
+const longOutcomeId = [
+  'outcome.chat-turn-ingress',
+  'campaign-1783164825307-2-ff0d280c',
+  'directive-ashes-of-peace-139-2026-07-04-05h33m46s074ms',
+  '3-f2420ac6'
+].join('-');
+const longTurnPacket = cloneJson(turnPacket);
+longTurnPacket.outcomePacket.id = longOutcomeId;
+if (longTurnPacket.finalOutcome) longTurnPacket.finalOutcome.id = longOutcomeId;
+const longCheckpointCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:00:05.000Z',
+  persist: async () => ({ id: 'save-long-checkpoint' }),
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn(transactionId) {
+      return { id: transactionId, phase: 'routePending' };
+    },
+    async commitMechanics(transactionId, bundle) {
+      longCheckpointId = bundle.checkpointBefore.checkpointId;
+      assert.equal(bundle.outcomeId, longOutcomeId);
+      assert.ok(
+        longCheckpointId.startsWith('core-mechanics-outcome.chat-turn-ingress-campaign-178316482'),
+        'long checkpoint id should keep a useful readable prefix'
+      );
+      assert.ok(
+        longCheckpointId.length <= 72,
+        `long checkpoint id should stay path-safe, got ${longCheckpointId.length}`
+      );
+      assert.match(longCheckpointId, /-[0-9a-f]{12}$/);
+      return {
+        turnId: 'core-turn-long-checkpoint',
+        outcomeId: bundle.outcomeId,
+        operationHash: 'core-operation-hash-long',
+        coreCheckpointRef: {
+          kind: 'directive.coreMechanicsCheckpointRef.v1',
+          checkpointId: longCheckpointId,
+          layout: 'core'
+        }
+      };
+    }
+  }
+});
+await longCheckpointCoordinator.checkpointMechanics({
+  beforeCampaignState: baseState(),
+  campaignState: committedState(),
+  turnPacket: longTurnPacket,
+  ingressId: 'ingress-core-mechanics-order'
+});
+assert.ok(longCheckpointId, 'long checkpoint fixture should commit CORE mechanics');
+const longCheckpointFileName = `directive-campaigns-campaign-1783164825307-2-ff0d280c-saves-save-1783164825307-3-ed54453b-core-checkpoints-${longCheckpointId}.v2.json`;
+assert.ok(
+  longCheckpointFileName.length < 255,
+  `checkpoint filename must stay below Windows file-name limit, got ${longCheckpointFileName.length}`
+);
 
 let fallbackMechanicsBundle = null;
 const fallbackBeforeState = baseState();
@@ -757,6 +841,77 @@ await assert.rejects(
   }
 );
 assert.equal(failedPersisted.length, 0, 'v1 checkpoint must not persist when CORE mechanics fails first');
+
+const postMechanicsPersistFailureCalls = [];
+const postMechanicsPersistFailureCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:20.000Z',
+  persist: async () => {
+    postMechanicsPersistFailureCalls.push('persist');
+    const error = new Error('simulated active-save persist failure after mechanics');
+    error.code = 'DIRECTIVE_ACTIVE_SAVE_PERSIST_FAILED';
+    throw error;
+  },
+  coreTurnStore: {
+    async getTransaction(transactionId) {
+      return {
+        id: transactionId,
+        revisions: { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 }
+      };
+    },
+    async getRevisions() {
+      return { mechanics: 0, runtime: 1, diagnostic: 0, prompt: 0 };
+    },
+    async advanceTurn() {
+      postMechanicsPersistFailureCalls.push('core-advance');
+      return { id: 'txn-core-mechanics-order', phase: 'routePending' };
+    },
+    async commitMechanics() {
+      postMechanicsPersistFailureCalls.push('core-mechanics');
+      return {
+        turnId: 'core-turn-post-mechanics-persist-failure',
+        outcomeId: 'outcome-core-mechanics-order',
+        operationHash: 'core-operation-hash'
+      };
+    }
+  }
+});
+
+const postMechanicsPersistFailure = await postMechanicsPersistFailureCoordinator.checkpointMechanics({
+  beforeCampaignState: baseState(),
+  campaignState: committedState(),
+  turnPacket,
+  ingressId: 'ingress-core-mechanics-order'
+});
+assert.deepEqual(postMechanicsPersistFailureCalls, ['core-advance', 'core-mechanics', 'persist']);
+assert.equal(postMechanicsPersistFailure.persistStatus, 'failedAfterCoreMechanics');
+assert.equal(postMechanicsPersistFailure.persistError.code, 'DIRECTIVE_ACTIVE_SAVE_PERSIST_FAILED');
+assert.equal(postMechanicsPersistFailure.save, null);
+assert.equal(postMechanicsPersistFailure.coreMechanics.outcomeId, 'outcome-core-mechanics-order');
+assert.equal(
+  postMechanicsPersistFailure.campaignState.runtimeTracking.lastCommittedTurn.outcomeId,
+  'outcome-core-mechanics-order',
+  'CORE mechanics success must still return the committed campaign state when active-save persistence fails.'
+);
+const postMechanicsNarrationMark = await postMechanicsPersistFailureCoordinator.markNarration({
+  campaignState: postMechanicsPersistFailure.campaignState,
+  outcomeId: 'outcome-core-mechanics-order',
+  status: 'complete',
+  directiveGenerationStartedAt: '2026-06-29T01:01:21.000Z'
+});
+assert.equal(postMechanicsNarrationMark.persistStatus, 'failedAfterNarration');
+assert.equal(postMechanicsNarrationMark.persistError.code, 'DIRECTIVE_ACTIVE_SAVE_PERSIST_FAILED');
+assert.equal(postMechanicsNarrationMark.campaignState.runtimeTracking.lastCommittedTurn.narrationStatus, 'complete');
+assert.equal(postMechanicsNarrationMark.campaignState.runtimeTracking.lastCommittedTurn.compatibilityMirror.status, 'narration:complete');
+const postMechanicsResponseMark = await postMechanicsPersistFailureCoordinator.markResponse({
+  campaignState: postMechanicsNarrationMark.campaignState,
+  outcomeId: 'outcome-core-mechanics-order',
+  status: 'posted',
+  hostMessageId: 'assistant-post-mechanics-persist-failure'
+});
+assert.equal(postMechanicsResponseMark.persistStatus, 'failedAfterResponse');
+assert.equal(postMechanicsResponseMark.persistError.code, 'DIRECTIVE_ACTIVE_SAVE_PERSIST_FAILED');
+assert.equal(postMechanicsResponseMark.campaignState.runtimeTracking.lastCommittedTurn.responseStatus, 'posted');
+assert.equal(postMechanicsResponseMark.campaignState.runtimeTracking.lastCommittedTurn.compatibilityMirror.status, 'response:posted');
 
 const failedReplacementCalls = [];
 const failedReplacementPersisted = [];

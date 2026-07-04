@@ -90,6 +90,28 @@ function createLegacySave() {
           promptText: 'RAW_EXTERNAL_PROMPT_TEXT'
         },
         runtimeTracking: {
+          directiveRuntimeEvidence: {
+            coreStoreReadProjections: {
+              modelCallDiagnostics: [
+                {
+                  id: 'model-projection-1',
+                  status: 'ok',
+                  requestHash: 'model-request-hash',
+                  promptSnapshot: 'RAW_PROVIDER_PROMPT',
+                  responseSnapshot: 'RAW_PROVIDER_RESPONSE'
+                }
+              ],
+              sidecarDiagnostics: [
+                {
+                  id: 'sidecar-projection-1',
+                  worker: 'continuity',
+                  status: 'accepted',
+                  sourceSnapshot: 'RAW_SIDECAR_SOURCE',
+                  resultSnapshot: 'RAW_SIDECAR_RESULT'
+                }
+              ]
+            }
+          },
           ingressLedger: [
             {
               id: 'ingress-1',
@@ -98,7 +120,14 @@ function createLegacySave() {
               outcomeId: 'outcome-1',
               textHash: 'hash-player-29',
               textPreview: 'RAW_PLAYER_TRANSCRIPT_TEXT',
-              status: 'complete'
+              status: 'complete',
+              authority: 'compatibilityProjection',
+              projectionSource: 'coreStoreV2',
+              compatibilityMirror: {
+                kind: 'directive.coreIngressCompatibilityMirror.v1',
+                status: 'complete',
+                transactionId: 'txn-import-v1'
+              }
             }
           ],
           responseLedger: [
@@ -107,7 +136,14 @@ function createLegacySave() {
               hostMessageId: '30',
               turnId: 'turn-1',
               outcomeId: 'outcome-1',
-              status: 'posted'
+              status: 'posted',
+              authority: 'compatibilityProjection',
+              projectionSource: 'coreStoreV2',
+              compatibilityMirror: {
+                kind: 'directive.coreResponseCompatibilityMirror.v1',
+                status: 'posted',
+                transactionId: 'txn-import-v1'
+              }
             }
           ],
           recoveryJournal: [
@@ -331,8 +367,8 @@ const projectedImported = await importCampaignSaveRecordToV2(projectedAdapter, p
 const projectedHostMap = await readV2ArtifactRef(projectedAdapter, projectedImported.refs.hostMap);
 assert.deepEqual(
   projectedHostMap.rows.map((row) => row.hostMessageId),
-  ['core-import-player', 'tagged-import-player', 'core-import-assistant', 'tagged-import-assistant'],
-  'old-save v2 import must project CORE rows and tagged compatibility mirrors only'
+  ['core-import-player', 'core-import-assistant'],
+  'old-save v2 import must project CORE rows and ignore unavailable old compatibility rows'
 );
 const projectedEventSegment = await readV2Segment(projectedAdapter, {
   segmentType: 'event',
@@ -344,8 +380,8 @@ assert.deepEqual(
   projectedEventSegment.entries
     .filter((entry) => entry.type === 'legacyIngressImported' || entry.type === 'legacyResponseImported')
     .map((entry) => entry.hostMessageId),
-  ['core-import-player', 'tagged-import-player', 'core-import-assistant', 'tagged-import-assistant'],
-  'old-save v2 import event segments must not revive silent old ledger rows when CORE projections exist'
+  ['core-import-player', 'core-import-assistant'],
+  'old-save v2 import event segments must not revive silent or unavailable old ledger rows when CORE projections exist'
 );
 assert.deepEqual(
   {
@@ -353,7 +389,7 @@ assert.deepEqual(
     responseCount: projectedImported.saveManifest.importedFrom.summary.responseCount,
     recoveryCount: projectedImported.saveManifest.importedFrom.summary.recoveryCount
   },
-  { ingressCount: 2, responseCount: 2, recoveryCount: 1 },
+  { ingressCount: 1, responseCount: 1, recoveryCount: 1 },
   'old-save v2 import summary must count CORE-first projected runtime rows'
 );
 assert.equal(JSON.stringify(projectedStorage.snapshot()).includes('silent-import-player'), false);

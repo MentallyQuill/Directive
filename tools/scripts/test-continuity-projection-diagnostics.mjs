@@ -51,6 +51,13 @@ const campaignState = {
     responseLedger: [{
       id: 'response.raw.1',
       status: 'delegatedContinuityIssue',
+      authority: 'compatibilityProjection',
+      projectionSource: 'coreStoreV2',
+      compatibilityMirror: {
+        kind: 'directive.coreResponseCompatibilityMirror.v1',
+        status: 'delegatedContinuityIssue',
+        transactionId: 'txn.response.raw.1'
+      },
       hostObservation: {
         hostMessageId: 'host-message-raw-1',
         textHash: 'observed-text-hash'

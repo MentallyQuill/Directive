@@ -100,6 +100,7 @@ const forge = createForgeCoordinator({
   },
   clock: () => `2026-06-30T15:01:${String(sourceChecks.length).padStart(2, '0')}.000Z`
 });
+const internalDiagnosticSink = [];
 
 const internalBundle = {
   idempotencyKey: 'internal-narrative-thread-1',
@@ -136,6 +137,10 @@ const settled = await forge.settleInternalBackgroundBatch({
   internalOwner: 'narrativeThreadDirector',
   bundle: internalBundle,
   flushLens: true,
+  appendDiagnostic: async (transactionId, diagnostic) => {
+    internalDiagnosticSink.push({ transactionId, diagnostic: cloneJson(diagnostic) });
+    return { id: `internal-sink-${internalDiagnosticSink.length}`, transactionId, diagnostic: cloneJson(diagnostic) };
+  },
   cacheInputs: {
     recallIndexRevision: 'recall-revision-internal-1'
   }
@@ -148,6 +153,10 @@ assert.equal(settled.operationCount, 0);
 assert.equal(settled.effectCount, 1);
 assert.equal(settled.workerCount, 1);
 assert.equal(JSON.stringify(settled).includes('RAW_INTERNAL'), false);
+assert.equal(internalDiagnosticSink.length, 1);
+assert.equal(internalDiagnosticSink[0].transactionId, transaction.id);
+assert.equal(internalDiagnosticSink[0].diagnostic.status, 'internalSettled');
+assert.equal(settled.diagnostic.id, 'internal-sink-1');
 assert.deepEqual(sourceChecks.map((entry) => entry.phase), ['beforeInternalBackgroundCommit']);
 assert.equal(coreStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length, 1);
 assert.deepEqual(coreStore.state.promptDirtyDomains, ['threadLedger', 'questLedger', 'commandBearing']);
@@ -227,10 +236,15 @@ const staleForge = createForgeCoordinator({
   isSourceCurrent: async () => ({ ok: false, reason: 'source-edited-before-settlement' }),
   clock: () => '2026-06-30T15:11:00.000Z'
 });
+const staleDiagnosticSink = [];
 const stale = await staleForge.settleInternalBackgroundBatch({
   transactionId: staleTransaction.id,
   sourceFrameRef: createTurnSourceFrameRef(staleFrame),
   internalOwner: 'commandLogSummary',
+  appendDiagnostic: async (transactionId, diagnostic) => {
+    staleDiagnosticSink.push({ transactionId, diagnostic: cloneJson(diagnostic) });
+    return { id: `stale-sink-${staleDiagnosticSink.length}`, transactionId, diagnostic: cloneJson(diagnostic) };
+  },
   bundle: {
     ...internalBundle,
     idempotencyKey: 'internal-stale-command-log',
@@ -244,6 +258,7 @@ const stale = await staleForge.settleInternalBackgroundBatch({
 assert.equal(stale.status, 'staleBeforeInternalBackgroundCommit');
 assert.equal(stale.applied, false);
 assert.equal(stale.providerCallAttempted, false);
+assert.equal(staleDiagnosticSink.length, 0, 'Stale internal background rejection must keep immediate FORGE diagnostic evidence.');
 assert.equal(staleCoreStore.state.events.filter((event) => event.type === 'backgroundBatchCommitted').length, 0);
 
 const allPersisted = serializedStorage(storage) + serializedStorage(staleStorage);

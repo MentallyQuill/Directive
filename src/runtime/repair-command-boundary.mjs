@@ -47,6 +47,13 @@ function rowsNotCoveredByCore(viewRows = [], coreRows = [], keys = []) {
 }
 
 function runtimeTrackingLedgersFromView(runtimeLedgerView = {}, projections = {}) {
+  if (hasCoreProjections(projections)) {
+    return {
+      ingressLedger: [],
+      responseLedger: [],
+      recoveryJournal: []
+    };
+  }
   return {
     ingressLedger: rowsNotCoveredByCore(runtimeLedgerView.ingressLedger, projections.ingressLedger, [
       'id',
@@ -77,10 +84,8 @@ function hasCoreProjections(projections = {}) {
   );
 }
 
-function modelCallJournalForRollbackRestore(current = {}, projections = {}) {
-  const modelCallDiagnostics = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
-  if (modelCallDiagnostics.length) return [];
-  return cloneJson(current.runtimeTracking?.modelCallJournal || []);
+function modelCallJournalForRollbackRestore() {
+  return [];
 }
 
 function responseLedgerRevisionForRollbackRestore(projections = {}) {
@@ -125,7 +130,7 @@ async function restoreFromCheckpointSnapshot(campaignState = null, checkpointSta
     responseLedger: runtimeTrackingLedgers.responseLedger,
     responseLedgerRevision: responseLedgerRevisionForRollbackRestore(runtimeProjections),
     sidecarJournal: [],
-    modelCallJournal: modelCallJournalForRollbackRestore(current, runtimeProjections),
+    modelCallJournal: modelCallJournalForRollbackRestore(),
     lifecycleJournal: cloneJson(current.runtimeTracking.lifecycleJournal),
     pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)),
     endConditionLedger: terminalDecisionLedgerView(current),

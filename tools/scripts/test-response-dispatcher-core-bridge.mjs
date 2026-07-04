@@ -1456,6 +1456,76 @@ assert.notEqual(
   'No-diagnostic visible response record failure must not patch old ingress recovery status.'
 );
 
+let hostContinuePendingProjectionState = addIngress(createCampaignState({
+  campaignId: 'campaign-response-core-host-pending-projection',
+  saveId: 'save-response-core-host-pending-projection',
+  chatId
+}), {
+  ingressId: 'ingress-response-core-host-pending-projection',
+  hostMessageId: 'player-core-host-pending-projection',
+  chatId,
+  campaignId: 'campaign-response-core-host-pending-projection',
+  sourceFrame,
+  coreTransactionId: 'txn-response-core-host-pending-projection'
+});
+const hostContinuePendingProjectionDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Host-continue pending projection fixture must not post Directive text.');
+      },
+      continueHostGeneration: async (payload = {}) => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        reason: payload.reason,
+        generationStartedAt: '2026-06-28T17:01:30.000Z',
+        hostGenerationReleasedAt: '2026-06-28T17:01:30.000Z'
+      })
+    }
+  },
+  coreTurnStore: {
+    async advanceTurn() {
+      const error = new Error('Synthetic pending CORE source write has not reached response projection yet.');
+      error.code = 'DIRECTIVE_CORE_PENDING_SOURCE_WRITE';
+      throw error;
+    },
+    async appendDiagnostics() {
+      throw new Error('Synthetic CORE diagnostic write unavailable while source write is pending.');
+    },
+    readProjections() {
+      return { responseLedger: [] };
+    }
+  },
+  getCampaignState: () => hostContinuePendingProjectionState,
+  setCampaignState: (next) => { hostContinuePendingProjectionState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { hostContinuePendingProjectionState = initializeCampaignRuntimeTracking(next); },
+  now
+});
+await assert.rejects(
+  () => hostContinuePendingProjectionDispatcher.dispatch({
+    campaignState: hostContinuePendingProjectionState,
+    ingressId: 'ingress-response-core-host-pending-projection',
+    strategy: 'injectAndContinue',
+    responseKind: 'hostGeneration',
+    idempotencyKey: 'response-core-host-pending-projection'
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_RESPONSE_PROJECTION_REQUIRED');
+    assert.equal(error.details?.responseId, 'response-core-host-pending-projection');
+    assert.equal(error.details?.transactionId, 'txn-response-core-host-pending-projection');
+    assert.equal(error.details?.mirroredOperation, 'hostContinueRelease');
+    return true;
+  },
+  'Host-continue release without CORE projection or diagnostic must fail closed.'
+);
+assert.equal(
+  hostContinuePendingProjectionState.runtimeTracking.responseLedger.length,
+  0,
+  'Host-continue release without CORE projection or diagnostic must not write an old response compatibility row.'
+);
+
 let failureState = addIngress(createCampaignState({
   campaignId: 'campaign-response-core-failure',
   saveId: 'save-response-core-failure',
@@ -4190,5 +4260,74 @@ await exerciseDelayedRecoveryReobserve({
   playerText: 'Sam held the question in the quiet until the missing response surfaced.',
   assistantText: 'The host-native answer surfaced after the unavailable observation.'
 });
+
+let asyncDuplicateProjectionPostCount = 0;
+let asyncDuplicateProjectionContinueCount = 0;
+const asyncDuplicateProjectionState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-async-duplicate-projection' },
+  runtimeTracking: {}
+});
+const asyncDuplicateProjectionDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        asyncDuplicateProjectionPostCount += 1;
+        throw new Error('Duplicate projection must not post a new assistant message.');
+      },
+      continueHostGeneration: async () => {
+        asyncDuplicateProjectionContinueCount += 1;
+        throw new Error('Duplicate projection must not release host generation again.');
+      }
+    }
+  },
+  coreTurnStore: {
+    async readProjections() {
+      return {
+        responseLedger: [{
+          id: 'response-async-duplicate-projection',
+          responseId: 'response-async-duplicate-projection',
+          transactionId: 'txn-async-duplicate-projection',
+          status: 'recoveryRequired',
+          responseKind: 'hostContinue'
+        }],
+        recoveryJournal: [{
+          id: 'recovery-async-duplicate-projection',
+          transactionId: 'txn-async-duplicate-projection',
+          status: 'required',
+          phase: 'recoveryRequired',
+          reason: 'hostNativeAssistantUnavailable',
+          repairDecision: {
+            eventType: 'hostNativeAssistantUnavailable',
+            action: 'awaitHostCompletion'
+          }
+        }]
+      };
+    }
+  },
+  getCampaignState: () => asyncDuplicateProjectionState,
+  setCampaignState: () => {},
+  persist: async () => {},
+  now
+});
+const asyncDuplicatePost = await asyncDuplicateProjectionDispatcher.post({
+  campaignState: asyncDuplicateProjectionState,
+  text: 'Duplicate projection must not post.',
+  idempotencyKey: 'response-async-duplicate-projection',
+  responseType: 'hostContinue'
+});
+assert.equal(asyncDuplicatePost.duplicate, true, 'Async CORE response projection should satisfy duplicate detection.');
+assert.equal(asyncDuplicatePost.recoveryRequired, true, 'Async CORE recovery projection should keep duplicate in recovery state.');
+assert.equal(asyncDuplicatePost.recoveryId, 'recovery-async-duplicate-projection');
+assert.equal(asyncDuplicateProjectionPostCount, 0);
+const asyncDuplicateDelegate = await asyncDuplicateProjectionDispatcher.dispatch({
+  campaignState: asyncDuplicateProjectionState,
+  ingressId: 'ingress-async-duplicate-projection',
+  idempotencyKey: 'response-async-duplicate-projection',
+  strategy: 'injectAndContinue',
+  responseType: 'hostGeneration'
+});
+assert.equal(asyncDuplicateDelegate.duplicate, true, 'Async CORE response projection should block duplicate host continue release.');
+assert.equal(asyncDuplicateDelegate.recoveryRequired, true);
+assert.equal(asyncDuplicateProjectionContinueCount, 0);
 
 console.log('Response dispatcher CORE bridge tests passed.');

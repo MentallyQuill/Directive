@@ -660,7 +660,11 @@ function compactForgeBatchRef(ref = {}) {
 
 function safeCheckpointId(value, fallback) {
   const raw = String(value || fallback || 'core-mechanics-checkpoint').trim();
-  const safe = raw.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  const safe = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return safe || String(fallback || 'core-mechanics-checkpoint');
 }
 
@@ -773,7 +777,32 @@ function compactResponseRef(value = {}) {
     postedAt: value.postedAt || null,
     turnLatency: turnLatency ? sanitizeDiagnostic(turnLatency) : undefined,
     textHash: value.textHash || null,
+    outcomeIntegrity: compactOutcomeIntegrityEvidence(value.outcomeIntegrity),
     repairDecision: value.repairDecision ? sanitizeDiagnostic(value.repairDecision) : undefined
+  });
+}
+
+function compactOutcomeIntegrityEvidence(integrity = null) {
+  if (!isObject(integrity)) return undefined;
+  const revisions = Array.isArray(integrity.revisions)
+    ? integrity.revisions.map((revision) => compact({
+        id: revision?.id || revision?.revisionId || null,
+        revisionId: revision?.revisionId || revision?.id || null,
+        status: revision?.status || null,
+        selected: revision?.selected === true || undefined,
+        textHash: revision?.textHash || revision?.hash || null,
+        editedAt: revision?.editedAt || null,
+        reviewProviderKind: revision?.reviewProviderKind || null,
+        reviewVerdict: revision?.reviewVerdict || null
+      })).filter((revision) => Object.keys(revision).length > 0)
+    : [];
+  return compact({
+    selectedRevisionId: integrity.selectedRevisionId || null,
+    selectedRevisionHash: integrity.selectedRevisionHash || null,
+    reviewCount: Number.isFinite(Number(integrity.reviewCount)) ? Number(integrity.reviewCount) : undefined,
+    lastReviewStatus: integrity.lastReview?.status || integrity.lastReviewStatus || null,
+    lastReviewId: integrity.lastReview?.id || integrity.lastReviewId || null,
+    revisions: revisions.length ? revisions : undefined
   });
 }
 
@@ -1087,6 +1116,95 @@ function eventPayload(event = {}) {
 
 function diagnosticPayload(entry = {}) {
   return cloneJson(entry.redactedPayload || entry.payload || {});
+}
+
+function compactPendingInteractionRef(value = {}, transaction = null, statusOverride = null) {
+  const id = String(value.id || value.interactionId || '').trim();
+  const txnId = transaction?.id || value.transactionId || value.coreTransactionId || null;
+  const ingressId = value.ingressId || transaction?.ingressId || null;
+  return compact({
+    schemaVersion: 1,
+    id: id || undefined,
+    kind: value.kind || value.interactionKind || 'decision',
+    status: statusOverride || value.status || 'pending',
+    ingressId,
+    turnId: value.turnId || null,
+    outcomeId: value.outcomeId || transaction?.outcomeId || null,
+    coreTransactionId: txnId,
+    authority: 'corePendingInteractionProjection',
+    projectionSource: 'coreStoreV2',
+    compatibilityMirror: {
+      kind: 'directive.pendingInteractionCompatibilityMirror.v1',
+      status: statusOverride || value.status || 'pending',
+      interactionId: id || null,
+      ingressId,
+      turnId: value.turnId || null,
+      outcomeId: value.outcomeId || transaction?.outcomeId || null,
+      transactionId: txnId,
+      projectionSource: 'coreStoreV2'
+    },
+    coreProjection: {
+      kind: 'directive.corePendingInteractionProjectionRef.v1',
+      status: statusOverride || value.status || 'pending',
+      interactionId: id || null,
+      transactionId: txnId,
+      ingressId,
+      sourceFrameId: transaction?.sourceFrameId || value.sourceFrameId || null
+    },
+    interactionId: id || undefined,
+    sourceFrameId: transaction?.sourceFrameId || value.sourceFrameId || null,
+    prompt: value.prompt || null,
+    optionCount: Array.isArray(value.options) ? value.options.length : undefined,
+    options: Array.isArray(value.options) ? value.options.map((option) => compact({
+      id: option.id || option.action || null,
+      action: option.action || option.id || null,
+      label: option.label || option.action || option.id || null
+    })) : undefined,
+    resolution: value.resolution ? sanitizeDiagnostic(value.resolution) : undefined,
+    createdAt: value.createdAt || value.recordedAt || null,
+    resolvedAt: value.resolvedAt || null
+  });
+}
+
+function buildPendingInteractionProjections(events = [], transactionMap = {}) {
+  const rows = new Map();
+  for (const event of events || []) {
+    if (event.type !== 'pendingInteractionRecorded' && event.type !== 'pendingInteractionResolved') continue;
+    const payload = eventPayload(event);
+    const transactionId = legacyTransactionId(event) || payload.transactionId || payload.pendingInteraction?.transactionId || null;
+    const transaction = transactionId ? transactionMap?.[transactionId] : null;
+    if (event.type === 'pendingInteractionRecorded') {
+      const row = compactPendingInteractionRef({
+        ...(payload.pendingInteraction || {}),
+        transactionId,
+        recordedAt: event.occurredAt || null
+      }, transaction, 'pending');
+      if (row.id) rows.set(row.id, row);
+      continue;
+    }
+    const interactionId = String(payload.interactionId || payload.pendingInteraction?.id || '').trim();
+    if (!interactionId) continue;
+    const prior = rows.get(interactionId) || compactPendingInteractionRef({
+      id: interactionId,
+      transactionId
+    }, transaction, 'pending');
+    const status = payload.status || payload.resolution?.status || 'resolved';
+    rows.set(interactionId, compact({
+      ...prior,
+      status,
+      compatibilityMirror: prior.compatibilityMirror ? {
+        ...cloneJson(prior.compatibilityMirror),
+        status
+      } : undefined,
+      coreProjection: prior.coreProjection ? {
+        ...cloneJson(prior.coreProjection),
+        status
+      } : undefined,
+      resolvedAt: payload.resolvedAt || event.occurredAt || null,
+      resolution: sanitizeDiagnostic(payload.resolution || {})
+    }));
+  }
+  return [...rows.values()];
 }
 
 function turnRecord({
@@ -1659,6 +1777,7 @@ export function buildCoreStoreReadProjections(state = {}) {
   const commandBearingReviewClosures = commandBearingReviewClosuresFromEffectRefs(backgroundEffectRefs, backgroundBatches);
   const diagnostics = state.diagnostics || [];
   const turnTiming = buildTurnTimingProjections(state.events || [], transactionMap);
+  const pendingInteractions = buildPendingInteractionProjections(state.events || [], transactionMap);
   return {
     kind: 'directive.coreStoreReadProjections.v1',
     schemaVersion: 1,
@@ -1748,15 +1867,23 @@ export function buildCoreStoreReadProjections(state = {}) {
           ...(eventPayload(event).responseRef || {}),
           ...(visibleResponseRepairsByTransaction.get(transactionId) || {})
         };
+        const timingProjection = turnTiming.find((entry) => entry.transactionId === transactionId) || null;
+        const responseTurnTiming = responseRef.turnLatency
+          ? cloneJson(responseRef.turnLatency)
+          : cloneJson(timingProjection?.turnTiming || null);
         return compact({
           id: responseRef.responseId || `response:${transactionId}`,
           transactionId,
           hostMessageId: responseRef.hostMessageId || null,
           outcomeId: responseRef.outcomeId || null,
           responseKind: responseRef.kind || responseRef.responseKind || null,
-          generationStartedAt: responseRef.generationStartedAt || null,
+          generationStartedAt: responseRef.generationStartedAt
+            || responseTurnTiming?.generationStartedAt
+            || responseTurnTiming?.directiveGenerationStartedAt
+            || null,
           textHash: responseRef.textHash || null,
-          turnTiming: responseRef.turnLatency ? cloneJson(responseRef.turnLatency) : undefined,
+          turnTiming: responseTurnTiming || undefined,
+          outcomeIntegrity: compactOutcomeIntegrityEvidence(responseRef.outcomeIntegrity),
           status: 'posted'
         });
       }),
@@ -1863,6 +1990,7 @@ export function buildCoreStoreReadProjections(state = {}) {
         });
       })
     ],
+    pendingInteractions,
     continuityRecoveryProjection,
     rollbackActuations: rollbackEvents.map((event) => {
       const payload = eventPayload(event);
@@ -2433,6 +2561,49 @@ export function createCoreStoreV2({
     return transaction;
   }
 
+  async function appendDiagnosticsBatchImpl(transactionId, diagnosticsEvents = []) {
+    return enqueueWrite(async () => {
+      const transaction = requireTransaction(transactionId);
+      const events = (Array.isArray(diagnosticsEvents) ? diagnosticsEvents : [diagnosticsEvents])
+        .filter((event) => event && typeof event === 'object' && !Array.isArray(event));
+      if (!events.length) return [];
+      state.updatedAt = timestamp();
+      const diagnostics = [];
+      for (const diagnosticsEvent of events) {
+        state.revisions = nextRevisions(state.revisions, { diagnostic: 1 });
+        const type = diagnosticsEvent.type || diagnosticsEvent.category || 'diagnostic';
+        const diagnostic = diagnosticRecord({
+          id: diagnosticsEvent.id || diagnosticId(type),
+          type,
+          transaction,
+          campaignId: state.campaignId,
+          saveId: state.saveId,
+          chatId: transaction.chatId,
+          observedAt: state.updatedAt,
+          payload: diagnosticsEvent,
+          revisions: state.revisions
+        });
+        state.diagnostics.push(diagnostic);
+        diagnostics.push(diagnostic);
+      }
+      state.counters.diagnostics = state.diagnostics.length;
+      lastCommit = await commitV2DiagnosticsSegments(adapter, {
+        campaignId: state.campaignId,
+        saveId: state.saveId,
+        diagnosticsSegments: diagnostics,
+        recentDiagnostics: state.diagnostics.slice(-8),
+        metadata: {
+          source: 'core-store-v2-diagnostics',
+          diagnosticCount: state.diagnostics.length,
+          batchCount: diagnostics.length
+        },
+        now: state.updatedAt,
+        layout: 'core'
+      });
+      return diagnostics.map(cloneJson);
+    });
+  }
+
   function enqueueWrite(task) {
     const run = writeQueue.then(task, task);
     writeQueue = run.then(() => null, () => null);
@@ -2824,6 +2995,82 @@ export function createCoreStoreV2({
       });
       return cloneJson(transaction);
     },
+    async recordPendingInteraction(transactionId, interaction = {}) {
+      const transaction = requireTransaction(transactionId);
+      const interactionRef = compactPendingInteractionRef(interaction, transaction, 'pending');
+      if (!interactionRef.id) {
+        const error = new Error('CORE pending interaction requires interaction id');
+        error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_ID_REQUIRED';
+        throw error;
+      }
+      if (
+        interaction.idempotencyKey
+        && state.events.some((event) => (
+          event.type === 'pendingInteractionRecorded'
+          && event.idempotencyKey === interaction.idempotencyKey
+        ))
+      ) {
+        return cloneJson(buildPendingInteractionProjections(state.events, state.transactions)
+          .find((entry) => entry.id === interactionRef.id) || interactionRef);
+      }
+      const deltaCursor = eventTurnDeltaCursor();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      appendEvent('pendingInteractionRecorded', transaction, {
+        payload: {
+          pendingInteraction: interactionRef
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey: interaction.idempotencyKey || `pending-interaction:${interactionRef.id}`,
+        occurredAt: state.updatedAt
+      });
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'recordPendingInteraction',
+        transactionId: transaction.id,
+        interactionId: interactionRef.id
+      });
+      return cloneJson(interactionRef);
+    },
+    async resolvePendingInteraction(transactionId, interactionId, resolution = {}) {
+      const transaction = requireTransaction(transactionId);
+      const id = requireNonEmptyString(interactionId, 'interactionId');
+      if (
+        resolution.idempotencyKey
+        && state.events.some((event) => (
+          event.type === 'pendingInteractionResolved'
+          && event.idempotencyKey === resolution.idempotencyKey
+        ))
+      ) {
+        return cloneJson(buildPendingInteractionProjections(state.events, state.transactions)
+          .find((entry) => entry.id === id) || null);
+      }
+      const deltaCursor = eventTurnDeltaCursor();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      const cleanResolution = sanitizeDiagnostic(resolution || {});
+      appendEvent('pendingInteractionResolved', transaction, {
+        payload: {
+          interactionId: id,
+          status: cleanResolution.status || 'resolved',
+          resolvedAt: cleanResolution.resolvedAt || state.updatedAt,
+          resolution: cleanResolution
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey: resolution.idempotencyKey || `pending-interaction-resolved:${id}:${cleanResolution.status || 'resolved'}`,
+        occurredAt: state.updatedAt
+      });
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'resolvePendingInteraction',
+        transactionId: transaction.id,
+        interactionId: id
+      });
+      return cloneJson(buildPendingInteractionProjections(state.events, state.transactions)
+        .find((entry) => entry.id === id) || null);
+    },
     async commitMechanics(transactionId, operationBundle = {}) {
       const transaction = requireTransaction(transactionId);
       const bundle = cloneJson(operationBundle);
@@ -3017,7 +3264,8 @@ export function createCoreStoreV2({
       }
       const patch = compact({
         hostMessageId: responseRefPatch.hostMessageId || null,
-        textHash: responseRefPatch.textHash || null
+        textHash: responseRefPatch.textHash || null,
+        outcomeIntegrity: compactOutcomeIntegrityEvidence(responseRefPatch.outcomeIntegrity)
       });
       if (patch.hostMessageId && transaction.visibleResponseRef.hostMessageId && patch.hostMessageId !== transaction.visibleResponseRef.hostMessageId) {
         const error = new Error(`CORE transaction "${transaction.id}" visible response host id does not match repair patch`);
@@ -3027,7 +3275,8 @@ export function createCoreStoreV2({
       const nextRef = compact({
         ...transaction.visibleResponseRef,
         hostMessageId: transaction.visibleResponseRef.hostMessageId || patch.hostMessageId || null,
-        textHash: transaction.visibleResponseRef.textHash || patch.textHash || null
+        textHash: transaction.visibleResponseRef.textHash || patch.textHash || null,
+        outcomeIntegrity: patch.outcomeIntegrity || transaction.visibleResponseRef.outcomeIntegrity || undefined
       });
       const changed = JSON.stringify(nextRef) !== JSON.stringify(transaction.visibleResponseRef);
       if (!changed) return cloneJson(transaction);
@@ -3043,7 +3292,8 @@ export function createCoreStoreV2({
         payload: {
           responseRefPatch: compact({
             hostMessageId: nextRef.hostMessageId || null,
-            textHash: nextRef.textHash || null
+            textHash: nextRef.textHash || null,
+            outcomeIntegrity: compactOutcomeIntegrityEvidence(nextRef.outcomeIntegrity)
           }),
           reason: responseRefPatch.reason || 'missing-visible-response-ref-field'
         },
@@ -3359,38 +3609,11 @@ export function createCoreStoreV2({
       return cloneJson(transaction);
     },
     async appendDiagnostics(transactionId, diagnosticsEvent = {}) {
-      return enqueueWrite(async () => {
-        const transaction = requireTransaction(transactionId);
-        state.updatedAt = timestamp();
-        state.revisions = nextRevisions(state.revisions, { diagnostic: 1 });
-        const type = diagnosticsEvent.type || diagnosticsEvent.category || 'diagnostic';
-        const diagnostic = diagnosticRecord({
-          id: diagnosticsEvent.id || diagnosticId(type),
-          type,
-          transaction,
-          campaignId: state.campaignId,
-          saveId: state.saveId,
-          chatId: transaction.chatId,
-          observedAt: state.updatedAt,
-          payload: diagnosticsEvent,
-          revisions: state.revisions
-        });
-        state.diagnostics.push(diagnostic);
-        state.counters.diagnostics = state.diagnostics.length;
-        lastCommit = await commitV2DiagnosticsSegments(adapter, {
-          campaignId: state.campaignId,
-          saveId: state.saveId,
-          diagnosticsSegments: [diagnostic],
-          recentDiagnostics: state.diagnostics.slice(-8),
-          metadata: {
-            source: 'core-store-v2-diagnostics',
-            diagnosticCount: state.diagnostics.length
-          },
-          now: state.updatedAt,
-          layout: 'core'
-        });
-        return cloneJson(diagnostic);
-      });
+      const diagnostics = await appendDiagnosticsBatchImpl(transactionId, [diagnosticsEvent]);
+      return cloneJson(diagnostics[0] || null);
+    },
+    async appendDiagnosticsBatch(transactionId, diagnosticsEvents = []) {
+      return appendDiagnosticsBatchImpl(transactionId, diagnosticsEvents);
     },
     estimateSize() {
       return stableJsonByteLength(buildHead(state));

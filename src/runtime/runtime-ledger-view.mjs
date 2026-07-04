@@ -105,7 +105,7 @@ export async function readRuntimeCoreProjectionsAsync(campaignState = {}, { core
 
 export function createRuntimeLedgerView(campaignState = {}, {
   coreTurnStore = null,
-  legacyFallback = true,
+  legacyFallback = false,
   runtimeOverlay = false
 } = {}) {
   const runtimeTracking = campaignState?.runtimeTracking || {};
@@ -114,7 +114,7 @@ export function createRuntimeLedgerView(campaignState = {}, {
 }
 
 export function createRuntimeLedgerViewFromProjections(campaignState = {}, projections = {}, {
-  legacyFallback = true,
+  legacyFallback = false,
   runtimeOverlay = false
 } = {}) {
   const runtimeTracking = campaignState?.runtimeTracking || {};
@@ -123,10 +123,11 @@ export function createRuntimeLedgerViewFromProjections(campaignState = {}, proje
   const coreResponse = arrayRows(projections.responseLedger);
   const coreRecovery = arrayRows(projections.recoveryJournal);
   const coreProjectionAvailable = Boolean(coreIngress.length || coreResponse.length || coreRecovery.length);
-  const legacyIngress = legacyFallback
+  const useLegacyFallback = legacyFallback === true || runtimeOverlay === true;
+  const legacyIngress = useLegacyFallback
     ? legacyProjectionFallbackRows(runtimeTracking.ingressLedger)
     : [];
-  const legacyResponse = legacyFallback
+  const legacyResponse = useLegacyFallback
     ? legacyProjectionFallbackRows(runtimeTracking.responseLedger)
     : [];
   const allowRuntimeOverlay = authoritative && runtimeOverlay === true;
@@ -152,7 +153,7 @@ export function createRuntimeLedgerViewFromProjections(campaignState = {}, proje
 
 export async function createRuntimeLedgerViewAsync(campaignState = {}, {
   coreTurnStore = null,
-  legacyFallback = true,
+  legacyFallback = false,
   runtimeOverlay = false
 } = {}) {
   const projections = await readRuntimeCoreProjectionsAsync(campaignState, { coreTurnStore });

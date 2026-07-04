@@ -62,16 +62,42 @@ function writeExternalContextSummary(root) {
       knownExternalPromptKeys: ['worldInfoBefore', 'summaryception', '3_vectfox'],
       finalHostPromptMayIncludeExternal: true,
       redactionReasons: ['secret'],
-      targetSummaryCount: SOAK_TURN_SCRIPT.length
+      targetSummaryCount: SOAK_TURN_SCRIPT.length,
+      timingCoverage: {
+        requiredTargets: ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'],
+        targetsWithTiming: ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'],
+        targetsMissingTiming: [],
+        timedTargetCount: 4,
+        status: 'pass'
+      }
     },
     targetSummaries: SOAK_TURN_SCRIPT.map((turn, index) => ({
       scriptMessageId: `soak-turn-${String(index + 1).padStart(2, '0')}`,
       scriptCategory: turn.category || 'directiveCommit',
       targets: {
-        stLorebooks: { active: true, chatBound: true },
-        memoryBooks: { enabled: true, rangeDiagnostics: { status: 'valid' } },
-        summaryception: { enabled: true, staleness: { status: 'observed' } },
-        vectFox: { enabled: true, backendDiagnostics: { status: 'external-backend-configured' } }
+        stLorebooks: {
+          active: true,
+          chatBound: true,
+          timingDiagnostics: { observed: true, timingHash: 'st-lorebooks-timing-hash' }
+        },
+        memoryBooks: {
+          enabled: true,
+          rangeDiagnostics: { status: 'valid' },
+          timingDiagnostics: { observed: true, timingHash: 'memory-books-timing-hash' }
+        },
+        summaryception: {
+          enabled: true,
+          staleness: { status: 'observed' },
+          timingDiagnostics: { observed: true, timingHash: 'summaryception-timing-hash' }
+        },
+        vectFox: {
+          enabled: true,
+          backendDiagnostics: {
+            status: 'external-backend-configured',
+            externalTimingObserved: true,
+            timingHash: 'vectfox-timing-hash'
+          }
+        }
       }
     }))
   });

@@ -332,6 +332,44 @@ function normalizedSceneHandshakeLedger(input = {}, defaults = {}) {
   };
 }
 
+function normalizeLastCommittedTurnProjection(input = null) {
+  if (!isObject(input)) return null;
+  const compatibilityKind = compact(input.compatibilityMirror?.kind);
+  const coreProjectionKind = compact(input.coreProjection?.kind);
+  const authority = compact(input.authority);
+  const projectionSource = compact(input.projectionSource);
+  const isProjection = (
+    compatibilityKind === 'directive.lastCommittedTurnCompatibilityMirror.v1'
+    || coreProjectionKind === 'directive.coreLastCommittedTurnProjectionRef.v1'
+    || (
+      authority === 'compatibilityProjection'
+      && ['coreStoreV2', 'turnLedger'].includes(projectionSource)
+    )
+  );
+  if (!isProjection) return null;
+  const compacted = sanitizeRuntimeLedgerPayload(cloneJson(input));
+  compacted.authority = 'compatibilityProjection';
+  compacted.projectionSource = ['coreStoreV2', 'turnLedger'].includes(compact(compacted.projectionSource))
+    ? compact(compacted.projectionSource)
+    : 'turnLedger';
+  compacted.compatibilityMirror = {
+    kind: 'directive.lastCommittedTurnCompatibilityMirror.v1',
+    status: compact(compacted.compatibilityMirror?.status || compacted.narrationStatus || compacted.responseStatus || 'mirrored') || 'mirrored',
+    outcomeId: compact(compacted.outcomeId) || null,
+    turnId: compact(compacted.turnId) || null,
+    transactionId: compact(compacted.coreTransactionId || compacted.coreProjection?.transactionId || compacted.compatibilityMirror?.transactionId) || null,
+    source: 'turnLedgerPresentationMirror'
+  };
+  compacted.coreProjection = {
+    kind: 'directive.coreLastCommittedTurnProjectionRef.v1',
+    outcomeId: compact(compacted.outcomeId) || null,
+    turnId: compact(compacted.turnId) || null,
+    transactionId: compact(compacted.coreTransactionId || compacted.coreProjection?.transactionId || compacted.compatibilityMirror?.transactionId) || null,
+    status: compact(compacted.coreProjection?.status || compacted.compatibilityMirror.status) || 'mirrored'
+  };
+  return compacted;
+}
+
 function isOpenWorldBoundaryProjection(input = {}) {
   return (
     isObject(input)
@@ -381,8 +419,21 @@ function runtimeOverlayRowsNotCoveredByCore(viewRows = [], coreRows = [], keys =
   return cloneJson(rows.filter((row) => !core.some((coreRow) => runtimeLedgerRowsMatch(row, coreRow, keys))));
 }
 
-function runtimeTrackingLedgersFromView(campaignState = {}, runtimeLedgerView = {}) {
+function runtimeTrackingLedgersFromView(campaignState = {}, runtimeLedgerView = {}, {
+  dropWhenCoreProjectionExists = false
+} = {}) {
   const projections = readRuntimeCoreProjections(campaignState);
+  if (dropWhenCoreProjectionExists && (
+    Array.isArray(projections.ingressLedger) && projections.ingressLedger.length
+    || Array.isArray(projections.responseLedger) && projections.responseLedger.length
+    || Array.isArray(projections.recoveryJournal) && projections.recoveryJournal.length
+  )) {
+    return {
+      ingressLedger: [],
+      responseLedger: [],
+      recoveryJournal: []
+    };
+  }
   return {
     ingressLedger: runtimeOverlayRowsNotCoveredByCore(runtimeLedgerView.ingressLedger, projections.ingressLedger, [
       'id',
@@ -405,56 +456,13 @@ function runtimeTrackingLedgersFromView(campaignState = {}, runtimeLedgerView = 
   };
 }
 
-function modelCallJournalFromCoreProjections(campaignState = {}) {
-  const projections = readRuntimeCoreProjections(campaignState);
-  const modelCallDiagnostics = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
-  if (modelCallDiagnostics.length) return [];
-  return cloneJson(campaignState.runtimeTracking?.modelCallJournal || []);
+function oldRuntimeModelCallJournal() {
+  return [];
 }
 
 function responseLedgerRevisionFromCoreProjections(campaignState = {}) {
   const projections = readRuntimeCoreProjections(campaignState);
   return Math.max(0, Number(projections.responseLedgerRevision) || 0);
-}
-
-function hasCoreRuntimeAuthority(campaignState = {}) {
-  return readRuntimeCoreProjections(campaignState)?.runtimeAuthority === 'coreStoreV2';
-}
-
-function trackedHistoryRecord({
-  tracking = {},
-  descriptor = {},
-  committedAt = null,
-  base = {}
-} = {}) {
-  const record = {
-    revision: tracking.revision,
-    committedAt,
-    reason: descriptor.reason,
-    source: descriptor.source,
-    ingressId: descriptor.ingressId,
-    turnId: descriptor.turnId,
-    outcomeId: descriptor.outcomeId,
-    delta: cloneJson(descriptor)
-  };
-  if (hasCoreRuntimeAuthority(base)) {
-    return {
-      ...record,
-      snapshotRef: {
-        kind: 'directive.coreRuntimeHistorySnapshotRef.v1',
-        authority: 'coreStoreV2',
-        revision: tracking.revision,
-        ingressId: descriptor.ingressId || null,
-        turnId: descriptor.turnId || null,
-        outcomeId: descriptor.outcomeId || null,
-        unavailableReason: 'core-authoritative-runtime-history'
-      }
-    };
-  }
-  return {
-    ...record,
-    snapshot: createCampaignStateSnapshot(base)
-  };
 }
 
 function isLifecycleProjectionRow(entry = {}) {
@@ -479,30 +487,6 @@ export function isPendingInteractionProjectionRow(entry = {}) {
   );
 }
 
-function compactModelCallTelemetryRows(rows = []) {
-  return (Array.isArray(rows) ? rows : [])
-    .filter(isObject)
-    .map((entry) => ({
-      id: compact(entry.id || entry.modelCallId) || null,
-      roleId: compact(entry.roleId) || null,
-      providerKind: compact(entry.providerKind) || null,
-      status: compact(entry.status) || (entry.ok === true ? 'ok' : 'recorded'),
-      providerId: compact(entry.providerId) || null,
-      model: compact(entry.model) || null,
-      trigger: compact(entry.trigger) || null,
-      campaignRevision: Number.isFinite(Number(entry.campaignRevision)) ? Number(entry.campaignRevision) : null,
-      requestHash: compact(entry.requestHash) || null,
-      parseStatus: compact(entry.parseStatus) || null,
-      validationStatus: compact(entry.validationStatus) || null,
-      appliedStatus: compact(entry.appliedStatus) || null,
-      sanitizedReason: compact(entry.sanitizedReason) || null,
-      latencyMs: Number.isFinite(Number(entry.latencyMs)) ? Math.max(0, Number(entry.latencyMs)) : null,
-      retryable: entry.retryable === true,
-      recordedAt: entry.recordedAt || null,
-      errorCode: compact(entry.errorCode) || null
-    }));
-}
-
 function compactRuntimeLedgerRows(rows = []) {
   return (Array.isArray(rows) ? rows : [])
     .filter(isObject)
@@ -513,26 +497,15 @@ function compactRuntimeLedgerRows(rows = []) {
 }
 
 function compactRuntimeHistory(rows = []) {
-  return (Array.isArray(rows) ? rows : [])
-    .filter(isObject)
-    .map((entry) => {
-      const compactEntry = sanitizeRuntimeLedgerPayload(cloneJson(entry));
-      if (isObject(entry.snapshot)) {
-        compactEntry.snapshot = createCampaignStateSnapshot(entry.snapshot);
-      }
-      return compactEntry;
-    });
+  return [];
 }
 
 function normalizedTracking(value, options = {}) {
   const defaults = runtimeTrackingDefaults(options);
   const input = isObject(value) ? value : {};
   const historyLimit = defaults.historyLimit;
-  const history = bounded(compactRuntimeHistory(input.history), historyLimit);
-  const rawHistoryIndex = Number.isInteger(input.historyIndex) ? input.historyIndex : history.length - 1;
-  const historyIndex = history.length
-    ? Math.min(Math.max(0, rawHistoryIndex), history.length - 1)
-    : -1;
+  const history = compactRuntimeHistory(input.history);
+  const historyIndex = -1;
   const normalized = {
     ...defaults,
     ...cloneJson(input),
@@ -552,12 +525,10 @@ function normalizedTracking(value, options = {}) {
       ? cloneJson(input.lifecycleJournal.filter(isLifecycleProjectionRow))
       : [],
     sidecarJournal: [],
-    modelCallJournal: compactModelCallTelemetryRows(input.modelCallJournal),
+    modelCallJournal: [],
     sceneReconciliation: normalizedSceneReconciliationLedger(input.sceneReconciliation, defaults.sceneReconciliation),
     sceneHandshake: normalizedSceneHandshakeLedger(input.sceneHandshake, defaults.sceneHandshake),
-    pendingInteractions: Array.isArray(input.pendingInteractions)
-      ? cloneJson(input.pendingInteractions.filter(isPendingInteractionProjectionRow))
-      : [],
+    pendingInteractions: [],
     endConditionLedger: normalizedEndConditionLedger(input.endConditionLedger, defaults.endConditionLedger)
   };
   if (isOpenWorldBoundaryProjection(input.lastWorldBoundary)) {
@@ -569,6 +540,12 @@ function normalizedTracking(value, options = {}) {
     normalized.timeNormalization = cloneJson(input.timeNormalization);
   } else {
     delete normalized.timeNormalization;
+  }
+  const lastCommittedTurn = normalizeLastCommittedTurnProjection(input.lastCommittedTurn);
+  if (lastCommittedTurn) {
+    normalized.lastCommittedTurn = lastCommittedTurn;
+  } else {
+    delete normalized.lastCommittedTurn;
   }
   return normalized;
 }
@@ -678,30 +655,21 @@ export function commitTrackedCampaignState({
 
   const tracking = normalizedTracking(base.runtimeTracking, { historyLimit });
   const runtimeLedgerView = createRuntimeLedgerView(base, { runtimeOverlay: true });
-  const runtimeTrackingLedgers = runtimeTrackingLedgersFromView(base, runtimeLedgerView);
-  let history = cloneJson(tracking.history);
-  let historyIndex = Number.isInteger(tracking.historyIndex)
-    ? tracking.historyIndex
-    : history.length - 1;
-  if (historyIndex >= 0 && historyIndex < history.length - 1) {
-    history = history.slice(0, historyIndex + 1);
-  }
-
+  const runtimeTrackingLedgers = runtimeTrackingLedgersFromView(base, runtimeLedgerView, {
+    dropWhenCoreProjectionExists: true
+  });
   const nextRevision = tracking.revision + 1;
   const materialChange = descriptor.domains.some((domain) => !['runtimeTracking', 'sceneReconciliation'].includes(domain));
   const nextMechanicsRevision = tracking.mechanicsRevision + (materialChange ? 1 : 0);
   const committedAt = timestamp(now);
-  history.push(trackedHistoryRecord({ tracking, descriptor, committedAt, base }));
-  history = bounded(history, tracking.historyLimit);
-  historyIndex = history.length - 1;
 
   next.runtimeTracking = {
     ...normalizedTracking(next.runtimeTracking, { historyLimit }),
     revision: nextRevision,
     mechanicsRevision: nextMechanicsRevision,
     historyLimit: tracking.historyLimit,
-    history,
-    historyIndex,
+    history: [],
+    historyIndex: -1,
     lastDelta: {
       ...descriptor,
       revision: nextRevision,
@@ -712,7 +680,7 @@ export function commitTrackedCampaignState({
     responseLedgerRevision: responseLedgerRevisionFromCoreProjections(base),
     recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
     sidecarJournal: [],
-    modelCallJournal: modelCallJournalFromCoreProjections(base),
+    modelCallJournal: oldRuntimeModelCallJournal(),
     pendingInteractions: cloneJson(tracking.pendingInteractions),
     endConditionLedger: cloneJson(tracking.endConditionLedger),
     activeIngressId: descriptor.ingressId || tracking.activeIngressId || null,
@@ -1273,72 +1241,17 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
   now = null,
   reason = 'Recovered prior campaign revision.'
 } = {}) {
-  const current = initializeCampaignRuntimeTracking(campaignState);
   const targetRevision = Number(revision);
-  const entry = current.runtimeTracking.history.find((item) => Number(item.revision) === targetRevision);
-  if (!entry?.snapshot) {
-    const error = new Error(`No tracked snapshot exists for revision ${targetRevision}.`);
-    error.code = 'DIRECTIVE_STATE_SNAPSHOT_NOT_FOUND';
-    throw error;
-  }
-  const restored = initializeCampaignRuntimeTracking(entry.snapshot, {
-    historyLimit: current.runtimeTracking.historyLimit
-  });
-  if (isObject(current.directiveRuntimeEvidence)) {
-    restored.directiveRuntimeEvidence = cloneJson(current.directiveRuntimeEvidence);
-  }
-  const history = cloneJson(current.runtimeTracking.history);
-  const historyIndex = history.findIndex((item) => Number(item.revision) === targetRevision);
-  const currentLedgerView = createRuntimeLedgerView(current, { runtimeOverlay: true });
-  const runtimeTrackingLedgers = runtimeTrackingLedgersFromView(current, currentLedgerView);
-  restored.runtimeTracking = {
-    ...restored.runtimeTracking,
-    revision: targetRevision,
-    history,
-    historyIndex,
-    ingressLedger: runtimeTrackingLedgers.ingressLedger,
-    responseLedger: runtimeTrackingLedgers.responseLedger,
-    responseLedgerRevision: responseLedgerRevisionFromCoreProjections(current),
-    sidecarJournal: [],
-    modelCallJournal: modelCallJournalFromCoreProjections(current),
-    lifecycleJournal: bounded([
-      ...cloneJson(current.runtimeTracking.lifecycleJournal),
-      {
-        id: `lifecycle-restore-${targetRevision}-${current.runtimeTracking.revision}`,
-        type: 'stateRevisionRestored',
-        status: 'applied',
-        authority: 'repairLifecycleProjection',
-        projectionSource: 'stateDeltaGateway',
-        compatibilityMirror: {
-          kind: 'directive.lifecycleCompatibilityMirror.v1',
-          status: 'stateRevisionRestored',
-          lifecycleId: `lifecycle-restore-${targetRevision}-${current.runtimeTracking.revision}`,
-          source: 'restoreTrackedCampaignRevision'
-        },
-        recordedAt: timestamp(now),
-        details: {
-          fromRevision: current.runtimeTracking.revision,
-          toRevision: targetRevision,
-          reason
-        }
-      }
-    ], 100),
-    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)),
-    endConditionLedger: terminalDecisionLedgerView(current),
-    activeIngressId: current.runtimeTracking.activeIngressId || null,
-    recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
-    lastDelta: {
-      source: 'recovery',
-      reason,
-      summary: reason,
-      domains: DIRECTIVE_MUTABLE_STATE_DOMAINS.filter((domain) => domain !== 'runtimeTracking'),
-      revision: targetRevision,
-      committedAt: timestamp(now),
-      stable: true
-    },
-    lastStableRevision: targetRevision
+  const label = Number.isFinite(targetRevision) ? targetRevision : revision;
+  const error = new Error(`Generic runtime history restore is retired for revision ${label}; CORE checkpoint restore is required.`);
+  error.code = 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED';
+  error.details = {
+    revision: Number.isFinite(targetRevision) ? targetRevision : null,
+    reason,
+    retiredAuthority: 'runtimeTracking.history.snapshot',
+    requiredAuthority: 'coreStoreV2.checkpoint'
   };
-  return restored;
+  throw error;
 }
 
 function lifecycleEvidenceStatus(source = {}) {
@@ -1417,79 +1330,37 @@ export function recordLifecycleEvent(campaignState, event = {}, {
 }
 
 export function recordModelCallEvent(campaignState, event = {}, {
-  limit = 200,
-  allowLegacyModelCallTelemetry = false
+  limit = 200
 } = {}) {
-  if (allowLegacyModelCallTelemetry !== true) {
-    const error = new Error('model-call old-ledger write requires explicit legacy telemetry opt-in');
-    error.code = 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE';
-    error.details = {
-      kind: 'modelCall',
-      evidence: 'missingCoreDiagnosticProjection',
-      authority: null
-    };
-    throw error;
-  }
-  return updateTracking(campaignState, (tracking) => ({
-    ...tracking,
-    modelCallJournal: bounded([
-      ...tracking.modelCallJournal,
-      {
-        id: compact(event.id) || `model-call-${tracking.modelCallJournal.length + 1}`,
-        roleId: compact(event.roleId) || null,
-        providerKind: compact(event.providerKind) || null,
-        status: compact(event.status) || (event.ok === true ? 'ok' : 'recorded'),
-        providerId: compact(event.providerId) || null,
-        model: compact(event.model) || null,
-        trigger: compact(event.trigger) || null,
-        campaignRevision: Number.isFinite(Number(event.campaignRevision)) ? Number(event.campaignRevision) : tracking.revision,
-        requestHash: compact(event.requestHash) || null,
-        parseStatus: compact(event.parseStatus) || null,
-        validationStatus: compact(event.validationStatus) || null,
-        appliedStatus: compact(event.appliedStatus) || null,
-        sanitizedReason: compact(event.sanitizedReason) || null,
-        latencyMs: Number.isFinite(Number(event.latencyMs)) ? Math.max(0, Number(event.latencyMs)) : null,
-        retryable: event.retryable === true,
-        recordedAt: event.recordedAt || new Date().toISOString(),
-        errorCode: compact(event.errorCode) || null
-      }
-    ], limit)
-  }));
+  void campaignState;
+  void event;
+  void limit;
+  const error = new Error('model-call old-ledger writes are disabled; write CORE modelCallDiagnostics instead');
+  error.code = 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE';
+  error.details = {
+    kind: 'modelCall',
+    evidence: 'coreDiagnosticProjectionRequired',
+    authority: 'coreStoreV2'
+  };
+  throw error;
 }
 
 export function recordPendingInteraction(campaignState, interaction = {}, {
   limit = 50,
   allowLegacyPendingInteractionTelemetry = false
 } = {}) {
-  const authority = pendingInteractionAuthorityFields(interaction, { allowLegacyPendingInteractionTelemetry });
-  const id = compact(interaction.id) || `interaction-${Date.now()}`;
-  return updateTracking(campaignState, (tracking) => {
-    const list = tracking.pendingInteractions.filter((entry) => entry.id !== id);
-    list.push({
-      id,
-      kind: interaction.kind || 'decision',
-      status: interaction.status || 'pending',
-      ingressId: compact(interaction.ingressId) || null,
-      turnId: compact(interaction.turnId) || null,
-      outcomeId: compact(interaction.outcomeId) || null,
-      coreTransactionId: compact(interaction.coreTransactionId) || null,
-      coreProjection: cloneJson(interaction.coreProjection || null),
-      coreCheckpointRef: cloneJson(interaction.coreCheckpointRef || interaction.metadata?.checkpoint?.coreCheckpointRef || null),
-      terminalCheckpointSettlement: cloneJson(interaction.terminalCheckpointSettlement || null),
-      repairDecision: cloneJson(interaction.repairDecision || null),
-      authority: authority.authority,
-      projectionSource: authority.projectionSource,
-      compatibilityMirror: authority.compatibilityMirror,
-      prompt: compact(interaction.prompt) || null,
-      options: cloneJson(interaction.options || []),
-      metadata: cloneJson(interaction.metadata || null),
-      details: cloneJson(interaction.details || null),
-      createdAt: interaction.createdAt || new Date().toISOString(),
-      resolvedAt: interaction.resolvedAt || null,
-      resolution: cloneJson(interaction.resolution || null)
-    });
-    return { ...tracking, pendingInteractions: bounded(list, limit) };
-  });
+  void campaignState;
+  void interaction;
+  void limit;
+  void allowLegacyPendingInteractionTelemetry;
+  const error = new Error('pending interaction old-ledger writes are disabled; write CORE pendingInteraction projections instead');
+  error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED';
+  error.details = {
+    kind: 'pendingInteraction',
+    evidence: 'corePendingInteractionProjectionRequired',
+    authority: 'coreStoreV2'
+  };
+  throw error;
 }
 
 function pendingInteractionEvidenceStatus(source = {}) {
@@ -1556,26 +1427,18 @@ function pendingInteractionAuthorityFields(source = {}, {
 export function resolvePendingInteraction(campaignState, interactionId, resolution = {}, {
   allowLegacyPendingInteractionTelemetry = false
 } = {}) {
-  const id = compact(interactionId);
-  return updateTracking(campaignState, (tracking) => ({
-    ...tracking,
-    pendingInteractions: tracking.pendingInteractions.map((entry) => {
-      if (entry.id !== id) return entry;
-      const merged = {
-          ...entry,
-          status: resolution.status || 'resolved',
-          resolvedAt: resolution.resolvedAt || new Date().toISOString(),
-          resolution: cloneJson(resolution)
-        };
-      const authority = pendingInteractionAuthorityFields(merged, { allowLegacyPendingInteractionTelemetry });
-      return {
-        ...merged,
-        authority: authority.authority,
-        projectionSource: authority.projectionSource,
-        compatibilityMirror: authority.compatibilityMirror
-      };
-    })
-  }));
+  void campaignState;
+  void interactionId;
+  void resolution;
+  void allowLegacyPendingInteractionTelemetry;
+  const error = new Error('pending interaction old-ledger resolution is disabled; write CORE pendingInteraction resolution projections instead');
+  error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED';
+  error.details = {
+    kind: 'pendingInteraction',
+    evidence: 'corePendingInteractionResolutionRequired',
+    authority: 'coreStoreV2'
+  };
+  throw error;
 }
 
 export function createStateDeltaGateway({

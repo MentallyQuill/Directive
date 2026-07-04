@@ -35,12 +35,12 @@ function compactReplacementTextRef(replacementText = null) {
 
 function findIngress(campaignState, hostMessageId, options = {}) {
   const id = compact(hostMessageId);
-  return findLedgerIngress(campaignState, { hostMessageId: id }, options);
+  return findLedgerIngress(campaignState, { hostMessageId: id }, { runtimeOverlay: true, ...options });
 }
 
 function findResponse(campaignState, hostMessageId, options = {}) {
   const id = compact(hostMessageId);
-  return findLedgerResponse(campaignState, { hostMessageId: id }, options);
+  return findLedgerResponse(campaignState, { hostMessageId: id }, { runtimeOverlay: true, ...options });
 }
 
 function sceneHandshakeCollections(campaignState = {}) {
@@ -683,15 +683,15 @@ export function createMessageReconciler({
   } = {}) {
     const state = getCampaignState();
     const explicitResponse = compact(responseId)
-      ? await findLedgerResponseAsync(state, { id: responseId }, { coreTurnStore })
+      ? await findLedgerResponseAsync(state, { id: responseId }, { coreTurnStore, runtimeOverlay: true })
       : null;
     const explicitIngress = !explicitResponse && compact(ingressId)
-      ? await findLedgerIngressAsync(state, { id: ingressId }, { coreTurnStore })
+      ? await findLedgerIngressAsync(state, { id: ingressId }, { coreTurnStore, runtimeOverlay: true })
       : null;
     const ingress = explicitIngress || (!explicitResponse
-      ? await findLedgerIngressAsync(state, { hostMessageId }, { coreTurnStore })
+      ? await findLedgerIngressAsync(state, { hostMessageId }, { coreTurnStore, runtimeOverlay: true })
       : null);
-    const response = explicitResponse || (ingress ? null : await findLedgerResponseAsync(state, { hostMessageId }, { coreTurnStore }));
+    const response = explicitResponse || (ingress ? null : await findLedgerResponseAsync(state, { hostMessageId }, { coreTurnStore, runtimeOverlay: true }));
     if (!ingress && !response) {
       const eventType = sourceMutationEventType(type);
       const eventTime = timestamp(now);
@@ -1084,8 +1084,8 @@ export function createMessageReconciler({
     visibilityMap = null
   } = {}) {
     const state = getCampaignState();
-    const ingress = await findLedgerIngressAsync(state, { hostMessageId }, { coreTurnStore });
-    const response = ingress ? null : await findLedgerResponseAsync(state, { hostMessageId }, { coreTurnStore });
+    const ingress = await findLedgerIngressAsync(state, { hostMessageId }, { coreTurnStore, runtimeOverlay: true });
+    const response = ingress ? null : await findLedgerResponseAsync(state, { hostMessageId }, { coreTurnStore, runtimeOverlay: true });
     if (!ingress && !response) {
       return {
         ok: true,

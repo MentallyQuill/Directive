@@ -1168,11 +1168,6 @@ function appendProceduralWarnings(container, pending, actions) {
   return confirmation.required === true;
 }
 
-function pendingChatInteraction(view) {
-  const interactions = view?.chatNative?.pendingInteractions || [];
-  return [...interactions].reverse().find((interaction) => interaction?.status === 'pending') || null;
-}
-
 function chatSetupRecoveryCommand(view) {
   const openingScene = view?.chatNative?.openingScene || null;
   if (openingScene?.blocked) {
@@ -1275,12 +1270,69 @@ function interactionLabel(kind) {
   return formatMissionLabel(kind, 'Campaign Decision');
 }
 
+function terminalDecisionOptionsFromDecision(decision = {}) {
+  const actions = decision?.condition?.resolutionPolicy?.actions || [
+    'replayFromCheckpoint',
+    ...(asArray(decision?.condition?.continuationFrameIds).length ? ['pushOn'] : []),
+    'keepEnding',
+    'saveTerminalBranch'
+  ];
+  const labels = {
+    replay: 'Replay from checkpoint',
+    replayFromCheckpoint: 'Replay from checkpoint',
+    pushOn: 'Push On',
+    keep: 'Keep this ending',
+    keepEnding: 'Keep this ending',
+    saveBranch: 'Save as branch',
+    saveTerminalBranch: 'Save as branch'
+  };
+  return asArray(actions).map((action) => ({
+    id: action,
+    action,
+    label: labels[action] || formatMissionLabel(action, 'Choose')
+  }));
+}
+
 function terminalDecisionRecord(view, interaction) {
   const ledger = terminalDecisionLedgerView(view?.campaignState || {});
   const decisionId = interaction?.metadata?.decisionId || interaction?.id || ledger.activeDecisionId || null;
   return asArray(ledger.decisions).find((decision) => decision.id === decisionId)
     || asArray(ledger.decisions).find((decision) => decision.id === ledger.activeDecisionId)
     || null;
+}
+
+function pendingTerminalDecisionInteraction(view) {
+  const ledger = terminalDecisionLedgerView(view?.campaignState || {});
+  const decision = asArray(ledger.decisions).find((entry) => (
+    entry?.status === 'pending'
+    && (!ledger.activeDecisionId || entry.id === ledger.activeDecisionId)
+  )) || asArray(ledger.decisions).find((entry) => entry?.status === 'pending') || null;
+  if (!decision?.id) return null;
+  return {
+    id: decision.id,
+    kind: 'terminalOutcomeDecision',
+    status: 'pending',
+    ingressId: decision.ingressId || null,
+    turnId: decision.turnId || null,
+    outcomeId: decision.outcomeId || null,
+    prompt: 'Directive Checkpoint',
+    options: terminalDecisionOptionsFromDecision(decision),
+    metadata: {
+      decisionId: decision.id,
+      terminalOutcomeId: decision.conditionId || decision.condition?.id || null,
+      terminalOutcomeBand: decision.terminalOutcomeBand || null,
+      finalCampaignBandCandidate: decision.finalCampaignBand || null,
+      reason: decision.playerFacingSummary || decision.finalCampaignBandSummary || null,
+      checkpoint: decision.checkpoint || null,
+      continuationFrameIds: asArray(decision.condition?.continuationFrameIds)
+    }
+  };
+}
+
+function pendingChatInteraction(view) {
+  const interactions = view?.chatNative?.pendingInteractions || [];
+  const pending = [...interactions].reverse().find((interaction) => interaction?.status === 'pending') || null;
+  return pending || pendingTerminalDecisionInteraction(view);
 }
 
 function terminalBranchCount(view, interaction) {

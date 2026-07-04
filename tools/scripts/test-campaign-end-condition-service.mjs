@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createCampaignEndConditionService } from '../../src/runtime/campaign-end-condition-service.mjs';
 import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
+import { terminalDecisionLedgerView } from '../../src/runtime/terminal-decision-ledger-view.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -296,8 +297,13 @@ async function detect(harness) {
   assert.equal(detected.ok, true);
   assert.equal(detected.detection.conditionId, 'terminal.ashes.breck-destroyed-objective-saved');
   assert.equal(detected.pendingInteraction.kind, 'terminalOutcomeDecision');
-  assert.equal(harness.state.runtimeTracking.pendingInteractions.length, 1);
+  assert.equal(
+    harness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'),
+    false,
+    'Terminal outcome decisions must be durable in endConditionLedger, not pendingInteractions.'
+  );
   assert.equal(harness.state.runtimeTracking.endConditionLedger.decisions.length, 1);
+  assert.equal(terminalDecisionLedgerView(harness.state).activeDecisionId, detected.pendingInteraction.id);
   assert.equal(harness.state.runtimeTracking.endConditionLedger.detections[0].authority, 'terminalDecisionProjection');
   assert.equal(harness.state.runtimeTracking.endConditionLedger.detections[0].coreProjection.kind, 'directive.terminalEndConditionLedgerProjectionRef.v1');
   assert.equal(harness.state.runtimeTracking.endConditionLedger.decisions[0].authority, 'terminalDecisionProjection');
@@ -399,9 +405,9 @@ assert.equal(
   'Terminal decision must require an existing CORE checkpoint ref instead of creating one from old snapshotBefore.'
 );
 assert.equal(
-  Object.prototype.hasOwnProperty.call(checkpointProducerHarness.state.runtimeTracking.pendingInteractions[0].metadata.checkpoint, 'coreCheckpointRef'),
+  checkpointProducerHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'),
   false,
-  'Pending terminal interaction must not carry a checkpoint ref created from old snapshotBefore.'
+  'Terminal decision checkpoint evidence must not be mirrored into pendingInteractions.'
 );
 
 const unsupportedHarness = createHarness();
@@ -453,7 +459,8 @@ const branch = await branchHarness.service.resolveDecision({
 assert.equal(branch.ok, true);
 assert.equal(branch.branch.current, false);
 assert.equal(branchHarness.savedBranches[0].options.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved');
-assert.equal(branchHarness.state.runtimeTracking.pendingInteractions[0].status, 'pending');
+assert.equal(branchHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
+assert.equal(terminalDecisionLedgerView(branchHarness.state).decisions[0].status, 'pending');
 assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords.length, 1);
 assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords[0].authority, 'terminalDecisionProjection');
 assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords[0].coreProjection.rowKind, 'branchRecord');
@@ -484,7 +491,7 @@ const pushed = await pushHarness.service.resolveDecision({
 assert.equal(pushed.ok, true);
 assert.equal(pushHarness.state.ship.status, 'lost');
 assert.equal(pushHarness.state.flags['push-on.frame'], 'survivors-after-breck-loss');
-assert.equal(pushHarness.state.runtimeTracking.pendingInteractions[0].status, 'resolved');
+assert.equal(pushHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.activeDecisionId, null);
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pushedOn');
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.status, 'pushedOn');
@@ -734,7 +741,7 @@ assert.equal(kept.ok, true);
 assert.equal(keepHarness.state.campaign.status, 'complete');
 assert.equal(keepHarness.state.campaign.finalCampaignBand, 'Partial Success');
 assert.equal(keepHarness.state.conclusion.terminalOutcome.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved');
-assert.equal(keepHarness.state.runtimeTracking.pendingInteractions[0].status, 'resolved');
+assert.equal(keepHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
 assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'keptEnding');
 assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.status, 'keptEnding');
 assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.action, 'keepEnding');
@@ -756,7 +763,7 @@ assert.equal(noConclusionHarness.persisted.length, noConclusionPersistCount);
 assert.equal(noConclusionHarness.conclusions.length, 0);
 assert.equal(noConclusionHarness.state.campaign.status, 'active');
 assert.equal(noConclusionHarness.state.conclusion?.terminalOutcome, undefined);
-assert.equal(noConclusionHarness.state.runtimeTracking.pendingInteractions[0].status, 'pending');
+assert.equal(noConclusionHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
 assert.equal(noConclusionHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pending');
 
 console.log('Campaign end-condition service tests passed: checkpoint post, branch save, Push On, replay, and keep-ending conclusion');

@@ -95,6 +95,7 @@ export function createSourceSettlementDecision(input = {}) {
 const DEFAULT_LATEST_PAIR_PROVIDER = async () => ({ operations: [] });
 const DEFAULT_RANGE_PROVIDER = async () => ({ operations: [] });
 const DEFAULT_APPLY_SETTLEMENT = async () => ({ ok: true });
+const PREFLIGHT_DIAGNOSTIC_WAIT_MS = 500;
 
 export function createSourceSettlementService({
   coreStore = null,
@@ -117,6 +118,36 @@ export function createSourceSettlementService({
       ...payload
     });
     return coreStore.appendDiagnostics(transactionId, redactedPayload);
+  }
+
+  async function appendPreflightDiagnostic(transactionId, payload = {}) {
+    let timeoutId = null;
+    const deferredDiagnostic = () => ({
+      status: 'queued',
+      reason: 'source-settlement-preflight-diagnostic-deferred',
+      diagnosticOnly: payload.diagnosticOnly === true
+    });
+    let pending = null;
+    try {
+      pending = appendDiagnostic(transactionId, payload);
+    } catch {
+      return deferredDiagnostic();
+    }
+    if (!pending || typeof pending.then !== 'function') return pending;
+    const safePending = pending.catch(() => deferredDiagnostic());
+    try {
+      return await Promise.race([
+        safePending,
+        new Promise((resolve) => {
+          timeoutId = setTimeout(() => {
+            resolve(deferredDiagnostic());
+          }, PREFLIGHT_DIAGNOSTIC_WAIT_MS);
+        })
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+      pending.catch?.(() => null);
+    }
   }
 
   async function evaluate(input = {}) {
@@ -351,7 +382,7 @@ export function createSourceSettlementService({
       reasons,
       observedAt
     });
-    decision.diagnostic = await appendDiagnostic(transactionId, {
+    decision.diagnostic = await appendPreflightDiagnostic(transactionId, {
       status: decision.status,
       severity: decision.status === 'preflightClean' ? 'info' : 'warning',
       diagnosticOnly: true,

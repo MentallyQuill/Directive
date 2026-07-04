@@ -34,7 +34,7 @@ function sanitizedClaimRecord(claim = {}) {
 }
 
 function latestContinuityReview(campaignState = {}) {
-  const runtimeLedgerView = createRuntimeLedgerView(campaignState || {});
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true });
   const recoveryRows = asArray(runtimeLedgerView.recoveryJournal);
   const response = [...asArray(runtimeLedgerView.responseLedger)].reverse()
     .find((entry) => entry?.continuityReview);

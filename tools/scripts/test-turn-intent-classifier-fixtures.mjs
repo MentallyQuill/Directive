@@ -313,4 +313,45 @@ for (const fixture of fixtures) {
   assert.match(decision.closureSignals.playerFacingReason, /closing the debrief/);
 }
 
+{
+  const calls = [];
+  const decision = await classifyChatTurn({
+    text: 'Sam acknowledged the hail, kept his hands clear of the controls, and waited for the reply.',
+    context: {},
+    generationRouter: createRouter({
+      id: 'passive-scene-beat.waits-for-reply',
+      providerResponse: {
+        classification: 'consequentialCommand',
+        responseStrategy: 'directivePosted',
+        confidence: 0.88
+      }
+    }, calls)
+  });
+  assert.equal(decision.classification, 'noDirectiveAction');
+  assert.equal(decision.responseStrategy, 'injectAndContinue');
+  assert.equal(decision.diagnostics.providerAttempted, false);
+  assert.equal(decision.diagnostics.providerSkippedReason, 'deterministic-fast-path');
+  assert.equal(calls.length, 0, 'Passive wait beats should not block on utility provider classification.');
+}
+
+{
+  const calls = [];
+  const fixture = {
+    id: 'active-hail-command.provider-review',
+    providerResponse: {
+      classification: 'routineCommand',
+      responseStrategy: 'directivePosted',
+      confidence: 0.83,
+      workerPlan: { continuity: true, promptUpdate: true, narrator: true }
+    }
+  };
+  const decision = await classifyChatTurn({
+    text: 'Sam hails the ship and asks for their reply.',
+    context: {},
+    generationRouter: createRouter(fixture, calls)
+  });
+  assert.equal(calls.length, 1, 'Active hail commands should still allow provider review.');
+  assert.equal(decision.diagnostics.providerAttempted, true);
+}
+
 console.log(`Turn intent classifier fixture tests passed: ${fixtures.length} language-diverse cases`);

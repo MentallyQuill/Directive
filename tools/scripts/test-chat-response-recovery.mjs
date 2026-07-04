@@ -17,6 +17,37 @@ import { createCoreStoreV2 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+function lastCommittedTurnProjectionFields({
+  transactionId = null,
+  turnId = null,
+  outcomeId = null,
+  status = 'mirrored'
+} = {}) {
+  const txn = String(transactionId || '').trim();
+  const turn = String(turnId || '').trim();
+  const outcome = String(outcomeId || '').trim();
+  const cleanStatus = String(status || '').trim() || 'mirrored';
+  return {
+    authority: 'compatibilityProjection',
+    projectionSource: txn ? 'coreStoreV2' : 'turnLedger',
+    compatibilityMirror: {
+      kind: 'directive.lastCommittedTurnCompatibilityMirror.v1',
+      status: cleanStatus,
+      outcomeId: outcome || null,
+      turnId: turn || null,
+      transactionId: txn || null,
+      source: 'testRecoveryFixture'
+    },
+    coreProjection: {
+      kind: 'directive.coreLastCommittedTurnProjectionRef.v1',
+      outcomeId: outcome || null,
+      turnId: turn || null,
+      transactionId: txn || null,
+      status: cleanStatus
+    }
+  };
+}
+
 function createLoggingStorage() {
   const files = new Map();
   return {
@@ -73,11 +104,31 @@ await coreTurnStore.advanceTurn(transaction.id, {
   reason: 'response-recovery-test',
   idempotencyKey: 'route-recovery'
 });
+state.turnLedger.entries.push({
+  id: 'turn-ledger-recovery',
+  turnId: 'turn-recovery',
+  outcomeId: 'outcome-recovery',
+  resultBand: 'success',
+  finalResultBand: 'success',
+  narrationStatus: 'complete',
+  responseStatus: 'failed',
+  committedAt: now(),
+  coreTransactionId: transaction.id,
+  coreTurnId: transaction.id
+});
 state.runtimeTracking.lastCommittedTurn = {
   turnId: 'turn-recovery',
   outcomeId: 'outcome-recovery',
   narrationStatus: 'complete',
-  responseStatus: 'failed'
+  responseStatus: 'failed',
+  coreTransactionId: transaction.id,
+  coreTurnId: transaction.id,
+  ...lastCommittedTurnProjectionFields({
+    transactionId: transaction.id,
+    turnId: 'turn-recovery',
+    outcomeId: 'outcome-recovery',
+    status: 'response:failed'
+  })
 };
 state = recordTurnIngress(state, {
   id: 'ingress-recovery',

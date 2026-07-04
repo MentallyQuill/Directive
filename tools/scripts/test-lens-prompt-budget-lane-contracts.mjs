@@ -432,6 +432,14 @@ const activeCastContinuityScheduler = createLensPromptScheduler({
           lensPromptBudgetLane: 'activeCast',
           hash: 'private-bronn-fact-hash',
           estimatedTokens: 30,
+          knowledgeScope: {
+            knownBy: ['hadrik-bronn'],
+            witnessedBy: ['hadrik-bronn'],
+            subjectIds: ['hadrik-bronn'],
+            disclosureState: 'private',
+            disclosureSourceFrameId: 'frame-private-bronn',
+            rawTranscript: 'Raw witness scope text must not persist.'
+          },
           text: 'Raw private continuity fact must not persist.'
         },
         {
@@ -457,9 +465,72 @@ const activeCastContinuityFlush = await activeCastContinuityScheduler.flushVisib
 const activeCastContinuityLane = activeCastContinuityFlush.promptBudgetTrace.lanes.find((lane) => lane.id === 'activeCast');
 const protectedContinuityFromFactLane = activeCastContinuityFlush.promptBudgetTrace.lanes.find((lane) => lane.id === 'protectedContinuity');
 assert.equal(activeCastContinuityLane.includedRefs.some((ref) => ref.id === 'witness.bronn.private-report'), true);
+const activeCastWitnessRef = activeCastContinuityLane.includedRefs.find((ref) => ref.id === 'witness.bronn.private-report');
+assert.deepEqual(activeCastWitnessRef.knowledgeScope.knownBy, ['hadrik-bronn']);
+assert.deepEqual(activeCastWitnessRef.knowledgeScope.witnessedBy, ['hadrik-bronn']);
+assert.deepEqual(activeCastWitnessRef.knowledgeScope.subjectIds, ['hadrik-bronn']);
+assert.equal(activeCastWitnessRef.knowledgeScope.disclosureState, 'private');
+assert.equal(activeCastWitnessRef.knowledgeScope.disclosureSourceFrameId, 'frame-private-bronn');
 assert.equal(protectedContinuityFromFactLane.includedRefs.some((ref) => ref.id === 'ship.layout.invariant'), true);
 assert.equal(JSON.stringify(activeCastContinuityFlush).includes('Raw private continuity fact'), false);
+assert.equal(JSON.stringify(activeCastContinuityFlush).includes('Raw witness scope text'), false);
 assert.equal(JSON.stringify(activeCastContinuityFlush).includes('Raw protected continuity fact'), false);
+
+const promptDiagnosticBatches = [];
+const promptDiagnosticSingles = [];
+const batchedPromptDiagnosticScheduler = createLensPromptScheduler({
+  coreStore: {
+    async appendDiagnostics(transactionId, diagnostic) {
+      promptDiagnosticSingles.push({ transactionId, diagnostic });
+      return { id: `single-${promptDiagnosticSingles.length}` };
+    },
+    async appendDiagnosticsBatch(transactionId, diagnostics) {
+      promptDiagnosticBatches.push({ transactionId, diagnostics });
+      return diagnostics.map((diagnostic, index) => ({ id: `batch-${index + 1}`, diagnostic }));
+    }
+  },
+  clock: () => '2026-07-04T13:50:00.000Z',
+  buildDirectivePromptPacket: async ({ revision, cacheKey }) => ({
+    kind: 'directive.playerSafePromptContext',
+    revision,
+    cacheKey,
+    blocks: [{
+      id: 'prompt-diagnostic-batch-block',
+      promptKey: 'directive.context.revolving',
+      text: 'Prompt diagnostic batch block.',
+      tokenEstimate: 12
+    }]
+  }),
+  installPromptPacket: async () => ({ ok: true }),
+  observeExternalPromptEnvironment: async () => ({ host: 'sillytavern', status: 'observed' })
+});
+batchedPromptDiagnosticScheduler.markDirty({ dirtyDomains: ['threadLedger'], idempotencyKey: 'prompt-diagnostic-batch-dirty' });
+const batchedPromptDiagnosticFlush = await batchedPromptDiagnosticScheduler.flushVisible({
+  transactionId: 'txn-prompt-diagnostic-batch',
+  binding: { campaignId: 'campaign-prompt-diagnostic-batch' },
+  idempotencyKey: 'prompt-diagnostic-batch-flush'
+});
+assert.equal(batchedPromptDiagnosticFlush.status, 'installed');
+assert.equal(promptDiagnosticSingles.length, 0, 'LENS flush diagnostics should not write one prompt diagnostic segment per event when batch CORE is available.');
+assert.equal(promptDiagnosticBatches.length, 1, 'LENS flush diagnostics should batch final prompt diagnostics through CORE batch append.');
+assert.deepEqual(
+  promptDiagnosticBatches[0].diagnostics.map((entry) => entry.status),
+  ['installed']
+);
+const batchedInstalledDiagnostic = promptDiagnosticBatches[0].diagnostics.find((entry) => entry.status === 'installed');
+assert.equal(Object.hasOwn(batchedInstalledDiagnostic, 'promptBudgetTrace'), false, 'Durable LENS diagnostics must not embed the full prompt budget trace.');
+assert.equal(batchedInstalledDiagnostic.promptBudgetTraceRef.hash, batchedPromptDiagnosticFlush.promptBudgetTrace.hash);
+assert.equal(batchedInstalledDiagnostic.promptBudgetTraceSummary.hash, batchedPromptDiagnosticFlush.promptBudgetTrace.hash);
+assert.equal(batchedInstalledDiagnostic.promptBudgetTraceSummary.lanes.some((lane) => Array.isArray(lane.includedRefs)), false);
+assert.equal(batchedInstalledDiagnostic.promptBudgetTraceSummary.lanes.some((lane) => Array.isArray(lane.omittedRefs)), false);
+assert.equal(batchedInstalledDiagnostic.externalPromptEnvironmentRef.status, 'observed');
+assert.equal(batchedInstalledDiagnostic.externalPromptEnvironmentTargets.unknownExternalContext.status, 'none');
+assert.equal(Object.hasOwn(batchedInstalledDiagnostic, 'rawPromptBody'), false);
+assert.equal(Object.hasOwn(batchedInstalledDiagnostic, 'rawResponse'), false);
+assert.ok(
+  Buffer.byteLength(JSON.stringify(batchedInstalledDiagnostic)) < 5000,
+  'Durable installed prompt diagnostic should stay bounded by trace summary/ref.'
+);
 
 const productionRecallPacket = await buildLensPromptPacket({
   promptInput: {
@@ -489,7 +560,14 @@ assert.equal(productionRecallPacket.recallRefs[0].hash, 'core-aux-recall-product
 assert.equal(JSON.stringify(productionRecallPacket).includes('Raw production recall'), false);
 
 let blockedInstallCount = 0;
+const blockedDiagnostics = [];
 const blockingScheduler = createLensPromptScheduler({
+  coreStore: {
+    async appendDiagnostics(transactionId, diagnostic) {
+      blockedDiagnostics.push({ transactionId, diagnostic });
+      return { id: `blocked-diagnostic-${blockedDiagnostics.length}` };
+    }
+  },
   clock: () => '2026-07-02T10:10:00.000Z',
   buildDirectivePromptPacket: async ({ revision, cacheKey }) => ({
     kind: 'directive.playerSafePromptContext',
@@ -535,5 +613,17 @@ assert.equal(blockedFlush.promptBudgetEnforcement.status, 'blocked');
 assert.deepEqual(blockedFlush.promptBudgetEnforcement.blockingLanes, ['protectedContinuity']);
 assert.equal(blockedFlush.promptBudgetTrace.lanes.find((lane) => lane.id === 'protectedContinuity').blocking, true);
 assert.equal(blockedInstallCount, 0);
+const blockedDiagnostic = blockedDiagnostics.find((entry) => entry.diagnostic.status === 'promptBudgetBlocked')?.diagnostic;
+assert.ok(blockedDiagnostic, 'Prompt budget blocked flush should write compact diagnostic evidence.');
+assert.equal(Object.hasOwn(blockedDiagnostic, 'promptBudgetTrace'), false, 'Blocked prompt diagnostic must not embed full prompt budget trace.');
+assert.equal(blockedDiagnostic.promptBudgetTraceRef.hash, blockedFlush.promptBudgetTrace.hash);
+assert.equal(blockedDiagnostic.promptBudgetTraceSummary.hash, blockedFlush.promptBudgetTrace.hash);
+assert.deepEqual(blockedDiagnostic.promptBudgetTraceSummary.blockingLaneIds, ['protectedContinuity']);
+assert.equal(blockedDiagnostic.externalPromptEnvironmentRef.status, 'observed');
+assert.equal(blockedDiagnostic.externalPromptEnvironmentTargets.unknownExternalContext.status, 'none');
+assert.ok(
+  Buffer.byteLength(JSON.stringify(blockedDiagnostic)) < 5000,
+  'Blocked prompt diagnostic should stay bounded even when full trace has protected-lane refs.'
+);
 
 console.log('LENS prompt budget lane contract tests passed.');

@@ -572,6 +572,12 @@ assert.equal(
   witnessDomainBlock.promptBudgetRefs.some((ref) => ref.id === seniorStaffScopedFact.id && ref.lensPromptBudgetLane === 'activeCast'),
   true
 );
+const bronnWitnessBudgetRef = witnessDomainBlock.promptBudgetRefs.find((ref) => ref.id === bronnScopedFact.id);
+assert.deepEqual(bronnWitnessBudgetRef.knowledgeScope.knownBy, ['hadrik-bronn']);
+assert.deepEqual(bronnWitnessBudgetRef.knowledgeScope.witnessedBy, ['hadrik-bronn']);
+assert.deepEqual(bronnWitnessBudgetRef.knowledgeScope.subjectIds, ['hadrik-bronn']);
+assert.equal(bronnWitnessBudgetRef.knowledgeScope.disclosureState, 'private');
+assert.equal(bronnWitnessBudgetRef.knowledgeScope.disclosureSourceFrameId, 'frame-private-bronn');
 assert.equal(JSON.stringify(witnessDomainBlock.promptBudgetRefs).includes('sensor archive was sealed'), false);
 
 const samPerspectiveCampaignState = {

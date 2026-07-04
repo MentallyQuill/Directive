@@ -154,22 +154,32 @@ const duplicateHostState = {
   }
 };
 assert.equal(
-  findLedgerIngress(duplicateHostState, { hostMessageId: '12' }).id,
-  'ingress-host-12-latest',
-  'Positional host message ids can be reused after SillyTavern deletes/reindexes rows; ingress lookup must prefer newest matching host id.'
+  findLedgerIngress(duplicateHostState, { hostMessageId: '12' }),
+  null,
+  'Default ingress lookup must not surface legacy compatibility rows without explicit fallback.'
 );
 assert.equal(
-  findLedgerResponse(duplicateHostState, { hostMessageId: '13' }).id,
+  findLedgerResponse(duplicateHostState, { hostMessageId: '13' }),
+  null,
+  'Default response lookup must not surface legacy compatibility rows without explicit fallback.'
+);
+assert.equal(
+  findLedgerIngress(duplicateHostState, { hostMessageId: '12' }, { legacyFallback: true }).id,
+  'ingress-host-12-latest',
+  'Explicit legacy fallback must prefer newest matching ingress host id for migration diagnostics.'
+);
+assert.equal(
+  findLedgerResponse(duplicateHostState, { hostMessageId: '13' }, { legacyFallback: true }).id,
   'response-host-13-latest',
   'Positional host message ids can be reused after SillyTavern deletes/reindexes rows; response lookup must prefer newest matching host id.'
 );
 assert.equal(
-  (await findLedgerIngressAsync(duplicateHostState, { hostMessageId: '12' })).id,
+  (await findLedgerIngressAsync(duplicateHostState, { hostMessageId: '12' }, { legacyFallback: true })).id,
   'ingress-host-12-latest',
   'Async ingress lookup must prefer newest duplicate host id.'
 );
 assert.equal(
-  (await findLedgerResponseAsync(duplicateHostState, { hostMessageId: '13' })).id,
+  (await findLedgerResponseAsync(duplicateHostState, { hostMessageId: '13' }, { legacyFallback: true })).id,
   'response-host-13-latest',
   'Async response lookup must prefer newest duplicate host id.'
 );
@@ -242,23 +252,33 @@ const duplicateHostCoreMergeState = {
 };
 assert.deepEqual(
   createRuntimeLedgerView(duplicateHostCoreMergeState).ingressLedger.map((entry) => entry.id),
-  ['ingress-host-21-stale-core', 'ingress-host-21-current'],
-  'CORE/legacy merge must not collapse different ingress transactions just because SillyTavern reused the same visible host message id.'
+  ['ingress-host-21-stale-core'],
+  'Default CORE/legacy view must not surface legacy ingress rows as authority.'
 );
 assert.deepEqual(
   createRuntimeLedgerView(duplicateHostCoreMergeState).responseLedger.map((entry) => entry.id),
-  ['response-host-22-stale-core', 'response-host-22-current'],
-  'CORE/legacy merge must not collapse different response transactions just because SillyTavern reused the same visible host message id.'
+  ['response-host-22-stale-core'],
+  'Default CORE/legacy view must not surface legacy response rows as authority.'
 );
 assert.equal(
   findLedgerIngress(duplicateHostCoreMergeState, { hostMessageId: '21' }).id,
-  'ingress-host-21-current',
-  'Ingress host-id lookup must select current legacy row when stale CORE projection shares only the positional host id.'
+  'ingress-host-21-stale-core',
+  'Default ingress host-id lookup must select CORE projection, not current legacy mirror.'
 );
 assert.equal(
   findLedgerResponse(duplicateHostCoreMergeState, { hostMessageId: '22' }).id,
-  'response-host-22-current',
-  'Response host-id lookup must select current legacy row when stale CORE projection shares only the positional host id.'
+  'response-host-22-stale-core',
+  'Default response host-id lookup must select CORE projection, not current legacy mirror.'
+);
+assert.deepEqual(
+  createRuntimeLedgerView(duplicateHostCoreMergeState, { legacyFallback: true }).ingressLedger.map((entry) => entry.id),
+  ['ingress-host-21-stale-core', 'ingress-host-21-current'],
+  'Explicit legacy fallback keeps diagnostic visibility into distinct ingress transactions with reused host ids.'
+);
+assert.deepEqual(
+  createRuntimeLedgerView(duplicateHostCoreMergeState, { legacyFallback: true }).responseLedger.map((entry) => entry.id),
+  ['response-host-22-stale-core', 'response-host-22-current'],
+  'Explicit legacy fallback keeps diagnostic visibility into distinct response transactions with reused host ids.'
 );
 
 const authoritativeOverlayState = {
@@ -348,13 +368,18 @@ const incompleteTupleMergeState = {
 };
 assert.deepEqual(
   createRuntimeLedgerView(incompleteTupleMergeState).responseLedger.map((entry) => entry.id),
-  ['response-core-host-generation', 'response-unrelated-host-generation'],
-  'CORE/legacy merge must not collapse unrelated response rows when only responseKind is shared and turn/outcome ids are absent.'
+  ['response-core-host-generation'],
+  'Default response view must not surface unrelated legacy response rows when only responseKind is shared and turn/outcome ids are absent.'
 );
 assert.equal(
   findLedgerResponse(incompleteTupleMergeState, { id: 'response-core-host-generation' }).ingressId,
   undefined,
   'Incomplete tuple matches must not leak unrelated legacy ingress/recovery context onto a CORE response projection.'
+);
+assert.deepEqual(
+  createRuntimeLedgerView(incompleteTupleMergeState, { legacyFallback: true }).responseLedger.map((entry) => entry.id),
+  ['response-core-host-generation', 'response-unrelated-host-generation'],
+  'Explicit legacy fallback still proves tuple matching does not collapse unrelated legacy response rows.'
 );
 
 const authoritative = structuredClone(state);

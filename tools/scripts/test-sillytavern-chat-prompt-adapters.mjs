@@ -246,6 +246,17 @@ assert.equal(latest.isDirectiveOwned, false);
 assert.equal(normalizeSillyTavernMessagePayload(context, 2).text.includes('telemetry'), true);
 assert.equal(normalizeSillyTavernMessagePayload(context, { messageId: '2' }).hostMessageId, 'player-1');
 assert.equal(normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-1' }).text.includes('telemetry'), true);
+const skeletalUserEventPayload = normalizeSillyTavernMessagePayload(context, {
+  index: 2,
+  messageId: 2,
+  message: { is_user: true }
+});
+assert.equal(
+  skeletalUserEventPayload.text,
+  'Preserve the telemetry and notify the Captain.',
+  'SillyTavern event wrappers that include an index but omit mes/content/text must hydrate from the current chat row.'
+);
+assert.equal(skeletalUserEventPayload.hostMessageId, 'player-1');
 assert.equal(
   normalizeSillyTavernMessagePayload(context, { messageId: '99' }),
   null,

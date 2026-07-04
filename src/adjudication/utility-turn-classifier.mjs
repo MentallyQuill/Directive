@@ -1233,6 +1233,22 @@ function hasMixedCounselAndOrderShape(text) {
   ]);
 }
 
+function isPassiveSceneBeatFastPath(text = '', deterministic = null) {
+  const normalized = compact(text);
+  if (!normalized || normalized.length > 220) return false;
+  if (deterministic?.classification !== 'noDirectiveAction') return false;
+  if (deterministic?.responseStrategy !== 'injectAndContinue') return false;
+  if (Array.isArray(deterministic?.riskSignals) && deterministic.riskSignals.length > 0) return false;
+  const lower = normalized.toLowerCase();
+  const passivePosture = /\b(?:wait(?:ed|s|ing)?|paused?|hesitat(?:ed|es|ing)?|listened?|watched?|acknowledged|nodded|kept|held)\b/i.test(normalized);
+  const responseWait = /\b(?:reply|answer|response|hail|signal|call|channel|transmission)\b/i.test(normalized);
+  const activeCommand = hasCommandShape(normalized)
+    || hasQuotedOperationalCommand(normalized)
+    || hasOperationalOrderFrame(normalized)
+    || includesAny(lower, ['i order', 'i tell', 'i ask', 'authorize', 'prepare', 'scan', 'hail them', 'open a channel']);
+  return passivePosture && responseWait && !activeCommand;
+}
+
 function hasRelationshipSensitiveShape(text) {
   const normalized = compact(text).toLowerCase();
   return includesAny(normalized, [
@@ -1271,6 +1287,7 @@ function deterministicFastPathClassification(text, context = {}, deterministic, 
   if (deterministic.classification === 'routineCommand' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'sceneColor' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'counselRequest' && deterministic.confidence >= fastPathConfidence && isExplicitCounselFastPath(text)) return deterministic;
+  if (isPassiveSceneBeatFastPath(text, deterministic)) return deterministic;
   return null;
 }
 

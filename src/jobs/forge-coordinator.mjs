@@ -40,12 +40,14 @@ function promptInstallGuardFromInput(input = {}) {
   return null;
 }
 
-async function maybeAppendDiagnostics(coreStore, transactionId, payload = {}) {
-  if (!transactionId || typeof coreStore?.appendDiagnostics !== 'function') return null;
+async function maybeAppendDiagnostics(coreStore, transactionId, payload = {}, sink = null) {
+  if (!transactionId) return null;
   const { redactedPayload } = redacted({
     type: 'forge',
-    ...payload
+    ...compactForgeDiagnosticPayload(payload)
   });
+  if (typeof sink === 'function') return sink(transactionId, redactedPayload);
+  if (typeof coreStore?.appendDiagnostics !== 'function') return null;
   return coreStore.appendDiagnostics(transactionId, redactedPayload);
 }
 
@@ -147,6 +149,76 @@ function compactProviderWorkerError(error = null) {
     code,
     message: `FORGE provider worker failed (${code}).`
   };
+}
+
+function compactForgeArrayHash(values) {
+  return Array.isArray(values) && values.length ? hashStableJson(values) : null;
+}
+
+function compactForgeWorkerResultForDiagnostic(result = {}, index = 0) {
+  const operations = Array.isArray(result.operations) ? result.operations : [];
+  const effectRefs = [
+    ...(Array.isArray(result.effectRefs) ? result.effectRefs : []),
+    ...(Array.isArray(result.backgroundEffectRefs) ? result.backgroundEffectRefs : []),
+    ...(Array.isArray(result.scenePhaseSealRefs) ? result.scenePhaseSealRefs : []),
+    ...(Array.isArray(result.pressureArcDigestRefs) ? result.pressureArcDigestRefs : []),
+    ...(Array.isArray(result.recallIndexEntryRefs) ? result.recallIndexEntryRefs : [])
+  ];
+  const promptDirtyDomains = Array.isArray(result.promptDirtyDomains) ? result.promptDirtyDomains : [];
+  const allowedRoots = Array.isArray(result.allowedRoots) ? result.allowedRoots : [];
+  return {
+    index,
+    workerId: result.workerId || result.id || result.worker || null,
+    roleId: result.roleId || result.role || null,
+    status: result.status || null,
+    operationCount: operations.length,
+    operationHash: compactForgeArrayHash(operations),
+    effectRefCount: effectRefs.length,
+    effectRefHash: compactForgeArrayHash(effectRefs),
+    promptDirtyDomainCount: promptDirtyDomains.length,
+    promptDirtyDomainHash: compactForgeArrayHash(promptDirtyDomains),
+    allowedRootCount: allowedRoots.length,
+    allowedRootHash: compactForgeArrayHash(allowedRoots),
+    resultHash: result.resultHash || hashStableJson(result),
+    diagnostics: result.diagnostics ? {
+      transportOk: result.diagnostics.transport?.ok === true,
+      featureStatus: result.diagnostics.feature?.status || null,
+      providerId: result.diagnostics.providerId || null,
+      providerKind: result.diagnostics.providerKind || null,
+      model: result.diagnostics.model || null,
+      latencyMs: Number.isFinite(Number(result.diagnostics.latencyMs)) ? Number(result.diagnostics.latencyMs) : null
+    } : null,
+    errorCode: compactProviderErrorCode(result.error?.code, null),
+    warningCount: Array.isArray(result.warnings) ? result.warnings.length : 0
+  };
+}
+
+function compactForgeWorkerResultsForDiagnostic(workerResults = []) {
+  const results = Array.isArray(workerResults) ? workerResults : [];
+  const workers = results.map(compactForgeWorkerResultForDiagnostic);
+  const statusCounts = {};
+  for (const worker of workers) {
+    const status = worker.status || 'unknown';
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  }
+  return {
+    kind: 'directive.forgeWorkerResultSummary.v1',
+    workerCount: workers.length,
+    workerResultsHash: hashStableJson(results),
+    statusCounts,
+    operationCount: workers.reduce((sum, worker) => sum + worker.operationCount, 0),
+    effectRefCount: workers.reduce((sum, worker) => sum + worker.effectRefCount, 0),
+    promptDirtyDomainCount: workers.reduce((sum, worker) => sum + worker.promptDirtyDomainCount, 0),
+    workers
+  };
+}
+
+function compactForgeDiagnosticPayload(payload = {}) {
+  if (!Array.isArray(payload.workerResults)) return payload;
+  const compacted = { ...payload };
+  compacted.workerResultSummary = compactForgeWorkerResultsForDiagnostic(payload.workerResults);
+  delete compacted.workerResults;
+  return compacted;
 }
 
 function sanitizeProviderBatchResult(result = {}) {
@@ -499,6 +571,7 @@ export function createForgeCoordinator({
   async function runProviderBatch(input = {}) {
     const jobs = Array.isArray(input.jobs) ? input.jobs : [];
     const transactionId = input.transactionId || null;
+    const appendDiagnostic = typeof input.appendDiagnostic === 'function' ? input.appendDiagnostic : null;
     const runBatch = typeof input.runProviderBatch === 'function'
       ? input.runProviderBatch
       : input.runBatch;
@@ -542,7 +615,7 @@ export function createForgeCoordinator({
         jobCount: jobs.length,
         jobs: jobs.map(compactSidecarJobPlan),
         results: batch.results.map(compactSidecarExecutionResult)
-      });
+      }, appendDiagnostic);
       const result = {
         status: 'complete',
         providerCallAttempted: true,
@@ -567,7 +640,7 @@ export function createForgeCoordinator({
         jobCount: jobs.length,
         jobs: jobs.map(compactSidecarJobPlan),
         errorCode: compactProviderErrorCode(error?.code, 'DIRECTIVE_FORGE_SIDECAR_PROVIDER_FAILED')
-      });
+      }, appendDiagnostic);
       const errorCode = compactProviderErrorCode(error?.code, 'DIRECTIVE_FORGE_SIDECAR_PROVIDER_FAILED');
       const result = {
         status: 'failed',
@@ -594,6 +667,7 @@ export function createForgeCoordinator({
   }
 
   async function settleAcceptedBatch(input = {}) {
+    const appendDiagnostic = typeof input.appendDiagnostic === 'function' ? input.appendDiagnostic : null;
     const request = normalizeForgeRunRequest({
       ...input,
       workers: Array.isArray(input.workerResults)
@@ -790,7 +864,7 @@ export function createForgeCoordinator({
         operationBundleHash: batch.operationBundleHash || hashStableJson(batch.operations),
         promptDirtyDomains: batch.promptDirtyDomains,
         workerResults
-      });
+      }, appendDiagnostic);
     } catch (error) {
       if (!background) throw error;
       warnings.push(compactNonCriticalSettlementError('diagnostics', error));
@@ -985,6 +1059,7 @@ export function createForgeCoordinator({
   }
 
   async function settleInternalBackgroundBatch(input = {}) {
+    const appendDiagnostic = typeof input.appendDiagnostic === 'function' ? input.appendDiagnostic : null;
     const transactionId = input.transactionId || input.bundle?.transactionId || input.operationBundle?.transactionId || null;
     const operationBundle = normalizeInternalBackgroundBundle({
       ...input,
@@ -1055,7 +1130,7 @@ export function createForgeCoordinator({
       workerCount,
       operationBundleHash: hashStableJson(operationBundle),
       promptDirtyDomains: operationBundle.promptDirtyDomains || []
-    });
+    }, appendDiagnostic);
     const lensResult = input.flushLens === true
       ? await maybeFlushLens(lens, {
         transactionId,

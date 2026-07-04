@@ -108,6 +108,7 @@ function buildLaneContent({
 
 function factBudgetRef(fact, sourceFrame = null) {
   const line = lineForFact(fact);
+  const scope = factKnowledgeScope(fact);
   return {
     id: fact.id,
     kind: 'directive.continuityFactRef.v1',
@@ -115,6 +116,13 @@ function factBudgetRef(fact, sourceFrame = null) {
     hash: fact.hash || hashContinuityText({ id: fact.id, summary: fact.summary }),
     estimatedTokens: estimateTokens(line),
     sourceFrameId: sourceFrame?.sourceHash || null,
+    knowledgeScope: {
+      knownBy: cloneJson(scope.knownBy),
+      witnessedBy: cloneJson(scope.witnessedBy),
+      subjectIds: cloneJson(scope.subjectIds),
+      disclosureState: scope.disclosureState,
+      disclosureSourceFrameId: scope.disclosureSourceFrameId
+    },
     lensPromptBudgetLane: isFactActorScoped(fact) ? 'activeCast' : 'protectedContinuity'
   };
 }

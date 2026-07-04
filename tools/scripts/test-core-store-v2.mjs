@@ -192,6 +192,65 @@ const replayAdvance = await coreStore.advanceTurn(transaction.id, {
 });
 assert.equal(replayAdvance.phase, 'routePending', 'same advance idempotency key should replay current transaction');
 assert.equal(coreStore.state.events.length, beforeAdvanceReplayEvents, 'same advance idempotency key must not append another event');
+const beforePendingRecordWriteStart = storage.writeLog.length;
+const pendingInteractionRef = await coreStore.recordPendingInteraction(transaction.id, {
+  id: 'interaction-29-risk',
+  kind: 'riskConfirmationNeeded',
+  ingressId: 'ingress-29',
+  turnId: 'turn-29',
+  outcomeId: 'outcome-29',
+  prompt: 'Confirm the risky order.',
+  options: [
+    { id: 'accept', label: 'Confirm' },
+    { id: 'revise', label: 'Revise' }
+  ],
+  idempotencyKey: 'pending-interaction-29-risk'
+});
+const pendingRecordWriteKeys = storage.writeLog.slice(beforePendingRecordWriteStart);
+assert.equal(pendingInteractionRef.authority, 'corePendingInteractionProjection');
+assert.equal(pendingInteractionRef.status, 'pending');
+assert.equal(pendingInteractionRef.compatibilityMirror.kind, 'directive.pendingInteractionCompatibilityMirror.v1');
+assert.equal(pendingInteractionRef.coreProjection.kind, 'directive.corePendingInteractionProjectionRef.v1');
+assert.equal(pendingInteractionRef.coreProjection.transactionId, transaction.id);
+assert.equal(pendingRecordWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'recordPendingInteraction append should write exactly one event tail');
+assert.equal(pendingRecordWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'recordPendingInteraction append should publish one save manifest');
+assert.equal(pendingRecordWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'recordPendingInteraction append should publish one campaign manifest');
+assert.equal(pendingRecordWriteKeys.length, 3, 'recordPendingInteraction append should write only event tail, save manifest, and campaign manifest');
+let pendingInteractionProjection = coreStore.readProjections().pendingInteractions.find((entry) => entry.id === 'interaction-29-risk');
+assert.equal(pendingInteractionProjection.status, 'pending');
+assert.equal(pendingInteractionProjection.kind, 'riskConfirmationNeeded');
+const beforePendingReplayEvents = coreStore.state.events.length;
+const replayPendingInteractionRef = await coreStore.recordPendingInteraction(transaction.id, {
+  id: 'interaction-29-risk',
+  kind: 'riskConfirmationNeeded',
+  ingressId: 'ingress-29',
+  idempotencyKey: 'pending-interaction-29-risk'
+});
+assert.equal(replayPendingInteractionRef.id, 'interaction-29-risk', 'same pending-interaction idempotency key should replay the projected interaction');
+assert.equal(coreStore.state.events.length, beforePendingReplayEvents, 'same pending-interaction idempotency key must not append another event');
+const beforePendingResolveWriteStart = storage.writeLog.length;
+const resolvedPendingInteraction = await coreStore.resolvePendingInteraction(transaction.id, 'interaction-29-risk', {
+  status: 'resolved',
+  action: 'accept',
+  resolvedAt: '2026-06-28T15:00:19.000Z',
+  idempotencyKey: 'pending-interaction-29-risk-resolved'
+});
+const pendingResolveWriteKeys = storage.writeLog.slice(beforePendingResolveWriteStart);
+assert.equal(resolvedPendingInteraction.status, 'resolved');
+assert.equal(resolvedPendingInteraction.resolution.action, 'accept');
+assert.equal(pendingResolveWriteKeys.filter((key) => key.includes('/events/')).length, 1, 'resolvePendingInteraction append should write exactly one event tail');
+assert.equal(pendingResolveWriteKeys.length, 3, 'resolvePendingInteraction append should write only event tail, save manifest, and campaign manifest');
+pendingInteractionProjection = coreStore.readProjections().pendingInteractions.find((entry) => entry.id === 'interaction-29-risk');
+assert.equal(pendingInteractionProjection.status, 'resolved');
+assert.equal(pendingInteractionProjection.compatibilityMirror.status, 'resolved');
+const hydratedAfterPendingInteraction = await loadCoreStoreStateV2(adapter, {
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2'
+});
+const hydratedPendingProjection = buildCoreStoreReadProjections(hydratedAfterPendingInteraction)
+  .pendingInteractions.find((entry) => entry.id === 'interaction-29-risk');
+assert.equal(hydratedPendingProjection.status, 'resolved', 'hydration should rebuild resolved pending interactions from CORE events');
+assert.equal(hydratedPendingProjection.resolution.action, 'accept', 'hydration should retain bounded pending-interaction resolution metadata');
 await assert.rejects(
   () => coreStore.commitMechanics(transaction.id, {
     baseMechanicsRevision: 99,
@@ -350,6 +409,101 @@ const replayMechanics = await coreStore.commitMechanics(transaction.id, {
 });
 assert.equal(replayMechanics.id, mechanics.id, 'same mechanics idempotency key should replay the committed turn');
 
+const checkpointSlugStorage = createLoggingStorage();
+const checkpointSlugAdapter = createLogicalStorageAdapter({ storage: checkpointSlugStorage, hostId: 'fake' });
+const checkpointSlugCoreStore = createCoreStoreV2({
+  adapter: checkpointSlugAdapter,
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  now: () => `2026-06-28T15:20:${String(tick++).padStart(2, '0')}.000Z`
+});
+const mixedCaseCheckpointTransaction = await checkpointSlugCoreStore.beginTurn({
+  id: 'frame:checkpoint-mixed-case',
+  campaignId: 'campaign-core-v2',
+  saveId: 'save-core-v2',
+  chatId: 'Directive - Ashes of Peace (Regression)',
+  hostMessageId: 'checkpoint-mixed-case',
+  textHash: 'checkpointmixedcase'
+}, {
+  transactionId: 'txn-checkpoint-mixed-case'
+});
+await checkpointSlugCoreStore.advanceTurn(mixedCaseCheckpointTransaction.id, {
+  phase: 'routePending',
+  route: 'directivePosted',
+  idempotencyKey: 'route-pending:txn-checkpoint-mixed-case'
+});
+const beforeMixedCaseCheckpointWrites = checkpointSlugStorage.writeLog.length;
+const mixedCaseCheckpointMechanics = await checkpointSlugCoreStore.commitMechanics(mixedCaseCheckpointTransaction.id, {
+  baseMechanicsRevision: checkpointSlugCoreStore.state.revisions.mechanics,
+  idempotencyKey: 'mechanics-mixed-case-checkpoint',
+  turnId: 'turn-mixed-case-checkpoint',
+  outcomeId: 'Outcome.Chat-Turn:Directive - Ashes Of Peace (Regression)',
+  summary: 'Checkpoint id is sanitized before writing the CORE checkpoint artifact.',
+  checkpointBefore: {
+    checkpointId: 'Core Mechanics Outcome: Directive - Ashes Of Peace (Regression)',
+    sourceKind: 'turnCommitCoordinator.beforeCampaignState',
+    campaignState: {
+      campaign: { id: 'campaign-core-v2' },
+      checkpointMarker: 'mixed-case-checkpoint'
+    }
+  },
+  operations: []
+});
+const mixedCaseCheckpointWrites = checkpointSlugStorage.writeLog.slice(beforeMixedCaseCheckpointWrites);
+assert.equal(
+  mixedCaseCheckpointMechanics.coreCheckpointRef.checkpointId,
+  'core-mechanics-outcome-directive-ashes-of-peace-regression'
+);
+assert.equal(
+  mixedCaseCheckpointWrites.some((key) => key.includes('/core/checkpoints/core-mechanics-outcome-directive-ashes-of-peace-regression.v2.json')),
+  true,
+  'CORE checkpoint artifact logical key must be lowercase-safe when checkpoint ids contain chat-style punctuation'
+);
+assert.equal(
+  mixedCaseCheckpointWrites.some((key) => /[A-Z]/.test(key)),
+  false,
+  'CORE checkpoint writes must not contain uppercase logical-key characters'
+);
+
+const batchDiagnosticsStorage = createLoggingStorage();
+const batchDiagnosticsAdapter = createLogicalStorageAdapter({ storage: batchDiagnosticsStorage, hostId: 'fake' });
+const batchDiagnosticsStore = createCoreStoreV2({
+  adapter: batchDiagnosticsAdapter,
+  campaignId: 'campaign-core-diagnostics-batch',
+  saveId: 'save-core-diagnostics-batch',
+  now: () => `2026-06-28T15:30:${String(tick++).padStart(2, '0')}.000Z`
+});
+const batchDiagnosticsTransaction = await batchDiagnosticsStore.beginTurn({
+  id: 'frame:diagnostics-batch',
+  campaignId: 'campaign-core-diagnostics-batch',
+  saveId: 'save-core-diagnostics-batch',
+  chatId: 'Directive - Diagnostics Batch',
+  hostMessageId: 'diagnostics-batch-source',
+  textHash: 'diagnostics-batch-hash'
+}, {
+  transactionId: 'txn-diagnostics-batch'
+});
+const beforeBatchDiagnosticsWriteStart = batchDiagnosticsStorage.writeLog.length;
+const batchDiagnostics = await batchDiagnosticsStore.appendDiagnosticsBatch(batchDiagnosticsTransaction.id, [
+  { type: 'sidecar', worker: 'continuity', status: 'queued' },
+  { type: 'sidecar', worker: 'continuity', status: 'running' },
+  { type: 'sidecar', worker: 'continuity', status: 'noChange' }
+]);
+const batchDiagnosticsWrites = batchDiagnosticsStorage.writeLog.slice(beforeBatchDiagnosticsWriteStart);
+assert.equal(batchDiagnostics.length, 3, 'CORE diagnostics batch should return every appended diagnostic.');
+assert.equal(batchDiagnosticsWrites.filter((key) => key.includes('/diagnostics/')).length, 1, 'CORE diagnostics batch should write one diagnostics segment for one flush.');
+assert.equal(batchDiagnosticsWrites.filter((key) => key.endsWith('/save-manifest.v2.json')).length, 1, 'CORE diagnostics batch should publish one save manifest.');
+assert.equal(batchDiagnosticsWrites.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'CORE diagnostics batch should publish one campaign manifest.');
+const batchDiagnosticsManifest = await loadV2SaveManifest(batchDiagnosticsAdapter, {
+  campaignId: 'campaign-core-diagnostics-batch',
+  saveId: 'save-core-diagnostics-batch',
+  layout: 'core'
+});
+assert.equal(batchDiagnosticsManifest.diagnosticsSegments.length, 1, 'CORE diagnostics batch should retain one diagnostics segment ref.');
+const batchDiagnosticsSegment = await readV2ArtifactRef(batchDiagnosticsAdapter, batchDiagnosticsManifest.diagnosticsSegments[0]);
+assert.equal(batchDiagnosticsSegment.entries.length, 3, 'CORE diagnostics batch segment should contain every diagnostic entry.');
+assert.equal(batchDiagnosticsStore.state.revisions.diagnostic, 3, 'CORE diagnostics batch should advance diagnostic revision per entry.');
+
 const beforeDiagnosticsMechanicsRevision = coreStore.state.revisions.mechanics;
 const beforeDiagnosticsRuntimeRevision = coreStore.state.revisions.runtime;
 const beforeDiagnosticsPromptRevision = coreStore.state.revisions.prompt;
@@ -450,7 +604,7 @@ const hydratedAfterResponse = await loadCoreStoreStateV2(adapter, {
 assert.equal(hydratedAfterResponse.transactions[transaction.id].phase, 'visibleResponsePosted', 'hydration should derive visible response phase from appended events');
 assert.equal(hydratedAfterResponse.transactions[transaction.id].visibleResponseRef.hostMessageId, '30', 'hydration should derive visible response host id from appended events');
 assert.equal(hydratedAfterResponse.transactions[transaction.id].visibleResponseRef.textHash, null, 'hydration should keep hash-only missing response text state without raw response text');
-assert.equal(hydratedAfterResponse.revisions.runtime, 4, 'hydration should derive runtime revision from appended response event');
+assert.equal(hydratedAfterResponse.revisions.runtime, 6, 'hydration should derive runtime revision from appended response and pending-interaction events');
 
 const manifestBeforeOutcomeReplacement = await loadV2SaveManifest(adapter, {
   campaignId: 'campaign-core-v2',

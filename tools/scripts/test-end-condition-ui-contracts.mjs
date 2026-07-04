@@ -236,7 +236,7 @@ state.campaign = {
   title: 'Ashes of Peace',
   status: 'active'
 };
-state.runtimeTracking.pendingInteractions = [cloneJson(terminalInteraction)];
+state.runtimeTracking.pendingInteractions = [];
 state.runtimeTracking.endConditionLedger = {
   schemaVersion: 1,
   activeDecisionId: 'terminal-decision-ui',
@@ -304,7 +304,7 @@ renderMissionPanel(missionBody, {
         responseStatus: 'complete'
       }
     },
-    pendingInteractions: [cloneJson(terminalInteraction)]
+    pendingInteractions: []
   },
   campaign: { saves: [] },
   activePackage: { campaign: { chapters: [] } },

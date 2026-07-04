@@ -132,7 +132,7 @@ const success = await successRuntime.startDirectiveNarration('txn-directive-1', 
       domain: 'mission',
       op: 'appendLog',
       summary: 'Committed the command decision.',
-      rawText: 'RAW_MECHANICS_PAYLOAD'
+      valueHash: hashStableJson({ text: 'RAW_MECHANICS_PAYLOAD' })
     }]
   },
   responseRef: {

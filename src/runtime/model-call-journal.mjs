@@ -21,10 +21,7 @@ function modelCallSequenceFromId(id) {
 
 export function maxModelCallEventSequence(state = null) {
   const resumeSequence = Number(state?.runtimeResume?.modelCallEventSequence || 0);
-  const journal = [
-    ...modelCallDiagnosticsFromCoreProjections(state),
-    ...(Array.isArray(state?.runtimeTracking?.modelCallJournal) ? state.runtimeTracking.modelCallJournal : [])
-  ];
+  const journal = modelCallDiagnosticsFromCoreProjections(state);
   if (!journal.length) return Number.isFinite(resumeSequence) ? resumeSequence : 0;
   return journal.reduce((max, entry) => {
     const sequence = modelCallSequenceFromId(entry?.id);
@@ -39,10 +36,7 @@ function modelCallDiagnosticsFromCoreProjections(state = null) {
 
 function modelCallIdsForDedupe(state = null) {
   return new Set([
-    ...modelCallDiagnosticsFromCoreProjections(state).map((entry) => entry?.id || entry?.modelCallId),
-    ...(Array.isArray(state?.runtimeTracking?.modelCallJournal)
-      ? state.runtimeTracking.modelCallJournal.map((entry) => entry?.id || entry?.modelCallId)
-      : [])
+    ...modelCallDiagnosticsFromCoreProjections(state).map((entry) => entry?.id || entry?.modelCallId)
   ].filter(Boolean));
 }
 

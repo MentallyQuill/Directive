@@ -92,11 +92,45 @@ import {
 import {
   hostNativeCompletionTargetOutcome
 } from './lib/sillytavern-core-proof-policy.mjs';
+import {
+  liveSmokeStrictProofFailures
+} from './lib/live-smoke-proof-policy.mjs';
 
 assert.equal(normalizeBaseUrl('http://127.0.0.1:8000///'), 'http://127.0.0.1:8000');
 assert.equal(normalizeExtensionPath('scripts/extensions/third-party/Directive/'), '/scripts/extensions/third-party/Directive');
 assert.match(createRunId(new Date('2026-06-23T12:34:56.789Z')), /^2026-06-23T12-34-56-789Z$/);
 assert.equal(PLAYWRIGHT_SELECTOR_GUIDANCE.prefer.some((entry) => /role/.test(entry)), true);
+assert.deepEqual(
+  liveSmokeStrictProofFailures({
+    strict: false,
+    generationTimingStatus: 'warning',
+    hostNativeCompletionStatus: 'warning'
+  }),
+  [],
+  'Diagnostic live smoke may report warning-only generation/host proof without failing the run.'
+);
+const strictProofFailures = liveSmokeStrictProofFailures({
+  strict: true,
+  generationTimingStatus: 'warning',
+  generationTimingProof: {
+    status: 'warning',
+    source: 'coreStoreTurnTiming',
+    checkedTurnCount: 0,
+    skippedTurnCount: 1
+  },
+  hostNativeCompletionStatus: 'warning',
+  hostNativeCompletionProof: {
+    status: 'warning',
+    source: 'coreStoreResponseLedger',
+    completedHostContinueCount: 0,
+    requiredCompletionCount: 1,
+    requiredCompletionPassCount: 0
+  }
+});
+assert.equal(strictProofFailures.length, 2);
+assert.equal(strictProofFailures.some((entry) => entry.id === 'generation-timing-proof'), true);
+assert.equal(strictProofFailures.some((entry) => entry.id === 'host-native-completion-proof'), true);
+assert.match(strictProofFailures.map((entry) => entry.summary).join('\n'), /must be pass/i);
 
 const authorNoteFixtureRoot = tempArtifactRoot('directive-author-note-fixture-');
 const dirtyUserRoot = path.join(authorNoteFixtureRoot, 'directive-soak-a');
@@ -680,7 +714,22 @@ const liveSmokeSource = fs.readFileSync(path.resolve('tools/scripts/smoke-sillyt
 const liveHarnessSource = fs.readFileSync(path.resolve('tools/scripts/lib/sillytavern-live-harness.mjs'), 'utf8');
 const messageActionLiveRunnerSource = fs.readFileSync(path.resolve('tools/scripts/run-sillytavern-message-action-live.mjs'), 'utf8');
 const generationTimingPolicySource = fs.readFileSync(path.resolve('tools/scripts/lib/generation-timing-proof-policy.mjs'), 'utf8');
+const runtimeAppSource = fs.readFileSync(path.resolve('src/runtime/runtime-app.mjs'), 'utf8');
 const architectureRedesignPlanSource = fs.readFileSync(path.resolve('docs/planning/ARCHITECTURE_REDESIGN_IMPLEMENTATION_PLAN.md'), 'utf8');
+const postSendObservationSource = liveSmokeSource.slice(
+  liveSmokeSource.indexOf("checkpoint: 'post-send-observation-scheduled'") - 4200,
+  liveSmokeSource.indexOf("checkpoint: 'post-send-observation-scheduled'")
+);
+assert.equal(
+  /await\s+app\.observeHostPlayerMessage/.test(postSendObservationSource),
+  false,
+  'Post-send smoke observation must not await the turn pipeline inside browser evaluation.'
+);
+assert.match(
+  postSendObservationSource,
+  /observeHostPlayerMessage-scheduled-nonblocking/,
+  'Post-send smoke observation should schedule direct observation nonblocking.'
+);
 assert.match(liveSmokeSource, /UI_BOOT_TIMEOUT_MS/);
 assert.match(liveSmokeSource, /directiveExtensionControlSnapshot/);
 assert.match(liveSmokeSource, /uiBootTimeoutMs/);
@@ -716,12 +765,20 @@ assert.match(liveSmokeSource, /recentWindowAfterPlayer/);
 assert.match(liveSmokeSource, /recentTail/);
 assert.match(liveSmokeSource, /generationTimingProof/);
 assert.match(liveSmokeSource, /hostNativeCompletionProof/);
+assert.match(liveSmokeSource, /liveSmokeStrictProofFailures/);
+assert.match(liveSmokeSource, /Strict live smoke requires passing persisted generation timing and host-native completion proof/);
 assert.match(liveSmokeSource, /readCoreStoreProjectionsV2/);
 assert.match(liveSmokeSource, /generationTimingProofFromCoreProjections/);
 assert.match(liveSmokeSource, /hostNativeCompletionProofFromCoreProjections/);
 assert.match(liveSmokeSource, /hostNativeCompletionTargetOutcome/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequirementProof/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequired/);
+assert.match(liveSmokeSource, /Passive bridge beat/);
+assert.match(liveSmokeSource, /lets the crew report land before making her next decision/);
+assert.match(liveSmokeSource, /hostNativeCompletionRequired: true/);
+assert.doesNotMatch(liveSmokeSource, /change course and pursue the freighter/);
+assert.match(runtimeAppSource, /enableDefaultLatestPairSettlementProvider:\s*false/);
+assert.doesNotMatch(runtimeAppSource, /enableDefaultLatestPairSettlementProvider:\s*true/);
 assert.match(liveSmokeSource, /turn: Number\.isFinite\(turn\) && turn > 0 \? turn : null/);
 assert.match(liveSmokeSource, /turn: message\.turn/);
 assert.match(liveSmokeSource, /Required host-native completion proof was not recorded/);
@@ -729,6 +786,9 @@ assert.match(liveSmokeSource, /createBrowserLogicalStorageAdapter/);
 assert.match(liveSmokeSource, /timingSource: 'coreProjection'/);
 assert.match(liveSmokeSource, /completionSource: 'coreProjection'/);
 assert.match(liveSmokeSource, /runtimeSnapshotAvailable/);
+assert.match(liveSmokeSource, /orchestratorDebug/);
+assert.match(liveSmokeSource, /debugSnapshot/);
+assert.match(liveSmokeSource, /post-send-idle-debug/);
 assert.match(liveSmokeSource, /generationTimingProofSource/);
 assert.match(liveSmokeSource, /generationTimingProofTimingSource/);
 assert.match(liveSmokeSource, /hostNativeCompletionProofSource/);
