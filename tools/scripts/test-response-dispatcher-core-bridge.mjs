@@ -1335,6 +1335,16 @@ assert.equal(visibleFailureDiagnostics[0].worker, 'visibleResponseRecord');
 assert.equal(visibleFailureDiagnostics[0].eventType, 'coreVisibleResponseRecordFailure');
 assert.equal(visibleFailureDiagnostics[0].responseId, 'response-core-visible-failure');
 assert.equal(JSON.stringify(visibleFailureDiagnostics).includes(rawVisibleFailureMessage), false);
+assert.equal(
+  JSON.stringify(visibleFailureState.runtimeTracking.responseLedger || []).includes('diagnosticCompatibilityProjection'),
+  false,
+  'CORE visible-response diagnostics must not persist diagnostic-only old responseLedger mirrors.'
+);
+assert.equal(
+  JSON.stringify(visibleFailureState.runtimeTracking.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
+  false,
+  'CORE visible-response diagnostics must stay in CORE diagnostics, not old responseLedger projection refs.'
+);
 const visibleFailureDuplicate = await visibleFailureDispatcher.dispatch({
   campaignState: visibleFailureState,
   ingressId: 'ingress-response-core-visible-failure',
@@ -1548,6 +1558,16 @@ assert.equal(failureDiagnostics[0].worker, 'hostContinueReleaseRecord');
 assert.equal(failureDiagnostics[0].eventType, 'coreHostContinueReleaseFailure');
 assert.equal(failureDiagnostics[0].responseId, 'response-core-bridge-failure');
 assert.equal(JSON.stringify(failureDiagnostics).includes(rawFailureReleaseMessage), false);
+assert.equal(
+  JSON.stringify(failureState.runtimeTracking.responseLedger || []).includes('diagnosticCompatibilityProjection'),
+  false,
+  'CORE host-release diagnostics must not persist diagnostic-only old responseLedger mirrors.'
+);
+assert.equal(
+  JSON.stringify(failureState.runtimeTracking.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
+  false,
+  'CORE host-release diagnostics must stay in CORE diagnostics, not old responseLedger projection refs.'
+);
 const failureDuplicate = await failureDispatcher.dispatch({
   campaignState: failureState,
   ingressId: 'ingress-response-core-failure',
@@ -3499,6 +3519,16 @@ assert.ok(writerThrowDiagnostic, 'REPAIR writer failures must produce compact CO
 assert.equal(writerThrowDiagnostic.status, 'failed');
 assert.equal(writerThrowDiagnostic.eventType, 'hostNativeContinuityContradiction');
 assert.equal(writerThrowDiagnostic.transactionId, writerThrowTransaction.id);
+assert.equal(
+  JSON.stringify(state.runtimeTracking.responseLedger || []).includes('diagnosticCompatibilityProjection'),
+  false,
+  'REPAIR writer diagnostics must not persist diagnostic-only old responseLedger mirrors.'
+);
+assert.equal(
+  JSON.stringify(state.runtimeTracking.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
+  false,
+  'REPAIR writer diagnostics must stay in CORE diagnostics, not old responseLedger projection refs.'
+);
 const writerThrowDuplicateDispatch = await writerThrowDispatcher.dispatch({
   campaignState: state,
   ingressId: 'ingress-response-core-writer-throw-contradiction',

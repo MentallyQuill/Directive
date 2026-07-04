@@ -84,6 +84,7 @@
     "attentionState",
     "timeLedger",
     "continuity",
+    "sceneReconciliation",
     "runtimeTracking",
     "flags"
   ],
@@ -3303,6 +3304,17 @@
         "eudora-vale"
       ]
     },
+    "sceneReconciliation": {
+      "schemaVersion": 2,
+      "markers": [],
+      "runs": [],
+      "pending": [],
+      "applied": [],
+      "rejected": [],
+      "recalculationPreviews": [],
+      "chunkCache": {},
+      "invalidations": []
+    },
     "runtimeTracking": {
       "schemaVersion": 2,
       "revision": 0,
@@ -3324,17 +3336,6 @@
         "entries": [],
         "rejected": [],
         "snapshots": []
-      },
-      "sceneReconciliation": {
-        "schemaVersion": 2,
-        "markers": [],
-        "runs": [],
-        "pending": [],
-        "applied": [],
-        "rejected": [],
-        "recalculationPreviews": [],
-        "chunkCache": {},
-        "invalidations": []
       }
     },
     "flags": {

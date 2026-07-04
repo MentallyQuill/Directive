@@ -37,12 +37,11 @@ assert.equal(state, null, 'recording without state should keep a pending event')
 
 state = trackedState();
 state = service.applyPending(state);
-assert.equal(state.runtimeTracking.modelCallJournal.length, 1);
-assert.equal(state.runtimeTracking.modelCallJournal[0].id, pending.id);
-assert.equal(state.runtimeTracking.modelCallJournal[0].recordedAt, '2026-06-26T00:00:00.000Z');
+assert.equal(state.runtimeTracking.modelCallJournal.length, 0, 'missing CORE target must not append old modelCallJournal rows');
+assert.equal(state.runtimeResume.modelCallEventSequence, 1, 'missing CORE target still advances compact resume cursor');
 
 const deduped = service.applyPending(state);
-assert.equal(deduped.runtimeTracking.modelCallJournal.length, 1, 'pending replay deduplicates by id');
+assert.equal(deduped.runtimeTracking.modelCallJournal.length, 0, 'pending replay keeps old modelCallJournal empty');
 
 state.runtimeTracking.modelCallJournal.push({
   id: 'model-call:17:existing',
@@ -104,8 +103,8 @@ const next = service.record({
   requestHash: 'def456'
 });
 assert.match(next.id, /^model-call:18:directiveAssist$/);
-assert.equal(state.runtimeTracking.modelCallJournal.at(-1).id, next.id);
-assert.equal(state.runtimeTracking.modelCallJournal.at(-1).recordedAt, '2026-06-26T00:00:01.000Z');
+assert.equal(state.runtimeTracking.modelCallJournal.at(-1).id, 'model-call:17:existing');
+assert.equal(state.runtimeResume.modelCallEventSequence, 18, 'new missing-CORE call advances cursor without old journal append');
 
 const withDifferentJournal = {
   ...state,
@@ -118,6 +117,19 @@ assert.equal(
   gameplayStateFingerprint(state),
   gameplayStateFingerprint(withDifferentJournal),
   'gameplay fingerprint ignores model-call journal churn'
+);
+
+const withDifferentResumeCursor = {
+  ...state,
+  runtimeResume: {
+    ...(state.runtimeResume || {}),
+    modelCallEventSequence: 99
+  }
+};
+assert.equal(
+  gameplayStateFingerprint(state),
+  gameplayStateFingerprint(withDifferentResumeCursor),
+  'gameplay fingerprint ignores model-call resume cursor churn'
 );
 
 const withGameplayChange = {
@@ -185,7 +197,8 @@ skipService.record({
 });
 await skipService.flushCoreDiagnostics();
 assert.equal(skippedDiagnostics.length, 0, 'missing CORE transaction should skip diagnostic mirror');
-assert.equal(skipState.runtimeTracking.modelCallJournal.length, 1, 'missing CORE transaction keeps compact legacy model-call journal fallback.');
+assert.equal(skipState.runtimeTracking.modelCallJournal.length, 0, 'missing CORE transaction must not grow old modelCallJournal fallback.');
+assert.equal(skipState.runtimeResume.modelCallEventSequence, 1, 'missing CORE transaction keeps compact resume cursor only.');
 
 let failureState = trackedState('campaign-core-diagnostics-failure');
 const failingCoreService = createRuntimeModelCallJournal({

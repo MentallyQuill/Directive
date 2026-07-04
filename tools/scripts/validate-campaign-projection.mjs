@@ -115,11 +115,12 @@ if (state.eventLedger?.schemaVersion !== 2) at('$.initialState.eventLedger.schem
 if (!Number.isInteger(state.eventLedger?.nextSequence) || state.eventLedger.nextSequence < 1) at('$.initialState.eventLedger.nextSequence','must be a positive integer');
 if ('events' in (state.eventLedger || {})) at('$.initialState.eventLedger.events','legacy events property is forbidden');
 
-requireKeys(state.runtimeTracking,['schemaVersion','revision','mechanicsRevision','stateDeltaJournal','sceneReconciliation'],'$.initialState.runtimeTracking');
+requireKeys(state.runtimeTracking,['schemaVersion','revision','mechanicsRevision','stateDeltaJournal'],'$.initialState.runtimeTracking');
 if (state.runtimeTracking?.schemaVersion !== 2) at('$.initialState.runtimeTracking.schemaVersion','must be 2');
-const reconciliation = state.runtimeTracking?.sceneReconciliation;
-requireKeys(reconciliation,['schemaVersion','markers','runs','pending','applied','rejected','recalculationPreviews','chunkCache','invalidations'],'$.initialState.runtimeTracking.sceneReconciliation');
-if (reconciliation?.schemaVersion !== 2) at('$.initialState.runtimeTracking.sceneReconciliation.schemaVersion','must be 2');
+if ('sceneReconciliation' in (state.runtimeTracking || {})) at('$.initialState.runtimeTracking.sceneReconciliation','must move to top-level sceneReconciliation');
+const reconciliation = state.sceneReconciliation;
+requireKeys(reconciliation,['schemaVersion','markers','runs','pending','applied','rejected','recalculationPreviews','chunkCache','invalidations'],'$.initialState.sceneReconciliation');
+if (reconciliation?.schemaVersion !== 2) at('$.initialState.sceneReconciliation.schemaVersion','must be 2');
 
 const forbiddenRoots = ['mainCampaign','sideMissions'];
 for (const rootName of forbiddenRoots) if (rootName in state) at(`$.initialState.${rootName}`,'legacy schema-v1 domain is forbidden');

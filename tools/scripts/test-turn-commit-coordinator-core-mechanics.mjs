@@ -73,7 +73,13 @@ function baseState() {
       ingressLedger: [{
         id: 'ingress-core-mechanics-order',
         coreTransactionId: 'txn-core-mechanics-order',
-        status: 'classified'
+        status: 'classified',
+        authority: 'coreIngressProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreIngressCompatibilityMirror.v1',
+          status: 'sourceObserved'
+        }
       }]
     }
   });

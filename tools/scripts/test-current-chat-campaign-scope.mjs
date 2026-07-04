@@ -100,6 +100,24 @@ const missionGraphs = [
     __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
       staleScopedState,
       {
+        ...staleScopedState,
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          modelCallJournal: [
+            { id: 'model-call.old' },
+            { id: 'model-call.legacy-only-extra' }
+          ]
+        }
+      },
+      { chatId: 'scope-freshness-chat' }
+    ),
+    false,
+    'Old modelCallJournal growth alone must not make an in-memory state fresher than the saved state.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      staleScopedState,
+      {
         ...richerInMemoryState,
         campaignChatBinding: {
           ...richerInMemoryState.campaignChatBinding,
@@ -234,8 +252,35 @@ const missionGraphs = [
   });
   assert.equal(
     missingMirrorAuthorityEvidence.runtimeAuthority,
+    'coreStoreV2',
+    'Missing-CORE quarantine mirrors must not prevent CORE read projections from being marked authoritative.'
+  );
+  const unmatchedCompatibilityAuthorityEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence({
+    ingressLedger: [{
+      id: 'core-ingress-authority',
+      hostMessageId: 'core-player-authority',
+      transactionId: 'txn-core-authority',
+      status: 'classified'
+    }],
+    responseLedger: [],
+    recoveryJournal: [],
+    turnLedger: { entries: [], replacementHistory: [] }
+  }, {
+    runtimeTracking: {
+      ingressLedger: [{
+        id: 'unmatched-compat-ingress-authority',
+        hostMessageId: 'unmatched-compat-player-authority',
+        status: 'classified',
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'sourceObserved' }
+      }]
+    }
+  });
+  assert.equal(
+    unmatchedCompatibilityAuthorityEvidence.runtimeAuthority,
     undefined,
-    'Tagged compatibility mirrors without matching CORE rows must still block authoritative CORE read projection markers.'
+    'Unmatched real compatibility projection rows must still block authoritative CORE markers until covered.'
   );
   const mergeCandidateEmpty = {
     runtimeTracking: {
@@ -249,6 +294,25 @@ const missionGraphs = [
     }).responseLedgerRevision,
     0,
     'Runtime freshness counters must not treat old runtimeTracking.responseLedgerRevision as CORE freshness.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.stateFreshnessCounters({
+      runtimeTracking: {
+        pendingInteractions: [{
+          id: 'silent-pending-freshness',
+          kind: 'terminalOutcomeDecision',
+          status: 'pending'
+        }, {
+          id: 'terminal-pending-freshness',
+          kind: 'terminalOutcomeDecision',
+          status: 'pending',
+          authority: 'terminalDecisionProjection',
+          compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'terminalDecisionProjection' }
+        }]
+      }
+    }).pendingInteractions,
+    1,
+    'Runtime freshness counters must count only owner-tagged pending interaction projections.'
   );
   assert.equal(
     __directiveRuntimeAppTestHooks.stateFreshnessCounters({

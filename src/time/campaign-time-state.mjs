@@ -240,7 +240,15 @@ export function normalizeCampaignTimeState(campaignState = null, {
     next.runtimeTracking.timeNormalization = {
       reason,
       repairs,
-      normalizedAt: timestamp(now)
+      normalizedAt: timestamp(now),
+      authority: 'timeNormalizationProjection',
+      projectionSource: 'campaignTimeState',
+      compatibilityMirror: {
+        kind: 'directive.timeNormalizationProjectionRef.v1',
+        reason,
+        repairCount: repairs.length,
+        repairedRoots: [...repairs]
+      }
     };
   }
 

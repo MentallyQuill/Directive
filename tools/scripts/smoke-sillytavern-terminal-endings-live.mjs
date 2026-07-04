@@ -401,7 +401,10 @@ async function liveSnapshot(page) {
     const pendingInteractions = (view?.chatNative?.pendingInteractions || tracking.pendingInteractions || [])
       .filter((entry) => entry?.status !== 'resolved');
     const activeTerminalInteraction = pendingInteractions.find((entry) => entry?.kind === 'terminalOutcomeDecision') || null;
-    const modelCalls = view?.chatNative?.modelCalls || tracking.modelCallJournal || [];
+    const modelCalls = Array.isArray(view?.chatNative?.modelCalls) ? view.chatNative.modelCalls : [];
+    const legacyModelCallTelemetry = Array.isArray(view?.chatNative?.legacyModelCallTelemetry)
+      ? view.chatNative.legacyModelCallTelemetry
+      : (Array.isArray(tracking.modelCallJournal) ? tracking.modelCallJournal : []);
     const context = globalThis.SillyTavern?.getContext?.() || {};
     const chat = Array.isArray(context.chat) ? context.chat : [];
     const messages = chat.map((message, index) => {
@@ -440,6 +443,7 @@ async function liveSnapshot(page) {
         errorCode: entry.errorCode || null
       })).slice(-20)),
       modelCallCount: modelCalls.length,
+      legacyModelCallCount: legacyModelCallTelemetry.length,
       tracking: clone(view?.chatNative?.tracking || tracking || null),
       directiveResponseKinds: messages.filter((message) => message.directiveOwned).map((message) => message.responseKind).filter(Boolean),
       recentMessages: messages.slice(-12)

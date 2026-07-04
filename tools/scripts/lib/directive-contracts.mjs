@@ -133,7 +133,8 @@ export const campaignProjectionStateDomains = [
   'values', 'directives', 'canon', 'campaignTracks', 'campaignAssets',
   'turnLedger', 'commandLog', 'ui', 'settings', 'captainState', 'worldState',
   'storyArcLedger', 'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger',
-  'threadLedger', 'eventLedger', 'attentionState', 'continuity', 'timeLedger', 'runtimeTracking', 'flags'
+  'threadLedger', 'eventLedger', 'attentionState', 'continuity', 'timeLedger',
+  'sceneReconciliation', 'runtimeTracking', 'flags'
 ];
 
 export const campaignProjectionHiddenDomains = [

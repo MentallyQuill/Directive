@@ -1,6 +1,7 @@
 import { createRepairRuntime } from './repair-runtime.mjs';
 import { createRuntimeLedgerViewAsync, readRuntimeCoreProjectionsAsync } from './runtime-ledger-view.mjs';
-import { initializeCampaignRuntimeTracking } from './state-delta-gateway.mjs';
+import { initializeCampaignRuntimeTracking, isPendingInteractionProjectionRow } from './state-delta-gateway.mjs';
+import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -78,7 +79,7 @@ function hasCoreProjections(projections = {}) {
 
 function modelCallJournalForRollbackRestore(current = {}, projections = {}) {
   const modelCallDiagnostics = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
-  if (modelCallDiagnostics.length) return cloneJson(modelCallDiagnostics);
+  if (modelCallDiagnostics.length) return [];
   return cloneJson(current.runtimeTracking?.modelCallJournal || []);
 }
 
@@ -126,8 +127,8 @@ async function restoreFromCheckpointSnapshot(campaignState = null, checkpointSta
     sidecarJournal: [],
     modelCallJournal: modelCallJournalForRollbackRestore(current, runtimeProjections),
     lifecycleJournal: cloneJson(current.runtimeTracking.lifecycleJournal),
-    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
-    endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
+    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)),
+    endConditionLedger: terminalDecisionLedgerView(current),
     activeIngressId: current.runtimeTracking.activeIngressId || null,
     recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
     lastDelta: {

@@ -93,6 +93,9 @@ assert.equal(
   true,
   'travel reducer should set only the bounded current location field'
 );
+const travelBoundaryOperation = travelBundle.operations.find((operation) => operation.path.join('.') === 'runtimeTracking.lastWorldBoundary');
+assert.equal(travelBoundaryOperation?.value?.authority, 'openWorldBoundaryProjection');
+assert.equal(travelBoundaryOperation?.value?.compatibilityMirror?.kind, 'directive.openWorldBoundaryProjectionRef.v1');
 state = travelResult.state;
 
 const timeBefore = cloneJson(state);
@@ -110,6 +113,9 @@ assert.equal(
   true,
   'time reducer should append or upsert time ledger entries without replacing the save'
 );
+const timeNormalizationOperation = timeBundle.operations.find((operation) => operation.path.join('.') === 'runtimeTracking.timeNormalization');
+assert.equal(timeNormalizationOperation?.value?.authority, 'timeNormalizationProjection');
+assert.equal(timeNormalizationOperation?.value?.compatibilityMirror?.kind, 'directive.timeNormalizationProjectionRef.v1');
 state = timeResult.state;
 
 state.questLedger = transitionQuest(state.questLedger, 'side-the-long-repair', 'available', {
@@ -225,6 +231,26 @@ assert.throws(
   () => validateOpenWorldReducerBundle(runtimeJournalBundle),
   /runtimeTracking\.ingressLedger/,
   'reducer validator rejects runtime journal writes even when represented as path segments'
+);
+
+const untaggedBoundaryBundle = cloneJson(travelBundle);
+untaggedBoundaryBundle.operations.find((operation) => operation.path.join('.') === 'runtimeTracking.lastWorldBoundary').value = {
+  id: 'legacy-boundary-without-owner'
+};
+assert.throws(
+  () => validateOpenWorldReducerBundle(untaggedBoundaryBundle),
+  /openWorldBoundaryProjection/,
+  'reducer validator rejects unowned runtimeTracking.lastWorldBoundary writes'
+);
+
+const untaggedTimeBundle = cloneJson(timeBundle);
+untaggedTimeBundle.operations.find((operation) => operation.path.join('.') === 'runtimeTracking.timeNormalization').value = {
+  reason: 'legacy-time-normalization-without-owner'
+};
+assert.throws(
+  () => validateOpenWorldReducerBundle(untaggedTimeBundle),
+  /timeNormalizationProjection/,
+  'reducer validator rejects unowned runtimeTracking.timeNormalization writes'
 );
 
 const mismatchedOperationCountBundle = cloneJson(coordinated.turnPacket.stateDelta.openWorld.reducerBundle);

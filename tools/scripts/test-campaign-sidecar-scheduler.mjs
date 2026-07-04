@@ -17,10 +17,11 @@ import {
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 function recordTurnIngress(campaignState, ingress, options = {}) {
-  return recordTurnIngressStrict(campaignState, ingress, {
-    missingCoreWriteMode: 'quarantine',
-    ...options
-  });
+  const hasCoreTransactionId = Object.prototype.hasOwnProperty.call(ingress, 'coreTransactionId');
+  return recordTurnIngressStrict(campaignState, {
+    ...ingress,
+    coreTransactionId: hasCoreTransactionId ? ingress.coreTransactionId : `txn:${ingress.id || ingress.ingressId || 'fixture'}`
+  }, options);
 }
 function assertNoTransientCommandBearingReviewTracking(scenario, reviewInputRevision, label) {
   const tracking = scenario.state.runtimeTracking || {};
@@ -397,7 +398,7 @@ function recordSourceIngress(ingressId, {
   outcomeId = null,
   sourceFrameId = null,
   sourceFrame = null,
-  coreTransactionId = null
+  coreTransactionId = undefined
 } = {}) {
   const frame = sourceFrame || (sourceFrameId ? {
     kind: 'directive.turnSourceFrame.v1',
@@ -425,7 +426,7 @@ function recordSourceIngress(ingressId, {
     rawPlayerText: `RAW_FRAME_TEXT_${ingressId}_MUST_NOT_PERSIST`,
     textPreview: `RAW_FRAME_PREVIEW_${ingressId}_MUST_NOT_PERSIST`
   } : null);
-  state = recordTurnIngress(state, {
+  const ingressRecord = {
     id: ingressId,
     hostMessageId,
     chatId: 'campaign-chat',
@@ -436,8 +437,22 @@ function recordSourceIngress(ingressId, {
     outcomeId,
     sourceFrameId,
     sourceFrame: frame,
-    coreTransactionId
-  });
+    ...(coreTransactionId === undefined ? {} : { coreTransactionId })
+  };
+  if (coreTransactionId === null) {
+    state = initializeCampaignRuntimeTracking({
+      ...cloneJson(state),
+      runtimeTracking: {
+        ...cloneJson(state.runtimeTracking || {}),
+        ingressLedger: [
+          ...(state.runtimeTracking?.ingressLedger || []),
+          ingressRecord
+        ]
+      }
+    });
+    return;
+  }
+  state = recordTurnIngress(state, ingressRecord);
 }
 
 const sourceSnapshotDemotion = __campaignSidecarSchedulerTestHooks.sourceIngressSnapshot({
@@ -1044,7 +1059,11 @@ const componentDiagnostics = coreDiagnostics.filter((entry) => entry.ingressId =
 assert.deepEqual(componentDiagnostics.map((entry) => entry.status), ['queued', 'running', 'applied']);
 assert.equal(componentDiagnostics.at(-1).forgeSettlement?.status, 'settled');
 
-recordSourceIngress('ingress-2');
+recordSourceIngress('ingress-2', {
+  outcomeId: 'outcome-ingress-2',
+  sourceFrameId: 'frame-ingress-2',
+  coreTransactionId: 'txn-ingress-2'
+});
 const journalLengthBeforeOutOfScopeNoChange = state.runtimeTracking.sidecarJournal.length;
 responses.push({
   proposal: {
@@ -1062,7 +1081,11 @@ results = await scheduler.schedule({
 assert.equal(results[0].status, 'noChange');
 assert.equal(state.runtimeTracking.revision, 0, 'Out-of-scope-only sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.length, journalLengthBeforeOutOfScopeNoChange, 'No-change sidecars must not append old v1 success journals.');
-assert.equal(coreDiagnostics.some((entry) => entry.ingressId === 'ingress-2'), false, 'Sidecars without a CORE transaction must not emit CORE diagnostics.');
+assert.deepEqual(
+  coreDiagnostics.filter((entry) => entry.ingressId === 'ingress-2').map((entry) => entry.status),
+  ['queued', 'running', 'noChange'],
+  'No-change sidecars with CORE source evidence should emit compact CORE diagnostics without old journals.'
+);
 
 recordSourceIngress('ingress-provider-failed', {
   outcomeId: 'outcome-provider-failed',
@@ -6825,46 +6848,51 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
     commandLog: { entries: [] },
     continuity: { notes: [] }
   });
-  noCoreState = recordTurnIngress(noCoreState, {
-    id: 'no-core-ingress-1',
-    hostMessageId: 'player-no-core-1',
-    chatId: 'campaign-chat',
-    campaignId: 'campaign-sidecar-no-core-test',
-    textHash: 'no-core-source-hash-1',
-    textPreview: 'Source message without CORE transaction one.',
-    status: 'committed',
-    outcomeId: 'no-core-outcome-1',
-    sourceFrameId: 'frame-no-core-1',
-    sourceFrame: {
-      kind: 'directive.turnSourceFrame.v1',
-      schemaVersion: 1,
-      id: 'frame-no-core-1',
-      campaignId: 'campaign-sidecar-no-core-test',
-      saveId: 'save-sidecar-no-core-test',
-      chatId: 'campaign-chat',
-      hostMessageId: 'player-no-core-1',
-      textHash: 'no-core-source-hash-1'
-    }
-  });
-  noCoreState = recordTurnIngress(noCoreState, {
-    id: 'no-core-ingress-2',
-    hostMessageId: 'player-no-core-2',
-    chatId: 'campaign-chat',
-    campaignId: 'campaign-sidecar-no-core-test',
-    textHash: 'no-core-source-hash-2',
-    textPreview: 'Source message without CORE transaction two.',
-    status: 'committed',
-    outcomeId: 'no-core-outcome-2',
-    sourceFrameId: 'frame-no-core-2',
-    sourceFrame: {
-      kind: 'directive.turnSourceFrame.v1',
-      schemaVersion: 1,
-      id: 'frame-no-core-2',
-      campaignId: 'campaign-sidecar-no-core-test',
-      saveId: 'save-sidecar-no-core-test',
-      chatId: 'campaign-chat',
-      hostMessageId: 'player-no-core-2',
-      textHash: 'no-core-source-hash-2'
+  noCoreState = initializeCampaignRuntimeTracking({
+    ...cloneJson(noCoreState),
+    runtimeTracking: {
+      ...cloneJson(noCoreState.runtimeTracking || {}),
+      ingressLedger: [{
+        id: 'no-core-ingress-1',
+        hostMessageId: 'player-no-core-1',
+        chatId: 'campaign-chat',
+        campaignId: 'campaign-sidecar-no-core-test',
+        textHash: 'no-core-source-hash-1',
+        textPreview: 'Source message without CORE transaction one.',
+        status: 'committed',
+        outcomeId: 'no-core-outcome-1',
+        sourceFrameId: 'frame-no-core-1',
+        sourceFrame: {
+          kind: 'directive.turnSourceFrame.v1',
+          schemaVersion: 1,
+          id: 'frame-no-core-1',
+          campaignId: 'campaign-sidecar-no-core-test',
+          saveId: 'save-sidecar-no-core-test',
+          chatId: 'campaign-chat',
+          hostMessageId: 'player-no-core-1',
+          textHash: 'no-core-source-hash-1'
+        }
+      }, {
+        id: 'no-core-ingress-2',
+        hostMessageId: 'player-no-core-2',
+        chatId: 'campaign-chat',
+        campaignId: 'campaign-sidecar-no-core-test',
+        textHash: 'no-core-source-hash-2',
+        textPreview: 'Source message without CORE transaction two.',
+        status: 'committed',
+        outcomeId: 'no-core-outcome-2',
+        sourceFrameId: 'frame-no-core-2',
+        sourceFrame: {
+          kind: 'directive.turnSourceFrame.v1',
+          schemaVersion: 1,
+          id: 'frame-no-core-2',
+          campaignId: 'campaign-sidecar-no-core-test',
+          saveId: 'save-sidecar-no-core-test',
+          chatId: 'campaign-chat',
+          hostMessageId: 'player-no-core-2',
+          textHash: 'no-core-source-hash-2'
+        }
+      }]
     }
   });
   const noCoreGateway = createStateDeltaGateway({

@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   buildSceneHandshakeSnapshot,
   sceneHandshakeHash,
+  runLatestPairSourceSettlement,
   runSceneHandshakeSettlement,
   __sceneHandshakeSettlerTestHooks
 } from '../../src/runtime/scene-handshake-settler.mjs';
@@ -329,6 +330,53 @@ assert.equal(
   'Scene Handshake pending recovery count must come from CORE projection rows, not raw legacy rows.'
 );
 
+const scenePendingSnapshotHarness = createHarness('scene-pending-snapshot');
+scenePendingSnapshotHarness.state = {
+  ...scenePendingSnapshotHarness.state,
+  sceneReconciliation: {
+    pending: [{ id: 'top-scene-pending', status: 'pending' }]
+  },
+  runtimeTracking: {
+    ...scenePendingSnapshotHarness.state.runtimeTracking,
+    sceneReconciliation: {
+      pending: [
+        { id: 'nested-scene-pending-1', status: 'pending' },
+        { id: 'nested-scene-pending-2', status: 'pending' }
+      ]
+    }
+  }
+};
+const scenePendingSnapshot = buildSceneHandshakeSnapshot({
+  campaignState: scenePendingSnapshotHarness.state,
+  previousAssistantMessage: assistantMessage,
+  currentPlayerMessage: playerMessage,
+  chatId: scenePendingSnapshotHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-sre-pending-snapshot',
+  recentMessages: [assistantMessage, playerMessage]
+});
+assert.equal(
+  scenePendingSnapshot.safety.pendingSceneReconciliationCount,
+  1,
+  'Scene Handshake pending scene count must use top-level SRE state only.'
+);
+scenePendingSnapshotHarness.state = {
+  ...scenePendingSnapshotHarness.state,
+  sceneReconciliation: undefined
+};
+const nestedOnlyScenePendingSnapshot = buildSceneHandshakeSnapshot({
+  campaignState: scenePendingSnapshotHarness.state,
+  previousAssistantMessage: assistantMessage,
+  currentPlayerMessage: playerMessage,
+  chatId: scenePendingSnapshotHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-nested-sre-pending-snapshot',
+  recentMessages: [assistantMessage, playerMessage]
+});
+assert.equal(
+  nestedOnlyScenePendingSnapshot.safety.pendingSceneReconciliationCount,
+  0,
+  'Scene Handshake safety must ignore nested runtimeTracking.sceneReconciliation pending rows.'
+);
+
 const terminalHarness = createHarness('terminal-sre-latest-pair');
 const terminalProviderCalls = [];
 let terminalLegacyGenerationCalls = 0;
@@ -559,6 +607,33 @@ assert.equal(terminalNoChange.sourceSettlement.status, 'noChange');
 assert.equal(terminalNoChange.sourceSettlement.applied, false);
 assert.equal(terminalNoChangeLegacyGenerationCalls, 0);
 assert.equal(terminalNoChangeHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+
+const strictLatestPairHarness = createHarness('strict-latest-pair-no-provider');
+let strictLatestPairLegacyGenerationCalls = 0;
+const strictLatestPairNoProvider = await runLatestPairSourceSettlement({
+  campaignState: strictLatestPairHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: strictLatestPairHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-strict-latest-pair-no-provider',
+  generationRouter: {
+    async generate() {
+      strictLatestPairLegacyGenerationCalls += 1;
+      throw new Error('strict latest-pair source settlement must not call legacy Scene Handshake provider');
+    }
+  },
+  stateDeltaGateway: strictLatestPairHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(strictLatestPairHarness, assistantMessage, playerMessage, 'strict-latest-pair-no-provider'),
+  now: strictLatestPairHarness.now
+});
+assert.equal(strictLatestPairNoProvider.attempted, true);
+assert.equal(strictLatestPairNoProvider.ok, false);
+assert.equal(strictLatestPairNoProvider.sourceSettlement.status, 'repairRequired');
+assert.equal(strictLatestPairNoProvider.sourceSettlement.providerCalled, false);
+assert.equal(strictLatestPairNoProvider.sourceSettlement.applied, false);
+assert.equal(strictLatestPairNoProvider.sourceSettlement.reasons.includes('source-settlement-latest-pair-unavailable'), true);
+assert.equal(strictLatestPairLegacyGenerationCalls, 0);
+assert.equal(strictLatestPairHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
 
 const terminalTimeHarness = createHarness('terminal-sre-time-advance');
 const terminalTimeAssistant = {

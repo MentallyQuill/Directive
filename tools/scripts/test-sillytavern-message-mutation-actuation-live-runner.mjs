@@ -544,6 +544,16 @@ for (const [label, source] of [['edit', editRunnerSource], ['delete', deleteRunn
   );
   assert.match(
     source,
+    /const\s+reconciliation\s*=\s*view\?\.campaignState\?\.sceneReconciliation\s*\|\|\s*\{\}/,
+    `${label} runner must report Scene Reconciliation from top-level SRE state only.`
+  );
+  assert.doesNotMatch(
+    source,
+    /tracking\.sceneReconciliation|runtimeTracking\?\.sceneReconciliation/,
+    `${label} runner must not report nested runtimeTracking.sceneReconciliation as live SRE proof.`
+  );
+  assert.match(
+    source,
     /triggerPostActuationReobserve[\s\S]*handleHostMessage/,
     `${label} runner must explicitly record a post-actuation runtime reobserve when the native SillyTavern event does not arrive.`
   );

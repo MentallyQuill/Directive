@@ -488,7 +488,7 @@ export function buildSceneHandshakeSnapshot({
       currentChatGuardStatus: 'clean',
       saveGuardStatus: 'clean',
       pendingRecoveryCount: asArray(runtimeLedgerView.recoveryJournal).filter((entry) => !['resolved', 'applied'].includes(entry?.status)).length,
-      pendingSceneReconciliationCount: asArray(state.runtimeTracking?.sceneReconciliation?.pending).length,
+      pendingSceneReconciliationCount: asArray(state.sceneReconciliation?.pending).length,
       staleSourceWarnings: []
     }
   };
@@ -1650,6 +1650,32 @@ function providerFailureFallbackSettlement(snapshot = {}) {
   };
 }
 
+function sceneHandshakeLedgerAuthority({
+  settlementId,
+  snapshot,
+  status = null,
+  disposition = null,
+  operationCount = 0
+} = {}) {
+  return {
+    authority: 'sreSceneHandshakeProjection',
+    projectionSource: 'sourceSettlementLatestPair',
+    compatibilityMirror: {
+      kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+      settlementId: compact(settlementId),
+      campaignId: compact(snapshot?.envelope?.campaignId) || null,
+      saveId: compact(snapshot?.envelope?.saveId) || null,
+      chatId: compact(snapshot?.envelope?.chatId) || null,
+      previousAssistantHostMessageId: compact(snapshot?.source?.previousAssistant?.hostMessageId) || null,
+      currentPlayerHostMessageId: compact(snapshot?.source?.currentPlayer?.hostMessageId) || null,
+      sourceRangeHash: compact(snapshot?.source?.sourceRangeHash) || null,
+      status: compact(status) || null,
+      disposition: compact(disposition) || null,
+      operationCount: Math.max(0, Number(operationCount) || 0)
+    }
+  };
+}
+
 function sceneHandshakeLedgerRecord({
   settlementId,
   idempotencyKey,
@@ -1667,6 +1693,13 @@ function sceneHandshakeLedgerRecord({
   modelRoleId = ROLE_ID,
   recordedAt = null
 }) {
+  const authority = sceneHandshakeLedgerAuthority({
+    settlementId,
+    snapshot,
+    status,
+    disposition,
+    operationCount: operations.length
+  });
   return {
     id: settlementId,
     idempotencyKey,
@@ -1698,6 +1731,9 @@ function sceneHandshakeLedgerRecord({
     parseStatus: parse?.ok === false ? 'failed' : (parse ? 'ok' : null),
     appliedRevision: applied?.revision || null,
     appliedMechanicsRevision: applied?.mechanicsRevision || null,
+    authority: authority.authority,
+    projectionSource: authority.projectionSource,
+    compatibilityMirror: authority.compatibilityMirror,
     error: error ? {
       code: error.code || 'DIRECTIVE_SCENE_HANDSHAKE_FAILED',
       message: compact(error.message || String(error), 300)
@@ -2183,7 +2219,8 @@ export async function runSceneHandshakeSettlement({
   latestPairSourceFrame = null,
   packageData = null,
   coreStore = null,
-  now = null
+  now = null,
+  allowLegacySceneHandshakeFallback = true
 } = {}) {
   if (!campaignState || !currentPlayerMessage?.text) {
     return { attempted: false, reason: 'missing-state-or-message', campaignState };
@@ -2257,6 +2294,22 @@ export async function runSceneHandshakeSettlement({
     now
   });
   if (terminalSourceSettlement) return terminalSourceSettlement;
+  if (!allowLegacySceneHandshakeFallback) {
+    return {
+      attempted: true,
+      ok: false,
+      disposition: 'repairRequired',
+      promptDirty: false,
+      sourceSettlement: {
+        status: 'repairRequired',
+        providerCalled: false,
+        applied: false,
+        reasons: ['source-settlement-latest-pair-unavailable']
+      },
+      reasons: ['source-settlement-latest-pair-unavailable'],
+      campaignState
+    };
+  }
   if (!generationRouter?.generate) {
     return {
       attempted: false,
@@ -2516,6 +2569,13 @@ export async function runSceneHandshakeSettlement({
     timeAdvance: cloneJson(timeAdvance.proposal || null),
     timeBoundary: cloneJson(timeAdvance.boundary?.event || null)
   };
+}
+
+export async function runLatestPairSourceSettlement(options = {}) {
+  return runSceneHandshakeSettlement({
+    ...options,
+    allowLegacySceneHandshakeFallback: false
+  });
 }
 
 export const __sceneHandshakeSettlerTestHooks = Object.freeze({

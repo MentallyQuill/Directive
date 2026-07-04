@@ -24,8 +24,12 @@ import {
   createRepairCommandBoundary
 } from '../../src/runtime/repair-command-boundary.mjs';
 import {
-  createRuntimeLedgerView
+  createRuntimeLedgerView,
+  readRuntimeCoreProjections
 } from '../../src/runtime/runtime-ledger-view.mjs';
+import {
+  terminalDecisionLedgerView
+} from '../../src/runtime/terminal-decision-ledger-view.mjs';
 import {
   createSourceSettlementService
 } from '../../src/runtime/source-settlement-service.mjs';
@@ -95,13 +99,28 @@ assert.match(
 );
 assert.match(
   repairCommandBoundarySource,
-  /function\s+modelCallJournalForRollbackRestore[\s\S]*?projections\.modelCallDiagnostics[\s\S]*?if\s*\(modelCallDiagnostics\.length\)\s*return\s+cloneJson\(modelCallDiagnostics\)[\s\S]*?runtimeTracking\?\.modelCallJournal[\s\S]*?modelCallJournal:\s*modelCallJournalForRollbackRestore\(current,\s*runtimeProjections\)/,
-  'REPAIR rollback restore must prefer CORE model-call diagnostics before carrying old modelCallJournal telemetry.'
+  /function\s+modelCallJournalForRollbackRestore[\s\S]*?projections\.modelCallDiagnostics[\s\S]*?if\s*\(modelCallDiagnostics\.length\)\s*return\s+\[\][\s\S]*?runtimeTracking\?\.modelCallJournal[\s\S]*?modelCallJournal:\s*modelCallJournalForRollbackRestore\(current,\s*runtimeProjections\)/,
+  'REPAIR rollback restore must keep CORE model-call diagnostics out of old modelCallJournal while preserving no-CORE legacy telemetry.'
 );
 assert.match(
   repairCommandBoundarySource,
   /function\s+responseLedgerRevisionForRollbackRestore[\s\S]*?projections\.responseLedgerRevision[\s\S]*?responseLedgerRevision:\s*responseLedgerRevisionForRollbackRestore\(runtimeProjections\)/,
   'REPAIR rollback restore must derive responseLedgerRevision from CORE projections, not old runtimeTracking.'
+);
+assert.match(
+  repairCommandBoundarySource,
+  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?endConditionLedger:\s*terminalDecisionLedgerView\(current\)/,
+  'REPAIR rollback restore must filter terminal decision ledger rows through the shared projection view.'
+);
+assert.match(
+  repairCommandBoundarySource,
+  /isPendingInteractionProjectionRow[\s\S]*?from\s+['"]\.\/state-delta-gateway\.mjs['"][\s\S]*?pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions\.filter\(isPendingInteractionProjectionRow\)\)/,
+  'REPAIR rollback restore must filter pending interactions through the shared owner projection view.'
+);
+assert.equal(
+  /pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions\)|endConditionLedger:\s*cloneJson\(current\.runtimeTracking\.endConditionLedger\)/.test(repairCommandBoundarySource),
+  false,
+  'REPAIR rollback restore must not copy raw old pendingInteractions or terminal end-condition ledger rows.'
 );
 assert.equal(
   /responseLedgerRevision:\s*Math\.max\(0,\s*Number\(current\.runtimeTracking\.responseLedgerRevision\)/.test(repairCommandBoundarySource),
@@ -116,6 +135,10 @@ assert.equal(
 
 const stateDeltaGatewaySource = readFileSync(
   new URL('../../src/runtime/state-delta-gateway.mjs', import.meta.url),
+  'utf8'
+);
+const terminalDecisionLedgerViewSource = readFileSync(
+  new URL('../../src/runtime/terminal-decision-ledger-view.mjs', import.meta.url),
   'utf8'
 );
 const activeSaveFacadeSource = readFileSync(
@@ -146,6 +169,10 @@ const sceneHandshakeSettlerSource = readFileSync(
   new URL('../../src/runtime/scene-handshake-settler.mjs', import.meta.url),
   'utf8'
 );
+const sourceSettlementLatestPairSource = readFileSync(
+  new URL('../../src/runtime/source-settlement-latest-pair.mjs', import.meta.url),
+  'utf8'
+);
 const continuityFactIndexSource = readFileSync(
   new URL('../../src/continuity/fact-index.mjs', import.meta.url),
   'utf8'
@@ -160,6 +187,34 @@ const playerSafePromptContextBuilderSource = readFileSync(
 );
 const continuityProjectionMatrixSource = readFileSync(
   new URL('../../src/continuity/projection-matrix.mjs', import.meta.url),
+  'utf8'
+);
+const directorCoordinatorSource = readFileSync(
+  new URL('../../src/directors/director-coordinator.mjs', import.meta.url),
+  'utf8'
+);
+const reactionEngineSource = readFileSync(
+  new URL('../../src/world/reaction-engine.mjs', import.meta.url),
+  'utf8'
+);
+const campaignTimeStateSource = readFileSync(
+  new URL('../../src/time/campaign-time-state.mjs', import.meta.url),
+  'utf8'
+);
+const openWorldEventReducersSource = readFileSync(
+  new URL('../../src/directors/open-world-event-reducers.mjs', import.meta.url),
+  'utf8'
+);
+const directiveContractsSource = readFileSync(
+  new URL('./lib/directive-contracts.mjs', import.meta.url),
+  'utf8'
+);
+const campaignProjectionSchemaSource = readFileSync(
+  new URL('../../schemas/campaign/campaign-state-projection.schema.json', import.meta.url),
+  'utf8'
+);
+const campaignProjectionValidatorSource = readFileSync(
+  new URL('./validate-campaign-projection.mjs', import.meta.url),
   'utf8'
 );
 assert.equal(
@@ -184,8 +239,28 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
+  /function\s+compactSceneReconciliationSnapshot[\s\S]*?normalizedSceneReconciliationLedger\(input,\s*defaults\)[\s\S]*?sanitizeRuntimeLedgerPayload\(ledger\)[\s\S]*?runs:\s*\[\][\s\S]*?pending:\s*\[\][\s\S]*?chunkCache:\s*\[\][\s\S]*?invalidations:\s*\[\][\s\S]*?function\s+createCampaignStateSnapshot[\s\S]*?snapshot\.sceneReconciliation\s*=\s*compactSceneReconciliationSnapshot\(sceneReconciliationInput,\s*defaults\.sceneReconciliation\)/,
+  'State history snapshots must compact top-level Scene Reconciliation ledgers instead of carrying raw SRE payload arrays.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+hasCoreRuntimeAuthority[\s\S]*?runtimeAuthority\s*===\s*['"]coreStoreV2['"][\s\S]*?function\s+trackedHistoryRecord[\s\S]*?directive\.coreRuntimeHistorySnapshotRef\.v1[\s\S]*?snapshot:\s*createCampaignStateSnapshot\(base\)[\s\S]*?history\.push\(trackedHistoryRecord/,
+  'CORE-authoritative tracked commits must store compact history refs instead of full old snapshots.'
+);
+assert.match(
+  stateDeltaGatewaySource,
   /function\s+restoreTrackedCampaignRevision[\s\S]*?const\s+currentLedgerView\s*=\s*createRuntimeLedgerView\(current,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?const\s+runtimeTrackingLedgers\s*=\s*runtimeTrackingLedgersFromView\(current,\s*currentLedgerView\)[\s\S]*?ingressLedger:\s*runtimeTrackingLedgers\.ingressLedger[\s\S]*?responseLedger:\s*runtimeTrackingLedgers\.responseLedger[\s\S]*?recoveryJournal:\s*runtimeTrackingLedgers\.recoveryJournal/,
   'Generic state restore must keep only hot overlay rows in old runtimeTracking ledgers while CORE rows stay in the ledger view.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+restoreTrackedCampaignRevision[\s\S]*?pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions\.filter\(isPendingInteractionProjectionRow\)\)[\s\S]*?endConditionLedger:\s*terminalDecisionLedgerView\(current\)/,
+  'Generic state restore must carry pending/terminal mirrors through owner projection filters.'
+);
+assert.equal(
+  /function\s+restoreTrackedCampaignRevision[\s\S]*?pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions\)|function\s+restoreTrackedCampaignRevision[\s\S]*?endConditionLedger:\s*cloneJson\(current\.runtimeTracking\.endConditionLedger\)/.test(stateDeltaGatewaySource),
+  false,
+  'Generic state restore must not raw-copy old pendingInteractions or terminal endConditionLedger mirrors.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -194,14 +269,190 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+modelCallJournalFromCoreProjections[\s\S]*?readRuntimeCoreProjections\(campaignState\)[\s\S]*?projections\.modelCallDiagnostics[\s\S]*?if\s*\(modelCallDiagnostics\.length\)\s*return\s+cloneJson\(modelCallDiagnostics\)[\s\S]*?runtimeTracking\?\.modelCallJournal[\s\S]*?modelCallJournal:\s*modelCallJournalFromCoreProjections\(base\)[\s\S]*?modelCallJournal:\s*modelCallJournalFromCoreProjections\(current\)/,
-  'Generic state commit/restore must prefer CORE model-call diagnostics before carrying old modelCallJournal telemetry.'
+  /function\s+modelCallJournalFromCoreProjections[\s\S]*?readRuntimeCoreProjections\(campaignState\)[\s\S]*?projections\.modelCallDiagnostics[\s\S]*?if\s*\(modelCallDiagnostics\.length\)\s*return\s+\[\][\s\S]*?runtimeTracking\?\.modelCallJournal[\s\S]*?modelCallJournal:\s*modelCallJournalFromCoreProjections\(base\)[\s\S]*?modelCallJournal:\s*modelCallJournalFromCoreProjections\(current\)/,
+  'Generic state commit/restore must keep CORE model-call diagnostics out of old modelCallJournal while preserving no-CORE legacy telemetry.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+compactModelCallTelemetryRows[\s\S]*?roleId[\s\S]*?requestHash[\s\S]*?errorCode[\s\S]*?modelCallJournal:\s*compactModelCallTelemetryRows\(input\.modelCallJournal\)/,
+  'Runtime tracking initialization must compact old modelCallJournal telemetry instead of cloning raw rows.'
+);
+assert.equal(
+  /function\s+compactModelCallTelemetryRows[\s\S]*?(prompt|response|metadata|providerPayload)[\s\S]*?function\s+normalizedTracking/.test(stateDeltaGatewaySource),
+  false,
+  'Model-call init demotion must not preserve raw prompt, response, metadata, or provider payload fields.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /const\s+RAW_RUNTIME_LEDGER_PAYLOAD_KEYS[\s\S]*?providerPayload[\s\S]*?replacementTextProjectionFields[\s\S]*?function\s+compactRuntimeLedgerRows[\s\S]*?sanitizeRuntimeLedgerPayload[\s\S]*?replacementTextProjectionFields\(entry\)[\s\S]*?ingressLedger:\s*compactRuntimeLedgerRows\(input\.ingressLedger\)[\s\S]*?responseLedger:\s*compactRuntimeLedgerRows\(input\.responseLedger\)/,
+  'Runtime tracking initialization must compact ingress/response ledgers instead of cloning raw bridge payloads.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+compactRuntimeHistory[\s\S]*?sanitizeRuntimeLedgerPayload[\s\S]*?createCampaignStateSnapshot\(entry\.snapshot\)[\s\S]*?function\s+normalizedTracking[\s\S]*?const\s+historyLimit\s*=\s*defaults\.historyLimit[\s\S]*?const\s+history\s*=\s*bounded\(compactRuntimeHistory\(input\.history\),\s*historyLimit\)[\s\S]*?historyLimit,[\s\S]*?historyIndex,[\s\S]*?history,/,
+  'Runtime tracking initialization must compact and bound imported old history entries instead of cloning raw snapshots.'
+);
+assert.equal(
+  /historyLimit:\s*Math\.max\(2,\s*Number\(input\.historyLimit/.test(stateDeltaGatewaySource),
+  false,
+  'Runtime tracking initialization must not preserve old runtimeTracking.historyLimit as active retention policy.'
+);
+assert.equal(
+  /ingressLedger:\s*Array\.isArray\(input\.ingressLedger\)\s*\?\s*cloneJson\(input\.ingressLedger\)|responseLedger:\s*Array\.isArray\(input\.responseLedger\)\s*\?\s*cloneJson\(input\.responseLedger\)/.test(stateDeltaGatewaySource),
+  false,
+  'Runtime tracking initialization must not clone raw ingress/response ledgers.'
+);
+assert.equal(
+  /history:\s*Array\.isArray\(input\.history\)\s*\?\s*cloneJson\(input\.history\)/.test(stateDeltaGatewaySource),
+  false,
+  'Runtime tracking initialization must not clone raw old history entries.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+createCampaignStateSnapshot[\s\S]*?lifecycleJournal:\s*\[\][\s\S]*?sceneReconciliation:\s*cloneJson\(defaults\.sceneReconciliation\)[\s\S]*?sceneHandshake:\s*cloneJson\(defaults\.sceneHandshake\)/,
+  'State history snapshots must strip scene/lifecycle ledgers so old runtimeTracking does not carry large SRE payloads.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /DIRECTIVE_MUTABLE_STATE_DOMAINS[\s\S]*['"]sceneReconciliation['"][\s\S]*function\s+initializeCampaignRuntimeTracking[\s\S]*sceneReconciliation:\s*normalizedSceneReconciliationLedger\(sceneReconciliationInput,\s*runtimeTracking\.sceneReconciliation\)/,
+  'State gateway must treat sceneReconciliation as a top-level mutable SRE ledger with old runtimeTracking import migration.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /const\s+materialChange\s*=\s*descriptor\.domains\.some\(\(domain\)\s*=>\s*!\[['"]runtimeTracking['"],\s*['"]sceneReconciliation['"]\]\.includes\(domain\)\)/,
+  'Scene Reconciliation ledger writes must not advance mechanics revisions.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?function\s+normalizedEndConditionLedger[\s\S]*?terminalDecisionLedgerView\(\s*\{[\s\S]*?endConditionLedger:\s*input/,
+  'Runtime tracking initialization must use the shared terminal decision ledger projection view.'
+);
+assert.match(
+  terminalDecisionLedgerViewSource,
+  /function\s+isTerminalDecisionProjectionRow[\s\S]*?terminalDecisionProjection[\s\S]*?directive\.terminalEndConditionLedgerProjectionRef\.v1[\s\S]*?rowKind[\s\S]*?terminalDecisionLedgerView[\s\S]*?detections\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]detection['"]\)\)[\s\S]*?decisions\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]decision['"]\)\)[\s\S]*?branchRecords\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]branchRecord['"]\)\)[\s\S]*?continuationFrames\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]continuationFrame['"]\)\)/,
+  'Shared terminal decision ledger view must drop untagged terminal end-condition ledger rows.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+isSceneReconciliationProjectionLedger[\s\S]*?sreSceneReconciliationProjection[\s\S]*?directive\.sceneReconciliationLedgerProjectionRef\.v1[\s\S]*?function\s+normalizedSceneReconciliationLedger[\s\S]*?if\s*\(\s*!isSceneReconciliationProjectionLedger\(input\)\s*\)\s*return\s+cloneJson\(defaults\)/,
+  'Runtime tracking initialization must drop untagged Scene Reconciliation ledgers.'
+);
+assert.match(
+  directiveContractsSource,
+  /campaignProjectionStateDomains[\s\S]*['"]sceneReconciliation['"][\s\S]*['"]runtimeTracking['"]/,
+  'Campaign projection domains must expose sceneReconciliation as a top-level state domain before runtimeTracking.'
+);
+assert.match(
+  campaignProjectionSchemaSource,
+  /"required":\s*\[[^\]]*"sceneReconciliation"[^\]]*"runtimeTracking"[\s\S]*"sceneReconciliation":\s*\{[\s\S]*"required":\s*\[[^\]]*"markers"[^\]]*"invalidations"/,
+  'Campaign projection schema must require top-level sceneReconciliation.'
+);
+assert.equal(
+  /"runtimeTracking"\s*:\s*\{[\s\S]*?"required"\s*:\s*\[[^\]]*"sceneReconciliation"/.test(campaignProjectionSchemaSource),
+  false,
+  'Campaign projection schema must not require sceneReconciliation under runtimeTracking.'
+);
+assert.match(
+  campaignProjectionValidatorSource,
+  /if\s*\(\s*['"]sceneReconciliation['"]\s+in\s+\(state\.runtimeTracking\s*\|\|\s*\{\}\)\)\s*at\(['"]\$\.initialState\.runtimeTracking\.sceneReconciliation['"]/,
+  'Campaign projection validator must reject runtimeTracking.sceneReconciliation in bundled projections.'
+);
+assert.equal(
+  /sceneReconciliation\s*\|\|\s*(?:state|current|next)?\.?runtimeTracking\??\.sceneReconciliation|runtimeTracking\??\.sceneReconciliation/.test(
+    `${directorCoordinatorSource}\n${reactionEngineSource}`
+  ),
+  false,
+  'Open-world director/reaction paths must not promote nested runtimeTracking.sceneReconciliation into top-level SRE authority.'
+);
+const openWorldInvalidationBody = /export\s+function\s+invalidateOpenWorldCausalityForReconciliation[\s\S]*?\n\}\n\nexport\s+function\s+coordinatorSnapshot/.exec(directorCoordinatorSource)?.[0] || '';
+assert.equal(
+  /for\s*\(\s*const\s+collectionName\s+of\s+\[['"]responseLedger['"],\s*['"]sidecarJournal['"],\s*['"]modelCallJournal['"]\]/.test(openWorldInvalidationBody),
+  false,
+  'Open-world invalidation must not loop over old runtime ledger collections to mark rows stale.'
+);
+assert.equal(
+  /runtimeTracking\?\.\[collectionName\]|runtimeTracking\?\.(responseLedger|sidecarJournal|modelCallJournal)[\s\S]*?staleReason/.test(openWorldInvalidationBody),
+  false,
+  'Open-world invalidation evidence must stay in top-level SRE/event/thread/quest ledgers, not old runtime ledgers.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+isSceneHandshakeProjectionRow[\s\S]*?sreSceneHandshakeProjection[\s\S]*?directive\.sceneHandshakeLedgerProjectionRef\.v1[\s\S]*?function\s+normalizedSceneHandshakeLedger[\s\S]*?settled\.filter\(isSceneHandshakeProjectionRow\)[\s\S]*?pendingInternalReview\.filter\(isSceneHandshakeProjectionRow\)[\s\S]*?lastResult:\s*isSceneHandshakeProjectionRow\(source\.lastResult\)/,
+  'Runtime tracking initialization must drop untagged Scene Handshake rows and lastResult.'
 );
 const recordModelCallEventBody = /export\s+function\s+recordModelCallEvent[\s\S]*?\n\}\n\nexport\s+function\s+recordPendingInteraction/.exec(stateDeltaGatewaySource)?.[0] || '';
 assert.equal(
   /metadata:\s*cloneJson|prompt:\s*compact\(event\.prompt\)|response:\s*compact\(event\.response\)|providerPayload/.test(recordModelCallEventBody),
   false,
   'Old model-call fallback rows must not persist arbitrary metadata, raw prompts, raw responses, or provider payloads.'
+);
+const recordPendingInteractionBody = /export\s+function\s+recordPendingInteraction[\s\S]*?\n\}\n\nfunction\s+pendingInteractionEvidenceStatus/.exec(stateDeltaGatewaySource)?.[0] || '';
+const resolvePendingInteractionBody = /export\s+function\s+resolvePendingInteraction[\s\S]*?\n\}\n\nexport\s+function\s+createStateDeltaGateway/.exec(stateDeltaGatewaySource)?.[0] || '';
+assert.match(
+  stateDeltaGatewaySource,
+  /const\s+PENDING_INTERACTION_AUTHORITIES\s*=\s*new\s+Set\(\[[\s\S]*?corePendingInteractionProjection[\s\S]*?terminalDecisionProjection[\s\S]*?repairPendingInteractionProjection/,
+  'State delta gateway must define explicit pending-interaction authority owners.'
+);
+assert.match(
+  recordPendingInteractionBody,
+  /pendingInteractionAuthorityFields\(interaction[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
+  'Pending interaction writes must require owner authority and store projection metadata.'
+);
+assert.match(
+  resolvePendingInteractionBody,
+  /pendingInteractionAuthorityFields\(merged[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
+  'Pending interaction resolution must preserve or require owner authority.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+isPendingInteractionProjectionRow[\s\S]*?authority\s*===\s*['"]corePendingInteractionProjection['"][\s\S]*?authority\s*===\s*['"]terminalDecisionProjection['"][\s\S]*?authority\s*===\s*['"]repairPendingInteractionProjection['"][\s\S]*?directive\.pendingInteractionCompatibilityMirror\.v1[\s\S]*?pendingInteractions:\s*Array\.isArray\(input\.pendingInteractions\)[\s\S]*?input\.pendingInteractions\.filter\(isPendingInteractionProjectionRow\)/,
+  'Runtime tracking initialization must drop untagged pendingInteractions rows.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /export\s+function\s+isPendingInteractionProjectionRow/,
+  'Pending interaction projection predicate must be shared by runtime consumers, not only initialization.'
+);
+const recordLifecycleEventBody = /export\s+function\s+recordLifecycleEvent[\s\S]*?\n\}\n\nexport\s+function\s+recordModelCallEvent/.exec(stateDeltaGatewaySource)?.[0] || '';
+assert.match(
+  stateDeltaGatewaySource,
+  /const\s+LIFECYCLE_AUTHORITIES\s*=\s*new\s+Set\(\[[\s\S]*?runtimeLifecycleProjection[\s\S]*?repairLifecycleProjection/,
+  'State delta gateway must define explicit lifecycle authority owners.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+isLifecycleProjectionRow[\s\S]*?authority\s*===\s*['"]runtimeLifecycleProjection['"][\s\S]*?authority\s*===\s*['"]repairLifecycleProjection['"][\s\S]*?directive\.lifecycleCompatibilityMirror\.v1[\s\S]*?lifecycleJournal:\s*Array\.isArray\(input\.lifecycleJournal\)[\s\S]*?input\.lifecycleJournal\.filter\(isLifecycleProjectionRow\)/,
+  'Runtime tracking initialization must drop untagged lifecycleJournal rows.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+isOpenWorldBoundaryProjection[\s\S]*?openWorldBoundaryProjection[\s\S]*?directorCoordinator[\s\S]*?directive\.openWorldBoundaryProjectionRef\.v1[\s\S]*?function\s+isTimeNormalizationProjection[\s\S]*?timeNormalizationProjection[\s\S]*?campaignTimeState[\s\S]*?directive\.timeNormalizationProjectionRef\.v1[\s\S]*?function\s+normalizedTracking[\s\S]*?isOpenWorldBoundaryProjection\(input\.lastWorldBoundary\)[\s\S]*?isTimeNormalizationProjection\(input\.timeNormalization\)/,
+  'Runtime tracking initialization must drop unowned lastWorldBoundary/timeNormalization metadata.'
+);
+assert.match(
+  directorCoordinatorSource,
+  /lastWorldBoundary\s*=\s*\{[\s\S]*?authority:\s*['"]openWorldBoundaryProjection['"][\s\S]*?projectionSource:\s*['"]directorCoordinator['"][\s\S]*?directive\.openWorldBoundaryProjectionRef\.v1/,
+  'Director coordinator must tag runtimeTracking.lastWorldBoundary with open-world owner evidence.'
+);
+assert.match(
+  campaignTimeStateSource,
+  /timeNormalization\s*=\s*\{[\s\S]*?authority:\s*['"]timeNormalizationProjection['"][\s\S]*?projectionSource:\s*['"]campaignTimeState['"][\s\S]*?directive\.timeNormalizationProjectionRef\.v1/,
+  'Campaign time normalization must tag runtimeTracking.timeNormalization with owner evidence.'
+);
+assert.match(
+  openWorldEventReducersSource,
+  /lastWorldBoundary[\s\S]*?openWorldBoundaryProjection[\s\S]*?timeNormalization[\s\S]*?timeNormalizationProjection/,
+  'Open-world reducer validation must reject unowned runtimeTracking boundary/time metadata.'
+);
+assert.match(
+  recordLifecycleEventBody,
+  /lifecycleAuthorityFields\(event[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
+  'Lifecycle writes must require owner authority and store projection metadata.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+lifecycleAuthorityFields[\s\S]*?DIRECTIVE_LIFECYCLE_AUTHORITY_REQUIRED/,
+  'Lifecycle authority helper must fail closed without runtime or REPAIR evidence.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -286,8 +537,18 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+assertMissingCoreWriteAllowed[\s\S]*?missingCoreWriteMode\s*===\s*['"]quarantine['"][\s\S]*?DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE[\s\S]*?function\s+oldLedgerAuthorityFieldsForUpdate/,
-  'State delta gateway old-ledger writers must reject missing CORE evidence unless the caller explicitly requests quarantine.'
+  /function\s+assertMissingCoreWriteAllowed[\s\S]*?DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE[\s\S]*?function\s+oldLedgerAuthorityFieldsForUpdate/,
+  'State delta gateway old-ledger writers must reject missing CORE evidence.'
+);
+assert.equal(
+  /function\s+assertMissingCoreWriteAllowed[\s\S]*?explicitAuthority\s*&&\s*explicitAuthority\s*!==\s*['"]compatibilityProjectionUnavailable['"][\s\S]*?return[\s\S]*?function\s+oldLedgerAuthorityFieldsForUpdate/.test(stateDeltaGatewaySource),
+  false,
+  'Explicit old-ledger authority strings must not bypass CORE projection evidence.'
+);
+assert.equal(
+  /missingCoreWriteMode\s*===\s*['"]quarantine['"]/.test(stateDeltaGatewaySource),
+  false,
+  'State delta gateway old-ledger writers must not retain a quarantine escape hatch for missing CORE writes.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -393,6 +654,12 @@ assert.match(
   /function\s+modelCallRows\s*\([\s\S]*?const\s+coreRows\s*=\s*projectedCoreArray\(campaignState,\s*['"]modelCallDiagnostics['"]\)[\s\S]*?if\s*\(Array\.isArray\(coreRows\)\)\s*return\s+coreRows[\s\S]*?runtimeCollection\(campaignState,\s*['"]modelCallJournal['"]\)/,
   'Active-save v2 model-call summaries and diagnostics must prefer CORE modelCallDiagnostics before old modelCallJournal telemetry.'
 );
+const loadActiveCampaignStateV2Body = /export\s+async\s+function\s+loadActiveCampaignStateV2[\s\S]*?\n\}\n\nexport\s+async\s+function\s+recoverActiveCampaignStateV2/.exec(activeSaveFacadeSource)?.[0] || '';
+assert.equal(
+  /runtimeTracking\.modelCallJournal\s*=\s*modelCallJournalFromDiagnosticsSegments/.test(loadActiveCampaignStateV2Body),
+  false,
+  'Active-save v2 load must not mirror CORE modelCallDiagnostics into old runtimeTracking.modelCallJournal.'
+);
 assert.equal(
   /projection\?\.responseLedgerRevision\s*\?\?\s*runtimeTracking\.responseLedgerRevision/.test(activeSaveFacadeSource),
   false,
@@ -483,8 +750,13 @@ assert.match(
 );
 assert.match(
   runtimeLedgerViewSource,
-  /function\s+legacyProjectionFallbackRows[\s\S]*?coreProjectionAvailable[\s\S]*?isTaggedCompatibilityProjection/,
-  'Runtime ledger view must suppress silent old ingress/response rows once CORE projections exist.'
+  /function\s+legacyProjectionFallbackRows\s*\(rows\s*=\s*\[\]\)[\s\S]*?return\s+legacy\.filter\(\(row\)\s*=>\s*isTaggedCompatibilityProjection\(row\)\)/,
+  'Runtime ledger view must suppress silent old ingress/response rows even when no CORE projections exist.'
+);
+assert.equal(
+  /function\s+legacyProjectionFallbackRows[\s\S]*?!coreProjectionAvailable[\s\S]*?return\s+legacy/.test(runtimeLedgerViewSource),
+  false,
+  'Runtime ledger view must not expose no-CORE silent old rows as fallback authority.'
 );
 assert.match(
   runtimeLedgerViewSource,
@@ -587,6 +859,26 @@ assert.equal(
   false,
   'Scene Handshake snapshot safety must not count raw old runtimeTracking.recoveryJournal rows.'
 );
+assert.match(
+  sceneHandshakeSettlerSource,
+  /function\s+sceneHandshakeLedgerAuthority[\s\S]*?sreSceneHandshakeProjection[\s\S]*?directive\.sceneHandshakeLedgerProjectionRef\.v1[\s\S]*?function\s+sceneHandshakeLedgerRecord[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
+  'Scene Handshake settlement ledger rows must carry compact SRE owner projection evidence.'
+);
+assert.match(
+  sceneHandshakeSettlerSource,
+  /export\s+async\s+function\s+runLatestPairSourceSettlement[\s\S]*?allowLegacySceneHandshakeFallback:\s*false/,
+  'Latest-pair source-settlement owner must disable legacy Scene Handshake fallback.'
+);
+assert.equal(
+  /\brunSceneHandshakeSettlement\b/.test(sourceSettlementLatestPairSource),
+  false,
+  'Source-settlement latest-pair owner module must not call the legacy runSceneHandshakeSettlement entrypoint.'
+);
+assert.match(
+  sourceSettlementLatestPairSource,
+  /\brunLatestPairSourceSettlement\b/,
+  'Source-settlement latest-pair owner module must use the strict latest-pair settlement entrypoint.'
+);
 
 const chatTurnOrchestratorSource = readFileSync(
   new URL('../../src/runtime/chat-turn-orchestrator.mjs', import.meta.url),
@@ -674,6 +966,23 @@ assert.equal(
   false,
   'Runtime-app freshness counters must not treat old sidecarJournal rows as sidecar freshness.'
 );
+const shouldPreferInMemoryCampaignStateBody = /function\s+shouldPreferInMemoryCampaignState[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
+assert.equal(
+  /modelCallJournalEntries\s*>\s*candidate\.modelCallJournalEntries|candidate\.modelCallJournalEntries\s*>\s*inMemory\.modelCallJournalEntries/.test(shouldPreferInMemoryCampaignStateBody),
+  false,
+  'Runtime-app freshness arbitration must not prefer state based only on old modelCallJournal growth.'
+);
+const flushChatSidecarsBody = /async\s+flushChatSidecars\(\)[\s\S]*?async\s+flushRuntimeDiagnostics\(\)/.exec(runtimeAppSource)?.[0] || '';
+assert.match(
+  flushChatSidecarsBody,
+  /const\s+sidecarCountBefore\s*=\s*Number\.isFinite\(coreSidecarResumeCountBefore\)[\s\S]*?const\s+sidecarCountAfter\s*=\s*Number\.isFinite\(coreSidecarResumeCountAfter\)/,
+  'Runtime-app sidecar flush primary counters must use CORE resume counts, not old sidecarJournal rows.'
+);
+assert.match(
+  flushChatSidecarsBody,
+  /sidecarDelta:\s*Math\.max\(sidecarCountDelta,\s*coreSidecarDiagnosticDelta\s*\?\?\s*0,\s*resultCount\)/,
+  'Runtime-app sidecar flush delta must ignore old sidecarJournal growth.'
+);
 assert.match(
   runtimeAppSource,
   /function\s+runtimeIngressForContext[\s\S]*?const\s+ledger\s*=\s*createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger\s*\|\|\s*\[\]/,
@@ -693,6 +1002,16 @@ assert.match(
   runtimeAppSource,
   /function\s+mergeFresherResponseLedgerProjection[\s\S]*?coreStoreReadProjections[\s\S]*?responseLedger/,
   'Runtime-app fresher response merge must write fresher response rows into transient CORE read projections.'
+);
+assert.match(
+  runtimeAppSource,
+  /async\s+function\s+refreshViewCoreProjectionEvidence\(\)[\s\S]*?stateWithCoreProjectionFreshnessEvidence\(modelCallJournal\.applyPending\(campaignState\)\)[\s\S]*?currentChatScope\s*=\s*\{[\s\S]*?campaignState:\s*await\s+stateWithCoreProjectionFreshnessEvidence\(currentChatScope\.campaignState\)/,
+  'Runtime-app view reads must attach live CORE projection freshness before exposing campaign/chat state to proof tooling.'
+);
+assert.match(
+  runtimeAppSource,
+  /async\s+getCurrentView\(\{ tabId = 'campaign' \} = \{\}\)[\s\S]*?await\s+refreshCurrentChatCampaignScope\(\);[\s\S]*?await\s+refreshViewCoreProjectionEvidence\(\);[\s\S]*?return\s+viewEnvelope\(tabId\);/,
+  'Runtime-app getCurrentView must refresh CORE projection evidence before returning the runtime view.'
 );
 const mergeFresherResponseLedgerProjectionBody = /function\s+mergeFresherResponseLedgerProjection[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
 assert.match(
@@ -758,13 +1077,23 @@ assert.match(
 );
 assert.match(
   modelCallJournalSource,
-  /if\s*\(event\.coreDiagnosticPrimary\s*===\s*true\)\s*\{[\s\S]*?recordResumeCursor\(next,\s*event\)[\s\S]*?continue;/,
-  'Model-call journal applyPending must not append CORE-targeted model calls into old runtimeTracking.modelCallJournal.'
+  /for\s*\(const\s+event\s+of\s+pendingModelCallEvents\)\s*\{[\s\S]*?next\s*=\s*recordResumeCursor\(next,\s*event\)[\s\S]*?seen\.add\(event\.id\)[\s\S]*?\}/,
+  'Model-call journal applyPending must keep only compact resume cursors for pending events.'
+);
+assert.equal(
+  /recordModelCallEvent/.test(modelCallJournalSource),
+  false,
+  'Model-call journal must not append runtime events into old runtimeTracking.modelCallJournal.'
 );
 assert.match(
   modelCallJournalSource,
   /readRuntimeCoreProjections[\s\S]*?function\s+modelCallDiagnosticsFromCoreProjections[\s\S]*?projections\.modelCallDiagnostics[\s\S]*?function\s+modelCallIdsForDedupe[\s\S]*?modelCallDiagnosticsFromCoreProjections\(state\)[\s\S]*?runtimeTracking\?\.modelCallJournal[\s\S]*?const\s+seen\s*=\s*modelCallIdsForDedupe\(next\)/,
   'Model-call journal must dedupe pending fallback rows against CORE model-call diagnostics before old journal telemetry.'
+);
+assert.match(
+  recordModelCallEventBody,
+  /allowLegacyModelCallTelemetry\s*=\s*false[\s\S]*?DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE/,
+  'Direct model-call old-ledger writes must require explicit legacy telemetry opt-in.'
 );
 assert.match(
   modelCallJournalSource,
@@ -801,6 +1130,16 @@ assert.match(
   /function\s+chatNativeViewForState[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)[\s\S]*?const\s+runtimeResponseLedger\s*=\s*runtimeLedgerView\.responseLedger\s*\|\|\s*\[\][\s\S]*?const\s+runtimeRecoveryJournal\s*=\s*runtimeLedgerView\.recoveryJournal\s*\|\|\s*\[\]/,
   'Runtime-app chatNative view must derive runtime counters/recovery from CORE-first runtime ledger view.'
 );
+assert.match(
+  runtimeAppSource,
+  /function\s+stateFreshnessCounters[\s\S]*?pendingInteractions:\s*countArray\(pendingInteractionProjectionRows\(state\)\)/,
+  'Runtime-app freshness counters must count only owner-tagged pending interaction projections.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+pendingInteractionProjectionRows[\s\S]*?pendingInteractions\.filter\(isPendingInteractionProjectionRow\)[\s\S]*?function\s+chatNativeViewForState[\s\S]*?pendingInteractions:\s*cloneJson\(pendingInteractionProjectionRows\(state\)\)/,
+  'Runtime-app chatNative view must expose only owner-tagged pending interaction projections.'
+);
 const chatNativeViewForStateBody = /function\s+chatNativeViewForState[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '';
 assert.equal(
   /state\.runtimeTracking\.(ingressLedger|responseLedger|recoveryJournal)(?![A-Za-z0-9_])/.test(chatNativeViewForStateBody),
@@ -809,8 +1148,18 @@ assert.equal(
 );
 assert.match(
   runtimeAppSource,
-  /function\s+compatibilityRowsThatCanBlockCoreAuthority[\s\S]*?coreRows[\s\S]*?row\?\.authority[\s\S]*?compatibilityProjectionUnavailable[\s\S]*?row\?\.compatibilityMirror[\s\S]*?projectionSource/,
-  'Runtime-app CORE authority marker must ignore silent old ledger rows once CORE projections exist but keep tagged compatibility blockers.'
+  /function\s+chatNativeViewForState[\s\S]*?sceneReconciliation:\s*cloneJson\(state\.sceneReconciliation\s*\|\|\s*null\)/,
+  'Runtime-app chatNative view must expose only top-level Scene Reconciliation state.'
+);
+assert.equal(
+  /chatNativeViewForState[\s\S]*?runtimeTracking\?\.sceneReconciliation|chatNativeViewForState[\s\S]*?runtimeTracking\.sceneReconciliation/.test(runtimeAppSource),
+  false,
+  'Runtime-app chatNative view must not fall back to nested runtimeTracking.sceneReconciliation.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+compatibilityRowsThatCanBlockCoreAuthority[\s\S]*?coreRows[\s\S]*?authority\s*===\s*['"]compatibilityProjectionUnavailable['"]\)\s*return\s+false[\s\S]*?row\?\.compatibilityMirror[\s\S]*?projectionSource/,
+  'Runtime-app CORE authority marker must ignore silent old rows and missing-CORE quarantine mirrors once CORE projections exist, while keeping real tagged compatibility blockers.'
 );
 assert.match(
   runtimeAppSource,
@@ -866,6 +1215,20 @@ const settingsPanelSource = readFileSync(
   new URL('../../src/ui/settings-panel.js', import.meta.url),
   'utf8'
 );
+const missionPanelSource = readFileSync(
+  new URL('../../src/ui/mission-panel.js', import.meta.url),
+  'utf8'
+);
+assert.match(
+  missionPanelSource,
+  /function\s+pendingSceneReconciliationItems[\s\S]*?view\?\.chatNative\?\.sceneReconciliation\s*\|\|\s*state\?\.sceneReconciliation\s*\|\|\s*null/,
+  'Mission panel Scene Reconciliation review must use chatNative/top-level SRE state only.'
+);
+assert.equal(
+  /pendingSceneReconciliationItems[\s\S]*?runtimeTracking\?\.sceneReconciliation|pendingSceneReconciliationItems[\s\S]*?runtimeTracking\.sceneReconciliation/.test(missionPanelSource),
+  false,
+  'Mission panel Scene Reconciliation review must not render nested runtimeTracking.sceneReconciliation.'
+);
 const ashesProjectionSource = readFileSync(
   new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', import.meta.url),
   'utf8'
@@ -894,6 +1257,11 @@ assert.equal(
   /value\s*\?\?\s*campaignState\.settings\?\.maxTurnSaveHistory\s*\?\?\s*campaignState\.runtimeTracking\?\.historyLimit/.test(runtimeAppSource),
   false,
   'Runtime settings defaulting must not preserve old runtimeTracking.historyLimit as an implicit user setting.'
+);
+assert.equal(
+  /maxTurnSaveHistory\s*\?\?\s*historyLimit\s*\?\?\s*campaignState\.settings\?\.maxTurnSaveHistory\s*\?\?\s*campaignState\.runtimeTracking\?\.historyLimit/.test(runtimeAppSource),
+  false,
+  'Runtime settings defaulting must not preserve old runtimeTracking.historyLimit after the explicit historyLimit parameter.'
 );
 assert.match(
   settingsPanelSource,
@@ -1071,6 +1439,10 @@ const campaignEndConditionServiceSource = readFileSync(
   new URL('../../src/runtime/campaign-end-condition-service.mjs', import.meta.url),
   'utf8'
 );
+const endConditionsSource = readFileSync(
+  new URL('../../src/campaign/end-conditions.mjs', import.meta.url),
+  'utf8'
+);
 const sceneReconciliationSource = readFileSync(
   new URL('../../src/runtime/scene-reconciliation.mjs', import.meta.url),
   'utf8'
@@ -1093,6 +1465,88 @@ assert.equal(
   /sourceKind:\s*['"]runtimeTracking\.history\.outcomeSnapshot['"]/.test(campaignEndConditionServiceSource),
   false,
   'End-condition service must not write terminal CORE checkpoints from old runtimeTracking.history snapshots.'
+);
+assert.equal(
+  /lastCommittedTurn\?\.coreCheckpointRef|lastCommittedTurn\.coreCheckpointRef/.test(`${campaignEndConditionServiceSource}\n${endConditionsSource}`),
+  false,
+  'Terminal checkpoint authority must come from turnLedger CORE checkpoint refs, not runtimeTracking.lastCommittedTurn.'
+);
+assert.match(
+  campaignEndConditionServiceSource,
+  /function\s+terminalLedgerAuthority[\s\S]*?directive\.terminalEndConditionLedgerProjectionRef\.v1[\s\S]*?function\s+detectionRecord[\s\S]*?terminalLedgerAuthority\(detection,\s*\{\s*rowKind:\s*['"]detection['"][\s\S]*?function\s+decisionRecord[\s\S]*?terminalLedgerAuthority\(detection,\s*\{\s*rowKind:\s*['"]decision['"]/,
+  'End-condition service must tag detection and decision ledger rows with terminal owner projection evidence.'
+);
+assert.match(
+  campaignEndConditionServiceSource,
+  /branchRecords:\s*\[[\s\S]*?terminalLedgerAuthority\([\s\S]*?rowKind:\s*['"]branchRecord['"][\s\S]*?action:\s*['"]saveTerminalBranch['"]/,
+  'End-condition service must tag terminal branch ledger rows with terminal owner projection evidence.'
+);
+assert.match(
+  campaignEndConditionServiceSource,
+  /import\s+\{[\s\S]*?terminalDecisionLedgerView[\s\S]*?withTerminalDecisionLedgerProjection[\s\S]*?\}\s+from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"]/,
+  'End-condition service must use shared terminal ledger projection accessors.'
+);
+assert.match(
+  campaignEndConditionServiceSource,
+  /isPendingInteractionProjectionRow[\s\S]*?from\s+['"]\.\/state-delta-gateway\.mjs['"][\s\S]*?function\s+activeTerminalInteraction[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)/,
+  'End-condition service terminal pending reads must filter through shared owner projection predicate.'
+);
+assert.match(
+  runtimeAppSource,
+  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?function\s+terminalCheckpointCoreTargetForEvent[\s\S]*?terminalDecisionLedgerView\(campaignState\s*\|\|\s*\{\}\)[\s\S]*?function\s+pendingTerminalDecisionId[\s\S]*?terminalDecisionLedgerView\(state\s*\|\|\s*\{\}\)[\s\S]*?function\s+terminalDecisionStillPending[\s\S]*?terminalDecisionLedgerView\(state\s*\|\|\s*\{\}\)/,
+  'Runtime-app terminal decision reads must use the shared terminal ledger projection view.'
+);
+assert.match(
+  runtimeAppSource,
+  /isPendingInteractionProjectionRow[\s\S]*?from\s+['"]\.\/state-delta-gateway\.mjs['"]/,
+  'Runtime-app terminal settlement must import the shared pending-interaction projection predicate.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+terminalCheckpointCoreTargetForEvent[\s\S]*?pendingInteractions\.filter\(isPendingInteractionProjectionRow\)[\s\S]*?runtimeIngressForContext/,
+  'Runtime-app terminal checkpoint settlement must not derive CORE targets from unowned pendingInteraction rows.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+pendingTerminalDecisionId[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)[\s\S]*?function\s+terminalDecisionStillPending[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)/,
+  'Runtime-app terminal freshness preservation must not derive pending decisions from unowned pendingInteraction rows.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?function\s+ledgerTerminalInteraction[\s\S]*?terminalDecisionLedgerView\(state\s*\|\|\s*\{\}\)/,
+  'Chat-turn terminal decision fallback must use the shared terminal ledger projection view.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /isPendingInteractionProjectionRow[\s\S]*?from\s+['"]\.\/state-delta-gateway\.mjs['"][\s\S]*?function\s+activePendingInteraction[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)[\s\S]*?function\s+activeTerminalInteractionId[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)[\s\S]*?async\s+function\s+resolveInteraction[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)/,
+  'Chat-turn pending-interaction reads must use the shared owner projection predicate before resolving interactions.'
+);
+assert.equal(
+  /runtimeTracking\?\.endConditionLedger|runtimeTracking\.endConditionLedger|tracking\.endConditionLedger/.test(
+    [
+      /function\s+terminalCheckpointCoreTargetForEvent[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '',
+      /function\s+pendingTerminalDecisionId[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '',
+      /function\s+terminalDecisionStillPending[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '',
+      /function\s+ledgerTerminalInteraction[\s\S]*?\n  \}/.exec(chatTurnOrchestratorSource)?.[0] || ''
+    ].join('\n')
+  ),
+  false,
+  'Terminal decision read paths must not inspect raw runtimeTracking.endConditionLedger.'
+);
+assert.match(
+  missionPanelSource,
+  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\.\/runtime\/terminal-decision-ledger-view\.mjs['"]/,
+  'Mission panel terminal controls must import the shared terminal decision projection view.'
+);
+assert.match(
+  missionPanelSource,
+  /function\s+terminalDecisionRecord[\s\S]*?const\s+ledger\s*=\s*terminalDecisionLedgerView\(view\?\.campaignState\s*\|\|\s*\{\}\)[\s\S]*?function\s+terminalBranchCount[\s\S]*?const\s+ledger\s*=\s*terminalDecisionLedgerView\(view\?\.campaignState\s*\|\|\s*\{\}\)/,
+  'Mission panel terminal controls must read filtered terminal projection rows.'
+);
+assert.equal(
+  /function\s+terminal(?:DecisionRecord|BranchCount)[\s\S]*?runtimeTracking\?\.endConditionLedger/.test(missionPanelSource),
+  false,
+  'Mission panel terminal controls must not render unowned raw terminal ledger rows.'
 );
 assert.match(
   sceneReconciliationSource,
@@ -1123,6 +1577,37 @@ assert.equal(
   /runtimeTracking\?\.(ingressLedger|responseLedger)|runtimeTracking\.(ingressLedger|responseLedger)/.test(sceneReconciliationSource),
   false,
   'Scene Reconciliation must not read raw runtimeTracking ingress/response ledgers for source authority.'
+);
+const sceneReconciliationStateBody = /export\s+function\s+sceneReconciliationState[\s\S]*?\n\}/.exec(sceneReconciliationSource)?.[0] || '';
+assert.match(
+  sceneReconciliationStateBody,
+  /normalizeSceneReconciliationState\(campaignState\?\.sceneReconciliation\)/,
+  'Scene Reconciliation state helper must read only top-level SRE state.'
+);
+assert.equal(
+  /runtimeTracking\?\.sceneReconciliation|runtimeTracking\.sceneReconciliation/.test(sceneReconciliationStateBody),
+  false,
+  'Scene Reconciliation state helper must not fall back to nested runtimeTracking.sceneReconciliation.'
+);
+assert.match(
+  sceneReconciliationSource,
+  /function\s+sceneReconciliationLedgerAuthority[\s\S]*?sreSceneReconciliationProjection[\s\S]*?directive\.sceneReconciliationLedgerProjectionRef\.v1[\s\S]*?async\s+function\s+writeLedger[\s\S]*?path:\s*['"]sceneReconciliation['"][\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
+  'Scene Reconciliation ledger writes must carry compact SRE owner projection evidence.'
+);
+assert.equal(
+  /path:\s*['"]runtimeTracking\.sceneReconciliation['"]/.test(sceneReconciliationSource),
+  false,
+  'Scene Reconciliation service must not write authoritative ledger state under runtimeTracking.'
+);
+assert.match(
+  sceneHandshakeSettlerSource,
+  /pendingSceneReconciliationCount:\s*asArray\(state\.sceneReconciliation\?\.pending\)\.length/,
+  'Scene Handshake safety snapshot must count top-level Scene Reconciliation pending rows only.'
+);
+assert.equal(
+  /runtimeTracking\?\.sceneReconciliation|runtimeTracking\.sceneReconciliation/.test(sceneHandshakeSettlerSource),
+  false,
+  'Scene Handshake safety snapshot must not count nested runtimeTracking.sceneReconciliation rows.'
 );
 assert.match(
   campaignSidecarSchedulerSource,
@@ -1246,18 +1731,28 @@ assert.match(
 );
 assert.match(
   runtimeAppSource,
-  /function\s+chatNativeViewForState[\s\S]*?const\s+modelCallDiagnostics\s*=\s*modelCallDiagnosticsForState\(state\)[\s\S]*?modelCallCount:\s*modelCallDiagnostics\.length[\s\S]*?latestModelCall:\s*cloneJson\(modelCallDiagnostics\.at\(-1\)[\s\S]*?modelCalls:\s*cloneJson\(modelCallDiagnostics\)/,
-  'Runtime-app chat-native view must expose compact projected model-call diagnostics instead of raw old journal rows.'
+  /function\s+coreModelCallDiagnosticsForState[\s\S]*?return\s+Array\.isArray\(projections\.modelCallDiagnostics\)\s*\?\s*cloneJson\(projections\.modelCallDiagnostics\)\s*:\s*\[\]/,
+  'Runtime-app must expose a CORE-only model-call diagnostics helper for proof-facing views.'
 );
 assert.match(
   runtimeAppSource,
-  /runFactualGroundingReview[\s\S]*?const\s+modelCallCountBefore\s*=\s*modelCallDiagnosticsForState\(campaignState\)\.length[\s\S]*?const\s+modelCalls\s*=\s*modelCallDiagnosticsForState\(campaignState\)[\s\S]*?modelCallDelta:\s*Math\.max\(0,\s*modelCalls\.length\s*-\s*modelCallCountBefore\)/,
-  'Runtime-app factual review-only path must measure model-call diagnostics through the CORE-first helper.'
+  /function\s+legacyModelCallTelemetryForState[\s\S]*?runtimeTracking\?\.modelCallJournal/,
+  'Runtime-app must keep old modelCallJournal visible only through explicit legacy telemetry.'
 );
 assert.match(
   runtimeAppSource,
-  /runStoryQualityReview[\s\S]*?const\s+modelCallCountBefore\s*=\s*modelCallDiagnosticsForState\(campaignState\)\.length[\s\S]*?const\s+modelCalls\s*=\s*modelCallDiagnosticsForState\(campaignState\)[\s\S]*?modelCallDelta:\s*Math\.max\(0,\s*modelCalls\.length\s*-\s*modelCallCountBefore\)/,
-  'Runtime-app story-quality review-only path must measure model-call diagnostics through the CORE-first helper.'
+  /function\s+chatNativeViewForState[\s\S]*?const\s+modelCallDiagnostics\s*=\s*coreModelCallDiagnosticsForState\(state\)[\s\S]*?const\s+legacyModelCallTelemetry\s*=\s*legacyModelCallTelemetryForState\(state\)[\s\S]*?modelCallCount:\s*modelCallDiagnostics\.length[\s\S]*?legacyModelCallCount:\s*legacyModelCallTelemetry\.length[\s\S]*?modelCalls:\s*cloneJson\(modelCallDiagnostics\)[\s\S]*?legacyModelCallTelemetry:\s*cloneJson\(legacyModelCallTelemetry\)/,
+  'Runtime-app chat-native proof-facing modelCalls/count must be CORE-only while old modelCallJournal remains legacy telemetry.'
+);
+assert.match(
+  runtimeAppSource,
+  /runFactualGroundingReview[\s\S]*?const\s+modelCallCountBefore\s*=\s*coreModelCallDiagnosticsForState\(campaignState\)\.length[\s\S]*?const\s+modelCalls\s*=\s*coreModelCallDiagnosticsForState\(campaignState\)[\s\S]*?modelCallResultFromGeneration\(generated,\s*FACTUAL_GROUNDING_REVIEW_ROLE_ID\)[\s\S]*?modelCallDelta:\s*Math\.max\(0,\s*modelCalls\.length\s*-\s*modelCallCountBefore\)/,
+  'Runtime-app factual review-only path must count only CORE model-call diagnostics while exposing compact non-durable generation proof.'
+);
+assert.match(
+  runtimeAppSource,
+  /runStoryQualityReview[\s\S]*?const\s+modelCallCountBefore\s*=\s*coreModelCallDiagnosticsForState\(campaignState\)\.length[\s\S]*?const\s+modelCalls\s*=\s*coreModelCallDiagnosticsForState\(campaignState\)[\s\S]*?modelCallResultFromGeneration\(generated,\s*STORY_QUALITY_REVIEW_ROLE_ID\)[\s\S]*?modelCallDelta:\s*Math\.max\(0,\s*modelCalls\.length\s*-\s*modelCallCountBefore\)/,
+  'Runtime-app story-quality review-only path must count only CORE model-call diagnostics while exposing compact non-durable generation proof.'
 );
 assert.equal(
   sourceReviewWorkerSource.includes('directive.sreCorrectAsSwipeEvidenceVerdict.v1'),
@@ -1634,6 +2129,16 @@ assert.equal(
   /missingCoreResponseProjectionPatch|directive\.coreResponseProjectionUnavailable\.v1/.test(responseDispatcherSource),
   false,
   'ResponseDispatcher compatibility helper must not synthesize missing-CORE response projection fallback rows.'
+);
+assert.equal(
+  /diagnosticCompatibilityProjection|directive\.coreResponseDiagnosticProjectionRef\.v1/.test(responseDispatcherSource),
+  false,
+  'ResponseDispatcher CORE-diagnostic failures must not mint diagnostic-only old responseLedger rows.'
+);
+assert.match(
+  responseDispatcherSource,
+  /if\s*\(\s*coreDiagnostic\s*\)\s*return\s+campaignState;/,
+  'ResponseDispatcher diagnostic-only compatibility paths must leave old responseLedger state unchanged.'
 );
 assert.match(
   responseDispatcherSource,
@@ -2888,7 +3393,67 @@ const rollbackLedgerDemotion = await rollbackPrevalidationBoundary.executeRollba
         roleId: 'legacyReviewer',
         status: 'ok',
         prompt: 'SILENT_OLD_ROLLBACK_MODEL_CALL_PROMPT_SHOULD_NOT_SURVIVE'
-      }]
+      }],
+      pendingInteractions: [{
+        id: 'silent-pending-rollback-demotion',
+        kind: 'terminalOutcomeDecision',
+        status: 'pending'
+      }, {
+        id: 'terminal-pending-rollback-demotion',
+        kind: 'terminalOutcomeDecision',
+        status: 'pending',
+        authority: 'terminalDecisionProjection',
+        projectionSource: 'terminalOutcomeDecision',
+        compatibilityMirror: {
+          kind: 'directive.pendingInteractionCompatibilityMirror.v1',
+          status: 'terminalDecisionProjection',
+          interactionId: 'terminal-pending-rollback-demotion',
+          checkpointId: 'checkpoint-rollback-demotion'
+        }
+      }],
+      endConditionLedger: {
+        schemaVersion: 1,
+        activeDecisionId: 'terminal-decision-rollback-demotion',
+        detections: [{
+          id: 'terminal-detection-rollback-demotion',
+          authority: 'terminalDecisionProjection',
+          coreProjection: {
+            kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+            rowKind: 'detection',
+            status: 'pending'
+          }
+        }, {
+          id: 'silent-terminal-detection-rollback-demotion',
+          status: 'pending'
+        }],
+        decisions: [{
+          id: 'terminal-decision-rollback-demotion',
+          status: 'pending',
+          authority: 'terminalDecisionProjection',
+          coreProjection: {
+            kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+            rowKind: 'decision',
+            status: 'pending'
+          }
+        }, {
+          id: 'silent-terminal-decision-rollback-demotion',
+          status: 'pending'
+        }],
+        branchRecords: [{
+          id: 'terminal-branch-rollback-demotion',
+          decisionId: 'terminal-decision-rollback-demotion',
+          authority: 'terminalDecisionProjection',
+          coreProjection: {
+            kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+            rowKind: 'branchRecord',
+            status: 'saved'
+          }
+        }, {
+          id: 'silent-terminal-branch-rollback-demotion',
+          decisionId: 'terminal-decision-rollback-demotion'
+        }],
+        continuationFrames: []
+      }
     }
   },
   coreCheckpointRestoreState: {
@@ -2915,8 +3480,8 @@ assert.deepEqual(
 );
 assert.deepEqual(
   rollbackLedgerDemotion.campaignState.runtimeTracking.modelCallJournal.map((entry) => entry.id),
-  ['core-model-call-rollback-demotion'],
-  'REPAIR rollback restore must preserve compact CORE model-call diagnostics instead of old modelCallJournal rows.'
+  [],
+  'REPAIR rollback restore must keep CORE model-call diagnostics out of old runtimeTracking.modelCallJournal.'
 );
 assert.equal(
   rollbackLedgerDemotion.campaignState.runtimeTracking.responseLedgerRevision,
@@ -2927,6 +3492,41 @@ assert.equal(
   JSON.stringify(rollbackLedgerDemotion.campaignState.runtimeTracking.modelCallJournal).includes('SILENT_OLD_ROLLBACK_MODEL_CALL_PROMPT_SHOULD_NOT_SURVIVE'),
   false,
   'REPAIR rollback restore must not carry raw old model-call prompt text.'
+);
+assert.deepEqual(
+  readRuntimeCoreProjections(rollbackLedgerDemotion.campaignState).modelCallDiagnostics.map((entry) => entry.id),
+  ['core-model-call-rollback-demotion'],
+  'REPAIR rollback restore must preserve embedded compact CORE model-call diagnostics under CORE projections.'
+);
+assert.deepEqual(
+  terminalDecisionLedgerView(rollbackLedgerDemotion.campaignState).detections.map((entry) => entry.id),
+  ['terminal-detection-rollback-demotion'],
+  'REPAIR rollback restore must preserve only terminal projection detection rows.'
+);
+assert.deepEqual(
+  terminalDecisionLedgerView(rollbackLedgerDemotion.campaignState).decisions.map((entry) => entry.id),
+  ['terminal-decision-rollback-demotion'],
+  'REPAIR rollback restore must drop unowned terminal decision rows.'
+);
+assert.deepEqual(
+  terminalDecisionLedgerView(rollbackLedgerDemotion.campaignState).branchRecords.map((entry) => entry.id),
+  ['terminal-branch-rollback-demotion'],
+  'REPAIR rollback restore must drop unowned terminal branch rows.'
+);
+assert.deepEqual(
+  rollbackLedgerDemotion.campaignState.runtimeTracking.pendingInteractions.map((entry) => entry.id),
+  ['terminal-pending-rollback-demotion'],
+  'REPAIR rollback restore must preserve only owner-tagged pending interactions.'
+);
+assert.equal(
+  JSON.stringify(rollbackLedgerDemotion.campaignState.runtimeTracking).includes('silent-pending-rollback-demotion'),
+  false,
+  'REPAIR rollback restore must not carry raw unowned pending interactions.'
+);
+assert.equal(
+  JSON.stringify(rollbackLedgerDemotion.campaignState.runtimeTracking.endConditionLedger).includes('silent-terminal-'),
+  false,
+  'REPAIR rollback restore must not carry raw unowned terminal ledger rows.'
 );
 assert.deepEqual(
   createRuntimeLedgerView(rollbackLedgerDemotion.campaignState).ingressLedger.map((entry) => entry.id),
@@ -3039,8 +3639,8 @@ assert.deepEqual(
 );
 assert.deepEqual(
   rollbackExternalProjection.campaignState.runtimeTracking.modelCallJournal.map((entry) => entry.id),
-  ['core-model-call-rollback-external'],
-  'REPAIR rollback restore must preserve external compact CORE model-call diagnostics instead of old modelCallJournal rows.'
+  [],
+  'REPAIR rollback restore must keep external CORE model-call diagnostics out of old runtimeTracking.modelCallJournal.'
 );
 assert.equal(
   rollbackExternalProjection.campaignState.runtimeTracking.responseLedgerRevision,
@@ -3051,6 +3651,11 @@ assert.equal(
   JSON.stringify(rollbackExternalProjection.campaignState.runtimeTracking.modelCallJournal).includes('SILENT_OLD_ROLLBACK_MODEL_CALL_RESPONSE_SHOULD_NOT_SURVIVE'),
   false,
   'REPAIR rollback restore must not carry raw old model-call response text.'
+);
+assert.deepEqual(
+  readRuntimeCoreProjections(rollbackExternalProjection.campaignState).modelCallDiagnostics.map((entry) => entry.id),
+  ['core-model-call-rollback-external'],
+  'REPAIR rollback restore must preserve external compact CORE model-call diagnostics under CORE projections.'
 );
 assert.deepEqual(
   createRuntimeLedgerView(rollbackExternalProjection.campaignState).ingressLedger.map((entry) => entry.id),

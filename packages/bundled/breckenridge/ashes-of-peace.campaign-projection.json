@@ -45,6 +45,7 @@
     "attentionState",
     "timeLedger",
     "continuity",
+    "sceneReconciliation",
     "runtimeTracking",
     "flags"
   ],
@@ -2680,6 +2681,22 @@
       "archivedTemplateIds": [],
       "semanticIndex": []
     },
+    "sceneReconciliation": {
+      "schemaVersion": 2,
+      "markers": {
+        "start": null,
+        "end": null
+      },
+      "runs": [],
+      "pending": [],
+      "applied": [],
+      "recalculationPreviews": [],
+      "chunkCache": [],
+      "invalidations": [],
+      "lastRunId": null,
+      "lastResult": null,
+      "rejected": []
+    },
     "runtimeTracking": {
       "schemaVersion": 2,
       "revision": 0,
@@ -2695,22 +2712,6 @@
       "pendingInteractions": [],
       "activeIngressId": null,
       "lastStableRevision": 0,
-      "sceneReconciliation": {
-        "schemaVersion": 2,
-        "markers": {
-          "start": null,
-          "end": null
-        },
-        "runs": [],
-        "pending": [],
-        "applied": [],
-        "recalculationPreviews": [],
-        "chunkCache": [],
-        "invalidations": [],
-        "lastRunId": null,
-        "lastResult": null,
-        "rejected": []
-      },
       "mechanicsRevision": 0,
       "stateDeltaJournal": []
     },

@@ -515,13 +515,7 @@ assert.equal(
   false,
   'facade load must not revive legacy recovery rows once CORE recovery projections exist'
 );
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal.length, 1, 'facade load preserves compact model-call resume projections');
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].id, 'model-call:42:utilityTurnClassifier');
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].roleId, 'utilityTurnClassifier');
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].requestHash, 'request-hash-utility-42');
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].latencyMs, 321);
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].prompt, undefined, 'facade load must not rehydrate raw model-call prompt text');
-assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal[0].response, undefined, 'facade load must not rehydrate raw model-call response text');
+assert.equal(loaded.campaignState.runtimeTracking.modelCallJournal.length, 0, 'facade load keeps CORE model-call diagnostics out of old runtimeTracking');
 const loadedCoreReadProjections = loaded.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections || {};
 assert.equal(loaded.campaignState.runtimeTracking.sidecarJournal.length, 0, 'facade load keeps accepted CORE sidecar/background diagnostics out of legacy sidecarJournal');
 assert.equal(loadedCoreReadProjections.kind, 'directive.coreStoreReadProjections.v1', 'facade load returns transient CORE read projection evidence');
@@ -1224,10 +1218,16 @@ const duplicateModelCallLoaded = await loadActiveCampaignStateV2(duplicateModelC
 });
 assert.equal(
   duplicateModelCallLoaded.campaignState.runtimeTracking.modelCallJournal.length,
-  1,
-  'facade load dedupes repeated compact model-call projections by id'
+  0,
+  'facade load keeps deduped model-call diagnostics out of old runtimeTracking'
 );
-assert.equal(duplicateModelCallLoaded.campaignState.runtimeTracking.modelCallJournal[0].latencyMs, 654, 'model-call projection dedupe keeps the latest compact row');
+const duplicateModelCallCoreDiagnostics = duplicateModelCallLoaded.campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.modelCallDiagnostics || [];
+assert.equal(
+  duplicateModelCallCoreDiagnostics.length,
+  1,
+  'facade load dedupes repeated compact model-call projections by id under CORE diagnostics'
+);
+assert.equal(duplicateModelCallCoreDiagnostics[0].latencyMs, 654, 'model-call projection dedupe keeps the latest compact row under CORE diagnostics');
 
 const coreWorkerShapeAdapter = createMemoryJsonAdapter();
 const coreWorkerShapeState = cloneJson(campaignState);

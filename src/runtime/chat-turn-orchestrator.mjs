@@ -1,6 +1,7 @@
 import { isDirectiveOwnedGeneration } from '../hosts/sillytavern/generation-client.mjs';
 import {
   initializeCampaignRuntimeTracking,
+  isPendingInteractionProjectionRow,
   recordPendingInteraction,
   resolveRecoveryEvent,
   resolvePendingInteraction,
@@ -45,6 +46,7 @@ import {
   createRuntimeLedgerView,
   createRuntimeLedgerViewAsync
 } from './runtime-ledger-view.mjs';
+import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -3114,14 +3116,38 @@ export function createChatTurnOrchestrator({
   }
 
   function activePendingInteraction(state, interactionId = null) {
-    return (state.runtimeTracking?.pendingInteractions || []).find((entry) => (
+    return (state.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).find((entry) => (
       entry.status === 'pending'
       && (!interactionId || entry.id === interactionId)
     )) || ledgerTerminalInteraction(state, interactionId);
   }
 
+  function pendingInteractionAuthorityForIngress(state, ingressId, interactionId) {
+    const ingress = findIngress(state, ingressId) || {};
+    const transactionId = compact(
+      ingress.coreTransactionId
+      || ingress.coreProjection?.transactionId
+      || ingress.coreProjection?.coreTransactionId
+      || ingress.compatibilityMirror?.transactionId
+    );
+    if (!transactionId) return {};
+    return {
+      authority: 'corePendingInteractionProjection',
+      projectionSource: 'coreStoreV2',
+      coreTransactionId: transactionId,
+      coreProjection: {
+        kind: 'directive.corePendingInteractionProjectionRef.v1',
+        interactionId,
+        ingressId,
+        transactionId,
+        sourceFrameId: ingress.sourceFrameId || ingress.sourceFrame?.id || null,
+        status: 'pending'
+      }
+    };
+  }
+
   function activeTerminalInteractionId(state) {
-    const interaction = (state?.runtimeTracking?.pendingInteractions || []).find((entry) => (
+    const interaction = (state?.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).find((entry) => (
       entry?.status === 'pending'
       && entry?.kind === 'terminalOutcomeDecision'
     ));
@@ -3141,7 +3167,7 @@ export function createChatTurnOrchestrator({
   }
 
   function ledgerTerminalInteraction(state, interactionId = null) {
-    const ledger = state?.runtimeTracking?.endConditionLedger || {};
+    const ledger = terminalDecisionLedgerView(state || {});
     const decisions = Array.isArray(ledger.decisions) ? ledger.decisions : [];
     const decision = decisions.find((entry) => (
       entry?.status === 'pending'
@@ -4101,8 +4127,9 @@ export function createChatTurnOrchestrator({
       ? currentSourceStaleResult(ingressId, details.message, `before-${details.kind || decision.classification}-pause`, state)
       : null;
     if (staleBeforePause) return staleBeforePause;
+    const interactionId = `interaction:${ingressId}`;
     let next = recordPendingInteraction(state, {
-      id: `interaction:${ingressId}`,
+      id: interactionId,
       kind: details.kind || decision.classification,
       status: 'pending',
       ingressId,
@@ -4110,7 +4137,8 @@ export function createChatTurnOrchestrator({
       outcomeId: details.outcomeId || null,
       prompt: text,
       options: details.options || [],
-      createdAt: timestamp(now)
+      createdAt: timestamp(now),
+      ...pendingInteractionAuthorityForIngress(state, ingressId, interactionId)
     });
     await persistState(next, `Recorded pending ${decision.classification} interaction.`);
     const staleBeforeDispatch = details.message
@@ -4911,7 +4939,7 @@ export function createChatTurnOrchestrator({
     activityReporter = null
   } = {}) {
     let state = initializeCampaignRuntimeTracking(getCampaignState());
-    const interaction = (state.runtimeTracking.pendingInteractions || []).find((entry) => (
+    const interaction = (state.runtimeTracking.pendingInteractions || []).filter(isPendingInteractionProjectionRow).find((entry) => (
       entry.status === 'pending' && (!interactionId || entry.id === interactionId)
     ));
     if (!interaction) return { ok: false, reason: 'pending-interaction-not-found' };

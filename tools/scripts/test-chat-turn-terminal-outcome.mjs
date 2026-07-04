@@ -18,6 +18,32 @@ const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, fil
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
+function terminalLedgerProjection(rowKind, {
+  decisionId,
+  detectionId = null,
+  conditionId = null,
+  turnId = null,
+  outcomeId = null,
+  status = null,
+  action = null
+} = {}) {
+  return {
+    authority: 'terminalDecisionProjection',
+    projectionSource: 'terminalOutcomeDecision',
+    coreProjection: {
+      kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+      rowKind,
+      decisionId,
+      detectionId,
+      conditionId,
+      turnId,
+      outcomeId,
+      status,
+      action
+    }
+  };
+}
+
 const chat = createFakeChatAdapter({ chatId: 'terminal-chat' });
 const prompt = createFakePromptAdapter();
 let campaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
@@ -213,20 +239,48 @@ const orchestrator = createChatTurnOrchestrator({
         terminalOutcomeBand: 'Great Failure',
         finalCampaignBandCandidate: 'Partial Failure',
         reason: 'The Breckenridge is lost in the committed timeline.'
+      },
+      authority: 'terminalDecisionProjection',
+      projectionSource: 'terminalOutcomeDecision',
+      coreProjection: {
+        kind: 'directive.terminalPendingInteractionProjectionRef.v1',
+        decisionId: terminalDecisionId,
+        conditionId: 'terminal.fixture.ship-loss',
+        turnId: pendingTurn.turnId,
+        outcomeId: pendingTurn.outcomePacket.id,
+        status: 'pending'
       }
     };
     const next = recordPendingInteraction(initializeCampaignRuntimeTracking(campaignState), terminalInteraction);
     next.runtimeTracking.endConditionLedger = {
       schemaVersion: 1,
       activeDecisionId: terminalInteraction.id,
-      detections: [{ id: 'terminal-detection-orchestrator', decisionId: terminalInteraction.id }],
+      detections: [{
+        id: 'terminal-detection-orchestrator',
+        decisionId: terminalInteraction.id,
+        ...terminalLedgerProjection('detection', {
+          decisionId: terminalInteraction.id,
+          detectionId: 'terminal-detection-orchestrator',
+          conditionId: terminalInteraction.metadata.terminalOutcomeId,
+          turnId: pendingTurn.turnId,
+          outcomeId: pendingTurn.outcomePacket.id,
+          status: 'detected'
+        })
+      }],
       decisions: [{
         id: terminalInteraction.id,
         status: 'pending',
         conditionId: terminalInteraction.metadata.terminalOutcomeId,
         postedAt: null,
         resolvedAt: null,
-        resolution: null
+        resolution: null,
+        ...terminalLedgerProjection('decision', {
+          decisionId: terminalInteraction.id,
+          conditionId: terminalInteraction.metadata.terminalOutcomeId,
+          turnId: pendingTurn.turnId,
+          outcomeId: pendingTurn.outcomePacket.id,
+          status: 'pending'
+        })
       }],
       branchRecords: [],
       continuationFrames: []
@@ -408,6 +462,16 @@ const missingIngressTerminal = {
   ],
   metadata: {
     terminalOutcomeId: 'terminal-missing-ingress'
+  },
+  authority: 'terminalDecisionProjection',
+  projectionSource: 'terminalOutcomeDecision',
+  coreProjection: {
+    kind: 'directive.terminalPendingInteractionProjectionRef.v1',
+    decisionId: 'terminal-decision-missing-ingress',
+    conditionId: 'terminal-missing-ingress',
+    turnId: 'turn-terminal-missing-ingress',
+    outcomeId: 'outcome-terminal-missing-ingress',
+    status: 'pending'
   }
 };
 campaignState = recordPendingInteraction(initializeCampaignRuntimeTracking(campaignState), missingIngressTerminal);
@@ -417,7 +481,14 @@ campaignState.runtimeTracking.endConditionLedger = {
   decisions: [{
     id: missingIngressTerminal.id,
     status: 'pending',
-    conditionId: 'terminal-missing-ingress'
+    conditionId: 'terminal-missing-ingress',
+    ...terminalLedgerProjection('decision', {
+      decisionId: missingIngressTerminal.id,
+      conditionId: 'terminal-missing-ingress',
+      turnId: 'turn-terminal-missing-ingress',
+      outcomeId: 'outcome-terminal-missing-ingress',
+      status: 'pending'
+    })
   }]
 };
 setCampaignState(campaignState);
@@ -458,7 +529,16 @@ campaignState.runtimeTracking.pendingInteractions = [];
 campaignState.runtimeTracking.endConditionLedger = {
   schemaVersion: 1,
   activeDecisionId: 'terminal-decision-ledger-only',
-  detections: [{ id: 'terminal-detection-ledger-only', decisionId: 'terminal-decision-ledger-only' }],
+  detections: [{
+    id: 'terminal-detection-ledger-only',
+    decisionId: 'terminal-decision-ledger-only',
+    ...terminalLedgerProjection('detection', {
+      decisionId: 'terminal-decision-ledger-only',
+      detectionId: 'terminal-detection-ledger-only',
+      conditionId: 'terminal.fixture.ledger-only',
+      status: 'detected'
+    })
+  }],
   decisions: [{
     id: 'terminal-decision-ledger-only',
     status: 'pending',
@@ -470,7 +550,12 @@ campaignState.runtimeTracking.endConditionLedger = {
     },
     postedAt: now(),
     resolvedAt: null,
-    resolution: null
+    resolution: null,
+    ...terminalLedgerProjection('decision', {
+      decisionId: 'terminal-decision-ledger-only',
+      conditionId: 'terminal.fixture.ledger-only',
+      status: 'pending'
+    })
   }],
   branchRecords: [],
   continuationFrames: []

@@ -63,6 +63,24 @@ function bounded(values, limit) { return asArray(values).slice(Math.max(0, asArr
 function timestamp(now) { return typeof now === 'function' ? now() : (now || new Date().toISOString()); }
 function unique(values) { return [...new Set(asArray(values).filter(Boolean))]; }
 function rootOf(path) { return compact(path).split('.')[0] || null; }
+function sceneReconciliationLedgerAuthority(state = {}, next = {}, { summary = null, baseRevision = 0 } = {}) {
+  const run = asArray(next?.runs).at(-1) || {};
+  return {
+    authority: 'sreSceneReconciliationProjection',
+    projectionSource: 'sceneReconciliation',
+    compatibilityMirror: {
+      kind: 'directive.sceneReconciliationLedgerProjectionRef.v1',
+      campaignId: compact(state?.campaign?.id) || null,
+      saveId: compact(state?.save?.id || state?.campaignChatBinding?.saveId || state?.saveId) || null,
+      chatId: compact(state?.campaignChatBinding?.chatId || state?.chatId) || null,
+      runId: compact(run?.id || next?.lastRunId) || null,
+      status: compact(next?.lastResult?.status || run?.status) || null,
+      action: compact(next?.lastResult?.action || run?.actionId || run?.action) || null,
+      summaryHash: summary ? stableTextHash(summary) : null,
+      baseRevision: Math.max(0, Number(baseRevision) || 0)
+    }
+  };
+}
 function compactCoreCheckpointRef(ref = null) {
   if (!isObject(ref)) return null;
   const checkpointId = compact(ref.checkpointId || ref.id);
@@ -230,6 +248,9 @@ export function normalizeSceneReconciliationState(value = {}) {
   const input = isObject(value) ? value : {};
   return {
     schemaVersion: 2,
+    authority: compact(input.authority) || null,
+    projectionSource: compact(input.projectionSource) || null,
+    compatibilityMirror: isObject(input.compatibilityMirror) ? cloneJson(input.compatibilityMirror) : null,
     markers: { start: normalizeAnchor(input.markers?.start), end: normalizeAnchor(input.markers?.end) },
     runs: bounded(input.runs, LIMITS.runs).map(cloneJson),
     pending: bounded(input.pending, LIMITS.pending).map(cloneJson),
@@ -244,7 +265,7 @@ export function normalizeSceneReconciliationState(value = {}) {
 }
 
 export function sceneReconciliationState(campaignState) {
-  return normalizeSceneReconciliationState(campaignState?.runtimeTracking?.sceneReconciliation);
+  return normalizeSceneReconciliationState(campaignState?.sceneReconciliation);
 }
 
 function passageChunks(messages, size = 12, overlap = 2) {
@@ -567,11 +588,23 @@ export function createSceneReconciliationService({
     return normalizeReconciliationMessage(fetched || normalizedHost || input);
   }
   async function writeLedger(next, summary) {
+    const baseRevision = stateDeltaGateway.revision();
+    const normalized = normalizeSceneReconciliationState(next);
+    const authority = sceneReconciliationLedgerAuthority(getCampaignState(), normalized, { summary, baseRevision });
     return stateDeltaGateway.applyOperations({
       id: makeId('recon-ledger'), source: 'sceneReconciliation', workerId: 'scene-reconciliation-ledger',
-      summary, baseRevision: stateDeltaGateway.revision(), allowedRoots: ['runtimeTracking'],
-      operations: [{ op: 'set', path: 'runtimeTracking.sceneReconciliation', value: normalizeSceneReconciliationState(next) }]
-    }, { allowedRoots: ['runtimeTracking'] });
+      summary, baseRevision, allowedRoots: ['sceneReconciliation'],
+      operations: [{
+        op: 'set',
+        path: 'sceneReconciliation',
+        value: {
+          ...normalized,
+          authority: authority.authority,
+          projectionSource: authority.projectionSource,
+          compatibilityMirror: authority.compatibilityMirror
+        }
+      }]
+    }, { allowedRoots: ['sceneReconciliation'] });
   }
   async function interruptRunningRuns(ledger, { actionId, nextRunId } = {}) {
     const running = asArray(ledger?.runs).filter((run) => run?.status === 'running');
@@ -916,7 +949,12 @@ export function createSceneReconciliationService({
       modelCallCount: modelCalls.length,
       sourceSettlement
     };
-    done.runs = bounded([...done.runs.filter((item) => item.id !== runId), completed], LIMITS.runs);
+    const knownRuns = [...ledger.runs];
+    const knownRunIds = new Set(knownRuns.map((item) => item?.id).filter(Boolean));
+    for (const item of done.runs) {
+      if (item?.id && !knownRunIds.has(item.id)) knownRuns.push(item);
+    }
+    done.runs = bounded([...knownRuns.filter((item) => item.id !== runId), completed], LIMITS.runs);
     done.applied = bounded([...done.applied, ...applied], LIMITS.applied);
     done.pending = bounded([...done.pending.filter((item) => !pending.some((next) => next.id === item.id)), ...pending], LIMITS.pending);
     done.chunkCache = bounded([...done.chunkCache.filter((item) => !newCache.some((next) => next.rangeHash === item.rangeHash)), ...newCache], LIMITS.cache);

@@ -45,6 +45,7 @@
     "attentionState",
     "timeLedger",
     "continuity",
+    "sceneReconciliation",
     "runtimeTracking",
     "flags"
   ],
@@ -2368,22 +2369,22 @@
       "watchlist": [],
       "cooldowns": {}
     },
+    "sceneReconciliation": {
+      "schemaVersion": 2,
+      "markers": {},
+      "runs": [],
+      "pending": [],
+      "applied": [],
+      "rejected": [],
+      "recalculationPreviews": [],
+      "chunkCache": [],
+      "invalidations": []
+    },
     "runtimeTracking": {
       "schemaVersion": 2,
       "revision": 0,
       "mechanicsRevision": 0,
       "stateDeltaJournal": [],
-      "sceneReconciliation": {
-        "schemaVersion": 2,
-        "markers": {},
-        "runs": [],
-        "pending": [],
-        "applied": [],
-        "rejected": [],
-        "recalculationPreviews": [],
-        "chunkCache": [],
-        "invalidations": []
-      },
       "boundChatId": null,
       "lastCommittedTurnId": null,
       "recoveryState": null

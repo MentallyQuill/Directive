@@ -86,7 +86,7 @@ export function initializeOpenWorldCampaignState({ packageData, baseState = {}, 
   if (!state.runtimeTracking) state.runtimeTracking = { schemaVersion: 2, revision: 0 };
   state.runtimeTracking.schemaVersion = 2;
   state.runtimeTracking.revision = Number(state.runtimeTracking.revision || 0);
-  state.runtimeTracking.sceneReconciliation = reconciliationLedger(state.runtimeTracking.sceneReconciliation);
+  state.sceneReconciliation = reconciliationLedger(state.sceneReconciliation);
   if (!state.mission || state.mission.openWorldManaged !== true) state.mission = createOpenOperationsMissionState(state);
   state.campaign = {
     ...(state.campaign || {}),
@@ -208,7 +208,18 @@ export function processWorldBoundary({
     sourceAnchorRange: cloneJson(primary.event.sourceAnchorRange || null),
     completedAt: nowValue(now),
     eventIds: allEvents.map((item) => item.id),
-    reactionIds: allReactions.map((item) => item.id)
+    reactionIds: allReactions.map((item) => item.id),
+    authority: 'openWorldBoundaryProjection',
+    projectionSource: 'directorCoordinator',
+    compatibilityMirror: {
+      kind: 'directive.openWorldBoundaryProjectionRef.v1',
+      boundaryId: `boundary.${token(primary.event.id)}`,
+      boundaryType,
+      sourceEventId: primary.event.id,
+      sourceAnchorRangeHash: primary.event.sourceAnchorRange?.rangeHash || null,
+      eventCount: allEvents.length,
+      reactionCount: allReactions.length
+    }
   };
   return {
     state: current,
@@ -375,19 +386,9 @@ export function invalidateOpenWorldCausalityForReconciliation(state, {
     ...asArray(outcomeIds),
     ...asArray(current.eventLedger?.committedEvents).filter((event) => event.invalidated).map((event) => event.sourceOutcomeId)
   ]);
-  for (const collectionName of ['responseLedger', 'sidecarJournal', 'modelCallJournal']) {
-    for (const record of asArray(current.runtimeTracking?.[collectionName])) {
-      if (affectedOutcomeIds.includes(record.outcomeId || record.sourceOutcomeId)
-        || (rangeHash && record.sourceAnchorRange?.rangeHash === rangeHash)) {
-        record.stale = true;
-        record.staleReason = reason;
-        record.staleAt = nowValue(now);
-      }
-    }
-  }
-  current.runtimeTracking.sceneReconciliation = reconciliationLedger(current.runtimeTracking.sceneReconciliation);
-  current.runtimeTracking.sceneReconciliation.invalidations.push({
-    id: `invalidation.${token(nowValue(now))}.${current.runtimeTracking.sceneReconciliation.invalidations.length + 1}`,
+  current.sceneReconciliation = reconciliationLedger(current.sceneReconciliation);
+  current.sceneReconciliation.invalidations.push({
+    id: `invalidation.${token(nowValue(now))}.${current.sceneReconciliation.invalidations.length + 1}`,
     anchorRange: cloneJson(anchorRange || null),
     eventIds: eventResult.invalidatedEventIds,
     threadIds: threadResult.affectedThreadIds,
@@ -415,7 +416,7 @@ export function coordinatorSnapshot(state, packageData) {
     openOpportunities: rankQuestOpportunities({ state, packageData, limit: 6 }),
     activeFronts: asArray(state?.worldState?.fronts).filter((front) => front.status !== 'resolved').map((front) => ({ id: front.id, stage: front.stage, value: front.value })),
     unresolvedReactionCount: asArray(state?.eventLedger?.pendingReactions).length,
-    pendingReconciliationCount: asArray(state?.runtimeTracking?.sceneReconciliation?.pending).filter((item) => item.status === 'pending').length,
+    pendingReconciliationCount: asArray(state?.sceneReconciliation?.pending).filter((item) => item.status === 'pending').length,
     staleDynamicQuestCount: asArray(state?.dynamicQuestCatalog?.templates).filter((item) => item.stale === true).length
   };
 }

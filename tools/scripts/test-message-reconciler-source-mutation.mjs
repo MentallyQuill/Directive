@@ -109,7 +109,15 @@ state = initializeCampaignRuntimeTracking({
         status: 'complete',
         coreTransactionId: 'txn-shifted-ingress-7',
         sourceFrameId: 'frame-shifted-ingress-7',
-        textHash: 'shifted'
+        textHash: 'shifted',
+        authority: 'coreIngressProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreIngressCompatibilityMirror.v1',
+          status: 'sourceObserved',
+          transactionId: 'txn-shifted-ingress-7',
+          ingressId: 'ingress-shifted-7'
+        }
       }
     ],
     responseLedger: [
@@ -118,7 +126,15 @@ state = initializeCampaignRuntimeTracking({
         hostMessageId: '7',
         status: 'posted',
         responseKind: 'hostContinue',
-        coreTransactionId: 'txn-stable-response-7'
+        coreTransactionId: 'txn-stable-response-7',
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreResponseCompatibilityMirror.v1',
+          status: 'coreResponseProjection',
+          transactionId: 'txn-stable-response-7',
+          responseId: 'response-stable-7'
+        }
       }
     ]
   }

@@ -1762,11 +1762,16 @@ const coreBackedPostFailureOrchestrator = createChatTurnOrchestrator({
             id: response.id,
             ingressId: payload.ingressId,
             hostMessageId: response.hostMessageId,
+            coreTransactionId: 'txn-response-core-backed-post-failure-retry',
+            coreProjection: {
+              kind: 'directive.coreResponseProjectionRef.v1',
+              responseId: response.id,
+              transactionId: 'txn-response-core-backed-post-failure-retry',
+              status: 'complete'
+            },
             status: 'complete',
             responseKind: payload.responseKind,
             strategy: payload.strategy
-          }, {
-            missingCoreWriteMode: 'quarantine'
           }),
           response
         };
@@ -1947,11 +1952,16 @@ const modelBackedRetryOrchestrator = createChatTurnOrchestrator({
           id: 'response-model-backed-retry',
           ingressId: payload.ingressId,
           hostMessageId: 'assistant-model-backed-response-retry',
+          coreTransactionId: 'txn-response-model-backed-retry',
+          coreProjection: {
+            kind: 'directive.coreResponseProjectionRef.v1',
+            responseId: 'response-model-backed-retry',
+            transactionId: 'txn-response-model-backed-retry',
+            status: 'complete'
+          },
           status: 'complete',
           responseKind: payload.responseKind,
           strategy: payload.strategy
-        }, {
-          missingCoreWriteMode: 'quarantine'
         }),
         response: {
           id: 'response-model-backed-retry',
@@ -2013,21 +2023,28 @@ const oldLedgerRetryBaselineState = cloneJson(campaignState);
 const oldLedgerRetryPersistedBefore = persisted.length;
 const oldLedgerRetryIngressId = 'ingress-old-ledger-response-retry';
 const oldLedgerRetryRecoveryId = 'recovery-old-ledger-response-retry';
-let oldLedgerRetryFixtureState = recordTurnIngress(campaignState, {
-  id: oldLedgerRetryIngressId,
-  hostMessageId: 'player-old-ledger-response-retry',
-  chatId: 'campaign-chat',
-  campaignId: campaignState.campaign?.id,
-  textHash: fnv1a('Retry should be owned by REPAIR, not old ledgers.'),
-  textPreview: 'Retry should be owned by REPAIR, not old ledgers.',
-  sourceFrameId: 'source-old-ledger-response-retry',
-  status: 'recoveryRequired',
-  responseStrategy: 'directivePosted',
-  turnId: 'turn-old-ledger-response-retry',
-  outcomeId: 'outcome-old-ledger-response-retry',
-  coreTransactionId: null
-}, {
-  missingCoreWriteMode: 'quarantine'
+let oldLedgerRetryFixtureState = initializeCampaignRuntimeTracking({
+  ...cloneJson(campaignState),
+  runtimeTracking: {
+    ...cloneJson(campaignState.runtimeTracking || {}),
+    ingressLedger: [
+      ...(campaignState.runtimeTracking?.ingressLedger || []),
+      {
+        id: oldLedgerRetryIngressId,
+        hostMessageId: 'player-old-ledger-response-retry',
+        chatId: 'campaign-chat',
+        campaignId: campaignState.campaign?.id,
+        textHash: fnv1a('Retry should be owned by REPAIR, not old ledgers.'),
+        textPreview: 'Retry should be owned by REPAIR, not old ledgers.',
+        sourceFrameId: 'source-old-ledger-response-retry',
+        status: 'recoveryRequired',
+        responseStrategy: 'directivePosted',
+        turnId: 'turn-old-ledger-response-retry',
+        outcomeId: 'outcome-old-ledger-response-retry',
+        coreTransactionId: null
+      }
+    ]
+  }
 });
 oldLedgerRetryFixtureState = recordLegacyRecoveryFixture(oldLedgerRetryFixtureState, {
   id: oldLedgerRetryRecoveryId,
@@ -2629,7 +2646,14 @@ const droppedIngressDelegationDispatcher = {
       strategy: 'injectAndContinue',
       responseKind: responseKind || 'hostGeneration',
       postedAt: now(),
-      status: 'delegated'
+      status: 'delegated',
+      coreTransactionId: `txn-delegate-dropped-ingress:${ingressId}`,
+      coreProjection: {
+        kind: 'directive.coreResponseProjectionRef.v1',
+        responseId: `delegate-dropped-ingress:${ingressId}`,
+        transactionId: `txn-delegate-dropped-ingress:${ingressId}`,
+        status: 'delegated'
+      }
     };
     const missingIngressState = initializeCampaignRuntimeTracking({
       ...cloneJson(state),
@@ -2638,9 +2662,7 @@ const droppedIngressDelegationDispatcher = {
         ingressLedger: []
       }
     });
-    const next = recordDirectiveResponse(missingIngressState, entry, {
-      missingCoreWriteMode: 'quarantine'
-    });
+    const next = recordDirectiveResponse(missingIngressState, entry);
     setCampaignState(next);
     await persistCampaignState(next, 'Fixture persisted delegated response without ingress.');
     return {
@@ -2895,14 +2917,29 @@ const dependentEditIngress = {
   replacementText: 'Sam considered the silence. Sam waited for her reply.',
   editedAt: '2026-06-22T01:00:10.000Z'
 };
-campaignState.runtimeTracking.ingressLedger.push(dependentEditIngress);
-campaignState.runtimeTracking.responseLedger.push({
+campaignState = recordTurnIngress(campaignState, {
+  ...dependentEditIngress,
+  coreTransactionId: 'txn-dependent-edit-original',
+  sourceFrameId: 'frame-dependent-edit-original'
+}, {
+  missingCoreWriteMode: 'reject'
+});
+campaignState = recordDirectiveResponse(campaignState, {
   id: 'response-dependent-edit',
   ingressId: dependentEditIngress.id,
   hostMessageId: 'assistant-dependent-edit',
   outcomeId: dependentEditIngress.outcomeId,
   responseKind: 'committedOutcome',
-  status: 'posted'
+  status: 'posted',
+  coreTransactionId: 'txn-dependent-edit-original',
+  coreProjection: {
+    kind: 'directive.coreResponseProjectionRef.v1',
+    responseId: 'response-dependent-edit',
+    transactionId: 'txn-dependent-edit-original',
+    status: 'posted'
+  }
+}, {
+  missingCoreWriteMode: 'reject'
 });
 setCampaignState(campaignState);
 const dependentEditGuardOrchestrator = createChatTurnOrchestrator({

@@ -10,6 +10,7 @@ import { validateCommandBearingEvidenceProposal } from '../command/command-beari
 import { normalizeContinuityState } from '../continuity/state.mjs';
 import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import { createRuntimeLedgerView, readRuntimeCoreProjections } from './runtime-ledger-view.mjs';
+import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 
 export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'campaign',
@@ -43,6 +44,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'activationJournal',
   'conclusion',
   'continuity',
+  'sceneReconciliation',
   'runtimeTracking'
 ]);
 
@@ -50,6 +52,17 @@ const DEFAULT_HISTORY_LIMIT = 8;
 const DEFAULT_INGRESS_LIMIT = 200;
 const DEFAULT_RESPONSE_LIMIT = 200;
 const FORBIDDEN_PATH_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const PENDING_INTERACTION_AUTHORITIES = new Set([
+  'corePendingInteractionProjection',
+  'terminalDecisionProjection',
+  'repairPendingInteractionProjection',
+  'legacyPendingInteractionTelemetry'
+]);
+const LIFECYCLE_AUTHORITIES = new Set([
+  'runtimeLifecycleProjection',
+  'repairLifecycleProjection',
+  'legacyLifecycleTelemetry'
+]);
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -61,6 +74,34 @@ function isObject(value) {
 
 function compact(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+const RAW_RUNTIME_LEDGER_PAYLOAD_KEYS = new Set([
+  'body',
+  'generatedText',
+  'messages',
+  'metadata',
+  'observedText',
+  'prompt',
+  'providerPayload',
+  'raw',
+  'rawPrompt',
+  'rawResponse',
+  'rawText',
+  'request',
+  'response',
+  'selectedText',
+  'text',
+  'transcript'
+]);
+
+function sanitizeRuntimeLedgerPayload(value) {
+  if (Array.isArray(value)) return value.map((entry) => sanitizeRuntimeLedgerPayload(entry));
+  if (!isObject(value)) return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !RAW_RUNTIME_LEDGER_PAYLOAD_KEYS.has(key))
+    .map(([key, entry]) => [key, sanitizeRuntimeLedgerPayload(entry)])
+    .filter(([, entry]) => entry !== undefined));
 }
 
 function replacementTextProjectionFields(source = {}) {
@@ -204,6 +245,111 @@ function isCoreRecoveryProjectionRow(entry = {}) {
   );
 }
 
+function normalizedEndConditionLedger(input = {}, defaults = {}) {
+  const projected = terminalDecisionLedgerView({
+    runtimeTracking: {
+      endConditionLedger: input
+    }
+  });
+  return {
+    ...cloneJson(defaults),
+    ...cloneJson(projected),
+    schemaVersion: 1,
+    activeDecisionId: projected.activeDecisionId,
+    detections: projected.detections,
+    decisions: projected.decisions,
+    branchRecords: projected.branchRecords,
+    continuationFrames: projected.continuationFrames
+  };
+}
+
+function isSceneReconciliationProjectionLedger(input = {}) {
+  return (
+    isObject(input)
+    && compact(input.authority) === 'sreSceneReconciliationProjection'
+    && compact(input.projectionSource) === 'sceneReconciliation'
+    && compact(input.compatibilityMirror?.kind) === 'directive.sceneReconciliationLedgerProjectionRef.v1'
+  );
+}
+
+function normalizedSceneReconciliationLedger(input = {}, defaults = {}) {
+  if (!isSceneReconciliationProjectionLedger(input)) return cloneJson(defaults);
+  return {
+    ...cloneJson(defaults),
+    ...cloneJson(input),
+    schemaVersion: 2,
+    markers: {
+      ...defaults.markers,
+      ...(isObject(input.markers) ? cloneJson(input.markers) : {})
+    },
+    runs: Array.isArray(input.runs) ? cloneJson(input.runs) : [],
+    pending: Array.isArray(input.pending) ? cloneJson(input.pending) : [],
+    applied: Array.isArray(input.applied) ? cloneJson(input.applied) : [],
+    rejected: Array.isArray(input.rejected) ? cloneJson(input.rejected) : [],
+    recalculationPreviews: Array.isArray(input.recalculationPreviews) ? cloneJson(input.recalculationPreviews) : [],
+    chunkCache: Array.isArray(input.chunkCache) ? cloneJson(input.chunkCache) : [],
+    invalidations: Array.isArray(input.invalidations) ? cloneJson(input.invalidations) : []
+  };
+}
+
+function compactSceneReconciliationSnapshot(input = {}, defaults = {}) {
+  const ledger = normalizedSceneReconciliationLedger(input, defaults);
+  return {
+    ...sanitizeRuntimeLedgerPayload(ledger),
+    markers: sanitizeRuntimeLedgerPayload(ledger.markers),
+    runs: [],
+    pending: [],
+    applied: [],
+    rejected: [],
+    recalculationPreviews: [],
+    chunkCache: [],
+    invalidations: [],
+    lastResult: sanitizeRuntimeLedgerPayload(ledger.lastResult)
+  };
+}
+
+function isSceneHandshakeProjectionRow(entry = {}) {
+  return (
+    isObject(entry)
+    && compact(entry.authority) === 'sreSceneHandshakeProjection'
+    && compact(entry.projectionSource) === 'sourceSettlementLatestPair'
+    && compact(entry.compatibilityMirror?.kind) === 'directive.sceneHandshakeLedgerProjectionRef.v1'
+  );
+}
+
+function normalizedSceneHandshakeLedger(input = {}, defaults = {}) {
+  const source = isObject(input) ? input : {};
+  return {
+    ...cloneJson(defaults),
+    ...cloneJson(source),
+    schemaVersion: 1,
+    settled: Array.isArray(source.settled) ? cloneJson(source.settled.filter(isSceneHandshakeProjectionRow)) : [],
+    pendingInternalReview: Array.isArray(source.pendingInternalReview) ? cloneJson(source.pendingInternalReview.filter(isSceneHandshakeProjectionRow)) : [],
+    deferred: Array.isArray(source.deferred) ? cloneJson(source.deferred.filter(isSceneHandshakeProjectionRow)) : [],
+    operatorRecovery: Array.isArray(source.operatorRecovery) ? cloneJson(source.operatorRecovery.filter(isSceneHandshakeProjectionRow)) : [],
+    rejected: Array.isArray(source.rejected) ? cloneJson(source.rejected.filter(isSceneHandshakeProjectionRow)) : [],
+    lastResult: isSceneHandshakeProjectionRow(source.lastResult) ? cloneJson(source.lastResult) : null
+  };
+}
+
+function isOpenWorldBoundaryProjection(input = {}) {
+  return (
+    isObject(input)
+    && compact(input.authority) === 'openWorldBoundaryProjection'
+    && compact(input.projectionSource) === 'directorCoordinator'
+    && compact(input.compatibilityMirror?.kind) === 'directive.openWorldBoundaryProjectionRef.v1'
+  );
+}
+
+function isTimeNormalizationProjection(input = {}) {
+  return (
+    isObject(input)
+    && compact(input.authority) === 'timeNormalizationProjection'
+    && compact(input.projectionSource) === 'campaignTimeState'
+    && compact(input.compatibilityMirror?.kind) === 'directive.timeNormalizationProjectionRef.v1'
+  );
+}
+
 function runtimeProjectionKey(row = {}, key) {
   if (isObject(key) && Array.isArray(key.anyOf)) {
     return key.anyOf.map((item) => compact(row?.[item])).filter(Boolean);
@@ -262,7 +408,7 @@ function runtimeTrackingLedgersFromView(campaignState = {}, runtimeLedgerView = 
 function modelCallJournalFromCoreProjections(campaignState = {}) {
   const projections = readRuntimeCoreProjections(campaignState);
   const modelCallDiagnostics = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
-  if (modelCallDiagnostics.length) return cloneJson(modelCallDiagnostics);
+  if (modelCallDiagnostics.length) return [];
   return cloneJson(campaignState.runtimeTracking?.modelCallJournal || []);
 }
 
@@ -271,72 +417,173 @@ function responseLedgerRevisionFromCoreProjections(campaignState = {}) {
   return Math.max(0, Number(projections.responseLedgerRevision) || 0);
 }
 
+function hasCoreRuntimeAuthority(campaignState = {}) {
+  return readRuntimeCoreProjections(campaignState)?.runtimeAuthority === 'coreStoreV2';
+}
+
+function trackedHistoryRecord({
+  tracking = {},
+  descriptor = {},
+  committedAt = null,
+  base = {}
+} = {}) {
+  const record = {
+    revision: tracking.revision,
+    committedAt,
+    reason: descriptor.reason,
+    source: descriptor.source,
+    ingressId: descriptor.ingressId,
+    turnId: descriptor.turnId,
+    outcomeId: descriptor.outcomeId,
+    delta: cloneJson(descriptor)
+  };
+  if (hasCoreRuntimeAuthority(base)) {
+    return {
+      ...record,
+      snapshotRef: {
+        kind: 'directive.coreRuntimeHistorySnapshotRef.v1',
+        authority: 'coreStoreV2',
+        revision: tracking.revision,
+        ingressId: descriptor.ingressId || null,
+        turnId: descriptor.turnId || null,
+        outcomeId: descriptor.outcomeId || null,
+        unavailableReason: 'core-authoritative-runtime-history'
+      }
+    };
+  }
+  return {
+    ...record,
+    snapshot: createCampaignStateSnapshot(base)
+  };
+}
+
+function isLifecycleProjectionRow(entry = {}) {
+  const authority = compact(entry.authority);
+  return (
+    isObject(entry)
+    && (authority === 'runtimeLifecycleProjection' || authority === 'repairLifecycleProjection')
+    && compact(entry.compatibilityMirror?.kind) === 'directive.lifecycleCompatibilityMirror.v1'
+  );
+}
+
+export function isPendingInteractionProjectionRow(entry = {}) {
+  const authority = compact(entry.authority);
+  return (
+    isObject(entry)
+    && (
+      authority === 'corePendingInteractionProjection'
+      || authority === 'terminalDecisionProjection'
+      || authority === 'repairPendingInteractionProjection'
+    )
+    && compact(entry.compatibilityMirror?.kind) === 'directive.pendingInteractionCompatibilityMirror.v1'
+  );
+}
+
+function compactModelCallTelemetryRows(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .filter(isObject)
+    .map((entry) => ({
+      id: compact(entry.id || entry.modelCallId) || null,
+      roleId: compact(entry.roleId) || null,
+      providerKind: compact(entry.providerKind) || null,
+      status: compact(entry.status) || (entry.ok === true ? 'ok' : 'recorded'),
+      providerId: compact(entry.providerId) || null,
+      model: compact(entry.model) || null,
+      trigger: compact(entry.trigger) || null,
+      campaignRevision: Number.isFinite(Number(entry.campaignRevision)) ? Number(entry.campaignRevision) : null,
+      requestHash: compact(entry.requestHash) || null,
+      parseStatus: compact(entry.parseStatus) || null,
+      validationStatus: compact(entry.validationStatus) || null,
+      appliedStatus: compact(entry.appliedStatus) || null,
+      sanitizedReason: compact(entry.sanitizedReason) || null,
+      latencyMs: Number.isFinite(Number(entry.latencyMs)) ? Math.max(0, Number(entry.latencyMs)) : null,
+      retryable: entry.retryable === true,
+      recordedAt: entry.recordedAt || null,
+      errorCode: compact(entry.errorCode) || null
+    }));
+}
+
+function compactRuntimeLedgerRows(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .filter(isObject)
+    .map((entry) => sanitizeRuntimeLedgerPayload({
+      ...cloneJson(entry),
+      ...replacementTextProjectionFields(entry)
+    }));
+}
+
+function compactRuntimeHistory(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .filter(isObject)
+    .map((entry) => {
+      const compactEntry = sanitizeRuntimeLedgerPayload(cloneJson(entry));
+      if (isObject(entry.snapshot)) {
+        compactEntry.snapshot = createCampaignStateSnapshot(entry.snapshot);
+      }
+      return compactEntry;
+    });
+}
+
 function normalizedTracking(value, options = {}) {
   const defaults = runtimeTrackingDefaults(options);
   const input = isObject(value) ? value : {};
-  return {
+  const historyLimit = defaults.historyLimit;
+  const history = bounded(compactRuntimeHistory(input.history), historyLimit);
+  const rawHistoryIndex = Number.isInteger(input.historyIndex) ? input.historyIndex : history.length - 1;
+  const historyIndex = history.length
+    ? Math.min(Math.max(0, rawHistoryIndex), history.length - 1)
+    : -1;
+  const normalized = {
     ...defaults,
     ...cloneJson(input),
     schemaVersion: 2,
     revision: Math.max(0, Number(input.revision) || 0),
     mechanicsRevision: Math.max(0, Number(input.mechanicsRevision) || 0),
-    historyLimit: Math.max(2, Number(input.historyLimit || options.historyLimit) || defaults.historyLimit),
-    historyIndex: Number.isInteger(input.historyIndex) ? input.historyIndex : -1,
-    history: Array.isArray(input.history) ? cloneJson(input.history) : [],
-    ingressLedger: Array.isArray(input.ingressLedger) ? cloneJson(input.ingressLedger) : [],
-    responseLedger: Array.isArray(input.responseLedger) ? cloneJson(input.responseLedger) : [],
+    historyLimit,
+    historyIndex,
+    history,
+    ingressLedger: compactRuntimeLedgerRows(input.ingressLedger),
+    responseLedger: compactRuntimeLedgerRows(input.responseLedger),
     responseLedgerRevision: Math.max(0, Number(input.responseLedgerRevision) || 0),
     recoveryJournal: Array.isArray(input.recoveryJournal)
       ? cloneJson(input.recoveryJournal.filter(isCoreRecoveryProjectionRow))
       : [],
-    lifecycleJournal: Array.isArray(input.lifecycleJournal) ? cloneJson(input.lifecycleJournal) : [],
+    lifecycleJournal: Array.isArray(input.lifecycleJournal)
+      ? cloneJson(input.lifecycleJournal.filter(isLifecycleProjectionRow))
+      : [],
     sidecarJournal: [],
-    modelCallJournal: Array.isArray(input.modelCallJournal) ? cloneJson(input.modelCallJournal) : [],
-    sceneReconciliation: {
-      ...cloneJson(defaults.sceneReconciliation),
-      ...(isObject(input.sceneReconciliation) ? cloneJson(input.sceneReconciliation) : {}),
-      schemaVersion: 2,
-      markers: {
-        ...defaults.sceneReconciliation.markers,
-        ...(isObject(input.sceneReconciliation?.markers) ? cloneJson(input.sceneReconciliation.markers) : {})
-      },
-      runs: Array.isArray(input.sceneReconciliation?.runs) ? cloneJson(input.sceneReconciliation.runs) : [],
-      pending: Array.isArray(input.sceneReconciliation?.pending) ? cloneJson(input.sceneReconciliation.pending) : [],
-      applied: Array.isArray(input.sceneReconciliation?.applied) ? cloneJson(input.sceneReconciliation.applied) : [],
-      rejected: Array.isArray(input.sceneReconciliation?.rejected) ? cloneJson(input.sceneReconciliation.rejected) : [],
-      recalculationPreviews: Array.isArray(input.sceneReconciliation?.recalculationPreviews) ? cloneJson(input.sceneReconciliation.recalculationPreviews) : [],
-      chunkCache: Array.isArray(input.sceneReconciliation?.chunkCache) ? cloneJson(input.sceneReconciliation.chunkCache) : [],
-      invalidations: Array.isArray(input.sceneReconciliation?.invalidations) ? cloneJson(input.sceneReconciliation.invalidations) : []
-    },
-    sceneHandshake: {
-      ...cloneJson(defaults.sceneHandshake),
-      ...(isObject(input.sceneHandshake) ? cloneJson(input.sceneHandshake) : {}),
-      schemaVersion: 1,
-      settled: Array.isArray(input.sceneHandshake?.settled) ? cloneJson(input.sceneHandshake.settled) : [],
-      pendingInternalReview: Array.isArray(input.sceneHandshake?.pendingInternalReview) ? cloneJson(input.sceneHandshake.pendingInternalReview) : [],
-      deferred: Array.isArray(input.sceneHandshake?.deferred) ? cloneJson(input.sceneHandshake.deferred) : [],
-      operatorRecovery: Array.isArray(input.sceneHandshake?.operatorRecovery) ? cloneJson(input.sceneHandshake.operatorRecovery) : [],
-      rejected: Array.isArray(input.sceneHandshake?.rejected) ? cloneJson(input.sceneHandshake.rejected) : []
-    },
-    pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : [],
-    endConditionLedger: {
-      ...cloneJson(defaults.endConditionLedger),
-      ...(isObject(input.endConditionLedger) ? cloneJson(input.endConditionLedger) : {}),
-      schemaVersion: 1,
-      detections: Array.isArray(input.endConditionLedger?.detections) ? cloneJson(input.endConditionLedger.detections) : [],
-      decisions: Array.isArray(input.endConditionLedger?.decisions) ? cloneJson(input.endConditionLedger.decisions) : [],
-      branchRecords: Array.isArray(input.endConditionLedger?.branchRecords) ? cloneJson(input.endConditionLedger.branchRecords) : [],
-      continuationFrames: Array.isArray(input.endConditionLedger?.continuationFrames) ? cloneJson(input.endConditionLedger.continuationFrames) : []
-    }
+    modelCallJournal: compactModelCallTelemetryRows(input.modelCallJournal),
+    sceneReconciliation: normalizedSceneReconciliationLedger(input.sceneReconciliation, defaults.sceneReconciliation),
+    sceneHandshake: normalizedSceneHandshakeLedger(input.sceneHandshake, defaults.sceneHandshake),
+    pendingInteractions: Array.isArray(input.pendingInteractions)
+      ? cloneJson(input.pendingInteractions.filter(isPendingInteractionProjectionRow))
+      : [],
+    endConditionLedger: normalizedEndConditionLedger(input.endConditionLedger, defaults.endConditionLedger)
   };
+  if (isOpenWorldBoundaryProjection(input.lastWorldBoundary)) {
+    normalized.lastWorldBoundary = cloneJson(input.lastWorldBoundary);
+  } else {
+    delete normalized.lastWorldBoundary;
+  }
+  if (isTimeNormalizationProjection(input.timeNormalization)) {
+    normalized.timeNormalization = cloneJson(input.timeNormalization);
+  } else {
+    delete normalized.timeNormalization;
+  }
+  return normalized;
 }
 
 export function initializeCampaignRuntimeTracking(campaignState, options = {}) {
   if (!isObject(campaignState)) throw new Error('campaignState must be an object');
+  const runtimeTracking = normalizedTracking(campaignState.runtimeTracking, options);
+  const sceneReconciliationInput = isObject(campaignState.sceneReconciliation)
+    ? campaignState.sceneReconciliation
+    : runtimeTracking.sceneReconciliation;
   return {
     ...cloneJson(campaignState),
     continuity: normalizeContinuityState(campaignState.continuity),
-    runtimeTracking: normalizedTracking(campaignState.runtimeTracking, options)
+    sceneReconciliation: normalizedSceneReconciliationLedger(sceneReconciliationInput, runtimeTracking.sceneReconciliation),
+    runtimeTracking
   };
 }
 
@@ -347,6 +594,15 @@ export function createCampaignStateSnapshot(campaignState) {
   if (snapshot?.turnLedger) {
     snapshot.turnLedger = compactTurnLedgerSnapshot(snapshot.turnLedger);
   }
+  const defaults = runtimeTrackingDefaults({
+    historyLimit: snapshot?.runtimeTracking?.historyLimit || DEFAULT_HISTORY_LIMIT
+  });
+  const sceneReconciliationInput = isObject(snapshot.sceneReconciliation)
+    ? snapshot.sceneReconciliation
+    : snapshot.runtimeTracking?.sceneReconciliation;
+  if (isObject(sceneReconciliationInput)) {
+    snapshot.sceneReconciliation = compactSceneReconciliationSnapshot(sceneReconciliationInput, defaults.sceneReconciliation);
+  }
   if (snapshot?.runtimeTracking) {
     snapshot.runtimeTracking = {
       ...snapshot.runtimeTracking,
@@ -355,9 +611,12 @@ export function createCampaignStateSnapshot(campaignState) {
       ingressLedger: [],
       responseLedger: [],
       recoveryJournal: [],
+      lifecycleJournal: [],
       sidecarJournal: [],
       modelCallJournal: [],
       pendingInteractions: [],
+      sceneReconciliation: cloneJson(defaults.sceneReconciliation),
+      sceneHandshake: cloneJson(defaults.sceneHandshake),
       endConditionLedger: {
         schemaVersion: 1,
         activeDecisionId: null,
@@ -429,20 +688,10 @@ export function commitTrackedCampaignState({
   }
 
   const nextRevision = tracking.revision + 1;
-  const materialChange = descriptor.domains.some((domain) => domain !== 'runtimeTracking');
+  const materialChange = descriptor.domains.some((domain) => !['runtimeTracking', 'sceneReconciliation'].includes(domain));
   const nextMechanicsRevision = tracking.mechanicsRevision + (materialChange ? 1 : 0);
   const committedAt = timestamp(now);
-  history.push({
-    revision: tracking.revision,
-    committedAt,
-    reason: descriptor.reason,
-    source: descriptor.source,
-    ingressId: descriptor.ingressId,
-    turnId: descriptor.turnId,
-    outcomeId: descriptor.outcomeId,
-    delta: cloneJson(descriptor),
-    snapshot: createCampaignStateSnapshot(base)
-  });
+  history.push(trackedHistoryRecord({ tracking, descriptor, committedAt, base }));
   history = bounded(history, tracking.historyLimit);
   historyIndex = history.length - 1;
 
@@ -742,9 +991,7 @@ function assertMissingCoreWriteAllowed(kind, source = {}, { missingCoreWriteMode
   const evidence = coreEvidenceStatus(source);
   const explicitAuthority = compact(source.authority);
   if (evidence !== 'missingCoreProjection') return;
-  if (explicitAuthority && explicitAuthority !== 'compatibilityProjectionUnavailable') return;
-  if (missingCoreWriteMode === 'quarantine') return;
-  const error = new Error(`${kind} old-ledger write requires CORE projection evidence or explicit quarantine mode`);
+  const error = new Error(`${kind} old-ledger write requires CORE projection evidence`);
   error.code = 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE';
   error.details = {
     kind,
@@ -1060,6 +1307,14 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
         id: `lifecycle-restore-${targetRevision}-${current.runtimeTracking.revision}`,
         type: 'stateRevisionRestored',
         status: 'applied',
+        authority: 'repairLifecycleProjection',
+        projectionSource: 'stateDeltaGateway',
+        compatibilityMirror: {
+          kind: 'directive.lifecycleCompatibilityMirror.v1',
+          status: 'stateRevisionRestored',
+          lifecycleId: `lifecycle-restore-${targetRevision}-${current.runtimeTracking.revision}`,
+          source: 'restoreTrackedCampaignRevision'
+        },
         recordedAt: timestamp(now),
         details: {
           fromRevision: current.runtimeTracking.revision,
@@ -1068,8 +1323,8 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
         }
       }
     ], 100),
-    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
-    endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
+    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)),
+    endConditionLedger: terminalDecisionLedgerView(current),
     activeIngressId: current.runtimeTracking.activeIngressId || null,
     recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
     lastDelta: {
@@ -1086,7 +1341,60 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
   return restored;
 }
 
-export function recordLifecycleEvent(campaignState, event = {}, { limit = 100 } = {}) {
+function lifecycleEvidenceStatus(source = {}) {
+  if (!isObject(source)) return 'missingLifecycleAuthority';
+  const explicitAuthority = compact(source.authority);
+  if (LIFECYCLE_AUTHORITIES.has(explicitAuthority)) return explicitAuthority;
+  if (source.coreProjection || source.coreTransactionId) return 'runtimeLifecycleProjection';
+  if (source.repairDecision || source.type === 'stateRevisionRestored') return 'repairLifecycleProjection';
+  return 'missingLifecycleAuthority';
+}
+
+function lifecycleMirror(source = {}, status = null) {
+  return {
+    kind: 'directive.lifecycleCompatibilityMirror.v1',
+    status: compact(status || lifecycleEvidenceStatus(source)) || null,
+    lifecycleId: compact(source.id) || null,
+    type: compact(source.type) || null,
+    transactionId: compact(source.coreTransactionId || source.coreProjection?.transactionId || source.coreProjection?.coreTransactionId) || null,
+    projectionSource: compact(source.projectionSource) || null
+  };
+}
+
+function lifecycleAuthorityFields(source = {}, {
+  allowLegacyLifecycleTelemetry = false
+} = {}) {
+  const evidence = lifecycleEvidenceStatus(source);
+  if (evidence === 'missingLifecycleAuthority') {
+    if (allowLegacyLifecycleTelemetry === true) {
+      return {
+        authority: 'legacyLifecycleTelemetry',
+        projectionSource: 'runtimeTrackingLegacy',
+        compatibilityMirror: lifecycleMirror(source, 'legacyLifecycleTelemetry')
+      };
+    }
+    const error = new Error('lifecycle old-ledger write requires runtime or REPAIR authority evidence');
+    error.code = 'DIRECTIVE_LIFECYCLE_AUTHORITY_REQUIRED';
+    error.details = {
+      kind: 'lifecycle',
+      evidence,
+      authority: compact(source.authority) || null
+    };
+    throw error;
+  }
+  return {
+    authority: evidence,
+    projectionSource: compact(source.projectionSource)
+      || (evidence === 'repairLifecycleProjection' ? 'repairRuntime' : evidence === 'runtimeLifecycleProjection' ? 'runtimeApp' : 'runtimeTrackingLegacy'),
+    compatibilityMirror: cloneJson(source.compatibilityMirror || lifecycleMirror(source, evidence))
+  };
+}
+
+export function recordLifecycleEvent(campaignState, event = {}, {
+  limit = 100,
+  allowLegacyLifecycleTelemetry = false
+} = {}) {
+  const authority = lifecycleAuthorityFields(event, { allowLegacyLifecycleTelemetry });
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
     lifecycleJournal: bounded([
@@ -1095,6 +1403,12 @@ export function recordLifecycleEvent(campaignState, event = {}, { limit = 100 } 
         id: compact(event.id) || `lifecycle-${tracking.lifecycleJournal.length + 1}`,
         type: compact(event.type) || 'lifecycle',
         status: compact(event.status) || 'recorded',
+        authority: authority.authority,
+        projectionSource: authority.projectionSource,
+        compatibilityMirror: authority.compatibilityMirror,
+        coreTransactionId: compact(event.coreTransactionId) || null,
+        coreProjection: cloneJson(event.coreProjection || null),
+        repairDecision: cloneJson(event.repairDecision || null),
         recordedAt: event.recordedAt || new Date().toISOString(),
         details: cloneJson(event.details || {})
       }
@@ -1102,7 +1416,20 @@ export function recordLifecycleEvent(campaignState, event = {}, { limit = 100 } 
   }));
 }
 
-export function recordModelCallEvent(campaignState, event = {}, { limit = 200 } = {}) {
+export function recordModelCallEvent(campaignState, event = {}, {
+  limit = 200,
+  allowLegacyModelCallTelemetry = false
+} = {}) {
+  if (allowLegacyModelCallTelemetry !== true) {
+    const error = new Error('model-call old-ledger write requires explicit legacy telemetry opt-in');
+    error.code = 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE';
+    error.details = {
+      kind: 'modelCall',
+      evidence: 'missingCoreDiagnosticProjection',
+      authority: null
+    };
+    throw error;
+  }
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
     modelCallJournal: bounded([
@@ -1130,7 +1457,11 @@ export function recordModelCallEvent(campaignState, event = {}, { limit = 200 } 
   }));
 }
 
-export function recordPendingInteraction(campaignState, interaction = {}, { limit = 50 } = {}) {
+export function recordPendingInteraction(campaignState, interaction = {}, {
+  limit = 50,
+  allowLegacyPendingInteractionTelemetry = false
+} = {}) {
+  const authority = pendingInteractionAuthorityFields(interaction, { allowLegacyPendingInteractionTelemetry });
   const id = compact(interaction.id) || `interaction-${Date.now()}`;
   return updateTracking(campaignState, (tracking) => {
     const list = tracking.pendingInteractions.filter((entry) => entry.id !== id);
@@ -1141,6 +1472,14 @@ export function recordPendingInteraction(campaignState, interaction = {}, { limi
       ingressId: compact(interaction.ingressId) || null,
       turnId: compact(interaction.turnId) || null,
       outcomeId: compact(interaction.outcomeId) || null,
+      coreTransactionId: compact(interaction.coreTransactionId) || null,
+      coreProjection: cloneJson(interaction.coreProjection || null),
+      coreCheckpointRef: cloneJson(interaction.coreCheckpointRef || interaction.metadata?.checkpoint?.coreCheckpointRef || null),
+      terminalCheckpointSettlement: cloneJson(interaction.terminalCheckpointSettlement || null),
+      repairDecision: cloneJson(interaction.repairDecision || null),
+      authority: authority.authority,
+      projectionSource: authority.projectionSource,
+      compatibilityMirror: authority.compatibilityMirror,
       prompt: compact(interaction.prompt) || null,
       options: cloneJson(interaction.options || []),
       metadata: cloneJson(interaction.metadata || null),
@@ -1153,18 +1492,89 @@ export function recordPendingInteraction(campaignState, interaction = {}, { limi
   });
 }
 
-export function resolvePendingInteraction(campaignState, interactionId, resolution = {}) {
+function pendingInteractionEvidenceStatus(source = {}) {
+  if (!isObject(source)) return 'missingPendingInteractionAuthority';
+  const explicitAuthority = compact(source.authority);
+  if (PENDING_INTERACTION_AUTHORITIES.has(explicitAuthority)) return explicitAuthority;
+  if (source.coreProjection || source.coreTransactionId) return 'corePendingInteractionProjection';
+  if (source.repairDecision) return 'repairPendingInteractionProjection';
+  if (source.terminalCheckpointSettlement || source.coreCheckpointRef || source.metadata?.checkpoint?.coreCheckpointRef) return 'terminalDecisionProjection';
+  return 'missingPendingInteractionAuthority';
+}
+
+function pendingInteractionMirror(source = {}, status = null) {
+  const coreCheckpointRef = source.coreCheckpointRef || source.metadata?.checkpoint?.coreCheckpointRef || null;
+  return {
+    kind: 'directive.pendingInteractionCompatibilityMirror.v1',
+    status: compact(status || pendingInteractionEvidenceStatus(source)) || null,
+    interactionId: compact(source.id || source.interactionId) || null,
+    ingressId: compact(source.ingressId) || null,
+    turnId: compact(source.turnId) || null,
+    outcomeId: compact(source.outcomeId) || null,
+    transactionId: compact(source.coreTransactionId || source.coreProjection?.transactionId || source.coreProjection?.coreTransactionId) || null,
+    checkpointId: compact(coreCheckpointRef?.checkpointId || coreCheckpointRef?.logicalKey) || null,
+    projectionSource: compact(source.projectionSource) || null
+  };
+}
+
+function pendingInteractionAuthorityFields(source = {}, {
+  allowLegacyPendingInteractionTelemetry = false
+} = {}) {
+  const evidence = pendingInteractionEvidenceStatus(source);
+  if (evidence === 'missingPendingInteractionAuthority') {
+    if (allowLegacyPendingInteractionTelemetry === true) {
+      return {
+        authority: 'legacyPendingInteractionTelemetry',
+        projectionSource: 'runtimeTrackingLegacy',
+        compatibilityMirror: pendingInteractionMirror(source, 'legacyPendingInteractionTelemetry')
+      };
+    }
+    const error = new Error('pending interaction old-ledger write requires CORE, terminal, or REPAIR authority evidence');
+    error.code = 'DIRECTIVE_PENDING_INTERACTION_AUTHORITY_REQUIRED';
+    error.details = {
+      kind: 'pendingInteraction',
+      evidence,
+      authority: compact(source.authority) || null
+    };
+    throw error;
+  }
+  const projectionSource = compact(source.projectionSource)
+    || (evidence === 'corePendingInteractionProjection'
+      ? 'coreStoreV2'
+      : evidence === 'repairPendingInteractionProjection'
+        ? 'repairRuntime'
+        : evidence === 'terminalDecisionProjection'
+          ? 'terminalOutcomeDecision'
+          : 'runtimeTrackingLegacy');
+  return {
+    authority: evidence,
+    projectionSource,
+    compatibilityMirror: cloneJson(source.compatibilityMirror || pendingInteractionMirror(source, evidence))
+  };
+}
+
+export function resolvePendingInteraction(campaignState, interactionId, resolution = {}, {
+  allowLegacyPendingInteractionTelemetry = false
+} = {}) {
   const id = compact(interactionId);
   return updateTracking(campaignState, (tracking) => ({
     ...tracking,
-    pendingInteractions: tracking.pendingInteractions.map((entry) => entry.id === id
-      ? {
+    pendingInteractions: tracking.pendingInteractions.map((entry) => {
+      if (entry.id !== id) return entry;
+      const merged = {
           ...entry,
           status: resolution.status || 'resolved',
           resolvedAt: resolution.resolvedAt || new Date().toISOString(),
           resolution: cloneJson(resolution)
-        }
-      : entry)
+        };
+      const authority = pendingInteractionAuthorityFields(merged, { allowLegacyPendingInteractionTelemetry });
+      return {
+        ...merged,
+        authority: authority.authority,
+        projectionSource: authority.projectionSource,
+        compatibilityMirror: authority.compatibilityMirror
+      };
+    })
   }));
 }
 

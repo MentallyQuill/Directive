@@ -89,10 +89,12 @@ import {
   createRuntimeLedgerView,
   readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
+import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
+  isPendingInteractionProjectionRow,
   recordLifecycleEvent,
   recordDirectiveResponse,
   recordTurnIngress,
@@ -774,7 +776,7 @@ function stateBindingForFreshness(state = null, {
 
 function stateFreshnessCounters(state = null) {
   const tracking = state?.runtimeTracking || {};
-  const ledger = tracking.endConditionLedger || {};
+  const ledger = terminalDecisionLedgerView(state || {});
   const runtimeLedgerView = createRuntimeLedgerView(state || {});
   const responseLedger = runtimeLedgerView.responseLedger || [];
   const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections
@@ -812,13 +814,19 @@ function stateFreshnessCounters(state = null) {
       coreSidecarDiagnostics ?? 0,
       coreAcceptedBackgroundWorkers ?? 0
     ),
-    pendingInteractions: countArray(tracking.pendingInteractions),
+    pendingInteractions: countArray(pendingInteractionProjectionRows(state)),
     endConditionDetections: countArray(ledger.detections),
     endConditionDecisions: countArray(ledger.decisions),
     endConditionBranchRecords: countArray(ledger.branchRecords),
     endConditionContinuationFrames: countArray(ledger.continuationFrames),
     modelCallJournalEntries: modelCallDiagnostics.length
   };
+}
+
+function pendingInteractionProjectionRows(state = null) {
+  return Array.isArray(state?.runtimeTracking?.pendingInteractions)
+    ? state.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)
+    : [];
 }
 
 function modelCallDiagnosticsForState(state = null) {
@@ -828,6 +836,32 @@ function modelCallDiagnosticsForState(state = null) {
   return Array.isArray(state?.runtimeTracking?.modelCallJournal)
     ? cloneJson(state.runtimeTracking.modelCallJournal)
     : [];
+}
+
+function coreModelCallDiagnosticsForState(state = null) {
+  const projections = readRuntimeCoreProjections(state || {});
+  return Array.isArray(projections.modelCallDiagnostics) ? cloneJson(projections.modelCallDiagnostics) : [];
+}
+
+function legacyModelCallTelemetryForState(state = null) {
+  return Array.isArray(state?.runtimeTracking?.modelCallJournal)
+    ? cloneJson(state.runtimeTracking.modelCallJournal)
+    : [];
+}
+
+function modelCallResultFromGeneration(generated = null, fallbackRoleId = null) {
+  if (!generated) return null;
+  return {
+    roleId: generated.roleId || fallbackRoleId || null,
+    providerKind: generated.role?.providerKind || generated.response?.providerKind || null,
+    providerId: generated.diagnostics?.providerId || generated.response?.providerId || null,
+    model: generated.diagnostics?.model || generated.response?.model || null,
+    status: generated.ok === true ? 'ok' : (generated.error ? 'failed' : null),
+    ok: generated.ok === true,
+    latencyMs: generated.diagnostics?.latencyMs ?? null,
+    requestHash: generated.diagnostics?.requestHash || null,
+    errorCode: generated.error?.code || null
+  };
 }
 
 function responseLedgerIntegrityRank(entry = null) {
@@ -1015,7 +1049,7 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   if (inMemory.mechanicsRevision > candidate.mechanicsRevision) return true;
   if (inMemory.mechanicsRevision < candidate.mechanicsRevision) return false;
 
-  return inMemory.modelCallJournalEntries > candidate.modelCallJournalEntries && !hasMaterialRegression;
+  return false;
 }
 
 function hasTurnLedgerOutcome(state = null, outcomeId = null) {
@@ -1271,7 +1305,7 @@ function compatibilityRowsThatCanBlockCoreAuthority(legacyRows = [], coreRows = 
   if (!Array.isArray(coreRows) || coreRows.length === 0) return rows;
   return rows.filter((row) => {
     const authority = compactString(row?.authority);
-    if (authority === 'compatibilityProjectionUnavailable') return true;
+    if (authority === 'compatibilityProjectionUnavailable') return false;
     return Boolean(row?.compatibilityMirror || compactString(row?.projectionSource) === 'coreStoreV2');
   });
 }
@@ -2748,6 +2782,18 @@ export function createDirectiveRuntimeApp({
     }
   }
 
+  async function refreshViewCoreProjectionEvidence() {
+    if (campaignState) {
+      campaignState = await stateWithCoreProjectionFreshnessEvidence(modelCallJournal.applyPending(campaignState));
+    }
+    if (currentChatScope?.campaignState) {
+      currentChatScope = {
+        ...currentChatScope,
+        campaignState: await stateWithCoreProjectionFreshnessEvidence(currentChatScope.campaignState)
+      };
+    }
+  }
+
   async function refreshRuntimePersistenceAfterCoreDiagnostics(reason = 'Runtime CORE diagnostics refreshed.') {
     if (!campaignState) return null;
     const coreCount = await coreSidecarResumeCount();
@@ -2841,7 +2887,8 @@ export function createDirectiveRuntimeApp({
     const runtimeLedgerView = createRuntimeLedgerView(state || {});
     const runtimeResponseLedger = runtimeLedgerView.responseLedger || [];
     const runtimeRecoveryJournal = runtimeLedgerView.recoveryJournal || [];
-    const modelCallDiagnostics = modelCallDiagnosticsForState(state);
+    const modelCallDiagnostics = coreModelCallDiagnosticsForState(state);
+    const legacyModelCallTelemetry = legacyModelCallTelemetryForState(state);
     return {
       binding: cloneJson(state.campaignChatBinding || null),
       activation: cloneJson(state.activationJournal || null),
@@ -2860,14 +2907,17 @@ export function createDirectiveRuntimeApp({
         modelCallEventSequence: maxModelCallEventSequence(state),
         lastDelta: cloneJson(state.runtimeTracking.lastDelta || null),
         lastCommittedTurn: cloneJson(state.runtimeTracking.lastCommittedTurn || null),
-        latestModelCall: cloneJson(modelCallDiagnostics.at(-1) || null)
+        latestModelCall: cloneJson(modelCallDiagnostics.at(-1) || null),
+        legacyModelCallCount: legacyModelCallTelemetry.length,
+        latestLegacyModelCall: cloneJson(legacyModelCallTelemetry.at(-1) || null)
       } : null,
       prompt: cloneJson(state.campaignChatBinding?.promptContext || null),
       manualSaveGuard: cloneJson(saveGuard || null),
-      pendingInteractions: cloneJson(state.runtimeTracking?.pendingInteractions || []),
+      pendingInteractions: cloneJson(pendingInteractionProjectionRows(state)),
       recovery: cloneJson(runtimeRecoveryJournal),
       modelCalls: cloneJson(modelCallDiagnostics),
-      sceneReconciliation: cloneJson(state.runtimeTracking?.sceneReconciliation || null)
+      legacyModelCallTelemetry: cloneJson(legacyModelCallTelemetry),
+      sceneReconciliation: cloneJson(state.sceneReconciliation || null)
     };
   }
 
@@ -4809,11 +4859,11 @@ export function createDirectiveRuntimeApp({
   function terminalCheckpointCoreTargetForEvent(event = {}) {
     const binding = bindingFromState(campaignState);
     const interactionId = compactString(event.interactionId || event.pendingInteractionId);
-    const ledger = campaignState?.runtimeTracking?.endConditionLedger || {};
+    const ledger = terminalDecisionLedgerView(campaignState || {});
     const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : [])
       .find((entry) => compactString(entry?.id) === interactionId) || null;
     const interaction = (Array.isArray(campaignState?.runtimeTracking?.pendingInteractions)
-      ? campaignState.runtimeTracking.pendingInteractions
+      ? campaignState.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)
       : []
     ).find((entry) => compactString(entry?.id) === interactionId) || null;
     const ingress = runtimeIngressForContext({
@@ -5234,14 +5284,14 @@ export function createDirectiveRuntimeApp({
   }
 
   function pendingTerminalDecisionId(state = null) {
-    const ledger = state?.runtimeTracking?.endConditionLedger || {};
+    const ledger = terminalDecisionLedgerView(state || {});
     const activeDecisionId = compactString(ledger.activeDecisionId);
     const decisions = Array.isArray(ledger.decisions) ? ledger.decisions : [];
     const activeDecision = activeDecisionId
       ? decisions.find((entry) => entry?.id === activeDecisionId && entry?.status === 'pending')
       : null;
     if (activeDecision) return activeDecision.id;
-    const pendingInteraction = (state?.runtimeTracking?.pendingInteractions || []).find((entry) => (
+    const pendingInteraction = (state?.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).find((entry) => (
       entry?.status === 'pending'
       && entry?.kind === 'terminalOutcomeDecision'
     ));
@@ -5251,10 +5301,10 @@ export function createDirectiveRuntimeApp({
   function terminalDecisionStillPending(state = null, decisionId = null) {
     const id = compactString(decisionId);
     if (!id) return false;
-    const ledger = state?.runtimeTracking?.endConditionLedger || {};
+    const ledger = terminalDecisionLedgerView(state || {});
     const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : []).find((entry) => entry?.id === id);
     if (decision?.status === 'pending') return true;
-    return (state?.runtimeTracking?.pendingInteractions || []).some((entry) => (
+    return (state?.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).some((entry) => (
       entry?.id === id
       && entry?.status === 'pending'
       && entry?.kind === 'terminalOutcomeDecision'
@@ -6971,6 +7021,7 @@ export function createDirectiveRuntimeApp({
         }
         await refreshManualSaveGuard();
         await refreshCurrentChatCampaignScope();
+        await refreshViewCoreProjectionEvidence();
         return viewEnvelope(tabId);
       });
     },
@@ -7108,8 +7159,12 @@ export function createDirectiveRuntimeApp({
         const sidecarJournalCountAfter = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
         const coreSidecarDiagnosticsAfter = await coreSidecarDiagnosticCount();
         const coreSidecarResumeCountAfter = await coreSidecarResumeCount();
-        const sidecarCountBefore = Math.max(sidecarJournalCountBefore, coreSidecarResumeCountBefore ?? 0);
-        const sidecarCountAfter = Math.max(sidecarJournalCountAfter, coreSidecarResumeCountAfter ?? 0);
+        const sidecarCountBefore = Number.isFinite(coreSidecarResumeCountBefore)
+          ? Math.max(0, coreSidecarResumeCountBefore)
+          : 0;
+        const sidecarCountAfter = Number.isFinite(coreSidecarResumeCountAfter)
+          ? Math.max(0, coreSidecarResumeCountAfter)
+          : 0;
         const sidecarJournalDelta = Math.max(0, sidecarJournalCountAfter - sidecarJournalCountBefore);
         const coreSidecarDiagnosticDelta = Number.isFinite(coreSidecarDiagnosticsBefore) && Number.isFinite(coreSidecarDiagnosticsAfter)
           ? Math.max(0, coreSidecarDiagnosticsAfter - coreSidecarDiagnosticsBefore)
@@ -7128,7 +7183,7 @@ export function createDirectiveRuntimeApp({
           coreSidecarDiagnosticDelta,
           coreSidecarResumeCountBefore,
           coreSidecarResumeCountAfter,
-          sidecarDelta: Math.max(sidecarCountDelta, sidecarJournalDelta, coreSidecarDiagnosticDelta ?? 0, resultCount),
+          sidecarDelta: Math.max(sidecarCountDelta, coreSidecarDiagnosticDelta ?? 0, resultCount),
           results: cloneJson(results || []),
           commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           postCommitConversationResult: cloneJson(postCommitConversationResult),
@@ -7931,6 +7986,14 @@ export function createDirectiveRuntimeApp({
           id: idFactory('campaign-difficulty'),
           type: 'campaignDifficultyChange',
           status: 'applied',
+          authority: 'runtimeLifecycleProjection',
+          projectionSource: 'runtimeApp',
+          coreProjection: {
+            kind: 'directive.runtimeLifecycleProjectionRef.v1',
+            lifecycleType: 'campaignDifficultyChange',
+            campaignId: campaignState.campaign?.id || null,
+            status: 'applied'
+          },
           recordedAt: changedAt,
           details: {
             previousMode,
@@ -8017,7 +8080,7 @@ export function createDirectiveRuntimeApp({
         await settleRuntimePersistenceQueue();
         requireObject(campaignState, 'campaignState');
         const limit = normalizeTurnSaveHistoryLimit(
-          maxTurnSaveHistory ?? historyLimit ?? campaignState.settings?.maxTurnSaveHistory ?? campaignState.runtimeTracking?.historyLimit
+          maxTurnSaveHistory ?? historyLimit ?? campaignState.settings?.maxTurnSaveHistory
         );
         const autosaveInterval = normalizeAutosaveEveryMessages(
           autosaveEveryMessages ?? campaignState.settings?.autosaveEveryMessages
@@ -8121,7 +8184,7 @@ export function createDirectiveRuntimeApp({
         }
         validateFactualGroundingReviewRequest(reviewRequest);
         const stateBefore = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCallCountBefore = modelCallDiagnosticsForState(campaignState).length;
+        const modelCallCountBefore = coreModelCallDiagnosticsForState(campaignState).length;
         const generated = await generationRouter.generate(
           FACTUAL_GROUNDING_REVIEW_ROLE_ID,
           factualGroundingReviewProviderRequest(reviewRequest)
@@ -8134,8 +8197,8 @@ export function createDirectiveRuntimeApp({
           || ''
         );
         const stateAfter = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCalls = modelCallDiagnosticsForState(campaignState);
-        const latestModelCall = modelCalls.at(-1) || null;
+        const modelCalls = coreModelCallDiagnosticsForState(campaignState);
+        const latestModelCall = modelCalls.at(-1) || modelCallResultFromGeneration(generated, FACTUAL_GROUNDING_REVIEW_ROLE_ID);
         return {
           kind: 'directive.factualGroundingReviewProviderResult',
           ok: generated?.ok === true && Boolean(text),
@@ -8173,7 +8236,7 @@ export function createDirectiveRuntimeApp({
         }
         validateStoryQualityReviewRequest(reviewRequest);
         const stateBefore = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCallCountBefore = modelCallDiagnosticsForState(campaignState).length;
+        const modelCallCountBefore = coreModelCallDiagnosticsForState(campaignState).length;
         const generated = await generationRouter.generate(
           STORY_QUALITY_REVIEW_ROLE_ID,
           storyQualityReviewProviderRequest(reviewRequest)
@@ -8186,8 +8249,8 @@ export function createDirectiveRuntimeApp({
           || ''
         );
         const stateAfter = campaignState ? gameplayStateFingerprint(campaignState) : null;
-        const modelCalls = modelCallDiagnosticsForState(campaignState);
-        const latestModelCall = modelCalls.at(-1) || null;
+        const modelCalls = coreModelCallDiagnosticsForState(campaignState);
+        const latestModelCall = modelCalls.at(-1) || modelCallResultFromGeneration(generated, STORY_QUALITY_REVIEW_ROLE_ID);
         return {
           kind: 'directive.storyQualityReviewProviderResult',
           ok: generated?.ok === true && Boolean(text),
@@ -8360,6 +8423,16 @@ export function createDirectiveRuntimeApp({
           id: `rebind:${campaignState.campaign?.id || 'campaign'}:${reboundAt}`,
           type: 'chatRebind',
           status: 'applied',
+          authority: 'runtimeLifecycleProjection',
+          projectionSource: 'runtimeApp',
+          coreProjection: {
+            kind: 'directive.runtimeLifecycleProjectionRef.v1',
+            lifecycleType: 'chatRebind',
+            campaignId: campaignState.campaign?.id || null,
+            saveId: controller.activeSaveId || null,
+            chatId: campaignState.campaignChatBinding?.chatId || null,
+            status: 'applied'
+          },
           recordedAt: reboundAt,
           details: {
             previousChatId: previousBinding?.chatId || null,
@@ -10145,6 +10218,12 @@ export function createDirectiveRuntimeApp({
           ...cloneJson(campaignState),
           commandBearing: recovery.commandBearing
         };
+        if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
+          currentChatScope = {
+            ...currentChatScope,
+            campaignState: cloneJson(campaignState)
+          };
+        }
         return {
           applied: recovery.applied,
           reason: recovery.reason,
@@ -10171,6 +10250,13 @@ export function createDirectiveRuntimeApp({
             ...cloneJson(campaignState),
             commandBearing: result.commandBearing
           };
+          if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
+            currentChatScope = {
+              ...currentChatScope,
+              campaignState: cloneJson(campaignState)
+            };
+          }
+          await refreshCampaignView();
         }
         return {
           applied: result.applied,
@@ -10194,6 +10280,13 @@ export function createDirectiveRuntimeApp({
             ...cloneJson(campaignState),
             commandBearing: result.commandBearing
           };
+          if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
+            currentChatScope = {
+              ...currentChatScope,
+              campaignState: cloneJson(campaignState)
+            };
+          }
+          await refreshCampaignView();
         }
         return {
           applied: result.applied,

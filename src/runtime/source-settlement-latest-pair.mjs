@@ -1,6 +1,6 @@
 import {
   createLatestPairSreSettlementProvider,
-  runSceneHandshakeSettlement
+  runLatestPairSourceSettlement
 } from './scene-handshake-settler.mjs';
 
 export function createLatestPairSourceSettlementProvider(options = {}) {
@@ -8,5 +8,5 @@ export function createLatestPairSourceSettlementProvider(options = {}) {
 }
 
 export async function settleLatestPairSource(options = {}) {
-  return runSceneHandshakeSettlement(options);
+  return runLatestPairSourceSettlement(options);
 }

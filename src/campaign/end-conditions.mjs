@@ -1,3 +1,8 @@
+import {
+  terminalDecisionLedgerView,
+  withTerminalDecisionLedgerProjection
+} from '../runtime/terminal-decision-ledger-view.mjs';
+
 const RESULT_BANDS = Object.freeze([
   'Great Success',
   'Success',
@@ -219,12 +224,7 @@ function checkpointSource(campaignState, outcomeId, condition, packageEndConditi
   const policy = condition.checkpointPolicy || packageEndConditions.defaultCheckpointPolicy || {};
   const entry = array(campaignState?.turnLedger?.entries).find((item) => item?.outcomeId === outcomeId)
     || latestTurnEntry(campaignState);
-  const coreCheckpointRef = entry?.coreCheckpointRef
-    || (
-      campaignState?.runtimeTracking?.lastCommittedTurn?.outcomeId === (entry?.outcomeId || outcomeId || null)
-        ? campaignState.runtimeTracking.lastCommittedTurn.coreCheckpointRef
-        : null
-    );
+  const coreCheckpointRef = entry?.coreCheckpointRef || null;
   if (coreCheckpointRef && typeof coreCheckpointRef === 'object') {
     return {
       source: 'coreCheckpoint',
@@ -386,15 +386,7 @@ export function applyPushOnContinuationFrame({
   }
   const next = cloneJson(campaignState);
   for (const effect of array(frame.stateEffects)) applyFrameEffect(next, effect);
-  const tracking = next.runtimeTracking || {};
-  const ledger = {
-    schemaVersion: 1,
-    activeDecisionId: tracking.endConditionLedger?.activeDecisionId || null,
-    detections: array(tracking.endConditionLedger?.detections),
-    decisions: array(tracking.endConditionLedger?.decisions),
-    branchRecords: array(tracking.endConditionLedger?.branchRecords),
-    continuationFrames: array(tracking.endConditionLedger?.continuationFrames)
-  };
+  const ledger = terminalDecisionLedgerView(next);
   ledger.continuationFrames.push({
     id: `continuation:${frame.id}:${ledger.continuationFrames.length + 1}`,
     frameId: frame.id,
@@ -402,12 +394,21 @@ export function applyPushOnContinuationFrame({
     decisionId,
     acceptedAt: timestamp(now),
     title: frame.title,
-    playerFacingSummary: frame.playerFacingStartCopy
+    playerFacingSummary: frame.playerFacingStartCopy,
+    authority: 'terminalDecisionProjection',
+    projectionSource: 'terminalOutcomeDecision',
+    coreProjection: {
+      kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+      rowKind: 'continuationFrame',
+      decisionId,
+      conditionId,
+      frameId: frame.id,
+      status: 'accepted',
+      action: 'pushOn'
+    }
   });
-  next.runtimeTracking = {
-    ...tracking,
-    endConditionLedger: ledger
-  };
+  const projected = withTerminalDecisionLedgerProjection(next, ledger);
+  next.runtimeTracking = projected.runtimeTracking;
   return {
     campaignState: next,
     frame: cloneJson(frame)

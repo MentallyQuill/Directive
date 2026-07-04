@@ -394,7 +394,7 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal) ? runtimeLedgerView.recoveryJournal : [];
     const ingress = ingressLedger.find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
     const response = responseLedger.find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
-    const reconciliation = tracking.sceneReconciliation || {};
+    const reconciliation = view?.campaignState?.sceneReconciliation || {};
     const latestRecovery = [...recoveryJournal].reverse().find((entry) => String(entry?.hostMessageId || '') === String(targetMesid)) || null;
     const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections

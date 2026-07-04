@@ -116,12 +116,40 @@ assert.deepEqual(
 const duplicateHostState = {
   runtimeTracking: {
     ingressLedger: [
-      { id: 'ingress-host-12-old', hostMessageId: '12', coreTransactionId: 'txn-old-ingress' },
-      { id: 'ingress-host-12-latest', hostMessageId: '12', coreTransactionId: 'txn-latest-ingress' }
+      {
+        id: 'ingress-host-12-old',
+        hostMessageId: '12',
+        coreTransactionId: 'txn-old-ingress',
+        authority: 'coreIngressProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'sourceObserved' }
+      },
+      {
+        id: 'ingress-host-12-latest',
+        hostMessageId: '12',
+        coreTransactionId: 'txn-latest-ingress',
+        authority: 'coreIngressProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1', status: 'sourceObserved' }
+      }
     ],
     responseLedger: [
-      { id: 'response-host-13-old', hostMessageId: '13', coreTransactionId: 'txn-old-response' },
-      { id: 'response-host-13-latest', hostMessageId: '13', coreTransactionId: 'txn-latest-response' }
+      {
+        id: 'response-host-13-old',
+        hostMessageId: '13',
+        coreTransactionId: 'txn-old-response',
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'coreResponseProjection' }
+      },
+      {
+        id: 'response-host-13-latest',
+        hostMessageId: '13',
+        coreTransactionId: 'txn-latest-response',
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'coreResponseProjection' }
+      }
     ]
   }
 };
@@ -155,14 +183,14 @@ const legacyOnlyRecoveryState = {
 };
 const legacyOnlyRecoveryView = createRuntimeLedgerView(legacyOnlyRecoveryState);
 assert.equal(
-  legacyOnlyRecoveryView.ingressLedger[0].id,
-  'legacy-only-ingress',
-  'Legacy ingress fallback remains available when no CORE projection exists.'
+  legacyOnlyRecoveryView.ingressLedger.length,
+  0,
+  'Legacy ingress fallback must not surface silent old rows even when no CORE projection exists.'
 );
 assert.equal(
-  legacyOnlyRecoveryView.responseLedger[0].id,
-  'legacy-only-response',
-  'Legacy response fallback remains available when no CORE projection exists.'
+  legacyOnlyRecoveryView.responseLedger.length,
+  0,
+  'Legacy response fallback must not surface silent old rows even when no CORE projection exists.'
 );
 assert.deepEqual(
   legacyOnlyRecoveryView.recoveryJournal,

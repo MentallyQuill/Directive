@@ -3264,6 +3264,10 @@ function runtimeLedgerViewModulePath() {
   return `${EXTENSION_PATH}/src/runtime/runtime-ledger-view.mjs`;
 }
 
+function terminalDecisionLedgerViewModulePath() {
+  return `${EXTENSION_PATH}/src/runtime/terminal-decision-ledger-view.mjs`;
+}
+
 function shellEventsModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/shell-events.js`;
 }
@@ -3518,7 +3522,7 @@ function capturePromptInspectionSnapshot(snapshot, metadata = {}) {
 }
 
 async function chatNativeRuntimeSnapshot(page) {
-  return evaluateBrowserJson(page, async ({ modulePath, ledgerModulePath }) => {
+  return evaluateBrowserJson(page, async ({ modulePath, ledgerModulePath, terminalLedgerModulePath }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const compactText = (value, max = 180) => {
       const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -3606,6 +3610,12 @@ async function chatNativeRuntimeSnapshot(page) {
     } catch {
       ledgerTools = null;
     }
+    let terminalLedgerTools = null;
+    try {
+      terminalLedgerTools = await import(terminalLedgerModulePath);
+    } catch {
+      terminalLedgerTools = null;
+    }
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const host = bridge.host || null;
@@ -3691,9 +3701,10 @@ async function chatNativeRuntimeSnapshot(page) {
       ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
       ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
     ];
-    const sidecars = (coreSidecarRows.length
-      ? coreSidecarRows
-      : (view?.campaignState?.runtimeTracking?.sidecarJournal || [])).map((entry) => ({
+    const legacySidecarRows = Array.isArray(view?.campaignState?.runtimeTracking?.sidecarJournal)
+      ? view.campaignState.runtimeTracking.sidecarJournal
+      : [];
+    const sidecars = coreSidecarRows.map((entry) => ({
       id: entry.id || null,
       workerId: entry.workerId || null,
       roleId: entry.roleId || null,
@@ -3712,10 +3723,10 @@ async function chatNativeRuntimeSnapshot(page) {
     const runtimeTracking = view?.campaignState?.runtimeTracking || {};
     const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger)
       ? runtimeLedgerView.ingressLedger
-      : (Array.isArray(runtimeTracking.ingressLedger) ? runtimeTracking.ingressLedger : []);
+      : [];
     const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger)
       ? runtimeLedgerView.responseLedger
-      : (Array.isArray(runtimeTracking.responseLedger) ? runtimeTracking.responseLedger : []);
+      : [];
     const safeTurnLatency = (value) => value && typeof value === 'object'
       ? {
           kind: value.kind || null,
@@ -3778,13 +3789,13 @@ async function chatNativeRuntimeSnapshot(page) {
       : (Array.isArray(turnLedgerRoot) ? turnLedgerRoot : []);
     const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal)
       ? runtimeLedgerView.recoveryJournal
-      : (Array.isArray(view?.campaignState?.runtimeTracking?.recoveryJournal)
-          ? view.campaignState.runtimeTracking.recoveryJournal
-          : []);
+      : [];
     const narrationRecoveries = recoveryJournal.filter((entry) => entry?.type === 'providerFailureAfterMechanicsCommit');
     const openNarrationRecoveries = narrationRecoveries.filter((entry) => !['resolved', 'closed'].includes(String(entry?.status || '').toLowerCase()));
     const narrationFailureTurns = turnLedgerEntries.filter((entry) => String(entry?.narrationStatus || '').toLowerCase() === 'failed');
-    const endConditionLedger = view?.campaignState?.runtimeTracking?.endConditionLedger || {};
+    const endConditionLedger = typeof terminalLedgerTools?.terminalDecisionLedgerView === 'function'
+      ? terminalLedgerTools.terminalDecisionLedgerView(campaignState)
+      : {};
     const tracking = view?.chatNative?.tracking || {};
     return {
       bridgeAvailable: Boolean(bridge.runtimeApp),
@@ -3817,6 +3828,7 @@ async function chatNativeRuntimeSnapshot(page) {
       modelCallRoles: modelCalls.map((entry) => entry.roleId).filter(Boolean),
       modelCalls: modelCalls.slice(-20),
       sidecarCount: sidecars.length,
+      legacySidecarCount: legacySidecarRows.length,
       sidecarRejectedCount: Number(sidecarStatusCounts.rejected || 0),
       sidecarStatusCounts,
       sidecarStatuses: sidecars.map((entry) => `${entry.workerId || entry.roleId || 'unknown'}:${entry.status || 'unknown'}`),
@@ -3870,7 +3882,8 @@ async function chatNativeRuntimeSnapshot(page) {
     };
   }, {
     modulePath: bridgeModulePath(),
-    ledgerModulePath: runtimeLedgerViewModulePath()
+    ledgerModulePath: runtimeLedgerViewModulePath(),
+    terminalLedgerModulePath: terminalDecisionLedgerViewModulePath()
   }, BROWSER_TIMEOUT_MS);
 }
 
@@ -4837,6 +4850,8 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
       ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
       : null;
+    const runtimeLedgerProofAvailable = runtimeLedgerView?.authoritative === true
+      && runtimeLedgerView?.coreProjectionAvailable === true;
     const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
       ? ledgerTools.readRuntimeCoreProjections(view?.campaignState || {})
       : {};
@@ -4846,10 +4861,10 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     ];
     const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger)
       ? runtimeLedgerView.ingressLedger
-      : (view?.campaignState?.runtimeTracking?.ingressLedger || []);
+      : [];
     const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger)
       ? runtimeLedgerView.responseLedger
-      : (view?.campaignState?.runtimeTracking?.responseLedger || []);
+      : [];
     const priorResponseIds = new Set((before.recentResponseLedger || [])
       .map((entry) => entry?.id)
       .filter(Boolean));
@@ -4897,8 +4912,14 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
         )
       )
     ));
-    const runtimeCountProgress = Boolean(targetHostMessageId)
-      && Number(tracking.ingressCount || 0) > Number(before.tracking?.ingressCount || before.ingressCount || 0);
+    const beforeRuntimeLedgerView = before.runtimeLedgerView || {};
+    const runtimeIngressCount = Array.isArray(runtimeLedgerView?.ingressLedger) ? runtimeLedgerView.ingressLedger.length : 0;
+    const runtimeResponseCount = Array.isArray(runtimeLedgerView?.responseLedger) ? runtimeLedgerView.responseLedger.length : 0;
+    const beforeRuntimeIngressCount = Number(beforeRuntimeLedgerView.ingressCount || before.recentIngressLedger?.length || 0);
+    const beforeRuntimeResponseCount = Number(beforeRuntimeLedgerView.responseCount || before.recentResponseLedger?.length || 0);
+    const runtimeCountProgress = runtimeLedgerProofAvailable
+      && Boolean(targetHostMessageId)
+      && runtimeIngressCount > beforeRuntimeIngressCount;
     const ingressAdvanced = matchedIngress
       && !['classifying', 'received', 'pending'].includes(String(matchedIngress.status || '').toLowerCase());
     const directObservation = before?.lastDirectiveFallbackScan?.direct || null;
@@ -4909,18 +4930,18 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
         || String(matchedUser?.index ?? '') === String(targetHostMessageId)
       )
       && ['directivePosted', 'injectAndContinue', 'pause'].includes(String(directObservation?.responseStrategy || ''));
-    const runtimeProgress = (Boolean(matchedIngress) || runtimeCountProgress)
+    const runtimeProgress = runtimeLedgerProofAvailable
+      && (Boolean(matchedIngress) || runtimeCountProgress)
       && (
         ingressAdvanced
         || runtimeCountProgress
-        || responseLedger.length > Number(before.runtimeLedgerView?.responseCount || before.recentResponseLedger?.length || before.tracking?.responseCount || 0)
+        || runtimeResponseCount > beforeRuntimeResponseCount
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
-        || Number(tracking.modelCallCount || 0) > Number(before.tracking?.modelCallCount || 0)
       )
       && (
         ingressAdvanced
         || runtimeCountProgress
-        || responseLedger.length > Number(before.runtimeLedgerView?.responseCount || before.recentResponseLedger?.length || before.tracking?.responseCount || 0)
+        || runtimeResponseCount > beforeRuntimeResponseCount
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
       );
     const directiveMessageCount = messages.filter((message) => message.directiveOwned).length;
@@ -4938,7 +4959,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       } : null,
       progressSource: directObservedProgress
         ? 'direct-observeHostPlayerMessage'
-        : (runtimeCountProgress ? 'runtime-tracking-count' : (runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response')),
+        : (runtimeCountProgress ? 'core-runtime-ledger-count' : (runtimeProgress ? 'core-runtime-ledger' : 'visible-directive-chat-response')),
       matchedUserIndex: matchedUser?.index ?? null,
       matchedUserHostMessageId: matchedUser ? String(matchedUser.index) : null,
       visibleDirectiveResponse: visibleDirectiveResponse
@@ -5030,7 +5051,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
           metadata: Object.keys(safeMetadata).length ? safeMetadata : null
         };
       }).slice(-12),
-      sidecarCount: coreSidecars.length || view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
+      sidecarCount: coreSidecars.length,
       turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
       commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0
     };
@@ -5106,7 +5127,7 @@ async function readSidecarActivity(page, beforeSnapshot) {
       ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
       ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
     ];
-    const sidecars = coreSidecars.length ? coreSidecars : (view?.campaignState?.runtimeTracking?.sidecarJournal || []);
+    const sidecars = coreSidecars;
     const modelCalls = view?.chatNative?.modelCalls || [];
     const beforeSidecarCount = Number(before.sidecarCount || 0);
     const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
@@ -5170,7 +5191,7 @@ async function waitForSidecarActivity(page, beforeSnapshot, {
       ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
       ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
     ];
-    const sidecars = coreSidecars.length ? coreSidecars : (view?.campaignState?.runtimeTracking?.sidecarJournal || []);
+    const sidecars = coreSidecars;
     const modelCalls = view?.chatNative?.modelCalls || [];
     const beforeSidecarCount = Number(before.sidecarCount || 0);
     const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
@@ -5355,7 +5376,7 @@ async function waitForChatNativeIngressCount(page, {
       tracking,
       ingressCount,
       pendingInteractionCount: (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved').length,
-      modelCallCount: view?.chatNative?.modelCalls?.length || 0
+      modelCallCount: view?.chatNative?.modelCalls?.length ?? 0
     };
   }, {
     modulePath: bridgeModulePath(),
@@ -5840,7 +5861,7 @@ async function runChatNativeCampaignFlow(page) {
   const finalCoreIngressOk = sentPlayerHostMessageIds.length > 0 && finalCoreIngressProof?.status === 'pass';
   const finalLegacyIngressOk = Number(finalSnapshot.tracking?.ingressCount || 0) >= Number(created.tracking?.ingressCount || 0) + sentRoundCount;
   assertBrowser(
-    finalCoreIngressOk || (sentPlayerHostMessageIds.length === 0 && finalLegacyIngressOk),
+    sentRoundCount === 0 || finalCoreIngressOk,
     'Live chat-native campaign did not record every SillyTavern player message as a turn ingress.',
     {
       expectedIngressCount: Number(created.tracking?.ingressCount || 0) + sentRoundCount,
@@ -5879,11 +5900,7 @@ async function runChatNativeCampaignFlow(page) {
       }
     }
   );
-  assertBrowser(
-    finalModelCalls > initialModelCalls,
-    'Live chat-native campaign did not record model-call journal growth during chat play.',
-    { initialModelCalls, finalModelCalls, modelCalls: finalSnapshot.modelCalls }
-  );
+  const modelCallGrowthObserved = finalModelCalls > initialModelCalls;
   const delegatedHostGenerationRounds = matchedIngressRounds.filter((round) => (
     round.after?.matchedIngress?.responseStrategy === 'injectAndContinue'
     || round.after?.matchedHostGenerationResponse?.strategy === 'injectAndContinue'
@@ -5893,7 +5910,7 @@ async function runChatNativeCampaignFlow(page) {
     .filter(Boolean));
   const finalHostGenerationResponses = (finalSnapshot.recentResponseLedger || []).filter((entry) => (
     entry?.strategy === 'injectAndContinue'
-    && entry?.responseKind === 'hostGeneration'
+    && ['hostGeneration', 'hostContinue'].includes(String(entry?.responseKind || ''))
     && entry?.hostMessageId
     && (!entry.id || !campaignStartResponseIds.has(entry.id))
   ));
@@ -5904,6 +5921,18 @@ async function runChatNativeCampaignFlow(page) {
     && Number(finalSnapshot.nonDirectiveAssistantCount || 0) > Number(campaignStartSnapshot.nonDirectiveAssistantCount || 0);
   const directiveOwnedResponseObserved = finalSnapshot.directiveMessageCount > Number(campaignStartSnapshot.directiveMessageCount || 0)
     || finalSnapshot.directiveResponseKinds.includes('committedOutcome');
+  assertBrowser(
+    modelCallGrowthObserved || delegatedHostGenerationContinuation,
+    'Live chat-native campaign did not record Directive model-call growth or CORE host-native continuation during chat play.',
+    {
+      modelCallGrowthObserved,
+      delegatedHostGenerationContinuation,
+      initialModelCalls,
+      finalModelCalls,
+      modelCalls: finalSnapshot.modelCalls,
+      finalHostGenerationResponses
+    }
+  );
   assertBrowser(
     directiveOwnedResponseObserved || delegatedHostGenerationContinuation,
     'Live chat-native campaign did not produce accepted response evidence in the bound SillyTavern chat.',

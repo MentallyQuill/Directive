@@ -524,9 +524,9 @@ export function invalidateEventsByAnchorRange(state, anchorRange, {
     }
   }
   if (invalidated.length) {
-    next.runtimeTracking.sceneReconciliation = next.runtimeTracking.sceneReconciliation || {};
-    next.runtimeTracking.sceneReconciliation.invalidations = [
-      ...asArray(next.runtimeTracking.sceneReconciliation.invalidations),
+    next.sceneReconciliation = next.sceneReconciliation || {};
+    next.sceneReconciliation.invalidations = [
+      ...asArray(next.sceneReconciliation.invalidations),
       { id: `event-invalidation.${token(at(now))}`, rangeHash, eventIds: invalidated, reason, at: at(now) }
     ];
   }

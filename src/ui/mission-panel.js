@@ -17,6 +17,7 @@ import {
 } from './current-chat-scope-copy.js';
 import { playerSafeAdvisoryRecords } from './advisory-records.js';
 import { renderMissionComponentsPanel } from './mission-components-panel.js';
+import { terminalDecisionLedgerView } from '../runtime/terminal-decision-ledger-view.mjs';
 
 const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
 const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
@@ -935,7 +936,7 @@ function createMissionRecoveryCommandRow({
 }
 
 function pendingSceneReconciliationItems(view, state) {
-  const reconciliation = view?.chatNative?.sceneReconciliation || state?.runtimeTracking?.sceneReconciliation || null;
+  const reconciliation = view?.chatNative?.sceneReconciliation || state?.sceneReconciliation || null;
   const pending = Array.isArray(reconciliation?.pending)
     ? reconciliation.pending.filter((item) => item?.status === 'pending')
     : [];
@@ -1275,7 +1276,7 @@ function interactionLabel(kind) {
 }
 
 function terminalDecisionRecord(view, interaction) {
-  const ledger = view?.campaignState?.runtimeTracking?.endConditionLedger || {};
+  const ledger = terminalDecisionLedgerView(view?.campaignState || {});
   const decisionId = interaction?.metadata?.decisionId || interaction?.id || ledger.activeDecisionId || null;
   return asArray(ledger.decisions).find((decision) => decision.id === decisionId)
     || asArray(ledger.decisions).find((decision) => decision.id === ledger.activeDecisionId)
@@ -1283,7 +1284,7 @@ function terminalDecisionRecord(view, interaction) {
 }
 
 function terminalBranchCount(view, interaction) {
-  const ledger = view?.campaignState?.runtimeTracking?.endConditionLedger || {};
+  const ledger = terminalDecisionLedgerView(view?.campaignState || {});
   const decisionId = interaction?.metadata?.decisionId || interaction?.id || null;
   return asArray(ledger.branchRecords).filter((record) => !decisionId || record.decisionId === decisionId).length;
 }

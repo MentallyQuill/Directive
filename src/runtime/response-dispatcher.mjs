@@ -457,9 +457,28 @@ export function createResponseDispatcher({
 
   async function findExisting(campaignState, idempotencyKey) {
     const view = await createRuntimeLedgerViewAsync(campaignState, { coreTurnStore });
-    return (view.responseLedger || []).find((entry) => (
+    const response = (view.responseLedger || []).find((entry) => (
       idempotencyKey && entry.id === idempotencyKey
     )) || null;
+    if (response) return response;
+    if (!idempotencyKey || typeof coreTurnStore?.readProjections !== 'function') return null;
+    const projections = coreTurnStore.readProjections() || {};
+    const diagnostic = (Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []).find((entry) => (
+      ['hostNativeContinuityRecovery', 'hostNativeCompletionRecord', 'hostContinueReleaseRecord', 'visibleResponseRecord'].includes(compact(entry.worker))
+      && compact(entry.status) === 'failed'
+      && compact(entry.responseId) === compact(idempotencyKey)
+    )) || null;
+    if (!diagnostic) return null;
+    return {
+      id: compact(idempotencyKey),
+      responseId: compact(idempotencyKey),
+      coreTransactionId: compact(diagnostic.transactionId || diagnostic.coreTransactionId) || null,
+      transactionId: compact(diagnostic.transactionId || diagnostic.coreTransactionId) || null,
+      status: 'coreRecoveryDiagnosticProjected',
+      projectionSource: 'coreStoreV2',
+      authority: 'coreDiagnosticProjection',
+      coreDiagnosticProjection: cloneJson(diagnostic)
+    };
   }
 
   function projectedCoreRecoveryForResponse(response = null) {
@@ -616,8 +635,7 @@ export function createResponseDispatcher({
   }
 
   function coreResponseCompatibilityMirror(projection = null, {
-    mirroredOperation = 'responseProjection',
-    diagnostic = null
+    mirroredOperation = 'responseProjection'
   } = {}) {
     if (projection) {
       return {
@@ -627,16 +645,6 @@ export function createResponseDispatcher({
         responseId: projection.responseId || projection.id || null,
         transactionId: projection.transactionId || projection.coreTransactionId || null,
         status: projection.status || null
-      };
-    }
-    if (diagnostic) {
-      return {
-        kind: 'directive.coreResponseCompatibilityMirror.v1',
-        source: 'coreStoreV2',
-        mirroredOperation,
-        diagnosticId: diagnostic.id || null,
-        worker: diagnostic.payload?.worker || diagnostic.worker || null,
-        status: diagnostic.payload?.status || diagnostic.status || null
       };
     }
     return null;
@@ -687,25 +695,7 @@ export function createResponseDispatcher({
         missingCoreWriteMode: 'reject'
       });
     }
-    if (coreDiagnostic) {
-      return recordDirectiveResponse(campaignState, {
-        ...entry,
-        projectionSource: 'coreStoreV2',
-        authority: 'diagnosticCompatibilityProjection',
-        compatibilityMirror: coreResponseCompatibilityMirror(null, {
-          mirroredOperation,
-          diagnostic: coreDiagnostic
-        }),
-        coreProjection: {
-          kind: 'directive.coreResponseDiagnosticProjectionRef.v1',
-          id: coreDiagnostic.id || null,
-          worker: coreDiagnostic.payload?.worker || coreDiagnostic.worker || null,
-          status: coreDiagnostic.payload?.status || coreDiagnostic.status || null
-        }
-      }, {
-        missingCoreWriteMode: 'reject'
-      });
-    }
+    if (coreDiagnostic) return campaignState;
     requireCoreResponseProjection(entry, { mirroredOperation });
   }
 
@@ -748,26 +738,7 @@ export function createResponseDispatcher({
         missingCoreWriteMode: 'reject'
       });
     }
-    if (coreDiagnostic) {
-      if (!stableResponseId) return campaignState;
-      return updateDirectiveResponse(campaignState, stableResponseId, {
-        ...patch,
-        projectionSource: 'coreStoreV2',
-        authority: 'diagnosticCompatibilityProjection',
-        compatibilityMirror: coreResponseCompatibilityMirror(null, {
-          mirroredOperation,
-          diagnostic: coreDiagnostic
-        }),
-        coreProjection: {
-          kind: 'directive.coreResponseDiagnosticProjectionRef.v1',
-          id: coreDiagnostic.id || null,
-          worker: coreDiagnostic.payload?.worker || coreDiagnostic.worker || null,
-          status: coreDiagnostic.payload?.status || coreDiagnostic.status || null
-        }
-      }, {
-        missingCoreWriteMode: 'reject'
-      });
-    }
+    if (coreDiagnostic) return campaignState;
     requireCoreResponseProjection(entry, { mirroredOperation });
   }
 

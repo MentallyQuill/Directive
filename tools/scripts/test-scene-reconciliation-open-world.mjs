@@ -21,7 +21,7 @@ let state = initializeOpenWorldCampaignState({ packageData, baseState: projectio
 state.campaignChatBinding = { chatId: 'chat-open-world-reconciliation' };
 
 const messages = [
-  { hostMessageId: 'm1', id: 'm1', index: 1, chatId: 'chat-open-world-reconciliation', role: 'user', text: 'Log: Priya began a calibration review.' },
+  { hostMessageId: 'm1', id: 'm1', index: 1, chatId: 'chat-open-world-reconciliation', role: 'user', outcomeId: 'outcome.one', text: 'Log: Priya began a calibration review.' },
   { hostMessageId: 'm2', id: 'm2', index: 2, chatId: 'chat-open-world-reconciliation', role: 'assistant', text: '*Stardate 53049.2 | 0830 hours*\n\nShip status: Sensor calibration degraded.' }
 ];
 const originalNormalized = normalizeReconciliationMessages(messages);
@@ -30,13 +30,59 @@ assert.equal(originalNormalized[1].textPreview.includes('Stardate'), false);
 const originalRange = anchorRangeForMessages(originalNormalized, { state, now });
 
 state.runtimeTracking.ingressLedger = [
-  { id: 'ingress.m1', hostMessageId: 'm1', chatId: state.campaignChatBinding.chatId, textHash: originalNormalized[0].textHash, turnId: 'turn.one', outcomeId: 'outcome.one' },
-  { id: 'ingress.m2', hostMessageId: 'm2', chatId: state.campaignChatBinding.chatId, textHash: originalNormalized[1].textHash, turnId: 'turn.two', outcomeId: 'outcome.two' }
+  {
+    id: 'ingress.m1',
+    hostMessageId: 'm1',
+    chatId: state.campaignChatBinding.chatId,
+    textHash: originalNormalized[0].textHash,
+    turnId: 'turn.one',
+    outcomeId: 'outcome.one',
+    authority: 'compatibilityProjection',
+    projectionSource: 'coreStoreV2',
+    compatibilityMirror: {
+      kind: 'directive.coreIngressCompatibilityMirror.v1',
+      status: 'sourceObserved'
+    }
+  },
+  {
+    id: 'ingress.m2',
+    hostMessageId: 'm2',
+    chatId: state.campaignChatBinding.chatId,
+    textHash: originalNormalized[1].textHash,
+    turnId: 'turn.two',
+    outcomeId: 'outcome.two',
+    authority: 'compatibilityProjection',
+    projectionSource: 'coreStoreV2',
+    compatibilityMirror: {
+      kind: 'directive.coreIngressCompatibilityMirror.v1',
+      status: 'sourceObserved'
+    }
+  }
 ];
 state.runtimeTracking.responseLedger = [{ id: 'response.m2', hostMessageId: 'm2', outcomeId: 'outcome.two', sourceAnchorRange: originalRange }];
 state.turnLedger.entries = [
-  { turnId: 'turn.one', outcomeId: 'outcome.one', snapshotBefore: cloneJson({ ...state, turnLedger: { entries: [] } }) },
-  { turnId: 'turn.two', outcomeId: 'outcome.two', snapshotBefore: cloneJson({ ...state, turnLedger: { entries: [] } }) }
+  {
+    turnId: 'turn.one',
+    outcomeId: 'outcome.one',
+    coreCheckpointRef: {
+      kind: 'directive.coreMechanicsCheckpointRef.v1',
+      checkpointId: 'scene-open-world-checkpoint-one',
+      sourceRevision: 1,
+      sourceKind: 'coreStoreV2.checkpoint'
+    },
+    snapshotBefore: cloneJson({ ...state, turnLedger: { entries: [] } })
+  },
+  {
+    turnId: 'turn.two',
+    outcomeId: 'outcome.two',
+    coreCheckpointRef: {
+      kind: 'directive.coreMechanicsCheckpointRef.v1',
+      checkpointId: 'scene-open-world-checkpoint-two',
+      sourceRevision: 2,
+      sourceKind: 'coreStoreV2.checkpoint'
+    },
+    snapshotBefore: cloneJson({ ...state, turnLedger: { entries: [] } })
+  }
 ];
 state.turnLedger.lastCommittedOutcomeId = 'outcome.two';
 state.eventLedger.committedEvents.push({
@@ -82,6 +128,13 @@ const service = createSceneReconciliationService({
     snapshotMissionPhase: snapshotBefore.mission?.phase || null,
     liveStateChanged: false
   }),
+  loadCoreCheckpointState: async ({ coreCheckpointRef }) => (
+    coreCheckpointRef?.checkpointId === 'scene-open-world-checkpoint-one'
+      ? { campaignState: cloneJson(state.turnLedger.entries[0].snapshotBefore) }
+      : coreCheckpointRef?.checkpointId === 'scene-open-world-checkpoint-two'
+        ? { campaignState: cloneJson(state.turnLedger.entries[1].snapshotBefore) }
+      : null
+  ),
   host: { chat: {
     getMessage(id) { return messages.find((item) => item.hostMessageId === String(id)) || null; },
     getRecentMessages() { return messages; },
@@ -125,7 +178,7 @@ assert(resolvedOld.reasons.includes('range-hash-changed'));
 const staleApply = await service.applyPending({ proposalId: oldPendingId });
 assert.equal(staleApply.ok, false);
 assert.equal(staleApply.reason, 'stale-proposal');
-assert(state.runtimeTracking.sceneReconciliation.pending.find((item) => item.id === oldPendingId).status === 'stale');
+assert(state.sceneReconciliation.pending.find((item) => item.id === oldPendingId).status === 'stale');
 
 const rerun = await service.reconcileFromHere({ message: { hostMessageId: 'm1' } });
 assert.equal(rerun.ok, true);
@@ -157,7 +210,7 @@ const accepted = await service.acceptRecalculationPreview({
 assert.equal(accepted.ok, true);
 assert.equal(accepted.preview.status, 'accepted');
 assert.deepEqual(accepted.preview.droppedOutcomeIds, ['outcome.two']);
-assert(state.runtimeTracking.sceneReconciliation.invalidations.some((item) => item.type === 'recalculation-accepted'));
+assert(state.sceneReconciliation.invalidations.some((item) => item.type === 'recalculation-accepted'));
 
 const secondPreview = await service.recalculateFromHere({ message: { hostMessageId: 'm2' } });
 assert.equal(secondPreview.ok, true);

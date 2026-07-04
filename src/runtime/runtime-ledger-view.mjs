@@ -75,9 +75,8 @@ function isTaggedCompatibilityProjection(row = {}) {
   return Boolean(row.compatibilityMirror || compact(row.projectionSource) === 'coreStoreV2');
 }
 
-function legacyProjectionFallbackRows(rows = [], { coreProjectionAvailable = false } = {}) {
+function legacyProjectionFallbackRows(rows = []) {
   const legacy = arrayRows(rows);
-  if (!coreProjectionAvailable) return legacy;
   return legacy.filter((row) => isTaggedCompatibilityProjection(row));
 }
 
@@ -125,10 +124,10 @@ export function createRuntimeLedgerViewFromProjections(campaignState = {}, proje
   const coreRecovery = arrayRows(projections.recoveryJournal);
   const coreProjectionAvailable = Boolean(coreIngress.length || coreResponse.length || coreRecovery.length);
   const legacyIngress = legacyFallback
-    ? legacyProjectionFallbackRows(runtimeTracking.ingressLedger, { coreProjectionAvailable })
+    ? legacyProjectionFallbackRows(runtimeTracking.ingressLedger)
     : [];
   const legacyResponse = legacyFallback
-    ? legacyProjectionFallbackRows(runtimeTracking.responseLedger, { coreProjectionAvailable })
+    ? legacyProjectionFallbackRows(runtimeTracking.responseLedger)
     : [];
   const allowRuntimeOverlay = authoritative && runtimeOverlay === true;
   return {

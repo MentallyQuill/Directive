@@ -1903,16 +1903,22 @@ export async function directiveRuntimeSnapshot(page, {
     const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections
       || {};
-    const recoveryJournal = Array.isArray(runtimeLedgerView?.recoveryJournal)
-      ? runtimeLedgerView.recoveryJournal
-      : (Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal : []);
     const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
+    const runtimeLedgerProofAvailable = runtimeLedgerView?.authoritative === true
+      && runtimeLedgerView?.coreProjectionAvailable === true;
+    const recoveryJournal = runtimeLedgerProofAvailable && Array.isArray(runtimeLedgerView?.recoveryJournal)
+      ? runtimeLedgerView.recoveryJournal
+      : coreRecoveryJournal;
     const coreSidecars = [
       ...(Array.isArray(runtimeCoreProjections?.sidecarDiagnostics) ? runtimeCoreProjections.sidecarDiagnostics : []),
       ...(Array.isArray(runtimeCoreProjections?.backgroundBatches) ? runtimeCoreProjections.backgroundBatches : [])
     ];
     const legacyRecoveryCount = Array.isArray(runtimeTracking.recoveryJournal) ? runtimeTracking.recoveryJournal.length : 0;
     const legacySidecarCount = Array.isArray(runtimeTracking.sidecarJournal) ? runtimeTracking.sidecarJournal.length : 0;
+    const primaryModelCalls = Array.isArray(view?.chatNative?.modelCalls) ? view.chatNative.modelCalls : [];
+    const legacyModelCallTelemetry = Array.isArray(view?.chatNative?.legacyModelCallTelemetry)
+      ? view.chatNative.legacyModelCallTelemetry
+      : (Array.isArray(runtimeTracking.modelCallJournal) ? runtimeTracking.modelCallJournal : []);
     return {
       bridgeAvailable: Boolean(bridge.runtimeApp),
       hostAvailable: Boolean(bridge.host),
@@ -1925,9 +1931,11 @@ export async function directiveRuntimeSnapshot(page, {
       activation: clone(view?.chatNative?.activation || null),
       tracking: clone(tracking),
       pendingInteractionCount: (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved').length,
-      modelCallCount: view?.chatNative?.modelCalls?.length || view?.campaignState?.runtimeTracking?.modelCallJournal?.length || 0,
-      modelCallRoles: (view?.chatNative?.modelCalls || view?.campaignState?.runtimeTracking?.modelCallJournal || []).map((entry) => entry.roleId).filter(Boolean),
-      sidecarCount: coreSidecars.length || legacySidecarCount,
+      modelCallCount: primaryModelCalls.length,
+      modelCallRoles: primaryModelCalls.map((entry) => entry.roleId).filter(Boolean),
+      legacyModelCallCount: legacyModelCallTelemetry.length,
+      legacyModelCallRoles: legacyModelCallTelemetry.map((entry) => entry.roleId).filter(Boolean),
+      sidecarCount: coreSidecars.length,
       legacySidecarCount,
       recoveryCount: recoveryJournal.length,
       legacyRecoveryCount,
@@ -1941,7 +1949,7 @@ export async function directiveRuntimeSnapshot(page, {
         responseCount: Array.isArray(runtimeLedgerView.responseLedger) ? runtimeLedgerView.responseLedger.length : 0,
         recoveryCount: Array.isArray(runtimeLedgerView.recoveryJournal) ? runtimeLedgerView.recoveryJournal.length : 0
       } : null,
-      sceneReconciliation: clone(view?.campaignState?.runtimeTracking?.sceneReconciliation || null),
+      sceneReconciliation: clone(view?.campaignState?.sceneReconciliation || null),
       commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0,
       turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
       promptInspection: clone(view?.promptInspection || null),

@@ -1,6 +1,5 @@
 import {
-  initializeCampaignRuntimeTracking,
-  recordModelCallEvent
+  initializeCampaignRuntimeTracking
 } from './state-delta-gateway.mjs';
 import { readRuntimeCoreProjections } from './runtime-ledger-view.mjs';
 
@@ -51,6 +50,9 @@ export function gameplayStateFingerprint(state) {
   const snapshot = cloneJson(state ?? null);
   if (snapshot?.runtimeTracking) {
     delete snapshot.runtimeTracking.modelCallJournal;
+  }
+  if (snapshot?.runtimeResume) {
+    delete snapshot.runtimeResume;
   }
   return JSON.stringify(snapshot);
 }
@@ -128,12 +130,8 @@ export function createRuntimeModelCallJournal({
     synchronize(next);
     const seen = modelCallIdsForDedupe(next);
     for (const event of pendingModelCallEvents) {
-      if (event.coreDiagnosticPrimary === true) {
-        next = recordResumeCursor(next, event);
-        continue;
-      }
+      next = recordResumeCursor(next, event);
       if (seen.has(event.id)) continue;
-      next = recordModelCallEvent(next, event);
       seen.add(event.id);
     }
     return next;

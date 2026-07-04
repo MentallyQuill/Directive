@@ -64,7 +64,7 @@
       "required": [
         "campaign", "activeCampaignPackage", "player", "crew", "ship", "mission",
         "worldState", "storyArcLedger", "questLedger", "dynamicQuestCatalog",
-        "knowledgeLedger", "threadLedger", "eventLedger", "attentionState", "continuity", "timeLedger", "runtimeTracking"
+        "knowledgeLedger", "threadLedger", "eventLedger", "attentionState", "continuity", "timeLedger", "sceneReconciliation", "runtimeTracking"
       ],
       "properties": {
         "campaign": {
@@ -157,21 +157,21 @@
             "entries": { "type": "array" }
           }
         },
+        "sceneReconciliation": {
+          "type": "object",
+          "required": ["schemaVersion", "markers", "runs", "pending", "applied", "rejected", "recalculationPreviews", "chunkCache", "invalidations"],
+          "properties": {
+            "schemaVersion": { "const": 2 }, "markers": { "type": "object" }, "runs": { "type": "array" },
+            "pending": { "type": "array" }, "applied": { "type": "array" }, "rejected": { "type": "array" },
+            "recalculationPreviews": { "type": "array" }, "chunkCache": { "type": "array" }, "invalidations": { "type": "array" }
+          }
+        },
         "runtimeTracking": {
           "type": "object",
-          "required": ["schemaVersion", "revision", "mechanicsRevision", "stateDeltaJournal", "sceneReconciliation"],
+          "required": ["schemaVersion", "revision", "mechanicsRevision", "stateDeltaJournal"],
           "properties": {
             "schemaVersion": { "const": 2 }, "revision": { "type": "integer", "minimum": 0 },
-            "mechanicsRevision": { "type": "integer", "minimum": 0 }, "stateDeltaJournal": { "type": "array" },
-            "sceneReconciliation": {
-              "type": "object",
-              "required": ["schemaVersion", "markers", "runs", "pending", "applied", "rejected", "recalculationPreviews", "chunkCache", "invalidations"],
-              "properties": {
-                "schemaVersion": { "const": 2 }, "markers": { "type": "object" }, "runs": { "type": "array" },
-                "pending": { "type": "array" }, "applied": { "type": "array" }, "rejected": { "type": "array" },
-                "recalculationPreviews": { "type": "array" }, "chunkCache": { "type": "array" }, "invalidations": { "type": "array" }
-              }
-            }
+            "mechanicsRevision": { "type": "integer", "minimum": 0 }, "stateDeltaJournal": { "type": "array" }
           }
         }
       }

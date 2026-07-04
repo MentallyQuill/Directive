@@ -64,6 +64,20 @@ const RUNTIME_ALLOWED_FIELDS = new Set([
   'timeNormalization'
 ]);
 
+function hasOpenWorldBoundaryProjection(value) {
+  return isObject(value)
+    && value.authority === 'openWorldBoundaryProjection'
+    && value.projectionSource === 'directorCoordinator'
+    && value.compatibilityMirror?.kind === 'directive.openWorldBoundaryProjectionRef.v1';
+}
+
+function hasTimeNormalizationProjection(value) {
+  return isObject(value)
+    && value.authority === 'timeNormalizationProjection'
+    && value.projectionSource === 'campaignTimeState'
+    && value.compatibilityMirror?.kind === 'directive.timeNormalizationProjectionRef.v1';
+}
+
 const FORBIDDEN_KEYS = new Set([
   'rootsSet',
   'snapshotBefore',
@@ -116,6 +130,12 @@ export function validateOpenWorldReducerBundle(bundle) {
       const field = operation.path[1];
       if (!RUNTIME_ALLOWED_FIELDS.has(field)) {
         throw new Error(`Open-world reducer cannot write runtimeTracking.${field}; route runtime journals through CORE diagnostics.`);
+      }
+      if (field === 'lastWorldBoundary' && !hasOpenWorldBoundaryProjection(operation.value)) {
+        throw new Error('Open-world reducer requires openWorldBoundaryProjection evidence for runtimeTracking.lastWorldBoundary.');
+      }
+      if (field === 'timeNormalization' && !hasTimeNormalizationProjection(operation.value)) {
+        throw new Error('Open-world reducer requires timeNormalizationProjection evidence for runtimeTracking.timeNormalization.');
       }
     }
     if (operation.type === 'collection.mergeById' && operation.path.length < 2) {

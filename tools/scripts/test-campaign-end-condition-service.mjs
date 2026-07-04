@@ -298,6 +298,10 @@ async function detect(harness) {
   assert.equal(detected.pendingInteraction.kind, 'terminalOutcomeDecision');
   assert.equal(harness.state.runtimeTracking.pendingInteractions.length, 1);
   assert.equal(harness.state.runtimeTracking.endConditionLedger.decisions.length, 1);
+  assert.equal(harness.state.runtimeTracking.endConditionLedger.detections[0].authority, 'terminalDecisionProjection');
+  assert.equal(harness.state.runtimeTracking.endConditionLedger.detections[0].coreProjection.kind, 'directive.terminalEndConditionLedgerProjectionRef.v1');
+  assert.equal(harness.state.runtimeTracking.endConditionLedger.decisions[0].authority, 'terminalDecisionProjection');
+  assert.equal(harness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.rowKind, 'decision');
   return detected.pendingInteraction.id;
 }
 
@@ -323,6 +327,32 @@ assert.equal(duplicatePost.duplicate, true);
 assert.equal(postHarness.postedMessages.length, 1);
 assert.equal(postHarness.terminalSettlements.length, 1, 'Duplicate terminal checkpoint posts must not duplicate settlement records.');
 
+const rawLedgerHarness = createHarness(terminalState());
+const rawLedgerState = cloneJson(rawLedgerHarness.state);
+rawLedgerState.runtimeTracking.endConditionLedger = {
+  schemaVersion: 1,
+  activeDecisionId: 'raw-terminal-decision',
+  detections: [{ id: 'raw-terminal-detection', decisionId: 'raw-terminal-decision' }],
+  decisions: [{
+    id: 'raw-terminal-decision',
+    status: 'pending',
+    conditionId: 'terminal.raw',
+    condition: { resolutionPolicy: { actions: ['pushOn'] } }
+  }],
+  branchRecords: [],
+  continuationFrames: []
+};
+rawLedgerState.runtimeTracking.pendingInteractions = [{
+  id: 'raw-terminal-decision',
+  kind: 'terminalOutcomeDecision',
+  status: 'pending'
+}];
+rawLedgerHarness.setState(rawLedgerState);
+const rawLedgerPost = await rawLedgerHarness.service.postCheckpointDecision({ interactionId: 'raw-terminal-decision' });
+assert.equal(rawLedgerPost.ok, false);
+assert.equal(rawLedgerPost.reason, 'terminal-decision-not-pending');
+assert.equal(rawLedgerHarness.postedMessages.length, 0, 'Untagged terminal ledger/pending rows must not authorize checkpoint posts.');
+
 const noHostHarness = createHarness(terminalState(), { host: {} });
 const noHostInteractionId = await detect(noHostHarness);
 const noHostPost = await noHostHarness.service.postCheckpointDecision({ interactionId: noHostInteractionId });
@@ -342,6 +372,22 @@ const checkpointProducerHarness = createHarness(terminalState(), {
     sourceKind: 'coreStoreV2.checkpoint',
     sourceRevision: 11
   })
+});
+checkpointProducerHarness.setState({
+  ...cloneJson(checkpointProducerHarness.state),
+  runtimeTracking: {
+    ...(checkpointProducerHarness.state.runtimeTracking || {}),
+    lastCommittedTurn: {
+      outcomeId: 'outcome-terminal',
+      coreCheckpointRef: {
+        kind: 'directive.coreMechanicsCheckpointRef.v1',
+        campaignId: 'campaign-end-condition-service-test',
+        saveId: 'save-terminal-test',
+        checkpointId: 'runtime-tracking-last-committed-turn-must-not-authorize',
+        layout: 'core'
+      }
+    }
+  }
 });
 const checkpointProducerInteractionId = await detect(checkpointProducerHarness);
 assert.equal(checkpointProducerHarness.checkpointWrites.length, 0, 'terminal detection must not promote old snapshotBefore into a new CORE checkpoint.');
@@ -409,6 +455,9 @@ assert.equal(branch.branch.current, false);
 assert.equal(branchHarness.savedBranches[0].options.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved');
 assert.equal(branchHarness.state.runtimeTracking.pendingInteractions[0].status, 'pending');
 assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords.length, 1);
+assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords[0].authority, 'terminalDecisionProjection');
+assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords[0].coreProjection.rowKind, 'branchRecord');
+assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords[0].coreProjection.action, 'saveTerminalBranch');
 assert.deepEqual(branchHarness.state.runtimeTracking.endConditionLedger.decisions[0].savedBranchIds, ['terminal-branch-1']);
 assert.equal(branchHarness.terminalSettlements.length, 1);
 assert.equal(branchHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpointBranchSaved');
@@ -438,6 +487,8 @@ assert.equal(pushHarness.state.flags['push-on.frame'], 'survivors-after-breck-lo
 assert.equal(pushHarness.state.runtimeTracking.pendingInteractions[0].status, 'resolved');
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.activeDecisionId, null);
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'pushedOn');
+assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.status, 'pushedOn');
+assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.action, 'pushOn');
 assert.equal(pushHarness.state.runtimeTracking.endConditionLedger.continuationFrames[0].frameId, 'survivors-after-breck-loss');
 assert.equal(pushHarness.promptSyncs.length, 1);
 assert.equal(pushHarness.terminalSettlements.length, 1);
@@ -559,6 +610,8 @@ assert.equal(replayed.ok, true);
 assert.equal(replayHarness.state.campaign.checkpointMarker, 'before-terminal-outcome');
 assert.equal(replayHarness.state.ship.status, 'operational');
 assert.equal(replayHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'replayed');
+assert.equal(replayHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.status, 'replayed');
+assert.equal(replayHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.action, 'replayFromCheckpoint');
 assert.equal(replayHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.id === replayInteractionId), false);
 assert.equal(replayHarness.promptSyncs.length, 1);
 
@@ -683,6 +736,8 @@ assert.equal(keepHarness.state.campaign.finalCampaignBand, 'Partial Success');
 assert.equal(keepHarness.state.conclusion.terminalOutcome.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved');
 assert.equal(keepHarness.state.runtimeTracking.pendingInteractions[0].status, 'resolved');
 assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'keptEnding');
+assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.status, 'keptEnding');
+assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].coreProjection.action, 'keepEnding');
 assert.equal(keepHarness.conclusions[0].options.type, 'terminalOutcome');
 assert.equal(keepHarness.conclusions[0].options.terminalOutcome.acceptedResolution, 'keepEnding');
 

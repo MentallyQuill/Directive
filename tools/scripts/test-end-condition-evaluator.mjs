@@ -83,6 +83,16 @@ function requireCondition(state, id, expectedBand = null) {
 {
   const state = baseState();
   delete state.turnLedger.entries[0].coreCheckpointRef;
+  state.runtimeTracking = {
+    ...(state.runtimeTracking || {}),
+    lastCommittedTurn: {
+      outcomeId: 'outcome.end-condition-test',
+      coreCheckpointRef: {
+        kind: 'directive.coreMechanicsCheckpointRef.v1',
+        checkpointId: 'runtime-tracking-last-committed-turn-must-not-authorize'
+      }
+    }
+  };
   state.flags['ashes-of-peace-complete'] = true;
   const result = detect(state);
   assert.equal(result?.matched, true);

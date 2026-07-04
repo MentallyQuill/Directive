@@ -19,8 +19,7 @@ import {
 import { commitCommandBearingReviewRecords } from '../../src/campaign/transaction-state.mjs';
 import {
   commitTrackedCampaignState,
-  initializeCampaignRuntimeTracking,
-  recordModelCallEvent
+  initializeCampaignRuntimeTracking
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.env.ST_BASE_URL || DEFAULT_SILLYTAVERN_BASE_URL);
@@ -940,18 +939,15 @@ async function main() {
       },
       now: new Date().toISOString()
     });
-    for (const [index, event] of (reviewRun.modelCalls || []).entries()) {
-      reviewedState = recordModelCallEvent(reviewedState, {
-        id: `model-call:${reviewedState.runtimeTracking?.revision || 0}:fixture-command-bearing-review:${index + 1}`,
-        ...event,
-        trigger: 'command-bearing-closure-fixture-live',
-        appliedStatus: reviewRun.review.records?.length ? 'appliedReviews' : 'noAcceptedReviews',
-        metadata: {
-          runId: RUN_ID,
-          closureId: reviewRun.closure?.closureId || null,
-          evidenceId: reviewRun.evidence?.id || null
-        }
-      });
+    const fixtureModelCallCount = Array.isArray(reviewRun.modelCalls) ? reviewRun.modelCalls.length : 0;
+    if (fixtureModelCallCount > 0) {
+      reviewedState = initializeCampaignRuntimeTracking(reviewedState);
+      const priorSequence = Number(reviewedState.runtimeResume?.modelCallEventSequence || 0);
+      reviewedState.runtimeResume = {
+        ...(reviewedState.runtimeResume || {}),
+        kind: reviewedState.runtimeResume?.kind || 'directive.runtimeResumeCursor.v1',
+        modelCallEventSequence: priorSequence + fixtureModelCallCount
+      };
     }
 
     const { filePath, record: branchRecord } = readSaveRecord(branchSaveId);

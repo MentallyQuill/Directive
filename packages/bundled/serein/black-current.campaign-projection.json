@@ -45,6 +45,7 @@
     "attentionState",
     "timeLedger",
     "continuity",
+    "sceneReconciliation",
     "runtimeTracking",
     "flags"
   ],
@@ -2407,6 +2408,22 @@
         "anika-lorne"
       ]
     },
+    "sceneReconciliation": {
+      "schemaVersion": 2,
+      "markers": {
+        "start": null,
+        "end": null
+      },
+      "runs": [],
+      "pending": [],
+      "applied": [],
+      "rejected": [],
+      "recalculationPreviews": [],
+      "chunkCache": [],
+      "invalidations": [],
+      "lastRunId": null,
+      "lastResult": null
+    },
     "runtimeTracking": {
       "schemaVersion": 2,
       "revision": 0,
@@ -2423,23 +2440,7 @@
       "activeIngressId": null,
       "lastStableRevision": 0,
       "mechanicsRevision": 0,
-      "stateDeltaJournal": [],
-      "sceneReconciliation": {
-        "schemaVersion": 2,
-        "markers": {
-          "start": null,
-          "end": null
-        },
-        "runs": [],
-        "pending": [],
-        "applied": [],
-        "rejected": [],
-        "recalculationPreviews": [],
-        "chunkCache": [],
-        "invalidations": [],
-        "lastRunId": null,
-        "lastResult": null
-      }
+      "stateDeltaJournal": []
     },
     "flags": {
       "black-current-complete": false

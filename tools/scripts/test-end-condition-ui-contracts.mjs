@@ -243,6 +243,13 @@ state.runtimeTracking.endConditionLedger = {
   detections: [],
   decisions: [{
     id: 'terminal-decision-ui',
+    authority: 'terminalDecisionProjection',
+    coreProjection: {
+      kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+      rowKind: 'decision',
+      decisionId: 'terminal-decision-ui',
+      status: 'pending'
+    },
     status: 'pending',
     terminalOutcomeBand: 'Great Failure',
     finalCampaignBand: 'Partial Success',
@@ -251,12 +258,30 @@ state.runtimeTracking.endConditionLedger = {
     condition: {
       continuationFrameIds: ['survivors-after-breck-loss']
     }
+  }, {
+    id: 'terminal-decision-ui-legacy-decoy',
+    status: 'pending',
+    terminalOutcomeBand: 'Legacy Failure',
+    finalCampaignBand: 'Legacy Ending',
+    playerFacingSummary: 'Legacy unowned terminal decision must not render.'
   }],
   branchRecords: [{
     id: 'terminal-branch:save-terminal-ui',
+    authority: 'terminalDecisionProjection',
+    coreProjection: {
+      kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+      rowKind: 'branchRecord',
+      decisionId: 'terminal-decision-ui',
+      status: 'saved',
+      action: 'saveTerminalBranch'
+    },
     saveId: 'save-terminal-ui',
     decisionId: 'terminal-decision-ui',
     conditionId: 'terminal.ashes.breck-destroyed-objective-saved'
+  }, {
+    id: 'terminal-branch:legacy-decoy',
+    saveId: 'save-terminal-legacy-decoy',
+    decisionId: 'terminal-decision-ui'
   }],
   continuationFrames: []
 };
@@ -298,6 +323,8 @@ assert.match(missionText, /Partial Success/);
 assert.match(missionText, /CoreCheckpoint/);
 assert.match(missionText, /Saved Terminal Branches\s+1/);
 assert.match(missionText, /The Breckenridge is lost but the Reach objective may still be saved/);
+assert.doesNotMatch(missionText, /Legacy Failure/);
+assert.doesNotMatch(missionText, /Legacy Ending/);
 assert.doesNotMatch(missionText, /Revise Order/);
 for (const [label, action] of [
   ['Replay from checkpoint', 'replayFromCheckpoint'],
@@ -317,6 +344,61 @@ assert.deepEqual(terminalActions.map((entry) => entry.action), [
   'keepEnding',
   'saveTerminalBranch'
 ]);
+
+const nestedSceneReconciliationBody = document.createElement('main');
+const nestedSceneReconciliationState = cloneJson(state);
+nestedSceneReconciliationState.sceneReconciliation = undefined;
+nestedSceneReconciliationState.runtimeTracking.sceneReconciliation = {
+  pending: [{
+    id: 'nested-scene-review',
+    status: 'pending',
+    summary: 'Nested scene review must not render.',
+    allowedRoots: ['mission']
+  }]
+};
+renderMissionPanel(nestedSceneReconciliationBody, {
+  campaignState: nestedSceneReconciliationState,
+  chatNative: {
+    binding: { chatId: 'terminal-chat', chatName: 'Directive - Ashes of Peace' }
+  },
+  campaign: { saves: [] },
+  activePackage: { campaign: { chapters: [] } },
+  openWorld: { quests: [], opportunities: [] }
+}, {
+  resolveTerminalOutcomeDecision: async () => {},
+  openCampaignChat: async () => {},
+  refresh: async () => {}
+});
+const nestedSceneReconciliationText = textOf(nestedSceneReconciliationBody);
+assert.doesNotMatch(nestedSceneReconciliationText, /Nested scene review must not render/);
+assert.doesNotMatch(nestedSceneReconciliationText, /Changed Passage/);
+
+const topLevelSceneReconciliationBody = document.createElement('main');
+const topLevelSceneReconciliationState = cloneJson(nestedSceneReconciliationState);
+topLevelSceneReconciliationState.sceneReconciliation = {
+  pending: [{
+    id: 'top-level-scene-review',
+    status: 'pending',
+    summary: 'Top-level scene review should render.',
+    allowedRoots: ['mission']
+  }]
+};
+renderMissionPanel(topLevelSceneReconciliationBody, {
+  campaignState: topLevelSceneReconciliationState,
+  chatNative: {
+    binding: { chatId: 'terminal-chat', chatName: 'Directive - Ashes of Peace' }
+  },
+  campaign: { saves: [] },
+  activePackage: { campaign: { chapters: [] } },
+  openWorld: { quests: [], opportunities: [] }
+}, {
+  resolveTerminalOutcomeDecision: async () => {},
+  openCampaignChat: async () => {},
+  refresh: async () => {}
+});
+const topLevelSceneReconciliationText = textOf(topLevelSceneReconciliationBody);
+assert.match(topLevelSceneReconciliationText, /Top-level scene review should render/);
+assert.match(topLevelSceneReconciliationText, /Changed Passage/);
 
 resetCampaignPanelState();
 const recordsBody = document.createElement('main');

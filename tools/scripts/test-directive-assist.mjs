@@ -31,6 +31,9 @@ function gameplayStateJson(value) {
   if (state?.runtimeTracking) {
     delete state.runtimeTracking.modelCallJournal;
   }
+  if (state?.runtimeResume) {
+    delete state.runtimeResume;
+  }
   return JSON.stringify(state);
 }
 
@@ -161,6 +164,7 @@ const app = createDirectiveRuntimeApp({
 const started = await startTestCampaign(app);
 const beforeState = gameplayStateJson(started.campaignState);
 const beforeLogCount = started.campaignState.commandLog.entries.length;
+const beforeModelCallSequence = Number(started.campaignState.runtimeResume?.modelCallEventSequence || 0);
 const draft = await app.runDirectiveAssist({
   action: 'draftInCharacter',
   inputText: 'ask Priya to coordinate with Bronn before we commit'
@@ -172,7 +176,12 @@ assert.match(draft.assistResult.replacementText, /Commander Talia Serrin/);
 assert.match(draft.assistResult.replacementText, /Captain Whitaker/);
 assert.equal(draft.campaignStateMutated, false);
 assert.equal(gameplayStateJson(draft.campaignState), beforeState);
-assert.equal(draft.campaignState.runtimeTracking.modelCallJournal.some((entry) => entry.roleId === 'directiveAssist'), true);
+assert.equal(draft.campaignState.runtimeTracking.modelCallJournal.some((entry) => entry.roleId === 'directiveAssist'), false);
+assert.equal(
+  Number(draft.campaignState.runtimeResume?.modelCallEventSequence || 0) > beforeModelCallSequence,
+  true,
+  'Directive Assist advances compact model-call resume cursor without old journal growth'
+);
 assert.equal(draft.campaignState.commandLog.entries.length, beforeLogCount);
 const assistCall = host.generation.calls().find((entry) => entry.role === 'directiveAssist');
 assert(assistCall, 'Directive Assist generation call should be recorded.');

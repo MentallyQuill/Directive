@@ -15,6 +15,15 @@ const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 let nowIndex = 0;
 const now = () => `2026-06-22T03:00:${String(nowIndex++).padStart(2, '0')}.000Z`;
 const ingressEntry = (id) => campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === id);
+const sceneHandshakeProjection = (id, status = 'settled') => ({
+  authority: 'sreSceneHandshakeProjection',
+  projectionSource: 'sourceSettlementLatestPair',
+  compatibilityMirror: {
+    kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+    settlementId: id,
+    status
+  }
+});
 const assertCoreIngressProjection = (id, {
   transactionId,
   eventType,
@@ -1021,18 +1030,21 @@ let untrackedDependentState = initializeCampaignRuntimeTracking({
         id: 'settlement-repair-selected',
         status: 'settled',
         previousAssistantHostMessageId: 'assistant-untracked-source',
-        currentPlayerHostMessageId: 'player-untracked-reply'
+        currentPlayerHostMessageId: 'player-untracked-reply',
+        ...sceneHandshakeProjection('settlement-repair-selected')
       }, {
         id: 'settlement-not-returned',
         status: 'settled',
         previousAssistantHostMessageId: 'assistant-untracked-source',
-        currentPlayerHostMessageId: 'player-untracked-other'
+        currentPlayerHostMessageId: 'player-untracked-other',
+        ...sceneHandshakeProjection('settlement-not-returned')
       }],
       lastResult: {
         id: 'settlement-not-returned',
         status: 'settled',
         previousAssistantHostMessageId: 'assistant-untracked-source',
-        currentPlayerHostMessageId: 'player-untracked-other'
+        currentPlayerHostMessageId: 'player-untracked-other',
+        ...sceneHandshakeProjection('settlement-not-returned')
       }
     }
   }
@@ -1260,13 +1272,15 @@ let handshakeState = initializeCampaignRuntimeTracking({
         status: 'settled',
         disposition: 'autoCommit',
         previousAssistantHostMessageId: 'assistant-whitaker-orders',
-        currentPlayerHostMessageId: 'player-accepts-orders'
+        currentPlayerHostMessageId: 'player-accepts-orders',
+        ...sceneHandshakeProjection('settlement-handshake-1')
       }],
       lastResult: {
         id: 'settlement-handshake-1',
         status: 'settled',
         previousAssistantHostMessageId: 'assistant-whitaker-orders',
-        currentPlayerHostMessageId: 'player-accepts-orders'
+        currentPlayerHostMessageId: 'player-accepts-orders',
+        ...sceneHandshakeProjection('settlement-handshake-1')
       }
     }
   }
@@ -1328,13 +1342,15 @@ let playerHandshakeState = initializeCampaignRuntimeTracking({
         status: 'settled',
         disposition: 'autoCommit',
         previousAssistantHostMessageId: 'assistant-orders-2',
-        currentPlayerHostMessageId: 'player-accepts-orders-2'
+        currentPlayerHostMessageId: 'player-accepts-orders-2',
+        ...sceneHandshakeProjection('settlement-handshake-2')
       }],
       lastResult: {
         id: 'settlement-handshake-2',
         status: 'settled',
         previousAssistantHostMessageId: 'assistant-orders-2',
-        currentPlayerHostMessageId: 'player-accepts-orders-2'
+        currentPlayerHostMessageId: 'player-accepts-orders-2',
+        ...sceneHandshakeProjection('settlement-handshake-2')
       }
     }
   }
@@ -1453,15 +1469,17 @@ assert.equal(componentPersisted.length, 4);
 
 let noCoreFallbackState = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-no-core-fallback', status: 'active' },
-  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 }
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  runtimeTracking: {
+    ingressLedger: [{
+      id: 'ingress-no-core-fallback',
+      hostMessageId: 'player-no-core-fallback',
+      status: 'committed',
+      textHash: 'hash-no-core-fallback',
+      outcomeId: 'outcome-no-core-fallback'
+    }]
+  }
 });
-noCoreFallbackState = recordTurnIngress(noCoreFallbackState, {
-  id: 'ingress-no-core-fallback',
-  hostMessageId: 'player-no-core-fallback',
-  status: 'committed',
-  textHash: 'hash-no-core-fallback',
-  outcomeId: 'outcome-no-core-fallback'
-}, { missingCoreWriteMode: 'quarantine' });
 const noCoreFallbackRawText = 'RAW_NO_CORE_REPLACEMENT_TEXT_MUST_NOT_PERSIST';
 const noCoreFallbackBefore = cloneJson(noCoreFallbackState);
 const noCoreFallbackPersisted = [];
@@ -1480,10 +1498,9 @@ const noCoreFallbackEdit = await noCoreFallbackReconciler.reconcileEdited({
   hostMessageId: 'player-no-core-fallback',
   replacementText: noCoreFallbackRawText
 });
-assert.equal(noCoreFallbackEdit.matched, true);
-assert.equal(noCoreFallbackEdit.ok, false);
-assert.equal(noCoreFallbackEdit.action, 'coreRecoveryRequired');
-assert.equal(noCoreFallbackEdit.reason, 'source-mutation-core-recovery-required');
+assert.equal(noCoreFallbackEdit.matched, false);
+assert.equal(noCoreFallbackEdit.ok, true);
+assert.equal(noCoreFallbackEdit.action, 'ignored');
 assert.deepEqual(noCoreFallbackState, noCoreFallbackBefore, 'No-CORE source mutation must fail closed before old ingress/recovery mutation.');
 assert.equal(noCoreFallbackPersisted.length, 0, 'No-CORE source mutation must not persist a fallback recovery row.');
 assert.equal(noCoreFallbackPromptSyncs.length, 0, 'No-CORE source mutation must not prompt-sync after blocked recovery.');

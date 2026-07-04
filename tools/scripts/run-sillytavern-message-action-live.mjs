@@ -152,12 +152,16 @@ async function runtimeSnapshot(page) {
     const view = app?.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
     const context = globalThis.SillyTavern?.getContext?.() || {};
     const tracking = view?.campaignState?.runtimeTracking || {};
-    const reconciliation = tracking.sceneReconciliation || {};
+    const reconciliation = view?.campaignState?.sceneReconciliation || {};
     const coreProjection = view?.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
       || view?.directiveRuntimeEvidence?.coreStoreReadProjections
       || {};
     const coreRecoveryJournal = Array.isArray(coreProjection.recoveryJournal) ? coreProjection.recoveryJournal : [];
     const chat = Array.isArray(context.chat) ? context.chat : [];
+    const primaryModelCalls = Array.isArray(view?.chatNative?.modelCalls) ? view.chatNative.modelCalls : [];
+    const legacyModelCallTelemetry = Array.isArray(view?.chatNative?.legacyModelCallTelemetry)
+      ? view.chatNative.legacyModelCallTelemetry
+      : (Array.isArray(tracking.modelCallJournal) ? tracking.modelCallJournal : []);
     return {
       currentChatId: host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null,
       chatLength: chat.length,
@@ -165,13 +169,14 @@ async function runtimeSnapshot(page) {
       saveId: view?.chatNative?.binding?.saveId || null,
       turnLedgerCount: count(view?.campaignState?.turnLedger?.entries || view?.campaignState?.turnLedger),
       commandLogCount: count(view?.campaignState?.commandLog?.entries || view?.campaignState?.commandLog),
-      recoveryCount: count(tracking.recoveryJournal),
+      recoveryCount: count(coreRecoveryJournal),
       legacyRecoveryCount: count(tracking.recoveryJournal),
       coreRecoveryCount: count(coreRecoveryJournal),
       latestCoreRecovery: clone(coreRecoveryJournal.at(-1) || null),
       recentCoreRecoveryJournal: clone(coreRecoveryJournal.slice(-5)),
       pendingInteractionCount: count(view?.chatNative?.pendingInteractions?.filter?.((entry) => entry?.status !== 'resolved') || []),
-      modelCallCount: count(view?.chatNative?.modelCalls || tracking.modelCallJournal),
+      modelCallCount: primaryModelCalls.length,
+      legacyModelCallCount: legacyModelCallTelemetry.length,
       sceneReconciliation: {
         runsCount: count(reconciliation.runs),
         appliedCount: count(reconciliation.applied),
@@ -182,7 +187,7 @@ async function runtimeSnapshot(page) {
         lastRunId: reconciliation.lastRunId || null,
         lastResult: clone(reconciliation.lastResult || null)
       },
-      recentRecoveryJournal: clone((tracking.recoveryJournal || []).slice(-5)),
+      recentRecoveryJournal: clone(coreRecoveryJournal.slice(-5)),
       recentMessages: chat.slice(-5).map((message, index) => ({
         relativeIndex: index - Math.min(5, chat.length),
         name: message?.name || '',

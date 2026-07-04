@@ -1294,9 +1294,14 @@ assert.equal(
   'This fixture must keep old sidecarJournal growth below CORE sidecar progress so chat-native tracking cannot pass through the legacy count alone.'
 );
 assert.equal(
+  flushedSidecars.sidecarCountAfter,
+  flushedSidecars.coreSidecarResumeCountAfter,
+  'Sidecar flush sidecarCountAfter must report compact CORE sidecar progress, not the legacy sidecarJournal count.'
+);
+assert.equal(
   flushedSidecars.sidecarCountAfter >= flushedSidecars.coreSidecarDiagnosticsAfter,
   true,
-  'Sidecar flush sidecarCountAfter must report compact CORE sidecar progress, not the legacy sidecarJournal count.'
+  'Sidecar flush sidecarCountAfter must include CORE diagnostic progress.'
 );
 assert.equal(
   flushedSidecars.sidecarDelta >= (flushedSidecars.results || []).length,

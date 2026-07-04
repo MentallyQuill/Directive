@@ -1385,7 +1385,6 @@ export async function loadActiveCampaignStateV2(adapter, {
     if (campaignState) {
       const runtimeProjections = runtimeProjectionsFromEventSegments(eventSegments);
       campaignState.runtimeTracking = runtimeTrackingFromEventSegments(eventSegments, campaignState);
-      campaignState.runtimeTracking.modelCallJournal = modelCallJournalFromDiagnosticsSegments(diagnosticsSegments);
       const turnLedger = turnLedgerFromTurnSegments(turnSegments, eventSegments);
       if (turnLedger) campaignState.turnLedger = turnLedger;
       const coreStoreReadProjections = coreStoreReadProjectionsFromLoadedArtifacts({
