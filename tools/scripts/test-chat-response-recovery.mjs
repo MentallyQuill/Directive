@@ -224,7 +224,11 @@ assert.equal(recovered.ok, true);
 assert.equal(state.runtimeTracking.lastCommittedTurn.outcomeId, 'outcome-recovery');
 assert.equal(state.runtimeTracking.lastCommittedTurn.responseStatus, 'complete');
 assert.equal(state.runtimeTracking.recoveryJournal.length, 0);
-assert.equal(state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-recovery').status, 'committed');
+assert.equal(state.runtimeTracking.ingressLedger.length, 0, 'Response recovery must not restore old runtimeTracking ingress authority.');
+assert.equal(
+  state.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger.find((entry) => entry.id === 'ingress-recovery').status,
+  'committed'
+);
 assert.equal(chat.messages().filter((message) => message.metadata?.outcomeId === 'outcome-recovery').length, 1);
 assert.equal(persisted.length > 0, true);
 const resolvedRecovery = coreTurnStore.readProjections().recoveryJournal.find((entry) => (

@@ -200,14 +200,18 @@ const saved = await controller.saveCurrentGame({
   campaignState: activeState,
   summary: 'Runtime controller manual save.'
 });
-assert.equal(saved.kind, 'directive.campaignSave');
-assert.equal(saved.schemaVersion, 1);
+assert.equal(saved.kind, 'directive.activeCampaignStatePersist.v2', 'manual save after first-save v2 takeover keeps CORE/v2 authority');
+assert.equal(saved.storageFormat, 'v2');
+assert.equal(saved.wroteV1Payload, false, 'manual save after first-save v2 takeover must not rewrite the v1 checkpoint shell');
 assert.equal(saved.id, startedCampaign.firstSave.id);
-assert.equal(saved.revision, 2);
-assert.equal(saved.metadata.stardate, 53052.4);
+assert.equal(saved.saveId, startedCampaign.firstSave.id);
 
 let indexes = await getDirectiveStorageIndexes(adapter);
 const savedPayloadPath = indexes.saveIndex.saves[saved.id].path;
+assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'manual save keeps the active save on runtime v2 authority');
+assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2ManifestRef?.logicalKey), true, 'manual save records the v2 manifest authority');
+let snapshot = adapter.snapshot();
+const checkpointShellBeforeRuntime = cloneJson(snapshot[savedPayloadPath] || null);
 const runtimeState = cloneJson(controller.activeCampaignState);
 runtimeState.campaign.currentStardate = 53052.8;
 runtimeState.campaignChatBinding = {
@@ -237,9 +241,8 @@ const runtimePersist = await controller.persistRuntimeCampaignState({
 });
 assert.equal(runtimePersist.storageFormat, 'v2');
 assert.equal(runtimePersist.wroteV1Payload, false);
-let snapshot = adapter.snapshot();
-assert.equal(snapshot[savedPayloadPath].revision, 2, 'runtime persist does not rewrite v1 checkpoint payload');
-assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.4, 'v1 checkpoint remains the explicit manual save');
+snapshot = adapter.snapshot();
+assert.deepEqual(snapshot[savedPayloadPath] || null, checkpointShellBeforeRuntime, 'runtime persist does not rewrite the inert v1 checkpoint shell');
 indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.saves[saved.id].path, savedPayloadPath, 'runtime v2 persist preserves v1 save index path');
 assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'runtime v2 persist marks runtime storage format');
@@ -332,7 +335,7 @@ assert.equal(savedAfterRuntimePersist.kind, 'directive.activeCampaignStatePersis
 assert.equal(savedAfterRuntimePersist.storageFormat, 'v2');
 assert.equal(savedAfterRuntimePersist.wroteV1Payload, false, 'manual save after v2 runtime persist must not rewrite the v1 checkpoint payload');
 snapshot = adapter.snapshot();
-assert.equal(snapshot[savedPayloadPath].payload.campaignState.campaign.currentStardate, 53052.4, 'manual save after v2 runtime persist leaves the stale v1 checkpoint untouched');
+assert.deepEqual(snapshot[savedPayloadPath] || null, checkpointShellBeforeRuntime, 'manual save after v2 runtime persist leaves the inert v1 checkpoint shell untouched');
 indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.saves[saved.id].runtimeStorageFormat, 'v2', 'manual save after v2 runtime persist preserves the runtime v2 marker');
 assert.equal(Boolean(indexes.saveIndex.saves[saved.id].v2ManifestRef?.logicalKey), true, 'manual save after v2 runtime persist preserves the runtime v2 manifest ref');

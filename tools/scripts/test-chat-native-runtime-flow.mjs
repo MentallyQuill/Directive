@@ -3,7 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
-import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import {
+  __directiveRuntimeAppTestHooks,
+  createDirectiveRuntimeApp
+} from '../../src/runtime/runtime-app.mjs';
+import {
+  createRuntimeLedgerView,
+  readRuntimeCoreProjections
+} from '../../src/runtime/runtime-ledger-view.mjs';
 import {
   DIRECTIVE_STORAGE_PATHS,
   listCampaignSaves
@@ -247,7 +254,7 @@ function assertCoreHostContinueBridge({ projections, state, hostMessageId, chatI
     assert.equal(legacyIngress.coreTransactionId, coreIngress.transactionId, `${label}: legacy ingress mirrors CORE transaction id when present`);
     assert.equal(legacyIngress.sourceFrameId, coreIngress.sourceFrameId, `${label}: legacy ingress mirrors CORE source frame id when present`);
   }
-  const coreResponse = projections.responseLedger.find((entry) => entry.transactionId === coreIngress.transactionId);
+  const coreResponse = projections.responses.find((entry) => entry.transactionId === coreIngress.transactionId);
   assert.ok(coreResponse, `${label}: CORE response projection exists`);
   assert.equal(coreResponse.status, 'hostContinueReleased', `${label}: CORE response projection records host release phase`);
   assert.equal(coreResponse.responseKind, 'hostContinue', `${label}: CORE response projection records hostContinue kind`);
@@ -281,7 +288,7 @@ function assertCoreDirectivePostedBridge({ projections, state, hostMessageId, ch
     assert.equal(legacyIngress.coreTransactionId, coreIngress.transactionId, `${label}: legacy ingress mirrors CORE transaction id when present`);
     assert.equal(legacyIngress.sourceFrameId, coreIngress.sourceFrameId, `${label}: legacy ingress mirrors CORE source frame id when present`);
   }
-  const coreResponse = projections.responseLedger.find((entry) => entry.transactionId === coreIngress.transactionId);
+  const coreResponse = projections.responses.find((entry) => entry.transactionId === coreIngress.transactionId);
   assert.ok(coreResponse, `${label}: CORE response projection exists`);
   assert.ok(coreResponse.responseKind, `${label}: CORE response projection records response kind`);
   assert.ok(coreResponse.generationStartedAt, `${label}: CORE response projection records generation start`);
@@ -425,6 +432,24 @@ assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?
 assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTraceRef?.hash, activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.hash, 'Activation prompt packet should carry a compact prompt budget trace ref.');
 assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.cacheInputs?.promptBudgetLaneOverrides?.protectedContinuity?.budgetTokens, 2800, 'Activation prompt trace should carry Ashes package LENS lane budget overrides.');
 assert.equal(activationPromptInstallCall?.options.packet?.lensPromptBudgetTrace?.lanes?.find((lane) => lane.id === 'protectedContinuity')?.budgetTokens, 2800, 'Activation prompt trace should apply Ashes protected-continuity budget override.');
+const boundChatIdAfterActivation = view.chatNative.binding.chatId;
+const bindingAlias = {
+  ...view.chatNative.binding,
+  chatId: boundChatIdAfterActivation
+};
+host.chat.setCurrentChatId(`sillytavern-current:${boundChatIdAfterActivation}`, bindingAlias);
+const aliasPromptSync = await app.rebuildPromptContext({
+  persist: false,
+  promptFrame: {
+    promptDirtyDomains: ['mission'],
+    source: 'chat-id-alias-regression'
+  },
+  reason: 'Prompt context rebuilt under equivalent chat binding metadata.'
+});
+assert.equal(aliasPromptSync.active, true, 'Prompt sync must stay active when current chat id formatting differs but campaign/save binding metadata matches.');
+assert.equal(aliasPromptSync.suspended, undefined, 'Prompt sync must not suspend on equivalent SillyTavern chat id aliases.');
+assert.equal(aliasPromptSync.lens.status, 'installed', 'Equivalent chat id alias prompt sync should rebuild through LENS.');
+host.chat.setCurrentChatId(boundChatIdAfterActivation, bindingAlias);
 const lensPromptRebuild = await app.rebuildPromptContext();
 assert.equal(['installed', 'reused'].includes(lensPromptRebuild.lens.status), true, 'Runtime prompt synchronization should route cache decisions through LENS.');
 assert.match(lensPromptRebuild.lens.cacheKey, /^[a-f0-9]{64}$/);
@@ -439,6 +464,47 @@ assert.equal(
   generationRoleCount('continuityProjectionPlanner'),
   continuityPlannerCallsAfterLensRebuild,
   'LENS cache reuse should not invoke the blocking continuity planner when the prompt source is unchanged.'
+);
+const mutateRuntimeAppCampaignState = __directiveRuntimeAppTestHooks.mutateCampaignStateForTest;
+await app[mutateRuntimeAppCampaignState]((state) => {
+  state.runtimeTracking = {
+    ...(state.runtimeTracking || {}),
+    revision: Number(state.runtimeTracking?.revision || 0) + 1000,
+    mechanicsRevision: Number(state.runtimeTracking?.mechanicsRevision || 0) + 1000,
+    sidecarJournal: [
+      ...(state.runtimeTracking?.sidecarJournal || []),
+      {
+        id: 'legacy-sidecar-cache-churn-row',
+        status: 'legacyOnly',
+        diagnostics: { rawPromptBody: 'RAW_LEGACY_LENS_CACHE_CHURN_PROMPT' }
+      }
+    ],
+    recoveryJournal: [
+      ...(state.runtimeTracking?.recoveryJournal || []),
+      {
+        id: 'legacy-recovery-cache-churn-row',
+        type: 'legacyOnly',
+        replacementText: 'RAW_LEGACY_LENS_CACHE_CHURN_RECOVERY'
+      }
+    ]
+  };
+  return state;
+});
+const legacyRuntimeOnlyPromptRebuild = await app.rebuildPromptContext();
+assert.equal(
+  legacyRuntimeOnlyPromptRebuild.lens.status,
+  'reused',
+  'Old runtimeTracking-only revision/journal changes must not churn LENS prompt cache identity.'
+);
+assert.equal(
+  legacyRuntimeOnlyPromptRebuild.lens.cacheKey,
+  cachedPromptRebuild.lens.cacheKey,
+  'LENS cache key must ignore old runtimeTracking-only revision/journal changes.'
+);
+assert.equal(
+  host.prompt.calls().filter((entry) => entry.type === 'sync').length,
+  promptSyncCallsAfterLensRebuild,
+  'Old runtimeTracking-only changes must not reinstall Directive prompt blocks.'
 );
 const originalPromptInspect = host.prompt.inspect.bind(host.prompt);
 const staleExternalRef = {
@@ -588,7 +654,8 @@ assert.equal(rebindCall.options.createNew, false);
 assert.equal(rebindCall.options.existingChatId, null);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
 assert.equal(view.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'chatRebind'), false);
-assert.equal(view.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'chatRebind' && entry.status === 'applied'), true);
+assert.equal(view.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'chatRebind'), false);
+assert.equal((readRuntimeCoreProjections(view.campaignState).lifecycleJournal || []).some((entry) => entry.type === 'chatRebind' && entry.status === 'applied'), true);
 assert.equal(host.prompt.inspect().status, 'installed');
 
 view = await app.getCurrentView({ tabId: 'campaign' });
@@ -776,13 +843,14 @@ const firstTurnCoreProjections = await readCoreStoreProjectionsV2(host.storage, 
   campaignId: view.campaignState.campaign.id,
   saveId: sourceSaveId
 });
-const firstTurnIngress = colorResult.campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-color');
-assert.ok(firstTurnIngress?.sourceFrameId, 'first source-save player turn must create old ingress with sourceFrameId compatibility projection');
-assert.ok(firstTurnIngress?.coreTransactionId, 'first source-save player turn must create old ingress with CORE transaction id');
+const firstTurnRuntimeLedger = createRuntimeLedgerView(colorResult.campaignState);
+const firstTurnIngress = firstTurnRuntimeLedger.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-color');
+assert.ok(firstTurnIngress?.sourceFrameId, 'first source-save player turn must expose ingress sourceFrameId through CORE-first runtime ledger view');
+assert.ok(firstTurnIngress?.coreTransactionId || firstTurnIngress?.transactionId, 'first source-save player turn must expose CORE transaction id through CORE-first runtime ledger view');
 const firstTurnCoreIngress = firstTurnCoreProjections.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-color');
 assert.ok(firstTurnCoreIngress, 'first source-save player turn must bootstrap readable CORE/v2 ingress projection');
-assert.equal(firstTurnCoreIngress.transactionId, firstTurnIngress.coreTransactionId, 'first source-save CORE transaction id must match old ingress projection');
-assert.equal(firstTurnCoreIngress.sourceFrameId, firstTurnIngress.sourceFrameId, 'first source-save CORE source frame id must match old ingress projection');
+assert.equal(firstTurnCoreIngress.transactionId, firstTurnIngress.coreTransactionId || firstTurnIngress.transactionId, 'first source-save CORE transaction id must match runtime ledger projection');
+assert.equal(firstTurnCoreIngress.sourceFrameId, firstTurnIngress.sourceFrameId, 'first source-save CORE source frame id must match runtime ledger projection');
 assert.equal(firstTurnCoreIngress.chatId, view.chatNative.binding.chatId, 'first source-save CORE projection must use active chat id');
 const firstTurnSourceStorage = host.storage.snapshot();
 const firstTurnSourceSaveIndex = firstTurnSourceStorage[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
@@ -1092,7 +1160,7 @@ const outcomeIntegrityProjections = await readCoreStoreProjectionsV2(host.storag
   campaignId: view.campaignState.campaign.id,
   saveId: view.loadedSave.saveId
 });
-const editedResponseEntry = outcomeIntegrityProjections.responseLedger.find((entry) => entry.hostMessageId === committedResponse.hostMessageId);
+const editedResponseEntry = outcomeIntegrityProjections.responses.find((entry) => entry.hostMessageId === committedResponse.hostMessageId);
 assert.equal(editedResponseEntry.outcomeId, editContext.lockedContext.outcomeId);
 assert.equal(editedResponseEntry.outcomeIntegrity.selectedRevisionId, editResult.revision.id);
 assert.ok(editedResponseEntry.transactionId, 'Outcome Integrity lifecycle projection must carry CORE transaction evidence.');
@@ -1414,7 +1482,7 @@ const reloadedCounselIngressAfterFlush = {
   coreTransactionId: reloadedCounselCoreIngress.transactionId,
   sourceFrameId: reloadedCounselCoreIngress.sourceFrameId
 };
-const reloadedCounselResponse = coreProjectionsAfterReload.responseLedger.find((entry) => entry.transactionId === reloadedCounselCoreIngress.transactionId);
+const reloadedCounselResponse = coreProjectionsAfterReload.responses.find((entry) => entry.transactionId === reloadedCounselCoreIngress.transactionId);
 assert.ok(reloadedCounselResponse, 'Reloaded counsel advisory turn: CORE response projection exists.');
 assert.equal(reloadedCounselResponse.responseKind, 'hostContinue', 'Reloaded counsel advisory turn: CORE response kind records host continuation.');
 assert.equal(reloadedCounselResponse.status, 'hostContinueReleased', 'Reloaded counsel advisory turn: CORE response projection records host release phase.');
@@ -1562,7 +1630,7 @@ const editFixtureCoreProjections = await readCoreStoreProjectionsV2(host.storage
 });
 const editResponseIngress = editFixtureCoreProjections.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-response-edit');
 assert.ok(editResponseIngress?.transactionId, 'Response-edit fixture turn should carry a CORE transaction.');
-const editFixtureResponseEntry = editFixtureCoreProjections.responseLedger.find((entry) => (
+const editFixtureResponseEntry = editFixtureCoreProjections.responses.find((entry) => (
   entry.transactionId === editResponseIngress.transactionId
   && entry.hostMessageId
 ));
@@ -1584,7 +1652,7 @@ const coreProjectionsAfterResponseEdit = await readCoreStoreProjectionsV2(host.s
   campaignId: view.campaignState.campaign.id,
   saveId: view.activeSaveId
 });
-const runtimeEditedResponseEntry = coreProjectionsAfterResponseEdit.responseLedger.find((entry) => entry.id === editFixtureResponseEntry.id);
+const runtimeEditedResponseEntry = coreProjectionsAfterResponseEdit.responses.find((entry) => entry.id === editFixtureResponseEntry.id);
 assert.equal(runtimeEditedResponseEntry.status, 'posted', 'CORE response projection keeps posted response state while recovery is tracked separately.');
 const responseEditRecoveryProjection = coreProjectionsAfterResponseEdit.recoveryJournal.find((entry) => (
   entry.transactionId === editResponseIngress.transactionId
@@ -1620,7 +1688,7 @@ const deleteFixtureCoreProjections = await readCoreStoreProjectionsV2(host.stora
 });
 const deleteResponseIngress = deleteFixtureCoreProjections.ingressLedger.find((entry) => entry.hostMessageId === 'runtime-player-response-delete');
 assert.ok(deleteResponseIngress?.transactionId, 'Response-delete fixture turn should carry a CORE transaction.');
-const runtimeDeleteResponseEntry = deleteFixtureCoreProjections.responseLedger.find((entry) => entry.transactionId === deleteResponseIngress.transactionId);
+const runtimeDeleteResponseEntry = deleteFixtureCoreProjections.responses.find((entry) => entry.transactionId === deleteResponseIngress.transactionId);
 assert.ok(runtimeDeleteResponseEntry?.hostMessageId, 'Response-delete fixture turn should have a Directive assistant response.');
 const runtimeResponseDelete = await reloadedApp.handleHostMessageDeleted({
   hostMessageId: runtimeDeleteResponseEntry.hostMessageId
@@ -1637,7 +1705,7 @@ const coreProjectionsAfterResponseDelete = await readCoreStoreProjectionsV2(host
   campaignId: view.campaignState.campaign.id,
   saveId: view.activeSaveId
 });
-const deletedRuntimeResponseEntry = coreProjectionsAfterResponseDelete.responseLedger.find((entry) => entry.id === runtimeDeleteResponseEntry.id);
+const deletedRuntimeResponseEntry = coreProjectionsAfterResponseDelete.responses.find((entry) => entry.id === runtimeDeleteResponseEntry.id);
 assert.equal(deletedRuntimeResponseEntry.status, 'posted', 'CORE response projection keeps posted response state while delete recovery is tracked separately.');
 const responseDeleteRecoveryProjection = coreProjectionsAfterResponseDelete.recoveryJournal.find((entry) => (
   entry.transactionId === deleteResponseIngress.transactionId
@@ -1691,7 +1759,7 @@ assert.equal(sourceMutationRecoveryProjection.sourceMutation.replacementTextHash
 assert.equal(sourceMutationRecoveryProjection.repairDecision.kind, 'directive.repairDecision.v1');
 assert.equal(sourceMutationRecoveryProjection.repairDecision.action, 'reviewRequired');
 assert.equal(sourceMutationRecoveryProjection.repairDecision.normalTurnAllowed, false);
-assert.equal(sourceMutationRecoveryProjection.repairDecision.legacyProjection.sourceProjectionStatus, 'recoveryRequired');
+assert.equal(sourceMutationRecoveryProjection.repairDecision.repairProjection.sourceProjectionStatus, 'recoveryRequired');
 assert.deepEqual(sourceMutationRecoveryProjection.allowedActions, [
   'reviewSourceMutation',
   'rerunFromSource',

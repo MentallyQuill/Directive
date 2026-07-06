@@ -1,7 +1,6 @@
 import {
   initializeCampaignRuntimeTracking,
   recordDirectiveResponse,
-  resolveRecoveryEvent,
   updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
@@ -21,7 +20,8 @@ import {
   createRuntimeLedgerViewAsync,
   findLedgerIngressAsync,
   findLedgerRecoveryAsync,
-  findLedgerResponseAsync
+  findLedgerResponseAsync,
+  readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
 
 function cloneJson(value) {
@@ -72,6 +72,13 @@ function compactRecoveryWriterErrorRef(error, fallbackCode = 'DIRECTIVE_CORE_HOS
 
 function isObjectRecord(value) {
   return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function coreRuntimeRevision(campaignState = null) {
+  const projection = readRuntimeCoreProjections(campaignState || {});
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const revision = Number(projection?.revisions?.runtime);
+  return Number.isFinite(revision) ? Math.max(0, revision) : 0;
 }
 
 const COMPATIBILITY_RAW_TEXT_KEYS = new Set([
@@ -253,7 +260,7 @@ function sanitizedHostNativeContinuityCompatibilityProjection({
     textHash: compact(observedTextHash) || reviewSource.textHash
   };
   const claimSource = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== null && value !== undefined && value !== ''));
-  const currentRevision = Number(campaignState?.runtimeTracking?.revision ?? 0) || 0;
+  const currentRevision = Number(coreRuntimeRevision(campaignState) ?? campaignState?.runtimeTracking?.revision ?? 0) || 0;
   const rejectedClaims = factIds.length ? [{
     schemaVersion: 1,
     id: `generated-claim.${hashStableJson({ recoveryId: projectionRecoveryId, factIds, textHash: source.textHash || null })}`,
@@ -438,7 +445,8 @@ export function composePauseResponse(type, context = {}) {
 }
 
 export const __responseDispatcherTestHooks = Object.freeze({
-  providedHostNativeReviewMatchesSource: __sourceReviewWorkerTestHooks.providedHostNativeReviewMatchesSource
+  providedHostNativeReviewMatchesSource: __sourceReviewWorkerTestHooks.providedHostNativeReviewMatchesSource,
+  sanitizedHostNativeContinuityCompatibilityProjection
 });
 
 export function createResponseDispatcher({
@@ -465,10 +473,45 @@ export function createResponseDispatcher({
     return initializeCampaignRuntimeTracking(source);
   }
 
-  async function findExisting(campaignState, idempotencyKey) {
-    const view = await createRuntimeLedgerViewAsync(campaignState, { coreTurnStore, runtimeOverlay: true });
+  function repairResponseRetryDecisionAuthorizesVisiblePost(decision = null) {
+    if (!decision || decision.kind !== 'directive.repairResponseRetryActuationDecision.v1') return false;
+    return decision.authorized === true
+      && decision.recoveryResolved === true
+      && decision.action === 'recordVisibleResponse'
+      && ['hostResponsePostFailure', 'providerFailureAfterMechanicsCommit'].includes(compact(decision.eventType))
+      && Array.isArray(decision.allowedActions)
+      && decision.allowedActions.includes('retryResponse');
+  }
+
+  function existingResponseCanBeClosedByAuthorizedRetry(entry = null, {
+    repairResponseRetryActuationDecision = null
+  } = {}) {
+    if (!repairResponseRetryDecisionAuthorizesVisiblePost(repairResponseRetryActuationDecision)) return false;
+    const status = compact(entry?.status || entry?.coreProjection?.status || entry?.coreRecovery?.status || entry?.coreRecovery?.phase);
+    if (!['responseRetryRequired', 'recoveryRequired'].includes(status)) return false;
+    const hostMessageId = compact(entry?.hostMessageId || entry?.hostObservation?.hostMessageId || '');
+    if (hostMessageId) return false;
+    const decisionRecoveryId = compact(
+      repairResponseRetryActuationDecision.recoveryCaseId
+      || repairResponseRetryActuationDecision.recoveryId
+      || ''
+    );
+    const entryRecoveryId = compact(
+      entry?.recoveryId
+      || entry?.coreRecovery?.recoveryCaseId
+      || entry?.coreRecovery?.recoveryId
+      || entry?.repairDecision?.recoveryCaseId
+      || entry?.repairDecision?.recoveryId
+      || ''
+    );
+    return !decisionRecoveryId || !entryRecoveryId || decisionRecoveryId === entryRecoveryId;
+  }
+
+  async function findExisting(campaignState, idempotencyKey, options = {}) {
+    const view = await createRuntimeLedgerViewAsync(campaignState, { coreTurnStore });
     const response = (view.responseLedger || []).find((entry) => (
       idempotencyKey && entry.id === idempotencyKey
+      && !existingResponseCanBeClosedByAuthorizedRetry(entry, options)
     )) || null;
     if (response) return response;
     if (!idempotencyKey || typeof coreTurnStore?.readProjections !== 'function') return null;
@@ -584,12 +627,12 @@ export function createResponseDispatcher({
 
   async function findIngress(campaignState, ingressId) {
     if (!ingressId) return null;
-    return findLedgerIngressAsync(campaignState, { id: ingressId }, { coreTurnStore, runtimeOverlay: true });
+    return findLedgerIngressAsync(campaignState, { id: ingressId }, { coreTurnStore });
   }
 
   async function findResponse(campaignState, responseId) {
     if (!responseId) return null;
-    return findLedgerResponseAsync(campaignState, { id: responseId }, { coreTurnStore, runtimeOverlay: true });
+    return findLedgerResponseAsync(campaignState, { id: responseId }, { coreTurnStore });
   }
 
   async function readCoreResponseProjectionFor(entry = null) {
@@ -598,7 +641,9 @@ export function createResponseDispatcher({
     const hostId = compact(entry.hostMessageId || entry.hostObservation?.hostMessageId);
     if (entry && typeof coreTurnStore?.readProjections === 'function') {
       const projections = await coreTurnStore.readProjections();
-      const responses = Array.isArray(projections?.responseLedger) ? projections.responseLedger : [];
+      const responses = Array.isArray(projections?.responses)
+        ? projections.responses
+        : (Array.isArray(projections?.responseLedger) ? projections.responseLedger : []);
       const projection = responses.find((response) => (
         (responseId && compact(response.id || response.responseId) === responseId)
         || (transactionId && compact(response.transactionId || response.coreTransactionId) === transactionId)
@@ -606,26 +651,7 @@ export function createResponseDispatcher({
       )) || null;
       if (projection) return projection;
     }
-    if (!entry) return null;
-    const releasePhase = compact(entry.coreRelease?.phase);
-    const completionPhase = compact(entry.coreCompletion?.phase);
-    const diagnosticStatus = compact(entry.coreRecoveryDiagnostic?.status || entry.coreReleaseDiagnostic?.status);
-    const recoveryStatus = compact(entry.coreRecovery?.status || entry.coreRecovery?.phase);
-    if (!releasePhase && !completionPhase && !diagnosticStatus && !recoveryStatus) return null;
-    return {
-      id: responseId || null,
-      responseId: responseId || null,
-      transactionId: transactionId || compact(entry.coreCompletion?.transactionId || entry.coreRecovery?.transactionId) || null,
-      coreTransactionId: transactionId || compact(entry.coreCompletion?.transactionId || entry.coreRecovery?.transactionId) || null,
-      hostMessageId: hostId || null,
-      outcomeId: compact(entry.outcomeId) || null,
-      responseKind: compact(entry.responseKind) || null,
-      generationStartedAt: entry.generationStartedAt || null,
-      turnTiming: cloneJson(entry.turnLatency || null),
-      status: completionPhase === 'visibleResponsePosted'
-        ? 'posted'
-        : (releasePhase === 'hostContinueReleased' ? 'hostContinueReleased' : (diagnosticStatus || recoveryStatus))
-    };
+    return null;
   }
 
   function statusFromCoreResponseProjection(projection = null, fallbackStatus = null) {
@@ -675,37 +701,57 @@ export function createResponseDispatcher({
     throw error;
   }
 
+  function responseProjectionFromReleaseEvidence(entry = {}) {
+    const transactionId = compact(entry.coreRelease?.transactionId || entry.coreTransactionId || entry.transactionId);
+    const responseId = compact(entry.id || entry.responseId || entry.idempotencyKey);
+    if (!transactionId || !responseId) return null;
+    return {
+      id: responseId,
+      responseId,
+      transactionId,
+      coreTransactionId: transactionId,
+      hostMessageId: entry.hostMessageId || null,
+      outcomeId: entry.outcomeId || null,
+      responseKind: entry.responseKind || null,
+      status: entry.status || null,
+      generationStartedAt: entry.generationStartedAt || null,
+      turnTiming: cloneJson(entry.turnLatency || null)
+    };
+  }
+
   async function recordDirectiveResponseCompatibility(campaignState, entry = {}, {
     coreDiagnostic = null,
     mirroredOperation = 'responseProjection'
   } = {}) {
     const projection = await readCoreResponseProjectionFor(entry);
-    if (projection) {
+    if (!projection && coreDiagnostic) return campaignState;
+    const releaseProjection = projection || responseProjectionFromReleaseEvidence(entry);
+    if (releaseProjection) {
       return recordDirectiveResponse(campaignState, {
         ...entry,
-        id: entry.id || compact(projection.id || projection.responseId) || null,
-        hostMessageId: compact(projection.hostMessageId) || entry.hostMessageId || null,
-        outcomeId: compact(projection.outcomeId) || entry.outcomeId || null,
-        responseKind: entry.responseKind || compact(projection.responseKind) || null,
-        generationStartedAt: entry.generationStartedAt || projection.generationStartedAt || null,
-        turnLatency: cloneJson(entry.turnLatency || projection.turnTiming || null),
-        coreTransactionId: compact(projection.transactionId || projection.coreTransactionId) || entry.coreTransactionId || null,
-        status: statusFromCoreResponseProjection(projection, entry.status),
+        id: entry.id || compact(releaseProjection.id || releaseProjection.responseId) || null,
+        hostMessageId: compact(releaseProjection.hostMessageId) || entry.hostMessageId || null,
+        outcomeId: compact(releaseProjection.outcomeId) || entry.outcomeId || null,
+        strategy: entry.strategy || null,
+        responseKind: entry.responseKind || compact(releaseProjection.responseKind) || null,
+        generationStartedAt: entry.generationStartedAt || releaseProjection.generationStartedAt || null,
+        turnLatency: cloneJson(entry.turnLatency || releaseProjection.turnTiming || null),
+        coreTransactionId: compact(releaseProjection.transactionId || releaseProjection.coreTransactionId) || entry.coreTransactionId || null,
+        status: statusFromCoreResponseProjection(releaseProjection, entry.status),
         projectionSource: 'coreStoreV2',
         authority: 'compatibilityProjection',
-        compatibilityMirror: coreResponseCompatibilityMirror(projection, { mirroredOperation }),
+        compatibilityMirror: coreResponseCompatibilityMirror(releaseProjection, { mirroredOperation }),
         coreProjection: {
           kind: 'directive.coreResponseProjectionRef.v1',
-          id: projection.id || projection.responseId || null,
-          responseId: projection.responseId || projection.id || null,
-          transactionId: projection.transactionId || projection.coreTransactionId || null,
-          status: projection.status || null
+          id: releaseProjection.id || releaseProjection.responseId || null,
+          responseId: releaseProjection.responseId || releaseProjection.id || null,
+          transactionId: releaseProjection.transactionId || releaseProjection.coreTransactionId || null,
+          status: releaseProjection.status || null
         }
       }, {
         missingCoreWriteMode: 'reject'
       });
     }
-    if (coreDiagnostic) return campaignState;
     requireCoreResponseProjection(entry, { mirroredOperation });
   }
 
@@ -721,34 +767,36 @@ export function createResponseDispatcher({
       id: stableResponseId || compact(responseId) || null
     };
     const projection = await readCoreResponseProjectionFor(entry);
-    if (projection) {
-      const projectionResponseId = compact(projection.id || projection.responseId);
+    if (!projection && coreDiagnostic) return campaignState;
+    const releaseProjection = projection || responseProjectionFromReleaseEvidence(entry);
+    if (releaseProjection) {
+      const projectionResponseId = compact(releaseProjection.id || releaseProjection.responseId);
       const updateId = stableResponseId || projectionResponseId;
       if (!updateId) return campaignState;
       return updateDirectiveResponse(campaignState, updateId, {
         ...patch,
-        hostMessageId: compact(projection.hostMessageId) || patch.hostMessageId || existing.hostMessageId || null,
-        outcomeId: compact(projection.outcomeId) || patch.outcomeId || existing.outcomeId || null,
-        responseKind: patch.responseKind || existing.responseKind || compact(projection.responseKind) || null,
-        generationStartedAt: patch.generationStartedAt || existing.generationStartedAt || projection.generationStartedAt || null,
-        turnLatency: cloneJson(patch.turnLatency || existing.turnLatency || projection.turnTiming || null),
-        coreTransactionId: compact(projection.transactionId || projection.coreTransactionId) || patch.coreTransactionId || existing.coreTransactionId || null,
-        status: statusFromCoreResponseProjection(projection, patch.status || existing.status),
+        hostMessageId: compact(releaseProjection.hostMessageId) || patch.hostMessageId || existing.hostMessageId || null,
+        outcomeId: compact(releaseProjection.outcomeId) || patch.outcomeId || existing.outcomeId || null,
+        strategy: patch.strategy || existing.strategy || null,
+        responseKind: patch.responseKind || existing.responseKind || compact(releaseProjection.responseKind) || null,
+        generationStartedAt: patch.generationStartedAt || existing.generationStartedAt || releaseProjection.generationStartedAt || null,
+        turnLatency: cloneJson(patch.turnLatency || existing.turnLatency || releaseProjection.turnTiming || null),
+        coreTransactionId: compact(releaseProjection.transactionId || releaseProjection.coreTransactionId) || patch.coreTransactionId || existing.coreTransactionId || null,
+        status: statusFromCoreResponseProjection(releaseProjection, patch.status || existing.status),
         projectionSource: 'coreStoreV2',
         authority: 'compatibilityProjection',
-        compatibilityMirror: coreResponseCompatibilityMirror(projection, { mirroredOperation }),
+        compatibilityMirror: coreResponseCompatibilityMirror(releaseProjection, { mirroredOperation }),
         coreProjection: {
           kind: 'directive.coreResponseProjectionRef.v1',
-          id: projection.id || projection.responseId || null,
-          responseId: projection.responseId || projection.id || null,
-          transactionId: projection.transactionId || projection.coreTransactionId || null,
-          status: projection.status || null
+          id: releaseProjection.id || releaseProjection.responseId || null,
+          responseId: releaseProjection.responseId || releaseProjection.id || null,
+          transactionId: releaseProjection.transactionId || releaseProjection.coreTransactionId || null,
+          status: releaseProjection.status || null
         }
       }, {
         missingCoreWriteMode: 'reject'
       });
     }
-    if (coreDiagnostic) return campaignState;
     requireCoreResponseProjection(entry, { mirroredOperation });
   }
 
@@ -1237,17 +1285,6 @@ export function createResponseDispatcher({
     }, {
       mirroredOperation: 'hostNativeReobserveClosure'
     });
-    if (recovery?.id) {
-      next = resolveRecoveryEvent(next, recovery.id, {
-        status: 'resolved',
-        reason: repairDecision?.reason || 'host-native-response-reobserved',
-        resolvedAt: eventTime || timestamp(now),
-        responseId: response.id,
-        hostMessageId: observedHostMessageId,
-        textHash,
-        repairDecision: cloneJson(repairDecision || null)
-      });
-    }
     return next;
   }
 
@@ -1829,12 +1866,21 @@ export function createResponseDispatcher({
       return { ok: false, skipped: true, reason: 'host-recent-messages-unavailable' };
     }
     const state = resolveState(campaignState);
-    const runtimeLedgerView = await createRuntimeLedgerViewAsync(state, { coreTurnStore, runtimeOverlay: true });
-    const responseLedger = runtimeLedgerView.responseLedger || [];
+    const coreRuntimeLedgerView = await createRuntimeLedgerViewAsync(state, { coreTurnStore });
+    const responseLedger = coreRuntimeLedgerView.responseLedger || [];
+    const responseTransactionId = (entry = {}) => compact(entry.coreTransactionId || entry.transactionId || entry.coreRelease?.transactionId);
+    const runtimeHostObservationClaims = responseLedger.filter((entry) => (
+      compact(entry?.authority) === 'compatibilityProjection'
+      && compact(entry?.projectionSource) === 'coreStoreV2'
+      && responseTransactionId(entry)
+      && compact(entry?.hostObservation?.hostMessageId)
+    ));
+    const runtimeHostObservationClaimTransactions = new Set(runtimeHostObservationClaims.map(responseTransactionId).filter(Boolean));
     const responseNeedsHostReobserve = (entry = {}) => (
       entry?.strategy === 'injectAndContinue'
       && ['hostGeneration', 'hostContinue'].includes(compact(entry?.responseKind))
       && ['released', 'complete', 'hostContinueReleased'].includes(compact(entry?.status))
+      && !runtimeHostObservationClaimTransactions.has(responseTransactionId(entry))
       && !compact(entry.hostMessageId)
       && !entry.hostObservation?.hostMessageId
     );
@@ -1859,15 +1905,34 @@ export function createResponseDispatcher({
     }
     const messages = await host.chat.getRecentMessages({ limit, playerSafeOnly: false });
     const recent = Array.isArray(messages) ? messages.filter(Boolean) : [];
-    const usedAssistantIds = new Set(responseLedger
+    const claimAwareResponseLedger = [
+      ...responseLedger,
+      ...runtimeHostObservationClaims
+    ];
+    const usedAssistantIds = new Set(claimAwareResponseLedger
       .map((entry) => compact(entry.hostMessageId || entry.hostObservation?.hostMessageId))
       .filter(Boolean));
-    const responseTransactionId = (entry = {}) => compact(entry.coreTransactionId || entry.transactionId || entry.coreRelease?.transactionId);
     const responsesByTransaction = new Map(responseLedger
       .map((entry) => [responseTransactionId(entry), entry])
       .filter(([transactionId]) => Boolean(transactionId)));
+    for (const claim of runtimeHostObservationClaims) {
+      const transactionId = responseTransactionId(claim);
+      const existing = responsesByTransaction.get(transactionId) || {};
+      responsesByTransaction.set(transactionId, {
+        ...existing,
+        id: existing.id || claim.id || claim.responseId || null,
+        responseId: existing.responseId || claim.responseId || claim.id || null,
+        transactionId: existing.transactionId || claim.transactionId || null,
+        coreTransactionId: existing.coreTransactionId || claim.coreTransactionId || claim.coreRelease?.transactionId || null,
+        ingressId: existing.ingressId || claim.ingressId || null,
+        outcomeId: existing.outcomeId || claim.outcomeId || null,
+        responseKind: existing.responseKind || claim.responseKind || null,
+        hostObservation: cloneJson(claim.hostObservation),
+        turnLatency: existing.turnLatency || claim.turnLatency || null
+      });
+    }
     const hostMessageClaims = new Map();
-    for (const entry of responseLedger) {
+    for (const entry of claimAwareResponseLedger) {
       const claimedHostMessageId = compact(entry.hostMessageId || entry.hostObservation?.hostMessageId);
       if (!claimedHostMessageId) continue;
       hostMessageClaims.set(claimedHostMessageId, {
@@ -1972,7 +2037,9 @@ export function createResponseDispatcher({
     const projectionResults = [];
     if (typeof coreTurnStore?.readProjections === 'function' && typeof coreTurnStore?.recordVisibleResponse === 'function') {
       const projections = await coreTurnStore.readProjections();
-      const projectionResponses = Array.isArray(projections?.responseLedger) ? projections.responseLedger : [];
+      const projectionResponses = Array.isArray(projections?.responses)
+        ? projections.responses
+        : (Array.isArray(projections?.responseLedger) ? projections.responseLedger : []);
       const projectedVisibleResponseTransactions = new Set(projectionResponses
         .filter((entry) => entry?.status === 'posted')
         .map((entry) => entry.transactionId)
@@ -2625,6 +2692,11 @@ export function createResponseDispatcher({
         }
       }
     }
+    if (coreReleaseError && !coreReleaseDiagnosticRecorded) {
+      requireCoreResponseProjection(entry, {
+        mirroredOperation: 'hostContinueRelease'
+      });
+    }
     try {
       next = await recordDirectiveResponseCompatibility(next, entry, {
         coreDiagnostic: coreReleaseDiagnostic || null,
@@ -2675,16 +2747,16 @@ export function createResponseDispatcher({
       error.code = 'DIRECTIVE_RESPONSE_TEXT_REQUIRED';
       throw error;
     }
-    const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || outcomeId || turnId || 'turn'}:${responseType}`;
-    const existing = await findExisting(state, key);
-    if (existing) {
-      return await existingResponseDispatchResult(existing, state);
-    }
-    const ingress = await findIngress(state, ingressId);
     const directiveGenerationStartedAt = metadata?.directiveGenerationStartedAt
       || metadata?.turnTiming?.directiveGenerationStartedAt
       || null;
     const repairResponseRetryActuationDecision = metadata?.repairResponseRetryActuationDecision || null;
+    const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || outcomeId || turnId || 'turn'}:${responseType}`;
+    const existing = await findExisting(state, key, { repairResponseRetryActuationDecision });
+    if (existing) {
+      return await existingResponseDispatchResult(existing, state);
+    }
+    const ingress = await findIngress(state, ingressId);
     const suppressCoreVisibleResponse = metadata?.providerFailureAfterMechanicsCommit === true
       && metadata?.fallbackResponsePosted === true;
     const providerFailureRecoveryId = suppressCoreVisibleResponse
@@ -2781,6 +2853,11 @@ export function createResponseDispatcher({
     if (coreReleaseError) {
       entry.status = coreReleaseDiagnosticRecorded ? 'coreRecoveryDiagnosticProjected' : 'recoveryRequired';
       entry.recoveryId = coreReleaseDiagnosticRecorded ? null : `recovery:core-visible-response:${key}`;
+    }
+    if (coreReleaseError && !coreReleaseDiagnosticRecorded) {
+      requireCoreResponseProjection(entry, {
+        mirroredOperation: 'directiveVisibleResponse'
+      });
     }
     let next = await recordDirectiveResponseCompatibility(state, entry, {
       coreDiagnostic: coreReleaseDiagnostic || null,

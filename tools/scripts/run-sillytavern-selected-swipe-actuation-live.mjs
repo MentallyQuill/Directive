@@ -320,7 +320,7 @@ async function createLatestDirectiveOwnedTarget(page) {
     }));
     const refreshed = app?.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
     const ledgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
-      ? ledgerMod.createRuntimeLedgerView(refreshed?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerMod.createRuntimeLedgerView(refreshed?.campaignState || {})
       : null;
     const responses = Array.isArray(ledgerView?.responseLedger) ? ledgerView.responseLedger : [];
     const response = responses.find((entry) => String(entry?.hostMessageId || '') === String(posted.hostMessageId)) || null;
@@ -375,7 +375,7 @@ async function prepareCandidateSwipe(page, targetSetup = null) {
     }
     const view = await app.getCurrentView({ tabId: 'mission' });
     const ledgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
-      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {})
       : null;
     if (!Array.isArray(ledgerView?.responseLedger)) {
       return { ok: false, reason: 'runtime-ledger-view-response-ledger-unavailable' };
@@ -502,7 +502,7 @@ async function prepareCandidateSwipe(page, targetSetup = null) {
     if (result?.ok === false) return { ok: false, reason: result.reason || 'candidate-append-failed', result: clone(result) };
     const latestView = await app.getCurrentView({ tabId: 'mission' });
     const latestLedgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
-      ? ledgerMod.createRuntimeLedgerView(latestView?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerMod.createRuntimeLedgerView(latestView?.campaignState || {})
       : null;
     const latestResponses = Array.isArray(latestLedgerView?.responseLedger) ? latestLedgerView.responseLedger : [];
     const latestResponse = targetSetup?.responseId
@@ -774,7 +774,7 @@ async function inspectSelectedSwipeState(page, target) {
     const chat = Array.isArray(context.chat) ? context.chat : [];
     const message = chat[Number(hostMessageId)] || chat.find((entry, index) => String(entry?.extra?.message_id ?? entry?.id ?? index) === String(hostMessageId)) || null;
     const ledgerView = typeof ledgerMod.createRuntimeLedgerView === 'function'
-      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerMod.createRuntimeLedgerView(view?.campaignState || {})
       : null;
     const responses = Array.isArray(ledgerView?.responseLedger) ? ledgerView.responseLedger : [];
     const response = responses.find((entry) => String(entry?.hostMessageId || '') === String(hostMessageId));

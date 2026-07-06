@@ -11,6 +11,10 @@ import {
   STARFLEET_VOYAGER_UNIFORM_RULE,
   starfleetUniformFactForCrew
 } from '../starfleet/uniforms.mjs';
+import {
+  applyLensPromptRevisionRecord,
+  createLensPromptRevisionRecord
+} from '../runtime/lens-prompt-revision-record.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -44,8 +48,24 @@ function list(items, fallback = '') {
   return values.length ? values.map((value) => `- ${value}`).join('\n') : fallback;
 }
 
+function coreRuntimeRevision(state) {
+  const projection = state?.directiveRuntimeEvidence?.coreStoreReadProjections;
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const revision = Number(projection?.revisions?.runtime);
+  return Number.isFinite(revision) ? revision : 0;
+}
+
 function sourceRevision(state) {
-  return Number(state?.runtimeTracking?.revision ?? state?.turnLedger?.entries?.length ?? 0) || 0;
+  return Number(coreRuntimeRevision(state) ?? state?.runtimeTracking?.revision ?? state?.turnLedger?.entries?.length ?? 0) || 0;
+}
+
+function promptRevisionAuthority(campaignState = {}) {
+  return Math.max(
+    0,
+    Number(campaignState?.directiveRuntimeEvidence?.lensPromptRevisionRecord?.revision) || 0,
+    Number(campaignState?.campaignChatBinding?.promptContextRevision) || 0,
+    Number(campaignState?.runtimeResume?.promptContextRevision) || 0
+  );
 }
 
 function locationTemplate(packageData, locationId) {
@@ -526,9 +546,7 @@ export function buildContextPlan({
   const selection = selectContextCandidates(candidates, policy);
   const blocks = selection.selected.map((candidate) => toHostBlock(campaignState, candidate));
   const text = blocks.map((block) => `[Directive: ${block.title}]\n${block.content}`).join('\n\n');
-  const priorRevision = Number(campaignState?.runtimeTracking?.promptContext?.revision
-    ?? campaignState?.campaignChatBinding?.promptContextRevision
-    ?? 0) || 0;
+  const priorRevision = promptRevisionAuthority(campaignState);
   return {
     kind: 'directive.contextPlan',
     audience: 'narratorSafe',
@@ -557,33 +575,15 @@ export function buildContextPlan({
 }
 
 export function recordContextPlan(state, plan, { installedAt = null, status = 'active' } = {}) {
-  const next = cloneJson(state);
-  if (!next.runtimeTracking) next.runtimeTracking = { revision: 0 };
-  next.runtimeTracking.promptContext = {
+  return applyLensPromptRevisionRecord(state, createLensPromptRevisionRecord({
+    packet: {
+      revision: plan.revision,
+      hash: plan.hash,
+      blocks: plan.blocks
+    },
     status,
-    revision: plan.revision,
-    hash: plan.hash,
-    blockCount: plan.blocks.length,
-    tokenEstimate: plan.usage?.total || 0,
-    omittedCount: plan.omitted?.length || 0,
-    blocks: plan.blocks.map((block) => ({
-      id: block.id,
-      title: block.title,
-      depth: block.depth,
-      placement: block.placement,
-      priority: block.priority,
-      salienceScore: block.salienceScore,
-      tokenEstimate: block.tokenEstimate,
-      lensPromptBudgetLane: block.lensPromptBudgetLane || null,
-      hash: block.hash
-    })),
     installedAt
-  };
-  if (next.campaignChatBinding) {
-    next.campaignChatBinding.promptContextRevision = plan.revision;
-    next.campaignChatBinding.promptContextHash = plan.hash;
-  }
-  return next;
+  }));
 }
 
 export const __contextOrchestratorTestHooks = Object.freeze({

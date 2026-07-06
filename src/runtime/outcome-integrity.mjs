@@ -1,6 +1,9 @@
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
-import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
+import {
+  createRuntimeLedgerView,
+  createRuntimeLedgerViewAsync
+} from './runtime-ledger-view.mjs';
 
 export const OUTCOME_INTEGRITY_ROLE_ID = 'outcomeIntegrityReview';
 export const OUTCOME_INTEGRITY_SCHEMA_ID = 'directive.outcomeIntegrityReview.v1';
@@ -120,10 +123,18 @@ function responseKind(response = {}, message = {}) {
   );
 }
 
-export function findOutcomeIntegrityResponse(campaignState, hostMessageId) {
+export function findOutcomeIntegrityResponse(campaignState, hostMessageId, { coreTurnStore = null } = {}) {
   const id = compact(hostMessageId, 120);
   if (!id) return null;
-  const ledgerView = createRuntimeLedgerView(campaignState || {});
+  const ledgerView = createRuntimeLedgerView(campaignState || {}, { coreTurnStore });
+  return asArray(ledgerView.responseLedger)
+    .find((entry) => compact(entry?.hostMessageId, 120) === id) || null;
+}
+
+export async function findOutcomeIntegrityResponseAsync(campaignState, hostMessageId, { coreTurnStore = null } = {}) {
+  const id = compact(hostMessageId, 120);
+  if (!id) return null;
+  const ledgerView = await createRuntimeLedgerViewAsync(campaignState || {}, { coreTurnStore });
   return asArray(ledgerView.responseLedger)
     .find((entry) => compact(entry?.hostMessageId, 120) === id) || null;
 }
@@ -138,7 +149,12 @@ export function isOutcomeIntegrityProtectedResponse(response = {}, message = {})
   return true;
 }
 
-export function outcomeIntegrityStatusForMessage({ campaignState = null, message = null, hostMessageId = null } = {}) {
+export function outcomeIntegrityStatusForMessage({
+  campaignState = null,
+  message = null,
+  hostMessageId = null,
+  coreTurnStore = null
+} = {}) {
   const settings = normalizeOutcomeIntegritySettings(campaignState?.settings || {});
   const id = compact(hostMessageId || message?.hostMessageId || message?.id, 120);
   if (!campaignState) return { protected: false, mode: settings.mode, reason: 'no-campaign-state', nativeEdit: 'allow' };
@@ -150,7 +166,37 @@ export function outcomeIntegrityStatusForMessage({ campaignState = null, message
   if (message.isDirectiveOwned !== true && message.directiveOwned !== true) {
     return { protected: false, mode: settings.mode, reason: 'not-directive-owned', nativeEdit: 'allow' };
   }
-  const response = findOutcomeIntegrityResponse(campaignState, id);
+  const response = findOutcomeIntegrityResponse(campaignState, id, { coreTurnStore });
+  if (!isOutcomeIntegrityProtectedResponse(response, message)) {
+    return { protected: false, mode: settings.mode, reason: response ? 'unprotected-response-kind' : 'response-not-recorded', nativeEdit: 'allow' };
+  }
+  return {
+    protected: true,
+    mode: settings.mode,
+    reviewProviderKind: settings.reviewProviderKind,
+    response: cloneJson(response),
+    nativeEdit: settings.mode === 'strict' ? 'intercept' : 'allow-review-after'
+  };
+}
+
+export async function outcomeIntegrityStatusForMessageAsync({
+  campaignState = null,
+  message = null,
+  hostMessageId = null,
+  coreTurnStore = null
+} = {}) {
+  const settings = normalizeOutcomeIntegritySettings(campaignState?.settings || {});
+  const id = compact(hostMessageId || message?.hostMessageId || message?.id, 120);
+  if (!campaignState) return { protected: false, mode: settings.mode, reason: 'no-campaign-state', nativeEdit: 'allow' };
+  if (settings.mode === 'off') return { protected: false, mode: settings.mode, reason: 'off', nativeEdit: 'allow' };
+  if (!message) return { protected: false, mode: settings.mode, reason: 'message-unavailable', nativeEdit: 'allow' };
+  if (message.isUser === true || message.role === 'user') {
+    return { protected: false, mode: settings.mode, reason: 'player-message', nativeEdit: 'allow' };
+  }
+  if (message.isDirectiveOwned !== true && message.directiveOwned !== true) {
+    return { protected: false, mode: settings.mode, reason: 'not-directive-owned', nativeEdit: 'allow' };
+  }
+  const response = await findOutcomeIntegrityResponseAsync(campaignState, id, { coreTurnStore });
   if (!isOutcomeIntegrityProtectedResponse(response, message)) {
     return { protected: false, mode: settings.mode, reason: response ? 'unprotected-response-kind' : 'response-not-recorded', nativeEdit: 'allow' };
   }
@@ -209,8 +255,49 @@ export function buildOutcomeIntegrityLockedContext(campaignState, response = {})
   };
 }
 
-export function buildOutcomeIntegrityEditContext({ campaignState = null, message = null, hostMessageId = null } = {}) {
-  const status = outcomeIntegrityStatusForMessage({ campaignState, message, hostMessageId });
+export function buildOutcomeIntegrityEditContext({
+  campaignState = null,
+  message = null,
+  hostMessageId = null,
+  coreTurnStore = null
+} = {}) {
+  const status = outcomeIntegrityStatusForMessage({ campaignState, message, hostMessageId, coreTurnStore });
+  if (!status.protected) {
+    return {
+      ok: false,
+      ...status,
+      summary: 'This message is not protected by Outcome Integrity.'
+    };
+  }
+  const text = normalizeExactText(message?.text || message?.raw?.mes || '');
+  const response = status.response;
+  const lockedContext = buildOutcomeIntegrityLockedContext(campaignState, response);
+  return {
+    ok: true,
+    protected: true,
+    mode: status.mode,
+    reviewProviderKind: status.reviewProviderKind,
+    hostMessageId: compact(hostMessageId || message?.hostMessageId || message?.id, 120),
+    response,
+    responseId: response?.id || null,
+    responseKind: responseKind(response, message) || null,
+    currentText: text,
+    baseTextHash: outcomeIntegrityTextHash(text),
+    wordCount: outcomeIntegrityWordCount(text),
+    charCount: text.length,
+    editCharLimit: OUTCOME_INTEGRITY_EDIT_CHAR_LIMIT,
+    lockedContext,
+    guidance: 'This response has a committed outcome. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.'
+  };
+}
+
+export async function buildOutcomeIntegrityEditContextAsync({
+  campaignState = null,
+  message = null,
+  hostMessageId = null,
+  coreTurnStore = null
+} = {}) {
+  const status = await outcomeIntegrityStatusForMessageAsync({ campaignState, message, hostMessageId, coreTurnStore });
   if (!status.protected) {
     return {
       ok: false,

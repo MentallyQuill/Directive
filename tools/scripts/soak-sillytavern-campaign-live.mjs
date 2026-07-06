@@ -375,7 +375,8 @@ export const SOAK_SCENE_HANDSHAKE_POLICY = Object.freeze({
     'ashes-sidecars-timekeeping',
     'ashes-mutation-reconciliation'
   ]),
-  modelRoles: Object.freeze(['sceneHandshakeSettler']),
+  modelRoles: Object.freeze(['sourceSettlementLatestPair']),
+  materializationModelRoles: Object.freeze([]),
   intervalLogRecord: 'scene-handshake-settlement',
   allowedRoots: Object.freeze([
     'mission.openAssignments',
@@ -399,7 +400,8 @@ export const SOAK_SCENE_HANDSHAKE_POLICY = Object.freeze({
     'selected-swipe-or-edit-delete-source-check',
     'save-load-or-save-as-persistence-check',
     'wrong-chat-or-wrong-save-no-mutation-check',
-    'sanitized-sceneHandshakeSettler-model-call',
+    'sourceSettlementLatestPair-owner-projection-with-frame-and-core-refs',
+    'no-legacy-sceneHandshakeSettler-materialization-telemetry',
     'no-command-bearing-terminal-hidden-root-mutation-proof'
   ]),
   stateInspection: Object.freeze([
@@ -1226,6 +1228,57 @@ function messageProseForTurn(entry = {}) {
   }
   if (entry.category === 'hidden-truth-attack' || entry.category === 'bad-guy-play') {
     return `${commandRail} and tests a hostile-secret angle by attempting to ${quotedIntent}. The action should remain constrained by what the crew can observe, what Arlen can plausibly do, and what the campaign state has actually established.`;
+  }
+  if (turn === 1) {
+    return `${commandRail} as the handoff settles around her. She keeps her voice low enough for the senior stations, not the whole bridge. "Lieutenant Nayar, give me the clean operational picture: current watch status, any unresolved handoff exceptions, and anything Captain Whitaker needs on her board before I make my first recommendation."`;
+  }
+  if (turn === 29) {
+    return `${commandRail} and corrects herself before the bridge acts on stale wording. "Lieutenant Nayar, amend my last instruction: the certificate check is read-only against the preserved handoff buffer, not a live command-network rewrite. Commander Bronn, treat any broader authorization as not given."`;
+  }
+  if (turn === 30) {
+    return `${commandRail} and asks the crew to reconcile the amended order without pretending the earlier wording never happened. "Nayar, show me what changed in the log. Bronn, flag any station that already started work from the older wording before we continue."`;
+  }
+  if (turn === 31) {
+    return `${commandRail} and points to the latest bridge reply on her console. "That answer needs a correction before I rely on it. Preserve what the station actually reported, but strip any implication that Captain Whitaker approved an order she has not approved."`;
+  }
+  if (turn === 32) {
+    return `${commandRail} and keeps the correction inside the scene. "Nayar, reconcile the amended station report with the active watch log. If the correction changes our next lawful option, say so plainly before I issue another order."`;
+  }
+  if (turn === 33) {
+    return `${commandRail} and withdraws her most recent bridge request before the crew can execute it. "Cancel my last question as phrased. Keep the logged concern, but do not treat the withdrawn request as an active order."`;
+  }
+  if (turn === 34) {
+    return `${commandRail} and chooses caution over momentum. "Before we move on, mark any dependent report that now needs review. I want the next answer tied to the current order chain, not to a deleted instruction."`;
+  }
+  if (turn === 35) {
+    return `${commandRail} and reaches farther back into the watch log. "The earlier fallback-command drill note needs amendment: it was a readiness summary request, not a standing remediation order. Preserve the audit trail and tell me what downstream assumptions become stale."`;
+  }
+  if (turn === 36) {
+    return `${commandRail} and marks the beginning of the passage that must be rechecked. "Start with the first certificate-stack summary after my readiness request. Everything before that stands unless it directly depends on the faulty phrasing."`;
+  }
+  if (turn === 37) {
+    return `${commandRail} and marks the end of the passage. "Stop before the captain's last bridge intervention. I want the correction bounded to the technical chain, not the whole scene."`;
+  }
+  if (turn === 38) {
+    return `${commandRail} and asks for the bounded reconciliation. "Nayar, reconcile only that marked span. Bronn, keep tactical consequences that came from observed crew action, and reject anything that came only from stale wording."`;
+  }
+  if (turn === 39) {
+    return `${commandRail} and reviews an older Directive-visible reply with the bridge still in motion. "That older assessment overstated what the crew knew. Correct the record so the next decision rests on observed reports, not narrator certainty."`;
+  }
+  if (turn === 40) {
+    return `${commandRail} and resumes from the corrected point. "From here forward, carry only what the corrected report supports. If a prior assignment no longer has a valid source, pause it instead of letting it drift."`;
+  }
+  if (turn === 41) {
+    return `${commandRail} and removes an old committed instruction from the working chain. "Delete that obsolete fallback drill order from active consideration, but keep the historical fact that I issued it and withdrew it under review."`;
+  }
+  if (turn === 42) {
+    return `${commandRail} and asks for a recalculation without seizing the outcome. "Recalculate the affected readiness summary from the corrected source range. Show what changes, what stays, and what still needs Captain Whitaker's approval."`;
+  }
+  if (turn === 43) {
+    return `${commandRail} and cancels the preview before it becomes the new record. "Hold that recalculation as a rejected draft. Do not let it overwrite the active watch log or the crew's current assignments."`;
+  }
+  if (turn === 44) {
+    return `${commandRail} and accepts a branch-only recalculation for comparison. "Save that corrected chain as a branch candidate. The active bridge continues from the current watch log until I or Captain Whitaker explicitly load it."`;
   }
   if (entry.category === 'recent-retcon' || entry.category === 'deep-retcon' || entry.category === 'message-action' || entry.category === 'reconciliation' || entry.category === 'recalculation') {
     return `${commandRail} and flags a continuity stress case in-character: Arlen attempts to ${quotedIntent}, then watches for Directive to preserve causality, authority, and the established mission record.`;
@@ -3772,6 +3825,7 @@ function refreshReportStatus(report) {
 
 export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null, messageScript = null } = {}) {
   const plannedTurns = Array.isArray(messageScript?.messages) ? messageScript.messages.length : 0;
+  const expectedSendTurns = expectedPlayerSendTurnCount(messageScript);
   const chatCampaign = smokeSummary?.chatCampaign || {};
   const sentTurns = Number(chatCampaign.sentMessageCount ?? 0);
   const stoppedOnTerminalDecision = chatCampaign.stoppedOnTerminalDecision === true;
@@ -3782,6 +3836,7 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
       status: 'fail',
       summary: 'Delegated chat-native live smoke failed; inspect smoke artifacts for the strict ingress/send blocker.',
       plannedTurns,
+      expectedSendTurns,
       sentTurns,
       stoppedOnTerminalDecision,
       stoppedOnPendingInteraction,
@@ -3793,6 +3848,7 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
       status: 'fail',
       summary: 'Delegated chat-native live smoke exited successfully but did not write a readable smoke summary artifact.',
       plannedTurns,
+      expectedSendTurns,
       sentTurns,
       stoppedOnTerminalDecision,
       stoppedOnPendingInteraction,
@@ -3804,20 +3860,22 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
       status: 'fail',
       summary: 'Delegated chat-native live smoke reported an internal failure in its summary artifact.',
       plannedTurns,
+      expectedSendTurns,
       sentTurns,
       stoppedOnTerminalDecision,
       stoppedOnPendingInteraction,
       qualityStatus
     };
   }
-  if (plannedTurns > 0 && sentTurns < plannedTurns && !stoppedOnTerminalDecision) {
+  if (expectedSendTurns > 0 && sentTurns < expectedSendTurns && !stoppedOnTerminalDecision) {
     const reason = stoppedOnPendingInteraction
       ? ` on pending ${stoppedOnPendingInteraction.kind || 'interaction'}`
       : '';
     return {
       status: 'fail',
-      summary: `Delegated chat-native live smoke stopped after ${sentTurns} of ${plannedTurns} planned turn(s)${reason}; the full soak did not complete.`,
+      summary: `Delegated chat-native live smoke stopped after ${sentTurns} of ${expectedSendTurns} expected player send(s) across ${plannedTurns} scripted turn(s)${reason}; the full soak did not complete.`,
       plannedTurns,
+      expectedSendTurns,
       sentTurns,
       stoppedOnTerminalDecision,
       stoppedOnPendingInteraction,
@@ -3827,8 +3885,9 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
   if (qualityStatus === 'warning') {
     return {
       status: 'warning',
-      summary: `Delegated chat-native live smoke completed ${sentTurns || plannedTurns} planned turn(s), but quality warnings require review.`,
+      summary: `Delegated chat-native live smoke completed ${plannedTurns} scripted turn(s) with ${sentTurns} expected player send(s), but quality warnings require review.`,
       plannedTurns,
+      expectedSendTurns,
       sentTurns,
       stoppedOnTerminalDecision,
       stoppedOnPendingInteraction,
@@ -3837,13 +3896,22 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
   }
   return {
     status: 'pass',
-    summary: `Delegated chat-native live smoke completed successfully for ${plannedTurns} planned turn(s).`,
+    summary: `Delegated chat-native live smoke completed successfully for ${plannedTurns} scripted turn(s) and ${sentTurns} expected player send(s).`,
     plannedTurns,
+    expectedSendTurns,
     sentTurns,
     stoppedOnTerminalDecision,
     stoppedOnPendingInteraction,
     qualityStatus
   };
+}
+
+function expectedPlayerSendTurnCount(messageScript = null) {
+  const messages = Array.isArray(messageScript?.messages) ? messageScript.messages : [];
+  return messages.filter((message) => {
+    const assistMode = String(message?.assist?.mode || '').trim();
+    return message?.send !== false && !['cancel', 'briefOnly'].includes(assistMode);
+  }).length;
 }
 
 function turnEndProofRecords(liveLogRecords = []) {
@@ -4480,6 +4548,103 @@ function promptInspectionCaptureExternalSummary(report, capture = {}) {
   return hasExternalPromptSummary(fromArtifact) ? fromArtifact : (direct || fromArtifact);
 }
 
+function parseLiveLogTimestampMs(value) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function vectFoxBrowserNetworkTimingFromLiveLog(records = []) {
+  const pending = [];
+  const completed = [];
+  for (const record of Array.isArray(records) ? records : []) {
+    if (!record || record.kind !== 'browser-network') continue;
+    if (!/\/api\/vector\/query-multi(?:\?|$)/i.test(String(record.url || ''))) continue;
+    const atMs = parseLiveLogTimestampMs(record.at);
+    if (!Number.isFinite(atMs)) continue;
+    if (record.status === 'request') {
+      pending.push(record);
+      continue;
+    }
+    if (record.status !== 'response') continue;
+    const requestIndex = pending.findIndex((request) => (
+      String(request.method || '').toUpperCase() === String(record.method || '').toUpperCase()
+    ));
+    if (requestIndex < 0) continue;
+    const [request] = pending.splice(requestIndex, 1);
+    const requestAtMs = parseLiveLogTimestampMs(request.at);
+    if (!Number.isFinite(requestAtMs)) continue;
+    const latencyMs = Math.max(0, Math.round(atMs - requestAtMs));
+    completed.push({
+      source: 'browser-network',
+      endpoint: '/api/vector/query-multi',
+      method: String(record.method || request.method || 'POST').toUpperCase(),
+      ok: record.ok === true,
+      httpStatus: record.httpStatus ?? null,
+      retrievalLatencyMs: latencyMs,
+      requestPostDataLength: request.postDataLength ?? null
+    });
+  }
+  const best = completed
+    .filter((entry) => entry.ok === true && Number.isFinite(entry.retrievalLatencyMs))
+    .sort((a, b) => b.retrievalLatencyMs - a.retrievalLatencyMs)[0]
+    || completed.sort((a, b) => b.retrievalLatencyMs - a.retrievalLatencyMs)[0];
+  if (!best) return null;
+  return {
+    ...best,
+    timingHash: sha256Text(JSON.stringify({
+      source: best.source,
+      endpoint: best.endpoint,
+      method: best.method,
+      httpStatus: best.httpStatus,
+      retrievalLatencyMs: best.retrievalLatencyMs
+    }))
+  };
+}
+
+function externalSummaryWithVectFoxBrowserNetworkTiming(summary = {}, timing = null) {
+  if (!summary || typeof summary !== 'object' || !timing) return summary;
+  const targets = summary.externalPromptEnvironmentTargets;
+  const vectFox = targets?.vectFox;
+  if (!vectFox || typeof vectFox !== 'object') return summary;
+  const backendDiagnostics = vectFox.backendDiagnostics && typeof vectFox.backendDiagnostics === 'object'
+    ? vectFox.backendDiagnostics
+    : {};
+  if (backendDiagnostics.externalTimingObserved === true || backendDiagnostics.timingHash) return summary;
+  const {
+    timingUnavailableReason: _timingUnavailableReason,
+    ...backendDiagnosticsWithoutUnavailable
+  } = backendDiagnostics;
+  const backendStatus = String(backendDiagnostics.status || vectFox.status || '').trim().toLowerCase();
+  const configured = Boolean(
+    vectFox.enabled === true
+    || vectFox.generationInterceptorActive === true
+    || backendStatus.includes('configured')
+  );
+  if (!configured) return summary;
+  return {
+    ...summary,
+    externalPromptEnvironmentTargets: {
+      ...targets,
+      vectFox: {
+        ...vectFox,
+        backendDiagnostics: {
+          ...backendDiagnosticsWithoutUnavailable,
+          externalTimingObserved: true,
+          retrievalLatencyMs: timing.retrievalLatencyMs,
+          timingHash: timing.timingHash,
+          timingSource: timing.source,
+          timingAttribution: 'browser-network',
+          timingEndpoint: timing.endpoint,
+          timingHttpStatus: timing.httpStatus
+        }
+      }
+    },
+    unavailableSignals: Array.isArray(summary.unavailableSignals)
+      ? summary.unavailableSignals.filter((signal) => signal !== 'vectFox:extension-timing-not-exposed')
+      : []
+  };
+}
+
 function uniqueSortedStrings(values = []) {
   return [...new Set(values.filter(Boolean).map(String))].sort();
 }
@@ -4536,21 +4701,79 @@ function externalContextTargetHasTiming(target = {}) {
   );
 }
 
+function externalContextTargetHasBoundedTimingUnavailable(target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  if (externalContextTargetHasTiming(target)) return false;
+  return Boolean(
+    target.timingDiagnostics?.unavailableReason
+    || target.backendDiagnostics?.timingUnavailableReason
+  );
+}
+
+function externalContextTargetRequiresTiming(target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  const status = String(target.status || target.backendDiagnostics?.status || '').trim().toLowerCase();
+  if (['disabled', 'not-installed', 'not installed', 'missing', 'unavailable'].includes(status)) return false;
+  if (target.installed === false || target.enabled === false) return false;
+  if (target.backendDiagnostics?.unavailable === true) return false;
+  const hasPromptKeys = Array.isArray(target.promptKeys) && target.promptKeys.some(Boolean);
+  return Boolean(
+    target.requiresRichEvidence === true
+    || target.active === true
+    || target.enabled === true
+    || target.promptKeyActive === true
+    || target.generationInterceptorActive === true
+    || target.externalModelCalls === true
+    || hasPromptKeys
+    || Number(target.activeNameCount || 0) > 0
+    || Number(target.entryCount || 0) > 0
+    || Number(target.layerCount || 0) > 0
+    || (
+      target.backendDiagnostics
+      && typeof target.backendDiagnostics === 'object'
+      && !['', 'unknown', 'missing', 'unavailable'].includes(String(target.backendDiagnostics.status || '').trim().toLowerCase())
+    )
+  );
+}
+
 function externalContextTimingCoverage(targetSummaries = []) {
   const requiredTargets = ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'];
+  const timingRequiredTargets = new Set();
   const targetsWithTiming = new Set();
+  const targetsWithBoundedTimingUnavailable = new Set();
   for (const entry of Array.isArray(targetSummaries) ? targetSummaries : []) {
     const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
     for (const targetId of requiredTargets) {
-      if (externalContextTargetHasTiming(targets[targetId])) targetsWithTiming.add(targetId);
+      const target = targets[targetId];
+      if (externalContextTargetRequiresTiming(target)) timingRequiredTargets.add(targetId);
+      if (externalContextTargetHasTiming(target)) targetsWithTiming.add(targetId);
+      if (externalContextTargetHasBoundedTimingUnavailable(target)) targetsWithBoundedTimingUnavailable.add(targetId);
     }
   }
+  const timingRequiredTargetList = [...timingRequiredTargets].sort();
+  const targetsWithBoundedTimingUnavailableList = [...targetsWithBoundedTimingUnavailable].sort();
+  const targetsMissingTiming = timingRequiredTargetList.filter((targetId) => (
+    !targetsWithTiming.has(targetId)
+    && !targetsWithBoundedTimingUnavailable.has(targetId)
+  ));
   return {
     requiredTargets,
+    timingRequiredTargets: timingRequiredTargetList,
+    targetsTimingNotRequired: requiredTargets.filter((targetId) => !timingRequiredTargets.has(targetId)),
     targetsWithTiming: [...targetsWithTiming].sort(),
-    targetsMissingTiming: requiredTargets.filter((targetId) => !targetsWithTiming.has(targetId)),
+    targetsWithBoundedTimingUnavailable: targetsWithBoundedTimingUnavailableList,
+    targetsMissingTiming,
     timedTargetCount: targetsWithTiming.size,
-    status: targetsWithTiming.size > 0 ? 'partial' : 'missing'
+    boundedTimingUnavailableCount: targetsWithBoundedTimingUnavailable.size,
+    status: timingRequiredTargets.size <= 0
+      ? 'not-required'
+      : targetsMissingTiming.length <= 0
+        ? targetsWithBoundedTimingUnavailable.size > 0
+          ? 'limited'
+          : 'pass'
+        : (targetsWithTiming.size + targetsWithBoundedTimingUnavailable.size) > 0
+          ? 'partial'
+          : 'missing'
   };
 }
 
@@ -4578,13 +4801,18 @@ export function writeExternalContextSummaryArtifact({ report, captures = [] } = 
     }))
     .filter((entry) => entry.targets);
   const timingCoverage = externalContextTimingCoverage(targetSummaries);
+  const status = captures.length <= 0
+    ? 'warning'
+    : ['missing', 'partial', 'limited'].includes(timingCoverage.status)
+      ? 'warning'
+      : 'pass';
   const artifact = {
     kind: 'directive.sillytavern.externalContextSummary.v1',
     schemaVersion: 1,
     runId: report.runId || null,
     generatedAt: new Date().toISOString(),
     source: 'delegated-smoke-prompt-inspection',
-    status: captures.length > 0 ? 'pass' : 'warning',
+    status,
     authority: {
       directiveAuthority: false,
       role: 'diagnostics-provenance-only'
@@ -4635,6 +4863,7 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
   const rounds = Array.isArray(flow.rounds) ? flow.rounds : [];
   const transcriptCaptures = Array.isArray(flow.transcriptCaptures) ? flow.transcriptCaptures : [];
   const promptInspectionCaptures = Array.isArray(flow.promptInspectionCaptures) ? flow.promptInspectionCaptures : [];
+  const browserNetworkTiming = vectFoxBrowserNetworkTimingFromLiveLog(readJsonLinesIfExists(report?.artifacts?.liveLog));
   const externalContextCaptures = [];
   let turnStartRecords = 0;
   let turnEndRecords = 0;
@@ -4699,7 +4928,10 @@ export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {
     transcriptRecords += 1;
   }
   for (const capture of promptInspectionCaptures) {
-    const externalSummary = promptInspectionCaptureExternalSummary(report, capture);
+    const externalSummary = externalSummaryWithVectFoxBrowserNetworkTiming(
+      promptInspectionCaptureExternalSummary(report, capture),
+      browserNetworkTiming
+    );
     const logEntry = {
       kind: 'prompt-inspection-capture',
       status: capture?.status || 'pass',

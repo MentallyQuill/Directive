@@ -1,3 +1,5 @@
 [0629/172048.550:ERROR:components\viz\service\display\display.cc:272] Frame latency is negative: -0.207 ms
 [0702/102337.839:ERROR:components\viz\service\display\display.cc:272] Frame latency is negative: -0.007 ms
 [0702/225819.237:ERROR:components\viz\service\display\display.cc:272] Frame latency is negative: -0.007 ms
+[0705/074846.183:ERROR:gpu\ipc\client\command_buffer_proxy_impl.cc:285] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.
+[0705/081917.949:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:179] Failed to post task from operator()@net\extras\sqlite\sqlite_persistent_shared_dictionary_store.cc:259 to client_task_runner_.

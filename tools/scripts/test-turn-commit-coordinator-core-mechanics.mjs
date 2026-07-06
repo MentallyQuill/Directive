@@ -32,7 +32,7 @@ function createMemoryStorage() {
 }
 
 function baseState() {
-  return initializeCampaignRuntimeTracking({
+  const state = initializeCampaignRuntimeTracking({
     campaign: { id: 'campaign-core-mechanics-order', status: 'active' },
     campaignChatBinding: {
       hostId: 'fake',
@@ -83,6 +83,37 @@ function baseState() {
       }]
     }
   });
+  setCoreIngressProjection(state, 'txn-core-mechanics-order');
+  return state;
+}
+
+function setCoreIngressProjection(state, coreTransactionId, {
+  ingressId = 'ingress-core-mechanics-order',
+  status = 'sourceObserved'
+} = {}) {
+  state.directiveRuntimeEvidence = {
+    ...(state.directiveRuntimeEvidence || {}),
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [{
+        id: ingressId,
+        ingressId,
+        coreTransactionId,
+        transactionId: coreTransactionId,
+        status,
+        authority: 'coreIngressProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreIngressCompatibilityMirror.v1',
+          status
+        }
+      }],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  };
+  return state;
 }
 
 function committedState() {
@@ -400,7 +431,8 @@ const coordinator = createTurnCommitCoordinator({
       assert.equal(bundle.phaseAfter, 'mechanicsPending');
       assert.equal(bundle.baseMechanicsRevision, 0);
       assert.equal(bundle.checkpointBefore.checkpointId, 'core-mechanics-outcome-core-mechanics-order');
-      assert.equal(bundle.checkpointBefore.sourceKind, 'turnCommitCoordinator.beforeCampaignState');
+      assert.equal(bundle.checkpointBefore.sourceKind, 'coreStoreV2.checkpoint');
+      assert.equal(bundle.checkpointBefore.checkpointProducer, 'turnCommitCoordinator.beforeCampaignState');
       assert.equal(bundle.checkpointBefore.campaignState.mission.activePhaseId, 'before-commit');
       assert.equal(bundle.checkpointBefore.campaignState.worldState.currentLocationId, 'before-location');
       assert.equal(bundle.checkpointBefore.campaignState.turnLedger.entries.length, 0);
@@ -737,7 +769,7 @@ assert.ok(
 let fallbackMechanicsBundle = null;
 const fallbackBeforeState = baseState();
 fallbackBeforeState.values = { standingPrinciples: [] };
-fallbackBeforeState.runtimeTracking.ingressLedger[0].coreTransactionId = 'txn-core-mechanics-fallback';
+setCoreIngressProjection(fallbackBeforeState, 'txn-core-mechanics-fallback');
 const fallbackAfterState = cloneJson(fallbackBeforeState);
 fallbackAfterState.values = {
   standingPrinciples: [{
@@ -1152,7 +1184,7 @@ assert.equal(skippedMechanicsReplacementPersisted.length, 0, 'v1 checkpoint must
 const replacementMechanicsCalls = [];
 const replacementMechanicsPersisted = [];
 const replacementMechanicsState = baseState();
-replacementMechanicsState.runtimeTracking.ingressLedger[0].coreTransactionId = 'txn-original-committed-outcome';
+setCoreIngressProjection(replacementMechanicsState, 'txn-original-committed-outcome');
 const replacementMechanicsCoordinator = createTurnCommitCoordinator({
   now: () => '2026-06-29T01:01:55.000Z',
   persist: async (next, summary) => {
@@ -1311,7 +1343,7 @@ await staleCoreStore.commitMechanics('txn-concurrent-core-mechanics', {
   phaseAfter: 'mechanicsPending'
 });
 const staleState = baseState();
-staleState.runtimeTracking.ingressLedger[0].coreTransactionId = 'txn-stale-core-mechanics';
+setCoreIngressProjection(staleState, 'txn-stale-core-mechanics');
 const stalePersisted = [];
 const staleCoordinator = createTurnCommitCoordinator({
   now: () => '2026-06-29T01:04:00.000Z',

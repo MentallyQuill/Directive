@@ -24,6 +24,38 @@ function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+function stripExternalTiming(value) {
+  const copy = cloneJson(value);
+  copy.externalPromptEnvironmentTargets.stLorebooks.timingDiagnostics = {};
+  copy.externalPromptEnvironmentTargets.memoryBooks.timingDiagnostics = {};
+  copy.externalPromptEnvironmentTargets.summaryception.timingDiagnostics = {};
+  copy.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.externalTimingObserved = false;
+  copy.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.timingHash = null;
+  return copy;
+}
+
+function markExternalTimingUnavailable(value) {
+  const copy = stripExternalTiming(value);
+  copy.externalPromptEnvironmentTargets.stLorebooks.timingDiagnostics = {
+    observed: false,
+    unavailableReason: 'extension-timing-not-exposed',
+    attribution: 'unavailable'
+  };
+  copy.externalPromptEnvironmentTargets.memoryBooks.timingDiagnostics = {
+    observed: false,
+    unavailableReason: 'extension-timing-not-exposed',
+    attribution: 'unavailable'
+  };
+  copy.externalPromptEnvironmentTargets.summaryception.timingDiagnostics = {
+    observed: false,
+    unavailableReason: 'extension-timing-not-exposed',
+    attribution: 'unavailable'
+  };
+  copy.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.timingUnavailableReason = 'extension-timing-not-exposed';
+  copy.externalPromptEnvironmentTargets.vectFox.backendDiagnostics.timingAttribution = 'unavailable';
+  return copy;
+}
+
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'directive-external-context-summary-'));
 const report = {
   runId: 'external-context-summary-golden',
@@ -124,6 +156,7 @@ assert.equal(artifact.aggregate.redactionReasons.includes('secret'), true);
 assert.equal(artifact.aggregate.redactionReasons.includes('raw-payload'), true);
 assert.equal(artifact.aggregate.timingCoverage.timedTargetCount, 4);
 assert.deepEqual(artifact.aggregate.timingCoverage.targetsMissingTiming, []);
+assert.equal(artifact.aggregate.timingCoverage.status, 'pass');
 assert.equal(artifact.targetSummaries[0].targets.stLorebooks.active, true);
 assert.equal(artifact.targetSummaries[0].targets.memoryBooks.rangeDiagnostics.status, 'valid');
 assert.equal(artifact.targetSummaries[0].targets.summaryception.staleness.status, 'observed');
@@ -161,6 +194,7 @@ assert.equal(summary.authority.directiveAuthority, false);
 assert.equal(summary.redactionReasons.includes('raw-payload'), true);
 assert.equal(summary.timingCoverage.timedTargetCount, 4);
 assert.deepEqual(summary.timingCoverage.targetsMissingTiming, []);
+assert.equal(summary.timingCoverage.status, 'pass');
 
 const generationSummary = summarizeExternalContextGenerationArtifacts({ artifactRoot: root, turnLimit: 1 });
 assert.equal(generationSummary.status, 'pass');
@@ -186,6 +220,95 @@ const missingLorebookTargetGenerationSummary = summarizeExternalContextGeneratio
 assert.equal(missingLorebookTargetGenerationSummary.status, 'pass');
 assert.equal(missingLorebookTargetGenerationSummary.richFixturePressure.status, 'fail');
 assert.equal(missingLorebookTargetGenerationSummary.richFixturePressure.missingTargets.includes('stLorebooks'), true);
+
+const missingTimingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'directive-external-context-summary-missing-timing-'));
+const missingTimingReport = {
+  runId: 'external-context-summary-missing-timing',
+  artifacts: {
+    root: missingTimingRoot,
+    hostExtensions: path.join(missingTimingRoot, 'host-extensions'),
+    externalContextSummary: path.join(missingTimingRoot, 'host-extensions', 'external-context-summary.json'),
+    liveLog: path.join(missingTimingRoot, 'live-log.jsonl')
+  }
+};
+const missingTimingInspection = stripExternalTiming(richPromptInspection);
+const missingTimingPromoted = promoteDelegatedSmokeEvidence({
+  report: missingTimingReport,
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        rounds: [],
+        transcriptCaptures: [],
+        promptInspectionCaptures: [{
+          status: 'pass',
+          reason: 'pre-generation',
+          scriptMessageId: 'soak-turn-01',
+          scriptCategory: 'directiveCommit',
+          promptInspection: missingTimingInspection
+        }]
+      }
+    }
+  }
+});
+assert.equal(missingTimingPromoted.externalContextSummary.status, 'warning');
+const missingTimingArtifact = readJson(missingTimingReport.artifacts.externalContextSummary);
+assert.equal(missingTimingArtifact.status, 'warning');
+assert.equal(missingTimingArtifact.aggregate.timingCoverage.status, 'missing');
+assert.deepEqual(missingTimingArtifact.aggregate.timingCoverage.targetsMissingTiming, ['memoryBooks', 'stLorebooks', 'summaryception', 'vectFox']);
+const missingTimingSummary = summarizeExternalContextSummaryArtifact({ artifactRoot: missingTimingRoot });
+assert.equal(missingTimingSummary.status, 'fail');
+assert.equal(missingTimingSummary.missingFields.includes('status'), true);
+assert.equal(missingTimingSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
+
+const boundedTimingUnavailableRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'directive-external-context-summary-bounded-timing-'));
+const boundedTimingUnavailableReport = {
+  runId: 'external-context-summary-bounded-timing',
+  artifacts: {
+    root: boundedTimingUnavailableRoot,
+    hostExtensions: path.join(boundedTimingUnavailableRoot, 'host-extensions'),
+    externalContextSummary: path.join(boundedTimingUnavailableRoot, 'host-extensions', 'external-context-summary.json'),
+    liveLog: path.join(boundedTimingUnavailableRoot, 'live-log.jsonl')
+  }
+};
+const boundedTimingUnavailablePromoted = promoteDelegatedSmokeEvidence({
+  report: boundedTimingUnavailableReport,
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        rounds: [],
+        transcriptCaptures: [],
+        promptInspectionCaptures: [{
+          status: 'pass',
+          reason: 'pre-generation',
+          scriptMessageId: 'soak-turn-01',
+          scriptCategory: 'directiveCommit',
+          promptInspection: markExternalTimingUnavailable(richPromptInspection)
+        }]
+      }
+    }
+  }
+});
+assert.equal(boundedTimingUnavailablePromoted.externalContextSummary.status, 'warning');
+const boundedTimingUnavailableArtifact = readJson(boundedTimingUnavailableReport.artifacts.externalContextSummary);
+assert.equal(boundedTimingUnavailableArtifact.status, 'warning');
+assert.equal(boundedTimingUnavailableArtifact.aggregate.timingCoverage.status, 'limited');
+assert.deepEqual(boundedTimingUnavailableArtifact.aggregate.timingCoverage.targetsMissingTiming, []);
+assert.deepEqual(boundedTimingUnavailableArtifact.aggregate.timingCoverage.targetsWithBoundedTimingUnavailable, ['memoryBooks', 'stLorebooks', 'summaryception', 'vectFox']);
+const boundedTimingUnavailableSummary = summarizeExternalContextSummaryArtifact({ artifactRoot: boundedTimingUnavailableRoot });
+assert.equal(boundedTimingUnavailableSummary.status, 'fail');
+assert.equal(boundedTimingUnavailableSummary.missingFields.includes('status'), true);
+assert.equal(boundedTimingUnavailableSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), false);
+assert.equal(boundedTimingUnavailableSummary.timingCoverage.status, 'limited');
+
+const stalePassMissingTimingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'directive-external-context-summary-pass-missing-timing-'));
+writeJson(path.join(stalePassMissingTimingRoot, 'host-extensions', 'external-context-summary.json'), {
+  ...cloneJson(missingTimingArtifact),
+  status: 'pass'
+});
+const stalePassMissingTimingSummary = summarizeExternalContextSummaryArtifact({ artifactRoot: stalePassMissingTimingRoot });
+assert.equal(stalePassMissingTimingSummary.status, 'fail');
+assert.equal(stalePassMissingTimingSummary.artifactStatus, 'pass');
+assert.equal(stalePassMissingTimingSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
 
 const unsafeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'directive-external-context-summary-unsafe-'));
 writeJson(path.join(unsafeRoot, 'host-extensions', 'external-context-summary.json'), {
@@ -241,6 +364,6 @@ assert.equal(placeholderSummary.status, 'fail');
 assert.deepEqual(placeholderSummary.missingTargetSummaries, []);
 assert.deepEqual(placeholderSummary.placeholderTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
 assert.equal(placeholderSummary.missingFields.includes('targetSummaries.usefulTargets'), true);
-assert.equal(placeholderSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
+assert.equal(placeholderSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), false);
 
 console.log('External context summary artifact tests passed.');

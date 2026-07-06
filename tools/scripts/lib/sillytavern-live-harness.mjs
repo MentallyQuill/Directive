@@ -1895,7 +1895,7 @@ export async function directiveRuntimeSnapshot(page, {
     const tracking = view?.chatNative?.tracking || {};
     const runtimeTracking = view?.campaignState?.runtimeTracking || {};
     const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
-      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {})
       : null;
     const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
       ? ledgerTools.readRuntimeCoreProjections(view?.campaignState || {})

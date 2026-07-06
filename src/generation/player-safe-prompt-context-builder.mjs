@@ -12,6 +12,10 @@ import { recordContinuityFactUseStats } from '../continuity/projection-hints.mjs
 import { activeContinuityProjectionHints } from '../continuity/projection-hints.mjs';
 import { planContinuityProjection } from '../continuity/projection-planner-client.mjs';
 import { CONTINUITY_VISIBILITY } from '../continuity/fact-schema.mjs';
+import {
+  applyLensPromptRevisionRecord,
+  createLensPromptRevisionRecord
+} from '../runtime/lens-prompt-revision-record.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -52,9 +56,17 @@ function hashText(value) {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
+function coreRuntimeRevision(campaignState) {
+  const projection = campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections;
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const revision = Number(projection?.revisions?.runtime);
+  return Number.isFinite(revision) ? revision : 0;
+}
+
 function stateRevision(campaignState) {
   return Number(
-    campaignState?.runtimeTracking?.revision
+    coreRuntimeRevision(campaignState)
+    ?? campaignState?.runtimeTracking?.revision
     ?? campaignState?.directiveRuntime?.revision
     ?? campaignState?.tracking?.revision
     ?? campaignState?.turnLedger?.entries?.length
@@ -588,7 +600,15 @@ export async function buildPlayerSafePromptContextWithContinuityPlanner(input = 
 
 export function recordPromptContextRevision(campaignState, packet, {
   installedAt = null,
-  status = 'active'
+  status = 'active',
+  lane = null,
+  cacheKey = null,
+  dirtyDomains = [],
+  externalPromptEnvironmentRef = null,
+  promptBudgetTraceRef = null,
+  promptBudgetEnforcement = null,
+  installed = null,
+  lensPromptRevisionRecord = null
 } = {}) {
   if (!campaignState || typeof campaignState !== 'object') {
     throw new Error('campaignState must be an object');
@@ -596,33 +616,19 @@ export function recordPromptContextRevision(campaignState, packet, {
   if (!packet || !Array.isArray(packet.blocks)) {
     throw new Error('prompt packet must contain blocks');
   }
-  let next = cloneJson(campaignState);
-  if (!next.runtimeTracking || typeof next.runtimeTracking !== 'object') next.runtimeTracking = { revision: 0 };
-  next.runtimeTracking.promptContext = {
-    ...(next.runtimeTracking.promptContext || {}),
+  const record = lensPromptRevisionRecord || createLensPromptRevisionRecord({
+    packet,
+    installed,
     status,
-    revision: Number(packet.revision || 0),
-    hash: packet.hash || packet.contentHash || null,
-    blockCount: packet.blocks.length,
-    blocks: packet.blocks.map((block) => ({
-      id: block.id,
-      title: block.title,
-      promptKey: block.promptKey || null,
-      priority: block.priority,
-      placement: block.placement,
-      depth: block.depth,
-      ttl: block.ttl || null,
-      hash: block.hash || block.contentHash || null,
-      sourceHash: block.sourceHash || null,
-      sourceRevision: block.source?.revision ?? null
-    })),
-    continuityProjection: packet.continuityProjection ? cloneJson(packet.continuityProjection) : null,
-    installedAt
-  };
-  if (next.campaignChatBinding) {
-    next.campaignChatBinding.promptContextRevision = Number(packet.revision || 0);
-    next.campaignChatBinding.promptContextHash = packet.hash || packet.contentHash || null;
-  }
+    lane,
+    installedAt,
+    cacheKey,
+    dirtyDomains,
+    externalPromptEnvironmentRef,
+    promptBudgetTraceRef,
+    promptBudgetEnforcement
+  });
+  let next = applyLensPromptRevisionRecord(campaignState, record);
   if (packet.continuityProjection) {
     const matrixForAudit = {
       kind: packet.continuityProjection.kind,

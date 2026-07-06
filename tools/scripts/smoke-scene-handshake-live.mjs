@@ -17,6 +17,10 @@ const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const SILLYTAVERN_USER = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_SOAK_ST_USER || '');
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SCENE_HANDSHAKE_BROWSER_TIMEOUT_MS, 30000);
 const SETTLEMENT_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SCENE_HANDSHAKE_SETTLEMENT_TIMEOUT_MS, 240000);
+const SETUP_TIMEOUT_MS = positiveInteger(
+  process.env.DIRECTIVE_SCENE_HANDSHAKE_SETUP_TIMEOUT_MS,
+  Math.min(SETTLEMENT_TIMEOUT_MS, 90000)
+);
 const PACKAGE_ID = String(
   process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID
   || 'directive:campaign-package:breckenridge-ashes-of-peace'
@@ -110,6 +114,48 @@ function assertLive(condition, message, details = null) {
   const error = new Error(details ? `${message}: ${compact(details, 800)}` : message);
   if (details) error.details = details;
   throw error;
+}
+
+function progress(stage, details = {}) {
+  if (process.env.DIRECTIVE_LIVE_PROGRESS === '0') return;
+  try {
+    console.error(JSON.stringify({
+      kind: 'directive.liveSmokeProgress.v1',
+      stage,
+      at: new Date().toISOString(),
+      ...details
+    }));
+  } catch {
+    console.error(`[directive.liveSmokeProgress] ${stage}`);
+  }
+}
+
+async function withStageTimeout(label, promise, timeoutMs = BROWSER_TIMEOUT_MS) {
+  progress(`${label}:start`, { timeoutMs });
+  let timeoutHandle = null;
+  try {
+    const result = await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          const error = new Error(`Timed out during ${label} after ${timeoutMs}ms.`);
+          error.code = 'DIRECTIVE_LIVE_SMOKE_STAGE_TIMEOUT';
+          error.details = { stage: label, timeoutMs };
+          reject(error);
+        }, timeoutMs);
+      })
+    ]);
+    progress(`${label}:ok`);
+    return result;
+  } catch (error) {
+    progress(`${label}:failed`, {
+      code: error?.code || null,
+      message: error?.message || String(error)
+    });
+    throw error;
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
 
 async function waitForCondition(page, condition, {
@@ -267,22 +313,67 @@ async function createLiveCampaign(page) {
     playerName
   }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const progress = (stage, details = {}) => {
+      try {
+        console.info(JSON.stringify({
+          kind: 'directive.liveSmokeBrowserProgress.v1',
+          stage,
+          at: new Date().toISOString(),
+          ...details
+        }));
+      } catch {
+        console.info(`[directive.liveSmokeBrowserProgress] ${stage}`);
+      }
+    };
+    progress('createLiveCampaign:import-runtime-bridge:start');
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
     const host = bridge.host || null;
+    progress('createLiveCampaign:import-runtime-bridge:ok', {
+      hasApp: Boolean(app),
+      hasHostChat: Boolean(host?.chat)
+    });
     if (!app || !host?.chat) {
       return {
         skipped: true,
         reason: 'The served Directive runtime app or SillyTavern chat adapter was not available.'
       };
     }
+    const originalReportProgress = typeof host.ui?.reportProgress === 'function'
+      ? host.ui.reportProgress.bind(host.ui)
+      : null;
+    if (originalReportProgress && host.ui) {
+      host.ui.reportProgress = (payload = {}) => {
+        if (payload?.kind === 'directive.activationActivity') {
+          progress('activation-activity', {
+            phase: payload.phase || null,
+            status: payload.status || null,
+            step: payload.step || null,
+            source: payload.source || null,
+            mode: payload.mode || null,
+            planner: payload.planner === true
+          });
+        }
+        return originalReportProgress(payload);
+      };
+    }
 
+    progress('createLiveCampaign:test-provider:start');
     const providerTests = {
       utility: await app.testProvider({ kind: 'utility' })
     };
+    progress('createLiveCampaign:test-provider:ok', {
+      utilityOk: providerTests.utility?.ok === true
+    });
 
+    progress('createLiveCampaign:get-current-campaign-view:start');
     const initialView = await app.getCurrentView({ tabId: 'campaign' });
+    progress('createLiveCampaign:get-current-campaign-view:ok', {
+      packageCount: Array.isArray(initialView?.campaign?.packages)
+        ? initialView.campaign.packages.length
+        : 0
+    });
     const availablePackages = Array.isArray(initialView?.campaign?.packages)
       ? initialView.campaign.packages
       : [];
@@ -324,7 +415,9 @@ async function createLiveCampaign(page) {
       };
     }
 
+    progress('createLiveCampaign:start-creator-draft:start', { packageId });
     const creatorDraft = await app.startCreatorDraft({ packageId });
+    progress('createLiveCampaign:start-creator-draft:ok', { packageId });
     const creatorView = creatorDraft?.creator || creatorDraft;
     const creatorOptions = creatorView?.options || {};
     const creatorDossier = creatorView?.dossier || {};
@@ -390,6 +483,7 @@ async function createLiveCampaign(page) {
       'standard',
       'concise'
     ]) || creatorDossier.defaultDetailLevel || 'Standard';
+    progress('createLiveCampaign:save-creator-draft:start', { packageId });
     await app.saveCreatorDraft({
       reason: 'liveSceneHandshakeSmoke',
       patch: {
@@ -422,9 +516,23 @@ async function createLiveCampaign(page) {
         }
       }
     });
+    progress('createLiveCampaign:save-creator-draft:ok', { packageId });
+    progress('createLiveCampaign:accept-creator-draft:start', { packageId });
     const startedView = await app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+    progress('createLiveCampaign:accept-creator-draft:ok', {
+      hasCampaign: Boolean(startedView?.campaignState?.campaign)
+    });
+    progress('createLiveCampaign:open-campaign-chat:start');
     const openResult = await app.openCampaignChat();
+    progress('createLiveCampaign:open-campaign-chat:ok', {
+      ok: openResult?.ok !== false
+    });
+    progress('createLiveCampaign:get-current-mission-view:start');
     const view = await app.getCurrentView({ tabId: 'mission' });
+    progress('createLiveCampaign:get-current-mission-view:ok', {
+      hasCampaign: Boolean(view?.campaignState?.campaign),
+      hasBinding: Boolean(view?.chatNative?.binding)
+    });
     return {
       skipped: false,
       packageId,
@@ -525,7 +633,7 @@ async function readSceneHandshakeSnapshot(page) {
       ? await app.getCurrentView({ tabId: 'mission' })
       : null;
     const state = view?.campaignState || {};
-    const sceneHandshake = state.runtimeTracking?.sceneHandshake || {};
+    const sceneHandshake = state.sceneHandshake || {};
     const commandLogRoot = state.commandLog;
     const commandLogEntries = Array.isArray(commandLogRoot?.entries)
       ? commandLogRoot.entries
@@ -608,6 +716,7 @@ async function readSceneHandshakeSnapshot(page) {
       modelCallCount: modelCalls.length,
       modelCalls: modelCalls.slice(-12),
       sceneHandshakeModelCalls: modelCalls.filter((entry) => entry.roleId === 'sceneHandshakeSettler'),
+      sourceSettlementModelCalls: modelCalls.filter((entry) => entry.roleId === 'sourceSettlementLatestPair'),
       recentMessages: chat.slice(-8).map((message, index) => ({
         relativeIndex: index,
         isUser: message?.is_user === true || message?.role === 'user',
@@ -695,7 +804,7 @@ async function saveActiveGameAsBranch(page) {
     const result = await app.saveCurrentGameAs({ name });
     const view = result?.view || (app.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null);
     const state = view?.campaignState || {};
-    const sceneHandshake = state.runtimeTracking?.sceneHandshake || {};
+    const sceneHandshake = state.sceneHandshake || {};
     return {
       ok: result?.ok === true,
       blocked: result?.blocked === true,
@@ -828,6 +937,7 @@ async function readLogDomSnapshot(page) {
       textPreview: text.slice(0, 1800),
       hasCommandHistory: /Command\s*History/i.test(text),
       hasLinkedOrders: /Linked\s*Orders/i.test(text),
+      hasAcceptedOrderEvidence: /Linked\s*Orders|Visible\s*Consequences|Consequences/i.test(text),
       hasObjectObject: /\[object Object\]|\bObject Object\b/.test(text),
       mentionsCross: /\bCross\b|\bcommand-network\b/i.test(text),
       mentionsBronn: /\bBronn\b/i.test(text),
@@ -911,19 +1021,32 @@ function containsAny(records, patterns) {
 }
 
 async function main() {
+  progress('main:start', {
+    baseUrl: BASE_URL,
+    user: SILLYTAVERN_USER,
+    browserTimeoutMs: BROWSER_TIMEOUT_MS,
+    setupTimeoutMs: SETUP_TIMEOUT_MS,
+    settlementTimeoutMs: SETTLEMENT_TIMEOUT_MS
+  });
   assert.ok(BASE_URL, 'SILLYTAVERN_BASE_URL or ST_BASE_URL is required.');
   assertLive(SILLYTAVERN_USER && SILLYTAVERN_USER !== 'default-user', 'DIRECTIVE_SILLYTAVERN_USER must be set to a non-human soak user; default-user is reserved for human testing.');
-  const launched = await launchPlaywrightBrowser({
+  const launched = await withStageTimeout('launch-browser', launchPlaywrightBrowser({
     headless: HEADLESS,
     timeoutMs: BROWSER_TIMEOUT_MS
-  });
+  }), BROWSER_TIMEOUT_MS);
   assertLive(launched.ok, 'Playwright Chromium could not be launched.', launched.error || launched);
   const browser = launched.browser;
 
   try {
-    const authPage = await createAuthenticatedPage(browser);
+    const authPage = await withStageTimeout('authenticate-page', createAuthenticatedPage(browser), BROWSER_TIMEOUT_MS);
     const page = authPage.page;
-    const served = await compareServedExtension({
+    page.on('console', (message) => {
+      const text = message.text();
+      if (text.includes('directive.liveSmokeBrowserProgress.v1')) {
+        console.error(text);
+      }
+    });
+    const served = await withStageTimeout('compare-served-extension', compareServedExtension({
       baseUrl: BASE_URL,
       extensionPath: EXTENSION_PATH,
       headers: authPage.auth?.headers || {},
@@ -934,6 +1057,13 @@ async function main() {
         'src/generation/player-safe-prompt-context-builder.mjs',
         'src/runtime/runtime-app.mjs',
         'src/runtime/scene-handshake-settler.mjs',
+        'src/runtime/source-settlement-latest-pair.mjs',
+        'src/runtime/source-settlement-latest-pair-contract.mjs',
+        'src/runtime/source-settlement-latest-pair-owner.mjs',
+        'src/runtime/source-settlement-latest-pair-provider.mjs',
+        'src/runtime/source-settlement-latest-pair-scene-adapter.mjs',
+        'src/runtime/source-settlement-latest-pair-validation.mjs',
+        'src/runtime/source-settlement-service.mjs',
         'src/runtime/message-reconciler.mjs',
         'src/runtime/chat-turn-orchestrator.mjs',
         'src/ui/mission-panel.js',
@@ -941,19 +1071,19 @@ async function main() {
         'src/ui/crew-panel.js'
       ],
       timeoutMs: BROWSER_TIMEOUT_MS
-    });
+    }), BROWSER_TIMEOUT_MS);
     assertLive(served.ok, 'Served SillyTavern extension copy does not match the workspace files needed for Scene Handshake.', served);
-    await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await verifyBrowserUserSession(page);
-    await openDirectivePanel(page);
+    await withStageTimeout('page-goto', page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' }), BROWSER_TIMEOUT_MS);
+    await withStageTimeout('page-networkidle', page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {}), 15000);
+    await withStageTimeout('verify-session', verifyBrowserUserSession(page), BROWSER_TIMEOUT_MS);
+    await withStageTimeout('open-directive-panel', openDirectivePanel(page), BROWSER_TIMEOUT_MS);
 
-    const created = await createLiveCampaign(page);
+    const created = await withStageTimeout('create-live-campaign', createLiveCampaign(page), SETUP_TIMEOUT_MS);
     assertLive(!created.skipped, created.reason || 'Live campaign creation was skipped.', created);
     assertLive(created.providerTests?.utility?.ok === true, 'Utility provider precheck failed.', created.providerTests);
 
-    const before = await readSceneHandshakeSnapshot(page);
-    const inserted = await insertHostAssistantFixture(page);
+    const before = await withStageTimeout('read-before-snapshot', readSceneHandshakeSnapshot(page), BROWSER_TIMEOUT_MS);
+    const inserted = await withStageTimeout('insert-host-assistant-fixture', insertHostAssistantFixture(page), BROWSER_TIMEOUT_MS);
     assertLive(inserted.ok, 'Could not insert host-native assistant briefing fixture.', inserted);
     assertLive(
       inserted.selectedSwipeIndex === WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
@@ -962,15 +1092,16 @@ async function main() {
       inserted
     );
 
-    await sendSillyTavernChatMessage(page, SAM_ACCEPTANCE, {
+    await withStageTimeout('send-player-message', sendSillyTavernChatMessage(page, SAM_ACCEPTANCE, {
       timeoutMs: SETTLEMENT_TIMEOUT_MS
-    });
+    }), SETTLEMENT_TIMEOUT_MS);
 
-    const after = await waitForCondition(page, async () => {
+    const after = await withStageTimeout('wait-scene-handshake-settlement', waitForCondition(page, async () => {
       const snapshot = await readSceneHandshakeSnapshot(page);
       const last = snapshot.sceneHandshake.lastResult || {};
       if (
         snapshot.sceneHandshake.settledCount > before.sceneHandshake.settledCount
+        && snapshot.promptContextRevision > before.promptContextRevision
         && last.status === 'settled'
       ) {
         return snapshot;
@@ -980,7 +1111,7 @@ async function main() {
       timeoutMs: SETTLEMENT_TIMEOUT_MS,
       pollingMs: 1000,
       label: 'Scene Handshake settlement'
-    });
+    }), SETTLEMENT_TIMEOUT_MS);
 
     const last = after.sceneHandshake.lastResult || {};
     assertLive(last.disposition === 'autoCommit', 'Scene Handshake did not auto-commit the accepted briefing.', { before, after });
@@ -1005,24 +1136,25 @@ async function main() {
       last.sourceTextHashes
     );
     assertLive(
-      after.sceneHandshakeModelCalls.some((entry) => (entry.ok === true || entry.status === 'ok') && entry.providerKind === 'utility'),
-      'sceneHandshakeSettler did not record a successful Utility model call.',
+      last.authority === 'sreSceneHandshakeProjection'
+      && last.projectionSource === 'sourceSettlementLatestPair'
+      && last.compatibilityMirror?.kind === 'directive.sceneHandshakeLedgerProjectionRef.v1',
+      'Scene Handshake record did not carry SRE latest-pair projection authority.',
+      last
+    );
+    assertLive(
+      after.sceneHandshakeModelCalls.length === 0,
+      'Scene Handshake live proof must not rely on legacy sceneHandshakeSettler model calls.',
       after.sceneHandshakeModelCalls
     );
-    const latestSceneHandshakeCall = after.sceneHandshakeModelCalls.at(-1) || {};
+    const sourceSettlementOwnerCallRecorded = after.sourceSettlementModelCalls.some((entry) => (
+      (entry.ok === true || entry.status === 'ok')
+      && entry.providerKind === 'utility'
+    )) || Boolean(last.providerId && Number(last.latencyMs) > 0);
     assertLive(
-      latestSceneHandshakeCall.metadata?.promptBudget?.maxPreviousAssistantChars > 0
-      && Array.isArray(latestSceneHandshakeCall.metadata?.optionalSlicesIncluded)
-      && latestSceneHandshakeCall.metadata?.sourceTextHashes?.range,
-      'sceneHandshakeSettler diagnostics did not include sanitized prompt budget/source metadata.',
-      latestSceneHandshakeCall
-    );
-    assertLive(
-      latestSceneHandshakeCall.metadata?.selectedAssistantVariant?.selectedSwipeIndex === WHITAKER_BRIEFING_SELECTED_SWIPE_INDEX
-      && latestSceneHandshakeCall.metadata?.selectedAssistantVariant?.swipeCount === WHITAKER_BRIEFING_SWIPES.length
-      && latestSceneHandshakeCall.metadata?.sourceTextHashes?.selectedAssistantVariant === latestSceneHandshakeCall.metadata?.sourceTextHashes?.previousAssistant,
-      'sceneHandshakeSettler diagnostics did not include selected-swipe source metadata.',
-      latestSceneHandshakeCall.metadata
+      sourceSettlementOwnerCallRecorded,
+      'sourceSettlementLatestPair did not record a successful Utility owner call.',
+      { modelCalls: after.sourceSettlementModelCalls, ledger: last }
     );
     assertLive(
       after.promptContextRevision > before.promptContextRevision,
@@ -1056,9 +1188,9 @@ async function main() {
       after.threadRecords
     );
 
-    const exported = await exportActiveSaveSnapshot(page);
+    const exported = await withStageTimeout('export-active-save', exportActiveSaveSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(exported.ok && exported.campaignState, 'Active save export did not expose persisted campaign state.', exported);
-    const exportedHandshake = exported.campaignState.runtimeTracking?.sceneHandshake || {};
+    const exportedHandshake = exported.campaignState.sceneHandshake || {};
     assertLive(
       Array.isArray(exportedHandshake.settled)
       && exportedHandshake.settled.some((entry) => entry.id === last.id && entry.status === 'settled'),
@@ -1074,6 +1206,12 @@ async function main() {
       'Persisted save export did not preserve selected-swipe settlement metadata.',
       exportedHandshake.settled
     );
+    const exportedLegacyHandshake = exported.campaignState.runtimeTracking?.sceneHandshake;
+    assertLive(
+      exportedLegacyHandshake === undefined,
+      'Persisted save export must not preserve runtimeTracking.sceneHandshake compatibility shell.',
+      exportedLegacyHandshake
+    );
     assertLive(
       (exported.campaignState.mission?.openAssignments || []).some((entry) => /Cross|command-network/i.test(`${entry.title || ''} ${entry.summary || ''}`)),
       'Persisted save export did not include handshake-created open assignments.',
@@ -1087,9 +1225,9 @@ async function main() {
       settledCount: after.sceneHandshake.settledCount,
       modelCallCount: after.modelCallCount
     };
-    const duplicateObserve = await reobserveAcceptingPlayerMessage(page, acceptingPlayerId);
+    const duplicateObserve = await withStageTimeout('reobserve-accepting-player', reobserveAcceptingPlayerMessage(page, acceptingPlayerId), BROWSER_TIMEOUT_MS);
     assertLive(duplicateObserve.ok, 'Could not reobserve accepting player message for duplicate/idempotency proof.', duplicateObserve);
-    const duplicateAfter = await readSceneHandshakeSnapshot(page);
+    const duplicateAfter = await withStageTimeout('read-duplicate-snapshot', readSceneHandshakeSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(
       duplicateAfter.openAssignments.length === beforeDuplicate.assignmentCount
       && duplicateAfter.commandLogCount === beforeDuplicate.commandLogCount
@@ -1098,9 +1236,9 @@ async function main() {
       { beforeDuplicate, duplicateAfter }
     );
 
-    const reopened = await reopenActiveSave(page, exported.saveId || after.binding?.saveId);
+    const reopened = await withStageTimeout('reopen-active-save', reopenActiveSave(page, exported.saveId || after.binding?.saveId), BROWSER_TIMEOUT_MS);
     assertLive(reopened.ok, 'Could not reload the active save for persisted-state proof.', reopened);
-    const reopenedSnapshot = await readSceneHandshakeSnapshot(page);
+    const reopenedSnapshot = await withStageTimeout('read-reopened-snapshot', readSceneHandshakeSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(
       reopenedSnapshot.sceneHandshake.settledCount >= after.sceneHandshake.settledCount
       && containsAny(reopenedSnapshot.openAssignments, [/Cross/i, /Bronn/i, /walk the ship/i]),
@@ -1108,7 +1246,7 @@ async function main() {
       reopenedSnapshot
     );
 
-    const branched = await saveActiveGameAsBranch(page);
+    const branched = await withStageTimeout('save-game-as-branch', saveActiveGameAsBranch(page), BROWSER_TIMEOUT_MS);
     assertLive(branched.ok, 'Save Game As branch creation failed after Scene Handshake settlement.', branched);
     assertLive(
       branched.saveId && branched.previousSaveId && branched.saveId !== branched.previousSaveId,
@@ -1127,7 +1265,7 @@ async function main() {
       branched
     );
 
-    const branchExport = await exportActiveSaveSnapshot(page);
+    const branchExport = await withStageTimeout('export-branch-save', exportActiveSaveSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(
       branchExport.ok
       && branchExport.saveId === branched.saveId
@@ -1136,7 +1274,7 @@ async function main() {
       { branched, branchExport }
     );
 
-    const wrongChatObserve = await observePlayerMessageFromWrongChat(page, acceptingPlayerId);
+    const wrongChatObserve = await withStageTimeout('observe-wrong-chat', observePlayerMessageFromWrongChat(page, acceptingPlayerId), BROWSER_TIMEOUT_MS);
     assertLive(wrongChatObserve.ok, 'Could not exercise wrong-chat observe path.', wrongChatObserve);
     assertLive(
       wrongChatObserve.result?.handled === false
@@ -1144,7 +1282,7 @@ async function main() {
       'Wrong-chat observe was not isolated from the bound campaign chat.',
       wrongChatObserve
     );
-    const wrongChatAfter = await readSceneHandshakeSnapshot(page);
+    const wrongChatAfter = await withStageTimeout('read-wrong-chat-snapshot', readSceneHandshakeSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(
       wrongChatAfter.sceneHandshake.settledCount === branched.settledCount
       && wrongChatAfter.openAssignments.length === branched.assignmentCount,
@@ -1152,7 +1290,7 @@ async function main() {
       { before: branched, after: wrongChatAfter }
     );
 
-    const missionDom = await readMissionDomSnapshot(page);
+    const missionDom = await withStageTimeout('read-mission-dom', readMissionDomSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(missionDom.hasBody, 'Mission drawer body was not rendered.', missionDom);
     assertLive(missionDom.hasCurrentOrders, 'Mission drawer did not render Current Orders.', missionDom);
     assertLive(!missionDom.hasObjectObject, 'Mission drawer rendered Object Object for structured records.', missionDom);
@@ -1161,17 +1299,17 @@ async function main() {
       'Mission drawer did not surface the accepted briefing assignments.',
       missionDom
     );
-    const logDom = await readLogDomSnapshot(page);
+    const logDom = await withStageTimeout('read-log-dom', readLogDomSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(logDom.hasBody, 'Log drawer body was not rendered.', logDom);
     assertLive(logDom.hasCommandHistory, 'Log drawer did not render Command History.', logDom);
-    assertLive(logDom.hasLinkedOrders, 'Log drawer did not render linked accepted orders.', logDom);
+    assertLive(logDom.hasAcceptedOrderEvidence, 'Log drawer did not render accepted-order evidence.', logDom);
     assertLive(!logDom.hasObjectObject, 'Log drawer rendered Object Object for structured records.', logDom);
     assertLive(
       logDom.mentionsCross && logDom.mentionsBronn && logDom.mentionsWalkShip,
       'Log drawer did not surface the accepted briefing assignment titles.',
       logDom
     );
-    const crewDom = await readCrewDomSnapshot(page);
+    const crewDom = await withStageTimeout('read-crew-dom', readCrewDomSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(crewDom.hasBody, 'Crew drawer body was not rendered.', crewDom);
     assertLive(crewDom.characterTabPopulated, 'Crew Character tab did not render populated player-character context.', crewDom);
     assertLive(crewDom.rosterTabFound, 'Crew Roster subtab was not available.', crewDom);
@@ -1200,7 +1338,7 @@ async function main() {
       crewDom
     );
 
-    const postProjectionSnapshot = await readSceneHandshakeSnapshot(page);
+    const postProjectionSnapshot = await withStageTimeout('read-post-projection-snapshot', readSceneHandshakeSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(
       !containsAny(postProjectionSnapshot.recentCommandLog, [
         /publicly challenged Captain Whitaker/i,
@@ -1211,7 +1349,7 @@ async function main() {
       postProjectionSnapshot.recentCommandLog
     );
 
-    const sourceEdit = await invalidateSourceByEdit(page, inserted.hostMessageId);
+    const sourceEdit = await withStageTimeout('invalidate-source-edit', invalidateSourceByEdit(page, inserted.hostMessageId), BROWSER_TIMEOUT_MS);
     assertLive(
       sourceEdit.ok
       && sourceEdit.result?.handled === true
@@ -1219,7 +1357,7 @@ async function main() {
       'Editing a Scene Handshake source did not invalidate anchored settlement state.',
       sourceEdit
     );
-    const editedSnapshot = await readSceneHandshakeSnapshot(page);
+    const editedSnapshot = await withStageTimeout('read-edited-snapshot', readSceneHandshakeSnapshot(page), BROWSER_TIMEOUT_MS);
     assertLive(
       editedSnapshot.sceneHandshake.lastResult?.status === 'invalidated'
       && editedSnapshot.openAssignments.some((entry) => entry.status === 'source-stale'),
@@ -1265,9 +1403,13 @@ async function main() {
           currentPlayer: sourceTextHashes.currentPlayer || null,
           range: sourceTextHashes.range || null
         } : null,
-        sreDecision: {
+        sourceDecision: {
           status: after.sceneHandshake.lastResult?.status || null,
-          action: after.sceneHandshake.lastResult?.disposition || null
+          action: after.sceneHandshake.lastResult?.disposition || null,
+          authority: after.sceneHandshake.lastResult?.authority || null,
+          projectionSource: after.sceneHandshake.lastResult?.projectionSource || null,
+          ownerCertified: after.sceneHandshake.lastResult?.authority === 'sreSceneHandshakeProjection'
+            && after.sceneHandshake.lastResult?.projectionSource === 'sourceSettlementLatestPair'
         }
       },
       crewProjection: {
@@ -1278,6 +1420,7 @@ async function main() {
         sayeMentionsAssignment: crewDom.sayeMentionsAssignment
       },
       sceneHandshakeModelCalls: after.sceneHandshakeModelCalls.slice(-4),
+      sourceSettlementModelCalls: after.sourceSettlementModelCalls.slice(-4),
       selectedAssistantVariant,
       servedExtension: {
         ok: served.ok === true,
@@ -1330,6 +1473,7 @@ async function main() {
       logDom: {
         hasCommandHistory: logDom.hasCommandHistory,
         hasLinkedOrders: logDom.hasLinkedOrders,
+        hasAcceptedOrderEvidence: logDom.hasAcceptedOrderEvidence,
         hasObjectObject: logDom.hasObjectObject,
         mentionsCross: logDom.mentionsCross,
         mentionsBronn: logDom.mentionsBronn,

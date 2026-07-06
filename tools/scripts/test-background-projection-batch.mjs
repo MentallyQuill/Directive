@@ -4,6 +4,9 @@ import {
   createSyntheticForgeCoordinator
 } from '../../src/jobs/forge-coordinator-synthetic.mjs';
 import {
+  createForgeBatchCommit
+} from '../../src/jobs/forge-contracts.mjs';
+import {
   createSyntheticFastGateRuntime
 } from '../../src/runtime/fast-gate-runtime-synthetic.mjs';
 import {
@@ -365,6 +368,46 @@ assert.equal(noChangeHarness.coreStore.state.diagnostics.filter((entry) => entry
 const noChangeStateJson = JSON.stringify(noChangeHarness.coreStore.state);
 assert.equal(noChangeStateJson.includes('RAW_NO_CHANGE_PROMPT'), false);
 assert.equal(noChangeStateJson.includes('RAW_NO_CHANGE_RESPONSE'), false);
+
+const nullMechanicsBatch = createForgeBatchCommit({
+  transactionId: 'txn-null-mechanics',
+  idempotencyKey: 'forge-null-mechanics',
+  baseRevisions: { mechanics: 0 },
+  baseMechanicsRevision: null,
+  workerResults: [{
+    workerId: 'continuity',
+    roleId: 'continuityTracker',
+    status: 'accepted',
+    operations: []
+  }]
+});
+assert.equal(
+  Object.prototype.hasOwnProperty.call(nullMechanicsBatch, 'baseMechanicsRevision'),
+  false,
+  'Explicit null baseMechanicsRevision must omit the CORE mechanics gate instead of falling back to baseRevisions.mechanics.'
+);
+
+const nullGateHarness = createHarness({ nowPrefix: '2026-06-28T21:05' });
+await beginHostTurn(nullGateHarness, { transactionId: 'txn-forge-null-mechanics', hostMessageId: '105' });
+nullGateHarness.coreStore.state.revisions.mechanics = 5;
+await nullGateHarness.coreStore.commitBackgroundBatch('txn-forge-null-mechanics', {
+  batchId: 'campaign-sidecar:null-mechanics',
+  idempotencyKey: 'campaign-sidecar:null-mechanics',
+  baseMechanicsRevision: null,
+  phaseAfter: 'backgroundSettling',
+  promptDirtyDomains: ['continuity'],
+  operations: [],
+  backgroundEffectRefs: [{
+    kind: 'directive.nullMechanicsGateProof.v1',
+    id: 'null-mechanics-gate-proof',
+    hash: hashStableJson({ ok: true })
+  }]
+});
+assert.equal(
+  nullGateHarness.coreStore.state.events.some((event) => event.type === 'backgroundBatchCommitted'),
+  true,
+  'CORE background batch must ignore null baseMechanicsRevision and rely on source/currentness checks.'
+);
 
 const staleHarness = createHarness({ nowPrefix: '2026-06-28T21:10' });
 const staleGate = await beginHostTurn(staleHarness, { transactionId: 'txn-forge-stale', hostMessageId: '110' });

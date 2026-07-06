@@ -198,6 +198,9 @@ const app = {
   },
   getOutcomeIntegrityNativeEditDecision(payload) {
     calls.push(['integrity-decision', payload.hostMessageId]);
+    if (payload.hostMessageId === '24') {
+      return Promise.resolve({ protected: false, nativeEdit: 'allow', reason: 'player-message' });
+    }
     return { ...nativeEditDecision };
   }
 };
@@ -293,6 +296,40 @@ assert.equal(nativeEditAllowed, false);
 assert.equal(allowedPreventedNativeEdit, false);
 assert.deepEqual(calls.slice(allowCallsBefore), [
   ['integrity-decision', '23']
+]);
+
+let asyncAllowedPreventedNativeEdit = false;
+let replayedAsyncAllowedNativeEdit = 0;
+const asyncAllowCallsBefore = calls.length;
+const nativeEditAsyncAllowed = __directiveEventTestHooks.captureNativeProtectedEditIntent({
+  target: {
+    closest(selector) {
+      if (selector === '.mes_edit') return {
+        closest(rowSelector) {
+          return rowSelector === '.mes[mesid]' ? {
+            getAttribute(name) {
+              return name === 'mesid' ? '24' : null;
+            }
+          } : null;
+        },
+        click() {
+          replayedAsyncAllowedNativeEdit += 1;
+        }
+      };
+      if (selector === '.mes_edit_delete') return null;
+      return null;
+    }
+  },
+  preventDefault() { asyncAllowedPreventedNativeEdit = true; },
+  stopPropagation() {},
+  stopImmediatePropagation() {}
+});
+assert.equal(nativeEditAsyncAllowed, true);
+assert.equal(asyncAllowedPreventedNativeEdit, true);
+await new Promise((resolve) => setTimeout(resolve, 20));
+assert.equal(replayedAsyncAllowedNativeEdit, 1);
+assert.deepEqual(calls.slice(asyncAllowCallsBefore), [
+  ['integrity-decision', '24']
 ]);
 
 const sentResult = await registered.get('message-sent')({ id: 4 });

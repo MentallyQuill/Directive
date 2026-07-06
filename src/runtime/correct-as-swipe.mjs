@@ -6,6 +6,7 @@ export const CORRECT_AS_SWIPE_ACTION_ID = 'correctAsSwipe.propose';
 export const CORRECT_AS_SWIPE_SETTLE_ACTION_ID = 'correctAsSwipe.settleCase';
 export const CORRECT_AS_SWIPE_CASE_KIND = 'directive.correctAsSwipe.case.v1';
 export const CORRECT_AS_SWIPE_PROVENANCE_KIND = 'directive.correctAsSwipe.candidateSwipe.v1';
+export const SRE_CORRECT_AS_SWIPE_EVIDENCE_VERDICT_KIND = 'directive.sreCorrectAsSwipeEvidenceVerdict.v1';
 
 const VERDICTS = new Set(['supported', 'contradicted', 'unsupported', 'ambiguous', 'external-only']);
 
@@ -39,7 +40,7 @@ function evidenceVerdictRef(input = {}) {
   const verdict = compact(input.verdict || input.status || 'ambiguous', 40);
   return {
     verdict: VERDICTS.has(verdict) ? verdict : 'ambiguous',
-    source: compact(input.source || input.kind || 'directive.sreEvidenceVerdict.v1', 120),
+    source: compact(input.kind || SRE_CORRECT_AS_SWIPE_EVIDENCE_VERDICT_KIND, 120),
     evidenceRefIds: asArray(input.evidenceRefIds || input.refs || input.citations)
       .map((entry) => compactId(isObject(entry) ? entry.id || entry.refId || entry.sourceId : entry))
       .filter(Boolean)
@@ -51,6 +52,23 @@ function evidenceVerdictRef(input = {}) {
     }),
     checkedAt: compact(input.checkedAt || input.reviewedAt, 80) || null
   };
+}
+
+function validateSreEvidenceVerdict(input = {}, sourceRef = {}) {
+  if (!isObject(input)) return 'missing';
+  if (compact(input.kind, 120) !== SRE_CORRECT_AS_SWIPE_EVIDENCE_VERDICT_KIND) return 'kind';
+  if (!compact(input.evidenceHash, 120)) return 'evidence-hash';
+  if (!compact(input.reviewedAt || input.checkedAt, 80)) return 'reviewed-at';
+  if (!isObject(input.source)) return 'source';
+  const verdictSource = input.source;
+  const verdictResponseId = compactId(verdictSource.responseId);
+  const verdictHostMessageId = compactId(verdictSource.hostMessageId);
+  const verdictTextHash = compact(verdictSource.textHash, 160);
+  if (!verdictResponseId && !verdictHostMessageId && !verdictTextHash) return 'source-ref';
+  if (sourceRef.responseId && verdictResponseId && verdictResponseId !== sourceRef.responseId) return 'response-mismatch';
+  if (sourceRef.hostMessageId && verdictHostMessageId && verdictHostMessageId !== sourceRef.hostMessageId) return 'host-message-mismatch';
+  if (sourceRef.selectedTextHash && verdictTextHash && verdictTextHash !== sourceRef.selectedTextHash) return 'selected-text-mismatch';
+  return null;
 }
 
 function sourceSelectionRef(input = {}) {
@@ -194,6 +212,19 @@ export function buildCorrectAsSwipeCase({
   const candidateText = String(proposedText || '').trim();
   if (!candidateText) {
     return { ok: false, reason: 'candidate-text-missing', summary: 'Correct-as-Swipe requires candidate assistant prose.' };
+  }
+  const verdictValidationError = validateSreEvidenceVerdict(evidenceVerdict, sourceRef);
+  if (verdictValidationError) {
+    return {
+      ok: false,
+      reason: 'sre-evidence-verdict-required',
+      summary: 'Correct-as-Swipe requires an SRE evidence verdict for the selected assistant text.',
+      error: {
+        code: 'DIRECTIVE_CORRECT_AS_SWIPE_SRE_VERDICT_REQUIRED',
+        field: 'evidenceVerdict',
+        validation: verdictValidationError
+      }
+    };
   }
   const candidateTextHash = exactTextHash(candidateText);
   const verdictRef = evidenceVerdictRef(evidenceVerdict);

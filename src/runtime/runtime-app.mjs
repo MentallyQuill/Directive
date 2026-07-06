@@ -87,6 +87,7 @@ import {
 } from './lens-prompt-packet-builder.mjs';
 import { createCoreTurnRuntime } from './core-turn-runtime.mjs';
 import {
+  createRuntimeLedgerViewAsync,
   createRuntimeLedgerView,
   readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
@@ -141,14 +142,14 @@ import { createRuntimeUiPreferences } from './ui-preferences.mjs';
 import { createCreatorRuntimeService } from './creator-runtime-service.mjs';
 import {
   applyOutcomeIntegritySettings,
-  buildOutcomeIntegrityEditContext,
+  buildOutcomeIntegrityEditContextAsync,
   createOutcomeIntegrityRevisionRecord,
-  findOutcomeIntegrityResponse,
+  findOutcomeIntegrityResponseAsync,
   normalizeOutcomeIntegrityMode,
   normalizeOutcomeIntegrityReviewProviderKind,
   normalizeOutcomeIntegritySettings,
   outcomeIntegrityFailureSummary,
-  outcomeIntegrityStatusForMessage,
+  outcomeIntegrityStatusForMessageAsync,
   reviewOutcomeIntegrityEdit,
   validateOutcomeIntegrityProposedEdit
 } from './outcome-integrity.mjs';
@@ -781,19 +782,34 @@ function stateBindingForFreshness(state = null, {
   };
 }
 
+function sameCampaignSaveBinding(left = null, right = null) {
+  const leftCampaignId = compactString(left?.campaignId);
+  const rightCampaignId = compactString(right?.campaignId);
+  const leftSaveId = compactString(left?.saveId);
+  const rightSaveId = compactString(right?.saveId);
+  return Boolean(
+    leftCampaignId
+    && rightCampaignId
+    && leftCampaignId === rightCampaignId
+    && leftSaveId
+    && rightSaveId
+    && leftSaveId === rightSaveId
+  );
+}
+
 function stateFreshnessCounters(state = null) {
   const tracking = state?.runtimeTracking || {};
   const ledger = terminalDecisionLedgerView(state || {});
   const runtimeLedgerView = createRuntimeLedgerView(state || {});
   const responseLedger = runtimeLedgerView.responseLedger || [];
-  const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections
-    || tracking?.directiveRuntimeEvidence?.coreStoreReadProjections
-    || null;
+  const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections || null;
   const coreTurnLedgerEntries = Array.isArray(coreProjection?.turnLedger?.entries)
     ? coreProjection.turnLedger.entries.length
     : null;
-  const coreResponseLedger = Array.isArray(coreProjection?.responseLedger)
-    ? coreProjection.responseLedger
+  const coreResponseLedger = Array.isArray(coreProjection?.responses)
+    ? coreProjection.responses
+    : Array.isArray(coreProjection?.responseLedger)
+      ? coreProjection.responseLedger
     : null;
   const coreSidecarDiagnostics = Array.isArray(coreProjection?.sidecarDiagnostics)
     ? coreProjection.sidecarDiagnostics.length
@@ -807,6 +823,17 @@ function stateFreshnessCounters(state = null) {
     mechanicsRevision: Math.max(0, Number(tracking.mechanicsRevision) || 0),
     promptContextRevision: Math.max(0, Number(state?.campaignChatBinding?.promptContextRevision) || 0),
     commandLogEntries: commandLogEntryCount(state),
+    sceneHandshakeSettlements: Math.max(
+      countArray(state?.sceneHandshake?.settled),
+      state?.sceneHandshake?.lastResult ? 1 : 0
+    ),
+    sceneHandshakeReviews: countArray(state?.sceneHandshake?.pendingInternalReview)
+      + countArray(state?.sceneHandshake?.deferred)
+      + countArray(state?.sceneHandshake?.operatorRecovery)
+      + countArray(state?.sceneHandshake?.rejected),
+    missionOpenAssignments: countArray(state?.mission?.openAssignments),
+    shipTechnicalDebt: countArray(state?.ship?.technicalDebt),
+    threadLedgerRecords: countArray(state?.threadLedger?.records),
     turnLedgerEntries: Math.max(countArray(state?.turnLedger?.entries), coreTurnLedgerEntries ?? 0),
     ingressLedgerEntries: countArray(runtimeLedgerView.ingressLedger),
     responseLedgerEntries: responseLedger.length,
@@ -830,19 +857,137 @@ function stateFreshnessCounters(state = null) {
   };
 }
 
+function timestampMs(value = null) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function saveRecordFreshnessEvidence(saveRecord = null, {
+  saveId = null
+} = {}) {
+  const manifestRef = saveRecord?.manifestRef || saveRecord?.v2ManifestRef || saveRecord?.runtimeV2ManifestRef || null;
+  return Object.fromEntries(Object.entries({
+    kind: 'directive.loadedSaveHeadEvidence.v1',
+    saveId: compactString(saveId || saveRecord?.id) || null,
+    campaignId: compactString(saveRecord?.metadata?.campaignId || saveRecord?.campaignId) || null,
+    saveUpdatedAt: saveRecord?.updatedAt || saveRecord?.metadata?.lastUpdatedAt || null,
+    manifestHash: compactString(manifestRef?.hash) || null,
+    manifestLogicalKey: compactString(manifestRef?.logicalKey) || null,
+    manifestKind: compactString(manifestRef?.kind) || null
+  }).filter(([, value]) => value !== null && value !== undefined && value !== ''));
+}
+
+function stateWithLoadedSaveHeadEvidence(state = null, {
+  saveRecord = null,
+  saveId = null
+} = {}) {
+  if (!state || !saveRecord) return state;
+  const loadedSaveHead = saveRecordFreshnessEvidence(saveRecord, { saveId });
+  if (!loadedSaveHead?.saveUpdatedAt && !loadedSaveHead?.manifestHash && !loadedSaveHead?.manifestLogicalKey) return state;
+  return {
+    ...cloneJson(state),
+    directiveRuntimeEvidence: {
+      ...cloneJson(state.directiveRuntimeEvidence || {}),
+      loadedSaveHead
+    }
+  };
+}
+
+function stateWithLifecycleProjectionEvidence(candidateState = null, evidenceState = null) {
+  if (!candidateState || !evidenceState) return candidateState;
+  const evidenceRows = readRuntimeCoreProjections(evidenceState).lifecycleJournal || [];
+  if (!Array.isArray(evidenceRows) || !evidenceRows.length) return candidateState;
+  const next = cloneJson(candidateState);
+  const candidateProjection = next.directiveRuntimeEvidence?.coreStoreReadProjections || {};
+  const currentRows = Array.isArray(candidateProjection.lifecycleJournal) ? candidateProjection.lifecycleJournal : [];
+  const rowKey = (row = {}) => [
+    compactString(row.id || row.lifecycleId),
+    compactString(row.coreTransactionId || row.transactionId),
+    compactString(row.type || row.lifecycleType),
+    compactString(row.recordedAt)
+  ].filter(Boolean).join('|');
+  const seen = new Set(currentRows.map(rowKey).filter(Boolean));
+  const mergedRows = [...cloneJson(currentRows)];
+  for (const row of evidenceRows) {
+    const key = rowKey(row);
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    mergedRows.push(cloneJson(row));
+  }
+  next.directiveRuntimeEvidence = {
+    ...cloneJson(next.directiveRuntimeEvidence || {}),
+    coreStoreReadProjections: {
+      ...cloneJson(candidateProjection),
+      kind: candidateProjection.kind || 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: candidateProjection.runtimeAuthority || 'coreStoreV2',
+      lifecycleJournal: mergedRows
+    }
+  };
+  next.runtimeTracking = {
+    ...cloneJson(next.runtimeTracking || {}),
+    lifecycleJournal: []
+  };
+  return next;
+}
+
+function activeSessionCacheCurrentForSave(state = null, {
+  saveId = null,
+  activeSaveId = null,
+  saveRecord = null
+} = {}) {
+  const requestedSaveId = compactString(saveId);
+  const stateSaveId = compactString(state?.campaignChatBinding?.saveId);
+  const currentActiveSaveId = compactString(activeSaveId);
+  if (!state || !requestedSaveId || stateSaveId !== requestedSaveId) return false;
+  if (currentActiveSaveId && currentActiveSaveId !== requestedSaveId) return false;
+  if (!saveRecord) return true;
+  const loadedSaveHead = state?.directiveRuntimeEvidence?.loadedSaveHead || {};
+  const saveFreshness = saveRecordFreshnessEvidence(saveRecord, { saveId: requestedSaveId });
+  const saveUpdatedMs = timestampMs(saveFreshness.saveUpdatedAt);
+  const loadedUpdatedMs = timestampMs(loadedSaveHead.saveUpdatedAt);
+  if (saveUpdatedMs > 0) return loadedUpdatedMs >= saveUpdatedMs;
+  if (saveFreshness.manifestHash) return loadedSaveHead.manifestHash === saveFreshness.manifestHash;
+  if (saveFreshness.manifestLogicalKey) return loadedSaveHead.manifestLogicalKey === saveFreshness.manifestLogicalKey;
+  return true;
+}
+
+function promptPacketFromLensFlushResult(lensResult = null) {
+  if (lensResult?.packet && Array.isArray(lensResult.packet.blocks)) return lensResult.packet;
+  const installed = lensResult?.installed || null;
+  const revision = Number(lensResult?.directiveOwnedRevision || installed?.directiveOwnedRevision || installed?.revision || 0);
+  if (!Number.isFinite(revision) || revision <= 0) return null;
+  const promptKeys = Array.isArray(installed?.promptKeys) ? installed.promptKeys.filter(Boolean) : [];
+  return {
+    kind: 'directive.lensPromptRevisionEvidence.v1',
+    revision,
+    hash: installed?.promptHash || installed?.packetHash || lensResult?.packetHash || null,
+    blocks: promptKeys.map((promptKey, index) => ({
+      id: promptKey,
+      title: promptKey,
+      promptKey,
+      priority: 0,
+      placement: 'inChat',
+      depth: 4,
+      source: {
+        kind: 'directive.lensInstalledPromptKey',
+        revision,
+        index
+      }
+    }))
+  };
+}
+
 function pendingInteractionProjectionRows(state = null) {
   const projections = readRuntimeCoreProjections(state || {});
-  const coreRows = Array.isArray(projections.pendingInteractions)
+  return Array.isArray(projections.pendingInteractions)
     ? projections.pendingInteractions.filter(isPendingInteractionProjectionRow)
     : [];
-  const legacyRows = Array.isArray(state?.runtimeTracking?.pendingInteractions)
-    ? state.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)
-    : [];
-  const seen = new Set(coreRows.map((entry) => compactString(entry.id)));
-  return [
-    ...cloneJson(coreRows),
-    ...cloneJson(legacyRows.filter((entry) => !seen.has(compactString(entry.id))))
-  ];
+}
+
+function stateHasCoreV2RuntimeAuthority(state = null) {
+  const projections = readRuntimeCoreProjections(state || {});
+  return projections.runtimeAuthority === 'coreStoreV2'
+    || projections.turnLedger?.runtimeAuthority === 'coreStoreV2';
 }
 
 function mergeablePendingInteractionProjectionRows(state = null) {
@@ -912,7 +1057,7 @@ function responseProjectionCompatibilityFields(entry = {}, operation = 'fresherR
 
 function responseRowsForFresherMerge(state = null) {
   const projections = readRuntimeCoreProjections(state || {});
-  const rows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
+  const rows = coreResponseProjectionRows(projections);
   return rows.map((entry) => ({
     ...cloneJson(entry),
     ...responseProjectionCompatibilityFields(entry)
@@ -960,28 +1105,95 @@ function mergeResponseProjectionRows(candidateRows = [], memoryRows = []) {
   return output;
 }
 
+function coreResponseProjectionRows(projection = {}) {
+  const rows = Array.isArray(projection?.responses) ? projection.responses : projection?.responseLedger;
+  return Array.isArray(rows) ? rows : [];
+}
+
+function coreProjectionWithoutResponseLedgerAlias(projection = {}) {
+  const next = cloneJson(projection || {});
+  if (!Array.isArray(next.responses) && Array.isArray(next.responseLedger)) {
+    next.responses = cloneJson(next.responseLedger);
+  }
+  delete next.responseLedger;
+  return next;
+}
+
+function mergeFresherSourceSettlementRoots(candidateState = null, inMemoryState = null) {
+  if (!candidateState || !inMemoryState) return cloneJson(candidateState || null);
+  const candidate = stateFreshnessCounters(candidateState);
+  const inMemory = stateFreshnessCounters(inMemoryState);
+  const next = cloneJson(candidateState);
+  const sameSave = sameCampaignSaveBinding(
+    stateBindingForFreshness(candidateState),
+    stateBindingForFreshness(inMemoryState)
+  );
+  const copyIfFresher = (root, keys = []) => {
+    if (!keys.some((key) => inMemory[key] > candidate[key])) return;
+    next[root] = cloneJson(inMemoryState[root] || null);
+  };
+  copyIfFresher('sceneHandshake', ['sceneHandshakeSettlements', 'sceneHandshakeReviews']);
+  copyIfFresher('mission', ['missionOpenAssignments']);
+  copyIfFresher('ship', ['shipTechnicalDebt']);
+  copyIfFresher('threadLedger', ['threadLedgerRecords']);
+  if (
+    inMemory.commandLogEntries > candidate.commandLogEntries
+    && (
+      inMemory.sceneHandshakeSettlements > candidate.sceneHandshakeSettlements
+      || inMemory.missionOpenAssignments > candidate.missionOpenAssignments
+      || inMemory.shipTechnicalDebt > candidate.shipTechnicalDebt
+      || inMemory.threadLedgerRecords > candidate.threadLedgerRecords
+    )
+  ) {
+    next.commandLog = cloneJson(inMemoryState.commandLog || null);
+  }
+  if (sameSave && inMemory.promptContextRevision > candidate.promptContextRevision) {
+    next.campaignChatBinding = {
+      ...cloneJson(next.campaignChatBinding || {}),
+      promptContextRevision: inMemoryState.campaignChatBinding?.promptContextRevision || inMemory.promptContextRevision,
+      promptContextHash: inMemoryState.campaignChatBinding?.promptContextHash || next.campaignChatBinding?.promptContextHash || null
+    };
+    if (inMemoryState.directiveRuntimeEvidence?.lensPromptRevisionRecord) {
+      next.directiveRuntimeEvidence = {
+        ...cloneJson(next.directiveRuntimeEvidence || {}),
+        lensPromptRevisionRecord: cloneJson(inMemoryState.directiveRuntimeEvidence.lensPromptRevisionRecord)
+      };
+    }
+    if (inMemoryState.runtimeResume?.promptContextRevision) {
+      next.runtimeResume = {
+        ...cloneJson(next.runtimeResume || {}),
+        promptContextRevision: inMemoryState.runtimeResume.promptContextRevision,
+        externalPromptEnvironmentRef: cloneJson(inMemoryState.runtimeResume.externalPromptEnvironmentRef || next.runtimeResume?.externalPromptEnvironmentRef || null)
+      };
+    }
+  }
+  return next;
+}
+
 function mergeFresherResponseLedgerProjection(candidateState = null, inMemoryState = null) {
   if (!candidateState || !inMemoryState) return candidateState;
   const candidateTracking = candidateState.runtimeTracking || {};
-  const candidateEvidence = candidateState.directiveRuntimeEvidence?.coreStoreReadProjections || {};
+  const mergedCandidate = mergeFresherSourceSettlementRoots(candidateState, inMemoryState);
+  const candidateEvidence = mergedCandidate.directiveRuntimeEvidence?.coreStoreReadProjections || {};
   const memoryEvidence = readRuntimeCoreProjections(inMemoryState || {});
   const memoryLedger = responseRowsForFresherMerge(inMemoryState);
-  if (!memoryLedger.length) return candidateState;
-  const responseLedger = mergeResponseProjectionRows(candidateEvidence.responseLedger, memoryLedger);
+  if (!memoryLedger.length) return mergedCandidate;
+  const responses = mergeResponseProjectionRows(coreResponseProjectionRows(candidateEvidence), memoryLedger);
   const responseLedgerRevision = Math.max(
     Number(candidateEvidence.responseLedgerRevision) || 0,
     Number(memoryEvidence.responseLedgerRevision) || 0
   );
+  const baseEvidence = coreProjectionWithoutResponseLedgerAlias(candidateEvidence);
   return {
-    ...cloneJson(candidateState),
+    ...cloneJson(mergedCandidate),
     directiveRuntimeEvidence: {
-      ...cloneJson(candidateState.directiveRuntimeEvidence || {}),
+      ...cloneJson(mergedCandidate.directiveRuntimeEvidence || {}),
       coreStoreReadProjections: {
-        ...cloneJson(candidateEvidence),
+        ...baseEvidence,
         kind: candidateEvidence.kind || memoryEvidence.kind || 'directive.coreStoreReadProjections.v1',
         runtimeAuthority: candidateEvidence.runtimeAuthority || memoryEvidence.runtimeAuthority,
         responseLedgerRevision,
-        responseLedger
+        responses
       }
     },
     runtimeTracking: cloneJson(candidateTracking)
@@ -1023,8 +1235,19 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
 
   const candidate = stateFreshnessCounters(candidateState);
   const inMemory = stateFreshnessCounters(inMemoryState);
-  if (inMemory.turnLedgerEntries > candidate.turnLedgerEntries) return true;
-  if (candidate.turnLedgerEntries > inMemory.turnLedgerEntries) return false;
+  const hasCoreV2RuntimeAuthority = stateHasCoreV2RuntimeAuthority(candidateState)
+    || stateHasCoreV2RuntimeAuthority(inMemoryState);
+  const sourceSettlementKeys = [
+    'sceneHandshakeSettlements',
+    'sceneHandshakeReviews',
+    'missionOpenAssignments',
+    'shipTechnicalDebt',
+    'threadLedgerRecords'
+  ];
+  const candidateHasSourceSettlementGrowth = sourceSettlementKeys.some((key) => candidate[key] > inMemory[key]);
+  const inMemoryHasSourceSettlementGrowth = sourceSettlementKeys.some((key) => inMemory[key] > candidate[key]);
+  if (!candidateHasSourceSettlementGrowth && inMemory.turnLedgerEntries > candidate.turnLedgerEntries) return true;
+  if (!inMemoryHasSourceSettlementGrowth && candidate.turnLedgerEntries > inMemory.turnLedgerEntries) return false;
   if (
     inMemory.responseLedgerEntries >= candidate.responseLedgerEntries
     && inMemory.responseLedgerIntegritySelections > candidate.responseLedgerIntegritySelections
@@ -1037,6 +1260,11 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   const materialKeys = [
     'promptContextRevision',
     'commandLogEntries',
+    'sceneHandshakeSettlements',
+    'sceneHandshakeReviews',
+    'missionOpenAssignments',
+    'shipTechnicalDebt',
+    'threadLedgerRecords',
     'turnLedgerEntries',
     'ingressLedgerEntries',
     'responseLedgerEntries',
@@ -1061,10 +1289,12 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   if (hasMaterialGrowth && !hasMaterialRegression) return true;
   if (hasMaterialRegression && !hasMaterialGrowth) return false;
 
-  if (inMemory.revision > candidate.revision) return true;
-  if (inMemory.revision < candidate.revision) return false;
-  if (inMemory.mechanicsRevision > candidate.mechanicsRevision) return true;
-  if (inMemory.mechanicsRevision < candidate.mechanicsRevision) return false;
+  if (!hasCoreV2RuntimeAuthority) {
+    if (inMemory.revision > candidate.revision) return true;
+    if (inMemory.revision < candidate.revision) return false;
+    if (inMemory.mechanicsRevision > candidate.mechanicsRevision) return true;
+    if (inMemory.mechanicsRevision < candidate.mechanicsRevision) return false;
+  }
 
   return false;
 }
@@ -1113,11 +1343,15 @@ function mergeRuntimePersistProjectionRows(priorRows = [], nextRows = []) {
 }
 
 function mergeRuntimePersistCoreProjections(priorProjection = null, nextProjection = null) {
-  if (!isObject(priorProjection)) return cloneJson(nextProjection || null);
-  if (!isObject(nextProjection)) return cloneJson(priorProjection || null);
+  if (!isObject(priorProjection)) return isObject(nextProjection) ? coreProjectionWithoutResponseLedgerAlias(nextProjection) : cloneJson(nextProjection || null);
+  if (!isObject(nextProjection)) return coreProjectionWithoutResponseLedgerAlias(priorProjection);
+  const priorNormalized = coreProjectionWithoutResponseLedgerAlias(priorProjection);
+  const nextNormalized = coreProjectionWithoutResponseLedgerAlias(nextProjection);
+  const nextHasRuntimeAuthority = nextProjection.runtimeAuthority === 'coreStoreV2'
+    || nextProjection.turnLedger?.runtimeAuthority === 'coreStoreV2';
   const merged = {
-    ...cloneJson(priorProjection),
-    ...cloneJson(nextProjection),
+    ...priorNormalized,
+    ...nextNormalized,
     kind: nextProjection.kind || priorProjection.kind || 'directive.coreStoreReadProjections.v1',
     runtimeAuthority: nextProjection.runtimeAuthority || priorProjection.runtimeAuthority || null,
     responseLedgerRevision: Math.max(
@@ -1126,31 +1360,47 @@ function mergeRuntimePersistCoreProjections(priorProjection = null, nextProjecti
     )
   };
   if (isObject(priorProjection.turnLedger) || isObject(nextProjection.turnLedger)) {
+    const nextTurnLedger = isObject(nextProjection.turnLedger) ? nextProjection.turnLedger : null;
+    const nextTurnLedgerAuthority = nextHasRuntimeAuthority || nextTurnLedger?.runtimeAuthority === 'coreStoreV2';
     merged.turnLedger = {
       ...cloneJson(priorProjection.turnLedger || {}),
       ...cloneJson(nextProjection.turnLedger || {}),
-      entries: mergeRuntimePersistProjectionRows(
-        priorProjection.turnLedger?.entries,
-        nextProjection.turnLedger?.entries
-      )
+      entries: nextTurnLedgerAuthority && Array.isArray(nextTurnLedger?.entries)
+        ? cloneJson(nextTurnLedger.entries)
+        : mergeRuntimePersistProjectionRows(
+          priorProjection.turnLedger?.entries,
+          nextProjection.turnLedger?.entries
+        ),
+      replacementHistory: nextTurnLedgerAuthority && Array.isArray(nextTurnLedger?.replacementHistory)
+        ? cloneJson(nextTurnLedger.replacementHistory)
+        : mergeRuntimePersistProjectionRows(
+          priorProjection.turnLedger?.replacementHistory,
+          nextProjection.turnLedger?.replacementHistory
+        )
     };
   }
   for (const key of [
     'ingressLedger',
-    'responseLedger',
+    'responses',
     'recoveryJournal',
     'sidecarDiagnostics',
     'backgroundBatches',
     'modelCallDiagnostics'
   ]) {
-    if (Array.isArray(priorProjection[key]) || Array.isArray(nextProjection[key])) {
-      merged[key] = mergeRuntimePersistProjectionRows(priorProjection[key], nextProjection[key]);
+    if (Array.isArray(priorNormalized[key]) || Array.isArray(nextNormalized[key])) {
+      merged[key] = nextHasRuntimeAuthority && Array.isArray(nextNormalized[key])
+        ? cloneJson(nextNormalized[key])
+        : mergeRuntimePersistProjectionRows(priorNormalized[key], nextNormalized[key]);
     }
   }
   if (Array.isArray(priorProjection.pendingInteractions) || Array.isArray(nextProjection.pendingInteractions)) {
-    merged.pendingInteractions = mergeRuntimePersistProjectionRows(
-      priorProjection.pendingInteractions,
-      nextProjection.pendingInteractions
+    merged.pendingInteractions = (
+      nextHasRuntimeAuthority && Array.isArray(nextProjection.pendingInteractions)
+        ? cloneJson(nextProjection.pendingInteractions)
+        : mergeRuntimePersistProjectionRows(
+          priorProjection.pendingInteractions,
+          nextProjection.pendingInteractions
+        )
     ).filter((entry) => entry?.kind !== 'terminalOutcomeDecision');
   }
   return merged;
@@ -1191,9 +1441,6 @@ function mergeRuntimePersistPendingStates(priorState = null, nextState = null, {
   const mergedTracking = {
     ...cloneJson(nextState.runtimeTracking || {})
   };
-
-  if (prior.revision > next.revision) mergedTracking.revision = prior.revision;
-  if (prior.mechanicsRevision > next.mechanicsRevision) mergedTracking.mechanicsRevision = prior.mechanicsRevision;
   if (prior.promptContextRevision > next.promptContextRevision) {
     merged.campaignChatBinding = {
       ...cloneJson(nextState.campaignChatBinding || {}),
@@ -1201,10 +1448,19 @@ function mergeRuntimePersistPendingStates(priorState = null, nextState = null, {
     };
   }
   if (prior.commandLogEntries > next.commandLogEntries) merged.commandLog = cloneJson(priorState.commandLog || null);
-  if (prior.turnLedgerEntries > next.turnLedgerEntries) merged.turnLedger = cloneJson(priorState.turnLedger || null);
+  const nextCoreProjectionForFreshness = readRuntimeCoreProjections(nextState || {});
+  const nextHasAuthoritativeTurnProjection = (
+    nextCoreProjectionForFreshness.runtimeAuthority === 'coreStoreV2'
+    || nextCoreProjectionForFreshness.turnLedger?.runtimeAuthority === 'coreStoreV2'
+  ) && Array.isArray(nextCoreProjectionForFreshness.turnLedger?.entries);
+  if (!nextHasAuthoritativeTurnProjection && prior.turnLedgerEntries > next.turnLedgerEntries) {
+    merged.turnLedger = cloneJson(priorState.turnLedger || null);
+  }
   const priorPendingRows = mergeablePendingInteractionProjectionRows(priorState);
   const nextPendingRows = mergeablePendingInteractionProjectionRows(nextState);
-  if (priorPendingRows.length > nextPendingRows.length) {
+  const nextHasAuthoritativePendingProjection = nextCoreProjectionForFreshness.runtimeAuthority === 'coreStoreV2'
+    && Array.isArray(nextCoreProjectionForFreshness.pendingInteractions);
+  if (!nextHasAuthoritativePendingProjection && priorPendingRows.length > nextPendingRows.length) {
     merged.directiveRuntimeEvidence = {
       ...cloneJson(nextState.directiveRuntimeEvidence || {}),
       coreStoreReadProjections: {
@@ -1220,9 +1476,15 @@ function mergeRuntimePersistPendingStates(priorState = null, nextState = null, {
       || prior.endConditionBranchRecords > next.endConditionBranchRecords
       || prior.endConditionContinuationFrames > next.endConditionContinuationFrames
     )
-    && isObject(priorState.runtimeTracking?.endConditionLedger)
+    && isObject(priorState.directiveRuntimeEvidence?.coreStoreReadProjections?.terminalDecisionLedger)
   ) {
-    mergedTracking.endConditionLedger = cloneJson(priorState.runtimeTracking.endConditionLedger);
+    merged.directiveRuntimeEvidence = {
+      ...cloneJson(merged.directiveRuntimeEvidence || nextState.directiveRuntimeEvidence || {}),
+      coreStoreReadProjections: {
+        ...cloneJson(merged.directiveRuntimeEvidence?.coreStoreReadProjections || nextState.directiveRuntimeEvidence?.coreStoreReadProjections || {}),
+        terminalDecisionLedger: cloneJson(priorState.directiveRuntimeEvidence.coreStoreReadProjections.terminalDecisionLedger)
+      }
+    };
   }
   if (Object.keys(mergedTracking).length) merged.runtimeTracking = mergedTracking;
 
@@ -1235,12 +1497,8 @@ function mergeRuntimePersistPendingStates(priorState = null, nextState = null, {
     };
   }
 
-  const priorProjection = priorState.directiveRuntimeEvidence?.coreStoreReadProjections
-    || priorState.runtimeTracking?.directiveRuntimeEvidence?.coreStoreReadProjections
-    || null;
-  const nextProjection = nextState.directiveRuntimeEvidence?.coreStoreReadProjections
-    || nextState.runtimeTracking?.directiveRuntimeEvidence?.coreStoreReadProjections
-    || null;
+  const priorProjection = priorState.directiveRuntimeEvidence?.coreStoreReadProjections || null;
+  const nextProjection = nextState.directiveRuntimeEvidence?.coreStoreReadProjections || null;
   const mergedProjection = mergeRuntimePersistCoreProjections(priorProjection, nextProjection);
   if (mergedProjection) {
     merged.directiveRuntimeEvidence = {
@@ -1566,39 +1824,17 @@ function rowsCoveredByCoreProjection(coreRows = [], legacyRows = [], keySpecs = 
   });
 }
 
-function compatibilityRowsThatCanBlockCoreAuthority(legacyRows = [], coreRows = []) {
-  const rows = Array.isArray(legacyRows) ? legacyRows : [];
-  if (!Array.isArray(coreRows) || coreRows.length === 0) return rows;
-  return rows.filter((row) => {
-    const authority = compactString(row?.authority);
-    if (authority === 'compatibilityProjectionUnavailable') return false;
-    return Boolean(row?.compatibilityMirror || compactString(row?.projectionSource) === 'coreStoreV2');
-  });
-}
-
 function coreProjectionHasRuntimeAuthority(projections = {}, existingState = null) {
   if (!existingState || typeof existingState !== 'object') return true;
-  const runtimeTracking = existingState.runtimeTracking || {};
+  const hasCoreRuntimeProjection = projections.runtimeAuthority === 'coreStoreV2'
+    || projections.turnLedger?.runtimeAuthority === 'coreStoreV2'
+    || (Array.isArray(projections.turnLedger?.entries) && projections.turnLedger.entries.length > 0)
+    || (Array.isArray(projections.turnLedger?.replacementHistory) && projections.turnLedger.replacementHistory.length > 0)
+    || (Array.isArray(projections.ingressLedger) && projections.ingressLedger.length > 0)
+    || coreResponseProjectionRows(projections).length > 0;
+  if (hasCoreRuntimeProjection) return true;
   const coreTurnLedger = projections.turnLedger || {};
-  const ingressRows = Array.isArray(projections.ingressLedger) ? projections.ingressLedger : [];
-  const responseRows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
-  return rowsCoveredByCoreProjection(ingressRows, compatibilityRowsThatCanBlockCoreAuthority(runtimeTracking.ingressLedger, ingressRows), [
-    'id',
-    'ingressId',
-    'hostMessageId',
-    'transactionId',
-    'coreTransactionId',
-    'sourceFrameId'
-  ])
-    && rowsCoveredByCoreProjection(responseRows, compatibilityRowsThatCanBlockCoreAuthority(runtimeTracking.responseLedger, responseRows), [
-      'id',
-      'responseId',
-      'hostMessageId',
-      'transactionId',
-      'coreTransactionId',
-      ['turnId', 'outcomeId', 'responseKind']
-    ])
-    && rowsCoveredByCoreProjection(coreTurnLedger.entries, existingState.turnLedger?.entries, [
+  return rowsCoveredByCoreProjection(coreTurnLedger.entries, existingState.turnLedger?.entries, [
       'id',
       'turnId',
       'transactionId',
@@ -1619,22 +1855,25 @@ function coreProjectionHasRuntimeAuthority(projections = {}, existingState = nul
 
 function coreProjectionFreshnessEvidence(projections = null, existingState = null) {
   if (!projections || typeof projections !== 'object') return null;
+  const hasRuntimeAuthority = coreProjectionHasRuntimeAuthority(projections, existingState);
   const evidence = {
     kind: 'directive.coreStoreReadProjections.v1',
     turnLedger: {
       entries: cloneJson(Array.isArray(projections.turnLedger?.entries) ? projections.turnLedger.entries : []),
       replacementHistory: cloneJson(Array.isArray(projections.turnLedger?.replacementHistory) ? projections.turnLedger.replacementHistory : []),
       lastCommittedOutcomeId: projections.turnLedger?.lastCommittedOutcomeId || null,
-      lastReplacedOutcomeId: projections.turnLedger?.lastReplacedOutcomeId || null
+      lastReplacedOutcomeId: projections.turnLedger?.lastReplacedOutcomeId || null,
+      runtimeAuthority: hasRuntimeAuthority ? 'coreStoreV2' : null
     },
     ingressLedger: cloneJson(Array.isArray(projections.ingressLedger) ? projections.ingressLedger : []),
-    responseLedger: cloneJson(Array.isArray(projections.responseLedger) ? projections.responseLedger : []),
+    responses: cloneJson(coreResponseProjectionRows(projections)),
     recoveryJournal: cloneJson(Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []),
     sidecarDiagnostics: cloneJson(Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []),
     backgroundBatches: cloneJson(Array.isArray(projections.backgroundBatches) ? projections.backgroundBatches : []),
-    commandBearingEvidence: cloneJson(Array.isArray(projections.commandBearingEvidence) ? projections.commandBearingEvidence : [])
+    commandBearingEvidence: cloneJson(Array.isArray(projections.commandBearingEvidence) ? projections.commandBearingEvidence : []),
+    revisions: cloneJson(isObject(projections.revisions) ? projections.revisions : {})
   };
-  if (coreProjectionHasRuntimeAuthority(projections, existingState)) {
+  if (hasRuntimeAuthority) {
     evidence.runtimeAuthority = 'coreStoreV2';
   }
   return evidence;
@@ -1649,41 +1888,46 @@ function turnProjectionMatchKey(entry = null) {
 }
 
 function mergeCoreTurnLedgerProjection(turnLedger = null, coreTurnLedger = null) {
-  if (!isObject(turnLedger) || !Array.isArray(turnLedger.entries) || !Array.isArray(coreTurnLedger?.entries)) {
+  const hasCoreEntries = Array.isArray(coreTurnLedger?.entries);
+  const hasCoreReplacementHistory = Array.isArray(coreTurnLedger?.replacementHistory);
+  if (!hasCoreEntries && !hasCoreReplacementHistory) {
     return turnLedger;
   }
-  const projectedByKey = new Map();
-  for (const projected of coreTurnLedger.entries) {
-    const key = turnProjectionMatchKey(projected);
-    if (key) projectedByKey.set(key, projected);
+  const existingEntries = Array.isArray(turnLedger?.entries) ? turnLedger.entries : [];
+  const coreEntries = hasCoreEntries ? coreTurnLedger.entries : [];
+  if (
+    hasCoreEntries
+    && coreEntries.length === 0
+    && existingEntries.length > 0
+    && coreTurnLedger?.runtimeAuthority !== 'coreStoreV2'
+  ) {
+    return turnLedger;
   }
-  if (!projectedByKey.size) return turnLedger;
-  return {
-    ...cloneJson(turnLedger),
-    entries: turnLedger.entries.map((entry) => {
-      const projected = projectedByKey.get(turnProjectionMatchKey(entry));
-      if (!projected) return cloneJson(entry);
+  const entries = hasCoreEntries
+    ? coreEntries.map((projected) => {
       const checkpointRef = compactCheckpointRef(
-        entry.coreCheckpointRef
-        || entry.checkpointRef
-        || entry.v2CheckpointRef
-        || projected.coreCheckpointRef
+        projected.coreCheckpointRef
         || projected.checkpointRef
         || projected.v2CheckpointRef
       );
       return {
-        ...cloneJson(entry),
-        coreTransactionId: compactString(entry.coreTransactionId || projected.coreTransactionId || projected.transactionId) || entry.coreTransactionId,
-        transactionId: compactString(entry.transactionId || projected.transactionId || projected.coreTransactionId) || entry.transactionId,
-        snapshotBeforeRetained: entry.snapshotBeforeRetained === true || projected.snapshotBeforeRetained === true || undefined,
+        ...cloneJson(projected),
+        coreTransactionId: compactString(projected.coreTransactionId || projected.transactionId) || projected.coreTransactionId,
+        transactionId: compactString(projected.transactionId || projected.coreTransactionId) || projected.transactionId,
+        snapshotBeforeRetained: projected.snapshotBeforeRetained === true || undefined,
         coreCheckpointRef: checkpointRef || undefined
       };
-    }),
-    lastCommittedOutcomeId: turnLedger.lastCommittedOutcomeId || coreTurnLedger.lastCommittedOutcomeId || undefined,
-    replacementHistory: Array.isArray(turnLedger.replacementHistory) && turnLedger.replacementHistory.length
-      ? cloneJson(turnLedger.replacementHistory)
-      : cloneJson(coreTurnLedger.replacementHistory || undefined),
-    lastReplacedOutcomeId: turnLedger.lastReplacedOutcomeId || coreTurnLedger.lastReplacedOutcomeId || undefined
+    })
+    : [];
+  const lastCommittedOutcomeId = Object.prototype.hasOwnProperty.call(coreTurnLedger || {}, 'lastCommittedOutcomeId')
+    ? (coreTurnLedger.lastCommittedOutcomeId || null)
+    : (entries.at(-1)?.outcomeId || null);
+  return {
+    ...(isObject(turnLedger) ? cloneJson(turnLedger) : {}),
+    entries,
+    lastCommittedOutcomeId: lastCommittedOutcomeId || undefined,
+    replacementHistory: hasCoreReplacementHistory ? cloneJson(coreTurnLedger.replacementHistory) : undefined,
+    lastReplacedOutcomeId: coreTurnLedger?.lastReplacedOutcomeId || undefined
   };
 }
 
@@ -1930,10 +2174,13 @@ export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
   boundedReplacementHistory,
   coreProjectionFreshnessEvidence,
+  mergeCoreTurnLedgerProjection,
   assertFreshOutcomeRerunReplacementTarget,
   assertOutcomeReplacementCheckpointBase,
   findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
+  activeSessionCacheCurrentForSave,
+  promptPacketFromLensFlushResult,
   mergeFresherResponseLedgerProjection,
   mergeRuntimePersistPendingRequest,
   restoreCommittedOutcomeState,
@@ -1985,18 +2232,18 @@ export function createDirectiveRuntimeApp({
   const storageAdapter = adapter || runtimeHost?.storage;
   let campaignState = null;
   async function forgeSourceCurrentForRuntime(payload = {}) {
-    const tracked = campaignState ? initializeCampaignRuntimeTracking(campaignState) : null;
-    let ledger = createRuntimeLedgerView(tracked || {}, { runtimeOverlay: true }).ingressLedger || [];
+    let projections = null;
     try {
-      const projections = typeof runtimeCoreTurnStore?.readProjections === 'function'
+      projections = typeof runtimeCoreTurnStore?.readProjections === 'function'
         ? await runtimeCoreTurnStore.readProjections()
         : null;
-      if (Array.isArray(projections?.ingressLedger) && projections.ingressLedger.length) {
-        ledger = projections.ingressLedger;
-      }
     } catch {
-      // Fall back to the materialized runtime ledger view; stale handling below remains fail-closed.
+      return { ok: false, reason: 'source-core-projection-unavailable' };
     }
+    if (!Array.isArray(projections?.ingressLedger) || projections.ingressLedger.length === 0) {
+      return { ok: false, reason: 'source-core-projection-missing' };
+    }
+    const ledger = projections.ingressLedger;
     const sourceFrameId = compactString(payload.sourceFrameRef?.id || payload.sourceFrameRef?.sourceFrameId);
     const sourceToken = compactString(payload.sourceToken);
     const transactionId = compactString(payload.transactionId);
@@ -2033,13 +2280,19 @@ export function createDirectiveRuntimeApp({
     const requestedIngressId = compactString(metadata.ingressId || metadata.sourceIngressId);
     const targetIngressId = requestedIngressId || activeIngressId;
     if (!targetIngressId) return null;
-    const ingress = (createRuntimeLedgerView(tracked || {}, { runtimeOverlay: true }).ingressLedger || [])
+    const ingress = (createRuntimeLedgerView(tracked || {}).ingressLedger || [])
       .find((entry) => entry?.id === targetIngressId) || null;
-    const transactionId = compactString(ingress?.coreTransactionId || ingress?.transactionId || metadata.coreTransactionId || metadata.transactionId);
+    const transactionId = compactString(
+      ingress?.coreTransactionId
+      || ingress?.transactionId
+      || metadata.coreTransactionId
+      || metadata.transactionId
+    );
     if (!transactionId) return null;
     const explicitBackgroundTarget = metadata.coreDiagnosticTarget === 'advisoryEnrichment'
       || (event?.roleId === 'missionDirectorAdvisor' && requestedIngressId);
-    if (!explicitBackgroundTarget && !['classifying', 'classified'].includes(compactString(ingress?.status))) return null;
+    const targetStatus = compactString(ingress?.status);
+    if (!explicitBackgroundTarget && !['classifying', 'classified'].includes(targetStatus)) return null;
     return {
       transactionId,
       ingressId: ingress?.id || requestedIngressId || null,
@@ -3035,30 +3288,25 @@ export function createDirectiveRuntimeApp({
   function lensCampaignContextForPromptSync(state = null, assets = null) {
     const binding = bindingFromState(state);
     const freshness = stateFreshnessCounters(state);
+    const coreRevisions = isObject(state?.directiveRuntimeEvidence?.coreStoreReadProjections?.revisions)
+      ? state.directiveRuntimeEvidence.coreStoreReadProjections.revisions
+      : {};
+    const coreMechanicsRevision = Math.max(0, Number(coreRevisions.mechanics) || 0);
+    const coreRuntimeRevision = Math.max(0, Number(coreRevisions.runtime) || 0);
+    const promptContextRevision = freshness.promptContextRevision;
     const domainVersionVector = {
-      revision: freshness.revision,
-      mechanicsRevision: freshness.mechanicsRevision,
-      commandLogEntries: freshness.commandLogEntries,
-      turnLedgerEntries: freshness.turnLedgerEntries,
-      ingressLedgerEntries: freshness.ingressLedgerEntries,
-      responseLedgerEntries: freshness.responseLedgerEntries,
+      mechanicsRevision: coreMechanicsRevision || null,
       responseLedgerRevision: freshness.responseLedgerRevision,
-      responseLedgerIntegritySelections: freshness.responseLedgerIntegritySelections,
-      recoveryJournalEntries: freshness.recoveryJournalEntries,
-      sidecarJournalEntries: freshness.sidecarJournalEntries,
-      pendingInteractions: freshness.pendingInteractions,
-      endConditionDetections: freshness.endConditionDetections,
-      endConditionDecisions: freshness.endConditionDecisions,
-      endConditionBranchRecords: freshness.endConditionBranchRecords,
-      endConditionContinuationFrames: freshness.endConditionContinuationFrames
+      responseLedgerIntegritySelections: freshness.responseLedgerIntegritySelections
     };
     return {
       campaignId: compactString(state?.campaign?.id || binding?.campaignId),
       saveId: compactString(binding?.saveId || controller?.activeSaveId),
       chatId: compactString(binding?.chatId),
       branchId: compactString(binding?.branchId) || 'main',
-      mechanicsRevision: freshness.mechanicsRevision,
-      runtimeRevision: freshness.revision,
+      promptContextRevision,
+      mechanicsRevision: coreMechanicsRevision || null,
+      runtimeRevision: coreRuntimeRevision || null,
       domainVersionVector,
       policyHash: hashStableJson({
         simulationMode: state?.settings?.simulationMode || null,
@@ -3205,19 +3453,28 @@ export function createDirectiveRuntimeApp({
     return persistRuntimeCampaignState(campaignState, reason);
   }
 
-  async function loadCampaignStateForSessionSave(saveId = null, binding = null) {
+  async function loadCampaignStateForSessionSave(saveId = null, binding = null, {
+    saveRecord = null
+  } = {}) {
     const id = compactString(saveId);
     if (!id) return null;
     await settleRuntimePersistenceQueue();
     const loadedBinding = bindingFromState(campaignState);
     const activeSaveId = compactString(controller?.activeSaveId);
-    if (campaignState && loadedBinding?.saveId === id && (!activeSaveId || activeSaveId === id)) {
+    if (loadedBinding?.saveId === id && activeSessionCacheCurrentForSave(campaignState, {
+      saveId: id,
+      activeSaveId,
+      saveRecord
+    })) {
       return campaignState;
     }
-    campaignState = stateWithLoadedSaveBinding(
-      applyRuntimeSettings(await controller.loadGame({ saveId: id })),
-      id,
-      binding
+    campaignState = stateWithLoadedSaveHeadEvidence(
+      stateWithLoadedSaveBinding(
+        applyRuntimeSettings(await controller.loadGame({ saveId: id })),
+        id,
+        binding
+      ),
+      { saveRecord, saveId: id }
     );
     resetActiveCoreTurnStore('session-save-loaded');
     pendingDirectorTurn = null;
@@ -3259,6 +3516,10 @@ export function createDirectiveRuntimeApp({
   }
 
   function runtimeRevisionOf(state = null) {
+    const revisions = isObject(state?.directiveRuntimeEvidence?.coreStoreReadProjections?.revisions)
+      ? state.directiveRuntimeEvidence.coreStoreReadProjections.revisions
+      : {};
+    if (Number.isFinite(Number(revisions.runtime))) return Math.max(0, Number(revisions.runtime) || 0);
     return Number(state?.runtimeTracking?.revision || 0);
   }
 
@@ -3284,8 +3545,24 @@ export function createDirectiveRuntimeApp({
     const runtimeRecoveryJournal = runtimeLedgerView.recoveryJournal || [];
     const modelCallDiagnostics = coreModelCallDiagnosticsForState(state);
     const legacyModelCallTelemetry = legacyModelCallTelemetryForState(state);
+    const binding = cloneJson(state.campaignChatBinding || null);
+    if (binding) delete binding.promptContext;
+    const lensPromptRecord = state.directiveRuntimeEvidence?.lensPromptRevisionRecord || {};
+    const promptHash = compactString(
+      lensPromptRecord.hash
+      || lensPromptRecord.packetHash
+      || lensPromptRecord.contentHash
+      || state.campaignChatBinding?.promptContextHash
+      || state.runtimeResume?.promptContextHash
+    );
+    const promptRevision = Math.max(
+      0,
+      Number(lensPromptRecord.revision) || 0,
+      Number(state.campaignChatBinding?.promptContextRevision) || 0,
+      Number(state.runtimeResume?.promptContextRevision) || 0
+    );
     return {
-      binding: cloneJson(state.campaignChatBinding || null),
+      binding,
       activation: cloneJson(state.activationJournal || null),
       openingScene: campaignOpeningSceneStatus(state),
       tracking: state.runtimeTracking ? {
@@ -3306,7 +3583,16 @@ export function createDirectiveRuntimeApp({
         legacyModelCallCount: legacyModelCallTelemetry.length,
         latestLegacyModelCall: cloneJson(legacyModelCallTelemetry.at(-1) || null)
       } : null,
-      prompt: cloneJson(state.campaignChatBinding?.promptContext || null),
+      prompt: {
+        kind: compactString(lensPromptRecord.kind) || 'directive.lensPromptRevisionRecord.v1',
+        revision: promptRevision,
+        hash: promptHash || null,
+        status: compactString(lensPromptRecord.status) || null,
+        installedAt: compactString(lensPromptRecord.installedAt) || null,
+        blockCount: Number(lensPromptRecord.blockCount) || 0,
+        directiveOwnedPromptKeyCount: Number(lensPromptRecord.directiveOwnedPromptKeyCount) || 0,
+        active: Boolean(promptRevision || promptHash)
+      },
       manualSaveGuard: cloneJson(saveGuard || null),
       pendingInteractions: cloneJson(pendingInteractionProjectionRows(state)),
       recovery: cloneJson(runtimeRecoveryJournal),
@@ -3538,7 +3824,9 @@ export function createDirectiveRuntimeApp({
     let guard = null;
     if (save) {
       try {
-        resolvedState = await loadCampaignStateForSessionSave(save.id, bindingFromSave(save) || normalizedBinding(metadata || null));
+        resolvedState = await loadCampaignStateForSessionSave(save.id, bindingFromSave(save) || normalizedBinding(metadata || null), {
+          saveRecord: save
+        });
         resolvedState = await preferFresherInMemoryChatState(resolvedState, inMemoryStateBeforeRefresh, current.activeChatId);
         const binding = bindingFromState(resolvedState);
         if (binding?.chatId && binding.chatId !== current.activeChatId) {
@@ -4254,7 +4542,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function runtimeIngressForContext(context = {}) {
-    const ledger = createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [];
+    const ledger = createRuntimeLedgerView(campaignState || {}).ingressLedger || [];
     const ingressId = compactString(context.ingressId);
     if (ingressId) {
       const byId = ledger.find((entry) => entry?.id === ingressId);
@@ -4319,7 +4607,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function runtimeResponseForContext(context = {}) {
-    const ledger = createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).responseLedger || [];
+    const ledger = createRuntimeLedgerView(campaignState || {}).responseLedger || [];
     const responseId = compactString(context.responseId);
     if (responseId) {
       const byId = ledger.find((entry) => compactString(entry?.id) === responseId);
@@ -4631,11 +4919,11 @@ export function createDirectiveRuntimeApp({
       turnId: guard.turnId,
       ingressId: guard.resolutionIngressId || guard.ingressId
     });
-    if (guard.responseHostMessageId && !response) return false;
+    if (guard.responseId && !response) return false;
     if (response && staleStatuses.has(compactString(response.status))) return false;
     if (response?.invalidatedAt || response?.deletedAt || response?.editedAt || response?.invalidationType) return false;
     if (guard.responseId && compactString(response?.id) !== guard.responseId) return false;
-    if (guard.responseHostMessageId && compactString(response?.hostMessageId) !== guard.responseHostMessageId) return false;
+    if (response && guard.responseHostMessageId && compactString(response.hostMessageId) !== guard.responseHostMessageId) return false;
     if (guard.outcomeId && !hasTurnLedgerOutcome(campaignState, guard.outcomeId) && !commandLogEntryForOutcome(campaignState, guard.outcomeId)) return false;
     return true;
   }
@@ -5818,6 +6106,23 @@ export function createDirectiveRuntimeApp({
     );
   }
 
+  function syncCurrentChatScopeCampaignState(state = null) {
+    if (!isObject(currentChatScope) || !isObject(state)) return;
+    if (
+      sameBoundCampaignState(currentChatScope.campaignState, state)
+      || shouldPreferInMemoryCampaignState(currentChatScope.campaignState, state, {
+        chatId: currentChatScope?.currentChat?.chatId || currentChatScope?.currentChat?.id || null,
+        fallbackHostId: runtimeHost?.id || null,
+        fallbackSaveId: controller?.activeSaveId || null
+      })
+    ) {
+      currentChatScope = {
+        ...currentChatScope,
+        campaignState: cloneJson(state)
+      };
+    }
+  }
+
   function pendingTerminalDecisionId(state = null) {
     const ledger = terminalDecisionLedgerView(state || {});
     const activeDecisionId = compactString(ledger.activeDecisionId);
@@ -5826,11 +6131,7 @@ export function createDirectiveRuntimeApp({
       ? decisions.find((entry) => entry?.id === activeDecisionId && entry?.status === 'pending')
       : null;
     if (activeDecision) return activeDecision.id;
-    const pendingInteraction = (state?.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).find((entry) => (
-      entry?.status === 'pending'
-      && entry?.kind === 'terminalOutcomeDecision'
-    ));
-    return pendingInteraction?.id || null;
+    return null;
   }
 
   function terminalDecisionStillPending(state = null, decisionId = null) {
@@ -5838,12 +6139,7 @@ export function createDirectiveRuntimeApp({
     if (!id) return false;
     const ledger = terminalDecisionLedgerView(state || {});
     const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : []).find((entry) => entry?.id === id);
-    if (decision?.status === 'pending') return true;
-    return (state?.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).some((entry) => (
-      entry?.id === id
-      && entry?.status === 'pending'
-      && entry?.kind === 'terminalOutcomeDecision'
-    ));
+    return decision?.status === 'pending';
   }
 
   function isExplicitTerminalResolutionSummary(summary = '') {
@@ -6074,7 +6370,8 @@ export function createDirectiveRuntimeApp({
     promptSyncIdempotencyKey = null,
     beforeInstallPrompt = null,
     commitRuntimeState = true,
-    forceSaveIndexUpdate = false
+    forceSaveIndexUpdate = false,
+    forceRebuild = false
   } = {}) {
     if (!runtimeHost?.prompt?.install || !state?.campaignChatBinding?.chatId || state.campaign?.status !== 'active') {
       return { ok: false, skipped: true, reason: 'inactive-or-unbound', campaignState: cloneJson(state) };
@@ -6086,13 +6383,21 @@ export function createDirectiveRuntimeApp({
     if (commitRuntimeState !== false && normalizedTime.changed && campaignState?.campaign?.id === state?.campaign?.id) {
       campaignState = state;
     }
-    const currentChatId = runtimeHost.chat?.getCurrentChatId?.() || runtimeHost.chat?.getCurrentBinding?.()?.chatId || null;
-    if (currentChatId && String(currentChatId) !== String(state.campaignChatBinding.chatId)) {
+    const currentChatId = compactString(await runtimeHost.chat?.getCurrentChatId?.());
+    const currentBindingMetadata = await runtimeHost.chat?.getBindingMetadata?.();
+    const boundChatId = compactString(state.campaignChatBinding.chatId);
+    const currentChatMatchesBinding = Boolean(
+      !currentChatId
+      || !boundChatId
+      || currentChatId === boundChatId
+      || sameCampaignSaveBinding(currentBindingMetadata, state.campaignChatBinding)
+    );
+    if (!currentChatMatchesBinding) {
       const promptSuspension = await suspendDirectivePromptThroughLens({
         reason: 'unbound-chat',
         binding: state.campaignChatBinding,
         activeChatId: currentChatId,
-        boundChatId: state.campaignChatBinding.chatId,
+        boundChatId,
         source: 'runtime-app.synchronizeActivePrompt'
       });
       return {
@@ -6170,6 +6475,7 @@ export function createDirectiveRuntimeApp({
         installMethod: method,
         idempotencyKey: lensIdempotencyKey,
         beforeInstallPrompt,
+        forceRebuild,
         buildDirectivePromptPacket: async ({
           revision,
           dirtyDomains: lensDirtyDomains,
@@ -6199,7 +6505,7 @@ export function createDirectiveRuntimeApp({
           return built;
         }
       });
-      packet = lensResult?.packet || null;
+      packet = promptPacketFromLensFlushResult(lensResult);
       const projectionSummary = packet
         ? lensPromptPacketProjectionSummary(packet)
         : {
@@ -6233,7 +6539,15 @@ export function createDirectiveRuntimeApp({
     const next = packet
       ? recordPromptContextRevision(state, packet, {
           installedAt: timestampFromNow(now),
-          status: 'active'
+          status: 'active',
+          lane,
+          cacheKey: lensResult?.cacheKey || lensResult?.installed?.cacheKey || null,
+          dirtyDomains: lensResult?.dirtyDomains || [],
+          externalPromptEnvironmentRef: lensResult?.externalPromptEnvironmentRef || externalPromptEnvironmentRef || null,
+          promptBudgetTraceRef: lensResult?.promptBudgetTraceRef || lensResult?.installed?.promptBudgetTraceRef || null,
+          promptBudgetEnforcement: lensResult?.promptBudgetEnforcement || lensResult?.installed?.promptBudgetEnforcement || null,
+          installed: lensResult?.installed || null,
+          lensPromptRevisionRecord: lensResult?.lensPromptRevisionRecord || lensResult?.installed?.lensPromptRevisionRecord || null
         })
       : cloneJson(state);
     if (commitRuntimeState !== false && !promptInstallSkipped) {
@@ -6506,7 +6820,10 @@ export function createDirectiveRuntimeApp({
     }
 
     const getCampaignState = () => campaignState;
-    const setCampaignState = (state) => { campaignState = cloneJson(state); };
+    const setCampaignState = (state) => {
+      campaignState = cloneJson(state);
+      syncCurrentChatScopeCampaignState(campaignState);
+    };
     const persistCampaignState = (state, summary) => persistRuntimeCampaignState(
       state,
       typeof summary === 'string'
@@ -6811,6 +7128,7 @@ export function createDirectiveRuntimeApp({
     }
     const endConditionService = createCampaignEndConditionService({
       host: runtimeHost,
+      coreTurnStore: runtimeCoreTurnStore,
       getCampaignState,
       setCampaignState,
       getPackageContext: () => activeRuntimeAssets().packageData,
@@ -6865,7 +7183,7 @@ export function createDirectiveRuntimeApp({
       sidecarScheduler,
       forgeCoordinator,
       messageReconciler,
-      enableDefaultLatestPairSettlementProvider: false,
+      enableDefaultLatestPairSettlementProvider: true,
       repairRuntime: repairRuntimeBoundary,
       coreTurnStore: runtimeCoreTurnStore,
       stateDeltaGateway,
@@ -6880,6 +7198,7 @@ export function createDirectiveRuntimeApp({
           persist: false,
           promptFrame,
           useContinuityPlanner: false,
+          forceRebuild: options.forceRebuild === true,
           reason: 'Chat-native prompt context synchronized.',
           activityReporter: options.activityReporter || null,
           activitySource: options.activitySource || 'chatTurnPromptSync',
@@ -6968,14 +7287,15 @@ export function createDirectiveRuntimeApp({
     return null;
   }
 
-  function outcomeIntegrityNativeEditDecision(payload = {}) {
+  async function outcomeIntegrityNativeEditDecision(payload = {}) {
     try {
       const state = outcomeIntegrityCampaignState();
       const message = hostMessageForOutcomeIntegrity(payload);
-      return outcomeIntegrityStatusForMessage({
+      return await outcomeIntegrityStatusForMessageAsync({
         campaignState: state,
         message,
-        hostMessageId: hostMessageIdFromPayload(payload)
+        hostMessageId: hostMessageIdFromPayload(payload),
+        coreTurnStore: runtimeCoreTurnStore
       });
     } catch (error) {
       return {
@@ -6992,10 +7312,11 @@ export function createDirectiveRuntimeApp({
     await refreshCurrentChatCampaignScope();
     const state = outcomeIntegrityCampaignState();
     const message = hostMessageForOutcomeIntegrity(payload);
-    return buildOutcomeIntegrityEditContext({
+    return buildOutcomeIntegrityEditContextAsync({
       campaignState: state,
       message,
-      hostMessageId: hostMessageIdFromPayload(payload)
+      hostMessageId: hostMessageIdFromPayload(payload),
+      coreTurnStore: runtimeCoreTurnStore
     });
   }
 
@@ -7062,6 +7383,33 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  function responseMatchesUpdateId(response = {}, responseUpdateId = '') {
+    const target = compactString(responseUpdateId);
+    if (!target) return false;
+    return [
+      response.id,
+      response.responseId,
+      response.hostMessageId
+    ].some((value) => compactString(value) === target);
+  }
+
+  function responseCarriesCoreProjectionEvidence(response = {}) {
+    return Boolean(response && (
+      response.authority
+      || response.compatibilityMirror
+      || response.projectionSource
+      || response.coreProjection
+      || response.coreTransactionId
+      || response.transactionId
+    ));
+  }
+
+  function prevalidatedCoreResponseForUpdate(response = null, responseUpdateId = '') {
+    if (!responseMatchesUpdateId(response, responseUpdateId)) return null;
+    if (!responseCarriesCoreProjectionEvidence(response)) return null;
+    return response;
+  }
+
   function adoptResponseLedgerProjection(projectedState = null) {
     if (!projectedState) return;
     campaignState = mergeFresherResponseLedgerProjection(campaignState, projectedState);
@@ -7098,10 +7446,11 @@ export function createDirectiveRuntimeApp({
     const message = hostMessageForOutcomeIntegrity(payload);
     const context = payload.context?.ok
       ? cloneJson(payload.context)
-      : buildOutcomeIntegrityEditContext({
+      : await buildOutcomeIntegrityEditContextAsync({
           campaignState: state,
           message,
-          hostMessageId: hostMessageIdFromPayload(payload)
+          hostMessageId: hostMessageIdFromPayload(payload),
+          coreTurnStore: runtimeCoreTurnStore
         });
     const validation = validateOutcomeIntegrityProposedEdit({
       context,
@@ -7260,10 +7609,10 @@ export function createDirectiveRuntimeApp({
     const state = outcomeIntegrityCampaignState();
     const message = hostMessageForOutcomeIntegrity(payload);
     const hostMessageId = hostMessageIdFromPayload(payload);
-    const response = findOutcomeIntegrityResponse(state, hostMessageId)
-      || findOutcomeIntegrityResponse(state, message?.hostMessageId || message?.id)
-      || payload.response
+    const recordedResponse = await findOutcomeIntegrityResponseAsync(state, hostMessageId, { coreTurnStore: runtimeCoreTurnStore })
+      || await findOutcomeIntegrityResponseAsync(state, message?.hostMessageId || message?.id, { coreTurnStore: runtimeCoreTurnStore })
       || null;
+    const response = recordedResponse || null;
     if (!response) {
       return {
         ok: false,
@@ -7281,24 +7630,21 @@ export function createDirectiveRuntimeApp({
       || ''
     );
     const proposedText = payload.proposedText ?? payload.candidateText ?? payload.rewriteText ?? payload.text;
-    const suppliedEvidenceVerdict = payload.evidenceVerdict || payload.verdict || null;
-    const evidenceVerdict = suppliedEvidenceVerdict
-      ? cloneJson(suppliedEvidenceVerdict)
-      : await sourceReview.reviewCorrectAsSwipeEvidence({
-          text: selectedText,
-          campaignState: state,
-          packageData: assets?.packageData || null,
-          crewDataset: assets?.crewDataset || null,
-          shipDataset: assets?.shipDataset || null,
-          campaignProjection: assets?.projection || null,
-          responseId: response.id || null,
-          outcomeId: response.outcomeId || null,
-          turnId: response.turnId || null,
-          hostMessageId: hostMessageId || response.hostMessageId || null,
-          selectedTextHash: payload.selection?.selectedTextHash || payload.selectedTextHash || null,
-          evidenceRefIds: payload.evidenceRefIds || payload.selection?.evidenceRefIds || [],
-          externalContextOnly: payload.externalContextOnly === true || payload.selection?.externalContextOnly === true
-        });
+    const evidenceVerdict = await sourceReview.reviewCorrectAsSwipeEvidence({
+      text: selectedText,
+      campaignState: state,
+      packageData: assets?.packageData || null,
+      crewDataset: assets?.crewDataset || null,
+      shipDataset: assets?.shipDataset || null,
+      campaignProjection: assets?.projection || null,
+      responseId: response.id || null,
+      outcomeId: response.outcomeId || null,
+      turnId: response.turnId || null,
+      hostMessageId: hostMessageId || response.hostMessageId || null,
+      selectedTextHash: payload.selection?.selectedTextHash || payload.selectedTextHash || null,
+      evidenceRefIds: payload.evidenceRefIds || payload.selection?.evidenceRefIds || [],
+      externalContextOnly: payload.externalContextOnly === true || payload.selection?.externalContextOnly === true
+    });
     const beforeContinuity = cloneJson(state?.continuity || null);
     const result = await proposeCorrectAsSwipe({
       campaignState: state,
@@ -7319,16 +7665,8 @@ export function createDirectiveRuntimeApp({
       now,
       updateResponse: (latest, responseUpdateId, correctionCase) => {
         const tracked = initializeCampaignRuntimeTracking(latest);
-        const projectedResponse = (createRuntimeLedgerView(tracked).responseLedger || []).find((entry) => (
-          compactString(entry?.id) === compactString(responseUpdateId)
-          || compactString(entry?.hostMessageId) === compactString(responseUpdateId)
-        )) || null;
-        const hasCompatibilityResponseRow = Boolean(projectedResponse && (
-          projectedResponse.authority
-          || projectedResponse.compatibilityMirror
-          || projectedResponse.projectionSource
-        ));
-        const currentResponse = projectedResponse || findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const currentResponse = prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId) || response;
+        const hasCompatibilityResponseRow = Boolean(prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId));
         const stableResponseId = compactString(currentResponse.id || currentResponse.responseId || response.id || response.responseId);
         const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
         const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
@@ -7390,15 +7728,15 @@ export function createDirectiveRuntimeApp({
     const caseId = compactString(payload.caseId || payload.id || payload.correctionCaseId || '');
     const message = hostMessageForOutcomeIntegrity(payload);
     const hostMessageId = hostMessageIdFromPayload(payload);
-    const responses = createRuntimeLedgerView(state || {}).responseLedger || [];
-    const response = findOutcomeIntegrityResponse(state, hostMessageId)
-      || findOutcomeIntegrityResponse(state, message?.hostMessageId || message?.id)
+    const responses = (await createRuntimeLedgerViewAsync(state || {}, { coreTurnStore: runtimeCoreTurnStore })).responseLedger || [];
+    const recordedResponse = await findOutcomeIntegrityResponseAsync(state, hostMessageId, { coreTurnStore: runtimeCoreTurnStore })
+      || await findOutcomeIntegrityResponseAsync(state, message?.hostMessageId || message?.id, { coreTurnStore: runtimeCoreTurnStore })
       || responses.find((entry) => (
         Array.isArray(entry?.correctAsSwipe?.cases)
         && entry.correctAsSwipe.cases.some((correctionCase) => compactString(correctionCase?.id) === caseId)
       ))
-      || payload.response
       || null;
+    const response = recordedResponse || null;
     if (!response) {
       return {
         ok: false,
@@ -7418,16 +7756,8 @@ export function createDirectiveRuntimeApp({
       now,
       updateResponse: (latest, responseUpdateId, correctionCase) => {
         const tracked = initializeCampaignRuntimeTracking(latest);
-        const projectedResponse = (createRuntimeLedgerView(tracked).responseLedger || []).find((entry) => (
-          compactString(entry?.id) === compactString(responseUpdateId)
-          || compactString(entry?.hostMessageId) === compactString(responseUpdateId)
-        )) || null;
-        const hasCompatibilityResponseRow = Boolean(projectedResponse && (
-          projectedResponse.authority
-          || projectedResponse.compatibilityMirror
-          || projectedResponse.projectionSource
-        ));
-        const currentResponse = projectedResponse || findOutcomeIntegrityResponse(tracked, responseUpdateId) || response;
+        const currentResponse = prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId) || response;
+        const hasCompatibilityResponseRow = Boolean(prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId));
         const stableResponseId = compactString(currentResponse.id || currentResponse.responseId || response.id || response.responseId);
         const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
         const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
@@ -7662,7 +7992,7 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    getOutcomeIntegrityNativeEditDecision(payload = {}) {
+    async getOutcomeIntegrityNativeEditDecision(payload = {}) {
       return outcomeIntegrityNativeEditDecision(payload);
     },
 
@@ -8067,7 +8397,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         await refreshCurrentChatCampaignScope();
-        const decision = outcomeIntegrityNativeEditDecision(payload);
+        const decision = await outcomeIntegrityNativeEditDecision(payload);
         if (decision.protected && decision.mode === 'relaxed') {
           const message = hostMessageForOutcomeIntegrity(payload);
           const priorText = priorSwipeTextForRelaxedEdit(message);
@@ -8078,13 +8408,14 @@ export function createDirectiveRuntimeApp({
               || message?.text
               || ''
             ).trim();
-            const context = buildOutcomeIntegrityEditContext({
+            const context = await buildOutcomeIntegrityEditContextAsync({
               campaignState: outcomeIntegrityCampaignState(),
               message: {
                 ...message,
                 text: priorText
               },
-              hostMessageId: hostMessageIdFromPayload(payload)
+              hostMessageId: hostMessageIdFromPayload(payload),
+              coreTurnStore: runtimeCoreTurnStore
             });
             const result = await submitOutcomeIntegrityEdit({
               hostMessageId: context.hostMessageId,
@@ -8581,6 +8912,7 @@ export function createDirectiveRuntimeApp({
             appliesTo: 'future-outcomes-only'
           }
         });
+        const lifecycleProjectionState = campaignState;
 
         let prompt = null;
         let save = null;
@@ -8592,7 +8924,7 @@ export function createDirectiveRuntimeApp({
             forceSaveIndexUpdate: true
           });
           if (prompt?.campaignState) {
-            campaignState = applyRuntimeSettings(prompt.campaignState);
+            campaignState = applyRuntimeSettings(stateWithLifecycleProjectionEvidence(prompt.campaignState, lifecycleProjectionState));
           }
         } catch (error) {
           campaignState = applyRuntimeSettings(campaignState);
@@ -8603,9 +8935,11 @@ export function createDirectiveRuntimeApp({
             forceSaveIndexUpdate: true
           });
         }
+        campaignState = stateWithLifecycleProjectionEvidence(campaignState, prompt?.campaignState || lifecycleProjectionState);
         await refreshCampaignView();
         await refreshManualSaveGuard();
         await refreshCurrentChatCampaignScope();
+        campaignState = stateWithLifecycleProjectionEvidence(campaignState, prompt?.campaignState || lifecycleProjectionState);
         return {
           kind: 'directive.campaignDifficultyUpdated',
           changed: true,
@@ -10402,7 +10736,7 @@ export function createDirectiveRuntimeApp({
           repairDecision,
           sourceMutation
         };
-        const legacyProjection = {
+        const repairProjection = {
           shouldRestoreRevision: true,
           restoreRevision,
           recoveryJournalStatus: 'recoveryRequired'
@@ -10418,14 +10752,9 @@ export function createDirectiveRuntimeApp({
             sourceFrameId: ledgerEntry.sourceFrameId || null,
             snapshotBeforeRetained: ledgerEntry.snapshotBeforeRetained === true,
             snapshotSourceKind: checkpointSnapshot?.sourceKind || 'coreStoreV2.checkpoint',
-            coreCheckpointRef: checkpointSnapshot?.coreCheckpointRef || ledgerCoreCheckpointRef,
-            snapshotBefore: {
-              runtimeTracking: {
-                revision: restoreRevision
-              }
-            }
+            coreCheckpointRef: checkpointSnapshot?.coreCheckpointRef || ledgerCoreCheckpointRef
           },
-          legacyProjection,
+          repairProjection,
           sourceMutation,
           eventTime
         });
@@ -10472,7 +10801,7 @@ export function createDirectiveRuntimeApp({
         const rollbackActuation = await repair.recordRollbackActuation({
           coreRecovery,
           rollbackActuation: rollbackDecision,
-          legacyProjection,
+          repairProjection,
           eventType: 'committedOutcomeDeleted',
           eventTime
         });

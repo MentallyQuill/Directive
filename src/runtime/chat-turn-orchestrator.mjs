@@ -2,7 +2,6 @@ import { isDirectiveOwnedGeneration } from '../hosts/sillytavern/generation-clie
 import {
   initializeCampaignRuntimeTracking,
   isPendingInteractionProjectionRow,
-  resolveRecoveryEvent,
   recordTurnIngress,
   updateTurnIngress,
   updateDirectiveResponse
@@ -55,6 +54,51 @@ function cloneJson(value) {
 
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
+}
+
+function latestSceneHandshakeCommittedRoots(state = {}) {
+  const sceneHandshake = state?.sceneHandshake || {};
+  const candidates = [
+    sceneHandshake.lastResult,
+    Array.isArray(sceneHandshake.settled) ? sceneHandshake.settled.at(-1) : null,
+    Array.isArray(sceneHandshake.records) ? sceneHandshake.records.at(-1) : null
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate?.committedRoots) && candidate.committedRoots.length) {
+      return cloneJson(candidate.committedRoots.filter(Boolean));
+    }
+  }
+  return [];
+}
+
+function operationRoot(operation = {}) {
+  const path = compact(operation?.path || operation?.pointer || '').replace(/^\/+/, '');
+  const pathRoot = path.split(/[./]/)[0] || null;
+  if (pathRoot) return pathRoot;
+  return compact(operation?.domain || operation?.root || operation?.targetRoot || '') || null;
+}
+
+function committedRootsFromOperations(operations = []) {
+  return [
+    ...new Set((Array.isArray(operations) ? operations : [])
+      .map(operationRoot)
+      .filter(Boolean))
+  ];
+}
+
+function promptRevisionOf(state = {}) {
+  return Math.max(
+    0,
+    Number(state?.campaignChatBinding?.promptContextRevision) || 0,
+    Number(state?.runtimeResume?.promptContextRevision) || 0
+  );
+}
+
+function preferPromptAdvancedIngressState(currentState, fallbackState, currentIngress = null, fallbackIngress = null) {
+  if (!currentIngress || !fallbackIngress) return currentIngress ? currentState : fallbackState;
+  const currentPromptRevision = promptRevisionOf(currentState);
+  const fallbackPromptRevision = promptRevisionOf(fallbackState);
+  return fallbackPromptRevision > currentPromptRevision ? fallbackState : currentState;
 }
 
 function timeoutError(code, message, timeoutMs) {
@@ -483,7 +527,30 @@ function localOutcomeNarration(result) {
   return [fallbackOutcomeLead(outcome.resultBand), details || 'The bridge turns to the next decision.'].filter(Boolean).join(' ');
 }
 
-function localRoutineNarration() {
+function localRoutineNarration(message = null) {
+  const text = compact(message?.text || message?.mes || message?.content || '');
+  const lower = text.toLowerCase();
+  if (/\bamend\b|\bcorrection\b|\bcorrects?\b|\breconcile\b|\bstale wording\b/.test(lower)) {
+    return [
+      'Nayar acknowledges the correction and keeps the amended wording tied to the active watch log.',
+      'Bronn flags the old phrasing as stale before any station treats it as authority.',
+      'The bridge holds execution until the current order chain is clear.'
+    ].join(' ');
+  }
+  if (/\bwithdraws?\b|\bcancel\b|\bdelete\b|\bdeleted\b|\bobsolete\b/.test(lower)) {
+    return [
+      'Nayar marks the withdrawn instruction as inactive while preserving the audit trail.',
+      'Bronn keeps the dependent reports under review instead of letting stale orders carry forward.',
+      'The bridge waits for a current, lawful instruction before anyone acts.'
+    ].join(' ');
+  }
+  if (/\brecalculate\b|\bbranch\b|\bpreview\b/.test(lower)) {
+    return [
+      'Nayar keeps the recalculation separate from the active watch log and labels it as comparison evidence.',
+      'The branch candidate remains advisory until Arlen or Captain Whitaker explicitly loads it.',
+      'Current assignments continue from the standing record.'
+    ].join(' ');
+  }
   return 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.';
 }
 
@@ -648,7 +715,7 @@ function committedOutcomeRetryContext(state = {}, details = {}) {
     outcomeId && entry.sourceOutcomeId === outcomeId
   )) || null;
   const ingress = details.ingressId
-    ? (createRuntimeLedgerView(state || {}, { runtimeOverlay: true }).ingressLedger || []).find((entry) => entry.id === details.ingressId) || null
+    ? (createRuntimeLedgerView(state || {}).ingressLedger || []).find((entry) => entry.id === details.ingressId) || null
     : null;
   return compactObject({
     outcomeId: outcomeId || ledger?.outcomeId || null,
@@ -1133,36 +1200,70 @@ export function createChatTurnOrchestrator({
   }
 
   function corePendingInteractionRows(state = null) {
-    const projections = state?.directiveRuntimeEvidence?.coreStoreReadProjections
-      || state?.runtimeTracking?.directiveRuntimeEvidence?.coreStoreReadProjections
-      || {};
+    const projections = state?.directiveRuntimeEvidence?.coreStoreReadProjections || {};
     return Array.isArray(projections.pendingInteractions)
       ? projections.pendingInteractions.filter(isPendingInteractionProjectionRow)
       : [];
   }
 
   function pendingInteractionRows(state = null) {
-    const coreRows = corePendingInteractionRows(state);
-    const legacyRows = Array.isArray(state?.runtimeTracking?.pendingInteractions)
-      ? state.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)
-      : [];
-    const seen = new Set(coreRows.map((entry) => compact(entry.id)));
-    return [
-      ...cloneJson(coreRows),
-      ...cloneJson(legacyRows.filter((entry) => !seen.has(compact(entry.id))))
-    ];
+    return cloneJson(corePendingInteractionRows(state));
+  }
+
+  function mergeProjectionRows(existingRows = [], freshRows = [], keyFields = ['id']) {
+    const merged = Array.isArray(existingRows) ? cloneJson(existingRows) : [];
+    for (const fresh of Array.isArray(freshRows) ? freshRows : []) {
+      const matchIndex = merged.findIndex((entry) => keyFields.some((key) => (
+        compact(entry?.[key]) && compact(entry?.[key]) === compact(fresh?.[key])
+      )));
+      if (matchIndex >= 0) merged[matchIndex] = { ...merged[matchIndex], ...cloneJson(fresh) };
+      else merged.push(cloneJson(fresh));
+    }
+    return merged;
+  }
+
+  function responseProjectionRows(projections = {}) {
+    return Array.isArray(projections?.responses)
+      ? projections.responses
+      : (Array.isArray(projections?.responseLedger) ? projections.responseLedger : []);
+  }
+
+  function mergeCoreStoreReadProjections(existing = {}, fresh = {}) {
+    const merged = {
+      ...cloneJson(existing || {}),
+      ...cloneJson(fresh || {}),
+      ingressLedger: mergeProjectionRows(existing?.ingressLedger, fresh?.ingressLedger, ['id', 'ingressId', 'transactionId', 'coreTransactionId']),
+      responses: mergeProjectionRows(responseProjectionRows(existing), responseProjectionRows(fresh), ['id', 'responseId', 'transactionId', 'coreTransactionId']),
+      recoveryJournal: mergeProjectionRows(existing?.recoveryJournal, fresh?.recoveryJournal, ['id', 'recoveryId', 'transactionId', 'coreTransactionId']),
+      pendingInteractions: mergeProjectionRows(existing?.pendingInteractions, fresh?.pendingInteractions, ['id', 'interactionId'])
+    };
+    delete merged.responseLedger;
+    return merged;
   }
 
   async function stateWithCorePendingProjections(state = null) {
-    if (typeof coreTurnStore?.readProjections !== 'function') return initializeCampaignRuntimeTracking(state);
-    const projections = await coreTurnStore.readProjections();
-    if (!projections || typeof projections !== 'object' || Array.isArray(projections)) {
-      return initializeCampaignRuntimeTracking(state);
+    const fallback = initializeCampaignRuntimeTracking(state);
+    if (typeof coreTurnStore?.readProjections !== 'function') return fallback;
+    let projections = null;
+    try {
+      projections = await withTimeout(
+        coreTurnStore.readProjections(),
+        coreProjectionReadTimeoutMs,
+        () => timeoutError(
+          'DIRECTIVE_CORE_PROJECTION_READ_TIMEOUT',
+          'CORE projection read timed out while hydrating pending interactions.',
+          coreProjectionReadTimeoutMs
+        )
+      );
+    } catch {
+      return fallback;
     }
+    if (!projections || typeof projections !== 'object' || Array.isArray(projections)) return fallback;
     const next = cloneJson(state || {});
+    const existing = next.directiveRuntimeEvidence?.coreStoreReadProjections || {};
     next.directiveRuntimeEvidence = {
       ...(next.directiveRuntimeEvidence || {}),
-      coreStoreReadProjections: cloneJson(projections)
+      coreStoreReadProjections: mergeCoreStoreReadProjections(existing, projections)
     };
     return initializeCampaignRuntimeTracking(next);
   }
@@ -1258,12 +1359,15 @@ export function createChatTurnOrchestrator({
     const next = await syncPromptContext(state, promptFrame, {
       activityReporter,
       activitySource: activityContext.activitySource || activityContext.source || 'chatTurnPromptSync',
+      forceRebuild: activityContext.forcePromptRebuild === true || activityContext.forceRebuild === true,
       activityContext: {
         classification: activityContext.classification || null,
         ingressId: activityContext.ingressId || null,
         turnId: activityContext.turnId || null,
         outcomeId: activityContext.outcomeId || null,
-        source: activityContext.source || null
+        source: activityContext.source || null,
+        forcePromptRebuild: activityContext.forcePromptRebuild === true || activityContext.forceRebuild === true,
+        promptDirtyDomains: cloneJson(activityContext.promptDirtyDomains || [])
       }
     });
     if (next && next !== state) {
@@ -1275,10 +1379,32 @@ export function createChatTurnOrchestrator({
 
   async function preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter = null) {
     const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     const sourceFrame = ingress?.sourceFrame || null;
     const transactionId = ingress?.coreTransactionId || null;
-    if (!sourceFrame || !transactionId) return null;
+    if (!sourceFrame || !transactionId) {
+      const decision = {
+        kind: 'directive.sourceSettlementDecision.v1',
+        mode: 'latestPair',
+        status: 'hardSkipped',
+        transactionId: transactionId || null,
+        providerCalled: false,
+        applied: false,
+        reasons: ['scene-handshake-source-core-ingress-missing'],
+        observedAt: timestamp(now)
+      };
+      reportActivity(activityReporter, {
+        phase: 'sceneHandshakeSourceBlocked',
+        mode: 'blocking',
+        source: 'sre',
+        ingressId,
+        status: decision.status,
+        reasons: cloneJson(decision.reasons),
+        providerCalled: false,
+        applied: false
+      });
+      return decision;
+    }
     const freshPreviousAssistant = selectedAssistantVariantRef(previousAssistantForFrame(message));
     const expected = {
       campaignId: state.campaign?.id || null,
@@ -1344,7 +1470,7 @@ export function createChatTurnOrchestrator({
     }
     const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
     const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     let packageData = null;
     try {
       packageData = typeof getPackageData === 'function' ? getPackageData() : null;
@@ -1385,7 +1511,10 @@ export function createChatTurnOrchestrator({
           runLatestPairSettlementProvider: defaultLatestPairSettlementProvider,
           validateLatestPairSettlementBeforeApply: async (payload = {}) => {
             const latestState = initializeCampaignRuntimeTracking(getCampaignState() || state);
-            const latestIngress = await findIngressFresh(latestState, ingressId, { runtimeOverlay: true });
+            const latestIngress = await findIngressFresh(latestState, ingressId);
+            if (!latestIngress) {
+              return { ok: false, reasons: ['scene-handshake-source-core-ingress-missing'] };
+            }
             const expectedFrameId = payload.sourceFrame?.id || ingress?.sourceFrame?.id || null;
             const currentFrameId = latestIngress?.sourceFrame?.id || null;
             if (expectedFrameId && currentFrameId && expectedFrameId !== currentFrameId) {
@@ -1430,6 +1559,21 @@ export function createChatTurnOrchestrator({
     }
     let next = result?.campaignState || state;
     if (!result?.attempted && !result?.deduplicated) return next;
+    const refreshed = getCampaignState() || null;
+    const authoritativeNext = refreshed?.campaign?.id && refreshed.campaign.id === next?.campaign?.id
+      ? refreshed
+      : next;
+    next = authoritativeNext;
+    const committedRoots = [
+      ...new Set([
+        ...(Array.isArray(result.committedRoots) ? result.committedRoots : []),
+        ...(Array.isArray(result.record?.committedRoots) ? result.record.committedRoots : []),
+        ...latestSceneHandshakeCommittedRoots(next),
+        ...latestSceneHandshakeCommittedRoots(authoritativeNext),
+        ...committedRootsFromOperations(result.sourceSettlement?.operations),
+        ...committedRootsFromOperations(result.settlement?.operations)
+      ].filter(Boolean))
+    ];
     reportActivity(activityReporter, {
       phase: 'sceneHandshakeSettled',
       mode: 'blocking',
@@ -1437,27 +1581,38 @@ export function createChatTurnOrchestrator({
       ingressId,
       disposition: result.disposition || result.record?.disposition || null,
       reasons: cloneJson(result.sourceSettlement?.reasons || result.record?.reasons || []),
-      committedRoots: result.committedRoots || result.record?.committedRoots || [],
+      committedRoots,
       operationCount: result.operationCount || result.record?.operationCount || 0
     });
-    if (result.promptDirty) {
+    const promptRelevantRoots = committedRoots.filter((root) => !['runtimeTracking', 'sceneHandshake'].includes(root));
+    if (result.promptDirty || result.record?.promptDirty || promptRelevantRoots.length > 0) {
+      const promptDirtyDomains = [
+        ...(Array.isArray(result.promptDirtyDomains) ? result.promptDirtyDomains : []),
+        ...(Array.isArray(result.sourceSettlement?.promptDirtyDomains) ? result.sourceSettlement.promptDirtyDomains : []),
+        ...committedRoots
+      ].filter(Boolean);
       reportActivity(activityReporter, {
         phase: 'syncingPrompt',
         mode: 'blocking',
         ingressId,
-        source: 'sceneHandshake'
+        source: 'sceneHandshake',
+        promptDirtyDomains: cloneJson(promptDirtyDomains),
+        forcePromptRebuild: true
       });
       next = await syncPrompt(
-        next,
+        authoritativeNext,
         'Prompt context synchronized after Scene Handshake settlement.',
-        promptFrameForMessage(next, message, { classification: 'sceneHandshake' }, {
-          acceptedAssistantVariant: cloneJson(result.selectedAssistantVariant || result.record?.selectedAssistantVariant || null)
+        promptFrameForMessage(authoritativeNext, message, { classification: 'sceneHandshake' }, {
+          acceptedAssistantVariant: cloneJson(result.selectedAssistantVariant || result.record?.selectedAssistantVariant || null),
+          promptDirtyDomains
         }),
         activityReporter,
         {
           source: 'sceneHandshake',
           classification: 'sceneHandshake',
-          ingressId
+          ingressId,
+          promptDirtyDomains,
+          forcePromptRebuild: true
         }
       );
     }
@@ -1688,7 +1843,7 @@ export function createChatTurnOrchestrator({
     assistantText = ''
   } = {}) {
     const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     const transactionId = compact(ingress?.coreTransactionId || '');
     const sourceFrame = ingress?.sourceFrame || null;
     const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
@@ -1849,7 +2004,7 @@ export function createChatTurnOrchestrator({
     assistantMessageId = null
   } = {}) {
     const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     const transactionId = compact(ingress?.coreTransactionId || '');
     const sourceFrame = ingress?.sourceFrame || null;
     const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
@@ -2039,7 +2194,7 @@ export function createChatTurnOrchestrator({
     outcomeId = null
   } = {}) {
     const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     const transactionId = compact(ingress?.coreTransactionId || '');
     const sourceFrame = ingress?.sourceFrame || null;
     const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
@@ -2599,7 +2754,7 @@ export function createChatTurnOrchestrator({
 
   function findIngress(state, ingressId) {
     if (!ingressId) return null;
-    return (createRuntimeLedgerView(state || {}, { runtimeOverlay: true }).ingressLedger || []).find((entry) => entry.id === ingressId) || null;
+    return (createRuntimeLedgerView(state || {}).ingressLedger || []).find((entry) => entry.id === ingressId) || null;
   }
 
   async function runtimeLedgerViewFresh(state, options = {}) {
@@ -2637,7 +2792,7 @@ export function createChatTurnOrchestrator({
     error = null
   } = {}) {
     const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     const transactionId = compact(ingress?.coreTransactionId || '');
     const appendDiagnostics = coreTurnStore?.appendDiagnostics || coreTurnStore?.appendDiagnostic;
     if (!transactionId || typeof appendDiagnostics !== 'function') return null;
@@ -2677,7 +2832,7 @@ export function createChatTurnOrchestrator({
     error = null,
     responseRetryPlan = null
   } = {}) {
-    const ingress = await findIngressFresh(initializeCampaignRuntimeTracking(state), ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(initializeCampaignRuntimeTracking(state), ingressId);
     const handleResponseFailure = repair.handleResponseFailure || repair.recordResponseRecovery;
     return handleResponseFailure.call(repair, {
       eventType: reason === 'provider-failure-after-mechanics-commit'
@@ -2731,7 +2886,7 @@ export function createChatTurnOrchestrator({
 
   async function markCoreResponseRetryRequiredForBridge(state, payload = {}) {
     const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, payload.ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, payload.ingressId);
     try {
       const result = await markCoreResponseRetryRequired(tracked, payload);
       if (ingress?.coreTransactionId && result?.status !== 'recorded') {
@@ -2775,7 +2930,7 @@ export function createChatTurnOrchestrator({
     message = null
   } = {}) {
     const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, ingressId, { runtimeOverlay: true });
+    const ingress = await findIngressFresh(tracked, ingressId);
     const transactionId = compact(ingress?.coreTransactionId || '');
     if (!transactionId || typeof coreTurnStore?.markRecoveryRequired !== 'function') return null;
     const sourceFrameRef = ingress?.sourceFrame
@@ -2975,13 +3130,16 @@ export function createChatTurnOrchestrator({
   async function responseRetryRecoveryFromCoreProjection(state = {}, {
     recoveryId = null
   } = {}) {
-    const recoveryView = await runtimeLedgerViewFresh(state, {
-      legacyFallback: false
-    });
-    const compatibilityView = await runtimeLedgerViewFresh(state, { runtimeOverlay: true });
+    const recoveryView = await runtimeLedgerViewFresh(state);
     const recoveryRows = recoveryView.recoveryJournal || [];
-    const responseRows = compatibilityView.responseLedger || [];
-    const ingressRows = compatibilityView.ingressLedger || [];
+    const responseRows = recoveryView.responseLedger || [];
+    const providerFallbackResponseTargets = responseRows.filter((entry) => (
+      compact(entry?.authority) === 'compatibilityProjection'
+      && compact(entry?.projectionSource) === 'coreStoreV2'
+      && entry?.providerFallback
+      && ['responseRetryRequired', 'coreClosureFailed'].includes(compact(entry?.coreProjection?.status))
+    ));
+    const ingressRows = recoveryView.ingressLedger || [];
     const targetRecoveryId = compact(recoveryId || '');
     const closedRecoveryIds = new Set(recoveryRows
       .filter((row) => ['resolved', 'applied'].includes(compact(row?.status)))
@@ -2996,7 +3154,10 @@ export function createChatTurnOrchestrator({
       if (rowRecoveryId && closedRecoveryIds.has(rowRecoveryId)) continue;
       const transactionId = compact(row.transactionId || row.coreTransactionId || repairDecision.transactionId || '');
       if (targetRecoveryId && rowRecoveryId !== targetRecoveryId) continue;
-      const response = responseRows.find((entry) => (
+      const response = [
+        ...providerFallbackResponseTargets,
+        ...responseRows
+      ].find((entry) => (
         (row.dependentResponseId && compact(entry.id) === compact(row.dependentResponseId))
         || (rowRecoveryId && compact(entry.recoveryId) === rowRecoveryId)
         || (transactionId && compact(entry.coreTransactionId || entry.transactionId || entry.coreRelease?.transactionId || entry.providerFallback?.coreTransactionId) === transactionId)
@@ -3004,7 +3165,7 @@ export function createChatTurnOrchestrator({
       if (!response && eventType === 'providerFailureAfterMechanicsCommit') continue;
       const ingress = ingressRows.find((entry) => (
         (repairDecision.ingressId && entry.id === repairDecision.ingressId)
-        || (transactionId && compact(entry.coreTransactionId) === transactionId)
+        || (transactionId && compact(entry.coreTransactionId || entry.transactionId) === transactionId)
       )) || null;
       return {
         id: rowRecoveryId || response?.recoveryId || null,
@@ -3016,8 +3177,10 @@ export function createChatTurnOrchestrator({
           turnId: repairDecision.turnId || response?.turnId || null,
           strategy: response?.strategy || 'directivePosted',
           responseKind: response?.responseKind || 'committedOutcome',
-          responseId: row.dependentResponseId || null,
+          responseId: row.dependentResponseId || response?.id || response?.responseId || null,
           responseIdempotencyKey: row.dependentResponseId
+            || response?.id
+            || response?.responseId
             || (rowRecoveryId ? `directive-response-retry:${rowRecoveryId}` : null)
             || (transactionId ? `directive-response-retry:${transactionId}` : null),
           hostMessageId: response?.hostMessageId || null,
@@ -3119,7 +3282,7 @@ export function createChatTurnOrchestrator({
 
   async function findIngressAlias(state, message = {}, chatId = '', nowIso = '') {
     const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
-    const ingressLedger = (await runtimeLedgerViewFresh({ ...state, runtimeTracking: tracking }, { runtimeOverlay: true })).ingressLedger || [];
+    const ingressLedger = (await runtimeLedgerViewFresh({ ...state, runtimeTracking: tracking })).ingressLedger || [];
     const expectedHostMessageId = messageHostMessageId(message);
     const expectedTextHash = fnv1a(message?.text || '');
     if (!expectedTextHash) return null;
@@ -3135,7 +3298,7 @@ export function createChatTurnOrchestrator({
     const expectedHostMessageId = compact(hostMessageId || '');
     if (!expectedHostMessageId) return null;
     const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
-    const ingressLedger = (await runtimeLedgerViewFresh({ ...state, runtimeTracking: tracking }, { runtimeOverlay: true })).ingressLedger || [];
+    const ingressLedger = (await runtimeLedgerViewFresh({ ...state, runtimeTracking: tracking })).ingressLedger || [];
     return [...ingressLedger].reverse().find((entry) => (
       entry
       && compact(entry.hostMessageId || '') === expectedHostMessageId
@@ -3187,7 +3350,7 @@ export function createChatTurnOrchestrator({
   }
 
   async function staleIngressResult(state, ingressId, message, stage) {
-    const current = state ? await findIngressFresh(initializeCampaignRuntimeTracking(state), ingressId, { runtimeOverlay: true }) : null;
+    const current = state ? await findIngressFresh(initializeCampaignRuntimeTracking(state), ingressId) : null;
     const expectedHostMessageId = messageHostMessageId(message);
     const expectedTextHash = fnv1a(message?.text || '');
     const repairDecision = repair.evaluateSourceReobserve({
@@ -3227,7 +3390,7 @@ export function createChatTurnOrchestrator({
         campaignState: cloneJson(state || getCampaignState() || null)
       };
     }
-    const sourceIngress = await findIngressFresh(state, pending.ingressId, { runtimeOverlay: true });
+    const sourceIngress = await findIngressFresh(state, pending.ingressId);
     const sourceMessage = {
       hostMessageId: sourceIngress?.hostMessageId || null,
       id: sourceIngress?.hostMessageId || pending.ingressId,
@@ -3266,17 +3429,26 @@ export function createChatTurnOrchestrator({
 
   async function stateForIngressCheck(ingressId, fallbackState = null) {
     const current = getCampaignState();
-    if (current && await findIngressFresh(initializeCampaignRuntimeTracking(current), ingressId, { runtimeOverlay: true })) return current;
-    if (fallbackState && await findIngressFresh(initializeCampaignRuntimeTracking(fallbackState), ingressId, { runtimeOverlay: true })) return fallbackState;
+    const currentIngress = current
+      ? await findIngressFresh(initializeCampaignRuntimeTracking(current), ingressId)
+      : null;
+    const fallbackIngress = fallbackState
+      ? await findIngressFresh(initializeCampaignRuntimeTracking(fallbackState), ingressId)
+      : null;
+    if (currentIngress && fallbackIngress) {
+      return preferPromptAdvancedIngressState(current, fallbackState, currentIngress, fallbackIngress);
+    }
+    if (currentIngress) return current;
+    if (fallbackIngress) return fallbackState;
     return current || fallbackState;
   }
 
   async function stateWithIngressFromFallback(candidateState, fallbackState, ingressId) {
     let next = initializeCampaignRuntimeTracking(candidateState || fallbackState || getCampaignState());
     if (!ingressId) return next;
-    const existing = await findIngressFresh(next, ingressId, { runtimeOverlay: true });
+    const existing = await findIngressFresh(next, ingressId);
     const fallback = fallbackState ? initializeCampaignRuntimeTracking(fallbackState) : null;
-    const fallbackStateIngress = fallback ? await findIngressFresh(fallback, ingressId, { runtimeOverlay: true }) : null;
+    const fallbackStateIngress = fallback ? await findIngressFresh(fallback, ingressId) : null;
     const observedIngress = observedIngressRecords.get(ingressId) || null;
     const fallbackIngress = fallbackStateIngress || observedIngress
       ? {
@@ -3345,14 +3517,14 @@ export function createChatTurnOrchestrator({
     return pendingInteractionRows(state).find((entry) => (
       entry.status === 'pending'
       && (!interactionId || entry.id === interactionId)
-    )) || ledgerTerminalInteraction(state, interactionId);
+    )) || null;
   }
 
   async function pendingInteractionAuthorityForIngress(state, ingressId, interactionId) {
     const authorityState = await stateWithIngressFromFallback(state, state, ingressId);
-    const authoritativeLedger = await runtimeLedgerViewFresh(authorityState, { runtimeOverlay: true });
+    const authoritativeLedger = await runtimeLedgerViewFresh(authorityState);
     const ingress = (authoritativeLedger.ingressLedger || []).find((entry) => entry.id === ingressId)
-      || await findIngressFresh(authorityState, ingressId, { runtimeOverlay: true })
+      || await findIngressFresh(authorityState, ingressId)
       || {};
     const transactionId = compact(
       ingress.coreTransactionId
@@ -3430,7 +3602,7 @@ export function createChatTurnOrchestrator({
       entry?.status === 'pending'
       && entry?.kind === 'terminalOutcomeDecision'
     ));
-    return interaction?.id || ledgerTerminalInteraction(state)?.id || null;
+    return interaction?.id || null;
   }
 
   function terminalOptionsFromDecision(decision = {}) {
@@ -3502,7 +3674,7 @@ export function createChatTurnOrchestrator({
     const metadata = responseMetadata(message) || {};
     const hostMessageId = compact(message?.hostMessageId || message?.id);
     const idempotencyKey = compact(metadata.idempotencyKey);
-    const responseRows = createRuntimeLedgerView(state || {}, { runtimeOverlay: true }).responseLedger || [];
+    const responseRows = createRuntimeLedgerView(state || {}).responseLedger || [];
     return [...responseRows].reverse().find((entry) => (
       (hostMessageId && String(entry.hostMessageId || '') === hostMessageId)
       || (idempotencyKey && String(entry.id || '') === idempotencyKey)
@@ -3805,21 +3977,6 @@ export function createChatTurnOrchestrator({
         missingCoreWriteMode: 'reject'
       });
     }
-    if (recoverySourceIngress && !recoverySourceIngress.outcomeId) {
-      const hostMessageId = message.hostMessageId || message.id || String(message.index ?? '');
-      for (const recovery of (await runtimeLedgerViewFresh(next)).recoveryJournal || []) {
-        if (shouldResolveNoOutcomeRecoveryOnReobserve(recoverySourceIngress, recovery)) {
-          next = resolveRecoveryEvent(next, recovery.id, {
-            status: 'resolved',
-            resolvedAt: timestamp(now),
-            reason: sourceReobserveDecision?.recoveryResolution?.reason || 'message-reobserved',
-            hostMessageId,
-            restartIngressId: sourceRestart?.priorIngressId ? ingressId : null,
-            repairDecision: sourceReobserveDecision ? cloneJson(sourceReobserveDecision) : null
-          });
-        }
-      }
-    }
     return persistStateInBackground(
       next,
       `Captured campaign-chat player message ${message.hostMessageId || message.index || ingressId}.`
@@ -3833,7 +3990,7 @@ export function createChatTurnOrchestrator({
     };
     const recoveryId = `recovery:chat-turn:${stage || 'processing'}:${ingressId || messageHostMessageId(message) || 'turn'}`;
     let next = initializeCampaignRuntimeTracking(await stateForIngressCheck(ingressId, state));
-    const existing = await findIngressFresh(next, ingressId, { runtimeOverlay: true });
+    const existing = await findIngressFresh(next, ingressId);
     if (existing && existing.status === 'recoveryRequired' && existing.recoveryId) {
       setCampaignState(next);
       return next;
@@ -3876,7 +4033,7 @@ export function createChatTurnOrchestrator({
 
   async function updateIngressState(state, ingressId, patch, summary) {
     const base = await stateWithIngressFromFallback(state, state, ingressId);
-    const existing = await findIngressFresh(initializeCampaignRuntimeTracking(base), ingressId, { runtimeOverlay: true });
+    const existing = await findIngressFresh(initializeCampaignRuntimeTracking(base), ingressId);
     const existingHasCoreMirror = Boolean(
       (
         existing?.compatibilityMirror
@@ -3904,7 +4061,7 @@ export function createChatTurnOrchestrator({
     const next = updateTurnIngress(base, ingressId, patch, {
       missingCoreWriteMode: 'reject'
     });
-    const updated = await findIngressFresh(initializeCampaignRuntimeTracking(next), ingressId, { runtimeOverlay: true });
+    const updated = await findIngressFresh(initializeCampaignRuntimeTracking(next), ingressId);
     if (updated) observedIngressRecords.set(ingressId, cloneJson(updated));
     await persistState(next, summary);
     return next;
@@ -4073,7 +4230,7 @@ export function createChatTurnOrchestrator({
         responseRetryPlan
       });
       if (ingressId) {
-        const ingress = await findIngressFresh(failed, ingressId, { runtimeOverlay: true });
+        const ingress = await findIngressFresh(failed, ingressId);
         const coreProjection = ingressResponseRetryCompatibilityProjection({
           coreResponseRecovery,
           ingress,
@@ -4335,7 +4492,7 @@ export function createChatTurnOrchestrator({
       ingressId,
       decision,
       strategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
-      text: directiveOwned ? localRoutineNarration() : null,
+      text: directiveOwned ? localRoutineNarration(message) : null,
       turnId: routineId,
       responseKind: directiveOwned ? 'routineCommand' : 'hostGeneration',
       activityReporter
@@ -4867,10 +5024,15 @@ export function createChatTurnOrchestrator({
     next = dispatched.state;
     let terminalCheckpoint = null;
     let terminalCheckpointSettlement = null;
-    const terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
+    let terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
       || committed?.terminalDecision?.detection?.decisionId
       || activeTerminalInteractionId(next)
       || null;
+    if (!terminalInteractionId) {
+      const nextWithPending = await stateWithCorePendingProjections(next);
+      terminalInteractionId = activeTerminalInteractionId(nextWithPending);
+      if (terminalInteractionId) next = nextWithPending;
+    }
     if (terminalInteractionId && typeof postTerminalOutcomeCheckpoint === 'function') {
       terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
       next = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || next);
@@ -5385,10 +5547,15 @@ export function createChatTurnOrchestrator({
     state = initializeCampaignRuntimeTracking(dispatched.state);
     let terminalCheckpoint = null;
     let terminalCheckpointSettlement = null;
-    const terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
+    let terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
       || committed?.terminalDecision?.detection?.decisionId
       || activeTerminalInteractionId(state)
       || null;
+    if (!terminalInteractionId) {
+      const stateWithPending = await stateWithCorePendingProjections(state);
+      terminalInteractionId = activeTerminalInteractionId(stateWithPending);
+      if (terminalInteractionId) state = stateWithPending;
+    }
     if (terminalInteractionId && typeof postTerminalOutcomeCheckpoint === 'function') {
       terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
       state = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || state);
@@ -5519,7 +5686,7 @@ export function createChatTurnOrchestrator({
       playerMessage: null,
       assistantMessageId: dispatched.result.response?.hostMessageId || dispatched.result.entry?.hostMessageId || null,
       assistantText: text,
-      sourceIngress: await findIngressFresh(state, interaction.ingressId, { runtimeOverlay: true })
+      sourceIngress: await findIngressFresh(state, interaction.ingressId)
     });
     if (typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
       try {
@@ -5582,7 +5749,7 @@ export function createChatTurnOrchestrator({
     const recovery = await findOpenResponseRetryRecovery(state, { recoveryId });
     if (!recovery) return { ok: false, reason: 'response-recovery-not-found' };
     const details = recovery.details || {};
-    const ingress = recovery.ingressId ? await findIngressFresh(state, recovery.ingressId, { runtimeOverlay: true }) : null;
+    const ingress = recovery.ingressId ? await findIngressFresh(state, recovery.ingressId) : null;
     let coreTransaction = null;
     if (ingress?.coreTransactionId && typeof coreTurnStore?.getTransaction === 'function') {
       try {
@@ -5664,13 +5831,6 @@ export function createChatTurnOrchestrator({
       }
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
-    if (((await runtimeLedgerViewFresh(state)).recoveryJournal || []).some((entry) => entry.id === recovery.id)) {
-      state = resolveRecoveryEvent(state, recovery.id, {
-        status: 'resolved',
-        hostMessageId: dispatched.result?.entry?.hostMessageId || dispatched.result?.response?.hostMessageId || null,
-        resolvedAt: timestamp(now)
-      });
-    }
     if (recovery.ingressId) {
       state = updateTurnIngress(state, recovery.ingressId, {
         status: recovery.outcomeId ? 'committed' : 'complete',
@@ -5774,11 +5934,23 @@ export function createChatTurnOrchestrator({
     const targetMetadata = responseMetadata(target) || {};
     const responseKind = compact(details.responseKind || targetMetadata.responseKind || 'committedOutcome');
     const runtimeLedgerView = await runtimeLedgerViewFresh(state || {});
-    const responseEntry = (details.responseId || details.responseIdempotencyKey)
-      ? (runtimeLedgerView.responseLedger || []).find((entry) => (
-        compact(entry.id) === compact(details.responseId || details.responseIdempotencyKey)
-      )) || responseEntryForMessage(state, target)
-      : responseEntryForMessage(state, target);
+    const responseRows = runtimeLedgerView.responseLedger || [];
+    const providerFallbackResponseTargets = responseRows.filter((entry) => (
+      compact(entry?.authority) === 'compatibilityProjection'
+      && compact(entry?.projectionSource) === 'coreStoreV2'
+      && entry?.providerFallback
+      && ['responseRetryRequired', 'coreClosureFailed'].includes(compact(entry?.coreProjection?.status))
+    ));
+    const retryResponseRows = [
+      ...providerFallbackResponseTargets,
+      ...responseRows
+    ];
+    const targetResponseId = compact(targetMetadata.idempotencyKey || target?.raw?.metadata?.idempotencyKey || '');
+    const targetResponseLookupId = compact(details.responseId || details.responseIdempotencyKey || targetResponseId || '');
+    const responseEntry = retryResponseRows.find((entry) => (
+      (targetResponseLookupId && compact(entry.id) === targetResponseLookupId)
+      || (targetHostMessageId && compact(entry.hostMessageId) === targetHostMessageId)
+    )) || responseEntryForMessage(state, target);
     const sourceResponseId = compact(
       responseEntry?.id
       || details.responseId
@@ -5789,11 +5961,17 @@ export function createChatTurnOrchestrator({
     const campaignId = compact(state.campaign?.id || '');
     const targetCampaignId = compact(targetMetadata.campaignId || target?.raw?.metadata?.campaignId || '');
     const targetOutcomeId = compact(targetMetadata.outcomeId || target?.raw?.metadata?.outcomeId || '');
-    const targetResponseId = compact(targetMetadata.idempotencyKey || target?.raw?.metadata?.idempotencyKey || '');
+    const responseEntryMatchesTargetResponse = !targetResponseId || [
+      responseEntry?.id,
+      responseEntry?.coreProjection?.responseId,
+      responseEntry?.coreResponse?.responseId,
+      responseEntry?.coreRelease?.responseId,
+      responseEntry?.providerFallback?.responseId
+    ].some((id) => compact(id) === targetResponseId);
     if (
       !responseEntry
       || (details.responseId && compact(responseEntry.id) !== compact(details.responseId))
-      || (targetResponseId && compact(responseEntry.id) !== targetResponseId)
+      || !responseEntryMatchesTargetResponse
       || (responseEntry.hostMessageId && compact(responseEntry.hostMessageId) !== targetHostMessageId)
       || (recovery.outcomeId && compact(responseEntry.outcomeId) !== compact(recovery.outcomeId))
       || (targetOutcomeId && recovery.outcomeId && targetOutcomeId !== compact(recovery.outcomeId))
@@ -5913,11 +6091,18 @@ export function createChatTurnOrchestrator({
         message: error?.message || String(error)
       };
       let failed = updateDirectiveResponse(state, sourceResponseId, {
+        hostMessageId: swipe.hostMessageId || targetHostMessageId,
+        ingressId: responseEntry?.ingressId || recovery.ingressId || ingress?.id || null,
+        outcomeId: responseEntry?.outcomeId || recovery.outcomeId || null,
+        strategy: responseEntry?.strategy || 'directivePosted',
+        responseKind,
+        coreTransactionId: responseEntry?.coreTransactionId || ingress?.coreTransactionId || null,
+        providerFallback: cloneJson(responseEntry?.providerFallback || null),
         authority: 'compatibilityProjection',
         projectionSource: 'coreStoreV2',
         coreProjection: responseRetryCompatibilityProjection({
           coreResponseRecovery: details.coreRecovery || null,
-          responseId: sourceResponseId,
+          responseId: responseEntry?.coreProjection?.responseId || targetResponseId || sourceResponseId,
           recoveryId: recovery.id,
           status: 'coreClosureFailed'
         }),
@@ -5947,12 +6132,19 @@ export function createChatTurnOrchestrator({
     }
     let next = updateDirectiveResponse(state, sourceResponseId, {
       status: 'posted',
+      hostMessageId: swipe.hostMessageId || targetHostMessageId,
+      ingressId: responseEntry?.ingressId || recovery.ingressId || ingress?.id || null,
+      outcomeId: responseEntry?.outcomeId || recovery.outcomeId || null,
+      strategy: responseEntry?.strategy || 'directivePosted',
+      responseKind,
+      coreTransactionId: responseEntry?.coreTransactionId || ingress?.coreTransactionId || null,
+      providerFallback: cloneJson(responseEntry?.providerFallback || null),
       authority: 'compatibilityProjection',
       projectionSource: 'coreStoreV2',
       coreProjection: responseRetryCompatibilityProjection({
         coreResponseRecovery: details.coreRecovery || null,
         coreCompletion,
-        responseId: sourceResponseId,
+        responseId: responseEntry?.coreProjection?.responseId || targetResponseId || sourceResponseId,
         recoveryId: recovery.id,
         status: 'posted'
       }),
@@ -5978,20 +6170,6 @@ export function createChatTurnOrchestrator({
     }, {
       missingCoreWriteMode: 'reject'
     });
-    if (((await runtimeLedgerViewFresh(next)).recoveryJournal || []).some((entry) => entry.id === recovery.id)) {
-      next = resolveRecoveryEvent(next, recovery.id, {
-        status: 'resolved',
-        reason: 'directive-response-retry-posted',
-        hostMessageId: swipe.hostMessageId || targetHostMessageId,
-        swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
-        swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
-        responseRevisionId: revisionId,
-        coreCompletion: coreCompletion ? {
-          transactionId: coreCompletion.id || ingress?.coreTransactionId || null,
-          phase: coreCompletion.phase || null
-        } : null
-      });
-    }
     if (recovery.ingressId) {
       next = updateTurnIngress(next, recovery.ingressId, {
         status: recovery.outcomeId ? 'committed' : 'complete',
@@ -6038,7 +6216,7 @@ export function createChatTurnOrchestrator({
       };
     }
     let ingressId = ingressIdFor(state, message, chatId);
-    let existing = await findIngressFresh(state, ingressId, { runtimeOverlay: true });
+    let existing = await findIngressFresh(state, ingressId);
     if (!existing) {
       const alias = await findIngressAlias(state, message, chatId, timestamp(now));
       if (alias) {
@@ -6054,7 +6232,7 @@ export function createChatTurnOrchestrator({
         canonicalizedAt: timestamp(now),
         canonicalizationReason: 'matched-host-message-id-after-idless-observation'
       }, `Canonicalized campaign-chat player message ${hostMessageId}.`);
-      existing = await findIngressFresh(state, existing.id, { runtimeOverlay: true });
+      existing = await findIngressFresh(state, existing.id);
     }
     if (existing && !isRetryableIngressStatus(existing.status)) {
       return {
@@ -6090,7 +6268,7 @@ export function createChatTurnOrchestrator({
     const sourceRestart = await latestSourceRestartDecision(state, restartCandidate, message, 'before-latest-boundary-restart');
     if (sourceRestart) {
       ingressId = restartIngressIdFor(ingressId, sourceRestart.priorIngress, message);
-      existing = await findIngressFresh(state, ingressId, { runtimeOverlay: true });
+      existing = await findIngressFresh(state, ingressId);
       existingByHostMessage = await findIngressByHostMessageId(state, hostMessageId, chatId);
       if (
         existingByHostMessage
@@ -6107,6 +6285,7 @@ export function createChatTurnOrchestrator({
       sourceReobserveDecision: sourceRestart?.repairDecision || null,
       priorIngressForRecovery: sourceRestart?.priorIngress || null
     });
+    state = await stateWithCorePendingProjections(state);
     markDebugStage('processMessage:ingressCreated', { ingressId, chatId });
     let decision = null;
     let stage = 'classification';
@@ -6251,7 +6430,7 @@ export function createChatTurnOrchestrator({
           canonicalizedAt: timestamp(now),
           canonicalizationReason: 'joined-in-flight-idless-observation'
         }, `Canonicalized campaign-chat player message ${hostMessageId}.`);
-        const record = await findIngressFresh(next, alias.id, { runtimeOverlay: true });
+        const record = await findIngressFresh(next, alias.id);
         return {
           ...result,
           record: cloneJson(record || result.record || null),
@@ -6422,6 +6601,10 @@ export function createChatTurnOrchestrator({
 
 export const __chatTurnOrchestratorTestHooks = Object.freeze({
   CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION,
+  latestSceneHandshakeCommittedRoots,
+  committedRootsFromOperations,
+  promptRevisionOf,
+  preferPromptAdvancedIngressState,
   fnv1a,
   isQuietGeneration,
   localOutcomeNarration,

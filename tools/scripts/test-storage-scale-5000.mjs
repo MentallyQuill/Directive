@@ -1187,7 +1187,7 @@ assert.equal(
   'manifest-owned production reload should see the hot appended player ingress through CORE projections'
 );
 assert.equal(
-  loadedHotCoreProjections.responseLedger?.some((entry) => (
+  loadedHotCoreProjections.responses?.some((entry) => (
     entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
   )),
   true,
@@ -1220,7 +1220,7 @@ assert.equal(
   'active save recovery should see the hot appended player ingress through CORE projections'
 );
 assert.equal(
-  recoveredHotCoreProjections.responseLedger?.some((entry) => (
+  recoveredHotCoreProjections.responses?.some((entry) => (
     entry.hostMessageId === 'msg-05002' && entry.outcomeId === 'outcome-02501'
   )),
   true,

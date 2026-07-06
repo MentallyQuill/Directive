@@ -32,7 +32,7 @@ flowchart TD
   E0 -->|accepted safe settlement| E1["Commit source-backed assignments, Log, ship readiness, and thread signals"]
   E1 --> E2["Resolve deterministic or Utility-proposed time boundary when accepted scene text moved time"]
   E0 -->|defer/reject/unsafe| E2
-  E2 --> E["Record ingress in runtimeTracking.ingressLedger"]
+  E2 --> E["Begin CORE turn and project compact ingress evidence"]
   E --> F["Show blocking activity: checking intent"]
   F --> F2["Deterministic fast-path classification"]
   F2 --> G{"Clear routine path?"}
@@ -161,7 +161,7 @@ Some turns pause before commit:
 - Command Bearing choice;
 - replacement/outcome preview.
 
-Pending interactions live in `runtimeTracking.pendingInteractions` and surface in Mission. They should be player-safe and should tell the operator what decision is required.
+Non-terminal pending interactions live in CORE read projections under `directiveRuntimeEvidence.coreStoreReadProjections.pendingInteractions` and surface in Mission. Terminal checkpoint decisions live in the terminal decision ledger. The old `runtimeTracking.pendingInteractions` array is a dropped compatibility surface and should not be used as runtime authority. Pending prompts should be player-safe and should tell the operator what decision is required.
 
 ### Mechanics Commit
 

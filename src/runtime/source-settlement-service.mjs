@@ -97,6 +97,35 @@ const DEFAULT_RANGE_PROVIDER = async () => ({ operations: [] });
 const DEFAULT_APPLY_SETTLEMENT = async () => ({ ok: true });
 const PREFLIGHT_DIAGNOSTIC_WAIT_MS = 500;
 
+function timeoutError(code, message, timeoutMs) {
+  const error = new Error(message);
+  error.code = code;
+  error.timeoutMs = timeoutMs;
+  return error;
+}
+
+function isTimeoutError(error = {}) {
+  const code = asString(error?.code, '');
+  return code.includes('TIMEOUT') || Number.isFinite(error?.timeoutMs);
+}
+
+async function withTimeout(promise, timeoutMs, errorFactory) {
+  if (!timeoutMs || timeoutMs <= 0) return promise;
+  let timeoutId = null;
+  const pending = Promise.resolve(promise);
+  try {
+    return await Promise.race([
+      pending,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(errorFactory()), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    pending.catch?.(() => null);
+  }
+}
+
 export function createSourceSettlementService({
   coreStore = null,
   clock = () => new Date().toISOString(),
@@ -104,6 +133,7 @@ export function createSourceSettlementService({
   runRangeProvider = DEFAULT_RANGE_PROVIDER,
   validateBeforeApply = async () => ({ ok: true }),
   applySettlement = DEFAULT_APPLY_SETTLEMENT,
+  providerTimeoutMs = 0,
   rangeSettlementEnabled = null
 } = {}) {
   const handled = new Map();
@@ -191,13 +221,22 @@ export function createSourceSettlementService({
     const provider = mode === 'explicitRange' ? runRangeProvider : runLatestPairProvider;
     let providerResult = null;
     try {
-      providerResult = await provider({
-        ...input,
-        mode,
-        rangeFrame,
-        observedAt
-      });
+      providerResult = await withTimeout(
+        Promise.resolve().then(() => provider({
+          ...input,
+          mode,
+          rangeFrame,
+          observedAt
+        })),
+        providerTimeoutMs,
+        () => timeoutError(
+          'DIRECTIVE_SOURCE_SETTLEMENT_PROVIDER_TIMEOUT',
+          'SRE provider timed out before returning a settlement decision.',
+          providerTimeoutMs
+        )
+      );
     } catch (error) {
+      const timeout = isTimeoutError(error);
       const decision = createSourceSettlementDecision({
         ...input,
         mode,
@@ -205,17 +244,20 @@ export function createSourceSettlementService({
         status: 'repairRequired',
         providerCalled: true,
         applied: false,
-        reasons: ['source-settlement-provider-threw'],
+        reasons: [timeout ? 'source-settlement-provider-timeout' : 'source-settlement-provider-threw'],
         observedAt
       });
       decision.diagnostic = await appendDiagnostic(transactionId, {
         status: decision.status,
         severity: 'warning',
         decision,
-        error: {
+        error: compactObject({
           code: error?.code || 'DIRECTIVE_SOURCE_SETTLEMENT_PROVIDER_THROW',
-          message: asString(error?.message || String(error))
-        }
+          message: asString(error?.message || String(error)),
+          timeoutMs: error?.timeoutMs,
+          providerId: error?.providerId,
+          latencyMs: error?.latencyMs
+        })
       });
       handled.set(idempotencyKey, decision);
       return cloneJson(decision);

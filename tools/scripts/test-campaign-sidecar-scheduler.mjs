@@ -8,6 +8,8 @@ import {
   createForgeCoordinator
 } from '../../src/jobs/forge-coordinator.mjs';
 import { parseStateDeltaProposalOutput } from '../../src/jobs/sidecar-output-contracts.mjs';
+import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
+import { createCoreStoreV2 } from '../../src/storage/core-store-v2.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
@@ -16,6 +18,76 @@ import {
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+function coreProjection(state = {}) {
+  return state?.directiveRuntimeEvidence?.coreStoreReadProjections || null;
+}
+function coreAuthority(state = {}) {
+  return coreProjection(state)?.runtimeAuthority === 'coreStoreV2';
+}
+function activeTestRuntimeRevision(state = {}) {
+  const projection = coreProjection(state);
+  if (projection?.runtimeAuthority === 'coreStoreV2') {
+    const revision = Number(projection?.revisions?.runtime);
+    return Number.isFinite(revision) ? Math.max(0, revision) : 0;
+  }
+  return Math.max(0, Number(state?.runtimeTracking?.revision) || 0);
+}
+function activeTestMechanicsRevision(state = {}) {
+  const projection = coreProjection(state);
+  if (projection?.runtimeAuthority === 'coreStoreV2') {
+    const revision = Number(projection?.revisions?.mechanics);
+    return Number.isFinite(revision) ? Math.max(0, revision) : 0;
+  }
+  return Math.max(0, Number(state?.runtimeTracking?.mechanicsRevision) || 0);
+}
+function ensureTestCoreAuthority(state = {}) {
+  state.directiveRuntimeEvidence = state.directiveRuntimeEvidence || {};
+  state.directiveRuntimeEvidence.coreStoreReadProjections = {
+    ...(state.directiveRuntimeEvidence.coreStoreReadProjections || {}),
+    runtimeAuthority: 'coreStoreV2',
+    revisions: {
+      runtime: activeTestRuntimeRevision(state),
+      mechanics: activeTestMechanicsRevision(state),
+      ...(
+        state.directiveRuntimeEvidence.coreStoreReadProjections?.revisions
+        && typeof state.directiveRuntimeEvidence.coreStoreReadProjections.revisions === 'object'
+          ? cloneJson(state.directiveRuntimeEvidence.coreStoreReadProjections.revisions)
+          : {}
+      )
+    }
+  };
+  return state;
+}
+function advanceTestCoreRuntimeRevision(state = {}) {
+  if (!coreAuthority(state)) {
+    state.runtimeTracking = state.runtimeTracking || {};
+    state.runtimeTracking.revision = (Number(state.runtimeTracking.revision) || 0) + 1;
+    return state;
+  }
+  ensureTestCoreAuthority(state);
+  state.directiveRuntimeEvidence.coreStoreReadProjections.revisions.runtime = activeTestRuntimeRevision(state) + 1;
+  return state;
+}
+function createMemoryStorage() {
+  const files = new Map();
+  return {
+    async readJson(filePath) {
+      if (!files.has(filePath)) {
+        const error = new Error(`not found: ${filePath}`);
+        error.code = 'ENOENT';
+        throw error;
+      }
+      return cloneJson(files.get(filePath));
+    },
+    async writeJson(filePath, value) {
+      files.set(filePath, cloneJson(value));
+      return { ok: true, path: filePath };
+    },
+    async verifyJsonFiles(paths) {
+      return Object.fromEntries(paths.map((filePath) => [filePath, files.has(filePath)]));
+    }
+  };
+}
 function recordTurnIngress(campaignState, ingress, options = {}) {
   const hasCoreTransactionId = Object.prototype.hasOwnProperty.call(ingress, 'coreTransactionId');
   return recordTurnIngressStrict(campaignState, {
@@ -498,6 +570,35 @@ assert.equal(sourceSnapshotDemotion.hostMessageId, 'host-sidecar-core-projected'
 assert.equal(sourceSnapshotDemotion.outcomeId, 'outcome-sidecar-core-projected');
 assert.equal(sourceSnapshotDemotion.sourceFrameId, 'frame-sidecar-core-projected');
 
+const missingSourceSnapshot = __campaignSidecarSchedulerTestHooks.sourceIngressSnapshot({
+  campaign: { id: 'campaign-sidecar-test' },
+  campaignChatBinding: {
+    saveId: 'save-sidecar-test',
+    chatId: 'campaign-chat'
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      ingressLedger: [],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  },
+  runtimeTracking: {
+    ingressLedger: []
+  }
+}, 'ingress-sidecar-missing-core', {
+  ingressId: 'ingress-sidecar-missing-core',
+  sourceFrameId: 'frame-stale-turn-context-only',
+  coreTransactionId: 'txn-stale-turn-context-only',
+  sourceMessageId: 'player-stale-turn-context-only',
+  playerTextHash: 'stale-turn-context-hash'
+});
+assert.equal(
+  missingSourceSnapshot,
+  null,
+  'Sidecar source snapshot must not synthesize source authority from turnContext when CORE/SRE projection is missing.'
+);
+
 async function runCommandBearingReviewPromptScenario({
   suffix,
   closureId = null,
@@ -712,7 +813,7 @@ async function runCommandBearingReviewPromptScenario({
             beforeInstallPromptResult: null,
             coreCommitCountAtFlush: coreCommits.length,
             persistReasonsAtFlush: [...persistReasons],
-            campaignRevision: input.campaignState?.runtimeTracking?.revision || 0
+            campaignRevision: activeTestRuntimeRevision(input.campaignState)
           };
           promptFlushes.push(promptFlush);
           if (reviewFlushThrows) {
@@ -743,7 +844,7 @@ async function runCommandBearingReviewPromptScenario({
             }, { persist: false });
           } else if (mutateLiveStateDuringReviewFlush) {
             const externallyAdvanced = cloneJson(input.campaignState);
-            externallyAdvanced.runtimeTracking.revision = (externallyAdvanced.runtimeTracking?.revision || 0) + 1;
+            advanceTestCoreRuntimeRevision(externallyAdvanced);
             externallyAdvanced.commandLog = externallyAdvanced.commandLog || {};
             externallyAdvanced.commandLog.entries = Array.isArray(externallyAdvanced.commandLog.entries)
               ? externallyAdvanced.commandLog.entries
@@ -1639,7 +1740,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(reviewState.commandBearing.tracks?.resolve?.marks || 0, 0, 'Command Bearing review settlement must not persist old v1 track marks.');
   assert.equal(reviewState.ship.condition, 'Operational', 'Command Bearing review prompt output must not persist non-command ship roots.');
   assert.equal(reviewState.crew.casualties.length, 0, 'Command Bearing review prompt output must not persist non-command crew roots.');
-  assert.equal(reviewState.runtimeTracking.promptContext.hash, 'command-bearing-review-prompt-hash');
+  assert.equal(reviewState.runtimeTracking?.promptContext, undefined);
   assert.equal(reviewGatewayPersists.length, 0, 'Command Bearing sidecar bridge must not persist through StateDeltaGateway before CORE review settlement.');
   assert.equal(reviewCoreCommits.length, 2, 'Command Bearing closure review mutation needs its own durable CORE background evidence.');
   assert.equal(reviewCoreCommits[0].transactionId, 'txn-sidecar-command-bearing-review');
@@ -2518,6 +2619,147 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(staleCachedBatchResults.every((result) => result.error.code === 'DIRECTIVE_SIDECAR_SOURCE_STALE'), true);
   assert.equal(batchCalls.length, 1, 'Stale provider-batch replay must reject before provider generation.');
   assert.equal(batchValidateCalls.length, 1, 'Stale provider-batch replay must not revalidate cached accepted operations.');
+}
+
+{
+  const campaignId = 'campaign-sidecar-real-core-replay-test';
+  const saveId = 'save-sidecar-real-core-replay-test';
+  const chatId = 'campaign-chat';
+  const coreStore = createCoreStoreV2({
+    adapter: createLogicalStorageAdapter({ storage: createMemoryStorage(), hostId: 'fake' }),
+    campaignId,
+    saveId,
+    now
+  });
+  const sourceFrame = {
+    id: 'frame-real-core-batch',
+    campaignId,
+    saveId,
+    chatId,
+    hostMessageId: 'player-real-core-batch',
+    textHash: 'real-core-source-hash',
+    createdAt: now()
+  };
+  const coreTransaction = await coreStore.beginTurn(sourceFrame, {
+    transactionId: 'txn-real-core-batch',
+    ingressId: 'ingress-real-core-batch',
+    idempotencyKey: 'begin-real-core-batch'
+  });
+  await coreStore.advanceTurn(coreTransaction.id, {
+    phase: 'routePending',
+    route: 'directiveCommit',
+    idempotencyKey: 'route-real-core-batch'
+  });
+  let realCoreState = initializeCampaignRuntimeTracking({
+    campaign: { id: campaignId, status: 'active' },
+    campaignChatBinding: { campaignId, saveId, chatId, branchId: 'main' },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  realCoreState = recordTurnIngress(realCoreState, {
+    id: 'ingress-real-core-batch',
+    hostMessageId: 'player-real-core-batch',
+    chatId,
+    campaignId,
+    textHash: 'real-core-source-hash',
+    textPreview: 'Source message for real CORE replay.',
+    status: 'committed',
+    outcomeId: 'outcome-real-core-batch',
+    sourceFrameId: sourceFrame.id,
+    sourceFrame,
+    coreTransactionId: coreTransaction.id
+  });
+  const realCoreGateway = createStateDeltaGateway({
+    getState: () => realCoreState,
+    setState: (next) => { realCoreState = cloneJson(next); },
+    persist: async (next) => { realCoreState = cloneJson(next); },
+    now
+  });
+  const realCoreValidateCalls = [];
+  const originalRealCoreValidate = realCoreGateway.validateOperations;
+  realCoreGateway.validateOperations = async (proposal, policy) => {
+    realCoreValidateCalls.push({ proposal: cloneJson(proposal), policy: cloneJson(policy || {}) });
+    return originalRealCoreValidate(proposal, policy);
+  };
+  let realCoreProviderBatchCalls = 0;
+  const realCoreScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Real CORE replay fixture should use batch sidecar generation.');
+      },
+      async batch(requests) {
+        realCoreProviderBatchCalls += 1;
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: `real-core-${request.roleId}`,
+              operations: request.roleId === 'relationshipEvaluator'
+                ? [{
+                    op: 'append',
+                    path: 'relationships.memoryLedger',
+                    value: { id: 'real-core-relationship-memory-1', summary: 'First relationship memory append.' }
+                  }, {
+                    op: 'append',
+                    path: 'relationships.memoryLedger',
+                    value: { id: 'real-core-relationship-memory-2', summary: 'Second relationship memory append.' }
+                  }]
+                : [{
+                    op: 'append',
+                    path: 'crew.casualties',
+                    value: { id: `real-core-${request.roleId}`, summary: 'Real CORE replay must not mutate v1 roots.' }
+                  }],
+              summary: 'Accepted proposal for real CORE replay.'
+            })
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: realCoreGateway,
+    getCampaignState: () => realCoreState,
+    setCampaignState: (next) => { realCoreState = cloneJson(next); },
+    persistCampaignState: async (next) => { realCoreState = cloneJson(next); },
+    forgeCoordinator: createForgeCoordinator({
+      coreStore: {
+        commitBackgroundBatch: (transactionId, bundle) => coreStore.commitBackgroundBatch(transactionId, bundle),
+        appendDiagnostics: (transactionId, event) => coreStore.appendDiagnostics(transactionId, event)
+      },
+      clock: now
+    }),
+    now
+  });
+  const realCoreFirst = await realCoreScheduler.schedule({
+    workerPlan: { relationship: true, crew: true },
+    turnContext: {
+      ingressId: 'ingress-real-core-batch',
+      turnId: 'turn-real-core-batch',
+      outcomeId: 'outcome-real-core-batch'
+    }
+  });
+  const realCoreReplay = await realCoreScheduler.schedule({
+    workerPlan: { relationship: true, crew: true },
+    turnContext: {
+      ingressId: 'ingress-real-core-batch',
+      turnId: 'turn-real-core-batch',
+      outcomeId: 'outcome-real-core-batch'
+    }
+  });
+  assert.deepEqual(realCoreFirst.map((result) => result.status), ['applied', 'applied']);
+  assert.deepEqual(realCoreReplay.map((result) => result.status), ['applied', 'applied']);
+  assert.equal(realCoreReplay.every((result) => result.replayed === true), true);
+  assert.equal(realCoreReplay.every((result) => result.forgeSettlement?.status === 'settled'), true);
+  assert.equal(realCoreProviderBatchCalls, 1, 'Real CORE accepted-batch replay must not regenerate provider sidecars.');
+  assert.equal(realCoreValidateCalls.length, 1, 'Real CORE accepted-batch replay must not revalidate cached accepted operations.');
+  assert.equal(realCoreState.relationships.seniorCrew.length, 0);
+  assert.equal(realCoreState.crew.casualties.length, 0);
+  assert.equal(realCoreState.runtimeTracking.sidecarJournal.length, 0);
 }
 
 {
@@ -6707,9 +6949,7 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.equal(postCorePersistState.campaignChatBinding.promptContextOwner, 'forge-lens-post-core-persist-warning-test');
   assert.equal(postCorePersistState.runtimeResume.promptContextRevision, 9);
   assert.equal(postCorePersistState.runtimeResume.externalPromptEnvironmentRef.hash, 'e'.repeat(64));
-  assert.equal(postCorePersistState.runtimeTracking.promptContext.revision, 9);
-  assert.equal(postCorePersistState.runtimeTracking.promptContext.hash, 'post-core-prompt-context-hash');
-  assert.equal(postCorePersistState.runtimeTracking.promptContext.continuityProjection.sourceHash, 'post-core-continuity-source-hash');
+  assert.equal(postCorePersistState.runtimeTracking?.promptContext, undefined);
   assert.equal(postCorePersistState.relationships.seniorCrew.length, 0);
   assert.equal(postCorePersistState.crew.casualties.length, 0);
   assert.equal(postCorePersistState.runtimeTracking.sidecarJournal.length, 0);
@@ -7222,6 +7462,182 @@ assert.equal(coreBackgroundCommits.at(-1).transactionId, 'txn-continuity-command
   assert.deepEqual(settledPreflightJournal.map((entry) => entry.status), []);
   const settledPreflightRejectedDiagnostics = settledPreflightCoreDiagnostics.filter((entry) => entry.ingressId === 'ingress-settled-preflight' && entry.status === 'rejected');
   assert.deepEqual(settledPreflightRejectedDiagnostics.map((entry) => entry.errorCode), ['DIRECTIVE_FORGE_PREFLIGHT_FAILED', 'DIRECTIVE_FORGE_PREFLIGHT_FAILED']);
+  assert.deepEqual(settledPreflightRejectedDiagnostics.map((entry) => entry.bridgeStatus), ['settled', 'settled']);
+  assert.deepEqual(settledPreflightRejectedDiagnostics.map((entry) => entry.bridgeEffectiveStatus), ['settled', 'settled']);
+}
+
+{
+  let coreRevisionSidecarState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-core-revision-test', status: 'active' },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] },
+    runtimeTracking: {
+      revision: 99,
+      mechanicsRevision: 99
+    }
+  });
+  coreRevisionSidecarState = recordTurnIngress(coreRevisionSidecarState, {
+    id: 'ingress-core-revision-1',
+    hostMessageId: 'player-core-revision-1',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-core-revision-test',
+    textHash: 'core-revision-source-hash',
+    textPreview: 'Source message for CORE revision sidecars.',
+    status: 'committed',
+    outcomeId: 'outcome-core-revision-1',
+    sourceFrameId: 'frame-core-revision-1',
+    sourceFrame: {
+      id: 'frame-core-revision-1',
+      campaignId: 'campaign-sidecar-core-revision-test',
+      saveId: 'save-sidecar-core-revision-test',
+      chatId: 'campaign-chat',
+      hostMessageId: 'player-core-revision-1',
+      textHash: 'core-revision-source-hash'
+    },
+    coreTransactionId: 'txn-core-revision-1'
+  });
+  coreRevisionSidecarState.directiveRuntimeEvidence.coreStoreReadProjections.runtimeAuthority = 'coreStoreV2';
+  coreRevisionSidecarState.directiveRuntimeEvidence.coreStoreReadProjections.revisions = { runtime: 7, mechanics: 3 };
+  const coreRevisionGateway = createStateDeltaGateway({
+    getState: () => coreRevisionSidecarState,
+    setState: (next) => { coreRevisionSidecarState = cloneJson(next); },
+    persist: async (next) => { coreRevisionSidecarState = cloneJson(next); },
+    now
+  });
+  const coreRevisionRequests = [];
+  const coreRevisionScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Single requested sidecar should still use batch generation in this scheduler path.');
+      },
+      async batch(requests) {
+        coreRevisionRequests.push(...requests.map(cloneJson));
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: `${request.roleId}-core-revision-proposal`,
+              baseRevision: 7,
+              operations: [],
+              summary: 'No mutation needed; CORE revision authority should still drive worker base.'
+            })
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: coreRevisionGateway,
+    getCampaignState: () => coreRevisionSidecarState,
+    setCampaignState: (next) => { coreRevisionSidecarState = cloneJson(next); },
+    persistCampaignState: async (next) => { coreRevisionSidecarState = cloneJson(next); },
+    now
+  });
+  const coreRevisionResults = await coreRevisionScheduler.schedule({
+    workerPlan: { crew: true, ship: true },
+    turnContext: {
+      ingressId: 'ingress-core-revision-1',
+      turnId: 'turn-core-revision-1',
+      outcomeId: 'outcome-core-revision-1'
+    }
+  });
+  assert.equal(coreRevisionRequests.length, 2);
+  assert.match(JSON.stringify(coreRevisionRequests), /baseRevision[^0-9]+7/);
+  assert.deepEqual(coreRevisionResults.map((result) => result.status), ['noChange', 'noChange']);
+  assert.equal(coreRevisionResults.every((result) => result.proposal.baseRevision === 7), true);
+  assert.equal(coreRevisionSidecarState.runtimeTracking.revision, 99, 'no-change sidecar must not mutate stale old runtime revision');
+}
+
+{
+  let coreAuthorityNoVectorState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-core-authority-no-vector-test', status: 'active' },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandBearing: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] },
+    runtimeTracking: {
+      revision: 99,
+      mechanicsRevision: 88
+    }
+  });
+  coreAuthorityNoVectorState = recordTurnIngress(coreAuthorityNoVectorState, {
+    id: 'ingress-core-authority-no-vector-1',
+    hostMessageId: 'player-core-authority-no-vector-1',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-core-authority-no-vector-test',
+    textHash: 'core-authority-no-vector-source-hash',
+    textPreview: 'Source message for CORE authority without revisions.',
+    status: 'committed',
+    outcomeId: 'outcome-core-authority-no-vector-1',
+    sourceFrameId: 'frame-core-authority-no-vector-1',
+    sourceFrame: {
+      id: 'frame-core-authority-no-vector-1',
+      campaignId: 'campaign-sidecar-core-authority-no-vector-test',
+      saveId: 'save-sidecar-core-authority-no-vector-test',
+      chatId: 'campaign-chat',
+      hostMessageId: 'player-core-authority-no-vector-1',
+      textHash: 'core-authority-no-vector-source-hash'
+    },
+    coreTransactionId: 'txn-core-authority-no-vector-1'
+  });
+  coreAuthorityNoVectorState.directiveRuntimeEvidence.coreStoreReadProjections.runtimeAuthority = 'coreStoreV2';
+  delete coreAuthorityNoVectorState.directiveRuntimeEvidence.coreStoreReadProjections.revisions;
+  const coreAuthorityNoVectorGateway = createStateDeltaGateway({
+    getState: () => coreAuthorityNoVectorState,
+    setState: (next) => { coreAuthorityNoVectorState = cloneJson(next); },
+    persist: async (next) => { coreAuthorityNoVectorState = cloneJson(next); },
+    now
+  });
+  const coreAuthorityNoVectorRequests = [];
+  const coreAuthorityNoVectorScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Single requested sidecar should still use batch generation in this scheduler path.');
+      },
+      async batch(requests) {
+        coreAuthorityNoVectorRequests.push(...requests.map(cloneJson));
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: `${request.roleId}-core-authority-no-vector-proposal`,
+              baseRevision: 0,
+              operations: [],
+              summary: 'No mutation needed; CORE authority without revision vector should use zero base.'
+            })
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: coreAuthorityNoVectorGateway,
+    getCampaignState: () => coreAuthorityNoVectorState,
+    setCampaignState: (next) => { coreAuthorityNoVectorState = cloneJson(next); },
+    persistCampaignState: async (next) => { coreAuthorityNoVectorState = cloneJson(next); },
+    now
+  });
+  const coreAuthorityNoVectorResults = await coreAuthorityNoVectorScheduler.schedule({
+    workerPlan: { crew: true, ship: true },
+    turnContext: {
+      ingressId: 'ingress-core-authority-no-vector-1',
+      turnId: 'turn-core-authority-no-vector-1',
+      outcomeId: 'outcome-core-authority-no-vector-1'
+    }
+  });
+  assert.equal(coreAuthorityNoVectorRequests.length, 2);
+  assert.match(JSON.stringify(coreAuthorityNoVectorRequests), /baseRevision[^0-9]+0/);
+  assert.deepEqual(coreAuthorityNoVectorResults.map((result) => result.status), ['noChange', 'noChange']);
+  assert.equal(coreAuthorityNoVectorResults.every((result) => result.proposal.baseRevision === 0), true);
+  assert.equal(coreAuthorityNoVectorState.runtimeTracking.revision, 99, 'no-change sidecar must not normalize stale old runtime revision when CORE owns authority.');
 }
 
 {

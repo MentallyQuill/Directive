@@ -10,6 +10,18 @@ import {
   __sceneHandshakeSettlerTestHooks
 } from '../../src/runtime/scene-handshake-settler.mjs';
 import {
+  getDefaultGenerationRoleDefinitions
+} from '../../src/generation/generation-roles.mjs';
+import {
+  createLatestPairSourceSettlementProvider
+} from '../../src/runtime/source-settlement-latest-pair-provider.mjs';
+import {
+  validateLatestPairSettlement
+} from '../../src/runtime/source-settlement-latest-pair-validation.mjs';
+import {
+  __latestPairSceneAdapterTestHooks
+} from '../../src/runtime/source-settlement-latest-pair-scene-adapter.mjs';
+import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking
 } from '../../src/runtime/state-delta-gateway.mjs';
@@ -284,13 +296,108 @@ assert.ok(acceptedHarness.state.ship.technicalDebt.length >= 1);
 assert.ok(acceptedHarness.state.ship.technicalDebt.some((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''}`)));
 assert.equal(acceptedHarness.state.threadLedger.records.length, 3);
 assert.deepEqual(
-  acceptedHarness.state.runtimeTracking.sceneHandshake.settled.map((entry) => entry.status),
+  acceptedHarness.state.sceneHandshake.settled.map((entry) => entry.status),
   ['settled']
 );
-assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.disposition, 'autoCommit');
-assert.ok(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount >= 8);
-assert.equal(acceptedHarness.state.runtimeTracking.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
+assert.equal(acceptedHarness.state.sceneHandshake.settled[0].authority, 'sreSceneHandshakeProjection');
+assert.equal(acceptedHarness.state.sceneHandshake.settled[0].projectionSource, 'sourceSettlementLatestPair');
+assert.equal(
+  acceptedHarness.state.sceneHandshake.settled[0].compatibilityMirror.kind,
+  'directive.sceneHandshakeLedgerProjectionRef.v1'
+);
+assert.equal(acceptedHarness.state.sceneHandshake.lastResult.disposition, 'autoCommit');
+assert.equal(acceptedHarness.state.sceneHandshake.lastResult.authority, 'sreSceneHandshakeProjection');
+assert.equal(acceptedHarness.state.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
+assert.equal(acceptedHarness.state.sceneHandshake.lastResult.metadata?.sourceSettlementMode, 'latestPair');
+assert.ok(acceptedHarness.state.sceneHandshake.lastResult.operationCount >= 8);
+assert.equal(
+  acceptedHarness.state.sceneHandshake.lastResult.runtimeRevisionBefore,
+  null,
+  'Latest-pair SRE settlement must not carry old runtimeTracking revision as pre-apply evidence.'
+);
+assert.equal(acceptedHarness.state.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
 assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sceneHandshake'));
+
+const coreRevisionAcceptedHarness = createHarness('core-revision-accepted');
+coreRevisionAcceptedHarness.state = {
+  ...coreRevisionAcceptedHarness.state,
+  runtimeTracking: {
+    ...coreRevisionAcceptedHarness.state.runtimeTracking,
+    revision: 99,
+    mechanicsRevision: 88
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      revisions: { runtime: 7, mechanics: 3 }
+    }
+  }
+};
+const coreRevisionAccepted = await runSceneHandshakeSettlement({
+  campaignState: coreRevisionAcceptedHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: coreRevisionAcceptedHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-core-revision-accepted',
+  generationRouter: {
+    async generate() {
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-scene-handshake-core-revision',
+          text: JSON.stringify(settlement)
+        },
+        diagnostics: {
+          providerId: 'fake-scene-handshake-core-revision',
+          latencyMs: 11
+        }
+      };
+    }
+  },
+  stateDeltaGateway: coreRevisionAcceptedHarness.gateway,
+  now: coreRevisionAcceptedHarness.now
+});
+coreRevisionAcceptedHarness.state = coreRevisionAccepted.campaignState;
+assert.equal(coreRevisionAccepted.ok, true);
+assert.equal(
+  coreRevisionAcceptedHarness.persisted.some((proposal) => proposal.baseRevision === 7),
+  true,
+  'Scene Handshake accepted settlements must use CORE/v2 runtime revision as apply base when old runtimeTracking is stale.'
+);
+assert.equal(coreRevisionAcceptedHarness.state.sceneHandshake.lastResult.appliedRevision, 8);
+assert.equal(coreRevisionAcceptedHarness.state.sceneHandshake.lastResult.appliedMechanicsRevision, 4);
+
+const latestPairGenericLogHarness = createHarness('latest-pair-generic-log');
+const latestPairGenericLogSnapshot = __latestPairSceneAdapterTestHooks.buildLatestPairSceneSnapshot({
+  campaignState: latestPairGenericLogHarness.state,
+  previousAssistantMessage: assistantMessage,
+  currentPlayerMessage: playerMessage,
+  chatId: latestPairGenericLogHarness.state.campaignChatBinding.chatId,
+  recentMessages: [assistantMessage, playerMessage]
+});
+const latestPairGenericLogValidation = validateLatestPairSettlement({
+  ...settlement,
+  commandLogProposals: [{
+    summaryInputs: ['Sam accepted the assignments.'],
+    visibleConsequences: ['Sam accepted the assignments in the next reply.']
+  }]
+}, {
+  campaignState: latestPairGenericLogHarness.state,
+  snapshot: latestPairGenericLogSnapshot,
+  settlementId: 'settlement:latest-pair-generic-log',
+  recordedAt: latestPairGenericLogHarness.now()
+});
+const latestPairGenericLogCommand = latestPairGenericLogValidation.operations
+  .find((operation) => operation.path === 'commandLog.entries')?.value;
+assert.match(
+  [
+    ...(latestPairGenericLogCommand?.summaryInputs || []),
+    ...(latestPairGenericLogCommand?.visibleConsequences || [])
+  ].join('\n'),
+  /Commander Cross[\s\S]*Bronn[\s\S]*department heads/i,
+  'Latest-pair SRE command-log text should include accepted order details even when the model returns generic acknowledgement prose.'
+);
 
 const coreRecoverySnapshotHarness = createHarness('core-recovery-snapshot');
 coreRecoverySnapshotHarness.state = {
@@ -438,13 +545,51 @@ assert.equal(
   'Terminal SRE latest-pair settlement should apply provider operations before legacy Scene Handshake.'
 );
 assert.equal(
-  terminalHarness.state.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceOwner,
+  terminalHarness.state.sceneHandshake.lastResult.metadata?.sourceOwner,
   'sre',
   'Scene Handshake ledger should show SRE terminal ownership for latest-pair settlement.'
 );
+assert.equal(terminalHarness.state.sceneHandshake.lastResult.authority, 'sreSceneHandshakeProjection');
+assert.equal(terminalHarness.state.sceneHandshake.lastResult.projectionSource, 'sourceSettlementLatestPair');
+assert.equal(
+  terminalHarness.state.sceneHandshake.lastResult.compatibilityMirror.kind,
+  'directive.sceneHandshakeLedgerProjectionRef.v1'
+);
 assert.ok(terminalHarness.persisted.some((proposal) => proposal.source === 'sourceSettlement'));
+const terminalDuplicateRevision = terminalHarness.state.runtimeTracking.revision;
+const terminalProviderCallsBeforeDuplicate = terminalProviderCalls.length;
+const terminalDuplicate = await runSceneHandshakeSettlement({
+  campaignState: terminalHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-latest-pair',
+  generationRouter: {
+    async generate() {
+      throw new Error('legacy Scene Handshake provider must not run for duplicate SRE latest-pair source');
+    }
+  },
+  stateDeltaGateway: terminalHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(terminalHarness, assistantMessage, playerMessage, 'terminal-sre-latest-pair'),
+  runLatestPairSettlementProvider: async () => {
+    throw new Error('SRE latest-pair provider must not rerun for duplicate source pair');
+  },
+  packageData,
+  now: terminalHarness.now
+});
+assert.equal(terminalDuplicate.deduplicated, true);
+assert.equal(terminalProviderCalls.length, terminalProviderCallsBeforeDuplicate);
+assert.equal(terminalHarness.state.runtimeTracking.revision, terminalDuplicateRevision);
 
 const terminalMisleadingDomainHarness = createHarness('terminal-sre-misleading-domain');
+const terminalMisleadingDomainGateway = {
+  ...terminalMisleadingDomainHarness.gateway,
+  async applyOperations(...args) {
+    const applied = await terminalMisleadingDomainHarness.gateway.applyOperations(...args);
+    const { domains, ...withoutDomains } = applied || {};
+    return withoutDomains;
+  }
+};
 const terminalMisleadingDomain = await runSceneHandshakeSettlement({
   campaignState: terminalMisleadingDomainHarness.state,
   currentPlayerMessage: playerMessage,
@@ -456,7 +601,7 @@ const terminalMisleadingDomain = await runSceneHandshakeSettlement({
       throw new Error('legacy Scene Handshake provider must not repair misleading SRE domain metadata');
     }
   },
-  stateDeltaGateway: terminalMisleadingDomainHarness.gateway,
+  stateDeltaGateway: terminalMisleadingDomainGateway,
   latestPairSourceFrame: latestPairSourceFrameFor(terminalMisleadingDomainHarness, assistantMessage, playerMessage, 'terminal-sre-misleading-domain'),
   runLatestPairSettlementProvider: async () => ({
     operations: [{
@@ -478,6 +623,7 @@ terminalMisleadingDomainHarness.state = terminalMisleadingDomain.campaignState;
 assert.equal(terminalMisleadingDomain.ok, true);
 assert.equal(terminalMisleadingDomain.promptDirty, true);
 assert.equal(terminalMisleadingDomain.committedRoots.includes('commandLog'), true);
+assert.equal(terminalMisleadingDomain.promptDirtyDomains.includes('commandLog'), true);
 assert.equal(
   terminalMisleadingDomainHarness.state.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-domain-from-path'),
   true,
@@ -512,7 +658,7 @@ assert.equal(terminalThrow.sourceSettlement.providerCalled, true);
 assert.equal(terminalThrow.sourceSettlement.applied, false);
 assert.equal(terminalThrow.sourceSettlement.reasons.includes('source-settlement-provider-threw'), true);
 assert.equal(terminalThrowLegacyGenerationCalls, 0);
-assert.equal(terminalThrowHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(terminalThrowHarness.state.sceneHandshake.settled.length, 0);
 
 const terminalStaleHarness = createHarness('terminal-sre-stale-before-apply');
 let terminalStaleLegacyGenerationCalls = 0;
@@ -547,7 +693,7 @@ assert.equal(terminalStale.sourceSettlement.applied, false);
 assert.equal(terminalStale.sourceSettlement.reasons.includes('terminal-source-stale-before-apply'), true);
 assert.equal(terminalStaleLegacyGenerationCalls, 0);
 assert.equal(terminalStaleHarness.state.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-stale'), false);
-assert.equal(terminalStaleHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(terminalStaleHarness.state.sceneHandshake.settled.length, 0);
 
 const terminalRepairHarness = createHarness('terminal-sre-repair-required');
 let terminalRepairLegacyGenerationCalls = 0;
@@ -581,7 +727,73 @@ assert.equal(terminalRepair.sourceSettlement.applied, false);
 assert.equal(terminalRepair.sourceSettlement.reasons.includes('source-settlement-apply-threw'), true);
 assert.equal(terminalRepairLegacyGenerationCalls, 0);
 assert.equal(terminalRepairHarness.state.crew.records?.some?.((entry) => entry.id === 'crew-forbidden-terminal-sre') || false, false);
-assert.equal(terminalRepairHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(terminalRepairHarness.state.sceneHandshake.settled.length, 0);
+
+const terminalAcceptedEmptyProviderHarness = createHarness('terminal-sre-accepted-empty-provider-output');
+let terminalAcceptedEmptyProviderCalls = 0;
+const terminalAcceptedEmptyGenerationRouter = {
+  async generate(roleId) {
+    terminalAcceptedEmptyProviderCalls += 1;
+    if (roleId === 'sceneHandshakeSettler') {
+      throw new Error('real latest-pair SRE accepted-empty fixture must not call legacy Scene Handshake role');
+    }
+    assert.equal(roleId, 'sourceSettlementLatestPair');
+    return {
+      ok: true,
+      response: {
+        providerId: 'fake-source-settlement-accepted-empty',
+        text: JSON.stringify({
+          kind: 'directive.sceneHandshakeSettlement.v1',
+          acceptedPreviousResponse: true,
+          playerReplyRelation: 'acts-on',
+          confidence: 0.93,
+          disposition: 'autoCommit',
+          needsInternalReview: false,
+          internalReviewReasons: [],
+          deferReason: null,
+          operatorRecoveryOnly: false,
+          openAssignmentProposals: [],
+          commandLogProposals: [],
+          shipReadinessProposals: [],
+          threadSignals: []
+        })
+      },
+      diagnostics: { providerId: 'fake-source-settlement-accepted-empty' }
+    };
+  }
+};
+const terminalAcceptedEmptyProvider = await runSceneHandshakeSettlement({
+  campaignState: terminalAcceptedEmptyProviderHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: terminalAcceptedEmptyProviderHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-terminal-sre-accepted-empty-provider',
+  generationRouter: terminalAcceptedEmptyGenerationRouter,
+  stateDeltaGateway: terminalAcceptedEmptyProviderHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(
+    terminalAcceptedEmptyProviderHarness,
+    assistantMessage,
+    playerMessage,
+    'terminal-sre-accepted-empty-provider-output'
+  ),
+  runLatestPairSettlementProvider: createLatestPairSourceSettlementProvider({
+    generationRouter: terminalAcceptedEmptyGenerationRouter,
+    validateLatestPairSettlement,
+    now: terminalAcceptedEmptyProviderHarness.now
+  }),
+  packageData,
+  now: terminalAcceptedEmptyProviderHarness.now
+});
+terminalAcceptedEmptyProviderHarness.state = terminalAcceptedEmptyProvider.campaignState;
+assert.equal(terminalAcceptedEmptyProvider.ok, true);
+assert.equal(terminalAcceptedEmptyProvider.sourceSettlement.status, 'accepted');
+assert.equal(terminalAcceptedEmptyProviderCalls, 1);
+assert.equal(terminalAcceptedEmptyProviderHarness.state.mission.openAssignments.length, 3);
+assert.equal(terminalAcceptedEmptyProviderHarness.state.commandLog.entries.length, 1);
+assert.equal(terminalAcceptedEmptyProviderHarness.state.threadLedger.records.length, 3);
+assert.equal(terminalAcceptedEmptyProviderHarness.state.sceneHandshake.settled.length, 1);
+assert.equal(terminalAcceptedEmptyProviderHarness.state.sceneHandshake.lastResult.projectionSource, 'sourceSettlementLatestPair');
+assert.ok(terminalAcceptedEmptyProviderHarness.state.sceneHandshake.lastResult.operationCount >= 8);
 
 const terminalNoChangeHarness = createHarness('terminal-sre-no-change');
 let terminalNoChangeLegacyGenerationCalls = 0;
@@ -606,7 +818,7 @@ assert.equal(terminalNoChange.ok, true);
 assert.equal(terminalNoChange.sourceSettlement.status, 'noChange');
 assert.equal(terminalNoChange.sourceSettlement.applied, false);
 assert.equal(terminalNoChangeLegacyGenerationCalls, 0);
-assert.equal(terminalNoChangeHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(terminalNoChangeHarness.state.sceneHandshake.settled.length, 0);
 
 const strictLatestPairHarness = createHarness('strict-latest-pair-no-provider');
 let strictLatestPairLegacyGenerationCalls = 0;
@@ -633,7 +845,73 @@ assert.equal(strictLatestPairNoProvider.sourceSettlement.providerCalled, false);
 assert.equal(strictLatestPairNoProvider.sourceSettlement.applied, false);
 assert.equal(strictLatestPairNoProvider.sourceSettlement.reasons.includes('source-settlement-latest-pair-unavailable'), true);
 assert.equal(strictLatestPairLegacyGenerationCalls, 0);
-assert.equal(strictLatestPairHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(strictLatestPairHarness.state.sceneHandshake.settled.length, 0);
+
+const latestPairRoleTimeout = getDefaultGenerationRoleDefinitions().sourceSettlementLatestPair.timeoutMs;
+assert.equal(latestPairRoleTimeout, 45000, 'sourceSettlementLatestPair needs the same live-provider budget class as other blocking utility owner calls');
+let latestPairProviderOptions = null;
+const latestPairTimeoutProvider = createLatestPairSourceSettlementProvider({
+  generationRouter: {
+    async generate(roleId, request, options = {}) {
+      latestPairProviderOptions = { roleId, timeoutMs: options.timeoutMs };
+      return {
+        ok: true,
+        text: JSON.stringify({
+          kind: 'directive.sceneHandshakeSettlement.v1',
+          acceptedPreviousResponse: true,
+          playerReplyRelation: 'acknowledges',
+          confidence: 0.9,
+          disposition: 'autoCommit',
+          needsInternalReview: false,
+          internalReviewReasons: [],
+          deferReason: null,
+          operatorRecoveryOnly: false,
+          openAssignmentProposals: [],
+          commandLogProposals: [],
+          shipReadinessProposals: [],
+          threadSignals: []
+        }),
+        diagnostics: { providerId: 'test-provider', latencyMs: 12 },
+        response: { providerId: 'test-provider' }
+      };
+    }
+  },
+  validateLatestPairSettlement: () => ({
+    disposition: 'autoCommit',
+    settlement: { acceptedPreviousResponse: true },
+    operations: [],
+    reasons: []
+  })
+});
+await latestPairTimeoutProvider({
+  snapshot: {
+    kind: 'directive.sceneHandshakeSnapshot.v1',
+    envelope: {
+      campaignId: 'campaign-latest-pair-timeout',
+      chatId: 'chat-latest-pair-timeout'
+    },
+    source: {
+      previousAssistant: {
+        hostMessageId: 'assistant-latest-pair-timeout',
+        textHash: 'assistant-hash',
+        selectedVariant: null
+      },
+      currentPlayer: {
+        hostMessageId: 'player-latest-pair-timeout',
+        textHash: 'player-hash'
+      },
+      sourceRangeHash: 'range-hash'
+    },
+    budget: {
+      optionalSlicesIncluded: []
+    }
+  },
+  campaignState: strictLatestPairHarness.state,
+  settlementId: 'settlement-latest-pair-timeout',
+  observedAt: strictLatestPairHarness.now()
+});
+assert.equal(latestPairProviderOptions?.roleId, 'sourceSettlementLatestPair');
+assert.equal(latestPairProviderOptions?.timeoutMs, latestPairRoleTimeout, 'latest-pair provider must use the generation role timeout');
 
 const terminalTimeHarness = createHarness('terminal-sre-time-advance');
 const terminalTimeAssistant = {
@@ -675,7 +953,8 @@ const terminalTime = await runSceneHandshakeSettlement({
       path: 'commandLog.entries',
       identityKey: 'id',
       value: { id: 'command-log:terminal-sre-time', type: 'scene' }
-    }]
+    }],
+    parse: { ok: true }
   }),
   packageData,
   now: terminalTimeHarness.now
@@ -687,6 +966,7 @@ assert.equal(terminalTimeHarness.state.worldState.elapsedMinutes, 5);
 assert.equal(terminalTimeHarness.state.timeLedger.lastBoundary.reason, 'intra-ship-transition');
 assert.equal(terminalTime.committedRoots.includes('worldState'), true);
 assert.equal(terminalTime.committedRoots.includes('timeLedger'), true);
+assert.equal(terminalTimeHarness.state.sceneHandshake.lastResult.parseStatus, 'ok');
 assert.ok(terminalTimeHarness.persisted.some((proposal) => proposal.source === 'timeAdvanceAdjudicator'));
 
 const terminalHardSkipHarness = createHarness('terminal-sre-hard-skip');
@@ -723,7 +1003,7 @@ assert.equal(terminalHardSkip.ok, false);
 assert.equal(terminalHardSkip.sourceSettlement.status, 'hardSkipped');
 assert.equal(terminalHardSkip.sourceSettlement.providerCalled, false);
 assert.equal(terminalHardSkipLegacyGenerationCalls, 0);
-assert.equal(terminalHardSkipHarness.state.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(terminalHardSkipHarness.state.sceneHandshake.settled.length, 0);
 
 const menuHarness = createHarness('menu-offramp');
 const menuAssistant = {
@@ -794,7 +1074,7 @@ assert.equal(menuResult.ok, true);
 assert.equal(menuHarness.state.mission.openAssignments.length, 0);
 assert.equal(menuHarness.state.commandLog.entries.length, 0);
 assert.equal(menuHarness.state.threadLedger.records.length, 0);
-assert.equal(menuHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount, 0);
+assert.equal(menuHarness.state.sceneHandshake.lastResult.operationCount, 0);
 
 const delegatedOrdersHarness = createHarness('player-issued-orders');
 const delegatedOrdersAssistant = {
@@ -1289,7 +1569,7 @@ assert.match(fallbackHarness.state.mission.openAssignments.map((entry) => entry.
 assert.equal(fallbackHarness.state.commandLog.entries.length, 1);
 assert.ok(fallbackHarness.state.ship.technicalDebt.some((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''}`)));
 assert.equal(fallbackHarness.state.threadLedger.records.length, 3);
-assert.ok(fallbackHarness.state.runtimeTracking.sceneHandshake.lastResult.operationCount >= 8);
+assert.ok(fallbackHarness.state.sceneHandshake.lastResult.operationCount >= 8);
 
 const providerFailureHarness = createHarness('provider-failure');
 const providerFailure = await runSceneHandshakeSettlement({
@@ -1333,8 +1613,10 @@ assert.equal(providerFailure.ok, false);
 assert.equal(providerFailure.disposition, 'defer');
 assert.equal(providerFailure.promptDirty, false);
 assert.equal(providerFailureHarness.state.mission.openAssignments.length, 0);
-assert.equal(providerFailureHarness.state.runtimeTracking.sceneHandshake.deferred.length, 1);
-assert.equal(providerFailureHarness.state.runtimeTracking.sceneHandshake.lastResult.error.code, 'TIMEOUT');
+assert.equal(providerFailureHarness.state.sceneHandshake.deferred.length, 1);
+assert.equal(providerFailureHarness.state.sceneHandshake.deferred[0].authority, 'sreSceneHandshakeProjection');
+assert.equal(providerFailureHarness.state.sceneHandshake.deferred[0].projectionSource, 'sourceSettlementLatestPair');
+assert.equal(providerFailureHarness.state.sceneHandshake.lastResult.error.code, 'TIMEOUT');
 
 const providerThrowHarness = createHarness('provider-throw');
 const providerThrow = await runSceneHandshakeSettlement({
@@ -1355,12 +1637,66 @@ const providerThrow = await runSceneHandshakeSettlement({
 });
 providerThrowHarness.state = providerThrow.campaignState;
 assert.equal(providerThrow.attempted, true);
-assert.equal(providerThrow.ok, true);
-assert.equal(providerThrow.disposition, 'autoCommit');
-assert.equal(providerThrow.providerFailureFallback, true);
-assert.equal(providerThrowHarness.state.mission.openAssignments.length, 3);
-assert.equal(providerThrowHarness.state.runtimeTracking.sceneHandshake.settled.length, 1);
-assert.deepEqual(providerThrowHarness.state.runtimeTracking.sceneHandshake.lastResult.reasons, ['provider-failed-deterministic-fallback']);
+assert.equal(providerThrow.ok, false);
+assert.equal(providerThrow.disposition, 'defer');
+assert.equal(providerThrow.providerFailureFallback, undefined);
+assert.equal(providerThrow.promptDirty, false);
+assert.equal(providerThrowHarness.state.mission.openAssignments.length, 0);
+assert.equal(providerThrowHarness.state.sceneHandshake.settled.length, 0);
+assert.equal(providerThrowHarness.state.sceneHandshake.deferred.length, 1);
+assert.equal(providerThrowHarness.state.sceneHandshake.deferred[0].authority, 'sreSceneHandshakeProjection');
+assert.equal(providerThrowHarness.state.sceneHandshake.deferred[0].projectionSource, 'sourceSettlementLatestPair');
+assert.deepEqual(providerThrowHarness.state.sceneHandshake.lastResult.reasons, ['source-settlement-provider-threw']);
+assert.equal(providerThrowHarness.state.sceneHandshake.lastResult.error.code, 'TRANSPORT_THROW');
+
+const coreRevisionRecordOnlyHarness = createHarness('core-revision-record-only');
+coreRevisionRecordOnlyHarness.state = {
+  ...coreRevisionRecordOnlyHarness.state,
+  runtimeTracking: {
+    ...coreRevisionRecordOnlyHarness.state.runtimeTracking,
+    revision: 99,
+    mechanicsRevision: 88
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      revisions: { runtime: 7, mechanics: 3 }
+    }
+  }
+};
+const coreRevisionRecordOnly = await runSceneHandshakeSettlement({
+  campaignState: coreRevisionRecordOnlyHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: coreRevisionRecordOnlyHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-core-revision-record-only',
+  generationRouter: {
+    async generate() {
+      return {
+        ok: false,
+        error: {
+          code: 'CORE_REVISION_RECORD_ONLY_TIMEOUT',
+          message: 'Synthetic provider failure.'
+        }
+      };
+    }
+  },
+  stateDeltaGateway: coreRevisionRecordOnlyHarness.gateway,
+  now: coreRevisionRecordOnlyHarness.now
+});
+coreRevisionRecordOnlyHarness.state = coreRevisionRecordOnly.campaignState;
+assert.equal(coreRevisionRecordOnly.attempted, true);
+assert.equal(coreRevisionRecordOnly.ok, false);
+assert.equal(coreRevisionRecordOnly.disposition, 'defer');
+assert.equal(coreRevisionRecordOnlyHarness.state.sceneHandshake.deferred.length, 1);
+assert.equal(
+  coreRevisionRecordOnlyHarness.persisted.some((proposal) => proposal.baseRevision === 7),
+  true,
+  'Scene Handshake record-only settlements must use CORE/v2 runtime revision as apply base when old runtimeTracking is stale.'
+);
+assert.equal(coreRevisionRecordOnlyHarness.state.runtimeTracking.revision, 8);
+assert.equal(coreRevisionRecordOnlyHarness.state.runtimeTracking.mechanicsRevision, 3);
 
 const malformedHarness = createHarness('malformed');
 const malformed = await runSceneHandshakeSettlement({
@@ -1392,8 +1728,9 @@ assert.equal(malformed.attempted, true);
 assert.equal(malformed.ok, false);
 assert.equal(malformed.disposition, 'defer');
 assert.equal(malformedHarness.state.mission.openAssignments.length, 0);
-assert.equal(malformedHarness.state.runtimeTracking.sceneHandshake.deferred.length, 1);
-assert.equal(malformedHarness.state.runtimeTracking.sceneHandshake.lastResult.parseStatus, 'failed');
+assert.equal(malformedHarness.state.sceneHandshake.deferred.length, 1);
+assert.equal(malformedHarness.state.sceneHandshake.deferred[0].authority, 'sreSceneHandshakeProjection');
+assert.equal(malformedHarness.state.sceneHandshake.lastResult.parseStatus, 'failed');
 
 const rejectionHarness = createHarness('rejected');
 const rejectingRouter = {
@@ -1447,6 +1784,7 @@ assert.equal(rejection.ok, false);
 assert.equal(rejection.disposition, 'internalReview');
 assert.equal(rejection.promptDirty, false);
 assert.equal(rejectionHarness.state.mission.openAssignments.length, 0);
-assert.equal(rejectionHarness.state.runtimeTracking.sceneHandshake.pendingInternalReview.length, 1);
+assert.equal(rejectionHarness.state.sceneHandshake.pendingInternalReview.length, 1);
+assert.equal(rejectionHarness.state.sceneHandshake.pendingInternalReview[0].authority, 'sreSceneHandshakeProjection');
 
-console.log('Scene Handshake settler tests passed: accepted assistant prose commits lean state, deterministic fallback prevents empty accepted settlements, rejects corrections, and deduplicates source pairs');
+console.log('Scene Handshake settler tests passed: accepted assistant prose commits lean state, provider failures defer, rejects corrections, and deduplicates source pairs');

@@ -338,7 +338,7 @@ async function assertCoreHealthy({ adapter, campaignId, saveId }) {
   assert.equal(coreHead.coreStore.counters.diagnostics, 0, 'diagnostics-only append must not rewrite the CORE head');
   const projections = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
   assert.equal(projections.ingressLedger.length, 1);
-  assert.equal(projections.responseLedger.length, 1);
+  assert.equal(projections.responses.length, 1);
   assert.equal(projections.turnLedger.entries.length, 1);
   assert.equal(projections.modelCallDiagnostics.length, 1);
   assert.equal(projections.modelCallDiagnostics[0].promptText, '[redacted-raw-payload]');

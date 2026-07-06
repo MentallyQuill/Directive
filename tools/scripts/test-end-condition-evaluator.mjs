@@ -6,6 +6,7 @@ import {
   detectCampaignEndCondition,
   evaluateEndConditionPredicate
 } from '../../src/campaign/end-conditions.mjs';
+import { terminalDecisionLedgerView } from '../../src/runtime/terminal-decision-ledger-view.mjs';
 
 const root = process.cwd();
 const packageData = JSON.parse(fs.readFileSync(path.resolve(root, 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'), 'utf8'));
@@ -220,7 +221,8 @@ function requireCondition(state, id, expectedBand = null) {
   });
   assert.equal(continued.campaignState.ship.status, 'lost');
   assert.equal(continued.campaignState.flags['push-on.frame'], 'survivors-after-breck-loss');
-  assert.equal(continued.campaignState.runtimeTracking.endConditionLedger.continuationFrames.at(-1).frameId, 'survivors-after-breck-loss');
+  assert.equal(continued.campaignState.runtimeTracking.endConditionLedger.continuationFrames.length, 0);
+  assert.equal(terminalDecisionLedgerView(continued.campaignState).continuationFrames.at(-1).frameId, 'survivors-after-breck-loss');
 }
 
 console.log('End condition evaluator tests passed: Ashes families, priority, Exploration softening, pending payload, and Push On frame effects.');

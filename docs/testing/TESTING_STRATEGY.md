@@ -126,6 +126,10 @@ Coverage groups:
 
 `npm test`, `npm run verify`, `npm run alpha-gate`, and `node tools\scripts\run-alpha-gate.mjs` all run the same maintained suite.
 
+During the architecture redesign, the alpha gate must track the frozen owner model, not preserve stale compatibility behavior. Tests that require old `runtimeTracking` ledgers, v1 hot payloads, old recovery/sidecar/model-call journals, old helper APIs, or compatibility import as authority should be converted to CORE/v2, REPAIR/SRE, FORGE/LENS, or external-context evidence assertions. Old projections may appear only as explicitly named bridge telemetry for a current production path.
+
+Implementation complete and live certified are separate test states. Deterministic and integration tests prove CORE/v2 authority, REPAIR/SRE authority, FORGE/LENS ownership, and the external-context evidence contract. Live proof validates those finished paths during Wave 4; it should not become a new redesign-discovery loop.
+
 `test-runtime-shell-creator-flow.mjs` covers the first playable inspection surface: package-owned Character Creator, simulation-mode default/persistence, first save creation, Campaign Records Save Game, Save Game As dialog naming with Save/Cancel, Load Game, Settings diagnostics/reload/preview-clear controls, State Safety verify/settle/export/cleanup controls, and rendered Mission, Crew, Ship, Log, and Settings panels backed by initialized campaign state.
 
 `test-ship-panel-state-records.mjs` covers structured Ship caveat records, ensuring visible object records render inside Operational Readiness folder disclosures while hidden records and raw object strings stay out of the Ship tab.

@@ -132,6 +132,31 @@ assert.equal(strictProofFailures.some((entry) => entry.id === 'generation-timing
 assert.equal(strictProofFailures.some((entry) => entry.id === 'host-native-completion-proof'), true);
 assert.match(strictProofFailures.map((entry) => entry.summary).join('\n'), /must be pass/i);
 
+const strictLimitedHostNativeProofFailures = liveSmokeStrictProofFailures({
+  strict: true,
+  generationTimingStatus: 'pass',
+  generationTimingProof: {
+    status: 'pass',
+    source: 'coreStoreTurnTiming',
+    checkedTurnCount: 1,
+    skippedTurnCount: 1
+  },
+  hostNativeCompletionStatus: 'warning',
+  hostNativeCompletionProof: {
+    status: 'warning',
+    source: 'coreStoreResponseLedger',
+    completedHostContinueCount: 0,
+    requiredCompletionCount: 0,
+    requiredCompletionPassCount: 0,
+    unavailableReason: 'no-hostContinue-completion-candidates'
+  }
+});
+assert.deepEqual(
+  strictLimitedHostNativeProofFailures,
+  [],
+  'Strict bounded smoke below the scripted hostContinue turn remains limited evidence, not an implementation failure.'
+);
+
 const authorNoteFixtureRoot = tempArtifactRoot('directive-author-note-fixture-');
 const dirtyUserRoot = path.join(authorNoteFixtureRoot, 'directive-soak-a');
 const dirtyChatRoot = path.join(dirtyUserRoot, 'chats', 'Directive - Ashes');
@@ -777,8 +802,8 @@ assert.match(liveSmokeSource, /Passive bridge beat/);
 assert.match(liveSmokeSource, /lets the crew report land before making her next decision/);
 assert.match(liveSmokeSource, /hostNativeCompletionRequired: true/);
 assert.doesNotMatch(liveSmokeSource, /change course and pursue the freighter/);
-assert.match(runtimeAppSource, /enableDefaultLatestPairSettlementProvider:\s*false/);
-assert.doesNotMatch(runtimeAppSource, /enableDefaultLatestPairSettlementProvider:\s*true/);
+assert.match(runtimeAppSource, /enableDefaultLatestPairSettlementProvider:\s*true/);
+assert.doesNotMatch(runtimeAppSource, /enableDefaultLatestPairSettlementProvider:\s*false/);
 assert.match(liveSmokeSource, /turn: Number\.isFinite\(turn\) && turn > 0 \? turn : null/);
 assert.match(liveSmokeSource, /turn: message\.turn/);
 assert.match(liveSmokeSource, /Required host-native completion proof was not recorded/);
@@ -814,7 +839,8 @@ assert.match(liveSmokeSource, /targetOutcome\.hasExplicitTargets !== true/);
 assert.match(liveSmokeSource, /noExplicitTargetReady/);
 assert.match(liveSmokeSource, /function\s+runtimeLedgerViewModulePath\(\)/);
 assert.match(liveSmokeSource, /function\s+terminalDecisionLedgerViewModulePath\(\)/);
-assert.match(liveSmokeSource, /createRuntimeLedgerView\(campaignState,\s*\{\s*runtimeOverlay:\s*true\s*\}\)/);
+assert.match(liveSmokeSource, /createRuntimeLedgerView\(campaignState\)/);
+assert.doesNotMatch(liveSmokeSource, /createRuntimeLedgerView\(campaignState,\s*\{\s*runtimeOverlay:\s*true\s*\}\)/);
 assert.match(liveSmokeSource, /terminalDecisionLedgerView\(campaignState\)/);
 assert.match(liveSmokeSource, /runtimeLedgerView\.ingressLedger/);
 assert.match(liveSmokeSource, /runtimeLedgerView\.responseLedger/);
@@ -826,7 +852,14 @@ assert.match(liveSmokeSource, /sentRoundCount === 0 \|\| finalCoreIngressOk/);
 assert.doesNotMatch(liveSmokeSource, /finalCoreIngressOk \|\| \(sentPlayerHostMessageIds\.length === 0 && finalLegacyIngressOk\)/);
 assert.match(liveSmokeSource, /const\s+modelCallGrowthObserved\s*=\s*finalModelCalls > initialModelCalls/);
 assert.match(liveSmokeSource, /\['hostGeneration', 'hostContinue'\]\.includes\(String\(entry\?\.responseKind \|\| ''\)\)/);
+assert.match(liveSmokeSource, /const\s+coreHostContinueCompletionObserved\s*=/);
+assert.match(liveSmokeSource, /hostNativeCompletionProof\?\.source === 'coreStoreResponseLedger'/);
+assert.match(liveSmokeSource, /hostNativeCompletionProof\?\.completionSource === 'coreProjection'/);
+assert.match(liveSmokeSource, /delegatedHostGenerationRounds\.length > 0[\s\S]{0,180}coreHostContinueCompletionObserved/);
+assert.match(liveSmokeSource, /coreHostContinueCompletionObserved,[\s\S]{0,120}hostNativeCompletionProof/);
 assert.match(liveSmokeSource, /modelCallGrowthObserved \|\| delegatedHostGenerationContinuation/);
+assert.match(liveSmokeSource, /const\s+classification\s*=\s*String\(round\.after\?\.matchedIngress\?\.classification \|\| ''\)\.trim\(\)/);
+assert.match(liveSmokeSource, /return Boolean\(classification\) && !\[/);
 assert.doesNotMatch(liveSmokeSource, /finalModelCalls > initialModelCalls,\s*[\r\n\s]*'Live chat-native campaign did not record model-call journal growth during chat play\.'/);
 assert.match(liveSmokeSource, /readRuntimeCoreProjections\(campaignState\)/);
 assert.match(liveSmokeSource, /runtimeCoreProjections\?\.sidecarDiagnostics/);
@@ -839,7 +872,8 @@ assert.match(liveSmokeSource, /certificationEvidence:\s*false/);
 assert.match(liveSmokeSource, /raw-runtime-ledger-snapshot-not-certification-evidence/);
 assert.match(liveSmokeSource, /source:\s*'runtimeLedgerDiagnostic'/);
 assert.match(liveHarnessSource, /runtime-ledger-view\.mjs/);
-assert.match(liveHarnessSource, /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/);
+assert.match(liveHarnessSource, /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\}\)/);
+assert.doesNotMatch(liveHarnessSource, /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/);
 assert.match(liveHarnessSource, /readRuntimeCoreProjections\(view\?\.campaignState \|\| \{\}\)/);
 assert.match(liveHarnessSource, /runtimeLedgerView\.recoveryJournal/);
 assert.match(liveHarnessSource, /runtimeLedgerProofAvailable\s*=\s*runtimeLedgerView\?\.authoritative === true[\s\S]{0,120}runtimeLedgerView\?\.coreProjectionAvailable === true/);
@@ -1359,6 +1393,8 @@ assert.match(modelReviewRequest.hiddenStatePolicy, /raw prompt bodies/);
 assert(modelReviewRequest.evaluatorInstructions.some((entry) => /findings only for material problems/i.test(entry)));
 assert(modelReviewRequest.evaluatorInstructions.some((entry) => /empty findings array/i.test(entry)));
 assert(modelReviewRequest.evaluatorInstructions.some((entry) => /Shuttlebay 1 being visible/i.test(entry) && /Shuttlebay 2/i.test(entry)));
+assert(modelReviewRequest.evaluatorInstructions.some((entry) => /explicitly negates/i.test(entry) && /contradiction-watchlist/i.test(entry)));
+assert(modelReviewRequest.canaries.find((entry) => entry.id === transitCanary.id).contradictionWatchlist.some((entry) => /underside of the saucer/i.test(entry)));
 assert.equal(modelReviewRequest.responseSchema.properties.findings.maxItems, 8);
 assert.equal(modelReviewRequest.responseSchema.properties.findings.items.properties.evidenceSpans.maxItems, 2);
 assert.equal(modelReviewRequest.canaries.some((entry) => Object.hasOwn(entry, 'directorOnlyData')), false);
@@ -1395,6 +1431,54 @@ assert.equal(modelReviewResult.status, 'fail');
 assert.equal(modelReviewResult.counts.contradicted, 1);
 assert.equal(modelReviewResult.counts.p1, 1);
 assert.equal(modelReviewResult.modelCall.roleId, 'factualGroundingReviewer');
+const negatedSaucerUndersideReviewerFalsePositive = buildModelAssistedFactualReviewResult({
+  request: {
+    ...modelReviewRequest,
+    deterministicChecks: [
+      {
+        checkId: 'transcript-level',
+        results: [
+          {
+            factId: transitCanary.id,
+            verdict: 'respected'
+          }
+        ]
+      }
+    ]
+  },
+  modelOutput: {
+    status: 'fail',
+    overallAssessment: 'The opening shuttle approach contradicts the no saucer-underside shuttlebay canary.',
+    findings: [
+      {
+        factId: transitCanary.id,
+        verdict: 'contradicted',
+        severity: 'P1 factual blocker',
+        rootCauseLabel: 'model-ignored-available-fact',
+        summary: 'The text says the bay doors are not on the underside of the saucer.',
+        evidenceSpans: [
+          {
+            messageIndex: 0,
+            quote: 'the bay doors come into view - not on the underside of the saucer, but set into the aft dorsal face of the secondary hull between the nacelle struts'
+          }
+        ],
+        confidence: 0.94
+      }
+    ]
+  },
+  modelCall: {
+    roleId: 'factualGroundingReviewer',
+    providerKind: 'utility',
+    model: 'fixture-reviewer',
+    status: 'completed',
+    ok: true,
+    latencyMs: 25
+  }
+});
+assert.equal(negatedSaucerUndersideReviewerFalsePositive.status, 'pass');
+assert.equal(negatedSaucerUndersideReviewerFalsePositive.counts.contradicted, 0);
+assert.equal(negatedSaucerUndersideReviewerFalsePositive.findings.length, 0);
+assert.equal(negatedSaucerUndersideReviewerFalsePositive.suppressedFindings[0].reason, 'negated-contradiction-watchlist-evidence');
 const factualStatusOnlyModelCallResult = buildModelAssistedFactualReviewResult({
   request: modelReviewRequest,
   modelOutput: JSON.stringify({
@@ -1437,7 +1521,8 @@ const factualTimeoutAttempt = buildModelAssistedFactualReviewResult({
 assert.equal(factualTimeoutAttempt.status, 'fail');
 assert.match(factualTimeoutAttempt.reason, /DIRECTIVE_GENERATION_TIMEOUT/);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.required, true);
-assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sceneHandshakeSettler']);
+assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sourceSettlementLatestPair']);
+assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.materializationModelRoles, []);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.intervalLogRecord, 'scene-handshake-settlement');
 assert(SOAK_SCENE_HANDSHAKE_POLICY.ownerLanes.includes('ashes-factual-director'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots.includes('mission.openAssignments'));
@@ -1445,7 +1530,8 @@ assert(SOAK_SCENE_HANDSHAKE_POLICY.allowedRoots.includes('commandLog.entries'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('accepted-host-native-assignment-commits-allowlisted-state'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('rejected-or-corrected-assistant-beat-does-not-auto-commit'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.certificationGates.includes('command-bearing-terminal-formal-objective-and-hidden-state-roots-are-not-mutated'));
-assert(SOAK_SCENE_HANDSHAKE_POLICY.minimumEvidence.includes('sanitized-sceneHandshakeSettler-model-call'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.minimumEvidence.includes('sourceSettlementLatestPair-owner-projection-with-frame-and-core-refs'));
+assert(SOAK_SCENE_HANDSHAKE_POLICY.minimumEvidence.includes('no-legacy-sceneHandshakeSettler-materialization-telemetry'));
 assert(SOAK_SCENE_HANDSHAKE_POLICY.stateInspection.includes('prompt-revision-before-after-settlement'));
 assert.match(SOAK_SCENE_HANDSHAKE_POLICY.failureSeverityPolicy, /outside allowlisted roots/);
 assert.match(SOAK_SCENE_HANDSHAKE_POLICY.hiddenStatePolicy, /Command Bearing evaluator reasoning/);
@@ -1728,6 +1814,8 @@ const requiredHostNativeMessage = liveMessageScript.messages.find((entry) => ent
 assert.equal(requiredHostNativeMessage.hostNativeCompletionRequired, true);
 assert.equal(requiredHostNativeMessage.expectedRoute, 'hostContinue');
 assert.equal(requiredHostNativeMessage.expectedResponseStrategy, 'injectAndContinue');
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-01')?.text || '', /clean operational picture/);
+assert.doesNotMatch(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-01')?.text || '', /continues the scene in third person/i);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-02')?.text || '', /bridge sensor and command-network telemetry buffer/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-02')?.text || '', /transporter room two/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-04')?.text || '', /command-network certificate compatibility/);
@@ -1741,19 +1829,26 @@ assert.doesNotMatch(liveMessageScript.messages.find((entry) => entry.id === 'soa
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /warm-standby shields/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /target shield-generator standby validation/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /Method: mandatory four-hour rotations/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-29')?.text || '', /amend my last instruction/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-30')?.text || '', /show me what changed in the log/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-38')?.text || '', /reconcile only that marked span/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-44')?.text || '', /branch candidate/);
+assert.equal(liveMessageScript.messages.some((entry) => /continuity stress case/i.test(entry.text)), false);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-15')?.assist?.sendText || '', /command-network certificate stack/);
 assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.action === 'briefMe'), true);
 assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.mode === 'tryAgain'), true);
 assert.equal(liveMessageScript.coverageLimitations.some((entry) => /edit\/delete\/message-action/.test(entry)), true);
 const fullCompletionAssessment = liveSmokeDelegationAssessment({
   result: { ok: true },
-  smokeSummary: { ok: true, chatCampaign: { sentMessageCount: SOAK_TURN_SCRIPT.length, qualityStatus: 'pass' } },
+  smokeSummary: { ok: true, chatCampaign: { sentMessageCount: 50, qualityStatus: 'pass' } },
   messageScript: liveMessageScript
 });
 assert.equal(fullCompletionAssessment.status, 'pass');
+assert.equal(fullCompletionAssessment.plannedTurns, 52);
+assert.equal(fullCompletionAssessment.expectedSendTurns, 50);
 const warningCompletionAssessment = liveSmokeDelegationAssessment({
   result: { ok: true },
-  smokeSummary: { ok: true, chatCampaign: { sentMessageCount: SOAK_TURN_SCRIPT.length, qualityStatus: 'warning' } },
+  smokeSummary: { ok: true, chatCampaign: { sentMessageCount: 50, qualityStatus: 'warning' } },
   messageScript: liveMessageScript
 });
 assert.equal(warningCompletionAssessment.status, 'warning');
@@ -1770,7 +1865,7 @@ const prematurePendingAssessment = liveSmokeDelegationAssessment({
   messageScript: liveMessageScript
 });
 assert.equal(prematurePendingAssessment.status, 'fail');
-assert.match(prematurePendingAssessment.summary, /stopped after 8 of 52 planned turn/);
+assert.match(prematurePendingAssessment.summary, /stopped after 8 of 50 expected player send/);
 const limitedLiveMessageScript = buildSoakChatMessageScript({ turnLimit: 1 });
 assert.equal(limitedLiveMessageScript.plannedTurnCount, SOAK_TURN_SCRIPT.length);
 assert.equal(limitedLiveMessageScript.executedTurnLimit, 1);
@@ -1881,7 +1976,8 @@ assert.equal(report.releaseCertificationSummary.evidenceCounts.storyQualityDimen
 assert(report.releaseCertificationSummary.evidenceGates.some((entry) => entry.id === 'story-quality'));
 assert.equal(report.sceneHandshakePolicy.required, true);
 assert.equal(report.sceneHandshakePolicy.intervalLogRecord, 'scene-handshake-settlement');
-assert(report.sceneHandshakePolicy.modelRoles.includes('sceneHandshakeSettler'));
+assert(report.sceneHandshakePolicy.modelRoles.includes('sourceSettlementLatestPair'));
+assert.deepEqual(report.sceneHandshakePolicy.materializationModelRoles, []);
 assert(report.sceneHandshakePolicy.allowedRoots.includes('mission.openAssignments'));
 assert(report.sceneHandshakePolicy.certificationGates.includes('prompt-rebuild-happens-before-current-player-classification'));
 assert(report.sceneHandshakePolicy.minimumEvidence.includes('wrong-chat-or-wrong-save-no-mutation-check'));
@@ -2053,7 +2149,9 @@ writeJsonFile(promptSnapshotPath, {
         timingDiagnostics: { observed: true, summaryLatencyMs: 44, timingHash: 's'.repeat(64) }
       },
       vectFox: {
-        backendDiagnostics: { status: 'local-backend-configured', backendType: 'redacted-local', externalTimingObserved: true, timingHash: 'v'.repeat(64), hash: 'v'.repeat(64) }
+        enabled: true,
+        generationInterceptorActive: true,
+        backendDiagnostics: { status: 'local-backend-configured', backendType: 'redacted-local', externalTimingObserved: false, timingHash: null, hash: 'v'.repeat(64) }
       }
     },
     unavailableSignals: [],
@@ -2280,6 +2378,24 @@ const smokeReportForPromotion = {
     }
   }
 };
+appendJsonLine(paths.liveLog, {
+  at: '2026-06-28T23:21:00.000Z',
+  kind: 'browser-network',
+  status: 'request',
+  method: 'POST',
+  url: '/api/vector/query-multi',
+  resourceType: 'fetch',
+  postDataLength: 3215
+});
+appendJsonLine(paths.liveLog, {
+  at: '2026-06-28T23:21:02.721Z',
+  kind: 'browser-network',
+  status: 'response',
+  method: 'POST',
+  url: '/api/vector/query-multi',
+  httpStatus: 200,
+  ok: true
+});
 const transcriptCopyResult = copyDelegatedSmokeTranscriptArtifacts({
   report: { ...report, runId: 'prep-test', artifacts: paths },
   smokeReport: smokeReportForPromotion
@@ -2320,6 +2436,9 @@ assert.equal(externalContextSummary.aggregate.targetSummaryCount, 1);
 assert.equal(externalContextSummary.aggregate.timingCoverage.timedTargetCount, 4);
 assert.deepEqual(externalContextSummary.aggregate.timingCoverage.targetsMissingTiming, []);
 assert.equal(externalContextSummary.targetSummaries[0].targets.vectFox.backendDiagnostics.status, 'local-backend-configured');
+assert.equal(externalContextSummary.targetSummaries[0].targets.vectFox.backendDiagnostics.externalTimingObserved, true);
+assert.equal(externalContextSummary.targetSummaries[0].targets.vectFox.backendDiagnostics.retrievalLatencyMs, 2721);
+assert.equal(externalContextSummary.targetSummaries[0].targets.vectFox.backendDiagnostics.timingSource, 'browser-network');
 assert.equal(liveLogLines.some((entry) => entry.kind === 'artifact' && entry.artifact === 'external-context-summary'), true);
 assert.equal(transcriptCopyResult.status, 'pass');
 assert.equal(transcriptCopyResult.copied.readableTranscript, true);

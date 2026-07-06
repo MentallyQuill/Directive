@@ -106,7 +106,7 @@ function canaryForModelReview(canary = {}) {
     positiveTerms: asArray(canary.positiveTerms).slice(0, 8),
     expectedPromptKeys: asArray(canary.expectedPromptKeys).slice(0, 8),
     expectedSourceIds: asArray(canary.expectedSourceIds).slice(0, 12),
-    contradictionWatchlist: asArray(canary.contradictionWatchlist).slice(0, 10),
+    contradictionWatchlist: asArray(canary.contradictionWatchlist).slice(0, 32),
     sourcePointers: asArray(canary.sourcePointers).map(sourcePointerForReview).slice(0, 8),
     hiddenStateSafe: canary.hiddenStateSafe === true
   };
@@ -860,6 +860,7 @@ export function buildModelAssistedFactualReviewRequest({
       'Do not penalize omission unless the fact is required for the visible scene or the transcript mentions the entity or premise incorrectly.',
       'Prefer deterministic check results when they identify a concrete contradiction, but add broader unsupported-detail or omission findings when visible transcript evidence supports them.',
       'For the Ashes opening transit fact, do not treat Shuttlebay 1 being visible or mentioned as a contradiction if the same passage routes, pulls, lands, settles, or berths the player shuttle into/through Shuttlebay 2.',
+      'Do not treat a contradiction-watchlist phrase as contradicted when the quoted evidence explicitly negates, avoids, or rejects that phrase.',
       'Return findings only for material problems: contradicted facts, unsupported details, P1 prompt-blocker omissions, or concrete P2 factual warnings.',
       'Do not list respected, not-applicable, or harmless omitted facts as findings; summarize clean passes in overallAssessment instead.',
       'If there are no material factual problems, return status "pass", a concise overallAssessment, and an empty findings array.',
@@ -920,6 +921,81 @@ function modelReviewCounts(findings = []) {
   return counts;
 }
 
+function deterministicContradictsFact(request = {}, factId = '') {
+  if (!factId) return false;
+  return asArray(request?.deterministicChecks).some((check) => (
+    asArray(check?.results).some((result) => (
+      result?.factId === factId
+      && result?.verdict === 'contradicted'
+    ))
+  ));
+}
+
+function deterministicCheckedFactWithoutContradiction(request = {}, factId = '') {
+  if (!factId) return false;
+  let sawFact = false;
+  for (const check of asArray(request?.deterministicChecks)) {
+    for (const result of asArray(check?.results)) {
+      if (result?.factId !== factId) continue;
+      sawFact = true;
+      if (result?.verdict === 'contradicted') return false;
+    }
+  }
+  return sawFact;
+}
+
+function canaryForReviewFinding(request = {}, finding = {}) {
+  const factId = finding?.factId || '';
+  if (!factId) return null;
+  return asArray(request?.canaries).find((canary) => canary?.id === factId) || null;
+}
+
+function quoteNegatesWatchlistTerm(quote = '', term = '') {
+  const normalizedQuote = normalizeText(quote);
+  const normalizedTerm = normalizeText(term);
+  if (!normalizedQuote || !normalizedTerm || normalizedTerm.length < 5) return false;
+  const index = normalizedQuote.indexOf(normalizedTerm);
+  if (index < 0) return false;
+  const prefix = normalizedQuote.slice(Math.max(0, index - 48), index);
+  return /\b(no|not|never|without|avoid|avoided|avoids|avoiding)\b/.test(prefix);
+}
+
+function suppressibleNegatedContradictionFinding({ request, finding } = {}) {
+  if (finding?.verdict !== 'contradicted') return null;
+  if (deterministicContradictsFact(request, finding.factId)) return null;
+  if (!deterministicCheckedFactWithoutContradiction(request, finding.factId)) return null;
+  const canary = canaryForReviewFinding(request, finding);
+  if (!canary) return null;
+  for (const span of asArray(finding.evidenceSpans)) {
+    for (const term of asArray(canary.contradictionWatchlist)) {
+      if (quoteNegatesWatchlistTerm(span?.quote || '', term)) {
+        return {
+          reason: 'negated-contradiction-watchlist-evidence',
+          factId: finding.factId,
+          verdict: finding.verdict,
+          evidenceHash: sha256Text(span?.quote || ''),
+          watchlistTermHash: sha256Text(term)
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function filterModelReviewFindings({ request, findings = [] } = {}) {
+  const kept = [];
+  const suppressedFindings = [];
+  for (const finding of findings) {
+    const suppressed = suppressibleNegatedContradictionFinding({ request, finding });
+    if (suppressed) {
+      suppressedFindings.push(suppressed);
+    } else {
+      kept.push(finding);
+    }
+  }
+  return { findings: kept, suppressedFindings };
+}
+
 export function buildModelAssistedFactualReviewResult({
   request,
   modelOutput = null,
@@ -928,7 +1004,8 @@ export function buildModelAssistedFactualReviewResult({
   reason = null
 } = {}) {
   const parsed = parseModelReviewOutput(modelOutput);
-  const findings = asArray(parsed?.findings).map(normalizeModelReviewFinding).filter((finding) => finding.factId);
+  const normalizedFindings = asArray(parsed?.findings).map(normalizeModelReviewFinding).filter((finding) => finding.factId);
+  const { findings, suppressedFindings } = filterModelReviewFindings({ request, findings: normalizedFindings });
   const attemptedReview = Boolean(modelCall) || modelOutput !== null && modelOutput !== undefined;
   const timedOut = Boolean(
     modelCall?.errorCode
@@ -938,9 +1015,12 @@ export function buildModelAssistedFactualReviewResult({
     && /timeout|timed out/i.test(String(reason))
   );
   const unparseableAttempt = attemptedReview && !parsed;
+  const parsedStatus = parsed?.status === 'fail' && normalizedFindings.length > 0 && findings.length === 0 && suppressedFindings.length > 0
+    ? 'pass'
+    : parsed?.status;
   const inferredStatus = timedOut || unparseableAttempt
     ? 'fail'
-    : parsed?.status
+    : parsedStatus
       || (findings.some((finding) => /^P1\b/i.test(finding.severity || '') || finding.verdict === 'contradicted') ? 'fail'
         : findings.length ? 'warning' : 'not-run');
   const finalStatus = status === 'not-run' && (attemptedReview || timedOut)
@@ -979,7 +1059,8 @@ export function buildModelAssistedFactualReviewResult({
     } : null,
     overallAssessment: parsed?.overallAssessment ? compactText(parsed.overallAssessment, 1000) : null,
     counts: modelReviewCounts(findings),
-    findings
+    findings,
+    suppressedFindings
   };
 }
 

@@ -299,6 +299,10 @@ const filteredFlush = await filteringScheduler.flushVisible({
 });
 assert.equal(filteredFlush.status, 'installed');
 assert.equal(filteredFlush.promptBudgetEnforcement.status, 'filtered');
+assert.equal(filteredFlush.lensPromptRevisionRecord.kind, 'directive.lensPromptRevisionRecord.v1');
+assert.equal(filteredFlush.lensPromptRevisionRecord.revision, filteredFlush.directiveOwnedRevision);
+assert.equal(filteredFlush.lensPromptRevisionRecord.blockCount, 2);
+assert.equal(JSON.stringify(filteredFlush.lensPromptRevisionRecord).includes('Small recall survives'), false);
 assert.deepEqual(filteredFlush.packet.blocks.map((block) => block.id), ['stable-contract', 'recall-small']);
 assert.equal(filteredFlush.promptBudgetEnforcement.omittedBlocks[0].id, 'recall-large');
 assert.deepEqual(installedPackets[0].blocks.map((block) => block.id), ['stable-contract', 'recall-small']);

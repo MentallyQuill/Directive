@@ -574,9 +574,16 @@ export function createCampaignStartController({
       const id = requireNonEmptyString(saveId, 'saveId');
       const checkedAt = currentTime();
       let saveRecord = null;
+      let campaignState = null;
       const issues = [];
       try {
         saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+        campaignState = await loadGame({
+          adapter,
+          saveId: id,
+          now: checkedAt,
+          markActive: false
+        });
       } catch (error) {
         issues.push({
           severity: 'error',
@@ -591,12 +598,13 @@ export function createCampaignStartController({
         kind: 'directive.activeSaveVerification',
         checkedAt,
         saveId: id,
-        ok: issues.length === 0 && saveRecord?.kind === 'directive.campaignSave',
+        ok: issues.length === 0 && isObject(campaignState),
         status: issues.length === 0 ? 'ok' : 'error',
-        revision: saveRecord?.revision ?? null,
-        updatedAt: saveRecord?.updatedAt || null,
-        campaignId: saveRecord?.metadata?.campaignId || null,
-        activeMissionId: saveRecord?.metadata?.activeMissionId || null,
+        revision: saveRecord?.revision ?? campaignState?.runtimeTracking?.revision ?? null,
+        updatedAt: saveRecord?.updatedAt || saveRecord?.metadata?.lastUpdatedAt || null,
+        campaignId: saveRecord?.metadata?.campaignId || campaignState?.campaign?.id || null,
+        activeMissionId: saveRecord?.metadata?.activeMissionId || campaignState?.mission?.activeMissionId || null,
+        storageFormat: saveRecord?.kind === 'directive.saveManifest.v2' ? 'v2' : saveRecord?.runtimeStorageFormat || null,
         issues
       };
     },

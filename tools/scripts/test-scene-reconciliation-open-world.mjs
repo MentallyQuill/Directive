@@ -29,37 +29,32 @@ assert.equal(originalNormalized[1].text, 'Ship status: Sensor calibration degrad
 assert.equal(originalNormalized[1].textPreview.includes('Stardate'), false);
 const originalRange = anchorRangeForMessages(originalNormalized, { state, now });
 
-state.runtimeTracking.ingressLedger = [
-  {
-    id: 'ingress.m1',
-    hostMessageId: 'm1',
-    chatId: state.campaignChatBinding.chatId,
-    textHash: originalNormalized[0].textHash,
-    turnId: 'turn.one',
-    outcomeId: 'outcome.one',
-    authority: 'compatibilityProjection',
-    projectionSource: 'coreStoreV2',
-    compatibilityMirror: {
-      kind: 'directive.coreIngressCompatibilityMirror.v1',
-      status: 'sourceObserved'
-    }
-  },
-  {
-    id: 'ingress.m2',
-    hostMessageId: 'm2',
-    chatId: state.campaignChatBinding.chatId,
-    textHash: originalNormalized[1].textHash,
-    turnId: 'turn.two',
-    outcomeId: 'outcome.two',
-    authority: 'compatibilityProjection',
-    projectionSource: 'coreStoreV2',
-    compatibilityMirror: {
-      kind: 'directive.coreIngressCompatibilityMirror.v1',
-      status: 'sourceObserved'
-    }
+state.directiveRuntimeEvidence = {
+  coreStoreReadProjections: {
+    kind: 'directive.coreStoreReadProjections.v1',
+    runtimeAuthority: 'coreStoreV2',
+    ingressLedger: [
+      {
+        id: 'ingress.m1',
+        hostMessageId: 'm1',
+        chatId: state.campaignChatBinding.chatId,
+        textHash: originalNormalized[0].textHash,
+        turnId: 'turn.one',
+        outcomeId: 'outcome.one'
+      },
+      {
+        id: 'ingress.m2',
+        hostMessageId: 'm2',
+        chatId: state.campaignChatBinding.chatId,
+        textHash: originalNormalized[1].textHash,
+        turnId: 'turn.two',
+        outcomeId: 'outcome.two'
+      }
+    ],
+    responseLedger: [{ id: 'response.m2', hostMessageId: 'm2', outcomeId: 'outcome.two', sourceAnchorRange: originalRange }],
+    recoveryJournal: []
   }
-];
-state.runtimeTracking.responseLedger = [{ id: 'response.m2', hostMessageId: 'm2', outcomeId: 'outcome.two', sourceAnchorRange: originalRange }];
+};
 state.turnLedger.entries = [
   {
     turnId: 'turn.one',

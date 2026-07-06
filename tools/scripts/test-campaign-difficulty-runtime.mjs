@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import { readRuntimeCoreProjections } from '../../src/runtime/runtime-ledger-view.mjs';
 import { listCampaignSaves } from '../../src/storage/directive-storage-repository.mjs';
 
 const root = process.cwd();
@@ -14,6 +15,10 @@ function readJson(filePath) {
 
 function stable(value) {
   return JSON.stringify(value);
+}
+
+function lifecycleRows(campaignState = {}) {
+  return readRuntimeCoreProjections(campaignState).lifecycleJournal || [];
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
@@ -122,9 +127,14 @@ assert.equal(
   'difficulty change must not write administrative events into recoveryJournal'
 );
 assert.equal(
-  changed.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Exploration'),
+  changed.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'campaignDifficultyChange'),
+  false,
+  'difficulty change must not write administrative events into old lifecycleJournal root'
+);
+assert.equal(
+  lifecycleRows(changed.campaignState).some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Exploration'),
   true,
-  'difficulty change should leave a compact administrative lifecycle record'
+  'difficulty change should leave compact CORE lifecycle projection evidence'
 );
 
 const savesAfterChange = await listCampaignSaves(host.storage);
@@ -164,7 +174,11 @@ assert.equal(
   false
 );
 assert.equal(
-  restoredCommand.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Command'),
+  restoredCommand.campaignState.runtimeTracking.lifecycleJournal.some((entry) => entry.type === 'campaignDifficultyChange'),
+  false
+);
+assert.equal(
+  lifecycleRows(restoredCommand.campaignState).some((entry) => entry.type === 'campaignDifficultyChange' && entry.details.nextMode === 'Command'),
   true
 );
 

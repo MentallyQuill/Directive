@@ -213,6 +213,56 @@ assert.equal(latestProviderOnlySettlement.status, 'repairRequired');
 assert.equal(latestProviderOnlySettlement.applied, false);
 assert.equal(latestProviderOnlySettlement.reasons.includes('source-settlement-apply-owner-missing'), true);
 
+let stalledProviderCalled = false;
+const stalledProviderDiagnostics = [];
+const stalledProviderSettlementService = createSourceSettlementService({
+  providerTimeoutMs: 25,
+  coreStore: {
+    appendDiagnostics: async (transactionId, diagnostic) => {
+      stalledProviderDiagnostics.push({ transactionId, diagnostic: cloneJson(diagnostic) });
+      return { ok: true };
+    }
+  },
+  runLatestPairProvider: async () => {
+    stalledProviderCalled = true;
+    return new Promise(() => {});
+  }
+});
+const stalledProviderStartedAt = Date.now();
+const stalledProviderSettlement = await Promise.race([
+  stalledProviderSettlementService.settleLatestPair({
+    transactionId: 'txn-latest-provider-stalled',
+    sourceFrame: {
+      id: 'frame-latest-provider-stalled',
+      campaignId: 'campaign-sre-synthetic',
+      saveId: 'save-sre-synthetic',
+      chatId: 'ashes-chat',
+      selectedAssistantVariantHash: 'hash-selected-latest',
+      sourceIntegrity: 'clean'
+    },
+    expected: {
+      campaignId: 'campaign-sre-synthetic',
+      saveId: 'save-sre-synthetic',
+      chatId: 'ashes-chat',
+      selectedAssistantVariantHash: 'hash-selected-latest'
+    }
+  }),
+  new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('stalled latest-pair provider did not return before test watchdog')), 250);
+  })
+]);
+const stalledProviderElapsedMs = Date.now() - stalledProviderStartedAt;
+assert.equal(stalledProviderCalled, true);
+assert.equal(stalledProviderSettlement.status, 'repairRequired');
+assert.equal(stalledProviderSettlement.providerCalled, true);
+assert.equal(stalledProviderSettlement.applied, false);
+assert.deepEqual(stalledProviderSettlement.reasons, ['source-settlement-provider-timeout']);
+assert.equal(stalledProviderElapsedMs < 200, true, `SRE stalled provider watchdog returned too slowly; elapsed ${stalledProviderElapsedMs}ms.`);
+assert.equal(stalledProviderDiagnostics.length, 1);
+assert.equal(stalledProviderDiagnostics[0].diagnostic.status, 'repairRequired');
+assert.equal(stalledProviderDiagnostics[0].diagnostic.error.code, 'DIRECTIVE_SOURCE_SETTLEMENT_PROVIDER_TIMEOUT');
+assert.equal(stalledProviderDiagnostics[0].diagnostic.error.timeoutMs, 25);
+
 async function beginHostContinue(harness, {
   transactionId = 'txn-sre-1',
   frameId = 'frame-sre-1',

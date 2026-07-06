@@ -298,11 +298,20 @@ let firstSave = createFirstCampaignSaveRecord({
   savedAt: '2026-06-18T19:16:00.000Z'
 });
 await storeCampaignSave(adapter, firstSave);
+await persistActiveCampaignStateV2(adapter, {
+  saveRecord: firstSave,
+  campaignState,
+  packageData,
+  summary: 'Repository first save v2 authority.',
+  reason: 'repository-first-save-runtime-v2',
+  now: '2026-06-18T19:16:05.000Z'
+});
 const firstSavePath = campaignSavePath(firstSave.id);
 snapshot = adapter.snapshot();
 requireEqual(snapshot[firstSavePath].payload.campaignState.player.name, 'Talia Renn', 'stored first save payload');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, firstSave.id, 'save index active first save');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].metadata.playerName, 'Talia Renn', 'save index metadata');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].runtimeStorageFormat, 'v2', 'first save index uses runtime v2 authority');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[firstSavePath].campaignId, 'campaign-storage-test', 'storage index save campaign id');
 
 adapter.resetLog();
@@ -405,7 +414,7 @@ requireEqual(runtimeBridgeLoaded.runtimeTracking.ingressLedger.length, 0, 'runti
 requireEqual(runtimeBridgeLoaded.runtimeTracking.responseLedger.length, 0, 'runtime bridge load keeps response projections out of old runtimeTracking');
 const runtimeBridgeProjection = runtimeBridgeLoaded.directiveRuntimeEvidence?.coreStoreReadProjections || {};
 requireEqual(runtimeBridgeProjection.ingressLedger, undefined, 'runtime bridge load does not promote no-transaction ingress rows to CORE read evidence');
-requireEqual(runtimeBridgeProjection.responseLedger, undefined, 'runtime bridge load does not promote no-transaction response rows to CORE read evidence');
+requireEqual(runtimeBridgeProjection.responses, undefined, 'runtime bridge load does not promote no-transaction responses to CORE read evidence');
 requireEqual(stable(runtimeBridgeLoaded).includes('RAW_RUNTIME_BRIDGE_REPLACEMENT_TEXT'), false, 'runtime bridge load does not rehydrate raw replacement text');
 requireEqual(runtimeBridgeLoaded.runtimeTracking.history, undefined, 'runtime bridge load does not restore raw runtime history');
 const recoveredRuntimeBridge = await recoverActiveCampaignSave(adapter, {
@@ -456,37 +465,54 @@ const originalRuntimeBridgeHead = cloneJson(snapshot[runtimeBridgeHeadPath]);
 const corruptRuntimeBridgeHead = cloneJson(originalRuntimeBridgeHead);
 corruptRuntimeBridgeHead.stateRootCount = 999;
 await adapter.writeJson(runtimeBridgeHeadPath, corruptRuntimeBridgeHead);
-const runtimeBridgeCorruptHeadLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
-  now: '2026-06-18T19:30:12.800Z'
-});
-requireEqual(runtimeBridgeCorruptHeadLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge head hash mismatches');
-requireEqual(
-  runtimeBridgeCorruptHeadLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
-  false,
-  'corrupt runtime bridge head fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
+await requireRejectsWithCode(
+  () => loadCampaignSaveFromStorage(adapter, firstSave.id, {
+    now: '2026-06-18T19:30:12.800Z'
+  }),
+  'DIRECTIVE_V2_SAVE_STATE_UNAVAILABLE',
+  'load campaign save fails closed when runtime bridge head hash mismatches'
 );
 await adapter.writeJson(runtimeBridgeHeadPath, originalRuntimeBridgeHead);
 adapter.deleteJson(runtimeBridgeManifestPath);
-const runtimeBridgeFallbackLoaded = await loadCampaignSaveFromStorage(adapter, firstSave.id, {
-  now: '2026-06-18T19:30:13.000Z'
-});
-requireEqual(runtimeBridgeFallbackLoaded.campaign.currentStardate, 53050.4, 'load campaign save falls back to v1 checkpoint when runtime bridge manifest is missing');
-requireEqual(
-  runtimeBridgeFallbackLoaded.runtimeTracking?.ingressLedger?.some((entry) => entry.hostMessageId === '44'),
-  false,
-  'runtime bridge fallback does not invent v2 runtime ingress projections from stale v1 checkpoint'
-);
-requireEqual(
-  stable(runtimeBridgeFallbackLoaded).includes('RAW_RUNTIME_BRIDGE_HISTORY'),
-  false,
-  'runtime bridge fallback does not restore raw v2 runtime history from the missing bridge'
+await requireRejectsWithCode(
+  () => loadCampaignSaveFromStorage(adapter, firstSave.id, {
+    now: '2026-06-18T19:30:13.000Z'
+  }),
+  'DIRECTIVE_V2_SAVE_STATE_UNAVAILABLE',
+  'load campaign save fails closed when runtime bridge manifest is missing'
 );
 const recoveredRuntimeBridgeFallback = await recoverActiveCampaignSave(adapter, {
   now: '2026-06-18T19:30:14.000Z'
 });
-requireEqual(recoveredRuntimeBridgeFallback.activeSaveId, firstSave.id, 'active recovery fallback keeps first save active after missing runtime bridge manifest');
-requireEqual(recoveredRuntimeBridgeFallback.storageFormat, undefined, 'active recovery fallback reports v1 storage when runtime bridge manifest is missing');
-requireEqual(recoveredRuntimeBridgeFallback.campaignState.campaign.currentStardate, 53050.4, 'active recovery falls back to stale v1 checkpoint when runtime bridge manifest is missing');
+requireEqual(recoveredRuntimeBridgeFallback.activeSaveId === firstSave.id, false, 'active recovery does not revive stale v1 checkpoint for the broken v2-owned save');
+requireEqual(recoveredRuntimeBridgeFallback.campaignState?.campaign?.currentStardate === 53050.4, false, 'active recovery skips the stale v1 checkpoint payload for the broken v2-owned save');
+requireEqual(
+  recoveredRuntimeBridgeFallback.diagnostics.issues.some((issue) => issue.code === 'active-save-v2-state-unavailable'),
+  true,
+  'active recovery reports v2-owned save state unavailable instead of falling back to v1 checkpoint'
+);
+const runtimeBridgeMarkerOnlyIndex = cloneJson(runtimeBridgeFreshIndex);
+runtimeBridgeMarkerOnlyIndex.saves[firstSave.id].runtimeStorageFormat = 'v2';
+delete runtimeBridgeMarkerOnlyIndex.saves[firstSave.id].v2ManifestRef;
+await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeMarkerOnlyIndex);
+await requireRejectsWithCode(
+  () => loadCampaignSaveFromStorage(adapter, firstSave.id, {
+    now: '2026-06-18T19:30:14.250Z'
+  }),
+  'DIRECTIVE_V2_SAVE_STATE_UNAVAILABLE',
+  'load campaign save fails closed when runtimeStorageFormat v2 marker has no manifest ref'
+);
+const recoveredRuntimeBridgeMarkerOnly = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:30:14.500Z'
+});
+requireEqual(recoveredRuntimeBridgeMarkerOnly.activeSaveId === firstSave.id, false, 'active recovery skips runtimeStorageFormat-only v2 marker instead of using stale v1 checkpoint');
+requireEqual(
+  recoveredRuntimeBridgeMarkerOnly.diagnostics.issues.some((issue) => issue.code === 'active-save-v2-state-unavailable'),
+  true,
+  'active recovery reports v2-owned marker-only save state unavailable'
+);
+await adapter.writeJson(DIRECTIVE_STORAGE_PATHS.saveIndex, runtimeBridgeFreshIndex);
+await adapter.writeJson(runtimeBridgeManifestPath, runtimeBridgeManifest);
 
 const v2CampaignState = {
   ...campaignState,
@@ -664,9 +690,9 @@ requireEqual(
   'pure v2 load after hot append exposes ingress through CORE read projections'
 );
 requireEqual(
-  loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.responseLedger?.some((entry) => entry.hostMessageId === 'msg-v2-hot-assistant' && entry.outcomeId === 'outcome-v2-hot'),
+  loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.responses?.some((entry) => entry.hostMessageId === 'msg-v2-hot-assistant' && entry.outcomeId === 'outcome-v2-hot'),
   true,
-  'pure v2 load after hot append exposes response through CORE read projections'
+  'pure v2 load after hot append exposes responses through CORE read projections'
 );
 requireEqual(
   loadedV2AfterHotAppend?.directiveRuntimeEvidence?.coreStoreReadProjections?.turnLedger?.entries?.some((entry) => entry.turnId === 'turn-v2-hot' && entry.outcomeId === 'outcome-v2-hot'),
@@ -766,11 +792,12 @@ adapter.deleteJson(firstSavePath);
 const recovered = await recoverActiveCampaignSave(adapter, {
   now: '2026-06-18T19:35:50.000Z'
 });
-requireEqual(recovered.activeSaveId, autosaves[3].id, 'active save recovery falls back to latest readable save');
+requireEqual(recovered.activeSaveId, v2SaveId, 'active save recovery falls back to latest readable v2 save');
+requireEqual(recovered.storageFormat, 'v2', 'active save recovery skips raw v1 autosaves and reports v2 storage');
 requireEqual(recovered.campaignState.player.name, 'Talia Renn', 'active save recovery campaign state');
 requireEqual(recovered.recovered, true, 'active save recovery reports repair');
 snapshot = adapter.snapshot();
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, autosaves[3].id, 'active save recovery repairs index pointer');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, v2SaveId, 'active save recovery repairs index pointer to v2 save');
 
 let diagnostics = await diagnoseDirectiveStorage(adapter, {
   now: '2026-06-18T19:36:00.000Z'

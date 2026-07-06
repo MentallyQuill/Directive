@@ -1094,7 +1094,7 @@ export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
   if (!refHashes.length) missingFields.push('aggregate.refHashes');
   if (targetSummaryCount <= 0) missingFields.push('aggregate.targetSummaryCount');
   if (!aggregate.timingCoverage || typeof aggregate.timingCoverage !== 'object') missingFields.push('aggregate.timingCoverage');
-  if (timingCoverage.timedTargetCount <= 0) missingFields.push('aggregate.timingCoverage.targetsWithTiming');
+  if (timingCoverage.targetsMissingTiming.length) missingFields.push('aggregate.timingCoverage.targetsWithTiming');
   if (aggregate.finalHostPromptMayIncludeExternal !== true) missingFields.push('aggregate.finalHostPromptMayIncludeExternal');
   if (missingTargetSummaries.length) missingFields.push('targetSummaries.requiredTargets');
   if (placeholderTargetSummaries.length) missingFields.push('targetSummaries.usefulTargets');
@@ -1139,23 +1139,81 @@ function externalContextSummaryTargetHasTiming(target = {}) {
   );
 }
 
+function externalContextSummaryTargetHasBoundedTimingUnavailable(target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  if (externalContextSummaryTargetHasTiming(target)) return false;
+  return Boolean(
+    target.timingDiagnostics?.unavailableReason
+    || target.backendDiagnostics?.timingUnavailableReason
+  );
+}
+
+function externalContextSummaryTargetRequiresTiming(target = {}) {
+  if (!target || typeof target !== 'object') return false;
+  const status = String(target.status || target.backendDiagnostics?.status || '').trim().toLowerCase();
+  if (['disabled', 'not-installed', 'not installed', 'missing', 'unavailable'].includes(status)) return false;
+  if (target.installed === false || target.enabled === false) return false;
+  if (target.backendDiagnostics?.unavailable === true) return false;
+  const hasPromptKeys = Array.isArray(target.promptKeys) && target.promptKeys.some(Boolean);
+  return Boolean(
+    target.requiresRichEvidence === true
+    || target.active === true
+    || target.enabled === true
+    || target.promptKeyActive === true
+    || target.generationInterceptorActive === true
+    || target.externalModelCalls === true
+    || hasPromptKeys
+    || Number(target.activeNameCount || 0) > 0
+    || Number(target.entryCount || 0) > 0
+    || Number(target.layerCount || 0) > 0
+    || (
+      target.backendDiagnostics
+      && typeof target.backendDiagnostics === 'object'
+      && !['', 'unknown', 'missing', 'unavailable'].includes(String(target.backendDiagnostics.status || '').trim().toLowerCase())
+    )
+  );
+}
+
 function externalContextSummaryTimingCoverage(targetSummaries = [], supplied = {}) {
-  const targetsWithTiming = new Set();
-  for (const entry of Array.isArray(targetSummaries) ? targetSummaries : []) {
-    const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
-    for (const targetId of EXTERNAL_CONTEXT_TARGET_IDS) {
-      if (externalContextSummaryTargetHasTiming(targets[targetId])) targetsWithTiming.add(targetId);
-    }
-  }
-  const requiredTargets = Array.isArray(supplied?.requiredTargets) && supplied.requiredTargets.length
+  const allTargets = Array.isArray(supplied?.requiredTargets) && supplied.requiredTargets.length
     ? supplied.requiredTargets.filter(Boolean).map(String)
     : [...EXTERNAL_CONTEXT_TARGET_IDS];
+  const timingRequiredTargets = new Set();
+  const targetsWithTiming = new Set();
+  const targetsWithBoundedTimingUnavailable = new Set();
+  for (const entry of Array.isArray(targetSummaries) ? targetSummaries : []) {
+    const targets = entry?.targets && typeof entry.targets === 'object' ? entry.targets : {};
+    for (const targetId of allTargets) {
+      const target = targets[targetId];
+      if (externalContextSummaryTargetRequiresTiming(target)) timingRequiredTargets.add(targetId);
+      if (externalContextSummaryTargetHasTiming(target)) targetsWithTiming.add(targetId);
+      if (externalContextSummaryTargetHasBoundedTimingUnavailable(target)) targetsWithBoundedTimingUnavailable.add(targetId);
+    }
+  }
+  const timingRequiredTargetList = [...timingRequiredTargets].sort();
+  const targetsWithBoundedTimingUnavailableList = [...targetsWithBoundedTimingUnavailable].sort();
+  const targetsMissingTiming = timingRequiredTargetList.filter((targetId) => (
+    !targetsWithTiming.has(targetId)
+    && !targetsWithBoundedTimingUnavailable.has(targetId)
+  ));
   return {
-    requiredTargets,
+    requiredTargets: allTargets,
+    timingRequiredTargets: timingRequiredTargetList,
+    targetsTimingNotRequired: allTargets.filter((targetId) => !timingRequiredTargets.has(targetId)),
     targetsWithTiming: [...targetsWithTiming].sort(),
-    targetsMissingTiming: requiredTargets.filter((targetId) => !targetsWithTiming.has(targetId)),
+    targetsWithBoundedTimingUnavailable: targetsWithBoundedTimingUnavailableList,
+    targetsMissingTiming,
     timedTargetCount: targetsWithTiming.size,
-    status: targetsWithTiming.size > 0 ? (targetsWithTiming.size >= requiredTargets.length ? 'pass' : 'partial') : 'missing'
+    boundedTimingUnavailableCount: targetsWithBoundedTimingUnavailable.size,
+    status: timingRequiredTargets.size <= 0
+      ? 'not-required'
+      : targetsMissingTiming.length <= 0
+        ? targetsWithBoundedTimingUnavailable.size > 0
+          ? 'limited'
+          : 'pass'
+        : (targetsWithTiming.size + targetsWithBoundedTimingUnavailable.size) > 0
+          ? 'partial'
+          : 'missing'
   };
 }
 

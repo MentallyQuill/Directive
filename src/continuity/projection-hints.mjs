@@ -9,8 +9,15 @@ import { normalizeContinuityState, withContinuityState } from './state.mjs';
 
 const DEFAULT_HINT_TTL_REVISIONS = 4;
 
+function coreRuntimeRevision(campaignState) {
+  const projection = campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections;
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const revision = Number(projection?.revisions?.runtime);
+  return Number.isFinite(revision) ? revision : 0;
+}
+
 function revisionOf(campaignState) {
-  return Number(campaignState?.runtimeTracking?.revision ?? campaignState?.turnLedger?.entries?.length ?? 0) || 0;
+  return Number(coreRuntimeRevision(campaignState) ?? campaignState?.runtimeTracking?.revision ?? campaignState?.turnLedger?.entries?.length ?? 0) || 0;
 }
 
 function nowValue(now) {
@@ -43,7 +50,9 @@ function normalizeHint(hint, { currentRevision = 0 } = {}) {
 }
 
 export function activeContinuityProjectionHints(campaignState, { revision = null } = {}) {
-  const currentRevision = Number.isFinite(Number(revision)) ? Number(revision) : revisionOf(campaignState);
+  const currentRevision = revision !== null && revision !== undefined && Number.isFinite(Number(revision))
+    ? Number(revision)
+    : revisionOf(campaignState);
   const continuity = normalizeContinuityState(campaignState?.continuity);
   return asArray(continuity.projectionHints)
     .map((hint) => normalizeHint(hint, { currentRevision }))

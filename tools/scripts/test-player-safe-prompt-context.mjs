@@ -148,6 +148,54 @@ const playerProjection = createPlayerSafeCampaignProjection({
 const packetJson = JSON.stringify(packet);
 const projectionJson = JSON.stringify(playerProjection);
 
+const coreRevisionState = cloneJson(state);
+coreRevisionState.runtimeTracking.revision = 99;
+coreRevisionState.runtimeTracking.mechanicsRevision = 88;
+coreRevisionState.directiveRuntimeEvidence = {
+  coreStoreReadProjections: {
+    kind: 'directive.coreStoreReadProjections.v1',
+    runtimeAuthority: 'coreStoreV2',
+    revisions: { runtime: 7, mechanics: 3 }
+  }
+};
+const coreRevisionPacket = buildPlayerSafePromptContext({
+  campaignState: coreRevisionState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  scene,
+  createdAt: '2026-06-22T00:00:00.000Z'
+});
+assert.equal(coreRevisionPacket.revision, 8);
+assert.equal(
+  coreRevisionPacket.blocks.every((block) => Number(block.source?.revision) === 7),
+  true,
+  'Prompt block source revisions must use CORE/v2 read-projection authority, not stale runtimeTracking.revision.'
+);
+const coreAuthorityNoVectorState = cloneJson(state);
+coreAuthorityNoVectorState.runtimeTracking.revision = 99;
+coreAuthorityNoVectorState.runtimeTracking.mechanicsRevision = 88;
+coreAuthorityNoVectorState.directiveRuntimeEvidence = {
+  coreStoreReadProjections: {
+    kind: 'directive.coreStoreReadProjections.v1',
+    runtimeAuthority: 'coreStoreV2'
+  }
+};
+const coreAuthorityNoVectorPacket = buildPlayerSafePromptContext({
+  campaignState: coreAuthorityNoVectorState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  scene,
+  createdAt: '2026-06-22T00:00:00.000Z'
+});
+assert.equal(coreAuthorityNoVectorPacket.revision, 1);
+assert.equal(
+  coreAuthorityNoVectorPacket.blocks.every((block) => Number(block.source?.revision) === 0),
+  true,
+  'Prompt block source revisions must not borrow stale runtimeTracking.revision when CORE/v2 authority exists without revisions.'
+);
+
 assert(packet.blocks.length > 0);
 assert(packet.blocks.length <= packageData.contextPolicy.budgets.maxBlocks + DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.equal(packet.blocks.some((block) => block.id === 'continuity-contract'), true);
@@ -346,6 +394,11 @@ assert.equal(malformedKnownFactsProjection.mission.knownFacts[0], 'A numeric-key
 state = recordPromptContextRevision(state, packet, {
   installedAt: '2026-06-22T00:00:01.000Z'
 });
+assert.equal(state.runtimeTracking?.promptContext, undefined, 'Prompt revision record must not persist old runtimeTracking.promptContext authority.');
+assert.equal(state.directiveRuntimeEvidence?.lensPromptRevisionRecord?.kind, 'directive.lensPromptRevisionRecord.v1');
+assert.equal(state.directiveRuntimeEvidence.lensPromptRevisionRecord.revision, packet.revision);
+assert.equal(state.directiveRuntimeEvidence.lensPromptRevisionRecord.blockCount, packet.blocks.length);
+assert.equal(JSON.stringify(state.directiveRuntimeEvidence.lensPromptRevisionRecord).includes('Hidden text'), false);
 const rebuilt = buildPlayerSafePromptContext({ campaignState: state, packageData, crewDataset, shipDataset, scene });
 assert.equal(rebuilt.revision > packet.revision, true);
 

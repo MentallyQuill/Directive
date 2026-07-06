@@ -5,8 +5,25 @@ import {
 } from './fact-schema.mjs';
 import { normalizeContinuityState } from './state.mjs';
 
+function coreRevisions(campaignState) {
+  const projection = campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections;
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const runtime = Number(projection?.revisions?.runtime);
+  const mechanics = Number(projection?.revisions?.mechanics);
+  return {
+    runtime: Number.isFinite(runtime) ? runtime : 0,
+    mechanics: Number.isFinite(mechanics) ? mechanics : 0
+  };
+}
+
 function revisionOf(campaignState) {
-  return Number(campaignState?.runtimeTracking?.revision ?? campaignState?.turnLedger?.entries?.length ?? 0) || 0;
+  const revisions = coreRevisions(campaignState);
+  return Number(revisions?.runtime ?? campaignState?.runtimeTracking?.revision ?? campaignState?.turnLedger?.entries?.length ?? 0) || 0;
+}
+
+function mechanicsRevisionOf(campaignState) {
+  const revisions = coreRevisions(campaignState);
+  return Number(revisions?.mechanics ?? campaignState?.runtimeTracking?.mechanicsRevision ?? 0) || 0;
 }
 
 function currentLocationId(campaignState, packageData) {
@@ -188,7 +205,7 @@ export function buildContinuitySourceFrame({
     branchId: campaignState.campaignChatBinding?.branchId || campaignState.runtimeTracking?.branchId || null,
     chatId: campaignState.campaignChatBinding?.chatId || null,
     revision: revisionOf(campaignState),
-    mechanicsRevision: Number(campaignState.runtimeTracking?.mechanicsRevision || 0),
+    mechanicsRevision: mechanicsRevisionOf(campaignState),
     locationId: currentLocationId(campaignState, packageData),
     activeQuestId: campaignState.attentionState?.foregroundQuestId || campaignState.mission?.activeQuestId || null,
     activePhaseId: scene?.activePhaseId || campaignState.attentionState?.scene?.activePhaseId || campaignProjection?.runtime?.activePhaseId || null,

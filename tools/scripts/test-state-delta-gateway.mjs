@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  applyStateDeltaOperations,
   commitTrackedCampaignState,
   createCampaignStateSnapshot,
   createStateDeltaGateway,
@@ -11,7 +12,6 @@ import {
   recordPendingInteraction,
   recordTurnIngress,
   resolvePendingInteraction,
-  resolveRecoveryEvent,
   restoreTrackedCampaignRevision,
   updateDirectiveResponse,
   updateTurnIngress
@@ -24,6 +24,18 @@ import { terminalDecisionLedgerView } from '../../src/runtime/terminal-decision-
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function projectedIngressRows(state) {
+  return createRuntimeLedgerView(state).ingressLedger;
+}
+
+function projectedResponseRows(state) {
+  return createRuntimeLedgerView(state).responseLedger;
+}
+
+function projectedLifecycleRows(state) {
+  return readRuntimeCoreProjections(state).lifecycleJournal || [];
 }
 
 const sidecarDemotionInitState = initializeCampaignRuntimeTracking({
@@ -82,6 +94,72 @@ assert.throws(
   (error) => error.code === 'DIRECTIVE_CORE_CHECKPOINT_REQUIRED'
     && error.details?.retiredAuthority === 'runtimeTracking.history.snapshot',
   'generic restore must fail closed even if a raw old runtimeTracking.history snapshot is injected.'
+);
+
+let staleOverlayWithoutCoreState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'stale-overlay-without-core' },
+  mission: { activePhaseId: 'before-stale-overlay' },
+  runtimeTracking: {
+    ingressLedger: [{
+      id: 'stale-ingress-without-core',
+      hostMessageId: 'player-stale-without-core',
+      status: 'classified',
+      authority: 'compatibilityProjection',
+      projectionSource: 'runtimeTrackingLegacy',
+      compatibilityMirror: {
+        kind: 'directive.coreIngressCompatibilityMirror.v1',
+        status: 'staleRuntimeProjection'
+      }
+    }],
+    responseLedger: [{
+      id: 'stale-response-without-core',
+      hostMessageId: 'assistant-stale-without-core',
+      status: 'posted',
+      authority: 'compatibilityProjection',
+      projectionSource: 'runtimeTrackingLegacy',
+      compatibilityMirror: {
+        kind: 'directive.coreResponseCompatibilityMirror.v1',
+        status: 'staleRuntimeProjection'
+      }
+    }],
+    recoveryJournal: [{
+      id: 'stale-recovery-without-core',
+      status: 'required',
+      authority: 'compatibilityProjection',
+      projectionSource: 'runtimeTrackingLegacy',
+      compatibilityMirror: {
+        kind: 'directive.coreRecoveryCompatibilityMirror.v1',
+        status: 'staleRuntimeProjection'
+      }
+    }]
+  }
+});
+const staleOverlayWithoutCoreNext = cloneJson(staleOverlayWithoutCoreState);
+staleOverlayWithoutCoreNext.mission.activePhaseId = 'after-stale-overlay';
+staleOverlayWithoutCoreState = commitTrackedCampaignState({
+  campaignState: staleOverlayWithoutCoreState,
+  nextCampaignState: staleOverlayWithoutCoreNext,
+  delta: {
+    source: 'test',
+    reason: 'Stale overlay without CORE fixture.',
+    domains: ['mission'],
+    stable: true
+  }
+});
+assert.deepEqual(
+  staleOverlayWithoutCoreState.runtimeTracking.ingressLedger,
+  [],
+  'state commit must drop stale ingress overlay rows even when no CORE projection exists'
+);
+assert.deepEqual(
+  staleOverlayWithoutCoreState.runtimeTracking.responseLedger,
+  [],
+  'state commit must drop stale response overlay rows even when no CORE projection exists'
+);
+assert.deepEqual(
+  staleOverlayWithoutCoreState.runtimeTracking.recoveryJournal,
+  [],
+  'state commit must drop stale recovery overlay rows even when no CORE projection exists'
 );
 
 const terminalLedgerDemotionState = initializeCampaignRuntimeTracking({
@@ -154,23 +232,23 @@ const terminalLedgerDemotionState = initializeCampaignRuntimeTracking({
 });
 assert.deepEqual(
   terminalLedgerDemotionState.runtimeTracking.endConditionLedger.detections.map((entry) => entry.id),
-  ['tagged-terminal-detection'],
-  'Runtime tracking initialization must drop untagged terminal detection rows.'
+  [],
+  'Runtime tracking initialization must drop old terminal detection rows from the hot root.'
 );
 assert.deepEqual(
   terminalLedgerDemotionState.runtimeTracking.endConditionLedger.decisions.map((entry) => entry.id),
-  ['tagged-terminal-decision'],
-  'Runtime tracking initialization must drop untagged terminal decision rows.'
+  [],
+  'Runtime tracking initialization must drop old terminal decision rows from the hot root.'
 );
 assert.deepEqual(
   terminalLedgerDemotionState.runtimeTracking.endConditionLedger.branchRecords.map((entry) => entry.id),
-  ['tagged-terminal-branch'],
-  'Runtime tracking initialization must drop untagged terminal branch rows.'
+  [],
+  'Runtime tracking initialization must drop old terminal branch rows from the hot root.'
 );
 assert.deepEqual(
   terminalLedgerDemotionState.runtimeTracking.endConditionLedger.continuationFrames.map((entry) => entry.id),
-  ['tagged-terminal-continuation'],
-  'Runtime tracking initialization must drop untagged terminal continuation rows.'
+  [],
+  'Runtime tracking initialization must drop old terminal continuation rows from the hot root.'
 );
 assert.equal(
   terminalLedgerDemotionState.runtimeTracking.endConditionLedger.activeDecisionId,
@@ -208,33 +286,117 @@ const sceneLedgerDemotionState = initializeCampaignRuntimeTracking({
         }
       ],
       pendingInternalReview: [{ id: 'legacy-scene-handshake-review', status: 'pendingInternalReview' }],
-      deferred: [],
-      operatorRecovery: [],
-      rejected: [],
+      deferred: [{
+        id: 'tagged-scene-handshake-deferred',
+        status: 'deferred',
+        authority: 'sreSceneHandshakeProjection',
+        projectionSource: 'sourceSettlementLatestPair',
+        compatibilityMirror: {
+          kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+          settlementId: 'tagged-scene-handshake-deferred',
+          status: 'deferred'
+        }
+      }],
+      operatorRecovery: [{
+        id: 'tagged-scene-handshake-operator-recovery',
+        status: 'operatorRecovery',
+        authority: 'sreSceneHandshakeProjection',
+        projectionSource: 'sourceSettlementLatestPair',
+        compatibilityMirror: {
+          kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+          settlementId: 'tagged-scene-handshake-operator-recovery',
+          status: 'operatorRecovery'
+        }
+      }],
+      rejected: [{
+        id: 'tagged-scene-handshake-rejected',
+        status: 'rejected',
+        authority: 'sreSceneHandshakeProjection',
+        projectionSource: 'sourceSettlementLatestPair',
+        compatibilityMirror: {
+          kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+          settlementId: 'tagged-scene-handshake-rejected',
+          status: 'rejected'
+        }
+      }],
       lastResult: { id: 'legacy-scene-handshake-settled', status: 'settled' }
     }
   }
 });
-assert.deepEqual(
-  sceneLedgerDemotionState.runtimeTracking.sceneReconciliation.runs,
-  [],
-  'Runtime tracking initialization must drop untagged Scene Reconciliation status runs.'
+assert.equal(
+  sceneLedgerDemotionState.runtimeTracking.sceneReconciliation,
+  undefined,
+  'Runtime tracking initialization must remove nested Scene Reconciliation shell entirely.'
 );
 assert.equal(
-  sceneLedgerDemotionState.runtimeTracking.sceneReconciliation.markers.start,
-  null,
-  'Runtime tracking initialization must drop untagged Scene Reconciliation markers.'
+  sceneLedgerDemotionState.runtimeTracking.sceneHandshake,
+  undefined,
+  'Runtime tracking initialization must remove nested Scene Handshake shell entirely.'
 );
-assert.deepEqual(
-  sceneLedgerDemotionState.runtimeTracking.sceneHandshake.settled.map((entry) => entry.id),
-  ['tagged-scene-handshake-settled'],
-  'Runtime tracking initialization must drop untagged Scene Handshake rows while preserving tagged SRE rows.'
-);
-assert.deepEqual(sceneLedgerDemotionState.runtimeTracking.sceneHandshake.pendingInternalReview, []);
-assert.equal(sceneLedgerDemotionState.runtimeTracking.sceneHandshake.lastResult, null);
+assert.deepEqual(sceneLedgerDemotionState.sceneHandshake.settled, []);
+assert.deepEqual(sceneLedgerDemotionState.sceneHandshake.deferred, []);
+assert.deepEqual(sceneLedgerDemotionState.sceneHandshake.operatorRecovery, []);
+assert.deepEqual(sceneLedgerDemotionState.sceneHandshake.rejected, []);
+assert.equal(sceneLedgerDemotionState.sceneHandshake.lastResult, null);
 
 const taggedSceneLedgerState = initializeCampaignRuntimeTracking({
   campaign: { id: 'tagged-scene-ledger-init' },
+  sceneReconciliation: {
+    schemaVersion: 2,
+    authority: 'sreSceneReconciliationProjection',
+    projectionSource: 'sceneReconciliation',
+    compatibilityMirror: {
+      kind: 'directive.sceneReconciliationLedgerProjectionRef.v1',
+      runId: 'tagged-recon-run',
+      status: 'completed'
+    },
+    markers: { start: { hostMessageId: 'tagged-start' }, end: null },
+    runs: [{ id: 'tagged-recon-run', status: 'completed' }],
+    pending: [],
+    applied: [{ id: 'tagged-recon-applied' }],
+    rejected: [],
+    recalculationPreviews: [],
+    chunkCache: [],
+    invalidations: []
+  },
+  sceneHandshake: {
+    settled: [{
+      id: 'tagged-scene-handshake-settled-top',
+      status: 'settled',
+      authority: 'sreSceneHandshakeProjection',
+      projectionSource: 'sourceSettlementLatestPair',
+      compatibilityMirror: {
+        kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+        settlementId: 'tagged-scene-handshake-settled-top',
+        status: 'settled'
+      }
+    }, {
+      id: 'forged-scene-handshake-authority-top',
+      status: 'settled',
+      authority: 'sreSceneHandshakeProjection',
+      projectionSource: 'sceneHandshakeSettler',
+      compatibilityMirror: {
+        kind: 'directive.sceneHandshakeSettlerTelemetry.v1',
+        settlementId: 'forged-scene-handshake-authority-top',
+        status: 'settled'
+      }
+    }],
+    pendingInternalReview: [],
+    deferred: [],
+    operatorRecovery: [],
+    rejected: [],
+    lastResult: {
+      id: 'tagged-scene-handshake-last',
+      status: 'settled',
+      authority: 'sreSceneHandshakeProjection',
+      projectionSource: 'sourceSettlementLatestPair',
+      compatibilityMirror: {
+        kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
+        settlementId: 'tagged-scene-handshake-last',
+        status: 'settled'
+      }
+    }
+  },
   runtimeTracking: {
     sceneReconciliation: {
       schemaVersion: 2,
@@ -274,11 +436,15 @@ const taggedSceneLedgerState = initializeCampaignRuntimeTracking({
     }
   }
 });
-assert.deepEqual(taggedSceneLedgerState.runtimeTracking.sceneReconciliation.runs.map((entry) => entry.id), ['tagged-recon-run']);
-assert.equal(taggedSceneLedgerState.runtimeTracking.sceneReconciliation.markers.start.hostMessageId, 'tagged-start');
+assert.equal(taggedSceneLedgerState.runtimeTracking.sceneReconciliation, undefined);
 assert.deepEqual(taggedSceneLedgerState.sceneReconciliation.runs.map((entry) => entry.id), ['tagged-recon-run']);
 assert.equal(taggedSceneLedgerState.sceneReconciliation.markers.start.hostMessageId, 'tagged-start');
-assert.equal(taggedSceneLedgerState.runtimeTracking.sceneHandshake.lastResult.id, 'tagged-scene-handshake-last');
+assert.equal(taggedSceneLedgerState.runtimeTracking.sceneHandshake, undefined);
+assert.deepEqual(
+  taggedSceneLedgerState.sceneHandshake.settled.map((entry) => entry.id),
+  ['tagged-scene-handshake-settled-top']
+);
+assert.equal(taggedSceneLedgerState.sceneHandshake.lastResult.id, 'tagged-scene-handshake-last');
 
 const lifecycleDemotionState = initializeCampaignRuntimeTracking({
   campaign: { id: 'lifecycle-demotion-init' },
@@ -331,8 +497,8 @@ const lifecycleDemotionState = initializeCampaignRuntimeTracking({
 });
 assert.deepEqual(
   lifecycleDemotionState.runtimeTracking.lifecycleJournal.map((entry) => entry.id),
-  ['runtime-lifecycle-row', 'repair-lifecycle-row'],
-  'Runtime tracking initialization must drop untagged and legacy lifecycle telemetry rows while preserving owned lifecycle projections.'
+  [],
+  'Runtime tracking initialization must drop all hot lifecycle rows; CORE/v2 projections own lifecycle evidence.'
 );
 
 const runtimeBoundaryDemotionState = initializeCampaignRuntimeTracking({
@@ -539,12 +705,16 @@ assert.equal(
   false,
   'Runtime tracking initialization must strip raw ingress/response bridge payloads.'
 );
-assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.ingressLedger[0].replacementText, null);
-assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.ingressLedger[0].replacementTextHash.length, 64);
-assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.responseLedger[0].replacementText, null);
-assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.responseLedger[0].replacementTextHash.length, 64);
-assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.ingressLedger[0].sourceFrame.textHash, 'frame-init-hash');
-assert.equal(runtimeLedgerInitDemotionState.runtimeTracking.responseLedger[0].hostObservation.textHash, 'response-observation-hash');
+assert.deepEqual(
+  runtimeLedgerInitDemotionState.runtimeTracking.ingressLedger,
+  [],
+  'Runtime tracking initialization must drop imported old ingress rows instead of compacting them.'
+);
+assert.deepEqual(
+  runtimeLedgerInitDemotionState.runtimeTracking.responseLedger,
+  [],
+  'Runtime tracking initialization must drop imported old response rows instead of compacting them.'
+);
 
 const lastCommittedTurnInitDemotionState = initializeCampaignRuntimeTracking({
   campaign: { id: 'last-committed-turn-init-demotion' },
@@ -765,10 +935,12 @@ state = recordTurnIngress(state, {
   textPreview: 'Preserve telemetry.',
   coreTransactionId: 'txn:ingress:one'
 });
-assert.equal(state.runtimeTracking.ingressLedger[0].authority, 'coreIngressProjection');
-assert.equal(state.runtimeTracking.ingressLedger[0].projectionSource, 'coreStoreV2');
-assert.equal(state.runtimeTracking.ingressLedger[0].compatibilityMirror.kind, 'directive.coreIngressCompatibilityMirror.v1');
-assert.equal(state.runtimeTracking.ingressLedger[0].compatibilityMirror.status, 'sourceObserved');
+assert.deepEqual(state.runtimeTracking.ingressLedger, []);
+let projectedIngress = projectedIngressRows(state)[0];
+assert.equal(projectedIngress.authority, 'coreIngressProjection');
+assert.equal(projectedIngress.projectionSource, 'coreStoreV2');
+assert.equal(projectedIngress.compatibilityMirror.kind, 'directive.coreIngressCompatibilityMirror.v1');
+assert.equal(projectedIngress.compatibilityMirror.status, 'sourceObserved');
 state = updateTurnIngress(state, 'ingress:one', {
   status: 'invalidated',
   invalidatedAt: '2026-06-22T00:00:00.500Z',
@@ -785,9 +957,11 @@ state = recordTurnIngress(state, {
   status: 'classifying',
   coreTransactionId: 'txn:ingress:one'
 });
-assert.equal(state.runtimeTracking.ingressLedger[0].status, 'classifying');
-assert.equal(state.runtimeTracking.ingressLedger[0].invalidationType, null);
-assert.equal(state.runtimeTracking.ingressLedger[0].invalidatedAt, null);
+assert.deepEqual(state.runtimeTracking.ingressLedger, []);
+projectedIngress = projectedIngressRows(state)[0];
+assert.equal(projectedIngress.status, 'classifying');
+assert.equal(projectedIngress.invalidationType, null);
+assert.equal(projectedIngress.invalidatedAt, null);
 state = updateTurnIngress(state, 'ingress:one', {
   authority: 'compatibilityProjection',
   projectionSource: 'coreStoreV2',
@@ -812,12 +986,14 @@ state = recordTurnIngress(state, {
   textPreview: 'Preserve telemetry.',
   status: 'classifying-again'
 });
-assert.equal(state.runtimeTracking.ingressLedger[0].status, 'classifying-again');
-assert.equal(state.runtimeTracking.ingressLedger[0].authority, 'compatibilityProjection');
-assert.equal(state.runtimeTracking.ingressLedger[0].projectionSource, 'coreStoreV2');
-assert.equal(state.runtimeTracking.ingressLedger[0].coreRecovery.transactionId, 'txn:ingress:one');
-assert.equal(state.runtimeTracking.ingressLedger[0].coreProjection.kind, 'directive.coreIngressMutationProjectionRef.v1');
-assert.equal(state.runtimeTracking.ingressLedger[0].compatibilityMirror.kind, 'directive.coreIngressCompatibilityMirror.v1');
+assert.deepEqual(state.runtimeTracking.ingressLedger, []);
+projectedIngress = projectedIngressRows(state)[0];
+assert.equal(projectedIngress.status, 'classifying-again');
+assert.equal(projectedIngress.authority, 'compatibilityProjection');
+assert.equal(projectedIngress.projectionSource, 'coreStoreV2');
+assert.equal(projectedIngress.coreRecovery.transactionId, 'txn:ingress:one');
+assert.equal(projectedIngress.coreProjection.kind, 'directive.coreIngressMutationProjectionRef.v1');
+assert.equal(projectedIngress.compatibilityMirror.kind, 'directive.coreIngressCompatibilityMirror.v1');
 
 let recoveryResolutionState = initializeCampaignRuntimeTracking({
   runtimeTracking: {
@@ -844,24 +1020,144 @@ assert.equal(
   false,
   'Runtime tracking initialization must drop untagged legacy recovery rows.'
 );
-recoveryResolutionState = resolveRecoveryEvent(recoveryResolutionState, 'core-recovery-projection-row', {
-  status: 'resolved',
-  reason: 'core-owned-resolution'
+assert.deepEqual(
+  recoveryResolutionState.runtimeTracking.recoveryJournal,
+  [],
+  'Runtime tracking initialization must drop all hot recovery rows; CORE recovery projections live outside runtimeTracking.'
+);
+
+const coreAuthorityWithoutRevisionVectorState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'core-authority-without-revision-vector' },
+  ship: { condition: 'Operational' },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [],
+      responses: [],
+      recoveryJournal: []
+    }
+  },
+  runtimeTracking: {
+    revision: 99,
+    mechanicsRevision: 88
+  }
 });
-recoveryResolutionState = resolveRecoveryEvent(recoveryResolutionState, 'legacy-recovery-row', {
-  status: 'resolved',
-  reason: 'legacy-fallback-resolution'
+const coreAuthorityWithoutRevisionVectorApply = applyStateDeltaOperations({
+  campaignState: coreAuthorityWithoutRevisionVectorState,
+  proposal: {
+    id: 'proposal-core-authority-without-vector',
+    workerId: 'ship',
+    baseRevision: 0,
+    operations: [
+      { op: 'set', path: 'ship.condition', value: 'CORE authority with zero base applied' }
+    ],
+    summary: 'Prove CORE authority without revision vector does not borrow stale old counters.'
+  },
+  allowedDomains: ['ship']
 });
+assert.equal(coreAuthorityWithoutRevisionVectorApply.revision, 1);
+assert.equal(coreAuthorityWithoutRevisionVectorApply.mechanicsRevision, 1);
+assert.equal(coreAuthorityWithoutRevisionVectorApply.campaignState.runtimeTracking.revision, 1);
+assert.equal(coreAuthorityWithoutRevisionVectorApply.campaignState.runtimeTracking.mechanicsRevision, 1);
 assert.equal(
-  recoveryResolutionState.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'core-recovery-projection-row').status,
-  'recoveryRequired',
-  'CORE-owned recovery projection rows must not be mutated by old recovery resolver.'
+  coreAuthorityWithoutRevisionVectorApply.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.revisions.runtime,
+  1,
+  'state delta must initialize missing CORE/v2 runtime revision vector instead of using stale old runtimeTracking revision'
+);
+assert.throws(
+  () => applyStateDeltaOperations({
+    campaignState: coreAuthorityWithoutRevisionVectorState,
+    proposal: {
+      id: 'proposal-core-authority-without-vector-old-base',
+      workerId: 'ship',
+      baseRevision: 99,
+      operations: [
+        { op: 'set', path: 'ship.condition', value: 'Old runtime base must fail' }
+      ],
+      summary: 'Reject old runtime base under CORE authority without vector.'
+    },
+    allowedDomains: ['ship']
+  }),
+  (error) => error.code === 'DIRECTIVE_STATE_REVISION_CONFLICT'
+    && error.details?.expectedRevision === 99
+    && error.details?.currentRevision === 0,
+  'state delta conflict checks must not use stale runtimeTracking revision when CORE/v2 authority exists without revisions'
+);
+
+const coreRevisionAuthorityState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'core-revision-authority' },
+  ship: { condition: 'Operational' },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      runtimeAuthority: 'coreStoreV2',
+      revisions: { runtime: 2, mechanics: 4 },
+      ingressLedger: [],
+      responses: [],
+      recoveryJournal: []
+    }
+  },
+  runtimeTracking: {
+    revision: 99,
+    mechanicsRevision: 99
+  }
+});
+const coreRevisionApply = applyStateDeltaOperations({
+  campaignState: coreRevisionAuthorityState,
+  proposal: {
+    id: 'proposal-core-revision-authority',
+    workerId: 'ship',
+    baseRevision: 2,
+    operations: [
+      { op: 'set', path: 'ship.condition', value: 'CORE revision authority applied' }
+    ],
+    summary: 'Prove CORE revision authority beats stale old runtime counters.'
+  },
+  allowedDomains: ['ship']
+});
+assert.equal(coreRevisionApply.revision, 3, 'state delta conflicts must use CORE runtime revision when CORE/v2 revisions exist');
+assert.equal(
+  coreRevisionApply.mechanicsRevision,
+  5,
+  'state delta mechanics revision must advance from CORE mechanics revision when CORE/v2 revisions exist'
+);
+assert.equal(coreRevisionApply.campaignState.runtimeTracking.revision, 3);
+assert.equal(coreRevisionApply.campaignState.runtimeTracking.mechanicsRevision, 5);
+assert.equal(
+  coreRevisionApply.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.revisions.runtime,
+  3,
+  'state delta commits must advance CORE/v2 runtime revision projection when CORE revisions are authority'
 );
 assert.equal(
-  recoveryResolutionState.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'legacy-recovery-row'),
-  undefined,
-  'Legacy recovery rows must not reappear after old resolver calls.'
+  coreRevisionApply.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.revisions.mechanics,
+  5,
+  'state delta commits must advance CORE/v2 mechanics revision projection when CORE revisions are authority'
 );
+assert.throws(
+  () => applyStateDeltaOperations({
+    campaignState: coreRevisionAuthorityState,
+    proposal: {
+      id: 'proposal-old-revision-rejected',
+      workerId: 'ship',
+      baseRevision: 99,
+      operations: [
+        { op: 'set', path: 'ship.condition', value: 'Stale old runtime revision should not apply' }
+      ],
+      summary: 'Reject stale old runtime revision authority.'
+    },
+    allowedDomains: ['ship']
+  }),
+  (error) => error.code === 'DIRECTIVE_STATE_REVISION_CONFLICT'
+    && error.details?.expectedRevision === 99
+    && error.details?.currentRevision === 2,
+  'state delta conflict checks must reject stale old runtimeTracking revision when CORE/v2 revisions exist'
+);
+let coreRevisionGatewayState = coreRevisionAuthorityState;
+const coreRevisionGateway = createStateDeltaGateway({
+  getState: () => coreRevisionGatewayState,
+  setState: (next) => { coreRevisionGatewayState = next; }
+});
+assert.equal(coreRevisionGateway.revision(), 2, 'gateway revision() must report CORE/v2 runtime revision when available');
+assert.equal(coreRevisionGateway.mechanicsRevision(), 4, 'gateway mechanicsRevision() must report CORE/v2 mechanics revision when available');
 
 const first = await gateway.applyOperations({
   id: 'proposal-1',
@@ -876,7 +1172,8 @@ const first = await gateway.applyOperations({
 assert.equal(first.applied, true);
 assert.equal(first.revision, 1);
 assert.equal(state.ship.damage.length, 1);
-assert.equal(state.runtimeTracking.ingressLedger[0].id, 'ingress:one');
+assert.deepEqual(state.runtimeTracking.ingressLedger, []);
+assert.equal(projectedIngressRows(state)[0].id, 'ingress:one');
 assert.deepEqual(state.runtimeTracking.history, []);
 
 const second = await gateway.applyOperations({
@@ -950,7 +1247,7 @@ assert.throws(
     status: 'applied'
   }),
   (error) => error.code === 'DIRECTIVE_LIFECYCLE_AUTHORITY_REQUIRED',
-  'lifecycle old-ledger writes must reject without runtime or REPAIR authority'
+  'lifecycle projection writes must reject without runtime or REPAIR authority'
 );
 
 state = recordLifecycleEvent(state, {
@@ -966,7 +1263,8 @@ state = recordLifecycleEvent(state, {
     status: 'applied'
   }
 });
-const lifecycleEntry = state.runtimeTracking.lifecycleJournal.find((entry) => entry.id === 'lifecycle:runtime-authorized');
+assert.deepEqual(state.runtimeTracking.lifecycleJournal, []);
+const lifecycleEntry = projectedLifecycleRows(state).find((entry) => entry.id === 'lifecycle:runtime-authorized');
 assert.equal(lifecycleEntry.authority, 'runtimeLifecycleProjection');
 assert.equal(lifecycleEntry.projectionSource, 'runtimeApp');
 assert.equal(lifecycleEntry.compatibilityMirror.kind, 'directive.lifecycleCompatibilityMirror.v1');
@@ -1145,7 +1443,44 @@ let genericRestoreDemotionState = initializeCampaignRuntimeTracking({
         roleId: 'utilityTurnClassifier',
         status: 'ok',
         requestHash: 'core-model-call-hash-generic-restore'
-      }]
+      }],
+      terminalDecisionLedger: {
+        schemaVersion: 1,
+        activeDecisionId: 'terminal-decision-generic-restore',
+        detections: [{
+          id: 'terminal-detection-generic-restore',
+          authority: 'terminalDecisionProjection',
+          projectionSource: 'coreStoreV2',
+          coreProjection: {
+            kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+            rowKind: 'detection',
+            status: 'pending'
+          }
+        }],
+        decisions: [{
+          id: 'terminal-decision-generic-restore',
+          status: 'pending',
+          authority: 'terminalDecisionProjection',
+          projectionSource: 'coreStoreV2',
+          coreProjection: {
+            kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+            rowKind: 'decision',
+            status: 'pending'
+          }
+        }],
+        branchRecords: [{
+          id: 'terminal-branch-generic-restore',
+          decisionId: 'terminal-decision-generic-restore',
+          authority: 'terminalDecisionProjection',
+          projectionSource: 'coreStoreV2',
+          coreProjection: {
+            kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+            rowKind: 'branchRecord',
+            status: 'saved'
+          }
+        }],
+        continuationFrames: []
+      }
     }
   },
   runtimeTracking: {
@@ -1290,17 +1625,17 @@ assert.deepEqual(
   'state commit must preserve compact CORE model-call diagnostics under CORE projections'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState).ingressLedger.map((entry) => entry.id),
   ['core-ingress-generic-restore'],
   'runtime ledger view must still expose CORE ingress rows after old-ledger mirror demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState).responseLedger.map((entry) => entry.id),
   ['core-response-generic-restore'],
   'runtime ledger view must still expose CORE response rows after old-ledger mirror demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).recoveryJournal.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState).recoveryJournal.map((entry) => entry.id),
   ['core-recovery-generic-restore'],
   'runtime ledger view must still expose CORE recovery rows after old-ledger mirror demotion'
 );
@@ -1390,12 +1725,12 @@ assert.equal(
   'state commit hot overlay must still drop missing-CORE runtimeBridge rows'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(hotOverlayCommitState, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(hotOverlayCommitState).ingressLedger.map((entry) => entry.id),
   ['core-ingress-hot-overlay'],
   'runtime ledger view must expose CORE ingress after state commit mirror demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(hotOverlayCommitState, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(hotOverlayCommitState).responseLedger.map((entry) => entry.id),
   ['core-response-hot-overlay'],
   'runtime ledger view must expose CORE response after state commit mirror demotion'
 );
@@ -1480,17 +1815,17 @@ assert.equal(
   'state commit must not carry raw unowned pending or terminal ledger rows.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState).ingressLedger.map((entry) => entry.id),
   ['core-ingress-generic-restore'],
   'runtime ledger view must still expose CORE ingress rows after state commit old-ledger demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState).responseLedger.map((entry) => entry.id),
   ['core-response-generic-restore'],
   'runtime ledger view must still expose CORE response rows after state commit old-ledger demotion'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(genericRestoreDemotionState, { runtimeOverlay: true }).recoveryJournal.map((entry) => entry.id),
+  createRuntimeLedgerView(genericRestoreDemotionState).recoveryJournal.map((entry) => entry.id),
   ['core-recovery-generic-restore'],
   'runtime ledger view must still expose CORE recovery rows after state commit old-ledger demotion'
 );
@@ -1519,7 +1854,8 @@ const responseTimingState = recordDirectiveResponse(initializeCampaignRuntimeTra
     architectureWithin60s: true
   }
 });
-const responseTimingEntry = responseTimingState.runtimeTracking.responseLedger.at(-1);
+assert.deepEqual(responseTimingState.runtimeTracking.responseLedger, []);
+const responseTimingEntry = projectedResponseRows(responseTimingState).at(-1);
 assert.equal(responseTimingEntry.directiveGenerationStartedAt, '2026-06-28T17:03:10.000Z');
 assert.equal(responseTimingEntry.generationStartedAt, '2026-06-28T17:03:10.000Z');
 assert.equal(responseTimingEntry.turnLatency.providerCompletionLatencyMs, 4000);
@@ -1544,14 +1880,29 @@ let importedSilentLedgerState = initializeCampaignRuntimeTracking({
     responseLedgerRevision: 88
   }
 });
-assert.throws(
-  () => updateTurnIngress(importedSilentLedgerState, 'imported-ingress-silent', {
+assert.deepEqual(
+  importedSilentLedgerState.runtimeTracking.ingressLedger,
+  [],
+  'imported old ingress rows must be dropped during runtimeTracking initialization'
+);
+assert.deepEqual(
+  importedSilentLedgerState.runtimeTracking.responseLedger,
+  [],
+  'imported old response rows must be dropped during runtimeTracking initialization'
+);
+assert.equal(
+  importedSilentLedgerState.runtimeTracking.responseLedgerRevision,
+  0,
+  'imported old responseLedgerRevision must be dropped during runtimeTracking initialization'
+);
+assert.equal(
+  updateTurnIngress(importedSilentLedgerState, 'imported-ingress-silent', {
     status: 'invalidated'
   }, {
     missingCoreWriteMode: 'quarantine'
   }),
-  (error) => error.code === 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE',
-  'missing-CORE imported ingress rows must not be updatable through old quarantine mode'
+  importedSilentLedgerState,
+  'missing-CORE imported ingress updates must not recreate old runtimeTracking rows'
 );
 importedSilentLedgerState = updateTurnIngress(importedSilentLedgerState, 'imported-ingress-silent', {
   status: 'invalidated',
@@ -1563,23 +1914,24 @@ importedSilentLedgerState = updateTurnIngress(importedSilentLedgerState, 'import
     eventType: 'playerMessageDeleted'
   }
 });
-let importedIngress = importedSilentLedgerState.runtimeTracking.ingressLedger.at(-1);
+let importedIngress = projectedIngressRows(importedSilentLedgerState).at(-1);
 assert.equal(importedIngress.status, 'invalidated');
 assert.equal(importedIngress.authority, 'compatibilityProjection');
 assert.equal(importedIngress.projectionSource, 'coreStoreV2');
 assert.equal(importedIngress.compatibilityMirror.kind, 'directive.coreIngressCompatibilityMirror.v1');
 assert.equal(importedIngress.compatibilityMirror.status, 'coreIngressProjection');
-assert.throws(
-  () => updateDirectiveResponse(importedSilentLedgerState, 'imported-response-silent', {
+assert.equal(
+  updateDirectiveResponse(importedSilentLedgerState, 'imported-response-silent', {
     status: 'failed'
   }, {
     missingCoreWriteMode: 'quarantine'
   }),
-  (error) => error.code === 'DIRECTIVE_CORE_PROJECTION_REQUIRED_FOR_OLD_LEDGER_WRITE',
-  'missing-CORE imported response rows must not be updatable through old quarantine mode'
+  importedSilentLedgerState,
+  'missing-CORE imported response updates must not recreate old runtimeTracking rows'
 );
 importedSilentLedgerState = updateDirectiveResponse(importedSilentLedgerState, 'imported-response-silent', {
   status: 'failed',
+  hostMessageId: 'host-imported-response',
   coreProjection: {
     kind: 'directive.coreResponseProjectionRef.v1',
     responseId: 'imported-response-silent',
@@ -1587,7 +1939,7 @@ importedSilentLedgerState = updateDirectiveResponse(importedSilentLedgerState, '
     status: 'failed'
   }
 });
-let importedResponse = importedSilentLedgerState.runtimeTracking.responseLedger.at(-1);
+let importedResponse = projectedResponseRows(importedSilentLedgerState).at(-1);
 assert.equal(importedResponse.status, 'failed');
 assert.equal(importedResponse.authority, 'compatibilityProjection');
 assert.equal(importedResponse.projectionSource, 'coreStoreV2');
@@ -1600,6 +1952,7 @@ assert.equal(
 );
 importedSilentLedgerState = updateDirectiveResponse(importedSilentLedgerState, 'imported-response-silent', {
   status: 'posted',
+  hostMessageId: 'host-imported-response',
   coreProjection: {
     kind: 'directive.coreResponseProjectionRef.v1',
     responseId: 'imported-response-silent',
@@ -1607,7 +1960,7 @@ importedSilentLedgerState = updateDirectiveResponse(importedSilentLedgerState, '
     status: 'posted'
   }
 });
-importedResponse = importedSilentLedgerState.runtimeTracking.responseLedger.at(-1);
+importedResponse = projectedResponseRows(importedSilentLedgerState).at(-1);
 assert.equal(importedResponse.status, 'posted');
 assert.equal(importedResponse.authority, 'compatibilityProjection');
 assert.equal(importedResponse.projectionSource, 'coreStoreV2');
@@ -1622,11 +1975,18 @@ let coreRevisionResponseUpdateState = initializeCampaignRuntimeTracking({
   campaign: { id: 'core-revision-response-update' },
   directiveRuntimeEvidence: {
     coreStoreReadProjections: {
-      responseLedgerRevision: 22
+      responseLedgerRevision: 22,
+      responseLedger: [{
+        id: 'response-core-revision-update',
+        status: 'released',
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1', status: 'released' }
+      }]
     }
   },
   runtimeTracking: {
-    responseLedger: [{
+  responseLedger: [{
       id: 'response-core-revision-update',
       status: 'released',
       authority: 'compatibilityProjection',
@@ -1649,7 +2009,7 @@ assert.equal(
 importedSilentLedgerState = updateDirectiveResponse(importedSilentLedgerState, 'host-imported-response', {
   status: 'host-id-update-should-not-match'
 });
-importedResponse = importedSilentLedgerState.runtimeTracking.responseLedger.at(-1);
+importedResponse = projectedResponseRows(importedSilentLedgerState).at(-1);
 assert.equal(
   importedResponse.status,
   'posted',
@@ -1660,11 +2020,53 @@ importedSilentLedgerState = updateDirectiveResponse(importedSilentLedgerState, '
 }, {
   allowHostMessageIdMatch: true
 });
-importedResponse = importedSilentLedgerState.runtimeTracking.responseLedger.at(-1);
+importedResponse = projectedResponseRows(importedSilentLedgerState).at(-1);
 assert.equal(
   importedResponse.status,
   'host-id-update-explicit',
   'hostMessageId response updates require explicit opt-in'
+);
+
+let duplicateHostResponseState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'duplicate-host-response-update' }
+});
+duplicateHostResponseState = recordDirectiveResponse(duplicateHostResponseState, {
+  id: 'duplicate-host-response-old',
+  hostMessageId: '6',
+  status: 'posted',
+  coreTransactionId: 'txn-duplicate-host-old'
+});
+duplicateHostResponseState = recordDirectiveResponse(duplicateHostResponseState, {
+  id: 'duplicate-host-response-new',
+  hostMessageId: '6',
+  status: 'posted',
+  coreTransactionId: 'txn-duplicate-host-new'
+});
+const duplicateHostResponseBlocked = updateDirectiveResponse(duplicateHostResponseState, '6', {
+  status: 'host-id-ambiguous-update-should-not-apply'
+}, {
+  allowHostMessageIdMatch: true
+});
+assert.deepEqual(
+  projectedResponseRows(duplicateHostResponseBlocked).map((entry) => ({ id: entry.id, status: entry.status })),
+  projectedResponseRows(duplicateHostResponseState).map((entry) => ({ id: entry.id, status: entry.status })),
+  'hostMessageId response updates must fail closed when SillyTavern host ids are reused.'
+);
+const duplicateHostResponseStableUpdate = updateDirectiveResponse(duplicateHostResponseState, 'duplicate-host-response-new', {
+  status: 'stable-id-update'
+});
+assert.equal(
+  projectedResponseRows(duplicateHostResponseStableUpdate).find((entry) => entry.id === 'duplicate-host-response-new').status,
+  'stable-id-update',
+  'Stable response id updates must still work when hostMessageId is reused.'
+);
+const duplicateHostResponseTransactionUpdate = updateDirectiveResponse(duplicateHostResponseState, 'duplicate-host-response-old', {
+  status: 'stable-old-id-update'
+});
+assert.equal(
+  projectedResponseRows(duplicateHostResponseTransactionUpdate).find((entry) => entry.id === 'duplicate-host-response-old').status,
+  'stable-old-id-update',
+  'Stable old response id updates must still work when hostMessageId is reused.'
 );
 
 let replacementProjectionState = initializeCampaignRuntimeTracking({ campaign: { id: 'replacement-projection' } });
@@ -1674,7 +2076,8 @@ replacementProjectionState = recordTurnIngress(replacementProjectionState, {
   coreTransactionId: 'txn-core-ingress',
   sourceFrameId: 'frame-core-ingress'
 });
-const coreIngressProjection = replacementProjectionState.runtimeTracking.ingressLedger.at(-1);
+assert.deepEqual(replacementProjectionState.runtimeTracking.ingressLedger, []);
+const coreIngressProjection = projectedIngressRows(replacementProjectionState).at(-1);
 assert.equal(coreIngressProjection.authority, 'coreIngressProjection');
 assert.equal(coreIngressProjection.projectionSource, 'coreStoreV2');
 assert.equal(coreIngressProjection.compatibilityMirror.status, 'sourceObserved');
@@ -1691,7 +2094,7 @@ replacementProjectionState = recordTurnIngress(replacementProjectionState, {
   },
   replacementText: 'RAW_INGRESS_REPLACEMENT_TEXT_MUST_NOT_PERSIST'
 });
-let replacementIngress = replacementProjectionState.runtimeTracking.ingressLedger.at(-1);
+let replacementIngress = projectedIngressRows(replacementProjectionState).at(-1);
 assert.equal(replacementIngress.authority, 'compatibilityProjection');
 assert.equal(replacementIngress.replacementText, null);
 assert.equal(replacementIngress.replacementTextPresent, true);
@@ -1707,7 +2110,7 @@ replacementProjectionState = updateTurnIngress(replacementProjectionState, 'ingr
     eventType: 'playerMessageEditedAgain'
   }
 });
-replacementIngress = replacementProjectionState.runtimeTracking.ingressLedger.at(-1);
+replacementIngress = projectedIngressRows(replacementProjectionState).at(-1);
 assert.equal(replacementIngress.replacementText, null);
 assert.equal(replacementIngress.replacementTextHash.length, 64);
 assert.equal(replacementIngress.replacementTextLength, 'RAW_UPDATED_INGRESS_REPLACEMENT_TEXT_MUST_NOT_PERSIST'.length);
@@ -1723,7 +2126,8 @@ replacementProjectionState = recordDirectiveResponse(replacementProjectionState,
   },
   replacementText: 'RAW_RESPONSE_REPLACEMENT_TEXT_MUST_NOT_PERSIST'
 });
-let replacementResponse = replacementProjectionState.runtimeTracking.responseLedger.at(-1);
+assert.deepEqual(replacementProjectionState.runtimeTracking.responseLedger, []);
+let replacementResponse = projectedResponseRows(replacementProjectionState).at(-1);
 assert.equal(replacementResponse.authority, 'compatibilityProjection');
 assert.equal(replacementResponse.replacementText, null);
 assert.equal(replacementResponse.replacementTextPresent, true);
@@ -1739,7 +2143,7 @@ replacementProjectionState = updateDirectiveResponse(replacementProjectionState,
     status: 'editedAgain'
   }
 });
-replacementResponse = replacementProjectionState.runtimeTracking.responseLedger.at(-1);
+replacementResponse = projectedResponseRows(replacementProjectionState).at(-1);
 assert.equal(replacementResponse.replacementText, null);
 assert.equal(replacementResponse.replacementTextHash.length, 64);
 assert.equal(replacementResponse.replacementTextLength, 'RAW_UPDATED_RESPONSE_REPLACEMENT_TEXT_MUST_NOT_PERSIST'.length);
@@ -1836,16 +2240,16 @@ assert.equal(compactSnapshot.turnLedger.entries[0].narrationRevisionCount, 1);
 assert.equal(compactSnapshot.runtimeTracking.history.length, 0);
 assert.equal(compactSnapshot.runtimeTracking.lifecycleJournal.length, 0);
 assert.equal(compactSnapshot.runtimeTracking.modelCallJournal.length, 0);
-assert.equal(compactSnapshot.runtimeTracking.sceneReconciliation.runs.length, 0);
-assert.equal(compactSnapshot.runtimeTracking.sceneReconciliation.pending.length, 0);
-assert.equal(compactSnapshot.runtimeTracking.sceneReconciliation.chunkCache.length, 0);
-assert.equal(compactSnapshot.runtimeTracking.sceneHandshake.settled.length, 0);
+assert.equal(compactSnapshot.runtimeTracking.sceneReconciliation, undefined);
+assert.equal(compactSnapshot.runtimeTracking.sceneHandshake, undefined);
 assert.equal(compactSnapshot.sceneReconciliation.runs.length, 0);
 assert.equal(compactSnapshot.sceneReconciliation.pending.length, 0);
 assert.equal(compactSnapshot.sceneReconciliation.chunkCache.length, 0);
 assert.equal(compactSnapshot.sceneReconciliation.invalidations.length, 0);
 assert.equal(compactSnapshot.sceneReconciliation.markers.start.raw, undefined);
 assert.equal(compactSnapshot.sceneReconciliation.lastResult.raw, undefined);
+assert.equal(compactSnapshot.sceneHandshake.settled.length, 0);
+assert.equal(compactSnapshot.sceneHandshake.lastResult, null);
 assert.equal(JSON.stringify(compactSnapshot).includes('RAW_SNAPSHOT_'), false);
 
 let transientSnapshotState = initializeCampaignRuntimeTracking({

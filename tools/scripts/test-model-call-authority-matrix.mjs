@@ -46,7 +46,7 @@ assert.equal(authorityForRole('sceneHandshakeSettler').providerKind, 'utility');
 assert.equal(authorityForRole('sceneHandshakeSettler').blocking, true);
 assert.equal(authorityForRole('sceneHandshakeSettler').mayProposeState, false);
 assert.deepEqual(allowedRootsForModelRole('sceneHandshakeSettler'), []);
-assert.equal(registry.get('sourceSettlementLatestPair').timeoutMs, 8000);
+assert.equal(registry.get('sourceSettlementLatestPair').timeoutMs, 45000);
 assert.equal(authorityForRole('sourceSettlementLatestPair').fallback, 'fail-closed');
 assert.equal(authorityForRole('sourceSettlementLatestPair').mayProposeState, false);
 assert.equal(authorityForRole('sourceSettlementLatestPair').mayInjectPrompt, false);

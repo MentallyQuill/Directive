@@ -15,14 +15,24 @@ import {
   threadSemanticFingerprint,
   THREAD_TYPES
 } from '../threads/thread-ledger.mjs';
-import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
-import { createSourceSettlementService } from './source-settlement-service.mjs';
+import {
+  createRuntimeLedgerView,
+  readRuntimeCoreProjections
+} from './runtime-ledger-view.mjs';
+import {
+  SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
+  latestPairSourceSettlementAuthority,
+  latestPairSourceSettlementMetadata
+} from './source-settlement-latest-pair-contract.mjs';
+import { settleLatestPairSceneHandshakeSource } from './source-settlement-latest-pair-owner.mjs';
+import {
+  createLatestPairSourceSettlementProvider as createLatestPairSourceSettlementProviderRuntime
+} from './source-settlement-latest-pair-provider.mjs';
+import { validateLatestPairSettlement } from './source-settlement-latest-pair-validation.mjs';
 
 const ROLE_ID = 'sceneHandshakeSettler';
-export const SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID = 'sourceSettlementLatestPair';
 const KIND = 'directive.sceneHandshakeSettlement.v1';
 const DEFAULT_TIMEOUT_MS = 30000;
-const LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS = 8000;
 const ACCEPTED_RELATIONS = new Set(['acknowledges', 'continues', 'acts-on', 'asks-followup']);
 const REJECTING_RELATIONS = new Set(['rejects', 'corrects']);
 const DISPOSITIONS = new Set(['autoCommit', 'internalReview', 'defer', 'operatorRecovery']);
@@ -45,6 +55,22 @@ function cloneJson(value) {
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function activeRuntimeRevisionState(campaignState = null) {
+  const projection = readRuntimeCoreProjections(campaignState || {});
+  if (projection?.runtimeAuthority === 'coreStoreV2') {
+    const runtime = Number(projection?.revisions?.runtime);
+    const mechanics = Number(projection?.revisions?.mechanics);
+    return {
+      runtime: Number.isFinite(runtime) ? Math.max(0, runtime) : 0,
+      mechanics: Number.isFinite(mechanics) ? Math.max(0, mechanics) : 0
+    };
+  }
+  return {
+    runtime: Math.max(0, Number(campaignState?.runtimeTracking?.revision) || 0),
+    mechanics: Math.max(0, Number(campaignState?.runtimeTracking?.mechanicsRevision) || 0)
+  };
 }
 
 function compact(value, maxLength = 1000) {
@@ -77,28 +103,6 @@ function asArray(value) {
 
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
-}
-
-function timeoutError(code, message, timeoutMs) {
-  const error = new Error(message);
-  error.code = code;
-  error.timeoutMs = timeoutMs;
-  return error;
-}
-
-async function withTimeout(promise, timeoutMs, errorFactory) {
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
-  let timeoutId = null;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(errorFactory()), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
 }
 
 export function sceneHandshakeHash(text = '') {
@@ -417,7 +421,7 @@ export function buildSceneHandshakeSnapshot({
 } = {}) {
   const state = campaignState || {};
   const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
-  const runtimeLedgerView = createRuntimeLedgerView(state, { runtimeOverlay: true });
+  const runtimeLedgerView = createRuntimeLedgerView(state);
   const previousVariant = selectedAssistantVariant(previousAssistantMessage);
   const previousText = previousVariant.text.slice(0, MAX_PREVIOUS_TEXT);
   const playerText = sourceText(currentPlayerMessage).slice(0, MAX_PLAYER_TEXT);
@@ -448,8 +452,8 @@ export function buildSceneHandshakeSnapshot({
       activeMissionId: state.mission?.activeMissionId || null,
       activeMissionTitle: safe.mission?.activeMissionId || state.mission?.activeMissionId || null,
       activePhaseId: state.mission?.activePhaseId || state.mission?.phase || null,
-      runtimeRevision: state.runtimeTracking?.revision || 0,
-      mechanicsRevision: state.runtimeTracking?.mechanicsRevision || 0,
+      runtimeRevision: null,
+      mechanicsRevision: null,
       promptContextRevision: state.campaignChatBinding?.promptContextRevision || 0,
       ingressId
     },
@@ -978,32 +982,6 @@ function deterministicAcceptedProposals({ settlement, snapshot, campaignState } 
     shipReadinessProposals,
     threadSignals
   };
-}
-
-function deterministicReplyAcceptsExplicitOrders(snapshot = {}) {
-  const player = normalizedText(snapshot.source?.currentPlayer?.text || '');
-  const source = normalizedText(snapshot.source?.previousAssistant?.text || '');
-  if (!player || !source) return false;
-  if (/\b(no|not that|wrong|different|reroll|regenerate|try again|that did not happen|instead)\b/i.test(player)) return false;
-  const segments = explicitTaskSegments(snapshot);
-  if (!segments.length) return false;
-  const acceptanceCue = /\b(understood|acknowledged|copy|aye|yes|i will|i'll|i am going to|start with|start by|meet|walk the ship|get down to|check with|follow up)\b/i.test(player);
-  if (!acceptanceCue) return false;
-  const sourceTerms = [
-    'cross',
-    'command-network',
-    'bronn',
-    'alpha shift',
-    'walk the ship',
-    'department heads',
-    'sato',
-    'saye',
-    'engineering',
-    'medical',
-    'science'
-  ].filter((term) => source.toLowerCase().includes(term));
-  const matchedTerms = sourceTerms.filter((term) => player.toLowerCase().includes(term)).length;
-  return matchedTerms > 0 || /\b(all three|three things|those priorities|the priorities|the assignments|the orders)\b/i.test(player);
 }
 
 function proposalKey(value = {}) {
@@ -1649,26 +1627,7 @@ export function validateSceneHandshakeSettlement(rawSettlement, {
     reasons: [],
     operations,
     committedRoots: [...new Set(operations.map((operation) => operation.path.split('.')[0]))],
-    promptDirty: operations.some((operation) => operation.path.split('.')[0] !== 'runtimeTracking')
-  };
-}
-
-function providerFailureFallbackSettlement(snapshot = {}) {
-  if (!deterministicReplyAcceptsExplicitOrders(snapshot)) return null;
-  return {
-    kind: KIND,
-    acceptedPreviousResponse: true,
-    playerReplyRelation: 'acts-on',
-    confidence: 0.64,
-    disposition: 'autoCommit',
-    needsInternalReview: false,
-    internalReviewReasons: [],
-    deferReason: null,
-    operatorRecoveryOnly: false,
-    openAssignmentProposals: [],
-    commandLogProposals: [],
-    shipReadinessProposals: [],
-    threadSignals: []
+    promptDirty: operations.some((operation) => !['runtimeTracking', 'sceneHandshake'].includes(operation.path.split('.')[0]))
   };
 }
 
@@ -1679,23 +1638,18 @@ function sceneHandshakeLedgerAuthority({
   disposition = null,
   operationCount = 0
 } = {}) {
-  return {
-    authority: 'sreSceneHandshakeProjection',
-    projectionSource: 'sourceSettlementLatestPair',
-    compatibilityMirror: {
-      kind: 'directive.sceneHandshakeLedgerProjectionRef.v1',
-      settlementId: compact(settlementId),
-      campaignId: compact(snapshot?.envelope?.campaignId) || null,
-      saveId: compact(snapshot?.envelope?.saveId) || null,
-      chatId: compact(snapshot?.envelope?.chatId) || null,
-      previousAssistantHostMessageId: compact(snapshot?.source?.previousAssistant?.hostMessageId) || null,
-      currentPlayerHostMessageId: compact(snapshot?.source?.currentPlayer?.hostMessageId) || null,
-      sourceRangeHash: compact(snapshot?.source?.sourceRangeHash) || null,
-      status: compact(status) || null,
-      disposition: compact(disposition) || null,
-      operationCount: Math.max(0, Number(operationCount) || 0)
-    }
-  };
+  return latestPairSourceSettlementAuthority({
+    settlementId,
+    campaignId: snapshot?.envelope?.campaignId,
+    saveId: snapshot?.envelope?.saveId,
+    chatId: snapshot?.envelope?.chatId,
+    previousAssistantHostMessageId: snapshot?.source?.previousAssistant?.hostMessageId,
+    currentPlayerHostMessageId: snapshot?.source?.currentPlayer?.hostMessageId,
+    sourceRangeHash: snapshot?.source?.sourceRangeHash,
+    status,
+    disposition,
+    operationCount
+  });
 }
 
 function sceneHandshakeLedgerRecord({
@@ -1722,6 +1676,7 @@ function sceneHandshakeLedgerRecord({
     disposition,
     operationCount: operations.length
   });
+  const sourceMetadata = latestPairSourceSettlementMetadata(metadata || {});
   return {
     id: settlementId,
     idempotencyKey,
@@ -1741,7 +1696,7 @@ function sceneHandshakeLedgerRecord({
     }),
     selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
     promptContextRevisionBefore: snapshot.envelope.promptContextRevision || 0,
-    runtimeRevisionBefore: snapshot.envelope.runtimeRevision || 0,
+    runtimeRevisionBefore: snapshot.envelope.runtimeRevision ?? null,
     modelRoleId,
     providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
     model: generation?.diagnostics?.model || generation?.response?.model || null,
@@ -1760,7 +1715,7 @@ function sceneHandshakeLedgerRecord({
       code: error.code || 'DIRECTIVE_SCENE_HANDSHAKE_FAILED',
       message: compact(error.message || String(error), 300)
     } : null,
-    ...(metadata ? { metadata: cloneJson(metadata) } : {}),
+    metadata: cloneJson(sourceMetadata),
     recordedAt: recordedAt || timestamp()
   };
 }
@@ -1769,113 +1724,31 @@ export function createLatestPairSreSettlementProvider({
   generationRouter = null,
   now = null
 } = {}) {
-  return async function runLatestPairSreSettlementProvider(payload = {}) {
-    const snapshot = payload.snapshot || null;
-    if (!snapshot) {
-      const error = new Error('SRE latest-pair settlement requires a Scene Handshake snapshot.');
-      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_MISSING_SNAPSHOT';
-      throw error;
-    }
-    if (typeof generationRouter?.generate !== 'function') {
-      const error = new Error('SRE latest-pair settlement requires generationRouter.generate().');
-      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_NO_GENERATOR';
-      throw error;
-    }
-    const request = createPrompt(snapshot);
-    request.metadata = {
-      ...(request.metadata || {}),
-      source: 'sourceSettlementLatestPair',
-      sourceSettlementMode: 'latestPair'
-    };
-    let generation = null;
-    try {
-      generation = await withTimeout(
-        Promise.resolve(generationRouter.generate(
-          SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
-          request,
-          { timeoutMs: LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS }
-        )),
-        LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS,
-        () => timeoutError(
-          'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_TIMEOUT',
-          'SRE latest-pair provider timed out before returning output.',
-          LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS
-        )
-      );
-    } catch (error) {
-      const wrapped = new Error('SRE latest-pair provider threw before returning output.');
-      wrapped.code = error?.code || 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_THROW';
-      wrapped.providerId = error?.providerId || null;
-      wrapped.latencyMs = error?.latencyMs ?? null;
-      wrapped.timeoutMs = error?.timeoutMs ?? null;
-      throw wrapped;
-    }
-    const text = responseText(generation);
-    if (!generation?.ok || !text) {
-      const error = new Error('SRE latest-pair provider returned no usable output.');
-      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_EMPTY';
-      error.providerId = generation?.diagnostics?.providerId || generation?.response?.providerId || null;
-      error.latencyMs = generation?.diagnostics?.latencyMs ?? null;
-      throw error;
-    }
-    const parse = parseSceneHandshakeSettlementOutput(text);
-    if (!parse.ok) {
-      const error = new Error('SRE latest-pair provider returned invalid settlement JSON.');
-      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PARSE_FAILED';
-      error.providerId = generation?.diagnostics?.providerId || generation?.response?.providerId || null;
-      error.latencyMs = generation?.diagnostics?.latencyMs ?? null;
-      throw error;
-    }
-    const validation = validateSceneHandshakeSettlement(parse.value, {
-      campaignState: payload.campaignState,
-      snapshot,
-      settlementId: payload.settlementId,
-      recordedAt: payload.observedAt || timestamp(now)
-    });
-    if (validation.disposition !== 'autoCommit' && validation.settlement?.acceptedPreviousResponse) {
-      const error = new Error(`SRE latest-pair provider output rejected: ${validation.reasons.join(', ') || validation.disposition}.`);
-      error.code = 'DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_VALIDATION_REJECTED';
-      error.providerId = generation?.diagnostics?.providerId || generation?.response?.providerId || null;
-      error.latencyMs = generation?.diagnostics?.latencyMs ?? null;
-      throw error;
-    }
-    return {
-      settlement: validation.settlement,
-      operations: validation.operations,
-      generation: {
-        ok: generation.ok === true,
-        diagnostics: cloneJson(generation.diagnostics || null),
-        response: {
-          providerId: generation?.response?.providerId || null,
-          model: generation?.response?.model || null
-        }
-      },
-      parse: {
-        ok: true
-      },
-      reasons: cloneJson(validation.reasons || [])
-    };
-  };
+  return createLatestPairSourceSettlementProviderRuntime({
+    generationRouter,
+    now,
+    validateLatestPairSettlement
+  });
 }
 
 function ledgerPathFor(disposition, status) {
-  if (status === 'settled') return 'runtimeTracking.sceneHandshake.settled';
-  if (disposition === 'operatorRecovery') return 'runtimeTracking.sceneHandshake.operatorRecovery';
-  if (disposition === 'internalReview') return 'runtimeTracking.sceneHandshake.pendingInternalReview';
-  if (status === 'rejected') return 'runtimeTracking.sceneHandshake.rejected';
-  return 'runtimeTracking.sceneHandshake.deferred';
+  if (status === 'settled') return 'sceneHandshake.settled';
+  if (disposition === 'operatorRecovery') return 'sceneHandshake.operatorRecovery';
+  if (disposition === 'internalReview') return 'sceneHandshake.pendingInternalReview';
+  if (status === 'rejected') return 'sceneHandshake.rejected';
+  return 'sceneHandshake.deferred';
 }
 
 function sceneHandshakeResultOperations(record) {
   const path = ledgerPathFor(record.disposition, record.status);
   return [
     { op: 'upsert', path, identityKey: 'id', value: record },
-    { op: 'set', path: 'runtimeTracking.sceneHandshake.lastResult', value: record }
+    { op: 'set', path: 'sceneHandshake.lastResult', value: record }
   ];
 }
 
 function existingSceneHandshakeRecord(campaignState = {}, idempotencyKey = '') {
-  const ledger = campaignState?.runtimeTracking?.sceneHandshake || {};
+  const ledger = campaignState?.sceneHandshake || {};
   const records = [
     ...asArray(ledger.settled),
     ...asArray(ledger.pendingInternalReview),
@@ -1899,58 +1772,6 @@ function idempotencyKeyFor(snapshot) {
   ].join(':');
 }
 
-function sourceSettlementFrameFor(snapshot = {}, sourceFrame = null) {
-  if (sourceFrame && typeof sourceFrame === 'object') return cloneJson(sourceFrame);
-  const selected = selectedAssistantVariantLedgerRecord(snapshot.source?.previousAssistant?.selectedVariant);
-  const selectedHash = selected?.selectedTextHash || snapshot.source?.previousAssistant?.textHash || null;
-  return {
-    id: `scene-handshake-frame:${snapshot.source?.sourceRangeHash || 'latest-pair'}`,
-    campaignId: snapshot.envelope?.campaignId || null,
-    saveId: snapshot.envelope?.saveId || null,
-    chatId: snapshot.envelope?.chatId || null,
-    sourceKind: 'sceneHandshakeLatestPair',
-    selectedAssistantVariantHash: selectedHash,
-    sourceIntegrity: selected?.sourceIntegrity || 'clean',
-    previousAssistant: {
-      hostMessageId: snapshot.source?.previousAssistant?.hostMessageId || null,
-      chatId: snapshot.envelope?.chatId || null,
-      role: 'assistant',
-      textHash: selectedHash,
-      selectedAssistantVariantHash: selectedHash
-    },
-    currentPlayer: {
-      hostMessageId: snapshot.source?.currentPlayer?.hostMessageId || null,
-      chatId: snapshot.envelope?.chatId || null,
-      role: 'player',
-      textHash: snapshot.source?.currentPlayer?.textHash || null
-    }
-  };
-}
-
-function sourceSettlementProviderSource(snapshot = {}, sourceFrame = {}) {
-  const selected = selectedAssistantVariantLedgerRecord(snapshot.source?.previousAssistant?.selectedVariant);
-  const selectedHash = selected?.selectedTextHash || snapshot.source?.previousAssistant?.textHash || null;
-  return {
-    sourceFrameId: sourceFrame.id || null,
-    previousAssistant: {
-      hostMessageId: snapshot.source?.previousAssistant?.hostMessageId || null,
-      chatId: snapshot.envelope?.chatId || null,
-      role: 'assistant',
-      textHash: selectedHash,
-      selectedAssistantVariantHash: selectedHash,
-      selectedAssistantVariant: selected
-    },
-    currentPlayer: {
-      hostMessageId: snapshot.source?.currentPlayer?.hostMessageId || null,
-      chatId: snapshot.envelope?.chatId || null,
-      role: 'player',
-      textHash: snapshot.source?.currentPlayer?.textHash || null
-    },
-    selectedAssistantVariantHash: selectedHash,
-    rangeHash: snapshot.source?.sourceRangeHash || null
-  };
-}
-
 async function runTerminalLatestPairSourceSettlement({
   campaignState,
   snapshot,
@@ -1966,150 +1787,25 @@ async function runTerminalLatestPairSourceSettlement({
   ingressId = null,
   now = null
 } = {}) {
-  if (typeof runLatestPairSettlementProvider !== 'function') return null;
-  const sourceFrame = sourceSettlementFrameFor(snapshot, latestPairSourceFrame);
-  const source = sourceSettlementProviderSource(snapshot, sourceFrame);
-  const expected = {
-    campaignId: snapshot.envelope.campaignId || null,
-    saveId: snapshot.envelope.saveId || null,
-    chatId: snapshot.envelope.chatId || null,
-    selectedAssistantVariantHash: source.selectedAssistantVariantHash || null
-  };
-  let applied = null;
-  let record = null;
-  let providerSettlement = null;
-  const sourceSettlementOptions = {
-    coreStore,
-    clock: () => timestamp(now),
-    runLatestPairProvider: runLatestPairSettlementProvider,
-    validateBeforeApply: typeof validateLatestPairSettlementBeforeApply === 'function'
-      ? validateLatestPairSettlementBeforeApply
-      : async () => ({ ok: true })
-  };
-  if (typeof stateDeltaGateway?.applyOperations === 'function') {
-    sourceSettlementOptions.applySettlement = async ({ operations = [], providerResult = null }) => {
-      if (!operations.length) return { ok: true, applied: false };
-      providerSettlement = providerResult?.settlement || null;
-      const materialChange = operations.some((operation) => operation.path?.split('.')[0] !== 'runtimeTracking');
-      const expectedApplied = {
-        revision: (campaignState.runtimeTracking?.revision || 0) + 1,
-        mechanicsRevision: (campaignState.runtimeTracking?.mechanicsRevision || 0) + (materialChange ? 1 : 0)
-      };
-      record = sceneHandshakeLedgerRecord({
-        settlementId,
-        idempotencyKey,
-        disposition: providerSettlement?.disposition || 'autoCommit',
-        status: 'settled',
-        reasons: ['source-settlement-latest-pair-accepted'],
-        snapshot,
-        settlement: providerSettlement,
-        operations,
-        generation: providerResult?.generation || null,
-        applied: expectedApplied,
-        modelRoleId: SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID,
-        metadata: {
-          sourceOwner: 'sre',
-          sourceSettlementMode: 'latestPair'
-        },
-        recordedAt: timestamp(now)
-      });
-      const proposalOperations = [
-        ...operations,
-        ...sceneHandshakeResultOperations(record)
-      ];
-      applied = await stateDeltaGateway.applyOperations({
-        id: `${settlementId}:sourceSettlement`,
-        source: 'sourceSettlement',
-        reason: 'SRE latest-pair settlement committed accepted assistant/player source operations.',
-        summary: 'SRE latest-pair settlement committed accepted assistant/player source operations.',
-        baseRevision: campaignState.runtimeTracking?.revision || 0,
-        ingressId,
-        operations: proposalOperations,
-        domains: [...new Set(proposalOperations.map((operation) => operation.path.split('.')[0]))],
-        metadata: {
-          settlementId,
-          idempotencyKey,
-          sourceOwner: 'sre',
-          sourceSettlementMode: 'latestPair',
-          sourceAnchorRange: snapshot.source.sourceRangeHash,
-          selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
-          evidenceMessageIds: [
-            snapshot.source.previousAssistant.hostMessageId,
-            snapshot.source.currentPlayer.hostMessageId
-          ].filter(Boolean)
-        }
-      }, {
-        allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
-      });
-      return { ok: true, applied: true };
-    };
-  }
-  const sourceSettlement = createSourceSettlementService(sourceSettlementOptions);
-  const decision = await sourceSettlement.settleLatestPair({
-    transactionId: `scene-handshake:${settlementId}`,
-    settlementId,
-    idempotencyKey: `sre:scene-handshake:${idempotencyKey}`,
-    sourceFrame,
-    snapshot,
+  return settleLatestPairSceneHandshakeSource({
     campaignState,
-    source,
-    expected,
-    previousAssistant: source.previousAssistant,
-    currentPlayer: source.currentPlayer,
-    observedAt: timestamp(now)
+    snapshot,
+    idempotencyKey,
+    settlementId,
+    stateDeltaGateway,
+    runLatestPairSettlementProvider,
+    validateLatestPairSettlementBeforeApply,
+    latestPairSourceFrame,
+    packageData,
+    generationRouter,
+    coreStore,
+    ingressId,
+    now,
+    selectedAssistantVariantLedgerRecord,
+    createSceneHandshakeLedgerRecord: sceneHandshakeLedgerRecord,
+    sceneHandshakeResultOperations,
+    commitAcceptedSceneTimeAdvance
   });
-  if (decision.status !== 'accepted' || decision.applied !== true || !applied) {
-    return {
-      attempted: true,
-      ok: decision.status === 'noChange',
-      disposition: decision.status || 'sourceSettlementStopped',
-      promptDirty: false,
-      sourceSettlement: decision,
-      committedRoots: [],
-      operationCount: 0,
-      campaignState,
-      reason: decision.reasons?.[0] || decision.status || 'source-settlement-stopped'
-    };
-  }
-  const appliedRecord = {
-    ...record,
-    appliedRevision: applied.revision || null,
-    appliedMechanicsRevision: applied.mechanicsRevision || null
-  };
-  const timeAdvance = (providerSettlement?.disposition || 'autoCommit') === 'autoCommit'
-    ? await commitAcceptedSceneTimeAdvance({
-        campaignState: applied.campaignState,
-        snapshot,
-        settlement: providerSettlement || { acceptedPreviousResponse: true },
-        stateDeltaGateway,
-        packageData,
-        generationRouter,
-        ingressId,
-        settlementId,
-        now
-      })
-    : { campaignState: applied.campaignState, promptDirty: false, proposal: null, boundary: null };
-  const committedRootsFromApply = () => [
-    ...new Set([
-      ...(Array.isArray(applied?.domains) ? applied.domains : []),
-      ...(timeAdvance.boundary ? ['worldState', 'timeLedger', 'eventLedger'] : [])
-    ].filter(Boolean))
-  ];
-  return {
-    attempted: true,
-    ok: true,
-    disposition: 'autoCommit',
-    promptDirty: committedRootsFromApply().some((domain) => domain !== 'runtimeTracking') || timeAdvance.promptDirty,
-    sourceSettlement: decision,
-    record: appliedRecord,
-    settlement: cloneJson(providerSettlement),
-    committedRoots: committedRootsFromApply(),
-    operationCount: decision.operations?.length || 0,
-    campaignState: timeAdvance.campaignState,
-    applied,
-    timeAdvance: cloneJson(timeAdvance.proposal || null),
-    timeBoundary: cloneJson(timeAdvance.boundary?.event || null)
-  };
 }
 
 async function recordOnly({
@@ -2125,7 +1821,7 @@ async function recordOnly({
     source: 'sceneHandshake',
     reason: 'Recorded Scene Handshake settlement result.',
     summary: 'Recorded Scene Handshake settlement result.',
-    baseRevision: campaignState.runtimeTracking?.revision || 0,
+    baseRevision: activeRuntimeRevisionState(campaignState).runtime,
     operations: sceneHandshakeResultOperations(record),
     domains: ['runtimeTracking'],
     metadata: {
@@ -2135,7 +1831,7 @@ async function recordOnly({
       selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
       recordedAt: timestamp(now)
     }
-  }, { allowedRoots: ['runtimeTracking'] });
+  }, { allowedRoots: ['sceneHandshake'] });
   return { campaignState: result.campaignState, applied: result };
 }
 
@@ -2358,7 +2054,8 @@ export async function runSceneHandshakeSettlement({
       ok: false,
       error: {
         code: error?.code || 'DIRECTIVE_SCENE_HANDSHAKE_PROVIDER_THROW',
-        message: error?.message || String(error)
+        message: error?.message || String(error),
+        thrown: true
       },
       diagnostics: {
         providerId: error?.providerId || null,
@@ -2368,103 +2065,15 @@ export async function runSceneHandshakeSettlement({
   }
   const text = responseText(generation);
   if (!generation?.ok || !text) {
-    const fallbackSettlement = providerFailureFallbackSettlement(snapshot);
-    if (fallbackSettlement) {
-      const validation = validateSceneHandshakeSettlement(fallbackSettlement, {
-        campaignState,
-        snapshot,
-        settlementId,
-        recordedAt
-      });
-      if (validation.disposition === 'autoCommit' && validation.operations.length > 0) {
-        const materialChange = validation.operations.some((operation) => operation.path.split('.')[0] !== 'runtimeTracking');
-        const expectedApplied = {
-          revision: (campaignState.runtimeTracking?.revision || 0) + 1,
-          mechanicsRevision: (campaignState.runtimeTracking?.mechanicsRevision || 0) + (materialChange ? 1 : 0)
-        };
-        const record = sceneHandshakeLedgerRecord({
-          settlementId,
-          idempotencyKey,
-          disposition: 'autoCommit',
-          status: 'settled',
-          reasons: ['provider-failed-deterministic-fallback'],
-          snapshot,
-          settlement: validation.settlement,
-          operations: validation.operations,
-          generation,
-          applied: expectedApplied,
-          recordedAt
-        });
-        const operations = [
-          ...validation.operations,
-          ...sceneHandshakeResultOperations(record)
-        ];
-        const applied = await stateDeltaGateway.applyOperations({
-          id: `${settlementId}:proposal`,
-          source: 'sceneHandshake',
-          reason: 'Scene Handshake committed accepted assistant prose with deterministic fallback after provider failure.',
-          summary: 'Scene Handshake committed accepted assistant prose with deterministic fallback after provider failure.',
-          baseRevision: campaignState.runtimeTracking?.revision || 0,
-          ingressId,
-          operations,
-          domains: [...new Set(operations.map((operation) => operation.path.split('.')[0]))],
-          metadata: {
-            settlementId,
-            idempotencyKey,
-            providerFailureFallback: true,
-            sourceAnchorRange: snapshot.source.sourceRangeHash,
-            selectedAssistantVariant: selectedAssistantVariantLedgerRecord(snapshot.source.previousAssistant.selectedVariant),
-            evidenceMessageIds: [
-              snapshot.source.previousAssistant.hostMessageId,
-              snapshot.source.currentPlayer.hostMessageId
-            ].filter(Boolean),
-            promptBudget: snapshot.budget
-          }
-        }, {
-          allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
-        });
-        const timeAdvance = await commitAcceptedSceneTimeAdvance({
-          campaignState: applied.campaignState,
-          snapshot,
-          settlement: validation.settlement,
-          stateDeltaGateway,
-          packageData,
-          generationRouter,
-          ingressId,
-          settlementId,
-          now
-        });
-        const committedRoots = [
-          ...validation.committedRoots,
-          ...(timeAdvance.boundary ? ['worldState', 'timeLedger', 'eventLedger'] : [])
-        ];
-        return {
-          attempted: true,
-          ok: true,
-          disposition: 'autoCommit',
-          promptDirty: validation.promptDirty || timeAdvance.promptDirty,
-          providerFailureFallback: true,
-          record: {
-            ...record,
-            appliedRevision: applied.revision || null,
-            appliedMechanicsRevision: applied.mechanicsRevision || null
-          },
-          settlement: validation.settlement,
-          committedRoots: [...new Set(committedRoots)],
-          operationCount: validation.operations.length,
-          campaignState: timeAdvance.campaignState,
-          applied,
-          timeAdvance: cloneJson(timeAdvance.proposal || null),
-          timeBoundary: cloneJson(timeAdvance.boundary?.event || null)
-        };
-      }
-    }
+    const failureReasons = generation?.error?.thrown
+      ? ['source-settlement-provider-threw']
+      : ['provider-failed'];
     const record = sceneHandshakeLedgerRecord({
       settlementId,
       idempotencyKey,
       disposition: 'defer',
       status: 'deferred',
-      reasons: ['provider-failed'],
+      reasons: failureReasons,
       snapshot,
       generation,
       error: generation?.error || { code: 'DIRECTIVE_SCENE_HANDSHAKE_PROVIDER_EMPTY', message: 'Scene Handshake provider returned no usable output.' },
@@ -2517,10 +2126,11 @@ export async function runSceneHandshakeSettlement({
   const status = validation.disposition === 'autoCommit'
     ? 'settled'
     : (validation.disposition === 'defer' ? 'deferred' : (validation.disposition === 'internalReview' ? 'pendingInternalReview' : 'operatorRecovery'));
-  const materialChange = validation.operations.some((operation) => operation.path.split('.')[0] !== 'runtimeTracking');
+  const materialChange = validation.operations.some((operation) => !['runtimeTracking', 'sceneHandshake'].includes(operation.path.split('.')[0]));
+  const revisionState = activeRuntimeRevisionState(campaignState);
   const expectedApplied = {
-    revision: (campaignState.runtimeTracking?.revision || 0) + 1,
-    mechanicsRevision: (campaignState.runtimeTracking?.mechanicsRevision || 0) + (materialChange ? 1 : 0)
+    revision: revisionState.runtime + 1,
+    mechanicsRevision: revisionState.mechanics + (materialChange ? 1 : 0)
   };
   const record = sceneHandshakeLedgerRecord({
     settlementId,
@@ -2546,7 +2156,7 @@ export async function runSceneHandshakeSettlement({
     source: 'sceneHandshake',
     reason: 'Scene Handshake committed accepted assistant prose into campaign state.',
     summary: 'Scene Handshake committed accepted assistant prose into campaign state.',
-    baseRevision: campaignState.runtimeTracking?.revision || 0,
+    baseRevision: revisionState.runtime,
     ingressId,
     operations,
     domains,
@@ -2562,7 +2172,7 @@ export async function runSceneHandshakeSettlement({
       promptBudget: snapshot.budget
     }
   }, {
-    allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
+    allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking', 'sceneHandshake']
   });
   const timeAdvance = validation.disposition === 'autoCommit'
     ? await commitAcceptedSceneTimeAdvance({

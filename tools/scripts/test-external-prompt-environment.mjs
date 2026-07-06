@@ -277,6 +277,16 @@ assert.equal(byUser['directive-soak-e'].summaryception.enabled, true);
 assert.equal(byUser['directive-soak-e'].vectFox.summarizerInjectionEnabled, true);
 assert.equal(byUser['directive-soak-e'].unknownSignals.includes('combined-extension-prompt-order-needs-live-proof'), true);
 
+const targetSummariesByUser = Object.fromEntries(environments.map((environment) => [
+  environment.userHandle,
+  summarizeExternalPromptEnvironmentTargets(environment)
+]));
+assert.equal(targetSummariesByUser['directive-soak-b'].memoryBooks.timingDiagnostics.observed, false);
+assert.equal(targetSummariesByUser['directive-soak-b'].memoryBooks.timingDiagnostics.unavailableReason, 'extension-timing-not-exposed');
+assert.equal(targetSummariesByUser['directive-soak-c'].summaryception.timingDiagnostics.observed, false);
+assert.equal(targetSummariesByUser['directive-soak-c'].summaryception.timingDiagnostics.unavailableReason, 'extension-timing-not-exposed');
+assert.equal(targetSummariesByUser['directive-soak-e'].vectFox.backendDiagnostics.timingUnavailableReason, null);
+
 const weakSummaryception = normalizeExternalPromptEnvironment({
   host: 'sillytavern',
   userHandle: 'directive-soak-weak',

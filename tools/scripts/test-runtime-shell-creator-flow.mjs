@@ -1050,7 +1050,7 @@ await findButton(panel, 'Settings').click();
 assert.match(textOf(panel), /Clear Preview/);
 await findButton(panel, 'Mission').click();
 await findButton(panel, 'Accept Outcome').click();
-assert.match(textOf(panel), /Latest Committed Outcome/);
+assert.match(textOf(panel), /Last Outcome Recorded/);
 assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not show persistence-only last-outcome copy');
 assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await findButton(panel, 'Log').click();
@@ -1136,9 +1136,9 @@ const settledRuntimeSettingsSave = updatedSaves.find((save) => save.slotType ===
 assert.equal(settledRuntimeSettingsSave.revision, revisionBeforeManualSave + 2, 'Settle Active State remains an explicit v1 checkpoint write.');
 indexesAfterRuntimeSettings = await getDirectiveStorageIndexes(adapter);
 runtimeSettingsSaveIndexEntry = indexesAfterRuntimeSettings.saveIndex.saves[settledRuntimeSettingsSave.id];
-assert.equal(runtimeSettingsSaveIndexEntry.runtimeStorageFormat, undefined, 'Settle Active State must clear the runtime-current v2 marker by writing a v1 checkpoint.');
-assert.equal(runtimeSettingsSaveIndexEntry.v2ManifestRef, undefined, 'Settle Active State must clear the v2 runtime manifest ref by writing a v1 checkpoint.');
-assert.equal(runtimeSettingsSaveIndexEntry.v2RuntimePersistedAt, undefined, 'Settle Active State must clear the v2 runtime persistence timestamp by writing a v1 checkpoint.');
+assert.equal(runtimeSettingsSaveIndexEntry.runtimeStorageFormat, 'v2', 'Settle Active State must keep runtime-current authority on v2.');
+assert.equal(Boolean(runtimeSettingsSaveIndexEntry.v2ManifestRef?.logicalKey), true, 'Settle Active State must attach a v2 runtime manifest ref.');
+assert.equal(Boolean(runtimeSettingsSaveIndexEntry.v2RuntimePersistedAt), true, 'Settle Active State must attach a v2 runtime persistence timestamp.');
 const settledRuntimeSettingsPath = runtimeSettingsSaveIndexEntry.path;
 const settledRuntimeSettingsPayload = await adapter.readJson(runtimeSettingsSaveIndexEntry.path);
 assert.equal(settledRuntimeSettingsPayload.kind, 'directive.campaignSave');
@@ -1154,9 +1154,9 @@ assert.equal(directSettleResult.save.v2ManifestRef, undefined, 'Direct Settle AP
 indexesAfterRuntimeSettings = await getDirectiveStorageIndexes(adapter);
 runtimeSettingsSaveIndexEntry = indexesAfterRuntimeSettings.saveIndex.saves[settledRuntimeSettingsSave.id];
 assert.equal(runtimeSettingsSaveIndexEntry.path, settledRuntimeSettingsPath, 'Direct Settle API must leave the active save path indexed.');
-assert.equal(runtimeSettingsSaveIndexEntry.runtimeStorageFormat, undefined, 'Direct Settle API must keep the runtime-current v2 marker cleared.');
-assert.equal(runtimeSettingsSaveIndexEntry.v2ManifestRef, undefined, 'Direct Settle API must keep the v2 runtime manifest ref cleared.');
-assert.equal(runtimeSettingsSaveIndexEntry.v2RuntimePersistedAt, undefined, 'Direct Settle API must keep the v2 runtime persistence timestamp cleared.');
+assert.equal(runtimeSettingsSaveIndexEntry.runtimeStorageFormat, 'v2', 'Direct Settle API must keep runtime-current authority on v2.');
+assert.equal(Boolean(runtimeSettingsSaveIndexEntry.v2ManifestRef?.logicalKey), true, 'Direct Settle API must keep a v2 runtime manifest ref.');
+assert.equal(Boolean(runtimeSettingsSaveIndexEntry.v2RuntimePersistedAt), true, 'Direct Settle API must keep a v2 runtime persistence timestamp.');
 await findButton(panel, 'Systems').click();
 assertActiveSettingsSubtab(panel, 'Systems');
 

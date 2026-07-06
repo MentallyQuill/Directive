@@ -3,6 +3,7 @@ import {
   normalizeHostMessageVisibility
 } from './architecture-redesign-contracts.mjs';
 import { createRecallSourceMutation } from '../retrieval/recall-index.mjs';
+import { readRuntimeCoreProjections } from './runtime-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -14,6 +15,47 @@ function compact(value) {
 
 function isObjectRecord(value) {
   return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function compactCoreCheckpointRef(ref = null) {
+  if (!isObjectRecord(ref)) return null;
+  const checkpointId = compact(ref.checkpointId || ref.id);
+  if (!checkpointId) return null;
+  return {
+    kind: compact(ref.kind) || 'directive.coreMechanicsCheckpointRef.v1',
+    campaignId: compact(ref.campaignId) || null,
+    saveId: compact(ref.saveId) || null,
+    checkpointId,
+    layout: compact(ref.layout) || 'core',
+    sourceKind: compact(ref.sourceKind) || null,
+    sourceRevision: Number.isFinite(Number(ref.sourceRevision)) ? Number(ref.sourceRevision) : null,
+    logicalKey: compact(ref.logicalKey) || null,
+    hash: compact(ref.hash) || null
+  };
+}
+
+function coreCheckpointRefFromEvidence(input = {}) {
+  return compactCoreCheckpointRef(
+    input?.coreCheckpointRef
+    || input?.checkpointRef
+    || input?.v2CheckpointRef
+    || input?.checkpoint?.coreCheckpointRef
+    || null
+  );
+}
+
+function hasCoreCheckpointAuthority(ref = null, sourceKind = null) {
+  const compactRef = compactCoreCheckpointRef(ref);
+  if (!compactRef) return false;
+  const effectiveSourceKind = compact(sourceKind || compactRef.sourceKind);
+  return !effectiveSourceKind || effectiveSourceKind === 'coreStoreV2.checkpoint';
+}
+
+function coreRuntimeRevision(campaignState = null) {
+  const projection = readRuntimeCoreProjections(campaignState || {});
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const revision = Number(projection?.revisions?.runtime);
+  return Number.isFinite(revision) ? Math.max(0, revision) : 0;
 }
 
 function timestamp(now) {
@@ -264,13 +306,14 @@ function recoveryStatusForSourceMutation({
     sourceKind !== 'directiveResponse'
     && autoRollback === true
     && hasPreOutcomeRevision(sourceMutation?.preOutcomeRevision)
+    && hasCoreCheckpointAuthority(sourceMutation?.coreCheckpointRef, sourceMutation?.snapshotSourceKind)
   ) {
     return 'rollbackPending';
   }
   return hasCommittedOutcome ? 'reviewRequired' : 'invalidated';
 }
 
-function legacyProjectionForDecision({
+function repairProjectionForDecision({
   action,
   recoveryStatus,
   sourceKind,
@@ -279,7 +322,7 @@ function legacyProjectionForDecision({
   const rollback = action === 'rollbackPending' && sourceKind !== 'directiveResponse';
   const invalidated = recoveryStatus === 'invalidated';
   return {
-    kind: 'directive.repairLegacyProjection.v1',
+    kind: 'directive.repairProjection.v2',
     sourceProjectionStatus: invalidated ? 'invalidated' : 'recoveryRequired',
     responseProjectionStatus: invalidated ? 'invalidated' : 'recoveryRequired',
     recoveryJournalStatus: recoveryStatus || (invalidated ? 'invalidated' : 'reviewRequired'),
@@ -287,7 +330,8 @@ function legacyProjectionForDecision({
     shouldRestoreRevision: rollback && hasPreOutcomeRevision(sourceMutation?.preOutcomeRevision),
     restoreRevision: rollback && hasPreOutcomeRevision(sourceMutation?.preOutcomeRevision)
       ? Number(sourceMutation.preOutcomeRevision)
-      : null
+      : null,
+    coreCheckpointRef: sourceMutation?.coreCheckpointRef ? cloneJson(sourceMutation.coreCheckpointRef) : undefined
   };
 }
 
@@ -321,7 +365,7 @@ function buildRepairDecision({
   const action = recoveryStatus === 'rollbackPending' && sourceKind !== 'directiveResponse'
     ? 'rollbackPending'
     : (uncommitted ? 'invalidateProjection' : 'reviewRequired');
-  const legacyProjection = legacyProjectionForDecision({
+  const repairProjection = repairProjectionForDecision({
     action,
     recoveryStatus,
     sourceKind,
@@ -337,7 +381,8 @@ function buildRepairDecision({
     uncommitted,
     action,
     normalTurnAllowed: false,
-    legacyProjection,
+    coreCheckpointRef: sourceMutation?.coreCheckpointRef ? cloneJson(sourceMutation.coreCheckpointRef) : undefined,
+    repairProjection,
     dependentInvalidation: dependentInvalidation ? cloneJson(dependentInvalidation) : undefined
   };
 }
@@ -576,7 +621,7 @@ function buildResponseRecoveryDecision({
     outcomeId: outcomeId || ingress?.outcomeId || null,
     turnId: turnId || null,
     sourceFrameId: sourceFrameId || ingress?.sourceFrameId || null,
-    transactionId: compact(transactionId || ingress?.coreTransactionId) || null,
+    transactionId: compact(transactionId || ingress?.coreTransactionId || ingress?.transactionId) || null,
     action: policy.recoveryAction,
     responseStatus: policy.responseStatus,
     responseRetry: policy.responseRetry,
@@ -654,7 +699,7 @@ function buildHostNativeContinuityCompatibilityProjection({
   if (decision?.eventType !== 'hostNativeContinuityContradiction') return null;
   const id = compact(recoveryId) || `recovery:continuity:${decision.responseId || decision.ingressId || decision.transactionId || 'host-native'}`;
   const observedAt = eventTime || new Date().toISOString();
-  const currentRevision = Number(campaignState?.runtimeTracking?.revision ?? 0) || 0;
+  const currentRevision = Number(coreRuntimeRevision(campaignState) ?? campaignState?.runtimeTracking?.revision ?? 0) || 0;
   const findings = (Array.isArray(continuityReview?.findings) ? continuityReview.findings : [])
     .map(compactContinuityFindingRef)
     .filter(Boolean);
@@ -926,9 +971,12 @@ function buildOutcomeRerunActuationDecision({
   const replacedTransactionId = compact(ledgerEntry?.replacedTransactionId || ledgerEntry?.transactionId || ledgerEntry?.coreTransactionId) || null;
   const snapshotBeforeRetained = ledgerEntry?.snapshotBeforeRetained === true;
   const snapshotPresent = ledgerEntry?.snapshotPresent === true;
+  const coreCheckpointRef = coreCheckpointRefFromEvidence(ledgerEntry);
+  const snapshotSourceKind = compact(ledgerEntry?.snapshotSourceKind) || (coreCheckpointRef ? 'coreStoreV2.checkpoint' : null);
+  const hasCoreCheckpointRef = hasCoreCheckpointAuthority(coreCheckpointRef, snapshotSourceKind);
   const supportedType = ['rerunOutcome', 'recalculateFromHere'].includes(String(requestedType || ''));
   const hasCoreTransaction = Boolean(replacedTransactionId || replacementTransactionId);
-  const authorized = Boolean(effectiveOutcomeId && ledgerEntry && snapshotBeforeRetained && snapshotPresent && supportedType && hasCoreTransaction);
+  const authorized = Boolean(effectiveOutcomeId && ledgerEntry && snapshotBeforeRetained && snapshotPresent && hasCoreCheckpointRef && supportedType && hasCoreTransaction);
   const deniedReason = authorized
     ? null
     : !ledgerEntry
@@ -937,11 +985,13 @@ function buildOutcomeRerunActuationDecision({
         ? 'outcome-rerun-snapshot-missing'
         : !snapshotPresent
           ? 'outcome-rerun-snapshot-evidence-missing'
-          : !supportedType
-            ? 'outcome-rerun-type-not-supported'
-            : !hasCoreTransaction
-              ? 'outcome-rerun-core-transaction-missing'
-              : 'outcome-rerun-not-authorized';
+          : !hasCoreCheckpointRef
+            ? 'outcome-rerun-core-checkpoint-ref-missing'
+            : !supportedType
+              ? 'outcome-rerun-type-not-supported'
+              : !hasCoreTransaction
+                ? 'outcome-rerun-core-transaction-missing'
+                : 'outcome-rerun-not-authorized';
   return {
     kind: 'directive.repairOutcomeRerunActuationDecision.v1',
     eventType: 'outcomeRerunRequested',
@@ -962,6 +1012,8 @@ function buildOutcomeRerunActuationDecision({
     responseStatus: ledgerEntry?.responseStatus || null,
     snapshotBeforeRetained,
     snapshotPresent,
+    snapshotSourceKind: snapshotSourceKind || null,
+    coreCheckpointRef: cloneJson(coreCheckpointRef || null),
     allowedActions: authorized ? ['previewRerunBranchCandidate', 'commitRerunBranchCandidate'] : ['reviewOutcomeRerunRequest'],
     branchCandidateRequired: true,
     mechanicsRerunAuthorized: authorized,
@@ -982,6 +1034,7 @@ function buildTerminalCheckpointReplayActuationDecision({
   snapshotSourceKind = null,
   snapshotPresent = false,
   snapshotHash = null,
+  coreCheckpointRef = null,
   runtimeRevision = null,
   ledgerRevision = null,
   eventTime = null
@@ -990,6 +1043,8 @@ function buildTerminalCheckpointReplayActuationDecision({
   const effectiveInteractionId = compact(interactionId || decisionId);
   const effectiveAction = compact(action) || 'restoreTerminalCheckpointSnapshot';
   const effectiveSnapshotHash = compact(snapshotHash);
+  const compactCheckpointRef = compactCoreCheckpointRef(coreCheckpointRef);
+  const effectiveSnapshotSourceKind = compact(snapshotSourceKind) || (compactCheckpointRef ? 'coreStoreV2.checkpoint' : null);
   const hasReplayRef = Boolean(
     effectiveDecisionId
     || effectiveInteractionId
@@ -997,17 +1052,20 @@ function buildTerminalCheckpointReplayActuationDecision({
     || compact(outcomeId)
   );
   const hasSnapshotEvidence = snapshotPresent === true && Boolean(effectiveSnapshotHash);
+  const hasCoreCheckpointRef = hasCoreCheckpointAuthority(compactCheckpointRef, effectiveSnapshotSourceKind);
   const supportedAction = effectiveAction === 'restoreTerminalCheckpointSnapshot';
-  const authorized = Boolean(hasReplayRef && hasSnapshotEvidence && supportedAction);
+  const authorized = Boolean(hasReplayRef && hasSnapshotEvidence && hasCoreCheckpointRef && supportedAction);
   const deniedReason = authorized
     ? null
     : !hasReplayRef
       ? 'terminal-checkpoint-replay-ref-missing'
       : !hasSnapshotEvidence
         ? 'terminal-checkpoint-replay-snapshot-evidence-missing'
-        : !supportedAction
-          ? 'terminal-checkpoint-replay-action-not-supported'
-          : 'terminal-checkpoint-replay-not-authorized';
+        : !hasCoreCheckpointRef
+          ? 'terminal-checkpoint-replay-core-checkpoint-ref-missing'
+          : !supportedAction
+            ? 'terminal-checkpoint-replay-action-not-supported'
+            : 'terminal-checkpoint-replay-not-authorized';
   return {
     kind: 'directive.repairTerminalCheckpointReplayActuationDecision.v1',
     eventType: 'terminalCheckpointReplayRequested',
@@ -1022,9 +1080,10 @@ function buildTerminalCheckpointReplayActuationDecision({
     conditionId: compact(conditionId) || null,
     turnId: compact(turnId) || null,
     outcomeId: compact(outcomeId) || null,
-    snapshotSourceKind: compact(snapshotSourceKind) || null,
+    snapshotSourceKind: effectiveSnapshotSourceKind || null,
     snapshotPresent: snapshotPresent === true,
     snapshotHash: effectiveSnapshotHash || null,
+    coreCheckpointRef: cloneJson(compactCheckpointRef || null),
     runtimeRevision: finiteInteger(runtimeRevision),
     ledgerRevision: finiteInteger(ledgerRevision),
     allowedActions: authorized ? ['restoreTerminalCheckpointSnapshot'] : ['reviewTerminalCheckpointReplayRequest'],
@@ -1036,28 +1095,68 @@ function buildTerminalCheckpointReplayActuationDecision({
 function buildRollbackActuationDecision({
   coreRecovery = null,
   decision = null,
-  legacyProjection = null,
+  repairProjection = null,
   sourceMutation = null,
   eventType = null,
   eventTime = null
 } = {}) {
   const repairDecision = decision || coreRecovery?.decision || coreRecovery?.repairDecision || {};
   const mutation = sourceMutation || coreRecovery?.sourceMutation || repairDecision?.sourceMutation || {};
-  const projection = legacyProjection || repairDecision?.legacyProjection || {};
+  const projection = repairProjection || repairDecision?.repairProjection || {};
   const sourceKind = compact(repairDecision?.sourceKind || mutation?.sourceKind || '');
   const restoreCandidate = projection?.restoreRevision ?? mutation?.preOutcomeRevision;
   const restoreRevision = hasPreOutcomeRevision(restoreCandidate) ? Number(restoreCandidate) : null;
+  const coreCheckpointRef = coreCheckpointRefFromEvidence({
+    coreCheckpointRef: projection?.coreCheckpointRef
+      || mutation?.coreCheckpointRef
+      || repairDecision?.coreCheckpointRef
+      || coreRecovery?.coreCheckpointRef
+      || null,
+    checkpointRef: projection?.checkpointRef
+      || mutation?.checkpointRef
+      || repairDecision?.checkpointRef
+      || coreRecovery?.checkpointRef
+      || null,
+    v2CheckpointRef: projection?.v2CheckpointRef
+      || mutation?.v2CheckpointRef
+      || repairDecision?.v2CheckpointRef
+      || coreRecovery?.v2CheckpointRef
+      || null
+  });
+  const snapshotSourceKind = compact(
+    projection?.snapshotSourceKind
+    || mutation?.snapshotSourceKind
+    || repairDecision?.snapshotSourceKind
+    || coreRecovery?.snapshotSourceKind
+    || coreCheckpointRef?.sourceKind
+  ) || (coreCheckpointRef ? 'coreStoreV2.checkpoint' : null);
+  const hasCoreCheckpointRef = hasCoreCheckpointAuthority(coreCheckpointRef, snapshotSourceKind);
   const authorized = (
     sourceKind !== 'directiveResponse'
     && repairDecision?.action === 'rollbackPending'
     && projection?.shouldRestoreRevision === true
     && restoreRevision !== null
+    && hasCoreCheckpointRef
   );
+  const deniedReason = authorized
+    ? null
+    : sourceKind === 'directiveResponse'
+      ? 'repair-rollback-directive-response-not-supported'
+      : repairDecision?.action !== 'rollbackPending'
+        ? 'repair-rollback-action-not-authorized'
+        : projection?.shouldRestoreRevision !== true
+          ? 'repair-rollback-projection-not-authorized'
+          : restoreRevision === null
+            ? 'repair-rollback-restore-revision-missing'
+            : !hasCoreCheckpointRef
+              ? 'repair-rollback-core-checkpoint-ref-missing'
+              : 'repair-rollback-not-authorized';
   return {
     kind: 'directive.repairRollbackActuationDecision.v1',
     authorized,
     action: authorized ? 'restorePreOutcomeRevision' : 'blockRollbackActuation',
-    reason: authorized ? 'repair-authorized-rollback' : 'repair-rollback-not-authorized',
+    reason: authorized ? 'repair-authorized-rollback' : deniedReason,
+    deniedReason,
     eventType: repairDecision?.eventType || eventType || null,
     sourceKind: sourceKind || null,
     ingressId: mutation?.ingressId || repairDecision?.ingressId || null,
@@ -1067,6 +1166,8 @@ function buildRollbackActuationDecision({
     transactionId: repairDecision?.transactionId || coreRecovery?.transactionId || null,
     recoveryCaseId: coreRecovery?.recoveryCaseId || null,
     restoreRevision,
+    snapshotSourceKind,
+    coreCheckpointRef: cloneJson(coreCheckpointRef || null),
     recoveryStatus: projection?.recoveryJournalStatus || null,
     observedAt: eventTime || null
   };
@@ -1076,7 +1177,7 @@ function buildCommittedOutcomeDeleteRollbackActuationDecision({
   coreRecovery = null,
   decision = null,
   ledgerEntry = null,
-  legacyProjection = null,
+  repairProjection = null,
   sourceMutation = null,
   eventTime = null
 } = {}) {
@@ -1091,10 +1192,37 @@ function buildCommittedOutcomeDeleteRollbackActuationDecision({
     || sourceMutation?.outcomeId
     || ledgerEntry?.outcomeId
   ) || null;
-  const restoreCandidate = legacyProjection?.restoreRevision
-    ?? sourceMutation?.preOutcomeRevision
-    ?? ledgerEntry?.snapshotBefore?.runtimeTracking?.revision;
+  const restoreCandidate = repairProjection?.restoreRevision
+    ?? sourceMutation?.preOutcomeRevision;
   const restoreRevision = hasPreOutcomeRevision(restoreCandidate) ? Number(restoreCandidate) : null;
+  const coreCheckpointRef = coreCheckpointRefFromEvidence({
+    coreCheckpointRef: sourceMutation?.coreCheckpointRef
+      || decision?.coreCheckpointRef
+      || repairProjection?.coreCheckpointRef
+      || coreRecovery?.coreCheckpointRef
+      || ledgerEntry?.coreCheckpointRef
+      || null,
+    checkpointRef: sourceMutation?.checkpointRef
+      || decision?.checkpointRef
+      || repairProjection?.checkpointRef
+      || coreRecovery?.checkpointRef
+      || ledgerEntry?.checkpointRef
+      || null,
+    v2CheckpointRef: sourceMutation?.v2CheckpointRef
+      || decision?.v2CheckpointRef
+      || repairProjection?.v2CheckpointRef
+      || coreRecovery?.v2CheckpointRef
+      || ledgerEntry?.v2CheckpointRef
+      || null
+  });
+  const snapshotSourceKind = compact(
+    repairProjection?.snapshotSourceKind
+    || sourceMutation?.snapshotSourceKind
+    || decision?.snapshotSourceKind
+    || coreRecovery?.snapshotSourceKind
+    || ledgerEntry?.snapshotSourceKind
+    || coreCheckpointRef?.sourceKind
+  ) || (coreCheckpointRef ? 'coreStoreV2.checkpoint' : null);
   const deleteMutation = {
     ...(sourceMutation && typeof sourceMutation === 'object' ? cloneJson(sourceMutation) : {}),
     kind: 'directive.sourceMutation.v1',
@@ -1104,7 +1232,9 @@ function buildCommittedOutcomeDeleteRollbackActuationDecision({
     outcomeId,
     turnId: compact(sourceMutation?.turnId || decision?.turnId || ledgerEntry?.turnId) || null,
     sourceFrameId: compact(sourceMutation?.sourceFrameId || decision?.sourceFrameId || ledgerEntry?.sourceFrameId) || null,
-    preOutcomeRevision: restoreRevision
+    preOutcomeRevision: restoreRevision,
+    snapshotSourceKind,
+    coreCheckpointRef: cloneJson(coreCheckpointRef || null)
   };
   const deleteDecision = {
     ...(decision && typeof decision === 'object' ? cloneJson(decision) : {}),
@@ -1117,6 +1247,8 @@ function buildCommittedOutcomeDeleteRollbackActuationDecision({
     outcomeId,
     turnId: deleteMutation.turnId,
     sourceFrameId: deleteMutation.sourceFrameId,
+    snapshotSourceKind,
+    coreCheckpointRef: cloneJson(coreCheckpointRef || null),
     sourceMutation: deleteMutation,
     allowedActions: Array.isArray(decision?.allowedActions)
       ? cloneJson(decision.allowedActions)
@@ -1133,10 +1265,12 @@ function buildCommittedOutcomeDeleteRollbackActuationDecision({
       sourceMutation: deleteMutation
     },
     decision: deleteDecision,
-    legacyProjection: {
-      ...(legacyProjection && typeof legacyProjection === 'object' ? cloneJson(legacyProjection) : {}),
+    repairProjection: {
+      ...(repairProjection && typeof repairProjection === 'object' ? cloneJson(repairProjection) : {}),
       shouldRestoreRevision: true,
-      restoreRevision
+      restoreRevision,
+      snapshotSourceKind,
+      coreCheckpointRef: cloneJson(coreCheckpointRef || null)
     },
     sourceMutation: deleteMutation,
     eventType: 'committedOutcomeDeleted',
@@ -1147,7 +1281,7 @@ function buildCommittedOutcomeDeleteRollbackActuationDecision({
 function compactRollbackActuationRecord({
   coreRecovery = null,
   rollbackActuation = null,
-  legacyProjection = null,
+  repairProjection = null,
   eventType = null,
   eventTime = null
 } = {}) {
@@ -1161,14 +1295,14 @@ function compactRollbackActuationRecord({
     transactionId: coreRecovery?.transactionId || rollbackActuation?.transactionId || decision?.transactionId || null,
     sourceMutation: cloneJson(mutation),
     repairDecision: cloneJson(decision),
-    legacyProjection: cloneJson(legacyProjection || decision?.legacyProjection || {}),
+    repairProjection: cloneJson(repairProjection || decision?.repairProjection || {}),
     rollbackActuation: cloneJson(rollbackActuation || {}),
     observedAt: eventTime || rollbackActuation?.observedAt || null
   };
 }
 
 function sceneHandshakeCollections(campaignState = {}) {
-  const ledger = campaignState?.runtimeTracking?.sceneHandshake || {};
+  const ledger = campaignState?.sceneHandshake || {};
   return [
     Array.isArray(ledger.settled) ? ledger.settled : [],
     Array.isArray(ledger.pendingInternalReview) ? ledger.pendingInternalReview : [],
@@ -1264,7 +1398,9 @@ function buildSourceMutation({
   visibility = null,
   selectedSwipe = null,
   message = null,
-  campaignState = null
+  campaignState = null,
+  coreCheckpointRef = null,
+  checkpointRef = null
 } = {}) {
   const source = sourceRecord({ ingress, response });
   const sourceKind = sourceKindFor({ ingress, response });
@@ -1283,6 +1419,7 @@ function buildSourceMutation({
     replacementTextHash: replacementTextHash(replacementText),
     replacementTextPresent: Boolean(compact(replacementText)),
     preOutcomeRevision: hasPreOutcomeRevision(revision) ? Number(revision) : null,
+    coreCheckpointRef: cloneJson(coreCheckpointRefFromEvidence({ coreCheckpointRef, checkpointRef }) || null),
     autoRollback: autoRollback === true,
     visibility: visibility ? cloneJson(visibility) : undefined,
     selectedSwipe: selectedSwipeMutation ? cloneJson(selectedSwipeMutation) : undefined,
@@ -1319,7 +1456,9 @@ export function createRepairRuntime({
     visibilityMap = null,
     selectedSwipe = null,
     state = null,
-    campaignState = null
+    campaignState = null,
+    coreCheckpointRef = null,
+    checkpointRef = null
   } = {}) {
     const source = sourceRecord({ ingress, response });
     const transactionId = sourceMutationTransactionId({ ingress, response });
@@ -1343,7 +1482,9 @@ export function createRepairRuntime({
         autoRollback,
         selectedSwipe,
         message,
-        campaignState: effectiveCampaignState
+        campaignState: effectiveCampaignState,
+        coreCheckpointRef,
+        checkpointRef
       });
       const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
         sourceKind,
@@ -1390,7 +1531,9 @@ export function createRepairRuntime({
       visibility,
       selectedSwipe,
       message,
-      campaignState: effectiveCampaignState
+      campaignState: effectiveCampaignState,
+      coreCheckpointRef,
+      checkpointRef
     });
     const sourceKind = sourceKindFor({ ingress, response });
     const effectiveRecoveryStatus = recoveryStatusForSourceMutation({
@@ -1621,7 +1764,7 @@ export function createRepairRuntime({
   async function recordRollbackActuation({
     coreRecovery = null,
     rollbackActuation = null,
-    legacyProjection = null,
+    repairProjection = null,
     eventType = null,
     eventTime = null
   } = {}) {
@@ -1639,7 +1782,7 @@ export function createRepairRuntime({
         rollback: compactRollbackActuationRecord({
           coreRecovery,
           rollbackActuation,
-          legacyProjection,
+          repairProjection,
           eventType,
           eventTime
         })
@@ -1648,7 +1791,7 @@ export function createRepairRuntime({
     const rollback = compactRollbackActuationRecord({
       coreRecovery,
       rollbackActuation,
-      legacyProjection,
+      repairProjection,
       eventType,
       eventTime
     });
@@ -1720,6 +1863,6 @@ export const __repairRuntimeTestHooks = Object.freeze({
   buildSourceReobserveDecision,
   buildVisibilityDecision,
   buildSourceMutation,
-  legacyProjectionForDecision,
+  repairProjectionForDecision,
   replacementTextHash
 });

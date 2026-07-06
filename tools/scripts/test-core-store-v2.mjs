@@ -1414,7 +1414,7 @@ const responseRetryProjectionBeforeActuation = await readCoreStoreProjectionsV2(
   campaignId: 'campaign-core-v2',
   saveId: 'save-core-v2'
 });
-const responseRetryRowBeforeActuation = responseRetryProjectionBeforeActuation.responseLedger.find((entry) => (
+const responseRetryRowBeforeActuation = responseRetryProjectionBeforeActuation.responses.find((entry) => (
   entry.transactionId === retryTransaction.id
 ));
 assert.ok(responseRetryRowBeforeActuation, 'CORE response projections should expose responseRetryRequired before retry actuation posts a visible response');
@@ -1541,7 +1541,7 @@ const hostContinueReleaseProjection = await readCoreStoreProjectionsV2(adapter, 
   campaignId: 'campaign-core-v2',
   saveId: 'save-core-v2'
 });
-const hostContinueReleaseRow = hostContinueReleaseProjection.responseLedger.find((entry) => (
+const hostContinueReleaseRow = hostContinueReleaseProjection.responses.find((entry) => (
   entry.transactionId === unavailableClosureTransaction.id
 ));
 assert.ok(hostContinueReleaseRow, 'CORE response projections should expose hostContinue releases before host-native response reobserve');
@@ -1643,8 +1643,8 @@ await coreStore.markRecoveryRequired(rollbackTransaction.id, {
     eventType: 'playerMessageDeleted',
     sourceKind: 'playerIngress',
     transactionId: 'txn-38',
-    legacyProjection: {
-      kind: 'directive.repairLegacyProjection.v1',
+    repairProjection: {
+      kind: 'directive.repairProjection.v2',
       shouldRestoreRevision: true,
       restoreRevision: 12
     }
@@ -1744,12 +1744,12 @@ const rollbackRecord = await coreStore.recordRollbackActuation(rollbackTransacti
     rawDeletedText: 'RAW_DELETED_PLAYER_TEXT',
     replacementText: 'RAW_REPLACEMENT_TEXT_FROM_REPAIR_DECISION'
   },
-  legacyProjection: {
-    kind: 'directive.repairLegacyProjection.v1',
+  repairProjection: {
+    kind: 'directive.repairProjection.v2',
     shouldRestoreRevision: true,
     restoreRevision: 12,
     rawDeletedText: 'RAW_DELETED_PLAYER_TEXT',
-    replacementText: 'RAW_REPLACEMENT_TEXT_FROM_LEGACY_PROJECTION'
+    replacementText: 'RAW_REPLACEMENT_TEXT_FROM_REPAIR_PROJECTION'
   },
   rollbackActuation: {
     kind: 'directive.repairRollbackActuationDecision.v1',
@@ -1772,7 +1772,7 @@ assert.equal(rollbackWriteKeys.filter((key) => key.endsWith('/save-manifest.v2.j
 assert.equal(rollbackWriteKeys.filter((key) => key.endsWith('/campaign-manifest.v2.json')).length, 1, 'recordRollbackActuation append should publish one campaign manifest');
 assert.equal(JSON.stringify(rollbackRecord).includes('RAW_DELETED_PLAYER_TEXT'), false, 'rollback actuation refs must not retain raw deleted source text');
 assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_REPAIR_DECISION'), false, 'rollback repair decisions must not retain raw replacement text');
-assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_LEGACY_PROJECTION'), false, 'rollback legacy projections must not retain raw replacement text');
+assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_REPAIR_PROJECTION'), false, 'rollback legacy projections must not retain raw replacement text');
 assert.equal(JSON.stringify(rollbackRecord).includes('RAW_REPLACEMENT_TEXT_FROM_ROLLBACK_ACTUATION'), false, 'rollback actuation decisions must not retain raw replacement text');
 const rollbackReplayEventCount = coreStore.state.events.length;
 const rollbackReplay = await coreStore.recordRollbackActuation(rollbackTransaction.id, {
@@ -1825,7 +1825,7 @@ assert.equal(rollbackResolvedRecovery.restoreRevision, 12);
 assert.equal(rollbackProjection.rollbackActuations.some((entry) => entry.id === 'rollback-38' && entry.restoreRevision === 12), true);
 assert.equal(JSON.stringify(rollbackProjection).includes('RAW_DELETED_PLAYER_TEXT'), false, 'rollback projections must stay raw-redacted');
 assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_REPAIR_DECISION'), false, 'rollback projections must redact repair-decision raw text');
-assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_LEGACY_PROJECTION'), false, 'rollback projections must redact legacy-projection raw text');
+assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_REPAIR_PROJECTION'), false, 'rollback projections must redact repair-projection raw text');
 assert.equal(JSON.stringify(rollbackProjection).includes('RAW_REPLACEMENT_TEXT_FROM_ROLLBACK_ACTUATION'), false, 'rollback projections must redact rollback-actuation raw text');
 
 const hostNativeRepairFrame = createTurnSourceFrameContract({
@@ -1922,7 +1922,7 @@ const repairedProjection = await readCoreStoreProjectionsV2(adapter, {
   campaignId: 'campaign-core-v2',
   saveId: 'save-core-v2'
 });
-const repairedProjectionResponse = repairedProjection.responseLedger.find((entry) => entry.transactionId === hostNativeRepairTransaction.id);
+const repairedProjectionResponse = repairedProjection.responses.find((entry) => entry.transactionId === hostNativeRepairTransaction.id);
 assert.equal(repairedProjectionResponse.textHash, repairedHostNativeHash);
 const repairedProjectionHostRow = repairedProjection.hostMap.rows.find((entry) => entry.role === 'assistant' && entry.transactionId === hostNativeRepairTransaction.id);
 assert.equal(repairedProjectionHostRow.textHash, repairedHostNativeHash, 'host-map projection should derive repaired response hash from events');
@@ -2264,13 +2264,13 @@ assert.equal(restartPriorProjection.sourceRestart.reason, 'latest-source-reobser
 assert.equal(restartReplacementProjection.status, 'pending');
 assert.equal(restartReplacementProjection.restartedFromTransactionId, 'txn-restart-prior');
 assert.equal(restartReplacementProjection.sourceRestart.priorIngressId, 'ingress-restart-prior');
-assert.equal(projections.responseLedger.length, 4);
-assert.equal(projections.responseLedger[0].hostMessageId, '30');
-assert.equal(projections.responseLedger[0].generationStartedAt, '2026-06-28T15:00:40.000Z');
-assert.equal(projections.responseLedger[0].turnTiming.architectureWithin60s, true);
-assert.equal(projections.responseLedger[0].turnTiming.generationStartLatencyMs, 40000);
-assert.equal(projections.responseLedger.find((entry) => entry.transactionId === 'txn-35').textHash, repairedHostNativeHash);
-assert.equal(projections.responseLedger.find((entry) => entry.transactionId === 'txn-36').textHash, unavailableClosureHash);
+assert.equal(projections.responses.length, 4);
+assert.equal(projections.responses[0].hostMessageId, '30');
+assert.equal(projections.responses[0].generationStartedAt, '2026-06-28T15:00:40.000Z');
+assert.equal(projections.responses[0].turnTiming.architectureWithin60s, true);
+assert.equal(projections.responses[0].turnTiming.generationStartLatencyMs, 40000);
+assert.equal(projections.responses.find((entry) => entry.transactionId === 'txn-35').textHash, repairedHostNativeHash);
+assert.equal(projections.responses.find((entry) => entry.transactionId === 'txn-36').textHash, unavailableClosureHash);
 const directiveTurnTiming = projections.turnTiming.find((entry) => entry.transactionId === 'txn-29');
 assert.ok(directiveTurnTiming, 'CORE projections should expose persisted generation-start timing for live proof');
 assert.equal(directiveTurnTiming.route, 'directiveCommit');
@@ -2437,7 +2437,7 @@ assert.equal(
   'txn-restart-prior',
   'persisted projection loader should preserve replacement source-restart link'
 );
-assert.equal(persistedProjections.responseLedger.length, projections.responseLedger.length, 'persisted projection loader should derive responses from segments');
+assert.equal(persistedProjections.responses.length, projections.responses.length, 'persisted projection loader should derive responses from segments');
 assert.equal(persistedProjections.turnTiming.length, projections.turnTiming.length, 'persisted projection loader should derive generation-start timing from segments');
 assert.equal(
   persistedProjections.turnTiming.find((entry) => entry.transactionId === 'txn-29').turnTiming.generationStartLatencyMs,
@@ -2483,7 +2483,7 @@ assert.equal(
   'txn-restart-prior',
   'hydrated CORE Store should preserve replacement source-restart ref'
 );
-assert.equal(hydratedProjections.responseLedger.length, projections.responseLedger.length, 'hydrated CORE Store should preserve response projections');
+assert.equal(hydratedProjections.responses.length, projections.responses.length, 'hydrated CORE Store should preserve response projections');
 assert.equal(hydratedProjections.turnTiming.length, projections.turnTiming.length, 'hydrated CORE Store should preserve timing projections');
 assert.equal(hydratedCoreStore.state.events.length, coreStore.state.events.length, 'hydrated CORE Store should preserve event segments');
 assert.equal(hydratedCoreStore.state.counters.transactions, 11, 'hydrated CORE Store should derive current transaction count from event segments');

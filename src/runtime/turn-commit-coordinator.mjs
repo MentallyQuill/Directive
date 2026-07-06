@@ -2,7 +2,7 @@ import {
   commitTrackedCampaignState,
   initializeCampaignRuntimeTracking
 } from './state-delta-gateway.mjs';
-import { createRuntimeLedgerView } from './runtime-ledger-view.mjs';
+import { createRuntimeLedgerViewAsync } from './runtime-ledger-view.mjs';
 import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import {
   compactOpenWorldReducerBundleRef,
@@ -102,10 +102,10 @@ function safeCheckpointId(value, fallback) {
   return `${prefix}-${suffix}`;
 }
 
-function findIngressById(campaignState, ingressId) {
+async function findIngressById(campaignState, ingressId, { coreTurnStore = null } = {}) {
   const id = compact(ingressId);
   if (!id) return null;
-  return (createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [])
+  return ((await createRuntimeLedgerViewAsync(campaignState || {}, { coreTurnStore })).ingressLedger || [])
     .find((entry) => entry?.id === id) || null;
 }
 
@@ -548,9 +548,11 @@ async function commitCoreMechanics({
       baseMechanicsRevision: baseMechanicsRevision ?? undefined,
       checkpointBefore: {
         checkpointId: safeCheckpointId(`core-mechanics-${outcomeId}`, `core-mechanics-${id}`),
-        sourceKind: 'turnCommitCoordinator.beforeCampaignState',
+        sourceKind: 'coreStoreV2.checkpoint',
+        checkpointProducer: 'turnCommitCoordinator.beforeCampaignState',
         campaignState: mechanicsCheckpointCampaignState(beforeCampaignState)
       },
+      snapshotBeforeRetained: true,
       operations,
       committedRoots: uniqueStrings(operations.map((operation) => operation.domain)),
       promptDirtyDomains: [],
@@ -707,7 +709,7 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
     if (!outcomeId) throw new Error('Committed turn packet is missing outcome id.');
     validateOpenWorldReducerSource(turnPacket);
     const committedAt = timestamp(now);
-    const ingress = findIngressById(after, ingressId);
+    const ingress = await findIngressById(after, ingressId, { coreTurnStore });
     const mechanicsTransactionId = compact(outcomeReplacement?.transactionId) || ingress?.coreTransactionId || null;
     const turnId = turnPacket?.turnId || turnPacket?.id || null;
     after.runtimeTracking.lastCommittedTurn = {

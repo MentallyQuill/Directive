@@ -6,6 +6,7 @@ import {
   composeOutcomeIntegrityReviewRequest,
   normalizeOutcomeIntegritySettings,
   outcomeIntegrityFailureSummary,
+  outcomeIntegrityStatusForMessageAsync,
   outcomeIntegrityStatusForMessage,
   outcomeIntegrityTextHash,
   reviewOutcomeIntegrityEdit,
@@ -37,15 +38,19 @@ const campaignState = {
       }
     }]
   },
-  runtimeTracking: {
-    responseLedger: [{
-      id: 'response.1',
-      hostMessageId: '42',
-      outcomeId: 'outcome.1',
-      turnId: 'turn.1',
-      responseKind: 'committedOutcome',
-      status: 'posted'
-    }]
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      runtimeAuthority: 'coreStoreV2',
+      responses: [{
+        id: 'response.1',
+        hostMessageId: '42',
+        outcomeId: 'outcome.1',
+        turnId: 'turn.1',
+        responseKind: 'committedOutcome',
+        status: 'posted',
+        transactionId: 'txn.1'
+      }]
+    }
   }
 };
 
@@ -68,6 +73,68 @@ const status = outcomeIntegrityStatusForMessage({ campaignState, message });
 assert.equal(status.protected, true);
 assert.equal(status.nativeEdit, 'intercept');
 assert.equal(status.reviewProviderKind, 'utility');
+
+const coreOnlyResponseStatus = outcomeIntegrityStatusForMessage({
+  campaignState: {
+    campaign: { id: 'campaign.test' },
+    settings: {}
+  },
+  message: {
+    ...message,
+    hostMessageId: 'core-only-response'
+  },
+  coreTurnStore: {
+    readProjections() {
+      return {
+        runtimeAuthority: 'coreStoreV2',
+        responses: [{
+          id: 'response.core-only',
+          hostMessageId: 'core-only-response',
+          outcomeId: 'outcome.1',
+          turnId: 'turn.1',
+          responseKind: 'committedOutcome',
+          status: 'posted',
+          transactionId: 'txn.core-only'
+        }]
+      };
+    }
+  }
+});
+assert.equal(coreOnlyResponseStatus.protected, true);
+assert.equal(coreOnlyResponseStatus.nativeEdit, 'intercept');
+assert.equal(coreOnlyResponseStatus.response.id, 'response.core-only');
+assert.equal(coreOnlyResponseStatus.response.transactionId, 'txn.core-only');
+
+const asyncCoreOnlyResponseStatus = await outcomeIntegrityStatusForMessageAsync({
+  campaignState: {
+    campaign: { id: 'campaign.test' },
+    settings: {}
+  },
+  message: {
+    ...message,
+    hostMessageId: 'async-core-only-response'
+  },
+  coreTurnStore: {
+    async readProjections() {
+      return {
+        runtimeAuthority: 'coreStoreV2',
+        responses: [{
+          id: 'response.async-core-only',
+          hostMessageId: 'async-core-only-response',
+          outcomeId: 'outcome.1',
+          turnId: 'turn.1',
+          responseKind: 'committedOutcome',
+          status: 'posted',
+          transactionId: 'txn.async-core-only'
+        }]
+      };
+    }
+  }
+});
+assert.equal(asyncCoreOnlyResponseStatus.protected, true);
+assert.equal(asyncCoreOnlyResponseStatus.nativeEdit, 'intercept');
+assert.equal(asyncCoreOnlyResponseStatus.response.id, 'response.async-core-only');
+assert.equal(asyncCoreOnlyResponseStatus.response.transactionId, 'txn.async-core-only');
 
 const playerStatus = outcomeIntegrityStatusForMessage({
   campaignState,

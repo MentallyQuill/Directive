@@ -243,7 +243,7 @@ const samProjections = samHarness.coreStore.readProjections();
 assert.equal(samProjections.ingressLedger.length, 1);
 assert.equal(samProjections.ingressLedger[0].status, 'recoveryRequired');
 assert.equal(samProjections.ingressLedger[0].textHash, oldSamHash);
-assert.equal(samProjections.responseLedger.length, 1);
+assert.equal(samProjections.responses.length, 1);
 assert.equal(samProjections.recoveryJournal.length, 1);
 assert.equal(samProjections.recoveryJournal[0].sourceMutation.mutationKind, 'player-edited');
 assert.equal(samProjections.recoveryJournal[0].sourceMutation.oldTextHash, oldSamHash);

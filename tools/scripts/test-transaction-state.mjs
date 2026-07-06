@@ -298,6 +298,34 @@ requireEqual(narrated.turnLedger.entries[0].narrationStatus, 'complete', 'narrat
 requireEqual(narrated.turnLedger.entries[0].narration.text, 'The Breckenridge takes the delay and protects the passengers.', 'narration success text');
 requireEqual(narrated.turnLedger.lastNarratedOutcomeId, hesperusTurn.outcomePacket.id, 'narration success last outcome');
 
+const narrationContinuityInput = cloneJson(committed);
+narrationContinuityInput.continuity = {
+  ...(narrationContinuityInput.continuity || {}),
+  candidateClaims: [],
+  rejectedClaims: [],
+  projectionHints: [],
+  factUseStats: {}
+};
+const narrationContinuityReviewed = recordNarrationSuccess(narrationContinuityInput, hesperusTurn.outcomePacket.id, {
+  sourceOutcomeId: hesperusTurn.outcomePacket.id,
+  providerId: 'test-provider',
+  generatedAt: '2026-06-18T23:30:30.000Z',
+  text: 'The Breckenridge states a continuity-sensitive rejected claim.',
+  continuityReview: {
+    ok: false,
+    findings: [{
+      factId: 'fact.narration-old-continuity-blocked',
+      severity: 'critical',
+      explanation: 'Old continuity roots must not be updated from narration commit.'
+    }]
+  }
+});
+requireEqual(
+  narrationContinuityReviewed.continuity,
+  narrationContinuityInput.continuity,
+  'narration success must not write old continuity candidate/rejected/hint/fact-use roots'
+);
+
 const failedNarration = recordNarrationFailure(committed, hesperusTurn.outcomePacket.id, {
   providerId: 'test-provider',
   failedAt: '2026-06-18T23:31:00.000Z',

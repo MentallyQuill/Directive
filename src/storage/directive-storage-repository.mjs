@@ -95,14 +95,16 @@ function projectionArray(rows = []) {
 
 function coreStoreReadProjectionsFromLoadedV2({
   ingressLedger = [],
+  responses = [],
   responseLedger = [],
   turnLedger = null
 } = {}) {
+  const responseRows = Array.isArray(responses) && responses.length ? responses : responseLedger;
   return compact({
     kind: 'directive.coreStoreReadProjections.v1',
     runtimeAuthority: 'coreStoreV2',
     ingressLedger: projectionArray(ingressLedger),
-    responseLedger: projectionArray(responseLedger),
+    responses: projectionArray(responseRows),
     recoveryJournal: [],
     turnLedger: turnLedger ? cloneJson(turnLedger) : undefined
   });
@@ -112,6 +114,7 @@ function hasCoreStoreReadProjectionEvidence(projections = {}) {
   return Boolean(
     projections?.runtimeAuthority === 'coreStoreV2'
     || (Array.isArray(projections?.ingressLedger) && projections.ingressLedger.length)
+    || (Array.isArray(projections?.responses) && projections.responses.length)
     || (Array.isArray(projections?.responseLedger) && projections.responseLedger.length)
     || (isObject(projections?.turnLedger) && Array.isArray(projections.turnLedger.entries) && projections.turnLedger.entries.length)
   );
@@ -515,6 +518,41 @@ function isV2SaveIndexEntry(entry = {}) {
     || entry.kind === 'directive.saveManifest.v2';
 }
 
+function isV2AuthoritySaveEntry(entry = {}, record = null) {
+  return entry.runtimeStorageFormat === 'v2'
+    || isRuntimeV2BridgeEntry(entry)
+    || isV2SaveIndexEntry(entry)
+    || Boolean(entry.v2ManifestRef?.logicalKey)
+    || Boolean(entry.manifestRef?.logicalKey && (entry.payloadKind === 'directive.saveManifest.v2' || entry.kind === 'directive.saveManifest.v2'))
+    || record?.kind === 'directive.saveManifest.v2';
+}
+
+function createV2SaveStateUnavailableError(entry = {}, reason = 'v2-state-unavailable', cause = null) {
+  const error = new Error(`Campaign save "${entry.id || 'unknown'}" is v2-owned but its v2 state could not be loaded.`);
+  error.code = 'DIRECTIVE_V2_SAVE_STATE_UNAVAILABLE';
+  error.details = compact({
+    saveId: entry.id || null,
+    path: entry.path || null,
+    reason,
+    causeCode: cause?.code || null,
+    causeMessage: cause?.message || (cause ? String(cause) : null)
+  });
+  return error;
+}
+
+function createV2SaveRequiredError(entry = {}, record = null) {
+  const error = new Error(`Campaign save "${entry.id || record?.id || 'unknown'}" has no CORE/v2 manifest authority.`);
+  error.code = 'DIRECTIVE_V2_SAVE_REQUIRED';
+  error.details = compact({
+    saveId: entry.id || record?.id || null,
+    path: entry.path || null,
+    payloadKind: payloadKindForSaveEntry(entry),
+    retiredAuthority: 'directive.campaignSave.payload.campaignState',
+    requiredAuthority: 'directive.saveManifest.v2'
+  });
+  return error;
+}
+
 function v2ManifestRefForSaveEntry(entry = {}, record = null, { includeRuntimeBridge = false } = {}) {
   if (includeRuntimeBridge && entry.v2ManifestRef?.logicalKey) return cloneJson(entry.v2ManifestRef);
   if (record?.kind === 'directive.saveManifest.v2') {
@@ -681,7 +719,7 @@ async function loadV2CampaignStateFromSaveManifest(adapter, manifest) {
   }
   const coreStoreReadProjections = coreStoreReadProjectionsFromLoadedV2({
     ingressLedger,
-    responseLedger,
+    responses: responseLedger,
     turnLedger: projectedTurnLedger
   });
   if (hasCoreStoreReadProjectionEvidence(coreStoreReadProjections)) {
@@ -1248,15 +1286,19 @@ export async function loadCampaignSaveFromStorage(adapter, saveId, options = {})
   }
 
   const v2ManifestRef = v2ManifestRefForSaveEntry(entry, record);
+  const v2Authority = isV2AuthoritySaveEntry(entry, record);
   if (v2ManifestRef) {
     try {
       const manifest = await readIndexedV2ArtifactRef(adapter, v2ManifestRef);
       return loadV2CampaignStateFromSaveManifest(adapter, manifest);
     } catch (error) {
-      if (record.kind !== 'directive.campaignSave') throw error;
+      throw error;
     }
   }
-  return cloneJson(record.payload?.campaignState);
+  if (v2Authority) {
+    throw createV2SaveStateUnavailableError(entry, runtimeBridge?.reason || 'v2-state-unavailable', runtimeBridge?.error || null);
+  }
+  throw createV2SaveRequiredError(entry, record);
 }
 
 export async function loadCampaignSaveRecordFromStorage(adapter, saveId) {
@@ -1600,6 +1642,7 @@ export async function recoverActiveCampaignSave(adapter, options = {}) {
       }
     }
     const v2ManifestRef = v2ManifestRefForSaveEntry(entry, result.value);
+    const v2Authority = isV2AuthoritySaveEntry(entry, result.value);
     if (v2ManifestRef) {
       try {
         const manifest = await readIndexedV2ArtifactRef(adapter, v2ManifestRef);
@@ -1633,24 +1676,27 @@ export async function recoverActiveCampaignSave(adapter, options = {}) {
         }));
       }
     }
+    if (v2Authority) {
+      issues.push(createStorageIssue({
+        severity: 'error',
+        code: 'active-save-v2-state-unavailable',
+        message: `Campaign save "${entry.id}" is v2-owned and cannot fall back to its stale v1 checkpoint payload.`,
+        path: entry.path,
+        ownerId: entry.id,
+        kind: 'directive.campaignSave'
+      }));
+      continue;
+    }
     if (result.status === 'ok' && result.value?.kind === 'directive.campaignSave' && isObject(result.value?.payload?.campaignState)) {
-      const needsIndexRepair = index.activeSaveId !== entry.id || entry.current !== true || currentEntries.length > 1;
-      if (needsIndexRepair) {
-        await markCampaignSaveActiveInIndex(adapter, index, entry.id, options);
-      }
-      return {
-        kind: 'directive.activeSaveRecovery',
-        checkedAt,
-        recovered: needsIndexRepair || issues.length > 0,
-        activeSaveId: entry.id,
-        saveRecord: cloneJson(result.value),
-        campaignState: cloneJson(result.value.payload.campaignState),
-        diagnostics: {
-          status: diagnosticStatus(issues),
-          ok: issues.every((issue) => issue.severity !== 'error'),
-          issues
-        }
-      };
+      issues.push(createStorageIssue({
+        severity: 'error',
+        code: 'active-save-v2-manifest-required',
+        message: `Campaign save "${entry.id}" has only retired v1 payload state and cannot become active runtime authority.`,
+        path: entry.path,
+        ownerId: entry.id,
+        kind: 'directive.campaignSave'
+      }));
+      continue;
     }
 
     const code = result.status === 'missing'

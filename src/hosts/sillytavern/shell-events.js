@@ -90,6 +90,8 @@ const USER_MESSAGE_FALLBACK_POLL_INTERVAL_MS = 750;
 let pendingNativeDeleteIntent = null;
 let nativeDeleteIntentCapture = null;
 let nativeProtectedEditCapture = null;
+let pendingNativeProtectedEditIntent = null;
+let nativeProtectedEditBypass = null;
 let userMessageFallbackObserver = null;
 let lastFallbackUserMessageSignature = null;
 let lastFallbackChatId = null;
@@ -494,6 +496,25 @@ function protectedEditDecision(hostMessageId) {
   }
 }
 
+function isPromiseLike(value) {
+  return value && typeof value.then === 'function';
+}
+
+function preventNativeEditEvent(event = {}) {
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  event.stopImmediatePropagation?.();
+}
+
+function replayNativeEditIfAllowed(hostMessageId, editButton) {
+  if (!editButton || typeof editButton.click !== 'function') return;
+  nativeProtectedEditBypass = {
+    hostMessageId: String(hostMessageId ?? '').trim(),
+    expiresAt: nowMs() + 1000
+  };
+  editButton.click();
+}
+
 function openOutcomeIntegrityEditor(hostMessageId) {
   const id = String(hostMessageId ?? '').trim();
   if (!id) return false;
@@ -523,11 +544,44 @@ function captureNativeProtectedEditIntent(event = {}) {
   if (!editButton || target?.closest?.('.mes_edit_delete')) return false;
   const row = editButton.closest?.('.mes[mesid]');
   const hostMessageId = row?.getAttribute?.('mesid');
+  if (
+    nativeProtectedEditBypass
+    && nativeProtectedEditBypass.hostMessageId === String(hostMessageId ?? '').trim()
+    && nowMs() < Number(nativeProtectedEditBypass.expiresAt || 0)
+  ) {
+    nativeProtectedEditBypass = null;
+    return false;
+  }
   const decision = protectedEditDecision(hostMessageId);
+  if (isPromiseLike(decision)) {
+    preventNativeEditEvent(event);
+    const id = String(hostMessageId ?? '').trim();
+    const pending = pendingNativeProtectedEditIntent;
+    if (pending?.hostMessageId === id && nowMs() - Number(pending.startedAt || 0) < 1000) {
+      return true;
+    }
+    pendingNativeProtectedEditIntent = { hostMessageId: id, startedAt: nowMs() };
+    Promise.resolve(decision)
+      .then((resolvedDecision) => {
+        if (pendingNativeProtectedEditIntent?.hostMessageId === id) {
+          pendingNativeProtectedEditIntent = null;
+        }
+        if (resolvedDecision?.nativeEdit === 'intercept') {
+          openOutcomeIntegrityEditor(hostMessageId);
+        } else {
+          replayNativeEditIfAllowed(hostMessageId, editButton);
+        }
+      })
+      .catch((error) => {
+        if (pendingNativeProtectedEditIntent?.hostMessageId === id) {
+          pendingNativeProtectedEditIntent = null;
+        }
+        reportFailure('Failed to resolve Outcome Integrity edit protection', error);
+      });
+    return true;
+  }
   if (decision?.nativeEdit !== 'intercept') return false;
-  event.preventDefault?.();
-  event.stopPropagation?.();
-  event.stopImmediatePropagation?.();
+  preventNativeEditEvent(event);
   openOutcomeIntegrityEditor(hostMessageId);
   return true;
 }
@@ -554,6 +608,8 @@ function disposeNativeProtectedEditCapture() {
   }
   nativeProtectedEditCapture = null;
   lastProtectedEditOpen = null;
+  pendingNativeProtectedEditIntent = null;
+  nativeProtectedEditBypass = null;
 }
 
 function consumeNativeDeleteIntent(payload) {

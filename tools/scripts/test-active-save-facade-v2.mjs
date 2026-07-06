@@ -18,6 +18,7 @@ import {
 import {
   campaignManifestV2LogicalKey,
   campaignSaveLogicalKey,
+  materializedHeadV2LogicalKey,
   saveManifestV2LogicalKey
 } from '../../src/storage/logical-storage-paths.mjs';
 import {
@@ -122,6 +123,8 @@ campaignState.campaignChatBinding = {
   promptContextRevision: 11
 };
 campaignState.runtimeTracking = {
+  revision: 99,
+  mechanicsRevision: 88,
   responseLedgerRevision: 999,
   ingressLedger: [{
     id: 'ingress-33-oldhash',
@@ -186,6 +189,7 @@ campaignState.directiveRuntimeEvidence = {
   coreStoreReadProjections: {
     kind: 'directive.coreStoreReadProjections.v1',
     runtimeAuthority: 'coreStoreV2',
+    revisions: { runtime: 7, mechanics: 3 },
     responseLedgerRevision: 9,
     ingressLedger: [{
       id: 'ingress-core-44',
@@ -395,6 +399,10 @@ assert.equal(head.state.player.name, 'Sam Vickers');
 assert.equal(head.state.campaign.currentStardate, 53061.7);
 assert.equal(head.state.runtimeTracking, undefined, 'materialized head omits runtimeTracking journals');
 assert.equal(head.state.directiveRuntimeEvidence, undefined, 'materialized head omits transient CORE read-projection evidence');
+assert.equal(head.state.runtimeResume.revisionAuthority, 'coreStoreV2', 'materialized head resume cursor records CORE revision authority');
+assert.equal(head.state.runtimeResume.runtimeRevision, 7, 'materialized head resume cursor uses CORE runtime revision over stale old runtimeTracking revision');
+assert.equal(head.state.runtimeResume.mechanicsRevision, 3, 'materialized head resume cursor uses CORE mechanics revision over stale old runtimeTracking mechanics revision');
+assert.deepEqual(head.state.runtimeResume.coreRevisions, { runtime: 7, mechanics: 3 });
 assert.equal(head.state.runtimeResume.responseLedgerRevision, 9, 'materialized head resume cursor uses CORE projection response revision over old runtimeTracking');
 assert.equal(head.state.runtimeResume.modelCallEventSequence, 42, 'materialized head keeps compact model-call resume cursor');
 assert.equal(head.state.runtimeResume.sidecarCount, 4, 'materialized head resume cursor counts CORE accepted background-batch workers over old sidecar journals');
@@ -404,6 +412,16 @@ assert.equal(head.state.commandLog.compactedForRuntimeHead, true, 'runtime-curre
 assert.equal(head.state.commandLog.entries.length, 32, 'runtime-current v2 head stores only recent Command Log entries');
 assert.equal(head.state.commandLog.omittedEntryCount >= 96, true, 'runtime-current v2 head records omitted Command Log history count');
 assert.equal(head.state.commandLog.entries.at(-1).type, 'turnOutcome', 'runtime-current v2 head preserves compact Command Log entry type for presentation labels');
+assert.equal(
+  head.state.commandLog.entries.at(-1).summaryInputCount,
+  1,
+  'runtime-current v2 head stores compact Command Log summary-input count'
+);
+assert.equal(
+  typeof head.state.commandLog.entries.at(-1).summaryInputsHash,
+  'string',
+  'runtime-current v2 head stores compact Command Log summary-input hash'
+);
 assert.equal(
   head.state.commandLog.entries.at(-1).assistedSummary.summary,
   'Recent assisted command summary 32.',
@@ -525,15 +543,15 @@ assert.equal(loadedCoreReadProjections.ingressLedger[0].hostMessageId, '44');
 assert.equal(loadedCoreReadProjections.ingressLedger[0].textHash, 'corehash');
 assert.equal(loadedCoreReadProjections.ingressLedger[0].coreTransactionId, 'txn-core-44');
 assert.equal(loadedCoreReadProjections.ingressLedger[0].sourceFrameId, 'frame-core-44');
-assert.equal(loadedCoreReadProjections.responseLedger.length, 1);
-assert.equal(loadedCoreReadProjections.responseLedger[0].hostMessageId, '45');
-assert.equal(loadedCoreReadProjections.responseLedger[0].outcomeId, 'outcome-core-44');
-assert.equal(loadedCoreReadProjections.responseLedger[0].coreTransactionId, 'txn-core-45');
-assert.equal(loadedCoreReadProjections.responseLedger[0].replacementText, undefined, 'facade load must not rehydrate raw replacement text');
-assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextPresent, true, 'facade load preserves replacement-text presence');
-assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextHash.length, 64, 'facade load preserves replacement-text hash');
-assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextHash, coreReplacementTextHash, 'facade load preserves CORE replacement-text hash');
-assert.equal(loadedCoreReadProjections.responseLedger[0].replacementTextLength, 777, 'facade load preserves CORE replacement-text length');
+assert.equal(loadedCoreReadProjections.responses.length, 1);
+assert.equal(loadedCoreReadProjections.responses[0].hostMessageId, '45');
+assert.equal(loadedCoreReadProjections.responses[0].outcomeId, 'outcome-core-44');
+assert.equal(loadedCoreReadProjections.responses[0].coreTransactionId, 'txn-core-45');
+assert.equal(loadedCoreReadProjections.responses[0].replacementText, undefined, 'facade load must not rehydrate raw replacement text');
+assert.equal(loadedCoreReadProjections.responses[0].replacementTextPresent, true, 'facade load preserves replacement-text presence');
+assert.equal(loadedCoreReadProjections.responses[0].replacementTextHash.length, 64, 'facade load preserves replacement-text hash');
+assert.equal(loadedCoreReadProjections.responses[0].replacementTextHash, coreReplacementTextHash, 'facade load preserves CORE replacement-text hash');
+assert.equal(loadedCoreReadProjections.responses[0].replacementTextLength, 777, 'facade load preserves CORE replacement-text length');
 assert.equal(loadedCoreReadProjections.recoveryJournal.length, 1, 'facade load preserves compact CORE recovery projections');
 assert.equal(loadedCoreReadProjections.recoveryJournal[0].id, 'recovery-core-45');
 assert.equal(loadedCoreReadProjections.recoveryJournal[0].coreTransactionId, 'txn-core-45');
@@ -555,6 +573,7 @@ assert.equal(loadedCoreReadProjections.commandBearingEvidence.length, 1, 'facade
 assert.equal(loadedCoreReadProjections.commandBearingEvidence[0].evidenceId, 'bearing-evidence-core-1');
 assert.equal(loadedCoreReadProjections.commandBearingEvidence[0].evidenceHash, 'bearing-evidence-core-hash');
 assert.equal(JSON.stringify(loadedCoreReadProjections.commandBearingEvidence).includes(transientCoreSidecarCanary), false, 'facade load must not rehydrate raw Command Bearing evidence text');
+assert.deepEqual(loadedCoreReadProjections.revisions, { runtime: 7, mechanics: 3 }, 'facade load restores CORE revision vector as read-projection authority');
 assert.equal(JSON.stringify(loaded.campaignState).includes(replacementTextCanary), false, 'facade load omits raw replacement text from runtime projections');
 assert.equal(loaded.campaignState.turnLedger.entries.length, 1, 'facade load returns compact CORE turn projections');
 assert.equal(loaded.campaignState.turnLedger.entries[0].turnId, 'turn-core-44');
@@ -564,12 +583,26 @@ assert.equal(loaded.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome-co
 assert.equal(loaded.campaignState.turnLedger.replacementHistory.at(-1).replacementOutcomeId, 'outcome-core-44');
 assert.equal(loaded.campaignState.turnLedger.lastReplacedOutcomeId, 'outcome-core-33');
 assert.equal(loadedCoreReadProjections.turnLedger.replacementHistory.at(-1).repairDecision.transactionId, 'txn-core-44');
+assert.equal(loaded.campaignState.runtimeTracking.revision, 7, 'facade load projects CORE runtime revision instead of stale old runtimeTracking revision');
+assert.equal(loaded.campaignState.runtimeTracking.mechanicsRevision, 3, 'facade load projects CORE mechanics revision instead of stale old runtimeTracking mechanics revision');
+assert.equal(loaded.campaignState.runtimeResume.revisionAuthority, 'coreStoreV2', 'facade load keeps CORE revision authority in compact resume cursor');
+assert.deepEqual(loaded.campaignState.runtimeResume.coreRevisions, { runtime: 7, mechanics: 3 });
 assert.equal(loaded.campaignState.runtimeResume.responseLedgerRevision, 9, 'facade load returns CORE projection response revision in resume cursor');
 assert.equal(loaded.campaignState.runtimeResume.modelCallEventSequence, 42, 'facade load returns compact runtime resume cursor');
 assert.equal(loaded.campaignState.runtimeResume.sidecarCount, 4, 'facade load returns CORE accepted background-batch worker resume count');
 assert.equal(loaded.campaignState.commandLog.compactedForRuntimeHead, true, 'facade load returns compact Command Log projection');
 assert.equal(loaded.campaignState.commandLog.entries.length, 32);
 assert.equal(loaded.campaignState.commandLog.entries.at(-1).type, 'turnOutcome', 'facade load preserves compact Command Log entry type for presentation labels');
+assert.equal(
+  loaded.campaignState.commandLog.entries.at(-1).summaryInputCount,
+  1,
+  'facade load preserves compact Command Log summary-input count'
+);
+assert.equal(
+  loaded.campaignState.commandLog.entries.at(-1).summaryInputsHash,
+  head.state.commandLog.entries.at(-1).summaryInputsHash,
+  'facade load preserves compact Command Log summary-input hash'
+);
 assert.equal(
   loaded.campaignState.commandLog.entries.at(-1).assistedSummary.summary,
   'Recent assisted command summary 32.',
@@ -580,6 +613,43 @@ assert.deepEqual(
   ['Recent assisted highlight 32.'],
   'facade load preserves compact assisted Command Log highlights for presentation replay'
 );
+
+const loadedCommandLogEntryBeforeRecompact = cloneJson(loaded.campaignState.commandLog.entries.at(-1));
+await persistActiveCampaignStateV2(adapter, {
+  saveRecord,
+  campaignState: loaded.campaignState,
+  packageData,
+  summary: 'Runtime v2 active-save facade idempotent recompact test.',
+  reason: 'test-runtime-head-idempotent-recompact',
+  now: '2026-06-28T15:03:30.000Z'
+});
+const recompactedHead = await loadV2MaterializedHead(adapter, {
+  campaignId: campaignState.campaign.id,
+  saveId: saveRecord.id
+});
+assert.deepEqual(
+  recompactedHead.state.commandLog.entries.at(-1),
+  loadedCommandLogEntryBeforeRecompact,
+  'recompacting a v2 active head must not rewrite compact Command Log evidence'
+);
+
+const originalSaveManifest = cloneJson(adapter.snapshot()[saveManifestKey]);
+await adapter.writeJson(saveManifestKey, {
+  ...originalSaveManifest,
+  head: {
+    ...(originalSaveManifest.head || {}),
+    logicalKey: 'campaigns/campaign-v2-active/saves/save-v2-active/missing-head.v2.json'
+  }
+});
+const failedV2Load = await loadActiveCampaignStateV2(adapter, {
+  saveRecord,
+  fallbackCampaignState: saveRecord.payload.campaignState
+});
+assert.equal(failedV2Load.found, false, 'facade load reports v2 failure when manifest-owned head cannot be read');
+assert.equal(failedV2Load.campaignState, null, 'facade load must not return stale fallback campaign state on v2 failure');
+assert.equal(failedV2Load.error.code, 'ENOENT', 'facade load preserves v2 read failure code for diagnostics');
+await adapter.writeJson(saveManifestKey, originalSaveManifest);
+
 let loadedRuntimeState = loaded.campaignState;
 const resumedModelCallJournal = createRuntimeModelCallJournal({
   now: () => '2026-06-28T15:04:00.000Z',
@@ -658,6 +728,11 @@ assert.equal(
   adapter.writeLog.includes(diagnosticsOnlyBaseHeadRef.logicalKey),
   false,
   'diagnostics-only CORE projection changes must not rewrite the full materialized head'
+);
+assert.equal(
+  adapter.writeLog.includes(materializedHeadV2LogicalKey({ campaignId: campaignState.campaign.id, saveId: saveRecord.id })),
+  false,
+  'diagnostics-only CORE projection changes must not refresh the stable materialized head alias'
 );
 assert.equal(
   diagnosticsOnlyRepersist.refs.head.logicalKey,
@@ -830,7 +905,7 @@ partialState.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger = [
     transactionId: 'txn-new'
   }
 ];
-partialState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger = [{
+partialState.directiveRuntimeEvidence.coreStoreReadProjections.responses = [{
   id: 'core-response-shared',
   turnId: 'turn-shared',
   outcomeId: 'outcome-shared',
@@ -917,8 +992,8 @@ assert.deepEqual(
 const partialReplacements = (partialEventSegment.entries || []).filter((entry) => entry.type === 'outcomeReplacementRecorded');
 assert.deepEqual(
   partialReplacements.map((entry) => entry.payload?.outcomeReplacementRef?.replacedOutcomeId),
-  ['outcome-old', 'outcome-shared'],
-  'unmarked partial CORE replacement history merge preserves unmatched legacy replacements'
+  ['outcome-shared'],
+  'partial CORE replacement history projection must omit unmatched legacy replacements'
 );
 const partialLoaded = await loadActiveCampaignStateV2(partialAdapter, {
   saveRecord: partialSaveRecord,
@@ -960,7 +1035,7 @@ assert.deepEqual(
   'loaded CORE read projections must omit runtimeBridge-only ingress compatibility mirrors'
 );
 assert.deepEqual(
-  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger || []).map((entry) => entry.outcomeId),
+  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responses || []).map((entry) => entry.outcomeId),
   ['outcome-shared'],
   'loaded CORE read projections must omit runtimeBridge-only response compatibility mirrors'
 );
@@ -970,17 +1045,22 @@ assert.equal(
   'tagged missing-core ingress mirrors must not become CORE read projections after load'
 );
 assert.equal(
-  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger || []).some((entry) => entry.outcomeId === 'outcome-tagged'),
+  (partialLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responses || []).some((entry) => entry.outcomeId === 'outcome-tagged'),
   false,
   'tagged missing-core response mirrors must not become CORE read projections after load'
 );
 assert.equal(partialLoaded.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome-shared', 'partial CORE turn merge must not regress last committed outcome on reload');
 assert.deepEqual(
   partialLoaded.campaignState.turnLedger.entries.map((entry) => entry.outcomeId),
-  ['outcome-old', 'outcome-shared'],
-  'partial CORE turn merge preserves chronological compatibility order'
+  ['outcome-shared'],
+  'partial CORE turn merge must omit unmatched legacy turn rows'
 );
 assert.equal(partialLoaded.campaignState.turnLedger.entries.at(-1).id, 'core-turn-shared', 'partial CORE turn merge replaces matching legacy row with CORE row');
+assert.deepEqual(
+  (partialLoaded.campaignState.turnLedger.replacementHistory || []).map((entry) => entry.replacedOutcomeId),
+  ['outcome-shared'],
+  'partial CORE turn load must omit unmatched legacy replacement history'
+);
 
 const responseHostCollisionAdapter = createMemoryJsonAdapter();
 const responseHostCollisionState = cloneJson(campaignState);
@@ -1027,7 +1107,7 @@ const responseHostCollisionLoaded = await loadActiveCampaignStateV2(responseHost
   saveRecord: responseHostCollisionSaveRecord,
   fallbackCampaignState: responseHostCollisionSaveRecord.payload.campaignState
 });
-const responseHostCollisionRows = responseHostCollisionLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger || [];
+const responseHostCollisionRows = responseHostCollisionLoaded.campaignState.directiveRuntimeEvidence.coreStoreReadProjections.responses || [];
 assert.deepEqual(
   responseHostCollisionRows.map((entry) => entry.outcomeId),
   ['outcome-core-host-collision'],

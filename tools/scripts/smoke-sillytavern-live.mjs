@@ -3710,7 +3710,7 @@ async function chatNativeRuntimeSnapshot(page) {
     });
     const campaignState = view?.campaignState || {};
     const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
-      ? ledgerTools.createRuntimeLedgerView(campaignState, { runtimeOverlay: true })
+      ? ledgerTools.createRuntimeLedgerView(campaignState)
       : null;
     const runtimeCoreProjections = typeof ledgerTools?.readRuntimeCoreProjections === 'function'
       ? ledgerTools.readRuntimeCoreProjections(campaignState)
@@ -4960,7 +4960,7 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
     };
     const tracking = view?.chatNative?.tracking || {};
     const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
-      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {})
       : null;
     const runtimeLedgerProofAvailable = runtimeLedgerView?.authoritative === true
       && runtimeLedgerView?.coreProjectionAvailable === true;
@@ -6093,6 +6093,8 @@ async function runChatNativeCampaignFlow(page) {
       }
     }
   );
+  const generationTimingProof = aggregateGenerationTimingProof(sentRounds);
+  const hostNativeCompletionProof = aggregateHostNativeCompletionProof(sentRounds);
   const modelCallGrowthObserved = finalModelCalls > initialModelCalls;
   const delegatedHostGenerationRounds = matchedIngressRounds.filter((round) => (
     round.after?.matchedIngress?.responseStrategy === 'injectAndContinue'
@@ -6103,13 +6105,20 @@ async function runChatNativeCampaignFlow(page) {
     .filter(Boolean));
   const finalHostGenerationResponses = (finalSnapshot.recentResponseLedger || []).filter((entry) => (
     entry?.strategy === 'injectAndContinue'
-    && ['hostGeneration', 'hostContinue'].includes(String(entry?.responseKind || ''))
-    && entry?.hostMessageId
-    && (!entry.id || !campaignStartResponseIds.has(entry.id))
+      && ['hostGeneration', 'hostContinue'].includes(String(entry?.responseKind || ''))
+      && entry?.hostMessageId
+      && (!entry.id || !campaignStartResponseIds.has(entry.id))
   ));
+  const coreHostContinueCompletionObserved = (
+    hostNativeCompletionProof?.source === 'coreStoreResponseLedger'
+    && hostNativeCompletionProof?.completionSource === 'coreProjection'
+    && Number(hostNativeCompletionProof?.completedHostContinueCount || 0) > 0
+    && Number(hostNativeCompletionProof?.failedHostContinueCount || 0) === 0
+  );
   const delegatedHostGenerationContinuation = (
     delegatedHostGenerationRounds.length > 0
     || finalHostGenerationResponses.length > 0
+    || coreHostContinueCompletionObserved
   )
     && Number(finalSnapshot.nonDirectiveAssistantCount || 0) > Number(campaignStartSnapshot.nonDirectiveAssistantCount || 0);
   const directiveOwnedResponseObserved = finalSnapshot.directiveMessageCount > Number(campaignStartSnapshot.directiveMessageCount || 0)
@@ -6124,7 +6133,9 @@ async function runChatNativeCampaignFlow(page) {
       initialModelCalls,
       finalModelCalls,
       modelCalls: finalSnapshot.modelCalls,
-      finalHostGenerationResponses
+      finalHostGenerationResponses,
+      coreHostContinueCompletionObserved,
+      hostNativeCompletionProof
     }
   );
   assertBrowser(
@@ -6147,6 +6158,8 @@ async function runChatNativeCampaignFlow(page) {
         status: entry.status || null,
         coreTransactionId: entry.coreTransactionId || null
       })),
+      coreHostContinueCompletionObserved,
+      hostNativeCompletionProof,
       initialDirectiveMessageCount: Number(campaignStartSnapshot.directiveMessageCount || 0),
       finalDirectiveMessageCount: finalSnapshot.directiveMessageCount,
       initialNonDirectiveAssistantCount: Number(campaignStartSnapshot.nonDirectiveAssistantCount || 0),
@@ -6154,13 +6167,16 @@ async function runChatNativeCampaignFlow(page) {
       finalSnapshot
     }
   );
-  const directorTurnExpected = matchedIngressRounds.some((round) => ![
-    'routineCommand',
-    'sceneColor',
-    'sceneNavigation',
-    'locationTransition',
-    'counselRequest'
-  ].includes(String(round.after?.matchedIngress?.classification || '')));
+  const directorTurnExpected = matchedIngressRounds.some((round) => {
+    const classification = String(round.after?.matchedIngress?.classification || '').trim();
+    return Boolean(classification) && ![
+      'routineCommand',
+      'sceneColor',
+      'sceneNavigation',
+      'locationTransition',
+      'counselRequest'
+    ].includes(classification);
+  });
   assertBrowser(
     !directorTurnExpected
       || finalSnapshot.turnLedgerCount >= 1
@@ -6216,11 +6232,9 @@ async function runChatNativeCampaignFlow(page) {
   const sidecarRejectedDelta = Math.max(0, Number(finalSnapshot.sidecarRejectedCount || 0) - initialSidecarRejectedCount);
   const sidecarHealthStatus = sidecarRejectedDelta > 0 ? 'warning' : 'pass';
   const pendingInteractionStatus = Number(finalSnapshot.pendingInteractionCount || 0) > 0 ? 'warning' : 'pass';
-  const generationTimingProof = aggregateGenerationTimingProof(sentRounds);
   const generationTimingStatus = generationTimingProof.status === 'fail'
     ? 'warning'
     : generationTimingProof.status;
-  const hostNativeCompletionProof = aggregateHostNativeCompletionProof(sentRounds);
   const hostNativeCompletionStatus = hostNativeCompletionProof.status === 'fail'
     ? 'warning'
     : hostNativeCompletionProof.status;

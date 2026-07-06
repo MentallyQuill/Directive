@@ -20,6 +20,7 @@ import {
   storeCampaignSave,
   storeCharacterCreatorDraft
 } from '../storage/directive-storage-repository.mjs';
+import { persistActiveCampaignStateV2 } from '../storage/active-save-facade-v2.mjs';
 
 function requireNonEmptyString(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -38,6 +39,24 @@ function timestamp(options = {}) {
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+async function persistSaveRuntimeV2(adapter, {
+  save,
+  campaignState,
+  packageData,
+  summary = null,
+  reason,
+  now
+}) {
+  await persistActiveCampaignStateV2(adapter, {
+    saveRecord: save,
+    campaignState,
+    packageData,
+    summary,
+    reason,
+    now
+  });
 }
 
 export async function startCharacterCreatorDraft({
@@ -122,6 +141,14 @@ export async function acceptCreatorDraftAndCreateFirstSave({
     savedAt: acceptedAt
   });
   await storeCampaignSave(adapter, firstSave);
+  await persistSaveRuntimeV2(adapter, {
+    save: firstSave,
+    campaignState,
+    packageData,
+    summary: firstSave.metadata?.summary || null,
+    reason: 'first-save-runtime-v2',
+    now: acceptedAt
+  });
 
   return {
     acceptedDraft,
@@ -146,6 +173,14 @@ export async function saveGame({
     summary
   });
   await storeCampaignSave(adapter, save);
+  await persistSaveRuntimeV2(adapter, {
+    save,
+    campaignState,
+    packageData,
+    summary,
+    reason: 'manual-save-runtime-v2',
+    now: save.updatedAt
+  });
   return save;
 }
 
@@ -175,6 +210,14 @@ export async function saveGameAs({
     branchMetadata
   });
   await storeCampaignSave(adapter, save);
+  await persistSaveRuntimeV2(adapter, {
+    save,
+    campaignState: save.payload?.campaignState,
+    packageData: packageData || existing.payload?.packageData || null,
+    summary,
+    reason: 'save-as-runtime-v2',
+    now: save.updatedAt
+  });
   return save;
 }
 
@@ -242,6 +285,14 @@ export async function autosaveGame({
     summary
   });
   await storeCampaignSave(adapter, save);
+  await persistSaveRuntimeV2(adapter, {
+    save,
+    campaignState,
+    packageData,
+    summary,
+    reason: 'autosave-runtime-v2',
+    now: savedAt
+  });
   const prune = await pruneCampaignAutosaves(adapter, {
     campaignId: campaignState.campaign?.id,
     keep,

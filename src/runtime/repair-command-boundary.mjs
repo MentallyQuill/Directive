@@ -1,7 +1,6 @@
 import { createRepairRuntime } from './repair-runtime.mjs';
-import { createRuntimeLedgerViewAsync, readRuntimeCoreProjectionsAsync } from './runtime-ledger-view.mjs';
-import { initializeCampaignRuntimeTracking, isPendingInteractionProjectionRow } from './state-delta-gateway.mjs';
-import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
+import { readRuntimeCoreProjectionsAsync } from './runtime-ledger-view.mjs';
+import { initializeCampaignRuntimeTracking } from './state-delta-gateway.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -11,75 +10,38 @@ function isObject(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
-function compact(value) {
-  return String(value || '').trim();
+function hasCompactCoreCheckpointRef(ref = null) {
+  if (!isObject(ref)) return false;
+  return Boolean(String(ref.checkpointId || ref.id || '').trim());
 }
 
-function projectionKey(row = {}, key) {
-  if (isObject(key) && Array.isArray(key.anyOf)) {
-    return key.anyOf.map((item) => compact(row?.[item])).filter(Boolean);
-  }
-  if (Array.isArray(key)) {
-    const parts = key.map((item) => compact(row?.[item]));
-    return parts.every(Boolean) ? parts.join('|') : '';
-  }
-  return compact(row?.[key]);
+function responseProjectionRows(projections = {}) {
+  return Array.isArray(projections?.responses)
+    ? projections.responses
+    : (Array.isArray(projections?.responseLedger) ? projections.responseLedger : []);
 }
 
-function rowsMatchByAnyKey(a = {}, b = {}, keys = []) {
-  return keys.some((key) => {
-    const left = projectionKey(a, key);
-    const right = projectionKey(b, key);
-    if (Array.isArray(left) || Array.isArray(right)) {
-      const leftValues = Array.isArray(left) ? left : [left];
-      const rightValues = Array.isArray(right) ? right : [right];
-      return leftValues.some((leftValue) => leftValue && rightValues.includes(leftValue));
-    }
-    return left && right && left === right;
-  });
+function coreStoreReadProjectionsForPersistence(projections = {}) {
+  if (!isObject(projections)) return {};
+  const next = cloneJson(projections);
+  const responses = responseProjectionRows(next);
+  if (responses.length) next.responses = responses;
+  delete next.responseLedger;
+  return next;
 }
 
-function rowsNotCoveredByCore(viewRows = [], coreRows = [], keys = []) {
-  const rows = Array.isArray(viewRows) ? viewRows : [];
-  const core = Array.isArray(coreRows) ? coreRows : [];
-  if (!core.length) return cloneJson(rows);
-  return cloneJson(rows.filter((row) => !core.some((coreRow) => rowsMatchByAnyKey(row, coreRow, keys))));
-}
-
-function runtimeTrackingLedgersFromView(runtimeLedgerView = {}, projections = {}) {
-  if (hasCoreProjections(projections)) {
-    return {
-      ingressLedger: [],
-      responseLedger: [],
-      recoveryJournal: []
-    };
-  }
+function emptyRuntimeLedgerRowsForRollbackRestore() {
   return {
-    ingressLedger: rowsNotCoveredByCore(runtimeLedgerView.ingressLedger, projections.ingressLedger, [
-      'id',
-      'ingressId',
-      { anyOf: ['transactionId', 'coreTransactionId'] },
-      'sourceFrameId'
-    ]),
-    responseLedger: rowsNotCoveredByCore(runtimeLedgerView.responseLedger, projections.responseLedger, [
-      'id',
-      'responseId',
-      { anyOf: ['transactionId', 'coreTransactionId'] },
-      ['turnId', 'outcomeId', 'responseKind']
-    ]),
-    recoveryJournal: rowsNotCoveredByCore(runtimeLedgerView.recoveryJournal, projections.recoveryJournal, [
-      'id',
-      'recoveryId',
-      'recoveryCaseId',
-      { anyOf: ['transactionId', 'coreTransactionId'] }
-    ])
+    ingressLedger: [],
+    responseLedger: [],
+    recoveryJournal: []
   };
 }
 
 function hasCoreProjections(projections = {}) {
   return Boolean(
     Array.isArray(projections.ingressLedger) && projections.ingressLedger.length
-    || Array.isArray(projections.responseLedger) && projections.responseLedger.length
+    || responseProjectionRows(projections).length
     || Array.isArray(projections.recoveryJournal) && projections.recoveryJournal.length
   );
 }
@@ -112,15 +74,14 @@ async function restoreFromCheckpointSnapshot(campaignState = null, checkpointSta
   const restored = initializeCampaignRuntimeTracking(cloneJson(checkpointState), {
     historyLimit: current.runtimeTracking.historyLimit
   });
-  const currentLedgerView = await createRuntimeLedgerViewAsync(current, { coreTurnStore });
   const runtimeProjections = await readRuntimeCoreProjectionsAsync(current, { coreTurnStore });
   if (hasCoreProjections(runtimeProjections)) {
     restored.directiveRuntimeEvidence = {
       ...(isObject(restored.directiveRuntimeEvidence) ? cloneJson(restored.directiveRuntimeEvidence) : {}),
-      coreStoreReadProjections: cloneJson(runtimeProjections)
+      coreStoreReadProjections: coreStoreReadProjectionsForPersistence(runtimeProjections)
     };
   }
-  const runtimeTrackingLedgers = runtimeTrackingLedgersFromView(currentLedgerView, runtimeProjections);
+  const runtimeTrackingLedgers = emptyRuntimeLedgerRowsForRollbackRestore();
   restored.runtimeTracking = {
     ...restored.runtimeTracking,
     revision: Number.isFinite(Number(restoreRevision)) ? Number(restoreRevision) : current.runtimeTracking.revision,
@@ -131,9 +92,16 @@ async function restoreFromCheckpointSnapshot(campaignState = null, checkpointSta
     responseLedgerRevision: responseLedgerRevisionForRollbackRestore(runtimeProjections),
     sidecarJournal: [],
     modelCallJournal: modelCallJournalForRollbackRestore(),
-    lifecycleJournal: cloneJson(current.runtimeTracking.lifecycleJournal),
-    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions.filter(isPendingInteractionProjectionRow)),
-    endConditionLedger: terminalDecisionLedgerView(current),
+    lifecycleJournal: [],
+    pendingInteractions: [],
+    endConditionLedger: {
+      schemaVersion: 1,
+      activeDecisionId: null,
+      detections: [],
+      decisions: [],
+      branchRecords: [],
+      continuationFrames: []
+    },
     activeIngressId: current.runtimeTracking.activeIngressId || null,
     recoveryJournal: runtimeTrackingLedgers.recoveryJournal,
     lastDelta: {
@@ -215,6 +183,21 @@ export function createRepairCommandBoundary(options = {}) {
       return {
         status: 'blocked',
         reason: 'campaign-state-unavailable'
+      };
+    }
+    const coreCheckpointRef = rollbackActuation.coreCheckpointRef
+      || input.coreCheckpointRef
+      || input.coreRecovery?.coreCheckpointRef
+      || input.coreRecovery?.sourceMutation?.coreCheckpointRef
+      || input.coreRecovery?.decision?.coreCheckpointRef
+      || input.coreRecovery?.repairDecision?.coreCheckpointRef
+      || input.repairProjection?.coreCheckpointRef
+      || null;
+    if (!hasCompactCoreCheckpointRef(coreCheckpointRef)) {
+      return {
+        status: 'blocked',
+        reason: 'rollback-core-checkpoint-ref-required',
+        errorCode: 'DIRECTIVE_REPAIR_ROLLBACK_CORE_CHECKPOINT_REF_REQUIRED'
       };
     }
     const restoreSnapshot = coreCheckpointRestoreState(input);

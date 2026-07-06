@@ -220,13 +220,20 @@ export function findForgePathConflict(workerResults = []) {
       const path = operation.path;
       if (!path) continue;
       if (seen.has(path)) {
+        const previous = seen.get(path);
+        const sameWorker = previous.workerId === result.workerId;
+        const orderedAppend = previous.op === 'append' && operation.op === 'append';
+        if (sameWorker && orderedAppend) continue;
         return {
           path,
-          firstWorkerId: seen.get(path),
+          firstWorkerId: previous.workerId,
           secondWorkerId: result.workerId
         };
       }
-      seen.set(path, result.workerId);
+      seen.set(path, {
+        workerId: result.workerId,
+        op: operation.op || null
+      });
     }
   }
   return null;
@@ -265,6 +272,10 @@ export function createForgeBatchCommit(input = {}) {
     throw error;
   }
   const acceptedBatchHash = computedAcceptedBatchHash || suppliedAcceptedBatchHash;
+  const hasExplicitBaseMechanicsRevision = Object.prototype.hasOwnProperty.call(input, 'baseMechanicsRevision');
+  const baseMechanicsRevision = hasExplicitBaseMechanicsRevision
+    ? (input.baseMechanicsRevision === null ? undefined : input.baseMechanicsRevision)
+    : input.baseRevisions?.mechanics;
   return compactObject({
     kind: 'directive.forgeBatchCommit.v1',
     schemaVersion: 1,
@@ -274,7 +285,7 @@ export function createForgeBatchCommit(input = {}) {
     acceptedBatchHash,
     sourceToken: asString(input.sourceToken || input.sourceFrame?.sourceToken),
     sourceFrameRef,
-    baseMechanicsRevision: input.baseRevisions?.mechanics ?? input.baseMechanicsRevision,
+    baseMechanicsRevision,
     operations,
     effectRefs,
     backgroundEffectRefs: effectRefs,

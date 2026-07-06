@@ -88,9 +88,11 @@ assert.equal(plan.safety.rawHiddenValuesExposed, false);
 assert.equal(plan.safety.directorOnlyDataIncluded, false);
 
 const recorded = recordContextPlan(state, plan, { installedAt: '2026-06-22T14:00:01.000Z' });
-assert.equal(recorded.runtimeTracking.promptContext.hash, plan.hash);
-assert.equal(recorded.runtimeTracking.promptContext.blockCount, plan.blocks.length);
-assert.equal(recorded.runtimeTracking.promptContext.tokenEstimate, plan.usage.total);
-assert.equal(recorded.runtimeTracking.promptContext.blocks.every((block) => block.lensPromptBudgetLane), true);
+const lensRecord = recorded.directiveRuntimeEvidence?.lensPromptRevisionRecord;
+assert.equal(recorded.runtimeTracking?.promptContext, undefined);
+assert.equal(lensRecord.kind, 'directive.lensPromptRevisionRecord.v1');
+assert.equal(lensRecord.hash, plan.hash);
+assert.equal(lensRecord.blockCount, plan.blocks.length);
+assert.equal(recorded.runtimeResume.promptContextRevision, plan.revision);
 
 console.log('test-open-world-context-budget: ok');

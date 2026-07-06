@@ -34,7 +34,7 @@ function sanitizedClaimRecord(claim = {}) {
 }
 
 function latestContinuityReview(campaignState = {}) {
-  const runtimeLedgerView = createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true });
+  const runtimeLedgerView = createRuntimeLedgerView(campaignState || {});
   const recoveryRows = asArray(runtimeLedgerView.recoveryJournal);
   const response = [...asArray(runtimeLedgerView.responseLedger)].reverse()
     .find((entry) => entry?.continuityReview);
@@ -55,27 +55,58 @@ function latestContinuityReview(campaignState = {}) {
   };
 }
 
-function promptKeyStatus(promptInspection = null, promptContext = null) {
+function promptRevisionRecord(campaignState = {}) {
+  const record = campaignState?.directiveRuntimeEvidence?.lensPromptRevisionRecord || {};
+  const hash = compact(
+    record.hash
+    || record.packetHash
+    || record.contentHash
+    || campaignState?.campaignChatBinding?.promptContextHash
+    || campaignState?.runtimeResume?.promptContextHash
+  );
+  return {
+    revision: Math.max(
+      0,
+      Number(record.revision) || 0,
+      Number(campaignState?.campaignChatBinding?.promptContextRevision) || 0,
+      Number(campaignState?.runtimeResume?.promptContextRevision) || 0
+    ),
+    hash: hash || null,
+    contentHash: hash || null,
+    blockCount: Number(record.blockCount) || 0,
+    directiveOwnedPromptKeyCount: Number(record.directiveOwnedPromptKeyCount) || 0
+  };
+}
+
+function promptKeyStatus(promptInspection = null) {
   const inspectedBlocks = asArray(promptInspection?.blocks);
-  const contextBlocks = asArray(promptContext?.blocks);
-  const sourceBlocks = inspectedBlocks.length ? inspectedBlocks : contextBlocks;
-  const installedKeys = new Set(sourceBlocks.map((block) => compact(block.promptKey || block.key)).filter(Boolean));
+  if (!inspectedBlocks.length) {
+    return {
+      installedStaticKeyCount: 0,
+      expectedStaticKeyCount: DIRECTIVE_STATIC_PROMPT_KEYS.length,
+      missingStaticKeyCount: 0,
+      missingStaticKeyHashes: [],
+      status: 'not-inspected'
+    };
+  }
+  const installedKeys = new Set(inspectedBlocks.map((block) => compact(block.promptKey || block.key)).filter(Boolean));
   const missingStaticKeys = DIRECTIVE_STATIC_PROMPT_KEYS.filter((key) => !installedKeys.has(key));
   return {
     installedStaticKeyCount: DIRECTIVE_STATIC_PROMPT_KEYS.length - missingStaticKeys.length,
     expectedStaticKeyCount: DIRECTIVE_STATIC_PROMPT_KEYS.length,
     missingStaticKeyCount: missingStaticKeys.length,
-    missingStaticKeyHashes: missingStaticKeys.map(hashContinuityText)
+    missingStaticKeyHashes: missingStaticKeys.map(hashContinuityText),
+    status: missingStaticKeys.length ? 'needs-rebuild' : 'complete'
   };
 }
 
-function freshnessStatus({ promptContext = null, promptInspection = null, continuity = null } = {}) {
-  const projection = promptContext?.continuityProjection || continuity?.lastProjection || null;
+function freshnessStatus({ promptRecord = null, promptInspection = null, continuity = null } = {}) {
+  const projection = continuity?.lastProjection || null;
   if (!projection) return 'missing';
-  const promptHash = promptContext?.hash || promptContext?.contentHash || null;
+  const promptHash = promptRecord?.hash || promptRecord?.contentHash || null;
   const installedHash = promptInspection?.hash || null;
   if (promptInspection && installedHash && promptHash && installedHash !== promptHash) return 'stale';
-  const missing = promptKeyStatus(promptInspection, promptContext).missingStaticKeyCount;
+  const missing = promptKeyStatus(promptInspection).missingStaticKeyCount;
   if (missing > 0) return 'needs-rebuild';
   return 'fresh';
 }
@@ -85,16 +116,16 @@ export function buildContinuityProjectionDiagnostics({
   promptInspection = null
 } = {}) {
   const continuity = normalizeContinuityState(campaignState?.continuity);
-  const promptContext = campaignState?.runtimeTracking?.promptContext || campaignState?.campaignChatBinding?.promptContext || null;
-  const projection = promptContext?.continuityProjection || continuity.lastProjection || null;
-  const keyStatus = promptKeyStatus(promptInspection, promptContext);
-  const status = freshnessStatus({ promptContext, promptInspection, continuity });
+  const promptRecord = promptRevisionRecord(campaignState || {});
+  const projection = continuity.lastProjection || null;
+  const keyStatus = promptKeyStatus(promptInspection);
+  const status = freshnessStatus({ promptRecord, promptInspection, continuity });
   const latestRun = continuity.lastProjection || null;
   return {
     kind: 'directive.continuityProjectionDiagnostics.v1',
     status,
-    promptRevision: Number(promptContext?.revision || campaignState?.campaignChatBinding?.promptContextRevision || 0),
-    promptHash: promptContext?.hash || campaignState?.campaignChatBinding?.promptContextHash || null,
+    promptRevision: promptRecord.revision,
+    promptHash: promptRecord.hash,
     sourceHash: projection?.sourceHash || latestRun?.sourceHash || continuity.projectionCache?.sourceHash || null,
     policyHash: projection?.policyHash || latestRun?.policyHash || continuity.projectionCache?.policyHash || null,
     blockCount: Number(projection?.audit?.blockCount || latestRun?.blockCount || 0),

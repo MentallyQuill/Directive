@@ -354,4 +354,27 @@ for (const fixture of fixtures) {
   assert.equal(decision.diagnostics.providerAttempted, true);
 }
 
+{
+  const calls = [];
+  const decision = await classifyChatTurn({
+    text: 'Commander Arlen keeps her hands loosely behind her back at the command rail as the handoff settles around her. She keeps her voice low enough for the senior stations, not the whole bridge. "Lieutenant Nayar, give me the clean operational picture: current watch status, any unresolved handoff exceptions, and anything Captain Whitaker needs on her board before I make my first recommendation."',
+    context: {},
+    generationRouter: createRouter({
+      id: 'ashes-handoff-report.provider-downgrade-blocked',
+      providerResponse: {
+        classification: 'noDirectiveAction',
+        responseStrategy: 'injectAndContinue',
+        confidence: 0.91
+      }
+    }, calls)
+  });
+  assert.equal(decision.classification, 'consequentialCommand');
+  assert.equal(decision.responseStrategy, 'directivePosted');
+  assert.equal(decision.workerPlan.missionDirector, true);
+  assert.equal(decision.workerPlan.ship, true);
+  assert.equal(decision.workerPlan.narrator, true);
+  assert.equal(calls.length, 0, 'Operational report requests should fast-path instead of letting Utility provider downgrade to host continuation.');
+  assert.equal(decision.diagnostics.providerSkippedReason, 'deterministic-fast-path');
+}
+
 console.log(`Turn intent classifier fixture tests passed: ${fixtures.length} language-diverse cases`);

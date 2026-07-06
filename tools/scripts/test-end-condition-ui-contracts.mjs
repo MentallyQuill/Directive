@@ -5,6 +5,7 @@ import path from 'node:path';
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 import { renderMissionPanel } from '../../src/ui/mission-panel.js';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
+import { withTerminalDecisionLedgerProjection } from '../../src/runtime/terminal-decision-ledger-view.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -237,7 +238,7 @@ state.campaign = {
   status: 'active'
 };
 state.runtimeTracking.pendingInteractions = [];
-state.runtimeTracking.endConditionLedger = {
+const terminalLedger = {
   schemaVersion: 1,
   activeDecisionId: 'terminal-decision-ui',
   detections: [],
@@ -279,6 +280,25 @@ state.runtimeTracking.endConditionLedger = {
     decisionId: 'terminal-decision-ui',
     conditionId: 'terminal.ashes.breck-destroyed-objective-saved'
   }, {
+    id: 'terminal-branch:legacy-decoy',
+    saveId: 'save-terminal-legacy-decoy',
+    decisionId: 'terminal-decision-ui'
+  }],
+  continuationFrames: []
+};
+state = withTerminalDecisionLedgerProjection(state, terminalLedger);
+state.runtimeTracking.endConditionLedger = {
+  schemaVersion: 1,
+  activeDecisionId: 'terminal-decision-ui-legacy-decoy',
+  detections: [],
+  decisions: [{
+    id: 'terminal-decision-ui-legacy-decoy',
+    status: 'pending',
+    terminalOutcomeBand: 'Legacy Failure',
+    finalCampaignBand: 'Legacy Ending',
+    playerFacingSummary: 'Legacy unowned terminal decision must not render.'
+  }],
+  branchRecords: [{
     id: 'terminal-branch:legacy-decoy',
     saveId: 'save-terminal-legacy-decoy',
     decisionId: 'terminal-decision-ui'

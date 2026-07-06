@@ -15,6 +15,7 @@ import {
   recordDirectiveResponse,
   updateDirectiveResponse
 } from '../../src/runtime/state-delta-gateway.mjs';
+import { createRuntimeLedgerView } from '../../src/runtime/runtime-ledger-view.mjs';
 import { findOutcomeIntegrityResponse } from '../../src/runtime/outcome-integrity.mjs';
 
 const host = createFakeDirectiveHost({
@@ -48,19 +49,15 @@ let state = initializeCampaignRuntimeTracking({
       }
     }
   },
-  runtimeTracking: {
-    responseLedger: [{
-      id: 'response-correct-as-swipe',
-      hostMessageId: posted.hostMessageId,
-      outcomeId: 'outcome-correct-as-swipe',
-      turnId: 'turn-correct-as-swipe',
-      responseKind: 'committedOutcome',
-      status: 'posted',
-      coreTransactionId: 'txn-correct-as-swipe'
-    }],
-    ingressLedger: [],
-    recoveryJournal: []
-  }
+});
+state = recordDirectiveResponse(state, {
+  id: 'response-correct-as-swipe',
+  hostMessageId: posted.hostMessageId,
+  outcomeId: 'outcome-correct-as-swipe',
+  turnId: 'turn-correct-as-swipe',
+  responseKind: 'committedOutcome',
+  status: 'posted',
+  coreTransactionId: 'txn-correct-as-swipe'
 });
 
 const coreOnlyHostGenerationResponse = findOutcomeIntegrityResponse({
@@ -70,7 +67,7 @@ const coreOnlyHostGenerationResponse = findOutcomeIntegrityResponse({
   directiveRuntimeEvidence: {
     coreStoreReadProjections: {
       runtimeAuthority: 'coreStoreV2',
-      responseLedger: [{
+      responses: [{
         id: 'directive-response:core-host-generation:host',
         hostMessageId: 'core-host-generation',
         responseKind: 'hostContinue',
@@ -108,7 +105,7 @@ const correctAsSwipeRecordState = recordDirectiveResponse(initializeCampaignRunt
     }]
   }
 });
-const correctAsSwipeRecord = correctAsSwipeRecordState.runtimeTracking.responseLedger[0];
+const correctAsSwipeRecord = createRuntimeLedgerView(correctAsSwipeRecordState).responseLedger[0];
 assert.equal(correctAsSwipeRecord.authority, 'compatibilityProjection');
 assert.equal(correctAsSwipeRecord.projectionSource, 'coreStoreV2');
 assert.equal(correctAsSwipeRecord.coreProjection.kind, 'directive.coreResponseCorrectAsSwipeProjectionRef.v1');
@@ -121,8 +118,13 @@ const persisted = [];
 const rawSelectedText = 'RAW_SELECTED_TEXT_SHOULD_NOT_PERSIST';
 const rawCandidateText = 'RAW_CANDIDATE_TEXT_SHOULD_NOT_PERSIST';
 const rawLifecycleReason = 'RAW_LIFECYCLE_REASON_SHOULD_NOT_PERSIST';
+function responseRecordFromState(sourceState, id = 'response-correct-as-swipe') {
+  return createRuntimeLedgerView(sourceState).responseLedger
+    .find((entry) => entry.id === id || entry.responseId === id) || null;
+}
 function appendOrReplaceCorrectionCase(latest, responseUpdateId, correctionCase) {
-  const response = latest.runtimeTracking.responseLedger.find((entry) => entry.id === responseUpdateId || entry.responseId === responseUpdateId);
+  const response = createRuntimeLedgerView(latest).responseLedger
+    .find((entry) => entry.id === responseUpdateId || entry.responseId === responseUpdateId);
   const currentCorrectAsSwipe = response?.correctAsSwipe || {};
   return updateDirectiveResponse(latest, responseUpdateId, {
     correctAsSwipe: {
@@ -217,7 +219,7 @@ const result = await proposeCorrectAsSwipe({
       };
     }
   },
-  response: state.runtimeTracking.responseLedger[0],
+  response: responseRecordFromState(state),
   selection: {
     hostMessageId: posted.hostMessageId,
     selectedText: rawSelectedText,
@@ -266,7 +268,7 @@ assert.equal(
 assert.equal(message.metadata.correctAsSwipeCaseId, undefined);
 assert.equal(message.metadata.swipeCount, 2);
 
-const response = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-correct-as-swipe');
+const response = responseRecordFromState(state);
 assert.equal(response.correctAsSwipe.lastCaseId, result.correctionCase.id);
 assert.equal(response.correctAsSwipe.cases[0].candidateSwipe.selected, false);
 assert.equal(response.correctAsSwipe.cases[0].candidateSwipe.swipeIndex, 1);
@@ -284,10 +286,10 @@ assert.equal(serializedState.includes(rawCandidateText), false);
 assert.equal(serializedDiagnostic.includes(rawSelectedText), false);
 assert.equal(serializedDiagnostic.includes(rawCandidateText), false);
 
-const duplicate = await proposeCorrectAsSwipe({
+const manualVerdictBypass = await proposeCorrectAsSwipe({
   campaignState: state,
   host,
-  response: state.runtimeTracking.responseLedger[0],
+  response: responseRecordFromState(state),
   selection: {
     hostMessageId: posted.hostMessageId,
     selectedText: rawSelectedText
@@ -297,6 +299,24 @@ const duplicate = await proposeCorrectAsSwipe({
     verdict: 'contradicted',
     evidenceRefIds: ['fact.freighter.registry']
   },
+  idFactory: (prefix) => `${prefix}-fixture-manual-bypass`,
+  now: () => '2026-07-02T12:00:30.000Z'
+});
+assert.equal(manualVerdictBypass.ok, false);
+assert.equal(manualVerdictBypass.reason, 'sre-evidence-verdict-required');
+assert.equal(manualVerdictBypass.error.code, 'DIRECTIVE_CORRECT_AS_SWIPE_SRE_VERDICT_REQUIRED');
+assert.equal(host.chat.getMessage(posted.hostMessageId).swipes.length, 2);
+
+const duplicate = await proposeCorrectAsSwipe({
+  campaignState: state,
+  host,
+  response: responseRecordFromState(state),
+  selection: {
+    hostMessageId: posted.hostMessageId,
+    selectedText: rawSelectedText
+  },
+  proposedText: `The bridge stays put while Operations checks the registry. ${rawCandidateText}`,
+  evidenceVerdict: derivedEvidenceVerdict,
   idFactory: (prefix) => `${prefix}-fixture-duplicate`,
   now: () => '2026-07-02T12:01:00.000Z'
 });
@@ -317,7 +337,7 @@ const lifecycle = await settleCorrectAsSwipeCaseLifecycle({
       };
     }
   },
-  response: state.runtimeTracking.responseLedger[0],
+  response: responseRecordFromState(state),
   caseId: result.correctionCase.id,
   action: 'rejectCorrectionCase',
   reason: rawLifecycleReason,
@@ -357,7 +377,7 @@ assert.equal(serializedPostLifecycleDiagnostic.includes(rawLifecycleReason), fal
 let acceptedState = result.campaignState;
 const acceptance = await acceptCorrectAsSwipeSelection({
   campaignState: acceptedState,
-  response: acceptedState.runtimeTracking.responseLedger[0],
+  response: responseRecordFromState(acceptedState),
   selectedSwipe: {
     selectedSwipeIndex: 1,
     swipeCount: 2,

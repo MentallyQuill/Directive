@@ -112,6 +112,23 @@ let state = {
       }
     ],
     responseLedger: []
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [{
+        id: 'ingress-1',
+        hostMessageId: '1',
+        chatId: 'chat-recon',
+        textHash: 'old',
+        turnId: 'turn-1',
+        outcomeId: 'outcome-1',
+        coreTransactionId: 'core-txn-1'
+      }],
+      responseLedger: [],
+      recoveryJournal: []
+    }
   }
 };
 
@@ -218,7 +235,7 @@ const service = createSceneReconciliationService({
 const marker = await service.setStart({ message: { hostMessageId: '1' } });
 assert.equal(marker.ok, true);
 assert.equal(state.sceneReconciliation.markers.start.hostMessageId, '1');
-assert.equal(state.runtimeTracking.sceneReconciliation.runs.length, 0, 'Runtime tracking scene ledger remains compatibility-only.');
+assert.equal(state.runtimeTracking.sceneReconciliation, undefined, 'Runtime tracking scene ledger shell must stay removed.');
 assert.equal(state.sceneReconciliation.authority, 'sreSceneReconciliationProjection');
 assert.equal(state.sceneReconciliation.projectionSource, 'sceneReconciliation');
 assert.equal(
@@ -357,6 +374,23 @@ let blockedState = cloneJson({
   commandLog: { entries: [] },
   mission: { activePhaseId: 'opening', phase: 'Opening' },
   sceneReconciliation: undefined,
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [{
+        id: 'blocked-ingress-1',
+        hostMessageId: '1',
+        chatId: 'chat-recon',
+        textHash: 'blocked-old',
+        turnId: 'blocked-turn-1',
+        outcomeId: 'blocked-outcome-1',
+        coreTransactionId: 'blocked-core-txn-1'
+      }],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  },
   runtimeTracking: {
     revision: 0,
     ingressLedger: [{
@@ -552,6 +586,23 @@ function createSettlementFixture({
       responseLedger: []
     }
   };
+  fixtureState.directiveRuntimeEvidence = {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [{
+        id: `ingress-${suffix}`,
+        hostMessageId: '1',
+        chatId: 'chat-recon',
+        textHash: `old-${suffix}`,
+        turnId: `turn-${suffix}`,
+        outcomeId: `outcome-${suffix}`,
+        coreTransactionId: `core-txn-${suffix}`
+      }],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  };
   if (directiveRuntimeEvidence) {
     fixtureState.directiveRuntimeEvidence = cloneJson(directiveRuntimeEvidence);
   }
@@ -718,6 +769,51 @@ assert.equal(
   coreAuthorityFixture.calls.settlement[0].transactionId === 'stale-legacy-txn',
   false,
   'Scene Reconciliation must not let stale raw ingress transaction drive source settlement when CORE projections exist.'
+);
+
+const staleOnlyAuthorityFixture = createSettlementFixture({
+  status: 'accepted',
+  suffix: 'stale-only-authority',
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  },
+  runtimeTrackingOverride: {
+    ingressLedger: [{
+      id: 'stale-only-legacy-ingress-scene-reconciliation',
+      hostMessageId: '1',
+      chatId: 'chat-recon',
+      turnId: 'turn-stale-only-legacy',
+      outcomeId: 'outcome-stale-only-legacy',
+      coreTransactionId: 'stale-only-legacy-txn',
+      authority: 'compatibilityProjection',
+      projectionSource: 'coreStoreV2'
+    }],
+    responseLedger: []
+  }
+});
+const staleOnlyAuthorityResult = await staleOnlyAuthorityFixture.service.reconcileMessage({ message: { hostMessageId: '1' } });
+assert.equal(staleOnlyAuthorityResult.ok, false);
+assert.equal(staleOnlyAuthorityResult.status, 'hardSkipped');
+assert.equal(staleOnlyAuthorityFixture.calls.settlement.length, 0);
+assert.equal(
+  staleOnlyAuthorityFixture.getState().commandLog.entries.length,
+  0,
+  'Scene Reconciliation must not use stale old ingress rows as source-settlement transaction authority when CORE projections are absent.'
+);
+const staleOnlyRecalc = await staleOnlyAuthorityFixture.service.recalculateFromHere({ message: { hostMessageId: '1' } });
+assert.equal(staleOnlyRecalc.ok, false);
+assert.equal(staleOnlyRecalc.status, 'stopped');
+assert.equal(staleOnlyRecalc.outcomeId, null);
+assert.equal(
+  staleOnlyRecalc.sceneReconciliation.recalculationPreviews.at(-1).outcomeId,
+  null,
+  'Scene Reconciliation recalculate must not use stale old ingress rows as outcome authority when CORE projections are absent.'
 );
 
 const staleFixture = createSettlementFixture({ status: 'staleBeforeApply', suffix: 'stale' });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
-import { createRepairRuntime } from '../../src/runtime/repair-runtime.mjs';
+import { createRepairRuntime, __repairRuntimeTestHooks } from '../../src/runtime/repair-runtime.mjs';
+import { createRepairCommandBoundary } from '../../src/runtime/repair-command-boundary.mjs';
 import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import { createCoreStoreV2 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
@@ -89,10 +90,10 @@ assert.equal(playerEdit.status, 'recorded');
 assert.equal(playerEdit.decision.kind, 'directive.repairDecision.v1');
 assert.equal(playerEdit.decision.action, 'reviewRequired');
 assert.equal(playerEdit.decision.normalTurnAllowed, false);
-assert.equal(playerEdit.decision.legacyProjection.kind, 'directive.repairLegacyProjection.v1');
-assert.equal(playerEdit.decision.legacyProjection.sourceProjectionStatus, 'recoveryRequired');
-assert.equal(playerEdit.decision.legacyProjection.recoveryJournalStatus, 'reviewRequired');
-assert.equal(playerEdit.decision.legacyProjection.returnedAction, 'reviewRequired');
+assert.equal(playerEdit.decision.repairProjection.kind, 'directive.repairProjection.v2');
+assert.equal(playerEdit.decision.repairProjection.sourceProjectionStatus, 'recoveryRequired');
+assert.equal(playerEdit.decision.repairProjection.recoveryJournalStatus, 'reviewRequired');
+assert.equal(playerEdit.decision.repairProjection.returnedAction, 'reviewRequired');
 
 const playerProjections = coreStore.readProjections();
 const playerRecovery = playerProjections.recoveryJournal.find((entry) => entry.transactionId === 'txn-player-1');
@@ -104,7 +105,7 @@ assert.equal(playerRecovery.sourceMutation.replacementTextPresent, true);
 assert.equal(playerRecovery.sourceMutation.visibility.ghostedBySummaryception, true);
 assert.equal(playerRecovery.sourceMutation.visibility.summarizedBySummaryception, true);
 assert.equal(playerRecovery.repairDecision.kind, 'directive.repairDecision.v1');
-assert.equal(playerRecovery.repairDecision.legacyProjection.sourceProjectionStatus, 'recoveryRequired');
+assert.equal(playerRecovery.repairDecision.repairProjection.sourceProjectionStatus, 'recoveryRequired');
 assert.deepEqual(playerRecovery.allowedActions, [
   'reviewSourceMutation',
   'rerunFromSource',
@@ -154,8 +155,8 @@ const responseEdit = await repairRuntime.recordSourceMutationRecovery({
   preOutcomeRevision: 11
 });
 assert.equal(responseEdit.status, 'recorded');
-assert.equal(responseEdit.decision.legacyProjection.responseProjectionStatus, 'recoveryRequired');
-assert.equal(responseEdit.decision.legacyProjection.recoveryJournalStatus, 'reviewRequired');
+assert.equal(responseEdit.decision.repairProjection.responseProjectionStatus, 'recoveryRequired');
+assert.equal(responseEdit.decision.repairProjection.recoveryJournalStatus, 'reviewRequired');
 const responseRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === 'txn-response-1');
 assert.equal(responseRecovery.sourceMutation.sourceKind, 'directiveResponse');
 assert.equal(responseRecovery.dependentResponseId, 'response-2');
@@ -179,6 +180,13 @@ await coreStore.beginTurn({
   ingressId: 'ingress-rollback-1',
   idempotencyKey: 'begin:txn-rollback-1'
 });
+const rollbackCoreCheckpointRef = {
+  kind: 'directive.coreMechanicsCheckpointRef.v1',
+  checkpointId: 'checkpoint-rollback-1',
+  sourceKind: 'coreStoreV2.checkpoint',
+  sourceRevision: 19,
+  layout: 'core'
+};
 const rollbackDecision = await repairRuntime.recordSourceMutationRecovery({
   eventType: 'playerMessageDeleted',
   hostMessageId: 'player-rollback',
@@ -190,14 +198,15 @@ const rollbackDecision = await repairRuntime.recordSourceMutationRecovery({
     status: 'committed'
   },
   autoRollback: true,
-  preOutcomeRevision: 19
+  preOutcomeRevision: 19,
+  coreCheckpointRef: rollbackCoreCheckpointRef
 });
 assert.equal(rollbackDecision.decision.action, 'rollbackPending');
-assert.equal(rollbackDecision.decision.legacyProjection.sourceProjectionStatus, 'recoveryRequired');
-assert.equal(rollbackDecision.decision.legacyProjection.recoveryJournalStatus, 'rollbackPending');
-assert.equal(rollbackDecision.decision.legacyProjection.returnedAction, 'rolledBack');
-assert.equal(rollbackDecision.decision.legacyProjection.shouldRestoreRevision, true);
-assert.equal(rollbackDecision.decision.legacyProjection.restoreRevision, 19);
+assert.equal(rollbackDecision.decision.repairProjection.sourceProjectionStatus, 'recoveryRequired');
+assert.equal(rollbackDecision.decision.repairProjection.recoveryJournalStatus, 'rollbackPending');
+assert.equal(rollbackDecision.decision.repairProjection.returnedAction, 'rolledBack');
+assert.equal(rollbackDecision.decision.repairProjection.shouldRestoreRevision, true);
+assert.equal(rollbackDecision.decision.repairProjection.restoreRevision, 19);
 const rollbackActuation = repairRuntime.evaluateRollbackActuation({
   coreRecovery: rollbackDecision,
   eventTime: '2026-06-22T01:00:19.000Z'
@@ -208,8 +217,29 @@ assert.equal(rollbackActuation.action, 'restorePreOutcomeRevision');
 assert.equal(rollbackActuation.restoreRevision, 19);
 assert.equal(rollbackActuation.ingressId, 'ingress-rollback-1');
 assert.equal(rollbackActuation.transactionId, 'txn-rollback-1');
+assert.equal(rollbackActuation.coreCheckpointRef.checkpointId, 'checkpoint-rollback-1');
 const rollbackRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === 'txn-rollback-1');
 assert.deepEqual(rollbackRecovery.allowedActions, ['rollbackToPreOutcomeRevision', 'reviewSourceMutation']);
+const revisionOnlyRollbackActuation = __repairRuntimeTestHooks.buildRollbackActuationDecision({
+  decision: {
+    sourceKind: 'playerIngress',
+    action: 'rollbackPending',
+    transactionId: 'txn-revision-only-rollback',
+    sourceMutation: {
+      sourceKind: 'playerIngress',
+      ingressId: 'ingress-revision-only-rollback',
+      preOutcomeRevision: 19
+    },
+    repairProjection: {
+      shouldRestoreRevision: true,
+      restoreRevision: 19
+    }
+  },
+  eventTime: '2026-06-22T01:00:19.500Z'
+});
+assert.equal(revisionOnlyRollbackActuation.authorized, false, 'REPAIR rollback must not authorize from restoreRevision without CORE checkpoint ref.');
+assert.equal(revisionOnlyRollbackActuation.deniedReason, 'repair-rollback-core-checkpoint-ref-missing');
+assert.equal(revisionOnlyRollbackActuation.coreCheckpointRef, null);
 
 await coreStore.beginTurn({
   id: 'frame-no-revision-rollback',
@@ -235,10 +265,10 @@ const noRevisionRollback = await repairRuntime.recordSourceMutationRecovery({
   preOutcomeRevision: null
 });
 assert.equal(noRevisionRollback.decision.action, 'reviewRequired');
-assert.equal(noRevisionRollback.decision.legacyProjection.recoveryJournalStatus, 'reviewRequired');
-assert.equal(noRevisionRollback.decision.legacyProjection.returnedAction, 'reviewRequired');
-assert.equal(noRevisionRollback.decision.legacyProjection.shouldRestoreRevision, false);
-assert.equal(noRevisionRollback.decision.legacyProjection.restoreRevision, null);
+assert.equal(noRevisionRollback.decision.repairProjection.recoveryJournalStatus, 'reviewRequired');
+assert.equal(noRevisionRollback.decision.repairProjection.returnedAction, 'reviewRequired');
+assert.equal(noRevisionRollback.decision.repairProjection.shouldRestoreRevision, false);
+assert.equal(noRevisionRollback.decision.repairProjection.restoreRevision, null);
 const noRevisionRollbackActuation = repairRuntime.evaluateRollbackActuation({
   coreRecovery: noRevisionRollback,
   eventTime: '2026-06-22T01:00:20.000Z'
@@ -248,6 +278,165 @@ assert.equal(noRevisionRollbackActuation.action, 'blockRollbackActuation');
 assert.equal(noRevisionRollbackActuation.restoreRevision, null);
 const noRevisionRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === 'txn-no-revision-rollback');
 assert.deepEqual(noRevisionRecovery.allowedActions, ['reviewSourceMutation', 'rerunFromSource', 'branchFromPriorRevision']);
+
+let rollbackRecordCalls = 0;
+const rollbackBoundary = createRepairCommandBoundary({
+  repairRuntime: {
+    recordRollbackActuation(input = {}) {
+      rollbackRecordCalls += 1;
+      return {
+        status: 'recorded',
+        transactionId: input.rollbackActuation?.transactionId || null,
+        rollback: cloneJson(input.rollbackActuation || {})
+      };
+    }
+  }
+});
+const checkpointRollback = await rollbackBoundary.executeRollbackActuation({
+  campaignState: {
+    campaign: { id: 'campaign-legacy-rollback-current' },
+    runtimeTracking: {
+      revision: 44,
+      historyLimit: 8,
+      ingressLedger: [{ id: 'legacy-ingress-rollback-restore', hostMessageId: 'legacy-player' }],
+      responseLedger: [{ id: 'legacy-response-rollback-restore', hostMessageId: 'legacy-assistant' }],
+      recoveryJournal: [{ id: 'legacy-recovery-rollback-restore', status: 'reviewRequired' }]
+    }
+  },
+  restoreSnapshot: {
+    campaign: { id: 'campaign-legacy-rollback-restored' },
+    runtimeTracking: {
+      revision: 7,
+      ingressLedger: [{ id: 'checkpoint-old-ingress-should-not-survive' }],
+      responseLedger: [{ id: 'checkpoint-old-response-should-not-survive' }],
+      recoveryJournal: [{ id: 'checkpoint-old-recovery-should-not-survive' }]
+    }
+  },
+  rollbackActuation: {
+    authorized: true,
+    transactionId: 'txn-legacy-rollback-restore',
+    restoreRevision: 7,
+    eventType: 'playerMessageDeleted',
+    coreCheckpointRef: {
+      kind: 'directive.coreMechanicsCheckpointRef.v1',
+      checkpointId: 'checkpoint-boundary-rollback',
+      sourceKind: 'coreStoreV2.checkpoint',
+      sourceRevision: 7
+    }
+  },
+  reason: 'test rollback restore must not revive old runtime ledgers'
+});
+assert.equal(checkpointRollback.status, 'applied');
+assert.deepEqual(checkpointRollback.campaignState.runtimeTracking.ingressLedger, [], 'Checkpoint rollback restore must not revive current old ingress ledger rows.');
+assert.deepEqual(checkpointRollback.campaignState.runtimeTracking.responseLedger, [], 'Checkpoint rollback restore must not revive current old response ledger rows.');
+assert.deepEqual(checkpointRollback.campaignState.runtimeTracking.recoveryJournal, [], 'Checkpoint rollback restore must not revive current old recovery rows.');
+assert.equal(checkpointRollback.campaignState.runtimeTracking.revision, 7);
+assert.equal(rollbackRecordCalls, 1);
+const rollbackRecordCallsBeforeNoRef = rollbackRecordCalls;
+const noRefCheckpointRollback = await rollbackBoundary.executeRollbackActuation({
+  campaignState: {
+    campaign: { id: 'campaign-no-ref-rollback-current' },
+    runtimeTracking: { revision: 11, history: [] }
+  },
+  restoreSnapshot: {
+    campaign: { id: 'campaign-no-ref-rollback-restored' },
+    runtimeTracking: { revision: 7 }
+  },
+  rollbackActuation: {
+    authorized: true,
+    transactionId: 'txn-no-ref-rollback-restore',
+    restoreRevision: 7,
+    eventType: 'playerMessageDeleted'
+  }
+});
+assert.equal(noRefCheckpointRollback.status, 'blocked');
+assert.equal(noRefCheckpointRollback.reason, 'rollback-core-checkpoint-ref-required');
+assert.equal(noRefCheckpointRollback.errorCode, 'DIRECTIVE_REPAIR_ROLLBACK_CORE_CHECKPOINT_REF_REQUIRED');
+assert.equal(rollbackRecordCalls, rollbackRecordCallsBeforeNoRef, 'CORE rollback actuation must not record when compact checkpoint ref is missing.');
+
+const deleteRollbackFromLegacySnapshot = __repairRuntimeTestHooks.buildCommittedOutcomeDeleteRollbackActuationDecision({
+  decision: {
+    transactionId: 'txn-delete-legacy-snapshot',
+    outcomeId: 'outcome-delete-legacy-snapshot'
+  },
+  ledgerEntry: {
+    coreTransactionId: 'txn-delete-legacy-snapshot',
+    outcomeId: 'outcome-delete-legacy-snapshot',
+    snapshotBeforeRetained: true,
+    snapshotBefore: {
+      runtimeTracking: {
+        revision: 42
+      }
+    }
+  },
+  eventTime: '2026-06-22T01:00:21.000Z'
+});
+assert.equal(deleteRollbackFromLegacySnapshot.authorized, false, 'Committed outcome delete rollback must not use old snapshotBefore.runtimeTracking revision as authority.');
+assert.equal(deleteRollbackFromLegacySnapshot.restoreRevision, null);
+
+const deleteRollbackFromRepairProjectionNoRef = __repairRuntimeTestHooks.buildCommittedOutcomeDeleteRollbackActuationDecision({
+  decision: {
+    transactionId: 'txn-delete-core-projection',
+    outcomeId: 'outcome-delete-core-projection'
+  },
+  ledgerEntry: {
+    coreTransactionId: 'txn-delete-core-projection',
+    outcomeId: 'outcome-delete-core-projection',
+    snapshotBeforeRetained: true,
+    snapshotBefore: {
+      runtimeTracking: {
+        revision: 99
+      }
+    }
+  },
+  repairProjection: {
+    shouldRestoreRevision: true,
+    restoreRevision: 7
+  },
+  sourceMutation: {
+    preOutcomeRevision: 7
+  },
+  eventTime: '2026-06-22T01:00:22.000Z'
+});
+assert.equal(deleteRollbackFromRepairProjectionNoRef.authorized, false, 'Committed outcome delete rollback must not authorize from repairProjection.restoreRevision alone.');
+assert.equal(deleteRollbackFromRepairProjectionNoRef.deniedReason, 'repair-rollback-core-checkpoint-ref-missing');
+assert.equal(deleteRollbackFromRepairProjectionNoRef.restoreRevision, 7);
+
+const deleteRollbackFromRepairProjection = __repairRuntimeTestHooks.buildCommittedOutcomeDeleteRollbackActuationDecision({
+  decision: {
+    transactionId: 'txn-delete-core-projection',
+    outcomeId: 'outcome-delete-core-projection'
+  },
+  ledgerEntry: {
+    coreTransactionId: 'txn-delete-core-projection',
+    outcomeId: 'outcome-delete-core-projection',
+    snapshotBeforeRetained: true,
+    snapshotSourceKind: 'coreStoreV2.checkpoint',
+    coreCheckpointRef: {
+      kind: 'directive.coreMechanicsCheckpointRef.v1',
+      checkpointId: 'checkpoint-delete-core-projection',
+      sourceKind: 'coreStoreV2.checkpoint',
+      sourceRevision: 7,
+      layout: 'core'
+    },
+    snapshotBefore: {
+      runtimeTracking: {
+        revision: 99
+      }
+    }
+  },
+  repairProjection: {
+    shouldRestoreRevision: true,
+    restoreRevision: 7
+  },
+  sourceMutation: {
+    preOutcomeRevision: 7
+  },
+  eventTime: '2026-06-22T01:00:22.500Z'
+});
+assert.equal(deleteRollbackFromRepairProjection.authorized, true, 'Committed outcome delete rollback should use REPAIR/CORE restore revision evidence.');
+assert.equal(deleteRollbackFromRepairProjection.restoreRevision, 7);
+assert.equal(deleteRollbackFromRepairProjection.coreCheckpointRef.checkpointId, 'checkpoint-delete-core-projection');
 
 await coreStore.beginTurn({
   id: 'frame-visibility-1',
@@ -441,6 +630,67 @@ assert.equal(hostContradictionDecision.sreReviewRequired, true);
 assert.deepEqual(hostContradictionDecision.allowedActions, ['reviewHostNativeContinuityContradiction', 'fallbackDirectiveResponse', 'branchFromPriorRevision']);
 
 await coreStore.beginTurn({
+  id: 'frame-host-contradiction-core-revision',
+  hostMessageId: 'player-host-contradiction-core-revision',
+  chatId: 'ashes-chat',
+  textHash: hashStableJson({ text: 'Host contradiction with CORE revision authority.' })
+}, {
+  transactionId: 'txn-host-contradiction-core-revision',
+  ingressId: 'ingress-host-contradiction-core-revision',
+  idempotencyKey: 'begin:txn-host-contradiction-core-revision'
+});
+const hostContradictionCoreRevision = await repairRuntime.recordResponseRecovery({
+  eventType: 'hostNativeContinuityContradiction',
+  observationStatus: 'completed',
+  ingress: {
+    id: 'ingress-host-contradiction-core-revision',
+    coreTransactionId: 'txn-host-contradiction-core-revision',
+    outcomeId: 'outcome-host-contradiction-core-revision',
+    sourceFrameId: 'frame-host-contradiction-core-revision'
+  },
+  responseId: 'response-host-contradiction-core-revision',
+  turnId: 'turn-host-contradiction-core-revision',
+  campaignState: {
+    runtimeTracking: { revision: 99 },
+    directiveRuntimeEvidence: {
+      coreStoreReadProjections: {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        revisions: { runtime: 7 }
+      }
+    }
+  },
+  continuityReview: {
+    kind: 'directive.sreHostNativeContinuityReview.v1',
+    ok: false,
+    checkedFactCount: 1,
+    findings: [{
+      factId: 'crew.hadrik-bronn.species',
+      kind: 'protected-fact-contradiction',
+      severity: 'blocker'
+    }],
+    sreReview: {
+      source: {
+        responseId: 'response-host-contradiction-core-revision',
+        ingressId: 'ingress-host-contradiction-core-revision',
+        hostMessageId: 'assistant-host-contradiction-core-revision',
+        textHash: 'host-contradiction-core-revision-text-hash'
+      }
+    }
+  }
+});
+assert.equal(hostContradictionCoreRevision.status, 'recorded');
+assert.equal(hostContradictionCoreRevision.compatibilityProjection.projectionHints[0].createdRevision, 7);
+assert.equal(hostContradictionCoreRevision.compatibilityProjection.projectionHints[0].expiresRevision, 11);
+assert.equal(
+  hostContradictionCoreRevision.compatibilityProjection.factUseStats['crew.hadrik-bronn.species'].lastViolationRevision,
+  7,
+  'REPAIR host-native continuity projections must use CORE/v2 runtime revision instead of stale runtimeTracking.revision.'
+);
+const hostContradictionCoreProjection = coreStore.readProjections().continuityRecoveryProjection;
+assert.equal(hostContradictionCoreProjection.factUseStats['crew.hadrik-bronn.species'].lastViolationRevision, 7);
+
+await coreStore.beginTurn({
   id: 'frame-response-recovery-failed',
   hostMessageId: 'player-response-recovery-failed',
   chatId: 'ashes-chat',
@@ -580,6 +830,15 @@ const outcomeRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
     resultBand: 'Partial Success',
     snapshotBeforeRetained: true,
     snapshotPresent: true,
+    snapshotSourceKind: 'coreStoreV2.checkpoint',
+    coreCheckpointRef: {
+      kind: 'directive.coreMechanicsCheckpointRef.v1',
+      campaignId: 'campaign-rerun-authorized',
+      saveId: 'save-rerun-authorized',
+      checkpointId: 'checkpoint-rerun-authorized',
+      layout: 'core',
+      sourceKind: 'coreStoreV2.checkpoint'
+    },
     narrationStatus: 'complete',
     responseStatus: 'complete'
   },
@@ -597,6 +856,8 @@ assert.equal(outcomeRerunActuation.replacedTransactionId, 'txn-rerun-authorized'
 assert.equal(outcomeRerunActuation.replacementTransactionRequired, true);
 assert.equal(outcomeRerunActuation.turnId, 'turn-rerun-authorized');
 assert.equal(outcomeRerunActuation.replacementType, 'rerunOutcome');
+assert.equal(outcomeRerunActuation.snapshotSourceKind, 'coreStoreV2.checkpoint');
+assert.equal(outcomeRerunActuation.coreCheckpointRef.checkpointId, 'checkpoint-rerun-authorized');
 assert.deepEqual(outcomeRerunActuation.allowedActions, ['previewRerunBranchCandidate', 'commitRerunBranchCandidate']);
 
 const noCoreRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
@@ -608,6 +869,11 @@ const noCoreRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
     resultBand: 'Partial Success',
     snapshotBeforeRetained: true,
     snapshotPresent: true,
+    snapshotSourceKind: 'coreStoreV2.checkpoint',
+    coreCheckpointRef: {
+      checkpointId: 'checkpoint-rerun-no-core',
+      sourceKind: 'coreStoreV2.checkpoint'
+    },
     narrationStatus: 'complete'
   },
   eventTime: '2026-06-22T01:00:41.000Z'
@@ -649,6 +915,24 @@ assert.equal(missingSnapshotEvidenceRerunActuation.action, 'blockOutcomeRerun');
 assert.equal(missingSnapshotEvidenceRerunActuation.reason, 'outcome-rerun-snapshot-evidence-missing');
 assert.equal(missingSnapshotEvidenceRerunActuation.mechanicsRerunAuthorized, false);
 
+const missingCoreCheckpointRefRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
+  outcomeId: 'outcome-rerun-missing-core-checkpoint-ref',
+  requestedType: 'rerunOutcome',
+  ledgerEntry: {
+    turnId: 'turn-rerun-missing-core-checkpoint-ref',
+    outcomeId: 'outcome-rerun-missing-core-checkpoint-ref',
+    replacedTransactionId: 'txn-rerun-missing-core-checkpoint-ref',
+    snapshotBeforeRetained: true,
+    snapshotPresent: true,
+    snapshotSourceKind: 'turnLedger.snapshotBefore'
+  }
+});
+assert.equal(missingCoreCheckpointRefRerunActuation.authorized, false);
+assert.equal(missingCoreCheckpointRefRerunActuation.action, 'blockOutcomeRerun');
+assert.equal(missingCoreCheckpointRefRerunActuation.reason, 'outcome-rerun-core-checkpoint-ref-missing');
+assert.equal(missingCoreCheckpointRefRerunActuation.coreCheckpointRef, null);
+assert.equal(missingCoreCheckpointRefRerunActuation.mechanicsRerunAuthorized, false);
+
 const rawSnapshotOnlyRerunActuation = repairRuntime.evaluateOutcomeRerunActuation({
   outcomeId: 'outcome-rerun-raw-snapshot-only',
   requestedType: 'rerunOutcome',
@@ -671,9 +955,17 @@ const terminalReplayActuation = repairRuntime.evaluateTerminalCheckpointReplayAc
   turnId: 'turn-terminal-authorized',
   outcomeId: 'outcome-terminal-authorized',
   action: 'restoreTerminalCheckpointSnapshot',
-  snapshotSourceKind: 'turnLedger.snapshotBefore',
+  snapshotSourceKind: 'coreStoreV2.checkpoint',
   snapshotPresent: true,
   snapshotHash: 'hash-terminal-snapshot-authorized',
+  coreCheckpointRef: {
+    kind: 'directive.coreTerminalReplayCheckpointRef.v1',
+    campaignId: 'campaign-terminal-authorized',
+    saveId: 'save-terminal-authorized',
+    checkpointId: 'checkpoint-terminal-authorized',
+    layout: 'core',
+    sourceKind: 'coreStoreV2.checkpoint'
+  },
   runtimeRevision: 21,
   ledgerRevision: 20,
   snapshot: {
@@ -690,15 +982,34 @@ assert.equal(terminalReplayActuation.interactionId, 'terminal-decision-authorize
 assert.equal(terminalReplayActuation.conditionId, 'terminal.condition.authorized');
 assert.equal(terminalReplayActuation.turnId, 'turn-terminal-authorized');
 assert.equal(terminalReplayActuation.outcomeId, 'outcome-terminal-authorized');
-assert.equal(terminalReplayActuation.snapshotSourceKind, 'turnLedger.snapshotBefore');
+assert.equal(terminalReplayActuation.snapshotSourceKind, 'coreStoreV2.checkpoint');
 assert.equal(terminalReplayActuation.snapshotPresent, true);
 assert.equal(terminalReplayActuation.snapshotHash, 'hash-terminal-snapshot-authorized');
+assert.equal(terminalReplayActuation.coreCheckpointRef.checkpointId, 'checkpoint-terminal-authorized');
 assert.equal(terminalReplayActuation.runtimeRevision, 21);
 assert.equal(terminalReplayActuation.ledgerRevision, 20);
 assert.deepEqual(terminalReplayActuation.allowedActions, ['restoreTerminalCheckpointSnapshot']);
 assert.equal(terminalReplayActuation.normalTurnAllowed, false);
 assert.equal(Object.hasOwn(terminalReplayActuation, 'snapshot'), false);
 assert.equal(JSON.stringify(terminalReplayActuation).includes('RAW_TERMINAL_SNAPSHOT_MUST_NOT_AUTHORIZE'), false);
+
+const missingCoreCheckpointRefTerminalReplayActuation = repairRuntime.evaluateTerminalCheckpointReplayActuation({
+  decisionId: 'terminal-decision-missing-core-checkpoint-ref',
+  interactionId: 'terminal-decision-missing-core-checkpoint-ref',
+  conditionId: 'terminal.condition.missing-core-checkpoint-ref',
+  turnId: 'turn-terminal-missing-core-checkpoint-ref',
+  outcomeId: 'outcome-terminal-missing-core-checkpoint-ref',
+  action: 'restoreTerminalCheckpointSnapshot',
+  snapshotSourceKind: 'turnLedger.snapshotBefore',
+  snapshotPresent: true,
+  snapshotHash: 'hash-terminal-snapshot-without-core-checkpoint-ref'
+});
+assert.equal(missingCoreCheckpointRefTerminalReplayActuation.authorized, false);
+assert.equal(missingCoreCheckpointRefTerminalReplayActuation.action, 'blockTerminalCheckpointReplay');
+assert.equal(missingCoreCheckpointRefTerminalReplayActuation.reason, 'terminal-checkpoint-replay-core-checkpoint-ref-missing');
+assert.equal(missingCoreCheckpointRefTerminalReplayActuation.deniedReason, 'terminal-checkpoint-replay-core-checkpoint-ref-missing');
+assert.equal(missingCoreCheckpointRefTerminalReplayActuation.coreCheckpointRef, null);
+assert.deepEqual(missingCoreCheckpointRefTerminalReplayActuation.allowedActions, ['reviewTerminalCheckpointReplayRequest']);
 
 const missingSnapshotTerminalReplayActuation = repairRuntime.evaluateTerminalCheckpointReplayActuation({
   decisionId: 'terminal-decision-missing-snapshot',
@@ -837,27 +1148,25 @@ const untrackedDependentProjection = await repairRuntime.recordSourceMutationRec
   hostMessageId: 'assistant-untracked-dependent',
   replacementText: 'RAW_REPAIR_PROJECTION_SHOULD_NOT_PERSIST',
   campaignState: {
-    runtimeTracking: {
-      sceneHandshake: {
-        settled: [{
-          id: 'settlement-untracked-a',
-          status: 'settled',
-          previousAssistantHostMessageId: 'assistant-untracked-dependent',
-          currentPlayerHostMessageId: 'player-after-untracked-a'
-        }, {
-          id: 'settlement-untracked-b',
-          status: 'settled',
-          sourceMessageIds: ['assistant-untracked-dependent']
-        }, {
-          id: 'settlement-unrelated',
-          status: 'settled',
-          previousAssistantHostMessageId: 'assistant-unrelated'
-        }],
-        lastResult: {
-          id: 'settlement-untracked-a',
-          status: 'settled',
-          previousAssistantHostMessageId: 'assistant-untracked-dependent'
-        }
+    sceneHandshake: {
+      settled: [{
+        id: 'settlement-untracked-a',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-untracked-dependent',
+        currentPlayerHostMessageId: 'player-after-untracked-a'
+      }, {
+        id: 'settlement-untracked-b',
+        status: 'settled',
+        sourceMessageIds: ['assistant-untracked-dependent']
+      }, {
+        id: 'settlement-unrelated',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-unrelated'
+      }],
+      lastResult: {
+        id: 'settlement-untracked-a',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-untracked-dependent'
       }
     },
     knowledgeLedger: {
@@ -961,8 +1270,8 @@ const noCore = await repairRuntime.recordSourceMutationRecovery({
 assert.equal(noCore.status, 'notRecorded');
 assert.equal(noCore.reason, 'no-core-transaction');
 assert.equal(noCore.decision.action, 'invalidateProjection');
-assert.equal(noCore.decision.legacyProjection.sourceProjectionStatus, 'invalidated');
-assert.equal(noCore.decision.legacyProjection.returnedAction, 'invalidated');
+assert.equal(noCore.decision.repairProjection.sourceProjectionStatus, 'invalidated');
+assert.equal(noCore.decision.repairProjection.returnedAction, 'invalidated');
 
 const unavailableRepair = createRepairRuntime({ coreTurnStore: null });
 await assert.rejects(
@@ -977,4 +1286,4 @@ await assert.rejects(
   (error) => error?.code === 'DIRECTIVE_CORE_RECOVERY_WRITER_UNAVAILABLE'
 );
 
-console.log('REPAIR runtime tests passed: source-mutation boundary, source reobserve policy, response recovery policy, legacy projections, CORE-first recovery, idempotency, visibility-only diagnostics, response edits, and redaction');
+console.log('REPAIR runtime tests passed: source-mutation boundary, source reobserve policy, response recovery policy, REPAIR projections, CORE-first recovery, idempotency, visibility-only diagnostics, response edits, and redaction');

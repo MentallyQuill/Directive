@@ -45,7 +45,11 @@ assert.doesNotMatch(plan.text, /Becky Chambers|Picard|Sisko|Janeway|write like|i
 const recorded = recordContextPlan(state, plan, {
   installedAt: '2026-06-22T00:01:00.000Z'
 });
-assert.equal(recorded.runtimeTracking.promptContext.revision, plan.revision);
-assert.equal(recorded.runtimeTracking.promptContext.hash, plan.hash);
+const lensRecord = recorded.directiveRuntimeEvidence?.lensPromptRevisionRecord;
+assert.equal(recorded.runtimeTracking?.promptContext, undefined);
+assert.equal(lensRecord.kind, 'directive.lensPromptRevisionRecord.v1');
+assert.equal(lensRecord.revision, plan.revision);
+assert.equal(lensRecord.hash, plan.hash);
+assert.equal(recorded.runtimeResume.promptContextRevision, plan.revision);
 
-console.log('Open-world context plan contracts passed: budget, safety, and runtime tracking');
+console.log('Open-world context plan contracts passed: budget, safety, and LENS prompt revision record');

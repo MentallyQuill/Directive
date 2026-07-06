@@ -5,6 +5,7 @@ const SECRET_KEY_PATTERN = /(?:api[_-]?key|secret|token|password|credential|auth
 const RAW_PAYLOAD_KEY_PATTERN = /(?:rawPrompt|promptBody|promptText|rawPromptBody|promptSnapshot|responseSnapshot|rawResponse|providerOutput|providerResponse|providerPayload|rawVector|vectorPayload|embedding|embeddings|rawText|rawContent|rawSummary|rawPlayerText|rawCheckpointText|messageText|textPreview|promptContent|checkpointText|narrationRawText)/i;
 const ARCHITECTURE_SOURCE_TOKEN_KEY_PATTERN = /^(?:sourceToken|turnSourceToken)$/i;
 const ARCHITECTURE_SOURCE_TOKEN_VALUE_PATTERN = /^(?:turnSourceFrame|ingress):[A-Za-z0-9_.:-]+$/;
+const EXTERNAL_TIMING_UNAVAILABLE_REASON = 'extension-timing-not-exposed';
 
 function asString(value, fallback = null) {
   if (value === null || value === undefined) return fallback;
@@ -232,7 +233,9 @@ function normalizeExternalTimingDiagnostics(input = {}) {
     retrievalLatencyMs: timingNumber(input.retrievalLatencyMs),
     summaryLatencyMs: timingNumber(input.summaryLatencyMs),
     interceptorLatencyMs: timingNumber(input.interceptorLatencyMs),
-    source: asString(input.source)
+    source: asString(input.source),
+    unavailableReason: asString(input.unavailableReason),
+    attribution: asString(input.attribution)
   });
   const observed = diagnostics.observed === true
     || diagnostics.composeLatencyMs !== undefined
@@ -240,7 +243,8 @@ function normalizeExternalTimingDiagnostics(input = {}) {
     || diagnostics.retrievalLatencyMs !== undefined
     || diagnostics.summaryLatencyMs !== undefined
     || diagnostics.interceptorLatencyMs !== undefined;
-  if (!observed) return undefined;
+  if (!observed && !diagnostics.unavailableReason) return undefined;
+  if (!observed) return diagnostics;
   diagnostics.observed = true;
   diagnostics.timingHash = asString(input.timingHash) || hashStableJson({
     composeLatencyMs: diagnostics.composeLatencyMs ?? null,
@@ -318,7 +322,9 @@ function normalizeVectFox(input = {}) {
     externalTimingObserved: asBoolean(backendInput.externalTimingObserved ?? input.externalTimingObserved, false),
     interceptorLatencyMs: asNumber(backendInput.interceptorLatencyMs ?? input.interceptorLatencyMs),
     retrievalLatencyMs: asNumber(backendInput.retrievalLatencyMs ?? input.retrievalLatencyMs),
-    timingHash: asString(backendInput.timingHash || input.timingHash)
+    timingHash: asString(backendInput.timingHash || input.timingHash),
+    timingUnavailableReason: asString(backendInput.timingUnavailableReason || input.timingUnavailableReason),
+    timingAttribution: asString(backendInput.timingAttribution || input.timingAttribution)
   });
   return compactObject({
     installed: asBoolean(input.installed, false),
@@ -637,6 +643,30 @@ function targetRichEvidenceStatus(target, value = {}) {
   });
 }
 
+function timingDiagnosticsForTarget(target, value = {}) {
+  const timingDiagnostics = { ...(value.timingDiagnostics || {}) };
+  const hasTiming = timingDiagnostics.observed === true || Boolean(timingDiagnostics.timingHash);
+  if (hasTiming || !targetRequiresRichEvidence(target, value)) return timingDiagnostics;
+  return {
+    ...timingDiagnostics,
+    observed: false,
+    unavailableReason: timingDiagnostics.unavailableReason || EXTERNAL_TIMING_UNAVAILABLE_REASON,
+    attribution: timingDiagnostics.attribution || 'unavailable'
+  };
+}
+
+function backendDiagnosticsForVectFox(value = {}) {
+  const backendDiagnostics = { ...(value.backendDiagnostics || {}) };
+  const hasTiming = backendDiagnostics.externalTimingObserved === true || Boolean(backendDiagnostics.timingHash);
+  if (hasTiming || !targetRequiresRichEvidence('vectFox', value)) return backendDiagnostics;
+  return {
+    ...backendDiagnostics,
+    externalTimingObserved: false,
+    timingUnavailableReason: backendDiagnostics.timingUnavailableReason || EXTERNAL_TIMING_UNAVAILABLE_REASON,
+    timingAttribution: backendDiagnostics.timingAttribution || 'unavailable'
+  };
+}
+
 export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
   const normalized = environment.kind === EXTERNAL_CONTEXT_KIND
     ? environment
@@ -655,7 +685,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       activeNameCount: Array.isArray(worldInfo.activeNames) ? worldInfo.activeNames.length : 0,
       chatBound: Boolean(worldInfo.chatBoundName),
       promptPositions: Array.isArray(worldInfo.promptPositions) ? [...worldInfo.promptPositions] : [],
-      timingDiagnostics: { ...(worldInfo.timingDiagnostics || {}) },
+      timingDiagnostics: timingDiagnosticsForTarget('stLorebooks', worldInfo),
       directiveAuthority: false,
       rawContentCaptured: false,
       ...targetRichEvidenceStatus('stLorebooks', worldInfo)
@@ -669,7 +699,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       entryHash: memoryBooks.stMemoryBookEntryHash || null,
       rangeDiagnostics: { ...(memoryBooks.rangeDiagnostics || {}) },
       riskyModes: { ...(memoryBooks.riskyModes || {}) },
-      timingDiagnostics: { ...(memoryBooks.timingDiagnostics || {}) },
+      timingDiagnostics: timingDiagnosticsForTarget('memoryBooks', memoryBooks),
       directiveAuthority: false,
       rawContentCaptured: false,
       ...targetRichEvidenceStatus('memoryBooks', memoryBooks)
@@ -684,7 +714,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       staleness: { ...(summaryception.staleness || {}) },
       injectionHash: summaryception.injectionHash || null,
       externalModelCalls: summaryception.externalModelCalls === true,
-      timingDiagnostics: { ...(summaryception.timingDiagnostics || {}) },
+      timingDiagnostics: timingDiagnosticsForTarget('summaryception', summaryception),
       directiveAuthority: false,
       rawContentCaptured: false,
       ...targetRichEvidenceStatus('summaryception', summaryception)
@@ -700,7 +730,7 @@ export function summarizeExternalPromptEnvironmentTargets(environment = {}) {
       summarizerInjectionEnabled: vectFox.summarizerInjectionEnabled === true,
       ghostingEnabled: vectFox.ghostingEnabled === true,
       generationInterceptorActive: vectFox.generationInterceptorActive === true,
-      backendDiagnostics: { ...(vectFox.backendDiagnostics || {}) },
+      backendDiagnostics: backendDiagnosticsForVectFox(vectFox),
       settingsHash: vectFox.settingsHash || null,
       directiveAuthority: false,
       rawContentCaptured: false,
@@ -1020,6 +1050,7 @@ export function createTurnSourceFrameRef(sourceFrame = {}) {
       ? cloneJson(sourceFrame.externalPromptEnvironmentRef)
       : undefined,
     sourceRevision: asNumber(sourceFrame.sourceRevision),
+    createdAt: asString(sourceFrame.createdAt),
     dedupeKey: asString(sourceFrame.dedupeKey || sourceFrame.id || sourceFrame.sourceFrameId || sourceFrame.hostMessageId),
     visibility: sourceFrame.visibility && typeof sourceFrame.visibility === 'object'
       ? compactObject(cloneJson(sourceFrame.visibility))

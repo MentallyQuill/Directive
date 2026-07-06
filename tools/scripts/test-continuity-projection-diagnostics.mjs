@@ -18,63 +18,48 @@ const campaignState = {
     promptContextHash: 'prompt-hash-binding'
   },
   runtimeTracking: {
-    revision: 3,
-    promptContext: {
+    revision: 3
+  },
+  directiveRuntimeEvidence: {
+    lensPromptRevisionRecord: {
+      kind: 'directive.lensPromptRevisionRecord.v1',
       revision: 12,
       hash: 'prompt-hash-runtime',
-      continuityProjection: {
-        kind: 'directive.continuityProjectionMatrix.v1',
-        hash: 'projection-hash',
-        sourceHash: 'source-hash',
-        policyHash: 'policy-hash',
-        audit: {
-          blockCount: 6,
-          factCount: 14,
-          selectedFactCount: 9,
-          conflictCount: 2,
-          omittedFactCount: 3,
-          validatorRejectionCount: 1
-        },
-        plan: {
-          selectedFactIds: [rawFactId],
-          laneFactIds: {
-            'directive.continuity.invariants': [rawFactId]
-          }
-        }
-      },
-      blocks: DIRECTIVE_STATIC_PROMPT_KEYS.map((promptKey) => ({
-        id: `block.${promptKey}`,
-        promptKey,
-        sourceIds: [rawFactId, rawSourceId]
-      }))
+      packetHash: 'prompt-hash-runtime',
+      blockCount: DIRECTIVE_STATIC_PROMPT_KEYS.length,
+      directiveOwnedPromptKeyCount: DIRECTIVE_STATIC_PROMPT_KEYS.length
     },
-    responseLedger: [{
-      id: 'response.raw.1',
-      status: 'delegatedContinuityIssue',
-      authority: 'compatibilityProjection',
-      projectionSource: 'coreStoreV2',
-      compatibilityMirror: {
-        kind: 'directive.coreResponseCompatibilityMirror.v1',
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      responseLedger: [{
+        id: 'response.raw.1',
         status: 'delegatedContinuityIssue',
-        transactionId: 'txn.response.raw.1'
-      },
-      hostObservation: {
-        hostMessageId: 'host-message-raw-1',
-        textHash: 'observed-text-hash'
-      },
-      continuityReview: {
-        ok: false,
-        findings: [{
-          factId: rawFactId,
-          summary: hiddenFactText
-        }]
-      }
-    }],
-    recoveryJournal: [{
-      id: 'recovery.raw.1',
-      type: 'hostNativeContinuityContradiction',
-      status: 'open'
-    }]
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreResponseCompatibilityMirror.v1',
+          status: 'delegatedContinuityIssue',
+          transactionId: 'txn.response.raw.1'
+        },
+        hostObservation: {
+          hostMessageId: 'host-message-raw-1',
+          textHash: 'observed-text-hash'
+        },
+        continuityReview: {
+          ok: false,
+          findings: [{
+            factId: rawFactId,
+            summary: hiddenFactText
+          }]
+        }
+      }],
+      recoveryJournal: [{
+        id: 'recovery.raw.1',
+        type: 'hostNativeContinuityContradiction',
+        status: 'open'
+      }]
+    }
   },
   continuity: {
     schemaVersion: 1,
@@ -114,12 +99,21 @@ const campaignState = {
       omitted: []
     },
     lastProjection: {
+      kind: 'directive.continuityProjectionMatrix.v1',
       id: 'projection.raw.1',
       status: 'active',
       sourceHash: 'source-hash',
       hash: 'projection-hash',
       policyHash: 'policy-hash',
       blockCount: 6,
+      audit: {
+        blockCount: 6,
+        factCount: 14,
+        selectedFactCount: 9,
+        conflictCount: 2,
+        omittedFactCount: 3,
+        validatorRejectionCount: 1
+      },
       selectedFactIds: [rawFactId],
       conflictCount: 2,
       rejections: [{ factId: rawFactId }]
@@ -143,6 +137,7 @@ const promptInspection = {
 const diagnostics = buildContinuityProjectionDiagnostics({ campaignState, promptInspection });
 assert.equal(diagnostics.kind, 'directive.continuityProjectionDiagnostics.v1');
 assert.equal(diagnostics.status, 'needs-rebuild');
+assert.equal(campaignState.runtimeTracking.promptContext, undefined);
 assert.equal(diagnostics.staticKeys.missingStaticKeyCount, 1);
 assert.equal(diagnostics.conflictCount, 2);
 assert.equal(diagnostics.rejectedClaimCount, 1);

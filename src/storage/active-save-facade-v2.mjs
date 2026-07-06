@@ -205,6 +205,25 @@ function compactRecoveryEvidence(entry = {}) {
   });
 }
 
+function compactLifecycleEvidence(entry = {}) {
+  return compact({
+    kind: 'directive.coreEvent.v1',
+    schemaVersion: 1,
+    type: 'runtimeLifecycleProjected',
+    lifecycleId: entry.id || entry.lifecycleId || null,
+    lifecycleType: entry.type || entry.lifecycleType || null,
+    status: entry.status || null,
+    authority: entry.authority || null,
+    projectionSource: entry.projectionSource || null,
+    compatibilityMirror: isObject(entry.compatibilityMirror) ? cloneJson(entry.compatibilityMirror) : undefined,
+    coreTransactionId: entry.coreTransactionId || null,
+    coreProjection: isObject(entry.coreProjection) ? cloneJson(entry.coreProjection) : undefined,
+    repairDecision: isObject(entry.repairDecision) ? cloneJson(entry.repairDecision) : undefined,
+    recordedAt: entry.recordedAt || null,
+    details: isObject(entry.details) ? cloneJson(entry.details) : undefined
+  });
+}
+
 function compactOutcomeRerunRepairDecision(value = {}) {
   if (!isObject(value)) return undefined;
   return compact({
@@ -262,6 +281,24 @@ function runtimeRecoveryLedgerFromEvents(entries = []) {
       reasonCode: entry.reasonCode || null,
       ...transactionEvidence(entry),
       ...runtimeBridgeAuthorityFields('recovery', entry)
+    }));
+}
+
+function runtimeLifecycleLedgerFromEvents(entries = []) {
+  return entries
+    .filter((entry) => entry?.type === 'runtimeLifecycleProjected')
+    .map((entry) => compact({
+      id: entry.lifecycleId || null,
+      type: entry.lifecycleType || null,
+      status: entry.status || null,
+      authority: entry.authority || null,
+      projectionSource: entry.projectionSource || null,
+      compatibilityMirror: isObject(entry.compatibilityMirror) ? cloneJson(entry.compatibilityMirror) : undefined,
+      coreTransactionId: entry.coreTransactionId || null,
+      coreProjection: isObject(entry.coreProjection) ? cloneJson(entry.coreProjection) : undefined,
+      repairDecision: isObject(entry.repairDecision) ? cloneJson(entry.repairDecision) : undefined,
+      recordedAt: entry.recordedAt || null,
+      details: isObject(entry.details) ? cloneJson(entry.details) : undefined
     }));
 }
 
@@ -671,9 +708,58 @@ function runtimeCollection(campaignState = {}, key) {
 }
 
 function coreRuntimeProjection(campaignState = {}) {
-  return campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections
-    || campaignState?.runtimeTracking?.directiveRuntimeEvidence?.coreStoreReadProjections
-    || null;
+  return campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections || null;
+}
+
+function coreRevisionNumbers(value = {}) {
+  const source = isObject(value) ? value : {};
+  const hasRuntime = Number.isFinite(Number(source.runtime));
+  const hasMechanics = Number.isFinite(Number(source.mechanics));
+  if (!hasRuntime && !hasMechanics) return null;
+  return {
+    runtime: Math.max(0, Number(source.runtime) || 0),
+    mechanics: Math.max(0, Number(source.mechanics) || 0)
+  };
+}
+
+function runtimeResumeCoreRevisions(resume = {}) {
+  if (!isObject(resume) || resume.revisionAuthority !== 'coreStoreV2') return null;
+  return coreRevisionNumbers(resume.coreRevisions || resume.revisions)
+    || coreRevisionNumbers({
+      runtime: resume.runtimeRevision,
+      mechanics: resume.mechanicsRevision
+    });
+}
+
+function activeRuntimeRevisionState(campaignState = {}) {
+  const projection = coreRuntimeProjection(campaignState);
+  const projectionRevisions = coreRevisionNumbers(projection?.revisions);
+  if (projectionRevisions) {
+    return {
+      ...projectionRevisions,
+      authority: 'coreStoreV2'
+    };
+  }
+  if (projection?.runtimeAuthority === 'coreStoreV2') {
+    return {
+      runtime: 0,
+      mechanics: 0,
+      authority: 'coreStoreV2'
+    };
+  }
+  const resumeRevisions = runtimeResumeCoreRevisions(campaignState?.runtimeResume);
+  if (resumeRevisions) {
+    return {
+      ...resumeRevisions,
+      authority: 'coreStoreV2'
+    };
+  }
+  const runtimeTracking = campaignState.runtimeTracking || {};
+  return {
+    runtime: Math.max(0, Number(runtimeTracking.revision) || 0),
+    mechanics: Math.max(0, Number(runtimeTracking.mechanicsRevision) || 0),
+    authority: 'runtimeTracking'
+  };
 }
 
 function hasAuthoritativeCoreRuntimeProjection(campaignState = {}) {
@@ -683,6 +769,10 @@ function hasAuthoritativeCoreRuntimeProjection(campaignState = {}) {
 
 function projectedCoreArray(campaignState = {}, key) {
   const projection = coreRuntimeProjection(campaignState);
+  if (key === 'responseLedger') {
+    const rows = Array.isArray(projection?.responses) ? projection.responses : projection?.responseLedger;
+    return Array.isArray(rows) ? rows : null;
+  }
   return Array.isArray(projection?.[key]) ? projection[key] : null;
 }
 
@@ -725,6 +815,57 @@ function projectedRecoveryRows(campaignState = {}) {
   return Array.isArray(coreRows) ? coreRows : [];
 }
 
+function projectedLifecycleRows(campaignState = {}) {
+  const coreRows = projectedCoreArray(campaignState, 'lifecycleJournal');
+  return Array.isArray(coreRows) ? cloneJson(coreRows) : [];
+}
+
+function isTerminalDecisionProjectionRow(entry = {}, rowKind = null) {
+  return (
+    isObject(entry)
+    && compactString(entry.authority) === 'terminalDecisionProjection'
+    && compactString(entry.projectionSource) === 'coreStoreV2'
+    && isObject(entry.coreProjection)
+    && compactString(entry.coreProjection.kind) === 'directive.terminalEndConditionLedgerProjectionRef.v1'
+    && (!rowKind || compactString(entry.coreProjection.rowKind) === rowKind)
+  );
+}
+
+function compactTerminalDecisionLedgerProjection(input = {}) {
+  const source = isObject(input) ? input : {};
+  const detections = Array.isArray(source.detections)
+    ? source.detections.filter((entry) => isTerminalDecisionProjectionRow(entry, 'detection')).map(cloneJson)
+    : [];
+  const decisions = Array.isArray(source.decisions)
+    ? source.decisions.filter((entry) => isTerminalDecisionProjectionRow(entry, 'decision')).map(cloneJson)
+    : [];
+  const branchRecords = Array.isArray(source.branchRecords)
+    ? source.branchRecords.filter((entry) => isTerminalDecisionProjectionRow(entry, 'branchRecord')).map(cloneJson)
+    : [];
+  const continuationFrames = Array.isArray(source.continuationFrames)
+    ? source.continuationFrames.filter((entry) => isTerminalDecisionProjectionRow(entry, 'continuationFrame')).map(cloneJson)
+    : [];
+  const activeDecisionId = compactString(source.activeDecisionId);
+  return compact({
+    schemaVersion: 1,
+    activeDecisionId: activeDecisionId && decisions.some((decision) => (
+      compactString(decision.id) === activeDecisionId
+      && compactString(decision.status) === 'pending'
+    ))
+      ? activeDecisionId
+      : null,
+    detections,
+    decisions,
+    branchRecords,
+    continuationFrames
+  });
+}
+
+function projectedTerminalDecisionLedger(campaignState = {}) {
+  const projection = coreRuntimeProjection(campaignState);
+  return compactTerminalDecisionLedgerProjection(projection?.terminalDecisionLedger || {});
+}
+
 function projectedTurnLedger(campaignState = {}) {
   const projection = coreRuntimeProjection(campaignState);
   return isObject(projection?.turnLedger) ? projection.turnLedger : null;
@@ -732,49 +873,23 @@ function projectedTurnLedger(campaignState = {}) {
 
 function projectedOutcomeReplacementRows(campaignState = {}) {
   const coreTurnLedger = projectedTurnLedger(campaignState);
-  const coreRows = Array.isArray(coreTurnLedger?.replacementHistory) ? coreTurnLedger.replacementHistory : null;
-  const legacyRows = Array.isArray(campaignState.turnLedger?.replacementHistory) ? campaignState.turnLedger.replacementHistory : [];
-  return corePreferredRows(coreRows, legacyRows, [
-    'id',
-    'eventId',
-    'transactionId',
-    'coreTransactionId',
-    'replacedTransactionId',
-    'replacementTransactionId',
-    ['replacedOutcomeId', 'replacementOutcomeId'],
-    ['replacedTurnId', 'replacementTurnId']
-  ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
+  const coreRows = Array.isArray(coreTurnLedger?.replacementHistory) ? coreTurnLedger.replacementHistory : [];
+  return cloneJson(coreRows);
 }
 
 function projectedTurnRows(campaignState = {}) {
-  const legacyRows = Array.isArray(campaignState.turnLedger?.entries) ? campaignState.turnLedger.entries : [];
   const coreTurnLedger = projectedTurnLedger(campaignState);
   if (Array.isArray(coreTurnLedger?.entries)) {
-    return corePreferredRows(coreTurnLedger.entries, legacyRows, [
-      'id',
-      'turnId',
-      'transactionId',
-      'coreTransactionId'
-    ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
+    return cloneJson(coreTurnLedger.entries);
   }
   const projection = coreRuntimeProjection(campaignState);
   if (Array.isArray(projection?.turnRecords)) {
-    return corePreferredRows(projection.turnRecords, legacyRows, [
-      'id',
-      'turnId',
-      'transactionId',
-      'coreTransactionId'
-    ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
+    return cloneJson(projection.turnRecords);
   }
   if (Array.isArray(projection?.turns)) {
-    return corePreferredRows(projection.turns, legacyRows, [
-      'id',
-      'turnId',
-      'transactionId',
-      'coreTransactionId'
-    ], { authoritative: hasAuthoritativeCoreRuntimeProjection(campaignState) });
+    return cloneJson(projection.turns);
   }
-  return legacyRows;
+  return [];
 }
 
 function projectedLastCommittedOutcomeId(campaignState = {}) {
@@ -783,8 +898,7 @@ function projectedLastCommittedOutcomeId(campaignState = {}) {
     return coreTurnLedger.lastCommittedOutcomeId || null;
   }
   const turns = projectedTurnRows(campaignState);
-  return campaignState.turnLedger?.lastCommittedOutcomeId
-    || turns.at(-1)?.outcomeId
+  return turns.at(-1)?.outcomeId
     || null;
 }
 
@@ -845,13 +959,17 @@ function runtimeSummary(campaignState = {}) {
 }
 
 function runtimeResumeCursor(campaignState = {}) {
-  const runtimeTracking = campaignState.runtimeTracking || {};
+  const revisionState = activeRuntimeRevisionState(campaignState);
   const projection = coreRuntimeProjection(campaignState);
   const modelCalls = modelCallRows(campaignState);
   return compact({
     kind: 'directive.runtimeResumeCursor.v1',
-    runtimeRevision: runtimeTracking.revision || 0,
-    mechanicsRevision: runtimeTracking.mechanicsRevision || 0,
+    runtimeRevision: revisionState.runtime,
+    mechanicsRevision: revisionState.mechanics,
+    revisionAuthority: revisionState.authority === 'coreStoreV2' ? 'coreStoreV2' : undefined,
+    coreRevisions: revisionState.authority === 'coreStoreV2'
+      ? { runtime: revisionState.runtime, mechanics: revisionState.mechanics }
+      : undefined,
     responseLedgerRevision: Math.max(0, Number(projection?.responseLedgerRevision) || 0),
     promptContextRevision: campaignState.campaignChatBinding?.promptContextRevision || null,
     modelCallCount: modelCalls.length,
@@ -863,10 +981,17 @@ function runtimeResumeCursor(campaignState = {}) {
 function mergeRuntimeResumeCursor(existing = null, refreshed = null) {
   const left = isObject(existing) ? existing : {};
   const right = isObject(refreshed) ? refreshed : {};
+  const coreRevisions = runtimeResumeCoreRevisions(right) || runtimeResumeCoreRevisions(left);
   return compact({
     kind: right.kind || left.kind || 'directive.runtimeResumeCursor.v1',
-    runtimeRevision: Math.max(0, Number(left.runtimeRevision) || 0, Number(right.runtimeRevision) || 0),
-    mechanicsRevision: Math.max(0, Number(left.mechanicsRevision) || 0, Number(right.mechanicsRevision) || 0),
+    runtimeRevision: coreRevisions
+      ? coreRevisions.runtime
+      : Math.max(0, Number(left.runtimeRevision) || 0, Number(right.runtimeRevision) || 0),
+    mechanicsRevision: coreRevisions
+      ? coreRevisions.mechanics
+      : Math.max(0, Number(left.mechanicsRevision) || 0, Number(right.mechanicsRevision) || 0),
+    revisionAuthority: coreRevisions ? 'coreStoreV2' : undefined,
+    coreRevisions: coreRevisions ? cloneJson(coreRevisions) : undefined,
     responseLedgerRevision: Math.max(0, Number(left.responseLedgerRevision) || 0, Number(right.responseLedgerRevision) || 0),
     promptContextRevision: Math.max(0, Number(left.promptContextRevision) || 0, Number(right.promptContextRevision) || 0) || null,
     modelCallCount: Math.max(0, Number(left.modelCallCount) || 0, Number(right.modelCallCount) || 0),
@@ -896,7 +1021,17 @@ function compactAssistedCommandLogSummaryForHead(assistedSummary = null) {
 function compactCommandLogEntryForHead(entry = {}) {
   const visibleConsequences = compactTextList(entry.visibleConsequences || entry.consequences || []);
   const summaryInputs = Array.isArray(entry.summaryInputs) ? entry.summaryInputs : [];
+  const existingSummaryInputCount = Number.isFinite(Number(entry.summaryInputCount))
+    ? Math.max(0, Number(entry.summaryInputCount))
+    : 0;
+  const summaryInputCount = summaryInputs.length || existingSummaryInputCount || undefined;
+  const summaryInputsHash = summaryInputs.length
+    ? hashStableJson(summaryInputs)
+    : compactString(entry.summaryInputsHash) || undefined;
   const assistedSummary = isObject(entry.assistedSummary) ? entry.assistedSummary : null;
+  const compactedAssistedSummary = compactAssistedCommandLogSummaryForHead(assistedSummary);
+  const assistedSummaryRefHash = compactString(entry.assistedSummaryRef?.hash)
+    || (compactedAssistedSummary ? hashStableJson(compactedAssistedSummary) : undefined);
   return compact({
     id: entry.id || null,
     type: compactString(entry.type) || undefined,
@@ -905,11 +1040,11 @@ function compactCommandLogEntryForHead(entry = {}) {
     createdAt: entry.createdAt || entry.timestamp || null,
     summary: compactText(entry.summary || entry.order || entry.action || ''),
     visibleConsequences: visibleConsequences.length ? visibleConsequences : undefined,
-    summaryInputCount: summaryInputs.length || undefined,
-    summaryInputsHash: summaryInputs.length ? hashStableJson(summaryInputs) : undefined,
-    assistedSummary: compactAssistedCommandLogSummaryForHead(assistedSummary),
-    assistedSummaryRef: assistedSummary ? {
-      hash: hashStableJson(assistedSummary),
+    summaryInputCount,
+    summaryInputsHash,
+    assistedSummary: compactedAssistedSummary,
+    assistedSummaryRef: compactedAssistedSummary ? {
+      hash: assistedSummaryRefHash,
       present: true
     } : undefined
   });
@@ -1000,6 +1135,8 @@ function runtimeEvents(campaignState = {}) {
   const ingressRows = projectedIngressRows(campaignState);
   const responseRows = projectedResponseRows(campaignState);
   const recoveryRows = projectedRecoveryRows(campaignState);
+  const lifecycleRows = projectedLifecycleRows(campaignState);
+  const terminalDecisionLedger = projectedTerminalDecisionLedger(campaignState);
   const replacementRows = projectedOutcomeReplacementRows(campaignState);
   return [
     ...ingressRows.map((entry, index) => compact({
@@ -1036,6 +1173,19 @@ function runtimeEvents(campaignState = {}) {
       ...compactRecoveryEvidence(entry),
       id: `runtime-recovery-${index + 1}`
     })),
+    ...lifecycleRows.map((entry, index) => compact({
+      ...compactLifecycleEvidence(entry),
+      id: `runtime-lifecycle-${index + 1}`
+    })),
+    ...(terminalDecisionLedger.detections.length || terminalDecisionLedger.decisions.length || terminalDecisionLedger.branchRecords.length || terminalDecisionLedger.continuationFrames.length
+      ? [compact({
+          kind: 'directive.coreEvent.v1',
+          schemaVersion: 1,
+          id: 'runtime-terminal-decision-ledger',
+          type: 'runtimeTerminalDecisionLedgerProjected',
+          terminalDecisionLedger
+        })]
+      : []),
     ...replacementRows.map((entry, index) => compact({
       kind: 'directive.coreEvent.v1',
       schemaVersion: 1,
@@ -1097,23 +1247,30 @@ function runtimeProjectionsFromEventSegments(eventSegments = []) {
       outcomeIntegrity: compactOutcomeIntegrityEvidence(entry.outcomeIntegrity)
     })));
   const recoveryJournal = runtimeRecoveryLedgerFromEvents(entries);
+  const lifecycleJournal = runtimeLifecycleLedgerFromEvents(entries);
+  const terminalDecisionLedger = [...entries].reverse()
+    .find((entry) => entry?.type === 'runtimeTerminalDecisionLedgerProjected')?.terminalDecisionLedger || null;
   return {
     ingressLedger,
-    responseLedger,
-    recoveryJournal
+    responses: responseLedger,
+    recoveryJournal,
+    lifecycleJournal,
+    terminalDecisionLedger: compactTerminalDecisionLedgerProjection(terminalDecisionLedger || {})
   };
 }
 
 function runtimeTrackingFromEventSegments(eventSegments = [], headState = {}) {
+  const revisionState = activeRuntimeRevisionState(headState);
   const resume = headState?.runtimeResume || {};
   return compact({
     schemaVersion: 2,
-    revision: Math.max(0, Number(resume.runtimeRevision) || 0),
-    mechanicsRevision: Math.max(0, Number(resume.mechanicsRevision) || 0),
+    revision: revisionState.runtime,
+    mechanicsRevision: revisionState.mechanics,
     responseLedgerRevision: Math.max(0, Number(resume.responseLedgerRevision) || 0),
     ingressLedger: [],
     responseLedger: [],
     recoveryJournal: [],
+    lifecycleJournal: [],
     sidecarJournal: [],
     modelCallJournal: [],
     pendingInteractions: []
@@ -1178,7 +1335,8 @@ function coreStoreProjectionRows(rows = []) {
 function coreStoreReadProjectionsFromLoadedArtifacts({
   runtimeProjections = {},
   turnLedger = null,
-  diagnosticsSegments = []
+  diagnosticsSegments = [],
+  runtimeResume = null
 } = {}) {
   const modelCallDiagnostics = modelCallJournalFromDiagnosticsSegments(diagnosticsSegments);
   const sidecarRows = sidecarJournalFromDiagnosticsSegments(diagnosticsSegments);
@@ -1188,9 +1346,12 @@ function coreStoreReadProjectionsFromLoadedArtifacts({
   return compact({
     kind: 'directive.coreStoreReadProjections.v1',
     runtimeAuthority: 'coreStoreV2',
+    revisions: runtimeResumeCoreRevisions(runtimeResume) || undefined,
     ingressLedger: projectionArray(coreStoreProjectionRows(runtimeProjections.ingressLedger)),
-    responseLedger: projectionArray(coreStoreProjectionRows(runtimeProjections.responseLedger)),
+    responses: projectionArray(coreStoreProjectionRows(runtimeProjections.responses || runtimeProjections.responseLedger)),
     recoveryJournal: projectionArray(coreStoreProjectionRows(runtimeProjections.recoveryJournal)),
+    lifecycleJournal: projectionArray(runtimeProjections.lifecycleJournal),
+    terminalDecisionLedger: compactTerminalDecisionLedgerProjection(runtimeProjections.terminalDecisionLedger || {}),
     turnLedger: turnLedger ? cloneJson(turnLedger) : undefined,
     modelCallDiagnostics: projectionArray(modelCallDiagnostics),
     sidecarDiagnostics: projectionArray(sidecarDiagnostics),
@@ -1202,12 +1363,24 @@ function coreStoreReadProjectionsFromLoadedArtifacts({
 function hasCoreStoreReadProjectionEvidence(projection = {}) {
   return [
     projection.ingressLedger,
+    projection.responses,
     projection.responseLedger,
     projection.recoveryJournal,
+    projection.lifecycleJournal,
     projection.sidecarDiagnostics,
     projection.backgroundBatches,
     projection.commandBearingEvidence
   ].some((rows) => Array.isArray(rows) && rows.length)
+    || (isObject(projection.terminalDecisionLedger) && (
+      (Array.isArray(projection.terminalDecisionLedger.detections) && projection.terminalDecisionLedger.detections.length)
+      || (Array.isArray(projection.terminalDecisionLedger.decisions) && projection.terminalDecisionLedger.decisions.length)
+      || (Array.isArray(projection.terminalDecisionLedger.branchRecords) && projection.terminalDecisionLedger.branchRecords.length)
+      || (Array.isArray(projection.terminalDecisionLedger.continuationFrames) && projection.terminalDecisionLedger.continuationFrames.length)
+    ))
+    || Boolean(runtimeResumeCoreRevisions({
+      revisionAuthority: projection.runtimeAuthority === 'coreStoreV2' ? 'coreStoreV2' : null,
+      coreRevisions: projection.revisions
+    }))
     || (isObject(projection.turnLedger) && Array.isArray(projection.turnLedger.entries) && projection.turnLedger.entries.length)
     || (isObject(projection.turnLedger) && Array.isArray(projection.turnLedger.replacementHistory) && projection.turnLedger.replacementHistory.length);
 }
@@ -1453,7 +1626,8 @@ export async function loadActiveCampaignStateV2(adapter, {
       const coreStoreReadProjections = coreStoreReadProjectionsFromLoadedArtifacts({
         runtimeProjections,
         turnLedger,
-        diagnosticsSegments
+        diagnosticsSegments,
+        runtimeResume: campaignState.runtimeResume
       });
       if (hasCoreStoreReadProjectionEvidence(coreStoreReadProjections)) {
         campaignState.directiveRuntimeEvidence = compact({
@@ -1489,7 +1663,7 @@ export async function loadActiveCampaignStateV2(adapter, {
       found: false,
       campaignId,
       saveId,
-      campaignState: cloneJson(fallbackCampaignState),
+      campaignState: null,
       error: {
         message: error?.message || String(error),
         code: error?.code || null

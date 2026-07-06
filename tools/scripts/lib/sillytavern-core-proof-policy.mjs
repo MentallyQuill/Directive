@@ -269,7 +269,9 @@ export function hostNativeCompletionProofFromCoreProjections({
   const timingByTransaction = new Map((projections.turnTiming || [])
     .filter((entry) => entry?.transactionId)
     .map((entry) => [entry.transactionId, entry]));
-  const responseRows = Array.isArray(projections.responseLedger) ? projections.responseLedger : [];
+  const responseRows = Array.isArray(projections.responses)
+    ? projections.responses
+    : (Array.isArray(projections.responseLedger) ? projections.responseLedger : []);
   const candidates = responseRows.filter((entry) => (
     entry?.transactionId
     && entry.responseKind === 'hostContinue'

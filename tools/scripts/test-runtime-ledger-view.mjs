@@ -99,18 +99,33 @@ const nestedProjectionState = {
 const nestedProjectionView = createRuntimeLedgerView(nestedProjectionState);
 assert.deepEqual(
   nestedProjectionView.ingressLedger.map((entry) => entry.id),
-  ['nested-core-ingress'],
-  'Runtime ledger view must accept nested runtimeTracking directiveRuntimeEvidence projections for ingress demotion.'
+  [],
+  'Runtime ledger view must reject nested runtimeTracking directiveRuntimeEvidence as CORE ingress authority.'
 );
 assert.deepEqual(
   nestedProjectionView.responseLedger.map((entry) => entry.id),
-  ['nested-core-response'],
-  'Runtime ledger view must accept nested runtimeTracking directiveRuntimeEvidence projections for response demotion.'
+  [],
+  'Runtime ledger view must reject nested runtimeTracking directiveRuntimeEvidence as CORE response authority.'
 );
 assert.deepEqual(
   nestedProjectionView.recoveryJournal.map((entry) => entry.id),
-  ['nested-core-recovery'],
-  'Runtime ledger view must accept nested runtimeTracking directiveRuntimeEvidence projections for recovery demotion.'
+  [],
+  'Runtime ledger view must reject nested runtimeTracking directiveRuntimeEvidence as CORE recovery authority.'
+);
+assert.equal(
+  findLedgerIngress(nestedProjectionState, { hostMessageId: 'nested-player' }),
+  null,
+  'Nested runtimeTracking directiveRuntimeEvidence must not drive ingress lookup.'
+);
+assert.equal(
+  findLedgerResponse(nestedProjectionState, { hostMessageId: 'nested-assistant' }),
+  null,
+  'Nested runtimeTracking directiveRuntimeEvidence must not drive response lookup.'
+);
+assert.equal(
+  findLedgerRecovery(nestedProjectionState, { transactionId: 'txn-nested' }),
+  null,
+  'Nested runtimeTracking directiveRuntimeEvidence must not drive recovery lookup.'
 );
 
 const duplicateHostState = {
@@ -156,32 +171,79 @@ const duplicateHostState = {
 assert.equal(
   findLedgerIngress(duplicateHostState, { hostMessageId: '12' }),
   null,
-  'Default ingress lookup must not surface legacy compatibility rows without explicit fallback.'
+  'Default ingress lookup must not surface legacy compatibility rows.'
 );
 assert.equal(
   findLedgerResponse(duplicateHostState, { hostMessageId: '13' }),
   null,
-  'Default response lookup must not surface legacy compatibility rows without explicit fallback.'
+  'Default response lookup must not surface legacy compatibility rows.'
 );
 assert.equal(
-  findLedgerIngress(duplicateHostState, { hostMessageId: '12' }, { legacyFallback: true }).id,
-  'ingress-host-12-latest',
-  'Explicit legacy fallback must prefer newest matching ingress host id for migration diagnostics.'
+  await findLedgerIngressAsync(duplicateHostState, { hostMessageId: '12' }),
+  null,
+  'Async ingress lookup must not revive old ingress runtime rows.'
 );
 assert.equal(
-  findLedgerResponse(duplicateHostState, { hostMessageId: '13' }, { legacyFallback: true }).id,
-  'response-host-13-latest',
-  'Positional host message ids can be reused after SillyTavern deletes/reindexes rows; response lookup must prefer newest matching host id.'
+  await findLedgerResponseAsync(duplicateHostState, { hostMessageId: '13' }),
+  null,
+  'Async response lookup must not revive old response runtime rows.'
+);
+
+const duplicateCoreHostState = {
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [
+        { id: 'core-ingress-reused-old', hostMessageId: '5', transactionId: 'txn-core-ingress-old', sourceFrameId: 'frame-old' },
+        { id: 'core-ingress-reused-new', hostMessageId: '5', transactionId: 'txn-core-ingress-new', sourceFrameId: 'frame-new' }
+      ],
+      responses: [
+        { id: 'core-response-reused-old', hostMessageId: '6', transactionId: 'txn-core-response-old', responseKind: 'committedOutcome' },
+        { id: 'core-response-reused-new', hostMessageId: '6', transactionId: 'txn-core-response-new', responseKind: 'committedOutcome' }
+      ]
+    }
+  }
+};
+assert.equal(
+  findLedgerIngress(duplicateCoreHostState, { hostMessageId: '5' }),
+  null,
+  'CORE ingress lookup must fail closed when hostMessageId is reused.'
 );
 assert.equal(
-  (await findLedgerIngressAsync(duplicateHostState, { hostMessageId: '12' }, { legacyFallback: true })).id,
-  'ingress-host-12-latest',
-  'Async ingress lookup must prefer newest duplicate host id.'
+  findLedgerResponse(duplicateCoreHostState, { hostMessageId: '6' }),
+  null,
+  'CORE response lookup must fail closed when hostMessageId is reused.'
 );
 assert.equal(
-  (await findLedgerResponseAsync(duplicateHostState, { hostMessageId: '13' }, { legacyFallback: true })).id,
-  'response-host-13-latest',
-  'Async response lookup must prefer newest duplicate host id.'
+  await findLedgerIngressAsync(duplicateCoreHostState, { hostMessageId: '5' }),
+  null,
+  'Async CORE ingress lookup must fail closed when hostMessageId is reused.'
+);
+assert.equal(
+  await findLedgerResponseAsync(duplicateCoreHostState, { hostMessageId: '6' }),
+  null,
+  'Async CORE response lookup must fail closed when hostMessageId is reused.'
+);
+assert.equal(
+  findLedgerIngress(duplicateCoreHostState, { id: 'core-ingress-reused-old' })?.transactionId,
+  'txn-core-ingress-old',
+  'Stable CORE ingress id lookup must still work when hostMessageId is reused.'
+);
+assert.equal(
+  findLedgerIngress(duplicateCoreHostState, { transactionId: 'txn-core-ingress-new' })?.id,
+  'core-ingress-reused-new',
+  'Stable CORE ingress transaction lookup must still work when hostMessageId is reused.'
+);
+assert.equal(
+  findLedgerResponse(duplicateCoreHostState, { id: 'core-response-reused-old' })?.transactionId,
+  'txn-core-response-old',
+  'Stable CORE response id lookup must still work when hostMessageId is reused.'
+);
+assert.equal(
+  findLedgerResponse(duplicateCoreHostState, { transactionId: 'txn-core-response-new' })?.id,
+  'core-response-reused-new',
+  'Stable CORE response transaction lookup must still work when hostMessageId is reused.'
 );
 
 const legacyOnlyRecoveryState = {
@@ -271,17 +333,17 @@ assert.equal(
   'Default response host-id lookup must select CORE projection, not current legacy mirror.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(duplicateHostCoreMergeState, { legacyFallback: true }).ingressLedger.map((entry) => entry.id),
-  ['ingress-host-21-stale-core', 'ingress-host-21-current'],
-  'Explicit legacy fallback keeps diagnostic visibility into distinct ingress transactions with reused host ids.'
+  createRuntimeLedgerView(duplicateHostCoreMergeState).ingressLedger.map((entry) => entry.id),
+  ['ingress-host-21-stale-core'],
+  'CORE ingress projections must remain the only runtime ledger authority.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(duplicateHostCoreMergeState, { legacyFallback: true }).responseLedger.map((entry) => entry.id),
-  ['response-host-22-stale-core', 'response-host-22-current'],
-  'Explicit legacy fallback keeps diagnostic visibility into distinct response transactions with reused host ids.'
+  createRuntimeLedgerView(duplicateHostCoreMergeState).responseLedger.map((entry) => entry.id),
+  ['response-host-22-stale-core'],
+  'CORE response projections must remain the only runtime ledger authority.'
 );
 
-const authoritativeOverlayState = {
+const authoritativeCoreOnlyState = {
   runtimeTracking: {
     ingressLedger: [{
       id: 'hot-ingress-overlay',
@@ -317,24 +379,24 @@ const authoritativeOverlayState = {
   }
 };
 assert.deepEqual(
-  createRuntimeLedgerView(authoritativeOverlayState).ingressLedger.map((entry) => entry.id),
+  createRuntimeLedgerView(authoritativeCoreOnlyState).ingressLedger.map((entry) => entry.id),
   ['authoritative-core-ingress'],
   'Authoritative CORE runtime view remains strict by default.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(authoritativeOverlayState, { runtimeOverlay: true }).ingressLedger.map((entry) => entry.id),
-  ['authoritative-core-ingress', 'hot-ingress-overlay'],
-  'Explicit runtime overlay lets hot CORE-tagged ingress rows surface before read projections refresh.'
+  createRuntimeLedgerView(authoritativeCoreOnlyState).ingressLedger.map((entry) => entry.id),
+  ['authoritative-core-ingress'],
+  'CORE ingress rows remain authority even when old hot rows are present.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(authoritativeOverlayState, { runtimeOverlay: true }).responseLedger.map((entry) => entry.id),
-  ['authoritative-core-response', 'hot-response-overlay'],
-  'Explicit runtime overlay lets hot CORE-tagged response rows surface before read projections refresh.'
+  createRuntimeLedgerView(authoritativeCoreOnlyState).responseLedger.map((entry) => entry.id),
+  ['authoritative-core-response'],
+  'CORE response rows remain authority even when old hot rows are present.'
 );
 assert.equal(
-  createRuntimeLedgerView(authoritativeOverlayState, { runtimeOverlay: true }).ingressLedger.some((entry) => entry.id === 'missing-core-overlay'),
+  createRuntimeLedgerView(authoritativeCoreOnlyState).ingressLedger.some((entry) => entry.id === 'missing-core-overlay'),
   false,
-  'Runtime overlay must not surface missing-CORE compatibility rows.'
+  'Runtime ledger view must not surface missing-CORE compatibility rows.'
 );
 
 const incompleteTupleMergeState = {
@@ -377,9 +439,9 @@ assert.equal(
   'Incomplete tuple matches must not leak unrelated legacy ingress/recovery context onto a CORE response projection.'
 );
 assert.deepEqual(
-  createRuntimeLedgerView(incompleteTupleMergeState, { legacyFallback: true }).responseLedger.map((entry) => entry.id),
-  ['response-core-host-generation', 'response-unrelated-host-generation'],
-  'Explicit legacy fallback still proves tuple matching does not collapse unrelated legacy response rows.'
+  createRuntimeLedgerView(incompleteTupleMergeState).responseLedger.map((entry) => entry.id),
+  ['response-core-host-generation'],
+  'Runtime ledger view must not add unrelated old response rows.'
 );
 
 const authoritative = structuredClone(state);
@@ -417,6 +479,98 @@ const coreStoreView = createRuntimeLedgerView({
 });
 assert.equal(coreStoreView.responseLedger[0].id, 'response-core-store');
 
+const staleStateProjectionWithLiveStore = {
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      ingressLedger: [{ id: 'state-stale-ingress', hostMessageId: 'state-player', transactionId: 'txn-state-ingress' }],
+      responseLedger: [{ id: 'state-stale-response', hostMessageId: 'state-assistant', transactionId: 'txn-state-response' }],
+      recoveryJournal: [{ id: 'state-stale-recovery', transactionId: 'txn-state-recovery' }]
+    }
+  }
+};
+
+const emptyLiveCoreStoreView = createRuntimeLedgerView(staleStateProjectionWithLiveStore, {
+  coreTurnStore: {
+    readProjections() {
+      return {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        ingressLedger: [],
+        responses: [],
+        recoveryJournal: []
+      };
+    }
+  }
+});
+assert.deepEqual(
+  emptyLiveCoreStoreView.ingressLedger,
+  [],
+  'Live CORE store reads must not fall back to stale state-carried ingress projections.'
+);
+assert.deepEqual(
+  emptyLiveCoreStoreView.responseLedger,
+  [],
+  'Live CORE store reads must not fall back to stale state-carried response projections.'
+);
+assert.deepEqual(
+  emptyLiveCoreStoreView.recoveryJournal,
+  [],
+  'Live CORE store reads must not fall back to stale state-carried recovery projections.'
+);
+assert.equal(
+  emptyLiveCoreStoreView.authoritative,
+  true,
+  'An empty live CORE store authority marker remains authoritative without borrowing state rows.'
+);
+
+const liveCoreStoreView = createRuntimeLedgerView(staleStateProjectionWithLiveStore, {
+  coreTurnStore: {
+    readProjections() {
+      return {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        ingressLedger: [{ id: 'live-store-ingress', hostMessageId: 'live-player', transactionId: 'txn-live-ingress' }],
+        responses: [{ id: 'live-store-response', hostMessageId: 'live-assistant', transactionId: 'txn-live-response' }],
+        recoveryJournal: [{ id: 'live-store-recovery', transactionId: 'txn-live-recovery' }]
+      };
+    }
+  }
+});
+assert.deepEqual(
+  liveCoreStoreView.ingressLedger.map((entry) => entry.id),
+  ['live-store-ingress'],
+  'Live CORE ingress projections must not be augmented by stale state-carried rows.'
+);
+assert.deepEqual(
+  liveCoreStoreView.responseLedger.map((entry) => entry.id),
+  ['live-store-response'],
+  'Live CORE response projections must not be augmented by stale state-carried rows.'
+);
+assert.deepEqual(
+  liveCoreStoreView.recoveryJournal.map((entry) => entry.id),
+  ['live-store-recovery'],
+  'Live CORE recovery projections must not be augmented by stale state-carried rows.'
+);
+
+const syncViewAgainstAsyncStore = createRuntimeLedgerView(staleStateProjectionWithLiveStore, {
+  coreTurnStore: {
+    async readProjections() {
+      return {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        ingressLedger: [{ id: 'async-store-ingress', hostMessageId: 'async-player', transactionId: 'txn-async-ingress' }]
+      };
+    }
+  }
+});
+assert.deepEqual(
+  syncViewAgainstAsyncStore.ingressLedger,
+  [],
+  'Sync runtime ledger view must fail closed instead of using stale state projections when the live CORE store is async.'
+);
+
 const asyncCoreStoreView = await createRuntimeLedgerViewAsync({
   runtimeTracking: {
     responseLedger: [{ id: 'response-old-async-store', status: 'stale-old' }],
@@ -437,6 +591,35 @@ assert.deepEqual(
   asyncCoreStoreView.recoveryJournal.map((entry) => entry.id),
   ['recovery-core-async-store'],
   'Async CORE projection reads must not fall back to stale old recovery rows.'
+);
+
+const asyncLiveCoreStoreView = await createRuntimeLedgerViewAsync(staleStateProjectionWithLiveStore, {
+  coreTurnStore: {
+    async readProjections() {
+      return {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        ingressLedger: [{ id: 'async-live-store-ingress', hostMessageId: 'async-live-player', transactionId: 'txn-async-live-ingress' }],
+        responses: [{ id: 'async-live-store-response', hostMessageId: 'async-live-assistant', transactionId: 'txn-async-live-response' }],
+        recoveryJournal: [{ id: 'async-live-store-recovery', transactionId: 'txn-async-live-recovery' }]
+      };
+    }
+  }
+});
+assert.deepEqual(
+  asyncLiveCoreStoreView.ingressLedger.map((entry) => entry.id),
+  ['async-live-store-ingress'],
+  'Async live CORE ingress reads must not merge stale state projections.'
+);
+assert.deepEqual(
+  asyncLiveCoreStoreView.responseLedger.map((entry) => entry.id),
+  ['async-live-store-response'],
+  'Async live CORE response reads must not merge stale state projections.'
+);
+assert.deepEqual(
+  asyncLiveCoreStoreView.recoveryJournal.map((entry) => entry.id),
+  ['async-live-store-recovery'],
+  'Async live CORE recovery reads must not merge stale state projections.'
 );
 
 console.log('Runtime ledger view tests passed.');

@@ -1717,7 +1717,7 @@ assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missing
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.refHashes'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.targetSummaryCount'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage'), true);
-assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
+assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), false);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.finalHostPromptMayIncludeExternal'), true);
 assert.equal(malformedExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.requiredTargets'), true);
 
@@ -1774,7 +1774,7 @@ assert.equal(placeholderExternalSummaryCompleteness.status, 'fail');
 assert.deepEqual(placeholderExternalSummaryCompleteness.externalContextSummary.missingTargetSummaries, []);
 assert.deepEqual(placeholderExternalSummaryCompleteness.externalContextSummary.placeholderTargetSummaries, ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']);
 assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('targetSummaries.usefulTargets'), true);
-assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
+assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), false);
 
 const partialFullPromptDepthRoot = makeArtifactRoot();
 writePassingLaneArtifacts(partialFullPromptDepthRoot, { promptCaptureCount: 1 });

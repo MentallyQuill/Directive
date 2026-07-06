@@ -8,6 +8,14 @@ import {
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const now = () => '2026-07-03T01:30:00.000Z';
+const projectionLedger = (name) => (
+  (name === 'responseLedger' ? state.directiveRuntimeEvidence?.coreStoreReadProjections?.responses : undefined)
+  || state.directiveRuntimeEvidence?.coreStoreReadProjections?.[name]
+  || state.runtimeTracking?.[name]
+  || []
+);
+const responseEntry = (id) => projectionLedger('responseLedger').find((entry) => entry.id === id);
+const ingressEntry = (id) => projectionLedger('ingressLedger').find((entry) => entry.id === id);
 
 let state = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-source-mutation' },
@@ -34,6 +42,16 @@ state = recordDirectiveResponse(state, {
 const recordedRecoveries = [];
 const persisted = [];
 const coreTurnStore = {
+  async readProjections() {
+    if (state.directiveRuntimeEvidence?.coreStoreReadProjections) {
+      return cloneJson(state.directiveRuntimeEvidence.coreStoreReadProjections);
+    }
+    return cloneJson({
+      ingressLedger: state.runtimeTracking?.ingressLedger || [],
+      responseLedger: state.runtimeTracking?.responseLedger || [],
+      recoveryJournal: state.runtimeTracking?.recoveryJournal || []
+    });
+  },
   async markRecoveryRequired(transactionId, payload) {
     recordedRecoveries.push({ transactionId, payload: cloneJson(payload) });
     return {
@@ -70,7 +88,7 @@ assert.equal(recordedRecoveries[0].transactionId, 'txn-response-core-release-onl
 assert.equal(recordedRecoveries[0].payload.reason, 'directiveResponseEdited');
 assert.equal(recordedRecoveries[0].payload.repairDecision.sourceKind, 'directiveResponse');
 
-const response = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-release-only');
+const response = responseEntry('response-core-release-only');
 assert.equal(response.status, 'invalidated');
 assert.equal(response.invalidatedAt, now());
 assert.equal(response.invalidationType, 'directiveResponseEdited');
@@ -137,6 +155,46 @@ state = initializeCampaignRuntimeTracking({
         }
       }
     ]
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      ingressLedger: [
+        {
+          id: 'ingress-shifted-7',
+          hostMessageId: '7',
+          status: 'complete',
+          coreTransactionId: 'txn-shifted-ingress-7',
+          sourceFrameId: 'frame-shifted-ingress-7',
+          textHash: 'shifted',
+          authority: 'coreIngressProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: {
+            kind: 'directive.coreIngressCompatibilityMirror.v1',
+            status: 'sourceObserved',
+            transactionId: 'txn-shifted-ingress-7',
+            ingressId: 'ingress-shifted-7'
+          }
+        }
+      ],
+      responseLedger: [
+        {
+          id: 'response-stable-7',
+          hostMessageId: '7',
+          status: 'posted',
+          responseKind: 'hostContinue',
+          coreTransactionId: 'txn-stable-response-7',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: {
+            kind: 'directive.coreResponseCompatibilityMirror.v1',
+            status: 'coreResponseProjection',
+            transactionId: 'txn-stable-response-7',
+            responseId: 'response-stable-7'
+          }
+        }
+      ],
+      recoveryJournal: []
+    }
   }
 });
 recordedRecoveries.length = 0;
@@ -150,10 +208,10 @@ assert.equal(stableDelete.matched, true);
 assert.equal(recordedRecoveries[0].transactionId, 'txn-stable-response-7');
 assert.equal(recordedRecoveries[0].payload.reason, 'directiveResponseDeleted');
 assert.equal(recordedRecoveries[0].payload.repairDecision.sourceKind, 'directiveResponse');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-stable-7').status, 'invalidated');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-stable-7').authority, 'compatibilityProjection');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-stable-7').coreProjection.transactionId, 'txn-stable-response-7');
-assert.equal(state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-shifted-7').status, 'complete');
+assert.equal(responseEntry('response-stable-7').status, 'invalidated');
+assert.equal(responseEntry('response-stable-7').authority, 'compatibilityProjection');
+assert.equal(responseEntry('response-stable-7').coreProjection.transactionId, 'txn-stable-response-7');
+assert.equal(ingressEntry('ingress-shifted-7').status, 'complete');
 
 state = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-source-mutation' },
@@ -171,19 +229,6 @@ state = initializeCampaignRuntimeTracking({
         status: 'posted',
         responseKind: 'hostContinue',
         coreTransactionId: 'txn-stale-response-5'
-      },
-      {
-        id: 'response-host-5-current',
-        hostMessageId: '5',
-        status: 'posted',
-        responseKind: 'hostContinue',
-        coreTransactionId: 'txn-current-response-5',
-        authority: 'compatibilityProjection',
-        projectionSource: 'coreStoreV2',
-        compatibilityMirror: {
-          kind: 'directive.coreResponseCompatibilityMirror.v1',
-          status: 'coreResponseProjection'
-        }
       }
     ]
   },
@@ -191,10 +236,19 @@ state = initializeCampaignRuntimeTracking({
     coreStoreReadProjections: {
       responseLedger: [
         {
-          id: 'response-host-5-stale-core',
+          id: 'response-host-5-current',
           hostMessageId: '5',
-          transactionId: 'txn-stale-response-5',
-          status: 'posted'
+          status: 'posted',
+          responseKind: 'hostContinue',
+          coreTransactionId: 'txn-current-response-5',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: {
+            kind: 'directive.coreResponseCompatibilityMirror.v1',
+            status: 'coreResponseProjection',
+            transactionId: 'txn-current-response-5',
+            responseId: 'response-host-5-current'
+          }
         }
       ],
       recoveryJournal: []
@@ -210,10 +264,14 @@ assert.equal(hostOnlyDelete.ok, true);
 assert.equal(hostOnlyDelete.matched, true);
 assert.equal(recordedRecoveries[0].transactionId, 'txn-current-response-5');
 assert.equal(recordedRecoveries[0].payload.reason, 'directiveResponseDeleted');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-host-5-current').status, 'invalidated');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-host-5-current').authority, 'compatibilityProjection');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-host-5-current').coreProjection.transactionId, 'txn-current-response-5');
-assert.equal(state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-host-5-stale').status, 'posted');
+assert.equal(responseEntry('response-host-5-current').status, 'invalidated');
+assert.equal(responseEntry('response-host-5-current').authority, 'compatibilityProjection');
+assert.equal(responseEntry('response-host-5-current').coreProjection.transactionId, 'txn-current-response-5');
+assert.notEqual(
+  state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-host-5-stale')?.status,
+  'invalidated',
+  'Old runtimeTracking rows must not be selected or invalidated when CORE projection authority exists.'
+);
 
 state = initializeCampaignRuntimeTracking({
   campaign: { id: 'campaign-source-mutation' },
@@ -258,10 +316,63 @@ assert.equal(silentOldDelete.ok, true);
 assert.equal(silentOldDelete.matched, false);
 assert.equal(silentOldDelete.action, 'ignored');
 assert.equal(recordedRecoveries.length, 0);
-assert.equal(
-  state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-silent-8').status,
-  'posted',
+assert.notEqual(
+  responseEntry('response-silent-8')?.status,
+  'invalidated',
   'Silent old response rows must not bypass runtime-ledger-view CORE projection demotion.'
+);
+
+state = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-source-mutation' },
+  campaignChatBinding: {
+    hostId: 'fake',
+    chatId: 'chat-source-mutation',
+    campaignId: 'campaign-source-mutation',
+    saveId: 'save-source-mutation'
+  },
+  runtimeTracking: {
+    ingressLedger: [
+      {
+        id: 'ingress-stale-only-12',
+        hostMessageId: '12',
+        status: 'committed',
+        coreTransactionId: 'txn-stale-only-12',
+        sourceFrameId: 'frame-stale-only-12',
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreIngressCompatibilityMirror.v1',
+          status: 'sourceObserved',
+          transactionId: 'txn-stale-only-12',
+          ingressId: 'ingress-stale-only-12'
+        }
+      }
+    ],
+    responseLedger: [],
+    recoveryJournal: []
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      ingressLedger: [],
+      responseLedger: [],
+      recoveryJournal: []
+    }
+  }
+});
+recordedRecoveries.length = 0;
+
+const staleOnlyEdit = await reconciler.reconcileEdited({
+  hostMessageId: '12',
+  replacementText: 'This should not attach to an old projected row.'
+});
+assert.equal(staleOnlyEdit.ok, true);
+assert.equal(staleOnlyEdit.matched, false);
+assert.equal(staleOnlyEdit.action, 'ignored');
+assert.equal(recordedRecoveries.length, 0);
+assert.notEqual(
+  ingressEntry('ingress-stale-only-12')?.status,
+  'invalidated',
+  'Stale-only old ingress rows must not become source-mutation authority when CORE projections are empty.'
 );
 
 console.log('Message reconciler source mutation tests passed.');

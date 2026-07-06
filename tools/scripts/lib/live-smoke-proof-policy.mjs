@@ -38,7 +38,13 @@ export function liveSmokeStrictProofFailures({
     ));
   }
   const completionStatus = proofStatus(hostNativeCompletionStatus || hostNativeCompletionProof?.status);
-  if (completionStatus !== 'pass') {
+  const requiredCompletionCount = Number(hostNativeCompletionProof?.requiredCompletionCount || 0);
+  const requiredCompletionFailureCount = Number(hostNativeCompletionProof?.requiredCompletionFailureCount || 0);
+  const requiredCompletionPassCount = Number(hostNativeCompletionProof?.requiredCompletionPassCount || 0);
+  const requiredCompletionInScope = requiredCompletionCount > 0;
+  const missingRequiredCompletion = requiredCompletionInScope
+    && (requiredCompletionFailureCount > 0 || requiredCompletionPassCount < requiredCompletionCount);
+  if (missingRequiredCompletion || (completionStatus === 'fail' && requiredCompletionInScope)) {
     failures.push(proofFailure(
       'host-native-completion-proof',
       'Host-native completion proof',

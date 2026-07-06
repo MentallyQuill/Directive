@@ -397,7 +397,7 @@ async function liveSnapshot(page) {
     const view = app?.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
     const state = view?.campaignState || {};
     const tracking = state.runtimeTracking || {};
-    const ledger = tracking.endConditionLedger || {};
+    const ledger = state.directiveRuntimeEvidence?.coreStoreReadProjections?.terminalDecisionLedger || {};
     const pendingInteractions = (view?.chatNative?.pendingInteractions || tracking.pendingInteractions || [])
       .filter((entry) => entry?.status !== 'resolved');
     const activeTerminalInteraction = pendingInteractions.find((entry) => entry?.kind === 'terminalOutcomeDecision') || null;
@@ -597,7 +597,7 @@ async function triggerDirectiveObserverForLatestPlayerMessage(page, text) {
     const pendingSummary = (view) => {
       const state = view?.campaignState || {};
       const tracking = state.runtimeTracking || {};
-      const ledger = tracking.endConditionLedger || {};
+      const ledger = state.directiveRuntimeEvidence?.coreStoreReadProjections?.terminalDecisionLedger || {};
       return {
         campaignId: state.campaign?.id || null,
         campaignStatus: state.campaign?.status || null,

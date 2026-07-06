@@ -21,8 +21,15 @@ import {
 
 const ROLE = 'system';
 
+function coreRuntimeRevision(campaignState) {
+  const projection = campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections;
+  if (projection?.runtimeAuthority !== 'coreStoreV2') return null;
+  const revision = Number(projection?.revisions?.runtime);
+  return Number.isFinite(revision) ? revision : 0;
+}
+
 function revisionOf(campaignState) {
-  return Number(campaignState?.runtimeTracking?.revision ?? campaignState?.turnLedger?.entries?.length ?? 0) || 0;
+  return Number(coreRuntimeRevision(campaignState) ?? campaignState?.runtimeTracking?.revision ?? campaignState?.turnLedger?.entries?.length ?? 0) || 0;
 }
 
 function estimateTokens(text) {

@@ -11,6 +11,7 @@ import {
   loadCampaignSaveRecordFromStorage,
   storeCampaignSave
 } from '../../src/storage/directive-storage-repository.mjs';
+import { persistActiveCampaignStateV2 } from '../../src/storage/active-save-facade-v2.mjs';
 import { createAutosaveCampaignSaveRecord } from '../../src/storage/save-records.mjs';
 
 const root = process.cwd();
@@ -228,6 +229,42 @@ const missionGraphs = [
     'coreStoreV2',
     'Silent old ledger rows must not prevent CORE read projections from being marked authoritative.'
   );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            runtimeAuthority: 'coreStoreV2',
+            turnLedger: {
+              runtimeAuthority: 'coreStoreV2',
+              entries: []
+            },
+            ingressLedger: [],
+            responses: [],
+            recoveryJournal: []
+          }
+        },
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          revision: 1,
+          mechanicsRevision: 1
+        }
+      },
+      {
+        ...staleScopedState,
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          revision: 999,
+          mechanicsRevision: 999
+        }
+      },
+      { chatId: 'scope-freshness-chat' }
+    ),
+    false,
+    'Old runtimeTracking revision/mechanics counters must not outrank a same-chat CORE/v2 authoritative state.'
+  );
   const missingMirrorAuthorityEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence({
     ingressLedger: [{
       id: 'core-ingress-authority',
@@ -279,8 +316,8 @@ const missionGraphs = [
   });
   assert.equal(
     unmatchedCompatibilityAuthorityEvidence.runtimeAuthority,
-    undefined,
-    'Unmatched real compatibility projection rows must still block authoritative CORE markers until covered.'
+    'coreStoreV2',
+    'Unmatched old compatibility projection rows must not block authoritative CORE markers.'
   );
   const mergeCandidateEmpty = {
     runtimeTracking: {
@@ -297,12 +334,19 @@ const missionGraphs = [
   );
   assert.equal(
     __directiveRuntimeAppTestHooks.stateFreshnessCounters({
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          pendingInteractions: [{
+            id: 'risk-pending-freshness',
+            kind: 'riskConfirmationNeeded',
+            status: 'pending',
+            authority: 'corePendingInteractionProjection',
+            compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'corePendingInteractionProjection' }
+          }]
+        }
+      },
       runtimeTracking: {
         pendingInteractions: [{
-          id: 'silent-pending-freshness',
-          kind: 'terminalOutcomeDecision',
-          status: 'pending'
-        }, {
           id: 'terminal-pending-freshness',
           kind: 'terminalOutcomeDecision',
           status: 'pending',
@@ -312,7 +356,7 @@ const missionGraphs = [
       }
     }).pendingInteractions,
     1,
-    'Runtime freshness counters must count only owner-tagged pending interaction projections.'
+    'Runtime freshness counters must count only CORE pending interaction projections.'
   );
   assert.equal(
     __directiveRuntimeAppTestHooks.stateFreshnessCounters({
@@ -438,7 +482,7 @@ const missionGraphs = [
   );
   assert.equal(coreProjectionMergeResult.runtimeTracking.responseLedger.length, 0);
   assert.equal(coreProjectionMergeResult.runtimeTracking.responseLedgerRevision, 0);
-  const mergedCoreProjectionRows = coreProjectionMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger;
+  const mergedCoreProjectionRows = coreProjectionMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responses;
   assert.equal(
     coreProjectionMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responseLedgerRevision,
     9,
@@ -450,6 +494,49 @@ const missionGraphs = [
   assert.equal(mergedCoreProjectionRows[0].projectionSource, 'coreStoreV2');
   assert.equal(mergedCoreProjectionRows[0].compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
   assert.equal(mergedCoreProjectionRows[0].coreProjection.transactionId, 'txn-core-memory-response');
+  const authorityEvidence = __directiveRuntimeAppTestHooks.coreProjectionFreshnessEvidence(
+    {
+      turnLedger: { entries: [] },
+      ingressLedger: [{
+        id: 'core-ingress-authority',
+        ingressId: 'core-ingress-authority',
+        hostMessageId: '1',
+        transactionId: 'txn-core-authority'
+      }],
+      responseLedger: [{
+        id: 'core-response-authority',
+        responseId: 'core-response-authority',
+        hostMessageId: '2',
+        transactionId: 'txn-core-authority',
+        responseKind: 'hostContinue'
+      }]
+    },
+    {
+      runtimeTracking: {
+        ingressLedger: [{
+          id: 'stale-tagged-ingress',
+          hostMessageId: 'old-1',
+          transactionId: 'txn-old-ingress',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: { kind: 'directive.coreIngressCompatibilityMirror.v1' }
+        }],
+        responseLedger: [{
+          id: 'stale-tagged-response',
+          hostMessageId: 'old-2',
+          transactionId: 'txn-old-response',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1' }
+        }]
+      }
+    }
+  );
+  assert.equal(
+    authorityEvidence.runtimeAuthority,
+    'coreStoreV2',
+    'CORE projections must remain runtime authority even when unmatched old compatibility rows exist.'
+  );
   const hostIdOnlyMergeResult = __directiveRuntimeAppTestHooks.mergeFresherResponseLedgerProjection(
     {
       directiveRuntimeEvidence: {
@@ -491,7 +578,7 @@ const missionGraphs = [
     }
   );
   assert.equal(
-    hostIdOnlyMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger.length,
+    hostIdOnlyMergeResult.directiveRuntimeEvidence.coreStoreReadProjections.responses.length,
     2,
     'Fresher response projection merge must not match solely by SillyTavern hostMessageId.'
   );
@@ -605,6 +692,72 @@ const missionGraphs = [
     true,
     'CORE read-projection freshness evidence must outrank stale old-ledger growth for the same chat/save.'
   );
+  const coreOnlyTurnMerge = __directiveRuntimeAppTestHooks.mergeCoreTurnLedgerProjection(
+    {
+      entries: [
+        {
+          id: 'legacy-turn-old',
+          turnId: 'turn-old',
+          outcomeId: 'outcome-old',
+          coreCheckpointRef: { checkpointId: 'legacy-checkpoint-old' }
+        },
+        {
+          id: 'legacy-turn-shared',
+          turnId: 'turn-shared',
+          outcomeId: 'outcome-shared',
+          coreTransactionId: 'legacy-core-txn-shared',
+          transactionId: 'legacy-txn-shared',
+          coreCheckpointRef: { checkpointId: 'checkpoint-shared' },
+          snapshotBeforeRetained: true
+        }
+      ],
+      replacementHistory: [
+        { id: 'legacy-replacement-old', replacedOutcomeId: 'outcome-old' },
+        { id: 'legacy-replacement-shared', replacedOutcomeId: 'outcome-shared' }
+      ],
+      lastCommittedOutcomeId: 'outcome-old'
+    },
+    {
+      entries: [
+        {
+          id: 'core-turn-shared',
+          turnId: 'turn-shared',
+          outcomeId: 'outcome-shared',
+          transactionId: 'txn-shared'
+        }
+      ],
+      replacementHistory: [
+        { id: 'core-replacement-shared', replacedOutcomeId: 'outcome-shared' }
+      ],
+      lastCommittedOutcomeId: 'outcome-shared'
+    }
+  );
+  assert.deepEqual(
+    coreOnlyTurnMerge.entries.map((entry) => entry.outcomeId),
+    ['outcome-shared'],
+    'Runtime CORE turn merge must omit unmatched legacy turn rows.'
+  );
+  assert.equal(
+    coreOnlyTurnMerge.entries[0].coreCheckpointRef,
+    undefined,
+    'Runtime CORE turn merge must not promote matched legacy checkpoint refs into active authority.'
+  );
+  assert.equal(
+    coreOnlyTurnMerge.entries[0].coreTransactionId,
+    'txn-shared',
+    'Runtime CORE turn merge must not promote matched legacy transaction ids into active authority.'
+  );
+  assert.equal(
+    coreOnlyTurnMerge.entries[0].snapshotBeforeRetained,
+    undefined,
+    'Runtime CORE turn merge must not promote matched legacy retained-snapshot authority.'
+  );
+  assert.deepEqual(
+    coreOnlyTurnMerge.replacementHistory.map((entry) => entry.replacedOutcomeId),
+    ['outcome-shared'],
+    'Runtime CORE turn merge must omit unmatched legacy replacement history.'
+  );
+  assert.equal(coreOnlyTurnMerge.lastCommittedOutcomeId, 'outcome-shared');
   const mergedRuntimePersistPending = __directiveRuntimeAppTestHooks.mergeRuntimePersistPendingRequest(
     {
       summary: 'Committed turn persisted.',
@@ -746,7 +899,7 @@ const missionGraphs = [
     'Runtime persist pending merge must keep fresher CORE ingress projection evidence instead of old ledger rows.'
   );
   assert.equal(
-    mergedRuntimePersistPendingWithoutOldLedgers.state.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger
+    mergedRuntimePersistPendingWithoutOldLedgers.state.directiveRuntimeEvidence.coreStoreReadProjections.responses
       .some((entry) => entry.id === 'core-merge-response'),
     true,
     'Runtime persist pending merge must keep fresher CORE response projection evidence instead of old ledger rows.'
@@ -757,11 +910,100 @@ const missionGraphs = [
     true,
     'Runtime persist pending merge must keep fresher CORE recovery projection evidence instead of old journal rows.'
   );
+  const mergedRuntimePersistAuthoritativeEmpty = __directiveRuntimeAppTestHooks.mergeRuntimePersistPendingRequest(
+    {
+      summary: 'Prior stale CORE projection evidence.',
+      state: {
+        ...richerInMemoryState,
+        turnLedger: {
+          entries: [{ turnId: 'stale-turn', outcomeId: 'stale-outcome' }]
+        },
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            runtimeAuthority: 'coreStoreV2',
+            turnLedger: {
+              runtimeAuthority: 'coreStoreV2',
+              entries: [{ turnId: 'stale-turn', outcomeId: 'stale-outcome' }],
+              replacementHistory: [{ id: 'stale-replacement' }]
+            },
+            ingressLedger: [{ id: 'stale-ingress', transactionId: 'txn-stale' }],
+            responseLedger: [{ id: 'stale-response', transactionId: 'txn-stale', status: 'posted' }],
+            pendingInteractions: [{
+              id: 'stale-pending',
+              kind: 'riskConfirmationNeeded',
+              status: 'pending'
+            }]
+          }
+        }
+      }
+    },
+    {
+      summary: 'Later authoritative empty CORE projection.',
+      state: {
+        ...richerInMemoryState,
+        turnLedger: { entries: [] },
+        directiveRuntimeEvidence: {
+          coreStoreReadProjections: {
+            kind: 'directive.coreStoreReadProjections.v1',
+            runtimeAuthority: 'coreStoreV2',
+            turnLedger: {
+              runtimeAuthority: 'coreStoreV2',
+              entries: [],
+              replacementHistory: []
+            },
+            ingressLedger: [],
+            responseLedger: [],
+            pendingInteractions: []
+          }
+        }
+      }
+    },
+    { chatId: 'scope-freshness-chat', fallbackSaveId: 'save.scope-freshness' }
+  );
+  assert.deepEqual(
+    mergedRuntimePersistAuthoritativeEmpty.state.directiveRuntimeEvidence.coreStoreReadProjections.turnLedger.entries,
+    [],
+    'Later authoritative CORE turn projection must replace stale prior turn rows.'
+  );
+  assert.deepEqual(
+    mergedRuntimePersistAuthoritativeEmpty.state.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger,
+    [],
+    'Later authoritative CORE ingress projection must replace stale prior ingress rows.'
+  );
+  assert.deepEqual(
+    mergedRuntimePersistAuthoritativeEmpty.state.directiveRuntimeEvidence.coreStoreReadProjections.responses,
+    [],
+    'Later authoritative CORE response projection must replace stale prior response rows.'
+  );
+  assert.deepEqual(
+    mergedRuntimePersistAuthoritativeEmpty.state.directiveRuntimeEvidence.coreStoreReadProjections.pendingInteractions,
+    [],
+    'Later authoritative CORE pending projection must replace stale prior pending rows.'
+  );
+  assert.deepEqual(
+    mergedRuntimePersistAuthoritativeEmpty.state.turnLedger.entries,
+    [],
+    'Later authoritative CORE projection must not let stale prior turnLedger rows re-enter active state.'
+  );
   const mergedRuntimePersistPendingWithoutTerminalMirror = __directiveRuntimeAppTestHooks.mergeRuntimePersistPendingRequest(
     {
       summary: 'Prior pending interactions.',
       state: {
         ...richerInMemoryState,
+        directiveRuntimeEvidence: {
+          ...richerInMemoryState.directiveRuntimeEvidence,
+          coreStoreReadProjections: {
+            ...richerInMemoryState.directiveRuntimeEvidence?.coreStoreReadProjections,
+            pendingInteractions: [{
+              id: 'risk-pending-still-owned',
+              kind: 'riskConfirmationNeeded',
+              status: 'pending',
+              authority: 'corePendingInteractionProjection',
+              compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'corePendingInteractionProjection' }
+            }]
+          }
+        },
         runtimeTracking: {
           ...richerInMemoryState.runtimeTracking,
           pendingInteractions: [{
@@ -770,12 +1012,6 @@ const missionGraphs = [
             status: 'pending',
             authority: 'terminalDecisionProjection',
             compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'terminalDecisionProjection' }
-          }, {
-            id: 'risk-pending-still-owned',
-            kind: 'riskConfirmationNeeded',
-            status: 'pending',
-            authority: 'corePendingInteractionProjection',
-            compatibilityMirror: { kind: 'directive.pendingInteractionCompatibilityMirror.v1', status: 'corePendingInteractionProjection' }
           }]
         }
       }
@@ -984,6 +1220,15 @@ const campaignAAutosave = createAutosaveCampaignSaveRecord({
   summary: 'Latest autosave for campaign A.'
 });
 await storeCampaignSave(host.storage, campaignAAutosave);
+await persistActiveCampaignStateV2(host.storage, {
+  saveRecord: campaignAAutosave,
+  campaignState: campaignAAutosaveState,
+  packageData,
+  summary: 'Latest autosave for campaign A.',
+  reason: 'test-current-chat-campaign-scope-autosave-runtime-v2',
+  slotType: 'autosave',
+  now: '2026-06-22T09:30:00.000Z'
+});
 
 let view = await app.getCurrentView({ tabId: 'campaign' });
 assert.equal(view.campaignIndex.sessions.length >= 2, true, 'Command should index multiple campaigns.');

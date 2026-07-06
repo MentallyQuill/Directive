@@ -19,6 +19,238 @@ async function nextMicrotask() {
 }
 
 {
+  const {
+    activeSessionCacheCurrentForSave,
+    mergeFresherResponseLedgerProjection,
+    promptPacketFromLensFlushResult,
+    shouldPreferInMemoryCampaignState,
+    stateFreshnessCounters
+  } = __directiveRuntimeAppTestHooks;
+  const cachedState = {
+    campaign: { id: 'campaign-cache-freshness' },
+    campaignChatBinding: {
+      chatId: 'chat-cache-freshness',
+      saveId: 'save-cache-freshness',
+      campaignId: 'campaign-cache-freshness',
+      status: 'bound'
+    },
+    directiveRuntimeEvidence: {
+      loadedSaveHead: {
+        saveUpdatedAt: '2026-07-05T13:26:30.000Z',
+        headHash: 'old-head'
+      }
+    }
+  };
+  assert.equal(
+    activeSessionCacheCurrentForSave(cachedState, {
+      saveId: 'save-cache-freshness',
+      activeSaveId: 'save-cache-freshness',
+      saveRecord: {
+        id: 'save-cache-freshness',
+        updatedAt: '2026-07-05T13:27:11.000Z',
+        manifestRef: { hash: 'new-head' }
+      }
+    }),
+    false,
+    'active save cache must reload when save index record is newer than loaded head evidence'
+  );
+  assert.equal(
+    activeSessionCacheCurrentForSave(cachedState, {
+      saveId: 'save-cache-freshness',
+      activeSaveId: 'save-cache-freshness',
+      saveRecord: {
+        id: 'save-cache-freshness',
+        updatedAt: '2026-07-05T13:26:30.000Z',
+        manifestRef: { hash: 'old-head' }
+      }
+    }),
+    true,
+    'active save cache may be reused when loaded head evidence matches save index freshness'
+  );
+  assert.deepEqual(
+    promptPacketFromLensFlushResult({
+      status: 'reused',
+      installed: {
+        directiveOwnedRevision: 7,
+        promptHash: 'prompt-hash-7',
+        promptKeys: ['directive.activeScene', 'directive.mission']
+      }
+    })?.blocks.map((block) => block.promptKey),
+    ['directive.activeScene', 'directive.mission'],
+    'Runtime must record LENS installed revision evidence even when flush reuses an installed packet without returning packet text'
+  );
+
+  const base = {
+    campaign: { id: 'campaign-sre-stale-persist' },
+    campaignChatBinding: {
+      hostId: 'fake',
+      chatId: 'chat-sre-stale-persist',
+      saveId: 'save-sre-stale-persist',
+      campaignId: 'campaign-sre-stale-persist'
+    },
+    runtimeTracking: { revision: 2, mechanicsRevision: 0 },
+    sceneHandshake: {
+      schemaVersion: 1,
+      settled: [],
+      pendingInternalReview: [],
+      deferred: [],
+      operatorRecovery: [],
+      rejected: [],
+      lastResult: null
+    },
+    mission: { openAssignments: [] },
+    ship: { technicalDebt: [] },
+    threadLedger: { records: [] },
+    commandLog: { entries: [] }
+  };
+  const candidateWithSreRoots = {
+    ...JSON.parse(JSON.stringify(base)),
+    campaignChatBinding: {
+      ...JSON.parse(JSON.stringify(base.campaignChatBinding)),
+      promptContextRevision: 3,
+      promptContextHash: 'prompt-hash-rich'
+    },
+    directiveRuntimeEvidence: {
+      lensPromptRevisionRecord: {
+        kind: 'directive.lensPromptRevisionRecord.v1',
+        status: 'active',
+        revision: 3,
+        hash: 'prompt-hash-rich',
+        packetHash: 'prompt-hash-rich',
+        blockCount: 2,
+        recordHash: 'lens-record-rich'
+      }
+    },
+    sceneHandshake: {
+      ...JSON.parse(JSON.stringify(base.sceneHandshake)),
+      settled: [{ id: 'settlement-rich', status: 'settled' }],
+      lastResult: { id: 'settlement-rich', status: 'settled' }
+    },
+    mission: { openAssignments: [{ id: 'assignment-rich' }] },
+    ship: { technicalDebt: [{ id: 'ship-rich' }] },
+    threadLedger: { records: [{ id: 'thread-rich' }] }
+  };
+  const staleInMemoryWithResponseOnly = {
+    ...JSON.parse(JSON.stringify(base)),
+    directiveRuntimeEvidence: {
+      coreStoreReadProjections: {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        responses: [{
+          id: 'response-rich',
+          responseId: 'response-rich',
+          hostMessageId: '3',
+          status: 'posted',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2',
+          compatibilityMirror: { kind: 'directive.coreResponseCompatibilityMirror.v1' }
+        }],
+        responseLedgerRevision: 1
+      }
+    }
+  };
+  const candidateCounters = stateFreshnessCounters(candidateWithSreRoots);
+  assert.equal(candidateCounters.sceneHandshakeSettlements, 1);
+  assert.equal(candidateCounters.missionOpenAssignments, 1);
+  assert.equal(candidateCounters.shipTechnicalDebt, 1);
+  assert.equal(candidateCounters.threadLedgerRecords, 1);
+  assert.equal(
+    shouldPreferInMemoryCampaignState(candidateWithSreRoots, staleInMemoryWithResponseOnly, {
+      chatId: 'chat-sre-stale-persist',
+      fallbackHostId: 'fake',
+      fallbackSaveId: 'save-sre-stale-persist'
+    }),
+    false,
+    'response-only in-memory projections must not publish stale roots over SRE-applied scene roots'
+  );
+
+  const staleInMemoryWithTurnProjection = {
+    ...JSON.parse(JSON.stringify(staleInMemoryWithResponseOnly)),
+    directiveRuntimeEvidence: {
+      coreStoreReadProjections: {
+        ...JSON.parse(JSON.stringify(staleInMemoryWithResponseOnly.directiveRuntimeEvidence.coreStoreReadProjections)),
+        turnLedger: {
+          entries: [{ id: 'turn-stale-response-completion' }]
+        }
+      }
+    }
+  };
+  assert.equal(
+    shouldPreferInMemoryCampaignState(candidateWithSreRoots, staleInMemoryWithTurnProjection, {
+      chatId: 'chat-sre-stale-persist',
+      fallbackHostId: 'fake',
+      fallbackSaveId: 'save-sre-stale-persist'
+    }),
+    false,
+    'response completion with a CORE turn projection must not publish stale roots over SRE-applied scene roots'
+  );
+
+  const candidateWithCoreAuthority = {
+    ...JSON.parse(JSON.stringify(base)),
+    directiveRuntimeEvidence: {
+      coreStoreReadProjections: {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        turnLedger: {
+          runtimeAuthority: 'coreStoreV2',
+          entries: []
+        }
+      }
+    }
+  };
+  const staleInMemoryWithOldRevisionOnly = {
+    ...JSON.parse(JSON.stringify(candidateWithCoreAuthority)),
+    runtimeTracking: {
+      revision: 99,
+      mechanicsRevision: 99
+    }
+  };
+  assert.equal(
+    shouldPreferInMemoryCampaignState(candidateWithCoreAuthority, staleInMemoryWithOldRevisionOnly, {
+      chatId: 'chat-sre-stale-persist',
+      fallbackHostId: 'fake',
+      fallbackSaveId: 'save-sre-stale-persist'
+    }),
+    false,
+    'CORE/v2 freshness must not let stale old runtimeTracking revision counters override authoritative projections'
+  );
+
+  const staleCandidateWithResponseProjection = {
+    ...JSON.parse(JSON.stringify(base)),
+    directiveRuntimeEvidence: {
+      coreStoreReadProjections: {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        responses: [{
+          id: 'response-rich',
+          responseId: 'response-rich',
+          transactionId: 'txn-rich',
+          status: 'posted',
+          authority: 'compatibilityProjection',
+          projectionSource: 'coreStoreV2'
+        }],
+        responseLedgerRevision: 2
+      }
+    }
+  };
+  const mergedSreAndResponse = mergeFresherResponseLedgerProjection(
+    staleCandidateWithResponseProjection,
+    candidateWithSreRoots
+  );
+  assert.equal(mergedSreAndResponse.sceneHandshake.settled.length, 1, 'CORE response preservation must not drop fresher SRE sceneHandshake root.');
+  assert.equal(mergedSreAndResponse.sceneHandshake.lastResult.id, 'settlement-rich');
+  assert.equal(mergedSreAndResponse.mission.openAssignments.length, 1);
+  assert.equal(mergedSreAndResponse.ship.technicalDebt.length, 1);
+  assert.equal(mergedSreAndResponse.threadLedger.records.length, 1);
+  assert.equal(mergedSreAndResponse.campaignChatBinding.promptContextRevision, 3, 'SRE source-root preservation must not drop the LENS prompt revision created for those roots.');
+  assert.equal(mergedSreAndResponse.campaignChatBinding.promptContextHash, 'prompt-hash-rich');
+  assert.equal(mergedSreAndResponse.runtimeTracking.promptContext, undefined, 'SRE source-root preservation must not revive old runtimeTracking.promptContext authority.');
+  assert.equal(mergedSreAndResponse.directiveRuntimeEvidence.lensPromptRevisionRecord.revision, 3);
+  assert.equal(mergedSreAndResponse.directiveRuntimeEvidence.coreStoreReadProjections.responses.length, 1);
+  assert.equal(mergedSreAndResponse.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger, undefined);
+}
+
+{
   const writes = [];
   const firstWrite = deferred();
   const secondWrite = deferred();
@@ -220,7 +452,7 @@ async function nextMicrotask() {
               status: 'classified'
             }
           ],
-          responseLedger: [{ id: 'core-response-next', hostMessageId: '2' }]
+          responses: [{ id: 'core-response-next', hostMessageId: '2' }]
         }
       }
     },
@@ -233,8 +465,8 @@ async function nextMicrotask() {
   });
 
   assert.equal(merged.summary, 'next', 'latest persist summary should win');
-  assert.equal(merged.state.runtimeTracking.revision, 12, 'fresher prior runtime revision should survive coalescing');
-  assert.equal(merged.state.runtimeTracking.mechanicsRevision, 9, 'fresher prior mechanics revision should survive coalescing');
+  assert.equal(merged.state.runtimeTracking.revision, 10, 'pending persist coalescing must keep next CORE/v2 runtime revision authority');
+  assert.equal(merged.state.runtimeTracking.mechanicsRevision, 8, 'pending persist coalescing must keep next CORE/v2 mechanics revision authority');
   assert.equal(merged.state.campaignChatBinding.promptContextRevision, 7, 'fresher prompt revision should survive coalescing');
   assert.deepEqual(merged.state.commandLog.entries.map((entry) => entry.id), ['log-1', 'log-2']);
   assert.equal(merged.state.runtimeResume.sidecarCount, 5, 'fresher compact sidecar cursor should survive coalescing');
@@ -262,10 +494,52 @@ async function nextMicrotask() {
   assert.equal(sharedIngress.sourceFrameId, 'frame-shared-rich', 'same-key leaner newer projection must not drop richer prior source-frame evidence');
   assert.equal(sharedIngress.textHash, 'hash-rich', 'same-key leaner newer projection must not drop richer prior hash evidence');
   assert.deepEqual(
-    merged.state.directiveRuntimeEvidence.coreStoreReadProjections.responseLedger.map((entry) => entry.id),
+    merged.state.directiveRuntimeEvidence.coreStoreReadProjections.responses.map((entry) => entry.id),
     ['core-response-next']
   );
   assert.equal(merged.state.directiveRuntimeEvidence.coreStoreReadProjections.responseLedgerRevision, 4);
+}
+
+{
+  const { mergeRuntimePersistPendingRequest } = __directiveRuntimeAppTestHooks;
+  const prior = {
+    summary: 'prior stale old revisions',
+    state: {
+      campaign: { id: 'campaign-core-revision' },
+      campaignChatBinding: { chatId: 'chat-core-revision', saveId: 'save-core-revision' },
+      runtimeTracking: {
+        revision: 12,
+        mechanicsRevision: 9
+      }
+    }
+  };
+  const next = {
+    summary: 'next authoritative core',
+    state: {
+      campaign: { id: 'campaign-core-revision' },
+      campaignChatBinding: { chatId: 'chat-core-revision', saveId: 'save-core-revision' },
+      runtimeTracking: {
+        revision: 10,
+        mechanicsRevision: 8
+      },
+      directiveRuntimeEvidence: {
+        coreStoreReadProjections: {
+          kind: 'directive.coreStoreReadProjections.v1',
+          runtimeAuthority: 'coreStoreV2',
+          turnLedger: {
+            runtimeAuthority: 'coreStoreV2',
+            entries: []
+          }
+        }
+      }
+    }
+  };
+  const merged = mergeRuntimePersistPendingRequest(prior, next, {
+    chatId: 'chat-core-revision',
+    fallbackSaveId: 'save-core-revision'
+  });
+  assert.equal(merged.state.runtimeTracking.revision, 10, 'CORE/v2 pending merge must not copy stale prior runtime revision authority');
+  assert.equal(merged.state.runtimeTracking.mechanicsRevision, 8, 'CORE/v2 pending merge must not copy stale prior mechanics revision authority');
 }
 
 console.log('Runtime persist coordinator tests passed.');

@@ -10,6 +10,9 @@ import {
   createLensPromptBudgetTrace,
   LENS_PROMPT_BUDGET_LANES
 } from './lens-prompt-budget-trace.mjs';
+import {
+  createLensPromptRevisionRecord
+} from './lens-prompt-revision-record.mjs';
 
 export const PROMPT_DIRTY_DOMAIN_ALIASES = Object.freeze({
   threadLedger: 'missionQuestThread',
@@ -80,6 +83,40 @@ function uniqueStrings(values = []) {
     out.push(text);
   }
   return out;
+}
+
+function asRevision(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.trunc(number) : 0;
+}
+
+function maxRevision(values = []) {
+  return Math.max(0, ...values.map(asRevision));
+}
+
+function revisionSeedForFlush({
+  binding = {},
+  campaignContext = {},
+  promptFrame = {},
+  cacheInputs = {},
+  installed = null
+} = {}) {
+  return maxRevision([
+    binding?.promptContextRevision,
+    binding?.directiveOwnedRevision,
+    binding?.promptRevision,
+    campaignContext?.promptContextRevision,
+    campaignContext?.directiveOwnedRevision,
+    campaignContext?.domainVersionVector?.prompt,
+    campaignContext?.domainVersionVector?.promptContextRevision,
+    promptFrame?.promptContextRevision,
+    cacheInputs?.promptContextRevision,
+    cacheInputs?.directiveOwnedRevision,
+    cacheInputs?.promptCache?.directiveOwnedRevision,
+    cacheInputs?.promptCacheEvidence?.directiveOwnedRevision,
+    installed?.directiveOwnedRevision,
+    installed?.revision
+  ]);
 }
 
 function externalPromptInspectionBundle(raw = null, observedAt = null) {
@@ -1079,6 +1116,16 @@ export function createLensPromptScheduler({
       cacheInputs: promptCacheInputs
     });
     const prior = installedByLane.get(lane) || null;
+    directiveOwnedRevision = Math.max(
+      directiveOwnedRevision,
+      revisionSeedForFlush({
+        binding,
+        campaignContext,
+        promptFrame,
+        cacheInputs: promptCacheInputs,
+        installed: prior
+      })
+    );
     const suspended = suspendedByLane.get(lane) || null;
     if (!forceRebuild && prior?.cacheKey === cacheKey && !suspended) {
       dirtyByLane.delete(lane);
@@ -1260,6 +1307,19 @@ export function createLensPromptScheduler({
       promptBudgetEnforcement: budgetApplication.enforcement,
       installResult
     });
+    const lensPromptRevisionRecord = createLensPromptRevisionRecord({
+      packet,
+      installed,
+      status: 'active',
+      lane,
+      installedAt,
+      cacheKey,
+      dirtyDomains,
+      externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
+      promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
+      promptBudgetEnforcement: budgetApplication.enforcement
+    });
+    installed.lensPromptRevisionRecord = lensPromptRevisionRecord;
     installedByLane.set(lane, installed);
     suspendedByLane.delete(lane);
     dirtyByLane.delete(lane);
@@ -1308,6 +1368,7 @@ export function createLensPromptScheduler({
       promptBudgetTrace,
       promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
       promptBudgetEnforcement: budgetApplication.enforcement,
+      lensPromptRevisionRecord,
       packet,
       installed,
       observedExternalEnvironment: observed ? cloneJson(observed.ref) : null,

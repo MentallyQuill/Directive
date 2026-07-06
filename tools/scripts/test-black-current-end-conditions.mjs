@@ -7,6 +7,7 @@ import {
   detectCampaignEndCondition
 } from '../../src/campaign/end-conditions.mjs';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
+import { terminalDecisionLedgerView } from '../../src/runtime/terminal-decision-ledger-view.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -210,7 +211,8 @@ assert.deepEqual(Object.keys(projection.initialState.campaignTracks), ['records'
   assert.equal(continued.campaignState.ship.status, 'lost');
   assert.equal(continued.campaignState.campaign.operationalBase, 'survivor-recovery-cell');
   assert.equal(continued.campaignState.flags['push-on.frame'], 'survivors-after-serein-loss');
-  assert.equal(continued.campaignState.runtimeTracking.endConditionLedger.continuationFrames.at(-1).frameId, 'survivors-after-serein-loss');
+  assert.equal(continued.campaignState.runtimeTracking.endConditionLedger.continuationFrames.length, 0);
+  assert.equal(terminalDecisionLedgerView(continued.campaignState).continuationFrames.at(-1).frameId, 'survivors-after-serein-loss');
 }
 
 {

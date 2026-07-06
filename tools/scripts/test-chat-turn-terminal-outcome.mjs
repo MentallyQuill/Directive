@@ -10,6 +10,10 @@ import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking
 } from '../../src/runtime/state-delta-gateway.mjs';
+import {
+  terminalDecisionLedgerView,
+  withTerminalDecisionLedgerProjection
+} from '../../src/runtime/terminal-decision-ledger-view.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -27,7 +31,7 @@ function terminalLedgerProjection(rowKind, {
 } = {}) {
   return {
     authority: 'terminalDecisionProjection',
-    projectionSource: 'terminalOutcomeDecision',
+    projectionSource: 'coreStoreV2',
     coreProjection: {
       kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
       rowKind,
@@ -75,6 +79,7 @@ let classifyMode = 'consequential';
 let previewRequiresWarning = false;
 let dropResolvedIngressOnce = false;
 const corePendingInteractionEvents = [];
+const coreTerminalDecisionLedgerEvents = [];
 
 const getCampaignState = () => campaignState;
 const setCampaignState = (next) => { campaignState = cloneJson(next); };
@@ -182,6 +187,16 @@ const coreTurnStore = {
     corePendingInteractionEvents.push({ type: 'resolved', transactionId, row: cloneJson(row) });
     return cloneJson(row);
   },
+  async recordTerminalDecisionLedger(transactionId, ledger = {}, options = {}) {
+    const row = cloneJson(ledger);
+    coreTerminalDecisionLedgerEvents.push({
+      type: 'projected',
+      transactionId,
+      idempotencyKey: options.idempotencyKey || null,
+      ledger: row
+    });
+    return cloneJson(row);
+  },
   async readProjections() {
     const ingressLedger = [...coreTransactions.values()]
       .filter((transaction) => transaction.ingressId)
@@ -206,6 +221,14 @@ const coreTurnStore = {
         acc[event.row.id] = event.row;
         return acc;
       }, {})).map(cloneJson),
+      terminalDecisionLedger: coreTerminalDecisionLedgerEvents.at(-1)?.ledger || {
+        schemaVersion: 1,
+        activeDecisionId: null,
+        detections: [],
+        decisions: [],
+        branchRecords: [],
+        continuationFrames: []
+      },
       ingressLedger,
       responseLedger: [...coreTransactions.values()]
         .filter((transaction) => transaction.visibleResponseRef || transaction.responseId || ['hostContinueReleased', 'visibleResponsePosted'].includes(transaction.phase))
@@ -262,7 +285,7 @@ const orchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: async ({ text, context } = {}) => {
     if (classifyMode === 'terminal-resolution') {
-      const pending = campaignState.runtimeTracking.endConditionLedger?.decisions?.find((entry) => entry.status === 'pending');
+      const pending = terminalDecisionLedgerView(campaignState).decisions.find((entry) => entry.status === 'pending');
       assert.ok(pending, 'Terminal resolution fixture requires a pending terminal ledger decision.');
       return classifyChatTurn({ text, context });
     }
@@ -323,7 +346,7 @@ const orchestrator = createChatTurnOrchestrator({
         reason: 'The Breckenridge is lost in the committed timeline.'
       },
       authority: 'terminalDecisionProjection',
-      projectionSource: 'terminalOutcomeDecision',
+      projectionSource: 'coreStoreV2',
       coreProjection: {
         kind: 'directive.terminalPendingInteractionProjectionRef.v1',
         decisionId: terminalDecisionId,
@@ -333,8 +356,7 @@ const orchestrator = createChatTurnOrchestrator({
         status: 'pending'
       }
     };
-    const next = initializeCampaignRuntimeTracking(campaignState);
-    next.runtimeTracking.endConditionLedger = {
+    const terminalDecisionLedger = {
       schemaVersion: 1,
       activeDecisionId: terminalInteraction.id,
       detections: [{
@@ -367,8 +389,18 @@ const orchestrator = createChatTurnOrchestrator({
       branchRecords: [],
       continuationFrames: []
     };
+    let next = withTerminalDecisionLedgerProjection(initializeCampaignRuntimeTracking(campaignState), terminalDecisionLedger);
     setCampaignState(next);
     await persistCampaignState(next, 'Fixture terminal mechanics committed.');
+    const terminalTransaction = [...coreTransactions.values()]
+      .find((entry) => entry.ingressId === terminalInteraction.ingressId);
+    assert.ok(terminalTransaction?.id, 'Terminal fixture requires CORE ingress transaction before pending decision.');
+    await coreTurnStore.recordTerminalDecisionLedger(terminalTransaction.id, terminalDecisionLedger, {
+      idempotencyKey: `terminal-fixture-ledger:${terminalInteraction.id}`
+    });
+    await coreTurnStore.recordPendingInteraction(terminalTransaction.id, terminalInteraction);
+    next = withTerminalDecisionLedgerProjection(next, coreTerminalDecisionLedgerEvents.at(-1).ledger);
+    setCampaignState(next);
     commitCalls.push({ outcomeId: pendingTurn.outcomePacket.id });
     const turnPacket = cloneJson(pendingTurn);
     const includeReturnedTerminalDecision = campaignState.campaign?.id !== 'campaign-terminal-risk-confirmation-test';
@@ -396,21 +428,49 @@ const orchestrator = createChatTurnOrchestrator({
       responseKind: 'terminalOutcomeCheckpoint',
       idempotencyKey: `${interactionId}:checkpoint`
     });
-    const next = initializeCampaignRuntimeTracking(campaignState);
-    next.runtimeTracking.endConditionLedger.decisions = next.runtimeTracking.endConditionLedger.decisions.map((entry) => entry.id === interactionId
+    const ledger = terminalDecisionLedgerView(campaignState);
+    const nextLedger = {
+      ...ledger,
+      decisions: ledger.decisions.map((entry) => entry.id === interactionId
       ? { ...entry, postedAt: now(), checkpointMessageId: posted.hostMessageId || null }
-      : entry);
+      : entry)
+    };
+    const pendingCore = [...corePendingInteractionEvents].reverse()
+      .map((event) => event.row)
+      .find((entry) => entry.id === interactionId);
+    await coreTurnStore.recordTerminalDecisionLedger(pendingCore.coreTransactionId, nextLedger, {
+      idempotencyKey: `terminal-fixture-checkpoint-posted:${interactionId}`
+    });
+    const next = withTerminalDecisionLedgerProjection(initializeCampaignRuntimeTracking(campaignState), nextLedger);
     setCampaignState(next);
     await persistCampaignState(next, 'Fixture terminal checkpoint posted.');
     return { ok: true, posted, campaignState: cloneJson(next) };
   },
   resolveTerminalOutcomeDecision: async ({ interactionId, action, playerArgument, resolutionIngressId }) => {
     terminalResolutionCalls.push({ interactionId, action, playerArgument });
-    let next = initializeCampaignRuntimeTracking(campaignState);
-    next.runtimeTracking.endConditionLedger.activeDecisionId = null;
-    next.runtimeTracking.endConditionLedger.decisions = next.runtimeTracking.endConditionLedger.decisions.map((entry) => entry.id === interactionId
+    const pendingCore = [...corePendingInteractionEvents].reverse()
+      .map((event) => event.row)
+      .find((entry) => entry.id === interactionId);
+    assert.ok(pendingCore?.coreTransactionId, 'Terminal resolution fixture requires CORE pending-interaction authority.');
+    await coreTurnStore.resolvePendingInteraction(pendingCore.coreTransactionId, interactionId, {
+      status: 'resolved',
+      action,
+      playerArgument,
+      resolutionIngressId,
+      resolvedAt: now()
+    });
+    const ledger = terminalDecisionLedgerView(campaignState);
+    const nextLedger = {
+      ...ledger,
+      activeDecisionId: null,
+      decisions: ledger.decisions.map((entry) => entry.id === interactionId
       ? { ...entry, status: 'pushedOn', resolvedAt: now(), resolution: { action, playerArgument } }
-      : entry);
+      : entry)
+    };
+    await coreTurnStore.recordTerminalDecisionLedger(pendingCore.coreTransactionId, nextLedger, {
+      idempotencyKey: `terminal-fixture-resolved:${interactionId}:${action}`
+    });
+    let next = withTerminalDecisionLedgerProjection(initializeCampaignRuntimeTracking(campaignState), nextLedger);
     if (dropResolvedIngressOnce) {
       dropResolvedIngressOnce = false;
       next.runtimeTracking.ingressLedger = (next.runtimeTracking.ingressLedger || []).filter((entry) => entry.id !== resolutionIngressId);
@@ -504,7 +564,8 @@ assert.deepEqual(
   ['committedOutcome', 'terminalOutcomeCheckpoint']
 );
 assert.equal(campaignState.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
-assert.equal(campaignState.runtimeTracking.endConditionLedger.activeDecisionId, 'terminal-decision-orchestrator');
+assert.equal(campaignState.runtimeTracking.endConditionLedger.activeDecisionId, null);
+assert.equal(terminalDecisionLedgerView(campaignState).activeDecisionId, 'terminal-decision-orchestrator');
 
 classifyMode = 'terminal-resolution';
 const reply = chat.pushPlayerMessage({
@@ -530,7 +591,7 @@ assert.equal(sidecarScheduleCalls.length, 1, 'Terminal checkpoint replies must n
 assert.equal(commandLogScheduleCalls.length, 1, 'Terminal checkpoint replies must not schedule Command Log summary.');
 assert.equal(postCommitScheduleCalls.length, 1, 'Terminal checkpoint replies must not schedule Narrative Thread extraction.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
-assert.equal(campaignState.runtimeTracking.endConditionLedger.decisions[0].status, 'pushedOn');
+assert.equal(terminalDecisionLedgerView(campaignState).decisions[0].status, 'pushedOn');
 
 const missingIngressTerminal = {
   id: 'terminal-decision-missing-ingress',
@@ -546,20 +607,26 @@ const missingIngressTerminal = {
   metadata: {
     terminalOutcomeId: 'terminal-missing-ingress'
   },
-  authority: 'terminalDecisionProjection',
-  projectionSource: 'terminalOutcomeDecision',
+  authority: 'corePendingInteractionProjection',
+  projectionSource: 'coreStoreV2',
   coreProjection: {
-    kind: 'directive.terminalPendingInteractionProjectionRef.v1',
-    decisionId: 'terminal-decision-missing-ingress',
-    conditionId: 'terminal-missing-ingress',
-    turnId: 'turn-terminal-missing-ingress',
-    outcomeId: 'outcome-terminal-missing-ingress',
+    kind: 'directive.corePendingInteractionProjectionRef.v1',
+    interactionId: 'terminal-decision-missing-ingress',
+    transactionId: 'txn:terminal-missing-ingress',
+    ingressId: 'ingress-terminal-missing-ingress-source',
     status: 'pending'
+  },
+  compatibilityMirror: {
+    kind: 'directive.pendingInteractionCompatibilityMirror.v1',
+    interactionId: 'terminal-decision-missing-ingress',
+    transactionId: 'txn:terminal-missing-ingress',
+    ingressId: 'ingress-terminal-missing-ingress-source',
+    status: 'pending',
+    projectionSource: 'coreStoreV2'
   }
 };
-campaignState = initializeCampaignRuntimeTracking(campaignState);
-campaignState.runtimeTracking.endConditionLedger = {
-  ...(campaignState.runtimeTracking.endConditionLedger || {}),
+campaignState = withTerminalDecisionLedgerProjection(initializeCampaignRuntimeTracking(campaignState), {
+  schemaVersion: 1,
   activeDecisionId: missingIngressTerminal.id,
   decisions: [{
     id: missingIngressTerminal.id,
@@ -572,10 +639,18 @@ campaignState.runtimeTracking.endConditionLedger = {
       outcomeId: 'outcome-terminal-missing-ingress',
       status: 'pending'
     })
-  }]
-};
+  }],
+  detections: [],
+  branchRecords: [],
+  continuationFrames: []
+});
 setCampaignState(campaignState);
-const terminalMissingIngressCountBefore = campaignState.runtimeTracking.ingressLedger.length;
+await coreTurnStore.recordTerminalDecisionLedger('txn:terminal-missing-ingress', terminalDecisionLedgerView(campaignState), {
+  idempotencyKey: 'terminal-missing-ingress-ledger'
+});
+await coreTurnStore.recordPendingInteraction('txn:terminal-missing-ingress', missingIngressTerminal);
+const terminalMissingIngressRuntimeCountBefore = campaignState.runtimeTracking.ingressLedger.length;
+const terminalMissingIngressCoreCountBefore = campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger?.length || 0;
 dropResolvedIngressOnce = true;
 const missingIngressReply = chat.pushPlayerMessage({
   text: 'Push on. Keep the evidence moving.',
@@ -587,10 +662,15 @@ const missingIngressResolution = await orchestrator.observePlayerMessage({
 });
 assert.equal(missingIngressResolution.resolvedPendingInteraction, true);
 assert.equal(missingIngressResolution.reason || null, null);
-const restoredResolutionIngress = campaignState.runtimeTracking.ingressLedger
+const restoredResolutionIngress = (campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger || [])
   .find((entry) => entry.hostMessageId === 'player-terminal-missing-ingress-resolution');
-assert.equal(Boolean(restoredResolutionIngress?.coreTransactionId), true, 'Terminal resolution may restore a v1 ingress row only when CORE transaction evidence exists.');
-assert.equal(campaignState.runtimeTracking.ingressLedger.length, terminalMissingIngressCountBefore + 1);
+assert.equal(Boolean(restoredResolutionIngress?.coreTransactionId), true, 'Terminal resolution must restore the ingress through CORE projection evidence.');
+assert.equal(campaignState.directiveRuntimeEvidence.coreStoreReadProjections.ingressLedger.length, terminalMissingIngressCoreCountBefore + 1);
+assert.equal(
+  campaignState.runtimeTracking.ingressLedger.length,
+  terminalMissingIngressRuntimeCountBefore,
+  'Terminal resolution must not restore old runtimeTracking ingress authority.'
+);
 
 campaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
 campaignState.campaign = {
@@ -607,7 +687,7 @@ campaignState.campaignChatBinding = {
   promptContextRevision: 1
 };
 campaignState.runtimeTracking.pendingInteractions = [];
-campaignState.runtimeTracking.endConditionLedger = {
+campaignState = withTerminalDecisionLedgerProjection(campaignState, {
   schemaVersion: 1,
   activeDecisionId: 'terminal-decision-ledger-only',
   detections: [{
@@ -640,9 +720,25 @@ campaignState.runtimeTracking.endConditionLedger = {
   }],
   branchRecords: [],
   continuationFrames: []
-};
+});
 classifyMode = 'live-classifier';
 const ledgerOnlyResolutionCount = terminalResolutionCalls.length;
+await coreTurnStore.recordTerminalDecisionLedger('txn:terminal-decision-ledger-only', terminalDecisionLedgerView(campaignState), {
+  idempotencyKey: 'terminal-ledger-only-ledger'
+});
+await coreTurnStore.recordPendingInteraction('txn:terminal-decision-ledger-only', {
+  id: 'terminal-decision-ledger-only',
+  kind: 'terminalOutcomeDecision',
+  status: 'pending',
+  ingressId: 'ingress-terminal-ledger-only',
+  prompt: 'Directive Checkpoint',
+  options: [
+    { id: 'replayFromCheckpoint', action: 'replayFromCheckpoint', label: 'Replay from checkpoint' },
+    { id: 'pushOn', action: 'pushOn', label: 'Push On' },
+    { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' },
+    { id: 'saveTerminalBranch', action: 'saveTerminalBranch', label: 'Save as branch' }
+  ]
+});
 const ledgerOnlyReply = chat.pushPlayerMessage({
   text: 'Replay from checkpoint',
   hostMessageId: 'player-terminal-ledger-only-replay'
@@ -713,7 +809,8 @@ assert.equal(postCommitScheduleCalls.length, 2, 'Risk-confirmed terminal commits
 assert.equal(corePendingInteractions().find((entry) => entry.id === riskInteraction.id).status, 'resolved');
 assert.deepEqual(campaignState.runtimeTracking.pendingInteractions, []);
 assert.equal(campaignState.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
-assert.equal(campaignState.runtimeTracking.endConditionLedger.activeDecisionId, 'terminal-decision-risk-orchestrator');
+assert.equal(campaignState.runtimeTracking.endConditionLedger.activeDecisionId, null);
+assert.equal(terminalDecisionLedgerView(campaignState).activeDecisionId, 'terminal-decision-risk-orchestrator');
 assert.deepEqual(
   chat.messages().filter((entry) => entry.isDirectiveOwned).map((entry) => entry.metadata?.responseKind).slice(-3),
   ['riskConfirmationNeeded', 'committedOutcome', 'terminalOutcomeCheckpoint']

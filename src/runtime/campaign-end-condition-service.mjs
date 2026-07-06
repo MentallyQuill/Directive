@@ -39,7 +39,7 @@ function terminalLedgerAuthority(source = {}, {
   const coreCheckpointRef = checkpoint.coreCheckpointRef || source.coreCheckpointRef || null;
   return {
     authority: 'terminalDecisionProjection',
-    projectionSource: coreCheckpointRef ? 'coreStoreV2' : 'terminalOutcomeDecision',
+    projectionSource: 'coreStoreV2',
     coreCheckpointRef: cloneJson(coreCheckpointRef || null),
     coreProjection: {
       kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
@@ -106,7 +106,7 @@ function upsertDecision(ledger, decisionId, patch = {}) {
           ...decision,
           ...cloneJson(patch),
           authority: patch.authority || decision.authority || 'terminalDecisionProjection',
-          projectionSource: patch.projectionSource || decision.projectionSource || 'terminalOutcomeDecision',
+          projectionSource: patch.projectionSource || decision.projectionSource || 'coreStoreV2',
           coreProjection: cloneJson(patch.coreProjection || decision.coreProjection || terminalLedgerAuthority(decision).coreProjection),
           coreCheckpointRef: cloneJson(patch.coreCheckpointRef || decision.coreCheckpointRef || null)
         }
@@ -116,6 +116,76 @@ function upsertDecision(ledger, decisionId, patch = {}) {
     ...ledger,
     decisions
   };
+}
+
+function projectionRowsById(existingRows = [], freshRows = [], keyFields = ['id']) {
+  const rows = Array.isArray(existingRows) ? cloneJson(existingRows) : [];
+  for (const fresh of Array.isArray(freshRows) ? freshRows : []) {
+    const matchIndex = rows.findIndex((entry) => keyFields.some((key) => (
+      compact(entry?.[key]) && compact(entry?.[key]) === compact(fresh?.[key])
+    )));
+    if (matchIndex >= 0) rows[matchIndex] = { ...rows[matchIndex], ...cloneJson(fresh) };
+    else rows.push(cloneJson(fresh));
+  }
+  return rows;
+}
+
+function mergeCoreReadProjections(existing = {}, fresh = {}) {
+  const merged = {
+    ...cloneJson(existing || {}),
+    ...cloneJson(fresh || {}),
+    ingressLedger: projectionRowsById(existing?.ingressLedger, fresh?.ingressLedger, ['id', 'ingressId', 'transactionId', 'coreTransactionId']),
+    pendingInteractions: projectionRowsById(existing?.pendingInteractions, fresh?.pendingInteractions, ['id', 'interactionId']),
+    terminalDecisionLedger: fresh?.terminalDecisionLedger
+      ? cloneJson(fresh.terminalDecisionLedger)
+      : cloneJson(existing?.terminalDecisionLedger || null)
+  };
+  if (Array.isArray(existing?.responses) || Array.isArray(fresh?.responses) || Array.isArray(fresh?.responseLedger)) {
+    merged.responses = projectionRowsById(
+      Array.isArray(existing?.responses) ? existing.responses : existing?.responseLedger,
+      Array.isArray(fresh?.responses) ? fresh.responses : fresh?.responseLedger,
+      ['id', 'responseId', 'transactionId', 'coreTransactionId']
+    );
+    delete merged.responseLedger;
+  }
+  return merged;
+}
+
+function withCoreReadProjections(campaignState = {}, projections = {}) {
+  const state = cloneJson(campaignState || {});
+  state.directiveRuntimeEvidence = {
+    ...(state.directiveRuntimeEvidence || {}),
+    coreStoreReadProjections: mergeCoreReadProjections(
+      state.directiveRuntimeEvidence?.coreStoreReadProjections || {},
+      projections || {}
+    )
+  };
+  return initializeCampaignRuntimeTracking(state);
+}
+
+function pendingInteractionProjectionRows(campaignState = {}) {
+  const rows = campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections?.pendingInteractions;
+  return Array.isArray(rows)
+    ? cloneJson(rows.filter(isPendingInteractionProjectionRow))
+    : [];
+}
+
+function coreTransactionIdForIngress(campaignState = {}, ingressId = null) {
+  const target = compact(ingressId);
+  if (!target) return null;
+  const rows = campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger;
+  const ingress = Array.isArray(rows)
+    ? rows.find((entry) => (
+      compact(entry?.id) === target
+      || compact(entry?.ingressId) === target
+    ))
+    : null;
+  return compact(
+    ingress?.coreTransactionId
+    || ingress?.transactionId
+    || ingress?.coreProjection?.coreTransactionId
+    || ingress?.coreProjection?.transactionId
+  ) || null;
 }
 
 const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
@@ -166,12 +236,26 @@ function interactionFromDecision(decision = {}) {
 }
 
 function activeTerminalInteraction(state, interactionId = null) {
-  const pending = (state.runtimeTracking?.pendingInteractions || []).filter(isPendingInteractionProjectionRow).find((entry) => (
-    entry.status === 'pending'
-    && entry.kind === 'terminalOutcomeDecision'
-    && (!interactionId || entry.id === interactionId)
-  )) || null;
-  if (pending) return pending;
+  const pending = pendingInteractionProjectionRows(state).find((entry) => (
+    entry?.status === 'pending'
+    && entry?.kind === 'terminalOutcomeDecision'
+    && (!interactionId || entry.id === interactionId || entry.interactionId === interactionId)
+  ));
+  if (!pending) return null;
+  const ledger = terminalDecisionLedgerView(state);
+  const ledgerDecision = ledger.decisions.find((entry) => entry?.id === (pending.id || pending.interactionId));
+  return {
+    ...interactionFromDecision(ledgerDecision),
+    ...cloneJson(pending),
+    id: pending.id || pending.interactionId || ledgerDecision?.id,
+    metadata: {
+      ...(interactionFromDecision(ledgerDecision)?.metadata || {}),
+      ...(pending.metadata || {})
+    }
+  };
+}
+
+function legacyTerminalInteraction(state, interactionId = null) {
   const ledger = terminalDecisionLedgerView(state);
   const decision = ledger.decisions.find((entry) => (
     entry?.status === 'pending'
@@ -307,6 +391,15 @@ async function checkpointSnapshotRecord(state, decision, { loadTerminalCheckpoin
             ?? loaded?.revision
             ?? loaded?.checkpoint?.sourceRevision
             ?? loaded?.checkpoint?.revision
+          ),
+          coreCheckpointRef: cloneJson(
+            normalizeExistingCoreCheckpointRef(
+              loaded?.coreCheckpointRef || loaded?.checkpointRef || loaded?.ref || checkpointRef,
+              {
+                campaignId: checkpointRef.campaignId || state.campaign?.id || null,
+                saveId: checkpointRef.saveId || state.campaignChatBinding?.saveId || null
+              }
+            ) || checkpointRef
           )
         }
       : null;
@@ -347,6 +440,7 @@ function terminalReplayRepairEvidence({ state, interaction, decision, snapshotRe
   const ledgerRevision = numericRevision(snapshotRecord?.sourceRevision ?? state.runtimeTracking?.lastStableRevision);
   const snapshotPresent = Boolean(snapshot);
   const snapshotSourceKind = snapshotRecord?.sourceKind || null;
+  const coreCheckpointRef = snapshotRecord?.coreCheckpointRef || null;
   const snapshotHash = hashStableJson({
     kind: 'directive.terminalCheckpointReplayEvidence.v1',
     decisionId,
@@ -356,6 +450,7 @@ function terminalReplayRepairEvidence({ state, interaction, decision, snapshotRe
     outcomeId,
     snapshotSourceKind,
     snapshotPresent,
+    checkpointId: coreCheckpointRef?.checkpointId || null,
     runtimeRevision,
     ledgerRevision
   });
@@ -369,6 +464,7 @@ function terminalReplayRepairEvidence({ state, interaction, decision, snapshotRe
     snapshotSourceKind,
     snapshotPresent,
     snapshotHash: snapshotPresent ? snapshotHash : null,
+    coreCheckpointRef: cloneJson(coreCheckpointRef || null),
     runtimeRevision,
     ledgerRevision
   };
@@ -393,6 +489,7 @@ function compactRepairDecisionEvidence(decision = null) {
     snapshotSourceKind: decision.snapshotSourceKind || null,
     snapshotPresent: decision.snapshotPresent === true,
     snapshotHash: decision.snapshotHash || null,
+    coreCheckpointRef: cloneJson(decision.coreCheckpointRef || null),
     runtimeRevision: numericRevision(decision.runtimeRevision),
     ledgerRevision: numericRevision(decision.ledgerRevision),
     allowedActions: Array.isArray(decision.allowedActions) ? cloneJson(decision.allowedActions) : [],
@@ -416,6 +513,7 @@ function checkpointText(interaction) {
 
 export function createCampaignEndConditionService({
   host = null,
+  coreTurnStore = null,
   getCampaignState,
   setCampaignState,
   getPackageContext,
@@ -454,6 +552,117 @@ export function createCampaignEndConditionService({
     }
   }
 
+  async function stateWithLatestCoreProjections(state) {
+    const normalized = initializeCampaignRuntimeTracking(state);
+    if (typeof coreTurnStore?.readProjections !== 'function') return normalized;
+    const projections = await coreTurnStore.readProjections();
+    if (!isObject(projections)) return normalized;
+    return withCoreReadProjections(normalized, projections);
+  }
+
+  async function recordCoreTerminalPendingInteraction(state, interaction = {}) {
+    let authorityState = await stateWithLatestCoreProjections(state);
+    const transactionId = compact(
+      interaction.coreTransactionId
+      || interaction.coreProjection?.transactionId
+      || interaction.coreProjection?.coreTransactionId
+      || interaction.compatibilityMirror?.transactionId
+      || coreTransactionIdForIngress(authorityState, interaction.ingressId)
+    );
+    if (!transactionId || typeof coreTurnStore?.recordPendingInteraction !== 'function') {
+      return {
+        ok: false,
+        reason: 'terminal-decision-core-pending-interaction-required',
+        campaignState: cloneJson(authorityState),
+        interactionId: interaction.id || interaction.interactionId || null,
+        ingressId: interaction.ingressId || null,
+        transactionId: transactionId || null
+      };
+    }
+    await coreTurnStore.recordPendingInteraction(transactionId, {
+      ...cloneJson(interaction),
+      idempotencyKey: `terminal-pending-interaction:${interaction.id || transactionId}`
+    });
+    authorityState = await stateWithLatestCoreProjections(authorityState);
+    const row = pendingInteractionProjectionRows(authorityState)
+      .find((entry) => entry.id === interaction.id || entry.interactionId === interaction.id) || null;
+    return {
+      ok: true,
+      pendingInteraction: cloneJson(row || interaction),
+      campaignState: cloneJson(authorityState),
+      transactionId
+    };
+  }
+
+  async function recordCoreTerminalDecisionLedger(state, ledger = {}, {
+    transactionId = null,
+    idempotencyKey = null
+  } = {}) {
+    let authorityState = await stateWithLatestCoreProjections(state);
+    const fallbackDecision = ledger?.decisions?.find((entry) => entry?.status === 'pending')
+      || ledger?.decisions?.at?.(-1)
+      || null;
+    const selectedTransactionId = compact(
+      transactionId
+      || fallbackDecision?.coreTransactionId
+      || fallbackDecision?.transactionId
+      || fallbackDecision?.coreProjection?.transactionId
+      || fallbackDecision?.coreProjection?.coreTransactionId
+      || coreTransactionIdForIngress(authorityState, fallbackDecision?.ingressId)
+      || coreTransactionIdForIngress(authorityState, authorityState?.runtimeTracking?.activeIngressId)
+    );
+    if (!selectedTransactionId || typeof coreTurnStore?.recordTerminalDecisionLedger !== 'function') {
+      return {
+        ok: false,
+        reason: 'terminal-decision-core-ledger-projection-required',
+        campaignState: cloneJson(authorityState),
+        transactionId: selectedTransactionId || null
+      };
+    }
+    await coreTurnStore.recordTerminalDecisionLedger(selectedTransactionId, ledger, {
+      idempotencyKey: idempotencyKey || `terminal-decision-ledger:${ledger.activeDecisionId || fallbackDecision?.id || selectedTransactionId}`
+    });
+    authorityState = await stateWithLatestCoreProjections(authorityState);
+    return {
+      ok: true,
+      campaignState: cloneJson(authorityState),
+      terminalDecisionLedger: terminalDecisionLedgerView(authorityState),
+      transactionId: selectedTransactionId
+    };
+  }
+
+  async function resolveCoreTerminalPendingInteraction(state, interaction = {}, resolution = {}) {
+    let authorityState = await stateWithLatestCoreProjections(state);
+    const transactionId = compact(
+      interaction.coreTransactionId
+      || interaction.coreProjection?.transactionId
+      || interaction.coreProjection?.coreTransactionId
+      || interaction.compatibilityMirror?.transactionId
+      || coreTransactionIdForIngress(authorityState, interaction.ingressId)
+    );
+    const interactionId = compact(interaction.id || interaction.interactionId);
+    if (!transactionId || !interactionId || typeof coreTurnStore?.resolvePendingInteraction !== 'function') {
+      return {
+        ok: false,
+        reason: 'terminal-decision-core-pending-interaction-resolution-required',
+        campaignState: cloneJson(authorityState),
+        interactionId: interactionId || null,
+        ingressId: interaction.ingressId || null,
+        transactionId: transactionId || null
+      };
+    }
+    await coreTurnStore.resolvePendingInteraction(transactionId, interactionId, {
+      ...cloneJson(resolution || {}),
+      idempotencyKey: `terminal-pending-interaction-resolved:${interactionId}:${resolution.action || resolution.status || 'resolved'}`
+    });
+    authorityState = await stateWithLatestCoreProjections(authorityState);
+    return {
+      ok: true,
+      campaignState: cloneJson(authorityState),
+      transactionId
+    };
+  }
+
   async function authorizeTerminalCheckpointReplay(input = {}) {
     const authorize = repairRuntime?.authorizeTerminalCheckpointReplay
       || repairRuntime?.evaluateTerminalCheckpointReplayActuation;
@@ -475,6 +684,7 @@ export function createCampaignEndConditionService({
         snapshotSourceKind: input.snapshotSourceKind || null,
         snapshotPresent: input.snapshotPresent === true,
         snapshotHash: input.snapshotHash || null,
+        coreCheckpointRef: cloneJson(input.coreCheckpointRef || null),
         runtimeRevision: input.runtimeRevision ?? null,
         ledgerRevision: input.ledgerRevision ?? null,
         allowedActions: ['reviewTerminalCheckpointReplayRequest'],
@@ -485,7 +695,7 @@ export function createCampaignEndConditionService({
   }
 
   async function evaluateCommittedTurn({ turnPacket = null, ingressId = null } = {}) {
-    let state = initializeCampaignRuntimeTracking(getCampaignState());
+    let state = await stateWithLatestCoreProjections(getCampaignState());
     const outcomeId = turnPacket?.outcomePacket?.id || state.turnLedger?.lastCommittedOutcomeId || null;
     const turnId = turnPacket?.turnId || turnPacket?.id || null;
     let detection = detectCampaignEndCondition({
@@ -529,9 +739,18 @@ export function createCampaignEndConditionService({
       decisions: [...ledger.decisions, decisionRecord(detection)]
     };
     state = withTerminalDecisionLedgerProjection(state, ledger);
-    const pendingInteraction = interactionFromDecision(
+    const coreLedger = await recordCoreTerminalDecisionLedger(state, ledger, {
+      idempotencyKey: `terminal-decision-ledger-recorded:${detection.decisionId}`
+    });
+    if (!coreLedger.ok) return coreLedger;
+    state = coreLedger.campaignState;
+    let pendingInteraction = interactionFromDecision(
       ledger.decisions.find((decision) => decision.id === detection.decisionId)
     ) || cloneJson(detection.pendingInteraction || null);
+    const corePending = await recordCoreTerminalPendingInteraction(state, pendingInteraction);
+    if (!corePending.ok) return corePending;
+    state = corePending.campaignState;
+    pendingInteraction = corePending.pendingInteraction || pendingInteraction;
     await persistState(state, `Recorded terminal outcome decision ${detection.conditionId}.`);
     return {
       ok: true,
@@ -542,7 +761,7 @@ export function createCampaignEndConditionService({
   }
 
   async function postCheckpointDecision({ interactionId = null } = {}) {
-    let state = initializeCampaignRuntimeTracking(getCampaignState());
+    let state = await stateWithLatestCoreProjections(getCampaignState());
     const interaction = activeTerminalInteraction(state, interactionId);
     if (!interaction) return { ok: false, reason: 'terminal-decision-not-pending' };
     const decision = decisionForInteraction(state, interaction);
@@ -561,6 +780,12 @@ export function createCampaignEndConditionService({
       checkpointMessageId: posted?.hostMessageId || null
     });
     state = withTerminalDecisionLedgerProjection(state, ledger);
+    const coreLedger = await recordCoreTerminalDecisionLedger(state, ledger, {
+      transactionId: interaction.coreTransactionId || interaction.coreProjection?.transactionId || null,
+      idempotencyKey: `terminal-decision-ledger-checkpoint-posted:${interaction.id}`
+    });
+    if (!coreLedger.ok) return coreLedger;
+    state = coreLedger.campaignState;
     await persistState(state, `Posted terminal outcome checkpoint ${interaction.id}.`);
     const terminalCheckpointSettlement = await recordSettlement({
       kind: 'terminalOutcomeCheckpointPosted',
@@ -581,7 +806,7 @@ export function createCampaignEndConditionService({
   }
 
   async function replayFromCheckpoint({ interaction, decision }) {
-    const current = initializeCampaignRuntimeTracking(getCampaignState());
+    const current = await stateWithLatestCoreProjections(getCampaignState());
     const snapshotRecord = await checkpointSnapshotRecord(current, decision, { loadTerminalCheckpoint });
     const snapshot = snapshotRecord?.snapshot || null;
     if (!snapshot) return { ok: false, reason: 'checkpoint-snapshot-not-retained' };
@@ -621,6 +846,19 @@ export function createCampaignEndConditionService({
       initializeCampaignRuntimeTracking(snapshot),
       restoredLedger
     );
+    const coreLedger = await recordCoreTerminalDecisionLedger(restored, restoredLedger, {
+      transactionId: interaction.coreTransactionId || interaction.coreProjection?.transactionId || null,
+      idempotencyKey: `terminal-decision-ledger-replayed:${decision.id}`
+    });
+    if (!coreLedger.ok) return coreLedger;
+    restored = coreLedger.campaignState;
+    const coreResolved = await resolveCoreTerminalPendingInteraction(restored, interaction, {
+      status: 'resolved',
+      action: 'replayFromCheckpoint',
+      resolvedAt: timestamp(now)
+    });
+    if (!coreResolved.ok) return coreResolved;
+    restored = coreResolved.campaignState;
     restored = await persistState(restored, `Replayed from terminal outcome checkpoint ${decision.id}.`);
     restored = await syncStatePrompt(restored, 'Prompt context rebuilt after terminal checkpoint replay.');
     return { ok: true, action: 'replayFromCheckpoint', campaignState: cloneJson(restored) };
@@ -637,11 +875,32 @@ export function createCampaignEndConditionService({
       conditionId: decision.conditionId,
       now
     });
-    let state = initializeCampaignRuntimeTracking(applied.campaignState);
+    let state = await stateWithLatestCoreProjections(applied.campaignState);
     let ledger = terminalDecisionLedgerView(state);
+    const alreadyRecordedContinuation = ledger.continuationFrames.some((item) => (
+      item?.decisionId === decision.id && item?.frameId === selectedFrameId
+    ));
+    const continuationFrames = alreadyRecordedContinuation
+      ? ledger.continuationFrames
+      : [
+          ...ledger.continuationFrames,
+          {
+            id: `terminal-continuation:${decision.id}:${selectedFrameId}`,
+            decisionId: decision.id,
+            conditionId: decision.conditionId,
+            frameId: selectedFrameId,
+            appliedAt: timestamp(now),
+            ...terminalLedgerAuthority({
+              ...decision,
+              id: `terminal-continuation:${decision.id}:${selectedFrameId}`,
+              decisionId: decision.id
+            }, { rowKind: 'continuationFrame', status: 'applied', action: 'pushOn' })
+          }
+        ];
     ledger = {
       ...ledger,
       activeDecisionId: null,
+      continuationFrames,
       decisions: ledger.decisions.map((item) => item.id === decision.id
         ? {
             ...item,
@@ -653,6 +912,21 @@ export function createCampaignEndConditionService({
         : item)
     };
     state = withTerminalDecisionLedgerProjection(state, ledger);
+    const coreLedger = await recordCoreTerminalDecisionLedger(state, ledger, {
+      transactionId: interaction.coreTransactionId || interaction.coreProjection?.transactionId || null,
+      idempotencyKey: `terminal-decision-ledger-pushed-on:${decision.id}`
+    });
+    if (!coreLedger.ok) return coreLedger;
+    state = coreLedger.campaignState;
+    const coreResolved = await resolveCoreTerminalPendingInteraction(state, interaction, {
+      status: 'resolved',
+      action: 'pushOn',
+      frameId: selectedFrameId,
+      playerArgument: compact(playerArgument) || null,
+      resolvedAt: timestamp(now)
+    });
+    if (!coreResolved.ok) return coreResolved;
+    state = coreResolved.campaignState;
     await persistState(state, `Accepted terminal Push On frame ${selectedFrameId}.`);
     state = await syncStatePrompt(state, 'Prompt context rebuilt after terminal Push On.');
     return { ok: true, action: 'pushOn', frame: cloneJson(applied.frame), campaignState: cloneJson(state) };
@@ -666,7 +940,7 @@ export function createCampaignEndConditionService({
         campaignState: cloneJson(initializeCampaignRuntimeTracking(getCampaignState()))
       };
     }
-    let state = initializeCampaignRuntimeTracking(getCampaignState());
+    let state = await stateWithLatestCoreProjections(getCampaignState());
     const detection = {
       conditionId: decision.conditionId,
       condition: decision.condition,
@@ -691,6 +965,12 @@ export function createCampaignEndConditionService({
         : item)
     };
     state = withTerminalDecisionLedgerProjection(state, ledger);
+    const coreLedger = await recordCoreTerminalDecisionLedger(state, ledger, {
+      transactionId: interaction.coreTransactionId || interaction.coreProjection?.transactionId || null,
+      idempotencyKey: `terminal-decision-ledger-kept-ending:${decision.id}`
+    });
+    if (!coreLedger.ok) return coreLedger;
+    state = coreLedger.campaignState;
     state.conclusion = {
       ...(state.conclusion || {}),
       terminalOutcome: cloneJson(terminalMetadata)
@@ -699,6 +979,13 @@ export function createCampaignEndConditionService({
       ...(state.campaign || {}),
       finalCampaignBand: terminalMetadata.finalCampaignBand
     };
+    const coreResolved = await resolveCoreTerminalPendingInteraction(state, interaction, {
+      status: 'resolved',
+      action: 'keepEnding',
+      resolvedAt: timestamp(now)
+    });
+    if (!coreResolved.ok) return coreResolved;
+    state = coreResolved.campaignState;
     await persistState(state, `Accepted terminal ending ${decision.conditionId}.`);
     const concluded = await concludeCampaign({
       reason: decision.playerFacingSummary || 'The player accepted a terminal campaign ending.',
@@ -710,7 +997,7 @@ export function createCampaignEndConditionService({
 
   async function saveBranch({ interaction, decision }) {
     if (typeof saveTerminalBranch !== 'function') return { ok: false, reason: 'terminal-branch-save-unavailable' };
-    const state = initializeCampaignRuntimeTracking(getCampaignState());
+    const state = await stateWithLatestCoreProjections(getCampaignState());
     const branch = await saveTerminalBranch({
       name: `Terminal Timeline - ${decision.condition?.title || decision.conditionId}`,
       branchFrom: {
@@ -750,8 +1037,14 @@ export function createCampaignEndConditionService({
         : item)
     };
     const next = withTerminalDecisionLedgerProjection(state, ledger);
-    await persistState(next, `Saved terminal timeline branch ${branch.id}.`);
-    return { ok: true, action: 'saveTerminalBranch', branch: cloneJson(branch), campaignState: cloneJson(next) };
+    const coreLedger = await recordCoreTerminalDecisionLedger(next, ledger, {
+      transactionId: interaction.coreTransactionId || interaction.coreProjection?.transactionId || null,
+      idempotencyKey: `terminal-decision-ledger-branch-saved:${decision.id}:${branch.id}`
+    });
+    if (!coreLedger.ok) return coreLedger;
+    const nextWithCoreLedger = coreLedger.campaignState;
+    await persistState(nextWithCoreLedger, `Saved terminal timeline branch ${branch.id}.`);
+    return { ok: true, action: 'saveTerminalBranch', branch: cloneJson(branch), campaignState: cloneJson(nextWithCoreLedger) };
   }
 
   async function resolveDecision({
@@ -762,7 +1055,7 @@ export function createCampaignEndConditionService({
     resolutionIngressId = null,
     resolutionHostMessageId = null
   } = {}) {
-    const state = initializeCampaignRuntimeTracking(getCampaignState());
+    const state = await stateWithLatestCoreProjections(getCampaignState());
     const interaction = activeTerminalInteraction(state, interactionId);
     if (!interaction) return { ok: false, reason: 'terminal-decision-not-pending' };
     const decision = decisionForInteraction(state, interaction);

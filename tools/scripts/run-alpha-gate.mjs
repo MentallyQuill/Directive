@@ -152,7 +152,6 @@ const checks = [
   'test-active-save-facade-v2.mjs',
   'test-storage-cross-writer-v2.mjs',
   'test-transaction-store-v2.mjs',
-  'test-old-save-importer-v2.mjs',
   'test-core-store-v2.mjs',
   'test-smoke-sillytavern-core-proof-targeting.mjs',
   'test-fast-gate-runtime-synthetic.mjs',

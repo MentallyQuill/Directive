@@ -1033,11 +1033,7 @@ export function createCampaignActivationCoordinator({
           promptSuspendedAt: timestamp(now)
         } : state.campaignChatBinding,
         runtimeTracking: {
-          ...state.runtimeTracking,
-          promptContext: state.runtimeTracking?.promptContext ? {
-            ...state.runtimeTracking.promptContext,
-            status: promptCleanup?.ok === false ? 'cleanupFailed' : 'suspended'
-          } : state.runtimeTracking?.promptContext
+          ...state.runtimeTracking
         },
         activationJournal: {
           ...journal,

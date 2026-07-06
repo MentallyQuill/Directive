@@ -15,7 +15,10 @@ import {
   createSourceToken,
   createTurnSourceFrameRef
 } from '../runtime/frame-contracts.mjs';
-import { createRuntimeLedgerView } from '../runtime/runtime-ledger-view.mjs';
+import {
+  createRuntimeLedgerView,
+  readRuntimeCoreProjections
+} from '../runtime/runtime-ledger-view.mjs';
 import { normalizePromptDirtyDomains } from '../runtime/lens-prompt-scheduler.mjs';
 import { hashStableJson } from '../runtime/architecture-redesign-contracts.mjs';
 
@@ -79,6 +82,27 @@ function cloneJson(value) {
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function activeCoreRevisionState(campaignState = {}) {
+  const projections = readRuntimeCoreProjections(campaignState);
+  const revisions = isObject(projections?.revisions) ? projections.revisions : {};
+  if (String(projections?.runtimeAuthority || '').trim() === 'coreStoreV2') {
+    return {
+      runtime: Math.max(0, Number(revisions.runtime) || 0),
+      mechanics: Math.max(0, Number(revisions.mechanics) || 0),
+      authority: 'coreStoreV2'
+    };
+  }
+  return {
+    runtime: Math.max(0, Number(campaignState?.runtimeTracking?.revision) || 0),
+    mechanics: Math.max(0, Number(campaignState?.runtimeTracking?.mechanicsRevision) || 0),
+    authority: 'runtimeTracking'
+  };
+}
+
+function activeRuntimeRevision(campaignState = {}) {
+  return activeCoreRevisionState(campaignState).runtime;
 }
 
 function compactText(value = '', maxLength = 240) {
@@ -396,7 +420,7 @@ function sidecarContext(campaignState, turnContext, workerKey = null) {
   const directorCardHydration = directorCardHydrationForWorker(workerKey, turnContext);
   return {
     campaignId: campaignState.campaign?.id,
-    revision: campaignState.runtimeTracking?.revision || 0,
+    revision: activeRuntimeRevision(campaignState),
     mission: {
       activeMissionId: campaignState.mission?.activeMissionId,
       activePhaseId: campaignState.mission?.activePhaseId,
@@ -625,7 +649,7 @@ function commandBearingReviewDiagnostics(review = {}) {
     sourceOutcomeIds: cloneJson(review.sourceOutcomeIds || []),
     reviewPlan: cloneJson(review.reviewPlan || null),
     review: cloneJson(review.review || null),
-    appliedRevision: review.campaignState?.runtimeTracking?.revision || null
+    appliedRevision: activeRuntimeRevision(review.campaignState || {})
   };
 }
 
@@ -729,35 +753,14 @@ function workerRequiredShape(workerKey, worker, revision, turnContext = {}) {
 
 function ingressById(campaignState, ingressId) {
   if (!ingressId) return null;
-  return (createRuntimeLedgerView(campaignState || {}, { runtimeOverlay: true }).ingressLedger || [])
+  return (createRuntimeLedgerView(campaignState || {}).ingressLedger || [])
     .find((entry) => entry.id === ingressId) || null;
 }
 
 function sourceIngressSnapshot(campaignState, ingressId, turnContext = {}) {
   const ingress = ingressById(campaignState, ingressId);
   if (!ingress) {
-    const sourceFrameId = compactText(turnContext.sourceFrameId || turnContext.sourceFrameRef?.id);
-    const coreTransactionId = compactText(turnContext.coreTransactionId || turnContext.transactionId);
-    if (!ingressId || (!sourceFrameId && !coreTransactionId)) return null;
-    const sourceFrameRef = createTurnSourceFrameRef({
-      id: sourceFrameId || `frame:${ingressId}`,
-      campaignId: campaignState?.campaign?.id || turnContext.campaignId || null,
-      saveId: campaignState?.campaignChatBinding?.saveId || turnContext.saveId || null,
-      chatId: campaignState?.campaignChatBinding?.chatId || turnContext.chatId || null,
-      hostMessageId: turnContext.sourceMessageId || turnContext.hostMessageId || null,
-      textHash: turnContext.playerTextHash || null
-    });
-    return {
-      id: ingressId,
-      hostMessageId: turnContext.sourceMessageId || turnContext.hostMessageId || null,
-      textHash: turnContext.playerTextHash || null,
-      status: turnContext.sourceStatus || null,
-      outcomeId: turnContext.outcomeId || null,
-      sourceFrameId: sourceFrameRef?.id || sourceFrameId || null,
-      sourceFrameRef,
-      sourceToken: sourceFrameRef ? createSourceToken(sourceFrameRef) : null,
-      coreTransactionId
-    };
+    return null;
   }
   const sourceFrameRef = createTurnSourceFrameRef(ingress.sourceFrame || {
     id: ingress.sourceFrameId,
@@ -881,7 +884,7 @@ function staleSourceIngressFailure(job, currentState) {
 }
 
 function proposalPrompt(workerKey, worker, campaignState, turnContext) {
-  const revision = campaignState.runtimeTracking?.revision || 0;
+  const revision = activeRuntimeRevision(campaignState);
   const boundaryNotes = WORKER_BOUNDARY_NOTES[workerKey] || [];
   return [
     `You are Directive's ${workerKey} support worker.`,
@@ -998,6 +1001,8 @@ export function createCampaignSidecarScheduler({
         : (Array.isArray(details.postSettlementWarnings) ? cloneJson(details.postSettlementWarnings) : undefined),
       replayed: result?.replayed === true || details.replayed === true ? true : undefined,
       bridgeReason: error?.details?.reason || undefined,
+      bridgeStatus: error?.details?.status || undefined,
+      bridgeEffectiveStatus: error?.details?.effectiveStatus || undefined,
       parse: details.parsedDiagnostics?.parse ? cloneJson(details.parsedDiagnostics.parse) : undefined,
       batch: {
         concurrent: job.batchSize > 1,
@@ -1051,7 +1056,7 @@ export function createCampaignSidecarScheduler({
   function createWorkerJob(workerKey, state, turnContext, index, batchSize, activityReporter = null) {
     const worker = WORKERS[workerKey];
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
-    const baseRevision = state.runtimeTracking.revision;
+    const baseRevision = activeRuntimeRevision(state);
     const baseEventContext = sidecarEventContext(turnContext);
     const sourceIngress = sourceIngressSnapshot(state, baseEventContext.ingressId, turnContext);
     const source = {
@@ -1385,7 +1390,7 @@ export function createCampaignSidecarScheduler({
       sourceOutcomeIdHashes: Array.isArray(review.sourceOutcomeIds)
         ? review.sourceOutcomeIds.map((id) => compactTextEvidenceHash(id)).filter(Boolean).sort()
         : [],
-      stateRevision: review.campaignState?.runtimeTracking?.revision || null,
+      stateRevision: activeRuntimeRevision(review.campaignState || {}),
       records
     };
   }
@@ -1572,7 +1577,7 @@ export function createCampaignSidecarScheduler({
   function appliedReplayResults(pendingResults = [], accepted = [], replayResult = null, {
     postSettlementWarnings: replayPostSettlementWarnings = []
   } = {}) {
-    const currentRevision = getCampaignState()?.runtimeTracking?.revision || 0;
+    const currentRevision = activeRuntimeRevision(getCampaignState());
     const diagnostics = compactForgeSettlementDiagnostics(replayResult);
     const warnings = Array.isArray(replayPostSettlementWarnings) ? cloneJson(replayPostSettlementWarnings) : [];
     return pendingResults.map((result) => {
@@ -1640,23 +1645,28 @@ export function createCampaignSidecarScheduler({
 
   function campaignContextForForgePromptFlush(campaignState = {}) {
     const binding = campaignState?.campaignChatBinding || {};
+    const activeRevisions = activeCoreRevisionState(campaignState);
     return {
       campaignId: campaignState?.campaign?.id || binding.campaignId || null,
       saveId: binding.saveId || null,
       branchId: binding.branchId || 'main',
       chatId: binding.chatId || null,
-      mechanicsRevision: campaignState?.runtimeTracking?.revision ?? null
+      mechanicsRevision: activeRevisions.mechanics,
+      runtimeRevision: activeRevisions.runtime
     };
   }
 
   function promptFlushStateFingerprint(campaignState = {}) {
     const binding = campaignState?.campaignChatBinding || {};
+    const activeRevisions = activeCoreRevisionState(campaignState);
     return {
       campaignId: campaignState?.campaign?.id || binding.campaignId || null,
       saveId: binding.saveId || null,
       branchId: binding.branchId || 'main',
       chatId: binding.chatId || null,
-      revision: campaignState?.runtimeTracking?.revision ?? null
+      revision: activeRevisions.runtime,
+      mechanicsRevision: activeRevisions.mechanics,
+      revisionAuthority: activeRevisions.authority
     };
   }
 
@@ -1701,9 +1711,11 @@ export function createCampaignSidecarScheduler({
         externalPromptEnvironmentRef: cloneJson(prompt.runtimeResume.externalPromptEnvironmentRef || next.runtimeResume?.externalPromptEnvironmentRef || null)
       };
     }
-    if (prompt.runtimeTracking?.promptContext && typeof prompt.runtimeTracking.promptContext === 'object') {
-      next.runtimeTracking = initializeCampaignRuntimeTracking(next).runtimeTracking;
-      next.runtimeTracking.promptContext = cloneJson(prompt.runtimeTracking.promptContext);
+    if (prompt.directiveRuntimeEvidence?.lensPromptRevisionRecord) {
+      next.directiveRuntimeEvidence = {
+        ...(next.directiveRuntimeEvidence || {}),
+        lensPromptRevisionRecord: cloneJson(prompt.directiveRuntimeEvidence.lensPromptRevisionRecord)
+      };
     }
     return next;
   }
@@ -1727,12 +1739,12 @@ export function createCampaignSidecarScheduler({
     next.runtimeTracking = {
       ...initializeCampaignRuntimeTracking(next).runtimeTracking,
       revision: Math.max(
-        Number(current.runtimeTracking?.revision) || 0,
-        Number(projected.runtimeTracking?.revision) || 0
+        activeCoreRevisionState(current).runtime,
+        activeCoreRevisionState(projected).runtime
       ),
       mechanicsRevision: Math.max(
-        Number(current.runtimeTracking?.mechanicsRevision) || 0,
-        Number(projected.runtimeTracking?.mechanicsRevision) || 0
+        activeCoreRevisionState(current).mechanics,
+        activeCoreRevisionState(projected).mechanics
       ),
       lastDelta,
       activeIngressId: projected.runtimeTracking?.activeIngressId || current.runtimeTracking?.activeIngressId || null,
@@ -2179,7 +2191,7 @@ export function createCampaignSidecarScheduler({
         kind: 'directive.commandBearingReviewCommitRef.v1',
         batchId,
         reviewCount: reviewIds.length,
-        stateRevision: review.campaignState.runtimeTracking?.revision || null,
+        stateRevision: activeRuntimeRevision(review.campaignState || {}),
         reviewHash
       }
     });
@@ -2236,7 +2248,7 @@ export function createCampaignSidecarScheduler({
     const freshestBatchState = () => {
       const local = initializeCampaignRuntimeTracking(batchState.currentState || getCampaignState());
       const external = initializeCampaignRuntimeTracking(getCampaignState());
-      return Number(external.runtimeTracking?.revision || 0) >= Number(local.runtimeTracking?.revision || 0)
+      return activeRuntimeRevision(external) >= activeRuntimeRevision(local)
         ? external
         : local;
     };
@@ -2395,7 +2407,7 @@ export function createCampaignSidecarScheduler({
     }
 
     const currentState = freshestBatchState();
-    const currentRevision = currentState.runtimeTracking.revision;
+    const currentRevision = activeRuntimeRevision(currentState);
     if (currentRevision !== batchState.expectedRevision) {
       if (currentRevision > batchState.expectedRevision) {
         batchState.expectedRevision = currentRevision;
@@ -2614,7 +2626,7 @@ export function createCampaignSidecarScheduler({
         commandBearingReviewInputState = commandBearingCompatibilityState(beforeApplyState, compatibilityProjection.campaignState);
       }
       applied = {
-        revision: beforeApplyState.runtimeTracking?.revision || batchState.baseRevision || 0,
+        revision: activeRuntimeRevision(beforeApplyState) || batchState.baseRevision || 0,
         domains: compatibilityProjection.domains || [],
         campaignState: cloneJson(beforeApplyState),
         compatibilityProjection: {
@@ -2703,7 +2715,7 @@ export function createCampaignSidecarScheduler({
         if (promptInstallSkippedByFreshnessGuard(forgePromptFlush)) {
           const currentPromptState = initializeCampaignRuntimeTracking(getCampaignState());
           applied.campaignState = cloneJson(currentPromptState);
-          applied.revision = currentPromptState.runtimeTracking?.revision || applied.revision;
+          applied.revision = activeRuntimeRevision(currentPromptState) || applied.revision;
           batchState.currentState = cloneJson(currentPromptState);
           batchState.expectedRevision = applied.revision;
           postSettlementWarnings.push(compactPostSettlementWarning('lens', {
@@ -2788,7 +2800,7 @@ export function createCampaignSidecarScheduler({
         if (commandBearingReview.campaignState) {
           commandBearingReviewMutated = true;
           applied.campaignState = commandBearingReview.campaignState;
-          applied.revision = commandBearingReview.campaignState.runtimeTracking?.revision || applied.revision;
+          applied.revision = activeRuntimeRevision(commandBearingReview.campaignState) || applied.revision;
           setCampaignState(commandBearingReview.campaignState);
           batchState.currentState = cloneJson(commandBearingReview.campaignState);
           batchState.expectedRevision = applied.revision;
@@ -2866,7 +2878,7 @@ export function createCampaignSidecarScheduler({
           const restoreCommandBearingReviewCompatibilityState = () => {
             const restored = commandBearingReviewCompatibilityState(getCampaignState());
             applied.campaignState = restored;
-            applied.revision = restored.runtimeTracking?.revision || applied.revision;
+            applied.revision = activeRuntimeRevision(restored) || applied.revision;
             setCampaignState(restored);
             batchState.currentState = cloneJson(restored);
             batchState.expectedRevision = applied.revision;
@@ -2931,7 +2943,7 @@ export function createCampaignSidecarScheduler({
                 if (promptFlushInputStillCurrent(commandBearingReviewPromptInputState, currentPromptState)) {
                   const synchronizedReview = promptOnlyCampaignState(commandBearingReviewPersistentBaseState, forgeReviewPromptFlush.campaignState);
                   applied.campaignState = synchronizedReview;
-                  applied.revision = synchronizedReview.runtimeTracking?.revision || applied.revision;
+                  applied.revision = activeRuntimeRevision(synchronizedReview) || applied.revision;
                   setCampaignState(synchronizedReview);
                   batchState.currentState = cloneJson(synchronizedReview);
                   batchState.expectedRevision = applied.revision;
@@ -2973,7 +2985,7 @@ export function createCampaignSidecarScheduler({
             if (synchronizedReview) {
               const promptOnlyReview = promptOnlyCampaignState(commandBearingReviewPersistentBaseState, synchronizedReview);
               applied.campaignState = promptOnlyReview;
-              applied.revision = promptOnlyReview.runtimeTracking?.revision || applied.revision;
+              applied.revision = activeRuntimeRevision(promptOnlyReview) || applied.revision;
               setCampaignState(promptOnlyReview);
               batchState.currentState = cloneJson(promptOnlyReview);
               batchState.expectedRevision = applied.revision;
@@ -2992,7 +3004,7 @@ export function createCampaignSidecarScheduler({
       } catch (error) {
         if (commandBearingReviewMutated) {
           applied.campaignState = cloneJson(beforeCommandBearingReviewState);
-          applied.revision = beforeCommandBearingReviewState.runtimeTracking?.revision || applied.revision;
+          applied.revision = activeRuntimeRevision(beforeCommandBearingReviewState) || applied.revision;
           setCampaignState(beforeCommandBearingReviewState);
           batchState.currentState = cloneJson(beforeCommandBearingReviewState);
           batchState.expectedRevision = applied.revision;
@@ -3059,7 +3071,7 @@ export function createCampaignSidecarScheduler({
         }
       }
       const state = initializeCampaignRuntimeTracking(getCampaignState());
-      const baseRevision = state.runtimeTracking.revision;
+      const baseRevision = activeRuntimeRevision(state);
       const jobs = requested.map((workerKey, index) => createWorkerJob(
         workerKey,
         state,

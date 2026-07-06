@@ -78,6 +78,10 @@ function compact(value = {}) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
 }
 
+function compactString(value) {
+  return String(value || '').trim();
+}
+
 function assertPhase(phase) {
   const value = requireNonEmptyString(phase, 'phase');
   if (!PHASES.has(value)) throw new Error(`Unknown CORE transaction phase "${value}"`);
@@ -954,7 +958,7 @@ function compactRollbackActuationRef(value = {}, { transaction = null, idempoten
       : null,
     sourceMutation,
     repairDecision: stripRawKeys(source.repairDecision || {}),
-    legacyProjection: stripRawKeys(source.legacyProjection || {}),
+    repairProjection: stripRawKeys(source.repairProjection || {}),
     rollbackActuation,
     idempotencyKey: idempotencyKey || source.idempotencyKey || null,
     occurredAt: source.occurredAt || occurredAt || null,
@@ -1205,6 +1209,57 @@ function buildPendingInteractionProjections(events = [], transactionMap = {}) {
     }));
   }
   return [...rows.values()];
+}
+
+function isTerminalDecisionProjectionRow(entry = {}, rowKind = null) {
+  return (
+    isObject(entry)
+    && compactString(entry.authority) === 'terminalDecisionProjection'
+    && compactString(entry.projectionSource) === 'coreStoreV2'
+    && isObject(entry.coreProjection)
+    && compactString(entry.coreProjection.kind) === 'directive.terminalEndConditionLedgerProjectionRef.v1'
+    && (!rowKind || compactString(entry.coreProjection.rowKind) === rowKind)
+  );
+}
+
+function compactTerminalDecisionLedgerProjection(input = {}) {
+  const source = isObject(input) ? input : {};
+  const detections = Array.isArray(source.detections)
+    ? source.detections.filter((entry) => isTerminalDecisionProjectionRow(entry, 'detection')).map(sanitizeDiagnostic)
+    : [];
+  const decisions = Array.isArray(source.decisions)
+    ? source.decisions.filter((entry) => isTerminalDecisionProjectionRow(entry, 'decision')).map(sanitizeDiagnostic)
+    : [];
+  const branchRecords = Array.isArray(source.branchRecords)
+    ? source.branchRecords.filter((entry) => isTerminalDecisionProjectionRow(entry, 'branchRecord')).map(sanitizeDiagnostic)
+    : [];
+  const continuationFrames = Array.isArray(source.continuationFrames)
+    ? source.continuationFrames.filter((entry) => isTerminalDecisionProjectionRow(entry, 'continuationFrame')).map(sanitizeDiagnostic)
+    : [];
+  const activeDecisionId = compactString(source.activeDecisionId);
+  return compact({
+    schemaVersion: 1,
+    activeDecisionId: activeDecisionId && decisions.some((decision) => (
+      compactString(decision.id) === activeDecisionId
+      && compactString(decision.status) === 'pending'
+    ))
+      ? activeDecisionId
+      : null,
+    detections,
+    decisions,
+    branchRecords,
+    continuationFrames
+  });
+}
+
+function buildTerminalDecisionLedgerProjection(events = []) {
+  let ledger = null;
+  for (const event of events || []) {
+    if (event.type !== 'terminalDecisionLedgerProjected') continue;
+    const payload = eventPayload(event);
+    ledger = compactTerminalDecisionLedgerProjection(payload.terminalDecisionLedger || {});
+  }
+  return ledger || compactTerminalDecisionLedgerProjection();
 }
 
 function turnRecord({
@@ -1778,6 +1833,7 @@ export function buildCoreStoreReadProjections(state = {}) {
   const diagnostics = state.diagnostics || [];
   const turnTiming = buildTurnTimingProjections(state.events || [], transactionMap);
   const pendingInteractions = buildPendingInteractionProjections(state.events || [], transactionMap);
+  const terminalDecisionLedger = buildTerminalDecisionLedgerProjection(state.events || []);
   return {
     kind: 'directive.coreStoreReadProjections.v1',
     schemaVersion: 1,
@@ -1792,10 +1848,13 @@ export function buildCoreStoreReadProjections(state = {}) {
       return compact({
         id: transaction.ingressId || `ingress:${transaction.id}`,
         transactionId: transaction.id,
+        coreTransactionId: transaction.id,
         sourceFrameId: transaction.sourceFrameId,
         hostMessageId: transaction.sourceFrame?.hostMessageId || null,
         chatId: transaction.chatId,
         textHash: transaction.sourceFrame?.textHash || null,
+        playerSubmittedAt: transaction.sourceFrame?.createdAt || transaction.createdAt || null,
+        receivedAt: transaction.createdAt || transaction.sourceFrame?.createdAt || null,
         status: projectionStatusForPhase(transaction.phase),
         route: transaction.route || null,
         outcomeId: transaction.outcomeId || null,
@@ -1809,7 +1868,7 @@ export function buildCoreStoreReadProjections(state = {}) {
         restartedFromTransactionId: transaction.restartedFromTransactionId || null
       });
     }),
-    responseLedger: (state.events || [])
+    responses: (state.events || [])
       .filter((event) => (
         event.type === 'visibleResponseRecorded'
         || (
@@ -1833,9 +1892,15 @@ export function buildCoreStoreReadProjections(state = {}) {
             id: payload.responseId || `response-release:${transactionId}`,
             responseId: payload.responseId || null,
             transactionId,
+            coreTransactionId: transactionId,
+            ingressId: transactionMap?.[transactionId]?.ingressId || null,
             hostMessageId: null,
             outcomeId: payload.outcomeId || transactionMap?.[transactionId]?.outcomeId || null,
+            strategy: (payload.toPhase === 'hostContinueReleased' && (payload.responseKind || 'hostContinue') === 'hostContinue')
+              ? 'injectAndContinue'
+              : undefined,
             responseKind: payload.responseKind || 'hostContinue',
+            hostGenerationReleasedAt: timing?.hostGenerationReleasedAt || null,
             generationStartedAt: timing?.hostGenerationReleasedAt || event.occurredAt || null,
             textHash: null,
             turnTiming: timing || undefined,
@@ -1849,6 +1914,7 @@ export function buildCoreStoreReadProjections(state = {}) {
           return compact({
             id: payload.dependentResponseId || `response-recovery:${transactionId}:${payload.recoveryCase?.id || event.id}`,
             transactionId,
+            coreTransactionId: transactionId,
             hostMessageId: decision.hostMessageId || null,
             outcomeId: payload.dependentOutcomeId || transactionMap?.[transactionId]?.outcomeId || null,
             responseKind: decision.responseKind || (
@@ -1991,6 +2057,7 @@ export function buildCoreStoreReadProjections(state = {}) {
       })
     ],
     pendingInteractions,
+    terminalDecisionLedger,
     continuityRecoveryProjection,
     rollbackActuations: rollbackEvents.map((event) => {
       const payload = eventPayload(event);
@@ -3071,6 +3138,37 @@ export function createCoreStoreV2({
       return cloneJson(buildPendingInteractionProjections(state.events, state.transactions)
         .find((entry) => entry.id === id) || null);
     },
+    async recordTerminalDecisionLedger(transactionId, ledger = {}, options = {}) {
+      const transaction = requireTransaction(transactionId);
+      const terminalDecisionLedger = compactTerminalDecisionLedgerProjection(ledger);
+      const idempotencyKey = options.idempotencyKey || `terminal-decision-ledger:${transactionId}:${terminalDecisionLedger.activeDecisionId || 'snapshot'}`;
+      const existing = state.events.find((event) => (
+        event.type === 'terminalDecisionLedgerProjected'
+        && event.idempotencyKey === idempotencyKey
+      ));
+      if (existing) {
+        return cloneJson(eventPayload(existing).terminalDecisionLedger || terminalDecisionLedger);
+      }
+      const deltaCursor = eventTurnDeltaCursor();
+      const revisionsBefore = cloneJson(state.revisions);
+      state.updatedAt = timestamp();
+      state.revisions = nextRevisions(state.revisions, { runtime: 1 });
+      appendEvent('terminalDecisionLedgerProjected', transaction, {
+        payload: {
+          terminalDecisionLedger
+        },
+        revisionsBefore,
+        revisionsAfter: state.revisions,
+        idempotencyKey,
+        occurredAt: state.updatedAt
+      });
+      await persistEventTurnDelta(deltaCursor, {
+        operation: 'recordTerminalDecisionLedger',
+        transactionId: transaction.id,
+        activeDecisionId: terminalDecisionLedger.activeDecisionId || null
+      });
+      return cloneJson(terminalDecisionLedger);
+    },
     async commitMechanics(transactionId, operationBundle = {}) {
       const transaction = requireTransaction(transactionId);
       const bundle = cloneJson(operationBundle);
@@ -3083,7 +3181,12 @@ export function createCoreStoreV2({
         error.code = 'DIRECTIVE_CORE_MECHANICS_ALREADY_COMMITTED';
         throw error;
       }
-      if (Number.isFinite(Number(bundle.baseMechanicsRevision)) && Number(bundle.baseMechanicsRevision) !== state.revisions.mechanics) {
+      if (
+        bundle.baseMechanicsRevision !== null
+        && bundle.baseMechanicsRevision !== undefined
+        && Number.isFinite(Number(bundle.baseMechanicsRevision))
+        && Number(bundle.baseMechanicsRevision) !== state.revisions.mechanics
+      ) {
         const error = new Error(`Stale CORE mechanics base revision for "${transaction.id}"`);
         error.code = 'DIRECTIVE_CORE_STALE_MECHANICS_REVISION';
         error.details = { expected: state.revisions.mechanics, actual: Number(bundle.baseMechanicsRevision) };
@@ -3526,7 +3629,12 @@ export function createCoreStoreV2({
         error.code = 'DIRECTIVE_CORE_BACKGROUND_BATCH_DUPLICATE';
         throw error;
       }
-      if (Number.isFinite(Number(operationBundle.baseMechanicsRevision)) && Number(operationBundle.baseMechanicsRevision) !== state.revisions.mechanics) {
+      if (
+        operationBundle.baseMechanicsRevision !== null
+        && operationBundle.baseMechanicsRevision !== undefined
+        && Number.isFinite(Number(operationBundle.baseMechanicsRevision))
+        && Number(operationBundle.baseMechanicsRevision) !== state.revisions.mechanics
+      ) {
         const error = new Error(`Stale CORE background base revision for "${transaction.id}"`);
         error.code = 'DIRECTIVE_CORE_STALE_MECHANICS_REVISION';
         error.details = { expected: state.revisions.mechanics, actual: Number(operationBundle.baseMechanicsRevision) };

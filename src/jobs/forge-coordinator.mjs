@@ -246,12 +246,16 @@ function sanitizeProviderBatchResult(result = {}) {
 }
 
 function sanitizeProviderBatch(batch = {}) {
-  return {
-    ...cloneJson(batch),
+  const safe = {
+    concurrent: batch.concurrent === true,
     results: Array.isArray(batch.results)
       ? batch.results.map(sanitizeProviderBatchResult)
       : []
   };
+  if (typeof batch.kind === 'string') {
+    safe.kind = batch.kind;
+  }
+  return safe;
 }
 
 function compactNonCriticalSettlementError(stage, error) {
@@ -773,6 +777,7 @@ export function createForgeCoordinator({
         providerCallAttempted: false,
         providerOwner: input.providerOwner || null,
         acceptedBatchHash,
+        reason: sourceCheck.reason,
         diagnostic
       };
       handled.set(request.idempotencyKey, result);
@@ -1011,6 +1016,7 @@ export function createForgeCoordinator({
         providerCallAttempted: false,
         providerOwner: input.providerOwner || null,
         acceptedBatchHash,
+        reason: sourceCheck.reason,
         diagnostic
       };
       handled.set(request.idempotencyKey, result);

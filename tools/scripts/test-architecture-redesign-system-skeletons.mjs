@@ -72,15 +72,15 @@ assert.equal(
   false,
   'REPAIR rollback execution must not append old runtimeTracking.recoveryJournal restoreRevision rows.'
 );
-assert.match(
-  repairCommandBoundarySource,
-  /createRuntimeLedgerViewAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
-  'REPAIR rollback restore must import the shared async CORE-first runtime ledger view.'
+assert.equal(
+  /createRuntimeLedgerViewAsync/.test(repairCommandBoundarySource),
+  false,
+  'REPAIR rollback restore must not read the merged runtime ledger view to repopulate old runtimeTracking ledger arrays.'
 );
 assert.match(
   repairCommandBoundarySource,
-  /function\s+runtimeTrackingLedgersFromView\([\s\S]*?if\s*\(hasCoreProjections\(projections\)\)\s*\{[\s\S]*?ingressLedger:\s*\[\][\s\S]*?responseLedger:\s*\[\][\s\S]*?recoveryJournal:\s*\[\][\s\S]*?const\s+currentLedgerView\s*=\s*await\s+createRuntimeLedgerViewAsync\(current,\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?const\s+runtimeProjections\s*=\s*await\s+readRuntimeCoreProjectionsAsync\(current,\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?const\s+runtimeTrackingLedgers\s*=\s*runtimeTrackingLedgersFromView\(currentLedgerView,\s*runtimeProjections\)[\s\S]*?ingressLedger:\s*runtimeTrackingLedgers\.ingressLedger[\s\S]*?responseLedger:\s*runtimeTrackingLedgers\.responseLedger[\s\S]*?recoveryJournal:\s*runtimeTrackingLedgers\.recoveryJournal/,
-  'REPAIR rollback restore must drop old runtimeTracking ledger mirrors when CORE projections exist.'
+  /function\s+emptyRuntimeLedgerRowsForRollbackRestore\(\)[\s\S]*?ingressLedger:\s*\[\][\s\S]*?responseLedger:\s*\[\][\s\S]*?recoveryJournal:\s*\[\][\s\S]*?const\s+runtimeTrackingLedgers\s*=\s*emptyRuntimeLedgerRowsForRollbackRestore\(\)[\s\S]*?ingressLedger:\s*runtimeTrackingLedgers\.ingressLedger[\s\S]*?responseLedger:\s*runtimeTrackingLedgers\.responseLedger[\s\S]*?recoveryJournal:\s*runtimeTrackingLedgers\.recoveryJournal/,
+  'REPAIR rollback restore must keep old runtimeTracking ledger arrays empty after CORE checkpoint restore.'
 );
 assert.equal(
   /ingressLedger:\s*cloneJson\(currentLedgerView\.ingressLedger\s*\|\|\s*\[\]\)|responseLedger:\s*cloneJson\(currentLedgerView\.responseLedger\s*\|\|\s*\[\]\)|recoveryJournal:\s*cloneJson\(currentLedgerView\.recoveryJournal\s*\|\|\s*\[\]\)/.test(repairCommandBoundarySource),
@@ -109,16 +109,21 @@ assert.match(
 );
 assert.match(
   repairCommandBoundarySource,
-  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?endConditionLedger:\s*terminalDecisionLedgerView\(current\)/,
-  'REPAIR rollback restore must filter terminal decision ledger rows through the shared projection view.'
+  /endConditionLedger:\s*\{[\s\S]*?schemaVersion:\s*1[\s\S]*?activeDecisionId:\s*null[\s\S]*?detections:\s*\[\][\s\S]*?decisions:\s*\[\][\s\S]*?branchRecords:\s*\[\][\s\S]*?continuationFrames:\s*\[\]/,
+  'REPAIR rollback restore must keep old runtimeTracking.endConditionLedger empty; CORE terminal projections carry terminal decision state.'
+);
+assert.equal(
+  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"]|endConditionLedger:\s*terminalDecisionLedgerView\(current\)|current\.runtimeTracking\.endConditionLedger/.test(repairCommandBoundarySource),
+  false,
+  'REPAIR rollback restore must not rebuild terminal decisions from old runtimeTracking.endConditionLedger.'
 );
 assert.match(
   repairCommandBoundarySource,
-  /isPendingInteractionProjectionRow[\s\S]*?from\s+['"]\.\/state-delta-gateway\.mjs['"][\s\S]*?pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions\.filter\(isPendingInteractionProjectionRow\)\)/,
-  'REPAIR rollback restore must filter pending interactions through the shared owner projection view.'
+  /pendingInteractions:\s*\[\]/,
+  'REPAIR rollback restore must keep old runtimeTracking.pendingInteractions empty; CORE projections carry pending state.'
 );
 assert.equal(
-  /pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions\)|endConditionLedger:\s*cloneJson\(current\.runtimeTracking\.endConditionLedger\)/.test(repairCommandBoundarySource),
+  /pendingInteractions:\s*cloneJson\(current\.runtimeTracking\.pendingInteractions|pendingInteractions:\s*current\.runtimeTracking\.pendingInteractions|endConditionLedger:\s*cloneJson\(current\.runtimeTracking\.endConditionLedger\)/.test(repairCommandBoundarySource),
   false,
   'REPAIR rollback restore must not copy raw old pendingInteractions or terminal end-condition ledger rows.'
 );
@@ -131,6 +136,16 @@ assert.equal(
   /runtimeTracking\?\.history(?!Limit)|runtimeTracking\.history(?!Limit)/.test(repairCommandBoundarySource),
   false,
   'REPAIR rollback execution must not inspect old runtimeTracking.history to classify missing CORE checkpoint state.'
+);
+assert.match(
+  repairCommandBoundarySource,
+  /function\s+hasCompactCoreCheckpointRef[\s\S]*?checkpointId[\s\S]*?executeRollbackActuation[\s\S]*?DIRECTIVE_REPAIR_ROLLBACK_CORE_CHECKPOINT_REF_REQUIRED/,
+  'REPAIR rollback execution must require a compact CORE checkpoint ref before accepting any checkpoint restore state.'
+);
+assert.equal(
+  /executeRollbackActuation[\s\S]*?recordRollbackActuation\(input\)[\s\S]*?DIRECTIVE_REPAIR_ROLLBACK_CORE_CHECKPOINT_REF_REQUIRED/.test(repairCommandBoundarySource),
+  false,
+  'REPAIR rollback execution must block missing checkpoint refs before recording rollback actuation.'
 );
 
 const stateDeltaGatewaySource = readFileSync(
@@ -177,6 +192,26 @@ const sourceSettlementLatestPairSource = readFileSync(
   new URL('../../src/runtime/source-settlement-latest-pair.mjs', import.meta.url),
   'utf8'
 );
+const sourceSettlementLatestPairContractSource = readFileSync(
+  new URL('../../src/runtime/source-settlement-latest-pair-contract.mjs', import.meta.url),
+  'utf8'
+);
+const sourceSettlementLatestPairOwnerSource = readFileSync(
+  new URL('../../src/runtime/source-settlement-latest-pair-owner.mjs', import.meta.url),
+  'utf8'
+);
+const sourceSettlementLatestPairProviderSource = readFileSync(
+  new URL('../../src/runtime/source-settlement-latest-pair-provider.mjs', import.meta.url),
+  'utf8'
+);
+const sourceSettlementLatestPairSceneAdapterSource = readFileSync(
+  new URL('../../src/runtime/source-settlement-latest-pair-scene-adapter.mjs', import.meta.url),
+  'utf8'
+);
+const sourceSettlementLatestPairValidationSource = readFileSync(
+  new URL('../../src/runtime/source-settlement-latest-pair-validation.mjs', import.meta.url),
+  'utf8'
+);
 const continuityFactIndexSource = readFileSync(
   new URL('../../src/continuity/fact-index.mjs', import.meta.url),
   'utf8'
@@ -185,8 +220,24 @@ const continuityDirectorPacketsSource = readFileSync(
   new URL('../../src/continuity/director-packets.mjs', import.meta.url),
   'utf8'
 );
+const contextOrchestratorSource = readFileSync(
+  new URL('../../src/context/context-orchestrator.mjs', import.meta.url),
+  'utf8'
+);
 const playerSafePromptContextBuilderSource = readFileSync(
   new URL('../../src/generation/player-safe-prompt-context-builder.mjs', import.meta.url),
+  'utf8'
+);
+const lensPromptRevisionRecordSource = readFileSync(
+  new URL('../../src/runtime/lens-prompt-revision-record.mjs', import.meta.url),
+  'utf8'
+);
+const continuitySourceFrameSource = readFileSync(
+  new URL('../../src/continuity/source-frame.mjs', import.meta.url),
+  'utf8'
+);
+const continuityProjectionHintsSource = readFileSync(
+  new URL('../../src/continuity/projection-hints.mjs', import.meta.url),
   'utf8'
 );
 const continuityProjectionMatrixSource = readFileSync(
@@ -237,8 +288,8 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /createRuntimeLedgerView[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
-  'Generic state restore must import the shared CORE-first runtime ledger view.'
+  /readRuntimeCoreProjections[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
+  'Generic state commit/restore must import CORE projection readers without rebuilding old ledger overlays.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -247,7 +298,7 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+compactSceneReconciliationSnapshot[\s\S]*?normalizedSceneReconciliationLedger\(input,\s*defaults\)[\s\S]*?sanitizeRuntimeLedgerPayload\(ledger\)[\s\S]*?runs:\s*\[\][\s\S]*?pending:\s*\[\][\s\S]*?chunkCache:\s*\[\][\s\S]*?invalidations:\s*\[\][\s\S]*?function\s+createCampaignStateSnapshot[\s\S]*?snapshot\.sceneReconciliation\s*=\s*compactSceneReconciliationSnapshot\(sceneReconciliationInput,\s*defaults\.sceneReconciliation\)/,
+  /function\s+compactSceneReconciliationSnapshot[\s\S]*?normalizedSceneReconciliationLedger\(input,\s*defaults\)[\s\S]*?sanitizeRuntimeLedgerPayload\(ledger\)[\s\S]*?runs:\s*\[\][\s\S]*?pending:\s*\[\][\s\S]*?chunkCache:\s*\[\][\s\S]*?invalidations:\s*\[\][\s\S]*?function\s+createCampaignStateSnapshot[\s\S]*?snapshot\.sceneReconciliation\s*=\s*compactSceneReconciliationSnapshot\(sceneReconciliationInput,\s*sceneReconciliationDefaults\(\)\)/,
   'State history snapshots must compact top-level Scene Reconciliation ledgers instead of carrying raw SRE payload arrays.'
 );
 assert.match(
@@ -272,8 +323,13 @@ assert.equal(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+commitTrackedCampaignState[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(base,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?const\s+runtimeTrackingLedgers\s*=\s*runtimeTrackingLedgersFromView\(base,\s*runtimeLedgerView,\s*\{[\s\S]*?dropWhenCoreProjectionExists:\s*true[\s\S]*?\}\)[\s\S]*?ingressLedger:\s*runtimeTrackingLedgers\.ingressLedger[\s\S]*?responseLedger:\s*runtimeTrackingLedgers\.responseLedger[\s\S]*?recoveryJournal:\s*runtimeTrackingLedgers\.recoveryJournal/,
-  'State commits must drop old runtimeTracking ledger mirrors when CORE projections exist.'
+  /function\s+commitTrackedCampaignState[\s\S]*?const\s+runtimeTrackingLedgers\s*=\s*\{[\s\S]*?ingressLedger:\s*\[\][\s\S]*?responseLedger:\s*\[\][\s\S]*?recoveryJournal:\s*\[\][\s\S]*?\}[\s\S]*?ingressLedger:\s*runtimeTrackingLedgers\.ingressLedger[\s\S]*?responseLedger:\s*runtimeTrackingLedgers\.responseLedger[\s\S]*?recoveryJournal:\s*runtimeTrackingLedgers\.recoveryJournal/,
+  'State commits must not rebuild old runtimeTracking ledger mirrors from runtime overlay rows.'
+);
+assert.equal(
+  /runtimeOverlayRowsNotCoveredByCore|runtimeTrackingLedgersFromView|createRuntimeLedgerView\(base\)/.test(stateDeltaGatewaySource),
+  false,
+  'State commits must not preserve overlay fallback rows when CORE projections are absent.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -304,8 +360,13 @@ assert.equal(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /const\s+RAW_RUNTIME_LEDGER_PAYLOAD_KEYS[\s\S]*?providerPayload[\s\S]*?replacementTextProjectionFields[\s\S]*?function\s+compactRuntimeLedgerRows[\s\S]*?sanitizeRuntimeLedgerPayload[\s\S]*?replacementTextProjectionFields\(entry\)[\s\S]*?ingressLedger:\s*compactRuntimeLedgerRows\(input\.ingressLedger\)[\s\S]*?responseLedger:\s*compactRuntimeLedgerRows\(input\.responseLedger\)/,
-  'Runtime tracking initialization must compact ingress/response ledgers instead of cloning raw bridge payloads.'
+  /function\s+normalizedTracking[\s\S]*?ingressLedger:\s*\[\][\s\S]*?responseLedger:\s*\[\][\s\S]*?responseLedgerRevision:\s*0/,
+  'Runtime tracking initialization must drop old ingress/response ledgers; CORE projections are authoritative.'
+);
+assert.equal(
+  /function\s+compactRuntimeLedgerRows|function\s+isRuntimeLedgerProjectionRow|ingressLedger:\s*compactRuntimeLedgerRows\(input\.ingressLedger\)|responseLedger:\s*compactRuntimeLedgerRows\(input\.responseLedger\)/.test(stateDeltaGatewaySource),
+  false,
+  'Runtime tracking initialization must not compact or preserve old ingress/response ledger rows.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -321,6 +382,16 @@ assert.match(
   turnCommitCoordinatorSource,
   /function\s+lastCommittedTurnProjectionFields[\s\S]*?directive\.lastCommittedTurnCompatibilityMirror\.v1[\s\S]*?directive\.coreLastCommittedTurnProjectionRef\.v1[\s\S]*?after\.runtimeTracking\.lastCommittedTurn[\s\S]*?lastCommittedTurnProjectionFields[\s\S]*?function\s+annotateCoreMechanicsLedgerEntry|function\s+lastCommittedTurnProjectionFields[\s\S]*?directive\.lastCommittedTurnCompatibilityMirror\.v1[\s\S]*?directive\.coreLastCommittedTurnProjectionRef\.v1[\s\S]*?function\s+annotateCoreMechanicsLedgerEntry[\s\S]*?lastCommittedTurnProjectionFields[\s\S]*?after\.runtimeTracking\.lastCommittedTurn[\s\S]*?lastCommittedTurnProjectionFields/,
   'Turn commit coordinator must write lastCommittedTurn as a compact projection mirror, not silent old runtime authority.'
+);
+assert.match(
+  turnCommitCoordinatorSource,
+  /createRuntimeLedgerViewAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"][\s\S]*?async\s+function\s+findIngressById\(campaignState,\s*ingressId,\s*\{\s*coreTurnStore\s*=\s*null\s*\}\s*=\s*\{\}\)[\s\S]*?createRuntimeLedgerViewAsync\(campaignState\s*\|\|\s*\{\},\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?const\s+ingress\s*=\s*await\s+findIngressById\(after,\s*ingressId,\s*\{\s*coreTurnStore\s*\}\)/,
+  'Turn commit coordinator mechanics transaction binding must use async CORE-only ingress projections.'
+);
+assert.equal(
+  /function\s+findIngressById[\s\S]*?runtimeOverlay:\s*true|function\s+findIngressById[\s\S]*?runtimeTracking\?\.ingressLedger/.test(turnCommitCoordinatorSource),
+  false,
+  'Turn commit coordinator must not bind mechanics checkpoints to runtimeOverlay or raw hot ingress rows.'
 );
 assert.equal(
   /function\s+hasCoreRuntimeHistoryAuthority|directive\.coreRuntimeHistorySnapshotRef\.v1|core-authoritative-runtime-history|embedded-runtime-history-retired/.test(stateDeltaGatewaySource),
@@ -344,28 +415,33 @@ assert.equal(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+createCampaignStateSnapshot[\s\S]*?lifecycleJournal:\s*\[\][\s\S]*?sceneReconciliation:\s*cloneJson\(defaults\.sceneReconciliation\)[\s\S]*?sceneHandshake:\s*cloneJson\(defaults\.sceneHandshake\)/,
-  'State history snapshots must strip scene/lifecycle ledgers so old runtimeTracking does not carry large SRE payloads.'
+  /function\s+createCampaignStateSnapshot[\s\S]*?delete\s+snapshot\.runtimeTracking\.sceneReconciliation[\s\S]*?delete\s+snapshot\.runtimeTracking\.sceneHandshake/,
+  'State history snapshots must remove nested SRE runtime shells instead of preserving empty compatibility roots.'
 );
 assert.match(
   stateDeltaGatewaySource,
-  /DIRECTIVE_MUTABLE_STATE_DOMAINS[\s\S]*['"]sceneReconciliation['"][\s\S]*function\s+initializeCampaignRuntimeTracking[\s\S]*sceneReconciliation:\s*normalizedSceneReconciliationLedger\(sceneReconciliationInput,\s*runtimeTracking\.sceneReconciliation\)/,
-  'State gateway must treat sceneReconciliation as a top-level mutable SRE ledger with old runtimeTracking import migration.'
+  /DIRECTIVE_MUTABLE_STATE_DOMAINS[\s\S]*['"]sceneReconciliation['"][\s\S]*['"]sceneHandshake['"][\s\S]*function\s+initializeCampaignRuntimeTracking[\s\S]*delete\s+runtimeTracking\.sceneReconciliation[\s\S]*delete\s+runtimeTracking\.sceneHandshake[\s\S]*sceneReconciliation:\s*normalizedSceneReconciliationLedger\(sceneReconciliationInput,\s*sceneReconciliationDefaults\(\)\)[\s\S]*sceneHandshake:\s*normalizedSceneHandshakeLedger\(sceneHandshakeInput,\s*sceneHandshakeDefaults\(\)\)/,
+  'State gateway must treat sceneReconciliation and sceneHandshake as top-level mutable SRE ledgers and remove old runtimeTracking shells.'
 );
 assert.match(
   stateDeltaGatewaySource,
-  /const\s+materialChange\s*=\s*descriptor\.domains\.some\(\(domain\)\s*=>\s*!\[['"]runtimeTracking['"],\s*['"]sceneReconciliation['"]\]\.includes\(domain\)\)/,
-  'Scene Reconciliation ledger writes must not advance mechanics revisions.'
+  /const\s+materialChange\s*=\s*descriptor\.domains\.some\(\(domain\)\s*=>\s*!\[['"]runtimeTracking['"],\s*['"]sceneReconciliation['"],\s*['"]sceneHandshake['"]\]\.includes\(domain\)\)/,
+  'Scene Reconciliation and Scene Handshake ledger writes must not advance mechanics revisions.'
 );
 assert.match(
   stateDeltaGatewaySource,
-  /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?function\s+normalizedEndConditionLedger[\s\S]*?terminalDecisionLedgerView\(\s*\{[\s\S]*?endConditionLedger:\s*input/,
-  'Runtime tracking initialization must use the shared terminal decision ledger projection view.'
+  /emptyTerminalDecisionLedger[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?function\s+normalizedEndConditionLedger[\s\S]*?void\s+input[\s\S]*?emptyTerminalDecisionLedger\(\)[\s\S]*?endConditionLedger:\s*emptyTerminalDecisionLedger\(\)/,
+  'Runtime tracking initialization must keep old terminal decision hot root empty.'
 );
 assert.match(
   terminalDecisionLedgerViewSource,
-  /function\s+isTerminalDecisionProjectionRow[\s\S]*?terminalDecisionProjection[\s\S]*?directive\.terminalEndConditionLedgerProjectionRef\.v1[\s\S]*?rowKind[\s\S]*?terminalDecisionLedgerView[\s\S]*?detections\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]detection['"]\)\)[\s\S]*?decisions\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]decision['"]\)\)[\s\S]*?branchRecords\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]branchRecord['"]\)\)[\s\S]*?continuationFrames\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]continuationFrame['"]\)\)/,
-  'Shared terminal decision ledger view must drop untagged terminal end-condition ledger rows.'
+  /readRuntimeCoreProjections[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"][\s\S]*?function\s+normalizeTerminalDecisionLedger[\s\S]*?detections\.filter\(\(entry\)\s*=>\s*isTerminalDecisionProjectionRow\(entry,\s*['"]detection['"]\)\)[\s\S]*?function\s+terminalDecisionLedgerView[\s\S]*?projections\?\.terminalDecisionLedger/,
+  'Shared terminal decision ledger view must read CORE terminal projections and drop untagged terminal rows.'
+);
+assert.match(
+  terminalDecisionLedgerViewSource,
+  /function\s+withTerminalDecisionLedgerProjection[\s\S]*?coreStoreReadProjections:[\s\S]*?runtimeAuthority:\s*['"]coreStoreV2['"][\s\S]*?terminalDecisionLedger:\s*normalized[\s\S]*?endConditionLedger:\s*emptyTerminalDecisionLedger\(\)/,
+  'Terminal decision projection writer must write CORE read projections and clear old runtimeTracking.endConditionLedger.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -412,8 +488,8 @@ assert.equal(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+isSceneHandshakeProjectionRow[\s\S]*?sreSceneHandshakeProjection[\s\S]*?directive\.sceneHandshakeLedgerProjectionRef\.v1[\s\S]*?function\s+normalizedSceneHandshakeLedger[\s\S]*?settled\.filter\(isSceneHandshakeProjectionRow\)[\s\S]*?pendingInternalReview\.filter\(isSceneHandshakeProjectionRow\)[\s\S]*?lastResult:\s*isSceneHandshakeProjectionRow\(source\.lastResult\)/,
-  'Runtime tracking initialization must drop untagged Scene Handshake rows and lastResult.'
+  /function\s+isSceneHandshakeProjectionRow[\s\S]*?sreSceneHandshakeProjection[\s\S]*?directive\.sceneHandshakeLedgerProjectionRef\.v1[\s\S]*?function\s+isSceneHandshakeLedgerRow\(entry\s*=\s*\{\}\)\s*\{[\s\S]*?return\s+isSceneHandshakeProjectionRow\(entry\);[\s\S]*?function\s+normalizedSceneHandshakeLedger[\s\S]*?settled\.filter\(isSceneHandshakeLedgerRow\)[\s\S]*?pendingInternalReview\.filter\(isSceneHandshakeLedgerRow\)[\s\S]*?lastResult:\s*isSceneHandshakeLedgerRow\(source\.lastResult\)/,
+  'Runtime tracking initialization must preserve only valid top-level SRE Scene Handshake projection rows while dropping untagged, legacy, or forged rows.'
 );
 const recordModelCallEventBody = /export\s+function\s+recordModelCallEvent[\s\S]*?\n\}\n\nexport\s+function\s+recordPendingInteraction/.exec(stateDeltaGatewaySource)?.[0] || '';
 assert.equal(
@@ -421,12 +497,12 @@ assert.equal(
   false,
   'Old model-call fallback rows must not persist arbitrary metadata, raw prompts, raw responses, or provider payloads.'
 );
-const recordPendingInteractionBody = /export\s+function\s+recordPendingInteraction[\s\S]*?\n\}\n\nfunction\s+pendingInteractionEvidenceStatus/.exec(stateDeltaGatewaySource)?.[0] || '';
+const recordPendingInteractionBody = /export\s+function\s+recordPendingInteraction[\s\S]*?\n\}\n\nexport\s+function\s+resolvePendingInteraction/.exec(stateDeltaGatewaySource)?.[0] || '';
 const resolvePendingInteractionBody = /export\s+function\s+resolvePendingInteraction[\s\S]*?\n\}\n\nexport\s+function\s+createStateDeltaGateway/.exec(stateDeltaGatewaySource)?.[0] || '';
-assert.match(
-  stateDeltaGatewaySource,
-  /const\s+PENDING_INTERACTION_AUTHORITIES\s*=\s*new\s+Set\(\[[\s\S]*?corePendingInteractionProjection[\s\S]*?terminalDecisionProjection[\s\S]*?repairPendingInteractionProjection/,
-  'State delta gateway must define explicit pending-interaction authority owners.'
+assert.equal(
+  /PENDING_INTERACTION_AUTHORITIES|legacyPendingInteractionTelemetry|pendingInteractionEvidenceStatus|pendingInteractionMirror|pendingInteractionAuthorityFields/.test(stateDeltaGatewaySource),
+  false,
+  'State delta gateway must not retain old pending-interaction compatibility authority helpers.'
 );
 assert.match(
   coreStoreV2Source,
@@ -455,8 +531,13 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+isPendingInteractionProjectionRow[\s\S]*?authority\s*===\s*['"]corePendingInteractionProjection['"][\s\S]*?authority\s*===\s*['"]terminalDecisionProjection['"][\s\S]*?authority\s*===\s*['"]repairPendingInteractionProjection['"][\s\S]*?directive\.pendingInteractionCompatibilityMirror\.v1[\s\S]*?pendingInteractions:\s*\[\]/,
-  'Runtime tracking initialization must drop imported pendingInteractions rows; CORE projections own live pending state.'
+  /function\s+isPendingInteractionProjectionRow[\s\S]*?authority\s*===\s*['"]corePendingInteractionProjection['"][\s\S]*?authority\s*===\s*['"]repairPendingInteractionProjection['"][\s\S]*?directive\.pendingInteractionCompatibilityMirror\.v1[\s\S]*?pendingInteractions:\s*\[\]/,
+  'Runtime tracking initialization must drop imported pendingInteractions rows; CORE/REPAIR projections own live non-terminal pending state.'
+);
+assert.equal(
+  /function\s+isPendingInteractionProjectionRow[\s\S]*?terminalDecisionProjection/.test(stateDeltaGatewaySource),
+  false,
+  'Terminal decisions must not pass the pending-interaction projection predicate; terminal ledger owns them.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -471,8 +552,13 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+isLifecycleProjectionRow[\s\S]*?authority\s*===\s*['"]runtimeLifecycleProjection['"][\s\S]*?authority\s*===\s*['"]repairLifecycleProjection['"][\s\S]*?directive\.lifecycleCompatibilityMirror\.v1[\s\S]*?lifecycleJournal:\s*Array\.isArray\(input\.lifecycleJournal\)[\s\S]*?input\.lifecycleJournal\.filter\(isLifecycleProjectionRow\)/,
-  'Runtime tracking initialization must drop untagged lifecycleJournal rows.'
+  /function\s+normalizedTracking[\s\S]*?lifecycleJournal:\s*\[\]/,
+  'Runtime tracking initialization must drop all hot lifecycleJournal rows; CORE/v2 projections own lifecycle evidence.'
+);
+assert.equal(
+  /function\s+isLifecycleProjectionRow|lifecycleJournal:\s*Array\.isArray\(input\.lifecycleJournal\)|input\.lifecycleJournal\.filter\(isLifecycleProjectionRow\)/.test(stateDeltaGatewaySource),
+  false,
+  'Runtime tracking initialization must not preserve tagged old lifecycleJournal rows.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -496,13 +582,43 @@ assert.match(
 );
 assert.match(
   recordLifecycleEventBody,
-  /lifecycleAuthorityFields\(event[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
-  'Lifecycle writes must require owner authority and store projection metadata.'
+  /lifecycleAuthorityFields\(event[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror[\s\S]*?writeRuntimeCoreProjectionEnvelope\(tracked,\s*\{[\s\S]*?lifecycleJournal:\s*bounded\([\s\S]*?lifecycleJournal:\s*\[\]/,
+  'Lifecycle writes must require owner authority and store projection metadata in CORE read projections, not old runtimeTracking.'
 );
 assert.match(
   stateDeltaGatewaySource,
   /function\s+lifecycleAuthorityFields[\s\S]*?DIRECTIVE_LIFECYCLE_AUTHORITY_REQUIRED/,
   'Lifecycle authority helper must fail closed without runtime or REPAIR evidence.'
+);
+assert.equal(
+  /lifecycleJournal:\s*cloneJson\(current\.runtimeTracking\.lifecycleJournal\)/.test(repairCommandBoundarySource),
+  false,
+  'REPAIR rollback restore must not carry old lifecycleJournal rows forward.'
+);
+assert.match(
+  repairCommandBoundarySource,
+  /async\s+function\s+restoreFromCheckpointSnapshot[\s\S]*?lifecycleJournal:\s*\[\]/,
+  'REPAIR rollback restore must clear old lifecycleJournal hot root.'
+);
+assert.equal(
+  /legacyLifecycleTelemetry|allowLegacyLifecycleTelemetry|lifecycle old-ledger/.test(stateDeltaGatewaySource),
+  false,
+  'Lifecycle projection writes must not keep legacyLifecycleTelemetry compatibility mode.'
+);
+assert.match(
+  activeSaveFacadeSource,
+  /function\s+projectedLifecycleRows\(campaignState\s*=\s*\{\}\)[\s\S]*?projectedCoreArray\(campaignState,\s*['"]lifecycleJournal['"]\)/,
+  'Active-save v2 runtime events must source lifecycle rows from CORE projections, not old runtimeTracking.'
+);
+assert.equal(
+  /runtimeCollection\(campaignState,\s*['"]lifecycleJournal['"]\)|lifecycleJournal:\s*runtimeLifecycleLedgerFromEvents\(eventSegments/.test(activeSaveFacadeSource),
+  false,
+  'Active-save v2 load/projection must not rehydrate lifecycle rows into old runtimeTracking.lifecycleJournal.'
+);
+assert.match(
+  activeSaveFacadeSource,
+  /function\s+coreStoreReadProjectionsFromLoadedArtifacts[\s\S]*?lifecycleJournal:\s*projectionArray\(runtimeProjections\.lifecycleJournal\)/,
+  'Active-save v2 loaded lifecycle events must become CORE read projections.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -514,7 +630,7 @@ assert.equal(
   false,
   'Generic state commit/restore must not carry old runtimeTracking.responseLedgerRevision.'
 );
-const updateDirectiveResponseBody = /export\s+function\s+updateDirectiveResponse[\s\S]*?\n\}\n\nexport\s+function\s+resolveRecoveryEvent/.exec(stateDeltaGatewaySource)?.[0] || '';
+const updateDirectiveResponseBody = /export\s+function\s+updateDirectiveResponse[\s\S]*?\n\}\n\nexport\s+function\s+restoreTrackedCampaignRevision/.exec(stateDeltaGatewaySource)?.[0] || '';
 assert.match(
   updateDirectiveResponseBody,
   /const\s+responseLedgerRevision\s*=\s*responseLedgerRevisionFromCoreProjections\(campaignState\)[\s\S]*?responseLedgerRevision/,
@@ -567,8 +683,8 @@ assert.equal(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+isCoreRecoveryProjectionRow[\s\S]*?projectionSource[\s\S]*?coreStoreV2[\s\S]*?directive\.coreRecoveryCompatibilityMirror\.v1/,
-  'Runtime tracking initialization must keep only explicit CORE recovery projection rows.'
+  /function\s+normalizedTracking[\s\S]*?recoveryJournal:\s*\[\]/,
+  'Runtime tracking initialization must drop all hot recoveryJournal rows; CORE projections own recovery evidence.'
 );
 assert.equal(
   /recoveryJournal:\s*bounded\(entries,\s*limit\)/.test(stateDeltaGatewaySource),
@@ -580,10 +696,10 @@ assert.equal(
   false,
   'Runtime tracking initialization must not copy raw old recoveryJournal rows.'
 );
-assert.match(
-  stateDeltaGatewaySource,
-  /function\s+resolveRecoveryEvent[\s\S]*?if\s*\(\s*!id\s*\)\s*return\s+campaignState[\s\S]*?return\s+campaignState/,
-  'Old recovery resolver must not mutate any runtimeTracking.recoveryJournal rows.'
+assert.equal(
+  /export\s+function\s+resolveRecoveryEvent|function\s+resolveRecoveryEvent/.test(stateDeltaGatewaySource),
+  false,
+  'Old recovery resolver API must be absent; CORE/REPAIR projections own recovery closure.'
 );
 assert.match(
   stateDeltaGatewaySource,
@@ -612,8 +728,13 @@ assert.match(
 );
 assert.match(
   stateDeltaGatewaySource,
-  /function\s+updateDirectiveResponse\(campaignState,\s*responseId,\s*patch\s*=\s*\{\},\s*\{[\s\S]*?allowHostMessageIdMatch\s*=\s*false[\s\S]*?compact\(entry\.responseId\)\s*!==\s*id[\s\S]*?!\(allowHostMessageIdMatch\s*===\s*true\s*&&\s*compact\(entry\.hostMessageId\)\s*===\s*id\)/,
-  'Response update writer must not match positional SillyTavern hostMessageId unless the caller explicitly opts in.'
+  /function\s+updateDirectiveResponse\(campaignState,\s*responseId,\s*patch\s*=\s*\{\},\s*\{[\s\S]*?allowHostMessageIdMatch\s*=\s*false[\s\S]*?findIndex\(\(entry\)\s*=>\s*compact\(entry\.id\)\s*===\s*id\s*\|\|\s*compact\(entry\.responseId\)\s*===\s*id\)/,
+  'Response update writer must prefer CORE response ids over positional SillyTavern hostMessageId.'
+);
+assert.match(
+  stateDeltaGatewaySource,
+  /function\s+updateDirectiveResponse\(campaignState,\s*responseId,\s*patch\s*=\s*\{\},\s*\{[\s\S]*?allowHostMessageIdMatch\s*===\s*true[\s\S]*?hostMatches[\s\S]*?compact\(entry\.hostMessageId\)\s*===\s*id[\s\S]*?hostMatches\.length\s*>\s*1\)\s*return\s+campaignState/,
+  'Response update writer must fail closed when an opted-in hostMessageId is reused.'
 );
 assert.equal(
   /function\s+resolveRecoveryEvent[\s\S]*?recoveryJournal:\s*tracking\.recoveryJournal\.map/.test(stateDeltaGatewaySource),
@@ -647,7 +768,7 @@ assert.match(
 );
 assert.match(
   activeSaveFacadeSource,
-  /function\s+coreStoreProjectionRows[\s\S]*?projectionSource[\s\S]*?coreStoreV2[\s\S]*?compatibilityProjectionUnavailable[\s\S]*?function\s+coreStoreReadProjectionsFromLoadedArtifacts[\s\S]*?runtimeAuthority:\s*['"]coreStoreV2['"][\s\S]*?ingressLedger:\s*projectionArray\(coreStoreProjectionRows\(runtimeProjections\.ingressLedger\)\)[\s\S]*?responseLedger:\s*projectionArray\(coreStoreProjectionRows\(runtimeProjections\.responseLedger\)\)[\s\S]*?recoveryJournal:\s*projectionArray\(coreStoreProjectionRows\(runtimeProjections\.recoveryJournal\)\)/,
+  /function\s+coreStoreProjectionRows[\s\S]*?projectionSource[\s\S]*?coreStoreV2[\s\S]*?compatibilityProjectionUnavailable[\s\S]*?function\s+coreStoreReadProjectionsFromLoadedArtifacts[\s\S]*?runtimeAuthority:\s*['"]coreStoreV2['"][\s\S]*?ingressLedger:\s*projectionArray\(coreStoreProjectionRows\(runtimeProjections\.ingressLedger\)\)[\s\S]*?responses:\s*projectionArray\(coreStoreProjectionRows\(runtimeProjections\.responses\s*\|\|\s*runtimeProjections\.responseLedger\)\)[\s\S]*?recoveryJournal:\s*projectionArray\(coreStoreProjectionRows\(runtimeProjections\.recoveryJournal\)\)/,
   'Active-save v2 loaded CORE read projections must come from filtered v2 event projections, not old runtimeTracking rows or missing-CORE mirrors.'
 );
 assert.equal(
@@ -699,6 +820,28 @@ assert.equal(
   false,
   'Active-save v2 recovery projection must not read old runtimeTracking.recoveryJournal as resume authority.'
 );
+const projectedOutcomeReplacementRowsBody = /function\s+projectedOutcomeReplacementRows\s*\([\s\S]*?\n\}/.exec(activeSaveFacadeSource)?.[0] || '';
+assert.match(
+  projectedOutcomeReplacementRowsBody,
+  /const\s+coreRows\s*=\s*Array\.isArray\(coreTurnLedger\?\.replacementHistory\)\s*\?\s*coreTurnLedger\.replacementHistory\s*:\s*\[\][\s\S]*?return\s+cloneJson\(coreRows\)/,
+  'Active-save v2 replacement-history projection must be CORE-only and omit unmatched legacy replacements.'
+);
+assert.equal(
+  /campaignState\.turnLedger\?\.replacementHistory|corePreferredRows/.test(projectedOutcomeReplacementRowsBody),
+  false,
+  'Active-save v2 replacement-history projection must not merge old turnLedger replacementHistory rows.'
+);
+const projectedTurnRowsBody = /function\s+projectedTurnRows\s*\([\s\S]*?\n\}/.exec(activeSaveFacadeSource)?.[0] || '';
+assert.match(
+  projectedTurnRowsBody,
+  /if\s*\(Array\.isArray\(coreTurnLedger\?\.entries\)\)\s*\{[\s\S]*?return\s+cloneJson\(coreTurnLedger\.entries\)[\s\S]*?return\s+\[\]/,
+  'Active-save v2 turn projection must return CORE turn rows only and fail closed to no replay rows.'
+);
+assert.equal(
+  /campaignState\.turnLedger\?\.entries|corePreferredRows/.test(projectedTurnRowsBody),
+  false,
+  'Active-save v2 turn projection must not merge old turnLedger entries as replay authority.'
+);
 assert.match(
   activeSaveFacadeSource,
   /function\s+modelCallRows\s*\([\s\S]*?const\s+coreRows\s*=\s*projectedCoreArray\(campaignState,\s*['"]modelCallDiagnostics['"]\)[\s\S]*?if\s*\(Array\.isArray\(coreRows\)\)\s*return\s+coreRows[\s\S]*?return\s+\[\]/,
@@ -715,7 +858,17 @@ assert.match(
   /function\s+maxModelCallEventSequence\s*\([\s\S]*?runtimeResume\?\.modelCallEventSequence[\s\S]*?modelCallRows\(campaignState\)\.reduce/,
   'Active-save v2 may preserve compact runtimeResume model-call cursor without reading old modelCallJournal rows.'
 );
-const loadActiveCampaignStateV2Body = /export\s+async\s+function\s+loadActiveCampaignStateV2[\s\S]*?\n\}\n\nexport\s+async\s+function\s+recoverActiveCampaignStateV2/.exec(activeSaveFacadeSource)?.[0] || '';
+const loadActiveCampaignStateV2Body = /export\s+async\s+function\s+loadActiveCampaignStateV2[\s\S]*$/.exec(activeSaveFacadeSource)?.[0] || '';
+assert.match(
+  loadActiveCampaignStateV2Body,
+  /catch\s*\(error\)\s*\{[\s\S]*?found:\s*false[\s\S]*?campaignState:\s*null/,
+  'Active-save v2 load must fail closed instead of returning stale fallback campaign state on v2 read failure.'
+);
+assert.equal(
+  /campaignState:\s*cloneJson\(fallbackCampaignState\)/.test(loadActiveCampaignStateV2Body),
+  false,
+  'Active-save v2 load must not expose fallbackCampaignState as a loaded campaign state.'
+);
 assert.equal(
   /runtimeTracking\.modelCallJournal\s*=\s*modelCallJournalFromDiagnosticsSegments/.test(loadActiveCampaignStateV2Body),
   false,
@@ -725,6 +878,16 @@ assert.equal(
   /projection\?\.responseLedgerRevision\s*\?\?\s*runtimeTracking\.responseLedgerRevision/.test(activeSaveFacadeSource),
   false,
   'Active-save v2 runtime summary/resume must not use old runtimeTracking.responseLedgerRevision as CORE revision fallback.'
+);
+assert.match(
+  activeSaveFacadeSource,
+  /function\s+activeRuntimeRevisionState[\s\S]*?coreRuntimeProjection\(campaignState\)[\s\S]*?projection\?\.revisions[\s\S]*?authority:\s*['"]coreStoreV2['"][\s\S]*?runtimeTracking\.revision/,
+  'Active-save v2 resume cursor must check CORE revision vectors before old runtimeTracking counters.'
+);
+assert.match(
+  activeSaveFacadeSource,
+  /function\s+runtimeResumeCursor[\s\S]*?const\s+revisionState\s*=\s*activeRuntimeRevisionState\(campaignState\)[\s\S]*?runtimeRevision:\s*revisionState\.runtime[\s\S]*?coreRevisions:/,
+  'Active-save v2 resume cursor must persist CORE revision authority instead of old runtime revision authority.'
 );
 const activeSaveSidecarResumeCountBody = /function\s+sidecarResumeCount\s*\([\s\S]*?\n\}/.exec(activeSaveFacadeSource)?.[0] || '';
 assert.equal(
@@ -744,55 +907,32 @@ assert.equal(
   false,
   'Active-save v2 diagnostics must not serialize old sidecarJournal rows as background-batch projections.'
 );
+const loadCampaignSaveFromStorageBody = /export\s+async\s+function\s+loadCampaignSaveFromStorage[\s\S]*?\n\}\n\nexport\s+async\s+function\s+loadCampaignSaveRecordFromStorage/.exec(directiveStorageRepositorySource)?.[0] || '';
 assert.match(
-  transactionStoreV2Source,
-  /createRuntimeLedgerView[\s\S]*?from\s+['"]\.\.\/runtime\/runtime-ledger-view\.mjs['"]/,
-  'Transaction-store v2 legacy import must use the shared CORE-first runtime ledger view.'
-);
-assert.match(
-  transactionStoreV2Source,
-  /function\s+legacyHostRows[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(campaignState\)[\s\S]*?const\s+ingressRows\s*=\s*Array\.isArray\(runtimeLedgerView\.ingressLedger\)[\s\S]*?const\s+responseRows\s*=\s*Array\.isArray\(runtimeLedgerView\.responseLedger\)/,
-  'Transaction-store v2 host-map import must not build rows from raw old runtimeTracking ledgers.'
+  directiveStorageRepositorySource,
+  /function\s+isV2AuthoritySaveEntry[\s\S]*?entry\.runtimeStorageFormat\s*===\s*['"]v2['"][\s\S]*?isRuntimeV2BridgeEntry\(entry\)[\s\S]*?isV2SaveIndexEntry\(entry\)/,
+  'Storage repository must treat runtimeStorageFormat v2 alone as v2-owned authority.'
 );
 assert.match(
-  transactionStoreV2Source,
-  /function\s+legacyEvents[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(campaignState\)[\s\S]*?const\s+ingressRows\s*=\s*Array\.isArray\(runtimeLedgerView\.ingressLedger\)[\s\S]*?const\s+responseRows\s*=\s*Array\.isArray\(runtimeLedgerView\.responseLedger\)/,
-  'Transaction-store v2 event import must not segment raw old runtimeTracking ledgers.'
+  loadCampaignSaveFromStorageBody,
+  /const\s+v2Authority\s*=\s*isV2AuthoritySaveEntry\(entry,\s*record\)[\s\S]*?if\s*\(v2Authority\)\s*\{[\s\S]*?throw\s+createV2SaveStateUnavailableError/,
+  'Storage repository load must fail closed for v2-owned saves before raw v1 payload fallback.'
 );
+const recoverActiveCampaignSaveBody = /export\s+async\s+function\s+recoverActiveCampaignSave[\s\S]*?\n\}\n/.exec(directiveStorageRepositorySource)?.[0] || '';
 assert.match(
-  transactionStoreV2Source,
-  /function\s+legacyRuntimeModelCallRows[\s\S]*?readRuntimeCoreProjections\(campaignState\)[\s\S]*?modelCallDiagnostics[\s\S]*?runtimeModelCallProjected/,
-  'Transaction-store v2 model-call import must use CORE modelCallDiagnostics projections.'
-);
-const legacyRuntimeModelCallRowsBody = /function\s+legacyRuntimeModelCallRows[\s\S]*?\n\}/.exec(transactionStoreV2Source)?.[0] || '';
-assert.equal(
-  /modelCallJournal|legacyModelCallImported/.test(legacyRuntimeModelCallRowsBody),
-  false,
-  'Transaction-store v2 model-call import must fail closed instead of importing old modelCallJournal rows.'
-);
-assert.match(
-  transactionStoreV2Source,
-  /function\s+legacyRuntimeSidecarRows[\s\S]*?readRuntimeCoreProjections\(campaignState\)[\s\S]*?sidecarDiagnostics[\s\S]*?backgroundBatches[\s\S]*?runtimeSidecarDiagnosticProjected[\s\S]*?runtimeBackgroundBatchProjected/,
-  'Transaction-store v2 sidecar import must prefer CORE sidecar/background projections over old sidecarJournal rows.'
-);
-const legacyRuntimeSidecarRowsBody = /function\s+legacyRuntimeSidecarRows[\s\S]*?\n\}/.exec(transactionStoreV2Source)?.[0] || '';
-assert.equal(
-  /sidecarJournal|legacySidecarImported/.test(legacyRuntimeSidecarRowsBody),
-  false,
-  'Transaction-store v2 sidecar import must fail closed instead of importing old sidecarJournal rows.'
-);
-const legacyHostRowsBody = /function\s+legacyHostRows[\s\S]*?\n\}[\s\S]*?\n\nfunction\s+legacyEvents/.exec(transactionStoreV2Source)?.[0] || '';
-const legacyEventsBody = /function\s+legacyEvents[\s\S]*?\n\}[\s\S]*?\n\nfunction\s+legacyTurnEntries/.exec(transactionStoreV2Source)?.[0] || '';
-const legacyDiagnosticsBody = /function\s+legacyDiagnostics[\s\S]*?\n\}[\s\S]*?\n\nfunction\s+legacyImportCheckpoints/.exec(transactionStoreV2Source)?.[0] || '';
-assert.equal(
-  /runtimeTracking\.(ingressLedger|responseLedger)/.test(`${legacyHostRowsBody}\n${legacyEventsBody}`),
-  false,
-  'Transaction-store v2 legacy import host/events must not read raw old runtimeTracking ingress/response rows.'
+  recoverActiveCampaignSaveBody,
+  /const\s+v2Authority\s*=\s*isV2AuthoritySaveEntry\(entry,\s*result\.value\)[\s\S]*?if\s*\(v2Authority\)\s*\{[\s\S]*?active-save-v2-state-unavailable[\s\S]*?continue;/,
+  'Active save recovery must skip broken v2-owned entries instead of reviving stale v1 checkpoint payloads.'
 );
 assert.equal(
-  /runtimeTracking\.sidecarJournal/.test(legacyDiagnosticsBody),
+  /export\s+async\s+function\s+importCampaignSaveRecordToV2|function\s+summarizeLegacyRuntime|function\s+legacyHeadState|function\s+legacyHostRows|function\s+legacyEvents|function\s+legacyDiagnostics|function\s+legacyImportCheckpoints/.test(transactionStoreV2Source),
   false,
-  'Transaction-store v2 diagnostics import must not read old sidecarJournal directly; use legacyRuntimeSidecarRows CORE-first selector.'
+  'Transaction-store v2 must not keep old-save compatibility importer helpers after CORE/v2 save authority cut.'
+);
+assert.equal(
+  /legacy(ModelCall|Sidecar|Ingress|Response)Imported|legacy-import|legacyImportCheckpoint|importedFromLegacySave/.test(transactionStoreV2Source),
+  false,
+  'Transaction-store v2 must not emit legacy-import event/diagnostic/checkpoint artifacts as an active migration lane.'
 );
 assert.match(
   directiveStorageRepositorySource,
@@ -809,20 +949,15 @@ assert.match(
   /function\s+coreStoreReadProjectionsFromLoadedV2[\s\S]*?runtimeAuthority:\s*['"]coreStoreV2['"][\s\S]*?ingressLedger[\s\S]*?responseLedger[\s\S]*?turnLedger/,
   'Directive storage repository pure-v2 loads must expose transient CORE read projections instead of only old-ledger-shaped rows.'
 );
-assert.match(
-  runtimeLedgerViewSource,
-  /function\s+legacyProjectionFallbackRows\s*\(rows\s*=\s*\[\]\)[\s\S]*?return\s+legacy\.filter\(\(row\)\s*=>\s*isTaggedCompatibilityProjection\(row\)\)/,
-  'Runtime ledger view must suppress silent old ingress/response rows even when no CORE projections exist.'
-);
 assert.equal(
   /function\s+legacyProjectionFallbackRows[\s\S]*?!coreProjectionAvailable[\s\S]*?return\s+legacy/.test(runtimeLedgerViewSource),
   false,
   'Runtime ledger view must not expose no-CORE silent old rows as fallback authority.'
 );
-assert.match(
-  runtimeLedgerViewSource,
-  /function\s+isTaggedCompatibilityProjection[\s\S]*?authority\s*===\s*['"]compatibilityProjectionUnavailable['"][\s\S]*?return\s+false/,
-  'Runtime ledger view must quarantine missing-CORE compatibility projection rows instead of surfacing them as fallback authority.'
+assert.equal(
+  /function\s+isTaggedCompatibilityProjection/.test(runtimeLedgerViewSource),
+  false,
+  'Runtime ledger view must not keep retired compatibility-projection quarantine helpers.'
 );
 assert.match(
   runtimeLedgerViewSource,
@@ -839,20 +974,15 @@ assert.equal(
   false,
   'Runtime ledger view must not expose old runtimeTracking.recoveryJournal rows as fallback authority.'
 );
-assert.match(
-  runtimeLedgerViewSource,
-  /campaignState\?\.directiveRuntimeEvidence\?\.coreStoreReadProjections[\s\S]*?campaignState\?\.runtimeTracking\?\.directiveRuntimeEvidence\?\.coreStoreReadProjections/,
-  'Runtime ledger view must accept top-level and runtimeTracking-nested CORE projection evidence.'
+assert.equal(
+  /campaignState\?\.runtimeTracking\?\.directiveRuntimeEvidence\?\.coreStoreReadProjections/.test(runtimeLedgerViewSource),
+  false,
+  'Runtime ledger view must reject runtimeTracking-nested CORE projection evidence as old-root authority.'
 );
-assert.match(
-  runtimeLedgerViewSource,
-  /runtimeOverlay\s*=\s*false[\s\S]*?const\s+allowRuntimeOverlay\s*=\s*authoritative\s*&&\s*runtimeOverlay\s*===\s*true[\s\S]*?authoritative:\s*authoritative\s*&&\s*!allowRuntimeOverlay/,
-  'Runtime ledger view must keep authoritative CORE strict by default while allowing explicit hot runtime overlays.'
-);
-assert.match(
-  runtimeLedgerViewSource,
-  /legacyFallback\s*=\s*false[\s\S]*?const\s+useLegacyFallback\s*=\s*legacyFallback\s*===\s*true\s*\|\|\s*runtimeOverlay\s*===\s*true[\s\S]*?const\s+legacyIngress\s*=\s*useLegacyFallback[\s\S]*?const\s+legacyResponse\s*=\s*useLegacyFallback/,
-  'Runtime ledger view must default to no legacy ingress/response fallback and require explicit legacyFallback/runtimeOverlay opt-in.'
+assert.equal(
+  /runtimeOverlay|legacyFallback|legacyProjectionFallbackRows|runtimeTracking\.(ingressLedger|responseLedger|recoveryJournal)/.test(runtimeLedgerViewSource),
+  false,
+  'Runtime ledger view must be CORE/v2-only and expose no old runtimeTracking fallback knobs.'
 );
 assert.match(
   runtimeLedgerViewSource,
@@ -861,18 +991,18 @@ assert.match(
 );
 assert.match(
   turnCommitCoordinatorSource,
-  /createRuntimeLedgerView[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
-  'Turn commit coordinator must import the shared CORE-first runtime ledger view.'
+  /createRuntimeLedgerViewAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
+  'Turn commit coordinator must import the shared async CORE-first runtime ledger view.'
 );
 assert.match(
   turnCommitCoordinatorSource,
-  /function\s+findIngressById[\s\S]*?createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger\s*\|\|\s*\[\]/,
-  'Turn commit coordinator mechanics transaction lookup must use CORE-first runtime ledger view with hot overlay.'
+  /async\s+function\s+findIngressById\(campaignState,\s*ingressId,\s*\{\s*coreTurnStore\s*=\s*null\s*\}\s*=\s*\{\}\)[\s\S]*?createRuntimeLedgerViewAsync\(campaignState\s*\|\|\s*\{\},\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?await\s+findIngressById\(after,\s*ingressId,\s*\{\s*coreTurnStore\s*\}\)/,
+  'Turn commit coordinator mechanics transaction lookup must use async CORE-only runtime ledger view.'
 );
 assert.equal(
-  /function\s+findIngressById[\s\S]*?runtimeTracking\?\.ingressLedger/.test(turnCommitCoordinatorSource),
+  /function\s+findIngressById[\s\S]*?runtimeOverlay:\s*true|function\s+findIngressById[\s\S]*?runtimeTracking\?\.ingressLedger/.test(turnCommitCoordinatorSource),
   false,
-  'Turn commit coordinator mechanics transaction lookup must not read raw runtimeTracking.ingressLedger.'
+  'Turn commit coordinator must not merge hot runtimeTracking ingress rows into mechanics transaction binding.'
 );
 assert.match(
   continuityDiagnosticsSource,
@@ -882,9 +1012,14 @@ assert.match(
 assert.match(
   continuityDiagnosticsSource,
   /function\s+latestContinuityReview[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\}\)[\s\S]*?runtimeLedgerView\.recoveryJournal[\s\S]*?runtimeLedgerView\.responseLedger/,
-  'Continuity diagnostics latest review must read response/recovery rows through CORE-first runtime ledger view.'
+  'Continuity diagnostics latest review must read response/recovery rows through CORE-only projections.'
 );
 const latestContinuityReviewBody = /function\s+latestContinuityReview[\s\S]*?\n\}[\s\S]*?\n\nfunction\s+promptKeyStatus/.exec(continuityDiagnosticsSource)?.[0] || '';
+assert.equal(
+  /runtimeOverlay:\s*true/.test(latestContinuityReviewBody),
+  false,
+  'Continuity diagnostics latest review must not use runtimeOverlay fallback as proof authority.'
+);
 assert.equal(
   /runtimeTracking\.(responseLedger|recoveryJournal)/.test(latestContinuityReviewBody),
   false,
@@ -911,13 +1046,38 @@ assert.match(
   'Continuity projection matrix must pass its source Frame into fact-index witness gating.'
 );
 assert.match(
+  contextOrchestratorSource,
+  /function\s+coreRuntimeRevision[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?function\s+sourceRevision[\s\S]*?coreRuntimeRevision\(state\)[\s\S]*?runtimeTracking\?\.revision/,
+  'Context plan source revisions must prefer CORE/v2 read-projection revisions before old runtimeTracking.revision.'
+);
+assert.match(
+  playerSafePromptContextBuilderSource,
+  /function\s+coreRuntimeRevision[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?function\s+stateRevision[\s\S]*?coreRuntimeRevision\(campaignState\)[\s\S]*?runtimeTracking\?\.revision/,
+  'Player-safe prompt source revisions must prefer CORE/v2 read-projection revisions before old runtimeTracking.revision.'
+);
+assert.match(
+  continuitySourceFrameSource,
+  /function\s+coreRevisions[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?revisions\?\.runtime[\s\S]*?revisions\?\.mechanics[\s\S]*?function\s+revisionOf[\s\S]*?revisions\?\.runtime[\s\S]*?function\s+mechanicsRevisionOf[\s\S]*?revisions\?\.mechanics/,
+  'Frame source evidence must prefer CORE/v2 runtime and mechanics revisions before old runtimeTracking counters.'
+);
+assert.match(
+  continuityProjectionHintsSource,
+  /function\s+coreRuntimeRevision[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?function\s+revisionOf[\s\S]*?coreRuntimeRevision\(campaignState\)[\s\S]*?export\s+function\s+activeContinuityProjectionHints[\s\S]*?revision\s*!==\s*null[\s\S]*?revisionOf\(campaignState\)/,
+  'Continuity projection hints must age against CORE/v2 runtime revision by default, not a null revision coerced to zero.'
+);
+assert.match(
+  continuityProjectionMatrixSource,
+  /function\s+coreRuntimeRevision[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?function\s+revisionOf[\s\S]*?coreRuntimeRevision\(campaignState\)[\s\S]*?runtimeTracking\?\.revision/,
+  'Continuity projection matrix source revisions must prefer CORE/v2 read-projection revisions before old runtimeTracking.revision.'
+);
+assert.match(
   sceneHandshakeSettlerSource,
   /createRuntimeLedgerView[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
   'Scene Handshake snapshot safety must import the shared CORE-first runtime ledger view.'
 );
 assert.match(
   sceneHandshakeSettlerSource,
-  /function\s+buildSceneHandshakeSnapshot[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?pendingRecoveryCount:\s*asArray\(runtimeLedgerView\.recoveryJournal\)/,
+  /function\s+buildSceneHandshakeSnapshot[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state\)[\s\S]*?pendingRecoveryCount:\s*asArray\(runtimeLedgerView\.recoveryJournal\)/,
   'Scene Handshake pending recovery safety must read CORE recovery projections instead of raw old recoveryJournal rows.'
 );
 assert.equal(
@@ -926,9 +1086,59 @@ assert.equal(
   'Scene Handshake snapshot safety must not count raw old runtimeTracking.recoveryJournal rows.'
 );
 assert.match(
+  sourceSettlementLatestPairSceneAdapterSource,
+  /function\s+buildLatestPairSceneSnapshot[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state\)[\s\S]*?pendingRecoveryCount:\s*asArray\(runtimeLedgerView\.recoveryJournal\)/,
+  'Latest-pair scene snapshot pending recovery safety must read CORE recovery projections only.'
+);
+assert.equal(
+  /pendingRecoveryCount:\s*asArray\(state\.runtimeTracking\?\.recoveryJournal\)/.test(sourceSettlementLatestPairSceneAdapterSource),
+  false,
+  'Latest-pair scene snapshot safety must not count raw old runtimeTracking.recoveryJournal rows.'
+);
+assert.match(
   sceneHandshakeSettlerSource,
-  /function\s+sceneHandshakeLedgerAuthority[\s\S]*?sreSceneHandshakeProjection[\s\S]*?directive\.sceneHandshakeLedgerProjectionRef\.v1[\s\S]*?function\s+sceneHandshakeLedgerRecord[\s\S]*?authority:\s*authority\.authority[\s\S]*?projectionSource:\s*authority\.projectionSource[\s\S]*?compatibilityMirror:\s*authority\.compatibilityMirror/,
-  'Scene Handshake settlement ledger rows must carry compact SRE owner projection evidence.'
+  /source-settlement-latest-pair-contract\.mjs[\s\S]*?function\s+sceneHandshakeLedgerAuthority[\s\S]*?latestPairSourceSettlementAuthority[\s\S]*?function\s+sceneHandshakeLedgerRecord[\s\S]*?latestPairSourceSettlementMetadata\(metadata\s*\|\|\s*\{\}\)[\s\S]*?metadata:\s*cloneJson\(sourceMetadata\)/,
+  'Scene Handshake ledger rows must use SRE latest-pair authority evidence from the Source Settlement contract instead of legacy telemetry.'
+);
+assert.match(
+  sourceSettlementLatestPairContractSource,
+  /SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID[\s\S]*?sourceSettlementLatestPair[\s\S]*?SOURCE_SETTLEMENT_LATEST_PAIR_AUTHORITY[\s\S]*?sreSceneHandshakeProjection[\s\S]*?SOURCE_SETTLEMENT_LATEST_PAIR_MIRROR_KIND[\s\S]*?directive\.sceneHandshakeLedgerProjectionRef\.v1[\s\S]*?function\s+latestPairSourceSettlementMetadata[\s\S]*?function\s+isLatestPairSourceSettlementAuthority[\s\S]*?function\s+latestPairSourceSettlementAuthority/,
+  'Latest-pair Source Settlement must own role, owner-mode, authority, and compatibility-mirror contract constants outside Scene Handshake.'
+);
+assert.match(
+  sceneHandshakeSettlerSource,
+  /settleLatestPairSceneHandshakeSource[\s\S]*?from\s+['"]\.\/source-settlement-latest-pair-owner\.mjs['"][\s\S]*?async\s+function\s+runTerminalLatestPairSourceSettlement[\s\S]*?return\s+settleLatestPairSceneHandshakeSource\(\{[\s\S]*?createSceneHandshakeLedgerRecord:\s*sceneHandshakeLedgerRecord[\s\S]*?sceneHandshakeResultOperations[\s\S]*?commitAcceptedSceneTimeAdvance/,
+  'Scene Handshake terminal latest-pair path must delegate SRE apply orchestration to the latest-pair owner and pass only domain hooks.'
+);
+assert.match(
+  sceneHandshakeSettlerSource,
+  /readRuntimeCoreProjections[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"][\s\S]*?function\s+activeRuntimeRevisionState[\s\S]*?runtimeAuthority\s*===\s*['"]coreStoreV2['"][\s\S]*?revisions\?\.runtime[\s\S]*?revisions\?\.mechanics[\s\S]*?baseRevision:\s*activeRuntimeRevisionState\(campaignState\)\.runtime[\s\S]*?baseRevision:\s*revisionState\.runtime/,
+  'Legacy Scene Handshake fallback must use CORE/v2 revision vectors for record-only and accepted apply base revisions.'
+);
+assert.equal(
+  /baseRevision:\s*campaignState\.runtimeTracking\?\.revision|baseRevision:\s*campaignState\.runtimeTracking\.revision/.test(sceneHandshakeSettlerSource),
+  false,
+  'Legacy Scene Handshake fallback must not pass old runtimeTracking revision directly as apply base.'
+);
+assert.equal(
+  /createSourceSettlementService|function\s+sourceSettlementFrameFor|function\s+sourceSettlementProviderSource/.test(sceneHandshakeSettlerSource),
+  false,
+  'Scene Handshake must not own latest-pair SRE service/frame/source orchestration.'
+);
+assert.match(
+  sourceSettlementLatestPairOwnerSource,
+  /createSourceSettlementService[\s\S]*?function\s+sourceSettlementFrameFor[\s\S]*?function\s+sourceSettlementProviderSource[\s\S]*?export\s+async\s+function\s+settleLatestPairSceneHandshakeSource[\s\S]*?stateDeltaGateway\.applyOperations[\s\S]*?allowedRoots:\s*\[['"]mission['"],\s*['"]commandLog['"],\s*['"]ship['"],\s*['"]threadLedger['"],\s*['"]runtimeTracking['"],\s*['"]sceneHandshake['"]\]/,
+  'Latest-pair owner must own SRE service composition, source-frame projection, apply-owner guard, and allowed roots.'
+);
+assert.equal(
+  /campaignState\.runtimeTracking\?\.revision|campaignState\.runtimeTracking\?\.mechanicsRevision|baseRevision:\s*campaignState\.runtimeTracking/.test(sourceSettlementLatestPairOwnerSource),
+  false,
+  'Latest-pair SRE owner must not derive settlement authority or baseRevision from old runtimeTracking counters.'
+);
+assert.equal(
+  /runtimeRevision:\s*state\.runtimeTracking\?\.revision|mechanicsRevision:\s*state\.runtimeTracking\?\.mechanicsRevision/.test(sourceSettlementLatestPairSceneAdapterSource),
+  false,
+  'Latest-pair SRE scene snapshots must not derive evidence revisions from old runtimeTracking counters.'
 );
 assert.match(
   sceneHandshakeSettlerSource,
@@ -936,19 +1146,76 @@ assert.match(
   'Latest-pair source-settlement owner must disable legacy Scene Handshake fallback.'
 );
 assert.equal(
-  /\brunSceneHandshakeSettlement\b/.test(sourceSettlementLatestPairSource),
+  /from\s+['"]\.\/scene-handshake-settler\.mjs['"]/.test(sourceSettlementLatestPairSource),
   false,
-  'Source-settlement latest-pair owner module must not call the legacy runSceneHandshakeSettlement entrypoint.'
+  'Source-settlement latest-pair facade must not statically import the legacy Scene Handshake settler.'
 );
 assert.match(
   sourceSettlementLatestPairSource,
-  /\brunLatestPairSourceSettlement\b/,
-  'Source-settlement latest-pair owner module must use the strict latest-pair settlement entrypoint.'
+  /source-settlement-latest-pair-provider\.mjs[\s\S]*?source-settlement-latest-pair-scene-adapter\.mjs[\s\S]*?source-settlement-latest-pair-validation\.mjs[\s\S]*?createLatestPairSourceSettlementProviderRuntime\(\{[\s\S]*?validateLatestPairSettlement[\s\S]*?settleLatestPairSource[\s\S]*?settleLatestPairSceneHandshakeSource[\s\S]*?runLatestPairSceneHandshakeSettlement/,
+  'Source-settlement latest-pair facade must own the public boundary and use native provider, validation, and strict scene-adapter runtimes.'
+);
+assert.equal(
+  /sceneHandshakeMigrationAdapter|scene-handshake-settler\.mjs|validateSceneHandshakeSettlement:\s*module|validateLatestPairSettlement:\s*module/.test(sourceSettlementLatestPairSource),
+  false,
+  'Source-settlement latest-pair facade must not lazy-load or statically import Scene Handshake for provider validation or strict settlement fallback.'
+);
+assert.match(
+  sourceSettlementLatestPairProviderSource,
+  /getDefaultGenerationRoleDefinitions[\s\S]*?LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS\s*=\s*getDefaultGenerationRoleDefinitions\(\)\[SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID\]\?\.timeoutMs[\s\S]*?createLatestPairSourceSettlementPrompt[\s\S]*?parseLatestPairSourceSettlementOutput[\s\S]*?createLatestPairSourceSettlementProvider[\s\S]*?generationRouter\.generate\([\s\S]*?SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID[\s\S]*?timeoutMs:\s*LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS[\s\S]*?DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_TIMEOUT[\s\S]*?validateLatestPairSettlement/,
+  'Latest-pair provider module must own prompt, parse, role call, timeout, and validator hook orchestration outside Scene Handshake.'
+);
+assert.match(
+  sourceSettlementLatestPairValidationSource,
+  /enrichSettlementWithDeterministicProposals[\s\S]*?normalizeAssignmentProposal[\s\S]*?normalizeCommandLogProposal[\s\S]*?normalizeShipReadinessProposal[\s\S]*?normalizeThreadSignal[\s\S]*?export\s+function\s+validateLatestPairSettlement[\s\S]*?operations\.push/,
+  'Latest-pair validation module must own validation-to-operation projection outside Scene Handshake.'
+);
+assert.match(
+  sourceSettlementLatestPairSceneAdapterSource,
+  /buildLatestPairSceneSnapshot[\s\S]*?createLatestPairSceneHandshakeLedgerRecord[\s\S]*?latestPairSceneHandshakeResultOperations[\s\S]*?latestPairSceneIdempotencyKey[\s\S]*?commitAcceptedSceneTimeAdvance[\s\S]*?export\s+async\s+function\s+runLatestPairSceneHandshakeSettlement[\s\S]*?settleLatestPairSceneHandshakeSource/,
+  'Latest-pair scene adapter must own strict snapshot/idempotency/ledger/time hooks before entering the owner.'
+);
+assert.equal(
+  /scene-handshake-settler\.mjs/.test(sourceSettlementLatestPairSceneAdapterSource),
+  false,
+  'Latest-pair scene adapter must not import the legacy Scene Handshake settler.'
+);
+assert.equal(
+  /SRE latest-pair provider timed out|SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_TIMEOUT|DIRECTIVE_SOURCE_SETTLEMENT_LATEST_PAIR_PROVIDER_TIMEOUT|LATEST_PAIR_SOURCE_SETTLEMENT_TIMEOUT_MS|createLatestPairSourceSettlementPrompt|generationRouter\.generate\([\s\S]{0,500}?SOURCE_SETTLEMENT_LATEST_PAIR_ROLE_ID/.test(sceneHandshakeSettlerSource),
+  false,
+  'Scene Handshake must not own latest-pair provider prompt/timeout orchestration.'
+);
+assert.match(
+  sceneHandshakeSettlerSource,
+  /source-settlement-latest-pair-validation\.mjs[\s\S]*?createLatestPairSreSettlementProvider[\s\S]*?validateLatestPairSettlement/,
+  'Scene Handshake latest-pair provider bridge must use Source Settlement validation instead of local Scene Handshake validation.'
+);
+assert.equal(
+  /providerFailureFallbackSettlement|providerFailureFallback:\s*true|provider-failed-deterministic-fallback|deterministicReplyAcceptsExplicitOrders/.test(sceneHandshakeSettlerSource),
+  false,
+  'Scene Handshake provider failures must fail closed through SRE/REPAIR evidence instead of deterministic auto-commit fallback.'
 );
 
 const chatTurnOrchestratorSource = readFileSync(
   new URL('../../src/runtime/chat-turn-orchestrator.mjs', import.meta.url),
   'utf8'
+);
+const preflightSceneHandshakeSourceBody = /async\s+function\s+preflightSceneHandshakeSource[\s\S]*?\n  \}/.exec(chatTurnOrchestratorSource)?.[0] || '';
+assert.match(
+  preflightSceneHandshakeSourceBody,
+  /findIngressFresh\(tracked,\s*ingressId\)[\s\S]*?scene-handshake-source-core-ingress-missing/,
+  'ChatTurnOrchestrator Scene Handshake SRE preflight must require CORE-only ingress evidence.'
+);
+assert.equal(
+  /runtimeOverlay:\s*true/.test(preflightSceneHandshakeSourceBody),
+  false,
+  'ChatTurnOrchestrator Scene Handshake SRE preflight must not use runtimeOverlay fallback.'
+);
+const settleSceneHandshakeBody = /async\s+function\s+settleSceneHandshake[\s\S]*?\n  \}/.exec(chatTurnOrchestratorSource)?.[0] || '';
+assert.match(
+  settleSceneHandshakeBody,
+  /findIngressFresh\(tracked,\s*ingressId\)[\s\S]*?findIngressFresh\(latestState,\s*ingressId\)[\s\S]*?scene-handshake-source-core-ingress-missing/,
+  'ChatTurnOrchestrator Scene Handshake latest-pair settlement must validate CORE-only ingress before provider apply.'
 );
 assert.equal(
   /from\s+['"]\.\/scene-handshake-settler\.mjs['"]/.test(chatTurnOrchestratorSource),
@@ -1003,8 +1270,29 @@ assert.match(
 );
 assert.match(
   chatTurnOrchestratorSource,
+  /async\s+function\s+appendPostCommitConversationFailureDiagnostic\b[\s\S]*?findIngressFresh\(tracked,\s*ingressId\)/,
+  'Blocking postCommitConversation failure diagnostics must use CORE-only ingress authority.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
   /const\s+postCommitConversationDiagnostic\s*=\s*await\s+appendPostCommitConversationFailureDiagnostic/,
   'Blocking postCommitConversation failures must attempt diagnostics without old recovery fallback.'
+);
+for (const [fnName, label] of [
+  ['scenePhaseSealPayloadForCommittedTurn', 'scene/phase seal'],
+  ['pressureArcDigestPayloadForCommittedTurn', 'pressure/arc digest'],
+  ['openWorldBoundaryPayloadForCommittedTurn', 'open-world boundary']
+]) {
+  assert.match(
+    chatTurnOrchestratorSource,
+    new RegExp(`async\\s+function\\s+${fnName}[\\s\\S]*?findIngressFresh\\(tracked,\\s*ingressId\\)`),
+    `FORGE ${label} payload must use CORE-only ingress authority.`
+  );
+}
+assert.equal(
+  /async\s+function\s+scenePhaseSealPayloadForCommittedTurn[\s\S]*?findIngressFresh\(tracked,\s*ingressId\)|async\s+function\s+pressureArcDigestPayloadForCommittedTurn[\s\S]*?findIngressFresh\(tracked,\s*ingressId\)|async\s+function\s+openWorldBoundaryPayloadForCommittedTurn[\s\S]*?findIngressFresh\(tracked,\s*ingressId\)/.test(chatTurnOrchestratorSource),
+  true,
+  'FORGE committed-turn payload builders must not use runtimeOverlay fallback.'
 );
 
 const sourceSettlementLatestPairModuleUrl = new URL('../../src/runtime/source-settlement-latest-pair.mjs', import.meta.url);
@@ -1023,8 +1311,8 @@ const runtimeAppSource = readFileSync(
 );
 assert.match(
   runtimeAppSource,
-  /createChatTurnOrchestrator\(\{[\s\S]*?enableDefaultLatestPairSettlementProvider:\s*false[\s\S]*?\}\)/,
-  'Production runtime-app chat-turn wiring must keep the optional source-settlement latest-pair provider behind an explicit live-stability gate.'
+  /createChatTurnOrchestrator\(\{[\s\S]*?enableDefaultLatestPairSettlementProvider:\s*true[\s\S]*?\}\)/,
+  'Production runtime-app chat-turn wiring must enable the source-settlement latest-pair provider so Scene Handshake can produce SRE owner evidence.'
 );
 assert.match(
   runtimeAppSource,
@@ -1035,6 +1323,16 @@ assert.match(
   runtimeAppSource,
   /const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)/,
   'Runtime-app freshness counters must be derived from the shared runtime ledger view.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+syncCurrentChatScopeCampaignState[\s\S]*?shouldPreferInMemoryCampaignState\(currentChatScope\.campaignState,\s*state[\s\S]*?campaignState:\s*cloneJson\(state\)/,
+  'Runtime-app must sync bound current-chat scope from fresher CORE/v2 in-memory state after chat-native commits.'
+);
+assert.match(
+  runtimeAppSource,
+  /const\s+setCampaignState\s*=\s*\(state\)\s*=>\s*\{[\s\S]*?campaignState\s*=\s*cloneJson\(state\);[\s\S]*?syncCurrentChatScopeCampaignState\(campaignState\);[\s\S]*?\}/,
+  'Chat-native runtime services must update current-chat scope when they update campaignState.'
 );
 const stateFreshnessCountersBody = /function\s+stateFreshnessCounters[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
 assert.match(
@@ -1053,11 +1351,53 @@ assert.equal(
   'Runtime-app freshness counters must not treat old sidecarJournal rows as sidecar freshness.'
 );
 const shouldPreferInMemoryCampaignStateBody = /function\s+shouldPreferInMemoryCampaignState[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
+assert.match(
+  runtimeAppSource,
+  /const\s+hasCoreV2RuntimeAuthority\s*=\s*stateHasCoreV2RuntimeAuthority\(candidateState\)[\s\S]*?\|\|\s*stateHasCoreV2RuntimeAuthority\(inMemoryState\)[\s\S]*?if\s*\(\s*!hasCoreV2RuntimeAuthority\s*\)\s*\{[\s\S]*?inMemory\.revision\s*>\s*candidate\.revision[\s\S]*?inMemory\.mechanicsRevision\s*>\s*candidate\.mechanicsRevision[\s\S]*?\}/,
+  'Runtime-app freshness arbitration must ignore old runtimeTracking revision/mechanics counters whenever either side has CORE/v2 runtime authority.'
+);
 assert.equal(
   /modelCallJournalEntries\s*>\s*candidate\.modelCallJournalEntries|candidate\.modelCallJournalEntries\s*>\s*inMemory\.modelCallJournalEntries/.test(shouldPreferInMemoryCampaignStateBody),
   false,
   'Runtime-app freshness arbitration must not prefer state based only on old modelCallJournal growth.'
 );
+assert.match(
+  lensPromptRevisionRecordSource,
+  /kind:\s*['"]directive\.lensPromptRevisionRecord\.v1['"]/,
+  'LENS prompt revision records must have an explicit LENS-owned compact projection kind.'
+);
+assert.match(
+  contextOrchestratorSource,
+  /function\s+promptRevisionAuthority[\s\S]*?lensPromptRevisionRecord[\s\S]*?campaignChatBinding\?\.promptContextRevision[\s\S]*?runtimeResume\?\.promptContextRevision[\s\S]*?const\s+priorRevision\s*=\s*promptRevisionAuthority\(campaignState\)/,
+  'Context plan revision authority must come from LENS prompt revision records and lightweight binding/resume refs.'
+);
+assert.match(
+  continuityDiagnosticsSource,
+  /function\s+promptRevisionRecord[\s\S]*?lensPromptRevisionRecord[\s\S]*?campaignChatBinding\?\.promptContextHash[\s\S]*?runtimeResume\?\.promptContextHash[\s\S]*?promptRevision:\s*promptRecord\.revision[\s\S]*?promptHash:\s*promptRecord\.hash/,
+  'Continuity diagnostics must read LENS prompt revision records instead of old promptContext bodies.'
+);
+assert.match(
+  continuityDiagnosticsSource,
+  /function\s+promptKeyStatus\(promptInspection\s*=\s*null\)[\s\S]*?if\s*\(!inspectedBlocks\.length\)[\s\S]*?status:\s*['"]not-inspected['"][\s\S]*?const\s+installedKeys\s*=\s*new\s+Set\(inspectedBlocks\.map/,
+  'Continuity diagnostics static-key evidence must come from explicit prompt inspection, not saved promptContext blocks.'
+);
+assert.match(
+  runtimeAppSource,
+  /const\s+binding\s*=\s*cloneJson\(state\.campaignChatBinding\s*\|\|\s*null\)[\s\S]*?delete\s+binding\.promptContext[\s\S]*?const\s+lensPromptRecord\s*=\s*state\.directiveRuntimeEvidence\?\.lensPromptRevisionRecord[\s\S]*?prompt:\s*\{[\s\S]*?revision:\s*promptRevision[\s\S]*?hash:\s*promptHash/,
+  'Runtime chat-native view must expose compact LENS prompt metadata and scrub old binding promptContext bodies.'
+);
+for (const [name, source] of [
+  ['player-safe-prompt-context-builder', playerSafePromptContextBuilderSource],
+  ['context-orchestrator', contextOrchestratorSource],
+  ['runtime-app', runtimeAppSource],
+  ['continuity-diagnostics', continuityDiagnosticsSource]
+]) {
+  assert.equal(
+    /runtimeTracking\.promptContext\s*=|runtimeTracking\?\.promptContext(?!Revision|Hash)|runtimeTracking\.promptContext(?!Revision|Hash)|campaignChatBinding\?\.promptContext(?!Revision|Hash)|campaignChatBinding\.promptContext(?!Revision|Hash)|promptContext:\s*cloneJson\(.*runtimeTracking\?\.promptContext|promptContext:\s*state\.runtimeTracking\?\.promptContext/.test(source),
+    false,
+    `${name} must not read, write, or copy old promptContext bodies as prompt revision authority.`
+  );
+}
 const flushChatSidecarsBody = /async\s+flushChatSidecars\(\)[\s\S]*?async\s+flushRuntimeDiagnostics\(\)/.exec(runtimeAppSource)?.[0] || '';
 assert.match(
   flushChatSidecarsBody,
@@ -1076,22 +1416,22 @@ assert.equal(
 );
 assert.match(
   runtimeAppSource,
-  /function\s+runtimeIngressForContext[\s\S]*?const\s+ledger\s*=\s*createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger\s*\|\|\s*\[\]/,
-  'Runtime-app ingress context lookup must use the shared CORE-first runtime ledger view with explicit hot runtime overlay.'
+  /function\s+runtimeIngressForContext[\s\S]*?const\s+ledger\s*=\s*createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\}\)\.ingressLedger\s*\|\|\s*\[\]/,
+  'Runtime-app ingress context lookup must use CORE-only runtime ledger view.'
 );
 assert.match(
   runtimeAppSource,
-  /function\s+runtimeResponseForContext[\s\S]*?const\s+ledger\s*=\s*createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.responseLedger\s*\|\|\s*\[\]/,
-  'Runtime-app response context lookup must use the shared CORE-first runtime ledger view with explicit hot runtime overlay.'
+  /function\s+runtimeResponseForContext[\s\S]*?const\s+ledger\s*=\s*createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\}\)\.responseLedger\s*\|\|\s*\[\]/,
+  'Runtime-app response context lookup must use CORE-only runtime ledger view.'
 );
 assert.match(
   runtimeAppSource,
-  /function\s+responseRowsForFresherMerge[\s\S]*?const\s+projections\s*=\s*readRuntimeCoreProjections\(state\s*\|\|\s*\{\}\)[\s\S]*?Array\.isArray\(projections\.responseLedger\)/,
+  /function\s+responseRowsForFresherMerge[\s\S]*?const\s+projections\s*=\s*readRuntimeCoreProjections\(state\s*\|\|\s*\{\}\)[\s\S]*?coreResponseProjectionRows\(projections\)/,
   'Runtime-app fresher response merge must source rows from CORE read projections, not old runtimeTracking response ledgers.'
 );
 assert.match(
   runtimeAppSource,
-  /function\s+mergeFresherResponseLedgerProjection[\s\S]*?coreStoreReadProjections[\s\S]*?responseLedger/,
+  /function\s+mergeFresherResponseLedgerProjection[\s\S]*?coreStoreReadProjections[\s\S]*?responses/,
   'Runtime-app fresher response merge must write fresher response rows into transient CORE read projections.'
 );
 assert.match(
@@ -1107,7 +1447,7 @@ assert.match(
 const mergeFresherResponseLedgerProjectionBody = /function\s+mergeFresherResponseLedgerProjection[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
 assert.match(
   mergeFresherResponseLedgerProjectionBody,
-  /responseLedgerRevision\s*=\s*Math\.max\([\s\S]*?candidateEvidence\.responseLedgerRevision[\s\S]*?memoryEvidence\.responseLedgerRevision[\s\S]*?coreStoreReadProjections:[\s\S]*?responseLedgerRevision,[\s\S]*?responseLedger/,
+  /responseLedgerRevision\s*=\s*Math\.max\([\s\S]*?candidateEvidence\.responseLedgerRevision[\s\S]*?memoryEvidence\.responseLedgerRevision[\s\S]*?coreStoreReadProjections:[\s\S]*?responseLedgerRevision,[\s\S]*?responses/,
   'Runtime-app fresher response merge must carry responseLedgerRevision through CORE projection evidence.'
 );
 assert.equal(
@@ -1125,6 +1465,22 @@ assert.equal(
   false,
   'Runtime-app fresher response merge must not use a hostMessageId-keyed memory map.'
 );
+const mergeCoreTurnLedgerProjectionBody = /function\s+mergeCoreTurnLedgerProjection[\s\S]*?\n\}[\s\S]*?\n\nconst\s+RERUN_PREVIEW_RAW_INPUT_KEYS/.exec(runtimeAppSource)?.[0] || '';
+assert.match(
+  mergeCoreTurnLedgerProjectionBody,
+  /const\s+hasCoreEntries\s*=\s*Array\.isArray\(coreTurnLedger\?\.entries\)[\s\S]*?const\s+coreEntries\s*=\s*hasCoreEntries\s*\?\s*coreTurnLedger\.entries\s*:\s*\[\][\s\S]*?const\s+entries\s*=\s*hasCoreEntries[\s\S]*?coreEntries\.map[\s\S]*?replacementHistory:\s*hasCoreReplacementHistory\s*\?\s*cloneJson\(coreTurnLedger\.replacementHistory\)\s*:\s*undefined/,
+  'Runtime-app CORE turn merge must build active turn/replacement rows from CORE projections only.'
+);
+assert.equal(
+  /if\s*\(!projected\)\s*return\s+cloneJson\(entry\)|turnLedger\.entries\.map/.test(mergeCoreTurnLedgerProjectionBody),
+  false,
+  'Runtime-app CORE turn merge must not preserve unmatched old turnLedger entries.'
+);
+assert.equal(
+  /Array\.isArray\(turnLedger\.replacementHistory\)|cloneJson\(turnLedger\.replacementHistory\)/.test(mergeCoreTurnLedgerProjectionBody),
+  false,
+  'Runtime-app CORE turn merge must not preserve old replacementHistory.'
+);
 const responseProjectionMergeKeysBody = /function\s+responseProjectionMergeKeys[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
 assert.equal(
   /hostMessageId/.test(responseProjectionMergeKeysBody),
@@ -1133,25 +1489,37 @@ assert.equal(
 );
 assert.match(
   runtimeAppSource,
-  /async\s+function\s+forgeSourceCurrentForRuntime[\s\S]*?let\s+ledger\s*=\s*createRuntimeLedgerView\(tracked\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger\s*\|\|\s*\[\][\s\S]*?runtimeCoreTurnStore\?\.readProjections[\s\S]*?projections\?\.ingressLedger[\s\S]*?ledger\s*=\s*projections\.ingressLedger/,
-  'Runtime-app FORGE source-current checks must use the shared CORE-first runtime ledger view plus live CORE projections with explicit hot runtime overlay.'
+  /async\s+function\s+forgeSourceCurrentForRuntime[\s\S]*?runtimeCoreTurnStore\?\.readProjections[\s\S]*?projections\?\.ingressLedger[\s\S]*?const\s+ledger\s*=\s*projections\.ingressLedger/,
+  'Runtime-app FORGE source-current checks must use live CORE projections as the only source-current authority.'
 );
 const forgeSourceCurrentForRuntimeBody = /function\s+forgeSourceCurrentForRuntime[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '';
 assert.equal(
-  /runtimeTracking\?\.ingressLedger/.test(forgeSourceCurrentForRuntimeBody),
+  /runtimeTracking\?\.ingressLedger|createRuntimeLedgerView/.test(forgeSourceCurrentForRuntimeBody),
   false,
-  'Runtime-app FORGE source-current checks must not read raw runtimeTracking.ingressLedger.'
+  'Runtime-app FORGE source-current checks must not fall back to raw or materialized old ingress ledgers.'
 );
 assert.match(
   runtimeAppSource,
-  /function\s+coreDiagnosticTargetForModelCall[\s\S]*?createRuntimeLedgerView\(tracked\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger\s*\|\|\s*\[\]/,
-  'Runtime-app model-call CORE diagnostic target lookup must use the shared CORE-first runtime ledger view with explicit hot runtime overlay.'
+  /function\s+coreDiagnosticTargetForModelCall[\s\S]*?createRuntimeLedgerView\(tracked\s*\|\|\s*\{\}\)\.ingressLedger\s*\|\|\s*\[\]/,
+  'Runtime-app model-call CORE diagnostic target lookup must use CORE-only runtime ledger view.'
 );
 const coreDiagnosticTargetForModelCallBody = /function\s+coreDiagnosticTargetForModelCall[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '';
 assert.equal(
-  /runtimeTracking\?\.ingressLedger/.test(coreDiagnosticTargetForModelCallBody),
+  /runtimeTracking\?\.ingressLedger|hotIngress/.test(coreDiagnosticTargetForModelCallBody),
   false,
-  'Runtime-app model-call CORE diagnostic target lookup must not read raw runtimeTracking.ingressLedger.'
+  'Runtime-app model-call diagnostics must not read raw runtimeTracking.ingressLedger for CORE diagnostic target authority.'
+);
+const runtimeIngressForContextBody = /function\s+runtimeIngressForContext[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '';
+assert.equal(
+  /hotById|hotByOutcome|hotByTurn|runtimeTracking\?\.ingressLedger/.test(runtimeIngressForContextBody),
+  false,
+  'Runtime-app transient ingress lookup must not let raw runtimeTracking rows win by id, outcomeId, or turnId.'
+);
+const runtimeResponseForContextBody = /function\s+runtimeResponseForContext[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '';
+assert.equal(
+  /hotById|hotByHost|hotByOutcome|hotByTurn|runtimeTracking\?\.responseLedger|\[\.\.\.\(campaignState\?\.runtimeTracking\?\.responseLedger/.test(runtimeResponseForContextBody),
+  false,
+  'Runtime-app transient response lookup must not let raw runtimeTracking rows win by id, hostMessageId, outcomeId, turnId, or ingressId.'
 );
 const modelCallJournalSource = readFileSync(
   new URL('../../src/runtime/model-call-journal.mjs', import.meta.url),
@@ -1228,8 +1596,8 @@ assert.match(
 );
 assert.match(
   runtimeAppSource,
-  /function\s+pendingInteractionProjectionRows[\s\S]*?readRuntimeCoreProjections\(state\s*\|\|\s*\{\}\)[\s\S]*?projections\.pendingInteractions[\s\S]*?runtimeTracking\?\.pendingInteractions[\s\S]*?function\s+chatNativeViewForState[\s\S]*?pendingInteractions:\s*cloneJson\(pendingInteractionProjectionRows\(state\)\)/,
-  'Runtime-app chatNative view must expose CORE pending interaction projections before any legacy mirror rows.'
+  /function\s+pendingInteractionProjectionRows[\s\S]*?readRuntimeCoreProjections\(state\s*\|\|\s*\{\}\)[\s\S]*?projections\.pendingInteractions[\s\S]*?filter\(isPendingInteractionProjectionRow\)[\s\S]*?function\s+chatNativeViewForState[\s\S]*?pendingInteractions:\s*cloneJson\(pendingInteractionProjectionRows\(state\)\)/,
+  'Runtime-app chatNative view must expose CORE pending interaction projections, not legacy mirror rows.'
 );
 assert.match(
   runtimeAppSource,
@@ -1251,6 +1619,16 @@ assert.equal(
   false,
   'Runtime-app runtime-persist pending merge must not raw-copy old ingress/response/recovery ledgers; CORE projections carry freshness evidence.'
 );
+assert.match(
+  runtimeAppSource,
+  /function\s+mergeRuntimePersistCoreProjections[\s\S]*?const\s+nextHasRuntimeAuthority[\s\S]*?nextProjection\.runtimeAuthority\s*===\s*['"]coreStoreV2['"][\s\S]*?entries:\s*nextTurnLedgerAuthority\s*&&\s*Array\.isArray\(nextTurnLedger\?\.entries\)[\s\S]*?cloneJson\(nextTurnLedger\.entries\)[\s\S]*?['"]responses['"][\s\S]*?merged\[key\]\s*=\s*nextHasRuntimeAuthority\s*&&\s*Array\.isArray\(nextNormalized\[key\]\)[\s\S]*?cloneJson\(nextNormalized\[key\]\)/,
+  'Runtime-app runtime-persist CORE projection merge must replace explicit authoritative next arrays instead of unioning stale prior rows.'
+);
+assert.match(
+  runtimeAppSource,
+  /function\s+mergeRuntimePersistPendingStates[\s\S]*?const\s+nextHasAuthoritativeTurnProjection[\s\S]*?!nextHasAuthoritativeTurnProjection\s*&&\s*prior\.turnLedgerEntries\s*>\s*next\.turnLedgerEntries[\s\S]*?const\s+nextHasAuthoritativePendingProjection[\s\S]*?!nextHasAuthoritativePendingProjection\s*&&\s*priorPendingRows\.length\s*>\s*nextPendingRows\.length/,
+  'Runtime-app pending-state merge must not restore stale prior turn/pending rows over explicit authoritative CORE projections.'
+);
 const chatNativeViewForStateBody = /function\s+chatNativeViewForState[\s\S]*?\n  \}/.exec(runtimeAppSource)?.[0] || '';
 assert.equal(
   /state\.runtimeTracking\.(ingressLedger|responseLedger|recoveryJournal)(?![A-Za-z0-9_])/.test(chatNativeViewForStateBody),
@@ -1267,15 +1645,21 @@ assert.equal(
   false,
   'Runtime-app chatNative view must not fall back to nested runtimeTracking.sceneReconciliation.'
 );
-assert.match(
-  runtimeAppSource,
-  /function\s+compatibilityRowsThatCanBlockCoreAuthority[\s\S]*?coreRows[\s\S]*?authority\s*===\s*['"]compatibilityProjectionUnavailable['"]\)\s*return\s+false[\s\S]*?row\?\.compatibilityMirror[\s\S]*?projectionSource/,
-  'Runtime-app CORE authority marker must ignore silent old rows and missing-CORE quarantine mirrors once CORE projections exist, while keeping real tagged compatibility blockers.'
+assert.equal(
+  /function\s+compatibilityRowsThatCanBlockCoreAuthority/.test(runtimeAppSource),
+  false,
+  'Runtime-app CORE authority marker must remove the old compatibility-row veto helper entirely.'
 );
 assert.match(
   runtimeAppSource,
-  /function\s+coreProjectionHasRuntimeAuthority[\s\S]*?const\s+ingressRows\s*=\s*Array\.isArray\(projections\.ingressLedger\)[\s\S]*?const\s+responseRows\s*=\s*Array\.isArray\(projections\.responseLedger\)[\s\S]*?compatibilityRowsThatCanBlockCoreAuthority\(runtimeTracking\.ingressLedger,\s*ingressRows\)[\s\S]*?compatibilityRowsThatCanBlockCoreAuthority\(runtimeTracking\.responseLedger,\s*responseRows\)/,
-  'Runtime-app CORE authority coverage must check only tagged compatibility blocker rows for ingress/response coverage.'
+  /function\s+coreProjectionHasRuntimeAuthority[\s\S]*?const\s+hasCoreRuntimeProjection\s*=[\s\S]*?Array\.isArray\(projections\.turnLedger\?\.entries\)[\s\S]*?Array\.isArray\(projections\.ingressLedger\)[\s\S]*?if\s*\(hasCoreRuntimeProjection\)\s*return\s+true/,
+  'Runtime-app CORE authority coverage must let CORE runtime projection shape mark authority without old-ledger veto.'
+);
+const coreProjectionHasRuntimeAuthorityBody = /function\s+coreProjectionHasRuntimeAuthority[\s\S]*?\n\}/.exec(runtimeAppSource)?.[0] || '';
+assert.equal(
+  /runtimeTracking\.(?:ingressLedger|responseLedger)|runtimeTracking\?\.(?:ingressLedger|responseLedger)/.test(coreProjectionHasRuntimeAuthorityBody),
+  false,
+  'Runtime-app CORE authority coverage must not inspect old runtimeTracking ingress/response ledgers.'
 );
 assert.equal(
   /rowsCoveredByCoreProjection\(projections\.recoveryJournal,\s*runtimeTracking\.recoveryJournal/.test(runtimeAppSource),
@@ -1318,9 +1702,18 @@ const messageMutationActuationRunnerSource = readFileSync(
   new URL('./run-sillytavern-message-mutation-actuation-live.mjs', import.meta.url),
   'utf8'
 );
+const smokeSceneHandshakeLiveSource = readFileSync(
+  new URL('./smoke-scene-handshake-live.mjs', import.meta.url),
+  'utf8'
+);
 const transactionStateSource = readFileSync(
   new URL('../../src/campaign/transaction-state.mjs', import.meta.url),
   'utf8'
+);
+assert.equal(
+  /\bquarantineGeneratedClaims\b|\baddContinuityProjectionHints\b|\brecordContinuityFactUseStats\b/.test(transactionStateSource),
+  false,
+  'Transaction-state narration commit must not write old continuity candidate/rejected/hint/fact-use roots.'
 );
 const settingsPanelSource = readFileSync(
   new URL('../../src/ui/settings-panel.js', import.meta.url),
@@ -1339,6 +1732,11 @@ assert.equal(
   /pendingSceneReconciliationItems[\s\S]*?runtimeTracking\?\.sceneReconciliation|pendingSceneReconciliationItems[\s\S]*?runtimeTracking\.sceneReconciliation/.test(missionPanelSource),
   false,
   'Mission panel Scene Reconciliation review must not render nested runtimeTracking.sceneReconciliation.'
+);
+assert.match(
+  smokeSceneHandshakeLiveSource,
+  /wait-scene-handshake-settlement[\s\S]*?snapshot\.promptContextRevision\s*>\s*before\.promptContextRevision[\s\S]*?last\.status\s*===\s*['"]settled['"]/,
+  'Scene Handshake live smoke must wait for prompt sync completion, not only the intermediate settlement row.'
 );
 const ashesProjectionSource = readFileSync(
   new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', import.meta.url),
@@ -1607,6 +2005,11 @@ const campaignSidecarSchedulerSource = readFileSync(
   new URL('../../src/jobs/campaign-sidecar-scheduler.mjs', import.meta.url),
   'utf8'
 );
+assert.equal(
+  /runtimeTracking\.promptContext\s*=|prompt\.runtimeTracking\?\.promptContext/.test(campaignSidecarSchedulerSource),
+  false,
+  'Campaign sidecar prompt-only state merge must carry LENS prompt revision records instead of old runtimeTracking.promptContext.'
+);
 const forgeCoordinatorSource = readFileSync(
   new URL('../../src/jobs/forge-coordinator.mjs', import.meta.url),
   'utf8'
@@ -1647,14 +2050,19 @@ assert.match(
   'End-condition service must use shared terminal ledger projection accessors.'
 );
 assert.equal(
-  /recordPendingInteraction|resolvePendingInteraction|runtimeTracking\.pendingInteractions\s*=/.test(campaignEndConditionServiceSource),
+  /runtimeTracking\.pendingInteractions\s*=/.test(campaignEndConditionServiceSource),
   false,
-  'End-condition service must not store terminal outcome decisions as durable pendingInteractions rows.'
+  'End-condition service must not store terminal outcome decisions as durable runtimeTracking pendingInteractions rows.'
 );
 assert.match(
   campaignEndConditionServiceSource,
-  /isPendingInteractionProjectionRow[\s\S]*?from\s+['"]\.\/state-delta-gateway\.mjs['"][\s\S]*?function\s+activeTerminalInteraction[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)/,
-  'End-condition service terminal pending reads must filter through shared owner projection predicate.'
+  /isPendingInteractionProjectionRow[\s\S]*?function\s+pendingInteractionProjectionRows[\s\S]*?function\s+activeTerminalInteraction[\s\S]*?pendingInteractionProjectionRows\(state\)/,
+  'End-condition service terminal pending authority must use CORE pending-interaction projections.'
+);
+assert.match(
+  campaignEndConditionServiceSource,
+  /async\s+function\s+recordCoreTerminalPendingInteraction[\s\S]*?coreTurnStore\?\.recordPendingInteraction[\s\S]*?async\s+function\s+resolveCoreTerminalPendingInteraction[\s\S]*?coreTurnStore\?\.resolvePendingInteraction/,
+  'End-condition service terminal decisions must record and resolve pending authority through CORE.'
 );
 assert.match(
   runtimeAppSource,
@@ -1671,19 +2079,29 @@ assert.match(
   /function\s+terminalCheckpointCoreTargetForEvent[\s\S]*?pendingInteractionProjectionRows\(campaignState\)[\s\S]*?runtimeIngressForContext/,
   'Runtime-app terminal checkpoint settlement must not derive CORE targets from unowned pendingInteraction rows.'
 );
-assert.match(
-  runtimeAppSource,
-  /function\s+pendingTerminalDecisionId[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)[\s\S]*?function\s+terminalDecisionStillPending[\s\S]*?pendingInteractions\s*\|\|\s*\[\]\)\.filter\(isPendingInteractionProjectionRow\)/,
-  'Runtime-app terminal freshness preservation must not derive pending decisions from unowned pendingInteraction rows.'
+assert.equal(
+  /function\s+pendingTerminalDecisionId[\s\S]*?pendingInteractions\s*\|\|\s*\[\]|function\s+terminalDecisionStillPending[\s\S]*?pendingInteractions\s*\|\|\s*\[\]/.test(runtimeAppSource),
+  false,
+  'Runtime-app terminal freshness preservation must not derive pending decisions from pendingInteraction mirror rows.'
 );
 assert.match(
   chatTurnOrchestratorSource,
   /terminalDecisionLedgerView[\s\S]*?from\s+['"]\.\/terminal-decision-ledger-view\.mjs['"][\s\S]*?function\s+ledgerTerminalInteraction[\s\S]*?terminalDecisionLedgerView\(state\s*\|\|\s*\{\}\)/,
-  'Chat-turn terminal decision fallback must use the shared terminal ledger projection view.'
+  'Chat-turn terminal display helpers must use the shared terminal ledger projection view.'
+);
+assert.equal(
+  /function\s+activePendingInteraction[\s\S]*?\|\|\s*ledgerTerminalInteraction/.test(chatTurnOrchestratorSource),
+  false,
+  'Chat-turn active pending interaction authority must not fall back to terminal ledger projections.'
+);
+assert.equal(
+  /function\s+activeTerminalInteractionId[\s\S]*?\|\|\s*ledgerTerminalInteraction/.test(chatTurnOrchestratorSource),
+  false,
+  'Chat-turn active terminal decision ids must come from CORE pending projections, not terminal ledger projections.'
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /function\s+pendingInteractionRows[\s\S]*?corePendingInteractionRows\(state\)[\s\S]*?runtimeTracking\?\.pendingInteractions[\s\S]*?function\s+activePendingInteraction[\s\S]*?pendingInteractionRows\(state\)[\s\S]*?function\s+activeTerminalInteractionId[\s\S]*?pendingInteractionRows\(state\)[\s\S]*?async\s+function\s+resolveInteraction[\s\S]*?pendingInteractionRows\(state\)/,
+  /function\s+pendingInteractionRows[\s\S]*?return\s+cloneJson\(corePendingInteractionRows\(state\)\)[\s\S]*?function\s+activePendingInteraction[\s\S]*?pendingInteractionRows\(state\)[\s\S]*?function\s+activeTerminalInteractionId[\s\S]*?pendingInteractionRows\(state\)[\s\S]*?async\s+function\s+resolveInteraction[\s\S]*?pendingInteractionRows\(state\)/,
   'Chat-turn pending-interaction reads must use CORE pending projections before resolving interactions.'
 );
 assert.match(
@@ -1741,17 +2159,29 @@ assert.match(
 assert.match(
   sceneReconciliationSource,
   /function\s+findIngressForMessage[\s\S]*?createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)\.ingressLedger/,
-  'Scene Reconciliation message anchors must find ingress rows through CORE-first runtime ledger view.'
+  'Scene Reconciliation message anchors must find ingress rows through CORE-only runtime ledger view.'
 );
 assert.match(
   sceneReconciliationSource,
   /function\s+outcomeIdsForRange[\s\S]*?const\s+runtimeLedgerView\s*=\s*createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)[\s\S]*?runtimeLedgerView\.ingressLedger[\s\S]*?runtimeLedgerView\.responseLedger/,
-  'Scene Reconciliation range outcome lookup must use CORE-first runtime ledger view.'
+  'Scene Reconciliation range outcome lookup must use CORE-only runtime ledger view.'
 );
 assert.match(
   sceneReconciliationSource,
   /function\s+coreTransactionIdForMessage[\s\S]*?createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)\.ingressLedger/,
-  'Scene Reconciliation SRE transaction lookup must use CORE-first runtime ledger view.'
+  'Scene Reconciliation SRE transaction lookup must use CORE-only runtime ledger view.'
+);
+const sceneReconciliationCoreTransactionBody = /function\s+coreTransactionIdForMessage[\s\S]*?\n\}/.exec(sceneReconciliationSource)?.[0] || '';
+assert.equal(
+  /runtimeOverlay:\s*true|findIngressForMessage/.test(sceneReconciliationCoreTransactionBody),
+  false,
+  'Scene Reconciliation SRE transaction lookup must not use runtimeOverlay fallback or generic ingress lookup.'
+);
+const sceneReconciliationFindOutcomeBody = /function\s+findOutcomeForAnchor[\s\S]*?\n\}/.exec(sceneReconciliationSource)?.[0] || '';
+assert.equal(
+  /runtimeOverlay:\s*true/.test(sceneReconciliationFindOutcomeBody),
+  false,
+  'Scene Reconciliation recalculate outcome lookup must not use runtimeOverlay fallback.'
 );
 assert.equal(
   /runtimeTracking\?\.(ingressLedger|responseLedger)|runtimeTracking\.(ingressLedger|responseLedger)/.test(sceneReconciliationSource),
@@ -1791,23 +2221,23 @@ assert.equal(
 );
 assert.match(
   campaignSidecarSchedulerSource,
-  /function\s+ingressById[\s\S]*?createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger/,
-  'Campaign sidecar scheduler source snapshots must use the CORE-first runtime ledger view with hot runtime overlay.'
+  /function\s+ingressById[\s\S]*?createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\}\)\.ingressLedger/,
+  'Campaign sidecar scheduler source snapshots must use CORE-only runtime ledger projections.'
 );
 assert.match(
   campaignSidecarSchedulerSource,
   /createRuntimeLedgerView[\s\S]*?from\s+['"]\.\.\/runtime\/runtime-ledger-view\.mjs['"]/,
   'Campaign sidecar scheduler source ingress lookup must import the shared CORE-first runtime ledger view.'
 );
-assert.match(
-  campaignSidecarSchedulerSource,
-  /function\s+ingressById\(campaignState,\s*ingressId\)[\s\S]*?createRuntimeLedgerView\(campaignState\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.ingressLedger/,
-  'Campaign sidecar scheduler source ingress lookup must use CORE-first runtime ledger view with hot overlay.'
+assert.equal(
+  /function\s+sourceIngressSnapshot\(campaignState,\s*ingressId,\s*turnContext\s*=\s*\{\}\)[\s\S]*?const\s+ingress\s*=\s+ingressById\(campaignState,\s*ingressId\)[\s\S]*?turnContext\.sourceFrameId[\s\S]*?turnContext\.coreTransactionId/.test(campaignSidecarSchedulerSource),
+  false,
+  'Campaign sidecar scheduler must not synthesize source authority from turnContext when CORE/SRE projection is missing.'
 );
 assert.equal(
-  /runtimeTracking\?\.ingressLedger/.test(campaignSidecarSchedulerSource),
+  /function\s+ingressById[\s\S]*?runtimeOverlay:\s*true|function\s+ingressById[\s\S]*?runtimeTracking\?\.ingressLedger/.test(campaignSidecarSchedulerSource),
   false,
-  'Campaign sidecar scheduler must not read raw runtimeTracking.ingressLedger for source snapshots.'
+  'Campaign sidecar scheduler must not validate source identity from runtimeOverlay or raw hot ingress rows.'
 );
 assert.match(
   forgeCoordinatorSource,
@@ -1879,6 +2309,11 @@ assert.match(
   /const\s+restoreRevision\s*=\s*Number\([\s\S]*?restoreSnapshot\?\.runtimeTracking\?\.revision[\s\S]*?checkpointSnapshot\?\.sourceRevision[\s\S]*?ledgerCoreCheckpointRef\?\.sourceRevision/,
   'Runtime-app committed-outcome delete must accept compact CORE checkpoint sourceRevision when restored snapshot omits runtimeTracking.'
 );
+assert.equal(
+  /authorizeDeleteRollback\.call\(repair,[\s\S]*?ledgerEntry:\s*\{[\s\S]*?snapshotBefore:\s*\{[\s\S]*?runtimeTracking/.test(runtimeAppSource),
+  false,
+  'Runtime-app committed-outcome delete must not pass a synthetic old snapshotBefore.runtimeTracking revision to REPAIR authorization.'
+);
 assert.match(
   runtimeAppSource,
   /async\s+resolveTerminalOutcomeDecision\s*\(\s*\{[\s\S]*?resolutionIngressId\s*=\s*null[\s\S]*?resolutionHostMessageId\s*=\s*null[\s\S]*?\}\s*=\s*\{\s*\}\s*\)\s*\{[\s\S]*?endConditionService\.resolveDecision\s*\(\s*\{[\s\S]*?\bresolutionIngressId\b[\s\S]*?\bresolutionHostMessageId\b[\s\S]*?\}\s*\)/,
@@ -1904,6 +2339,17 @@ assert.match(
   /createSourceReviewWorker[\s\S]*?reviewCorrectAsSwipeEvidence[\s\S]*?proposeCorrectAsSwipe\(/,
   'Runtime-app Correct-as-Swipe action must derive SRE evidence verdicts before appending candidate swipes.'
 );
+const proposeCorrectAsSwipeCandidateBody = /async\s+function\s+proposeCorrectAsSwipeCandidate\(payload\s*=\s*\{\}\)[\s\S]*?\n\s*\}\n\s*\n\s*async\s+function\s+settleCorrectAsSwipeCase/.exec(runtimeAppSource)?.[0] || '';
+assert.match(
+  proposeCorrectAsSwipeCandidateBody,
+  /const\s+evidenceVerdict\s*=\s*await\s+sourceReview\.reviewCorrectAsSwipeEvidence\(/,
+  'Runtime-app Correct-as-Swipe proposal must always ask SRE/Source Review for the selected-text verdict.'
+);
+assert.equal(
+  /payload\.(?:evidenceVerdict|verdict)|suppliedEvidenceVerdict/.test(proposeCorrectAsSwipeCandidateBody),
+  false,
+  'Runtime-app Correct-as-Swipe proposal must not accept caller-supplied evidence verdict authority.'
+);
 assert.match(
   runtimeAppSource,
   /const\s+proposedText\s*=\s*payload\.proposedText\s*\?\?\s*payload\.candidateText\s*\?\?\s*payload\.rewriteText\s*\?\?\s*payload\.text/,
@@ -1911,8 +2357,33 @@ assert.match(
 );
 assert.match(
   runtimeAppSource,
-  /proposeCorrectAsSwipeCandidate[\s\S]*?updateResponse:\s*\(latest,\s*responseUpdateId,\s*correctionCase\)\s*=>\s*\{[\s\S]*?const\s+projectedResponse\s*=\s*\(createRuntimeLedgerView\(tracked\)\.responseLedger\s*\|\|\s*\[\]\)\.find[\s\S]*?const\s+hasCompatibilityResponseRow\s*=\s*Boolean\(projectedResponse[\s\S]*?projectedResponse\.authority[\s\S]*?projectedResponse\.compatibilityMirror[\s\S]*?projectedResponse\.projectionSource[\s\S]*?const\s+currentResponse\s*=\s*projectedResponse\s*\|\|\s*findOutcomeIntegrityResponse\(tracked,\s*responseUpdateId\)\s*\|\|\s*response/,
-  'Runtime-app Correct-as-Swipe candidate append must decide record/update from CORE-first projection metadata instead of raw responseLedger rows.'
+  /async\s+function\s+outcomeIntegrityNativeEditDecision\(payload\s*=\s*\{\}\)[\s\S]*?outcomeIntegrityStatusForMessageAsync\(\{[\s\S]*?coreTurnStore:\s*runtimeCoreTurnStore/,
+  'Runtime-app native edit protection must use async CORE/v2 Outcome Integrity reads against the live CORE store.'
+);
+assert.equal(
+  /outcomeIntegrityNativeEditDecision\(payload[\s\S]*?outcomeIntegrityStatusForMessage\(\{/.test(runtimeAppSource),
+  false,
+  'Runtime-app native edit protection must not use the sync Outcome Integrity status path with the live async CORE store.'
+);
+assert.match(
+  runtimeAppSource,
+  /proposeCorrectAsSwipeCandidate[\s\S]*?const\s+recordedResponse\s*=\s*await\s+findOutcomeIntegrityResponseAsync\(state,\s*hostMessageId,\s*\{\s*coreTurnStore:\s*runtimeCoreTurnStore\s*\}\)[\s\S]*?updateResponse:\s*\(latest,\s*responseUpdateId,\s*correctionCase\)\s*=>\s*\{[\s\S]*?const\s+currentResponse\s*=\s*prevalidatedCoreResponseForUpdate\(recordedResponse,\s*responseUpdateId\)\s*\|\|\s*response[\s\S]*?const\s+hasCompatibilityResponseRow\s*=\s*Boolean\(prevalidatedCoreResponseForUpdate\(recordedResponse,\s*responseUpdateId\)\)/,
+  'Runtime-app Correct-as-Swipe candidate append must decide record/update from prevalidated async CORE response evidence.'
+);
+assert.equal(
+  /proposeCorrectAsSwipeCandidate[\s\S]*?recordedResponse\s*\|\|\s*payload\.response/.test(runtimeAppSource),
+  false,
+  'Runtime-app Correct-as-Swipe proposal must not use caller payload response as authority before appending a host swipe.'
+);
+assert.equal(
+  /proposeCorrectAsSwipeCandidate[\s\S]*?createRuntimeLedgerView\(tracked,\s*\{\s*coreTurnStore:\s*runtimeCoreTurnStore\s*\}\)/.test(runtimeAppSource),
+  false,
+  'Runtime-app Correct-as-Swipe candidate append must not use sync CORE ledger views against the live async CORE store.'
+);
+assert.equal(
+  /proposeCorrectAsSwipeCandidate[\s\S]*?findOutcomeIntegrityResponse\(tracked,\s*responseUpdateId,\s*\{\s*coreTurnStore:\s*runtimeCoreTurnStore\s*\}\)/.test(runtimeAppSource),
+  false,
+  'Runtime-app Correct-as-Swipe candidate append must not use sync Outcome Integrity response reads against the live async CORE store.'
 );
 assert.match(
   runtimeAppSource,
@@ -1931,8 +2402,23 @@ assert.equal(
 );
 assert.match(
   runtimeAppSource,
-  /settleCorrectAsSwipeCase\(payload[\s\S]*?updateResponse:\s*\(latest,\s*responseUpdateId,\s*correctionCase\)\s*=>\s*\{[\s\S]*?const\s+projectedResponse\s*=\s*\(createRuntimeLedgerView\(tracked\)\.responseLedger\s*\|\|\s*\[\]\)\.find[\s\S]*?const\s+hasCompatibilityResponseRow\s*=\s*Boolean\(projectedResponse[\s\S]*?projectedResponse\.authority[\s\S]*?projectedResponse\.compatibilityMirror[\s\S]*?projectedResponse\.projectionSource[\s\S]*?const\s+currentResponse\s*=\s*projectedResponse\s*\|\|\s*findOutcomeIntegrityResponse\(tracked,\s*responseUpdateId\)\s*\|\|\s*response[\s\S]*?action:\s*['"]caseLifecycleUpdated['"]/,
-  'Runtime-app Correct-as-Swipe lifecycle must decide record/update from CORE-first projection metadata instead of raw responseLedger rows.'
+  /settleCorrectAsSwipeCase\(payload[\s\S]*?const\s+recordedResponse\s*=\s*await\s+findOutcomeIntegrityResponseAsync\(state,\s*hostMessageId,\s*\{\s*coreTurnStore:\s*runtimeCoreTurnStore\s*\}\)[\s\S]*?updateResponse:\s*\(latest,\s*responseUpdateId,\s*correctionCase\)\s*=>\s*\{[\s\S]*?const\s+currentResponse\s*=\s*prevalidatedCoreResponseForUpdate\(recordedResponse,\s*responseUpdateId\)\s*\|\|\s*response[\s\S]*?const\s+hasCompatibilityResponseRow\s*=\s*Boolean\(prevalidatedCoreResponseForUpdate\(recordedResponse,\s*responseUpdateId\)\)[\s\S]*?action:\s*['"]caseLifecycleUpdated['"]/,
+  'Runtime-app Correct-as-Swipe lifecycle must decide record/update from prevalidated async CORE response evidence.'
+);
+assert.equal(
+  /settleCorrectAsSwipeCase\(payload[\s\S]*?recordedResponse\s*\|\|\s*payload\.response/.test(runtimeAppSource),
+  false,
+  'Runtime-app Correct-as-Swipe lifecycle must not use caller payload response as authority.'
+);
+assert.equal(
+  /settleCorrectAsSwipeCase\(payload[\s\S]*?createRuntimeLedgerView\(tracked,\s*\{\s*coreTurnStore:\s*runtimeCoreTurnStore\s*\}\)/.test(runtimeAppSource),
+  false,
+  'Runtime-app Correct-as-Swipe lifecycle must not use sync CORE ledger views against the live async CORE store.'
+);
+assert.equal(
+  /settleCorrectAsSwipeCase\(payload[\s\S]*?findOutcomeIntegrityResponse\(tracked,\s*responseUpdateId,\s*\{\s*coreTurnStore:\s*runtimeCoreTurnStore\s*\}\)/.test(runtimeAppSource),
+  false,
+  'Runtime-app Correct-as-Swipe lifecycle must not use sync Outcome Integrity response reads against the live async CORE store.'
 );
 assert.match(
   runtimeAppSource,
@@ -2100,10 +2586,58 @@ const messageReconcilerSource = readFileSync(
   new URL('../../src/runtime/message-reconciler.mjs', import.meta.url),
   'utf8'
 );
+const repairRuntimeSource = readFileSync(
+  new URL('../../src/runtime/repair-runtime.mjs', import.meta.url),
+  'utf8'
+);
+assert.equal(
+  /buildCommittedOutcomeDeleteRollbackActuationDecision[\s\S]*?ledgerEntry\?\.snapshotBefore\?\.runtimeTracking/.test(repairRuntimeSource),
+  false,
+  'REPAIR committed-outcome delete rollback must not fall back to old ledger snapshotBefore.runtimeTracking revision authority.'
+);
+assert.match(
+  repairRuntimeSource,
+  /function\s+buildRollbackActuationDecision[\s\S]*?coreCheckpointRefFromEvidence[\s\S]*?hasCoreCheckpointAuthority[\s\S]*?repair-rollback-core-checkpoint-ref-missing/,
+  'REPAIR rollback authorization must require compact CORE checkpoint ref authority, not restoreRevision alone.'
+);
+assert.match(
+  repairRuntimeSource,
+  /function\s+buildCommittedOutcomeDeleteRollbackActuationDecision[\s\S]*?coreCheckpointRefFromEvidence[\s\S]*?ledgerEntry\?\.coreCheckpointRef[\s\S]*?buildRollbackActuationDecision/,
+  'Committed-outcome delete rollback must pass compact CORE checkpoint refs into REPAIR rollback authorization.'
+);
+assert.match(
+  repairRuntimeSource,
+  /function\s+recoveryStatusForSourceMutation[\s\S]*?hasCoreCheckpointAuthority\(sourceMutation\?\.coreCheckpointRef/,
+  'REPAIR source-mutation recovery must not mark rollbackPending from preOutcomeRevision without CORE checkpoint authority.'
+);
+assert.equal(
+  /runtimeTracking\??\.sceneHandshake|runtimeTracking\.sceneHandshake/.test(
+    `${messageReconcilerSource}\n${repairRuntimeSource}\n${sceneHandshakeSettlerSource}`
+  ),
+  false,
+  'Scene Handshake recovery, repair, and idempotency helpers must not fall back to nested runtimeTracking.sceneHandshake.'
+);
+assert.equal(
+  /legacyProjection|repairLegacyProjection|directive\.repairLegacyProjection/.test(
+    `${messageReconcilerSource}\n${repairRuntimeSource}`
+  ),
+  false,
+  'REPAIR source-mutation and response-recovery policy must expose repairProjection, not stale legacyProjection authority.'
+);
 assert.match(
   responseDispatcherSource,
   /createRuntimeLedgerViewAsync[\s\S]*?findLedgerIngressAsync[\s\S]*?findLedgerRecoveryAsync[\s\S]*?findLedgerResponseAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
   'ResponseDispatcher must use the shared async CORE-first runtime ledger view for ingress/response/recovery lookup.'
+);
+assert.match(
+  responseDispatcherSource,
+  /readRuntimeCoreProjections[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"][\s\S]*?function\s+coreRuntimeRevision[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?revisions\?\.runtime[\s\S]*?lastViolationRevision:\s*currentRevision/,
+  'ResponseDispatcher host-native continuity compatibility projections must stamp fact-use revisions from CORE/v2 read projections before old runtimeTracking counters.'
+);
+assert.match(
+  repairRuntimeSource,
+  /readRuntimeCoreProjections[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"][\s\S]*?function\s+coreRuntimeRevision[\s\S]*?runtimeAuthority\s*!==\s*['"]coreStoreV2['"][\s\S]*?revisions\?\.runtime[\s\S]*?lastViolationRevision:\s*currentRevision/,
+  'REPAIR host-native continuity projections must stamp fact-use revisions from CORE/v2 read projections before old runtimeTracking counters.'
 );
 assert.match(
   chatTurnOrchestratorSource,
@@ -2112,8 +2646,23 @@ assert.match(
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /function\s+responseEntryForMessage[\s\S]*?const\s+responseRows\s*=\s*createRuntimeLedgerView\(state\s*\|\|\s*\{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)\.responseLedger\s*\|\|\s*\[\]/,
-  'ChatTurnOrchestrator assistant-swipe response lookup must use the shared CORE-first runtime ledger view.'
+  /function\s+responseEntryForMessage[\s\S]*?const\s+responseRows\s*=\s*createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)\.responseLedger\s*\|\|\s*\[\]/,
+  'ChatTurnOrchestrator assistant-swipe response lookup must use CORE-only response projections.'
+);
+assert.match(
+  responseDispatcherSource,
+  /async\s+function\s+findExisting\(campaignState,\s*idempotencyKey,\s*options\s*=\s*\{\}\)[\s\S]*?createRuntimeLedgerViewAsync\(campaignState,\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?responseLedger/,
+  'ResponseDispatcher existing-response duplicate lookup must use CORE-only response projections.'
+);
+assert.match(
+  responseDispatcherSource,
+  /async\s+function\s+findIngress\(campaignState,\s*ingressId\)[\s\S]*?findLedgerIngressAsync\(campaignState,\s*\{\s*id:\s*ingressId\s*\},\s*\{\s*coreTurnStore\s*\}\)/,
+  'ResponseDispatcher ingress authority lookup must use CORE-only projections.'
+);
+assert.match(
+  responseDispatcherSource,
+  /async\s+function\s+findResponse\(campaignState,\s*responseId\)[\s\S]*?findLedgerResponseAsync\(campaignState,\s*\{\s*id:\s*responseId\s*\},\s*\{\s*coreTurnStore\s*\}\)/,
+  'ResponseDispatcher response authority lookup must use CORE-only projections.'
 );
 assert.match(
   chatTurnOrchestratorSource,
@@ -2127,23 +2676,38 @@ assert.equal(
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /async\s+function\s+findIngressAlias[\s\S]*?await\s+runtimeLedgerViewFresh\(\{\s*\.\.\.state,\s*runtimeTracking:\s*tracking\s*\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?\.ingressLedger/,
-  'ChatTurnOrchestrator ingress alias lookup must use async CORE-first runtime ledger view.'
+  /async\s+function\s+findIngressAlias[\s\S]*?await\s+runtimeLedgerViewFresh\(\{\s*\.\.\.state,\s*runtimeTracking:\s*tracking\s*\}\)[\s\S]*?\.ingressLedger/,
+  'ChatTurnOrchestrator ingress alias lookup must use CORE-only runtime ledger view.'
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /async\s+function\s+findIngressByHostMessageId[\s\S]*?await\s+runtimeLedgerViewFresh\(\{\s*\.\.\.state,\s*runtimeTracking:\s*tracking\s*\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?\.ingressLedger/,
-  'ChatTurnOrchestrator host-message duplicate lookup must use async CORE-first runtime ledger view.'
+  /async\s+function\s+findIngressByHostMessageId[\s\S]*?await\s+runtimeLedgerViewFresh\(\{\s*\.\.\.state,\s*runtimeTracking:\s*tracking\s*\}\)[\s\S]*?\.ingressLedger/,
+  'ChatTurnOrchestrator host-message duplicate lookup must use CORE-only runtime ledger view.'
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /async\s+function\s+stateWithIngressFromFallback[\s\S]*?await\s+findIngressFresh\(next,\s*ingressId,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?fallbackHasCoreEvidence[\s\S]*?authority\s*===\s*['"]compatibilityProjection['"][\s\S]*?projectionSource\s*===\s*['"]coreStoreV2['"][\s\S]*?if\s*\(\s*!fallbackHasCoreEvidence\)\s*return\s+next[\s\S]*?recordTurnIngress\(next,\s*fallbackIngress,\s*\{[\s\S]*?missingCoreWriteMode:\s*['"]reject['"]/,
-  'ChatTurnOrchestrator fallback ingress recreation must await CORE projection evidence and reject missing-CORE old-ledger writes.'
+  /async\s+function\s+staleIngressResult\(state,\s*ingressId,\s*message,\s*stage\)[\s\S]*?findIngressFresh\(initializeCampaignRuntimeTracking\(state\),\s*ingressId\)/,
+  'ChatTurnOrchestrator stale-source review must not classify from runtimeOverlay fallback ingress rows.'
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /async\s+function\s+pendingInteractionAuthorityForIngress\(state,\s*ingressId,\s*interactionId\)[\s\S]*?const\s+authorityState\s*=\s*await\s+stateWithIngressFromFallback\(state,\s*state,\s*ingressId\)[\s\S]*?runtimeLedgerViewFresh\(authorityState,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?await\s+findIngressFresh\(authorityState,\s*ingressId,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?ingress\.coreTransactionId[\s\S]*?ingress\.transactionId[\s\S]*?authority:\s*['"]corePendingInteractionProjection['"]/,
-  'ChatTurnOrchestrator pending-interaction authority must prefer authoritative async CORE ingress, accept transactionId aliases, then hydrated fallback before writing pause/review compatibility rows.'
+  /async\s+function\s+pendingSourceStaleResult\(state,\s*pending\s*=\s*null,[\s\S]*?findIngressFresh\(state,\s*pending\.ingressId\)/,
+  'ChatTurnOrchestrator pending-source stale review must not hydrate source text from runtimeOverlay fallback rows.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /async\s+function\s+stateWithIngressFromFallback[\s\S]*?await\s+findIngressFresh\(next,\s*ingressId\)[\s\S]*?await\s+findIngressFresh\(fallback,\s*ingressId\)[\s\S]*?fallbackHasCoreEvidence[\s\S]*?authority\s*===\s*['"]compatibilityProjection['"][\s\S]*?projectionSource\s*===\s*['"]coreStoreV2['"][\s\S]*?if\s*\(\s*!fallbackHasCoreEvidence\)\s*return\s+next[\s\S]*?recordTurnIngress\(next,\s*fallbackIngress,\s*\{[\s\S]*?missingCoreWriteMode:\s*['"]reject['"]/,
+  'ChatTurnOrchestrator fallback ingress recreation must use CORE-only fallback lookup, require CORE projection evidence, and reject missing-CORE old-ledger writes.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /async\s+function\s+stateForIngressCheck\(ingressId,\s*fallbackState\s*=\s*null\)[\s\S]*?findIngressFresh\(initializeCampaignRuntimeTracking\(current\),\s*ingressId\)[\s\S]*?findIngressFresh\(initializeCampaignRuntimeTracking\(fallbackState\),\s*ingressId\)/,
+  'ChatTurnOrchestrator stateForIngressCheck must not select states by runtimeOverlay fallback rows.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /async\s+function\s+pendingInteractionAuthorityForIngress\(state,\s*ingressId,\s*interactionId\)[\s\S]*?const\s+authorityState\s*=\s*await\s+stateWithIngressFromFallback\(state,\s*state,\s*ingressId\)[\s\S]*?runtimeLedgerViewFresh\(authorityState\)[\s\S]*?await\s+findIngressFresh\(authorityState,\s*ingressId\)[\s\S]*?ingress\.coreTransactionId[\s\S]*?ingress\.transactionId[\s\S]*?authority:\s*['"]corePendingInteractionProjection['"]/,
+  'ChatTurnOrchestrator pending-interaction authority must use CORE-only ingress, accept transactionId aliases, then hydrated fallback before writing pause/review compatibility rows.'
 );
 assert.match(
   chatTurnOrchestratorSource,
@@ -2161,10 +2725,41 @@ assert.match(
   /async\s+function\s+ingressHasDependentResponse[\s\S]*?await\s+runtimeLedgerViewFresh\(state\s*\|\|\s*\{\}\)[\s\S]*?\.responseLedger/,
   'ChatTurnOrchestrator dependent-response lookup must await async CORE-first runtime ledger view.'
 );
+assert.match(
+  chatTurnOrchestratorSource,
+  /const\s+providerFallbackResponseTargets\s*=\s*responseRows\.filter[\s\S]*?authority\)\s*===\s*['"]compatibilityProjection['"][\s\S]*?projectionSource\)\s*===\s*['"]coreStoreV2['"][\s\S]*?providerFallback[\s\S]*?responseRetryRequired[\s\S]*?coreClosureFailed/,
+  'ChatTurnOrchestrator provider-fallback retry targets must come from CORE response projections.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /function\s+responseEntryForMessage[\s\S]*?createRuntimeLedgerView\(state\s*\|\|\s*\{\}\)\.responseLedger/,
+  'ChatTurnOrchestrator response swipe/retry lookup must use CORE-only response projections.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /async\s+function\s+markCoreResponseRetryRequired\(state,[\s\S]*?findIngressFresh\(initializeCampaignRuntimeTracking\(state\),\s*ingressId\)/,
+  'ChatTurnOrchestrator response retry recovery must use CORE-only ingress authority.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /async\s+function\s+markCoreResponseRetryRequiredForBridge\(state,\s*payload\s*=\s*\{\}\)[\s\S]*?findIngressFresh\(tracked,\s*payload\.ingressId\)/,
+  'ChatTurnOrchestrator bridge response retry recovery must use CORE-only ingress authority.'
+);
+assert.match(
+  chatTurnOrchestratorSource,
+  /const\s+runtimeLedgerView\s*=\s*await\s+runtimeLedgerViewFresh\(state\s*\|\|\s*\{\}\)[\s\S]*?const\s+responseRows\s*=\s*runtimeLedgerView\.responseLedger/,
+  'ChatTurnOrchestrator provider-failure response retry must use CORE-only response rows.'
+);
+const responseRetryRecoveryFromCoreProjectionBody = /async\s+function\s+responseRetryRecoveryFromCoreProjection[\s\S]*?\n  \}/.exec(chatTurnOrchestratorSource)?.[0] || '';
 assert.equal(
-  /runtimeTracking\?\.(ingressLedger|responseLedger)|runtimeTracking\.(ingressLedger|responseLedger)/.test(chatTurnOrchestratorSource),
+  /runtimeTracking\?\.responseLedger|runtimeOverlay:\s*true/.test(responseRetryRecoveryFromCoreProjectionBody),
   false,
-  'ChatTurnOrchestrator must not read raw runtimeTracking ingress/response ledgers in hot turn/retry paths.'
+  'ChatTurnOrchestrator response-retry recovery lookup must not use raw responseLedger or runtime overlay fallback.'
+);
+assert.equal(
+  /runtimeTracking\?\.ingressLedger|runtimeTracking\.ingressLedger/.test(chatTurnOrchestratorSource),
+  false,
+  'ChatTurnOrchestrator must not read raw runtimeTracking.ingressLedger in hot turn/retry paths.'
 );
 assert.match(
   chatTurnOrchestratorSource,
@@ -2190,6 +2785,16 @@ assert.match(
   messageReconcilerSource,
   /findLedgerIngressAsync[\s\S]*?findLedgerResponseAsync[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"]/,
   'MessageReconciler source mutation lookup must use the shared async CORE-first runtime ledger view.'
+);
+assert.match(
+  messageReconcilerSource,
+  /const\s+sourceLookupOptions\s*=\s*\{\s*coreTurnStore\s*\}[\s\S]*?findLedgerResponseAsync\(state,\s*\{\s*id:\s*responseId\s*\},\s*sourceLookupOptions\)[\s\S]*?findLedgerIngressAsync\(state,\s*\{\s*id:\s*ingressId\s*\},\s*sourceLookupOptions\)[\s\S]*?findLedgerIngressAsync\(state,\s*\{\s*hostMessageId\s*\},\s*sourceLookupOptions\)[\s\S]*?findLedgerResponseAsync\(state,\s*\{\s*hostMessageId\s*\},\s*sourceLookupOptions\)/,
+  'MessageReconciler source mutation lookup must be CORE-only and must not use runtimeOverlay fallback.'
+);
+assert.match(
+  messageReconcilerSource,
+  /async\s+function\s+reconcileVisibilityChanged[\s\S]*?const\s+sourceLookupOptions\s*=\s*\{\s*coreTurnStore\s*\}[\s\S]*?findLedgerIngressAsync\(state,\s*\{\s*hostMessageId\s*\},\s*sourceLookupOptions\)[\s\S]*?findLedgerResponseAsync\(state,\s*\{\s*hostMessageId\s*\},\s*sourceLookupOptions\)/,
+  'MessageReconciler visibility source lookup must be CORE-only and must not use runtimeOverlay fallback.'
 );
 assert.equal(
   /function\s+preOutcomeRevision[\s\S]*?runtimeTracking\?\.history|function\s+preOutcomeRevision[\s\S]*?runtimeTracking\.history/.test(messageReconcilerSource),
@@ -2352,8 +2957,8 @@ assert.match(
 );
 assert.match(
   responseDispatcherSource,
-  /function\s+reobserveHostGenerationCompletions[\s\S]*?const\s+runtimeLedgerView\s*=\s*await\s+createRuntimeLedgerViewAsync\(state,\s*\{\s*coreTurnStore,\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?const\s+responseLedger\s*=\s*runtimeLedgerView\.responseLedger\s*\|\|\s*\[\]/,
-  'ResponseDispatcher host-generation reobserve must scan responses through the CORE-first runtime ledger view.'
+  /function\s+reobserveHostGenerationCompletions[\s\S]*?const\s+coreRuntimeLedgerView\s*=\s*await\s+createRuntimeLedgerViewAsync\(state,\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?const\s+responseLedger\s*=\s*coreRuntimeLedgerView\.responseLedger\s*\|\|\s*\[\]/,
+  'ResponseDispatcher host-generation reobserve must scan responses through the CORE-only runtime ledger view.'
 );
 assert.match(
   responseDispatcherSource,
@@ -2380,10 +2985,20 @@ assert.equal(
   false,
   'ResponseDispatcher reobserve must rely on runtime-ledger-view tagged mirrors instead of scanning raw response rows.'
 );
+assert.match(
+  responseDispatcherSource,
+  /const\s+coreRuntimeLedgerView\s*=\s*await\s+createRuntimeLedgerViewAsync\(state,\s*\{\s*coreTurnStore\s*\}\)[\s\S]*?const\s+responseLedger\s*=\s*coreRuntimeLedgerView\.responseLedger\s*\|\|\s*\[\][\s\S]*?const\s+runtimeHostObservationClaims\s*=\s*responseLedger\.filter/,
+  'ResponseDispatcher reobserve host-observation claims must come from CORE-only ledger view, not raw runtimeTracking.responseLedger.'
+);
 assert.equal(
-  /tracking\.responseLedger|runtimeTracking\?\.responseLedger|runtimeTracking\.responseLedger/.test(responseDispatcherSource),
+  /runtimeHostObservationClaims\s*=\s*\(state\.runtimeTracking\?\.responseLedger|state\.runtimeTracking\?\.responseLedger[\s\S]*?hostObservation/.test(responseDispatcherSource),
   false,
-  'ResponseDispatcher reobserve must not scan raw runtimeTracking.responseLedger rows.'
+  'ResponseDispatcher reobserve must not scan raw runtimeTracking.responseLedger for host-observation claims.'
+);
+assert.match(
+  responseDispatcherSource,
+  /runtimeHostObservationClaimTransactions[\s\S]*?responseNeedsHostReobserve[\s\S]*?!runtimeHostObservationClaimTransactions\.has\(responseTransactionId\(entry\)\)/,
+  'ResponseDispatcher regular reobserve scan must skip transactions with hot runtime host-observation claims.'
 );
 assert.match(
   responseDispatcherSource,
@@ -2402,18 +3017,18 @@ assert.equal(
 );
 assert.match(
   responseDispatcherSource,
-  /if\s*\(\s*coreDiagnostic\s*\)\s*return\s+campaignState;/,
-  'ResponseDispatcher diagnostic-only compatibility paths must leave old responseLedger state unchanged.'
+  /if\s*\(\s*!\s*projection\s*&&\s*coreDiagnostic\s*\)\s*return\s+campaignState;/,
+  'ResponseDispatcher diagnostic-only compatibility paths must leave old responseLedger state unchanged unless a live CORE response projection exists.'
 );
 assert.match(
   responseDispatcherSource,
   /function\s+requireCoreResponseProjection[\s\S]*?DIRECTIVE_CORE_RESPONSE_PROJECTION_REQUIRED[\s\S]*?recordDirectiveResponseCompatibility[\s\S]*?requireCoreResponseProjection\(entry,\s*\{\s*mirroredOperation\s*\}\)[\s\S]*?updateDirectiveResponseCompatibility[\s\S]*?requireCoreResponseProjection\(entry,\s*\{\s*mirroredOperation\s*\}\)/,
   'ResponseDispatcher compatibility helper must fail closed when CORE response projection evidence is missing.'
 );
-assert.match(
-  responseDispatcherSource,
-  /function\s+readCoreResponseProjectionFor[\s\S]*?entry\.coreRecovery\?\.status[\s\S]*?entry\.coreRecovery\?\.transactionId[\s\S]*?recoveryStatus/,
-  'ResponseDispatcher provider-failure response retry rows must be allowed from CORE recovery projection evidence, not synthetic missing-projection fallback.'
+assert.equal(
+  /function\s+readCoreResponseProjectionFor[\s\S]*?entry\.coreRecovery\?\.status[\s\S]*?entry\.coreRecovery\?\.transactionId[\s\S]*?recoveryStatus/.test(responseDispatcherSource),
+  false,
+  'ResponseDispatcher readCoreResponseProjectionFor must read CORE response projections only, not synthesize response authority from entry recovery fields.'
 );
 assertEverySourceCallHas(
   responseDispatcherSource,
@@ -2483,10 +3098,10 @@ assertEverySourceCallHas(
   'ChatTurnOrchestrator response compatibility writes must fail closed when CORE projection evidence is missing.'
 );
 const findOpenNoOutcomeRecoveryBody = /async\s+function\s+findOpenNoOutcomeRecovery[\s\S]*?\n  \}/.exec(chatTurnOrchestratorSource)?.[0] || '';
-assert.match(
-  chatTurnOrchestratorSource,
-  /for\s*\(\s*const\s+recovery\s+of\s+\(await\s+runtimeLedgerViewFresh\(next\)\)\.recoveryJournal\s*\|\|\s*\[\]\s*\)[\s\S]*?shouldResolveNoOutcomeRecoveryOnReobserve/,
-  'ChatTurnOrchestrator no-outcome reobserve recovery resolution must await CORE-first recovery projections.'
+assert.equal(
+  /resolveRecoveryEvent\(|for\s*\(\s*const\s+recovery\s+of\s+\(await\s+runtimeLedgerViewFresh\(next\)\)\.recoveryJournal\s*\|\|\s*\[\]\s*\)[\s\S]*?shouldResolveNoOutcomeRecoveryOnReobserve/.test(chatTurnOrchestratorSource),
+  false,
+  'ChatTurnOrchestrator must not run old recovery resolver loops after source reobserve.'
 );
 assert.match(
   findOpenNoOutcomeRecoveryBody,
@@ -2500,7 +3115,7 @@ assert.equal(
 );
 assert.match(
   chatTurnOrchestratorSource,
-  /function\s+responseRetryRecoveryFromCoreProjection[\s\S]*?const\s+recoveryView\s*=\s*await\s+runtimeLedgerViewFresh\(state,\s*\{\s*legacyFallback:\s*false\s*\}\)[\s\S]*?const\s+compatibilityView\s*=\s*await\s+runtimeLedgerViewFresh\(state,\s*\{\s*runtimeOverlay:\s*true\s*\}\)[\s\S]*?const\s+recoveryRows\s*=\s*recoveryView\.recoveryJournal/,
+  /function\s+responseRetryRecoveryFromCoreProjection[\s\S]*?const\s+recoveryView\s*=\s*await\s+runtimeLedgerViewFresh\(state\)[\s\S]*?const\s+recoveryRows\s*=\s*recoveryView\.recoveryJournal[\s\S]*?const\s+responseRows\s*=\s*recoveryView\.responseLedger[\s\S]*?const\s+ingressRows\s*=\s*recoveryView\.ingressLedger/,
   'ChatTurnOrchestrator response-retry recovery lookup must read CORE projections without old recovery fallback.'
 );
 assert.equal(
@@ -2513,15 +3128,15 @@ assert.equal(
   false,
   'ChatTurnOrchestrator retry recovery resolution must not gate from sync CORE projection reads.'
 );
-assert.match(
-  chatTurnOrchestratorSource,
-  /async\s+function\s+retryCommittedResponse[\s\S]*?await\s+runtimeLedgerViewFresh\(state\)[\s\S]*?\.recoveryJournal[\s\S]*?entry\.id\s*===\s*recovery\.id[\s\S]*?resolveRecoveryEvent\(state,\s*recovery\.id/,
-  'Committed response retry resolution must await fresh CORE recovery projections before closing recovery.'
+assert.equal(
+  /async\s+function\s+retryCommittedResponse[\s\S]*?resolveRecoveryEvent\(state,\s*recovery\.id/.test(chatTurnOrchestratorSource),
+  false,
+  'Committed response retry must not call the retired old recovery resolver.'
 );
-assert.match(
-  chatTurnOrchestratorSource,
-  /async\s+function\s+retryProviderFailureResponse[\s\S]*?await\s+runtimeLedgerViewFresh\(next\)[\s\S]*?\.recoveryJournal[\s\S]*?entry\.id\s*===\s*recovery\.id[\s\S]*?resolveRecoveryEvent\(next,\s*recovery\.id/,
-  'Provider-failure response retry resolution must await fresh CORE recovery projections before closing recovery.'
+assert.equal(
+  /async\s+function\s+retryProviderFailureResponse[\s\S]*?resolveRecoveryEvent\(next,\s*recovery\.id/.test(chatTurnOrchestratorSource),
+  false,
+  'Provider-failure response retry must not call the retired old recovery resolver.'
 );
 assert.equal(
   /function\s+findOpenResponseRetryRecovery[\s\S]*?runtimeTracking\?\.recoveryJournal/.test(chatTurnOrchestratorSource),
@@ -3237,6 +3852,26 @@ const conflict = findForgePathConflict([
   { workerId: 'b', operations: [{ path: 'continuity.factIndex' }] }
 ]);
 assert.equal(conflict.path, 'continuity.factIndex');
+assert.equal(
+  findForgePathConflict([
+    { workerId: 'relationship', operations: [
+      { op: 'append', path: 'relationships.memoryLedger' },
+      { op: 'append', path: 'relationships.memoryLedger' }
+    ] }
+  ]),
+  null,
+  'FORGE must allow one worker to append multiple ordered records to the same array path.'
+);
+assert.equal(
+  findForgePathConflict([
+    { workerId: 'relationship', operations: [
+      { op: 'append', path: 'relationships.memoryLedger' },
+      { op: 'set', path: 'relationships.memoryLedger' }
+    ] }
+  ])?.path,
+  'relationships.memoryLedger',
+  'FORGE must still reject same-worker overwrite-style conflicts on a repeated path.'
+);
 
 const batch = createForgeBatchCommit({
   transactionId: 'txn-forge',
@@ -3359,6 +3994,10 @@ const sidecarExecution = await forge.runProviderBatch({
   }],
   runProviderBatch: async ({ jobs }) => ({
     concurrent: false,
+    rawPromptBody: 'RAW SIDECAR TOP LEVEL PROMPT MUST NOT PERSIST',
+    providerOutput: 'RAW SIDECAR TOP LEVEL OUTPUT MUST NOT PERSIST',
+    vectorPayload: ['RAW SIDECAR TOP LEVEL VECTOR MUST NOT PERSIST'],
+    secret: 'SECRET SIDECAR TOP LEVEL MUST NOT PERSIST',
     results: jobs.map((job) => {
       sidecarProviderCalls += 1;
       return {
@@ -3378,6 +4017,10 @@ assert.equal(sidecarExecution.providerOwner, 'forge');
 assert.equal(sidecarExecution.upstreamOwner, 'campaignSidecarScheduler');
 assert.equal(sidecarExecution.batch.results[0].packet, 'RAW SIDECAR PROVIDER OUTPUT');
 assert.equal(sidecarProviderCalls, 1);
+assert.equal(JSON.stringify(sidecarExecution).includes('RAW SIDECAR TOP LEVEL PROMPT MUST NOT PERSIST'), false);
+assert.equal(JSON.stringify(sidecarExecution).includes('RAW SIDECAR TOP LEVEL OUTPUT MUST NOT PERSIST'), false);
+assert.equal(JSON.stringify(sidecarExecution).includes('RAW SIDECAR TOP LEVEL VECTOR MUST NOT PERSIST'), false);
+assert.equal(JSON.stringify(sidecarExecution).includes('SECRET SIDECAR TOP LEVEL MUST NOT PERSIST'), false);
 assert.equal(JSON.stringify(forgeCore.calls).includes('RAW SIDECAR PROVIDER PROMPT'), false);
 assert.equal(JSON.stringify(forgeCore.calls).includes('RAW SIDECAR PROVIDER OUTPUT'), false);
 const sidecarExecutionReplay = await forge.runProviderBatch({
@@ -3390,6 +4033,10 @@ const sidecarExecutionReplay = await forge.runProviderBatch({
 });
 assert.equal(sidecarExecutionReplay.status, 'replayed');
 assert.equal(sidecarProviderCalls, 1);
+assert.equal(JSON.stringify(sidecarExecutionReplay).includes('RAW SIDECAR TOP LEVEL PROMPT MUST NOT PERSIST'), false);
+assert.equal(JSON.stringify(sidecarExecutionReplay).includes('RAW SIDECAR TOP LEVEL OUTPUT MUST NOT PERSIST'), false);
+assert.equal(JSON.stringify(sidecarExecutionReplay).includes('RAW SIDECAR TOP LEVEL VECTOR MUST NOT PERSIST'), false);
+assert.equal(JSON.stringify(sidecarExecutionReplay).includes('SECRET SIDECAR TOP LEVEL MUST NOT PERSIST'), false);
 let sidecarFailureCalls = 0;
 await assert.rejects(
   forge.runProviderBatch({
@@ -3587,9 +4234,13 @@ const rollbackPrevalidation = await rollbackPrevalidationBoundary.executeRollbac
     authorized: true,
     action: 'restorePreOutcomeRevision',
     transactionId: 'txn-rollback-prevalidation',
-    restoreRevision: 999
+    restoreRevision: 999,
+    coreCheckpointRef: {
+      checkpointId: 'checkpoint-rollback-prevalidation',
+      sourceKind: 'coreStoreV2.checkpoint'
+    }
   },
-  legacyProjection: {
+  repairProjection: {
     shouldRestoreRevision: true,
     restoreRevision: 999
   },
@@ -3619,9 +4270,14 @@ const rollbackLedgerDemotion = await rollbackPrevalidationBoundary.executeRollba
     authorized: true,
     action: 'restorePreOutcomeRevision',
     transactionId: 'txn-rollback-ledger-demotion',
-    restoreRevision: 12
+    restoreRevision: 12,
+    coreCheckpointRef: {
+      checkpointId: 'checkpoint-rollback-ledger-demotion',
+      sourceKind: 'coreStoreV2.checkpoint',
+      sourceRevision: 12
+    }
   },
-  legacyProjection: {
+  repairProjection: {
     shouldRestoreRevision: true,
     restoreRevision: 12
   },
@@ -3655,7 +4311,44 @@ const rollbackLedgerDemotion = await rollbackPrevalidationBoundary.executeRollba
           roleId: 'utilityTurnClassifier',
           status: 'ok',
           requestHash: 'core-model-call-hash-rollback-demotion'
-        }]
+        }],
+        terminalDecisionLedger: {
+          schemaVersion: 1,
+          activeDecisionId: 'terminal-decision-rollback-demotion',
+          detections: [{
+            id: 'terminal-detection-rollback-demotion',
+            authority: 'terminalDecisionProjection',
+            projectionSource: 'coreStoreV2',
+            coreProjection: {
+              kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+              rowKind: 'detection',
+              status: 'pending'
+            }
+          }],
+          decisions: [{
+            id: 'terminal-decision-rollback-demotion',
+            status: 'pending',
+            authority: 'terminalDecisionProjection',
+            projectionSource: 'coreStoreV2',
+            coreProjection: {
+              kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+              rowKind: 'decision',
+              status: 'pending'
+            }
+          }],
+          branchRecords: [{
+            id: 'terminal-branch-rollback-demotion',
+            decisionId: 'terminal-decision-rollback-demotion',
+            authority: 'terminalDecisionProjection',
+            projectionSource: 'coreStoreV2',
+            coreProjection: {
+              kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
+              rowKind: 'branchRecord',
+              status: 'saved'
+            }
+          }],
+          continuationFrames: []
+        }
       }
     },
     runtimeTracking: {
@@ -3894,7 +4587,12 @@ const rollbackExternalProjection = await rollbackExternalProjectionBoundary.exec
     authorized: true,
     action: 'restorePreOutcomeRevision',
     transactionId: 'txn-rollback-external-projection',
-    restoreRevision: 12
+    restoreRevision: 12,
+    coreCheckpointRef: {
+      checkpointId: 'checkpoint-rollback-external-projection',
+      sourceKind: 'coreStoreV2.checkpoint',
+      sourceRevision: 12
+    }
   },
   eventType: 'playerMessageDeleted',
   campaignState: {
@@ -3983,9 +4681,14 @@ const rollbackHistoryOnly = await rollbackPrevalidationBoundary.executeRollbackA
     authorized: true,
     action: 'restorePreOutcomeRevision',
     transactionId: 'txn-rollback-history-only',
-    restoreRevision: 7
+    restoreRevision: 7,
+    coreCheckpointRef: {
+      checkpointId: 'checkpoint-rollback-history-only',
+      sourceKind: 'coreStoreV2.checkpoint',
+      sourceRevision: 7
+    }
   },
-  legacyProjection: {
+  repairProjection: {
     shouldRestoreRevision: true,
     restoreRevision: 7
   },
@@ -4009,5 +4712,26 @@ const rollbackHistoryOnly = await rollbackPrevalidationBoundary.executeRollbackA
 assert.equal(rollbackHistoryOnly.status, 'blocked', 'REPAIR rollback execution must not restore old runtimeTracking.history snapshots.');
 assert.equal(rollbackHistoryOnly.reason, 'rollback-core-checkpoint-required');
 assert.equal(rollbackPrevalidationCalls.length, rollbackPrevalidationCallsAfterDemotion, 'CORE rollback actuation must not be recorded for history-only rollback.');
+
+const productionRuntimeLedgerFallbackCallers = [
+  ['runtime-app', runtimeAppSource],
+  ['chat-turn-orchestrator', chatTurnOrchestratorSource],
+  ['message-reconciler', messageReconcilerSource],
+  ['response-dispatcher', responseDispatcherSource],
+  ['turn-commit-coordinator', turnCommitCoordinatorSource],
+  ['scene-reconciliation', sceneReconciliationSource],
+  ['scene-handshake-settler', sceneHandshakeSettlerSource],
+  ['source-settlement-latest-pair-scene-adapter', sourceSettlementLatestPairSceneAdapterSource],
+  ['campaign-sidecar-scheduler', campaignSidecarSchedulerSource],
+  ['continuity-diagnostics', continuityDiagnosticsSource],
+  ['transaction-store-v2', transactionStoreV2Source]
+];
+for (const [name, source] of productionRuntimeLedgerFallbackCallers) {
+  assert.equal(
+    /legacyFallback\s*:|runtimeOverlay\s*:/.test(source),
+    false,
+    `${name} must not pass retired runtime-ledger fallback options.`
+  );
+}
 
 console.log('Architecture redesign system skeleton contract tests passed');

@@ -64,11 +64,14 @@ assert.equal(report.checks.find((entry) => entry.id === 'host-extension-compatib
 assert.equal(report.checks.find((entry) => entry.id === 'host-extension-fixture-depth')?.status, 'pass');
 assert.equal(probe.status, 'pass');
 assert.equal(probe.fixtureDepth.status, 'pass');
-assert.equal(report.externalContextSummary.status, 'pass');
+assert.equal(report.externalContextSummary.status, 'warning');
 assert.equal(summaryArtifact.kind, 'directive.sillytavern.externalContextSummary.v1');
+assert.equal(summaryArtifact.status, 'warning');
 assert.equal(summaryArtifact.aggregate.captureCount, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
 assert.equal(summaryArtifact.aggregate.finalHostPromptMayIncludeExternal, true);
-assert.equal(summarizeExternalContextSummaryArtifact({ artifactRoot: path.join(artifactRoot, runId) }).status, 'pass');
+const readinessSummary = summarizeExternalContextSummaryArtifact({ artifactRoot: path.join(artifactRoot, runId) });
+assert.equal(readinessSummary.status, 'fail');
+assert.equal(readinessSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
 assert.equal(probe.fixtureDepth.fullFixtureUserHandles.length, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
 assert.deepEqual(probe.fixtureDepth.missingTargets, []);
 for (const target of ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox']) {
@@ -113,6 +116,7 @@ assert.equal(
 
 const preparedByReadinessReport = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'report.json'));
 const preparedByReadinessProbe = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'host-extensions', 'external-context-probe.json'));
+const preparedByReadinessSummaryArtifact = readJson(path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId, 'host-extensions', 'external-context-summary.json'));
 const preparedByReadinessSummary = summarizeExternalContextSummaryArtifact({
   artifactRoot: path.join(preparedByReadinessArtifactRoot, preparedByReadinessRunId)
 });
@@ -124,8 +128,10 @@ assert.equal(
 );
 assert.equal(preparedByReadinessProbe.fixtureDepth.status, 'pass');
 assert.equal(preparedByReadinessProbe.fixtureDepth.fullFixtureUserHandles.length, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.length);
-assert.equal(preparedByReadinessReport.externalContextSummary.status, 'pass');
-assert.equal(preparedByReadinessSummary.status, 'pass');
+assert.equal(preparedByReadinessReport.externalContextSummary.status, 'warning');
+assert.equal(preparedByReadinessSummaryArtifact.status, 'warning');
+assert.equal(preparedByReadinessSummary.status, 'fail');
+assert.equal(preparedByReadinessSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), true);
 
 fs.rmSync(preparedByReadinessDataRoot, { recursive: true, force: true });
 fs.rmSync(preparedByReadinessArtifactRoot, { recursive: true, force: true });

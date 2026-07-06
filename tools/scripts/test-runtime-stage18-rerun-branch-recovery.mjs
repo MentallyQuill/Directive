@@ -218,7 +218,7 @@ const app = createDirectiveRuntimeApp({
           transactionId: input.coreRecovery?.transactionId || null,
           recoveryCaseId: input.coreRecovery?.recoveryCaseId || null,
           outcomeId: input.sourceMutation?.outcomeId || input.decision?.outcomeId || null,
-          restoreRevision: input.legacyProjection?.restoreRevision ?? null
+          restoreRevision: input.repairProjection?.restoreRevision ?? null
         };
       }
     };
@@ -344,6 +344,38 @@ const mutateRuntimeCoreStoreState = __directiveRuntimeAppTestHooks.mutateCoreSto
 assert.equal(typeof app[mutateRuntimeCoreStoreState], 'function', 'runtime app test hook should allow focused malformed CORE store setup.');
 
 const coreRerunCheckpointId = 'core-mechanics-stage18-rerun-preview';
+const mutateCoreRerunTurnProjection = async ({ checkpointId, includeCheckpointRef = true }) => {
+  await app[mutateRuntimeCoreStoreState]((state) => {
+    const next = cloneJson(state);
+    next.turns = Array.isArray(next.turns) ? next.turns : [];
+    let turn = next.turns.find((item) => item.outcomeId === originalOutcomeId);
+    if (!turn) {
+      turn = {
+        id: originalLedgerEntry?.id || 'core-turn-stage18-original-rerun',
+        turnId: originalLedgerEntry?.turnId || 'turn.stage18.hesperus.001',
+        outcomeId: originalOutcomeId,
+        phase: originalLedgerEntry?.phase || 'committed'
+      };
+      next.turns.push(turn);
+    }
+    turn.snapshotBeforeRetained = true;
+    turn.coreTransactionId = 'txn-stage18-original-rerun';
+    turn.transactionId = 'txn-stage18-original-rerun';
+    if (includeCheckpointRef) {
+      turn.coreCheckpointRef = {
+        kind: 'directive.coreMechanicsCheckpointRef.v1',
+        campaignId: next.campaignId,
+        saveId: next.saveId,
+        checkpointId,
+        layout: 'core',
+        sourceRevision: 18
+      };
+    } else {
+      delete turn.coreCheckpointRef;
+    }
+    return next;
+  });
+};
 await writeV2Checkpoint(host.storage, {
   campaignId: originalCommit.campaignState.campaign.id,
   saveId: originalCommit.campaignState.campaignChatBinding.saveId,
@@ -359,6 +391,7 @@ await writeV2Checkpoint(host.storage, {
     campaignState: originalPreOutcomeState
   }
 });
+await mutateCoreRerunTurnProjection({ checkpointId: coreRerunCheckpointId });
 await app[mutateRuntimeAppCampaignState]((state) => {
   const next = cloneJson(state);
   const entry = next.turnLedger.entries.find((item) => item.outcomeId === originalOutcomeId);
@@ -411,6 +444,7 @@ await app[mutateRuntimeAppCampaignState]((state) => {
   return next;
 });
 const beforeMissingSnapshotRerun = await app.getCurrentView({ tabId: 'mission' });
+await mutateCoreRerunTurnProjection({ checkpointId: 'stage18-missing-rerun-checkpoint' });
 await assert.rejects(
   () => app.previewOutcomeReplacement({
     outcomeId: originalOutcomeId,
@@ -441,6 +475,7 @@ await app[mutateRuntimeAppCampaignState]((state) => {
   entry.snapshotBeforeRetained = true;
   return next;
 });
+await mutateCoreRerunTurnProjection({ includeCheckpointRef: false });
 const beforeNoRefRerun = await app.getCurrentView({ tabId: 'mission' });
 const beforeNoRefRerunState = beforeNoRefRerun.loadedCampaignState || beforeNoRefRerun.campaignState;
 const beforeNoRefRerunEntry = beforeNoRefRerunState.turnLedger.entries.find((entry) => entry.outcomeId === originalOutcomeId);
@@ -466,6 +501,7 @@ assert.equal(afterNoRefRerun.pendingOutcomeReplacement?.outcomeId || null, befor
 assert.equal(afterNoRefRerun.pendingDirectorTurn?.turnId || null, beforeNoRefRerun.pendingDirectorTurn?.turnId || null, 'No-ref rerun must not cache a pending Director turn.');
 assert.equal(JSON.stringify(afterNoRefRerun.pendingDirectorTurn || {}).includes('no-ref-rerun'), false);
 await app[mutateRuntimeAppCampaignState](() => cloneJson(originalCommit.campaignState));
+await mutateCoreRerunTurnProjection({ checkpointId: coreRerunCheckpointId });
 
 const beforeRewrite = stableMechanics(originalCommit.campaignState);
 const rewrite = await app.retryNarrationForLastTurn({ provider: narrator });
@@ -609,10 +645,19 @@ await app[mutateRuntimeAppCampaignState]((state) => {
   entry.snapshotBeforeRetained = false;
   return next;
 });
+await app[mutateRuntimeCoreStoreState]((state) => {
+  const next = cloneJson(state);
+  const turn = (Array.isArray(next.turns) ? next.turns : []).find((item) => item.outcomeId === coreDeletedOutcomeId);
+  assert.ok(turn, 'Malformed retained-snapshot fixture must find the CORE turn projection.');
+  turn.stateRevision = Number(retainedSnapshotBaseline.campaignState.runtimeTracking?.revision);
+  assert.equal(Number.isFinite(turn.stateRevision), true, 'Malformed retained-snapshot fixture must retain deterministic CORE stateRevision fallback evidence.');
+  delete turn.snapshotBefore;
+  turn.snapshotBeforeRetained = false;
+  return next;
+});
 const beforeMissingSnapshotDelete = await app.getCurrentView({ tabId: 'mission' });
 const missingSnapshotLedgerEntry = beforeMissingSnapshotDelete.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === coreDeletedOutcomeId);
 assert.equal(missingSnapshotLedgerEntry.coreTransactionId, coreDeletedTransactionId);
-assert.equal(Number.isFinite(Number(missingSnapshotLedgerEntry.stateRevision)), true);
 assert.equal(Object.prototype.hasOwnProperty.call(missingSnapshotLedgerEntry, 'snapshotBefore'), false);
 assert.notEqual(missingSnapshotLedgerEntry.snapshotBeforeRetained, true);
 const beforeMissingSnapshotCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
@@ -672,6 +717,8 @@ await app[mutateRuntimeAppCampaignState]((state) => {
   entry.snapshotBeforeRetained = true;
   return next;
 });
+assert.ok(coreDeleteLedgerEntry.coreCheckpointRef?.checkpointId, 'CORE delete fixture outcome must carry a CORE checkpoint ref.');
+const coreDeleteCheckpointId = coreDeleteLedgerEntry.coreCheckpointRef.checkpointId;
 
 await app[mutateRuntimeAppCampaignState]((state) => {
   const next = cloneJson(state);
@@ -685,16 +732,23 @@ await app[mutateRuntimeAppCampaignState]((state) => {
 const hydratedNoRefDelete = await app.getCurrentView({ tabId: 'mission' });
 const hydratedNoRefEntry = hydratedNoRefDelete.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === coreDeletedOutcomeId);
 assert.equal(Object.prototype.hasOwnProperty.call(hydratedNoRefEntry, 'snapshotBefore'), false, 'CORE hydration must not restore raw snapshots.');
-assert.equal(hydratedNoRefEntry.snapshotBeforeRetained, true);
+assert.notEqual(hydratedNoRefEntry.snapshotBeforeRetained, true, 'CORE hydration must not promote retained-snapshot authority from old turn rows.');
 assert.ok(
   hydratedNoRefEntry.coreCheckpointRef?.checkpointId,
-  'CORE hydration should repair a missing ledger checkpoint ref before delete uses raw snapshot fallback.'
+  'CORE hydration should preserve CORE checkpoint refs even when an old ledger mirror deletes its ref.'
 );
 await app[mutateRuntimeAppCampaignState]((state) => {
   const next = cloneJson(retainedSnapshotBaseline.campaignState || state);
   const entry = next.turnLedger.entries.find((item) => item.outcomeId === coreDeletedOutcomeId);
   assert.ok(entry?.coreCheckpointRef, 'Denied delete fixture must retain CORE checkpoint evidence.');
   entry.snapshotBeforeRetained = true;
+  return next;
+});
+await app[mutateRuntimeCoreStoreState]((state) => {
+  const next = cloneJson(state);
+  const turn = next.turns.find((item) => item.outcomeId === coreDeletedOutcomeId);
+  assert.ok(turn?.coreCheckpointRef, 'Denied delete fixture must retain CORE checkpoint evidence.');
+  turn.snapshotBeforeRetained = true;
   return next;
 });
 
@@ -758,8 +812,6 @@ assert.equal(
   'Denied delete must not write CORE rollback actuation projection.'
 );
 
-assert.ok(coreDeleteLedgerEntry.coreCheckpointRef?.checkpointId, 'CORE delete fixture outcome must carry a CORE checkpoint ref.');
-const coreDeleteCheckpointId = coreDeleteLedgerEntry.coreCheckpointRef.checkpointId;
 await app[mutateRuntimeAppCampaignState](() => retainedSnapshotBaseline.loadedCampaignState || retainedSnapshotBaseline.campaignState);
 await app[mutateRuntimeCoreStoreState]((state) => {
   const next = cloneJson(state);

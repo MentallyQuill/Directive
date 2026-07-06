@@ -332,10 +332,19 @@ function hasQuotedOperationalCommand(text = '') {
   return quotedSegments.some((segment) => {
     const body = segment.replace(/^["\u201c]|["\u201d]$/g, '').trim();
     const afterAddressee = body.replace(/^(?:(?:lieutenant|lt\.?|commander|captain|doctor|chief)(?:\s+commander)?(?:\s+[a-z][a-z'-]+)?|helm|ops|operations|tactical|medical|security|engineering|conn|flight control|transporter|sickbay)\s*(?:[-:,\u2014]\s*)?/i, '');
-    const startsWithDirective = /^(?:take|bring|maintain|keep|hold|prepare|protect|coordinate|stage|scan|hail|route|launch|deploy|monitor|secure|report|make|set|open|close|stand|watch|map|tell)\b/i.test(afterAddressee);
-    const hasOperationalTerm = /\b(?:impulse|heading|convoy|track|standoff|maneuvering|reserve|assistance|hazard|contact|distress|rescue|approach|channel|tactical|medical|ops|helm|security|engineering|bridge|station|away team|transporter|sensors?)\b/i.test(body);
+    const startsWithDirective = /^(?:take|bring|maintain|keep|hold|prepare|protect|coordinate|stage|scan|hail|route|launch|deploy|monitor|secure|report|give|summarize|make|set|open|close|stand|watch|map|tell)\b/i.test(afterAddressee);
+    const hasOperationalTerm = /\b(?:impulse|heading|convoy|track|standoff|maneuvering|reserve|assistance|hazard|contact|distress|rescue|approach|channel|tactical|medical|ops|helm|security|engineering|bridge|station|watch|status|handoff|readiness|telemetry|captain|away team|transporter|sickbay|sensors?)\b/i.test(body);
     return startsWithDirective && hasOperationalTerm;
   });
+}
+
+function hasOperationalReportRequest(text = '') {
+  const normalized = compact(text).toLowerCase();
+  if (!hasQuotedOperationalCommand(normalized)) return false;
+  const asksForReport = /\b(?:give\s+me|summarize|report|status|brief|operational\s+picture|clean\s+operational\s+picture)\b/i.test(normalized);
+  const reportSubject = /\b(?:watch\s+status|handoff|exception|captain|board|sensor|telemetry|readiness|casualty|standby|transporter|sickbay)\b/i.test(normalized);
+  const boundedReport = /\b(?:report\s+request\s+only|no\s+scans?|no\s+team\s+movement|no\s+transport\s+lock|no\s+weapons?\s+posture|before\s+i\s+make\s+my\s+first\s+recommendation)\b/i.test(normalized);
+  return asksForReport && (reportSubject || boundedReport);
 }
 
 function quotedQuestionSegments(text = '') {
@@ -1284,6 +1293,9 @@ function deterministicFastPathClassification(text, context = {}, deterministic, 
   if (deterministic.classification === 'consequentialCommand'
     && deterministic.confidence >= fastPathConfidence
     && hasClosureRecommendationSignal(text)) return deterministic;
+  if (deterministic.classification === 'consequentialCommand'
+    && deterministic.confidence >= fastPathConfidence
+    && hasOperationalReportRequest(text)) return deterministic;
   if (deterministic.classification === 'routineCommand' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'sceneColor' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'counselRequest' && deterministic.confidence >= fastPathConfidence && isExplicitCounselFastPath(text)) return deterministic;

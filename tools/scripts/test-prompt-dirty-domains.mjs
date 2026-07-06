@@ -291,6 +291,49 @@ const campaignContext = {
   projectionHash: 'projection-hash-1'
 };
 
+const seededRevisionInstalls = [];
+const seededRevisionScheduler = createLensPromptScheduler({
+  buildDirectivePromptPacket: async ({ revision }) => ({
+    kind: 'directive.playerSafePromptContext',
+    revision,
+    hash: `seeded-revision-${revision}`,
+    blocks: [{
+      id: 'seeded-revision-block',
+      title: 'Seeded Revision Block',
+      promptKey: 'directive.seededRevision',
+      priority: 1,
+      placement: 'inPrompt',
+      depth: 0,
+      content: 'Revision seeding proof.'
+    }]
+  }),
+  installPromptPacket: async ({ packet }) => {
+    seededRevisionInstalls.push(cloneJson(packet));
+    return { ok: true };
+  }
+});
+seededRevisionScheduler.markDirty({
+  lane: 'visible',
+  source: 'active-binding',
+  dirtyDomains: ['command']
+});
+const seededRevisionFlush = await seededRevisionScheduler.flush({
+  lane: 'visible',
+  binding: {
+    ...binding,
+    promptContextRevision: 7
+  },
+  campaignContext,
+  promptFrame: { turnSourceHash: 'seeded-revision-source' },
+  reason: 'fresh-scheduler-active-binding-revision'
+});
+assert.equal(seededRevisionFlush.status, 'installed');
+assert.equal(seededRevisionFlush.directiveOwnedRevision, 8, 'Fresh LENS scheduler must continue from the active campaign binding revision.');
+assert.equal(seededRevisionInstalls[0].revision, 8);
+assert.equal(seededRevisionFlush.lensPromptRevisionRecord.kind, 'directive.lensPromptRevisionRecord.v1');
+assert.equal(seededRevisionFlush.lensPromptRevisionRecord.revision, 8);
+assert.equal(seededRevisionFlush.installed.lensPromptRevisionRecord.revision, 8);
+
 const inspectionHarness = createHarness({
   nowPrefix: '2026-06-28T20:05',
   nowValues: [
@@ -396,6 +439,10 @@ const inspectionFlush = await inspectionLens.flush({
 });
 assert.equal(inspectionFlush.status, 'installed');
 assert.equal(inspectionFlush.externalPromptEnvironmentRef.hash, inspectionRefHash);
+assert.equal(inspectionFlush.lensPromptRevisionRecord.externalPromptEnvironmentRef.hash, inspectionRefHash);
+assert.equal(inspectionFlush.lensPromptRevisionRecord.externalPromptEnvironmentRef.knownExternalPromptKeyCount, 3);
+assert.equal(JSON.stringify(inspectionFlush.lensPromptRevisionRecord).includes('RAW_INSPECTION_BUNDLE_PROMPT'), false);
+assert.equal(JSON.stringify(inspectionFlush.lensPromptRevisionRecord).includes('RAW_INSPECTION_BUNDLE_VECTOR'), false);
 assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentRef.hash, inspectionRefHash);
 assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.memoryBooks.rangeDiagnostics.status, 'valid');
 assert.equal(inspectionFlush.promptBudgetTrace.cacheInputs.externalPromptEnvironmentTargets.summaryception.staleness.status, 'current');

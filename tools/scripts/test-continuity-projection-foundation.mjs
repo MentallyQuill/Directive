@@ -9,9 +9,11 @@ import {
   buildContinuityProjectionMatrix,
   CONTINUITY_PLAN_KIND,
   buildContinuityFactIndex,
+  activeContinuityProjectionHints,
   createContinuityFact,
   factKnowledgeScope,
   isFactVisibleToAudience,
+  recordContinuityFactUseStats,
   materializeContinuityFacts,
   normalizeContinuityState,
   quarantineGeneratedClaims,
@@ -21,6 +23,7 @@ import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta
 import { campaignProjectionStateDomains } from './lib/directive-contracts.mjs';
 
 const root = process.cwd();
+const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, relativePath), 'utf8'));
 }
@@ -112,6 +115,107 @@ assert.deepEqual(frameA.presentActorIds, ['hadrik-bronn']);
 assert.equal(frameA.referencedActorIds.includes('hadrik-bronn'), true);
 assert.equal(frameA.relevantActorIds.includes('hadrik-bronn'), true);
 assert.equal(frameB.referencedActorIds.includes('mara-whitaker'), true);
+
+const coreRevisionCampaignState = {
+  ...campaignState,
+  runtimeTracking: {
+    ...(campaignState.runtimeTracking || {}),
+    revision: 99,
+    mechanicsRevision: 88
+  },
+  directiveRuntimeEvidence: {
+    coreStoreReadProjections: {
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      revisions: { runtime: 7, mechanics: 3 }
+    }
+  },
+  continuity: {
+    ...(campaignState.continuity || {}),
+    projectionHints: [{
+      id: 'hint.core.revision',
+      factId: 'crew.hadrik-bronn.species',
+      createdRevision: 6,
+      expiresRevision: 8,
+      cooldownUntilRevision: 7
+    }]
+  }
+};
+const coreRevisionFrame = buildContinuitySourceFrame({
+  campaignState: coreRevisionCampaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] }
+});
+assert.equal(coreRevisionFrame.revision, 7);
+assert.equal(coreRevisionFrame.mechanicsRevision, 3);
+const coreRevisionMatrix = buildContinuityProjectionMatrix({
+  campaignState: coreRevisionCampaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] },
+  createdAt: '2026-06-26T00:00:00.000Z'
+});
+assert.equal(coreRevisionMatrix.sourceFrame.revision, 7);
+assert.equal(coreRevisionMatrix.sourceFrame.mechanicsRevision, 3);
+assert.equal(
+  coreRevisionMatrix.blocks.every((block) => Number(block.source?.revision) === 7),
+  true,
+  'Continuity matrix source revisions must use CORE/v2 read-projection authority, not stale runtimeTracking.revision.'
+);
+assert.deepEqual(activeContinuityProjectionHints(coreRevisionCampaignState).map((hint) => hint.id), ['hint.core.revision']);
+const coreRevisionStatsState = recordContinuityFactUseStats(coreRevisionCampaignState, {
+  selectedFactIds: ['crew.hadrik-bronn.species'],
+  now: '2026-06-26T00:00:00.000Z'
+});
+assert.equal(
+  coreRevisionStatsState.continuity.factUseStats['crew.hadrik-bronn.species'].lastSelectedRevision,
+  7,
+  'Continuity fact-use stats must use CORE/v2 runtime revision, not stale runtimeTracking.revision.'
+);
+
+const coreAuthorityNoVectorCampaignState = cloneJson(campaignState);
+coreAuthorityNoVectorCampaignState.runtimeTracking.revision = 99;
+coreAuthorityNoVectorCampaignState.runtimeTracking.mechanicsRevision = 88;
+coreAuthorityNoVectorCampaignState.directiveRuntimeEvidence = {
+  coreStoreReadProjections: {
+    runtimeAuthority: 'coreStoreV2'
+  }
+};
+const coreAuthorityNoVectorFrame = buildContinuitySourceFrame({
+  campaignState: coreAuthorityNoVectorCampaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] }
+});
+assert.equal(coreAuthorityNoVectorFrame.revision, 0);
+assert.equal(coreAuthorityNoVectorFrame.mechanicsRevision, 0);
+const coreAuthorityNoVectorMatrix = buildContinuityProjectionMatrix({
+  campaignState: coreAuthorityNoVectorCampaignState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  campaignProjection,
+  scene: { activePhaseId: 'shuttle-rendezvous', presentActorIds: ['hadrik-bronn'] },
+  createdAt: '2026-06-26T00:00:00.000Z'
+});
+assert.equal(coreAuthorityNoVectorMatrix.sourceFrame.revision, 0);
+assert.equal(coreAuthorityNoVectorMatrix.sourceFrame.mechanicsRevision, 0);
+const coreAuthorityNoVectorStatsState = recordContinuityFactUseStats(coreAuthorityNoVectorCampaignState, {
+  selectedFactIds: ['crew.hadrik-bronn.species'],
+  now: '2026-06-26T00:00:00.000Z'
+});
+assert.equal(
+  coreAuthorityNoVectorStatsState.continuity.factUseStats['crew.hadrik-bronn.species'].lastSelectedRevision,
+  0,
+  'Continuity fact-use stats must not borrow stale runtimeTracking.revision when CORE/v2 authority exists without revisions.'
+);
 
 const acceptedVariantFrame = buildContinuitySourceFrame({
   campaignState,

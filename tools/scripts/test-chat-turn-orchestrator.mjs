@@ -16,7 +16,10 @@ import {
   createChatTurnOrchestrator
 } from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.mjs';
-import { createRuntimeLedgerView } from '../../src/runtime/runtime-ledger-view.mjs';
+import {
+  createRuntimeLedgerView,
+  createRuntimeLedgerViewAsync
+} from '../../src/runtime/runtime-ledger-view.mjs';
 import { createLatestPairSourceSettlementProvider } from '../../src/runtime/source-settlement-latest-pair.mjs';
 import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
 import { buildContinuityProjectionMatrix } from '../../src/continuity/index.mjs';
@@ -33,6 +36,55 @@ const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, fil
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+
+assert.deepEqual(
+  __chatTurnOrchestratorTestHooks.latestSceneHandshakeCommittedRoots({
+    sceneHandshake: {
+      lastResult: {
+        authority: 'sreSceneHandshakeProjection',
+        projectionSource: 'sourceSettlementLatestPair',
+        committedRoots: ['mission', 'commandLog', 'ship', 'threadLedger']
+      }
+    }
+  }),
+  ['mission', 'commandLog', 'ship', 'threadLedger'],
+  'Scene Handshake prompt sync must recover committed roots from SRE materialized scene authority.'
+);
+assert.deepEqual(
+  __chatTurnOrchestratorTestHooks.committedRootsFromOperations([
+    { path: 'mission.openAssignments.0' },
+    { path: '/commandLog/entries/0' },
+    { domain: 'ship' },
+    { root: 'threadLedger' }
+  ]),
+  ['mission', 'commandLog', 'ship', 'threadLedger'],
+  'Scene Handshake prompt sync must recover roots from SRE operation evidence.'
+);
+assert.equal(
+  __chatTurnOrchestratorTestHooks.promptRevisionOf({
+    campaignChatBinding: { promptContextRevision: 2 },
+    runtimeResume: { promptContextRevision: 5 }
+  }),
+  5,
+  'LENS prompt freshness arbitration must read the highest compact prompt revision evidence.'
+);
+assert.deepEqual(
+  __chatTurnOrchestratorTestHooks.preferPromptAdvancedIngressState(
+    {
+      campaignChatBinding: { promptContextRevision: 2 },
+      marker: 'stale-current'
+    },
+    {
+      campaignChatBinding: { promptContextRevision: 3 },
+      runtimeResume: { promptContextRevision: 3 },
+      marker: 'settled-fallback'
+    },
+    { id: 'ingress-sre-settled' },
+    { id: 'ingress-sre-settled' }
+  ).marker,
+  'settled-fallback',
+  'Classification ingress updates must not let stale current state overwrite newer SRE/LENS prompt revision evidence.'
+);
 
 function lastCommittedTurnProjectionFields({
   transactionId = null,
@@ -93,7 +145,7 @@ function fnv1a(text) {
 }
 
 function runtimeLedger(state = campaignState, options = {}) {
-  return createRuntimeLedgerView(state, { coreTurnStore, runtimeOverlay: true, ...options });
+  return createRuntimeLedgerView(state, { coreTurnStore, ...options });
 }
 
 function latestRuntimeResponse(state = campaignState) {
@@ -104,7 +156,7 @@ function runtimeResponseForPlayerHost(hostMessageId, state = campaignState) {
   const ledger = runtimeLedger(state);
   const ingress = (ledger.ingressLedger || []).find((entry) => entry.hostMessageId === hostMessageId) || null;
   const transactionId = ingress?.coreTransactionId || ingress?.transactionId || null;
-  return (ledger.responseLedger || []).find((entry) => (
+  return [...(ledger.responseLedger || [])].reverse().find((entry) => (
     (ingress?.id && entry.ingressId === ingress.id)
     || (transactionId && (entry.transactionId === transactionId || entry.coreTransactionId === transactionId))
   )) || null;
@@ -151,6 +203,7 @@ const forgeSceneSealCalls = [];
 const forgePressureArcDigestCalls = [];
 const forgeOpenWorldBoundaryCalls = [];
 const promptFrames = [];
+const promptSyncOptions = [];
 const coreBeginCalls = [];
 const coreAdvanceCalls = [];
 const coreSupersedeCalls = [];
@@ -169,7 +222,11 @@ const getCampaignState = () => campaignState;
 const setCampaignState = (next) => { campaignState = cloneJson(next); };
 const persistCampaignState = async (next, summary) => {
   campaignState = cloneJson(next);
-  persisted.push({ summary: cloneJson(summary), revision: next.runtimeTracking?.revision || 0 });
+  persisted.push({
+    summary: cloneJson(summary),
+    revision: next.runtimeTracking?.revision || 0,
+    promptContextRevision: next.campaignChatBinding?.promptContextRevision || 0
+  });
   return { ok: true };
 };
 
@@ -186,7 +243,11 @@ const coreTurnStore = {
       id: options.transactionId || `txn:${sourceFrame.id}`,
       phase: 'observed',
       sourceFrameId: sourceFrame.id,
-      ingressId: options.ingressId || `ingress:${options.transactionId || sourceFrame.id}`
+      ingressId: options.ingressId || `ingress:${options.transactionId || sourceFrame.id}`,
+      hostMessageId: sourceFrame.hostMessageId || null,
+      chatId: sourceFrame.chatId || null,
+      campaignId: sourceFrame.campaignId || null,
+      textHash: sourceFrame.textHash || null
     };
     coreTransactions.set(transaction.id, cloneJson(transaction));
     return transaction;
@@ -327,28 +388,91 @@ const coreTurnStore = {
     return cloneJson(coreTransactions.get(transactionId) || null);
   },
   readProjections() {
+    const ingressLedger = [...coreTransactions.values()]
+      .filter((transaction) => transaction.ingressId || transaction.sourceFrameId)
+      .map((transaction) => ({
+        id: transaction.ingressId || `ingress:${transaction.id}`,
+        ingressId: transaction.ingressId || `ingress:${transaction.id}`,
+        transactionId: transaction.id,
+        coreTransactionId: transaction.id,
+        sourceFrameId: transaction.sourceFrameId || undefined,
+        hostMessageId: transaction.hostMessageId || undefined,
+        chatId: transaction.chatId || undefined,
+        campaignId: transaction.campaignId || undefined,
+        textHash: transaction.textHash || undefined,
+        invalidatedAt: transaction.invalidatedAt || null,
+        invalidationType: transaction.invalidationType || null,
+        editedAt: null,
+        deletedAt: null,
+        status: transaction.phase === 'restartSuperseded'
+          ? 'restartSuperseded'
+          : (transaction.phase === 'invalidated'
+              ? 'invalidated'
+              : (transaction.phase === 'responseRetryRequired'
+                  ? 'responseRetryRequired'
+                  : (transaction.recoveryCaseId || transaction.phase === 'recoveryRequired'
+              ? 'recoveryRequired'
+              : (['hostContinueReleased', 'visibleResponsePosted', 'backgroundSettling', 'settled'].includes(transaction.phase) ? 'complete' : 'sourceObserved')))),
+        route: transaction.route || undefined,
+        outcomeId: transaction.outcomeId || undefined,
+        responseId: transaction.responseId || transaction.visibleResponseRef?.responseId || undefined,
+        recoveryId: transaction.recoveryCaseId || null
+      }));
     const responseLedger = [...coreTransactions.values()]
       .filter((transaction) => transaction.visibleResponseRef || transaction.responseId || ['hostContinueReleased', 'visibleResponsePosted'].includes(transaction.phase))
       .map((transaction) => ({
         id: transaction.visibleResponseRef?.responseId || transaction.responseId || null,
         responseId: transaction.visibleResponseRef?.responseId || transaction.responseId || null,
         transactionId: transaction.id,
+        coreTransactionId: transaction.id,
+        ingressId: transaction.ingressId || null,
+        sourceFrameId: transaction.sourceFrameId || null,
         hostMessageId: transaction.visibleResponseRef?.hostMessageId || null,
         outcomeId: transaction.visibleResponseRef?.outcomeId || transaction.outcomeId || null,
+        strategy: transaction.phase === 'hostContinueReleased'
+          ? 'injectAndContinue'
+          : (transaction.visibleResponseRef
+            ? (transaction.visibleResponseRef.kind === 'hostContinue' ? 'injectAndContinue' : 'directivePosted')
+            : undefined),
         responseKind: transaction.visibleResponseRef?.responseKind || transaction.visibleResponseRef?.kind || transaction.responseKind || null,
+        hostGenerationReleaseMode: transaction.phase === 'hostContinueReleased' ? 'nonblocking' : undefined,
         status: transaction.phase,
+        hostGenerationReleasedAt: transaction.timing?.hostGenerationReleasedAt || null,
         directiveGenerationStartedAt: transaction.visibleResponseRef?.directiveGenerationStartedAt || transaction.timing?.directiveGenerationStartedAt || null,
         generationStartedAt: transaction.timing?.hostGenerationReleasedAt || transaction.visibleResponseRef?.directiveGenerationStartedAt || transaction.visibleResponseRef?.visibleResponsePostedAt || null,
         turnLatency: cloneJson(transaction.timing || null),
         turnTiming: cloneJson(transaction.timing || null)
       }))
       .filter((entry) => entry.responseId || entry.transactionId);
+    const recoveryResponseLedger = coreRecoveryCalls.filter(({ recoveryBundle }) => {
+      const decision = recoveryBundle.repairDecision || {};
+      return decision.responseRetry === true
+        || decision.retryDirectiveResponse === true
+        || decision.eventType === 'providerFailureAfterMechanicsCommit'
+        || decision.eventType === 'hostResponsePostFailure';
+    }).map(({ transactionId, recoveryBundle }) => {
+      const decision = recoveryBundle.repairDecision || {};
+      const responseId = recoveryBundle.dependentResponseId || decision.responseId || null;
+      return {
+        id: responseId || `response-recovery:${transactionId}:${recoveryBundle.id || 'recovery'}`,
+        responseId,
+        transactionId,
+        coreTransactionId: transactionId,
+        ingressId: decision.ingressId || null,
+        outcomeId: recoveryBundle.dependentOutcomeId || decision.outcomeId || null,
+        recoveryId: recoveryBundle.id || `recovery:${transactionId}`,
+        status: recoveryBundle.phaseAfter || decision.responseStatus || 'recoveryRequired',
+        responseKind: decision.responseKind || 'committedOutcome',
+        repairDecision: cloneJson(decision)
+      };
+    });
     return {
+      ingressLedger,
       pendingInteractions: Object.values(corePendingInteractionEvents.reduce((acc, event) => {
         acc[event.row.id] = event.row;
         return acc;
       }, {})).map(cloneJson),
-      responseLedger,
+      responseLedger: [...responseLedger, ...recoveryResponseLedger],
       recoveryJournal: coreRecoveryCalls.map(({ transactionId, recoveryBundle }) => {
         const transaction = coreTransactions.get(transactionId) || {};
         return {
@@ -537,6 +661,7 @@ const orchestrator = createChatTurnOrchestrator({
   getPackageData: () => packageData,
   syncPromptContext: async (state, promptFrame = null, options = {}) => {
     promptFrames.push(cloneJson(promptFrame || null));
+    promptSyncOptions.push(cloneJson(options || {}));
     options.activityReporter?.({
       phase: 'continuityProjectionBuilding',
       source: options.activitySource || 'testPromptSync',
@@ -912,14 +1037,16 @@ const handshakeShipDebt = campaignState.ship.technicalDebt.find((entry) => /comm
 assert.equal(handshakeShipDebt.handshakeReinforced, true);
 assert.equal(Array.isArray(handshakeShipDebt.sourceSettlementIds), true);
 assert.equal(campaignState.threadLedger.records.some((entry) => entry.title === 'Cross handoff review'), true);
-assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, 1);
+assert.equal(campaignState.sceneHandshake.settled.length, 1);
 assert.equal(campaignState.mission.formalObjectives.length, formalObjectiveCountBeforeHandshake);
 assert.equal(campaignState.worldState.elapsedMinutes, elapsedMinutesBeforeHandshake + 10);
 assert.equal(campaignState.timeLedger.elapsedMinutes, elapsedMinutesBeforeHandshake + 10);
 assert.equal(campaignState.timeLedger.entries.length, timeLedgerEntriesBeforeHandshake + 1);
 assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.kind, 'sceneHandshakePair');
 assert.ok(handshakeActivity.some((event) => event.phase === 'timeBoundaryAlreadyCommitted' && event.existingSource === 'sceneHandshakePair'));
-const handshakeIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-scene-handshake');
+assert.deepEqual(campaignState.runtimeTracking.ingressLedger, []);
+const handshakeIngress = createRuntimeLedgerView(campaignState)
+  .ingressLedger.find((entry) => entry.hostMessageId === 'player-scene-handshake');
 const handshakeSreDiagnostic = coreDiagnosticCalls.find((entry) => (
   entry.transactionId === handshakeIngress.coreTransactionId
   && entry.diagnostic.type === 'sourceSettlement'
@@ -953,7 +1080,7 @@ assert.equal(
 assert.match(handshakeRequest.request.prompt, /Whitaker gave Sam three clear priorities/);
 assert.doesNotMatch(handshakeRequest.request.prompt, /ignore Commander Cross/i);
 assert.doesNotMatch(handshakeRequest.request.prompt, /human male in his early forties/i);
-const settledHandshake = campaignState.runtimeTracking.sceneHandshake.settled.at(-1);
+const settledHandshake = campaignState.sceneHandshake.settled.at(-1);
 assert.equal(settledHandshake.selectedAssistantVariant.selectedSwipeIndex, 2);
 assert.equal(settledHandshake.selectedAssistantVariant.swipeCount, 3);
 assert.equal(settledHandshake.selectedAssistantVariant.sourceIntegrity, 'clean');
@@ -966,6 +1093,22 @@ assert(handshakePromptFrame, 'Prompt sync after Scene Handshake should carry the
 assert.equal(handshakePromptFrame.acceptedAssistantVariant.selectedSwipeIndex, 2);
 assert.equal(handshakePromptFrame.acceptedAssistantVariant.swipeCount, 3);
 assert.equal(handshakePromptFrame.acceptedAssistantVariant.selectedTextHash, settledHandshake.selectedAssistantVariant.selectedTextHash);
+const handshakePromptSyncOption = promptSyncOptions.find((options) => (
+  options?.activitySource === 'sceneHandshake'
+  && String(options?.activityContext?.ingressId || '').includes('player-scene-handshake')
+));
+assert(handshakePromptSyncOption, 'Scene Handshake prompt sync should carry explicit sync options.');
+assert.equal(handshakePromptSyncOption.forceRebuild, true);
+assert.equal(handshakePromptSyncOption.activityContext?.forcePromptRebuild, true);
+assert.ok(handshakePromptSyncOption.activityContext?.promptDirtyDomains?.includes('mission'));
+assert.ok(handshakePromptFrame.promptDirtyDomains?.includes('mission'));
+assert.ok(
+  persisted.some((entry) => (
+    entry.summary === 'Prompt context synchronized after Scene Handshake settlement.'
+    && entry.promptContextRevision > 1
+  )),
+  'Scene Handshake prompt sync must persist the advanced LENS prompt revision.'
+);
 
 chat.pushAssistantMessage({
   hostMessageId: 'assistant-terminal-sre-handshake',
@@ -1054,7 +1197,7 @@ assert.equal(terminalSre.handled, true);
 assert.equal(terminalSreProviderCalls.length, 1);
 assert.equal(terminalSreLegacyCalls.some((entry) => entry.roleId === 'sceneHandshakeSettler'), false);
 assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'command-log:terminal-sre-orchestrator'), true);
-assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
+assert.equal(campaignState.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
 assert.ok(terminalSreActivity.some((event) => event.phase === 'sceneHandshakeSettled'));
 assert.equal(promptFrames.length > terminalSrePromptFramesBefore, true);
 
@@ -1062,8 +1205,9 @@ const color = await send('*I nod once to the helmsman.*', 'player-color');
 assert.equal(color.decision.classification, 'sceneColor');
 assert.equal(color.abortDefaultGeneration, false);
 assert.equal(chat.messages().filter((entry) => entry.isDirectiveOwned).length, 0);
-const colorIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-color');
-const colorResponse = latestRuntimeResponse();
+const colorIngress = createRuntimeLedgerView(campaignState)
+  .ingressLedger.find((entry) => entry.hostMessageId === 'player-color');
+const colorResponse = runtimeResponseForPlayerHost('player-color');
 const colorCoreBegin = coreBeginCalls.find((entry) => entry.options.ingressId === colorIngress.id);
 assert(colorCoreBegin, 'CORE ingress bridge should begin a transaction before old ingress projection.');
 const colorCoreAdvances = coreAdvanceCalls.filter((entry) => entry.transactionId === colorIngress.coreTransactionId);
@@ -1097,7 +1241,7 @@ const productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake = {
   commandLogBefore: campaignState.commandLog.entries.length,
   elapsedMinutesBefore: campaignState.worldState?.elapsedMinutes ?? 0,
   timeLedgerBefore: campaignState.timeLedger?.entries?.length || 0,
-  sceneHandshakeSettledBefore: campaignState.runtimeTracking.sceneHandshake.settled.length
+  sceneHandshakeSettledBefore: campaignState.sceneHandshake.settled.length
 };
 const productionDefaultLatestPairGenerationRouter = {
   async generate(roleId, request) {
@@ -1199,11 +1343,14 @@ assert.equal(
   1
 );
 assert.equal(campaignState.commandLog.entries.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.commandLogBefore + 1);
-assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.sceneHandshakeSettledBefore + 1);
-assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
-assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.metadata?.sourceSettlementMode, 'latestPair');
-assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.operationCount, 1);
-assert.equal(campaignState.runtimeTracking.sceneHandshake.lastResult.modelRoleId, 'sourceSettlementLatestPair');
+assert.equal(campaignState.sceneHandshake.settled.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.sceneHandshakeSettledBefore + 1);
+assert.equal(campaignState.sceneHandshake.lastResult.metadata?.sourceOwner, 'sre');
+assert.equal(campaignState.sceneHandshake.lastResult.metadata?.sourceSettlementMode, 'latestPair');
+assert.equal(campaignState.sceneHandshake.lastResult.authority, 'sreSceneHandshakeProjection');
+assert.equal(campaignState.sceneHandshake.lastResult.projectionSource, 'sourceSettlementLatestPair');
+assert.equal(campaignState.sceneHandshake.lastResult.compatibilityMirror.kind, 'directive.sceneHandshakeLedgerProjectionRef.v1');
+assert.equal(campaignState.sceneHandshake.lastResult.operationCount, 1);
+assert.equal(campaignState.sceneHandshake.lastResult.modelRoleId, 'sourceSettlementLatestPair');
 assert.equal(campaignState.worldState.elapsedMinutes, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.elapsedMinutesBefore + 5);
 assert.equal(campaignState.timeLedger.entries.length, productionDefaultLatestPairSreProviderReplacesLegacySceneHandshake.timeLedgerBefore + 1);
 assert.equal(campaignState.timeLedger.entries.at(-1).sourceAnchorRange.currentPlayerHostMessageId, 'player-production-default-sre-handshake');
@@ -1305,7 +1452,7 @@ assert.equal(promptSyncFailure.handled, true);
 assert.equal(promptSyncFailure.recoveryRequired, true);
 assert.equal(promptSyncFailure.error.code, 'DIRECTIVE_TEST_SCENE_HANDSHAKE_PROMPT_SYNC_FAILED');
 assert.equal(promptSyncFailureRestoreCalls.length, 0, 'Scene Handshake prompt-sync failure must not use old revision restore.');
-const promptSyncFailureIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-production-default-sre-prompt-sync-fails');
+const promptSyncFailureIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-production-default-sre-prompt-sync-fails');
 assert.equal(promptSyncFailureIngress.status, 'recoveryRequired');
 assert.equal(promptSyncFailureIngress.error.code, 'DIRECTIVE_TEST_SCENE_HANDSHAKE_PROMPT_SYNC_FAILED');
 assert.equal(
@@ -1342,7 +1489,7 @@ const {
 assert.equal(typeof omittedApplyOperationsForLatestPair, 'function');
 const noApplyLatestPairCalls = [];
 const noApplyCommandLogBefore = campaignState.commandLog.entries.length;
-const noApplySettledBefore = campaignState.runtimeTracking.sceneHandshake.settled.length;
+const noApplySettledBefore = campaignState.sceneHandshake.settled.length;
 const noApplyDiagnosticsBefore = coreDiagnosticCalls.length;
 const noApplyLatestPairOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
@@ -1417,7 +1564,7 @@ assert.equal(noApplyResult.handled, true);
 assert.equal(noApplyLatestPairCalls.filter((entry) => entry.roleId === 'sourceSettlementLatestPair').length, 1);
 assert.equal(noApplyLatestPairCalls.some((entry) => entry.roleId === 'sceneHandshakeSettler'), false);
 assert.equal(campaignState.commandLog.entries.length, noApplyCommandLogBefore);
-assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, noApplySettledBefore);
+assert.equal(campaignState.sceneHandshake.settled.length, noApplySettledBefore);
 const noApplySettlementActivity = noApplyActivity.find((event) => event.phase === 'sceneHandshakeSettled');
 assert.equal(noApplySettlementActivity?.disposition, 'repairRequired');
 assert.equal(noApplySettlementActivity?.reasons?.includes('source-settlement-apply-owner-missing'), true);
@@ -1511,7 +1658,7 @@ assert.equal(colorDuplicate.deduplicated, true);
 assert.equal(colorDuplicate.abortDefaultGeneration, false);
 assert.equal(coreBeginCalls.length, coreBeginCountBeforeColorDuplicate, 'Duplicate observation must not begin another CORE transaction.');
 assert.equal(coreAdvanceCalls.length, coreAdvanceCountBeforeColorDuplicate, 'Duplicate observation must not advance CORE release again.');
-assert.equal(campaignState.runtimeTracking.responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
+assert.equal(runtimeLedger().responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
 
 chat.pushAssistantMessage({
   hostMessageId: 'assistant-host-handshake-trimmed',
@@ -1579,7 +1726,7 @@ chat.pushAssistantMessage({
   isSystem: true
 });
 const mismatchSceneHandshakeCallsBefore = responseSwipeGenerationCalls.length;
-const mismatchSettledBefore = campaignState.runtimeTracking.sceneHandshake.settled.length;
+const mismatchSettledBefore = campaignState.sceneHandshake.settled.length;
 const mismatchCommandLogBefore = campaignState.commandLog.entries.length;
 const mismatchActivity = [];
 const mismatchHandshake = await send(
@@ -1601,7 +1748,7 @@ assert.equal(
   false,
   'SRE hardSkipped latest-pair source must stop before Scene Handshake provider call.'
 );
-assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, mismatchSettledBefore);
+assert.equal(campaignState.sceneHandshake.settled.length, mismatchSettledBefore);
 assert.equal(campaignState.commandLog.entries.length, mismatchCommandLogBefore);
 assert.equal(JSON.stringify(mismatchPreflight).includes('Visible assistant text diverged'), false);
 
@@ -1747,7 +1894,8 @@ const mechanicsFailureCoreStore = {
     const transaction = {
       id: options.transactionId || `txn:${sourceFrame.id}`,
       phase: 'observed',
-      sourceFrameId: sourceFrame.id
+      sourceFrameId: sourceFrame.id,
+      ingressId: options.ingressId || `ingress:${options.transactionId || sourceFrame.id}`
     };
     mechanicsFailureCoreTransactions.set(transaction.id, cloneJson(transaction));
     return cloneJson(transaction);
@@ -1790,7 +1938,17 @@ const mechanicsFailureCoreStore = {
     return cloneJson(recoveryCase);
   },
   readProjections() {
+    const ingressLedger = [...mechanicsFailureCoreTransactions.values()].map((transaction) => ({
+      id: transaction.ingressId || `ingress:${transaction.id}`,
+      ingressId: transaction.ingressId || `ingress:${transaction.id}`,
+      transactionId: transaction.id,
+      coreTransactionId: transaction.id,
+      sourceFrameId: transaction.sourceFrameId || null,
+      status: transaction.recoveryCaseId || transaction.phase === 'recoveryRequired' ? 'recoveryRequired' : 'sourceObserved',
+      recoveryId: transaction.recoveryCaseId || null
+    }));
     return {
+      ingressLedger,
       recoveryJournal: mechanicsFailureRecoveryCalls.map(({ transactionId, recoveryBundle }) => ({
         id: recoveryBundle.id || `recovery:${transactionId}`,
         transactionId,
@@ -1949,7 +2107,7 @@ const missingCoreRecoveryResult = await missingCoreRecoveryWriterOrchestrator.ob
 assert.equal(missingCoreRecoveryResult.recoveryRequired, true);
 assert.equal(missingCoreRecoveryResult.error.code, 'DIRECTIVE_CORE_RESPONSE_RECOVERY_NOT_RECORDED');
 assert.match(missingCoreRecoveryResult.error.message, /CORE response recovery was not recorded/);
-const missingCoreRecoveryIngress = campaignState.runtimeTracking.ingressLedger.find(
+const missingCoreRecoveryIngress = runtimeLedger(campaignState, { coreTurnStore: null }).ingressLedger.find(
   (entry) => entry.hostMessageId === 'player-core-recovery-writer-missing'
 );
 assert.ok(missingCoreRecoveryIngress?.coreTransactionId, 'Fixture must prove this was a CORE-backed turn.');
@@ -1973,7 +2131,8 @@ const coreBackedPostFailureCoreStore = {
     const transaction = {
       id: options.transactionId || `txn:${sourceFrame.id}`,
       phase: 'observed',
-      sourceFrameId: sourceFrame.id
+      sourceFrameId: sourceFrame.id,
+      ingressId: options.ingressId || `ingress:${options.transactionId || sourceFrame.id}`
     };
     coreBackedPostFailureTransactions.set(transaction.id, cloneJson(transaction));
     return cloneJson(transaction);
@@ -2005,7 +2164,17 @@ const coreBackedPostFailureCoreStore = {
     return cloneJson(coreBackedPostFailureTransactions.get(transactionId) || null);
   },
   readProjections() {
+    const ingressLedger = [...coreBackedPostFailureTransactions.values()].map((transaction) => ({
+      id: transaction.ingressId || `ingress:${transaction.id}`,
+      ingressId: transaction.ingressId || `ingress:${transaction.id}`,
+      transactionId: transaction.id,
+      coreTransactionId: transaction.id,
+      sourceFrameId: transaction.sourceFrameId || null,
+      status: transaction.recoveryCaseId || transaction.phase === 'recoveryRequired' ? 'recoveryRequired' : 'sourceObserved',
+      recoveryId: transaction.recoveryCaseId || null
+    }));
     return {
+      ingressLedger,
       recoveryJournal: coreBackedPostFailureRecoveries.map(({ transactionId, recoveryBundle }) => ({
         id: recoveryBundle.id || `recovery:${transactionId}`,
         transactionId,
@@ -2110,7 +2279,7 @@ const coreBackedPostFailureResult = await coreBackedPostFailureOrchestrator.obse
   message: coreBackedPostFailureMessage
 });
 assert.equal(coreBackedPostFailureResult.recoveryRequired, true);
-const coreBackedPostFailureIngress = campaignState.runtimeTracking.ingressLedger.find(
+const coreBackedPostFailureIngress = runtimeLedger(campaignState, { coreTurnStore: coreBackedPostFailureCoreStore }).ingressLedger.find(
   (entry) => entry.hostMessageId === 'player-core-backed-post-failure'
 );
 assert.ok(coreBackedPostFailureIngress?.coreTransactionId);
@@ -2893,7 +3062,7 @@ const aliasSecond = await orchestrator.observePlayerMessage({
     isUser: true
   }
 });
-const aliasIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.textPreview === aliasLocationText);
+const aliasIngress = runtimeLedger().ingressLedger.find((entry) => entry.textPreview === aliasLocationText);
 assert.equal(aliasFirst.decision.classification, 'locationTransition');
 assert.equal(aliasSecond.deduplicated, true);
 assert.equal(aliasSecond.record.hostMessageId, 'player-location-transition-alias');
@@ -2923,7 +3092,7 @@ const concurrentAliasSecond = orchestrator.observePlayerMessage({
   }
 });
 const [concurrentAliasFirstResult, concurrentAliasSecondResult] = await Promise.all([concurrentAliasFirst, concurrentAliasSecond]);
-const concurrentAliasIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.textPreview === concurrentAliasLocationText);
+const concurrentAliasIngress = runtimeLedger().ingressLedger.find((entry) => entry.textPreview === concurrentAliasLocationText);
 assert.equal(concurrentAliasFirstResult.decision.classification, 'locationTransition');
 assert.equal(concurrentAliasSecondResult.record.hostMessageId, 'player-location-transition-concurrent-alias');
 assert.equal(concurrentAliasIngress.hostMessageId, 'player-location-transition-concurrent-alias');
@@ -2938,7 +3107,7 @@ const droppedIngressDelegationDispatcher = {
   async dispatch({ campaignState: sourceState, ingressId, responseKind }) {
     const state = initializeCampaignRuntimeTracking(sourceState);
     droppedIngressDelegationSourceIngress = cloneJson(
-      (state.runtimeTracking.ingressLedger || []).find((entry) => entry.id === ingressId) || null
+      createRuntimeLedgerView(state).ingressLedger.find((entry) => entry.id === ingressId) || null
     );
     const entry = {
       id: `delegate-dropped-ingress:${ingressId}`,
@@ -2955,6 +3124,15 @@ const droppedIngressDelegationDispatcher = {
         status: 'delegated'
       }
     };
+    if (droppedIngressDelegationSourceIngress?.coreTransactionId) {
+      await coreTurnStore.advanceTurn(droppedIngressDelegationSourceIngress.coreTransactionId, {
+        phase: 'hostContinueReleased',
+        route: 'hostContinue',
+        responseId: entry.id,
+        responseKind: entry.responseKind,
+        timing: { hostGenerationReleasedAt: now() }
+      });
+    }
     const missingIngressState = initializeCampaignRuntimeTracking({
       ...cloneJson(state),
       runtimeTracking: {
@@ -3024,7 +3202,7 @@ const droppedIngressDelegation = await droppedIngressDelegationOrchestrator.obse
   chatId: 'campaign-chat',
   message: droppedIngressMessage
 });
-const preservedDelegatedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-delegation');
+const preservedDelegatedIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-delegation');
 assert.equal(droppedIngressDelegation.handled, true);
 assert.equal(droppedIngressDelegation.responseStrategy, 'injectAndContinue');
 assert.equal(droppedIngressDelegationSourceIngress?.id, preservedDelegatedIngress.id);
@@ -3032,7 +3210,7 @@ assert.equal(Boolean(droppedIngressDelegationSourceIngress?.playerSubmittedAt), 
 assert.equal(preservedDelegatedIngress.status, 'complete');
 assert.equal(preservedDelegatedIngress.responseStrategy, 'injectAndContinue');
 assert.equal(
-  campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === `delegate-dropped-ingress:${preservedDelegatedIngress.id}`),
+  runtimeLedger().responseLedger.some((entry) => entry.id === `delegate-dropped-ingress:${preservedDelegatedIngress.id}`),
   true,
   'Delegated host-generation response ledger should survive while the ingress is restored.'
 );
@@ -3098,25 +3276,25 @@ const droppedPromptSync = await droppedIngressPromptSyncOrchestrator.observePlay
   chatId: 'campaign-chat',
   message: droppedPromptSyncMessage
 });
-const preservedPromptSyncIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-prompt-sync');
+const preservedPromptSyncIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-prompt-sync');
 assert.equal(droppedPromptSync.handled, true);
 assert.equal(droppedPromptSync.responseStrategy, 'injectAndContinue');
-assert.equal(preservedPromptSyncIngress.status, 'committed');
+assert.equal(preservedPromptSyncIngress.status, 'complete');
 assert.equal(preservedPromptSyncIngress.responseStrategy, 'injectAndContinue');
 assert.equal(
-  campaignState.runtimeTracking.responseLedger.some((entry) => entry.ingressId === preservedPromptSyncIngress.id && entry.responseKind === 'hostGeneration'),
+  runtimeLedger().responseLedger.some((entry) => entry.ingressId === preservedPromptSyncIngress.id && entry.responseKind === 'hostContinue'),
   true,
   'Host-generation response ledger should survive a prompt sync that dropped the active ingress.'
 );
 
 const previewCallsBeforeStaleClassifier = previewCalls.length;
-const responseLedgerBeforeStaleClassifier = campaignState.runtimeTracking.responseLedger.length;
+const responseLedgerBeforeStaleClassifier = runtimeLedger().responseLedger.length;
 const sidecarCallsBeforeStaleClassifier = sidecarCalls.length;
 const staleClassifierOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: async () => {
     const current = initializeCampaignRuntimeTracking(getCampaignState());
-    const ingress = current.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-stale-classifier');
+    const ingress = runtimeLedger(current).ingressLedger.find((entry) => entry.hostMessageId === 'player-stale-classifier');
     assert.ok(ingress, 'The stale-classifier ingress should exist before classifier return.');
     setCampaignState(updateTurnIngress(current, ingress.id, {
       status: 'invalidated',
@@ -3125,6 +3303,12 @@ const staleClassifierOrchestrator = createChatTurnOrchestrator({
       replacementText: 'I order helm to proceed.',
       textHash: 'edited-message-hash'
     }));
+    coreTransactions.set(ingress.coreTransactionId, {
+      ...(coreTransactions.get(ingress.coreTransactionId) || { id: ingress.coreTransactionId }),
+      phase: 'invalidated',
+      invalidatedAt: '2026-06-22T01:00:09.000Z',
+      invalidationType: 'playerMessageEdited'
+    });
     return {
       kind: 'directive.validatedTurnDecision',
       classification: 'consequentialCommand',
@@ -3194,7 +3378,7 @@ assert.equal(staleClassifier.stale, true);
 assert.equal(staleClassifier.reason, 'source-ingress-stale');
 assert.equal(staleClassifier.abortDefaultGeneration, true);
 assert.equal(previewCalls.length, previewCallsBeforeStaleClassifier);
-assert.equal(campaignState.runtimeTracking.responseLedger.length, responseLedgerBeforeStaleClassifier);
+assert.equal(runtimeLedger().responseLedger.length, responseLedgerBeforeStaleClassifier);
 assert.equal(sidecarCalls.length, sidecarCallsBeforeStaleClassifier);
 
 const dependentEditPreviewCallsBefore = previewCalls.length;
@@ -3283,7 +3467,8 @@ const dependentEdit = await dependentEditGuardOrchestrator.observePlayerMessage(
   message: dependentEditMessage
 });
 const dependentEditCurrent = initializeCampaignRuntimeTracking(campaignState);
-const dependentEditCurrentIngress = dependentEditCurrent.runtimeTracking.ingressLedger.find((entry) => entry.id === dependentEditIngress.id);
+const dependentEditLedger = runtimeLedger(dependentEditCurrent, { coreTurnStore: null });
+const dependentEditCurrentIngress = dependentEditLedger.ingressLedger.find((entry) => entry.id === dependentEditIngress.id);
 assert.equal(dependentEdit.handled, true);
 assert.equal(dependentEdit.stale, true);
 assert.equal(dependentEdit.responseStrategy, 'staleSource');
@@ -3302,12 +3487,12 @@ assert.ok(dependentEdit.staleReasons.includes('text-hash-changed'));
 assert.equal(dependentEditCurrentIngress.status, 'recoveryRequired');
 assert.equal(dependentEditCurrentIngress.outcomeId, 'outcome-dependent-edit');
 assert.equal(
-  dependentEditCurrent.runtimeTracking.ingressLedger.filter((entry) => entry.hostMessageId === 'player-dependent-edit').length,
+  dependentEditLedger.ingressLedger.filter((entry) => entry.hostMessageId === 'player-dependent-edit').length,
   1,
   'Dependent edit reobserve must not create a replacement ingress.'
 );
 assert.equal(
-  dependentEditCurrent.runtimeTracking.responseLedger.filter((entry) => entry.ingressId === dependentEditIngress.id).length,
+  dependentEditLedger.responseLedger.filter((entry) => entry.ingressId === dependentEditIngress.id).length,
   1,
   'Dependent edit reobserve must preserve the existing response ledger.'
 );
@@ -3537,27 +3722,40 @@ const latestRestartHostMessageId = 'player-latest-restart-orchestrator';
 const latestRestartOldIngressId = `ingress:${campaignState.campaign.id}:campaign-chat:${latestRestartHostMessageId}:${fnv1a(latestRestartOldText)}`;
 const latestRestartOldTransactionId = 'txn:frame:latest-restart-old';
 campaignState = initializeCampaignRuntimeTracking(campaignState);
-campaignState.runtimeTracking.ingressLedger.push({
-  id: latestRestartOldIngressId,
-  hostMessageId: latestRestartHostMessageId,
-  chatId: 'campaign-chat',
-  campaignId: campaignState.campaign.id,
-  textHash: fnv1a(latestRestartOldText),
-  textPreview: latestRestartOldText,
-  status: 'recoveryRequired',
-  sourceFrameId: 'frame:latest-restart-old',
-  coreTransactionId: latestRestartOldTransactionId,
-  authority: 'compatibilityProjection',
-  projectionSource: 'coreStoreV2',
-  compatibilityMirror: {
-    kind: 'directive.coreIngressCompatibilityMirror.v1',
-    status: 'coreProjected'
-  },
-  invalidatedAt: '2026-06-22T01:00:40.000Z',
-  invalidationType: 'playerMessageEdited',
-  replacementText: latestRestartEditedText,
-  editedAt: '2026-06-22T01:00:40.000Z'
-});
+campaignState.directiveRuntimeEvidence = {
+  ...(campaignState.directiveRuntimeEvidence || {}),
+  coreStoreReadProjections: {
+    ...(campaignState.directiveRuntimeEvidence?.coreStoreReadProjections || {}),
+    runtimeAuthority: 'coreStoreV2',
+    ingressLedger: [
+      ...(campaignState.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger || []),
+      {
+        id: latestRestartOldIngressId,
+        hostMessageId: latestRestartHostMessageId,
+        chatId: 'campaign-chat',
+        campaignId: campaignState.campaign.id,
+        textHash: fnv1a(latestRestartOldText),
+        textPreview: latestRestartOldText,
+        status: 'recoveryRequired',
+        sourceFrameId: 'frame:latest-restart-old',
+        coreTransactionId: latestRestartOldTransactionId,
+        authority: 'compatibilityProjection',
+        projectionSource: 'coreStoreV2',
+        compatibilityMirror: {
+          kind: 'directive.coreIngressCompatibilityMirror.v1',
+          status: 'coreProjected',
+          transactionId: latestRestartOldTransactionId
+        },
+        invalidatedAt: '2026-06-22T01:00:40.000Z',
+        invalidationType: 'playerMessageEdited',
+        replacementTextPresent: true,
+        replacementTextHash: fnv1a(latestRestartEditedText),
+        replacementTextLength: latestRestartEditedText.length,
+        editedAt: '2026-06-22T01:00:40.000Z'
+      }
+    ]
+  }
+};
 campaignState = recordLegacyRecoveryFixture(campaignState, {
   id: 'recovery-latest-restart-orchestrator',
   type: 'playerMessageEdited',
@@ -3568,6 +3766,13 @@ campaignState = recordLegacyRecoveryFixture(campaignState, {
   details: {
     replacementText: latestRestartEditedText
   }
+});
+coreTransactions.set(latestRestartOldTransactionId, {
+  id: latestRestartOldTransactionId,
+  phase: 'recoveryRequired',
+  sourceFrameId: 'frame:latest-restart-old',
+  ingressId: latestRestartOldIngressId,
+  recoveryCaseId: 'recovery-latest-restart-orchestrator'
 });
 setCampaignState(campaignState);
 const latestRestartClassifyCalls = [];
@@ -3628,12 +3833,13 @@ const latestRestart = await latestRestartOrchestrator.observePlayerMessage({
   message: latestRestartMessage
 });
 const latestRestartState = initializeCampaignRuntimeTracking(campaignState);
-const latestRestartNewIngress = latestRestartState.runtimeTracking.ingressLedger.find((entry) => (
+const latestRestartLedger = runtimeLedger(latestRestartState, { coreTurnStore: null });
+const latestRestartNewIngress = latestRestartLedger.ingressLedger.find((entry) => (
   entry.hostMessageId === latestRestartHostMessageId
   && entry.textHash === fnv1a(latestRestartEditedText)
   && entry.sourceRestart?.priorIngressId === latestRestartOldIngressId
 ));
-const latestRestartOldIngress = latestRestartState.runtimeTracking.ingressLedger.find((entry) => entry.id === latestRestartOldIngressId);
+const latestRestartOldIngress = latestRestartLedger.ingressLedger.find((entry) => entry.id === latestRestartOldIngressId);
 const latestRestartRecovery = latestRestartState.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery-latest-restart-orchestrator');
 assert.equal(latestRestart.handled, true);
 assert.notEqual(latestRestart.reason, 'source-ingress-stale');
@@ -3647,7 +3853,7 @@ assert.equal(latestRestartNewIngress.repairDecision.action, 'restartLatestSource
 assert.equal(latestRestartNewIngress.repairDecision.recoveryResolution.reason, 'latest-source-reobserved');
 assert.equal(latestRestartNewIngress.sourceRestart.priorTransactionId, latestRestartOldTransactionId);
 assert.equal(latestRestartNewIngress.sourceRestart.priorSourceFrameId, 'frame:latest-restart-old');
-assert.equal(latestRestartNewIngress.sourceRestart.priorRecoveryId, null);
+assert.equal(latestRestartNewIngress.sourceRestart.priorRecoveryId, 'recovery-latest-restart-orchestrator');
 assert.notEqual(latestRestartNewIngress.coreTransactionId, latestRestartOldTransactionId);
 assert.notEqual(latestRestartNewIngress.sourceFrameId, 'frame:latest-restart-old');
 assert.equal(latestRestartOldIngress.status, 'restartSuperseded');
@@ -3672,7 +3878,7 @@ assert.equal(JSON.stringify(coreBeginCalls.at(-1)).includes(latestRestartEditedT
 assert.equal(coreSupersedeCalls.length, latestRestartCoreSupersedeBefore + 1);
 assert.equal(coreSupersedeCalls.at(-1).priorTransactionId, latestRestartOldTransactionId);
 assert.equal(coreSupersedeCalls.at(-1).replacementTransactionId, latestRestartNewIngress.coreTransactionId);
-assert.equal(coreSupersedeCalls.at(-1).options.priorRecoveryId, null);
+assert.equal(coreSupersedeCalls.at(-1).options.priorRecoveryId, 'recovery-latest-restart-orchestrator');
 assert.equal(coreSupersedeCalls.at(-1).options.sourceMutation.replacementSourceFrameId, latestRestartNewIngress.sourceFrameId);
 assert.equal(JSON.stringify(coreSupersedeCalls.at(-1)).includes(latestRestartEditedText), false, 'CORE supersede refs must not store raw edited player text.');
 assert.ok(persisted.length > latestRestartPersistedBefore);
@@ -3693,7 +3899,7 @@ assert.equal(coreSupersedeCalls.length, latestRestartDuplicateSupersedeBefore);
 assert.equal(persisted.length, latestRestartDuplicatePersistedBefore);
 assert.equal(latestRestartClassifyCalls.length, latestRestartDuplicateClassifyBefore);
 assert.equal(
-  latestRestartDuplicateState.runtimeTracking.ingressLedger.filter((entry) => entry.sourceRestart?.priorIngressId === latestRestartOldIngressId).length,
+  runtimeLedger(latestRestartDuplicateState).ingressLedger.filter((entry) => entry.sourceRestart?.priorIngressId === latestRestartOldIngressId).length,
   1,
   'Duplicate latest restart observation must not create another restart ingress.'
 );
@@ -3754,7 +3960,7 @@ const classifierFailure = await failingClassifierOrchestrator.observePlayerMessa
   chatId: 'campaign-chat',
   message: classifierFailureMessage
 });
-const failedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
+const failedIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
 const failedRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.ingressId === failedIngress.id && entry.type === 'chatTurnProcessingFailure');
 assert.equal(classifierFailure.recoveryRequired, true);
 assert.equal(failedIngress.status, 'recoveryRequired');
@@ -3848,7 +4054,7 @@ const retriedClassifierFailure = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
   message: classifierFailureMessage
 });
-const retriedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
+const retriedIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
 assert.equal(retriedClassifierFailure.handled, true);
 assert.notEqual(retriedClassifierFailure.deduplicated, true);
 assert.notEqual(retriedIngress.status, 'recoveryRequired');
@@ -3865,10 +4071,17 @@ const missingCurrentIngressOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: async () => {
     const current = initializeCampaignRuntimeTracking(getCampaignState());
-    const ingress = current.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-current-missing-ingress');
+    const ingress = runtimeLedger(current).ingressLedger.find((entry) => entry.hostMessageId === 'player-current-missing-ingress');
     assert.ok(ingress, 'The missing-current-ingress fixture should create ingress before classification.');
     const missingCurrent = cloneJson(current);
-    missingCurrent.runtimeTracking.ingressLedger = missingCurrent.runtimeTracking.ingressLedger.filter((entry) => entry.id !== ingress.id);
+    missingCurrent.directiveRuntimeEvidence = {
+      ...(missingCurrent.directiveRuntimeEvidence || {}),
+      coreStoreReadProjections: {
+        ...(missingCurrent.directiveRuntimeEvidence?.coreStoreReadProjections || {}),
+        ingressLedger: (missingCurrent.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger || [])
+          .filter((entry) => entry.id !== ingress.id)
+      }
+    };
     setCampaignState(missingCurrent);
     return {
       kind: 'directive.validatedTurnDecision',
@@ -3920,7 +4133,7 @@ const missingCurrentIngress = await missingCurrentIngressOrchestrator.observePla
   chatId: 'campaign-chat',
   message: missingCurrentIngressMessage
 });
-const preservedMissingCurrentIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-current-missing-ingress');
+const preservedMissingCurrentIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-current-missing-ingress');
 assert.equal(missingCurrentIngress.handled, true);
 assert.notEqual(missingCurrentIngress.reason, 'source-ingress-stale');
 assert.equal(missingCurrentIngress.decision.classification, 'sceneColor');
@@ -4041,6 +4254,21 @@ assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
 assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');
 
+const directiveCorrectionMessage = chat.pushPlayerMessage({
+  text: 'Cancel my last question as phrased. Keep the logged concern, but do not treat the withdrawn request as an active order.',
+  hostMessageId: 'player-routine-correction'
+});
+const directiveCorrection = await directiveRoutineOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: directiveCorrectionMessage
+});
+assert.equal(directiveCorrection.decision.classification, 'routineCommand');
+const directiveCorrectionResponse = chat.messages()
+  .filter((entry) => entry.metadata?.responseKind === 'routineCommand')
+  .at(-1);
+assert.match(directiveCorrectionResponse.swipes[0], /Nayar marks the withdrawn instruction as inactive/);
+assert.match(directiveCorrectionResponse.swipes[0], /Bronn keeps the dependent reports under review/);
+
 const observedContinuationChat = createFakeChatAdapter({ chatId: 'observed-host-native-chat' });
 observedContinuationChat.continueHostGeneration = async () => ({
   ok: true,
@@ -4077,9 +4305,8 @@ observedState = recordTurnIngress(observedState, {
   missingCoreWriteMode: 'reject'
 });
 const observedCoreResponseProjections = [];
-const observedDispatcher = createResponseDispatcher({
-  host: { chat: observedContinuationChat },
-  coreTurnStore: {
+const observedCoreRecoveryProjections = [];
+const observedCoreTurnStore = {
     async advanceTurn(transactionId, patch = {}) {
       if (patch.phase === 'hostContinueReleased' && patch.responseId) {
         observedCoreResponseProjections.push({
@@ -4096,13 +4323,49 @@ const observedDispatcher = createResponseDispatcher({
         route: patch.route || 'hostContinue'
       };
     },
+    async markRecoveryRequired(transactionId, recoveryBundle = {}) {
+      const recovery = {
+        id: recoveryBundle.id || `recovery:${transactionId}`,
+        transactionId,
+        status: 'required',
+        phase: recoveryBundle.phaseAfter || 'recoveryRequired',
+        reason: recoveryBundle.reason || null,
+        repairDecision: cloneJson(recoveryBundle.repairDecision || null),
+        continuityProjection: cloneJson(recoveryBundle.continuityProjection || null),
+        allowedActions: cloneJson(recoveryBundle.allowedActions || [])
+      };
+      observedCoreRecoveryProjections.push(recovery);
+      for (const response of observedCoreResponseProjections) {
+        if (response.transactionId === transactionId) {
+          response.status = recovery.phase;
+          response.recoveryId = recovery.id;
+          response.repairDecision = cloneJson(recovery.repairDecision || null);
+        }
+      }
+      return recovery;
+    },
     async readProjections() {
       return {
+        ingressLedger: [{
+          id: 'ingress-host-native-observed',
+          ingressId: 'ingress-host-native-observed',
+          transactionId: 'txn-host-native-observed',
+          coreTransactionId: 'txn-host-native-observed',
+          sourceFrameId: 'frame-host-native-observed',
+          hostMessageId: 'player-host-native-observed',
+          status: 'sourceObserved'
+        }],
         responseLedger: cloneJson(observedCoreResponseProjections),
-        recoveryJournal: []
+        recoveryJournal: cloneJson(observedCoreRecoveryProjections),
+        continuityRecoveryProjection: cloneJson(
+          observedCoreRecoveryProjections.find((entry) => entry.continuityProjection)?.continuityProjection || null
+        )
       };
     }
-  },
+  };
+const observedDispatcher = createResponseDispatcher({
+  host: { chat: observedContinuationChat },
+  coreTurnStore: observedCoreTurnStore,
   getCampaignState: () => observedState,
   setCampaignState: (next) => { observedState = initializeCampaignRuntimeTracking(next); },
   persist: async (next) => { observedState = initializeCampaignRuntimeTracking(next); },
@@ -4117,23 +4380,20 @@ const observedDispatch = await observedDispatcher.dispatch({
 });
 assert.equal(observedDispatch.ok, false);
 assert.equal(observedDispatch.recoveryRequired, true);
-assert.equal(latestRuntimeResponse(observedState).status, 'recoveryRequired');
-assert.match(latestRuntimeResponse(observedState).recoveryId, /^recovery:continuity:/);
-assert.equal(latestRuntimeResponse(observedState).continuityReview.ok, false);
-assert.equal(observedState.continuity.rejectedClaims.length > 0, true);
-assert.equal(observedState.continuity.projectionHints.length > 0, true);
-assert.equal(Object.values(observedState.continuity.factUseStats).some((stats) => stats.violationCount > 0), true);
-assert.equal(observedState.continuity.rejectedClaims.at(-1).findingFactIds.includes('crew.hadrik-bronn.species'), true);
-const observedMatrix = buildContinuityProjectionMatrix({
-  campaignState: observedState,
-  packageData,
-  campaignProjection: projection
+const observedRuntimeLedger = await createRuntimeLedgerViewAsync(observedDispatch.campaignState || observedState, {
+  coreTurnStore: observedCoreTurnStore
 });
-assert.equal(observedMatrix.plan.laneFactIds['directive.continuity.invariants'].some((id) => id.startsWith('rejected-claim.')), true);
-assert.match(
-  observedMatrix.blocks.find((block) => block.promptKey === 'directive.continuity.invariants').content,
-  /rejected by continuity review/
-);
+const observedRuntimeResponse = [...observedRuntimeLedger.responseLedger].reverse()
+  .find((entry) => entry.status === 'coreRecoveryProjected')
+  || observedRuntimeLedger.responseLedger.at(-1);
+assert.equal(observedRuntimeResponse.status, 'coreRecoveryProjected');
+assert.equal(observedRuntimeResponse.recoveryId, null);
+assert.equal(observedRuntimeResponse.repairDecision?.eventType, 'hostNativeContinuityContradiction');
+const observedCoreProjections = await observedCoreTurnStore.readProjections();
+assert.equal(observedCoreProjections.continuityRecoveryProjection.rejectedClaims.length > 0, true);
+assert.equal(observedCoreProjections.continuityRecoveryProjection.projectionHints.length > 0, true);
+assert.equal(Object.values(observedCoreProjections.continuityRecoveryProjection.factUseStats).some((stats) => stats.violationCount > 0), true);
+assert.equal(observedCoreProjections.continuityRecoveryProjection.rejectedClaims.at(-1).findingFactIds.includes('crew.hadrik-bronn.species'), true);
 assert.equal(
   observedState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'hostNativeContinuityContradiction'),
   false,
@@ -4279,7 +4539,7 @@ assert.equal(counselResponse.strategy, 'injectAndContinue');
 assert.equal(counselResponse.responseKind, 'hostContinue');
 assert.equal(hostGenerationContinuations.length, continuationsBeforeCounsel + 1);
 assert.equal(hostGenerationContinuations.at(-1).reason, 'directive-inject-and-continue');
-assert.equal(counselResponse.hostContinuation?.ok, true);
+assert.equal(counselResponse.status, 'hostContinueReleased');
 assert.equal(responseSwipeGenerationCalls.filter((call) => call.roleId === 'missionDirectorAdvisor').length, advisorCallsBeforeCounsel);
 assert.equal(counsel.advisoryEnrichment.status, 'queued');
 assert.equal(counsel.advisoryEnrichment.advisoryId, counsel.advisory.id);
@@ -4309,7 +4569,7 @@ assert.equal(consequential.postCommitConversation.scheduled, true);
 assert.equal(consequential.postCommitConversation.status, 'queued');
 assert.equal(consequential.postCommitConversation.outcomeId, 'outcome-1');
 assert.equal(forgeSceneSealCalls.length, 1);
-const consequentialIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-consequential');
+const consequentialIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-consequential');
 const consequentialSeal = forgeSceneSealCalls[0];
 assert.equal(consequentialSeal.transactionId, consequentialIngress.coreTransactionId);
 assert.equal(consequentialSeal.outcomeId, 'outcome-1');
@@ -4568,12 +4828,18 @@ assert.equal(commitCalls.length, commitCallsBeforeSamAnswer, 'Clarification answ
 assert.equal(corePendingInteractions().find((entry) => entry.id === samClarificationInteraction.id).status, 'resolved');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, routineResponsesBeforeSamAnswer + 1);
 
-const samAnswerIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-clarification-sam-answer');
+const samAnswerIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-clarification-sam-answer');
 campaignState = updateTurnIngress(campaignState, samAnswerIngress.id, {
   status: 'invalidated',
   invalidatedAt: '2026-06-22T01:00:55.000Z',
   invalidationType: 'playerMessageDeleted',
   replacementText: null
+});
+coreTransactions.set(samAnswerIngress.coreTransactionId, {
+  ...(coreTransactions.get(samAnswerIngress.coreTransactionId) || { id: samAnswerIngress.coreTransactionId }),
+  phase: 'invalidated',
+  invalidatedAt: '2026-06-22T01:00:55.000Z',
+  invalidationType: 'playerMessageDeleted'
 });
 campaignState = recordLegacyRecoveryFixture(campaignState, {
   id: 'recovery-sam-answer-delete',
@@ -4588,7 +4854,7 @@ const samAnswerReobserved = await clarificationAnswerOrchestrator.observePlayerM
   chatId: 'campaign-chat',
   message: samAnswerMessage
 });
-const reobservedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === samAnswerIngress.id);
+const reobservedIngress = runtimeLedger().ingressLedger.find((entry) => entry.id === samAnswerIngress.id);
 const resolvedDeleteRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery-sam-answer-delete');
 assert.equal(samAnswerReobserved.handled, true);
 assert.notEqual(reobservedIngress.status, 'invalidated');
@@ -4674,7 +4940,7 @@ assert.equal(
   false,
   'Local committed-outcome fallback must not imply a contested player-authored order succeeded.'
 );
-const fallbackResponseLedger = [...campaignState.runtimeTracking.responseLedger].reverse().find((entry) => (
+const fallbackResponseLedger = [...runtimeLedger().responseLedger].reverse().find((entry) => (
   entry.responseKind === 'committedOutcome'
   && entry.status === 'responseRetryRequired'
   && entry.providerFallback?.reason === 'provider-failure-after-mechanics-commit'
@@ -4708,7 +4974,7 @@ assert.equal(fallbackResponseLedger.coreProjection.kind, 'directive.coreResponse
 assert.equal(fallbackResponseLedger.coreProjection.transactionId, fallbackRecovery.transactionId);
 assert.equal(fallbackResponseLedger.coreProjection.recoveryCaseId, fallbackRecovery.id);
 assert.equal(fallbackResponseLedger.coreProjection.status, 'responseRetryRequired');
-const fallbackIngressBeforeRetry = campaignState.runtimeTracking.ingressLedger.find(
+const fallbackIngressBeforeRetry = runtimeLedger().ingressLedger.find(
   (entry) => entry.outcomeId === fallbackRecovery.dependentOutcomeId
 );
 assert.equal(fallbackIngressBeforeRetry.status, 'responseRetryRequired');
@@ -4737,7 +5003,7 @@ const failedProviderFailureRetry = await orchestrator.retryCommittedResponse({
 });
 assert.equal(failedProviderFailureRetry.ok, false);
 assert.equal(failedProviderFailureRetry.reason, 'core-response-retry-closure-failed');
-const providerFailureResponseAfterFailedRetry = campaignState.runtimeTracking.responseLedger.find(
+const providerFailureResponseAfterFailedRetry = [...runtimeLedger().responseLedger].reverse().find(
   (entry) => entry.id === fallbackResponseLedger.id
 );
 assert.equal(providerFailureResponseAfterFailedRetry.authority, 'compatibilityProjection');
@@ -4823,7 +5089,7 @@ const providerFailureCoreRecoveryAfterRetry = coreTurnStore.readProjections().re
   entry.id === fallbackRecovery.id
 ));
 assert.equal(providerFailureCoreRecoveryAfterRetry.status, 'resolved');
-const providerFailureResponseAfterRetry = campaignState.runtimeTracking.responseLedger.find(
+const providerFailureResponseAfterRetry = [...runtimeLedger().responseLedger].reverse().find(
   (entry) => entry.id === fallbackResponseLedger.id
 );
 assert.equal(providerFailureResponseAfterRetry.responseRetry.recoveryId, fallbackRecovery.id);
@@ -4961,6 +5227,12 @@ campaignState = updateTurnIngress(campaignState, staleRiskInteraction.ingressId,
   invalidatedAt: '2026-06-22T01:03:00.000Z',
   invalidationType: 'playerMessageEdited',
   replacementText: 'The invalidated source command should not be committed.'
+});
+coreTransactions.set(staleRiskInteraction.coreTransactionId, {
+  ...(coreTransactions.get(staleRiskInteraction.coreTransactionId) || { id: staleRiskInteraction.coreTransactionId }),
+  phase: 'invalidated',
+  invalidatedAt: '2026-06-22T01:03:00.000Z',
+  invalidationType: 'playerMessageEdited'
 });
 const staleRiskConfirmation = await orchestrator.resolveInteraction({
   interactionId: staleRiskInteraction.id,
@@ -5183,7 +5455,8 @@ const timeoutHarnessResult = await timeoutHarnessOrchestrator.observePlayerMessa
   chatId: 'scene-handshake-timeout-chat',
   message: timeoutHarnessMessage
 });
-const timeoutHarnessIngress = timeoutHarnessState.runtimeTracking.ingressLedger.find((entry) => (
+const timeoutHarnessLedger = createRuntimeLedgerView(timeoutHarnessState);
+const timeoutHarnessIngress = timeoutHarnessLedger.ingressLedger.find((entry) => (
   entry.hostMessageId === 'player-scene-handshake-timeout'
 ));
 assert.equal(timeoutHarnessResult.handled, true);
@@ -5195,7 +5468,7 @@ assert.equal(
   'Scene Handshake settlement timeout should be visible as diagnostic activity.'
 );
 assert.equal(
-  timeoutHarnessState.runtimeTracking.responseLedger.some((entry) => (
+  timeoutHarnessLedger.responseLedger.some((entry) => (
     entry.ingressId === timeoutHarnessIngress.id
     && entry.responseKind === 'hostGeneration'
     && ['released', 'complete', 'hostContinueReleased'].includes(entry.status)
@@ -5538,7 +5811,7 @@ const stalledCoreReadResult = await Promise.race([
 ]);
 assert.equal(stalledCoreReadResult.timedOut, undefined, 'Stalled CORE source observation and projection reads must not block host-native continuation.');
 assert.equal(stalledCoreReadClassified, true, 'Stalled CORE source observation and projection reads still allow classification.');
-assert.equal(stalledCoreReadDispatched, true, 'Stalled CORE source observation and projection reads still allow host generation delegation.');
+assert.equal(stalledCoreReadDispatched, false, 'Stalled CORE projection reads must not authorize host generation delegation from state fallback.');
 
 assert.equal(sidecarCalls.length >= 4, true);
 assert.equal(persisted.length > 0, true);

@@ -529,8 +529,13 @@ for (const [label, source] of [['edit', editRunnerSource], ['delete', deleteRunn
   );
   assert.match(
     source,
-    /runtimeLedgerViewModulePath[\s\S]*runtime-ledger-view\.mjs[\s\S]*createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
-    `${label} runner runtime snapshot must use the CORE-first runtime ledger view before selecting target ingress/response/recovery evidence.`
+    /runtimeLedgerViewModulePath[\s\S]*runtime-ledger-view\.mjs[\s\S]*createRuntimeLedgerView\(view\?\.campaignState \|\| \{\}\)/,
+    `${label} runner runtime snapshot must use the CORE-only runtime ledger view before selecting target ingress/response/recovery evidence.`
+  );
+  assert.doesNotMatch(
+    source,
+    /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
+    `${label} runner must not pass retired runtimeOverlay fallback into live proof ledger view.`
   );
   assert.doesNotMatch(
     source,
@@ -600,13 +605,18 @@ assert.match(
 );
 assert.match(
   selectedSwipeRunnerSource,
-  /createRuntimeLedgerView\(refreshed\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
-  'Selected-swipe setup proof must confirm recorded responses through the CORE-first runtime ledger view.'
+  /createRuntimeLedgerView\(refreshed\?\.campaignState \|\| \{\}\)/,
+  'Selected-swipe setup proof must confirm recorded responses through the CORE-only runtime ledger view.'
 );
 assert.match(
   selectedSwipeRunnerSource,
-  /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\},\s*\{\s*runtimeOverlay:\s*true\s*\}\)/,
-  'Selected-swipe candidate selection must read response targets through the CORE-first runtime ledger view.'
+  /createRuntimeLedgerView\(view\?\.campaignState \|\| \{\}\)/,
+  'Selected-swipe candidate selection must read response targets through the CORE-only runtime ledger view.'
+);
+assert.doesNotMatch(
+  selectedSwipeRunnerSource,
+  /runtimeOverlay:\s*true/,
+  'Selected-swipe native runner must not pass retired runtimeOverlay fallback into live proof ledger view.'
 );
 assert.match(
   selectedSwipeRunnerSource,

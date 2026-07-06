@@ -277,15 +277,15 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
       sourceKind: value.sourceKind || null,
       normalTurnAllowed: value.normalTurnAllowed === true,
       recoveryRequired: value.recoveryRequired === true,
-      recoveryStatus: value.recoveryStatus || value.legacyProjection?.recoveryJournalStatus || null,
+      recoveryStatus: value.recoveryStatus || value.repairProjection?.recoveryJournalStatus || null,
       transactionId: value.transactionId || null,
       recoveryCaseId: value.recoveryCaseId || null,
-      legacyProjection: value.legacyProjection ? {
-        sourceProjectionStatus: value.legacyProjection.sourceProjectionStatus || null,
-        responseProjectionStatus: value.legacyProjection.responseProjectionStatus || null,
-        recoveryJournalStatus: value.legacyProjection.recoveryJournalStatus || null,
-        returnedAction: value.legacyProjection.returnedAction || null,
-        shouldRestoreRevision: value.legacyProjection.shouldRestoreRevision === true
+      repairProjection: value.repairProjection ? {
+        sourceProjectionStatus: value.repairProjection.sourceProjectionStatus || null,
+        responseProjectionStatus: value.repairProjection.responseProjectionStatus || null,
+        recoveryJournalStatus: value.repairProjection.recoveryJournalStatus || null,
+        returnedAction: value.repairProjection.returnedAction || null,
+        shouldRestoreRevision: value.repairProjection.shouldRestoreRevision === true
       } : null
     }) : null;
     const compactSourceMutation = (value = null) => value && typeof value === 'object' ? ({
@@ -328,7 +328,7 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         recoveryStatus: value?.status === 'required' ? 'reviewRequired' : value?.status || null,
         transactionId: value?.transactionId || value?.coreTransactionId || null,
         recoveryCaseId: value?.recoveryCaseId || value?.id || null,
-        legacyProjection: null
+        repairProjection: null
       };
     };
     const compactCoreRecovery = (value = null) => value && typeof value === 'object' ? ({
@@ -387,7 +387,7 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const message = Number.isInteger(index) ? chat[index] : null;
     const tracking = view?.campaignState?.runtimeTracking || {};
     const runtimeLedgerView = typeof ledgerTools?.createRuntimeLedgerView === 'function'
-      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {}, { runtimeOverlay: true })
+      ? ledgerTools.createRuntimeLedgerView(view?.campaignState || {})
       : null;
     const ingressLedger = Array.isArray(runtimeLedgerView?.ingressLedger) ? runtimeLedgerView.ingressLedger : [];
     const responseLedger = Array.isArray(runtimeLedgerView?.responseLedger) ? runtimeLedgerView.responseLedger : [];

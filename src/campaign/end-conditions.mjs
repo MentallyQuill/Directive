@@ -396,7 +396,7 @@ export function applyPushOnContinuationFrame({
     title: frame.title,
     playerFacingSummary: frame.playerFacingStartCopy,
     authority: 'terminalDecisionProjection',
-    projectionSource: 'terminalOutcomeDecision',
+    projectionSource: 'coreStoreV2',
     coreProjection: {
       kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
       rowKind: 'continuationFrame',
@@ -408,9 +408,8 @@ export function applyPushOnContinuationFrame({
     }
   });
   const projected = withTerminalDecisionLedgerProjection(next, ledger);
-  next.runtimeTracking = projected.runtimeTracking;
   return {
-    campaignState: next,
+    campaignState: projected,
     frame: cloneJson(frame)
   };
 }

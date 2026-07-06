@@ -17,10 +17,74 @@ import {
   readCoreStoreProjectionsV2
 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
+import { createRuntimeLedgerView } from '../../src/runtime/runtime-ledger-view.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
+
+function runtimeLedger(state, coreTurnStore = coreStore) {
+  return createRuntimeLedgerView(state, { coreTurnStore });
+}
+
+function coreProjectionResponses(projections = {}) {
+  return Array.isArray(projections.responses)
+    ? projections.responses
+    : (Array.isArray(projections.responseLedger) ? projections.responseLedger : []);
+}
+
+function mapProjectedResponseRows(state, coreTurnStore, mapper) {
+  const ledger = runtimeLedger(state, coreTurnStore).responseLedger || [];
+  const next = initializeCampaignRuntimeTracking(state);
+  next.directiveRuntimeEvidence = {
+    ...(next.directiveRuntimeEvidence || {}),
+    coreStoreReadProjections: {
+      ...(next.directiveRuntimeEvidence?.coreStoreReadProjections || {}),
+      kind: 'directive.coreStoreReadProjections.v1',
+      runtimeAuthority: 'coreStoreV2',
+      responses: ledger.map(mapper)
+    }
+  };
+  return next;
+}
+
+const dispatcherCoreRevisionProjection = __responseDispatcherTestHooks.sanitizedHostNativeContinuityCompatibilityProjection({
+  recoveryId: 'recovery:dispatcher-core-revision',
+  responseId: 'response-dispatcher-core-revision',
+  ingressId: 'ingress-dispatcher-core-revision',
+  observedAt: '2026-07-05T22:00:00.000Z',
+  review: {
+    kind: 'directive.sreHostNativeContinuityReview.v1',
+    ok: false,
+    checkedFactCount: 1,
+    findings: [{
+      factId: 'crew.hadrik-bronn.species',
+      kind: 'protected-fact-contradiction',
+      severity: 'blocker'
+    }],
+    sreReview: {
+      source: {
+        responseId: 'response-dispatcher-core-revision',
+        ingressId: 'ingress-dispatcher-core-revision',
+        hostMessageId: 'assistant-dispatcher-core-revision',
+        textHash: 'dispatcher-core-revision-text-hash'
+      }
+    }
+  },
+  campaignState: {
+    runtimeTracking: { revision: 99 },
+    directiveRuntimeEvidence: {
+      coreStoreReadProjections: {
+        kind: 'directive.coreStoreReadProjections.v1',
+        runtimeAuthority: 'coreStoreV2',
+        revisions: { runtime: 7 }
+      }
+    }
+  }
+});
+assert.equal(dispatcherCoreRevisionProjection.projectionHints[0].createdRevision, 7);
+assert.equal(dispatcherCoreRevisionProjection.projectionHints[0].expiresRevision, 11);
+assert.equal(dispatcherCoreRevisionProjection.factUseStats['crew.hadrik-bronn.species'].lastViolationRevision, 7);
 
 function createLoggingStorage() {
   const files = new Map();
@@ -273,24 +337,24 @@ assert.deepEqual(
 );
 assert.equal(coreStore.state.transactions[transaction.id].phase, 'hostContinueReleased');
 assert.equal(coreStore.state.transactions[transaction.id].route, 'hostContinue');
-assert.equal(state.runtimeTracking.responseLedger.at(-1).status, 'released');
-assert.equal(state.runtimeTracking.responseLedger.at(-1).coreRelease.phase, 'hostContinueReleased');
-assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.architectureWithin60s, true);
-assert.equal(state.runtimeTracking.responseLedger.at(-1).generationStartedAt, '2026-06-28T17:00:10.000Z');
-assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.hostGenerationReleasedAt, Date.parse('2026-06-28T17:00:10.000Z'));
-assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.directiveGenerationStartedAt, null);
-assert.equal(state.runtimeTracking.responseLedger.at(-1).turnLatency.providerCompletionLatencyMs, null);
+assert.deepEqual(state.runtimeTracking.responseLedger, []);
+const hostContinueResponse = [...coreProjectionResponses(coreStore.readProjections())]
+  .reverse()
+  .find((entry) => entry.id === 'response-core-bridge-1');
+assert.equal(hostContinueResponse.status, 'hostContinueReleased');
+assert.equal(hostContinueResponse.transactionId, transaction.id);
+assert.equal(hostContinueResponse.strategy, 'injectAndContinue');
+assert.equal(hostContinueResponse.turnTiming.architectureWithin60s, true);
+assert.equal(hostContinueResponse.generationStartedAt, Date.parse('2026-06-28T17:00:10.000Z'));
+assert.equal(hostContinueResponse.turnTiming.hostGenerationReleasedAt, Date.parse('2026-06-28T17:00:10.000Z'));
+assert.equal(hostContinueResponse.turnTiming.directiveGenerationStartedAt, null);
+assert.equal(hostContinueResponse.turnTiming.providerCompletionLatencyMs, null);
   const persistedProjection = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
-  const hostReleaseProjection = persistedProjection.responseLedger.find((entry) => entry.id === 'response-core-bridge-1');
+  const hostReleaseProjection = coreProjectionResponses(persistedProjection).find((entry) => entry.id === 'response-core-bridge-1');
   assert.ok(hostReleaseProjection, 'CORE host-continue projection must carry the dispatcher response id.');
   assert.equal(hostReleaseProjection.status, 'hostContinueReleased');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).authority, 'compatibilityProjection');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).projectionSource, 'coreStoreV2');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).coreProjection.responseId, 'response-core-bridge-1');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.source, 'coreStoreV2');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.mirroredOperation, 'hostContinueRelease');
-  assert.equal(state.runtimeTracking.responseLedger.at(-1).compatibilityMirror.transactionId, transaction.id);
+  assert.equal(hostReleaseProjection.transactionId, transaction.id);
+  assert.equal(hostReleaseProjection.strategy, 'injectAndContinue');
   assert.equal(persistedProjection.ingressLedger[0].status, 'hostContinueReleased');
   const hostTimingProjection = persistedProjection.turnTiming.find((entry) => entry.transactionId === transaction.id);
   assert.ok(hostTimingProjection, 'CORE persisted projections expose hostContinue timing');
@@ -332,23 +396,18 @@ assert.equal(coreStore.state.transactions[transaction.id].phase, 'visibleRespons
 assert.equal(coreStore.state.transactions[transaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-1');
 assert.equal(coreStore.state.transactions[transaction.id].visibleResponseRef.kind, 'hostContinue');
 assert.equal(coreStore.state.transactions[transaction.id].visibleResponseRef.textHash, observedTextHash);
-const completedResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-bridge-1');
-assert.equal(completedResponse.status, 'complete');
-assert.equal(completedResponse.authority, 'compatibilityProjection');
-assert.equal(completedResponse.projectionSource, 'coreStoreV2');
-assert.equal(completedResponse.coreProjection.responseId, 'response-core-bridge-1');
-assert.equal(completedResponse.coreProjection.status, 'posted');
-assert.equal(completedResponse.compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1');
-assert.equal(completedResponse.compatibilityMirror.source, 'coreStoreV2');
-assert.equal(completedResponse.compatibilityMirror.mirroredOperation, 'hostNativeCompletion');
-assert.equal(completedResponse.compatibilityMirror.transactionId, transaction.id);
-assert.equal(completedResponse.hostObservation.hostMessageId, 'assistant-host-native-1');
-assert.equal(completedResponse.hostObservation.textHash, observedTextHash);
-assert.notEqual(completedResponse.hostObservation.textHash, staleObservedCallbackHash);
-assert.equal(completedResponse.turnLatency.visibleResponsePostedAt, Date.parse('2026-06-28T17:00:20.000Z'));
+const completedResponse = [...runtimeLedger(state).responseLedger]
+  .reverse()
+  .find((entry) => entry.id === 'response-core-bridge-1');
+assert.equal(completedResponse.status, 'posted');
+assert.equal(completedResponse.transactionId, transaction.id);
+assert.equal(completedResponse.hostMessageId, 'assistant-host-native-1');
+assert.equal(completedResponse.textHash, observedTextHash);
+assert.notEqual(completedResponse.textHash, staleObservedCallbackHash);
+assert.equal(completedResponse.turnTiming.visibleResponsePostedAt, Date.parse('2026-06-28T17:00:20.000Z'));
 assert.equal(JSON.stringify(completedResponse).includes('Host-native completion text.'), false);
 const completionProjection = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
-const completedProjectionResponse = completionProjection.responseLedger.find((entry) => entry.transactionId === transaction.id);
+const completedProjectionResponse = coreProjectionResponses(completionProjection).find((entry) => entry.transactionId === transaction.id);
 assert.equal(completedProjectionResponse.hostMessageId, 'assistant-host-native-1');
 assert.equal(completedProjectionResponse.textHash, observedTextHash);
 const eventsBeforeDuplicateCompletion = coreStore.state.events.length;
@@ -481,7 +540,9 @@ const completionFailureObservation = await completionFailureObserved({
 assert.equal(completionFailureObservation.ok, false);
 assert.equal(completionFailureObservation.status, 'coreRecoveryDiagnosticProjected');
 assert.equal(completionFailureRecordCalls, 1);
-const completionFailureResponse = completionFailureState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-completion-failure');
+const completionFailureResponse = [...runtimeLedger(completionFailureState, completionFailureCoreStore).responseLedger]
+  .reverse()
+  .find((entry) => entry.id === 'response-core-completion-failure');
 assert.equal(completionFailureResponse.status, 'coreRecoveryDiagnosticProjected');
 assert.equal(completionFailureResponse.authority, 'compatibilityProjection');
 assert.equal(completionFailureResponse.projectionSource, 'coreStoreV2');
@@ -639,7 +700,25 @@ const reobserveDispatch = await reobserveDispatcher.dispatch({
   idempotencyKey: 'response-core-reobserve-1'
 });
 assert.equal(reobserveDispatch.ok, true);
-assert.equal(reobserveState.runtimeTracking.responseLedger.at(-1).status, 'released');
+assert.equal(runtimeLedger(reobserveState, reobserveCoreStore).responseLedger.at(-1).status, 'hostContinueReleased');
+reobserveState.runtimeTracking.responseLedger = [
+  ...(reobserveState.runtimeTracking.responseLedger || []),
+  {
+    id: 'response-core-reobserve-stale-raw-claim',
+    responseId: 'response-core-reobserve-stale-raw-claim',
+    ingressId: 'ingress-response-core-reobserve-1',
+    strategy: 'injectAndContinue',
+    responseKind: 'hostContinue',
+    status: 'posted',
+    authority: 'compatibilityProjection',
+    projectionSource: 'coreStoreV2',
+    coreTransactionId: reobserveTransaction.id,
+    hostObservation: {
+      hostMessageId: 'assistant-core-reobserve-stale-raw-claim',
+      textHash: hashStableJson({ text: 'Stale raw response claim should not suppress CORE reobserve.' })
+    }
+  }
+];
 const reobserveResult = await reobserveDispatcher.reobserveHostGenerationCompletions({
   campaignState: reobserveState
 });
@@ -650,9 +729,11 @@ assert.equal(reobserveResult.checkedResponseCount, 1);
 assert.equal(reobserveResult.completedCount, 1);
 assert.equal(reobserveResult.results[0].status, 'complete');
 assert.equal(reobserveCoreStore.state.events.at(-1).type, 'visibleResponseRecorded');
-const reobservedResponse = reobserveState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-reobserve-1');
+const reobservedResponse = [...runtimeLedger(reobserveState, reobserveCoreStore).responseLedger]
+  .reverse()
+  .find((entry) => entry.id === 'response-core-reobserve-1');
 assert.equal(reobservedResponse.id, 'response-core-reobserve-1');
-assert.equal(reobservedResponse.status, 'complete');
+assert.equal(reobservedResponse.status, 'posted');
 assert.equal(reobservedResponse.authority, 'compatibilityProjection');
 assert.equal(reobservedResponse.projectionSource, 'coreStoreV2');
 assert.equal(reobservedResponse.coreProjection.responseId, 'response-core-reobserve-1');
@@ -665,7 +746,7 @@ const reobserveProjection = await readCoreStoreProjectionsV2(reobserveAdapter, {
   campaignId: reobserveCampaignId,
   saveId: reobserveSaveId
 });
-const reobservedProjectionResponse = reobserveProjection.responseLedger.find((entry) => entry.transactionId === reobserveTransaction.id);
+const reobservedProjectionResponse = coreProjectionResponses(reobserveProjection).find((entry) => entry.transactionId === reobserveTransaction.id);
 assert.equal(reobservedProjectionResponse.hostMessageId, 'assistant-core-reobserve-1');
 assert.equal(reobservedProjectionResponse.responseKind, 'hostContinue');
 assert.equal(reobservedProjectionResponse.textHash.length, 64);
@@ -824,7 +905,7 @@ await claimedCoreStore.commitBackgroundBatch(claimedTransaction.id, {
 });
 assert.equal(claimedCoreStore.state.transactions[claimedTransaction.id].phase, 'backgroundSettling');
 const claimedHash = hashStableJson({ text: 'The host row was already observed by the release callback.' });
-claimedState.runtimeTracking.responseLedger = claimedState.runtimeTracking.responseLedger.map((entry) => (
+claimedState = mapProjectedResponseRows(claimedState, claimedCoreStore, (entry) => (
   entry.id === 'response-core-claimed-reobserve-1'
     ? {
       ...entry,
@@ -849,7 +930,7 @@ const claimedProjection = await readCoreStoreProjectionsV2(claimedAdapter, {
   campaignId: claimedCampaignId,
   saveId: claimedSaveId
 });
-const claimedProjectionResponse = claimedProjection.responseLedger.find((entry) => entry.transactionId === claimedTransaction.id);
+const claimedProjectionResponse = coreProjectionResponses(claimedProjection).find((entry) => entry.transactionId === claimedTransaction.id);
 assert.equal(claimedProjectionResponse.hostMessageId, 'assistant-core-claimed-reobserve-1');
 assert.equal(claimedProjectionResponse.textHash, claimedHash);
 assert.equal(claimedCoreStore.state.transactions[claimedTransaction.id].phase, 'visibleResponsePosted');
@@ -961,7 +1042,7 @@ await hashlessCoreStore.recordVisibleResponse(hashlessTransaction.id, {
   textHash: null,
   idempotencyKey: 'visible-response-core-hashless-reobserve-1'
 });
-hashlessState.runtimeTracking.responseLedger = hashlessState.runtimeTracking.responseLedger.map((entry) => (
+hashlessState = mapProjectedResponseRows(hashlessState, hashlessCoreStore, (entry) => (
   entry.id === 'response-core-hashless-reobserve-1'
     ? {
       ...entry,
@@ -978,7 +1059,7 @@ const hashlessBeforeProjection = await readCoreStoreProjectionsV2(hashlessAdapte
   campaignId: hashlessCampaignId,
   saveId: hashlessSaveId
 });
-const hashlessBeforeResponse = hashlessBeforeProjection.responseLedger.find((entry) => entry.transactionId === hashlessTransaction.id);
+const hashlessBeforeResponse = coreProjectionResponses(hashlessBeforeProjection).find((entry) => entry.transactionId === hashlessTransaction.id);
 assert.equal(hashlessBeforeResponse.textHash, null);
 const hashlessReobserveResult = await hashlessDispatcher.reobserveHostGenerationCompletions({
   campaignState: hashlessState
@@ -994,7 +1075,7 @@ const hashlessAfterProjection = await readCoreStoreProjectionsV2(hashlessAdapter
   campaignId: hashlessCampaignId,
   saveId: hashlessSaveId
 });
-const hashlessAfterResponse = hashlessAfterProjection.responseLedger.find((entry) => entry.transactionId === hashlessTransaction.id);
+const hashlessAfterResponse = coreProjectionResponses(hashlessAfterProjection).find((entry) => entry.transactionId === hashlessTransaction.id);
 assert.equal(hashlessAfterResponse.hostMessageId, 'assistant-core-hashless-reobserve-1');
 assert.equal(hashlessAfterResponse.textHash, hashlessAssistantHash);
 
@@ -1098,7 +1179,7 @@ await settledCoreStore.recordVisibleResponse(settledTransaction.id, {
   textHash: settledAssistantHash,
   idempotencyKey: 'visible-response-core-settled-runtime-reobserve-1'
 });
-settledState.runtimeTracking.responseLedger = settledState.runtimeTracking.responseLedger.map((entry) => (
+settledState = mapProjectedResponseRows(settledState, settledCoreStore, (entry) => (
   entry.id === 'response-core-settled-runtime-reobserve-1'
     ? { ...entry, status: 'complete' }
     : entry
@@ -1111,8 +1192,10 @@ assert.equal(settledReobserveResult.checkedResponseCount, 0);
 assert.equal(settledReobserveResult.checkedCoreProjectionCount, 1);
 assert.equal(settledReobserveResult.coreProjectionResults[0].status, 'alreadySettled');
 assert.equal(settledReobserveResult.coreProjectionResults[0].ok, true);
-const settledResponse = settledState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-settled-runtime-reobserve-1');
-assert.equal(settledResponse.status, 'complete');
+const settledResponse = [...runtimeLedger(settledState, settledCoreStore).responseLedger]
+  .reverse()
+  .find((entry) => entry.id === 'response-core-settled-runtime-reobserve-1');
+assert.equal(settledResponse.status, 'posted');
 assert.equal(settledResponse.hostMessageId, 'assistant-core-settled-runtime-reobserve-1');
 assert.equal(settledResponse.hostObservation.hostMessageId, 'assistant-core-settled-runtime-reobserve-1');
 assert.equal(settledResponse.hostObservation.textHash, settledAssistantHash);
@@ -1202,7 +1285,9 @@ const directivePosted = await directivePostedDispatcher.dispatch({
 });
 assert.equal(directivePosted.ok, true);
 assert.equal(directivePostCalls, 1);
-const directivePostedResponse = state.runtimeTracking.responseLedger.at(-1);
+const directivePostedResponse = [...runtimeLedger(state).responseLedger]
+  .reverse()
+  .find((entry) => entry.id === 'response-core-directive-posted');
 assert.equal(directivePostedResponse.strategy, 'directivePosted');
 assert.equal(directivePostedResponse.authority, 'compatibilityProjection');
 assert.equal(directivePostedResponse.projectionSource, 'coreStoreV2');
@@ -1219,7 +1304,7 @@ assert.equal(directivePostedResponse.turnLatency.directiveGenerationStartedAt, D
   assert.equal(coreStore.state.turns.filter((entry) => entry.transactionId === directiveTransaction.id).length, 1);
   const directivePostedProjection = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
   assert.equal(
-    directivePostedProjection.responseLedger.find((entry) => entry.transactionId === directiveTransaction.id).generationStartedAt,
+    coreProjectionResponses(directivePostedProjection).find((entry) => entry.transactionId === directiveTransaction.id).generationStartedAt,
     '2026-06-28T17:00:30.000Z'
   );
   const directiveTimingProjection = directivePostedProjection.turnTiming.find((entry) => entry.transactionId === directiveTransaction.id);
@@ -1290,7 +1375,18 @@ const visibleFailureDispatcher = createResponseDispatcher({
       };
     },
     readProjections() {
-      return { sidecarDiagnostics: cloneJson(visibleFailureDiagnostics) };
+      return {
+        ingressLedger: [{
+          id: 'ingress-response-core-visible-failure',
+          ingressId: 'ingress-response-core-visible-failure',
+          transactionId: 'txn-response-core-visible-failure',
+          coreTransactionId: 'txn-response-core-visible-failure',
+          sourceFrameId: 'frame-response-core-visible-failure',
+          hostMessageId: 'player-core-visible-failure',
+          status: 'sourceObserved'
+        }],
+        sidecarDiagnostics: cloneJson(visibleFailureDiagnostics)
+      };
     }
   },
   getCampaignState: () => visibleFailureState,
@@ -1313,11 +1409,13 @@ assert.equal(visibleFailure.recoveryRequired, true);
 assert.equal(visibleFailurePostCalls, 1);
 assert.equal(visibleFailureRecordCalls, 1);
 assert.equal(visibleFailure.posted.hostMessageId, 'assistant-core-visible-failure');
-const visibleFailureResponse = visibleFailureState.runtimeTracking.responseLedger.at(-1);
-assert.equal(visibleFailureResponse.status, 'coreRecoveryDiagnosticProjected');
-assert.equal(visibleFailureResponse.hostMessageId, 'assistant-core-visible-failure');
-assert.equal(visibleFailureResponse.coreReleaseError, null);
-assert.equal(visibleFailureResponse.recoveryId, null);
+const visibleFailureLedger = createRuntimeLedgerView(visibleFailureState);
+const visibleFailureResponse = visibleFailureLedger.responseLedger.at(-1);
+assert.equal(
+  visibleFailureResponse,
+  undefined,
+  'CORE visible-response diagnostics must not mint response projection rows when CORE has no response projection.'
+);
 assert.equal(
   visibleFailureState.runtimeTracking.recoveryJournal.some((entry) => (
     entry.type === 'coreVisibleResponseRecordFailure'
@@ -1326,7 +1424,7 @@ assert.equal(
   false
 );
 assert.notEqual(
-  visibleFailureState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-visible-failure').status,
+  visibleFailureLedger.ingressLedger.find((entry) => entry.id === 'ingress-response-core-visible-failure').status,
   'recoveryRequired',
   'CORE-diagnostic-backed visible response record failure must not patch old ingress recovery status.'
 );
@@ -1336,12 +1434,12 @@ assert.equal(visibleFailureDiagnostics[0].eventType, 'coreVisibleResponseRecordF
 assert.equal(visibleFailureDiagnostics[0].responseId, 'response-core-visible-failure');
 assert.equal(JSON.stringify(visibleFailureDiagnostics).includes(rawVisibleFailureMessage), false);
 assert.equal(
-  JSON.stringify(visibleFailureState.runtimeTracking.responseLedger || []).includes('diagnosticCompatibilityProjection'),
+  JSON.stringify(visibleFailureLedger.responseLedger || []).includes('diagnosticCompatibilityProjection'),
   false,
   'CORE visible-response diagnostics must not persist diagnostic-only old responseLedger mirrors.'
 );
 assert.equal(
-  JSON.stringify(visibleFailureState.runtimeTracking.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
+  JSON.stringify(visibleFailureLedger.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
   false,
   'CORE visible-response diagnostics must stay in CORE diagnostics, not old responseLedger projection refs.'
 );
@@ -1410,7 +1508,18 @@ const visibleNoDiagnosticDispatcher = createResponseDispatcher({
       throw new Error('Synthetic CORE diagnostic write failed.');
     },
     readProjections() {
-      return { sidecarDiagnostics: [] };
+      return {
+        ingressLedger: [{
+          id: 'ingress-response-core-visible-no-diagnostic',
+          ingressId: 'ingress-response-core-visible-no-diagnostic',
+          transactionId: 'txn-response-core-visible-no-diagnostic',
+          coreTransactionId: 'txn-response-core-visible-no-diagnostic',
+          sourceFrameId: 'frame-response-core-visible-no-diagnostic',
+          hostMessageId: 'player-core-visible-no-diagnostic',
+          status: 'sourceObserved'
+        }],
+        sidecarDiagnostics: []
+      };
     }
   },
   getCampaignState: () => visibleNoDiagnosticState,
@@ -1451,7 +1560,8 @@ assert.equal(
   'No-diagnostic visible response record failure must fail closed without old recoveryJournal fallback.'
 );
 assert.notEqual(
-  visibleNoDiagnosticState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-visible-no-diagnostic').status,
+  createRuntimeLedgerView(visibleNoDiagnosticState)
+    .ingressLedger.find((entry) => entry.id === 'ingress-response-core-visible-no-diagnostic').status,
   'recoveryRequired',
   'No-diagnostic visible response record failure must not patch old ingress recovery status.'
 );
@@ -1495,7 +1605,17 @@ const hostContinuePendingProjectionDispatcher = createResponseDispatcher({
       throw new Error('Synthetic CORE diagnostic write unavailable while source write is pending.');
     },
     readProjections() {
-      return { responseLedger: [] };
+      return {
+        ingressLedger: [{
+          id: 'ingress-response-core-host-pending-projection',
+          ingressId: 'ingress-response-core-host-pending-projection',
+          transactionId: 'txn-response-core-host-pending-projection',
+          coreTransactionId: 'txn-response-core-host-pending-projection',
+          hostMessageId: 'player-core-host-pending-projection',
+          status: 'sourceObserved'
+        }],
+        responseLedger: []
+      };
     }
   },
   getCampaignState: () => hostContinuePendingProjectionState,
@@ -1590,7 +1710,18 @@ const failureDispatcher = createResponseDispatcher({
       };
     },
     readProjections() {
-      return { sidecarDiagnostics: cloneJson(failureDiagnostics) };
+      return {
+        ingressLedger: [{
+          id: 'ingress-response-core-failure',
+          ingressId: 'ingress-response-core-failure',
+          transactionId: 'txn-response-core-failure',
+          coreTransactionId: 'txn-response-core-failure',
+          sourceFrameId: 'frame-response-core-failure',
+          hostMessageId: 'player-core-release-failure',
+          status: 'sourceObserved'
+        }],
+        sidecarDiagnostics: cloneJson(failureDiagnostics)
+      };
     }
   },
   getCampaignState: () => failureState,
@@ -1609,17 +1740,19 @@ assert.equal(failed.ok, false);
 assert.equal(failed.recoveryRequired, true);
 assert.equal(failureHostReleaseCalls, 1);
 assert.equal(failureAdvanceCalls, 2);
-const failedResponse = failureState.runtimeTracking.responseLedger.at(-1);
-assert.equal(failedResponse.status, 'coreRecoveryDiagnosticProjected');
-assert.equal(failedResponse.recoveryId, null);
-assert.equal(failedResponse.hostGenerationReleasedAt, '2026-06-28T17:01:10.000Z');
-assert.equal(failedResponse.coreReleaseError, null);
+const failureLedger = createRuntimeLedgerView(failureState);
+const failedResponse = failureLedger.responseLedger.at(-1);
+assert.equal(
+  failedResponse,
+  undefined,
+  'CORE host-release diagnostics must not mint response projection rows when CORE has no response projection.'
+);
 assert.equal(
   failureState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'coreHostContinueReleaseFailure'),
   false
 );
 assert.notEqual(
-  failureState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-failure').status,
+  failureLedger.ingressLedger.find((entry) => entry.id === 'ingress-response-core-failure').status,
   'recoveryRequired',
   'CORE-diagnostic-backed host release failure must not patch old ingress recovery status.'
 );
@@ -1629,12 +1762,12 @@ assert.equal(failureDiagnostics[0].eventType, 'coreHostContinueReleaseFailure');
 assert.equal(failureDiagnostics[0].responseId, 'response-core-bridge-failure');
 assert.equal(JSON.stringify(failureDiagnostics).includes(rawFailureReleaseMessage), false);
 assert.equal(
-  JSON.stringify(failureState.runtimeTracking.responseLedger || []).includes('diagnosticCompatibilityProjection'),
+  JSON.stringify(failureLedger.responseLedger || []).includes('diagnosticCompatibilityProjection'),
   false,
   'CORE host-release diagnostics must not persist diagnostic-only old responseLedger mirrors.'
 );
 assert.equal(
-  JSON.stringify(failureState.runtimeTracking.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
+  JSON.stringify(failureLedger.responseLedger || []).includes('directive.coreResponseDiagnosticProjectionRef.v1'),
   false,
   'CORE host-release diagnostics must stay in CORE diagnostics, not old responseLedger projection refs.'
 );
@@ -1729,7 +1862,7 @@ const unavailableObservation = await unavailableObserved({
 assert.equal(unavailableObservation.ok, false);
 assert.equal(unavailableObservation.status, 'unavailable');
 assert.equal(coreStore.state.transactions[unavailableTransaction.id].phase, 'recoveryRequired');
-const unavailableResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-unavailable');
+const unavailableResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-unavailable');
 assert.equal(unavailableResponse.status, 'unavailable');
 assert.equal(unavailableResponse.hostObservationStatus, 'unavailable');
 assert.equal(unavailableResponse.coreRecovery.phase, 'recoveryRequired');
@@ -1830,7 +1963,7 @@ const contradictionDispatch = await contradictionDispatcher.dispatch({
 assert.equal(contradictionDispatch.ok, false);
 assert.equal(contradictionDispatch.recoveryRequired, true);
 assert.equal(coreStore.state.transactions[contradictionTransaction.id].phase, 'recoveryRequired');
-const contradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-contradiction');
+const contradictionResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-contradiction');
 assert.equal(contradictionResponse.status, 'coreRecoveryProjected');
 assert.equal(contradictionResponse.coreRecovery, null);
 assert.equal(contradictionResponse.continuityReview, null);
@@ -1967,7 +2100,7 @@ const staleObservedHashDispatch = await staleObservedHashDispatcher.dispatch({
 });
 assert.equal(staleObservedHashDispatch.ok, false);
 assert.equal(staleObservedHashSreCalls.length, 1, 'Stale host textHash metadata must not force a duplicate SRE review after the first review used actual observed text.');
-const staleObservedHashResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-stale-observed-hash');
+const staleObservedHashResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-stale-observed-hash');
 assert.equal(staleObservedHashResponse.hostObservation.textHash, staleObservedHashActual);
 assert.equal(staleObservedHashResponse.hostContinuation.observedMessage.textHash, staleObservedHashActual);
 assert.notEqual(staleObservedHashResponse.hostContinuation.observedMessage.textHash, staleObservedHashMetadata);
@@ -2080,8 +2213,8 @@ assert.equal(sreReviewCalls[0].mode, 'hostNativeCompletion');
 assert.equal(sreReviewCalls[0].responseId, 'response-core-host-native-sre-owned');
 assert.equal(sreOwnedDispatch.ok, true, 'SRE ok verdict should prevent dispatcher-local continuity rejection.');
 assert.equal(sreOwnedDispatch.recoveryRequired, undefined);
-const sreOwnedResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-sre-owned');
-assert.equal(sreOwnedResponse.status, 'released');
+const sreOwnedResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-sre-owned');
+assert.equal(sreOwnedResponse.status, 'hostContinueReleased');
 assert.equal(sreOwnedResponse.continuityReview.reviewer, 'test-sre');
 assert.equal(sreOwnedResponse.continuityReview.sreReview.source.responseId, 'response-core-host-native-sre-owned');
 assert.equal(sreOwnedResponse.continuityReview.sreReview.source.ingressId, 'ingress-response-core-host-native-sre-owned');
@@ -2170,15 +2303,14 @@ const sreFailureDispatch = await sreFailureDispatcher.dispatch({
 });
 assert.equal(sreFailureDispatch.ok, false, 'SRE review failure must fail closed into recovery.');
 assert.equal(sreFailureDispatch.recoveryRequired, true);
-const sreFailureResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-sre-failure');
+const sreFailureResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-sre-failure');
 assert.equal(sreFailureResponse.status, 'coreRecoveryProjected');
 assert.equal(sreFailureResponse.recoveryId, null);
 assert.equal(sreFailureResponse.coreRecovery, null);
 assert.equal(sreFailureResponse.coreRecoveryError, null);
 assert.equal(sreFailureResponse.continuityReview, null);
-const sreFailureIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-host-native-sre-failure');
-assert.notEqual(sreFailureIngress.status, 'recoveryRequired', 'SRE failure with CORE recovery must not patch old ingress recovery status.');
-assert.equal(sreFailureIngress.recoveryId, undefined, 'SRE failure with CORE recovery must not patch old ingress recovery id.');
+const sreFailureOldIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-host-native-sre-failure');
+assert.equal(sreFailureOldIngress, undefined, 'SRE failure with CORE recovery must not patch old ingress rows.');
 const sreFailureOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => (
   entry.details?.responseId === 'response-core-host-native-sre-failure'
   && entry.type === 'hostNativeContinuityContradiction'
@@ -2292,7 +2424,7 @@ assert.equal(asyncContradictionObservation.status, 'recoveryRequired');
 assert.equal(coreStore.state.transactions[asyncContradictionTransaction.id].phase, 'recoveryRequired');
 assert.equal(coreStore.state.transactions[asyncContradictionTransaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-async-contradiction');
 assert.equal(coreStore.state.transactions[asyncContradictionTransaction.id].visibleResponseRef.textHash, hashStableJson({ text: 'Hadrik Bronn answered with a very human smile before the bridge quieted.' }));
-const asyncContradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-async-contradiction');
+const asyncContradictionResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-async-contradiction');
 assert.equal(asyncContradictionResponse.status, 'coreRecoveryProjected');
 assert.equal(asyncContradictionResponse.hostObservation.hostMessageId, 'assistant-host-native-async-contradiction');
 assert.equal(asyncContradictionResponse.hostObservation.textHash, hashStableJson({ text: 'Hadrik Bronn answered with a very human smile before the bridge quieted.' }));
@@ -2409,7 +2541,7 @@ assert.equal(reobserveContradictionResult.results[0].status, 'recoveryRequired')
 assert.equal(coreStore.state.transactions[reobserveContradictionTransaction.id].phase, 'recoveryRequired');
 assert.equal(coreStore.state.transactions[reobserveContradictionTransaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-reobserve-contradiction');
 assert.equal(coreStore.state.transactions[reobserveContradictionTransaction.id].visibleResponseRef.textHash, hashStableJson({ text: reobserveContradictionText }));
-const reobserveContradictionResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-reobserve-contradiction');
+const reobserveContradictionResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-reobserve-contradiction');
 assert.equal(reobserveContradictionResponse.status, 'coreRecoveryProjected');
 assert.equal(reobserveContradictionResponse.hostObservation.hostMessageId, 'assistant-host-native-reobserve-contradiction');
 assert.equal(reobserveContradictionResponse.coreCompletion.phase, 'visibleResponsePosted');
@@ -2791,7 +2923,7 @@ assert.deepEqual(repairOwnedCoreContinuityProjection.factUseStats[repairOwnedCom
   lastLane: 'directive.continuity.invariants',
   updatedAt: repairOwnedCompatibilityRecordedAt
 });
-const repairOwnedResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-repair-owned-contradiction');
+const repairOwnedResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-repair-owned-contradiction');
 assert.equal(repairOwnedContradictionDispatch.recoveryId, repairOwnedCoreRecovery.id);
 assert.equal(repairOwnedResponse.status, 'coreRecoveryProjected');
 assert.equal(repairOwnedResponse.recoveryId, null);
@@ -2805,9 +2937,8 @@ assert.equal(repairOwnedCoreIngress.recoveryId, repairOwnedCoreRecovery.id);
 assert.equal(repairOwnedCoreIngress.recoveryReason, 'hostNativeContinuityContradiction');
 assert.equal(repairOwnedCoreIngress.recoveryStatus, 'required');
 assert.deepEqual(repairOwnedCoreIngress.allowedActions, ['repair-owned-continuity-review']);
-const repairOwnedProjectedIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-repair-owned-contradiction');
-assert.equal(repairOwnedProjectedIngress.recoveryId, undefined);
-assert.equal(repairOwnedProjectedIngress.error, null);
+const repairOwnedOldIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-repair-owned-contradiction');
+assert.equal(repairOwnedOldIngress, undefined);
 const repairOwnedProjectedClaim = state.continuity.rejectedClaims.find((entry) => entry.id === 'generated-claim.repair-owned-projection-canary');
 assert.equal(repairOwnedProjectedClaim, undefined, 'Valid CORE-backed contradiction rejected claims must come from CORE projections, not old continuity state.');
 assert.equal(JSON.stringify(state.continuity.rejectedClaims).includes('This answer trips the REPAIR-owned continuity review.'), false);
@@ -2998,7 +3129,7 @@ assert.equal(missingDurableCoreRecovery.repairDecision.policySource, 'repair-mis
 const missingDurableOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => entry.id === missingDurableProjectionRecoveryId);
 assert.equal(missingDurableOldRecovery, undefined, 'CORE-recorded recovery should still demote old recoveryJournal when continuity projection proof is missing.');
 const missingDurableOldIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-missing-durable-projection');
-assert.equal(missingDurableOldIngress.recoveryId, undefined, 'CORE-recorded recovery should still demote old ingress recovery patch when continuity projection proof is missing.');
+assert.equal(missingDurableOldIngress, undefined, 'CORE-recorded recovery should still demote old ingress recovery patch when continuity projection proof is missing.');
 assert.equal(
   state.continuity.rejectedClaims.some((entry) => entry.id === 'generated-claim.missing-durable-projection-canary'),
   false,
@@ -3171,7 +3302,7 @@ const rawProjectionFallbackRecovery = state.runtimeTracking.recoveryJournal.find
 ));
 assert.equal(rawProjectionFallbackRecovery, undefined, 'CORE-recorded invalid raw compatibility projection must not fall back to old recoveryJournal.');
 const rawProjectionIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-raw-projection-contradiction');
-assert.equal(rawProjectionIngress.recoveryId, undefined, 'CORE-recorded invalid raw compatibility projection must not patch old ingress recovery state.');
+assert.equal(rawProjectionIngress, undefined, 'CORE-recorded invalid raw compatibility projection must not patch old ingress recovery state.');
 assert.equal(
   state.continuity.rejectedClaims.some((entry) => entry.id === 'generated-claim.raw-projection-canary'),
   false,
@@ -3318,7 +3449,7 @@ const emptyProjectionRecovery = state.runtimeTracking.recoveryJournal.find((entr
 ));
 assert.equal(emptyProjectionRecovery, undefined, 'CORE-recorded empty compatibility projection must not fall back to old recoveryJournal.');
 const emptyProjectionIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-empty-projection-contradiction');
-assert.equal(emptyProjectionIngress.recoveryId, undefined, 'CORE-recorded empty compatibility projection must not patch old ingress recovery state.');
+assert.equal(emptyProjectionIngress, undefined, 'CORE-recorded empty compatibility projection must not patch old ingress recovery state.');
 assert.equal(JSON.stringify(state).includes(emptyProjectionObservedText), false);
 assert.equal(JSON.stringify(emptyProjectionDispatch).includes(emptyProjectionObservedText), false);
 
@@ -3458,7 +3589,7 @@ const absentProjectionRecovery = state.runtimeTracking.recoveryJournal.find((ent
 ));
 assert.equal(absentProjectionRecovery, undefined, 'CORE-recorded absent compatibility projection must not fall back to old recoveryJournal.');
 const absentProjectionIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-absent-projection-contradiction');
-assert.equal(absentProjectionIngress.recoveryId, undefined, 'CORE-recorded absent compatibility projection must not patch old ingress recovery state.');
+assert.equal(absentProjectionIngress, undefined, 'CORE-recorded absent compatibility projection must not patch old ingress recovery state.');
 for (const container of [state, absentProjectionDispatch, coreStore.state]) {
   assert.equal(JSON.stringify(container).includes('RAW_ABSENT_PROJECTION_OBSERVED_TEXT_CANARY'), false);
 }
@@ -3568,14 +3699,13 @@ const writerThrowDispatch = await writerThrowDispatcher.dispatch({
 assert.equal(writerThrowDispatch.ok, false);
 assert.equal(writerThrowDispatch.recoveryRequired, true);
 assert.equal(writerThrowDispatch.recoveryId, 'recovery:continuity:response-core-writer-throw-contradiction');
-const writerThrowResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-writer-throw-contradiction');
+const writerThrowResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-writer-throw-contradiction');
 assert.equal(writerThrowResponse.status, 'coreRecoveryDiagnosticProjected');
 assert.equal(writerThrowResponse.recoveryId, null);
 assert.equal(writerThrowResponse.coreRecoveryError, null);
 assert.equal(writerThrowResponse.continuityReview, null);
 const writerThrowIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-writer-throw-contradiction');
-assert.notEqual(writerThrowIngress.status, 'recoveryRequired', 'REPAIR writer failure must not patch old ingress recovery status after CORE diagnostic is recorded.');
-assert.equal(writerThrowIngress.recoveryId, undefined, 'REPAIR writer failure must not patch old ingress recovery id after CORE diagnostic is recorded.');
+assert.equal(writerThrowIngress, undefined, 'REPAIR writer failure must not patch old ingress recovery state after CORE diagnostic is recorded.');
 const writerThrowOldRecovery = state.runtimeTracking.recoveryJournal.find((entry) => (
   entry.details?.responseId === 'response-core-writer-throw-contradiction'
   && entry.type === 'hostNativeContinuityContradiction'
@@ -3756,7 +3886,7 @@ const contradictionReleaseFailureDiagnostic = coreStore.readProjections().sideca
 assert.ok(contradictionReleaseFailureDiagnostic, 'CORE release failure must use CORE diagnostics when contradiction recovery already owns the response.');
 assert.equal(contradictionReleaseFailureDiagnostic.eventType, 'coreHostContinueReleaseFailure');
 const contradictionReleaseFailureIngress = state.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-response-core-contradiction-release-failure');
-assert.equal(contradictionReleaseFailureIngress.recoveryId, undefined);
+assert.equal(contradictionReleaseFailureIngress, undefined);
 const contradictionReleaseFailureCoreIngress = coreStore.readProjections().ingressLedger.find((entry) => (
   entry.transactionId === contradictionReleaseFailureTransaction.id
 ));
@@ -3995,7 +4125,7 @@ const failedObservation = await failedObserved({
 assert.equal(failedObservation.ok, false);
 assert.equal(failedObservation.status, 'responseRetryRequired');
 assert.equal(coreStore.state.transactions[failedTransaction.id].phase, 'responseRetryRequired');
-const failedHostNativeResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-failed');
+const failedHostNativeResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-failed');
 assert.equal(failedHostNativeResponse.status, 'responseRetryRequired');
 assert.equal(failedHostNativeResponse.authority, 'compatibilityProjection');
 assert.equal(failedHostNativeResponse.projectionSource, 'coreStoreV2');
@@ -4046,8 +4176,8 @@ assert.equal(retryCompletionObservation.ok, true);
 assert.equal(retryCompletionObservation.status, 'complete');
 assert.equal(coreStore.state.transactions[failedTransaction.id].phase, 'visibleResponsePosted');
 assert.equal(coreStore.state.transactions[failedTransaction.id].visibleResponseRef.hostMessageId, 'assistant-host-native-retry-1');
-const retriedHostNativeResponse = state.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-core-host-native-failed');
-assert.equal(retriedHostNativeResponse.status, 'complete');
+const retriedHostNativeResponse = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === 'response-core-host-native-failed');
+assert.equal(retriedHostNativeResponse.status, 'posted');
 assert.equal(retriedHostNativeResponse.authority, 'compatibilityProjection');
 assert.equal(retriedHostNativeResponse.projectionSource, 'coreStoreV2');
 assert.equal(retriedHostNativeResponse.coreProjection.status, 'posted');
@@ -4183,7 +4313,7 @@ async function exerciseDelayedRecoveryReobserve({
     observationStatus === 'failed' ? 'responseRetryRequired' : 'recoveryRequired',
     `${label}: CORE should enter expected recovery phase`
   );
-  const responseAfterRecovery = state.runtimeTracking.responseLedger.find((entry) => entry.id === responseId);
+  const responseAfterRecovery = [...runtimeLedger(state).responseLedger].reverse().find((entry) => entry.id === responseId);
   assert.equal(
     responseAfterRecovery.status,
     observationStatus === 'failed' ? 'responseRetryRequired' : 'unavailable',
@@ -4209,8 +4339,13 @@ async function exerciseDelayedRecoveryReobserve({
   assert.equal(reobserve.completedCount, 1, `${label}: delayed reobserve should count one completion`);
   assert.equal(coreStore.state.transactions[txn.id].phase, 'visibleResponsePosted', `${label}: CORE should close to visible response`);
   assert.equal(coreStore.state.transactions[txn.id].visibleResponseRef.hostMessageId, assistantHostMessageId);
-  const responseAfterReobserve = state.runtimeTracking.responseLedger.find((entry) => entry.id === responseId);
-  assert.equal(responseAfterReobserve.status, 'complete', `${label}: old response projection should close`);
+  const responseAfterReobserve = [...runtimeLedger(state).responseLedger].reverse().find((entry) => (
+    entry.id === responseId
+    || entry.responseId === responseId
+    || entry.coreTransactionId === txn.id
+    || entry.transactionId === txn.id
+  ));
+  assert.equal(responseAfterReobserve.status, 'posted', `${label}: old response projection should close`);
   assert.equal(responseAfterReobserve.authority, 'compatibilityProjection', `${label}: old response row should remain mirror-only`);
   assert.equal(responseAfterReobserve.compatibilityMirror.kind, 'directive.coreResponseCompatibilityMirror.v1', `${label}: old response row should name mirror contract`);
   assert.equal(responseAfterReobserve.compatibilityMirror.source, 'coreStoreV2', `${label}: old response row should mirror CORE`);
@@ -4222,7 +4357,7 @@ async function exerciseDelayedRecoveryReobserve({
   assert.equal(recoveryAfterReobserve, undefined, `${label}: delayed reobserve must not recreate old recoveryJournal`);
   assert.equal(JSON.stringify(responseAfterReobserve).includes(assistantText), false, `${label}: old response projection should not persist raw assistant text`);
   const projections = await readCoreStoreProjectionsV2(adapter, { campaignId, saveId });
-  const projectedResponse = projections.responseLedger.find((entry) => entry.transactionId === txn.id);
+  const projectedResponse = coreProjectionResponses(projections).find((entry) => entry.transactionId === txn.id);
   assert.equal(projectedResponse.hostMessageId, assistantHostMessageId, `${label}: CORE response projection should carry host id`);
   assert.equal(projectedResponse.textHash, hashStableJson({ text: assistantText }), `${label}: CORE response projection should carry hash`);
   const projectedResolution = projections.recoveryJournal.find((entry) => (
