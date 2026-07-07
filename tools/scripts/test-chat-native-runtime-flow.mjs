@@ -418,7 +418,12 @@ assert.equal(host.chat.calls().filter((entry) => entry.type === 'createOrBindCam
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
 assert.equal(host.prompt.inspect().status, 'installed');
 assert(host.prompt.inspect().blockCount > 0);
-assert(host.prompt.inspect().blockCount <= 13);
+assert(host.prompt.inspect().blockCount <= 14);
+assert.equal(
+  host.prompt.inspect().blocks.some((block) => block.promptKey === 'directive.campaign.turn-yield'),
+  true,
+  'Activation prompt should include turn-yield pacing contract.'
+);
 assert.equal(view.promptInspection.blockCount, host.prompt.inspect().blockCount);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
 assert.equal(generationRoleCount('continuityProjectionPlanner'), 1, 'Activation prompt installation should use the continuity planner once.');
