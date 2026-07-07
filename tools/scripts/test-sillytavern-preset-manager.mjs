@@ -89,10 +89,16 @@ const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', '
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
 assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.10');
+assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-past')?.enabled, true);
+assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-present')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-second-external')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-first-non-player')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.enabled, true);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
+  /Write in \{\{getvar::directive_tense\}\}, \{\{getvar::directive_pov\}\}/
+);
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
   /only \{\{user\}\} speaks, acts, decides, and thinks/
@@ -215,6 +221,8 @@ const secondPersonAsset = JSON.parse(JSON.stringify(asset));
 for (const entry of secondPersonAsset.prompt_order[0].order) {
   if (entry.identifier === 'directive-pov-third-limited') entry.enabled = false;
   if (entry.identifier === 'directive-pov-second-external') entry.enabled = true;
+  if (entry.identifier === 'directive-tense-past') entry.enabled = false;
+  if (entry.identifier === 'directive-tense-present') entry.enabled = true;
 }
 const secondPersonContext = directiveNarrationContextFromPreset(secondPersonAsset, {
   presetName: 'Directive',
@@ -224,7 +232,9 @@ assert.equal(secondPersonContext.compatible, true);
 assert.equal(secondPersonContext.source, 'active-directive-preset');
 assert.equal(secondPersonContext.perspectivePromptId, 'directive-pov-second-external');
 assert.match(secondPersonContext.perspective, /second person external/);
-assert.match(secondPersonContext.instructions, /Default perspective: second person external/);
+assert.equal(secondPersonContext.tensePromptId, 'directive-tense-present');
+assert.equal(secondPersonContext.tense, 'present tense');
+assert.match(secondPersonContext.instructions, /Write in present tense, second person external/);
 
 const unrelatedContext = directiveNarrationContextFromPreset({
   prompts: [{ identifier: 'alien-main', content: 'Write as an unrelated preset.' }],
@@ -233,6 +243,7 @@ const unrelatedContext = directiveNarrationContextFromPreset({
 assert.equal(unrelatedContext.compatible, false);
 assert.equal(unrelatedContext.source, 'unrelated-active-preset');
 assert.equal(unrelatedContext.perspective, DIRECTIVE_DEFAULT_POV_RULE);
+assert.equal(unrelatedContext.tense, 'past tense');
 
 const missingManager = createPresetManager();
 assert.equal(directivePresetStatus({ manager: missingManager }).state, 'missing');

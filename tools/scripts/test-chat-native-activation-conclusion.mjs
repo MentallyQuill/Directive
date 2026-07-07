@@ -32,16 +32,23 @@ const secondPersonNarrationContext = {
   activePresetName: 'Directive',
   compatible: true,
   source: 'active-directive-preset',
+  tense: 'present tense',
   perspective: 'second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.',
-  instructions: '# Player Agency And Perspective\nDefault perspective: second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.\n\nOnly the user speaks, acts, decides, and thinks for the player command character.',
+  instructions: '# Player Agency And Perspective\nWrite in present tense, second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.\n\nOnly the user speaks, acts, decides, and thinks for the player command character.',
+  tensePromptId: 'directive-tense-present',
   perspectivePromptId: 'directive-pov-second-external',
-  promptIdentifiers: ['directive-pov-second-external', 'directive-player-agency-perspective']
+  promptIdentifiers: ['directive-tense-present', 'directive-pov-second-external', 'directive-player-agency-perspective']
 };
+let forcePlanningIntroOnce = false;
 const generationRouter = {
   async generate(roleId, request = {}) {
     generationCalls.push(roleId);
     generationRequests.push({ roleId, request: cloneJson(request) });
     if (roleId === 'campaignIntro') {
+      if (forcePlanningIntroOnce) {
+        forcePlanningIntroOnce = false;
+        return { ok: true, response: { text: 'The user wants me to write an opening message. Let me carefully review all constraints before drafting.' } };
+      }
       const introCount = generationCalls.filter((role) => role === 'campaignIntro').length;
       const text = introCount === 1
         ? 'The Breckenridge receives its new executive officer. Captain Whitaker yields the deck, and the bridge waits for the commander\'s first order.'
@@ -278,7 +285,9 @@ assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null
 assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision > 0, true);
 const introRequest = generationRequests.find((entry) => entry.roleId === 'campaignIntro')?.request;
 assert.match(introRequest.messages[0].content, /second person external/);
+assert.match(introRequest.messages[0].content, /present tense/);
 assert.match(introRequest.prompt, /This model call happens outside normal host preset assembly/);
+assert.match(introRequest.prompt, /Resolved tense: present tense/);
 assert.match(introRequest.prompt, /Do not replace the player arrival or handoff with the captain arriving/);
 assert.match(introRequest.prompt, /The crew has spent twenty-five days underway together/);
 assert.match(introRequest.prompt, /final ten days before the Asterion Reach/);
@@ -297,6 +306,8 @@ assert.match(introRequest.prompt, /Tactical, Operations, and Engineering wear mu
 assert.match(introRequest.prompt, /Temporary acting-XO duty does not change an officer's division color/);
 assert.equal(introRequest.metadata.narrationContext.source, 'active-directive-preset');
 assert.equal(activated.introPacket.narrationContext.perspectivePromptId, 'directive-pov-second-external');
+assert.equal(activated.introPacket.narrationContext.tensePromptId, 'directive-tense-present');
+assert.equal(activated.introPacket.narrationContext.tense, 'present tense');
 assert.equal(activated.activationJournal.steps.introGenerated.details.narrationContext.perspectivePromptId, 'directive-pov-second-external');
 const initialActivationPhases = activationActivity.map((event) => event.phase);
 assert.equal(initialActivationPhases[0], 'activationStarting');
@@ -354,7 +365,56 @@ const rewriteActivityPhases = activationActivity.slice(activityCountBeforeRewrit
 assert.deepEqual(rewriteActivityPhases, ['introRewriteGenerating', 'introRewritePosting', 'introRewriteComplete']);
 assert.equal(activationActivity.at(-1)?.jobId, `campaignIntroRewrite:${rewrittenIntro.activationJournal.activationId}:${rewrittenIntro.campaignState.campaignChatBinding.introMessageId}`);
 
+const planningFilteredChat = createFakeChatAdapter({ chatId: 'planning-filter-chat' });
+const planningFilteredPrompt = createFakePromptAdapter();
+const planningFilteredPromptLifecycle = createInjectedPromptLifecycle(planningFilteredPrompt);
+const planningFilteredActivation = createCampaignActivationCoordinator({
+  host: {
+    chat: planningFilteredChat,
+    prompt: planningFilteredPrompt,
+    presets: {
+      getNarrationContext() {
+        return cloneJson(secondPersonNarrationContext);
+      }
+    }
+  },
+  generationRouter,
+  installPromptContext: planningFilteredPromptLifecycle.installPromptContext,
+  suspendPromptContext: planningFilteredPromptLifecycle.suspendPromptContext,
+  now
+});
+const planningState = {
+  ...cloneJson(retriedActivation.campaignState),
+  campaign: {
+    ...cloneJson(retriedActivation.campaignState.campaign),
+    id: 'campaign-planning-filter-test'
+  },
+  campaignChatBinding: cloneJson(retriedActivation.campaignState.campaignChatBinding),
+  activationJournal: cloneJson(retriedActivation.activationJournal)
+};
+const planningFilteredPost = await planningFilteredChat.postAssistantMessage({
+  text: '*Stardate 53049.2 | 0830 hours*\n\n# Ashes of Peace\n\nOriginal intro.',
+  campaignId: planningState.campaign.id,
+  responseKind: 'campaignIntro',
+  idempotencyKey: 'planning-filter-original'
+});
+planningState.campaignChatBinding.introMessageId = planningFilteredPost.hostMessageId;
+forcePlanningIntroOnce = true;
+const planningFilteredRewrite = await planningFilteredActivation.rewriteIntro({
+  campaignState: planningState,
+  packageData,
+  shipDataset,
+  hostMessageId: planningFilteredPost.hostMessageId,
+  reason: 'test-planning-filter'
+});
+assert.equal(planningFilteredRewrite.ok, true);
+const planningFilteredMessage = planningFilteredChat.messages().find((message) => message.hostMessageId === planningFilteredPost.hostMessageId);
+assert.equal(planningFilteredMessage.swipes.length, 2);
+assert.doesNotMatch(planningFilteredMessage.swipes[1], /The user wants me|Let me carefully review/);
+assert.equal(planningFilteredRewrite.introPacket.fallbackReason, 'intro-prose-visible-planning-or-reasoning-marker');
+
 chat.pushPlayerMessage({ text: 'Take us in, helm.', hostMessageId: 'player-after-intro' });
+const campaignIntroCallsBeforeBlockedRewrite = generationCalls.filter((role) => role === 'campaignIntro').length;
 const blockedIntroRewrite = await activation.rewriteIntro({
   campaignState: rewrittenIntro.campaignState,
   packageData,
@@ -363,7 +423,7 @@ const blockedIntroRewrite = await activation.rewriteIntro({
 });
 assert.equal(blockedIntroRewrite.ok, false);
 assert.equal(blockedIntroRewrite.reason, 'player-message-exists');
-assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 2);
+assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, campaignIntroCallsBeforeBlockedRewrite);
 assert.equal(chat.calls().filter((entry) => entry.type === 'appendAssistantMessageSwipe').length, 1);
 
 const flakyBaseChat = createFakeChatAdapter({ chatId: 'flaky-setup-chat' });

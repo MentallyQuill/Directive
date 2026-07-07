@@ -329,6 +329,30 @@
       "forbid_overrides": true
     },
     {
+      "name": "Directive Tense: Past",
+      "system_prompt": true,
+      "role": "system",
+      "content": "{{setvar::directive_tense::past tense}}",
+      "identifier": "directive-tense-past",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 11,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
+      "name": "Directive Tense: Present",
+      "system_prompt": true,
+      "role": "system",
+      "content": "{{setvar::directive_tense::present tense}}",
+      "identifier": "directive-tense-present",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 12,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
       "name": "Directive POV: 3rd Limited",
       "system_prompt": true,
       "role": "system",
@@ -336,7 +360,7 @@
       "identifier": "directive-pov-third-limited",
       "injection_position": 0,
       "injection_depth": 0,
-      "injection_order": 11,
+      "injection_order": 13,
       "injection_trigger": [],
       "forbid_overrides": true
     },
@@ -348,7 +372,7 @@
       "identifier": "directive-pov-second-external",
       "injection_position": 0,
       "injection_depth": 0,
-      "injection_order": 12,
+      "injection_order": 14,
       "injection_trigger": [],
       "forbid_overrides": true
     },
@@ -360,7 +384,7 @@
       "identifier": "directive-pov-first-non-player",
       "injection_position": 0,
       "injection_depth": 0,
-      "injection_order": 13,
+      "injection_order": 15,
       "injection_trigger": [],
       "forbid_overrides": true
     },
@@ -368,11 +392,11 @@
       "name": "Directive Player Agency And Perspective",
       "system_prompt": true,
       "role": "system",
-      "content": "# Player Agency And Perspective\nDefault perspective: {{getvar::directive_pov}}\n\nUnless Directive-injected narrator constraints, the active package, or {{user}} explicitly requests a non-canon draft, only {{user}} speaks, acts, decides, and thinks for the player's command character. Do not write the player's dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nPlayer input is not automatically audible. A turn may contain narration, stage direction, planning, private inner monologue, OOC text, and quoted speech. Treat only explicit dialogue, spoken orders, commbadge or subspace transmissions, or clearly marked mental projection as in-scene communication other characters can perceive.\n\nIf the player's turn mixes inner narration and spoken words, characters may hear only the quoted or directly marked speech. They may infer from visible behavior, but they must not answer, quote, or react to the player's private typed thoughts as if those thoughts were spoken.\n\nYou may describe only what others can observe about the player's command character: words already written by {{user}}, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player's choice, stop at a command-relevant opening instead of filling in the choice.",
+      "content": "# Player Agency And Perspective\nWrite in {{getvar::directive_tense}}, {{getvar::directive_pov}}.\n\nUnless Directive-injected narrator constraints, the active package, or {{user}} explicitly requests a non-canon draft, only {{user}} speaks, acts, decides, and thinks for the player's command character. Do not write the player's dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nPlayer input is not automatically audible. A turn may contain narration, stage direction, planning, private inner monologue, OOC text, and quoted speech. Treat only explicit dialogue, spoken orders, commbadge or subspace transmissions, or clearly marked mental projection as in-scene communication other characters can perceive.\n\nIf the player's turn mixes inner narration and spoken words, characters may hear only the quoted or directly marked speech. They may infer from visible behavior, but they must not answer, quote, or react to the player's private typed thoughts as if those thoughts were spoken.\n\nYou may describe only what others can observe about the player's command character: words already written by {{user}}, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player's choice, stop at a command-relevant opening instead of filling in the choice.",
       "identifier": "directive-player-agency-perspective",
       "injection_position": 0,
       "injection_depth": 0,
-      "injection_order": 14,
+      "injection_order": 16,
       "injection_trigger": [],
       "forbid_overrides": true
     },
@@ -569,6 +593,8 @@
       "order": [
         { "identifier": "main", "enabled": true },
         { "identifier": "directive-starfleet-command-frame", "enabled": true },
+        { "identifier": "directive-tense-past", "enabled": true },
+        { "identifier": "directive-tense-present", "enabled": false },
         { "identifier": "directive-pov-third-limited", "enabled": true },
         { "identifier": "directive-pov-second-external", "enabled": false },
         { "identifier": "directive-pov-first-non-player", "enabled": false },

@@ -144,6 +144,32 @@ function introPerspectiveMode(narrationContext) {
   return directiveNarrationPerspectiveMode(narrationContext);
 }
 
+function introProseRejectionReason(text = '') {
+  const source = String(text || '').trim();
+  if (!source) return 'empty-intro-prose';
+  const normalized = source.replace(/\s+/g, ' ').trim().toLowerCase();
+  const planningMarkers = [
+    /^the user wants me to\b/,
+    /^the user asked me to\b/,
+    /^i (?:need|should|will) (?:to )?(?:write|draft|review|analyze|make|include|establish|start|use)\b/,
+    /^i need to be careful\b/,
+    /^i should not write\b/,
+    /^let me (?:carefully )?(?:review|write|draft|think|analyze)\b/,
+    /^key facts to establish\b/,
+    /^constraints to follow\b/,
+    /^draft(?:ing)? plan\b/,
+    /^analysis\b/,
+    /^reasoning\b/
+  ];
+  if (planningMarkers.some((pattern) => pattern.test(normalized))) {
+    return 'intro-prose-visible-planning-or-reasoning-marker';
+  }
+  if (/\b(?:let me carefully review|key facts to establish|i should not write|i need to be careful)\b/.test(normalized)) {
+    return 'intro-prose-visible-planning-or-reasoning-marker';
+  }
+  return null;
+}
+
 function playerLabel(player = {}) {
   return compact([player.rank || 'Commander', player.name || ''].filter(Boolean).join(' ')) || 'the incoming commander';
 }
@@ -455,7 +481,9 @@ async function generateIntro({
     'Narration perspective contract:',
     resolvedNarrationContext.instructions,
     '',
+    `Resolved tense: ${resolvedNarrationContext.tense}`,
     `Resolved perspective: ${resolvedNarrationContext.perspective}`,
+    `Resolved style: Write in ${resolvedNarrationContext.tense}, ${resolvedNarrationContext.perspective}.`,
     `Perspective source: ${resolvedNarrationContext.source}${resolvedNarrationContext.activePresetName ? ` (${resolvedNarrationContext.activePresetName})` : ''}`,
     resolvedNarrationContext.reason ? `Source note: ${resolvedNarrationContext.reason}` : ''
   ].filter(Boolean).join('\n');
@@ -533,6 +561,13 @@ async function generateIntro({
     return {
       ...fallback,
       fallbackReason: generated?.error?.message || 'Intro provider returned empty text.'
+    };
+  }
+  const proseRejectionReason = introProseRejectionReason(responseText);
+  if (proseRejectionReason) {
+    return {
+      ...fallback,
+      fallbackReason: proseRejectionReason
     };
   }
   return {

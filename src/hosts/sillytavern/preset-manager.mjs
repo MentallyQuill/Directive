@@ -13,9 +13,11 @@ export const DIRECTIVE_LEGACY_PRESET_NAMES = Object.freeze([
   'directive-star-trek-command'
 ]);
 export const DIRECTIVE_DEFAULT_POV_RULE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
-export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nDefault perspective: third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. Typed narration, planning notes, stage direction, and private inner monologue are not audible. Treat only explicit dialogue, spoken orders, transmissions, or established telepathic contact as information other characters can perceive. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
+export const DIRECTIVE_DEFAULT_TENSE_RULE = 'past tense';
+export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nWrite in past tense, third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. Typed narration, planning notes, stage direction, and private inner monologue are not audible. Treat only explicit dialogue, spoken orders, transmissions, or established telepathic contact as information other characters can perceive. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
 
 const VERSION_PATTERN = /(?:Directive[-\s]*)?v?(\d+(?:\.\d+){0,3})(?:-([0-9A-Za-z.-]+))?/i;
+const DIRECTIVE_TENSE_VARIABLE = 'directive_tense';
 const DIRECTIVE_POV_VARIABLE = 'directive_pov';
 const DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER = 'directive-player-agency-perspective';
 const DIRECTIVE_POV_PROMPT_PREFIX = 'directive-pov-';
@@ -135,6 +137,17 @@ function extractDirectivePov(content) {
   return value;
 }
 
+function extractDirectiveTense(content) {
+  const source = String(content || '');
+  const pattern = new RegExp(`\\{\\{setvar::${DIRECTIVE_TENSE_VARIABLE}::([\\s\\S]*?)\\}\\}`, 'gi');
+  let match = null;
+  let value = '';
+  while ((match = pattern.exec(source))) {
+    value = compactText(match[1]);
+  }
+  return value;
+}
+
 function activePromptContent(preset, identifier) {
   return orderedPresetPrompts(preset)
     .find((entry) => entry.enabled && entry.identifier === identifier)
@@ -160,6 +173,14 @@ function compatibleDirectivePreset(preset, presetName = '') {
     && Boolean(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER));
 }
 
+function missingDirectiveStyleReason({ tense = '', perspective = '' } = {}) {
+  const missing = [];
+  if (!tense) missing.push('directive_tense');
+  if (!perspective) missing.push('directive_pov');
+  if (missing.length === 0) return null;
+  return `Directive-compatible preset did not expose enabled ${missing.join(' and ')} value${missing.length === 1 ? '' : 's'}; Directive default style applied.`;
+}
+
 export function directiveNarrationContextFromPreset(preset, { presetName = '', roleId = 'campaignIntro' } = {}) {
   const base = {
     kind: 'directive.narrationPresetContext',
@@ -167,6 +188,7 @@ export function directiveNarrationContextFromPreset(preset, { presetName = '', r
     activePresetName: presetName || null,
     compatible: false,
     source: 'directive-default',
+    tense: DIRECTIVE_DEFAULT_TENSE_RULE,
     perspective: DIRECTIVE_DEFAULT_POV_RULE,
     instructions: DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE,
     promptIdentifiers: [],
@@ -188,19 +210,28 @@ export function directiveNarrationContextFromPreset(preset, { presetName = '', r
   }
 
   let perspective = '';
+  let tense = '';
   let perspectivePromptId = null;
+  let tensePromptId = null;
   const promptIdentifiers = [];
   for (const entry of orderedPresetPrompts(preset)) {
     if (!entry.enabled) continue;
     promptIdentifiers.push(entry.identifier);
+    const nextTense = extractDirectiveTense(entry.prompt?.content);
+    if (nextTense) {
+      tense = nextTense;
+      tensePromptId = entry.identifier;
+    }
     const nextPov = extractDirectivePov(entry.prompt?.content);
     if (nextPov) {
       perspective = nextPov;
       perspectivePromptId = entry.identifier;
     }
   }
+  const resolvedTense = tense || DIRECTIVE_DEFAULT_TENSE_RULE;
   const resolvedPerspective = perspective || DIRECTIVE_DEFAULT_POV_RULE;
   const playerAgency = compactText(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER))
+    .replace(new RegExp(`\\{\\{getvar::${DIRECTIVE_TENSE_VARIABLE}\\}\\}`, 'gi'), resolvedTense)
     .replace(new RegExp(`\\{\\{getvar::${DIRECTIVE_POV_VARIABLE}\\}\\}`, 'gi'), resolvedPerspective)
     .replace(/\{\{user\}\}/g, 'the user');
   const instructions = playerAgency || DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE;
@@ -210,13 +241,13 @@ export function directiveNarrationContextFromPreset(preset, { presetName = '', r
     source: directivePresetMetadata(preset).supportsDirectiveRuntime || String(presetName || '').trim().toLowerCase() === DIRECTIVE_PRESET_NAME.toLowerCase()
       ? 'active-directive-preset'
       : 'active-compatible-preset',
+    tense: resolvedTense,
     perspective: resolvedPerspective,
     instructions,
     promptIdentifiers,
+    tensePromptId,
     perspectivePromptId,
-    reason: perspective
-      ? null
-      : 'Directive-compatible preset did not expose an enabled directive_pov value; Directive default perspective applied.'
+    reason: missingDirectiveStyleReason({ tense, perspective })
   };
 }
 
