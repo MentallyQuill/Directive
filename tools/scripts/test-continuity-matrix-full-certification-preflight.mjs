@@ -387,7 +387,7 @@ function writeLaneArtifacts(root, {
         }
       },
       {
-        id: 'live-smoke-52-turn-delegation',
+        id: 'live-smoke-certification-delegation',
         status: liveSmokeDelegationStatus,
         summary: liveSmokeDelegationStatus === 'pass'
           ? `Delegated lane completed the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn certification script.`

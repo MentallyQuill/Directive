@@ -285,7 +285,7 @@ function summarizeLaneForPreflight(lane = {}, aggregateRoot = '') {
   });
   const depthOnlyWarnings = laneDepthOnlyWarnings(report);
   const laneNonPassingChecks = nonPassingChecks(report);
-  const liveSmokeDelegationStatus = checkStatus(report, 'live-smoke-52-turn-delegation');
+  const liveSmokeDelegationStatus = checkStatus(report, 'live-smoke-certification-delegation');
   const releaseStatuses = [
     artifactCompleteness.status === 'pass' ? 'pass' : 'fail',
     externalContextGeneration.status === 'pass' ? 'pass' : 'fail',

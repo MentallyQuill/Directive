@@ -557,9 +557,9 @@ function writePassingLaneArtifacts(root, {
       }] : []),
       {
         id: 'live-execution-turn-limit',
-        status: turnLimit ? 'warning' : 'pass',
-        summary: turnLimit ? `limited to ${turnLimit}` : 'full run',
-        details: { turnLimit, fullTurnCount: 52 }
+        status: turnLimit && Number(turnLimit) !== 25 ? 'warning' : 'pass',
+        summary: turnLimit && Number(turnLimit) !== 25 ? `limited to ${turnLimit}` : '25-turn certification run',
+        details: { turnLimit: turnLimit ? Number(turnLimit) : 25, fullTurnCount: 25 }
       }
     ],
     warnings: [],
@@ -1677,8 +1677,8 @@ const preRequiredHostCompletionSummary = summarizeHostNativeCompletionProof({
 assert.equal(preRequiredHostCompletionSummary.status, 'pass');
 
 const fullRoot = makeArtifactRoot();
-writePassingLaneArtifacts(fullRoot, { promptCaptureCount: 52 });
-for (let turn = 2; turn <= 52; turn += 1) {
+writePassingLaneArtifacts(fullRoot, { turnLimit: 25, promptCaptureCount: 25 });
+for (let turn = 2; turn <= 25; turn += 1) {
   writeJson(path.join(fullRoot, 'fact-checks', `soak-turn-${String(turn).padStart(2, '0')}`, 'fact-check.json'), {
     status: 'pass',
     counts: {
@@ -1694,12 +1694,12 @@ for (let turn = 2; turn <= 52; turn += 1) {
 const reusableFullLane = summarizeReusableContinuityMatrixLane({
   lane: lanes[0],
   artifactRoot: fullRoot,
-  turnLimit: null
+  turnLimit: 25
 });
 assert.equal(reusableFullLane.reused, true);
 assert.equal(reusableFullLane.status, 'pass');
-assert.equal(reusableFullLane.artifactCompleteness.generationPromptFileCount, 52);
-assert.equal(reusableFullLane.artifactCompleteness.expectedPromptInspectionCount, 52);
+assert.equal(reusableFullLane.artifactCompleteness.generationPromptFileCount, 25);
+assert.equal(reusableFullLane.artifactCompleteness.expectedPromptInspectionCount, 25);
 assert.equal(reusableFullLane.artifactCompleteness.promptInspectionDepthMissing, false);
 assert.equal(reusableFullLane.artifactCompleteness.externalContextSummaryPresent, true);
 assert.equal(reusableFullLane.artifactCompleteness.externalContextSummary.timingCoverage.timedTargetCount, 4);
@@ -1846,8 +1846,8 @@ assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missi
 assert.equal(placeholderExternalSummaryCompleteness.externalContextSummary.missingFields.includes('aggregate.timingCoverage.targetsWithTiming'), false);
 
 const partialFullPromptDepthRoot = makeArtifactRoot();
-writePassingLaneArtifacts(partialFullPromptDepthRoot, { promptCaptureCount: 1 });
-for (let turn = 2; turn <= 52; turn += 1) {
+writePassingLaneArtifacts(partialFullPromptDepthRoot, { turnLimit: 25, promptCaptureCount: 1 });
+for (let turn = 2; turn <= 25; turn += 1) {
   writeJson(path.join(partialFullPromptDepthRoot, 'fact-checks', `soak-turn-${String(turn).padStart(2, '0')}`, 'fact-check.json'), {
     status: 'pass',
     counts: {
@@ -1862,17 +1862,17 @@ for (let turn = 2; turn <= 52; turn += 1) {
 }
 const partialFullPromptDepth = summarizeLaneArtifactCompleteness({
   artifactRoot: partialFullPromptDepthRoot,
-  turnLimit: null
+  turnLimit: 25
 });
 assert.equal(partialFullPromptDepth.status, 'warning');
 assert.equal(partialFullPromptDepth.generationPromptFileCount, 1);
-assert.equal(partialFullPromptDepth.expectedPromptInspectionCount, 52);
+assert.equal(partialFullPromptDepth.expectedPromptInspectionCount, 25);
 assert.equal(partialFullPromptDepth.promptInspectionDepthMissing, true);
 assert.equal(partialFullPromptDepth.factCheckDepthMissing, false);
 assert.equal(summarizeReusableContinuityMatrixLane({
   lane: lanes[0],
   artifactRoot: partialFullPromptDepthRoot,
-  turnLimit: null
+  turnLimit: 25
 }), null);
 
 const boundedRoot = makeArtifactRoot();

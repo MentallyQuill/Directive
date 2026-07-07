@@ -1797,7 +1797,7 @@ assert.equal(campaignMatrixCanaries.every((script) => script.requiredLiveChecks.
 assert.equal(campaignMatrixCanaries.every((script) => script.requiredLiveChecks.includes('cross-campaign-isolation')), true);
 assert.equal(campaignMatrixCanaries.every((script) => script.requiredLiveChecks.includes('save-load-preserves-package')), true);
 assert.equal(
-  campaignMatrixCanaries.some((script) => script.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace' && script.coverageNotes.some((note) => /52-turn full soak/i.test(note))),
+  campaignMatrixCanaries.some((script) => script.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace' && script.coverageNotes.some((note) => /25-turn five-user certification/i.test(note))),
   true
 );
 
@@ -1844,7 +1844,7 @@ const liveCertificationSummary = buildReleaseCertificationSummary({
   mode: 'live',
   status: 'pass',
   strictModePolicy: strictModePolicy({ enabled: true }),
-  checks: [{ id: 'live-smoke-52-turn-delegation', status: 'pass', summary: 'live ok' }],
+  checks: [{ id: 'live-smoke-certification-delegation', status: 'pass', summary: 'live ok' }],
   campaignMatrix: SOAK_CAMPAIGN_MATRIX,
   phases: SOAK_PHASES,
   turnScript: SOAK_TURN_SCRIPT,

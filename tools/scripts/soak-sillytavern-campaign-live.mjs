@@ -1394,7 +1394,7 @@ export function buildSoakChatMessageScript({ turnScript = SOAK_TURN_SCRIPT, turn
       expectedResponseStrategy: message.expectedResponseStrategy || null
     }));
   const coverageLimitations = [
-    'This delegated live path sends 52 strict chat turns through SillyTavern and verifies ingress/model/response behavior.',
+    `This delegated live path sends the selected strict chat turns through SillyTavern and verifies ingress/model/response behavior; five-user release certification is the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn coordinator run.`,
     'Continuity Projection Matrix evidence requires prompt-key/source-id proof and the five-user CPM coordinator for full certification.',
     'Host-native edit/delete/message-action mutation phases still require specialized live mutation runners.',
     'Terminal End Condition branches still require the terminal endings live smoke or dedicated branch fixtures.'
@@ -1482,7 +1482,7 @@ export function buildCampaignMatrixCanaryScripts({
         'Run this script through the real SillyTavern campaign-start path with live model calls.',
         'Verify library visibility, fresh campaign start, chat binding, package-local prompt context, first model turn, factual canaries, objective projection, Scene Handshake, timekeeping, save/load, and cross-campaign isolation.',
         campaign.liveCoverage === 'full-soak-rotation-primary'
-          ? 'This primary campaign still requires the separate 52-turn full soak for release certification.'
+          ? `This primary campaign still requires the separate ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn five-user certification run for release certification.`
           : 'This short canary does not replace a future full-soak rotation for this campaign.'
       ]
     };
@@ -3122,7 +3122,7 @@ export function buildReleaseCertificationSummary(report = {}) {
     evidenceGate({
       id: 'live-chat-soak',
       label: 'Live chat-native soak',
-      check: checkById.get('live-smoke-52-turn-delegation') || null,
+      check: checkById.get('live-smoke-certification-delegation') || null,
       planned: Array.isArray(report.turnScript) && report.turnScript.length > 0,
       evidence: {
         plannedTurns: report.turnScript?.length || 0,
@@ -3797,7 +3797,7 @@ function summaryMarkdown(report) {
   if (isLive) {
     lines.push('Review delegated smoke artifacts, then run specialized host edit/delete/message-action and terminal-ending runners for phases that cannot be proven by plain chat turns.');
   } else {
-    lines.push('Run with DIRECTIVE_LIVE_CAMPAIGN_SOAK=1 to delegate the 52-turn third-person chat script to the strict SillyTavern smoke; use specialized mutation runners for host edit/delete/message-action phases.');
+    lines.push(`Run with DIRECTIVE_LIVE_CAMPAIGN_SOAK=1 and DIRECTIVE_SOAK_TURN_LIMIT=${FIVE_USER_CERTIFICATION_TURN_COUNT} to delegate the approved certification-depth third-person chat script to the strict SillyTavern smoke; use specialized mutation runners for host edit/delete/message-action phases.`);
   }
   lines.push('');
   return `${lines.join('\n')}\n`;
@@ -5634,7 +5634,7 @@ async function runLiveExecution(report) {
 
   if (report.status === 'fail') {
     report.checks.push(check(
-      'live-smoke-52-turn-delegation',
+      'live-smoke-certification-delegation',
       'fail',
       'Live chat-native soak delegation did not launch because preflight checks failed.',
       { messageScriptPath }
@@ -5669,7 +5669,7 @@ async function runLiveExecution(report) {
   appendJsonLine(report.artifacts.liveLog, {
     kind: 'phase-start',
     status: 'in_progress',
-    phase: 'delegated-52-turn-chat-smoke',
+    phase: 'delegated-certification-depth-chat-smoke',
     smokeArtifactDir,
     user: env.DIRECTIVE_SILLYTAVERN_USER || null,
     packageId: env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID || null,
@@ -5732,7 +5732,7 @@ async function runLiveExecution(report) {
   });
 
   report.checks.push(check(
-    'live-smoke-52-turn-delegation',
+    'live-smoke-certification-delegation',
     smokeAssessment.status,
     smokeAssessment.summary,
     {
@@ -5899,7 +5899,7 @@ async function runLiveExecution(report) {
   appendJsonLine(report.artifacts.liveLog, {
     kind: 'phase-end',
     status: smokeAssessment.status,
-    phase: 'delegated-52-turn-chat-smoke',
+    phase: 'delegated-certification-depth-chat-smoke',
     exitCode: result.exitCode,
     signal: result.signal,
     smokeArtifactDir,

@@ -624,7 +624,7 @@ function promptInspectionArtifacts(artifactRoot) {
 
 function expectedGenerationPromptSnapshotCount(turnLimit) {
   if (turnLimit === undefined) return null;
-  return requestedTurnLimitValue(turnLimit) || SOAK_TURN_SCRIPT.length;
+  return certificationTurnLimitValue(turnLimit);
 }
 
 function scriptMessageIdForTurn(entry, index) {
@@ -1009,7 +1009,7 @@ export function summarizeStoryQualityReviewArtifacts({ artifactRoot } = {}) {
 
 function expectedFactCheckCountForTurnLimit(turnLimit) {
   if (turnLimit === undefined) return null;
-  return (requestedTurnLimitValue(turnLimit) || SOAK_TURN_SCRIPT.length) + 1;
+  return certificationTurnLimitValue(turnLimit) + 1;
 }
 
 export function summarizeExternalContextSummaryArtifact({ artifactRoot } = {}) {
