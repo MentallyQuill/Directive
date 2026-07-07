@@ -27,14 +27,14 @@ function usage() {
   node tools/scripts/preflight-architecture-redesign-release-bundle.mjs --manifest <file> [--strict] [--write-artifacts]
 
 Options:
-  --manifest PATH                         JSON manifest with release evidence artifact paths.
-  --continuity-preflight PATH             Full certification preflight JSON.
-  --command-bearing-closure PATH          Command Bearing closure live report.
-  --command-bearing-point PATH            Command Bearing point lifecycle live report.
-  --terminal-catastrophic PATH            Terminal endings report for catastrophic-command trigger.
-  --terminal-command-fitness PATH         Terminal endings report for command-fitness-ladder trigger.
-  --message-mutation-discovery PATH       Read-only message mutation discovery report.
-  --message-mutation-actuation PATH       Message mutation actuation proof report.
+  --manifest PATH                         JSON manifest with implementationCompleteBaseline and release evidence artifact paths.
+  --continuity-preflight PATH             Override manifest Full certification preflight JSON path.
+  --command-bearing-closure PATH          Override manifest Command Bearing closure live report path.
+  --command-bearing-point PATH            Override manifest Command Bearing point lifecycle live report path.
+  --terminal-catastrophic PATH            Override manifest terminal endings report for catastrophic-command trigger.
+  --terminal-command-fitness PATH         Override manifest terminal endings report for command-fitness-ladder trigger.
+  --message-mutation-discovery PATH       Override manifest read-only message mutation discovery report path.
+  --message-mutation-actuation PATH       Override manifest message mutation actuation proof report path.
   --strict                                Any warning fails the bundle.
   --write-artifacts                       Write architecture-redesign-release-bundle-preflight.json.
   --output PATH                           Write report to an explicit path.
@@ -102,13 +102,14 @@ function resolveManifestPath(baseDir, value) {
 }
 
 function loadManifest(filePath) {
-  if (!filePath) return {};
+  if (!filePath) return { __readError: { message: 'manifest path is required' } };
   const manifest = readJson(filePath);
   if (!manifest || manifest.__readError) {
     return { __readError: manifest?.__readError || { message: 'manifest path is missing' } };
   }
   const baseDir = path.dirname(filePath);
   return {
+    __manifest: manifest,
     continuityPreflight: resolveManifestPath(baseDir, manifest.continuityPreflight || manifest.continuityFullCertificationPreflight),
     commandBearingClosure: resolveManifestPath(baseDir, manifest.commandBearingClosure),
     commandBearingPoint: resolveManifestPath(baseDir, manifest.commandBearingPoint || manifest.commandBearingPointLifecycle),
@@ -133,6 +134,35 @@ function check(id, status, summary, details = null) {
   };
 }
 
+function parseTimestamp(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const millis = Date.parse(text);
+  return Number.isFinite(millis) ? millis : null;
+}
+
+function artifactTimestamp(artifact = {}) {
+  const candidates = [
+    artifact.generatedAt,
+    artifact.completedAt,
+    artifact.finishedAt,
+    artifact.startedAt,
+    artifact.createdAt,
+    artifact.runId,
+    artifact.timestamp,
+    artifact.reportGeneratedAt,
+    artifact.metadata?.generatedAt,
+    artifact.metadata?.completedAt,
+    artifact.metadata?.runId,
+    artifact.summary?.generatedAt
+  ];
+  for (const candidate of candidates) {
+    const parsed = parseTimestamp(candidate);
+    if (parsed) return { millis: parsed, source: String(candidate) };
+  }
+  return null;
+}
+
 function readArtifactCheck(id, filePath) {
   const artifact = readJson(filePath);
   if (!filePath) {
@@ -151,6 +181,89 @@ function readArtifactCheck(id, filePath) {
     artifact,
     check: null
   };
+}
+
+function validateImplementationCompleteBaseline(manifestData = {}) {
+  const manifest = manifestData.__manifest || null;
+  if (!manifest) {
+    return check(
+      'implementation-complete-baseline',
+      'fail',
+      'Release bundle requires a manifest with implementation-complete baseline evidence.',
+      { manifest: null }
+    );
+  }
+  const baseline = manifest.implementationCompleteBaseline || manifest.implementationComplete || {};
+  const completedAtMillis = parseTimestamp(baseline.completedAt || baseline.generatedAt || baseline.timestamp);
+  const failures = [];
+  if (!completedAtMillis) failures.push('completedAt');
+  if (Number(baseline.alphaGateCheckCount || baseline.alphaGateChecks || 0) < 205) failures.push('alpha gate 205');
+  if (baseline.strictDryRunPreflightStatus !== 'pass') failures.push('strict dry-run status');
+  if (Number(baseline.strictDryRunPlannedTurns || baseline.plannedTurns || 0) !== 52) failures.push('52 planned turns');
+  if (baseline.servedExtensionFresh !== true) failures.push('served extension freshness');
+  if (baseline.providerProfileAlignmentStatus !== 'pass') failures.push('provider-profile alignment');
+  return check(
+    'implementation-complete-baseline',
+    failures.length ? 'fail' : 'pass',
+    failures.length
+      ? `Implementation-complete baseline evidence is missing or stale: ${failures.join(', ')}.`
+      : 'Implementation-complete baseline proves alpha gate, strict dry-run, provider-profile alignment, served freshness, and 52-turn plan readiness.',
+    {
+      completedAt: completedAtMillis ? new Date(completedAtMillis).toISOString() : null,
+      alphaGateCheckCount: Number(baseline.alphaGateCheckCount || baseline.alphaGateChecks || 0),
+      strictDryRunPreflightStatus: baseline.strictDryRunPreflightStatus || null,
+      strictDryRunPlannedTurns: Number(baseline.strictDryRunPlannedTurns || baseline.plannedTurns || 0),
+      servedExtensionFresh: baseline.servedExtensionFresh === true,
+      providerProfileAlignmentStatus: baseline.providerProfileAlignmentStatus || null
+    }
+  );
+}
+
+function validatePostBaselineArtifacts(manifestData = {}, evidencePaths = {}) {
+  const manifest = manifestData.__manifest || null;
+  const baseline = manifest?.implementationCompleteBaseline || manifest?.implementationComplete || {};
+  const baselineMillis = parseTimestamp(baseline.completedAt || baseline.generatedAt || baseline.timestamp);
+  if (!baselineMillis) {
+    return check(
+      'post-baseline-artifact-freshness',
+      'fail',
+      'Cannot verify release artifact freshness without an implementation-complete baseline timestamp.',
+      { baselineCompletedAt: null }
+    );
+  }
+  const stale = [];
+  const missingTimestamp = [];
+  for (const [key, filePath] of Object.entries(evidencePaths || {})) {
+    const artifact = readJson(filePath);
+    if (!artifact || artifact.__readError) continue;
+    const timestamp = artifactTimestamp(artifact);
+    if (!timestamp) {
+      missingTimestamp.push(key);
+      continue;
+    }
+    if (timestamp.millis < baselineMillis) {
+      stale.push({
+        key,
+        timestamp: new Date(timestamp.millis).toISOString(),
+        source: timestamp.source
+      });
+    }
+  }
+  const failures = [];
+  if (missingTimestamp.length) failures.push('missing artifact timestamps');
+  if (stale.length) failures.push('pre-baseline artifacts');
+  return check(
+    'post-baseline-artifact-freshness',
+    failures.length ? 'fail' : 'pass',
+    failures.length
+      ? `Release bundle contains stale or undated artifacts: ${failures.join(', ')}.`
+      : 'Every readable release artifact carries a timestamp at or after the implementation-complete baseline.',
+    {
+      baselineCompletedAt: new Date(baselineMillis).toISOString(),
+      missingTimestamp,
+      stale
+    }
+  );
 }
 
 function isNonHumanUser(value) {
@@ -177,7 +290,11 @@ function validateContinuityPreflight(filePath) {
   if (artifact.kind !== EXPECTED_CONTINUITY_PREFLIGHT_KIND) failures.push('kind');
   if (artifact.status !== 'pass') failures.push('status');
   if (artifact.strict !== true) failures.push('strict');
-  const failingChecks = (artifact.checks || []).filter((entry) => entry?.status !== 'pass');
+  const artifactChecks = artifact.checks || [];
+  const requiredChecks = ['provider-profile-readiness-proof'];
+  const missingRequiredChecks = requiredChecks.filter((id) => !artifactChecks.some((entry) => entry?.id === id && entry?.status === 'pass'));
+  if (missingRequiredChecks.length) failures.push(`required checks: ${missingRequiredChecks.join(', ')}`);
+  const failingChecks = artifactChecks.filter((entry) => entry?.status !== 'pass');
   if (failingChecks.length) failures.push('checks');
   return check(
     'continuity-full-certification-preflight',
@@ -190,6 +307,8 @@ function validateContinuityPreflight(filePath) {
       kind: artifact.kind || null,
       status: artifact.status || null,
       strict: artifact.strict === true,
+      requiredChecks,
+      missingRequiredChecks,
       failingChecks: failingChecks.map((entry) => ({ id: entry.id, status: entry.status, summary: compact(entry.summary) }))
     }
   );
@@ -416,14 +535,14 @@ export function buildArchitectureReleaseBundlePreflight({
   const checks = [
     check(
       'manifest-readable',
-      manifest && manifestReadError ? 'fail' : 'pass',
-      manifest && manifestReadError
+      manifestReadError ? 'fail' : 'pass',
+      manifestReadError
         ? `Bundle manifest could not be read: ${manifestReadError.message || 'unknown read error'}.`
-        : manifest
-          ? 'Bundle manifest is readable.'
-          : 'Bundle artifact paths were supplied directly.',
+        : 'Bundle manifest is readable.',
       { manifest: manifest || null }
     ),
+    validateImplementationCompleteBaseline(manifestReadError ? {} : manifestPaths),
+    validatePostBaselineArtifacts(manifestReadError ? {} : manifestPaths, evidencePaths),
     validateContinuityPreflight(evidencePaths.continuityPreflight),
     validateCommandBearingClosure(evidencePaths.commandBearingClosure),
     validateCommandBearingPoint(evidencePaths.commandBearingPoint),

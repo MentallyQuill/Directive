@@ -1146,6 +1146,29 @@ await assert.rejects(
 assert.deepEqual(missingReplacementTransactionCalls, ['core-advance', 'core-mechanics']);
 assert.equal(missingReplacementTransactionPersisted.length, 0, 'v1 checkpoint must not persist replacement records without explicit CORE replacement transaction');
 
+const missingCoreMechanicsPersisted = [];
+const missingCoreMechanicsCoordinator = createTurnCommitCoordinator({
+  now: () => '2026-06-29T01:01:45.000Z',
+  persist: async (next, summary) => {
+    missingCoreMechanicsPersisted.push({ state: cloneJson(next), summary });
+    return { id: `save-missing-core-mechanics-${missingCoreMechanicsPersisted.length}` };
+  }
+});
+await assert.rejects(
+  () => missingCoreMechanicsCoordinator.checkpointMechanics({
+    beforeCampaignState: baseState(),
+    campaignState: committedState(),
+    turnPacket,
+    ingressId: null
+  }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_CORE_MECHANICS_REQUIRED');
+    assert.equal(error.details?.reason, 'core-store-unavailable');
+    return true;
+  }
+);
+assert.equal(missingCoreMechanicsPersisted.length, 0, 'active-save mechanics checkpoint must not persist without committed CORE mechanics');
+
 const skippedMechanicsReplacementPersisted = [];
 const skippedMechanicsReplacementCoordinator = createTurnCommitCoordinator({
   now: () => '2026-06-29T01:01:50.000Z',

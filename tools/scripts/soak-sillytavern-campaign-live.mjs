@@ -19,6 +19,7 @@ import {
   ensureArtifactTree,
   errorSummary,
   inspectSillyTavernAuthorNoteCleanliness,
+  inspectSillyTavernProviderProfileAlignment,
   loadPlaywright,
   normalizeBaseUrl,
   normalizeExtensionPath,
@@ -67,6 +68,12 @@ const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.en
 const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_EXTENSION_PATH || DEFAULT_DIRECTIVE_EXTENSION_PATH);
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const EXTENSION_SYNC_ACK = process.env.DIRECTIVE_CONFIRM_EXTENSION_SYNCED === '1';
+const REQUIRED_PROVIDER_PROFILE_ID = process.env.DIRECTIVE_REQUIRED_ST_PROFILE_ID
+  || process.env.DIRECTIVE_REQUIRED_CONNECTION_PROFILE_ID
+  || 'd1fe5362-8960-47bf-8337-f70e9a5b42db';
+const REQUIRED_PROVIDER_PROFILE_NAME = process.env.DIRECTIVE_REQUIRED_ST_PROFILE_NAME
+  || process.env.DIRECTIVE_REQUIRED_CONNECTION_PROFILE_NAME
+  || 'nanogpt deepseek/deepseek-v4-pro-cheaper:thinking - Directive';
 const SOAK_TURN_LIMIT = positiveInteger(process.env.DIRECTIVE_SOAK_TURN_LIMIT, 0);
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
@@ -190,13 +197,18 @@ function firstConfiguredSoakUser() {
 }
 
 function explicitExecutionUser() {
-  const handle = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || '');
+  const source = process.env.DIRECTIVE_SILLYTAVERN_USER
+    ? 'DIRECTIVE_SILLYTAVERN_USER'
+    : process.env.DIRECTIVE_ST_USER
+      ? 'DIRECTIVE_ST_USER'
+      : 'DIRECTIVE_SILLYTAVERN_USER';
+  const handle = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_ST_USER || '');
   if (!handle) return null;
   const key = envPasswordKey(handle);
   return {
     handle,
     password: process.env.DIRECTIVE_SILLYTAVERN_PASSWORD || process.env[key] || process.env.DIRECTIVE_SOAK_ST_PASSWORD || '',
-    source: 'DIRECTIVE_SILLYTAVERN_USER'
+    source
   };
 }
 
@@ -3292,6 +3304,24 @@ async function buildChecks({ artifacts = null } = {}) {
       ? 'Author\'s Note cleanliness check skipped because no soak users are configured outside live mode.'
       : authorNoteCleanliness.summary,
     authorNoteCleanliness
+  ));
+  const providerProfileUsers = [...authorNoteUsers];
+  if (executionUser && !providerProfileUsers.some((entry) => entry.handle === executionUser.handle)) {
+    providerProfileUsers.push(executionUser);
+  }
+  const providerProfileAlignment = inspectSillyTavernProviderProfileAlignment({
+    users: providerProfileUsers,
+    required: LIVE_EXECUTION || LIVE_PREFLIGHT,
+    expectedProfileId: REQUIRED_PROVIDER_PROFILE_ID,
+    expectedProfileName: REQUIRED_PROVIDER_PROFILE_NAME
+  });
+  checks.push(check(
+    'provider-profile-alignment',
+    !LIVE_EXECUTION && !LIVE_PREFLIGHT && providerProfileUsers.length === 0 ? 'skipped' : providerProfileAlignment.status,
+    !LIVE_EXECUTION && !LIVE_PREFLIGHT && providerProfileUsers.length === 0
+      ? 'Provider-profile alignment check skipped outside live preflight/execution with no soak users configured.'
+      : providerProfileAlignment.summary,
+    providerProfileAlignment
   ));
   checks.push(check(
     'live-execution-turn-limit',

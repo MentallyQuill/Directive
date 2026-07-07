@@ -1705,9 +1705,9 @@ export function createResponseDispatcher({
               turnLatency,
               error: coreCompletionError
             });
-          } catch {
-            // Fall through to the old sanitized recovery bridge below.
-          }
+        } catch {
+          // Fall through to bounded CORE/REPAIR recovery projection handling below.
+        }
         }
         const coreCompletionDiagnosticRecorded = Boolean(coreCompletionDiagnostic);
         const completionRecoveryId = `recovery:core-host-native-completion:${responseId}`;
@@ -2584,7 +2584,7 @@ export function createResponseDispatcher({
           error: coreReleaseError
         });
       } catch {
-        // Fall through to the old sanitized recovery bridge below.
+        // Fall through to bounded CORE/REPAIR recovery projection handling below.
       }
     }
     const coreReleaseDiagnosticRecorded = Boolean(coreReleaseDiagnostic);
@@ -2835,7 +2835,7 @@ export function createResponseDispatcher({
           error: coreReleaseError
         });
       } catch {
-        // Fall through to the old sanitized recovery bridge below.
+        // Fall through to bounded CORE/REPAIR recovery projection handling below.
       }
     }
     const coreReleaseDiagnosticRecorded = Boolean(coreReleaseDiagnostic);

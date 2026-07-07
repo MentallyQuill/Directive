@@ -1064,6 +1064,74 @@ function compactCommandLogForHead(commandLog = null) {
   });
 }
 
+function compactExternalPromptEnvironmentRefForHead(ref = null) {
+  if (!isObject(ref)) return undefined;
+  return compact({
+    kind: compactString(ref.kind) || 'directive.externalPromptEnvironmentRef.v1',
+    hash: compactString(ref.hash) || undefined,
+    status: compactString(ref.status) || undefined,
+    observedAt: compactString(ref.observedAt) || undefined,
+    byteLength: Number.isFinite(Number(ref.byteLength)) ? Number(ref.byteLength) : undefined,
+    knownExternalPromptKeyCount: Number.isFinite(Number(ref.knownExternalPromptKeyCount))
+      ? Number(ref.knownExternalPromptKeyCount)
+      : undefined,
+    knownExternalPromptKeyHash: compactString(ref.knownExternalPromptKeyHash) || undefined
+  });
+}
+
+function compactLensPromptRevisionRecordForHead(record = null) {
+  if (!isObject(record)) return undefined;
+  const revision = Number(record.revision);
+  const blockCount = Number(record.blockCount);
+  const promptKeyCount = Number(record.promptKeyCount);
+  const directiveOwnedPromptKeyCount = Number(record.directiveOwnedPromptKeyCount);
+  return compact({
+    kind: compactString(record.kind) || 'directive.lensPromptRevisionRecord.v1',
+    status: compactString(record.status) || 'active',
+    lane: compactString(record.lane) || undefined,
+    revision: Number.isFinite(revision) ? revision : undefined,
+    hash: compactString(record.hash) || undefined,
+    packetHash: compactString(record.packetHash) || undefined,
+    blockCount: Number.isFinite(blockCount) ? blockCount : undefined,
+    promptKeyCount: Number.isFinite(promptKeyCount) ? promptKeyCount : undefined,
+    promptKeyHash: compactString(record.promptKeyHash) || undefined,
+    directiveOwnedPromptKeyCount: Number.isFinite(directiveOwnedPromptKeyCount)
+      ? directiveOwnedPromptKeyCount
+      : undefined,
+    directiveOwnedPromptKeyHash: compactString(record.directiveOwnedPromptKeyHash) || undefined,
+    cacheKey: compactString(record.cacheKey) || undefined,
+    cacheInputs: isObject(record.cacheInputs)
+      ? compact({
+          recallIndexRevision: compactString(record.cacheInputs.recallIndexRevision) || undefined,
+          sceneSealRevision: compactString(record.cacheInputs.sceneSealRevision) || undefined,
+          pressureArcDigestRevision: compactString(record.cacheInputs.pressureArcDigestRevision) || undefined,
+          packageRevision: compactString(record.cacheInputs.packageRevision) || undefined,
+          acceptedSidecarBatchHash: compactString(record.cacheInputs.acceptedSidecarBatchHash) || undefined,
+          acceptedSidecarBackgroundBatchId: compactString(record.cacheInputs.acceptedSidecarBackgroundBatchId) || undefined,
+          commandBearingReviewHash: compactString(record.cacheInputs.commandBearingReviewHash) || undefined,
+          commandBearingReviewBatchId: compactString(record.cacheInputs.commandBearingReviewBatchId) || undefined,
+          externalPromptEnvironmentHash: compactString(record.cacheInputs.externalPromptEnvironmentHash) || undefined
+        })
+      : undefined,
+    dirtyDomains: Array.isArray(record.dirtyDomains)
+      ? record.dirtyDomains.map(compactString).filter(Boolean).sort()
+      : undefined,
+    externalPromptEnvironmentRef: compactExternalPromptEnvironmentRefForHead(record.externalPromptEnvironmentRef),
+    promptBudgetTraceRef: isObject(record.promptBudgetTraceRef) ? cloneJson(record.promptBudgetTraceRef) : undefined,
+    promptBudgetEnforcement: isObject(record.promptBudgetEnforcement) ? cloneJson(record.promptBudgetEnforcement) : undefined,
+    installedAt: compactString(record.installedAt) || undefined,
+    recordHash: compactString(record.recordHash) || undefined
+  });
+}
+
+function compactDirectiveRuntimeEvidenceForHead(directiveRuntimeEvidence = null) {
+  if (!isObject(directiveRuntimeEvidence)) return undefined;
+  const evidence = compact({
+    lensPromptRevisionRecord: compactLensPromptRevisionRecordForHead(directiveRuntimeEvidence.lensPromptRevisionRecord)
+  });
+  return Object.keys(evidence).length ? evidence : undefined;
+}
+
 function materializedHeadState(campaignState = {}) {
   const {
     runtimeTracking,
@@ -1076,6 +1144,7 @@ function materializedHeadState(campaignState = {}) {
   } = campaignState || {};
   return cloneJson({
     ...headState,
+    directiveRuntimeEvidence: compactDirectiveRuntimeEvidenceForHead(directiveRuntimeEvidence),
     commandLog: compactCommandLogForHead(commandLog),
     runtimeResume: runtimeResumeCursor(campaignState)
   });

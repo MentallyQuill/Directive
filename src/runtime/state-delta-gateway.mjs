@@ -1347,13 +1347,11 @@ export function recordModelCallEvent(campaignState, event = {}, {
 }
 
 export function recordPendingInteraction(campaignState, interaction = {}, {
-  limit = 50,
-  allowLegacyPendingInteractionTelemetry = false
+  limit = 50
 } = {}) {
   void campaignState;
   void interaction;
   void limit;
-  void allowLegacyPendingInteractionTelemetry;
   const error = new Error('pending interaction old-ledger writes are disabled; write CORE pendingInteraction projections instead');
   error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED';
   error.details = {
@@ -1364,13 +1362,10 @@ export function recordPendingInteraction(campaignState, interaction = {}, {
   throw error;
 }
 
-export function resolvePendingInteraction(campaignState, interactionId, resolution = {}, {
-  allowLegacyPendingInteractionTelemetry = false
-} = {}) {
+export function resolvePendingInteraction(campaignState, interactionId, resolution = {}) {
   void campaignState;
   void interactionId;
   void resolution;
-  void allowLegacyPendingInteractionTelemetry;
   const error = new Error('pending interaction old-ledger resolution is disabled; write CORE pendingInteraction resolution projections instead');
   error.code = 'DIRECTIVE_CORE_PENDING_INTERACTION_PROJECTION_REQUIRED';
   error.details = {

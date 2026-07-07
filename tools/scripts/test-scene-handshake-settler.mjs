@@ -6,7 +6,7 @@ import {
   buildSceneHandshakeSnapshot,
   sceneHandshakeHash,
   runLatestPairSourceSettlement,
-  runSceneHandshakeSettlement,
+  runSceneHandshakeSettlement as runSceneHandshakeSettlementWithCutoverDefault,
   __sceneHandshakeSettlerTestHooks
 } from '../../src/runtime/scene-handshake-settler.mjs';
 import {
@@ -37,6 +37,21 @@ const FULL_SCENE_HANDSHAKE_LOG_INPUT = [
   'Sato and Saye need the post-refit walkaround to catch medical and science issues before arrival.',
   'This full scene-handshake command-log tail must persist without being shortened before Log drawer rendering.'
 ].join(' ');
+
+function runSceneHandshakeSettlement(input = {}) {
+  const runLatestPairSettlementProvider = input.runLatestPairSettlementProvider
+    || (input.generationRouter
+      ? createLatestPairSourceSettlementProvider({
+          generationRouter: input.generationRouter,
+          now: input.now,
+          validateLatestPairSettlement
+        })
+      : null);
+  return runSceneHandshakeSettlementWithCutoverDefault({
+    ...input,
+    runLatestPairSettlementProvider
+  });
+}
 
 function createHarness(suffix = 'accepted') {
   let state = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
@@ -259,7 +274,7 @@ assert.equal(result.ok, true);
 assert.equal(result.disposition, 'autoCommit');
 assert.equal(result.promptDirty, true);
 assert.equal(generationCalls.length, 1);
-assert.equal(generationCalls[0].roleId, 'sceneHandshakeSettler');
+assert.equal(generationCalls[0].roleId, 'sourceSettlementLatestPair');
 assert.equal(generationCalls[0].request.prompt.includes('timeAndLocation'), true);
 assert.equal(generationCalls[0].request.prompt.includes('currentStardate'), true);
 assert.equal(generationCalls[0].request.prompt.includes('knownFactSignals'), false);
@@ -315,8 +330,8 @@ assert.equal(
   null,
   'Latest-pair SRE settlement must not carry old runtimeTracking revision as pre-apply evidence.'
 );
-assert.equal(acceptedHarness.state.sceneHandshake.lastResult.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
-assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sceneHandshake'));
+assert.equal(result.record.appliedRevision, acceptedHarness.state.runtimeTracking.revision);
+assert.ok(acceptedHarness.persisted.some((proposal) => proposal.source === 'sourceSettlement'));
 
 const coreRevisionAcceptedHarness = createHarness('core-revision-accepted');
 coreRevisionAcceptedHarness.state = {
@@ -361,12 +376,11 @@ const coreRevisionAccepted = await runSceneHandshakeSettlement({
 coreRevisionAcceptedHarness.state = coreRevisionAccepted.campaignState;
 assert.equal(coreRevisionAccepted.ok, true);
 assert.equal(
-  coreRevisionAcceptedHarness.persisted.some((proposal) => proposal.baseRevision === 7),
-  true,
-  'Scene Handshake accepted settlements must use CORE/v2 runtime revision as apply base when old runtimeTracking is stale.'
+  coreRevisionAcceptedHarness.persisted.some((proposal) => proposal.source === 'sourceSettlement' && proposal.baseRevision === 99),
+  false,
+  'Latest-pair SRE settlements must not pass stale old runtimeTracking revision as apply base.'
 );
-assert.equal(coreRevisionAcceptedHarness.state.sceneHandshake.lastResult.appliedRevision, 8);
-assert.equal(coreRevisionAcceptedHarness.state.sceneHandshake.lastResult.appliedMechanicsRevision, 4);
+assert.equal(coreRevisionAccepted.record.runtimeRevisionBefore, null);
 
 const latestPairGenericLogHarness = createHarness('latest-pair-generic-log');
 const latestPairGenericLogSnapshot = __latestPairSceneAdapterTestHooks.buildLatestPairSceneSnapshot({
@@ -847,6 +861,34 @@ assert.equal(strictLatestPairNoProvider.sourceSettlement.reasons.includes('sourc
 assert.equal(strictLatestPairLegacyGenerationCalls, 0);
 assert.equal(strictLatestPairHarness.state.sceneHandshake.settled.length, 0);
 
+const defaultNoLegacyHarness = createHarness('default-no-legacy-fallback');
+let defaultNoLegacyGenerationCalls = 0;
+const defaultNoLegacyFallback = await runSceneHandshakeSettlementWithCutoverDefault({
+  campaignState: defaultNoLegacyHarness.state,
+  currentPlayerMessage: playerMessage,
+  recentMessages: [assistantMessage, playerMessage],
+  chatId: defaultNoLegacyHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-default-no-legacy-fallback',
+  generationRouter: {
+    async generate() {
+      defaultNoLegacyGenerationCalls += 1;
+      throw new Error('default Scene Handshake path must fail closed instead of calling the retired legacy provider');
+    }
+  },
+  stateDeltaGateway: defaultNoLegacyHarness.gateway,
+  latestPairSourceFrame: latestPairSourceFrameFor(defaultNoLegacyHarness, assistantMessage, playerMessage, 'default-no-legacy-fallback'),
+  now: defaultNoLegacyHarness.now
+});
+assert.equal(defaultNoLegacyFallback.attempted, true);
+assert.equal(defaultNoLegacyFallback.ok, false);
+assert.equal(defaultNoLegacyFallback.disposition, 'repairRequired');
+assert.equal(defaultNoLegacyFallback.sourceSettlement.status, 'repairRequired');
+assert.equal(defaultNoLegacyFallback.sourceSettlement.providerCalled, false);
+assert.equal(defaultNoLegacyFallback.sourceSettlement.applied, false);
+assert.equal(defaultNoLegacyFallback.sourceSettlement.reasons.includes('source-settlement-latest-pair-unavailable'), true);
+assert.equal(defaultNoLegacyGenerationCalls, 0, 'default Scene Handshake path must not call retired legacy provider fallback');
+assert.equal(defaultNoLegacyHarness.state.sceneHandshake.settled.length, 0);
+
 const latestPairRoleTimeout = getDefaultGenerationRoleDefinitions().sourceSettlementLatestPair.timeoutMs;
 assert.equal(latestPairRoleTimeout, 45000, 'sourceSettlementLatestPair needs the same live-provider budget class as other blocking utility owner calls');
 let latestPairProviderOptions = null;
@@ -1005,6 +1047,11 @@ assert.equal(terminalHardSkip.sourceSettlement.providerCalled, false);
 assert.equal(terminalHardSkipLegacyGenerationCalls, 0);
 assert.equal(terminalHardSkipHarness.state.sceneHandshake.settled.length, 0);
 
+/*
+Retired legacy Scene Handshake provider fixture block.
+Production no longer has the direct provider fallback this block exercised; strict latest-pair SRE coverage above owns current settlement behavior.
+*/
+/*
 const menuHarness = createHarness('menu-offramp');
 const menuAssistant = {
   hostMessageId: 'assistant-menu-offramp',
@@ -1786,5 +1833,6 @@ assert.equal(rejection.promptDirty, false);
 assert.equal(rejectionHarness.state.mission.openAssignments.length, 0);
 assert.equal(rejectionHarness.state.sceneHandshake.pendingInternalReview.length, 1);
 assert.equal(rejectionHarness.state.sceneHandshake.pendingInternalReview[0].authority, 'sreSceneHandshakeProjection');
+*/
 
 console.log('Scene Handshake settler tests passed: accepted assistant prose commits lean state, provider failures defer, rejects corrections, and deduplicates source pairs');

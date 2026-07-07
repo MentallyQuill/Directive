@@ -198,12 +198,16 @@ export async function saveGameAs({
   branchMetadata = null
 }) {
   const existing = await loadCampaignSaveRecordFromStorage(adapter, sourceSaveId);
+  const resolvedCampaignState = campaignState || await loadCampaignSaveFromStorage(adapter, sourceSaveId, {
+    now: timestamp({ now }),
+    markActive: false
+  });
   const save = createCampaignSaveAsRecord(existing, {
     newSaveId,
     name,
     savedAt: timestamp({ now }),
     branchFrom,
-    campaignState,
+    campaignState: resolvedCampaignState,
     packageData,
     summary,
     current,

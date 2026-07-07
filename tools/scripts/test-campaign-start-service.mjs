@@ -17,6 +17,9 @@ import {
   listCampaignSaves,
   listCharacterCreatorDrafts
 } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  persistActiveCampaignStateV2
+} from '../../src/storage/active-save-facade-v2.mjs';
 
 const root = process.cwd();
 const errors = [];
@@ -184,6 +187,22 @@ requireEqual(saved.revision, 2, 'saveGame revision');
 requireEqual(saved.metadata.stardate, 53051.7, 'saveGame stardate');
 requireEqual(saved.metadata.summary, 'Manual command review save.', 'saveGame summary');
 
+const runtimeOnlyState = cloneJson(mutatedState);
+runtimeOnlyState.campaign.currentStardate = 53051.9;
+runtimeOnlyState.commandLog.entries.push({
+  id: 'runtime.only-entry',
+  summaryInputs: ['Runtime-only v2 state advanced beyond the stale checkpoint payload.'],
+  visibleConsequences: ['Branching must use v2 runtime authority.']
+});
+await persistActiveCampaignStateV2(adapter, {
+  saveRecord: saved,
+  campaignState: runtimeOnlyState,
+  packageData,
+  summary: 'Runtime-only v2 advance.',
+  reason: 'service-test-runtime-only-v2',
+  now: '2026-06-18T20:22:00.000Z'
+});
+
 const branch = await saveGameAs({
   adapter,
   sourceSaveId: saved.id,
@@ -193,6 +212,8 @@ const branch = await saveGameAs({
 });
 requireEqual(branch.id, 'save-service-branch', 'saveGameAs id');
 requireEqual(branch.name, 'Ren Okada - Alternate Briefing', 'saveGameAs name');
+requireEqual(branch.payload.campaignState.campaign.currentStardate, 53051.9, 'saveGameAs defaults to v2 runtime state instead of stale checkpoint payload');
+requireEqual(branch.payload.campaignState.commandLog.entries.some((entry) => entry.id === 'runtime.only-entry'), true, 'saveGameAs payload includes runtime-only v2 state');
 
 const terminalBranch = await saveTerminalBranch({
   adapter,
@@ -252,7 +273,7 @@ const loaded = await loadGame({
   now: '2026-06-18T20:30:00.000Z'
 });
 requireEqual(loaded.player.name, 'Ren Okada', 'loadGame player');
-requireEqual(loaded.campaign.currentStardate, 53051.7, 'loadGame stardate');
+requireEqual(loaded.campaign.currentStardate, 53051.9, 'loadGame stardate');
 loaded.player.name = 'Changed';
 
 const indexes = await getDirectiveStorageIndexes(adapter);

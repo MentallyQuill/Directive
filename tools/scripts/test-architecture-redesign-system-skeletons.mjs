@@ -1110,15 +1110,15 @@ assert.match(
   /settleLatestPairSceneHandshakeSource[\s\S]*?from\s+['"]\.\/source-settlement-latest-pair-owner\.mjs['"][\s\S]*?async\s+function\s+runTerminalLatestPairSourceSettlement[\s\S]*?return\s+settleLatestPairSceneHandshakeSource\(\{[\s\S]*?createSceneHandshakeLedgerRecord:\s*sceneHandshakeLedgerRecord[\s\S]*?sceneHandshakeResultOperations[\s\S]*?commitAcceptedSceneTimeAdvance/,
   'Scene Handshake terminal latest-pair path must delegate SRE apply orchestration to the latest-pair owner and pass only domain hooks.'
 );
-assert.match(
-  sceneHandshakeSettlerSource,
-  /readRuntimeCoreProjections[\s\S]*?from\s+['"]\.\/runtime-ledger-view\.mjs['"][\s\S]*?function\s+activeRuntimeRevisionState[\s\S]*?runtimeAuthority\s*===\s*['"]coreStoreV2['"][\s\S]*?revisions\?\.runtime[\s\S]*?revisions\?\.mechanics[\s\S]*?baseRevision:\s*activeRuntimeRevisionState\(campaignState\)\.runtime[\s\S]*?baseRevision:\s*revisionState\.runtime/,
-  'Legacy Scene Handshake fallback must use CORE/v2 revision vectors for record-only and accepted apply base revisions.'
-);
 assert.equal(
   /baseRevision:\s*campaignState\.runtimeTracking\?\.revision|baseRevision:\s*campaignState\.runtimeTracking\.revision/.test(sceneHandshakeSettlerSource),
   false,
   'Legacy Scene Handshake fallback must not pass old runtimeTracking revision directly as apply base.'
+);
+assert.equal(
+  /allowLegacySceneHandshakeFallback|ROLE_ID\s*=\s*['"]sceneHandshakeSettler['"]|generationRouter\.generate\(\s*ROLE_ID|DEFAULT_TIMEOUT_MS\s*=\s*30000/.test(sceneHandshakeSettlerSource),
+  false,
+  'Retired Scene Handshake provider fallback must be removed; latest-pair SRE is the only production settlement owner.'
 );
 assert.equal(
   /createSourceSettlementService|function\s+sourceSettlementFrameFor|function\s+sourceSettlementProviderSource/.test(sceneHandshakeSettlerSource),
@@ -1142,8 +1142,8 @@ assert.equal(
 );
 assert.match(
   sceneHandshakeSettlerSource,
-  /export\s+async\s+function\s+runLatestPairSourceSettlement[\s\S]*?allowLegacySceneHandshakeFallback:\s*false/,
-  'Latest-pair source-settlement owner must disable legacy Scene Handshake fallback.'
+  /export\s+async\s+function\s+runLatestPairSourceSettlement\(options\s*=\s*\{\}\)\s*\{\s*return\s+runSceneHandshakeSettlement\(options\);/,
+  'Latest-pair source-settlement wrapper must call strict Scene Handshake settlement without legacy fallback options.'
 );
 assert.equal(
   /from\s+['"]\.\/scene-handshake-settler\.mjs['"]/.test(sourceSettlementLatestPairSource),

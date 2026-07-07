@@ -757,13 +757,15 @@ export function createTurnCommitCoordinator({ persist, coreTurnStore = null, now
       error.details = coreMechanics;
       throw error;
     }
-    annotateCoreMechanicsLedgerEntry(tracked, outcomeId, coreMechanics);
-    if (outcomeReplacement && coreMechanics.status !== 'committed') {
-      const error = new Error('CORE outcome replacement recording requires a committed CORE mechanics checkpoint.');
-      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_MECHANICS_REQUIRED';
-      error.details = { coreMechanics };
+    if (coreMechanics.status !== 'committed') {
+      const error = new Error('CORE mechanics commit is required before active-save mechanics persistence.');
+      error.code = outcomeReplacement
+        ? 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_MECHANICS_REQUIRED'
+        : 'DIRECTIVE_CORE_MECHANICS_REQUIRED';
+      error.details = coreMechanics;
       throw error;
     }
+    annotateCoreMechanicsLedgerEntry(tracked, outcomeId, coreMechanics);
     const coreOutcomeReplacement = await recordCoreOutcomeReplacement({
       coreTurnStore,
       transactionId: coreMechanics.transactionId || ingress?.coreTransactionId || null,

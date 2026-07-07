@@ -1949,6 +1949,16 @@ export function summarizeReadiness(child, paths, runId) {
     : reportedStatus === 'warning'
       ? 'warning'
       : 'pass';
+  const providerProfileCheck = (report?.checks || []).find((entry) => entry?.id === 'provider-profile-alignment') || null;
+  const providerProfileAlignment = report?.providerProfileAlignment || (providerProfileCheck
+    ? {
+      status: providerProfileCheck.status || null,
+      summary: providerProfileCheck.summary || null,
+      checkedUserCount: null,
+      failedUserCount: null,
+      users: []
+    }
+    : null);
   return {
     status,
     artifactRoot,
@@ -1970,6 +1980,21 @@ export function summarizeReadiness(child, paths, runId) {
         })),
         failures: report.failures || [],
         warnings: report.warnings || []
+      }
+      : null,
+    providerProfileAlignment: providerProfileAlignment
+      ? {
+        status: providerProfileAlignment.status || null,
+        summary: providerProfileAlignment.summary || providerProfileCheck?.summary || null,
+        expectedProfileId: providerProfileAlignment.expectedProfileId || null,
+        expectedProfileName: providerProfileAlignment.expectedProfileName || null,
+        checkedUserCount: Number(providerProfileAlignment.checkedUserCount || 0),
+        failedUserCount: Number(providerProfileAlignment.failedUserCount || 0),
+        users: (providerProfileAlignment.users || []).map((entry) => ({
+          handle: entry.handle || null,
+          status: entry.status || null,
+          misalignedLanes: Array.isArray(entry.misalignedLanes) ? entry.misalignedLanes.slice(0, 10) : []
+        }))
       }
       : null,
     externalContextProbe
@@ -2013,6 +2038,41 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
             ? 'Five-user SillyTavern isolation readiness completed with warnings.'
       : 'Five-user SillyTavern isolation readiness failed.',
     readiness ? { artifactRoot: readiness.artifactRoot } : null
+  ));
+  const providerProfile = readiness?.providerProfileAlignment || null;
+  checks.push(reportCheck(
+    'provider-profile-readiness-proof',
+    !options.live
+      ? 'skipped'
+      : options.skipReadiness
+        ? 'warning'
+        : !providerProfile
+          ? 'fail'
+          : providerProfile.status === 'pass'
+            ? 'pass'
+            : providerProfile.status === 'warning'
+              ? 'warning'
+              : 'fail',
+    !options.live
+      ? 'Provider-profile readiness proof skipped in dry-run mode.'
+      : options.skipReadiness
+        ? 'Provider-profile readiness proof was skipped with live readiness.'
+        : !providerProfile
+          ? 'Live readiness did not produce provider-profile alignment proof.'
+          : providerProfile.status === 'pass'
+            ? 'All configured soak users use the required host, Utility, and Reasoner provider profile.'
+            : providerProfile.status === 'warning'
+              ? 'Provider-profile alignment completed with warnings.'
+              : 'One or more configured soak users is not aligned to the required provider profile.',
+    providerProfile
+      ? {
+        artifactRoot: readiness.artifactRoot,
+        checkedUserCount: providerProfile.checkedUserCount,
+        failedUserCount: providerProfile.failedUserCount,
+        expectedProfileId: providerProfile.expectedProfileId,
+        users: providerProfile.users
+      }
+      : readiness ? { artifactRoot: readiness.artifactRoot } : null
   ));
   const externalProbe = readiness?.externalContextProbe || null;
   checks.push(reportCheck(

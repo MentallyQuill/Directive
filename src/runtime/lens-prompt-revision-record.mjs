@@ -48,6 +48,21 @@ function safeExternalPromptEnvironmentRef(ref = null) {
   });
 }
 
+function safeCacheInputs(cacheInputs = null) {
+  if (!cacheInputs || typeof cacheInputs !== 'object') return null;
+  return compactObject({
+    recallIndexRevision: compactString(cacheInputs.recallIndexRevision) || null,
+    sceneSealRevision: compactString(cacheInputs.sceneSealRevision) || null,
+    pressureArcDigestRevision: compactString(cacheInputs.pressureArcDigestRevision) || null,
+    packageRevision: compactString(cacheInputs.packageRevision) || null,
+    acceptedSidecarBatchHash: compactString(cacheInputs.acceptedSidecarBatchHash) || null,
+    acceptedSidecarBackgroundBatchId: compactString(cacheInputs.acceptedSidecarBackgroundBatchId) || null,
+    commandBearingReviewHash: compactString(cacheInputs.commandBearingReviewHash) || null,
+    commandBearingReviewBatchId: compactString(cacheInputs.commandBearingReviewBatchId) || null,
+    externalPromptEnvironmentHash: compactString(cacheInputs.externalPromptEnvironmentHash) || null
+  });
+}
+
 export function createLensPromptRevisionRecord({
   packet = null,
   installed = null,
@@ -58,7 +73,8 @@ export function createLensPromptRevisionRecord({
   dirtyDomains = [],
   externalPromptEnvironmentRef = null,
   promptBudgetTraceRef = null,
-  promptBudgetEnforcement = null
+  promptBudgetEnforcement = null,
+  cacheInputs = null
 } = {}) {
   const revision = Number(
     packet?.revision
@@ -90,6 +106,7 @@ export function createLensPromptRevisionRecord({
     directiveOwnedPromptKeyCount: directiveKeys.length || null,
     directiveOwnedPromptKeyHash: directiveKeys.length ? hashStableJson(directiveKeys) : null,
     cacheKey: compactString(cacheKey || installed?.cacheKey) || null,
+    cacheInputs: safeCacheInputs(cacheInputs || installed?.cacheInputs || null),
     dirtyDomains: Array.isArray(dirtyDomains) ? dirtyDomains.map(compactString).filter(Boolean).sort() : [],
     externalPromptEnvironmentRef: safeExternalPromptEnvironmentRef(
       externalPromptEnvironmentRef || installed?.externalPromptEnvironmentRef || null

@@ -1317,7 +1317,8 @@ export function createLensPromptScheduler({
       dirtyDomains,
       externalPromptEnvironmentRef: resolvedExternalPromptEnvironmentRef,
       promptBudgetTraceRef: promptBudgetTraceRef(promptBudgetTrace),
-      promptBudgetEnforcement: budgetApplication.enforcement
+      promptBudgetEnforcement: budgetApplication.enforcement,
+      cacheInputs: promptCacheInputs
     });
     installed.lensPromptRevisionRecord = lensPromptRevisionRecord;
     installedByLane.set(lane, installed);

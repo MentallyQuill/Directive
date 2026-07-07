@@ -7,6 +7,14 @@ import {
   buildArchitectureReleaseBundlePreflight,
   writeArchitectureReleaseBundlePreflight
 } from './preflight-architecture-redesign-release-bundle.mjs';
+import {
+  buildArchitectureReleaseBundleManifest,
+  writeArchitectureReleaseBundleManifest
+} from './create-architecture-redesign-release-bundle-manifest.mjs';
+
+const IMPLEMENTATION_COMPLETE_AT = '2026-07-07T07:32:50.650Z';
+const POST_BASELINE_AT = '2026-07-07T08:00:00.000Z';
+const PRE_BASELINE_AT = '2026-07-06T23:59:59.000Z';
 
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -22,12 +30,14 @@ function continuityPreflight() {
   return {
     kind: 'directive.continuityProjectionMatrix.fullCertificationPreflight.v1',
     schemaVersion: 1,
+    generatedAt: POST_BASELINE_AT,
     status: 'pass',
     strict: true,
     checks: [
       { id: 'five-lane-coverage', status: 'pass', summary: 'Artifact includes all five lanes.' },
       { id: 'full-depth-run', status: 'pass', summary: 'Artifact is unbounded.' },
       { id: 'unbounded-artifact-budget', status: 'pass', summary: 'Artifact budget is complete.' },
+      { id: 'provider-profile-readiness-proof', status: 'pass', summary: 'Readiness proved all five users use the required provider profile.' },
       { id: 'model-call-failure-policy', status: 'pass', summary: 'Model-call policy passed.' }
     ]
   };
@@ -37,7 +47,7 @@ function commandBearingClosure() {
   return {
     ok: true,
     status: 'pass',
-    runId: 'closure-run',
+    runId: POST_BASELINE_AT,
     driver: 'playwright',
     stUser: 'directive-soak-c',
     defaultUserTouched: false,
@@ -59,7 +69,7 @@ function commandBearingPoint() {
   return {
     ok: true,
     status: 'pass',
-    runId: 'point-run',
+    runId: POST_BASELINE_AT,
     driver: 'playwright',
     stUser: 'directive-soak-d',
     defaultUserTouched: false,
@@ -89,6 +99,7 @@ function terminalReport(triggerKind, user = 'directive-soak-e') {
   }));
   return {
     ok: true,
+    generatedAt: POST_BASELINE_AT,
     baseUrl: 'http://127.0.0.1:8000',
     driver: 'playwright',
     authenticatedUser: { handle: user },
@@ -101,7 +112,7 @@ function messageMutationDiscovery() {
   return {
     schemaVersion: 1,
     kind: 'directive.sillytavernMessageMutation.discovery',
-    runId: 'mutation-discovery',
+    runId: POST_BASELINE_AT,
     mode: 'live-read-only',
     status: 'pass',
     sillyTavernUser: 'directive-soak-b',
@@ -121,6 +132,7 @@ function messageMutationActuation() {
   return {
     kind: 'directive.sillytavernMessageMutation.actuationProof.v1',
     schemaVersion: 1,
+    generatedAt: POST_BASELINE_AT,
     ok: true,
     status: 'pass',
     driver: 'playwright',
@@ -226,6 +238,14 @@ function writeBundle(root, overrides = {}) {
     messageMutationActuation: writeJson(path.join(root, 'mutation', 'actuation.json'), overrides.messageMutationActuation || messageMutationActuation())
   };
   const manifest = writeJson(path.join(root, 'release-bundle-manifest.json'), {
+    implementationCompleteBaseline: overrides.implementationCompleteBaseline || {
+      completedAt: IMPLEMENTATION_COMPLETE_AT,
+      alphaGateCheckCount: 205,
+      strictDryRunPreflightStatus: 'pass',
+      strictDryRunPlannedTurns: 52,
+      servedExtensionFresh: true,
+      providerProfileAlignmentStatus: 'pass'
+    },
     continuityPreflight: path.relative(root, paths.continuityPreflight),
     commandBearingClosure: path.relative(root, paths.commandBearingClosure),
     commandBearingPointLifecycle: path.relative(root, paths.commandBearingPoint),
@@ -244,10 +264,44 @@ const passReport = buildArchitectureReleaseBundlePreflight({
   strict: true
 });
 assert.equal(passReport.status, 'pass');
+assert.equal(passReport.checks.find((entry) => entry.id === 'implementation-complete-baseline').status, 'pass');
+assert.equal(passReport.checks.find((entry) => entry.id === 'post-baseline-artifact-freshness').status, 'pass');
 assert.equal(passReport.checks.find((entry) => entry.id === 'continuity-full-certification-preflight').status, 'pass');
 assert.equal(passReport.checks.find((entry) => entry.id === 'message-mutation-actuation-live-proof').status, 'pass');
 const writtenPath = writeArchitectureReleaseBundlePreflight(passReport, { manifest: passBundle.manifest });
 assert.equal(fs.existsSync(writtenPath), true);
+
+const builderIntegrationRoot = makeRoot();
+const builderIntegrationBundle = writeBundle(builderIntegrationRoot);
+const builderIntegrationManifestPath = path.join(builderIntegrationRoot, 'release', 'architecture-redesign-release-bundle.json');
+const builderIntegrationManifest = buildArchitectureReleaseBundleManifest({
+  output: builderIntegrationManifestPath,
+  implementationCompleteBaseline: {
+    completedAt: IMPLEMENTATION_COMPLETE_AT,
+    alphaGateCheckCount: 205,
+    strictDryRunPreflightStatus: 'pass',
+    strictDryRunPlannedTurns: 52,
+    servedExtensionFresh: true,
+    providerProfileAlignmentStatus: 'pass'
+  },
+  paths: builderIntegrationBundle.paths
+});
+writeArchitectureReleaseBundleManifest(builderIntegrationManifest, { output: builderIntegrationManifestPath });
+const builderIntegrationReport = buildArchitectureReleaseBundlePreflight({
+  manifest: builderIntegrationManifestPath,
+  strict: true
+});
+assert.equal(builderIntegrationReport.status, 'pass');
+assert.equal(builderIntegrationReport.artifacts.commandBearingClosure.endsWith('command-bearing\\closure-report.json')
+  || builderIntegrationReport.artifacts.commandBearingClosure.endsWith('command-bearing/closure-report.json'), true);
+
+const directPathsOnlyReport = buildArchitectureReleaseBundlePreflight({
+  paths: passBundle.paths,
+  strict: true
+});
+assert.equal(directPathsOnlyReport.status, 'fail');
+assert.equal(directPathsOnlyReport.checks.find((entry) => entry.id === 'manifest-readable').status, 'fail');
+assert.equal(directPathsOnlyReport.checks.find((entry) => entry.id === 'implementation-complete-baseline').status, 'fail');
 
 const discoveryOnlyRoot = makeRoot();
 const discoveryOnlyBundle = writeBundle(discoveryOnlyRoot);
@@ -271,6 +325,22 @@ const defaultUserReport = buildArchitectureReleaseBundlePreflight({
 assert.equal(defaultUserReport.status, 'fail');
 assert.equal(defaultUserReport.checks.find((entry) => entry.id === 'terminal-catastrophic-command-live-proof').status, 'fail');
 
+const missingProviderProofRoot = makeRoot();
+const missingProviderProofBundle = writeBundle(missingProviderProofRoot, {
+  continuityPreflight: {
+    ...continuityPreflight(),
+    checks: continuityPreflight().checks.filter((entry) => entry.id !== 'provider-profile-readiness-proof')
+  }
+});
+const missingProviderProofReport = buildArchitectureReleaseBundlePreflight({
+  manifest: missingProviderProofBundle.manifest,
+  strict: true
+});
+assert.equal(missingProviderProofReport.status, 'fail');
+const missingProviderProofCheck = missingProviderProofReport.checks.find((entry) => entry.id === 'continuity-full-certification-preflight');
+assert.equal(missingProviderProofCheck.status, 'fail');
+assert.match(missingProviderProofCheck.summary, /provider-profile-readiness-proof/);
+
 const continuityRoot = makeRoot();
 const continuityBundle = writeBundle(continuityRoot, {
   continuityPreflight: {
@@ -285,6 +355,81 @@ const continuityReport = buildArchitectureReleaseBundlePreflight({
 });
 assert.equal(continuityReport.status, 'fail');
 assert.equal(continuityReport.checks.find((entry) => entry.id === 'continuity-full-certification-preflight').status, 'fail');
+
+const staleArtifactRoot = makeRoot();
+const staleArtifactBundle = writeBundle(staleArtifactRoot, {
+  commandBearingClosure: {
+    ...commandBearingClosure(),
+    runId: PRE_BASELINE_AT
+  }
+});
+const staleArtifactReport = buildArchitectureReleaseBundlePreflight({
+  manifest: staleArtifactBundle.manifest,
+  strict: true
+});
+assert.equal(staleArtifactReport.status, 'fail');
+const staleArtifactCheck = staleArtifactReport.checks.find((entry) => entry.id === 'post-baseline-artifact-freshness');
+assert.equal(staleArtifactCheck.status, 'fail');
+assert.deepEqual(staleArtifactCheck.details.stale.map((entry) => entry.key), ['commandBearingClosure']);
+
+const missingBaselineRoot = makeRoot();
+const missingBaselineBundle = writeBundle(missingBaselineRoot, {
+  implementationCompleteBaseline: {
+    completedAt: IMPLEMENTATION_COMPLETE_AT,
+    alphaGateCheckCount: 204,
+    strictDryRunPreflightStatus: 'warning',
+    strictDryRunPlannedTurns: 3,
+    servedExtensionFresh: false,
+    providerProfileAlignmentStatus: 'fail'
+  }
+});
+const missingBaselineReport = buildArchitectureReleaseBundlePreflight({
+  manifest: missingBaselineBundle.manifest,
+  strict: true
+});
+assert.equal(missingBaselineReport.status, 'fail');
+const missingBaselineCheck = missingBaselineReport.checks.find((entry) => entry.id === 'implementation-complete-baseline');
+assert.equal(missingBaselineCheck.status, 'fail');
+assert.equal(missingBaselineCheck.details.alphaGateCheckCount, 204);
+
+const missingBaselineProviderProfileRoot = makeRoot();
+const missingBaselineProviderProfileBundle = writeBundle(missingBaselineProviderProfileRoot, {
+  implementationCompleteBaseline: {
+    completedAt: IMPLEMENTATION_COMPLETE_AT,
+    alphaGateCheckCount: 205,
+    strictDryRunPreflightStatus: 'pass',
+    strictDryRunPlannedTurns: 52,
+    servedExtensionFresh: true
+  }
+});
+const missingBaselineProviderProfileReport = buildArchitectureReleaseBundlePreflight({
+  manifest: missingBaselineProviderProfileBundle.manifest,
+  strict: true
+});
+assert.equal(missingBaselineProviderProfileReport.status, 'fail');
+const missingBaselineProviderProfileCheck = missingBaselineProviderProfileReport.checks.find((entry) => entry.id === 'implementation-complete-baseline');
+assert.equal(missingBaselineProviderProfileCheck.status, 'fail');
+assert.match(missingBaselineProviderProfileCheck.summary, /provider-profile alignment/);
+
+const staleAlphaCountRoot = makeRoot();
+const staleAlphaCountBundle = writeBundle(staleAlphaCountRoot, {
+  implementationCompleteBaseline: {
+    completedAt: IMPLEMENTATION_COMPLETE_AT,
+    alphaGateCheckCount: 204,
+    strictDryRunPreflightStatus: 'pass',
+    strictDryRunPlannedTurns: 52,
+    servedExtensionFresh: true,
+    providerProfileAlignmentStatus: 'pass'
+  }
+});
+const staleAlphaCountReport = buildArchitectureReleaseBundlePreflight({
+  manifest: staleAlphaCountBundle.manifest,
+  strict: true
+});
+assert.equal(staleAlphaCountReport.status, 'fail');
+const staleAlphaCountCheck = staleAlphaCountReport.checks.find((entry) => entry.id === 'implementation-complete-baseline');
+assert.equal(staleAlphaCountCheck.status, 'fail');
+assert.equal(staleAlphaCountCheck.details.alphaGateCheckCount, 204);
 
 const missingServedRoot = makeRoot();
 const missingServedActuation = messageMutationActuation();
@@ -348,9 +493,13 @@ const stagedSwipeCheck = stagedSwipeReport.checks.find((entry) => entry.id === '
 assert.deepEqual(stagedSwipeCheck.details.weakOwnerEvidenceScenarios, ['selected-swipe']);
 
 fs.rmSync(passRoot, { recursive: true, force: true });
+fs.rmSync(builderIntegrationRoot, { recursive: true, force: true });
 fs.rmSync(discoveryOnlyRoot, { recursive: true, force: true });
 fs.rmSync(defaultUserRoot, { recursive: true, force: true });
 fs.rmSync(continuityRoot, { recursive: true, force: true });
+fs.rmSync(staleArtifactRoot, { recursive: true, force: true });
+fs.rmSync(missingBaselineRoot, { recursive: true, force: true });
+fs.rmSync(staleAlphaCountRoot, { recursive: true, force: true });
 fs.rmSync(missingServedRoot, { recursive: true, force: true });
 fs.rmSync(shallowActuationRoot, { recursive: true, force: true });
 fs.rmSync(countOnlyActuationRoot, { recursive: true, force: true });

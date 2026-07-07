@@ -13,6 +13,7 @@ import {
   externalContextFixtureDepthCheckStatus,
   inspectSillyTavernExternalContextCompatibility,
   inspectSillyTavernAuthorNoteCleanliness,
+  inspectSillyTavernProviderProfileAlignment,
   loadPlaywright,
   normalizeBaseUrl,
   sha256Text,
@@ -57,6 +58,15 @@ const DATA_ROOT = process.env.DIRECTIVE_SILLYTAVERN_DATA_ROOT
   || DEFAULT_SILLYTAVERN_DATA_ROOT;
 const REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH = process.env.DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH === '1'
   || process.env.DIRECTIVE_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH === '1';
+const REQUIRE_PROVIDER_PROFILE_ALIGNMENT = LIVE
+  || process.env.DIRECTIVE_REQUIRE_PROVIDER_PROFILE_ALIGNMENT === '1'
+  || process.env.DIRECTIVE_REQUIRE_ST_PROFILE_ALIGNMENT === '1';
+const REQUIRED_PROVIDER_PROFILE_ID = process.env.DIRECTIVE_REQUIRED_ST_PROFILE_ID
+  || process.env.DIRECTIVE_REQUIRED_CONNECTION_PROFILE_ID
+  || 'd1fe5362-8960-47bf-8337-f70e9a5b42db';
+const REQUIRED_PROVIDER_PROFILE_NAME = process.env.DIRECTIVE_REQUIRED_ST_PROFILE_NAME
+  || process.env.DIRECTIVE_REQUIRED_CONNECTION_PROFILE_NAME
+  || 'nanogpt deepseek/deepseek-v4-pro-cheaper:thinking - Directive';
 const ALLOW_PLACEHOLDER_SOAK_USERS = process.env.DIRECTIVE_ALLOW_PLACEHOLDER_SOAK_USERS === '1';
 const DEFAULT_SOAK_USER_HANDLES = Object.freeze([
   'directive-soak-a',
@@ -441,6 +451,12 @@ async function buildDryRunReport({ artifacts }) {
     : 'pass';
   const externalContextFixturePreparation = prepareExternalContextFixtures(USERS);
   const authorNoteCleanliness = inspectSillyTavernAuthorNoteCleanliness({ users: USERS, required: LIVE });
+  const providerProfileAlignment = inspectSillyTavernProviderProfileAlignment({
+    users: USERS,
+    required: REQUIRE_PROVIDER_PROFILE_ALIGNMENT,
+    expectedProfileId: REQUIRED_PROVIDER_PROFILE_ID,
+    expectedProfileName: REQUIRED_PROVIDER_PROFILE_NAME
+  });
   const hostExtensionCompatibility = inspectSillyTavernExternalContextCompatibility({
     users: USERS,
     required: EXTERNAL_CONTEXT_COMPAT
@@ -487,6 +503,14 @@ async function buildDryRunReport({ artifacts }) {
       authorNoteCleanliness.status,
       authorNoteCleanliness.summary,
       authorNoteCleanliness
+    ),
+    check(
+      'provider-profile-alignment',
+      REQUIRE_PROVIDER_PROFILE_ALIGNMENT ? providerProfileAlignment.status : 'skipped',
+      REQUIRE_PROVIDER_PROFILE_ALIGNMENT
+        ? providerProfileAlignment.summary
+        : 'Provider-profile alignment check skipped outside live readiness unless DIRECTIVE_REQUIRE_PROVIDER_PROFILE_ALIGNMENT=1.',
+      providerProfileAlignment
     ),
     check(
       'host-extension-compatibility',
@@ -537,6 +561,7 @@ async function buildDryRunReport({ artifacts }) {
     users: USERS.map(redactUser),
     artifacts,
     externalContextFixturePreparation,
+    providerProfileAlignment,
     hostExtensionCompatibility,
     externalContextProbe,
     checks,

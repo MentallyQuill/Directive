@@ -86,6 +86,25 @@ export function createCampaignSaveMetadata({ campaignState, packageData, savedAt
   };
 }
 
+function refreshCampaignSaveMetadataFromState(metadata, { campaignState, savedAt, summary = null }) {
+  requireObject(campaignState, 'campaignState');
+  const next = cloneJson(metadata || {});
+  next.campaignId = campaignState.campaign?.id;
+  next.campaignTitle = campaignState.campaign?.title;
+  next.shipId = campaignState.ship?.id || next.shipId;
+  next.shipName = campaignState.ship?.name || next.shipName;
+  next.playerName = playerName(campaignState);
+  next.stardate = campaignState.campaign?.currentStardate;
+  next.activeMissionId = campaignState.mission?.activeMissionId;
+  next.activeMissionType = campaignState.mission?.activeMissionType;
+  next.activePhaseId = campaignState.mission?.activePhaseId;
+  next.simulationMode = campaignState.settings?.simulationMode;
+  next.lastUpdatedAt = savedAt;
+  next.summary = summary || saveSummary(campaignState);
+  next.campaignChatBinding = campaignChatBindingSummary(campaignState);
+  return next;
+}
+
 export function createCampaignSaveRecord({
   campaignState,
   packageData,
@@ -199,6 +218,11 @@ export function createCampaignSaveAsRecord(saveRecord, {
   next.current = current === true;
   if (campaignState && packageData) {
     next.metadata = createCampaignSaveMetadata({ campaignState, packageData, savedAt: timestamp, summary });
+    next.payload = {
+      campaignState: cloneJson(campaignState)
+    };
+  } else if (campaignState) {
+    next.metadata = refreshCampaignSaveMetadataFromState(next.metadata, { campaignState, savedAt: timestamp, summary });
     next.payload = {
       campaignState: cloneJson(campaignState)
     };

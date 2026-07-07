@@ -1404,9 +1404,14 @@ const activeRuntimeHeadAfterSidecarFlush = await loadV2MaterializedHead(host.sto
   saveId: sourceSaveId
 });
 assert.equal(
-  activeRuntimeHeadAfterSidecarFlush.state.directiveRuntimeEvidence,
+  activeRuntimeHeadAfterSidecarFlush.state.directiveRuntimeEvidence?.coreStoreReadProjections,
   undefined,
   'Active-save v2 head must not persist transient CORE read-projection evidence after sidecar flush.'
+);
+assert.equal(
+  activeRuntimeHeadAfterSidecarFlush.state.directiveRuntimeEvidence?.lensPromptRevisionRecord?.kind,
+  'directive.lensPromptRevisionRecord.v1',
+  'Active-save v2 head may retain compact LENS prompt revision evidence for cold resume.'
 );
 const loadedRuntimeAfterSidecarFlush = await loadActiveCampaignStateV2(host.storage, {
   saveRecord: {

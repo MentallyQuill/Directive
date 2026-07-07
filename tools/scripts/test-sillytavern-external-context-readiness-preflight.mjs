@@ -20,6 +20,35 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function writeAlignedProviderProfile(dataRoot, handle, { profileId = 'target-profile-id', profileName = 'Target Profile' } = {}) {
+  const settingsPath = path.join(dataRoot, handle, 'settings.json');
+  const settings = fs.existsSync(settingsPath) ? readJson(settingsPath) : {};
+  settings.extension_settings = settings.extension_settings || {};
+  settings.extension_settings.connectionManager = {
+    ...(settings.extension_settings.connectionManager || {}),
+    selectedProfile: profileId,
+    profiles: [
+      ...(settings.extension_settings.connectionManager?.profiles || []).filter((entry) => entry?.id !== profileId),
+      { id: profileId, name: profileName }
+    ]
+  };
+  settings.extension_settings.directive = settings.extension_settings.directive || {};
+  settings.extension_settings.directive.providers = {
+    ...(settings.extension_settings.directive.providers || {}),
+    utility: {
+      ...(settings.extension_settings.directive.providers?.utility || {}),
+      provider: 'profile',
+      profileId
+    },
+    reasoning: {
+      ...(settings.extension_settings.directive.providers?.reasoning || {}),
+      provider: 'profile',
+      profileId
+    }
+  };
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+}
+
 const dataRoot = tempRoot('directive-external-context-readiness-data-');
 const artifactRoot = tempRoot('directive-external-context-readiness-artifacts-');
 const runId = 'external-context-readiness-fixture';
@@ -32,6 +61,7 @@ for (const handle of EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS) {
     validate: true
   });
   assert.equal(result.status, 'pass', `${handle} fixture should validate before readiness preflight`);
+  writeAlignedProviderProfile(dataRoot, handle);
 }
 
 const child = spawnSync(process.execPath, [
@@ -47,7 +77,10 @@ const child = spawnSync(process.execPath, [
     DIRECTIVE_SOAK_ARTIFACT_DIR: artifactRoot,
     DIRECTIVE_SILLYTAVERN_DATA_ROOT: dataRoot,
     DIRECTIVE_SOAK_ST_USERS: EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.join(','),
-    DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH: '1'
+    DIRECTIVE_SOAK_REQUIRE_EXTERNAL_CONTEXT_FIXTURE_DEPTH: '1',
+    DIRECTIVE_REQUIRE_PROVIDER_PROFILE_ALIGNMENT: '1',
+    DIRECTIVE_REQUIRED_CONNECTION_PROFILE_ID: 'target-profile-id',
+    DIRECTIVE_REQUIRED_CONNECTION_PROFILE_NAME: 'Target Profile'
   }
 });
 
@@ -62,6 +95,7 @@ const summaryArtifact = readJson(summaryPath);
 assert.equal(report.status, 'pass');
 assert.equal(report.checks.find((entry) => entry.id === 'host-extension-compatibility')?.status, 'pass');
 assert.equal(report.checks.find((entry) => entry.id === 'host-extension-fixture-depth')?.status, 'pass');
+assert.equal(report.checks.find((entry) => entry.id === 'provider-profile-alignment')?.status, 'pass');
 assert.equal(probe.status, 'pass');
 assert.equal(probe.fixtureDepth.status, 'pass');
 assert.equal(report.externalContextSummary.status, 'warning');
@@ -86,6 +120,43 @@ assert.equal(serialized.includes('raw Summaryception'), false);
 
 fs.rmSync(dataRoot, { recursive: true, force: true });
 fs.rmSync(artifactRoot, { recursive: true, force: true });
+
+const misalignedProviderDataRoot = tempRoot('directive-readiness-provider-misaligned-data-');
+const misalignedProviderArtifactRoot = tempRoot('directive-readiness-provider-misaligned-artifacts-');
+for (const handle of EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS) {
+  fs.mkdirSync(path.join(misalignedProviderDataRoot, handle), { recursive: true });
+  writeAlignedProviderProfile(misalignedProviderDataRoot, handle);
+}
+writeAlignedProviderProfile(misalignedProviderDataRoot, EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS[2], {
+  profileId: 'wrong-profile-id',
+  profileName: 'Wrong Profile'
+});
+const misalignedProvider = spawnSync(process.execPath, [
+  'tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs',
+  '--write-artifacts'
+], {
+  cwd: process.cwd(),
+  encoding: 'utf8',
+  env: {
+    ...process.env,
+    DIRECTIVE_SOAK_RUN_ID: 'provider-profile-misaligned',
+    DIRECTIVE_SOAK_ARTIFACT_DIR: misalignedProviderArtifactRoot,
+    DIRECTIVE_SILLYTAVERN_DATA_ROOT: misalignedProviderDataRoot,
+    DIRECTIVE_SOAK_ST_USERS: EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS.join(','),
+    DIRECTIVE_REQUIRE_PROVIDER_PROFILE_ALIGNMENT: '1',
+    DIRECTIVE_REQUIRED_CONNECTION_PROFILE_ID: 'target-profile-id',
+    DIRECTIVE_REQUIRED_CONNECTION_PROFILE_NAME: 'Target Profile'
+  }
+});
+assert.notEqual(misalignedProvider.status, 0, 'readiness preflight must fail when any five-user lane uses the wrong provider profile');
+const misalignedProviderReport = readJson(path.join(misalignedProviderArtifactRoot, 'provider-profile-misaligned', 'report.json'));
+const providerAlignmentCheck = misalignedProviderReport.checks.find((entry) => entry.id === 'provider-profile-alignment');
+assert.equal(providerAlignmentCheck.status, 'fail');
+assert.equal(providerAlignmentCheck.details.failedUserCount, 1);
+assert(providerAlignmentCheck.details.users.some((entry) => entry.handle === EXTERNAL_CONTEXT_FIXTURE_ALLOWED_USERS[2] && entry.misalignedLanes.includes('connectionManager')));
+
+fs.rmSync(misalignedProviderDataRoot, { recursive: true, force: true });
+fs.rmSync(misalignedProviderArtifactRoot, { recursive: true, force: true });
 
 const preparedByReadinessDataRoot = tempRoot('directive-external-context-readiness-autoprep-data-');
 const preparedByReadinessArtifactRoot = tempRoot('directive-external-context-readiness-autoprep-artifacts-');

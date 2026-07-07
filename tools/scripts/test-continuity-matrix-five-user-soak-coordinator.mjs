@@ -843,7 +843,21 @@ const externalProbe = {
 writeJson(path.join(readinessRoot, 'report.json'), {
   status: 'pass',
   runId: 'readiness-external',
-  checks: [{ id: 'host-extension-compatibility', status: 'pass', summary: 'ok' }],
+  checks: [
+    { id: 'host-extension-compatibility', status: 'pass', summary: 'ok' },
+    { id: 'provider-profile-alignment', status: 'pass', summary: 'provider ok' }
+  ],
+  providerProfileAlignment: {
+    status: 'pass',
+    checkedUserCount: 5,
+    failedUserCount: 0,
+    expectedProfileId: 'target-profile-id',
+    users: configuredSoakUsers.map((user) => ({
+      handle: user.handle,
+      status: 'pass',
+      misalignedLanes: []
+    }))
+  },
   externalContextProbe: externalProbe
 });
 const externalProbeSummary = summarizeExternalContextProbe(externalProbe);
@@ -877,6 +891,8 @@ const readinessSummary = summarizeReadiness({
   json: { status: 'pass', artifactRoot: readinessRoot }
 }, { readiness: path.dirname(readinessRoot) }, 'parent-run');
 assert.equal(readinessSummary.status, 'pass');
+assert.equal(readinessSummary.providerProfileAlignment.status, 'pass');
+assert.equal(readinessSummary.providerProfileAlignment.checkedUserCount, 5);
 assert.equal(readinessSummary.externalContextProbe.status, 'pass');
 assert.equal(readinessSummary.externalContextProbe.fixtureDepth.status, 'warning');
 assert.equal(readinessSummary.externalContextProbe.users[4].targets.vectFox.status, 'disabled');
@@ -897,6 +913,17 @@ assert.equal(externalContextFixtureDepthCheckStatus({
   fixtureDepth: richExternalProbeSummary.fixtureDepth,
   fullCertificationRequired: true
 }), 'pass');
+const providerProfilePassSummary = {
+  status: 'pass',
+  checkedUserCount: 5,
+  failedUserCount: 0,
+  expectedProfileId: 'target-profile-id',
+  users: configuredSoakUsers.map((user) => ({
+    handle: user.handle,
+    status: 'pass',
+    misalignedLanes: []
+  }))
+};
 
 const root = makeArtifactRoot();
 writePassingLaneArtifacts(root);
@@ -1006,6 +1033,7 @@ const aggregateRichPassReport = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1016,6 +1044,39 @@ const aggregateRichPassReport = buildReport({
 const aggregateRichPassCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'external-context-generation-proof');
 assert.equal(aggregateRichPassCheck.status, 'pass');
 assert.equal(aggregateRichPassCheck.details.richFixtureUserHandles.includes('directive-soak-a'), true);
+const aggregateProviderProfileCheck = aggregateRichPassReport.checks.find((entry) => entry.id === 'provider-profile-readiness-proof');
+assert.equal(aggregateProviderProfileCheck.status, 'pass');
+assert.equal(aggregateProviderProfileCheck.details.checkedUserCount, 5);
+const aggregateProviderProfileFailReport = buildReport({
+  runId: 'aggregate-provider-profile-fail',
+  mode: 'live',
+  options: {
+    live: true,
+    turnLimit: '1',
+    skipReadiness: false,
+    resume: false,
+    laneFilter: []
+  },
+  paths: { root },
+  lanes: [lanes[0]],
+  readiness: {
+    status: 'pass',
+    providerProfileAlignment: {
+      status: 'fail',
+      checkedUserCount: 5,
+      failedUserCount: 1,
+      users: [{ handle: 'directive-soak-c', status: 'fail', misalignedLanes: ['reasoning'] }]
+    },
+    externalContextProbe: {
+      status: 'pass',
+      fixtureDepth: richExternalProbeSummary.fixtureDepth
+    }
+  },
+  laneSummaries: [laneSummary]
+});
+const aggregateProviderProfileFailCheck = aggregateProviderProfileFailReport.checks.find((entry) => entry.id === 'provider-profile-readiness-proof');
+assert.equal(aggregateProviderProfileFailCheck.status, 'fail');
+assert.equal(aggregateProviderProfileFailCheck.details.failedUserCount, 1);
 const fiveLaneRichRoot = makeArtifactRoot();
 const fiveLaneRichSummaries = lanes.map((lane, index) => {
   const artifactRoot = path.join(fiveLaneRichRoot, lane.id);
@@ -1046,6 +1107,7 @@ const fiveLaneRichPassReport = buildReport({
   lanes,
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1091,6 +1153,7 @@ const fiveLaneRichMissingReport = buildReport({
   lanes,
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1164,6 +1227,7 @@ const staleLegacyWarningAggregate = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1199,6 +1263,7 @@ const aggregateTurnThreeReport = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1224,6 +1289,7 @@ const aggregateFullDepthReport = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1281,6 +1347,7 @@ const blockingModelCallAggregate = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1325,6 +1392,7 @@ const boundedNotRunStoryReport = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1360,6 +1428,7 @@ const unboundedNotRunStoryReport = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -1937,6 +2006,7 @@ const wrongScriptAggregate = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -2046,6 +2116,7 @@ const aggregateGenericReport = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth
@@ -2150,6 +2221,7 @@ const missingFactualModelReviewAggregate = buildReport({
   lanes: [lanes[0]],
   readiness: {
     status: 'pass',
+    providerProfileAlignment: providerProfilePassSummary,
     externalContextProbe: {
       status: 'pass',
       fixtureDepth: richExternalProbeSummary.fixtureDepth

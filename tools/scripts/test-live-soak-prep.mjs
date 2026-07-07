@@ -12,6 +12,7 @@ import {
   ensureArtifactTree,
   externalContextFixtureDepthCheckStatus,
   inspectSillyTavernExternalContextCompatibility,
+  inspectSillyTavernProviderProfileAlignment,
   inspectSillyTavernAuthorNoteCleanliness,
   normalizeBaseUrl,
   normalizeExtensionPath,
@@ -193,6 +194,65 @@ const cleanAuthorNoteCheck = inspectSillyTavernAuthorNoteCleanliness({
 assert.equal(cleanAuthorNoteCheck.status, 'pass');
 assert.equal(cleanAuthorNoteCheck.users[0].noteDefaultLength, 0);
 assert.equal(cleanAuthorNoteCheck.users[0].contaminatedChatCount, 0);
+
+const providerProfileFixtureRoot = tempArtifactRoot('directive-provider-profile-fixture-');
+const providerUserRoot = path.join(providerProfileFixtureRoot, 'directive-soak-b');
+ensureDirectory(providerUserRoot);
+writeJsonFile(path.join(providerUserRoot, 'settings.json'), {
+  extension_settings: {
+    connectionManager: {
+      selectedProfile: 'target-profile-id',
+      profiles: [
+        { id: 'other-profile-id', name: 'Other Profile' },
+        { id: 'target-profile-id', name: 'Target Profile' }
+      ]
+    },
+    directive: {
+      providers: {
+        utility: { provider: 'profile', profileId: 'target-profile-id' },
+        reasoning: { provider: 'profile', profileId: 'target-profile-id' }
+      }
+    }
+  }
+});
+const alignedProviderProfile = inspectSillyTavernProviderProfileAlignment({
+  users: ['directive-soak-b'],
+  dataRoot: providerProfileFixtureRoot,
+  required: true,
+  expectedProfileId: 'target-profile-id',
+  expectedProfileName: 'Target Profile'
+});
+assert.equal(alignedProviderProfile.status, 'pass');
+assert.equal(alignedProviderProfile.users[0].connectionManagerSelectedProfile, 'target-profile-id');
+assert.equal(alignedProviderProfile.users[0].utilityProfileId, 'target-profile-id');
+assert.equal(alignedProviderProfile.users[0].reasoningProfileId, 'target-profile-id');
+writeJsonFile(path.join(providerUserRoot, 'settings.json'), {
+  extension_settings: {
+    connectionManager: {
+      selectedProfile: 'other-profile-id',
+      profiles: [
+        { id: 'other-profile-id', name: 'Other Profile' },
+        { id: 'target-profile-id', name: 'Target Profile' }
+      ]
+    },
+    directive: {
+      providers: {
+        utility: { provider: 'profile', profileId: 'target-profile-id' },
+        reasoning: { provider: 'profile', profileId: 'other-profile-id' }
+      }
+    }
+  }
+});
+const misalignedProviderProfile = inspectSillyTavernProviderProfileAlignment({
+  users: ['directive-soak-b'],
+  dataRoot: providerProfileFixtureRoot,
+  required: true,
+  expectedProfileId: 'target-profile-id',
+  expectedProfileName: 'Target Profile'
+});
+assert.equal(misalignedProviderProfile.status, 'fail');
+assert.equal(misalignedProviderProfile.users[0].status, 'fail');
+assert.deepEqual(misalignedProviderProfile.users[0].misalignedLanes.sort(), ['connectionManager', 'reasoning']);
 
 const externalContextFixtureRoot = tempArtifactRoot('directive-external-context-fixture-');
 const externalUserRoot = path.join(externalContextFixtureRoot, 'directive-soak-a');
@@ -2059,6 +2119,7 @@ assert(report.checks.some((entry) => entry.id === 'playwright-browser-control'))
 assert(report.checks.some((entry) => entry.id === 'terminal-endings-live-smoke-source'));
 assert(report.checks.some((entry) => entry.id === 'served-extension-freshness'));
 assert(report.checks.some((entry) => entry.id === 'extension-sync-before-testing'));
+assert(report.checks.some((entry) => entry.id === 'provider-profile-alignment'));
 assert(report.checks.some((entry) => entry.id === 'reserved-human-user'));
 assert(report.checks.some((entry) => entry.id === 'author-note-cleanliness'));
 assert(report.checks.some((entry) => entry.id === 'live-execution-soak-user'));

@@ -629,8 +629,8 @@ function assignmentFingerprint(input = {}) {
   ].join('\n'));
 }
 
-function uniqueStrings(values = []) {
-  return [...new Set(asArray(values).map((item) => compact(item, 180)).filter(Boolean))];
+function uniqueStrings(values = [], maxLength = 180) {
+  return [...new Set(asArray(values).map((item) => compact(item, maxLength)).filter(Boolean))];
 }
 
 function proposalTargetIds(raw = {}) {
@@ -719,11 +719,11 @@ function normalizeCommandLogProposal(raw = {}, context, assignments = []) {
   const finalSummaryInputs = uniqueStrings([
     ...(summaryInputs.length ? summaryInputs : []),
     ...assignmentSummaries
-  ]).slice(0, 6);
+  ], Number.POSITIVE_INFINITY).slice(0, 6);
   const finalVisibleConsequences = uniqueStrings([
     ...visibleConsequences,
     ...assignmentSummaries
-  ]).slice(0, 6);
+  ], Number.POSITIVE_INFINITY).slice(0, 6);
   return {
     id: raw.id || `command-log:${context.settlementId}`,
     type: compact(raw.type || 'sceneHandshake', 80) || 'sceneHandshake',
@@ -1108,5 +1108,3 @@ export function validateLatestPairSettlement(rawSettlement, {
     promptDirty: operations.some((operation) => !['runtimeTracking', 'sceneHandshake'].includes(operation.path.split('.')[0]))
   };
 }
-
-export { validateLatestPairSettlement as validateSceneHandshakeSettlement };

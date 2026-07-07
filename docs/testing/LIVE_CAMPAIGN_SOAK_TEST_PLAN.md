@@ -133,6 +133,27 @@ If a full certification run is interrupted, rerun the coordinator with the same 
 
 The five-user chat soak certifies the full chat-native campaign loop; it does not by itself certify every specialized redesign surface. Final Architecture Redesign release evidence must also include the specialized live reports for Command Bearing closure, Command Bearing point lifecycle, catastrophic terminal endings, command-fitness terminal endings, and SillyTavern message mutation discovery plus actuation proof. Use `tools/scripts/preflight-architecture-redesign-release-bundle.mjs` after the Continuity Matrix `full-certification-preflight.json` is already strict-pass.
 
+The release-bundle manifest is mandatory. Generate it with `tools/scripts/create-architecture-redesign-release-bundle-manifest.mjs` after the current alpha gate and strict dry-run preflight pass. It must include `implementationCompleteBaseline` with the post-closeout timestamp, `alphaGateCheckCount: 203`, `strictDryRunPreflightStatus: "pass"`, `strictDryRunPlannedTurns: 52`, and `servedExtensionFresh: true`; the manifest builder rejects missing artifact files before writing output. The bundle preflight rejects direct-path-only proof, undated artifacts, and artifacts older than the implementation-complete baseline so pre-closeout bounded artifacts cannot certify release.
+
+Example manifest build command after post-certification artifacts exist:
+
+```powershell
+node tools/scripts/create-architecture-redesign-release-bundle-manifest.mjs `
+  --output artifacts/live-soak/architecture-redesign-release-bundle.json `
+  --baseline-completed-at 2026-07-07T08:09:05.303Z `
+  --alpha-gate-check-count 203 `
+  --strict-dry-run-preflight-status pass `
+  --strict-dry-run-planned-turns 52 `
+  --served-extension-fresh true `
+  --continuity-preflight <full-certification-preflight.json> `
+  --command-bearing-closure <closure-report.json> `
+  --command-bearing-point <point-report.json> `
+  --terminal-catastrophic <terminal-catastrophic-report.json> `
+  --terminal-command-fitness <terminal-command-fitness-report.json> `
+  --message-mutation-discovery <mutation-discovery.json> `
+  --message-mutation-actuation <message-mutation-actuation-proof.json>
+```
+
 The release-bundle manifest should point to:
 
 - the strict Continuity Matrix `full-certification-preflight.json`;

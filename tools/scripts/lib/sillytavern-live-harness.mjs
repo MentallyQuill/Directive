@@ -695,6 +695,111 @@ export function inspectSillyTavernAuthorNoteCleanliness({
   };
 }
 
+export function inspectSillyTavernProviderProfileAlignment({
+  users = [],
+  dataRoot = '',
+  required = false,
+  expectedProfileId = '',
+  expectedProfileName = ''
+} = {}) {
+  const resolvedDataRoot = resolveSillyTavernDataRoot(dataRoot);
+  const expectedId = String(expectedProfileId || '').trim();
+  const expectedName = String(expectedProfileName || '').trim();
+  const handles = (users || [])
+    .map((entry) => normalizeSoakHandle(typeof entry === 'string' ? entry : entry?.handle || entry?.displayHandle || entry?.user || entry?.username || ''))
+    .filter(Boolean);
+  if (!expectedId) {
+    return {
+      status: required ? 'fail' : 'skipped',
+      summary: required
+        ? 'Required provider-profile alignment preflight has no expected profile id.'
+        : 'Provider-profile alignment preflight skipped because no expected profile id is configured.',
+      dataRoot: resolvedDataRoot,
+      expectedProfileId: null,
+      expectedProfileName: expectedName || null,
+      checkedUserCount: 0,
+      users: handles.map((handle) => ({ handle, status: required ? 'fail' : 'skipped', reason: 'expected-profile-id-missing' }))
+    };
+  }
+  if (!resolvedDataRoot) {
+    return {
+      status: required ? 'fail' : 'warning',
+      summary: required
+        ? 'SillyTavern data root is required for provider-profile alignment preflight but could not be resolved.'
+        : 'SillyTavern data root could not be resolved; provider-profile alignment was not verified.',
+      dataRoot: null,
+      expectedProfileId: expectedId,
+      expectedProfileName: expectedName || null,
+      checkedUserCount: 0,
+      users: handles.map((handle) => ({ handle, status: required ? 'fail' : 'warning', reason: 'data-root-unresolved' }))
+    };
+  }
+
+  const reports = handles.map((handle) => {
+    const userRoot = path.join(resolvedDataRoot, handle);
+    const settingsPath = path.join(userRoot, 'settings.json');
+    const settings = readJsonFileIfExists(settingsPath) || {};
+    const extensionSettings = settings.extension_settings || {};
+    const connectionManager = extensionSettings.connectionManager || {};
+    const selectedProfile = String(connectionManager.selectedProfile || '');
+    const profiles = Array.isArray(connectionManager.profiles) ? connectionManager.profiles : [];
+    const profile = profiles.find((entry) => String(entry?.id || '') === expectedId) || null;
+    const directiveProviders = extensionSettings.directive?.providers || {};
+    const utilityProfileId = String(directiveProviders.utility?.profileId || '');
+    const reasoningProfileId = String(directiveProviders.reasoning?.profileId || '');
+    const misalignedLanes = [
+      selectedProfile === expectedId ? null : 'connectionManager',
+      utilityProfileId === expectedId ? null : 'utility',
+      reasoningProfileId === expectedId ? null : 'reasoning',
+      !expectedName || String(profile?.name || '') === expectedName ? null : 'profileName'
+    ].filter(Boolean);
+    const missingUser = !fs.existsSync(userRoot);
+    const missingProfile = !profile;
+    const status = missingUser || missingProfile || misalignedLanes.length
+      ? required ? 'fail' : 'warning'
+      : 'pass';
+    return {
+      handle,
+      status,
+      userRoot,
+      settingsPath,
+      settingsFound: Boolean(readJsonFileIfExists(settingsPath)),
+      expectedProfileId: expectedId,
+      expectedProfileName: expectedName || null,
+      connectionManagerSelectedProfile: selectedProfile || null,
+      selectedProfileName: profiles.find((entry) => String(entry?.id || '') === selectedProfile)?.name || null,
+      utilityProfileId: utilityProfileId || null,
+      reasoningProfileId: reasoningProfileId || null,
+      targetProfilePresent: Boolean(profile),
+      targetProfileName: profile?.name || null,
+      misalignedLanes,
+      reason: missingUser
+        ? 'user-root-missing'
+        : missingProfile
+          ? 'target-profile-missing'
+          : misalignedLanes.length
+            ? 'provider-profile-misaligned'
+            : null
+    };
+  });
+
+  const failed = reports.filter((entry) => entry.status === 'fail');
+  const warned = reports.filter((entry) => entry.status === 'warning');
+  const status = failed.length ? 'fail' : warned.length ? 'warning' : 'pass';
+  return {
+    status,
+    summary: status === 'pass'
+      ? 'Configured SillyTavern soak users use the required host, Utility, and Reasoner connection profile.'
+      : 'One or more configured SillyTavern soak users is missing or not aligned to the required provider profile.',
+    dataRoot: resolvedDataRoot,
+    expectedProfileId: expectedId,
+    expectedProfileName: expectedName || null,
+    checkedUserCount: reports.length,
+    failedUserCount: failed.length,
+    users: reports
+  };
+}
+
 function extensionInstalled(userRoot, extensionName) {
   return fs.existsSync(path.join(userRoot, 'extensions', extensionName));
 }

@@ -89,6 +89,7 @@ import { createCoreTurnRuntime } from './core-turn-runtime.mjs';
 import {
   createRuntimeLedgerViewAsync,
   createRuntimeLedgerView,
+  findLedgerIngressAsync,
   readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
 import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
@@ -2961,6 +2962,129 @@ export function createDirectiveRuntimeApp({
       return typeof store?.loadHead === 'function' ? store.loadHead() : null;
     }
   };
+
+  function unknownDirectRuntimeExternalPromptEnvironment(observedAt) {
+    return {
+      kind: 'directive.externalPromptEnvironment.v1',
+      schemaVersion: 1,
+      host: runtimeHost?.id || 'direct-runtime',
+      status: 'unknown',
+      observedAt,
+      worldInfo: {},
+      memoryBooks: {},
+      summaryception: {},
+      vectFox: {},
+      knownExternalPromptKeys: [],
+      unknownSignals: ['direct-runtime-source-frame'],
+      redactions: []
+    };
+  }
+
+  function directRuntimeSourceFrame({ state, playerInput, turnPacket, observedAt }) {
+    const binding = bindingFromState(state);
+    const turnId = compactString(turnPacket?.turnId || turnPacket?.id || '');
+    const textHash = fnv1a(playerInput);
+    const ingressId = `ingress:direct-runtime:${state?.campaign?.id || 'campaign'}:${turnId || 'turn'}:${textHash}`;
+    const chatId = binding?.chatId || state?.campaignChatBinding?.chatId || 'direct-runtime';
+    return {
+      ingressId,
+      sourceFrame: createTurnSourceFrame({
+        id: `frame:${ingressId}`,
+        campaignId: state?.campaign?.id || null,
+        saveId: state?.campaignChatBinding?.saveId || null,
+        chatId,
+        hostMessageId: ingressId,
+        textHash,
+        sourceRevision: state?.runtimeTracking?.revision || 0,
+        externalPromptEnvironment: unknownDirectRuntimeExternalPromptEnvironment(observedAt),
+        visibility: 'direct-runtime',
+        currentPlayer: {
+          hostMessageId: ingressId,
+          role: 'player',
+          textHash
+        },
+        createdAt: observedAt
+      })
+    };
+  }
+
+  async function ensureDirectRuntimeCoreIngress({
+    state,
+    turnPacket,
+    playerInput,
+    observedAt
+  } = {}) {
+    const tracked = initializeCampaignRuntimeTracking(state);
+    const input = compactString(playerInput || turnPacket?.sceneSnapshot?.playerInput || '');
+    if (!input) {
+      const error = new Error('Direct runtime Director turn requires player input before CORE mechanics persistence.');
+      error.code = 'DIRECTIVE_CORE_DIRECT_RUNTIME_SOURCE_REQUIRED';
+      throw error;
+    }
+    const inputHash = fnv1a(input);
+    const turnId = compactString(turnPacket?.turnId || turnPacket?.id || '');
+    const activeIngressId = compactString(tracked.runtimeTracking?.activeIngressId);
+    if (activeIngressId) {
+      const existing = await findLedgerIngressAsync(tracked, { id: activeIngressId }, { coreTurnStore: runtimeCoreTurnStore });
+      const existingTransactionId = compactString(existing?.coreTransactionId);
+      const matchesInput = compactString(existing?.textHash) === inputHash;
+      const matchesTurn = turnId && turnId.includes(activeIngressId);
+      if (existingTransactionId && (matchesInput || matchesTurn)) return tracked;
+    }
+    const { ingressId, sourceFrame } = directRuntimeSourceFrame({
+      state: tracked,
+      playerInput: input,
+      turnPacket,
+      observedAt
+    });
+    const transactionId = `txn:${sourceFrame.id}`;
+    const transaction = await runtimeCoreTurnStore.beginTurn(sourceFrame, {
+      transactionId,
+      ingressId,
+      chatId: sourceFrame.chatId,
+      idempotencyKey: `direct-runtime:${ingressId}`
+    });
+    const coreTransactionId = compactString(transaction?.id || transactionId);
+    if (!coreTransactionId) {
+      const error = new Error('CORE turn source observation is required before direct runtime mechanics persistence.');
+      error.code = 'DIRECTIVE_CORE_INGRESS_REQUIRED';
+      error.ingressId = ingressId;
+      error.sourceFrameId = sourceFrame.id;
+      throw error;
+    }
+    return recordTurnIngress(tracked, {
+      id: ingressId,
+      hostMessageId: ingressId,
+      chatId: sourceFrame.chatId || null,
+      campaignId: sourceFrame.campaignId || null,
+      textHash: sourceFrame.textHash || null,
+      receivedAt: observedAt,
+      stateRevision: tracked.runtimeTracking?.revision || 0,
+      sourceFrameId: sourceFrame.id,
+      sourceFrame,
+      coreTransactionId,
+      authority: 'compatibilityProjection',
+      projectionSource: 'coreStoreV2',
+      status: 'received',
+      turnId: turnPacket?.turnId || turnPacket?.id || null,
+      outcomeId: turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null,
+      coreProjection: {
+        kind: 'directive.coreIngressDirectRuntimeProjectionRef.v1',
+        ingressId,
+        transactionId: coreTransactionId,
+        sourceFrameId: sourceFrame.id,
+        status: 'sourceObserved'
+      },
+      compatibilityMirror: {
+        kind: 'directive.coreIngressCompatibilityMirror.v1',
+        status: 'sourceObserved',
+        transactionId: coreTransactionId,
+        sourceFrameId: sourceFrame.id
+      }
+    }, {
+      missingCoreWriteMode: 'reject'
+    });
+  }
 
   async function beginOutcomeRerunReplacementTransaction({
     ledgerEntry = null,
@@ -10372,6 +10496,13 @@ export function createDirectiveRuntimeApp({
         if (replacement?.replacementIngress) {
           committedCandidateState = recordTurnIngress(committedCandidateState, replacement.replacementIngress, {
             missingCoreWriteMode: 'reject'
+          });
+        } else {
+          committedCandidateState = await ensureDirectRuntimeCoreIngress({
+            state: committedCandidateState,
+            turnPacket: result.turnPacket,
+            playerInput: pendingDirectorTurn?.sceneSnapshot?.playerInput,
+            observedAt: timestampFromNow(now)
           });
         }
         const mechanicsIngressId = replacement?.replacementIngressId
