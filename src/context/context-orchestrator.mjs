@@ -129,6 +129,28 @@ function crewIdentityLine(officer = {}, relationship = null) {
   return details.length ? `- ${identity}; ${details.join('; ')}` : `- ${identity}`;
 }
 
+function playerIdentityLine(player = {}) {
+  const rank = compact(player.rank);
+  const name = compact(player.name || player.characterName || player.id || 'the player character');
+  const species = compact(player.species);
+  const billet = compact(player.billet || player.role || player.position || 'player character');
+  const identity = `${rank ? `${rank} ` : ''}${name}${species ? ` (${species})` : ''}, ${billet}`;
+  const publicDetails = [
+    player.dossier?.publicReputation ? `public reputation: ${compact(player.dossier.publicReputation)}` : null,
+    player.publicProfile,
+    player.appearanceSummary,
+    player.backgroundSummary,
+    player.playerSafeSummary,
+    player.summary
+  ].map(compact).filter(Boolean);
+  return publicDetails.length ? `${identity}; ${publicDetails.join('; ')}` : identity;
+}
+
+function promptKeyForCandidateId(id) {
+  const safeId = compact(id || 'context').replace(/[^a-zA-Z0-9_.-]/g, '-');
+  return `directive.campaign.${safeId || 'context'}`;
+}
+
 function knownFacts(state, relevantFactIds = []) {
   const relevant = new Set(asArray(relevantFactIds));
   return asArray(state?.knowledgeLedger?.facts)
@@ -289,6 +311,22 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         'For named crew, treat listed rank, billet, species, public profile, age, appearance, uniform/division color, and role facts as fixed. Do not invent or infer identity facts that are not provided.',
         'Write normal in-character roleplay prose; do not narrate mechanics as mechanics.',
         'Routine professional competence is available; the player supplies judgment and command decisions.'
+      ].join('\n')
+    }),
+    normalizeCandidate(state, {
+      id: 'player-character',
+      title: 'Player Character',
+      mustInclude: true,
+      salienceScore: 100,
+      placement: 'inPrompt',
+      depth: 0,
+      ttl: 'campaign',
+      priority: 999,
+      reason: 'The host model must address and frame the user-made player character correctly.',
+      sourceIds: [state?.player?.id || 'player-character'].filter(Boolean),
+      content: [
+        `Player character: ${playerIdentityLine(state?.player || {})}`,
+        'Address and refer to the player character using this identity. Do not invent a different name, rank, billet, or callsign.'
       ].join('\n')
     }),
     normalizeCandidate(state, replyHeaderBlock),
@@ -512,6 +550,8 @@ function toHostBlock(state, candidate) {
   return {
     ...normalized,
     content: normalized.text,
+    promptKey: candidate.promptKey || promptKeyForCandidateId(candidate.id),
+    mustInclude: candidate.mustInclude === true,
     placement: candidate.placement,
     depth: candidate.depth,
     role: candidate.role,

@@ -173,6 +173,24 @@ const lens = createSyntheticLensPromptScheduler({
       rawResponse: 'RAW_LENS_BUILDER_RESPONSE',
       blocks: [
         {
+          id: 'directive-contract',
+          promptKey: 'directive.contract',
+          title: 'Directive Contract',
+          text: 'Treat committed Directive state as authoritative.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
+          id: 'player-character',
+          promptKey: 'directive.campaign.player-character',
+          title: 'Player Character',
+          text: 'Player character: Commander Sam Vickers, Executive Officer.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
           id: 'lens-visible',
           promptKey: 'directive.lens.visible',
           title: 'Visible LENS Context',
@@ -465,6 +483,9 @@ assert.equal(visibleFlush.directiveOwnedRevision, 1);
 assert.equal(visibleFlush.dirtyDomains.includes('missionQuestThread'), true);
 assert.equal(visibleFlush.dirtyDomains.includes('sourceBinding'), true);
 assert.equal(visibleFlush.appliesTo, 'currentOrNextDirectiveGeneration');
+assert.equal(visibleFlush.installed.requiredPromptKeysPresent, true);
+assert.deepEqual(visibleFlush.installed.requiredPromptKeys, ['directive.contract', 'directive.campaign.player-character']);
+assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.player-character'), true);
 assert.equal(buildCalls.length, 1);
 assert.equal(promptCalls.some(([key]) => externalPromptKeys.has(key)), false, 'LENS install must not write external prompt keys');
 assert.equal(promptCalls.some(([key]) => key === 'directive.campaign.summaryception'), true, 'Malformed external packet key should be scoped to Directive');
@@ -477,6 +498,8 @@ assert.deepEqual(lens.inspect().pendingDirtyDomains, {});
 const visiblePromptDiagnostic = harness.coreStore.state.diagnostics.find((entry) => entry.redactedPayload?.status === 'installed');
 assert(visiblePromptDiagnostic, 'LENS install should append compact prompt diagnostic');
 assert.equal(visiblePromptDiagnostic.redactedPayload.cacheRecord.directiveOwnedRevision, 1);
+assert.equal(visiblePromptDiagnostic.redactedPayload.cacheRecord.requiredPromptKeysPresent, true);
+assert.equal(visiblePromptDiagnostic.redactedPayload.requiredPromptKeysPresent, true);
 assert.equal(visiblePromptDiagnostic.redactedPayload.cacheRecord.finalHostPromptMayIncludeExternal, true);
 assert.equal(visiblePromptDiagnostic.redactedPayload.rawPromptBody, '[redacted-raw-payload]');
 assert.equal(visiblePromptDiagnostic.redactedPayload.rawResponse, '[redacted-raw-payload]');

@@ -207,6 +207,13 @@ assert.equal(packet.blocks.every((block) => typeof block.lensPromptBudgetLane ==
 assert.equal(packet.blocks.find((block) => block.promptKey === 'directive.contract')?.lensPromptBudgetLane, 'stableRules');
 assert.equal(packet.blocks.find((block) => block.promptKey === 'directive.scene.active')?.lensPromptBudgetLane, 'activeScene');
 assert.equal(packet.blocks.find((block) => block.promptKey === 'directive.continuity.invariants')?.lensPromptBudgetLane, 'protectedContinuity');
+const playerCharacterBlock = packet.blocks.find((block) => block.id === 'player-character');
+assert.equal(Boolean(playerCharacterBlock), true, 'Prompt packet must include the user-created player character block.');
+assert.equal(playerCharacterBlock.promptKey, 'directive.campaign.player-character');
+assert.equal(playerCharacterBlock.mustInclude, true);
+assert.equal(playerCharacterBlock.content.includes('Commander Serrin'), true);
+assert.equal(playerCharacterBlock.content.includes('Executive Officer'), true);
+assert.equal(packetJson.includes('Do not invent a different name, rank, billet, or callsign.'), true);
 assert.equal(packet.blocks.find((block) => block.id === 'reply-header')?.lensPromptBudgetLane, 'activeScene');
 assert.equal(packet.continuityProjection.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.equal(packet.blocks.some((block) => block.id === 'reply-header'), true);
@@ -240,6 +247,28 @@ assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), t
 assert.equal(projectionJson.includes('Acting bridge watch officer'), true);
 assert.equal(playerProjection.scene.directorNotes, undefined);
 assert.deepEqual(Object.keys(playerProjection.ship.damage[0]).sort(), ['id', 'label', 'severity', 'status']);
+
+const samVickersState = cloneJson(state);
+samVickersState.player = {
+  ...samVickersState.player,
+  id: 'sam-vickers',
+  name: 'Sam Vickers',
+  rank: 'Commander',
+  billet: 'Executive Officer'
+};
+const samVickersPacket = buildPlayerSafePromptContext({
+  campaignState: samVickersState,
+  packageData,
+  crewDataset,
+  shipDataset,
+  scene,
+  createdAt: '2026-07-07T20:21:00.000Z'
+});
+const samVickersPlayerBlock = samVickersPacket.blocks.find((block) => block.id === 'player-character');
+assert.equal(samVickersPlayerBlock.promptKey, 'directive.campaign.player-character');
+assert.equal(samVickersPlayerBlock.mustInclude, true);
+assert.equal(samVickersPlayerBlock.content.includes('Commander Sam Vickers'), true);
+assert.equal(JSON.stringify(samVickersPacket).includes('Vasquez'), false);
 
 const shuttlebayPacket = buildPlayerSafePromptContext({
   campaignState: state,

@@ -5,6 +5,10 @@ import {
   normalizeExternalPromptEnvironment,
   redactExternalDiagnostic
 } from './architecture-redesign-contracts.mjs';
+import {
+  REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+  missingRequiredPromptKeys
+} from './lens-prompt-scheduler.mjs';
 
 const PROMPT_DIRTY_DOMAINS = new Set([
   'identity',
@@ -427,12 +431,18 @@ export function createSyntheticLensPromptScheduler({
     directiveOwnedRevision = revision;
     dirtyByLane.delete(lane);
     const appliesTo = hostGenerationReleasedAt ? 'nextGeneration' : 'currentOrNextDirectiveGeneration';
+    const promptKeys = packet.blocks.map((block) => block.promptKey).filter(Boolean);
+    const missingRequired = missingRequiredPromptKeys(promptKeys);
     const cacheRecord = {
       lane,
       cacheKey,
       directiveOwnedRevision,
       packetHash: packet.hash,
       blockCount: packet.blocks.length,
+      promptKeys,
+      requiredPromptKeys: REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+      requiredPromptKeysPresent: missingRequired.length === 0,
+      missingRequiredPromptKeys: missingRequired.length ? missingRequired : undefined,
       dirtyDomains,
       externalPromptEnvironmentRef: observed.ref,
       installedAt: clock(),
@@ -447,6 +457,9 @@ export function createSyntheticLensPromptScheduler({
       lane,
       reason,
       cacheRecord,
+      requiredPromptKeys: cacheRecord.requiredPromptKeys,
+      requiredPromptKeysPresent: cacheRecord.requiredPromptKeysPresent,
+      missingRequiredPromptKeys: cacheRecord.missingRequiredPromptKeys,
       directiveOwnedPromptKeys: packet.blocks.map((block) => block.promptKey).filter(isDirectivePromptKey),
       externalPromptKeysObserved: observed.ref.knownExternalPromptKeys,
       rawPromptBody: built.rawPromptBody,
@@ -456,7 +469,7 @@ export function createSyntheticLensPromptScheduler({
     return {
       status: 'installed',
       rebuilt: true,
-      installed: true,
+      installed: cloneJson(cacheRecord),
       lane,
       directiveOwnedRevision,
       packetHash: packet.hash,

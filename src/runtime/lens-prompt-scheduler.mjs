@@ -59,6 +59,20 @@ const PROMPT_BUDGET_DEFAULTS = Object.freeze({
   externalEnvironment: { budgetTokens: 0, reservedFloor: 0 }
 });
 
+export const REQUIRED_HOST_CONTINUE_PROMPT_KEYS = Object.freeze([
+  'directive.contract',
+  'directive.campaign.player-character'
+]);
+
+export function missingRequiredPromptKeys(promptKeys = [], requiredPromptKeys = REQUIRED_HOST_CONTINUE_PROMPT_KEYS) {
+  const present = new Set(uniqueStrings(promptKeys));
+  return uniqueStrings(requiredPromptKeys).filter((key) => !present.has(key));
+}
+
+export function requiredPromptKeysPresent(promptKeys = [], requiredPromptKeys = REQUIRED_HOST_CONTINUE_PROMPT_KEYS) {
+  return missingRequiredPromptKeys(promptKeys, requiredPromptKeys).length === 0;
+}
+
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -1289,6 +1303,8 @@ export function createLensPromptScheduler({
     directiveOwnedRevision = revision;
     const installedAt = clock();
     const promptHash = packet.hash || hashStableJson(packet);
+    const installedPromptKeys = packet.blocks.map((block) => block.promptKey).filter(Boolean);
+    const missingRequired = missingRequiredPromptKeys(installedPromptKeys);
     const appliesTo = hostGenerationReleasedAt ? 'nextGeneration' : 'currentOrNextDirectiveGeneration';
     const installed = compactObject({
       lane,
@@ -1298,7 +1314,10 @@ export function createLensPromptScheduler({
       promptHash,
       packetHash: promptHash,
       blockCount: packet.blocks.length,
-      promptKeys: packet.blocks.map((block) => block.promptKey),
+      promptKeys: installedPromptKeys,
+      requiredPromptKeys: REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+      requiredPromptKeysPresent: missingRequired.length === 0,
+      missingRequiredPromptKeys: missingRequired.length ? missingRequired : undefined,
       installedAt,
       appliesTo,
       cacheInputs: promptCacheInputs,
@@ -1341,6 +1360,9 @@ export function createLensPromptScheduler({
       promptBudgetEnforcement: budgetApplication.enforcement,
       promptHash: installed.promptHash,
       promptKeys: installed.promptKeys,
+      requiredPromptKeys: installed.requiredPromptKeys,
+      requiredPromptKeysPresent: installed.requiredPromptKeysPresent,
+      missingRequiredPromptKeys: installed.missingRequiredPromptKeys,
       cacheRecord: installed,
       directiveOwnedPromptKeys: installed.promptKeys.filter(isDirectivePromptKey),
       externalPromptKeysObserved: resolvedExternalPromptEnvironmentRef?.knownExternalPromptKeys || [],

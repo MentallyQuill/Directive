@@ -78,6 +78,8 @@ import { createSourceReviewWorker } from './source-review-worker.mjs';
 import { createSourceSettlementService } from './source-settlement-service.mjs';
 import {
   createLensPromptScheduler,
+  REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+  missingRequiredPromptKeys,
   normalizePromptDirtyDomains
 } from './lens-prompt-scheduler.mjs';
 import {
@@ -6688,10 +6690,64 @@ export function createDirectiveRuntimeApp({
         rebuilt: lensResult?.rebuilt === true,
         lane,
         cacheKey: lensResult?.cacheKey || lensResult?.installed?.cacheKey || null,
+        installed: cloneJson(lensResult?.installed || null),
         externalPromptEnvironmentRef: cloneJson(lensResult?.externalPromptEnvironmentRef || externalPromptEnvironmentRef || null)
       },
       promptInstallSkipped,
       campaignState: cloneJson(next)
+    };
+  }
+
+  async function hostContinuePromptReadiness({
+    campaignState: readinessState = campaignState,
+    ingress = null,
+    ingressId = null,
+    responseId = null,
+    reason = 'directive-inject-and-continue'
+  } = {}) {
+    const transactionId = compactString(
+      ingress?.coreTransactionId
+      || ingress?.transactionId
+      || ingress?.coreProjection?.transactionId
+      || ingress?.coreProjection?.coreTransactionId
+      || ''
+    );
+    const promptSync = await synchronizeActivePrompt(readinessState, {
+      persist: true,
+      rebuild: true,
+      forceRebuild: true,
+      useContinuityPlanner: false,
+      reason: 'Prompt context rebuilt before host continuation.',
+      activitySource: 'hostContinuePromptReadiness',
+      activityContext: {
+        promptDirtyDomains: ['identity', 'sourceBinding'],
+        promptSyncIdempotencyKey: compactString(`host-continue:${responseId || ingressId || transactionId || 'unknown'}`),
+        transactionId,
+        responseId,
+        ingressId,
+        releaseReason: reason
+      }
+    });
+    const installed = promptSync?.lens?.installed
+      || ensureLensPromptScheduler().inspect()?.installed?.visible
+      || null;
+    const promptKeys = Array.isArray(installed?.promptKeys) ? installed.promptKeys : [];
+    const missingRequired = installed?.requiredPromptKeysPresent === true
+      ? []
+      : (Array.isArray(installed?.missingRequiredPromptKeys)
+        ? installed.missingRequiredPromptKeys
+        : missingRequiredPromptKeys(promptKeys));
+    const requiredPromptKeysPresent = missingRequired.length === 0;
+    return {
+      ok: promptSync?.ok === true && promptSync?.active !== false && requiredPromptKeysPresent,
+      reason: requiredPromptKeysPresent ? 'prompt-ready' : 'missing-required-prompt-keys',
+      requiredPromptKeys: installed?.requiredPromptKeys || REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+      requiredPromptKeysPresent,
+      missingRequiredPromptKeys: missingRequired,
+      promptKeys,
+      directiveOwnedRevision: installed?.directiveOwnedRevision || null,
+      promptHash: installed?.promptHash || installed?.packetHash || null,
+      installed
     };
   }
 
@@ -6978,6 +7034,7 @@ export function createDirectiveRuntimeApp({
       getCampaignState,
       setCampaignState,
       persist: persistCampaignState,
+      promptReadiness: hostContinuePromptReadiness,
       now
     });
     const messageReconciler = createMessageReconciler({

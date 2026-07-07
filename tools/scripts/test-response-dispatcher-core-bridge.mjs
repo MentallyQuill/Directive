@@ -4465,4 +4465,88 @@ assert.equal(asyncDuplicateDelegate.duplicate, true, 'Async CORE response projec
 assert.equal(asyncDuplicateDelegate.recoveryRequired, true);
 assert.equal(asyncDuplicateProjectionContinueCount, 0);
 
+let promptGateState = createCampaignState({
+  campaignId: 'campaign-prompt-readiness-gate',
+  saveId: 'save-prompt-readiness-gate',
+  chatId: 'ashes-chat'
+});
+const promptGateSourceFrame = createTurnSourceFrameContract({
+  id: 'frame-prompt-readiness-gate',
+  source: {
+    host: 'sillytavern',
+    chatId: 'ashes-chat',
+    hostMessageId: 'player-prompt-readiness-gate'
+  },
+  text: 'Sam Vickers asks Bronn for the tactical handoff.',
+  observedAt: '2026-06-28T17:04:00.000Z'
+});
+promptGateState = addIngress(promptGateState, {
+  ingressId: 'ingress-prompt-readiness-gate',
+  hostMessageId: 'player-prompt-readiness-gate',
+  chatId: 'ashes-chat',
+  campaignId: 'campaign-prompt-readiness-gate',
+  sourceFrame: promptGateSourceFrame,
+  coreTransactionId: 'txn-prompt-readiness-gate'
+});
+let promptGateContinueCalls = 0;
+const promptGateDiagnostics = [];
+const promptGateDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Prompt readiness gate must not post Directive text.');
+      },
+      continueHostGeneration: async () => {
+        promptGateContinueCalls += 1;
+        throw new Error('Prompt readiness gate must not release host generation.');
+      }
+    }
+  },
+  coreTurnStore: {
+    async appendDiagnostics(transactionId, event = {}) {
+      promptGateDiagnostics.push({ transactionId, ...cloneJson(event) });
+      return { id: `diagnostic-${promptGateDiagnostics.length}`, payload: cloneJson(event) };
+    },
+    readProjections() {
+      return {
+        ingressLedger: [{
+          id: 'ingress-prompt-readiness-gate',
+          ingressId: 'ingress-prompt-readiness-gate',
+          transactionId: 'txn-prompt-readiness-gate',
+          coreTransactionId: 'txn-prompt-readiness-gate',
+          sourceFrameId: 'frame-prompt-readiness-gate',
+          hostMessageId: 'player-prompt-readiness-gate',
+          status: 'sourceObserved'
+        }],
+        sidecarDiagnostics: cloneJson(promptGateDiagnostics)
+      };
+    }
+  },
+  promptReadiness: async () => ({
+    ok: false,
+    requiredPromptKeysPresent: false,
+    promptKeys: ['directive.contract'],
+    missingRequiredPromptKeys: ['directive.campaign.player-character'],
+    directiveOwnedRevision: 7,
+    reason: 'missing-required-prompt-keys'
+  }),
+  getCampaignState: () => promptGateState,
+  setCampaignState: (next) => { promptGateState = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { promptGateState = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const promptGateResult = await promptGateDispatcher.dispatch({
+  campaignState: promptGateState,
+  ingressId: 'ingress-prompt-readiness-gate',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-prompt-readiness-gate'
+});
+assert.equal(promptGateResult.ok, false);
+assert.equal(promptGateResult.status, 'promptNotReady');
+assert.equal(promptGateResult.promptReadiness.missingRequiredPromptKeys[0], 'directive.campaign.player-character');
+assert.equal(promptGateContinueCalls, 0);
+assert.equal(promptGateDiagnostics.at(-1).status, 'blocked');
+assert.equal(promptGateDiagnostics.at(-1).missingRequiredPromptKeys[0], 'directive.campaign.player-character');
+
 console.log('Response dispatcher CORE bridge tests passed.');

@@ -11,6 +11,10 @@ import {
   createTurnLatencyMetrics,
   hashStableJson
 } from './architecture-redesign-contracts.mjs';
+import {
+  REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+  missingRequiredPromptKeys
+} from './lens-prompt-scheduler.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 import {
   __sourceReviewWorkerTestHooks,
@@ -56,6 +60,32 @@ function compactError(error, fallbackCode = 'DIRECTIVE_CORE_HOST_CONTINUE_RELEAS
   return {
     code: error?.code || fallbackCode,
     message: error?.message || String(error)
+  };
+}
+
+function normalizeHostContinuePromptReadiness(value = null) {
+  const source = value?.installed && typeof value.installed === 'object' ? value.installed : (value || {});
+  const promptKeys = Array.isArray(source.promptKeys)
+    ? source.promptKeys
+    : (Array.isArray(value?.promptKeys) ? value.promptKeys : []);
+  const missing = Array.isArray(source.missingRequiredPromptKeys)
+    ? source.missingRequiredPromptKeys
+    : (Array.isArray(value?.missingRequiredPromptKeys)
+      ? value.missingRequiredPromptKeys
+      : (promptKeys.length ? missingRequiredPromptKeys(promptKeys) : REQUIRED_HOST_CONTINUE_PROMPT_KEYS));
+  const requiredPromptKeysPresent = source.requiredPromptKeysPresent ?? value?.requiredPromptKeysPresent ?? (missing.length === 0);
+  const ok = value?.ok !== false && requiredPromptKeysPresent === true;
+  return {
+    ok,
+    requiredPromptKeys: Array.isArray(source.requiredPromptKeys)
+      ? source.requiredPromptKeys
+      : (Array.isArray(value?.requiredPromptKeys) ? value.requiredPromptKeys : REQUIRED_HOST_CONTINUE_PROMPT_KEYS),
+    requiredPromptKeysPresent,
+    missingRequiredPromptKeys: missing,
+    promptKeys,
+    directiveOwnedRevision: source.directiveOwnedRevision ?? value?.directiveOwnedRevision ?? null,
+    promptHash: source.promptHash || source.packetHash || value?.promptHash || value?.packetHash || null,
+    reason: value?.reason || source.reason || (ok ? 'prompt-ready' : 'missing-required-prompt-keys')
   };
 }
 
@@ -446,6 +476,7 @@ export function composePauseResponse(type, context = {}) {
 
 export const __responseDispatcherTestHooks = Object.freeze({
   providedHostNativeReviewMatchesSource: __sourceReviewWorkerTestHooks.providedHostNativeReviewMatchesSource,
+  normalizeHostContinuePromptReadiness,
   sanitizedHostNativeContinuityCompatibilityProjection
 });
 
@@ -458,6 +489,7 @@ export function createResponseDispatcher({
   getCampaignState = null,
   setCampaignState = null,
   persist = null,
+  promptReadiness = null,
   now = null
 } = {}) {
   if (!host?.chat?.postAssistantMessage) {
@@ -2511,6 +2543,72 @@ export function createResponseDispatcher({
         campaignProjection
       });
     };
+    if (responseType === 'hostGeneration' && typeof promptReadiness === 'function') {
+      let readiness = null;
+      try {
+        readiness = normalizeHostContinuePromptReadiness(await promptReadiness({
+          campaignState: state,
+          ingress,
+          ingressId,
+          turnId,
+          outcomeId,
+          responseId: key,
+          reason: 'directive-inject-and-continue'
+        }));
+      } catch (error) {
+        readiness = {
+          ok: false,
+          requiredPromptKeys: REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+          requiredPromptKeysPresent: false,
+          missingRequiredPromptKeys: REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
+          promptKeys: [],
+          reason: 'prompt-readiness-check-failed',
+          error: compactError(error, 'DIRECTIVE_HOST_CONTINUE_PROMPT_READINESS_FAILED')
+        };
+      }
+      if (!readiness.ok) {
+        releasePersistedResolve();
+        const transactionId = ingressCoreTransactionId(ingress);
+        const diagnosticPayload = {
+          type: 'hostContinuePromptReadiness',
+          status: 'blocked',
+          severity: 'warning',
+          responseId: key,
+          ingressId,
+          outcomeId,
+          turnId,
+          reason: readiness.reason || 'host-continue-prompt-not-ready',
+          requiredPromptKeys: cloneJson(readiness.requiredPromptKeys),
+          requiredPromptKeysPresent: readiness.requiredPromptKeysPresent,
+          missingRequiredPromptKeys: cloneJson(readiness.missingRequiredPromptKeys),
+          promptKeyCount: Array.isArray(readiness.promptKeys) ? readiness.promptKeys.length : 0,
+          directiveOwnedRevision: readiness.directiveOwnedRevision,
+          promptHash: readiness.promptHash,
+          error: readiness.error ? cloneJson(readiness.error) : undefined
+        };
+        let diagnostic = null;
+        if (transactionId && typeof coreTurnStore?.appendDiagnostics === 'function') {
+          try {
+            diagnostic = await coreTurnStore.appendDiagnostics(transactionId, diagnosticPayload);
+          } catch {
+            diagnostic = null;
+          }
+        }
+        return {
+          ok: false,
+          recoveryRequired: true,
+          status: 'promptNotReady',
+          reason: 'host-continue-prompt-not-ready',
+          responseId: key,
+          ingressId,
+          outcomeId,
+          turnId,
+          promptReadiness: cloneJson(readiness),
+          coreDiagnostic: cloneJson(diagnostic || null),
+          campaignState: cloneJson(state)
+        };
+      }
+    }
     if (responseType === 'hostGeneration' && typeof host.chat.continueHostGeneration === 'function') {
       hostContinuation = await host.chat.continueHostGeneration({
         ingressId,
