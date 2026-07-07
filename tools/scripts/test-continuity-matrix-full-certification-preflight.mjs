@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  FIVE_USER_CERTIFICATION_TURN_COUNT,
   SOAK_PARALLEL_WORKER_POLICY,
   SOAK_TURN_SCRIPT
 } from './soak-sillytavern-campaign-live.mjs';
@@ -57,12 +58,12 @@ function writeExternalContextSummary(root) {
       role: 'diagnostics-provenance-only'
     },
     aggregate: {
-      captureCount: SOAK_TURN_SCRIPT.length,
+      captureCount: FIVE_USER_CERTIFICATION_TURN_COUNT,
       refHashes: ['a'.repeat(64)],
       knownExternalPromptKeys: ['worldInfoBefore', 'summaryception', '3_vectfox'],
       finalHostPromptMayIncludeExternal: true,
       redactionReasons: ['secret'],
-      targetSummaryCount: SOAK_TURN_SCRIPT.length,
+      targetSummaryCount: FIVE_USER_CERTIFICATION_TURN_COUNT,
       timingCoverage: {
         requiredTargets: ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'],
         targetsWithTiming: ['stLorebooks', 'memoryBooks', 'summaryception', 'vectFox'],
@@ -71,7 +72,7 @@ function writeExternalContextSummary(root) {
         status: 'pass'
       }
     },
-    targetSummaries: SOAK_TURN_SCRIPT.map((turn, index) => ({
+    targetSummaries: SOAK_TURN_SCRIPT.slice(0, FIVE_USER_CERTIFICATION_TURN_COUNT).map((turn, index) => ({
       scriptMessageId: `soak-turn-${String(index + 1).padStart(2, '0')}`,
       scriptCategory: turn.category || 'directiveCommit',
       targets: {
@@ -229,13 +230,13 @@ function timingCheck() {
   return {
     id: 'live-generation-start-timing',
     status: 'pass',
-    summary: 'Delegated smoke proved generation-start timing for 52 turns.',
+    summary: `Delegated smoke proved generation-start timing for ${FIVE_USER_CERTIFICATION_TURN_COUNT} turns.`,
     details: {
       proof: {
         status: 'pass',
         source: 'coreStoreTurnTiming',
         timingSource: 'coreProjection',
-        checkedTurnCount: SOAK_TURN_SCRIPT.length,
+        checkedTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT,
         skippedTurnCount: 0,
         maxGenerationStartLatencyMs: 24000
       }
@@ -311,9 +312,9 @@ function storyQualityCheck() {
 }
 
 function writeLaneArtifacts(root, {
-  turnLimit = null,
-  promptCount = SOAK_TURN_SCRIPT.length,
-  factTurnCount = SOAK_TURN_SCRIPT.length,
+  turnLimit = FIVE_USER_CERTIFICATION_TURN_COUNT,
+  promptCount = FIVE_USER_CERTIFICATION_TURN_COUNT,
+  factTurnCount = FIVE_USER_CERTIFICATION_TURN_COUNT,
   failedModelCallCount = 0,
   modelCalls = null,
   includeModelCallPolicyEvidence = true,
@@ -349,7 +350,7 @@ function writeLaneArtifacts(root, {
   writeFactualModelReviewArtifacts(root);
   writeJson(path.join(root, 'fact-checks', 'canary-index.json'), { kind: 'directive.liveCampaignSoak.factualCanaryIndex' });
   writeJson(path.join(root, 'report.json'), {
-    status: reportStatusOverride || (modelCallFailurePolicy.status === 'fail' ? 'fail' : turnLimit ? 'warning' : 'pass'),
+    status: reportStatusOverride || (modelCallFailurePolicy.status === 'fail' ? 'fail' : turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? 'pass' : 'warning'),
     runId: 'lane-run',
     mode: 'live',
     modelCallPolicy: {
@@ -389,11 +390,11 @@ function writeLaneArtifacts(root, {
         id: 'live-smoke-52-turn-delegation',
         status: liveSmokeDelegationStatus,
         summary: liveSmokeDelegationStatus === 'pass'
-          ? 'Delegated lane completed the full live smoke script.'
-          : 'Delegated lane did not complete the full live smoke script.',
+          ? `Delegated lane completed the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn certification script.`
+          : `Delegated lane did not complete the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn certification script.`,
         details: {
-          expectedTurnCount: SOAK_TURN_SCRIPT.length,
-          completedTurnCount: liveSmokeDelegationStatus === 'pass' ? SOAK_TURN_SCRIPT.length : SOAK_TURN_SCRIPT.length - 1
+          expectedTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT,
+          completedTurnCount: liveSmokeDelegationStatus === 'pass' ? FIVE_USER_CERTIFICATION_TURN_COUNT : FIVE_USER_CERTIFICATION_TURN_COUNT - 1
         }
       },
       {
@@ -415,12 +416,12 @@ function writeLaneArtifacts(root, {
       },
       {
         id: 'live-execution-turn-limit',
-        status: turnLimit ? 'warning' : 'pass',
-        summary: turnLimit ? `Live execution is intentionally limited to ${turnLimit} turn(s).` : 'Full run.',
+        status: turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? 'pass' : 'warning',
+        summary: turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? `${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn full five-user certification is selected.` : `Live execution is intentionally limited to ${turnLimit} turn(s).`,
         details: { turnLimit, fullTurnCount: SOAK_TURN_SCRIPT.length }
       }
     ],
-    warnings: turnLimit ? [`Live execution is intentionally limited to ${turnLimit} turn(s).`] : [],
+    warnings: turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? [] : [`Live execution is intentionally limited to ${turnLimit} turn(s).`],
     failures: modelCallFailurePolicy.status === 'fail' ? [modelCallFailurePolicy.summary] : []
   });
   writeJson(path.join(root, 'smoke-chat-soak', 'report-summary.json'), smokeSummary);
@@ -491,7 +492,7 @@ function writeLaneArtifacts(root, {
   });
 }
 
-function aggregateReport(root, lanes, { turnLimit = null, status = 'pass' } = {}) {
+function aggregateReport(root, lanes, { turnLimit = FIVE_USER_CERTIFICATION_TURN_COUNT, status = 'pass' } = {}) {
   writeJson(path.join(root, 'report.json'), {
     kind: 'directive.continuityProjectionMatrix.fiveUserSoakReport',
     runId: path.basename(root),
@@ -517,8 +518,8 @@ function aggregateReport(root, lanes, { turnLimit = null, status = 'pass' } = {}
     checks: [
       {
         id: 'turn-depth',
-        status: turnLimit ? 'warning' : 'pass',
-        summary: turnLimit ? `Each lane is limited to ${turnLimit} turn(s); this is bounded proof, not full certification.` : 'Each lane will run the full 52-turn campaign soak.',
+        status: turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? 'pass' : 'warning',
+        summary: turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? `Each lane will run the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn campaign certification.` : `Each lane is limited to ${turnLimit} turn(s); this is bounded proof, not full certification.`,
         details: { turnLimit }
       },
       {
@@ -528,7 +529,7 @@ function aggregateReport(root, lanes, { turnLimit = null, status = 'pass' } = {}
       }
     ],
     lanes,
-    warnings: turnLimit ? [`Each lane is limited to ${turnLimit} turn(s); this is bounded proof, not full certification.`] : [],
+    warnings: turnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT ? [] : [`Each lane is limited to ${turnLimit} turn(s); this is bounded proof, not full certification.`],
     failures: []
   });
 }
@@ -582,9 +583,10 @@ function writeExternalContextProbe(root, handles = []) {
 }
 
 const budget = expectedFullCertificationBudget();
-assert.equal(budget.fullTurnCount, 52);
-assert.equal(budget.factChecksPerLane, 53);
-assert.equal(budget.totalFactChecks, 265);
+assert.equal(budget.fullTurnCount, 25);
+assert.equal(budget.promptSnapshotsPerLane, 25);
+assert.equal(budget.factChecksPerLane, 26);
+assert.equal(budget.totalFactChecks, 130);
 
 const fullRoot = makeRoot();
 const fullLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.map((lane) => {

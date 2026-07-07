@@ -17,6 +17,7 @@ import {
   writeTextFile
 } from './lib/sillytavern-live-harness.mjs';
 import {
+  FIVE_USER_CERTIFICATION_TURN_COUNT,
   SOAK_PARALLEL_WORKER_POLICY,
   SOAK_TURN_SCRIPT
 } from './soak-sillytavern-campaign-live.mjs';
@@ -87,7 +88,7 @@ Bounded live proof:
 
 Full certification:
   Omit --turn-limit and DIRECTIVE_SOAK_TURN_LIMIT. The coordinator then runs the
-  full 52-turn live campaign soak once per lane/user. Live lanes run one at a
+  25-turn live campaign certification once per lane/user. Live lanes run one at a
   time by default so SillyTavern and shared providers do not starve host-native
   continuations; raise --lane-concurrency only for stress testing.
 
@@ -1690,9 +1691,13 @@ function childEnvForLane({ lane, paths, runId, turnLimit, activateExternalContex
   }
   if (turnLimit) {
     env.DIRECTIVE_SOAK_TURN_LIMIT = String(turnLimit);
-    delete env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION;
+    if (requestedTurnLimitValue(turnLimit) === FIVE_USER_CERTIFICATION_TURN_COUNT) {
+      env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION = '1';
+    } else {
+      delete env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION;
+    }
   } else {
-    delete env.DIRECTIVE_SOAK_TURN_LIMIT;
+    env.DIRECTIVE_SOAK_TURN_LIMIT = String(FIVE_USER_CERTIFICATION_TURN_COUNT);
     env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION = '1';
   }
   if (activateExternalContextFixture) env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE = '1';
@@ -1703,6 +1708,19 @@ function childEnvForLane({ lane, paths, runId, turnLimit, activateExternalContex
 function requestedTurnLimitValue(turnLimit) {
   const parsed = Number.parseInt(String(turnLimit || '').trim(), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function certificationTurnLimitValue(turnLimit) {
+  return requestedTurnLimitValue(turnLimit) || FIVE_USER_CERTIFICATION_TURN_COUNT;
+}
+
+function certificationDepthSelected(turnLimit) {
+  return certificationTurnLimitValue(turnLimit) === FIVE_USER_CERTIFICATION_TURN_COUNT;
+}
+
+function boundedProofTurnLimit(turnLimit) {
+  const requested = requestedTurnLimitValue(turnLimit);
+  return requested !== null && requested !== FIVE_USER_CERTIFICATION_TURN_COUNT;
 }
 
 export function firstHostNativeCompletionRequiredTurn() {
@@ -1813,7 +1831,7 @@ export function summarizeReusableContinuityMatrixLane({
     artifactRoot,
     turnLimit
   });
-  const boundedTurnLimit = requestedTurnLimitValue(turnLimit) !== null;
+  const boundedTurnLimit = boundedProofTurnLimit(turnLimit);
   if (
     summary.report?.status === 'fail'
     || summary.artifactCompleteness?.status === 'fail'
@@ -2115,12 +2133,15 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
       : readiness ? { artifactRoot: readiness.artifactRoot } : null
   ));
   const fixtureDepth = externalProbe?.fixtureDepth || null;
+  const fullCertificationSelected = certificationDepthSelected(options.turnLimit);
+  const boundedCertificationProof = boundedProofTurnLimit(options.turnLimit);
+  const certificationTurnLimit = certificationTurnLimitValue(options.turnLimit);
   const fixtureDepthStatus = externalContextFixtureDepthCheckStatus({
     live: options.live,
     skipReadiness: options.skipReadiness,
     turnLimit: options.turnLimit,
     fixtureDepth,
-    fullCertificationRequired: Boolean(options.live && !options.turnLimit && !options.skipReadiness)
+    fullCertificationRequired: Boolean(options.live && fullCertificationSelected && !options.skipReadiness)
   });
   checks.push(reportCheck(
     'external-context-fixture-depth',
@@ -2133,13 +2154,13 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
           ? 'Live readiness did not produce fixture-depth evidence.'
           : fixtureDepth.status === 'pass'
             ? 'At least one non-human soak user has rich active fixture evidence for every external-context target.'
-            : options.turnLimit
+            : boundedCertificationProof
               ? 'External context observability exists, but rich active fixture evidence is incomplete or shallow.'
-              : 'Full external-context certification requires rich active fixture evidence for every target in at least one non-human soak user.',
+              : '25-turn external-context certification requires rich active fixture evidence for every target in at least one non-human soak user.',
     fixtureDepth
       ? {
         status: fixtureDepth.status,
-        fullCertificationRequired: Boolean(options.live && !options.turnLimit && !options.skipReadiness),
+        fullCertificationRequired: Boolean(options.live && fullCertificationSelected && !options.skipReadiness),
         requiredTargets: fixtureDepth.requiredTargets,
         fullFixtureUserHandles: fixtureDepth.fullFixtureUserHandles,
         missingTargets: fixtureDepth.missingTargets,
@@ -2149,16 +2170,16 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
   ));
   checks.push(reportCheck(
     'turn-depth',
-    !options.live ? 'skipped' : options.turnLimit ? 'warning' : 'pass',
+    !options.live ? 'skipped' : boundedCertificationProof ? 'warning' : 'pass',
     !options.live
       ? 'Turn-depth check skipped in dry-run mode.'
-      : options.turnLimit
+      : boundedCertificationProof
         ? `Each lane is limited to ${options.turnLimit} turn(s); this is bounded proof, not full certification.`
-        : 'Each lane will run the full 52-turn campaign soak.',
-    { turnLimit: options.turnLimit || null }
+        : `Each lane will run the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn campaign certification.`,
+    { turnLimit: certificationTurnLimit, requestedTurnLimit: requestedTurnLimitValue(options.turnLimit), certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT }
   ));
   const hostNativeRequiredTurn = firstHostNativeCompletionRequiredTurn();
-  const requestedTurnLimit = requestedTurnLimitValue(options.turnLimit);
+  const requestedTurnLimit = certificationTurnLimit;
   const hostNativeTurnCoverageStatus = !options.live
     ? 'skipped'
     : hostNativeRequiredTurn && requestedTurnLimit && requestedTurnLimit < hostNativeRequiredTurn
@@ -2318,7 +2339,7 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
     : factualHardFailures.length
       ? 'fail'
       : factualWarnings.length
-        ? (requestedTurnLimitValue(options.turnLimit) !== null ? 'warning' : 'fail')
+        ? (boundedCertificationProof ? 'warning' : 'fail')
         : 'pass';
   checks.push(reportCheck(
     'factual-grounding',
@@ -2328,7 +2349,7 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
       : factualHardFailures.length
         ? `${factualHardFailures.length} lane(s) failed factual-grounding checks.`
         : factualWarnings.length
-          ? `${factualWarnings.length} lane(s) completed factual-grounding checks or model-assisted review with warnings; unbounded certification requires pass.`
+          ? `${factualWarnings.length} lane(s) completed factual-grounding checks or model-assisted review with warnings; 25-turn certification requires pass.`
         : 'Every live lane passed deterministic and model-assisted factual-grounding checks.',
     {
       totalFactChecks: laneSummaries.reduce((sum, lane) => sum + (lane.factualGrounding?.checkCount || 0), 0),
@@ -2353,7 +2374,7 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
       }))
     }
   ));
-  const boundedTurnLimit = requestedTurnLimitValue(options.turnLimit) !== null;
+  const boundedTurnLimit = boundedCertificationProof;
   const storyQualityFailures = laneSummaries.filter((lane) => lane.storyQualityReview?.status === 'fail');
   const storyQualityWarnings = laneSummaries.filter((lane) => lane.storyQualityReview?.status === 'warning');
   const modelReviewNotRun = laneSummaries.filter((lane) => lane.storyQualityReview?.modelAssistedReview?.missing === true);
@@ -2375,7 +2396,7 @@ function aggregateChecks({ options, lanes, readiness, laneSummaries }) {
         : storyQualityWarnings.length
           ? boundedTurnLimit
             ? `${storyQualityWarnings.length} bounded lane(s) have incomplete or non-passing model-assisted story-quality review evidence.`
-            : `${storyQualityWarnings.length} lane(s) have incomplete or non-passing model-assisted story-quality review evidence; unbounded certification requires pass.`
+            : `${storyQualityWarnings.length} lane(s) have incomplete or non-passing model-assisted story-quality review evidence; 25-turn certification requires pass.`
           : 'Every live lane has passing model-assisted story-quality review evidence.',
     {
       boundedTurnLimit,
@@ -2542,7 +2563,9 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
     runId,
     laneCount: lanes.length,
     laneConcurrency,
-    turnLimit: options.turnLimit || null,
+    turnLimit: certificationTurnLimitValue(options.turnLimit),
+    requestedTurnLimit: requestedTurnLimitValue(options.turnLimit),
+    certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT,
     resume: options.resume === true
   });
   if (!options.skipReadiness) {
@@ -2583,7 +2606,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
       const reusable = summarizeReusableContinuityMatrixLane({
         lane,
         artifactRoot: reusableArtifactRoot,
-        turnLimit: options.turnLimit
+        turnLimit: certificationTurnLimitValue(options.turnLimit)
       });
       if (reusable) {
         coordinatorLog(paths, options, {
@@ -2618,7 +2641,7 @@ async function runLiveCoordinator({ options, lanes, paths, runId, readinessUsers
       { env, action: { kind: 'lane', runId, laneId: lane.id, userHandle: lane.userHandle, artifactRoot: reusableArtifactRoot } }
     );
     const artifactRoot = child.json?.artifactRoot || laneArtifactRootForRun(paths, runId, lane.id);
-    const laneSummary = summarizeContinuityMatrixLane({ lane, child, artifactRoot, turnLimit: options.turnLimit || null });
+    const laneSummary = summarizeContinuityMatrixLane({ lane, child, artifactRoot, turnLimit: certificationTurnLimitValue(options.turnLimit) });
     coordinatorLog(paths, options, {
       kind: 'lane-end',
       status: laneSummary.status,
@@ -2667,7 +2690,9 @@ export function buildReport({
     },
     options: {
       live: options.live,
-      turnLimit: options.turnLimit || null,
+      turnLimit: certificationTurnLimitValue(options.turnLimit),
+      requestedTurnLimit: requestedTurnLimitValue(options.turnLimit),
+      certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT,
       skipReadiness: options.skipReadiness,
       resume: options.resume,
       laneConcurrency: options.live ? liveLaneConcurrency(options, lanes.length) : null,

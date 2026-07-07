@@ -1438,7 +1438,7 @@ const unboundedNotRunStoryReport = buildReport({
 });
 const unboundedStoryCheck = unboundedNotRunStoryReport.checks.find((entry) => entry.id === 'story-quality-model-review');
 assert.equal(unboundedStoryCheck.status, 'fail');
-assert.match(unboundedStoryCheck.summary, /unbounded certification requires pass/);
+assert.match(unboundedStoryCheck.summary, /25-turn certification requires pass/);
 
 const flatStoryQualityRoot = makeArtifactRoot();
 writePassingLaneArtifacts(flatStoryQualityRoot);

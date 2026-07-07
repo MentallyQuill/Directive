@@ -12,8 +12,8 @@ import {
   summarizeModelCallFailurePolicy
 } from './lib/model-call-failure-policy.mjs';
 import {
-  SOAK_PARALLEL_WORKER_POLICY,
-  SOAK_TURN_SCRIPT
+  FIVE_USER_CERTIFICATION_TURN_COUNT,
+  SOAK_PARALLEL_WORKER_POLICY
 } from './soak-sillytavern-campaign-live.mjs';
 import {
   summarizeExternalContextGenerationArtifacts,
@@ -135,7 +135,7 @@ function laneArtifactRoot(lane = {}, aggregateRoot = '') {
 
 export function expectedFullCertificationBudget({ expectedLanes = SOAK_PARALLEL_WORKER_POLICY.lanes.length } = {}) {
   const laneCount = positiveInteger(expectedLanes, SOAK_PARALLEL_WORKER_POLICY.lanes.length);
-  const fullTurnCount = SOAK_TURN_SCRIPT.length;
+  const fullTurnCount = FIVE_USER_CERTIFICATION_TURN_COUNT;
   return {
     laneCount,
     fullTurnCount,
@@ -164,7 +164,7 @@ function warningIsDepthOnly({
 } = {}) {
   if (!checkEntry || checkEntry.status !== 'warning') return false;
   if (AGGREGATE_DEPTH_ONLY_WARNING_IDS.has(checkEntry.id)) return true;
-  if (checkEntry.id === 'lane-artifact-completeness' && aggregateTurnLimit(aggregateReport)) return true;
+  if (checkEntry.id === 'lane-artifact-completeness' && aggregateBoundedProofTurnLimit(aggregateReport)) return true;
   if (checkEntry.id === 'external-context-fixture-depth') {
     return fixtureDepthFromReport(aggregateReport, artifactRoot)?.status === 'pass';
   }
@@ -226,6 +226,11 @@ function aggregateTurnLimit(report = {}) {
   return turnDepth?.details?.turnLimit ?? null;
 }
 
+function aggregateBoundedProofTurnLimit(report = {}) {
+  const turnLimit = positiveInteger(aggregateTurnLimit(report), 0);
+  return turnLimit > 0 && turnLimit !== FIVE_USER_CERTIFICATION_TURN_COUNT;
+}
+
 function laneModelCallPolicyEvidence({ report = null, smokeReport = null, smokeSummary = null, chatCampaignSummary = null } = {}) {
   const durableEvidence = report?.modelCallPolicy?.failurePolicyEvidence || null;
   if (durableEvidence && typeof durableEvidence === 'object') {
@@ -265,8 +270,8 @@ function summarizeLaneForPreflight(lane = {}, aggregateRoot = '') {
     || smokeSummary?.browser?.chatCampaignFlow?.chatCampaign
     || smokeSummary?.chatCampaign
     || null;
-  const artifactCompleteness = summarizeLaneArtifactCompleteness({ artifactRoot, turnLimit: null });
-  const externalContextGeneration = summarizeExternalContextGenerationArtifacts({ artifactRoot, turnLimit: null });
+  const artifactCompleteness = summarizeLaneArtifactCompleteness({ artifactRoot, turnLimit: FIVE_USER_CERTIFICATION_TURN_COUNT });
+  const externalContextGeneration = summarizeExternalContextGenerationArtifacts({ artifactRoot, turnLimit: FIVE_USER_CERTIFICATION_TURN_COUNT });
   const factualGrounding = summarizeFactualGroundingArtifacts({ artifactRoot });
   const storyQualityReview = summarizeStoryQualityReviewArtifacts({ artifactRoot });
   const generationTiming = summarizeGenerationTimingCoreProof({ artifactRoot });
@@ -488,7 +493,7 @@ export function buildFullCertificationPreflight({
     return true;
   });
   const aggregateStatusOk = aggregateReport?.status === 'pass'
-    || (aggregateReport?.status === 'warning' && turnLimit && aggregateBlockingChecks.length === 0);
+    || (aggregateReport?.status === 'warning' && aggregateBoundedProofTurnLimit(aggregateReport) && aggregateBlockingChecks.length === 0);
   const aggregateLiveStatusOk = aggregateStatusOk && aggregateBlockingChecks.length === 0;
   const laneLiveExecutionFailures = laneSummaries.filter((lane) => {
     const laneAggregateStatusOk = lane.aggregateLaneStatus === 'pass'
@@ -584,19 +589,19 @@ export function buildFullCertificationPreflight({
     ),
     check(
       'full-depth-run',
-      !turnLimit ? 'pass' : 'fail',
-      !turnLimit
-        ? `Artifact is unbounded and expected to cover all ${expected.fullTurnCount} turns.`
-        : `Artifact is bounded by turn limit ${turnLimit}; full certification requires no turn limit.`,
-      { turnLimit, expectedFullTurnCount: expected.fullTurnCount }
+      positiveInteger(turnLimit, 0) === FIVE_USER_CERTIFICATION_TURN_COUNT ? 'pass' : 'fail',
+      positiveInteger(turnLimit, 0) === FIVE_USER_CERTIFICATION_TURN_COUNT
+        ? `Artifact uses the required ${expected.fullTurnCount}-turn certification depth.`
+        : `Artifact turn limit is ${turnLimit || 'unbounded'}; full certification requires ${FIVE_USER_CERTIFICATION_TURN_COUNT} turns.`,
+      { turnLimit, expectedFullTurnCount: expected.fullTurnCount, certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT }
     ),
     check(
       'strict-warning-dry-assessment',
-      nonDepthWarnings.length ? 'fail' : boundedWarnings.length && turnLimit ? 'warning' : 'pass',
+      nonDepthWarnings.length ? 'fail' : boundedWarnings.length && aggregateBoundedProofTurnLimit(aggregateReport) ? 'warning' : 'pass',
       nonDepthWarnings.length
         ? `${nonDepthWarnings.length} aggregate warning(s) would block strict certification.`
         : boundedWarnings.length
-          ? turnLimit
+          ? aggregateBoundedProofTurnLimit(aggregateReport)
             ? `${boundedWarnings.length} warning(s) are classified as bounded-depth only.`
             : `${boundedWarnings.length} stale aggregate warning(s) are superseded by direct artifact proof.`
           : 'No aggregate warnings would block strict certification.',

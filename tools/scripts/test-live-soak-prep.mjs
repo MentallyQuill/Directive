@@ -1945,12 +1945,20 @@ assert.equal(fullSingleUserTurnLimit.status, 'warning');
 assert.match(fullSingleUserTurnLimit.summary, /exceeds the 20-turn rehearsal budget/i);
 const fullFiveUserCertificationTurnLimit = liveExecutionTurnLimitCheck({
   liveExecution: true,
-  turnLimit: 0,
+  turnLimit: 25,
   fullTurnCount: 52,
   fullCertification: true
 });
 assert.equal(fullFiveUserCertificationTurnLimit.status, 'pass');
-assert.match(fullFiveUserCertificationTurnLimit.summary, /full five-user certification/i);
+assert.match(fullFiveUserCertificationTurnLimit.summary, /25-turn full five-user certification/i);
+const uncappedFiveUserCertificationTurnLimit = liveExecutionTurnLimitCheck({
+  liveExecution: true,
+  turnLimit: 0,
+  fullTurnCount: 52,
+  fullCertification: true
+});
+assert.equal(uncappedFiveUserCertificationTurnLimit.status, 'warning');
+assert.match(uncappedFiveUserCertificationTurnLimit.summary, /exceeds the 25-turn certification budget/i);
 const hostNativeLimitedScript = buildSoakChatMessageScript({ turnLimit: 3 });
 assert.deepEqual(hostNativeLimitedScript.hostNativeCompletionRequiredMessages.map((entry) => entry.id), ['soak-turn-03']);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.length, 4);

@@ -76,6 +76,7 @@ const REQUIRED_PROVIDER_PROFILE_NAME = process.env.DIRECTIVE_REQUIRED_ST_PROFILE
   || 'nanogpt deepseek/deepseek-v4-pro-cheaper:thinking - Directive';
 const SOAK_TURN_LIMIT = positiveInteger(process.env.DIRECTIVE_SOAK_TURN_LIMIT, 0);
 const STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT = 20;
+export const FIVE_USER_CERTIFICATION_TURN_COUNT = 25;
 const FULL_FIVE_USER_CERTIFICATION = process.env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION === '1';
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
@@ -2819,12 +2820,28 @@ export function liveExecutionTurnLimitCheck({
       { turnLimit: null, fullTurnCount }
     );
   }
-  if (fullCertification && effectiveTurnLimit === 0) {
+  if (fullCertification && effectiveTurnLimit === FIVE_USER_CERTIFICATION_TURN_COUNT) {
     return check(
       'live-execution-turn-limit',
       'pass',
-      `Full five-user certification will run the full ${fullTurnCount}-turn chat script; the ${STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT}-turn budget only applies to strict single-user rehearsal.`,
-      { turnLimit: null, fullTurnCount, rehearsalTurnCount: STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT, fullCertification: true }
+      `${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn full five-user certification is selected; this replaces the old full ${fullTurnCount}-turn certification depth.`,
+      { turnLimit: effectiveTurnLimit, fullTurnCount, certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT, fullCertification: true }
+    );
+  }
+  if (fullCertification && effectiveTurnLimit === 0) {
+    return check(
+      'live-execution-turn-limit',
+      'warning',
+      `Live execution will run the full ${fullTurnCount}-turn chat script, which exceeds the ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn certification budget.`,
+      { turnLimit: null, fullTurnCount, certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT, fullCertification: true }
+    );
+  }
+  if (fullCertification && effectiveTurnLimit > 0) {
+    return check(
+      'live-execution-turn-limit',
+      'warning',
+      `Full five-user certification is limited to ${effectiveTurnLimit} planned chat turn(s); this is not the approved ${FIVE_USER_CERTIFICATION_TURN_COUNT}-turn certification depth.`,
+      { turnLimit: effectiveTurnLimit, fullTurnCount, certificationTurnCount: FIVE_USER_CERTIFICATION_TURN_COUNT, fullCertification: true }
     );
   }
   if (effectiveTurnLimit === STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT) {
