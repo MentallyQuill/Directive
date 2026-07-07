@@ -539,8 +539,8 @@ export function selectContextCandidates(candidates, policy) {
     const group = tier(candidate);
     const groupLimit = policy[`${group}Tokens`];
     const optionalSelectedCount = selected.filter((entry) => entry.mustInclude !== true).length;
-    const countsAgainstBudget = candidate.mustInclude !== true;
-    const wouldOverflow = countsAgainstBudget && (
+    const spendsContextBudget = candidate.mustInclude !== true;
+    const wouldOverflow = spendsContextBudget && (
       used.total + candidate.tokenEstimate > policy.totalTokens
       || used[group] + candidate.tokenEstimate > groupLimit
       || optionalSelectedCount >= policy.maxBlocks
@@ -555,7 +555,7 @@ export function selectContextCandidates(candidates, policy) {
     }
     selected.push(candidate);
     seenHashes.add(candidate.hash);
-    if (countsAgainstBudget) {
+    if (spendsContextBudget) {
       used.total += candidate.tokenEstimate;
       used[group] += candidate.tokenEstimate;
     }
