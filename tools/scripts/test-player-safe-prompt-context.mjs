@@ -214,6 +214,13 @@ assert.equal(playerCharacterBlock.mustInclude, true);
 assert.equal(playerCharacterBlock.content.includes('Commander Serrin'), true);
 assert.equal(playerCharacterBlock.content.includes('Executive Officer'), true);
 assert.equal(packetJson.includes('Do not invent a different name, rank, billet, or callsign.'), true);
+const turnYieldBlock = packet.blocks.find((block) => block.id === 'turn-yield');
+assert.equal(Boolean(turnYieldBlock), true, 'Prompt packet must include a mandatory turn-yield block.');
+assert.equal(turnYieldBlock.promptKey, 'directive.campaign.turn-yield');
+assert.equal(turnYieldBlock.mustInclude, true);
+assert.equal(turnYieldBlock.lensPromptBudgetLane, 'activeScene');
+assert.equal(turnYieldBlock.content.includes('Default live reply length: 80-140 words.'), true);
+assert.equal(turnYieldBlock.content.includes('Yield target: Commander Serrin.'), true);
 assert.equal(packet.blocks.find((block) => block.id === 'reply-header')?.lensPromptBudgetLane, 'activeScene');
 assert.equal(packet.continuityProjection.audit.blockCount, DIRECTIVE_STATIC_PROMPT_KEYS.length);
 assert.equal(packet.blocks.some((block) => block.id === 'reply-header'), true);
@@ -237,6 +244,9 @@ assert.equal(
 );
 assert.equal(packetJson.includes('A named location change is a playable scene boundary'), true);
 assert.equal(packetJson.includes('Do not enter a named location, resolve its purpose, and leave it in the same reply'), true);
+assert.equal(packetJson.includes('Advance exactly one immediate playable beat, then yield.'), true);
+assert.equal(packetJson.includes('End at the first meaningful opportunity for the player character to speak, observe, or act.'), true);
+assert.equal(packetJson.includes('Do not continue into the next briefing, strategy handoff, relationship calibration, location purpose, or consequence chain unless the player explicitly asks to cut or summarize.'), true);
 assert.equal(packetJson.includes('do not force the full Asterion Reach strategy conversation yet'), true);
 assert.equal(packetJson.includes('shuttlebay two in the aft section between the swept nacelle pylons'), true);
 assert.equal(projectionJson.includes('Deck 10 aft dorsal secondary hull'), true);
@@ -268,6 +278,10 @@ const samVickersPlayerBlock = samVickersPacket.blocks.find((block) => block.id =
 assert.equal(samVickersPlayerBlock.promptKey, 'directive.campaign.player-character');
 assert.equal(samVickersPlayerBlock.mustInclude, true);
 assert.equal(samVickersPlayerBlock.content.includes('Commander Sam Vickers'), true);
+const samVickersYieldBlock = samVickersPacket.blocks.find((block) => block.id === 'turn-yield');
+assert.equal(samVickersYieldBlock.promptKey, 'directive.campaign.turn-yield');
+assert.equal(samVickersYieldBlock.content.includes('Yield target: Commander Sam Vickers.'), true);
+assert.equal(samVickersYieldBlock.content.includes('do not compress arrival, Bronn handoff, Whitaker handoff, and Reach strategy into one reply'), true);
 assert.equal(JSON.stringify(samVickersPacket).includes('Vasquez'), false);
 
 const shuttlebayPacket = buildPlayerSafePromptContext({

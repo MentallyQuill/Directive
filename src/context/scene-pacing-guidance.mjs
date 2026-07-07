@@ -42,8 +42,66 @@ const GLOBAL_SCENE_PACING_LINES = Object.freeze([
   'Walking, turbolifts, docking ramps, corridors, handoffs, and first looks take scene time; give the player a chance to observe, speak, or act before the scene moves on.'
 ]);
 
+const TURN_YIELD_CONTRACT_LINES = Object.freeze([
+  'Default live reply length: 80-140 words.',
+  'Use one or two short paragraphs for normal host-continuation replies.',
+  'Advance exactly one immediate playable beat, then yield.',
+  'Let at most one NPC take initiative before yielding unless the player asked for a cut, montage, or summary.',
+  'End at the first meaningful opportunity for the player character to speak, observe, or act.',
+  'Do not continue into the next briefing, strategy handoff, relationship calibration, location purpose, or consequence chain unless the player explicitly asks to cut or summarize.'
+]);
+
+function compactPlayerText(value = '', maxLength = 180) {
+  const text = compact(value).replace(/\s+/g, ' ');
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function playerAddress(campaignState = {}) {
+  const player = campaignState?.player || {};
+  const rank = compact(player.rank);
+  const name = compact(player.name || player.characterName || player.id || 'the player character');
+  const rankedName = rank && !name.toLowerCase().startsWith(`${rank.toLowerCase()} `)
+    ? `${rank} ${name}`
+    : name;
+  return compact(rankedName) || 'the player character';
+}
+
 export function globalScenePacingLines() {
   return [...GLOBAL_SCENE_PACING_LINES];
+}
+
+export function turnYieldContractLines() {
+  return [...TURN_YIELD_CONTRACT_LINES];
+}
+
+export function turnYieldGuidance({
+  campaignState,
+  packageData = null,
+  scene = null,
+  playerText = ''
+} = {}) {
+  const addressedPlayer = playerAddress(campaignState);
+  const lastAction = compactPlayerText(playerText);
+  return {
+    id: 'turn-yield',
+    title: 'Turn Yield Contract',
+    lines: [
+      ...turnYieldContractLines(),
+      `Yield target: ${addressedPlayer}.`,
+      lastAction ? `Player's latest action: ${lastAction}` : null,
+      lastAction && /\?/.test(lastAction)
+        ? 'If the player asked a direct question, answer that question briefly, then yield.'
+        : 'If the player made a command or approach, show the immediate response to that action, then yield.',
+      isAshesOfPeace(packageData) && activeMissionId(campaignState, scene) === 'prelude-a-ship-underway'
+        ? 'For Ashes of Peace opening play, do not compress arrival, Bronn handoff, Whitaker handoff, and Reach strategy into one reply.'
+        : null
+    ].filter(Boolean)
+  };
+}
+
+export function turnYieldLines(input = {}) {
+  return turnYieldGuidance(input).lines;
 }
 
 export function scenePacingGuidance({

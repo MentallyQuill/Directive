@@ -453,6 +453,7 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
     crewDataset,
     shipDataset,
     scene: scene || {},
+    playerText,
     recentMessageSummary,
     createdAt,
     relevantCrewIds

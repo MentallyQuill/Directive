@@ -5,7 +5,8 @@ import { renderCompactCrewVoiceCueFromCard, voiceCardsByCrewId } from '../genera
 import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-header.mjs';
 import {
   globalScenePacingLines,
-  scenePacingGuidance
+  scenePacingGuidance,
+  turnYieldGuidance
 } from './scene-pacing-guidance.mjs';
 import {
   STARFLEET_VOYAGER_UNIFORM_RULE,
@@ -242,7 +243,7 @@ function contextCandidateBudgetLane(candidate = {}) {
   return 'missionPressure';
 }
 
-function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMessageSummary = null }) {
+function buildCandidates({ state, packageData, crewDataset, scene = {}, playerText = '', recentMessageSummary = null }) {
   const policy = packageData?.contextPolicy || {};
   const attention = state?.attentionState || {};
   const questId = scene.foregroundQuestId || attention.foregroundQuestId || state?.questLedger?.foregroundQuestId || null;
@@ -285,6 +286,12 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
     ...globalScenePacingLines(),
     ...(pacing?.lines || [])
   ];
+  const yieldGuidance = turnYieldGuidance({
+    campaignState: state,
+    packageData,
+    scene,
+    playerText
+  });
   const objectiveLabels = foregroundSummary?.currentObjectiveIds?.length
     ? foregroundSummary.currentObjectiveIds.map((objectiveId) => {
       const objective = asArray(template?.objectives).find((entry) => entry?.id === objectiveId);
@@ -328,6 +335,19 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         `Player character: ${playerIdentityLine(state?.player || {})}`,
         'Address and refer to the player character using this identity. Do not invent a different name, rank, billet, or callsign.'
       ].join('\n')
+    }),
+    normalizeCandidate(state, {
+      id: 'turn-yield',
+      title: 'Turn Yield Contract',
+      mustInclude: true,
+      salienceScore: 100,
+      placement: 'inPrompt',
+      depth: 0,
+      ttl: 'turn',
+      priority: 998,
+      lensPromptBudgetLane: 'activeScene',
+      reason: 'The host model must stop after one playable beat and yield agency back to the player.',
+      content: list(yieldGuidance.lines)
     }),
     normalizeCandidate(state, replyHeaderBlock),
     normalizeCandidate(state, {
@@ -518,9 +538,13 @@ export function selectContextCandidates(candidates, policy) {
   for (const candidate of sorted) {
     const group = tier(candidate);
     const groupLimit = policy[`${group}Tokens`];
-    const wouldOverflow = used.total + candidate.tokenEstimate > policy.totalTokens
+    const optionalSelectedCount = selected.filter((entry) => entry.mustInclude !== true).length;
+    const countsAgainstBudget = candidate.mustInclude !== true;
+    const wouldOverflow = countsAgainstBudget && (
+      used.total + candidate.tokenEstimate > policy.totalTokens
       || used[group] + candidate.tokenEstimate > groupLimit
-      || selected.length >= policy.maxBlocks;
+      || optionalSelectedCount >= policy.maxBlocks
+    );
     if (seenHashes.has(candidate.hash)) {
       omitted.push({ ...candidate, omissionReason: 'duplicate-content' });
       continue;
@@ -531,8 +555,10 @@ export function selectContextCandidates(candidates, policy) {
     }
     selected.push(candidate);
     seenHashes.add(candidate.hash);
-    used.total += candidate.tokenEstimate;
-    used[group] += candidate.tokenEstimate;
+    if (countsAgainstBudget) {
+      used.total += candidate.tokenEstimate;
+      used[group] += candidate.tokenEstimate;
+    }
   }
   return { selected, omitted, used };
 }
@@ -571,6 +597,7 @@ export function buildContextPlan({
   packageData,
   crewDataset = null,
   scene = {},
+  playerText = '',
   recentMessageSummary = null,
   createdAt = null
 } = {}) {
@@ -581,6 +608,7 @@ export function buildContextPlan({
     packageData,
     crewDataset,
     scene,
+    playerText,
     recentMessageSummary
   });
   const selection = selectContextCandidates(candidates, policy);
