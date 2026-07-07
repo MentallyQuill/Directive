@@ -6,6 +6,7 @@ const REPORT_KIND = 'directive.architectureRedesign.releaseBundlePreflight.v1';
 const EXPECTED_CONTINUITY_PREFLIGHT_KIND = 'directive.continuityProjectionMatrix.fullCertificationPreflight.v1';
 const EXPECTED_MESSAGE_MUTATION_DISCOVERY_KIND = 'directive.sillytavernMessageMutation.discovery';
 const EXPECTED_MESSAGE_MUTATION_ACTUATION_KIND = 'directive.sillytavernMessageMutation.actuationProof.v1';
+const REQUIRED_STRICT_DRY_RUN_PLANNED_TURNS = 20;
 
 const TERMINAL_EXPECTED_STATUSES = Object.freeze({
   saveTerminalBranch: 'pending',
@@ -199,7 +200,7 @@ function validateImplementationCompleteBaseline(manifestData = {}) {
   if (!completedAtMillis) failures.push('completedAt');
   if (Number(baseline.alphaGateCheckCount || baseline.alphaGateChecks || 0) < 205) failures.push('alpha gate 205');
   if (baseline.strictDryRunPreflightStatus !== 'pass') failures.push('strict dry-run status');
-  if (Number(baseline.strictDryRunPlannedTurns || baseline.plannedTurns || 0) !== 52) failures.push('52 planned turns');
+  if (Number(baseline.strictDryRunPlannedTurns || baseline.plannedTurns || 0) !== REQUIRED_STRICT_DRY_RUN_PLANNED_TURNS) failures.push('20 planned turns');
   if (baseline.servedExtensionFresh !== true) failures.push('served extension freshness');
   if (baseline.providerProfileAlignmentStatus !== 'pass') failures.push('provider-profile alignment');
   return check(
@@ -207,7 +208,7 @@ function validateImplementationCompleteBaseline(manifestData = {}) {
     failures.length ? 'fail' : 'pass',
     failures.length
       ? `Implementation-complete baseline evidence is missing or stale: ${failures.join(', ')}.`
-      : 'Implementation-complete baseline proves alpha gate, strict dry-run, provider-profile alignment, served freshness, and 52-turn plan readiness.',
+      : 'Implementation-complete baseline proves alpha gate, strict dry-run, provider-profile alignment, served freshness, and 20-turn rehearsal readiness.',
     {
       completedAt: completedAtMillis ? new Date(completedAtMillis).toISOString() : null,
       alphaGateCheckCount: Number(baseline.alphaGateCheckCount || baseline.alphaGateChecks || 0),

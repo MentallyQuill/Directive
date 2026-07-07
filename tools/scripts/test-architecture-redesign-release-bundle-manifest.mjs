@@ -38,7 +38,7 @@ const manifest = buildArchitectureReleaseBundleManifest({
     completedAt: '2026-07-07T07:32:50.650Z',
     alphaGateCheckCount: 205,
     strictDryRunPreflightStatus: 'pass',
-    strictDryRunPlannedTurns: 52,
+    strictDryRunPlannedTurns: 20,
     servedExtensionFresh: true,
     providerProfileAlignmentStatus: 'pass'
   },
@@ -49,7 +49,7 @@ assert.deepEqual(manifest.implementationCompleteBaseline, {
   completedAt: '2026-07-07T07:32:50.650Z',
   alphaGateCheckCount: 205,
   strictDryRunPreflightStatus: 'pass',
-  strictDryRunPlannedTurns: 52,
+  strictDryRunPlannedTurns: 20,
   servedExtensionFresh: true,
   providerProfileAlignmentStatus: 'pass'
 });
@@ -72,7 +72,7 @@ const cliResult = spawnSync(process.execPath, [
   '--baseline-completed-at', '2026-07-07T08:30:34.064Z',
   '--alpha-gate-check-count', '205',
   '--strict-dry-run-preflight-status', 'pass',
-  '--strict-dry-run-planned-turns', '52',
+  '--strict-dry-run-planned-turns', '20',
   '--served-extension-fresh', 'true',
   '--provider-profile-alignment-status', 'pass',
   '--continuity-preflight', paths.continuityPreflight,
@@ -100,7 +100,7 @@ const missingFileCliResult = spawnSync(process.execPath, [
   '--baseline-completed-at', '2026-07-07T08:30:34.064Z',
   '--alpha-gate-check-count', '205',
   '--strict-dry-run-preflight-status', 'pass',
-  '--strict-dry-run-planned-turns', '52',
+  '--strict-dry-run-planned-turns', '20',
   '--served-extension-fresh', 'true',
   '--provider-profile-alignment-status', 'pass',
   '--continuity-preflight', paths.continuityPreflight,
@@ -141,7 +141,7 @@ assert.throws(
       completedAt: '2026-07-07T07:32:50.650Z',
       alphaGateCheckCount: 204,
       strictDryRunPreflightStatus: 'pass',
-      strictDryRunPlannedTurns: 52,
+      strictDryRunPlannedTurns: 20,
       servedExtensionFresh: true,
       providerProfileAlignmentStatus: 'pass'
     },
@@ -157,7 +157,7 @@ assert.throws(
       completedAt: '2026-07-07T07:32:50.650Z',
       alphaGateCheckCount: 205,
       strictDryRunPreflightStatus: 'pass',
-      strictDryRunPlannedTurns: 52,
+      strictDryRunPlannedTurns: 20,
       servedExtensionFresh: true,
       providerProfileAlignmentStatus: 'pass'
     },

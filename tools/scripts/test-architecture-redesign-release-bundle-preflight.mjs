@@ -242,7 +242,7 @@ function writeBundle(root, overrides = {}) {
       completedAt: IMPLEMENTATION_COMPLETE_AT,
       alphaGateCheckCount: 205,
       strictDryRunPreflightStatus: 'pass',
-      strictDryRunPlannedTurns: 52,
+      strictDryRunPlannedTurns: 20,
       servedExtensionFresh: true,
       providerProfileAlignmentStatus: 'pass'
     },
@@ -280,7 +280,7 @@ const builderIntegrationManifest = buildArchitectureReleaseBundleManifest({
     completedAt: IMPLEMENTATION_COMPLETE_AT,
     alphaGateCheckCount: 205,
     strictDryRunPreflightStatus: 'pass',
-    strictDryRunPlannedTurns: 52,
+    strictDryRunPlannedTurns: 20,
     servedExtensionFresh: true,
     providerProfileAlignmentStatus: 'pass'
   },
@@ -398,7 +398,7 @@ const missingBaselineProviderProfileBundle = writeBundle(missingBaselineProvider
     completedAt: IMPLEMENTATION_COMPLETE_AT,
     alphaGateCheckCount: 205,
     strictDryRunPreflightStatus: 'pass',
-    strictDryRunPlannedTurns: 52,
+    strictDryRunPlannedTurns: 20,
     servedExtensionFresh: true
   }
 });
@@ -417,7 +417,7 @@ const staleAlphaCountBundle = writeBundle(staleAlphaCountRoot, {
     completedAt: IMPLEMENTATION_COMPLETE_AT,
     alphaGateCheckCount: 204,
     strictDryRunPreflightStatus: 'pass',
-    strictDryRunPlannedTurns: 52,
+    strictDryRunPlannedTurns: 20,
     servedExtensionFresh: true,
     providerProfileAlignmentStatus: 'pass'
   }

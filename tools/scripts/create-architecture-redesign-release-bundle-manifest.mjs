@@ -11,6 +11,7 @@ const PATH_KEYS = Object.freeze({
   messageMutationDiscovery: 'messageMutationDiscovery',
   messageMutationActuation: 'messageMutationActuationProof'
 });
+const REQUIRED_STRICT_DRY_RUN_PLANNED_TURNS = 20;
 
 function usage() {
   return `Usage:
@@ -21,7 +22,7 @@ Options:
   --baseline-completed-at ISO             Implementation-complete baseline timestamp.
   --alpha-gate-check-count N              Alpha gate check count; must be >= 205.
   --strict-dry-run-preflight-status pass  Strict live dry-run preflight status.
-  --strict-dry-run-planned-turns 52       Strict live dry-run planned turn count.
+  --strict-dry-run-planned-turns 20       Strict live dry-run planned turn count.
   --served-extension-fresh true           Served extension freshness flag.
   --provider-profile-alignment-status pass
                                             Strict dry-run provider-profile alignment status.
@@ -99,7 +100,7 @@ function validateBaseline(baseline = {}) {
   if (!Number.isFinite(Date.parse(String(baseline.completedAt || '')))) failures.push('completedAt');
   if (Number(baseline.alphaGateCheckCount || 0) < 205) failures.push('alphaGateCheckCount');
   if (baseline.strictDryRunPreflightStatus !== 'pass') failures.push('strictDryRunPreflightStatus');
-  if (Number(baseline.strictDryRunPlannedTurns || 0) !== 52) failures.push('strictDryRunPlannedTurns');
+  if (Number(baseline.strictDryRunPlannedTurns || 0) !== REQUIRED_STRICT_DRY_RUN_PLANNED_TURNS) failures.push('strictDryRunPlannedTurns');
   if (baseline.servedExtensionFresh !== true) failures.push('servedExtensionFresh');
   if (baseline.providerProfileAlignmentStatus !== 'pass') failures.push('providerProfileAlignmentStatus');
   if (failures.length) {

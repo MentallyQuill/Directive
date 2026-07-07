@@ -1688,8 +1688,13 @@ function childEnvForLane({ lane, paths, runId, turnLimit, activateExternalContex
   if (lane.user?.password && !env.DIRECTIVE_SILLYTAVERN_PASSWORD) {
     env.DIRECTIVE_SILLYTAVERN_PASSWORD = lane.user.password;
   }
-  if (turnLimit) env.DIRECTIVE_SOAK_TURN_LIMIT = String(turnLimit);
-  else delete env.DIRECTIVE_SOAK_TURN_LIMIT;
+  if (turnLimit) {
+    env.DIRECTIVE_SOAK_TURN_LIMIT = String(turnLimit);
+    delete env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION;
+  } else {
+    delete env.DIRECTIVE_SOAK_TURN_LIMIT;
+    env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION = '1';
+  }
   if (activateExternalContextFixture) env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE = '1';
   else delete env.DIRECTIVE_SOAK_ACTIVATE_EXTERNAL_CONTEXT_FIXTURE;
   return env;

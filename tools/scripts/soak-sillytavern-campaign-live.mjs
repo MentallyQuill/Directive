@@ -75,6 +75,8 @@ const REQUIRED_PROVIDER_PROFILE_NAME = process.env.DIRECTIVE_REQUIRED_ST_PROFILE
   || process.env.DIRECTIVE_REQUIRED_CONNECTION_PROFILE_NAME
   || 'nanogpt deepseek/deepseek-v4-pro-cheaper:thinking - Directive';
 const SOAK_TURN_LIMIT = positiveInteger(process.env.DIRECTIVE_SOAK_TURN_LIMIT, 0);
+const STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT = 20;
+const FULL_FIVE_USER_CERTIFICATION = process.env.DIRECTIVE_CPM_FIVE_USER_FULL_CERTIFICATION === '1';
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 
@@ -2771,10 +2773,11 @@ Environment:
   DIRECTIVE_SKIP_PLAYWRIGHT_BROWSER_CHECK=1
   DIRECTIVE_SOAK_STRICT=1
 
-With DIRECTIVE_LIVE_CAMPAIGN_SOAK=1, this runner delegates the 52-turn
-third-person chat script to smoke-sillytavern-live.mjs in strict chat-native
-mode. Host edit/delete/message-action mutation phases still require the
-specialized live mutation runners and are recorded as limited coverage.
+With DIRECTIVE_LIVE_CAMPAIGN_SOAK=1, this runner delegates the third-person
+chat script to smoke-sillytavern-live.mjs in strict chat-native mode. Set
+DIRECTIVE_SOAK_TURN_LIMIT=20 for the approved strict single-user rehearsal.
+Host edit/delete/message-action mutation phases still require the specialized
+live mutation runners and are recorded as limited coverage.
 `;
 }
 
@@ -2799,6 +2802,53 @@ export function statusFromChecks(checks, { strict = STRICT_WARNING_FAILURE } = {
   if (checks.some((entry) => entry.status === 'warning')) return strict ? 'fail' : 'warning';
   if (checks.some((entry) => entry.status === 'pass')) return 'pass';
   return 'not-run';
+}
+
+export function liveExecutionTurnLimitCheck({
+  liveExecution = LIVE_EXECUTION,
+  turnLimit = SOAK_TURN_LIMIT,
+  fullTurnCount = SOAK_TURN_SCRIPT.length,
+  fullCertification = FULL_FIVE_USER_CERTIFICATION
+} = {}) {
+  const effectiveTurnLimit = Number(turnLimit || 0);
+  if (!liveExecution) {
+    return check(
+      'live-execution-turn-limit',
+      'skipped',
+      'Live execution turn-limit check skipped outside live mode.',
+      { turnLimit: null, fullTurnCount }
+    );
+  }
+  if (fullCertification && effectiveTurnLimit === 0) {
+    return check(
+      'live-execution-turn-limit',
+      'pass',
+      `Full five-user certification will run the full ${fullTurnCount}-turn chat script; the ${STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT}-turn budget only applies to strict single-user rehearsal.`,
+      { turnLimit: null, fullTurnCount, rehearsalTurnCount: STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT, fullCertification: true }
+    );
+  }
+  if (effectiveTurnLimit === STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT) {
+    return check(
+      'live-execution-turn-limit',
+      'pass',
+      `${STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT}-turn strict single-user rehearsal is selected; this is the approved cost-bounded rehearsal depth before five-user certification.`,
+      { turnLimit: effectiveTurnLimit, fullTurnCount, rehearsalTurnCount: STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT }
+    );
+  }
+  if (effectiveTurnLimit > 0) {
+    return check(
+      'live-execution-turn-limit',
+      'warning',
+      `Live execution is intentionally limited to ${effectiveTurnLimit} planned chat turn(s); this proves delegation but is not the approved ${STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT}-turn single-user rehearsal.`,
+      { turnLimit: effectiveTurnLimit, fullTurnCount, rehearsalTurnCount: STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT }
+    );
+  }
+  return check(
+    'live-execution-turn-limit',
+    'warning',
+    `Live execution will run the full ${fullTurnCount}-turn chat script, which exceeds the ${STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT}-turn rehearsal budget.`,
+    { turnLimit: null, fullTurnCount, rehearsalTurnCount: STRICT_SINGLE_USER_REHEARSAL_TURN_COUNT }
+  );
 }
 
 function warningFailureSummaries(checks, { strict = STRICT_WARNING_FAILURE } = {}) {
@@ -3054,7 +3104,7 @@ export function buildReleaseCertificationSummary(report = {}) {
     }),
     evidenceGate({
       id: 'live-chat-soak',
-      label: 'Live 52-turn chat-native soak',
+      label: 'Live chat-native soak',
       check: checkById.get('live-smoke-52-turn-delegation') || null,
       planned: Array.isArray(report.turnScript) && report.turnScript.length > 0,
       evidence: {
@@ -3323,16 +3373,7 @@ async function buildChecks({ artifacts = null } = {}) {
       : providerProfileAlignment.summary,
     providerProfileAlignment
   ));
-  checks.push(check(
-    'live-execution-turn-limit',
-    !LIVE_EXECUTION ? 'skipped' : SOAK_TURN_LIMIT > 0 ? 'warning' : 'pass',
-    !LIVE_EXECUTION
-      ? 'Live execution turn-limit check skipped outside live mode.'
-      : SOAK_TURN_LIMIT > 0
-        ? `Live execution is intentionally limited to ${SOAK_TURN_LIMIT} planned chat turn(s); this proves delegation but is not the full 52-turn soak.`
-        : 'Live execution will run the full 52-turn chat script.',
-    { turnLimit: SOAK_TURN_LIMIT > 0 ? SOAK_TURN_LIMIT : null, fullTurnCount: SOAK_TURN_SCRIPT.length }
-  ));
+  checks.push(liveExecutionTurnLimitCheck());
 
   let servedExtension = null;
   let servedExtensionFresh = false;
@@ -3412,7 +3453,13 @@ async function buildChecks({ artifacts = null } = {}) {
   return { checks, servedExtension };
 }
 
-export async function buildDryRunReport() {
+export async function buildDryRunReport({ turnLimit = SOAK_TURN_LIMIT } = {}) {
+  const effectiveTurnLimit = Number.isInteger(Number(turnLimit)) && Number(turnLimit) > 0
+    ? Number(turnLimit)
+    : 0;
+  const plannedTurnScript = effectiveTurnLimit > 0
+    ? SOAK_TURN_SCRIPT.slice(0, effectiveTurnLimit)
+    : SOAK_TURN_SCRIPT;
   const artifacts = createArtifactPaths({ rootDir: ARTIFACT_ROOT, runId: RUN_ID });
   const { checks, servedExtension } = await buildChecks({ artifacts });
   const factualCanaryPacks = buildFactualGroundingCanaryPacks({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
@@ -3553,7 +3600,7 @@ export async function buildDryRunReport() {
     factualCanaryPacks,
     factualCanaryPackSummary: summarizeFactualGroundingCanaryPacks(factualCanaryPacks),
     phases: SOAK_PHASES.map((entry) => ({ ...entry, status: 'planned' })),
-    turnScript: SOAK_TURN_SCRIPT.map((entry) => ({ ...entry })),
+    turnScript: plannedTurnScript.map((entry) => ({ ...entry })),
     commandConductScenarios: SOAK_COMMAND_CONDUCT_SCENARIOS.map((entry) => ({ ...entry })),
     endConditionScenarios: SOAK_END_CONDITION_SCENARIOS.map((entry) => ({ ...entry })),
     servedExtension,
@@ -3567,6 +3614,8 @@ export async function buildDryRunReport() {
       verifyPlaywrightBrowser: VERIFY_PLAYWRIGHT_BROWSER,
       headless: HEADLESS,
       writeArtifacts: WRITE_ARTIFACTS,
+      liveExecutedTurnLimit: effectiveTurnLimit || null,
+      fullPlannedTurns: SOAK_TURN_SCRIPT.length,
       selectorGuidance: PLAYWRIGHT_SELECTOR_GUIDANCE,
       viewports: PLAYWRIGHT_VIEWPORTS
     }
@@ -5570,7 +5619,7 @@ async function runLiveExecution(report) {
     report.checks.push(check(
       'live-smoke-52-turn-delegation',
       'fail',
-      'Live 52-turn smoke delegation did not launch because preflight checks failed.',
+      'Live chat-native soak delegation did not launch because preflight checks failed.',
       { messageScriptPath }
     ));
     refreshReportStatus(report);

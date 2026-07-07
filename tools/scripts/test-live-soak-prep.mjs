@@ -80,6 +80,7 @@ import {
   liveHostNativeCompletionAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport,
+  liveExecutionTurnLimitCheck,
   copyDelegatedSmokeTranscriptArtifacts,
   statusFromChecks,
   strictModePolicy,
@@ -1933,6 +1934,23 @@ assert.equal(limitedLiveMessageScript.messages.length, 1);
 assert.equal(limitedLiveMessageScript.messages.at(0).id, 'soak-turn-01');
 assert.deepEqual(limitedLiveMessageScript.hostNativeCompletionRequiredMessages, []);
 assert.equal(limitedLiveMessageScript.coverageLimitations.some((entry) => /intentionally limited to 1 of 52 planned turns/.test(entry)), true);
+const strictSingleUserRehearsalTurnLimit = liveExecutionTurnLimitCheck({ liveExecution: true, turnLimit: 20, fullTurnCount: 52 });
+assert.equal(strictSingleUserRehearsalTurnLimit.status, 'pass');
+assert.match(strictSingleUserRehearsalTurnLimit.summary, /20-turn strict single-user rehearsal/i);
+const tooShortSingleUserRehearsalTurnLimit = liveExecutionTurnLimitCheck({ liveExecution: true, turnLimit: 3, fullTurnCount: 52 });
+assert.equal(tooShortSingleUserRehearsalTurnLimit.status, 'warning');
+assert.match(tooShortSingleUserRehearsalTurnLimit.summary, /limited to 3 planned chat turn/i);
+const fullSingleUserTurnLimit = liveExecutionTurnLimitCheck({ liveExecution: true, turnLimit: 0, fullTurnCount: 52 });
+assert.equal(fullSingleUserTurnLimit.status, 'warning');
+assert.match(fullSingleUserTurnLimit.summary, /exceeds the 20-turn rehearsal budget/i);
+const fullFiveUserCertificationTurnLimit = liveExecutionTurnLimitCheck({
+  liveExecution: true,
+  turnLimit: 0,
+  fullTurnCount: 52,
+  fullCertification: true
+});
+assert.equal(fullFiveUserCertificationTurnLimit.status, 'pass');
+assert.match(fullFiveUserCertificationTurnLimit.summary, /full five-user certification/i);
 const hostNativeLimitedScript = buildSoakChatMessageScript({ turnLimit: 3 });
 assert.deepEqual(hostNativeLimitedScript.hostNativeCompletionRequiredMessages.map((entry) => entry.id), ['soak-turn-03']);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.length, 4);
@@ -1997,6 +2015,10 @@ assert.equal(report.releaseCertificationSummary.mode, report.mode);
 assert.equal(report.releaseCertificationSummary.checkCounts.total, report.checks.length);
 assert.equal(report.releaseCertificationSummary.evidenceCounts.campaigns, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(report.releaseCertificationSummary.evidenceCounts.plannedTurns, SOAK_TURN_SCRIPT.length);
+const cappedRehearsalDryRunReport = await buildDryRunReport({ turnLimit: 20 });
+assert.equal(cappedRehearsalDryRunReport.turnScript.length, 20);
+assert.equal(cappedRehearsalDryRunReport.releaseCertificationSummary.evidenceCounts.plannedTurns, 20);
+assert.equal(cappedRehearsalDryRunReport.environment.liveExecutedTurnLimit, 20);
 const factualGroundingGate = report.releaseCertificationSummary.evidenceGates.find((entry) => entry.id === 'factual-grounding');
 assert(factualGroundingGate);
 assert.equal(factualGroundingGate.evidence.modelReviewRequestArtifact, 'fact-checks/model-assisted-review/request.json');
