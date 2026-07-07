@@ -191,6 +191,15 @@ const lens = createSyntheticLensPromptScheduler({
           role: 'system'
         },
         {
+          id: 'turn-yield',
+          promptKey: 'directive.campaign.turn-yield',
+          title: 'Turn Yield Contract',
+          text: 'Default live reply length: 80-140 words. Advance exactly one immediate playable beat, then yield.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
           id: 'lens-visible',
           promptKey: 'directive.lens.visible',
           title: 'Visible LENS Context',
@@ -484,8 +493,13 @@ assert.equal(visibleFlush.dirtyDomains.includes('missionQuestThread'), true);
 assert.equal(visibleFlush.dirtyDomains.includes('sourceBinding'), true);
 assert.equal(visibleFlush.appliesTo, 'currentOrNextDirectiveGeneration');
 assert.equal(visibleFlush.installed.requiredPromptKeysPresent, true);
-assert.deepEqual(visibleFlush.installed.requiredPromptKeys, ['directive.contract', 'directive.campaign.player-character']);
+assert.deepEqual(visibleFlush.installed.requiredPromptKeys, [
+  'directive.contract',
+  'directive.campaign.player-character',
+  'directive.campaign.turn-yield'
+]);
 assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.player-character'), true);
+assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.turn-yield'), true);
 assert.equal(buildCalls.length, 1);
 assert.equal(promptCalls.some(([key]) => externalPromptKeys.has(key)), false, 'LENS install must not write external prompt keys');
 assert.equal(promptCalls.some(([key]) => key === 'directive.campaign.summaryception'), true, 'Malformed external packet key should be scoped to Directive');

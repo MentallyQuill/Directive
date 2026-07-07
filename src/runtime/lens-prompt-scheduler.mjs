@@ -61,7 +61,8 @@ const PROMPT_BUDGET_DEFAULTS = Object.freeze({
 
 export const REQUIRED_HOST_CONTINUE_PROMPT_KEYS = Object.freeze([
   'directive.contract',
-  'directive.campaign.player-character'
+  'directive.campaign.player-character',
+  'directive.campaign.turn-yield'
 ]);
 
 export function missingRequiredPromptKeys(promptKeys = [], requiredPromptKeys = REQUIRED_HOST_CONTINUE_PROMPT_KEYS) {

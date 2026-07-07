@@ -4525,8 +4525,8 @@ const promptGateDispatcher = createResponseDispatcher({
   promptReadiness: async () => ({
     ok: false,
     requiredPromptKeysPresent: false,
-    promptKeys: ['directive.contract'],
-    missingRequiredPromptKeys: ['directive.campaign.player-character'],
+    promptKeys: ['directive.contract', 'directive.campaign.player-character'],
+    missingRequiredPromptKeys: ['directive.campaign.turn-yield'],
     directiveOwnedRevision: 7,
     reason: 'missing-required-prompt-keys'
   }),
@@ -4544,9 +4544,9 @@ const promptGateResult = await promptGateDispatcher.dispatch({
 });
 assert.equal(promptGateResult.ok, false);
 assert.equal(promptGateResult.status, 'promptNotReady');
-assert.equal(promptGateResult.promptReadiness.missingRequiredPromptKeys[0], 'directive.campaign.player-character');
+assert.equal(promptGateResult.promptReadiness.missingRequiredPromptKeys[0], 'directive.campaign.turn-yield');
 assert.equal(promptGateContinueCalls, 0);
 assert.equal(promptGateDiagnostics.at(-1).status, 'blocked');
-assert.equal(promptGateDiagnostics.at(-1).missingRequiredPromptKeys[0], 'directive.campaign.player-character');
+assert.equal(promptGateDiagnostics.at(-1).missingRequiredPromptKeys[0], 'directive.campaign.turn-yield');
 
 console.log('Response dispatcher CORE bridge tests passed.');
