@@ -15,7 +15,9 @@ const REVIEW_CLEAR_DELAY_MS = 8000;
 const HOST_GENERATION_STARTED_CLEAR_DELAY_MS = 150;
 const HOST_GENERATION_HANDOFF_TIMEOUT_MS = 120000;
 const RECENT_HOST_GENERATION_START_MS = 5000;
-const STORAGE_IDLE_SETTLE_DELAY_MS = 650;
+const STORAGE_IDLE_SETTLE_DELAY_MS = 1400;
+const STORAGE_ACTIVE_LABEL = 'Saving...';
+const STORAGE_SETTLED_LABEL = 'Saved.';
 
 const SIDECAR_SETTLED_STATUSES = new Set(['applied', 'noChange', 'complete', 'settled', 'skipped']);
 const SIDECAR_REVIEW_STATUSES = new Set(['failed', 'rejected', 'error']);
@@ -506,9 +508,9 @@ function labelForPhase(event = {}, activity = {}) {
     case 'sidecarsSettled':
       return 'Campaign context updated.';
     case 'storageSaving':
-      return activity.label || 'Saving campaign state...';
+      return activity.label || STORAGE_ACTIVE_LABEL;
     case 'storageComplete':
-      return 'Save complete.';
+      return STORAGE_SETTLED_LABEL;
     case 'storageFailed':
       return 'Storage update needs review.';
     default:
@@ -594,7 +596,6 @@ function hasPendingStorage(activity = {}) {
 
 function renderChips(chips, activity = {}) {
   if (!chips) return;
-  chips.replaceChildren();
   const sceneEntries = activeSceneDetailEntries(activity).map(([key, detail]) => [
     `scene:${key}`,
     { status: detail.status || 'settled', label: detail.label || sceneHandshakeRootLabel(key) || 'Scene' }
@@ -617,14 +618,21 @@ function renderChips(chips, activity = {}) {
   ]);
   const entries = [...activationEntries, ...sceneEntries, ...projectionEntries, ...storageEntries, ...sidecarEntries];
   chips.hidden = entries.length === 0;
-  for (const [, chipState] of entries) {
-    const chip = document.createElement('span');
+  const existing = new Map(Array.from(chips.children || []).map((chip) => [
+    chip?.dataset?.directiveTurnActivityChipKey,
+    chip
+  ]).filter(([key]) => key));
+  const nodes = [];
+  for (const [chipKey, chipState] of entries) {
+    const chip = existing.get(chipKey) || document.createElement('span');
     const status = chipState.status || 'queued';
     chip.className = 'directive-turn-activity-chip';
+    chip.dataset.directiveTurnActivityChipKey = chipKey;
     chip.dataset.directiveTurnActivityChipStatus = SIDECAR_REVIEW_STATUSES.has(status) ? 'review' : status;
     chip.textContent = chipState.label;
-    chips.appendChild(chip);
+    nodes.push(chip);
   }
+  chips.replaceChildren(...nodes);
 }
 
 function renderActions(actions, activity = {}) {
@@ -1185,15 +1193,9 @@ function createStorageProgressState() {
   };
 }
 
-function storageHeadline(activity = {}, fallback = 'Saving campaign state...') {
-  const running = activeStorageEntries(activity).find(([, step]) => step.status === 'running');
-  if (running?.[1]?.headline) return running[1].headline;
-  const currentStage = activity?.storageProgress?.currentStage;
-  if (currentStage) {
-    const entry = activity.storageFiles?.get?.(currentStage);
-    if (entry?.headline) return entry.headline;
-  }
-  return fallback;
+function storageChipLabel(category = {}, stage = {}) {
+  if (stage.key === 'saving') return category.label || STORAGE_STAGE_LABELS.saving;
+  return stage.label || STORAGE_STAGE_LABELS[stage.key] || category.label || STORAGE_CATEGORY_LABELS.storage;
 }
 
 function ensureStorageActivity(payload = {}) {
@@ -1202,7 +1204,7 @@ function ensureStorageActivity(payload = {}) {
   if (!token || !activeActivities.has(token)) {
     token = markDirectiveTurnActivity({
       phase: 'storageSaving',
-      label: 'Saving campaign state...',
+      label: STORAGE_ACTIVE_LABEL,
       mode: 'blocking',
       delayMs: payload.delayMs ?? DEFAULT_REVEAL_DELAY_MS,
       activityKind: 'storage',
@@ -1254,6 +1256,7 @@ function startStorageOperation(activity, payload = {}) {
   progress.lastLogicalKey = payload.logicalKey || payload.storageKey || progress.lastLogicalKey || null;
   const existing = activity.storageFiles.get(stage.key) || {};
   setStorageCategory(activity, stage, {
+    label: storageChipLabel(category, stage),
     status: 'running',
     runningCount: Number(existing.runningCount || 0) + 1,
     headline: stage.headline,
@@ -1272,7 +1275,7 @@ function startStorageOperation(activity, payload = {}) {
   activity.mode = 'blocking';
   activity.blockingComplete = false;
   activity.reviewLabel = null;
-  activity.label = stage.headline;
+  activity.label = STORAGE_ACTIVE_LABEL;
 }
 
 function settleStorageOperation(activity, payload = {}, status = 'settled') {
@@ -1307,6 +1310,7 @@ function settleStorageOperation(activity, payload = {}, status = 'settled') {
   progress.lastPath = payload.path || payload.filePath || progress.lastPath || null;
   progress.lastLogicalKey = payload.logicalKey || payload.storageKey || progress.lastLogicalKey || null;
   setStorageCategory(activity, stage, {
+    label: storageChipLabel(category, stage),
     status: status === 'review' ? 'review' : (runningCount > 0 ? 'running' : 'settled'),
     runningCount,
     headline: stage.headline,
@@ -1332,10 +1336,10 @@ function settleStorageOperation(activity, payload = {}, status = 'settled') {
     };
   } else if (progress.inFlight > 0) {
     activity.phase = 'storageSaving';
-    activity.label = storageHeadline(activity);
+    activity.label = STORAGE_ACTIVE_LABEL;
   } else {
-    activity.phase = 'storageComplete';
-    activity.label = 'Save complete.';
+    activity.phase = 'storageSaving';
+    activity.label = STORAGE_ACTIVE_LABEL;
   }
 }
 
@@ -1349,7 +1353,7 @@ function scheduleStorageComplete(token, jobKey) {
     activity.phase = 'storageComplete';
     activity.mode = 'blocking';
     activity.blockingComplete = true;
-    activity.label = 'Save complete.';
+    activity.label = STORAGE_SETTLED_LABEL;
     storageActivities.delete(jobKey);
     updateIndicator(0);
     scheduleClear(token, SETTLED_CLEAR_DELAY_MS);

@@ -197,6 +197,18 @@
   }
 }
 
+@keyframes directive-turn-chip-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .directive-overlay-root {
   position: fixed;
   inset: 0;
@@ -295,6 +307,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  animation: directive-turn-chip-enter 180ms ease-out both;
 }
 
 .directive-turn-activity-chip[data-directive-turn-activity-chip-status="review"] {
@@ -326,6 +339,13 @@
 .directive-turn-activity-action:focus-visible {
   border-color: var(--SmartThemeQuoteColor, #f2a65a);
   outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directive-turn-activity-spinner,
+  .directive-turn-activity-chip {
+    animation: none;
+  }
 }
 
 .directive-assist-menu,
@@ -11546,6 +11566,24 @@ textarea.directive-field-control {
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 8px !important;
   margin-top: 10px !important;
+}
+
+.directive-log-status-grid .directive-log-status-block {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  align-items: start !important;
+  gap: 3px !important;
+}
+
+.directive-log-status-block .directive-lcars-status-label,
+.directive-log-status-block .directive-lcars-status-value {
+  grid-column: 1 !important;
+}
+
+.directive-log-status-block .directive-lcars-status-label {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
 }
 
 .directive-log-controls {

@@ -591,11 +591,11 @@ reportDirectiveStorageProgress({
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
 assert.equal(activity.activityKind, 'storage');
-assert.equal(activity.label, 'Saving campaign state...');
+assert.equal(activity.label, 'Saving...');
 assert.equal(activity.storageProgress.total, 1);
 assert.equal(activity.storageProgress.stageCount, 1);
 assert.equal(activity.storageFiles.saving.status, 'running');
-assert.equal(activity.storageFiles.saving.label, 'Saving');
+assert.equal(activity.storageFiles.saving.label, 'Campaign Save');
 assert.equal(__directiveTurnActivityTestHooks.cancelActiveDirectiveTurnActivities().canceledCount, 0, 'Generation-stop cleanup should not cancel active storage progress.');
 reportDirectiveStorageProgress({
   operationId: 'storage-write-index',
@@ -606,15 +606,15 @@ reportDirectiveStorageProgress({
   path: '/user/files/directive-indexes-saves.v1.json'
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
-assert.equal(activity.label, 'Updating records...');
+assert.equal(activity.label, 'Saving...');
 assert.equal(activity.storageProgress.total, 2);
 assert.equal(activity.storageProgress.stageCount, 2);
 await new Promise((resolve) => setTimeout(resolve, 0));
 const storageIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
-assert.equal(storageIndicator.querySelector('.directive-turn-activity-label').textContent, 'Updating records...');
+assert.equal(storageIndicator.querySelector('.directive-turn-activity-label').textContent, 'Saving...');
 assert.deepEqual(
   storageIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
-  ['Saving', 'Records']
+  ['Campaign Save', 'Records']
 );
 reportDirectiveStorageProgress({
   operationId: 'storage-write-save',
@@ -633,9 +633,42 @@ reportDirectiveStorageProgress({
   path: '/user/files/directive-indexes-saves.v1.json'
 });
 activity = __directiveTurnActivityTestHooks.latestActivity();
-assert.equal(activity.label, 'Save complete.');
+assert.equal(activity.label, 'Saving...');
 assert.equal(activity.storageFiles.saving.status, 'settled');
 assert.equal(activity.storageFiles.records.status, 'settled');
+const firstStorageToken = activity.token;
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-preferences',
+  phase: 'storageWriteStarted',
+  status: 'running',
+  operation: 'writeJson',
+  logicalKey: 'system/ui-preferences.v1.json',
+  path: '/user/files/directive-system-ui-preferences.v1.json'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.token, firstStorageToken);
+assert.equal(activity.label, 'Saving...');
+assert.equal(activity.storageFiles.preferences.status, 'running');
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
+assert.deepEqual(
+  storageIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Campaign Save', 'Records', 'Preferences']
+);
+reportDirectiveStorageProgress({
+  operationId: 'storage-write-preferences',
+  phase: 'storageWriteComplete',
+  status: 'complete',
+  operation: 'writeJson',
+  logicalKey: 'system/ui-preferences.v1.json',
+  path: '/user/files/directive-system-ui-preferences.v1.json'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Saving...');
+assert.equal(activity.storageFiles.preferences.status, 'settled');
+await new Promise((resolve) => setTimeout(resolve, 1450));
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Saved.');
+assert.equal(activity.phase, 'storageComplete');
 clearDirectiveTurnActivity(activity.token);
 
 reportDirectiveStorageProgress({
