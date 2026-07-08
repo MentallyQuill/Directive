@@ -1054,7 +1054,7 @@ assert.match(textOf(panel), /Last Outcome Recorded/);
 assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not show persistence-only last-outcome copy');
 assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await findButton(panel, 'Log').click();
-assert.match(textOf(panel), /working transfer/);
+assert.match(textOf(panel), /No durable mission outcome was committed because the turn requires Utility Arbiter approval/);
 const logCards = queryAll(panel, '.directive-log-entry-card');
 assert.equal(logCards.length, 2, 'Log should render both campaign start and accepted outcome records');
 assert.deepEqual(
@@ -1062,7 +1062,7 @@ assert.deepEqual(
   ['02', '01'],
   'Log should preserve chronological record numbers while displaying newest records first'
 );
-assert.match(textOf(logCards[0]), /working transfer/, 'Latest accepted outcome should appear first');
+assert.match(textOf(logCards[0]), /Utility Arbiter approval/, 'Latest accepted outcome should appear first');
 assert.match(textOf(logCards[1]), /Campaign Start/, 'Campaign start should remain the first chronological record');
 await findButton(panel, 'Campaign').click();
 assert.match(textOf(panel), /Campaign activation: chatBound\./);

@@ -1231,6 +1231,81 @@ assert.equal(colorIngress.sourceFrame.kind, 'directive.turnSourceFrame.v1');
 assert.equal(colorIngress.sourceFrame.externalPromptEnvironmentRef.status, 'unknown');
 assert.equal(colorResponse.turnLatency.architectureWithin60s, true);
 
+const arbiterHostContinuePreviewCallsBefore = previewCalls.length;
+const arbiterHostContinueCommitCallsBefore = commitCalls.length;
+let legacyClassifierCalledForArbiter = false;
+const arbiterHostContinueOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    legacyClassifierCalledForArbiter = true;
+    throw new Error('Arbiter host continuation must not call the legacy classifier.');
+  },
+  arbitrate: async () => ({
+    kind: 'directive.turnArbiterPlan.v1',
+    schemaVersion: 1,
+    route: 'hostContinue',
+    confidence: 0.91,
+    ambiguity: 'low',
+    playerIntent: {
+      speechAct: 'answering-question',
+      action: 'defers ship-readiness answer until first-hand inspection',
+      target: 'mara-whitaker',
+      directObject: 'Breckenridge status',
+      domainSignals: ['ship'],
+      riskSignals: []
+    },
+    sceneContinuity: {
+      currentLocation: 'captain-ready-room',
+      currentConversation: 'Whitaker asks Sam for his XO read.',
+      mustPreserve: ['Sam is already seated in Whitaker ready room.'],
+      mustNotReestablish: ['Sam boarding the ship', 'Sam first meeting Whitaker']
+    },
+    responsePlan: {
+      owner: 'host',
+      strategy: 'injectAndContinue',
+      guidance: 'Continue current ready-room exchange.'
+    },
+    statePlan: {
+      commitOutcome: false,
+      allowedDomains: ['sourceBinding', 'continuity'],
+      proposedOperations: [],
+      promptDirtyDomains: ['sourceBinding']
+    },
+    risk: { requiresPause: false, pauseReason: '', reasons: [] },
+    diagnostics: { sourceUse: 'test', deterministicFallbackUsed: false }
+  }),
+  responseDispatcher,
+  stateDeltaGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Arbiter host continuation must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Arbiter host continuation must not commit a Director turn.');
+  },
+  now
+});
+const arbiterHostContinueMessage = chat.pushPlayerMessage({
+  text: '"With respect, Captain, I need to inspect the systems myself before I give you a readiness answer."',
+  hostMessageId: 'player-arbiter-ready-room-host-continue'
+});
+const arbiterHostContinue = await arbiterHostContinueOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: arbiterHostContinueMessage
+});
+assert.equal(arbiterHostContinue.responseStrategy, 'injectAndContinue');
+assert.equal(arbiterHostContinue.abortDefaultGeneration, false);
+assert.equal(legacyClassifierCalledForArbiter, false);
+assert.equal(previewCalls.length, arbiterHostContinuePreviewCallsBefore);
+assert.equal(commitCalls.length, arbiterHostContinueCommitCallsBefore);
+const arbiterHostContinueIngress = runtimeLedger().ingressLedger.find((entry) => entry.hostMessageId === 'player-arbiter-ready-room-host-continue');
+assert.equal(arbiterHostContinueIngress.arbiterPlan.route, 'hostContinue');
+assert.equal(arbiterHostContinueIngress.arbiterPlan.statePlan.commitOutcome, false);
+
 chat.pushAssistantMessage({
   hostMessageId: 'assistant-production-default-sre-handshake',
   text: 'Whitaker notes that the bridge watch is ready and leaves the next answer to Sam.'

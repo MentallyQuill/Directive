@@ -157,6 +157,16 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
   const narrationContext = normalizeDirectiveNarrationContext(turnPacket.narrationContext || null, {
     roleId: 'narration'
   });
+  const arbiterContinuity = turnPacket.arbiterPlan?.sceneContinuity || null;
+  const arbiterContinuityLines = arbiterContinuity ? [
+    'Arbiter Continuity Constraints:',
+    `Current location: ${compactText(arbiterContinuity.currentLocation || 'unknown', 240)}`,
+    `Current conversation: ${compactText(arbiterContinuity.currentConversation || 'unknown', 360)}`,
+    'Must preserve:',
+    ...array(arbiterContinuity.mustPreserve).map((item) => `- ${compactText(item, 360)}`),
+    'Must not re-establish:',
+    ...array(arbiterContinuity.mustNotReestablish).map((item) => `- ${compactText(item, 360)}`)
+  ].join('\n') : '';
   const narrationContextMeta = directiveNarrationContextSummary(narrationContext, { roleId: 'narration' });
   const styleContract = [
     'Narration perspective contract:',
@@ -197,6 +207,10 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     'Narrator Packet:',
     compactJson(narratorPacket),
     '',
+    ...(arbiterContinuityLines ? [
+      arbiterContinuityLines,
+      ''
+    ] : []),
     'Visible Command Log Continuity:',
     compactJson({
       summaryInputs: commandLog.summaryInputs || [],

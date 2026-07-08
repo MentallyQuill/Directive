@@ -76,6 +76,10 @@ assert.deepEqual(
 );
 assert.equal(authorityForRole('commandLogSummarizer').parserSchema, SIDECAR_OUTPUT_SCHEMA_IDS.commandLogSummary);
 assert.equal(authorityForRole('utilityTurnClassifier').providerKind, 'utility');
+assert.equal(authorityForRole('utilityTurnArbiter').providerKind, 'utility');
+assert.equal(authorityForRole('utilityTurnArbiter').fallback, 'fail-closed');
+assert.equal(authorityForRole('utilityTurnArbiter').mayProposeState, false);
+assert.equal(authorityForRole('utilityTurnArbiter').mayInjectPrompt, false);
 assert.equal(authorityForRole('narration').providerKind, 'reasoning');
 assert.equal(authorityForRole('commandBearingFitChecker').providerKind, 'utility');
 assert.equal(authorityForRole('commandBearingFitChecker').mayProposeState, false);

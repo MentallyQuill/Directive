@@ -1135,6 +1135,7 @@ function normalizeAdvisoryRecord(value, { state, ingressId, message, nowValue })
 export function createChatTurnOrchestrator({
   host,
   classify,
+  arbitrate = null,
   generationRouter = null,
   responseDispatcher,
   turnCommitCoordinator = null,
@@ -1176,6 +1177,7 @@ export function createChatTurnOrchestrator({
 } = {}) {
   if (!host?.chat) throw new Error('ChatTurnOrchestrator requires host.chat.');
   if (typeof classify !== 'function') throw new Error('ChatTurnOrchestrator requires classify().');
+  if (arbitrate !== null && typeof arbitrate !== 'function') throw new Error('ChatTurnOrchestrator requires arbitrate() to be a function when provided.');
   if (!responseDispatcher?.dispatch) throw new Error('ChatTurnOrchestrator requires responseDispatcher.dispatch().');
   if (!stateDeltaGateway?.commit) throw new Error('ChatTurnOrchestrator requires stateDeltaGateway.commit().');
   if (typeof getCampaignState !== 'function' || typeof setCampaignState !== 'function') {
@@ -4408,6 +4410,7 @@ export function createChatTurnOrchestrator({
       workerPlan: cloneJson(decision.workerPlan),
       responseStrategy: 'injectAndContinue',
       responseMessageId: null,
+      ...(decision.arbiterPlan ? { arbiterPlan: cloneJson(decision.arbiterPlan) } : {}),
       completedAt: timestamp(now)
     }, `Completed ${decision.classification} utility turn.`);
     scheduleTurnSidecars(decision, {
@@ -4421,6 +4424,116 @@ export function createChatTurnOrchestrator({
       abortDefaultGeneration: false,
       decision,
       campaignState: cloneJson(next)
+    };
+  }
+
+  function arbiterPlanToDecision(arbiterPlan = {}) {
+    const route = arbiterPlan.route || 'pause';
+    const speechAct = String(arbiterPlan.playerIntent?.speechAct || '').trim();
+    const classificationByRoute = {
+      hostContinue: speechAct === 'routine-command'
+        ? 'routineCommand'
+        : (speechAct === 'counsel-request'
+          ? 'counselRequest'
+          : (speechAct === 'scene-navigation' ? 'sceneNavigation' : 'sceneColor')),
+      directiveOutcome: speechAct === 'routine-command' && arbiterPlan.statePlan?.commitOutcome !== true
+        ? 'routineCommand'
+        : 'consequentialCommand',
+      localPacing: 'locationTransition',
+      pause: 'clarificationNeeded',
+      recovery: 'recovery'
+    };
+    const responseStrategyByRoute = {
+      hostContinue: 'injectAndContinue',
+      directiveOutcome: 'directivePosted',
+      localPacing: 'directivePosted',
+      pause: 'pause',
+      recovery: 'injectAndContinue'
+    };
+    return {
+      kind: 'directive.turnIntentClassification',
+      classification: classificationByRoute[route] || 'clarificationNeeded',
+      responseStrategy: responseStrategyByRoute[route] || 'pause',
+      confidence: Number.isFinite(Number(arbiterPlan.confidence)) ? Number(arbiterPlan.confidence) : 0,
+      ambiguity: arbiterPlan.ambiguity || 'unknown',
+      speechAct: arbiterPlan.playerIntent?.speechAct || '',
+      action: arbiterPlan.playerIntent?.action || arbiterPlan.responsePlan?.guidance || '',
+      target: arbiterPlan.playerIntent?.target || '',
+      domainSignals: cloneJson(arbiterPlan.playerIntent?.domainSignals || []),
+      riskSignals: cloneJson(arbiterPlan.playerIntent?.riskSignals || []),
+      missingInformation: [],
+      mixedIntent: false,
+      workerPlan: {
+        promptUpdate: true,
+        narrator: route === 'directiveOutcome' && arbiterPlan.statePlan?.commitOutcome === true,
+        mission: route === 'directiveOutcome' && arbiterPlan.statePlan?.commitOutcome === true,
+        continuity: route === 'directiveOutcome' && arbiterPlan.statePlan?.commitOutcome === true,
+        ship: route === 'directiveOutcome' && arbiterPlan.statePlan?.commitOutcome === true,
+        commandBearing: route === 'directiveOutcome' && arbiterPlan.statePlan?.commitOutcome === true,
+        arbiterRoute: route
+      },
+      ...(route === 'localPacing' ? {
+        sceneBoundary: {
+          kind: 'locationTransition',
+          destinationId: arbiterPlan.playerIntent?.target || '',
+          destinationLabel: arbiterPlan.playerIntent?.target || arbiterPlan.playerIntent?.directObject || '',
+          stopPolicy: 'stopOnArrival'
+        }
+      } : {}),
+      reasons: cloneJson(arbiterPlan.risk?.reasons || []),
+      arbiterPlan: cloneJson(arbiterPlan)
+    };
+  }
+
+  async function handleArbiterHostContinue(state, ingressId, arbiterPlan, message, activityReporter = null) {
+    const decision = arbiterPlanToDecision(arbiterPlan);
+    reportActivity(activityReporter, {
+      phase: 'hostContinuation',
+      mode: 'blocking',
+      classification: 'hostContinue',
+      ingressId
+    });
+    const next = await syncPrompt(
+      state,
+      'Prompt context synchronized for Arbiter host continuation.',
+      promptFrameForMessage(state, message, decision),
+      activityReporter,
+      {
+        source: 'utilityTurnArbiter',
+        classification: 'hostContinue',
+        ingressId,
+        arbiterPlan: cloneJson(arbiterPlan)
+      }
+    );
+    const dispatched = await dispatchAndRecord({
+      state: next,
+      ingressId,
+      decision,
+      strategy: 'injectAndContinue',
+      text: null,
+      responseKind: 'hostGeneration',
+      metadata: {
+        arbiterPlan: cloneJson(arbiterPlan)
+      },
+      activityReporter
+    });
+    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision);
+    if (recoveryResult) return recoveryResult;
+    const completed = await updateIngressState(dispatched.state, ingressId, {
+      status: 'complete',
+      classification: cloneJson(decision),
+      workerPlan: cloneJson(decision.workerPlan),
+      responseStrategy: 'injectAndContinue',
+      responseMessageId: null,
+      arbiterPlan: cloneJson(arbiterPlan),
+      completedAt: timestamp(now)
+    }, 'Completed Utility Arbiter host continuation.');
+    return {
+      handled: true,
+      responseStrategy: 'injectAndContinue',
+      abortDefaultGeneration: false,
+      decision,
+      campaignState: cloneJson(completed)
     };
   }
 
@@ -5033,7 +5146,8 @@ export function createChatTurnOrchestrator({
         readiedCommandBearing,
         generateNarration: true,
         generateCommandLogSummary: true,
-        deferCommandLogSummary: true
+        deferCommandLogSummary: true,
+        arbiterPlan: cloneJson(decision.arbiterPlan || null)
       });
     } catch (error) {
       if (readiedCommandBearing?.readiedId || readiedCommandBearing?.id) {
@@ -6390,23 +6504,54 @@ export function createChatTurnOrchestrator({
         ingressId
       });
       markDebugStage('processMessage:classifying', { ingressId, chatId });
-      decision = await classify({
-        text: message.text,
-        context: {
-          recentChat: displaySafeRecentChat(host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || []),
+      const playerSafeProjection = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
+      const routingContext = {
+        recentChat: displaySafeRecentChat(host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || []),
+        recentTranscript: displaySafeRecentChat(host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || []),
+        campaignId: state.campaign?.id,
+        saveId: state.saveId || state.campaign?.saveId,
+        chatId,
+        currentMission: {
           activeMissionId: state.mission?.activeMissionId,
           activePhaseId: state.mission?.activePhaseId,
-          knownFacts: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.knownFacts || [],
-          formalObjectives: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.formalObjectives || [],
+          knownFacts: playerSafeProjection?.mission?.knownFacts || [],
+          formalObjectives: playerSafeProjection?.mission?.formalObjectives || [],
           activeDecisionPointCount: (
             state.mission?.activeDecisionPoints
             || state.mission?.availableDecisionPointIds
             || []
-          ).length,
-          commandAuthority: state.player?.authority || state.player?.billet,
-          pendingInteraction: playerSafePendingInteraction(state)
-        }
-      });
+          ).length
+        },
+        activeMissionId: state.mission?.activeMissionId,
+        activePhaseId: state.mission?.activePhaseId,
+        knownFacts: playerSafeProjection?.mission?.knownFacts || [],
+        formalObjectives: playerSafeProjection?.mission?.formalObjectives || [],
+        activeDecisionPointCount: (
+          state.mission?.activeDecisionPoints
+          || state.mission?.availableDecisionPointIds
+          || []
+        ).length,
+        commandAuthority: state.player?.authority || state.player?.billet,
+        pendingInteraction: playerSafePendingInteraction(state),
+        sourceClean: true,
+        ordinaryDialogueLikely: true
+      };
+      if (typeof arbitrate === 'function') {
+        const arbiterPlan = await arbitrate({
+          message: {
+            ...message,
+            chatId,
+            hostMessageId: messageHostMessageId(message)
+          },
+          context: routingContext
+        });
+        decision = arbiterPlanToDecision(arbiterPlan);
+      } else {
+        decision = await classify({
+          text: message.text,
+          context: routingContext
+        });
+      }
       const staleAfterClassify = await currentSourceStaleResult(ingressId, message, 'after-classify', state);
       if (staleAfterClassify) return staleAfterClassify;
       state = await updateIngressState(await stateForIngressCheck(ingressId, state), ingressId, {
@@ -6414,6 +6559,7 @@ export function createChatTurnOrchestrator({
         classification: cloneJson(decision),
         workerPlan: cloneJson(decision.workerPlan),
         responseStrategy: decision.responseStrategy,
+        ...(decision.arbiterPlan ? { arbiterPlan: cloneJson(decision.arbiterPlan) } : {}),
         classifiedAt: timestamp(now)
       }, `Utility pass classified ${decision.classification}.`);
       reportActivity(activityReporter, {

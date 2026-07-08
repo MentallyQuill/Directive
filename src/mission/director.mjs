@@ -1224,6 +1224,44 @@ function buildCommandLogPacket({ outcomePacket, intentParse, campaignState = {} 
   };
 }
 
+function buildNoCommittedOutcomeTurnPacket({ input, sceneSnapshot, intentParse, arbiterPlan = null, reason }) {
+  const outcomePacket = {
+    id: `outcome.${String(input.turnId || 'turn').replace(/^turn\./, '')}`,
+    resultBand: 'No Change',
+    summary: 'No durable mission outcome was committed because the turn requires Utility Arbiter approval.',
+    costs: [],
+    revealedFactIds: [],
+    commandDecisionAwards: [],
+    noCommitReason: reason
+  };
+  return {
+    contractVersion: 1,
+    turnId: input.turnId,
+    graphPath: input.graphPath,
+    projectionPath: input.projectionPath,
+    sceneSnapshot,
+    intentParse,
+    actionClassification: { category: 'noDurableOutcome', reason },
+    authorityCapabilityCheck: { result: 'notEvaluated', reason },
+    pressureFocus: null,
+    directorResponse: null,
+    outcomePacket,
+    stateDelta: {},
+    directorPackets: {},
+    narratorPacket: {
+      sourceOutcomeId: outcomePacket.id,
+      summary: outcomePacket.summary,
+      constraints: ['Do not narrate a durable state change.']
+    },
+    commandLogPacket: {
+      sourceOutcomeId: outcomePacket.id,
+      summaryInputs: [outcomePacket.summary],
+      visibleConsequences: []
+    },
+    ...(arbiterPlan ? { arbiterPlan: cloneJson(arbiterPlan) } : {})
+  };
+}
+
 export function runMissionDirectorTurn(input) {
   const graph = cloneJson(input.graph);
   const projection = cloneJson(input.projection);
@@ -1231,9 +1269,27 @@ export function runMissionDirectorTurn(input) {
   const shipDataset = cloneJson(input.shipDataset || {});
   const sceneSnapshot = cloneJson(input.sceneSnapshot);
   const campaignState = cloneJson(input.campaignState || projection.initialState || {});
+  const arbiterPlan = input.arbiterPlan ? cloneJson(input.arbiterPlan) : null;
   const graphIndex = indexMissionGraph(graph);
 
   const intentParse = parseIntent(sceneSnapshot);
+  const arbiterApprovedOutcome = arbiterPlan?.route === 'directiveOutcome'
+    && arbiterPlan?.statePlan?.commitOutcome === true;
+  if (!arbiterApprovedOutcome && ([
+    'establish-arrival-tone',
+    'complete-ready-room-handover',
+    'set-readiness-priorities',
+    'establish-command-rhythm'
+  ].includes(intentParse.primaryIntent)
+    || (sceneSnapshot.activePhaseId === 'ready-room-handover' && intentParse.primaryIntent === 'no-action'))) {
+    return buildNoCommittedOutcomeTurnPacket({
+      input,
+      sceneSnapshot,
+      intentParse,
+      arbiterPlan,
+      reason: 'arbiter-required-for-broad-phase-outcome'
+    });
+  }
   const competencePolicy = missionCompetencePolicy(input, graph);
   const competencePacket = competencePolicy
     ? planCommandCompetence({
@@ -1297,6 +1353,7 @@ export function runMissionDirectorTurn(input) {
     directorPackets: cloneJson(retrievalRun?.packets || {}),
     narratorPacket,
     commandLogPacket,
+    ...(arbiterPlan ? { arbiterPlan } : {}),
     provenance: input.continuityDirectorPacket ? {
       continuityProjection: {
         kind: 'directive.continuityDirectorPacketReceived.v1',

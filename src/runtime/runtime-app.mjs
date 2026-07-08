@@ -20,6 +20,7 @@ import { resolveDirectiveNarrationContext } from '../generation/narration-contex
 import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 import { normalizeCampaignTimeState } from '../time/campaign-time-state.mjs';
 import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
+import { arbitrateChatTurn } from '../adjudication/utility-turn-arbiter.mjs';
 import {
   addMissionComponent,
   archiveMissionComponent as archiveMissionComponentRecord,
@@ -7229,6 +7230,15 @@ export function createDirectiveRuntimeApp({
       },
       generationRouter: defaultGenerationRouter
     });
+    const arbitrate = ({ message, context = {} } = {}) => arbitrateChatTurn({
+      message,
+      context: {
+        ...cloneJson(context),
+        campaignRevision: campaignState?.runtimeTracking?.revision || 0,
+        simulationMode: campaignState?.settings?.simulationMode || 'Command'
+      },
+      generationRouter: defaultGenerationRouter
+    });
     const activationCoordinator = createCampaignActivationCoordinator({
       host: runtimeHost,
       generationRouter: defaultGenerationRouter,
@@ -7358,6 +7368,7 @@ export function createDirectiveRuntimeApp({
     const orchestrator = createChatTurnOrchestrator({
       host: runtimeHost,
       classify,
+      arbitrate,
       generationRouter: defaultGenerationRouter,
       responseDispatcher,
       turnCommitCoordinator,
@@ -10417,6 +10428,7 @@ export function createDirectiveRuntimeApp({
       playerInput,
       sceneSnapshotOverrides = {},
       turnId = null,
+      arbiterPlan = null,
       coreRecallEntries = null
     } = {}) {
       return run(async () => {
@@ -10439,6 +10451,7 @@ export function createDirectiveRuntimeApp({
           turnId: turnId || idFactory('turn'),
           playerInput,
           sceneSnapshotOverrides,
+          arbiterPlan,
           coreRecallEntries: resolvedCoreRecallEntries
         });
         pendingDirectorTurn = result.turnPacket;
@@ -10467,6 +10480,7 @@ export function createDirectiveRuntimeApp({
       generateNarration = true,
       generateCommandLogSummary = true,
       deferCommandLogSummary = false,
+      arbiterPlan = null,
       provider = defaultNarrationProvider
     } = {}) {
       return run(async () => {
@@ -10484,9 +10498,15 @@ export function createDirectiveRuntimeApp({
         const replacementCoreCheckpointRef = assertOutcomeReplacementCheckpointBase({ replacement, ledgerEntry: replacementLedgerEntry });
         const baseCampaignState = replacement ? replacement.snapshotBefore : campaignState;
         const beforeCampaignState = cloneJson(baseCampaignState);
+        const turnPacketForCommit = arbiterPlan
+          ? {
+              ...pendingDirectorTurn,
+              arbiterPlan: cloneJson(arbiterPlan)
+            }
+          : pendingDirectorTurn;
         const result = commitProvisionalDirectorTurnRuntime({
           campaignState: baseCampaignState,
-          turnPacket: pendingDirectorTurn,
+          turnPacket: turnPacketForCommit,
           spendTrack,
           readiedCommandBearing,
           confirmWarnings,
@@ -10665,6 +10685,7 @@ export function createDirectiveRuntimeApp({
       outcomeId,
       playerInput,
       turnId = null,
+      arbiterPlan = null,
       type = 'rerunOutcome'
     } = {}) {
       return run(async () => {
@@ -10742,6 +10763,7 @@ export function createDirectiveRuntimeApp({
           projectionPath: assets.projectionPath,
           turnId: replacementTurnId,
           playerInput,
+          arbiterPlan,
           coreRecallEntries
         });
         pendingOutcomeReplacement = {

@@ -51,6 +51,44 @@ function requireSameSet(actual, expected, location) {
   }
 }
 
+function approvingArbiterPlanForFixture(fixture) {
+  const scene = fixture.input?.sceneSnapshot || {};
+  return {
+    kind: 'directive.turnArbiterPlan.v1',
+    schemaVersion: 1,
+    route: 'directiveOutcome',
+    confidence: 1,
+    ambiguity: 'low',
+    playerIntent: {
+      speechAct: 'fixture-approved-command',
+      action: scene.playerInput || fixture.input?.playerInput || 'fixture mission command',
+      target: scene.activePhaseId || 'active mission',
+      directObject: '',
+      domainSignals: ['mission'],
+      riskSignals: []
+    },
+    sceneContinuity: {
+      currentLocation: scene.locationId || '',
+      currentConversation: `Fixture phase ${scene.activePhaseId || 'unknown'} is already active.`,
+      mustPreserve: ['Use the fixture scene as already established.'],
+      mustNotReestablish: ['The campaign intro']
+    },
+    responsePlan: {
+      owner: 'directive',
+      strategy: 'directivePosted',
+      guidance: 'Resolve the fixture as an approved durable mission outcome.'
+    },
+    statePlan: {
+      commitOutcome: true,
+      allowedDomains: ['mission'],
+      proposedOperations: [],
+      promptDirtyDomains: ['missionQuestThread']
+    },
+    risk: { requiresPause: false, pauseReason: '', reasons: [] },
+    diagnostics: { sourceUse: 'fixture', deterministicFallbackUsed: false }
+  };
+}
+
 if (fixturePaths.length === 0) {
   at('fixtures', 'must contain at least one *-director-loop.fixture.json file');
 }
@@ -79,7 +117,8 @@ for (const fixturePath of fixturePaths) {
       projection,
       crewDataset,
       sceneSnapshot: fixture.input.sceneSnapshot,
-      campaignState: fixture.input.campaignState
+      campaignState: fixture.input.campaignState,
+      arbiterPlan: approvingArbiterPlanForFixture(fixture)
     });
   } catch (error) {
     at(rel(fixturePath), error.message);

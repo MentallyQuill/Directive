@@ -513,6 +513,81 @@ export function parseIntent(sceneSnapshot) {
   }
 
   if (activePhaseId === 'ready-room-handover' && rawInput.trim()) {
+    const engagesHandoverValue = namesPersonalValue
+      || defersPersonalValue
+      || definesExecutiveAuthority
+      || asksForHandoff
+      || /\b(my command value|as xo|executive authority|disagreement|lawful final decision|bronn's acting work)\b/i.test(rawInput);
+    if (!engagesHandoverValue) {
+      return {
+        summary: 'In-scene ready-room dialogue that does not complete the command-value handover.',
+        primaryIntent: 'no-action',
+        targetIds: ['mara-whitaker'],
+        declaredMethod: rawInput.trim(),
+        assumptions: [],
+        signals: {
+          wantsPassengerTransfer,
+          wantsEvidencePreserved,
+          wantsOwnerAccountability,
+          limitsRepair,
+          acceptsDelay,
+          missionDeparture,
+          hasCredibleEvidence,
+          hasImminentHarm,
+          hasFeasiblePlan,
+          asksForLimitedAlternative,
+          reportsAboard,
+          respectsWorkingProcess,
+          asksForHandoff,
+          immediateInspection,
+          namesPersonalValue,
+          defersPersonalValue,
+          definesExecutiveAuthority,
+          setsReadinessPriorities,
+          delegatesReadinessWork,
+          acceptsReadinessRisk,
+          approvesFlightProfile,
+          formalizesOpsCoordination,
+          definesScienceThreshold,
+          protectsMedicalReadiness,
+          protectsEngineeringReadiness,
+          setsFallbackProcedure,
+          standardizesFallbackProcedure,
+          usesBronnFailureConditions,
+          assignsCertificateRemediation,
+          setsTemporaryFallbackProtocol,
+          defersFallbackRemediation,
+          buildsFallbackConsensus,
+          contactsKieran,
+          contactsPriya,
+          contactsBronn,
+          contactsRowan,
+          contactsMiriam,
+          contactsImani,
+          setsConcernEscalationExpectation,
+          delegatesCommandRhythm,
+          invitesDissent,
+          setsCommandBoundaries,
+          assignsHesperusFollowup,
+          assignsHesperusEngineering,
+          assignsHesperusMedical,
+          assignsHesperusLegal,
+          assignsHesperusFlight,
+          preservesEscapePodData,
+          startsCombinedLoadTest,
+          runsStagedLoadTest,
+          continuesUnderReducedRedundancy,
+          pausesCombinedLoadTest,
+          shiftsCombinedLoadControl,
+          acceptsImaniWorkaround,
+          reportsIncompleteTesting,
+          hidesCombinedLoadRisk,
+          setsKieranAbortCriteria,
+          departureStrength,
+          impossibleOrUnsupported
+        }
+      };
+    }
     return {
       summary: 'Complete the ready-room command handover and establish an initial command value.',
       primaryIntent: 'complete-ready-room-handover',

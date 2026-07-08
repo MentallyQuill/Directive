@@ -109,6 +109,7 @@ function runTacticalOrSystemic({
   sceneSnapshot,
   interpretation = null,
   continuityDirectorPacket = null,
+  arbiterPlan = null,
   coreRecallEntries = []
 }) {
   const quest = foreground(campaignState);
@@ -128,6 +129,7 @@ function runTacticalOrSystemic({
           sceneSnapshot,
           campaignState,
           continuityDirectorPacket,
+          arbiterPlan,
           coreRecallEntries
         }),
         usedTacticalGraph: true,
@@ -158,6 +160,7 @@ function runTacticalOrSystemic({
           sceneSnapshot,
           campaignState,
           continuityDirectorPacket,
+          arbiterPlan,
           coreRecallEntries
         }),
         usedTacticalGraph: true,
@@ -312,6 +315,7 @@ export function createDirectorCoordinatorTurn({
   playerInput,
   sceneSnapshotOverrides = {},
   actionInterpretation = null,
+  arbiterPlan = null,
   coreRecallEntries = []
 } = {}) {
   if (!campaignState || !packageData || !turnId || !text(playerInput)) throw new Error('campaignState, packageData, turnId, and playerInput are required.');
@@ -335,7 +339,7 @@ export function createDirectorCoordinatorTurn({
   const validatedInterpretation = actionInterpretation
     ? validateQuestActionInterpretation(actionInterpretation, { state: campaignState, packageData, questId: quest?.id, playerInput, sourceAnchorRange: sceneSnapshot.sourceAnchorRange })
     : null;
-  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, shipDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket, coreRecallEntries });
+  const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, shipDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket, arbiterPlan, coreRecallEntries });
   return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason, continuityDirectorPacket });
 }
 

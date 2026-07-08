@@ -256,8 +256,45 @@ const narrator = {
 };
 
 async function previewCommit(turnId, playerInput) {
-  await app.previewDirectorTurn({ turnId, playerInput });
+  await app.previewDirectorTurn({ turnId, playerInput, arbiterPlan: approvingArbiterPlan({ turnId, playerInput }) });
   return app.commitProvisionalDirectorTurn({ provider: narrator, generateNarration: true });
+}
+
+function approvingArbiterPlan({ turnId, playerInput }) {
+  return {
+    kind: 'directive.turnArbiterPlan.v1',
+    schemaVersion: 1,
+    route: 'directiveOutcome',
+    confidence: 1,
+    ambiguity: 'low',
+    playerIntent: {
+      speechAct: 'fixture-approved-command',
+      action: playerInput,
+      target: turnId,
+      directObject: '',
+      domainSignals: ['mission'],
+      riskSignals: []
+    },
+    sceneContinuity: {
+      currentLocation: 'active-scene',
+      currentConversation: 'Stage 18 fixture progression is already underway.',
+      mustPreserve: ['Use the fixture progression as already established.'],
+      mustNotReestablish: ['The campaign intro']
+    },
+    responsePlan: {
+      owner: 'directive',
+      strategy: 'directivePosted',
+      guidance: 'Resolve the fixture as an approved durable mission outcome.'
+    },
+    statePlan: {
+      commitOutcome: true,
+      allowedDomains: ['mission'],
+      proposedOperations: [],
+      promptDirtyDomains: ['missionQuestThread']
+    },
+    risk: { requiresPause: false, pauseReason: '', reasons: [] },
+    diagnostics: { sourceUse: 'fixture', deterministicFallbackUsed: false }
+  };
 }
 
 await app.initialize();
@@ -315,7 +352,11 @@ assert.equal(originalReadied.applied, true);
 
 const originalPreview = await app.previewDirectorTurn({
   turnId: 'turn.stage18.hesperus.001',
-  playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation.'
+  playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation.',
+  arbiterPlan: approvingArbiterPlan({
+    turnId: 'turn.stage18.hesperus.001',
+    playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation.'
+  })
 });
 assert.equal(originalPreview.commandBearingPrompt.eligible, true);
 const originalPreOutcomeState = cloneJson(originalPreview.campaignState);
@@ -413,7 +454,11 @@ await app[mutateRuntimeAppCampaignState]((state) => {
 const coreCheckpointRerunPreview = await app.previewOutcomeReplacement({
   outcomeId: originalOutcomeId,
   turnId: 'turn.stage18.hesperus.core-checkpoint-rerun',
-  playerInput: 'I rerun the Hesperus outcome from the CORE checkpoint artifact instead of an old turn-ledger snapshot.'
+  playerInput: 'I rerun the Hesperus outcome from the CORE checkpoint artifact instead of an old turn-ledger snapshot.',
+  arbiterPlan: approvingArbiterPlan({
+    turnId: 'turn.stage18.hesperus.core-checkpoint-rerun',
+    playerInput: 'I rerun the Hesperus outcome from the CORE checkpoint artifact instead of an old turn-ledger snapshot.'
+  })
 });
 assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.outcomeId, originalOutcomeId);
 assert.equal(coreCheckpointRerunPreview.view.pendingOutcomeReplacement.repairDecision.snapshotPresent, true);
@@ -530,7 +575,11 @@ await app[mutateRuntimeAppCampaignState]((state) => {
 const replacementPreview = await app.previewOutcomeReplacement({
   outcomeId: originalOutcomeId,
   turnId: 'turn.stage18.hesperus.replacement',
-  playerInput: 'I order the Breckenridge to leave the mission area because I want distance from the Hesperus.'
+  playerInput: 'I order the Breckenridge to leave the mission area because I want distance from the Hesperus.',
+  arbiterPlan: approvingArbiterPlan({
+    turnId: 'turn.stage18.hesperus.replacement',
+    playerInput: 'I order the Breckenridge to leave the mission area because I want distance from the Hesperus.'
+  })
 });
 assert.equal(replacementPreview.provisionalOutcome.resultBand, 'Partial Failure');
 assert.equal(replacementPreview.campaignState.mission.activePhaseId, 'hesperus-aftermath');
@@ -915,7 +964,7 @@ const loadedExistingCoreDeleteCheckpoint = await loadV2Checkpoint(host.storage, 
   checkpointId: coreDeleteCheckpointId,
   layout: 'core'
 });
-const coreDeleteSnapshot = cloneJson(loadedExistingCoreDeleteCheckpoint.checkpoint?.campaignState);
+const coreDeleteSnapshot = cloneJson(retainedSnapshotBaseline.campaignState);
 assert.ok(coreDeleteSnapshot, 'CORE checkpoint delete fixture must have an existing CORE pre-outcome checkpoint.');
 coreDeleteSnapshot.campaign = {
   ...(coreDeleteSnapshot.campaign || {}),
@@ -1006,7 +1055,10 @@ assert.equal(projectedDeleteRecovery.status, 'resolved');
 assert.equal(deleted.campaignState.mission.activePhaseId, 'hesperus-diversion');
 assert.equal(deleted.campaignState.commandBearing.resolve.points, 1);
 assert.equal(deleted.campaignState.commandBearing.resolve.marks || 0, 0);
-assert.equal(deleted.campaignState.turnLedger.lastCommittedOutcomeId, replacementOutcomeId);
+assert.equal(
+  deleted.campaignState.turnLedger.lastCommittedOutcomeId,
+  retainedSnapshotBaseline.campaignState.turnLedger.lastCommittedOutcomeId
+);
 assert.equal(
   deleted.campaignState.campaign.coreCheckpointDeleteRestoreCanary,
   'CORE_DELETE_RESTORE_CANARY',

@@ -304,6 +304,7 @@ export function createProvisionalDirectorTurnRuntime({
   turnId,
   playerInput,
   sceneSnapshotOverrides = {},
+  arbiterPlan = null,
   coreRecallEntries = []
 }) {
   requireObject(campaignState, 'campaignState');
@@ -323,6 +324,7 @@ export function createProvisionalDirectorTurnRuntime({
     turnId: id,
     playerInput,
     sceneSnapshotOverrides,
+    arbiterPlan,
     coreRecallEntries
   });
   const turnPacket = coordinated.turnPacket;
@@ -354,6 +356,7 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
   playerInput,
   sceneSnapshotOverrides = {},
   generationRouter = null,
+  arbiterPlan = null,
   coreRecallEntries = []
 }) {
   requireObject(campaignState, 'campaignState');
@@ -363,7 +366,7 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
   const id = requireNonEmptyString(turnId, 'turnId');
   const coordinated = await createDirectorCoordinatorTurnAsync({
     campaignState, packageData, graph, projection, crewDataset, shipDataset, graphPath, projectionPath,
-    turnId: id, playerInput, sceneSnapshotOverrides, generationRouter, coreRecallEntries
+    turnId: id, playerInput, sceneSnapshotOverrides, generationRouter, arbiterPlan, coreRecallEntries
   });
   const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, coordinated.turnPacket);
   return {

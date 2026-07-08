@@ -79,6 +79,21 @@ const MATRIX = Object.freeze({
     hiddenStatePolicy: 'Receives player-safe context; arbitration rejects hidden-state output.',
     tests: ['test-turn-intent-classifier-fixtures.mjs', 'test-chat-turn-orchestrator.mjs']
   },
+  utilityTurnArbiter: {
+    roleId: 'utilityTurnArbiter',
+    providerKind: 'utility',
+    trigger: 'Active campaign player message needs source-bound turn route and response owner arbitration.',
+    blocking: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    allowedRoots: EMPTY,
+    owningModule: 'src/adjudication/utility-turn-arbiter.mjs',
+    parserSchema: 'directive.turnArbiterPlan.v1',
+    fallback: 'fail-closed',
+    playerVisibleOutput: 'None; validated route and response ownership plan only.',
+    hiddenStatePolicy: 'Receives only player-safe source frames, visible transcript excerpts, selected-swipe metadata, current mission routing summaries, prompt status summaries, and recovery summaries. It cannot see raw prompts, provider reasoning, hidden truth, raw relationship values, raw pressure values, private NPC thoughts, cookies, CSRF tokens, or API keys.',
+    tests: ['test-utility-turn-arbiter.mjs', 'test-chat-turn-orchestrator.mjs']
+  },
   questActionInterpreter: {
     roleId: 'questActionInterpreter',
     providerKind: 'utility',

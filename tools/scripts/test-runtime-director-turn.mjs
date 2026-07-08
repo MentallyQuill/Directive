@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   composeNarrationPrompt
 } from '../../src/generation/narration.mjs';
+import { runMissionDirectorTurn } from '../../src/mission/director.mjs';
 import { normalizeRecallIndexEntry } from '../../src/retrieval/recall-index.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 
@@ -210,6 +211,27 @@ assert.equal(
   true
 );
 
+const readyRoomNoArbiter = runMissionDirectorTurn({
+  graph: missionGraph,
+  projection,
+  campaignState: turnResult.campaignState,
+  turnId: 'turn.runtime.ready-room.no-arbiter',
+  playerInput: '"With respect, Captain, I need to inspect the systems myself before I give you a readiness answer."',
+  sceneSnapshot: {
+    campaignId: 'ashes-of-peace',
+    campaignInstanceId: 'campaign-runtime-director-2',
+    activePhaseId: 'ready-room-handover',
+    locationId: 'captain-ready-room',
+    presentCharacters: ['sam-vickers', 'mara-whitaker'],
+    knownFactIds: [],
+    activeDecisionPointIds: [],
+    playerInput: '"With respect, Captain, I need to inspect the systems myself before I give you a readiness answer."'
+  }
+});
+assert.equal(readyRoomNoArbiter.outcomePacket.resultBand, 'No Change');
+assert.equal(readyRoomNoArbiter.outcomePacket.noCommitReason, 'arbiter-required-for-broad-phase-outcome');
+assert.equal(readyRoomNoArbiter.intentParse.primaryIntent, 'no-action');
+
 const missionView = await app.getCurrentView({ tabId: 'mission' });
 assert.equal(missionView.campaignState, null);
 assert.equal(missionView.loadedCampaignState.mission.activePhaseId, 'hesperus-aftermath');
@@ -285,6 +307,26 @@ const identityPrompt = composeNarrationPrompt({
 assert.match(identityPrompt.prompt, /Talia Serrin/);
 assert.match(identityPrompt.prompt, /Host Shell Isolation/);
 assert.match(identityPrompt.prompt, /Host Shell Persona/);
+const arbiterContinuityPrompt = composeNarrationPrompt({
+  campaignState: boundHostCampaignState,
+  turnPacket: {
+    ...missionView.lastDirectorTurn,
+    arbiterPlan: {
+      kind: 'directive.turnArbiterPlan.v1',
+      schemaVersion: 1,
+      route: 'directiveOutcome',
+      sceneContinuity: {
+        currentLocation: 'captain-ready-room',
+        currentConversation: 'Whitaker has asked Sam for his XO read of the ship.',
+        mustPreserve: ['Sam is already in the ready room.'],
+        mustNotReestablish: ['Sam boarding the ship', 'Sam first meeting Whitaker']
+      }
+    }
+  }
+});
+assert.match(arbiterContinuityPrompt.prompt, /Arbiter Continuity Constraints/);
+assert.match(arbiterContinuityPrompt.prompt, /Sam is already in the ready room/);
+assert.match(arbiterContinuityPrompt.prompt, /Sam boarding the ship/);
 
 const failureResult = await app.generateNarrationForLastTurn({
   provider: {

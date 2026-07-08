@@ -126,6 +126,40 @@ const preview = createProvisionalDirectorTurnRuntime({
   projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
   turnId: 'turn.stage22.command-brief.001',
   playerInput: 'Take us in and prepare to help. Start verifying the signal while we assess rescue posture.',
+  arbiterPlan: {
+    kind: 'directive.turnArbiterPlan.v1',
+    schemaVersion: 1,
+    route: 'directiveOutcome',
+    confidence: 0.9,
+    ambiguity: 'low',
+    playerIntent: {
+      speechAct: 'order',
+      action: 'prepare rescue posture and verify the signal',
+      target: 'relief convoy distress packet',
+      directObject: '',
+      domainSignals: ['mission', 'ship'],
+      riskSignals: []
+    },
+    sceneContinuity: {
+      currentLocation: 'breckenridge-bridge',
+      currentConversation: 'The bridge is assessing a distress packet.',
+      mustPreserve: ['The command brief is already underway.'],
+      mustNotReestablish: ['The campaign intro']
+    },
+    responsePlan: {
+      owner: 'directive',
+      strategy: 'directivePosted',
+      guidance: 'Commit the opening command brief outcome.'
+    },
+    statePlan: {
+      commitOutcome: true,
+      allowedDomains: ['mission', 'ship', 'commandBearing'],
+      proposedOperations: [],
+      promptDirtyDomains: ['missionQuestThread']
+    },
+    risk: { requiresPause: false, pauseReason: '', reasons: [] },
+    diagnostics: { sourceUse: 'test', deterministicFallbackUsed: false }
+  },
   sceneSnapshotOverrides: {
     knownFactIds: ['chapter-1.relief-convoy-distress-packet'],
     conditionIds: ['chapter-1.relief-convoy-distress-packet']

@@ -4,6 +4,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'campaignConclusion',
   'missionDirectorAdvisor',
   'utilityTurnClassifier',
+  'utilityTurnArbiter',
   'questActionInterpreter',
   'questArchitect',
   'sceneDeltaExtractor',
@@ -100,6 +101,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'deterministic'
+  },
+  utilityTurnArbiter: {
+    id: 'utilityTurnArbiter',
+    label: 'Utility Turn Arbiter',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
   },
   questActionInterpreter: {
     id: 'questActionInterpreter',

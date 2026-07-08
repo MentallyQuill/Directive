@@ -132,6 +132,53 @@ const host = createFakeDirectiveHost({
           }
         })
       },
+      utilityTurnArbiter: ({ request }) => {
+        const playerText = String(request?.context?.playerText || '');
+        const hostContinue = playerText.trim().startsWith('*');
+        const sceneNavigation = /^continue the scene\.?$/i.test(playerText.trim());
+        const locationTransition = /\bhead to engineering\b/i.test(playerText);
+        const routineCommand = /\blog the distress call\b/i.test(playerText);
+        const counselRequest = /\bwhat are our options here\b/i.test(playerText);
+        const route = locationTransition ? 'localPacing' : (hostContinue || sceneNavigation || routineCommand || counselRequest ? 'hostContinue' : 'directiveOutcome');
+        const commitsOutcome = route === 'directiveOutcome' && !routineCommand;
+        return {
+          providerId: 'fake-utility-arbiter',
+          text: JSON.stringify({
+            kind: 'directive.turnArbiterPlan.v1',
+            schemaVersion: 1,
+            route,
+            confidence: 0.86,
+            ambiguity: 'low',
+            playerIntent: {
+              speechAct: counselRequest ? 'counsel-request' : (routineCommand ? 'routine-command' : (sceneNavigation ? 'scene-navigation' : (hostContinue ? 'scene-color' : 'order'))),
+              action: counselRequest ? 'asks for options' : (routineCommand ? 'log distress call and preserve telemetry' : (locationTransition ? 'move to Engineering' : (hostContinue || sceneNavigation ? 'continues current scene' : 'change course and pursue'))),
+              target: counselRequest ? 'decision support' : (routineCommand ? 'operations log' : (locationTransition ? 'engineering' : (hostContinue || sceneNavigation ? 'current scene' : 'freighter'))),
+              directObject: '',
+              domainSignals: hostContinue || sceneNavigation ? ['continuity'] : ['mission', 'ship'],
+              riskSignals: []
+            },
+            sceneContinuity: {
+              currentLocation: 'breckenridge-bridge',
+              currentConversation: 'The bridge crew waits in the active watch.',
+              mustPreserve: ['The current bridge watch is already underway.'],
+              mustNotReestablish: ['The campaign intro', 'Sam boarding the ship']
+            },
+            responsePlan: {
+              owner: route === 'hostContinue' ? 'host' : 'directive',
+              strategy: route === 'hostContinue' ? 'injectAndContinue' : 'directivePosted',
+              guidance: route === 'hostContinue' ? 'Continue the current scene.' : 'Resolve the command as a durable outcome.'
+            },
+            statePlan: {
+              commitOutcome: commitsOutcome,
+              allowedDomains: route === 'hostContinue' ? ['sourceBinding', 'continuity'] : ['mission', 'ship'],
+              proposedOperations: [],
+              promptDirtyDomains: ['sourceBinding']
+            },
+            risk: { requiresPause: false, pauseReason: '', reasons: [] },
+            diagnostics: { sourceUse: 'test', deterministicFallbackUsed: false }
+          })
+        };
+      },
       continuityTracker: noChangeProposal,
       relationshipEvaluator: noChangeProposal,
       crewDirector: noChangeProposal,
@@ -1087,7 +1134,7 @@ assert.equal(
 );
 assert.ok(
   coreProjectionsBeforeReload.modelCallDiagnostics.some((entry) => (
-    entry.roleId === 'utilityTurnClassifier'
+    entry.roleId === 'utilityTurnArbiter'
     && entry.hostMessageId === 'runtime-player-consequential'
     && entry.requestHash
   )),
