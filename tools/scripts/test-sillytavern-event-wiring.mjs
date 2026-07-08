@@ -164,6 +164,31 @@ assert.equal(fallbackObserved[0].messageId, 3);
 assert.equal(__directiveEventTestHooks.scanLatestUserMessageFallback('test-duplicate', fallbackContext).reason, 'already-observed');
 await new Promise((resolve) => setTimeout(resolve, 25));
 assert.equal(fallbackObserved.length, 1, 'Fallback observer must not duplicate the same latest user message.');
+fallbackContext.chat.push({
+  is_user: false,
+  mes: 'The existing assistant response remains visible after reopening the campaign chat.'
+});
+const programmaticOpenObservedBefore = fallbackObserved.length;
+const programmaticOpenChange = __directiveEventTestHooks.handleUserMessageFallbackChatChanged({
+  reason: 'programmatic-campaign-chat-open',
+  context: fallbackContext
+});
+assert.equal(
+  programmaticOpenChange.suppressed,
+  true,
+  'Programmatic campaign chat opens should baseline historical user rows instead of scheduling fallback observation.'
+);
+await new Promise((resolve) => setTimeout(resolve, 100));
+assert.equal(
+  fallbackObserved.length,
+  programmaticOpenObservedBefore,
+  'Programmatic campaign chat open must not replay the latest historical user message.'
+);
+assert.equal(
+  __directiveEventTestHooks.scanLatestUserMessageFallback('test-after-programmatic-open', fallbackContext).reason,
+  'already-observed',
+  'Programmatic open suppression should leave the fallback baseline on the existing latest user row.'
+);
 __directiveEventTestHooks.disposeUserMessageFallbackObserver();
 assert.equal(mutationObservers[0].disconnected, true);
 const freshNoIdContext = {

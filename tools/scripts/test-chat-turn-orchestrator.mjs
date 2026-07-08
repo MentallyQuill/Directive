@@ -3909,6 +3909,101 @@ assert.equal(
   'Duplicate latest restart observation must not revive the old recovery row.'
 );
 
+const historicalReopenText = 'Sam stepped out with a small personal backpack of items and nothing else--traveling light.';
+const historicalReopenOldIngressId = `ingress:historical-reopen:campaign-chat:1:${fnv1a(historicalReopenText)}`;
+const historicalReopenStateBefore = cloneJson(campaignState);
+campaignState = initializeCampaignRuntimeTracking(campaignState);
+campaignState = recordTurnIngress(campaignState, {
+  id: historicalReopenOldIngressId,
+  hostMessageId: '1',
+  chatId: 'campaign-chat',
+  campaignId: campaignState.campaign.id,
+  textHash: fnv1a(historicalReopenText),
+  textPreview: historicalReopenText,
+  status: 'recoveryRequired',
+  responseStrategy: 'injectAndContinue',
+  coreTransactionId: 'txn-historical-reopen-old',
+  sourceFrameId: 'frame-historical-reopen-old'
+}, {
+  missingCoreWriteMode: 'reject'
+});
+campaignState = recordDirectiveResponse(campaignState, {
+  id: 'response-historical-reopen-old',
+  ingressId: historicalReopenOldIngressId,
+  hostMessageId: 'assistant-historical-reopen-old',
+  responseKind: 'hostContinue',
+  status: 'posted',
+  coreTransactionId: 'txn-historical-reopen-old',
+  coreProjection: {
+    kind: 'directive.coreResponseProjectionRef.v1',
+    responseId: 'response-historical-reopen-old',
+    transactionId: 'txn-historical-reopen-old',
+    status: 'posted'
+  }
+}, {
+  missingCoreWriteMode: 'reject'
+});
+setCampaignState(campaignState);
+const historicalReopenBeginBefore = coreBeginCalls.length;
+let historicalReopenClassifyCalls = 0;
+const historicalReopenOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    historicalReopenClassifyCalls += 1;
+    throw new Error('Historical chat-open replay must not classify.');
+  },
+  responseDispatcher,
+  stateDeltaGateway,
+  coreTurnStore,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Historical chat-open replay must not preview.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Historical chat-open replay must not commit.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule() {
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const historicalReopenResult = await historicalReopenOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  hostMessageId: '2',
+  text: historicalReopenText,
+  isUser: true,
+  fallbackReason: 'chat-changed'
+});
+assert.equal(historicalReopenResult.handled, true);
+assert.equal(historicalReopenResult.deduplicated, true, JSON.stringify({
+  reason: historicalReopenResult.reason,
+  stale: historicalReopenResult.stale,
+  responseStrategy: historicalReopenResult.responseStrategy,
+  record: historicalReopenResult.record && {
+    id: historicalReopenResult.record.id,
+    hostMessageId: historicalReopenResult.record.hostMessageId,
+    textHash: historicalReopenResult.record.textHash,
+    status: historicalReopenResult.record.status
+  }
+}));
+assert.equal(historicalReopenResult.reason, 'historical-ingress-deduplicated');
+assert.equal(historicalReopenClassifyCalls, 0);
+assert.equal(coreBeginCalls.length, historicalReopenBeginBefore);
+assert.equal(
+  (historicalReopenResult.campaignState?.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger || [])
+    .filter((entry) => entry.textHash === fnv1a(historicalReopenText)).length,
+  1,
+  'Historical chat-open replay with shifted host row id must not create another ingress.'
+);
+campaignState = historicalReopenStateBefore;
+setCampaignState(campaignState);
+
 const failingClassifierOrchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: async () => {

@@ -159,6 +159,23 @@ function currentChatIdFromContext(context = null) {
   );
 }
 
+function eventContextFromPayload(payload = null) {
+  if (!payload || typeof payload !== 'object') return null;
+  return payload.context
+    || payload.sillyTavernContext
+    || payload.hostContext
+    || payload.ctx
+    || null;
+}
+
+function isProgrammaticCampaignChatOpenPayload(payload = null) {
+  if (!payload || typeof payload !== 'object') return false;
+  const reason = compactString(payload.reason || payload.eventReason || payload.source);
+  return reason === 'programmatic-campaign-chat-open'
+    || reason === 'programmatic-open-syncs-prompt'
+    || reason === 'programmatic-open-pending';
+}
+
 function messageText(message = {}) {
   const value = message?.mes ?? message?.content ?? message?.text ?? message?.message ?? '';
   if (typeof value === 'string') return value;
@@ -222,10 +239,22 @@ function resetUserMessageFallbackBaseline(context = null) {
 }
 
 function handleUserMessageFallbackChatChanged(context = null) {
-  const ctx = currentSillyTavernContext(context);
+  const explicitContext = eventContextFromPayload(context);
+  const ctx = currentSillyTavernContext(explicitContext || context);
   const chat = Array.isArray(ctx?.chat) ? ctx.chat : [];
   const chatLength = chat.length;
   const chatId = currentChatIdFromContext(ctx);
+  if (isProgrammaticCampaignChatOpenPayload(context)) {
+    const candidate = resetUserMessageFallbackBaseline(ctx);
+    return {
+      reset: true,
+      suppressed: true,
+      reason: 'programmatic-campaign-chat-open',
+      chatId: chatId || candidate?.chatId || null,
+      signature: candidate?.signature || null,
+      chatLength
+    };
+  }
   if (!lastFallbackChatId) {
     const candidate = latestUserMessageCandidate(ctx);
     if (candidate && candidate.signature !== lastFallbackUserMessageSignature) {

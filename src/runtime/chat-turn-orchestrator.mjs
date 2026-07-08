@@ -249,6 +249,16 @@ function isRetryableIngressStatus(status) {
   return RETRYABLE_INGRESS_STATUSES.has(String(status || ''));
 }
 
+function isHistoricalReplayObservation(message = {}) {
+  const reason = compact(message.fallbackReason || message.source || '');
+  return reason === 'chat-changed'
+    || reason === 'chat-poll'
+    || reason === 'chat-dom-mutation'
+    || reason === 'sillytavern-chat-fallback-observer'
+    || reason === 'programmatic-campaign-chat-open'
+    || reason === 'programmatic-open-syncs-prompt';
+}
+
 function shouldResolveNoOutcomeRecoveryOnReobserve(priorIngress, recovery) {
   if (!priorIngress || priorIngress.outcomeId) return false;
   if (recovery?.ingressId !== priorIngress.id) return false;
@@ -366,13 +376,20 @@ function normalizeMessage(host, payload = null, chat = null) {
       isDirectiveOwned: payload.isDirectiveOwned === true || payload.directiveOwned === true,
       directiveOwned: payload.isDirectiveOwned === true || payload.directiveOwned === true,
       playerSubmittedAt: payload.playerSubmittedAt || payload.submittedAt || payload.createdAt || null,
+      fallbackReason: payload.fallbackReason || null,
+      source: payload.source || null,
       visibility: cloneJson(payload.visibility || null),
       metadata: cloneJson(payload.metadata || null),
       raw: cloneJson(payload.raw || null)
     };
   }
   if (payload?.message && typeof payload.message === 'object') {
-    return host.chat.normalizeMessagePayload?.(payload) || null;
+    const normalized = host.chat.normalizeMessagePayload?.(payload) || null;
+    return normalized ? {
+      ...normalized,
+      fallbackReason: payload.fallbackReason || normalized.fallbackReason || null,
+      source: payload.source || normalized.source || null
+    } : null;
   }
   if (payload && typeof payload === 'object' && (
     payload.mes !== undefined
@@ -380,7 +397,12 @@ function normalizeMessage(host, payload = null, chat = null) {
     || payload.is_user !== undefined
     || payload.role !== undefined
   )) {
-    return host.chat.normalizeMessagePayload?.(payload) || null;
+    const normalized = host.chat.normalizeMessagePayload?.(payload) || null;
+    return normalized ? {
+      ...normalized,
+      fallbackReason: payload.fallbackReason || normalized.fallbackReason || null,
+      source: payload.source || normalized.source || null
+    } : null;
   }
   if (payload && typeof payload === 'object' && (
     payload.hostMessageId !== undefined
@@ -3317,12 +3339,62 @@ export function createChatTurnOrchestrator({
   async function ingressHasDependentResponse(state, ingress = null) {
     if (!ingress) return false;
     if (ingress.outcomeId || ingress.responseMessageId) return true;
-    const responseLedger = (await runtimeLedgerViewFresh(state || {})).responseLedger || [];
+    const projectionResponses = state?.directiveRuntimeEvidence?.coreStoreReadProjections?.responses;
+    const projectionResponseLedger = state?.directiveRuntimeEvidence?.coreStoreReadProjections?.responseLedger;
+    const responseLedger = [
+      ...((await runtimeLedgerViewFresh(state || {})).responseLedger || []),
+      ...(Array.isArray(projectionResponses) ? projectionResponses : []),
+      ...(Array.isArray(projectionResponseLedger) ? projectionResponseLedger : [])
+    ];
     return responseLedger.some((entry) => (
       entry?.ingressId === ingress.id
       || (ingress.outcomeId && entry?.outcomeId === ingress.outcomeId)
       || (ingress.hostMessageId && entry?.ingressHostMessageId === ingress.hostMessageId)
     ));
+  }
+
+  async function findHistoricalIngressByTextWithDependentResponse(state, message = {}, chatId = '') {
+    const expectedTextHash = fnv1a(message?.text || '');
+    if (!expectedTextHash) return null;
+    const tracking = initializeCampaignRuntimeTracking(state).runtimeTracking || {};
+    const projectionIngress = state?.directiveRuntimeEvidence?.coreStoreReadProjections?.ingressLedger;
+    const ingressLedger = [
+      ...((await runtimeLedgerViewFresh({ ...state, runtimeTracking: tracking })).ingressLedger || []),
+      ...(Array.isArray(projectionIngress) ? projectionIngress : [])
+    ];
+    for (const entry of [...ingressLedger].reverse()) {
+      if (!entry || entry.chatId !== chatId || entry.textHash !== expectedTextHash) continue;
+      if (await ingressHasDependentResponse(state, entry)) return entry;
+    }
+    return null;
+  }
+
+  async function historicalIngressDeduplicatedResult(state, ingress, message, reason = 'historical-ingress-deduplicated') {
+    let next = state;
+    const hostMessageId = messageHostMessageId(message);
+    if (ingress?.id && hostMessageId && ingress.hostMessageId !== hostMessageId) {
+      try {
+        next = await updateIngressState(state, ingress.id, {
+          hostMessageId,
+          canonicalizedAt: timestamp(now),
+          canonicalizationReason: 'matched-historical-text-hash-after-chat-open'
+        }, `Canonicalized historical campaign-chat player message ${hostMessageId}.`);
+        ingress = await findIngressFresh(next, ingress.id) || ingress;
+      } catch {
+        next = state;
+      }
+    }
+    return {
+      handled: true,
+      deduplicated: true,
+      historical: true,
+      responseStrategy: ingress?.responseStrategy || 'injectAndContinue',
+      abortDefaultGeneration: ['directivePosted', 'pause'].includes(ingress?.responseStrategy),
+      reason,
+      decision: cloneJson(ingress?.classification || null),
+      record: cloneJson(ingress || null),
+      campaignState: cloneJson(next || getCampaignState() || null)
+    };
   }
 
   async function latestSourceRestartDecision(state, ingress, message, stage) {
@@ -6260,6 +6332,13 @@ export function createChatTurnOrchestrator({
       && await ingressHasDependentResponse(state, existingByHostMessage)
     ) {
       return dependentSourceRecoveryResult(state, existingByHostMessage, message, 'before-reobserve-dependent-source');
+    }
+
+    if (!existing && isHistoricalReplayObservation(message)) {
+      const historicalIngress = await findHistoricalIngressByTextWithDependentResponse(state, message, chatId);
+      if (historicalIngress) {
+        return historicalIngressDeduplicatedResult(state, historicalIngress, message);
+      }
     }
 
     const restartCandidate = existingByHostMessage && existingByHostMessage.id !== existing?.id
