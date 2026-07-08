@@ -2354,6 +2354,7 @@ export function createDirectiveRuntimeApp({
   let lastDirectivePresetInstallResult = null;
   let lastManualSaveGuard = null;
   let currentChatScope = null;
+  let latestChatTurnStatus = null;
   let runtimeSettingsOverlay = null;
   let programmaticChatOpenSuppression = null;
   let lastError = null;
@@ -3725,7 +3726,68 @@ export function createDirectiveRuntimeApp({
       recovery: cloneJson(runtimeRecoveryJournal),
       modelCalls: cloneJson(modelCallDiagnostics),
       legacyModelCallTelemetry: cloneJson(legacyModelCallTelemetry),
+      turnStatus: chatTurnStatusForState(state),
       sceneReconciliation: cloneJson(state.sceneReconciliation || null)
+    };
+  }
+
+  function chatTurnStatusForState(state = null) {
+    if (!latestChatTurnStatus || !state) return null;
+    const binding = state.campaignChatBinding || {};
+    if (latestChatTurnStatus.campaignId && latestChatTurnStatus.campaignId !== state.campaign?.id) return null;
+    if (latestChatTurnStatus.saveId && latestChatTurnStatus.saveId !== binding.saveId) return null;
+    if (latestChatTurnStatus.chatId && latestChatTurnStatus.chatId !== binding.chatId) return null;
+    return cloneJson(latestChatTurnStatus);
+  }
+
+  function turnStatusLabelForActivity(event = {}) {
+    const phase = compactString(event.phase);
+    if (['reading', 'sceneHandshakeSkipped', 'settlingSceneHandshake', 'sceneHandshakeSettled'].includes(phase)) {
+      return { label: 'Directive is reading', tone: 'running' };
+    }
+    if (['classifying', 'classified', 'routing'].includes(phase)) {
+      return { label: 'Arbitrating response owner', tone: 'running' };
+    }
+    if (phase === 'delegatingHostGeneration' || event.responseStrategy === 'injectAndContinue') {
+      return { label: 'Host will continue', tone: 'success' };
+    }
+    if (phase === 'committingOutcome' || event.responseStrategy === 'directivePosted') {
+      return { label: 'Directive will resolve', tone: 'success' };
+    }
+    if (phase === 'recovery' || event.responseStrategy === 'pause') {
+      return { label: 'Needs review', tone: 'warning' };
+    }
+    return null;
+  }
+
+  function turnStatusFromResult(result = {}, fallback = {}) {
+    if (result?.responseStrategy === 'pause') {
+      return { label: 'Needs review', tone: 'warning' };
+    }
+    if (result?.responseStrategy === 'directivePosted') {
+      return { label: 'Directive will resolve', tone: 'success' };
+    }
+    if (result?.responseStrategy === 'injectAndContinue') {
+      return { label: 'Host will continue', tone: 'success' };
+    }
+    return turnStatusLabelForActivity(fallback) || { label: 'Directive is reading', tone: 'running' };
+  }
+
+  function recordChatTurnStatus({ status, event = {}, result = null, chatId = null } = {}) {
+    if (!status?.label) return;
+    const binding = campaignState?.campaignChatBinding || {};
+    latestChatTurnStatus = {
+      kind: 'directive.chatTurnStatus.v1',
+      label: status.label,
+      tone: status.tone || 'running',
+      phase: compactString(event.phase) || null,
+      route: result?.responseStrategy || event.responseStrategy || null,
+      classification: result?.decision?.classification || event.classification || null,
+      ingressId: result?.record?.id || result?.decision?.ingressId || event.ingressId || null,
+      chatId: compactString(chatId || event.chatId || binding.chatId),
+      campaignId: compactString(campaignState?.campaign?.id),
+      saveId: compactString(binding.saveId),
+      updatedAt: timestampFromNow(now)
     };
   }
 
@@ -8149,7 +8211,25 @@ export function createDirectiveRuntimeApp({
         }
         const services = ensureChatNativeServices();
         if (!services) return { handled: false, reason: 'chat-native-host-unavailable' };
-        return services.orchestrator.observePlayerMessage(payload);
+        const callerReporter = typeof payload.turnActivityReporter === 'function'
+          ? payload.turnActivityReporter
+          : null;
+        const chatId = payload.chatId || payload.message?.chatId || runtimeHost.chat?.getCurrentChatId?.() || null;
+        const wrappedPayload = {
+          ...payload,
+          turnActivityReporter: (event = {}) => {
+            const status = turnStatusLabelForActivity(event);
+            if (status) recordChatTurnStatus({ status, event, chatId });
+            callerReporter?.(event);
+          }
+        };
+        const result = await services.orchestrator.observePlayerMessage(wrappedPayload);
+        recordChatTurnStatus({
+          status: turnStatusFromResult(result),
+          result,
+          chatId
+        });
+        return result;
       });
     },
 

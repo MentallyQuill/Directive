@@ -1200,6 +1200,7 @@ function appendChatPlaySurface(body, view, actions) {
   const prompt = view?.chatNative?.prompt || view?.promptInspection || null;
   const continuity = view?.continuityProjectionDiagnostics || null;
   const tracking = view?.chatNative?.tracking || null;
+  const turnStatus = view?.chatNative?.turnStatus || null;
   const card = createCard('directive-chat-play-surface-card directive-mission-command-card directive-lcars-panel');
   card.dataset.directiveTour = 'mission.chat-play';
   addTooltip(card, 'Bound campaign chat status, installed prompt context, and tracked turn counters.');
@@ -1234,7 +1235,8 @@ function appendChatPlaySurface(body, view, actions) {
     createMetaRow('Prompt Context', prompt?.revision !== undefined ? `Revision ${prompt.revision}` : (binding?.promptContextRevision !== undefined ? `Revision ${binding.promptContextRevision}` : 'Not installed')),
     continuityRow,
     createMetaRow('Tracked Turns', tracking?.ingressCount ?? 0),
-    createMetaRow('Committed Revision', tracking?.lastStableRevision ?? tracking?.revision ?? 0)
+    createMetaRow('Committed Revision', tracking?.lastStableRevision ?? tracking?.revision ?? 0),
+    createMetaRow('Turn Route', turnStatus?.label || 'Waiting for player post')
   );
 
   const row = createElement('div', 'directive-action-row');

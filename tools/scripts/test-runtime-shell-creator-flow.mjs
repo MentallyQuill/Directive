@@ -1204,6 +1204,17 @@ recordRows = queryAll(panel, '.directive-starship-save-row');
 assert.equal(recordRows.some((row) => /Autosave/i.test(textOf(row))), false, 'Records should remove the deleted autosave row');
 await findButton(panel, 'Load Save').click();
 await assertCampaignPanelsRender(panel);
+const arbiterStatusMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'shell-flow-arbiter-status',
+  text: '*Serrin studies the ready-room table before answering.*'
+});
+await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: arbiterStatusMessage
+});
+await showDirectiveRuntimePanel();
+assert.match(textOf(panel), /Turn Route/);
+assert.match(textOf(panel), /Host will continue/);
 
 __directiveRuntimeShellTestHooks.reset();
 delete globalThis.document;
