@@ -19,6 +19,21 @@ function compact(value = '') {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function jsonOnlyPrompt({ title, schema, context }) {
+  return [
+    title,
+    '',
+    'Return exactly one valid JSON object. Do not write prose, markdown, code fences, commentary, or private reasoning.',
+    'Use only ids, facts, roots, and source evidence present in the provided context.',
+    '',
+    'Required JSON shape:',
+    JSON.stringify(schema, null, 2),
+    '',
+    'Context:',
+    JSON.stringify(context, null, 2)
+  ].join('\n');
+}
+
 function extractData(result = {}) {
   const response = result.response || result;
   if (response.content && typeof response.content === 'object') return response.content;
@@ -220,14 +235,53 @@ export async function runMissionDirectorModelSpine(options = {}) {
       outcomePlan: null,
       review: null,
       turnPacket: null,
-      diagnostics: { sourceHash, storyGraph: storyGraphSelection.diagnostics }
+      diagnostics: {
+        sourceHash,
+        storyGraphRoute: story.value.outcomeRelevance.route,
+        selectedCandidateIds: [
+          storyGraphSelection.selection?.primaryCandidateId,
+          ...(storyGraphSelection.selection?.secondaryCandidateIds || [])
+        ].filter(Boolean),
+        storyGraph: storyGraphSelection.diagnostics
+      }
     };
   }
   const storyPositionHash = hashStableJson(story.value);
+  const outcomeContext = { ...frameResult, sourceHash, storyPosition: story.value, storyPositionHash };
   const outcomeRaw = await generateJson(generationRouter, 'missionDirectorOutcomePlanner', {
     lane: 'reasoning',
     sourceHash,
-    context: { ...frameResult, sourceHash, storyPosition: story.value, storyPositionHash },
+    systemPrompt: 'You are a strict JSON Mission Director outcome planner for Directive.',
+    prompt: jsonOnlyPrompt({
+      title: 'Mission Director Outcome Plan',
+      schema: {
+        kind: 'directive.missionOutcomePlan.v1',
+        schemaVersion: 1,
+        sourceHash,
+        storyPositionHash,
+        resultBand: 'Great Failure | Failure | Partial Failure | Partial Success | Success | Great Success',
+        outcomeSummary: '',
+        consequencePlan: {
+          costs: [],
+          revealedFactIds: [],
+          commandDecisionAwards: [],
+          openAssignments: [],
+          questOutcomeKey: '',
+          completionRecommendation: 'continue | completeQuest | failQuest'
+        },
+        narrationPlan: {
+          allowedFacts: [],
+          forbiddenFacts: [],
+          constraints: [],
+          mustPreserve: [],
+          mustNotReestablish: []
+        },
+        stateProposal: { allowedRoots: ['mission'], operations: [] },
+        diagnostics: { reasonerUsed: true, uncertainties: [], reviewRequired: true }
+      },
+      context: outcomeContext
+    }),
+    context: outcomeContext,
     responseFormat: 'json'
   });
   if (!outcomeRaw.ok) return { ok: false, route: 'pause', storyPosition: story.value, turnPacket: null, diagnostics: { stage: 'outcomePlanner', error: outcomeRaw.error } };
@@ -256,16 +310,47 @@ export async function runMissionDirectorModelSpine(options = {}) {
     deltaReview: storyDelta.deltaReview,
     deltaPlanHash: storyDelta.deltaPlanHash
   };
+  const reviewContext = { sourceHash, storyPosition: story.value, storyPositionHash, outcomePlan: outcome.value, outcomePlanHash };
   const reviewRaw = await generateJson(generationRouter, 'missionDirectorPlanReviewer', {
     lane: 'utility',
     sourceHash,
-    context: { sourceHash, storyPosition: story.value, storyPositionHash, outcomePlan: outcome.value, outcomePlanHash },
+    systemPrompt: 'You are a strict JSON reviewer for Directive Mission Director outcome plans.',
+    prompt: jsonOnlyPrompt({
+      title: 'Mission Director Plan Review',
+      schema: {
+        kind: 'directive.missionDirectorPlanReview.v1',
+        schemaVersion: 1,
+        sourceHash,
+        storyPositionHash,
+        outcomePlanHash,
+        approved: true,
+        risk: 'low | medium | high',
+        requiredAction: 'approve | pause | retryStoryPosition | retryOutcomePlan',
+        reasons: [],
+        narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+      },
+      context: reviewContext
+    }),
+    context: reviewContext,
     responseFormat: 'json'
   });
   if (!reviewRaw.ok) return { ok: false, route: 'pause', storyPosition: story.value, outcomePlan: outcome.value, turnPacket: null, diagnostics: { stage: 'reviewer', error: reviewRaw.error } };
   const review = normalizeMissionDirectorPlanReview(reviewRaw.value, { expectedSourceHash: sourceHash, expectedStoryPositionHash: storyPositionHash, expectedOutcomePlanHash: outcomePlanHash });
   if (!review.ok || !review.value.approved || review.value.requiredAction !== 'approve') {
-    return { ok: false, route: review.value?.requiredAction || 'pause', storyPosition: story.value, outcomePlan: outcome.value, review: review.value || null, turnPacket: null, diagnostics: { stage: 'reviewerValidation', error: review.error } };
+    return {
+      ok: false,
+      route: review.value?.requiredAction || 'pause',
+      storyPosition: story.value,
+      storyGraph,
+      outcomePlan: outcome.value,
+      review: review.value || null,
+      turnPacket: null,
+      diagnostics: {
+        stage: 'reviewerValidation',
+        error: review.error,
+        review: review.value || null
+      }
+    };
   }
   const turnPacket = buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot, storyPosition: story.value, outcomePlan: outcome.value, review: review.value, storyGraph });
   return {

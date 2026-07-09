@@ -27,6 +27,21 @@ async function generateJson(generationRouter, roleId, request) {
   }
 }
 
+function jsonOnlyPrompt({ title, schema, context }) {
+  return [
+    title,
+    '',
+    'Return exactly one valid JSON object. Do not write prose, markdown, code fences, commentary, or private reasoning.',
+    'Use only ids present in the provided context. If safe approval is not possible, return the required fail-closed route or action in the JSON object.',
+    '',
+    'Required JSON shape:',
+    JSON.stringify(schema, null, 2),
+    '',
+    'Context:',
+    JSON.stringify(context, null, 2)
+  ].join('\n');
+}
+
 export function buildMissionStoryGraphContext({
   sourceHash,
   campaignState,
@@ -58,6 +73,24 @@ export async function runMissionDirectorStoryPositionSelection({
   const selectionRaw = await generateJson(generationRouter, 'missionDirectorStoryPositioner', {
     lane: 'utility',
     sourceHash,
+    systemPrompt: 'You are a strict JSON utility for Directive story position routing.',
+    prompt: jsonOnlyPrompt({
+      title: 'Mission Director Story Position Selection',
+      schema: {
+        kind: 'directive.storyPositionSelection.v1',
+        schemaVersion: 1,
+        sourceHash,
+        primaryCandidateId: 'one id from context.candidateIds',
+        secondaryCandidateIds: [],
+        route: 'outcome | hostContinue | pause | clarify | openWorld | sideScene | aftermath',
+        confidence: 0.0,
+        evidenceRefs: ['at least one evidence ref'],
+        ignoredStaleSetup: [],
+        continuityGuards: { mustPreserve: [], mustNotReestablish: [] },
+        unresolved: []
+      },
+      context
+    }),
     context,
     responseFormat: 'json'
   });
@@ -71,6 +104,24 @@ export async function runMissionDirectorStoryPositionSelection({
   const reviewRaw = await generateJson(generationRouter, 'missionDirectorStoryPositionReviewer', {
     lane: 'utility',
     sourceHash,
+    systemPrompt: 'You are a strict JSON reviewer for Directive story position custody.',
+    prompt: jsonOnlyPrompt({
+      title: 'Mission Director Story Position Review',
+      schema: {
+        kind: 'directive.storyPositionReview.v1',
+        schemaVersion: 1,
+        sourceHash,
+        selectionHash,
+        approved: true,
+        requiredAction: 'approve | pause | retryStoryPosition | hostContinue',
+        risk: 'low | medium | high',
+        reasons: [],
+        rejectedCandidateIds: [],
+        staleHistoryRisk: false,
+        forbiddenAssertionRisk: false
+      },
+      context: { ...context, selection: selection.value, selectionHash }
+    }),
     context: { ...context, selection: selection.value, selectionHash },
     responseFormat: 'json'
   });
@@ -118,6 +169,27 @@ export async function runMissionDirectorStoryDeltaSpine({
   const deltaRaw = await generateJson(generationRouter, 'missionDirectorStoryDeltaPlanner', {
     lane: 'reasoning',
     sourceHash,
+    systemPrompt: 'You are a strict JSON reasoner for Directive story state deltas.',
+    prompt: jsonOnlyPrompt({
+      title: 'Mission Director Story Delta Plan',
+      schema: {
+        kind: 'directive.storyDeltaPlan.v1',
+        schemaVersion: 1,
+        sourceHash,
+        selectionHash,
+        outcomePlanHash,
+        eventDrafts: [{
+          eventType: 'missionOutcomeCommitted',
+          nodeTransitions: [{ nodeId: 'known node id only', to: 'active | completed | closed | blocked | available', reason: '' }],
+          factTransitions: [{ factId: 'known fact id only', to: 'known | notYetTrue | invalidated | unknown' }],
+          threadTransitions: [{ threadId: 'known thread id only', to: 'active | completed | closed | blocked | available' }],
+          commandLogRefs: []
+        }],
+        rejectedAssertions: [],
+        diagnostics: { reasonerUsed: true, uncertainties: [] }
+      },
+      context: { ...context, knownNodeIds, knownFactIds, knownThreadIds }
+    }),
     context,
     responseFormat: 'json'
   });
@@ -135,6 +207,24 @@ export async function runMissionDirectorStoryDeltaSpine({
   const deltaReviewRaw = await generateJson(generationRouter, 'missionDirectorStoryDeltaReviewer', {
     lane: 'utility',
     sourceHash,
+    systemPrompt: 'You are a strict JSON reviewer for Directive story delta custody.',
+    prompt: jsonOnlyPrompt({
+      title: 'Mission Director Story Delta Review',
+      schema: {
+        kind: 'directive.storyDeltaReview.v1',
+        schemaVersion: 1,
+        sourceHash,
+        deltaPlanHash,
+        approved: true,
+        requiredAction: 'approve | pause | retryDeltaPlan',
+        risk: 'low | medium | high',
+        reasons: [],
+        forbiddenPastAssignment: false,
+        futureFactLeak: false,
+        missingBranchAuthority: false
+      },
+      context: { ...context, deltaPlan: deltaPlan.value, deltaPlanHash }
+    }),
     context: { ...context, deltaPlan: deltaPlan.value, deltaPlanHash },
     responseFormat: 'json'
   });
