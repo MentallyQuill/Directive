@@ -32,6 +32,8 @@ for (const entry of matrix) {
     assert.ok(entry.allowedRoots.length > 0, `${entry.roleId}: proposing role must declare roots`);
     if (entry.roleId === 'missionDirectorOutcomePlanner') {
       assert.equal(entry.parserSchema, 'directive.missionOutcomePlan.v1', `${entry.roleId}: outcome planner must use mission outcome plan schema`);
+    } else if (entry.roleId === 'missionDirectorStoryDeltaPlanner') {
+      assert.equal(entry.parserSchema, 'directive.storyDeltaPlan.v1', `${entry.roleId}: story delta planner must use story delta plan schema`);
     } else {
       assert.equal(entry.parserSchema, SIDECAR_OUTPUT_SCHEMA_IDS.stateDeltaProposal, `${entry.roleId}: proposing role must use state-delta proposal schema`);
     }
@@ -85,7 +87,14 @@ assert.equal(authorityForRole('utilityTurnArbiter').fallback, 'fail-closed');
 assert.equal(authorityForRole('utilityTurnArbiter').mayProposeState, false);
 assert.equal(authorityForRole('utilityTurnArbiter').mayInjectPrompt, false);
 assert.equal(authorityForRole('narration').providerKind, 'reasoning');
-for (const roleId of ['missionDirectorStoryPositioner', 'missionDirectorOutcomePlanner', 'missionDirectorPlanReviewer']) {
+for (const roleId of [
+  'missionDirectorStoryPositioner',
+  'missionDirectorStoryPositionReviewer',
+  'missionDirectorOutcomePlanner',
+  'missionDirectorStoryDeltaPlanner',
+  'missionDirectorStoryDeltaReviewer',
+  'missionDirectorPlanReviewer'
+]) {
   const authority = authorityForRole(roleId);
   assert.equal(authority.roleId, roleId);
   assert.equal(authority.blocking, true);
@@ -94,6 +103,8 @@ for (const roleId of ['missionDirectorStoryPositioner', 'missionDirectorOutcomeP
   assert.match(authority.hiddenStatePolicy, /provider reasoning/i);
 }
 assert.equal(authorityForRole('missionDirectorOutcomePlanner').mayProposeState, true);
+assert.equal(authorityForRole('missionDirectorStoryDeltaPlanner').mayProposeState, true);
+assert.deepEqual(allowedRootsForModelRole('missionDirectorStoryDeltaPlanner'), ['storyEventLedger', 'activeStoryProjection']);
 assert.equal(authorityForRole('commandBearingFitChecker').providerKind, 'utility');
 assert.equal(authorityForRole('commandBearingFitChecker').mayProposeState, false);
 assert.equal(authorityForRole('commandBearingSpendValidator').providerKind, 'utility');

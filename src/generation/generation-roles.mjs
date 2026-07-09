@@ -4,7 +4,10 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'campaignConclusion',
   'missionDirectorAdvisor',
   'missionDirectorStoryPositioner',
+  'missionDirectorStoryPositionReviewer',
   'missionDirectorOutcomePlanner',
+  'missionDirectorStoryDeltaPlanner',
+  'missionDirectorStoryDeltaReviewer',
   'missionDirectorPlanReviewer',
   'utilityTurnClassifier',
   'utilityTurnArbiter',
@@ -460,6 +463,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayRunDuringMainGeneration: true,
     fallback: 'fail-closed'
   },
+  missionDirectorStoryPositionReviewer: {
+    id: 'missionDirectorStoryPositionReviewer',
+    label: 'Mission Director Story Position Reviewer',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
   missionDirectorOutcomePlanner: {
     id: 'missionDirectorOutcomePlanner',
     label: 'Mission Director Outcome Planner',
@@ -474,6 +495,42 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
       capability: 'reasoning-writing'
     },
     mayProposeState: true,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
+  missionDirectorStoryDeltaPlanner: {
+    id: 'missionDirectorStoryDeltaPlanner',
+    label: 'Mission Director Story Delta Planner',
+    providerKind: 'reasoning',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'balanced',
+      latency: 'medium',
+      capability: 'reasoning-writing'
+    },
+    mayProposeState: true,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
+  missionDirectorStoryDeltaReviewer: {
+    id: 'missionDirectorStoryDeltaReviewer',
+    label: 'Mission Director Story Delta Reviewer',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'fail-closed'

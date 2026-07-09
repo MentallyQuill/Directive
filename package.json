@@ -19,6 +19,7 @@
     "test:story-position-contracts": "node tools/scripts/test-story-position-contracts.mjs",
     "test:story-ledger-projection": "node tools/scripts/test-story-ledger-projection.mjs",
     "test:story-context-index": "node tools/scripts/test-story-context-index.mjs",
+    "test:mission-director-story-graph-spine": "node tools/scripts/test-mission-director-story-graph-spine.mjs",
     "smoke:terminal-endings": "node tools/scripts/smoke-sillytavern-terminal-endings-live.mjs"
   },
   "devDependencies": {

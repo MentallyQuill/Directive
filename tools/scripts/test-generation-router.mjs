@@ -88,13 +88,24 @@ assert.equal(registry.get('questArchitect').timeoutMs, 45000);
 assert.equal(registry.get('questArchitect').providerKind, 'reasoning');
 assert.equal(registry.get('questArchitect').mayProposeState, false);
 assert.equal(registry.get('missionDirectorAdvisor').timeoutMs, 60000);
-for (const roleId of ['missionDirectorStoryPositioner', 'missionDirectorOutcomePlanner', 'missionDirectorPlanReviewer']) {
+for (const roleId of [
+  'missionDirectorStoryPositioner',
+  'missionDirectorStoryPositionReviewer',
+  'missionDirectorOutcomePlanner',
+  'missionDirectorStoryDeltaPlanner',
+  'missionDirectorStoryDeltaReviewer',
+  'missionDirectorPlanReviewer'
+]) {
   assert.equal(registry.has(roleId), true, `${roleId} must be registered`);
   const role = registry.get(roleId);
   assert.equal(role.output, 'structured-json', `${roleId} uses structured output`);
   assert.equal(role.fallback, 'fail-closed', `${roleId} fails closed`);
 }
 assert.equal(registry.get('missionDirectorStoryPositioner').providerKind, 'utility');
+assert.equal(registry.get('missionDirectorStoryPositionReviewer').providerKind, 'utility');
+assert.equal(registry.get('missionDirectorStoryDeltaPlanner').providerKind, 'reasoning');
+assert.equal(registry.get('missionDirectorStoryDeltaPlanner').mayProposeState, true);
+assert.equal(registry.get('missionDirectorStoryDeltaReviewer').providerKind, 'utility');
 assert.equal(registry.get('missionDirectorPlanReviewer').providerKind, 'utility');
 assert.equal(registry.get('sceneDeltaExtractor').timeoutMs, 20000);
 assert.equal(registry.get('sceneDeltaExtractor').providerKind, 'utility');
