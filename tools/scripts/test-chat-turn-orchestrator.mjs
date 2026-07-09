@@ -22,6 +22,12 @@ import {
 } from '../../src/runtime/runtime-ledger-view.mjs';
 import { createLatestPairSourceSettlementProvider } from '../../src/runtime/source-settlement-latest-pair.mjs';
 import { hashStableJson } from '../../src/runtime/architecture-redesign-contracts.mjs';
+import { createProvisionalDirectorTurnRuntimeAsync } from '../../src/runtime/director-turn-runtime.mjs';
+import {
+  MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+  MISSION_OUTCOME_PLAN_KIND,
+  MISSION_STORY_POSITION_KIND
+} from '../../src/directors/mission-director-model-contracts.mjs';
 import { buildContinuityProjectionMatrix } from '../../src/continuity/index.mjs';
 import {
   createStateDeltaGateway,
@@ -36,6 +42,147 @@ const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, fil
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+
+function modelSpineFixtureResponse(roleId, request) {
+  const sourceHash = request.context?.sourceHash || request.sourceHash;
+  if (roleId === 'missionDirectorStoryPositioner') {
+    return {
+      ok: true,
+      response: {
+        content: {
+          kind: MISSION_STORY_POSITION_KIND,
+          schemaVersion: 1,
+          sourceHash,
+          confidence: 0.9,
+          storyPosition: {
+            contextType: 'phase_window',
+            missionId: 'prelude-a-ship-underway',
+            questId: 'prelude-a-ship-underway',
+            phaseId: 'ready-room-handover',
+            locationId: 'captain-ready-room',
+            anchorId: 'ready-room-whitaker-question',
+            anchorFrom: 'ready-room-entry-complete',
+            anchorTo: 'ready-room-handoff-close',
+            arc: 'Prelude',
+            phase: 'A Ship Underway',
+            currentConversation: 'Whitaker asks for the XO first read.'
+          },
+          sceneContinuity: { mustPreserve: ['Already in ready room.'], mustNotReestablish: ['Boarding the ship.'] },
+          outcomeRelevance: {
+            route: 'outcome',
+            reason: 'fixture',
+            activeDecisionIds: ['decision.ready-room-handover'],
+            candidateOutcomeIds: ['outcome.ready-room'],
+            requiresClarification: false
+          },
+          sourceUse: { evidenceRefs: ['message:18'], ignoredStaleSetup: [], uncertainties: [] }
+        }
+      }
+    };
+  }
+  if (roleId === 'missionDirectorOutcomePlanner') {
+    return {
+      ok: true,
+      response: {
+        content: {
+          kind: MISSION_OUTCOME_PLAN_KIND,
+          schemaVersion: 1,
+          sourceHash,
+          storyPositionHash: request.context.storyPositionHash,
+          resultBand: 'Partial Success',
+          outcomeSummary: 'The XO gives Whitaker a model-authored first-read answer.',
+          consequencePlan: {
+            costs: ['Whitaker expects follow-up after inspection.'],
+            revealedFactIds: ['crew.transfer-cohort-tension'],
+            commandDecisionAwards: [],
+            openAssignments: [],
+            questOutcomeKey: '',
+            completionRecommendation: 'continue'
+          },
+          narrationPlan: {
+            allowedFacts: ['Whitaker is in the ready room.'],
+            forbiddenFacts: [],
+            constraints: ['Do not reintroduce boarding.'],
+            mustPreserve: ['Already in ready room.'],
+            mustNotReestablish: ['Boarding the ship.']
+          },
+          stateProposal: { allowedRoots: ['mission'], operations: [] },
+          diagnostics: { reasonerUsed: false, uncertainties: [], reviewRequired: false }
+        }
+      }
+    };
+  }
+  if (roleId === 'missionDirectorPlanReviewer') {
+    return {
+      ok: true,
+      response: {
+        content: {
+          kind: MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash,
+          storyPositionHash: request.context.storyPositionHash,
+          outcomePlanHash: request.context.outcomePlanHash,
+          approved: true,
+          risk: 'low',
+          requiredAction: 'approve',
+          reasons: [],
+          narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+        }
+      }
+    };
+  }
+  return { ok: false, error: { code: 'unexpected_role' } };
+}
+
+const missionDirectorModelRoles = [];
+const missionDirectorModelRuntime = await createProvisionalDirectorTurnRuntimeAsync({
+  campaignState: {
+    campaign: { id: 'campaign-model-spine-test' },
+    mission: { activeMissionId: 'prelude-a-ship-underway', activePhaseId: 'ready-room-handover', availableDecisionPointIds: ['decision.ready-room-handover'] },
+    attentionState: { foregroundQuestId: 'prelude-a-ship-underway', scene: { locationId: 'captain-ready-room', presentCharacterIds: ['mara-whitaker'] } },
+    worldState: { currentLocationId: 'captain-ready-room', currentStardate: 58912.4 },
+    knowledgeLedger: { facts: [{ id: 'crew.transfer-cohort-tension', known: true }] }
+  },
+  packageData,
+  projection: {},
+  crewDataset: {},
+  turnId: 'turn.model-spine-test',
+  playerInput: 'I issue the order.',
+  message: { text: 'I issue the order.', hostMessageId: 'msg-model-spine' },
+  generationRouter: {
+    async generate(roleId, request) {
+      missionDirectorModelRoles.push(roleId);
+      return modelSpineFixtureResponse(roleId, request);
+    }
+  },
+  arbiterPlan: { route: 'directiveOutcome' },
+  recentTranscript: [{ role: 'assistant', text: 'Whitaker asks for the XO first read.' }]
+});
+assert.deepEqual(missionDirectorModelRoles.slice(0, 3), [
+  'missionDirectorStoryPositioner',
+  'missionDirectorOutcomePlanner',
+  'missionDirectorPlanReviewer'
+]);
+assert.equal(JSON.stringify(missionDirectorModelRuntime).includes('complete-ready-room-handover'), false);
+assert.equal(JSON.stringify(missionDirectorModelRuntime).includes('model-authored-mission-outcome'), true);
+
+await assert.rejects(
+  () => createProvisionalDirectorTurnRuntimeAsync({
+    campaignState: missionDirectorModelRuntime.turnPacket.sceneSnapshot ? {
+      campaign: { id: 'campaign-model-spine-failure' },
+      mission: { activeMissionId: 'prelude-a-ship-underway', activePhaseId: 'ready-room-handover' },
+      attentionState: { foregroundQuestId: 'prelude-a-ship-underway' },
+      knowledgeLedger: { facts: [] }
+    } : {},
+    packageData,
+    projection: {},
+    crewDataset: {},
+    turnId: 'turn.model-spine-failure',
+    playerInput: 'I issue the order.',
+    generationRouter: { async generate() { return { ok: false, error: { code: 'fixture_failure' } }; } }
+  }),
+  /Mission Director model spine did not produce an approved outcome/
+);
 
 assert.deepEqual(
   __chatTurnOrchestratorTestHooks.latestSceneHandshakeCommittedRoots({

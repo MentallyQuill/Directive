@@ -165,6 +165,7 @@ import { createSceneReconciliationService } from './scene-reconciliation.mjs';
 import { createTurnCommitCoordinator } from './turn-commit-coordinator.mjs';
 import {
   commitProvisionalDirectorTurnRuntime,
+  createProvisionalDirectorTurnRuntimeAsync,
   createProvisionalDirectorTurnRuntime,
   runDirectorTurnRuntime
 } from './director-turn-runtime.mjs';
@@ -10509,7 +10510,11 @@ export function createDirectiveRuntimeApp({
       sceneSnapshotOverrides = {},
       turnId = null,
       arbiterPlan = null,
-      coreRecallEntries = null
+      coreRecallEntries = null,
+      generationRouter = defaultGenerationRouter,
+      message = null,
+      recentTranscript = [],
+      sourceFrameRef = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -10519,7 +10524,7 @@ export function createDirectiveRuntimeApp({
         const resolvedCoreRecallEntries = Array.isArray(coreRecallEntries)
           ? coreRecallEntries
           : await coreRecallEntriesForPromptSync();
-        const result = createProvisionalDirectorTurnRuntime({
+        const result = await createProvisionalDirectorTurnRuntimeAsync({
           campaignState,
           packageData: assets.packageData,
           graph: graphRecord.graph,
@@ -10532,7 +10537,11 @@ export function createDirectiveRuntimeApp({
           playerInput,
           sceneSnapshotOverrides,
           arbiterPlan,
-          coreRecallEntries: resolvedCoreRecallEntries
+          coreRecallEntries: resolvedCoreRecallEntries,
+          generationRouter,
+          message,
+          recentTranscript,
+          sourceFrameRef
         });
         pendingDirectorTurn = result.turnPacket;
         pendingOutcomeReplacement = null;

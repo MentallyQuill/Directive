@@ -5039,7 +5039,12 @@ export function createChatTurnOrchestrator({
     });
     const preview = await previewDirectorTurn({
       turnId: `chat-turn:${ingressId}`,
-      playerInput: message.text
+      playerInput: message.text,
+      generationRouter,
+      arbiterPlan: cloneJson(decision.arbiterPlan || null),
+      message: cloneJson(message),
+      recentTranscript: displaySafeRecentChat(host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || []),
+      sourceFrameRef: cloneJson((await findIngressFresh(state, ingressId))?.sourceFrame || decision.sourceFrameRef || null)
     });
     const stale = await currentSourceStaleResult(ingressId, message, 'before-consequential-commit', state);
     if (stale) return stale;

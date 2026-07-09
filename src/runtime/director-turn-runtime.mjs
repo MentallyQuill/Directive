@@ -357,7 +357,10 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
   sceneSnapshotOverrides = {},
   generationRouter = null,
   arbiterPlan = null,
-  coreRecallEntries = []
+  coreRecallEntries = [],
+  message = null,
+  recentTranscript = [],
+  sourceFrameRef = null
 }) {
   requireObject(campaignState, 'campaignState');
   requireObject(packageData, 'packageData');
@@ -366,7 +369,8 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
   const id = requireNonEmptyString(turnId, 'turnId');
   const coordinated = await createDirectorCoordinatorTurnAsync({
     campaignState, packageData, graph, projection, crewDataset, shipDataset, graphPath, projectionPath,
-    turnId: id, playerInput, sceneSnapshotOverrides, generationRouter, arbiterPlan, coreRecallEntries
+    turnId: id, playerInput, sceneSnapshotOverrides, generationRouter, arbiterPlan, coreRecallEntries,
+    message, recentTranscript, sourceFrameRef
   });
   const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, coordinated.turnPacket);
   return {

@@ -16,6 +16,7 @@ import {
   buildContinuityDirectorPacket,
   compactContinuityDirectorPacket
 } from '../continuity/director-packets.mjs';
+import { runMissionDirectorModelSpine } from './mission-director-model-spine.mjs';
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
@@ -343,21 +344,44 @@ export function createDirectorCoordinatorTurn({
   return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason, continuityDirectorPacket });
 }
 
-/** Async variant used by chat-native runtime. The model only interprets the
- * player's language; deterministic code still resolves capability and outcome. */
 export async function createDirectorCoordinatorTurnAsync({ generationRouter = null, ...options } = {}) {
   const sceneSnapshot = buildOpenWorldSceneSnapshot(options.campaignState, options.packageData, options.playerInput, options.sceneSnapshotOverrides || {});
-  const quest = foreground(options.campaignState);
-  if (!quest || options.graph && hasTacticalGraph(options.graph)) return createDirectorCoordinatorTurn(options);
-  const interpretation = await interpretQuestActionWithModel({
+  const spine = await runMissionDirectorModelSpine({
+    ...options,
     generationRouter,
-    playerInput: options.playerInput,
-    state: options.campaignState,
-    packageData: options.packageData,
-    questId: quest.id,
-    sourceAnchorRange: sceneSnapshot.sourceAnchorRange
+    sceneSnapshot,
+    message: options.message || { text: options.playerInput },
+    recentTranscript: options.recentTranscript || [],
+    arbiterPlan: options.arbiterPlan || null,
+    sourceFrameRef: options.sourceFrameRef || null
   });
-  return createDirectorCoordinatorTurn({ ...options, actionInterpretation: interpretation.interpretation });
+  if (spine.ok && spine.route === 'hostContinue') {
+    return {
+      turnPacket: null,
+      projectedState: options.campaignState,
+      hostContinue: true,
+      storyPosition: spine.storyPosition,
+      diagnostics: spine.diagnostics
+    };
+  }
+  if (!spine.ok || spine.route !== 'outcome' || !spine.turnPacket) {
+    const error = new Error('Mission Director model spine did not produce an approved outcome.');
+    error.code = 'MISSION_DIRECTOR_MODEL_SPINE_FAILED';
+    error.details = spine.diagnostics || {};
+    throw error;
+  }
+  return finalizeCoordinatedTurn({
+    campaignState: options.campaignState,
+    packageData: options.packageData,
+    packet: spine.turnPacket,
+    turnId: options.turnId,
+    sceneSnapshot,
+    sceneSnapshotOverrides: options.sceneSnapshotOverrides || {},
+    usedTacticalGraph: false,
+    interpretation: null,
+    fallbackReason: null,
+    continuityDirectorPacket: null
+  });
 }
 
 export const __openWorldTurnCoordinatorTestHooks = Object.freeze({ foreground, completedByPacket, hasTacticalGraph, openOperationsPacket });
