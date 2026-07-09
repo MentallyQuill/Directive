@@ -117,6 +117,16 @@ const host = createFakeDirectiveHost({
         providerId: 'fake-reasoning',
         text: 'The Breckenridge closes the final watch with her crew intact and the campaign entered into Starfleet record.'
       },
+      timeAdvanceAdjudicator: ({ request }) => ({
+        providerId: 'fake-utility-time',
+        text: JSON.stringify({
+          kind: 'directive.timeAdvanceProposal.v1',
+          elapsedMinutes: request.context?.timePlan?.action === 'adjudicate' ? 10 : 0,
+          reason: request.context?.timePlan?.action === 'adjudicate' ? 'work-block' : 'no-time-advance',
+          confidence: 0.82,
+          rationale: 'Runtime fixture follows Arbiter timePlan.'
+        })
+      }),
       utilityTurnClassifier: {
         providerId: 'fake-utility',
         text: JSON.stringify({
@@ -149,6 +159,7 @@ const host = createFakeDirectiveHost({
         const locationTransition = /\bhead to engineering\b/i.test(playerText);
         const routineCommand = /\blog the distress call\b/i.test(playerText);
         const counselRequest = /\bwhat are our options here\b/i.test(playerText);
+        const timedNarration = /\bspends\s+10\s+minutes\b/i.test(playerText);
         const route = locationTransition ? 'localPacing' : (hostContinue || sceneNavigation || routineCommand || counselRequest ? 'hostContinue' : 'directiveOutcome');
         const commitsOutcome = route === 'directiveOutcome' && !routineCommand;
         return {
@@ -183,6 +194,21 @@ const host = createFakeDirectiveHost({
               allowedDomains: route === 'hostContinue' ? ['sourceBinding', 'continuity'] : ['mission', 'ship'],
               proposedOperations: [],
               promptDirtyDomains: ['sourceBinding']
+            },
+            timePlan: timedNarration ? {
+              action: 'adjudicate',
+              semanticKind: 'workBlock',
+              authority: 'playerNarration',
+              confidence: 0.9,
+              evidence: playerText,
+              rationale: 'Player narration explicitly spends scene time.'
+            } : {
+              action: 'skip',
+              semanticKind: 'none',
+              authority: hostContinue ? 'playerDialogue' : 'none',
+              confidence: 0.86,
+              evidence: '',
+              rationale: 'No elapsed-time movement.'
             },
             risk: { requiresPause: false, pauseReason: '', reasons: [] },
             diagnostics: { sourceUse: 'test', deterministicFallbackUsed: false }

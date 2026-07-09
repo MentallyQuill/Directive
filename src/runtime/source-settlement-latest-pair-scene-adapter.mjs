@@ -2,7 +2,8 @@ import { createPlayerSafeCampaignProjection } from '../generation/player-safe-pr
 import { timeAdvanceBoundary } from '../directors/director-coordinator.mjs';
 import {
   adjudicateTimeAdvance,
-  findTimeBoundaryForPlayerMessage
+  findTimeBoundaryForPlayerMessage,
+  findTimeBoundaryForSourceAnchorRange
 } from '../time/time-advance-adjudicator.mjs';
 import {
   formatShipTime,
@@ -631,7 +632,8 @@ async function commitAcceptedSceneTimeAdvance({
   }
   const sourceAnchorRange = timeSourceAnchorRange(snapshot);
   const currentPlayerHostMessageId = snapshot.source?.currentPlayer?.hostMessageId || null;
-  const existingBoundary = findTimeBoundaryForPlayerMessage(campaignState, currentPlayerHostMessageId);
+  const existingBoundary = findTimeBoundaryForPlayerMessage(campaignState, currentPlayerHostMessageId)
+    || findTimeBoundaryForSourceAnchorRange(campaignState, sourceAnchorRange);
   if (existingBoundary) {
     return { campaignState, promptDirty: false, proposal: null, boundary: null, existingBoundary };
   }

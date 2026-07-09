@@ -9,6 +9,30 @@ export const TURN_ARBITER_ROUTES = Object.freeze([
   'recovery'
 ]);
 
+export const TURN_ARBITER_TIME_ACTIONS = Object.freeze([
+  'skip',
+  'adjudicate'
+]);
+
+export const TURN_ARBITER_TIME_SEMANTIC_KINDS = Object.freeze([
+  'none',
+  'sceneCut',
+  'montage',
+  'travel',
+  'workBlock',
+  'rest',
+  'acceptedContinuation',
+  'referenceOnly'
+]);
+
+export const TURN_ARBITER_TIME_AUTHORITIES = Object.freeze([
+  'none',
+  'playerNarration',
+  'playerDialogue',
+  'assistantAcceptedProse',
+  'operatorControl'
+]);
+
 const OWNER_BY_ROUTE = Object.freeze({
   hostContinue: 'host',
   directiveOutcome: 'directive',
@@ -47,6 +71,27 @@ function hasHiddenStateLeak(value) {
 function normalizeRoute(value) {
   const route = compact(value);
   return TURN_ARBITER_ROUTES.includes(route) ? route : '';
+}
+
+function normalizeMember(value, allowed, fallback) {
+  const normalized = compact(value);
+  return allowed.includes(normalized) ? normalized : fallback;
+}
+
+function normalizeTimePlan(value = {}) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const action = normalizeMember(source.action, TURN_ARBITER_TIME_ACTIONS, 'skip');
+  const semanticKind = normalizeMember(source.semanticKind, TURN_ARBITER_TIME_SEMANTIC_KINDS, action === 'skip' ? 'none' : 'sceneCut');
+  const authority = normalizeMember(source.authority, TURN_ARBITER_TIME_AUTHORITIES, 'none');
+  const confidence = Math.max(0, Math.min(1, Number(source.confidence) || 0));
+  return {
+    action,
+    semanticKind,
+    authority,
+    confidence,
+    evidence: compact(source.evidence),
+    rationale: compact(source.rationale)
+  };
 }
 
 export function normalizeTurnArbiterPlan(value = {}) {
@@ -98,6 +143,7 @@ export function normalizeTurnArbiterPlan(value = {}) {
       proposedOperations: asArray(value.statePlan?.proposedOperations).filter((entry) => entry && typeof entry === 'object'),
       promptDirtyDomains: cleanStringArray(value.statePlan?.promptDirtyDomains)
     },
+    timePlan: normalizeTimePlan(value.timePlan),
     risk: {
       requiresPause: value.risk?.requiresPause === true,
       pauseReason: compact(value.risk?.pauseReason),
@@ -152,6 +198,14 @@ export function conservativeArbiterFailurePlan({
       allowedDomains: [],
       proposedOperations: [],
       promptDirtyDomains: []
+    },
+    timePlan: {
+      action: 'skip',
+      semanticKind: 'none',
+      authority: 'none',
+      confidence: hostSafe ? 0.7 : 0,
+      evidence: hostSafe ? 'Failure fallback preserves host continuation without clock movement.' : '',
+      rationale: reason
     },
     risk: {
       requiresPause: !hostSafe,

@@ -40,6 +40,14 @@ const valid = normalizeTurnArbiterPlan({
     requiresPause: false,
     pauseReason: '',
     reasons: []
+  },
+  timePlan: {
+    action: 'skip',
+    semanticKind: 'none',
+    authority: 'none',
+    confidence: 0.92,
+    evidence: 'Player answers inside the current conversation without implying elapsed time.',
+    rationale: 'No clock movement.'
   }
 });
 
@@ -48,6 +56,24 @@ assert.equal(valid.ok, true);
 assert.equal(valid.plan.route, 'hostContinue');
 assert.equal(valid.plan.responsePlan.owner, 'host');
 assert.deepEqual(valid.plan.sceneContinuity.mustNotReestablish, ['Sam boarding the ship']);
+assert.equal(valid.plan.timePlan.action, 'skip');
+assert.equal(valid.plan.timePlan.semanticKind, 'none');
+assert.equal(valid.plan.timePlan.authority, 'none');
+
+const operatorCut = normalizeTurnArbiterPlan({
+  ...valid.plan,
+  timePlan: {
+    action: 'adjudicate',
+    semanticKind: 'sceneCut',
+    authority: 'operatorControl',
+    confidence: 0.91,
+    evidence: 'Cut ahead ten minutes.',
+    rationale: 'Conservative explicit scene-control command.'
+  }
+});
+assert.equal(operatorCut.ok, true);
+assert.equal(operatorCut.plan.timePlan.action, 'adjudicate');
+assert.equal(operatorCut.plan.timePlan.authority, 'operatorControl');
 
 const hiddenLeak = normalizeTurnArbiterPlan({
   ...valid.plan,

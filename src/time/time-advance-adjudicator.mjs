@@ -376,6 +376,40 @@ function boundaryCurrentPlayerHostMessageId(boundary = {}) {
   return null;
 }
 
+function boundarySourceAnchorRange(boundary = {}) {
+  return boundary?.sourceAnchorRange
+    || boundary?.adjudication?.sourceAnchorRange
+    || boundary?.metadata?.sourceAnchorRange
+    || null;
+}
+
+function anchorsOverlap(left = null, right = null) {
+  if (!left || !right) return false;
+  const leftRange = normalizeHostMessageId(left.rangeHash);
+  const rightRange = normalizeHostMessageId(right.rangeHash);
+  if (leftRange && rightRange && leftRange === rightRange) return true;
+  const leftPrevious = normalizeHostMessageId(left.previousAssistantHostMessageId);
+  const rightPrevious = normalizeHostMessageId(right.previousAssistantHostMessageId);
+  if (leftPrevious && rightPrevious && leftPrevious === rightPrevious) return true;
+  const leftCurrent = normalizeHostMessageId(left.currentPlayerHostMessageId);
+  const rightCurrent = normalizeHostMessageId(right.currentPlayerHostMessageId);
+  if (leftCurrent && rightCurrent && leftCurrent === rightCurrent) return true;
+  return false;
+}
+
+export function findTimeBoundaryForSourceAnchorRange(campaignState = {}, sourceAnchorRange = null) {
+  if (!sourceAnchorRange) return null;
+  const ledger = campaignState?.timeLedger || {};
+  const candidates = [
+    ...(Array.isArray(ledger.entries) ? ledger.entries : []),
+    ledger.lastBoundary
+  ].filter(Boolean);
+  return candidates.find((boundary) => {
+    if (Number(boundary?.elapsedMinutes || 0) <= 0) return false;
+    return anchorsOverlap(boundarySourceAnchorRange(boundary), sourceAnchorRange);
+  }) || null;
+}
+
 export function findTimeBoundaryForPlayerMessage(campaignState = {}, hostMessageId = null) {
   const id = normalizeHostMessageId(hostMessageId);
   if (!id) return null;
@@ -437,8 +471,33 @@ function parseJsonObject(text = '') {
   }
 }
 
+function normalizeTimePlan(value = null) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const action = compact(value.action);
+  if (!['skip', 'adjudicate'].includes(action)) return null;
+  return {
+    action,
+    semanticKind: compact(value.semanticKind) || (action === 'skip' ? 'none' : 'sceneCut'),
+    authority: compact(value.authority) || 'none',
+    confidence: clamp(Number(value.confidence) || 0, 0, 1),
+    evidence: compact(value.evidence),
+    rationale: compact(value.rationale)
+  };
+}
+
+function timePlanSkipProposal(input = {}, timePlan = {}) {
+  return proposal(input, {
+    elapsedMinutes: 0,
+    reason: 'time-plan-skip',
+    confidence: timePlan.confidence ?? 0.9,
+    source: 'utility-turn-arbiter',
+    evidence: timePlan.evidence || timePlan.rationale || 'arbiter-time-skip'
+  });
+}
+
 function modelRequest(input = {}, deterministic = {}) {
   const texts = textBundle(input);
+  const timePlan = normalizeTimePlan(input.timePlan);
   const safe = {
     kind: 'directive.timeAdvanceAdjudicationRequest.v1',
     current: {
@@ -453,6 +512,7 @@ function modelRequest(input = {}, deterministic = {}) {
       outcome: texts.outcome,
       sourceAnchorRange: cloneJson(input.sourceAnchorRange || null)
     },
+    timePlan: cloneJson(timePlan),
     deterministic
   };
   const systemPrompt = [
@@ -479,6 +539,10 @@ function modelRequest(input = {}, deterministic = {}) {
       source: 'time-advance-adjudicator',
       sourceAnchorRange: cloneJson(input.sourceAnchorRange || null)
     },
+    context: {
+      timePlan: cloneJson(timePlan),
+      sourceAnchorRange: cloneJson(input.sourceAnchorRange || null)
+    },
     parameters: {
       temperature: 0,
       top_p: 1,
@@ -489,7 +553,23 @@ function modelRequest(input = {}, deterministic = {}) {
 
 export async function adjudicateTimeAdvance(input = {}) {
   if (input.acceptedPreviousResponse === false) return zeroProposal(input, 'not-accepted');
-  const deterministic = deterministicProposal(input);
+  const timePlan = normalizeTimePlan(input.timePlan);
+  if (timePlan?.action === 'skip') {
+    return { ...timePlanSkipProposal(input, timePlan), needsModel: false, timePlan };
+  }
+  const deterministic = timePlan?.action === 'adjudicate'
+    ? {
+      ...proposal(input, {
+        elapsedMinutes: 0,
+        reason: 'arbiter-time-adjudication',
+        confidence: timePlan.confidence,
+        source: 'utility-turn-arbiter',
+        evidence: timePlan.evidence || timePlan.rationale || 'arbiter-time-adjudicate'
+      }),
+      needsModel: true,
+      timePlan
+    }
+    : deterministicProposal(input);
   if (!deterministic.needsModel || !input.generationRouter?.generate) {
     return { ...deterministic, needsModel: false };
   }

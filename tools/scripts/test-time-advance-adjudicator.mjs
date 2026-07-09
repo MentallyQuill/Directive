@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import {
   adjudicateTimeAdvance,
+  findTimeBoundaryForSourceAnchorRange,
   TIME_ADVANCE_ADJUDICATOR_ROLE_ID,
   __timeAdvanceAdjudicatorTestHooks
 } from '../../src/time/time-advance-adjudicator.mjs';
@@ -19,6 +20,68 @@ const quietConversation = await adjudicateTimeAdvance({
 });
 assert.equal(quietConversation.elapsedMinutes, 0);
 assert.equal(quietConversation.reason, 'no-time-advance');
+
+let skippedGateModelCalls = 0;
+const dialogueOnlyTimeReference = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: 'Whitaker waits for Sam to answer.',
+  currentPlayerText: 'Sam says, "We spend the week repairing it if Command allows it."',
+  timePlan: {
+    action: 'skip',
+    semanticKind: 'referenceOnly',
+    authority: 'playerDialogue',
+    confidence: 0.9,
+    evidence: 'Dialogue describes a hypothetical future plan, not elapsed time.',
+    rationale: 'No accepted scene movement.'
+  },
+  generationRouter: {
+    async generate() {
+      skippedGateModelCalls += 1;
+      throw new Error('skip timePlan must not call model');
+    }
+  }
+});
+assert.equal(skippedGateModelCalls, 0);
+assert.equal(dialogueOnlyTimeReference.elapsedMinutes, 0);
+assert.equal(dialogueOnlyTimeReference.reason, 'time-plan-skip');
+
+let operatorCutModelCalls = 0;
+const operatorCutAdjudicated = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  currentPlayerText: 'Cut ahead ten minutes.',
+  timePlan: {
+    action: 'adjudicate',
+    semanticKind: 'sceneCut',
+    authority: 'operatorControl',
+    confidence: 0.94,
+    evidence: 'Cut ahead ten minutes.',
+    rationale: 'Conservative operator scene-control command.'
+  },
+  generationRouter: {
+    async generate(roleId, request) {
+      operatorCutModelCalls += 1;
+      assert.equal(roleId, TIME_ADVANCE_ADJUDICATOR_ROLE_ID);
+      assert.equal(request.context.timePlan.action, 'adjudicate');
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            kind: 'directive.timeAdvanceProposal.v1',
+            elapsedMinutes: 10,
+            reason: 'scene-cut',
+            confidence: 0.86,
+            rationale: 'Operator command explicitly advances the scene ten minutes.'
+          })
+        }
+      };
+    }
+  }
+});
+assert.equal(operatorCutModelCalls, 1);
+assert.equal(operatorCutAdjudicated.elapsedMinutes, 10);
+assert.equal(operatorCutAdjudicated.source, 'utility-model');
 
 const dinnerCut = await adjudicateTimeAdvance({
   campaignState,
@@ -171,5 +234,26 @@ const clamped = __timeAdvanceAdjudicatorTestHooks.validatedProposal({
 assert.equal(clamped.elapsedMinutes, 20);
 assert.equal(clamped.clamped, true);
 assert.equal(clamped.confidence, 0.9);
+
+const overlappingAcceptedPairBoundary = findTimeBoundaryForSourceAnchorRange({
+  timeLedger: {
+    entries: [{
+      id: 'time-boundary-1',
+      elapsedMinutes: 10080,
+      sourceAnchorRange: {
+        kind: 'sceneHandshakePair',
+        previousAssistantHostMessageId: 'assistant-42',
+        currentPlayerHostMessageId: 'player-42',
+        rangeHash: 'range-a'
+      }
+    }]
+  }
+}, {
+  kind: 'sceneHandshakePair',
+  previousAssistantHostMessageId: 'assistant-42',
+  currentPlayerHostMessageId: 'player-43',
+  rangeHash: 'range-b'
+});
+assert.equal(overlappingAcceptedPairBoundary?.id, 'time-boundary-1');
 
 console.log('Time advance adjudicator tests passed: zero-dialogue, cuts, transitions, review work, model fallback, and clamping');

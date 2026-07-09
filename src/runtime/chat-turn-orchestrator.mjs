@@ -18,7 +18,8 @@ import {
 } from '../directors/open-world-event-reducers.mjs';
 import {
   adjudicateTimeAdvance,
-  findTimeBoundaryForPlayerMessage
+  findTimeBoundaryForPlayerMessage,
+  findTimeBoundaryForSourceAnchorRange
 } from '../time/time-advance-adjudicator.mjs';
 import {
   attachReadiedCommandBearingPoint,
@@ -1658,6 +1659,7 @@ export function createChatTurnOrchestrator({
     playerMessage = null,
     previousAssistantText = '',
     outcomeText = '',
+    timePlan = null,
     sourceKind = 'runtimeTurn',
     reason = 'Runtime time boundary adjudicated.'
   } = {}, activityReporter = null) {
@@ -1693,9 +1695,25 @@ export function createChatTurnOrchestrator({
         currentPlayerHostMessageId || '',
         playerMessage?.text || '',
         previousAssistantText || '',
-        outcomeText || ''
+        outcomeText || '',
+        JSON.stringify(timePlan || null)
       ].join('\n'))
     };
+    const existingSourceBoundary = findTimeBoundaryForSourceAnchorRange(state, sourceAnchorRange);
+    if (existingSourceBoundary) {
+      reportActivity(activityReporter, {
+        phase: 'timeBoundaryAlreadyCommitted',
+        mode: 'blocking',
+        source: sourceKind,
+        ingressId,
+        turnId,
+        outcomeId,
+        currentPlayerHostMessageId,
+        existingSource: existingSourceBoundary.sourceAnchorRange?.kind || null,
+        elapsedMinutes: existingSourceBoundary.elapsedMinutes || 0
+      });
+      return state;
+    }
     const proposal = await adjudicateTimeAdvance({
       campaignState: state,
       packageData,
@@ -1706,7 +1724,8 @@ export function createChatTurnOrchestrator({
       outcomeText,
       currentPlayerHostMessageId: playerMessage?.hostMessageId || playerMessage?.id || null,
       outcomeHostMessageId: outcomeId,
-      sourceAnchorRange
+      sourceAnchorRange,
+      timePlan
     });
     if (!proposal?.elapsedMinutes || proposal.elapsedMinutes <= 0) return state;
     reportActivity(activityReporter, {
@@ -1744,6 +1763,7 @@ export function createChatTurnOrchestrator({
       stable: true,
       metadata: {
         timeAdvance: cloneJson(proposal),
+        timePlan: cloneJson(timePlan || null),
         boundaryEventId: boundary.event?.id || null
       }
     });
@@ -4368,6 +4388,7 @@ export function createChatTurnOrchestrator({
     next = await commitAdjudicatedTimeBoundary(next, {
       ingressId,
       playerMessage: message,
+      timePlan: decision.arbiterPlan?.timePlan || null,
       sourceKind: 'sceneContinuation',
       reason: 'Scene continuation time boundary adjudicated.'
     }, activityReporter);
@@ -4655,6 +4676,7 @@ export function createChatTurnOrchestrator({
       ingressId,
       turnId: routineId,
       playerMessage: message,
+      timePlan: decision.arbiterPlan?.timePlan || null,
       sourceKind: 'routineCommand',
       reason: 'Routine command time boundary adjudicated.'
     }, activityReporter);
@@ -5190,6 +5212,7 @@ export function createChatTurnOrchestrator({
       outcomeId,
       playerMessage: message,
       outcomeText: text,
+      timePlan: decision.arbiterPlan?.timePlan || null,
       sourceKind: 'committedOutcome',
       reason: 'Committed outcome time boundary adjudicated.'
     }, activityReporter);
