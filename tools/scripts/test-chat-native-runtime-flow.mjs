@@ -1097,6 +1097,9 @@ assert.equal(
   true,
   'Chat-native model-call view must expose compact/redacted diagnostic rows only.'
 );
+const journalText = JSON.stringify(view);
+assert.match(journalText, /missionDirectorStoryPositioner|missionDirectorOutcomePlanner|missionDirectorPlanReviewer/);
+assert.doesNotMatch(journalText, /raw relationship|hidden pressure|provider reasoning|api key|csrf|cookie/i);
 assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call resume view must not store raw player text.');
 assert.ok(view.chatNative.tracking.lastCommittedTurn?.outcomeId);
 assert.equal(view.chatNative.tracking.lastCommittedTurn.narrationStatus, 'complete');

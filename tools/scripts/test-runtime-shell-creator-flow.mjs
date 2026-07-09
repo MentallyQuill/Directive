@@ -20,6 +20,11 @@ import {
   listCampaignSaves,
   listCharacterCreatorDrafts
 } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+  MISSION_OUTCOME_PLAN_KIND,
+  MISSION_STORY_POSITION_KIND
+} from '../../src/directors/mission-director-model-contracts.mjs';
 
 const root = process.cwd();
 
@@ -236,6 +241,83 @@ function createCreatorFlowGenerationClient() {
         });
       }
       return cloneJson(partialRefineResponse);
+    }
+    if (role === 'missionDirectorStoryPositioner') {
+      const sourceHash = request.context?.sourceHash || request.sourceHash;
+      return structuredResponse({
+        kind: MISSION_STORY_POSITION_KIND,
+        schemaVersion: 1,
+        sourceHash,
+        confidence: 0.87,
+        storyPosition: {
+          contextType: 'phase_window',
+          missionId: 'prelude-a-ship-underway',
+          questId: 'prelude-a-ship-underway',
+          phaseId: 'ready-room-handover',
+          locationId: 'breckenridge-bridge',
+          anchorId: 'creator-flow-command',
+          anchorFrom: 'creator-flow-briefing',
+          anchorTo: 'creator-flow-outcome',
+          arc: 'Prelude',
+          phase: 'A Ship Underway',
+          currentConversation: 'The bridge crew waits for the commander order.'
+        },
+        sceneContinuity: {
+          mustPreserve: ['The active watch is already underway.'],
+          mustNotReestablish: ['The campaign opening']
+        },
+        outcomeRelevance: {
+          route: 'outcome',
+          reason: 'The player gives a durable command.',
+          activeDecisionIds: [],
+          candidateOutcomeIds: ['outcome.creator-flow-command'],
+          requiresClarification: false
+        },
+        sourceUse: { evidenceRefs: ['message:creator-flow'], ignoredStaleSetup: [], uncertainties: [] }
+      });
+    }
+    if (role === 'missionDirectorOutcomePlanner') {
+      const sourceHash = request.context?.sourceHash || request.sourceHash;
+      return structuredResponse({
+        kind: MISSION_OUTCOME_PLAN_KIND,
+        schemaVersion: 1,
+        sourceHash,
+        storyPositionHash: request.context?.storyPositionHash,
+        resultBand: 'Partial Success',
+        outcomeSummary: 'The command is accepted as a bounded model-authored outcome.',
+        consequencePlan: {
+          costs: ['The crew commits attention to the ordered course.'],
+          revealedFactIds: [],
+          commandDecisionAwards: [],
+          openAssignments: [],
+          questOutcomeKey: '',
+          completionRecommendation: 'continue'
+        },
+        narrationPlan: {
+          allowedFacts: ['The bridge watch is already active.'],
+          forbiddenFacts: [],
+          constraints: ['Do not reintroduce the opening scene.'],
+          mustPreserve: ['The active watch is already underway.'],
+          mustNotReestablish: ['The campaign opening']
+        },
+        stateProposal: { allowedRoots: ['mission'], operations: [] },
+        diagnostics: { reasonerUsed: true, uncertainties: [], reviewRequired: false }
+      });
+    }
+    if (role === 'missionDirectorPlanReviewer') {
+      const sourceHash = request.context?.sourceHash || request.sourceHash;
+      return structuredResponse({
+        kind: MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+        schemaVersion: 1,
+        sourceHash,
+        storyPositionHash: request.context?.storyPositionHash,
+        outcomePlanHash: request.context?.outcomePlanHash,
+        approved: true,
+        risk: 'low',
+        requiredAction: 'approve',
+        reasons: [],
+        narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+      });
     }
     return { text: 'Fake generation response.', providerId: `fake-${role}` };
   }
@@ -1054,7 +1136,7 @@ assert.match(textOf(panel), /Last Outcome Recorded/);
 assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not show persistence-only last-outcome copy');
 assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await findButton(panel, 'Log').click();
-assert.match(textOf(panel), /No durable mission outcome was committed because the turn requires Utility Arbiter approval/);
+assert.match(textOf(panel), /The command is accepted as a bounded model-authored outcome/);
 const logCards = queryAll(panel, '.directive-log-entry-card');
 assert.equal(logCards.length, 2, 'Log should render both campaign start and accepted outcome records');
 assert.deepEqual(
@@ -1062,7 +1144,7 @@ assert.deepEqual(
   ['02', '01'],
   'Log should preserve chronological record numbers while displaying newest records first'
 );
-assert.match(textOf(logCards[0]), /Utility Arbiter approval/, 'Latest accepted outcome should appear first');
+assert.match(textOf(logCards[0]), /model-authored outcome/, 'Latest accepted outcome should appear first');
 assert.match(textOf(logCards[1]), /Campaign Start/, 'Campaign start should remain the first chronological record');
 await findButton(panel, 'Campaign').click();
 assert.match(textOf(panel), /Campaign activation: chatBound\./);
