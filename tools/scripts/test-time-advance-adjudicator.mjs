@@ -45,6 +45,42 @@ const deadlineReference = await adjudicateTimeAdvance({
 assert.equal(deadlineReference.elapsedMinutes, 0);
 assert.equal(deadlineReference.reason, 'deadline-reference');
 
+const dayScaleCompression = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: 'Cross says the repair work will take time if Sam authorizes a full review.',
+  currentPlayerText: 'The week took on its own rhythm. Day One, Engineering traced the EPS misalignments. Day Two, Operations rebuilt the meal-replication schedules. Day Three, the reports were ready for Sam.'
+});
+assert.equal(dayScaleCompression.elapsedMinutes, 3 * 24 * 60);
+assert.equal(dayScaleCompression.reason, 'explicit-duration');
+
+const durationCapabilityReference = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: 'The old escape pods could keep occupants alive for weeks if their batteries held.',
+  currentPlayerText: 'Sam asks Nayar to check for residual escape-pod trails.'
+});
+assert.equal(durationCapabilityReference.elapsedMinutes, 0);
+assert.equal(durationCapabilityReference.reason, 'no-time-advance');
+
+const futureTravelReference = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: 'Bronn says the ship remains two weeks from the assigned station if nothing interrupts the shakedown.',
+  currentPlayerText: 'Sam asks what else needs attention before arrival.'
+});
+assert.equal(futureTravelReference.elapsedMinutes, 0);
+assert.equal(futureTravelReference.reason, 'no-time-advance');
+
+const pastBackstoryThenCurrentCompression = await adjudicateTimeAdvance({
+  campaignState,
+  acceptedPreviousResponse: true,
+  previousAssistantText: 'Cross says she has been chasing the command-relay fault for two weeks, but the issue remains open.',
+  currentPlayerText: 'The week took on its own rhythm. Day One, Engineering traced the fault. Day Two, Operations rebuilt the schedules. Day Three and Four, the replicator database corruption proved stubborn.'
+});
+assert.equal(pastBackstoryThenCurrentCompression.elapsedMinutes, 4 * 24 * 60);
+assert.equal(pastBackstoryThenCurrentCompression.reason, 'explicit-duration');
+
 let targetReferenceModelCalls = 0;
 const targetReference = await adjudicateTimeAdvance({
   campaignState,

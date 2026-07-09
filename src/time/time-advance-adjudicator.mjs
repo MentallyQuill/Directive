@@ -138,6 +138,8 @@ function durationFromMatch(match = []) {
   const amount = durationAmount(match[1]);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   const unit = String(match[2] || '').toLowerCase();
+  if (unit.startsWith('week')) return Math.round(amount * DAY_MINUTES * 7);
+  if (unit.startsWith('day')) return Math.round(amount * DAY_MINUTES);
   if (unit.startsWith('hour') || unit === 'hr' || unit === 'hrs') return Math.round(amount * 60);
   return Math.round(amount);
 }
@@ -162,13 +164,24 @@ function durationAmount(value = '') {
 }
 
 function explicitDurationMinutes(text = '') {
+  const daySequence = [];
+  for (const match of text.matchAll(/\bday\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)(?:\s+and\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten))?\b/gi)) {
+    for (const value of [match[1], match[2]]) {
+      const amount = durationAmount(value);
+      if (Number.isFinite(amount) && amount > 0) daySequence.push(amount);
+    }
+  }
+  if (daySequence.length >= 2) return Math.max(...daySequence) * DAY_MINUTES;
+
   const patterns = [
-    new RegExp(`\\b(?:wait|waiting|spend|spends|spent|take|takes|took|after|for|in|ahead)\\s+(?:about\\s+|roughly\\s+|around\\s+)?(${DURATION_AMOUNT_PATTERN})\\s*(minutes?|mins?|hours?|hrs?)\\b`, 'i'),
-    new RegExp(`\\b(${DURATION_AMOUNT_PATTERN})\\s*(minutes?|mins?|hours?|hrs?)\\s+(?:later|pass|passes|passed)\\b`, 'i')
+    new RegExp(`\\b(?:cut|skip|jump|advance|move)\\s+ahead\\s+(?:about\\s+|roughly\\s+|around\\s+)?(${DURATION_AMOUNT_PATTERN})\\s*(minutes?|mins?|hours?|hrs?|days?|weeks?)\\b`, 'i'),
+    new RegExp(`\\b(?:wait|waiting|spend|spends|spent|take|takes|took|after)\\s+(?:about\\s+|roughly\\s+|around\\s+|full\\s+)?(${DURATION_AMOUNT_PATTERN})\\s*(minutes?|mins?|hours?|hrs?|days?|weeks?)\\b`, 'i'),
+    new RegExp(`\\b(${DURATION_AMOUNT_PATTERN})\\s*(minutes?|mins?|hours?|hrs?|days?|weeks?)\\s+(?:later|pass|passes|passed)\\b`, 'i'),
+    new RegExp(`\\b(?:requiring|required|requires|spanning|spans|covered|covering)\\s+(?:about\\s+|roughly\\s+|around\\s+)?(${DURATION_AMOUNT_PATTERN})\\s*(full\\s+)?(days?|weeks?)\\b`, 'i')
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
-    if (match) return durationFromMatch(match);
+    if (match) return durationFromMatch(match[3] ? [match[0], match[1], match[3]] : match);
   }
   return null;
 }

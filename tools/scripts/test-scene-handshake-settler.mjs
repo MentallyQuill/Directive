@@ -1265,6 +1265,86 @@ assert.equal(movementHarness.state.timeLedger.lastBoundary.reason, 'intra-ship-t
 assert.equal(movementHarness.state.timeLedger.lastBoundary.currentShipMinute, 515);
 assert.ok(movementHarness.persisted.some((proposal) => proposal.source === 'timeAdvanceAdjudicator'));
 
+const dayCompressionHarness = createHarness('latest-pair-day-compression');
+const dayCompressionAssistant = {
+  hostMessageId: 'assistant-day-compression',
+  index: 40,
+  role: 'assistant',
+  isUser: false,
+  text: 'Cross says the repair work will take time if Sam authorizes a full review.'
+};
+const dayCompressionPlayer = {
+  hostMessageId: 'player-day-compression',
+  index: 41,
+  role: 'user',
+  isUser: true,
+  text: 'The week took on its own rhythm. Day One, Engineering traced the EPS misalignments. Day Two, Operations rebuilt the meal-replication schedules. Day Three, the reports were ready for Sam.'
+};
+const dayCompression = await runSceneHandshakeSettlement({
+  campaignState: dayCompressionHarness.state,
+  currentPlayerMessage: dayCompressionPlayer,
+  recentMessages: [dayCompressionAssistant, dayCompressionPlayer],
+  chatId: dayCompressionHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-day-compression',
+  stateDeltaGateway: dayCompressionHarness.gateway,
+  packageData,
+  now: dayCompressionHarness.now,
+  runLatestPairSettlementProvider: async () => ({
+    settlement: {
+      acceptedPreviousResponse: true,
+      playerReplyRelation: 'acts-on',
+      confidence: 0.9,
+      disposition: 'autoCommit'
+    },
+    operations: [{
+      op: 'upsert',
+      path: 'commandLog.entries',
+      identityKey: 'id',
+      value: { id: 'command-log:day-compression', type: 'scene' }
+    }],
+    parse: { ok: true }
+  })
+});
+dayCompressionHarness.state = dayCompression.campaignState;
+assert.equal(dayCompression.ok, true);
+assert.equal(dayCompression.timeAdvance.elapsedMinutes, 3 * 24 * 60);
+assert.equal(dayCompressionHarness.state.worldState.elapsedMinutes, 3 * 24 * 60);
+assert.equal(dayCompressionHarness.state.timeLedger.lastBoundary.reason, 'explicit-duration');
+assert.equal(dayCompression.committedRoots.includes('worldState'), true);
+assert.equal(dayCompression.committedRoots.includes('timeLedger'), true);
+assert.ok(dayCompressionHarness.persisted.some((proposal) => proposal.source === 'timeAdvanceAdjudicator'));
+
+const missingPackageHarness = createHarness('latest-pair-missing-package-time');
+const missingPackage = await runSceneHandshakeSettlement({
+  campaignState: missingPackageHarness.state,
+  currentPlayerMessage: dayCompressionPlayer,
+  recentMessages: [dayCompressionAssistant, dayCompressionPlayer],
+  chatId: missingPackageHarness.state.campaignChatBinding.chatId,
+  ingressId: 'ingress-scene-handshake-missing-package-time',
+  stateDeltaGateway: missingPackageHarness.gateway,
+  packageData: null,
+  now: missingPackageHarness.now,
+  runLatestPairSettlementProvider: async () => ({
+    settlement: {
+      acceptedPreviousResponse: true,
+      playerReplyRelation: 'acts-on',
+      confidence: 0.9,
+      disposition: 'autoCommit'
+    },
+    operations: [{
+      op: 'upsert',
+      path: 'commandLog.entries',
+      identityKey: 'id',
+      value: { id: 'command-log:missing-package-time', type: 'scene' }
+    }],
+    parse: { ok: true }
+  })
+});
+assert.equal(missingPackage.ok, true);
+assert.equal(missingPackage.timeAdvance, null);
+assert.equal(missingPackage.timeAdvanceSkipped.reason, 'missing-package-world');
+assert.equal(missingPackage.committedRoots.includes('timeLedger'), false);
+
 const partialHarness = createHarness('partial-model-output');
 partialHarness.state = {
   ...partialHarness.state,
