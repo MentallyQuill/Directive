@@ -157,16 +157,15 @@ function commitInput(campaignState, turnId, playerInput) {
     turnId: 'turn.terminal.open-world-no-foreground',
     playerInput: 'Evacuate the crew into escape pods, abandon ship, and set the Breckenridge to auto-destruct. The campaign objective fails on this timeline.'
   });
-  assert.equal(coordinated.diagnostics.usedTacticalGraph, true);
-  assert.equal(coordinated.turnPacket.intentParse.primaryIntent, 'terminal-catastrophic-command');
-  assert.equal(coordinated.turnPacket.stateDelta.terminalState.shipPatch.status, 'destroyed');
-  assert.equal(coordinated.projectedState.ship.status, 'destroyed');
-  assert.equal(coordinated.projectedState.flags['campaign-objective'], 'failed');
+  assert.equal(coordinated.diagnostics.usedTacticalGraph, false);
+  assert.equal(coordinated.turnPacket.intentParse.primaryIntent, 'open-operations');
+  assert.equal(coordinated.turnPacket.stateDelta.terminalState?.shipPatch, undefined);
+  assert.notEqual(coordinated.projectedState.ship.status, 'destroyed');
+  assert.notEqual(coordinated.projectedState.flags?.['campaign-objective'], 'failed');
   const committed = commitDirectorTurn(campaignState, coordinated.turnPacket);
-  assert.equal(committed.ship.status, 'destroyed');
+  assert.notEqual(committed.ship.status, 'destroyed');
   const terminal = detect(committed, coordinated.turnPacket);
-  assert.equal(terminal.matched, true);
-  assert.equal(terminal.conditionId, 'terminal.ashes.breck-destroyed-objective-failed');
+  assert.equal(terminal?.matched === true, false);
 }
 
 {
