@@ -14,6 +14,7 @@
     "test:playwright-soak-readiness": "node tools/scripts/check-playwright-soak-readiness.mjs",
     "test:parallel-soak-users": "node tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs",
     "test:mission-director-model-contracts": "node tools/scripts/test-mission-director-model-contracts.mjs",
+    "test:mission-director-frame": "node tools/scripts/test-mission-director-frame.mjs",
     "smoke:terminal-endings": "node tools/scripts/smoke-sillytavern-terminal-endings-live.mjs"
   },
   "devDependencies": {
