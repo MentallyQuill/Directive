@@ -30,7 +30,11 @@ for (const entry of matrix) {
   assert.ok(Array.isArray(entry.tests) && entry.tests.length > 0, `${entry.roleId}: missing tests`);
   if (entry.mayProposeState) {
     assert.ok(entry.allowedRoots.length > 0, `${entry.roleId}: proposing role must declare roots`);
-    assert.equal(entry.parserSchema, SIDECAR_OUTPUT_SCHEMA_IDS.stateDeltaProposal, `${entry.roleId}: proposing role must use state-delta proposal schema`);
+    if (entry.roleId === 'missionDirectorOutcomePlanner') {
+      assert.equal(entry.parserSchema, 'directive.missionOutcomePlan.v1', `${entry.roleId}: outcome planner must use mission outcome plan schema`);
+    } else {
+      assert.equal(entry.parserSchema, SIDECAR_OUTPUT_SCHEMA_IDS.stateDeltaProposal, `${entry.roleId}: proposing role must use state-delta proposal schema`);
+    }
   } else {
     assert.equal(entry.allowedRoots.length, 0, `${entry.roleId}: non-proposing role must not declare state roots`);
   }
@@ -81,6 +85,15 @@ assert.equal(authorityForRole('utilityTurnArbiter').fallback, 'fail-closed');
 assert.equal(authorityForRole('utilityTurnArbiter').mayProposeState, false);
 assert.equal(authorityForRole('utilityTurnArbiter').mayInjectPrompt, false);
 assert.equal(authorityForRole('narration').providerKind, 'reasoning');
+for (const roleId of ['missionDirectorStoryPositioner', 'missionDirectorOutcomePlanner', 'missionDirectorPlanReviewer']) {
+  const authority = authorityForRole(roleId);
+  assert.equal(authority.roleId, roleId);
+  assert.equal(authority.blocking, true);
+  assert.equal(authority.mayInjectPrompt, false);
+  assert.match(authority.hiddenStatePolicy, /raw prompts/i);
+  assert.match(authority.hiddenStatePolicy, /provider reasoning/i);
+}
+assert.equal(authorityForRole('missionDirectorOutcomePlanner').mayProposeState, true);
 assert.equal(authorityForRole('commandBearingFitChecker').providerKind, 'utility');
 assert.equal(authorityForRole('commandBearingFitChecker').mayProposeState, false);
 assert.equal(authorityForRole('commandBearingSpendValidator').providerKind, 'utility');

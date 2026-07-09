@@ -3,6 +3,9 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'campaignIntro',
   'campaignConclusion',
   'missionDirectorAdvisor',
+  'missionDirectorStoryPositioner',
+  'missionDirectorOutcomePlanner',
+  'missionDirectorPlanReviewer',
   'utilityTurnClassifier',
   'utilityTurnArbiter',
   'questActionInterpreter',
@@ -438,6 +441,60 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'skip'
+  },
+  missionDirectorStoryPositioner: {
+    id: 'missionDirectorStoryPositioner',
+    label: 'Mission Director Story Positioner',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
+  missionDirectorOutcomePlanner: {
+    id: 'missionDirectorOutcomePlanner',
+    label: 'Mission Director Outcome Planner',
+    providerKind: 'reasoning',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'balanced',
+      latency: 'medium',
+      capability: 'reasoning-writing'
+    },
+    mayProposeState: true,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
+  missionDirectorPlanReviewer: {
+    id: 'missionDirectorPlanReviewer',
+    label: 'Mission Director Plan Reviewer',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
   },
   continuityTracker: {
     id: 'continuityTracker',
