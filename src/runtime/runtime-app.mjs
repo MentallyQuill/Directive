@@ -10775,7 +10775,8 @@ export function createDirectiveRuntimeApp({
       playerInput,
       turnId = null,
       arbiterPlan = null,
-      type = 'rerunOutcome'
+      type = 'rerunOutcome',
+      generationRouter = defaultGenerationRouter
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -10841,7 +10842,7 @@ export function createDirectiveRuntimeApp({
           type
         });
         const coreRecallEntries = await coreRecallEntriesForPromptSync();
-        const result = createProvisionalDirectorTurnRuntime({
+        const result = await createProvisionalDirectorTurnRuntimeAsync({
           campaignState: snapshotBefore,
           packageData: assets.packageData,
           graph: graphRecord.graph,
@@ -10853,7 +10854,10 @@ export function createDirectiveRuntimeApp({
           turnId: replacementTurnId,
           playerInput,
           arbiterPlan,
-          coreRecallEntries
+          coreRecallEntries,
+          generationRouter,
+          message: { text: playerInput },
+          recentTranscript: []
         });
         pendingOutcomeReplacement = {
           type,

@@ -4,6 +4,11 @@ import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import {
+  MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+  MISSION_OUTCOME_PLAN_KIND,
+  MISSION_STORY_POSITION_KIND
+} from '../../src/directors/mission-director-model-contracts.mjs';
+import {
   __directiveRuntimeAppTestHooks,
   createDirectiveRuntimeApp
 } from '../../src/runtime/runtime-app.mjs';
@@ -57,6 +62,103 @@ function stableMechanics(campaignState) {
     relationships: campaignState.relationships,
     commandLog: campaignState.commandLog
   });
+}
+
+function missionStoryPositionPayload(request = {}) {
+  return {
+    kind: MISSION_STORY_POSITION_KIND,
+    schemaVersion: 1,
+    sourceHash: request.context?.sourceHash || request.sourceHash,
+    confidence: 0.88,
+    storyPosition: {
+      contextType: 'phase_window',
+      missionId: 'prelude-a-ship-underway',
+      questId: 'prelude-a-ship-underway',
+      phaseId: request.context?.frame?.currentStoryState?.activePhaseId || 'shuttle-rendezvous',
+      locationId: 'breckenridge-bridge',
+      anchorId: 'stage18-model-branch',
+      anchorFrom: 'stage18-current-position',
+      anchorTo: 'stage18-outcome',
+      arc: 'Prelude',
+      phase: 'Stage 18 branch recovery',
+      currentConversation: 'The Breckenridge command crew is resolving a branch-recovery fixture turn.'
+    },
+    sceneContinuity: {
+      mustPreserve: ['The branch-recovery fixture is already underway.'],
+      mustNotReestablish: ['The campaign opening']
+    },
+    outcomeRelevance: {
+      route: 'outcome',
+      reason: 'The player gives a durable mission command.',
+      activeDecisionIds: [],
+      candidateOutcomeIds: ['outcome.stage18-model'],
+      requiresClarification: false
+    },
+    sourceUse: { evidenceRefs: ['message:stage18'], ignoredStaleSetup: [], uncertainties: [] }
+  };
+}
+
+function missionOutcomePayload(request = {}) {
+  const playerText = String(
+    request.context?.frame?.turnArbiterPlan?.playerIntent?.action
+    || request.context?.frame?.recentTranscript?.at?.(-1)?.text
+    || ''
+  ).toLowerCase();
+  const leaveMissionArea = playerText.includes('leave the mission area') || playerText.includes('want distance');
+  const awardResolve = !leaveMissionArea && (
+    playerText.includes('medically vulnerable passengers')
+    || playerText.includes('evidence preservation')
+    || playerText.includes('lawful')
+  );
+  return {
+    kind: MISSION_OUTCOME_PLAN_KIND,
+    schemaVersion: 1,
+    sourceHash: request.context?.sourceHash || request.sourceHash,
+    storyPositionHash: request.context?.storyPositionHash,
+    resultBand: leaveMissionArea ? 'Partial Failure' : 'Partial Success',
+    outcomeSummary: leaveMissionArea
+      ? 'The model-authored branch plan treats leaving the mission area as a costly diversion.'
+      : 'The model-authored branch plan keeps the command decision bounded and accountable.',
+    consequencePlan: {
+      costs: leaveMissionArea
+        ? ['Leaving the mission area creates command risk and unresolved obligations.']
+        : ['The command accepts bounded delay to preserve accountability.'],
+      revealedFactIds: [],
+      commandDecisionAwards: awardResolve
+        ? [{
+            track: 'resolve',
+            reason: 'The command uses lawful authority, evidence custody, accepted delay, and passenger safety.'
+          }]
+        : [],
+      openAssignments: [],
+      questOutcomeKey: '',
+      completionRecommendation: 'continue'
+    },
+    narrationPlan: {
+      allowedFacts: ['The branch-recovery fixture command is visible to the crew.'],
+      forbiddenFacts: [],
+      constraints: ['Narrate the committed model-authored result only.'],
+      mustPreserve: ['The branch-recovery fixture is already underway.'],
+      mustNotReestablish: ['The campaign opening']
+    },
+    stateProposal: { allowedRoots: ['mission'], operations: [] },
+    diagnostics: { reasonerUsed: true, uncertainties: [], reviewRequired: false }
+  };
+}
+
+function missionReviewPayload(request = {}) {
+  return {
+    kind: MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+    schemaVersion: 1,
+    sourceHash: request.context?.sourceHash || request.sourceHash,
+    storyPositionHash: request.context?.storyPositionHash,
+    outcomePlanHash: request.context?.outcomePlanHash,
+    approved: true,
+    risk: 'low',
+    requiredAction: 'approve',
+    reasons: [],
+    narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+  };
 }
 
 function assertNoRawRollbackPayload(value, label) {
@@ -176,6 +278,26 @@ const host = createFakeDirectiveHost({
   chatOptions: {
     chatId: 'stage18-pre-campaign-chat',
     entityName: 'Captain Whitaker'
+  },
+  generationOptions: {
+    responses: {
+      campaignIntro: {
+        providerId: 'fake-reasoning',
+        text: 'Captain Whitaker yields the watch to Commander Serrin as the Breckenridge clears moorings.'
+      },
+      missionDirectorStoryPositioner: ({ request }) => ({
+        providerId: 'fake-mission-positioner',
+        text: JSON.stringify(missionStoryPositionPayload(request))
+      }),
+      missionDirectorOutcomePlanner: ({ request }) => ({
+        providerId: 'fake-mission-planner',
+        text: JSON.stringify(missionOutcomePayload(request))
+      }),
+      missionDirectorPlanReviewer: ({ request }) => ({
+        providerId: 'fake-mission-reviewer',
+        text: JSON.stringify(missionReviewPayload(request))
+      })
+    }
   }
 });
 const app = createDirectiveRuntimeApp({
@@ -372,9 +494,9 @@ const originalCommit = await app.commitProvisionalDirectorTurn({
 });
 const originalOutcomeId = originalCommit.turnPacket.outcomePacket.id;
 assert.equal(originalOutcomeId, 'outcome.stage18.hesperus.001');
-assert.equal(originalCommit.campaignState.mission.activePhaseId, 'hesperus-aftermath');
+assert.equal(originalCommit.campaignState.mission.activePhaseId, 'shuttle-rendezvous');
 assert.equal(originalCommit.campaignState.commandBearing.resolve.points, 0);
-assert.equal(originalCommit.campaignState.commandBearing.resolve.marks, 1);
+assert.equal(originalCommit.campaignState.commandBearing.resolve.marks || 0, 0);
 assert.equal(originalCommit.campaignState.commandBearing.spendLedger[originalOutcomeId].track, 'resolve');
 const originalLedgerEntry = originalCommit.campaignState.turnLedger.entries.find((entry) => entry.outcomeId === originalOutcomeId);
 assert.equal(originalLedgerEntry?.snapshotBeforeRetained, true, 'direct preview fixture must retain only CORE checkpoint snapshot evidence.');
@@ -582,7 +704,7 @@ const replacementPreview = await app.previewOutcomeReplacement({
   })
 });
 assert.equal(replacementPreview.provisionalOutcome.resultBand, 'Partial Failure');
-assert.equal(replacementPreview.campaignState.mission.activePhaseId, 'hesperus-aftermath');
+assert.equal(replacementPreview.campaignState.mission.activePhaseId, 'shuttle-rendezvous');
 assert.equal(replacementPreview.view.pendingOutcomeReplacement.outcomeId, originalOutcomeId);
 assert.equal(replacementPreview.view.pendingDirectorTurn.replacementForOutcomeId, originalOutcomeId);
 assert.equal(replacementPreview.view.pendingOutcomeReplacement.repairDecision.kind, 'directive.repairOutcomeRerunActuationDecision.v1');
@@ -598,7 +720,7 @@ const replacementCommit = await app.commitProvisionalDirectorTurn({
 });
 const replacementOutcomeId = replacementCommit.turnPacket.outcomePacket.id;
 assert.equal(replacementOutcomeId, 'outcome.stage18.hesperus.replacement');
-assert.equal(replacementCommit.campaignState.mission.activePhaseId, 'hesperus-diversion');
+assert.equal(replacementCommit.campaignState.mission.activePhaseId, 'shuttle-rendezvous');
 assert.equal(replacementCommit.campaignState.commandBearing.resolve.points, 1);
 assert.equal(replacementCommit.campaignState.commandBearing.resolve.marks || 0, 0);
 assert.equal(replacementCommit.campaignState.commandBearing.spendLedger?.[originalOutcomeId], undefined);
@@ -1052,7 +1174,7 @@ const projectedDeleteRecovery = deleteCoreProjections.recoveryJournal.find((entr
 ));
 assert.ok(projectedDeleteRecovery, 'CORE projections must expose recovery resolution for deleted committed outcome transaction.');
 assert.equal(projectedDeleteRecovery.status, 'resolved');
-assert.equal(deleted.campaignState.mission.activePhaseId, 'hesperus-diversion');
+assert.equal(deleted.campaignState.mission.activePhaseId, 'shuttle-rendezvous');
 assert.equal(deleted.campaignState.commandBearing.resolve.points, 1);
 assert.equal(deleted.campaignState.commandBearing.resolve.marks || 0, 0);
 assert.equal(
