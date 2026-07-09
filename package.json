@@ -16,6 +16,7 @@
     "test:mission-director-model-contracts": "node tools/scripts/test-mission-director-model-contracts.mjs",
     "test:mission-director-frame": "node tools/scripts/test-mission-director-frame.mjs",
     "test:mission-director-model-spine": "node tools/scripts/test-mission-director-model-spine.mjs",
+    "test:story-position-contracts": "node tools/scripts/test-story-position-contracts.mjs",
     "smoke:terminal-endings": "node tools/scripts/smoke-sillytavern-terminal-endings-live.mjs"
   },
   "devDependencies": {
