@@ -5,9 +5,14 @@ import path from 'node:path';
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
-  MISSION_OUTCOME_PLAN_KIND,
-  MISSION_STORY_POSITION_KIND
+  MISSION_OUTCOME_PLAN_KIND
 } from '../../src/directors/mission-director-model-contracts.mjs';
+import {
+  STORY_DELTA_PLAN_KIND,
+  STORY_DELTA_REVIEW_KIND,
+  STORY_POSITION_REVIEW_KIND,
+  STORY_POSITION_SELECTION_KIND
+} from '../../src/story/story-position-contracts.mjs';
 import {
   __directiveRuntimeAppTestHooks,
   createDirectiveRuntimeApp
@@ -66,35 +71,62 @@ function stableMechanics(campaignState) {
 
 function missionStoryPositionPayload(request = {}) {
   return {
-    kind: MISSION_STORY_POSITION_KIND,
+    kind: STORY_POSITION_SELECTION_KIND,
     schemaVersion: 1,
     sourceHash: request.context?.sourceHash || request.sourceHash,
+    primaryCandidateId: request.context?.storyCandidates?.find((candidate) => candidate.status === 'active')?.id || request.context?.storyCandidates?.[0]?.id || '',
+    secondaryCandidateIds: [],
+    route: 'outcome',
     confidence: 0.88,
-    storyPosition: {
-      contextType: 'phase_window',
-      missionId: 'prelude-a-ship-underway',
-      questId: 'prelude-a-ship-underway',
-      phaseId: request.context?.frame?.currentStoryState?.activePhaseId || 'shuttle-rendezvous',
-      locationId: 'breckenridge-bridge',
-      anchorId: 'stage18-model-branch',
-      anchorFrom: 'stage18-current-position',
-      anchorTo: 'stage18-outcome',
-      arc: 'Prelude',
-      phase: 'Stage 18 branch recovery',
-      currentConversation: 'The Breckenridge command crew is resolving a branch-recovery fixture turn.'
-    },
-    sceneContinuity: {
-      mustPreserve: ['The branch-recovery fixture is already underway.'],
-      mustNotReestablish: ['The campaign opening']
-    },
-    outcomeRelevance: {
-      route: 'outcome',
-      reason: 'The player gives a durable mission command.',
-      activeDecisionIds: [],
-      candidateOutcomeIds: ['outcome.stage18-model'],
-      requiresClarification: false
-    },
-    sourceUse: { evidenceRefs: ['message:stage18'], ignoredStaleSetup: [], uncertainties: [] }
+    evidenceRefs: ['message:stage18'],
+    ignoredStaleSetup: [],
+    continuityGuards: { mustPreserve: ['The branch-recovery fixture is already underway.'], mustNotReestablish: ['The campaign opening'] },
+    unresolved: []
+  };
+}
+
+function missionStoryPositionReviewPayload(request = {}) {
+  return {
+    kind: STORY_POSITION_REVIEW_KIND,
+    schemaVersion: 1,
+    sourceHash: request.context?.sourceHash || request.sourceHash,
+    selectionHash: request.context?.selectionHash,
+    approved: true,
+    requiredAction: 'approve',
+    risk: 'low',
+    reasons: [],
+    rejectedCandidateIds: [],
+    staleHistoryRisk: false,
+    forbiddenAssertionRisk: false
+  };
+}
+
+function missionStoryDeltaPayload(request = {}) {
+  return {
+    kind: STORY_DELTA_PLAN_KIND,
+    schemaVersion: 1,
+    sourceHash: request.context?.sourceHash || request.sourceHash,
+    selectionHash: request.context?.selectionHash,
+    outcomePlanHash: request.context?.outcomePlanHash,
+    eventDrafts: [],
+    rejectedAssertions: [],
+    diagnostics: { reasonerUsed: true, uncertainties: [] }
+  };
+}
+
+function missionStoryDeltaReviewPayload(request = {}) {
+  return {
+    kind: STORY_DELTA_REVIEW_KIND,
+    schemaVersion: 1,
+    sourceHash: request.context?.sourceHash || request.sourceHash,
+    deltaPlanHash: request.context?.deltaPlanHash,
+    approved: true,
+    requiredAction: 'approve',
+    risk: 'low',
+    reasons: [],
+    forbiddenPastAssignment: false,
+    futureFactLeak: false,
+    missingBranchAuthority: false
   };
 }
 
@@ -289,9 +321,21 @@ const host = createFakeDirectiveHost({
         providerId: 'fake-mission-positioner',
         text: JSON.stringify(missionStoryPositionPayload(request))
       }),
+      missionDirectorStoryPositionReviewer: ({ request }) => ({
+        providerId: 'fake-mission-position-reviewer',
+        text: JSON.stringify(missionStoryPositionReviewPayload(request))
+      }),
       missionDirectorOutcomePlanner: ({ request }) => ({
         providerId: 'fake-mission-planner',
         text: JSON.stringify(missionOutcomePayload(request))
+      }),
+      missionDirectorStoryDeltaPlanner: ({ request }) => ({
+        providerId: 'fake-story-delta-planner',
+        text: JSON.stringify(missionStoryDeltaPayload(request))
+      }),
+      missionDirectorStoryDeltaReviewer: ({ request }) => ({
+        providerId: 'fake-story-delta-reviewer',
+        text: JSON.stringify(missionStoryDeltaReviewPayload(request))
       }),
       missionDirectorPlanReviewer: ({ request }) => ({
         providerId: 'fake-mission-reviewer',

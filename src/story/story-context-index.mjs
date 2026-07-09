@@ -165,6 +165,7 @@ export function deriveStoryPositionCandidates({ storyContextIndex = {} } = {}) {
       schemaVersion: 1,
       id: `candidate.${token(node.id)}.${status}`,
       nodeId: node.id,
+      label: node.label || node.id,
       candidateType: node.type,
       status,
       mode: ['activeThread', 'availableStoryNode', 'activeStoryNode'].includes(node.type) ? 'openWorld' : 'mission',

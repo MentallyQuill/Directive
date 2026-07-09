@@ -17,9 +17,14 @@ import {
 } from '../../src/storage/directive-storage-repository.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
-  MISSION_OUTCOME_PLAN_KIND,
-  MISSION_STORY_POSITION_KIND
+  MISSION_OUTCOME_PLAN_KIND
 } from '../../src/directors/mission-director-model-contracts.mjs';
+import {
+  STORY_DELTA_PLAN_KIND,
+  STORY_DELTA_REVIEW_KIND,
+  STORY_POSITION_REVIEW_KIND,
+  STORY_POSITION_SELECTION_KIND
+} from '../../src/story/story-position-contracts.mjs';
 import {
   loadCoreStoreStateV2,
   readCoreStoreProjectionsV2
@@ -187,35 +192,62 @@ const host = createFakeDirectiveHost({
       missionDirectorStoryPositioner: ({ request }) => ({
         providerId: 'fake-utility-mission-positioner',
         text: JSON.stringify({
-          kind: MISSION_STORY_POSITION_KIND,
+          kind: STORY_POSITION_SELECTION_KIND,
           schemaVersion: 1,
           sourceHash: request.context?.sourceHash || request.sourceHash,
+          primaryCandidateId: request.context?.storyCandidates?.find((candidate) => candidate.status === 'active')?.id || request.context?.storyCandidates?.[0]?.id || '',
+          secondaryCandidateIds: [],
+          route: 'outcome',
           confidence: 0.88,
-          storyPosition: {
-            contextType: 'phase_window',
-            missionId: 'prelude-a-ship-underway',
-            questId: 'prelude-a-ship-underway',
-            phaseId: 'bridge-watch',
-            locationId: 'breckenridge-bridge',
-            anchorId: 'bridge-pursuit-order',
-            anchorFrom: 'bridge-watch-active',
-            anchorTo: 'freighter-pursuit-ordered',
-            arc: 'Prelude',
-            phase: 'Bridge Watch',
-            currentConversation: 'The bridge crew waits for the commander order.'
-          },
-          sceneContinuity: {
-            mustPreserve: ['The current bridge watch is already underway.'],
-            mustNotReestablish: ['The campaign intro', 'Sam boarding the ship']
-          },
-          outcomeRelevance: {
-            route: 'outcome',
-            reason: 'The player gives a durable helm order.',
-            activeDecisionIds: [],
-            candidateOutcomeIds: ['outcome.bridge-pursuit'],
-            requiresClarification: false
-          },
-          sourceUse: { evidenceRefs: ['runtime-player-consequential'], ignoredStaleSetup: [], uncertainties: [] }
+          evidenceRefs: ['runtime-player-consequential'],
+          ignoredStaleSetup: [],
+          continuityGuards: { mustPreserve: ['The current bridge watch is already underway.'], mustNotReestablish: ['The campaign intro', 'Sam boarding the ship'] },
+          unresolved: []
+        })
+      }),
+      missionDirectorStoryPositionReviewer: ({ request }) => ({
+        providerId: 'fake-utility-mission-position-reviewer',
+        text: JSON.stringify({
+          kind: STORY_POSITION_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          selectionHash: request.context?.selectionHash,
+          approved: true,
+          requiredAction: 'approve',
+          risk: 'low',
+          reasons: [],
+          rejectedCandidateIds: [],
+          staleHistoryRisk: false,
+          forbiddenAssertionRisk: false
+        })
+      }),
+      missionDirectorStoryDeltaPlanner: ({ request }) => ({
+        providerId: 'fake-reasoning-story-delta-planner',
+        text: JSON.stringify({
+          kind: STORY_DELTA_PLAN_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          selectionHash: request.context?.selectionHash,
+          outcomePlanHash: request.context?.outcomePlanHash,
+          eventDrafts: [],
+          rejectedAssertions: [],
+          diagnostics: { reasonerUsed: true, uncertainties: [] }
+        })
+      }),
+      missionDirectorStoryDeltaReviewer: ({ request }) => ({
+        providerId: 'fake-utility-story-delta-reviewer',
+        text: JSON.stringify({
+          kind: STORY_DELTA_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          deltaPlanHash: request.context?.deltaPlanHash,
+          approved: true,
+          requiredAction: 'approve',
+          risk: 'low',
+          reasons: [],
+          forbiddenPastAssignment: false,
+          futureFactLeak: false,
+          missingBranchAuthority: false
         })
       }),
       missionDirectorOutcomePlanner: ({ request }) => ({

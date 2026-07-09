@@ -1,4 +1,5 @@
 import { commitDirectorTurn } from '../campaign/transaction-state.mjs';
+import { appendReviewedStoryEvents } from '../story/story-ledger.mjs';
 import {
   COMMAND_BEARING_OUTCOME_LADDER,
   createCommandBearingInterventionPrompt,
@@ -263,6 +264,18 @@ function finalizeTurnPacket(provisionalTurnPacket, { spendRecord = null } = {}) 
   return next;
 }
 
+function applyReviewedStoryDelta(committedState, finalTurnPacket) {
+  const storyDeltaPlan = finalTurnPacket.stateDelta?.openWorld?.modelStoryDeltaPlan || null;
+  const eventDrafts = Array.isArray(storyDeltaPlan?.eventDrafts) ? storyDeltaPlan.eventDrafts : [];
+  if (eventDrafts.length === 0) return committedState;
+  return appendReviewedStoryEvents(committedState, eventDrafts, {
+    outcomeId: finalTurnPacket.outcomePacket?.id || '',
+    turnId: finalTurnPacket.turnId || '',
+    sourceFrameRef: finalTurnPacket.sceneSnapshot?.sourceFrameRef || finalTurnPacket.provenance?.sourceFrameRef || null,
+    branchId: committedState.campaignChatBinding?.saveId || committedState.campaign?.id || 'main'
+  });
+}
+
 function seniorCrewIds(campaignState) {
   return (campaignState.crew?.seniorCrewIds || []).filter(Boolean);
 }
@@ -483,10 +496,11 @@ export function commitProvisionalDirectorTurnRuntime({
       track: normalizeTrack(spendRequest.track)
     })
     : { campaignState: nextCampaignState, spendRecord: null };
+  const campaignStateWithStory = applyReviewedStoryDelta(committed.campaignState, finalTurnPacket);
   return {
     kind: 'directive.runtimeCommittedDirectorTurn',
     turnPacket: finalTurnPacket,
-    campaignState: committed.campaignState,
+    campaignState: campaignStateWithStory,
     commandBearingSpend: cloneJson(committed.spendRecord),
     competencePacket: cloneJson(finalTurnPacket.competencePacket || null),
     warningConfirmation: cloneJson(finalTurnPacket.warningConfirmation || createWarningConfirmation(finalTurnPacket)),

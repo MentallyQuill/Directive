@@ -1,9 +1,14 @@
 import { buildMissionDirectorFrame } from './mission-director-frame.mjs';
 import {
+  MISSION_STORY_POSITION_KIND,
   normalizeMissionDirectorPlanReview,
   normalizeMissionOutcomePlan,
   normalizeMissionStoryPosition
 } from './mission-director-model-contracts.mjs';
+import {
+  runMissionDirectorStoryDeltaSpine,
+  runMissionDirectorStoryPositionSelection
+} from './mission-director-story-graph-spine.mjs';
 import { hashStableJson } from '../runtime/architecture-redesign-contracts.mjs';
 
 function cloneJson(value) {
@@ -36,9 +41,60 @@ async function generateJson(generationRouter, roleId, request) {
   }
 }
 
-export function buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot = {}, storyPosition, outcomePlan, review }) {
+function selectedCandidateFromGraph(storyGraph = {}) {
+  const primary = storyGraph.selection?.primaryCandidateId || '';
+  return (storyGraph.storyCandidates || []).find((candidate) => candidate.id === primary) || null;
+}
+
+function storyPositionFromSelection({ sourceHash, storyGraph, frameResult }) {
+  const candidate = selectedCandidateFromGraph(storyGraph) || {};
+  const storyMap = frameResult?.frame?.packageStoryMap || {};
+  const phase = (storyMap.phases || []).find((item) => item.id === candidate.coordinates?.phaseId) || null;
+  const decisions = (storyMap.decisionPoints || []).filter((item) => item.phaseId === candidate.coordinates?.phaseId);
+  const outcomes = (storyMap.outcomeOptions || []).filter((item) => !item.phaseId || item.phaseId === candidate.coordinates?.phaseId);
+  return normalizeMissionStoryPosition({
+    kind: MISSION_STORY_POSITION_KIND,
+    schemaVersion: 1,
+    sourceHash,
+    confidence: storyGraph.selection?.confidence ?? 0,
+    storyPosition: {
+      contextType: candidate.candidateType || 'story_graph_candidate',
+      missionId: candidate.coordinates?.missionId || frameResult?.frame?.currentStoryState?.activeMissionId || '',
+      questId: frameResult?.frame?.currentStoryState?.foregroundQuestId || candidate.coordinates?.missionId || '',
+      phaseId: candidate.coordinates?.phaseId || frameResult?.frame?.currentStoryState?.activePhaseId || '',
+      locationId: candidate.coordinates?.locationId || frameResult?.frame?.currentStoryState?.locationId || '',
+      anchorId: candidate.nodeId || candidate.id || '',
+      anchorFrom: '',
+      anchorTo: '',
+      arc: '',
+      phase: phase?.label || candidate.nodeId || '',
+      currentConversation: candidate.label || candidate.nodeId || ''
+    },
+    sceneContinuity: {
+      mustPreserve: storyGraph.selection?.continuityGuards?.mustPreserve || [],
+      mustNotReestablish: storyGraph.selection?.continuityGuards?.mustNotReestablish || []
+    },
+    outcomeRelevance: {
+      route: storyGraph.selection?.route || 'pause',
+      reason: `Model selected story candidate ${candidate.id || 'unknown'}.`,
+      activeDecisionIds: decisions.map((item) => item.id).filter(Boolean),
+      candidateOutcomeIds: outcomes.map((item) => item.id).filter(Boolean),
+      requiresClarification: storyGraph.selection?.route === 'clarify'
+    },
+    sourceUse: {
+      evidenceRefs: storyGraph.selection?.evidenceRefs || [],
+      ignoredStaleSetup: storyGraph.selection?.ignoredStaleSetup || [],
+      uncertainties: storyGraph.selection?.unresolved || []
+    }
+  }, { expectedSourceHash: sourceHash });
+}
+
+export function buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot = {}, storyPosition, outcomePlan, review, storyGraph = null }) {
   const outcomeId = `outcome.${String(turnId || 'mission-model').replace(/^turn\./, '')}`;
   const summary = compact(outcomePlan.outcomeSummary) || 'Mission Director outcome plan accepted.';
+  const selectedCandidateIds = storyGraph?.selection
+    ? [storyGraph.selection.primaryCandidateId, ...(storyGraph.selection.secondaryCandidateIds || [])].filter(Boolean)
+    : [];
   return {
     contractVersion: 2,
     turnId,
@@ -96,14 +152,18 @@ export function buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot = {}, sto
       mission: {},
       openWorld: {
         sourceAnchorRange: cloneJson(sceneSnapshot.sourceAnchorRange || null),
-        modelStateProposal: cloneJson(outcomePlan.stateProposal || null)
+        modelStateProposal: cloneJson(outcomePlan.stateProposal || null),
+        modelStoryDeltaPlan: cloneJson(storyGraph?.deltaPlan || null)
       }
     },
     narratorPacket: {
       sourceOutcomeId: outcomeId,
       resultBand: outcomePlan.resultBand,
       summary,
-      constraints: cloneJson(outcomePlan.narrationPlan?.constraints || []),
+      constraints: [
+        ...cloneJson(outcomePlan.narrationPlan?.constraints || []),
+        'Do not reestablish completed story nodes as pending unless the turn is an authorized rerun branch.'
+      ],
       allowedFacts: cloneJson(outcomePlan.narrationPlan?.allowedFacts || []),
       forbiddenFacts: cloneJson(outcomePlan.narrationPlan?.forbiddenFacts || []),
       mustPreserve: cloneJson(outcomePlan.narrationPlan?.mustPreserve || []),
@@ -118,7 +178,15 @@ export function buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot = {}, sto
       modelSpine: true,
       storyPositionHash: hashStableJson(storyPosition),
       outcomePlanHash: hashStableJson(outcomePlan),
-      reviewHash: hashStableJson(review)
+      reviewHash: hashStableJson(review),
+      storyGraph: storyGraph
+        ? {
+            indexHash: storyGraph.storyContextIndex?.indexHash || storyGraph.hashes?.indexHash || null,
+            selectedCandidateIds,
+            selectionHash: storyGraph.selectionHash || storyGraph.hashes?.selectionHash || null,
+            deltaPlanHash: storyGraph.deltaPlanHash || storyGraph.hashes?.deltaPlanHash || null
+          }
+        : null
     }
   };
 }
@@ -131,17 +199,29 @@ export async function runMissionDirectorModelSpine(options = {}) {
   } = options;
   const frameResult = buildMissionDirectorFrame(options);
   const sourceHash = frameResult.sourceHash;
-  const storyRaw = await generateJson(generationRouter, 'missionDirectorStoryPositioner', {
-    lane: 'utility',
+  const storyGraphSelection = await runMissionDirectorStoryPositionSelection({
+    generationRouter,
     sourceHash,
-    context: { ...frameResult, sourceHash },
-    responseFormat: 'json'
+    campaignState: options.campaignState,
+    packageData: options.packageData,
+    missionGraph: options.graph || frameResult.frame.packageStoryMap,
+    sourceFrameRef: options.sourceFrameRef || null,
+    branchId: options.campaignState?.campaignChatBinding?.saveId || 'main'
   });
-  if (!storyRaw.ok) return { ok: false, route: 'pause', turnPacket: null, diagnostics: { stage: 'storyPositioner', error: storyRaw.error } };
-  const story = normalizeMissionStoryPosition(storyRaw.value, { expectedSourceHash: sourceHash });
-  if (!story.ok) return { ok: false, route: 'pause', turnPacket: null, diagnostics: { stage: 'storyPositionerValidation', error: story.error } };
+  if (!storyGraphSelection.ok) return { ok: false, route: 'pause', turnPacket: null, diagnostics: { stage: 'storyGraphSelection', error: storyGraphSelection.diagnostics } };
+  const story = storyPositionFromSelection({ sourceHash, storyGraph: storyGraphSelection, frameResult });
+  if (!story.ok) return { ok: false, route: 'pause', turnPacket: null, diagnostics: { stage: 'storyGraphSelectionAdapter', error: story.error } };
   if (story.value.outcomeRelevance.route !== 'outcome') {
-    return { ok: true, route: story.value.outcomeRelevance.route, storyPosition: story.value, outcomePlan: null, review: null, turnPacket: null, diagnostics: { sourceHash } };
+    return {
+      ok: true,
+      route: story.value.outcomeRelevance.route,
+      storyPosition: story.value,
+      storyGraph: storyGraphSelection,
+      outcomePlan: null,
+      review: null,
+      turnPacket: null,
+      diagnostics: { sourceHash, storyGraph: storyGraphSelection.diagnostics }
+    };
   }
   const storyPositionHash = hashStableJson(story.value);
   const outcomeRaw = await generateJson(generationRouter, 'missionDirectorOutcomePlanner', {
@@ -160,6 +240,22 @@ export async function runMissionDirectorModelSpine(options = {}) {
   });
   if (!outcome.ok) return { ok: false, route: 'pause', storyPosition: story.value, turnPacket: null, diagnostics: { stage: 'outcomePlannerValidation', error: outcome.error } };
   const outcomePlanHash = hashStableJson(outcome.value);
+  const storyDelta = await runMissionDirectorStoryDeltaSpine({
+    generationRouter,
+    sourceHash,
+    storyContextIndex: storyGraphSelection.storyContextIndex,
+    storyCandidates: storyGraphSelection.storyCandidates,
+    selection: storyGraphSelection.selection,
+    selectionHash: storyGraphSelection.selectionHash,
+    outcomePlanHash
+  });
+  if (!storyDelta.ok) return { ok: false, route: 'pause', storyPosition: story.value, outcomePlan: outcome.value, turnPacket: null, diagnostics: { stage: 'storyGraphDelta', error: storyDelta.diagnostics } };
+  const storyGraph = {
+    ...storyGraphSelection,
+    deltaPlan: storyDelta.deltaPlan,
+    deltaReview: storyDelta.deltaReview,
+    deltaPlanHash: storyDelta.deltaPlanHash
+  };
   const reviewRaw = await generateJson(generationRouter, 'missionDirectorPlanReviewer', {
     lane: 'utility',
     sourceHash,
@@ -171,11 +267,12 @@ export async function runMissionDirectorModelSpine(options = {}) {
   if (!review.ok || !review.value.approved || review.value.requiredAction !== 'approve') {
     return { ok: false, route: review.value?.requiredAction || 'pause', storyPosition: story.value, outcomePlan: outcome.value, review: review.value || null, turnPacket: null, diagnostics: { stage: 'reviewerValidation', error: review.error } };
   }
-  const turnPacket = buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot, storyPosition: story.value, outcomePlan: outcome.value, review: review.value });
+  const turnPacket = buildTurnPacketFromOutcomePlan({ turnId, sceneSnapshot, storyPosition: story.value, outcomePlan: outcome.value, review: review.value, storyGraph });
   return {
     ok: true,
     route: 'outcome',
     storyPosition: story.value,
+    storyGraph,
     outcomePlan: outcome.value,
     review: review.value,
     turnPacket,

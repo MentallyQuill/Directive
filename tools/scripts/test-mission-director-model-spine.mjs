@@ -3,9 +3,14 @@ import fs from 'node:fs';
 import { runMissionDirectorModelSpine } from '../../src/directors/mission-director-model-spine.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
-  MISSION_OUTCOME_PLAN_KIND,
-  MISSION_STORY_POSITION_KIND
+  MISSION_OUTCOME_PLAN_KIND
 } from '../../src/directors/mission-director-model-contracts.mjs';
+import {
+  STORY_DELTA_PLAN_KIND,
+  STORY_DELTA_REVIEW_KIND,
+  STORY_POSITION_REVIEW_KIND,
+  STORY_POSITION_SELECTION_KIND
+} from '../../src/story/story-position-contracts.mjs';
 
 function routerFor({ storyRoute = 'outcome', reviewerAction = 'approve' } = {}) {
   const calls = [];
@@ -15,39 +20,47 @@ function routerFor({ storyRoute = 'outcome', reviewerAction = 'approve' } = {}) 
       calls.push({ roleId, request });
       const frameHash = request.context?.sourceHash || request.sourceHash;
       if (roleId === 'missionDirectorStoryPositioner') {
+        const candidateId = storyRoute === 'hostContinue'
+          ? request.context.storyCandidates[0]?.id
+          : request.context.storyCandidates.find((candidate) => candidate.status === 'active')?.id;
         return {
           ok: true,
           response: {
             content: {
-              kind: MISSION_STORY_POSITION_KIND,
+              kind: STORY_POSITION_SELECTION_KIND,
               schemaVersion: 1,
               sourceHash: frameHash,
+              primaryCandidateId: candidateId,
+              secondaryCandidateIds: [],
+              route: storyRoute,
               confidence: 0.9,
-              storyPosition: {
-                contextType: 'phase_window',
-                missionId: 'prelude-a-ship-underway',
-                questId: 'prelude-a-ship-underway',
-                phaseId: 'ready-room-handover',
-                locationId: 'captain-ready-room',
-                anchorId: 'ready-room-whitaker-question',
-                anchorFrom: 'ready-room-entry-complete',
-                anchorTo: 'ready-room-handoff-close',
-                arc: 'Prelude',
-                phase: 'A Ship Underway',
-                currentConversation: 'Whitaker asks for the XO first read.'
-              },
-              sceneContinuity: {
+              evidenceRefs: ['message:18'],
+              ignoredStaleSetup: [],
+              continuityGuards: {
                 mustPreserve: ['Already in ready room.'],
                 mustNotReestablish: ['Boarding the ship.']
               },
-              outcomeRelevance: {
-                route: storyRoute,
-                reason: 'fixture',
-                activeDecisionIds: ['decision.ready-room-handover'],
-                candidateOutcomeIds: ['outcome.ready-room'],
-                requiresClarification: false
-              },
-              sourceUse: { evidenceRefs: ['message:18'], ignoredStaleSetup: [], uncertainties: [] }
+              unresolved: []
+            }
+          }
+        };
+      }
+      if (roleId === 'missionDirectorStoryPositionReviewer') {
+        return {
+          ok: true,
+          response: {
+            content: {
+              kind: STORY_POSITION_REVIEW_KIND,
+              schemaVersion: 1,
+              sourceHash: frameHash,
+              selectionHash: request.context.selectionHash,
+              approved: true,
+              requiredAction: 'approve',
+              risk: 'low',
+              reasons: [],
+              rejectedCandidateIds: [],
+              staleHistoryRisk: false,
+              forbiddenAssertionRisk: false
             }
           }
         };
@@ -80,6 +93,49 @@ function routerFor({ storyRoute = 'outcome', reviewerAction = 'approve' } = {}) 
               },
               stateProposal: { allowedRoots: ['mission'], operations: [] },
               diagnostics: { reasonerUsed: false, uncertainties: [], reviewRequired: false }
+            }
+          }
+        };
+      }
+      if (roleId === 'missionDirectorStoryDeltaPlanner') {
+        return {
+          ok: true,
+          response: {
+            content: {
+              kind: STORY_DELTA_PLAN_KIND,
+              schemaVersion: 1,
+              sourceHash: frameHash,
+              selectionHash: request.context.selectionHash,
+              outcomePlanHash: request.context.outcomePlanHash,
+              eventDrafts: [{
+                eventType: 'missionOutcomeCommitted',
+                nodeTransitions: [{ nodeId: 'phase.ready-room-handover', to: 'active', reason: 'Ready room handover remains the accepted surface.' }],
+                factTransitions: [{ factId: 'crew.transfer-cohort-tension', to: 'known' }],
+                threadTransitions: [],
+                commandLogRefs: []
+              }],
+              rejectedAssertions: [],
+              diagnostics: { reasonerUsed: false, uncertainties: [] }
+            }
+          }
+        };
+      }
+      if (roleId === 'missionDirectorStoryDeltaReviewer') {
+        return {
+          ok: true,
+          response: {
+            content: {
+              kind: STORY_DELTA_REVIEW_KIND,
+              schemaVersion: 1,
+              sourceHash: frameHash,
+              deltaPlanHash: request.context.deltaPlanHash,
+              approved: true,
+              requiredAction: 'approve',
+              risk: 'low',
+              reasons: [],
+              forbiddenPastAssignment: false,
+              futureFactLeak: false,
+              missingBranchAuthority: false
             }
           }
         };
@@ -143,9 +199,18 @@ const result = await runMissionDirectorModelSpine({ ...baseOptions, generationRo
 assert.equal(result.ok, true);
 assert.equal(result.route, 'outcome');
 assert.equal(result.turnPacket.outcomePacket.resultBand, 'Partial Success');
+assert.equal(result.turnPacket.provenance.storyGraph.selectedCandidateIds.length > 0, true);
+assert.equal(result.turnPacket.stateDelta.openWorld.modelStoryDeltaPlan.eventDrafts.length, 1);
+assert.equal(
+  result.turnPacket.narratorPacket.constraints.some((item) => item.includes('Do not reestablish completed story nodes')),
+  true
+);
 assert.deepEqual(router.calls.map((call) => call.roleId), [
   'missionDirectorStoryPositioner',
+  'missionDirectorStoryPositionReviewer',
   'missionDirectorOutcomePlanner',
+  'missionDirectorStoryDeltaPlanner',
+  'missionDirectorStoryDeltaReviewer',
   'missionDirectorPlanReviewer'
 ]);
 
@@ -154,7 +219,10 @@ const hostResult = await runMissionDirectorModelSpine({ ...baseOptions, generati
 assert.equal(hostResult.ok, true);
 assert.equal(hostResult.route, 'hostContinue');
 assert.equal(hostResult.turnPacket, null);
-assert.deepEqual(hostRouter.calls.map((call) => call.roleId), ['missionDirectorStoryPositioner']);
+assert.deepEqual(hostRouter.calls.map((call) => call.roleId), [
+  'missionDirectorStoryPositioner',
+  'missionDirectorStoryPositionReviewer'
+]);
 
 const rejectedRouter = routerFor({ reviewerAction: 'pause' });
 const rejected = await runMissionDirectorModelSpine({ ...baseOptions, generationRouter: rejectedRouter });

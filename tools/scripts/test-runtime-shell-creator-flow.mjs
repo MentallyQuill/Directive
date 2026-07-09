@@ -22,9 +22,14 @@ import {
 } from '../../src/storage/directive-storage-repository.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
-  MISSION_OUTCOME_PLAN_KIND,
-  MISSION_STORY_POSITION_KIND
+  MISSION_OUTCOME_PLAN_KIND
 } from '../../src/directors/mission-director-model-contracts.mjs';
+import {
+  STORY_DELTA_PLAN_KIND,
+  STORY_DELTA_REVIEW_KIND,
+  STORY_POSITION_REVIEW_KIND,
+  STORY_POSITION_SELECTION_KIND
+} from '../../src/story/story-position-contracts.mjs';
 
 const root = process.cwd();
 
@@ -245,35 +250,62 @@ function createCreatorFlowGenerationClient() {
     if (role === 'missionDirectorStoryPositioner') {
       const sourceHash = request.context?.sourceHash || request.sourceHash;
       return structuredResponse({
-        kind: MISSION_STORY_POSITION_KIND,
+        kind: STORY_POSITION_SELECTION_KIND,
         schemaVersion: 1,
         sourceHash,
+        primaryCandidateId: request.context?.storyCandidates?.find((candidate) => candidate.status === 'active')?.id || request.context?.storyCandidates?.[0]?.id || '',
+        secondaryCandidateIds: [],
+        route: 'outcome',
         confidence: 0.87,
-        storyPosition: {
-          contextType: 'phase_window',
-          missionId: 'prelude-a-ship-underway',
-          questId: 'prelude-a-ship-underway',
-          phaseId: 'ready-room-handover',
-          locationId: 'breckenridge-bridge',
-          anchorId: 'creator-flow-command',
-          anchorFrom: 'creator-flow-briefing',
-          anchorTo: 'creator-flow-outcome',
-          arc: 'Prelude',
-          phase: 'A Ship Underway',
-          currentConversation: 'The bridge crew waits for the commander order.'
-        },
-        sceneContinuity: {
-          mustPreserve: ['The active watch is already underway.'],
-          mustNotReestablish: ['The campaign opening']
-        },
-        outcomeRelevance: {
-          route: 'outcome',
-          reason: 'The player gives a durable command.',
-          activeDecisionIds: [],
-          candidateOutcomeIds: ['outcome.creator-flow-command'],
-          requiresClarification: false
-        },
-        sourceUse: { evidenceRefs: ['message:creator-flow'], ignoredStaleSetup: [], uncertainties: [] }
+        evidenceRefs: ['message:creator-flow'],
+        ignoredStaleSetup: [],
+        continuityGuards: { mustPreserve: ['The active watch is already underway.'], mustNotReestablish: ['The campaign opening'] },
+        unresolved: []
+      });
+    }
+    if (role === 'missionDirectorStoryPositionReviewer') {
+      const sourceHash = request.context?.sourceHash || request.sourceHash;
+      return structuredResponse({
+        kind: STORY_POSITION_REVIEW_KIND,
+        schemaVersion: 1,
+        sourceHash,
+        selectionHash: request.context?.selectionHash,
+        approved: true,
+        requiredAction: 'approve',
+        risk: 'low',
+        reasons: [],
+        rejectedCandidateIds: [],
+        staleHistoryRisk: false,
+        forbiddenAssertionRisk: false
+      });
+    }
+    if (role === 'missionDirectorStoryDeltaPlanner') {
+      const sourceHash = request.context?.sourceHash || request.sourceHash;
+      return structuredResponse({
+        kind: STORY_DELTA_PLAN_KIND,
+        schemaVersion: 1,
+        sourceHash,
+        selectionHash: request.context?.selectionHash,
+        outcomePlanHash: request.context?.outcomePlanHash,
+        eventDrafts: [],
+        rejectedAssertions: [],
+        diagnostics: { reasonerUsed: true, uncertainties: [] }
+      });
+    }
+    if (role === 'missionDirectorStoryDeltaReviewer') {
+      const sourceHash = request.context?.sourceHash || request.sourceHash;
+      return structuredResponse({
+        kind: STORY_DELTA_REVIEW_KIND,
+        schemaVersion: 1,
+        sourceHash,
+        deltaPlanHash: request.context?.deltaPlanHash,
+        approved: true,
+        requiredAction: 'approve',
+        risk: 'low',
+        reasons: [],
+        forbiddenPastAssignment: false,
+        futureFactLeak: false,
+        missingBranchAuthority: false
       });
     }
     if (role === 'missionDirectorOutcomePlanner') {

@@ -25,9 +25,14 @@ import { hashStableJson } from '../../src/runtime/architecture-redesign-contract
 import { createProvisionalDirectorTurnRuntimeAsync } from '../../src/runtime/director-turn-runtime.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
-  MISSION_OUTCOME_PLAN_KIND,
-  MISSION_STORY_POSITION_KIND
+  MISSION_OUTCOME_PLAN_KIND
 } from '../../src/directors/mission-director-model-contracts.mjs';
+import {
+  STORY_DELTA_PLAN_KIND,
+  STORY_DELTA_REVIEW_KIND,
+  STORY_POSITION_REVIEW_KIND,
+  STORY_POSITION_SELECTION_KIND
+} from '../../src/story/story-position-contracts.mjs';
 import { buildContinuityProjectionMatrix } from '../../src/continuity/index.mjs';
 import {
   createStateDeltaGateway,
@@ -42,6 +47,7 @@ const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, fil
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 function modelSpineFixtureResponse(roleId, request) {
   const sourceHash = request.context?.sourceHash || request.sourceHash;
@@ -50,32 +56,80 @@ function modelSpineFixtureResponse(roleId, request) {
       ok: true,
       response: {
         content: {
-          kind: MISSION_STORY_POSITION_KIND,
+          kind: STORY_POSITION_SELECTION_KIND,
           schemaVersion: 1,
           sourceHash,
+          primaryCandidateId: request.context?.storyCandidates?.find((candidate) => candidate.status === 'active')?.id || request.context?.storyCandidates?.[0]?.id || '',
+          secondaryCandidateIds: [],
+          route: 'outcome',
           confidence: 0.9,
-          storyPosition: {
-            contextType: 'phase_window',
-            missionId: 'prelude-a-ship-underway',
-            questId: 'prelude-a-ship-underway',
-            phaseId: 'ready-room-handover',
-            locationId: 'captain-ready-room',
-            anchorId: 'ready-room-whitaker-question',
-            anchorFrom: 'ready-room-entry-complete',
-            anchorTo: 'ready-room-handoff-close',
-            arc: 'Prelude',
-            phase: 'A Ship Underway',
-            currentConversation: 'Whitaker asks for the XO first read.'
-          },
-          sceneContinuity: { mustPreserve: ['Already in ready room.'], mustNotReestablish: ['Boarding the ship.'] },
-          outcomeRelevance: {
-            route: 'outcome',
-            reason: 'fixture',
-            activeDecisionIds: ['decision.ready-room-handover'],
-            candidateOutcomeIds: ['outcome.ready-room'],
-            requiresClarification: false
-          },
-          sourceUse: { evidenceRefs: ['message:18'], ignoredStaleSetup: [], uncertainties: [] }
+          evidenceRefs: ['message:18'],
+          ignoredStaleSetup: [],
+          continuityGuards: { mustPreserve: ['Already in ready room.'], mustNotReestablish: ['Boarding the ship.'] },
+          unresolved: []
+        }
+      }
+    };
+  }
+  if (roleId === 'missionDirectorStoryPositionReviewer') {
+    return {
+      ok: true,
+      response: {
+        content: {
+          kind: STORY_POSITION_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash,
+          selectionHash: request.context?.selectionHash,
+          approved: true,
+          requiredAction: 'approve',
+          risk: 'low',
+          reasons: [],
+          rejectedCandidateIds: [],
+          staleHistoryRisk: false,
+          forbiddenAssertionRisk: false
+        }
+      }
+    };
+  }
+  if (roleId === 'missionDirectorStoryDeltaPlanner') {
+    return {
+      ok: true,
+      response: {
+        content: {
+          kind: STORY_DELTA_PLAN_KIND,
+          schemaVersion: 1,
+          sourceHash,
+          selectionHash: request.context?.selectionHash,
+          outcomePlanHash: request.context?.outcomePlanHash,
+          eventDrafts: [{
+            eventType: 'missionOutcomeCommitted',
+            nodeTransitions: [{ nodeId: 'phase.ready-room-handover', to: 'active', reason: 'Fixture accepted ready room handover.' }],
+            factTransitions: [{ factId: 'crew.transfer-cohort-tension', to: 'known' }],
+            threadTransitions: [],
+            commandLogRefs: []
+          }],
+          rejectedAssertions: [],
+          diagnostics: { reasonerUsed: false, uncertainties: [] }
+        }
+      }
+    };
+  }
+  if (roleId === 'missionDirectorStoryDeltaReviewer') {
+    return {
+      ok: true,
+      response: {
+        content: {
+          kind: STORY_DELTA_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash,
+          deltaPlanHash: request.context?.deltaPlanHash,
+          approved: true,
+          requiredAction: 'approve',
+          risk: 'low',
+          reasons: [],
+          forbiddenPastAssignment: false,
+          futureFactLeak: false,
+          missingBranchAuthority: false
         }
       }
     };
@@ -144,6 +198,7 @@ const missionDirectorModelRuntime = await createProvisionalDirectorTurnRuntimeAs
     knowledgeLedger: { facts: [{ id: 'crew.transfer-cohort-tension', known: true }] }
   },
   packageData,
+  graph: missionGraph,
   projection: {},
   crewDataset: {},
   turnId: 'turn.model-spine-test',
@@ -158,9 +213,12 @@ const missionDirectorModelRuntime = await createProvisionalDirectorTurnRuntimeAs
   arbiterPlan: { route: 'directiveOutcome' },
   recentTranscript: [{ role: 'assistant', text: 'Whitaker asks for the XO first read.' }]
 });
-assert.deepEqual(missionDirectorModelRoles.slice(0, 3), [
+assert.deepEqual(missionDirectorModelRoles.slice(0, 6), [
   'missionDirectorStoryPositioner',
+  'missionDirectorStoryPositionReviewer',
   'missionDirectorOutcomePlanner',
+  'missionDirectorStoryDeltaPlanner',
+  'missionDirectorStoryDeltaReviewer',
   'missionDirectorPlanReviewer'
 ]);
 assert.equal(JSON.stringify(missionDirectorModelRuntime).includes('complete-ready-room-handover'), false);

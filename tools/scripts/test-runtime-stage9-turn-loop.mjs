@@ -5,9 +5,14 @@ import path from 'node:path';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
-  MISSION_OUTCOME_PLAN_KIND,
-  MISSION_STORY_POSITION_KIND
+  MISSION_OUTCOME_PLAN_KIND
 } from '../../src/directors/mission-director-model-contracts.mjs';
+import {
+  STORY_DELTA_PLAN_KIND,
+  STORY_DELTA_REVIEW_KIND,
+  STORY_POSITION_REVIEW_KIND,
+  STORY_POSITION_SELECTION_KIND
+} from '../../src/story/story-position-contracts.mjs';
 
 const root = process.cwd();
 
@@ -157,35 +162,74 @@ const missionDirectorRouter = {
         ok: true,
         response: {
           content: {
-            kind: MISSION_STORY_POSITION_KIND,
+            kind: STORY_POSITION_SELECTION_KIND,
             schemaVersion: 1,
             sourceHash,
+            primaryCandidateId: request.context?.storyCandidates?.find((candidate) => candidate.status === 'active')?.id || request.context?.storyCandidates?.[0]?.id || '',
+            secondaryCandidateIds: [],
+            route: 'outcome',
             confidence: 0.91,
-            storyPosition: {
-              contextType: 'phase_window',
-              missionId: 'prelude-a-ship-underway',
-              questId: 'prelude-a-ship-underway',
-              phaseId: 'shuttle-rendezvous',
-              locationId: 'breckenridge-bridge',
-              anchorId: 'hesperus-fraud-command',
-              anchorFrom: 'hesperus-briefing',
-              anchorTo: 'hesperus-aftermath',
-              arc: 'Prelude',
-              phase: 'Hesperus Fraud',
-              currentConversation: 'The bridge weighs passenger safety and evidence custody.'
-            },
-            sceneContinuity: {
-              mustPreserve: ['The Hesperus fraud command decision is active.'],
-              mustNotReestablish: ['The campaign opening']
-            },
-            outcomeRelevance: {
-              route: 'outcome',
-              reason: 'The player gives a durable command decision.',
-              activeDecisionIds: [],
-              candidateOutcomeIds: ['outcome.hesperus-fraud'],
-              requiresClarification: false
-            },
-            sourceUse: { evidenceRefs: ['message:stage9'], ignoredStaleSetup: [], uncertainties: [] }
+            evidenceRefs: ['message:stage9'],
+            ignoredStaleSetup: [],
+            continuityGuards: { mustPreserve: ['The Hesperus fraud command decision is active.'], mustNotReestablish: ['The campaign opening'] },
+            unresolved: []
+          }
+        }
+      };
+    }
+    if (roleId === 'missionDirectorStoryPositionReviewer') {
+      return {
+        ok: true,
+        response: {
+          content: {
+            kind: STORY_POSITION_REVIEW_KIND,
+            schemaVersion: 1,
+            sourceHash,
+            selectionHash: request.context?.selectionHash,
+            approved: true,
+            requiredAction: 'approve',
+            risk: 'low',
+            reasons: [],
+            rejectedCandidateIds: [],
+            staleHistoryRisk: false,
+            forbiddenAssertionRisk: false
+          }
+        }
+      };
+    }
+    if (roleId === 'missionDirectorStoryDeltaPlanner') {
+      return {
+        ok: true,
+        response: {
+          content: {
+            kind: STORY_DELTA_PLAN_KIND,
+            schemaVersion: 1,
+            sourceHash,
+            selectionHash: request.context?.selectionHash,
+            outcomePlanHash: request.context?.outcomePlanHash,
+            eventDrafts: [],
+            rejectedAssertions: [],
+            diagnostics: { reasonerUsed: true, uncertainties: [] }
+          }
+        }
+      };
+    }
+    if (roleId === 'missionDirectorStoryDeltaReviewer') {
+      return {
+        ok: true,
+        response: {
+          content: {
+            kind: STORY_DELTA_REVIEW_KIND,
+            schemaVersion: 1,
+            sourceHash,
+            deltaPlanHash: request.context?.deltaPlanHash,
+            approved: true,
+            requiredAction: 'approve',
+            risk: 'low',
+            reasons: [],
+            forbiddenPastAssignment: false,
+            futureFactLeak: false,
+            missingBranchAuthority: false
           }
         }
       };
