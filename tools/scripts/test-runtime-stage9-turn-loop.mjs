@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import {
+  MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+  MISSION_OUTCOME_PLAN_KIND,
+  MISSION_STORY_POSITION_KIND
+} from '../../src/directors/mission-director-model-contracts.mjs';
 
 const root = process.cwd();
 
@@ -144,6 +149,105 @@ const narrationProvider = {
   }
 };
 
+const missionDirectorRouter = {
+  async generate(roleId, request = {}) {
+    const sourceHash = request.context?.sourceHash || request.sourceHash;
+    if (roleId === 'missionDirectorStoryPositioner') {
+      return {
+        ok: true,
+        response: {
+          content: {
+            kind: MISSION_STORY_POSITION_KIND,
+            schemaVersion: 1,
+            sourceHash,
+            confidence: 0.91,
+            storyPosition: {
+              contextType: 'phase_window',
+              missionId: 'prelude-a-ship-underway',
+              questId: 'prelude-a-ship-underway',
+              phaseId: 'shuttle-rendezvous',
+              locationId: 'breckenridge-bridge',
+              anchorId: 'hesperus-fraud-command',
+              anchorFrom: 'hesperus-briefing',
+              anchorTo: 'hesperus-aftermath',
+              arc: 'Prelude',
+              phase: 'Hesperus Fraud',
+              currentConversation: 'The bridge weighs passenger safety and evidence custody.'
+            },
+            sceneContinuity: {
+              mustPreserve: ['The Hesperus fraud command decision is active.'],
+              mustNotReestablish: ['The campaign opening']
+            },
+            outcomeRelevance: {
+              route: 'outcome',
+              reason: 'The player gives a durable command decision.',
+              activeDecisionIds: [],
+              candidateOutcomeIds: ['outcome.hesperus-fraud'],
+              requiresClarification: false
+            },
+            sourceUse: { evidenceRefs: ['message:stage9'], ignoredStaleSetup: [], uncertainties: [] }
+          }
+        }
+      };
+    }
+    if (roleId === 'missionDirectorOutcomePlanner') {
+      return {
+        ok: true,
+        response: {
+          content: {
+            kind: MISSION_OUTCOME_PLAN_KIND,
+            schemaVersion: 1,
+            sourceHash,
+            storyPositionHash: request.context?.storyPositionHash,
+            resultBand: 'Partial Success',
+            outcomeSummary: 'The Breckenridge protects passengers, preserves telemetry, and logs the owner for inquiry.',
+            consequencePlan: {
+              costs: ['The order accepts delay while evidence is secured.'],
+              revealedFactIds: [],
+              commandDecisionAwards: [{
+                track: 'resolve',
+                reason: 'The command uses lawful authority, evidence custody, and accepted delay.'
+              }],
+              openAssignments: [],
+              questOutcomeKey: '',
+              completionRecommendation: 'continue'
+            },
+            narrationPlan: {
+              allowedFacts: ['Passenger safety and telemetry custody are visible priorities.'],
+              forbiddenFacts: [],
+              constraints: ['Narrate the committed result only.'],
+              mustPreserve: ['The Hesperus fraud command decision is active.'],
+              mustNotReestablish: ['The campaign opening']
+            },
+            stateProposal: { allowedRoots: ['mission'], operations: [] },
+            diagnostics: { reasonerUsed: true, uncertainties: [], reviewRequired: false }
+          }
+        }
+      };
+    }
+    if (roleId === 'missionDirectorPlanReviewer') {
+      return {
+        ok: true,
+        response: {
+          content: {
+            kind: MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+            schemaVersion: 1,
+            sourceHash,
+            storyPositionHash: request.context?.storyPositionHash,
+            outcomePlanHash: request.context?.outcomePlanHash,
+            approved: true,
+            risk: 'low',
+            requiredAction: 'approve',
+            reasons: [],
+            narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+          }
+        }
+      };
+    }
+    return { ok: false, error: { code: 'unexpected_role' } };
+  }
+};
+
 const app = createApp('stage9-spend');
 await startCampaign(app);
 await app.recoverCommandBearingPoint({
@@ -158,7 +262,8 @@ assert.equal(readied.applied, true);
 
 const preview = await app.previewDirectorTurn({
   turnId: 'turn.stage9.hesperus.001',
-  ...hesperusOverrides()
+  ...hesperusOverrides(),
+  generationRouter: missionDirectorRouter
 });
 assert.equal(preview.provisionalOutcome.resultBand, 'Partial Success');
 assert.equal(preview.commandBearingPrompt.eligible, true);
@@ -197,9 +302,9 @@ assert.equal(committed.commandBearingSpend.from, 'Partial Success');
 assert.equal(committed.commandBearingSpend.to, 'Great Success');
 assert.equal(committed.narrationResult.ok, true);
 assert.equal(committed.view.pendingDirectorTurn, null);
-assert.equal(committed.campaignState.mission.activePhaseId, 'hesperus-aftermath');
+assert.equal(committed.campaignState.mission.activePhaseId, 'shuttle-rendezvous');
 assert.equal(committed.campaignState.commandBearing.resolve.points, 0);
-assert.equal(committed.campaignState.commandBearing.resolve.marks, 1);
+assert.equal(committed.campaignState.commandBearing.resolve.marks, 0);
 assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001'], {
   outcomeId: 'outcome.stage9.hesperus.001',
   ingressId: '',
@@ -208,7 +313,7 @@ assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.sta
   track: 'resolve',
   from: 'Partial Success',
   to: 'Great Success',
-  rationale: 'The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety.'
+  rationale: 'The command uses lawful authority, evidence custody, and accepted delay.'
 });
 assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001'], committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001']);
 const spentLedgerEntry = committed.campaignState.turnLedger.entries.at(-1);
@@ -228,7 +333,8 @@ const retryApp = createApp('stage9-retry');
 await startCampaign(retryApp);
 await retryApp.previewDirectorTurn({
   turnId: 'turn.stage9.hesperus.retry',
-  ...hesperusOverrides()
+  ...hesperusOverrides(),
+  generationRouter: missionDirectorRouter
 });
 const failedCommit = await retryApp.commitProvisionalDirectorTurn({
   generateNarration: true,
