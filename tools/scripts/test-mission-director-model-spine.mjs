@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { runMissionDirectorModelSpine } from '../../src/directors/mission-director-model-spine.mjs';
 import {
   MISSION_DIRECTOR_PLAN_REVIEW_KIND,
@@ -160,5 +161,10 @@ const rejected = await runMissionDirectorModelSpine({ ...baseOptions, generation
 assert.equal(rejected.ok, false);
 assert.equal(rejected.route, 'pause');
 assert.equal(rejected.turnPacket, null);
+
+const coordinatorSource = fs.readFileSync(new URL('../../src/directors/open-world-turn-coordinator.mjs', import.meta.url), 'utf8');
+assert.equal(coordinatorSource.includes("import { parseIntent }"), false);
+assert.equal(coordinatorSource.includes('deterministicQuestActionInterpretation'), false);
+assert.equal(coordinatorSource.includes('resolveAction('), false);
 
 console.log('mission director model spine passed');

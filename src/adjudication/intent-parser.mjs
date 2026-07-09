@@ -1,3 +1,4 @@
+// Legacy fixture/comparison parser. Foreground Mission Director runtime must not import this for semantic authority.
 import { detectCommandConductSignalsFromText } from './command-conduct.mjs';
 
 function includesAny(text, values) {

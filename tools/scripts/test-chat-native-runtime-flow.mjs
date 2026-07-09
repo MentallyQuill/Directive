@@ -16,6 +16,11 @@ import {
   listCampaignSaves
 } from '../../src/storage/directive-storage-repository.mjs';
 import {
+  MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+  MISSION_OUTCOME_PLAN_KIND,
+  MISSION_STORY_POSITION_KIND
+} from '../../src/directors/mission-director-model-contracts.mjs';
+import {
   loadCoreStoreStateV2,
   readCoreStoreProjectionsV2
 } from '../../src/storage/core-store-v2.mjs';
@@ -179,6 +184,83 @@ const host = createFakeDirectiveHost({
           })
         };
       },
+      missionDirectorStoryPositioner: ({ request }) => ({
+        providerId: 'fake-utility-mission-positioner',
+        text: JSON.stringify({
+          kind: MISSION_STORY_POSITION_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          confidence: 0.88,
+          storyPosition: {
+            contextType: 'phase_window',
+            missionId: 'prelude-a-ship-underway',
+            questId: 'prelude-a-ship-underway',
+            phaseId: 'bridge-watch',
+            locationId: 'breckenridge-bridge',
+            anchorId: 'bridge-pursuit-order',
+            anchorFrom: 'bridge-watch-active',
+            anchorTo: 'freighter-pursuit-ordered',
+            arc: 'Prelude',
+            phase: 'Bridge Watch',
+            currentConversation: 'The bridge crew waits for the commander order.'
+          },
+          sceneContinuity: {
+            mustPreserve: ['The current bridge watch is already underway.'],
+            mustNotReestablish: ['The campaign intro', 'Sam boarding the ship']
+          },
+          outcomeRelevance: {
+            route: 'outcome',
+            reason: 'The player gives a durable helm order.',
+            activeDecisionIds: [],
+            candidateOutcomeIds: ['outcome.bridge-pursuit'],
+            requiresClarification: false
+          },
+          sourceUse: { evidenceRefs: ['runtime-player-consequential'], ignoredStaleSetup: [], uncertainties: [] }
+        })
+      }),
+      missionDirectorOutcomePlanner: ({ request }) => ({
+        providerId: 'fake-reasoning-mission-planner',
+        text: JSON.stringify({
+          kind: MISSION_OUTCOME_PLAN_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          storyPositionHash: request.context?.storyPositionHash,
+          resultBand: 'Partial Success',
+          outcomeSummary: 'Helm changes course and the bridge commits to pursuing the freighter.',
+          consequencePlan: {
+            costs: ['The Breckenridge gives up the safer holding posture.'],
+            revealedFactIds: [],
+            commandDecisionAwards: [],
+            openAssignments: [],
+            questOutcomeKey: '',
+            completionRecommendation: 'continue'
+          },
+          narrationPlan: {
+            allowedFacts: ['The bridge crew is already on watch.'],
+            forbiddenFacts: [],
+            constraints: ['Do not reintroduce the campaign opening.'],
+            mustPreserve: ['The current bridge watch is already underway.'],
+            mustNotReestablish: ['The campaign intro', 'Sam boarding the ship']
+          },
+          stateProposal: { allowedRoots: ['mission'], operations: [] },
+          diagnostics: { reasonerUsed: true, uncertainties: [], reviewRequired: false }
+        })
+      }),
+      missionDirectorPlanReviewer: ({ request }) => ({
+        providerId: 'fake-utility-mission-reviewer',
+        text: JSON.stringify({
+          kind: MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          storyPositionHash: request.context?.storyPositionHash,
+          outcomePlanHash: request.context?.outcomePlanHash,
+          approved: true,
+          risk: 'low',
+          requiredAction: 'approve',
+          reasons: [],
+          narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+        })
+      }),
       continuityTracker: noChangeProposal,
       relationshipEvaluator: noChangeProposal,
       crewDirector: noChangeProposal,

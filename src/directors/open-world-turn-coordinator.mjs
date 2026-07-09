@@ -1,13 +1,7 @@
 import { runMissionDirectorTurn } from '../mission/director.mjs';
 import { commitDirectorTurn } from '../campaign/transaction-state.mjs';
-import { parseIntent } from '../adjudication/intent-parser.mjs';
 import { missionGraphForQuest } from '../mission/quest-graph-adapter.mjs';
 import { questInstanceById, questTemplateById } from '../quests/quest-ledger.mjs';
-import {
-  deterministicQuestActionInterpretation,
-  interpretQuestActionWithModel,
-  validateQuestActionInterpretation
-} from '../quests/action-interpreter.mjs';
 import { applySystemicQuestProgress, resolveSystemicQuestAction } from '../quests/systemic-quest-resolver.mjs';
 import { processWorldBoundary, resolveQuestBoundary } from './director-coordinator.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
@@ -114,38 +108,6 @@ function runTacticalOrSystemic({
   coreRecallEntries = []
 }) {
   const quest = foreground(campaignState);
-  const intentParse = parseIntent(sceneSnapshot);
-  const terminalCatastrophe = intentParse?.primaryIntent === 'terminal-catastrophic-command';
-  if (terminalCatastrophe && hasTacticalGraph(graph)) {
-    try {
-      return {
-        packet: runMissionDirectorTurn({
-          turnId,
-          graphPath: graphPath || `package:${graph.manifest?.id || campaignState.mission?.activeMissionId || 'active-mission'}`,
-          projectionPath,
-          graph,
-          projection,
-          crewDataset,
-          shipDataset,
-          sceneSnapshot,
-          campaignState,
-          continuityDirectorPacket,
-          arbiterPlan,
-          coreRecallEntries
-        }),
-        usedTacticalGraph: true,
-        interpretation: null,
-        fallbackReason: null
-      };
-    } catch (error) {
-      return {
-        packet: openOperationsPacket({ campaignState, packageData, turnId, playerInput, sceneSnapshot }),
-        usedTacticalGraph: false,
-        interpretation: null,
-        fallbackReason: `terminal-tactical-graph-failed:${error?.message || error}`
-      };
-    }
-  }
   if (!quest) return { packet: openOperationsPacket({ campaignState, packageData, turnId, playerInput, sceneSnapshot }), usedTacticalGraph: false, interpretation: null, fallbackReason: 'no-foreground-quest' };
   if (hasTacticalGraph(graph)) {
     try {
@@ -169,16 +131,15 @@ function runTacticalOrSystemic({
         fallbackReason: null
       };
     } catch (error) {
-      const resolvedInterpretation = interpretation || deterministicQuestActionInterpretation({ playerInput, state: campaignState, packageData, questId: quest.id, sourceAnchorRange: sceneSnapshot.sourceAnchorRange });
       return {
-        packet: resolveSystemicQuestAction({ state: campaignState, packageData, turnId, playerInput, interpretation: resolvedInterpretation.interpretation, questId: quest.id, sourceAnchorRange: sceneSnapshot.sourceAnchorRange }),
+        packet: openOperationsPacket({ campaignState, packageData, turnId, playerInput, sceneSnapshot }),
         usedTacticalGraph: false,
-        interpretation: resolvedInterpretation,
+        interpretation: null,
         fallbackReason: `tactical-graph-failed:${error?.message || error}`
       };
     }
   }
-  const resolvedInterpretation = interpretation || deterministicQuestActionInterpretation({ playerInput, state: campaignState, packageData, questId: quest.id, sourceAnchorRange: sceneSnapshot.sourceAnchorRange });
+  const resolvedInterpretation = interpretation;
   if (!resolvedInterpretation?.ok || !resolvedInterpretation.interpretation) {
     return { packet: openOperationsPacket({ campaignState, packageData, turnId, playerInput, sceneSnapshot }), usedTacticalGraph: false, interpretation: resolvedInterpretation, fallbackReason: resolvedInterpretation?.reason || 'interpretation-failed' };
   }
@@ -338,7 +299,7 @@ export function createDirectorCoordinatorTurn({
   const quest = foreground(campaignState);
   const generatedGraph = graph || (quest ? missionGraphForQuest(packageData, quest.templateId || quest.id, campaignState) : null);
   const validatedInterpretation = actionInterpretation
-    ? validateQuestActionInterpretation(actionInterpretation, { state: campaignState, packageData, questId: quest?.id, playerInput, sourceAnchorRange: sceneSnapshot.sourceAnchorRange })
+    ? { ok: true, interpretation: cloneJson(actionInterpretation) }
     : null;
   const resolved = runTacticalOrSystemic({ campaignState, packageData, graph: generatedGraph, projection, crewDataset, shipDataset, graphPath, projectionPath, turnId, playerInput, sceneSnapshot, interpretation: validatedInterpretation, continuityDirectorPacket, arbiterPlan, coreRecallEntries });
   return finalizeCoordinatedTurn({ campaignState, packageData, packet: resolved.packet, turnId, sceneSnapshot, sceneSnapshotOverrides, usedTacticalGraph: resolved.usedTacticalGraph, interpretation: resolved.interpretation, fallbackReason: resolved.fallbackReason, continuityDirectorPacket });

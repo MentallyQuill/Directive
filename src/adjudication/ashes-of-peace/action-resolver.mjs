@@ -1,3 +1,4 @@
+// Legacy fixture/comparison resolver. Foreground Mission Director runtime must not call this as semantic fallback.
 import {
   commandConductCosts,
   commandConductRemovalRequired,
