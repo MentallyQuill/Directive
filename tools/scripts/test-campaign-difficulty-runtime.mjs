@@ -6,6 +6,11 @@ import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import { readRuntimeCoreProjections } from '../../src/runtime/runtime-ledger-view.mjs';
 import { listCampaignSaves } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+  MISSION_OUTCOME_PLAN_KIND,
+  MISSION_STORY_POSITION_KIND
+} from '../../src/directors/mission-director-model-contracts.mjs';
 
 const root = process.cwd();
 
@@ -38,7 +43,81 @@ const host = createFakeDirectiveHost({
       campaignIntro: {
         providerId: 'fake-reasoning',
         text: 'Captain Whitaker yields the watch to Commander Serrin as the Breckenridge clears moorings.'
-      }
+      },
+      missionDirectorStoryPositioner: ({ request }) => ({
+        providerId: 'fake-mission-positioner',
+        text: JSON.stringify({
+          kind: MISSION_STORY_POSITION_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          confidence: 0.86,
+          storyPosition: {
+            contextType: 'phase_window',
+            missionId: 'prelude-a-ship-underway',
+            questId: 'prelude-a-ship-underway',
+            phaseId: 'ready-room-handover',
+            locationId: 'breckenridge-bridge',
+            anchorId: 'difficulty-preview-command',
+            anchorFrom: 'difficulty-preview-start',
+            anchorTo: 'difficulty-preview-outcome',
+            arc: 'Prelude',
+            phase: 'A Ship Underway',
+            currentConversation: 'The bridge coordinates a cautious response.'
+          },
+          sceneContinuity: { mustPreserve: ['The active Hesperus situation is underway.'], mustNotReestablish: ['The opening scene.'] },
+          outcomeRelevance: {
+            route: 'outcome',
+            reason: 'The player coordinates a durable response.',
+            activeDecisionIds: [],
+            candidateOutcomeIds: ['outcome.difficulty-preview'],
+            requiresClarification: false
+          },
+          sourceUse: { evidenceRefs: ['message:difficulty-preview'], ignoredStaleSetup: [], uncertainties: [] }
+        })
+      }),
+      missionDirectorOutcomePlanner: ({ request }) => ({
+        providerId: 'fake-mission-planner',
+        text: JSON.stringify({
+          kind: MISSION_OUTCOME_PLAN_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          storyPositionHash: request.context?.storyPositionHash,
+          resultBand: 'Partial Success',
+          outcomeSummary: 'The bridge coordinates a cautious model-authored response.',
+          consequencePlan: {
+            costs: ['The response remains cautious and bounded.'],
+            revealedFactIds: [],
+            commandDecisionAwards: [],
+            openAssignments: [],
+            questOutcomeKey: '',
+            completionRecommendation: 'continue'
+          },
+          narrationPlan: {
+            allowedFacts: ['The active Hesperus situation is underway.'],
+            forbiddenFacts: [],
+            constraints: ['Do not change campaign difficulty.'],
+            mustPreserve: ['The active Hesperus situation is underway.'],
+            mustNotReestablish: ['The opening scene.']
+          },
+          stateProposal: { allowedRoots: ['mission'], operations: [] },
+          diagnostics: { reasonerUsed: true, uncertainties: [], reviewRequired: false }
+        })
+      }),
+      missionDirectorPlanReviewer: ({ request }) => ({
+        providerId: 'fake-mission-reviewer',
+        text: JSON.stringify({
+          kind: MISSION_DIRECTOR_PLAN_REVIEW_KIND,
+          schemaVersion: 1,
+          sourceHash: request.context?.sourceHash || request.sourceHash,
+          storyPositionHash: request.context?.storyPositionHash,
+          outcomePlanHash: request.context?.outcomePlanHash,
+          approved: true,
+          risk: 'low',
+          requiredAction: 'approve',
+          reasons: [],
+          narrationSafety: { hiddenStateLeak: false, staleSetupRisk: false, forbiddenClaims: [] }
+        })
+      })
     }
   }
 });
