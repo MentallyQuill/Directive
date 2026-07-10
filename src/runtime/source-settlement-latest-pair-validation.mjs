@@ -51,6 +51,10 @@ function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
 
+function sourceText(snapshot = {}, key = 'previousAssistant') {
+  return compact(snapshot.source?.[key]?.text || snapshot.source?.[key]?.selectedVariant?.text || '', Number.POSITIVE_INFINITY);
+}
+
 function settlementHash(text = '') {
   let hash = 0x811c9dc5;
   for (const char of String(text || '')) {
@@ -102,6 +106,76 @@ function normalizeSettlement(raw = {}) {
     shipReadinessProposals: asArray(raw.shipReadinessProposals).slice(0, MAX_SHIP_READINESS_PROPOSALS),
     threadSignals: asArray(raw.threadSignals).slice(0, MAX_THREAD_SIGNALS)
   };
+}
+
+function explicitCommandDelegation(snapshot = {}) {
+  const assistantText = sourceText(snapshot, 'previousAssistant');
+  const playerText = sourceText(snapshot, 'currentPlayer');
+  const combined = `${assistantText}\n${playerText}`;
+  if (!assistantText) return null;
+
+  if (/\b(?:you have|take)\s+the\s+conn\b/i.test(assistantText)
+    || /\b(?:you have|take)\s+the\s+bridge\b/i.test(assistantText)) {
+    return {
+      delegationScope: 'conn',
+      playerAuthorityMode: 'delegated-xo',
+      summary: 'Accepted assistant prose explicitly gave the player the conn.'
+    };
+  }
+  if (/\b(?:this|that)\s+(?:one|decision|call)\s+is\s+your\s+call\b/i.test(assistantText)
+    || /\byour\s+call,\s*commander\b/i.test(assistantText)) {
+    return {
+      delegationScope: 'bounded-decision',
+      playerAuthorityMode: 'delegated-xo',
+      summary: 'Accepted assistant prose explicitly delegated a bounded decision to the player.'
+    };
+  }
+  if (/\b(?:you are|you're)\s+acting\s+captain\b/i.test(combined)
+    || /\bcommand\s+passes\s+to\s+(?:you|commander)\b/i.test(assistantText)) {
+    return {
+      delegationScope: 'acting-command',
+      playerAuthorityMode: 'acting-captain',
+      summary: 'Accepted assistant prose explicitly established acting command.'
+    };
+  }
+  return null;
+}
+
+function defaultLegalCommanderId({ campaignState = {}, snapshot = {} } = {}) {
+  const existing = campaignState.commandAuthority || {};
+  if (existing.legalCommanderId) return compact(existing.legalCommanderId);
+  if (existing.majorDecisionAuthorityId) return compact(existing.majorDecisionAuthorityId);
+  if (campaignState.captainState?.crewId) return compact(campaignState.captainState.crewId);
+  const assistantText = sourceText(snapshot, 'previousAssistant');
+  if (/\bwhitaker\b/i.test(assistantText)) return 'mara-whitaker';
+  return compact(existing.commandRecipientId || 'captain');
+}
+
+function commandAuthorityOperation({ campaignState = {}, snapshot = {}, settlementId = '', recordedAt = null } = {}) {
+  const delegation = explicitCommandDelegation(snapshot);
+  if (!delegation) return null;
+  const playerId = compact(campaignState.player?.id || snapshot.referenceResolver?.player?.id || 'player-commander');
+  const legalCommanderId = defaultLegalCommanderId({ campaignState, snapshot });
+  const actingCommand = delegation.delegationScope === 'acting-command';
+  const value = {
+    ...(campaignState.commandAuthority && typeof campaignState.commandAuthority === 'object' ? campaignState.commandAuthority : {}),
+    version: 1,
+    playerAgencyTargetId: playerId,
+    commandRecipientId: playerId,
+    connHolderId: playerId,
+    majorDecisionAuthorityId: actingCommand ? playerId : legalCommanderId,
+    legalCommanderId: actingCommand ? playerId : legalCommanderId,
+    operationalCommanderId: playerId,
+    delegationSourceId: actingCommand ? legalCommanderId : legalCommanderId,
+    delegationScope: delegation.delegationScope,
+    playerAuthorityMode: delegation.playerAuthorityMode,
+    commanderPresence: actingCommand ? 'absent' : 'present',
+    commanderStatus: actingCommand ? 'unavailable' : 'active',
+    playerAuthoritySummary: delegation.summary,
+    sourceSettlementId: settlementId,
+    lastUpdatedAt: recordedAt || timestamp()
+  };
+  return { op: 'replace', path: 'commandAuthority', value };
 }
 
 function normalizedText(value = '') {
@@ -1063,6 +1137,12 @@ export function validateLatestPairSettlement(rawSettlement, {
     .map((proposal) => normalizeThreadSignal(proposal, context))
     .map((record) => reinforceExistingThreadRecord(record, campaignState))
     .filter(Boolean);
+  const commandAuthority = commandAuthorityOperation({
+    campaignState,
+    snapshot,
+    settlementId,
+    recordedAt: context.recordedAt
+  });
 
   if (reasons.length) {
     return {
@@ -1096,6 +1176,9 @@ export function validateLatestPairSettlement(rawSettlement, {
     for (const thread of threads) {
       operations.push({ op: 'upsert', path: 'threadLedger.records', identityKey: 'id', value: thread });
     }
+  }
+  if (commandAuthority) {
+    operations.push(commandAuthority);
   }
 
   return {

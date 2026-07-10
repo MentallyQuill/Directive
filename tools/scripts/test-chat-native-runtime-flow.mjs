@@ -611,6 +611,21 @@ assert.equal(
   true,
   'Activation prompt should include turn-yield pacing contract.'
 );
+assert.equal(
+  host.prompt.inspect().blocks.some((block) => block.promptKey === 'directive.campaign.command-authority'),
+  true,
+  'Activation prompt should include command-authority contract.'
+);
+assert.equal(
+  host.prompt.inspect().blocks.some((block) => /Yield target:/i.test(block.content || block.text || '')),
+  false,
+  'Prompt should no longer use yield-target wording that implies command recipient.'
+);
+assert.equal(
+  host.prompt.inspect().blocks.some((block) => /Player agency target:/i.test(block.content || block.text || '')),
+  true,
+  'Prompt should name player agency target separately from command recipient.'
+);
 assert.equal(view.promptInspection.blockCount, host.prompt.inspect().blockCount);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
 assert.equal(generationRoleCount('continuityProjectionPlanner'), 1, 'Activation prompt installation should use the continuity planner once.');

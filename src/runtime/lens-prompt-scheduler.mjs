@@ -20,6 +20,7 @@ export const PROMPT_DIRTY_DOMAIN_ALIASES = Object.freeze({
   mission: 'missionQuestThread',
   missionThread: 'missionQuestThread',
   narrativeThread: 'missionQuestThread',
+  commandAuthority: 'command',
   commandBearing: 'command',
   commandCulture: 'command',
   commandCompetence: 'command',
@@ -62,6 +63,7 @@ const PROMPT_BUDGET_DEFAULTS = Object.freeze({
 export const REQUIRED_HOST_CONTINUE_PROMPT_KEYS = Object.freeze([
   'directive.contract',
   'directive.campaign.player-character',
+  'directive.campaign.command-authority',
   'directive.campaign.turn-yield'
 ]);
 
@@ -285,6 +287,7 @@ function promptBlockBudgetLane(block = {}) {
   if (explicit && LENS_PROMPT_BUDGET_LANES.includes(explicit)) return explicit;
   const key = asString(block.promptKey || block.key || block.id, '');
   if (/^directive\.scene\.active$/i.test(key) || /^immediate-scene$/i.test(key)) return 'activeScene';
+  if (/^directive\.campaign\.command-authority$/i.test(key)) return 'activeScene';
   if (/^(relevant-crew|directive\.crew|directive\.active-cast)/i.test(key)) return 'activeCast';
   if (/^(foreground-quest|active-pressures|engaged-threads|nearby-opportunities|main-arc-orientation|directive\.mission|directive\.command)/i.test(key)) return 'missionPressure';
   if (/^(command-log-continuity|directive\.recap\.committed|directive\.context\.revolving)/i.test(key)) return 'recentTranscript';

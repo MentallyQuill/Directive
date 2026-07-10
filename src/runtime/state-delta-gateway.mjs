@@ -31,6 +31,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'pressureLedger',
   'relationships',
   'commandCulture',
+  'commandAuthority',
   'commandBearing',
   'commandCompetence',
   'values',
@@ -64,6 +65,10 @@ function cloneJson(value) {
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function compact(value) {
@@ -856,6 +861,60 @@ function validateCommandBearingOperations(base, proposal, operations) {
   return acceptedEvidenceRecords;
 }
 
+const COMMAND_AUTHORITY_ENUMS = Object.freeze({
+  delegationScope: new Set(['none', 'recommendation', 'routine-execution', 'bounded-decision', 'conn', 'acting-command', 'full-command']),
+  playerAuthorityMode: new Set(['xo', 'delegated-xo', 'mission-commander', 'acting-captain', 'captain', 'uncertain']),
+  commanderPresence: new Set(['present', 'offscreen', 'absent', 'incapacitated', 'dead', 'missing', 'quarantined', 'under-inquiry', 'unknown']),
+  commanderStatus: new Set(['active', 'limited-duty', 'unavailable', 'relieved', 'deceased', 'missing', 'under-review', 'unknown'])
+});
+
+function knownCommandActorIds(campaignState = {}) {
+  return new Set([
+    'player-commander',
+    campaignState.player?.id,
+    campaignState.commandAuthority?.legalCommanderId,
+    campaignState.commandAuthority?.operationalCommanderId,
+    campaignState.commandAuthority?.commandRecipientId,
+    campaignState.commandAuthority?.majorDecisionAuthorityId,
+    campaignState.captainState?.crewId,
+    ...asArray(campaignState.crew?.seniorCrewIds)
+  ].map(compact).filter(Boolean));
+}
+
+function validateCommandAuthorityState(value = {}, campaignState = {}, now = null) {
+  if (!isObject(value)) {
+    const error = new Error('commandAuthority must be an object.');
+    error.code = 'DIRECTIVE_COMMAND_AUTHORITY_INVALID';
+    throw error;
+  }
+  for (const [field, allowed] of Object.entries(COMMAND_AUTHORITY_ENUMS)) {
+    if (value[field] === undefined) continue;
+    if (!allowed.has(compact(value[field]))) {
+      const error = new Error(`commandAuthority.${field} has invalid value "${value[field]}".`);
+      error.code = 'DIRECTIVE_COMMAND_AUTHORITY_ENUM_INVALID';
+      error.details = { field, allowed: [...allowed] };
+      throw error;
+    }
+  }
+  const knownActorIds = knownCommandActorIds(campaignState);
+  for (const field of ['connHolderId', 'commandRecipientId', 'majorDecisionAuthorityId', 'legalCommanderId', 'operationalCommanderId', 'delegationSourceId']) {
+    const actorId = compact(value[field]);
+    if (!actorId) continue;
+    if (!knownActorIds.has(actorId)) {
+      const error = new Error(`commandAuthority.${field} references unknown actor "${actorId}".`);
+      error.code = 'DIRECTIVE_COMMAND_AUTHORITY_ACTOR_UNKNOWN';
+      error.details = { field, actorId, knownActorIds: [...knownActorIds] };
+      throw error;
+    }
+  }
+  return {
+    version: 1,
+    ...cloneJson(value),
+    lastUpdatedAt: value.lastUpdatedAt || timestamp(now),
+    sourceOutcomeId: compact(value.sourceOutcomeId || value.outcomeId || '') || null
+  };
+}
+
 export function applyStateDeltaOperations({
   campaignState,
   proposal,
@@ -889,6 +948,9 @@ export function applyStateDeltaOperations({
   validateCommandBearingOperations(base, proposal, operations);
   const next = cloneJson(base);
   for (const operation of operations) applyOperation(next, operation);
+  if (roots.includes('commandAuthority')) {
+    next.commandAuthority = validateCommandAuthorityState(next.commandAuthority, next, now);
+  }
   const tracked = commitTrackedCampaignState({
     campaignState: base,
     nextCampaignState: next,
@@ -1523,6 +1585,7 @@ export const __stateDeltaGatewayTestHooks = Object.freeze({
   deepMerge,
   normalizePath,
   applyOperation,
+  validateCommandAuthorityState,
   normalizedTracking,
   normalizeDelta,
   bounded

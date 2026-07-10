@@ -191,6 +191,15 @@ const lens = createSyntheticLensPromptScheduler({
           role: 'system'
         },
         {
+          id: 'command-authority',
+          promptKey: 'directive.campaign.command-authority',
+          title: 'Command Authority',
+          text: 'Player agency target: Commander Sam Vickers. Command recipient: Captain Mara Whitaker. Do not treat player agency as automatic command authority.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
           id: 'turn-yield',
           promptKey: 'directive.campaign.turn-yield',
           title: 'Turn Yield Contract',
@@ -496,9 +505,11 @@ assert.equal(visibleFlush.installed.requiredPromptKeysPresent, true);
 assert.deepEqual(visibleFlush.installed.requiredPromptKeys, [
   'directive.contract',
   'directive.campaign.player-character',
+  'directive.campaign.command-authority',
   'directive.campaign.turn-yield'
 ]);
 assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.player-character'), true);
+assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.command-authority'), true);
 assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.turn-yield'), true);
 assert.equal(buildCalls.length, 1);
 assert.equal(promptCalls.some(([key]) => externalPromptKeys.has(key)), false, 'LENS install must not write external prompt keys');

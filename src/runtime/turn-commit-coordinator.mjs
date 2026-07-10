@@ -21,7 +21,7 @@ const MECHANICS_DOMAINS = Object.freeze([
   'campaign', 'crew', 'ship', 'mission', 'worldState', 'timeLedger', 'storyArcLedger',
   'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger', 'threadLedger',
   'eventLedger', 'attentionState', 'pressureLedger',
-  'relationships', 'commandCulture', 'commandBearing', 'commandCompetence', 'values',
+  'relationships', 'commandCulture', 'commandAuthority', 'commandBearing', 'commandCompetence', 'values',
   'directives', 'campaignTracks', 'campaignAssets', 'turnLedger', 'commandLog',
   'captainState'
 ]);
@@ -35,6 +35,7 @@ const MECHANICS_CHECKPOINT_STATE_ROOTS = Object.freeze([
   'campaignTracks',
   'canon',
   'captainState',
+  'commandAuthority',
   'commandBearing',
   'commandCompetence',
   'commandCulture',

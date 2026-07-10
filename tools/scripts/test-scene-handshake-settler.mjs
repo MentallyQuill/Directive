@@ -413,6 +413,91 @@ assert.match(
   'Latest-pair SRE command-log text should include accepted order details even when the model returns generic acknowledgement prose.'
 );
 
+const connDelegationHarness = createHarness('conn-delegation');
+connDelegationHarness.state = {
+  ...connDelegationHarness.state,
+  player: { id: 'player-commander', rank: 'Commander', billet: 'Executive Officer' }
+};
+const connDelegationAssistant = {
+  hostMessageId: 'assistant-whitaker-gives-conn',
+  index: 30,
+  role: 'assistant',
+  isUser: false,
+  text: 'Whitaker rises from the center chair. "Commander, you have the conn. Keep us on this rescue posture and call me before any major deviation."'
+};
+const connDelegationPlayer = {
+  hostMessageId: 'player-accepts-conn',
+  index: 31,
+  role: 'user',
+  isUser: true,
+  text: 'Aye, Captain. I have the conn and will hold the rescue posture.'
+};
+const connDelegationSnapshot = __latestPairSceneAdapterTestHooks.buildLatestPairSceneSnapshot({
+  campaignState: connDelegationHarness.state,
+  previousAssistantMessage: connDelegationAssistant,
+  currentPlayerMessage: connDelegationPlayer,
+  chatId: connDelegationHarness.state.campaignChatBinding.chatId,
+  recentMessages: [connDelegationAssistant, connDelegationPlayer]
+});
+const connDelegationValidation = validateLatestPairSettlement({
+  ...settlement,
+  openAssignmentProposals: [],
+  commandLogProposals: [],
+  shipReadinessProposals: [],
+  threadSignals: []
+}, {
+  campaignState: connDelegationHarness.state,
+  snapshot: connDelegationSnapshot,
+  settlementId: 'settlement:conn-delegation',
+  recordedAt: connDelegationHarness.now()
+});
+const commandAuthorityOp = connDelegationValidation.operations.find((operation) => operation.path === 'commandAuthority');
+assert.equal(commandAuthorityOp?.op, 'replace');
+assert.equal(commandAuthorityOp?.value.commandRecipientId, 'player-commander');
+assert.equal(commandAuthorityOp?.value.connHolderId, 'player-commander');
+assert.equal(commandAuthorityOp?.value.majorDecisionAuthorityId, 'mara-whitaker');
+assert.equal(commandAuthorityOp?.value.delegationScope, 'conn');
+
+const recommendationHarness = createHarness('recommendation-only');
+const recommendationAssistant = {
+  hostMessageId: 'assistant-whitaker-asks-opinion',
+  index: 32,
+  role: 'assistant',
+  isUser: false,
+  text: '"What do you think, Commander?" Whitaker asks, still holding the center chair.'
+};
+const recommendationPlayer = {
+  hostMessageId: 'player-gives-recommendation',
+  index: 33,
+  role: 'user',
+  isUser: true,
+  text: 'I recommend we launch a probe and keep the ship on station.'
+};
+const recommendationSnapshot = __latestPairSceneAdapterTestHooks.buildLatestPairSceneSnapshot({
+  campaignState: recommendationHarness.state,
+  previousAssistantMessage: recommendationAssistant,
+  currentPlayerMessage: recommendationPlayer,
+  chatId: recommendationHarness.state.campaignChatBinding.chatId,
+  recentMessages: [recommendationAssistant, recommendationPlayer]
+});
+const recommendationValidation = validateLatestPairSettlement({
+  ...settlement,
+  openAssignmentProposals: [],
+  commandLogProposals: [],
+  shipReadinessProposals: [],
+  threadSignals: []
+}, {
+  campaignState: recommendationHarness.state,
+  snapshot: recommendationSnapshot,
+  settlementId: 'settlement:recommendation-only',
+  recordedAt: recommendationHarness.now()
+});
+assert.equal(
+  recommendationValidation.operations.some((operation) => operation.path === 'commandAuthority'),
+  false,
+  'Recommendation-seeking prose must not become durable command authority.'
+);
+
 const coreRecoverySnapshotHarness = createHarness('core-recovery-snapshot');
 coreRecoverySnapshotHarness.state = {
   ...coreRecoverySnapshotHarness.state,

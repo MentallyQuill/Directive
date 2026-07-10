@@ -3,6 +3,7 @@ import { threadPlayerSummaries } from '../threads/thread-ledger.mjs';
 import { assertHostPromptBlockSafeForInjection } from '../generation/prompt-injection-safety.mjs';
 import { renderCompactCrewVoiceCueFromCard, voiceCardsByCrewId } from '../generation/crew-voice-capsules.mjs';
 import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-header.mjs';
+import { commandAuthorityPromptBlock } from './command-authority-guidance.mjs';
 import {
   globalScenePacingLines,
   scenePacingGuidance,
@@ -281,6 +282,11 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, playerTe
   const availableQuests = questSummaries.filter((entry) => ['available', 'offered', 'accepted'].includes(entry.status) && entry.id !== questId).slice(0, 3);
   const threads = threadPlayerSummaries(state?.threadLedger, { statuses: ['engaged', 'active'], limit: 3 });
   const replyHeaderBlock = createCampaignReplyHeaderPromptBlock(state);
+  const commandAuthorityBlock = commandAuthorityPromptBlock({
+    campaignState: state,
+    packageData,
+    scene
+  });
   const pacing = scenePacingGuidance({ campaignState: state, packageData, scene });
   const pacingLines = [
     ...globalScenePacingLines(),
@@ -336,6 +342,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, playerTe
         'Address and refer to the player character using this identity. Do not invent a different name, rank, billet, or callsign.'
       ].join('\n')
     }),
+    normalizeCandidate(state, commandAuthorityBlock),
     normalizeCandidate(state, {
       id: 'turn-yield',
       title: 'Turn Yield Contract',
@@ -344,7 +351,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, playerTe
       placement: 'inPrompt',
       depth: 0,
       ttl: 'turn',
-      priority: 998,
+      priority: 996,
       lensPromptBudgetLane: 'activeScene',
       reason: 'The host model must stop after one playable beat and yield agency back to the player.',
       content: list(yieldGuidance.lines)

@@ -88,7 +88,8 @@ export function turnYieldGuidance({
     title: 'Turn Yield Contract',
     lines: [
       ...turnYieldContractLines(),
-      `Yield target: ${addressedPlayer}.`,
+      `Player agency target: ${addressedPlayer}.`,
+      'This is who the reply yields playable agency to; it is not necessarily the current command recipient.',
       lastAction ? `Player's latest action: ${lastAction}` : null,
       lastAction && /\?/.test(lastAction)
         ? 'If the player asked a direct question, answer that question briefly, then yield.'

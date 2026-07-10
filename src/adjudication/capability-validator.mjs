@@ -1,4 +1,68 @@
-export function checkAuthorityAndCapability({ actionClassification, intentParse }) {
+function compact(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function commandAuthorityContext(campaignState = {}) {
+  const source = campaignState.commandAuthority;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+  const playerAgencyTargetId = compact(source.playerAgencyTargetId || campaignState.player?.id || 'player-commander');
+  const commandRecipientId = compact(source.commandRecipientId || '');
+  const majorDecisionAuthorityId = compact(source.majorDecisionAuthorityId || source.legalCommanderId || '');
+  if (!commandRecipientId && !majorDecisionAuthorityId) return null;
+  return {
+    playerAuthorityMode: compact(source.playerAuthorityMode || 'uncertain'),
+    delegationScope: compact(source.delegationScope || 'none'),
+    playerAgencyTargetId,
+    commandRecipientId: commandRecipientId || playerAgencyTargetId,
+    majorDecisionAuthorityId: majorDecisionAuthorityId || commandRecipientId || playerAgencyTargetId,
+    legalCommanderId: compact(source.legalCommanderId || majorDecisionAuthorityId || ''),
+    operationalCommanderId: compact(source.operationalCommanderId || commandRecipientId || ''),
+    delegationSourceId: compact(source.delegationSourceId || '') || null,
+    commanderPresence: compact(source.commanderPresence || 'unknown'),
+    commanderStatus: compact(source.commanderStatus || 'unknown')
+  };
+}
+
+function commandAuthorityBasis(context) {
+  const basis = [];
+  if (context.commandRecipientId === context.playerAgencyTargetId
+    && context.majorDecisionAuthorityId
+    && context.majorDecisionAuthorityId !== context.playerAgencyTargetId) {
+    basis.push(
+      `Command-authority state delegates current execution to the player character, but major decisions remain with ${context.majorDecisionAuthorityId}.`
+    );
+  } else if (context.majorDecisionAuthorityId === context.playerAgencyTargetId) {
+    basis.push('Command-authority state places major decision authority with the player character for this frame.');
+  } else if (context.majorDecisionAuthorityId) {
+    basis.push(`Command-authority state keeps major decision authority with ${context.majorDecisionAuthorityId}.`);
+  }
+  if (!['captain', 'acting-captain', 'mission-commander'].includes(context.playerAuthorityMode)) {
+    basis.push('Player agency does not convert the player character into unilateral captain authority.');
+  }
+  return basis;
+}
+
+function withCommandAuthorityContext(check, campaignState = {}) {
+  const context = commandAuthorityContext(campaignState);
+  if (!context) return check;
+  return {
+    ...check,
+    authority: {
+      ...(check.authority || {}),
+      basis: [
+        ...(check.authority?.basis || []),
+        ...commandAuthorityBasis(context)
+      ]
+    },
+    commandAuthorityContext: context
+  };
+}
+
+export function checkAuthorityAndCapability(input = {}) {
+  return withCommandAuthorityContext(checkAuthorityAndCapabilityCore(input), input.campaignState);
+}
+
+function checkAuthorityAndCapabilityCore({ actionClassification, intentParse }) {
   if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
     return {
       authority: {

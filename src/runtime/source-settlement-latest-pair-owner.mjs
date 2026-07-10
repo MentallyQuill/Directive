@@ -181,7 +181,7 @@ export async function settleLatestPairSceneHandshakeSource({
           ].filter(Boolean)
         }
       }, {
-        allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking', 'sceneHandshake']
+        allowedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'commandAuthority', 'runtimeTracking', 'sceneHandshake']
       });
       return { ok: true, applied: true };
     };
