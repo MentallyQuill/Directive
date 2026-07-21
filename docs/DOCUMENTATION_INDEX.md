@@ -67,6 +67,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 ## Design
 
+- [Directive DESIGN.md Contract](../DESIGN.md): normative modern-LCARS visual and interaction contract for the full-screen five-route player menu, semantic tokens, typography, layout, imagery, component states, accessibility, and visual acceptance.
 - [Directive Design Baseline](design/DIRECTIVE_DESIGN_BASELINE.md): locked product premise, player role, first campaign package, visible UI shape, and vertical-slice intent.
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.
 - [LCARS Visual Identity](design/LCARS_VISUAL_IDENTITY.md): governing UX-first LCARS-inspired UI visual system for concept prompts, runtime styling, and visual acceptance.
