@@ -1,5 +1,6 @@
 import {
   addTooltip,
+  appendEmpty,
   appendSectionTitle,
   clearElement,
   createButton,
@@ -2377,24 +2378,152 @@ function createRecordsSection(campaign, view, actions) {
 export function renderCampaignPanel(body, view, actions) {
   appendSectionTitle(body, 'Campaign');
   const campaign = view?.campaign || {};
-  const importControl = createImportControl(actions);
-  const consoleSurface = createElement('div', 'directive-campaign-console directive-lcars-console');
+  const state = view?.campaignState || null;
+  const surface = createElement('section', 'directive-campaign-launcher');
+  surface.dataset.directiveTour = 'campaign.command';
+  const identity = createElement('header', 'directive-campaign-launcher-header');
+  const title = createElement('h2', 'directive-campaign-launcher-title');
+  title.textContent = state?.campaign?.title || campaign?.title || 'Campaign Library';
+  identity.appendChild(title);
+  const summary = createElement('p', 'directive-campaign-launcher-summary');
+  summary.textContent = state ? 'Continue the current story or manage campaign records.' : 'Choose a campaign to begin.';
+  identity.appendChild(summary);
+  surface.appendChild(identity);
 
-  let selectCampaignSection = () => {};
-  const openLibrary = () => selectCampaignSection('directive-campaign-library-section');
-  const openRecords = () => selectCampaignSection('directive-campaign-records-section');
-  const commandSection = createCommandSection(campaign, view, actions, openLibrary, openRecords);
-  const librarySection = createLibrarySection(campaign, view, actions, importControl, openRecords);
-  const recordsSection = createRecordsSection(campaign, view, actions);
-  const sections = [
-    { id: commandSection.id, label: 'Command', icon: 'fa-solid fa-rocket', section: commandSection, tooltip: 'Campaign snapshot and recovery entry point. Play continues in the bound host chat.' },
-    { id: librarySection.id, label: 'Library & Import', icon: 'fa-solid fa-file-import', section: librarySection, tooltip: 'Choose or import campaign packages. Browsing packages does not change active campaign state.' },
-    { id: recordsSection.id, label: 'Records', icon: 'fa-solid fa-box-archive', section: recordsSection, tooltip: 'Campaign saves, autosaves, and branches available to inspect, load, or delete.' }
-  ];
-  const fallback = campaign.packages?.length ? commandSection.id : librarySection.id;
-  const preferred = sections.some((item) => item.id === activeCampaignSection) ? activeCampaignSection : fallback;
-  const tabs = createCampaignSubtabs(sections, preferred);
-  selectCampaignSection = tabs.select;
-  consoleSurface.append(tabs.nav, commandSection, librarySection, recordsSection);
-  body.appendChild(consoleSurface);
+  const commands = createElement('div', 'directive-campaign-launcher-actions');
+  if (state && typeof actions?.setActiveTab === 'function') {
+    commands.appendChild(createActionButton({
+      label: 'Open Mission',
+      icon: 'fa-solid fa-compass',
+      title: 'Open the quest journal for this campaign.',
+      onClick: async () => {
+        actions.setActiveTab('mission');
+        await actions.refresh?.();
+      }
+    }, 'directive-primary-command'));
+  }
+  const packageSource = campaign.packages || campaign.packageOptions || (view?.activePackage ? [view.activePackage] : []);
+  const packageOptions = asArray(packageSource);
+  const firstPackage = packageOptions.find((pack) => pack?.packageId || pack?.id);
+  if (firstPackage && typeof actions?.startCreatorDraft === 'function') {
+    commands.appendChild(createActionButton({
+      label: 'New Campaign',
+      icon: 'fa-solid fa-plus',
+      tourTarget: 'campaign.start',
+      title: 'Start a new campaign from the selected package.',
+      onClick: async () => {
+        await actions.startCreatorDraft({ packageId: firstPackage.packageId || firstPackage.id });
+        await actions.refresh?.();
+      }
+    }, 'directive-secondary-command'));
+  }
+  const importControl = createImportControl(actions || {});
+  commands.appendChild(importControl.browseButton);
+  surface.appendChild(commands);
+  surface.appendChild(importControl.fileInput);
+
+  const library = createElement('details', 'directive-campaign-disclosure');
+  library.dataset.directiveTour = 'campaign.library';
+  const librarySummary = createElement('summary');
+  librarySummary.textContent = 'Campaign Library';
+  library.appendChild(librarySummary);
+  const libraryList = createElement('div', 'directive-campaign-library-list');
+  packageOptions.forEach((pack) => {
+    const row = createElement('article', 'directive-campaign-library-row');
+    const rowTitle = createElement('strong');
+    rowTitle.textContent = pack?.campaign?.title || pack?.title || pack?.packageId || pack?.id || 'Campaign package';
+    row.appendChild(rowTitle);
+    if (typeof actions?.startCreatorDraft === 'function') {
+      row.appendChild(createActionButton({
+        label: 'New Campaign',
+        icon: 'fa-solid fa-plus',
+        tourTarget: 'campaign.start',
+        title: 'Start a new campaign from this package.',
+        onClick: async () => {
+          await actions.startCreatorDraft({ packageId: pack.packageId || pack.id });
+          await actions.refresh?.();
+        }
+      }, 'directive-secondary-command'));
+    }
+    if (pack?.actions?.resumeDraft && typeof actions?.resumeCreatorDraft === 'function') {
+      row.appendChild(createActionButton({
+        label: 'Continue Character Setup',
+        icon: 'fa-solid fa-user-pen',
+        title: 'Continue the unfinished Character Creator setup.',
+        onClick: async () => {
+          await actions.resumeCreatorDraft({ draftId: pack.actions.resumeDraft });
+          await actions.refresh?.();
+        }
+      }, 'directive-secondary-command'));
+    }
+    libraryList.appendChild(row);
+  });
+  if (!libraryList.children.length) appendEmpty(libraryList, 'No campaign packages are available.');
+  library.appendChild(libraryList);
+  surface.appendChild(library);
+
+  const records = createElement('details', 'directive-campaign-disclosure');
+  records.dataset.directiveTour = 'campaign.records';
+  const recordsSummary = createElement('summary');
+  recordsSummary.textContent = 'Saved Campaigns';
+  records.appendChild(recordsSummary);
+  const sessions = asArray(campaign.visibleSessions || campaign.sessions || campaign.saves || view?.campaignIndex?.visibleSessions);
+  const recordList = createElement('div', 'directive-campaign-record-list');
+  sessions.forEach((session) => {
+    const row = createElement('article', 'directive-campaign-record-row');
+    const rowTitle = createElement('strong');
+    rowTitle.textContent = session.campaignTitle || session.metadata?.campaignTitle || session.saveName || session.name || 'Saved campaign';
+    row.appendChild(rowTitle);
+    const saveLabel = session.saveName || session.name;
+    if (saveLabel && saveLabel !== rowTitle.textContent) {
+      const saveName = createElement('span');
+      saveName.textContent = saveLabel;
+      row.appendChild(saveName);
+    }
+    const metadata = createElement('span');
+    metadata.textContent = session.updatedAt || session.slotType || 'Saved record';
+    row.appendChild(metadata);
+    if (session.metadata?.summary) {
+      const summary = createElement('span');
+      summary.textContent = session.metadata.summary;
+      row.appendChild(summary);
+    }
+    if (session.metadata?.branch?.kind === 'terminalTimeline') {
+      const branch = createElement('span');
+      branch.textContent = 'Terminal Branch';
+      row.appendChild(branch);
+      const condition = String(session.metadata.branch.terminalConditionId || '')
+        .replace(/^terminal\./, '')
+        .replace(/^[^.]+\./, '')
+        .replace(/[-_.]+/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+      if (condition) {
+        const branchCondition = createElement('span');
+        branchCondition.textContent = condition;
+        row.appendChild(branchCondition);
+      }
+      if (session.metadata.branch.parentSaveName) {
+        const parent = createElement('span');
+        parent.textContent = `From ${session.metadata.branch.parentSaveName}`;
+        row.appendChild(parent);
+      }
+    }
+    if (session.saveId && typeof actions?.loadGame === 'function') {
+      row.appendChild(createActionButton({
+        label: 'Load',
+        icon: 'fa-solid fa-folder-open',
+        title: 'Load this saved campaign.',
+        onClick: async () => {
+          await actions.loadGame({ saveId: session.saveId });
+          actions.setActiveTab?.('mission');
+          await actions.refresh?.();
+        }
+      }, 'directive-secondary-command'));
+    }
+    recordList.appendChild(row);
+  });
+  if (!recordList.children.length) appendEmpty(recordList, 'No saved campaigns are available.');
+  records.appendChild(recordList);
+  surface.appendChild(records);
+  body.appendChild(surface);
 }

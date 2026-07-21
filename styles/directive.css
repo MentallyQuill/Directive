@@ -24,7 +24,6 @@
 .directive-vector-glyph[data-glyph="route-mission"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-mission.svg"); }
 .directive-vector-glyph[data-glyph="route-crew"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-crew.svg"); }
 .directive-vector-glyph[data-glyph="route-ship"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-ship.svg"); }
-.directive-vector-glyph[data-glyph="route-log"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-log.svg"); }
 .directive-vector-glyph[data-glyph="route-settings"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-settings.svg"); }
 .directive-vector-glyph[data-glyph="action-drawer-collapse"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-drawer-collapse.svg"); }
 .directive-vector-glyph[data-glyph="action-drawer-expand"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-drawer-expand.svg"); }
@@ -1399,7 +1398,7 @@
   flex: 0 0 auto;
   min-height: calc(var(--directive-mobile-bottom-bar-height, 68px) + var(--directive-mobile-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   display: grid;
-  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 5), minmax(0, 1fr));
   gap: 4px;
   align-items: stretch;
   padding: 6px 8px calc(6px + var(--directive-mobile-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
@@ -5502,7 +5501,7 @@ textarea.directive-field-control {
 
 .directive-mobile-bottom-bar {
   min-height: 88px;
-  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 5), minmax(0, 1fr));
   gap: 3px;
   padding: 7px 48px 8px;
   background:
@@ -6737,7 +6736,7 @@ textarea.directive-field-control {
 
   .directive-mobile-bottom-bar {
     min-height: calc(82px + var(--directive-mobile-safe-area-bottom, 0px));
-    grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr));
+    grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 5), minmax(0, 1fr));
     gap: 4px;
     padding: 7px 8px calc(7px + var(--directive-mobile-safe-area-bottom, 0px));
     background: linear-gradient(180deg, #080b11, #020407);
@@ -7795,7 +7794,7 @@ textarea.directive-field-control {
   min-height: 92px !important;
   margin-left: var(--directive-rail-width) !important;
   display: grid !important;
-  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 5), minmax(0, 1fr)) !important;
   gap: 5px !important;
   padding: 8px 16px 10px !important;
   background:
@@ -14888,7 +14887,7 @@ textarea.directive-field-control {
     gap: 4px !important;
     padding: 7px 8px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
     display: grid !important;
-    grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 5), minmax(0, 1fr)) !important;
     background: linear-gradient(180deg, #080b10, #020304) !important;
     border-top: 1px solid color-mix(in srgb, var(--directive-active-route-accent) 40%, transparent) !important;
     box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.42) !important;
@@ -15160,4 +15159,256 @@ textarea.directive-field-control {
 
 .directive-committed-chat-outcome-card {
   border-color: rgba(113, 188, 120, 0.38);
+}
+
+.directive-quest-journal,
+.directive-crew-journal {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.directive-quest-list,
+.directive-crew-list,
+.directive-quest-detail,
+.directive-crew-detail,
+.directive-ship-journal,
+.directive-campaign-launcher,
+.directive-settings-console {
+  min-width: 0;
+}
+
+.directive-quest-list,
+.directive-crew-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.directive-quest-group,
+.directive-crew-detail,
+.directive-quest-detail,
+.directive-ship-journal,
+.directive-campaign-launcher,
+.directive-settings-player-preferences,
+.directive-settings-disclosure {
+  border: 1px solid var(--directive-border, rgba(255, 255, 255, 0.16));
+  border-radius: 6px;
+  background: var(--directive-surface, rgba(17, 20, 28, 0.72));
+}
+
+.directive-quest-group,
+.directive-crew-detail,
+.directive-quest-detail,
+.directive-ship-journal,
+.directive-campaign-launcher,
+.directive-settings-player-preferences,
+.directive-settings-disclosure {
+  padding: 12px;
+}
+
+.directive-quest-group-title,
+.directive-quest-detail-title,
+.directive-crew-detail-title,
+.directive-ship-identity-title,
+.directive-campaign-launcher-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.directive-quest-group-summary,
+.directive-settings-disclosure > summary,
+.directive-quest-history > summary,
+.directive-crew-history > summary,
+.directive-ship-history > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--directive-text, inherit);
+  font-weight: 700;
+}
+
+.directive-quest-group-list,
+.directive-quest-detail,
+.directive-crew-detail,
+.directive-ship-detail-section,
+.directive-campaign-library-list,
+.directive-campaign-record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.directive-quest-row,
+.directive-crew-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--directive-surface-alt, rgba(255, 255, 255, 0.05));
+  color: var(--directive-text, inherit);
+  text-align: left;
+  cursor: pointer;
+}
+
+.directive-quest-row:hover,
+.directive-crew-row:hover,
+.directive-quest-row:focus-visible,
+.directive-crew-row:focus-visible {
+  border-color: var(--directive-focus, #f39a1b);
+  outline: none;
+}
+
+.directive-quest-row[aria-selected="true"],
+.directive-crew-row[aria-selected="true"] {
+  border-inline-start: 3px solid var(--directive-accent, #f39a1b);
+  background: var(--directive-button-hover, rgba(243, 154, 27, 0.16));
+  font-weight: 700;
+}
+
+.directive-quest-row-title,
+.directive-quest-row-status,
+.directive-quest-row-urgency,
+.directive-crew-row-name,
+.directive-crew-row-role,
+.directive-quest-detail-meta-value,
+.directive-crew-detail-meta-value,
+.directive-campaign-record-row,
+.directive-campaign-library-row {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.directive-quest-row-status,
+.directive-quest-row-urgency,
+.directive-crew-row-role,
+.directive-quest-detail-meta-label,
+.directive-crew-detail-meta-label,
+.directive-campaign-launcher-summary,
+.directive-ship-condition {
+  color: var(--directive-muted, rgba(255, 255, 255, 0.68));
+  font-size: 0.82rem;
+}
+
+.directive-quest-category,
+.directive-quest-detail-category,
+.directive-quest-detail-status,
+.directive-crew-detail-meta-row,
+.directive-quest-detail-meta-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.directive-quest-category,
+.directive-quest-detail-category,
+.directive-quest-detail-status {
+  color: var(--directive-muted, rgba(255, 255, 255, 0.72));
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.directive-quest-detail-badges,
+.directive-campaign-launcher-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.directive-quest-detail-section,
+.directive-quest-detail-meta-list,
+.directive-crew-detail-meta {
+  margin-top: 12px;
+}
+
+.directive-quest-detail-section-title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.directive-quest-detail-section p,
+.directive-quest-fact-list,
+.directive-quest-history-list,
+.directive-crew-history ul,
+.directive-ship-history ul,
+.directive-ship-detail-section ul {
+  margin: 0;
+  padding-inline-start: 18px;
+  overflow-wrap: anywhere;
+}
+
+.directive-quest-detail-meta-list,
+.directive-crew-detail-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.directive-quest-detail-meta-row,
+.directive-crew-detail-meta-row {
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--directive-border, #fff) 45%, transparent);
+  padding-bottom: 5px;
+}
+
+.directive-ship-journal,
+.directive-campaign-launcher,
+.directive-settings-console {
+  display: grid;
+  gap: 12px;
+}
+
+.directive-ship-detail-section,
+.directive-campaign-library-row,
+.directive-campaign-record-row {
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--directive-border, #fff) 45%, transparent);
+}
+
+.directive-campaign-library-row,
+.directive-campaign-record-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.directive-settings-disclosure > summary {
+  list-style-position: inside;
+  padding: 2px;
+}
+
+.directive-settings-disclosure[open] {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .directive-quest-journal,
+  .directive-crew-journal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-quest-row,
+  .directive-crew-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .directive-quest-category,
+  .directive-quest-row-urgency {
+    grid-column: 1 / -1;
+  }
 }

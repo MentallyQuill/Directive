@@ -21,6 +21,7 @@ export function createRuntimeUiPreferences({
     throw new Error('savePreferences must be a function');
   }
   let hiddenCampaignSessionKeys = new Set();
+  let selectedQuestIdsByScope = new Map();
 
   async function load() {
     const preferences = await loadPreferences(storageAdapter, {
@@ -31,12 +32,18 @@ export function createRuntimeUiPreferences({
         .map((key) => compactString(key))
         .filter(Boolean)
     );
+    selectedQuestIdsByScope = new Map(
+      Object.entries(preferences.selectedQuestIdsByScope || {})
+        .map(([scopeKey, questId]) => [compactString(scopeKey), compactString(questId)])
+        .filter(([scopeKey, questId]) => scopeKey && questId)
+    );
     return preferences;
   }
 
   async function persist() {
     return savePreferences(storageAdapter, {
-      hiddenCampaignSessionKeys: [...hiddenCampaignSessionKeys]
+      hiddenCampaignSessionKeys: [...hiddenCampaignSessionKeys],
+      selectedQuestIdsByScope: Object.fromEntries(selectedQuestIdsByScope)
     }, {
       now: timestampFromNow(now)
     });
@@ -64,12 +71,33 @@ export function createRuntimeUiPreferences({
     return true;
   }
 
+  function selectedQuestId(scopeKey) {
+    return selectedQuestIdsByScope.get(compactString(scopeKey)) || null;
+  }
+
+  function selectQuest(scopeKey, questId) {
+    const scope = compactString(scopeKey);
+    const quest = compactString(questId);
+    if (!scope || !quest) return false;
+    selectedQuestIdsByScope.set(scope, quest);
+    return true;
+  }
+
+  function clearSelectedQuest(scopeKey) {
+    const scope = compactString(scopeKey);
+    if (!scope) return false;
+    return selectedQuestIdsByScope.delete(scope);
+  }
+
   return Object.freeze({
+    clearSelectedQuest,
     hiddenSessionKeys,
     hasHiddenSessionKey,
     hideSessionKey,
     load,
     persist,
+    selectedQuestId,
+    selectQuest,
     showSessionKey
   });
 }

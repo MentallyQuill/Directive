@@ -91,7 +91,6 @@ for (const iconSlot of [
   'route.mission',
   'route.crew',
   'route.ship',
-  'route.log',
   'route.settings',
   'action.drawerCollapse',
   'action.drawerExpand',
@@ -315,6 +314,11 @@ const resolverSource = await readText('src/packages/package-image-resolver.mjs')
 assert.doesNotMatch(resolverSource, /breckenridge/i, 'image resolver must not build package-specific filenames');
 
 const css = await readText('styles/directive.css');
+assert.match(css, /\.directive-quest-journal(?:,|\s*\{)[\s\S]*?grid-template-columns:/, 'Mission quest journal should use stable list/detail tracks');
+assert.match(css, /\.directive-quest-row\[aria-selected="true"\]/, 'Selected quests should have a non-color-only selected state');
+assert.match(css, /\.directive-quest-row[^\{]*:focus-visible\s*\{/, 'Quest rows should expose keyboard focus');
+assert.match(css, /@media\s*\(max-width:\s*720px\)[\s\S]*?\.directive-quest-journal/, 'Quest journal should collapse to one column on small screens');
+assert.match(css, /\.directive-settings-disclosure\s*>?\s*summary\s*\{/, 'Settings advanced surfaces should use native disclosure styling');
 assert.match(css, /\.directive-floating-tooltip\s*\{/, 'CSS should define the shared Directive floating tooltip');
 assert.match(css, /\.directive-guidance-popover\s*\{[\s\S]*?position:\s*fixed\s*!important/, 'Guidance popovers should keep fixed viewport positioning.');
 assert.match(css, /\.directive-guidance-popover\.directive-lcars-panel\s*\{[\s\S]*?position:\s*fixed\s*!important/, 'Guidance popovers should not be reset by shared LCARS panel positioning.');
@@ -343,7 +347,7 @@ assert.doesNotMatch(css, /\bdirective-(fab|floating-action)\b/i, 'Directive CSS 
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?\btop:\s*16px;/, 'desktop shell should remain top anchored');
 assert.match(css, /\.directive-shell-actions\s*\{[\s\S]*?justify-content:\s*flex-end;/, 'shell actions should remain top-right aligned');
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?\bgrid-template-rows:\s*auto minmax\(0,\s*1fr\) auto;/, 'runtime shell should reserve a persistent bottom navigation row');
-assert.match(css, /\.directive-mobile-bottom-bar\s*\{[\s\S]*?repeat\(var\(--directive-mobile-bottom-tab-count,\s*6\),\s*minmax\(0,\s*1fr\)\)/, 'shared shell should use bottom route navigation at every viewport');
+assert.match(css, /\.directive-mobile-bottom-bar\s*\{[\s\S]*?repeat\(var\(--directive-mobile-bottom-tab-count,\s*5\),\s*minmax\(0,\s*1fr\)\)/, 'shared shell should use bottom route navigation at every viewport');
 assert.match(css, /\.directive-mobile-bottom-tab-active\s*\{[\s\S]*?\bborder-color:\s*var\(--directive-border-strong/, 'shared shell should highlight the active bottom route with theme border tokens');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\s*\{[\s\S]*?\binset:\s*0;/, 'phone-width shell should fill the viewport from the top');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\s*\{[\s\S]*?\bheight:\s*100dvh;/, 'phone-width shell should set explicit viewport height for fixed-position hosts with zero-height html roots');
@@ -493,7 +497,7 @@ assert.match(commandSpineLayoutSource, /viewport\.width\s*\*\s*0\.47/, 'default 
 assert.match(commandSpineLayoutSource, /shelfLeft|shelfTop/, 'layout persistence should include movable shelf position fields');
 assert.match(commandSpineLayoutSource, /localStorage|safeStorage/, 'drawer geometry should be persisted through host-safe local layout storage');
 assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime shell should not replay primary tab click history');
-assert.match(campaignPanelSource, /directive-campaign-console/, 'Campaign should render an LCARS console wrapper');
+assert.match(campaignPanelSource, /directive-campaign-launcher/, 'Campaign should render a focused launcher surface');
 assert.match(campaignPanelSource, /campaignIndex/, 'Campaign Command should read the runtime campaign-session index');
 assert.match(campaignPanelSource, /directive-campaign-session-list/, 'Campaign Command should render a scalable campaign-session list');
 assert.match(campaignPanelSource, /Hide From Command[\s\S]*Show In Command|Show In Command[\s\S]*Hide From Command/, 'Campaign Command should support reversible hide/show session rows');
@@ -529,7 +533,7 @@ assert.match(css, /\.directive-starship-briefing-backdrop\s*\{[\s\S]*?opacity:\s
 assert.doesNotMatch(campaignPanelSource, /Library Notices|Runtime Projection|Mission Graphs|Package Health/, 'Campaign Library should avoid redundant package and notice summary cards');
 assert.match(missionPanelSource, /currentChatEmptyMessage/, 'Mission should use current-chat empty-state copy');
 assert.match(crewPanelSource, /currentChatEmptyMessage[\s\S]*activePackageForView/, 'Crew should use current-chat empty-state copy and selected-chat package data');
-assert.match(shipPanelSource, /currentChatEmptyMessage[\s\S]*activePackageForView/, 'Ship should use current-chat empty-state copy and selected-chat package data');
+assert.match(shipPanelSource, /activePackageForView[\s\S]*currentChatEmptyMessage|currentChatEmptyMessage[\s\S]*activePackageForView/, 'Ship should use current-chat empty-state copy and selected-chat package data');
 assert.match(commandLogPanelSource, /currentChatEmptyMessage/, 'Log should use current-chat empty-state copy');
 assert.match(campaignPanelSource, /directive-starship-records-console/, 'Campaign should render saves as an LCARS records console');
 assert.doesNotMatch(campaignPanelSource, /Save Records|Character Setup Drafts|directive-starship-records-sidebar|directive-starship-records-status-grid|directive-starship-setup-drafts/, 'Campaign Records should stay focused on save files without a summary sidebar or setup-draft section');
@@ -544,10 +548,9 @@ assert.match(campaignPanelSource, /manualSaveReady[\s\S]*?disabled:\s*!canSaveAc
 assert.match(campaignPanelSource, /openRecordSaveAsDialog[\s\S]*label:\s*'Save'[\s\S]*label:\s*'Cancel'|openRecordSaveAsDialog[\s\S]*label:\s*'Cancel'[\s\S]*label:\s*'Save'/, 'Campaign Records Save Game As should prompt with Save and Cancel controls');
 assert.match(campaignPanelSource, /directive-record-save-as-name-input/, 'Campaign Records Save Game As should name branches inside the dialog');
 assert.match(missionPanelSource, /directive-mission-console/, 'Mission should render an LCARS console wrapper');
-assert.match(missionPanelSource, /directive-mission-status-grid/, 'Mission should expose current mission state as compact status blocks');
-assert.match(missionPanelSource, /directive-mission-subtabs/, 'Mission should expose compact section navigation for dense mission surfaces');
+assert.match(missionPanelSource, /renderMissionQuestJournal/, 'Mission should render the unified quest journal');
 assert.match(missionPanelSource, /function missionRecordText/, 'Mission should normalize structured state records before rendering text');
-assert.match(missionPanelSource, /Current Orders/, 'Mission should surface accepted open assignments as current orders');
+assert.match(missionPanelSource, /buildPlayerFacingInformation/, 'Mission should consume the player-facing information projection');
 assert.match(missionPanelSource, /directive-mission-sidework-console/, 'Mission Side Work should render a dedicated LCARS side-work console');
 assert.match(missionPanelSource, /directive-mission-sidework-status-grid/, 'Mission Side Work should summarize optional work before rendering records');
 assert.match(missionPanelSource, /directive-mission-sidework-card/, 'Mission Side Work should render optional assignments as compact LCARS records');
@@ -566,9 +569,9 @@ assert.match(crewPanelSource, /directive-crew-readiness-grid/, 'Crew should expo
 assert.match(crewPanelSource, /directive-crew-roster-row/, 'Crew should render compact LCARS personnel rows instead of generic metadata cards');
 assert.match(crewPanelSource, /createPlayerPortraitImage/, 'Crew should render the uploaded player portrait for the player commander');
 assert.match(crewPanelSource, /importPlayerPortrait/, 'Crew should allow changing the player portrait after campaign start');
-assert.match(shipPanelSource, /directive-ship-console/, 'Ship should render an LCARS starship status console wrapper');
-assert.match(shipPanelSource, /directive-ship-readiness-grid/, 'Ship should expose readiness as compact status blocks');
-assert.match(shipPanelSource, /directive-ship-readiness-folder/, 'Ship should render operational readiness caveats as folder disclosures');
+assert.match(shipPanelSource, /directive-ship-journal/, 'Ship should render a focused player-facing status journal');
+assert.match(shipPanelSource, /directive-ship-detail-section/, 'Ship should group capabilities and constraints into readable sections');
+assert.match(shipPanelSource, /directive-ship-history/, 'Ship technical history should remain a collapsed disclosure');
 assert.match(css, /\.directive-ship-readiness-item-copy strong\s*\{[\s\S]*?text-overflow:\s*clip;[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;/, 'Ship Operational Readiness item titles should wrap instead of truncating');
 assert.doesNotMatch(shipPanelSource, /Bridge Authority/, 'Ship should not keep the removed Bridge Authority card');
 assert.match(commandLogPanelSource, /directive-log-console/, 'Log should render an LCARS command-history console wrapper');
@@ -597,8 +600,8 @@ assert.match(settingsPanelSource, /directive-settings-continuity-card/, 'Setting
 assert.match(settingsPanelSource, /Rebuild Prompt Context[\s\S]*actions\.rebuildPromptContext/, 'Settings Continuity diagnostics should expose prompt rebuild without owning raw continuity state');
 assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');
 assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Providers, and Safety');
-assert.match(settingsPanelSource, /label:\s*['"]Systems['"][\s\S]*label:\s*['"]Providers['"][\s\S]*label:\s*['"]Safety['"]/, 'Settings subtabs should be Systems, Providers, and Safety');
-assert.match(settingsPanelSource, /consoleSurface\.appendChild\(createSettingsSubtabs\(sections,\s*activeSectionId\)\);[\s\S]*const systemsSection/, 'Settings should render local tabs before Settings section content');
+assert.match(settingsPanelSource, /Player Preferences/, 'Settings should foreground player preferences');
+assert.match(settingsPanelSource, /appendSettingsDisclosure[\s\S]*Advanced[\s\S]*Developer & Troubleshooting/, 'Settings advanced surfaces should use collapsed native disclosures');
 assert.doesNotMatch(settingsPanelSource, /Control Plane|Runtime & State Safety|directive-settings-overview-card|directive-settings-overview-grid|Open World|Open-World Runtime Diagnostics|Refresh Opportunities/, 'Settings should not render the removed overview or Open World diagnostics surfaces');
 assert.match(settingsPanelSource, /resetSettingsPanelState/, 'Settings should expose a Reset Window hook for active subtab state');
 assert.match(settingsPanelSource, /const\s+SETTINGS_SAFETY_SECTION_ID\s*=\s*['"]directive-settings-safety-section['"]/, 'Settings should keep a stable Safety pane id');

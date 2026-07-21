@@ -1,5 +1,4 @@
 import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
-import { renderCommandLogPanel } from '../ui/command-log-panel.js';
 import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
 import {
@@ -15,7 +14,8 @@ import {
   DIRECTIVE_PRIMARY_ROUTES,
   getDirectiveRoute,
   getDirectiveRouteLabel,
-  normalizeDirectiveRouteId
+  normalizeDirectiveRouteId,
+  resolveDirectiveRouteId
 } from '../ui/directive-routes.mjs';
 import {
   constrainDirectiveShellLayout,
@@ -62,7 +62,8 @@ export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map
 })));
 
 let shellLayout = loadDirectiveShellLayout();
-let activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'campaign');
+let activeTab = String(shellLayout.activeRoute || 'campaign').trim() || 'campaign';
+let routeSelectionExplicit = false;
 shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
 let fullscreenMode = 'none';
@@ -497,9 +498,24 @@ function ensurePanel() {
 }
 
 async function getRuntimeView() {
-  const baseView = runtimeApp && typeof runtimeApp.getCurrentView === 'function'
+  let baseView = runtimeApp && typeof runtimeApp.getCurrentView === 'function'
     ? await runtimeApp.getCurrentView({ tabId: activeTab })
     : null;
+  const hasActiveCampaign = Boolean(
+    baseView?.currentChatCampaignState
+    || baseView?.campaignState?.campaignChatBinding?.chatId
+  );
+  const resolvedRoute = !routeSelectionExplicit && activeTab === 'campaign' && hasActiveCampaign
+    ? 'mission'
+    : resolveDirectiveRouteId(activeTab, { hasActiveCampaign });
+  if (resolvedRoute !== activeTab) {
+    activeTab = resolvedRoute;
+    shellLayout.activeRoute = activeTab;
+    persistLayout();
+    baseView = runtimeApp && typeof runtimeApp.getCurrentView === 'function'
+      ? await runtimeApp.getCurrentView({ tabId: activeTab })
+      : baseView;
+  }
   if (isTrainingScenarioActive()) {
     return buildDirectiveTrainingScenarioView({
       baseView,
@@ -513,6 +529,7 @@ async function getRuntimeView() {
 
 function setActiveRoute(routeId, { openDrawer = true, persist = true } = {}) {
   const nextTab = normalizeDirectiveRouteId(routeId, activeTab);
+  routeSelectionExplicit = true;
   activeTab = nextTab;
   shellLayout.activeRoute = nextTab;
   if (openDrawer) shellLayout.drawerOpen = true;
@@ -536,6 +553,7 @@ async function selectRouteFromSpine(routeId) {
   }
 
   activeTab = nextTab;
+  routeSelectionExplicit = true;
   shellLayout.activeRoute = nextTab;
   shellLayout.drawerOpen = true;
   if (fullscreenMode === 'workspace' && nextTab !== 'campaign') {
@@ -692,6 +710,9 @@ function createRuntimeActions() {
   return {
     setActiveTab(tabId) {
       setActiveRoute(tabId, { openDrawer: true, persist: true });
+    },
+    selectMissionQuest(options) {
+      return runtimeApp.selectMissionQuest(options);
     },
     refresh: refreshDirectiveRuntimePanel,
     importCampaignPackageArchive(options) {
@@ -982,10 +1003,6 @@ function renderActivePanel(body, view) {
   }
   if (activeTab === 'ship') {
     renderShipPanel(body, view, actions);
-    return;
-  }
-  if (activeTab === 'log') {
-    renderCommandLogPanel(body, view, actions);
     return;
   }
   if (activeTab === 'settings') {
@@ -1788,6 +1805,7 @@ export async function resetDirectiveRuntimeLayout() {
   }
   shellLayout = resetDirectiveShellLayout(currentViewport());
   activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'campaign');
+  routeSelectionExplicit = false;
   shellLayout.activeRoute = activeTab;
   fullscreenMode = 'none';
   const panel = getPanel();
@@ -1816,6 +1834,7 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     stopDirectiveTrainingScenario({ refresh: false });
     shellLayout = resetDirectiveShellLayout(currentViewport());
     activeTab = 'campaign';
+    routeSelectionExplicit = false;
     shellLayout.activeRoute = activeTab;
     runtimeApp = null;
     runtimeMountHost = null;

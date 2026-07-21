@@ -15,7 +15,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     shelfLabel: 'Command & Context',
     iconSlot: 'route.mission',
     icon: 'fa-solid fa-compass',
-    description: 'Run the current mission turn and review pending outcomes.'
+    description: 'Review quests, objectives, urgency, and known information.'
   },
   {
     id: 'crew',
@@ -24,7 +24,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     shelfLabel: 'Roster & Roles',
     iconSlot: 'route.crew',
     icon: 'fa-solid fa-user-group',
-    description: 'Review senior staff context and public crew state.'
+    description: 'Review people, standing, assignments, and relationship history.'
   },
   {
     id: 'ship',
@@ -33,16 +33,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     shelfLabel: 'Status & Systems',
     iconSlot: 'route.ship',
     icon: 'fa-solid fa-shuttle-space',
-    description: 'Review ship condition, pressure, and public technical state.'
-  },
-  {
-    id: 'log',
-    label: 'Log',
-    shortLabel: 'Log',
-    shelfLabel: 'Index & Recall',
-    iconSlot: 'route.log',
-    icon: 'fa-solid fa-list-check',
-    description: 'Review committed player-facing command history.'
+    description: 'Review ship capability, condition, restrictions, and technical history.'
   },
   {
     id: 'settings',
@@ -51,9 +42,18 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     shelfLabel: 'Providers & Controls',
     iconSlot: 'route.settings',
     icon: 'fa-solid fa-sliders',
-    description: 'Inspect runtime settings, diagnostics, and host status.'
+    description: 'Change player preferences and open advanced troubleshooting.'
   }
 ]);
+
+const REMOVED_ROUTE_IDS = new Set(['log', 'intel', 'inventory', 'map', 'open-threads', 'open-world', 'context', 'components', 'recovery']);
+
+export function resolveDirectiveRouteId(routeId, { hasActiveCampaign = false, fallback = '' } = {}) {
+  const value = String(routeId || '').trim();
+  if (DIRECTIVE_PRIMARY_ROUTES.some((route) => route.id === value)) return value;
+  if (REMOVED_ROUTE_IDS.has(value) || !value) return hasActiveCampaign ? 'mission' : 'campaign';
+  return fallback || (hasActiveCampaign ? 'mission' : 'campaign');
+}
 
 export function normalizeDirectiveRouteId(routeId, fallback = 'campaign') {
   const value = String(routeId || '').trim();

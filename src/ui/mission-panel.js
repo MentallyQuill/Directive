@@ -18,6 +18,8 @@ import {
 import { playerSafeAdvisoryRecords } from './advisory-records.js';
 import { renderMissionComponentsPanel } from './mission-components-panel.js';
 import { terminalDecisionLedgerView } from '../runtime/terminal-decision-ledger-view.mjs';
+import { buildPlayerFacingInformation } from './player-facing-information.mjs';
+import { renderMissionQuestJournal } from './mission-quest-journal.js';
 
 const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
 const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
@@ -1749,163 +1751,32 @@ function appendNarrationRetry(body, view, actions) {
   body.appendChild(card);
 }
 
-export function renderMissionPanel(body, view, actions) {
-  ensureMissionSubtabEventListener();
+export function renderMissionPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Mission');
   const state = view?.campaignState;
   if (!state) {
     appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
-
-  const chapter = chapterForMission(view, state.mission?.activeMissionId);
-  const latestLedger = latestLedgerEntry(state);
-  const consoleSurface = createElement('div', 'directive-mission-console directive-lcars-console');
-  const overview = createCard('directive-mission-overview-card directive-lcars-panel');
-  overview.dataset.directiveTour = 'mission.overview';
-  const identity = createElement('div', 'directive-mission-identity');
-  const identityTop = createElement('div', 'directive-mission-identity-top');
-  const identityCopy = createElement('div', 'directive-mission-identity-copy');
-  const chapterLabel = createElement('span', 'directive-lcars-kicker');
-  chapterLabel.textContent = state.mission?.openWorldManaged ? 'Open World' : chapter?.type === 'main' ? 'Main Mission' : 'Mission';
-  const missionTitle = createCardTitle(chapter?.title || state.mission?.activeMissionId || 'Active Mission');
-  identityCopy.append(chapterLabel, missionTitle);
-  const activeBadge = createElement('span', 'directive-mission-active-badge');
-  activeBadge.textContent = state.mission?.endState ? 'Transition' : 'Active';
-  identityTop.append(identityCopy, activeBadge);
-
-  const objective = createElement('p', 'directive-mission-objective-line');
-  objective.textContent = missionRecordText(chapter?.question) || missionRecordText(state.mission?.formalObjectives?.[0]) || 'Continue the mission and protect the campaign state.';
-  identity.append(identityTop, objective);
-
-  const commandFacts = createElement('div', 'directive-mission-command-facts');
-  commandFacts.append(
-    createMissionStatusBlock('Player', `${state.player?.rank || ''} ${state.player?.name || ''}`.trim() || 'Commander', 'warning', 'fa-solid fa-user', 'Player officer currently mounted in campaign state.'),
-    createMissionStatusBlock('Ship', state.ship?.name || 'Starship', 'neutral', 'fa-solid fa-shuttle-space', 'Assigned ship currently mounted in campaign state.'),
-    createMissionStatusBlock('Campaign', state.campaign?.title || 'Campaign', 'neutral', 'fa-solid fa-layer-group', 'Campaign package and save currently driving play.')
-  );
-
-  const statusGrid = createElement('div', 'directive-mission-status-grid');
-  const phaseLabel = formatMissionLabel(state.mission?.phase || state.mission?.activePhaseId);
-  statusGrid.append(
-    createMissionStatusBlock('Phase', phaseLabel, missionStatusTone(phaseLabel), 'fa-solid fa-location-crosshairs', 'Current mission beat or runtime phase.'),
-    createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass', 'Simulation style selected for mission resolution.')
-  );
-  if (state.turnLedger?.pendingNarrationRecovery) {
-    statusGrid.appendChild(createMissionStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message', 'A committed mechanics outcome needs narration repair before continuing.'));
-  }
-
-  const nextAction = createElement('p', 'directive-mission-next-action');
-  nextAction.textContent = missionNextAction(view, state);
-  overview.append(identity, commandFacts, statusGrid);
-  const outcomeSummary = missionOutcomeSummary(latestLedger);
-  if (outcomeSummary) {
-    const lastOutcome = createElement('div', 'directive-mission-last-outcome-strip');
-    const outcomeLabel = createElement('span', 'directive-lcars-kicker');
-    outcomeLabel.textContent = 'Last Outcome';
-    const outcomeText = createElement('strong');
-    outcomeText.textContent = outcomeSummary;
-    lastOutcome.append(outcomeLabel, outcomeText);
-    if (latestLedger?.stardate) {
-      const outcomeTime = createElement('span', 'directive-mission-last-outcome-time');
-      outcomeTime.textContent = `SD ${latestLedger.stardate}`;
-      lastOutcome.appendChild(outcomeTime);
-    }
-    overview.appendChild(lastOutcome);
-  }
-  overview.appendChild(nextAction);
-  consoleSurface.appendChild(overview);
-
-  const sections = [
-    { id: 'directive-mission-command-section', label: 'Active', icon: 'fa-solid fa-comments', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-command-section'] },
-    { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-context-section'] },
-    { id: 'directive-mission-open-threads-section', label: 'Open Threads', icon: 'fa-solid fa-diagram-project', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-open-threads-section'] },
-    { id: 'directive-mission-sidework-section', label: 'Open World', icon: 'fa-solid fa-compass', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-sidework-section'] },
-    { id: 'directive-mission-components-section', label: 'Components', icon: 'fa-solid fa-layer-group', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-components-section'] }
-  ];
-  if (!sections.some((section) => section.id === activeMissionSubtabId)) {
-    activeMissionSubtabId = 'directive-mission-command-section';
-  }
-  consoleSurface.appendChild(createMissionSubtabs(sections, activeMissionSubtabId));
-
-  const commandSection = createMissionSection({
-    id: 'directive-mission-command-section',
-    label: 'Active Campaign',
-    active: activeMissionSubtabId === 'directive-mission-command-section',
-    showHeading: false
+  const information = view?.playerFacingInformation || buildPlayerFacingInformation({
+    campaignState: state,
+    runtimeView: view
   });
-  appendChatPlaySurface(commandSection, view, actions);
-  appendAdvisoryBrief(commandSection, state);
-  const hasPendingChatInteraction = appendPendingChatInteraction(commandSection, view, actions);
-  const hasPendingTurn = hasPendingChatInteraction ? false : appendPendingTurn(commandSection, view, actions);
-  appendCommittedChatOutcome(commandSection, view);
-  const recoveryConsole = createMissionRecoveryConsole(view, state);
-  appendLastOutcome(recoveryConsole.body, view, actions);
-  appendChatResponseRetry(recoveryConsole.body, view, actions);
-  appendNarrationRetry(recoveryConsole.body, view, actions);
-  appendSceneReconciliationReview(recoveryConsole.body, view, state, actions);
-  if (recoveryConsole.body.children.length > 0 || recoveryConsole.shell.querySelector?.('.directive-mission-recovery-status-grid')) {
-    commandSection.appendChild(recoveryConsole.shell);
+  const alerts = createElement('section', 'directive-mission-contextual-alerts');
+  const pendingInteraction = pendingChatInteraction(view);
+  if (pendingInteraction) appendPendingChatInteraction(alerts, view, actions);
+  else if (view?.pendingDirectorTurn) appendPendingTurn(alerts, view, actions);
+  if (state.turnLedger?.pendingNarrationRecovery || view?.lastNarrationResult?.ok === false) {
+    const recovery = createElement('section', 'directive-mission-contextual-recovery');
+    appendNarrationRetry(recovery, view, actions);
+    appendSceneReconciliationReview(recovery, view, state, actions);
+    if (recovery.children.length) alerts.appendChild(recovery);
   }
-
-  consoleSurface.appendChild(commandSection);
-
-  const contextSection = createMissionSection({
-    id: 'directive-mission-context-section',
-    label: 'Mission Context',
-    className: 'directive-mission-context-section',
-    active: activeMissionSubtabId === 'directive-mission-context-section'
-  });
-  appendMvpCheckpoint(contextSection, view, state);
-  appendPressureLedger(contextSection, state);
-
-  const openAssignments = (state.mission?.openAssignments || [])
-    .filter((record) => currentOrderAppliesToPlayer(record, state));
-  appendMissionListCard(contextSection, 'Current Orders', openAssignments.slice(0, 8), 'directive-mission-open-assignments-card', 'Player-visible orders accepted from the current scene.');
-
-  const objectives = state.mission?.formalObjectives || [];
-  appendMissionListCard(contextSection, 'Formal Objectives', objectives, 'directive-mission-objectives-card', 'Player-visible mission objectives from current campaign state.');
-
-  const directives = state.directives?.active || [];
-  appendMissionListCard(contextSection, 'Active Directives', directives.slice(0, 5), 'directive-mission-directives-card', 'Active standing instructions currently shaping mission play.');
-  if (contextSection.children.length > 1) {
-    consoleSurface.appendChild(contextSection);
+  if (state.sceneReconciliation?.pending?.length) {
+    const reconciliation = createElement('section', 'directive-mission-contextual-reconciliation');
+    appendSceneReconciliationReview(reconciliation, view, state, actions);
+    if (reconciliation.children.length) alerts.appendChild(reconciliation);
   }
-
-  const openThreadsSection = createMissionSection({
-    id: 'directive-mission-open-threads-section',
-    label: 'Open Threads',
-    className: 'directive-mission-open-threads-section',
-    active: activeMissionSubtabId === 'directive-mission-open-threads-section'
-  });
-  appendOpenThreadsLedger(openThreadsSection, view, state);
-  openThreadsSection.dataset.directiveTour = 'mission.open-threads';
-  consoleSurface.appendChild(openThreadsSection);
-
-  const sideWorkSection = createMissionSection({
-    id: 'directive-mission-sidework-section',
-    label: 'Open World',
-    className: 'directive-mission-sidework-section',
-    active: activeMissionSubtabId === 'directive-mission-sidework-section'
-  });
-  const sideWorkConsole = createMissionSideWorkConsole(view);
-  sideWorkConsole.shell.dataset.directiveTour = 'mission.open-world';
-  appendOpenWorldQuestCards(sideWorkConsole.body, view, actions);
-  if (sideWorkConsole.body.children.length === 0) {
-    appendMissionSideWorkEmpty(sideWorkConsole.body);
-  }
-  sideWorkSection.appendChild(sideWorkConsole.shell);
-  consoleSurface.appendChild(sideWorkSection);
-
-  const componentsSection = createMissionSection({
-    id: 'directive-mission-components-section',
-    label: 'Components',
-    className: 'directive-mission-components-section',
-    active: activeMissionSubtabId === 'directive-mission-components-section',
-    showHeading: false
-  });
-  renderMissionComponentsPanel(componentsSection, view, state, actions);
-  consoleSurface.appendChild(componentsSection);
-
-  body.appendChild(consoleSurface);
+  if (alerts.children.length) body.appendChild(alerts);
+  renderMissionQuestJournal(body, information, actions);
 }

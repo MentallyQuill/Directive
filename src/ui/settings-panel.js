@@ -1303,51 +1303,47 @@ function appendContinuityProjectionDiagnostics(body, view, actions = {}) {
   return true;
 }
 
+function appendSettingsDisclosure(body, { key, title, render }) {
+  const disclosure = createElement('details', 'directive-settings-disclosure');
+  disclosure.dataset.settingsGroup = key;
+  const summary = createElement('summary');
+  summary.textContent = title;
+  disclosure.appendChild(summary);
+  render(disclosure);
+  body.appendChild(disclosure);
+  return disclosure;
+}
+
 export function renderSettingsPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Settings');
   const state = view?.campaignState;
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
+  const preferences = createElement('section', 'directive-settings-player-preferences');
+  preferences.dataset.directiveTour = 'settings.guidance';
+  preferences.appendChild(createCardTitle('Player Preferences'));
+  appendTooltipPreferenceSettings(preferences);
+  appendGuidanceSettings(preferences, actions);
+  consoleSurface.appendChild(preferences);
 
-  const sections = [
-    { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large', tooltip: 'Runtime behavior, save history, and host preset status.', tour: 'settings.systems-tab' },
-    { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip', tooltip: 'Dual provider routing, provider lanes, and model-call diagnostics.', tour: 'settings.providers-tab' },
-    { id: SETTINGS_SAFETY_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved', tooltip: 'Storage checks, active save repair, export, and cleanup controls.', tour: 'settings.safety-tab' }
-  ];
-  const activeSectionId = sections.some((section) => section.id === activeSettingsSectionId)
-    ? activeSettingsSectionId
-    : DEFAULT_SETTINGS_SECTION_ID;
-  activeSettingsSectionId = activeSectionId;
-  consoleSurface.appendChild(createSettingsSubtabs(sections, activeSectionId));
-
-  const systemsSection = createSettingsSection({
-    id: SETTINGS_SYSTEMS_SECTION_ID,
-    label: 'Systems',
-    active: activeSectionId === SETTINGS_SYSTEMS_SECTION_ID
+  appendSettingsDisclosure(consoleSurface, {
+    key: 'advanced',
+    title: 'Advanced',
+    render: (details) => {
+      details.dataset.directiveTour = 'settings.advanced';
+      appendDirectivePresetSettings(details, view, actions);
+      appendProviderConfiguration(details, view, actions);
+      appendProviderRoleRouting(details, view, actions);
+    }
   });
-  appendRuntimeSettings(systemsSection, state, actions);
-  appendTooltipPreferenceSettings(systemsSection);
-  appendGuidanceSettings(systemsSection, actions);
-  consoleSurface.appendChild(systemsSection);
-
-  const providersSection = createSettingsSection({
-    id: SETTINGS_PROVIDERS_SECTION_ID,
-    label: 'Providers',
-    active: activeSectionId === SETTINGS_PROVIDERS_SECTION_ID
+  appendSettingsDisclosure(consoleSurface, {
+    key: 'troubleshooting',
+    title: 'Developer & Troubleshooting',
+    render: (details) => {
+      details.dataset.directiveTour = 'settings.troubleshooting';
+      appendModelCallDiagnostics(details, view);
+      appendStateSafetySettings(details, view, actions);
+      appendContinuityProjectionDiagnostics(details, view, actions);
+    }
   });
-  appendDirectivePresetSettings(providersSection, view, actions);
-  appendProviderConfiguration(providersSection, view, actions);
-  appendProviderRoleRouting(providersSection, view, actions);
-  appendModelCallDiagnostics(providersSection, view);
-  consoleSurface.appendChild(providersSection);
-
-  const safetySection = createSettingsSection({
-    id: SETTINGS_SAFETY_SECTION_ID,
-    label: 'Safety',
-    active: activeSectionId === SETTINGS_SAFETY_SECTION_ID
-  });
-  appendStateSafetySettings(safetySection, view, actions);
-  appendContinuityProjectionDiagnostics(safetySection, view, actions);
-  consoleSurface.appendChild(safetySection);
-
   body.appendChild(consoleSurface);
 }

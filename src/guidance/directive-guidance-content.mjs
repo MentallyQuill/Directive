@@ -68,10 +68,10 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         target: 'ship.readiness',
         fallbackTarget: 'route.ship'
       }),
-      step('basic.command-log', 'Command Log', 'Log records committed outcomes and visible consequences for later recall without exposing hidden Director state.', {
-        route: 'log',
-        target: 'log.entry.latest',
-        fallbackTarget: 'route.log'
+      step('basic.mission-history', 'Mission History', 'Mission keeps visible objectives and related history together without exposing hidden Director state.', {
+        route: 'mission',
+        target: 'mission.quest.history',
+        fallbackTarget: 'route.mission'
       }),
       step('basic.directive-assist', 'Directive Assist', 'Assist helps draft, brief, and frame player-character text before you send. It does not commit campaign state.', {
         target: 'assist.launcher',

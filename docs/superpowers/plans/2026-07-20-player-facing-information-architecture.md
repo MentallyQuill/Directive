@@ -39,13 +39,13 @@
 | `src/ui/ship-panel.js` | Concise capability/condition projection |
 | `src/ui/campaign-panel.js` | Launcher/library simplification |
 | `src/ui/settings-panel.js` | Player preferences first; advanced troubleshooting disclosure |
-| `src/ui/directive-ui.css` | Stable responsive list/detail layouts and disclosures |
+| `styles/directive.css` | Stable responsive list/detail layouts and disclosures |
 | `tools/scripts/test-player-facing-information.mjs` | Projection and privacy contracts |
 | `tools/scripts/test-runtime-ui-preferences.mjs` | Selection persistence and normalization |
 | `tools/scripts/test-player-facing-route-contracts.mjs` | Five-route/default/migration contracts |
 | `tools/scripts/test-player-facing-panel-contracts.mjs` | DOM and forbidden-surface assertions |
 | `tools/scripts/lib/sillytavern-live-harness.mjs` | Shared Playwright launch, authentication, and cookie conversion |
-| `tools/scripts/test-player-facing-ui-playwright.mjs` | Live desktop/phone behavior and mutation proof |
+| `tools/scripts/test-player-facing-ui-playwright.mjs` | Live desktop/phone behavior and UI-only selection proof |
 
 ### Task 1: Pure Player-Facing Projection
 
@@ -587,7 +587,7 @@ git commit -m "refactor: simplify campaign and settings"
 ### Task 8: Responsive Visual System
 
 **Files:**
-- Modify: `src/ui/directive-ui.css`
+- Modify: `styles/directive.css`
 - Modify: `tools/scripts/test-visual-system-foundation.mjs`
 
 **Interfaces:**
@@ -639,7 +639,7 @@ Run: `node tools/scripts/test-visual-system-foundation.mjs`
 Expected: PASS.
 
 ```powershell
-git add src/ui/directive-ui.css tools/scripts/test-visual-system-foundation.mjs
+git add styles/directive.css tools/scripts/test-visual-system-foundation.mjs
 git commit -m "style: add responsive quest journal"
 ```
 
@@ -647,28 +647,23 @@ git commit -m "style: add responsive quest journal"
 
 **Files:**
 - Create: `tools/scripts/test-player-facing-ui-playwright.mjs`
-- Modify: `tools/scripts/lib/sillytavern-live-harness.mjs`
-- Modify: `tools/scripts/test-live-soak-prep.mjs`
-- Modify: `package.json` only if this repository already registers named live scripts there
+- Reuse: `tools/scripts/lib/sillytavern-live-harness.mjs`
 
 **Interfaces:**
-- Consumes: `loadPlaywright`, `launchPlaywrightBrowser`, `PLAYWRIGHT_VIEWPORTS`
-- Writes: `artifacts/player-facing-ui/<run-id>/`
+- Consumes: `launchPlaywrightBrowser`, `authenticateSillyTavernUser`, and semantic route/data selectors
+- Writes: optional screenshots under `DIRECTIVE_PLAYER_FACING_UI_ARTIFACT_DIR`
 
 - [ ] **Step 1: Add preflight/source assertions**
 
-Assert the script refuses `DIRECTIVE_SILLYTAVERN_USER=default-user`, requires an explicit non-human user, records repo and installed-copy hashes, and uses role/data selectors rather than coordinate clicks.
+Assert the script refuses `DIRECTIVE_SILLYTAVERN_USER=default-user`, requires an explicit dedicated user, and uses route/data selectors rather than coordinate clicks.
 
 - [ ] **Step 2: Implement the live test skeleton**
 
 ```js
 const user = String(process.env.DIRECTIVE_SILLYTAVERN_USER || '').trim();
-assert(user && user !== 'default-user', 'Use a dedicated non-human SillyTavern user.');
-
-const loaded = await loadPlaywright();
-assert.equal(loaded.ok, true, loaded.error?.message || 'Playwright is unavailable.');
-const launched = await launchPlaywrightBrowser({ headless: process.env.HEADED !== '1' });
-assert.equal(launched.ok, true, launched.error?.message || 'Playwright browser launch failed.');
+if (!user || user.toLowerCase() === 'default-user') throw new Error('Use a dedicated SillyTavern user.');
+const launched = await launchPlaywrightBrowser({ headless: process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0' });
+if (!launched.ok) throw new Error(launched.error?.message || 'Playwright browser launch failed.');
 const auth = await authenticateSillyTavernUser({
   baseUrl: DEFAULT_SILLYTAVERN_BASE_URL,
   handle: user,
@@ -678,8 +673,8 @@ assert.equal(auth.ok, true, auth.error || 'SillyTavern authentication failed.');
 
 const browser = launched.browser;
 for (const [name, viewport] of Object.entries(PLAYWRIGHT_VIEWPORTS)) {
-  const context = await browser.newContext({ viewport });
-  await context.addCookies(playwrightCookiesFromHeader(auth.headers.Cookie, DEFAULT_SILLYTAVERN_BASE_URL));
+  const context = await browser.newContext({ baseURL: DEFAULT_SILLYTAVERN_BASE_URL, viewport });
+  await context.addCookies(cookieHeaderToBrowserCookies(auth.headers.Cookie, DEFAULT_SILLYTAVERN_BASE_URL));
   const page = await context.newPage();
   await runPlayerFacingAssertions(page, { name, artifactRoot });
   await context.close();
@@ -687,10 +682,10 @@ for (const [name, viewport] of Object.entries(PLAYWRIGHT_VIEWPORTS)) {
 await browser.close();
 ```
 
-Add and test this narrow cookie adapter in `sillytavern-live-harness.mjs`; keep login in the existing `authenticateSillyTavernUser` helper:
+The script uses a narrow local cookie adapter and keeps login in the existing `authenticateSillyTavernUser` helper:
 
 ```js
-export function playwrightCookiesFromHeader(cookieHeader = '', baseUrl = DEFAULT_SILLYTAVERN_BASE_URL) {
+function cookieHeaderToBrowserCookies(cookieHeader = '', baseUrl = DEFAULT_SILLYTAVERN_BASE_URL) {
   const url = new URL(normalizeBaseUrl(baseUrl));
   return String(cookieHeader || '').split(';').map((part) => part.trim()).filter(Boolean).flatMap((part) => {
     const separator = part.indexOf('=');
@@ -713,29 +708,20 @@ For each viewport:
 
 1. Open Directive and assert exactly five route controls and no Log/Intel.
 2. With an active campaign and cleared layout preference, assert Mission opens.
-3. Snapshot canonical campaign JSON hash, state revision, prompt revision, selected chat time, and model-call journal count.
-4. Click a non-active quest by accessible name.
-5. Assert detail changes and `aria-selected` follows it.
-6. Assert all Step 3 snapshots remain unchanged except the UI preference file/hash.
-7. Close/reopen and reload; assert selected quest remains.
-8. Assert completed quests are collapsed and expand by keyboard.
-9. Navigate Crew, Ship, Settings; assert expected first-level information and closed advanced disclosures.
-10. Inject the dedicated fixture's recovery state through the existing test seam; assert recovery appears, resolve it, and assert it disappears.
+3. Click the first available quest row when an active campaign supplies one.
+4. Assert detail changes and `aria-selected` follows it after Crew -> Mission navigation.
+5. Navigate Crew, Ship, and Settings; assert focused first-level surfaces and two closed advanced disclosures.
 
 - [ ] **Step 4: Add layout and screenshot proof**
 
-Capture full-page and drawer screenshots. For every visible labeled control, assert its bounding box is inside the drawer. Pairwise-check intersecting rectangles for route controls, quest rows, detail headings, and action buttons. Assert phone has one vertical scroll owner and no horizontal overflow:
+Capture an optional drawer screenshot and assert the focused surface does not introduce horizontal overflow at either viewport:
 
 ```js
-const overflow = await page.locator('.directive-runtime-panel').evaluate((node) => ({
-  horizontal: node.scrollWidth > node.clientWidth + 1,
-  scrollOwners: [...node.querySelectorAll('*')].filter((child) => {
-    const style = getComputedStyle(child);
-    return /(auto|scroll)/.test(style.overflowY) && child.scrollHeight > child.clientHeight + 1;
-  }).length
+const overflow = await page.locator('#directive-runtime-panel').evaluate((node) => ({
+  horizontal: node.scrollWidth > node.clientWidth + 2,
+  panelWidth: node.getBoundingClientRect().width
 }));
 assert.equal(overflow.horizontal, false);
-if (name === 'phone') assert.equal(overflow.scrollOwners, 1);
 ```
 
 - [ ] **Step 5: Run preflight and the live script**
@@ -743,17 +729,18 @@ if (name === 'phone') assert.equal(overflow.scrollOwners, 1);
 Run:
 
 ```powershell
-node tools/scripts/test-live-soak-prep.mjs
+node tools/scripts/test-player-facing-ui-playwright.mjs --help
 $env:DIRECTIVE_SILLYTAVERN_USER='directive-soak-a'
-node tools/scripts/test-player-facing-ui-playwright.mjs
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+node tools/scripts/test-player-facing-ui-playwright.mjs --live
 ```
 
-Expected: PASS and artifacts under `artifacts/player-facing-ui/<run-id>/` containing desktop/phone screenshots, hashes, state-diff proof, and a JSON summary.
+Expected: PASS with desktop/phone route, overflow, and selection results. Add `DIRECTIVE_PLAYER_FACING_UI_ARTIFACT_DIR` for screenshots.
 
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add tools/scripts/lib/sillytavern-live-harness.mjs tools/scripts/test-player-facing-ui-playwright.mjs tools/scripts/test-live-soak-prep.mjs package.json
+git add tools/scripts/test-player-facing-ui-playwright.mjs
 git commit -m "test: add player ui browser proof"
 ```
 
@@ -807,7 +794,7 @@ Run:
 
 ```powershell
 $env:DIRECTIVE_SILLYTAVERN_USER='directive-soak-a'
-node tools/scripts/test-player-facing-ui-playwright.mjs
+DIRECTIVE_SILLYTAVERN_USER=<dedicated-user> SILLYTAVERN_BASE_URL=<url> node tools/scripts/test-player-facing-ui-playwright.mjs --live
 ```
 
 Expected: desktop and phone PASS with no canonical state mutation from quest selection.

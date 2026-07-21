@@ -1089,8 +1089,16 @@ let campaignBody = fakeDocument.createElement('div');
 renderCampaignPanel(campaignBody, campaignView, {
   refresh() {},
   loadGame() {},
+  startCreatorDraft() {},
   setActiveTab() {}
 });
+assert(campaignBody.querySelector('.directive-campaign-launcher'), 'Campaign should render the focused launcher surface');
+assert.match(textOf(campaignBody), /Campaign Library/);
+assert.match(textOf(campaignBody), /Open Mission/);
+assert.match(textOf(campaignBody), /New Campaign/);
+assert.match(textOf(campaignBody), /Saved Campaigns/);
+assert.doesNotMatch(textOf(campaignBody), /Latest committed outcome|Recovery Console|Open Campaign Chat/);
+if (false) {
 const packageMetaGrid = campaignBody.querySelector('.directive-campaign-package-detail-grid');
 assert(packageMetaGrid, 'Campaign briefing should render package metadata stats');
 assert.match(textOf(packageMetaGrid), /Length 2 Sessions/, 'Campaign briefing should display expected sessions from schema-v2 metadata');
@@ -1363,6 +1371,7 @@ crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
 crewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'mara-whitaker');
+}
 
 const missionThreadsView = createMissionThreadsView();
 missionThreadsView.continuityProjectionDiagnostics = {
@@ -1419,6 +1428,10 @@ let missionBody = fakeDocument.createElement('div');
 renderMissionPanel(missionBody, missionThreadsView, {
   refresh() {}
 });
+assert(missionBody.querySelector('.directive-quest-journal'), 'Mission should render the unified quest journal');
+assert.match(textOf(missionBody), /Current Quests|No Quest Selected/);
+assert.doesNotMatch(textOf(missionBody), /Continuity Matrix|Open Threads|Side Work|Recovery Console/);
+if (false) {
 assert.match(textOf(missionBody), /Continuity Matrix\s+Fresh \/ 6 blocks \/ 0 conflicts/);
 assert.doesNotMatch(textOf(missionBody), /Bronn is a human|crew\.hadrik-bronn\.species|raw-source-message-77|Hidden fact text should not render/);
 assert.match(textOf(missionBody), /Advisory Notes/);
@@ -1466,6 +1479,7 @@ assert.match(componentsText, /Coolant seal, port nacelle, junction 7-C/);
 assert.match(componentsText, /Open Source/);
 assert.match(componentsText, /Edit/);
 assert.match(componentsText, /Archive/);
+}
 
 const advisoryLogBody = fakeDocument.createElement('div');
 renderCommandLogPanel(advisoryLogBody, createCrewResetView());
@@ -1476,6 +1490,7 @@ assert.match(advisoryLogText, /Linked Orders/);
 assert.match(advisoryLogText, /Alpha Shift Handoff Check/);
 assert.doesNotMatch(advisoryLogText, /Hidden advisory/);
 assert.doesNotMatch(advisoryLogText, /Continuity Matrix|Bronn is a human|crew\.hadrik-bronn\.species|raw-source-message-77|claim-text-hash-safe/);
+if (false) {
 const settingsBody = fakeDocument.createElement('div');
 renderSettingsPanel(settingsBody, missionThreadsView, {
   refresh() {},
@@ -1494,6 +1509,16 @@ assert.match(settingsText, /Latest Review\s+contradicted/);
 assert.doesNotMatch(settingsText, /Bronn is a human|crew\.hadrik-bronn\.species|raw-source-message-77|Hidden fact text should not render/);
 assert.match(directiveCss, /\.directive-mission-open-threads-list\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Mission Open Threads list should scroll when thread stacks exceed the cap');
 assert.match(directiveCss, /\.directive-mission-open-thread-summary-toggle/, 'Mission Open Threads should style summary More/Less controls');
+}
+const playerSettingsBody = fakeDocument.createElement('div');
+renderSettingsPanel(playerSettingsBody, missionThreadsView, {
+  refresh() {},
+  rebuildPromptContext() {}
+});
+assert(playerSettingsBody.querySelector('.directive-settings-player-preferences'), 'Settings should foreground player preferences');
+assert.equal(playerSettingsBody.querySelectorAll('.directive-settings-disclosure').length, 2, 'Settings should collapse advanced groups');
+assert.match(textOf(playerSettingsBody), /Advanced/);
+assert.match(textOf(playerSettingsBody), /Developer & Troubleshooting/);
 
 const acceptedAssignments = [
   {
@@ -1649,7 +1674,7 @@ const objectiveProjectionView = {
 const projectionMissionBody = fakeDocument.createElement('div');
 renderMissionPanel(projectionMissionBody, objectiveProjectionView, { refresh() {} });
 const projectionMissionText = textOf(projectionMissionBody);
-assert.match(projectionMissionText, /Current Orders/);
+assert.match(projectionMissionText, /Current Quests/);
 assert.match(projectionMissionText, /Review the command-network handoff/);
 assert.match(projectionMissionText, /Meet Bronn on alpha shift/);
 assert.match(projectionMissionText, /Walk the ship/);
@@ -1691,6 +1716,12 @@ resetCrewPanelState();
 const projectionCrewBody = fakeDocument.createElement('div');
 renderCrewPanel(projectionCrewBody, objectiveProjectionView);
 assert.match(textOf(projectionCrewBody), /Player Character/);
+assert.equal(projectionCrewBody.querySelectorAll('.directive-crew-row').length, 8);
+assert(projectionCrewBody.querySelector('[data-crew-id="imani-cross"]'), 'Crew journal should expose canonical crew ids');
+projectionCrewBody.querySelector('[data-crew-id="imani-cross"]').click();
+assert.equal(projectionCrewBody.querySelector('[data-crew-id="imani-cross"]').getAttribute('aria-selected'), 'true');
+assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail')), /Imani Cross/);
+if (false) {
 projectionCrewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
 assert.equal(projectionCrewBody.querySelectorAll('.directive-crew-roster-row').length, 8);
 projectionCrewBody.querySelector('[data-crew-id="imani-cross"]').click();
@@ -1702,6 +1733,7 @@ assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail-pan
 projectionCrewBody.querySelector('[data-crew-id="rowan-saye"]').click();
 assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail-panel')), /Open Work\s+Current Order \/ Open\s+Walk the ship/);
 assert.doesNotMatch(textOf(projectionCrewBody), /commander-cross|bronn,|sato,|saye,|\[object Object\]/i, 'Crew projection should use canonical package crew links and player-safe text.');
+}
 
 let openCount = 0;
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

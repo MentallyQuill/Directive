@@ -337,7 +337,8 @@ function createUiPreferences(createdAt) {
     revision: 1,
     createdAt,
     updatedAt: createdAt,
-    hiddenCampaignSessionKeys: []
+    hiddenCampaignSessionKeys: [],
+    selectedQuestIdsByScope: {}
   };
 }
 
@@ -348,13 +349,19 @@ function normalizeUiPreferences(value, fallbackTimestamp) {
       .map((key) => String(key || '').trim())
       .filter(Boolean)
   )];
+  const selectedQuestIdsByScope = Object.fromEntries(
+    Object.entries(isObject(base.selectedQuestIdsByScope) ? base.selectedQuestIdsByScope : {})
+      .map(([scopeKey, questId]) => [String(scopeKey || '').trim(), String(questId || '').trim()])
+      .filter(([scopeKey, questId]) => scopeKey && questId)
+  );
   return {
     kind: 'directive.uiPreferences',
     schemaVersion: 1,
     revision: Number(base.revision || 1),
     createdAt: base.createdAt || fallbackTimestamp,
     updatedAt: base.updatedAt || fallbackTimestamp,
-    hiddenCampaignSessionKeys
+    hiddenCampaignSessionKeys,
+    selectedQuestIdsByScope
   };
 }
 

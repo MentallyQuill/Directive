@@ -273,55 +273,30 @@ try {
   renderCampaignPanel(campaignBody, buildDirectiveTrainingScenarioView({ activeTab: 'campaign' }), actions);
   assertTours(campaignBody, [
     'campaign.command',
-    'campaign.session',
     'campaign.start',
-    'campaign.activation',
-    'campaign.records',
-    'campaign.records.save-row',
-    'campaign.records.inspector',
-    'campaign.records.save-as'
+    'campaign.library',
+    'campaign.records'
   ], 'Campaign panel');
 
   const missionBody = document.createElement('main');
   renderMissionPanel(missionBody, buildDirectiveTrainingScenarioView({ activeTab: 'mission' }), actions);
   assertTours(missionBody, [
     'mission.overview',
-    'mission.chat-play',
-    'mission.command-brief',
-    'mission.pending-outcome',
-    'mission.outcome.accept',
-    'mission.outcome.discard',
-    'mission.command-bearing',
-    'mission.recovery',
-    'mission.pressure',
-    'mission.open-threads',
-    'mission.open-world'
+    'mission.quest.journal'
   ], 'Mission panel');
 
   resetCrewPanelState();
   const crewBody = document.createElement('main');
   renderCrewPanel(crewBody, buildDirectiveTrainingScenarioView({ activeTab: 'crew' }), actions);
-  assertTours(crewBody, ['crew.character', 'crew.command-bearing', 'crew.subtab.crew'], 'Crew character panel');
-  await crewBody.querySelector('[data-directive-tour~="crew.subtab.crew"]').click();
   assertTours(crewBody, [
     'crew.roster',
     'crew.roster-row',
-    'crew.detail',
-    'crew.relationships',
-    'crew.memory'
+    'crew.detail'
   ], 'Crew roster panel');
 
   const shipBody = document.createElement('main');
   renderShipPanel(shipBody, buildDirectiveTrainingScenarioView({ activeTab: 'ship' }), actions);
-  assertTours(shipBody, [
-    'ship.hero',
-    'ship.status',
-    'ship.readiness',
-    'ship.readiness.damage',
-    'ship.readiness.restrictions',
-    'ship.readiness.technical-debt',
-    'ship.condition'
-  ], 'Ship panel');
+  assertTours(shipBody, ['ship.status'], 'Ship panel');
 
   const logBody = document.createElement('main');
   renderCommandLogPanel(logBody, buildDirectiveTrainingScenarioView({ activeTab: 'log' }), actions);
@@ -338,15 +313,8 @@ try {
   renderSettingsPanel(settingsBody, buildDirectiveTrainingScenarioView({ activeTab: 'settings' }), actions);
   assertTours(settingsBody, [
     'settings.guidance',
-    'settings.guidance.library',
-    'settings.guidance.begin',
-    'settings.guidance.begin.advanced',
-    'settings.guidance.begin.campaign-records',
-    'settings.guidance.tips-toggle',
-    'settings.guidance.reset',
-    'settings.runtime',
-    'settings.providers',
-    'settings.safety'
+    'settings.advanced',
+    'settings.troubleshooting'
   ], 'Settings panel');
 
   console.log('Directive training render target tests passed.');

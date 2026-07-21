@@ -149,22 +149,17 @@ renderShipPanel(body, {
 const renderedText = textOf(body);
 assert.match(renderedText, /Maximum warp is temporarily restricted pending integrated validation/);
 assert.match(renderedText, /Command-network certificate compatibility issue remains open/);
-assert.match(renderedText, /Known Technical Debt/);
-assert.match(renderedText, /Operating Restrictions/);
-assert.match(renderedText, /1 restriction affects current operations/);
+assert.match(renderedText, /Restrictions/);
+assert.match(renderedText, /Technical History/);
 assert.doesNotMatch(renderedText, /\[object Object\]/);
 assert.doesNotMatch(renderedText, /Bridge Authority/);
 assert.doesNotMatch(renderedText, /Hidden restriction should not render|Hidden damage should not render|hidden implementation detail/);
-assert.equal(elementsByClass(body, 'directive-ship-readiness-folder').length, 3);
-const readinessMarkers = elementsByClass(body, 'directive-ship-readiness-item-marker');
-assert.ok(readinessMarkers.length > 0, 'readiness rows should include decorative severity markers');
-for (const marker of readinessMarkers) {
-  assert.equal(marker.attributes.get('aria-hidden'), 'true');
-  assert.equal(elementsByClass(marker, 'fa-angle-right').length, 0, 'readiness row markers should render as CSS boxes, not arrow icons');
-}
+assert.equal(elementsByClass(body, 'directive-ship-readiness-folder').length, 0);
+assert.equal(elementsByClass(body, 'directive-ship-history').length, 1, 'technical history should remain collapsed by default');
+assert.ok(elementsByClass(body, 'directive-ship-detail-section').length > 0, 'ship facts should render in readable sections');
 assert.equal(elementsByClass(body, 'directive-ship-command-card').length, 0);
 assert.equal(elementsByClass(body, 'directive-ship-caveat-card').length, 0);
 
 delete globalThis.document;
 
-console.log('Ship panel state record tests passed: object caveats render in readiness folders without hidden leakage');
+console.log('Ship panel state record tests passed: player-facing restrictions and history render without hidden leakage');

@@ -12,6 +12,7 @@ import {
   activePackageForView,
   currentChatEmptyMessage
 } from './current-chat-scope-copy.js';
+import { buildPlayerFacingInformation } from './player-facing-information.mjs';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -222,6 +223,69 @@ function createReadinessFolderView({ damage, restrictions, debt }) {
   return view;
 }
 
+function renderPlayerFacingShip(body, information) {
+  const ship = information?.ship || {};
+  const surface = createElement('section', 'directive-ship-journal');
+  surface.dataset.directiveTour = 'ship.status';
+  const identity = createElement('section', 'directive-ship-identity');
+  const title = createElement('h2', 'directive-ship-identity-title');
+  title.textContent = ship.name || 'Ship';
+  identity.appendChild(title);
+  if (ship.condition) {
+    const condition = createElement('p', 'directive-ship-condition');
+    condition.textContent = ship.condition;
+    identity.appendChild(condition);
+  }
+  surface.appendChild(identity);
+
+  const capabilities = asArray(ship.capabilities).filter((item) => item?.label);
+  if (capabilities.length) {
+    const section = createElement('section', 'directive-ship-detail-section');
+    section.appendChild(createCardTitle('Capabilities'));
+    const list = createElement('ul');
+    capabilities.forEach((item) => {
+      const row = createElement('li');
+      row.textContent = item.value ? `${item.label}: ${item.value}` : item.label;
+      list.appendChild(row);
+    });
+    section.appendChild(list);
+    surface.appendChild(section);
+  }
+
+  const constraints = [
+    ['Restrictions', asArray(ship.restrictions)],
+    ['Damage', asArray(ship.damage).map((item) => item?.label || item).filter(Boolean)]
+  ];
+  constraints.filter(([, items]) => items.length).forEach(([label, items]) => {
+    const section = createElement('section', 'directive-ship-detail-section');
+    section.appendChild(createCardTitle(label));
+    const list = createElement('ul');
+    items.forEach((item) => {
+      const row = createElement('li');
+      row.textContent = typeof item === 'string' ? item : item.label;
+      list.appendChild(row);
+    });
+    section.appendChild(list);
+    surface.appendChild(section);
+  });
+
+  if (asArray(ship.history).length) {
+    const history = createElement('details', 'directive-ship-history');
+    const summary = createElement('summary');
+    summary.textContent = 'Technical History';
+    history.appendChild(summary);
+    const list = createElement('ul');
+    ship.history.map((entry) => entry.summary).filter(Boolean).forEach((summaryText) => {
+      const row = createElement('li');
+      row.textContent = summaryText;
+      list.appendChild(row);
+    });
+    history.appendChild(list);
+    surface.appendChild(history);
+  }
+  body.appendChild(surface);
+}
+
 export function renderShipPanel(body, view) {
   appendSectionTitle(body, 'Ship');
   const state = view?.campaignState;
@@ -229,103 +293,9 @@ export function renderShipPanel(body, view) {
     appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
-
-  const ship = state.ship || {};
-  const packageData = activePackageForView(view);
-  const packageShip = packageData?.ship || {};
-  const conditionText = ship.condition || packageShip.openingCondition;
-  const damage = visibleStateRecordDisplays(ship.damage);
-  const restrictions = visibleStateRecordDisplays(ship.activeRestrictions);
-  const debt = visibleStateRecordDisplays(ship.technicalDebt || packageShip.systems?.knownTechnicalDebt);
-  const advisoryCount = damage.length + restrictions.length + debt.length;
-  const shipName = ship.name || packageShip.name || 'Starship';
-  const registry = ship.registry || packageShip.registry || 'Registry pending';
-
-  const consoleSurface = createElement('div', 'directive-ship-console directive-lcars-console');
-  const hero = createElement('section', 'directive-ship-hero directive-lcars-panel');
-  hero.dataset.directiveTour = 'ship.hero';
-  addTooltip(hero, 'Assigned starship identity and current campaign command context.');
-  const visual = createPackageImage(packageData, {
-    kind: 'ship.hero',
-    subjectId: packageShip.id || ship.id || 'uss-breckenridge',
-    variant: 'hero'
-  }, {
-    wrapperClass: 'directive-ship-hero-media',
-    label: shipName,
-    icon: 'fa-solid fa-shuttle-space',
-    loading: 'eager'
+  const information = view?.playerFacingInformation || buildPlayerFacingInformation({
+    campaignState: state,
+    runtimeView: view
   });
-  const heroCopy = createElement('div', 'directive-ship-hero-copy');
-  const eyebrow = createElement('span', 'directive-lcars-kicker');
-  eyebrow.textContent = 'Starfleet Vessel';
-  const title = createElement('h3', 'directive-ship-hero-title');
-  title.textContent = shipName;
-  const subtitle = createElement('p', 'directive-ship-hero-subtitle');
-  subtitle.textContent = `${ship.class || packageShip.class || 'Class pending'} / ${registry}`;
-  const mission = createElement('p', 'directive-ship-hero-mission');
-  mission.textContent = packageShip.affiliation
-    ? `${packageShip.affiliation} operational command / ${state.campaign?.title || 'Active campaign'}`
-    : state.campaign?.title || 'Active campaign';
-  heroCopy.append(eyebrow, title, subtitle, mission);
-  if (advisoryCount) {
-    const badge = createElement('span', 'directive-ship-hero-badge directive-ship-hero-badge-warning');
-    const badgeText = createElement('span');
-    badgeText.textContent = `${advisoryCount} mission ${advisoryCount === 1 ? 'advisory' : 'advisories'}`;
-    badge.append(createIcon('fa-solid fa-triangle-exclamation'), badgeText);
-    heroCopy.appendChild(badge);
-  }
-  hero.append(heroCopy, visual);
-  consoleSurface.appendChild(hero);
-
-  const statusGrid = createElement('div', 'directive-ship-readiness-grid');
-  statusGrid.dataset.directiveTour = 'ship.status';
-  const conditionStatus = createShipStatusBlock('Condition', conditionLabel(conditionText), restrictions.length || damage.length ? 'warning' : 'success', 'fa-solid fa-gauge-high', 'Current player-visible ship operating condition.');
-  conditionStatus.dataset.directiveTour = 'ship.status.condition';
-  const restrictionStatus = createShipStatusBlock('Restrictions', restrictions.length, restrictions.length ? 'warning' : 'success', 'fa-solid fa-ban', 'Operating limits currently affecting what the ship can do.');
-  restrictionStatus.dataset.directiveTour = 'ship.status.restrictions';
-  const damageStatus = createShipStatusBlock('Damage', damage.length, damage.length ? 'danger' : 'success', 'fa-solid fa-shield-halved', 'Active damage records currently affecting ship readiness.');
-  damageStatus.dataset.directiveTour = 'ship.status.damage';
-  const debtStatus = createShipStatusBlock('Technical Debt', debt.length, debt.length ? 'warning' : 'success', 'fa-solid fa-screwdriver-wrench', 'Known unresolved ship-system caveats that may affect risk calls, not software debt.');
-  debtStatus.dataset.directiveTour = 'ship.status.technical-debt';
-  statusGrid.append(conditionStatus, restrictionStatus, damageStatus, debtStatus);
-  consoleSurface.appendChild(statusGrid);
-
-  const operationalGrid = createElement('div', 'directive-ship-operational-grid');
-  const systemsCard = createCard('directive-ship-systems-card directive-lcars-panel');
-  systemsCard.dataset.directiveTour = 'ship.readiness';
-  addTooltip(systemsCard, 'Player-visible ship condition, damage, restrictions, and unresolved technical liabilities.');
-  const systemsHeader = createElement('div', 'directive-ship-panel-header');
-  const systemsCopy = createElement('div');
-  const systemsKicker = createElement('span', 'directive-lcars-kicker');
-  systemsKicker.textContent = 'Runtime Asset Status';
-  const systemsTitle = createCardTitle('Operational Readiness');
-  systemsCopy.append(systemsKicker, systemsTitle);
-  systemsHeader.appendChild(systemsCopy);
-  if (advisoryCount) {
-    const systemsBadge = createElement('span', 'directive-ship-panel-badge');
-    systemsBadge.textContent = `${advisoryCount} active`;
-    systemsHeader.appendChild(systemsBadge);
-  }
-  systemsCard.appendChild(systemsHeader);
-  systemsCard.appendChild(createReadinessFolderView({ damage, restrictions, debt }));
-
-  operationalGrid.appendChild(systemsCard);
-  consoleSurface.appendChild(operationalGrid);
-
-  const conditionCard = createCard('directive-ship-condition-card directive-lcars-panel');
-  conditionCard.dataset.directiveTour = 'ship.condition';
-  addTooltip(conditionCard, "Engineering-facing summary of the ship's current operational condition.");
-  const conditionHeader = createElement('div', 'directive-ship-panel-header');
-  const conditionCopy = createElement('div');
-  const conditionKicker = createElement('span', 'directive-lcars-kicker');
-  conditionKicker.textContent = 'Engineering Report';
-  conditionCopy.append(conditionKicker, createCardTitle('Current Operational Condition'));
-  conditionHeader.appendChild(conditionCopy);
-  conditionCard.appendChild(conditionHeader);
-  const conditionBody = createElement('p', 'directive-ship-condition-copy');
-  conditionBody.textContent = displayValue(conditionText, 'No condition report available.');
-  conditionCard.appendChild(conditionBody);
-  consoleSurface.appendChild(conditionCard);
-
-  body.appendChild(consoleSurface);
+  renderPlayerFacingShip(body, information);
 }

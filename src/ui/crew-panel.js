@@ -20,6 +20,7 @@ import {
   currentChatEmptyMessage
 } from './current-chat-scope-copy.js';
 import { advisoryItemsForCrew } from './advisory-records.js';
+import { buildPlayerFacingInformation } from './player-facing-information.mjs';
 
 const DEFAULT_CREW_ID = 'mara-whitaker';
 const DIVISION_LABELS = {
@@ -1130,27 +1131,91 @@ function renderCrewRosterTab(body, view, actions = {}) {
   body.appendChild(consoleSurface);
 }
 
+function renderPlayerFacingCrew(body, information) {
+  const crew = Array.isArray(information?.crew) ? information.crew : [];
+  if (!crew.length) {
+    appendEmpty(body, 'No crew information is currently available.');
+    return;
+  }
+  const layout = createElement('section', 'directive-crew-journal');
+  layout.dataset.directiveTour = 'crew.roster';
+  const list = createElement('nav', 'directive-crew-list');
+  list.setAttribute('aria-label', 'Crew');
+  const detail = createElement('section', 'directive-crew-detail');
+  detail.setAttribute('aria-label', 'Crew details');
+  const renderDetail = (crewId) => {
+    const selected = crew.find((entry) => entry.id === crewId) || crew[0];
+    activeCrewId = selected.id;
+    clearElement(list);
+    for (const entry of crew) {
+      const row = createElement('button', `directive-crew-row${entry.id === selected.id ? ' directive-crew-row-selected' : ''}`);
+      row.type = 'button';
+      row.dataset.crewId = entry.id;
+      row.dataset.directiveTour = 'crew.roster-row';
+      row.setAttribute('aria-selected', entry.id === selected.id ? 'true' : 'false');
+      row.setAttribute('aria-label', `${entry.name}, ${entry.role}`);
+      const name = createElement('strong', 'directive-crew-row-name');
+      name.textContent = entry.name;
+      const role = createElement('span', 'directive-crew-row-role');
+      role.textContent = entry.role;
+      row.append(name, role);
+      row.addEventListener('click', () => renderDetail(entry.id));
+      list.appendChild(row);
+    }
+    clearElement(detail);
+    const heading = createElement('h2', 'directive-crew-detail-title');
+    detail.dataset.directiveTour = 'crew.detail';
+    heading.textContent = selected.name;
+    detail.appendChild(heading);
+    const identity = createElement('p', 'directive-crew-detail-role');
+    identity.textContent = selected.role;
+    detail.appendChild(identity);
+    const meta = createElement('div', 'directive-crew-detail-meta');
+    for (const [label, value] of [
+      ['Availability', selected.availability],
+      ['Standing', selected.standing],
+      ['Assignment', selected.assignment]
+    ]) {
+      if (!value) continue;
+      const row = createElement('div', 'directive-crew-detail-meta-row');
+      const key = createElement('span', 'directive-crew-detail-meta-label');
+      key.textContent = label;
+      const content = createElement('span', 'directive-crew-detail-meta-value');
+      content.textContent = value;
+      row.append(key, content);
+      meta.appendChild(row);
+    }
+    if (meta.children.length) detail.appendChild(meta);
+    if (selected.history?.length) {
+      const history = createElement('details', 'directive-crew-history');
+      const summary = createElement('summary');
+      summary.textContent = 'Related History';
+      history.appendChild(summary);
+      const list = createElement('ul');
+      selected.history.map((entry) => entry.summary).filter(Boolean).forEach((summaryText) => {
+        const item = createElement('li');
+        item.textContent = summaryText;
+        list.appendChild(item);
+      });
+      history.appendChild(list);
+      detail.appendChild(history);
+    }
+  };
+  layout.append(list, detail);
+  body.appendChild(layout);
+  renderDetail(crew.some((entry) => entry.id === activeCrewId) ? activeCrewId : crew[0].id);
+}
+
 export function renderCrewPanel(body, view, actions = {}) {
-  appendSectionTitle(body, 'Personnel');
+  appendSectionTitle(body, 'Crew');
   const state = view?.campaignState;
   if (!state) {
     appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
-
-  const tabHost = createElement('div', 'directive-crew-tab-host');
-  const tabBody = createElement('div', 'directive-crew-tab-body');
-  const renderActive = () => {
-    clearElement(tabBody);
-    if (activeCrewTab === 'crew') renderCrewRosterTab(tabBody, view, actions);
-    else renderCharacterTab(tabBody, view, actions);
-  };
-  const tabs = createCrewLocalTabs((tabId, tabList) => {
-    activeCrewTab = tabId === 'crew' ? 'crew' : 'character';
-    updateCrewLocalTabs(tabList);
-    renderActive();
+  const information = view?.playerFacingInformation || buildPlayerFacingInformation({
+    campaignState: state,
+    runtimeView: view
   });
-  tabHost.append(tabs, tabBody);
-  body.appendChild(tabHost);
-  renderActive();
+  renderPlayerFacingCrew(body, information);
 }

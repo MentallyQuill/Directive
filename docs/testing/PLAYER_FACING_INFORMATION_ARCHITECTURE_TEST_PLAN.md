@@ -238,22 +238,21 @@ Run:
 ```powershell
 node tools/scripts/test-live-soak-prep.mjs
 $env:DIRECTIVE_SILLYTAVERN_USER='directive-soak-a'
-node tools/scripts/test-player-facing-ui-playwright.mjs
+DIRECTIVE_SILLYTAVERN_USER=<dedicated-user> SILLYTAVERN_BASE_URL=<url> node tools/scripts/test-player-facing-ui-playwright.mjs --live
 ```
 
 ### Browser scenario
 
-1. Authenticate and assert the browser session user is `directive-soak-a`.
+1. Authenticate with a dedicated non-human user and refuse `default-user`.
 2. Open the seeded chat and Directive drawer.
 3. Assert Mission is the active default route.
 4. Assert route order and absence of Log/Intel.
 5. Capture the pre-selection state bundle and screenshot.
 6. Select the available quest using role and accessible name.
 7. Assert selected row and detail change.
-8. Read storage/runtime evidence and prove only UI preferences changed.
-9. Close and reopen the drawer; assert selection persists.
-10. Reload the page; assert selection persists.
-11. Expand completed quests with keyboard and inspect one completed detail.
+8. Navigate Crew and return to Mission; assert selection persists.
+9. Assert Crew, Ship, and Settings focused surfaces plus closed advanced disclosures.
+10. Capture desktop and phone geometry and optional screenshots.
 12. Navigate Crew and verify a linked statement/history.
 13. Navigate Ship and verify a linked technical record.
 14. Navigate Settings and verify advanced groups begin closed.

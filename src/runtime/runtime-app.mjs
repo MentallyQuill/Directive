@@ -143,6 +143,10 @@ import {
   selectPackageContextForState
 } from './mission-asset-selector.mjs';
 import { createRuntimeUiPreferences } from './ui-preferences.mjs';
+import {
+  buildPlayerFacingInformation,
+  resolveSelectedQuestId
+} from '../ui/player-facing-information.mjs';
 import { createCreatorRuntimeService } from './creator-runtime-service.mjs';
 import {
   applyOutcomeIntegritySettings,
@@ -4118,6 +4122,62 @@ export function createDirectiveRuntimeApp({
     }
   }
 
+  function missionSelectionScope(renderedState = liveCampaignStateForView()) {
+    const campaignId = compactString(renderedState?.campaign?.id);
+    const chatId = compactString(
+      currentChatScope?.currentChat?.chatId
+      || renderedState?.campaignChatBinding?.chatId
+    );
+    return campaignId && chatId ? `campaign:${campaignId}::chat:${chatId}` : null;
+  }
+
+  function playerFacingInformationForState(renderedState = liveCampaignStateForView()) {
+    const renderedAssets = optionalRuntimeAssetsForState(renderedState);
+    const openWorld = renderedState && renderedAssets?.packageData
+      ? openWorldQuestView(renderedState, renderedAssets.packageData)
+      : null;
+    const playerSafeCampaign = createPlayerSafeCampaignProjection({
+      campaignState: renderedState,
+      packageData: renderedAssets?.packageData || null,
+      crewDataset: renderedAssets?.crewDataset || null
+    });
+    const commandBearingPlayerView = renderedState
+      ? projectCommandBearingForPlayer(migrateCommandBearingState(renderedState))
+      : null;
+    const information = buildPlayerFacingInformation({
+      campaignState: renderedState,
+      coreProjections: {
+        playerSafeCampaign,
+        commandBearingPlayerView,
+        packageData: renderedAssets?.packageData || null,
+        crewDataset: renderedAssets?.crewDataset || null
+      },
+      runtimeView: {
+        openWorld,
+        pendingDirectorTurn: publicPendingDirectorTurnProjection(pendingDirectorTurn, pendingOutcomeReplacement),
+        pendingOutcomeReplacement,
+        lastError,
+        lastStateSafetyResult
+      }
+    });
+    const scopeKey = missionSelectionScope(renderedState);
+    const activeMissionId = compactString(
+      renderedState?.mission?.id
+      || renderedState?.activeMissionId
+      || renderedState?.mission?.activeMissionId
+    );
+    const selectedQuestId = resolveSelectedQuestId({
+      quests: information.quests,
+      selectedQuestId: scopeKey ? uiPreferences.selectedQuestId(scopeKey) : null,
+      activeMissionId
+    });
+    return {
+      ...information,
+      selectionScopeKey: scopeKey,
+      selectedQuestId
+    };
+  }
+
   function viewEnvelope(tabId) {
     if (campaignState) campaignState = modelCallJournal.applyPending(campaignState);
     const currentChatCampaignState = liveCampaignStateForView();
@@ -4171,6 +4231,13 @@ export function createDirectiveRuntimeApp({
     const continuityTelemetry = renderedCampaignState
       ? buildContinuityTelemetry({ campaignState: renderedCampaignState, promptInspection })
       : null;
+    const playerSafeCampaign = createPlayerSafeCampaignProjection({
+      campaignState: renderedCampaignState,
+      packageData: renderedAssets?.packageData || null,
+      crewDataset: renderedAssets?.crewDataset || null
+    });
+    const chatNative = chatNativeViewForState(renderedCampaignState, renderedSaveGuard);
+    const playerFacingInformation = playerFacingInformationForState(renderedCampaignState);
     return {
       kind: 'directive.runtimeView',
       activeTab: tabId,
@@ -4193,11 +4260,7 @@ export function createDirectiveRuntimeApp({
         campaignId: campaignState?.campaign?.id || null,
         status: campaignState ? (currentChatCampaignState || renderLoadedCampaignState ? 'loaded' : 'loaded-not-current-chat') : 'none'
       },
-      playerSafeCampaign: createPlayerSafeCampaignProjection({
-        campaignState: renderedCampaignState,
-        packageData: renderedAssets?.packageData || null,
-        crewDataset: renderedAssets?.crewDataset || null
-      }),
+      playerSafeCampaign,
       loadedPlayerSafeCampaign: createPlayerSafeCampaignProjection({
         campaignState,
         packageData: loadedAssets?.packageData || null,
@@ -4207,8 +4270,9 @@ export function createDirectiveRuntimeApp({
       loadedCommandBearingPlayerView: cloneJson(loadedCommandBearingPlayerView),
       playerCharacterView: cloneJson(playerCharacterView),
       loadedPlayerCharacterView: cloneJson(loadedPlayerCharacterView),
-      chatNative: chatNativeViewForState(renderedCampaignState, renderedSaveGuard),
+      chatNative,
       loadedChatNative: chatNativeViewForState(campaignState, lastManualSaveGuard),
+      playerFacingInformation: cloneJson(playerFacingInformation),
       currentChat: cloneJson(currentChatScope?.currentChat || null),
       currentChatCampaignGuard: cloneJson(currentChatScope?.guard || null),
       providerConfiguration: providerViewData(),
@@ -8801,6 +8865,21 @@ export function createDirectiveRuntimeApp({
           chatChange: cloneJson(chatChange || null),
           view: viewEnvelope('mission')
         };
+      });
+    },
+
+    async selectMissionQuest({ questId = '' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const scopeKey = missionSelectionScope();
+        const information = playerFacingInformationForState();
+        const normalizedQuestId = compactString(questId);
+        if (!scopeKey || !normalizedQuestId || !information.quests.some((quest) => quest.id === normalizedQuestId)) {
+          throw new Error('Selected quest is not available in the current campaign chat.');
+        }
+        uiPreferences.selectQuest(scopeKey, normalizedQuestId);
+        await persistUiPreferences();
+        return viewEnvelope('mission');
       });
     },
 
