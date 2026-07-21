@@ -605,7 +605,7 @@ assert.equal(host.chat.calls().filter((entry) => entry.type === 'createOrBindCam
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
 assert.equal(host.prompt.inspect().status, 'installed');
 assert(host.prompt.inspect().blockCount > 0);
-assert(host.prompt.inspect().blockCount <= 14);
+assert(host.prompt.inspect().blockCount <= 17);
 assert.equal(
   host.prompt.inspect().blocks.some((block) => block.promptKey === 'directive.campaign.turn-yield'),
   true,
@@ -615,6 +615,11 @@ assert.equal(
   host.prompt.inspect().blocks.some((block) => block.promptKey === 'directive.campaign.command-authority'),
   true,
   'Activation prompt should include command-authority contract.'
+);
+assert.equal(
+  host.prompt.inspect().blocks.some((block) => block.promptKey === 'directive.campaign.mission-guardrails'),
+  true,
+  'Applicable Ashes activation prompt should include mission guardrails.'
 );
 assert.equal(
   host.prompt.inspect().blocks.some((block) => /Yield target:/i.test(block.content || block.text || '')),

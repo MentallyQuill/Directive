@@ -29,4 +29,36 @@ const validOpeningReview = review([
 ].join(' '));
 assert.equal(validOpeningReview.ok, true);
 
+const hesperusState = {
+  campaign: {
+    packageId: 'directive:campaign-package:breckenridge-ashes-of-peace'
+  },
+  mission: {
+    activeMissionId: 'prelude-a-ship-underway',
+    activePhaseId: 'shuttle-rendezvous',
+    phase: 'shuttle-rendezvous'
+  }
+};
+
+function reviewHesperus(text, activePackageData = packageData) {
+  return reviewContinuityContradictions({
+    text,
+    campaignState: hesperusState,
+    packageData: activePackageData
+  });
+}
+
+const pirateAssertionReview = reviewHesperus([
+  'Bronn folded his arms. "Pirates took the Hesperus cargo; that much is clear."',
+  'Whitaker nodded and ordered pursuit of the raiders.'
+].join(' '), null);
+assert.equal(pirateAssertionReview.ok, false);
+assert(pirateAssertionReview.findings.some((finding) => finding.kind === 'mission-guardrail-violation'));
+
+const cautiousHypothesisReview = reviewHesperus([
+  'Bronn folded his arms. "Piracy is one possibility, but the evidence is not there yet."',
+  'Whitaker ordered the crew to keep the Hesperus rescue and repair assessment first.'
+].join(' '), null);
+assert.equal(cautiousHypothesisReview.ok, true);
+
 console.log('continuity contradiction guard ok');

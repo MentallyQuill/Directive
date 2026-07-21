@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import {
   createTurnSourceFrameContract,
@@ -18,6 +19,8 @@ import {
 } from '../../src/storage/core-store-v2.mjs';
 import { createLogicalStorageAdapter } from '../../src/storage/logical-storage-adapter.mjs';
 import { createRuntimeLedgerView } from '../../src/runtime/runtime-ledger-view.mjs';
+
+const packageData = JSON.parse(fs.readFileSync(new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', import.meta.url), 'utf8'));
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -2002,6 +2005,90 @@ assert.equal(contradictionDuplicateDispatch.duplicate, true);
 assert.equal(contradictionDuplicateDispatch.ok, false, 'Duplicate CORE-backed contradiction must not report success from old response row.');
 assert.equal(contradictionDuplicateDispatch.recoveryRequired, true);
 assert.equal(contradictionDuplicateDispatch.recoveryId, contradictionProjectedRecovery.id);
+
+const hesperusViolationFrame = createTurnSourceFrameContract({
+  id: 'frame-response-core-host-native-hesperus-guardrail',
+  campaignId,
+  saveId,
+  chatId,
+  hostMessageId: 'player-core-host-native-hesperus-guardrail',
+  textHash: hashStableJson({ text: 'Sam asks the host to continue the Hesperus assessment.' }),
+  sourceRevision: 4,
+  createdAt: '2026-07-09T12:10:00.000Z'
+});
+const hesperusViolationTransaction = await coreStore.beginTurn(hesperusViolationFrame, {
+  transactionId: 'txn-response-core-host-native-hesperus-guardrail',
+  ingressId: 'ingress-response-core-host-native-hesperus-guardrail',
+  idempotencyKey: 'begin-response-core-host-native-hesperus-guardrail'
+});
+state = addIngress({
+  ...state,
+  campaign: {
+    ...(state.campaign || {}),
+    packageId: 'directive:campaign-package:breckenridge-ashes-of-peace'
+  },
+  mission: {
+    ...(state.mission || {}),
+    activeMissionId: 'prelude-a-ship-underway',
+    activePhaseId: 'shuttle-rendezvous',
+    phase: 'shuttle-rendezvous'
+  }
+}, {
+  ingressId: 'ingress-response-core-host-native-hesperus-guardrail',
+  hostMessageId: 'player-core-host-native-hesperus-guardrail',
+  chatId,
+  campaignId,
+  sourceFrame: hesperusViolationFrame,
+  coreTransactionId: hesperusViolationTransaction.id,
+  receivedAt: '2026-07-09T12:10:00.000Z'
+});
+const hesperusViolationDispatcher = createResponseDispatcher({
+  host: {
+    chat: {
+      postAssistantMessage: async () => {
+        throw new Error('Hesperus guardrail bridge test must not post Directive text.');
+      },
+      continueHostGeneration: async () => ({
+        ok: true,
+        released: true,
+        skipped: false,
+        waitForCompletion: false,
+        generationStartedAt: '2026-07-09T12:10:05.000Z',
+        hostGenerationReleasedAt: '2026-07-09T12:10:05.000Z',
+        observationStatus: 'completed',
+        observationId: 'observation-response-core-host-native-hesperus-guardrail',
+        observedMessage: {
+          hostMessageId: 'assistant-host-native-hesperus-guardrail',
+          index: 11,
+          chatId,
+          text: 'Bronn folded his arms. "Pirates took the Hesperus cargo; that much is clear." Whitaker ordered pursuit of the raiders.'
+        }
+      })
+    }
+  },
+  coreTurnStore: coreStore,
+  getCampaignState: () => state,
+  setCampaignState: (next) => { state = initializeCampaignRuntimeTracking(next); },
+  persist: async (next) => { state = initializeCampaignRuntimeTracking(next); },
+  now
+});
+const hesperusViolationDispatch = await hesperusViolationDispatcher.dispatch({
+  campaignState: state,
+  ingressId: 'ingress-response-core-host-native-hesperus-guardrail',
+  strategy: 'injectAndContinue',
+  responseKind: 'hostGeneration',
+  idempotencyKey: 'response-core-host-native-hesperus-guardrail',
+  packageData
+});
+assert.equal(hesperusViolationDispatch.ok, false);
+assert.equal(hesperusViolationDispatch.recoveryRequired, true);
+assert.equal(
+  hesperusViolationDispatch.continuityReview.findings.some((finding) => finding.kind === 'mission-guardrail-violation'),
+  true
+);
+const hesperusProjectedRecovery = coreStore.readProjections().recoveryJournal.find((entry) => entry.transactionId === hesperusViolationTransaction.id);
+assert.equal(hesperusProjectedRecovery.reason, 'hostNativeContinuityContradiction');
+assert.equal(hesperusProjectedRecovery.repairDecision.sreReviewRequired, true);
 
 const staleObservedHashFrame = createTurnSourceFrameContract({
   id: 'frame-response-core-host-native-stale-observed-hash',
@@ -4526,7 +4613,7 @@ const promptGateDispatcher = createResponseDispatcher({
     ok: false,
     requiredPromptKeysPresent: false,
     promptKeys: ['directive.contract', 'directive.campaign.player-character'],
-    missingRequiredPromptKeys: ['directive.campaign.turn-yield'],
+    missingRequiredPromptKeys: ['directive.campaign.turn-yield', 'directive.campaign.foreground-quest'],
     directiveOwnedRevision: 7,
     reason: 'missing-required-prompt-keys'
   }),
@@ -4545,8 +4632,10 @@ const promptGateResult = await promptGateDispatcher.dispatch({
 assert.equal(promptGateResult.ok, false);
 assert.equal(promptGateResult.status, 'promptNotReady');
 assert.equal(promptGateResult.promptReadiness.missingRequiredPromptKeys[0], 'directive.campaign.turn-yield');
+assert.equal(promptGateResult.promptReadiness.missingRequiredPromptKeys.includes('directive.campaign.foreground-quest'), true);
 assert.equal(promptGateContinueCalls, 0);
 assert.equal(promptGateDiagnostics.at(-1).status, 'blocked');
 assert.equal(promptGateDiagnostics.at(-1).missingRequiredPromptKeys[0], 'directive.campaign.turn-yield');
+assert.equal(promptGateDiagnostics.at(-1).missingRequiredPromptKeys.includes('directive.campaign.foreground-quest'), true);
 
 console.log('Response dispatcher CORE bridge tests passed.');

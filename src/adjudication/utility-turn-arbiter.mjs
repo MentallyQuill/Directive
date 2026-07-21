@@ -12,6 +12,69 @@ function compact(value = '') {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function looksLikePhaseChangingMontage(value = '') {
+  const text = compact(value);
+  if (!text) return false;
+  const hasDaySequence = /\bday\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/i.test(text);
+  const hasWeekMontage = /\b(?:the\s+)?week\s+(?:took|settled|passed|moved|went)\b/i.test(text);
+  const hasCompressionVerb = /\b(?:montage|summarize|fast[-\s]?forward|days?\s+passed|over\s+the\s+next)\b/i.test(text);
+  const hasNewOperationalTrigger = /\b(?:distress\s+signal|distress\s+beacon|new\s+contact|incoming\s+hail|emergency\s+signal)\b/i.test(text);
+  return (hasDaySequence || hasWeekMontage || hasCompressionVerb) && hasNewOperationalTrigger;
+}
+
+function phaseChangingMontagePlan(arbiterContext = {}) {
+  if (!looksLikePhaseChangingMontage(arbiterContext.playerText)) return null;
+  return {
+    kind: 'directive.turnArbiterPlan.v1',
+    schemaVersion: 1,
+    route: 'directiveOutcome',
+    confidence: 0.9,
+    ambiguity: 'medium',
+    playerIntent: {
+      speechAct: 'scene-navigation',
+      action: 'review phase-changing montage before continuing',
+      target: 'active mission phase',
+      directObject: 'elapsed-time montage and new operational trigger',
+      domainSignals: ['mission', 'continuity', 'time'],
+      riskSignals: ['phase-changing-montage']
+    },
+    sceneContinuity: {
+      currentLocation: '',
+      currentConversation: '',
+      mustPreserve: ['Treat the player-authored elapsed-time montage and new operational trigger as one reviewed transition.'],
+      mustNotReestablish: []
+    },
+    responsePlan: {
+      owner: 'directive',
+      strategy: 'directivePosted',
+      guidance: 'Adjudicate elapsed time, mission transition, and the new trigger before narrating the resulting playable beat.'
+    },
+    statePlan: {
+      commitOutcome: true,
+      allowedDomains: ['mission', 'continuity', 'time', 'sourceBinding'],
+      proposedOperations: [],
+      promptDirtyDomains: ['missionQuestThread', 'sceneTime', 'sourceBinding']
+    },
+    timePlan: {
+      action: 'adjudicate',
+      semanticKind: 'montage',
+      authority: 'playerNarration',
+      confidence: 0.9,
+      evidence: compact(arbiterContext.playerText),
+      rationale: 'The player establishes elapsed time and introduces a new operational trigger in the same turn.'
+    },
+    risk: {
+      requiresPause: false,
+      pauseReason: '',
+      reasons: ['Player text compresses elapsed campaign time and introduces a new operational trigger.']
+    },
+    diagnostics: {
+      sourceUse: 'phase-changing montage preflight',
+      deterministicFallbackUsed: false
+    }
+  };
+}
+
 function parseJson(text = '') {
   try {
     return { ok: true, value: JSON.parse(text) };
@@ -89,6 +152,8 @@ export async function arbitrateChatTurn({
   generationRouter = null
 } = {}) {
   const arbiterContext = buildTurnArbiterContext({ message, context });
+  const preflightPlan = phaseChangingMontagePlan(arbiterContext);
+  if (preflightPlan) return preflightPlan;
   if (!generationRouter || typeof generationRouter.generate !== 'function') {
     return failurePlan({ reason: 'missing_generation_router', arbiterContext });
   }

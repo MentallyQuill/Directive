@@ -1,5 +1,6 @@
 import { buildContinuityFactIndex } from './fact-index.mjs';
 import { asArray, compact } from './fact-schema.mjs';
+import { reviewAshesHesperusGuardrailText } from '../mission/ashes-of-peace/host-continuation-guardrails.mjs';
 
 function escapeRegex(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -221,7 +222,8 @@ export function reviewContinuityContradictions({
     ...speciesFindings(text, factIndex.facts, packageData),
     ...ageFindings(text, factIndex.facts, packageData),
     ...uniformDivisionFindings(text, factIndex.facts, packageData),
-    ...travelFindings(text, factIndex.facts)
+    ...travelFindings(text, factIndex.facts),
+    ...reviewAshesHesperusGuardrailText({ text, campaignState, packageData })
   ];
   return {
     kind: 'directive.continuityContradictionReview.v1',

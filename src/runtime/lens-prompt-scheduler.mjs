@@ -64,7 +64,9 @@ export const REQUIRED_HOST_CONTINUE_PROMPT_KEYS = Object.freeze([
   'directive.contract',
   'directive.campaign.player-character',
   'directive.campaign.command-authority',
-  'directive.campaign.turn-yield'
+  'directive.campaign.turn-yield',
+  'directive.campaign.immediate-scene',
+  'directive.campaign.foreground-quest'
 ]);
 
 export function missingRequiredPromptKeys(promptKeys = [], requiredPromptKeys = REQUIRED_HOST_CONTINUE_PROMPT_KEYS) {
@@ -592,9 +594,22 @@ function applyPromptBudgetTraceToPacket(packet = {}, trace = null) {
   }
   const includedBlocks = [];
   const omittedBlocks = [];
+  const mustIncludeOverBudgetBlocks = [];
   for (const block of blocks) {
     const keys = blockMatchKeys(block);
-    if (keys.some((key) => omittedKeys.has(key))) {
+    const omittedByBudget = keys.some((key) => omittedKeys.has(key));
+    if (omittedByBudget && block.mustInclude === true) {
+      mustIncludeOverBudgetBlocks.push(compactObject({
+        id: block.id || null,
+        promptKey: block.promptKey || null,
+        hash: block.hash || block.contentHash || null,
+        lane: promptBlockBudgetLane(block),
+        reason: 'must-include-over-budget'
+      }));
+      includedBlocks.push(stripBuildOnlyBlockBudgetFields(block));
+      continue;
+    }
+    if (omittedByBudget) {
       omittedBlocks.push(compactObject({
         id: block.id || null,
         promptKey: block.promptKey || null,
@@ -609,11 +624,14 @@ function applyPromptBudgetTraceToPacket(packet = {}, trace = null) {
   const enforcement = compactObject({
     kind: 'directive.lensPromptBudgetEnforcement.v1',
     schemaVersion: 1,
-    status: blockingLanes.length ? 'blocked' : (omittedBlocks.length ? 'filtered' : 'pass'),
+    status: blockingLanes.length
+      ? 'blocked'
+      : (mustIncludeOverBudgetBlocks.length ? 'mustIncludeOverBudget' : (omittedBlocks.length ? 'filtered' : 'pass')),
     originalBlockCount: blocks.length,
     includedBlockCount: includedBlocks.length,
     omittedBlockCount: omittedBlocks.length,
     omittedBlocks,
+    mustIncludeOverBudgetBlocks,
     blockingLanes
   });
   return {

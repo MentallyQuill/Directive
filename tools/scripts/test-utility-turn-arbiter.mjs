@@ -140,6 +140,33 @@ assert.equal(plan.route, 'hostContinue');
 assert.equal(calls[0].roleId, 'utilityTurnArbiter');
 assert.equal(calls[0].request.modelPreferences.capability, 'utility-reasoning');
 
+const callsBeforePhaseMontage = calls.length;
+const phaseMontagePlan = await arbitrateChatTurn({
+  message: {
+    hostMessageId: '18',
+    text: 'The week took on its own rhythm. Day One, Engineering handled the relay issue. Then Nayar picked up a civilian distress signal.',
+    chatId: 'Directive - Ashes'
+  },
+  context: {
+    campaignId: 'campaign-test',
+    saveId: 'save-test',
+    currentMission: { activeMissionId: 'prelude-a-ship-underway', activePhaseId: 'shuttle-rendezvous' },
+    sourceClean: true,
+    ordinaryDialogueLikely: true
+  },
+  generationRouter: router
+});
+assert.equal(calls.length, callsBeforePhaseMontage, 'Phase-changing montage preflight must not risk a model-selected host continuation route.');
+assert.equal(phaseMontagePlan.route, 'directiveOutcome');
+assert.equal(phaseMontagePlan.statePlan.commitOutcome, true);
+assert.equal(phaseMontagePlan.responsePlan.owner, 'directive');
+assert.equal(phaseMontagePlan.timePlan.action, 'adjudicate');
+assert.equal(phaseMontagePlan.timePlan.semanticKind, 'montage');
+assert.equal(phaseMontagePlan.timePlan.authority, 'playerNarration');
+assert.equal(phaseMontagePlan.statePlan.promptDirtyDomains.includes('sceneTime'), true);
+assert.equal(phaseMontagePlan.statePlan.promptDirtyDomains.includes('sceneLocationTime'), false);
+assert.equal(phaseMontagePlan.diagnostics.deterministicFallbackUsed, false);
+
 const failurePlan = await arbitrateChatTurn({
   message: { hostMessageId: '17', text: 'Answer', chatId: 'chat' },
   context: { sourceClean: true, ordinaryDialogueLikely: true },

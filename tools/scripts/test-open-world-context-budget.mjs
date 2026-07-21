@@ -15,6 +15,12 @@ let state = initializeOpenWorldCampaignState({
   baseState: projection.initialState,
   now: () => '2026-06-22T14:00:00.000Z'
 });
+state.mission = {
+  ...state.mission,
+  activeMissionId: 'prelude-a-ship-underway',
+  activePhaseId: 'shuttle-rendezvous',
+  phase: 'shuttle-rendezvous'
+};
 state.knowledgeLedger.facts.push({
   id: 'fact.hidden.canary',
   visibility: 'directorOnly',
@@ -64,6 +70,7 @@ const plan = buildContextPlan({
     currentQuestion: 'How should the new executive officer establish an effective command rhythm?',
     immediateStakes: 'Readiness and crew confidence before arrival in the Asterion Reach.'
   },
+  playerText: 'Keep the Hesperus response focused on passenger safety and the repair picture.',
   recentMessageSummary: 'The player asked for a concise readiness report.',
   createdAt: '2026-06-22T14:00:00.000Z'
 });
@@ -74,7 +81,12 @@ assert(plan.blocks.some((block) => block.id === 'directive-contract'));
 assert(plan.blocks.some((block) => block.id === 'immediate-scene'));
 assert(plan.blocks.some((block) => block.id === 'foreground-quest'));
 assert(plan.blocks.length <= plan.budget.maxBlocks);
-assert(plan.usage.total <= plan.budget.totalTokens || plan.blocks.every((block) => block.id === 'directive-contract' || block.id === 'immediate-scene' || block.id === 'foreground-quest'));
+assert(plan.usage.total <= plan.budget.totalTokens || plan.blocks.every((block) => (
+  block.id === 'directive-contract'
+  || block.id === 'immediate-scene'
+  || block.id === 'foreground-quest'
+  || block.id === 'mission-guardrails'
+)));
 assert(!plan.text.includes(canary), 'Director-only and dormant canary content must never enter narrator context.');
 assert(!plan.blocks.some((block) => block.sourceIds?.includes('quest.dynamic.hidden-canary')));
 assert(plan.blocks.every((block) => block.audience === 'narratorSafe'));
@@ -84,6 +96,12 @@ assert(plan.blocks.every((block) => typeof block.lensPromptBudgetLane === 'strin
 assert.equal(plan.blocks.find((block) => block.id === 'directive-contract')?.lensPromptBudgetLane, 'stableRules');
 assert.equal(plan.blocks.find((block) => block.id === 'immediate-scene')?.lensPromptBudgetLane, 'activeScene');
 assert.equal(plan.blocks.find((block) => block.id === 'relevant-crew')?.lensPromptBudgetLane, 'activeCast');
+const guardrailBlock = plan.blocks.find((block) => block.id === 'mission-guardrails');
+assert(guardrailBlock, 'Ashes context plan must include a mission guardrail block when player text activates Hesperus before phase state catches up.');
+assert.equal(guardrailBlock.promptKey, 'directive.campaign.mission-guardrails');
+assert.equal(guardrailBlock.mustInclude, true);
+assert.equal(plan.text.includes('Keep Hesperus focused on rescue, repair limits, passenger safety, and accountability.'), true);
+assert.equal(plan.text.includes('Pale Lantern'), false, 'Mission guardrail prompt must not expose hidden conspiracy labels.');
 assert.equal(plan.safety.rawHiddenValuesExposed, false);
 assert.equal(plan.safety.directorOnlyDataIncluded, false);
 

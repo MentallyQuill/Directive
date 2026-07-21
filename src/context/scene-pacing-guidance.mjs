@@ -1,3 +1,9 @@
+import {
+  ashesHesperusGuardrailApplies,
+  ashesHesperusGuardrailLines,
+  isAshesOfPeaceCampaign
+} from '../mission/ashes-of-peace/host-continuation-guardrails.mjs';
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -29,10 +35,6 @@ function activePhaseId(campaignState, scene) {
     || campaignState?.mission?.activePhaseId
     || campaignState?.mission?.phase
   );
-}
-
-function isAshesOfPeace(packageData) {
-  return packageData?.manifest?.id === 'directive:campaign-package:breckenridge-ashes-of-peace';
 }
 
 const GLOBAL_SCENE_PACING_LINES = Object.freeze([
@@ -94,7 +96,7 @@ export function turnYieldGuidance({
       lastAction && /\?/.test(lastAction)
         ? 'If the player asked a direct question, answer that question briefly, then yield.'
         : 'If the player made a command or approach, show the immediate response to that action, then yield.',
-      isAshesOfPeace(packageData) && activeMissionId(campaignState, scene) === 'prelude-a-ship-underway'
+      isAshesOfPeaceCampaign({ campaignState, packageData }) && activeMissionId(campaignState, scene) === 'prelude-a-ship-underway'
         ? 'For Ashes of Peace opening play, do not compress arrival, Bronn handoff, Whitaker handoff, and Reach strategy into one reply.'
         : null
     ].filter(Boolean)
@@ -103,6 +105,20 @@ export function turnYieldGuidance({
 
 export function turnYieldLines(input = {}) {
   return turnYieldGuidance(input).lines;
+}
+
+export function missionGuardrailGuidance({
+  campaignState,
+  packageData = null,
+  scene = null,
+  playerText = ''
+} = {}) {
+  if (!ashesHesperusGuardrailApplies({ campaignState, packageData, scene, playerText })) return null;
+  return {
+    id: 'mission-guardrails',
+    title: 'Mission Guardrails',
+    lines: ashesHesperusGuardrailLines()
+  };
 }
 
 export function scenePacingGuidance({
@@ -115,7 +131,7 @@ export function scenePacingGuidance({
   const decisions = decisionIds(campaignState, scene);
   const shuttleApproach = compact(packageData?.ship?.travelContinuity?.openingShuttleApproach);
 
-  if (isAshesOfPeace(packageData) && missionId === 'prelude-a-ship-underway') {
+  if (isAshesOfPeaceCampaign({ campaignState, packageData }) && missionId === 'prelude-a-ship-underway') {
     if (phaseId === 'shuttle-rendezvous' || decisions.has('decision.arrival-tone')) {
       return {
         id: 'ashes-prelude-shuttle-rendezvous',

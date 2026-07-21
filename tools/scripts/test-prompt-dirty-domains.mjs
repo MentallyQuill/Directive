@@ -209,6 +209,24 @@ const lens = createSyntheticLensPromptScheduler({
           role: 'system'
         },
         {
+          id: 'immediate-scene',
+          promptKey: 'directive.campaign.immediate-scene',
+          title: 'Immediate Scene',
+          text: 'Immediate scene: Sam is on the bridge, responding to a live Hesperus operational problem.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
+          id: 'foreground-quest',
+          promptKey: 'directive.campaign.foreground-quest',
+          title: 'Foreground Quest',
+          text: 'Foreground assignment: keep the Hesperus situation focused on rescue, repair limits, passenger safety, and accountability.',
+          placement: 'inPrompt',
+          depth: 0,
+          role: 'system'
+        },
+        {
           id: 'lens-visible',
           promptKey: 'directive.lens.visible',
           title: 'Visible LENS Context',
@@ -506,11 +524,15 @@ assert.deepEqual(visibleFlush.installed.requiredPromptKeys, [
   'directive.contract',
   'directive.campaign.player-character',
   'directive.campaign.command-authority',
-  'directive.campaign.turn-yield'
+  'directive.campaign.turn-yield',
+  'directive.campaign.immediate-scene',
+  'directive.campaign.foreground-quest'
 ]);
 assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.player-character'), true);
 assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.command-authority'), true);
 assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.turn-yield'), true);
+assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.immediate-scene'), true);
+assert.equal(visibleFlush.installed.promptKeys.includes('directive.campaign.foreground-quest'), true);
 assert.equal(buildCalls.length, 1);
 assert.equal(promptCalls.some(([key]) => externalPromptKeys.has(key)), false, 'LENS install must not write external prompt keys');
 assert.equal(promptCalls.some(([key]) => key === 'directive.campaign.summaryception'), true, 'Malformed external packet key should be scoped to Directive');

@@ -6,6 +6,7 @@ import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-head
 import { commandAuthorityPromptBlock } from './command-authority-guidance.mjs';
 import {
   globalScenePacingLines,
+  missionGuardrailGuidance,
   scenePacingGuidance,
   turnYieldGuidance
 } from './scene-pacing-guidance.mjs';
@@ -298,6 +299,12 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, playerTe
     scene,
     playerText
   });
+  const missionGuardrails = missionGuardrailGuidance({
+    campaignState: state,
+    packageData,
+    scene,
+    playerText
+  });
   const objectiveLabels = foregroundSummary?.currentObjectiveIds?.length
     ? foregroundSummary.currentObjectiveIds.map((objectiveId) => {
       const objective = asArray(template?.objectives).find((entry) => entry?.id === objectiveId);
@@ -356,6 +363,20 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, playerTe
       reason: 'The host model must stop after one playable beat and yield agency back to the player.',
       content: list(yieldGuidance.lines)
     }),
+    normalizeCandidate(state, missionGuardrails ? {
+      id: 'mission-guardrails',
+      title: 'Mission Guardrails',
+      mustInclude: true,
+      salienceScore: 100,
+      placement: 'inPrompt',
+      depth: 0,
+      ttl: 'scene',
+      priority: 997,
+      lensPromptBudgetLane: 'stableRules',
+      reason: 'The host model must preserve the active mission boundary during continuation.',
+      sourceIds: [state?.mission?.activeMissionId, state?.mission?.activePhaseId].filter(Boolean),
+      content: list(missionGuardrails.lines)
+    } : null),
     normalizeCandidate(state, replyHeaderBlock),
     normalizeCandidate(state, {
       id: 'immediate-scene',

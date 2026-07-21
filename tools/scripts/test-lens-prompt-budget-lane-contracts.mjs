@@ -630,4 +630,69 @@ assert.ok(
   'Blocked prompt diagnostic should stay bounded even when full trace has protected-lane refs.'
 );
 
+let mustIncludeInstallCount = 0;
+const mustIncludeScheduler = createLensPromptScheduler({
+  coreStore: {
+    async appendDiagnostics() {
+      return { id: 'must-include-diagnostic' };
+    }
+  },
+  clock: () => '2026-07-09T12:00:00.000Z',
+  buildDirectivePromptPacket: async ({ revision, cacheKey }) => ({
+    kind: 'directive.playerSafePromptContext',
+    revision,
+    cacheKey,
+    blocks: [
+      {
+        id: 'immediate-scene',
+        promptKey: 'directive.campaign.immediate-scene',
+        text: 'Immediate scene must remain present even when activeScene is tight.',
+        tokenEstimate: 700,
+        mustInclude: true,
+        lensPromptBudgetLane: 'activeScene'
+      },
+      {
+        id: 'foreground-quest',
+        promptKey: 'directive.campaign.foreground-quest',
+        text: 'Foreground assignment must remain present even when activeScene is tight.',
+        tokenEstimate: 700,
+        mustInclude: true,
+        lensPromptBudgetLane: 'activeScene'
+      }
+    ],
+    promptBudgetLanes: [{
+      id: 'activeScene',
+      budgetTokens: 900,
+      refs: [
+        { id: 'immediate-scene', hash: 'scene-hash', estimatedTokens: 700 },
+        { id: 'foreground-quest', hash: 'quest-hash', estimatedTokens: 700 }
+      ]
+    }]
+  }),
+  installPromptPacket: async ({ packet }) => {
+    mustIncludeInstallCount += 1;
+    return {
+      ok: true,
+      promptKeys: packet.blocks.map((block) => block.promptKey)
+    };
+  },
+  observeExternalPromptEnvironment: async () => ({ host: 'sillytavern', status: 'observed' })
+});
+
+mustIncludeScheduler.markDirty({ dirtyDomains: ['missionQuestThread'], idempotencyKey: 'must-include-dirty' });
+const mustIncludeFlush = await mustIncludeScheduler.flushVisible({
+  transactionId: 'txn-must-include-budget',
+  binding: { campaignId: 'campaign-must-include-budget' },
+  idempotencyKey: 'must-include-flush'
+});
+assert.equal(mustIncludeFlush.status, 'installed');
+assert.equal(mustIncludeInstallCount, 1);
+assert.equal(mustIncludeFlush.promptBudgetEnforcement.status, 'mustIncludeOverBudget');
+assert.deepEqual(
+  mustIncludeFlush.installed.promptKeys,
+  ['directive.campaign.immediate-scene', 'directive.campaign.foreground-quest']
+);
+assert.equal(mustIncludeFlush.promptBudgetEnforcement.mustIncludeOverBudgetBlocks.length, 1);
+assert.equal(mustIncludeFlush.promptBudgetEnforcement.omittedBlockCount, 0);
+
 console.log('LENS prompt budget lane contract tests passed.');
