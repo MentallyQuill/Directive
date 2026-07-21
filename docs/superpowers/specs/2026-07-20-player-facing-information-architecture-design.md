@@ -99,6 +99,8 @@ Selection is scoped by campaign and chat. Restore behavior is:
 
 An invalid selection is removed from preferences during the next UI preference write. It never changes canonical campaign state.
 
+Quest index/detail mode is not another preference. Desktop and console retain the persistent list/detail composition. On phones, the selected quest detail is the default surface and a compact selector opens a dedicated quest index in the Mission content area. The Directive header and bottom route bar remain present. Selecting a quest returns to detail; closing the index returns without changing selection. This view mode exists only in the rendered journal and resets to detail after rerender.
+
 ### Quest detail
 
 The selected quest detail contains:
@@ -217,7 +219,10 @@ Tracking data that cannot contribute to one of these surfaces should be challeng
 - Quest rows are keyboard operable and use `aria-selected`.
 - Collapsed groups and history use native disclosure semantics or correct `aria-expanded`/`aria-controls` wiring.
 - List and detail maintain stable dimensions; selecting a quest does not shift the outer shell.
-- Desktop may use two columns. Phone uses a single column with list then detail and one clear scroll owner.
+- Desktop and console use two-column list/detail navigation when space permits.
+- Phone shows detail first and swaps the Mission content area to a dedicated quest index through an accessible selector; it never stacks the full index above detail.
+- The header and bottom route bar remain stable while the phone quest index is open, and the drawer body remains the only scroll owner.
+- Directional keys move through quest rows; selection returns phone focus to the selected quest detail control.
 - Text never overlaps controls at 390x845, 720x900, 1280x900, or 1440x1000.
 - Status never relies on color alone.
 

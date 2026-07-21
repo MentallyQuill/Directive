@@ -16,6 +16,7 @@
 - There is no Intel, Log, Inventory, Map, Open Threads, Open World, Context, Components, or Recovery top-level destination.
 - Quest selection is named `selectedQuestId` and may mutate only UI preference storage.
 - Quest selection must not change campaign state, revision, prompt context, tracking priority, time, objectives, narration, mechanics, or provider calls.
+- Phone quest index/detail mode is transient DOM state. It is not persisted and must not add another UI preference.
 - Canonical records remain authoritative; player projections are pure and player-safe.
 - Hidden, latent, watchlisted, operator-only, and diagnostic records never appear in player projections.
 - Do not add dependencies.
@@ -592,11 +593,13 @@ git commit -m "refactor: simplify campaign and settings"
 
 **Interfaces:**
 - Desktop journal uses bounded list/detail tracks.
-- Phone journal uses one column and one scroll owner.
+- Phone journal defaults to selected detail and swaps the Mission content area to a dedicated quest index.
+- Directive header and bottom route controls remain stable in both phone states.
+- The drawer body remains the sole scroll owner.
 
-- [ ] **Step 1: Add failing CSS contract assertions**
+- [ ] **Step 1: Add failing responsive journal contract assertions**
 
-Assert the stylesheet contains stable journal tracks, minimum widths, overflow wrapping, visible focus, selected state independent of color, and a phone breakpoint.
+Assert the stylesheet contains stable desktop journal tracks, minimum widths, overflow wrapping, visible focus, selected state independent of color, and shell-authoritative phone index/detail selectors. Assert the renderer exposes a compact quest selector, dedicated quest-index panel, transient `data-quest-view`, accessible `aria-expanded`/`aria-controls`, index close control, and directional row navigation.
 
 - [ ] **Step 2: Add the layout CSS**
 
@@ -626,11 +629,22 @@ Assert the stylesheet contains stable journal tracks, minimum widths, overflow w
 
 @media (max-width: 720px) {
   .directive-quest-journal { grid-template-columns: minmax(0, 1fr); }
-  .directive-quest-list { max-height: none; overflow: visible; }
+}
+
+.directive-command-spine-shell[data-mobile-shell="true"]
+.directive-quest-journal[data-quest-view="detail"]
+.directive-quest-index-panel {
+  display: none;
+}
+
+.directive-command-spine-shell[data-mobile-shell="true"]
+.directive-quest-journal[data-quest-view="index"]
+.directive-quest-detail {
+  display: none;
 }
 ```
 
-Adapt tokens to existing CSS custom properties; do not introduce a parallel palette.
+Adapt tokens to existing CSS custom properties; do not introduce a parallel palette. Render both phone surfaces inside the journal, toggle them through transient DOM state, and let the existing drawer body own scrolling. Do not add an overlay, nested scroller, or persisted index/detail preference.
 
 - [ ] **Step 3: Run and commit**
 
@@ -681,6 +695,8 @@ for (const [name, viewport] of Object.entries(PLAYWRIGHT_VIEWPORTS)) {
 }
 await browser.close();
 ```
+
+At `390x845`, assert that quest detail renders before the quest index, the compact selector opens the dedicated index, the detail is hidden while the index is open, selecting a quest returns to detail, focus returns predictably, the bottom route bar remains visible, and no nested or horizontal overflow appears. At `720x900`, `1280x900`, and `1440x1000`, assert the list/detail composition remains usable and directional focus moves between quest rows.
 
 The script uses a narrow local cookie adapter and keeps login in the existing `authenticateSillyTavernUser` helper:
 

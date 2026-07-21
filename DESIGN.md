@@ -343,6 +343,8 @@ Mission is the default route for an active campaign. Campaign is the default whe
 
 Selecting a quest or record changes presentation only. It does not change the authoritative mission, prompt context, tracking priority, time, narration, simulation state, or campaign revision.
 
+Mission uses responsive master-detail navigation. Desktop and console surfaces keep the unified quest index beside the selected quest detail. Phone surfaces show the selected quest detail first and replace the index column with a compact quest selector. Opening that selector replaces the Mission content area with a dedicated quest index while retaining the Directive header and bottom route bar. Selecting a quest returns to its detail. Index/detail mode is transient presentation state and is never persisted; only the selected quest id may be remembered.
+
 The UI shows information only when it changes a decision, explains a constraint, represents a usable resource, records a meaningful consequence, or exposes a necessary command. One fact has one natural home. Cross-links may navigate to that home; they do not justify duplicate panels.
 
 ## Motion
@@ -370,7 +372,10 @@ Audio and haptic feedback are optional host capabilities. They must be subtle, u
 
 - Reduce the decorative rail to approximately `24px` or omit its labels.
 - Preserve all five bottom route targets with icons and readable labels.
-- Stack list then detail in one content column.
+- Show selected record details first instead of stacking a complete index above them.
+- Use a compact selector to replace the content area with a dedicated index when the player wants another quest or record.
+- Keep index/detail mode transient and return to detail after selection.
+- Keep the header and bottom route bar stable while a route-local index is open.
 - Respect safe areas and keep route controls above the viewport inset.
 - Do not create competing nested scroll regions.
 
