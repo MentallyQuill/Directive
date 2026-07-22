@@ -12,8 +12,8 @@ This document does not claim that the production UI or runtime save migration is
 
 - Interactive HTML: [directive-expanded-interface.html](mockups/directive-expanded-interface.html)
 - Working preview URL: `http://localhost:55835/`
-- Current mockup coverage: Campaign, Mission, People, desktop/console layout, phone layout, route navigation, quest/person expansion, presentation-only ordering, campaign selection, Open Chat, Save Game, Load Game, and Delete Save.
-- Pending mockup coverage: Ship, Settings, complete empty/error/recovery states, controller navigation, and production host mounting.
+- Current mockup coverage: Campaign, Mission, People, Ship, desktop/console layout, phone layout, route navigation, quest/person/ship-issue expansion, presentation-only ordering, campaign selection, Open Chat, Save Game, Load Game, and Delete Save.
+- Pending mockup coverage: Settings, complete empty/error/recovery states, controller navigation, and production host mounting.
 
 The HTML is a behavioral design artifact, not production source. Approved behavior must be implemented through Directive's shared UI and runtime APIs rather than copying mock data or hardcoded asset URLs from the mockup.
 
@@ -432,6 +432,61 @@ The function above must not invoke the Mission Director, alter quest priority, o
 
 People is the player's character memory. It covers crew and encountered NPCs, not only the ship's duty roster.
 
+### Desktop Composition
+
+- At desktop widths of `900px` and above, the People roster is a fixed `230px` master pane.
+- Roster portrait thumbnails remain `48px` square. Do not reduce them to recover width.
+- A `4px` blue divider sits on the roster's right edge and replaces the former blue inset on the detail panel.
+- The selected-person portrait receives `clamp(260px, 42%, 360px)` of the detail pane.
+- The desktop/tablet portrait is `70%` of the detail pane's height, with a `300px` minimum. Its lower `34%` fades into the detail background so the image ends softly instead of forming a full-height wall.
+- The written detail column consumes the remaining width and scrolls independently.
+- At `641-899.98px`, use a `210px` roster and `clamp(190px, 40%, 240px)` portrait fallback.
+- Phone does not inherit either split-pane rule or the portrait fade; its compact portrait remains `200px` high.
+
+```css
+@media (min-width: 900px) {
+  .people-layout {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+
+  .people-roster {
+    border-right: 4px solid var(--people-accent);
+  }
+
+  .people-detail {
+    grid-template-columns: clamp(260px, 42%, 360px) minmax(0, 1fr);
+    box-shadow: none;
+  }
+
+  .people-row img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (min-width: 641px) {
+  .people-detail__portrait {
+    align-self: start;
+    height: 70%;
+    min-height: 300px;
+  }
+
+  .people-detail__portrait::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 34%;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--surface-high) 38%, transparent) 42%,
+      var(--surface-high) 100%
+    );
+  }
+}
+```
+
 ### Categories
 
 Recommended baseline categories:
@@ -496,17 +551,120 @@ This is required behavior, not optional polish.
 
 ## Ship Route
 
-Ship remains part of the primary route set, but its redesign is not yet approved in the current mockup.
+Ship is the player's operational status board. It answers four questions: what ship am I commanding, where is it, what can it do, and what currently constrains my decisions.
 
-Locked direction:
+### Information Contract
 
-- lead with ship identity and package-owned artwork;
-- show player-safe current condition, operational restrictions, meaningful system state, and known technical history;
-- relate ship information to current quests when useful;
-- avoid a barren biography card and avoid exposing exhaustive technical telemetry;
-- use internal scrolling within the viewport-bound shell.
+Show only:
 
-Do not implement a final Ship composition until it has been expanded through the same value, layout, snippet, and mockup review used for Campaign, Mission, and People.
+- package-owned ship image, name, class, and registry;
+- player-safe current condition and explicit alert status when one exists;
+- committed position, course, and travel state;
+- active damage, restrictions, and known issues in one prioritized Operational Issues list;
+- issue title, practical effect, type, status, and responsible department or officer;
+- a short package-authored list of capabilities that can materially change player strategy.
+
+Do not show:
+
+- invented readiness percentages or health meters;
+- generic system specifications;
+- exhaustive technical telemetry;
+- crew details already owned by People;
+- mission objectives already owned by Mission;
+- empty damage, restriction, or issue panels;
+- completed repair history or long service-history prose;
+- ETA unless an authoritative campaign clock or navigation record supplies it.
+
+Unknown optional values are omitted rather than rendered as `Unknown`, `None`, or an empty card.
+
+### Desktop Composition
+
+1. A wide package-owned ship image establishes identity. Name, class, registry, and concise condition sit over the lower image gradient.
+2. A compact Current Operation strip shows committed position, course, and flight status.
+3. Operational Issues receives the wider content column and orders records by player consequence: critical damage, active restrictions, significant known issues, then lower-priority concerns.
+4. Operational Capabilities receives the narrower column and contains only a few campaign-relevant capabilities.
+5. The Ship journal scrolls internally when required; the Directive shell and route bar remain viewport-bound.
+
+### Phone Composition
+
+- Use a shorter ship hero with the same identity fields.
+- Arrange Current Operation as two compact columns, allowing the third value to span both columns.
+- Present Operational Issues as the initially expanded disclosure.
+- Present Operational Capabilities as a collapsed disclosure.
+- Keep the route bar available and avoid reproducing the desktop two-column board.
+
+### Ship Collection Interaction
+
+Operational Issues and Operational Capabilities use the same shared reorderable-record primitive used by other sortable collections. The visual treatment and interaction contract must not fork by list type.
+
+- Each record has a dedicated handle using the approved category-handle icon.
+- Mouse dragging begins from the handle. Touch and pen require a short `175ms` long press before dragging so ordinary vertical scrolling remains reliable.
+- `ArrowUp` and `ArrowDown` on a focused handle provide equivalent keyboard ordering.
+- A body-level drag preview and exact-height placeholder preserve layout while dragging.
+- The nearest list, not the page, auto-scrolls when the pointer approaches its top or bottom edge.
+- Desktop lists scroll inside their respective board columns. Phone lists scroll inside the open disclosure with a maximum height of `min(42dvh, 360px)`.
+- Reordering is presentation-only. It cannot change issue severity, capability availability, mission priority, model context, or simulation behavior.
+- Player ordering is scoped to campaign and ship. Newly tracked records append in authoritative default order; IDs no longer present in authoritative state are removed from the preference projection.
+
+Operational Issues may expand when the record has useful structured detail. Opening one issue closes its peer. Expansion is also presentation-only and may persist as the most recently viewed issue.
+
+The current expandable detail contract is limited to fields Directive can already source and refresh reliably: operational effect, status, severity, owner, linked assignment title, and last-updated time. Omit absent values. Do not infer workarounds, milestones, quest links, or system relationships from prose merely to fill the panel.
+
+Operational Capabilities remain non-expandable until Directive owns a structured capability-state contract with player-relevant dynamic fields. A static summary plus sortable placement is sufficient today.
+
+```js
+const scopeKey = `${campaignId}:${shipId}`;
+
+uiPreferences.shipCollections[scopeKey] = {
+  issueOrder: ['ship.issue-a', 'ship.issue-b'],
+  capabilityOrder: ['ship.capability-a', 'ship.capability-b'],
+  expandedIssueId: 'ship.issue-a',
+};
+
+function projectOrderedRecords(authoritativeRecords, preferredIds = []) {
+  const byId = new Map(authoritativeRecords.map(record => [record.id, record]));
+  const preferred = preferredIds.flatMap(id => byId.delete(id) ? [id] : []);
+  return [...preferred, ...byId.keys()].map(id =>
+    authoritativeRecords.find(record => record.id === id)
+  );
+}
+```
+
+Production should implement this through the existing shared collection controller rather than retaining the mockup's page-local drag functions.
+
+### Trackable Projection
+
+```js
+const shipView = {
+  identity: {
+    name: 'U.S.S. Breckenridge',
+    className: 'Intrepid-class',
+    registry: 'NCC-74638',
+    imageRef: 'ship.hero',
+    condition: 'Post-refit shakedown',
+  },
+  operation: {
+    position: 'Personnel transfer waypoint',
+    course: 'Asterion Reach',
+    travelState: 'Impulse / Station-keeping',
+  },
+  issues: [{
+    id: 'ship.command-network-certificate-compatibility',
+    type: 'knownIssue',
+    title: 'Command-network certificate mismatch',
+    effect: 'Secure command handoffs require additional verification.',
+    status: 'active',
+    owner: 'Operations',
+  }],
+  capabilities: [{
+    id: 'ship.long-range-sensor-processing',
+    label: 'Long-range sensor processing',
+    summary: 'Upgraded analysis for extended-range detection and survey work.',
+  }],
+};
+```
+
+Identity and capabilities come from the active campaign package and ship dataset. Operation values come only from committed navigation or scene state. Issues come from player-visible structured damage, restriction, and technical-risk records. Resolved issues leave this surface rather than accumulating as history.
 
 ## Settings Route
 

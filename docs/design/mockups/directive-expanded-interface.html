@@ -81,6 +81,16 @@
   .directive-screen::-webkit-scrollbar-thumb:active,.directive-screen *::-webkit-scrollbar-thumb:active{background:color-mix(in srgb,var(--current-route-color) 78%,#3a4050);background-clip:padding-box}
   .directive-screen::-webkit-scrollbar-corner,.directive-screen *::-webkit-scrollbar-corner{background:transparent}
   .directive-screen::-webkit-scrollbar-button,.directive-screen *::-webkit-scrollbar-button{display:none;width:0;height:0}
+  @media(min-width:900px){
+    .directive-screen:not(.phone-preview) .crew-journal{grid-template-columns:230px minmax(0,1fr)}
+    .directive-screen:not(.phone-preview) .crew-index-panel{box-sizing:border-box;border-right:4px solid var(--blue);border-radius:6px 0 0 6px}
+    .directive-screen:not(.phone-preview) .crew-detail{grid-template-columns:clamp(260px,42%,360px) minmax(0,1fr);box-shadow:none}
+  }
+  @media(min-width:641px) and (max-width:899.98px){
+    .directive-screen:not(.phone-preview) .crew-journal{grid-template-columns:210px minmax(0,1fr)}
+    .directive-screen:not(.phone-preview) .crew-index-panel{box-sizing:border-box;border-right:4px solid var(--blue);border-radius:6px 0 0 6px}
+    .directive-screen:not(.phone-preview) .crew-detail{grid-template-columns:clamp(190px,40%,240px) minmax(0,1fr);box-shadow:none}
+  }
   .campaign-command{gap:7px}.campaign-command i{font-size:14px}.campaign-command.open-chat{color:var(--bg);background:var(--gold);box-shadow:inset 0 0 14px rgba(255,255,255,.16)}
   .campaign-save-create{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 9px;color:var(--amber);background:var(--surface);border:1px solid rgba(255,159,74,.42);border-radius:4px;font:800 10px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase;cursor:pointer}.campaign-save-create:hover,.campaign-save-create:focus-visible{background:rgba(255,159,74,.1);outline:1px solid var(--gold);outline-offset:1px}.campaign-save-create[hidden]{display:none}
   @media(min-width:641px){
@@ -92,13 +102,48 @@
     .directive-screen:not(.phone-preview) .crew-index-panel{display:flex;min-height:0;overflow:hidden;flex-direction:column}
     .directive-screen:not(.phone-preview) .crew-index-panel>.category-card-collection{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
     .directive-screen:not(.phone-preview) .crew-detail{min-height:0;overflow:hidden}
-    .directive-screen:not(.phone-preview) .crew-detail-portrait{min-height:0}
+    .directive-screen:not(.phone-preview) .crew-detail-portrait{align-self:start;height:70%;min-height:300px}
     .directive-screen:not(.phone-preview) .crew-detail-portrait img{height:100%;min-height:0}
+    .directive-screen:not(.phone-preview) .crew-detail-portrait:after{content:"";position:absolute;z-index:1;inset:auto 0 0;height:34%;pointer-events:none;background:linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--high) 38%,transparent) 42%,var(--high) 100%)}
     .directive-screen:not(.phone-preview) .crew-detail-copy{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
     .directive-screen:not(.phone-preview) .campaign-index-panel{min-height:0}
     .directive-screen:not(.phone-preview) .campaign-index-list{min-height:0;overflow-y:auto;overscroll-behavior:contain}
     .directive-screen:not(.phone-preview) .campaign-detail{min-height:0;overflow-y:auto;overscroll-behavior:contain}
   }
+</style>
+
+<style>
+  .directive-screen[data-active-route="ship"]{--current-route-color:var(--violet)}
+  .directive-screen[data-active-route="ship"] .ship-journal[data-route-view="ship"]{display:grid!important}
+  .ship-journal{grid-template-rows:240px auto minmax(0,1fr);gap:9px;min-height:0;margin:8px 0 10px;overflow-y:auto;overscroll-behavior:contain}
+  .ship-hero{position:relative;min-height:0;overflow:hidden;background:var(--surface);border-radius:7px 0 7px 0}
+  .ship-hero img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center 50%}
+  .ship-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,7,11,.02) 20%,rgba(5,7,11,.18) 54%,rgba(5,7,11,.96) 100%);pointer-events:none}
+  .ship-hero-copy{position:absolute;z-index:1;inset:auto 0 0;display:flex;align-items:end;justify-content:space-between;gap:18px;padding:16px 19px}
+  .ship-identity-kicker{color:var(--violet);font:800 11px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.ship-identity-name{margin-top:3px;font:800 29px/1.05 "Roboto Condensed","Arial Narrow",sans-serif}.ship-identity-meta{margin-top:4px;color:var(--muted);font-size:12px}
+  .ship-condition{flex:0 0 auto;padding:6px 9px;color:var(--bg);background:var(--violet);border-radius:4px 0 4px 4px;font:800 11px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}
+  .ship-operation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:hidden;background:var(--surface);border-left:6px solid var(--violet);border-radius:5px}
+  .ship-operation-item{display:grid;gap:3px;align-content:center;min-height:58px;padding:8px 14px;border-right:1px solid rgba(248,239,224,.1)}.ship-operation-item:last-child{border-right:0}.ship-operation-item span{color:var(--muted);font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.ship-operation-item strong{font:800 13px/1.25 "Roboto Condensed","Arial Narrow",sans-serif}
+  .ship-board{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(210px,.7fr);gap:10px;min-height:0}.ship-board-section{min-width:0;padding:13px 14px;background:var(--high);border-radius:6px}.ship-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(248,239,224,.12)}.ship-section-head h3{margin:0;color:var(--violet);font:800 13px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.ship-section-head span{color:var(--muted);font-size:10px}
+  .ship-issue-list{display:grid;gap:7px}.ship-issue{--issue-color:var(--gold);position:relative;padding:10px 11px 9px 15px;background:var(--surface);border-left:4px solid var(--issue-color);border-radius:4px}.ship-issue[data-issue-type="restriction"]{--issue-color:var(--salmon)}.ship-issue[data-issue-type="damage"]{--issue-color:#e65e5e}.ship-issue-top{display:flex;align-items:start;justify-content:space-between;gap:10px}.ship-issue-title{font:800 13px/1.25 "Roboto Condensed","Arial Narrow",sans-serif}.ship-issue-type{flex:0 0 auto;color:var(--issue-color);font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.ship-issue-effect{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.4}.ship-issue-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;color:color-mix(in srgb,var(--issue-color) 72%,white);font:700 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}
+  .ship-capability-list{display:grid;gap:8px}.ship-capability{display:grid;grid-template-columns:8px minmax(0,1fr);gap:9px;padding:8px 0;border-bottom:1px solid rgba(248,239,224,.09)}.ship-capability:last-child{border-bottom:0}.ship-capability:before{content:"";width:8px;height:8px;margin-top:3px;background:var(--violet);border-radius:50%}.ship-capability strong{display:block;font:800 12px/1.25 "Roboto Condensed","Arial Narrow",sans-serif}.ship-capability span{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.38}
+  .mobile-ship-journal{display:none!important}.phone-preview[data-active-route="ship"] .ship-journal[data-route-view="ship"]{display:none!important}.phone-preview[data-active-route="ship"] .mobile-ship-journal[data-route-view="ship"]{display:block!important;margin:7px 0 10px}
+  .phone-preview .mobile-ship-hero{position:relative;height:176px;overflow:hidden;background:var(--surface);border-radius:6px 0 6px 0}.phone-preview .mobile-ship-hero img{width:100%;height:100%;object-fit:cover;object-position:center 50%}.phone-preview .mobile-ship-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 24%,rgba(5,7,11,.96) 100%)}.phone-preview .mobile-ship-identity{position:absolute;z-index:1;inset:auto 0 0;padding:12px 13px}.phone-preview .mobile-ship-identity strong{display:block;font:800 21px/1.1 "Roboto Condensed","Arial Narrow",sans-serif}.phone-preview .mobile-ship-identity span{display:block;margin-top:3px;color:var(--muted);font-size:10px}.phone-preview .mobile-ship-condition{position:absolute;z-index:1;right:9px;top:9px;padding:5px 7px;color:var(--bg);background:var(--violet);border-radius:4px;font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}
+  .phone-preview .mobile-ship-operation{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:6px;overflow:hidden;background:var(--surface);border-left:5px solid var(--violet);border-radius:4px}.phone-preview .mobile-ship-operation .ship-operation-item{min-height:48px;padding:7px 9px}.phone-preview .mobile-ship-operation .ship-operation-item:nth-child(3){grid-column:1/-1;border-top:1px solid rgba(248,239,224,.1)}
+  .phone-preview .ship-mobile-section{margin-top:6px;background:var(--high);border-radius:5px;overflow:hidden}.phone-preview .ship-mobile-section summary{display:flex;align-items:center;justify-content:space-between;min-height:42px;padding:0 11px;color:var(--violet);font:800 11px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase;cursor:pointer;list-style:none}.phone-preview .ship-mobile-section summary::-webkit-details-marker{display:none}.phone-preview .ship-mobile-section summary:after{content:"+";font-size:16px;transform-origin:center}.phone-preview .ship-mobile-section[open] summary:after{content:"-"}.phone-preview .ship-mobile-content{padding:0 8px 8px}.phone-preview .ship-issue{padding:9px 9px 8px 12px}.phone-preview .ship-issue-title{font-size:12px}.phone-preview .ship-issue-effect{font-size:10px}.phone-preview .ship-capability{padding:7px 3px}
+  @media(min-width:641px){.directive-screen:not(.phone-preview)[data-active-route="ship"] .ship-journal{flex:1 1 auto}.directive-screen:not(.phone-preview)[data-active-route="ship"] .route-bar{flex:0 0 auto}}
+</style>
+
+<style>
+  .ship-board-section{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .ship-record-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;touch-action:pan-y}
+  .ship-issue-list.ship-record-list,.ship-capability-list.ship-record-list{align-content:start}
+  .ship-issue{display:grid;grid-template-columns:minmax(0,1fr) 38px;padding:0;overflow:hidden}.ship-issue-main{min-width:0}.ship-issue-toggle{appearance:none;display:block;width:100%;margin:0;padding:10px 10px 9px 11px;color:inherit;background:transparent;border:0;text-align:left;cursor:pointer}.ship-issue-toggle:focus-visible{outline:1px solid var(--issue-color);outline-offset:-3px}.ship-issue-top{align-items:center}.ship-issue-type-row{display:flex;align-items:center;gap:7px;flex:0 0 auto}.ship-issue-chevron{display:grid;place-items:center;width:15px;height:15px;color:var(--issue-color)}.ship-issue-chevron svg{width:13px;height:13px;transform:rotate(-90deg);transform-origin:50% 50%;transition:transform 140ms ease}.ship-issue.is-expanded .ship-issue-chevron svg{transform:rotate(0)}.ship-issue-detail{padding:0 11px 10px;border-top:1px solid rgba(248,239,224,.08)}.ship-issue-detail[hidden]{display:none}.ship-detail-label{display:block;margin-top:8px;color:var(--issue-color);font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.ship-issue-detail .ship-issue-effect{margin-top:3px}
+  .ship-record-handle{appearance:none;display:grid;place-items:center;align-self:stretch;width:38px;min-height:38px;margin:0;padding:0;color:var(--violet);background:transparent;border:0;border-left:1px solid rgba(248,239,224,.08);touch-action:none;cursor:grab}.ship-record-handle:active{cursor:grabbing}.ship-record-handle:before{content:"";width:22px;height:22px;background:currentColor;opacity:.72;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 10h16M4 14h16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 10h16M4 14h16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}.ship-record-handle:focus-visible{outline:1px solid var(--violet);outline-offset:-3px}
+  .ship-capability{grid-template-columns:8px minmax(0,1fr) 38px;padding:0}.ship-capability:before{margin:12px 0 0 3px}.ship-capability-copy{min-width:0;padding:9px 3px 9px 0}.ship-capability .ship-record-handle{grid-column:3;grid-row:1;min-height:52px}
+  .ship-record-drag-ghost{position:fixed;z-index:9999;pointer-events:none;overflow:hidden;background:var(--high);border:1px solid var(--violet);border-radius:5px;box-shadow:0 10px 24px rgba(0,0,0,.55);opacity:.94}.ship-record-drag-placeholder{flex:0 0 auto;background:linear-gradient(90deg,rgba(155,130,207,.2),rgba(155,130,207,.05));border:1px dashed rgba(155,130,207,.72);border-radius:4px}.ship-record-list>[data-ship-record-id].is-dragging{display:none}
+  .phone-preview .ship-mobile-content.ship-record-list{max-height:min(42dvh,360px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.phone-preview .ship-issue-toggle{padding:9px 8px 8px}.phone-preview .ship-issue-detail{padding:0 8px 9px}.phone-preview .ship-capability-copy{padding:8px 2px 8px 0}
+  @media(prefers-reduced-motion:reduce){.ship-issue-chevron svg{transition:none}}
 </style>
 
 <div class="directive-review">
@@ -145,7 +190,17 @@
           <article class="crew-detail"><div class="crew-detail-portrait"><img id="crew-detail-image" src="/files/mara-whitaker.card.webp" alt="Captain Mara Whitaker"></div><div class="crew-detail-copy"><div class="crew-detail-kicker" id="crew-detail-kicker">Ship's Company / Command</div><div class="crew-detail-name" id="crew-detail-name">Mara Whitaker</div><div class="crew-detail-role" id="crew-detail-role">Commanding Officer / U.S.S. Breckenridge</div><section class="crew-detail-section" id="crew-involvement"><h3>Current involvement</h3><div class="people-involvement"><div><span class="people-involvement-label">Active quest</span><strong id="crew-involvement-quest">A Ship Underway</strong></div><div class="people-involvement-copy"><strong id="crew-involvement-objective">Complete the command handover</strong><span id="crew-involvement-role">Whitaker is the command counterpart whose agreement completes the handover.</span></div></div></section><section class="crew-detail-section" id="crew-known-section"><h3>Known information</h3><ul class="people-list" id="crew-known-facts"><li>Retains final legal command of the Breckenridge.</li><li>Requested a private handover before the senior staff readiness review.</li></ul></section><details class="people-disclosure" id="crew-relationship-section"><summary>Relationship &amp; history</summary><p class="people-relationship" id="crew-relationship">Professional. She is evaluating how you exercise authority.</p><div class="people-history" id="crew-history"><div class="people-history-item"><strong>Arrival aboard the Breckenridge</strong><span>Whitaker received the incoming executive officer and moved the command handover to the ready room.</span></div></div></details></div></article>
         </section>
         <section class="mobile-crew-accordion" data-route-view="crew" aria-label="Known people"><div class="people-collection-toolbar"><span>People · 7 known</span><button class="people-tool-button" type="button" title="Add category" aria-label="Add People category" onclick="event.stopPropagation();addPeopleCategory()">+</button></div><div class="category-card-collection mobile-crew-list" id="mobile-crew-list"></div></section>
-        <nav class="route-bar" aria-label="Directive routes"><button class="route-control" type="button" data-preview-route="campaign" onclick="event.stopPropagation();setDirectiveRoute('campaign')"><img src="/files/route-campaign.svg" alt=""><b>CAMPAIGN</b></button><button class="route-control active" type="button" data-preview-route="mission" onclick="event.stopPropagation();setDirectiveRoute('mission')"><img src="/files/route-mission.svg" alt=""><b>MISSION</b></button><button class="route-control" type="button" data-preview-route="crew" onclick="event.stopPropagation();setDirectiveRoute('crew')"><img src="/files/route-crew.svg" alt=""><b>PEOPLE</b></button><button class="route-control" type="button" aria-disabled="true" tabindex="-1"><img src="/files/route-ship.svg" alt=""><b>SHIP</b></button><button class="route-control" type="button" aria-disabled="true" tabindex="-1"><img src="/files/route-settings.svg" alt=""><b>SETTINGS</b></button></nav>
+        <section class="ship-journal" data-route-view="ship" aria-label="Ship status">
+          <header class="ship-hero"><img src="/files/uss-breckenridge.hero.webp" alt="U.S.S. Breckenridge"><div class="ship-hero-copy"><div><div class="ship-identity-kicker">Starfleet / Intrepid-class</div><div class="ship-identity-name">U.S.S. Breckenridge</div><div class="ship-identity-meta">NCC-74638</div></div><span class="ship-condition">Post-refit shakedown</span></div></header>
+          <section class="ship-operation" aria-label="Current operation"><div class="ship-operation-item"><span>Position</span><strong>Personnel transfer waypoint</strong></div><div class="ship-operation-item"><span>Course</span><strong>Asterion Reach</strong></div><div class="ship-operation-item"><span>Flight status</span><strong>Impulse / Station-keeping</strong></div></section>
+          <div class="ship-board"><section class="ship-board-section"><header class="ship-section-head"><h3>Operational Issues</h3><span>3 active</span></header><div class="ship-issue-list ship-record-list" data-ship-list="issues">
+            <article class="ship-issue is-expanded" data-issue-type="known" data-ship-record-id="ship.command-network-certificate-compatibility"><div class="ship-issue-main"><button class="ship-issue-toggle" type="button" aria-expanded="true" onclick="toggleShipIssue(event,'ship.command-network-certificate-compatibility')"><span class="ship-issue-top"><strong class="ship-issue-title">Command-network certificate mismatch</strong><span class="ship-issue-type-row"><span class="ship-issue-type">Known issue</span><span class="ship-issue-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></span><span class="ship-issue-meta"><span>Operations</span><span>Active</span></span></button><div class="ship-issue-detail"><span class="ship-detail-label">Operational effect</span><p class="ship-issue-effect">Secure command handoffs require additional verification.</p></div></div><button class="ship-record-handle" type="button" aria-label="Reorder Command-network certificate mismatch" data-ship-list-kind="issues" data-ship-record-id="ship.command-network-certificate-compatibility" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></article>
+            <article class="ship-issue" data-issue-type="known" data-ship-record-id="ship.combined-refit-load-untested"><div class="ship-issue-main"><button class="ship-issue-toggle" type="button" aria-expanded="false" onclick="toggleShipIssue(event,'ship.combined-refit-load-untested')"><span class="ship-issue-top"><strong class="ship-issue-title">Combined refit load untested</strong><span class="ship-issue-type-row"><span class="ship-issue-type">Known issue</span><span class="ship-issue-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></span><span class="ship-issue-meta"><span>Engineering</span><span>Active</span></span></button><div class="ship-issue-detail" hidden><span class="ship-detail-label">Operational effect</span><p class="ship-issue-effect">Simultaneous high-load operation may expose interactions missed by routine checks.</p></div></div><button class="ship-record-handle" type="button" aria-label="Reorder Combined refit load untested" data-ship-list-kind="issues" data-ship-record-id="ship.combined-refit-load-untested" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></article>
+            <article class="ship-issue" data-issue-type="known" data-ship-record-id="ship.integrated-validation-pending"><div class="ship-issue-main"><button class="ship-issue-toggle" type="button" aria-expanded="false" onclick="toggleShipIssue(event,'ship.integrated-validation-pending')"><span class="ship-issue-top"><strong class="ship-issue-title">Integrated validation pending</strong><span class="ship-issue-type-row"><span class="ship-issue-type">Known issue</span><span class="ship-issue-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></span><span class="ship-issue-meta"><span>Engineering</span><span>Active</span></span></button><div class="ship-issue-detail" hidden><span class="ship-detail-label">Operational effect</span><p class="ship-issue-effect">Upgraded systems remain unproven under sustained deployment conditions.</p></div></div><button class="ship-record-handle" type="button" aria-label="Reorder Integrated validation pending" data-ship-list-kind="issues" data-ship-record-id="ship.integrated-validation-pending" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></article>
+          </div></section><section class="ship-board-section"><header class="ship-section-head"><h3>Operational Capabilities</h3><span>2 relevant</span></header><div class="ship-capability-list ship-record-list" data-ship-list="capabilities"><div class="ship-capability" data-ship-record-id="ship.long-range-sensor-processing"><div class="ship-capability-copy"><strong>Long-range sensor processing</strong><span>Upgraded analysis for extended-range detection and survey work.</span></div><button class="ship-record-handle" type="button" aria-label="Reorder Long-range sensor processing" data-ship-list-kind="capabilities" data-ship-record-id="ship.long-range-sensor-processing" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></div><div class="ship-capability" data-ship-record-id="ship.segmented-emergency-power"><div class="ship-capability-copy"><strong>Segmented emergency power</strong><span>Revised isolation paths protect critical systems during failures.</span></div><button class="ship-record-handle" type="button" aria-label="Reorder Segmented emergency power" data-ship-list-kind="capabilities" data-ship-record-id="ship.segmented-emergency-power" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></div></div></section></div>
+        </section>
+        <section class="mobile-ship-journal" data-route-view="ship" aria-label="Ship status"><header class="mobile-ship-hero"><img src="/files/uss-breckenridge.hero.webp" alt="U.S.S. Breckenridge"><span class="mobile-ship-condition">Post-refit shakedown</span><div class="mobile-ship-identity"><strong>U.S.S. Breckenridge</strong><span>Intrepid-class / NCC-74638</span></div></header><section class="mobile-ship-operation" aria-label="Current operation"><div class="ship-operation-item"><span>Position</span><strong>Transfer waypoint</strong></div><div class="ship-operation-item"><span>Course</span><strong>Asterion Reach</strong></div><div class="ship-operation-item"><span>Flight status</span><strong>Impulse / Station-keeping</strong></div></section><details class="ship-mobile-section" open><summary>Operational Issues <span>3 active</span></summary><div class="ship-mobile-content ship-issue-list ship-record-list" data-ship-list="issues"><article class="ship-issue is-expanded" data-issue-type="known" data-ship-record-id="ship.command-network-certificate-compatibility"><div class="ship-issue-main"><button class="ship-issue-toggle" type="button" aria-expanded="true" onclick="toggleShipIssue(event,'ship.command-network-certificate-compatibility')"><span class="ship-issue-top"><strong class="ship-issue-title">Command-network certificate mismatch</strong><span class="ship-issue-type-row"><span class="ship-issue-type">Known issue</span><span class="ship-issue-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></span><span class="ship-issue-meta"><span>Operations</span><span>Active</span></span></button><div class="ship-issue-detail"><span class="ship-detail-label">Operational effect</span><p class="ship-issue-effect">Secure command handoffs require additional verification.</p></div></div><button class="ship-record-handle" type="button" aria-label="Reorder Command-network certificate mismatch" data-ship-list-kind="issues" data-ship-record-id="ship.command-network-certificate-compatibility" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></article><article class="ship-issue" data-issue-type="known" data-ship-record-id="ship.combined-refit-load-untested"><div class="ship-issue-main"><button class="ship-issue-toggle" type="button" aria-expanded="false" onclick="toggleShipIssue(event,'ship.combined-refit-load-untested')"><span class="ship-issue-top"><strong class="ship-issue-title">Combined refit load untested</strong><span class="ship-issue-type-row"><span class="ship-issue-type">Known issue</span><span class="ship-issue-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></span><span class="ship-issue-meta"><span>Engineering</span><span>Active</span></span></button><div class="ship-issue-detail" hidden><span class="ship-detail-label">Operational effect</span><p class="ship-issue-effect">Simultaneous high-load operation may expose interactions missed by routine checks.</p></div></div><button class="ship-record-handle" type="button" aria-label="Reorder Combined refit load untested" data-ship-list-kind="issues" data-ship-record-id="ship.combined-refit-load-untested" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></article><article class="ship-issue" data-issue-type="known" data-ship-record-id="ship.integrated-validation-pending"><div class="ship-issue-main"><button class="ship-issue-toggle" type="button" aria-expanded="false" onclick="toggleShipIssue(event,'ship.integrated-validation-pending')"><span class="ship-issue-top"><strong class="ship-issue-title">Integrated validation pending</strong><span class="ship-issue-type-row"><span class="ship-issue-type">Known issue</span><span class="ship-issue-chevron"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></span><span class="ship-issue-meta"><span>Engineering</span><span>Active</span></span></button><div class="ship-issue-detail" hidden><span class="ship-detail-label">Operational effect</span><p class="ship-issue-effect">Upgraded systems remain unproven under sustained deployment conditions.</p></div></div><button class="ship-record-handle" type="button" aria-label="Reorder Integrated validation pending" data-ship-list-kind="issues" data-ship-record-id="ship.integrated-validation-pending" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></article></div></details><details class="ship-mobile-section"><summary>Operational Capabilities <span>2 relevant</span></summary><div class="ship-mobile-content ship-capability-list ship-record-list" data-ship-list="capabilities"><div class="ship-capability" data-ship-record-id="ship.long-range-sensor-processing"><div class="ship-capability-copy"><strong>Long-range sensor processing</strong><span>Upgraded extended-range detection and analysis.</span></div><button class="ship-record-handle" type="button" aria-label="Reorder Long-range sensor processing" data-ship-list-kind="capabilities" data-ship-record-id="ship.long-range-sensor-processing" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></div><div class="ship-capability" data-ship-record-id="ship.segmented-emergency-power"><div class="ship-capability-copy"><strong>Segmented emergency power</strong><span>Critical systems can be isolated during failures.</span></div><button class="ship-record-handle" type="button" aria-label="Reorder Segmented emergency power" data-ship-list-kind="capabilities" data-ship-record-id="ship.segmented-emergency-power" onpointerdown="beginShipRecordDrag(event)" onkeydown="keyboardReorderShipRecord(event)"></button></div></div></details></section>
+        <nav class="route-bar" aria-label="Directive routes"><button class="route-control" type="button" data-preview-route="campaign" onclick="event.stopPropagation();setDirectiveRoute('campaign')"><img src="/files/route-campaign.svg" alt=""><b>CAMPAIGN</b></button><button class="route-control active" type="button" data-preview-route="mission" onclick="event.stopPropagation();setDirectiveRoute('mission')"><img src="/files/route-mission.svg" alt=""><b>MISSION</b></button><button class="route-control" type="button" data-preview-route="crew" onclick="event.stopPropagation();setDirectiveRoute('crew')"><img src="/files/route-crew.svg" alt=""><b>PEOPLE</b></button><button class="route-control" type="button" data-preview-route="ship" onclick="event.stopPropagation();setDirectiveRoute('ship')"><img src="/files/route-ship.svg" alt=""><b>SHIP</b></button><button class="route-control" type="button" aria-disabled="true" tabindex="-1"><img src="/files/route-settings.svg" alt=""><b>SETTINGS</b></button></nav>
       </main>
     </div></div></div>
     <div class="card-body"><h3>Responsive Journal Buildout</h3><p>Phone records expand in place; quest grips demonstrate UI-only ordering without changing mission state.</p></div>
@@ -1025,16 +1080,173 @@
     item.parentNode.insertBefore(item,event.key === 'ArrowUp' ? sibling : sibling.nextSibling);
     event.currentTarget.focus();
   }
+  const shipRecordOrders = {
+    issues: [
+      'ship.command-network-certificate-compatibility',
+      'ship.combined-refit-load-untested',
+      'ship.integrated-validation-pending'
+    ],
+    capabilities: [
+      'ship.long-range-sensor-processing',
+      'ship.segmented-emergency-power'
+    ]
+  };
+  const expandedShipIssueIds = new Set(['ship.command-network-certificate-compatibility']);
+  let shipRecordDrag = null;
+  function shipRecordSelector(id) {
+    return `[data-ship-record-id="${CSS.escape(id)}"]`;
+  }
+  function syncShipRecordList(kind) {
+    const order = shipRecordOrders[kind] || [];
+    document.querySelectorAll(`[data-ship-list="${kind}"]`).forEach((host) => {
+      const records = Array.from(host.children).filter((item) => item.dataset?.shipRecordId);
+      const byId = new Map(records.map((item) => [item.dataset.shipRecordId,item]));
+      order.forEach((id) => { const item = byId.get(id); if (item) { host.appendChild(item); byId.delete(id); } });
+      records.forEach((item) => { if (byId.has(item.dataset.shipRecordId)) host.appendChild(item); });
+    });
+  }
+  function syncShipRecordLists() {
+    syncShipRecordList('issues');
+    syncShipRecordList('capabilities');
+  }
+  function setShipIssueExpanded(item, open) {
+    item?.classList.toggle('is-expanded', open);
+    item?.querySelector('.ship-issue-toggle')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const detail = item?.querySelector('.ship-issue-detail');
+    if (detail) detail.hidden = !open;
+  }
+  function syncShipIssueExpansion() {
+    document.querySelectorAll('[data-ship-list="issues"] [data-ship-record-id]').forEach((item) => {
+      setShipIssueExpanded(item, expandedShipIssueIds.has(item.dataset.shipRecordId));
+    });
+  }
+  function toggleShipIssue(event, id) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const open = !expandedShipIssueIds.has(id);
+    expandedShipIssueIds.clear();
+    if (open) expandedShipIssueIds.add(id);
+    syncShipIssueExpansion();
+  }
+  function liftShipRecordDrag() {
+    const state = shipRecordDrag;
+    if (!state || state.started) return;
+    state.started = true;
+    const rect = state.item.getBoundingClientRect();
+    state.offsetY = Math.max(0,Math.min(rect.height,state.originY-rect.top));
+    state.placeholder = document.createElement('div');
+    state.placeholder.className = 'ship-record-drag-placeholder';
+    state.placeholder.style.height = `${rect.height}px`;
+    state.placeholder.style.width = `${rect.width}px`;
+    state.item.parentNode.insertBefore(state.placeholder,state.item);
+    state.ghost = state.item.cloneNode(true);
+    state.ghost.classList.add('ship-record-drag-ghost');
+    state.ghost.classList.remove('is-dragging');
+    const rootStyle = getComputedStyle(document.getElementById('directive-responsive-preview'));
+    ['--high','--surface','--text','--muted','--violet','--gold'].forEach((name) => state.ghost.style.setProperty(name,rootStyle.getPropertyValue(name)));
+    state.ghost.style.setProperty('--issue-color',getComputedStyle(state.item).getPropertyValue('--issue-color'));
+    state.ghost.style.width = `${rect.width}px`;
+    state.ghost.style.height = `${rect.height}px`;
+    state.ghost.style.left = `${rect.left}px`;
+    state.ghost.style.top = `${state.y-state.offsetY}px`;
+    document.body.appendChild(state.ghost);
+    state.item.classList.add('is-dragging');
+    navigator.vibrate?.(10);
+  }
+  function beginShipRecordDrag(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const handle = event.currentTarget;
+    const item = handle.closest('.ship-issue,.ship-capability');
+    const host = handle.closest('[data-ship-list]');
+    if (!item || !host) return;
+    shipRecordDrag = {item,host,handle,kind:handle.dataset.shipListKind,id:handle.dataset.shipRecordId,pointerId:event.pointerId,originX:event.clientX,originY:event.clientY,x:event.clientX,y:event.clientY,started:false,hold:null,ghost:null,placeholder:null,offsetY:0};
+    handle.setPointerCapture?.(event.pointerId);
+    const coarse = event.pointerType === 'touch' || event.pointerType === 'pen';
+    shipRecordDrag.hold = setTimeout(liftShipRecordDrag,coarse ? 175 : 0);
+    document.addEventListener('pointermove',moveShipRecordDrag,true);
+    document.addEventListener('pointerup',finishShipRecordDrag,true);
+    document.addEventListener('pointercancel',cancelShipRecordDrag,true);
+  }
+  function moveShipRecordDrag(event) {
+    const state = shipRecordDrag;
+    if (!state || event.pointerId !== state.pointerId) return;
+    state.x = event.clientX;
+    state.y = event.clientY;
+    if (!state.started && (Math.abs(state.x-state.originX)>8 || Math.abs(state.y-state.originY)>8)) return clearShipRecordDrag(false);
+    if (!state.started) return;
+    event.preventDefault();
+    state.ghost.style.top = `${state.y-state.offsetY}px`;
+    state.ghost.hidden = true;
+    const hovered = document.elementFromPoint(state.x,state.y)?.closest('[data-ship-record-id]');
+    state.ghost.hidden = false;
+    if (hovered && hovered !== state.item && hovered.closest('[data-ship-list]') === state.host) {
+      const rect = hovered.getBoundingClientRect();
+      hovered.parentNode.insertBefore(state.placeholder,state.y < rect.top + rect.height/2 ? hovered : hovered.nextSibling);
+    }
+    const hostRect = state.host.getBoundingClientRect();
+    const edge = Math.min(52,hostRect.height/4);
+    if (state.y < hostRect.top+edge) state.host.scrollBy(0,-10);
+    else if (state.y > hostRect.bottom-edge) state.host.scrollBy(0,10);
+  }
+  function clearShipRecordDrag(commit) {
+    const state = shipRecordDrag;
+    if (!state) return;
+    clearTimeout(state.hold);
+    if (commit && state.started && state.placeholder?.parentNode) {
+      state.placeholder.parentNode.insertBefore(state.item,state.placeholder);
+      shipRecordOrders[state.kind] = Array.from(state.host.children).map((item) => item.dataset?.shipRecordId).filter(Boolean);
+    }
+    state.item?.classList.remove('is-dragging');
+    state.placeholder?.remove();
+    state.ghost?.remove();
+    document.removeEventListener('pointermove',moveShipRecordDrag,true);
+    document.removeEventListener('pointerup',finishShipRecordDrag,true);
+    document.removeEventListener('pointercancel',cancelShipRecordDrag,true);
+    shipRecordDrag = null;
+    if (commit && state.started) {
+      syncShipRecordList(state.kind);
+      navigator.vibrate?.(8);
+      requestAnimationFrame(() => state.host.querySelector(`${shipRecordSelector(state.id)} .ship-record-handle`)?.focus());
+    }
+  }
+  function finishShipRecordDrag(event) {
+    if (!shipRecordDrag || event.pointerId !== shipRecordDrag.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clearShipRecordDrag(true);
+  }
+  function cancelShipRecordDrag(event) {
+    event?.preventDefault?.();
+    clearShipRecordDrag(false);
+  }
+  function keyboardReorderShipRecord(event) {
+    if (!['ArrowUp','ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const handle = event.currentTarget;
+    const item = handle.closest('.ship-issue,.ship-capability');
+    const host = handle.closest('[data-ship-list]');
+    const sibling = event.key === 'ArrowUp' ? item?.previousElementSibling : item?.nextElementSibling;
+    if (!item || !host || !sibling?.dataset?.shipRecordId) return;
+    host.insertBefore(item,event.key === 'ArrowUp' ? sibling : sibling.nextSibling);
+    const kind = handle.dataset.shipListKind;
+    shipRecordOrders[kind] = Array.from(host.children).map((record) => record.dataset?.shipRecordId).filter(Boolean);
+    syncShipRecordList(kind);
+    requestAnimationFrame(() => host.querySelector(`${shipRecordSelector(handle.dataset.shipRecordId)} .ship-record-handle`)?.focus());
+  }
   function setDirectiveRoute(route) {
     const preview = document.getElementById('directive-responsive-preview');
-    if (!['campaign','mission','crew'].includes(route)) return;
+    if (!['campaign','mission','crew','ship'].includes(route)) return;
     preview.dataset.activeRoute = route;
     preview.dataset.questView = 'detail';
     preview.dataset.crewView = 'detail';
     const labels = {
       campaign:{name:'Campaign',path:'Campaign / Playthroughs & Saves'},
       mission:{name:'Mission',path:'Mission / Quest Journal'},
-      crew:{name:'People',path:'People / Roster & Contacts'}
+      crew:{name:'People',path:'People / Roster & Contacts'},
+      ship:{name:'Ship',path:'Ship / Operational Status'}
     };
     document.getElementById('directive-route-name').textContent = labels[route].name;
     document.getElementById('directive-route-path').textContent = labels[route].path;
@@ -1086,4 +1298,6 @@
   }
   renderCampaignPreview();
   renderPeopleCollections();
+  syncShipRecordLists();
+  syncShipIssueExpansion();
 </script>
