@@ -434,11 +434,11 @@ People is the player's character memory. It covers crew and encountered NPCs, no
 
 ### Desktop Composition
 
-- At desktop widths of `900px` and above, the People roster is a fixed `230px` master pane.
+- At desktop widths of `900px` and above, the People roster is a fixed `240px` master pane.
 - Roster portrait thumbnails remain `48px` square. Do not reduce them to recover width.
 - A `4px` blue divider sits on the roster's right edge and replaces the former blue inset on the detail panel.
-- The selected-person portrait receives `clamp(260px, 42%, 360px)` of the detail pane.
-- The desktop/tablet portrait is `70%` of the detail pane's height, with a `300px` minimum. Its lower `34%` fades into the detail background so the image ends softly instead of forming a full-height wall.
+- The selected-person portrait receives `clamp(250px, 42%, 350px)` of the detail pane, transferring the roster's added `10px` from the portrait rather than the written detail column.
+- The desktop/tablet portrait is `calc(70% - 20px)` of the detail pane's height, with a `280px` minimum. Its lower `34%` fades into the detail background so the image ends softly instead of forming a full-height wall.
 - The written detail column consumes the remaining width and scrolls independently.
 - At `641-899.98px`, use a `210px` roster and `clamp(190px, 40%, 240px)` portrait fallback.
 - Phone does not inherit either split-pane rule or the portrait fade; its compact portrait remains `200px` high.
@@ -446,7 +446,7 @@ People is the player's character memory. It covers crew and encountered NPCs, no
 ```css
 @media (min-width: 900px) {
   .people-layout {
-    grid-template-columns: 230px minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr);
   }
 
   .people-roster {
@@ -454,7 +454,7 @@ People is the player's character memory. It covers crew and encountered NPCs, no
   }
 
   .people-detail {
-    grid-template-columns: clamp(260px, 42%, 360px) minmax(0, 1fr);
+    grid-template-columns: clamp(250px, 42%, 350px) minmax(0, 1fr);
     box-shadow: none;
   }
 
@@ -467,8 +467,8 @@ People is the player's character memory. It covers crew and encountered NPCs, no
 @media (min-width: 641px) {
   .people-detail__portrait {
     align-self: start;
-    height: 70%;
-    min-height: 300px;
+    height: calc(70% - 20px);
+    min-height: 280px;
   }
 
   .people-detail__portrait::after {
@@ -536,6 +536,51 @@ The approved core is intentionally small:
 4. Relationship and history: collapsed by default, with a short relationship summary and important prior interactions.
 
 Do not expose approval scores, hidden motives, complete biographies, or speculative facts.
+
+### Starfleet Rank And Division Marks
+
+Starfleet people use a compact Voyager-era presentation treatment in both collection rows and detail views:
+
+- a thin division-color bar;
+- the person's public rank text;
+- small solid and hollow rank pips.
+
+This is metadata, not a uniform illustration or combadge treatment. The same renderer is used on desktop and phone. Non-Starfleet people render none of these marks.
+
+The player-controlled People category is independent from service metadata. Moving a Starfleet officer into a custom category cannot change their division color or pips. Rank and department come from the authoritative player-safe person record, and the UI deterministically maps them to presentation values:
+
+```js
+const VOYAGER_DIVISION_BY_DEPARTMENT = Object.freeze({
+  command: 'command',
+  flight: 'command',
+  tactical: 'operations',
+  security: 'operations',
+  operations: 'operations',
+  engineering: 'operations',
+  science: 'science',
+  medical: 'science',
+});
+
+const VOYAGER_RANK_PIPS = Object.freeze({
+  captain: ['solid', 'solid', 'solid', 'solid'],
+  commander: ['solid', 'solid', 'solid'],
+  lieutenant_commander: ['solid', 'solid', 'hollow'],
+  lieutenant: ['solid', 'solid'],
+  lieutenant_junior_grade: ['solid', 'hollow'],
+  ensign: ['solid'],
+});
+
+function starfleetMarks(person) {
+  if (person.service?.organization !== 'starfleet') return null;
+  return {
+    division: VOYAGER_DIVISION_BY_DEPARTMENT[person.service.department],
+    pips: VOYAGER_RANK_PIPS[person.service.rankCode] || [],
+    rankLabel: person.service.rankLabel,
+  };
+}
+```
+
+Promotions update `service.rankCode` and `service.rankLabel`; department changes update `service.department`. The renderer owns all color and pip derivation. It must not parse role, billet, category, dialogue, or biography text.
 
 ### Scrolling
 
@@ -668,9 +713,11 @@ Identity and capabilities come from the active campaign package and ship dataset
 
 ## Settings Route
 
-Settings remains a primary route for player-chosen controls. Its final redesign is pending.
+Settings remains a primary route for player-chosen controls. The approved baseline separates ordinary player controls under General from provider routing and diagnostics under Advanced.
 
 Settings should prioritize options the player intentionally changes. Diagnostics, repair, storage verification, and provider tooling must be contextual or placed behind an explicit advanced/system surface rather than dominating the normal experience.
+
+General Settings does not contain campaign-specific controls. Remove Turn Recovery History, Autosave Frequency, Outcome Integrity, Review Provider, and the entire active-campaign settings section. Campaign behavior remains campaign-owned and automatic rather than becoming player-facing settings bloat.
 
 Do not import the older card-heavy Settings reference wholesale.
 
@@ -716,7 +763,23 @@ const missionView = {
 const peopleView = {
   selectedPersonId,
   categories,
-  people: [{ id, name, image, role, affiliation, involvement, knownFacts, relationship, history }],
+  people: [{
+    id,
+    name,
+    image,
+    role,
+    affiliation,
+    service: {
+      organization: 'starfleet',
+      department: 'command',
+      rankCode: 'captain',
+      rankLabel: 'Captain',
+    },
+    involvement,
+    knownFacts,
+    relationship,
+    history,
+  }],
 };
 ```
 
@@ -778,6 +841,8 @@ Required work:
 
 - rename visible Crew route to People while preserving internal migration only as needed during the pre-alpha cutover;
 - project encountered non-crew NPCs into the same player-safe view;
+- project authoritative Starfleet organization, department, and rank fields into the player-safe person view;
+- derive Voyager-era division bars and rank pips through one shared renderer used by rows and details on desktop and phone;
 - add category/record preference persistence;
 - implement shared collapse, drag, keyboard reorder, rename, add, and remove behavior;
 - keep roster and detail scrolling internal on desktop.
@@ -867,6 +932,9 @@ At each viewport verify:
 - drag handles remain distinct from expansion targets;
 - chevrons transform around their center;
 - hero and portrait images fill their frames without unintended bars;
+- Starfleet division colors and rank pips update deterministically from department and rank without parsing prose;
+- moving a person between categories does not alter service marks;
+- non-Starfleet people do not receive Starfleet service marks;
 - keyboard focus remains visible.
 
 Example assertion:
