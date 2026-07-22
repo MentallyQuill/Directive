@@ -67,6 +67,8 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 ## Design
 
+- [Directive Expanded Interface Contract](design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md): living player-facing UI, responsive shell, route, game-save, implementation, and testing authority with an executable HTML mockup.
+
 - [Directive DESIGN.md Contract](../DESIGN.md): normative modern-LCARS visual and interaction contract for the full-screen five-route player menu, semantic tokens, typography, layout, imagery, component states, accessibility, and visual acceptance.
 - [Directive Design Baseline](design/DIRECTIVE_DESIGN_BASELINE.md): locked product premise, player role, first campaign package, visible UI shape, and vertical-slice intent.
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.

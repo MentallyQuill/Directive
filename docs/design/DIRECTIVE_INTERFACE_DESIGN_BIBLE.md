@@ -4,6 +4,8 @@
 
 This document is the canonical interface direction for Directive.
 
+The current route composition, viewport-bound expanded shell, Campaign/Mission/People interaction model, and game-save semantics are governed by [Directive Expanded Interface Contract](DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md). That living contract supersedes the route-specific blueprints below where they conflict; this document remains authoritative for the broader LCARS visual language, accessibility, and host-parity principles.
+
 The concept images in `docs/design/reference-concepts/` supersede the older generated material under `docs/design/visual-targets/` wherever the two conflict. The older visual-target folders remain historical iteration records, not current acceptance targets.
 
 The design bible governs the active SillyTavern surface. Future host adapters may change mounting constraints, but they must not create a separate visual language.
