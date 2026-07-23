@@ -16,4 +16,4 @@ Current status:
 
 Remaining extraction work: do not add new SillyTavern-specific assumptions outside this folder. Any remaining SillyTavern manifest shims should stay thin and delegate here.
 
-Frontend direction: SillyTavern uses Directive's command-spine shell. The host adapter supplies mounting, storage, generation, and host tokens; `src/runtime/runtime-shell.js` owns the compact/expanded spine, single resizable drawer, full-screen workspace escalation, and phone-width fallback. Route panels remain host-neutral where that keeps the SillyTavern runtime testable.
+Frontend direction: SillyTavern uses Directive's viewport-bound expanded interface. The host adapter supplies mounting, storage, generation, and host tokens; `src/runtime/runtime-shell.js` owns route orchestration while `src/ui/directive-expanded-shell.js` owns the shared desktop/console and phone frame. Route panels remain host-neutral where that keeps the SillyTavern runtime testable.

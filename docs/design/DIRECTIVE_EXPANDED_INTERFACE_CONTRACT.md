@@ -4,7 +4,7 @@
 
 This is the living design and integration authority for Directive's player-facing expanded interface redesign.
 
-It captures the decisions proven in the current interactive mockup and will be updated as Ship, Settings, and remaining states are designed. It supersedes route-specific layout and save-control guidance in [Directive Interface Design Bible](DIRECTIVE_INTERFACE_DESIGN_BIBLE.md) where the documents conflict. The older document remains useful for general visual identity, accessibility, and host-parity guidance.
+It captures the approved Campaign, Mission, People, Ship, Settings, desktop/console, and phone decisions proven in the current interactive mockup. It supersedes route-specific layout and save-control guidance in [Directive Interface Design Bible](DIRECTIVE_INTERFACE_DESIGN_BIBLE.md) where the documents conflict. The older document remains useful for general visual identity, accessibility, and host-parity guidance.
 
 This document does not claim that the production UI or runtime save migration is complete.
 
@@ -12,8 +12,8 @@ This document does not claim that the production UI or runtime save migration is
 
 - Interactive HTML: [directive-expanded-interface.html](mockups/directive-expanded-interface.html)
 - Working preview URL: `http://localhost:55835/`
-- Current mockup coverage: Campaign, Mission, People, Ship, desktop/console layout, phone layout, route navigation, quest/person/ship-issue expansion, presentation-only ordering, campaign selection, Open Chat, Save Game, Load Game, and Delete Save.
-- Pending mockup coverage: Settings, complete empty/error/recovery states, controller navigation, and production host mounting.
+- Approved mockup coverage: Campaign, Mission, People, Ship, and Settings; desktop/console and phone layout; route navigation; quest/person/ship-issue expansion; presentation-only ordering; campaign selection; Open Chat; Save Game; Load Game; Delete Save; provider routing; and diagnostics export.
+- Remaining production certification coverage: complete empty/error/recovery fixtures, controller navigation, accessibility verification, and real SillyTavern host mounting.
 
 The HTML is a behavioral design artifact, not production source. Approved behavior must be implemented through Directive's shared UI and runtime APIs rather than copying mock data or hardcoded asset URLs from the mockup.
 
@@ -539,13 +539,9 @@ Do not expose approval scores, hidden motives, complete biographies, or speculat
 
 ### Starfleet Rank And Division Marks
 
-Starfleet people use a compact Voyager-era presentation treatment in both collection rows and detail views:
+Starfleet people use small solid and hollow Voyager-era rank pips in both collection rows and detail views. Compact desktop and phone list records place the pips on their own line above the person's name, followed by the role, so the fixed-width roster never wraps a name merely to accommodate pips. Detail views place the pips immediately to the right of the larger name. Pips use the tracked department's division color. Visible rank labels and division bars are omitted; the full rank and division remain available through the pips' accessible label.
 
-- a thin division-color bar;
-- the person's public rank text;
-- small solid and hollow rank pips.
-
-This is metadata, not a uniform illustration or combadge treatment. The same renderer is used on desktop and phone. Non-Starfleet people render none of these marks.
+This is metadata, not a uniform illustration or combadge treatment. The same renderer is used on desktop and phone. Non-Starfleet people render no pips.
 
 The player-controlled People category is independent from service metadata. Moving a Starfleet officer into a custom category cannot change their division color or pips. Rank and department come from the authoritative player-safe person record, and the UI deterministically maps them to presentation values:
 
@@ -570,7 +566,7 @@ const VOYAGER_RANK_PIPS = Object.freeze({
   ensign: ['solid'],
 });
 
-function starfleetMarks(person) {
+function starfleetPips(person) {
   if (person.service?.organization !== 'starfleet') return null;
   return {
     division: VOYAGER_DIVISION_BY_DEPARTMENT[person.service.department],
@@ -580,7 +576,7 @@ function starfleetMarks(person) {
 }
 ```
 
-Promotions update `service.rankCode` and `service.rankLabel`; department changes update `service.department`. The renderer owns all color and pip derivation. It must not parse role, billet, category, dialogue, or biography text.
+Promotions update `service.rankCode` and `service.rankLabel`; department changes update `service.department`. The renderer owns all color and pip derivation. It must not parse role, billet, category, dialogue, or biography text. Rank text may appear elsewhere when context requires it, but the People name rows use pips only.
 
 ### Scrolling
 
@@ -721,6 +717,8 @@ General Settings does not contain campaign-specific controls. Remove Turn Recove
 
 Do not import the older card-heavy Settings reference wholesale.
 
+Diagnostics export is privacy-bounded. The default export must exclude system prompts, credentials and API keys, endpoint URLs, private model reasoning, hidden campaign facts, raw private relationship values, and raw state payloads. Story transcript inclusion is a separate explicit opt-in and, when enabled, contains only player-visible user and assistant text from the active visible branch; it excludes hidden/system messages and unselected swipe alternatives.
+
 ## Information Value Test
 
 Before adding a field, ask:
@@ -791,7 +789,8 @@ Panels do not infer missing facts from prose and do not directly mutate runtime 
 
 Primary files:
 
-- `src/ui/directive-compact-shell.js`
+- `src/runtime/runtime-shell.js`
+- `src/ui/directive-expanded-shell.js`
 - `src/ui/runtime-ui-kit.js`
 - `styles/directive.css`
 
@@ -842,7 +841,7 @@ Required work:
 - rename visible Crew route to People while preserving internal migration only as needed during the pre-alpha cutover;
 - project encountered non-crew NPCs into the same player-safe view;
 - project authoritative Starfleet organization, department, and rank fields into the player-safe person view;
-- derive Voyager-era division bars and rank pips through one shared renderer used by rows and details on desktop and phone;
+- derive Voyager-era rank pips and division colors through one shared renderer, placing pips above names in compact desktop/phone lists and beside names in detail views;
 - add category/record preference persistence;
 - implement shared collapse, drag, keyboard reorder, rename, add, and remove behavior;
 - keep roster and detail scrolling internal on desktop.
@@ -854,7 +853,7 @@ Primary files:
 - `src/ui/ship-panel.js`
 - `src/ui/settings-panel.js`
 
-Do not begin broad production rewrites until their mockups and value contracts are approved.
+Their mockups and value contracts are approved. Production work must retain the structured, player-safe information boundaries defined above and must not substitute the mockup's sample data for runtime projections.
 
 ## Suggested Component Contracts
 
@@ -932,7 +931,7 @@ At each viewport verify:
 - drag handles remain distinct from expansion targets;
 - chevrons transform around their center;
 - hero and portrait images fill their frames without unintended bars;
-- Starfleet division colors and rank pips update deterministically from department and rank without parsing prose;
+- Starfleet rank pips update deterministically in department color without parsing prose;
 - moving a person between categories does not alter service marks;
 - non-Starfleet people do not receive Starfleet service marks;
 - keyboard focus remains visible.
@@ -1000,8 +999,6 @@ Relocate:
 
 The following remain intentionally unresolved and should be added here after review:
 
-- final Ship information hierarchy and layout;
-- final Settings player/advanced split;
 - whether empty baseline People categories are omitted or shown collapsed;
 - final campaign creation/import entry placement;
 - final controller focus and bumper/tab behavior;

@@ -15,7 +15,13 @@ const PASSWORD = process.env.DIRECTIVE_SILLYTAVERN_PASSWORD || process.env.SILLY
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const TIMEOUT_MS = Number(process.env.DIRECTIVE_PLAYER_FACING_UI_TIMEOUT_MS || 30000);
 const ARTIFACT_DIR = String(process.env.DIRECTIVE_PLAYER_FACING_UI_ARTIFACT_DIR || '').trim();
-const EXPECTED_ROUTES = ['campaign', 'mission', 'crew', 'ship', 'settings'];
+const EXPECTED_ROUTES = ['campaign', 'mission', 'people', 'ship', 'settings'];
+const VIEWPORTS = Object.freeze([
+  Object.freeze({ name: 'desktop-1440x900', viewport: Object.freeze({ width: 1440, height: 900 }) }),
+  Object.freeze({ name: 'tablet-1024x768', viewport: Object.freeze({ width: 1024, height: 768 }) }),
+  Object.freeze({ name: 'phone-390x844', viewport: Object.freeze({ width: 390, height: 844 }) }),
+  Object.freeze({ name: 'phone-360x800', viewport: Object.freeze({ width: 360, height: 800 }) })
+]);
 const CURRENT_CHAT_EMPTY_STATE = /No campaign chat is active|No active campaign|Choose the campaign chat|campaign chat.*show live mission state|selected host chat|Directive save|selected campaign chat/i;
 
 function cookieHeaderToBrowserCookies(cookieHeader, baseUrl) {
@@ -54,13 +60,12 @@ function ensureDedicatedUser() {
   }
 }
 
-async function clickRoute(page, routeId, mobile) {
-  const selector = mobile
-    ? `.directive-mobile-bottom-tab[data-route-id="${routeId}"]`
-    : `.directive-spine-route[data-route-id="${routeId}"]`;
+async function clickRoute(page, routeId) {
+  const selector = `.directive-route-control[data-route-id="${routeId}"]`;
   const button = page.locator(selector).first();
   await button.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
-  await button.click();
+  if ((page.viewportSize()?.width || 0) <= 640) await button.tap();
+  else await button.click();
   await page.waitForTimeout(120);
 }
 
@@ -71,8 +76,7 @@ async function inspectViewport(page, { name, viewport }) {
   const panel = page.locator('#directive-runtime-panel');
   await panel.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
 
-  const mobile = viewport.width <= 720;
-  const routeIds = await page.locator('.directive-spine-route, .directive-mobile-bottom-tab').evaluateAll((elements) => (
+  const routeIds = await page.locator('.directive-route-control').evaluateAll((elements) => (
     [...new Set(elements.map((element) => element.dataset.routeId).filter(Boolean))]
   ));
   if (JSON.stringify(routeIds) !== JSON.stringify(EXPECTED_ROUTES)) {
@@ -82,7 +86,12 @@ async function inspectViewport(page, { name, viewport }) {
     throw new Error(`${name}: removed Log route is still visible.`);
   }
 
-  await clickRoute(page, 'mission', mobile);
+  const campaignControl = page.locator('.directive-route-control[data-route-id="campaign"]').first();
+  await campaignControl.focus();
+  await campaignControl.press('ArrowRight');
+  await page.locator('.directive-route-control[data-route-id="mission"][aria-selected="true"]').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+
+  await clickRoute(page, 'mission');
   const missionText = await panel.innerText();
   const missionSurface = await panel.locator('.directive-quest-journal').count();
   const questRows = panel.locator('.directive-quest-row');
@@ -92,8 +101,8 @@ async function inspectViewport(page, { name, viewport }) {
     try {
       await questRows.first().click();
       await page.locator(`.directive-quest-row[data-quest-id="${questId}"][aria-selected="true"]`).waitFor({ state: 'visible', timeout: TIMEOUT_MS });
-      await clickRoute(page, 'crew', mobile);
-      await clickRoute(page, 'mission', mobile);
+      await clickRoute(page, 'people');
+      await clickRoute(page, 'mission');
       const selectedAfterReturn = await panel.locator(`.directive-quest-row[data-quest-id="${questId}"][aria-selected="true"]`).count();
       questSelection = selectedAfterReturn === 1
         ? { status: 'pass', questId }
@@ -103,25 +112,30 @@ async function inspectViewport(page, { name, viewport }) {
     }
   }
 
-  await clickRoute(page, 'crew', mobile);
+  await clickRoute(page, 'people');
   const crewText = await panel.innerText();
   const crewSurface = await panel.locator('.directive-crew-journal').count();
-  await clickRoute(page, 'ship', mobile);
+  await clickRoute(page, 'ship');
   const shipText = await panel.innerText();
   const shipSurface = await panel.locator('.directive-ship-journal').count();
-  await clickRoute(page, 'settings', mobile);
+  await clickRoute(page, 'settings');
   const settingsSurface = await panel.locator('.directive-settings-player-preferences').count();
   const disclosureCount = await panel.locator('.directive-settings-disclosure').count();
   const openDisclosureCount = await panel.locator('.directive-settings-disclosure[open]').count();
   const geometry = await panel.evaluate((element) => {
-    const drawer = element.querySelector('.directive-command-drawer') || element;
+    const drawer = element.querySelector('.directive-route-body') || element;
     const journal = element.querySelector('.directive-quest-journal, .directive-crew-journal, .directive-ship-journal, .directive-settings-console');
+    const rect = element.getBoundingClientRect();
     return {
+      shell: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
       panelWidth: drawer.getBoundingClientRect().width,
       panelHeight: drawer.getBoundingClientRect().height,
       contentWidth: drawer.scrollWidth,
       journalWidth: journal?.getBoundingClientRect().width || 0,
-      overflowsHorizontally: drawer.scrollWidth > drawer.clientWidth + 2
+      overflowsHorizontally: drawer.scrollWidth > drawer.clientWidth + 2,
+      viewportBound: Math.abs(rect.left) <= 1 && Math.abs(rect.top) <= 1
+        && Math.abs(rect.width - window.innerWidth) <= 1
+        && Math.abs(rect.height - window.innerHeight) <= 1
     };
   });
 
@@ -132,6 +146,7 @@ async function inspectViewport(page, { name, viewport }) {
     throw new Error(`${name}: one or more focused route surfaces did not render. crew=${crewSurface} ship=${shipSurface} settings=${settingsSurface} disclosures=${disclosureCount} open=${openDisclosureCount}. Crew: ${crewText.slice(0, 240)} Ship: ${shipText.slice(0, 240)}`);
   }
   if (geometry.overflowsHorizontally) throw new Error(`${name}: route surface overflows horizontally. panel=${geometry.panelWidth} content=${geometry.contentWidth} journal=${geometry.journalWidth}`);
+  if (!geometry.viewportBound) throw new Error(`${name}: shell is not viewport-bound. ${JSON.stringify(geometry.shell)}`);
 
   let screenshot = null;
   if (ARTIFACT_DIR) {
@@ -163,20 +178,22 @@ async function runLive() {
   const launched = await launchPlaywrightBrowser({ headless: HEADLESS, timeoutMs: TIMEOUT_MS });
   if (!launched.ok) throw new Error(launched.error?.message || 'Playwright browser launch failed.');
   const browser = launched.browser;
-  const context = await browser.newContext({ baseURL: BASE_URL });
+  const context = await browser.newContext({ baseURL: BASE_URL, hasTouch: true });
   try {
     await context.addCookies(cookieHeaderToBrowserCookies(auth.headers?.Cookie, BASE_URL));
     const page = await context.newPage();
-    const desktop = await inspectViewport(page, { name: 'desktop', viewport: { width: 1440, height: 1000 } });
-    const mobile = await inspectViewport(page, { name: 'mobile', viewport: { width: 390, height: 844 } });
-    const selectionFailures = [desktop, mobile].filter((result) => result.questSelection.status === 'fail');
+    const viewports = [];
+    for (const entry of VIEWPORTS) {
+      viewports.push(await inspectViewport(page, entry));
+    }
+    const selectionFailures = viewports.filter((result) => result.questSelection.status === 'fail');
     return {
       ok: selectionFailures.length === 0,
       status: selectionFailures.length ? 'fail' : 'pass',
       mode: 'live',
       user: USER,
       baseUrl: BASE_URL,
-      viewports: [desktop, mobile]
+      viewports
     };
   } finally {
     await context.close();

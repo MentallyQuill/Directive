@@ -62,7 +62,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Structured state: authoritative over chat prose
 - Canon packs: deferred for now; use package guardrails for the first slice
 - Raw simulation values: hidden from the player except in debug or developer surfaces
-- Runtime UI shell: SillyTavern floating command spine with one resizable route drawer, temporary full-screen workspaces for dense flows, and a phone-width bottom-navigation fallback
+- Runtime UI shell: viewport-bound expanded Directive interface with one shared LCARS frame and persistent five-route navigation across desktop/console and phone layouts
 - Runtime visual identity: UX-first LCARS-led Starfleet command-console UI adapted to Directive's host constraints
 
 ## Product Boundaries
@@ -361,18 +361,17 @@ Both modes must remain fair. Exploration does not erase causality, and Command d
 
 Directive remains chat-first. The extension UI supports orientation, state inspection, campaign/package management, save/load behavior, and debugging.
 
-Directive's SillyTavern shell uses a persistent left command spine on desktop/tablet and one resizable route drawer at a time. The drawer header owns collapse and full-screen actions; phone width uses the bottom route bar. Do not add panel-owned primary navigation, resize handles, or floating shell controls; content panels may still use route-local tabs and scroll-local action rows.
+Directive's SillyTavern shell is a viewport-bound, full-screen game menu. A narrow Voyager-era LCARS rail, fixed top chrome, bounded route content, and the same five-route bottom bar form the shared desktop/console and phone frame. Do not add panel-owned primary navigation, resize handles, floating shell controls, or route-history Back behavior. Long content scrolls inside Directive-owned bounded regions.
 
-Initial tabs:
+Primary routes are Campaign, Mission, People, Ship, and Settings:
 
 1. Campaign
 2. Mission
-3. Crew
+3. People
 4. Ship
-5. Log
-6. Settings
+5. Settings
 
-The Campaign tab is the package and campaign entry point. It should let players load, inspect, and later swap campaign packages. The Mission, Crew, Ship, and Log tabs reflect the active package and campaign state.
+Campaign is the package, timeline, chat, and checkpoint entry point. Mission, People, and Ship reflect player-safe active campaign state. Settings owns provider/profile configuration, guidance, diagnostics export, and safety controls. The Command Log remains campaign information rather than a primary route.
 
 The player may see current stardate and location, formal mission objectives, known directives, public deadlines, major ship conditions, current crew assignments, named favors or assets, Values, approved Inspiration and Resolve progression, and Command Log summaries.
 

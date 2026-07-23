@@ -733,27 +733,27 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Current Quests/);
   assertNoUnwiredPlaceholders(panel);
 
-  await findButton(panel, 'Crew').click();
-  assert(panel.querySelector('.directive-crew-journal'), 'Crew should render the unified roster journal');
+  await findButtonByDataset(panel, 'routeId', 'people').click();
+  assert(panel.querySelector('.directive-crew-journal'), 'People should temporarily render the existing unified roster journal');
   assert.match(textOf(panel), /Talia Serrin/);
   assert.match(textOf(panel), /Mara Whitaker/);
   assert.match(textOf(panel), /Related History|Crew/);
   assertNoUnwiredPlaceholders(panel);
 
-  await findButton(panel, 'Ship').click();
+  await findButtonByDataset(panel, 'routeId', 'ship').click();
   assert(panel.querySelector('.directive-ship-journal'), 'Ship should render the focused status journal');
   assert.match(textOf(panel), /U\.S\.S\. Breckenridge/);
   assert.match(textOf(panel), /Restrictions|Technical History/);
   assertNoUnwiredPlaceholders(panel);
 
-  await findButton(panel, 'Settings').click();
+  await findButtonByDataset(panel, 'routeId', 'settings').click();
   assert(panel.querySelector('.directive-settings-player-preferences'), 'Settings should foreground player preferences');
   assert.equal(panel.querySelectorAll('.directive-settings-disclosure').length, 2);
   assert.match(textOf(panel), /Advanced/);
   assert.match(textOf(panel), /Developer & Troubleshooting/);
   assertNoUnwiredPlaceholders(panel);
 
-  await findButton(panel, 'Mission').click();
+  await findButtonByDataset(panel, 'routeId', 'mission').click();
   assert(panel.querySelector('.directive-quest-journal'), 'Mission should return to the unified quest journal');
   return;
 
@@ -763,7 +763,7 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Formal Objectives/);
   assertNoUnwiredPlaceholders(panel);
 
-  await findButton(panel, 'Crew').click();
+  await findButtonByDataset(panel, 'routeId', 'people').click();
   assert.match(textOf(panel), /Personnel/);
   assert.match(textOf(panel), /Character/);
   assert.match(textOf(panel), /Service Record/);
@@ -1072,10 +1072,9 @@ assert.equal(drafts[0].progress.readyForCampaignStart, false);
 
 await resetDirectiveRuntimeLayout();
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'campaign');
-assert.equal(panel.dataset.drawerOpen, 'false');
-assert.equal(panel.dataset.fullscreen, 'false');
+assert.equal(panel.dataset.directiveShell, 'expanded');
 assert.equal(panel.dataset.workspaceRequired, 'false');
-assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfLeft, 16);
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().viewportBound, true);
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 1, 'Reset Window should not delete stored creator drafts');
 assert.equal(drafts[0].status, 'inProgress');

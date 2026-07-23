@@ -384,7 +384,7 @@ try {
   const highlightedRoute = document.querySelector('[data-directive-tour="route.campaign"]');
   assert(highlightedRoute.classList.contains('directive-guidance-target-highlight'));
   await findButtonByText('Next').click();
-  assert(lifecycleEvents.some((event) => event[0] === 'step' && event[2] === 'basic.command-spine'), 'Tutorial Next should notify the controller of the next step.');
+  assert(lifecycleEvents.some((event) => event[0] === 'step' && event[2] === 'basic.navigation'), 'Tutorial Next should notify the controller of the next step.');
 
   __directiveGuidanceTestHooks.close();
   assert(lifecycleEvents.some((event) => event[0] === 'close' && event[2] === 'close'), 'Closing a tutorial should notify the controller.');

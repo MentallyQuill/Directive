@@ -20,7 +20,7 @@ export function syncExtensionsMenuButton(button, options = {}) {
   button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
   button.classList.toggle('disabled', !enabled);
   button.title = enabled
-    ? 'Open Directive command spine.'
+    ? 'Open the Directive game menu.'
     : 'Directive is turned off. Enable it from the Directive dropdown.';
   return enabled;
 }

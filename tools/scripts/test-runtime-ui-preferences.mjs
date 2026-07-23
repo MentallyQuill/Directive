@@ -46,9 +46,19 @@ assert.equal(preferences.selectQuest('campaign:ashes::chat:1', 'quest:relay'), t
 const result = await preferences.persist();
 assert.equal(result.ok, true);
 assert.deepEqual(writes[0].payload, {
+  schemaVersion: 2,
   hiddenCampaignSessionKeys: ['session:b', 'session:c'],
+  selectedCampaignId: null,
   selectedQuestIdsByScope: {
-    'campaign:ashes::chat:1': 'quest:relay'
-  }
+    'campaign:ashes': 'quest:relay'
+  },
+  selectedPersonIdsByCampaign: {},
+  categoryOrderByCampaign: {},
+  recordOrderByScope: {},
+  collapsedCategoryIdsByCampaign: {},
+  questOrderByCampaign: {},
+  openQuestIdsByCampaign: {},
+  shipCollectionOrderByScope: {},
+  openShipIssueIdsByScope: {}
 });
 assert.equal(writes[0].options.now, '2026-06-26T00:00:00.000Z');

@@ -4,14 +4,14 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
   Object.freeze({
     id: 'tutorial.basic',
     title: 'Basic Walkthrough',
-    summary: 'Learn the first playable loop: choose a campaign, read the populated drawers, resolve a pending outcome, and return later.',
+    summary: 'Learn the first playable loop: choose a campaign, inspect its routes, resolve a pending outcome, and return later.',
     trainingScenario: true,
     steps: Object.freeze([
       step('basic.welcome', 'Welcome To Directive', 'Directive adds campaign state, pending decisions, recovery, and player-safe context around the normal host chat.', {
         target: 'runtime.panel',
         fallbackTarget: 'route.campaign'
       }),
-      step('basic.command-spine', 'Command Spine', 'The route buttons open focused drawers. Chat remains the play surface; drawers are for command, review, and recovery.', {
+      step('basic.navigation', 'Directive Routes', 'The bottom route bar switches between Campaign, Mission, People, Ship, and Settings. Chat remains the play surface; Directive is for command, review, and recovery.', {
         target: 'route.campaign',
         fallbackTarget: 'runtime.panel'
       }),
@@ -448,7 +448,7 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         fallbackTarget: 'settings.systems',
         prepare: 'settings-systems'
       }),
-      step('settings.library', 'Tutorial Library', 'The tutorial library lets players revisit Basic, Advanced, Assist, Message Actions, and focused drawer tutorials.', {
+      step('settings.library', 'Tutorial Library', 'The tutorial library lets players revisit Basic, Advanced, Assist, Message Actions, and focused route tutorials.', {
         route: 'settings',
         target: 'settings.guidance.library',
         fallbackTarget: 'settings.guidance',
@@ -496,8 +496,8 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
 
 export const DIRECTIVE_TIPS = Object.freeze([
   tip('tip.start.chat-is-play', 'Chat Is Play', 'The campaign chat is where you play. Directive routes are for setup, inspection, pending decisions, saves, and recovery.', 'mission', 'route.mission'),
-  tip('tip.start.command-spine', 'Command Spine', 'The left spine remembers the current route. Click a route to open its drawer; click the same open route again to collapse it.', null, 'route.campaign'),
-  tip('tip.start.campaign-first', 'Campaign First', 'Choose or load a campaign from Campaign before expecting Mission, Crew, Ship, or Log to show live state.', 'campaign', 'route.campaign'),
+  tip('tip.start.navigation', 'Directive Routes', 'The bottom route bar remembers the current route and keeps Campaign, Mission, People, Ship, and Settings available at every viewport.', null, 'route.campaign'),
+  tip('tip.start.campaign-first', 'Campaign First', 'Choose or load a campaign from Campaign before expecting Mission, People, or Ship to show live state.', 'campaign', 'route.campaign'),
   tip('tip.start.bound-chat', 'Bound Campaign Chat', 'Directive only mutates campaign state from the bound campaign chat. Other chats should fail open or require rebind.', 'campaign', 'campaign.session', 'route-body.campaign'),
   tip('tip.start.settings-systems', 'Systems Controls', 'Settings > Systems is for runtime behavior and guidance preferences, not hidden campaign status.', 'settings', 'settings.systems', 'route-body.settings', 'settings-systems'),
 

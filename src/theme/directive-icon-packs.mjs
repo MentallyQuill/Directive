@@ -1,6 +1,7 @@
 export const DIRECTIVE_ICON_SLOTS = Object.freeze([
   'route.campaign',
   'route.mission',
+  'route.people',
   'route.crew',
   'route.ship',
   'route.settings',
@@ -40,6 +41,7 @@ export const DIRECTIVE_ICON_FALLBACK = Object.freeze({
 export const DIRECTIVE_ICON_SLOT_FALLBACKS = Object.freeze({
   'route.campaign': Object.freeze({ type: 'class', value: 'fa-solid fa-rocket', label: 'Campaign' }),
   'route.mission': Object.freeze({ type: 'class', value: 'fa-solid fa-compass', label: 'Mission' }),
+  'route.people': Object.freeze({ type: 'class', value: 'fa-solid fa-user-group', label: 'People' }),
   'route.crew': Object.freeze({ type: 'class', value: 'fa-solid fa-user-group', label: 'Crew' }),
   'route.ship': Object.freeze({ type: 'class', value: 'fa-solid fa-shuttle-space', label: 'Ship' }),
   'route.settings': Object.freeze({ type: 'class', value: 'fa-solid fa-sliders', label: 'Settings' }),
@@ -71,6 +73,7 @@ export const DIRECTIVE_ICON_SLOT_FALLBACKS = Object.freeze({
 export const DIRECTIVE_VECTOR_GLYPH_SLOTS = Object.freeze({
   'route.campaign': Object.freeze({ type: 'mask', value: 'route-campaign', label: 'Campaign' }),
   'route.mission': Object.freeze({ type: 'mask', value: 'route-mission', label: 'Course Plot' }),
+  'route.people': Object.freeze({ type: 'mask', value: 'route-crew', label: 'People' }),
   'route.crew': Object.freeze({ type: 'mask', value: 'route-crew', label: 'Bridge Roster' }),
   'route.ship': Object.freeze({ type: 'mask', value: 'route-ship', label: 'Vessel Schematic' }),
   'route.settings': Object.freeze({ type: 'mask', value: 'route-settings', label: 'Systems Matrix' }),

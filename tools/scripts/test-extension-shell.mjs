@@ -18,7 +18,6 @@ import {
   DIRECTIVE_EXTENSION_ENABLE_STATUS_ID,
   DIRECTIVE_EXTENSION_ENABLE_TOGGLE_ID,
   DIRECTIVE_OPEN_RUNTIME_BUTTON_ID,
-  DIRECTIVE_RESET_WINDOW_BUTTON_ID,
   DIRECTIVE_SETTINGS_PANEL_ID,
   installExtensionsMenuDropdown
 } from '../../src/extension/settings-panel.js';
@@ -34,11 +33,6 @@ import {
   __directiveRuntimeShellTestHooks,
   setDirectiveRuntimeApp
 } from '../../src/runtime/runtime-shell.js';
-import {
-  DIRECTIVE_DRAWER_GAP,
-  DIRECTIVE_SHELL_MARGIN,
-  getDirectiveSpineWidth
-} from '../../src/ui/directive-shell-layout.mjs';
 import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 import { renderMissionPanel } from '../../src/ui/mission-panel.js';
@@ -1018,8 +1012,10 @@ for (const relativePath of [
   'src/runtime/runtime-actions.js',
   'src/runtime/runtime-shell.js',
   'src/runtime/runtime-app.mjs',
-  'src/ui/directive-command-spine-shell.js',
-  'src/ui/directive-shell-layout.mjs',
+  'src/ui/directive-expanded-shell.js',
+  'src/ui/responsive-record-list.js',
+  'src/ui/reorderable-collection.js',
+  'src/ui/expanded-interface-focus.js',
   'styles/directive.css'
 ]) {
   const legacyIdentifierPattern = new RegExp(`\\b${['sa', 'ga'].join('')}\\b`, 'i');
@@ -1037,6 +1033,7 @@ assert.match(directiveCss, /\.directive-starship-briefing-roster\[hidden\]\s*\{[
 assert.match(directiveCss, /--directive-division-command:\s*#a60400;/, 'Directive division command token should use the approved Voyager-era red');
 assert.match(directiveCss, /--directive-division-operations:\s*#dd8a12;/, 'Directive division operations/security token should use the approved Voyager-era gold');
 assert.match(directiveCss, /--directive-division-science:\s*#004880;/, 'Directive division science/medical token should use the approved Voyager-era blue');
+if (false) { // Retired command-spine geometry assertions retained only as migration history.
 const commandSpineCss = /\.directive-runtime-panel\.directive-command-spine-shell\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(commandSpineCss, /--directive-shell-left:\s*16px;/, 'desktop command spine should default to the left edge');
 assert.match(commandSpineCss, /--directive-shell-top:\s*calc\(\(100dvh - var\(--directive-spine-height\)\) \/ 2\);/, 'desktop command spine should default to vertical center');
@@ -1064,6 +1061,9 @@ assert.match(resizeHandleRightCss, /\bright:\s*-1px;/, 'right drawer resize hand
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right \.directive-command-drawer-resize-icon\s*\{[\s\S]*?transform:\s*scaleX\(-1\);/, 'right drawer resize glyph should face the bottom-right corner');
 assert.match(directiveCss, /\.directive-command-spine-shell\.directive-runtime-fullscreen/, 'dense workflows should expose a full-screen workspace mode');
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-command-mobile-nav/, 'mobile fallback should retain bottom-route navigation');
+}
+assert.match(directiveCss, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?height:\s*100dvh\s*!important;/, 'expanded shell should bind to the viewport height');
+assert.match(directiveCss, /\.directive-expanded-shell \.directive-route-bar\s*\{[\s\S]*?repeat\(5,\s*minmax\(0,\s*1fr\)\)/, 'expanded shell should retain five equal route controls');
 assert.match(directiveCss, /\.directive-icon-button:disabled/, 'drawer header actions should expose disabled styling');
 assert.match(directiveCss, /\.directive-extension-dropdown-title/, 'extensions settings drawer should expose Directive title styling');
 assert.match(directiveCss, /\.directive-runtime-window-actions/, 'extensions settings drawer should style runtime action buttons');
@@ -1747,7 +1747,7 @@ assert(menuButton, 'Directive should install an extensions-menu button');
 assert.equal(fakeDocument.getElementById('extensionsMenuDefault'), null);
 assert.equal(menu.children.includes(menuButton), true);
 assert.equal(menuButton.className, 'list-group-item flex-container flexGap5 interactable');
-assert.equal(menuButton.title, 'Open Directive command spine.');
+assert.equal(menuButton.title, 'Open the Directive game menu.');
 assert.equal(menuButton.children[0].className, 'fa-solid fa-compass directive-extensions-menu-icon');
 assert.equal(menuButton.children[1].textContent, 'Directive');
 menuButton.click();
@@ -1794,7 +1794,7 @@ assert.equal(enableToggle.getAttribute('role'), 'switch');
 assert.equal(enableToggle.getAttribute('aria-checked'), 'true');
 assert.equal(enableStatus.textContent, 'On');
 assert.equal(openRuntimeButton.disabled, false);
-assert.equal(fakeDocument.getElementById(DIRECTIVE_RESET_WINDOW_BUTTON_ID), null, 'Reset Window should stay hidden until a runtime reset-layout action exists');
+assert.equal(fakeDocument.getElementById('directive_reset_window'), null, 'retired window geometry must not expose Reset Window');
 openRuntimeButton.click();
 assert.equal(openCount, 2);
 
@@ -1807,10 +1807,6 @@ assert.equal(openRuntimeButton.getAttribute('aria-disabled'), 'true');
 openRuntimeButton.click();
 assert.equal(openCount, 2, 'Open Runtime should do nothing while Directive is turned off');
 
-let resetCount = 0;
-registerRuntimeAction('runtime.resetLayout', () => {
-  resetCount += 1;
-});
 let toggleChanges = [];
 installExtensionsMenuDropdown({
   directiveEnabled: false,
@@ -1819,16 +1815,6 @@ installExtensionsMenuDropdown({
     return { enabled };
   }
 });
-const resetWindowButton = fakeDocument.getElementById(DIRECTIVE_RESET_WINDOW_BUTTON_ID);
-assert(resetWindowButton, 'Directive settings dropdown should expose Reset Window only when reset layout is registered');
-assert.equal(resetWindowButton.className, 'menu_button interactable');
-assert.equal(resetWindowButton.children[0].className, 'fa-solid fa-arrows-rotate');
-assert.equal(resetWindowButton.children[1].textContent, 'Reset Window');
-assert.equal(resetWindowButton.disabled, true);
-assert.equal(resetWindowButton.title, 'Turn Directive on before using this control.');
-resetWindowButton.click();
-assert.equal(resetCount, 0, 'Reset Window should do nothing while Directive is turned off');
-
 enableToggle.checked = true;
 await enableToggle.eventListeners.get('change')({
   type: 'change',
@@ -1838,10 +1824,6 @@ await enableToggle.eventListeners.get('change')({
 assert.deepEqual(toggleChanges, [true]);
 assert.equal(enableStatus.textContent, 'On');
 assert.equal(openRuntimeButton.disabled, false);
-assert.equal(resetWindowButton.disabled, false);
-assert.equal(resetWindowButton.title, 'Reset the Directive runtime window to its default layout.');
-resetWindowButton.click();
-assert.equal(resetCount, 1);
 
 installExtensionsMenuDropdown();
 assert.equal(
@@ -1922,9 +1904,6 @@ assert.deepEqual(
     'runtime.open',
     'runtime.toggle',
     'runtime.setTab',
-    'runtime.toggleDrawer',
-    'runtime.toggleFullscreen',
-    'runtime.resetLayout',
     'ui.refresh',
     'guidance.beginTutorial',
     'guidance.showTip',
@@ -1961,11 +1940,31 @@ const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime.open should create the Directive runtime panel');
 assert.equal(panel.hidden, false);
 assert.equal(panel.classList.contains('directive-runtime-panel-open'), true);
-assert.equal(panel.dataset.directiveShell, 'command-spine');
+assert.equal(panel.dataset.directiveShell, 'expanded');
 const runtimeBody = panel.querySelector('[data-directive-runtime-body="true"]');
 runtimeBody.scrollTop = 137;
 await runRuntimeAction('runtime.refresh');
 assert.equal(panel.querySelector('[data-directive-runtime-body="true"]').scrollTop, 137, 'same-route refresh should preserve runtime body scroll');
+assert.equal(panel.querySelectorAll('.directive-lcars-rail').length, 1);
+assert.equal(panel.querySelectorAll('.directive-route-bar').length, 1);
+assert.equal(panel.querySelectorAll('.directive-route-control').length, DIRECTIVE_RUNTIME_TABS.length);
+assert.deepEqual(DIRECTIVE_RUNTIME_TABS.map((route) => route.id), ['campaign', 'mission', 'people', 'ship', 'settings']);
+assert.equal(panel.querySelector('.directive-command-spine'), null);
+assert.equal(panel.querySelector('.directive-command-drawer'), null);
+assert.equal(panel.querySelector('[data-shell-action="back"]'), null);
+assert.equal(panel.querySelector('[data-shell-action="close"]').getAttribute('aria-label'), 'Close Directive');
+
+await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
+assert.equal(panel.dataset.activeRoute, 'mission');
+assert.equal(panel.querySelectorAll('.directive-route-control')[1].getAttribute('aria-selected'), 'true');
+
+await runRuntimeAction('runtime.setTab', { tabId: 'people' });
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'people');
+assert.equal(panel.dataset.activeRoute, 'people');
+assert.equal(panel.querySelectorAll('.directive-route-control')[2].getAttribute('aria-selected'), 'true');
+
+/* Legacy command-spine assertions intentionally retired by the expanded-shell cutover.
 assert.equal(panel.querySelectorAll('.directive-command-spine').length, 1);
 assert.equal(panel.querySelectorAll('.directive-command-drawer').length, 1);
 assert.equal(panel.querySelectorAll('[data-directive-shelf-drag-handle="true"]').length, 2, 'shelf should expose drag handles on the spine brand and drawer title');
@@ -2084,7 +2083,7 @@ assert.equal(__directiveRuntimeShellTestHooks.getLayout().spineMode, 'compact');
 assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfLeft, 16);
 assert.equal(__directiveRuntimeShellTestHooks.getLayout().drawerWidth, 615);
 assert.equal(__directiveRuntimeShellTestHooks.getLayout().drawerHeight, 684);
-assert.equal(runtimeUiResetCount, 1, 'Reset Window should reset transient runtime-app UI state');
+assert.equal(runtimeUiResetCount, 1, 'Reset Window should reset transient runtime-app UI state'); */
 
 await runRuntimeAction('runtime.hide');
 assert.equal(panel.hidden, true);
@@ -2093,4 +2092,4 @@ __directiveRuntimeShellTestHooks.reset();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 delete globalThis.document;
 
-console.log('Extension shell tests passed: manifest, extension controls, runtime actions, command spine, resizable drawer, full-screen workspace');
+console.log('Extension shell tests passed: manifest, extension controls, runtime actions, expanded viewport shell, and five-route navigation');

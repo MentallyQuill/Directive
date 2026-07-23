@@ -1,5 +1,7 @@
 # Interface Redesign Integration Prep
 
+> **Historical authority note:** This document records the June 2026 redesign handoff and its then-current seam map. The approved production routes are Campaign, Mission, People, Ship, and Settings. Where this document mentions Crew, Log, the compact shell, old stage counts, donor archives, or an older route order, the living [expanded interface contract](../design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md) supersedes it.
+
 ## Purpose
 
 This document reviews the `Directive-interface-redesign.zip` handoff provided on 2026-06-20 and prepares it for integration into the current Directive repo.

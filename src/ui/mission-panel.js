@@ -154,7 +154,7 @@ function createMissionStatusBlock(label, value, tone = missionStatusTone(value),
 }
 
 function missionScrollContainer(element) {
-  return element?.closest?.('.directive-command-drawer-body, .directive-runtime-body') || null;
+  return element?.closest?.('.directive-route-body, .directive-runtime-body') || null;
 }
 
 function preserveMissionSubtabScroll(scrollContainer, anchor, beforeTop) {

@@ -445,8 +445,7 @@ const commandLogPanelSource = await readText('src/ui/command-log-panel.js');
 const characterCreatorPanelSource = await readText('src/ui/character-creator-panel.js');
 const runtimeUiKitSource = await readText('src/ui/runtime-ui-kit.js');
 const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
-const commandSpineSource = await readText('src/ui/directive-command-spine-shell.js');
-const commandSpineLayoutSource = await readText('src/ui/directive-shell-layout.mjs');
+const expandedShellSource = await readText('src/ui/directive-expanded-shell.js');
 const campaignPanelSource = await readText('src/ui/campaign-panel.js');
 const assistSource = await readText('src/assist/directive-assist.mjs');
 const directiveAssistButtonSource = await readText('src/hosts/sillytavern/directive-assist-button.js');
@@ -460,9 +459,8 @@ assert.doesNotMatch(runtimeUiKitSource, /isMobileRuntimeTooltipSurface[\s\S]*?cl
 assert.match(runtimeUiKitSource, /directiveTooltipHoverBound/, 'runtime tooltips should track hover listener binding independently');
 assert.match(runtimeUiKitSource, /directiveTooltipFocusBound/, 'runtime tooltips should track focus listener binding independently');
 assert.match(runtimeUiKitSource, /pointerenter[\s\S]*mouseenter[\s\S]*mouseover/, 'runtime tooltips should handle pointer and bubbling mouse hover events');
-assert.match(commandSpineSource, /addTooltip/, 'command-spine shell controls should use shared tooltips');
-assert.match(commandSpineSource, /mobileTooltip/, 'mobile route buttons should preserve route tooltip text separately from their short label');
-assert.match(runtimeShellSource, /dataset\.mobileTooltip/, 'runtime shell should sync mobile route tooltips after layout updates');
+assert.match(expandedShellSource, /addTooltip/, 'expanded shell controls should use shared tooltips');
+assert.match(expandedShellSource, /bindRovingFocus/, 'expanded route navigation should use shared roving focus');
 assert.match(campaignPanelSource, /Prompt Context[\s\S]*Player-safe campaign context currently installed/, 'Campaign should explain Prompt Context as player-safe chat prompt context');
 assert.match(missionPanelSource, /Current play surface:[\s\S]*Save, narration retry, reconciliation/, 'Mission subtabs should explain active, context, thread, side-work, and recovery sections');
 assert.match(settingsPanelSource, /Choose which provider lane handles each Directive background job/, 'Settings model-call routing should explain provider lane routing');
@@ -477,11 +475,12 @@ assert.match(assistSource, /Turn rough intent into editable player-character wor
 assert.match(directiveAssistButtonSource, /globalThis\.toastr\?\.info\?/, 'Directive Assist actions should notify through SillyTavern toastr when generation starts');
 assert.match(directiveAssistButtonSource, /Replace only the selected chat text with this draft/, 'Directive Assist preview actions should include explicit title tooltips');
 assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThemePack\(\)\)/, 'runtime shell should apply the bundled Theme Pack instead of inheriting host button colors');
-assert.match(runtimeShellSource, /createDirectiveCommandSpineShell/, 'SillyTavern runtime should mount the command-spine shell');
-assert.match(runtimeShellSource, /startDirectiveDrawerResize/, 'runtime shell should own persistent drawer resizing');
-assert.match(runtimeShellSource, /startDirectiveShelfDrag/, 'runtime shell should own persistent shelf dragging');
+assert.match(runtimeShellSource, /createDirectiveExpandedShell/, 'SillyTavern runtime should mount the expanded shell');
+assert.doesNotMatch(runtimeShellSource, /from ['"]\.\.\/ui\/directive-command-spine-shell\.js['"]/, 'runtime shell should not import the retired command-spine shell');
+assert.doesNotMatch(runtimeShellSource, /from ['"]\.\.\/ui\/directive-shell-layout\.mjs['"]/, 'runtime shell should not import persisted drawer geometry');
 assert.match(runtimeShellSource, /resetCampaignPanelState[\s\S]*resetCrewPanelState|resetCrewPanelState[\s\S]*resetCampaignPanelState/, 'Reset Window should clear route-local UI state as part of layout reset');
 assert.match(runtimeShellSource, /resetSettingsPanelState/, 'Reset Window should clear Settings route-local UI state as part of layout reset');
+if (false) { // Retired command-spine geometry assertions retained only as migration history.
 assert.match(runtimeShellSource, /fullscreenMode\s*===\s*['"]workspace['"]/, 'runtime shell should distinguish required full-screen workspaces from manual expansion');
 assert.match(commandSpineSource, /directiveShelfDragHandle/, 'command-spine shell should mark grab handles for moving the shelf');
 assert.doesNotMatch(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should not render the bottom-left resize handle');
@@ -496,6 +495,11 @@ assert.match(commandSpineSource, /directive-command-mobile-nav/, 'command-spine 
 assert.match(commandSpineLayoutSource, /viewport\.width\s*\*\s*0\.47/, 'default drawer geometry should target approximately half the display width');
 assert.match(commandSpineLayoutSource, /shelfLeft|shelfTop/, 'layout persistence should include movable shelf position fields');
 assert.match(commandSpineLayoutSource, /localStorage|safeStorage/, 'drawer geometry should be persisted through host-safe local layout storage');
+}
+assert.match(expandedShellSource, /directive-lcars-rail/, 'expanded shell should render the approved narrow LCARS rail');
+assert.match(expandedShellSource, /directive-route-bar/, 'expanded shell should render one persistent five-route bar');
+assert.match(expandedShellSource, /dataset\.shellAction\s*=\s*['"]close['"]/, 'expanded shell should expose one Close action');
+assert.doesNotMatch(expandedShellSource, /createDrawerResizeHandle|directive-command-drawer|shellAction\s*=\s*['"]back['"]/, 'expanded shell should not recreate Back, resize, or drawer controls');
 assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime shell should not replay primary tab click history');
 assert.match(campaignPanelSource, /directive-campaign-launcher/, 'Campaign should render a focused launcher surface');
 assert.match(campaignPanelSource, /campaignIndex/, 'Campaign Command should read the runtime campaign-session index');

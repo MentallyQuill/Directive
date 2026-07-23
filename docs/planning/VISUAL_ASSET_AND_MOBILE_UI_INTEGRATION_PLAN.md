@@ -1,5 +1,7 @@
 # Visual Asset And Mobile UI Integration Plan
 
+> **Historical authority note:** This plan preserves useful asset-resolution, responsive-media, accessibility, and performance guidance from its original integration stage. The approved production routes are Campaign, Mission, People, Ship, and Settings, and the living [expanded interface contract](../design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md) supersedes older Crew, Log, compact-shell, and sequencing guidance here.
+
 > Status update, 2026-06-21: the asset, Theme Pack, Icon Pack, compact-card, and phone-width portions remain relevant. The original shared desktop bottom-navigation assumption is superseded by [Command Spine Migration](COMMAND_SPINE_MIGRATION.md). SillyTavern and Lumiverse now use the shared left command spine with one resizable drawer; phone width keeps the bottom route fallback.
 
 ## Purpose

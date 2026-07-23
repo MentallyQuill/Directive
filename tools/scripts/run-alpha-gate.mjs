@@ -42,6 +42,13 @@ const missionGraphChecks = bundledMissionGraphTriples().map(([packagePath, crewD
 ]);
 
 const checks = [
+  'test-expanded-interface-authority.mjs',
+  'test-expanded-interface-shell.mjs',
+  'test-expanded-interface-focus.mjs',
+  'test-responsive-record-list.mjs',
+  'test-reorderable-collection.mjs',
+  'test-runtime-ui-preferences-v2.mjs',
+  'test-ui-preferences-storage-v2.mjs',
   'test-extension-shell.mjs',
   'test-provider-response-parser.mjs',
   'test-directive-provider-routing.mjs',
@@ -142,7 +149,6 @@ const checks = [
   'test-directive-assist.mjs',
   'test-character-creator-assist.mjs',
   'test-player-portrait-assets.mjs',
-  'test-command-spine-layout.mjs',
   'test-runtime-shell-creator-flow.mjs',
   'test-ship-panel-state-records.mjs',
   'test-visual-system-foundation.mjs',

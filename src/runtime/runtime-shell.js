@@ -9,7 +9,7 @@ import {
 } from '../ui/settings-panel.js';
 import { renderShipPanel } from '../ui/ship-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../ui/campaign-panel.js';
-import { createDirectiveCommandSpineShell } from '../ui/directive-command-spine-shell.js';
+import { createDirectiveExpandedShell } from '../ui/directive-expanded-shell.js';
 import {
   DIRECTIVE_PRIMARY_ROUTES,
   getDirectiveRoute,
@@ -17,20 +17,7 @@ import {
   normalizeDirectiveRouteId,
   resolveDirectiveRouteId
 } from '../ui/directive-routes.mjs';
-import {
-  constrainDirectiveShellLayout,
-  getDirectiveShellViewport,
-  getDirectiveSpineWidth,
-  isDirectiveMobileShell,
-  loadDirectiveShellLayout,
-  resetDirectiveShellLayout,
-  saveDirectiveShellLayout
-} from '../ui/directive-shell-layout.mjs';
 import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
-import {
-  DIRECTIVE_BUNDLED_ICON_PACKS,
-  resolveDirectiveIconSlot
-} from '../theme/directive-icon-packs.mjs';
 import {
   addTooltip,
   appendEmpty,
@@ -61,24 +48,12 @@ export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map
   label: route.label
 })));
 
-let shellLayout = loadDirectiveShellLayout();
-let activeTab = String(shellLayout.activeRoute || 'campaign').trim() || 'campaign';
+let shellLayout = { activeRoute: 'campaign' };
+let activeTab = 'campaign';
 let routeSelectionExplicit = false;
 shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
-let fullscreenMode = 'none';
-let isDraggingShelf = false;
-let shelfDragStartX = 0;
-let shelfDragStartY = 0;
-let shelfDragStartLeft = 0;
-let shelfDragStartTop = 0;
-let isResizingDrawer = false;
-let resizeStartX = 0;
-let resizeStartY = 0;
-let resizeStartWidth = 0;
-let resizeStartHeight = 0;
 let keydownListenerInstalled = false;
-let viewportListenerInstalled = false;
 let runtimeMountHost = null;
 let lastRenderedTab = '';
 let renderBodyRequestId = 0;
@@ -99,8 +74,7 @@ function getPanel() {
 function runtimeScrollContainers(panel) {
   const seen = new Set();
   const selectors = [
-    '[data-directive-runtime-body="true"]',
-    '.directive-command-drawer-body'
+    '[data-directive-runtime-body="true"]'
   ];
   const containers = [];
   for (const selector of selectors) {
@@ -152,44 +126,7 @@ function outcomeIntegrityEditorHost() {
   return { element: runtimeHost(), mount: 'viewport' };
 }
 
-function setStyleProperty(element, property, value) {
-  element?.style?.setProperty?.(property, value);
-}
-
-function syncSemanticIconElement(element, { slot = '', fallbackClass = '', className = '' } = {}) {
-  if (!element) return;
-  const descriptor = resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], slot);
-  if (descriptor.type === 'mask' && (descriptor.glyph || descriptor.value)) {
-    element.className = `directive-vector-glyph${className ? ` ${className}` : ''}`;
-    element.dataset.glyph = descriptor.glyph || descriptor.value;
-    element.dataset.iconSlot = slot || descriptor.slot || '';
-    element.setAttribute?.('aria-hidden', 'true');
-    return;
-  }
-  if (descriptor.type === 'image' && descriptor.value) {
-    element.className = className;
-    element.src = descriptor.value;
-    element.alt = '';
-    element.draggable = false;
-    element.setAttribute?.('draggable', 'false');
-    element.dataset.iconSlot = slot || descriptor.slot || '';
-    return;
-  }
-  element.className = `${descriptor.value || fallbackClass || 'fa-solid fa-circle'}${className ? ` ${className}` : ''}`;
-  element.dataset.iconSlot = slot || descriptor.slot || '';
-}
-
-function currentViewport() {
-  return getDirectiveShellViewport();
-}
-
-function isMobileRuntime() {
-  return isDirectiveMobileShell(currentViewport().width);
-}
-
 function persistLayout() {
-  shellLayout.activeRoute = activeTab;
-  shellLayout = saveDirectiveShellLayout(shellLayout, currentViewport());
   shellLayout.activeRoute = activeTab;
   return shellLayout;
 }
@@ -219,18 +156,14 @@ function startDirectiveTrainingScenario({
     return { active: false };
   }
   const prior = trainingScenarioSession || {
-    previousRoute: activeTab,
-    previousDrawerOpen: shellLayout.drawerOpen,
-    previousFullscreenMode: fullscreenMode
+    previousRoute: activeTab
   };
   trainingScenarioSession = {
     active: true,
     tutorialId: tutorialId || tutorial?.id || '',
     stepId,
     stepIndex: Math.max(0, Number(stepIndex) || 0),
-    previousRoute: prior.previousRoute || activeTab,
-    previousDrawerOpen: prior.previousDrawerOpen === true,
-    previousFullscreenMode: prior.previousFullscreenMode || 'none'
+    previousRoute: prior.previousRoute || activeTab
   };
   return { active: true, ...trainingScenarioSession };
 }
@@ -257,9 +190,6 @@ function stopDirectiveTrainingScenario({ refresh = true, restoreRoute = true } =
   if (restoreRoute && session.previousRoute) {
     activeTab = normalizeDirectiveRouteId(session.previousRoute, activeTab);
     shellLayout.activeRoute = activeTab;
-    shellLayout.drawerOpen = session.previousDrawerOpen;
-    fullscreenMode = session.previousFullscreenMode || 'none';
-    shellLayout.fullscreen = fullscreenMode !== 'none';
   }
   const panel = getPanel();
   if (panel) {
@@ -272,73 +202,12 @@ function stopDirectiveTrainingScenario({ refresh = true, restoreRoute = true } =
   return { stopped: true };
 }
 
-function getVisualDrawerOpen() {
-  return isMobileRuntime() || shellLayout.drawerOpen === true || shellLayout.fullscreen === true;
-}
-
-function drawerDensity(width = shellLayout.drawerWidth) {
-  const value = Number(width) || 0;
-  if (value < 620) return 'compact';
-  if (value < 820) return 'standard';
-  return 'wide';
-}
-
 function applyShellLayout(panel = getPanel(), { persist = false } = {}) {
   if (!panel) return null;
 
-  shellLayout = constrainDirectiveShellLayout({
-    ...shellLayout,
-    activeRoute: activeTab,
-    fullscreen: fullscreenMode !== 'none'
-  }, currentViewport());
-  shellLayout.activeRoute = activeTab;
-  shellLayout.fullscreen = fullscreenMode !== 'none';
-
-  const mobile = isMobileRuntime();
-  const visualDrawerOpen = mobile || shellLayout.drawerOpen || shellLayout.fullscreen;
-  const spineWidth = getDirectiveSpineWidth(shellLayout.spineMode);
-  const density = shellLayout.fullscreen ? 'wide' : drawerDensity(shellLayout.drawerWidth);
-
-  panel.dataset.directiveShell = 'command-spine';
+  panel.dataset.directiveShell = 'expanded';
   panel.dataset.activeRoute = activeTab;
   panel.dataset.mobileActiveTab = activeTab;
-  panel.dataset.drawerOpen = visualDrawerOpen ? 'true' : 'false';
-  panel.dataset.persistedDrawerOpen = shellLayout.drawerOpen ? 'true' : 'false';
-  panel.dataset.fullscreen = shellLayout.fullscreen ? 'true' : 'false';
-  panel.dataset.fullscreenMode = fullscreenMode;
-  panel.dataset.spineMode = shellLayout.spineMode;
-  panel.dataset.drawerDensity = density;
-  panel.dataset.mobileShell = mobile ? 'true' : 'false';
-  panel.dataset.shelfLeft = String(shellLayout.shelfLeft);
-  panel.dataset.shelfTop = String(shellLayout.shelfTop);
-
-  panel.classList.toggle('directive-runtime-drawer-open', visualDrawerOpen);
-  panel.classList.toggle('directive-runtime-fullscreen', shellLayout.fullscreen);
-  panel.classList.toggle('directive-runtime-mobile-shell', mobile);
-  panel.classList.toggle('directive-spine-compact', shellLayout.spineMode === 'compact');
-  panel.classList.toggle('directive-spine-expanded', shellLayout.spineMode === 'expanded');
-  panel.classList.toggle('directive-drawer-density-compact', density === 'compact');
-  panel.classList.toggle('directive-drawer-density-standard', density === 'standard');
-  panel.classList.toggle('directive-drawer-density-wide', density === 'wide');
-
-  setStyleProperty(panel, '--directive-spine-width', `${spineWidth}px`);
-  setStyleProperty(panel, '--directive-shell-left', `${shellLayout.shelfLeft}px`);
-  setStyleProperty(panel, '--directive-shell-top', `${shellLayout.shelfTop}px`);
-  setStyleProperty(panel, '--directive-drawer-width', `${shellLayout.drawerWidth}px`);
-  setStyleProperty(panel, '--directive-drawer-height', `${shellLayout.drawerHeight}px`);
-
-  const drawer = panel.querySelector('.directive-command-drawer');
-  if (drawer) {
-    drawer.hidden = !visualDrawerOpen;
-    drawer.setAttribute('aria-hidden', visualDrawerOpen ? 'false' : 'true');
-    drawer.setAttribute('role', shellLayout.fullscreen ? 'dialog' : 'region');
-    drawer.setAttribute('aria-modal', shellLayout.fullscreen ? 'true' : 'false');
-    if (drawer.style) {
-      drawer.style.width = mobile ? '' : `${shellLayout.drawerWidth}px`;
-      drawer.style.height = mobile ? '' : `${shellLayout.drawerHeight}px`;
-    }
-  }
-
   if (persist) persistLayout();
   return shellLayout;
 }
@@ -346,128 +215,34 @@ function applyShellLayout(panel = getPanel(), { persist = false } = {}) {
 function syncShellChrome(panel = getPanel()) {
   if (!panel) return;
   const route = getDirectiveRoute(activeTab);
-  const visualDrawerOpen = getVisualDrawerOpen();
-
-  for (const button of panel.querySelectorAll('.directive-spine-route')) {
+  panel.dataset.activeRoute = activeTab;
+  for (const button of panel.querySelectorAll('.directive-route-control')) {
     const selected = button.dataset.routeId === activeTab;
-    const expanded = selected && visualDrawerOpen;
-    button.classList.toggle('directive-spine-route-selected', selected);
-    button.classList.toggle('directive-spine-route-active', expanded);
-    button.classList.toggle('directive-tab-button-active', expanded);
-    button.setAttribute('aria-selected', selected ? 'true' : 'false');
-    button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    if (selected) button.setAttribute('aria-current', 'page');
-    else button.removeAttribute?.('aria-current');
-  }
-
-  for (const button of panel.querySelectorAll('.directive-mobile-bottom-tab')) {
-    const selected = button.dataset.mobileRouteId === activeTab;
-    button.classList.toggle('directive-mobile-bottom-tab-active', selected);
+    button.classList.toggle('active', selected);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute?.('aria-current');
-    const labelText = button.dataset.mobileLabel || 'Directive route';
-    const tooltip = button.dataset.mobileTooltip || button.dataset.routeDetail || labelText;
-    button.setAttribute('aria-label', labelText);
-    addTooltip(button, tooltip, { showOnHover: false, showOnFocus: false });
-    const label = button.querySelector('.directive-mobile-bottom-label');
-    if (label) label.textContent = button.dataset.mobileLabel || '';
   }
-
-  const routeTitle = panel.querySelector('.directive-shell-title-label');
-  if (routeTitle) routeTitle.textContent = route.label;
-  const routeDetail = panel.querySelector('[data-directive-current-route-detail="true"]');
-  if (routeDetail) routeDetail.textContent = route.shelfLabel || route.description || 'Command drawer';
-  const contextValue = panel.querySelector('[data-directive-current-route="true"]');
-  if (contextValue) contextValue.textContent = route.label;
-  const body = panel.querySelector('[data-directive-runtime-body="true"]');
-  if (body) body.dataset.directiveTour = `route-body.${activeTab}`;
-
-  const titleIcon = panel.querySelector('.directive-runtime-title-icon');
-  syncSemanticIconElement(titleIcon, {
-    slot: route.iconSlot || `route.${route.id || ''}`,
-    fallbackClass: route.icon || 'fa-solid fa-compass',
-    className: 'directive-runtime-title-icon'
-  });
-
-  const fullscreenControl = panel.querySelector('[data-shell-action="fullscreen"]');
-  if (fullscreenControl) {
-    const workspaceRequired = fullscreenMode === 'workspace';
-    const expanded = shellLayout.fullscreen === true;
-    const label = workspaceRequired
-      ? 'Full-screen workspace required for Character Creator'
-      : expanded
-        ? 'Restore resizable drawer'
-        : 'Open full-screen workspace';
-    fullscreenControl.setAttribute('aria-label', label);
-    addTooltip(fullscreenControl, label);
-    fullscreenControl.disabled = workspaceRequired;
-    fullscreenControl.setAttribute('aria-disabled', workspaceRequired ? 'true' : 'false');
-    const icon = fullscreenControl.querySelector('.directive-command-drawer-action-icon');
-    syncSemanticIconElement(icon, {
-      slot: expanded ? 'action.restore' : 'action.fullscreen',
-      fallbackClass: expanded ? 'fa-regular fa-window-restore' : 'fa-regular fa-window-maximize',
-      className: 'directive-command-drawer-action-icon'
-    });
-  }
-
-  const collapseControl = panel.querySelector('[data-shell-action="collapse"]');
-  if (collapseControl) {
-    const mobile = isMobileRuntime();
-    const label = mobile ? 'Close Directive' : 'Close active drawer';
-    collapseControl.setAttribute('aria-label', label);
-    addTooltip(collapseControl, label);
-    const icon = collapseControl.querySelector('.directive-command-drawer-action-icon');
-    syncSemanticIconElement(icon, {
-      slot: 'action.close',
-      fallbackClass: 'fa-solid fa-xmark',
-      className: 'directive-command-drawer-action-icon'
-    });
-  }
-
-  const densityControl = panel.querySelector('[data-shell-action="density"]');
-  if (densityControl) {
-    const expanded = shellLayout.spineMode === 'expanded';
-    const label = expanded ? 'Hide shelf labels' : 'Show shelf labels';
-    densityControl.setAttribute('aria-label', label);
-    addTooltip(densityControl, label);
-    const icon = densityControl.querySelector('.directive-spine-control-icon');
-    syncSemanticIconElement(icon, {
-      slot: expanded ? 'action.densityCompact' : 'action.densityExpanded',
-      fallbackClass: expanded ? 'fa-solid fa-outdent' : 'fa-solid fa-indent',
-      className: 'directive-spine-control-icon'
-    });
-  }
-
-  const status = panel.querySelector('.directive-command-drawer-status');
-  if (status) {
-    const statusText = fullscreenMode === 'workspace'
-      ? 'WORKSPACE REQUIRED'
-      : shellLayout.fullscreen
-        ? 'FULL-SCREEN WORKSPACE'
-        : '';
-    status.textContent = statusText;
-    status.hidden = !statusText;
+  const routePath = panel.querySelector('.directive-route-path');
+  if (routePath) routePath.textContent = `${route.label} / ${route.shelfLabel || route.shortLabel || route.label}`;
+  const routeName = panel.querySelector('.directive-route-name');
+  if (routeName) routeName.textContent = route.label;
+  const routeBody = panel.querySelector('[data-directive-runtime-body="true"]');
+  if (routeBody) {
+    routeBody.dataset.directiveTour = `route-body.${activeTab}`;
+    routeBody.dataset.routeView = activeTab;
   }
 }
 
 function createPanel() {
-  const panel = createDirectiveCommandSpineShell({
+  const panel = createDirectiveExpandedShell({
     id: DIRECTIVE_RUNTIME_PANEL_ID,
-    title: 'Directive',
-    label: 'Directive command spine and drawer',
+    title: 'DIRECTIVE',
+    label: 'Directive expanded interface',
     routes: DIRECTIVE_PRIMARY_ROUTES,
     activeRouteId: activeTab,
-    drawerOpen: shellLayout.drawerOpen,
-    fullscreen: shellLayout.fullscreen,
-    spineMode: shellLayout.spineMode,
     onSelectRoute: (routeId) => selectRouteFromSpine(routeId),
-    onCollapseDrawer: () => (isMobileRuntime() ? hideDirectiveRuntimePanel() : collapseDirectiveRuntimeDrawer()),
-    onToggleFullscreen: () => toggleDirectiveRuntimeFullscreen(),
-    onToggleSpineMode: () => toggleDirectiveSpineMode(),
-    onCloseShell: () => hideDirectiveRuntimePanel(),
-    onResizeStart: (event) => startDirectiveDrawerResize(event),
-    onShelfDragStart: (event) => startDirectiveShelfDrag(event)
+    onClose: () => hideDirectiveRuntimePanel()
   });
   applyShellLayout(panel);
   syncShellChrome(panel);
@@ -479,10 +254,6 @@ function installGlobalShellListeners() {
   if (!keydownListenerInstalled && typeof document.addEventListener === 'function') {
     document.addEventListener('keydown', onDirectiveShellKeydown);
     keydownListenerInstalled = true;
-  }
-  if (!viewportListenerInstalled && typeof globalThis.addEventListener === 'function') {
-    globalThis.addEventListener('resize', onDirectiveViewportResize);
-    viewportListenerInstalled = true;
   }
 }
 
@@ -532,11 +303,6 @@ function setActiveRoute(routeId, { openDrawer = true, persist = true } = {}) {
   routeSelectionExplicit = true;
   activeTab = nextTab;
   shellLayout.activeRoute = nextTab;
-  if (openDrawer) shellLayout.drawerOpen = true;
-  if (fullscreenMode === 'workspace' && nextTab !== 'campaign') {
-    fullscreenMode = 'none';
-    shellLayout.fullscreen = false;
-  }
   const panel = getPanel();
   applyShellLayout(panel, { persist });
   syncShellChrome(panel);
@@ -545,30 +311,18 @@ function setActiveRoute(routeId, { openDrawer = true, persist = true } = {}) {
 
 async function selectRouteFromSpine(routeId) {
   const nextTab = normalizeDirectiveRouteId(routeId, activeTab);
-  const sameRoute = nextTab === activeTab;
-  const mobile = isMobileRuntime();
-
-  if (!mobile && sameRoute && shellLayout.drawerOpen && fullscreenMode === 'none') {
-    return collapseDirectiveRuntimeDrawer();
-  }
-
   activeTab = nextTab;
   routeSelectionExplicit = true;
   shellLayout.activeRoute = nextTab;
-  shellLayout.drawerOpen = true;
-  if (fullscreenMode === 'workspace' && nextTab !== 'campaign') {
-    fullscreenMode = 'none';
-    shellLayout.fullscreen = false;
-  }
   persistLayout();
   await refreshDirectiveRuntimePanel();
-  return { activeTab, drawerOpen: true };
+  return { activeTab, isOpen: true };
 }
 
 async function navigateToRoute(routeId, { openDrawer = true } = {}) {
   setActiveRoute(routeId, { openDrawer, persist: true });
   await refreshDirectiveRuntimePanel();
-  return { activeTab, drawerOpen: shellLayout.drawerOpen };
+  return { activeTab, isOpen: true };
 }
 
 function stopTrainingBeforeRealStateChange() {
@@ -997,7 +751,7 @@ function renderActivePanel(body, view) {
     renderMissionPanel(body, view, actions);
     return;
   }
-  if (activeTab === 'crew') {
+  if (activeTab === 'people') {
     renderCrewPanel(body, view, actions);
     return;
   }
@@ -1017,20 +771,6 @@ function syncRequiredWorkspace(panel, view) {
   const requiresWorkspace = activeTab === 'campaign'
     && view?.activeScreen === 'creator'
     && Boolean(view?.creator);
-
-  if (requiresWorkspace && fullscreenMode !== 'workspace') {
-    fullscreenMode = 'workspace';
-    shellLayout.fullscreen = true;
-    shellLayout.drawerOpen = true;
-    applyShellLayout(panel);
-    syncShellChrome(panel);
-  } else if (!requiresWorkspace && fullscreenMode === 'workspace') {
-    fullscreenMode = 'none';
-    shellLayout.fullscreen = false;
-    applyShellLayout(panel);
-    syncShellChrome(panel);
-  }
-
   panel.dataset.workspaceRequired = requiresWorkspace ? 'true' : 'false';
 }
 
@@ -1066,148 +806,9 @@ function onDirectiveShellKeydown(event) {
   const targetTag = String(event.target?.tagName || '').toUpperCase();
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) || event.target?.isContentEditable) return;
 
-  if (fullscreenMode === 'manual') {
-    fullscreenMode = 'none';
-    shellLayout.fullscreen = false;
-    applyShellLayout(panel);
-    syncShellChrome(panel);
-  } else if (shellLayout.drawerOpen || shellLayout.fullscreen) {
-    collapseDirectiveRuntimeDrawer();
-  } else {
-    return;
-  }
+  hideDirectiveRuntimePanel();
   event.preventDefault?.();
   event.stopPropagation?.();
-}
-
-function onDirectiveViewportResize() {
-  const panel = getPanel();
-  if (!panel) return;
-  applyShellLayout(panel, { persist: true });
-  syncShellChrome(panel);
-}
-
-function shouldIgnoreShelfDragStart(event) {
-  const target = event?.target;
-  return target?.closest?.(
-    'button, a, input, textarea, select, [contenteditable="true"], [data-shell-action], [data-directive-drawer-resize-handle]'
-  );
-}
-
-function startDirectiveShelfDrag(event) {
-  const panel = getPanel();
-  if (!panel || isMobileRuntime() || shellLayout.fullscreen || fullscreenMode !== 'none') return;
-  if (event?.button !== undefined && event.button !== 0) return;
-  if (shouldIgnoreShelfDragStart(event)) return;
-
-  const rect = panel.getBoundingClientRect?.();
-  isDraggingShelf = true;
-  shelfDragStartX = Number(event?.clientX) || 0;
-  shelfDragStartY = Number(event?.clientY) || 0;
-  shelfDragStartLeft = Number(rect?.left);
-  shelfDragStartTop = Number(rect?.top);
-  if (!Number.isFinite(shelfDragStartLeft)) shelfDragStartLeft = Number(shellLayout.shelfLeft) || 0;
-  if (!Number.isFinite(shelfDragStartTop)) shelfDragStartTop = Number(shellLayout.shelfTop) || 0;
-  panel.classList.add('directive-command-shell-dragging');
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
-  event?.currentTarget?.setPointerCapture?.(event.pointerId);
-
-  document.addEventListener?.('pointermove', moveDirectiveShelfDrag);
-  document.addEventListener?.('pointerup', endDirectiveShelfDrag);
-  document.addEventListener?.('pointercancel', endDirectiveShelfDrag);
-}
-
-function moveDirectiveShelfDrag(event) {
-  if (!isDraggingShelf) return;
-  const panel = getPanel();
-  if (!panel) return;
-
-  const requestedLeft = shelfDragStartLeft + ((Number(event?.clientX) || 0) - shelfDragStartX);
-  const requestedTop = shelfDragStartTop + ((Number(event?.clientY) || 0) - shelfDragStartY);
-  shellLayout = constrainDirectiveShellLayout({
-    ...shellLayout,
-    shelfLeft: requestedLeft,
-    shelfTop: requestedTop,
-    fullscreen: false
-  }, currentViewport());
-  shellLayout.activeRoute = activeTab;
-  applyShellLayout(panel);
-  syncShellChrome(panel);
-  event?.preventDefault?.();
-}
-
-function endDirectiveShelfDrag() {
-  if (!isDraggingShelf) return;
-  isDraggingShelf = false;
-  getPanel()?.classList.remove('directive-command-shell-dragging');
-  persistLayout();
-  document.removeEventListener?.('pointermove', moveDirectiveShelfDrag);
-  document.removeEventListener?.('pointerup', endDirectiveShelfDrag);
-  document.removeEventListener?.('pointercancel', endDirectiveShelfDrag);
-}
-
-function startDirectiveDrawerResize(event) {
-  const panel = getPanel();
-  const drawer = panel?.querySelector('.directive-command-drawer');
-  if (!panel || !drawer || isMobileRuntime() || shellLayout.fullscreen) return;
-  if (event?.button !== undefined && event.button !== 0) return;
-  if (isResizingDrawer) return;
-
-  const rect = drawer.getBoundingClientRect?.();
-  isResizingDrawer = true;
-  resizeStartX = Number(event?.clientX) || 0;
-  resizeStartY = Number(event?.clientY) || 0;
-  resizeStartWidth = Number(rect?.width) || shellLayout.drawerWidth;
-  resizeStartHeight = Number(rect?.height) || shellLayout.drawerHeight;
-  drawer.classList.add('directive-command-drawer-resizing');
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
-  if (event?.pointerId !== undefined && typeof event?.currentTarget?.setPointerCapture === 'function') {
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // Mouse-event fallbacks and synthetic drags do not always have a capturable pointer.
-    }
-  }
-
-  document.addEventListener?.('pointermove', moveDirectiveDrawerResize);
-  document.addEventListener?.('pointerup', endDirectiveDrawerResize);
-  document.addEventListener?.('pointercancel', endDirectiveDrawerResize);
-  document.addEventListener?.('mousemove', moveDirectiveDrawerResize);
-  document.addEventListener?.('mouseup', endDirectiveDrawerResize);
-}
-
-function moveDirectiveDrawerResize(event) {
-  if (!isResizingDrawer) return;
-  const panel = getPanel();
-  if (!panel) return;
-
-  const requestedWidth = resizeStartWidth + ((Number(event?.clientX) || 0) - resizeStartX);
-  const requestedHeight = resizeStartHeight + ((Number(event?.clientY) || 0) - resizeStartY);
-  shellLayout = constrainDirectiveShellLayout({
-    ...shellLayout,
-    drawerWidth: requestedWidth,
-    drawerHeight: requestedHeight,
-    fullscreen: false
-  }, currentViewport());
-  shellLayout.activeRoute = activeTab;
-  applyShellLayout(panel);
-  syncShellChrome(panel);
-  event?.preventDefault?.();
-}
-
-function endDirectiveDrawerResize() {
-  if (!isResizingDrawer) return;
-  isResizingDrawer = false;
-  const panel = getPanel();
-  panel?.querySelector('.directive-command-drawer')?.classList.remove('directive-command-drawer-resizing');
-  persistLayout();
-  document.removeEventListener?.('pointermove', moveDirectiveDrawerResize);
-  document.removeEventListener?.('pointerup', endDirectiveDrawerResize);
-  document.removeEventListener?.('pointercancel', endDirectiveDrawerResize);
-  document.removeEventListener?.('mousemove', moveDirectiveDrawerResize);
-  document.removeEventListener?.('mouseup', endDirectiveDrawerResize);
 }
 
 export function setDirectiveRuntimeApp(app) {
@@ -1702,7 +1303,6 @@ export async function showDirectiveRuntimePanel() {
   return {
     isOpen: true,
     activeTab,
-    drawerOpen: getVisualDrawerOpen(),
     layout: { ...shellLayout }
   };
 }
@@ -1712,10 +1312,8 @@ export function hideDirectiveRuntimePanel() {
   stopDirectiveTrainingScenario({ refresh: false });
   const panel = getPanel();
   if (!panel) return { isOpen: false };
-  fullscreenMode = 'none';
-  shellLayout.fullscreen = false;
   panel.hidden = true;
-  panel.classList.remove('directive-runtime-panel-open', 'directive-runtime-fullscreen');
+  panel.classList.remove('directive-runtime-panel-open');
   return { isOpen: false, activeTab };
 }
 
@@ -1732,9 +1330,7 @@ export async function refreshDirectiveRuntimePanel({ preserveScroll = true } = {
     return {
       refreshed: false,
       stale: true,
-      activeTab,
-      drawerOpen: getVisualDrawerOpen(),
-      fullscreen: shellLayout.fullscreen
+      activeTab
     };
   }
   restoreRuntimeScroll(panel, scrollSnapshot);
@@ -1743,9 +1339,7 @@ export async function refreshDirectiveRuntimePanel({ preserveScroll = true } = {
   syncShellChrome(panel);
   return {
     refreshed: true,
-    activeTab,
-    drawerOpen: getVisualDrawerOpen(),
-    fullscreen: shellLayout.fullscreen
+    activeTab
   };
 }
 
@@ -1757,14 +1351,7 @@ export async function setDirectiveRuntimeTab(tabId) {
 }
 
 export function collapseDirectiveRuntimeDrawer() {
-  shellLayout.drawerOpen = false;
-  shellLayout.fullscreen = false;
-  fullscreenMode = 'none';
-  persistLayout();
-  const panel = getPanel();
-  applyShellLayout(panel);
-  syncShellChrome(panel);
-  return { activeTab, drawerOpen: false, fullscreen: false };
+  return hideDirectiveRuntimePanel();
 }
 
 export async function toggleDirectiveRuntimeDrawer(tabId = activeTab) {
@@ -1772,42 +1359,23 @@ export async function toggleDirectiveRuntimeDrawer(tabId = activeTab) {
 }
 
 export function toggleDirectiveRuntimeFullscreen(force) {
-  if (fullscreenMode === 'workspace') {
-    return { fullscreen: true, required: true };
-  }
-  const next = typeof force === 'boolean' ? force : fullscreenMode !== 'manual';
-  fullscreenMode = next ? 'manual' : 'none';
-  shellLayout.fullscreen = next;
-  if (next) shellLayout.drawerOpen = true;
-  const panel = getPanel();
-  applyShellLayout(panel);
-  syncShellChrome(panel);
-  return { fullscreen: next, required: false };
+  return { fullscreen: true, required: true, viewportBound: true, ignored: force !== undefined };
 }
 
 export function toggleDirectiveSpineMode() {
-  shellLayout.spineMode = shellLayout.spineMode === 'expanded' ? 'compact' : 'expanded';
-  persistLayout();
-  const panel = getPanel();
-  applyShellLayout(panel);
-  syncShellChrome(panel);
-  return { spineMode: shellLayout.spineMode };
+  return { expanded: true, viewportBound: true };
 }
 
 export async function resetDirectiveRuntimeLayout() {
   closeDirectiveGuidance('runtime-reset');
   stopDirectiveTrainingScenario({ refresh: false });
-  endDirectiveShelfDrag();
-  endDirectiveDrawerResize();
   resetDirectiveRouteUiState();
   if (typeof runtimeApp?.resetRuntimeUiState === 'function') {
     await runtimeApp.resetRuntimeUiState();
   }
-  shellLayout = resetDirectiveShellLayout(currentViewport());
-  activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'campaign');
+  shellLayout = { activeRoute: 'campaign' };
+  activeTab = 'campaign';
   routeSelectionExplicit = false;
-  shellLayout.activeRoute = activeTab;
-  fullscreenMode = 'none';
   const panel = getPanel();
   if (panel) {
     applyShellLayout(panel);
@@ -1822,34 +1390,27 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     return activeTab;
   },
   getLayout() {
-    return { ...shellLayout };
+    return { ...shellLayout, viewportBound: true };
   },
   getFullscreenMode() {
-    return fullscreenMode;
+    return 'expanded';
   },
   reset() {
-    endDirectiveShelfDrag();
-    endDirectiveDrawerResize();
     closeDirectiveGuidance('runtime-test-reset');
     stopDirectiveTrainingScenario({ refresh: false });
-    shellLayout = resetDirectiveShellLayout(currentViewport());
+    shellLayout = { activeRoute: 'campaign' };
     activeTab = 'campaign';
     routeSelectionExplicit = false;
     shellLayout.activeRoute = activeTab;
     runtimeApp = null;
     runtimeMountHost = null;
     trainingScenarioSession = null;
-    fullscreenMode = 'none';
     if (canUseDocument()) {
       getPanel()?.remove();
       if (keydownListenerInstalled) {
         document.removeEventListener?.('keydown', onDirectiveShellKeydown);
         keydownListenerInstalled = false;
       }
-    }
-    if (viewportListenerInstalled) {
-      globalThis.removeEventListener?.('resize', onDirectiveViewportResize);
-      viewportListenerInstalled = false;
     }
   }
 });

@@ -18,11 +18,11 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     description: 'Review quests, objectives, urgency, and known information.'
   },
   {
-    id: 'crew',
-    label: 'Crew',
-    shortLabel: 'Crew',
+    id: 'people',
+    label: 'People',
+    shortLabel: 'People',
     shelfLabel: 'Roster & Roles',
-    iconSlot: 'route.crew',
+    iconSlot: 'route.people',
     icon: 'fa-solid fa-user-group',
     description: 'Review people, standing, assignments, and relationship history.'
   },

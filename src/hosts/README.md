@@ -14,4 +14,4 @@ Current status:
 
 The only active pre-alpha host descriptor is `manifest.json` for SillyTavern. Future host adapters can reuse the host contract after the SillyTavern alpha stabilizes.
 
-Frontend direction: shared route metadata, route panels, and the command-spine shell remain host-neutral where that improves SillyTavern quality and fake-host tests. SillyTavern mounts the shell through its extension menu. Future host adapters must not fork route panel structure, route order, drawer behavior, or player-safe view models.
+Frontend direction: shared route metadata, route panels, and the viewport-bound expanded shell remain host-neutral where that improves SillyTavern quality and fake-host tests. SillyTavern mounts the shell through its extension menu. Future host adapters must not fork route structure, route order, responsive behavior, or player-safe view models.

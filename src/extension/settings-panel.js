@@ -1,14 +1,12 @@
-import { hasRuntimeAction, runRuntimeAction } from '../runtime/runtime-actions.js';
+import { runRuntimeAction } from '../runtime/runtime-actions.js';
 import { createDirectiveMenuIcon } from './menu-button.js';
 
 export const DIRECTIVE_SETTINGS_PANEL_ID = 'directive_settings';
 export const DIRECTIVE_OPEN_RUNTIME_BUTTON_ID = 'directive_open_runtime';
-export const DIRECTIVE_RESET_WINDOW_BUTTON_ID = 'directive_reset_window';
 export const DIRECTIVE_EXTENSION_ENABLE_TOGGLE_ID = 'directive_extension_enabled';
 export const DIRECTIVE_EXTENSION_ENABLE_STATUS_ID = 'directive_extension_enabled_status';
 
 const SETTINGS_CONTAINER_IDS = ['extensions_settings2', 'extensions_settings'];
-const RESET_LAYOUT_ACTION_ID = 'runtime.resetLayout';
 let pendingSettingsContainerObserver = null;
 let pendingSettingsContainerOptions = null;
 
@@ -81,12 +79,6 @@ function createDirectiveEnableToggle(options = {}) {
   return row;
 }
 
-function shouldShowResetWindow(options = {}) {
-  if (options.allowResetWindow === true) return true;
-  if (options.allowResetWindow === false) return false;
-  return hasRuntimeAction(RESET_LAYOUT_ACTION_ID);
-}
-
 function buildSettingsPanel(options = {}) {
   const root = document.createElement('div');
   root.id = DIRECTIVE_SETTINGS_PANEL_ID;
@@ -117,7 +109,7 @@ function buildSettingsPanel(options = {}) {
 
   const description = document.createElement('p');
   description.className = 'directive-extension-description';
-  description.textContent = 'Directive: Starfleet command runtime. Use the command spine and resizable drawer for mission, crew, ship, command log, package, and settings control.';
+  description.textContent = 'Directive: Starfleet command runtime. Open the viewport-bound game menu for Campaign, Mission, People, Ship, and Settings.';
 
   const enableToggle = createDirectiveEnableToggle(options);
 
@@ -132,38 +124,11 @@ function buildSettingsPanel(options = {}) {
   });
   actions.appendChild(openButton);
 
-  if (shouldShowResetWindow(options)) {
-    actions.appendChild(createActionButton({
-      id: DIRECTIVE_RESET_WINDOW_BUTTON_ID,
-      title: 'Reset the Directive runtime window to its default layout.',
-      iconClassName: 'fa-solid fa-arrows-rotate',
-      label: 'Reset Window'
-    }));
-  }
-
   column.append(description, enableToggle, actions);
   content.appendChild(column);
   drawer.append(header, content);
   root.appendChild(drawer);
   return root;
-}
-
-function syncResetWindowButton(container, options = {}) {
-  const existingButton = container.querySelector(`#${DIRECTIVE_RESET_WINDOW_BUTTON_ID}`);
-  if (!shouldShowResetWindow(options)) {
-    existingButton?.remove();
-    return;
-  }
-  if (existingButton) return;
-
-  const actions = container.querySelector('.directive-runtime-window-actions');
-  if (!actions) return;
-  actions.appendChild(createActionButton({
-    id: DIRECTIVE_RESET_WINDOW_BUTTON_ID,
-    title: 'Reset the Directive runtime window to its default layout.',
-    iconClassName: 'fa-solid fa-arrows-rotate',
-    label: 'Reset Window'
-  }));
 }
 
 function syncDropdownEnabledState(container, options = {}) {
@@ -175,7 +140,7 @@ function syncDropdownEnabledState(container, options = {}) {
   }
   const status = container.querySelector(`#${DIRECTIVE_EXTENSION_ENABLE_STATUS_ID}`);
   if (status) status.textContent = enabled ? 'On' : 'Off';
-  for (const id of [DIRECTIVE_OPEN_RUNTIME_BUTTON_ID, DIRECTIVE_RESET_WINDOW_BUTTON_ID]) {
+  for (const id of [DIRECTIVE_OPEN_RUNTIME_BUTTON_ID]) {
     const button = container.querySelector(`#${id}`);
     if (!button) continue;
     button.disabled = !enabled;
@@ -221,13 +186,11 @@ function wireActionButton(container, id, actionId) {
 
 export function wireExtensionsMenuDropdown(container, options = {}) {
   if (!container) return false;
-  syncResetWindowButton(container, options);
   syncDropdownEnabledState(container, options);
   const toggle = container.querySelector(`#${DIRECTIVE_EXTENSION_ENABLE_TOGGLE_ID}`);
   if (toggle) toggle.__directiveToggleOptions = options;
   wireDirectiveEnableToggle(container, options);
   wireActionButton(container, DIRECTIVE_OPEN_RUNTIME_BUTTON_ID, 'runtime.open');
-  wireActionButton(container, DIRECTIVE_RESET_WINDOW_BUTTON_ID, RESET_LAYOUT_ACTION_ID);
   return true;
 }
 

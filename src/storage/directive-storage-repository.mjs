@@ -333,13 +333,47 @@ function createSaveIndex(createdAt) {
 function createUiPreferences(createdAt) {
   return {
     kind: 'directive.uiPreferences',
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 1,
     createdAt,
     updatedAt: createdAt,
     hiddenCampaignSessionKeys: [],
-    selectedQuestIdsByScope: {}
+    selectedCampaignId: null,
+    selectedQuestIdsByScope: {},
+    selectedPersonIdsByCampaign: {},
+    categoryOrderByCampaign: {},
+    recordOrderByScope: {},
+    collapsedCategoryIdsByCampaign: {},
+    questOrderByCampaign: {},
+    openQuestIdsByCampaign: {},
+    shipCollectionOrderByScope: {},
+    openShipIssueIdsByScope: {}
   };
+}
+
+function normalizeUiStringMap(value, normalizeKey = (key) => String(key || '').trim()) {
+  return Object.fromEntries(
+    Object.entries(isObject(value) ? value : {})
+      .map(([key, item]) => [normalizeKey(key), String(item || '').trim()])
+      .filter(([key, item]) => key && item)
+  );
+}
+
+function normalizeUiListMap(value) {
+  return Object.fromEntries(
+    Object.entries(isObject(value) ? value : {})
+      .map(([key, items]) => [
+        String(key || '').trim(),
+        [...new Set((Array.isArray(items) ? items : []).map((item) => String(item || '').trim()).filter(Boolean))]
+      ])
+      .filter(([key]) => key)
+  );
+}
+
+function normalizeQuestPreferenceScope(value) {
+  const scope = String(value || '').trim();
+  const match = /^(campaign:[^:]+)(?:::chat:.*)?$/.exec(scope);
+  return match?.[1] || scope;
 }
 
 function normalizeUiPreferences(value, fallbackTimestamp) {
@@ -349,19 +383,32 @@ function normalizeUiPreferences(value, fallbackTimestamp) {
       .map((key) => String(key || '').trim())
       .filter(Boolean)
   )];
-  const selectedQuestIdsByScope = Object.fromEntries(
-    Object.entries(isObject(base.selectedQuestIdsByScope) ? base.selectedQuestIdsByScope : {})
-      .map(([scopeKey, questId]) => [String(scopeKey || '').trim(), String(questId || '').trim()])
-      .filter(([scopeKey, questId]) => scopeKey && questId)
+  const selectedQuestIdsByScope = normalizeUiStringMap(base.selectedQuestIdsByScope, normalizeQuestPreferenceScope);
+  const shipCollectionOrderByScope = Object.fromEntries(
+    Object.entries(isObject(base.shipCollectionOrderByScope) ? base.shipCollectionOrderByScope : {})
+      .map(([scope, collections]) => [String(scope || '').trim(), {
+        issues: [...new Set((Array.isArray(collections?.issues) ? collections.issues : []).map((item) => String(item || '').trim()).filter(Boolean))],
+        capabilities: [...new Set((Array.isArray(collections?.capabilities) ? collections.capabilities : []).map((item) => String(item || '').trim()).filter(Boolean))]
+      }])
+      .filter(([scope]) => scope)
   );
   return {
     kind: 'directive.uiPreferences',
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: Number(base.revision || 1),
     createdAt: base.createdAt || fallbackTimestamp,
     updatedAt: base.updatedAt || fallbackTimestamp,
     hiddenCampaignSessionKeys,
-    selectedQuestIdsByScope
+    selectedCampaignId: String(base.selectedCampaignId || '').trim() || null,
+    selectedQuestIdsByScope,
+    selectedPersonIdsByCampaign: normalizeUiStringMap(base.selectedPersonIdsByCampaign),
+    categoryOrderByCampaign: normalizeUiListMap(base.categoryOrderByCampaign),
+    recordOrderByScope: normalizeUiListMap(base.recordOrderByScope),
+    collapsedCategoryIdsByCampaign: normalizeUiListMap(base.collapsedCategoryIdsByCampaign),
+    questOrderByCampaign: normalizeUiListMap(base.questOrderByCampaign),
+    openQuestIdsByCampaign: normalizeUiStringMap(base.openQuestIdsByCampaign),
+    shipCollectionOrderByScope,
+    openShipIssueIdsByScope: normalizeUiStringMap(base.openShipIssueIdsByScope)
   };
 }
 
