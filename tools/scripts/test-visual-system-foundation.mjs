@@ -103,8 +103,8 @@ for (const iconSlot of [
 
 assert.equal(
   getDirectiveRoute('settings').shelfLabel,
-  'Providers & Controls',
-  'Settings shelf label should foreground provider controls'
+  'General',
+  'Settings shelf label should match the approved expanded interface'
 );
 assert.equal(
   DIRECTIVE_PRIMARY_ROUTES.filter((route) => route.id === 'settings').length,
@@ -378,7 +378,6 @@ assert.doesNotMatch(css, /\.directive-command-spine-shell \.directive-command-dr
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right\s*\{[\s\S]*?\bright:\s*-1px;/, 'the command drawer should expose a bottom-right resize handle');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right \.directive-command-drawer-resize-icon\s*\{[\s\S]*?transform:\s*scaleX\(-1\);/, 'the bottom-right drawer resize glyph should face the drawer corner');
 assert.match(css, /\.directive-command-spine-shell\.directive-runtime-fullscreen \.directive-command-drawer\s*\{[\s\S]*?\bposition:\s*fixed\s*!important;[\s\S]*?\binset:\s*12px\s*!important;/, 'dense workspaces should support a click-open full-screen drawer');
-assert.match(css, /\.directive-record-save-as-dialog-overlay\s*\{[\s\S]*?\bz-index:\s*2147483647;[\s\S]*?\bpointer-events:\s*auto;/, 'Save Game As modal should cover the browser above the Directive window and block background clicks');
 assert.match(css, /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-command-spine\s*\{[\s\S]*?\bdisplay:\s*none\s*!important;/, 'phone-width shell should replace the command spine with the mobile navigation fallback');
 assert.match(css, /\.directive-command-spine-shell\[data-active-route="mission"\]\s*\{[\s\S]*?--directive-active-route-accent:\s*#b18dcc;/, 'command shelf should expose active-route accent tokens for drawer chrome');
 assert.match(css, /\.directive-command-spine-shell \.directive-spine-route\s*\{[\s\S]*?--directive-route-accent:[\s\S]*?background:[\s\S]*?rgba\(15,\s*18,\s*24,\s*0\.98\)/, 'inactive desktop shelf routes should render as dark control tiles');
@@ -433,9 +432,6 @@ assert.match(css, /\.directive-lcars-toggle-input:checked \+ \.directive-lcars-t
 assert.match(css, /\.directive-mission-sidework-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(104px,\s*1fr\)\)/, 'Mission Side Work should expose compact LCARS status tiles');
 assert.match(css, /\.directive-mission-sidework-fact-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(142px,\s*1fr\)\)/, 'Mission Side Work facts should use compact responsive rows');
 assert.match(css, /\.directive-mission-sidework-action-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(118px,\s*1fr\)\)/, 'Mission Side Work actions should use touch-safe responsive controls');
-assert.match(css, /\.directive-record-save-as-dialog-overlay\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?place-items:\s*center;/, 'Campaign Records Save Game As should use a centered modal overlay');
-assert.match(css, /\.directive-record-save-as-dialog-actions\s*\{[\s\S]*?justify-content:\s*flex-end;/, 'Campaign Records Save Game As dialog should group Save and Cancel actions');
-assert.match(css, /\.directive-field-control-invalid\s*\{[\s\S]*?var\(--directive-danger/, 'Invalid Save Game As names should use the danger token');
 
 const settingsPanelSource = await readText('src/ui/settings-panel.js');
 const missionPanelSource = await readText('src/ui/mission-panel.js');
@@ -461,7 +457,7 @@ assert.match(runtimeUiKitSource, /directiveTooltipFocusBound/, 'runtime tooltips
 assert.match(runtimeUiKitSource, /pointerenter[\s\S]*mouseenter[\s\S]*mouseover/, 'runtime tooltips should handle pointer and bubbling mouse hover events');
 assert.match(expandedShellSource, /addTooltip/, 'expanded shell controls should use shared tooltips');
 assert.match(expandedShellSource, /bindRovingFocus/, 'expanded route navigation should use shared roving focus');
-assert.match(campaignPanelSource, /Prompt Context[\s\S]*Player-safe campaign context currently installed/, 'Campaign should explain Prompt Context as player-safe chat prompt context');
+assert.match(campaignPanelSource, /Create an immutable checkpoint without leaving the active chat/, 'Campaign Save Game should explain immutable checkpoint behavior');
 assert.match(missionPanelSource, /Current play surface:[\s\S]*Save, narration retry, reconciliation/, 'Mission subtabs should explain active, context, thread, side-work, and recovery sections');
 assert.match(settingsPanelSource, /Choose which provider lane handles each Directive background job/, 'Settings model-call routing should explain provider lane routing');
 assert.match(settingsPanelSource, /appendTooltipPreferenceSettings[\s\S]*directive-lcars-toggle directive-settings-tooltip-toggle/, 'Settings Systems should expose an LCARS tooltip preference switch');
@@ -501,56 +497,25 @@ assert.match(expandedShellSource, /directive-route-bar/, 'expanded shell should 
 assert.match(expandedShellSource, /dataset\.shellAction\s*=\s*['"]close['"]/, 'expanded shell should expose one Close action');
 assert.doesNotMatch(expandedShellSource, /createDrawerResizeHandle|directive-command-drawer|shellAction\s*=\s*['"]back['"]/, 'expanded shell should not recreate Back, resize, or drawer controls');
 assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime shell should not replay primary tab click history');
-assert.match(campaignPanelSource, /directive-campaign-launcher/, 'Campaign should render a focused launcher surface');
-assert.match(campaignPanelSource, /campaignIndex/, 'Campaign Command should read the runtime campaign-session index');
-assert.match(campaignPanelSource, /directive-campaign-session-list/, 'Campaign Command should render a scalable campaign-session list');
-assert.match(campaignPanelSource, /Hide From Command[\s\S]*Show In Command|Show In Command[\s\S]*Hide From Command/, 'Campaign Command should support reversible hide/show session rows');
-assert.match(campaignPanelSource, /createCommandSessionBackdrop[\s\S]*directive-campaign-session-backdrop/, 'Expanded Campaign Command rows should keep the cinematic package backdrop treatment');
-assert.match(campaignPanelSource, /createCommandSessionBackdrop[\s\S]*kind:\s*['"]location\.hero['"][\s\S]*subjectId:\s*['"]asterion-station['"]/, 'Expanded Campaign Command row backdrops should use the Asterion Station location art instead of duplicating the Breckenridge hero');
-assert.match(campaignPanelSource, /createCommandSessionHeroVisual[\s\S]*directive-campaign-session-hero-visual/, 'Expanded Campaign Command rows should restore the large campaign ship image as a visible resume surface');
-assert.match(campaignPanelSource, /directive-campaign-session-start-screen[\s\S]*directive-campaign-session-start-copy/, 'Expanded Campaign Command rows should compose a start-screen style campaign snapshot');
-assert.match(campaignPanelSource, /commandSessionHeroSubtitle[\s\S]*commandSessionChatLabel/, 'Campaign Command hero captions should show the bound SillyTavern chat identity instead of only status labels');
-assert.match(campaignPanelSource, /commandSessionIsSelectedChat[\s\S]*view\?\.currentChat\?\.chatId/, 'Campaign Command current-chat labels should compare the selected host chat with the session binding');
-assert.doesNotMatch(campaignPanelSource, /directive-campaign-session-hero-subtitle['"],\s*commandSessionStatusLabel\(session\)/, 'Campaign Command hero captions should not render stale Current Chat status text when a bound chat name is available');
-assert.match(campaignPanelSource, /createCommandSessionMetaTile[\s\S]*directive-campaign-session-fact/, 'Expanded Campaign Command rows should render Save, Mission, Phase, and Stardate as compact metadata tiles');
-assert.doesNotMatch(campaignPanelSource, /directive-campaign-session-facts['"][\s\S]{0,700}createStatusBlock/, 'Expanded Campaign Command facts should not use the larger shared status-block widgets');
-assert.match(css, /\.directive-campaign-session-list\s*\{[\s\S]*?max-height:[\s\S]*?overflow:\s*auto/, 'Campaign Command session rows should scroll internally for large campaign inventories');
-assert.match(css, /\.directive-campaign-session-list\s*\{[\s\S]*?grid-auto-rows:\s*max-content[\s\S]*?align-content:\s*start/, 'Campaign Command session rows should size to their content instead of compressing inside the scroll list');
-assert.match(css, /\.directive-command-spine-shell\[data-drawer-density="compact"\]\s+\.directive-campaign-session-summary\s*\{[\s\S]*?grid-template-areas:[\s\S]*?"toggle title"[\s\S]*?"toggle meta"/, 'Campaign Command compact drawer rows should place badges under the title instead of squeezing three columns');
-assert.match(css, /\.directive-campaign-session-details\s*\{[\s\S]*?min-height:\s*260px[\s\S]*?overflow:\s*hidden[\s\S]*?linear-gradient/, 'Expanded Campaign Command rows should frame the restored splash image behind row details');
-assert.match(css, /\.directive-campaign-session-start-screen\s*\{[\s\S]*?grid-template-columns:\s*minmax\(240px,\s*0\.48fr\)\s+minmax\(0,\s*1fr\)/, 'Expanded Campaign Command rows should use a campaign-start composition with image and snapshot columns');
-assert.match(css, /\.directive-campaign-session-hero-visual\s*\{[\s\S]*?min-height:\s*210px[\s\S]*?height:\s*clamp\(210px,\s*24cqw,\s*300px\)/, 'Expanded Campaign Command rows should keep the Breckenridge image large enough to anchor the resume card');
-assert.match(css, /\.directive-campaign-session-facts\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(138px,\s*1fr\)\)/, 'Expanded Campaign Command facts should use compact metadata columns');
-assert.match(css, /\.directive-campaign-session-fact-value\s*\{[\s\S]*?overflow-wrap:\s*anywhere[\s\S]*?white-space:\s*normal/, 'Expanded Campaign Command fact values should wrap long Save, Mission, Phase, and Stardate text');
-assert.match(campaignPanelSource, /resetCampaignPanelState/, 'Campaign should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
-assert.match(campaignPanelSource, /Open Campaign Chat/, 'Campaign Command should open the bound host chat as the primary play surface');
-assert.match(`${campaignPanelSource}\n${missionPanelSource}`, /Finish Chat Setup[\s\S]*Retry Chat Setup|Retry Chat Setup[\s\S]*Finish Chat Setup/, 'Campaign chat setup recovery should use user-facing chat setup labels');
-assert.doesNotMatch(`${campaignPanelSource}\n${missionPanelSource}`, /Resume Activation/, 'Campaign chat setup recovery should not expose the internal activation label');
+assert.match(campaignPanelSource, /campaign-journal/, 'Campaign should render the approved master-detail journal');
+assert.match(campaignPanelSource, /campaign-index-panel/, 'Campaign should render the desktop playthrough index');
+assert.match(campaignPanelSource, /campaign-detail/, 'Campaign should render selected playthrough detail');
+assert.match(campaignPanelSource, /mobile-campaign-accordion/, 'Campaign should render the phone accordion layout');
+assert.match(campaignPanelSource, /createPackageImage/, 'Campaign artwork should use package media resolution');
+assert.match(campaignPanelSource, /Open Chat/, 'Campaign should open the active bound host chat');
+assert.match(campaignPanelSource, /Create an immutable checkpoint without leaving the active chat/, 'Campaign Save Game should explain immutable checkpoint behavior');
+assert.match(campaignPanelSource, /Load Game/, 'Campaign should load a checkpoint as a new continuation');
+assert.match(campaignPanelSource, /Delete Save/, 'Campaign should expose confirmed checkpoint deletion');
+assert.doesNotMatch(campaignPanelSource, /Save Game As|Hide From Command|Show In Command|Campaign Library|Terminal Branch/, 'Campaign must not retain the retired shelf, branch, or library UI');
+assert.match(css, /\.campaign-journal\s*\{[\s\S]*?min-height:\s*0/, 'Campaign journal must remain bounded inside the viewport shell');
+assert.match(css, /\.directive-expanded-shell \.campaign-index-list\s*\{[\s\S]*?overflow-y:\s*auto/, 'Campaign playthrough list should scroll internally');
+assert.match(css, /\.directive-expanded-shell \.campaign-detail\s*\{[\s\S]*?overflow-y:\s*auto/, 'Campaign detail and checkpoint content should scroll internally');
+assert.match(campaignPanelSource, /resetCampaignPanelState/, 'Campaign should expose a Reset Window hook for route-local selection state');
 assert.doesNotMatch(missionPanelSource, /What does the XO do\?|turn\.playerInput|Preview Outcome/, 'Mission should not reintroduce the old fallback XO preview input');
-assert.match(campaignPanelSource, /Mission Review/, 'Campaign Command should retain Mission as a review and recovery surface');
-assert.match(campaignPanelSource, /directive-campaign-library-browser/, 'Campaign should render campaign packages as a selectable library browser');
-assert.match(campaignPanelSource, /directive-starship-campaign-briefing/, 'Campaign should open a campaign briefing before Character Creator');
-assert.match(campaignPanelSource, /createCampaignBriefingBackdrop[\s\S]*kind:\s*['"]location\.hero['"][\s\S]*subjectId:\s*['"]asterion-station['"]/, 'Campaign Library briefing inspector should use Asterion Station as its atmospheric backdrop');
-assert.match(css, /\.directive-starship-campaign-briefing\s*\{[\s\S]*?position:\s*relative[\s\S]*?overflow:\s*hidden/, 'Campaign Library briefing inspector should layer package backdrop media inside the panel');
-assert.match(css, /\.directive-starship-campaign-briefing\s*>\s*:not\(\.directive-starship-briefing-backdrop\)\s*\{[\s\S]*?z-index:\s*1/, 'Campaign Library briefing content should render above the station backdrop');
-assert.match(css, /\.directive-starship-briefing-backdrop\s*\{[\s\S]*?opacity:\s*0\.5/, 'Campaign Library briefing backdrop should be visible without overpowering text');
-assert.doesNotMatch(campaignPanelSource, /Library Notices|Runtime Projection|Mission Graphs|Package Health/, 'Campaign Library should avoid redundant package and notice summary cards');
 assert.match(missionPanelSource, /currentChatEmptyMessage/, 'Mission should use current-chat empty-state copy');
 assert.match(crewPanelSource, /currentChatEmptyMessage[\s\S]*activePackageForView/, 'Crew should use current-chat empty-state copy and selected-chat package data');
 assert.match(shipPanelSource, /activePackageForView[\s\S]*currentChatEmptyMessage|currentChatEmptyMessage[\s\S]*activePackageForView/, 'Ship should use current-chat empty-state copy and selected-chat package data');
 assert.match(commandLogPanelSource, /currentChatEmptyMessage/, 'Log should use current-chat empty-state copy');
-assert.match(campaignPanelSource, /directive-starship-records-console/, 'Campaign should render saves as an LCARS records console');
-assert.doesNotMatch(campaignPanelSource, /Save Records|Character Setup Drafts|directive-starship-records-sidebar|directive-starship-records-status-grid|directive-starship-setup-drafts/, 'Campaign Records should stay focused on save files without a summary sidebar or setup-draft section');
-assert.match(campaignPanelSource, /directive-starship-save-inspector/, 'Campaign records should inspect the selected save before loading it');
-assert.match(campaignPanelSource, /directive-starship-record-row/, 'Campaign records should use compact LCARS record rows instead of generic metadata rows');
-assert.match(campaignPanelSource, /label:\s*'Save Game'[\s\S]*label:\s*'Save Game As\.\.\.'[\s\S]*label:\s*'Load Save'[\s\S]*label:\s*'Delete Save'/, 'Campaign Records inspector should order save commands above Load Save and Delete Save');
-assert.match(campaignPanelSource, /directive-starship-save-actions directive-starship-save-actions-grid/, 'Campaign Records single-save commands should use the aligned action grid');
-assert.match(css, /\.directive-starship-save-actions-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Campaign Records single-save commands should render as a 2x2 grid');
-assert.match(campaignPanelSource, /manualSaveGuardForView[\s\S]*?chatNative\?\.manualSaveGuard/, 'Campaign Records should read the runtime active-chat save guard');
-assert.match(campaignPanelSource, /directive-starship-save-guard[\s\S]*?Open Campaign Chat/, 'Campaign Records should explain blocked manual saves and offer the bound chat recovery action');
-assert.match(campaignPanelSource, /manualSaveReady[\s\S]*?disabled:\s*!canSaveActiveGame[\s\S]*?disabled:\s*!canSaveActiveGameAs/, 'Campaign Records should disable manual save commands when the active chat is not verified');
-assert.match(campaignPanelSource, /openRecordSaveAsDialog[\s\S]*label:\s*'Save'[\s\S]*label:\s*'Cancel'|openRecordSaveAsDialog[\s\S]*label:\s*'Cancel'[\s\S]*label:\s*'Save'/, 'Campaign Records Save Game As should prompt with Save and Cancel controls');
-assert.match(campaignPanelSource, /directive-record-save-as-name-input/, 'Campaign Records Save Game As should name branches inside the dialog');
 assert.match(missionPanelSource, /directive-mission-console/, 'Mission should render an LCARS console wrapper');
 assert.match(missionPanelSource, /renderMissionQuestJournal/, 'Mission should render the unified quest journal');
 assert.match(missionPanelSource, /function missionRecordText/, 'Mission should normalize structured state records before rendering text');

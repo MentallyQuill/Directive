@@ -63,7 +63,6 @@ function createHarness(initial = terminalState(), overrides = {}) {
   const persisted = [];
   const promptSyncs = [];
   const postedMessages = [];
-  const savedBranches = [];
   const conclusions = [];
   const terminalSettlements = [];
   const repairCalls = [];
@@ -87,27 +86,6 @@ function createHarness(initial = terminalState(), overrides = {}) {
         }
       }
     : overrides.host;
-  const saveTerminalBranch = overrides.saveTerminalBranch === undefined
-    ? async (options) => {
-        const branch = {
-          id: `terminal-branch-${savedBranches.length + 1}`,
-          current: false,
-          metadata: {
-            branch: {
-              kind: 'terminalTimeline',
-              terminalOutcomeId: options.terminalOutcomeId,
-              terminalDecisionId: options.terminalDecisionId,
-              terminalConditionId: options.terminalConditionId
-            }
-          },
-          payload: {
-            campaignState: cloneJson(options.campaignState)
-          }
-        };
-        savedBranches.push({ options: cloneJson(options), branch });
-        return branch;
-      }
-    : overrides.saveTerminalBranch;
   const concludeCampaign = overrides.concludeCampaign === undefined
     ? async (options) => {
         const next = cloneJson(state);
@@ -297,7 +275,6 @@ function createHarness(initial = terminalState(), overrides = {}) {
         status: event.status || null
       };
     },
-    saveTerminalBranch,
     concludeCampaign,
     repairRuntime,
     loadTerminalCheckpoint,
@@ -311,7 +288,6 @@ function createHarness(initial = terminalState(), overrides = {}) {
     persisted,
     promptSyncs,
     postedMessages,
-    savedBranches,
     conclusions,
     terminalSettlements,
     repairCalls,
@@ -561,36 +537,6 @@ assert.equal(
   false,
   'Terminal decision must keep reused CORE checkpoint refs compact.'
 );
-
-const branchHarness = createHarness();
-const branchInteractionId = await detect(branchHarness);
-const branch = await branchHarness.service.resolveDecision({
-  interactionId: branchInteractionId,
-  action: 'saveTerminalBranch'
-});
-assert.equal(branch.ok, true);
-assert.equal(branch.branch.current, false);
-assert.equal(branchHarness.savedBranches[0].options.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved');
-assert.equal(branchHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
-assert.equal(terminalDecisionLedgerView(branchHarness.state).decisions[0].status, 'pending');
-assert.equal(terminalDecisionLedgerView(branchHarness.state).branchRecords.length, 1);
-assert.equal(terminalDecisionLedgerView(branchHarness.state).branchRecords[0].authority, 'terminalDecisionProjection');
-assert.equal(terminalDecisionLedgerView(branchHarness.state).branchRecords[0].coreProjection.rowKind, 'branchRecord');
-assert.equal(terminalDecisionLedgerView(branchHarness.state).branchRecords[0].coreProjection.action, 'saveTerminalBranch');
-assert.deepEqual(terminalDecisionLedgerView(branchHarness.state).decisions[0].savedBranchIds, ['terminal-branch-1']);
-assert.equal(branchHarness.terminalSettlements.length, 1);
-assert.equal(branchHarness.terminalSettlements[0].kind, 'terminalOutcomeCheckpointBranchSaved');
-assert.equal(branchHarness.terminalSettlements[0].status, 'branchSaved');
-assert.equal(branchHarness.terminalSettlements[0].interactionId, branchInteractionId);
-
-const noBranchHarness = createHarness(terminalState(), { saveTerminalBranch: null });
-const noBranchInteractionId = await detect(noBranchHarness);
-const noBranch = await noBranchHarness.service.resolveDecision({
-  interactionId: noBranchInteractionId,
-  action: 'saveTerminalBranch'
-});
-assert.equal(noBranch.ok, false);
-assert.equal(noBranch.reason, 'terminal-branch-save-unavailable');
 
 const pushHarness = createHarness();
 const pushInteractionId = await detect(pushHarness);
@@ -884,4 +830,4 @@ assert.equal(noConclusionHarness.state.conclusion?.terminalOutcome, undefined);
 assert.equal(noConclusionHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'terminalOutcomeDecision'), false);
 assert.equal(terminalDecisionLedgerView(noConclusionHarness.state).decisions[0].status, 'pending');
 
-console.log('Campaign end-condition service tests passed: checkpoint post, branch save, Push On, replay, and keep-ending conclusion');
+console.log('Campaign end-condition service tests passed: checkpoint post, Push On, replay, and keep-ending conclusion');

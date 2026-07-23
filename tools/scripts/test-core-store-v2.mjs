@@ -9,8 +9,8 @@ import {
 } from '../../src/retrieval/recall-index.mjs';
 import {
   buildCoreStoreReadProjections,
-  copyCoreStoreStateV2ForSaveBranch,
   createCoreStoreV2,
+  forkCoreStoreStateV2ForCheckpoint,
   loadCoreStoreStateV2,
   readCoreRecallIndexAuxiliaryEntries,
   readCoreStoreProjectionsV2
@@ -2944,7 +2944,7 @@ assert.equal(JSON.stringify(recallAuxSourceRefs).includes('Raw transcript canary
 assert.equal(JSON.stringify(recallAuxSourceEntries).includes('Raw transcript canary'), false);
 assert.equal(JSON.stringify(recallAuxSourceEntries).includes('vector payload canary'), false);
 
-const recallAuxClone = await copyCoreStoreStateV2ForSaveBranch(recallAuxAdapter, {
+const recallAuxClone = await forkCoreStoreStateV2ForCheckpoint(recallAuxAdapter, {
   campaignId: 'campaign-core-recall-aux',
   sourceSaveId: 'save-core-recall-source',
   targetSaveId: 'save-core-recall-target',
@@ -2965,7 +2965,7 @@ const recallAuxTargetState = await loadCoreStoreStateV2(recallAuxAdapter, {
 const recallAuxTargetRefs = recallAuxTargetState.events.flatMap((event) => (
   event.payload?.operationBundle?.recallAuxiliaryRefs || []
 ));
-assert.equal(recallAuxTargetRefs.length, 1, 'Save As target CORE events should point at target Recall auxiliary refs');
+assert.equal(recallAuxTargetRefs.length, 1, 'Checkpoint target CORE events should point at target Recall auxiliary refs');
 assert.equal(recallAuxTargetRefs[0].logicalKey.includes('save-core-recall-target'), true);
 assert.equal(recallAuxTargetRefs[0].logicalKey.includes('save-core-recall-source'), false);
 const recallAuxTargetEntries = await readCoreRecallIndexAuxiliaryEntries(recallAuxAdapter, recallAuxTargetRefs);
@@ -3024,7 +3024,7 @@ assert.equal(recallAuxSourceEditEntries.every((entry) => entry.invalidatedByRef?
 assert.equal(JSON.stringify(recallAuxSourceEditRecovery).includes('RAW_REPLACEMENT_TEXT_MUST_NOT_PERSIST'), false);
 assert.equal(JSON.stringify(recallAuxSourceEditEntries).includes('RAW_REPLACEMENT_TEXT_MUST_NOT_PERSIST'), false);
 
-const recallAuxStaleClone = await copyCoreStoreStateV2ForSaveBranch(recallAuxAdapter, {
+const recallAuxStaleClone = await forkCoreStoreStateV2ForCheckpoint(recallAuxAdapter, {
   campaignId: 'campaign-core-recall-aux',
   sourceSaveId: 'save-core-recall-source',
   targetSaveId: 'save-core-recall-stale-target',

@@ -16,16 +16,14 @@ const WORKER_KEYS = TURN_WORKER_KEYS;
 const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
   replayFromCheckpoint: 'Replay from checkpoint',
   pushOn: 'Push On',
-  keepEnding: 'Keep this ending',
-  saveTerminalBranch: 'Save as branch'
+  keepEnding: 'Keep this ending'
 });
 const DIRECTIVE_POSTED_PENDING_ACTIONS = Object.freeze([
   'accept',
   'confirm',
   'replayFromCheckpoint',
   'pushOn',
-  'keepEnding',
-  'saveTerminalBranch'
+  'keepEnding'
 ]);
 
 function cloneJson(value) {
@@ -472,16 +470,7 @@ function terminalOutcomeResolutionFromText(text = '', pendingInteraction = null)
       confidence: 0.97
     };
   };
-  return match('saveTerminalBranch', [
-    'save as branch',
-    'save branch',
-    'save this branch',
-    'save this as a branch',
-    'preserve branch',
-    'preserve this timeline',
-    'save terminal timeline',
-    'save this timeline'
-  ]) || match('replayFromCheckpoint', [
+  return match('replayFromCheckpoint', [
     'replay from checkpoint',
     'replay',
     'roll back',
@@ -1163,7 +1152,7 @@ function providerPrompt({ text, context }) {
     `classification must be one of: ${UTILITY_TURN_CLASSIFICATIONS.join(', ')}.`,
     `responseStrategy must be one of: ${UTILITY_RESPONSE_STRATEGIES.join(', ')}.`,
     `workerPlan keys: ${WORKER_KEYS.join(', ')}.`,
-    'When resolving a pending interaction, use pendingInteractionResolution as {"action":"accept|confirm|revise|cancel","interactionId":"..."}. For terminalOutcomeDecision only, action must be one of replayFromCheckpoint|pushOn|keepEnding|saveTerminalBranch. Do not return a bare string.',
+    'When resolving a pending interaction, use pendingInteractionResolution as {"action":"accept|confirm|revise|cancel","interactionId":"..."}. For terminalOutcomeDecision only, action must be one of replayFromCheckpoint|pushOn|keepEnding. Do not return a bare string.',
     'Optional closureSignals may flag possible narrative closure, but this is advisory only and cannot prove closure or award Command Bearing Marks.',
     'Return this JSON shape: {"kind":"directive.turnIntentClassification","classification":"...","responseStrategy":"...","confidence":0.0,"ambiguity":"low|medium|high","speechAct":"order|question|counsel-request|scene-color|ambiguous-confirmation","action":"short verb phrase or empty","target":"stable player-facing target or empty","targetConfidence":0.0,"domainSignals":[],"riskSignals":[],"missingInformation":[],"pendingInteractionResolution":null,"closureSignals":{"possibleClosure":false,"confidence":"low|medium|high","closureTypes":[],"playerFacingReason":""},"sceneBoundary":{"kind":"locationTransition","destinationLabel":"","destinationId":"","guideActorId":"","stopPolicy":"stopOnArrival","maxNamedLocations":1},"mixedIntent":false,"workerPlan":{},"reasons":[]}.',
     'Return one compact JSON object only.'

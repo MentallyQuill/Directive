@@ -326,6 +326,8 @@ Selected checkpoint: Before the Distress Call
 
 The current runtime behavior must change. Existing `Save Game` overwrites the active save, while `Save Game As...` creates and activates a mutable chat branch. The redesign replaces both visible commands with one checkpoint-producing `Save Game`.
 
+Pre-alpha cutover decision: no legacy save or mutable-branch compatibility is supported. Existing legacy records are not migrated, relabeled, imported, or exposed through a compatibility utility. Production code, tests, and UI move forward using only the immutable checkpoint contract below.
+
 Proposed checkpoint record:
 
 ```js

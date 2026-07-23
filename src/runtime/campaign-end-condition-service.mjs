@@ -191,15 +191,13 @@ function coreTransactionIdForIngress(campaignState = {}, ingressId = null) {
 const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
   replayFromCheckpoint: 'Replay from checkpoint',
   pushOn: 'Push On',
-  keepEnding: 'Keep this ending',
-  saveTerminalBranch: 'Save as branch'
+  keepEnding: 'Keep this ending'
 });
 
 const DEFAULT_TERMINAL_OUTCOME_ACTIONS = Object.freeze([
   'replayFromCheckpoint',
   'pushOn',
-  'keepEnding',
-  'saveTerminalBranch'
+  'keepEnding'
 ]);
 
 function terminalOptionsFromDecision(decision = {}) {
@@ -207,7 +205,7 @@ function terminalOptionsFromDecision(decision = {}) {
     && decision.condition.resolutionPolicy.actions.length
     ? decision.condition.resolutionPolicy.actions
     : DEFAULT_TERMINAL_OUTCOME_ACTIONS;
-  return actions.map((action) => ({
+  return actions.filter((action) => TERMINAL_OUTCOME_ACTION_LABELS[action]).map((action) => ({
     id: action,
     action,
     label: TERMINAL_OUTCOME_ACTION_LABELS[action] || action
@@ -520,7 +518,6 @@ export function createCampaignEndConditionService({
   persist = null,
   syncPrompt = null,
   recordTerminalCheckpointSettlement = null,
-  saveTerminalBranch = null,
   concludeCampaign = null,
   repairRuntime = null,
   loadTerminalCheckpoint = null,
@@ -995,58 +992,6 @@ export function createCampaignEndConditionService({
     return { ok: true, action: 'keepEnding', conclusion: cloneJson(concluded), campaignState: cloneJson(concluded.campaignState || getCampaignState()) };
   }
 
-  async function saveBranch({ interaction, decision }) {
-    if (typeof saveTerminalBranch !== 'function') return { ok: false, reason: 'terminal-branch-save-unavailable' };
-    const state = await stateWithLatestCoreProjections(getCampaignState());
-    const branch = await saveTerminalBranch({
-      name: `Terminal Timeline - ${decision.condition?.title || decision.conditionId}`,
-      branchFrom: {
-        divergenceOutcomeId: decision.outcomeId || null
-      },
-      campaignState: state,
-      summary: decision.playerFacingSummary || 'Terminal timeline preserved.',
-      terminalOutcomeId: decision.conditionId,
-      terminalDecisionId: decision.id,
-      terminalConditionId: decision.conditionId
-    });
-    let ledger = terminalDecisionLedgerView(state);
-    ledger = {
-      ...ledger,
-      branchRecords: [
-        ...ledger.branchRecords,
-        {
-          id: `terminal-branch:${branch.id}`,
-          saveId: branch.id,
-          decisionId: decision.id,
-          conditionId: decision.conditionId,
-          outcomeId: decision.outcomeId || null,
-          createdAt: timestamp(now),
-          ...terminalLedgerAuthority({
-            ...decision,
-            id: `terminal-branch:${branch.id}`,
-            decisionId: decision.id
-          }, { rowKind: 'branchRecord', status: 'branchSaved', action: 'saveTerminalBranch' })
-        }
-      ],
-      decisions: ledger.decisions.map((item) => item.id === decision.id
-        ? {
-            ...item,
-            savedBranchIds: [...(item.savedBranchIds || []), branch.id],
-            ...terminalLedgerAuthority(item, { rowKind: 'decision', status: item.status || 'pending', action: 'saveTerminalBranch' })
-          }
-        : item)
-    };
-    const next = withTerminalDecisionLedgerProjection(state, ledger);
-    const coreLedger = await recordCoreTerminalDecisionLedger(next, ledger, {
-      transactionId: interaction.coreTransactionId || interaction.coreProjection?.transactionId || null,
-      idempotencyKey: `terminal-decision-ledger-branch-saved:${decision.id}:${branch.id}`
-    });
-    if (!coreLedger.ok) return coreLedger;
-    const nextWithCoreLedger = coreLedger.campaignState;
-    await persistState(nextWithCoreLedger, `Saved terminal timeline branch ${branch.id}.`);
-    return { ok: true, action: 'saveTerminalBranch', branch: cloneJson(branch), campaignState: cloneJson(nextWithCoreLedger) };
-  }
-
   async function resolveDecision({
     interactionId = null,
     action = 'replayFromCheckpoint',
@@ -1075,18 +1020,11 @@ export function createCampaignEndConditionService({
       case 'keep':
         result = await keepEnding({ interaction, decision });
         break;
-      case 'saveTerminalBranch':
-      case 'saveBranch':
-        result = await saveBranch({ interaction, decision });
-        break;
       default:
         return { ok: false, reason: 'terminal-decision-action-unsupported', action: normalizedAction };
     }
-    const settlementKind = ['saveTerminalBranch', 'saveBranch'].includes(normalizedAction)
-      ? 'terminalOutcomeCheckpointBranchSaved'
-      : 'terminalOutcomeCheckpointResolved';
     const terminalCheckpointSettlement = await recordSettlement({
-      kind: settlementKind,
+      kind: 'terminalOutcomeCheckpointResolved',
       ingressId: resolutionIngressId || interaction.ingressId || null,
       resolutionIngressId: resolutionIngressId || null,
       resolutionHostMessageId: resolutionHostMessageId || null,
@@ -1094,7 +1032,7 @@ export function createCampaignEndConditionService({
       outcomeId: interaction.outcomeId || decision.outcomeId || null,
       interactionId: interaction.id,
       action: result?.action || normalizedAction,
-      status: result?.ok === false ? 'failed' : (settlementKind === 'terminalOutcomeCheckpointBranchSaved' ? 'branchSaved' : 'resolved'),
+      status: result?.ok === false ? 'failed' : 'resolved',
       reason: result?.reason || null
     });
     return {

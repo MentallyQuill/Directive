@@ -147,33 +147,6 @@
       }
     },
     {
-      "id": "pending.terminal-save-branch.001",
-      "text": "Save this as a branch before I decide.",
-      "context": {
-        "pendingInteraction": {
-          "id": "terminal-decision-4",
-          "kind": "terminalOutcomeDecision",
-          "turnId": "turn-terminal-4",
-          "outcomeId": "outcome-terminal-4",
-          "options": [
-            { "id": "replayFromCheckpoint", "label": "Replay from checkpoint" },
-            { "id": "pushOn", "label": "Push On" },
-            { "id": "keepEnding", "label": "Keep this ending" },
-            { "id": "saveTerminalBranch", "label": "Save as branch" }
-          ]
-        }
-      },
-      "expect": {
-        "classificationAnyOf": ["directorResponseNeeded"],
-        "responseStrategyAnyOf": ["directivePosted"],
-        "providerAttempted": false,
-        "deterministicFastPath": true,
-        "pendingAction": "saveTerminalBranch",
-        "pendingInteractionId": "terminal-decision-4",
-        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
-      }
-    },
-    {
       "id": "pending.revise.001",
       "text": "Revise the order.",
       "context": {

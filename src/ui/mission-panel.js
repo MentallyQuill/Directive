@@ -1278,19 +1278,16 @@ function terminalDecisionOptionsFromDecision(decision = {}) {
   const actions = decision?.condition?.resolutionPolicy?.actions || [
     'replayFromCheckpoint',
     ...(asArray(decision?.condition?.continuationFrameIds).length ? ['pushOn'] : []),
-    'keepEnding',
-    'saveTerminalBranch'
+    'keepEnding'
   ];
   const labels = {
     replay: 'Replay from checkpoint',
     replayFromCheckpoint: 'Replay from checkpoint',
     pushOn: 'Push On',
     keep: 'Keep this ending',
-    keepEnding: 'Keep this ending',
-    saveBranch: 'Save as branch',
-    saveTerminalBranch: 'Save as branch'
+    keepEnding: 'Keep this ending'
   };
-  return asArray(actions).map((action) => ({
+  return asArray(actions).filter((action) => labels[action]).map((action) => ({
     id: action,
     action,
     label: labels[action] || formatMissionLabel(action, 'Choose')
@@ -1339,12 +1336,6 @@ function pendingChatInteraction(view) {
   return pending || pendingTerminalDecisionInteraction(view);
 }
 
-function terminalBranchCount(view, interaction) {
-  const ledger = terminalDecisionLedgerView(view?.campaignState || {});
-  const decisionId = interaction?.metadata?.decisionId || interaction?.id || null;
-  return asArray(ledger.branchRecords).filter((record) => !decisionId || record.decisionId === decisionId).length;
-}
-
 function checkpointLabel(checkpoint = {}) {
   const source = formatMissionLabel(checkpoint.source, 'Checkpoint');
   return checkpoint.retained === false ? `${source} fallback` : source;
@@ -1361,9 +1352,6 @@ function terminalActionIcon(action) {
     case 'keep':
     case 'keepEnding':
       return 'fa-solid fa-flag-checkered';
-    case 'saveBranch':
-    case 'saveTerminalBranch':
-      return 'fa-solid fa-code-branch';
     default:
       return 'fa-solid fa-check';
   }
@@ -1371,17 +1359,15 @@ function terminalActionIcon(action) {
 
 function terminalActionClass(action) {
   if (action === 'keepEnding' || action === 'keep') return 'directive-button directive-secondary-command';
-  if (action === 'saveTerminalBranch' || action === 'saveBranch') return 'directive-button directive-secondary-command';
   return 'directive-button directive-primary-command';
 }
 
 function appendTerminalOutcomeDecision(body, view, actions, interaction) {
   const metadata = interaction?.metadata || {};
   const decision = terminalDecisionRecord(view, interaction);
-  const savedBranchCount = terminalBranchCount(view, interaction);
   const card = createCard('directive-pending-chat-interaction-card directive-terminal-outcome-card directive-mission-command-card directive-lcars-panel');
   card.dataset.directiveTour = 'mission.pending-interaction';
-  addTooltip(card, 'Terminal checkpoint decision. The outcome is committed in this timeline until you replay, push on, keep the ending, or save the terminal timeline as a branch.');
+  addTooltip(card, 'Terminal checkpoint decision. The outcome is committed in this timeline until you replay, push on, or keep the ending.');
   card.append(
     createCardTitle('Directive Checkpoint'),
     createMetaRow('Status', 'Terminal decision'),
@@ -1389,9 +1375,6 @@ function appendTerminalOutcomeDecision(body, view, actions, interaction) {
     createMetaRow('Final Band Candidate', metadata.finalCampaignBandCandidate || decision?.finalCampaignBand || 'Pending'),
     createMetaRow('Checkpoint', checkpointLabel(metadata.checkpoint || decision?.checkpoint || {}))
   );
-  if (savedBranchCount > 0) {
-    card.appendChild(createMetaRow('Saved Terminal Branches', savedBranchCount));
-  }
   const prompt = createElement('p', 'directive-mission-command-guidance');
   prompt.textContent = metadata.reason || decision?.playerFacingSummary || interaction?.prompt || 'This timeline has reached a potential ending. Choose how Directive should proceed.';
   card.appendChild(prompt);

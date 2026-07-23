@@ -62,7 +62,9 @@ import {
   loadDirectiveUiPreferences,
   saveDirectiveUiPreferences
 } from '../storage/directive-storage-repository.mjs';
+import { listManualCheckpoints } from '../storage/manual-checkpoint-records.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
+import { createManualCheckpointService } from './manual-checkpoint-service.mjs';
 import { createCampaignActivationCoordinator } from './campaign-activation-coordinator.mjs';
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
 import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
@@ -121,13 +123,14 @@ import {
 } from './model-call-journal.mjs';
 import { createActiveSaveGuard } from './active-save-guard.mjs';
 import {
-  copyCoreStoreStateV2ForSaveBranch,
   createCoreStoreV2,
+  forkCoreStoreStateV2ForCheckpoint,
   loadCoreStoreStateV2,
   readCoreRecallIndexAuxiliaryEntries
 } from '../storage/core-store-v2.mjs';
 import {
   commitV2SaveLayout,
+  deleteV2SaveLayout,
   loadV2Checkpoint,
   writeV2Checkpoint
 } from '../storage/transaction-store-v2.mjs';
@@ -147,6 +150,7 @@ import {
   buildPlayerFacingInformation,
   resolveSelectedQuestId
 } from '../ui/player-facing-information.mjs';
+import { buildCampaignView } from '../ui/view-models/campaign-view.mjs';
 import { createCreatorRuntimeService } from './creator-runtime-service.mjs';
 import {
   applyOutcomeIntegritySettings,
@@ -2336,6 +2340,7 @@ export function createDirectiveRuntimeApp({
   let initialized = false;
   let controller = null;
   let campaignView = null;
+  let checkpointService = null;
   let creatorView = null;
   let activeCreatorDraftId = null;
   let activeScreen = 'campaign';
@@ -2465,6 +2470,169 @@ export function createDirectiveRuntimeApp({
     return uiPreferences.persist();
   }
 
+  function buildCheckpointService() {
+    if (!runtimeHost?.chat?.cloneCampaignChat || !runtimeHost?.chat?.openCampaignChat) {
+      return null;
+    }
+    return createManualCheckpointService({
+      storage: storageAdapter,
+      chat: runtimeHost.chat,
+      now: () => timestampFromNow(now),
+      createId: (prefix) => controller.createSaveId(prefix),
+      getActiveContext: async () => ({
+        campaignId: campaignState?.campaign?.id || null,
+        saveId: controller?.activeSaveId || campaignState?.campaignChatBinding?.saveId || null,
+        chatId: campaignState?.campaignChatBinding?.chatId || null,
+        chatBinding: cloneJson(campaignState?.campaignChatBinding || {}),
+        summary: {
+          chapter: campaignState?.story?.currentChapter?.title
+            || campaignState?.campaign?.currentChapter
+            || campaignState?.mission?.title
+            || null,
+          stardate: campaignState?.time?.stardate
+            || campaignState?.campaignTime?.stardate
+            || null,
+          location: campaignState?.navigation?.currentLocation?.name
+            || campaignState?.navigation?.currentLocationId
+            || null
+        }
+      }),
+      guardSource: async () => refreshManualSaveGuard(campaignState),
+      core: {
+        createCheckpointAuthority: async ({
+          campaignId,
+          sourceSaveId,
+          sourceChatId,
+          checkpointId,
+          preservedChatId
+        }) => {
+          const authority = await controller.createCheckpointAuthoritySnapshot({
+            checkpointId,
+            campaignState
+          });
+          const coreClone = await forkCoreStoreStateV2ForCheckpoint(storageAdapter, {
+            campaignId,
+            sourceSaveId,
+            targetSaveId: authority.saveId,
+            branchId: authority.saveId,
+            sourceChatId,
+            targetChatId: preservedChatId,
+            now: () => timestampFromNow(now)
+          });
+          return {
+            ...cloneJson(authority),
+            coreSaveManifestRef: cloneJson(coreClone?.saveManifestRef || null)
+          };
+        },
+        forkCheckpoint: async ({ checkpoint, targetSaveId, targetChatId }) => {
+          const authorityState = await controller.loadCheckpointAuthorityState({
+            campaignId: checkpoint.campaignId,
+            authoritySaveId: checkpoint.coreAuthority.saveId
+          });
+          const coreClone = await forkCoreStoreStateV2ForCheckpoint(storageAdapter, {
+            campaignId: checkpoint.campaignId,
+            sourceSaveId: checkpoint.coreAuthority.saveId,
+            targetSaveId,
+            branchId: targetSaveId,
+            sourceChatId: checkpoint.preservedChatBinding.chatId,
+            targetChatId,
+            now: () => timestampFromNow(now),
+            campaignState: authorityState,
+            campaignStateSourceSaveId: checkpoint.sourceSaveId,
+            campaignStateSourceChatId: checkpoint.sourceChatId
+          });
+          return {
+            campaignState: cloneJson(coreClone?.campaignState || authorityState),
+            coreClone: {
+              checkpointCount: coreClone?.checkpointCount ?? null,
+              skipped: coreClone?.skipped === true,
+              reason: coreClone?.reason || null,
+              saveManifestRef: cloneJson(coreClone?.saveManifestRef || null)
+            }
+          };
+        },
+        deleteCheckpointAuthority: async ({ checkpoint }) => {
+          const campaignId = requireNonEmptyString(checkpoint?.campaignId, 'campaignId');
+          const saveId = requireNonEmptyString(checkpoint?.coreAuthority?.saveId, 'authoritySaveId');
+          const coreDeletion = await deleteV2SaveLayout(storageAdapter, {
+            campaignId,
+            saveId,
+            layout: 'core'
+          });
+          const activeDeletion = await deleteV2SaveLayout(storageAdapter, {
+            campaignId,
+            saveId,
+            layout: 'active'
+          });
+          return {
+            deleted: true,
+            campaignId,
+            saveId,
+            layouts: [
+              cloneJson(coreDeletion),
+              cloneJson(activeDeletion)
+            ]
+          };
+        }
+      },
+      activateTimeline: async ({
+        checkpoint,
+        targetSaveId,
+        chatBinding,
+        coreResult
+      }) => {
+        const nextBinding = {
+          ...cloneJson(chatBinding || {}),
+          campaignId: checkpoint.campaignId,
+          saveId: targetSaveId,
+          status: chatBinding?.status || 'bound'
+        };
+        const loadedState = stateWithLoadedSaveBinding(
+          applyRuntimeSettings(coreResult.campaignState),
+          targetSaveId,
+          nextBinding
+        );
+        campaignState = loadedState;
+        await controller.createCheckpointTimeline({
+          saveId: targetSaveId,
+          name: `${checkpoint.name} - Continue`,
+          campaignState,
+          checkpointId: checkpoint.id
+        });
+        await runtimeHost.chat.updateBindingMetadata?.(nextBinding);
+        resetActiveCoreTurnStore('checkpoint-loaded');
+        return {
+          campaignState: cloneJson(campaignState),
+          chatBinding: cloneJson(nextBinding)
+        };
+      },
+      rebuildPrompt: async ({ activated }) => {
+        const pendingBinding = activated?.chatBinding || activated?.campaignState?.campaignChatBinding || null;
+        const suppressionToken = beginProgrammaticChatOpenSuppression(
+          pendingBinding,
+          'Immutable checkpoint continuation pending host chat open.'
+        );
+        let promptResult;
+        try {
+          promptResult = await synchronizeActivePrompt(activated.campaignState, {
+            persist: false,
+            rebuild: true,
+            reason: 'Prompt context rebuilt after loading an immutable checkpoint.'
+          });
+        } finally {
+          finishProgrammaticChatOpenSuppression(suppressionToken, { opened: false });
+        }
+        campaignState = promptResult?.campaignState
+          ? applyRuntimeSettings(promptResult.campaignState)
+          : applyRuntimeSettings(activated.campaignState);
+        return {
+          rebuilt: true,
+          campaignState: cloneJson(campaignState)
+        };
+      }
+    });
+  }
+
   async function rebuildPackageLibrary({ recoverActiveSave = true } = {}) {
     const loaded = await packageLoader();
     importedPackageRecords = await listImportedCampaignPackageRecords(storageAdapter);
@@ -2501,6 +2669,21 @@ export function createDirectiveRuntimeApp({
     } else if (activeScreen !== 'creator') {
       activeScreen = 'campaign';
     }
+    checkpointService = buildCheckpointService();
+    const initialCampaignIds = new Set([
+      campaignState?.campaign?.id,
+      ...(Array.isArray(campaignView?.saves)
+        ? campaignView.saves.map((save) => save?.metadata?.campaignId)
+        : [])
+    ].filter(Boolean));
+    const initialCheckpoints = [];
+    for (const campaignId of initialCampaignIds) {
+      initialCheckpoints.push(...await listManualCheckpoints(storageAdapter, { campaignId }));
+    }
+    campaignView = {
+      ...campaignView,
+      checkpoints: initialCheckpoints
+    };
   }
 
   async function ensureInitialized() {
@@ -2511,7 +2694,21 @@ export function createDirectiveRuntimeApp({
 
   async function refreshCampaignView() {
     await ensureInitialized();
-    campaignView = await controller.getCampaignView();
+    const baseView = await controller.getCampaignView();
+    const campaignIds = new Set([
+      campaignState?.campaign?.id,
+      ...(Array.isArray(baseView?.saves)
+        ? baseView.saves.map((save) => save?.metadata?.campaignId)
+        : [])
+    ].filter(Boolean));
+    const checkpoints = [];
+    for (const campaignId of campaignIds) {
+      checkpoints.push(...await listManualCheckpoints(storageAdapter, { campaignId }));
+    }
+    campaignView = {
+      ...baseView,
+      checkpoints
+    };
     return cloneJson(campaignView);
   }
 
@@ -2685,43 +2882,6 @@ export function createDirectiveRuntimeApp({
     };
     return normalizeCampaignTimeForRuntime(bound, {
       reason: 'loaded-save-binding'
-    }).campaignState;
-  }
-
-  function retargetChatScopedIds(value, sourceChatId = null, targetChatId = null) {
-    const source = compactString(sourceChatId);
-    const target = compactString(targetChatId);
-    if (!source || !target || source === target) return cloneJson(value);
-    if (Array.isArray(value)) return value.map((entry) => retargetChatScopedIds(entry, source, target));
-    if (!value || typeof value !== 'object') return cloneJson(value);
-    const next = {};
-    for (const [key, entry] of Object.entries(value)) {
-      if ((key === 'chatId' || key === 'currentChatId' || key === 'chat_id') && compactString(entry) === source) {
-        next[key] = target;
-      } else {
-        next[key] = retargetChatScopedIds(entry, source, target);
-      }
-    }
-    return next;
-  }
-
-  function stateWithSaveBranchChatBinding(state = null, branchBinding = null, sourceBinding = null) {
-    if (!state || !branchBinding?.chatId || !branchBinding?.saveId) return state;
-    const sourceChatId = sourceBinding?.chatId || state.campaignChatBinding?.chatId || null;
-    let next = retargetChatScopedIds(state, sourceChatId, branchBinding.chatId);
-    next = {
-      ...next,
-      campaignChatBinding: {
-        ...(next.campaignChatBinding || {}),
-        ...cloneJson(branchBinding),
-        campaignId: compactString(branchBinding.campaignId) || compactString(next.campaign?.id) || null,
-        saveId: compactString(branchBinding.saveId),
-        chatId: compactString(branchBinding.chatId),
-        status: compactString(branchBinding.status) || 'bound'
-      }
-    };
-    return normalizeCampaignTimeForRuntime(next, {
-      reason: 'save-as-branch-chat-binding'
     }).campaignState;
   }
 
@@ -3928,17 +4088,30 @@ export function createDirectiveRuntimeApp({
   }
 
   function campaignIndexView() {
-    const sessions = buildCampaignSessions();
-    return {
-      sessions,
-      visibleSessions: sessions.filter((session) => !session.hidden),
-      hiddenSessionKeys: uiPreferences.hiddenSessionKeys(),
-      counts: {
-        sessions: sessions.length,
-        visible: sessions.filter((session) => !session.hidden).length,
-        hidden: sessions.filter((session) => session.hidden).length
+    const packages = (campaignView?.packages || []).map((summary) => {
+      const packageId = summary?.packageId || summary?.id || '';
+      if (!packageId || !controller?.getPackageContext) return summary;
+      try {
+        const context = controller.getPackageContext({ packageId });
+        return {
+          ...summary,
+          campaign: {
+            title: context?.campaign?.title || summary?.title || '',
+            premise: context?.campaign?.premise || summary?.premise || ''
+          },
+          ship: cloneJson(context?.ship || null),
+          assets: cloneJson(context?.assets || {})
+        };
+      } catch (_) {
+        return summary;
       }
-    };
+    });
+    return buildCampaignView({
+      saves: campaignView?.saves || [],
+      packages,
+      checkpoints: campaignView?.checkpoints || [],
+      selectedCampaignId: uiPreferences.selectedCampaignId?.() || ''
+    });
   }
 
   async function refreshCurrentChatCampaignScope() {
@@ -6640,11 +6813,21 @@ export function createDirectiveRuntimeApp({
     const currentChatId = compactString(await runtimeHost.chat?.getCurrentChatId?.());
     const currentBindingMetadata = await runtimeHost.chat?.getBindingMetadata?.();
     const boundChatId = compactString(state.campaignChatBinding.chatId);
+    const pendingProgrammaticOpen = activeProgrammaticChatOpenSuppression();
+    const pendingBindingMatches = Boolean(
+      pendingProgrammaticOpen
+      && compactString(pendingProgrammaticOpen.chatId) === boundChatId
+      && (!pendingProgrammaticOpen.saveId
+        || compactString(pendingProgrammaticOpen.saveId) === compactString(state.campaignChatBinding.saveId))
+      && (!pendingProgrammaticOpen.campaignId
+        || compactString(pendingProgrammaticOpen.campaignId) === compactString(state.campaignChatBinding.campaignId))
+    );
     const currentChatMatchesBinding = Boolean(
       !currentChatId
       || !boundChatId
       || currentChatId === boundChatId
       || sameCampaignSaveBinding(currentBindingMetadata, state.campaignChatBinding)
+      || pendingBindingMatches
     );
     if (!currentChatMatchesBinding) {
       const promptSuspension = await suspendDirectivePromptThroughLens({
@@ -7457,7 +7640,6 @@ export function createDirectiveRuntimeApp({
         reason: reason || 'Prompt context synchronized after terminal outcome decision.'
       }),
       recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
-      saveTerminalBranch: (options) => controller.saveTerminalBranch(options),
       concludeCampaign: (options) => conclusionService.conclude(options),
       repairRuntime: repairRuntimeBoundary,
       loadTerminalCheckpoint: loadTerminalCheckpointFromCore,
@@ -8868,6 +9050,20 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async selectCampaign({ campaignId = '' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const id = compactString(campaignId);
+        const view = campaignIndexView();
+        if (!id || !view.campaigns.some((campaign) => campaign.id === id)) {
+          throw new Error('Selected campaign is not available.');
+        }
+        uiPreferences.selectCampaign(id);
+        await persistUiPreferences();
+        return viewEnvelope('campaign');
+      });
+    },
+
     async selectMissionQuest({ questId = '' } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -8880,32 +9076,6 @@ export function createDirectiveRuntimeApp({
         uiPreferences.selectQuest(scopeKey, normalizedQuestId);
         await persistUiPreferences();
         return viewEnvelope('mission');
-      });
-    },
-
-    async hideCampaignSession({ key } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const sessionKey = compactString(key);
-        if (!sessionKey) throw new Error('Campaign session key is required.');
-        uiPreferences.hideSessionKey(sessionKey);
-        await persistUiPreferences();
-        await refreshCampaignView();
-        await refreshCurrentChatCampaignScope();
-        return viewEnvelope('campaign');
-      });
-    },
-
-    async showCampaignSession({ key } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const sessionKey = compactString(key);
-        if (!sessionKey) throw new Error('Campaign session key is required.');
-        uiPreferences.showSessionKey(sessionKey);
-        await persistUiPreferences();
-        await refreshCampaignView();
-        await refreshCurrentChatCampaignScope();
-        return viewEnvelope('campaign');
       });
     },
 
@@ -9752,31 +9922,6 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async archiveCompletedCampaign() {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        if (!['complete', 'archived'].includes(campaignState.campaign?.status)) {
-          throw new Error('Only a completed campaign can be archived.');
-        }
-        campaignState = {
-          ...campaignState,
-          campaign: {
-            ...campaignState.campaign,
-            status: 'archived',
-            archivedAt: timestampFromNow(now)
-          }
-        };
-        await clearDirectivePromptThroughLens({ reason: 'campaign-archived' });
-        const save = await persistRuntimeCampaignState(campaignState, 'Completed campaign archived.');
-        return {
-          save: cloneJson(save),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('campaign')
-        };
-      });
-    },
-
     async importCampaignPackageArchive({ fileName, bytes } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -10199,18 +10344,49 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async loadGame({ saveId }) {
+    async saveGame({ name = null } = {}) {
       return run(async () => {
         await ensureInitialized();
-        const requestedSaveId = requireNonEmptyString(saveId, 'saveId');
-        await settleRuntimePersistenceQueue();
-        const loadedState = applyRuntimeSettings(await controller.loadGame({ saveId: requestedSaveId }));
-        const shouldPersistTimeRepair = campaignTimeNeedsRuntimeNormalization(loadedState);
-        campaignState = stateWithLoadedSaveBinding(loadedState, requestedSaveId);
-        resetActiveCoreTurnStore('game-loaded');
-        if (shouldPersistTimeRepair) {
-          await persistRuntimeCampaignState(campaignState, 'Campaign time state normalized after loading save.');
+        if (!checkpointService) {
+          throw new Error('The active host does not support immutable checkpoint chats.');
         }
+        let result;
+        try {
+          result = await checkpointService.saveGame({
+            name: requireNonEmptyString(name, 'name')
+          });
+        } catch (error) {
+          if (error?.code !== 'DIRECTIVE_CHECKPOINT_SOURCE_GUARD_FAILED') throw error;
+          await refreshCampaignView();
+          return {
+            ok: false,
+            blocked: true,
+            saveGuard: cloneJson(error.details || null),
+            view: viewEnvelope('campaign')
+          };
+        }
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return {
+          ok: true,
+          ...cloneJson(result),
+          view: viewEnvelope('campaign')
+        };
+      });
+    },
+
+    async loadCheckpoint({ campaignId, checkpointId }) {
+      return run(async () => {
+        await ensureInitialized();
+        if (!checkpointService) {
+          throw new Error('The active host does not support immutable checkpoint chats.');
+        }
+        await settleRuntimePersistenceQueue();
+        const result = await checkpointService.loadGame({
+          campaignId: requireNonEmptyString(campaignId, 'campaignId'),
+          checkpointId: requireNonEmptyString(checkpointId, 'checkpointId')
+        });
+        campaignState = applyRuntimeSettings(result.campaignState || campaignState);
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
@@ -10219,206 +10395,32 @@ export function createDirectiveRuntimeApp({
         lastDirectiveAssistResult = null;
         lastConclusionResult = null;
         activeScreen = 'campaign';
-        const services = ensureChatNativeServices();
-        if (services && ['activating', 'activationFailed'].includes(campaignState.campaign?.status)) {
-          lastActivationResult = {
-            ok: false,
-            deferred: true,
-            reason: 'opening-scene-required',
-            summary: 'Campaign setup is loaded and waiting for the player to build the opening scene.',
-            campaignState: cloneJson(campaignState),
-            activationJournal: cloneJson(campaignState.activationJournal || null)
-          };
-        } else if (services && campaignState.campaign?.status === 'active') {
-          await openAndRetargetCampaignChat(campaignState, {
-            persistPrompt: true,
-            rebuildPrompt: true,
-            reason: 'Campaign prompt context rebuilt after loading the save.'
-          });
-        } else if (campaignState.campaign?.status === 'complete') {
-          await clearDirectivePromptThroughLens({ reason: 'completed-campaign' });
-        }
         await refreshCampaignView();
         await refreshManualSaveGuard();
         await refreshCurrentChatCampaignScope();
-        return viewEnvelope('mission');
-      });
-    },
-
-    async deleteCampaignSave({ saveId }) {
-      return run(async () => {
-        await ensureInitialized();
-        const result = await controller.deleteCampaignSave({
-          saveId: requireNonEmptyString(saveId, 'saveId')
-        });
-        if (result.deletedActive === true) {
-          campaignState = null;
-          resetActiveCoreTurnStore('active-save-deleted');
-          pendingDirectorTurn = null;
-          pendingOutcomeReplacement = null;
-          lastDirectorTurn = null;
-          lastNarrationResult = null;
-          lastCommandLogSummarySidecarResult = null;
-          lastOpenWorldActionResult = null;
-          lastDirectiveAssistResult = null;
-          lastSceneReconciliationResult = null;
-          lastActivationResult = null;
-          lastConclusionResult = null;
-          await clearDirectivePromptThroughLens({ reason: 'active-save-deleted' });
-        }
-        activeScreen = 'campaign';
-        await refreshCampaignView();
         return {
-          deleteResult: cloneJson(result),
+          ok: true,
+          ...cloneJson(result),
           view: viewEnvelope('campaign')
         };
       });
     },
 
-    async saveCurrentGame({ summary = null } = {}) {
+    async deleteSave({ campaignId, checkpointId }) {
       return run(async () => {
         await ensureInitialized();
-        const guard = await refreshManualSaveGuard(campaignState);
-        if (!guard.ok) {
-          await refreshCampaignView();
-          return {
-            ok: false,
-            blocked: true,
-            saveGuard: cloneJson(guard),
-            view: viewEnvelope('campaign')
-          };
+        if (!checkpointService) {
+          throw new Error('The active host does not support immutable checkpoint chats.');
         }
-        const save = await controller.saveCurrentGame({
-          campaignState,
-          summary
+        const result = await checkpointService.deleteGame({
+          campaignId: requireNonEmptyString(campaignId, 'campaignId'),
+          checkpointId: requireNonEmptyString(checkpointId, 'checkpointId')
         });
-        await runtimeHost?.chat?.updateBindingMetadata?.(campaignState.campaignChatBinding);
-        await refreshManualSaveGuard(campaignState, { expectedSaveId: save.id });
         await refreshCampaignView();
-        await refreshCurrentChatCampaignScope();
         return {
           ok: true,
-          saveGuard: cloneJson(lastManualSaveGuard),
-          save: cloneJson(save),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async saveCurrentGameAs({ name = null, branchFrom = null } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const guard = await refreshManualSaveGuard(campaignState);
-        if (!guard.ok) {
-          await refreshCampaignView();
-          return {
-            ok: false,
-            blocked: true,
-            saveGuard: cloneJson(guard),
-            view: viewEnvelope('campaign')
-          };
-        }
-        if (typeof runtimeHost?.chat?.cloneCurrentChatForSaveBranch !== 'function') {
-          await refreshCampaignView();
-          return {
-            ok: false,
-            blocked: true,
-            reason: 'chat-clone-unavailable',
-            summary: 'Save Game As requires host support for cloning the active campaign chat.',
-            saveGuard: cloneJson(guard),
-            view: viewEnvelope('campaign')
-          };
-        }
-        const newSaveId = controller.createSaveId('save');
-        const sourceBinding = cloneJson(campaignState.campaignChatBinding || null);
-        const branchPoint = branchFrom || {
-          divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId || null
-        };
-        const clonedBinding = await runtimeHost.chat.cloneCurrentChatForSaveBranch({
-          name,
-          campaignId: campaignState?.campaign?.id || sourceBinding?.campaignId || null,
-          saveId: newSaveId,
-          sourceBinding,
-          branchFrom: branchPoint
-        });
-        if (!clonedBinding?.chatId) {
-          const error = new Error('Host chat clone did not return a branch chat id.');
-          error.code = 'DIRECTIVE_SAVE_AS_CHAT_CLONE_INVALID';
-          error.details = { saveId: newSaveId, clonedBinding };
-          throw error;
-        }
-        const branchBinding = {
-          ...(sourceBinding || {}),
-          ...cloneJson(clonedBinding || {}),
-          campaignId: campaignState?.campaign?.id || clonedBinding?.campaignId || sourceBinding?.campaignId || null,
-          saveId: newSaveId,
-          chatId: clonedBinding?.chatId || null,
-          chatName: clonedBinding?.chatName || name || sourceBinding?.chatName || null,
-          status: clonedBinding?.status || sourceBinding?.status || 'bound'
-        };
-        campaignState = applyRuntimeSettings(stateWithSaveBranchChatBinding(
-          campaignState,
-          branchBinding,
-          sourceBinding
-        ));
-        const branchSave = await controller.saveCurrentGameAs({
-          newSaveId,
-          name,
-          campaignState,
-          branchFrom: branchPoint
-        });
-        const coreBranchClone = await copyCoreStoreStateV2ForSaveBranch(storageAdapter, {
-          campaignId: campaignState?.campaign?.id || branchBinding.campaignId,
-          sourceSaveId: sourceBinding?.saveId || controller.activeSaveId,
-          targetSaveId: branchSave.id,
-          branchId: branchSave.id,
-          sourceChatId: sourceBinding?.chatId || null,
-          targetChatId: branchBinding.chatId || null,
-          now: () => timestampFromNow(now)
-        });
-        resetActiveCoreTurnStore('save-as-branch-created');
-        await runtimeHost.chat.updateBindingMetadata?.(campaignState.campaignChatBinding);
-        const promptResult = await synchronizeActivePrompt(campaignState, {
-          persist: false,
-          rebuild: true,
-          reason: 'Prompt context rebuilt after Save Game As cloned-chat branch creation.'
-        });
-        campaignState = stateWithSaveBranchChatBinding(
-          promptResult?.campaignState
-            ? applyRuntimeSettings(promptResult.campaignState)
-            : applyRuntimeSettings(campaignState),
-          branchBinding,
-          sourceBinding
-        );
-        const save = await controller.saveCurrentGame({
-          saveId: branchSave.id,
-          campaignState,
-          summary: 'Save branch created with a cloned campaign chat.'
-        });
-        await refreshManualSaveGuard(campaignState, { expectedSaveId: save.id });
-        await refreshCampaignView();
-        await refreshCurrentChatCampaignScope();
-        return {
-          ok: true,
-          saveGuard: cloneJson(lastManualSaveGuard),
-          save: cloneJson(save),
-          branchSave: cloneJson(branchSave),
-          coreBranchClone: coreBranchClone ? {
-            checkpointCount: coreBranchClone.checkpointCount ?? null,
-            skipped: coreBranchClone.skipped === true,
-            reason: coreBranchClone.reason || null,
-            recallSourceMutation: cloneJson(coreBranchClone.recallSourceMutation || null),
-            recallAuxiliaryRewrite: cloneJson(coreBranchClone.recallAuxiliaryRewrite || null),
-            saveManifestRef: cloneJson(coreBranchClone.saveManifestRef || null)
-          } : null,
-          branchChat: {
-            sourceChatId: clonedBinding?.sourceChatId || sourceBinding?.chatId || null,
-            chatId: campaignState.campaignChatBinding?.chatId || null,
-            messageCount: Number.isFinite(Number(clonedBinding?.messageCount))
-              ? Number(clonedBinding.messageCount)
-              : null
-          },
-          view: viewEnvelope('mission')
+          ...cloneJson(result),
+          view: viewEnvelope('campaign')
         };
       });
     },

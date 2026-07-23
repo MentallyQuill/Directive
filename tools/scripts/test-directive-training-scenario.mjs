@@ -27,7 +27,7 @@ assert.equal(view.activePackageId.startsWith('tutorial-training-'), true);
 assert.equal(view.activeSaveId.startsWith('tutorial-training-'), true);
 assert.equal(view.campaign.packages.length, 1);
 assert.equal(view.campaign.saves.length, 1);
-assert.equal(view.campaignIndex.visibleSessions.length, 1);
+assert.equal(view.campaignIndex.campaigns.length, 1);
 assert.equal(view.campaignState.campaign.id.startsWith('tutorial-training-'), true);
 assert.equal(view.campaignState.commandLog.entries.length >= 4, true);
 assert.equal(view.campaignState.threadLedger.records.length >= 2, true);

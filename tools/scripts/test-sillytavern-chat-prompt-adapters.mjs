@@ -385,21 +385,23 @@ assert.equal(latestGhosted.visibility.visibilityMutationOnly, true);
 assert.equal(latestGhosted.visibility.sourceMutation, false);
 const cloneSourceChatId = currentChatId;
 const cloneSourceMessageCount = chat.length;
-const branchBinding = await adapter.cloneCurrentChatForSaveBranch({
-  name: 'Directive - Ashes Branch',
+const branchBinding = await adapter.cloneCampaignChat({
+  sourceChatId: cloneSourceChatId,
+  targetName: 'Directive - Ashes Checkpoint Continuation',
+  open: true,
   campaignId: 'campaign-st-adapter',
-  saveId: 'save-st-branch',
+  saveId: 'save-st-continuation',
   sourceBinding: context.chatMetadata.directiveCampaignBinding
 });
 assert.equal(branchBinding.sourceChatId, cloneSourceChatId);
-assert.equal(branchBinding.chatId, 'Directive - Ashes Branch');
-assert.equal(branchBinding.saveId, 'save-st-branch');
+assert.equal(branchBinding.chatId, 'Directive - Ashes Checkpoint Continuation');
+assert.equal(branchBinding.saveId, 'save-st-continuation');
 assert.equal(currentChatId, branchBinding.chatId);
 assert.equal(chat.length, cloneSourceMessageCount);
-assert.equal(savedChats.get('Directive - Ashes Branch').chatData.length, cloneSourceMessageCount);
-assert.equal(savedChats.get('Directive - Ashes Branch').withMetadata.directiveCampaignBinding.saveId, 'save-st-branch');
-assert.equal(context.chatMetadata.directiveCampaignBinding.chatId, 'Directive - Ashes Branch');
-assert.equal(context.chatMetadata.directiveCampaignBinding.saveId, 'save-st-branch');
+assert.equal(savedChats.get('Directive - Ashes Checkpoint Continuation').chatData.length, cloneSourceMessageCount);
+assert.equal(savedChats.get('Directive - Ashes Checkpoint Continuation').withMetadata.directiveCampaignBinding.saveId, 'save-st-continuation');
+assert.equal(context.chatMetadata.directiveCampaignBinding.chatId, 'Directive - Ashes Checkpoint Continuation');
+assert.equal(context.chatMetadata.directiveCampaignBinding.saveId, 'save-st-continuation');
 const continuationUnavailable = await adapter.continueHostGeneration({ reason: 'node-adapter-contract' });
 assert.equal(continuationUnavailable.ok, false);
 assert.equal(continuationUnavailable.skipped, false);

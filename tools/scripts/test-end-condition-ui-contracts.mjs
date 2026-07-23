@@ -204,8 +204,7 @@ const terminalInteraction = {
   options: [
     { id: 'replayFromCheckpoint', action: 'replayFromCheckpoint', label: 'Replay from checkpoint' },
     { id: 'pushOn', action: 'pushOn', label: 'Push On' },
-    { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' },
-    { id: 'saveTerminalBranch', action: 'saveTerminalBranch', label: 'Save as branch' }
+    { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' }
   ],
   metadata: {
     decisionId: 'terminal-decision-ui',
@@ -266,24 +265,7 @@ const terminalLedger = {
     finalCampaignBand: 'Legacy Ending',
     playerFacingSummary: 'Legacy unowned terminal decision must not render.'
   }],
-  branchRecords: [{
-    id: 'terminal-branch:save-terminal-ui',
-    authority: 'terminalDecisionProjection',
-    coreProjection: {
-      kind: 'directive.terminalEndConditionLedgerProjectionRef.v1',
-      rowKind: 'branchRecord',
-      decisionId: 'terminal-decision-ui',
-      status: 'saved',
-      action: 'saveTerminalBranch'
-    },
-    saveId: 'save-terminal-ui',
-    decisionId: 'terminal-decision-ui',
-    conditionId: 'terminal.ashes.breck-destroyed-objective-saved'
-  }, {
-    id: 'terminal-branch:legacy-decoy',
-    saveId: 'save-terminal-legacy-decoy',
-    decisionId: 'terminal-decision-ui'
-  }],
+  branchRecords: [],
   continuationFrames: []
 };
 state = withTerminalDecisionLedgerProjection(state, terminalLedger);
@@ -341,7 +323,6 @@ assert.match(missionText, /Terminal decision/);
 assert.match(missionText, /Great Failure/);
 assert.match(missionText, /Partial Success/);
 assert.match(missionText, /CoreCheckpoint/);
-assert.match(missionText, /Saved Terminal Branches\s+1/);
 assert.match(missionText, /The Breckenridge is lost but the Reach objective may still be saved/);
 assert.doesNotMatch(missionText, /Legacy Failure/);
 assert.doesNotMatch(missionText, /Legacy Ending/);
@@ -349,8 +330,7 @@ assert.doesNotMatch(missionText, /Revise Order/);
 for (const [label, action] of [
   ['Replay from checkpoint', 'replayFromCheckpoint'],
   ['Push On', 'pushOn'],
-  ['Keep this ending', 'keepEnding'],
-  ['Save as branch', 'saveTerminalBranch']
+  ['Keep this ending', 'keepEnding']
 ]) {
   await findButton(missionBody, label).click();
   assert.deepEqual(terminalActions.at(-1), {
@@ -361,8 +341,7 @@ for (const [label, action] of [
 assert.deepEqual(terminalActions.map((entry) => entry.action), [
   'replayFromCheckpoint',
   'pushOn',
-  'keepEnding',
-  'saveTerminalBranch'
+  'keepEnding'
 ]);
 
 const nestedSceneReconciliationBody = document.createElement('main');
@@ -422,55 +401,50 @@ assert.match(topLevelSceneReconciliationText, /Changed Passage/);
 
 resetCampaignPanelState();
 const recordsBody = document.createElement('main');
-const terminalSave = {
-  id: 'save-terminal-ui',
-  name: 'Terminal Timeline - Breckenridge Lost',
-  slotType: 'manual',
-  revision: 1,
-  current: false,
-  updatedAt: '2026-06-23T12:00:00.000Z',
-  metadata: {
-    campaignId: 'campaign-end-condition-ui-test',
-    campaignTitle: 'Ashes of Peace',
-    packageId: 'directive:campaign-package:breckenridge-ashes-of-peace',
-    packageTitle: 'U.S.S. Breckenridge: Ashes of Peace - Open World',
-    stardate: 53049.2,
-    activeMissionId: 'chapter-8-the-last-directive',
-    activePhaseId: 'terminal-aftermath',
-    simulationMode: 'Command',
-    summary: 'Terminal timeline preserved.',
-    branch: {
-      kind: 'terminalTimeline',
-      reason: 'terminalOutcomeDecision',
-      parentSaveId: 'save-parent-ui',
-      parentSaveName: 'Talia Serrin - Ashes of Peace',
-      divergenceOutcomeId: 'outcome-ui-terminal',
-      terminalOutcomeId: 'terminal.ashes.breck-destroyed-objective-saved',
-      terminalDecisionId: 'terminal-decision-ui',
-      terminalConditionId: 'terminal.ashes.breck-destroyed-objective-saved'
-    }
-  }
-};
+let loadedCheckpoint = '';
 renderCampaignPanel(recordsBody, {
-  campaign: {
-    packages: [],
-    drafts: [],
-    saves: [terminalSave],
-    activeSaveId: null
+  campaign: { packages: [] },
+  campaignIndex: {
+    selectedCampaignId: 'campaign-end-condition-ui-test',
+    campaigns: [{
+      id: 'campaign-end-condition-ui-test',
+      title: 'Ashes of Peace',
+      playerName: 'Talia Serrin',
+      playerRole: 'Executive Officer',
+      status: 'complete',
+      setting: 'Asterion Reach',
+      chapter: 'The Last Directive',
+      lastPlayedAt: '2026-06-23T12:00:00.000Z',
+      premise: 'The completed campaign remains loadable through its immutable checkpoints.',
+      packageId: 'directive:campaign-package:breckenridge-ashes-of-peace',
+      image: { kind: 'ship.hero', subjectId: 'uss-breckenridge' },
+      mediaPackage: { packageId: 'directive:campaign-package:breckenridge-ashes-of-peace', assets: {} },
+      active: false,
+      canOpenChat: false,
+      canSaveGame: false,
+      activeTimeline: { saveId: 'save-terminal-ui', chatBinding: null },
+      checkpoints: [{
+        id: 'checkpoint-terminal-ui',
+        name: 'Before the Last Directive',
+        chapter: 'The Last Directive',
+        stardate: 53049.2,
+        createdAt: '2026-06-23T11:30:00.000Z',
+        loadable: true
+      }]
+    }]
   },
-  activeSaveId: null
 }, {
   refresh: async () => {},
-  setActiveTab: () => {},
-  loadGame: async () => {},
-  deleteCampaignSave: async () => {}
+  selectCampaign: async () => {},
+  loadCheckpoint: async ({ checkpointId }) => { loadedCheckpoint = checkpointId; },
+  deleteSave: async () => {}
 });
-const recordsText = textOf(recordsBody);
-assert.match(recordsText, /Terminal Timeline/);
-assert.match(recordsText, /Terminal timeline preserved/);
-assert.match(recordsText, /Terminal Branch/);
-assert.match(recordsText, /Breck Destroyed Objective Saved/);
-assert.match(recordsText, /Talia Serrin - Ashes of Peace/);
+assert.match(textOf(recordsBody), /Complete/);
+assert.match(textOf(recordsBody), /Before the Last Directive/);
+assert.doesNotMatch(textOf(recordsBody), /Terminal Branch|Load Campaign|Archive/);
+await recordsBody.querySelector('.campaign-save-row').click();
+await findButton(recordsBody, 'Load Game').click();
+assert.equal(loadedCheckpoint, 'checkpoint-terminal-ui');
 
 delete globalThis.document;
-console.log('End-condition UI contract tests passed: Mission terminal checkpoint card and Records terminal branch labels');
+console.log('End-condition UI contract tests passed: Mission terminal card and completed-campaign checkpoint loading');

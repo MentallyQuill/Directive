@@ -404,16 +404,15 @@ export function createFakeChatAdapter({
         message: cloneJson(message)
       };
     },
-    async cloneCurrentChatForSaveBranch(options = {}) {
-      const sourceChatId = currentChatId;
+    async cloneCampaignChat(options = {}) {
+      const sourceChatId = options.sourceChatId || currentChatId;
       const branchChatId = uniqueBranchChatId({
         saveId: options.saveId,
-        name: options.name
+        name: options.targetName
       });
       const sourceMessages = messagesForChat(sourceChatId);
       const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatId));
       chatsById.set(String(branchChatId), branchMessages);
-      currentChatId = branchChatId;
       const sourceBinding = options.sourceBinding && typeof options.sourceBinding === 'object'
         ? options.sourceBinding
         : (metadataByChatId.get(String(sourceChatId)) || binding || {});
@@ -426,23 +425,27 @@ export function createFakeChatAdapter({
         entityType: sourceBinding.entityType || 'character',
         entityId: sourceBinding.entityId || entityId,
         entityName: sourceBinding.entityName || entityName,
-        chatName: options.name || sourceBinding.chatName || null,
+        chatName: options.targetName || sourceBinding.chatName || null,
         status: sourceBinding.status || 'bound',
         createdByDirective: true,
-        creationMethod: 'clone-current-chat',
+        creationMethod: 'clone-campaign-chat',
         clonedFromChatId: sourceChatId,
         clonedAt: '2026-06-22T00:00:00.000Z'
       };
-      storeBinding(nextBinding);
+      metadataByChatId.set(String(branchChatId), cloneJson(nextBinding));
+      if (options.open === true) {
+        currentChatId = branchChatId;
+        storeBinding(nextBinding);
+      }
       calls.push({
-        type: 'cloneCurrentChatForSaveBranch',
+        type: 'cloneCampaignChat',
         options: cloneJson(options),
         sourceChatId,
         branchChatId,
         messageCount: branchMessages.length
       });
       return {
-        ...cloneJson(binding),
+        ...cloneJson(nextBinding),
         sourceChatId,
         messageCount: branchMessages.length
       };
@@ -461,6 +464,23 @@ export function createFakeChatAdapter({
       if (nextBinding?.chatId) currentChatId = nextBinding.chatId;
       messagesForChat(currentChatId);
       return true;
+    },
+    async openCampaignChat(nextBinding) {
+      await this.open(nextBinding);
+      const stored = metadataByChatId.get(String(currentChatId));
+      if (stored) storeBinding(stored);
+      return { opened: true, chatId: currentChatId };
+    },
+    async deleteCampaignChat(nextBinding) {
+      const chatId = nextBinding?.chatId || nextBinding;
+      if (!chatId) return { deleted: false, reason: 'missing-chat-id' };
+      if (String(chatId) === String(currentChatId)) {
+        return { deleted: false, reason: 'active-chat' };
+      }
+      metadataByChatId.delete(String(chatId));
+      const deleted = chatsById.delete(String(chatId));
+      calls.push({ type: 'deleteCampaignChat', chatId });
+      return { deleted, chatId };
     },
     setCurrentChatId(nextChatId, metadata = undefined) {
       currentChatId = nextChatId || '';

@@ -1773,6 +1773,63 @@ export async function loadV2SaveManifest(adapter, {
   }));
 }
 
+function collectArtifactLogicalKeys(value, keys = new Set()) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectArtifactLogicalKeys(item, keys);
+    return keys;
+  }
+  if (!isObject(value)) return keys;
+  if (typeof value.logicalKey === 'string' && value.logicalKey) keys.add(value.logicalKey);
+  for (const item of Object.values(value)) collectArtifactLogicalKeys(item, keys);
+  return keys;
+}
+
+export async function deleteV2SaveLayout(adapter, {
+  campaignId,
+  saveId,
+  layout = 'active'
+} = {}) {
+  requireObject(adapter, 'adapter');
+  if (typeof adapter.deleteJsonFile !== 'function') {
+    throw new Error('adapter.deleteJsonFile must be a function');
+  }
+  const campaign = requireNonEmptyString(campaignId, 'campaignId');
+  const save = requireNonEmptyString(saveId, 'saveId');
+  const storageLayout = normalizeV2Layout(layout);
+  const manifestKey = saveManifestLogicalKey({
+    campaignId: campaign,
+    saveId: save,
+    layout: storageLayout
+  });
+  const manifest = await loadV2SaveManifest(adapter, {
+    campaignId: campaign,
+    saveId: save,
+    layout: storageLayout
+  });
+  const savePrefix = `campaigns/${campaign}/saves/${save}/`;
+  const layoutPrefix = storageLayout === 'core' ? `${savePrefix}core/` : savePrefix;
+  const keys = [...collectArtifactLogicalKeys(manifest)]
+    .filter((key) => key.startsWith(layoutPrefix))
+    .filter((key) => storageLayout === 'core' || !key.startsWith(`${savePrefix}core/`));
+  keys.push(manifestKey);
+  const uniqueKeys = [...new Set(keys)].sort((left, right) => {
+    if (left === manifestKey) return 1;
+    if (right === manifestKey) return -1;
+    return right.length - left.length || right.localeCompare(left);
+  });
+  for (const logicalKey of uniqueKeys) {
+    await adapter.deleteJsonFile(logicalKey);
+  }
+  return {
+    kind: 'directive.v2SaveLayoutDeletion',
+    campaignId: campaign,
+    saveId: save,
+    layout: storageLayout,
+    deleted: true,
+    deletedLogicalKeys: uniqueKeys
+  };
+}
+
 export async function loadV2CampaignManifest(adapter, campaignId, {
   layout = 'active'
 } = {}) {

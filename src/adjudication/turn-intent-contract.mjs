@@ -65,8 +65,7 @@ const DIRECTIVE_POSTED_PENDING_ACTIONS = Object.freeze([
   'confirm',
   'replayfromcheckpoint',
   'pushon',
-  'keepending',
-  'saveterminalbranch'
+  'keepending'
 ]);
 
 function isObject(value) {

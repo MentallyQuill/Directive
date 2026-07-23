@@ -7,8 +7,6 @@ import {
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
   saveGame,
-  saveGameAs,
-  saveTerminalBranch,
   startCharacterCreatorDraft
 } from '../../src/campaign/campaign-start-service.mjs';
 import {
@@ -17,9 +15,6 @@ import {
   listCampaignSaves,
   listCharacterCreatorDrafts
 } from '../../src/storage/directive-storage-repository.mjs';
-import {
-  persistActiveCampaignStateV2
-} from '../../src/storage/active-save-facade-v2.mjs';
 
 const root = process.cwd();
 const errors = [];
@@ -157,7 +152,9 @@ const started = await acceptCreatorDraftAndCreateFirstSave({
 requireEqual(started.acceptedDraft.status, 'accepted', 'accepted draft status');
 requireEqual(started.campaignState.player.name, 'Ren Okada', 'started campaign player');
 requireEqual(started.campaignState.settings.simulationMode, 'Command', 'started campaign simulationMode');
-requireEqual(started.firstSave.slotType, 'firstSave', 'started first save slotType');
+requireEqual(started.firstSave.slotType, 'active', 'started first save slotType');
+requireEqual(started.firstSave.storageFormat, 'v2', 'started first save storage format');
+requireEqual(started.firstSave.payloadKind, 'directive.saveManifest.v2', 'started first save payload kind');
 requireEqual(started.firstSave.metadata.playerName, 'Ren Okada', 'started first save metadata playerName');
 
 const mutatedState = cloneJson(started.campaignState);
@@ -183,9 +180,9 @@ const saved = await saveGame({
   now: '2026-06-18T20:20:00.000Z',
   summary: 'Manual command review save.'
 });
-requireEqual(saved.revision, 2, 'saveGame revision');
-requireEqual(saved.metadata.stardate, 53051.7, 'saveGame stardate');
-requireEqual(saved.metadata.summary, 'Manual command review save.', 'saveGame summary');
+requireEqual(saved.kind, 'directive.activeCampaignStatePersist.v2', 'saveGame v2 persist kind');
+requireEqual(saved.storageFormat, 'v2', 'saveGame storage format');
+requireEqual(saved.wroteV1Payload, false, 'saveGame avoids v1 payload');
 
 const runtimeOnlyState = cloneJson(mutatedState);
 runtimeOnlyState.campaign.currentStardate = 53051.9;
@@ -194,55 +191,14 @@ runtimeOnlyState.commandLog.entries.push({
   summaryInputs: ['Runtime-only v2 state advanced beyond the stale checkpoint payload.'],
   visibleConsequences: ['Branching must use v2 runtime authority.']
 });
-await persistActiveCampaignStateV2(adapter, {
-  saveRecord: saved,
+await saveGame({
+  adapter,
+  packageData,
+  saveId: started.firstSave.id,
   campaignState: runtimeOnlyState,
-  packageData,
+  now: '2026-06-18T20:22:00.000Z',
   summary: 'Runtime-only v2 advance.',
-  reason: 'service-test-runtime-only-v2',
-  now: '2026-06-18T20:22:00.000Z'
 });
-
-const branch = await saveGameAs({
-  adapter,
-  sourceSaveId: saved.id,
-  newSaveId: 'save-service-branch',
-  name: 'Ren Okada - Alternate Briefing',
-  now: '2026-06-18T20:25:00.000Z'
-});
-requireEqual(branch.id, 'save-service-branch', 'saveGameAs id');
-requireEqual(branch.name, 'Ren Okada - Alternate Briefing', 'saveGameAs name');
-requireEqual(branch.payload.campaignState.campaign.currentStardate, 53051.9, 'saveGameAs defaults to v2 runtime state instead of stale checkpoint payload');
-requireEqual(branch.payload.campaignState.commandLog.entries.some((entry) => entry.id === 'runtime.only-entry'), true, 'saveGameAs payload includes runtime-only v2 state');
-
-const terminalBranch = await saveTerminalBranch({
-  adapter,
-  sourceSaveId: saved.id,
-  newSaveId: 'save-service-terminal-branch',
-  name: 'Ren Okada - Terminal Timeline',
-  now: '2026-06-18T20:26:00.000Z',
-  branchFrom: {
-    divergenceOutcomeId: 'outcome.terminal-test'
-  },
-  campaignState: mutatedState,
-  packageData,
-  summary: 'Terminal timeline preserved.',
-  terminalOutcomeId: 'terminal.ashes.breck-destroyed-objective-saved',
-  terminalDecisionId: 'terminal-decision:test',
-  terminalConditionId: 'terminal.ashes.breck-destroyed-objective-saved'
-});
-requireEqual(terminalBranch.current, false, 'saveTerminalBranch current false');
-requireEqual(terminalBranch.metadata.branch.kind, 'terminalTimeline', 'saveTerminalBranch branch kind');
-requireEqual(terminalBranch.metadata.branch.parentSaveId, saved.id, 'saveTerminalBranch parent save id');
-requireEqual(terminalBranch.metadata.branch.divergenceOutcomeId, 'outcome.terminal-test', 'saveTerminalBranch divergence outcome');
-requireEqual(terminalBranch.metadata.branch.reason, 'terminalOutcomeDecision', 'saveTerminalBranch reason');
-requireEqual(terminalBranch.metadata.branch.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved', 'saveTerminalBranch terminalOutcomeId');
-requireEqual(terminalBranch.metadata.branch.terminalDecisionId, 'terminal-decision:test', 'saveTerminalBranch terminalDecisionId');
-requireEqual(terminalBranch.metadata.branch.terminalConditionId, 'terminal.ashes.breck-destroyed-objective-saved', 'saveTerminalBranch terminalConditionId');
-requireEqual(terminalBranch.metadata.summary, 'Terminal timeline preserved.', 'saveTerminalBranch summary');
-requireEqual(terminalBranch.metadata.campaignChatBinding.saveId, terminalBranch.id, 'saveTerminalBranch metadata binding save id');
-requireEqual(terminalBranch.payload.campaignState.campaignChatBinding.saveId, terminalBranch.id, 'saveTerminalBranch payload binding save id');
-requireEqual(terminalBranch.payload.campaignState.campaignChatBinding.saveId === saved.id, false, 'saveTerminalBranch payload not parent binding');
 
 const autosaveIds = [];
 for (let index = 0; index < 4; index += 1) {
@@ -260,16 +216,14 @@ for (let index = 0; index < 4; index += 1) {
 }
 
 let saveList = await listCampaignSaves(adapter);
-requireEqual(saveList.length, 6, 'service save list length');
-requireIncludes(saveList.map((entry) => entry.id), saved.id, 'service save list first');
-requireIncludes(saveList.map((entry) => entry.id), branch.id, 'service save list branch');
-requireIncludes(saveList.map((entry) => entry.id), terminalBranch.id, 'service save list terminal branch');
+requireEqual(saveList.length, 4, 'service save list length');
+requireIncludes(saveList.map((entry) => entry.id), started.firstSave.id, 'service save list active timeline');
 requireEqual(saveList.filter((entry) => entry.slotType === 'autosave').length, 3, 'service autosave rolling cap');
 requireEqual(saveList.some((entry) => entry.id === autosaveIds[0]), false, 'service prunes oldest autosave');
 
 const loaded = await loadGame({
   adapter,
-  saveId: saved.id,
+  saveId: started.firstSave.id,
   now: '2026-06-18T20:30:00.000Z'
 });
 requireEqual(loaded.player.name, 'Ren Okada', 'loadGame player');
@@ -277,24 +231,14 @@ requireEqual(loaded.campaign.currentStardate, 53051.9, 'loadGame stardate');
 loaded.player.name = 'Changed';
 
 const indexes = await getDirectiveStorageIndexes(adapter);
-requireEqual(indexes.saveIndex.activeSaveId, saved.id, 'loadGame active save id');
-requireEqual(indexes.saveIndex.saves[saved.id].current, true, 'loadGame current save');
-requireEqual(indexes.saveIndex.saves[branch.id].current, false, 'loadGame branch no longer current');
-requireEqual(indexes.saveIndex.saves[terminalBranch.id].current, false, 'loadGame terminal branch remains non-current');
-requireEqual(indexes.saveIndex.saves[terminalBranch.id].metadata.branch.kind, 'terminalTimeline', 'save index terminal branch kind');
+requireEqual(indexes.saveIndex.activeSaveId, started.firstSave.id, 'loadGame active save id');
+requireEqual(indexes.saveIndex.saves[started.firstSave.id].current, true, 'loadGame current save');
 requireEqual(Object.values(indexes.saveIndex.saves).filter((entry) => entry.slotType === 'autosave').every((entry) => entry.current === false), true, 'autosaves remain non-current after loadGame');
 
-const loadedTerminalBranch = await loadGame({
-  adapter,
-  saveId: terminalBranch.id,
-  now: '2026-06-18T20:31:00.000Z'
-});
-requireEqual(loadedTerminalBranch.campaignChatBinding.saveId, terminalBranch.id, 'load terminal branch binding save id');
-
 const snapshot = adapter.snapshot();
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[saved.id].metadata.playerName, 'Ren Okada', 'save index persisted playerName');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[started.firstSave.id].metadata.playerName, 'Ren Okada', 'save index persisted playerName');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.creatorDraftIndex].drafts[draft.id].status, 'accepted', 'draft index accepted status');
-requireEqual(snapshot[indexes.saveIndex.saves[saved.id].path].payload.campaignState.player.name, 'Ren Okada', 'loadGame clone isolation');
+requireEqual(indexes.saveIndex.saves[started.firstSave.id].storageFormat, 'v2', 'active timeline remains v2-native');
 
 saveList = await listCampaignSaves(adapter);
 requireEqual(saveList[0].metadata.playerName, 'Ren Okada', 'service save list metadata retained');
@@ -307,4 +251,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Campaign start service tests passed: draft resume, first save, save, save as, autosave, load');
+console.log('Campaign start service tests passed: draft resume, v2-native first timeline, persistence, autosave, and load');

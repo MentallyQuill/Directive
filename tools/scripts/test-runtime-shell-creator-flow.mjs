@@ -917,10 +917,8 @@ setDirectiveRuntimeApp(app);
 await showDirectiveRuntimePanel();
 const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime panel should exist');
-assert.match(textOf(panel), /Choose a campaign to begin/);
-assert.match(textOf(panel), /Campaign Library/);
+assert.match(textOf(panel), /No campaigns are available/);
 assert.doesNotMatch(textOf(panel), /Import Status\s+Ready/);
-assert.equal(findButton(panel, 'Choose File').disabled, false);
 
 const packageImportZip = createStoredZip([{
   path: 'package/ashes-of-peace.campaign-package.json',
@@ -940,8 +938,8 @@ await app.importCampaignPackageArchive({
   bytes: packageImportZip
 });
 await showDirectiveRuntimePanel();
-assert.match(textOf(panel), /Campaign Library/);
-assert.match(textOf(panel), /Ashes of Peace/);
+await panel.querySelector('.campaign-new-button').click();
+assert.match(textOf(fakeDocument.getElementById('directive-overlay-root')), /Ashes of Peace/);
 
 const incompletePackage = cloneJson(packageData);
 incompletePackage.manifest.id = 'directive:campaign-package:incomplete-import-test';
@@ -963,13 +961,20 @@ assert(incompleteCard, 'incomplete imported package should be visible for diagno
 assert.equal(incompleteCard.actions.startNewCampaign, false);
 assert.equal(incompleteCard.runtimeAssets.hasProjection, false);
 
-const campaignLibraryText = textOf(panel);
-assert.match(campaignLibraryText, /Campaign Library/);
-assert.match(campaignLibraryText, /New Campaign/);
-assert.doesNotMatch(campaignLibraryText, /Runtime Projection|Mission Graphs|Package Health/);
-const newCampaignButton = await findButton(panel, 'New Campaign');
-assert(newCampaignButton.querySelector('.fa-plus'), 'New Campaign should use a conventional add icon');
-await newCampaignButton.click();
+const openCampaignChooser = async () => {
+  await panel.querySelector('.campaign-new-button').click();
+  return fakeDocument.getElementById('directive-overlay-root');
+};
+const chooseFirstCampaign = async () => {
+  const chooser = await openCampaignChooser();
+  const option = chooser.querySelector('.campaign-package-option');
+  assert(option, 'New Campaign should open a focused package chooser');
+  await option.click();
+};
+const campaignChooser = fakeDocument.getElementById('directive-overlay-root');
+assert.match(textOf(campaignChooser), /Ashes of Peace/);
+assert.doesNotMatch(textOf(campaignChooser), /Runtime Projection|Mission Graphs|Package Health/);
+await campaignChooser.querySelector('.campaign-package-option').click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
@@ -1005,14 +1010,14 @@ let drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 0, 'empty creator draft should be discarded when returning to Campaign Library');
 assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'empty creator draft should not produce resume action');
 
-await findButton(panel, 'New Campaign').click();
+await chooseFirstCampaign();
 setControl(panel, 'identity.name', 'Temporary Officer');
 await findButton(panel, 'Discard Character').click();
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 0, 'Discard Character should delete the active in-progress draft');
 assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'discarded creator draft should not produce resume action');
 
-await findButton(panel, 'New Campaign').click();
+await chooseFirstCampaign();
 
 sectionWands = queryAll(panel, '.directive-creator-section-wand');
 const identityWand = sectionWands.find((button) => button.dataset.creatorSectionWand === 'identity');
@@ -1078,8 +1083,9 @@ assert.equal(__directiveRuntimeShellTestHooks.getLayout().viewportBound, true);
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 1, 'Reset Window should not delete stored creator drafts');
 assert.equal(drafts[0].status, 'inProgress');
-assert.match(textOf(panel), /Campaign Library/);
-await findButton(panel, 'Continue Character Setup').click();
+const resumeChooser = await openCampaignChooser();
+assert.match(textOf(resumeChooser), /Continue Character Setup/);
+await findButton(resumeChooser, 'Continue Character Setup').click();
 assert.equal(findControl(panel, 'identity.name').value, 'Talia Serrin');
 assert.equal(findButton(panel, 'Back').disabled, false);
 

@@ -15,8 +15,7 @@ const RESULT_BANDS = Object.freeze([
 const ACTION_LABELS = Object.freeze({
   replayFromCheckpoint: 'Replay from checkpoint',
   pushOn: 'Push On',
-  keepEnding: 'Keep this ending',
-  saveTerminalBranch: 'Save as branch'
+  keepEnding: 'Keep this ending'
 });
 
 function cloneJson(value) {
@@ -252,7 +251,7 @@ function chooseFinalBand(condition, campaignState, context) {
 }
 
 function actionOptions(actions = []) {
-  return actions.map((action) => ({
+  return actions.filter((action) => ACTION_LABELS[action]).map((action) => ({
     action,
     id: action,
     label: ACTION_LABELS[action] || action

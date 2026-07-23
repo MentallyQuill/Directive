@@ -126,15 +126,39 @@ delete globalThis.document;
 globalThis.document = { createElement: (tagName) => new FakeElement(tagName) };
 const campaignBody = new FakeElement('div');
 renderCampaignPanel(campaignBody, {
-  campaign: { sessions: [{ campaignTitle: 'Ashes of Peace', saveName: 'Current Save', updatedAt: '2026-07-20T09:00:00.000Z' }] },
-  campaignState: { campaign: { title: 'Ashes of Peace' }, ship: { name: 'U.S.S. Breckenridge' }, mission: { activeMissionId: 'main:ashes' } }
+  campaign: { packages: [] },
+  campaignIndex: {
+    selectedCampaignId: 'campaign:ashes',
+    campaigns: [{
+      id: 'campaign:ashes',
+      title: 'Ashes of Peace',
+      playerName: 'Commander Vale',
+      playerRole: 'Executive Officer',
+      status: 'active',
+      setting: 'Asterion Reach',
+      chapter: 'A Ship Underway',
+      lastPlayedAt: '2026-07-20T09:00:00.000Z',
+      premise: 'A reconstruction mission aboard the U.S.S. Breckenridge.',
+      packageId: 'package:ashes',
+      image: { kind: 'ship.hero', subjectId: 'uss-breckenridge' },
+      mediaPackage: { packageId: 'package:ashes', assets: {} },
+      active: true,
+      canOpenChat: true,
+      canSaveGame: true,
+      activeTimeline: { saveId: 'save:ashes', chatBinding: { chatId: 'chat:ashes' } },
+      checkpoints: []
+    }]
+  }
 }, {
-  setActiveTab() {},
+  selectCampaign() {},
+  openCampaignChat() {},
+  saveGame() {},
   refresh() {}
 });
 assert.match(textOf(campaignBody), /Ashes of Peace/);
-assert.match(textOf(campaignBody), /Open Mission|Continue/);
-assert.doesNotMatch(textOf(campaignBody), /Open Campaign Chat|Prompt Context|Latest Outcome|Active Mission|Phase/);
+assert.match(textOf(campaignBody), /Open Chat/);
+assert.match(textOf(campaignBody), /Saved Games/);
+assert.doesNotMatch(textOf(campaignBody), /Open Campaign Chat|Prompt Context|Latest Outcome|Active Mission|Phase|Campaign Library/);
 
 const settingsBody = new FakeElement('div');
 renderSettingsPanel(settingsBody, { campaignState: {} }, {});

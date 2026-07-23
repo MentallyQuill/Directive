@@ -7,6 +7,9 @@ export const DIRECTIVE_LOGICAL_STORAGE_KEYS = Object.freeze({
   campaignPackageImportIndex: 'indexes/campaign-package-imports.v1.json',
   saveIndex: 'indexes/saves.v1.json',
   uiPreferences: 'system/ui-preferences.v1.json',
+  manualCheckpointIndex: 'campaigns/{campaignId}/manual-checkpoints/index.v1.json',
+  manualCheckpoint: 'campaigns/{campaignId}/manual-checkpoints/{checkpointId}.v1.json',
+  checkpointOperation: 'campaigns/{campaignId}/checkpoint-operations/{operationId}.v1.json',
   campaignSave: 'saves/{saveId}.v1.json',
   campaignManifestV2: 'campaigns/{campaignId}/campaign-manifest.v2.json',
   saveManifestV2: 'campaigns/{campaignId}/saves/{saveId}/save-manifest.v2.json',
@@ -67,6 +70,18 @@ function fillTemplate(template, values = {}) {
 
 export function campaignSaveLogicalKey(saveId) {
   return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.campaignSave, { saveId });
+}
+
+export function manualCheckpointIndexLogicalKey(campaignId) {
+  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.manualCheckpointIndex, { campaignId });
+}
+
+export function manualCheckpointLogicalKey({ campaignId, checkpointId } = {}) {
+  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.manualCheckpoint, { campaignId, checkpointId });
+}
+
+export function checkpointOperationLogicalKey({ campaignId, operationId } = {}) {
+  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.checkpointOperation, { campaignId, operationId });
 }
 
 export function campaignManifestV2LogicalKey(campaignId) {

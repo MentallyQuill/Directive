@@ -283,10 +283,10 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
   Object.freeze({
     id: 'tutorial.campaign-records',
     title: 'Campaign Records Walkthrough',
-    summary: 'Learn package selection, active campaigns, saves, autosaves, and branches.',
+    summary: 'Learn package selection, active campaigns, checkpoints, and autosaves.',
     trainingScenario: true,
     steps: Object.freeze([
-      step('records.command', 'Active Campaigns', 'Command lists one card per campaign and uses the latest save, including autosaves.', {
+      step('records.command', 'Active Campaigns', 'Campaign lists one entry per playthrough and identifies its current checkpoint.', {
         route: 'campaign',
         target: 'campaign.session',
         fallbackTarget: 'campaign.command',
@@ -304,27 +304,27 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         fallbackTarget: 'campaign.library',
         prepare: 'campaign-library'
       }),
-      step('records.records', 'Records', 'Records keeps saves, autosaves, and branches grouped by campaign folder.', {
+      step('records.records', 'Checkpoint Journal', 'The journal keeps immutable manual checkpoints grouped with their campaign.', {
         route: 'campaign',
         target: 'campaign.records',
         fallbackTarget: 'campaign.subtab.records',
         prepare: 'campaign-records'
       }),
-      step('records.save-row', 'Save Row', 'Select a save row to inspect the snapshot, branch metadata, and available actions.', {
+      step('records.save-row', 'Checkpoint Row', 'Select a checkpoint to inspect its snapshot and available actions.', {
         route: 'campaign',
         target: 'campaign.records.save-row',
         fallbackTarget: 'campaign.records',
         prepare: 'campaign-records'
       }),
-      step('records.inspector', 'Save Inspector', 'The inspector explains what the save contains before you load, branch, or delete anything.', {
+      step('records.inspector', 'Checkpoint Inspector', 'The inspector explains what the checkpoint contains before you load or delete it.', {
         route: 'campaign',
         target: 'campaign.records.inspector',
         fallbackTarget: 'campaign.records',
         prepare: 'campaign-records'
       }),
-      step('records.save-as', 'Save Game As', 'Save Game As creates a named branch from the active campaign state when the real chat binding is valid.', {
+      step('records.checkpoint', 'Save Game', 'Save Game creates a named, immutable checkpoint without changing simulation state.', {
         route: 'campaign',
-        target: 'campaign.records.save-as',
+        target: 'campaign.records.save',
         fallbackTarget: 'campaign.records.inspector',
         prepare: 'campaign-records'
       })

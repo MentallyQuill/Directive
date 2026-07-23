@@ -799,13 +799,38 @@ export function buildDirectiveTrainingScenarioView({
       lastImportResult: null
     },
     campaignIndex: {
-      sessions: [clone(TRAINING_SESSION)],
-      visibleSessions: [clone(TRAINING_SESSION)],
-      counts: {
-        total: 1,
-        visible: 1,
-        hidden: 0
-      }
+      selectedCampaignId: TRAINING_CAMPAIGN_ID,
+      campaigns: [{
+        id: TRAINING_CAMPAIGN_ID,
+        title: 'Training Scenario: Ashes of Peace',
+        playerName: 'Commander Vale',
+        playerRole: 'Executive Officer',
+        shipName: 'U.S.S. Breckenridge',
+        status: 'active',
+        setting: 'Asterion Reach reconstruction mission',
+        chapter: 'A Ship Underway',
+        lastPlayedAt: TRAINING_SAVE.updatedAt,
+        premise: TRAINING_PACKAGE.campaign?.premise || TRAINING_PACKAGE.campaign?.highConcept || '',
+        packageId: TRAINING_PACKAGE_ID,
+        image: {
+          kind: 'ship.hero',
+          subjectId: TRAINING_PACKAGE.ship?.id || 'uss-breckenridge'
+        },
+        mediaPackage: {
+          packageId: TRAINING_PACKAGE_ID,
+          ship: clone(TRAINING_PACKAGE.ship),
+          assets: clone(TRAINING_PACKAGE.assets || {})
+        },
+        active: true,
+        canOpenChat: false,
+        canSaveGame: false,
+        activeTimeline: {
+          saveId: TRAINING_SAVE_ID,
+          chatBindingAvailable: false,
+          chatBinding: null
+        },
+        checkpoints: []
+      }]
     },
     creator: null,
     campaignState: clone(campaignState),

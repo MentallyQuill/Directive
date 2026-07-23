@@ -451,6 +451,63 @@ function createCampaignResetView() {
         title: 'Ashes of Peace'
       }
     },
+    campaignIndex: {
+      selectedCampaignId: 'campaign-alpha',
+      campaigns: [
+        {
+          id: 'campaign-alpha',
+          title: 'Alpha Campaign',
+          playerName: 'Player Commander',
+          playerRole: 'Executive Officer',
+          status: 'active',
+          setting: 'Asterion Reach',
+          chapter: 'The Missing Convoy',
+          lastPlayedAt: '2026-06-20T14:00:00.000Z',
+          premise: 'Alpha Campaign opens with a missing convoy and a signal no one will claim.',
+          packageId: 'pack-alpha',
+          image: { kind: 'ship.hero', subjectId: 'uss-breckinridge' },
+          mediaPackage: packageTemplate('pack-alpha', 'Alpha Campaign', true),
+          active: true,
+          canOpenChat: true,
+          canSaveGame: true,
+          activeTimeline: {
+            saveId: 'save-current',
+            chatBindingAvailable: true,
+            chatBinding: { chatId: 'alpha-chat' }
+          },
+          checkpoints: [{
+            id: 'checkpoint-alpha',
+            name: 'Before the Missing Convoy',
+            chapter: 'The Missing Convoy',
+            createdAt: '2026-06-20T13:00:00.000Z',
+            loadable: true
+          }]
+        },
+        {
+          id: 'campaign-beta',
+          title: 'Beta Campaign',
+          playerName: 'Player Commander',
+          playerRole: 'Executive Officer',
+          status: 'stored',
+          setting: 'Federation frontier',
+          chapter: 'First Contact',
+          lastPlayedAt: '2026-06-19T14:00:00.000Z',
+          premise: 'Beta Campaign continues from an immutable checkpoint.',
+          packageId: 'pack-beta',
+          image: { kind: 'ship.hero', subjectId: 'uss-breckinridge' },
+          mediaPackage: packageTemplate('pack-beta', 'Beta Campaign'),
+          active: false,
+          canOpenChat: false,
+          canSaveGame: false,
+          activeTimeline: {
+            saveId: 'save-beta',
+            chatBindingAvailable: false,
+            chatBinding: null
+          },
+          checkpoints: []
+        }
+      ]
+    },
     campaign: {
       activeSaveId: 'save-current',
       packages: [
@@ -1088,16 +1145,21 @@ const campaignView = createCampaignResetView();
 let campaignBody = fakeDocument.createElement('div');
 renderCampaignPanel(campaignBody, campaignView, {
   refresh() {},
-  loadGame() {},
+  selectCampaign() {},
+  openCampaignChat() {},
+  saveGame() {},
+  loadCheckpoint() {},
+  deleteSave() {},
   startCreatorDraft() {},
-  setActiveTab() {}
 });
-assert(campaignBody.querySelector('.directive-campaign-launcher'), 'Campaign should render the focused launcher surface');
-assert.match(textOf(campaignBody), /Campaign Library/);
-assert.match(textOf(campaignBody), /Open Mission/);
-assert.match(textOf(campaignBody), /New Campaign/);
-assert.match(textOf(campaignBody), /Saved Campaigns/);
-assert.doesNotMatch(textOf(campaignBody), /Latest committed outcome|Recovery Console|Open Campaign Chat/);
+assert(campaignBody.querySelector('.campaign-journal'), 'Campaign should render the expanded master/detail surface');
+assert(campaignBody.querySelector('.mobile-campaign-accordion'), 'Campaign should render the phone accordion surface');
+assert.match(textOf(campaignBody), /Alpha Campaign/);
+assert.match(textOf(campaignBody), /Open Chat/);
+assert(campaignBody.querySelector('[aria-label="New Campaign"]'));
+assert.match(textOf(campaignBody), /Saved Games/);
+assert.match(textOf(campaignBody), /Before the Missing Convoy/);
+assert.doesNotMatch(textOf(campaignBody), /Campaign Library|Saved Campaigns|Save Game As|Terminal Branch/);
 if (false) {
 const packageMetaGrid = campaignBody.querySelector('.directive-campaign-package-detail-grid');
 assert(packageMetaGrid, 'Campaign briefing should render package metadata stats');
@@ -1194,15 +1256,14 @@ resetCampaignPanelState();
 campaignBody = fakeDocument.createElement('div');
 renderCampaignPanel(campaignBody, campaignView, {
   refresh() {},
-  loadGame() {},
-  setActiveTab() {}
+  selectCampaign() {},
+  openCampaignChat() {},
+  saveGame() {},
+  loadCheckpoint() {},
+  deleteSave() {}
 });
-assert.equal(campaignBody.querySelector('.directive-campaign-section-active').id, 'directive-campaign-command-section');
-assert.equal(campaignBody.querySelectorAll('.directive-starship-library-row')[0].getAttribute('aria-pressed'), 'true');
-saveRows = campaignBody.querySelectorAll('.directive-starship-save-row');
-const defaultSelectedSaveRow = saveRows.find((row) => /Current Save/.test(textOf(row)));
-assert(defaultSelectedSaveRow, 'Campaign reset should render the current save row');
-assert.equal(defaultSelectedSaveRow.getAttribute('aria-pressed'), 'true');
+assert.equal(campaignBody.querySelectorAll('.campaign-row')[0].getAttribute('aria-selected'), 'true');
+assert.equal(campaignBody.querySelector('.campaign-save-row').getAttribute('aria-pressed'), 'false');
 
 resetCrewPanelState();
 const crewView = createCrewResetView();

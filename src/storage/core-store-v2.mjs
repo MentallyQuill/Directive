@@ -289,7 +289,7 @@ function replaceRecallAuxiliaryRefs(value, refs = []) {
   return next;
 }
 
-async function forkRecallAuxiliaryArtifactsForSaveBranch(adapter, {
+async function forkRecallAuxiliaryArtifactsForCheckpoint(adapter, {
   sourceState,
   mutation,
   targetSaveId,
@@ -317,11 +317,11 @@ async function forkRecallAuxiliaryArtifactsForSaveBranch(adapter, {
     campaignId: sourceState.campaignId,
     saveId: targetSaveId,
     branchId: targetBranchId,
-    transactionId: 'save-as',
-    batchId: `save-as-${hashStableJson({ sourceSaveId: sourceState.saveId }).slice(0, 12)}`,
+    transactionId: 'checkpoint-fork',
+    batchId: `checkpoint-fork-${hashStableJson({ sourceSaveId: sourceState.saveId }).slice(0, 12)}`,
     entries: targetEntries,
     createdAt: typeof now === 'function' ? now() : now,
-    source: 'save-as-recall-fork'
+    source: 'checkpoint-recall-fork'
   });
   return {
     sourceRefs,
@@ -1354,7 +1354,7 @@ function buildHead(state) {
   };
 }
 
-function retargetCoreValueForSaveBranch(value, {
+function retargetCoreValueForCheckpoint(value, {
   campaignId = null,
   sourceSaveId = null,
   targetSaveId = null,
@@ -1363,7 +1363,7 @@ function retargetCoreValueForSaveBranch(value, {
   targetChatId = null
 } = {}) {
   if (Array.isArray(value)) {
-    return value.map((entry) => retargetCoreValueForSaveBranch(entry, {
+    return value.map((entry) => retargetCoreValueForCheckpoint(entry, {
       campaignId,
       sourceSaveId,
       targetSaveId,
@@ -1384,7 +1384,7 @@ function retargetCoreValueForSaveBranch(value, {
     } else if ((key === 'chatId' || key === 'currentChatId' || key === 'chat_id') && targetChatId && String(entry || '').trim() === String(sourceChatId || '').trim()) {
       next[key] = targetChatId;
     } else {
-      next[key] = retargetCoreValueForSaveBranch(entry, {
+      next[key] = retargetCoreValueForCheckpoint(entry, {
         campaignId,
         sourceSaveId,
         targetSaveId,
@@ -1407,7 +1407,7 @@ function compactCheckpointRef(value = null) {
   };
 }
 
-async function branchCheckpointArtifacts(adapter, sourceState, options = {}) {
+async function forkCheckpointArtifacts(adapter, sourceState, options = {}) {
   const refs = new Map();
   for (const turn of sourceState.turns || []) {
     const ref = compactCheckpointRef(turn?.coreCheckpointRef);
@@ -1423,7 +1423,7 @@ async function branchCheckpointArtifacts(adapter, sourceState, options = {}) {
         layout: ref.layout || 'core'
       });
       checkpoints.push({
-        ...retargetCoreValueForSaveBranch(record.checkpoint || {}, options),
+        ...retargetCoreValueForCheckpoint(record.checkpoint || {}, options),
         checkpointId: ref.checkpointId
       });
     } catch {
@@ -2430,14 +2430,17 @@ export async function loadCoreStoreStateV2(adapter, {
   };
 }
 
-export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
+export async function forkCoreStoreStateV2ForCheckpoint(adapter, {
   campaignId,
   sourceSaveId,
   targetSaveId,
   branchId = null,
   sourceChatId = null,
   targetChatId = null,
-  now = null
+  now = null,
+  campaignState = null,
+  campaignStateSourceSaveId = null,
+  campaignStateSourceChatId = null
 } = {}) {
   const id = requireNonEmptyString(campaignId, 'campaignId');
   const sourceSave = requireNonEmptyString(sourceSaveId, 'sourceSaveId');
@@ -2451,13 +2454,13 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
   });
   const timestamp = typeof now === 'function' ? now() : (now || isoNow());
   const recallSourceMutation = createRecallSourceMutation({
-    action: 'save-as',
+    action: 'checkpoint-fork',
     campaignId: id,
     saveId: sourceSave,
     branchId: sourceState?.branchId || sourceSave,
     targetSaveId: targetSave,
     targetBranchId: targetBranch,
-    reason: sourceState ? 'save-as-core-branch-clone' : 'save-as-core-branch-clone-source-missing',
+    reason: sourceState ? 'checkpoint-core-fork' : 'checkpoint-core-fork-source-missing',
     occurredAt: timestamp
   });
   if (!sourceState) {
@@ -2478,7 +2481,7 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
     sourceChatId,
     targetChatId
   };
-  const recallAuxiliaryRewrite = await forkRecallAuxiliaryArtifactsForSaveBranch(adapter, {
+  const recallAuxiliaryRewrite = await forkRecallAuxiliaryArtifactsForCheckpoint(adapter, {
     sourceState,
     mutation: recallSourceMutation,
     targetSaveId: targetSave,
@@ -2487,7 +2490,7 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
   });
   const targetState = {
     ...replaceRecallAuxiliaryRefs(
-      retargetCoreValueForSaveBranch(sourceState, retargetOptions),
+      retargetCoreValueForCheckpoint(sourceState, retargetOptions),
       recallAuxiliaryRewrite.targetRefs
     ),
     campaignId: id,
@@ -2495,7 +2498,7 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
     branchId: targetBranch,
     updatedAt: timestamp
   };
-  const checkpoints = await branchCheckpointArtifacts(adapter, sourceState, retargetOptions);
+  const checkpoints = await forkCheckpointArtifacts(adapter, sourceState, retargetOptions);
   const commit = await commitV2SaveLayout(adapter, {
     campaignId: id,
     saveId: targetSave,
@@ -2515,7 +2518,7 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
     diagnosticsSegments: [cloneJson(targetState.diagnostics || [])],
     checkpoints,
     metadata: {
-      source: 'save-as-core-branch-clone',
+      source: 'checkpoint-core-fork',
       parentSaveId: sourceSave,
       targetSaveId: targetSave,
       checkpointCount: checkpoints.length,
@@ -2532,6 +2535,13 @@ export async function copyCoreStoreStateV2ForSaveBranch(adapter, {
   });
   return {
     state: cloneJson(targetState),
+    campaignState: campaignState
+      ? retargetCoreValueForCheckpoint(campaignState, {
+          ...retargetOptions,
+          sourceSaveId: campaignStateSourceSaveId || sourceSave,
+          sourceChatId: campaignStateSourceChatId || sourceChatId
+        })
+      : null,
     checkpointCount: checkpoints.length,
     skipped: false,
     recallSourceMutation: cloneJson(recallSourceMutation),

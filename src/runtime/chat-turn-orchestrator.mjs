@@ -633,15 +633,13 @@ function localLocationTransitionNarration(campaignState = {}, decision = {}) {
 const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
   replayFromCheckpoint: 'Replay from checkpoint',
   pushOn: 'Push On',
-  keepEnding: 'Keep this ending',
-  saveTerminalBranch: 'Save as branch'
+  keepEnding: 'Keep this ending'
 });
 
 const DEFAULT_TERMINAL_OUTCOME_ACTIONS = Object.freeze([
   'replayFromCheckpoint',
   'pushOn',
-  'keepEnding',
-  'saveTerminalBranch'
+  'keepEnding'
 ]);
 
 const MODEL_BACKED_RETRY_RESPONSE_KINDS = new Set([
@@ -3704,7 +3702,7 @@ export function createChatTurnOrchestrator({
       && decision.condition.resolutionPolicy.actions.length
       ? decision.condition.resolutionPolicy.actions
       : DEFAULT_TERMINAL_OUTCOME_ACTIONS;
-    return actions.map((action) => ({
+    return actions.filter((action) => TERMINAL_OUTCOME_ACTION_LABELS[action]).map((action) => ({
       id: action,
       action,
       label: TERMINAL_OUTCOME_ACTION_LABELS[action] || action

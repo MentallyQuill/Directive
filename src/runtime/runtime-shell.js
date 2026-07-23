@@ -357,10 +357,10 @@ const TRAINING_INERT_ACTIONS = Object.freeze([
   'acceptCreatorDraftAndStartCampaign',
   'importPlayerPortrait',
   'removePlayerPortrait',
-  'loadGame',
-  'deleteCampaignSave',
-  'saveCurrentGame',
-  'saveCurrentGameAs',
+  'selectCampaign',
+  'saveGame',
+  'loadCheckpoint',
+  'deleteSave',
   'refreshStorageDiagnostics',
   'verifyActiveSave',
   'settleActiveState',
@@ -385,8 +385,6 @@ const TRAINING_INERT_ACTIONS = Object.freeze([
   'cancelReadiedCommandBearingPoint',
   'recoverCommandBearingPoint',
   'openCampaignChat',
-  'hideCampaignSession',
-  'showCampaignSession',
   'resolvePendingChatInteraction',
   'resolveTerminalOutcomeDecision',
   'retryCommittedChatResponse',
@@ -417,8 +415,7 @@ const TRAINING_INERT_ACTIONS = Object.freeze([
   'refreshDirectivePresetStatus',
   'updateDirectivePresetAutoCheck',
   'installDirectivePreset',
-  'concludeCampaign',
-  'archiveCompletedCampaign'
+  'concludeCampaign'
 ]);
 
 function createTrainingScenarioActions() {
@@ -512,18 +509,18 @@ function createRuntimeActions() {
     removePlayerPortrait(options) {
       return runtimeApp.removePlayerPortrait(options);
     },
-    loadGame(options) {
+    selectCampaign(options) {
+      return runtimeApp.selectCampaign(options);
+    },
+    saveGame(options) {
+      return runtimeApp.saveGame(options);
+    },
+    loadCheckpoint(options) {
       stopTrainingBeforeRealStateChange();
-      return runtimeApp.loadGame(options);
+      return runtimeApp.loadCheckpoint(options);
     },
-    deleteCampaignSave(options) {
-      return runtimeApp.deleteCampaignSave(options);
-    },
-    saveCurrentGame(options) {
-      return runtimeApp.saveCurrentGame(options);
-    },
-    saveCurrentGameAs(options) {
-      return runtimeApp.saveCurrentGameAs(options);
+    deleteSave(options) {
+      return runtimeApp.deleteSave(options);
     },
     refreshStorageDiagnostics() {
       return runtimeApp.refreshStorageDiagnostics();
@@ -618,12 +615,6 @@ function createRuntimeActions() {
       stopTrainingBeforeRealStateChange();
       return runtimeApp.openCampaignChat(options);
     },
-    hideCampaignSession(options) {
-      return runtimeApp.hideCampaignSession(options);
-    },
-    showCampaignSession(options) {
-      return runtimeApp.showCampaignSession(options);
-    },
     resolvePendingChatInteraction(options) {
       return runtimeApp.resolvePendingChatInteraction(options);
     },
@@ -716,9 +707,6 @@ function createRuntimeActions() {
     },
     concludeCampaign(options) {
       return runtimeApp.concludeCampaign(options);
-    },
-    archiveCompletedCampaign() {
-      return runtimeApp.archiveCompletedCampaign();
     },
     beginGuidanceTutorial(options = {}) {
       return beginDirectiveGuidanceTutorial(options);

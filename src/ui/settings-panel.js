@@ -1186,17 +1186,6 @@ function appendStateSafetySettings(body, view, actions = {}) {
         await actions.refreshStorageDiagnostics?.();
         await actions.refresh?.();
       }
-    }),
-    createSettingsActionTile({
-      label: 'Reload Active Save',
-      description: 'Reload the indexed save payload from storage.',
-      icon: 'fa-solid fa-arrows-rotate',
-      tone: 'secondary',
-      disabled: !hasActiveSave || typeof actions.loadGame !== 'function',
-      onClick: async () => {
-        await actions.loadGame?.({ saveId: view.activeSaveId });
-        await actions.refresh?.();
-      }
     })
   );
   if (view?.pendingDirectorTurn) {

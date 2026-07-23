@@ -272,10 +272,10 @@ try {
   const campaignBody = document.createElement('main');
   renderCampaignPanel(campaignBody, buildDirectiveTrainingScenarioView({ activeTab: 'campaign' }), actions);
   assertTours(campaignBody, [
-    'campaign.command',
+    'campaign.index',
     'campaign.start',
-    'campaign.library',
-    'campaign.records'
+    'campaign.detail',
+    'campaign.saves'
   ], 'Campaign panel');
 
   const missionBody = document.createElement('main');

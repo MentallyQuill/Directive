@@ -431,9 +431,6 @@ async function saveChatSnapshot(context, { chatName, withMetadata, chatData } = 
   if (typeof context?.saveChatSnapshot === 'function') {
     return context.saveChatSnapshot.call(context, { chatName, withMetadata, chatData });
   }
-  if (typeof context?.saveChatAs === 'function') {
-    return context.saveChatAs.call(context, { chatName, withMetadata, chatData });
-  }
   let script = null;
   try {
     script = await import('/script.js');
@@ -443,9 +440,48 @@ async function saveChatSnapshot(context, { chatName, withMetadata, chatData } = 
   if (typeof script?.saveChat === 'function') {
     return script.saveChat({ chatName, withMetadata, chatData });
   }
-  const error = new Error('SillyTavern chat snapshot saving is unavailable; Save Game As cannot clone the active chat.');
+  const error = new Error('SillyTavern chat snapshot saving is unavailable; the checkpoint chat cannot be created.');
   error.code = 'DIRECTIVE_CHAT_CLONE_UNAVAILABLE';
   throw error;
+}
+
+async function loadCharacterChatSnapshot(context, { chatId, entity } = {}) {
+  const target = characterForEntity(context, entity);
+  const fetchFn = context?.fetch || globalThis.fetch;
+  if (!target?.character || typeof fetchFn !== 'function') {
+    const error = new Error('SillyTavern chat snapshot loading is unavailable for checkpoint cloning.');
+    error.code = 'DIRECTIVE_CHAT_SNAPSHOT_LOAD_UNAVAILABLE';
+    throw error;
+  }
+  const getHeaders = context?.getRequestHeaders || globalThis.SillyTavern?.getContext?.()?.getRequestHeaders;
+  const headers = typeof getHeaders === 'function' ? getHeaders.call(context) : {};
+  const sourceChatId = nonEmptyString(chatId);
+  const response = await fetchFn('/api/chats/get', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ch_name: target.character.name,
+      file_name: sourceChatId?.replace(/\.jsonl$/i, ''),
+      avatar_url: target.character.avatar
+    }),
+    cache: 'no-cache'
+  });
+  if (!response?.ok) {
+    const error = new Error(`SillyTavern could not load checkpoint chat "${sourceChatId}".`);
+    error.code = 'DIRECTIVE_CHAT_SNAPSHOT_LOAD_FAILED';
+    throw error;
+  }
+  const rows = await response.json();
+  if (!Array.isArray(rows) || rows.length === 0) {
+    const error = new Error(`SillyTavern checkpoint chat "${sourceChatId}" is empty or unreadable.`);
+    error.code = 'DIRECTIVE_CHAT_SNAPSHOT_INVALID';
+    throw error;
+  }
+  const [header, ...messages] = rows;
+  return {
+    metadata: cloneJson(header?.chat_metadata || {}),
+    messages: cloneJson(messages)
+  };
 }
 
 async function tryCreateChat(context, name) {
@@ -1180,17 +1216,20 @@ export function createSillyTavernChatAdapter({
     return binding;
   }
 
-  async function cloneCurrentChatForSaveBranch({
+  async function cloneCampaignChat({
+    sourceChatId: requestedSourceChatId = null,
+    targetName = null,
+    open: shouldOpen = false,
     name = null,
     campaignId = null,
     saveId = null,
     sourceBinding = null
   } = {}) {
     let ctx = context();
-    if (!ctx) throw new Error('SillyTavern context is unavailable for Save Game As chat cloning.');
-    const sourceChatId = contextChatId(ctx);
+    if (!ctx) throw new Error('SillyTavern context is unavailable for checkpoint chat cloning.');
+    const sourceChatId = nonEmptyString(requestedSourceChatId) || contextChatId(ctx);
     if (!sourceChatId) {
-      const error = new Error('Directive cannot clone a save branch because no active SillyTavern chat is selected.');
+      const error = new Error('Directive cannot clone a checkpoint chat because no source SillyTavern chat was provided.');
       error.code = 'DIRECTIVE_CHAT_CLONE_NO_ACTIVE_CHAT';
       throw error;
     }
@@ -1199,7 +1238,7 @@ export function createSillyTavernChatAdapter({
       : (currentDirectiveBinding(ctx) || getCurrentBinding() || {});
     const entity = bestEntityForBinding(ctx, sourceChatId, source);
     if (entity?.entityType !== 'character' || !entity.entityId) {
-      const error = new Error('Directive Save Game As requires a character-bound SillyTavern chat so the branch can be cloned under the campaign character card.');
+      const error = new Error('Directive checkpoints require a character-bound SillyTavern chat.');
       error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_UNSUPPORTED';
       error.details = { entity };
       throw error;
@@ -1214,12 +1253,23 @@ export function createSillyTavernChatAdapter({
       }
     }
 
-    const sourceMessages = getChatArray(ctx);
+    const sourceIsCurrent = sourceChatId === contextChatId(ctx);
+    const sourceSnapshot = sourceIsCurrent
+      ? {
+          metadata: cloneJson(chatMetadataObject(ctx) || {}),
+          messages: cloneJson(getChatArray(ctx))
+        }
+      : await loadCharacterChatSnapshot(ctx, {
+          chatId: sourceChatId,
+          entity
+        });
+    const sourceMessages = sourceSnapshot.messages;
     const existingNames = await existingCharacterChatNames(ctx, entity);
-    const requestedName = nonEmptyString(name)
+    const requestedName = nonEmptyString(targetName)
+      || nonEmptyString(name)
       || nonEmptyString(source.chatName)
       || nonEmptyString(sourceChatId)
-      || 'Directive Save Branch';
+      || 'Directive Checkpoint';
     const branchChatName = uniqueChatFileName(requestedName, existingNames);
     const branchBinding = {
       ...cloneJson(source || {}),
@@ -1233,7 +1283,7 @@ export function createSillyTavernChatAdapter({
       entityName: entity.entityName,
       status: source.status || 'bound',
       createdByDirective: true,
-      creationMethod: 'clone-current-chat',
+      creationMethod: 'clone-campaign-chat',
       clonedFromChatId: sourceChatId,
       clonedAt: now()
     };
@@ -1241,24 +1291,27 @@ export function createSillyTavernChatAdapter({
     await saveChatSnapshot(ctx, {
       chatName: branchChatName,
       withMetadata: {
+        ...cloneJson(sourceSnapshot.metadata || {}),
         [DIRECTIVE_CHAT_METADATA_KEY]: cloneJson(branchBinding)
       },
       chatData: branchMessages
     });
-    const opened = await open({
-      chatId: branchChatName,
-      entityType: entity.entityType,
-      entityId: entity.entityId,
-      entityName: entity.entityName
-    });
-    ctx = context();
-    if (!opened || contextChatId(ctx) !== branchChatName) {
-      const error = new Error(`Directive created Save Game As chat ${branchChatName}, but SillyTavern did not make it active.`);
-      error.code = 'DIRECTIVE_CHAT_CLONE_OPEN_FAILED';
-      error.details = { sourceChatId, branchChatId: branchChatName };
-      throw error;
+    if (shouldOpen) {
+      const opened = await open({
+        chatId: branchChatName,
+        entityType: entity.entityType,
+        entityId: entity.entityId,
+        entityName: entity.entityName
+      });
+      ctx = context();
+      if (!opened || contextChatId(ctx) !== branchChatName) {
+        const error = new Error(`Directive created checkpoint chat ${branchChatName}, but SillyTavern did not make it active.`);
+        error.code = 'DIRECTIVE_CHAT_CLONE_OPEN_FAILED';
+        error.details = { sourceChatId, branchChatId: branchChatName };
+        throw error;
+      }
+      await updateBindingMetadata(branchBinding);
     }
-    await updateBindingMetadata(branchBinding);
     return {
       ...cloneJson(branchBinding),
       sourceChatId,
@@ -1870,12 +1923,49 @@ export function createSillyTavernChatAdapter({
     return false;
   }
 
+  async function deleteCampaignChat(binding) {
+    const ctx = context();
+    const chatId = nonEmptyString(binding?.chatId);
+    if (!ctx || !chatId) {
+      return { deleted: false, reason: 'missing-chat-binding' };
+    }
+    if (isCurrentChat(chatId)) {
+      const error = new Error('Directive will not delete the currently active campaign chat through checkpoint deletion.');
+      error.code = 'DIRECTIVE_CHECKPOINT_CHAT_DELETE_ACTIVE';
+      throw error;
+    }
+    const entity = bestEntityForBinding(ctx, chatId, binding);
+    const target = characterForEntity(ctx, entity);
+    const fetchFn = ctx?.fetch || globalThis.fetch;
+    if (!target?.character || typeof fetchFn !== 'function') {
+      return { deleted: false, reason: 'chat-delete-unavailable' };
+    }
+    const getHeaders = ctx?.getRequestHeaders || globalThis.SillyTavern?.getContext?.()?.getRequestHeaders;
+    const headers = typeof getHeaders === 'function' ? getHeaders.call(ctx) : {};
+    const response = await fetchFn('/api/chats/delete', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        chatfile: `${chatId.replace(/\.jsonl$/i, '')}.jsonl`,
+        avatar_url: target.character.avatar
+      })
+    });
+    if (!response?.ok) {
+      const error = new Error(`SillyTavern could not delete checkpoint chat "${chatId}".`);
+      error.code = 'DIRECTIVE_CHECKPOINT_CHAT_DELETE_FAILED';
+      throw error;
+    }
+    return { deleted: true, chatId };
+  }
+
   return {
     id: 'sillytavern-chat-adapter',
     getCurrentChatId: () => contextChatId(context()),
     getCurrentBinding,
     createOrBindCampaignChat,
-    cloneCurrentChatForSaveBranch,
+    cloneCampaignChat,
+    openCampaignChat: open,
+    deleteCampaignChat,
     isCurrentChat,
     getRecentMessages,
     refreshCurrentChat,

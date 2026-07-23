@@ -8,7 +8,7 @@
 
 **Tech Stack:** Browser-native JavaScript modules, CSS, SillyTavern host adapters, Directive CORE/storage v2, Node.js contract tests, and Playwright/CDP live-host verification.
 
-**Execution status, 2026-07-22:** Phase 0 is complete. Phase 1 production cutover is implemented: the old shell/layout modules and player-facing geometry actions are removed, the viewport-bound shell and People route are active, shared focus/record/reorder state primitives exist, and UI preferences v2 migrates v1 quest selection to campaign scope. The full alpha gate passes 222 checks. Phase 1 live screenshot/overflow certification remains open because this checkout has no configured SillyTavern URL or dedicated test-user credentials; the four-viewport keyboard/touch Playwright matrix is ready to run when that host is supplied. Obsolete command-spine CSS assertions/selectors remain scheduled for route-by-route deletion through Phase 7 so route styling is not removed before its replacement lands.
+**Execution status, 2026-07-22:** Phase 0 is complete. Phase 1 production cutover is implemented: the old shell/layout modules and player-facing geometry actions are removed, the viewport-bound shell and People route are active, shared focus/record/reorder state primitives exist, and UI preferences v2 migrates v1 quest selection to campaign scope. The full alpha gate passes 222 checks. Phase 1 live screenshot/overflow certification remains open because this checkout has no configured SillyTavern URL or dedicated test-user credentials; the four-viewport keyboard/touch Playwright matrix is ready to run when that host is supplied. Obsolete command-spine CSS assertions/selectors remain scheduled for route-by-route deletion through Phase 7 so route styling is not removed before its replacement lands. Phase 2 uses a hard pre-alpha cutover: legacy saves and mutable branches receive no migration utility, compatibility path, relabeling, or UI exposure.
 
 ## Global Constraints
 
@@ -162,7 +162,7 @@ Cutover: keep media resolution and focused generic helpers. Add shared expanded-
 
 - [ ] Write failing projector tests for active-first/recent ordering, approved fields only, package asset refs, checkpoint-only Saved Games, Open Chat only on the active timeline, and selection without activation.
 - [ ] Write a fault-injection matrix for journal stages: source guard, chat clone, checkpoint record, CORE fork/reference, binding write, prompt rebuild, and open chat. Replaying the same idempotency key must converge without duplicate chats or records.
-- [ ] Implement an immutable `directive.manualCheckpoint.v1` record referencing the preserved chat and frozen CORE authority. Treat existing manual/branch records as pre-alpha data to migrate or discard explicitly; do not present them as checkpoints by label alone.
+- [ ] Implement an immutable `directive.manualCheckpoint.v1` record referencing the preserved chat and frozen CORE authority. Ignore existing manual/branch records completely; do not migrate, relabel, import, or expose them.
 - [ ] Implement Save Game so active save/chat ids remain unchanged and the preserved chat is not opened.
 - [ ] Implement Load Game so every load creates a new active save id, clones a playable chat from the checkpoint, forks CORE v2 authority, rebuilds prompt context for the new binding only, and leaves the checkpoint reusable.
 - [ ] Implement Delete Save confirmation and prohibit checkpoint UI from deleting the active timeline.
@@ -359,7 +359,7 @@ Mission precedes People because a player-safe quest projection and UI-only selec
 2. **New Campaign entry:** recommend the mockup's `+` button open a focused chooser with Create from Package and Import Package, rather than placing import controls in the normal campaign detail.
 3. **Checkpoint retention:** recommend no manual-checkpoint cap in pre-alpha and keep autosaves invisible; add retention only when real storage evidence justifies it.
 4. **Controller mapping:** recommend left/right bumper route switching, D-pad/left-stick roving focus, confirm to activate, and cancel to collapse/close; mouse, touch, and keyboard remain complete without a controller.
-5. **Legacy save disposition:** recommend an explicit one-time pre-alpha cutover that preserves existing active timelines but does not relabel mutable branches as immutable checkpoints. Existing branches may remain loadable through a migration utility or be intentionally discarded, but the choice must be made before Phase 2 implementation.
+5. **Legacy save disposition — decided:** no legacy support. Existing mutable branches and legacy save records are intentionally discarded from the new product surface and receive no migration utility or compatibility code.
 
 ## Principal Risks
 

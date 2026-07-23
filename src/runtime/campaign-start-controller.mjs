@@ -7,8 +7,6 @@ import {
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
   saveGame,
-  saveGameAs,
-  saveTerminalBranch as saveTerminalBranchRecord,
   startCharacterCreatorDraft
 } from '../campaign/campaign-start-service.mjs';
 import {
@@ -31,6 +29,7 @@ import {
   recoverActiveCampaignSave
 } from '../storage/directive-storage-repository.mjs';
 import {
+  loadActiveCampaignStateV2,
   persistActiveCampaignStateV2
 } from '../storage/active-save-facade-v2.mjs';
 
@@ -803,6 +802,105 @@ export function createCampaignStartController({
       return cloneJson(save);
     },
 
+    async createCheckpointTimeline({
+      saveId = nextId('save'),
+      name = null,
+      campaignState,
+      checkpointId
+    } = {}) {
+      requireObject(campaignState, 'campaignState');
+      const id = requireNonEmptyString(saveId, 'saveId');
+      const sourceCheckpointId = requireNonEmptyString(checkpointId, 'checkpointId');
+      const savedAt = currentTime();
+      const timelineName = String(name || '').trim()
+        || `${campaignState?.campaign?.title || campaignState?.player?.name || 'Directive'} Continuation`;
+      return persistRuntimeCampaignStateForSaveRecord({
+        saveRecord: {
+          kind: 'directive.saveManifest.v2',
+          id,
+          saveId: id,
+          name: timelineName,
+          current: true,
+          branchId: id,
+          metadata: {
+            campaignId: campaignState?.campaign?.id || null,
+            loadedFromCheckpointId: sourceCheckpointId
+          }
+        },
+        campaignState,
+        summary: `Loaded immutable checkpoint ${sourceCheckpointId}.`,
+        reason: 'checkpointLoad',
+        markActive: true,
+        createIndexEntry: true,
+        updateSaveIndex: true,
+        name: timelineName,
+        slotType: 'active',
+        now: savedAt
+      });
+    },
+
+    async createCheckpointAuthoritySnapshot({
+      checkpointId,
+      campaignState = activeCampaignState
+    } = {}) {
+      requireObject(campaignState, 'campaignState');
+      const id = requireNonEmptyString(checkpointId, 'checkpointId');
+      const authoritySaveId = `checkpoint-authority-${id}`;
+      const savedAt = currentTime();
+      const result = await persistRuntimeCampaignStateForSaveRecord({
+        saveRecord: {
+          kind: 'directive.saveManifest.v2',
+          id: authoritySaveId,
+          saveId: authoritySaveId,
+          name: authoritySaveId,
+          current: false,
+          branchId: authoritySaveId,
+          metadata: {
+            campaignId: campaignState?.campaign?.id || null,
+            checkpointAuthority: true,
+            checkpointId: id
+          }
+        },
+        campaignState,
+        summary: `Immutable authority snapshot for checkpoint ${id}.`,
+        reason: 'manualCheckpointAuthority',
+        markActive: false,
+        createIndexEntry: false,
+        updateSaveIndex: false,
+        name: authoritySaveId,
+        slotType: 'checkpointAuthority',
+        now: savedAt
+      });
+      return {
+        kind: 'directive.manualCheckpointCoreAuthority.v1',
+        campaignId: campaignState?.campaign?.id || null,
+        saveId: authoritySaveId,
+        checkpointId: id,
+        createdAt: savedAt,
+        saveManifestRef: cloneJson(result.saveManifestRef || null)
+      };
+    },
+
+    async loadCheckpointAuthorityState({
+      campaignId,
+      authoritySaveId
+    } = {}) {
+      const campaign = requireNonEmptyString(campaignId, 'campaignId');
+      const saveId = requireNonEmptyString(authoritySaveId, 'authoritySaveId');
+      const loaded = await loadActiveCampaignStateV2(adapter, {
+        saveRecord: {
+          kind: 'directive.saveManifest.v2',
+          id: saveId,
+          saveId,
+          metadata: { campaignId: campaign }
+        }
+      });
+      if (loaded?.found !== true || !loaded?.campaignState) {
+        throw new Error(`Checkpoint authority state "${saveId}" is unavailable.`);
+      }
+      return cloneJson(loaded.campaignState);
+    },
+
     async persistRuntimeCampaignState({
       saveId = activeSaveId,
       campaignState = activeCampaignState,
@@ -822,102 +920,6 @@ export function createCampaignStartController({
         markActive,
         updateSaveIndex
       });
-    },
-
-    async saveCurrentGameAs({
-      sourceSaveId = activeSaveId,
-      newSaveId = nextId('save'),
-      name = null,
-      branchFrom = null,
-      campaignState = activeCampaignState,
-      summary = null
-    } = {}) {
-      requireObject(campaignState, 'campaignState');
-      const sourceId = requireNonEmptyString(sourceSaveId, 'sourceSaveId');
-      if (await shouldPersistManualSaveAsV2(sourceId)) {
-        const indexes = await getDirectiveStorageIndexes(adapter);
-        const sourceEntry = indexes.saveIndex?.saves?.[sourceId] || {};
-        const sourceRecord = await loadCampaignSaveRecordFromStorage(adapter, sourceId);
-        const branchedAt = currentTime();
-        const branchPoint = branchFrom || {
-          divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId
-            || sourceRecord.payload?.campaignState?.turnLedger?.lastCommittedOutcomeId
-            || null
-        };
-        const branchName = name?.trim() || `${sourceEntry.name || sourceRecord.name || sourceId} Copy`;
-        return persistRuntimeCampaignStateForSaveRecord({
-          saveRecord: {
-            kind: 'directive.saveManifest.v2',
-            id: requireNonEmptyString(newSaveId, 'newSaveId'),
-            name: branchName,
-            current: true,
-            branchId: newSaveId,
-            metadata: {
-              campaignId: campaignState?.campaign?.id || sourceEntry.metadata?.campaignId || sourceRecord.metadata?.campaignId || null,
-              branch: {
-                parentSaveId: sourceId,
-                parentSaveName: sourceEntry.name || sourceRecord.name || sourceId,
-                divergenceOutcomeId: branchPoint?.divergenceOutcomeId || null,
-                branchedAt
-              }
-            }
-          },
-          campaignState,
-          summary,
-          reason: 'saveAs',
-          markActive: true,
-          createIndexEntry: true,
-          name: branchName,
-          slotType: 'manual',
-          now: branchedAt
-        });
-      }
-      const packageData = packageForState(campaignState);
-      const save = await saveGameAs({
-        adapter,
-        sourceSaveId: sourceId,
-        newSaveId,
-        name,
-        now: currentTime(),
-        branchFrom,
-        campaignState,
-        packageData,
-        summary
-      });
-      if (save.current === true) {
-        activeSaveId = save.id;
-      }
-      return cloneJson(save);
-    },
-
-    async saveTerminalBranch({
-      sourceSaveId = activeSaveId,
-      newSaveId = nextId('terminal-branch'),
-      name = null,
-      branchFrom = null,
-      campaignState = activeCampaignState,
-      summary = null,
-      terminalOutcomeId = null,
-      terminalDecisionId = null,
-      terminalConditionId = null
-    } = {}) {
-      requireObject(campaignState, 'campaignState');
-      const packageData = packageForState(campaignState);
-      const save = await saveTerminalBranchRecord({
-        adapter,
-        sourceSaveId,
-        newSaveId,
-        name,
-        now: currentTime(),
-        branchFrom,
-        campaignState,
-        packageData,
-        summary,
-        terminalOutcomeId,
-        terminalDecisionId,
-        terminalConditionId
-      });
-      return cloneJson(save);
     },
 
     async autosaveCurrentGame({

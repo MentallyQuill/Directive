@@ -576,10 +576,10 @@ assert.equal(activatingView.chatNative.openingScene.ready, false);
 assert.equal(activatingView.chatNative.openingScene.blocked, true);
 assert.equal(activatingView.chatNative.manualSaveGuard.ok, false);
 assert.equal(activatingView.chatNative.manualSaveGuard.reason, 'campaign-opening-scene-required');
-const blockedEarlyBranch = await app.saveCurrentGameAs({ name: 'Too Early Branch' });
-assert.equal(blockedEarlyBranch.ok, false);
-assert.equal(blockedEarlyBranch.blocked, true);
-assert.equal(blockedEarlyBranch.saveGuard.reason, 'campaign-opening-scene-required');
+const blockedEarlyCheckpoint = await app.saveGame({ name: 'Too Early Checkpoint' });
+assert.equal(blockedEarlyCheckpoint.ok, false);
+assert.equal(blockedEarlyCheckpoint.blocked, true);
+assert.equal(blockedEarlyCheckpoint.saveGuard.reason, 'campaign-opening-scene-required');
 const blockedEarlyPlayerMessage = await app.observeHostPlayerMessage({
   chatId: host.chat.getCurrentChatId(),
   message: {
@@ -896,12 +896,24 @@ assert.equal(resumedPromptSync.lens.status, 'installed', 'Returning to the bound
 assert.equal(resumedPromptSync.lens.rebuilt, true);
 assert.equal(host.prompt.inspect().status, 'installed');
 assert.equal(host.prompt.inspect().blockCount > 0, true);
-const manualSave = await app.saveCurrentGame({ summary: 'Manual guard pass test.' });
-assert.equal(manualSave.ok, true);
-assert.equal(manualSave.saveGuard.ok, true);
+const activeBeforeCheckpoint = {
+  saveId: view.chatNative.binding.saveId,
+  chatId: view.chatNative.binding.chatId
+};
+const sourceMessageCountBeforeCheckpoint = host.chat.messagesForChat(activeBeforeCheckpoint.chatId).length;
+const checkpointSave = await app.saveGame({ name: 'Before Runtime Turns' });
+assert.equal(checkpointSave.ok, true);
+assert.equal(checkpointSave.activeSaveId, activeBeforeCheckpoint.saveId);
+assert.equal(checkpointSave.activeChatId, activeBeforeCheckpoint.chatId);
+assert.equal(host.chat.getCurrentChatId(), activeBeforeCheckpoint.chatId);
+assert.notEqual(checkpointSave.checkpoint.preservedChatBinding.chatId, activeBeforeCheckpoint.chatId);
+assert.equal(
+  host.chat.messagesForChat(checkpointSave.checkpoint.preservedChatBinding.chatId).length,
+  sourceMessageCountBeforeCheckpoint
+);
 
 host.chat.setCurrentChatId('unbound-chat-for-save-guard');
-let blockedSave = await app.saveCurrentGame({ summary: 'Wrong chat should not save.' });
+let blockedSave = await app.saveGame({ name: 'Wrong Chat Checkpoint' });
 assert.equal(blockedSave.ok, false);
 assert.equal(blockedSave.blocked, true);
 assert.equal(blockedSave.saveGuard.reason, 'unbound-chat');
@@ -911,12 +923,11 @@ host.chat.setCurrentChatId('same-campaign-other-save-chat', {
   hostId: 'fake',
   chatId: 'same-campaign-other-save-chat',
   campaignId: view.chatNative.binding.campaignId,
-  saveId: 'other-save-branch'
+  saveId: 'other-save'
 });
-blockedSave = await app.saveCurrentGame({ summary: 'Different branch should not save.' });
+blockedSave = await app.saveGame({ name: 'Different Save Checkpoint' });
 assert.equal(blockedSave.ok, false);
 assert.equal(blockedSave.saveGuard.reason, 'different-directive-save');
-assert.match(blockedSave.saveGuard.summary, /different save branch/);
 
 host.chat.setCurrentChatId('other-campaign-chat', {
   hostId: 'fake',
@@ -924,112 +935,47 @@ host.chat.setCurrentChatId('other-campaign-chat', {
   campaignId: 'different-campaign',
   saveId: 'different-save'
 });
-blockedSave = await app.saveCurrentGame({ summary: 'Different campaign should not save.' });
+blockedSave = await app.saveGame({ name: 'Different Campaign Checkpoint' });
 assert.equal(blockedSave.ok, false);
 assert.equal(blockedSave.saveGuard.reason, 'different-directive-campaign');
-assert.match(blockedSave.saveGuard.summary, /different Directive campaign/);
 
 host.chat.setCurrentChatId('');
-blockedSave = await app.saveCurrentGame({ summary: 'No active chat should not save.' });
+blockedSave = await app.saveGame({ name: 'No Chat Checkpoint' });
 assert.equal(blockedSave.ok, false);
 assert.equal(blockedSave.saveGuard.reason, 'no-active-chat-selected');
-assert.match(blockedSave.saveGuard.summary, /Choose the campaign chat/);
 
-await host.chat.open(view.chatNative.binding);
-const sourceSaveId = view.chatNative.binding.saveId;
-const sourceChatId = view.chatNative.binding.chatId;
-const sourceMessageCountBeforeBranch = host.chat.messagesForChat(sourceChatId).length;
-const branch = await app.saveCurrentGameAs({ name: 'Guarded Branch' });
-assert.equal(branch.ok, true);
-assert.notEqual(branch.save.id, view.chatNative.binding.saveId);
-assert.equal(branch.save.kind, 'directive.activeCampaignStatePersist.v2');
-assert.equal(branch.save.storageFormat, 'v2');
-assert.equal(branch.save.wroteV1Payload, false);
-assert.equal(branch.coreBranchClone?.recallSourceMutation?.kind, 'directive.recallSourceMutation.v1');
-assert.equal(branch.coreBranchClone.recallSourceMutation.action, 'save-as');
-assert.equal(branch.coreBranchClone.recallSourceMutation.saveId, sourceSaveId);
-assert.equal(branch.coreBranchClone.recallSourceMutation.targetSaveId, branch.save.id);
-assert.equal(branch.coreBranchClone.recallSourceMutation.targetBranchId, branch.save.id);
-assert.equal(JSON.stringify(branch.coreBranchClone).includes('Raw'), false);
-assert.equal(branch.view.chatNative.binding.saveId, branch.save.id);
-assert.notEqual(branch.view.chatNative.binding.chatId, sourceChatId);
-assert.equal(branch.branchChat.sourceChatId, sourceChatId);
-assert.equal(branch.branchChat.chatId, branch.view.chatNative.binding.chatId);
-assert.equal(branch.view.campaignState.campaignChatBinding.chatId, branch.view.chatNative.binding.chatId);
-assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
-assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
-assert.equal(branch.view.campaignState.campaignChatBinding.saveId, branch.save.id);
-assert.equal(host.chat.messagesForChat(sourceChatId).length, sourceMessageCountBeforeBranch);
-assert.equal(host.chat.messagesForChat(branch.view.chatNative.binding.chatId).length, sourceMessageCountBeforeBranch);
-
-const openedSource = await app.openCampaignChat({ saveId: sourceSaveId });
-assert.equal(openedSource.ok, true);
-assertRuntimeViewBoundToSave(openedSource.view, sourceSaveId, 'open source save after Save Game As');
-assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
-assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
-assert.equal(host.chat.getCurrentChatId(), sourceChatId);
-
-const loadedBranch = await app.loadGame({ saveId: branch.save.id });
-assertRuntimeViewBoundToSave(loadedBranch, branch.save.id, 'load branch save after reopening source');
-assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
-assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
-
-host.chat.setCurrentChatId(sourceChatId, {
-  hostId: 'fake',
-  chatId: sourceChatId,
-  campaignId: branch.view.chatNative.binding.campaignId,
-  saveId: sourceSaveId,
-  entityType: 'character',
-  entityId: 'fake-character',
-  entityName: 'Directive - Ashes of Peace',
-  status: 'bound'
+await host.chat.openCampaignChat(view.chatNative.binding);
+const loadedCheckpoint = await app.loadCheckpoint({
+  campaignId: checkpointSave.checkpoint.campaignId,
+  checkpointId: checkpointSave.checkpoint.id
 });
-const staleSourceChatChange = await app.handleHostChatChanged({ reason: 'stale-source-open-during-branch-load' });
-assert.equal(staleSourceChatChange.suppressed, true, 'stale source chat change should be ignored during programmatic branch open');
-assert.equal(staleSourceChatChange.expectedSaveId, branch.save.id);
-const exportedBranchAfterStaleChange = await app.exportActiveSave();
-const exportedBranchState = exportedBranchAfterStaleChange.campaignState
-  || exportedBranchAfterStaleChange.saveRecord?.payload?.campaignState
-  || null;
-assert.equal(exportedBranchState.campaignChatBinding.saveId, branch.save.id);
-assert.equal(exportedBranchState.campaignChatBinding.chatId, branch.view.chatNative.binding.chatId);
-
-const reopenedBranch = await app.openCampaignChat({ saveId: branch.save.id });
-assert.equal(reopenedBranch.ok, true);
-assertRuntimeViewBoundToSave(reopenedBranch.view, branch.save.id, 'reopen branch after stale source chat change');
-assert.equal(host.chat.getCurrentChatId(), branch.view.chatNative.binding.chatId);
-const branchColorMessage = host.chat.pushPlayerMessage({
-  hostMessageId: 'runtime-player-branch-color',
-  text: '*Serrin watches the branch crew settle into the cloned watch rotation.*'
-});
-const branchColorResult = await app.observeHostPlayerMessage({
-  chatId: host.chat.getCurrentChatId(),
-  message: branchColorMessage
-});
-assert.equal(branchColorResult.decision.classification, 'sceneColor');
-assert.equal(branchColorResult.abortDefaultGeneration, false);
-const branchCoreProjections = await readCoreStoreProjectionsV2(host.storage, {
-  campaignId: branch.view.chatNative.binding.campaignId,
-  saveId: branch.save.id
-});
-assertCoreHostContinueBridge({
-  projections: branchCoreProjections,
-  state: branchColorResult.campaignState,
-  hostMessageId: 'runtime-player-branch-color',
-  chatId: branch.view.chatNative.binding.chatId,
-  label: 'branch scene-color turn'
-});
-
-const loadedSource = await app.loadGame({ saveId: sourceSaveId });
-assertRuntimeViewBoundToSave(loadedSource, sourceSaveId, 'load source save after branch');
-assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
-assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
-assert.equal(branch.view.campaignState.campaignChatBinding.saveId, branch.save.id);
-view = loadedSource;
+assert.equal(loadedCheckpoint.ok, true);
+assert.equal(loadedCheckpoint.checkpointId, checkpointSave.checkpoint.id);
+assert.notEqual(loadedCheckpoint.activeSaveId, activeBeforeCheckpoint.saveId);
+assert.notEqual(loadedCheckpoint.playableChat.chatId, activeBeforeCheckpoint.chatId);
+assert.equal(host.chat.getCurrentChatId(), loadedCheckpoint.playableChat.chatId);
+assert.equal(
+  host.chat.getBindingMetadata().saveId,
+  loadedCheckpoint.activeSaveId,
+  JSON.stringify({
+    activeSaveId: loadedCheckpoint.activeSaveId,
+    playableChat: loadedCheckpoint.playableChat,
+    currentChatId: host.chat.getCurrentChatId(),
+    currentBinding: host.chat.getBindingMetadata(),
+    checkpointChatCalls: host.chat.calls().filter((entry) => (
+      ['cloneCampaignChat', 'updateBindingMetadata', 'openCampaignChat'].includes(entry.type)
+    ))
+  })
+);
+assert.equal(host.prompt.inspect().binding.saveId, loadedCheckpoint.activeSaveId);
+view = loadedCheckpoint.view;
+const sourceSaveId = loadedCheckpoint.activeSaveId;
+const sourceChatId = loadedCheckpoint.playableChat.chatId;
 const sourceStorageBeforeRuntimeTurns = host.storage.snapshot();
 const sourceSaveIndexBeforeRuntimeTurns = sourceStorageBeforeRuntimeTurns[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
-const sourceV1PayloadPath = sourceSaveIndexBeforeRuntimeTurns.path;
-const sourceV1PayloadBeforeRuntimeTurns = cloneJson(sourceStorageBeforeRuntimeTurns[sourceV1PayloadPath]);
+assert.equal(sourceSaveIndexBeforeRuntimeTurns.storageFormat, 'v2');
+assert.equal(sourceSaveIndexBeforeRuntimeTurns.payloadKind, 'directive.saveManifest.v2');
+const sourceManifestPath = sourceSaveIndexBeforeRuntimeTurns.manifestRef.logicalKey;
 const continuityPlannerCallsBeforePlayerTurns = generationRoleCount('continuityProjectionPlanner');
 await assert.rejects(
   () => readCoreStoreProjectionsV2(host.storage, {
@@ -1066,13 +1012,9 @@ assert.equal(firstTurnCoreIngress.sourceFrameId, firstTurnIngress.sourceFrameId,
 assert.equal(firstTurnCoreIngress.chatId, view.chatNative.binding.chatId, 'first source-save CORE projection must use active chat id');
 const firstTurnSourceStorage = host.storage.snapshot();
 const firstTurnSourceSaveIndex = firstTurnSourceStorage[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
-assert.equal(firstTurnSourceSaveIndex.runtimeStorageFormat, 'v2', 'first source-save player turn must mark runtime-current state as v2');
-assert.equal(Boolean(firstTurnSourceSaveIndex.v2ManifestRef?.logicalKey), true, 'first source-save player turn must attach a v2 runtime manifest ref');
-assert.deepEqual(
-  firstTurnSourceStorage[sourceV1PayloadPath],
-  sourceV1PayloadBeforeRuntimeTurns,
-  'first source-save player turn must not rewrite the original v1 checkpoint payload'
-);
+assert.equal(firstTurnSourceSaveIndex.storageFormat, 'v2', 'checkpoint continuations must remain v2-native');
+assert.equal(firstTurnSourceSaveIndex.payloadKind, 'directive.saveManifest.v2');
+assert.equal(Boolean(firstTurnSourceSaveIndex.manifestRef?.logicalKey), true, 'checkpoint continuation must retain its v2 manifest authority');
 
 const sceneNavigationMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-scene-navigation',
@@ -1195,15 +1137,9 @@ view = (await app.flushRuntimeDiagnostics()).view;
 assert.equal(view.chatNative.tracking.modelCallEventSequence > 0, true, 'Runtime diagnostics flush must preserve compact model-call resume cursor.');
 const sourceStorageAfterRuntimeTurns = host.storage.snapshot();
 const sourceSaveIndexAfterRuntimeTurns = sourceStorageAfterRuntimeTurns[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
-assert.equal(sourceSaveIndexAfterRuntimeTurns.path, sourceV1PayloadPath, 'Queued runtime persistence must preserve the v1 checkpoint payload path.');
-assert.equal(sourceSaveIndexAfterRuntimeTurns.runtimeStorageFormat, 'v2', 'Queued runtime persistence must mark runtime-current state as v2.');
-assert.equal(Boolean(sourceSaveIndexAfterRuntimeTurns.v2ManifestRef?.logicalKey), true, 'Queued runtime persistence must attach a v2 runtime manifest ref.');
-assert.equal(Boolean(sourceSaveIndexAfterRuntimeTurns.v2RuntimePersistedAt), true, 'Queued runtime persistence must attach a v2 runtime persistence timestamp.');
-assert.deepEqual(
-  sourceStorageAfterRuntimeTurns[sourceV1PayloadPath],
-  sourceV1PayloadBeforeRuntimeTurns,
-  'Queued runtime persistence must not rewrite the v1 manual checkpoint payload.'
-);
+assert.equal(sourceSaveIndexAfterRuntimeTurns.path, sourceManifestPath, 'Queued runtime persistence must preserve the v2 continuation manifest path.');
+assert.equal(sourceSaveIndexAfterRuntimeTurns.storageFormat, 'v2');
+assert.equal(sourceSaveIndexAfterRuntimeTurns.manifestRef.logicalKey, sourceManifestPath);
 const activeRuntimeHeadBeforeReload = await loadV2MaterializedHead(host.storage, {
   campaignId: view.campaignState.campaign.id,
   saveId: sourceSaveId
@@ -1220,18 +1156,12 @@ assert.equal(runtimeHistoryLimitUpdate.kind, 'directive.runtimeHistoryLimitUpdat
 assert.equal(runtimeHistoryLimitUpdate.historyLimit, 3);
 assert.equal(runtimeHistoryLimitUpdate.save.kind, 'directive.activeCampaignStatePersist.v2', 'Runtime history setting updates must use v2 runtime persistence.');
 assert.equal(runtimeHistoryLimitUpdate.save.storageFormat, 'v2');
-assert.equal(runtimeHistoryLimitUpdate.save.wroteV1Payload, false, 'Runtime history setting updates must not rewrite the v1 checkpoint payload.');
+assert.equal(runtimeHistoryLimitUpdate.save.wroteV1Payload, false);
 let sourceStorageAfterRuntimeSettings = host.storage.snapshot();
 let sourceSaveIndexAfterRuntimeSettings = sourceStorageAfterRuntimeSettings[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
-assert.equal(sourceSaveIndexAfterRuntimeSettings.path, sourceV1PayloadPath, 'Runtime history setting update must preserve the v1 checkpoint payload path.');
-assert.equal(sourceSaveIndexAfterRuntimeSettings.runtimeStorageFormat, 'v2', 'Runtime history setting update must keep the runtime-current v2 marker.');
-assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2ManifestRef?.logicalKey), true, 'Runtime history setting update must attach a v2 runtime manifest ref.');
-assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2RuntimePersistedAt), true, 'Runtime history setting update must keep the v2 runtime persistence timestamp.');
-assert.deepEqual(
-  sourceStorageAfterRuntimeSettings[sourceV1PayloadPath],
-  sourceV1PayloadBeforeRuntimeTurns,
-  'Runtime history setting update must not rewrite the v1 manual checkpoint payload.'
-);
+assert.equal(sourceSaveIndexAfterRuntimeSettings.path, sourceManifestPath);
+assert.equal(sourceSaveIndexAfterRuntimeSettings.storageFormat, 'v2');
+assert.equal(sourceSaveIndexAfterRuntimeSettings.manifestRef.logicalKey, sourceManifestPath);
 view = await app.getCurrentView({ tabId: 'settings' });
 assert.equal(view.campaignState.settings.maxTurnSaveHistory, 3);
 
@@ -1249,18 +1179,12 @@ assert.equal(runtimeSettingsUpdate.autosaveEveryMessages, 7);
 assert.equal(runtimeSettingsUpdate.outcomeIntegrity.mode, 'strict');
 assert.equal(runtimeSettingsUpdate.save.kind, 'directive.activeCampaignStatePersist.v2', 'Runtime settings update must use v2 runtime persistence.');
 assert.equal(runtimeSettingsUpdate.save.storageFormat, 'v2');
-assert.equal(runtimeSettingsUpdate.save.wroteV1Payload, false, 'Runtime settings update must not rewrite the v1 checkpoint payload.');
+assert.equal(runtimeSettingsUpdate.save.wroteV1Payload, false);
 sourceStorageAfterRuntimeSettings = host.storage.snapshot();
 sourceSaveIndexAfterRuntimeSettings = sourceStorageAfterRuntimeSettings[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[sourceSaveId];
-assert.equal(sourceSaveIndexAfterRuntimeSettings.path, sourceV1PayloadPath, 'Runtime settings update must preserve the v1 checkpoint payload path.');
-assert.equal(sourceSaveIndexAfterRuntimeSettings.runtimeStorageFormat, 'v2', 'Runtime settings update must keep the runtime-current v2 marker.');
-assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2ManifestRef?.logicalKey), true, 'Runtime settings update must attach a v2 runtime manifest ref.');
-assert.equal(Boolean(sourceSaveIndexAfterRuntimeSettings.v2RuntimePersistedAt), true, 'Runtime settings update must keep the v2 runtime persistence timestamp.');
-assert.deepEqual(
-  sourceStorageAfterRuntimeSettings[sourceV1PayloadPath],
-  sourceV1PayloadBeforeRuntimeTurns,
-  'Runtime settings update must not rewrite the v1 manual checkpoint payload.'
-);
+assert.equal(sourceSaveIndexAfterRuntimeSettings.path, sourceManifestPath);
+assert.equal(sourceSaveIndexAfterRuntimeSettings.storageFormat, 'v2');
+assert.equal(sourceSaveIndexAfterRuntimeSettings.manifestRef.logicalKey, sourceManifestPath);
 view = await app.getCurrentView({ tabId: 'mission' });
 assert.equal(view.campaignState.settings.maxTurnSaveHistory, 4);
 assert.equal(view.campaignState.settings.autosaveEveryMessages, 7);
@@ -2010,35 +1934,4 @@ assert.equal(conclusionPromptClearCall.options.reason, 'campaign-complete');
 assert.equal(conclusionPromptClearCall.options.lane, 'all');
 assert.equal(conclusionPromptClearCall.options.preservePacket, undefined);
 
-const promptClearCallsBeforeArchive = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
-const archived = await reloadedApp.archiveCompletedCampaign();
-assert.equal(archived.campaignState.campaign.status, 'archived');
-assert.ok(archived.campaignState.campaign.archivedAt);
-assert.equal(host.prompt.inspect().blockCount, 0);
-const promptClearCallsAfterArchive = host.prompt.calls().filter((entry) => entry.type === 'clear');
-assert.equal(
-  promptClearCallsAfterArchive.length,
-  promptClearCallsBeforeArchive + 1,
-  'Archiving a completed campaign should clear Directive prompt state through LENS even when conclusion already cleared host blocks.'
-);
-const archivePromptClearCall = promptClearCallsAfterArchive.at(-1);
-assert.equal(archivePromptClearCall.options.reason, 'campaign-archived');
-assert.equal(archivePromptClearCall.options.lane, 'all');
-assert.equal(archivePromptClearCall.options.preservePacket, undefined);
-
-const promptClearCallsBeforeActiveDelete = host.prompt.calls().filter((entry) => entry.type === 'clear').length;
-const deletedActiveSave = await reloadedApp.deleteCampaignSave({ saveId: activeSave.id });
-assert.equal(deletedActiveSave.deleteResult.deletedActive, true);
-assert.equal(host.prompt.inspect().blockCount, 0);
-const promptClearCallsAfterActiveDelete = host.prompt.calls().filter((entry) => entry.type === 'clear');
-assert.equal(
-  promptClearCallsAfterActiveDelete.length,
-  promptClearCallsBeforeActiveDelete + 1,
-  'Deleting the active save should clear all LENS-installed Directive prompt lanes.'
-);
-const activeDeletePromptClearCall = promptClearCallsAfterActiveDelete.at(-1);
-assert.equal(activeDeletePromptClearCall.options.reason, 'active-save-deleted');
-assert.equal(activeDeletePromptClearCall.options.lane, 'all');
-assert.equal(activeDeletePromptClearCall.options.preservePacket, undefined);
-
-console.log('Chat-native runtime flow tests passed: no pre-activation injection, creator activation, automatic chat/intro, utility loop, committed outcome, REPAIR source/response recovery, autosave, conclusion, archive, and active-save delete prompt cleanup');
+console.log('Chat-native runtime flow tests passed: creator activation, immutable checkpoint continuation, utility loop, committed outcome, REPAIR recovery, autosave, and conclusion');

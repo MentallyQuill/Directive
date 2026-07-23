@@ -785,45 +785,50 @@ assert.equal(replacementHistory.repairDecision.replacedTransactionId, 'txn-stage
 assert.equal(Object.prototype.hasOwnProperty.call(replacementHistory.repairDecision, 'legacyNoCoreRerunAllowed'), false);
 assert.match(replacementHistory.acceptedAt, /^2026-06-19T07:/);
 
-const branchSourceChatId = host.chat.getCurrentChatId();
-const branch = await app.saveCurrentGameAs({ name: 'Stage 18 Replacement Branch' });
-assert.equal(branch.ok, true);
-const branchMetadata = branch.save.saveIndexEntry?.metadata?.branch || branch.branchSave?.saveIndexEntry?.metadata?.branch;
-const branchState = branch.view.loadedCampaignState || branch.view.campaignState;
-assert.equal(branchMetadata.parentSaveId, 'save-stage18-3');
-assert.equal(branchMetadata.divergenceOutcomeId, replacementOutcomeId);
+const checkpointSourceChatId = host.chat.getCurrentChatId();
+const checkpoint = await app.saveGame({ name: 'After Stage 18 Replacement' });
+assert.equal(checkpoint.ok, true);
+assert.equal(checkpoint.activeSaveId, 'save-stage18-3');
+assert.equal(host.chat.getCurrentChatId(), checkpointSourceChatId);
+const continuation = await app.loadCheckpoint({
+  campaignId: checkpoint.checkpoint.campaignId,
+  checkpointId: checkpoint.checkpoint.id
+});
+assert.equal(continuation.ok, true);
+const continuationState = continuation.view.loadedCampaignState || continuation.view.campaignState;
 assert.equal(
-  branchState.turnLedger.lastCommittedOutcomeId || branchState.turnLedger.entries?.at(-1)?.outcomeId,
+  continuationState.turnLedger.lastCommittedOutcomeId || continuationState.turnLedger.entries?.at(-1)?.outcomeId,
   replacementOutcomeId
 );
-assert.equal(branchState.campaignChatBinding.saveId, branch.save.id);
-assert.equal(branch.branchChat.sourceChatId, branchSourceChatId);
-assert.notEqual(branch.branchChat.chatId, branchSourceChatId);
-assert.equal(host.chat.getCurrentChatId(), branch.branchChat.chatId);
-assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
-const branchReplacementEntry = branchState.turnLedger.entries.find((entry) => entry.outcomeId === replacementOutcomeId);
-assert.ok(branchReplacementEntry?.coreTransactionId, 'Save As branch must preserve CORE transaction refs for copied outcomes.');
-assert.ok(branchReplacementEntry?.coreCheckpointRef?.checkpointId, 'Save As branch must preserve CORE checkpoint refs for copied outcomes.');
-const branchCoreState = await loadCoreStoreStateV2(host.storage, {
-  campaignId: branchState.campaign.id,
-  saveId: branch.save.id,
-  branchId: branch.save.id,
+assert.equal(continuationState.campaignChatBinding.saveId, continuation.activeSaveId);
+assert.notEqual(continuation.playableChat.chatId, checkpointSourceChatId);
+assert.equal(host.chat.getCurrentChatId(), continuation.playableChat.chatId);
+assert.equal(host.chat.getBindingMetadata().saveId, continuation.activeSaveId);
+const continuationReplacementEntry = continuationState.turnLedger.entries.find((entry) => entry.outcomeId === replacementOutcomeId);
+const continuationReplacementTransactionId = continuationReplacementEntry?.coreTransactionId
+  || continuationReplacementEntry?.transactionId;
+assert.ok(continuationReplacementTransactionId, 'Checkpoint continuation must preserve CORE transaction refs for copied outcomes.');
+assert.ok(continuationReplacementEntry?.coreCheckpointRef?.checkpointId, 'Checkpoint continuation must preserve CORE checkpoint refs for copied outcomes.');
+const continuationCoreState = await loadCoreStoreStateV2(host.storage, {
+  campaignId: continuationState.campaign.id,
+  saveId: continuation.activeSaveId,
+  branchId: continuation.activeSaveId,
   missingOk: false
 });
 assert.ok(
-  branchCoreState.transactions?.[branchReplacementEntry.coreTransactionId],
-  'Save As branch must clone the CORE transaction state for copied committed outcomes.'
+  continuationCoreState.transactions?.[continuationReplacementTransactionId],
+  'Checkpoint continuation must fork the CORE transaction state for copied committed outcomes.'
 );
-const branchReplacementCheckpoint = await loadV2Checkpoint(host.storage, {
-  campaignId: branchState.campaign.id,
-  saveId: branch.save.id,
-  checkpointId: branchReplacementEntry.coreCheckpointRef.checkpointId,
+const continuationReplacementCheckpoint = await loadV2Checkpoint(host.storage, {
+  campaignId: continuationState.campaign.id,
+  saveId: continuation.activeSaveId,
+  checkpointId: continuationReplacementEntry.coreCheckpointRef.checkpointId,
   layout: 'core'
 });
 assert.equal(
-  branchReplacementCheckpoint.checkpoint.campaignState.campaignChatBinding.saveId,
-  branch.save.id,
-  'Save As branch checkpoint snapshots must point at the branch save, not the parent save.'
+  continuationReplacementCheckpoint.checkpoint.campaignState.campaignChatBinding.saveId,
+  continuation.activeSaveId,
+  'Forked CORE checkpoint snapshots must point at the continuation save.'
 );
 
 const coreDeleteSource = host.chat.pushPlayerMessage({
@@ -1231,4 +1236,4 @@ assert.equal(
   'Committed outcome delete must restore from CORE checkpoint artifact when a checkpoint ref exists.'
 );
 
-console.log('Stage 18 rerun/branch/recovery tests passed: narration rewrite, outcome rerun, rollback, branch metadata, and delete restore');
+console.log('Stage 18 rerun/checkpoint/recovery tests passed: narration rewrite, outcome rerun, checkpoint continuation, rollback, and delete restore');

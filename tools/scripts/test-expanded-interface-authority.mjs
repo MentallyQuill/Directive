@@ -25,6 +25,8 @@ assert.doesNotMatch(contract, /final Settings player\/advanced split/i);
 assert.match(contract, /Diagnostics export is privacy-bounded/i);
 assert.match(contract, /system prompts, credentials and API keys, endpoint URLs, private model reasoning, hidden campaign facts, raw private relationship values/i);
 assert.match(contract, /Story transcript inclusion is a separate explicit opt-in/i);
+assert.match(contract, /no legacy save or mutable-branch compatibility is supported/i);
+assert.match(contract, /not migrated, relabeled, imported, or exposed through a compatibility utility/i);
 
 for (const [name, source] of [
   ['integration prep', integrationPrep],

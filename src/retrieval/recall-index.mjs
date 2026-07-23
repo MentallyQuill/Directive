@@ -47,6 +47,7 @@ const MUTATION_ACTIONS = new Set([
   'selected-swipe',
   'branch',
   'save-as',
+  'checkpoint-fork',
   'rollback'
 ]);
 
@@ -364,7 +365,7 @@ export function applyRecallSourceMutation({ entries = [], mutation = {} } = {}) 
       out.push(entry);
       continue;
     }
-    if (action === 'branch' || action === 'save-as') {
+    if (action === 'branch' || action === 'save-as' || action === 'checkpoint-fork') {
       if (entry.stale) {
         out.push(entry);
         continue;

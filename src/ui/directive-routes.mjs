@@ -3,7 +3,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'campaign',
     label: 'Campaign',
     shortLabel: 'Campaign',
-    shelfLabel: 'Library & Records',
+    shelfLabel: 'Playthroughs & Saves',
     iconSlot: 'route.campaign',
     icon: 'fa-solid fa-rocket',
     description: 'Create, save, and load Directive campaigns.'
@@ -12,7 +12,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'mission',
     label: 'Mission',
     shortLabel: 'Mission',
-    shelfLabel: 'Command & Context',
+    shelfLabel: 'Quest Journal',
     iconSlot: 'route.mission',
     icon: 'fa-solid fa-compass',
     description: 'Review quests, objectives, urgency, and known information.'
@@ -21,7 +21,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'people',
     label: 'People',
     shortLabel: 'People',
-    shelfLabel: 'Roster & Roles',
+    shelfLabel: 'Roster & Contacts',
     iconSlot: 'route.people',
     icon: 'fa-solid fa-user-group',
     description: 'Review people, standing, assignments, and relationship history.'
@@ -30,7 +30,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'ship',
     label: 'Ship',
     shortLabel: 'Ship',
-    shelfLabel: 'Status & Systems',
+    shelfLabel: 'Operational Status',
     iconSlot: 'route.ship',
     icon: 'fa-solid fa-shuttle-space',
     description: 'Review ship capability, condition, restrictions, and technical history.'
@@ -39,7 +39,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'settings',
     label: 'Settings',
     shortLabel: 'Settings',
-    shelfLabel: 'Providers & Controls',
+    shelfLabel: 'General',
     iconSlot: 'route.settings',
     icon: 'fa-solid fa-sliders',
     description: 'Change player preferences and open advanced troubleshooting.'

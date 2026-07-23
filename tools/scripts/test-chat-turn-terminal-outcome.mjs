@@ -336,8 +336,7 @@ const orchestrator = createChatTurnOrchestrator({
       options: [
         { id: 'replayFromCheckpoint', action: 'replayFromCheckpoint', label: 'Replay from checkpoint' },
         { id: 'pushOn', action: 'pushOn', label: 'Push On' },
-        { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' },
-        { id: 'saveTerminalBranch', action: 'saveTerminalBranch', label: 'Save as branch' }
+        { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' }
       ],
       metadata: {
         terminalOutcomeId: 'terminal.fixture.ship-loss',
@@ -424,7 +423,7 @@ const orchestrator = createChatTurnOrchestrator({
   postTerminalOutcomeCheckpoint: async ({ interactionId }) => {
     checkpointCalls.push({ interactionId, responseKindsBefore: chat.messages().map((entry) => entry.metadata?.responseKind || null) });
     const posted = await chat.postAssistantMessage({
-      text: 'Directive Checkpoint\n\nReplay from checkpoint\nPush On\nKeep this ending\nSave as branch',
+      text: 'Directive Checkpoint\n\nReplay from checkpoint\nPush On\nKeep this ending',
       responseKind: 'terminalOutcomeCheckpoint',
       idempotencyKey: `${interactionId}:checkpoint`
     });
@@ -706,7 +705,7 @@ campaignState = withTerminalDecisionLedgerProjection(campaignState, {
     conditionId: 'terminal.fixture.ledger-only',
     condition: {
       resolutionPolicy: {
-        actions: ['replayFromCheckpoint', 'pushOn', 'keepEnding', 'saveTerminalBranch']
+        actions: ['replayFromCheckpoint', 'pushOn', 'keepEnding']
       }
     },
     postedAt: now(),
@@ -735,8 +734,7 @@ await coreTurnStore.recordPendingInteraction('txn:terminal-decision-ledger-only'
   options: [
     { id: 'replayFromCheckpoint', action: 'replayFromCheckpoint', label: 'Replay from checkpoint' },
     { id: 'pushOn', action: 'pushOn', label: 'Push On' },
-    { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' },
-    { id: 'saveTerminalBranch', action: 'saveTerminalBranch', label: 'Save as branch' }
+    { id: 'keepEnding', action: 'keepEnding', label: 'Keep this ending' }
   ]
 });
 const ledgerOnlyReply = chat.pushPlayerMessage({
