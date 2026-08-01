@@ -16187,6 +16187,166 @@ textarea.directive-field-control {
 }
 .campaign-package-option span { color: rgba(248, 239, 224, .68); font-size: 12px; }
 
+.directive-campaign-browser-dialog {
+  width: min(920px, 100%);
+  max-height: min(760px, calc(100dvh - 40px));
+}
+
+.campaign-browser {
+  display: grid;
+  grid-template-columns: minmax(190px, .42fr) minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.campaign-browser-master,
+.campaign-browser-detail {
+  min-width: 0;
+  min-height: 0;
+}
+
+.campaign-browser-master {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  max-height: min(570px, calc(100dvh - 210px));
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.campaign-browser-package {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid rgba(255, 159, 74, .2);
+  border-radius: 5px;
+  color: #f8efe0;
+  background: #0d1018;
+  text-align: left;
+}
+
+.campaign-browser-package:hover,
+.campaign-browser-package:focus-visible,
+.campaign-browser-package[aria-selected="true"] {
+  border-color: rgba(255, 199, 102, .76);
+  background: rgba(255, 159, 74, .12);
+  outline: none;
+}
+
+.campaign-browser-thumb {
+  width: 64px;
+  height: 52px;
+  min-height: 52px;
+  border-radius: 3px;
+}
+
+.campaign-browser-package-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campaign-browser-package-copy strong,
+.campaign-browser-package-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campaign-browser-package-copy strong { font-size: 12px; }
+.campaign-browser-package-copy small { color: rgba(248, 239, 224, .64); font-size: 10px; }
+
+.campaign-browser-detail {
+  display: grid;
+  gap: 10px;
+  max-height: min(570px, calc(100dvh - 210px));
+  overflow-y: auto;
+}
+
+.campaign-browser-hero {
+  position: relative;
+  min-height: 190px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 159, 74, .28);
+  border-radius: 5px;
+  background: #0d1018;
+}
+
+.campaign-browser-hero-media,
+.campaign-browser-hero-media .directive-media-image {
+  width: 100%;
+  height: 190px;
+}
+
+.campaign-browser-hero-media .directive-media-image { object-fit: cover; }
+.campaign-browser-hero-copy {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  background: linear-gradient(180deg, transparent, rgba(5, 7, 11, .94));
+}
+
+.campaign-browser-status {
+  color: #ffc766;
+  font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+
+.campaign-browser-title { margin: 0; color: #f8efe0; font-size: 25px; }
+.campaign-browser-identity { margin: 0; color: rgba(248, 239, 224, .7); font-size: 11px; }
+.campaign-browser-detail-body { display: grid; gap: 10px; }
+.campaign-browser-hook,
+.campaign-browser-opening-hook { margin: 0; color: rgba(248, 239, 224, .86); line-height: 1.45; }
+.campaign-browser-opening-hook { padding-left: 10px; border-left: 3px solid #b78ad7; font-size: 12px; }
+.campaign-browser-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.campaign-browser-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 159, 74, .16);
+  border-radius: 4px;
+  background: rgba(13, 16, 24, .72);
+}
+.campaign-browser-field span { color: rgba(248, 239, 224, .58); font-size: 9px; text-transform: uppercase; }
+.campaign-browser-field strong { overflow-wrap: anywhere; color: #f8efe0; font-size: 11px; }
+.campaign-browser-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.campaign-browser-action { min-height: 36px; }
+.campaign-browser-action.secondary { color: #ffc766; }
+
+@media (max-width: 640px) {
+  .directive-campaign-browser-dialog {
+    width: min(100%, calc(100vw - 20px));
+    max-height: calc(100dvh - 20px);
+  }
+
+  .campaign-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .campaign-browser-master,
+  .campaign-browser-detail {
+    max-height: none;
+  }
+
+  .campaign-browser-master {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid;
+    overflow: visible;
+  }
+
+  .campaign-browser-package { grid-template-columns: 48px minmax(0, 1fr); }
+  .campaign-browser-thumb { width: 48px; height: 42px; min-height: 42px; }
+  .campaign-browser-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 640px) {
   .directive-runtime-panel.directive-expanded-shell {
     width: calc(100vw - 16px) !important;

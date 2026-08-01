@@ -8,6 +8,7 @@ import {
 import { createPackageImage } from './directive-media.js';
 import { appendDirectiveModal, removeDirectiveOverlay } from './directive-overlay-root.js';
 import { bindRovingFocus, restoreFocus } from './expanded-interface-focus.js';
+import { renderCampaignBrowser } from './campaign-browser.js';
 
 let selectedCheckpointByCampaign = new Map();
 let openMobileCampaignId = '';
@@ -157,32 +158,7 @@ function openNewCampaignDialog(view, actions, opener) {
     description: 'Choose a campaign package to begin character setup.',
     opener,
     build(dialog, close) {
-      const list = createElement('div', 'campaign-package-chooser');
-      for (const pack of packages) {
-        const option = createElement('article', 'campaign-package-choice');
-        const button = createElement('button', 'campaign-package-option');
-        button.type = 'button';
-        const title = createElement('strong');
-        title.textContent = pack?.campaign?.title || pack?.title || pack?.packageId || 'Campaign';
-        const summary = createElement('span');
-        summary.textContent = pack?.campaign?.premise || pack?.premise || pack?.summary || '';
-        button.append(title, summary);
-        button.addEventListener('click', async () => {
-          await invoke(actions?.startCreatorDraft, { packageId: pack.packageId || pack.id }, actions);
-          close();
-        });
-        option.appendChild(button);
-        if (pack?.actions?.resumeDraft && typeof actions?.resumeCreatorDraft === 'function') {
-          option.appendChild(createCommand('Continue Character Setup', 'secondary', async () => {
-            await invoke(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions);
-            close();
-          }, { icon: 'fa-solid fa-user-pen' }));
-        }
-        list.appendChild(option);
-      }
-      if (!packages.length) appendEmpty(list, 'No campaign packages are available.');
-      dialog.appendChild(list);
-      dialog.appendChild(createCommand('Cancel', 'secondary', close));
+      renderCampaignBrowser(dialog, { packages, actions, close });
     }
   });
 }

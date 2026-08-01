@@ -4097,10 +4097,20 @@ export function createDirectiveRuntimeApp({
           ...summary,
           campaign: {
             title: context?.campaign?.title || summary?.title || '',
-            premise: context?.campaign?.premise || summary?.premise || ''
+            highConcept: context?.campaign?.highConcept || summary?.campaign?.highConcept || '',
+            premise: context?.campaign?.highConcept || context?.campaign?.premise || summary?.premise || '',
+            theater: context?.campaign?.theater || summary?.campaign?.theater || '',
+            eraLabel: context?.campaign?.eraLabel || summary?.campaign?.eraLabel || '',
+            structure: cloneJson(context?.campaign?.structure || summary?.campaign?.structure || {}),
+            quests: cloneJson(context?.campaign?.quests || summary?.campaign?.quests || []),
+            openingHook: context?.campaign?.openingHook || summary?.campaign?.openingHook || ''
           },
+          theater: context?.campaign?.theater || summary?.theater || '',
+          eraLabel: context?.campaign?.eraLabel || summary?.eraLabel || '',
+          structure: cloneJson(context?.campaign?.structure || summary?.structure || {}),
+          playerRole: cloneJson(context?.playerRole || summary?.playerRole || null),
           ship: cloneJson(context?.ship || null),
-          assets: cloneJson(context?.assets || {})
+          assets: cloneJson(context?.assets || summary?.assets || {})
         };
       } catch (_) {
         return summary;

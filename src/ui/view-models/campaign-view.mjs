@@ -32,10 +32,24 @@ function packageImage(pack = {}) {
 function packagePremise(pack = {}) {
   return text(
     pack.premise
+    || pack.campaign?.highConcept
     || pack.campaign?.premise
     || pack.summary
     || pack.description
   );
+}
+
+function packageOpeningHook(pack = {}) {
+  return text(
+    pack.openingHook
+    || pack.campaign?.openingHook
+    || pack.campaign?.openingHookText
+    || ''
+  );
+}
+
+function packageStructure(pack = {}) {
+  return cloneJson(pack.structure || pack.campaign?.structure || {});
 }
 
 export function buildCampaignView({
@@ -83,6 +97,14 @@ export function buildCampaignView({
       chapter: text(metadata.activeMissionTitle || metadata.chapterTitle || metadata.activeMissionId),
       lastPlayedAt: timeline.updatedAt || metadata.lastUpdatedAt || null,
       premise: text(metadata.summary) || packagePremise(pack),
+      hook: packagePremise(pack),
+      theater: text(metadata.theater || pack.theater || pack.campaign?.theater),
+      eraLabel: text(pack.eraLabel || pack.campaign?.eraLabel),
+      ship: cloneJson(pack.ship || null),
+      playerRole: cloneJson(pack.playerRole || null),
+      structure: packageStructure(pack),
+      openingHook: packageOpeningHook(pack),
+      assets: cloneJson(pack.assets || {}),
       image: packageImage(pack),
       mediaPackage: {
         packageId: packageId || null,

@@ -16,8 +16,7 @@ const view = buildCampaignView({
         playerRole: 'Executive Officer',
         shipName: 'U.S.S. Breckenridge',
         activeMissionTitle: 'A Ship Underway',
-        campaignStatus: 'active',
-        summary: 'A reconstruction mission in the Asterion Reach.'
+        campaignStatus: 'active'
       }
     },
     {
@@ -49,7 +48,16 @@ const view = buildCampaignView({
       packageId: 'package-a',
       title: 'Ashes of Peace',
       image: { kind: 'ship.hero', subjectId: 'breckenridge' },
-      premise: 'Package-owned premise.'
+      campaign: {
+        highConcept: 'Package-owned high concept.',
+        theater: 'Asterion Reach',
+        eraLabel: 'Postwar reconstruction',
+        structure: { expectedSessions: 8, mainQuestCount: 3, sideQuestCount: 2 },
+        openingHook: 'A damaged ship arrives without a crew.'
+      },
+      ship: { id: 'breckenridge', name: 'U.S.S. Breckenridge' },
+      playerRole: { label: 'Executive Officer', authority: 'Acting command' },
+      assets: { images: [{ kind: 'ship.hero', subjectId: 'breckenridge', uri: 'asset-a' }] }
     },
     {
       packageId: 'package-b',
@@ -89,6 +97,15 @@ assert.equal(view.campaigns[0].checkpoints[0].id, 'checkpoint-b');
 assert.equal(view.campaigns[0].checkpoints.some((checkpoint) => checkpoint.id === 'legacy-branch'), false);
 assert.equal(view.campaigns.some((campaign) => campaign.activeTimeline.saveId === 'autosave-b'), false);
 assert.deepEqual(view.campaigns[0].image, { kind: 'ship.hero', subjectId: 'serein' });
+assert.equal(view.campaigns[1].premise, 'Package-owned high concept.');
+assert.equal(view.campaigns[1].hook, 'Package-owned high concept.');
+assert.equal(view.campaigns[1].theater, 'Asterion Reach');
+assert.equal(view.campaigns[1].eraLabel, 'Postwar reconstruction');
+assert.equal(view.campaigns[1].ship.name, 'U.S.S. Breckenridge');
+assert.equal(view.campaigns[1].playerRole.label, 'Executive Officer');
+assert.equal(view.campaigns[1].structure.mainQuestCount, 3);
+assert.equal(view.campaigns[1].openingHook, 'A damaged ship arrives without a crew.');
+assert.equal(view.campaigns[1].assets.images[0].uri, 'asset-a');
 assert.equal(JSON.stringify(view).includes('/files/'), false);
 
 console.log('Expanded Campaign view tests passed.');

@@ -969,14 +969,16 @@ const openCampaignChooser = async () => {
 };
 const chooseFirstCampaign = async () => {
   const chooser = await openCampaignChooser();
-  const option = chooser.querySelector('.campaign-package-option');
+  const option = chooser.querySelector('.campaign-browser-package');
   assert(option, 'New Campaign should open a focused package chooser');
   await option.click();
+  await chooser.querySelector('.campaign-browser-action').click();
 };
 const campaignChooser = fakeDocument.getElementById('directive-modal-root');
 assert.match(textOf(campaignChooser), /Ashes of Peace/);
 assert.doesNotMatch(textOf(campaignChooser), /Runtime Projection|Mission Graphs|Package Health/);
-await campaignChooser.querySelector('.campaign-package-option').click();
+await campaignChooser.querySelector('.campaign-browser-package').click();
+await campaignChooser.querySelector('.campaign-browser-action').click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const panel = await readFile(path.join(repoRoot, 'src', 'ui', 'campaign-panel.js'), 'utf8');
+const browser = await readFile(path.join(repoRoot, 'src', 'ui', 'campaign-browser.js'), 'utf8');
 const css = await readFile(path.join(repoRoot, 'styles', 'directive.css'), 'utf8');
 
 for (const className of [
@@ -22,6 +23,19 @@ for (const className of [
   'mobile-campaign-item'
 ]) {
   assert.match(panel, new RegExp(`['"\`]${className}`), `Campaign renderer must emit ${className}`);
+  assert.match(css, new RegExp(`\\.${className}(?:[\\s,:{.#>]|$)`), `Production CSS must style ${className}`);
+}
+
+for (const className of [
+  'campaign-browser',
+  'campaign-browser-master',
+  'campaign-browser-detail',
+  'campaign-browser-package',
+  'campaign-browser-hero',
+  'campaign-browser-fields',
+  'campaign-browser-actions'
+]) {
+  assert.match(browser, new RegExp(className), `Campaign browser must emit ${className}`);
   assert.match(css, new RegExp(`\\.${className}(?:[\\s,:{.#>]|$)`), `Production CSS must style ${className}`);
 }
 
@@ -45,5 +59,19 @@ assert.match(panel, /createPackageImage\(/, 'Campaign art must resolve through t
 assert.equal(panel.includes('/files/'), false, 'Campaign renderer must not hardcode SillyTavern asset URLs');
 assert.match(panel, /aria-live/);
 assert.match(panel, /aria-expanded/);
+assert.match(panel, /renderCampaignBrowser/);
+for (const marker of [
+  'data-campaign-browser',
+  'data-campaign-package-id',
+  'data-campaign-detail',
+  'campaignAction = kind',
+  "kind: 'start'",
+  "kind: 'continue'",
+  "kind: 'import'",
+  "kind: 'cancel'"
+]) {
+  assert.match(browser, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `Campaign browser must expose ${marker}`);
+}
+assert.match(panel, /appendDirectiveModal/);
 
 console.log('Expanded Campaign panel contract tests passed.');
