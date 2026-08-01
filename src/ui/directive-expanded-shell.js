@@ -52,7 +52,8 @@ export function createDirectiveExpandedShell({
   routes = [],
   activeRouteId = '',
   onSelectRoute = null,
-  onClose = null
+  onClose = null,
+  onToggleFullscreen = null
 } = {}) {
   const activeRoute = routes.find((route) => route.id === activeRouteId) || routes[0] || {};
   const panel = createElement('section', 'directive-runtime-panel directive-runtime-shell directive-shell directive-expanded-shell');
@@ -91,7 +92,20 @@ export function createDirectiveExpandedShell({
     event?.stopPropagation?.();
     onClose?.(event);
   });
-  topbar.append(identity, close);
+  const fullscreen = createElement('button', 'directive-fullscreen-action');
+  fullscreen.type = 'button';
+  fullscreen.dataset.shellAction = 'fullscreen';
+  fullscreen.setAttribute('aria-label', 'Toggle fullscreen');
+  fullscreen.setAttribute('aria-pressed', 'false');
+  fullscreen.textContent = '⛶';
+  addTooltip(fullscreen, 'Toggle fullscreen');
+  fullscreen.addEventListener('click', (event) => {
+    event?.stopPropagation?.();
+    onToggleFullscreen?.(event);
+  });
+  const actions = createElement('div', 'directive-topbar-actions');
+  actions.append(fullscreen, close);
+  topbar.append(identity, actions);
 
   const heading = createElement('div', 'directive-route-heading');
   const cap = createElement('span', 'directive-route-cap');

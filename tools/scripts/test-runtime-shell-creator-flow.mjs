@@ -939,7 +939,9 @@ await app.importCampaignPackageArchive({
 });
 await showDirectiveRuntimePanel();
 await panel.querySelector('.campaign-new-button').click();
-assert.match(textOf(fakeDocument.getElementById('directive-overlay-root')), /Ashes of Peace/);
+const campaignModalRoot = fakeDocument.getElementById('directive-modal-root');
+assert.equal(campaignModalRoot?.parentNode, fakeDocument.body, 'New Campaign modal should mount at document body level above the Directive window');
+assert.match(textOf(campaignModalRoot), /Ashes of Peace/);
 
 const incompletePackage = cloneJson(packageData);
 incompletePackage.manifest.id = 'directive:campaign-package:incomplete-import-test';
@@ -963,7 +965,7 @@ assert.equal(incompleteCard.runtimeAssets.hasProjection, false);
 
 const openCampaignChooser = async () => {
   await panel.querySelector('.campaign-new-button').click();
-  return fakeDocument.getElementById('directive-overlay-root');
+  return fakeDocument.getElementById('directive-modal-root');
 };
 const chooseFirstCampaign = async () => {
   const chooser = await openCampaignChooser();
@@ -971,7 +973,7 @@ const chooseFirstCampaign = async () => {
   assert(option, 'New Campaign should open a focused package chooser');
   await option.click();
 };
-const campaignChooser = fakeDocument.getElementById('directive-overlay-root');
+const campaignChooser = fakeDocument.getElementById('directive-modal-root');
 assert.match(textOf(campaignChooser), /Ashes of Peace/);
 assert.doesNotMatch(textOf(campaignChooser), /Runtime Projection|Mission Graphs|Package Health/);
 await campaignChooser.querySelector('.campaign-package-option').click();

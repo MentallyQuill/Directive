@@ -55,6 +55,9 @@ shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
 let keydownListenerInstalled = false;
 let runtimeMountHost = null;
+let runtimeOverlay = null;
+let runtimeFullscreen = false;
+let runtimeOpener = null;
 let lastRenderedTab = '';
 let renderBodyRequestId = 0;
 let trainingScenarioSession = null;
@@ -114,6 +117,39 @@ function restoreRuntimeScroll(panel, snapshot = []) {
 
 function runtimeHost() {
   return runtimeMountHost || document.body || document.documentElement;
+}
+
+function ensureRuntimeOverlay() {
+  if (!canUseDocument()) return null;
+  const doc = document;
+  let overlay = doc.getElementById?.('directive-runtime-overlay');
+  if (!overlay) {
+    overlay = doc.createElement('div');
+    overlay.id = 'directive-runtime-overlay';
+    overlay.className = 'directive-runtime-overlay';
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    const backdrop = doc.createElement('div');
+    backdrop.className = 'directive-runtime-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    backdrop.addEventListener?.('click', (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      hideDirectiveRuntimePanel();
+    });
+    const panelHost = doc.createElement('div');
+    panelHost.className = 'directive-runtime-panel-host';
+    overlay.append(backdrop, panelHost);
+    (doc.body || doc.documentElement)?.appendChild?.(overlay);
+  }
+  const backdrop = overlay.querySelector?.('.directive-runtime-backdrop') || null;
+  const panelHost = overlay.querySelector?.('.directive-runtime-panel-host') || null;
+  runtimeOverlay = { overlay, backdrop, panelHost };
+  return runtimeOverlay;
+}
+
+function getRuntimeOverlay() {
+  return runtimeOverlay?.overlay ? runtimeOverlay : ensureRuntimeOverlay();
 }
 
 function outcomeIntegrityEditorHost() {
@@ -242,7 +278,8 @@ function createPanel() {
     routes: DIRECTIVE_PRIMARY_ROUTES,
     activeRouteId: activeTab,
     onSelectRoute: (routeId) => selectRouteFromSpine(routeId),
-    onClose: () => hideDirectiveRuntimePanel()
+    onClose: () => hideDirectiveRuntimePanel(),
+    onToggleFullscreen: () => toggleDirectiveRuntimeFullscreen()
   });
   applyShellLayout(panel);
   syncShellChrome(panel);
@@ -262,7 +299,10 @@ function ensurePanel() {
   let panel = getPanel();
   if (!panel) {
     panel = createPanel();
-    runtimeHost()?.appendChild(panel);
+    getRuntimeOverlay()?.panelHost?.appendChild?.(panel);
+  } else {
+    const panelHost = getRuntimeOverlay()?.panelHost;
+    if (panelHost && panel.parentNode !== panelHost) panelHost.appendChild(panel);
   }
   installGlobalShellListeners();
   return panel;
@@ -809,10 +849,6 @@ export function setDirectiveRuntimeApp(app) {
 
 export function setDirectiveRuntimeMountHost(host = null) {
   runtimeMountHost = host && typeof host.appendChild === 'function' ? host : null;
-  const panel = getPanel();
-  if (panel && runtimeMountHost && panel.parentNode !== runtimeMountHost) {
-    runtimeMountHost.appendChild(panel);
-  }
   return {
     mounted: Boolean(runtimeMountHost),
     host: runtimeMountHost
@@ -1280,11 +1316,21 @@ export async function runDirectiveGuidanceStartupOffer() {
   return runGuidanceStartupOffer(createDirectiveGuidanceController());
 }
 
-export async function showDirectiveRuntimePanel() {
+export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   const panel = ensurePanel();
   if (!panel) return { isOpen: false };
+  const shell = getRuntimeOverlay();
+  runtimeOpener = opener || null;
+  runtimeFullscreen = false;
+  panel.classList.remove('is-fullscreen');
+  panel.setAttribute('aria-hidden', 'false');
   panel.hidden = false;
   panel.classList.add('directive-runtime-panel-open');
+  if (shell?.overlay) {
+    shell.overlay.hidden = false;
+    shell.overlay.setAttribute('aria-hidden', 'false');
+    shell.overlay.classList.add('directive-runtime-overlay-open');
+  }
   applyShellLayout(panel);
   syncShellChrome(panel);
   await refreshDirectiveRuntimePanel();
@@ -1300,8 +1346,20 @@ export function hideDirectiveRuntimePanel() {
   stopDirectiveTrainingScenario({ refresh: false });
   const panel = getPanel();
   if (!panel) return { isOpen: false };
+  const opener = runtimeOpener;
+  const shell = getRuntimeOverlay();
+  runtimeFullscreen = false;
+  panel.classList.remove('is-fullscreen');
+  panel.setAttribute('aria-hidden', 'true');
   panel.hidden = true;
   panel.classList.remove('directive-runtime-panel-open');
+  if (shell?.overlay) {
+    shell.overlay.hidden = true;
+    shell.overlay.setAttribute('aria-hidden', 'true');
+    shell.overlay.classList.remove('directive-runtime-overlay-open');
+  }
+  runtimeOpener = null;
+  opener?.focus?.({ preventScroll: true });
   return { isOpen: false, activeTab };
 }
 
@@ -1347,11 +1405,16 @@ export async function toggleDirectiveRuntimeDrawer(tabId = activeTab) {
 }
 
 export function toggleDirectiveRuntimeFullscreen(force) {
-  return { fullscreen: true, required: true, viewportBound: true, ignored: force !== undefined };
+  runtimeFullscreen = force === undefined ? !runtimeFullscreen : force === true;
+  const panel = getPanel();
+  panel?.classList?.toggle('is-fullscreen', runtimeFullscreen);
+  const control = panel?.querySelector?.('[data-shell-action="fullscreen"]');
+  control?.setAttribute?.('aria-pressed', runtimeFullscreen ? 'true' : 'false');
+  return { fullscreen: runtimeFullscreen, required: false, viewportBound: true };
 }
 
 export function toggleDirectiveSpineMode() {
-  return { expanded: true, viewportBound: true };
+  return { expanded: true, fullscreen: runtimeFullscreen, viewportBound: true };
 }
 
 export async function resetDirectiveRuntimeLayout() {
@@ -1381,7 +1444,10 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     return { ...shellLayout, viewportBound: true };
   },
   getFullscreenMode() {
-    return 'expanded';
+    return runtimeFullscreen ? 'fullscreen' : 'bounded';
+  },
+  getRuntimeOverlay() {
+    return getRuntimeOverlay();
   },
   reset() {
     closeDirectiveGuidance('runtime-test-reset');
@@ -1392,9 +1458,13 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     shellLayout.activeRoute = activeTab;
     runtimeApp = null;
     runtimeMountHost = null;
+    runtimeOverlay = null;
+    runtimeFullscreen = false;
+    runtimeOpener = null;
     trainingScenarioSession = null;
     if (canUseDocument()) {
       getPanel()?.remove();
+      document.getElementById?.('directive-runtime-overlay')?.remove?.();
       if (keydownListenerInstalled) {
         document.removeEventListener?.('keydown', onDirectiveShellKeydown);
         keydownListenerInstalled = false;

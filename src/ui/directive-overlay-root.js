@@ -1,4 +1,5 @@
 export const DIRECTIVE_OVERLAY_ROOT_ID = 'directive-overlay-root';
+export const DIRECTIVE_MODAL_ROOT_ID = 'directive-modal-root';
 
 let configuredDocument = null;
 let configuredHostResolver = null;
@@ -61,6 +62,33 @@ export function appendDirectiveOverlay(node, {
   return node;
 }
 
+export function getDirectiveModalRoot({ document: documentRef = null } = {}) {
+  const doc = activeDocument(documentRef);
+  if (!doc?.createElement) return null;
+  const existing = doc.getElementById?.(DIRECTIVE_MODAL_ROOT_ID);
+  if (existing) return existing;
+  const parent = doc.body || doc.documentElement || null;
+  if (!parent?.appendChild) return null;
+  const root = doc.createElement('div');
+  root.id = DIRECTIVE_MODAL_ROOT_ID;
+  root.className = 'directive-modal-root';
+  root.dataset.directiveModalRoot = 'true';
+  parent.appendChild(root);
+  return root;
+}
+
+export function appendDirectiveModal(node, {
+  document: documentRef = null,
+  fallbackParent = null
+} = {}) {
+  if (!node) return null;
+  const root = getDirectiveModalRoot({ document: documentRef });
+  const doc = activeDocument(documentRef);
+  const parent = root || fallbackParent || doc?.body || doc?.documentElement || null;
+  parent?.appendChild?.(node);
+  return node;
+}
+
 export function removeDirectiveOverlay(node) {
   node?.remove?.();
 }
@@ -68,6 +96,15 @@ export function removeDirectiveOverlay(node) {
 export function closeAllDirectiveOverlays(reason = 'closed') {
   const doc = activeDocument();
   const root = doc?.getElementById?.(DIRECTIVE_OVERLAY_ROOT_ID);
+  if (!root) return { closed: 0, reason };
+  const children = [...(root.children || [])];
+  for (const child of children) child.remove?.();
+  return { closed: children.length, reason };
+}
+
+export function closeAllDirectiveModals(reason = 'closed') {
+  const doc = activeDocument();
+  const root = doc?.getElementById?.(DIRECTIVE_MODAL_ROOT_ID);
   if (!root) return { closed: 0, reason };
   const children = [...(root.children || [])];
   for (const child of children) child.remove?.();

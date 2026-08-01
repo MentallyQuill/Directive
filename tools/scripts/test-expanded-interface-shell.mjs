@@ -85,8 +85,11 @@ const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.ur
 assert.match(runtimeShellSource, /createDirectiveExpandedShell/);
 assert.doesNotMatch(runtimeShellSource, /directive-command-spine-shell|directive-shell-layout/);
 assert.doesNotMatch(runtimeMountSource, /toggleDrawer|toggleFullscreen|resetLayout|command spine|route drawer|Directive drawer/i);
-assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?inset:\s*0\s*!important;[\s\S]*?height:\s*100dvh\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
-assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?transform:\s*none\s*!important;/);
+assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50%\s*!important;[\s\S]*?left:\s*50%\s*!important;[\s\S]*?width:\s*min\(1120px,\s*calc\(100vw\s*-\s*64px\)\)\s*!important;[\s\S]*?height:\s*min\(860px,\s*calc\(100dvh\s*-\s*64px\)\)\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
+assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\)\s*!important;/);
+assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{[\s\S]*?inset:\s*0\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100dvh\s*!important;/);
+assert.match(css, /\.directive-runtime-overlay\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0/);
+assert.match(css, /\.directive-runtime-backdrop\s*\{[\s\S]*?pointer-events:\s*auto/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell::before,\s*\.directive-runtime-panel\.directive-expanded-shell::after\s*\{[\s\S]*?content:\s*none\s*!important;[\s\S]*?display:\s*none\s*!important;/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*40px\s+minmax\(0,\s*1fr\)/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s*!important;/);

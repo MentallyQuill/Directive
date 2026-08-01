@@ -219,6 +219,57 @@
   pointer-events: auto;
 }
 
+.directive-runtime-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100040;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.directive-runtime-overlay[hidden] {
+  display: none !important;
+}
+
+.directive-runtime-overlay-open {
+  pointer-events: auto;
+}
+
+.directive-runtime-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: rgba(5, 7, 11, .62);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.directive-runtime-panel-host {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.directive-runtime-panel-host > * {
+  pointer-events: auto;
+}
+
+.directive-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100200;
+  pointer-events: none;
+}
+
+.directive-modal-root > * {
+  pointer-events: auto;
+}
+
 .directive-turn-activity-indicator {
   position: fixed;
   left: 50%;
@@ -15350,7 +15401,7 @@ textarea.directive-field-control {
     grid-column: 1 / -1;
   }
 }
-/* Expanded interface shell: approved viewport-bound production frame. */
+/* Expanded interface shell: centered host-integrated production frame. */
 .directive-runtime-panel.directive-expanded-shell {
   --directive-expanded-bg: #05070b;
   --directive-expanded-raised: #0b0e18;
@@ -15366,27 +15417,40 @@ textarea.directive-field-control {
   --directive-expanded-violet: #9b82cf;
   --directive-active-route-accent: var(--directive-expanded-amber);
   position: fixed !important;
-  inset: 0 !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
   z-index: 100050 !important;
   display: grid !important;
   grid-template-columns: 40px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) !important;
+  width: min(1120px, calc(100vw - 64px)) !important;
+  max-width: min(1120px, calc(100vw - 64px)) !important;
+  height: min(860px, calc(100dvh - 64px)) !important;
+  min-height: 0 !important;
+  max-height: min(860px, calc(100dvh - 64px)) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  color: var(--directive-expanded-text) !important;
+  background: linear-gradient(180deg, #0b0e18 0%, #070911 40%, #05070b 100%) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .58) !important;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  container-type: inline-size;
+}
+
+.directive-runtime-panel.directive-expanded-shell.is-fullscreen {
+  inset: 0 !important;
   width: 100vw !important;
   max-width: none !important;
   height: 100dvh !important;
-  min-height: 0 !important;
   max-height: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  transform: none !important;
-  overflow: hidden !important;
-  border: 0 !important;
   border-radius: 0 !important;
-  color: var(--directive-expanded-text) !important;
-  background: linear-gradient(180deg, #0b0e18 0%, #070911 40%, #05070b 100%) !important;
-  box-shadow: none !important;
-  font-family: "Segoe UI", system-ui, sans-serif;
-  container-type: inline-size;
+  transform: none !important;
 }
 
 .directive-runtime-panel.directive-expanded-shell[hidden] {
@@ -15500,6 +15564,12 @@ textarea.directive-field-control {
   border-bottom: 1px solid rgba(183, 138, 215, 0.3);
 }
 
+.directive-expanded-shell .directive-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .directive-expanded-shell .directive-brand {
   color: var(--directive-expanded-amber);
   font: 800 20px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif;
@@ -15527,6 +15597,31 @@ textarea.directive-field-control {
   background: var(--directive-expanded-surface);
   font-size: 18px;
   line-height: 1;
+}
+
+.directive-expanded-shell .directive-fullscreen-action {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(183, 138, 215, .42);
+  border-radius: 6px;
+  color: var(--directive-expanded-lilac);
+  background: var(--directive-expanded-surface);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.directive-expanded-shell .directive-fullscreen-action:hover,
+.directive-expanded-shell .directive-fullscreen-action:focus-visible,
+.directive-expanded-shell .directive-close-action:hover,
+.directive-expanded-shell .directive-close-action:focus-visible {
+  outline: 2px solid var(--directive-expanded-gold);
+  outline-offset: 1px;
 }
 
 .directive-expanded-shell .directive-route-heading {
@@ -16019,7 +16114,7 @@ textarea.directive-field-control {
 
 .directive-campaign-dialog-overlay {
   position: fixed;
-  z-index: 10020;
+  z-index: 100210;
   inset: 0;
   display: grid;
   place-items: center;
@@ -16094,7 +16189,20 @@ textarea.directive-field-control {
 
 @media (max-width: 640px) {
   .directive-runtime-panel.directive-expanded-shell {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 10px !important;
     grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .directive-runtime-panel.directive-expanded-shell.is-fullscreen {
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    border-radius: 0 !important;
   }
 
   .directive-expanded-shell .directive-lcars-rail {

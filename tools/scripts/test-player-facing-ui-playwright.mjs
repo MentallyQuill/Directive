@@ -75,6 +75,7 @@ async function inspectViewport(page, { name, viewport }) {
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   const panel = page.locator('#directive-runtime-panel');
   await panel.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+  await page.locator('#directive-runtime-overlay .directive-runtime-backdrop').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
 
   const routeIds = await page.locator('.directive-route-control').evaluateAll((elements) => (
     [...new Set(elements.map((element) => element.dataset.routeId).filter(Boolean))]
@@ -133,9 +134,9 @@ async function inspectViewport(page, { name, viewport }) {
       contentWidth: drawer.scrollWidth,
       journalWidth: journal?.getBoundingClientRect().width || 0,
       overflowsHorizontally: drawer.scrollWidth > drawer.clientWidth + 2,
-      viewportBound: Math.abs(rect.left) <= 1 && Math.abs(rect.top) <= 1
-        && Math.abs(rect.width - window.innerWidth) <= 1
-        && Math.abs(rect.height - window.innerHeight) <= 1
+      bounded: rect.left >= 24 && rect.top >= 24
+        && rect.right <= window.innerWidth - 24
+        && rect.bottom <= window.innerHeight - 24
     };
   });
 
@@ -146,7 +147,7 @@ async function inspectViewport(page, { name, viewport }) {
     throw new Error(`${name}: one or more focused route surfaces did not render. crew=${crewSurface} ship=${shipSurface} settings=${settingsSurface} disclosures=${disclosureCount} open=${openDisclosureCount}. Crew: ${crewText.slice(0, 240)} Ship: ${shipText.slice(0, 240)}`);
   }
   if (geometry.overflowsHorizontally) throw new Error(`${name}: route surface overflows horizontally. panel=${geometry.panelWidth} content=${geometry.contentWidth} journal=${geometry.journalWidth}`);
-  if (!geometry.viewportBound) throw new Error(`${name}: shell is not viewport-bound. ${JSON.stringify(geometry.shell)}`);
+  if (!geometry.bounded) throw new Error(`${name}: shell is not bounded with visible host margins. ${JSON.stringify(geometry.shell)}`);
 
   let screenshot = null;
   if (ARTIFACT_DIR) {

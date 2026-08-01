@@ -6,7 +6,7 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import { createPackageImage } from './directive-media.js';
-import { appendDirectiveOverlay, removeDirectiveOverlay } from './directive-overlay-root.js';
+import { appendDirectiveModal, removeDirectiveOverlay } from './directive-overlay-root.js';
 import { bindRovingFocus, restoreFocus } from './expanded-interface-focus.js';
 
 let selectedCheckpointByCampaign = new Map();
@@ -144,7 +144,7 @@ function openDialog({ title, description = '', opener = null, build }) {
     if (event.target === overlay) close();
   });
   overlay.appendChild(dialog);
-  appendDirectiveOverlay(overlay, { fallbackParent: document.body || document.documentElement });
+  appendDirectiveModal(overlay, { fallbackParent: document.body || document.documentElement });
   document.addEventListener?.('keydown', onDocumentKeyDown);
   queueMicrotask(() => dialogFocusable(dialog)[0]?.focus?.());
   return close;
