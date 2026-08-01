@@ -86,11 +86,19 @@ export function buildCampaignView({
     const pack = packageMap.get(packageId) || {};
     const active = timeline.current === true;
     const binding = cloneJson(metadata.campaignChatBinding || timeline.campaignChatBinding || null);
+    const playerRoleContext = cloneJson(pack.playerRole || null);
+    const playerRole = text(
+      metadata.playerRole
+      || metadata.playerBillet
+      || playerRoleContext?.label
+      || playerRoleContext?.billet
+      || playerRoleContext?.roleLabel
+    ) || 'Command Officer';
     return {
       id: campaignId,
       title: text(metadata.campaignTitle || pack.title || pack.campaign?.title) || 'Campaign',
       playerName: text(metadata.playerName) || 'Player Commander',
-      playerRole: text(metadata.playerRole || metadata.playerBillet) || 'Command Officer',
+      playerRole,
       shipName: text(metadata.shipName),
       status: text(metadata.campaignStatus) || (active ? 'active' : 'stored'),
       setting: text(metadata.setting || metadata.assignment || metadata.shipName),
@@ -101,7 +109,7 @@ export function buildCampaignView({
       theater: text(metadata.theater || pack.theater || pack.campaign?.theater),
       eraLabel: text(pack.eraLabel || pack.campaign?.eraLabel),
       ship: cloneJson(pack.ship || null),
-      playerRole: cloneJson(pack.playerRole || null),
+      playerRoleContext,
       structure: packageStructure(pack),
       openingHook: packageOpeningHook(pack),
       assets: cloneJson(pack.assets || {}),

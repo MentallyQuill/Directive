@@ -54,6 +54,7 @@ let routeSelectionExplicit = false;
 shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
 let keydownListenerInstalled = false;
+let popstateListenerInstalled = false;
 let runtimeMountHost = null;
 let runtimeOverlay = null;
 let runtimeFullscreen = false;
@@ -64,6 +65,12 @@ let trainingScenarioSession = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
+}
+
+function isMobileViewport() {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.matchMedia === 'function') return window.matchMedia('(max-width: 640px)').matches;
+  return Number(window.innerWidth) <= 640;
 }
 
 function tabLabel(tabId) {
@@ -289,6 +296,10 @@ function installGlobalShellListeners() {
   if (!keydownListenerInstalled && typeof document.addEventListener === 'function') {
     document.addEventListener('keydown', onDirectiveShellKeydown);
     keydownListenerInstalled = true;
+  }
+  if (!popstateListenerInstalled && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('popstate', onDirectiveShellPopstate);
+    popstateListenerInstalled = true;
   }
 }
 
@@ -837,6 +848,12 @@ function onDirectiveShellKeydown(event) {
   event.stopPropagation?.();
 }
 
+function onDirectiveShellPopstate() {
+  const panel = getPanel();
+  if (!panel || panel.hidden === true || !isMobileViewport()) return;
+  hideDirectiveRuntimePanel({ skipHistory: true });
+}
+
 export function setDirectiveRuntimeApp(app) {
   if (!app) {
     closeDirectiveGuidance('runtime-unmount');
@@ -1318,6 +1335,10 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   const panel = ensurePanel();
   if (!panel) return { isOpen: false };
   const shell = getRuntimeOverlay();
+  if (isMobileViewport() && window.history?.pushState && panel.dataset.directiveHistoryEntry !== 'true') {
+    window.history.pushState({ ...(window.history.state || {}), directiveRuntimeOpen: true }, '');
+    panel.dataset.directiveHistoryEntry = 'true';
+  }
   runtimeOpener = opener || null;
   runtimeFullscreen = false;
   panel.classList.remove('is-fullscreen');
@@ -1339,7 +1360,7 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   };
 }
 
-export function hideDirectiveRuntimePanel() {
+export function hideDirectiveRuntimePanel({ skipHistory = false } = {}) {
   closeDirectiveGuidance('runtime-hide');
   stopDirectiveTrainingScenario({ refresh: false });
   const panel = getPanel();
@@ -1355,6 +1376,12 @@ export function hideDirectiveRuntimePanel() {
     shell.overlay.hidden = true;
     shell.overlay.setAttribute('aria-hidden', 'true');
     shell.overlay.classList.remove('directive-runtime-overlay-open');
+  }
+  if (!skipHistory && panel.dataset.directiveHistoryEntry === 'true') {
+    panel.removeAttribute?.('data-directive-history-entry');
+    if (typeof window !== 'undefined') window.history?.back?.();
+  } else {
+    panel.removeAttribute?.('data-directive-history-entry');
   }
   runtimeOpener = null;
   opener?.focus?.({ preventScroll: true });
@@ -1466,6 +1493,10 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
       if (keydownListenerInstalled) {
         document.removeEventListener?.('keydown', onDirectiveShellKeydown);
         keydownListenerInstalled = false;
+      }
+      if (popstateListenerInstalled && typeof window !== 'undefined') {
+        window.removeEventListener?.('popstate', onDirectiveShellPopstate);
+        popstateListenerInstalled = false;
       }
     }
   }

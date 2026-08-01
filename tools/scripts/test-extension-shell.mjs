@@ -1153,7 +1153,7 @@ renderCampaignPanel(campaignBody, campaignView, {
   startCreatorDraft() {},
 });
 assert(campaignBody.querySelector('.campaign-journal'), 'Campaign should render the expanded master/detail surface');
-assert(campaignBody.querySelector('.mobile-campaign-accordion'), 'Campaign should render the phone accordion surface');
+assert(campaignBody.querySelector('.directive-mobile-campaign-route'), 'Campaign should render the dedicated phone route surface');
 assert.match(textOf(campaignBody), /Alpha Campaign/);
 assert.match(textOf(campaignBody), /Open Chat/);
 assert(campaignBody.querySelector('[aria-label="New Campaign"]'));

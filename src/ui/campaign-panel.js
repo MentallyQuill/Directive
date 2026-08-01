@@ -1,8 +1,7 @@
 import {
   appendEmpty,
   createButton,
-  createElement,
-  createIcon
+  createElement
 } from './runtime-ui-kit.js';
 import { createPackageImage } from './directive-media.js';
 import { appendDirectiveModal, removeDirectiveOverlay } from './directive-overlay-root.js';
@@ -10,12 +9,14 @@ import { bindRovingFocus, restoreFocus } from './expanded-interface-focus.js';
 import { renderCampaignBrowser } from './campaign-browser.js';
 
 let selectedCheckpointByCampaign = new Map();
-let openMobileCampaignId = '';
+let mobileCampaignView = 'detail';
+let mobileCampaignId = '';
 let openMobileCheckpointByCampaign = new Map();
 
 export function resetCampaignPanelState() {
   selectedCheckpointByCampaign = new Map();
-  openMobileCampaignId = '';
+  mobileCampaignView = 'detail';
+  mobileCampaignId = '';
   openMobileCheckpointByCampaign = new Map();
 }
 
@@ -140,6 +141,15 @@ function openDialog({ title, description = '', opener = null, build }) {
   };
 
   build(dialog, close);
+  const closeButton = createButton({
+    label: 'Close',
+    icon: 'fa-solid fa-xmark',
+    className: 'directive-campaign-dialog-close',
+    title: 'Close dialog',
+    onClick: close
+  });
+  closeButton.setAttribute('aria-label', 'Close dialog');
+  dialog.appendChild(closeButton);
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) close();
   });
@@ -456,62 +466,77 @@ function createDesktopCampaigns(body, view, campaigns, selected, actions, rerend
 }
 
 function createMobileCampaigns(body, view, campaigns, selected, actions, rerender) {
-  if (!openMobileCampaignId) openMobileCampaignId = selected?.id || campaigns[0]?.id || '';
-  const accordion = createElement('section', 'mobile-campaign-accordion');
-  accordion.dataset.routeView = 'campaign';
-  accordion.setAttribute('aria-label', 'Campaigns');
-  const heading = createElement('div', 'campaign-index-head');
-  const label = createElement('span');
-  label.textContent = 'Campaigns';
-  const newButton = createElement('button', 'campaign-new-button');
-  newButton.type = 'button';
-  newButton.title = 'New Campaign';
-  newButton.setAttribute('aria-label', 'New Campaign');
-  newButton.dataset.directiveTour = 'campaign.start';
-  newButton.textContent = '+';
-  newButton.addEventListener('click', (event) => openNewCampaignDialog(view, actions, event.currentTarget));
-  heading.append(label, newButton);
-  accordion.appendChild(heading);
+  const route = createElement('section', 'directive-mobile-campaign-route');
+  route.dataset.routeView = 'campaign';
+  route.setAttribute('aria-label', 'Campaigns');
+  route.setAttribute('data-directive-mobile-view', mobileCampaignView);
 
-  const list = createElement('div', 'mobile-campaign-list');
-  list.dataset.directiveTour = 'campaign.index';
-  for (const campaign of campaigns) {
-    const open = openMobileCampaignId === campaign.id;
-    const item = createElement('article', `mobile-campaign-item${open ? ' is-open' : ''}`);
-    const head = createElement('div', 'mobile-campaign-head');
-    head.appendChild(createCampaignImage(view, campaign, 'thumb', 'mobile-campaign-media'));
-    const toggle = createElement('button', 'mobile-campaign-toggle');
-    toggle.type = 'button';
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    const copy = createElement('span', 'mobile-campaign-toggle-copy');
-    const title = createElement('strong');
-    title.textContent = campaign.title;
-    const player = createElement('small');
-    player.textContent = `${campaign.playerName} · ${campaign.playerRole}`;
-    copy.append(title, player);
-    const badges = createElement('span', 'mobile-campaign-badges');
-    const stateLabel = campaignStateLabel(campaign);
-    if (stateLabel) {
-      const badge = createElement('span', 'mobile-campaign-badge');
-      badge.textContent = stateLabel;
-      badges.appendChild(badge);
-    }
-    const chevron = createIcon('fa-solid fa-chevron-down mobile-campaign-chevron');
-    badges.appendChild(chevron);
-    toggle.append(copy, badges);
-    toggle.addEventListener('click', async () => {
-      openMobileCampaignId = open ? '' : campaign.id;
-      if (!open) await actions?.selectCampaign?.({ campaignId: campaign.id });
-      rerender();
+  const selectedId = mobileCampaignId || selected?.id || campaigns[0]?.id || '';
+  const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedId) || null;
+  const openCampaignList = () => {
+    mobileCampaignView = 'list';
+    rerender();
+  };
+  const newButton = createButton({
+    label: 'New Campaign',
+    icon: 'fa-solid fa-plus',
+    className: 'campaign-new-button',
+    onClick: (event) => openNewCampaignDialog(view, actions, event?.currentTarget)
+  });
+
+  if (mobileCampaignView === 'detail' && selectedCampaign) {
+    const header = createElement('header', 'directive-mobile-route-header');
+    const back = createButton({
+      label: 'Campaigns',
+      icon: 'fa-solid fa-chevron-left',
+      className: 'directive-mobile-route-back',
+      onClick: openCampaignList
     });
-    head.appendChild(toggle);
-    item.appendChild(head);
-    if (open) item.appendChild(createCampaignDetail(view, campaign, actions, rerender, { mobile: true }));
-    list.appendChild(item);
+    back.dataset.directiveMobileRouteBack = 'true';
+    const heading = createElement('strong');
+    heading.textContent = selectedCampaign.title;
+    header.append(back, heading, newButton);
+    const detail = createCampaignDetail(view, selectedCampaign, actions, rerender, { mobile: true });
+    detail.classList.add('directive-mobile-route-detail');
+    detail.dataset.directiveMobileSurface = 'detail';
+    detail.dataset.directiveMobileView = 'detail';
+    route.append(header, detail);
+  } else {
+    const header = createElement('header', 'directive-mobile-route-header');
+    const heading = createElement('strong');
+    heading.textContent = 'Campaigns';
+    header.append(heading, newButton);
+    const list = createElement('nav', 'directive-mobile-route-list');
+    list.dataset.directiveMobileSurface = 'list';
+    list.dataset.directiveTour = 'campaign.index';
+    for (const campaign of campaigns) {
+      const row = createElement('button', 'directive-mobile-campaign-row');
+      row.type = 'button';
+      row.dataset.campaignId = campaign.id;
+      row.setAttribute('aria-label', `${campaign.title}, ${campaign.playerName}, ${campaign.playerRole}`);
+      row.appendChild(createCampaignImage(view, campaign, 'thumb', 'directive-mobile-campaign-thumb'));
+      const copy = createElement('span', 'directive-mobile-campaign-copy');
+      const title = createElement('strong');
+      title.textContent = campaign.title;
+      const player = createElement('span');
+      player.textContent = `${campaign.playerName} · ${campaign.playerRole}`;
+      const hook = createElement('small');
+      hook.textContent = campaign.premise || campaign.hook || campaign.setting || 'Campaign preview';
+      copy.append(title, player, hook);
+      const state = createElement('span', 'directive-mobile-campaign-state');
+      state.textContent = campaignStateLabel(campaign) || 'Available';
+      row.append(copy, state);
+      row.addEventListener('click', async () => {
+        mobileCampaignId = campaign.id;
+        mobileCampaignView = 'detail';
+        rerender();
+      });
+      list.appendChild(row);
+    }
+    if (!campaigns.length) appendEmpty(list, 'No campaigns are available.');
+    route.append(header, list);
   }
-  if (!campaigns.length) appendEmpty(list, 'No campaigns are available.');
-  accordion.appendChild(list);
-  body.appendChild(accordion);
+  body.appendChild(route);
 }
 
 export function renderCampaignPanel(body, view, actions) {

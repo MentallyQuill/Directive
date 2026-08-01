@@ -19,8 +19,8 @@ for (const className of [
   'campaign-command-row',
   'campaign-saves',
   'campaign-save-list',
-  'mobile-campaign-accordion',
-  'mobile-campaign-item'
+  'directive-mobile-campaign-route',
+  'directive-mobile-campaign-row'
 ]) {
   assert.match(panel, new RegExp(`['"\`]${className}`), `Campaign renderer must emit ${className}`);
   assert.match(css, new RegExp(`\\.${className}(?:[\\s,:{.#>]|$)`), `Production CSS must style ${className}`);
@@ -58,7 +58,7 @@ for (const obsolete of [
 assert.match(panel, /createPackageImage\(/, 'Campaign art must resolve through the shared package media API');
 assert.equal(panel.includes('/files/'), false, 'Campaign renderer must not hardcode SillyTavern asset URLs');
 assert.match(panel, /aria-live/);
-assert.match(panel, /aria-expanded/);
+assert.match(panel, /data-directive-mobile-view/);
 assert.match(panel, /renderCampaignBrowser/);
 for (const marker of [
   'data-campaign-browser',

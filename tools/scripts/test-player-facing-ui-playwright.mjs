@@ -9,6 +9,7 @@ import {
 
 const args = new Set(process.argv.slice(2));
 const LIVE = args.has('--live') || process.env.DIRECTIVE_PLAYER_FACING_UI_LIVE === '1';
+const ALLOW_DEFAULT_USER = args.has('--allow-default-user');
 const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.env.ST_BASE_URL || '');
 const USER = String(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_UI_TEST_USER || '').trim();
 const PASSWORD = process.env.DIRECTIVE_SILLYTAVERN_PASSWORD || process.env.SILLYTAVERN_PASSWORD || '';
@@ -49,13 +50,14 @@ function usage() {
     'Player-facing Directive UI Playwright smoke',
     '',
     'Dry run: node tools/scripts/test-player-facing-ui-playwright.mjs',
-    'Live:    DIRECTIVE_SILLYTAVERN_USER=<dedicated-user> SILLYTAVERN_BASE_URL=<url> node tools/scripts/test-player-facing-ui-playwright.mjs --live'
+    'Live:    DIRECTIVE_SILLYTAVERN_USER=<user> SILLYTAVERN_BASE_URL=<url> node tools/scripts/test-player-facing-ui-playwright.mjs --live',
+    'Installed default-user smoke: add --allow-default-user explicitly.'
   ].join('\n');
 }
 
 function ensureDedicatedUser() {
   if (!USER) throw new Error('DIRECTIVE_SILLYTAVERN_USER is required for live UI verification.');
-  if (USER.toLowerCase() === 'default-user') {
+  if (USER.toLowerCase() === 'default-user' && !ALLOW_DEFAULT_USER) {
     throw new Error('Refusing to run player-facing UI verification against default-user. Use a dedicated test user.');
   }
 }
@@ -94,6 +96,7 @@ async function openDirectiveOverlay(page) {
 }
 
 async function inspectViewport(page, { name, viewport }) {
+  const isMobile = viewport.width <= 640;
   await page.setViewportSize(viewport);
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -122,6 +125,102 @@ async function inspectViewport(page, { name, viewport }) {
     throw new Error(`${name}: removed Log route is still visible.`);
   }
 
+  if (isMobile) {
+    if (await panel.locator('.directive-lcars-rail:visible').count()) throw new Error(`${name}: LCARS rail remains visible on mobile.`);
+    if (await panel.locator('.directive-fullscreen-action:visible').count()) throw new Error(`${name}: fullscreen control remains visible on mobile.`);
+    if (!await panel.locator('.directive-route-bar:visible').count()) throw new Error(`${name}: mobile bottom route bar is not visible.`);
+    const campaignMobileView = await panel.locator('.directive-mobile-campaign-route').getAttribute('data-directive-mobile-view');
+    if (campaignMobileView !== 'detail') throw new Error(`${name}: Campaign did not open on active detail (view=${campaignMobileView}).`);
+    if (!await panel.locator('.directive-mobile-campaign-route .directive-mobile-route-detail:visible').count()) {
+      throw new Error(`${name}: Campaign detail surface is not visible on mobile.`);
+    }
+    const campaignsBack = panel.locator('.directive-mobile-campaign-route .directive-mobile-route-back').first();
+    await campaignsBack.tap();
+    await panel.locator('.directive-mobile-campaign-route[data-directive-mobile-view="list"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+    const campaignRow = panel.locator('.directive-mobile-campaign-row').first();
+    if (await campaignRow.count()) {
+      await campaignRow.tap();
+      await panel.locator('.directive-mobile-campaign-route[data-directive-mobile-view="detail"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+    }
+    const newCampaignButton = panel.locator('.campaign-new-button:visible').first();
+    if (await newCampaignButton.count()) {
+      await newCampaignButton.tap();
+      const picker = page.locator('.directive-campaign-browser-dialog:visible');
+      await picker.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+      const pickerDetails = await picker.locator('.campaign-browser-hero, .campaign-browser-hook, .campaign-browser-opening-hook, .campaign-browser-field').count();
+      if (pickerDetails === 0 && !/No campaign packages are available/i.test(await picker.innerText())) {
+        throw new Error(`${name}: New Campaign picker lacks artwork or campaign context.`);
+      }
+      const stacking = await picker.evaluate((element) => {
+        const runtime = document.querySelector('#directive-runtime-panel');
+        const modalOverlay = element.closest('.directive-campaign-dialog-overlay');
+        const modalRoot = element.closest('.directive-modal-root');
+        const zIndex = (node) => {
+          const value = Number.parseInt(node ? getComputedStyle(node).zIndex : '', 10);
+          return Number.isFinite(value) ? value : 0;
+        };
+        return {
+          pickerZ: Math.max(
+            zIndex(element),
+            zIndex(modalOverlay),
+            zIndex(modalRoot)
+          ),
+          runtimeZ: zIndex(runtime)
+        };
+      });
+      if (!(stacking.pickerZ > stacking.runtimeZ)) throw new Error(`${name}: New Campaign picker is behind the runtime panel. ${JSON.stringify(stacking)}`);
+      const pickerGeometry = await picker.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const overlayElement = element.closest('.directive-campaign-dialog-overlay');
+        const overlay = overlayElement?.getBoundingClientRect();
+        const overlayStyle = overlayElement ? getComputedStyle(overlayElement) : null;
+        const rootElement = element.closest('.directive-modal-root');
+        const rootRect = rootElement?.getBoundingClientRect();
+        const rootStyle = rootElement ? getComputedStyle(rootElement) : null;
+        return {
+          top: rect.top,
+          bottom: rect.bottom,
+          height: rect.height,
+          overlayTop: overlay?.top,
+          overlayBottom: overlay?.bottom,
+          overlayWidth: overlay?.width,
+          overlayHeight: overlay?.height,
+          overlayPosition: overlayStyle?.position,
+          overlayDisplay: overlayStyle?.display,
+          overlayInset: overlayStyle?.inset,
+          rootWidth: rootRect?.width,
+          rootHeight: rootRect?.height,
+          rootPosition: rootStyle?.position,
+          rootDisplay: rootStyle?.display,
+          scrollHeight: element.scrollHeight,
+          clientHeight: element.clientHeight
+        };
+      });
+      if (pickerGeometry.top < -1 || pickerGeometry.bottom > viewport.height + 1) {
+        throw new Error(`${name}: New Campaign picker is outside the viewport. ${JSON.stringify(pickerGeometry)}`);
+      }
+      if (ARTIFACT_DIR) {
+        await page.screenshot({
+          path: path.join(ARTIFACT_DIR, `player-facing-${name}-new-campaign.png`),
+          fullPage: false
+        });
+      }
+      const closePicker = picker.locator('.directive-campaign-dialog-close').first();
+      await closePicker.evaluate((element) => element.click());
+      await page.waitForTimeout(80);
+      if (await page.locator('.directive-campaign-browser-dialog:visible').count()) throw new Error(`${name}: New Campaign picker did not close.`);
+      if (!await newCampaignButton.evaluate((element) => document.activeElement === element).catch(() => false)) {
+        throw new Error(`${name}: New Campaign close did not restore focus to its opener.`);
+      }
+      if (ARTIFACT_DIR) {
+        await page.screenshot({
+          path: path.join(ARTIFACT_DIR, `player-facing-${name}-campaign.png`),
+          fullPage: false
+        });
+      }
+    }
+  }
+
   const campaignControl = page.locator('.directive-route-control[data-route-id="campaign"]').first();
   await campaignControl.focus();
   await campaignControl.press('ArrowRight');
@@ -129,10 +228,23 @@ async function inspectViewport(page, { name, viewport }) {
 
   await clickRoute(page, 'mission');
   const missionText = await panel.innerText();
-  const missionSurface = await panel.locator('.directive-quest-journal').count();
+  const missionSurface = isMobile
+    ? await panel.locator('.directive-mobile-mission-route:visible').count()
+    : await panel.locator('.directive-quest-journal').count();
   const questRows = panel.locator('.directive-quest-row');
   let questSelection = { status: 'skipped', reason: 'No active campaign quest rows were available.' };
-  if (await questRows.count()) {
+  if (isMobile) {
+    const missionRoute = panel.locator('.directive-mobile-mission-route:visible');
+    const missionRows = missionRoute.locator('.directive-quest-row');
+    if (await missionRows.count()) {
+      await missionRows.first().tap();
+      await missionRoute.locator('[data-directive-mobile-surface="detail"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+      if (await missionRoute.locator('[data-directive-mobile-surface="list"]:visible').count()) throw new Error(`${name}: Mission list and detail are visible together.`);
+      await missionRoute.locator('.directive-mobile-route-back').tap();
+      await missionRoute.locator('[data-directive-mobile-surface="list"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+    }
+  }
+  if (!isMobile && await questRows.count()) {
     const questId = await questRows.first().getAttribute('data-quest-id');
     try {
       await questRows.first().click();
@@ -150,17 +262,43 @@ async function inspectViewport(page, { name, viewport }) {
 
   await clickRoute(page, 'people');
   const crewText = await panel.innerText();
-  const crewSurface = await panel.locator('.directive-crew-journal').count();
+  const crewSurface = isMobile
+    ? await panel.locator('.directive-mobile-people-route:visible').count()
+    : await panel.locator('.directive-crew-journal').count();
+  if (isMobile) {
+    const peopleRoute = panel.locator('.directive-mobile-people-route:visible');
+    const peopleRows = peopleRoute.locator('.directive-mobile-crew-row');
+    if (await peopleRows.count()) {
+      await peopleRows.first().tap();
+      await peopleRoute.locator('[data-directive-mobile-surface="detail"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+      if (await peopleRoute.locator('[data-directive-mobile-surface="list"]:visible').count()) throw new Error(`${name}: People list and detail are visible together.`);
+      await peopleRoute.locator('.directive-mobile-route-back').tap();
+      await peopleRoute.locator('[data-directive-mobile-surface="list"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+    }
+  }
   await clickRoute(page, 'ship');
   const shipText = await panel.innerText();
-  const shipSurface = await panel.locator('.directive-ship-journal').count();
+  const shipSurface = isMobile
+    ? await panel.locator('.directive-mobile-ship-route:visible').count()
+    : await panel.locator('.directive-ship-journal').count();
   await clickRoute(page, 'settings');
-  const settingsSurface = await panel.locator('.directive-settings-player-preferences').count();
+  const settingsSurface = isMobile
+    ? await panel.locator('.directive-mobile-settings-route:visible').count()
+    : await panel.locator('.directive-settings-player-preferences').count();
+  if (isMobile) {
+    const settingsRoute = panel.locator('.directive-mobile-settings-route:visible');
+    const settingsRows = settingsRoute.locator('.directive-mobile-settings-row');
+    await settingsRows.first().tap();
+    await settingsRoute.locator('[data-directive-mobile-surface="detail"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+    if (await settingsRoute.locator('[data-directive-mobile-surface="list"]:visible').count()) throw new Error(`${name}: Settings list and detail are visible together.`);
+    await settingsRoute.locator('.directive-mobile-route-back').tap();
+    await settingsRoute.locator('[data-directive-mobile-surface="list"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+  }
   const disclosureCount = await panel.locator('.directive-settings-disclosure').count();
   const openDisclosureCount = await panel.locator('.directive-settings-disclosure[open]').count();
   const geometry = await panel.evaluate((element) => {
     const drawer = element.querySelector('.directive-route-body') || element;
-    const journal = element.querySelector('.directive-quest-journal, .directive-crew-journal, .directive-ship-journal, .directive-settings-console');
+    const journal = element.querySelector('.directive-mobile-mission-route:where(:not([hidden])), .directive-mobile-people-route:where(:not([hidden])), .directive-mobile-ship-route:where(:not([hidden])), .directive-mobile-settings-route:where(:not([hidden])), .directive-quest-journal, .directive-crew-journal, .directive-ship-journal, .directive-settings-console');
     const rect = element.getBoundingClientRect();
     return {
       shell: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
@@ -169,11 +307,12 @@ async function inspectViewport(page, { name, viewport }) {
       contentWidth: drawer.scrollWidth,
       journalWidth: journal?.getBoundingClientRect().width || 0,
       overflowsHorizontally: drawer.scrollWidth > drawer.clientWidth + 2,
-      hostMargin: window.innerWidth <= 640 ? 8 : 24,
-      bounded: rect.left >= (window.innerWidth <= 640 ? 8 : 24)
-        && rect.top >= (window.innerWidth <= 640 ? 8 : 24)
-        && rect.right <= window.innerWidth - (window.innerWidth <= 640 ? 8 : 24)
-        && rect.bottom <= window.innerHeight - (window.innerWidth <= 640 ? 8 : 24)
+      routeBodyOverflowY: getComputedStyle(drawer).overflowY,
+      routeBarVisible: Boolean(element.querySelector('.directive-route-bar')),
+      hostMargin: window.innerWidth <= 640 ? 0 : 24,
+      bounded: window.innerWidth <= 640
+        ? rect.left <= 1 && rect.top <= 1 && Math.abs(rect.width - window.innerWidth) <= 2 && Math.abs(rect.height - window.innerHeight) <= 2
+        : rect.left >= 24 && rect.top >= 24 && rect.right <= window.innerWidth - 24 && rect.bottom <= window.innerHeight - 24
     };
   });
 
@@ -184,7 +323,13 @@ async function inspectViewport(page, { name, viewport }) {
     throw new Error(`${name}: one or more focused route surfaces did not render. crew=${crewSurface} ship=${shipSurface} settings=${settingsSurface} disclosures=${disclosureCount} open=${openDisclosureCount}. Crew: ${crewText.slice(0, 240)} Ship: ${shipText.slice(0, 240)}`);
   }
   if (geometry.overflowsHorizontally) throw new Error(`${name}: route surface overflows horizontally. panel=${geometry.panelWidth} content=${geometry.contentWidth} journal=${geometry.journalWidth}`);
-  if (!geometry.bounded) throw new Error(`${name}: shell is not bounded with visible host margins. ${JSON.stringify(geometry.shell)}`);
+  if (!geometry.bounded) throw new Error(`${name}: shell geometry is incorrect. ${JSON.stringify(geometry.shell)}`);
+  if (isMobile && geometry.routeBodyOverflowY !== 'auto' && geometry.routeBodyOverflowY !== 'scroll') throw new Error(`${name}: route body is not the mobile scrolling region (${geometry.routeBodyOverflowY}).`);
+  if (isMobile && !geometry.routeBarVisible) throw new Error(`${name}: route bar disappeared on mobile.`);
+  if (isMobile) {
+    const mobileText = await panel.innerText();
+    if (mobileText.includes('[object Object]')) throw new Error(`${name}: player-facing mobile text contains [object Object].`);
+  }
 
   let screenshot = null;
   if (ARTIFACT_DIR) {

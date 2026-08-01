@@ -500,7 +500,7 @@ assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime sh
 assert.match(campaignPanelSource, /campaign-journal/, 'Campaign should render the approved master-detail journal');
 assert.match(campaignPanelSource, /campaign-index-panel/, 'Campaign should render the desktop playthrough index');
 assert.match(campaignPanelSource, /campaign-detail/, 'Campaign should render selected playthrough detail');
-assert.match(campaignPanelSource, /mobile-campaign-accordion/, 'Campaign should render the phone accordion layout');
+assert.match(campaignPanelSource, /directive-mobile-campaign-route/, 'Campaign should render the dedicated phone route layout');
 assert.match(campaignPanelSource, /createPackageImage/, 'Campaign artwork should use package media resolution');
 assert.match(campaignPanelSource, /Open Chat/, 'Campaign should open the active bound host chat');
 assert.match(campaignPanelSource, /Create an immutable checkpoint without leaving the active chat/, 'Campaign Save Game should explain immutable checkpoint behavior');

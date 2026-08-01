@@ -266,6 +266,8 @@
 .directive-modal-root {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
   z-index: 100200;
   pointer-events: none;
 }
@@ -16087,12 +16089,18 @@ textarea.directive-field-control {
 }
 
 .directive-expanded-shell .campaign-feedback { color: var(--directive-expanded-amber); }
-.directive-expanded-shell .mobile-campaign-accordion { display: none; }
+.directive-expanded-shell .directive-mobile-campaign-route,
+.directive-expanded-shell .directive-mobile-mission-route,
+.directive-expanded-shell .directive-mobile-people-route,
+.directive-expanded-shell .directive-mobile-ship-route,
+.directive-expanded-shell .directive-mobile-settings-route { display: none; }
 
 .directive-campaign-dialog-overlay {
   position: fixed;
   z-index: 100210;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
   display: grid;
   place-items: center;
   padding: 20px;
@@ -16101,6 +16109,7 @@ textarea.directive-field-control {
 }
 
 .directive-campaign-dialog {
+  position: relative;
   display: grid;
   gap: 12px;
   width: min(520px, 100%);
@@ -16114,6 +16123,23 @@ textarea.directive-field-control {
   border-radius: 6px;
   box-shadow: 0 18px 60px rgba(0, 0, 0, .55);
 }
+
+.directive-campaign-dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px 9px;
+  color: #ffc766;
+  background: transparent;
+  border: 1px solid rgba(255, 159, 74, .38);
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.directive-campaign-dialog-close span { display: none; }
 
 .directive-campaign-dialog h3 {
   margin: 0;
@@ -16300,8 +16326,20 @@ textarea.directive-field-control {
 
 @media (max-width: 640px) {
   .directive-campaign-browser-dialog {
-    width: min(100%, calc(100vw - 20px));
-    max-height: calc(100dvh - 20px);
+    width: 100%;
+    max-width: 100%;
+    max-height: min(92dvh, 720px);
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-top: 4px solid #ff9f4a;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .directive-campaign-dialog-overlay {
+    place-items: end center;
+    padding: 0;
   }
 
   .campaign-browser {
@@ -16326,21 +16364,22 @@ textarea.directive-field-control {
 
 @media (max-width: 640px) {
   .directive-runtime-panel.directive-expanded-shell {
-    position: relative !important;
-    inset: auto !important;
+    position: absolute !important;
+    inset: 0 !important;
     top: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    left: auto !important;
-    transform: none !important;
-    align-self: center !important;
-    justify-self: center !important;
-    width: calc(100vw - 16px) !important;
-    max-width: calc(100vw - 16px) !important;
-    height: calc(100dvh - 16px) !important;
-    max-height: calc(100dvh - 16px) !important;
-    border-radius: 10px !important;
-    grid-template-columns: 24px minmax(0, 1fr);
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    transform: translateY(0) !important;
+    align-self: end !important;
+    justify-self: stretch !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 14px 14px 0 0 !important;
+    grid-template-columns: minmax(0, 1fr);
+    animation: directive-mobile-sheet-in 180ms ease-out both;
   }
 
   .directive-runtime-panel.directive-expanded-shell.is-fullscreen {
@@ -16353,142 +16392,334 @@ textarea.directive-field-control {
     border-radius: 0 !important;
   }
 
-  .directive-expanded-shell .directive-lcars-rail {
-    grid-template-rows: 88px 112px 132px minmax(0, 1fr) 108px;
-    gap: 3px;
-    padding-right: 3px;
+  .directive-runtime-panel.directive-expanded-shell::before {
+    content: "" !important;
+    position: absolute;
+    top: 7px !important;
+    left: 50% !important;
+    z-index: 100 !important;
+    display: block !important;
+    width: 42px !important;
+    height: 4px !important;
+    border-radius: 999px !important;
+    background: rgba(248, 239, 224, .72) !important;
+    transform: translateX(-50%) !important;
+    pointer-events: none;
   }
 
-  .directive-expanded-shell .directive-lcars-rail-segment small { display: none; }
+  .directive-expanded-shell .directive-lcars-rail {
+    display: none !important;
+  }
 
-  .directive-expanded-shell .directive-workspace { padding: 0 7px 8px; }
+  .directive-expanded-shell .directive-lcars-rail {
+    grid-template-rows: none;
+  }
+
+  .directive-expanded-shell .directive-workspace {
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
   .directive-expanded-shell .directive-topbar { min-height: 50px; }
   .directive-expanded-shell .directive-brand { font-size: 17px; }
   .directive-expanded-shell .directive-route-path { font-size: 9px; }
   .directive-expanded-shell .directive-close-action { width: 34px; height: 34px; min-width: 34px; min-height: 34px; }
-  .directive-expanded-shell .directive-route-body { padding-top: 6px; padding-bottom: 6px; }
-  .directive-expanded-shell .directive-route-bar { min-height: 44px; padding: 3px 2px; gap: 2px; }
+  .directive-expanded-shell .directive-fullscreen-action { display: none !important; }
+  .directive-expanded-shell .directive-route-body {
+    padding: 8px 12px 10px;
+    overflow-x: hidden;
+  }
+  .directive-expanded-shell .directive-route-bar {
+    min-height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding: 4px 5px calc(4px + env(safe-area-inset-bottom, 0px));
+    gap: 2px;
+  }
   .directive-expanded-shell .directive-route-control { flex-direction: column; gap: 2px; min-height: 44px; padding: 2px 1px; }
   .directive-expanded-shell .directive-route-control-icon { width: 24px; height: 24px; }
   .directive-expanded-shell .directive-route-control-label { font-size: 9px; }
 
-  .directive-expanded-shell .campaign-journal { display: none; }
-  .directive-expanded-shell .mobile-campaign-accordion {
-    display: block;
-    flex: 1 1 auto;
-    min-height: 0;
-    margin: 8px 0 10px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-color: rgba(255, 159, 74, .72) rgba(13, 16, 24, .72);
-    scrollbar-width: thin;
+  .directive-expanded-shell .directive-mobile-campaign-route {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100%;
   }
 
-  .directive-expanded-shell .mobile-campaign-item {
-    overflow: hidden;
-    background: var(--directive-expanded-surface);
-    border-left: 5px solid transparent;
-    border-radius: 5px;
+  .directive-expanded-shell .directive-quest-journal,
+  .directive-expanded-shell .directive-crew-journal,
+  .directive-expanded-shell .directive-ship-journal,
+  .directive-expanded-shell .campaign-journal,
+  .directive-expanded-shell .directive-settings-console:not(.directive-mobile-settings-route) {
+    display: none !important;
   }
 
-  .directive-expanded-shell .mobile-campaign-item + .mobile-campaign-item { margin-top: 6px; }
-  .directive-expanded-shell .mobile-campaign-item.is-open {
-    background: var(--directive-expanded-high);
-    border-left-color: var(--directive-expanded-amber);
-  }
-
-  .directive-expanded-shell .mobile-campaign-head {
-    display: grid;
-    grid-template-columns: 54px minmax(0, 1fr);
-    min-height: 60px;
-  }
-
-  .directive-expanded-shell .mobile-campaign-head > .directive-media-frame {
-    width: 54px;
-    height: 60px;
-    border-radius: 0;
-  }
-
-  .directive-expanded-shell .mobile-campaign-toggle {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 9px;
+  .directive-expanded-shell .directive-mobile-mission-route,
+  .directive-expanded-shell .directive-mobile-people-route,
+  .directive-expanded-shell .directive-mobile-ship-route,
+  .directive-expanded-shell .directive-mobile-settings-route {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    min-height: 100%;
     color: var(--directive-expanded-text);
-    background: transparent;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-title {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: var(--directive-expanded-amber);
+    font: 800 16px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-detail,
+  .directive-expanded-shell .directive-mobile-ship-identity,
+  .directive-expanded-shell .directive-mobile-settings-detail {
+    min-width: 0;
+    padding: 2px 0 12px;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-detail.directive-quest-detail {
     border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-detail > h2,
+  .directive-expanded-shell .directive-mobile-route-detail > h3,
+  .directive-expanded-shell .directive-mobile-ship-identity > h2 {
+    margin: 0 0 8px;
+    color: var(--directive-expanded-text);
+    font-size: 21px;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-detail p,
+  .directive-expanded-shell .directive-mobile-ship-identity p {
+    color: var(--directive-expanded-muted);
+  }
+
+  .directive-expanded-shell .directive-mobile-route-list {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-list > button,
+  .directive-expanded-shell .directive-mobile-settings-row,
+  .directive-expanded-shell .directive-mobile-crew-row {
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 11px;
+    color: var(--directive-expanded-text);
+    background: var(--directive-expanded-surface);
+    border: 1px solid rgba(255, 159, 74, .22);
+    border-radius: 5px;
     text-align: left;
   }
 
-  .directive-expanded-shell .mobile-campaign-toggle-copy {
+  .directive-expanded-shell .directive-mobile-route-list > button:focus-visible,
+  .directive-expanded-shell .directive-mobile-route-list > button:hover {
+    border-color: var(--directive-expanded-gold);
+    outline: 2px solid var(--directive-expanded-gold);
+    outline-offset: 1px;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-list > button,
+  .directive-expanded-shell .directive-mobile-settings-row,
+  .directive-expanded-shell .directive-mobile-crew-row {
+    display: grid;
+    gap: 3px;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-list > button strong,
+  .directive-expanded-shell .directive-mobile-settings-row strong,
+  .directive-expanded-shell .directive-mobile-crew-row strong { font-size: 14px; }
+
+  .directive-expanded-shell .directive-mobile-route-list > button span,
+  .directive-expanded-shell .directive-mobile-settings-row span,
+  .directive-expanded-shell .directive-mobile-crew-row span {
+    color: var(--directive-expanded-muted);
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .directive-expanded-shell .directive-mobile-ship-section {
+    margin: 0 0 7px;
+    padding: 0 11px;
+    background: var(--directive-expanded-surface);
+    border: 1px solid rgba(255, 159, 74, .22);
+    border-radius: 5px;
+  }
+
+  .directive-expanded-shell .directive-mobile-ship-section summary {
+    min-height: 44px;
+    padding: 12px 0;
+    color: var(--directive-expanded-amber);
+    cursor: pointer;
+    font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+    text-transform: uppercase;
+  }
+
+  .directive-expanded-shell .directive-mobile-ship-section ul,
+  .directive-expanded-shell .directive-mobile-crew-detail ul {
+    margin: 0 0 12px;
+    padding-left: 18px;
+    color: var(--directive-expanded-muted);
+  }
+
+  .directive-expanded-shell .directive-mobile-ship-section li,
+  .directive-expanded-shell .directive-mobile-crew-detail li { margin: 5px 0; }
+
+  .directive-expanded-shell .directive-mobile-settings-detail > *,
+  .directive-expanded-shell .directive-mobile-settings-detail .directive-settings-player-preferences {
+    max-width: none;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 2px 8px;
+    border-bottom: 1px solid rgba(255, 159, 74, .24);
+    color: var(--directive-expanded-amber);
+  }
+
+  .directive-expanded-shell .directive-mobile-route-header > strong {
+    min-width: 0;
+    overflow: hidden;
+    font: 800 16px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-back,
+  .directive-expanded-shell .directive-mobile-route-header .campaign-new-button {
+    min-width: 44px;
+    min-height: 40px;
+    padding: 6px 8px;
+    color: var(--directive-expanded-amber);
+    background: transparent;
+    border: 1px solid rgba(255, 159, 74, .36);
+    border-radius: 5px;
+    font: 800 10px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif;
+    text-transform: uppercase;
+  }
+
+  .directive-expanded-shell .directive-mobile-route-list {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .directive-expanded-shell .directive-mobile-campaign-row {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 72px;
+    padding: 7px;
+    color: var(--directive-expanded-text);
+    background: var(--directive-expanded-surface);
+    border: 1px solid rgba(255, 159, 74, .22);
+    border-left: 4px solid transparent;
+    border-radius: 5px;
+    text-align: left;
+  }
+
+  .directive-expanded-shell .directive-mobile-campaign-row:focus-visible,
+  .directive-expanded-shell .directive-mobile-campaign-row:hover {
+    border-left-color: var(--directive-expanded-amber);
+    outline: 2px solid var(--directive-expanded-gold);
+    outline-offset: 1px;
+  }
+
+  .directive-expanded-shell .directive-mobile-campaign-thumb {
+    width: 58px;
+    height: 58px;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 4px;
+  }
+
+  .directive-expanded-shell .directive-mobile-campaign-thumb .directive-media-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .directive-expanded-shell .directive-mobile-campaign-copy {
     display: grid;
     gap: 2px;
     min-width: 0;
   }
 
-  .directive-expanded-shell .mobile-campaign-toggle-copy strong {
-    font: 800 14px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
-  }
-
-  .directive-expanded-shell .mobile-campaign-toggle-copy small {
+  .directive-expanded-shell .directive-mobile-campaign-copy strong,
+  .directive-expanded-shell .directive-mobile-campaign-copy span,
+  .directive-expanded-shell .directive-mobile-campaign-copy small {
+    min-width: 0;
     overflow: hidden;
-    color: var(--directive-expanded-muted);
-    font-size: 10px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .directive-expanded-shell .mobile-campaign-badges {
-    display: grid;
-    justify-items: end;
-    gap: 3px;
+  .directive-expanded-shell .directive-mobile-campaign-copy strong {
+    font: 800 15px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
   }
 
-  .directive-expanded-shell .mobile-campaign-badge {
+  .directive-expanded-shell .directive-mobile-campaign-copy span,
+  .directive-expanded-shell .directive-mobile-campaign-copy small {
+    color: var(--directive-expanded-muted);
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .directive-expanded-shell .directive-mobile-campaign-state {
+    align-self: start;
+    max-width: 84px;
     color: var(--directive-expanded-amber);
     font: 800 8px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+    text-align: right;
     text-transform: uppercase;
   }
 
-  .directive-expanded-shell .mobile-campaign-chevron {
-    width: 18px;
-    height: 18px;
-    color: var(--directive-expanded-amber);
-    transform: rotate(-90deg);
-    transform-origin: center;
+  .directive-expanded-shell .directive-mobile-campaign-route > .mobile-campaign-detail {
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
   }
 
-  .directive-expanded-shell .mobile-campaign-toggle[aria-expanded="true"] .mobile-campaign-chevron {
-    transform: rotate(0);
-  }
-
-  .directive-expanded-shell .mobile-campaign-detail {
-    padding: 11px 12px 14px;
-    border-top: 1px solid rgba(255, 159, 74, .24);
-  }
-
-  .directive-expanded-shell .mobile-campaign-detail .campaign-hero {
-    height: 150px;
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-hero {
+    height: 178px;
     margin-bottom: 11px;
-    border-radius: 4px;
+    border-radius: 5px;
   }
 
-  .directive-expanded-shell .mobile-campaign-detail .campaign-hero-copy { padding: 12px; }
-  .directive-expanded-shell .mobile-campaign-detail .campaign-title { font-size: 22px; }
-  .directive-expanded-shell .mobile-campaign-detail .campaign-detail-body { padding: 0; }
-  .directive-expanded-shell .mobile-campaign-detail .campaign-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .directive-expanded-shell .mobile-campaign-detail .campaign-premise { font-size: 12px; }
-  .directive-expanded-shell .mobile-campaign-detail .campaign-saves { margin-top: 13px; }
-  .directive-expanded-shell .mobile-campaign-detail .campaign-command { min-height: 36px; font-size: 10px; }
-  .directive-expanded-shell .mobile-save-row {
-    margin-top: 5px;
-    border: 1px solid rgba(255, 159, 74, .16);
-    border-radius: 4px;
-  }
-  .directive-expanded-shell .mobile-save-row .campaign-save-row { width: 100%; }
-  .directive-expanded-shell .mobile-save-detail { padding: 0 9px 9px; }
-  .directive-expanded-shell .mobile-save-detail[hidden] { display: none; }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-hero-copy { padding: 13px; }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-title { font-size: 23px; }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-detail-body { padding: 0; }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-premise { font-size: 12px; }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-command { min-height: 44px; font-size: 10px; }
+  .directive-expanded-shell .directive-mobile-campaign-route .mobile-campaign-detail .campaign-saves { margin-top: 13px; }
+}
+
+@keyframes directive-mobile-sheet-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

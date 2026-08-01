@@ -1203,6 +1203,104 @@ function renderPlayerFacingCrew(body, information) {
   layout.append(list, detail);
   body.appendChild(layout);
   renderDetail(crew.some((entry) => entry.id === activeCrewId) ? activeCrewId : crew[0].id);
+
+  let mobileView = 'detail';
+  let mobileCrewId = crew.some((entry) => entry.id === activeCrewId) ? activeCrewId : crew[0].id;
+  const mobileRoute = createElement('section', 'directive-mobile-people-route');
+  mobileRoute.setAttribute('aria-label', 'Crew');
+  const renderMobile = () => {
+    mobileRoute.setAttribute('data-directive-mobile-view', mobileView);
+    clearElement(mobileRoute);
+    const selected = crew.find((entry) => entry.id === mobileCrewId) || crew[0];
+    const header = createElement('header', 'directive-mobile-route-header');
+    if (mobileView === 'detail' && selected) {
+      const back = createButton({
+        label: 'Crew',
+        icon: 'fa-solid fa-chevron-left',
+        className: 'directive-mobile-route-back',
+        onClick: () => {
+          mobileView = 'list';
+          renderMobile();
+        }
+      });
+      back.dataset.directiveMobileRouteBack = 'true';
+      header.appendChild(back);
+      const title = createElement('h2', 'directive-mobile-route-title');
+      title.textContent = selected.name || 'Crew Member';
+      header.appendChild(title);
+    } else {
+      const title = createElement('h2', 'directive-mobile-route-title');
+      title.textContent = 'Crew';
+      header.appendChild(title);
+    }
+    mobileRoute.appendChild(header);
+    if (mobileView === 'detail' && selected) {
+      const surface = createElement('section', 'directive-mobile-route-detail directive-mobile-crew-detail');
+      surface.setAttribute('data-directive-mobile-surface', 'detail');
+      const heading = createElement('h3', 'directive-crew-detail-title');
+      heading.textContent = selected.name || 'Crew Member';
+      surface.appendChild(heading);
+      const identity = createElement('p', 'directive-crew-detail-role');
+      identity.textContent = playerFacingText(selected.role) || 'Crew Member';
+      surface.appendChild(identity);
+      const meta = createElement('div', 'directive-crew-detail-meta');
+      for (const [label, value] of [
+        ['Availability', selected.availability],
+        ['Standing', selected.standing],
+        ['Assignment', selected.assignment]
+      ]) {
+        const safeValue = playerFacingText(value);
+        if (!safeValue) continue;
+        const row = createElement('div', 'directive-crew-detail-meta-row');
+        const key = createElement('span', 'directive-crew-detail-meta-label');
+        key.textContent = label;
+        const content = createElement('span', 'directive-crew-detail-meta-value');
+        content.textContent = safeValue;
+        row.append(key, content);
+        meta.appendChild(row);
+      }
+      if (meta.children.length) surface.appendChild(meta);
+      if (asArray(selected.history).length) {
+        const history = createElement('details', 'directive-crew-history');
+        const summary = createElement('summary');
+        summary.textContent = 'Related History';
+        history.appendChild(summary);
+        const historyList = createElement('ul');
+        selected.history.map((entry) => playerFacingText(entry?.summary || entry)).filter(Boolean).forEach((summaryText) => {
+          const item = createElement('li');
+          item.textContent = summaryText;
+          historyList.appendChild(item);
+        });
+        history.appendChild(historyList);
+        surface.appendChild(history);
+      }
+      mobileRoute.appendChild(surface);
+      return;
+    }
+    const listSurface = createElement('nav', 'directive-mobile-route-list directive-mobile-crew-list');
+    listSurface.setAttribute('aria-label', 'Crew');
+    listSurface.setAttribute('data-directive-mobile-surface', 'list');
+    crew.forEach((entry) => {
+      const row = createElement('button', 'directive-mobile-crew-row');
+      row.type = 'button';
+      row.dataset.crewId = entry.id;
+      const name = createElement('strong');
+      name.textContent = playerFacingText(entry.name) || 'Crew Member';
+      const role = createElement('span');
+      role.textContent = playerFacingText(entry.role) || 'Crew Member';
+      row.append(name, role);
+      row.addEventListener('click', () => {
+        mobileCrewId = entry.id;
+        activeCrewId = entry.id;
+        mobileView = 'detail';
+        renderMobile();
+      });
+      listSurface.appendChild(row);
+    });
+    mobileRoute.appendChild(listSurface);
+  };
+  renderMobile();
+  body.appendChild(mobileRoute);
 }
 
 export function renderCrewPanel(body, view, actions = {}) {

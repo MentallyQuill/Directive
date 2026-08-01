@@ -96,8 +96,8 @@ assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell::before,\
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*40px\s+minmax\(0,\s*1fr\)/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s*!important;/);
 assert.match(css, /\.directive-expanded-shell \.directive-route-bar\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
-assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*24px\s+minmax\(0,\s*1fr\)/);
-assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*relative\s*!important;[\s\S]*?transform:\s*none\s*!important;/);
+assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*absolute\s*!important;[\s\S]*?inset:\s*0\s*!important;/);
 assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{[\s\S]*?position:\s*absolute\s*!important;[\s\S]*?inset:\s*0\s*!important;/);
 assert.match(css, /scrollbar-width:\s*thin/);
 assert.match(css, /::-webkit-scrollbar\s*\{[\s\S]*?width:\s*7px/);

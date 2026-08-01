@@ -283,6 +283,48 @@ function renderPlayerFacingShip(body, information) {
     surface.appendChild(history);
   }
   body.appendChild(surface);
+
+  const mobileRoute = createElement('section', 'directive-mobile-ship-route');
+  mobileRoute.setAttribute('aria-label', 'Ship');
+  mobileRoute.setAttribute('data-directive-mobile-view', 'detail');
+  const identitySurface = createElement('section', 'directive-mobile-ship-identity');
+  const mobileTitle = createElement('h2', 'directive-ship-identity-title');
+  mobileTitle.textContent = displayValue(ship.name, 'Ship');
+  identitySurface.appendChild(mobileTitle);
+  if (ship.condition) {
+    const condition = createElement('p', 'directive-ship-condition');
+    condition.textContent = displayValue(ship.condition);
+    identitySurface.appendChild(condition);
+  }
+  mobileRoute.appendChild(identitySurface);
+
+  const mobileGroups = [
+    ['Capabilities', capabilities],
+    ['Restrictions', asArray(ship.restrictions)],
+    ['Damage', asArray(ship.damage)],
+    ['Technical History', asArray(ship.history)]
+  ];
+  for (const [label, values] of mobileGroups) {
+    const safeValues = values.map((item) => {
+      if (typeof item === 'string') return displayValue(item, '');
+      if (!item || typeof item !== 'object') return displayValue(item, '');
+      return displayValue(item.label || item.summary || item.value, '');
+    }).filter(Boolean);
+    if (!safeValues.length) continue;
+    const disclosure = createElement('details', 'directive-mobile-ship-section');
+    const summary = createElement('summary');
+    summary.textContent = `${label} (${safeValues.length})`;
+    disclosure.appendChild(summary);
+    const list = createElement('ul');
+    safeValues.forEach((value) => {
+      const row = createElement('li');
+      row.textContent = value;
+      list.appendChild(row);
+    });
+    disclosure.appendChild(list);
+    mobileRoute.appendChild(disclosure);
+  }
+  body.appendChild(mobileRoute);
 }
 
 export function renderShipPanel(body, view) {

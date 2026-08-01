@@ -2,6 +2,8 @@ import {
   addTooltip,
   appendBulletList,
   appendEmpty,
+  clearElement,
+  createButton,
   createElement,
   createIcon
 } from './runtime-ui-kit.js';
@@ -168,5 +170,52 @@ export function renderMissionQuestJournal(container, information = {}, actions =
   };
   journal.append(createQuestList(quests, selectedId, select), createQuestDetail(selected));
   container.appendChild(journal);
+
+  let mobileView = selected ? 'detail' : 'list';
+  let mobileQuestId = selected?.id || quests[0]?.id || '';
+  const mobileRoute = createElement('section', 'directive-mobile-mission-route');
+  mobileRoute.setAttribute('aria-label', 'Mission quests');
+  const renderMobile = () => {
+    mobileRoute.setAttribute('data-directive-mobile-view', mobileView);
+    clearElement(mobileRoute);
+    const selectedQuest = quests.find((quest) => quest.id === mobileQuestId) || null;
+    const header = createElement('header', 'directive-mobile-route-header');
+    if (mobileView === 'detail' && selectedQuest) {
+      const back = createButton({
+        label: 'Quests',
+        icon: 'fa-solid fa-chevron-left',
+        className: 'directive-mobile-route-back',
+        onClick: () => {
+          mobileView = 'list';
+          renderMobile();
+        }
+      });
+      back.dataset.directiveMobileRouteBack = 'true';
+      header.appendChild(back);
+      const title = createHeading(selectedQuest.title, 'h2', 'directive-mobile-route-title');
+      header.appendChild(title);
+    } else {
+      header.appendChild(createHeading('Quests', 'h2', 'directive-mobile-route-title'));
+    }
+    mobileRoute.appendChild(header);
+    if (mobileView === 'detail' && selectedQuest) {
+      const detail = createQuestDetail(selectedQuest);
+      detail.classList.add('directive-mobile-route-detail');
+      detail.setAttribute('data-directive-mobile-surface', 'detail');
+      mobileRoute.appendChild(detail);
+      return;
+    }
+    const listSurface = createQuestList(quests, mobileQuestId, async (questId) => {
+      mobileQuestId = questId;
+      mobileView = 'detail';
+      await select(questId);
+      renderMobile();
+    });
+    listSurface.classList.add('directive-mobile-route-list');
+    listSurface.setAttribute('data-directive-mobile-surface', 'list');
+    mobileRoute.appendChild(listSurface);
+  };
+  renderMobile();
+  container.appendChild(mobileRoute);
   return journal;
 }

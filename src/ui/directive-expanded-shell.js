@@ -61,6 +61,8 @@ export function createDirectiveExpandedShell({
   panel.dataset.directiveShell = 'expanded';
   panel.dataset.activeRoute = activeRoute.id || activeRouteId;
   panel.setAttribute('aria-label', label);
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
 
   const rail = createElement('aside', 'directive-lcars-rail');
   rail.setAttribute('aria-label', 'LCARS route identifiers');

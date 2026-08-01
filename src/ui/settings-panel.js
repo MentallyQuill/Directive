@@ -2,6 +2,7 @@ import {
   addTooltip,
   appendEmpty,
   areDirectiveTooltipsDisabled,
+  clearElement,
   createButton,
   createCard,
   createCardTitle,
@@ -30,9 +31,11 @@ const DEFAULT_SETTINGS_SECTION_ID = SETTINGS_SYSTEMS_SECTION_ID;
 export const DIRECTIVE_PRESET_SETTINGS_TARGET = 'directive-preset';
 
 let activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
+let activeMobileSettingsSectionId = '';
 
 export function resetSettingsPanelState() {
   activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
+  activeMobileSettingsSectionId = '';
 }
 
 function selectSettingsSection(sectionId) {
@@ -1333,4 +1336,81 @@ export function renderSettingsPanel(body, view, actions = {}) {
     }
   });
   body.appendChild(consoleSurface);
+
+  const mobileRoute = createElement('section', 'directive-mobile-settings-route directive-settings-console');
+  mobileRoute.setAttribute('aria-label', 'Settings');
+  const mobileSections = [
+    { id: 'preferences', title: 'Player Preferences', description: 'Interface hints, tutorials, and player-facing guidance.' },
+    { id: 'advanced', title: 'Advanced', description: 'Preset, provider, and role routing controls.' },
+    { id: 'troubleshooting', title: 'Developer & Troubleshooting', description: 'Diagnostics, safety, and continuity tools.' }
+  ];
+  const renderMobile = () => {
+    const selected = mobileSections.find((section) => section.id === activeMobileSettingsSectionId) || null;
+    mobileRoute.setAttribute('data-directive-mobile-view', selected ? 'detail' : 'list');
+    clearElement(mobileRoute);
+    const header = createElement('header', 'directive-mobile-route-header');
+    if (selected) {
+      const back = createButton({
+        label: 'Settings',
+        icon: 'fa-solid fa-chevron-left',
+        className: 'directive-mobile-route-back',
+        onClick: () => {
+          activeMobileSettingsSectionId = '';
+          renderMobile();
+        }
+      });
+      back.dataset.directiveMobileRouteBack = 'true';
+      header.appendChild(back);
+      const title = createElement('h2', 'directive-mobile-route-title');
+      title.textContent = selected.title;
+      header.appendChild(title);
+    } else {
+      const title = createElement('h2', 'directive-mobile-route-title');
+      title.textContent = 'Settings';
+      header.appendChild(title);
+    }
+    mobileRoute.appendChild(header);
+    if (!selected) {
+      const list = createElement('nav', 'directive-mobile-route-list directive-mobile-settings-list');
+      list.setAttribute('aria-label', 'Settings sections');
+      list.setAttribute('data-directive-mobile-surface', 'list');
+      mobileSections.forEach((section) => {
+        const row = createElement('button', 'directive-mobile-settings-row');
+        row.type = 'button';
+        const title = createElement('strong');
+        title.textContent = section.title;
+        const description = createElement('span');
+        description.textContent = section.description;
+        row.append(title, description);
+        row.addEventListener('click', () => {
+          activeMobileSettingsSectionId = section.id;
+          renderMobile();
+        });
+        list.appendChild(row);
+      });
+      mobileRoute.appendChild(list);
+      return;
+    }
+
+    const detail = createElement('section', 'directive-mobile-route-detail directive-mobile-settings-detail');
+    detail.setAttribute('data-directive-mobile-surface', 'detail');
+    if (selected.id === 'preferences') {
+      const preferencesSection = createElement('section', 'directive-settings-player-preferences');
+      preferencesSection.appendChild(createCardTitle('Player Preferences'));
+      appendTooltipPreferenceSettings(preferencesSection);
+      appendGuidanceSettings(preferencesSection, actions);
+      detail.appendChild(preferencesSection);
+    } else if (selected.id === 'advanced') {
+      appendDirectivePresetSettings(detail, view, actions);
+      appendProviderConfiguration(detail, view, actions);
+      appendProviderRoleRouting(detail, view, actions);
+    } else {
+      appendModelCallDiagnostics(detail, view);
+      appendStateSafetySettings(detail, view, actions);
+      appendContinuityProjectionDiagnostics(detail, view, actions);
+    }
+    mobileRoute.appendChild(detail);
+  };
+  renderMobile();
+  body.appendChild(mobileRoute);
 }
