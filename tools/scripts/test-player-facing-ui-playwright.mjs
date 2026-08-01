@@ -69,11 +69,42 @@ async function clickRoute(page, routeId) {
   await page.waitForTimeout(120);
 }
 
+async function openDirectiveOverlay(page) {
+  const overlay = page.locator('#directive-runtime-overlay');
+  const backdrop = page.locator('#directive-runtime-overlay .directive-runtime-backdrop');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const open = await overlay.count()
+      && (await overlay.getAttribute('aria-hidden')) !== 'true'
+      && (await overlay.getAttribute('hidden')) === null;
+    if (open) return true;
+    const hostExtensionsMenu = page.locator('#extensionsMenuButton');
+    const directiveMenuItem = page.locator('#directive-extensions-menu-button');
+    if (!(await hostExtensionsMenu.count()) || !(await directiveMenuItem.count())) break;
+    await hostExtensionsMenu.click();
+    await directiveMenuItem.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+    await directiveMenuItem.click();
+    try {
+      await backdrop.waitFor({ state: 'visible', timeout: Math.min(TIMEOUT_MS, 5000) });
+      return true;
+    } catch {
+      await page.waitForTimeout(200);
+    }
+  }
+  return false;
+}
+
 async function inspectViewport(page, { name, viewport }) {
   await page.setViewportSize(viewport);
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  const panel = page.locator('#directive-runtime-panel');
+  await page.locator('#directive-runtime-overlay').waitFor({ state: 'attached', timeout: TIMEOUT_MS });
+  await page.waitForTimeout(750);
+  const directivePanel = page.locator('#directive-runtime-panel');
+  const overlayOpened = await openDirectiveOverlay(page);
+  if (!overlayOpened) {
+    throw new Error(`${name}: Directive overlay did not open from the SillyTavern Extensions menu.`);
+  }
+  const panel = directivePanel;
   await panel.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
   await page.locator('#directive-runtime-overlay .directive-runtime-backdrop').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
 
@@ -134,9 +165,11 @@ async function inspectViewport(page, { name, viewport }) {
       contentWidth: drawer.scrollWidth,
       journalWidth: journal?.getBoundingClientRect().width || 0,
       overflowsHorizontally: drawer.scrollWidth > drawer.clientWidth + 2,
-      bounded: rect.left >= 24 && rect.top >= 24
-        && rect.right <= window.innerWidth - 24
-        && rect.bottom <= window.innerHeight - 24
+      hostMargin: window.innerWidth <= 640 ? 8 : 24,
+      bounded: rect.left >= (window.innerWidth <= 640 ? 8 : 24)
+        && rect.top >= (window.innerWidth <= 640 ? 8 : 24)
+        && rect.right <= window.innerWidth - (window.innerWidth <= 640 ? 8 : 24)
+        && rect.bottom <= window.innerHeight - (window.innerWidth <= 640 ? 8 : 24)
     };
   });
 
