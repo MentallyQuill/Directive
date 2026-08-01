@@ -175,6 +175,37 @@ function sanitizeHostNativeContinuityReview(review = null, source = null) {
   if (!review || typeof review !== 'object' || typeof review.ok !== 'boolean') {
     return null;
   }
+  const claimAuthority = review.claimAuthority && typeof review.claimAuthority === 'object'
+    ? {
+      kind: compactText(review.claimAuthority.kind || 'directive.claimAuthorityAssessment.v1', 120),
+      schemaVersion: 1,
+      category: compactText(review.claimAuthority.category, 80) || 'generatedClaim',
+      disposition: compactText(review.claimAuthority.disposition, 80) || 'quarantine',
+      accepted: review.claimAuthority.accepted === true,
+      evidenceRefIds: (Array.isArray(review.claimAuthority.evidenceRefIds) ? review.claimAuthority.evidenceRefIds : [])
+        .map((entry) => compactText(typeof entry === 'object' ? entry.id || entry.refId || entry.sourceId : entry, 180))
+        .filter(Boolean)
+        .slice(0, 24),
+      claims: (Array.isArray(review.claimAuthority.claims) ? review.claimAuthority.claims : [])
+        .slice(0, 24)
+        .map((claim) => ({
+          id: compactText(claim?.id, 180) || null,
+          textHash: compactText(claim?.textHash, 180) || null,
+          category: compactText(claim?.category, 80) || 'generatedClaim',
+          disposition: compactText(claim?.disposition, 80) || 'quarantine',
+          accepted: claim?.accepted === true,
+          evidenceRefIds: (Array.isArray(claim?.evidenceRefIds) ? claim.evidenceRefIds : [])
+            .map((entry) => compactText(typeof entry === 'object' ? entry.id || entry.refId || entry.sourceId : entry, 180))
+            .filter(Boolean)
+            .slice(0, 12)
+        })),
+      policy: {
+        playerInputIsIntentNotFact: true,
+        generatedProseCannotCommitState: true,
+        unsupportedClaimsRequireVerification: true
+      }
+    }
+    : null;
   return {
     kind: compactText(review.kind || 'directive.sreHostNativeContinuityReview.v1', 120),
     ok: review.ok === true,
@@ -182,6 +213,7 @@ function sanitizeHostNativeContinuityReview(review = null, source = null) {
       .slice(0, 24)
       .map(sanitizeHostNativeReviewFinding),
     checkedFactCount: Number.isFinite(Number(review.checkedFactCount)) ? Number(review.checkedFactCount) : 0,
+    ...(claimAuthority ? { claimAuthority } : {}),
     reviewer: compactText(review.reviewer, 120) || undefined,
     mode: compactText(review.mode, 80) || undefined,
     error: review.error ? compactErrorRef(review.error, 'DIRECTIVE_SRE_HOST_NATIVE_REVIEW_FAILED') : undefined,

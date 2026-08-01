@@ -5,6 +5,7 @@ import {
 import { renderNarratorVoiceCues } from './crew-voice-capsules.mjs';
 import { assertContinuityContradictionFree } from '../continuity/contradiction-guard.mjs';
 import { extractContinuityClaimsFromText } from '../continuity/claim-quarantine.mjs';
+import { classifyPlayerClaims, classifyGeneratedClaims } from '../continuity/claim-authority.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -154,6 +155,10 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     }
   });
   const shellIsolation = hostShellIsolation(campaignState);
+  const playerClaimAuthority = classifyPlayerClaims({
+    text: narratorPacket.playerInput || turnPacket.sceneSnapshot?.playerInput || '',
+    source: { kind: 'playerInput', outcomeId: outcome.id || null }
+  });
   const narrationContext = normalizeDirectiveNarrationContext(turnPacket.narrationContext || null, {
     roleId: 'narration'
   });
@@ -183,6 +188,8 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     'Use exact names and billets from Known Crew Identity. Do not invent surnames, rename crew, or merge two officers. If a referenced officer is not listed, describe that person by billet or station instead of inventing a name.',
     'Use Narrator-Safe Crew Voice Cues as compact style guidance for selected speaking crew. Treat example line shapes as syntax examples, not catchphrases to repeat.',
     'Use normal prose suitable for SillyTavern roleplay. Keep the result grounded in the provided constraints.',
+    'Player claims and discoveries are testimony or intent, not canon. Do not have crew confirm an unsupported player assertion; ask for evidence, preserve uncertainty, or route it through the Director transaction.',
+    'Generated narration cannot commit new world state. Only committed outcome facts may be stated as settled.',
     '',
     'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
     styleContract
@@ -206,6 +213,9 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     '',
     'Narrator Packet:',
     compactJson(narratorPacket),
+    '',
+    'Claim Authority for Player Input:',
+    compactJson(playerClaimAuthority),
     '',
     ...(arbiterContinuityLines ? [
       arbiterContinuityLines,
@@ -233,7 +243,8 @@ export function composeNarrationPrompt({ campaignState, turnPacket, packageData 
     ],
     rawHiddenValuesExposed: narratorPacket.rawHiddenValuesExposed === true,
     directorOnlyDataIncluded: narratorPacket.directorOnlyDataIncluded === true,
-    narrationContext: narrationContextMeta
+    narrationContext: narrationContextMeta,
+    claimAuthority: playerClaimAuthority
   };
 }
 
@@ -301,6 +312,16 @@ export async function generateNarrationFromTurn({
     packageData,
     crewDataset
   });
+  const claimAuthority = classifyGeneratedClaims({
+    text,
+    source: {
+      kind: 'directiveNarration',
+      outcomeId: prompt.sourceOutcomeId,
+      providerId: response?.providerId || provider.id || 'unknown'
+    },
+    review: continuityReview,
+    now: generatedAt
+  });
   return {
     kind: 'directive.narrationResult',
     sourceOutcomeId: prompt.sourceOutcomeId,
@@ -309,6 +330,7 @@ export async function generateNarrationFromTurn({
     providerId: response?.providerId || provider.id || 'unknown',
     text,
     continuityReview,
+    claimAuthority,
     continuityClaims: extractContinuityClaimsFromText({
       text,
       source: {

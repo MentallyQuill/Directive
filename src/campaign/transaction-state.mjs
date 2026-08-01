@@ -6,7 +6,10 @@ import {
   validateCommandBearingReviewProposal
 } from '../command/command-bearing.mjs';
 import { createCompetenceLedgerRecords } from '../competence/competence-journal.mjs';
-import { applyOpenWorldReducerBundle } from '../directors/open-world-event-reducers.mjs';
+import {
+  applyOpenWorldReducerBundle,
+  modelStateProposalToReducerBundle
+} from '../directors/open-world-event-reducers.mjs';
 import { applyPressureLedgerDelta } from '../pressures/pressure-ledger.mjs';
 import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
 
@@ -519,12 +522,22 @@ function applyTerminalStateDelta(state, terminalStateDelta = {}) {
   }
 }
 
-function applyOpenWorldDelta(state, openWorldDelta = {}) {
+function applyOpenWorldDelta(state, openWorldDelta = {}, fallbackOutcomeId = null) {
   if (Object.prototype.hasOwnProperty.call(openWorldDelta, 'rootsSet')) {
     throw new Error('Open-world rootsSet replacement is no longer supported; use directive.openWorldReducerBundle.v1.');
   }
-  if (openWorldDelta.reducerBundle) {
-    const reduced = applyOpenWorldReducerBundle(state, openWorldDelta.reducerBundle);
+  const reducerBundle = openWorldDelta.reducerBundle || (openWorldDelta.modelStateProposal
+    ? modelStateProposalToReducerBundle(openWorldDelta.modelStateProposal, {
+        sourceOutcomeId: openWorldDelta.outcomeId
+          || openWorldDelta.modelStateProposal?.sourceOutcomeId
+          || openWorldDelta.modelStateProposal?.outcomeId
+          || fallbackOutcomeId
+          || null,
+        sourceAnchorRange: openWorldDelta.sourceAnchorRange || null
+      })
+    : null);
+  if (reducerBundle) {
+    const reduced = applyOpenWorldReducerBundle(state, reducerBundle);
     for (const key of Object.keys(reduced)) {
       state[key] = cloneJson(reduced[key]);
     }
@@ -633,7 +646,7 @@ function appendLedgerEntry(state, turnPacket) {
 export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarningIds = [] } = {}) {
   let nextState = cloneJson(campaignState);
 
-  applyOpenWorldDelta(nextState, turnPacket.stateDelta?.openWorld || {});
+  applyOpenWorldDelta(nextState, turnPacket.stateDelta?.openWorld || {}, turnPacket.outcomePacket?.id || null);
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
   applyTerminalStateDelta(nextState, turnPacket.stateDelta?.terminalState || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);

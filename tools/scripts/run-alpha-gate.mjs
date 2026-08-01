@@ -64,6 +64,8 @@ const checks = [
   'test-story-position-contracts.mjs',
   'test-story-ledger-projection.mjs',
   'test-story-context-index.mjs',
+  'test-claim-authority.mjs',
+  'test-ashes-story-authority-vertical.mjs',
   'test-mission-director-story-graph-spine.mjs',
   'test-mission-director-model-spine.mjs',
   'test-model-call-failure-policy-evidence.mjs',

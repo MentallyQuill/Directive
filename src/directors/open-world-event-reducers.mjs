@@ -193,6 +193,68 @@ export function compactOpenWorldReducerBundleRef(bundle, { outcomeId = null } = 
   return ref;
 }
 
+function proposalPath(operation = {}) {
+  const raw = operation.path || operation.pointer;
+  if (Array.isArray(raw)) return raw.map((segment) => String(segment || '').trim()).filter(Boolean);
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim().replace(/^\/+/, '').split(/[./]/).map((segment) => segment.trim()).filter(Boolean);
+  }
+  const root = String(operation.root || operation.domain || operation.targetRoot || '').trim();
+  const field = String(operation.field || operation.key || '').trim();
+  return [root, field].filter(Boolean);
+}
+
+export function modelStateProposalToReducerBundle(proposal = {}, {
+  sourceOutcomeId = null,
+  sourceAnchorRange = null,
+  sourceEventIds = [],
+  now = null
+} = {}) {
+  if (!isObject(proposal)) throw new Error('Model state proposal must be an object.');
+  if (!sourceOutcomeId) throw new Error('Model state proposal requires sourceOutcomeId metadata.');
+  const allowedRoots = sortedStrings(proposal.allowedRoots);
+  const operations = [];
+  for (const [index, input] of asArray(proposal.operations).entries()) {
+    if (!isObject(input)) throw new Error(`Model state proposal operation ${index} must be an object.`);
+    const path = proposalPath(input);
+    if (!path.length) throw new Error(`Model state proposal operation ${index} requires a path.`);
+    const root = path[0];
+    if (!OPEN_WORLD_REDUCER_ROOTS.includes(root)) throw new Error(`Model state proposal operation ${index} has invalid root "${root}".`);
+    if (allowedRoots.length && !allowedRoots.includes(root)) throw new Error(`Model state proposal operation ${index} root "${root}" is not allowed.`);
+    const type = input.type || 'value.set';
+    if (type === 'value.set') {
+      if (!Object.prototype.hasOwnProperty.call(input, 'value')) throw new Error(`Model state proposal operation ${index} requires value.`);
+      operations.push({ type, path, value: cloneJson(input.value) });
+    } else if (type === 'collection.mergeById') {
+      if (path.length < 2) throw new Error(`Model state proposal collection operation ${index} requires a collection path.`);
+      operations.push({ type, path, upsert: cloneJson(input.upsert || []), remove: cloneJson(input.remove || []) });
+    } else {
+      throw new Error(`Model state proposal operation ${index} has unsupported type "${type}".`);
+    }
+  }
+  const bundle = {
+    kind: 'directive.openWorldReducerBundle.v1',
+    sourceOutcomeId,
+    sourceEventIds: sortedStrings(sourceEventIds),
+    sourceAnchorRange: cloneJson(sourceAnchorRange),
+    createdAt: typeof now === 'function' ? now() : (now || new Date().toISOString()),
+    operations,
+    diagnostics: {
+      operationCount: operations.length,
+      changedRoots: [...new Set(operations.map((operation) => operation.path[0]))],
+      boundaryType: 'modelStateProposal',
+      eventCount: 0,
+      reactionCount: 0,
+      checkpointRequired: false,
+      proposalHash: hashStableJson(proposal)
+    }
+  };
+  validateNoForbiddenKeys(bundle);
+  validateOpenWorldReducerBundle(bundle);
+  bundle.diagnostics.byteLength = stableJsonByteLength(bundle);
+  return bundle;
+}
+
 function getAtPath(root, path) {
   let cursor = root;
   for (const segment of path) {

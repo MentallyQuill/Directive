@@ -8,6 +8,7 @@ import {
   applyOpenWorldReducerBundle,
   compactOpenWorldReducerBundleRef,
   createOpenWorldReducerBundle,
+  modelStateProposalToReducerBundle,
   pickOpenWorldReducerState,
   validateOpenWorldReducerBundle
 } from '../../src/directors/open-world-event-reducers.mjs';
@@ -36,6 +37,22 @@ function assertNoForbiddenPayload(value, label) {
     assert.equal(text.includes(forbidden), false, `${label} must not retain ${forbidden}`);
   }
 }
+
+const modelProposalBundle = modelStateProposalToReducerBundle({
+  allowedRoots: ['mission'],
+  operations: [{ path: 'mission.activePhaseId', value: 'ready-room-handover' }]
+}, {
+  sourceOutcomeId: 'outcome.model-proposal.1',
+  sourceAnchorRange: { rangeHash: 'range.model-proposal.1' },
+  now: '2026-07-31T20:00:00.000Z'
+});
+assert.equal(modelProposalBundle.kind, 'directive.openWorldReducerBundle.v1');
+assert.equal(modelProposalBundle.operations[0].path[0], 'mission');
+assert.equal(applyOpenWorldReducerBundle({ mission: { activePhaseId: 'shuttle-rendezvous' } }, modelProposalBundle).mission.activePhaseId, 'ready-room-handover');
+assert.throws(
+  () => modelStateProposalToReducerBundle({ allowedRoots: ['player'], operations: [{ path: 'player.name', value: 'Unauthorized' }] }, { sourceOutcomeId: 'outcome.invalid' }),
+  /invalid|allowed|root/i
+);
 
 function assertReducerReplay({ beforeState, boundaryResult, label }) {
   const afterState = boundaryResult.state;
@@ -182,6 +199,16 @@ assert.deepEqual(
   pickOpenWorldReducerState(coordinated.projectedState),
   'committing a coordinated open-world reducer packet should match projected state'
 );
+const modelProposalPacket = cloneJson(coordinated.turnPacket);
+modelProposalPacket.stateDelta.openWorld = {
+  outcomeId: modelProposalPacket.outcomePacket.id,
+  modelStateProposal: {
+    allowedRoots: ['mission'],
+    operations: [{ path: 'mission.activePhaseId', value: 'ready-room-handover' }]
+  }
+};
+const committedModelProposal = commitDirectorTurn(noForegroundState, modelProposalPacket);
+assert.equal(committedModelProposal.mission.activePhaseId, 'ready-room-handover', 'accepted model state proposals must pass through the authoritative reducer');
 const invalidMigratedPacket = cloneJson(coordinated.turnPacket);
 invalidMigratedPacket.stateDelta.openWorld.rootsSet = { runtimeTracking: {} };
 assert.throws(

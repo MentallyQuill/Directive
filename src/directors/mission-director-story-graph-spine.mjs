@@ -48,9 +48,11 @@ export function buildMissionStoryGraphContext({
   packageData,
   missionGraph,
   sourceFrameRef = null,
-  branchId = 'main'
+  branchId = 'main',
+  playerInput = '',
+  recentTranscript = []
 } = {}) {
-  const storyContextIndex = buildStoryContextIndex({ campaignState, packageData, missionGraph, sourceFrameRef, branchId });
+  const storyContextIndex = buildStoryContextIndex({ campaignState, packageData, missionGraph, sourceFrameRef, branchId, playerInput, recentTranscript });
   const storyCandidates = deriveStoryPositionCandidates({ storyContextIndex });
   return {
     sourceHash,
@@ -67,9 +69,11 @@ export async function runMissionDirectorStoryPositionSelection({
   packageData,
   missionGraph,
   sourceFrameRef = null,
-  branchId = 'main'
+  branchId = 'main',
+  playerInput = '',
+  recentTranscript = []
 } = {}) {
-  const context = buildMissionStoryGraphContext({ sourceHash, campaignState, packageData, missionGraph, sourceFrameRef, branchId });
+  const context = buildMissionStoryGraphContext({ sourceHash, campaignState, packageData, missionGraph, sourceFrameRef, branchId, playerInput, recentTranscript });
   const selectionRaw = await generateJson(generationRouter, 'missionDirectorStoryPositioner', {
     lane: 'utility',
     sourceHash,

@@ -97,12 +97,18 @@ const result = await runMissionDirectorStoryGraphSpine({
     outcomes: []
   },
   sourceFrameRef: { id: 'source.1', textHash: 'hash.1' },
+  playerInput: 'I inspect the shuttle records before the handoff.',
+  recentTranscript: ['Whitaker asks for a report.', 'The shuttle is on final approach.'],
   outcomePlanHash: 'outcome.hash.1'
 });
 
 assert.equal(result.ok, true);
 assert.equal(result.selection.primaryCandidateId.includes('candidate.'), true);
 assert.equal(result.deltaPlan.eventDrafts.length, 1);
+const positionRequest = calls.find((call) => call.roleId === 'missionDirectorStoryPositioner')?.request;
+assert.equal(positionRequest.context.storyContextIndex.turn.playerInput, 'I inspect the shuttle records before the handoff.');
+assert.deepEqual(positionRequest.context.storyContextIndex.turn.recentTranscript, ['Whitaker asks for a report.', 'The shuttle is on final approach.']);
+assert.equal(Array.isArray(positionRequest.context.storyCandidates[0].eligibility.reasons), true);
 assert.deepEqual(calls.map((call) => call.roleId), [
   'missionDirectorStoryPositioner',
   'missionDirectorStoryPositionReviewer',

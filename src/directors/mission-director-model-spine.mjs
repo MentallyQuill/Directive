@@ -221,7 +221,9 @@ export async function runMissionDirectorModelSpine(options = {}) {
     packageData: options.packageData,
     missionGraph: options.graph || frameResult.frame.packageStoryMap,
     sourceFrameRef: options.sourceFrameRef || null,
-    branchId: options.campaignState?.campaignChatBinding?.saveId || 'main'
+    branchId: options.campaignState?.campaignChatBinding?.saveId || 'main',
+    playerInput: options.playerInput || sceneSnapshot.playerInput || '',
+    recentTranscript: options.recentTranscript || options.recentMessages || []
   });
   if (!storyGraphSelection.ok) return { ok: false, route: 'pause', turnPacket: null, diagnostics: { stage: 'storyGraphSelection', error: storyGraphSelection.diagnostics } };
   const story = storyPositionFromSelection({ sourceHash, storyGraph: storyGraphSelection, frameResult });

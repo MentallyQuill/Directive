@@ -1,4 +1,5 @@
 import { reviewContinuityContradictions } from '../continuity/contradiction-guard.mjs';
+import { classifyGeneratedClaims } from '../continuity/claim-authority.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -37,6 +38,11 @@ export function createSourceReconciliationEngine({ now = null } = {}) {
         checkedFactCount: 0,
         reviewer: 'sourceReconciliationEngine',
         reviewedAt: timestamp(now),
+        claimAuthority: classifyGeneratedClaims({
+          text: '',
+          source: { kind: 'hostNativeCompletion', responseId, outcomeId, turnId },
+          now: timestamp(now)
+        }),
         source: {
           responseId: responseId || null,
           ingressId: ingressId || null,
@@ -54,8 +60,15 @@ export function createSourceReconciliationEngine({ now = null } = {}) {
       shipDataset,
       campaignProjection
     });
+    const claimAuthority = classifyGeneratedClaims({
+      text: observedText,
+      source: { kind: 'hostNativeCompletion', responseId, ingressId, outcomeId, turnId },
+      review,
+      now: timestamp(now)
+    });
     return {
       ...cloneJson(review),
+      claimAuthority,
       sreReview: {
         kind: 'directive.sreHostNativeContinuityReview.v1',
         mode,

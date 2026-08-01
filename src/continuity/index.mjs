@@ -15,4 +15,5 @@ export * from './director-packets.mjs';
 export * from './diagnostics.mjs';
 export * from './contradiction-guard.mjs';
 export * from './claim-quarantine.mjs';
+export * from './claim-authority.mjs';
 export * from './materializers/index.mjs';
