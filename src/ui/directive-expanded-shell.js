@@ -107,13 +107,6 @@ export function createDirectiveExpandedShell({
   actions.append(fullscreen, close);
   topbar.append(identity, actions);
 
-  const heading = createElement('div', 'directive-route-heading');
-  const cap = createElement('span', 'directive-route-cap');
-  cap.setAttribute('aria-hidden', 'true');
-  const routeName = createElement('span', 'directive-route-name');
-  routeName.textContent = activeRoute.label || '';
-  heading.append(cap, routeName);
-
   const body = createElement('section', 'directive-runtime-body directive-route-body');
   body.dataset.directiveRuntimeBody = 'true';
   body.dataset.routeView = activeRoute.id || activeRouteId;
@@ -128,7 +121,7 @@ export function createDirectiveExpandedShell({
     onActivate: (control) => control.click?.()
   });
 
-  workspace.append(topbar, heading, body, nav);
+  workspace.append(topbar, body, nav);
   panel.append(rail, workspace);
   return panel;
 }

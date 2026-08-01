@@ -1,6 +1,5 @@
 import {
   addTooltip,
-  appendSectionTitle,
   collectInputByPath,
   createButton,
   createElement,
@@ -799,7 +798,6 @@ function createCreatorDifficultySelector({
 export function renderCharacterCreatorPanel(body, view, actions) {
   const creator = view.creator;
   const activeStepId = activeCreatorStepId(creator);
-  appendSectionTitle(body, 'Character Creator');
 
   const form = createElement('form', 'directive-creator-form directive-creator-console directive-lcars-console directive-lcars-panel');
   setDataset(form, 'creatorForm', 'true');

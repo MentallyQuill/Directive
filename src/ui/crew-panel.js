@@ -1,7 +1,6 @@
 import {
   addTooltip,
   appendEmpty,
-  appendSectionTitle,
   clearElement,
   createButton,
   createCard,
@@ -1207,7 +1206,6 @@ function renderPlayerFacingCrew(body, information) {
 }
 
 export function renderCrewPanel(body, view, actions = {}) {
-  appendSectionTitle(body, 'Crew');
   const state = view?.campaignState;
   if (!state) {
     appendEmpty(body, currentChatEmptyMessage(view));

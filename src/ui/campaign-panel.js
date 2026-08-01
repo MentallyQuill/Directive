@@ -1,6 +1,5 @@
 import {
   appendEmpty,
-  appendSectionTitle,
   createButton,
   createElement,
   createIcon
@@ -516,7 +515,6 @@ function createMobileCampaigns(body, view, campaigns, selected, actions, rerende
 }
 
 export function renderCampaignPanel(body, view, actions) {
-  appendSectionTitle(body, 'Campaign');
   const campaigns = asArray(view?.campaignIndex?.campaigns);
   const selectedId = view?.campaignIndex?.selectedCampaignId;
   const selected = campaigns.find((campaign) => campaign.id === selectedId) || campaigns[0] || null;

@@ -2,7 +2,6 @@ import {
   addTooltip,
   appendBulletList,
   appendEmpty,
-  appendSectionTitle,
   clearElement,
   createButton,
   createCard,
@@ -1735,7 +1734,6 @@ function appendNarrationRetry(body, view, actions) {
 }
 
 export function renderMissionPanel(body, view, actions = {}) {
-  appendSectionTitle(body, 'Mission');
   const state = view?.campaignState;
   if (!state) {
     appendEmpty(body, currentChatEmptyMessage(view));

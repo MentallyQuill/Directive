@@ -1,7 +1,6 @@
 import {
   addTooltip,
   appendEmpty,
-  appendSectionTitle,
   createCard,
   createCardTitle,
   createElement,
@@ -287,7 +286,6 @@ function renderPlayerFacingShip(body, information) {
 }
 
 export function renderShipPanel(body, view) {
-  appendSectionTitle(body, 'Ship');
   const state = view?.campaignState;
   if (!state) {
     appendEmpty(body, currentChatEmptyMessage(view));

@@ -261,8 +261,6 @@ function syncShellChrome(panel = getPanel()) {
   }
   const routePath = panel.querySelector('.directive-route-path');
   if (routePath) routePath.textContent = `${route.label} / ${route.shelfLabel || route.shortLabel || route.label}`;
-  const routeName = panel.querySelector('.directive-route-name');
-  if (routeName) routeName.textContent = route.label;
   const routeBody = panel.querySelector('[data-directive-runtime-body="true"]');
   if (routeBody) {
     routeBody.dataset.directiveTour = `route-body.${activeTab}`;

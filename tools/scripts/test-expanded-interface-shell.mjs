@@ -73,6 +73,7 @@ const all = [];
 const visit = (node) => { all.push(node); (node.children || []).forEach(visit); };
 visit(shell);
 assert.equal(all.some((node) => /command-spine|command-drawer|resize/.test(node.className)), false);
+assert.equal(all.some((node) => /directive-route-heading/.test(node.className)), false, 'expanded shell must not render a nested route-heading page layer');
 assert.equal(all.some((node) => node.dataset?.shellAction === 'back'), false);
 assert.equal(all.filter((node) => node.dataset?.shellAction === 'close').length, 1);
 all.find((node) => node.dataset?.shellAction === 'close').click();
@@ -85,6 +86,7 @@ const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.ur
 assert.match(runtimeShellSource, /createDirectiveExpandedShell/);
 assert.doesNotMatch(runtimeShellSource, /directive-command-spine-shell|directive-shell-layout/);
 assert.doesNotMatch(runtimeMountSource, /toggleDrawer|toggleFullscreen|resetLayout|command spine|route drawer|Directive drawer/i);
+assert.doesNotMatch(css, /directive-route-heading|directive-route-cap|directive-route-name/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50%\s*!important;[\s\S]*?left:\s*50%\s*!important;[\s\S]*?width:\s*min\(1120px,\s*calc\(100vw\s*-\s*64px\)\)\s*!important;[\s\S]*?height:\s*min\(860px,\s*calc\(100dvh\s*-\s*64px\)\)\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\)\s*!important;/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{[\s\S]*?inset:\s*0\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100dvh\s*!important;/);

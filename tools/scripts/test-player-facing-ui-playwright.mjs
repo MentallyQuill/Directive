@@ -107,6 +107,10 @@ async function inspectViewport(page, { name, viewport }) {
   const panel = directivePanel;
   await panel.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
   await page.locator('#directive-runtime-overlay .directive-runtime-backdrop').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+  const nestedPageTitleCount = await panel.locator('.directive-route-heading, .directive-runtime-section-title').count();
+  if (nestedPageTitleCount !== 0) {
+    throw new Error(`${name}: nested route page title layers remain (${nestedPageTitleCount}).`);
+  }
 
   const routeIds = await page.locator('.directive-route-control').evaluateAll((elements) => (
     [...new Set(elements.map((element) => element.dataset.routeId).filter(Boolean))]

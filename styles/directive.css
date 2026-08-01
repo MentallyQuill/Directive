@@ -15628,33 +15628,6 @@ textarea.directive-field-control {
   outline-offset: 1px;
 }
 
-.directive-expanded-shell .directive-route-heading {
-  display: grid;
-  flex: 0 0 auto;
-  grid-template-columns: 62px minmax(0, 1fr);
-  gap: 4px;
-  align-items: end;
-  height: 24px;
-  margin-top: 7px;
-}
-
-.directive-expanded-shell .directive-route-cap {
-  height: 100%;
-  border-radius: 12px 0 0;
-  background: var(--directive-active-route-accent);
-}
-
-.directive-expanded-shell .directive-route-name {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  padding-left: 9px;
-  border-bottom: 2px solid var(--directive-active-route-accent);
-  color: var(--directive-active-route-accent);
-  font: 800 14px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
-  text-transform: uppercase;
-}
-
 .directive-expanded-shell .directive-route-body {
   flex: 1 1 auto;
   min-width: 0;
@@ -16393,7 +16366,6 @@ textarea.directive-field-control {
   .directive-expanded-shell .directive-brand { font-size: 17px; }
   .directive-expanded-shell .directive-route-path { font-size: 9px; }
   .directive-expanded-shell .directive-close-action { width: 34px; height: 34px; min-width: 34px; min-height: 34px; }
-  .directive-expanded-shell .directive-route-heading { grid-template-columns: 46px minmax(0, 1fr); height: 22px; margin-top: 5px; }
   .directive-expanded-shell .directive-route-body { padding-top: 6px; padding-bottom: 6px; }
   .directive-expanded-shell .directive-route-bar { min-height: 44px; padding: 3px 2px; gap: 2px; }
   .directive-expanded-shell .directive-route-control { flex-direction: column; gap: 2px; min-height: 44px; padding: 2px 1px; }

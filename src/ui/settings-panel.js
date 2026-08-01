@@ -1,7 +1,6 @@
 import {
   addTooltip,
   appendEmpty,
-  appendSectionTitle,
   areDirectiveTooltipsDisabled,
   createButton,
   createCard,
@@ -1304,7 +1303,6 @@ function appendSettingsDisclosure(body, { key, title, render }) {
 }
 
 export function renderSettingsPanel(body, view, actions = {}) {
-  appendSectionTitle(body, 'Settings');
   const state = view?.campaignState;
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
   const preferences = createElement('section', 'directive-settings-player-preferences');

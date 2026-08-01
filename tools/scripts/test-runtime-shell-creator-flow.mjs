@@ -737,7 +737,7 @@ async function assertCampaignPanelsRender(panel) {
   assert(panel.querySelector('.directive-crew-journal'), 'People should temporarily render the existing unified roster journal');
   assert.match(textOf(panel), /Talia Serrin/);
   assert.match(textOf(panel), /Mara Whitaker/);
-  assert.match(textOf(panel), /Related History|Crew/);
+  assert.match(textOf(panel), /Commanding Officer/);
   assertNoUnwiredPlaceholders(panel);
 
   await findButtonByDataset(panel, 'routeId', 'ship').click();
@@ -979,7 +979,7 @@ assert.match(textOf(campaignChooser), /Ashes of Peace/);
 assert.doesNotMatch(textOf(campaignChooser), /Runtime Projection|Mission Graphs|Package Health/);
 await campaignChooser.querySelector('.campaign-browser-package').click();
 await campaignChooser.querySelector('.campaign-browser-action').click();
-assert.match(textOf(panel), /Character Creator/);
+assert.match(textOf(panel), /Commissioning File/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
 assert.match(textOf(panel), /Campaign Difficulty/);
