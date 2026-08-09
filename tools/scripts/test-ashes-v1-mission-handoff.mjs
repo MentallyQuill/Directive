@@ -25,6 +25,7 @@ const openOrdersDefinition = readJson('packages/bundled/breckenridge/v1/open-ord
 const chapter3Definition = readJson('packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json');
 const chapter4Definition = readJson('packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json');
 const chapter5Definition = readJson('packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json');
+const openOrders2Definition = readJson('packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json');
 const preludeScenarios = readJson('tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json');
 const chapterScenarios = readJson('tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json');
 const chapter2Scenarios = readJson('tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json');
@@ -32,6 +33,7 @@ const openOrdersScenarios = readJson('tests/fixtures/mission/v1/open-orders-1-sc
 const chapter3Scenarios = readJson('tests/fixtures/mission/v1/chapter-3-dead-letters-scenarios.fixture.json');
 const chapter4Scenarios = readJson('tests/fixtures/mission/v1/chapter-4-colony-that-stayed-scenarios.fixture.json');
 const chapter5Scenarios = readJson('tests/fixtures/mission/v1/chapter-5-old-lessons-scenarios.fixture.json');
+const openOrders2Scenarios = readJson('tests/fixtures/mission/v1/open-orders-2-scenarios.fixture.json');
 const branchId = 'save.ashes-v1-handoff';
 
 function readJson(path) {
@@ -52,15 +54,16 @@ function stepsForScenario(fixture, scenarioId) {
 
 function settleScenario({ definition, fixture, scenarioId }) {
     const { scenario, steps } = stepsForScenario(fixture, scenarioId);
+    const sourceNamespace = definition.packageBinding.sourceId;
     let state = createMissionState({ definition, branchId });
     for (const [index, step] of steps.entries()) {
-        const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${scenarioId}.${index + 1}` : null;
+        const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${sourceNamespace}.${scenarioId}.${index + 1}` : null;
         const source = {
-            messageId: `message.${scenarioId}.${index + 1}`,
+            messageId: `message.${sourceNamespace}.${scenarioId}.${index + 1}`,
             branchId,
             accepted: true,
             selectedSwipeId,
-            textHash: createHash('sha256').update(`${scenarioId}:${index}:${step.claimId}`).digest('hex'),
+            textHash: createHash('sha256').update(`${sourceNamespace}:${scenarioId}:${index}:${step.claimId}`).digest('hex'),
             role: step.sourceRole,
             acceptedAtRevision: state.revision,
         };
@@ -96,7 +99,7 @@ function settleScenario({ definition, fixture, scenarioId }) {
             state,
             acceptedClaims: evidence.acceptedClaims,
             sourceContribution: {
-                id: `contribution.${scenarioId}.${index + 1}`,
+                id: `contribution.${sourceNamespace}.${scenarioId}.${index + 1}`,
                 messageId: source.messageId,
                 swipeId: selectedSwipeId,
                 role: source.role,
@@ -111,20 +114,21 @@ function settleScenario({ definition, fixture, scenarioId }) {
 
 function storySettlementForScenario(fixture, scenarioId, definition = preludeDefinition) {
     const { steps } = stepsForScenario(fixture, scenarioId);
+    const sourceNamespace = definition.packageBinding.sourceId;
     let settlement = createEmptyStorySettlement({ branchId });
     settlement = openStoryEpisode(settlement, {
-        episodeId: `episode.${scenarioId}`,
-        sceneId: `scene.${scenarioId}`,
+        episodeId: `episode.${sourceNamespace}.${scenarioId}`,
+        sceneId: `scene.${sourceNamespace}.${scenarioId}`,
         references: { missionIds: [definition.id] },
     });
     const contributions = steps.map((step, index) => {
-        const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${scenarioId}.${index + 1}` : null;
+        const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${sourceNamespace}.${scenarioId}.${index + 1}` : null;
         return {
-            id: `contribution.${scenarioId}.${index + 1}`,
-            messageId: `message.${scenarioId}.${index + 1}`,
+            id: `contribution.${sourceNamespace}.${scenarioId}.${index + 1}`,
+            messageId: `message.${sourceNamespace}.${scenarioId}.${index + 1}`,
             swipeId: selectedSwipeId,
             role: step.sourceRole,
-            textHash: createHash('sha256').update(`${scenarioId}:${index}:${step.claimId}`).digest('hex'),
+            textHash: createHash('sha256').update(`${sourceNamespace}:${scenarioId}:${index}:${step.claimId}`).digest('hex'),
             acceptedAtRevision: index,
         };
     });
@@ -238,6 +242,16 @@ const chapter5Assets = assetsFor([
     chapter3Definition,
     chapter4Definition,
     chapter5Definition,
+]);
+const openOrders2Assets = assetsFor([
+    preludeDefinition,
+    chapterDefinition,
+    chapter2Definition,
+    openOrdersDefinition,
+    chapter3Definition,
+    chapter4Definition,
+    chapter5Definition,
+    openOrders2Definition,
 ]);
 
 const pending = runtime.inspectPendingTransition({ runtimeAssets: sourceOnlyAssets });
@@ -768,6 +782,117 @@ assert.equal(openOrders2Pending.reasonCode, 'transition-target-definition-unavai
 assert.equal(openOrders2Pending.targetDefinitionId, null);
 assert.equal(openOrders2Pending.activatable, false);
 const terminalChapter5CampaignState = structuredClone(campaignState);
+const preOpenOrders2ActivationCampaignState = structuredClone(campaignState);
+
+const openOrders2Ready = runtime.inspectPendingTransition({ runtimeAssets: openOrders2Assets });
+assert.equal(openOrders2Ready.ok, true);
+assert.equal(openOrders2Ready.status, 'ready');
+assert.equal(openOrders2Ready.targetDefinitionId, openOrders2Definition.id);
+assert.equal(openOrders2Ready.activatable, true);
+
+const openOrders2Activated = await runtime.activatePendingTransition({ runtimeAssets: openOrders2Assets });
+assert.equal(openOrders2Activated.ok, true);
+assert.equal(openOrders2Activated.status, 'activated');
+assert.equal(openOrders2Activated.targetDefinitionId, openOrders2Definition.id);
+assert.equal(openOrders2Activated.noChange, false);
+assert.equal(persistCount, 7);
+assert.equal(campaignState.mission.activeMissionId, openOrders2Definition.packageBinding.sourceId);
+assert.equal(campaignState.mission.legacyStatus, 'must-remain-untouched');
+assert.deepEqual(campaignState.mission.legacyPressure, { id: 'legacy-pressure-must-remain-untouched' });
+assert.deepEqual(campaignState.mission.legacyAssignments, [{ id: 'legacy-assignment-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyRewards, [{ id: 'legacy-reward-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyProgress, { id: 'legacy-progress-must-remain-untouched' });
+assert.equal(campaignState.mission.v1.definitionId, openOrders2Definition.id);
+assert.equal(campaignState.mission.v1.status, 'active');
+assert.deepEqual(Object.keys(campaignState.mission.v1.objectives), openOrders2Definition.objectives.map((item) => item.id));
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('objective.chapter5.'), false);
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('outcome.chapter5.'), false);
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('fact.current-starfleet-credentials'), false);
+for (const sentinel of ['legacy-pressure-', 'legacy-assignment-', 'legacy-reward-', 'legacy-progress-']) {
+    assert.equal(JSON.stringify(campaignState.mission.v1).includes(sentinel), false, `${sentinel} cannot copy into Open Orders II V1`);
+}
+assert.equal(campaignState.mission.v1History.length, 7);
+assert.equal(campaignState.mission.v1History[6].definitionId, chapter5Definition.id);
+assert.deepEqual(campaignState.mission.v1History[6].state, terminalChapter5);
+assert.equal(campaignState.mission.v1Journey.revision, 7);
+assert.deepEqual({
+    ship: campaignState.ship,
+    relationships: campaignState.relationships,
+    questLedger: campaignState.questLedger,
+    threadLedger: campaignState.threadLedger,
+    commandLog: campaignState.commandLog,
+    commandBearing: campaignState.commandBearing,
+}, unrelatedBefore, 'Open Orders II activation cannot mutate legacy tracking roots');
+const openOrders2ActivatedCampaignState = structuredClone(campaignState);
+
+const openOrders2Reloaded = JSON.parse(JSON.stringify(campaignState));
+const openOrders2ReloadedJourney = validateMissionJourney({
+    campaignState: openOrders2Reloaded,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+        chapter5Definition,
+        openOrders2Definition,
+    ],
+});
+assert.equal(openOrders2ReloadedJourney.ok, true, openOrders2ReloadedJourney.errors.join('\n'));
+assert.equal(validateMissionStateAuthority({ definition: openOrders2Definition, state: openOrders2Reloaded.mission.v1 }).ok, true);
+
+const openOrders2Replay = await runtime.activatePendingTransition({ runtimeAssets: openOrders2Assets });
+assert.equal(openOrders2Replay.ok, true);
+assert.equal(openOrders2Replay.status, 'no-pending-transition');
+assert.equal(openOrders2Replay.noChange, true);
+assert.equal(persistCount, 7, 'Open Orders II activation replay cannot persist twice');
+
+const terminalOpenOrders2 = settleScenario({
+    definition: openOrders2Definition,
+    fixture: openOrders2Scenarios,
+    scenarioId: 'two-assignment-normal',
+});
+const openOrders2Story = storySettlementForScenario(
+    openOrders2Scenarios,
+    'two-assignment-normal',
+    openOrders2Definition,
+);
+const openOrders2MutationMessageId = openOrders2Story.contributions[0].messageId;
+campaignState.mission.v1 = terminalOpenOrders2;
+campaignState.storySettlement = openOrders2Story.settlement;
+const chapter6Journey = validateMissionJourney({
+    campaignState,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+        chapter5Definition,
+        openOrders2Definition,
+    ],
+});
+assert.equal(chapter6Journey.ok, true, chapter6Journey.errors.join('\n'));
+const chapter6Pending = runtime.inspectPendingTransition({ runtimeAssets: openOrders2Assets });
+assert.equal(chapter6Pending.ok, true);
+assert.equal(chapter6Pending.status, 'pending');
+assert.equal(chapter6Pending.reasonCode, 'transition-target-definition-unavailable');
+assert.equal(chapter6Pending.targetDefinitionId, null);
+assert.equal(chapter6Pending.activatable, false);
+const terminalOpenOrders2CampaignState = structuredClone(campaignState);
+const journeyContributionIds = [
+    ...terminalOpenOrders2CampaignState.mission.v1History.flatMap((archive) => (
+        archive.state.evidenceLog.map((entry) => entry.sourceContributionId)
+    )),
+    ...terminalOpenOrders2CampaignState.mission.v1.evidenceLog.map((entry) => entry.sourceContributionId),
+];
+assert.equal(
+    new Set(journeyContributionIds).size,
+    journeyContributionIds.length,
+    'accepted source contribution identity remains unique when different missions reuse a scenario label',
+);
 
 function createMutationHarness(initialState) {
     let mutationState = structuredClone(initialState);
@@ -926,20 +1051,42 @@ for (const [label, initialState] of [
     assert.equal(chapter4Mutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
 }
 
-const chapter5Mutation = createMutationHarness(terminalChapter5CampaignState);
-const chapter5MutationResult = await chapter5Mutation.mutationRuntime.invalidateSourceMutation({
-    runtimeAssets: chapter5Assets,
-    hostMessageId: chapter5MutationMessageId,
+for (const [label, initialState] of [
+    ['before-open-orders2-activation', preOpenOrders2ActivationCampaignState],
+    ['after-open-orders2-activation', openOrders2ActivatedCampaignState],
+]) {
+    const chapter5Mutation = createMutationHarness(initialState);
+    const chapter5MutationResult = await chapter5Mutation.mutationRuntime.invalidateSourceMutation({
+        runtimeAssets: openOrders2Assets,
+        hostMessageId: chapter5MutationMessageId,
+        eventType: 'directiveResponseSelectedSwipeChanged',
+    });
+    assert.equal(chapter5MutationResult.ok, true, label);
+    assert.equal(chapter5MutationResult.status, 'invalidated', label);
+    assert.equal(chapter5Mutation.state.mission.v1.definitionId, chapter5Definition.id, label);
+    assert.equal(chapter5Mutation.state.mission.v1.status, 'active', label);
+    assert.equal(chapter5Mutation.state.mission.v1.terminalDisposition, null, label);
+    assert.equal(chapter5Mutation.state.mission.v1.transitionReceipt, null, label);
+    assert.equal(chapter5Mutation.state.mission.v1History.length, 6, label);
+    assert.equal(chapter5Mutation.state.mission.v1Journey.revision, 6, label);
+    assert.equal(JSON.stringify(chapter5Mutation.state.mission.v1).includes('objective.open-orders2.'), false, label);
+    assert.equal(chapter5Mutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
+}
+
+const openOrders2Mutation = createMutationHarness(terminalOpenOrders2CampaignState);
+const openOrders2MutationResult = await openOrders2Mutation.mutationRuntime.invalidateSourceMutation({
+    runtimeAssets: openOrders2Assets,
+    hostMessageId: openOrders2MutationMessageId,
     eventType: 'directiveResponseSelectedSwipeChanged',
 });
-assert.equal(chapter5MutationResult.ok, true);
-assert.equal(chapter5MutationResult.status, 'invalidated');
-assert.equal(chapter5Mutation.state.mission.v1.definitionId, chapter5Definition.id);
-assert.equal(chapter5Mutation.state.mission.v1.status, 'active');
-assert.equal(chapter5Mutation.state.mission.v1.terminalDisposition, null);
-assert.equal(chapter5Mutation.state.mission.v1.transitionReceipt, null);
-assert.equal(chapter5Mutation.state.mission.v1History.length, 6);
-assert.equal(chapter5Mutation.state.mission.v1Journey.revision, 6);
-assert.equal(chapter5Mutation.generationCount, 0, 'Old Lessons reconstruction cannot call a provider');
+assert.equal(openOrders2MutationResult.ok, true);
+assert.equal(openOrders2MutationResult.status, 'invalidated');
+assert.equal(openOrders2Mutation.state.mission.v1.definitionId, openOrders2Definition.id);
+assert.equal(openOrders2Mutation.state.mission.v1.status, 'active');
+assert.equal(openOrders2Mutation.state.mission.v1.terminalDisposition, null);
+assert.equal(openOrders2Mutation.state.mission.v1.transitionReceipt, null);
+assert.equal(openOrders2Mutation.state.mission.v1History.length, 7);
+assert.equal(openOrders2Mutation.state.mission.v1Journey.revision, 7);
+assert.equal(openOrders2Mutation.generationCount, 0, 'Open Orders II reconstruction cannot call a provider');
 
-console.log('Ashes V1 Prelude through Old Lessons handoff tests passed.');
+console.log('Ashes V1 Prelude through Open Orders II handoff tests passed.');
