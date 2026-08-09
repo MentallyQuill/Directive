@@ -415,6 +415,14 @@ assert.match(
 assert.match(
     validateMissionDefinition({
         ...referenceMission,
+        facts: [{ ...referenceMission.facts[0], visibility: 'known', initiallyTrue: false }],
+    }).errors.join('\n'),
+    /known fact must be initiallyTrue/,
+);
+
+assert.match(
+    validateMissionDefinition({
+        ...referenceMission,
         events: [{ ...referenceMission.events[0], id: 'bad event id' }],
     }).errors.join('\n'),
     /events item requires a stable id/,

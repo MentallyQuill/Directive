@@ -384,7 +384,7 @@ feat(ashes): author V1 Prelude mission
 - Consumes: a validated definition and mission state.
 - Produces: `createMissionPlayerProjection({ definition, state })`, `lintMissionPackage({ definition, knownTransitionTargetIds })`, and a CLI validator for the canonical Ashes file.
 
-- [ ] **Step 1: Write failing projection tests**
+- [x] **Step 1: Write failing projection tests**
 
 The initial projection contains only visible objectives, counts only currently visible primary objectives, omits hidden optional objectives entirely, and renders no clock until its player-known visibility predicate is true. At confirmed fraud knowledge it exposes one optional accountability objective without changing the primary completion denominator.
 
@@ -396,19 +396,19 @@ assert.equal(confirmed.progress.requiredTotal, initial.progress.requiredTotal);
 assert.equal(confirmed.progress.optionalTotal, 1);
 ```
 
-- [ ] **Step 2: Implement the data-only projection**
+- [x] **Step 2: Implement the data-only projection**
 
 Return only title, summary, visible objective records, separate required/optional progress counts, visible known facts, visible clocks with unit/value/consequence, outcome dimensions that have values, and terminal transition summary. Do not return predicates, hidden IDs, hidden counts, `mustNotReveal`, world facts, evidence policies, report routes, or diagnostics.
 
-- [ ] **Step 3: Write failing lint tests**
+- [x] **Step 3: Write failing lint tests**
 
 Reject initial player text containing configured spoiler terms, required objectives with no reachable terminal fixture, displayed clocks without an authored basis/consequence, transition targets outside the supplied package target set, optional objectives participating in closure, evidence targets without a usable policy, and disclosure routes whose facts can never become true.
 
-- [ ] **Step 4: Implement linter and CLI**
+- [x] **Step 4: Implement linter and CLI**
 
 The linter is deterministic and returns `{ ok, errors, warnings }`. The CLI validates the canonical Prelude file against known Ashes quest/mission target IDs and exits non-zero on any error or spoiler finding.
 
-- [ ] **Step 5: Run, register, and commit Task 5**
+- [x] **Step 5: Run, register, and commit Task 5**
 
 Run:
 

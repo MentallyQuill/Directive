@@ -33,7 +33,9 @@ export function createMissionState({ definition = {}, branchId = 'main' } = {}) 
         revision: 0,
         status: 'active',
         objectives: {},
-        knownFacts: [],
+        knownFacts: (definition.facts || [])
+            .filter((fact) => fact.initiallyTrue === true && fact.visibility === 'known')
+            .map((fact) => fact.id),
         worldFacts: (definition.facts || [])
             .filter((fact) => fact.initiallyTrue === true)
             .map((fact) => fact.id),

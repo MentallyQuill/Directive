@@ -364,6 +364,9 @@ export function validateMissionDefinition(definition = {}) {
         if (typeof fact?.initiallyTrue !== 'boolean') {
             errors.push(`${factId} initiallyTrue must be a boolean`);
         }
+        if (fact?.visibility === 'known' && fact?.initiallyTrue !== true) {
+            errors.push(`${factId} known fact must be initiallyTrue`);
+        }
         if (!new Set(['known', 'discoverable', 'hidden']).has(fact?.visibility)) {
             errors.push(`${factId} visibility is unknown`);
         }

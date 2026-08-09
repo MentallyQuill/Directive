@@ -32,9 +32,10 @@ assert.equal(state.transitionReceipt, null);
 
 const initialTruthDefinition = structuredClone(definition);
 initialTruthDefinition.facts[0].initiallyTrue = true;
+initialTruthDefinition.facts[0].visibility = 'known';
 const initialTruthState = createMissionState({ definition: initialTruthDefinition, branchId: 'save.initial-truth' });
 assert.deepEqual(initialTruthState.worldFacts, ['fact.hesperus-discrepancy-known']);
-assert.deepEqual(initialTruthState.knownFacts, []);
+assert.deepEqual(initialTruthState.knownFacts, ['fact.hesperus-discrepancy-known']);
 
 const disclosureWithoutEstablishment = reduceMissionEvidence({
     definition,
