@@ -47,6 +47,12 @@ function stateFor(definition) {
             activeMissionId: definition.packageBinding.sourceId,
             v1: createMissionState({ definition, branchId: 'save.report' }),
         },
+        ship: { technicalDebt: [{ id: 'legacy.ship-sentinel' }] },
+        relationships: { people: [{ id: 'legacy.relationship-sentinel' }] },
+        threadLedger: { records: [{ id: 'legacy.thread-sentinel' }] },
+        quests: [{ id: 'legacy.quest-sentinel' }],
+        commandLog: { entries: [{ id: 'legacy.command-sentinel' }] },
+        commandBearing: { current: 3 },
     };
 }
 
@@ -108,6 +114,17 @@ function prepare(harness, runtimeAssets, reportId, suffix = '1') {
     });
 }
 
+function unrelatedTrackingRoots(state) {
+    return structuredClone({
+        ship: state.ship,
+        relationships: state.relationships,
+        threadLedger: state.threadLedger,
+        quests: state.quests,
+        commandLog: state.commandLog,
+        commandBearing: state.commandBearing,
+    });
+}
+
 function snapshotFor({ preparation, definition, suffix = '1' }) {
     const responseText = `The officer steps forward. ${preparation.segment.canonicalText} The bridge waits.`;
     const manifest = createDutyReportManifest({
@@ -166,11 +183,15 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
     const runtimeAssets = assetsFor(definition);
     const harness = createHarness({ definition, outputs: [acceptedInterpretation()] });
     const stateBeforePreparation = structuredClone(harness.campaignState);
+    const unrelatedBefore = unrelatedTrackingRoots(harness.campaignState);
     const preparation = prepare(harness, runtimeAssets, reportId, reportId.split('.').at(-1));
     assert.equal(preparation.ok, true, reportId);
     assert.equal(preparation.status, 'ready', reportId);
     assert.equal(preparation.packet.reportId, reportId);
     assert.equal(preparation.segment.reportId, reportId);
+    assert.equal(JSON.stringify(preparation).includes('fact.hesperus.record-falsified'), false);
+    assert.equal(JSON.stringify(preparation).includes('objective.prelude.hesperus-accountability'), false);
+    assert.equal(JSON.stringify(preparation).includes('directorText'), false);
     assert.deepEqual(harness.campaignState, stateBeforePreparation, `${reportId}: preparation is pure`);
     assert.equal(harness.persistCount, 0, `${reportId}: preparation does not persist`);
     assert.equal(harness.generationCount, 0, `${reportId}: preparation does not invoke a model`);
@@ -201,6 +222,11 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
     });
     assert.equal(settled.ok, true, `${reportId}: ${JSON.stringify(settled)}`);
     assert.equal(settled.diagnostics.acceptedDutyReportCount, 1, reportId);
+    assert.deepEqual(
+        unrelatedTrackingRoots(harness.campaignState),
+        unrelatedBefore,
+        `${reportId}: delivery does not create ship, relationship, quest, log, or Command Bearing tracking spam`,
+    );
     assert.deepEqual(
         deliveredDutyReportIds({ definition, state: harness.campaignState.mission.v1 }),
         [reportId],
@@ -255,6 +281,7 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
         assert.equal(projectionAfterMutation.mission.clocks.some((item) => item.id === 'clock.hesperus-life-support'), false);
     }
     assert.equal(prepare(harness, runtimeAssets, reportId, 'eligible-again').packet.reportId, reportId);
+    assert.deepEqual(unrelatedTrackingRoots(harness.campaignState), unrelatedBefore, `${reportId}: repair stays scoped`);
 }
 
 const rejectedDefinition = definitionFor('report.hesperus.distress');

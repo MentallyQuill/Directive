@@ -40,6 +40,7 @@ const packet = selectPendingDutyReport({
     availableActors: [{ id: 'hadrik-bronn', capabilityRoles: ['engineering'] }],
 });
 const segment = createDutyReportVisibleSegment(packet);
+assert.equal(dutyReportTextHash(segment.canonicalText).length, 16, 'report proofs use a 64-bit digest');
 assert.deepEqual(segment, {
     kind: 'directive.dutyReportVisibleSegment.v1',
     contractVersion: 1,

@@ -210,19 +210,19 @@ feat(runtime): recover report delivery custody
 - Modify: `docs/DOCUMENTATION_INDEX.md`
 - Modify: this plan
 
-- [ ] **Step 1: Run focused and complete gates**
+- [x] **Step 1: Run focused and complete gates**
 
 Run report planner/delivery, mission contracts/schema/linter, accepted-pair, mission runtime, state spine, source mutation, projection rebuild, host injection, and complete alpha gates. Record exact counts and elapsed time.
 
-- [ ] **Step 2: Independent robustness review**
+- [x] **Step 2: Independent robustness review**
 
 Challenge prose-only bypass, copied metadata, swipe selection, edits, deletion, duplicate reports, package drift, branch isolation, replay, optional omission, required omission, provider failure, persistence conflict, hidden leakage, Command Bearing leakage, and tracking spam. Fix every Critical or Important non-UI finding.
 
-- [ ] **Step 3: Document the explicit UI approval boundary**
+- [x] **Step 3: Document the explicit UI approval boundary**
 
 The remaining visible work must be listed, not implemented: compose/attach the compact report block to the correct assistant row, make it visibly distinct but restrained, preserve it per swipe, decide whether a transient Mission mirror adds value, and certify mobile/desktop presentation. No automatic scheduling or narrator-prompt authority is authorized by deterministic readiness alone.
 
-- [ ] **Step 4: Commit Task 6**
+- [x] **Step 4: Commit Task 6**
 
 Commit:
 

@@ -395,7 +395,7 @@ const reportDelivery = {
     hostMessageId: reportSource.messageId,
     selectedSwipeId: reportSource.selectedSwipeId,
     visibleTextHash: reportSource.textHash,
-    segmentTextHash: 'a1b2c3d4',
+    segmentTextHash: 'a1b2c3d4e5f60718',
     sourceTransactionId: 'txn.report-4',
 };
 const reportClaim = {

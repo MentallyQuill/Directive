@@ -84,12 +84,12 @@ export function normalizeDutyReportVisibleText(value = '') {
 }
 
 export function dutyReportTextHash(value = '') {
-    let hash = 0x811c9dc5;
+    let hash = 0xcbf29ce484222325n;
     for (const character of normalizeDutyReportVisibleText(value)) {
-        hash ^= character.charCodeAt(0);
-        hash = Math.imul(hash, 0x01000193);
+        hash ^= BigInt(character.codePointAt(0));
+        hash = BigInt.asUintN(64, hash * 0x100000001b3n);
     }
-    return (hash >>> 0).toString(16).padStart(8, '0');
+    return hash.toString(16).padStart(16, '0');
 }
 
 function routeFor(definition, reportId) {
@@ -161,7 +161,7 @@ export function parseDutyReportManifestEnvelope(value = {}) {
         if (!text || text.length > 300) errors.push(`manifest ${field} must contain 1-300 characters`);
     }
     for (const field of ['responseTextHash', 'segmentTextHash']) {
-        if (!/^[0-9a-f]{8}$/.test(compact(value[field]))) errors.push(`manifest ${field} is invalid`);
+        if (!/^[0-9a-f]{16}$/.test(compact(value[field]))) errors.push(`manifest ${field} is invalid`);
     }
     return errors.length > 0
         ? { ok: false, errors }
@@ -365,7 +365,7 @@ export function validateDutyReportDeliveryReceipt({
     if (!compact(delivery.visibleTextHash) || delivery.visibleTextHash !== source.textHash) {
         errors.push('delivery visibleTextHash does not match the accepted source');
     }
-    if (!/^[0-9a-f]{8}$/.test(compact(delivery.segmentTextHash))) {
+    if (!/^[0-9a-f]{16}$/.test(compact(delivery.segmentTextHash))) {
         errors.push('delivery segmentTextHash is invalid');
     }
     if (!compact(delivery.sourceTransactionId)) errors.push('delivery sourceTransactionId is required');
