@@ -117,11 +117,11 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 - Modify: `docs/planning/ASHES_V1_MIGRATION_PLAN.md`
 - Modify: this plan
 
-- [ ] Challenge spoiler leakage, premature crew reports, undiscoverable required objectives, report spam, accidental rails, false closure, optional-objective blocking, provider hallucination, source mutation, restart, duplicate activation, definition drift, and Chapter 2 fallback.
-- [ ] Fix every Critical or Important non-UI finding.
-- [ ] Run focused suites, `git diff --check`, and the complete alpha gate.
-- [ ] Record deterministic proof and remaining limitations without claiming narrator, UI, live rehearsal, or complete Ashes readiness.
-- [ ] Commit the certification docs.
+- [x] Challenge spoiler leakage, premature crew reports, undiscoverable required objectives, report spam, accidental rails, false closure, optional-objective blocking, provider hallucination, source mutation, restart, duplicate activation, definition drift, and Chapter 2 fallback.
+- [x] Fix every Critical or Important non-UI finding.
+- [x] Run focused suites, `git diff --check`, and the complete alpha gate.
+- [x] Record deterministic proof and remaining limitations without claiming narrator, UI, live rehearsal, or complete Ashes readiness.
+- [x] Commit the certification docs.
 
 ## Explicit Non-Goals and Stop Boundary
 

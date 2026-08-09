@@ -129,11 +129,11 @@ It must exercise the real Mission and Ship projections, a crew Duty Report, at l
 
 ### Current Mission-Transition Boundary
 
-The non-UI V1 runtime now proves exact mission-target activation, durable pending transitions, branch-local journey history, historic source reconstruction, descendant Story rollback, and bounded transition-narration preparation. This architecture is complete enough to receive the next migrated mission; it does not make the legacy Chapter 1 data V1-native.
+The non-UI V1 runtime now proves exact mission-target activation, durable pending transitions, branch-local journey history, historic source reconstruction, descendant Story rollback, and bounded transition-narration preparation. Prelude and `chapter-1-the-empty-convoy` now both have exact V1 definitions registered in the pinned Ashes package version.
 
-Prelude's canonical V1 receipt targets `chapter-1-the-empty-convoy`. Until that mission has a valid V1 definition registered in the same pinned Ashes package version, Prelude completion must remain durably pending. The existing mission graph, campaign projection, quest rows, and package records are migration inputs only. The runtime may not activate them as a substitute, infer a target state from them, or copy their tracker rows into V1 authority.
+Prelude's canonical V1 receipt now activates a fresh Chapter 1 state and archives Prelude through the deterministic journey authority. Chapter 1 replaces ten legacy phases and twenty-eight flags with three core objectives, one optional cooperation objective, four dimensions, two causal gating events, three aggregate Duty Reports, and no synthetic clock. The existing mission graph, campaign projection, quest rows, and package records remain migration inputs only; they do not become parallel V1 authority.
 
-The immediate migration handoff is therefore `chapter-1-the-empty-convoy`. Its V1 conversion must supply spoiler-safe player text, reachable evidence policies, fair crew-knowledge routes, non-linear objective predicates, any real clocks, mixed terminal dispositions, exact successor targets, narrator guardrails, accepted-pair fixtures, source-mutation fixtures, and save/reload validation. Archived Prelude assets must remain available at their pinned definition version so repaired saves can reconstruct the transition.
+Chapter 1's canonical receipt targets `chapter-2-false-colors`. Because Chapter 2 is not yet V1-native, a completed Chapter 1 remains durably pending rather than activating its legacy graph. The immediate content migration handoff is therefore Chapter 2, under the same spoiler-safe, fair-discovery, aggregate-objective, mixed-outcome, source-custody, and exact-target contracts. Archived Prelude and Chapter 1 definitions must remain available at their pinned versions so repaired saves can reconstruct the journey.
 
 ## Hesperus Conversion
 
