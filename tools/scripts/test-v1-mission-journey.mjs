@@ -124,6 +124,7 @@ const expectedTargetRunId = successorMissionRunId({
     branchId,
     sourceRunId: initial.journey.activeRunId,
     transitionId: terminalSource.transitionReceipt.transitionId,
+    sourceMissionRevision: terminalSource.revision,
     targetDefinition,
 });
 const successor = createSuccessorMissionJourney({

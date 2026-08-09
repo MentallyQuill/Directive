@@ -568,3 +568,84 @@ export function invalidateStorySource(settlement, { contributionId, reason } = {
         reason,
     });
 }
+
+export function invalidateStorySourcesAndDescendants(settlement, {
+    contributionIds = [],
+    reason = 'source-invalidated',
+    summarizeEffects = null,
+    cutoffMissionId = null,
+} = {}) {
+    const requested = new Set((Array.isArray(contributionIds) ? contributionIds : []).filter(Boolean));
+    const alreadyInvalidated = requested.size > 0 && [...requested].every((contributionId) => (
+        (settlement.receipts || []).some((receipt) => (
+            receipt.disposition === 'invalidated'
+            && (receipt.sourceContributionIds || []).includes(contributionId)
+        ))
+    ));
+    if (alreadyInvalidated) return structuredClone(settlement);
+    const originalEpisodes = (settlement.episodes || [])
+        .map((episode, index) => ({ episode, index }))
+        .sort((left, right) => (
+            (left.episode.openedAtRevision ?? Number.MAX_SAFE_INTEGER)
+                - (right.episode.openedAtRevision ?? Number.MAX_SAFE_INTEGER)
+            || left.index - right.index
+        ));
+    const currentStatuses = new Set(['open', 'sealPending', 'sealed']);
+    const contributionAffected = originalEpisodes.filter(({ episode }) => (
+        currentStatuses.has(episode.status)
+        && (episode.contributions || []).some((item) => requested.has(item.id))
+    ));
+    const affected = contributionAffected.length > 0
+        ? contributionAffected
+        : originalEpisodes.filter(({ episode }) => (
+            currentStatuses.has(episode.status)
+            && cutoffMissionId
+            && (episode.references?.missionIds || []).includes(cutoffMissionId)
+        ));
+    if (affected.length === 0) {
+        return invalidateStorySources(settlement, { contributionIds, reason, summarizeEffects });
+    }
+    const cutoffIndex = Math.min(...affected.map((entry) => originalEpisodes.indexOf(entry)));
+    const rollbackEpisodeIds = new Set(originalEpisodes
+        .filter(({ episode }, index) => index >= cutoffIndex && currentStatuses.has(episode.status))
+        .map(({ episode }) => episode.id));
+    const affectedEpisodeIds = new Set(affected.map(({ episode }) => episode.id));
+    const next = invalidateStorySources(settlement, { contributionIds, reason, summarizeEffects });
+    if (next.revision === settlement.revision) next.revision += 1;
+    for (const episode of next.episodes || []) {
+        if (!rollbackEpisodeIds.has(episode.id)) continue;
+        const sourcePairs = (episode.contributions || []).filter((item) => item.id && item.messageId);
+        const sourceContributionIds = sourcePairs.map((item) => item.id);
+        const sourceMessageIds = sourcePairs.map((item) => item.messageId);
+        if (!affectedEpisodeIds.has(episode.id) && sourceContributionIds.length > 0) {
+            next.receipts.push({
+                kind: STORY_SETTLEMENT_RECEIPT_KIND,
+                id: `receipt.${episode.id}.causal-rollback.${next.revision}`,
+                branchId: next.branchId,
+                sceneId: episode.sceneId,
+                disposition: 'invalidated',
+                episodeId: episode.id,
+                sourceContributionIds,
+                sourceMessageIds,
+                settledAtRevision: next.revision,
+            });
+        }
+        episode.status = 'invalidated';
+        episode.invalidationReason = reason;
+        episode.summary = 'Story material invalidated by causal mission rollback.';
+        episode.contributions = [];
+        episode.effects = [];
+        episode.unresolvedConsequences = [];
+        episode.characterMoments = [];
+        delete episode.workingCapsule;
+        if (episode.boundaryState) {
+            episode.boundaryState.sourceContributionIds = [];
+            episode.boundaryState.contributionCountAtLastReview = 0;
+            episode.boundaryState.effectCountAtLastReview = 0;
+        }
+        if (episode.hardBoundary) episode.hardBoundary.sourceContributionIds = [];
+        if (next.activeEpisode === episode.id) next.activeEpisode = null;
+    }
+    if (next.focus && rollbackEpisodeIds.has(next.focus.episodeId)) next.focus = null;
+    return assertValid(next);
+}

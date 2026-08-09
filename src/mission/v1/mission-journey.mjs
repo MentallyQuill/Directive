@@ -135,16 +135,20 @@ export function successorMissionRunId({
     branchId = null,
     sourceRunId = null,
     transitionId = null,
+    sourceMissionRevision = null,
     targetDefinition = {},
 } = {}) {
     assertJourneyCondition(stableId(branchId), 'successor mission run requires a stable branchId');
     assertJourneyCondition(stableId(sourceRunId), 'successor mission run requires a stable source run id');
     assertJourneyCondition(stableId(transitionId), 'successor mission run requires a stable transition id');
+    assertJourneyCondition(Number.isInteger(sourceMissionRevision) && sourceMissionRevision > 0,
+        'successor mission run requires a positive source mission revision');
     assertJourneyCondition(stableId(targetDefinition?.id), 'successor mission run requires a target definition');
     return `mission-run.${stableHash([
         compact(branchId),
         compact(sourceRunId),
         compact(transitionId),
+        sourceMissionRevision,
         targetDefinition.id,
         targetDefinition.version,
     ].join('|'))}`;
@@ -232,6 +236,7 @@ export function createSuccessorMissionJourney({
         branchId: journey.branchId,
         sourceRunId: journey.activeRunId,
         transitionId: sourceState.transitionReceipt.transitionId,
+        sourceMissionRevision: sourceState.revision,
         targetDefinition,
     });
     return {
@@ -324,6 +329,7 @@ export function validateMissionJourney({ campaignState = {}, definitions = [] } 
                         branchId,
                         sourceRunId: previousArchive.runId,
                         transitionId: previousArchive.state.transitionReceipt?.transitionId,
+                        sourceMissionRevision: previousArchive.state.revision,
                         targetDefinition: definition,
                     });
             } catch {
@@ -348,6 +354,7 @@ export function validateMissionJourney({ campaignState = {}, definitions = [] } 
                     branchId,
                     sourceRunId: previousArchive.runId,
                     transitionId: previousArchive.state.transitionReceipt?.transitionId,
+                    sourceMissionRevision: previousArchive.state.revision,
                     targetDefinition: currentDefinition,
                 })
                 : initialMissionRunId({ branchId, definition: currentDefinition });

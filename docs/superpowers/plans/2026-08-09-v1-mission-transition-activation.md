@@ -121,23 +121,23 @@ feat(runtime): recover pending mission activation
 - Modify: `tools/scripts/test-v1-projection-rebuild.mjs`
 - Create: `tools/scripts/test-v1-mission-journey-rebuild.mjs`
 
-- [ ] **Step 1: Write failing historic-source mutation tests**
+- [x] **Step 1: Write failing historic-source mutation tests**
 
 After at least two mission activations, edit, delete, swipe, or branch-exclude evidence that closed the first mission. Locate the archived run by exact contribution identity, not text or mission title.
 
-- [ ] **Step 2: Rebuild and prune descendants atomically**
+- [x] **Step 2: Rebuild and prune descendants atomically**
 
 Rebuild the affected mission from surviving evidence. Remove later archived/current mission runs and every descendant Story contribution/effect/summary. If the source no longer closes, make it current. If it still closes to the same valid target, create one fresh successor activation epoch.
 
-- [ ] **Step 3: Preserve unrelated earlier history**
+- [x] **Step 3: Preserve unrelated earlier history**
 
 Mutation in a later mission cannot alter earlier archived states. A source with no mission effect may repair Story Settlement without rolling campaign progression back.
 
-- [ ] **Step 4: Prove branch, replay, and restart safety**
+- [x] **Step 4: Prove branch, replay, and restart safety**
 
 Two saves remain isolated; repeated mutation is a no-op; reconstruction calls no model; serialization preserves the repaired journey exactly.
 
-- [ ] **Step 5: Run and commit Task 4**
+- [x] **Step 5: Run and commit Task 4**
 
 Commit:
 

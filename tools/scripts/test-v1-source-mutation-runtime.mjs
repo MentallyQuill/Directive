@@ -401,6 +401,20 @@ assert.equal(
     true,
 );
 assert.equal(insignificantHarness.generationCount, 1);
+const restoredInsignificant = await insignificantHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: snapshot(4),
+});
+assert.equal(restoredInsignificant.ok, true);
+assert.equal(
+    insignificantHarness.campaignState.storySettlement.receipts.some((receipt) => (
+        receipt.disposition === 'insignificant'
+        && receipt.sourceMessageIds.includes('message.player.4')
+        && receipt.sourceContributionIds.some((id) => id.endsWith('.r1'))
+    )),
+    true,
+    'Story-only source recovery advances contribution custody without mission-state assistance',
+);
 
 const legacyReceiptState = structuredClone(preMutationInsignificantState);
 delete legacyReceiptState.storySettlement.receipts[0].sourceMessageIds;

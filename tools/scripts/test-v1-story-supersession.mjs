@@ -6,6 +6,7 @@ import {
     acceptStoryContributions,
     appendStoryEffects,
     invalidateStorySources,
+    invalidateStorySourcesAndDescendants,
     openStoryEpisode,
     sealStoryEpisode,
     selectCurrentStoryEpisodes,
@@ -125,6 +126,56 @@ const atomic = invalidateStorySources(settlement, {
 assert.equal(atomic.episodes.length, 2, 'one host mutation creates one replacement, not a chain');
 assert.deepEqual(atomic.episodes[1].effects.map((item) => item.targetId), ['event.gamma']);
 assert.deepEqual(atomic.episodes[1].supersedesEpisodeIds, ['episode.multi-source']);
+
+let causal = createEmptyStorySettlement({ branchId: 'save.alpha' });
+for (const [suffix, missionId] of [
+    ['early', 'mission.shared'],
+    ['cutoff', 'mission.shared'],
+    ['descendant', 'mission.later'],
+]) {
+    causal = openStoryEpisode(causal, {
+        episodeId: `episode.${suffix}`,
+        sceneId: `scene.${suffix}`,
+        references: { missionIds: [missionId] },
+    });
+    causal = acceptStoryContributions(causal, [contribution(suffix)]);
+    causal = appendStoryEffects(causal, [effect(suffix)]);
+    const boundary = createEpisodeHardBoundary({
+        id: `boundary.${suffix}`,
+        branchId: 'save.alpha',
+        code: 'mission-transition',
+        source: { kind: 'missionReducer', id: `transition.${suffix}` },
+        sourceContributionIds: [`contribution.${suffix}`],
+    });
+    causal = sealStoryEpisode(causal, {
+        boundaryReason: boundary.code,
+        hardBoundary: boundary,
+        summary: `Summary ${suffix} must obey causal rollback.`,
+    });
+}
+const causalRollback = invalidateStorySourcesAndDescendants(causal, {
+    contributionIds: ['contribution.cutoff'],
+    cutoffMissionId: 'mission.shared',
+    reason: 'historic-source-edited',
+});
+assert.deepEqual(
+    selectCurrentStoryEpisodes(causalRollback).map((episode) => episode.id),
+    ['episode.early'],
+    'exact contribution order preserves earlier material from the same mission',
+);
+for (const id of ['episode.cutoff', 'episode.descendant']) {
+    const invalidated = causalRollback.episodes.find((episode) => episode.id === id);
+    assert.equal(invalidated.status, 'invalidated');
+    assert.deepEqual(invalidated.contributions, []);
+    assert.deepEqual(invalidated.effects, []);
+    assert.equal(invalidated.summary.includes(id.split('.').at(-1)), false);
+}
+assert.equal(validateStorySettlement(causalRollback).ok, true);
+assert.deepEqual(invalidateStorySourcesAndDescendants(causalRollback, {
+    contributionIds: ['contribution.cutoff'],
+    cutoffMissionId: 'mission.shared',
+    reason: 'historic-source-edited',
+}), causalRollback, 'causal rollback is directly idempotent after its source receipt is recorded');
 
 const roundTripped = JSON.parse(JSON.stringify(superseded));
 assert.deepEqual(selectCurrentStoryEpisodes(roundTripped), [roundTripped.episodes[1]]);

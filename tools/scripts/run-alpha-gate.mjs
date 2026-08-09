@@ -95,6 +95,7 @@ const checks = [
   'test-v1-state-spine-runtime.mjs',
   'test-v1-mission-runtime.mjs',
   'test-v1-mission-transition-runtime.mjs',
+  'test-v1-mission-journey-rebuild.mjs',
   'test-v1-accepted-pair-orchestrator.mjs',
   'test-v1-source-mutation-runtime.mjs',
   'test-ashes-v1-migration-inventory.mjs',

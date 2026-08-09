@@ -20,7 +20,16 @@ assert.equal(projectionSchema.$defs.initialState.required.includes('storySettlem
 const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json', 'utf8'));
 let campaignState = {
     campaign: { id: 'campaign.ashes' },
-    mission: { legacyStatus: 'unchanged', activePhaseId: 'phase.hesperus-legacy' },
+    activeCampaignPackage: {
+        packageId: definition.packageBinding.packageId,
+        packageVersion: definition.packageBinding.packageVersion,
+    },
+    campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
+    mission: {
+        activeMissionId: definition.packageBinding.sourceId,
+        legacyStatus: 'unchanged',
+        activePhaseId: 'phase.hesperus-legacy',
+    },
     ship: { legacyCondition: 'unchanged' },
     relationships: { legacyRelationship: 'unchanged' },
     commandBearing: { current: 2 },
@@ -162,6 +171,7 @@ await spine.invalidateSources({
     definition,
     branchId: 'save.alpha',
     contributionIds: ['contribution.hesperus-rescue'],
+    missionDefinitions: [definition],
     gatewayBaseRevision: 1,
     reason: 'selected-swipe-changed',
 });

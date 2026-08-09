@@ -19,6 +19,7 @@ import {
     appendStoryEffects,
     checkpointStoryEpisode,
     invalidateStorySources,
+    invalidateStorySourcesAndDescendants,
     observeStoryWorkingEvidence,
     openStoryEpisode,
     sealStoryEpisode,
@@ -673,6 +674,7 @@ export function createV1StateSpine({
 
     async function invalidateSources({
         definition,
+        missionDefinitions = [],
         branchId,
         contributionIds = [],
         gatewayBaseRevision = null,
@@ -682,9 +684,41 @@ export function createV1StateSpine({
         const campaignState = getState();
         const currentMission = resolveV1MissionState({ campaignState, definition, branchId });
         const currentStorySettlement = initialStorySettlement(campaignState, branchId);
-        const previouslyInvalidated = new Set(currentMission.invalidatedSourceContributionIds || []);
+        const hasJourney = campaignState?.mission?.v1Journey !== undefined
+            || campaignState?.mission?.v1History !== undefined;
+        const definitions = (Array.isArray(missionDefinitions) ? missionDefinitions : [])
+            .map((entry) => entry?.definition || entry)
+            .filter((entry) => entry && typeof entry === 'object');
+        if (definition?.id && !definitions.some((entry) => entry.id === definition.id)) definitions.push(definition);
+        if (hasJourney) {
+            const validation = validateMissionJourney({ campaignState, definitions });
+            if (!validation.ok) throw invalidMissionJourney(validation.errors);
+        }
+        const history = hasJourney ? structuredClone(campaignState.mission.v1History) : [];
+        const runs = [
+            ...history.map((archive, index) => ({
+                kind: 'archived',
+                index,
+                runId: archive.runId,
+                definitionId: archive.definitionId,
+                state: archive.state,
+            })),
+            {
+                kind: 'current',
+                index: history.length,
+                runId: hasJourney ? campaignState.mission.v1Journey.activeRunId : null,
+                definitionId: currentMission.definitionId,
+                state: currentMission,
+            },
+        ];
+        const previouslyInvalidated = new Set([
+            ...runs.flatMap((run) => run.state?.invalidatedSourceContributionIds || []),
+            ...(currentStorySettlement.receipts || [])
+                .filter((receipt) => receipt.disposition === 'invalidated')
+                .flatMap((receipt) => receipt.sourceContributionIds || []),
+        ]);
         const knownContributionIds = new Set([
-            ...(currentMission.evidenceLog || []).map((entry) => entry.sourceContributionId).filter(Boolean),
+            ...runs.flatMap((run) => (run.state?.evidenceLog || []).map((entry) => entry.sourceContributionId)).filter(Boolean),
             ...currentStorySettlement.episodes.flatMap(
                 (episode) => episode.contributions.map((contribution) => contribution.id),
             ),
@@ -704,52 +738,193 @@ export function createV1StateSpine({
             };
         }
         const invalidated = new Set(newContributionIds);
-        const survivingEvidence = (currentMission.evidenceLog || []).filter(
-            (entry) => !invalidated.has(entry.sourceContributionId),
+        const matchingRuns = runs.filter((run) => (run.state?.evidenceLog || []).some(
+            (entry) => invalidated.has(entry.sourceContributionId),
+        ));
+        if (matchingRuns.length > 1) {
+            throw invalidMissionJourney(['source contribution is owned by more than one mission run']);
+        }
+
+        if (matchingRuns.length === 0) {
+            const storySettlement = invalidateStorySources(currentStorySettlement, {
+                contributionIds: [...invalidated],
+                reason,
+                summarizeEffects: (effects) => deterministicEffectSummary(definition, effects),
+            });
+            if (jsonEqual(currentStorySettlement, storySettlement)) {
+                return {
+                    missionState: currentMission,
+                    storySettlement: currentStorySettlement,
+                    campaignState: structuredClone(campaignState),
+                    invalidatedContributionIds: [],
+                    noChange: true,
+                    reviewToken: createPendingEpisodeReviewToken(currentStorySettlement),
+                };
+            }
+            const committed = await stateDeltaGateway.applyProposal({
+                operations: [{ op: 'set', path: 'storySettlement', value: storySettlement }],
+                domains: ['storySettlement'],
+                baseRevision: capturedGatewayRevision,
+                source: 'v1StateSpineShadow',
+                reason: 'Rebuilt Story Settlement after a non-mission source invalidation.',
+                metadata: { invalidatedContributionCount: invalidated.size },
+            });
+            return {
+                missionState: currentMission,
+                storySettlement,
+                campaignState: committed.campaignState,
+                invalidatedContributionIds: [...newContributionIds],
+                noChange: false,
+                reviewToken: createPendingEpisodeReviewToken(storySettlement),
+                missionChanged: false,
+            };
+        }
+
+        const matchedRun = matchingRuns[0];
+        const matchedDefinitions = definitions.filter((candidate) => candidate.id === matchedRun.definitionId);
+        const matchedDefinition = hasJourney
+            ? (matchedDefinitions.length === 1 ? matchedDefinitions[0] : null)
+            : definition;
+        if (!matchedDefinition) throw invalidMissionJourney(['source mission definition is unavailable or ambiguous']);
+        const missionInvalidatedIds = newContributionIds.filter((id) => (
+            matchedRun.state.evidenceLog || []).some((entry) => entry.sourceContributionId === id)
         );
-        let rebuiltMission = createMissionState({ definition, branchId });
+        const missionInvalidated = new Set(missionInvalidatedIds);
+        const survivingEvidence = (matchedRun.state.evidenceLog || []).filter(
+            (entry) => !missionInvalidated.has(entry.sourceContributionId),
+        );
+        let rebuiltMission = createMissionState({ definition: matchedDefinition, branchId });
         for (const batch of orderedEvidenceBatches(survivingEvidence)) {
             rebuiltMission = reduceMissionEvidence({
-                definition,
+                definition: matchedDefinition,
                 state: rebuiltMission,
                 acceptedClaims: batch.claims.map((entry) => ({ ...entry })),
                 sourceContribution: null,
             }).state;
         }
-        rebuiltMission.revision = currentMission.revision + 1;
+        rebuiltMission.revision = matchedRun.state.revision + 1;
         rebuiltMission.invalidatedSourceContributionIds = [
-            ...previouslyInvalidated,
-            ...newContributionIds,
+            ...(matchedRun.state.invalidatedSourceContributionIds || []),
+            ...missionInvalidatedIds,
         ];
-        rebuiltMission.shadowDiagnostics = structuredClone(currentMission.shadowDiagnostics || []);
-        if (rebuiltMission.transitionReceipt) {
-            rebuiltMission.transitionReceipt.committedAtRevision = rebuiltMission.revision;
-        }
+        rebuiltMission.shadowDiagnostics = structuredClone(matchedRun.state.shadowDiagnostics || []);
+        if (rebuiltMission.transitionReceipt) rebuiltMission.transitionReceipt.committedAtRevision = rebuiltMission.revision;
         appendDiagnostic(rebuiltMission, {
             kind: 'directive.v1StateSpineDiagnostic.v1',
-            code: 'source-invalidation-rebuild',
+            code: matchedRun.kind === 'archived'
+                ? 'historic-source-invalidation-rebuild'
+                : 'source-invalidation-rebuild',
             missionRevision: rebuiltMission.revision,
-            invalidatedContributionCount: invalidated.size,
+            invalidatedContributionCount: missionInvalidatedIds.length,
             observedAt: now(),
         });
 
-        const storySettlement = invalidateStorySources(currentStorySettlement, {
-            contributionIds: [...invalidated],
-            reason,
-            summarizeEffects: (effects) => deterministicEffectSummary(definition, effects),
-        });
+        const crossedClosure = matchedRun.kind === 'archived' || matchedRun.state.status === 'terminal';
+        const storySettlement = crossedClosure
+            ? invalidateStorySourcesAndDescendants(currentStorySettlement, {
+                contributionIds: [...invalidated],
+                reason,
+                cutoffMissionId: matchedDefinition.id,
+                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
+            })
+            : invalidateStorySources(currentStorySettlement, {
+                contributionIds: [...invalidated],
+                reason,
+                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
+            });
+
+        let missionPatch = { v1: rebuiltMission };
+        let journeyRollback = null;
+        if (hasJourney) {
+            const priorHistory = history.slice(0, matchedRun.index);
+            const baseJourney = {
+                ...structuredClone(campaignState.mission.v1Journey),
+                revision: matchedRun.index,
+                activeRunId: matchedRun.runId,
+            };
+            missionPatch = {
+                v1: rebuiltMission,
+                v1Journey: baseJourney,
+                v1History: priorHistory,
+                activeMissionId: matchedDefinition.packageBinding.sourceId,
+            };
+            if (rebuiltMission.status === 'terminal' && rebuiltMission.transitionReceipt?.packet) {
+                const target = resolveMissionTransitionTarget({
+                    sourceDefinition: matchedDefinition,
+                    transitionPacket: rebuiltMission.transitionReceipt.packet,
+                    definitions,
+                });
+                if (target.ok) {
+                    const successor = createSuccessorMissionJourney({
+                        journey: baseJourney,
+                        history: priorHistory,
+                        sourceState: rebuiltMission,
+                        sourceDefinition: matchedDefinition,
+                        targetDefinition: target.targetDefinition,
+                    });
+                    missionPatch = {
+                        v1: successor.currentState,
+                        v1Journey: successor.journey,
+                        v1History: successor.history,
+                        activeMissionId: target.targetDefinition.packageBinding.sourceId,
+                    };
+                    journeyRollback = {
+                        status: 'reactivated',
+                        sourceRunId: matchedRun.runId,
+                        targetRunId: successor.journey.activeRunId,
+                        targetDefinitionId: target.targetDefinition.id,
+                    };
+                } else {
+                    journeyRollback = {
+                        status: 'pending',
+                        reasonCode: target.reasonCode,
+                        sourceRunId: matchedRun.runId,
+                        targetRunId: null,
+                        targetDefinitionId: null,
+                    };
+                }
+            } else {
+                journeyRollback = {
+                    status: 'reactivated-source',
+                    reasonCode: null,
+                    sourceRunId: matchedRun.runId,
+                    targetRunId: null,
+                    targetDefinitionId: null,
+                };
+            }
+            const candidateCampaignState = {
+                ...structuredClone(campaignState),
+                mission: {
+                    ...structuredClone(campaignState.mission || {}),
+                    ...structuredClone(missionPatch),
+                },
+            };
+            const validation = validateMissionJourney({ campaignState: candidateCampaignState, definitions });
+            if (!validation.ok) throw invalidMissionJourney(validation.errors);
+        }
+        const missionOperations = [
+            { op: 'set', path: 'storySettlement', value: storySettlement },
+            { op: 'set', path: 'mission.v1', value: missionPatch.v1 },
+            ...(hasJourney ? [
+                { op: 'set', path: 'mission.v1Journey', value: missionPatch.v1Journey },
+                { op: 'set', path: 'mission.v1History', value: missionPatch.v1History },
+                { op: 'set', path: 'mission.activeMissionId', value: missionPatch.activeMissionId },
+            ] : []),
+        ];
         const committed = await stateDeltaGateway.applyProposal({
-            patch: {
-                storySettlement,
-                mission: { v1: rebuiltMission },
-            },
+            operations: missionOperations,
             domains: ['storySettlement', 'mission'],
             baseRevision: capturedGatewayRevision,
             source: 'v1StateSpineShadow',
-            reason: 'Rebuilt shadow V1 state after accepted-source invalidation.',
+            reason: crossedClosure
+                ? 'Rebuilt a V1 mission journey after historic accepted-source invalidation.'
+                : 'Rebuilt shadow V1 state after accepted-source invalidation.',
             metadata: {
-                missionId: definition.id,
+                missionId: matchedDefinition.id,
+                missionRunId: matchedRun.runId,
                 invalidatedContributionCount: invalidated.size,
+                prunedMissionRunCount: hasJourney ? Math.max(0, history.length - matchedRun.index) : 0,
+                journeyRollbackStatus: journeyRollback?.status || null,
             },
         });
         return {
@@ -759,6 +934,10 @@ export function createV1StateSpine({
             invalidatedContributionIds: [...newContributionIds],
             noChange: false,
             reviewToken: createPendingEpisodeReviewToken(storySettlement),
+            definitionId: matchedDefinition.id,
+            definitionVersion: matchedDefinition.version,
+            journeyRollback,
+            missionChanged: true,
         };
     }
 

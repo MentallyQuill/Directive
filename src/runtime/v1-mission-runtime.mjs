@@ -264,9 +264,20 @@ function baseContributionId(branchId, source) {
     ].join('|'))}`;
 }
 
+function invalidatedContributionIds(campaignState = {}) {
+    return new Set([
+        ...(campaignState?.mission?.v1?.invalidatedSourceContributionIds || []),
+        ...(campaignState?.mission?.v1History || [])
+            .flatMap((archive) => archive?.state?.invalidatedSourceContributionIds || []),
+        ...(campaignState?.storySettlement?.receipts || [])
+            .filter((receipt) => receipt?.disposition === 'invalidated')
+            .flatMap((receipt) => receipt?.sourceContributionIds || []),
+    ]);
+}
+
 function activeContributionId(campaignState, branchId, source) {
     const baseId = baseContributionId(branchId, source);
-    const invalidated = new Set(campaignState?.mission?.v1?.invalidatedSourceContributionIds || []);
+    const invalidated = invalidatedContributionIds(campaignState);
     let epoch = 0;
     let id = baseId;
     while (invalidated.has(id)) {
@@ -283,7 +294,7 @@ function contributionLineageWasInvalidated(campaignState, branchId, source) {
         receipt.disposition === 'invalidated'
         && (receipt.sourceMessageIds || []).some((candidate) => compact(candidate) === messageId)
     ));
-    return Boolean(messageWasInvalidated) || (campaignState?.mission?.v1?.invalidatedSourceContributionIds || []).some(
+    return Boolean(messageWasInvalidated) || [...invalidatedContributionIds(campaignState)].some(
         (id) => id === baseId || id.startsWith(`${baseId}.r`),
     );
 }
@@ -379,6 +390,13 @@ function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
             ids.push(entry.sourceContributionId);
         }
     }
+    for (const archive of campaignState?.mission?.v1History || []) {
+        for (const entry of archive?.state?.evidenceLog || []) {
+            if (compact(entry?.sourceRef?.messageId) === target && entry?.sourceContributionId) {
+                ids.push(entry.sourceContributionId);
+            }
+        }
+    }
     for (const episode of campaignState?.storySettlement?.episodes || []) {
         for (const contribution of episode.contributions || []) {
             if (compact(contribution?.messageId) === target && contribution?.id) ids.push(contribution.id);
@@ -391,7 +409,7 @@ function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
             }
         }
     }
-    const invalidated = new Set(campaignState?.mission?.v1?.invalidatedSourceContributionIds || []);
+    const invalidated = invalidatedContributionIds(campaignState);
     return [...new Set(ids)].filter((id) => !invalidated.has(id));
 }
 
@@ -948,7 +966,10 @@ export function createV1MissionRuntime({
         if (campaignState?.storySettlement?.branchId && campaignState.storySettlement.branchId !== branchId) {
             return unavailable('story-branch-mismatch');
         }
-        if (missionEvidenceSequenceMigrationRequired(campaignState?.mission?.v1)) {
+        if ([
+            ...(campaignState?.mission?.v1History || []).map((archive) => archive?.state),
+            campaignState?.mission?.v1,
+        ].some((state) => missionEvidenceSequenceMigrationRequired(state))) {
             return unavailable('evidence-sequence-migration-required');
         }
         const contributionIds = contributionIdsForHostMessage(campaignState, hostMessageId);
@@ -978,6 +999,7 @@ export function createV1MissionRuntime({
         try {
             const invalidated = await spine.invalidateSources({
                 definition: resolved.definition,
+                missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
                 branchId,
                 contributionIds,
                 gatewayBaseRevision,
@@ -988,12 +1010,15 @@ export function createV1MissionRuntime({
                 attempted: true,
                 status: invalidated.noChange ? 'no-change' : 'invalidated',
                 reasonCode: null,
-                definitionId: resolved.definition.id,
-                definitionVersion: resolved.definition.version,
+                definitionId: invalidated.definitionId || resolved.definition.id,
+                definitionVersion: invalidated.definitionVersion || resolved.definition.version,
                 invalidatedContributionCount: invalidated.invalidatedContributionIds?.length || 0,
-                committedRoots: invalidated.noChange ? [] : ['mission', 'storySettlement'],
+                committedRoots: invalidated.noChange
+                    ? []
+                    : (invalidated.missionChanged === false ? ['storySettlement'] : ['mission', 'storySettlement']),
                 noChange: invalidated.noChange === true,
                 reviewToken: invalidated.reviewToken || null,
+                journeyRollback: invalidated.journeyRollback || null,
                 diagnostics: {},
             };
         } catch (error) {
