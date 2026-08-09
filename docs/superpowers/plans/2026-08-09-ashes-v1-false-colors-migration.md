@@ -61,13 +61,13 @@ The transition target is `open-orders-1-work-worth-doing`. Until that target has
 - Create: `tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Assert the absent definition path, exact package binding, stable mission ID, and objective inventory.
-- [ ] Assert the initial projection contains only the player-known attack crisis and two immediate responsibilities, with no tug, Holt, Pale Lantern, Hecate, hidden-objective count, or undisclosed access-demand leakage.
-- [ ] Assert no legacy phases, pressures, flags, progress percentages, or clocks appear in the V1 definition.
-- [ ] Assert exactly three causal aggregate Duty Report routes cover every mandatory discoverable fact.
-- [ ] Add scenarios for joint legitimacy, credible unilateral vindication, managed ambiguity, handoff, informed rupture-forward, optional-partnership omission, non-linear causal order, and undiscovered-content safety.
-- [ ] Add hostile cases for player self-declared success, premature reports, director-only attribution, stale revisions, wrong swipes, unknown policies, and synthetic countdowns.
-- [ ] Run the new test and record the expected RED failure because the definition is absent.
+- [x] Assert the absent definition path, exact package binding, stable mission ID, and objective inventory.
+- [x] Assert the initial projection contains only the player-known attack crisis and two immediate responsibilities, with no tug, Holt, Pale Lantern, Hecate, hidden-objective count, or undisclosed access-demand leakage.
+- [x] Assert no legacy phases, pressures, flags, progress percentages, or clocks appear in the V1 definition.
+- [x] Assert exactly three causal aggregate Duty Report routes cover every mandatory discoverable fact.
+- [x] Add scenarios for joint legitimacy, credible unilateral vindication, managed ambiguity, handoff, informed rupture-forward, optional-partnership omission, non-linear causal order, and undiscovered-content safety.
+- [x] Add hostile cases for player self-declared success, premature reports, director-only attribution, stale revisions, wrong swipes, unknown policies, and synthetic countdowns.
+- [x] Run the new test and record the expected RED failure because the definition is absent.
 
 ## Task 2: Author the V1 Mission Definition
 
