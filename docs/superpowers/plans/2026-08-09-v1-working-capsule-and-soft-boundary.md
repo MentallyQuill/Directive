@@ -41,19 +41,19 @@
 - Modify: `tools/scripts/test-v1-story-settlement.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] **Step 1: Write failing bounded-capsule tests**
+- [x] **Step 1: Write failing bounded-capsule tests**
 
 Prove an open episode starts with an empty `directive.storyWorkingCapsule.v1`. Observing accepted sources stores exact contribution ID, role, text hash, and a normalized excerpt capped at 240 characters. Keep at most six recent excerpts and 1,200 excerpt characters. Duplicate observations are idempotent. Unknown, unaccepted, wrong-branch, and malformed sources fail closed.
 
-- [ ] **Step 2: Prove absence and lifecycle behavior**
+- [x] **Step 2: Prove absence and lifecycle behavior**
 
 An insignificant scene with no active episode creates no capsule. A checkpoint does not create a new story entry. Sealing removes recent excerpts and the mutable capsule from current semantic authority. JSON restart preserves an open capsule exactly.
 
-- [ ] **Step 3: Make mutation conservative**
+- [x] **Step 3: Make mutation conservative**
 
 Active source invalidation removes matching recent evidence. If an invalidated source supports the semantic summary or foreground question, clear those fields, set `needsReview`, and retain only independently grounded surviving evidence. Never regenerate semantic prose during repair.
 
-- [ ] **Step 4: Implement, run, and commit Task 1**
+- [x] **Step 4: Implement, run, and commit Task 1**
 
 Commit:
 
@@ -69,11 +69,11 @@ feat(story): add bounded working capsule
 - Create: `tools/scripts/test-v1-episode-evaluator.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] **Step 1: Write failing request-budget tests**
+- [x] **Step 1: Write failing request-budget tests**
 
 The evaluator receives only exact branch/episode/checkpoint identity, the current working capsule, capped recent accepted excerpts, visible typed-effect anchors, approved episode references, and at most two recent current player-safe sealed summaries. No raw transcript range, hidden effect, evidence queue, provider diagnostic, or campaign hidden state enters the request.
 
-- [ ] **Step 2: Write failing closed-output tests**
+- [x] **Step 2: Write failing closed-output tests**
 
 Allow decisions `continue`, `seal`, or `abstain`. Allow soft-boundary reasons only:
 
@@ -99,15 +99,15 @@ unresolved-consequence
 
 Reject unknown IDs, uncited summaries, unsupported criteria, arbitrary rationale, over-budget strings, duplicate refs, and a seal without both boundary and significance custody. `continue` returns one replacement capsule. `abstain` returns no semantic content.
 
-- [ ] **Step 3: Pin conformance fixtures**
+- [x] **Step 3: Pin conformance fixtures**
 
 Fixture cases preserve the approved extension-derived behavior: repeated prior memory is not re-added; a light flicker or routine acknowledgement does not qualify; one continuous encounter continues; a resolved encounter with a lasting change can seal once; no episode/memory remains valid.
 
-- [ ] **Step 4: Implement fail-soft Utility invocation**
+- [x] **Step 4: Implement fail-soft Utility invocation**
 
 Use the existing `utilityJson` role only. Parse strict JSON, cap timeout, sanitize diagnostics, and never mutate state inside the evaluator client.
 
-- [ ] **Step 5: Run and commit Task 2**
+- [x] **Step 5: Run and commit Task 2**
 
 Commit:
 
@@ -124,19 +124,19 @@ feat(story): bound soft boundary proposals
 - Modify: `tools/scripts/test-v1-mission-runtime.mjs`
 - Modify: `tools/scripts/test-v1-accepted-pair-orchestrator.mjs`
 
-- [ ] **Step 1: Write failing accepted-source observation tests**
+- [x] **Step 1: Write failing accepted-source observation tests**
 
 While an episode is active, every accepted player contribution and only an accepted assistant selected variant may enter contribution custody and the capped evidence window, including a pair with no new mission effect. This creates no receipt, episode, objective, issue row, relationship memory, or prompt write. Replay remains idempotent.
 
-- [ ] **Step 2: Generalize checkpoint eligibility**
+- [x] **Step 2: Generalize checkpoint eligibility**
 
 Checkpoint thresholds count newly accepted contributions, not only effects. When checkpoint sequence exceeds the last successfully evaluated sequence, return one stable review token containing branch, episode, episode revision, and checkpoint sequence. Provider failure does not consume the token; a successful review does.
 
-- [ ] **Step 3: Preserve hard-boundary precedence**
+- [x] **Step 3: Preserve hard-boundary precedence**
 
 If the accepted pair also carries a valid hard boundary or mission transition, seal deterministically and emit no soft-review token. Insignificant scenes without an active episode remain compact receipts.
 
-- [ ] **Step 4: Run and commit Task 3**
+- [x] **Step 4: Run and commit Task 3**
 
 Commit:
 
@@ -155,23 +155,23 @@ feat(runtime): queue bounded episode reviews
 - Modify: `tools/scripts/test-runtime-host-injection.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] **Step 1: Write failing continue/seal tests**
+- [x] **Step 1: Write failing continue/seal tests**
 
 `continue` atomically replaces the working capsule, clears the processed recent-evidence window, and advances `lastEvaluatedCheckpointSequence` without sealing. `seal` creates exactly one current sealed episode with the approved soft reason, significant criteria, grounded summary, no active excerpts, and no new domain tracker.
 
-- [ ] **Step 2: Enforce stale and mutation rejection**
+- [x] **Step 2: Enforce stale and mutation rejection**
 
 Reject proposals when branch, episode ID, episode revision, checkpoint sequence, contribution hashes, effect IDs, or gateway revision changed. An edit/delete/swipe between analysis and apply leaves the newer episode open and pending. Replaying an applied proposal is idempotent.
 
-- [ ] **Step 3: Expose diagnostic shadow review**
+- [x] **Step 3: Expose diagnostic shadow review**
 
 Add a read/commit runtime method that resolves the exact active V1 definition, consumes a pending token, invokes the bounded evaluator, and applies through State Delta Gateway. Expose it through runtime-app diagnostics/tests only. Calling the normal composite projection must never trigger evaluation.
 
-- [ ] **Step 4: Prove failure containment and restart**
+- [x] **Step 4: Prove failure containment and restart**
 
 Provider timeout, empty output, invalid JSON, `abstain`, and rejected proposal do not consume eligibility or write semantic state. A serialized pending review survives restart and can later continue or seal. No failure blocks gameplay mechanics.
 
-- [ ] **Step 5: Run and commit Task 4**
+- [x] **Step 5: Run and commit Task 4**
 
 Commit:
 
@@ -186,19 +186,19 @@ feat(runtime): apply soft episode reviews
 - Modify: `docs/DOCUMENTATION_INDEX.md`
 - Modify: this plan
 
-- [ ] **Step 1: Run focused and complete gates**
+- [x] **Step 1: Run focused and complete gates**
 
 Run capsule, evaluator, Story Settlement, state-spine, mission-runtime, source-mutation, projection-rebuild, runtime-host, package/schema, and complete alpha gates. Record exact counts and elapsed time.
 
-- [ ] **Step 2: Independent robustness review**
+- [x] **Step 2: Independent robustness review**
 
 Challenge over-recording, missed boundaries, false splits, summary drift, source mutation, replay, branch isolation, provider failure, latency coupling, and hidden leakage. Fix every Critical or Important finding before certification.
 
-- [ ] **Step 3: Document residual cutover risks**
+- [x] **Step 3: Document residual cutover risks**
 
 Retain as later work: measured post-visible-response/background scheduling, character-moment extraction, Duty Report delivery, prompt authority, next-mission activation, remaining Ashes migration, legacy writer retirement, UI approval, parity/live soak, and full rehearsal/certification.
 
-- [ ] **Step 4: Commit Task 5**
+- [x] **Step 4: Commit Task 5**
 
 Commit:
 
