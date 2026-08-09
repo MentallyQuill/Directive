@@ -434,8 +434,17 @@ assert.equal(legacyReceiptHarness.gateway.revision(), legacyReceiptRevision);
 assert.equal(legacyReceiptHarness.generationCount, 0);
 
 const orderingState = initialCampaignState();
-orderingState.mission.v1 = createMissionState({ definition, branchId: 'save.alpha' });
-orderingState.mission.v1.knownFacts.push('fact.hesperus.passenger-risk');
+const orderingDefinition = structuredClone(definition);
+orderingDefinition.evidencePolicies.find(
+    (policy) => policy.id === 'policy.hesperus.rescue-risk-decision',
+).when = true;
+const orderingRecord = { path: 'prelude.ordering-test.mission-v1.json', definition: orderingDefinition };
+const orderingRuntimeAssets = {
+    packageData,
+    missionDefinitions: [orderingRecord],
+    missionDefinitionsById: new Map([[orderingDefinition.id, orderingRecord]]),
+};
+orderingState.mission.v1 = createMissionState({ definition: orderingDefinition, branchId: 'save.alpha' });
 const orderingHarness = createHarness({
     state: orderingState,
     outputs: [
@@ -444,16 +453,16 @@ const orderingHarness = createHarness({
         output('policy.prelude.command-handover-completed'),
     ],
 });
-await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: snapshot(5) });
-await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: snapshot(6) });
-await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: snapshot(7) });
+await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets: orderingRuntimeAssets, snapshot: snapshot(5) });
+await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets: orderingRuntimeAssets, snapshot: snapshot(6) });
+await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets: orderingRuntimeAssets, snapshot: snapshot(7) });
 assert.equal(orderingHarness.campaignState.mission.v1.outcomes['outcome.hesperus.rescue-risk-decision'], 'proceedKnownRisk');
 const legacySequenceState = structuredClone(orderingHarness.campaignState);
 for (const entry of legacySequenceState.mission.v1.evidenceLog) delete entry.acceptedAtMissionRevision;
 const legacySequenceHarness = createHarness({ state: legacySequenceState });
 const legacySequenceRevision = legacySequenceHarness.gateway.revision();
 const legacySequenceMutation = await legacySequenceHarness.runtime.invalidateSourceMutation({
-    runtimeAssets,
+    runtimeAssets: orderingRuntimeAssets,
     hostMessageId: 'message.assistant.7',
     eventType: 'directiveResponseDeleted',
 });
@@ -462,7 +471,7 @@ assert.equal(legacySequenceMutation.reasonCode, 'evidence-sequence-migration-req
 assert.equal(legacySequenceHarness.gateway.revision(), legacySequenceRevision);
 assert.equal(legacySequenceHarness.generationCount, 0);
 const orderingInvalidation = await orderingHarness.runtime.invalidateSourceMutation({
-    runtimeAssets,
+    runtimeAssets: orderingRuntimeAssets,
     hostMessageId: 'message.assistant.7',
     eventType: 'directiveResponseDeleted',
 });

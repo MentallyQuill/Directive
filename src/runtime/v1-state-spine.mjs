@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 
-import { validateMissionEvidenceProposal } from '../mission/v1/evidence-contracts.mjs';
+import {
+    revalidateMissionEvidenceReplay,
+    validateMissionEvidenceProposal,
+} from '../mission/v1/evidence-contracts.mjs';
 import { reduceMissionEvidence } from '../mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../mission/v1/mission-state.mjs';
 import {
@@ -22,6 +25,7 @@ import {
     invalidateStorySourcesAndDescendants,
     observeStoryWorkingEvidence,
     openStoryEpisode,
+    pruneStoryEffects,
     sealStoryEpisode,
     settleInsignificantScene,
 } from '../story/story-settlement.mjs';
@@ -794,11 +798,19 @@ export function createV1StateSpine({
             (entry) => !missionInvalidated.has(entry.sourceContributionId),
         );
         let rebuiltMission = createMissionState({ definition: matchedDefinition, branchId });
+        const dependencyPrunedEvidence = [];
         for (const batch of orderedEvidenceBatches(survivingEvidence)) {
+            const replayable = revalidateMissionEvidenceReplay({
+                definition: matchedDefinition,
+                state: rebuiltMission,
+                claims: batch.claims,
+            });
+            dependencyPrunedEvidence.push(...replayable.rejectedClaims);
+            if (replayable.acceptedClaims.length === 0) continue;
             rebuiltMission = reduceMissionEvidence({
                 definition: matchedDefinition,
                 state: rebuiltMission,
-                acceptedClaims: batch.claims.map((entry) => ({ ...entry })),
+                acceptedClaims: replayable.acceptedClaims,
                 sourceContribution: null,
             }).state;
         }
@@ -816,11 +828,12 @@ export function createV1StateSpine({
                 : 'source-invalidation-rebuild',
             missionRevision: rebuiltMission.revision,
             invalidatedContributionCount: missionInvalidatedIds.length,
+            dependencyPrunedEvidenceCount: dependencyPrunedEvidence.length,
             observedAt: now(),
         });
 
         const crossedClosure = matchedRun.kind === 'archived' || matchedRun.state.status === 'terminal';
-        const storySettlement = crossedClosure
+        let storySettlement = crossedClosure
             ? invalidateStorySourcesAndDescendants(currentStorySettlement, {
                 contributionIds: [...invalidated],
                 reason,
@@ -832,6 +845,15 @@ export function createV1StateSpine({
                 reason,
                 summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
             });
+        if (!crossedClosure && dependencyPrunedEvidence.length > 0) {
+            const prunedEffectIds = dependencyPrunedEvidence.map((entry) => (
+                `effect.v1.${stableHash([entry.claimId, entry.sourceContributionId].filter(Boolean).join('|'))}`
+            ));
+            storySettlement = pruneStoryEffects(storySettlement, {
+                effectIds: prunedEffectIds,
+                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
+            });
+        }
 
         let missionPatch = { v1: rebuiltMission };
         let journeyRollback = null;
@@ -923,6 +945,7 @@ export function createV1StateSpine({
                 missionId: matchedDefinition.id,
                 missionRunId: matchedRun.runId,
                 invalidatedContributionCount: invalidated.size,
+                dependencyPrunedEvidenceCount: dependencyPrunedEvidence.length,
                 prunedMissionRunCount: hasJourney ? Math.max(0, history.length - matchedRun.index) : 0,
                 journeyRollbackStatus: journeyRollback?.status || null,
             },

@@ -422,6 +422,131 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
     };
 }
 
+function replacementForPrunedEffects(next, episode, survivorEffects, summarizeEffects) {
+    if (survivorEffects.length === 0) return null;
+    const referenced = new Set(survivorEffects.flatMap((effect) => effect.sourceContributionIds || []));
+    const survivorContributions = episode.contributions.filter((item) => referenced.has(item.id));
+    const survivorContributionIds = new Set(survivorContributions.map((item) => item.id));
+    const survivorMoments = (episode.characterMoments || []).filter((moment) => (
+        Array.isArray(moment.sourceContributionIds)
+        && moment.sourceContributionIds.length > 0
+        && moment.sourceContributionIds.every((id) => survivorContributionIds.has(id))
+    ));
+    const replacementId = `${episode.id}.effect-prune.${next.revision}`;
+    const sceneId = `${episode.sceneId}.effect-prune.${next.revision}`;
+    const summary = String(summarizeEffects?.(structuredClone(survivorEffects), structuredClone(episode)) || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 1024)
+        || 'A material story development remains after dependent evidence was withdrawn.';
+    const boundary = createEpisodeHardBoundary({
+        id: `boundary.effect-prune.${episode.id}.${next.revision}`,
+        branchId: next.branchId,
+        code: 'source-recovery',
+        source: {
+            kind: 'sourceRecovery',
+            id: `effect-prune.${episode.id}.${next.revision}`,
+        },
+        sourceContributionIds: survivorContributions.map((item) => item.id),
+    });
+    return {
+        kind: STORY_EPISODE_KIND,
+        id: replacementId,
+        branchId: next.branchId,
+        sceneId,
+        status: 'sealed',
+        openedAtRevision: episode.openedAtRevision,
+        sealedAtRevision: next.revision,
+        boundaryReason: boundary.code,
+        summary,
+        contributions: structuredClone(survivorContributions),
+        effects: structuredClone(survivorEffects),
+        unresolvedConsequences: [],
+        characterMoments: structuredClone(survivorMoments),
+        boundaryState: {
+            ...createInitialEpisodeBoundaryState({ openedAtRevision: episode.openedAtRevision }),
+            checkpointSequence: (episode.boundaryState?.checkpointSequence || 0) + 1,
+            lastReviewedAtRevision: next.revision,
+            contributionCountAtLastReview: survivorContributions.length,
+            effectCountAtLastReview: survivorEffects.length,
+            sourceContributionIds: survivorContributions.map((item) => item.id),
+        },
+        hardBoundary: boundary,
+        supersedesEpisodeIds: [episode.id],
+        references: normalizedEpisodeReferences(episode.references),
+    };
+}
+
+export function pruneStoryEffects(settlement, {
+    effectIds = [],
+    summarizeEffects = null,
+} = {}) {
+    const requested = new Set((Array.isArray(effectIds) ? effectIds : []).filter(Boolean));
+    if (requested.size === 0) return structuredClone(settlement);
+    const affected = (settlement.episodes || []).filter((episode) => (
+        new Set(['open', 'sealPending', 'sealed']).has(episode.status)
+        && (episode.effects || []).some((effect) => effect.status === 'active' && requested.has(effect.id))
+    ));
+    if (affected.length === 0) return structuredClone(settlement);
+
+    const affectedIds = new Set(affected.map((episode) => episode.id));
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    const replacements = [];
+    for (const episode of next.episodes) {
+        if (!affectedIds.has(episode.id)) continue;
+        const survivorEffects = episode.effects.filter(
+            (effect) => effect.status === 'active' && !requested.has(effect.id),
+        );
+        if (next.activeEpisode === episode.id) {
+            episode.effects = survivorEffects;
+            ensureWorkingCapsule(episode, next.revision);
+            episode.workingCapsule = repairStoryWorkingCapsule(episode.workingCapsule, {
+                episode,
+                updatedAtRevision: next.revision,
+            });
+            const boundaryState = episode.boundaryState || createInitialEpisodeBoundaryState({
+                openedAtRevision: episode.openedAtRevision,
+            });
+            episode.boundaryState = {
+                ...boundaryState,
+                checkpointSequence: boundaryState.checkpointSequence + 1,
+                lastReviewedAtRevision: next.revision,
+                contributionCountAtLastReview: Math.min(
+                    boundaryState.contributionCountAtLastReview,
+                    episode.contributions.length,
+                ),
+                effectCountAtLastReview: Math.min(boundaryState.effectCountAtLastReview, episode.effects.length),
+                decision: 'continue',
+                sourceContributionIds: episode.workingCapsule.recentEvidence.map((item) => item.contributionId),
+            };
+        } else {
+            const replacement = replacementForPrunedEffects(next, episode, survivorEffects, summarizeEffects);
+            episode.status = 'invalidated';
+            episode.invalidationReason = 'dependent-evidence-pruned';
+            for (const effect of episode.effects) effect.status = 'invalidated';
+            for (const consequence of episode.unresolvedConsequences) consequence.status = 'invalidated';
+            if (replacement) replacements.push(replacement);
+        }
+    }
+    for (const replacement of replacements) {
+        next.episodes.push(replacement);
+        next.receipts.push({
+            kind: STORY_SETTLEMENT_RECEIPT_KIND,
+            id: `receipt.${replacement.id}.sealed`,
+            branchId: next.branchId,
+            sceneId: replacement.sceneId,
+            disposition: 'sealed',
+            episodeId: replacement.id,
+            sourceContributionIds: replacement.contributions.map((item) => item.id),
+            sourceMessageIds: replacement.contributions.map((item) => item.messageId),
+            settledAtRevision: next.revision,
+        });
+    }
+    if (next.focus && affectedIds.has(next.focus.episodeId)) next.focus = null;
+    return assertValid(next);
+}
+
 export function invalidateStorySources(settlement, {
     contributionIds = [],
     reason = 'source-invalidated',
@@ -612,6 +737,21 @@ export function invalidateStorySourcesAndDescendants(settlement, {
     const affectedEpisodeIds = new Set(affected.map(({ episode }) => episode.id));
     const next = invalidateStorySources(settlement, { contributionIds, reason, summarizeEffects });
     if (next.revision === settlement.revision) next.revision += 1;
+    let expanded = true;
+    while (expanded) {
+        expanded = false;
+        for (const episode of next.episodes || []) {
+            const supersededIds = [
+                ...(Array.isArray(episode.supersedesEpisodeIds) ? episode.supersedesEpisodeIds : []),
+                ...(episode.supersedesEpisodeId ? [episode.supersedesEpisodeId] : []),
+            ];
+            if (!rollbackEpisodeIds.has(episode.id)
+                && supersededIds.some((episodeId) => rollbackEpisodeIds.has(episodeId))) {
+                rollbackEpisodeIds.add(episode.id);
+                expanded = true;
+            }
+        }
+    }
     for (const episode of next.episodes || []) {
         if (!rollbackEpisodeIds.has(episode.id)) continue;
         const sourcePairs = (episode.contributions || []).filter((item) => item.id && item.messageId);

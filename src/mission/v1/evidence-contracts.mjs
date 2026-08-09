@@ -81,6 +81,53 @@ function claimOrder(a, b) {
     return idDifference || a.originalIndex - b.originalIndex;
 }
 
+export function revalidateMissionEvidenceReplay({
+    definition = {},
+    state = {},
+    claims = [],
+} = {}) {
+    const index = indexMissionDefinition(definition);
+    const stagedState = structuredClone(state);
+    stagedState.knownFacts = [...(stagedState.knownFacts || [])];
+    stagedState.worldFacts = [...(stagedState.worldFacts || [])];
+    stagedState.events = [...(stagedState.events || [])];
+    stagedState.outcomes = { ...(stagedState.outcomes || {}) };
+    stagedState.objectives = { ...(stagedState.objectives || {}) };
+    stagedState.clocks = { ...(stagedState.clocks || {}) };
+    const acceptedClaims = [];
+    const rejectedRecords = [];
+    const ordered = (Array.isArray(claims) ? claims : [])
+        .map((claim, originalIndex) => ({ claim, originalIndex }))
+        .sort((left, right) => claimOrder(
+            { ...left, policy: index.evidencePolicies.get(left.claim?.policyId) },
+            { ...right, policy: index.evidencePolicies.get(right.claim?.policyId) },
+        ));
+
+    for (const { claim, originalIndex } of ordered) {
+        const policy = index.evidencePolicies.get(claim?.policyId);
+        if (!policy || policy.claimType !== claim?.claimType || policy.targetId !== claim?.targetId) {
+            rejectedRecords.push({ claim, originalIndex, reasonCode: 'policy-mismatch' });
+            continue;
+        }
+        const policyResult = evaluateMissionPredicate(policy.when, missionStateContext(definition, stagedState));
+        const disclosureHasTruth = claim.claimType !== 'factDisclosed'
+            || stagedState.worldFacts.includes(claim.targetId);
+        if (!policyResult.ok || !policyResult.value || !disclosureHasTruth) {
+            rejectedRecords.push({ claim, originalIndex, reasonCode: 'precondition-not-met' });
+            continue;
+        }
+        acceptedClaims.push(structuredClone(claim));
+        stageAcceptedClaim(stagedState, claim);
+    }
+
+    return {
+        acceptedClaims,
+        rejectedClaims: rejectedRecords
+            .sort((left, right) => left.originalIndex - right.originalIndex)
+            .map(({ claim, reasonCode }) => rejection(claim, reasonCode)),
+    };
+}
+
 export function validateMissionEvidenceProposal({
     definition = {},
     state = {},

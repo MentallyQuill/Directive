@@ -107,14 +107,14 @@ The interval contains:
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Prove current-player prose can record explicit direct, delegated, or declined engagement decisions without proving world outcomes.
-- [ ] Prove selected assistant prose can settle several high-value claims into one interval aggregate without creating tracker rows.
-- [ ] Prove required assessment facts are stripped without selected-swipe Duty Report custody.
-- [ ] Prove each selected assignment produces at most one aggregate assessment report and no report for an unselected or declined assignment.
-- [ ] Prove delegation does not grant an asset until a depicted offscreen result is accepted.
-- [ ] Prove swipe/edit/delete rebuilds direct, delegated, report, result, and conclusion evidence without a provider call.
-- [ ] Prove source mutation before and after interval activation repairs False Colors or rolls the journey back and prunes the interval descendant.
-- [ ] Prove unrelated quiet scenes create no mission evidence or unrelated tracking-root changes.
+- [x] Prove current-player prose can record explicit direct, delegated, or declined engagement decisions without proving world outcomes.
+- [x] Prove selected assistant prose can settle several high-value claims into one interval aggregate without creating tracker rows.
+- [x] Prove required assessment facts are stripped without selected-swipe Duty Report custody.
+- [x] Prove each selected assignment produces at most one aggregate assessment report and no report for an unselected or declined assignment.
+- [x] Prove delegation does not grant an asset until a depicted offscreen result is accepted.
+- [x] Prove swipe/edit/delete rebuilds direct, delegated, report, result, and conclusion evidence without a provider call.
+- [x] Prove source mutation before and after interval activation repairs False Colors or rolls the journey back and prunes the interval descendant.
+- [x] Prove unrelated quiet scenes create no mission evidence or unrelated tracking-root changes.
 
 ## Task 6: Adversarial Review and Certification
 
