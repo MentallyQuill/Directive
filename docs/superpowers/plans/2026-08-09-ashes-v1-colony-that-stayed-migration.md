@@ -1,6 +1,6 @@
 # Ashes V1: The Colony That Stayed Migration Plan
 
-> Status: approved implementation work under the standing V1 architecture scope. This plan covers non-UI content, exact package identity, deterministic mission authority, runtime activation, source custody, adversarial review, and documentation. It does not authorize player-facing UI changes or narrator-prompt cutover.
+> Status: implemented and deterministic-gate certified within the approved non-UI scope. Player-facing UI, narrator-prompt cutover, open-world scheduling, Old Lessons migration, legacy retirement, and live certification remain outside this completed mission slice.
 
 **Goal:** Make `chapter-4-the-colony-that-stayed` the sixth V1-native Ashes journey entry without telling the player why Demeris survived, what Mira Solenn did, whether Starfleet broke its evacuation commitment, who else received interface access, or what accountability outcome is correct before accepted play establishes those facts and choices.
 
@@ -112,14 +112,14 @@ The Colony That Stayed defines no mission clock. Tolland's seizure order, a gath
 - Create: `tests/fixtures/mission/v1/chapter-4-colony-that-stayed-scenarios.fixture.json`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Assert the absent definition, exact package quest, empty legacy mission graph, Dead Letters predecessor, package binding, minimal objectives, and Old Lessons target.
-- [ ] Assert the initial projection contains only the Demeris jurisdiction dispute and three spoiler-safe responsibilities.
-- [ ] Assert no legacy progress, pressure, revelation, event-template, or synthetic clock enters V1.
-- [ ] Assert exactly three aggregate discoverable facts/reports and four outcome dimensions.
-- [ ] Add shared inquiry, local protection, Starfleet seizure, covert recovery, responsible withdrawal, process collapse, and flight/destruction scenarios.
-- [ ] Add non-linear report order, same-message final choices, no-fault loss-before-choice, and alternate reconstruction scenarios.
-- [ ] Add hostile cases for process intent as result, final choice before knowledge, assistant-owned legal choice, player-declared observed result, premature report, unsupported attribution, stale revision, wrong swipe, and unknown policy.
-- [ ] Run the new test and record RED because the definition is absent.
+- [x] Assert the absent definition, exact package quest, empty legacy mission graph, Dead Letters predecessor, package binding, minimal objectives, and Old Lessons target.
+- [x] Assert the initial projection contains only the Demeris jurisdiction dispute and three spoiler-safe responsibilities.
+- [x] Assert no legacy progress, pressure, revelation, event-template, or synthetic clock enters V1.
+- [x] Assert exactly three aggregate discoverable facts/reports and four outcome dimensions.
+- [x] Add shared inquiry, local protection, Starfleet seizure, covert recovery, responsible withdrawal, process collapse, and flight/destruction scenarios.
+- [x] Add non-linear report order, same-message final choices, no-fault loss-before-choice, and alternate reconstruction scenarios.
+- [x] Add hostile cases for process intent as result, final choice before knowledge, assistant-owned legal choice, player-declared observed result, premature report, unsupported attribution, stale revision, wrong swipe, and unknown policy.
+- [x] Run the new test and record RED because the definition is absent.
 
 ## Task 2: Author the V1 Mission Definition
 
@@ -127,14 +127,14 @@ The Colony That Stayed defines no mission clock. Tolland's seizure order, a gath
 
 - Create: `packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json`
 
-- [ ] Add one initially known jurisdiction/claims fact and three discoverable aggregate facts.
-- [ ] Add three causal evidence-acquisition events whose standards accept direct and alternate sources without accepting plans or guesses.
-- [ ] Add user-only process, Solenn, and interface decisions with separate assistant-observed results.
-- [ ] Add an aggregate evidence-route result so direct, mixed, and external truth remain distinct without extra objectives.
-- [ ] Add three required objectives and four dimensions.
-- [ ] Add three required report routes with exact crew IDs and Whitaker fallback.
-- [ ] Add six failure-forward terminal dispositions and exact Old Lessons transition.
-- [ ] Keep clocks empty and omit legacy progress/pressure/revelation arrays.
+- [x] Add one initially known jurisdiction/claims fact and three discoverable aggregate facts.
+- [x] Add three causal evidence-acquisition events whose standards accept direct and alternate sources without accepting plans or guesses.
+- [x] Add user-only process, Solenn, and interface decisions with separate assistant-observed results.
+- [x] Add an aggregate evidence-route result so direct, mixed, and external truth remain distinct without extra objectives.
+- [x] Add three required objectives and four dimensions.
+- [x] Add three required report routes with exact crew IDs and Whitaker fallback.
+- [x] Add six failure-forward terminal dispositions and exact Old Lessons transition.
+- [x] Keep clocks empty and omit legacy progress/pressure/revelation arrays.
 
 ## Task 3: Validate Fair Discovery and Legal Neutrality
 
@@ -143,14 +143,14 @@ The Colony That Stayed defines no mission clock. Tolland's seizure order, a gath
 - Create: `tools/scripts/validate-ashes-v1-chapter-4.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Bind exact package, predecessor, and successor identity.
-- [ ] Prove every required objective and terminal disposition is reachable.
-- [ ] Prove initial player surfaces reveal no hidden Solenn action, evacuation truth, deaths, continuing access, or controller attribution.
-- [ ] Prove all voluntary legal/custody decisions are exclusively user-owned and no legal answer is structurally privileged as universally correct.
-- [ ] Prove all required facts survive Solenn refusal, escape, evidence loss, or withdrawal through causal alternate routes.
-- [ ] Prove loss before an informed final choice is not `failedAfterInformedAction`.
-- [ ] Validate reporter identities and required Duty Report custody.
-- [ ] Prove Holt agents and the hidden interface are complications, not mandatory objectives or initial facts.
+- [x] Bind exact package, predecessor, and successor identity.
+- [x] Prove every required objective and terminal disposition is reachable.
+- [x] Prove initial player surfaces reveal no hidden Solenn action, evacuation truth, deaths, continuing access, or controller attribution.
+- [x] Prove all voluntary legal/custody decisions are exclusively user-owned and no legal answer is structurally privileged as universally correct.
+- [x] Prove all required facts survive Solenn refusal, escape, evidence loss, or withdrawal through causal alternate routes.
+- [x] Prove loss before an informed final choice is not `failedAfterInformedAction`.
+- [x] Validate reporter identities and required Duty Report custody.
+- [x] Prove Holt agents and the hidden interface are complications, not mandatory objectives or initial facts.
 
 ## Task 4: Register and Activate Chapter 4
 
@@ -160,11 +160,11 @@ The Colony That Stayed defines no mission clock. Tolland's seizure order, a gath
 - Modify: `tools/scripts/test-bundled-package-registry.mjs`
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 
-- [ ] Register Colony after Dead Letters without inventing a mission graph.
-- [ ] Prove terminal Dead Letters changes from pending to ready only with the exact Chapter 4 definition.
-- [ ] Prove activation archives Dead Letters once, creates fresh Chapter 4 state, reloads, and preserves unrelated roots.
-- [ ] Prove duplicate activation is idempotent and legacy jurisdiction, pressure, revelation, and progress state is not copied.
-- [ ] Prove terminal Chapter 4 targets Old Lessons but remains pending until Old Lessons has an exact V1 definition.
+- [x] Register Colony after Dead Letters without inventing a mission graph.
+- [x] Prove terminal Dead Letters changes from pending to ready only with the exact Chapter 4 definition.
+- [x] Prove activation archives Dead Letters once, creates fresh Chapter 4 state, reloads, and preserves unrelated roots.
+- [x] Prove duplicate activation is idempotent and legacy jurisdiction, pressure, revelation, and progress state is not copied.
+- [x] Prove terminal Chapter 4 targets Old Lessons but remains pending until Old Lessons has an exact V1 definition.
 
 ## Task 5: Accepted-Pair, Report, and Source-Custody Proof
 
@@ -174,13 +174,13 @@ The Colony That Stayed defines no mission clock. Tolland's seizure order, a gath
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Prove process intent/order is not the observed process result.
-- [ ] Prove one player message can record both informed Solenn and interface choices without causal rejection.
-- [ ] Prove selected assistant prose can settle both final observed results into one aggregate source contribution.
-- [ ] Prove required facts are stripped without selected-swipe report custody and each delivered report visibly communicates its bounded claim.
-- [ ] Prove quiet political/color dialogue creates no mission evidence or unrelated relationship/thread tracker spam.
-- [ ] Prove source mutation reopens closure, removes stale results and transition, and advances custody epoch on restoration.
-- [ ] Prove mutation before/after Chapter 4 activation repairs Dead Letters or prunes the Chapter 4 descendant without a provider call.
+- [x] Prove process intent/order is not the observed process result.
+- [x] Prove one player message can record both informed Solenn and interface choices without causal rejection.
+- [x] Prove selected assistant prose can settle both final observed results into one aggregate source contribution.
+- [x] Prove required facts are stripped without selected-swipe report custody and each delivered report visibly communicates its bounded claim.
+- [x] Prove quiet political/color dialogue creates no mission evidence or unrelated relationship/thread tracker spam.
+- [x] Prove source mutation reopens closure, removes stale results and transition, and advances custody epoch on restoration.
+- [x] Prove mutation before/after Chapter 4 activation repairs Dead Letters or prunes the Chapter 4 descendant without a provider call.
 
 ## Task 6: Adversarial Review and Certification
 
@@ -191,11 +191,11 @@ The Colony That Stayed defines no mission clock. Tolland's seizure order, a gath
 - Modify: `docs/planning/ASHES_V1_MIGRATION_PLAN.md`
 - Modify: this plan
 
-- [ ] Challenge initial spoilers, predetermined legal morality, five-objective checklist conversion, process-as-success, testimony dependence, Solenn-as-single-point-of-failure, evacuation-record teleportation, public-hearing railroad, Starfleet seizure as automatic failure, local protection as automatic success, hidden-interface objective drift, report spam, false urgency, no-fault loss, coupled-choice batching, mixed-outcome priority, actor identity, source repair, package drift, open-world scheduler overclaim, and legacy Old Lessons fallback.
-- [ ] Fix every Critical or Important non-UI finding.
-- [ ] Run focused suites, docs contracts, `git diff --check`, and the complete alpha gate.
-- [ ] Record deterministic proof and residual limits without claiming narrator, UI, live rehearsal, Command Bearing, open-world scheduler parity, or complete Ashes readiness.
-- [ ] Commit certification docs.
+- [x] Challenge initial spoilers, predetermined legal morality, five-objective checklist conversion, process-as-success, testimony dependence, Solenn-as-single-point-of-failure, evacuation-record teleportation, public-hearing railroad, Starfleet seizure as automatic failure, local protection as automatic success, hidden-interface objective drift, report spam, false urgency, no-fault loss, coupled-choice batching, mixed-outcome priority, actor identity, source repair, package drift, open-world scheduler overclaim, and legacy Old Lessons fallback.
+- [x] Fix every Critical or Important non-UI finding.
+- [x] Run focused suites, docs contracts, `git diff --check`, and the complete alpha gate.
+- [x] Record deterministic proof and residual limits without claiming narrator, UI, live rehearsal, Command Bearing, open-world scheduler parity, or complete Ashes readiness.
+- [x] Commit certification docs.
 
 ## Explicit Non-Goals and Stop Boundary
 
