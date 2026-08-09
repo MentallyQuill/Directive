@@ -81,16 +81,16 @@
       }
     },
     {
-      "id": "policy.chapter1.initial-contact-completed",
+      "id": "policy.chapter1.initial-assessment-completed",
       "claimType": "eventOccurred",
-      "targetId": "event.chapter1.initial-contact-completed",
+      "targetId": "event.chapter1.initial-assessment-completed",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": { "factKnown": "fact.chapter1.convoy-emergency" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
-        "guidance": "Claim only when accepted assistant prose depicts substantive contact, remote access, boarding, rescue access, or equivalent operational examination of the convoy rather than preparation alone.",
+        "guidance": "Claim only when accepted assistant prose depicts enough completed contact, remote access, boarding, rescue access, records work, or equivalent operational examination for the crew to finish a reliable initial assessment.",
         "exclusions": [
-          "Approaching, scanning at range, assigning a team, stating an intention, or discussing contact does not mean substantive contact occurred."
+          "Approaching, one isolated scan, assigning a team, stating an intention, or making contact without a reliable operational assessment does not complete this event."
         ]
       }
     },
@@ -102,7 +102,7 @@
       "when": {
         "all": [
           { "worldFact": "fact.chapter1.dispersal-picture" },
-          { "eventOccurred": "event.chapter1.initial-contact-completed" }
+          { "eventOccurred": "event.chapter1.initial-assessment-completed" }
         ]
       },
       "interpretation": {
@@ -114,16 +114,16 @@
       }
     },
     {
-      "id": "policy.chapter1.recovery-route-opened",
+      "id": "policy.chapter1.recovery-evidence-obtained",
       "claimType": "eventOccurred",
-      "targetId": "event.chapter1.recovery-route-opened",
+      "targetId": "event.chapter1.recovery-evidence-obtained",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": { "factKnown": "fact.chapter1.dispersal-picture" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
-        "guidance": "Claim only when accepted assistant prose depicts a concrete lawful, technical, diplomatic, or investigative route that can account for the missing hardware and preserve the relevant records.",
+        "guidance": "Claim only when accepted assistant prose depicts usable records, telemetry, witness evidence, or recovered material actually obtained through a lawful, technical, diplomatic, or investigative route.",
         "exclusions": [
-          "Wanting the hardware found, ordering an unspecified search, accusing a party, or merely continuing the mission does not open a recoverable evidence route."
+          "Wanting the hardware found, opening a search route, ordering an investigation, locating an unverified signal, or accusing a party does not mean usable recovery evidence was obtained."
         ]
       }
     },
@@ -135,7 +135,7 @@
       "when": {
         "all": [
           { "worldFact": "fact.chapter1.recovery-authentication-picture" },
-          { "eventOccurred": "event.chapter1.recovery-route-opened" },
+          { "eventOccurred": "event.chapter1.recovery-evidence-obtained" },
           { "factKnown": "fact.chapter1.authority-conflict" },
           { "factKnown": "fact.chapter1.dispersal-picture" }
         ]
@@ -252,7 +252,7 @@
         ]
       },
       "playerText": {
-        "summary": "Operations has identified a material conflict in the convoy's quarantine authority that requires command attention."
+        "summary": "The quarantine order carries valid Starfleet authority markers but conflicts with current routing and requires verification."
       }
     },
     {
@@ -268,12 +268,12 @@
       "when": {
         "all": [
           { "worldFact": "fact.chapter1.dispersal-picture" },
-          { "eventOccurred": "event.chapter1.initial-contact-completed" },
+          { "eventOccurred": "event.chapter1.initial-assessment-completed" },
           { "not": { "factKnown": "fact.chapter1.dispersal-picture" } }
         ]
       },
       "playerText": {
-        "summary": "The first operational contact has produced one consolidated survivor, custody, and missing-cargo picture for command review."
+        "summary": "Survivors are off the convoy, Compact personnel hold convoy officers under a custody claim, and secured emergency transponder hardware is missing."
       }
     },
     {
@@ -289,30 +289,30 @@
       "when": {
         "all": [
           { "worldFact": "fact.chapter1.recovery-authentication-picture" },
-          { "eventOccurred": "event.chapter1.recovery-route-opened" },
+          { "eventOccurred": "event.chapter1.recovery-evidence-obtained" },
           { "factKnown": "fact.chapter1.authority-conflict" },
           { "factKnown": "fact.chapter1.dispersal-picture" },
           { "not": { "factKnown": "fact.chapter1.recovery-authentication-picture" } }
         ]
       },
       "playerText": {
-        "summary": "The preserved records and recovery lead now support a command decision about the missing hardware and compromised Starfleet authority."
+        "summary": "Preserved records and recovery evidence connect the missing emergency hardware to a false order containing authentic Starfleet code fragments; the wider source remains unknown."
       }
     }
   ],
   "events": [
     {
-      "id": "event.chapter1.initial-contact-completed",
+      "id": "event.chapter1.initial-assessment-completed",
       "playerVisibility": "visible",
       "playerText": {
-        "summary": "The Breckenridge completed substantive first contact with the convoy emergency."
+        "summary": "The Breckenridge completed a reliable initial operational assessment of the convoy emergency."
       }
     },
     {
-      "id": "event.chapter1.recovery-route-opened",
+      "id": "event.chapter1.recovery-evidence-obtained",
       "playerVisibility": "visible",
       "playerText": {
-        "summary": "A concrete route exists to account for the missing hardware and preserve the related records."
+        "summary": "The crew obtained usable evidence connecting the missing hardware, convoy records, and authority conflict."
       }
     }
   ],
@@ -354,7 +354,7 @@
       "activationWhen": true,
       "availableWhen": true,
       "visibleWhen": true,
-      "progressWhen": { "eventOccurred": "event.chapter1.initial-contact-completed" },
+      "progressWhen": { "eventOccurred": "event.chapter1.initial-assessment-completed" },
       "terminalWhen": [
         { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "safe" } } },
         { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "safeWithCost" } } },

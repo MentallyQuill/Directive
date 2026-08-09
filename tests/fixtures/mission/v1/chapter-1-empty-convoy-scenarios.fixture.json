@@ -13,10 +13,10 @@
     ],
     "first-contact": [
       {
-        "claimId": "claim.chapter1.initial-contact-completed",
-        "policyId": "policy.chapter1.initial-contact-completed",
+        "claimId": "claim.chapter1.initial-assessment-completed",
+        "policyId": "policy.chapter1.initial-assessment-completed",
         "claimType": "eventOccurred",
-        "targetId": "event.chapter1.initial-contact-completed",
+        "targetId": "event.chapter1.initial-assessment-completed",
         "sourceRole": "assistant"
       },
       {
@@ -29,10 +29,10 @@
     ],
     "recovery-picture": [
       {
-        "claimId": "claim.chapter1.recovery-route-opened",
-        "policyId": "policy.chapter1.recovery-route-opened",
+        "claimId": "claim.chapter1.recovery-evidence-obtained",
+        "policyId": "policy.chapter1.recovery-evidence-obtained",
         "claimType": "eventOccurred",
-        "targetId": "event.chapter1.recovery-route-opened",
+        "targetId": "event.chapter1.recovery-evidence-obtained",
         "sourceRole": "assistant"
       },
       {

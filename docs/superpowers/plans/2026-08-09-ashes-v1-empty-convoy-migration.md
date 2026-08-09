@@ -58,7 +58,7 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 - [x] Add aggregate fixed facts and causal disclosure gates.
 - [x] Add explicit and clear-outcome evidence policies with negative examples that prevent proposal, intention, suspicion, or narration from counting as committed results.
 - [x] Add required crew-report routes with Whitaker fallbacks for every mandatory discovery.
-- [x] Add only the intermediate events needed to gate first contact, recovery-route discovery, and final authentication significance.
+- [x] Add only the intermediate events needed to gate a completed initial assessment and actually obtained recovery evidence.
 - [x] Add bounded outcome enums for survivor safety, authority resolution, hardware disposition, and the optional incident record.
 - [x] Add three core objectives, one optional objective, four dimensions, mixed terminal dispositions, and the exact Chapter 2 transition.
 - [x] Keep `clocks` empty and omit legacy phase/progress/percentage/tracker fields.
