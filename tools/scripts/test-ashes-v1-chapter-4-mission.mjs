@@ -75,6 +75,7 @@ assert.deepEqual(scenarios.scenarios.map((scenario) => scenario.id), [
     'responsible-handoff',
     'process-collapse-before-final-choice',
     'flight-and-loss-after-informed-choice',
+    'informed-destruction-without-record',
     'non-linear-evidence-order',
     'choice-alone-does-not-resolve',
     'process-order-only',
@@ -182,5 +183,59 @@ for (const scenario of scenarios.scenarios) {
     }
     assert.equal(actual.state.transitionReceipt?.target?.id || null, expected.transitionTargetId || null, `${scenario.id}:transition`);
 }
+
+function validateAssistantBatch({ scenarioId, state, fragmentIds }) {
+    const steps = fragmentIds.flatMap((fragmentId) => scenarios.fragments[fragmentId]);
+    const source = sourceForStep(scenarioId, steps[0], 0, state.revision);
+    const proposal = {
+        kind: 'directive.missionEvidenceProposal.v1',
+        branchId: state.branchId,
+        missionId: definition.id,
+        baseRevision: state.revision,
+        providerConfidence: 0.99,
+        claims: steps.map((step) => ({
+            claimId: `batch.${scenarioId}.${step.claimId}`,
+            policyId: step.policyId,
+            claimType: step.claimType,
+            targetId: step.targetId,
+            ...(Object.hasOwn(step, 'value') ? { value: step.value } : {}),
+            sourceRef: {
+                messageId: source.messageId,
+                swipeId: source.selectedSwipeId,
+                textHash: source.textHash,
+            },
+        })),
+    };
+    return validateMissionEvidenceProposal({
+        definition,
+        state,
+        proposal,
+        resolveSourceRef: (ref) => ref?.messageId === source.messageId ? source : null,
+    });
+}
+
+const withdrawalState = runScenario({
+    id: 'same-scene-withdrawal-batch',
+    sequence: ['process-withdraw-choice'],
+}).state;
+const withdrawalBatch = validateAssistantBatch({
+    scenarioId: 'same-scene-withdrawal-batch',
+    state: withdrawalState,
+    fragmentIds: ['process-withdraw-result', 'solenn-handoff-result', 'interface-handoff-result'],
+});
+assert.equal(withdrawalBatch.acceptedClaims.length, 3, 'one observed handoff scene can settle all three authored results');
+assert.deepEqual(withdrawalBatch.rejectedClaims, []);
+
+const collapseState = runScenario({
+    id: 'same-scene-collapse-batch',
+    sequence: ['process-joint-choice'],
+}).state;
+const collapseBatch = validateAssistantBatch({
+    scenarioId: 'same-scene-collapse-batch',
+    state: collapseState,
+    fragmentIds: ['process-collapse-result', 'solenn-escaped-result', 'interface-lost-result'],
+});
+assert.equal(collapseBatch.acceptedClaims.length, 3, 'one collapse scene can settle no-fault process, witness, and custody results');
+assert.deepEqual(collapseBatch.rejectedClaims, []);
 
 console.log('Ashes V1 Chapter 4 mission tests passed.');

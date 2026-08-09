@@ -145,6 +145,7 @@ for (const scenarioId of [
     'responsible-handoff',
     'process-collapse-before-final-choice',
     'flight-and-loss-after-informed-choice',
+    'informed-destruction-without-record',
     'non-linear-evidence-order',
     'choice-alone-does-not-resolve',
 ]) {

@@ -83,6 +83,9 @@
     "interface-destroy-record-choice": [
       { "claimId": "claim.chapter4.interface-destroy-record-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "destroyWithRecord", "sourceRole": "user" }
     ],
+    "interface-destroy-no-record-choice": [
+      { "claimId": "claim.chapter4.interface-destroy-no-record-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "destroyWithoutRecord", "sourceRole": "user" }
+    ],
     "solenn-restorative-result": [
       { "claimId": "claim.chapter4.solenn-restorative-result", "policyId": "policy.chapter4.solenn-restorative-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "restorativeProcess", "sourceRole": "assistant" }
     ],
@@ -112,6 +115,9 @@
     ],
     "interface-destroy-record-result": [
       { "claimId": "claim.chapter4.interface-destroy-record-result", "policyId": "policy.chapter4.interface-destroy-record-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "destroyedWithRecord", "sourceRole": "assistant" }
+    ],
+    "interface-destroy-no-record-result": [
+      { "claimId": "claim.chapter4.interface-destroy-no-record-result", "policyId": "policy.chapter4.interface-destroy-no-record-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "destroyedWithoutRecord", "sourceRole": "assistant" }
     ],
     "interface-handoff-result": [
       { "claimId": "claim.chapter4.interface-handoff-result", "policyId": "policy.chapter4.interface-handoff-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "handedOffLocal", "sourceRole": "assistant" }
@@ -188,6 +194,16 @@
         "status": "terminal", "terminalDisposition": "fracturedAccountabilityForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "failedAfterInformedAction" },
         "outcomeDimensions": { "dimension.chapter4.solenn": "escaped-or-unavailable", "dimension.chapter4.interface": "lost-or-seized" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "informed-destruction-without-record",
+      "sequence": ["process-joint-choice", "process-joint-result", "history-evidence", "solenn-evidence", "access-evidence", "route-mixed", "solenn-restorative-choice", "interface-destroy-no-record-choice", "solenn-restorative-result", "interface-destroy-no-record-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "fracturedAccountabilityForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "failedAfterInformedAction" },
+        "outcomeDimensions": { "dimension.chapter4.solenn": "restorative-process", "dimension.chapter4.interface": "destroyed-without-record" },
         "transitionTargetId": "chapter-5-old-lessons"
       }
     },

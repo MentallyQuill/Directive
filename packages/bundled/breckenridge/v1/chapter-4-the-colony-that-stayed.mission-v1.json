@@ -217,7 +217,7 @@
       },
       "interpretation": {
         "evidenceStandard": "explicit",
-        "guidance": "Disclose the aggregate supported history: coercive but life-preserving Cardassian civilian arrangements and a genuinely redirected Federation evacuation commitment.",
+        "guidance": "Disclose the aggregate supported history: coercive but life-preserving Cardassian civilian arrangements, the interface's first relief use, and a genuinely redirected Federation evacuation commitment.",
         "exclusions": ["Do not reduce the colony to traitors or heroes, imply voluntary Dominion occupation, or attribute the evacuation decision to Pale Lantern."]
       }
     },
@@ -613,7 +613,7 @@
         ]
       },
       "playerText": {
-        "summary": "The records establish that the dormant interface was first used to find missing relief traffic and that a genuine wartime decision diverted a Federation evacuation convoy."
+        "summary": "The records establish that Demeris survived through a coercive but life-preserving Cardassian civilian arrangement, that the dormant interface was first used to find missing relief traffic, and that a genuine wartime decision diverted a Federation evacuation convoy."
       }
     },
     {
