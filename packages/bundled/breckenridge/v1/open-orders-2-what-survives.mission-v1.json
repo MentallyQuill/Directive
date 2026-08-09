@@ -1,0 +1,777 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.open-orders-2-what-survives",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "open-orders-2-what-survives"
+  },
+  "playerText": {
+    "title": "Open Orders II: What Survives",
+    "summary": "Choose how the Breckenridge will help with repair and review work while the crew recovers from the Orison crisis."
+  },
+  "facts": [
+    {
+      "id": "fact.open-orders2.opportunities",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "The Last Watch, Second Opinion, and An Unwelcome Result are available. Resolving two is a normal command load; taking on all three requires credible delegation or risks overextension."
+      }
+    },
+    {
+      "id": "fact.open-orders2.last-watch-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Tonn genuinely believes in the settlement defenses and is not aligned with Holt, but fear that Starfleet would dismantle the network led him to conceal a serious targeting fault."
+      }
+    },
+    {
+      "id": "fact.open-orders2.second-opinion-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The trauma therapy has real but variable benefits and risks; it is neither a miracle nor a covert weapon, while career pressure from one official compromises meaningful consent."
+      }
+    },
+    {
+      "id": "fact.open-orders2.unwelcome-result-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Rowan's long-term biosphere warning is directionally sound, but Pale Lantern traffic contaminated one reference and exaggerated the forecast's short-term collapse."
+      }
+    },
+    {
+      "id": "fact.open-orders2.current-starfleet-credential-path",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Priya and Rowan corroborated a current Starfleet Intelligence credential path in the Hecate relay records. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, and Kessler now knows Starfleet may have withheld relevant knowledge."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.open-orders2.last-watch-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.last-watch-engagement",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.opportunities" },
+          { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake The Last Watch directly, delegate it, or decline it.",
+        "values": [
+          { "value": "direct", "guidance": "The player explicitly commits to direct command involvement." },
+          { "value": "delegated", "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor." },
+          { "value": "declined", "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval." }
+        ],
+        "exclusions": ["Interest, discussion, a request for more information, or the assignment appearing in a list is not an engagement decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.last-watch-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.last-watch-assessed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable assessment of Tonn's allegiance, the defense network, targeting integrity, and the consequences of disclosure.",
+        "exclusions": ["Selecting the assignment, meeting Tonn, inspecting one platform, or expressing a suspicion does not complete the assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.last-watch-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.last-watch-assessment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.last-watch-assessment" },
+          { "eventOccurred": "event.open-orders2.last-watch-assessed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: Tonn's genuine security conviction, lack of Holt alignment, the concealed serious targeting fault, and why he hid it.",
+        "exclusions": ["A generic defense concern, a single malfunction, or an unsupported accusation of sabotage does not disclose the aggregate assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.last-watch-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders2.last-watch-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders2.last-watch-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of The Last Watch after the assessment is player-known.",
+        "values": [
+          { "value": "assetEarned", "guidance": "The targeting fault is responsibly corrected and a defensible local authority transition actually earns the Orison Defense Codes." },
+          { "value": "resolvedWithoutAsset", "guidance": "The immediate safety and authority problem receives a responsible but materially limited disposition without the codes asset." },
+          { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails after the known targeting or authority risk is deliberately mishandled or rejected." }
+        ],
+        "exclusions": ["Selecting, delegating, inspecting, repairing one component, or promising support does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.second-opinion-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.second-opinion-engagement",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.opportunities" },
+          { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake Second Opinion directly, delegate it, or decline it.",
+        "values": [
+          { "value": "direct", "guidance": "The player explicitly commits to direct command involvement." },
+          { "value": "delegated", "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor." },
+          { "value": "declined", "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval." }
+        ],
+        "exclusions": ["Interest, discussion, a request for records, or the assignment appearing in a list is not an engagement decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.second-opinion-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.second-opinion-assessed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable clinical and consent assessment across outcomes, risks, access, employment pressure, and patient choice.",
+        "exclusions": ["Selecting the assignment, reviewing one chart, interviewing one patient, or repeating an advocate's claim does not complete the assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.second-opinion-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.second-opinion-assessment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.second-opinion-assessment" },
+          { "eventOccurred": "event.open-orders2.second-opinion-assessed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: real variable benefit and risk, neither miracle nor covert weapon, plus career pressure that compromises consent.",
+        "exclusions": ["One favorable result, one adverse result, general treatment suspicion, or an unsupported weapon claim does not disclose the aggregate assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.second-opinion-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders2.second-opinion-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders2.second-opinion-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Second Opinion after the assessment is player-known.",
+        "values": [
+          { "value": "assetEarned", "guidance": "Protected voluntary access, honest risk disclosure, and sustainable clinical cooperation actually earn the Asterion Medical Cooperative." },
+          { "value": "resolvedWithoutAsset", "guidance": "The immediate care and consent problem receives a responsible but materially limited disposition without the cooperative asset." },
+          { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails after the known consent, risk, or access problem is deliberately mishandled." }
+        ],
+        "exclusions": ["Selecting, delegating, ordering a study, treating one person, or declaring the therapy safe does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.unwelcome-result-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.unwelcome-result-engagement",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.opportunities" },
+          { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake An Unwelcome Result directly, delegate it, or decline it.",
+        "values": [
+          { "value": "direct", "guidance": "The player explicitly commits to direct command involvement." },
+          { "value": "delegated", "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor." },
+          { "value": "declined", "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval." }
+        ],
+        "exclusions": ["Interest, discussion, a request for new readings, or the assignment appearing in a list is not an engagement decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.unwelcome-result-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.unwelcome-result-assessed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable audit of Rowan's model, reference baselines, long-term trend, short-term forecast, and interference sources.",
+        "exclusions": ["Selecting the assignment, taking one reading, rerunning one model, or agreeing with Rowan does not complete the assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.unwelcome-result-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.unwelcome-result-assessment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.unwelcome-result-assessment" },
+          { "eventOccurred": "event.open-orders2.unwelcome-result-assessed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: the long-term warning remains sound, while Pale Lantern noise contaminated one reference and exaggerated short-term collapse.",
+        "exclusions": ["One anomalous reading, generic uncertainty, a complete dismissal of the model, or an unsupported sabotage claim does not disclose the aggregate assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.unwelcome-result-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders2.unwelcome-result-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders2.unwelcome-result-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of An Unwelcome Result after the assessment is player-known.",
+        "values": [
+          { "value": "assetEarned", "guidance": "The forecast is transparently corrected without suppressing its sound long-term warning, actually earning the Regional Sensor Baseline." },
+          { "value": "resolvedWithoutAsset", "guidance": "The immediate scientific dispute receives a responsible but materially limited disposition without the baseline asset." },
+          { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails after the known uncertainty, contamination, or long-term risk is deliberately mishandled." }
+        ],
+        "exclusions": ["Selecting, delegating, ordering more scans, publishing one number, or accepting a model without audit does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.credential-path-corroborated",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.credential-path-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.open-orders2.current-starfleet-credential-path" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts Priya and Rowan completing corroboration that the Hecate access path uses current Starfleet Intelligence credentials, with the resulting classified escalation actually initiated.",
+        "exclusions": ["A suspicious log entry, stolen wartime credentials, a theory about Starfleet, or merely starting the correlation does not complete corroboration."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.credential-path-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.current-starfleet-credential-path",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.current-starfleet-credential-path" },
+          { "eventOccurred": "event.open-orders2.credential-path-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose tells the player the current-credential conclusion and the resulting Tolland transmission, Rourke boarding request, and Kessler disclosure.",
+        "exclusions": ["Evidence known only to non-player characters, an unexplained summons, or a vague Starfleet concern is not a delivered report."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.conclude-after-two",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.current-starfleet-credential-path" },
+          {
+            "any": [
+              {
+                "all": [
+                  { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                  { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                  { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                  { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+                ]
+              }
+            ]
+          },
+          {
+            "not": {
+              "all": [
+                { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+              ]
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to conclude the interval after exactly two assignments have actual resolved dispositions and the credential-path report is known.",
+        "values": [{ "value": "concludeAfterTwo", "guidance": "The player explicitly concludes the normal two-assignment interval." }],
+        "exclusions": ["The second result or the credential report occurring does not auto-close the interval; an explicit conclusion is required."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.conclude-broad-coverage",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.current-starfleet-credential-path" },
+          { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          {
+            "any": [
+              { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "equals": "delegated" } },
+              { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "equals": "delegated" } },
+              { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "equals": "delegated" } }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to conclude after all three assignments resolve, at least one was credibly delegated, and the credential-path report is known.",
+        "values": [{ "value": "broadCoverage", "guidance": "All three assignments resolved with delegation preventing automatic overextension." }],
+        "exclusions": ["Delegating before an actual result, resolving all three directly, or concluding before the credential report does not establish broad coverage."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.conclude-overextended",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.current-starfleet-credential-path" },
+          { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "equals": "direct" } },
+          { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "equals": "direct" } },
+          { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "equals": "direct" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit interval conclusion after all three assignments resolved under direct command and the credential-path report is known, carrying the overextension cost.",
+        "values": [{ "value": "overextended", "guidance": "All three direct-command assignments resolved and the interval closes overextended." }],
+        "exclusions": ["Selecting all three, resolving only two, delegating one, or concluding before the credential report does not establish direct-command overextension."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.depart-early",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders2.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.opportunities" },
+          { "factKnown": "fact.open-orders2.current-starfleet-credential-path" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to end Open Orders II before completing the normal assignment load, after the campaign-critical credential report is known and with unfinished opportunities understood.",
+        "values": [{ "value": "departEarly", "guidance": "The player explicitly ends the interval early and accepts that local opportunities remain unfinished." }],
+        "exclusions": ["Ignoring an assignment for a scene, asking about Chapter 6, ordinary travel discussion, or leaving before the credential report does not end the interval."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.open-orders2.last-watch-assessment",
+      "factId": "fact.open-orders2.last-watch-assessment",
+      "evidencePolicyId": "policy.open-orders2.last-watch-assessment-disclosed",
+      "capabilityRoles": ["security", "tactical"],
+      "preferredActorIds": ["hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.last-watch-assessment" },
+          { "eventOccurred": "event.open-orders2.last-watch-assessed" },
+          { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "in": ["direct", "delegated"] } },
+          { "not": { "factKnown": "fact.open-orders2.last-watch-assessment" } }
+        ]
+      },
+      "playerText": { "summary": "Tonn genuinely believes in the defenses and is not aligned with Holt, but fear of wholesale dismantlement led him to conceal a serious targeting fault." }
+    },
+    {
+      "id": "report.open-orders2.second-opinion-assessment",
+      "factId": "fact.open-orders2.second-opinion-assessment",
+      "evidencePolicyId": "policy.open-orders2.second-opinion-assessment-disclosed",
+      "capabilityRoles": ["medical", "counseling"],
+      "preferredActorIds": ["miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.second-opinion-assessment" },
+          { "eventOccurred": "event.open-orders2.second-opinion-assessed" },
+          { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "in": ["direct", "delegated"] } },
+          { "not": { "factKnown": "fact.open-orders2.second-opinion-assessment" } }
+        ]
+      },
+      "playerText": { "summary": "The therapy has real but variable benefits and risks. It is neither a miracle nor a covert weapon, while career pressure from one official compromises meaningful consent." }
+    },
+    {
+      "id": "report.open-orders2.unwelcome-result-assessment",
+      "factId": "fact.open-orders2.unwelcome-result-assessment",
+      "evidencePolicyId": "policy.open-orders2.unwelcome-result-assessment-disclosed",
+      "capabilityRoles": ["science", "sensors"],
+      "preferredActorIds": ["rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.unwelcome-result-assessment" },
+          { "eventOccurred": "event.open-orders2.unwelcome-result-assessed" },
+          { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "in": ["direct", "delegated"] } },
+          { "not": { "factKnown": "fact.open-orders2.unwelcome-result-assessment" } }
+        ]
+      },
+      "playerText": { "summary": "Rowan's long-term warning remains sound, but Pale Lantern traffic contaminated one reference and exaggerated the forecast's short-term collapse." }
+    },
+    {
+      "id": "report.open-orders2.current-starfleet-credential-path",
+      "factId": "fact.open-orders2.current-starfleet-credential-path",
+      "evidencePolicyId": "policy.open-orders2.credential-path-disclosed",
+      "capabilityRoles": ["operations", "science", "intelligence"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders2.current-starfleet-credential-path" },
+          { "eventOccurred": "event.open-orders2.credential-path-corroborated" },
+          { "not": { "factKnown": "fact.open-orders2.current-starfleet-credential-path" } }
+        ]
+      },
+      "playerText": { "summary": "Priya and Rowan confirmed that the Hecate access path uses current Starfleet Intelligence credentials. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, and Kessler now knows Starfleet may have withheld relevant knowledge." }
+    }
+  ],
+  "events": [
+    { "id": "event.open-orders2.last-watch-assessed", "playerVisibility": "visible", "playerText": { "summary": "The Last Watch received a usable aggregate assessment." } },
+    { "id": "event.open-orders2.second-opinion-assessed", "playerVisibility": "visible", "playerText": { "summary": "Second Opinion received a usable aggregate assessment." } },
+    { "id": "event.open-orders2.unwelcome-result-assessed", "playerVisibility": "visible", "playerText": { "summary": "An Unwelcome Result received a usable aggregate assessment." } },
+    { "id": "event.open-orders2.credential-path-corroborated", "playerVisibility": "hidden", "playerText": { "summary": "The Hecate credential path was corroborated and escalated through the proper channels." } }
+  ],
+  "outcomes": [
+    { "id": "outcome.open-orders2.last-watch-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for The Last Watch." } },
+    { "id": "outcome.open-orders2.last-watch-result", "allowedValues": ["pending", "assetEarned", "resolvedWithoutAsset", "failedAfterInformedAction"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of The Last Watch." } },
+    { "id": "outcome.open-orders2.second-opinion-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for Second Opinion." } },
+    { "id": "outcome.open-orders2.second-opinion-result", "allowedValues": ["pending", "assetEarned", "resolvedWithoutAsset", "failedAfterInformedAction"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of Second Opinion." } },
+    { "id": "outcome.open-orders2.unwelcome-result-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for An Unwelcome Result." } },
+    { "id": "outcome.open-orders2.unwelcome-result-result", "allowedValues": ["pending", "assetEarned", "resolvedWithoutAsset", "failedAfterInformedAction"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of An Unwelcome Result." } },
+    { "id": "outcome.open-orders2.conclusion", "allowedValues": ["pending", "concludeAfterTwo", "broadCoverage", "overextended", "departEarly"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The explicit conclusion of the second Open Orders interval." } }
+  ],
+  "objectives": [
+    {
+      "id": "objective.open-orders2.conclusion",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "in": ["direct", "delegated", "declined"] } },
+          { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "in": ["direct", "delegated", "declined"] } },
+          { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "in": ["direct", "delegated", "declined"] } },
+          { "factKnown": "fact.open-orders2.current-starfleet-credential-path" }
+        ]
+      },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "in": ["concludeAfterTwo", "broadCoverage"] } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "in": ["overextended", "departEarly"] } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Choose and conclude the Breckenridge's recovery work",
+        "summary": "Resolve two assignments as a normal load, pursue all three with credible delegation, or knowingly leave early with unfinished opportunities recorded.",
+        "terminal": [
+          { "disposition": "completed", "text": "The interval concluded after a responsible normal or delegated work program." },
+          { "disposition": "completedWithCost", "text": "The interval concluded with overextension or unfinished opportunities recorded." }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders2.last-watch",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "availableWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "visibleWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "in": ["direct", "delegated"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "assetEarned" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "resolvedWithoutAsset" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "failedAfterInformedAction" } } },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "The Last Watch",
+        "summary": "Review Orison's settlement defenses and establish a safe, defensible path for their future operation.",
+        "terminal": [
+          { "disposition": "completed", "text": "The defense problem was responsibly resolved and earned the Orison Defense Codes." },
+          { "disposition": "completedWithCost", "text": "The defense problem received a responsible but materially limited disposition." },
+          { "disposition": "knowinglyDeclined", "text": "The Last Watch was knowingly left unpursued this interval." },
+          { "disposition": "failedAfterInformedAction", "text": "The defense effort failed after known safety or authority risks were deliberately mishandled." }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders2.second-opinion",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "availableWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "visibleWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "in": ["direct", "delegated"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "assetEarned" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "resolvedWithoutAsset" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "failedAfterInformedAction" } } },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Second Opinion",
+        "summary": "Evaluate a contested trauma treatment and establish a responsible path for evidence, consent, access, and care.",
+        "terminal": [
+          { "disposition": "completed", "text": "A responsible voluntary-care framework earned the Asterion Medical Cooperative." },
+          { "disposition": "completedWithCost", "text": "The care and consent problem received a responsible but materially limited disposition." },
+          { "disposition": "knowinglyDeclined", "text": "Second Opinion was knowingly left unpursued this interval." },
+          { "disposition": "failedAfterInformedAction", "text": "The medical effort failed after known consent, risk, or access concerns were deliberately mishandled." }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders2.unwelcome-result",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "availableWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "visibleWhen": { "factKnown": "fact.open-orders2.opportunities" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "in": ["direct", "delegated"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "assetEarned" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "resolvedWithoutAsset" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "failedAfterInformedAction" } } },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "An Unwelcome Result",
+        "summary": "Audit a disputed biosphere forecast without suppressing inconvenient findings or overstating uncertain ones.",
+        "terminal": [
+          { "disposition": "completed", "text": "A transparent corrected forecast earned the Regional Sensor Baseline." },
+          { "disposition": "completedWithCost", "text": "The scientific dispute received a responsible but materially limited disposition." },
+          { "disposition": "knowinglyDeclined", "text": "An Unwelcome Result was knowingly left unpursued this interval." },
+          { "disposition": "failedAfterInformedAction", "text": "The scientific effort failed after known scientific risks were deliberately mishandled." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.open-orders2.load",
+      "playerText": { "label": "Interval load" },
+      "derive": [
+        { "value": "normal-two", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "equals": "concludeAfterTwo" } } },
+        { "value": "broad-delegated-coverage", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "equals": "broadCoverage" } } },
+        { "value": "overextended-direct", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "equals": "overextended" } } },
+        { "value": "departed-early", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "equals": "departEarly" } } }
+      ]
+    },
+    {
+      "id": "dimension.open-orders2.last-watch",
+      "playerText": { "label": "The Last Watch" },
+      "derive": [
+        { "value": "asset-earned", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "assetEarned" } } },
+        { "value": "resolved-without-asset", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "resolvedWithoutAsset" } } },
+        { "value": "failed-after-informed-action", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-result", "equals": "failedAfterInformedAction" } } },
+        { "value": "declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "equals": "declined" } } },
+        { "value": "delegated", "priority": 60, "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "equals": "delegated" } } },
+        { "value": "direct", "priority": 50, "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "equals": "direct" } } }
+      ]
+    },
+    {
+      "id": "dimension.open-orders2.second-opinion",
+      "playerText": { "label": "Second Opinion" },
+      "derive": [
+        { "value": "asset-earned", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "assetEarned" } } },
+        { "value": "resolved-without-asset", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "resolvedWithoutAsset" } } },
+        { "value": "failed-after-informed-action", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-result", "equals": "failedAfterInformedAction" } } },
+        { "value": "declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "equals": "declined" } } },
+        { "value": "delegated", "priority": 60, "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "equals": "delegated" } } },
+        { "value": "direct", "priority": 50, "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "equals": "direct" } } }
+      ]
+    },
+    {
+      "id": "dimension.open-orders2.unwelcome-result",
+      "playerText": { "label": "An Unwelcome Result" },
+      "derive": [
+        { "value": "asset-earned", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "assetEarned" } } },
+        { "value": "resolved-without-asset", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "resolvedWithoutAsset" } } },
+        { "value": "failed-after-informed-action", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-result", "equals": "failedAfterInformedAction" } } },
+        { "value": "declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "equals": "declined" } } },
+        { "value": "delegated", "priority": 60, "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "equals": "delegated" } } },
+        { "value": "direct", "priority": 50, "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "equals": "direct" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "objectiveDisposition": { "id": "objective.open-orders2.conclusion", "in": ["completed", "completedWithCost"] }
+  },
+  "terminalDispositions": [
+    {
+      "id": "earlyDepartureForward",
+      "priority": 500,
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "equals": "departEarly" } },
+      "playerText": { "title": "The Breckenridge leaves recovery work unfinished", "summary": "The campaign continues after the critical report, with deliberately unfinished Open Orders opportunities carried forward." }
+    },
+    {
+      "id": "limitedWorkForward",
+      "priority": 450,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "equals": "failedAfterInformedAction" } }
+        ]
+      },
+      "playerText": { "title": "Useful work closes with a serious limitation", "summary": "The interval produced local value while an informed assignment failure remains part of the campaign record." }
+    },
+    {
+      "id": "overextendedWithCost",
+      "priority": 400,
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.conclusion", "equals": "overextended" } },
+      "playerText": { "title": "Broad work at an overextended pace", "summary": "All three assignments were carried under direct command, and the resulting fatigue or delayed recovery is recorded." }
+    },
+    {
+      "id": "regionalCapabilityBuilt",
+      "priority": 200,
+      "when": {
+        "any": [
+          {
+            "all": [
+              { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "equals": "completed" } },
+              { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "equals": "completed" } }
+            ]
+          },
+          {
+            "all": [
+              { "objectiveDisposition": { "id": "objective.open-orders2.last-watch", "equals": "completed" } },
+              { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "equals": "completed" } }
+            ]
+          },
+          {
+            "all": [
+              { "objectiveDisposition": { "id": "objective.open-orders2.second-opinion", "equals": "completed" } },
+              { "objectiveDisposition": { "id": "objective.open-orders2.unwelcome-result", "equals": "completed" } }
+            ]
+          }
+        ]
+      },
+      "playerText": { "title": "Regional capability survives the crisis", "summary": "At least two recovery assignments produced durable local capabilities before the next campaign escalation." }
+    },
+    {
+      "id": "responsibleInterval",
+      "priority": 100,
+      "when": { "objectiveDisposition": { "id": "objective.open-orders2.conclusion", "equals": "completed" } },
+      "playerText": { "title": "A responsible recovery interval", "summary": "The Breckenridge completed a responsible local work program with its limits and obligations recorded." }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.open-orders2.cost-of-knowing",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "missionStatus": { "equals": "terminal" } },
+          { "factKnown": "fact.open-orders2.current-starfleet-credential-path" }
+        ]
+      },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-6-the-cost-of-knowing",
+        "playerSafeSetup": "The corroborated Hecate credential path has brought Starfleet Intelligence and Farwatch aboard, forcing the Breckenridge to confront what Starfleet knew and what it chose not to say."
+      },
+      "mustNarrate": [
+        "Acknowledge only the assignments actually resolved, declined, or left unfinished.",
+        "Carry forward the Orison Defense Codes, Asterion Medical Cooperative, or Regional Sensor Baseline only when its corresponding V1 result is assetEarned.",
+        "Carry forward overextension, informed failure, limited resolution, or early departure when recorded.",
+        "Ground the next mission in the player-known credential report, Tolland's classified escalation, Rourke's boarding request, and Kessler learning Starfleet may have withheld knowledge."
+      ],
+      "mustNotReveal": [
+        "Do not imply completion of an unselected, declined, or unresolved assignment.",
+        "Do not claim Tonn was Holt-aligned, describe the therapy as a covert weapon, or dismiss Rowan's long-term warning.",
+        "Do not invent what Starfleet knew, why it withheld information, or who inside Starfleet is responsible before Chapter 6 establishes it.",
+        "Do not erase assignment limits, failure, overextension, unfinished obligations, or the distinction between current and stolen wartime credentials."
+      ]
+    }
+  ]
+}
