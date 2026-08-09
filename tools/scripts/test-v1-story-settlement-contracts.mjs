@@ -17,6 +17,7 @@ assert.equal(schema.$defs.receipt.additionalProperties, false);
 assert.equal(schema.$defs.focus.additionalProperties, false);
 assert.equal(schema.$defs.episodeBoundaryState.additionalProperties, false);
 assert.equal(schema.$defs.episodeHardBoundary.additionalProperties, false);
+assert.equal(schema.$defs.episodeReferences.additionalProperties, false);
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });
@@ -88,12 +89,33 @@ const boundaryState = {
     decision: 'continue',
     sourceContributionIds: [],
 };
+const references = {
+    missionIds: ['mission.prelude'],
+    questIds: [],
+    participantIds: ['mara-whitaker'],
+    locationIds: ['bridge'],
+};
 
 assert.equal(validateStorySettlement({
     ...empty,
     activeEpisode: 'episode.alpha',
     episodes: [{ ...openEpisode, boundaryState }],
 }).ok, true);
+assert.equal(validateStorySettlement({
+    ...empty,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, references }],
+}).ok, true);
+assert.match(validateStorySettlement({
+    ...empty,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, references: { ...references, participantIds: ['bad participant id'] } }],
+}).errors.join('\n'), /references participantIds contains an invalid id/);
+assert.match(validateStorySettlement({
+    ...empty,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, references: { ...references, extra: [] } }],
+}).errors.join('\n'), /references contains unknown field/);
 
 for (const [label, badBoundaryState, pattern] of [
     ['kind', { ...boundaryState, kind: 'directive.episodeBoundaryState.v0' }, /boundaryState kind/],

@@ -169,19 +169,19 @@ feat(story): supersede stale sealed episodes
 - Consumes: validated Story Settlement plus current mission/player-safe knowledge context.
 - Produces: concise current story entries and a bounded prompt-ready context packet.
 
-- [ ] **Step 1: Write failing current-story tests**
+- [x] **Step 1: Write failing current-story tests**
 
 Project sealed current episodes only, in stable chronology. Omit active, insignificant, invalidated, recovery-required, and superseded history. Each entry contains one concise summary, visible lasting changes, visible unresolved consequences, and internal episode/effect source refs. It contains no transcript, hashes, hidden effects, provider diagnostics, or per-contribution rows.
 
-- [ ] **Step 2: Write failing prompt selection tests**
+- [x] **Step 2: Write failing prompt selection tests**
 
 Select deterministically by active mission/root references, valid Focus, participants, location, unresolved consequence, and recency. Cap entries and text budget. A stale Focus is omitted. Retrieval never calls a model or vector store and never changes state.
 
-- [ ] **Step 3: Implement pure projectors**
+- [x] **Step 3: Implement pure projectors**
 
 Use one current-episode selector shared with source repair. Keep source refs in internal metadata while exposing only player-safe fields to normal consumers.
 
-- [ ] **Step 4: Run and commit Task 4**
+- [x] **Step 4: Run and commit Task 4**
 
 Commit:
 

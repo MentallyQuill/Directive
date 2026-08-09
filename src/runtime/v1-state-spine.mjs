@@ -279,6 +279,7 @@ export function createV1StateSpine({
                 storySettlement = openStoryEpisode(storySettlement, {
                     episodeId: scene.episodeId,
                     sceneId: scene.sceneId,
+                    references: { missionIds: [definition.id] },
                 });
             }
             storySettlement = acceptStoryContributions(storySettlement, contributions.referenced);

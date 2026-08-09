@@ -65,6 +65,29 @@ function validateBoundaryState(boundaryState, episode, errors, episodeId) {
     }
 }
 
+function validateEpisodeReferences(references, errors, episodeId) {
+    if (references === undefined) return;
+    if (!references || typeof references !== 'object' || Array.isArray(references)) {
+        errors.push(`${episodeId} references must be an object`);
+        return;
+    }
+    const fields = ['missionIds', 'questIds', 'participantIds', 'locationIds'];
+    for (const field of Object.keys(references)) {
+        if (!fields.includes(field)) errors.push(`${episodeId} references contains unknown field: ${field}`);
+    }
+    for (const field of fields) {
+        const ids = references[field];
+        if (!Array.isArray(ids)) {
+            errors.push(`${episodeId} references ${field} must be an array`);
+            continue;
+        }
+        if (new Set(ids).size !== ids.length) errors.push(`${episodeId} references ${field} must be unique`);
+        for (const id of ids) {
+            if (!isStableId(id)) errors.push(`${episodeId} references ${field} contains an invalid id`);
+        }
+    }
+}
+
 export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
     return {
         kind: STORY_SETTLEMENT_KIND,
@@ -122,6 +145,7 @@ export function validateStorySettlement(value = {}) {
                 errors.push(`${episodeId} status is unknown`);
             }
             validateBoundaryState(episode?.boundaryState, episode, errors, episodeId);
+            validateEpisodeReferences(episode?.references, errors, episodeId);
             if (episode?.hardBoundary !== undefined && episode.hardBoundary !== null) {
                 const boundaryResult = validateEpisodeHardBoundary(episode.hardBoundary, {
                     branchId: value.branchId,

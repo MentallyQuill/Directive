@@ -19,7 +19,17 @@ function assertValid(settlement) {
     return settlement;
 }
 
-export function openStoryEpisode(settlement, { episodeId, sceneId } = {}) {
+function normalizedEpisodeReferences(references = {}) {
+    const unique = (value) => [...new Set((Array.isArray(value) ? value : []).filter(Boolean))];
+    return {
+        missionIds: unique(references.missionIds),
+        questIds: unique(references.questIds),
+        participantIds: unique(references.participantIds),
+        locationIds: unique(references.locationIds),
+    };
+}
+
+export function openStoryEpisode(settlement, { episodeId, sceneId, references = {} } = {}) {
     if (settlement.episodes.some((episode) => episode.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.receipts.some((receipt) => receipt.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.activeEpisode !== null) throw new TypeError('cannot open a second active episode');
@@ -41,6 +51,7 @@ export function openStoryEpisode(settlement, { episodeId, sceneId } = {}) {
         unresolvedConsequences: [],
         boundaryState: createInitialEpisodeBoundaryState({ openedAtRevision: next.revision }),
         hardBoundary: null,
+        references: normalizedEpisodeReferences(references),
     });
     return assertValid(next);
 }
@@ -289,6 +300,7 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
         },
         hardBoundary: boundary,
         supersedesEpisodeIds: [episode.id],
+        references: normalizedEpisodeReferences(episode.references),
     };
 }
 
