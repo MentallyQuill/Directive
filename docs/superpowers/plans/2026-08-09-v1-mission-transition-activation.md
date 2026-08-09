@@ -153,23 +153,23 @@ feat(runtime): rebuild mission journeys from source
 - Modify: `src/runtime/v1-mission-runtime.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] **Step 1: Write failing player-safe packet tests**
+- [x] **Step 1: Write failing player-safe packet tests**
 
 Build narration input only from the committed transition receipt, visible Story effects, player-known terminal/optional summaries, and the authored next setup. Exclude hidden facts, inactive objectives, evidence logs, source hashes, manifests, provider diagnostics, and legacy trackers.
 
-- [ ] **Step 2: Define strict narrator authority**
+- [x] **Step 2: Define strict narrator authority**
 
 The model may write voice, pacing, dialogue, sensory detail, and connective scene prose. It may not change disposition, target, known outcomes, or reveal anything in `mustNotReveal`. Structured review may accept, reject, or request one bounded retry; it cannot mutate state.
 
-- [ ] **Step 3: Provide a deterministic local fallback**
+- [x] **Step 3: Provide a deterministic local fallback**
 
 If narration fails or is omitted, return a concise authored summary and next setup from the receipt. State remains committed and the campaign remains playable.
 
-- [ ] **Step 4: Keep installation diagnostic-only**
+- [x] **Step 4: Keep installation diagnostic-only**
 
 Expose packet/fallback preparation through the runtime app without injecting it into the narrator prompt or posting a message. Actual narrator installation remains a later prompt-authority cutover.
 
-- [ ] **Step 5: Run and commit Task 5**
+- [x] **Step 5: Run and commit Task 5**
 
 Commit:
 

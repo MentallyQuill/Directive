@@ -108,6 +108,7 @@ assert.equal(typeof app.reviewV1PendingEpisodeNow, 'function');
 assert.equal(typeof app.prepareV1DutyReportDelivery, 'function');
 assert.equal(typeof app.inspectV1PendingMissionTransition, 'function');
 assert.equal(typeof app.activateV1PendingMissionTransition, 'function');
+assert.equal(typeof app.prepareV1MissionTransitionNarration, 'function');
 
 const initialView = await app.initialize();
 assert.equal(initialView.host.id, 'fake');
@@ -125,6 +126,8 @@ const inactiveTransition = await app.inspectV1PendingMissionTransition();
 assert.equal(inactiveTransition.ok, false);
 const inactiveActivation = await app.activateV1PendingMissionTransition();
 assert.equal(inactiveActivation.ok, false);
+const inactiveTransitionNarration = await app.prepareV1MissionTransitionNarration();
+assert.equal(inactiveTransitionNarration.ok, false);
 assert.equal(
   initialView.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.providerKind,
   'utility'

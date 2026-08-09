@@ -25,6 +25,11 @@ import {
     resolveMissionTransitionTarget,
     validateMissionJourney,
 } from '../mission/v1/mission-journey.mjs';
+import {
+    createMissionTransitionNarrationFallback,
+    createMissionTransitionNarrationPacket,
+    createMissionTransitionNarrationRequest,
+} from '../mission/v1/mission-transition-narration.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -532,6 +537,33 @@ export function createV1MissionRuntime({
 
     function inspectPendingTransition({ runtimeAssets = {} } = {}) {
         return inspectV1MissionTransition({ campaignState: getState(), runtimeAssets });
+    }
+
+    function prepareTransitionNarration({ runtimeAssets = {} } = {}) {
+        const campaignState = getState();
+        if (!campaignState) return unavailable('campaign-state-unavailable');
+        const definitions = validDefinitionRecords(runtimeAssets).map((record) => record.definition);
+        if (definitions.length === 0) return unavailable('definition-assets-missing');
+        try {
+            const packet = createMissionTransitionNarrationPacket({ campaignState, definitions });
+            return {
+                ok: true,
+                attempted: false,
+                status: 'ready',
+                reasonCode: null,
+                packet,
+                request: createMissionTransitionNarrationRequest(packet),
+                fallback: createMissionTransitionNarrationFallback(packet),
+                committedRoots: [],
+                noChange: true,
+                diagnostics: {},
+            };
+        } catch (error) {
+            const reasonCode = error?.code === 'DIRECTIVE_MISSION_TRANSITION_NARRATION_UNAVAILABLE'
+                ? error.reasonCode
+                : 'transition-narration-packet-invalid';
+            return unavailable(reasonCode);
+        }
     }
 
     async function activatePendingTransition({ runtimeAssets = {} } = {}) {
@@ -1134,6 +1166,7 @@ export function createV1MissionRuntime({
             runtimeAssets,
         }),
         preparePendingDutyReport,
+        prepareTransitionNarration,
         inspectPendingTransition,
         activatePendingTransition,
         settleAcceptedPair,
