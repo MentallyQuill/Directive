@@ -1,0 +1,940 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-3-dead-letters",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-3-dead-letters"
+  },
+  "playerText": {
+    "title": "Dead Letters",
+    "summary": "Trace the counterfeit signal into the Hecate Drift, establish what is operating near Hecate Seven, and leave the site in a defensible state."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter3.hecate-route",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "The preserved traffic points toward Hecate Seven, where hazardous conditions make approach, investigation, and withdrawal consequential."
+      }
+    },
+    {
+      "id": "fact.chapter3.relay-archive-character",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The installation is an old Dominion-origin message relay containing fabricated transmissions recombined from real private communications; it is both evidence and a collection of lives exposed without consent."
+      }
+    },
+    {
+      "id": "fact.chapter3.network-architecture-picture",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The relay is one node in a distributed system built to predict community responses and store possible future scenarios, but this node alone cannot identify the network's controller."
+      }
+    },
+    {
+      "id": "fact.chapter3.access-history-and-demeris-route",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The evidence supports local postwar access and a current Starfleet Intelligence handshake; a Demeris traffic-maintenance account associated with Mira Solenn provides the next defensible lead without proving who controls the wider operation."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter3.access-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.access-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes the actual result of the approach or operating-position attempt at Hecate Seven.",
+        "values": [
+          { "value": "safeAccess", "guidance": "The crew establishes a defensible operating position without a material access cost." },
+          { "value": "accessWithCost", "guidance": "The crew establishes access while taking a material, recorded cost or limitation." },
+          { "value": "forcedOff", "guidance": "Conditions or opposition prevent the crew from maintaining access despite a genuine attempt." }
+        ],
+        "exclusions": ["An order to approach, a course setting, arrival nearby, or a proposed plan does not establish the result of access."]
+      }
+    },
+    {
+      "id": "policy.chapter3.withdraw-responsibly",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter3.access-result",
+      "sourceRoles": ["user"],
+      "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit player decision to withdraw or decline the hazardous approach while preserving a responsible handoff or alternate-investigation route.",
+        "values": [
+          { "value": "withdrewResponsibly", "guidance": "The player explicitly chooses a responsible withdrawal instead of attempting or continuing direct access." }
+        ],
+        "exclusions": ["Caution, delay, requesting more information, or discussing withdrawal is not an explicit decision to withdraw."]
+      }
+    },
+    {
+      "id": "policy.chapter3.site-contact",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.site-contact-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["safeAccess", "accessWithCost"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration depicts actual sensor, physical, or technical contact sufficient to characterize the Hecate installation.",
+        "exclusions": ["Planning contact, ordering a scan, approaching the site, or receiving an unverified distant indication is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-character-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.relay-archive-character",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.relay-archive-character" },
+          { "eventOccurred": "event.chapter3.site-contact-established" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the aggregate finding that the installation is an old Dominion-origin relay, that its false messages recombine real private communications, and that the human archive has independent ethical stakes.",
+        "exclusions": ["A generic relay sighting, one recovered message, a speculative Dominion reference, or an unexplained archive does not disclose the aggregate finding."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.relay-evidence-acquired",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter3.site-contact-established" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration depicts enough recovered or analyzed system evidence to support an architectural assessment.",
+        "exclusions": ["Beginning analysis, copying an unidentified fragment, guessing at a network, or issuing an analysis order is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.architecture-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.network-architecture-picture",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.network-architecture-picture" },
+          { "eventOccurred": "event.chapter3.relay-evidence-acquired" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the bounded architectural conclusion: this is a distributed predictive node holding future scenarios, while this node alone does not identify the wider controller.",
+        "exclusions": ["Do not turn architectural evidence into attribution to Pale Lantern, Farwatch, Holt, Rourke, or any other controller not proven here."]
+      }
+    },
+    {
+      "id": "policy.chapter3.direct-access-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.access-history-evidence-acquired",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter3.relay-evidence-acquired" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration depicts recovered logs, traffic records, handshakes, or equivalent direct evidence sufficient to establish access history and a next lead.",
+        "exclusions": ["A search order, an incomplete download, a hunch about local access, or an unexplained account name is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.alternate-route-corroborated",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.alternate-route-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["withdrewResponsibly", "forcedOff"] } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["destroyedWithoutCopy", "lostOrSeized", "leftInPlace"] } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration depicts credible corroboration through Prel or Cardassian records, Compact testimony, traffic residue, or another established source after direct evidence is unavailable.",
+        "exclusions": ["Invented convenient evidence, an unsupported inference, or merely naming a possible source does not establish alternate corroboration."]
+      }
+    },
+    {
+      "id": "policy.chapter3.access-route-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.access-history-and-demeris-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.access-history-and-demeris-route" },
+          {
+            "any": [
+              { "eventOccurred": "event.chapter3.access-history-evidence-acquired" },
+              { "eventOccurred": "event.chapter3.alternate-route-corroborated" }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose only the supported access history and lead: local postwar access, a current Starfleet Intelligence handshake, and the Demeris account associated with Mira Solenn, without claiming the wider controller is proven.",
+        "exclusions": ["Do not attribute the operation to Pale Lantern, Farwatch, Holt, Rourke, or Wayward Sun from this evidence alone."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter3.relay-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter3.relay-archive-character" },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit informed choice for the physical relay after its character and human stakes are known.",
+        "values": [
+          { "value": "isolate", "guidance": "Preserve the relay under accountable isolation." },
+          { "value": "observe", "guidance": "Permit bounded observation or tracing with containment safeguards." },
+          { "value": "destroyAfterCopy", "guidance": "Destroy the relay only after preserving a deliberate evidence copy." },
+          { "value": "destroyWithoutCopy", "guidance": "Destroy the relay without preserving a system-evidence copy." }
+        ],
+        "exclusions": ["A crew recommendation, a hypothetical option, a provisional discussion, or an action before the player knows the relay's character is not the player's informed decision."]
+      }
+    },
+    {
+      "id": "policy.chapter3.withdraw-relay-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter3.relay-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "withdrewResponsibly" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit decision to leave the inaccessible relay in place as part of a responsible withdrawal.",
+        "values": [
+          { "value": "withdraw", "guidance": "The player explicitly leaves the relay in place and transfers the unresolved risk into a recorded handoff." }
+        ],
+        "exclusions": ["Being delayed, forced away, or merely discussing withdrawal does not establish the player's decision to leave the relay in place."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter3.archive-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter3.relay-archive-character" },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit informed custody and release policy for the recovered human archive.",
+        "values": [
+          { "value": "jointProtection", "guidance": "Protect the archive under accountable joint custody with affected communities or trusted local partners." },
+          { "value": "restrictedProtection", "guidance": "Protect the archive under tightly restricted custody and access." },
+          { "value": "broadRelease", "guidance": "Authorize broad release or restitution despite the privacy exposure it creates." },
+          { "value": "intelligenceCustody", "guidance": "Transfer primary custody to Starfleet Intelligence with the resulting opacity recorded." }
+        ],
+        "exclusions": ["A crew suggestion, discussing principles, beginning recovery, or assuming Starfleet owns the material is not the player's explicit policy decision."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-isolated",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.relay-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "isolate" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the relay is actually preserved and isolated under accountable control.",
+        "values": [
+          { "value": "preservedIsolated", "guidance": "The relay is preserved, unable to transmit or reactivate freely, and held under accountable isolation." }
+        ],
+        "exclusions": ["Ordering isolation, beginning containment, or assuming a successful lockout does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-observation-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.relay-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "observe" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim the actual aggregate result of bounded observation only after its containment and exposure consequences are depicted.",
+        "values": [
+          { "value": "controlledObservationContained", "guidance": "Observation produces usable value while containment holds and exposure remains bounded." },
+          { "value": "controlledObservationExposed", "guidance": "Observation materially exposes the Breckenridge, the site, or another protected party to the network." }
+        ],
+        "exclusions": ["Starting a tracer, setting safeguards, or observing one response does not establish the final containment result."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-destroyed-after-copy",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.relay-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "destroyAfterCopy" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes both a preserved evidence copy and actual destruction of the physical relay.",
+        "values": [
+          { "value": "destroyedAfterCopy", "guidance": "A deliberate evidence copy survives and the physical relay is destroyed." }
+        ],
+        "exclusions": ["Preparing charges, beginning a copy, ordering destruction, or destroying the relay without a usable copy does not establish this result."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-destroyed-without-copy",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.relay-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "destroyWithoutCopy" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes actual destruction without a usable system-evidence copy.",
+        "values": [
+          { "value": "destroyedWithoutCopy", "guidance": "The physical relay is destroyed and no usable system-evidence copy survives." }
+        ],
+        "exclusions": ["An order, an attempted destruction, or uncertainty about whether a copy survived is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-lost-or-seized",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.relay-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter3.site-contact-established" },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the relay has been lost, seized, removed, or placed beyond accountable control.",
+        "values": [
+          { "value": "lostOrSeized", "guidance": "The relay is no longer under accountable control because it was lost or seized." }
+        ],
+        "exclusions": ["A threat, attempted seizure, temporary interruption, or fear of losing the relay is not an actual loss."]
+      }
+    },
+    {
+      "id": "policy.chapter3.relay-left-in-place",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.relay-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } },
+          {
+            "any": [
+              { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "withdraw" } },
+              { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "forcedOff" } }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the crew leaves the relay in place because of responsible withdrawal or forced loss of access.",
+        "values": [
+          { "value": "leftInPlace", "guidance": "The relay remains at the site outside the Breckenridge's direct custody, with the unresolved risk recorded." }
+        ],
+        "exclusions": ["A pause, temporary retreat, or uncertain access does not establish that the relay has been left in place as the mission disposition."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-protected-joint",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.archive-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "jointProtection" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes actual accountable joint custody and protection for the recovered archive.",
+        "values": [
+          { "value": "protectedJoint", "guidance": "The archive is protected under credible joint custody with affected communities or trusted local partners." }
+        ],
+        "exclusions": ["Proposing joint custody, opening negotiations, or transferring an unverified copy is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-protected-restricted",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.archive-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "restrictedProtection" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes actual restricted custody with enforceable access limits.",
+        "values": [
+          { "value": "protectedRestricted", "guidance": "The archive is protected under tightly restricted, accountable access." }
+        ],
+        "exclusions": ["Declaring material classified, requesting secure storage, or planning access rules is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-broadly-released",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.archive-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "broadRelease" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the archive or its messages are actually released broadly enough to create material privacy consequences.",
+        "values": [
+          { "value": "broadRelease", "guidance": "The archive receives broad release or restitution, preserving access while accepting significant privacy exposure." }
+        ],
+        "exclusions": ["Discussing release, notifying one family, or preparing a review copy does not establish broad release."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-intelligence-custody",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.archive-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "intelligenceCustody" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that Starfleet Intelligence actually assumes primary custody, with local accountability limits recorded.",
+        "values": [
+          { "value": "intelligenceCustody", "guidance": "Starfleet Intelligence takes primary custody and the resulting loss of transparency is recorded." }
+        ],
+        "exclusions": ["An Intelligence request, a handshake, classification language, or an intended transfer does not establish custody."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-lost-control",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.archive-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } },
+          {
+            "any": [
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "controlledObservationExposed" } },
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "lostOrSeized" } }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the human archive or its meaningful contents escape accountable custody.",
+        "values": [
+          { "value": "lostControl", "guidance": "The archive is seized, exposed, copied beyond control, or otherwise lost from accountable custody." }
+        ],
+        "exclusions": ["A threatened breach, uncertain copying, or a temporary custody dispute is not an established loss of control."]
+      }
+    },
+    {
+      "id": "policy.chapter3.archive-not-recovered",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter3.archive-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["destroyedWithoutCopy", "lostOrSeized", "leftInPlace"] } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that no usable human archive is recovered into the Breckenridge's accountable custody.",
+        "values": [
+          { "value": "notRecovered", "guidance": "The archive is not recovered because it was destroyed, left inaccessible, or remained at the site." }
+        ],
+        "exclusions": ["An incomplete search, delayed recovery, or uncertainty about surviving material is not a final not-recovered result."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter3.relay-archive-character",
+      "factId": "fact.chapter3.relay-archive-character",
+      "evidencePolicyId": "policy.chapter3.relay-character-disclosed",
+      "capabilityRoles": ["operations", "science"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.relay-archive-character" },
+          { "eventOccurred": "event.chapter3.site-contact-established" },
+          { "not": { "factKnown": "fact.chapter3.relay-archive-character" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The installation is a Dominion-origin message relay whose fabrications recombine real private communications, making its human archive a separate custody problem."
+      }
+    },
+    {
+      "id": "report.chapter3.network-architecture-picture",
+      "factId": "fact.chapter3.network-architecture-picture",
+      "evidencePolicyId": "policy.chapter3.architecture-disclosed",
+      "capabilityRoles": ["science", "engineering"],
+      "preferredActorIds": ["rowan-saye", "imani-cross"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.network-architecture-picture" },
+          { "eventOccurred": "event.chapter3.relay-evidence-acquired" },
+          { "not": { "factKnown": "fact.chapter3.network-architecture-picture" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The relay is one distributed predictive node holding possible future scenarios; the evidence does not by itself identify the wider controller."
+      }
+    },
+    {
+      "id": "report.chapter3.access-history-and-demeris-route",
+      "factId": "fact.chapter3.access-history-and-demeris-route",
+      "evidencePolicyId": "policy.chapter3.access-route-disclosed",
+      "capabilityRoles": ["operations", "security"],
+      "preferredActorIds": ["priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.access-history-and-demeris-route" },
+          {
+            "any": [
+              { "eventOccurred": "event.chapter3.access-history-evidence-acquired" },
+              { "eventOccurred": "event.chapter3.alternate-route-corroborated" }
+            ]
+          },
+          { "not": { "factKnown": "fact.chapter3.access-history-and-demeris-route" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The supported access history points to local postwar use, a current Starfleet Intelligence handshake, and a Demeris maintenance account associated with Mira Solenn as the next lead."
+      }
+    }
+  ],
+  "events": [
+    { "id": "event.chapter3.site-contact-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.relay-evidence-acquired", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.access-history-evidence-acquired", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.alternate-route-corroborated", "playerVisibility": "hidden" }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter3.access-result",
+      "allowedValues": ["pending", "safeAccess", "accessWithCost", "withdrewResponsibly", "forcedOff"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter3.relay-decision",
+      "allowedValues": ["pending", "isolate", "observe", "destroyAfterCopy", "destroyWithoutCopy", "withdraw"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter3.archive-decision",
+      "allowedValues": ["pending", "jointProtection", "restrictedProtection", "broadRelease", "intelligenceCustody"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter3.relay-result",
+      "allowedValues": ["pending", "preservedIsolated", "controlledObservationContained", "controlledObservationExposed", "destroyedAfterCopy", "destroyedWithoutCopy", "lostOrSeized", "leftInPlace"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter3.archive-result",
+      "allowedValues": ["pending", "protectedJoint", "protectedRestricted", "broadRelease", "intelligenceCustody", "lostControl", "notRecovered"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter3.access",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "not": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "pending" } } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "safeAccess" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["accessWithCost", "forcedOff"] } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "withdrewResponsibly" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff"],
+      "playerText": {
+        "title": "Establish a defensible position at Hecate Seven",
+        "summary": "Find a safe way to investigate the site, accept a recorded access cost, or make a responsible withdrawal that preserves another route forward.",
+        "terminal": [
+          { "disposition": "completed", "text": "The Breckenridge established a defensible operating position at Hecate Seven." },
+          { "disposition": "completedWithCost", "text": "The Hecate approach concluded with a material access cost or forced loss of position recorded." },
+          { "disposition": "handedOff", "text": "The direct approach was responsibly declined and its unresolved risk was handed forward." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter3.evidence",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "factKnown": "fact.chapter3.relay-archive-character" },
+          { "factKnown": "fact.chapter3.network-architecture-picture" },
+          { "factKnown": "fact.chapter3.access-history-and-demeris-route" }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter3.relay-archive-character" },
+              { "factKnown": "fact.chapter3.network-architecture-picture" },
+              { "factKnown": "fact.chapter3.access-history-and-demeris-route" }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": { "factKnown": "fact.chapter3.access-history-and-demeris-route" }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Establish what the message system proves",
+        "summary": "Build the strongest supportable account of the system, its use, and the next lead; missing direct evidence changes confidence and cost rather than blocking the campaign.",
+        "terminal": [
+          { "disposition": "completed", "text": "Direct evidence established the system's character, architecture, access history, and next lead." },
+          { "disposition": "completedWithCost", "text": "Alternate corroboration preserved the next lead, but important direct evidence remained unavailable." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter3.custody",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "any": [
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["controlledObservationExposed", "lostOrSeized"] } },
+              { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "lostControl" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "preservedIsolated" } },
+              { "outcomeIs": { "id": "outcome.chapter3.archive-result", "in": ["protectedJoint", "protectedRestricted"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "any": [
+              {
+                "all": [
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "preservedIsolated" } },
+                  { "outcomeIs": { "id": "outcome.chapter3.archive-result", "in": ["broadRelease", "intelligenceCustody"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "controlledObservationContained" } },
+                  { "outcomeIs": { "id": "outcome.chapter3.archive-result", "in": ["protectedJoint", "protectedRestricted", "broadRelease", "intelligenceCustody"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "destroyedAfterCopy" } },
+                  { "outcomeIs": { "id": "outcome.chapter3.archive-result", "in": ["protectedJoint", "protectedRestricted", "broadRelease", "intelligenceCustody"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "destroyedWithoutCopy" } },
+                  { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "notRecovered" } }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "disposition": "handedOff",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "leftInPlace" } },
+              { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "notRecovered" } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Resolve the site's physical and human custody",
+        "summary": "Make informed, separate choices about the dangerous system and the personal material it contains, then establish what actually happened to each.",
+        "terminal": [
+          { "disposition": "completed", "text": "The physical system and human material reached an accountable protected disposition." },
+          { "disposition": "completedWithCost", "text": "Custody was resolved with a deliberate operational, evidentiary, privacy, or transparency cost." },
+          { "disposition": "handedOff", "text": "The unresolved site and material were left in place under a recorded forward handoff." },
+          { "disposition": "failedAfterInformedAction", "text": "The system or human material escaped accountable control after the relevant risks were known." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter3.access",
+      "playerText": { "label": "Hecate access" },
+      "derive": [
+        { "value": "stable", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "safeAccess" } } },
+        { "value": "with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "accessWithCost" } } },
+        { "value": "withdrew", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "withdrewResponsibly" } } },
+        { "value": "forced-off", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "forcedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter3.evidence",
+      "playerText": { "label": "Evidence quality" },
+      "derive": [
+        {
+          "value": "complete-direct",
+          "priority": 100,
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter3.relay-archive-character" },
+              { "factKnown": "fact.chapter3.network-architecture-picture" },
+              { "factKnown": "fact.chapter3.access-history-and-demeris-route" }
+            ]
+          }
+        },
+        {
+          "value": "partial-alternate",
+          "priority": 90,
+          "when": {
+            "all": [
+              { "eventOccurred": "event.chapter3.alternate-route-corroborated" },
+              { "factKnown": "fact.chapter3.access-history-and-demeris-route" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimension.chapter3.relay",
+      "playerText": { "label": "Physical system" },
+      "derive": [
+        { "value": "preserved-isolated", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "preservedIsolated" } } },
+        { "value": "controlled-observation", "priority": 95, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "controlledObservationContained" } } },
+        { "value": "observation-exposed", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "controlledObservationExposed" } } },
+        { "value": "destroyed-after-copy", "priority": 85, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "destroyedAfterCopy" } } },
+        { "value": "destroyed-without-copy", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "destroyedWithoutCopy" } } },
+        { "value": "lost-or-seized", "priority": 75, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "lostOrSeized" } } },
+        { "value": "left-in-place", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "leftInPlace" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter3.archive",
+      "playerText": { "label": "Human material" },
+      "derive": [
+        { "value": "protected-joint", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "protectedJoint" } } },
+        { "value": "protected-restricted", "priority": 95, "when": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "protectedRestricted" } } },
+        { "value": "broad-release", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "broadRelease" } } },
+        { "value": "intelligence-custody", "priority": 85, "when": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "intelligenceCustody" } } },
+        { "value": "lost-control", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "lostControl" } } },
+        { "value": "not-recovered", "priority": 75, "when": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "notRecovered" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter3.access", "in": ["completed", "completedWithCost", "handedOff"] } },
+      { "objectiveDisposition": { "id": "objective.chapter3.evidence", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter3.custody", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "compromisedCustodyForward",
+      "priority": 600,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "forcedOff" } },
+          { "objectiveDisposition": { "id": "objective.chapter3.custody", "equals": "failedAfterInformedAction" } }
+        ]
+      },
+      "playerText": {
+        "title": "The investigation continues after a loss of control",
+        "summary": "The next lead survived, but forced access failure, exposure, or lost custody remains an active campaign consequence."
+      }
+    },
+    {
+      "id": "responsibleWithdrawalForward",
+      "priority": 500,
+      "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "withdrewResponsibly" } },
+      "playerText": {
+        "title": "A responsible withdrawal preserves the investigation",
+        "summary": "The Breckenridge avoided an unjustified hazard and preserved a corroborated route forward, while the unresolved Hecate site remains on the record."
+      }
+    },
+    {
+      "id": "privacyProtectedEvidenceLost",
+      "priority": 400,
+      "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "destroyedWithoutCopy" } },
+      "playerText": {
+        "title": "Immediate privacy was protected at an evidentiary cost",
+        "summary": "The dangerous system and unrecovered personal material were denied further use, while the loss of direct evidence limits what can be proven."
+      }
+    },
+    {
+      "id": "costlyTruthForward",
+      "priority": 300,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "accessWithCost" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "destroyedAfterCopy" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "in": ["broadRelease", "intelligenceCustody"] } }
+        ]
+      },
+      "playerText": {
+        "title": "The truth moves forward with a recorded cost",
+        "summary": "Usable evidence and the next lead survived, while access, destruction, privacy, or opaque custody costs remain part of the mission result."
+      }
+    },
+    {
+      "id": "boundedObservation",
+      "priority": 250,
+      "when": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "controlledObservationContained" } },
+      "playerText": {
+        "title": "Bounded observation remained contained",
+        "summary": "The crew learned from the live system without losing containment, and the human material received an accountable disposition."
+      }
+    },
+    {
+      "id": "accountableIsolation",
+      "priority": 200,
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "preservedIsolated" } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "in": ["protectedJoint", "protectedRestricted"] } }
+        ]
+      },
+      "playerText": {
+        "title": "The site is preserved under accountable isolation",
+        "summary": "The physical evidence is contained, the human material is protected, and the supported next lead can be pursued without overstating attribution."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter3.the-colony-that-stayed",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-4-the-colony-that-stayed",
+        "playerSafeSetup": "The strongest surviving evidence points to a Demeris traffic-maintenance account associated with Mira Solenn, giving the Breckenridge a defensible next lead."
+      },
+      "mustNarrate": [
+        "State the actual access, evidence, physical-system, and human-material results without upgrading partial success into total success.",
+        "Use only facts the player learned; if direct evidence was lost, describe the Demeris lead as corroborated rather than complete.",
+        "Carry forward exposure, lost custody, destruction, opaque custody, or responsible withdrawal as real consequences when recorded.",
+        "Frame Mira Solenn and the Demeris account as the next investigative lead, not as proof of who controls the wider operation."
+      ],
+      "mustNotReveal": [
+        "Do not reveal Pale Lantern, Farwatch, Holt's wider role, Rourke's role, or the Wayward Sun compromise.",
+        "Do not claim the player discovered relay character or network architecture when those facts remain unknown.",
+        "Do not erase privacy, custody, access, evidence, or exposure costs.",
+        "Do not imply that destroying, preserving, observing, releasing, restricting, or handing off material was the player's choice unless the corresponding decision is recorded."
+      ]
+    }
+  ]
+}

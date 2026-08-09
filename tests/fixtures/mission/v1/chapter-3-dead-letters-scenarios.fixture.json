@@ -10,7 +10,7 @@
     ],
     "withdraw": [
       { "claimId": "claim.chapter3.withdraw", "policyId": "policy.chapter3.withdraw-responsibly", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.access-result", "value": "withdrewResponsibly", "sourceRole": "user" },
-      { "claimId": "claim.chapter3.relay-withdraw-choice", "policyId": "policy.chapter3.relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "withdraw", "sourceRole": "user" }
+      { "claimId": "claim.chapter3.relay-withdraw-choice", "policyId": "policy.chapter3.withdraw-relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "withdraw", "sourceRole": "user" }
     ],
     "forced-off": [
       { "claimId": "claim.chapter3.forced-off", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "forcedOff", "sourceRole": "assistant" }
