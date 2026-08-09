@@ -1,0 +1,84 @@
+{
+  "kind": "directive.episodeEvaluatorBorrowedBehaviorFixture.v1",
+  "pinnedSources": {
+    "summaryception": {
+      "version": "5.5.3",
+      "revision": "c67626ab83ee86ec1be4f55b9b3d1d19adb79999"
+    },
+    "vectfox": {
+      "version": "3.6.8",
+      "revision": "886a0144ff8608aabcef4fe1b408a13260c1a730"
+    },
+    "charMemory": {
+      "version": "2.3.1",
+      "revision": "37b21025e120acfbe1dcdeaa8becb05efe7188b4"
+    }
+  },
+  "cases": [
+    {
+      "id": "repeat-prior-memory",
+      "behavior": "replace-without-duplicating-prior-memory",
+      "proposal": {
+        "decision": "continue",
+        "boundaryReason": null,
+        "significanceCriteria": [],
+        "summary": "Whitaker and the XO are reviewing readiness.",
+        "foregroundQuestion": "Will the readiness concern be resolved before departure?",
+        "sourceContributionIds": ["contribution.active-1"],
+        "effectIds": ["effect.active-visible"]
+      }
+    },
+    {
+      "id": "routine-light-flicker",
+      "behavior": "no-memory-is-valid",
+      "proposal": {
+        "decision": "abstain",
+        "boundaryReason": null,
+        "significanceCriteria": [],
+        "summary": null,
+        "foregroundQuestion": null,
+        "sourceContributionIds": [],
+        "effectIds": []
+      }
+    },
+    {
+      "id": "continuous-encounter",
+      "behavior": "continue-one-encounter",
+      "proposal": {
+        "decision": "continue",
+        "boundaryReason": null,
+        "significanceCriteria": [],
+        "summary": "Whitaker and the XO continue the readiness review.",
+        "foregroundQuestion": "Will the readiness concern be resolved before departure?",
+        "sourceContributionIds": ["contribution.active-1", "contribution.active-5"],
+        "effectIds": ["effect.active-visible"]
+      }
+    },
+    {
+      "id": "resolved-lasting-encounter",
+      "behavior": "seal-one-lasting-episode",
+      "proposal": {
+        "decision": "seal",
+        "boundaryReason": "foreground-question-resolved",
+        "significanceCriteria": ["material-state-change", "commitment-created-or-resolved"],
+        "summary": "The readiness review concluded with a recorded corrective commitment.",
+        "foregroundQuestion": null,
+        "sourceContributionIds": ["contribution.active-5"],
+        "effectIds": ["effect.active-visible"]
+      }
+    },
+    {
+      "id": "no-lasting-development",
+      "behavior": "no-memory-is-valid",
+      "proposal": {
+        "decision": "continue",
+        "boundaryReason": null,
+        "significanceCriteria": [],
+        "summary": "",
+        "foregroundQuestion": null,
+        "sourceContributionIds": [],
+        "effectIds": []
+      }
+    }
+  ]
+}
