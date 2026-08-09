@@ -437,25 +437,25 @@ feat(mission): project spoiler-safe state
 - Consumes: all Task 1-5 artifacts and current runtime characterization.
 - Produces: an evidence-backed handoff for the subsequent interpretation and accepted-pair cutover plan.
 
-- [ ] **Step 1: Run all new and affected tests**
+- [x] **Step 1: Run all new and affected tests**
 
 Run the inventory, mission contracts, evidence, reducer, Duty Report, Ashes Prelude, player projection, package linter, and V1 state-spine runtime suites directly.
 
-- [ ] **Step 2: Run the complete alpha gate**
+- [x] **Step 2: Run the complete alpha gate**
 
 Run: `npm.cmd test`
 
 Expected: all registered checks pass. Any regression blocks completion.
 
-- [ ] **Step 3: Challenge the data slice**
+- [x] **Step 3: Challenge the data slice**
 
 Document exact evidence for truth/knowledge separation, policy custody, varied prose compatibility, fair disclosure, no hidden grading, non-linear ordering, no percentage progress, real clock visibility, mixed Hesperus outcomes, source reconstruction compatibility, and absence of UI mutation.
 
-- [ ] **Step 4: Write and index the readiness report**
+- [x] **Step 4: Write and index the readiness report**
 
 State precisely that package data and deterministic mechanics are ready, while provider interpretation, accepted-pair runtime wiring, domain aggregate projection, legacy-writer retirement, UI rendering, and live SillyTavern certification remain unimplemented.
 
-- [ ] **Step 5: Mark this plan complete and commit Task 6**
+- [x] **Step 5: Mark this plan complete and commit Task 6**
 
 Commit:
 
