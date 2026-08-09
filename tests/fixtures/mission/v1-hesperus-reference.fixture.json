@@ -1,0 +1,321 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.hesperus-reference",
+  "version": "1.0.0",
+  "playerText": {
+    "title": "Hesperus Diversion",
+    "summary": "Protect the people aboard the disabled vessel and secure a safe disposition."
+  },
+  "facts": [
+    {
+      "id": "fact.hesperus-discrepancy-known",
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Inspection records contain discrepancies that warrant review."
+      }
+    },
+    {
+      "id": "fact.hesperus-fraud-confirmed",
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Available evidence confirms intentional falsification in the inspection record."
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.hesperus-survivors-transferred",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The Hesperus survivors are safely transferred."
+      }
+    },
+    {
+      "id": "event.hesperus-life-support-exhausted",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The remaining life-support reserve is exhausted."
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.hesperus-evidence-preserved",
+      "allowedValues": ["unknown", "yes", "no"],
+      "initialValue": "unknown",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.hesperus-rescue-cost",
+      "allowedValues": ["none", "material"],
+      "initialValue": "none",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "Material cost accepted during the rescue."
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.hesperus-rescue",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "eventOccurred": "event.hesperus-survivors-transferred"
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              {
+                "eventOccurred": "event.hesperus-survivors-transferred"
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.hesperus-rescue-cost",
+                  "equals": "material"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "disposition": "completed",
+          "when": {
+            "eventOccurred": "event.hesperus-survivors-transferred"
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff"],
+      "playerText": {
+        "title": "Protect the people aboard Hesperus",
+        "summary": "Reach a safe disposition for everyone aboard the disabled ship.",
+        "terminal": [
+          {
+            "disposition": "completed",
+            "text": "Everyone aboard reached safety."
+          },
+          {
+            "disposition": "completedWithCost",
+            "text": "Everyone aboard reached safety at material cost."
+          }
+        ]
+      }
+    },
+    {
+      "id": "objective.hesperus-accountability",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": {
+        "factKnown": "fact.hesperus-fraud-confirmed"
+      },
+      "availableWhen": {
+        "factKnown": "fact.hesperus-fraud-confirmed"
+      },
+      "visibleWhen": {
+        "factKnown": "fact.hesperus-fraud-confirmed"
+      },
+      "progressWhen": {
+        "outcomeIs": {
+          "id": "outcome.hesperus-evidence-preserved",
+          "equals": "yes"
+        }
+      },
+      "terminalWhen": [
+        {
+          "disposition": "handedOff",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.hesperus-evidence-preserved",
+              "equals": "yes"
+            }
+          }
+        },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.hesperus-evidence-preserved",
+              "equals": "no"
+            }
+          }
+        }
+      ],
+      "supportedDispositions": [
+        "completed",
+        "handedOff",
+        "knowinglyDeclined",
+        "waived",
+        "failedAfterInformedAction"
+      ],
+      "playerText": {
+        "title": "Address the confirmed inspection falsification",
+        "summary": "Choose an appropriate disposition for the confirmed record falsification.",
+        "terminal": [
+          {
+            "disposition": "handedOff",
+            "text": "Evidence was preserved and handed off for review."
+          },
+          {
+            "disposition": "knowinglyDeclined",
+            "text": "You knowingly declined further accountability action."
+          }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.lives-protected",
+      "playerText": {
+        "label": "Lives protected"
+      },
+      "derive": [
+        {
+          "value": "full-with-cost",
+          "priority": 110,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.hesperus-rescue",
+              "equals": "completedWithCost"
+            }
+          }
+        },
+        {
+          "value": "full",
+          "priority": 100,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.hesperus-rescue",
+              "equals": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimension.accountability",
+      "playerText": {
+        "label": "Optional accountability"
+      },
+      "derive": [
+        {
+          "value": "handed-off",
+          "priority": 100,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.hesperus-accountability",
+              "equals": "handedOff"
+            }
+          }
+        },
+        {
+          "value": "knowingly-declined",
+          "priority": 90,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.hesperus-accountability",
+              "equals": "knowinglyDeclined"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "clock.hesperus-life-support",
+      "unit": "minutes",
+      "direction": "down",
+      "initialValue": 30,
+      "startWhen": true,
+      "advanceSources": ["authoritativeStoryTime"],
+      "pauseWhen": false,
+      "resumeWhen": false,
+      "expireWhen": {
+        "clockState": {
+          "id": "clock.hesperus-life-support",
+          "equals": "expired"
+        }
+      },
+      "resolveWhen": {
+        "eventOccurred": "event.hesperus-survivors-transferred"
+      },
+      "visibleWhen": true,
+      "consequence": {
+        "effectType": "eventOccurred",
+        "targetId": "event.hesperus-life-support-exhausted",
+        "value": true
+      },
+      "playerText": {
+        "label": "Life support reserve",
+        "deadline": "{value} minutes remaining",
+        "consequence": "Conditions aboard Hesperus will become critical."
+      }
+    }
+  ],
+  "closeWhen": {
+    "objectiveDisposition": {
+      "id": "objective.hesperus-rescue",
+      "in": ["completed", "completedWithCost", "handedOff"]
+    }
+  },
+  "terminalDispositions": [
+    {
+      "id": "primarySuccessWithCost",
+      "priority": 110,
+      "when": {
+        "objectiveDisposition": {
+          "id": "objective.hesperus-rescue",
+          "equals": "completedWithCost"
+        }
+      },
+      "playerText": {
+        "title": "Primary success with cost",
+        "summary": "The people aboard Hesperus are safe, with material cost recorded."
+      }
+    },
+    {
+      "id": "primarySuccess",
+      "priority": 100,
+      "when": {
+        "objectiveDisposition": {
+          "id": "objective.hesperus-rescue",
+          "in": ["completed", "handedOff"]
+        }
+      },
+      "playerText": {
+        "title": "Primary success",
+        "summary": "The people aboard Hesperus are safe."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.hesperus-command-review",
+      "priority": 100,
+      "when": {
+        "missionStatus": {
+          "equals": "terminal"
+        }
+      },
+      "target": {
+        "kind": "phase",
+        "id": "phase.command-review",
+        "playerSafeSetup": "Return to the command handover and readiness review."
+      },
+      "mustNarrate": [
+        "Acknowledge the committed rescue disposition.",
+        "Carry forward only player-known optional outcomes."
+      ],
+      "mustNotReveal": [
+        "Do not mention undiscovered inspection misconduct."
+      ]
+    }
+  ]
+}

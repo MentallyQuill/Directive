@@ -49,6 +49,10 @@ function targetExistsAnywhere(index, targetId) {
         .some((key) => index[key].has(targetId));
 }
 
+function isStableId(value) {
+    return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
+}
+
 export function validateMissionEvidenceProposal({
     definition = {},
     state = {},
@@ -65,8 +69,18 @@ export function validateMissionEvidenceProposal({
     const acceptedClaims = [];
     const rejectedClaims = [];
     const seen = new Set(Array.isArray(state.acceptedEvidenceKeys) ? state.acceptedEvidenceKeys : []);
+    const seenClaimIds = new Set();
 
     for (const claim of claims) {
+        if (!isStableId(claim?.claimId)) {
+            rejectedClaims.push(rejection(claim, 'effect-not-allowed'));
+            continue;
+        }
+        if (seenClaimIds.has(claim.claimId)) {
+            rejectedClaims.push(rejection(claim, 'duplicate-claim'));
+            continue;
+        }
+        seenClaimIds.add(claim.claimId);
         const source = typeof resolveSourceRef === 'function' ? resolveSourceRef(claim?.sourceRef) : null;
         if (!source) {
             rejectedClaims.push(rejection(claim, 'source-missing'));

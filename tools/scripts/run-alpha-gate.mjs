@@ -70,6 +70,7 @@ const checks = [
   'test-v1-mission-contracts.mjs',
   'test-v1-mission-predicates.mjs',
   'test-v1-mission-evidence.mjs',
+  'test-v1-mission-reducer.mjs',
   'test-story-ledger-projection.mjs',
   'test-story-context-index.mjs',
   'test-claim-authority.mjs',

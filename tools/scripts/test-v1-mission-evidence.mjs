@@ -178,4 +178,19 @@ for (const [label, options, reasonCode] of [
     assert.equal(rejected.rejectedClaims[0]?.reasonCode, reasonCode, label);
 }
 
+const missingClaimId = validate({ claims: [{ ...proposal.claims[0], claimId: '' }] });
+assert.equal(missingClaimId.rejectedClaims[0].reasonCode, 'effect-not-allowed');
+
+const duplicateClaimId = validate({ claims: [
+    proposal.claims[0],
+    {
+        claimId: proposal.claims[0].claimId,
+        claimType: 'factDisclosed',
+        targetId: 'fact.hesperus-discrepancy-known',
+        sourceRef: sourceRef(assistantSource),
+    },
+] });
+assert.equal(duplicateClaimId.acceptedClaims.length, 1);
+assert.equal(duplicateClaimId.rejectedClaims[0].reasonCode, 'duplicate-claim');
+
 console.log('V1 mission evidence tests passed.');
