@@ -43,7 +43,12 @@
       "claimType": "factDisclosed",
       "targetId": "fact.hesperus-discrepancy-known",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "worldFact": "fact.hesperus-discrepancy-known" }
+      "when": { "worldFact": "fact.hesperus-discrepancy-known" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the discrepancy is communicated to the player character.",
+        "exclusions": ["Suspicion or private knowledge is not disclosure."]
+      }
     },
     {
       "id": "policy.hesperus-fraud-established",
@@ -57,28 +62,55 @@
       "claimType": "factDisclosed",
       "targetId": "fact.hesperus-fraud-confirmed",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "worldFact": "fact.hesperus-fraud-confirmed" }
+      "when": { "worldFact": "fact.hesperus-fraud-confirmed" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when confirmed falsification is communicated to the player character.",
+        "exclusions": ["A discrepancy or suspicion alone is not confirmed falsification."]
+      }
     },
     {
       "id": "policy.hesperus-survivors-transferred",
       "claimType": "eventOccurred",
       "targetId": "event.hesperus-survivors-transferred",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the survivors are depicted reaching safety.",
+        "exclusions": ["A rescue plan or attempt is not a completed transfer."]
+      }
     },
     {
       "id": "policy.hesperus-evidence-preserved",
       "claimType": "outcomeObserved",
       "targetId": "outcome.hesperus-evidence-preserved",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus-fraud-confirmed" }
+      "when": { "factKnown": "fact.hesperus-fraud-confirmed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the evidence preservation result is depicted.",
+        "values": [
+          { "value": "yes", "guidance": "The evidence is secured and preserved." },
+          { "value": "no", "guidance": "The evidence is lost or not preserved." }
+        ],
+        "exclusions": ["An intention to preserve evidence is not the observed result."]
+      }
     },
     {
       "id": "policy.hesperus-rescue-cost",
       "claimType": "outcomeObserved",
       "targetId": "outcome.hesperus-rescue-cost",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when a material rescue cost is depicted.",
+        "values": [
+          { "value": "material", "guidance": "The rescue incurs a lasting material cost." }
+        ],
+        "exclusions": ["Routine effort or speculative risk is not a material cost."]
+      }
     },
     {
       "id": "policy.hesperus-life-support-time",

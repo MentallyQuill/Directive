@@ -200,6 +200,34 @@ const reconstructedClock = reduceMissionEvidence({
     sourceContribution: null,
 });
 assert.equal(reconstructedClock.state.evidenceLog[0].sourceContributionId, 'contribution.original-time-source');
+
+const multiSource = reduceMissionEvidence({
+    definition,
+    state: createMissionState({ definition, branchId: 'save.multi-source' }),
+    acceptedClaims: [
+        {
+            ...rescueClaims[0],
+            claimId: 'claim.multi-source-rescue',
+            evidenceKey: 'evidence.multi-source-rescue',
+            sourceContributionId: 'contribution.assistant-outcome',
+        },
+        {
+            ...accountabilityClaims.find((claim) => claim.claimType === 'decisionRecorded'),
+            claimId: 'claim.multi-source-decision',
+            evidenceKey: 'evidence.multi-source-decision',
+            sourceContributionId: 'contribution.player-decision',
+        },
+    ],
+    sourceContribution: null,
+});
+assert.deepEqual(
+    multiSource.state.evidenceLog.map((entry) => entry.sourceContributionId),
+    ['contribution.assistant-outcome', 'contribution.player-decision'],
+);
+assert.deepEqual(
+    multiSource.effects.map((effect) => effect.sourceContributionIds[0]),
+    ['contribution.assistant-outcome', 'contribution.player-decision'],
+);
 const clockExpired = reduceMissionEvidence({
     definition,
     state: clockAdvanced.state,

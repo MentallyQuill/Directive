@@ -155,15 +155,15 @@ feat(mission): interpret accepted source pairs
 - Consumes: one proposal whose claims may cite the previous assistant or current player, plus both exact source contributions.
 - Produces: immediate mission effects with claim-specific contribution provenance and one continuing Story Settlement episode until a deterministic hard boundary seals it.
 
-- [ ] **Step 1: Write failing multi-source custody tests**
+- [x] **Step 1: Write failing multi-source custody tests**
 
 Prove that one pair can disclose an assistant-observed outcome and record a player decision with different contribution IDs; invalidating either message removes only evidence causally supported by that contribution and reconstructs mission state from survivors.
 
-- [ ] **Step 2: Attach contribution identity during evidence validation**
+- [x] **Step 2: Attach contribution identity during evidence validation**
 
 Resolved accepted sources expose their stable contribution ID. Accepted claims retain that ID. The reducer writes it to the evidence log and effect source list; a caller-wide fallback is retained only for old fixture compatibility.
 
-- [ ] **Step 3: Write failing episode-consolidation tests**
+- [x] **Step 3: Write failing episode-consolidation tests**
 
 Prove that:
 
@@ -175,15 +175,15 @@ Prove that:
 - a mission transition always seals the active episode;
 - no raw transcript text is retained.
 
-- [ ] **Step 4: Refactor the V1 spine to accumulate**
+- [x] **Step 4: Refactor the V1 spine to accumulate**
 
 `settleAcceptedPair` accepts `sourceContributions`, adds only referenced accepted contributions, applies effects immediately, and keeps the episode open by default. It seals only when `hardBoundary` is supplied or a mission transition is committed. The deterministic capsule builder uses definition-owned player text for visible effects; hidden effects can support mechanics but cannot enter the capsule.
 
-- [ ] **Step 5: Preserve no-change and replay behavior**
+- [x] **Step 5: Preserve no-change and replay behavior**
 
 A pair with no accepted claims is a no-op receipt when no episode is active. A replay with no new claims never opens, closes, or persists another episode. Compare-and-swap still protects every write.
 
-- [ ] **Step 6: Run and commit Task 3**
+- [x] **Step 6: Run and commit Task 3**
 
 Commit:
 

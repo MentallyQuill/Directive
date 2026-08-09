@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createEmptyStorySettlement } from '../../src/story/story-settlement-contracts.mjs';
 import {
     acceptStoryContribution,
+    acceptStoryContributions,
     appendStoryEffects,
     invalidateStorySource,
     openStoryEpisode,
@@ -60,6 +61,17 @@ const contributed = acceptStoryContribution(opened, contribution);
 assert.equal(contributed.revision, 2);
 assert.deepEqual(contributed.episodes[0].contributions, [contribution]);
 assert.deepEqual(acceptStoryContribution(contributed, contribution), contributed);
+const playerContribution = {
+    id: 'contribution.bridge-player',
+    messageId: 'message.player-2',
+    swipeId: null,
+    role: 'user',
+    textHash: 'b'.repeat(64),
+    acceptedAtRevision: 1,
+};
+const multiContributed = acceptStoryContributions(opened, [contribution, playerContribution, contribution]);
+assert.deepEqual(multiContributed.episodes[0].contributions, [contribution, playerContribution]);
+assert.equal(multiContributed.revision, 3);
 
 const effect = {
     id: 'effect.handover-complete',

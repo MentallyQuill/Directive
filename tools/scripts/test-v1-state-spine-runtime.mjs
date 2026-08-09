@@ -29,6 +29,7 @@ const gateway = createStateDeltaGateway({
     now: () => '2026-08-09T12:00:00.000Z',
 });
 const source = {
+    contributionId: 'contribution.hesperus-rescue',
     messageId: 'message.assistant-rescue',
     branchId: 'save.alpha',
     accepted: true,
@@ -180,5 +181,225 @@ await spine.invalidateSources({
 });
 assert.equal(persistCount, 2);
 assert.equal(gateway.revision(), 2);
+
+const accumulationEvents = Array.from({ length: 6 }, (_, index) => ({
+    id: `event.accumulation-${index + 1}`,
+    playerVisibility: 'visible',
+    playerText: { summary: `Milestone ${index + 1} settled.` },
+}));
+const accumulationDefinition = {
+    kind: 'directive.missionDefinition.v1',
+    schemaVersion: 1,
+    id: 'mission.accumulation-reference',
+    version: '1.0.0',
+    packageBinding: {
+        packageId: 'directive:campaign-package:accumulation-reference',
+        packageVersion: '1.0.0',
+        sourceId: 'accumulation-reference',
+    },
+    playerText: { title: 'Accumulation', summary: 'Accumulate a semantic scene.' },
+    facts: [],
+    evidencePolicies: accumulationEvents.map((event) => ({
+        id: `policy.${event.id}`,
+        claimType: 'eventOccurred',
+        targetId: event.id,
+        sourceRoles: ['assistant'],
+        when: true,
+    })),
+    reportRoutes: [],
+    events: accumulationEvents,
+    outcomes: [],
+    objectives: [],
+    outcomeDimensions: [],
+    clocks: [],
+    closeWhen: false,
+    terminalDispositions: [],
+    transitions: [],
+};
+let accumulationState = {
+    campaign: { id: 'campaign.accumulation' },
+    mission: { legacyStatus: 'unchanged' },
+};
+let accumulationPersistCount = 0;
+const accumulationSources = new Map();
+const accumulationGateway = createStateDeltaGateway({
+    getState: () => accumulationState,
+    setState: (next) => { accumulationState = next; },
+    persist: async () => { accumulationPersistCount += 1; },
+    now: () => '2026-08-09T13:00:00.000Z',
+});
+const accumulationSpine = createV1StateSpine({
+    getState: () => accumulationState,
+    stateDeltaGateway: accumulationGateway,
+    resolveSourceRef: (ref) => accumulationSources.get(ref.messageId) || null,
+    now: () => '2026-08-09T13:00:00.000Z',
+});
+
+async function settleAccumulationEvent(number, { hardBoundary = null } = {}) {
+    const sourceRecord = {
+        contributionId: `contribution.accumulation-${number}`,
+        messageId: `message.accumulation-${number}`,
+        branchId: 'save.accumulation',
+        accepted: true,
+        selectedSwipeId: `swipe.${number}`,
+        textHash: String(number).repeat(64),
+        role: 'assistant',
+        acceptedAtRevision: number - 1,
+    };
+    accumulationSources.set(sourceRecord.messageId, sourceRecord);
+    const contribution = {
+        id: sourceRecord.contributionId,
+        messageId: sourceRecord.messageId,
+        swipeId: sourceRecord.selectedSwipeId,
+        role: sourceRecord.role,
+        textHash: sourceRecord.textHash,
+        acceptedAtRevision: sourceRecord.acceptedAtRevision,
+    };
+    const eventProposal = {
+        kind: 'directive.missionEvidenceProposal.v1',
+        branchId: 'save.accumulation',
+        missionId: accumulationDefinition.id,
+        baseRevision: number - 1,
+        claims: [{
+            claimId: `claim.accumulation-${number}`,
+            policyId: `policy.event.accumulation-${number}`,
+            claimType: 'eventOccurred',
+            targetId: `event.accumulation-${number}`,
+            sourceRef: {
+                messageId: sourceRecord.messageId,
+                swipeId: sourceRecord.selectedSwipeId,
+                textHash: sourceRecord.textHash,
+            },
+        }],
+    };
+    const result = await accumulationSpine.settleAcceptedPair({
+        definition: accumulationDefinition,
+        proposal: eventProposal,
+        sourceContributions: [contribution],
+        gatewayBaseRevision: number - 1,
+        scene: {
+            episodeId: 'episode.accumulated-scene',
+            sceneId: 'scene.accumulated-scene',
+            boundaryReason: 'accepted-next-player-ingress',
+            summary: `Untrusted caller summary ${number}`,
+        },
+        hardBoundary,
+    });
+    return { result, eventProposal, contribution };
+}
+
+const firstAccumulation = await settleAccumulationEvent(1);
+assert.equal(accumulationPersistCount, 1);
+assert.equal(accumulationState.storySettlement.episodes.length, 1);
+assert.equal(accumulationState.storySettlement.episodes[0].status, 'open');
+
+const insignificantDuringActive = await accumulationSpine.settleAcceptedPair({
+    definition: accumulationDefinition,
+    proposal: {
+        kind: 'directive.missionEvidenceProposal.v1',
+        branchId: 'save.accumulation',
+        missionId: accumulationDefinition.id,
+        baseRevision: 1,
+        claims: [],
+    },
+    sourceContributions: [{
+        id: 'contribution.accumulation-small-talk',
+        messageId: 'message.accumulation-small-talk',
+        swipeId: null,
+        role: 'user',
+        textHash: 'f'.repeat(64),
+        acceptedAtRevision: 1,
+    }],
+    gatewayBaseRevision: 1,
+    scene: { episodeId: 'episode.ignored', sceneId: 'scene.ignored' },
+});
+assert.equal(insignificantDuringActive.noChange, true);
+assert.equal(accumulationPersistCount, 1);
+assert.equal(accumulationState.storySettlement.receipts.length, 0);
+
+for (let number = 2; number <= 5; number += 1) await settleAccumulationEvent(number);
+assert.equal(accumulationPersistCount, 5);
+assert.equal(accumulationState.storySettlement.episodes.length, 1);
+assert.equal(accumulationState.storySettlement.episodes[0].status, 'open');
+assert.equal(accumulationState.storySettlement.episodes[0].contributions.length, 5);
+assert.equal(accumulationState.storySettlement.episodes[0].effects.length, 5);
+assert.equal(JSON.stringify(accumulationState.storySettlement).includes('Untrusted caller summary'), false);
+
+const sixthAccumulation = await settleAccumulationEvent(6, {
+    hardBoundary: { reason: 'authored-scene-boundary' },
+});
+assert.equal(accumulationPersistCount, 6);
+assert.equal(accumulationState.storySettlement.episodes.length, 1);
+assert.equal(accumulationState.storySettlement.episodes[0].status, 'sealed');
+assert.match(accumulationState.storySettlement.episodes[0].summary, /Milestone 1 settled/);
+assert.match(accumulationState.storySettlement.episodes[0].summary, /Milestone 6 settled/);
+assert.equal(accumulationState.storySettlement.episodes[0].summary.includes('Untrusted caller summary'), false);
+
+const replayProposal = {
+    ...sixthAccumulation.eventProposal,
+    baseRevision: 6,
+};
+const replay = await accumulationSpine.settleAcceptedPair({
+    definition: accumulationDefinition,
+    proposal: replayProposal,
+    sourceContributions: [sixthAccumulation.contribution],
+    gatewayBaseRevision: 6,
+    scene: { episodeId: 'episode.accumulated-scene', sceneId: 'scene.accumulated-scene' },
+    hardBoundary: { reason: 'authored-scene-boundary' },
+});
+assert.equal(replay.noChange, true);
+assert.equal(accumulationPersistCount, 6);
+
+await accumulationSpine.invalidateSources({
+    definition: accumulationDefinition,
+    branchId: 'save.accumulation',
+    contributionIds: ['contribution.accumulation-2'],
+    gatewayBaseRevision: 6,
+    reason: 'selected-swipe-changed',
+});
+assert.equal(accumulationPersistCount, 7);
+assert.equal(accumulationState.storySettlement.episodes[0].status, 'invalidated');
+assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-2'), false);
+assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-1'), true);
+assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-6'), true);
+
+let insignificantState = { campaign: { id: 'campaign.insignificant' }, mission: {} };
+let insignificantPersistCount = 0;
+const insignificantGateway = createStateDeltaGateway({
+    getState: () => insignificantState,
+    setState: (next) => { insignificantState = next; },
+    persist: async () => { insignificantPersistCount += 1; },
+});
+const insignificantSpine = createV1StateSpine({
+    getState: () => insignificantState,
+    stateDeltaGateway: insignificantGateway,
+    resolveSourceRef: () => null,
+});
+const insignificantProposal = {
+    kind: 'directive.missionEvidenceProposal.v1',
+    branchId: 'save.insignificant',
+    missionId: accumulationDefinition.id,
+    baseRevision: 0,
+    claims: [],
+};
+await insignificantSpine.settleAcceptedPair({
+    definition: accumulationDefinition,
+    proposal: insignificantProposal,
+    sourceContributions: [],
+    gatewayBaseRevision: 0,
+    scene: { episodeId: 'episode.small-talk', sceneId: 'scene.small-talk' },
+});
+assert.equal(insignificantPersistCount, 1);
+assert.equal(insignificantState.storySettlement.episodes.length, 0);
+assert.equal(insignificantState.storySettlement.receipts[0].disposition, 'insignificant');
+const replayInsignificant = await insignificantSpine.settleAcceptedPair({
+    definition: accumulationDefinition,
+    proposal: insignificantProposal,
+    sourceContributions: [],
+    gatewayBaseRevision: 1,
+    scene: { episodeId: 'episode.small-talk', sceneId: 'scene.small-talk' },
+});
+assert.equal(replayInsignificant.noChange, true);
+assert.equal(insignificantPersistCount, 1);
 
 console.log('V1 state spine runtime tests passed.');

@@ -76,6 +76,7 @@ const state = {
     status: 'active',
 };
 const assistantSource = {
+    contributionId: 'contribution.assistant-4',
     messageId: 'message.assistant-4',
     branchId: 'save.alpha',
     accepted: true,
@@ -85,6 +86,7 @@ const assistantSource = {
     acceptedAtRevision: 4,
 };
 const playerSource = {
+    contributionId: 'contribution.player-4',
     messageId: 'message.player-4',
     branchId: 'save.alpha',
     accepted: true,
@@ -94,6 +96,7 @@ const playerSource = {
     acceptedAtRevision: 4,
 };
 const runtimeSource = {
+    contributionId: 'contribution.runtime-clock-4',
     messageId: 'runtime.clock-4',
     branchId: 'save.alpha',
     accepted: true,
@@ -144,6 +147,7 @@ const result = validateMissionEvidenceProposal({
     resolveSourceRef: (ref) => acceptedSources.get(ref.messageId),
 });
 assert.deepEqual(result.acceptedClaims.map((claim) => claim.targetId), ['event.survivors-transferred']);
+assert.equal(result.acceptedClaims[0].sourceContributionId, 'contribution.assistant-4');
 assert.equal(result.rejectedClaims[0].reasonCode, 'source-role-not-authorized');
 
 function validate({ proposalOverrides = {}, claims = [proposal.claims[0]], sources = acceptedSources, stateOverrides = {} } = {}) {

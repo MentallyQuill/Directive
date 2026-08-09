@@ -51,6 +51,12 @@ export function acceptStoryContribution(settlement, contribution) {
     return assertValid(next);
 }
 
+export function acceptStoryContributions(settlement, contributions = []) {
+    let next = structuredClone(settlement);
+    for (const contribution of contributions) next = acceptStoryContribution(next, contribution);
+    return next;
+}
+
 export function appendStoryEffects(settlement, effects = []) {
     if (!activeEpisode(settlement)) throw new TypeError('an active episode is required');
     const contributionIds = new Set(settlement.episodes.flatMap((episode) => episode.contributions.map((item) => item.id)));

@@ -224,7 +224,13 @@ export function validateMissionEvidenceProposal({
             rejectAt(candidate.claim, 'precondition-not-met', candidate.originalIndex);
             continue;
         }
-        const accepted = { ...candidate.claim, evidenceKey: candidate.evidenceKey };
+        const accepted = {
+            ...candidate.claim,
+            evidenceKey: candidate.evidenceKey,
+            ...(typeof candidate.source?.contributionId === 'string' && candidate.source.contributionId.length > 0
+                ? { sourceContributionId: candidate.source.contributionId }
+                : {}),
+        };
         acceptedClaims.push(accepted);
         acceptedInProposal.add(candidate.evidenceKey);
         stageAcceptedClaim(stagedState, accepted);
