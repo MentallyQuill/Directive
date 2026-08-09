@@ -254,11 +254,15 @@ feat(projection): derive concise people views
 ### Task 7: Composite Shadow Projection and Readiness Evidence
 
 **Files:**
+- Create: `src/mission/v1/mission-state-authority.mjs`
+- Modify: `src/mission/v1/mission-state.mjs`
 - Create: `src/projection/v1/player-projection.mjs`
 - Create: `tools/scripts/test-v1-composite-player-projection.mjs`
 - Create: `tools/scripts/test-v1-projection-rebuild.mjs`
 - Modify: `src/runtime/runtime-app.mjs`
+- Modify: `src/runtime/v1-mission-runtime.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
+- Modify: `tools/scripts/test-runtime-host-injection.mjs`
 - Create: `docs/development/V1_EPISODE_REPAIR_AND_PROJECTION_READINESS.md`
 - Modify: `docs/DOCUMENTATION_INDEX.md`
 
@@ -266,23 +270,23 @@ feat(projection): derive concise people views
 - Consumes: exact active V1 definition/runtime assets and committed campaign state.
 - Produces: an on-demand diagnostic shadow projection containing mission, story, ship, and people; no live UI/prompt consumer is changed.
 
-- [ ] **Step 1: Write failing composite and rebuild tests**
+- [x] **Step 1: Write failing composite and rebuild tests**
 
 Prove deterministic JSON equality across repeated reads and restart, no state mutation, branch/package/definition isolation, spoiler safety, source-mutation removal, sealed replacement inclusion, no `technicalDebt`, no hidden facts, and no duplicate semantic presentation across sections.
 
-- [ ] **Step 2: Expose a read-only runtime method**
+- [x] **Step 2: Expose a read-only runtime method**
 
 `buildV1PlayerProjection(...)` resolves the exact active definition and returns unavailable outside Ashes Prelude V1. Runtime-app may expose it to diagnostics/tests only. Do not write it into campaign state or connect it to UI/prompt builders.
 
-- [ ] **Step 3: Run focused and full gates**
+- [x] **Step 3: Run focused and full gates**
 
 Run all new suites, affected runtime/source-mutation suites, package/schema validators, and `node tools/scripts/run-alpha-gate.mjs`. Record exact counts and elapsed time.
 
-- [ ] **Step 4: Document residual cutover risks**
+- [x] **Step 4: Document residual cutover risks**
 
 Explicitly retain as later work: soft-boundary evaluator and active working capsule, character-moment extraction, Duty Report delivery, prompt-authority installation, mission transitions into a V1-native next mission, remaining Ashes migration, legacy writer retirement, parity/live soak, and the player-facing UI approval gate.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 Commit:
 
