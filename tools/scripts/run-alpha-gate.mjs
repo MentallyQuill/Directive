@@ -109,6 +109,7 @@ const checks = [
   'test-ashes-v1-chapter-2-mission.mjs',
   'test-ashes-v1-open-orders-1-mission.mjs',
   'test-ashes-v1-chapter-3-mission.mjs',
+  'test-ashes-v1-chapter-4-mission.mjs',
   'test-ashes-v1-chapter-1-runtime.mjs',
   'test-ashes-v1-chapter-2-runtime.mjs',
   'test-ashes-v1-open-orders-1-runtime.mjs',
